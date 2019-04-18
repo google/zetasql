@@ -1,0 +1,143 @@
+#
+# Copyright 2019 ZetaSQL Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+load("//:zetasql_grpc.bzl", "cc_grpc_library")
+load("@io_grpc_grpc_java//:java_grpc_library.bzl", "java_grpc_library")
+
+# ZetaSQL Server
+package(default_visibility = ["//zetasql:__subpackages__"])
+
+cc_library(
+    name = "local_service",
+    srcs = ["local_service.cc"],
+    hdrs = [
+        "local_service.h",
+        "state.h",
+    ],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":local_service_cc_proto",
+        "//zetasql/base",
+        "//zetasql/base:map_util",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:source_location",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/common:errors",
+        "//zetasql/common:proto_helper",
+        "//zetasql/proto:options_cc_proto",
+        "//zetasql/proto:simple_catalog_cc_proto",
+        "//zetasql/public:analyzer",
+        "//zetasql/public:builtin_function",
+        "//zetasql/public:function",
+        "//zetasql/public:language_options",
+        "//zetasql/public:parse_resume_location",
+        "//zetasql/public:parse_resume_location_cc_proto",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/public:templated_sql_tvf",
+        "//zetasql/public:type",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/public:value_cc_proto",
+        "//zetasql/resolved_ast",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_protobuf//:cc_wkt_protos",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+proto_library(
+    name = "local_service_proto",
+    srcs = ["local_service.proto"],
+    deps = [
+        "//zetasql/proto:function_proto",
+        "//zetasql/proto:options_proto",
+        "//zetasql/proto:simple_catalog_proto",
+        "//zetasql/public:options_proto",
+        "//zetasql/public:parse_resume_location_proto",
+        "//zetasql/public:simple_table_proto",
+        "//zetasql/public:type_proto",
+        "//zetasql/public:value_proto",
+        "//zetasql/resolved_ast:resolved_ast_proto",
+        "@com_google_protobuf//:descriptor_proto",
+        "@com_google_protobuf//:empty_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "local_service_cc_proto",
+    deps = [":local_service_proto"],
+)
+
+cc_grpc_library(
+    name = "local_service_cc_grpc",
+    srcs = [":local_service_proto"],
+    deps = [":local_service_cc_proto"],
+)
+
+cc_library(
+    name = "local_service_grpc",
+    srcs = ["local_service_grpc.cc"],
+    hdrs = ["local_service_grpc.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":local_service",
+        ":local_service_cc_grpc",
+        ":local_service_cc_proto",
+        "//zetasql/base:status",
+        "//zetasql/proto:options_cc_proto",
+        "//zetasql/public:parse_resume_location_cc_proto",
+        "//zetasql/public:simple_table_cc_proto",
+    ],
+)
+
+java_proto_library(
+    name = "local_service_java_proto",
+    deps = [":local_service_proto"],
+)
+
+java_grpc_library(
+    name = "local_service_java_grpc",
+    srcs = [":local_service_proto"],
+    deps = [
+        ":local_service_java_proto",
+        "//zetasql/proto:options_java_proto",
+        "//zetasql/public:parse_resume_location_java_proto",
+        "//zetasql/public:simple_table_java_proto",
+    ],
+)
+
+cc_library(
+    name = "local_service_jni",
+    srcs = ["local_service_jni.cc"],
+    hdrs = ["local_service_jni.h"],
+    copts = ["-Wno-sign-compare"],
+    linkstatic = 1,
+    deps = [
+        ":local_service_grpc",
+        "//zetasql/jdk:jni",
+        "@com_github_grpc_grpc//:grpc++",
+    ],
+    alwayslink = 1,
+)
+
+cc_binary(
+    name = "liblocal_service_jni.so",
+    linkshared = 1,
+    deps = [":local_service_jni"],
+)

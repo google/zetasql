@@ -1,0 +1,1025 @@
+//
+// Copyright 2019 ZetaSQL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+// resolved_ast.cc GENERATED FROM resolved_ast.cc.template
+#include "zetasql/resolved_ast/resolved_ast.h"
+
+#include <type_traits>
+
+#include "google/protobuf/descriptor.h"
+#include "zetasql/common/errors.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/constant.h"
+#include "zetasql/public/strings.h"
+#include "zetasql/public/type.h"
+#include "zetasql/resolved_ast/resolved_ast_visitor.h"
+#include "absl/memory/memory.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
+#include "absl/types/span.h"
+#include "zetasql/base/status.h"
+
+namespace zetasql {
+
+namespace {
+
+// Helper for IsDefaultValue to allow template partial specialization,
+// which we can do with a class but not with a function.
+template <class T>
+struct TestIsDefaultValue {
+  static bool IsDefaultValue(const T& value) {
+    static_assert(std::is_pod<T>::value,
+                  "Customize IsDefaultValue for non-POD types");
+    return value == T();
+  }
+};
+template <class T>
+struct TestIsDefaultValue<std::unique_ptr<T>> {
+  static bool IsDefaultValue(const std::unique_ptr<T>& value) {
+    return value == nullptr;
+  }
+};
+template <class T>
+struct TestIsDefaultValue<std::shared_ptr<T>> {
+  static bool IsDefaultValue(const std::shared_ptr<T>& value) {
+    return value == nullptr;
+  }
+};
+template <class T>
+struct TestIsDefaultValue<std::vector<T>> {
+  static bool IsDefaultValue(const std::vector<T>& value) {
+    return value.empty();
+  }
+};
+template <>
+struct TestIsDefaultValue<std::string> {
+  static bool IsDefaultValue(const std::string& value) {
+    return value.empty();
+  }
+};
+template <>
+struct TestIsDefaultValue<Value> {
+  static bool IsDefaultValue(const Value& value) {
+    return !value.is_valid();
+  }
+};
+template <>
+struct TestIsDefaultValue<FunctionSignature> {
+  static bool IsDefaultValue(const FunctionSignature& signature) {
+    return signature.NumOptionalArguments() == -1 &&
+           signature.NumRepeatedArguments() == -1;
+  }
+};
+template <>
+struct TestIsDefaultValue<std::shared_ptr<ResolvedFunctionCallInfo>> {
+  static bool IsDefaultValue(
+      const std::shared_ptr<ResolvedFunctionCallInfo>& info) {
+    return info == nullptr || info->Is<ResolvedFunctionCallInfo>();
+  }
+};
+template <>
+struct TestIsDefaultValue<ResolvedColumn> {
+  static bool IsDefaultValue(const ResolvedColumn& column) {
+    return !column.IsInitialized();
+  }
+};
+
+// Return true if <value> is equal to the default value for its type.
+// e.g. for pointers, return true if <value> is nullptr.
+// TODO This provides no way to distinguish an unset value from a
+// value explicitly set to its default.  Replace this with something
+// smarter and more explicit.
+template <class T>
+static bool IsDefaultValue(const T& value) {
+  return TestIsDefaultValue<T>::IsDefaultValue(value);
+}
+
+static std::string ToStringImpl(const std::string& s) {
+  return ToStringLiteral(s);
+}
+static std::string ToStringImpl(bool b) {
+  return b ? "TRUE" : "FALSE";
+}
+static std::string ToStringImpl(int i) {
+  return absl::StrCat(i);
+}
+static std::string ToStringCommaSeparated(const std::vector<int>& value_vector) {
+  return absl::StrCat("[", absl::StrJoin(value_vector, ", "), "]");
+}
+static std::string ToStringImpl(
+    const std::vector<ResolvedStatement::ObjectAccess>& value_vector) {
+  std::string ret;
+  for (const ResolvedStatement::ObjectAccess& value : value_vector) {
+    std::string name = ResolvedStatementEnums::ObjectAccess_Name(value);
+    if (name.empty()) {
+      LOG(DFATAL) << "Invalid ObjectAccess: " << value;
+      name = absl::StrCat("INVALID_OBJECT_ACCESS(", value, ")");
+    }
+    if (!ret.empty()) ret += ",";
+    ret += name;
+  }
+  return ret;
+}
+static std::string ToStringImpl(ResolvedJoinScan::JoinType join_type) {
+  std::string name = ResolvedJoinScanEnums::JoinType_Name(join_type);
+  if (!name.empty()) return name;
+  LOG(DFATAL) << "Invalid JoinType: " << join_type;
+  return absl::StrCat("INVALID_JOIN_TYPE(", join_type, ")");
+}
+static std::string ToStringImpl(ResolvedSubqueryExpr::SubqueryType type) {
+  std::string name = ResolvedSubqueryExprEnums::SubqueryType_Name(type);
+  if (!name.empty()) return name;
+  LOG(DFATAL) << "Invalid SubqueryType: " << type;
+  return absl::StrCat("INVALID_SUBQUERY_TYPE(", type, ")");
+}
+static std::string ToStringImpl(ResolvedSetOperationScan::SetOperationType type) {
+  std::string name = ResolvedSetOperationScanEnums::SetOperationType_Name(type);
+  if (!name.empty()) return name;
+  LOG(DFATAL) << "Invalid SetType: " << type;
+  return absl::StrCat("INVALID_SET_TYPE(", type, ")");
+}
+static std::string ToStringImpl(ResolvedCreateStatement::CreateScope scope) {
+  std::string name = ResolvedCreateStatementEnums::CreateScope_Name(scope);
+  if (!name.empty()) return name;
+  LOG(DFATAL) << "Invalid CreateScope: " << scope;
+  return absl::StrCat("INVALID_CREATE_SCOPE(", scope, ")");
+}
+static std::string ToStringImpl(ResolvedCreateStatement::CreateMode mode) {
+  std::string name = ResolvedCreateStatementEnums::CreateMode_Name(mode);
+  if (!name.empty()) return name;
+  LOG(DFATAL) << "Invalid CreateMode: " << mode;
+  return absl::StrCat("INVALID_CREATE_MODE(", mode, ")");
+}
+static std::string ToStringImpl(ResolvedBeginStmt::ReadWriteMode mode) {
+  std::string name = ResolvedBeginStmtEnums::ReadWriteMode_Name(mode);
+  if (!name.empty()) return name;
+  LOG(DFATAL) << "Invalid ReadWriteMode: " << mode;
+  return absl::StrCat("INVALID_READ_WRITE_MODE(", mode, ")");
+}
+static std::string ToStringImpl(ResolvedSampleScan::SampleUnit unit) {
+  std::string name = ResolvedSampleScanEnums::SampleUnit_Name(unit);
+  if (!name.empty()) return name;
+  LOG(DFATAL) << "Invalid SampleUnit: " << unit;
+  return absl::StrCat("INVALID_SAMPLE_UNIT(", unit, ")");
+}
+static std::string ToStringImpl(FieldFormat::Format format) {
+  const std::string& str = FieldFormat_Format_Name(format);
+  return !str.empty() ? str : absl::StrCat("INVALID_FORMAT(", format, ")");
+}
+static std::string ToStringImpl(ResolvedInsertStmt::InsertMode insert_mode) {
+  return ResolvedInsertStmt::InsertModeToString(insert_mode);
+}
+static std::string ToStringImpl(
+    ResolvedAggregateHavingModifier::HavingModifierKind kind) {
+  return ResolvedAggregateHavingModifier::HavingModifierKindToString(kind);
+}
+static const std::string& ToStringImpl(
+    ResolvedNonScalarFunctionCallBaseEnums::NullHandlingModifier kind) {
+  return ResolvedNonScalarFunctionCallBaseEnums::NullHandlingModifier_Name(
+      kind);
+}
+static std::string ToStringImpl(ResolvedArgumentDef::ArgumentKind kind) {
+  const std::string& str = ResolvedArgumentDefEnums::ArgumentKind_Name(kind);
+  return !str.empty() ? str : absl::StrCat("INVALID_ARGUMENT_KIND(", kind, ")");
+}
+static std::string ToStringImpl(ResolvedImportStmt::ImportKind kind) {
+  return ResolvedImportStmt::ImportKindToString(kind);
+}
+static std::string ToStringImpl(const FunctionSignature& signature) {
+  return signature.DebugString();
+}
+static std::string ToStringImpl(
+    const std::shared_ptr<ResolvedFunctionCallInfo>& function_call_info) {
+  if (function_call_info == nullptr) return "<null>";
+  return function_call_info->DebugString();
+}
+static std::string ToStringVerbose(const FunctionSignature& signature) {
+  return signature.DebugString("" /* function_name */, true /* verbose */);
+}
+static std::string ToStringImpl(const Table* table) {
+  return table->FullName();
+}
+static std::string ToStringImpl(const Model* model) {
+  return model->FullName();
+}
+static std::string ToStringImpl(const TableValuedFunction* tvf) {
+  return absl::StrCat(absl::StrJoin(tvf->function_name_path(), "."), "(",
+                FunctionSignature::SignaturesToString(
+                    tvf->signatures(), /*verbose=*/true, /*prefix=*/"",
+                    /*separator=*/"; "),
+                ")");
+}
+static std::string ToStringImpl(const Procedure* procedure) {
+  return procedure->FullName();
+}
+static std::string ToStringImpl(const std::shared_ptr<TVFSignature>& tvf_signature) {
+  return tvf_signature->DebugString();
+}
+static std::string ToStringImpl(const Type* type) {
+  return type->DebugString();
+}
+static std::string ToStringImpl(const google::protobuf::FieldDescriptor* field) {
+  return field->is_extension() ?
+      absl::StrCat("[", field->full_name(), "]"): field->name();
+}
+static std::string ToStringImpl(const ResolvedColumn& column) {
+  return column.DebugString();
+}
+static std::string ToStringImpl(const ResolvedColumnList& column_list) {
+  return ResolvedColumnListToString(column_list);
+}
+static std::string ToStringImpl(const Value& value) {
+  return value.ShortDebugString();
+}
+static std::string ToStringImpl(const std::vector<std::string>& value_vector,
+                           const std::string& separator) {
+  std::string ret;
+  for (const std::string& value : value_vector) {
+    if (!ret.empty()) ret += separator;
+    ret += ToIdentifierLiteral(value);
+  }
+  return ret;
+}
+static std::string ToStringImpl(const ResolvedMergeWhen::MatchType match_type) {
+  std::string name = ResolvedMergeWhenEnums::MatchType_Name(match_type);
+  if (!name.empty()) return name;
+  LOG(DFATAL) << "Invalid MatchType: " << match_type;
+  return absl::StrCat("INVALID_MATCH_TYPE(", match_type, ")");
+}
+static std::string ToStringImpl(const ResolvedMergeWhen::ActionType action_type) {
+  std::string name = ResolvedMergeWhenEnums::ActionType_Name(action_type);
+  if (!name.empty()) return name;
+  LOG(DFATAL) << "Invalid ActionType: " << action_type;
+  return absl::StrCat("INVALID_ACTION_TYPE(", action_type, ")");
+}
+static std::string ToStringImpl(ResolvedForeignKeyEnums::MatchMode match_mode) {
+  std::string name = ResolvedForeignKeyEnums::MatchMode_Name(match_mode);
+  if (!name.empty()) return name;
+  LOG(DFATAL) << "Invalid MatchMode: " << match_mode;
+  return absl::StrCat("INVALID_MATCH_MODE(", match_mode, ")");
+}
+static std::string ToStringImpl(
+    ResolvedForeignKeyEnums::ActionOperation action_operation) {
+  std::string name = ResolvedForeignKeyEnums::ActionOperation_Name(action_operation);
+  if (!name.empty()) return name;
+  LOG(DFATAL) << "Invalid ActionOperation: " << action_operation;
+  return absl::StrCat("INVALID_ACTION_OPERATION(", action_operation, ")");
+}
+static std::string ToStringImpl(
+    ResolvedCreateStatementEnums::SqlSecurity sql_security) {
+  std::string name = ResolvedCreateStatementEnums::SqlSecurity_Name(sql_security);
+  if (!name.empty()) return name;
+  LOG(DFATAL) << "Invalid SqlSecurity: " << sql_security;
+  return absl::StrCat("INVALID_SQL_SECURITY(", sql_security, ")");
+}
+
+// Most vector<std::string> fields are identifier paths so we format
+// the value that way by default.
+// For other vector<std::string> fields, we can override this with to_string_method.
+static std::string ToStringImpl(const std::vector<std::string>& value_vector) {
+  return ToStringImpl(value_vector, ".");
+}
+// This formats a list of identifiers (quoting if needed).
+static std::string ToStringCommaSeparated(const std::vector<std::string>& value_vector) {
+  return absl::StrCat("[", ToStringImpl(value_vector, ", "), "]");
+}
+
+// The SaveToImpl(ScalarType, FileDescriptorSetMap*, ScalarProtoType*) functions
+// implement the serialization logic for scalar types. The FileDescriptorSetMap
+// argument is used for serialization of zetasql::Type and data structures
+// that contain zetasql::Types. For detailed usage, see comments above
+// Type::SerializeToProtoAndDistinctFileDescriptors().
+static zetasql_base::Status SaveToImpl(
+    const Table* table,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    TableRefProto* proto) {
+  proto->set_name(table->Name());
+  proto->set_serialization_id(table->GetSerializationId());
+  proto->set_full_name(table->FullName());
+  return ::zetasql_base::OkStatus();
+}
+
+// The RestoreFrom functions reverse the effect of the SaveTo functions.
+static zetasql_base::StatusOr<const Table*> RestoreFromImpl(
+    const TableRefProto& proto,
+    const ResolvedNode::RestoreParams& params) {
+  const Table* table;
+  const std::vector<std::string> path = absl::StrSplit(proto.full_name(), '.');
+  ZETASQL_RETURN_IF_ERROR(params.catalog->FindTable(path, &table));
+  return table;
+}
+
+static zetasql_base::Status SaveToImpl(
+    const Model* model,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    ModelRefProto* proto) {
+  proto->set_name(model->Name());
+  proto->set_serialization_id(model->GetSerializationId());
+  proto->set_full_name(model->FullName());
+  return ::zetasql_base::OkStatus();
+}
+
+// The RestoreFrom functions reverse the effect of the SaveTo functions.
+static zetasql_base::StatusOr<const Model*> RestoreFromImpl(
+    const ModelRefProto& proto,
+    const ResolvedNode::RestoreParams& params) {
+  const Model* model;
+  const std::vector<std::string> path = absl::StrSplit(proto.full_name(), '.');
+  ZETASQL_RETURN_IF_ERROR(params.catalog->FindModel(path, &model));
+  return model;
+}
+
+static zetasql_base::Status SaveToImpl(
+    const Constant* constant,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    ConstantRefProto* proto) {
+  proto->set_name(constant->FullName());
+  return ::zetasql_base::OkStatus();
+}
+
+static zetasql_base::StatusOr<const Constant*> RestoreFromImpl(
+    const ConstantRefProto& proto, const ResolvedNode::RestoreParams& params) {
+  if (proto.name().empty()) {
+    return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+           << "Tried to parse function with blank name: "
+           << proto.DebugString();
+  }
+
+  const Constant* constant;
+  const std::vector<std::string> path = absl::StrSplit(proto.name(), '.');
+  ZETASQL_RETURN_IF_ERROR(params.catalog->FindConstant(path, &constant));
+  return constant;
+}
+
+static zetasql_base::Status SaveToImpl(
+    const Function* func,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    FunctionRefProto* proto) {
+  proto->set_name(func->FullName(true  /* include_group */));
+  return ::zetasql_base::OkStatus();
+}
+
+static zetasql_base::StatusOr<const Function*> RestoreFromImpl(
+    const FunctionRefProto& proto,
+    const ResolvedNode::RestoreParams& params) {
+  // Serialized function names include the group. We do not need this to look
+  // up a function in the catalog.
+  const std::vector<absl::string_view> group_and_name =
+      absl::StrSplit(proto.name(), ":");
+  if (group_and_name.empty()) {
+    return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+        << "Tried to parse function with blank name: " << proto.DebugString();
+  }
+
+  const Function* func;
+  const std::vector<std::string> path = absl::StrSplit(group_and_name.back(), '.');
+  ZETASQL_RETURN_IF_ERROR(params.catalog->FindFunction(path, &func));
+  return func;
+}
+
+static zetasql_base::Status SaveToImpl(
+    const TableValuedFunction* func,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    TableValuedFunctionRefProto* proto) {
+  proto->set_name(func->FullName());
+  return ::zetasql_base::OkStatus();
+}
+
+static zetasql_base::StatusOr<const TableValuedFunction*> RestoreFromImpl(
+    const TableValuedFunctionRefProto& proto,
+    const ResolvedNode::RestoreParams& params) {
+  const TableValuedFunction* func;
+  const std::vector<std::string> path = absl::StrSplit(proto.name(), '.');
+  ZETASQL_RETURN_IF_ERROR(params.catalog->FindTableValuedFunction(path, &func));
+  return func;
+}
+
+static zetasql_base::Status SaveToImpl(
+    const Procedure* procedure,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    ProcedureRefProto* proto) {
+  proto->set_name(procedure->FullName());
+  return ::zetasql_base::OkStatus();
+}
+
+static zetasql_base::StatusOr<const Procedure*> RestoreFromImpl(
+    const ProcedureRefProto& proto,
+    const ResolvedNode::RestoreParams& params) {
+  const Procedure* procedure;
+  const std::vector<std::string> path = absl::StrSplit(proto.name(), '.');
+  ZETASQL_RETURN_IF_ERROR(params.catalog->FindProcedure(path, &procedure));
+  return procedure;
+}
+
+static zetasql_base::Status SaveToImpl(
+    const FunctionSignature& sig,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    FunctionSignatureProto* proto) {
+  return sig.Serialize(file_descriptor_set_map, proto);
+}
+
+static zetasql_base::StatusOr<FunctionSignature> RestoreFromImpl(
+    const FunctionSignatureProto& proto,
+    const ResolvedNode::RestoreParams& params) {
+  // Some fields demand being set as FunctionSignature, not
+  // std::unique_ptr<FunctionSignature>. It's fine if we just copy the returned
+  // one though.
+  std::unique_ptr<FunctionSignature> sig;
+  ZETASQL_RETURN_IF_ERROR(FunctionSignature::Deserialize(
+      proto, params.pools, params.type_factory, &sig));
+  return *sig;
+}
+
+static zetasql_base::Status SaveToImpl(
+    const Type* type,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    TypeProto* proto) {
+  return type->SerializeToProtoAndDistinctFileDescriptors(
+      proto, file_descriptor_set_map);
+}
+
+static zetasql_base::StatusOr<const Type*> RestoreFromImpl(
+    const TypeProto& proto,
+    const ResolvedNode::RestoreParams& params) {
+  const Type* type;
+  ZETASQL_RETURN_IF_ERROR(params.type_factory->DeserializeFromProtoUsingExistingPools(
+      proto, params.pools, &type));
+  return type;
+}
+
+static zetasql_base::Status SaveToImpl(
+    const google::protobuf::FieldDescriptor* desc,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    FieldDescriptorRefProto* proto) {
+  TypeFactory factory;
+  const ProtoType* proto_type;
+  ZETASQL_RETURN_IF_ERROR(factory.MakeProtoType(desc->containing_type(), &proto_type));
+  TypeProto type_proto;
+  ZETASQL_RETURN_IF_ERROR(proto_type->SerializeToProtoAndDistinctFileDescriptors(
+      &type_proto, file_descriptor_set_map));
+  *proto->mutable_containing_proto() = type_proto.proto_type();
+  proto->set_number(desc->number());
+  return ::zetasql_base::OkStatus();
+}
+
+static zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*> RestoreFromImpl(
+    const FieldDescriptorRefProto& proto,
+    const ResolvedNode::RestoreParams& params) {
+  TypeProto type_proto;
+  type_proto.set_type_kind(TypeKind::TYPE_PROTO);
+  *type_proto.mutable_proto_type() = proto.containing_proto();
+  const Type* containing_type;
+  ZETASQL_RETURN_IF_ERROR(params.type_factory->DeserializeFromProtoUsingExistingPools(
+      type_proto, params.pools, &containing_type));
+  const ProtoType* proto_type = containing_type->AsProto();
+  if (!proto_type) {
+    return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+        << "Expected ProtoType, got: " << containing_type->DebugString();
+  }
+  const google::protobuf::FieldDescriptor* field_descriptor =
+      proto_type->descriptor()->FindFieldByNumber(proto.number());
+  if (field_descriptor) return field_descriptor;
+
+  // Otherwise, let's look through the extensions and see if one of those match.
+  for (const auto* pool : params.pools) {
+    field_descriptor = pool->FindExtensionByNumber(proto_type->descriptor(),
+                                                   proto.number());
+    if (field_descriptor) return field_descriptor;
+  }
+
+  return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+      << "Field number " << proto.number() << " is neither a field or a known "
+      << "extension of " << proto_type->DebugString();
+}
+
+static zetasql_base::Status SaveToImpl(
+    const ResolvedColumn& column,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    ResolvedColumnProto* proto) {
+  return column.SaveTo(file_descriptor_set_map, proto);
+}
+
+static zetasql_base::StatusOr<ResolvedColumn> RestoreFromImpl(
+    const ResolvedColumnProto& proto,
+    const ResolvedNode::RestoreParams& params) {
+  return ResolvedColumn::RestoreFrom(proto, params);
+}
+
+static zetasql_base::Status SaveToImpl(
+    const Value& value,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    ValueWithTypeProto* proto) {
+  if (!value.is_valid()) {
+    return ::zetasql_base::OkStatus();
+  }
+  ZETASQL_RETURN_IF_ERROR(value.Serialize(proto->mutable_value()));
+  return SaveToImpl(
+      value.type(), file_descriptor_set_map, proto->mutable_type());
+}
+
+static zetasql_base::StatusOr<Value> RestoreFromImpl(
+    const ValueWithTypeProto& proto,
+    const ResolvedNode::RestoreParams& params) {
+  if (!proto.has_value()) {
+    // The only way you get a blank value field is by serializing an invalid
+    // value. So that's what we return if we see !has_value.
+    return Value();
+  }
+  ZETASQL_ASSIGN_OR_RETURN(const Type* type, RestoreFromImpl(proto.type(), params));
+  return Value::Deserialize(proto.value(), type);
+}
+
+static zetasql_base::Status SaveToImpl(
+    const std::shared_ptr<TVFSignature>& tvf_signature,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    TVFSignatureProto* proto) {
+  for (const TVFInputArgumentType& arg : tvf_signature->input_arguments()) {
+    TVFArgumentProto* arg_proto = proto->add_argument();
+    if (arg.is_relation()) {
+      for (const TVFRelation::Column& col : arg.relation().columns()) {
+        TVFRelationColumnProto* col_proto =
+            arg_proto->mutable_relation_argument()->add_column();
+        col_proto->set_name(col.name);
+        ZETASQL_RETURN_IF_ERROR(SaveToImpl(
+            col.type, file_descriptor_set_map, col_proto->mutable_type()));
+      }
+      arg_proto->mutable_relation_argument()->set_is_value_table(
+          arg.relation().is_value_table());
+    } else if (arg.is_model()) {
+      TVFModelProto* model_proto = arg_proto->mutable_model_argument();
+      model_proto->set_name(arg.model().model()->Name());
+      model_proto->set_full_name(arg.model().model()->FullName());
+    } else {
+      ZETASQL_ASSIGN_OR_RETURN(const InputArgumentType& arg_type,
+                       arg.GetScalarArgType());
+      ZETASQL_RETURN_IF_ERROR(SaveToImpl(
+          arg_type.type(), file_descriptor_set_map,
+          arg_proto->mutable_scalar_argument()->mutable_type()));
+      if (arg_type.literal_value() != nullptr) {
+        ZETASQL_RETURN_IF_ERROR(SaveToImpl(
+            *arg_type.literal_value(), file_descriptor_set_map,
+            arg_proto->mutable_scalar_argument()));
+      }
+    }
+  }
+  TVFRelationProto* output_schema_proto = proto->mutable_output_schema();
+  for (const TVFRelation::Column& col :
+           tvf_signature->result_schema().columns()) {
+    TVFRelationColumnProto* col_proto = output_schema_proto->add_column();
+    col_proto->set_name(col.name);
+    col_proto->set_is_pseudo_column(col.is_pseudo_column);
+    ZETASQL_RETURN_IF_ERROR(SaveToImpl(
+        col.type, file_descriptor_set_map, col_proto->mutable_type()));
+  }
+  output_schema_proto->set_is_value_table(
+      tvf_signature->result_schema().is_value_table());
+
+  for (const FreestandingDeprecationWarning& warning :
+           tvf_signature->options().additional_deprecation_warnings) {
+    *proto->mutable_options()->add_additional_deprecation_warning() =
+        warning;
+  }
+
+  return ::zetasql_base::OkStatus();
+}
+
+static zetasql_base::StatusOr<std::shared_ptr<TVFSignature>> RestoreFromImpl(
+    const TVFSignatureProto& proto,
+    const ResolvedNode::RestoreParams& params) {
+  std::vector<TVFInputArgumentType> input_args;
+  input_args.reserve(proto.argument_size());
+  for (const TVFArgumentProto& argument : proto.argument()) {
+    if (argument.has_relation_argument()) {
+      const TVFRelationProto& relation_arg = argument.relation_argument();
+      std::vector<TVFRelation::Column> cols;
+      cols.reserve(relation_arg.column_size());
+      const Type* type = nullptr;
+      for (const TVFRelationColumnProto& col_proto : relation_arg.column()) {
+        ZETASQL_ASSIGN_OR_RETURN(type, RestoreFromImpl(col_proto.type(), params));
+        cols.emplace_back(TVFRelation::Column(col_proto.name(), type));
+      }
+      if (relation_arg.is_value_table()) {
+        input_args.push_back(TVFInputArgumentType(
+            TVFRelation::ValueTable(type)));
+      } else {
+        input_args.push_back(TVFInputArgumentType(TVFRelation(cols)));
+      }
+    } else if (argument.has_model_argument()) {
+      const Model* model;
+      const std::vector<std::string> path = absl::StrSplit(
+        argument.model_argument().full_name(), '.');
+      ZETASQL_RETURN_IF_ERROR(params.catalog->FindModel(path, &model));
+      input_args.push_back(TVFInputArgumentType(TVFModelArgument(
+        model)));
+    } else {
+      const ValueWithTypeProto& scalar_arg = argument.scalar_argument();
+      if (scalar_arg.has_value()) {
+        ZETASQL_ASSIGN_OR_RETURN(const Value value,
+                         RestoreFromImpl(scalar_arg, params));
+        input_args.push_back(TVFInputArgumentType(InputArgumentType(value)));
+      } else {
+        ZETASQL_ASSIGN_OR_RETURN(const Type* type,
+                         RestoreFromImpl(scalar_arg.type(), params));
+        input_args.push_back(TVFInputArgumentType(InputArgumentType(type)));
+      }
+    }
+  }
+  std::vector<TVFRelation::Column> cols;
+  cols.reserve(proto.output_schema().column_size());
+  const Type* type = nullptr;
+  for (const TVFRelationColumnProto& col_proto :
+       proto.output_schema().column()) {
+    ZETASQL_ASSIGN_OR_RETURN(type, RestoreFromImpl(col_proto.type(), params));
+    cols.emplace_back(TVFRelation::Column(col_proto.name(), type,
+                                          col_proto.is_pseudo_column()));
+  }
+
+  TVFSignatureOptions options;
+  for (const FreestandingDeprecationWarning& warning :
+           proto.options().additional_deprecation_warning()) {
+    options.additional_deprecation_warnings.push_back(warning);
+  }
+
+  if (proto.output_schema().is_value_table()) {
+    const Type* type = cols[0].type;
+    cols.erase(cols.begin());
+    ZETASQL_ASSIGN_OR_RETURN(TVFRelation table_schema,
+                     TVFRelation::ValueTable(type, cols));
+    return std::shared_ptr<TVFSignature>(
+        new TVFSignature(input_args, std::move(table_schema), options));
+  } else {
+    return std::shared_ptr<TVFSignature>(
+        new TVFSignature(input_args, TVFRelation(cols), options));
+  }
+}
+
+static zetasql_base::Status SaveToImpl(
+    const std::shared_ptr<ResolvedFunctionCallInfo>& context,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    ResolvedFunctionCallInfoProto* proto) {
+  // TODO: Implement this for ResolvedFunctionCallInfo subclasses.
+  return ::zetasql_base::OkStatus();
+}
+
+static zetasql_base::StatusOr<std::shared_ptr<ResolvedFunctionCallInfo>>
+    RestoreFromImpl(
+        const ResolvedFunctionCallInfoProto& proto,
+        const ResolvedNode::RestoreParams& params) {
+  // TODO: Implement this for ResolvedFunctionCallInfo subclasses.
+  return std::shared_ptr<ResolvedFunctionCallInfo>(
+      new ResolvedFunctionCallInfo());
+}
+
+}  // anonymous namespace
+
+{#
+   This is used in RestoreFrom nodes to access fields that are defined in
+   parent protos of the proto being deserialized.
+#}
+{% macro path_to_serialized(from_node, field) -%}
+  {{- ".parent()" * (from_node.depth - defining_node(field).depth) }}.
+  {{- field.name }}
+{%- endmacro -%}
+{% macro path_to_serialized_has(from_node, field) -%}
+  {{- ".parent()" * (from_node.depth - defining_node(field).depth) }}.
+  has_{{- field.name }}
+{%- endmacro -%}
+
+// This is defined separately from the rest of the RestoreFrom implementations
+// because the root node does not have a proper entry in the tree generated in
+// gen_resolved_ast.py, so we have to iterate the nodes in a different way.
+zetasql_base::StatusOr<std::unique_ptr<ResolvedNode>> ResolvedNode::RestoreFrom(
+    const AnyResolvedNodeProto& proto, const RestoreParams& params) {
+  switch (proto.node_case()) {
+# for node in root_child_nodes|sort_by_tag
+    case AnyResolvedNodeProto::k{{node.member_name|upper_camel_case}}Node:
+      return {{node.name}}::RestoreFrom(
+          proto.{{node.member_name}}_node(), params);
+# endfor
+    case AnyResolvedNodeProto::NODE_NOT_SET:
+      return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+          << "No subnode types set in AnyResolvedNodeProto";
+  }
+}
+
+
+std::string ResolvedNodeKindToString(ResolvedNodeKind kind) {
+  switch (kind) {
+# for node in nodes
+ # if not node.is_abstract
+    case {{node.enum_name}}: return "{{node.node_kind_name}}";
+ # endif
+# endfor
+    default:
+      return absl::StrCat("INVALID_RESOLVED_NODE_KIND(", kind, ")");
+  }
+}
+
+# for node in nodes
+# if not node.is_abstract
+const ResolvedNodeKind {{node.name}}::TYPE;
+
+# endif
+{{node.extra_enum_defs}}
+
+{{node.name}}::~{{node.name}}() {
+}
+
+zetasql_base::Status {{node.name}}::SaveTo(
+    Type::FileDescriptorSetMap* file_descriptor_set_map,
+    {{node.parent_proto_container_type}}* proto) const {
+  return SaveTo(
+      file_descriptor_set_map, proto->mutable_{{node.member_name}}_node());
+}
+
+zetasql_base::Status {{node.name}}::SaveTo(
+    Type::FileDescriptorSetMap* file_descriptor_set_map,
+    {{node.proto_type}}* proto) const {
+  ZETASQL_RETURN_IF_ERROR(SUPER::SaveTo(
+      file_descriptor_set_map, proto->mutable_parent()));
+  if (proto->parent().ByteSize() == 0) {
+    proto->clear_parent();
+  }
+# for field in node.fields
+ # if field.is_node_ptr
+  if ({{field.member_name}} != nullptr) {
+    ZETASQL_RETURN_IF_ERROR({{field.member_name}}->SaveTo(
+        file_descriptor_set_map, proto->mutable_{{field.name}}()));
+  }
+ # elif field.is_node_vector
+  for (const auto& elem : {{field.member_name}}) {
+    ZETASQL_RETURN_IF_ERROR(elem->SaveTo(
+      file_descriptor_set_map, proto->add_{{field.name}}()));
+  }
+ # elif field.is_vector
+  for (const auto& elem : {{field.member_name}}) {
+   # if field.has_proto_setter
+    proto->add_{{field.name}}(elem);
+   # else
+    ZETASQL_RETURN_IF_ERROR(SaveToImpl(
+        elem, file_descriptor_set_map, proto->add_{{field.name}}()));
+   # endif
+  }
+ # else
+  # if field.has_proto_setter
+  proto->set_{{field.name}}({{field.member_name}});
+  # else
+  ZETASQL_RETURN_IF_ERROR(SaveToImpl(
+      {{field.member_name}}, file_descriptor_set_map,
+      proto->mutable_{{field.name}}()));
+  # endif
+ # endif
+# endfor
+  return ::zetasql_base::OkStatus();
+}
+
+
+# if node.is_abstract
+
+{#
+  When restoring abstract nodes, we just iterate through the different
+  subclasses, checking if the proto contains one of those. If it does, we
+  delegate to the subclass' RestoreFrom method.
+-#}
+zetasql_base::StatusOr<std::unique_ptr<{{node.name}}>> {{node.name}}::RestoreFrom(
+    const {{node.proto_field_type}}& proto,
+    const ResolvedNode::RestoreParams& params) {
+  switch (proto.node_case()) {
+ # for subnode in node.subclasses|sort_by_tag
+    case {{node.proto_field_type}}::k{{subnode.member_name|upper_camel_case}}Node:
+      return {{subnode.name}}::RestoreFrom(
+          proto.{{subnode.member_name}}_node(), params);
+ # endfor
+  case {{node.proto_field_type}}::NODE_NOT_SET:
+    return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+        << "No subnode types set in {{node.proto_type}}";
+  }
+}
+
+# else
+
+zetasql_base::StatusOr<std::unique_ptr<{{node.name}}>> {{node.name}}::RestoreFrom(
+    const {{node.proto_type}}& proto,
+    const ResolvedNode::RestoreParams& params) {
+ # for field in node.fields + node.inherited_fields
+  {#
+    Deserialize child nodes into locals. This allows us to have the
+    deserialization code just once for each child node, but to use the child
+    node either in the constructor or in setters as needed.
+  #}
+  # if field.is_node_ptr
+  std::unique_ptr<const {{field.ctype}}> {{field.name}};
+  if (proto{{path_to_serialized_has(node, field)}}()) {
+    ZETASQL_ASSIGN_OR_RETURN({{field.name}},
+                     {{field.ctype}}::RestoreFrom(
+                         proto{{path_to_serialized(node, field)}}(), params));
+  }
+  # elif field.is_node_vector
+  std::vector<std::unique_ptr<const {{field.ctype}}>> {{field.name}};
+  for (const auto& elem : proto{{path_to_serialized(node, field)}}()) {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const {{field.ctype}}> elem_restored,
+                     {{field.ctype}}::RestoreFrom(elem, params));
+    {{field.name}}.push_back(std::move(elem_restored));
+  }
+  # elif field.is_enum_vector
+  {{field.member_type}} {{field.name}};
+  for (const auto& elem : proto{{path_to_serialized(node, field)}}()) {
+    // We need a static cast because the proto getter returns a
+    // RepeatedField<int>, not RepeatedField<enum>.
+    {{field.name}}.push_back(static_cast<{{field.element_arg_type}}>(elem));
+  }
+  # elif field.is_vector
+  {{field.member_type}} {{field.name}};
+  for (const auto& elem : proto{{path_to_serialized(node, field)}}()) {
+    # if field.has_proto_setter
+    {{field.name}}.push_back(elem);
+    # else
+    ZETASQL_ASSIGN_OR_RETURN(auto elem_restored, RestoreFromImpl(elem, params));
+    {{field.name}}.push_back(std::move(elem_restored));
+    # endif
+  }
+  # else
+   # if field.has_proto_setter
+  {{field.member_type}} {{field.name}} =
+      proto{{path_to_serialized(node, field)}}();
+   # else
+  ZETASQL_ASSIGN_OR_RETURN({{field.member_type}} {{field.name}},
+                   RestoreFromImpl(proto{{path_to_serialized(node, field)}}(),
+                                   params));
+   # endif
+  # endif
+ # endfor
+
+  auto node = Make{{node.name}}(
+ {% for field in (node.inherited_fields + node.fields) | is_constructor_arg %}
+      std::move({{field.name}})
+  {%- if not loop.last %},
+  {% endif %}
+ {% endfor %});
+
+ # for field in (node.inherited_fields + node.fields)|rejectattr('is_constructor_arg')
+  node->set_{{field.name}}(std::move({{field.name}}));
+ # endfor
+
+  return std::move(node);
+}
+
+# endif
+
+# if node.fields
+void {{node.name}}::GetChildNodes(
+    std::vector<const ResolvedNode*>* child_nodes) const {
+  SUPER::GetChildNodes(child_nodes);
+ # for field in node.fields
+  # if field.is_node_ptr
+  if ({{field.member_name}} != nullptr) {
+    child_nodes->emplace_back({{field.member_accessor}});
+  }
+  # elif field.is_node_vector
+  for (const auto& elem : {{field.member_name}}) {
+    child_nodes->emplace_back(elem.get());
+  }
+  # endif
+ # endfor
+}
+
+void {{node.name}}::AddMutableChildNodePointers(
+    std::vector<std::unique_ptr<const ResolvedNode>*>*
+        mutable_child_node_ptrs) {
+  SUPER::AddMutableChildNodePointers(mutable_child_node_ptrs);
+ # for field in node.fields
+  # if field.is_node_ptr
+  if ({{field.member_name}} != nullptr) {
+    mutable_child_node_ptrs->emplace_back(
+        reinterpret_cast<std::unique_ptr<const ResolvedNode>*>(
+            &{{field.member_name}}));
+    static_assert(sizeof({{field.member_name}}) ==
+                  sizeof(*(mutable_child_node_ptrs->back())),
+                  "Incorrect casting of mutable child node");
+  }
+  # elif field.is_node_vector
+  for (auto& elem : {{field.member_name}}) {
+    mutable_child_node_ptrs->emplace_back(
+        reinterpret_cast<std::unique_ptr<const ResolvedNode>*>(&elem));
+  }
+  # endif
+ # endfor
+}
+# endif
+{{ blank_line }}
+zetasql_base::Status {{node.name}}::Accept(ResolvedASTVisitor* visitor) const {
+  return visitor->Visit{{node.name}}(this);
+}
+
+zetasql_base::Status {{node.name}}::ChildrenAccept(ResolvedASTVisitor* visitor) const {
+  ZETASQL_RETURN_IF_ERROR(SUPER::ChildrenAccept(visitor));
+ # for field in node.fields
+  # if field.is_node_ptr
+  if ({{field.member_name}} != nullptr) {
+    ZETASQL_RETURN_IF_ERROR({{field.member_accessor}}->Accept(visitor));
+  }
+  # elif field.is_node_vector
+  for (const auto& elem : {{field.member_name}}) {
+    ZETASQL_RETURN_IF_ERROR(elem.get()->Accept(visitor));
+  }
+  # endif
+ # endfor
+  return ::zetasql_base::OkStatus();
+}
+
+# if node.fields and not node.use_custom_debug_string
+void {{node.name}}::CollectDebugStringFields(
+    std::vector<DebugStringField>* fields) const {
+  SUPER::CollectDebugStringFields(fields);
+ # for field in node.fields
+  # if field.is_node_ptr
+  if ({{field.member_name}} != nullptr) {
+    fields->emplace_back("{{field.name}}", {{field.member_accessor}});
+  }
+  # elif field.is_node_vector
+  if (!{{field.member_name}}.empty()) {
+    fields->emplace_back("{{field.name}}", {{field.member_name}});
+  }
+  # else
+   # if field.is_not_ignorable
+  {
+   # else
+  if (!IsDefaultValue({{field.member_name}})) {
+   # endif
+    fields->emplace_back("{{field.name}}", {{field.to_string_method}}({{field.member_name}}));
+  }
+  # endif
+ # endfor
+}
+
+# endif
+# if node.fields
+zetasql_base::Status {{node.name}}::CheckFieldsAccessed() const {
+  ZETASQL_RETURN_IF_ERROR(SUPER::CheckFieldsAccessed());
+
+ # for field in node.fields
+  # if field.is_not_ignorable
+  if ((accessed_ & {{field.bitmap}}) == 0) {
+    return ::zetasql_base::UnimplementedErrorBuilder(ZETASQL_LOC).LogError()
+        << "Unimplemented feature "
+           "({{node.name}}::{{field.name}} not accessed)";
+  }
+  # endif
+  # if field.is_ignorable_default
+  if ((accessed_ & {{field.bitmap}}) == 0 &&
+      !IsDefaultValue({{field.member_name}})) {
+    return ::zetasql_base::UnimplementedErrorBuilder(ZETASQL_LOC).LogError()
+        << "Unimplemented feature "
+           "({{node.name}}::{{field.name}} not accessed "
+           "and has non-default value)";
+  }
+  # endif
+ # endfor
+
+ # for field in node.fields
+  # if field.is_node_vector or field.is_node_ptr
+  if ((accessed_ & {{field.bitmap}}) != 0) {
+   # if field.is_node_vector
+    for (const auto& it : {{field.member_name}}) ZETASQL_RETURN_IF_ERROR(it->CheckFieldsAccessed());
+   # elif field.is_node_ptr
+    if ({{field.member_name}} != nullptr) {
+      ZETASQL_RETURN_IF_ERROR({{field.member_name}}->CheckFieldsAccessed());
+    }
+   # endif
+  }
+  # endif
+ # endfor
+  return ::zetasql_base::OkStatus();
+}
+
+void {{node.name}}::ClearFieldsAccessed() const {
+  SUPER::ClearFieldsAccessed();
+
+  accessed_ = 0;
+ # for field in node.fields
+  # if field.is_node_vector
+  for (const auto& it : {{field.member_name}}) it->ClearFieldsAccessed();
+  # elif field.is_node_ptr
+  if ({{field.member_name}} != nullptr) {{field.member_name}}->ClearFieldsAccessed();
+  # endif
+ # endfor
+}
+{{ blank_line }}
+# endif
+# endfor
+
+}  // namespace zetasql

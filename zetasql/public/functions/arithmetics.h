@@ -1,0 +1,430 @@
+//
+// Copyright 2019 ZetaSQL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+// This file implements basic arithmetic operations with overflow checking.
+// The following functions are defined:
+//
+//   bool Add(T in1, T in2, T *out, zetasql_base::Status* error);
+//   bool Subtract(InType in1, InType in2, OutType *out, zetasql_base::Status* error);
+//   bool Multiply(T in1, T in2, T *out, zetasql_base::Status* error);
+//   bool Divide(T in1, T in2, T *out, zetasql_base::Status* error);
+//   bool Modulo(T in1, T in2, T *out, zetasql_base::Status* error);
+//   bool UnaryMinus(InType in, OutType *out, zetasql_base::Status* error);
+//
+// If overflow or any other error occurs, all functions return false and update
+// *error.
+// T must be a numeric type: either floating point type or integer type with
+// size not greater than 64.
+// Divide() is only defined for double.
+// In case of Subtract(), OutType must be a signed type, InType may be signed
+// or unsigned, but must not be wider than OutType.
+// TODO: UnaryMinus() does not need to support different
+// InType and OutType.
+
+#ifndef ZETASQL_PUBLIC_FUNCTIONS_ARITHMETICS_H_
+#define ZETASQL_PUBLIC_FUNCTIONS_ARITHMETICS_H_
+
+#include <cmath>
+#include <limits>
+#include <type_traits>
+
+#include "zetasql/public/functions/arithmetics_internal.h"
+#include "zetasql/public/functions/convert.h"
+#include "zetasql/public/functions/util.h"
+#include "zetasql/public/numeric_value.h"
+#include <cstdint>
+#include "absl/base/optimization.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
+#include "zetasql/base/status.h"
+#include "zetasql/base/statusor.h"
+
+#ifndef __has_builtin
+#define __has_builtin(x) 0
+#endif
+
+namespace zetasql {
+namespace functions {
+
+template <typename T>
+inline bool Add(T in1, T in2, T *out, zetasql_base::Status* error);
+template <typename InType, typename OutType = InType>
+inline bool Subtract(InType in1, InType in2, OutType* out, zetasql_base::Status* error);
+template <typename T>
+inline bool Multiply(T in1, T in2, T *out, zetasql_base::Status* error);
+template <typename T>
+inline bool Divide(T in1, T in2, T *out, zetasql_base::Status* error);
+template <typename T>
+inline bool Modulo(T in1, T in2, T *out, zetasql_base::Status* error);
+template <typename InType, typename OutType>
+inline bool UnaryMinus(InType in, OutType *out, zetasql_base::Status* error);
+
+// Division function for NUMERICs with integer semantics.
+inline bool IntegerDivide(NumericValue in1, NumericValue in2,
+                          NumericValue* out, zetasql_base::Status* error);
+
+// ----------------------- Internal parts -----------------------
+// These are implementation details. Do not use outside of this file.
+
+namespace internal {
+
+template <typename T>
+inline bool CheckFloatOverflow(T in1, T in2, absl::string_view operator_symbol,
+                               T out, zetasql_base::Status* error) {
+  if (ABSL_PREDICT_TRUE(std::isfinite(out))) {
+    return true;
+  } else if (!std::isfinite(in1) || !std::isfinite(in2)) {
+    return true;
+  } else {
+    return internal::UpdateError(
+        error, internal::BinaryOverflowMessage(in1, in2, operator_symbol));
+  }
+}
+
+// Checks if range of representable values of type From lies entirely within
+// the range of representable values of type To. If this is true then From can
+// be casted to To without overflows.
+template <typename To, typename From>
+struct is_safe_to_cast {
+  static_assert(std::numeric_limits<To>::is_integer &&
+                std::numeric_limits<From>::is_integer,
+                "is_safe_to_cast can only be used with integer types");
+  static const bool value =
+     (std::numeric_limits<To>::digits >=
+      std::numeric_limits<From>::digits) &&
+     (std::numeric_limits<To>::is_signed >=
+      std::numeric_limits<From>::is_signed);
+};
+
+template <typename To, typename From>
+inline To safe_cast(From in) {
+  static_assert(is_safe_to_cast<To, From>::value,
+                "This cast is not safe.");
+  return static_cast<To>(in);
+}
+
+}  // namespace internal
+
+// ----------------------- Floating point -----------------------
+
+template <>
+inline bool Add(double in1, double in2, double *out, zetasql_base::Status* error) {
+  *out = in1 + in2;
+  return internal::CheckFloatOverflow(in1, in2, " + ", *out, error);
+}
+
+template <>
+inline bool Subtract(double in1, double in2, double *out, zetasql_base::Status* error) {
+  *out = in1 - in2;
+  return internal::CheckFloatOverflow(in1, in2, " - ", *out, error);
+}
+
+template <>
+inline bool Multiply(double in1, double in2, double *out, zetasql_base::Status* error) {
+  *out = in1 * in2;
+  return internal::CheckFloatOverflow(in1, in2, " * ", *out, error);
+}
+template <>
+inline bool Divide(double in1, double in2, double *out, zetasql_base::Status* error) {
+  *out = in1 / in2;
+  if (ABSL_PREDICT_TRUE(std::isfinite(*out))) {
+    return true;
+  } else if (in2 == 0) {
+    return internal::UpdateError(error,
+                                 internal::DivisionByZeroMessage(in1, in2));
+  } else if (!std::isfinite(in1) || !std::isfinite(in2)) {
+    return true;
+  } else {
+    return internal::UpdateError(
+        error, internal::BinaryOverflowMessage(in1, in2, " / "));
+  }
+}
+template <>
+inline bool UnaryMinus(double in, double *out, zetasql_base::Status* error) {
+  *out = -in;
+  return true;
+}
+
+template <>
+inline bool Add(float in1, float in2, float *out, zetasql_base::Status* error) {
+  *out = in1 + in2;
+  return internal::CheckFloatOverflow(in1, in2, " + ", *out, error);
+}
+
+template <>
+inline bool Subtract(float in1, float in2, float *out, zetasql_base::Status* error) {
+  *out = in1 - in2;
+  return internal::CheckFloatOverflow(in1, in2, " - ", *out, error);
+}
+
+template <>
+inline bool Multiply(float in1, float in2, float *out, zetasql_base::Status* error) {
+  *out = in1 * in2;
+  return internal::CheckFloatOverflow(in1, in2, " * ", *out, error);
+}
+
+template <>
+inline bool UnaryMinus(float in, float *out, zetasql_base::Status* error) {
+  *out = -in;
+  return true;
+}
+
+template <>
+inline bool UnaryMinus(NumericValue in, NumericValue* out,
+                       zetasql_base::Status* error) {
+  *out = NumericValue::UnaryMinus(in);
+  return true;
+}
+
+// ----------------------- Integer -----------------------
+
+namespace arithmetics_internal {
+
+template <typename T>
+inline bool CheckSaturatedOverflow(T in1, T in2,
+                                   absl::string_view operator_symbol,
+                                   Saturated<T> result, T* out,
+                                   zetasql_base::Status* error) {
+  *out = result.Value();
+  if (ABSL_PREDICT_TRUE(result.IsValid())) {
+    return true;
+  } else {
+    return internal::UpdateError(
+        error, internal::BinaryOverflowMessage(in1, in2, operator_symbol));
+  }
+}
+
+}  // namespace arithmetics_internal
+
+template <typename T>
+bool Add(T in1, T in2, T* out, zetasql_base::Status* error) {
+  arithmetics_internal::Saturated<T> result(internal::safe_cast<T>(in1));
+  result.Add(internal::safe_cast<T>(in2));
+  *out = result.Value();
+  return arithmetics_internal::CheckSaturatedOverflow(in1, in2, " + ", result,
+                                                      out, error);
+}
+
+template <>
+inline bool Subtract<int64_t>(int64_t in1, int64_t in2, int64_t* out,
+                            zetasql_base::Status* error) {
+  arithmetics_internal::Saturated<int64_t> result(
+      internal::safe_cast<int64_t>(in1));
+  result.Sub(internal::safe_cast<int64_t>(in2));
+  *out = result.Value();
+  return arithmetics_internal::CheckSaturatedOverflow(in1, in2, " - ", result,
+                                                      out, error);
+}
+
+template <typename T>
+inline bool Multiply(T in1, T in2, T *out,
+                     zetasql_base::Status* error) {
+  arithmetics_internal::Saturated<T> result(internal::safe_cast<T>(in1));
+  result.Mul(internal::safe_cast<T>(in2));
+  *out = result.Value();
+  return arithmetics_internal::CheckSaturatedOverflow(in1, in2, " * ", result,
+                                                      out, error);
+}
+
+template <typename T>
+inline bool Modulo(T in1, T in2, T *out, zetasql_base::Status* error) {
+  static_assert(std::is_same<uint64_t, T>::value ||
+                std::is_same<int64_t, T>::value,
+              "Modulo only supports 64 bit integer");
+  if (ABSL_PREDICT_FALSE(in2 == 0)) {
+    return internal::UpdateError(
+        error, absl::StrCat("division by zero: MOD(", in1, ", ", in2, ")"));
+  }
+  *out = in1 % in2;
+  return true;
+}
+
+static_assert(std::numeric_limits<int32_t>::min()
+              + std::numeric_limits<int32_t>::max() == -1,
+              "int32 is not a two's complement type?");
+static_assert(std::numeric_limits<int64_t>::min()
+              + std::numeric_limits<int64_t>::max() == -1,
+              "int64 is not a two's complement type?");
+
+template <>
+inline bool UnaryMinus<int32_t, int32_t>(int32_t in, int32_t* out,
+                                     zetasql_base::Status* error) {
+  if (in == std::numeric_limits<int32_t>::min()) {
+    return internal::UpdateError(error,
+                                 internal::UnaryOverflowMessage(in, "-"));
+  }
+  *out = -in;
+  return true;
+}
+
+template <>
+inline bool UnaryMinus<int64_t, int64_t>(int64_t in, int64_t* out,
+                                     zetasql_base::Status* error) {
+  if (in == std::numeric_limits<int64_t>::min()) {
+    return internal::UpdateError(error,
+                                 internal::UnaryOverflowMessage(in, "-"));
+  }
+  *out = -in;
+  return true;
+}
+
+template <>
+inline bool Subtract<uint64_t, int64_t>(uint64_t in1, uint64_t in2, int64_t *out,
+                                    zetasql_base::Status* error) {
+  if (in1 >= in2) {
+    uint64_t tmp = in1 - in2;
+    if (!Convert<uint64_t, int64_t>(tmp, out, nullptr)) {
+      return internal::UpdateError(
+          error, internal::BinaryOverflowMessage(in1, in2, " - "));
+    }
+    return true;
+  }
+  uint64_t tmp = in2 - in1;
+  if (ABSL_PREDICT_FALSE(
+          tmp ==
+          1ull + static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))) {
+    *out = std::numeric_limits<int64_t>::min();
+    return true;
+  }
+  if (!Convert<uint64_t, int64_t>(tmp, out, nullptr) ||
+      !UnaryMinus<int64_t, int64_t>(*out, out, error)) {
+    return internal::UpdateError(
+        error, internal::BinaryOverflowMessage(in1, in2, " - "));
+  }
+  return true;
+}
+
+// TODO: Non-ZetaSQL-compliant temporary signature for
+// UINT64 subtraction, to allow Spandex to continue building until it
+// uses the correct new signature above.  Remove this once migrated.
+template <>
+inline bool Subtract<uint64_t, uint64_t>(uint64_t in1, uint64_t in2, uint64_t *out,
+                                     zetasql_base::Status* error) {
+  return internal::UpdateError(error, "invalid UINT64 subtraction signature");
+}
+
+template <>
+inline bool Divide(uint64_t in1, uint64_t in2, uint64_t *out, zetasql_base::Status* error) {
+  if (ABSL_PREDICT_FALSE(in2 == 0)) {
+    return internal::UpdateError(error,
+                                 internal::DivisionByZeroMessage(in1, in2));
+  }
+  *out = in1 / in2;
+  return true;
+}
+
+template <>
+inline bool Divide(int64_t in1, int64_t in2, int64_t *out, zetasql_base::Status* error) {
+  if (ABSL_PREDICT_FALSE(in2 == -1)) {
+    return UnaryMinus(in1, out, error);
+  }
+  if (ABSL_PREDICT_FALSE(in2 == 0)) {
+    return internal::UpdateError(error,
+                                 internal::DivisionByZeroMessage(in1, in2));
+  }
+  *out = in1 / in2;
+  return true;
+}
+
+// ----------------------- Numeric -----------------------
+
+template <>
+inline bool Add(NumericValue in1, NumericValue in2, NumericValue* out,
+                zetasql_base::Status* error) {
+  zetasql_base::StatusOr<NumericValue> numeric_status = in1.Add(in2);
+  if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
+    *out = numeric_status.ValueOrDie();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = numeric_status.status();
+  }
+  return false;
+}
+
+template <>
+inline bool Subtract(NumericValue in1, NumericValue in2, NumericValue* out,
+                     zetasql_base::Status* error) {
+  zetasql_base::StatusOr<NumericValue> numeric_status = in1.Subtract(in2);
+  if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
+    *out = numeric_status.ValueOrDie();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = numeric_status.status();
+  }
+  return false;
+}
+
+template <>
+inline bool Multiply(NumericValue in1, NumericValue in2, NumericValue* out,
+                     zetasql_base::Status* error) {
+  zetasql_base::StatusOr<NumericValue> numeric_status = in1.Multiply(in2);
+  if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
+    *out = numeric_status.ValueOrDie();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = numeric_status.status();
+  }
+  return false;
+}
+
+template <>
+inline bool Divide(NumericValue in1, NumericValue in2, NumericValue* out,
+                   zetasql_base::Status* error) {
+  zetasql_base::StatusOr<NumericValue> numeric_status = in1.Divide(in2);
+  if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
+    *out = numeric_status.ValueOrDie();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = numeric_status.status();
+  }
+  return false;
+}
+
+template <>
+inline bool Modulo(NumericValue in1, NumericValue in2,
+                   NumericValue *out, zetasql_base::Status* error) {
+  zetasql_base::StatusOr<NumericValue> numeric_status = in1.Mod(in2);
+  if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
+    *out = numeric_status.ValueOrDie();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = numeric_status.status();
+  }
+  return false;
+}
+
+inline bool IntegerDivide(NumericValue in1, NumericValue in2,
+                          NumericValue* out, zetasql_base::Status* error) {
+  zetasql_base::StatusOr<NumericValue> numeric_status = in1.IntegerDivide(in2);
+  if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
+    *out = numeric_status.ValueOrDie();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = numeric_status.status();
+  }
+  return false;
+}
+
+}  // namespace functions
+}  // namespace zetasql
+
+#endif  // ZETASQL_PUBLIC_FUNCTIONS_ARITHMETICS_H_

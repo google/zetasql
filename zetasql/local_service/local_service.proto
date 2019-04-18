@@ -1,0 +1,301 @@
+//
+// Copyright 2019 ZetaSQL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+syntax = "proto2";
+
+package zetasql.local_service;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/descriptor.proto";
+import "zetasql/proto/function.proto";
+import "zetasql/proto/options.proto";
+import "zetasql/proto/simple_catalog.proto";
+import "zetasql/public/options.proto";
+import "zetasql/public/parse_resume_location.proto";
+import "zetasql/public/simple_table.proto";
+import "zetasql/public/type.proto";
+import "zetasql/public/value.proto";
+import "zetasql/resolved_ast/resolved_ast.proto";
+
+option java_package = "com.google.zetasql";
+option java_outer_classname = "LocalService";
+
+// Note that *all* service RPCs are locked down to only be authorized by
+// the user that started the ZetaSql service.  This disallows random users
+// from sending requests to this service to be executed on behalf of the
+// user that started the service.  Given that this service does not currently
+// provide access to external data, this lockdown is precautionary and
+// conservative.  But the lockdown will be necessary once the reference
+// implementation is extended to execute full queries over external data,
+// since we cannot allow random users to run queries over data accessible by
+// the (different) user that started the ZetaSql service.
+service ZetaSqlLocalService {
+  // Prepare the sql expression in PrepareRequest with given columns and
+  // parameters with zetasql::PreparedExpression and return the result
+  // type as PrepareResponse. The prepared expression will be kept at server
+  // side which can be referred to with the returned id.
+  rpc Prepare(PrepareRequest) returns (PrepareResponse) {
+  }
+  // Evaluate the prepared expression in EvaluateRequest with given columns and
+  // parameters with zetasql::PreparedExpression and return the result
+  // and value as EvaluateResponse.
+  rpc Evaluate(EvaluateRequest) returns (EvaluateResponse) {
+  }
+  // Cleanup the prepared expression kept at server side with given id.
+  rpc Unprepare(UnprepareRequest) returns (google.protobuf.Empty) {
+  }
+  // Get a table schema from a proto.
+  rpc GetTableFromProto(TableFromProtoRequest) returns (SimpleTableProto) {
+  }
+  // Register a catalog at server side so that it can be reused.
+  rpc RegisterCatalog(RegisterCatalogRequest) returns (RegisterResponse) {
+  }
+  // Register a parse resume location
+  rpc RegisterParseResumeLocation(ParseResumeLocationProto)
+      returns (RegisterResponse) {
+  }
+  // Analyze a SQL statement, return the resolved AST and an optional byte
+  // position if end of input is not yet reached.
+  rpc Analyze(AnalyzeRequest) returns (AnalyzeResponse) {
+  }
+  // Validate statement and extract table names.
+  rpc ExtractTableNamesFromStatement(ExtractTableNamesFromStatementRequest)
+      returns (ExtractTableNamesFromStatementResponse) {
+  }
+
+  // Validate statement, return table names and a byte offset of the next
+  // statement.
+  //
+  // Statements are separated by semicolons. A final semicolon is not required
+  // on the last statement. Whitespace between statements is ignored. Whitespace
+  // after that last semicolon is treated as a separate empty statement and
+  // would cause a parse error.
+  //
+  // Full text passed to this method does not need to be syntactically valid;
+  // only the current statement pointed by parse_resume_location should be
+  // parseable.
+  //
+  // Passing incorrect parse_resume_position (negative or pointing outside
+  // input data) would result in a generic::internal error.
+  //
+  // If language options are not provided, the parser would use a default
+  // LanguageOptions object. Refer to the LanguageOptions class definition
+  // for the exact implementation details.
+  //
+  // Client can detect that there's no more SQL statements to parse
+  // by comparing this byte offset to the overall input length
+  // (similar to Analyze method)
+  //
+  // After a parse error, parse_resume_location is not available; it's up
+  // to client to try and recover from parse errors.
+  //
+  // Unsupported statements (e.g. SET statements from F1 dialect) are treated
+  // as parse errors.
+  //
+  // Note: statements are handled by ParseNextStatement function.
+  // Documentation on that function is the source of truth on the behavior.
+  //
+  rpc ExtractTableNamesFromNextStatement(
+      ExtractTableNamesFromNextStatementRequest)
+      returns (ExtractTableNamesFromNextStatementResponse) {
+  }
+  // Format a SQL statement (see also (broken link))
+  rpc FormatSql(FormatSqlRequest) returns (FormatSqlResponse) {
+  }
+  // Format a SQL statement using the new lenient_formatter.h
+  rpc LenientFormatSql(FormatSqlRequest) returns (FormatSqlResponse) {
+  }
+  // Cleanup a registered catalog.
+  rpc UnregisterCatalog(UnregisterRequest) returns (google.protobuf.Empty) {
+  }
+  // Cleanup a registered parse resume location.
+  rpc UnregisterParseResumeLocation(UnregisterRequest)
+      returns (google.protobuf.Empty) {
+  }
+  // Get ZetaSQL builtin functions specified by given options.
+  rpc GetBuiltinFunctions(ZetaSQLBuiltinFunctionOptionsProto)
+      returns (GetBuiltinFunctionsResponse) {
+  }
+  // Add SimpleTable
+  rpc AddSimpleTable(AddSimpleTableRequest) returns (google.protobuf.Empty) {
+  }
+  // Gets ZetaSQL lanauge options.
+  rpc GetLanguageOptions(LanguageOptionsRequest)
+      returns (LanguageOptionsProto) {
+  }
+}
+
+message PrepareRequest {
+  optional string sql = 1;
+  optional AnalyzerOptionsProto options = 2;
+  // Serialized descriptor pools of all types in the request.
+  repeated google.protobuf.FileDescriptorSet file_descriptor_set = 3;
+}
+
+message PrepareResponse {
+  optional int64 prepared_expression_id = 1;
+  optional TypeProto output_type = 2;
+  // No file_descriptor_set returned. Use the same descriptor pools as sent in
+  // the request deserialize the type.
+}
+
+message EvaluateRequest {
+  optional string sql = 1;
+
+  message Parameter {
+    optional string name = 1;
+    optional ValueProto value = 2;
+    optional TypeProto type = 3;
+  }
+
+  repeated Parameter columns = 2;
+  repeated Parameter params = 3;
+  // Serialized descriptor pools of all types in the request.
+  repeated google.protobuf.FileDescriptorSet file_descriptor_set = 4;
+  // Set if the expression is already prepared, in which case sql and
+  // file_descriptor_set will be ignored.
+  optional int64 prepared_expression_id = 5;
+}
+
+message EvaluateResponse {
+  optional ValueProto value = 1;
+  optional TypeProto type = 2;
+  optional int64 prepared_expression_id = 3;
+}
+
+message UnprepareRequest {
+  optional int64 prepared_expression_id = 1;
+}
+
+message TableFromProtoRequest {
+  optional ProtoTypeProto proto = 1;
+  optional google.protobuf.FileDescriptorSet file_descriptor_set = 2;
+}
+
+message RegisteredParseResumeLocationProto {
+  optional int64 registered_id = 1;
+  optional int32 byte_position = 2;
+}
+
+message AnalyzeRequest {
+  optional AnalyzerOptionsProto options = 1;
+  optional SimpleCatalogProto simple_catalog = 2;
+  repeated google.protobuf.FileDescriptorSet file_descriptor_set = 3;
+  // Set if using a registered catalog, in which case simple_catalog and
+  // file_descriptor_set will be ignored.
+  optional int64 registered_catalog_id = 4;
+
+  oneof target {
+    // Single statement.
+    string sql_statement = 5;
+    // Multiple statement.
+    ParseResumeLocationProto parse_resume_location = 6;
+    // Set if using a registered parse resume location.
+    RegisteredParseResumeLocationProto registered_parse_resume_location = 7;
+  }
+}
+
+message AnalyzeResponse {
+  oneof result {
+    AnyResolvedStatementProto resolved_statement = 1;
+  }
+  // Set only if the request had parse_resume_location.
+  optional int32 resume_byte_position = 2;
+}
+
+message ExtractTableNamesFromStatementRequest {
+  optional string sql_statement = 1;
+}
+
+message ExtractTableNamesFromStatementResponse {
+  repeated TableName table_name = 1;
+
+  message TableName {
+    repeated string table_name_segment = 1;
+  }
+}
+
+message ExtractTableNamesFromNextStatementRequest {
+  required ParseResumeLocationProto parse_resume_location = 1;
+
+  // If language options are not provided, the parser would use a default
+  // LanguageOptions object. Refer to the LanguageOptions class definition
+  // for the exact implementation details.
+  //
+  // Note that There may be untrivial differences between providing an empty
+  // options/ field and not providing one which depending on the
+  // LanguageOptions implementation details.
+  //
+  // The current implementation of the LanguageOptions class has default value
+  // of supported_statement_kinds set to {RESOLVED_QUERY_STMT}. This means that
+  // if you don't provide any options, then you're limited to this one
+  // kind of statement. If you provide an empty options proto, you're
+  // explicitly setting supported_statement_kinds to an empty set,
+  // allowing all types of statements.
+  //
+  // See LanguageOptions::SupportsStatementKind and
+  // LanguageOptions::supported_statement_kinds_ definitions for the source of
+  // truth on this example.
+  optional LanguageOptionsProto options = 2;
+}
+
+message ExtractTableNamesFromNextStatementResponse {
+  message TableName {
+    repeated string table_name_segment = 1;
+  }
+
+  repeated TableName table_name = 1;
+  optional int32 resume_byte_position = 2;
+}
+
+message FormatSqlRequest {
+  optional string sql = 1;
+}
+
+message FormatSqlResponse {
+  optional string sql = 1;
+}
+
+message RegisterCatalogRequest {
+  optional SimpleCatalogProto simple_catalog = 1;
+  repeated google.protobuf.FileDescriptorSet file_descriptor_set = 2;
+}
+
+message RegisterResponse {
+  optional int64 registered_id = 1;
+}
+
+message UnregisterRequest {
+  optional int64 registered_id = 1;
+}
+
+message GetBuiltinFunctionsResponse {
+  repeated FunctionProto function = 1;
+  // No file_descriptor_set returned. For now, only Datetime functions
+  // have arguments of enum type which need to be added manually when
+  // deserializing.
+}
+
+message AddSimpleTableRequest {
+  optional int64 registered_catalog_id = 1;
+  optional SimpleTableProto table = 2;
+  repeated google.protobuf.FileDescriptorSet file_descriptor_set = 3;
+}
+
+message LanguageOptionsRequest {
+  optional bool maximum_features = 1;
+  optional LanguageVersion language_version = 2;
+}

@@ -1,0 +1,158 @@
+//
+// Copyright 2019 ZetaSQL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+syntax = "proto2";
+
+package zetasql;
+
+option java_package = "com.google.zetasql";
+option java_outer_classname = "FunctionProtos";
+
+// Public enum and message definitions.
+import "zetasql/public/deprecation_warning.proto";
+import "zetasql/public/function.proto";
+import "zetasql/public/options.proto";
+import "zetasql/public/parse_location_range.proto";
+import "zetasql/public/parse_resume_location.proto";
+import "zetasql/public/type.proto";
+import "zetasql/resolved_ast/serialization.proto";
+
+// Wire format of Function related messages, these shouldn't be exposed to end
+// users normally.
+
+message TVFRelationColumnProto {
+  optional string name = 1;
+  optional TypeProto type = 2;
+  optional bool is_pseudo_column = 3;
+  // Store the parse location ranges for column name and type.
+  optional ParseLocationRangeProto name_parse_location_range = 4;
+  optional ParseLocationRangeProto type_parse_location_range = 5;
+}
+
+message TVFRelationProto {
+  repeated TVFRelationColumnProto column = 1;
+  optional bool is_value_table = 2 [default = false];
+}
+
+message TVFModelProto {
+  optional string name = 1;
+  optional string full_name = 2;
+}
+
+// The fields in here are in FunctionArgumentTypeOptions in the c++ API.
+message FunctionArgumentTypeOptionsProto {
+  optional FunctionEnums.ArgumentCardinality cardinality = 1;
+  optional bool must_be_constant = 2;
+  optional bool must_be_non_null = 3;
+  optional bool is_not_aggregate = 4;
+  optional bool must_support_equality = 5;
+  optional bool must_support_ordering = 6;
+  optional int64 min_value = 7;
+  optional int64 max_value = 8;
+  optional bool extra_relation_input_columns_allowed = 9;
+  optional TVFRelationProto relation_input_schema = 10;
+  optional string argument_name = 11;
+  optional ParseLocationRangeProto argument_name_parse_location = 12;
+  optional ParseLocationRangeProto argument_type_parse_location = 13;
+  optional FunctionEnums.ProcedureArgumentMode procedure_argument_mode = 14;
+}
+
+message FunctionArgumentTypeProto {
+  optional SignatureArgumentKind kind = 1;
+  optional TypeProto type = 2;
+  optional int32 num_occurrences = 4;
+
+  optional FunctionArgumentTypeOptionsProto options = 3;
+}
+
+message FunctionSignatureOptionsProto {
+  // optional uint64 timestamp_modes = 1;  bitset<TimestampMode>
+  optional bool is_deprecated = 2 [default = false];
+  repeated FreestandingDeprecationWarning additional_deprecation_warning = 3;
+}
+
+message FunctionSignatureProto {
+  repeated FunctionArgumentTypeProto argument = 1;
+  optional FunctionArgumentTypeProto return_type = 2;
+  optional int64 context_id = 3;
+  optional FunctionSignatureOptionsProto options = 4;
+}
+
+message FunctionOptionsProto {
+  optional bool supports_over_clause = 1 [default = false];
+  optional FunctionEnums.WindowOrderSupport window_ordering_support = 2
+      [default = ORDER_UNSUPPORTED];
+  optional bool supports_window_framing = 3 [default = false];
+  optional bool arguments_are_coercible = 4 [default = true];
+  optional bool is_deprecated = 5 [default = false];
+  optional string alias_name = 6;
+  optional string sql_name = 7;
+  optional bool allow_external_usage = 8 [default = true];
+  optional FunctionEnums.Volatility volatility = 9 [default = IMMUTABLE];
+  optional bool supports_order_by = 10 [default = false];
+  repeated LanguageFeature required_language_feature = 11;
+  optional bool supports_limit = 12 [default = false];
+  optional bool supports_null_handling_modifier = 13 [default = false];
+  optional bool supports_safe_error_mode = 14 [default = true];
+  optional bool supports_having_modifier = 15 [default = true];
+  optional bool uses_upper_case_sql_name = 17 [default = true];
+}
+
+message FunctionProto {
+  repeated string name_path = 1;
+  optional string group = 2;
+  optional FunctionEnums.Mode mode = 3;
+  repeated FunctionSignatureProto signature = 4;
+  optional FunctionOptionsProto options = 5;
+  optional ParseResumeLocationProto parse_resume_location = 8;
+  repeated string templated_sql_function_argument_name = 7;
+}
+
+message ResolvedFunctionCallInfoProto {
+  // Nothing in here for now.
+  // TODO: add extra fields in here for derived context objects.
+}
+
+message TableValuedFunctionProto {
+  repeated string name_path = 1;
+  optional FunctionSignatureProto signature = 2;
+  optional FunctionEnums.TableValuedFunctionType type = 3;
+  optional FunctionEnums.Volatility volatility = 8;
+  optional ParseResumeLocationProto parse_resume_location = 6;
+  repeated string argument_name = 5;
+  optional string custom_context = 7;
+}
+
+message TVFArgumentProto {
+  optional ValueWithTypeProto scalar_argument = 1;
+  optional TVFRelationProto relation_argument = 2;
+  optional TVFModelProto model_argument = 3;
+}
+
+message TVFSignatureOptionsProto {
+  repeated FreestandingDeprecationWarning additional_deprecation_warning = 1;
+}
+
+message TVFSignatureProto {
+  repeated TVFArgumentProto argument = 1;
+  optional TVFRelationProto output_schema = 2;
+  optional TVFSignatureOptionsProto options = 3;
+}
+
+message ProcedureProto {
+  repeated string name_path = 1;
+  optional FunctionSignatureProto signature = 2;
+}

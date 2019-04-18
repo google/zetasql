@@ -1,0 +1,45 @@
+//
+// Copyright 2019 ZetaSQL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+syntax = "proto2";
+
+package zetasql;
+
+import "zetasql/public/type.proto";
+
+option java_package = "com.google.zetasql";
+option java_outer_classname = "SimpleTableProtos";
+
+message SimpleTableProto {
+  optional string name = 1;
+  optional int64 serialization_id = 2;
+  optional bool is_value_table = 3;
+  repeated SimpleColumnProto column = 4;
+  // Alias name of the table when it is added to the parent catalog.  This is
+  // only set when the Table is added to the Catalog using a different name
+  // than the Table's name.  This name is not part of the SimpleTable, but
+  // will be used as the Table's name in the Catalog.
+  optional string name_in_catalog = 5;
+  optional bool allow_anonymous_column_name = 6;
+  optional bool allow_duplicate_column_names = 7;
+}
+
+message SimpleColumnProto {
+  optional string name = 1;
+  optional TypeProto type = 2;
+  optional bool is_pseudo_column = 3;
+  optional bool is_writable_column = 4 [default = true];
+}

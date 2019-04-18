@@ -1,0 +1,503 @@
+//
+// Copyright 2019 ZetaSQL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+#ifndef ZETASQL_PUBLIC_ID_STRING_H_
+#define ZETASQL_PUBLIC_ID_STRING_H_
+
+#include <stddef.h>
+#include <string.h>
+#include <algorithm>
+#include <iosfwd>
+#include <memory>
+#include <new>
+#include <set>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
+#include "zetasql/base/arena.h"
+#include "absl/base/attributes.h"
+#include "absl/base/thread_annotations.h"
+#include "absl/strings/ascii.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
+#include "absl/synchronization/mutex.h"
+#include "zetasql/base/endian.h"
+
+namespace zetasql {
+
+class IdStringPool;
+
+// An IdString is an immutable std::string that supports cheap copying and
+// assignment.  It is intended primarily to store identifiers. Like
+// absl::string_view, it should preferably be passed by value.
+//
+// This class is meant to replace the standard std::string class, so its interface
+// is a subset of the basic_string interface.
+//
+// IdStrings are allocated in an IdStringPool, using
+//   IdStringPool id_string_pool;
+//   IdString str = id_string_pool.Make("value");
+//
+// IMPORTANT: The IdString contents (**and any copies of it**) are valid for
+// the lifetime of the IdStringPool.  Think of copying an IdString like copying
+// a absl::string_view - the IdString itself is a reference to a std::string stored
+// inside an IdStringPool.
+//
+// There is also a global pool IdStringPool::Global that can be used to
+// allocate static IdStrings (which will never be cleaned up).
+// Use IdString::MakeGlobal as a shorthand.
+class IdString {
+ public:
+  // Create an empty std::string.
+  IdString() : IdString(*kEmptyString) {}
+
+  // Create an IdString in the global IdStringPool.  Memory will never be freed.
+  static IdString MakeGlobal(absl::string_view str);
+
+  void clear() { *this = *kEmptyString; }
+
+  char operator[](size_t pos) const { CheckAlive(); return value_->str[pos]; }
+
+  bool empty() const { CheckAlive(); return value_->str.empty(); }
+  size_t size() const {
+    CheckAlive();
+    return value_->str.size();
+  }
+  size_t length() const {
+    CheckAlive();
+    return value_->str.length();
+  }
+
+  const char* data() const { CheckAlive(); return value_->str.data(); }
+
+  std::string substr(size_t start, size_t count) const {
+    CheckAlive();
+    return std::string(value_->str).substr(start, count);
+  }
+
+  size_t copy(char* s, size_t len, size_t pos = 0) const {
+    CheckAlive();
+    return std::string(value_->str).copy(s, len, pos);
+  }
+
+  // Convert to a std::string.  This requires copying the value.
+  std::string ToString() const { CheckAlive();
+    return std::string(value_->str);
+  }
+
+  // Convert to a string_view.  This is a cheap operation.
+  absl::string_view ToStringView() const {
+    CheckAlive();
+    return value_->str;
+  }
+
+  bool Equals(IdString other) const {
+    CheckAlive();
+    other.CheckAlive();
+    if (value_ == other.value_) return true;
+    if (size() != other.size()) return false;
+    const int64_t* str_words = reinterpret_cast<const int64_t*>(value_->str.data());
+    const int64_t* other_str_words =
+        reinterpret_cast<const int64_t*>(other.value_->str.data());
+    return WordsEqual(str_words, other_str_words, value_->size_words);
+  }
+
+  bool LessThan(IdString other) const {
+    CheckAlive();
+    other.CheckAlive();
+    if (value_ == other.value_) return false;
+    const int64_t* str_words = reinterpret_cast<const int64_t*>(value_->str.data());
+    const int64_t* other_str_words =
+        reinterpret_cast<const int64_t*>(other.value_->str.data());
+    int64_t min_size_words =
+        std::min(value_->size_words, other.value_->size_words);
+    for (int i = 0; i < min_size_words; ++i) {
+      if (str_words[i] != other_str_words[i]) {
+        // Compare partial word using big-endian integer comparison. This is
+        // faster than a byte-by-byte comparison.
+        return zetasql_base::ghtonll(str_words[i]) < zetasql_base::ghtonll(other_str_words[i]);
+      }
+    }
+    return value_->str.size() < other.value_->str.size();
+  }
+
+  // Case-insensitive std::string equality.
+  bool CaseEquals(IdString other) const {
+    CheckAlive();
+    other.CheckAlive();
+    if (value_ == other.value_) return true;
+    if (size() != other.size()) return false;
+    const int64_t* str_words =
+        reinterpret_cast<const int64_t*>(value_->str_lower.data());
+    const int64_t* other_str_words =
+        reinterpret_cast<const int64_t*>(other.value_->str_lower.data());
+    return WordsEqual(str_words, other_str_words, value_->size_words);
+    return true;
+  }
+
+  // Case-insensitive version of LessThan.
+  bool CaseLessThan(IdString other) const {
+    CheckAlive();
+    other.CheckAlive();
+    if (value_ == other.value_) return false;
+    const int64_t* str_words =
+        reinterpret_cast<const int64_t*>(value_->str_lower.data());
+    const int64_t* other_str_words =
+        reinterpret_cast<const int64_t*>(other.value_->str_lower.data());
+    int64_t min_size_words =
+        std::min(value_->size_words, other.value_->size_words);
+    for (int i = 0; i < min_size_words; ++i) {
+      if (str_words[i] != other_str_words[i]) {
+        // Compare partial word using big-endian integer comparison. This is
+        // faster than a byte-by-byte comparison.
+        return zetasql_base::ghtonll(str_words[i]) < zetasql_base::ghtonll(other_str_words[i]);
+      }
+    }
+    return value_->str_lower.size() < other.value_->str_lower.size();
+  }
+
+  // Make a new IdString with the lower-cased value of this.
+  IdString ToLower(IdStringPool* pool) const;
+
+  // Return a hash value for this std::string.
+  // The hash value will be computed once and memoized.
+  // Use like: hash_set<IdString, IdStringHash>.
+  size_t Hash() const { CheckAlive(); return value_->Hash(); }
+
+  // Return a hash value for this std::string suitable for a case-insensitive hash
+  // table.  The hash value will be computed once and memoized.
+  // Use like: hash_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>.
+  size_t HashCase() const { CheckAlive(); return value_->HashCase(); }
+
+  // Check if this IdString is still alive, i.e. its IdStringPool has not
+  // been destructed. Crash if not.
+  // This is a no-op in non-debug mode.
+  void CheckAlive() const;
+
+ private:
+  struct Shared {
+    // <sp_lower> must be the lowercased version of <sp>. <size_words> must be
+    // the size of 'sp' and 'sp_lower', rounded up to a multiple of 8 bytes.
+    Shared(const absl::string_view sp, const absl::string_view sp_lower,
+           int64_t size_words)
+        : str(sp), str_lower(sp_lower), size_words(size_words) {}
+    Shared(const Shared&) = delete;
+    Shared& operator=(const Shared&) = delete;
+
+    // Case sensitive hash.
+    size_t Hash() const {
+      // This double-checked locking is threadsafe because hash_ is an
+      // atomic value that can only be overwritten by an identical value.
+      size_t h = hash_;
+      if (h == 0) {
+        h = std::hash<std::string>()(std::string(str));
+        hash_ = h;
+      }
+      return h;
+    }
+
+    // Case insensitive hash.
+    size_t HashCase() const {
+      // This double-checked locking is threadsafe because hash_ is an
+      // atomic value that can only be overwritten by an identical value.
+      size_t h = hash_case_;
+      if (h == 0) {
+        h = std::hash<std::string>()(std::string(str_lower));
+        hash_case_ = h;
+      }
+      return h;
+    }
+
+    // The contents of this IdString::Shared. Guaranteed to be 8-byte aligned.
+    // The last 8-byte word is padded with zeros (not included in the
+    // string_view).
+    const absl::string_view str;
+
+    // Lowercase version of <str>. Guaranteed to be 8-byte aligned.
+    // The last 8-byte word is padded with zeros (not included in the
+    // string_view).
+    const absl::string_view str_lower;
+
+    // Size of 'str' and 'str_lower' in 64-bit words, rounded up.
+    const int64_t size_words;
+
+   private:
+    // Hash of <str>.
+    mutable size_t hash_ = 0;
+
+    // Hash of <str_lower>.
+    mutable size_t hash_case_ = 0;
+  };
+
+  // Returns true if the first num_words values pointed to by 'lhs' and 'rhs'
+  // are equal.
+  static bool WordsEqual(const int64_t* lhs, const int64_t* rhs, int64_t num_words) {
+    switch (num_words) {
+      case 1:
+        return lhs[0] == rhs[0];
+      case 2:
+        return lhs[0] == rhs[0] && lhs[1] == rhs[1];
+      case 3:
+        return lhs[0] == rhs[0] && lhs[1] == rhs[1] && lhs[2] == rhs[2];
+      default:
+        for (int i = 0; i < num_words; ++i) {
+          if (lhs[i] != rhs[i]) {
+            return false;
+          }
+        }
+        return true;
+    }
+  }
+
+  const Shared* value_;
+#ifndef NDEBUG
+  // In debug mode only, we track which IdStringPool this std::string is allocated
+  // in so we check that IdStrings are not used after the pool is destroyed.
+  int64_t pool_id_;
+#endif
+
+  static const IdString* const kEmptyString;
+
+#ifndef NDEBUG
+  explicit IdString(const Shared* shared, int64_t pool_id)
+      : value_(shared), pool_id_(pool_id) {}
+#else
+  explicit IdString(const Shared* shared)
+      : value_(shared) {}
+#endif
+
+  friend class IdStringPool;
+  // Copyable.
+};
+
+// Use this to make static global (or local) constant IdStrings.
+// The strings will be allocated in the static global IdStringPool.
+// Example:
+//   STATIC_IDSTRING(kSomeString, "SOME_STRING");
+//   IdString s = kSomeString;
+#define STATIC_IDSTRING(name, value) \
+  static const ::zetasql::IdString& name = \
+      *new ::zetasql::IdString(::zetasql::IdString::MakeGlobal((value)));
+
+inline std::ostream& operator<<(std::ostream& os, IdString id) {
+  return os << id.ToStringView();
+}
+
+inline bool operator==(IdString a, IdString b) {
+  return a.Equals(b);
+}
+
+inline bool operator<(IdString a, IdString b) {
+  return a.LessThan(b);
+}
+
+// Comparator for map or set.
+struct IdStringCaseLess {
+  bool operator()(IdString a, IdString b) const {
+    return a.CaseLessThan(b);
+  }
+};
+
+// Compare two IdStrings case insensitively.
+inline bool IdStringCaseEqual(IdString a, IdString b) {
+  return a.CaseEquals(b);
+}
+
+// Helper for use in absl::StrJoin to format a vector of IdStrings.
+inline void IdStringFormatter(std::string* out, IdString str) {
+  absl::StrAppend(out, str.ToStringView());
+}
+
+struct IdStringHash {
+  size_t operator()(IdString str) const {
+    return str.Hash();
+  }
+};
+struct IdStringCaseHash {
+  size_t operator()(IdString str) const {
+    return str.HashCase();
+  }
+};
+struct IdStringCaseEqualFunc {
+  bool operator()(IdString a, IdString b) const {
+    return IdStringCaseEqual(a, b);
+  }
+};
+
+// Case-sensitive equality.
+struct IdStringEqualFunc {
+  bool operator()(IdString a, IdString b) const {
+    return a.Equals(b);
+  }
+};
+
+template <class KeyEqual>
+bool IdStringVectorHasPrefix(const std::vector<IdString>& original_idstrings,
+                             const std::vector<IdString>& prefix_idstrings) {
+  if (prefix_idstrings.size() > original_idstrings.size()) {
+    return false;
+  }
+  for (int idx = 0; idx < prefix_idstrings.size(); ++idx) {
+    if (!KeyEqual()(original_idstrings[idx], prefix_idstrings[idx])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+#ifndef SWIG
+
+// Typedef for IdStringSetCase, a case insensitive ordered set of IdString.
+using IdStringSetCase = std::set<IdString, IdStringCaseLess>;
+
+// Typedef for IdStringHashSetCase, a case insensitive hash set of IdString.
+using IdStringHashSetCase =
+    std::unordered_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>;
+
+// Typedef for IdStringHashMapCase<VALUE>, a case insensitive hash map of
+// IdString -> VALUE.
+template <class VALUE>
+using IdStringHashMapCase =
+    std::unordered_map<IdString, VALUE,
+                       IdStringCaseHash, IdStringCaseEqualFunc>;
+
+#endif  // SWIG
+
+// An IdStringPool is used to allocate IdStrings and manage their lifetimes.
+// All IdString values (and any copies made of them) are valid for the
+// lifetime of the IdStringPool.
+//
+// In debug mode, accessing an IdString after its IdStringPool has been
+// deleted will be caught and will crash.
+//
+// IdStringPool is not thread-safe.  The returned IdStrings are thread-safe to
+// read and copy.
+//
+// TODO Consider variants, like an interning IdStringPool.
+class IdStringPool {
+ public:
+  // Pass 'arena' to use an existing arena.
+  IdStringPool();
+  explicit IdStringPool(const std::shared_ptr<zetasql_base::UnsafeArena>& arena);
+#ifndef SWIG
+  IdStringPool(const IdStringPool&) = delete;
+  IdStringPool& operator=(const IdStringPool&) = delete;
+#endif  // SWIG
+  ~IdStringPool();
+
+  // Make an IdString with contents allocated in this pool.
+  IdString Make(absl::string_view str) {
+#ifndef NDEBUG
+    return IdString(MakeShared(str), pool_id_);
+#else
+    return IdString(MakeShared(str));
+#endif
+  }
+
+  // Create an IdString in the global IdStringPool.  Memory will never be freed.
+  // This function is thread safe.
+  static IdString MakeGlobal(absl::string_view str);
+
+ private:
+  // Make an IdString::Shared for <str>, allocated in the arena.
+  const IdString::Shared* MakeShared(absl::string_view str) {
+    static_assert(sizeof(IdString::Shared) % sizeof(int64_t) == 0,
+                  "sizeof(IdString::Shared) must be a multiple of 8 bytes");
+
+    // The stored strings are padded to a multiple of 8 bytes so that we can
+    // use word-based algorithms on them.
+    const int64_t padded_size = (str.size() + 7) & ~7;
+    const int64_t padded_size_words = padded_size / sizeof(int64_t);
+
+    // Allocate everything in one arena allocation, because arena allocations
+    // are still not cheap.
+    char* shared_buf = static_cast<char*>(arena_->AllocAligned(
+        sizeof(IdString::Shared) + padded_size * 2, sizeof(int64_t)));
+    char* string_buf = shared_buf + sizeof(IdString::Shared);
+    uint64_t* string_buf_words = reinterpret_cast<uint64_t*>(string_buf);
+
+    // Copy <str> twice, once in lowercase and once in original case. The
+    // lowercase version comes first, because it is used most frequently.
+    if (padded_size_words > 0) {
+      // For performance, set the entire last word to 0 before the memcpy
+      // instead of zeroing out the trailing bytes individually afterwards.
+      // Do this for both copies of the std::string.
+      string_buf_words[padded_size_words - 1] = 0;
+      string_buf_words[padded_size_words + padded_size_words - 1] = 0;
+    }
+    // Copy the original into the second part of the buffer first.
+    memcpy(string_buf_words + padded_size_words, str.data(), str.size());
+
+    // Create the lowercase version of the std::string in the first part of the
+    // buffer by copying from the second part.
+    for (int i = 0; i < str.size(); ++i) {
+      string_buf[i] = absl::ascii_tolower(string_buf[padded_size + i]);
+    }
+
+    absl::string_view copied_lower_str(string_buf, str.size());
+    absl::string_view copied_str(string_buf + padded_size, str.size());
+    const IdString::Shared* shared = new (shared_buf)
+        IdString::Shared(copied_str, copied_lower_str, padded_size_words);
+    return shared;
+  }
+
+  std::shared_ptr<zetasql_base::UnsafeArena> arena_;
+
+#ifndef NDEBUG
+  static absl::Mutex global_mutex_;
+
+  // Set of IdStringPools that are currently alive.  This is used so we
+  // can store a pool_id in each IdString in debug mode and check that
+  // we never access an IdString after its IdStringPool is gone.
+  static std::unordered_set<int64_t>* live_pool_ids_
+      GUARDED_BY(global_mutex_) PT_GUARDED_BY(global_mutex_);
+
+  static int64_t max_pool_id_ GUARDED_BY(global_mutex_);
+
+  static int64_t AllocatePoolId();
+
+  // Check that <pool_id> is still alive.  Crash if not.
+  static void CheckPoolIdAlive(int64_t pool_id);
+
+  // Unique identifier for this IdStringPool.  Used in live_pool_ids_.
+  const int64_t pool_id_;
+#endif
+
+  friend IdString;
+};
+
+inline IdString IdStringPool::MakeGlobal(absl::string_view str) {
+  static IdStringPool* global_pool = new IdStringPool;
+  static absl::Mutex global_pool_mutex;
+  absl::MutexLock lock(&global_pool_mutex);
+  return global_pool->Make(str);
+}
+
+inline IdString IdString::MakeGlobal(absl::string_view str) {
+  return IdStringPool::MakeGlobal(str);
+}
+
+inline void IdString::CheckAlive() const {
+#ifndef NDEBUG
+  IdStringPool::CheckPoolIdAlive(pool_id_);
+#endif
+}
+
+}  // namespace zetasql
+
+#endif  // ZETASQL_PUBLIC_ID_STRING_H_

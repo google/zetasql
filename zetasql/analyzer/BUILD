@@ -1,0 +1,136 @@
+#
+# Copyright 2019 ZetaSQL Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+package(
+    default_visibility = ["//zetasql:__subpackages__"],
+)
+
+cc_library(
+    name = "analyzer",
+    srcs = [
+        "analytic_function_resolver.cc",
+        "analyzer.cc",
+        "column_cycle_detector.cc",
+        "expr_resolver_helper.cc",
+        "function_resolver.cc",
+        "literal_remover.cc",
+        "name_scope.cc",
+        "query_resolver_helper.cc",
+        "resolver.cc",
+        "resolver_common_inl.h",
+        "resolver_dml.cc",
+        "resolver_expr.cc",
+        "resolver_query.cc",
+        "resolver_stmt.cc",
+        "table_name_resolver.cc",
+    ],
+    hdrs = [
+        "analytic_function_resolver.h",
+        "column_cycle_detector.h",
+        "expr_resolver_helper.h",
+        "function_resolver.h",
+        "name_scope.h",
+        "query_resolver_helper.h",
+        "resolver.h",
+        "table_name_resolver.h",
+        "//zetasql/public:analyzer.h",
+    ],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "//zetasql/base",
+        "//zetasql/base:cleanup",
+        "//zetasql/base:map_util",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:source_location",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/base:string_numbers",
+        "//zetasql/common:errors",
+        "//zetasql/common:status_payload_utils",
+        "//zetasql/common:string_util",
+        "//zetasql/parser",
+        "//zetasql/proto:internal_error_location_cc_proto",
+        "//zetasql/proto:options_cc_proto",
+        "//zetasql/public:catalog",
+        "//zetasql/public:civil_time",
+        "//zetasql/public:coercer",
+        "//zetasql/public:constant",
+        "//zetasql/public:cycle_detector",
+        "//zetasql/public:deprecation_warning_cc_proto",
+        "//zetasql/public:error_location_cc_proto",
+        "//zetasql/public:function",
+        "//zetasql/public:function_cc_proto",
+        "//zetasql/public:id_string",
+        "//zetasql/public:language_options",
+        "//zetasql/public:numeric_value",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:parse_helpers",
+        "//zetasql/public:parse_location",
+        "//zetasql/public:parse_resume_location",
+        "//zetasql/public:signature_match_result",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/public:sql_function",
+        "//zetasql/public:strings",
+        "//zetasql/public:templated_sql_function",
+        "//zetasql/public:type",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/public/functions:convert_string",
+        "//zetasql/public/functions:date_time_util",
+        "//zetasql/public/functions:datetime_cc_proto",
+        "//zetasql/public/functions:normalize_mode_cc_proto",
+        "//zetasql/public/proto:type_annotation_cc_proto",
+        "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:make_node_vector",
+        "//zetasql/resolved_ast:resolved_ast_enums_cc_proto",
+        "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
+        "//zetasql/resolved_ast:validator",
+        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/container:node_hash_set",
+        "@com_google_absl//absl/hash",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:optional",
+        "@com_google_absl//absl/types:span",
+        "@com_google_absl//absl/types:variant",
+        "@com_google_googletest//:gtest",
+        "@com_google_protobuf//:cc_wkt_protos",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_test(
+    name = "resolver_test",
+    size = "small",
+    srcs = ["resolver_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":analyzer",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/parser",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
+        "//zetasql/testdata:error_catalog",
+        "//zetasql/testdata:sample_catalog",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+    ],
+)

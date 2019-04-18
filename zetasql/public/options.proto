@@ -1,0 +1,546 @@
+//
+// Copyright 2019 ZetaSQL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+syntax = "proto2";
+
+package zetasql;
+
+import "google/protobuf/descriptor.proto";
+
+option java_package = "com.google.zetasql";
+option java_outer_classname = "ZetaSQLOptions";
+
+// ZetaSQL language versions.
+// See (broken link) for more detail.
+//
+// A language version defines a stable set of features and required semantics.
+// LanguageVersion VERSION_x_y implicitly includes the LanguageFeatures below
+// named FEATURE_V_x_y_*.
+//
+// The features and behavior supported by an engine can be expressed as a
+// LanguageVersion plus a set of LanguageFeatures added on top of that version.
+//
+// New version numbers will be introduced periodically, and will normally
+// include the new features that have been specified up to that point.
+// Engines should move their version number forwards over time rather than
+// accumulating large sets of LanguageFeatures.
+//
+// LINT: LEGACY_NAMES
+enum LanguageVersion {
+  // All current features, including features that are not part of a frozen
+  // version.  For example, when v1.0 is the maximum released version number,
+  // this includes features that have been developed for v1.1.
+  // This does not include cross-version or experimental features.
+  // WARNING: Using this version means query behavior will change under you.
+  VERSION_CURRENT = 1;
+
+  VERSION_1_0 = 10000;  // Version 1.0, frozen January 2015.
+
+  VERSION_1_1 = 11000;  // Version 1.1, frozen February 2017.
+
+  VERSION_1_2 = 12000;  // Version 1.2, frozen January 2018.
+
+  VERSION_1_3 = 13000;  // Version 1.3.  New features are being added here.
+
+  // User code that switches on this enum must have a default case so
+  // builds won't break if new enums get added.
+  __LanguageVersion__switch_must_have_a_default__ = -1;
+}
+
+extend google.protobuf.EnumValueOptions {
+  // Only for use on LanguageFeature enum values.
+  optional LanguageFeatureOptions language_feature_options = 170219291;
+}
+
+// Annotations for LanguageFeature enum values. Only for consumption by
+// ZetaSQL code.
+//
+// LanguageOptions::EnableMaximumLanguageFeatures() enables all features with
+// 'ideally_enabled == true' and 'in_development == false'.
+//
+// LanguageOptions::EnableMaximumLanguageFeaturesForDevelopment() enables all
+// features with 'ideally_enabled == true'.
+message LanguageFeatureOptions {
+  // Indicates whether a feature is enabled in the idealized ZetaSQL. (One
+  // reason to disable a feature is if it exists only to support backwards
+  // compatibility with older ZetaSQL behavior.)
+  optional bool ideally_enabled = 1 [default = true];
+
+  // Indicates whether a feature is still undergoing development. Users should
+  // not enable features that are still in development, but internal ZetaSQL
+  // tests may do so.
+  optional bool in_development = 2 [default = false];
+}
+
+// The list of optional features that engines may or may not support.
+// Features can be opted into in AnalyzerOptions.
+//
+// There are three types of LanguageFeatures.
+// * Cross-version - Optional features that can be enabled orthogonally to
+//                   versioning.  Some engines will never implement these
+//                   features, and zetasql code will always support this
+//                   switch.
+// * Versioned - Features that describe behavior changes adopted as of some
+//               language version.  Eventually, all engines should support these
+//               features, and switches in the zetasql code (and tests)
+//               should eventually be removed.
+//               All of these, and only these, show up in VERSION_CURRENT.
+// * Experimental - Features not currently part of any language version.
+//
+// All optional features are off by default.  Some features have a negative
+// meaning, so turning them on will remove a feature or enable an error.
+enum LanguageFeature {
+  // CROSS-VERSION FEATURES
+  //
+  // These are features that can be opted into independently from versioning.
+  // Some features may disable operations that are normally allowed by default.
+  //
+  // These features should not change semantics, other than whether a feature
+  // is allowed or not.  Versioned options may further the behavior of these
+  // features, if they are enabled.  For example, an engine may choose to
+  // support DML, orthogonally to versioning.  If it supports DML, and
+  // specified semantics for DML may change over time, and the engine may use
+  // versioned options to choose DML behavior as of v1.0 or v1.1.
+
+  // Enable analytic functions.
+  // See (broken link).
+  FEATURE_ANALYTIC_FUNCTIONS = 1;
+
+  // Enable the TABLESAMPLE clause on scans.
+  // See (broken link).
+  FEATURE_TABLESAMPLE = 2;
+
+  // If enabled, give an error on GROUP BY, DISTINCT or set operations (other
+  // than UNION ALL) on floating point types. This feature is disabled in the
+  // idealized ZetaSQL (i.e. LanguageOptions::EnableMaximumLanguageFeatures)
+  // because enabling it turns off support for a feature that is normally on by
+  // default.
+  FEATURE_DISALLOW_GROUP_BY_FLOAT = 3
+      [(language_feature_options).ideally_enabled = false];
+
+  // If enabled, treats TIMESTAMP literal as 9 digits (nanos) precision.
+  // Otherwise TIMESTAMP has 6 digits (micros) precision.
+  // In general, a TIMESTAMP value has only 6 digits precision. This feature
+  // will only affect how a timestamp literal string is interpreted into a
+  // TIMESTAMP value. If enabled, a timestamp literal string can have up to 9
+  // digits of subseconds(nanos). Otherwise, it can only have up to 6 digits of
+  // subseconds (micros). 9 digits subsecond literal is not a valid timestamp
+  // string in the later case.
+  FEATURE_TIMESTAMP_NANOS = 5;
+
+  // Enable support for JOINs in UPDATE statements, see
+  // (broken link).
+  FEATURE_DML_UPDATE_WITH_JOIN = 6;
+
+  // Enable table-valued functions. For more information, see
+  // table_valued_functions.h.
+  FEATURE_TABLE_VALUED_FUNCTIONS = 8;
+
+  // This enables support for CREATE AGGREGATE FUNCTION.
+  FEATURE_CREATE_AGGREGATE_FUNCTION = 9;
+
+  // This enables support for CREATE TABLE FUNCTION.
+  // For more information, see (broken link).
+  FEATURE_CREATE_TABLE_FUNCTION = 10;
+
+  // This enables support for GROUP BY ROLLUP.
+  FEATURE_GROUP_BY_ROLLUP = 12;
+
+  // This enables support for creating and calling functions with templated
+  // argument types, using CREATE FUNCTION, CREATE AGGREGATE FUNCTION, or CREATE
+  // TABLE FUNCTION statements. For example, a function argument may be written
+  // as "argument ANY TYPE" to match against any scalar value. For more
+  // information, see (broken link).
+  FEATURE_TEMPLATE_FUNCTIONS = 13;
+
+  // Enables support for PARTITION BY with CREATE TABLE and CREATE TABLE AS.
+  // See (broken link).
+  FEATURE_CREATE_TABLE_PARTITION_BY = 14;
+
+  // Enables support for CLUSTER BY with CREATE TABLE and CREATE TABLE AS.
+  // See (broken link).
+  FEATURE_CREATE_TABLE_CLUSTER_BY = 15;
+
+  // NUMERIC type support, see (broken link).
+  FEATURE_NUMERIC_TYPE = 16;
+
+  // Enables support for NOT NULL annotation in CREATE TABLE.
+  // See comment on FEATURE_CREATE_TABLE_FIELD_ANNOTATIONS and
+  // (broken link) for details.
+  FEATURE_CREATE_TABLE_NOT_NULL = 17;
+
+  // Enables support for annotations (e.g., NOT NULL and OPTIONS()) for struct
+  // fields and array elements in CREATE TABLE.
+  // Does not affect table options or table column annotations.
+  //
+  // Example: Among the following queries
+  // Q1: CREATE TABLE t (c STRUCT<a INT64> NOT NULL)
+  // Q2: CREATE TABLE t (c STRUCT<a INT64 NOT NULL>)
+  // Q3: CREATE TABLE t (c STRUCT<a INT64> OPTIONS(foo=1))
+  // Q4: CREATE TABLE t (c STRUCT<a INT64 OPTIONS(foo=1)>)
+  // Q5: CREATE TABLE t (c STRUCT<a INT64 NOT NULL OPTIONS(foo=1)>)
+  //
+  // Allowed queries                  FEATURE_CREATE_TABLE_FIELD_ANNOTATIONS
+  //                                         =0               =1
+  // FEATURE_CREATE_TABLE_NOT_NULL=0        {Q3}           {Q3, Q4}
+  // FEATURE_CREATE_TABLE_NOT_NULL=1      {Q1, Q3}    {Q1, Q2, Q3, Q4, Q5}
+  //
+  // See (broken link).
+  FEATURE_CREATE_TABLE_FIELD_ANNOTATIONS = 18;
+
+  // Enables support for column definition list in CREATE TABLE AS SELECT.
+  // Example: CREATE TABLE t (x FLOAT64) AS SELECT 1 x
+  // The features in the column definition list are controlled by
+  // FEATURE_CREATE_TABLE_NOT_NULL and FEATURE_CREATE_TABLE_FIELD_ANNOTATIONS.
+  FEATURE_CREATE_TABLE_AS_SELECT_COLUMN_LIST = 19;
+
+  // Indicates that an engine that supports primary keys does not allow any
+  // primary key column to be NULL. Similarly, non-NULL primary key columns
+  // cannot have any NULL array elements or struct/proto fields anywhere inside
+  // them.
+  //
+  // Only interpreted by the compliance tests and the reference implementation
+  // (not the analyzer). It exists so that engines can disable tests for this
+  // atypical behavior without impacting their compliance ratios. It can never
+  // be totally enforced in the analyzer because the analyzer cannot evaluate
+  // expressions.
+  //
+  // TODO: When this feature is enabled, the reference implementation
+  // forbids NULL primary key columns, but it allows NULL array elements and
+  // NULL struct/proto fields. Change this behavior if we ever want to write
+  // compliance tests for these cases.
+  FEATURE_DISALLOW_NULL_PRIMARY_KEYS = 20
+      [(language_feature_options).ideally_enabled = false];
+
+  // Indicates that an engine that supports primary keys does not allow any
+  // primary key column to be modified with UPDATE.
+  //
+  // Only interpreted by the compliance tests and the reference implementation
+  // (not the analyzer) for now. It exists so that engines can disable tests for
+  // this atypical behavior without impacting their compliance ratios.
+  //
+  // TODO: Consider exposing information about primary keys to the
+  // analyzer and enforcing this feature there.
+  FEATURE_DISALLOW_PRIMARY_KEY_UPDATES = 21
+      [(language_feature_options).ideally_enabled = false];
+
+  // Enables support for the TABLESAMPLE clause applied to table-valued function
+  // calls. For more information about table-valued functions, please see
+  // table_valued_functions.h and (broken link).
+  FEATURE_TABLESAMPLE_FROM_TABLE_VALUED_FUNCTIONS = 22;
+
+  // Enable encryption- and decryption-related functions.
+  // See (broken link).
+  FEATURE_ENCRYPTION = 23;
+
+  // Geography type support per (broken link)
+  FEATURE_GEOGRAPHY = 25;
+
+  // Enables support for stratified TABLESAMPLE. For more information about
+  // stratified sampling, please see: (broken link).
+  FEATURE_STRATIFIED_RESERVOIR_TABLESAMPLE = 26;
+
+  // Enables foreign keys (see (broken link)).
+  FEATURE_FOREIGN_KEYS = 27;
+
+  // Enables BETWEEN function signatures for UINT64/INT64 comparisons.
+  FEATURE_BETWEEN_UINT64_INT64 = 28
+      [(language_feature_options).in_development = true];
+
+  // Enables check constraint (see (broken link)).
+  FEATURE_CHECK_CONSTRAINT = 29;
+
+  // Enables statement parameters in the GRANTEE list of GRANT, REVOKE, CREATE
+  // ROW POLICY, and ALTER ROW POLICY statements.
+  // TODO: The behavior of this feature is intended to become
+  // mandatory.  This is a temporary feature, that preserves existing
+  // behavior prior to engine migrations.  Once all engines have migrated,
+  // this feature will be deprecated/removed and the new behavior will be
+  // mandatory.
+  FEATURE_PARAMETERS_IN_GRANTEE_LIST = 30;
+
+  // Enables support for named arguments in function calls using a syntax like
+  // this: 'SELECT function(argname => 'value', otherarg => 42)'. Function
+  // arguments with associated names in the signature options may specify values
+  // by providing the argument name followed by an equals sign and greater than
+  // sign (=>) followed by a value for the argument. Function calls may include
+  // a mix of positional arguments and named arguments. The resolver will
+  // compare provided arguments against function signatures and handle signature
+  // matching appropriately. For more information, please refer to
+  // (broken link).
+  FEATURE_NAMED_ARGUMENTS = 31;
+
+  // -> Add more cross-version features here.
+  // -> DO NOT add more versioned features into versions that are frozen.
+  //    New features should be added for the *next* version number.
+
+  // VERSIONED FEATURES
+  // These are features or changes as of some version.
+  // Each should start with a prefix FEATURE_V_x_y_.  The feature will be
+  // included in the default set enabled for LanguageVersion VERSION_x_y.
+  //
+  // Features that will remain optional for compliance, and are not expected to
+  // be implemented in all engines, should be added as cross-version features
+  // (above) instead.
+  //
+  // Some versioned features may have dependencies and only make sense if
+  // other features are also enabled.  Dependencies should be commented here.
+
+  // Version 1.1 features
+  // * Frozen in February 2017.
+  // * Do not add new features here.
+
+  // Enable ORDER BY COLLATE.  See (broken link).
+  FEATURE_V_1_1_ORDER_BY_COLLATE = 11001;
+
+  // Enable WITH clause on subqueries.  Without this, WITH is allowed
+  // only at the top level.  The WITH subqueries still cannot be
+  // correlated subqueries.
+  FEATURE_V_1_1_WITH_ON_SUBQUERY = 11002;
+
+  // Enable the SELECT * EXCEPT and SELECT * REPLACE features.
+  // See (broken link).
+  FEATURE_V_1_1_SELECT_STAR_EXCEPT_REPLACE = 11003;
+
+  // Enable the ORDER BY in aggregate functions.
+  // See (broken link)
+  FEATURE_V_1_1_ORDER_BY_IN_AGGREGATE = 11004;
+
+  // Enable casting between different array types.
+  FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES = 11005;
+
+  // Enable comparing array equality.
+  FEATURE_V_1_1_ARRAY_EQUALITY = 11006;
+
+  // Enable LIMIT in aggregate functions.
+  FEATURE_V_1_1_LIMIT_IN_AGGREGATE = 11007;
+
+  // Enable HAVING modifier in aggregate functions.
+  FEATURE_V_1_1_HAVING_IN_AGGREGATE = 11008;
+
+  // Enable IGNORE/RESPECT NULLS modifier in analytic functions.
+  FEATURE_V_1_1_NULL_HANDLING_MODIFIER_IN_ANALYTIC = 11009;
+
+  // Enable IGNORE/RESPECT NULLS modifier in aggregate functions.
+  FEATURE_V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE = 11010;
+
+  // Enable FOR SYSTEM_TIME AS OF (time travel).
+  // See (broken link).
+  FEATURE_V_1_1_FOR_SYSTEM_TIME_AS_OF = 11011;
+
+  // Version 1.2 features
+  // * Frozen in January 2018.
+  // * Do not add new features here.
+
+  // Enable TIME and DATETIME types and related functions.
+  FEATURE_V_1_2_CIVIL_TIME = 12001;
+
+  // Enable SAFE mode function calls.  e.g. SAFE.FUNC(...) for FUNC(...).
+  // (broken link).
+  FEATURE_V_1_2_SAFE_FUNCTION_CALL = 12002;
+
+  // Enable support for GROUP BY STRUCT.
+  // DO NOT TURN ON. This feature is still in development.
+  // TODO: update the comment when this feature is ready.
+  FEATURE_V_1_2_GROUP_BY_STRUCT = 12003;
+
+  // Enable use of proto extensions with NEW.
+  FEATURE_V_1_2_PROTO_EXTENSIONS_WITH_NEW = 12004;
+
+  // Enable support for GROUP BY ARRAY.
+  FEATURE_V_1_2_GROUP_BY_ARRAY = 12005;
+
+  // Enable use of proto extensions with UPDATE ... SET.
+  FEATURE_V_1_2_PROTO_EXTENSIONS_WITH_SET = 12006;
+
+  // Allows nested DML statements to refer to names defined in the parent
+  // scopes. Without this, a nested DML statement can only refer to names
+  // created in the local statement - i.e. the array element.
+  // Examples that are allowed only with this option:
+  //   UPDATE Table t SET (UPDATE t.ArrayColumn elem SET elem = t.OtherColumn)
+  //   UPDATE Table t SET (DELETE t.ArrayColumn elem WHERE elem = t.OtherColumn)
+  //   UPDATE Table t SET (INSERT t.ArrayColumn VALUES (t.OtherColumn))
+  //   UPDATE Table t SET (INSERT t.ArrayColumn SELECT t.OtherColumn)
+  FEATURE_V_1_2_CORRELATED_REFS_IN_NESTED_DML = 12007;
+
+  // Enable use of WEEK(<Weekday>) with the functions that support it.
+  FEATURE_V_1_2_WEEK_WITH_WEEKDAY = 12008;
+
+  // Enable use of array element [] syntax in targets with UPDATE ... SET.
+  // For example, allow UPDATE T SET a.b[OFFSET(0)].c = 5.
+  FEATURE_V_1_2_ARRAY_ELEMENTS_WITH_SET = 12009;
+
+  // Enable nested updates/deletes of the form
+  // UPDATE/DELETE ... WITH OFFSET AS ... .
+  FEATURE_V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET = 12010;
+
+  // Enable Generated Columns on CREATE and ALTER TABLE statements.
+  // See (broken link).
+  FEATURE_V_1_2_GENERATED_COLUMNS = 12011;
+
+  // Version 1.3 features
+
+  // -> Add more versioned features here.
+  // -> Always update AnalyzerOptions::GetLanguageFeaturesForVersion
+  //    in ../common/language_options.cc.
+
+  // Enables support for the PROTO_DEFAULT_IF_NULL() function, see
+  // (broken link)
+  FEATURE_V_1_3_PROTO_DEFAULT_IF_NULL = 13001;
+
+  // Enables support for proto field pseudo-accessors in the EXTRACT function.
+  // For example, EXTRACT(FIELD(x) from foo) will extract the value of the field
+  // x defined in message foo. EXTRACT(HAS(x) from foo) will return a boolean
+  // denoting if x is set in foo or NULL if foo is NULL. EXTRACT(RAW(x) from
+  // foo) will get the value of x on the wire (i.e., without applying any
+  // FieldFormat.Format annotations or automatic conversions). If the field is
+  // missing, the default is always returned, which is NULL for message fields
+  // and the field default (either the explicit default or the default default)
+  // for primitive fields. If the containing message is NULL, NULL is returned.
+  // (broken link)
+  FEATURE_V_1_3_EXTRACT_FROM_PROTO = 13002;
+
+  // If enabled, the analyzer will return an error when attempting to check
+  // if a proto3 scalar field has been explicitly set (e.g.,
+  // proto3.has_scalar_field and EXTRACT(HAS(scalar_field) from proto3)). This
+  // is not allowed because proto3 does not generate has_ accessors for scalar
+  // fields.
+  FEATURE_V_1_3_DISALLOW_PROTO3_HAS_SCALAR_FIELD = 13003;
+
+  // Enable array ordering (and non-equality comparisons).  This enables
+  // arrays in the ORDER BY of a query, as well as in aggregate and analytic
+  // function arguments.  Also enables inequality comparisons between arrays
+  // (<, <=, >, >=).  This does not enable arrays for MIN/MAX/GREATEST/LEAST,
+  // since the semantics are not well defined over sets of arrays.
+  //
+  // Spec:  (broken link)
+  FEATURE_V_1_3_ARRAY_ORDERING = 13004;
+
+  // Allow omitting column and value lists in INSERT statement and INSERT clause
+  // of MERGE statement.
+  // Spec: (broken link)
+  FEATURE_V_1_3_OMIT_INSERT_COLUMN_LIST = 13005;
+
+  // EXPERIMENTAL FEATURES
+  // These are features supported in the code that are not currently part of
+  // officially supported ZetaSQL as of any version.
+  //
+  // An example:
+  // FEATURE_EXPERIMENTAL_DECIMAL_DATA_TYPES = 999001;
+  //
+  // -> Add more experimental features here.
+  //
+  // TODO: Retire the convention of FEATURE_EXPERIMENTAL_xxx features
+  // and just use the enum value annotations where appropriate.
+
+  // Enable ZetaSQL MODULES.  For an engine to fully opt into this feature,
+  // they must enable this feature flag and add support for the related
+  // StatementKinds: RESOLVED_IMPORT_STMT and RESOLVED_MODULE_STMT.
+  // See (broken link)
+  FEATURE_EXPERIMENTAL_MODULES = 999002
+      [(language_feature_options).in_development = true];
+
+  // These are not real features. They are just for unit testing the handling of
+  // various LanguageFeatureOptions.
+  FEATURE_TEST_IDEALLY_ENABLED_BUT_IN_DEVELOPMENT = 999991
+      [(language_feature_options).in_development = true];
+  FEATURE_TEST_IDEALLY_DISABLED = 999992
+      [(language_feature_options).ideally_enabled = false];
+  FEATURE_TEST_IDEALLY_DISABLED_AND_IN_DEVELOPMENT = 999993
+      [(language_feature_options) = {
+        ideally_enabled: false,
+        in_development: true
+      }];
+
+  // User code that switches on this enum must have a default case so
+  // builds won't break if new enums get added.
+  __LanguageFeature__switch_must_have_a_default__ = -1;
+}
+
+// This can be used to select strict name resolution mode.
+//
+// In strict mode, implicit column names cannot be used unqualified.
+// This ensures that existing queries will not be broken if additional
+// elements are added to the schema in the future.
+//
+// For example,
+//   SELECT c1, c2 FROM table1, table2;
+// is not legal in strict mode because another column could be added to one of
+// these tables, making the query ambiguous.  The query must be written
+// with aliases in strict mode:
+//   SELECT t1.c1, t2.c2 FROM table1 t1, table t2;
+//
+// SELECT * is also not allowed in strict mode because the number of output
+// columns may change.
+//
+// See (broken link) for full details.
+enum NameResolutionMode {
+  NAME_RESOLUTION_DEFAULT = 0;
+  NAME_RESOLUTION_STRICT = 1;
+}
+
+// This identifies whether ZetaSQL works in INTERNAL (inside Google) mode,
+// or in EXTERNAL (exposed to non-Googlers in the products such as Cloud).
+// See (broken link) for details.
+enum ProductMode {
+  PRODUCT_INTERNAL = 0;
+  PRODUCT_EXTERNAL = 1;
+}
+
+// This identifies whether statements are resolved in module context (i.e.,
+// as a statement contained in a module), or in normal/default context
+// (outside of a module).
+// See (broken link) for details about module context.
+enum StatementContext {
+  CONTEXT_DEFAULT = 0;
+  CONTEXT_MODULE = 1;
+}
+
+// Mode describing how errors should be constructed in the returned
+// util::Status.
+enum ErrorMessageMode {
+  // The error string does not contain a location.
+  // An ErrorLocation proto will be attached to the util::Status with
+  // a location, when applicable.
+  // See error_helpers.h for working with these payloads.
+  // See error_location.proto for how line and column are defined.
+  ERROR_MESSAGE_WITH_PAYLOAD = 0;
+
+  // The error string contains a suffix " [at <line>:<column>]" when an
+  // error location is available.
+  ERROR_MESSAGE_ONE_LINE = 1;
+
+  // The error string matches ERROR_MESSAGE_ONE_LINE, and also contains
+  // a second line with a substring of the input query, and a third line
+  // with a caret ("^") pointing at the error location above.
+  ERROR_MESSAGE_MULTI_LINE_WITH_CARET = 2;
+}
+
+// Mode describing how parameters are defined and referenced.
+enum ParameterMode {
+  // Parameters are defined by name (the default) and referenced using the
+  // syntax @param_name.
+  PARAMETER_NAMED = 0;
+
+  // Parameters are defined positionally and referenced with ?. For example, if
+  // two parameters are bound, the first occurrence of ? in the query string
+  // refers to the first parameter and the second occurrence to the second
+  // parameter.
+  PARAMETER_POSITIONAL = 1;
+
+  // No parameters are allowed in the query.
+  PARAMETER_NONE = 2;
+}

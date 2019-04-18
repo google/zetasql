@@ -1,0 +1,528 @@
+//
+// Copyright 2019 ZetaSQL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+// resolved_ast.h GENERATED FROM resolved_ast.h.template
+#ifndef ZETASQL_RESOLVED_AST_RESOLVED_AST_H_
+#define ZETASQL_RESOLVED_AST_RESOLVED_AST_H_
+
+#include <atomic>
+#include <memory>
+#include <vector>
+
+#include "google/protobuf/descriptor.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/constant.h"
+#include "zetasql/public/function.h"
+#include "zetasql/public/procedure.h"
+#include "zetasql/public/table_valued_function.h"
+#include "zetasql/public/type.h"
+#include "zetasql/public/type_annotation.pb.h"
+#include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/resolved_ast.pb.h"
+#include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
+#include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node.h"
+#include "zetasql/resolved_ast/resolved_node_kind.h"
+#include "zetasql/base/status.h"
+#include "zetasql/base/statusor.h"
+
+namespace zetasql {
+
+class ResolvedASTVisitor;
+
+# for node in nodes
+class {{node.name}};
+# endfor
+
+# for node in nodes
+# if node.comment
+{{node.comment}}
+# endif
+class {{node.name}} {{node.class_final}} : public {{node.parent}} {
+ public:
+  typedef {{node.parent}} SUPER;
+
+# if not node.is_abstract
+  static const ResolvedNodeKind TYPE = {{node.enum_name}};
+
+# else
+  // Number of leaf node types that exist as descendants of this abstract type.
+  static const int NUM_DESCENDANT_LEAF_TYPES = {{node.num_descendant_leaf_types}};
+
+# endif
+# if node.extra_defs
+{{node.extra_defs}}
+
+# endif
+
+{# Zero-arg constructor/free function #}
+# if node.emit_default_constructor
+ # if not node.is_abstract
+  friend std::unique_ptr<{{node.name}}> Make{{node.name}}();
+ # endif
+
+ # if not node.is_abstract
+ protected:
+ # endif
+  {# Zero-arg constructor #}
+  {{node.name}}()
+      : {{node.parent}}()
+# for field in node.fields
+      , {{field.member_name}}()
+# endfor
+  {}
+ public:
+
+  {{node.name}}(const {{node.name}}&) = delete;
+  {{node.name}}& operator=(const {{node.name}}&) = delete;
+
+# endif
+
+{# Free function for building, always return unique_ptr #}
+# if not node.is_abstract and ((node.inherited_fields + node.fields) | is_constructor_arg)
+  friend std::unique_ptr<{{node.name}}> Make{{node.name}}(
+ # for field in (node.inherited_fields + node.fields) | is_constructor_arg
+      {{field.setter_arg_type}} {{field.name}}{%if not loop.last%},{%endif%}
+
+ # endfor
+  );
+# endif
+  ~{{node.name}}() {{node.override_or_final}};
+
+  zetasql_base::Status Accept(ResolvedASTVisitor* visitor) const {{node.override_or_final}};
+  zetasql_base::Status ChildrenAccept(ResolvedASTVisitor* visitor) const {{node.override_or_final}};
+
+# if not node.is_abstract
+  ResolvedNodeKind node_kind() const {{node.override_or_final}} { return {{node.enum_name}}; }
+  std::string node_kind_string() const {{node.override_or_final}} { return "{{node.node_kind_name}}"; }
+
+# endif
+# if node.fields
+  zetasql_base::Status CheckFieldsAccessed() const {{node.override_or_final}};
+  void ClearFieldsAccessed() const {{node.override_or_final}};
+
+# endif
+  template <typename SUBTYPE>
+  const SUBTYPE* GetAs() const {
+    return static_cast<const SUBTYPE*>(this);
+  }
+
+  using SUPER::SaveTo;
+  zetasql_base::Status SaveTo(Type::FileDescriptorSetMap* file_descriptor_set_map,
+                      {{node.proto_type}}* proto) const;
+
+  zetasql_base::Status SaveTo(Type::FileDescriptorSetMap* file_descriptor_set_map,
+                      {{node.parent_proto_container_type}}* proto) const final;
+
+# if node.is_abstract
+  virtual zetasql_base::Status SaveTo(
+      Type::FileDescriptorSetMap* file_descriptor_set_map,
+      {{node.proto_field_type}}* proto) const = 0;
+# endif
+
+  static zetasql_base::StatusOr<std::unique_ptr<{{node.name}}>> RestoreFrom(
+      const {{node.proto_field_type}}& proto,
+      const ResolvedNode::RestoreParams& params);
+
+# if node.fields
+  void GetChildNodes(
+      std::vector<const ResolvedNode*>* child_nodes)
+          const {{node.override_or_final}};
+
+  void AddMutableChildNodePointers(
+      std::vector<std::unique_ptr<const ResolvedNode>*>*
+          mutable_child_node_ptrs) {{node.override_or_final}};
+
+# endif
+
+  // Member fields
+
+# for field in node.fields
+ # if field.comment
+{{field.comment}}
+ # endif
+  {{field.getter_return_type}} {{field.name}}() const {
+    accessed_ |= {{field.bitmap}};
+    return {{field.member_accessor}};
+  }
+ # if field.is_vector
+  int {{field.name}}_size() const {
+    if ({{field.member_name}}.empty()) accessed_ |= {{field.bitmap}};
+    return static_cast<int>({{field.member_name}}.size());
+  }
+  {{field.element_arg_type}} {{field.name}}(int i) const {
+    accessed_ |= {{field.bitmap}};
+    return {{field.member_name}}.at(i){{field.element_unwrapper}};
+  }
+ # if field.is_node_vector
+  void add_{{field.name}}({{field.element_storage_type}} v) {
+    {{field.member_name}}.emplace_back(std::move(v));
+  }
+  void set_{{field.name}}({{field.setter_arg_type}} v) {
+    {{field.member_name}} = std::move(v);
+  }
+
+ # else
+  void add_{{field.name}}({{field.element_arg_type}} v) {
+    {{field.member_name}}.push_back({{field.element_storage_type}}(v));
+  }
+  void set_{{field.name}}({{field.setter_arg_type}} v) {
+    {{field.member_name}} = v;
+  }
+  {{field.member_type}}* mutable_{{field.name}}() {
+    accessed_ |= {{field.bitmap}};
+    return &{{field.member_name}};
+  }
+
+ # endif
+  # if field.release_return_type
+  {{field.member_type}} release_{{field.name}}() {
+    {#
+       Note, we cannot simply:
+         return std::move(my_list_);
+       because it is not guaranteed to clear my_list_.
+    #}
+    {{field.member_type}} tmp;
+    {{field.member_name}}.swap(tmp);
+    return tmp;
+  }
+  # endif
+ # else
+  # if field.is_node_ptr
+  void set_{{field.name}}({{field.setter_arg_type}} v) {
+    {{field.member_name}} = std::move(v);
+   # if field.propagate_order
+    set_is_ordered({{field.member_name}}->is_ordered());
+   # endif
+  }
+
+  # endif
+
+  # if not field.is_node_ptr
+  void set_{{field.name}}({{field.setter_arg_type}} v) {
+    {{field.member_name}} = v;
+  }
+  # endif
+
+  # if field.release_return_type
+  {{field.member_type}} release_{{field.name}}() {
+    return std::move({{field.member_name}});
+  }
+
+  # endif
+ # endif
+{{ blank_line }}
+# endfor
+
+ protected:
+{# Constructor that initializes fields in the superclass and in this class #}
+  explicit {{node.name}}(
+ # for field in (node.inherited_fields + node.fields) | is_constructor_arg
+      {{field.setter_arg_type}} {{field.name}},
+ # endfor
+      ConstructorOverload)
+      : {{node.parent}}(
+ # for field in node.inherited_fields | is_constructor_arg
+   # if field.is_move_only
+            std::move({{field.name}}),
+   # else
+            {{field.name}},
+   # endif
+ # endfor
+  {%- if node.parent != "ResolvedNode" %}
+            ConstructorOverload::NEW_CONSTRUCTOR
+  {%- endif %})
+ {%- for field in node.fields %},
+  {% if field.is_constructor_arg %}
+   {%- if field.is_move_only %}
+      {{field.member_name}}(std::move({{field.name}}))
+   {%- else %}
+      {{field.member_name}}({{field.name}})
+   {%- endif %}
+  {%- else %}
+      {{field.member_name}}()
+  {%- endif %}
+ {%- endfor %} {
+ # for field in node.fields
+  # if field.propagate_order
+    set_is_ordered({{field.member_name}}->is_ordered());
+  # endif
+ # endfor
+  }
+
+# if node.fields
+  void CollectDebugStringFields(
+      std::vector<DebugStringField>* fields) const {{node.override_or_final}};
+ # if node.use_custom_debug_string
+  std::string GetNameForDebugString() const {{node.override_or_final}};
+ # endif
+
+# endif
+
+ private:
+  // Define this locally so our free function factories (friends) can access it.
+  constexpr static ConstructorOverload NEW_CONSTRUCTOR =
+      ResolvedNode::ConstructorOverload::NEW_CONSTRUCTOR;
+
+# for field in node.fields
+  {{field.member_type}} {{field.member_name}};
+# endfor
+# if node.fields
+  mutable std::atomic<uint32_t> accessed_ = {0};
+# endif
+};
+
+{# Free function for building, always return unique_ptr #}
+# if not node.is_abstract and ((node.inherited_fields + node.fields) | is_constructor_arg)
+# if node.has_node_vector_constructor_arg
+# endif
+inline std::unique_ptr<{{node.name}}> Make{{node.name}}(
+ {% for field in (node.inherited_fields + node.fields) | is_constructor_arg %}
+    {{field.scoped_setter_arg_type}} {{field.name}}
+  {%-if not loop.last%},{{ blank_line }}
+  {%-endif%}
+ {%- endfor %}) {
+  return std::unique_ptr<{{node.name}}>(new {{node.name}}(
+ # for field in (node.inherited_fields + node.fields) | is_constructor_arg
+   # if field.is_move_only
+        std::move({{field.name}}),
+   # else
+        {{field.name}},
+   # endif
+ # endfor
+        {{node.name}}::NEW_CONSTRUCTOR));
+}
+# endif
+
+# if node.has_node_vector_constructor_arg and not node.is_abstract
+{{ blank_line }}
+// Overloaded factory method for the construction of {{node.name}} with
+// a wider range of inputs for node-vector inputs.  In particular allows:
+// 1. unique_ptr element type can be non-const.
+// 2. unique_ptr element type can be any descendant of the required type.
+// 3. input container can be any object with a `begin()` and `end()`.
+//
+// Note, initializer lists cannot be used to pass
+// {% for field in (node.inherited_fields + node.fields) | is_node_vector_constructor_arg %}
+ {{field.name}}{%if not loop.last%},{%endif%}
+ {% endfor %}
+
+// due to incompatibility with unique_ptr.  Use zetasql::MakeNodeVector
+// instead.
+template <
+# for field in (node.inherited_fields + node.fields) | is_node_vector_constructor_arg
+  typename {{field.name}}_t
+      = {{field.setter_arg_type}}{%if not loop.last%},
+{% else %}>
+{% endif %}
+# endfor
+
+std::unique_ptr<{{node.name}}> Make{{node.name}}(
+ # for field in (node.inherited_fields + node.fields) | is_constructor_arg
+   # if field.is_node_vector
+    {{field.name}}_t {{field.name}}{%if not loop.last%},
+{%endif%}
+   # else
+    {{field.scoped_setter_arg_type}} {{field.name}}{%if not loop.last%},
+{%endif%}
+   # endif
+ # endfor
+) {
+  # for field in (node.inherited_fields + node.fields) | is_node_vector_constructor_arg
+  {# Provide slightly better error message in the case of type mis-match. #}
+  static_assert(std::is_base_of<
+      {{field.ctype}},
+      typename std::decay<decltype(**({{field.name}}.begin()))>::type>::value,
+      "{{field.name}} must be a container of unique_ptr with elements of type "
+      "{{field.ctype}} (or its descendants).");
+  # endfor
+
+  return Make{{node.name}}(
+ # for field in (node.inherited_fields + node.fields) | is_constructor_arg
+   # if field.is_node_vector
+      {std::make_move_iterator({{field.name}}.begin()),
+       std::make_move_iterator({{field.name}}.end())}{%if not loop.last%},
+{% endif %}
+   # elif field.is_move_only
+      std::move({{field.name}}){%if not loop.last%},
+{% endif %}
+   # else
+      {{field.name}}{%if not loop.last%},
+{% endif %}
+   # endif
+ # endfor
+);
+}
+
+# endif
+
+{# Zero-arg free function #}
+# if node.emit_default_constructor and not node.is_abstract
+{{ blank_line }}
+inline std::unique_ptr<{{node.name}}> Make{{node.name}}() {
+  {# Note: can't use make_unique because constructor is protected. #}
+  return std::unique_ptr<{{node.name}}>(
+      new {{node.name}}());
+}
+# endif
+{{ blank_line }}
+# endfor
+
+inline std::unique_ptr<ResolvedLiteral> MakeResolvedLiteral(
+    const Value& value) {
+  // The float_literal_id is 0 for any ResolvedLiterals whose original images
+  // are not stored in the resolver's float literal cache.
+  return MakeResolvedLiteral(value.type(), value, false /* has_explicit_type */,
+                             0 /* float_literal_id */);
+}
+
+inline std::unique_ptr<ResolvedLiteral> MakeResolvedLiteral(
+    const Type* type, const Value& value) {
+  // The float_literal_id is 0 for any ResolvedLiterals whose original images
+  // are not stored in the resolver's float literal cache.
+  return MakeResolvedLiteral(type, value, false /* has_explicit_type */,
+                             0 /* literal_id */);
+}
+
+inline std::unique_ptr<ResolvedLiteral> MakeResolvedLiteral(
+    const Type* type, const Value& value, bool has_explicit_type) {
+  // The float_literal_id is 0 for any ResolvedLiterals whose original images
+  // are not stored in the resolver's float literal cache.
+  return MakeResolvedLiteral(type, value, has_explicit_type,
+                             0 /* literal_id */);
+}
+
+inline std::unique_ptr<ResolvedParameter> MakeResolvedParameter(
+    const Type* type, const std::string& name) {
+  return MakeResolvedParameter(
+      type, name, 0 /*position*/, false /* is_untyped */);
+}
+
+// Helper constructor to create a new ResolvedFunctionCall with an
+// empty <function_call_info> field, for convenience.
+inline std::unique_ptr<ResolvedFunctionCall> MakeResolvedFunctionCall(
+    const Type* type,
+    const Function* function,
+    const FunctionSignature& signature,
+    std::vector<std::unique_ptr<const ResolvedExpr>> argument_list,
+    ResolvedFunctionCall::ErrorMode error_mode) {
+  return MakeResolvedFunctionCall(
+      type,
+      function,
+      signature,
+      std::move(argument_list),
+      error_mode,
+      std::make_shared<ResolvedFunctionCallInfo>() /* function_call_info */);
+}
+
+// Helper constructor to create a new ResolvedFunctionCall with an
+// empty <function_call_info> field, for convenience. Also, supports wider
+// variety of inputs for `argument_list`.
+template <
+    typename argument_list_t = std::vector<std::unique_ptr<const ResolvedExpr>>>
+inline std::unique_ptr<ResolvedFunctionCall> MakeResolvedFunctionCall(
+    const Type* type, const Function* function,
+    const FunctionSignature& signature, argument_list_t argument_list,
+    ResolvedFunctionCallBase::ErrorMode error_mode) {
+  return MakeResolvedFunctionCall(
+      type, function, signature,
+      {std::make_move_iterator(argument_list.begin()),
+       std::make_move_iterator(argument_list.end())},
+      error_mode,
+      std::shared_ptr<ResolvedFunctionCallInfo>(new ResolvedFunctionCallInfo));
+}
+
+// Helper constructor to create a new ResolvedAggregateFunctionCall with an
+// empty <function_call_info> field, for convenience.
+inline std::unique_ptr<ResolvedAggregateFunctionCall>
+MakeResolvedAggregateFunctionCall(
+    const Type* type,
+    const Function* function,
+    const FunctionSignature& signature,
+    std::vector<std::unique_ptr<const ResolvedExpr>> argument_list,
+    ResolvedAggregateFunctionCall::ErrorMode error_mode,
+    bool distinct,
+    ResolvedAggregateFunctionCall::NullHandlingModifier null_handling_modifier,
+    std::unique_ptr<const ResolvedAggregateHavingModifier> having_modifier,
+    std::vector<std::unique_ptr<const ResolvedOrderByItem>> order_by_item_list,
+    std::unique_ptr<const ResolvedExpr> limit) {
+  return MakeResolvedAggregateFunctionCall(
+      type,
+      function,
+      signature,
+      std::move(argument_list),
+      error_mode,
+      distinct,
+      null_handling_modifier,
+      std::move(having_modifier),
+      std::move(order_by_item_list),
+      std::move(limit),
+      std::make_shared<ResolvedFunctionCallInfo>() /* function_call_info */);
+}
+
+// Helper constructor to create a new ResolvedAggregateFunctionCall with an
+// empty <function_call_info> field, for convenience.  Also, supports wider
+// variety of inputs for `argument_list`.
+template <
+    typename argument_list_t = std::vector<std::unique_ptr<const ResolvedExpr>>,
+    typename order_by_item_list_t =
+        std::vector<std::unique_ptr<const ResolvedOrderByItem>>>
+inline std::unique_ptr<ResolvedAggregateFunctionCall>
+MakeResolvedAggregateFunctionCall(
+    const Type* type, const Function* function,
+    const FunctionSignature& signature, argument_list_t argument_list,
+    ResolvedAggregateFunctionCall::ErrorMode error_mode, bool distinct,
+    ResolvedAggregateFunctionCall::NullHandlingModifier null_handling_modifier,
+    std::unique_ptr<const ResolvedAggregateHavingModifier> having_modifier,
+    order_by_item_list_t order_by_item_list,
+    std::unique_ptr<const ResolvedExpr> limit) {
+  return MakeResolvedAggregateFunctionCall(
+      type, function, signature,
+      {std::make_move_iterator(argument_list.begin()),
+       std::make_move_iterator(argument_list.end())},
+      error_mode, distinct, null_handling_modifier, std::move(having_modifier),
+      {std::make_move_iterator(order_by_item_list.begin()),
+       std::make_move_iterator(order_by_item_list.end())},
+      std::move(limit),
+      std::make_shared<ResolvedFunctionCallInfo>() /* function_call_info */);
+}
+
+inline std::unique_ptr<ResolvedTableScan> MakeResolvedTableScan(
+    const std::vector<ResolvedColumn>& column_list,
+    const Table* table,
+    std::unique_ptr<const ResolvedExpr> for_system_time_expr) {
+  return MakeResolvedTableScan(
+      column_list,
+      table,
+      std::move(for_system_time_expr),
+      "" /* alias */);
+}
+
+// Helper that initializes the output_column_list to match
+// input_scan's column_list.  This is helpful because it avoids the argument
+// evaluation order problem in
+// MakeResolvedSetOperationItem(std::move(scan), scan->column_list());
+inline std::unique_ptr<ResolvedSetOperationItem> MakeResolvedSetOperationItem(
+    std::unique_ptr<const ResolvedScan> input_scan) {
+  const std::vector<ResolvedColumn>& output_column_list =
+      input_scan->column_list();
+  return
+      MakeResolvedSetOperationItem(std::move(input_scan), output_column_list);
+}
+
+}  // namespace zetasql
+
+#endif  // ZETASQL_RESOLVED_AST_RESOLVED_AST_H_

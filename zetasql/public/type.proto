@@ -1,0 +1,122 @@
+//
+// Copyright 2019 ZetaSQL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+// LINT: LEGACY_NAMES
+syntax = "proto2";
+
+package zetasql;
+
+import "google/protobuf/descriptor.proto";
+
+option cc_enable_arenas = true;
+option java_package = "com.google.zetasql";
+option java_outer_classname = "ZetaSQLType";
+
+// NEXT_ID: 24
+enum TypeKind {
+  // User code that switches on this enum must have a default case so
+  // builds won't break if new enums get added.
+  __TypeKind__switch_must_have_a_default__ = -1;
+
+  // This can be used by consumers to record an unknown type.
+  // This is not used internally by ZetaSQL.
+  // Most functions that take TypeKind will fail on TYPE_UNKNOWN.
+  TYPE_UNKNOWN = 0;
+
+  TYPE_INT32 = 1;
+  TYPE_INT64 = 2;
+  TYPE_UINT32 = 3;
+  TYPE_UINT64 = 4;
+  TYPE_BOOL = 5;
+  TYPE_FLOAT = 6;
+  TYPE_DOUBLE = 7;
+  TYPE_STRING = 8;
+  TYPE_BYTES = 9;
+  TYPE_DATE = 10;
+  TYPE_TIMESTAMP = 19;
+  TYPE_ENUM = 15;
+  TYPE_ARRAY = 16;
+  TYPE_STRUCT = 17;
+  TYPE_PROTO = 18;
+
+  // TIME and DATETIME is controlled by FEATURE_V_1_2_CIVIL_TIME
+  TYPE_TIME = 20;
+  TYPE_DATETIME = 21;
+
+  // GEOGRAPHY is controlled by FEATURE_GEOGRAPHY
+  TYPE_GEOGRAPHY = 22;
+
+  // NUMERIC is controlled by FEATURE_NUMERIC_TYPE
+  TYPE_NUMERIC = 23;
+}
+
+// This represents the serialized form of the zetasql::Type.
+message TypeProto {
+  optional TypeKind type_kind = 1;
+
+  // If the type is not a simple type, then one (and only one) of these
+  // will be populated.
+  optional ArrayTypeProto array_type = 2;
+  optional StructTypeProto struct_type = 3;
+  optional ProtoTypeProto proto_type = 4;
+  optional EnumTypeProto enum_type = 5;
+
+  // These <file_descriptor_set>s may (optionally) be populated only for
+  // the 'outermost' TypeProto when serializing a ZetaSQL Type,
+  // in particular when the TypeProto is created using
+  // zetasql::Type::SerializeToSelfContainedProto().  They will not be
+  // populated for nested TypeProtos.  If populated, they must capture all file
+  // dependencies related to the type and all of its descendants, in order
+  // be used for deserializing back to the ZetaSQL Type.  If they are not
+  // populated, then deserialization can still be done if the relevant
+  // FileDescriptorSets are provided to deserialization independent of this
+  // proto.  One FileDescriptorSet is created for every distinct DescriptorPool
+  // from which an enum or proto type contained within this type originates.
+  // For example, serializing a struct with two proto fields from different
+  // DescriptorPools would result in two FileDescriptorSets.
+  repeated google.protobuf.FileDescriptorSet file_descriptor_set = 6;
+}
+
+message ArrayTypeProto {
+  optional TypeProto element_type = 1;
+}
+
+message StructFieldProto {
+  optional string field_name = 1;
+  optional TypeProto field_type = 2;
+}
+
+message StructTypeProto {
+  repeated StructFieldProto field = 1;
+}
+
+message ProtoTypeProto {
+  // The _full_ name of the proto.
+  optional string proto_name = 1;
+  optional string proto_file_name = 2;
+  // The index of the FileDescriptorSet in the top-level TypeProto that can be
+  // used to deserialize this particular ProtoType.
+  optional int32 file_descriptor_set_index = 3 [default = 0];
+}
+
+message EnumTypeProto {
+  // The _full_ name of the enum.
+  optional string enum_name = 1;
+  optional string enum_file_name = 2;
+  // The index of the FileDescriptorSet in the top-level TypeProto that can be
+  // used to deserialize this particular EnumType.
+  optional int32 file_descriptor_set_index = 3 [default = 0];
+}

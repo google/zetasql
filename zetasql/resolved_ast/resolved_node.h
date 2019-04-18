@@ -1,0 +1,323 @@
+//
+// Copyright 2019 ZetaSQL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+#ifndef ZETASQL_RESOLVED_AST_RESOLVED_NODE_H_
+#define ZETASQL_RESOLVED_AST_RESOLVED_NODE_H_
+
+#include <memory>
+#include <set>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "google/protobuf/descriptor.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/parse_location.h"
+#include "zetasql/public/type.h"
+#include "zetasql/resolved_ast/resolved_ast.pb.h"
+#include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/resolved_ast/serialization.pb.h"
+#include "zetasql/base/status.h"
+#include "zetasql/base/statusor.h"
+
+namespace zetasql {
+
+class ResolvedASTVisitor;
+
+// This is the base class for the resolved AST.
+// Subclasses are in the generated file resolved_ast.h.
+// ResolvedNodeKind enum is in the generated file resolved_node_kind.h.
+// See gen_resolved_ast.py.
+// View code generated classes at (broken link).
+//
+// HTML documentation for the class hierarchy is generated in resolved_ast.html.
+// A viewable copy is available at (broken link).
+//
+// In this hierarchy, classes are either abstract or leaves.
+// The non-leaf classes (like ResolvedExpression) have no members and are meant
+// for organization only.
+//
+// Classes in this hierarchy always take ownership of their children.
+class ResolvedNode {
+ public:
+  using SUPER = void;  // Indicates that ResolvedNode has no parent.
+
+  ResolvedNode() {}
+  ResolvedNode(const ResolvedNode&) = delete;
+  ResolvedNode& operator=(const ResolvedNode&) = delete;
+  virtual ~ResolvedNode() {}
+
+  // Return this node's kind.
+  // e.g. zetasql::RESOLVED_TABLE_SCAN for ResolvedTableScan.
+  virtual ResolvedNodeKind node_kind() const = 0;
+
+  // Return this node's kind as a std::string.
+  // e.g. "TableScan" for ResolvedTableScan.
+  virtual std::string node_kind_string() const = 0;
+
+  // Return true if this node is under this superclass node type.
+  virtual bool IsScan() const { return false; }
+  virtual bool IsExpression() const { return false; }
+  virtual bool IsStatement() const { return false; }
+
+  // Calls the node-specific Visit... method inside the ResolvedASTVisitor.
+  virtual zetasql_base::Status Accept(ResolvedASTVisitor* visitor) const;
+
+  // Calls the above Accept() method on all the direct children of this node.
+  virtual zetasql_base::Status ChildrenAccept(ResolvedASTVisitor* visitor) const;
+
+  // Return this node static_cast as a SUBTYPE node.
+  // Use only when this node is known to be of that type.
+  // Subclasses specialize this to give stronger compile-time errors
+  // for impossible casts.
+  template <typename SUBTYPE>
+  const SUBTYPE* GetAs() const {
+    return static_cast<const SUBTYPE*>(this);
+  }
+
+  // The SaveTo(FileDescriptorSetMap*, NodeProto*) methods serializes the node
+  // into given proto type. There may be multiple versions in order to support
+  // inheritance properly.
+  // The FileDescriptorSetMap argument is used to serialize zetasql::Type
+  // objects that are defined with proto/enum descriptors. See comments above
+  // Type::SerializeToProtoAndDistinctFileDescriptors() for detailed usage.
+  zetasql_base::Status SaveTo(FileDescriptorSetMap* file_descriptor_set_map,
+                      ResolvedNodeProto* proto) const;
+
+  virtual zetasql_base::Status SaveTo(FileDescriptorSetMap* file_descriptor_set_map,
+                              AnyResolvedNodeProto* proto) const = 0;
+
+  // This contains parameters for deserialization. In general, all parameters
+  // must be non-null, although individual nodes may only use a subset
+  // of the parameters. This does not take ownership of any input.
+  //
+  // For deserialization to succeed, special requirements exist for FullNames of
+  // objects from nested catalogs. Consider a function name like x.y.z.Function.
+  // Function must be findable in the catalog under the following lookup
+  // path:
+  //
+  //   FindFunction({x, y, z, Function}, ...)
+  //
+  // That is, the dot-separated function name parts are the path elements. This
+  // same property must apply to Tables and Procedures as well.
+  struct RestoreParams {
+    RestoreParams(std::vector<const google::protobuf::DescriptorPool*> pools,
+                  Catalog* catalog, TypeFactory* type_factory,
+                  IdStringPool* string_pool)
+        : pools(std::move(pools)),
+          catalog(catalog),
+          type_factory(type_factory),
+          string_pool(string_pool) {}
+
+    RestoreParams() = delete;
+    RestoreParams(const RestoreParams&) = default;
+
+    // This must contain all of the referenced types emitted from SaveTo
+    // into the file_descriptor_set_map's keys.
+    std::vector<const google::protobuf::DescriptorPool*> pools;
+
+    // This must contain all referenced objects used when analyzing the
+    // original AST.
+    Catalog* catalog = nullptr;
+
+    // This must be capable of constructing any types referenced by the
+    // original AST.
+    TypeFactory* type_factory = nullptr;
+
+    // This is used to store any IdStrings allocated during
+    // deserialization.
+    IdStringPool* string_pool = nullptr;
+  };
+
+  // Deserializes any node type from <proto>.
+  static zetasql_base::StatusOr<std::unique_ptr<ResolvedNode>> RestoreFrom(
+      const AnyResolvedNodeProto& proto, const RestoreParams& params);
+
+  std::string DebugString() const;
+
+  // Check if any semantically meaningful fields have not been accessed in
+  // this node or its children. If so, return a descriptive error indicating
+  // some feature is unimplemented.
+  //
+  // Classes in this hierarchy track which member fields have been accessed.
+  // Fields are tagged to indicate whether they can be ignored.  Some fields
+  // can be ignored if they have a default value.
+  //
+  // If a non-ignorable member is not accessed by a query engine, that engine
+  // must not be interpreting that field, and so would interpret a query
+  // incorrectly.  In such cases, CheckFieldsAccessed() will return a
+  // zetasql_base::UNIMPLEMENTED error with a message indicating what feature
+  // is unimplemented and what field wasn't accessed.
+  //
+  // Engines should always call this method to ensure they are interpreting a
+  // ZetaSQL query safely and not missing anything. We assume that if an
+  // engine reads a field and sees a value it does not understand, the engine
+  // itself will generate an unimplemented error.
+  virtual zetasql_base::Status CheckFieldsAccessed() const;
+
+  // Reset the field accessed markers in this node and its children.
+  virtual void ClearFieldsAccessed() const;
+
+  // Returns in 'child_nodes' all non-NULL ResolvedNodes that are children of
+  // this node. The order of 'child_nodes' is deterministic, but callers should
+  // not depend on how the roles (fields) correspond to locations, especially
+  // because NULL children are omitted. For cases where the roles of child nodes
+  // matter, use the specific getter functions provided by subclasses.
+  virtual void GetChildNodes(
+      std::vector<const ResolvedNode*>* child_nodes) const {
+    child_nodes->clear();
+  }
+
+  // Adds in 'mutable_child_node_ptrs' mutable pointers to all non-NULL
+  // ResolvedNodes that are children of this node.
+  virtual void AddMutableChildNodePointers(
+      std::vector<std::unique_ptr<const ResolvedNode>*>*
+          mutable_child_node_ptrs) {}
+
+  // Get all descendants of this node (inclusive) that have a type in
+  // <node_kinds>.  Returns the matching nodes in <*found_nodes>.
+  // Order of the output vector is not defined.
+  //
+  // When a node is found, the traversal does not continue below that node to
+  // its children, so no returned node will ever be an ancestor of another.
+  //
+  // BE VERY CAREFUL using this to extract specific node types.  Think carefully
+  // about whether you want the traversal to continue into nodes like
+  // expression subqueries.  If not, including those kinds in <node_kinds> will
+  // prevent traversing underneath those nodes.
+  void GetDescendantsWithKinds(
+      const std::set<ResolvedNodeKind>& node_kinds,
+      std::vector<const ResolvedNode*>* found_nodes) const;
+
+  // Get all descendants of this node (inclusive) where <filter_method>
+  // returns true.  Returns the matching nodes in <*found_nodes>.
+  // Order of the output vector is not defined.
+  //
+  // Unlike GetDescendantsWithKinds, this traversal does not stop at emitted
+  // nodes, so the result may include nodes that are ancestors of each other.
+  //
+  // Example:
+  //   node->GetDescendantsMatching(&ResolvedNode::IsScan, &found_nodes);
+  void GetDescendantsSatisfying(
+      bool (ResolvedNode::*filter_method)() const,
+      std::vector<const ResolvedNode*>* found_nodes) const;
+
+  // Records the parse location range.
+  void SetParseLocationRange(const ParseLocationRange& parse_location_range);
+
+  // Clears the parse location range.
+  void ClearParseLocationRange();
+
+  // Returns the previously recorded parsed location range, or NULL. Parse
+  // location ranges are only filled for some nodes (ResolvedLiterals in
+  // particular) and only if AnalyzerOption::record_parse_locations() is set.
+  // DEPRECATED: Use GetParseLocationRangeOrNULL().
+  const ParseLocationRange* GetParseLocationOrNULL() const {
+    return parse_location_range_.get();
+  }
+  const ParseLocationRange* GetParseLocationRangeOrNULL() const {
+    return parse_location_range_.get();
+  }
+
+  // Returns the depth of the Resolved AST tree rooted at the current node.
+  // Considers all descendants of the current node, and returns the maximum
+  // depth. Returns 1 if the current node is a leaf.
+  const int GetTreeDepth() const;
+
+ protected:
+  // Struct used to collect all fields that should be printed in DebugString.
+  struct DebugStringField {
+    DebugStringField(const std::string& name_in, const std::string& value_in)
+        : name(name_in), value(value_in) {}
+    DebugStringField(const std::string& name_in, const ResolvedNode* node_in)
+        : name(name_in), nodes({node_in}) {}
+
+    template <typename T>
+    DebugStringField(const std::string& name_in, const std::vector<T>& nodes_in)
+        : name(name_in) {
+      for (const auto& node : nodes_in) nodes.push_back(node.get());
+    }
+
+    // If name is non-empty, "<name>=" will be printed in front of the values.
+    std::string name;
+
+    // One of the two fields below will be filled in.
+    // If nodes is non-empty, all nodes are non-NULL.
+    std::string value;  // Print this value directly.
+    std::vector<const ResolvedNode*>
+        nodes;  // Print DebugString for these nodes.
+  };
+
+  // Add all fields that should be printed in DebugString to <fields>.
+  // Recursively calls same method in the superclass.
+  virtual void CollectDebugStringFields(
+      std::vector<DebugStringField>* fields) const;
+
+  // Get the name std::string displayed for this node in the DebugString.
+  // Normally it's just node_kind_string(), but it can be customized.
+  virtual std::string GetNameForDebugString() const;
+
+  // Return true if the fields returned from CollectDebugStringFields would
+  // contain any field with a non-empty <nodes> vector.  These are the fields
+  // that would have child nodes in the DebugString tree.
+  bool HasDebugStringFieldsWithNodes() const;
+
+  // Helpers used in custom format methods to format nodes as an assignment,
+  // "<name> := <node>", with <node>'s children as children of this node.
+  void CollectDebugStringFieldsWithNameFormat(
+      const ResolvedNode* node, std::vector<DebugStringField>* fields) const;
+  std::string GetNameForDebugStringWithNameFormat(const std::string& name,
+                                             const ResolvedNode* node) const;
+
+  // Given a vector of unique_ptrs, this returns a vector of raw pointers.
+  // The output vector then owns the pointers, and the input vector is cleared.
+  template <class T>
+  static std::vector<T*> ReleaseVectorOfUniquePtrs(
+      std::vector<std::unique_ptr<T>>* input) {
+    std::vector<T*> output;
+    for (auto& input_unique_ptr : *input) {
+      output.push_back(input_unique_ptr.release());
+    }
+    input->clear();
+    return output;
+  }
+
+  // This enum disambiguates constructor overloads to specifically choose
+  // the new (potentially unique_ptr based) constructor.  Once this becomes
+  // the only constructor, this enum can be dropped.
+  enum class ConstructorOverload {
+    NEW_CONSTRUCTOR
+  };
+
+ private:
+  // Print the tree recursively.
+  // prefix1 is the indentation to attach to child nodes.
+  // prefix2 is the indentation to attach to the root of this tree.
+  void DebugStringImpl(const std::string& prefix1, const std::string& prefix2,
+                       std::string* output) const;
+
+  // DebugString on these call protected methods.
+  friend class ResolvedComputedColumn;
+  friend class ResolvedMakeProtoField;
+  friend class ResolvedOutputColumn;
+
+  std::unique_ptr<ParseLocationRange> parse_location_range_;  // May be NULL.
+};
+
+}  // namespace zetasql
+
+#endif  // ZETASQL_RESOLVED_AST_RESOLVED_NODE_H_

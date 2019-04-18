@@ -1,0 +1,91 @@
+//
+// Copyright 2019 ZetaSQL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+syntax = "proto2";
+
+package zetasql;
+
+import "zetasql/public/builtin_function.proto";
+import "zetasql/public/options.proto";
+import "zetasql/public/type.proto";
+import "zetasql/resolved_ast/resolved_node_kind.proto";
+
+option java_package = "com.google.zetasql";
+option java_outer_classname = "ZetaSQLOptionsProto";
+
+// Specify what built-in functions should be load.
+// Used for getting built-in functions through local server.
+message ZetaSQLBuiltinFunctionOptionsProto {
+  optional LanguageOptionsProto language_options = 1;
+  repeated FunctionSignatureId include_function_ids = 2;
+  repeated FunctionSignatureId exclude_function_ids = 3;
+}
+
+// Serialized form of LanguageOptions.
+message LanguageOptionsProto {
+  reserved 1;  // optional TimestampMode timestamp_mode = 1;
+  optional NameResolutionMode name_resolution_mode = 2;
+  optional ProductMode product_mode = 3;
+  optional bool error_on_deprecated_syntax = 4;
+  repeated LanguageFeature enabled_language_features = 5;
+  repeated ResolvedNodeKind supported_statement_kinds = 6;
+}
+
+// Serialized form of AllowedHintsAndOptions.
+message AllowedHintsAndOptionsProto {
+  message HintProto {
+    optional string qualifier = 1;
+    optional string name = 2;
+    optional TypeProto type = 3;
+    optional bool allow_unqualified = 4;
+  }
+  message OptionProto {
+    optional string name = 1;
+    optional TypeProto type = 2;
+  }
+
+  optional bool disallow_unknown_options = 1;
+  repeated string disallow_unknown_hints_with_qualifier = 2;
+  repeated HintProto hint = 3;
+  repeated OptionProto option = 4;
+}
+
+// Serialized form of AnalyzerOptions.
+message AnalyzerOptionsProto {
+  message QueryParameterProto {
+    optional string name = 1;
+    optional TypeProto type = 2;
+  }
+
+  optional LanguageOptionsProto language_options = 1;
+  repeated QueryParameterProto query_parameters = 2;
+  repeated TypeProto positional_query_parameters = 12;
+  repeated QueryParameterProto expression_columns = 3;
+  optional QueryParameterProto in_scope_expression_column = 4;
+  repeated QueryParameterProto ddl_pseudo_columns = 15;
+  // base::SequenceNumber does not support getting and setting the current
+  // value, so it is not serializable. Reserving tag number 5 in case we want
+  // to support it in some other way later.
+  optional ErrorMessageMode error_message_mode = 6;
+  // In the form that can be parsed by C++ absl::LoadTimeZone().
+  optional string default_timezone = 7;
+  optional bool record_parse_locations = 8;
+  optional bool prune_unused_columns = 9;
+  optional bool allow_undeclared_parameters = 10;
+  optional ParameterMode parameter_mode = 13;
+  optional AllowedHintsAndOptionsProto allowed_hints_and_options = 11;
+  optional StatementContext statement_context = 14;
+}
