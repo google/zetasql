@@ -40,11 +40,7 @@ Then simply run:
 bazel build zetasql/...
 
 ### With docker
- TODO: Pull out docker build script from kokoro directory.
-
-## Contacts
- TODO: Link to incoming mailing list??
- TODO: Link to (github?) bug tracker
+ TODO: Add docker build script.
 
 ## License
 
