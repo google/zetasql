@@ -113,11 +113,12 @@ class FloatMargin {
     int exp;
     // Extract exponent. Because frexp() always returns a value less than one
     // this will be greater than the normalized exponent by 1.
-    frexp(result, &exp);
+    std::frexp(static_cast<double>(result), &exp);
     // Exponent may be less than min_exponent if the number is subnormal.
     // Adjust "exp" accordingly.
     exp = std::max(std::numeric_limits<T>::min_exponent, exp - 1);
-    return ldexp(std::numeric_limits<T>::epsilon(), exp);
+    return std::ldexp(static_cast<double>(std::numeric_limits<T>::epsilon()),
+                      exp);
   }
 
   template <typename T>

@@ -559,12 +559,21 @@ class AnalyzerOptions {
   // Copyable
 };
 
+class AnalyzerOutputProperties {
+ public:
+  AnalyzerOutputProperties() {}
+ private:
+
+  // Copyable
+};
+
 class AnalyzerOutput {
  public:
   AnalyzerOutput(
       std::shared_ptr<IdStringPool> id_string_pool,
       std::shared_ptr<zetasql_base::UnsafeArena> arena,
       std::unique_ptr<const ResolvedStatement> statement,
+      const AnalyzerOutputProperties& analyzer_output_properties,
       std::unique_ptr<ParserOutput> parser_output,
       const std::vector<zetasql_base::Status>& deprecation_warnings,
       const QueryParametersMap& undeclared_parameters,
@@ -573,6 +582,7 @@ class AnalyzerOutput {
       std::shared_ptr<IdStringPool> id_string_pool,
       std::shared_ptr<zetasql_base::UnsafeArena> arena,
       std::unique_ptr<const ResolvedExpr> expr,
+      const AnalyzerOutputProperties& analyzer_output_properties,
       std::unique_ptr<ParserOutput> parser_output,
       const std::vector<zetasql_base::Status>& deprecation_warnings,
       const QueryParametersMap& undeclared_parameters,
@@ -632,6 +642,10 @@ class AnalyzerOutput {
   // some or all of the resolved AST and parse tree.
   std::shared_ptr<zetasql_base::UnsafeArena> arena() const { return arena_; }
 
+  const AnalyzerOutputProperties& analyzer_output_properties() const {
+    return analyzer_output_properties_;
+  }
+
  private:
   // This IdStringPool and arena must be kept alive for the Resolved trees below
   // to be valid.
@@ -640,6 +654,8 @@ class AnalyzerOutput {
 
   std::unique_ptr<const ResolvedStatement> statement_;
   std::unique_ptr<const ResolvedExpr> expr_;
+
+  AnalyzerOutputProperties analyzer_output_properties_;
 
   // AnalyzerOutput can (but is not guaranteed to) take ownership of the parser
   // output so deleting the parser AST can be deferred.  Deleting the parser

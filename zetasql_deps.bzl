@@ -123,14 +123,13 @@ cc_proto_library(
         # update urls with $URL
         # update sha256 with result of sha256sum
         # update strip_prefix with COMMITHEX
-        #
         http_archive(
             name = "io_abseil_py",
             # Non-release commit from April 18, 2018
             urls = [
                 "https://github.com/abseil/abseil-py/archive/bd4d245ac1e36439cb44e7ac46cd1b3e48d8edfa.tar.gz",
             ],
-            # sha256 = "a8e92fdfbd4c4ff581738ce6361c78d473fffca3c1875bdd92a054e0400f9600",
+            sha256 = "62a536b13840dc7e3adec333c1ea4c483628ce39a9fdd41e7b3e027f961eb371",
             strip_prefix = "abseil-py-bd4d245ac1e36439cb44e7ac46cd1b3e48d8edfa",
         )
 
@@ -141,6 +140,7 @@ cc_proto_library(
             build_file = "@com_google_protobuf//:six.BUILD",
             # Release 1.10.0
             url = "https://pypi.python.org/packages/source/s/six/six-1.10.0.tar.gz",
+            sha256 = "105f8d68616f8248e24bf0e9372ef04d3cc10104f1980f54d57b2ce73a5ad56a",
         )
 
     native.bind(
@@ -149,12 +149,11 @@ cc_proto_library(
     )
 
     # Protobuf
-    # Peg to a particular commit to pick up some very useful improvements to
-    # bazel support. Once there is a new release, peg to a release.
     if not native.existing_rule("com_google_protobuf"):
         http_archive(
             name = "com_google_protobuf",
             urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.6.1.3.tar.gz"],
+            sha256 = "73fdad358857e120fd0fa19e071a96e15c0f23bb25f85d3f7009abfd4f264a2a",
             strip_prefix = "protobuf-3.6.1.3",
         )
 
@@ -164,6 +163,7 @@ cc_proto_library(
             name = "com_github_grpc_grpc",
             # Release 1.18.0
             url = "https://github.com/grpc/grpc/archive/v1.18.0.tar.gz",
+            sha256 = "069a52a166382dd7b99bf8e7e805f6af40d797cfcee5f80e530ca3fc75fd06e2",
             strip_prefix = "grpc-1.18.0",
         )
 
@@ -174,6 +174,7 @@ cc_proto_library(
             # Release 1.18.0
             url = "https://github.com/grpc/grpc-java/archive/v1.18.0.tar.gz",
             strip_prefix = "grpc-java-1.18.0",
+            sha256 = "0b86e44f9530fd61eb044b3c64c7579f21857ba96bcd9434046fd22891483a6d",
         )
 
     # Auto common
@@ -315,10 +316,12 @@ java_library(
     if not native.existing_rule("com_google_googletest"):
         http_archive(
             name = "com_google_googletest",
-            strip_prefix = "googletest-master",
+            # Commit on 2019-04-18
             urls = [
-                "https://github.com/google/googletest/archive/master.tar.gz",
+                "https://github.com/google/googletest/archive/a53e931dcd00c2556ee181d832e699c9f3c29036.tar.gz",
             ],
+            strip_prefix = "googletest-a53e931dcd00c2556ee181d832e699c9f3c29036",
+            sha256 = "7850caaf8149a6aded637f472415f84e4246a21d979d3866d71b1e56242f8de2",
         )
 
     # RE2 Regex Framework, mostly used in unit tests.
@@ -328,6 +331,7 @@ java_library(
             urls = [
                 "https://github.com/google/re2/archive/2018-09-01.tar.gz",
             ],
+            sha256 = "1424b303582f71c6f9e19f3b21d320e3b80f4c37b9d4426270f1f80d11cacf43",
             strip_prefix = "re2-2018-09-01",
         )
 
@@ -338,6 +342,7 @@ java_library(
             # Jinja release 2.10
             url = "https://github.com/pallets/jinja/archive/2.10.tar.gz",
             strip_prefix = "jinja-2.10",
+            sha256 = "0d31d3466c313a9ca014a2d904fed18cdac873a5ba1f7b70b8fd8b206cd860d6",
             build_file_content = """py_library(
     name = "jinja2",
     visibility = ["//visibility:public"],

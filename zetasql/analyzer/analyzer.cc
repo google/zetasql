@@ -547,6 +547,7 @@ AnalyzerOutput::AnalyzerOutput(
     std::shared_ptr<IdStringPool> id_string_pool,
     std::shared_ptr<zetasql_base::UnsafeArena> arena,
     std::unique_ptr<const ResolvedStatement> statement,
+    const AnalyzerOutputProperties& analyzer_output_properties,
     std::unique_ptr<ParserOutput> parser_output,
     const std::vector<zetasql_base::Status>& deprecation_warnings,
     const QueryParametersMap& undeclared_parameters,
@@ -554,6 +555,7 @@ AnalyzerOutput::AnalyzerOutput(
     : id_string_pool_(std::move(id_string_pool)),
       arena_(std::move(arena)),
       statement_(std::move(statement)),
+      analyzer_output_properties_(analyzer_output_properties),
       parser_output_(std::move(parser_output)),
       deprecation_warnings_(deprecation_warnings),
       undeclared_parameters_(undeclared_parameters),
@@ -563,6 +565,7 @@ AnalyzerOutput::AnalyzerOutput(
     std::shared_ptr<IdStringPool> id_string_pool,
     std::shared_ptr<zetasql_base::UnsafeArena> arena,
     std::unique_ptr<const ResolvedExpr> expr,
+    const AnalyzerOutputProperties& analyzer_output_properties,
     std::unique_ptr<ParserOutput> parser_output,
     const std::vector<zetasql_base::Status>& deprecation_warnings,
     const QueryParametersMap& undeclared_parameters,
@@ -570,6 +573,7 @@ AnalyzerOutput::AnalyzerOutput(
     : id_string_pool_(std::move(id_string_pool)),
       arena_(std::move(arena)),
       expr_(std::move(expr)),
+      analyzer_output_properties_(analyzer_output_properties),
       parser_output_(std::move(parser_output)),
       deprecation_warnings_(deprecation_warnings),
       undeclared_parameters_(undeclared_parameters),
@@ -731,7 +735,9 @@ static zetasql_base::Status AnalyzeStatementFromParserOutputImpl(
       take_ownership_on_success ? statement_parser_output->release() : nullptr);
   *output = absl::make_unique<AnalyzerOutput>(
       local_options.id_string_pool(), local_options.arena(),
-      std::move(resolved_statement), std::move(owned_parser_output),
+      std::move(resolved_statement),
+      AnalyzerOutputProperties(),
+      std::move(owned_parser_output),
       ConvertInternalErrorLocationsAndAdjustErrorStrings(
           local_options.error_message_mode(), sql,
           resolver.deprecation_warnings()),
@@ -825,6 +831,7 @@ static zetasql_base::Status AnalyzeExpressionFromParserASTImpl(
 
   *output = absl::make_unique<AnalyzerOutput>(
       options.id_string_pool(), options.arena(), std::move(resolved_expr),
+      AnalyzerOutputProperties(),
       std::move(parser_output),
       ConvertInternalErrorLocationsAndAdjustErrorStrings(
           options.error_message_mode(), sql, resolver.deprecation_warnings()),

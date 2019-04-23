@@ -621,7 +621,7 @@ TEST_F(ResolverTest, TestResolveAggregateExpressions) {
                        "COUNT(*) cannot be used with DISTINCT", true);
 }
 
-TEST_F(ResolverTest, ResolvingSafeScalarFucntionsSucceed) {
+TEST_F(ResolverTest, ResolvingSafeScalarFunctionsSucceed) {
   ParseAndResolveFunction("SAFE.CURRENT_TIMESTAMP()",
                           "ZetaSQL:current_timestamp");
   ParseAndResolveFunction("SAFE.CONCAT('a', 'b', 'c', 'd')",
