@@ -202,6 +202,8 @@ class Unparser : public ParseTreeVisitor {
                                  void* data) override;
   void visitASTAbortBatchStatement(const ASTAbortBatchStatement* node,
                                    void* data) override;
+  void visitASTDropColumnAction(const ASTDropColumnAction* node,
+                                void* data) override;
   void visitASTDropStatement(const ASTDropStatement* node, void* data) override;
   void visitASTDropFunctionStatement(
       const ASTDropFunctionStatement* node, void* data) override;
@@ -256,6 +258,8 @@ class Unparser : public ParseTreeVisitor {
   void visitASTGroupBy(const ASTGroupBy* node, void* data) override;
   void visitASTHaving(const ASTHaving* node, void* data) override;
   void visitASTCollate(const ASTCollate* node, void* data) override;
+  void visitASTColumnPosition(const ASTColumnPosition* node,
+                              void* data) override;
   void visitASTOrderBy(const ASTOrderBy* node, void* data) override;
   void visitASTLimitOffset(const ASTLimitOffset* node, void* data) override;
   void visitASTHavingModifier(const ASTHavingModifier* node,
@@ -426,12 +430,16 @@ class Unparser : public ParseTreeVisitor {
 
   void visitASTRepeatableClause(const ASTRepeatableClause* node,
                                 void* data) override;
+  void visitASTReplaceFieldsArg(const ASTReplaceFieldsArg* node,
+                                void* data) override;
   void visitASTReplaceFieldsExpression(const ASTReplaceFieldsExpression* node,
                                        void* data) override;
   void visitASTSampleSize(const ASTSampleSize* node, void* data) override;
   void visitASTSampleSuffix(const ASTSampleSuffix* node, void* data) override;
   void visitASTWithWeight(const ASTWithWeight* node, void *data) override;
   void visitASTSampleClause(const ASTSampleClause* node, void* data) override;
+  void visitASTAlterMaterializedViewStatement(
+      const ASTAlterMaterializedViewStatement* node, void* data) override;
   void visitASTAlterTableStatement(const ASTAlterTableStatement* node,
                                    void* data) override;
   void visitASTAlterViewStatement(const ASTAlterViewStatement* node,
@@ -446,6 +454,8 @@ class Unparser : public ParseTreeVisitor {
       const ASTAlterConstraintEnforcementAction* node, void* data) override;
   void visitASTAlterConstraintSetOptionsAction(
       const ASTAlterConstraintSetOptionsAction* node, void* data) override;
+  void visitASTAddColumnAction(const ASTAddColumnAction* node,
+                               void* data) override;
   void visitASTAlterActionList(const ASTAlterActionList* node,
                                void* data) override;
   void visitASTAlterRowPolicyStatement(

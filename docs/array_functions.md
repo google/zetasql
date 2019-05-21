@@ -14,7 +14,7 @@ The `ARRAY` function returns an `ARRAY` with one element for each row in a
 [subquery](https://github.com/google/zetasql/blob/master/docs/query-syntax.md#subqueries).
 
 If `subquery` produces a
-[standard SQL table](https://github.com/google/zetasql/blob/master/docs/data-model.md#standard-sql-tables),
+[SQL table](https://github.com/google/zetasql/blob/master/docs/data-model.md#standard-sql-tables),
 the table must have exactly one column. Each element in the output `ARRAY` is
 the value of the single column of a row in the table.
 

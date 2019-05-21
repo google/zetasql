@@ -177,6 +177,151 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "sql_builder",
+    srcs = [
+        "query_expression.cc",
+        "sql_builder.cc",
+    ],
+    hdrs = [
+        "query_expression.h",
+        "sql_builder.h",
+    ],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":resolved_ast",
+        ":resolved_ast_enums_cc_proto",
+        ":resolved_node_kind_cc_proto",
+        "//zetasql/base",
+        "//zetasql/base:map_util",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:source_location",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/public:analyzer",
+        "//zetasql/public:builtin_function_cc_proto",
+        "//zetasql/public:catalog",
+        "//zetasql/public:constant",
+        "//zetasql/public:function",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:strings",
+        "//zetasql/public:type",
+        "//zetasql/public:value",
+        "//zetasql/public/functions:date_time_util",
+        "//zetasql/public/functions:datetime_cc_proto",
+        "//zetasql/public/functions:normalize_mode_cc_proto",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_test(
+    name = "resolved_ast_test",
+    size = "small",
+    srcs = ["resolved_ast_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":make_node_vector",
+        ":resolved_ast",
+        ":serialization_cc_proto",
+        ":validator",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/public:analyzer",
+        "//zetasql/public:catalog",
+        "//zetasql/public:function",
+        "//zetasql/public:id_string",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/public:templated_sql_tvf",
+        "//zetasql/public:type",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/public:value_cc_proto",
+    ],
+)
+
+cc_test(
+    name = "make_node_vector_test",
+    size = "small",
+    srcs = ["make_node_vector_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":make_node_vector",
+        ":resolved_ast",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/memory",
+    ],
+)
+
+cc_test(
+    name = "resolved_ast_deep_copy_visitor_test",
+    size = "small",
+    srcs = ["resolved_ast_deep_copy_visitor_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":make_node_vector",
+        ":resolved_ast",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base:status",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/public:analyzer",
+        "//zetasql/public:builtin_function",
+        "//zetasql/public:builtin_function_cc_proto",
+        "//zetasql/public:function",
+        "//zetasql/public:language_options",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/public:templated_sql_tvf",
+        "//zetasql/public:type",
+        "//zetasql/public:value",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/memory",
+    ],
+)
+
+cc_test(
+    name = "resolved_ast_helper_test",
+    size = "small",
+    srcs = ["resolved_ast_helper_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":make_node_vector",
+        ":resolved_ast",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/analyzer",
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/public:function",
+        "//zetasql/public:templated_sql_tvf",
+        "//zetasql/public:type",
+        "//zetasql/public:value",
+        "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_absl//absl/memory",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_test(
+    name = "resolved_column_test",
+    size = "small",
+    srcs = ["resolved_column_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":resolved_ast",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base:status",
+        "//zetasql/public:templated_sql_tvf",
+        "//zetasql/public:type",
+        "//zetasql/public:type_cc_proto",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
 proto_library(
     name = "resolved_ast_enums_proto",
     srcs = ["resolved_ast_enums.proto"],

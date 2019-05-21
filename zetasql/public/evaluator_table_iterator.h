@@ -15,9 +15,6 @@
 //
 
 // API for providing a table to the ZetaSQL Evaluator (see evaluator.h).
-//
-// TODO: DO NOT USE THIS API YET. The Evaluator support for it is still
-// being implemented. b/110046614
 
 #ifndef ZETASQL_PUBLIC_EVALUATOR_TABLE_ITERATOR_H_
 #define ZETASQL_PUBLIC_EVALUATOR_TABLE_ITERATOR_H_
@@ -95,9 +92,10 @@ class EvaluatorTableIterator {
   // proves to be important.
   //
   // The evaluator implements this functionality with a very limited form of
-  // filter pushdown that does not support filter inferencing. (The evaluator
-  // does not have a real optimizer.) Thus, to leverage this feature, it is
-  // often necessary to ensure the WHERE clause is very close to the
+  // filter pushdown that only supports pushdown through FilterScans,
+  // ProjectScans, and JoinScans, and does not support filter inferencing. (The
+  // evaluator does not have a real optimizer.) Thus, to leverage this feature,
+  // it is often necessary to ensure the WHERE clause is very close to the
   // corresponding table scan. Here are some examples that will work with this
   // feature:
   //

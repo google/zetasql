@@ -20,12 +20,11 @@ syntax = "proto2";
 
 package zetasql_test;
 
+import "zetasql/public/proto/type_annotation.proto";
+import "zetasql/public/proto/wire_format_annotation.proto";
 
 option java_package = "com.google.zetasqltest";
 option java_outer_classname = "TestSchemaProto";
-
-import "zetasql/public/proto/type_annotation.proto";
-import "zetasql/public/proto/wire_format_annotation.proto";
 
 enum TestEnum {
   TESTENUM0 = 0;
@@ -43,6 +42,7 @@ enum AnotherTestEnum {
 
 enum TestEnumWithAlias {
   option allow_alias = true;
+
   FIRSTENUM = 0;
   FIRSTENUM_WITHALIAS = 0;
   SECOND_ENUM = 1;
@@ -66,11 +66,11 @@ message KitchenSinkPB {
   required int64 int64_key_2 = 2;
 
   // Optional, all types.
-  optional int32 int32_val = 3 [ default = 77 ];
-  optional uint32 uint32_val = 4 [ default = 777 ];
+  optional int32 int32_val = 3 [default = 77];
+  optional uint32 uint32_val = 4 [default = 777];
   optional int64 int64_val = 5;
   optional uint64 uint64_val = 6;
-  optional string string_val = 7 [ default = "default_name" ];
+  optional string string_val = 7 [default = "default_name"];
   optional float float_val = 8;
   optional double double_val = 9;
   optional bytes bytes_val = 10;
@@ -100,7 +100,7 @@ message KitchenSinkPB {
   repeated sint64 repeated_sint64_val = 32;
 
   message Nested {
-    optional int64 nested_int64 = 1 [ default = 88 ];
+    optional int64 nested_int64 = 1 [default = 88];
     repeated int64 nested_repeated_int64 = 2;
     repeated int32 nested_repeated_int32 = 3;
     repeated int32 value = 4;
@@ -140,9 +140,8 @@ message KitchenSinkPB {
   // Annotated date types.  We use the current <format> annotation and the
   // deprecated <type> annotation interchangeably.  <format> overrides <type>
   // if both are present.
-  optional int32 date = 42 [ (zetasql.format) = DATE ];
-  optional int32 date_default = 78 [ (zetasql.format) = DATE,
-                                     default=10950];
+  optional int32 date = 42 [(zetasql.format) = DATE];
+  optional int32 date_default = 78 [(zetasql.format) = DATE, default = 10950];
   // Fields with the DATE_DECIMAL annotation that have a value of 0 are treated
   // as NULL when read from a proto. When two protos are compared, however,
   // an unset field is treated differently than a field with a value of 0. To
@@ -151,68 +150,68 @@ message KitchenSinkPB {
   optional int32 date_decimal = 65
       [(zetasql.type) = DATE_DECIMAL, default = 0];
   optional int32 date_decimal_legacy = 68
-      [ (zetasql.type) = DATE, (zetasql.encoding) = DATE_PACKED32 ];
-  optional int32 date_decimal_default = 77 [ (zetasql.type) = DATE_DECIMAL,
-                                             default=20130517];
+      [(zetasql.type) = DATE, (zetasql.encoding) = DATE_PACKED32];
+  optional int32 date_decimal_default = 77
+      [(zetasql.type) = DATE_DECIMAL, default = 20130517];
 
-  optional int64 date64 = 43 [ (zetasql.type) = DATE ];
+  optional int64 date64 = 43 [(zetasql.type) = DATE];
   optional int64 date64_decimal = 69 [
     (zetasql.format) = DATE_DECIMAL,
     (zetasql.type) = TIMESTAMP_MILLIS /* this is ignored */,
     default = 0
   ];
   optional int64 date64_decimal_legacy = 66
-      [ (zetasql.encoding) = DATE_PACKED32, (zetasql.format) = DATE ];
+      [(zetasql.encoding) = DATE_PACKED32, (zetasql.format) = DATE];
 
-  optional int64 timestamp_seconds = 44
-      [ (zetasql.type) = TIMESTAMP_SECONDS ];
-  optional int64 timestamp_millis = 45 [ (zetasql.type) = TIMESTAMP_MILLIS ];
-  optional int64 timestamp_micros = 46 [ (zetasql.type) = TIMESTAMP_MICROS ];
+  optional int64 timestamp_seconds = 44 [(zetasql.type) = TIMESTAMP_SECONDS];
+  optional int64 timestamp_millis = 45 [(zetasql.type) = TIMESTAMP_MILLIS];
+  optional int64 timestamp_micros = 46 [(zetasql.type) = TIMESTAMP_MICROS];
   optional int64 timestamp_seconds_format = 82
-      [ (zetasql.format) = TIMESTAMP_SECONDS ];
+      [(zetasql.format) = TIMESTAMP_SECONDS];
   optional int64 timestamp_millis_format = 83
-      [ (zetasql.format) = TIMESTAMP_MILLIS ];
+      [(zetasql.format) = TIMESTAMP_MILLIS];
   optional int64 timestamp_micros_format = 84
-      [ (zetasql.format) = TIMESTAMP_MICROS ];
-  optional uint64 timestamp_uint64 = 80 [ (zetasql.format) = TIMESTAMP_MICROS ];
+      [(zetasql.format) = TIMESTAMP_MICROS];
+  optional uint64 timestamp_uint64 = 80 [(zetasql.format) = TIMESTAMP_MICROS];
   optional uint64 timestamp_uint64_default = 81 [
     (zetasql.format) = TIMESTAMP_MICROS,
     // 1961-03-25 02:31:56.000000 PST
-    default = 18446467286025782675 ];
+    default = 18446467286025782675
+  ];
 
-  repeated int32 repeated_date = 48 [ (zetasql.type) = DATE ];
-  repeated int64 repeated_date64 = 49 [ (zetasql.type) = DATE ];
+  repeated int32 repeated_date = 48 [(zetasql.type) = DATE];
+  repeated int64 repeated_date64 = 49 [(zetasql.type) = DATE];
   repeated int64 repeated_timestamp_seconds = 50
-      [ (zetasql.type) = TIMESTAMP_SECONDS ];
+      [(zetasql.type) = TIMESTAMP_SECONDS];
   repeated int64 repeated_timestamp_millis = 51
-      [ (zetasql.type) = TIMESTAMP_MILLIS ];
+      [(zetasql.type) = TIMESTAMP_MILLIS];
   repeated int64 repeated_timestamp_micros = 52
-      [ (zetasql.type) = TIMESTAMP_MICROS ];
+      [(zetasql.type) = TIMESTAMP_MICROS];
   repeated int64 repeated_timestamp_seconds_format = 85
-      [ (zetasql.format) = TIMESTAMP_SECONDS ];
+      [(zetasql.format) = TIMESTAMP_SECONDS];
   repeated int64 repeated_timestamp_millis_format = 86
-      [ (zetasql.format) = TIMESTAMP_MILLIS ];
+      [(zetasql.format) = TIMESTAMP_MILLIS];
   repeated int64 repeated_timestamp_micros_format = 87
-      [ (zetasql.format) = TIMESTAMP_MICROS ];
+      [(zetasql.format) = TIMESTAMP_MICROS];
 
   message NestedDates {
-    optional int32 date = 1 [ (zetasql.type) = DATE ];
+    optional int32 date = 1 [(zetasql.type) = DATE];
     optional int32 date_decimal = 2 [
       (zetasql.type) = DATE,
       (zetasql.encoding) = DATE_DECIMAL,
       default = 0
     ];
-    optional int64 timestamp_millis = 3 [ (zetasql.type) = TIMESTAMP_MILLIS ];
+    optional int64 timestamp_millis = 3 [(zetasql.type) = TIMESTAMP_MILLIS];
   }
   optional NestedDates nested_dates = 67;
 
   // Annotations for defaults.
   optional int64 int_with_no_default = 54;
-  optional int64 int_with_default = 55 [ default = 17 ];
+  optional int64 int_with_default = 55 [default = 17];
   optional int64 int_with_no_default_nullable = 56
-      [ (zetasql.use_defaults) = false ];
+      [(zetasql.use_defaults) = false];
   optional int64 int_with_default_nullable = 57
-      [ default = 17, (zetasql.use_defaults) = false ];
+      [default = 17, (zetasql.use_defaults) = false];
 
   optional MessageWithNulls message_with_nulls = 58;
 
@@ -288,26 +287,27 @@ message PackedRepeatablePB {
 // with the annotations in a new proto.
 // TODO: merge the fields in this proto into KitchenSinkPB
 message CivilTimeTypesSinkPB {
-  optional int64 time_micros = 1 [ (zetasql.format) = TIME_MICROS ];
+  optional int64 time_micros = 1 [(zetasql.format) = TIME_MICROS];
   optional int64 time_micros_default = 2 [
-      (zetasql.format) = TIME_MICROS,
-      // 12:34:56.654321
-      default = 53880683505 ];
+    (zetasql.format) = TIME_MICROS,
+    // 12:34:56.654321
+    default = 53880683505
+  ];
 
-  optional int64 datetime_micros = 3 [ (zetasql.format) = DATETIME_MICROS ];
+  optional int64 datetime_micros = 3 [(zetasql.format) = DATETIME_MICROS];
   optional int64 datetime_micros_default = 4 [
-      (zetasql.format) = DATETIME_MICROS,
-      // 1970-01-01 00:00:00
-      default = 138630961515462656 ];
+    (zetasql.format) = DATETIME_MICROS,
+    // 1970-01-01 00:00:00
+    default = 138630961515462656
+  ];
 
-  repeated int64 repeated_time_micros = 5
-      [ (zetasql.format) = TIME_MICROS ];
+  repeated int64 repeated_time_micros = 5 [(zetasql.format) = TIME_MICROS];
   repeated int64 repeated_datetime_micros = 6
-      [ (zetasql.format) = DATETIME_MICROS ];
+      [(zetasql.format) = DATETIME_MICROS];
 
   message NestedCivilTimeFields {
-    optional int64 time_micros = 1 [ (zetasql.format) = TIME_MICROS ];
-    optional int64 datetime_micros = 2 [ (zetasql.format) = DATETIME_MICROS ];
+    optional int64 time_micros = 1 [(zetasql.format) = TIME_MICROS];
+    optional int64 datetime_micros = 2 [(zetasql.format) = DATETIME_MICROS];
   }
   optional NestedCivilTimeFields nested_civil_time_fields = 7;
 
@@ -327,52 +327,60 @@ message CivilTimeTypesSinkPB {
 }
 
 extend CivilTimeTypesSinkPB {
-  optional int64 time_micros_extension = 1000 [
-      (zetasql.format) = TIME_MICROS ];
-  repeated int64 repeated_time_micros_extension = 1001 [
-      (zetasql.format) = TIME_MICROS ];
+  optional int64 time_micros_extension = 1000
+      [(zetasql.format) = TIME_MICROS];
+  repeated int64 repeated_time_micros_extension = 1001
+      [(zetasql.format) = TIME_MICROS];
 }
 
 message NullableInt {
   option (zetasql.is_wrapper) = true;
-  optional int32 value = 1 [ (zetasql.use_defaults) = false ];
+
+  optional int32 value = 1 [(zetasql.use_defaults) = false];
 }
 
 message NullableDate {
   option (zetasql.is_wrapper) = true;
-  optional int32 value = 1 [ (zetasql.format) = DATE,
-                             (zetasql.use_defaults) = false ];
+
+  optional int32 value = 1
+      [(zetasql.format) = DATE, (zetasql.use_defaults) = false];
 }
 
 message NullableEnum {
   option (zetasql.is_wrapper) = true;
+
   optional TestEnum value = 1;
 }
 
 message NullableArrayOfInt {
   option (zetasql.is_wrapper) = true;
+
   repeated int32 value = 1;
 }
 
 message NullableArrayOfNullableInt {
   option (zetasql.is_wrapper) = true;
+
   repeated NullableInt value = 1;
 }
 
 message NullableArrayOfNullableDate {
   option (zetasql.is_wrapper) = true;
+
   repeated NullableDate value = 1;
 }
 
 // A double-wrapped proto.  Currently useless, but it should work.
 message RewrappedNullableInt {
   option (zetasql.is_wrapper) = true;
+
   optional NullableInt value = 1;
 }
 
 message KeyValueStruct {
   option (zetasql.is_struct) = true;
   option (zetasql.use_field_defaults) = false;
+
   optional string key = 1;
   optional int64 value = 2;
 }
@@ -381,12 +389,13 @@ message KeyValueStruct {
 message AnnotatedStruct {
   option (zetasql.is_struct) = true;
   option (zetasql.use_field_defaults) = false;
+
   optional string f1 = 1 [(zetasql.struct_field_name) = "key"];
   optional int32 f2 = 2 [(zetasql.struct_field_name) = "key"];
-  optional int32 f3 = 3 [(zetasql.format) = DATE,
-                         (zetasql.struct_field_name) = ""];
-  optional bytes f4 = 4 [(zetasql.struct_field_name) = "",
-                         (zetasql.use_defaults) = true];
+  optional int32 f3 = 3
+      [(zetasql.format) = DATE, (zetasql.struct_field_name) = ""];
+  optional bytes f4 = 4
+      [(zetasql.struct_field_name) = "", (zetasql.use_defaults) = true];
   repeated int64 f5 = 5 [(zetasql.struct_field_name) = "value"];
 }
 
@@ -394,17 +403,18 @@ message AnnotatedStruct {
 // sets it back to true for specific fields.
 message MessageWithNulls {
   option (zetasql.use_field_defaults) = false;
+
   optional int64 i1 = 1;
-  optional int64 i2 = 2 [ default = 3 ];
-  optional int64 i3 = 3 [ (zetasql.use_defaults) = true ];
-  optional int64 i4 = 4 [ default = 6, (zetasql.use_defaults) = true ];
+  optional int64 i2 = 2 [default = 3];
+  optional int64 i3 = 3 [(zetasql.use_defaults) = true];
+  optional int64 i4 = 4 [default = 6, (zetasql.use_defaults) = true];
 }
 
 // This message contains a required field that is annotated with
 // zetasql.use_defaults = false. This annotation does not affect the
 // resolution of this field as required fields must be set.
 message RequiredFieldDoesNotUseDefaults {
-  required int64 int64_key_no_default = 1 [ (zetasql.use_defaults) = false ];
+  required int64 int64_key_no_default = 1 [(zetasql.use_defaults) = false];
 }
 
 // This message sets 'use_field_defaults' to the non-default setting, which
@@ -413,12 +423,14 @@ message RequiredFieldDoesNotUseDefaults {
 // default.
 message RequiredFieldNoFieldDefaults {
   option (zetasql.use_field_defaults) = false;
+
   required int64 int64_key = 1;
 }
 
 // This message contains a message level annotation to !use_field_defaults.
 message MessageWithKitchenSinkPB {
   option (zetasql.use_field_defaults) = false;
+
   // KitchenSinkPB does not set use_field_defaults;
   optional KitchenSinkPB kitchen_sink = 1;
   // MessageWithNulls does set use_field_defaults;
@@ -518,8 +530,7 @@ extend KitchenSinkPB {
   repeated int32 repeated_date_extension = 1008 [(zetasql.format) = DATE];
 }
 
-message EmptyMessage {
-}
+message EmptyMessage {}
 
 // A proto with recursive regular and extension fields to facilitate testing of
 // long chains of the form
@@ -575,7 +586,8 @@ message FieldFormatsProto {
   optional sfixed64 f_seconds = 305 [(zetasql.type) = TIMESTAMP_SECONDS];
   optional sfixed64 f_millis = 306 [(zetasql.type) = TIMESTAMP_MILLIS];
   optional sfixed64 f_micros = 307 [(zetasql.type) = TIMESTAMP_MICROS];
-  //  optional fixed64 f_micros_u64 = 308 [(zetasql.format) = TIMESTAMP_MICROS];
+  //  optional fixed64 f_micros_u64 = 308 [(zetasql.format) =
+  //  TIMESTAMP_MICROS];
   optional sfixed64 f_seconds_format = 309
       [(zetasql.format) = TIMESTAMP_SECONDS];
   optional sfixed64 f_millis_format = 310
@@ -585,7 +597,7 @@ message FieldFormatsProto {
 
   repeated int32 repeated_date = 401 [(zetasql.type) = DATE];
   repeated int64 repeated_date_64 = 402 [(zetasql.type) = DATE];
-  repeated int32 repeated_date_decimal =403 [(zetasql.type) = DATE_DECIMAL];
+  repeated int32 repeated_date_decimal = 403 [(zetasql.type) = DATE_DECIMAL];
   repeated int64 repeated_date_decimal_64 = 404
       [(zetasql.format) = DATE_DECIMAL];
   repeated int64 repeated_seconds = 405 [(zetasql.type) = TIMESTAMP_SECONDS];
@@ -639,84 +651,84 @@ message FieldFormatsProto {
       [(zetasql.format) = TIMESTAMP_MICROS];
 
   optional int32 date_default = 701
-      [default=16506,(zetasql.format) = DATE];
+      [default = 16506, (zetasql.format) = DATE];
   optional int64 date_64_default = 702
-      [default=16507,(zetasql.type) = DATE];
+      [default = 16507, (zetasql.type) = DATE];
   optional int32 date_decimal_default = 703
-      [default=20150312,(zetasql.type) = DATE_DECIMAL];
+      [default = 20150312, (zetasql.type) = DATE_DECIMAL];
   optional int64 date_decimal_64_default = 704
-      [default=20150313,(zetasql.format) = DATE_DECIMAL];
+      [default = 20150313, (zetasql.format) = DATE_DECIMAL];
   optional int64 seconds_default = 705
-      [default=1426182587,(zetasql.type) = TIMESTAMP_SECONDS];
+      [default = 1426182587, (zetasql.type) = TIMESTAMP_SECONDS];
   optional int64 millis_default = 706
-      [default=1426182587555,(zetasql.type) = TIMESTAMP_MILLIS];
+      [default = 1426182587555, (zetasql.type) = TIMESTAMP_MILLIS];
   optional int64 micros_default = 707
-      [default=1426182587555666,(zetasql.type) = TIMESTAMP_MICROS];
+      [default = 1426182587555666, (zetasql.type) = TIMESTAMP_MICROS];
   optional int64 seconds_default_format = 709
-      [default=1426182587,(zetasql.format) = TIMESTAMP_SECONDS];
+      [default = 1426182587, (zetasql.format) = TIMESTAMP_SECONDS];
   optional int64 millis_default_format = 710
-      [default=1426182587555,(zetasql.format) = TIMESTAMP_MILLIS];
+      [default = 1426182587555, (zetasql.format) = TIMESTAMP_MILLIS];
   optional int64 micros_default_format = 711
-      [default=1426182587555666,(zetasql.format) = TIMESTAMP_MICROS];
+      [default = 1426182587555666, (zetasql.format) = TIMESTAMP_MICROS];
   optional uint64 micros_u64_default = 708
-      [default=1426182587555777,(zetasql.format) = TIMESTAMP_MICROS];
+      [default = 1426182587555777, (zetasql.format) = TIMESTAMP_MICROS];
 
   optional sint32 s_date_default = 801
-      [default=16508,(zetasql.format) = DATE];
+      [default = 16508, (zetasql.format) = DATE];
   optional sint64 s_date_64_default = 802
-      [default=16509,(zetasql.type) = DATE];
+      [default = 16509, (zetasql.type) = DATE];
   optional sint32 s_date_decimal_default = 803
-      [default=20150314,(zetasql.type) = DATE_DECIMAL];
+      [default = 20150314, (zetasql.type) = DATE_DECIMAL];
   optional sint64 s_date_decimal_64_default = 804
-      [default=20150315,(zetasql.format) = DATE_DECIMAL];
+      [default = 20150315, (zetasql.format) = DATE_DECIMAL];
   optional sint64 s_seconds_default = 805
-      [default=1426268987,(zetasql.type) = TIMESTAMP_SECONDS];
+      [default = 1426268987, (zetasql.type) = TIMESTAMP_SECONDS];
   optional sint64 s_millis_default = 806
-      [default=1426268987555,(zetasql.type) = TIMESTAMP_MILLIS];
+      [default = 1426268987555, (zetasql.type) = TIMESTAMP_MILLIS];
   optional sint64 s_micros_default = 807
-      [default=1426268987555666,(zetasql.type) = TIMESTAMP_MICROS];
+      [default = 1426268987555666, (zetasql.type) = TIMESTAMP_MICROS];
   optional sint64 s_seconds_default_format = 808
-      [default=1426268987,(zetasql.format) = TIMESTAMP_SECONDS];
+      [default = 1426268987, (zetasql.format) = TIMESTAMP_SECONDS];
   optional sint64 s_millis_default_format = 809
-      [default=1426268987555,(zetasql.format) = TIMESTAMP_MILLIS];
+      [default = 1426268987555, (zetasql.format) = TIMESTAMP_MILLIS];
   optional sint64 s_micros_default_format = 810
-      [default=1426268987555666,(zetasql.format) = TIMESTAMP_MICROS];
+      [default = 1426268987555666, (zetasql.format) = TIMESTAMP_MICROS];
 
   optional sfixed32 f_date_default = 901
-      [default=16510,(zetasql.format) = DATE];
+      [default = 16510, (zetasql.format) = DATE];
   optional sfixed64 f_date_64_default = 902
-      [default=16511,(zetasql.type) = DATE];
+      [default = 16511, (zetasql.type) = DATE];
   optional sfixed32 f_date_decimal_default = 903
-      [default=20150316,(zetasql.type) = DATE_DECIMAL];
+      [default = 20150316, (zetasql.type) = DATE_DECIMAL];
   optional sfixed64 f_date_decimal_64_default = 904
-      [default=20150317,(zetasql.format) = DATE_DECIMAL];
+      [default = 20150317, (zetasql.format) = DATE_DECIMAL];
   optional sfixed64 f_seconds_default = 905
-      [default=1426355387,(zetasql.type) = TIMESTAMP_SECONDS];
+      [default = 1426355387, (zetasql.type) = TIMESTAMP_SECONDS];
   optional sfixed64 f_millis_default = 906
-      [default=1426355387555,(zetasql.type) = TIMESTAMP_MILLIS];
+      [default = 1426355387555, (zetasql.type) = TIMESTAMP_MILLIS];
   optional sfixed64 f_micros_default = 907
-      [default=1426355387555666,(zetasql.type) = TIMESTAMP_MICROS];
+      [default = 1426355387555666, (zetasql.type) = TIMESTAMP_MICROS];
   //  optional fixed64 f_micros_u64_default = 908
   //      [default=1426355387555777,(zetasql.format) = TIMESTAMP_MICROS];
   optional sfixed64 f_seconds_default_format = 909
-      [default=1426355387,(zetasql.format) = TIMESTAMP_SECONDS];
+      [default = 1426355387, (zetasql.format) = TIMESTAMP_SECONDS];
   optional sfixed64 f_millis_default_format = 910
-      [default=1426355387555,(zetasql.format) = TIMESTAMP_MILLIS];
+      [default = 1426355387555, (zetasql.format) = TIMESTAMP_MILLIS];
   optional sfixed64 f_micros_default_format = 911
-      [default=1426355387555666,(zetasql.format) = TIMESTAMP_MICROS];
+      [default = 1426355387555666, (zetasql.format) = TIMESTAMP_MICROS];
 
   optional bytes b_geo = 912 [(zetasql.format) = ST_GEOGRAPHY_ENCODED];
   repeated bytes repeated_b_geo = 913
       [(zetasql.format) = ST_GEOGRAPHY_ENCODED];
 
   optional bytes b_numeric = 914 [(zetasql.format) = NUMERIC];
-  repeated bytes repeated_b_numeric = 915
-      [(zetasql.format) = NUMERIC];
+  repeated bytes repeated_b_numeric = 915 [(zetasql.format) = NUMERIC];
 }
 
 message TestSQLTable {
   option (zetasql.table_type) = SQL_TABLE;
   option (zetasql.is_struct) = true;
+
   optional int32 f1 = 3;
   optional int32 f2 = 4;
 }

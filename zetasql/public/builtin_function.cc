@@ -17,6 +17,7 @@
 #include "zetasql/public/builtin_function.h"
 
 #include <ctype.h>
+
 #include <algorithm>
 #include <memory>
 #include <set>
@@ -1346,6 +1347,45 @@ static zetasql_base::Status CheckInArrayArguments(
   return ::zetasql_base::OkStatus();
 }
 
+static zetasql_base::Status CheckRangeBucketArguments(
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  if (arguments.size() != 2) {
+    // Let validation happen normally. It will return an error later.
+    return ::zetasql_base::OkStatus();
+  }
+
+  if (!arguments[0].type()->SupportsOrdering(language_options,
+                                             /*type_description=*/nullptr)) {
+    return MakeSqlError() << "First argument to RANGE_BUCKET of type "
+                          << arguments[0].type()->ShortTypeName(
+                                 language_options.product_mode())
+                          << " does not support ordering";
+  }
+
+  if (arguments[1].type()->IsArray()) {
+    if (!arguments[1].type()->AsArray()->element_type()->SupportsOrdering(
+            language_options, /*type_description=*/nullptr)) {
+      return MakeSqlError()
+             << "Second argument to RANGE_BUCKET of type "
+             << arguments[1].type()->ShortTypeName(
+                    language_options.product_mode())
+             << " is not supported because array element type does not support "
+             << "ordering";
+    }
+  } else {
+    // Untyped parameter can be coerced to any type.
+    if (!arguments[1].is_untyped_query_parameter()) {
+      return MakeSqlError()
+             << "Second argument of RANGE_BUCKET must be an array but was "
+             << arguments[1].type()->ShortTypeName(
+                    language_options.product_mode());
+    }
+  }
+
+  return zetasql_base::OkStatus();
+}
+
 // Returns true if an arithmetic operation has a floating point type as its
 // input.
 static bool HasFloatingPointArgument(
@@ -1376,17 +1416,15 @@ static bool HasNumericTypeArgument(
 //     STRUCT<`value` <arguments[0].type()>,
 //            `<field2_name>` <arguments[1].type()> > >
 static zetasql_base::StatusOr<const Type*> ComputeResultTypeForTopStruct(
-    const std::string& field2_name,
-    Catalog* catalog,
-    TypeFactory* type_factory,
+    const std::string& field2_name, Catalog* catalog, TypeFactory* type_factory,
     CycleDetector* cycle_detector,
     const std::vector<InputArgumentType>& arguments,
     const AnalyzerOptions& analyzer_options) {
   ZETASQL_RET_CHECK_GE(arguments.size(), 2);
   const Type* element_type;
   ZETASQL_RETURN_IF_ERROR(type_factory->MakeStructType(
-      {{"value", arguments[0].type()},
-       {field2_name, arguments[1].type()}}, &element_type));
+      {{"value", arguments[0].type()}, {field2_name, arguments[1].type()}},
+      &element_type));
   const Type* result_type = nullptr;
   ZETASQL_RETURN_IF_ERROR(type_factory->MakeArrayType(element_type, &result_type));
   return result_type;
@@ -1404,7 +1442,7 @@ static void InsertCreatedFunction(
   }
 
   if (!function->function_options().check_all_required_features_are_enabled(
-      language_options.GetEnabledLanguageFeatures())) {
+          language_options.GetEnabledLanguageFeatures())) {
     return;
   }
 
@@ -1496,9 +1534,10 @@ static void InsertFunctionImpl(
     local_options.supports_window_framing = true;
   }
 
-  InsertCreatedFunction(functions, options, new Function(
-      name, Function::kZetaSQLFunctionGroupName, mode, signatures,
-      local_options));
+  InsertCreatedFunction(
+      functions, options,
+      new Function(name, Function::kZetaSQLFunctionGroupName, mode,
+                   signatures, local_options));
 }
 
 static void InsertFunction(
@@ -1571,58 +1610,55 @@ static void GetDatetimeExtractFunctions(
                          /*explicit_datepart_name=*/""))
           .set_get_sql_callback(&ExtractFunctionSQL));
 
-  InsertFunction(
-      functions, options, "$extract_date", SCALAR,
-      {{date_type,
-        {timestamp_type, {string_type, OPTIONAL}},
-        FN_EXTRACT_DATE_FROM_TIMESTAMP},
-       {date_type, {datetime_type}, FN_EXTRACT_DATE_FROM_DATETIME}},
-      FunctionOptions()
-          .set_supports_safe_error_mode(false)
-          .set_pre_resolution_argument_constraint(
-              &CheckExtractPreResolutionArguments)
-          .set_sql_name("extract")
-          .set_no_matching_signature_callback(
-              bind_front(&NoMatchingSignatureForExtractFunction, "DATE"))
-          .set_supported_signatures_callback(
-              bind_front(&ExtractSupportedSignatures, "DATE"))
-          .set_get_sql_callback(
-              bind_front(ExtractDateOrTimeFunctionSQL, "DATE")));
+  InsertFunction(functions, options, "$extract_date", SCALAR,
+                 {{date_type,
+                   {timestamp_type, {string_type, OPTIONAL}},
+                   FN_EXTRACT_DATE_FROM_TIMESTAMP},
+                  {date_type, {datetime_type}, FN_EXTRACT_DATE_FROM_DATETIME}},
+                 FunctionOptions()
+                     .set_supports_safe_error_mode(false)
+                     .set_pre_resolution_argument_constraint(
+                         &CheckExtractPreResolutionArguments)
+                     .set_sql_name("extract")
+                     .set_no_matching_signature_callback(bind_front(
+                         &NoMatchingSignatureForExtractFunction, "DATE"))
+                     .set_supported_signatures_callback(
+                         bind_front(&ExtractSupportedSignatures, "DATE"))
+                     .set_get_sql_callback(
+                         bind_front(ExtractDateOrTimeFunctionSQL, "DATE")));
 
-  InsertFunction(
-      functions, options, "$extract_time", SCALAR,
-      {{time_type,
-        {timestamp_type, {string_type, OPTIONAL}},
-        FN_EXTRACT_TIME_FROM_TIMESTAMP},
-       {time_type, {datetime_type}, FN_EXTRACT_TIME_FROM_DATETIME}},
-      FunctionOptions()
-          .set_supports_safe_error_mode(false)
-          .set_pre_resolution_argument_constraint(
-              &CheckExtractPreResolutionArguments)
-          .set_sql_name("extract")
-          .set_no_matching_signature_callback(
-              bind_front(&NoMatchingSignatureForExtractFunction, "TIME"))
-          .set_supported_signatures_callback(
-              bind_front(&ExtractSupportedSignatures, "TIME"))
-          .set_get_sql_callback(
-              bind_front(ExtractDateOrTimeFunctionSQL, "TIME")));
+  InsertFunction(functions, options, "$extract_time", SCALAR,
+                 {{time_type,
+                   {timestamp_type, {string_type, OPTIONAL}},
+                   FN_EXTRACT_TIME_FROM_TIMESTAMP},
+                  {time_type, {datetime_type}, FN_EXTRACT_TIME_FROM_DATETIME}},
+                 FunctionOptions()
+                     .set_supports_safe_error_mode(false)
+                     .set_pre_resolution_argument_constraint(
+                         &CheckExtractPreResolutionArguments)
+                     .set_sql_name("extract")
+                     .set_no_matching_signature_callback(bind_front(
+                         &NoMatchingSignatureForExtractFunction, "TIME"))
+                     .set_supported_signatures_callback(
+                         bind_front(&ExtractSupportedSignatures, "TIME"))
+                     .set_get_sql_callback(
+                         bind_front(ExtractDateOrTimeFunctionSQL, "TIME")));
 
-  InsertFunction(
-      functions, options, "$extract_datetime", SCALAR,
-      {{datetime_type,
-        {timestamp_type, {string_type, OPTIONAL}},
-        FN_EXTRACT_DATETIME_FROM_TIMESTAMP}},
-      FunctionOptions()
-          .set_supports_safe_error_mode(false)
-          .set_pre_resolution_argument_constraint(
-              &CheckExtractPreResolutionArguments)
-          .set_sql_name("extract")
-          .set_no_matching_signature_callback(
-              bind_front(&NoMatchingSignatureForExtractFunction, "DATETIME"))
-          .set_supported_signatures_callback(
-              bind_front(&ExtractSupportedSignatures, "DATETIME"))
-          .set_get_sql_callback(
-              bind_front(ExtractDateOrTimeFunctionSQL, "DATETIME")));
+  InsertFunction(functions, options, "$extract_datetime", SCALAR,
+                 {{datetime_type,
+                   {timestamp_type, {string_type, OPTIONAL}},
+                   FN_EXTRACT_DATETIME_FROM_TIMESTAMP}},
+                 FunctionOptions()
+                     .set_supports_safe_error_mode(false)
+                     .set_pre_resolution_argument_constraint(
+                         &CheckExtractPreResolutionArguments)
+                     .set_sql_name("extract")
+                     .set_no_matching_signature_callback(bind_front(
+                         &NoMatchingSignatureForExtractFunction, "DATETIME"))
+                     .set_supported_signatures_callback(
+                         bind_front(&ExtractSupportedSignatures, "DATETIME"))
+                     .set_get_sql_callback(
+                         bind_front(ExtractDateOrTimeFunctionSQL, "DATETIME")));
 }
 
 static void GetDatetimeConversionFunctions(
@@ -1638,7 +1674,8 @@ static void GetDatetimeConversionFunctions(
   const FunctionArgumentType::ArgumentCardinality OPTIONAL =
       FunctionArgumentType::OPTIONAL;
 
-  // Conversion functions from integer/std::string/date/timestamp to date/timestamp.
+  // Conversion functions from integer/std::string/date/timestamp to
+  // date/timestamp.
   InsertFunction(functions, options, "date_from_unix_date", SCALAR,
                  {{date_type, {int64_type}, FN_DATE_FROM_UNIX_DATE}});
   InsertFunction(functions, options, "date", SCALAR,
@@ -1649,21 +1686,24 @@ static void GetDatetimeConversionFunctions(
                   {date_type,
                    {int64_type, int64_type, int64_type},
                    FN_DATE_FROM_YEAR_MONTH_DAY}});
-  InsertFunction(functions, options, "timestamp_from_unix_seconds", SCALAR,
-                 {{timestamp_type, {int64_type},
-                   FN_TIMESTAMP_FROM_UNIX_SECONDS_INT64},
-                  {timestamp_type, {timestamp_type},
-                   FN_TIMESTAMP_FROM_UNIX_SECONDS_TIMESTAMP}});
-  InsertFunction(functions, options, "timestamp_from_unix_millis", SCALAR,
-                 {{timestamp_type, {int64_type},
-                   FN_TIMESTAMP_FROM_UNIX_MILLIS_INT64},
-                  {timestamp_type, {timestamp_type},
-                   FN_TIMESTAMP_FROM_UNIX_MILLIS_TIMESTAMP}});
-  InsertFunction(functions, options, "timestamp_from_unix_micros", SCALAR,
-                 {{timestamp_type, {int64_type},
-                   FN_TIMESTAMP_FROM_UNIX_MICROS_INT64},
-                  {timestamp_type, {timestamp_type},
-                   FN_TIMESTAMP_FROM_UNIX_MICROS_TIMESTAMP}});
+  InsertFunction(
+      functions, options, "timestamp_from_unix_seconds", SCALAR,
+      {{timestamp_type, {int64_type}, FN_TIMESTAMP_FROM_UNIX_SECONDS_INT64},
+       {timestamp_type,
+        {timestamp_type},
+        FN_TIMESTAMP_FROM_UNIX_SECONDS_TIMESTAMP}});
+  InsertFunction(
+      functions, options, "timestamp_from_unix_millis", SCALAR,
+      {{timestamp_type, {int64_type}, FN_TIMESTAMP_FROM_UNIX_MILLIS_INT64},
+       {timestamp_type,
+        {timestamp_type},
+        FN_TIMESTAMP_FROM_UNIX_MILLIS_TIMESTAMP}});
+  InsertFunction(
+      functions, options, "timestamp_from_unix_micros", SCALAR,
+      {{timestamp_type, {int64_type}, FN_TIMESTAMP_FROM_UNIX_MICROS_INT64},
+       {timestamp_type,
+        {timestamp_type},
+        FN_TIMESTAMP_FROM_UNIX_MICROS_TIMESTAMP}});
   InsertFunction(functions, options, "timestamp", SCALAR,
                  {{timestamp_type,
                    {string_type, {string_type, OPTIONAL}},
@@ -1803,10 +1843,9 @@ static void GetDatetimeCurrentFunctions(
       functions, options, "current_datetime", SCALAR,
       {{datetime_type, {{string_type, OPTIONAL}}, FN_CURRENT_DATETIME}},
       require_civil_time_types);
-  InsertFunction(
-      functions, options, "current_time", SCALAR,
-      {{time_type, {{string_type, OPTIONAL}}, FN_CURRENT_TIME}},
-      require_civil_time_types);
+  InsertFunction(functions, options, "current_time", SCALAR,
+                 {{time_type, {{string_type, OPTIONAL}}, FN_CURRENT_TIME}},
+                 require_civil_time_types);
 }
 
 static void GetDatetimeAddSubFunctions(
@@ -3358,6 +3397,13 @@ static void GetMiscellaneousFunctions(
       functions, options, "array_reverse", SCALAR,
       {{ARG_ARRAY_TYPE_ANY_1, {ARG_ARRAY_TYPE_ANY_1}, FN_ARRAY_REVERSE}});
 
+  // RANGE_BUCKET: returns the bucket of the item in the array.
+  InsertFunction(
+      functions, options, "range_bucket", SCALAR,
+      {{int64_type, {ARG_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_1}, FN_RANGE_BUCKET}},
+      FunctionOptions().set_pre_resolution_argument_constraint(
+          &CheckRangeBucketArguments));
+
   // From the SQL language perspective, the ELSE clause is optional for both
   // CASE statement signatures.  However, the parser will normalize the
   // CASE expressions so they always have the ELSE, and therefore it is defined
@@ -4352,6 +4398,10 @@ static void GetGeographyFunctions(
   InsertFunction(
       functions, options, "st_geohash", SCALAR,
       {{string_type, {geography_type, {int64_type, OPTIONAL}}, FN_ST_GEOHASH}},
+      geography_required);
+  InsertFunction(
+      functions, options, "st_geogpointfromgeohash", SCALAR,
+      {{geography_type, {string_type}, FN_ST_GEOG_POINT_FROM_GEOHASH}},
       geography_required);
 
   // TODO: when named parameters are available, make second

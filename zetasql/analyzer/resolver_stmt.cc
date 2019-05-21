@@ -347,6 +347,14 @@ zetasql_base::Status Resolver::ResolveStatement(
       }
       break;
 
+    case AST_DROP_MATERIALIZED_VIEW_STATEMENT:
+      if (language().SupportsStatementKind(
+          RESOLVED_DROP_MATERIALIZED_VIEW_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveDropMaterializedViewStatement(
+            statement->GetAsOrDie<ASTDropMaterializedViewStatement>(), &stmt));
+      }
+      break;
+
     case AST_INSERT_STATEMENT:
       if (language().SupportsStatementKind(RESOLVED_INSERT_STMT)) {
         std::unique_ptr<ResolvedInsertStmt> resolved_insert_stmt;
@@ -405,6 +413,13 @@ zetasql_base::Status Resolver::ResolveStatement(
       if (language().SupportsStatementKind(RESOLVED_ALTER_VIEW_STMT)) {
         ZETASQL_RETURN_IF_ERROR(ResolveAlterViewStatement(
             statement->GetAs<ASTAlterViewStatement>(), &stmt));
+      }
+      break;
+    case AST_ALTER_MATERIALIZED_VIEW_STATEMENT:
+      if (language().SupportsStatementKind(
+              RESOLVED_ALTER_MATERIALIZED_VIEW_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveAlterMaterializedViewStatement(
+            statement->GetAsOrDie<ASTAlterMaterializedViewStatement>(), &stmt));
       }
       break;
     case AST_RENAME_STATEMENT:
@@ -3658,6 +3673,15 @@ zetasql_base::Status Resolver::ResolveDropAllRowPoliciesStatement(
   return ::zetasql_base::OkStatus();
 }
 
+zetasql_base::Status Resolver::ResolveDropMaterializedViewStatement(
+    const ASTDropMaterializedViewStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  *output = MakeResolvedDropMaterializedViewStmt(
+      ast_statement->is_if_exists(),
+      ast_statement->name()->ToIdentifierVector());
+  return ::zetasql_base::OkStatus();
+}
+
 zetasql_base::Status Resolver::ResolveAlterActions(
     const ASTAlterStatementBase* ast_statement,
     absl::string_view alter_statement_kind,
@@ -3705,6 +3729,11 @@ zetasql_base::Status Resolver::ResolveAlterActions(
       case AST_ALTER_CONSTRAINT_SET_OPTIONS_ACTION:
         return MakeSqlErrorAt(action)
                << "ALTER CONSTRAINT SET OPTIONS is not supported";
+      case AST_ADD_COLUMN_ACTION:
+      case AST_DROP_COLUMN_ACTION:
+        return MakeSqlErrorAt(action)
+               << "ALTER TABLE " << action->GetSQLForAlterAction()
+               << " is not supported";
       default:
         return MakeSqlErrorAt(action)
                << "ALTER " << alter_statement_kind << " doesn't support "
@@ -3764,6 +3793,20 @@ zetasql_base::Status Resolver::ResolveAlterViewStatement(
       ast_statement->path()->ToIdentifierVector(), std::move(alter_actions),
       ast_statement->is_if_exists());
 
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status Resolver::ResolveAlterMaterializedViewStatement(
+    const ASTAlterMaterializedViewStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  bool has_only_set_options_action = true;
+  std::vector<std::unique_ptr<const ResolvedAlterAction>> alter_actions;
+  ZETASQL_RETURN_IF_ERROR(ResolveAlterActions(ast_statement, "MATERIALIZED VIEW",
+                                      output, &has_only_set_options_action,
+                                      &alter_actions));
+  *output = MakeResolvedAlterMaterializedViewStmt(
+      ast_statement->path()->ToIdentifierVector(), std::move(alter_actions),
+      ast_statement->is_if_exists());
   return ::zetasql_base::OkStatus();
 }
 

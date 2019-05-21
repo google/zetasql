@@ -95,13 +95,18 @@ InternalErrorLocation MakeInternalErrorLocation(
   return internal_error_location;
 }
 
-zetasql_base::Status WrapNestedErrorStatus(
-    const ASTNode* ast_location, const std::string& error_message,
-    const zetasql_base::Status& input_status, ErrorMessageMode error_source_mode) {
-    return MakeSqlError().Attach(
-        SetErrorSourcesFromStatus(MakeInternalErrorLocation(ast_location),
-                                  input_status, error_source_mode))
-        << error_message;
+zetasql_base::Status WrapNestedErrorStatus(const ASTNode* ast_location,
+                                   const std::string& error_message,
+                                   const zetasql_base::Status& input_status,
+                                   ErrorMessageMode error_source_mode) {
+  zetasql_base::StatusBuilder error_status_builder =
+      zetasql_base::IsInternal(input_status)
+          ? zetasql_base::StatusBuilder(input_status, ZETASQL_LOC)
+          : MakeSqlError();
+  return error_status_builder.Attach(
+             SetErrorSourcesFromStatus(MakeInternalErrorLocation(ast_location),
+                                       input_status, error_source_mode))
+         << error_message;
 }
 
 }  // namespace zetasql

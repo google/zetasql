@@ -503,7 +503,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 127.
+          Next tag_id: 128.
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -4175,6 +4175,16 @@ right.
               tag_id=4,
               ignorable=IGNORABLE_DEFAULT),
       ])
+
+  gen.AddNode(
+      name='ResolvedAlterMaterializedViewStmt',
+      tag_id=127,
+      parent='ResolvedAlterObjectStmt',
+      comment="""
+      This statement:
+        ALTER MATERIALIZED VIEW [IF EXISTS] <name_path> <alter_action_list>
+              """,
+      fields=[])
 
   gen.AddNode(
       name='ResolvedAlterTableStmt',

@@ -189,20 +189,22 @@ zetasql_base::Status ConvertDatetimeToString(DatetimeValue datetime,
 //
 // Note that some format elements are locale-sensitive.  For ZetaSQL
 // the locale is en-US.
-zetasql_base::Status FormatTimestampToString(const std::string& format_str, int64_t timestamp,
-                                     absl::TimeZone timezone, std::string* out);
+zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
+                                     int64_t timestamp, absl::TimeZone timezone,
+                                     std::string* out);
 
 // Invokes MakeTimeZone() on <timezone_string> and invokes the prior function.
 // Returns error status if <timezone_string> is invalid or conversion fails.
-zetasql_base::Status FormatTimestampToString(const std::string& format_str, int64_t timestamp,
+zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
+                                     int64_t timestamp,
                                      absl::string_view timezone_string,
                                      std::string* out);
 
-zetasql_base::Status FormatTimestampToString(const std::string& format_string,
+zetasql_base::Status FormatTimestampToString(absl::string_view format_string,
                                      absl::Time timestamp,
                                      absl::TimeZone timezone, std::string* out);
 
-zetasql_base::Status FormatTimestampToString(const std::string& format_string,
+zetasql_base::Status FormatTimestampToString(absl::string_view format_string,
                                      absl::Time timestamp,
                                      absl::string_view timezone_string,
                                      std::string* out);
@@ -218,18 +220,18 @@ zetasql_base::Status FormatDateToString(absl::string_view format_string, int32_t
 // Temporary functions to enable smooth transition for supporting quarter
 // format qualifier. This function adds <expand_quarter> boolean to control
 // whether %Q should be expanded to quarter number or ignored.
-zetasql_base::Status FormatTimestampToString(const std::string& format_str,
+zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
                                      absl::Time timestamp,
                                      absl::string_view timezone_string,
                                      bool expand_quarter, std::string* out);
 
-zetasql_base::Status FormatTimestampToString(const std::string& format_str,
+zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
                                      absl::Time timestamp,
                                      absl::TimeZone timezone,
                                      bool expand_quarter, std::string* out);
 
-zetasql_base::Status FormatTimestampToString(const std::string& format_str, int64_t timestamp,
-                                     absl::TimeZone timezone,
+zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
+                                     int64_t timestamp, absl::TimeZone timezone,
                                      bool expand_quarter, std::string* out);
 
 zetasql_base::Status FormatDateToString(absl::string_view format_string, int32_t date,
@@ -884,6 +886,16 @@ ABSL_MUST_USE_RESULT int64_t CurrentTimestamp();
 // scale that can still accurately represent the timestamp.
 void NarrowTimestampScaleIfPossible(absl::Time time, TimestampScale* scale);
 
+// The namespace 'internal_functions' includes the internal implementation
+// details and is not part of the public api.
+namespace internal_functions {
+
+zetasql_base::Status ExpandPercentZQ(absl::string_view format_string,
+                             absl::Time base_time, absl::TimeZone timezone,
+                             bool expand_quarter,
+                             std::string* expanded_format_string);
+
+}  // namespace internal_functions
 }  // namespace functions
 }  // namespace zetasql
 

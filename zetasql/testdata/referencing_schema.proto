@@ -18,9 +18,8 @@ syntax = "proto2";
 
 package zetasql_test;
 
-
-import "zetasql/testdata/test_schema.proto";
 import "zetasql/testdata/referenced_schema.proto";
+import "zetasql/testdata/test_schema.proto";
 
 message TestReferencingPB {
   optional TestEnum test_enum = 1;

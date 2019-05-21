@@ -105,6 +105,8 @@ class Validator {
       const ResolvedAbortBatchStmt* stmt) const;
   zetasql_base::Status ValidateResolvedDropStmt(
       const ResolvedDropStmt* stmt) const;
+  zetasql_base::Status ValidateResolvedDropMaterializedViewStmt(
+      const ResolvedDropMaterializedViewStmt* stmt) const;
   zetasql_base::Status ValidateResolvedDropFunctionStmt(
       const ResolvedDropFunctionStmt* stmt) const;
   zetasql_base::Status ValidateResolvedDropRowPolicyStmt(

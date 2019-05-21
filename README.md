@@ -14,10 +14,10 @@ analytic functions.
 This codebase is being open sourced in multiple phases:
 
 1. Parser and Analyzer **Complete**
- - Initial release includes only a subset of tests
+   - Initial release includes only a subset of tests
 2. Reference Implementation
 3. Compliance Tests
- - includes framework for validating compliance of arbitrary engines
+   - includes framework for validating compliance of arbitrary engines
 4. Misc tooling
 
 Until all this code is released, we cannot provide any guarantees of API
@@ -28,16 +28,10 @@ complete.
 
 ## How to Build
 
-ZetaSQL uses [bazel](https://bazel.build) for building and (most) dependency
-resolution. However, the following packages must be installed separately:
+ZetaSQL uses [bazel](https://bazel.build) for building and
+dependency resolution. After installing bazel (version >=0.22), simple run:
 
-bison (>=3.1)
- - For instance, `apt-get install bison`
-flex (>=2.6.1)
-- For instance, `apt-get install flex`
-
-Then simply run:
-bazel build zetasql/...
+```bazel build zetasql/...```
 
 ### With docker
  TODO: Add docker build script.
@@ -45,3 +39,6 @@ bazel build zetasql/...
 ## License
 
 [Apache License 2.0](LICENSE)
+
+## Support Disclaimer
+This is not an officially supported Google product.

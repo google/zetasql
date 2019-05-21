@@ -279,46 +279,73 @@ std::string FunctionArgumentType::SignatureArgumentKindToString(
   return "UNKNOWN_ARG_KIND";
 }
 
+std::shared_ptr<const FunctionArgumentTypeOptions>
+FunctionArgumentType::SimpleOptions(ArgumentCardinality cardinality) {
+  static auto* options =
+      new std::vector<std::shared_ptr<const FunctionArgumentTypeOptions>>{
+          std::shared_ptr<const FunctionArgumentTypeOptions>(
+              new FunctionArgumentTypeOptions(FunctionEnums::REQUIRED)),
+          std::shared_ptr<const FunctionArgumentTypeOptions>(
+              new FunctionArgumentTypeOptions(FunctionEnums::OPTIONAL)),
+          std::shared_ptr<const FunctionArgumentTypeOptions>(
+              new FunctionArgumentTypeOptions(FunctionEnums::REPEATED))};
+  switch (cardinality) {
+    case FunctionEnums::REQUIRED:
+      return (*options)[0];
+    case FunctionEnums::OPTIONAL:
+      return (*options)[1];
+    case FunctionEnums::REPEATED:
+      return (*options)[2];
+  }
+}
+
+FunctionArgumentType::FunctionArgumentType(
+    SignatureArgumentKind kind, const Type* type,
+    std::shared_ptr<const FunctionArgumentTypeOptions> options,
+    int num_occurrences)
+    : kind_(kind),
+      type_(type),
+      options_(options),
+      num_occurrences_(num_occurrences) {
+  DCHECK_EQ(kind == ARG_TYPE_FIXED, type != nullptr);
+}
+
 FunctionArgumentType::FunctionArgumentType(SignatureArgumentKind kind,
                                            ArgumentCardinality cardinality,
                                            int num_occurrences)
-    : FunctionArgumentType(kind, FunctionArgumentTypeOptions(cardinality),
+    : FunctionArgumentType(kind, /*type=*/nullptr, SimpleOptions(cardinality),
                            num_occurrences) {}
 
 FunctionArgumentType::FunctionArgumentType(
     SignatureArgumentKind kind, const FunctionArgumentTypeOptions& options,
     int num_occurrences)
-    : kind_(kind),
-      type_(nullptr),
-      options_(new FunctionArgumentTypeOptions(options)),
-      num_occurrences_(num_occurrences) {
-  DCHECK(kind != ARG_TYPE_FIXED);
-}
+    : FunctionArgumentType(
+          kind, /*type=*/nullptr,
+          std::make_shared<FunctionArgumentTypeOptions>(options),
+          num_occurrences) {}
 
 FunctionArgumentType::FunctionArgumentType(SignatureArgumentKind kind,
                                            int num_occurrences)
-    : FunctionArgumentType(kind, FunctionArgumentTypeOptions(),
+    : FunctionArgumentType(kind, /*type=*/nullptr, SimpleOptions(),
                            num_occurrences) {}
 
 FunctionArgumentType::FunctionArgumentType(const Type* type,
                                            ArgumentCardinality cardinality,
                                            int num_occurrences)
-    : FunctionArgumentType(type, FunctionArgumentTypeOptions(cardinality),
+    : FunctionArgumentType(ARG_TYPE_FIXED, type, SimpleOptions(cardinality),
                            num_occurrences) {}
 
 FunctionArgumentType::FunctionArgumentType(
     const Type* type, const FunctionArgumentTypeOptions& options,
     int num_occurrences)
-    : kind_(ARG_TYPE_FIXED),
-      type_(type),
-      options_(new FunctionArgumentTypeOptions(options)),
-      num_occurrences_(num_occurrences) {
-  DCHECK(type != nullptr);
-}
+    : FunctionArgumentType(
+          ARG_TYPE_FIXED, type,
+          std::make_shared<FunctionArgumentTypeOptions>(options),
+          num_occurrences) {}
 
 FunctionArgumentType::FunctionArgumentType(const Type* type,
                                            int num_occurrences)
-    : FunctionArgumentType(type, FunctionArgumentTypeOptions(),
+    : FunctionArgumentType(ARG_TYPE_FIXED, type, SimpleOptions(),
                            num_occurrences) {}
 
 bool FunctionArgumentType::IsConcrete() const {

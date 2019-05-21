@@ -75,10 +75,13 @@ def _genlex_impl(ctx):
     args.add_all(ctx.attr.lexopts)
     args.add(ctx.file.src)
 
-    ctx.actions.run_shell(
-        command = "flex $@",  # $@ basically resolves to `arguments` below.
+    ctx.actions.run(
+        executable = ctx.executable._flex,
+        env = {
+            "M4": ctx.executable._m4.path,
+        },
         arguments = [args],
-        inputs = ctx.files.src + ctx.files.includes,
+        inputs = [ctx.executable._m4] + ctx.files.src + ctx.files.includes,
         outputs = [ctx.outputs.out],
         mnemonic = "Flex",
         progress_message = "Generating %s from %s" % (
@@ -93,7 +96,7 @@ genlex = rule(
     attrs = {
         "src": attr.label(
             mandatory = True,
-            allow_single_file = [".l", ".lex"],
+            allow_single_file = [".l", ".ll", ".lex", ".lpp"],
             doc = "The .lex source file for this rule",
         ),
         "includes": attr.label_list(
@@ -110,6 +113,16 @@ genlex = rule(
         ),
         "lexopts": attr.string_list(
             doc = "A list of options to be added to the flex command line.",
+        ),
+        "_flex": attr.label(
+            default = Label("//bazel:flex_bin"),
+            executable = True,
+            cfg = "host",
+        ),
+        "_m4": attr.label(
+            default = Label("//bazel:m4_bin"),
+            executable = True,
+            cfg = "host",
         ),
     },
     output_to_genfiles = True,

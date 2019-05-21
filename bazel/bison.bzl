@@ -35,12 +35,21 @@ def _genyacc_impl(ctx):
         ctx.outputs.source_out,
     ]
 
-    ctx.actions.run_shell(
-        command = "bison $@",  # $@ basically resolves to `arguments` below.
+    ctx.actions.run(
+        executable = ctx.executable._bison,
+        env = {
+            "M4": ctx.executable._m4.path,
+        },
         arguments = [args],
-        inputs = ctx.files.src,
+        inputs = [ctx.executable._m4] + ctx.files.src,
         outputs = outputs,
         mnemonic = "Yacc",
+        progress_message = "Generating %s and %s from %s" %
+                           (
+                               ctx.outputs.source_out.short_path,
+                               ctx.outputs.header_out.short_path,
+                               ctx.file.src.short_path,
+                           ),
     )
 
 genyacc = rule(
@@ -67,6 +76,16 @@ genyacc = rule(
         "extra_options": attr.string_list(
             doc = "A list of extra options to pass to Bison.  These are " +
                   "subject to $(location ...) expansion.",
+        ),
+        "_bison": attr.label(
+            default = Label("//bazel:bison_bin"),
+            executable = True,
+            cfg = "host",
+        ),
+        "_m4": attr.label(
+            default = Label("//bazel:m4_bin"),
+            executable = True,
+            cfg = "host",
         ),
     },
     output_to_genfiles = True,

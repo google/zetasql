@@ -1394,10 +1394,16 @@ zetasql_base::Status Resolver::MaybeResolveProtoFieldAccess(
                       lhs_proto->full_name(), " does not have a field called ",
                       dot_name);
 
-      std::vector<std::string> possible_names;
-      possible_names.reserve(lhs_proto->field_count());
-      for (int i = 0; i < lhs_proto->field_count(); ++i) {
-        possible_names.push_back(lhs_proto->field(i)->name());
+      if (lhs_proto->field_count() == 0) {
+        absl::StrAppend(
+            &error_message,
+            "; Proto has no fields. Is the full proto descriptor available?");
+      } else {
+        std::vector<std::string> possible_names;
+        possible_names.reserve(lhs_proto->field_count());
+        for (int i = 0; i < lhs_proto->field_count(); ++i) {
+          possible_names.push_back(lhs_proto->field(i)->name());
+        }
       }
       return MakeSqlErrorAt(identifier) << error_message;
     } else {
@@ -2597,8 +2603,13 @@ static IdStringHashMapCase<SpecialFunctionFamily>*
   return out;
 }
 
-static IdStringHashMapCase<SpecialFunctionFamily>*
-    kSpecialFunctionFamilyMap = InitSpecialFunctionFamilyMap();
+static SpecialFunctionFamily GetSpecialFunctionFamily(
+    const IdString& function_name) {
+  static IdStringHashMapCase<SpecialFunctionFamily>* kSpecialFunctionFamilyMap =
+      InitSpecialFunctionFamilyMap();
+  return zetasql_base::FindWithDefault(*kSpecialFunctionFamilyMap, function_name,
+                              FAMILY_NONE);
+}
 
 zetasql_base::Status Resolver::GetFunctionNameAndArguments(
     const ASTFunctionCall* function_call,
@@ -2614,9 +2625,7 @@ zetasql_base::Status Resolver::GetFunctionNameAndArguments(
   if (function->num_names() == 1 ||
       (function_name_path->size() == 2 &&
        zetasql_base::StringCaseEqual((*function_name_path)[0], "SAFE"))) {
-    switch (zetasql_base::FindWithDefault(*kSpecialFunctionFamilyMap,
-                                 function->last_name()->GetAsIdString(),
-                                 FAMILY_NONE)) {
+    switch (GetSpecialFunctionFamily(function->last_name()->GetAsIdString())) {
       // A normal function with no special handling.
       case FAMILY_NONE:
         break;
@@ -2847,7 +2856,7 @@ zetasql_base::Status Resolver::ResolveAnalyticFunctionCall(
 
   std::unique_ptr<ResolvedFunctionCall> resolved_function_call;
   const std::vector<const ASTNode*> arg_locations =
-      ToLocations(absl::Span<const ASTExpression* const>(function_arguments));
+      ToLocations(absl::Span<const ASTExpression* const>(ast_arguments));
   ZETASQL_RETURN_IF_ERROR(function_resolver_->ResolveGeneralFunctionCall(
       analytic_function_call, arg_locations, function_name_path,
       true /* is_analytic_function */, std::move(resolved_arguments),

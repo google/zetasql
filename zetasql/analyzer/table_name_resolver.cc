@@ -475,6 +475,13 @@ zetasql_base::Status TableNameResolver::FindInStatement(
       }
       break;
 
+    case AST_DROP_MATERIALIZED_VIEW_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+          RESOLVED_DROP_MATERIALIZED_VIEW_STMT)) {
+        return ::zetasql_base::OkStatus();
+      }
+      break;
+
     case AST_DROP_FUNCTION_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_DROP_FUNCTION_STMT)) {
@@ -573,6 +580,16 @@ zetasql_base::Status TableNameResolver::FindInStatement(
         // Note that for a ALTER VIEW statement, the table name is not
         // inserted into table_names_. Engines that need to know about a table
         // referenced by ALTER VIEW should handle that themselves.
+        return ::zetasql_base::OkStatus();
+      }
+      break;
+    case AST_ALTER_MATERIALIZED_VIEW_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_ALTER_MATERIALIZED_VIEW_STMT)) {
+        // Note that for a ALTER MATERIALIZED VIEW statement, the table name is
+        // not inserted into table_names_. Engines that need to know about a
+        // table referenced by ALTER MATERIALIZED VIEW should handle that
+        // themselves.
         return ::zetasql_base::OkStatus();
       }
       break;

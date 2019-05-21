@@ -17,6 +17,7 @@
 #include "zetasql/public/strings.h"
 
 #include <ctype.h>
+
 #include <iterator>
 
 #include "zetasql/base/logging.h"
@@ -29,6 +30,8 @@
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "unicode/utf.h"
+#include "unicode/utf8.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
@@ -99,10 +102,10 @@ static char hex_char[] = "0123456789abcdef";
 // Writes a Unicode scalar value (a non-surrogate code point)
 // to s (which must have enough capacity),
 // and returns the number of bytes written.
-static int AppendCodePoint(char* s, int32_t cp) {
-  s[0] = cp;
-  ++s;
-  return 1;
+static int AppendCodePoint(char* s, UChar32 cp) {
+  int cp_len = 0;
+  U8_APPEND_UNSAFE(s, cp_len, cp);
+  return cp_len;
 }
 
 // ----------------------------------------------------------------------
@@ -157,8 +160,10 @@ static bool CUnescapeInternal(absl::string_view source,
     auto span_length = SpanWellFormedUTF8(source);
     if (span_length < source.length()) {
       if (error) {
-        *error = absl::StrCat("Structurally invalid UTF8 std::string: ",
-                              EscapeBytes(source));
+        *error = absl::StrCat(
+            "Structurally invalid UTF8"  //
+            " string: ",
+            EscapeBytes(source));        //
       }
       if (error_offset) {
         *error_offset = span_length;
@@ -243,7 +248,7 @@ static bool CUnescapeInternal(absl::string_view source,
             return false;
           }
           const char* octal_end = p + 2;
-          int32_t ch = 0;
+          UChar32 ch = 0;
           for (; p <= octal_end; ++p) {
             if (IS_OCTAL_DIGIT(*p)) {
               ch = ch * 8 + *p - '0';
@@ -285,7 +290,7 @@ static bool CUnescapeInternal(absl::string_view source,
             // Error offset was set to the start of the escape above the switch.
             return false;
           }
-          int32_t ch = 0;
+          UChar32 ch = 0;
           const char* hex_end = p + 2;
           for (++p; p <= hex_end; ++p) {
             if (absl::ascii_isxdigit(*p)) {
@@ -324,7 +329,7 @@ static bool CUnescapeInternal(absl::string_view source,
           }
           // \uhhhh => Read 4 hex digits as a code point,
           //           then write it as UTF-8 bytes.
-          int32_t cp = 0;
+          UChar32 cp = 0;
           const char* hex_start = p;
           if (p + 4 >= end) {
             if (error) {
@@ -352,6 +357,14 @@ static bool CUnescapeInternal(absl::string_view source,
               return false;
             }
           }
+          if (U_IS_SURROGATE(cp)) {
+            if (error) {
+              *error = "Illegal escape sequence: Unicode value \\" +
+                       std::string(hex_start, 5) + " is invalid";
+            }
+            // Error offset was set to the start of the escape above the switch.
+            return false;
+          }
           d += AppendCodePoint(d, cp);
           break;
         }
@@ -368,7 +381,7 @@ static bool CUnescapeInternal(absl::string_view source,
           // \Uhhhhhhhh => convert 8 hex digits to UTF-8.  Note that the
           // first two digits must be 00: The valid range is
           // '\U00000000' to '\U0010FFFF' (excluding surrogates).
-          int32_t cp = 0;
+          UChar32 cp = 0;
           const char* hex_start = p;
           if (p + 8 >= end) {
             if (error) {
@@ -405,6 +418,14 @@ static bool CUnescapeInternal(absl::string_view source,
               // switch.
               return false;
             }
+          }
+          if (U_IS_SURROGATE(cp)) {
+            if (error) {
+              *error = "Illegal escape sequence: Unicode value \\" +
+                       std::string(hex_start, 9) + " is invalid";
+            }
+            // Error offset was set to the start of the escape above the switch.
+            return false;
           }
           d += AppendCodePoint(d, cp);
           break;
@@ -522,10 +543,11 @@ zetasql_base::Status UnescapeString(absl::string_view str, std::string* out,
   if (!CUnescapeInternal(str, "" /* closing_str */, false /* is_raw_literal */,
                          false /* is_bytes_literal */, out, error_string,
                          error_offset)) {
-    return MakeSqlError() << "Invalid escaped std::string: '" << str << "'"
-                          << (error_string == nullptr
-                                  ? ""
-                                  : absl::StrCat(", ", *error_string));
+    return MakeSqlError()
+           << "Invalid escaped string: '"
+           << str << "'"
+           << (error_string == nullptr ? ""
+                                       : absl::StrCat(", ", *error_string));
   }
   return ::zetasql_base::OkStatus();
 }
@@ -618,7 +640,8 @@ zetasql_base::Status ParseStringLiteral(absl::string_view str, std::string* out,
   const bool is_string_literal = MayBeStringLiteral(str);
   const bool is_raw_string_literal = MayBeRawStringLiteral(str);
   if (!is_string_literal && !is_raw_string_literal) {
-    const std::string error = "Invalid std::string literal";
+    const std::string error =           //
+        "Invalid string literal";
     if (error_string) *error_string = error;
     return MakeSqlError() << error;
   }
@@ -642,7 +665,9 @@ zetasql_base::Status ParseStringLiteral(absl::string_view str, std::string* out,
     // Correct the error offset for what we stripped off from the start.
     if (error_offset) *error_offset += copy_str.data() - str.data();
     if (error_string) *error_string = local_error_string;
-    return MakeSqlError() << "Invalid std::string literal: " << local_error_string;
+    return MakeSqlError()                 //
+           << "Invalid string literal: "
+           << local_error_string;         //
   }
   return ::zetasql_base::OkStatus();
 }
@@ -920,7 +945,9 @@ zetasql_base::Status ParseIdentifierPath(absl::string_view str,
   while (p < end) {
     // Check for consecutive '.'s (e.g. 'table..name').
     if (*p == '.') {
-      return MakeSqlError() << "Path std::string contains an empty path component";
+      return MakeSqlError()     //
+             << "Path string "
+             << "contains an empty path component";  //
     }
 
     // Find the next '.'. The main logic applied here is to skip dots within

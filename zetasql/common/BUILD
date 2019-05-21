@@ -106,6 +106,7 @@ cc_library(
     deps = [
         "//zetasql/base",
         "@com_google_absl//absl/strings",
+        "@icu//:headers",
     ],
 )
 

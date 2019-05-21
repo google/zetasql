@@ -22,7 +22,6 @@ syntax = "proto2";
 
 package zetasql_test;
 
-
 import "zetasql/testdata/test_schema.proto";
 
 message ExternalExtension {

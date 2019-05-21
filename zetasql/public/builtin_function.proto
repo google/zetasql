@@ -45,7 +45,7 @@ enum FunctionSignatureId {
   // 1300-1399 Math functions                (NextId: 1388)
   // 1400-1499 Aggregate functions           (NextId: 1471)
   // 1500-1599 Analytic functions            (NextId: 1513)
-  // 1600-1699 Misc functions                (NextId: 1680)
+  // 1600-1699 Misc functions                (NextId: 1681)
   // 1700-1799 Net functions                 (NextId: 1716)
   // 1800-1899 More time functions           (NextId: 1833)
   // 1900-1999 Hashing/encryption functions  (NextId: 1920)
@@ -557,6 +557,8 @@ enum FunctionSignatureId {
 
   FN_ARRAY_REVERSE = 1621;  // array_reverse(array) -> array
 
+  FN_RANGE_BUCKET = 1680;  //  range_bucket(T, array<T>) -> int64
+
   FN_RAND = 1618;           // rand() -> double
   FN_GENERATE_UUID = 1679;  // generate_uuid() -> string
 
@@ -754,6 +756,7 @@ enum FunctionSignatureId {
   FN_ST_AS_GEO_JSON = 2055;
   FN_ST_AS_BINARY = 2057;
   FN_ST_GEOHASH = 2058;
+  FN_ST_GEOG_POINT_FROM_GEOHASH = 2059;
 
   // Aggregate functions
   FN_ST_UNION_AGG = 2061;

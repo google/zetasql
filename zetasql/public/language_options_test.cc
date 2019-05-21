@@ -247,7 +247,10 @@ TEST(LanguageOptions, GetEnabledLanguageFeaturesAsString) {
 }
 
 TEST(LanguageOptions, ClassAndProtoSize) {
-  EXPECT_EQ(112, sizeof(LanguageOptions))
+  EXPECT_EQ(16,
+      sizeof(LanguageOptions) -
+      sizeof(std::set<ResolvedNodeKind>) -
+      sizeof(std::set<LanguageFeature>))
       << "The size of LanguageOptions class has changed, please also update "
       << "the proto and serialization code if you added/removed fields in it.";
   EXPECT_EQ(5, LanguageOptionsProto::descriptor()->field_count())

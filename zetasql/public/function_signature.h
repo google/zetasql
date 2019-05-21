@@ -252,6 +252,14 @@ class FunctionArgumentTypeOptions {
   // the query if the provided relation contains such extra columns.
   bool extra_relation_input_columns_allowed_ = true;
 
+  // Function argument always has value NOT_SET.
+  // Procedure argument is in one of the 3 modes:
+  // IN: argument is used only for input to the procedure. It is also the
+  //     default mode for procedure argument if no mode is specified.
+  // OUT: argument is used as output of the procedure.
+  // INOUT: argument is used both for input to and output from the procedure.
+  ProcedureArgumentMode procedure_argument_mode_ = FunctionEnums::NOT_SET;
+
   // Optional user visible name for referring to the function argument by name
   // using explicit syntax: name => value. For CREATE [AGGREGATE/TABLE] FUNCTION
   // statements, this comes from the name specified for each argument in the
@@ -268,14 +276,6 @@ class FunctionArgumentTypeOptions {
   // resolver only when analyzing UDFs and TVFs. <record_parse_locations>
   // must also be set to true in the ZetaSQL analyzer options.
   absl::optional<ParseLocationRange> argument_type_parse_location_;
-
-  // Function argument always has value NOT_SET.
-  // Procedure argument is in one of the 3 modes:
-  // IN: argument is used only for input to the procedure. It is also the
-  //     default mode for procedure argument if no mode is specified.
-  // OUT: argument is used as output of the procedure.
-  // INOUT: argument is used both for input to and output from the procedure.
-  ProcedureArgumentMode procedure_argument_mode_ = FunctionEnums::NOT_SET;
 
   // Copyable
 };
@@ -439,14 +439,21 @@ class FunctionArgumentType {
   static std::string SignatureArgumentKindToString(SignatureArgumentKind kind);
 
  private:
+  FunctionArgumentType(
+      SignatureArgumentKind kind, const Type* type,
+      std::shared_ptr<const FunctionArgumentTypeOptions> options,
+      int num_occurrences);
+
+  // Returns shared options objects used in most common cases.
+  static std::shared_ptr<const FunctionArgumentTypeOptions> SimpleOptions(
+      ArgumentCardinality cardinality = FunctionEnums::REQUIRED);
+
   SignatureArgumentKind kind_;
   const Type* type_;
 
   // This holds the argument type options. It is a shared pointer to reduce
   // stack frame sizes when the function signatures are kept on the stack.
-  std::shared_ptr<FunctionArgumentTypeOptions> options_ =
-      std::shared_ptr<FunctionArgumentTypeOptions>(
-          new FunctionArgumentTypeOptions);
+  std::shared_ptr<const FunctionArgumentTypeOptions> options_;
 
   // Indicates how many times a concrete argument occurred in a concrete
   // function signature.  REQUIRED concrete arguments must occur exactly 1

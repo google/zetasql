@@ -4944,6 +4944,35 @@ class ASTColumnList final : public ASTNode {
   absl::Span<const ASTIdentifier* const> identifiers_;
 };
 
+class ASTColumnPosition final : public ASTNode {
+ public:
+  enum RelativePositionType {
+    PRECEDING,
+    FOLLOWING,
+  };
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_COLUMN_POSITION;
+
+  ASTColumnPosition() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  std::string SingleNodeDebugString() const override;
+
+  void set_type(RelativePositionType type) {
+    position_type_ = type;
+  }
+  RelativePositionType type() const { return position_type_; }
+
+  const ASTIdentifier* identifier() const { return identifier_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&identifier_);
+  }
+
+  RelativePositionType position_type_;
+  const ASTIdentifier* identifier_;
+};
+
 class ASTInsertValuesRow final : public ASTNode {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_INSERT_VALUES_ROW;
@@ -5492,6 +5521,30 @@ class ASTRepeatableClause final : public ASTNode {
   const ASTExpression* argument_ = nullptr;  // Required
 };
 
+class ASTReplaceFieldsArg final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_REPLACE_FIELDS_ARG;
+
+  ASTReplaceFieldsArg() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+
+  const ASTExpression* expression() const { return expression_; }
+
+  const ASTGeneralizedPathExpression* path_expression() const {
+    return path_expression_;
+  }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&expression_);
+    fl.AddRequired(&path_expression_);
+  }
+
+  const ASTExpression* expression_ = nullptr;
+  const ASTGeneralizedPathExpression* path_expression_ = nullptr;
+};
+
 class ASTReplaceFieldsExpression final : public ASTExpression {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind =
@@ -5502,7 +5555,7 @@ class ASTReplaceFieldsExpression final : public ASTExpression {
 
   const ASTExpression* expr() const { return expr_; }
 
-  const absl::Span<const ASTNewConstructorArg* const>& arguments() const {
+  const absl::Span<const ASTReplaceFieldsArg* const>& arguments() const {
     return arguments_;
   }
 
@@ -5514,7 +5567,7 @@ class ASTReplaceFieldsExpression final : public ASTExpression {
   }
 
   const ASTExpression* expr_ = nullptr;  // Required
-  absl::Span<const ASTNewConstructorArg* const> arguments_;
+  absl::Span<const ASTReplaceFieldsArg* const> arguments_;
 };
 
 class ASTSampleSize final : public ASTNode {
@@ -5788,6 +5841,67 @@ class ASTAlterConstraintSetOptionsAction final : public ASTAlterAction {
   bool is_if_exists_ = false;
 };
 
+// ALTER table action for "ADD COLUMN" clause
+class ASTAddColumnAction final : public ASTAlterAction {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_ADD_COLUMN_ACTION;
+
+  ASTAddColumnAction() : ASTAlterAction(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  std::string SingleNodeDebugString() const override;
+
+  std::string GetSQLForAlterAction() const override;
+
+  const ASTColumnDefinition* column_definition() const {
+    return column_definition_;
+  }
+  bool is_if_not_exists() const { return is_if_not_exists_; }
+  void set_is_if_not_exists(bool value) { is_if_not_exists_ = value; }
+
+  // Optional children.
+  const ASTColumnPosition* column_position() const { return column_position_; }
+  const ASTExpression* fill_expression() const { return fill_expression_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&column_definition_);
+    fl.AddOptional(&column_position_, AST_COLUMN_POSITION);
+    fl.AddOptionalExpression(&fill_expression_);
+  }
+
+  const ASTColumnDefinition* column_definition_ = nullptr;
+  const ASTColumnPosition* column_position_ = nullptr;
+  const ASTExpression* fill_expression_ = nullptr;
+  bool is_if_not_exists_ = false;
+};
+
+// ALTER table action for "DROP COLUMN" clause
+class ASTDropColumnAction final : public ASTAlterAction {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_DROP_COLUMN_ACTION;
+
+  ASTDropColumnAction() : ASTAlterAction(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  std::string SingleNodeDebugString() const override;
+
+  std::string GetSQLForAlterAction() const override;
+
+  bool is_if_exists() const { return is_if_exists_; }
+  void set_is_if_exists(bool value) { is_if_exists_ = value; }
+
+  const ASTIdentifier* column_name() const { return column_name_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&column_name_);
+  }
+
+  const ASTIdentifier* column_name_ = nullptr;
+  bool is_if_exists_ = false;
+};
+
 class ASTAlterActionList final : public ASTNode {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_ALTER_ACTION_LIST;
@@ -5846,6 +5960,16 @@ class ASTAlterViewStatement final : public ASTAlterStatementBase {
   static constexpr ASTNodeKind kConcreteNodeKind = AST_ALTER_VIEW_STATEMENT;
 
   ASTAlterViewStatement() : ASTAlterStatementBase(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+};
+
+class ASTAlterMaterializedViewStatement final : public ASTAlterStatementBase {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind =
+      AST_ALTER_MATERIALIZED_VIEW_STATEMENT;
+
+  ASTAlterMaterializedViewStatement()
+      : ASTAlterStatementBase(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
 };
 

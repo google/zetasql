@@ -1082,74 +1082,10 @@ static absl::TimeZone GetNormalizedTimeZone(absl::Time base_time,
   return timezone;
 }
 
-// Expand "%Z" in <format_string> to the ZetaSQL-defined format:
-//   'UTC[+/-HHMM]'
-// The format produced by absl::FormatTime() is different from the ZetaSQL
-// format and has not been stable over time, so we handle %Z here rather than
-// pass it through to FormatTime().
-//
-// Expand "%Q" in <format_string> into 1 based quarter number.  This is
-// ZetaSQL's extension to strftime format strings (see b/26564776).  We have
-// to do it here because absl::FormatTime does not support %Q.
-//
-// Requires that the <expanded_format_string> is empty, and if %Z is present
-// then the <timezone> is normalized to an hours/minutes offset
-// (i.e., <timezone> does not include any 'seconds' offset).
-static zetasql_base::Status ExpandPercentZQ(
-    const std::string& format_string, absl::Time base_time, absl::TimeZone timezone,
-    bool expand_quarter, std::string* expanded_format_string) {
-  ZETASQL_RET_CHECK(expanded_format_string->empty());
-  for (size_t index = 0;; index += 2) {
-    const size_t pct = format_string.find('%', index);
-    if (pct == format_string.size() - 1 || pct == std::string::npos) {  // no "%?"
-      expanded_format_string->append(format_string, index, std::string::npos);
-      break;
-    }
-    if (pct != index) {
-      expanded_format_string->append(format_string, index, pct - index);
-      index = pct;
-    }
-    if (expand_quarter && format_string[pct + 1] == 'Q') {
-      // Handle %Q, computing quarter from month.
-      expanded_format_string->append(absl::StrFormat(
-          "%d", (absl::ToCivilMonth(base_time, timezone).month() - 1) / 3 + 1));
-    } else if (format_string[pct + 1] == 'Z') {
-      // Handle %Z, computing the ZetaSQL defined timezone format.
-      expanded_format_string->append("UTC");
-      if (int seconds = timezone.At(base_time).offset) {
-        const char sign = (seconds < 0 ? '-' : '+');
-        int minutes = seconds / 60;
-        seconds %= 60;
-        if (sign == '-') {
-          if (seconds > 0) {
-            seconds -= 60;
-            minutes += 1;
-          }
-          seconds = -seconds;
-          minutes = -minutes;
-        }
-        int hours = minutes / 60;
-        minutes %= 60;
-        expanded_format_string->push_back(sign);
-        ZETASQL_RET_CHECK_EQ(seconds, 0);
-        if (minutes != 0) {
-          expanded_format_string->append(
-              absl::StrFormat("%02d%02d", hours, minutes));
-        } else {
-          expanded_format_string->append(absl::StrFormat("%d", hours));
-        }
-      }
-    } else {
-      // Neither %Q nor %Z, copy as is.
-      expanded_format_string->append(format_string, index, 2);
-    }
-  }
-  return zetasql_base::OkStatus();
-}
-
 static zetasql_base::Status FormatTimestampToStringInternal(
-    const std::string& format_string, absl::Time base_time, absl::TimeZone timezone,
-    bool truncate_tz, bool expand_quarter, std::string* output) {
+    absl::string_view format_string, absl::Time base_time,
+    absl::TimeZone timezone, bool truncate_tz, bool expand_quarter,
+    std::string* output) {
   if (!IsValidTime(base_time)) {
     return MakeEvalError() << "Invalid timestamp value: "
                            << absl::ToUnixMicros(base_time);
@@ -1160,8 +1096,9 @@ static zetasql_base::Status FormatTimestampToStringInternal(
   std::string updated_format_string;
   // We handle %Z and %Q here instead of passing them through to FormatTime()
   // because ZetaSQL behavior is different than FormatTime() behavior.
-  ZETASQL_RETURN_IF_ERROR(ExpandPercentZQ(format_string, base_time, normalized_timezone,
-                                  expand_quarter, &updated_format_string));
+  ZETASQL_RETURN_IF_ERROR(internal_functions::ExpandPercentZQ(
+      format_string, base_time, normalized_timezone, expand_quarter,
+      &updated_format_string));
   *output =
       absl::FormatTime(updated_format_string, base_time, normalized_timezone);
   if (truncate_tz) {
@@ -1986,20 +1923,22 @@ zetasql_base::Status FormatTimeToString(absl::string_view format_string,
   return ::zetasql_base::OkStatus();
 }
 
-zetasql_base::Status FormatTimestampToString(const std::string& format_str, int64_t timestamp,
-                                     absl::TimeZone timezone,
+zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
+                                     int64_t timestamp, absl::TimeZone timezone,
                                      bool expand_quarter, std::string* out) {
   return FormatTimestampToString(format_str, MakeTime(timestamp, kMicroseconds),
                                  timezone, expand_quarter, out);
 }
 
-zetasql_base::Status FormatTimestampToString(const std::string& format_str, int64_t timestamp,
-                                     absl::TimeZone timezone, std::string* out) {
+zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
+                                     int64_t timestamp, absl::TimeZone timezone,
+                                     std::string* out) {
   return FormatTimestampToString(format_str, timestamp, timezone,
                                  /*expand_quarter=*/true, out);
 }
 
-zetasql_base::Status FormatTimestampToString(const std::string& format_str, int64_t timestamp,
+zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
+                                     int64_t timestamp,
                                      absl::string_view timezone_string,
                                      std::string* out) {
   absl::TimeZone timezone;
@@ -2007,7 +1946,7 @@ zetasql_base::Status FormatTimestampToString(const std::string& format_str, int6
   return FormatTimestampToString(format_str, timestamp, timezone, out);
 }
 
-zetasql_base::Status FormatTimestampToString(const std::string& format_str,
+zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
                                      absl::Time timestamp,
                                      absl::string_view timezone_string,
                                      bool expand_quarter, std::string* out) {
@@ -2018,7 +1957,7 @@ zetasql_base::Status FormatTimestampToString(const std::string& format_str,
                                          out);
 }
 
-zetasql_base::Status FormatTimestampToString(const std::string& format_str,
+zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
                                      absl::Time timestamp,
                                      absl::TimeZone timezone,
                                      bool expand_quarter, std::string* out) {
@@ -2027,14 +1966,14 @@ zetasql_base::Status FormatTimestampToString(const std::string& format_str,
                                          out);
 }
 
-zetasql_base::Status FormatTimestampToString(const std::string& format_str,
+zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
                                      absl::Time timestamp,
                                      absl::TimeZone timezone, std::string* out) {
   return FormatTimestampToString(format_str, timestamp, timezone,
                                  /*expand_quarter=*/true, out);
 }
 
-zetasql_base::Status FormatTimestampToString(const std::string& format_string,
+zetasql_base::Status FormatTimestampToString(absl::string_view format_string,
                                      absl::Time timestamp,
                                      absl::string_view timezone_string,
                                      std::string* out) {
@@ -3787,5 +3726,85 @@ void NarrowTimestampScaleIfPossible(absl::Time time, TimestampScale* scale) {
   }
 }
 
+namespace internal_functions {
+
+// Expand "%Z" in <format_string> to the ZetaSQL-defined format:
+//   'UTC[+/-HHMM]'
+// The format produced by absl::FormatTime() is different from the ZetaSQL
+// format and has not been stable over time, so we handle %Z here rather than
+// pass it through to FormatTime().
+//
+// Expand "%Q" in <format_string> into 1 based quarter number.  This is
+// ZetaSQL's extension to strftime format strings (see b/26564776).  We have
+// to do it here because absl::FormatTime does not support %Q.
+//
+// Requires that the <expanded_format_string> is empty, and if %Z is present
+// then the <timezone> is normalized to an hours/minutes offset
+// (i.e., <timezone> does not include any 'seconds' offset).
+zetasql_base::Status ExpandPercentZQ(absl::string_view format_string,
+                             absl::Time base_time, absl::TimeZone timezone,
+                             bool expand_quarter,
+                             std::string* expanded_format_string) {
+  ZETASQL_RET_CHECK(expanded_format_string->empty());
+  if (format_string.empty()) {
+    return zetasql_base::OkStatus();
+  }
+  expanded_format_string->reserve(format_string.size());
+
+  for (size_t index = 0;; index += 2) {
+    const size_t pct = format_string.find('%', index);
+    if (pct == format_string.size() - 1 || pct == std::string::npos) {  // no "%?"
+      absl::StrAppend(
+          expanded_format_string,
+          format_string.substr(index, format_string.size() - index));
+      break;
+    }
+    if (pct != index) {
+      absl::StrAppend(expanded_format_string,
+                      format_string.substr(index, pct - index));
+      index = pct;
+    }
+    if (expand_quarter && format_string[pct + 1] == 'Q') {
+      // Handle %Q, computing quarter from month.
+      absl::StrAppend(
+          expanded_format_string,
+          absl::StrFormat(
+              "%d",
+              (absl::ToCivilMonth(base_time, timezone).month() - 1) / 3 + 1));
+    } else if (format_string[pct + 1] == 'Z') {
+      // Handle %Z, computing the ZetaSQL defined timezone format.
+      absl::StrAppend(expanded_format_string, "UTC");
+      if (int seconds = timezone.At(base_time).offset) {
+        const char sign = (seconds < 0 ? '-' : '+');
+        int minutes = seconds / 60;
+        seconds %= 60;
+        if (sign == '-') {
+          if (seconds > 0) {
+            seconds -= 60;
+            minutes += 1;
+          }
+          seconds = -seconds;
+          minutes = -minutes;
+        }
+        int hours = minutes / 60;
+        minutes %= 60;
+        expanded_format_string->push_back(sign);
+        ZETASQL_RET_CHECK_EQ(seconds, 0);
+        if (minutes != 0) {
+          absl::StrAppend(expanded_format_string,
+                          absl::StrFormat("%02d%02d", hours, minutes));
+        } else {
+          absl::StrAppend(expanded_format_string, absl::StrFormat("%d", hours));
+        }
+      }
+    } else {
+      // Neither %Q nor %Z, copy as is.
+      absl::StrAppend(expanded_format_string, format_string.substr(index, 2));
+    }
+  }
+  return zetasql_base::OkStatus();
+}
+
+}  // namespace internal_functions
 }  // namespace functions
 }  // namespace zetasql

@@ -2072,10 +2072,22 @@ void Unparser::visitASTRepeatableClause(const ASTRepeatableClause* node,
   print(")");
 }
 
+void Unparser::visitASTReplaceFieldsArg(const ASTReplaceFieldsArg* node,
+                                        void* data) {
+  node->expression()->Accept(this, data);
+  print("AS ");
+  node->path_expression()->Accept(this, data);
+}
+
 void Unparser::visitASTReplaceFieldsExpression(
     const ASTReplaceFieldsExpression* node, void* data) {
   print("REPLACE_FIELDS(");
-  UnparseChildrenWithSeparator(node, data, ",");
+  node->expr()->Accept(this, data);
+  print(", ");
+  {
+    Formatter::Indenter indenter(&formatter_);
+    UnparseVectorWithSeparator(node->arguments(), data, ",");
+  }
   print(")");
 }
 
@@ -2122,6 +2134,12 @@ void Unparser::VisitAlterStatementBase(const ASTAlterStatementBase* node,
   }
   node->path()->Accept(this, data);
   node->action_list()->Accept(this, data);
+}
+
+void Unparser::visitASTAlterMaterializedViewStatement(
+    const ASTAlterMaterializedViewStatement* node, void* data) {
+  print("ALTER MATERIALIZED VIEW");
+  VisitAlterStatementBase(node, data);
 }
 
 void Unparser::visitASTAlterTableStatement(const ASTAlterTableStatement* node,
@@ -2211,6 +2229,38 @@ void Unparser::visitASTAlterConstraintSetOptionsAction(
   node->constraint_name()->Accept(this, data);
   print("SET OPTIONS");
   node->options_list()->Accept(this, data);
+}
+
+void Unparser::visitASTAddColumnAction(const ASTAddColumnAction* node,
+                                       void* data) {
+  print("ADD COLUMN");
+  if (node->is_if_not_exists()) {
+    print("IF NOT EXISTS");
+  }
+  node->column_definition()->Accept(this, data);
+  if (node->column_position()) {
+    node->column_position()->Accept(this, data);
+  }
+  if (node->fill_expression()) {
+    print("FILL USING");
+    node->fill_expression()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTColumnPosition(const ASTColumnPosition* node,
+                                      void* data) {
+  print(node->type() == ASTColumnPosition::PRECEDING ? "PRECEDING"
+                                                     : "FOLLOWING");
+  node->identifier()->Accept(this, data);
+}
+
+void Unparser::visitASTDropColumnAction(const ASTDropColumnAction* node,
+                                        void* data) {
+  print("DROP COLUMN");
+  if (node->is_if_exists()) {
+    print("IF EXISTS");
+  }
+  node->column_name()->Accept(this, data);
 }
 
 void Unparser::visitASTAlterActionList(const ASTAlterActionList* node,

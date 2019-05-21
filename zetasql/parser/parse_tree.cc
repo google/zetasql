@@ -44,6 +44,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   absl::flat_hash_map<ASTNodeKind, std::string> map;
   map[AST_FAKE] = "Fake";  // For testing purposes only.
   map[AST_ABORT_BATCH_STATEMENT] = "AbortBatchStatement";
+  map[AST_ADD_COLUMN_ACTION] = "AddColumnAction";
   map[AST_ADD_CONSTRAINT_ACTION] = "AddConstraintAction";
   map[AST_ALIAS] = "Alias";
   map[AST_ALTER_ACTION_LIST] = "AlterActionList";
@@ -51,6 +52,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
       "AlterConstraintEnforcementAction";
   map[AST_ALTER_CONSTRAINT_SET_OPTIONS_ACTION] =
       "ASTAlterConstraintSetOptionsAction";
+  map[AST_ALTER_MATERIALIZED_VIEW_STATEMENT] = "AlterMaterializedViewStatement";
   map[AST_ALTER_ROW_POLICY_STATEMENT] = "AlterRowPolicyStatement";
   map[AST_ALTER_TABLE_STATEMENT] = "AlterTableStatement";
   map[AST_ALTER_VIEW_STATEMENT] = "AlterViewStatement";
@@ -81,6 +83,8 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_COLUMN_DEFINITION] = "ColumnDefinition";
   map[AST_COLUMN_ATTRIBUTE_LIST] = "ColumnAttributeList";
   map[AST_COLUMN_LIST] = "ColumnList";
+  map[AST_COLUMN_POSITION] = "ColumnPosition";
+  map[AST_ADD_COLUMN_ACTION] = "AddColumnAction";
   map[AST_COMMIT_STATEMENT] = "CommitStatement";
   map[AST_CONTINUE_STATEMENT] = "Continue";
   map[AST_CREATE_CONSTANT_STATEMENT] = "CreateConstantStatement";
@@ -106,6 +110,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_DOT_STAR_WITH_MODIFIERS] = "DotStarWithModifiers";
   map[AST_DOT_STAR] = "DotStar";
   map[AST_DROP_ALL_ROW_POLICIES_STATEMENT] = "DropAllRowPoliciesStatement";
+  map[AST_DROP_COLUMN_ACTION] = "DropColumnAction";
   map[AST_DROP_CONSTRAINT_ACTION] = "DropConstraintAction";
   map[AST_DROP_FUNCTION_STATEMENT] = "DropFunctionStatement";
   map[AST_DROP_ROW_POLICY_STATEMENT] = "DropRowPolicyStatement";
@@ -185,6 +190,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_QUERY] = "Query";
   map[AST_RENAME_STATEMENT] = "RenameStatement";
   map[AST_REPEATABLE_CLAUSE] = "RepeatableClause";
+  map[AST_REPLACE_FIELDS_ARG] = "ReplaceFieldsArg";
   map[AST_REPLACE_FIELDS_EXPRESSION] = "ReplaceFieldsExpression";
   map[AST_REVOKE_STATEMENT] = "RevokeStatement";
   map[AST_ROLLBACK_STATEMENT] = "RollbackStatement";
@@ -1149,6 +1155,26 @@ std::string ASTAlterConstraintEnforcementAction::SingleNodeDebugString() const {
 
 std::string ASTAlterConstraintEnforcementAction::GetSQLForAlterAction() const {
   return "ALTER CONSTRAINT [NOT] ENFORCED";
+}
+
+std::string ASTAddColumnAction::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(),
+                      is_if_not_exists() ? "(is_if_not_exists)" : "");
+}
+
+std::string ASTAddColumnAction::GetSQLForAlterAction() const { return "ADD COLUMN"; }
+
+std::string ASTColumnPosition::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(),
+                      type() == PRECEDING ? "(PRECEDING)" : "(FOLLOWING)");
+}
+
+std::string ASTDropColumnAction::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(),
+                      is_if_exists() ? "(is_if_exists)" : "");
+}
+std::string ASTDropColumnAction::GetSQLForAlterAction() const {
+  return "DROP COLUMN";
 }
 
 std::string ASTAlterStatementBase::SingleNodeDebugString() const {

@@ -21,6 +21,8 @@
 #include <utility>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/testing/proto_matchers.h"
+#include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/proto/function.pb.h"
 #include "zetasql/public/builtin_function.h"
 #include "zetasql/public/deprecation_warning.pb.h"
@@ -35,20 +37,16 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/strings/str_join.h"
-#include "zetasql/base/stl_util.h"
 
 // Note - test coverage for the 'Function' class interface is primarily
 // provided by builtin_function_test.cc which instantiates the concrete
 // subclass BuiltinFunction for testing.
 
 namespace zetasql {
-using testing::ContainerEq;
-using testing::Eq;
-using testing::EqualsProto;
-using testing::IsNull;
-using testing::NotNull;
-using testing::Optional;
-using testing::Pointwise;
+using ::zetasql::testing::EqualsProto;
+using ::testing::IsNull;
+using ::testing::NotNull;
+using ::testing::Optional;
 
 class TestSQLFunction : public SQLFunctionInterface {
  public:
@@ -124,12 +122,6 @@ TEST(SimpleFunctionTests, FunctionMethodTests) {
   // Test for Is<>() and GetAs<>()
   EXPECT_TRUE(fn.Is<Function>());
   EXPECT_EQ(&fn, fn.GetAs<Function>());
-
-  // If !Is<>(), then we cannot call As<>() without crashing (in non-debug
-  // mode).
-  EXPECT_FALSE(fn.Is<SQLFunctionInterface>());
-  EXPECT_DEBUG_DEATH(fn.GetAs<SQLFunctionInterface>(),
-                     "assertion failed.* in To static_cast");
 
   TestSQLFunction sql_fn;
   EXPECT_TRUE(sql_fn.Is<Function>());
@@ -242,9 +234,13 @@ class FunctionSerializationTests : public ::testing::Test {
       const FunctionSignatureOptions& options1,
       const FunctionSignatureOptions& options2) {
     EXPECT_EQ(options1.is_deprecated(), options2.is_deprecated());
-    EXPECT_THAT(
-        options1.additional_deprecation_warnings(),
-        Pointwise(EqualsProto(), options2.additional_deprecation_warnings()));
+    EXPECT_EQ(options1.additional_deprecation_warnings().size(),
+              options2.additional_deprecation_warnings().size());
+    for (int i = 0; i < options1.additional_deprecation_warnings().size();
+         ++i) {
+      EXPECT_THAT(options1.additional_deprecation_warnings()[i],
+                  EqualsProto(options2.additional_deprecation_warnings()[i]));
+    }
   }
 
   static void ExpectEqualsIgnoringCallbacks(
@@ -340,10 +336,12 @@ static FreestandingDeprecationWarning CreateDeprecationWarning() {
 
 TEST_F(FunctionSerializationTests, BuiltinFunctions) {
   TypeFactory type_factory;
-  std::map<std::string, Function*> functions;
-  zetasql_base::ValueDeleter deleter(&functions);
+  LanguageOptions language_options;
+  language_options.EnableMaximumLanguageFeaturesForDevelopment();
+  language_options.set_product_mode(PRODUCT_INTERNAL);
 
-  GetZetaSQLFunctions(&type_factory, &functions, LanguageOptions());
+  std::map<std::string, std::unique_ptr<Function>> functions;
+  GetZetaSQLFunctions(&type_factory, language_options, &functions);
 
   for (const auto& pair : functions) {
     LOG(INFO) << "Testing serialization of function " << pair.first;
@@ -352,7 +350,7 @@ TEST_F(FunctionSerializationTests, BuiltinFunctions) {
 
   // Test a function with a signature that triggers a deprecation warning.
   ASSERT_FALSE(functions.empty());
-  Function* function = functions.begin()->second;
+  Function* function = functions.begin()->second.get();
   ASSERT_GT(function->NumSignatures(), 0);
   FunctionSignature new_signature = *function->GetSignature(0);
   new_signature.SetAdditionalDeprecationWarnings({CreateDeprecationWarning()});
@@ -484,48 +482,6 @@ TEST_F(FunctionSerializationTests,
   ExpectEqualsIgnoringCallbacks(argument_type, *result);
 
   EXPECT_EQ(result->options().procedure_argument_mode(), FunctionEnums::INOUT);
-}
-
-TEST_F(FunctionSerializationTests, ClassAndProtoSize) {
-  EXPECT_EQ(400, sizeof(FunctionOptions))
-      << "The size of FunctionOptions class has changed, please also update "
-      << "the proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(96, sizeof(Function) - sizeof(FunctionOptions))
-      << "The size of Function class has changed, please also update the proto "
-      << "and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(64, sizeof(FunctionSignatureOptions))
-      << "The size of FunctionSignatureOptions class has changed, please also "
-      << "update the proto and serialization code if you added/removed fields "
-      << "in it.";
-  EXPECT_EQ(112, sizeof(FunctionSignature) - sizeof(FunctionSignatureOptions))
-      << "The size of FunctionSignature class has changed, please also update "
-      << "the proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(40, sizeof(FunctionArgumentType))
-      << "The size of FunctionArgumentType class has changed, please also "
-      << "update the proto and serialization code if you added/removed fields "
-      << "in it.";
-  EXPECT_EQ(208, sizeof(FunctionArgumentTypeOptions))
-      << "The size of FunctionArgumentTypeOptions class has changed, please "
-      << "also update the proto and serialization code if you added/removed "
-      << "fields in it.";
-  EXPECT_EQ(7, FunctionProto::descriptor()->field_count())
-      << "The number of fields in FunctionProto has changed, please also "
-      << "update the serialization code accordingly.";
-  EXPECT_EQ(17, FunctionOptionsProto::descriptor()->field_count())
-      << "The number of fields in FunctionOptionsProto has changed, please "
-      << "also update the serialization code accordingly.";
-  EXPECT_EQ(4, FunctionSignatureProto::descriptor()->field_count())
-      << "The number of fields in FunctionSignatureProto has changed, please "
-      << "also update the serialization code accordingly.";
-  EXPECT_EQ(14, FunctionArgumentTypeOptionsProto::descriptor()->field_count())
-      << "The number of fields in FunctionArgumentTypeOptionsProto has "
-      << "changed, please also update the serialization code accordingly.";
-  EXPECT_EQ(4, FunctionArgumentTypeProto::descriptor()->field_count())
-      << "The number of fields in FunctionArgumentTypeProto has changed, "
-      << "please also update the serialization code accordingly.";
-  EXPECT_EQ(2, FunctionSignatureOptionsProto::descriptor()->field_count())
-      << "The number of fields in FunctionSignatureOptionsProto has changed, "
-      << "please also update the serialization code accordingly.";
 }
 
 }  // namespace zetasql

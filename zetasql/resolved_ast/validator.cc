@@ -1485,6 +1485,10 @@ zetasql_base::Status Validator::ValidateResolvedStatement(
       status = ValidateResolvedDropStmt(
           statement->GetAs<ResolvedDropStmt>());
       break;
+    case RESOLVED_DROP_MATERIALIZED_VIEW_STMT:
+      status = ValidateResolvedDropMaterializedViewStmt(
+          statement->GetAs<ResolvedDropMaterializedViewStmt>());
+      break;
     case RESOLVED_DROP_FUNCTION_STMT:
       status = ValidateResolvedDropFunctionStmt(
           statement->GetAs<ResolvedDropFunctionStmt>());
@@ -1519,6 +1523,10 @@ zetasql_base::Status Validator::ValidateResolvedStatement(
     case RESOLVED_ALTER_ROW_POLICY_STMT:
       status = ValidateResolvedAlterRowPolicyStmt(
           statement->GetAs<ResolvedAlterRowPolicyStmt>());
+      break;
+    case RESOLVED_ALTER_MATERIALIZED_VIEW_STMT:
+      status = ValidateResolvedAlterObjectStmt(
+          statement->GetAs<ResolvedAlterMaterializedViewStmt>());
       break;
     case RESOLVED_ALTER_TABLE_SET_OPTIONS_STMT:
       status = ValidateResolvedAlterTableSetOptionsStmt(
@@ -2119,6 +2127,11 @@ zetasql_base::Status Validator::ValidateResolvedDropFunctionStmt(
     }
     ZETASQL_RET_CHECK(stmt->signature()->signature().result_type().IsVoid());
   }
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status Validator::ValidateResolvedDropMaterializedViewStmt(
+    const ResolvedDropMaterializedViewStmt* stmt) const {
   return ::zetasql_base::OkStatus();
 }
 

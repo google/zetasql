@@ -27,6 +27,14 @@ static void TestWellFormedString(absl::string_view str) {
   EXPECT_EQ(CoerceToWellFormedUTF8(str), str);
 }
 
+static void TestIllFormedString(absl::string_view str,
+                                int expected_error_offset = 0) {
+  EXPECT_EQ(SpanWellFormedUTF8(str), expected_error_offset)
+      << "str='" << str << "'";
+  EXPECT_FALSE(IsWellFormedUTF8(str)) << "str='" << str << "'";
+  EXPECT_NE(CoerceToWellFormedUTF8(str), str) << "str='" << str << "'";
+}
+
 TEST(UtfUtilTest, WellFormedUTF8) {
   TestWellFormedString("");
   TestWellFormedString("\n");
@@ -35,6 +43,27 @@ TEST(UtfUtilTest, WellFormedUTF8) {
   TestWellFormedString("abc\u000BBabc");
   TestWellFormedString("\xc2\xbf");
   TestWellFormedString("\xe8\xb0\xb7\xe6\xad\x8c");
+
+  TestIllFormedString("\xc1");
+  TestIllFormedString("\xca");
+  TestIllFormedString("\xcc");
+  TestIllFormedString("\xFA");
+  TestIllFormedString("\xc1\xca\x1b\x62\x19o\xcc\x04");
+
+  TestIllFormedString("\xc2\xc0");  // First byte ok UTF-8, invalid together.
+
+  // These are all valid prefixes for UTF-8 characters, but the characters
+  // are not complete.
+  TestIllFormedString("\xc2");          // Should be 2 byte UTF-8 character.
+  TestIllFormedString("\xc3");          // Should be 2 byte UTF-8 character.
+  TestIllFormedString("\xe0");          // Should be 3 byte UTF-8 character.
+  TestIllFormedString("\xe0\xac");      // Should be 3 byte UTF-8 character.
+  TestIllFormedString("\xf0");          // Should be 4 byte UTF-8 character.
+  TestIllFormedString("\xf0\x90");      // Should be 4 byte UTF-8 character.
+  TestIllFormedString("\xf0\x90\x80");  // Should be 4 byte UTF-8 character.
+  TestIllFormedString("A\xf0\x90", 1);
+  TestIllFormedString("AB\xf0\x90", 2);
+  TestIllFormedString("ABC\xf0\x90", 3);
 }
 
 void TestCoerce(std::string str, std::string expected) {
@@ -46,6 +75,39 @@ void TestCoerce(std::string str, std::string expected) {
 }
 
 TEST(UtfUtilTest, CoerceToWellFormedUTF8) {
+  TestCoerce("\xc1", "\uFFFD");
+  TestCoerce("\uFFFD", "\uFFFD");  // REPLACEMENT CHARACTER is okay.
+  TestCoerce("\xc1 ", "\uFFFD ");
+  TestCoerce(" \xc1 ", " \uFFFD ");
+  TestCoerce("\xc1  \xc1", "\uFFFD  \uFFFD");
+  TestCoerce("  \xc1  \xc1  ", "  \uFFFD  \uFFFD  ");
+
+  TestCoerce("\xc1\xca\x1b\x62\x19o\xcc\x04",
+             "\uFFFD\uFFFD\x1b\x62\x19o\uFFFD\x04");
+
+  // First byte ok UTF-8, invalid together.
+  TestCoerce("\xc2\xc0", "\uFFFD\uFFFD");
+
+  // These are all valid prefixes for UTF-8 characters, but the characters
+  // are not complete.
+  TestCoerce("\xc2", "\uFFFD");  // Should be 2 byte UTF-8 character.
+  TestCoerce("\xc3", "\uFFFD");  // Should be 2 byte UTF-8 character.
+  TestCoerce("\xe0", "\uFFFD");  // Should be 3 byte UTF-8 character.
+  // Should be 3 byte UTF-8 character.
+  TestCoerce("\xe0\xac", "\uFFFD");
+  // Should be 4 byte UTF-8 character.
+  TestCoerce("\xf0", "\uFFFD");
+  // Should be 4 byte UTF-8 character.
+  TestCoerce("\xf0\x90", "\uFFFD");
+  // Should be 4 byte UTF-8 character.
+  TestCoerce("\xf0\x90\x80", "\uFFFD");
+  // Should be 2 x 4 byte UTF-8 character.
+  TestCoerce("\xf0\x90\x80\xf0\x90\x80", "\uFFFD\uFFFD");
+  TestCoerce("\xf0\x90\x80\x80\xf0\x90\x80\xf0\x90\x80\xf0\x90\x80\x80",
+             "\xf0\x90\x80\x80\uFFFD\uFFFD\xf0\x90\x80\x80");
+  TestCoerce("A\xf0\x90", "A\uFFFD");
+  TestCoerce("AB\xf0\x90", "AB\uFFFD");
+  TestCoerce("ABC\xf0\x90", "ABC\uFFFD");
 }
 
 TEST(UtfUtilTest, PrettyTruncateUTF8) {
@@ -89,5 +151,35 @@ TEST(UtfUtilTest, PrettyTruncateUTF8) {
   // Be error tolerant, worse case, return empty std::string.
   EXPECT_EQ(PrettyTruncateUTF8(str2, 0), "");
   EXPECT_EQ(PrettyTruncateUTF8(str2, -4500), "");
+
+  // scattered instances of 2-byte code points, note:
+  // ð = "\xc3\xb0"
+  // ñ = "\xc3\xb1"
+  // ò = "\xc3\xb2"
+  std::string str3 = "1ð4ñò90";
+  EXPECT_EQ(10, str3.size());
+
+  // No truncation.
+  EXPECT_EQ(PrettyTruncateUTF8(str3, 11), str3);
+  EXPECT_EQ(PrettyTruncateUTF8(str3, 10), str3);
+
+  // Truncates cleanly between ñ and ò.
+  EXPECT_EQ(PrettyTruncateUTF8(str3, 9), "1ð4ñ...");
+  // But this slices ñ in half, so it gets dropped completely
+  EXPECT_EQ(PrettyTruncateUTF8(str3, 8), "1ð4...");
+  // Cleanly slice out the ñ.
+  EXPECT_EQ(PrettyTruncateUTF8(str3, 7), "1ð4...");
+  EXPECT_EQ(PrettyTruncateUTF8(str3, 4), "1...");
+
+  // Corner case, drop the ...,
+  EXPECT_EQ(PrettyTruncateUTF8(str3, 3), "1ð");
+  // ... but still don't slice a code point in half.
+  EXPECT_EQ(PrettyTruncateUTF8(str3, 2), "1");
+  EXPECT_EQ(PrettyTruncateUTF8(str3, 1), "1");
+
+  // Be error tolerant, worse case, return empty std::string.
+  EXPECT_EQ(PrettyTruncateUTF8(str3, 0), "");
+  EXPECT_EQ(PrettyTruncateUTF8(str3, -4500), "");
 }
+
 }  // namespace zetasql

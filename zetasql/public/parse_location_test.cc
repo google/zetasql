@@ -167,6 +167,98 @@ TEST(ParseLocationTranslator,
   }
 }
 
+TEST(ParseLocationTranslator, GetByteOffsetFromLineAndColumn) {
+  const std::string test_input = GetConcatenatedCharacters();
+  ParseLocationTranslator translator(test_input);
+
+  absl::optional<CharacterAndLineAndColumn> prev_char_data;
+  for (const CharacterAndLineAndColumn& char_data :
+       characters_and_line_column_pairs) {
+    if (char_data.line_and_column.line == -1) {
+      // We just passed a byte offset that doesn't map to any line/column
+      // numbers.  Skip.
+      continue;
+    }
+
+    int curr_line = char_data.line_and_column.line;
+    int curr_column = char_data.line_and_column.column;
+
+    if (prev_char_data.has_value()) {
+      int prev_line = prev_char_data.value().line_and_column.line;
+      int prev_column = prev_char_data.value().line_and_column.column;
+
+      if (curr_line == prev_line) {
+        // Test all columns between the previous character and the current
+        // character.  This loop will be empty, except for tabs.  Characters
+        // inside of a tab expansion should map back to the tab character.
+        for (int col = prev_column + 1; col < curr_column; ++col) {
+          SCOPED_TRACE(
+              absl::StrCat("Testing line ", curr_line, ", column ", col));
+          EXPECT_THAT(translator.GetByteOffsetFromLineAndColumn(curr_line, col),
+                      IsOkAndHolds(prev_char_data.value().round_trip_offset));
+        }
+      } else {
+        // We advanced to a new line.  Verify that
+        // GetByteOffsetFromLineAndColumn() fails when going 1, 2, and 3
+        // characters beyond the end of the previous line.
+        EXPECT_EQ(curr_column, 1);
+        EXPECT_EQ(curr_line, prev_line + 1);
+
+        for (int i = 1; i <= 3; ++i) {
+          SCOPED_TRACE(absl::StrCat("Testing line ", prev_line, ", column ",
+                                    prev_column + i));
+          EXPECT_THAT(translator.GetByteOffsetFromLineAndColumn(
+                          prev_line, prev_column + 1),
+                      StatusIs(zetasql_base::StatusCode::kInternal));
+        }
+      }
+    }
+
+    if (curr_column == 1) {
+      // We advanced to a new line.  Verify that we fail cleanly with 0 and
+      // negative column numbers on that line.
+      for (int col = -2; col <= 0; ++col) {
+        SCOPED_TRACE(
+            absl::StrCat("Testing line ", curr_line, ", column ", col));
+        EXPECT_THAT(translator.GetByteOffsetFromLineAndColumn(curr_line, col),
+                    StatusIs(zetasql_base::StatusCode::kInternal));
+      }
+    }
+
+    // Test the current line/column.
+    SCOPED_TRACE(
+        absl::StrCat("Testing line ", curr_line, ", column ", curr_column));
+    EXPECT_THAT(
+        translator.GetByteOffsetFromLineAndColumn(curr_line, curr_column),
+        IsOkAndHolds(char_data.round_trip_offset));
+
+    prev_char_data = char_data;
+  }
+}
+
+TEST(ParseLocationTranslator, GetLineAndColumnFromByteOffset) {
+  const std::string test_input = GetConcatenatedCharacters();
+  ParseLocationTranslator translator(test_input);
+
+  for (int offset = 0; offset < characters_and_line_column_pairs.size();
+       ++offset) {
+    const auto& expected_line_and_column =
+        characters_and_line_column_pairs[offset].line_and_column;
+    SCOPED_TRACE(offset);
+    if (expected_line_and_column.line != -1) {
+      EXPECT_THAT(
+          translator.GetLineAndColumnAfterTabExpansion(
+              ParseLocationPoint::FromByteOffset(offset)),
+          IsOkAndHolds(std::make_pair(expected_line_and_column.line,
+                                      expected_line_and_column.column)));
+    } else {
+      EXPECT_THAT(translator.GetLineAndColumnAfterTabExpansion(
+                      ParseLocationPoint::FromByteOffset(offset)),
+                  StatusIs(zetasql_base::StatusCode::kInternal));
+    }
+  }
+}
+
 TEST(ParseLocationTranslator, EmptyInput) {
   ParseLocationTranslator translator("");
   EXPECT_THAT(translator.GetLineAndColumnAfterTabExpansion(
@@ -176,6 +268,29 @@ TEST(ParseLocationTranslator, EmptyInput) {
               IsOkAndHolds(0));
   EXPECT_THAT(translator.GetLineText(1),
               IsOkAndHolds(""));
+}
+
+TEST(ParseLocationTranslator, InputTerminatesInMiddleOfUtf8Character) {
+  ParseLocationTranslator translator("\xc2");
+
+  // Ok, since we're referring to the position just before the invalid UTF-8.
+  EXPECT_THAT(translator.GetLineAndColumnAfterTabExpansion(
+                  ParseLocationPoint::FromByteOffset(0)),
+              IsOkAndHolds(std::make_pair(1, 1)));
+  EXPECT_THAT(translator.GetByteOffsetFromLineAndColumn(1, 1), IsOkAndHolds(0));
+
+  // GetLineText() doesn't need input to be valid UTF-8 to work.
+  EXPECT_THAT(translator.GetLineText(1), IsOkAndHolds("\xc2"));
+
+  // These should all result in errors, since we're referring to positions
+  // after the end of input.
+  EXPECT_THAT(translator.GetLineAndColumnAfterTabExpansion(
+                  ParseLocationPoint::FromByteOffset(1)),
+              StatusIs(zetasql_base::INTERNAL));
+  EXPECT_THAT(translator.GetByteOffsetFromLineAndColumn(1, 2),
+              StatusIs(zetasql_base::INTERNAL));
+  EXPECT_THAT(translator.GetByteOffsetFromLineAndColumn(2, 1),
+              StatusIs(zetasql_base::INTERNAL));
 }
 
 TEST(ParseLocationTranslator, ExpandTabs) {

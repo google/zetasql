@@ -71,7 +71,7 @@ message ValueProto {
     bytes proto_value = 15;
     google.protobuf.Timestamp timestamp_value = 16;
     Datetime datetime_value = 17;
-    // Bit field encoding of hour/minute/second/nanos. See TimeWrapper class for
+    // Bit field encoding of hour/minute/second/nanos. See TimeValue class for
     // details.
     int64 time_value = 18;
     // Geography encoded using ::stlib::STGeographyEncoder

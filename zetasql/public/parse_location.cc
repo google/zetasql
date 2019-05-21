@@ -24,6 +24,9 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/proto/internal_error_location.pb.h"
+#include <cstdint>
+#include "unicode/umachine.h"
+#include "unicode/utf8.h"
 #include "zetasql/base/mathutil.h"
 #include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/ret_check.h"
@@ -131,7 +134,13 @@ zetasql_base::Status AdvanceOneChar(absl::string_view current_line,
   // is the code point of the current character, or a negative value in case of
   // error.
   int new_byte_offset = *byte_offset;
-  ++new_byte_offset;
+  UChar32 current_code_point;
+  U8_NEXT(current_line.data(), new_byte_offset, current_line.length(),
+          current_code_point);
+
+  ZETASQL_RET_CHECK_GE(current_code_point, 0)
+      << "Line contains invalid UTF-8 codepoint at offset " << *byte_offset
+      << ": " << current_line;
   if (stop_byte_offset.has_value() &&
       new_byte_offset > stop_byte_offset.value()) {
     // <*stop_byte_offset> represents a byte in the middle of the UTF-8

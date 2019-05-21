@@ -165,6 +165,7 @@ cc_proto_library(
             url = "https://github.com/grpc/grpc/archive/v1.18.0.tar.gz",
             sha256 = "069a52a166382dd7b99bf8e7e805f6af40d797cfcee5f80e530ca3fc75fd06e2",
             strip_prefix = "grpc-1.18.0",
+            patches = ["//bazel:grpc-1.18.patch"],
         )
 
     # gRPC Java
@@ -365,3 +366,49 @@ java_library(
     srcs = glob(["*.py"])
 )""",
         )
+
+    ##########################################################################
+    # Rules which depend on rules_foreign_cc
+    #
+    # These require a "./configure && make" style build and depend on an
+    # experimental project to allow building from source with non-bazel
+    # build systems.
+    #
+    # All of these archives basically just create filegroups and separate
+    # BUILD files introduce the relevant rules.
+    ##########################################################################
+
+    all_content = """filegroup(name = "all", srcs = glob(["**"]), visibility = ["//visibility:public"])"""
+
+    http_archive(
+        name = "bison",
+        build_file_content = all_content,
+        strip_prefix = "bison-3.2.4",
+        sha256 = "cb673e2298d34b5e46ba7df0641afa734da1457ce47de491863407a587eec79a",
+        urls = ["https://ftp.gnu.org/gnu/bison/bison-3.2.4.tar.gz"],
+    )
+
+    http_archive(
+        name = "flex",
+        build_file_content = all_content,
+        strip_prefix = "flex-2.6.4",
+        sha256 = "e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995",
+        urls = ["https://github.com/westes/flex/releases/download/v2.6.4/flex-2.6.4.tar.gz"],
+    )
+
+    http_archive(
+        name = "m4",
+        build_file_content = all_content,
+        strip_prefix = "m4-1.4.13",
+        sha256 = "39333a95aaf8620c7f90f1db5527b9e53e993b173de9207df5ea506c91fea549",
+        urls = ["https://ftp.gnu.org/gnu/m4/m4-1.4.13.tar.gz"],
+    )
+
+    http_archive(
+        name = "icu",
+        build_file = "//bazel:icu.BUILD",
+        strip_prefix = "icu",
+        sha256 = "627d5d8478e6d96fc8c90fed4851239079a561a6a8b9e48b0892f24e82d31d6c",
+        urls = ["https://github.com/unicode-org/icu/releases/download/release-64-2/icu4c-64_2-src.tgz"],
+        patches = ["//bazel:icu4c-64_2.patch"],
+    )

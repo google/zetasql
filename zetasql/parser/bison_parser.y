@@ -629,6 +629,7 @@ using zetasql::ASTInsertStatement;
 %token KW_CASCADE "CASCADE"
 %token KW_CHECK "CHECK"
 %token KW_CLUSTER "CLUSTER"
+%token KW_COLUMN "COLUMN"
 %token KW_COMMIT "COMMIT"
 %token KW_CONTINUE "CONTINUE"
 %token KW_CONSTANT "CONSTANT"
@@ -647,6 +648,7 @@ using zetasql::ASTInsertStatement;
 %token KW_EXPLAIN "EXPLAIN"
 %token KW_EXPORT "EXPORT"
 %token KW_EXTERNAL "EXTERNAL"
+%token KW_FILL "FILL"
 %token KW_FOREIGN "FOREIGN"
 %token KW_FUNCTION "FUNCTION"
 %token KW_GRANT "GRANT"
@@ -954,7 +956,9 @@ using zetasql::ASTInsertStatement;
 %type <query_set_operation> query_set_operation_prefix_maybe_expression
 %type <node> query_statement
 %type <node> repeatable_clause
-%type <expression> replace_fields_args
+%type <expression> generalized_extension_path
+%type <node> replace_fields_arg
+%type <expression> replace_fields_prefix
 %type <expression> replace_fields_expression
 %type <node> rename_statement
 %type <node> revoke_statement
@@ -1049,6 +1053,10 @@ using zetasql::ASTInsertStatement;
 %type <node> alter_action_list
 %type <node> alter_action
 %type <node> named_argument
+%type <node> column_position
+%type <node> opt_column_position
+%type <expression> fill_using_expression
+%type <expression> opt_fill_using_expression
 
 %type <all_or_distinct_keyword> all_or_distinct
 %type <all_or_distinct_keyword> opt_all_or_distinct
@@ -1295,6 +1303,19 @@ alter_action:
         node->set_is_if_exists($3);
         $$ = node;
       }
+    | "ADD" "COLUMN" opt_if_not_exists table_column_definition
+          opt_column_position opt_fill_using_expression
+      {
+        auto* node = MAKE_NODE(ASTAddColumnAction, @$, {$4, $5, $6});
+        node->set_is_if_not_exists($3);
+        $$ = node;
+      }
+    | "DROP" "COLUMN" opt_if_exists identifier
+      {
+        auto* node = MAKE_NODE(ASTDropColumnAction, @$, {$4});
+        node->set_is_if_exists($3);
+        $$ = node;
+      }
     ;
 
 alter_action_list:
@@ -1351,11 +1372,14 @@ alter_statement:
         alter_action_list
       {
         zetasql::ASTAlterStatementBase* node = nullptr;
-        // Only ALTER TABLE and VIEW are currently supported.
+        // Only ALTER TABLE, VIEW, and MATERIALIZED VIEW are currently
+        // supported.
         if ($2 == zetasql::SchemaObjectKind::kTable) {
           node = MAKE_NODE(ASTAlterTableStatement, @$);
         } else if ($2 == zetasql::SchemaObjectKind::kView) {
           node = MAKE_NODE(ASTAlterViewStatement, @$);
+        } else if ($2 == zetasql::SchemaObjectKind::kMaterializedView) {
+          node = MAKE_NODE(ASTAlterMaterializedViewStatement, @$);
         } else {
           YYERROR_UNEXPECTED_AND_ABORT_AT(@2);
         }
@@ -2217,6 +2241,38 @@ opt_field_attributes:
     }
   | /* Nothing */ { $$ = nullptr; }
   ;
+
+column_position:
+    "PRECEDING" identifier
+      {
+        auto* pos = MAKE_NODE(ASTColumnPosition, @$, {$2});
+        pos->set_type(zetasql::ASTColumnPosition::PRECEDING);
+        $$ = pos;
+      }
+    | "FOLLOWING" identifier
+      {
+        auto* pos = MAKE_NODE(ASTColumnPosition, @$, {$2});
+        pos->set_type(zetasql::ASTColumnPosition::FOLLOWING);
+        $$ = pos;
+      }
+    ;
+
+opt_column_position:
+    column_position
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
+fill_using_expression:
+    "FILL" "USING" expression
+      {
+        $$ = $3;
+      }
+    ;
+
+opt_fill_using_expression:
+    fill_using_expression
+    | /* Nothing */ { $$ = nullptr; }
+    ;
 
 table_constraint_spec:
     "CHECK" "(" expression ")" opt_constraint_enforcement opt_options_list
@@ -3594,6 +3650,16 @@ from_clause_contents:
         join->set_join_hint($4);
         $$ = join;
       }
+    | "@"
+      {
+        YYERROR_AND_ABORT_AT(
+            @1, "Query parameters cannot be used in place of table names");
+      }
+    | "?"
+      {
+        YYERROR_AND_ABORT_AT(
+            @1, "Query parameters cannot be used in place of table names");
+      }
     ;
 
 opt_from_clause:
@@ -4666,21 +4732,32 @@ extract_expression:
       }
     ;
 
-replace_fields_args:
-    expression "," new_constructor_arg
-    {
-      $$ = MAKE_NODE(ASTReplaceFieldsExpression, @$, {$1, $3});
-    }
-  |
-    replace_fields_args "," new_constructor_arg
-    {
-      $$ = WithExtraChildren($1, {$3});
-    }
+replace_fields_arg:
+    expression "AS" generalized_path_expression
+      {
+        $$ = MAKE_NODE(ASTReplaceFieldsArg, @$, {$1, $3});
+      }
+    | expression "AS" generalized_extension_path
+      {
+        $$ = MAKE_NODE(ASTReplaceFieldsArg, @$, {$1, $3});
+      }
+    ;
+
+replace_fields_prefix:
+    "REPLACE_FIELDS" "(" expression "," replace_fields_arg
+      {
+        $$ = MAKE_NODE(ASTReplaceFieldsExpression, @$, {$3, $5});
+      }
+    | replace_fields_prefix "," replace_fields_arg
+      {
+        $$ = WithExtraChildren($1, {$3});
+      }
+    ;
 
 replace_fields_expression:
-    "REPLACE_FIELDS" "(" replace_fields_args ")"
+    replace_fields_prefix ")"
       {
-        $$ = WithEndLocation(WithStartLocation($3, @1), @$);
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
@@ -5366,6 +5443,7 @@ keyword_as_identifier:
     | "CASCADE"
     | "CHECK"
     | "CLUSTER"
+    | "COLUMN"
     | "COMMIT"
     | "CONSTANT"
     | "CONSTRAINT"
@@ -5384,6 +5462,7 @@ keyword_as_identifier:
     | "EXPLAIN"
     | "EXPORT"
     | "EXTERNAL"
+    | "FILL"
     | "FOREIGN"
     | "FUNCTION"
     | "GRANT"
@@ -5893,9 +5972,15 @@ generalized_path_expression:
       {
         $$ = MAKE_NODE(ASTPathExpression, @$, {$1});
       }
-    | generalized_path_expression "." "(" path_expression ")"
+    | generalized_path_expression "." generalized_extension_path
       {
-        $$ = MAKE_NODE(ASTDotGeneralizedField, @2, @5, {$1, $4});
+        // Remove the parentheses from generalized_extension_path as they were
+        // added to indicate the path corresponds to an extension field in the
+        // resolver. It is implied that the path argument of
+        // ASTDotGeneralizedField is an extension and thus parentheses are
+        // automatically added when this node is unparsed.
+        $3->set_parenthesized(false);
+        $$ = MAKE_NODE(ASTDotGeneralizedField, @2, @3, {$1, $3});
       }
     | generalized_path_expression "." identifier
       {
@@ -5908,6 +5993,28 @@ generalized_path_expression:
     | generalized_path_expression "[" expression "]"
       {
         $$ = MAKE_NODE(ASTArrayElement, @2, @4, {$1, $3});
+      }
+    ;
+
+// A "generalized extension path" is similar to a "generalized path expression"
+// in that they contain generalized field accesses. The primary difference is
+// that a generalized extension path must start with a parenthesized path
+// expression, where as a generalized path expression must start with an
+// identifier. A generalized extension path allows field accesses of message
+// extensions to be parsed.
+generalized_extension_path:
+    "(" path_expression ")"
+      {
+       $2->set_parenthesized(true);
+       $$ = $2;
+      }
+    | generalized_extension_path "." "(" path_expression ")"
+      {
+        $$ = MAKE_NODE(ASTDotGeneralizedField, @2, @5, {$1, $4});
+      }
+    | generalized_extension_path "." identifier
+      {
+        $$ = MAKE_NODE(ASTDotIdentifier, @2, @3, {$1, $3});
       }
     ;
 
@@ -6454,6 +6561,8 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTAlterRowPolicyStatement::kConcreteNodeKind; }
     | "ALTER" "VIEW"
       { $$ = zetasql::ASTAlterViewStatement::kConcreteNodeKind; }
+    | "ALTER" "MATERIALIZED" "VIEW"
+      { $$ = zetasql::ASTAlterMaterializedViewStatement::kConcreteNodeKind; }
     | "CREATE" "DATABASE"
       { $$ = zetasql::ASTCreateDatabaseStatement::kConcreteNodeKind; }
     | "CREATE" opt_or_replace opt_create_scope opt_aggregate "CONSTANT"

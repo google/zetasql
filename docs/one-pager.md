@@ -7077,7 +7077,7 @@ You can also construct an `ARRAY` with generated values.
 
 ##### Generating arrays of integers
 
-[`GENERATE_ARRAY`](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#generate-array)
+[`GENERATE_ARRAY`](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#generate_array)
 generates an array of values from a starting and ending value and a step value.
 For example, the following query generates an array that contains all of the odd
 integers from 11 to 33, inclusive:
@@ -7107,7 +7107,7 @@ SELECT GENERATE_ARRAY(21, 14, -1) AS countdown;
 
 ##### Generating arrays of dates
 
-[`GENERATE_DATE_ARRAY`](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#generate-date-array)
+[`GENERATE_DATE_ARRAY`](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#generate_date_array)
 generates an array of `DATE`s from a starting and ending `DATE` and a step
 `INTERVAL`.
 
@@ -16368,10 +16368,13 @@ REGEXP_CONTAINS(value, regex)
 **Description**
 
 Returns TRUE if `value` is a partial match for the regular expression,
-`regex`. You can search for a full match by using `^` (beginning of text) and
-`$` (end of text).
+`regex`.
 
 If the `regex` argument is invalid, the function returns an error.
+
+You can search for a full match by using `^` (beginning of text) and `$` (end of
+text). Due to regular expression operator precedence, it is good practice to use
+parentheses around everything between `^` and `$`.
 
 Note: ZetaSQL provides regular expression support using the
 [re2][string-link-to-re2] library; see that documentation for its
@@ -16401,24 +16404,30 @@ FROM
 | www.example.net | false    |
 +-----------------+----------+
 
-## Performs a full match, using ^ and $.
+## Performs a full match, using ^ and $. Due to regular expression operator
+## precedence, it is good practice to use parentheses around everything between ^
+## and $.
 SELECT
   email,
-  REGEXP_CONTAINS(email, r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
-    AS valid_email_address
+  REGEXP_CONTAINS(email, r"^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$")
+    AS valid_email_address,
+  REGEXP_CONTAINS(email, r"^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$")
+    AS without_parentheses
 FROM
   (SELECT
-    ["foo@example.com", "bar@example.org", "www.example.net"]
+    ["a@foo.com", "a@foo.computer", "b@bar.org", "!b@bar.org", "c@buz.net"]
     AS addresses),
   UNNEST(addresses) AS email;
 
-+-----------------+---------------------+
-| email           | valid_email_address |
-+-----------------+---------------------+
-| foo@example.com | true                |
-| bar@example.org | true                |
-| www.example.net | false               |
-+-----------------+---------------------+
++----------------+---------------------+---------------------+
+| email          | valid_email_address | without_parentheses |
++----------------+---------------------+---------------------+
+| a@foo.com      | true                | true                |
+| a@foo.computer | false               | true                |
+| b@bar.org      | true                | true                |
+| !b@bar.org     | false               | true                |
+| c@buz.net      | false               | false               |
++----------------+---------------------+---------------------+
 ```
 
 #### REGEXP_EXTRACT
@@ -18069,7 +18078,7 @@ The `ARRAY` function returns an `ARRAY` with one element for each row in a
 [subquery](https://github.com/google/zetasql/blob/master/docs/query-syntax.md#subqueries).
 
 If `subquery` produces a
-[standard SQL table](https://github.com/google/zetasql/blob/master/docs/data-model.md#standard-sql-tables),
+[SQL table](https://github.com/google/zetasql/blob/master/docs/data-model.md#standard-sql-tables),
 the table must have exactly one column. Each element in the output `ARRAY` is
 the value of the single column of a row in the table.
 

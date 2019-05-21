@@ -389,6 +389,7 @@ cast { return BisonParserImpl::token::KW_CAST; }
 check { return BisonParserImpl::token::KW_CHECK; }
 cluster { return BisonParserImpl::token::KW_CLUSTER; }
 collate { return BisonParserImpl::token::KW_COLLATE; }
+column { return BisonParserImpl::token::KW_COLUMN; }
 commit { return BisonParserImpl::token::KW_COMMIT; }
 constant { return BisonParserImpl::token::KW_CONSTANT; }
 constraint { return BisonParserImpl::token::KW_CONSTRAINT; }
@@ -442,6 +443,7 @@ external { return BisonParserImpl::token::KW_EXTERNAL; }
 extract { return BisonParserImpl::token::KW_EXTRACT; }
 false { return BisonParserImpl::token::KW_FALSE; }
 fetch { return BisonParserImpl::token::KW_FETCH; }
+fill { return BisonParserImpl::token::KW_FILL; }
 following { return BisonParserImpl::token::KW_FOLLOWING; }
 for { return BisonParserImpl::token::KW_FOR; }
 foreign { return BisonParserImpl::token::KW_FOREIGN; }

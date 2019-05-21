@@ -18,10 +18,6 @@ syntax = "proto3";
 
 package zetasql_test;
 
-
-option java_package = "com.google.zetasqltest";
-option java_outer_classname = "TestProto3Proto";
-
 import "google/protobuf/any.proto";
 import "google/protobuf/api.proto";
 import "google/protobuf/duration.proto";
@@ -31,10 +27,12 @@ import "google/protobuf/source_context.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
-
 import "zetasql/public/proto/type_annotation.proto";
 import "zetasql/public/proto/wire_format_annotation.proto";
 import "zetasql/testdata/test_schema.proto";
+
+option java_package = "com.google.zetasqltest";
+option java_outer_classname = "TestProto3Proto";
 
 enum TestProto3Enum {
   ENUM0 = 0;
@@ -84,35 +82,31 @@ message Proto3KitchenSink {
   Nested nested_value = 31;
   repeated Nested repeated_nested_value = 32;
 
-  int32 date = 33 [ (zetasql.format) = DATE ];
-  int32 date_default = 34 [ (zetasql.format) = DATE ];
-  int32 date_decimal = 35 [ (zetasql.type) = DATE_DECIMAL ];
+  int32 date = 33 [(zetasql.format) = DATE];
+  int32 date_default = 34 [(zetasql.format) = DATE];
+  int32 date_decimal = 35 [(zetasql.type) = DATE_DECIMAL];
   int32 date_decimal_legacy = 36
-      [ (zetasql.type) = DATE, (zetasql.encoding) = DATE_PACKED32 ];
-  int32 date_decimal_default = 37 [ (zetasql.type) = DATE_DECIMAL ];
+      [(zetasql.type) = DATE, (zetasql.encoding) = DATE_PACKED32];
+  int32 date_decimal_default = 37 [(zetasql.type) = DATE_DECIMAL];
 
-  int64 date64 = 38 [ (zetasql.type) = DATE ];
+  int64 date64 = 38 [(zetasql.type) = DATE];
   int64 date64_decimal = 39 [
-      (zetasql.format) = DATE_DECIMAL,
-      (zetasql.type) = TIMESTAMP_MILLIS /* this is ignored */ ];
+    (zetasql.format) = DATE_DECIMAL,
+    (zetasql.type) = TIMESTAMP_MILLIS /* this is ignored */
+  ];
   int64 date64_decimal_legacy = 40
-      [ (zetasql.encoding) = DATE_PACKED32, (zetasql.format) = DATE ];
+      [(zetasql.encoding) = DATE_PACKED32, (zetasql.format) = DATE];
 
-  int64 timestamp_seconds = 41
-      [ (zetasql.type) = TIMESTAMP_SECONDS ];
-  int64 timestamp_millis = 42 [ (zetasql.type) = TIMESTAMP_MILLIS ];
-  int64 timestamp_micros = 43 [ (zetasql.type) = TIMESTAMP_MICROS ];
-  int64 timestamp_seconds_format = 44
-      [ (zetasql.format) = TIMESTAMP_SECONDS ];
-  int64 timestamp_millis_format = 45
-      [ (zetasql.format) = TIMESTAMP_MILLIS ];
-  int64 timestamp_micros_format = 46
-      [ (zetasql.format) = TIMESTAMP_MICROS ];
-  uint64 timestamp_uint64 = 47 [ (zetasql.format) = TIMESTAMP_MICROS ];
-  uint64 timestamp_uint64_default = 48 [
-    (zetasql.format) = TIMESTAMP_MICROS];
+  int64 timestamp_seconds = 41 [(zetasql.type) = TIMESTAMP_SECONDS];
+  int64 timestamp_millis = 42 [(zetasql.type) = TIMESTAMP_MILLIS];
+  int64 timestamp_micros = 43 [(zetasql.type) = TIMESTAMP_MICROS];
+  int64 timestamp_seconds_format = 44 [(zetasql.format) = TIMESTAMP_SECONDS];
+  int64 timestamp_millis_format = 45 [(zetasql.format) = TIMESTAMP_MILLIS];
+  int64 timestamp_micros_format = 46 [(zetasql.format) = TIMESTAMP_MICROS];
+  uint64 timestamp_uint64 = 47 [(zetasql.format) = TIMESTAMP_MICROS];
+  uint64 timestamp_uint64_default = 48 [(zetasql.format) = TIMESTAMP_MICROS];
 
-  string nullable_string = 49 [ (zetasql.use_defaults) = false ];
+  string nullable_string = 49 [(zetasql.use_defaults) = false];
 
   TestProto3Enum test_enum = 50;
 
@@ -124,7 +118,7 @@ message Proto3KitchenSink {
   // Proto2 message
   EmptyMessage empty_message = 53;
 
-  //Proto3 Well Know Types (WKT)
+  // Proto3 Well Know Types (WKT)
   google.protobuf.Any any_wkt = 54;
   google.protobuf.Timestamp timestamp_wkt = 55;
   google.protobuf.Duration duration_wkt = 56;
@@ -143,11 +137,11 @@ message SimpleProto3Message {
 message Proto3AnnotatedStruct {
   option (zetasql.is_struct) = true;
   option (zetasql.use_field_defaults) = false;
+
   string f1 = 1 [(zetasql.struct_field_name) = "key"];
   int32 f2 = 2 [(zetasql.struct_field_name) = "key"];
-  int32 f3 = 3 [(zetasql.format) = DATE,
-                         (zetasql.struct_field_name) = ""];
-  bytes f4 = 4 [(zetasql.struct_field_name) = "",
-                         (zetasql.use_defaults) = true];
+  int32 f3 = 3 [(zetasql.format) = DATE, (zetasql.struct_field_name) = ""];
+  bytes f4 = 4
+      [(zetasql.struct_field_name) = "", (zetasql.use_defaults) = true];
   repeated int64 f5 = 5 [(zetasql.struct_field_name) = "value"];
 }

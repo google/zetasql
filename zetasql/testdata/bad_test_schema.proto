@@ -18,73 +18,77 @@ syntax = "proto2";
 
 package zetasql_test;
 
+import "zetasql/public/proto/type_annotation.proto";
+import "zetasql/public/proto/wire_format_annotation.proto";
 
 option java_package = "com.google.zetasqltest";
 option java_outer_classname = "BadTestSchemaProto";
 
-import "zetasql/public/proto/type_annotation.proto";
-import "zetasql/public/proto/wire_format_annotation.proto";
-
 // Fields with invalid type annotations.
 message TestInvalidTypeAnnotations {
   optional int32 invalid_int32_timestamp_annotation = 1
-      [ (zetasql.format) = TIMESTAMP_SECONDS ];
+      [(zetasql.format) = TIMESTAMP_SECONDS];
   optional uint32 invalid_uint32_date_annotation = 2
-      [ (zetasql.format) = DATE ];
+      [(zetasql.format) = DATE];
   // Only TIMESTAMP_MICROS is allowed on uint64 fields.
   optional uint64 invalid_uint64_timestamp_annotation = 3
-      [ (zetasql.format) = TIMESTAMP_SECONDS ];
+      [(zetasql.format) = TIMESTAMP_SECONDS];
 
   optional string invalid_string_with_date_encoding = 4
-      [ (zetasql.encoding) = DATE_DECIMAL ];
-  optional string invalid_timestamp_with_date_encoding = 5
-      [ (zetasql.encoding) = DATE_DECIMAL,
-        (zetasql.format) = TIMESTAMP_SECONDS ];
+      [(zetasql.encoding) = DATE_DECIMAL];
+  optional string invalid_timestamp_with_date_encoding = 5 [
+    (zetasql.encoding) = DATE_DECIMAL,
+    (zetasql.format) = TIMESTAMP_SECONDS
+  ];
   optional string invalid_int32_with_date_encoding = 6
-      [ (zetasql.encoding) = DATE_DECIMAL ];
+      [(zetasql.encoding) = DATE_DECIMAL];
 
   // The default annotations are intended only as placeholders in code, and
   // not as annotations that would actually be written.
   optional int64 invalid_type_none_annotation = 7
-      [ (zetasql.format) = DEFAULT_FORMAT ];
+      [(zetasql.format) = DEFAULT_FORMAT];
   optional int64 invalid_encoding_default_annotation = 8
-      [ (zetasql.encoding) = DEFAULT_ENCODING ];
+      [(zetasql.encoding) = DEFAULT_ENCODING];
 
   // We only use the legacy zetasql.encoding annotation if it is valid
   // for a matching zetasql.format annotation so the 'encoding' annotations
   // get ignored.
   optional int32 ignored_date_encoding1 = 9
-      [ (zetasql.encoding) = DATE_DECIMAL ];
-  optional int64 ignored_date_encoding2 = 10
-      [ (zetasql.format) = TIMESTAMP_SECONDS,
-        (zetasql.encoding) = DATE_DECIMAL ];
+      [(zetasql.encoding) = DATE_DECIMAL];
+  optional int64 ignored_date_encoding2 = 10 [
+    (zetasql.format) = TIMESTAMP_SECONDS,
+    (zetasql.encoding) = DATE_DECIMAL
+  ];
 
   optional int64 valid_int_column = 11;
 
   optional uint64 invalid_time_micros_uint64 = 12
-      [ (zetasql.format) = TIME_MICROS ];
-  optional uint64 invalid_time_micros_uint64_default = 13
-      [ (zetasql.format) = TIME_MICROS,
-        // 01:02:03.456789
-        default = 4432787541 ];
+      [(zetasql.format) = TIME_MICROS];
+  optional uint64 invalid_time_micros_uint64_default = 13 [
+    (zetasql.format) = TIME_MICROS,
+    // 01:02:03.456789
+    default = 4432787541
+  ];
 
   optional uint64 invalid_datetime_micros_uint64 = 14
-      [ (zetasql.format) = DATETIME_MICROS ];
-  optional uint64 invalid_datetime_micros_uint64_default = 15
-      [ (zetasql.format) = DATETIME_MICROS,
-        // 2016-02-16 13:35:57.456789
-        default = 141874441622059093 ];
+      [(zetasql.format) = DATETIME_MICROS];
+  optional uint64 invalid_datetime_micros_uint64_default = 15 [
+    (zetasql.format) = DATETIME_MICROS,
+    // 2016-02-16 13:35:57.456789
+    default = 141874441622059093
+  ];
 }
 
 // Repeated fields with use_defaults = true are invalid.
 message TestInvalidDefaultAnnotations {
-  repeated int32 invalid_repeated_int32 = 1 [ (zetasql.use_defaults) = true ];
+  repeated int32 invalid_repeated_int32 = 1 [(zetasql.use_defaults) = true];
 }
 
 // Proto level use_field_defaults = true is ok even if the proto has repeated
 // fields.
 message TestValidDefaultAnnotations {
   option (zetasql.use_field_defaults) = true;
+
   repeated int32 repeated_int32 = 1;
 }
 
@@ -95,27 +99,32 @@ message InvalidNoFields {
 message InvalidIsStructAndWrapper {
   option (zetasql.is_wrapper) = true;
   option (zetasql.is_struct) = true;
+
   required int32 field = 1;
 }
 
 message InvalidMultipleFields {
   option (zetasql.is_wrapper) = true;
+
   optional int32 field1 = 1;
   optional int32 field2 = 2;
 }
 
 message ValidOptionalField {
   option (zetasql.is_wrapper) = true;
+
   optional int32 field1 = 1;
 }
 
 message ValidRepeatedField {
   option (zetasql.is_wrapper) = true;
+
   repeated int32 field1 = 4;
 }
 
 message ValidRequiredField {
   option (zetasql.is_wrapper) = true;
+
   required int32 field1 = 4;
 }
 
@@ -150,6 +159,7 @@ message InvalidExtensionAnnotations {
 message InvalidSQLTable1 {
   // Failure case for TableFromProto: Invalid because it's not marked is_struct.
   option (zetasql.table_type) = SQL_TABLE;
+
   optional int32 f1 = 1;
 }
 
@@ -157,6 +167,7 @@ message InvalidSQLTable2 {
   // Failure case for TableFromProto: Invalid because of anonymous columns.
   option (zetasql.table_type) = SQL_TABLE;
   option (zetasql.is_struct) = true;
+
   optional int32 f1 = 1;
   optional int32 f2 = 2 [(zetasql.struct_field_name) = ""];
 }
@@ -165,6 +176,7 @@ message InvalidSQLTable3 {
   // Failure case for TableFromProto: Invalid because of duplicate columns.
   option (zetasql.table_type) = SQL_TABLE;
   option (zetasql.is_struct) = true;
+
   optional int32 f1 = 1;
   optional int32 f2 = 2 [(zetasql.struct_field_name) = "f1"];
 }

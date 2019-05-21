@@ -43,6 +43,12 @@ TEST(UpdateError, UpdateError) {
   status = zetasql_base::Status(zetasql_base::StatusCode::kInvalidArgument, "msg");
   UpdateError(&status, "xyzñ");
   EXPECT_THAT(status, StatusIs(zetasql_base::INVALID_ARGUMENT, "msg"));
+
+  // Invalid UTF-8 gets converted to valid UTF-8 with REPLACEMENT CHARACTER
+  // used for invalid characters.
+  status = zetasql_base::OkStatus();
+  UpdateError(&status, "xyz\xc3(");
+  EXPECT_THAT(status, StatusIs(zetasql_base::OUT_OF_RANGE, "xyz\uFFFD("));
 }
 
 }  // anonymous namespace

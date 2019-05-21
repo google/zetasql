@@ -84,7 +84,7 @@ You can also construct an `ARRAY` with generated values.
 
 #### Generating arrays of integers
 
-[`GENERATE_ARRAY`](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#generate-array)
+[`GENERATE_ARRAY`](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#generate_array)
 generates an array of values from a starting and ending value and a step value.
 For example, the following query generates an array that contains all of the odd
 integers from 11 to 33, inclusive:
@@ -114,7 +114,7 @@ SELECT GENERATE_ARRAY(21, 14, -1) AS countdown;
 
 #### Generating arrays of dates
 
-[`GENERATE_DATE_ARRAY`](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#generate-date-array)
+[`GENERATE_DATE_ARRAY`](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#generate_date_array)
 generates an array of `DATE`s from a starting and ending `DATE` and a step
 `INTERVAL`.
 

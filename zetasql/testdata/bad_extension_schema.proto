@@ -18,11 +18,9 @@ syntax = "proto2";
 
 package zetasql_test;
 
-
 import "zetasql/public/proto/type_annotation.proto";
 import "zetasql/testdata/bad_test_schema.proto";
 
 extend InvalidExtensionAnnotations {
-  repeated int32 int32_extension = 77777777
-      [ (zetasql.use_defaults) = true ];
+  repeated int32 int32_extension = 77777777 [(zetasql.use_defaults) = true];
 }

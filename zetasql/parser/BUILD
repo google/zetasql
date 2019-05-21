@@ -58,6 +58,7 @@ cc_library(
         ":bison_parser_generated_lib",
         ":keywords",
         ":parse_tree",
+        "//bazel:flex",
         "//zetasql/base",
         "//zetasql/base:cleanup",
         "//zetasql/base:map_util",
@@ -119,6 +120,7 @@ cc_library(
     deps = [
         ":keywords",
         ":parse_tree",
+        "//bazel:flex",
         "//zetasql/base",
         "//zetasql/base:status",
         "//zetasql/common:errors",

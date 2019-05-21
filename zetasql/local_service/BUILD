@@ -61,6 +61,38 @@ cc_library(
     ],
 )
 
+cc_test(
+    name = "local_service_test",
+    srcs = ["local_service_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    data = [
+        "//zetasql/testdata:test_schema_proto",
+    ],
+    tags = ["requires-net:loopback"],
+    deps = [
+        ":local_service",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base",
+        "//zetasql/base:path",
+        "//zetasql/base:status",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/common:status_payload_utils",
+        "//zetasql/common/testing:proto_matchers",
+        "//zetasql/proto:function_cc_proto",
+        "//zetasql/proto:simple_catalog_cc_proto",
+        "//zetasql/public:parse_resume_location_cc_proto",
+        "//zetasql/public:simple_table_cc_proto",
+        "//zetasql/public:type",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/public:value_cc_proto",
+        "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_absl//absl/strings",
+        "@com_google_protobuf//:cc_wkt_protos",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
 proto_library(
     name = "local_service_proto",
     srcs = ["local_service.proto"],

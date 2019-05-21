@@ -18,6 +18,7 @@
 #define ZETASQL_COMMON_UTF_UTIL_H_
 
 #include "absl/strings/string_view.h"
+#include "unicode/utf8.h"
 
 namespace zetasql {
 

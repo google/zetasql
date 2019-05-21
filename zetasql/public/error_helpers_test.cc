@@ -383,6 +383,24 @@ TEST(ErrorHelpersTest, GetErrorStringWithCaret) {
           "01234567890123456789012345678901234567890123456789"
           "01234567890123456789012345678901234567890123456789",
           MakeErrorLocation(1, 35), 30 /* max_width */));
+
+  // Here's one where we avoid slicing a UTF8 codepoint when we do max width
+  // truncation. In this example we choose to print a 29 byte error std::string
+  // rather than slicing the 2-byte UTF8 codepoint in half.
+  EXPECT_EQ("01234567890123456789012345...\n^",
+            GetErrorStringWithCaret("01234567890123456789012345"
+                                    "\xc3\xb0"
+                                    "67890",
+                                    MakeErrorLocation(1, 1),
+                                    /*max_width_in=*/30));
+  // Repeat the above test but this time give enough room for the whole
+  // codepoint.
+  EXPECT_EQ("01234567890123456789012345\xc3\xb0...\n^",
+            GetErrorStringWithCaret("01234567890123456789012345"
+                                    "\xc3\xb0"
+                                    "67890",
+                                    MakeErrorLocation(1, 1),
+                                    /*max_width_in=*/31));
 }
 
 TEST(ErrorHelpersTest, GetErrorStringWithCaret_WeirdData) {

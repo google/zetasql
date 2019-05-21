@@ -284,6 +284,23 @@ TEST(StringsTest, TestParsingOfAllEscapeCharacters) {
                           "Illegal escape sequence: ");
       }
     } else {
+      if (IsWellFormedUTF8(escape_piece)) {
+        const std::string expected_error =
+            ((escape_char == '\n' || escape_char == '\r')
+                 ? "Illegal escaped newline"
+                 : "Illegal escape sequence: ");
+        TestInvalidString(absl::StrCat("'a\\", escape_piece, "b'"), 2,
+                          expected_error);
+        TestInvalidString(absl::StrCat("'''a\\", escape_piece, "b'''"), 4,
+                          expected_error);
+      } else {
+        TestInvalidString(absl::StrCat("'a\\", escape_piece, "b'"), 3,
+                          "Structurally invalid UTF8"  //
+                          " string");  // coybara:ignore(std::string)
+        TestInvalidString(absl::StrCat("'''a\\", escape_piece, "b'''"), 5,
+                          "Structurally invalid UTF8"  //
+                          " string");  // coybara:ignore(std::string)
+      }
     }
   }
 }
@@ -393,11 +410,14 @@ TEST(StringsTest, RoundTrip) {
 }
 
 TEST(StringsTest, InvalidString) {
-  TestInvalidString("A", 0, "Invalid std::string literal");  // No quote at all
-  TestInvalidString("'", 0, "Invalid std::string literal");  // No closing quote
-  TestInvalidString("\"", 0, "Invalid std::string literal");  // No closing quote
-  TestInvalidString("a'", 0, "Invalid std::string literal");  // No opening quote
-  TestInvalidString("a\"", 0, "Invalid std::string literal");  // No opening quote
+  const std::string kInvalidStringLiteral =  //
+      "Invalid string literal";
+
+  TestInvalidString("A", 0, kInvalidStringLiteral);    // No quote at all
+  TestInvalidString("'", 0, kInvalidStringLiteral);    // No closing quote
+  TestInvalidString("\"", 0, kInvalidStringLiteral);   // No closing quote
+  TestInvalidString("a'", 0, kInvalidStringLiteral);   // No opening quote
+  TestInvalidString("a\"", 0, kInvalidStringLiteral);  // No opening quote
   TestInvalidString("'''", 1, "String cannot contain unescaped '");
   TestInvalidString("\"\"\"", 1, "String cannot contain unescaped \"");
   TestInvalidString("''''", 1, "String cannot contain unescaped '");
@@ -481,6 +501,42 @@ TEST(StringsTest, InvalidString) {
   std::string s = "abc";
   s[1] = 0;
   TestInvalidString(s);
+  // Note: These are C-escapes to define the invalid strings.
+  TestInvalidString("'\xc1'", 1, "Structurally invalid UTF8 string");
+  TestInvalidString("'\xca'", 1, "Structurally invalid UTF8 string");
+  TestInvalidString("'\xcc'", 1, "Structurally invalid UTF8 string");
+  TestInvalidString("'\xFA'", 1, "Structurally invalid UTF8 string");
+  TestInvalidString("'\xc1\xca\x1b\x62\x19o\xcc\x04'", 1,
+                    "Structurally invalid UTF8 string");
+
+  TestInvalidString("'\xc2\xc0'", 1,
+                    "Structurally invalid UTF8 string");  // First byte ok utf8,
+                                                          // invalid together.
+  TestValue("\xc2\xbf");            // Same first byte, good sequence.
+
+  // These are all valid prefixes for utf8 characters, but the characters
+  // are not complete.
+  TestInvalidString(
+      "'\xc2'", 1,
+      "Structurally invalid UTF8 string");  // Should be 2 byte utf8 character.
+  TestInvalidString(
+      "'\xc3'", 1,
+      "Structurally invalid UTF8 string");  // Should be 2 byte utf8 character.
+  TestInvalidString(
+      "'\xe0'", 1,
+      "Structurally invalid UTF8 string");  // Should be 3 byte utf8 character.
+  TestInvalidString(
+      "'\xe0\xac'", 1,
+      "Structurally invalid UTF8 string");  // Should be 3 byte utf8 character.
+  TestInvalidString(
+      "'\xf0'", 1,
+      "Structurally invalid UTF8 string");  // Should be 4 byte utf8 character.
+  TestInvalidString(
+      "'\xf0\x90'", 1,
+      "Structurally invalid UTF8 string");  // Should be 4 byte utf8 character.
+  TestInvalidString(
+      "'\xf0\x90\x80'", 1,
+      "Structurally invalid UTF8 string");  // Should be 4 byte utf8 character.
 }
 
 TEST(BytesTest, RoundTrip) {
@@ -789,6 +845,10 @@ TEST(StringsTest, Parse) {
       {"'abc\\ndef\\x12ghi'", "\"abc\\ndef\\x12ghi\"",
        "'''abc\\ndef\\x12ghi'''", "\"\"\"abc\\ndef\\x12ghi\"\"\""});
   ExpectParsedIdentifier("abc\ndef\x12ghi", "`abc\\ndef\\x12ghi`");
+  ExpectParsedString("\xF4\x8F\xBF\xBD",
+                     {"'\\U0010FFFD'", "\"\\U0010FFFD\"", "'''\\U0010FFFD'''",
+                      "\"\"\"\\U0010FFFD\"\"\""});
+  ExpectParsedIdentifier("\xF4\x8F\xBF\xBD", "`\\U0010FFFD`");
 
   // Some more test cases for triple quoted content.
   ExpectParsedString("", {"''''''", "\"\"\"\"\"\""});
@@ -881,6 +941,131 @@ struct epair {
   std::string unescaped;
 };
 
+// Copied from strings/escaping_test.cc, CEscape::BasicEscaping.
+TEST(StringsTest, UTF8Escape) {
+  epair utf8_hex_values[] = {
+      {"\x20\xe4\xbd\xa0\\t\xe5\xa5\xbd,\\r!\\n",
+       "\x20\xe4\xbd\xa0\t\xe5\xa5\xbd,\r!\n"},
+      {"\xe8\xa9\xa6\xe9\xa8\x93\\\' means \\\"test\\\"",
+       "\xe8\xa9\xa6\xe9\xa8\x93\' means \"test\""},
+      {"\\\\\xe6\x88\x91\\\\:\\\\\xe6\x9d\xa8\xe6\xac\xa2\\\\",
+       "\\\xe6\x88\x91\\:\\\xe6\x9d\xa8\xe6\xac\xa2\\"},
+      {"\xed\x81\xac\xeb\xa1\xac\\x08\\t\\n\\x0b\\x0c\\r",
+       "\xed\x81\xac\xeb\xa1\xac\010\011\012\013\014\015"}
+  };
+
+  for (int i = 0; i < ABSL_ARRAYSIZE(utf8_hex_values); ++i) {
+    std::string escaped = EscapeString(utf8_hex_values[i].unescaped);
+    EXPECT_EQ(escaped, utf8_hex_values[i].escaped);
+  }
+}
+
+// Originally copied from strings/escaping_test.cc, Unescape::BasicFunction,
+// but changes for '\\xABCD' which only parses 2 hex digits after the escape.
+TEST(StringsTest, UTF8Unescape) {
+  epair tests[] =
+    {{"\\u0030", "0"},
+     {"\\u00A3", "\xC2\xA3"},
+     {"\\u22FD", "\xE2\x8B\xBD"},
+     {"\\ud7FF", "\xED\x9F\xBF"},
+     {"\\u22FD", "\xE2\x8B\xBD"},
+     {"\\U00010000", "\xF0\x90\x80\x80"},
+     {"\\U0000E000", "\xEE\x80\x80"},
+     {"\\U0001DFFF", "\xF0\x9D\xBF\xBF"},
+     {"\\U0010FFFD", "\xF4\x8F\xBF\xBD"},
+     {"\\xAbCD", "\xc2\xab" "CD"},
+     {"\\253CD", "\xc2\xab" "CD"},
+     {"\\x4141", "A41"}};
+  for (int i = 0; i < ABSL_ARRAYSIZE(tests); ++i) {
+    const std::string& e = tests[i].escaped;
+    const std::string& u = tests[i].unescaped;
+    std::string out;
+    ZETASQL_EXPECT_OK(UnescapeString(e, &out));
+    EXPECT_EQ(u, out) << "original escaped: '" << e << "'\nunescaped: '"
+                      << out << "'\nexpected unescaped: '" << u << "'";
+  }
+  std::string bad[] =
+     {"\\u1",  // too short
+      "\\U1",  // too short
+      "\\Uffffff",
+      "\\777"};  // exceeds 0xff
+  for (int i = 0; i < ABSL_ARRAYSIZE(bad); ++i) {
+    const std::string& e = bad[i];
+    std::string out;
+    EXPECT_THAT(UnescapeString(e, &out),
+                StatusIs(zetasql_base::INVALID_ARGUMENT,
+                         HasSubstr("Invalid escaped string")))
+        << "original: '" << e << "'\nunescaped: '" << out << "'";
+  }
+}
+
+TEST(StringsTest, TestUnescapeErrorMessages) {
+  std::string error_string;
+  std::string out;
+
+  EXPECT_FALSE(UnescapeString("\\2", &out, &error_string).ok());
+  EXPECT_EQ(
+      "Illegal escape sequence: Octal escape must be followed by 3 octal "
+      "digits but saw: \\2",
+      error_string);
+
+  EXPECT_FALSE(UnescapeString("\\22X0", &out, &error_string).ok());
+  EXPECT_EQ(
+      "Illegal escape sequence: Octal escape must be followed by 3 octal "
+      "digits but saw: \\22X",
+      error_string);
+
+  EXPECT_FALSE(UnescapeString("\\X0", &out, &error_string).ok());
+  EXPECT_EQ(
+      "Illegal escape sequence: Hex escape must be followed by 2 hex digits "
+      "but saw: \\X0",
+      error_string);
+
+  EXPECT_FALSE(UnescapeString("\\x0G0", &out, &error_string).ok());
+  EXPECT_EQ(
+      "Illegal escape sequence: Hex escape must be followed by 2 hex digits "
+      "but saw: \\x0G",
+      error_string);
+
+  EXPECT_FALSE(UnescapeString("\\u00", &out, &error_string).ok());
+  EXPECT_EQ(
+      "Illegal escape sequence: \\u must be followed by 4 hex digits but saw: "
+      "\\u00",
+      error_string);
+
+  EXPECT_FALSE(UnescapeString("\\ude8c", &out, &error_string).ok());
+  EXPECT_EQ("Illegal escape sequence: Unicode value \\ude8c is invalid",
+            error_string);
+
+  EXPECT_FALSE(UnescapeString("\\u000G0", &out, &error_string).ok());
+  EXPECT_EQ(
+      "Illegal escape sequence: \\u must be followed by 4 hex digits but saw: "
+      "\\u000G",
+      error_string);
+
+  EXPECT_FALSE(UnescapeString("\\U00", &out, &error_string).ok());
+  EXPECT_EQ(
+      "Illegal escape sequence: \\U must be followed by 8 hex digits but saw: "
+      "\\U00",
+      error_string);
+
+  EXPECT_FALSE(UnescapeString("\\U000000G00", &out, &error_string).ok());
+  EXPECT_EQ(
+      "Illegal escape sequence: \\U must be followed by 8 hex digits but saw: "
+      "\\U000000G0",
+      error_string);
+
+  EXPECT_FALSE(UnescapeString("\\U0000D83D", &out, &error_string).ok());
+  EXPECT_EQ("Illegal escape sequence: Unicode value \\U0000D83D is invalid",
+            error_string);
+
+  EXPECT_FALSE(UnescapeString("\\UFFFFFFFF0", &out, &error_string).ok());
+  EXPECT_EQ(
+      "Illegal escape sequence: Value of \\UFFFFFFFF exceeds Unicode limit "
+      "(0x0010FFFF)",
+      error_string);
+}
+
 TEST(StringsTest, TestFatalInPlaceUnescaping) {
   std::string parse_string = "a";
   EXPECT_DEATH(UnescapeString(parse_string, &parse_string).IgnoreError(),
@@ -952,6 +1137,8 @@ TEST(StringsTest, ParseIdentifierPath) {
     {"HexDotsBackquotes", "`abc\\x2e\\x60ghi`", {"abc.`ghi"}},
     {"EscapedNewlinesHex", "`abc\\ndef\\x12ghi`.suffix",
       {"abc\ndef\x12ghi", "suffix"}},
+    {"HexToUnicode", "`\xd0\x9e\xd0\xbb\xd1\x8f.abc`.`\\U0010FFFD`",
+      {"\xd0\x9e\xd0\xbb\xd1\x8f.abc", "\xf4\x8f\xbf\xbd"}},
     {"EscapedUnicode",
       "abc.`\\\"\xe8\xb0\xb7\xe6\xad\x8c\\\" is Google\\\'s Chinese name`",
       {"abc", "\"\xE8\xB0\xB7\xE6\xAD\x8C\" is Google's Chinese name"}},
@@ -973,6 +1160,7 @@ TEST(StringsTest, ParseIdentifierPath) {
     {"WhitespacePostIdentifier", "abc.123\t.def", {}, "invalid character"},
     {"WhitespaceWithinComponent", "abc.123 def", {}, "invalid character"},
     {"InvalidEscape", "abc.`'\\e'`", {}, "Illegal escape sequence"},
+    {"InvalidUTF8", "abc.`\xe0\x80\x80`", {}, "invalid UTF8 string"},
     {"TrailingEscape", "abc.def\\", {}, "invalid character"},
     {"PathStartsWithNumber0", "123", {}, "Invalid identifier"},
     {"PathStartsWithNumber1", "123abc", {}, "Invalid identifier"},

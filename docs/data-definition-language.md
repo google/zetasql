@@ -7,7 +7,7 @@
 ZetaSQL specifies the syntax for Data Definition Language (DDL)
 statements.
 
-Where possible, this topic provides a link to the engine-specific documentation
+Where possible, this topic provides a link to the product-specific documentation
 for each statement.
 
 ## CREATE TABLE

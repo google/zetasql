@@ -910,6 +910,10 @@ class Resolver {
       const ASTDropAllRowPoliciesStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
+  zetasql_base::Status ResolveDropMaterializedViewStatement(
+      const ASTDropMaterializedViewStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
   zetasql_base::Status ResolveDMLTargetTable(
       const ASTPathExpression* target_path, const ASTAlias* target_path_alias,
       IdString* alias,
@@ -993,6 +997,10 @@ class Resolver {
 
   zetasql_base::Status ResolveAlterViewStatement(
       const ASTAlterViewStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
+  zetasql_base::Status ResolveAlterMaterializedViewStatement(
+      const ASTAlterMaterializedViewStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
   zetasql_base::Status ResolveRenameStatement(

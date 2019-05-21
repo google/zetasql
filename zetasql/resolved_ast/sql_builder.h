@@ -1,0 +1,610 @@
+//
+// Copyright 2019 ZetaSQL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+#ifndef ZETASQL_RESOLVED_AST_SQL_BUILDER_H_
+#define ZETASQL_RESOLVED_AST_SQL_BUILDER_H_
+
+#include <deque>
+#include <map>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "zetasql/base/atomic_sequence_num.h"
+#include "zetasql/public/analyzer.h"  // For QueryParametersMap
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/function_signature.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/type.h"
+#include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/query_expression.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_visitor.h"
+#include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node.h"
+#include <cstdint>
+#include "absl/container/flat_hash_set.h"
+#include "absl/strings/string_view.h"
+#include "zetasql/base/status.h"
+#include "zetasql/base/statusor.h"
+
+namespace zetasql {
+
+class QueryExpression;
+
+// SQLBuilder takes the ZetaSQL Resolved ASTs and generates its equivalent SQL
+// form.
+//
+// Usage:
+//   SQLBuilder sql_builder;
+//   const ResolvedQueryStmt* node = ...;
+//   node->Accept(&sql_builder);
+//   const std::string& unparsed_sql = sql_builder.sql();
+//
+//   NOTE: SQL for the node gets appended onto the SQLBuilder's sql.
+//
+// Be wary of using SQLBuilder with positional query parameters; there is no
+// guarantee that they will appear in the same order as their positions in the
+// resolved AST.
+class SQLBuilder : public ResolvedASTVisitor {
+ public:
+  // Options to use when generating SQL.
+  struct SQLBuilderOptions {
+    SQLBuilderOptions() {}
+    explicit SQLBuilderOptions(ProductMode product_mode_in)
+        : product_mode(product_mode_in) {}
+    ~SQLBuilderOptions() {}
+
+    // Whether the generated SQL is for INTERNAL or EXTERNAL mode.  For example,
+    // EXTERNAL mode supports FLOAT64 only as a type name, not DOUBLE
+    // (INTERNAL supports both as type names).
+    ProductMode product_mode = PRODUCT_EXTERNAL;
+
+    // Undeclared query parameters get wrapped in explicit CASTs. This is needed
+    // because explicit CASTs may get dropped from the resolved AST upon parsing
+    // but may be required for inferring the type of the undeclared parameters.
+    // This member can be copied from AnalyzerOutput::undeclared_parameters().
+    QueryParametersMap undeclared_parameters;
+
+    // Same as above, but applies to undeclared positional parameters.
+    // This member can be copied from
+    // AnalyzerOutput::undeclared_positional_parameters().
+    std::vector<const Type*> undeclared_positional_parameters;
+
+    // Controls how the SQLBuilder outputs positional parameters. By default,
+    // they are converted to ?. In named mode, which allows the caller to
+    // sanity-check where they appear in the query, positional parameters are
+    // converted to parameters named @param1, @param2, and so on in
+    // correspondence with the position of the parameter.
+    //
+    // Warning: there is no attempt made to verify that the ? in the output
+    // appear in the same order of the positional parameters in the resolved
+    // AST.
+    enum PositionalParameterOutputMode {
+      kQuestionMark = 0,
+      kNamed = 1,
+    };
+    PositionalParameterOutputMode positional_parameter_mode = kQuestionMark;
+  };
+
+  explicit SQLBuilder(const SQLBuilderOptions& options = SQLBuilderOptions());
+  SQLBuilder(const SQLBuilder&) = delete;
+  SQLBuilder& operator=(const SQLBuilder&) = delete;
+  ~SQLBuilder() override;
+
+  // Visit all nodes in the AST tree and accumulate SQL to be returned via sql()
+  // call, below.
+  zetasql_base::Status Process(const ResolvedNode& ast);
+
+  // Returns the sql std::string for the last visited ResolvedAST.
+  std::string sql();
+
+  // Visit methods for types of ResolvedStatement.
+  zetasql_base::Status VisitResolvedQueryStmt(const ResolvedQueryStmt* node) override;
+  zetasql_base::Status VisitResolvedExplainStmt(
+      const ResolvedExplainStmt* node) override;
+  zetasql_base::Status VisitResolvedCreateDatabaseStmt(
+      const ResolvedCreateDatabaseStmt* node) override;
+  zetasql_base::Status VisitResolvedCreateIndexStmt(
+    const ResolvedCreateIndexStmt* node) override;
+  zetasql_base::Status VisitResolvedCreateModelStmt(
+      const ResolvedCreateModelStmt* node) override;
+  zetasql_base::Status VisitResolvedCreateTableStmt(
+      const ResolvedCreateTableStmt* node) override;
+  zetasql_base::Status VisitResolvedCreateTableAsSelectStmt(
+      const ResolvedCreateTableAsSelectStmt* node) override;
+  zetasql_base::Status VisitResolvedCreateViewStmt(
+      const ResolvedCreateViewStmt* node) override;
+  zetasql_base::Status VisitResolvedCreateMaterializedViewStmt(
+      const ResolvedCreateMaterializedViewStmt* node) override;
+  zetasql_base::Status VisitResolvedCreateExternalTableStmt(
+      const ResolvedCreateExternalTableStmt* node) override;
+  zetasql_base::Status VisitResolvedCreateRowPolicyStmt(
+      const ResolvedCreateRowPolicyStmt* node) override;
+  zetasql_base::Status VisitResolvedCreateConstantStmt(
+      const ResolvedCreateConstantStmt* node) override;
+  zetasql_base::Status VisitResolvedCreateFunctionStmt(
+      const ResolvedCreateFunctionStmt* node) override;
+  zetasql_base::Status VisitResolvedCreateTableFunctionStmt(
+      const ResolvedCreateTableFunctionStmt* node) override;
+  zetasql_base::Status VisitResolvedCreateProcedureStmt(
+      const ResolvedCreateProcedureStmt* node) override;
+  zetasql_base::Status VisitResolvedArgumentDef(
+      const ResolvedArgumentDef* node) override;
+  zetasql_base::Status VisitResolvedArgumentRef(
+      const ResolvedArgumentRef* node) override;
+  zetasql_base::Status VisitResolvedExportDataStmt(
+      const ResolvedExportDataStmt* node) override;
+  zetasql_base::Status VisitResolvedCallStmt(const ResolvedCallStmt* node) override;
+  zetasql_base::Status VisitResolvedDefineTableStmt(
+      const ResolvedDefineTableStmt* node) override;
+  zetasql_base::Status VisitResolvedDescribeStmt(
+      const ResolvedDescribeStmt* node) override;
+  zetasql_base::Status VisitResolvedShowStmt(
+      const ResolvedShowStmt* node) override;
+  zetasql_base::Status VisitResolvedBeginStmt(const ResolvedBeginStmt* node) override;
+  zetasql_base::Status VisitResolvedSetTransactionStmt(
+      const ResolvedSetTransactionStmt* node) override;
+  zetasql_base::Status VisitResolvedCommitStmt(const ResolvedCommitStmt* node) override;
+  zetasql_base::Status VisitResolvedRollbackStmt(
+      const ResolvedRollbackStmt* node) override;
+  zetasql_base::Status VisitResolvedStartBatchStmt(
+      const ResolvedStartBatchStmt* node) override;
+  zetasql_base::Status VisitResolvedRunBatchStmt(
+      const ResolvedRunBatchStmt* node) override;
+  zetasql_base::Status VisitResolvedAbortBatchStmt(
+      const ResolvedAbortBatchStmt* node) override;
+  zetasql_base::Status VisitResolvedDeleteStmt(
+      const ResolvedDeleteStmt* node) override;
+  zetasql_base::Status VisitResolvedDropStmt(
+      const ResolvedDropStmt* node) override;
+  zetasql_base::Status VisitResolvedDropFunctionStmt(
+      const ResolvedDropFunctionStmt* node) override;
+  zetasql_base::Status VisitResolvedDropMaterializedViewStmt(
+      const ResolvedDropMaterializedViewStmt* node) override;
+  zetasql_base::Status VisitResolvedDropRowPolicyStmt(
+      const ResolvedDropRowPolicyStmt* node) override;
+  zetasql_base::Status VisitResolvedUpdateStmt(
+      const ResolvedUpdateStmt* node) override;
+  zetasql_base::Status VisitResolvedInsertStmt(
+      const ResolvedInsertStmt* node) override;
+  zetasql_base::Status VisitResolvedMergeStmt(const ResolvedMergeStmt* node) override;
+  zetasql_base::Status VisitResolvedMergeWhen(const ResolvedMergeWhen* node) override;
+  zetasql_base::Status VisitResolvedGrantStmt(
+      const ResolvedGrantStmt* node) override;
+  zetasql_base::Status VisitResolvedRevokeStmt(
+      const ResolvedRevokeStmt* node) override;
+  zetasql_base::Status VisitResolvedAlterRowPolicyStmt(
+      const ResolvedAlterRowPolicyStmt* node) override;
+  zetasql_base::Status VisitResolvedAlterTableSetOptionsStmt(
+      const ResolvedAlterTableSetOptionsStmt* node) override;
+  zetasql_base::Status VisitResolvedAlterTableStmt(
+      const ResolvedAlterTableStmt* node) override;
+  zetasql_base::Status VisitResolvedAlterViewStmt(
+      const ResolvedAlterViewStmt* node) override;
+  zetasql_base::Status VisitResolvedAlterMaterializedViewStmt(
+      const ResolvedAlterMaterializedViewStmt* node) override;
+  zetasql_base::Status VisitResolvedRenameStmt(
+      const ResolvedRenameStmt* node) override;
+  zetasql_base::Status VisitResolvedImportStmt(const ResolvedImportStmt* node) override;
+  zetasql_base::Status VisitResolvedModuleStmt(const ResolvedModuleStmt* node) override;
+  zetasql_base::Status VisitResolvedAssertStmt(const ResolvedAssertStmt* node) override;
+
+  // Visit methods for types of ResolvedExpr.
+  zetasql_base::Status VisitResolvedExpressionColumn(
+      const ResolvedExpressionColumn* node) override;
+  zetasql_base::Status VisitResolvedLiteral(const ResolvedLiteral* node) override;
+  zetasql_base::Status VisitResolvedConstant(const ResolvedConstant* node) override;
+  zetasql_base::Status VisitResolvedFunctionCall(
+      const ResolvedFunctionCall* node) override;
+  zetasql_base::Status VisitResolvedAggregateFunctionCall(
+      const ResolvedAggregateFunctionCall* node) override;
+  zetasql_base::Status VisitResolvedAnalyticFunctionCall(
+      const ResolvedAnalyticFunctionCall* node) override;
+  zetasql_base::Status VisitResolvedGetProtoField(
+      const ResolvedGetProtoField* node) override;
+  zetasql_base::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override;
+  zetasql_base::Status VisitResolvedCast(const ResolvedCast* node) override;
+  zetasql_base::Status VisitResolvedColumnHolder(
+      const ResolvedColumnHolder* node) override;
+  zetasql_base::Status VisitResolvedSubqueryExpr(
+      const ResolvedSubqueryExpr* node) override;
+  zetasql_base::Status VisitResolvedOption(const ResolvedOption* node) override;
+  zetasql_base::Status VisitResolvedParameter(const ResolvedParameter* node) override;
+  zetasql_base::Status VisitResolvedMakeProto(const ResolvedMakeProto* node) override;
+  zetasql_base::Status VisitResolvedMakeProtoField(
+      const ResolvedMakeProtoField* node) override;
+  zetasql_base::Status VisitResolvedMakeStruct(const ResolvedMakeStruct* node) override;
+  zetasql_base::Status VisitResolvedGetStructField(
+      const ResolvedGetStructField* node) override;
+  zetasql_base::Status VisitResolvedOrderByItem(
+      const ResolvedOrderByItem* node) override;
+  zetasql_base::Status VisitResolvedComputedColumn(
+      const ResolvedComputedColumn* node) override;
+  zetasql_base::Status VisitResolvedAssertRowsModified(
+      const ResolvedAssertRowsModified* node) override;
+  zetasql_base::Status VisitResolvedDMLDefault(const ResolvedDMLDefault* node) override;
+  zetasql_base::Status VisitResolvedDMLValue(const ResolvedDMLValue* node) override;
+  zetasql_base::Status VisitResolvedInsertRow(const ResolvedInsertRow* node) override;
+  zetasql_base::Status VisitResolvedUpdateItem(const ResolvedUpdateItem* node) override;
+  zetasql_base::Status VisitResolvedUpdateArrayItem(
+      const ResolvedUpdateArrayItem* node) override;
+  zetasql_base::Status VisitResolvedPrivilege(const ResolvedPrivilege* node) override;
+  zetasql_base::Status VisitResolvedAggregateHavingModifier(
+      const ResolvedAggregateHavingModifier* node) override;
+
+  // Visit methods for types of ResolvedScan.
+  zetasql_base::Status VisitResolvedAnalyticScan(
+      const ResolvedAnalyticScan* node) override;
+  zetasql_base::Status VisitResolvedTableScan(const ResolvedTableScan* node) override;
+  zetasql_base::Status VisitResolvedProjectScan(
+      const ResolvedProjectScan* node) override;
+  zetasql_base::Status VisitResolvedTVFScan(const ResolvedTVFScan* node) override;
+  zetasql_base::Status VisitResolvedRelationArgumentScan(
+      const ResolvedRelationArgumentScan* node) override;
+  zetasql_base::Status VisitResolvedFilterScan(const ResolvedFilterScan* node) override;
+  zetasql_base::Status VisitResolvedJoinScan(const ResolvedJoinScan* node) override;
+  zetasql_base::Status VisitResolvedArrayScan(const ResolvedArrayScan* node) override;
+  zetasql_base::Status VisitResolvedLimitOffsetScan(
+      const ResolvedLimitOffsetScan* node) override;
+  zetasql_base::Status VisitResolvedSetOperationScan(
+      const ResolvedSetOperationScan* node) override;
+  zetasql_base::Status VisitResolvedOrderByScan(
+      const ResolvedOrderByScan* node) override;
+  zetasql_base::Status VisitResolvedAggregateScan(
+      const ResolvedAggregateScan* node) override;
+  zetasql_base::Status VisitResolvedWithScan(const ResolvedWithScan* node) override;
+  zetasql_base::Status VisitResolvedWithRefScan(
+      const ResolvedWithRefScan* node) override;
+  zetasql_base::Status VisitResolvedSampleScan(
+      const ResolvedSampleScan* node) override;
+  zetasql_base::Status VisitResolvedSingleRowScan(
+      const ResolvedSingleRowScan* node) override;
+
+  // Visit methods for analytic functions related nodes.
+  zetasql_base::Status VisitResolvedAnalyticFunctionGroup(
+      const ResolvedAnalyticFunctionGroup* node) override;
+  zetasql_base::Status VisitResolvedWindowPartitioning(
+      const ResolvedWindowPartitioning* node) override;
+  zetasql_base::Status VisitResolvedWindowOrdering(
+      const ResolvedWindowOrdering* node) override;
+  zetasql_base::Status VisitResolvedWindowFrame(
+      const ResolvedWindowFrame* node) override;
+  zetasql_base::Status VisitResolvedWindowFrameExpr(
+      const ResolvedWindowFrameExpr* node) override;
+
+  zetasql_base::Status DefaultVisit(const ResolvedNode* node) override;
+
+ protected:
+  // Holds SQL text of nodes representing expressions/subqueries and
+  // QueryExpression for scan nodes.
+  struct QueryFragment {
+    explicit QueryFragment(const ResolvedNode* node, std::string text)
+        : node(node), text(std::move(text)) {}
+
+    // Takes ownership of the <query_expression>.
+    explicit QueryFragment(const ResolvedNode* node,
+                           QueryExpression* query_expression)
+        : node(node), query_expression(query_expression) {}
+
+    QueryFragment(const QueryFragment&) = delete;
+    QueryFragment operator=(const QueryFragment&) = delete;
+
+    std::string GetSQL() const;
+
+    // Associated resolved node tree for the QueryFragment.
+    const ResolvedNode* node = nullptr;
+
+    // Populated if QueryFragment is created from a QueryExpression.
+    std::unique_ptr<QueryExpression> query_expression;
+
+   private:
+    // Associated sql text for the QueryFragment.
+    const std::string text;
+  };
+
+  // Dumps all the QueryFragment in query_fragments_ (if any).
+  void DumpQueryFragmentStack();
+
+  // Stack operations on query_fragments_.
+  void PushQueryFragment(std::unique_ptr<QueryFragment> query_fragment);
+
+  std::unique_ptr<QueryFragment> PopQueryFragment();
+
+  // Helper functions which creates QueryFragment from the passed params and
+  // push it on query_fragments_.
+  void PushQueryFragment(const ResolvedNode* node, const std::string& text);
+  void PushQueryFragment(const ResolvedNode* node,
+                         QueryExpression* query_expression);
+
+  // Helper function which Visits the given <node> and returns the corresponding
+  // QueryFragment generated.
+  zetasql_base::StatusOr<std::unique_ptr<QueryFragment>> ProcessNode(
+      const ResolvedNode* node);
+
+  // Wraps the given <query_expression> corresponding to the scan <node> as a
+  // subquery to the from clause, mutating the <query_expression> subsequently.
+  zetasql_base::Status WrapQueryExpression(const ResolvedScan* node,
+                                   QueryExpression* query_expression);
+
+  // Helper function which fetches <select_list> for columns present in
+  // <column_list>. <parent_scan> is optional; if present, it points to the
+  // ResolvedScan for which we are currently fetching a select list.
+  zetasql_base::Status GetSelectList(
+      const ResolvedColumnList& column_list,
+      const std::map<int64_t, const ResolvedExpr*>& col_to_expr_map,
+      const ResolvedScan* parent_scan,
+      QueryExpression* query_expression,
+      std::vector<std::pair<std::string, std::string>>* select_list);
+  // This overload does not expects a <col_to_expr_map> which is needed only
+  // when select expressions are present in the column_list.
+  zetasql_base::Status GetSelectList(
+      const ResolvedColumnList& column_list, QueryExpression* query_expression,
+      std::vector<std::pair<std::string, std::string>>* select_list);
+
+  // Adds select_list for columns present in <column_list> inside the
+  // <query_expression>, if not present.
+  zetasql_base::Status AddSelectListIfNeeded(const ResolvedColumnList& column_list,
+                                     QueryExpression* query_expression);
+
+  // Merges the <type> and the <annotations> trees and prints the column
+  // schema to <text>.
+  zetasql_base::Status AppendColumnSchema(
+      const Type* type, bool is_hidden,
+      const ResolvedColumnAnnotations* annotations,
+      const ResolvedGeneratedColumnInfo* generated_column_info, std::string* text);
+
+  zetasql_base::StatusOr<std::string> GetHintListString(
+      const std::vector<std::unique_ptr<const ResolvedOption>>& hint_list);
+
+  zetasql_base::Status AppendOptionsIfPresent(
+      const std::vector<std::unique_ptr<const ResolvedOption>>& option_list,
+      std::string* sql);
+
+  zetasql_base::Status AppendHintsIfPresent(
+      const std::vector<std::unique_ptr<const ResolvedOption>>& hint_list,
+      std::string* text);
+
+  void PushSQLForQueryExpression(const ResolvedNode* node,
+                                 QueryExpression* query_expression);
+
+  // Returns fully qualified path to access the column (in scope of the caller).
+  // i.e. <scan_alias>.<column_alias>
+  std::string GetColumnPath(const ResolvedColumn& column);
+
+  // Returns the alias to be used to select the column.
+  std::string GetColumnAlias(const ResolvedColumn& column);
+
+  // Create a new alias to be used for the column, replacing any existing alias.
+  std::string UpdateColumnAlias(const ResolvedColumn& column);
+
+  // Returns the sql text associated with a left/right join scan. Adds explicit
+  // scan alias if necessary.
+  zetasql_base::StatusOr<std::string> GetJoinOperand(const ResolvedScan* scan);
+
+  // Helper function which fetches the list of function arguments
+  zetasql_base::StatusOr<std::string> GetFunctionArgListString(
+      const std::vector<std::string>& arg_name_list,
+      const FunctionSignature& signature);
+
+  // Fetches the scan alias corresponding to the given scan node. If not
+  // present, assigns a new unique alias to the scan node.
+  std::string GetScanAlias(const ResolvedScan* scan);
+
+  // Like GetScanAlias but for a Table, to be able to assign different aliases
+  // to ResolvedTableScan and its underlying Table.
+  std::string GetTableAlias(const Table* table);
+
+  // Helper for the above. Keep generating aliases until find one that does not
+  // conflict with a column name.
+  std::string MakeNonconflictingAlias(const std::string& name);
+
+  // Returns a unique incremental id each time this is called.
+  int64_t GetUniqueId();
+
+  // Get the sql for CreateViewStatement/CreateMaterializedViewStatement.
+  zetasql_base::Status GetCreateViewStatement(const ResolvedCreateViewBase* node,
+                                      bool is_value_table,
+                                      const std::string& view_type);
+
+  // Get the first part of the syntax for a CREATE command, including statement
+  // hints, the <object_type> (e.g. "TABLE") and name, and CREATE modifiers,
+  // and a trailing space.
+  zetasql_base::Status GetCreateStatementPrefix(
+      const ResolvedCreateStatement* node, const std::string& object_type,
+      std::string* sql);
+
+  // Appends PARTITION BY or CLUSTER BY expressions to the provided std::string, not
+  // including the "PARTITION BY " or "CLUSTER BY " prefix.
+  zetasql_base::Status GetPartitionByListString(
+      const std::vector<std::unique_ptr<const ResolvedExpr>>& partition_by_list,
+      std::string* sql);
+
+  static std::string GetOptionalObjectType(const std::string& object_type);
+
+  // Get the "<privilege_list> ON <object_type> <name_path>" part of a GRANT or
+  // REVOKE statement.
+  zetasql_base::Status GetPrivilegesString(
+      const ResolvedGrantOrRevokeStmt* node, std::string* sql);
+
+  // Helper functions to save the <path> used to access the column later.
+  void SetPathForColumn(const ResolvedColumn& column, const std::string& path);
+  void SetPathForColumnList(const ResolvedColumnList& column_list,
+                            const std::string& scan_alias);
+  void SetPathForColumnsInScan(const ResolvedScan* scan, const std::string& alias);
+
+  // Helper function to ensure:
+  // - Columns in <output_column_list> matches 1:1 in order with
+  //   <query_expression> select-list.
+  // - Column aliases in <output_column_list> (if not internal) matches the
+  //   <query_expression> select-list.
+  zetasql_base::Status MatchOutputColumns(
+      const std::vector<std::unique_ptr<const ResolvedOutputColumn>>&
+          output_column_list,
+      const ResolvedScan* query, QueryExpression* query_expression);
+
+  // Helper function which process the given scan <query> and returns the
+  // corresponding QueryExpression. Also ensures that the query produces columns
+  // matching the order and aliases in <output_column_list>.
+  // Caller owns the returned QueryExpression.
+  zetasql_base::StatusOr<QueryExpression*> ProcessQuery(
+      const ResolvedScan* query,
+      const std::vector<std::unique_ptr<const ResolvedOutputColumn>>&
+          output_column_list);
+
+  static zetasql_base::StatusOr<absl::string_view> GetNullHandlingModifier(
+      ResolvedNonScalarFunctionCallBase::NullHandlingModifier kind);
+
+  zetasql_base::StatusOr<std::string> GetSQL(const Value& value, ProductMode mode,
+                                bool is_constant_value = false);
+
+  // Helper function to return corresponding SQL for a list of
+  // ResolvedUpdateItems.
+  zetasql_base::StatusOr<std::string> GetUpdateItemListSQL(
+      const std::vector<std::unique_ptr<const ResolvedUpdateItem>>&
+          update_item_list);
+
+  // Helper function to return corresponding SQL for a list of columns to be
+  // inserted.
+  std::string GetInsertColumnListSQL(
+      const std::vector<ResolvedColumn>& insert_column_list) const;
+
+  zetasql_base::StatusOr<std::string> ProcessCreateTableStmtBase(
+      const ResolvedCreateTableStmtBase* node,
+      bool process_column_definitions);
+
+  // Helper function for adding SQL for aggregate and group by lists.
+  zetasql_base::Status ProcessAggregateScanBase(
+      const ResolvedAggregateScanBase* node,
+      const std::vector<int>& rollup_column_id_list,
+      QueryExpression* query_expression);
+
+  // Helper function to return corresponding SQL for ResolvedAlterAction
+  zetasql_base::StatusOr<std::string> GetAlterActionSQL(
+      const std::vector<std::unique_ptr<const ResolvedAlterAction>>&
+          alter_action_list);
+
+  // Helper function to return corresponding SQL for ResolvedAlterObjectStmt
+  zetasql_base::Status GetResolvedAlterObjectStmtSQL(
+      const ResolvedAlterObjectStmt* node, absl::string_view object_kind);
+
+  // Helper function to return corresponding SQL from the grantee list of
+  // GRANT, REVOKE, CREATE/ALTER ROW POLICY statements.
+  zetasql_base::StatusOr<std::string> GetGranteeListSQL(
+      const std::string& prefix, const std::vector<std::string>& grantee_list,
+      const std::vector<
+          std::unique_ptr<const ResolvedExpr>>& grantee_expr_list);
+
+  // A stack of QueryFragment kept to parallel the Visit call stack. Stores
+  // return values of each Visit call which are then popped/used by the caller
+  // of Accept.
+  // NOTE: Using deque makes it possible to look at the entire stack, useful for
+  // debugging purposes.
+  std::deque<std::unique_ptr<QueryFragment>> query_fragments_;
+
+  // Stores the path used to access the resolved columns, keyed by column_id.
+  // This map needs to updated to reflect the path of the column in the current
+  // context (e.g. when inside or outside a join or subquery) as we visit nodes
+  // up the tree.
+  std::map<int /* column_id */, std::string> column_paths_;
+
+  // Stores the unique alias we generate for the ResolvedComputedColumn.
+  // These aliases are mostly used to replace the internal column names assigned
+  // to these columns in the resolved tree. The key is column_id here.
+  std::map<int /* column_id */, std::string> computed_column_alias_;
+
+  // Stores the unique scan_aliases assigned for the corresponding scan nodes.
+  std::map<const ResolvedScan*, std::string> scan_alias_map_;
+
+  // Stores the unique aliases assigned to tables.
+  std::map<const Table*, std::string> table_alias_map_;
+
+  // Expected position of the next unparsed positional query parameter. Used for
+  // validation only.
+  int expected_next_parameter_position_ = 1;
+
+  // Used to generate a unique alias id.
+  zetasql_base::SequenceNumber scan_id_sequence_;
+
+  // Stores the sql text of the columns, keyed by column_id and populated in
+  // AggregateScan, AnalyticScan, and TVFScan. We refer to the sql text in its
+  // parent ProjectScan (while building the select_list) and in
+  // ResolvedColumnRef pointing to the column.
+  // NOTE: This map is cleared every time we visit a ProjectScan, once it has
+  // processed all the columns of its child scan.
+  std::map<int /* column_id */, std::string> pending_columns_;
+
+  // Holds sql text for node representing an analytic function.
+  class AnalyticFunctionInfo;
+
+  // Sql for an analytic function is populated in two places.
+  // AnalyticFunctionCall fills in the function-specific parts (i.e. function
+  // call, window frame) and AnalyticFunctionGroup fills in the group-specific
+  // parts (i.e. partition by, order by).
+  //
+  // <pending_analytic_function_> stores the return value (in
+  // AnalyticFunctionInfo) for each Visit call to ResolvedAnalyticFunctionCall
+  // which is then popped/used by the caller of Accept,
+  // i.e. ResolvedAnalyticFunctionGroup.
+  //
+  // NOTE: We cannot use QueryFragment for this purpose. As in the sql of an
+  // analytic function, the function-specific and group-specific parts don't go
+  // in a left-right order where we could simply append/prepend the sql built
+  // from a child node (i.e. AnalyticFunctionCall) to the sql built from a
+  // parent node (i.e. AnalyticFunctionGroup).
+  std::unique_ptr<AnalyticFunctionInfo> pending_analytic_function_;
+
+  // Stores the WithScan corresponding to the with-query-name. Used in
+  // WithRefScan to extract the column aliases of the relevant WithScan.
+  std::map<std::string /* with_query_name */,
+           const ResolvedScan* /* with_subquery */>
+      with_query_name_to_scan_;
+
+  // A stack of stacks. An element of an inner stack corresponds to a
+  // ResolvedUpdateItem node that is currently being processed, and stores the
+  // target SQL for that node and the array offset SQL (empty if not applicable)
+  // of the ResolvedUpdateArrayItem child currently being processed. We start a
+  // new stack just before we process a ResolvedUpdateItem node from a
+  // ResolvedUpdateStmt (as opposed to a ResolvedUpdateArrayItem).
+  //
+  // Stacks are added/removed in GetUpdateItemListSQL. Target SQL is set in
+  // VisitResolvedUpdateItem. Offset SQL is set in
+  // VisitResolvedUpdateArrayItem. An inner stack is used to construct a target
+  // in VisitResolvedUpdateItem when there are no ResolvedUpdateArrayItem
+  // children.
+  std::deque<
+      std::deque<std::pair<std::string /* target_sql */, std::string /* offset_sql */>>>
+      update_item_targets_and_offsets_;
+
+  // A stack of dml target paths kept to parallel the nesting of dml statements.
+  // Populated in VisitResolvedUpdateItem and used in
+  // VisitResolved<DMLType>Statement to refer the corresponding target path.
+  std::deque<std::pair<std::string /* target_path */, std::string /* target_alias */>>
+      nested_dml_targets_;
+
+  // All column names referenced in the query.
+  absl::flat_hash_set<std::string> col_ref_names_;
+
+  std::string sql_;
+
+  // Options for building SQL.
+  SQLBuilderOptions options_;
+};
+
+}  // namespace zetasql
+
+#endif  // ZETASQL_RESOLVED_AST_SQL_BUILDER_H_
