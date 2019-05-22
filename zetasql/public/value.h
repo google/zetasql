@@ -394,6 +394,9 @@ class Value {
                                            const Type* type);
 
  private:
+  // For access to StringRef and TypedList.
+  FRIEND_TEST(ValueTest, PhysicalByteSize);
+
   template <typename H>
   H HashValueInternal(H h) const;
 
