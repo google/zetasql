@@ -31,10 +31,10 @@ complete.
 ZetaSQL uses [bazel](https://bazel.build) for building and (most) dependency
 resolution. However, the following packages must be installed separately:
 
-bison (>=3.1)
- - For instance, `apt-get install bison`
-flex (>=2.6.1)
-- For instance, `apt-get install flex`
+ - bison (>=3.1)
+ - flex (>=2.6.1)
+ 
+On a Debian/Ubuntu system, these dependencies can be installed with the command `apt-get install bison flex`
 
 Then simply run:
 bazel build zetasql/...
