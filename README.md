@@ -37,7 +37,7 @@ flex (>=2.6.1)
 - For instance, `apt-get install flex`
 
 Then simply run:
-bazel build zetasql/...
+`bazel build //zetasql/...`
 
 ### With docker
  TODO: Add docker build script.
