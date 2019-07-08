@@ -37,12 +37,14 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/base/case.h"
+#include "absl/strings/str_cat.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/stl_util.h"
 #include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
+#include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -245,11 +247,6 @@ zetasql_base::Status Validator::ValidateResolvedExpr(
   ZETASQL_RET_CHECK(expr->type() != nullptr)
       << "ResolvedExpr does not have a Type:\n" << expr->DebugString();
 
-  // This will fail if more child types are added. Add them to the switch below
-  // before updating this.
-  static_assert(ResolvedExpr::NUM_DESCENDANT_LEAF_TYPES == 16,
-                "Missing case in switch on ResolvedExpr descendants");
-
   switch (expr->node_kind()) {
     case RESOLVED_LITERAL:
     case RESOLVED_EXPRESSION_COLUMN:
@@ -355,6 +352,11 @@ zetasql_base::Status Validator::ValidateResolvedExpr(
           ValidateResolvedSubqueryExpr(visible_columns, visible_parameters,
                                        expr->GetAs<ResolvedSubqueryExpr>()));
       break;
+    case RESOLVED_REPLACE_FIELD:
+      ZETASQL_RETURN_IF_ERROR(
+          ValidateResolvedReplaceField(visible_columns, visible_parameters,
+                                       expr->GetAs<ResolvedReplaceField>()));
+      break;
     default:
       return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
              << "Unhandled node kind: " << expr->node_kind_string()
@@ -389,13 +391,50 @@ zetasql_base::Status Validator::ValidateResolvedGetProtoFieldExpr(
     if (get_proto_field->return_default_value_when_unset()) {
       ZETASQL_RET_CHECK(!get_proto_field->type()->IsProto());
       ZETASQL_RET_CHECK(ProtoType::GetUseDefaultsExtension(
-          get_proto_field->field_descriptor()));
+                    get_proto_field->field_descriptor()) ||
+                get_proto_field->expr()
+                        ->type()
+                        ->AsProto()
+                        ->descriptor()
+                        ->file()
+                        ->syntax() == google::protobuf::FileDescriptor::SYNTAX_PROTO3);
     }
     ZETASQL_RET_CHECK(get_proto_field->default_value().is_valid());
     ZETASQL_RET_CHECK(get_proto_field->type()->Equals(
         get_proto_field->default_value().type()));
   }
   return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status Validator::ValidateResolvedReplaceField(
+    const std::set<ResolvedColumn>& visible_columns,
+    const std::set<ResolvedColumn>& visible_parameters,
+    const ResolvedReplaceField* replace_field) const {
+  ZETASQL_RET_CHECK(replace_field->expr()->type()->IsProto());
+  const std::string& base_proto_name =
+      replace_field->expr()->type()->AsProto()->descriptor()->full_name();
+  for (const std::unique_ptr<const ResolvedReplaceFieldItem>&
+           replace_field_item : replace_field->replace_field_item_list()) {
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
+                                         replace_field_item->expr()));
+    std::string containing_proto_name = base_proto_name;
+    for (const google::protobuf::FieldDescriptor* field :
+         replace_field_item->proto_field_path()) {
+      // Ensure that the field path is valid by checking field containment.
+      ZETASQL_RET_CHECK(!containing_proto_name.empty())
+          << "Unable to identify parent message of field: "
+          << field->full_name();
+      ZETASQL_RET_CHECK_EQ(containing_proto_name, field->containing_type()->full_name())
+          << "Mismatched proto message " << containing_proto_name
+          << " and field " << field->full_name();
+      if (field->message_type() != nullptr) {
+        containing_proto_name = field->message_type()->full_name();
+      } else {
+        containing_proto_name.clear();
+      }
+    }
+  }
+  return zetasql_base::OkStatus();
 }
 
 zetasql_base::Status Validator::ValidateResolvedSubqueryExpr(
@@ -2945,6 +2984,24 @@ zetasql_base::Status Validator::ValidateResolvedAlterObjectStmt(
   for (const auto& alter_action : stmt->alter_action_list()) {
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedAlterAction(alter_action.get()));
   }
+
+  // Validate we don't drop or create any column twice.
+  std::set<std::string, zetasql_base::StringCaseLess> new_columns, columns_to_drop;
+  for (const auto& action : stmt->alter_action_list()) {
+    if (action->node_kind() == RESOLVED_ADD_COLUMN_ACTION) {
+      const std::string name =
+          action->GetAs<ResolvedAddColumnAction>()->column_definition()->name();
+      ZETASQL_RET_CHECK(new_columns.insert(name).second)
+          << "Column added twice: " << name;
+    } else if (action->node_kind() == RESOLVED_DROP_COLUMN_ACTION) {
+      const std::string name = action->GetAs<ResolvedDropColumnAction>()->name();
+      ZETASQL_RET_CHECK(columns_to_drop.insert(name).second)
+          << "Column dropped twice: " << name;
+      ZETASQL_RET_CHECK(new_columns.find(name) == new_columns.end())
+          << "Newly added column is being dropped: " << name;
+    }
+  }
+
   return ::zetasql_base::OkStatus();
 }
 
@@ -2954,6 +3011,19 @@ zetasql_base::Status Validator::ValidateResolvedAlterAction(
     case RESOLVED_SET_OPTIONS_ACTION:
       ZETASQL_RETURN_IF_ERROR(ValidateHintList(
           action->GetAs<ResolvedSetOptionsAction>()->option_list()));
+      break;
+    case RESOLVED_ADD_COLUMN_ACTION: {
+      auto* column_definition =
+          action->GetAs<ResolvedAddColumnAction>()->column_definition();
+      if (column_definition->annotations() != nullptr) {
+        ZETASQL_RETURN_IF_ERROR(
+            ValidateColumnAnnotations(column_definition->annotations()));
+      }
+      ZETASQL_RET_CHECK(column_definition->type() != nullptr);
+      ZETASQL_RET_CHECK(!column_definition->name().empty());
+    } break;
+    case RESOLVED_DROP_COLUMN_ACTION:
+      ZETASQL_RET_CHECK(!action->GetAs<ResolvedDropColumnAction>()->name().empty());
       break;
     default:
       return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)

@@ -544,6 +544,7 @@ replace { return BisonParserImpl::token::KW_REPLACE; }
 replace_fields { return BisonParserImpl::token::KW_REPLACE_FIELDS; }
 respect { return BisonParserImpl::token::KW_RESPECT; }
 restrict { return BisonParserImpl::token::KW_RESTRICT; }
+return { return BisonParserImpl::token::KW_RETURN; }
 returns { return BisonParserImpl::token::KW_RETURNS; }
 revoke { return BisonParserImpl::token::KW_REVOKE; }
 right { return BisonParserImpl::token::KW_RIGHT; }
@@ -580,6 +581,8 @@ transaction { return BisonParserImpl::token::KW_TRANSACTION; }
 transform { return BisonParserImpl::token::KW_TRANSFORM; }
 treat { return BisonParserImpl::token::KW_TREAT; }
 true { return BisonParserImpl::token::KW_TRUE; }
+truncate { return BisonParserImpl::token::KW_TRUNCATE; }
+type { return BisonParserImpl::token::KW_TYPE; }
 unbounded { return BisonParserImpl::token::KW_UNBOUNDED; }
 union { return BisonParserImpl::token::KW_UNION; }
 unnest { return BisonParserImpl::token::KW_UNNEST; }
@@ -842,7 +845,10 @@ zone { return BisonParserImpl::token::KW_ZONE; }
 ":"                       { return ':'; }
 
 ";"{opt_whitespace}       {
-  if (yylloc->end.column == input_size_ + 1) {
+  if (mode_ == BisonParserMode::kTokenizerPreserveComments) {
+    SET_RETURN_PREFIX_LENGTH(1);
+    return ';';
+  } else if (yylloc->end.column == input_size_ + 1) {
     // Don't return the final \n. It is handled by the whitespace rule and will
     // trigger EOF.
     SET_RETURN_PREFIX_LENGTH(YYLeng() - 1);
@@ -852,9 +858,6 @@ zone { return BisonParserImpl::token::KW_ZONE; }
     // Don't return anything more if we're just looking at a single statement.
     // Only return the semicolon, not the whitespace.
     SET_RETURN_PREFIX_LENGTH(1);
-  } else if (mode_ == BisonParserMode::kTokenizerPreserveComments) {
-    SET_RETURN_PREFIX_LENGTH(1);
-    return ';';
   }
   return ';';
 }

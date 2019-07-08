@@ -20,6 +20,9 @@ package(
     default_visibility = ["//zetasql:__subpackages__"],
 )
 
+load("@google_bazel_common//tools/jarjar:jarjar.bzl", "jarjar_library")
+load("//tools:maven.bzl", "pom_file")
+
 java_library(
     name = "types",
     srcs = [
@@ -37,6 +40,7 @@ java_library(
         "ZetaSQLDescriptorPool.java",
         "ZetaSQLStrings.java",
     ],
+    tags = ["maven_coordinates=com.google.zetasql:types:${project.version}"],
     deps = [
         "//zetasql/proto:function_java_proto",
         "//zetasql/public:function_java_proto",
@@ -53,13 +57,46 @@ java_library(
     ],
 )
 
+jarjar_library(
+    name = "types_jar",
+    jars = [
+        ":types",
+        "//zetasql/proto:function_java_proto",
+        "//zetasql/public:deprecation_warning_java_proto",
+        "//zetasql/public:error_location_java_proto",
+        "//zetasql/public:function_java_proto",
+        "//zetasql/public:options_java_proto",
+        "//zetasql/public:type_proto_java_proto",
+        "//zetasql/public:value_java_proto",
+        "//zetasql/public/proto:type_annotation_java_proto",
+    ],
+)
+
+pom_file(
+    name = "types_pom",
+    artifact_id = "types",
+    artifact_name = "Types",
+    targets = [
+        ":types",
+        "//zetasql/proto:function_java_proto",
+        "//zetasql/public:deprecation_warning_java_proto",
+        "//zetasql/public:error_location_java_proto",
+        "//zetasql/public:function_java_proto",
+        "//zetasql/public:options_java_proto",
+        "//zetasql/public:type_proto_java_proto",
+        "//zetasql/public:value_java_proto",
+        "//zetasql/public/proto:type_annotation_java_proto",
+    ],
+)
+
 java_library(
     name = "channel_provider",
     srcs = [
         "ClientChannelProvider.java",
     ],
+    tags = ["maven_coordinates=com.google.zetasql:client:${project.version}"],
     deps = [
-        "@io_grpc_grpc_java//core",
+        "@io_grpc_grpc_core//jar",
     ],
 )
 
@@ -71,38 +108,37 @@ java_library(
     resources = [
         "//zetasql/local_service:liblocal_service_jni.so",
     ],
+    tags = ["maven_coordinates=com.google.zetasql:jni-channel:${project.version}"],
     deps = [
         ":channel_provider",
         "//zetasql/local_service:local_service_jni",
         "@com_google_auto_service",
-        "@io_grpc_grpc_java//core",
-        "@io_grpc_grpc_java//netty",
+        "@io_grpc_grpc_core//jar",
+        "@io_grpc_grpc_netty//jar",
         "@io_netty_netty_transport//jar",
         "@native_utils",
     ],
 )
 
-java_binary(
-    name = "zetasql_jni",
-    srcs = [
-        "JniChannelProvider.java",
-    ],
-    resources = [
-        "//zetasql/local_service:liblocal_service_jni.so",
-    ],
-    runtime_deps = [
-        ":analyzer",
-        ":client",
-        ":types",
-    ],
-    deps = [
-        ":channel_provider",
-        "//zetasql/local_service:local_service_jni",
-        "@com_google_auto_service",
-        "@io_grpc_grpc_java//core",
-        "@io_grpc_grpc_java//netty",
-        "@io_netty_netty_transport//jar",
+jarjar_library(
+    name = "jni_channel_jar",
+    jars = [
+        ":jni_channel",
         "@native_utils",
+    ],
+    rules = [
+        "rule cz.adamh.utils.** com.google.zetasql.@0",
+        "rule io.grpc.** com.google.zetasql.@0",
+        "rule io.opencensus.** com.google.zetasql.@0",
+    ],
+)
+
+pom_file(
+    name = "jni_channel_pom",
+    artifact_id = "jni-channel",
+    artifact_name = "JNI Channel",
+    targets = [
+        ":jni_channel",
     ],
 )
 
@@ -160,7 +196,7 @@ java_library(
         "@com_google_code_findbugs_jsr305//jar",
         "@com_google_guava_guava//jar",
         "@com_google_protobuf//:protobuf_java",
-        "@io_grpc_grpc_java//core",
+        "@io_grpc_grpc_core//jar",
     ],
 )
 
@@ -178,7 +214,78 @@ java_library(
         "//zetasql/local_service:local_service_java_proto",
         "//zetasql/public/functions:datetime_java_proto",
         "@com_google_guava_guava//jar",
-        "@io_grpc_grpc_java//core",
+        "@io_grpc_grpc_core//jar",
+    ],
+)
+
+jarjar_library(
+    name = "client_jar",
+    jars = [
+        ":analyzer",
+        ":channel_provider",
+        ":client",
+        "//zetasql/java/resolvedast",
+        "//zetasql/local_service:local_service_java_grpc",
+        "//zetasql/local_service:local_service_java_proto",
+        "//zetasql/proto:options_java_proto",
+        "//zetasql/proto:simple_catalog_java_proto",
+        "//zetasql/public:builtin_function_java_proto",
+        "//zetasql/public:parse_location_range_java_proto",
+        "//zetasql/public:parse_resume_location_java_proto",
+        "//zetasql/public:simple_constant_java_proto",
+        "//zetasql/public:simple_table_java_proto",
+        "//zetasql/public/functions:datetime_java_proto",
+        "//zetasql/public/functions:normalize_mode_java_proto",
+        "//zetasql/resolved_ast:resolved_ast_enums_java_proto",
+        "//zetasql/resolved_ast:resolved_ast_java_proto",
+        "//zetasql/resolved_ast:resolved_node_kind_java_proto",
+        "//zetasql/resolved_ast:serialization_java_proto",
+        "@io_grpc_grpc_context//jar",
+        "@io_grpc_grpc_core//jar",
+        "@io_grpc_grpc_netty//jar",
+        "@io_grpc_grpc_protobuf//jar",
+        "@io_grpc_grpc_protobuf_lite//jar",
+        "@io_grpc_grpc_stub//jar",
+        "@io_opencensus_opencensus_api//jar",
+        "@io_opencensus_opencensus_contrib_grpc_metrics//jar",
+    ],
+    rules = [
+        "rule io.grpc.** com.google.zetasql.@0",
+        "rule io.opencensus.** com.google.zetasql.@0",
+    ],
+)
+
+pom_file(
+    name = "client_pom",
+    artifact_id = "client",
+    artifact_name = "Core Client",
+    targets = [
+        ":analyzer",
+        ":channel_provider",
+        ":client",
+        "//zetasql/java/resolvedast",
+        "//zetasql/local_service:local_service_java_grpc",
+        "//zetasql/local_service:local_service_java_proto",
+        "//zetasql/proto:options_java_proto",
+        "//zetasql/proto:simple_catalog_java_proto",
+        "//zetasql/public:builtin_function_java_proto",
+        "//zetasql/public:parse_location_range_java_proto",
+        "//zetasql/public:parse_resume_location_java_proto",
+        "//zetasql/public:simple_constant_java_proto",
+        "//zetasql/public:simple_table_java_proto",
+        "//zetasql/public/functions:datetime_java_proto",
+        "//zetasql/public/functions:normalize_mode_java_proto",
+        "//zetasql/resolved_ast:resolved_ast_enums_java_proto",
+        "//zetasql/resolved_ast:resolved_ast_java_proto",
+        "//zetasql/resolved_ast:resolved_node_kind_java_proto",
+        "//zetasql/resolved_ast:serialization_java_proto",
+        "@io_grpc_grpc_context//jar",
+        "@io_grpc_grpc_core//jar",
+        "@io_grpc_grpc_netty//jar",
+        "@io_grpc_grpc_protobuf//jar",
+        "@io_grpc_grpc_protobuf_lite//jar",
+        "@io_opencensus_opencensus_api//jar",
+        "@io_opencensus_opencensus_contrib_grpc_metrics//jar",
     ],
 )
 

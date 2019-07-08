@@ -145,7 +145,7 @@ zetasql_base::Status ConvertInternalErrorLocationToExternal(zetasql_base::Status
       line_and_column,
       location_translator.GetLineAndColumnAfterTabExpansion(error_point),
       _ << "Location " << error_point.GetString() << " from status \""
-        << status.ToString() << "\" not found in query:\n"
+        << internal::StatusToString(status) << "\" not found in query:\n"
         << query);
   ErrorLocation error_location;
   if (internal_error_location.has_filename()) {

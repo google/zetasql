@@ -57,6 +57,7 @@
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/functions/normalize_mode.pb.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
@@ -74,6 +75,7 @@
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/base/string_numbers.h"  
+#include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/ascii.h"
@@ -89,6 +91,7 @@
 #include "absl/time/time.h"
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
+#include "zetasql/base/general_trie.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
@@ -602,111 +605,101 @@ zetasql_base::Status Resolver::ResolveExpr(
 
     case AST_PATH_EXPRESSION:
       return ResolvePathExpressionAsExpression(
-          ast_expr->GetAs<ASTPathExpression>(), expr_resolution_info.get(),
+          ast_expr->GetAsOrDie<ASTPathExpression>(), expr_resolution_info.get(),
           ResolvedStatement::READ, resolved_expr_out);
 
     case AST_PARAMETER_EXPR:
-      return ResolveParameterExpr(ast_expr->GetAs<ASTParameterExpr>(),
+      return ResolveParameterExpr(ast_expr->GetAsOrDie<ASTParameterExpr>(),
                                   resolved_expr_out);
 
     case AST_DOT_IDENTIFIER:
-      return ResolveDotIdentifier(
-          ast_expr->GetAs<ASTDotIdentifier>(),
-          expr_resolution_info.get(), resolved_expr_out);
+      return ResolveDotIdentifier(ast_expr->GetAsOrDie<ASTDotIdentifier>(),
+                                  expr_resolution_info.get(),
+                                  resolved_expr_out);
 
     case AST_DOT_GENERALIZED_FIELD:
       return ResolveDotGeneralizedField(
-          ast_expr->GetAs<ASTDotGeneralizedField>(),
+          ast_expr->GetAsOrDie<ASTDotGeneralizedField>(),
           expr_resolution_info.get(), resolved_expr_out);
 
     case AST_UNARY_EXPRESSION:
-      return ResolveUnaryExpr(
-          ast_expr->GetAs<ASTUnaryExpression>(), expr_resolution_info.get(),
-          resolved_expr_out);
+      return ResolveUnaryExpr(ast_expr->GetAsOrDie<ASTUnaryExpression>(),
+                              expr_resolution_info.get(), resolved_expr_out);
 
     case AST_BINARY_EXPRESSION:
-      return ResolveBinaryExpr(
-          ast_expr->GetAs<ASTBinaryExpression>(), expr_resolution_info.get(),
-          resolved_expr_out);
+      return ResolveBinaryExpr(ast_expr->GetAsOrDie<ASTBinaryExpression>(),
+                               expr_resolution_info.get(), resolved_expr_out);
 
     case AST_BITWISE_SHIFT_EXPRESSION:
       return ResolveBitwiseShiftExpr(
-          ast_expr->GetAs<ASTBitwiseShiftExpression>(),
+          ast_expr->GetAsOrDie<ASTBitwiseShiftExpression>(),
           expr_resolution_info.get(), resolved_expr_out);
 
     case AST_IN_EXPRESSION:
-      return ResolveInExpr(
-          ast_expr->GetAs<ASTInExpression>(), expr_resolution_info.get(),
-          resolved_expr_out);
+      return ResolveInExpr(ast_expr->GetAsOrDie<ASTInExpression>(),
+                           expr_resolution_info.get(), resolved_expr_out);
 
     case AST_BETWEEN_EXPRESSION:
-      return ResolveBetweenExpr(
-          ast_expr->GetAs<ASTBetweenExpression>(), expr_resolution_info.get(),
-          resolved_expr_out);
+      return ResolveBetweenExpr(ast_expr->GetAsOrDie<ASTBetweenExpression>(),
+                                expr_resolution_info.get(), resolved_expr_out);
 
     case AST_AND_EXPR:
-      return ResolveAndExpr(
-          ast_expr->GetAs<ASTAndExpr>(), expr_resolution_info.get(),
-          resolved_expr_out);
+      return ResolveAndExpr(ast_expr->GetAsOrDie<ASTAndExpr>(),
+                            expr_resolution_info.get(), resolved_expr_out);
 
     case AST_OR_EXPR:
-      return ResolveOrExpr(
-          ast_expr->GetAs<ASTOrExpr>(), expr_resolution_info.get(),
-          resolved_expr_out);
+      return ResolveOrExpr(ast_expr->GetAsOrDie<ASTOrExpr>(),
+                           expr_resolution_info.get(), resolved_expr_out);
 
     case AST_FUNCTION_CALL:
-      return ResolveFunctionCall(
-          ast_expr->GetAs<ASTFunctionCall>(), expr_resolution_info.get(),
-          resolved_expr_out);
+      return ResolveFunctionCall(ast_expr->GetAsOrDie<ASTFunctionCall>(),
+                                 expr_resolution_info.get(), resolved_expr_out);
 
     case AST_CAST_EXPRESSION:
-      return ResolveExplicitCast(
-          ast_expr->GetAs<ASTCastExpression>(), expr_resolution_info.get(),
-          resolved_expr_out);
+      return ResolveExplicitCast(ast_expr->GetAsOrDie<ASTCastExpression>(),
+                                 expr_resolution_info.get(), resolved_expr_out);
 
     case AST_ARRAY_ELEMENT:
-      return ResolveArrayElement(
-          ast_expr->GetAs<ASTArrayElement>(), expr_resolution_info.get(),
-          resolved_expr_out);
+      return ResolveArrayElement(ast_expr->GetAsOrDie<ASTArrayElement>(),
+                                 expr_resolution_info.get(), resolved_expr_out);
 
     case AST_CASE_VALUE_EXPRESSION:
       return ResolveCaseValueExpression(
-          ast_expr->GetAs<ASTCaseValueExpression>(), expr_resolution_info.get(),
-          resolved_expr_out);
+          ast_expr->GetAsOrDie<ASTCaseValueExpression>(),
+          expr_resolution_info.get(), resolved_expr_out);
 
     case AST_CASE_NO_VALUE_EXPRESSION:
       return ResolveCaseNoValueExpression(
-          ast_expr->GetAs<ASTCaseNoValueExpression>(),
+          ast_expr->GetAsOrDie<ASTCaseNoValueExpression>(),
           expr_resolution_info.get(), resolved_expr_out);
 
     case AST_EXTRACT_EXPRESSION:
       return ResolveExtractExpression(
-          ast_expr->GetAs<ASTExtractExpression>(), expr_resolution_info.get(),
-          resolved_expr_out);
+          ast_expr->GetAsOrDie<ASTExtractExpression>(),
+          expr_resolution_info.get(), resolved_expr_out);
 
     case AST_EXPRESSION_SUBQUERY:
-      return ResolveExprSubquery(
-          ast_expr->GetAs<ASTExpressionSubquery>(), expr_resolution_info.get(),
-          resolved_expr_out);
+      return ResolveExprSubquery(ast_expr->GetAsOrDie<ASTExpressionSubquery>(),
+                                 expr_resolution_info.get(), resolved_expr_out);
 
     case AST_NEW_CONSTRUCTOR:
-      return ResolveNewConstructor(ast_expr->GetAs<ASTNewConstructor>(),
+      return ResolveNewConstructor(ast_expr->GetAsOrDie<ASTNewConstructor>(),
                                    expr_resolution_info.get(),
                                    resolved_expr_out);
 
     case AST_ARRAY_CONSTRUCTOR:
-      return ResolveArrayConstructor(ast_expr->GetAs<ASTArrayConstructor>(),
-                                     expr_resolution_info.get(),
-                                     resolved_expr_out);
+      return ResolveArrayConstructor(
+          ast_expr->GetAsOrDie<ASTArrayConstructor>(),
+          expr_resolution_info.get(), resolved_expr_out);
 
     case AST_STRUCT_CONSTRUCTOR_WITH_PARENS:
       return ResolveStructConstructorWithParens(
-          ast_expr->GetAs<ASTStructConstructorWithParens>(),
+          ast_expr->GetAsOrDie<ASTStructConstructorWithParens>(),
           expr_resolution_info.get(), resolved_expr_out);
 
     case AST_STRUCT_CONSTRUCTOR_WITH_KEYWORD:
       return ResolveStructConstructorWithKeyword(
-          ast_expr->GetAs<ASTStructConstructorWithKeyword>(),
+          ast_expr->GetAsOrDie<ASTStructConstructorWithKeyword>(),
           expr_resolution_info.get(), resolved_expr_out);
 
     case AST_ANALYTIC_FUNCTION_CALL:
@@ -718,7 +711,7 @@ zetasql_base::Status Resolver::ResolveExpr(
                << "Analytic functions cannot be used inside generated columns";
       }
       return ResolveAnalyticFunctionCall(
-          ast_expr->GetAs<ASTAnalyticFunctionCall>(),
+          ast_expr->GetAsOrDie<ASTAnalyticFunctionCall>(),
           expr_resolution_info.get(), resolved_expr_out);
 
     case AST_INTERVAL_EXPR:
@@ -727,8 +720,9 @@ zetasql_base::Status Resolver::ResolveExpr(
       // are expected. All other cases end up here.
       return MakeSqlErrorAt(ast_expr) << "Unexpected INTERVAL expression";
     case AST_REPLACE_FIELDS_EXPRESSION:
-      return MakeSqlErrorAt(ast_expr)
-             << "REPLACE_FIELDS() is not supported";
+      return ResolveReplaceFieldsExpression(
+          ast_expr->GetAsOrDie<ASTReplaceFieldsExpression>(),
+          expr_resolution_info.get(), resolved_expr_out);
     default:
       return MakeSqlErrorAt(ast_expr)
              << "Unhandled select-list expression for node kind "
@@ -744,7 +738,7 @@ zetasql_base::Status Resolver::ResolveLiteralExpr(
     case AST_INT_LITERAL: {
       // Note: Negative integer literals are handled by a special case for MINUS
       // in ResolveUnaryExpr().
-      const ASTIntLiteral* literal = ast_expr->GetAs<ASTIntLiteral>();
+      const ASTIntLiteral* literal = ast_expr->GetAsOrDie<ASTIntLiteral>();
       Value value;
       if (!Value::ParseInteger(literal->image(), &value)) {
         if (literal->is_hex()) {
@@ -775,28 +769,30 @@ zetasql_base::Status Resolver::ResolveLiteralExpr(
     }
 
     case AST_STRING_LITERAL: {
-      const ASTStringLiteral* literal = ast_expr->GetAs<ASTStringLiteral>();
+      const ASTStringLiteral* literal =
+          ast_expr->GetAsOrDie<ASTStringLiteral>();
       *resolved_expr_out =
           MakeResolvedLiteral(ast_expr, Value::String(literal->string_value()));
       return ::zetasql_base::OkStatus();
     }
 
     case AST_BYTES_LITERAL: {
-      const ASTBytesLiteral* literal = ast_expr->GetAs<ASTBytesLiteral>();
+      const ASTBytesLiteral* literal = ast_expr->GetAsOrDie<ASTBytesLiteral>();
       *resolved_expr_out =
           MakeResolvedLiteral(ast_expr, Value::Bytes(literal->bytes_value()));
       return ::zetasql_base::OkStatus();
     }
 
     case AST_BOOLEAN_LITERAL: {
-      const ASTBooleanLiteral* literal = ast_expr->GetAs<ASTBooleanLiteral>();
+      const ASTBooleanLiteral* literal =
+          ast_expr->GetAsOrDie<ASTBooleanLiteral>();
       *resolved_expr_out =
           MakeResolvedLiteral(ast_expr, Value::Bool(literal->value()));
       return ::zetasql_base::OkStatus();
     }
 
     case AST_FLOAT_LITERAL: {
-      const ASTFloatLiteral* literal = ast_expr->GetAs<ASTFloatLiteral>();
+      const ASTFloatLiteral* literal = ast_expr->GetAsOrDie<ASTFloatLiteral>();
       double double_value;
       if (!functions::StringToNumeric(literal->image(), &double_value,
                                       nullptr)) {
@@ -812,7 +808,8 @@ zetasql_base::Status Resolver::ResolveLiteralExpr(
     }
 
     case AST_NUMERIC_LITERAL: {
-      const ASTNumericLiteral* literal = ast_expr->GetAs<ASTNumericLiteral>();
+      const ASTNumericLiteral* literal =
+          ast_expr->GetAsOrDie<ASTNumericLiteral>();
       if (!language().LanguageFeatureEnabled(FEATURE_NUMERIC_TYPE)) {
         return MakeSqlErrorAt(literal)
                << "Numeric literals are not supported";
@@ -842,7 +839,7 @@ zetasql_base::Status Resolver::ResolveLiteralExpr(
 
     case AST_DATE_OR_TIME_LITERAL: {
       const ASTDateOrTimeLiteral* literal =
-          ast_expr->GetAs<ASTDateOrTimeLiteral>();
+          ast_expr->GetAsOrDie<ASTDateOrTimeLiteral>();
       return MakeResolvedDateOrTimeLiteral(
           ast_expr, literal->type_kind(),
           literal->string_literal()->string_value(), resolved_expr_out);
@@ -1360,15 +1357,16 @@ zetasql_base::Status Resolver::MaybeResolveProtoFieldAccess(
   ZETASQL_RET_CHECK(resolved_lhs->type()->IsProto());
   const google::protobuf::Descriptor* lhs_proto =
       resolved_lhs->type()->AsProto()->descriptor();
-  const google::protobuf::FieldDescriptor* field =
-      ProtoType::FindFieldByNameIgnoreCase(lhs_proto, dot_name);
+  ZETASQL_ASSIGN_OR_RETURN(const google::protobuf::FieldDescriptor* field,
+                   FindFieldDescriptor(identifier, lhs_proto, dot_name));
   bool get_has_bit = false;
   if (options.get_has_bit_override) {
     get_has_bit = *options.get_has_bit_override;
   } else if (absl::StartsWithIgnoreCase(dot_name, "has_")) {
     const std::string dot_name_without_has = dot_name.substr(4);
-    const google::protobuf::FieldDescriptor* has_field =
-        ProtoType::FindFieldByNameIgnoreCase(lhs_proto, dot_name_without_has);
+    ZETASQL_ASSIGN_OR_RETURN(
+        const google::protobuf::FieldDescriptor* has_field,
+        FindFieldDescriptor(identifier, lhs_proto, dot_name_without_has));
     if (has_field != nullptr) {
       if (field != nullptr) {
         // Give an error if we asked for has_X and the proto has fields
@@ -1437,7 +1435,7 @@ zetasql_base::Status Resolver::MaybeResolveProtoFieldAccess(
         return MakeSqlErrorAt(identifier) << error_message;
       }
       ZETASQL_RETURN_IF_ERROR(AddDeprecationWarning(
-          identifier, DeprecationWarning_Kind_PROTO3_FIELD_PRESENCE,
+          identifier, DeprecationWarning::PROTO3_FIELD_PRESENCE,
           error_message));
     }
 
@@ -1463,8 +1461,17 @@ zetasql_base::Status Resolver::MaybeResolveProtoFieldAccess(
   } else {
     // This is a normal field extraction.
     RETURN_SQL_ERROR_AT_IF_ERROR(
-        identifier, GetProtoFieldTypeAndDefault(field, type_factory_,
-                                                &field_type, &default_value));
+        identifier, type_factory_->GetProtoFieldType(field, &field_type));
+    if (lhs_proto->file()->syntax() == google::protobuf::FileDescriptor::SYNTAX_PROTO3 &&
+        language().LanguageFeatureEnabled(
+            FEATURE_V_1_3_IGNORE_PROTO3_USE_DEFAULTS)) {
+      RETURN_SQL_ERROR_AT_IF_ERROR(
+          identifier,
+          GetProtoFieldDefaultV2(field, field_type, &default_value));
+    } else {
+      RETURN_SQL_ERROR_AT_IF_ERROR(
+          identifier, GetProtoFieldDefault(field, field_type, &default_value));
+    }
   }
   // ZetaSQL supports has_X() for fields that have unsupported type
   // annotations, but accessing the field value would produce an error.
@@ -1644,6 +1651,314 @@ zetasql_base::Status Resolver::ResolveDotGeneralizedField(
                                      ast_path_expr, resolved_expr_out);
 }
 
+::zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*> Resolver::FindFieldDescriptor(
+    const ASTNode* ast_name_location, const google::protobuf::Descriptor* descriptor,
+    absl::string_view name) {
+  const google::protobuf::FieldDescriptor* field =
+      ProtoType::FindFieldByNameIgnoreCase(descriptor, std::string(name));
+  return field;
+}
+
+zetasql_base::Status Resolver::FindFieldDescriptors(
+    absl::Span<const ASTIdentifier* const> path_vector,
+    const google::protobuf::Descriptor* root_descriptor,
+    std::vector<const google::protobuf::FieldDescriptor*>* field_descriptors) {
+  ZETASQL_RET_CHECK(root_descriptor != nullptr);
+  ZETASQL_RET_CHECK(field_descriptors != nullptr);
+  // Inside the loop, 'current_descriptor' will be NULL if
+  // field_descriptors->back() is not of message type.
+  const google::protobuf::Descriptor* current_descriptor = root_descriptor;
+  for (int path_index = 0; path_index < path_vector.size(); ++path_index) {
+    if (current_descriptor == nullptr) {
+      // There was an attempt to modify a field of a non-message type field.
+      const Type* last_type;
+      ZETASQL_RETURN_IF_ERROR(type_factory_->GetProtoFieldType(
+          field_descriptors->back(), &last_type));
+      return MakeSqlErrorAt(path_vector[path_index])
+             << "Cannot access field " << path_vector[path_index]->GetAsString()
+             << " on a value with type "
+             << last_type->ShortTypeName(product_mode());
+    }
+    ZETASQL_ASSIGN_OR_RETURN(
+        const google::protobuf::FieldDescriptor* field_descriptor,
+        FindFieldDescriptor(path_vector[path_index], current_descriptor,
+                            path_vector[path_index]->GetAsString()));
+    if (field_descriptor == nullptr) {
+      std::string error_message_prefix = "Protocol buffer ";
+      if (path_index > 0) {
+        error_message_prefix = absl::StrCat(
+            "Field ", path_vector[path_index - 1]->GetAsString(), " of type ");
+      }
+      return MakeSqlErrorAt(path_vector[path_index])
+             << error_message_prefix << current_descriptor->full_name()
+             << " does not have a field named "
+             << path_vector[path_index]->GetAsString();
+    }
+    field_descriptors->push_back(field_descriptor);
+    // 'current_descriptor' will be NULL if 'field_descriptor' is not a message.
+    current_descriptor = field_descriptor->message_type();
+  }
+
+  return zetasql_base::OkStatus();
+}
+
+zetasql_base::Status Resolver::FindDescriptorsForReplaceFieldItem(
+    const ASTGeneralizedPathExpression* generalized_path,
+    const google::protobuf::Descriptor* root_descriptor,
+    std::vector<const google::protobuf::FieldDescriptor*>* field_descriptors) {
+  ZETASQL_RET_CHECK(generalized_path != nullptr);
+  switch (generalized_path->node_kind()) {
+    case AST_PATH_EXPRESSION: {
+      const auto* full_path = generalized_path->GetAsOrDie<ASTPathExpression>();
+      if (full_path->parenthesized()) {
+        ZETASQL_ASSIGN_OR_RETURN(
+            const google::protobuf::FieldDescriptor* field_descriptor,
+            FindExtensionFieldDescriptor(full_path, root_descriptor));
+        field_descriptors->push_back(field_descriptor);
+      } else {
+        ZETASQL_RETURN_IF_ERROR(FindFieldDescriptors(
+            full_path->names(), root_descriptor, field_descriptors));
+      }
+      return zetasql_base::OkStatus();
+    }
+    case AST_DOT_IDENTIFIER: {
+      const auto* dot_identifier_ast =
+          generalized_path->GetAsOrDie<ASTDotIdentifier>();
+      const auto* generalized_path_expr =
+          dot_identifier_ast->expr()
+              ->GetAsOrNull<ASTGeneralizedPathExpression>();
+      ZETASQL_RETURN_IF_ERROR(FindDescriptorsForReplaceFieldItem(
+          generalized_path_expr, root_descriptor, field_descriptors));
+      if (field_descriptors->back()->message_type() == nullptr) {
+        const Type* last_type;
+        ZETASQL_RETURN_IF_ERROR(type_factory_->GetProtoFieldType(
+            field_descriptors->back(), &last_type));
+        return MakeSqlErrorAt(dot_identifier_ast->name())
+               << "Cannot access field "
+               << dot_identifier_ast->name()->GetAsString()
+               << " on a value with type "
+               << last_type->ShortTypeName(product_mode());
+      }
+      ZETASQL_ASSIGN_OR_RETURN(
+          const google::protobuf::FieldDescriptor* field_descriptor,
+          FindFieldDescriptor(dot_identifier_ast->name(),
+                              field_descriptors->back()->message_type(),
+                              dot_identifier_ast->name()->GetAsString()));
+      if (field_descriptor == nullptr) {
+        return MakeSqlErrorAt(dot_identifier_ast->name())
+               << "Protocol buffer " << field_descriptors->back()->full_name()
+               << " does not have field named "
+               << dot_identifier_ast->name()->GetAsString();
+      }
+      field_descriptors->push_back(field_descriptor);
+      return zetasql_base::OkStatus();
+    }
+    case AST_DOT_GENERALIZED_FIELD: {
+      const auto* dot_generalized_ast =
+          generalized_path->GetAsOrDie<ASTDotGeneralizedField>();
+      const auto* generalized_path_expr =
+          dot_generalized_ast->expr()
+              ->GetAsOrNull<ASTGeneralizedPathExpression>();
+      ZETASQL_RETURN_IF_ERROR(FindDescriptorsForReplaceFieldItem(
+          generalized_path_expr, root_descriptor, field_descriptors));
+      if (field_descriptors->back()->message_type() == nullptr) {
+        const Type* last_type;
+        ZETASQL_RETURN_IF_ERROR(type_factory_->GetProtoFieldType(
+            field_descriptors->back(), &last_type));
+        return MakeSqlErrorAt(dot_generalized_ast->path())
+               << "Cannot access extension "
+               << dot_generalized_ast->path()->ToIdentifierPathString()
+               << " on a value with type "
+               << last_type->ShortTypeName(product_mode());
+      }
+      ZETASQL_ASSIGN_OR_RETURN(const google::protobuf::FieldDescriptor* field_descriptor,
+                       FindExtensionFieldDescriptor(
+                           dot_generalized_ast->path(),
+                           field_descriptors->back()->message_type()));
+      field_descriptors->push_back(field_descriptor);
+      return zetasql_base::OkStatus();
+    }
+    case AST_ARRAY_ELEMENT: {
+      return MakeSqlErrorAt(generalized_path)
+             << "Path expressions in REPLACE_FIELDS() cannot index array "
+                "elements";
+    }
+    default: {
+      ZETASQL_RET_CHECK_FAIL() << "Invalid generalized path expression input "
+                       << generalized_path->DebugString();
+    }
+  }
+  return zetasql_base::OkStatus();
+}
+
+// Attempts to add a std::string representation of 'path_vector' to
+// 'field_path_trie'. Returns an error if this path std::string overlaps with a path
+// that is already present in 'field_path_trie'. For example, message.nested and
+// message.nested.field are overlapping field paths, but message.nested.field1
+// and message.nested.field2 are not overlapping. Two paths that
+// modify the same OneOf field are also considered overlapping.
+// 'oneof_path_to_full_path' maps from paths of OneOf fields that have already
+// been modified to the corresponding path expression that accessed the OneOf
+// path. If 'path_vector' modifies a OneOf field that has not already been
+// modified, it will be added to 'oneof_path_to_full_path'.
+static zetasql_base::Status AddToFieldPathTrie(
+    const ASTNode* path_location,
+    const std::vector<const google::protobuf::FieldDescriptor*>& path_vector,
+    absl::flat_hash_map<std::string, std::string>* oneof_path_to_full_path,
+    zetasql_base::GeneralTrie<const ASTNode*, nullptr>* field_path_trie) {
+  std::string path_string;
+  bool overlapping_oneof = false;
+  std::string shortest_oneof_path;
+  for (const google::protobuf::FieldDescriptor* field : path_vector) {
+    if (field->containing_oneof() != nullptr && shortest_oneof_path.empty()) {
+      shortest_oneof_path =
+          absl::StrCat(path_string, field->containing_oneof()->name());
+      if (zetasql_base::ContainsKey(*oneof_path_to_full_path, shortest_oneof_path)) {
+        overlapping_oneof = true;
+      }
+    }
+    if (!path_string.empty()) {
+      absl::StrAppend(&path_string, ".");
+    }
+    if (field->is_extension()) {
+      absl::StrAppend(&path_string, "(");
+    }
+    absl::StrAppend(&path_string,
+                    field->is_extension() ? field->full_name() : field->name());
+    if (field->is_extension()) {
+      absl::StrAppend(&path_string, ")");
+    }
+  }
+  if (overlapping_oneof) {
+    return MakeSqlErrorAt(path_location) << absl::StrCat(
+               "Modifying multiple fields from the same OneOf is unsupported "
+               "by REPLACE_FIELDS(). Field path ",
+               path_string, " overlaps with field path ",
+               zetasql_base::FindOrDie(*oneof_path_to_full_path, shortest_oneof_path));
+  }
+  if (!shortest_oneof_path.empty()) {
+    ZETASQL_RET_CHECK(zetasql_base::InsertIfNotPresent(oneof_path_to_full_path,
+                                      shortest_oneof_path, path_string));
+  }
+
+  // Determine if a prefix of 'path_string' is already present in the trie.
+  int match_length = 0;
+  const ASTNode* prefix_location =
+      field_path_trie->GetDataForMaximalPrefixWithLen(
+          path_string.c_str(), path_string.size(), &match_length,
+          /*is_terminator=*/nullptr);
+  std::vector<std::pair<std::string, const ASTNode*>> matching_paths;
+  bool prefix_exists = false;
+  if (prefix_location != nullptr) {
+    // If the max prefix is equal to 'path_string' or if the next character of
+    // 'path_string' after the max prefix is a "." then an overlapping path is
+    // already present in the trie.
+    prefix_exists =
+        path_string.size() == match_length
+            ? true
+            : (std::strncmp(&path_string.at(match_length), ".", 1) == 0);
+  } else {
+    // Determine if 'path_string' is the prefix of a path already in the trie.
+    field_path_trie->GetAllMatchingStrings(
+        absl::StrCat(path_string, ".").c_str(), path_string.size() + 1,
+        &matching_paths);
+  }
+  if (prefix_exists || !matching_paths.empty()) {
+    return MakeSqlErrorAt(path_location)
+           << absl::StrCat("REPLACE_FIELDS() field path ",
+                           prefix_exists ? path_string.substr(0, match_length)
+                                         : matching_paths.at(0).first,
+                           " overlaps with field path ", path_string);
+  }
+  field_path_trie->Insert(path_string.c_str(), path_location);
+
+  return zetasql_base::OkStatus();
+}
+
+zetasql_base::Status Resolver::ResolveReplaceFieldsExpression(
+    const ASTReplaceFieldsExpression* ast_replace_fields,
+    ExprResolutionInfo* expr_resolution_info,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
+  if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_REPLACE_FIELDS)) {
+    return MakeSqlErrorAt(ast_replace_fields)
+           << "REPLACE_FIELDS() is not supported";
+  }
+
+  std::unique_ptr<const ResolvedExpr> expr_to_modify;
+  ZETASQL_RETURN_IF_ERROR(ResolveExpr(ast_replace_fields->expr(), expr_resolution_info,
+                              &expr_to_modify));
+  if (expr_to_modify->type()->IsStruct()) {
+    return MakeSqlErrorAt(ast_replace_fields->expr())
+           << "REPLACE_FIELDS is not yet suported for input of type STRUCT";
+  } else if (!expr_to_modify->type()->IsProto()) {
+    return MakeSqlErrorAt(ast_replace_fields->expr())
+           << "REPLACE_FIELDS expected input of type PROTO for first "
+              "argument, but found type "
+           << expr_to_modify->type()->ShortTypeName(product_mode());
+  }
+  const google::protobuf::Descriptor* proto_descriptor =
+      expr_to_modify->type()->AsProto()->descriptor();
+
+  std::vector<std::unique_ptr<const ResolvedReplaceFieldItem>>
+      resolved_modify_items;
+
+  // This trie keeps track of the path expressions that are modified by
+  // this REPLACE_FIELDS expression.
+  zetasql_base::GeneralTrie<const ASTNode*, nullptr> field_path_trie;
+  // This map keeps track of the OneOf fields that are modified. Modifying
+  // multiple fields from the same OneOf is unsupported. This is not tracked in
+  // 'field_path_trie' because field path expressions do not contain the OneOf
+  // name of modified OneOf fields.
+  absl::flat_hash_map<std::string, std::string> oneof_path_to_full_path;
+  for (const ASTReplaceFieldsArg* replace_arg :
+       ast_replace_fields->arguments()) {
+    // Resolve the new value and get the field desciptors for the field to be
+    // modified.
+    std::unique_ptr<const ResolvedExpr> replaced_field_expr;
+    ZETASQL_RETURN_IF_ERROR(ResolveExpr(replace_arg->expression(), expr_resolution_info,
+                                &replaced_field_expr));
+
+    std::vector<const google::protobuf::FieldDescriptor*> field_descriptor_path;
+    ZETASQL_RETURN_IF_ERROR(FindDescriptorsForReplaceFieldItem(
+        replace_arg->path_expression(), proto_descriptor,
+        &field_descriptor_path));
+    ZETASQL_RETURN_IF_ERROR(AddToFieldPathTrie(
+        replace_arg->path_expression(), field_descriptor_path,
+        &oneof_path_to_full_path, &field_path_trie));
+
+    // Add a cast to the modified value if it needs to be coerced to the type
+    // of the field.
+    const Type* field_type;
+    ZETASQL_RETURN_IF_ERROR(type_factory_->GetProtoFieldType(
+        field_descriptor_path.back(), &field_type));
+    zetasql::SignatureMatchResult match_result;
+    if (!field_type->Equals(replaced_field_expr->type())) {
+      if (!coercer_.AssignableTo(
+              zetasql::InputArgumentType(
+                  GetInputArgumentTypeForExpr(replaced_field_expr.get())),
+              field_type,
+              /*is_explicit=*/false, &match_result)) {
+        return MakeSqlErrorAt(replace_arg->expression())
+               << "Cannot replace field of type " << field_type->DebugString()
+               << " with value of type "
+               << replaced_field_expr->type()->DebugString();
+      }
+      ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
+          replace_arg->expression(), field_type, /*scan=*/nullptr,
+          /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
+          &replaced_field_expr));
+    }
+
+    resolved_modify_items.push_back(MakeResolvedReplaceFieldItem(
+        std::move(replaced_field_expr), field_descriptor_path));
+  }
+
+  const Type* field_type = expr_to_modify->type();
+  *resolved_expr_out = MakeResolvedReplaceField(
+      field_type, std::move(expr_to_modify), std::move(resolved_modify_items));
+  return zetasql_base::OkStatus();
+}
+
 // Return an error if <expr> is a ResolvedFunctionCall and is getting an un-CAST
 // literal NULL as an argument.  <parser_op_sql> is used to make the error
 // message.
@@ -1673,11 +1988,11 @@ zetasql_base::Status Resolver::ResolveUnaryExpr(
       FunctionResolver::UnaryOperatorToFunctionName(unary_expr->op());
 
   if (unary_expr->op() == ASTUnaryExpression::MINUS &&
-      !unary_expr->child(0)->GetAs<ASTExpression>()->parenthesized()) {
+      !unary_expr->child(0)->GetAsOrDie<ASTExpression>()->parenthesized()) {
     if (unary_expr->child(0)->node_kind() == AST_INT_LITERAL) {
       // Try to parse this as a negative int64_t.
       const ASTIntLiteral* literal =
-          unary_expr->operand()->GetAs<ASTIntLiteral>();
+          unary_expr->operand()->GetAsOrDie<ASTIntLiteral>();
       int64_t int64_value;
       if (literal->is_hex()) {
         if (zetasql_base::safe_strto64_base(absl::StrCat("-", literal->image()),
@@ -1702,7 +2017,7 @@ zetasql_base::Status Resolver::ResolveUnaryExpr(
     } else if (unary_expr->child(0)->node_kind() == AST_FLOAT_LITERAL) {
       // Try to parse this as a negative double.
       const ASTFloatLiteral* literal =
-          unary_expr->operand()->GetAs<ASTFloatLiteral>();
+          unary_expr->operand()->GetAsOrDie<ASTFloatLiteral>();
       std::string negative_image = absl::StrCat("-", literal->image());
       double double_value;
       if (functions::StringToNumeric(negative_image, &double_value, nullptr)) {
@@ -1758,7 +2073,7 @@ static const std::string& IsOperatorToFunctionName(const ASTExpression* expr) {
     case AST_NULL_LITERAL:
       return *kIsNullFnName;
     case AST_BOOLEAN_LITERAL:
-      if (expr->GetAs<ASTBooleanLiteral>()->value()) {
+      if (expr->GetAsOrDie<ASTBooleanLiteral>()->value()) {
         return *kIsTrueFnName;
       } else {
         return *kIsFalseFnName;
@@ -2245,10 +2560,11 @@ zetasql_base::Status Resolver::ResolveDatePartArgument(
   switch (date_part_ast_location->node_kind()) {
     case AST_IDENTIFIER:
       date_part_name =
-          date_part_ast_location->GetAs<ASTIdentifier>()->GetAsIdString();
+          date_part_ast_location->GetAsOrDie<ASTIdentifier>()->GetAsIdString();
       break;
     case AST_PATH_EXPRESSION: {
-      const auto ast_path = date_part_ast_location->GetAs<ASTPathExpression>();
+      const auto ast_path =
+          date_part_ast_location->GetAsOrDie<ASTPathExpression>();
       if (ast_path->num_names() != 1) {
         return MakeSqlErrorAt(ast_path)
                << "A valid date part name is required but found "
@@ -2259,7 +2575,7 @@ zetasql_base::Status Resolver::ResolveDatePartArgument(
     }
     case AST_FUNCTION_CALL: {
       const ASTFunctionCall* ast_function_call =
-          date_part_ast_location->GetAs<ASTFunctionCall>();
+          date_part_ast_location->GetAsOrDie<ASTFunctionCall>();
 
       if (ast_function_call->function()->num_names() != 1) {
         return MakeSqlErrorAt(ast_function_call->function())
@@ -2287,7 +2603,7 @@ zetasql_base::Status Resolver::ResolveDatePartArgument(
                << ast_function_call->function()->ToIdentifierPathString();
       }
       const auto ast_path =
-          date_part_arg_ast_location->GetAs<ASTPathExpression>();
+          date_part_arg_ast_location->GetAsOrDie<ASTPathExpression>();
       if (ast_path->num_names() != 1) {
         return MakeSqlErrorAt(ast_path)
                << "A valid date part argument is required, but found "
@@ -2347,7 +2663,7 @@ zetasql_base::Status Resolver::ResolveProtoExtractExpression(
   // expression.
   if (field_extraction_type_ast_location->node_kind() == AST_FUNCTION_CALL) {
     const auto ast_function_call =
-        field_extraction_type_ast_location->GetAs<ASTFunctionCall>();
+        field_extraction_type_ast_location->GetAsOrDie<ASTFunctionCall>();
 
     if (ast_function_call->function()->num_names() != 1) {
       return MakeSqlErrorAt(ast_function_call->function())
@@ -2372,7 +2688,7 @@ zetasql_base::Status Resolver::ResolveProtoExtractExpression(
     ZETASQL_RET_CHECK(field_ast_location->node_kind() == AST_PATH_EXPRESSION)
         << "Found invalid argument function call syntax for "
         << ast_function_call->function()->ToIdentifierPathString() << "()";
-    field_path = field_ast_location->GetAs<ASTPathExpression>();
+    field_path = field_ast_location->GetAsOrDie<ASTPathExpression>();
     if (field_path->names().empty() ||
         (field_path->num_names() > 1 && !field_path->parenthesized())) {
       return MakeSqlErrorAt(field_path)
@@ -2458,7 +2774,7 @@ zetasql_base::Status Resolver::ResolveNormalizeModeArgument(
     return MakeSqlErrorAt(arg) << "Argument is not a valid NORMALIZE mode";
   }
   const absl::Span<const ASTIdentifier* const>& names =
-      arg->GetAs<ASTPathExpression>()->names();
+      arg->GetAsOrDie<ASTPathExpression>()->names();
   if (names.size() != 1) {
     return MakeSqlErrorAt(arg) << "Argument is not a valid NORMALIZE mode";
   }
@@ -2488,7 +2804,7 @@ zetasql_base::Status Resolver::ResolveIntervalArgument(
   if (arg->node_kind() != AST_INTERVAL_EXPR) {
     return MakeSqlErrorAt(arg) << "Expected INTERVAL expression";
   }
-  const ASTIntervalExpr* interval_expr = arg->GetAs<ASTIntervalExpr>();
+  const ASTIntervalExpr* interval_expr = arg->GetAsOrDie<ASTIntervalExpr>();
 
   // Resolve the INTERVAL value expression.
   const ASTExpression* interval_value_expr = interval_expr->interval_value();
@@ -3054,7 +3370,7 @@ zetasql_base::Status Resolver::ResolveArrayElementPosition(
 
   if (ast_position->node_kind() == AST_FUNCTION_CALL) {
     const ASTFunctionCall* ast_function_call =
-        ast_position->GetAs<ASTFunctionCall>();
+        ast_position->GetAsOrDie<ASTFunctionCall>();
     if (ast_function_call->function()->num_names() == 1 &&
         ast_function_call->arguments().size() == 1 &&
         !ast_function_call->HasModifiers()) {
@@ -4276,7 +4592,15 @@ zetasql_base::Status Resolver::ResolveProtoDefaultIfNull(
                                            "expression must end with a proto "
                                            "field access";
   } else if (!ProtoType::GetUseDefaultsExtension(
-                 resolved_field_access->field_descriptor())) {
+                 resolved_field_access->field_descriptor()) &&
+             (resolved_field_access->expr()
+                      ->type()
+                      ->AsProto()
+                      ->descriptor()
+                      ->file()
+                      ->syntax() != google::protobuf::FileDescriptor::SYNTAX_PROTO3 ||
+              !language().LanguageFeatureEnabled(
+                  FEATURE_V_1_3_IGNORE_PROTO3_USE_DEFAULTS))) {
     return MakeSqlErrorAt(ast_location)
            << "The field accessed by PROTO_DEFAULT_IF_NULL must have a usable "
               "default value; Field "
@@ -4350,14 +4674,14 @@ zetasql_base::Status Resolver::ResolveFunctionCallWithResolvedArguments(
 
   if (function->IsDeprecated()) {
     ZETASQL_RETURN_IF_ERROR(AddDeprecationWarning(
-        ast_location, DeprecationWarning_Kind_DEPRECATED_FUNCTION,
+        ast_location, DeprecationWarning::DEPRECATED_FUNCTION,
         absl::StrCat(
             function->QualifiedSQLName(true /* capitalize_qualifier */),
             " is deprecated")));
   }
   if (resolved_function_call->signature().IsDeprecated()) {
     ZETASQL_RETURN_IF_ERROR(AddDeprecationWarning(
-        ast_location, DeprecationWarning_Kind_DEPRECATED_FUNCTION_SIGNATURE,
+        ast_location, DeprecationWarning::DEPRECATED_FUNCTION_SIGNATURE,
         absl::StrCat("Using a deprecated function signature for ",
                      function->QualifiedSQLName())));
   }
@@ -4371,7 +4695,7 @@ zetasql_base::Status Resolver::ResolveFunctionCallWithResolvedArguments(
   // extra processing required for aggregates.
   if (function->IsAggregate()) {
     const ASTFunctionCall* ast_function_call =
-        ast_location->GetAs<ASTFunctionCall>();
+        ast_location->GetAsOrDie<ASTFunctionCall>();
     ZETASQL_RETURN_IF_ERROR(FinishResolvingAggregateFunction(ast_function_call,
                                                      &resolved_function_call,
                                                      expr_resolution_info,

@@ -35,10 +35,6 @@
 namespace zetasql {
 
 bool IsConstantExpression(const ResolvedExpr* expr) {
-  // This will fail if more child types are added.  Add them to the switch
-  // below before updating this.
-  static_assert(ResolvedExpr::NUM_DESCENDANT_LEAF_TYPES == 16,
-                "Missing case in switch on ResolvedExpr descendants");
 
   switch (expr->node_kind()) {
     case RESOLVED_CONSTANT:
@@ -86,6 +82,21 @@ bool IsConstantExpression(const ResolvedExpr* expr) {
     case RESOLVED_GET_PROTO_FIELD:
       return IsConstantExpression(
           expr->GetAs<ResolvedGetProtoField>()->expr());
+
+    case RESOLVED_REPLACE_FIELD: {
+      const ResolvedReplaceField* replace_field =
+          expr->GetAs<ResolvedReplaceField>();
+      if (!IsConstantExpression(replace_field->expr())) {
+        return false;
+      }
+      for (const std::unique_ptr<const ResolvedReplaceFieldItem>&
+               replace_field_item : replace_field->replace_field_item_list()) {
+        if (!IsConstantExpression(replace_field_item->expr())) {
+          return false;
+        }
+      }
+      return true;
+    }
 
     case RESOLVED_MAKE_STRUCT: {
       // No code coverage on this because we don't currently have syntax to

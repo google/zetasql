@@ -264,7 +264,8 @@ static zetasql_base::Status UpdateErrorFromPayload(const zetasql_base::Status& s
     return status;
   }
   ZETASQL_RET_CHECK(!internal::HasPayloadTyped<InternalErrorLocation>(status))
-      << "Status must not have InternalErrorLocation: " << status.ToString();
+      << "Status must not have InternalErrorLocation: "
+      << internal::StatusToString(status);
   if (!status.ok()) {
     ErrorLocation location;
     if (GetErrorLocation(status, &location)) {
@@ -289,7 +290,8 @@ zetasql_base::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
                                          absl::string_view input_text,
                                          const zetasql_base::Status& status) {
   ZETASQL_RET_CHECK(!internal::HasPayloadTyped<InternalErrorLocation>(status))
-      << "Status must not have InternalErrorLocation: " << status.ToString();
+      << "Status must not have InternalErrorLocation: "
+      << internal::StatusToString(status);
   if (status.ok() || mode == ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD) {
     // We do not update the error std::string with error payload, which
     // could include location and/or nested errors.  We leave any payload

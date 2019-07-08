@@ -14,7 +14,7 @@
 
 A ZetaSQL statement comprises a series of tokens. Tokens include
 *identifiers,* *quoted identifiers, literals*, *keywords*, *operators*, and
-*special characters*. Tokens can be separated by whitespace (space, backspace,
+*special characters*. You can separate tokens with whitespace (space, backspace,
 tab, newline) or comments.
 
 <a id=identifiers></a>
@@ -88,12 +88,12 @@ double (`"`) quotation marks, or *triple-quoted* with groups of three single
 <tr>
 <td>Quoted string</td>
 <td><ul><li><code>"abc"</code></li><li><code>"it's"</code></li><li><code>'it\'s'</code></li><li><code>'Title: "Boy"'</code></li></ul></td>
-<td>Quoted strings enclosed by single (<code>'</code>) quotes can contain unescaped double (<code>"</code>) quotes, and vice versa. <br>Backslashes (<code>\</code>) introduce escape sequences. See Escape Sequences table below.<br>Quoted strings cannot contain newlines, even when preceded by a backslash (<code>\</code>).</td>
+<td>Quoted strings enclosed by single (<code>'</code>) quotes can contain unescaped double (<code>"</code>) quotes, as well as the inverse. <br>Backslashes (<code>\</code>) introduce escape sequences. See the Escape Sequences table below.<br>Quoted strings cannot contain newlines, even when preceded by a backslash (<code>\</code>).</td>
 </tr>
 <tr>
 <td>Triple-quoted string</td>
 <td><ul><li><code>"""abc"""</code></li><li><code>'''it's'''</code></li><li><code>'''Title:"Boy"'''</code></li><li><code>'''two<br>lines'''</code></li><li><code>'''why\?'''</code></li></ul></td>
-<td>Embedded newlines and quotes are allowed without escaping - see fourth example.<br>Backslashes (<code>\</code>) introduce escape sequences. See Escape Sequences table below.<br>A trailing unescaped backslash (<code>\</code>) at the end of a line is not allowed.<br>Three unescaped quotes in a row which match the starting quotes will end the string.</td>
+<td>Embedded newlines and quotes are allowed without escaping - see fourth example.<br>Backslashes (<code>\</code>) introduce escape sequences. See Escape Sequences table below.<br>A trailing unescaped backslash (<code>\</code>) at the end of a line is not allowed.<br>End the string with three unescaped quotes in a row that match the starting quotes.</td>
 </tr>
 <tr>
 <td>Raw string</td>
@@ -191,19 +191,19 @@ Any sequence not in this table produces an error.
 </tr>
 <tr>
 <td><code>\ooo</code></td>
-<td>Octal escape, with exactly three digits (in the range 0-7). Decodes to a single Unicode character (in string literals) or byte (in bytes literals).</td>
+<td>Octal escape, with exactly 3 digits (in the range 0–7). Decodes to a single Unicode character (in string literals) or byte (in bytes literals).</td>
 </tr>
 <tr>
 <td><code>\xhh</code> or <code>\Xhh</code></td>
-<td>Hex escape, with exactly two hex digits (0-9 or A-F or a-f). Decodes to a single Unicode character (in string literals) or byte (in bytes literals). Examples:<ul style="list-style-type:none"><li><code>'\x41'</code> == <code>'A'</code></li><li><code>'\x41B'</code> is <code>'AB'</code></li><li><code>'\x4'</code> is an error</li></ul></td>
+<td>Hex escape, with exactly 2 hex digits (0–9 or A–F or a–f). Decodes to a single Unicode character (in string literals) or byte (in bytes literals). Examples:<ul style="list-style-type:none"><li><code>'\x41'</code> == <code>'A'</code></li><li><code>'\x41B'</code> is <code>'AB'</code></li><li><code>'\x4'</code> is an error</li></ul></td>
 </tr>
 <tr>
 <td><code>\uhhhh</code></td>
-<td>Unicode escape, with lowercase 'u' and exactly four hex digits. Valid only in string literals or identifiers.<br/>Note that the range D800-DFFF is not allowed, as these are surrogate unicode values.</td>
+<td>Unicode escape, with lowercase 'u' and exactly 4 hex digits. Valid only in string literals or identifiers.<br/>Note that the range D800-DFFF is not allowed, as these are surrogate unicode values.</td>
 </tr>
 <tr>
 <td><code>\Uhhhhhhhh</code></td>
-<td>Unicode escape, with uppercase 'U' and exactly eight hex digits. Valid only in string literals or identifiers.<br/>Note that the range D800-DFFF is not allowed, as these are surrogate unicode values. Also, values greater than 10FFFF are not allowed.</td>
+<td>Unicode escape, with uppercase 'U' and exactly 8 hex digits. Valid only in string literals or identifiers.<br/>The range D800-DFFF is not allowed, as these values are surrogate unicode values. Also, values greater than 10FFFF are not allowed.</td>
 </tr>
 </tbody>
 </table>
@@ -211,9 +211,9 @@ Any sequence not in this table produces an error.
 <a id=integer_literals></a>
 #### Integer Literals
 
-Integer literals are either a sequence of decimal digits (0 through
-9) or a hexadecimal value that is prefixed with "`0x`". Integers can be prefixed
-by "`+`" or "`-`" to represent positive and negative values, respectively.
+Integer literals are either a sequence of decimal digits (0–9) or a hexadecimal
+value that is prefixed with "`0x`". Integers can be prefixed by "`+`" or "`-`"
+to represent positive and negative values, respectively.
 
 Examples:
 
@@ -286,7 +286,7 @@ can be explicitly cast to float:
 <a id=array_literals></a>
 #### Array Literals
 
-Array literals are a comma-separated lists of elements
+Array literals are comma-separated lists of elements
 enclosed in square brackets. The `ARRAY` keyword is optional, and an explicit
 element type T is also optional.
 
@@ -429,25 +429,26 @@ conforms to the canonical timestamp format, enclosed in single quotation marks.
 Timestamp literals support a range between the years 1 and 9999, inclusive.
 Timestamps outside of this range are invalid.
 
-A timestamp literal can include a numerical suffix to indicate the timezone:
+A timestamp literal can include a numerical suffix to indicate the time zone:
 
 ```
 TIMESTAMP '2014-09-27 12:30:00.45-08'
 ```
 
-If this suffix is absent, the default timezone, which is implementation defined, is used.
+If this suffix is absent, the default time zone,
+which is implementation defined, is used.
 
 For example, the following timestamp represents 12:30 p.m. on September 27,
-2014, using the timezone, which is implementation defined:
+2014, using the which is implementation defined time zone:
 
 ```
 TIMESTAMP '2014-09-27 12:30:00.45'
 ```
 
-For more information on timezones, see [Timezone](#timezone).
+For more information about time zones, see [Time zone](#timezone).
 
 String literals with the canonical timestamp format, including those with
-timezone names, implicitly coerce to a timestamp literal when used where a
+time zone names, implicitly coerce to a timestamp literal when used where a
 timestamp expression is expected.  For example, in the following query, the
 string literal `"2014-09-27 12:30:00.45 America/Los_Angeles"` is coerced
 to a timestamp literal.
@@ -457,15 +458,16 @@ SELECT * FROM foo
 WHERE timestamp_col = "2014-09-27 12:30:00.45 America/Los_Angeles"
 ```
 
-##### Timezone
+<a id=timezone></a>
+##### Time zone
 
-Since timestamp literals must be mapped to a specific point in time, a timezone
-is necessary to correctly interpret a literal. If a timezone is not specified
-as part of the literal itself, then the default timezone value, which is set by
-the ZetaSQL implementation, is used.
+Since timestamp literals must be mapped to a specific point in time, a time zone
+is necessary to correctly interpret a literal. If a time zone is not specified
+as part of the literal itself, then ZetaSQL uses the default time zone
+value, which the ZetaSQL implementation sets.
 
-Timezones are represented by strings in the following canonical format, which
-represents the offset from Coordinated Universal Time (UTC).
+ZetaSQL represents time zones using strings in the following canonical
+format, which represents the offset from Coordinated Universal Time (UTC).
 
 Format:
 
@@ -483,14 +485,14 @@ Examples:
 '-7'
 ```
 
-Timezones can also be expressed using string timezone names from the
+Time zones can also be expressed using string time zone names from the
 [tz database](http://www.iana.org/time-zones). For a less comprehensive but
 simpler reference, see the
-[List of tz database timezones](http://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
-on Wikipedia. Canonical timezone names have the format
+[List of tz database time zones](http://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+on Wikipedia. Canonical time zone names have the format
 `<continent/[region/]city>`, such as `America/Los_Angeles`.
 
-Note that not all timezone names are interchangeable even if they do happen to
+Note: Not all time zone names are interchangeable even if they do happen to
 report the same time during a given part of the year. For example, `America/Los_Angeles` reports the same time as `UTC-7:00` during Daylight Savings Time, but reports the same time as `UTC-8:00` outside of Daylight Savings Time.
 
 Example:
@@ -533,7 +535,7 @@ ZetaSQL follows these rules for case sensitivity:
 <td>Table names</td>
 
 <td>See Notes</td>
-<td>Table names are usually case insensitive, but may be case sensitive when querying a database that uses case sensitive table names.</td>
+<td>Table names are usually case insensitive, but may be case sensitive when querying a database that uses case-sensitive table names.</td>
 
 </tr>
 <tr>
@@ -705,8 +707,12 @@ WITHIN<br />
 <a id=terminating_semicolons></a>
 ### Terminating Semicolons
 
-Statements can optionally use a terminating semicolon (`;`) in the context of a query string submitted through an Application Programming Interface (API). Some interactive tools require statements to have a terminating semicolon.
-In a request containing multiple statements, statements must be separated by semicolons, but the semicolon is optional for the final statement.
+You can optionally use a terminating semicolon (`;`) when you submit a query
+string statement through an Application Programming Interface (API).
+
+In a request containing multiple statements, you must separate statements with
+semicolons, but the semicolon is generally optional after the final statement.
+Some interactive tools require statements to have a terminating semicolon.
 
 <a id=query_parameters></a>
 ### Query Parameters
@@ -717,15 +723,17 @@ Syntax:
 @param
 ```
 
-Query parameters are denoted using identifiers preceded by the @ character. The user defines the parameter outside of the query statement.
+Query parameters are denoted using identifiers preceded by the @ character. You
+define the parameter outside of the query statement.
 
-Query parameters can be used in substitution of arbitrary expressions. They
-cannot, however, be used in substitution of identifiers, column names, table
+You can use query parameters to substitution arbitrary expressions. However,
+query parameters cannot be used to substitute identifiers, column names, table
 names, or other parts of the query itself.
 
-Client APIs allow the binding of parameter names to values; the parameter will be
-substituted with the bound value at execution time. Some client APIs allow queries with parameters that are not bound to specific values,
-but the parameter type must be defined at query analysis time.
+Client APIs allow the binding of parameter names to values; the client API
+substitutes the bound value for the parameter at execution time. Some client
+APIs allow queries with parameters that are not bound to specific values,
+but in those cases, you must define the parameter type at query analysis time.
 
 Example:
 
@@ -752,12 +760,13 @@ performance implications. Different engines may support different hints.
 
 ### Comments
 
-Comments are sequences of characters that are ignored by the parser. ZetaSQL
+Comments are sequences of characters that the parser ignores. ZetaSQL
 supports the following types of comments.
 
-#### Single line comments
+<a name="single-line-comments"></a>
+#### Single-line comments
 
-Single line comments are supported by prepending `#` or `--` before the
+Single-line comments are supported by prepending `#` or `--` before the
 comment.
 
 **Examples**
@@ -1698,16 +1707,11 @@ is interpreted as:
 ( ( x * y ) / z )
 ```
 
-All comparison operators have the same priority and are grouped using left
-associativity. However, comparison operators are not associative. As a result,
-it is recommended that you use parentheses to improve readability and ensure
-expressions are resolved as desired. For example:
+All comparison operators have the same priority, but comparison operators are
+not associative. Therefore, parentheses are required in order to resolve
+ambiguity. For example:
 
 `(x < y) IS FALSE`
-
-is recommended over:
-
-`x < y IS FALSE`
 
 #### Element access operators
 
@@ -7866,7 +7870,6 @@ CROSS JOIN UNNEST(album.song) AS song_name;
 
 A common task when working with arrays is turning a subquery result into an
 array. In ZetaSQL, you can accomplish this using the
-
 [`ARRAY()`](functions-and-operators.md#array) function.
 
 For example, consider the following operation on the `sequences` table:
@@ -15427,6 +15430,11 @@ arguments that matches the format specifiers. Here are some examples:
 <td>+0000000012+</td>
 </tr>
 <tr>
+<td>Integer with commas</td>
+<td>format("%'d", 123456789)</td>
+<td>123,456,789</td>
+</tr>
+<tr>
 <td>STRING</td>
 <td>format("-%s-", 'abcd efg')</td>
 <td>-abcd efg-</td>
@@ -15962,9 +15970,11 @@ FROM_HEX(string)
 
 Converts a hexadecimal-encoded STRING into BYTES format. Returns an error if the
 input STRING contains characters outside the range
-`(0..9, A..F, a..f)`. The lettercase of the characters does not matter. To
-convert BYTES to a hexadecimal-encoded
-STRING, use [TO_HEX][string-link-to-to-hex].
+`(0..9, A..F, a..f)`. The lettercase of the characters does not matter. If the
+input STRING has an odd number of characters, the function acts as if the input
+has an additional leading `0`. To convert BYTES to a
+hexadecimal-encoded STRING, use
+[TO_HEX][string-link-to-to-hex].
 
 **Return type**
 

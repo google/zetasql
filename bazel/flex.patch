@@ -1,0 +1,10 @@
+--- flex-2.6.4.ori/src/flexdef.h        2017-05-03 20:13:14.000000000 +0200
++++ src/flexdef.h    2018-08-24 02:04:51.159854880 +0200
+@@ -47,6 +47,7 @@
+ #include <libgen.h> /* for XPG version of basename(3) */
+ #include <string.h>
+ #include <math.h>
++#include <malloc.h>
+ 
+ #ifdef HAVE_ASSERT_H
+ #include <assert.h>

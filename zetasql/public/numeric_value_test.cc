@@ -17,6 +17,7 @@
 #include "zetasql/public/numeric_value.h"
 
 #include <stdlib.h>
+
 #include <functional>
 #include <limits>
 #include <new>
@@ -27,6 +28,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/numeric/int128.h"
+#include "absl/random/random.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/substitute.h"
 #include "zetasql/base/endian.h"
@@ -48,6 +50,33 @@ class NumericValueTest : public testing::Test {
 
   inline NumericValue MkNumeric(const std::string& str) {
     return NumericValue::FromStringStrict(str).ValueOrDie();
+  }
+
+  // Generates a random valid numeric value.
+  NumericValue MakeRandomNumeric() {
+    int32_t sign = absl::Uniform<int32_t>(random_, 0, 2);
+    int32_t int_digits = absl::Uniform<int32_t>(random_, 0, 30);
+    int32_t fract_digits = absl::Uniform<int32_t>(random_, 0, 10);
+
+    std::string str(sign ? "-" : "");
+    if (int_digits > 0) {
+      for (int i = 0; i < int_digits; ++i) {
+        str.push_back(static_cast<char>(absl::Uniform<int32_t>(random_, 0, 10)) +
+                      '0');
+      }
+    } else {
+      str.push_back('0');
+    }
+
+    if (fract_digits > 0) {
+      str.push_back('.');
+      for (int i = 0; i < fract_digits; ++i) {
+        str.push_back(static_cast<char>(absl::Uniform<int32_t>(random_, 0, 10)) +
+                      '0');
+      }
+    }
+
+    return MkNumeric(str);
   }
 
   void TestSerialize(NumericValue value) {
@@ -78,6 +107,8 @@ class NumericValueTest : public testing::Test {
   // value is similar to the max value but with an unary minus in front.
   const std::string expected_max_string_;
   const std::string expected_min_string_;
+
+  absl::BitGen random_;
 };
 
 
@@ -778,6 +809,15 @@ TEST_F(NumericValueTest, SerializeDeserializeProtoBytes) {
   TestSerialize(MkNumeric("-0.000000001"));
   TestSerialize(MkNumeric("0.999999999"));
   TestSerialize(MkNumeric("-0.999999999"));
+
+  const int kTestIterations = 500;
+  for (int i = 0; i < kTestIterations; ++i) {
+    NumericValue value = MakeRandomNumeric();
+    NumericValue neg_value = NumericValue::FromPackedInt(
+        -value.as_packed_int()).ValueOrDie();
+    TestSerialize(value);
+    TestSerialize(neg_value);
+  }
 }
 
 TEST_F(NumericValueTest, DeserializeProtoBytesFailures) {

@@ -21,6 +21,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors.FieldDescriptor;
+import com.google.protobuf.Descriptors.OneofDescriptor;
 import com.google.protobuf.ProtocolMessageEnum;
 import com.google.zetasql.Constant;
 import com.google.zetasql.FunctionSignature;
@@ -124,10 +125,6 @@ class DebugStrings {
     return Long.toString(i);
   }
 
-  static String toStringCommaSeparatedForInt(List<Long> values) {
-    return "[" + Joiner.on(", ").join(values) + "]";
-  }
-
   static String toStringImpl(InsertMode mode) {
     return mode.name().replace('_', ' ');
   }
@@ -163,10 +160,6 @@ class DebugStrings {
 
   static String toStringImpl(FunctionSignature signature) {
     return signature.toString();
-  }
-
-  static String toStringVerbose(FunctionSignature signature) {
-    return signature.debugString("" /* function_name */, true /* verbose */);
   }
 
   static String toStringImpl(ResolvedFunctionCallInfo call) {
@@ -209,6 +202,32 @@ class DebugStrings {
     return sb.toString();
   }
 
+  // Most vector<string> fields are identifier paths so we format
+  // the value that way by default.
+  // For other vector<string> fields, we can override this with to_string_method.
+  static String toStringImpl(List<String> values) {
+    return toStringImpl(values, ".");
+  }
+
+  static String toStringPeriodSeparatedForFieldDescriptors(List<ZetaSQLFieldDescriptor> fields) {
+    StringBuilder sb = new StringBuilder();
+    for (ZetaSQLFieldDescriptor field : fields) {
+      if (sb.length() > 0) {
+        sb.append(".");
+      }
+      sb.append(toStringImpl(field));
+    }
+    return sb.toString();
+  }
+
+  static String toStringCommaSeparatedForInt(List<Long> values) {
+    return "[" + Joiner.on(", ").join(values) + "]";
+  }
+
+  static String toStringVerbose(FunctionSignature signature) {
+    return signature.debugString(/*functionName=*/"", /*verbose=*/true);
+  }
+
   // Custom implementation for the list of enums. Named uniquely to avoid collisions with any other
   // method.
   static String toStringObjectAccess(ImmutableList<ObjectAccess> values) {
@@ -220,13 +239,6 @@ class DebugStrings {
       sb.append(value.name());
     }
     return sb.toString();
-  }
-
-  // Most vector<string> fields are identifier paths so we format
-  // the value that way by default.
-  // For other vector<string> fields, we can override this with to_string_method.
-  static String toStringImpl(List<String> values) {
-    return toStringImpl(values, ".");
   }
 
   // This formats a list of identifiers (quoting if needed).

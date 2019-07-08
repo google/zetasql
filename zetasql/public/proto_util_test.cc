@@ -99,105 +99,105 @@ class ReadProtoFieldsTest : public ::testing::TestWithParam<bool> {
 
 TEST_P(ReadProtoFieldsTest, Int32) {
   kitchen_sink_.set_int32_val(10);
-  EXPECT_THAT(ReadField("int32_val", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("int32_val", FieldFormat::DEFAULT_FORMAT,
                         types::Int32Type(), values::Int32(0)),
               IsOkAndHolds(values::Int32(10)));
 }
 
 TEST_P(ReadProtoFieldsTest, Int64) {
   kitchen_sink_.set_int64_val(10);
-  EXPECT_THAT(ReadField("int64_val", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("int64_val", FieldFormat::DEFAULT_FORMAT,
                         types::Int64Type(), values::Int64(0)),
               IsOkAndHolds(values::Int64(10)));
 }
 
 TEST_P(ReadProtoFieldsTest, Uint32) {
   kitchen_sink_.set_uint32_val(10);
-  EXPECT_THAT(ReadField("uint32_val", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("uint32_val", FieldFormat::DEFAULT_FORMAT,
                         types::Uint32Type(), values::Uint32(0)),
               IsOkAndHolds(values::Uint32(10)));
 }
 
 TEST_P(ReadProtoFieldsTest, Uint64) {
   kitchen_sink_.set_uint64_val(10);
-  EXPECT_THAT(ReadField("uint64_val", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("uint64_val", FieldFormat::DEFAULT_FORMAT,
                         types::Uint64Type(), values::Uint64(0)),
               IsOkAndHolds(values::Uint64(10)));
 }
 
 TEST_P(ReadProtoFieldsTest, Sint32) {
   kitchen_sink_.set_sint32_val(10);
-  EXPECT_THAT(ReadField("sint32_val", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("sint32_val", FieldFormat::DEFAULT_FORMAT,
                         types::Int32Type(), values::Int32(0)),
               IsOkAndHolds(values::Int32(10)));
 }
 
 TEST_P(ReadProtoFieldsTest, Sint64) {
   kitchen_sink_.set_sint64_val(10);
-  EXPECT_THAT(ReadField("sint64_val", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("sint64_val", FieldFormat::DEFAULT_FORMAT,
                         types::Int64Type(), values::Int64(0)),
               IsOkAndHolds(values::Int64(10)));
 }
 
 TEST_P(ReadProtoFieldsTest, Fixed32) {
   kitchen_sink_.set_fixed32_val(10);
-  EXPECT_THAT(ReadField("fixed32_val", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("fixed32_val", FieldFormat::DEFAULT_FORMAT,
                         types::Uint32Type(), values::Uint32(0)),
               IsOkAndHolds(values::Uint32(10)));
 }
 
 TEST_P(ReadProtoFieldsTest, Fixed64) {
   kitchen_sink_.set_fixed64_val(10);
-  EXPECT_THAT(ReadField("fixed64_val", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("fixed64_val", FieldFormat::DEFAULT_FORMAT,
                         types::Uint64Type(), values::Uint64(0)),
               IsOkAndHolds(values::Uint64(10)));
 }
 
 TEST_P(ReadProtoFieldsTest, SFixed32) {
   kitchen_sink_.set_sfixed32_val(10);
-  EXPECT_THAT(ReadField("sfixed32_val", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("sfixed32_val", FieldFormat::DEFAULT_FORMAT,
                         types::Int32Type(), values::Int32(0)),
               IsOkAndHolds(values::Int32(10)));
 }
 
 TEST_P(ReadProtoFieldsTest, SFixed64) {
   kitchen_sink_.set_sfixed64_val(10);
-  EXPECT_THAT(ReadField("sfixed64_val", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("sfixed64_val", FieldFormat::DEFAULT_FORMAT,
                         types::Int64Type(), values::Int64(0)),
               IsOkAndHolds(values::Int64(10)));
 }
 
 TEST_P(ReadProtoFieldsTest, Bool) {
   kitchen_sink_.set_bool_val(true);
-  EXPECT_THAT(ReadField("bool_val", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("bool_val", FieldFormat::DEFAULT_FORMAT,
                         types::BoolType(), values::Bool(false)),
               IsOkAndHolds(values::Bool(true)));
 }
 
 TEST_P(ReadProtoFieldsTest, Float) {
   kitchen_sink_.set_float_val(1.5);
-  EXPECT_THAT(ReadField("float_val", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("float_val", FieldFormat::DEFAULT_FORMAT,
                         types::FloatType(), values::Float(0)),
               IsOkAndHolds(values::Float(1.5)));
 }
 
 TEST_P(ReadProtoFieldsTest, Double) {
   kitchen_sink_.set_double_val(1.5);
-  EXPECT_THAT(ReadField("double_val", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("double_val", FieldFormat::DEFAULT_FORMAT,
                         types::DoubleType(), values::Double(0)),
               IsOkAndHolds(values::Double(1.5)));
 }
 
 TEST_P(ReadProtoFieldsTest, String) {
   kitchen_sink_.set_string_val("foo");
-  EXPECT_THAT(ReadField("string_val", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("string_val", FieldFormat::DEFAULT_FORMAT,
                         types::StringType(), values::String("")),
               IsOkAndHolds(values::String("foo")));
 }
 
 TEST_P(ReadProtoFieldsTest, Bytes) {
   kitchen_sink_.set_bytes_val("bar");
-  EXPECT_THAT(ReadField("bytes_val", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("bytes_val", FieldFormat::DEFAULT_FORMAT,
                         types::BytesType(), values::Bytes("")),
               IsOkAndHolds(values::Bytes("bar")));
 }
@@ -215,8 +215,8 @@ TEST_P(ReadProtoFieldsTest, Enum) {
   const EnumType* enum_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeEnumType(enum_descriptor, &enum_type));
 
-  EXPECT_THAT(ReadField("test_enum", FieldFormat_Format_DEFAULT_FORMAT,
-                        enum_type, Value::Enum(enum_type, 0)),
+  EXPECT_THAT(ReadField("test_enum", FieldFormat::DEFAULT_FORMAT, enum_type,
+                        Value::Enum(enum_type, 0)),
               IsOkAndHolds(Value::Enum(enum_type, 2)));
 }
 
@@ -246,16 +246,15 @@ TEST_P(ReadProtoFieldsTest, EnumOutOfRange) {
   ZETASQL_ASSERT_OK(type_factory_.MakeEnumType(enum_descriptor, &enum_type));
 
   EXPECT_THAT(
-      ReadField("test_enum", FieldFormat_Format_DEFAULT_FORMAT, enum_type,
+      ReadField("test_enum", FieldFormat::DEFAULT_FORMAT, enum_type,
                 Value::Enum(enum_type, 0), bytes),
       StatusIs(zetasql_base::OUT_OF_RANGE,
                HasSubstr("Failed to interpret value for field "
                          "zetasql_test.KitchenSinkPB.test_enum: 1000")));
 
-  EXPECT_THAT(
-      ReadField("test_enum", FieldFormat_Format_DEFAULT_FORMAT, enum_type,
-                Value::Enum(enum_type, 0), bytes, /*get_has_bit=*/true),
-      IsOkAndHolds(values::Bool(true)));
+  EXPECT_THAT(ReadField("test_enum", FieldFormat::DEFAULT_FORMAT, enum_type,
+                        Value::Enum(enum_type, 0), bytes, /*get_has_bit=*/true),
+              IsOkAndHolds(values::Bool(true)));
 }
 
 TEST_P(ReadProtoFieldsTest, Message) {
@@ -268,7 +267,7 @@ TEST_P(ReadProtoFieldsTest, Message) {
   const ProtoType* proto_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(nested_descriptor, &proto_type));
 
-  auto result = ReadField("nested_value", FieldFormat_Format_DEFAULT_FORMAT,
+  auto result = ReadField("nested_value", FieldFormat::DEFAULT_FORMAT,
                           proto_type, Value::Null(proto_type));
 
   ZETASQL_ASSERT_OK(result.status());
@@ -289,7 +288,7 @@ TEST_P(ReadProtoFieldsTest, Group) {
   const ProtoType* proto_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(group_descriptor, &proto_type));
 
-  auto result = ReadField("optionalgroup", FieldFormat_Format_DEFAULT_FORMAT,
+  auto result = ReadField("optionalgroup", FieldFormat::DEFAULT_FORMAT,
                           proto_type, Value::Null(proto_type));
 
   ZETASQL_ASSERT_OK(result.status());
@@ -303,33 +302,33 @@ TEST_P(ReadProtoFieldsTest, Group) {
 
 TEST_P(ReadProtoFieldsTest, Date) {
   kitchen_sink_.set_date(10);
-  EXPECT_THAT(ReadField("date", FieldFormat_Format_DATE, types::DateType(),
-                        values::Date(0)),
-              IsOkAndHolds(values::Date(10)));
+  EXPECT_THAT(
+      ReadField("date", FieldFormat::DATE, types::DateType(), values::Date(0)),
+      IsOkAndHolds(values::Date(10)));
 }
 
 TEST_P(ReadProtoFieldsTest, DateOutOfRange) {
   kitchen_sink_.set_date(-100 * 1000 * 1000);
-  EXPECT_THAT(ReadField("date", FieldFormat_Format_DATE, types::DateType(),
-                        values::Date(0)),
-              StatusIs(zetasql_base::OUT_OF_RANGE,
-                       HasSubstr("Failed to interpret value for field "
-                                 "zetasql_test.KitchenSinkPB.date with field "
-                                 "format DATE: -100000000")));
+  EXPECT_THAT(
+      ReadField("date", FieldFormat::DATE, types::DateType(), values::Date(0)),
+      StatusIs(zetasql_base::OUT_OF_RANGE,
+               HasSubstr("Failed to interpret value for field "
+                         "zetasql_test.KitchenSinkPB.date with field "
+                         "format DATE: -100000000")));
 
   kitchen_sink_.set_date(100 * 1000 * 1000);
-  EXPECT_THAT(ReadField("date", FieldFormat_Format_DATE, types::DateType(),
-                        values::Date(0)),
-              StatusIs(zetasql_base::OUT_OF_RANGE,
-                       HasSubstr("Failed to interpret value for field "
-                                 "zetasql_test.KitchenSinkPB.date with field "
-                                 "format DATE: 100000000")));
+  EXPECT_THAT(
+      ReadField("date", FieldFormat::DATE, types::DateType(), values::Date(0)),
+      StatusIs(zetasql_base::OUT_OF_RANGE,
+               HasSubstr("Failed to interpret value for field "
+                         "zetasql_test.KitchenSinkPB.date with field "
+                         "format DATE: 100000000")));
 }
 
 TEST_P(ReadProtoFieldsTest, NullDateDecimal) {
   // For DATE_DECIMAL, 0 represents NULL.
   kitchen_sink_.set_date_decimal(0);
-  EXPECT_THAT(ReadField("date_decimal", FieldFormat_Format_DATE_DECIMAL,
+  EXPECT_THAT(ReadField("date_decimal", FieldFormat::DATE_DECIMAL,
                         types::DateType(), values::Date(10)),
               IsOkAndHolds(values::NullDate()));
 }
@@ -337,8 +336,8 @@ TEST_P(ReadProtoFieldsTest, NullDateDecimal) {
 TEST_P(ReadProtoFieldsTest, DecodeDateDecimalFails) {
   kitchen_sink_.set_date_decimal(-100 * 1000 * 1000);
   EXPECT_THAT(
-      ReadField("date_decimal", FieldFormat_Format_DATE_DECIMAL,
-                types::DateType(), values::Date(10)),
+      ReadField("date_decimal", FieldFormat::DATE_DECIMAL, types::DateType(),
+                values::Date(10)),
       StatusIs(zetasql_base::OUT_OF_RANGE,
                HasSubstr("Failed to interpret value for field "
                          "zetasql_test.KitchenSinkPB.date_decimal with "
@@ -347,7 +346,7 @@ TEST_P(ReadProtoFieldsTest, DecodeDateDecimalFails) {
 
 TEST_P(ReadProtoFieldsTest, DateDecimal) {
   kitchen_sink_.set_date_decimal(19700111);
-  EXPECT_THAT(ReadField("date_decimal", FieldFormat_Format_DATE_DECIMAL,
+  EXPECT_THAT(ReadField("date_decimal", FieldFormat::DATE_DECIMAL,
                         types::DateType(), values::Date(0)),
               IsOkAndHolds(values::Date(10)));
 }
@@ -355,7 +354,7 @@ TEST_P(ReadProtoFieldsTest, DateDecimal) {
 TEST_P(ReadProtoFieldsTest, TimestampSeconds) {
   kitchen_sink_.set_timestamp_seconds(10);
   EXPECT_THAT(
-      ReadField("timestamp_seconds", FieldFormat_Format_TIMESTAMP_SECONDS,
+      ReadField("timestamp_seconds", FieldFormat::TIMESTAMP_SECONDS,
                 types::TimestampType(), values::TimestampFromUnixMicros(0)),
       IsOkAndHolds(values::TimestampFromUnixMicros(10 * 1000 * 1000)));
 }
@@ -363,7 +362,7 @@ TEST_P(ReadProtoFieldsTest, TimestampSeconds) {
 TEST_P(ReadProtoFieldsTest, TimestampSecondsOutOfRange) {
   kitchen_sink_.set_timestamp_seconds(std::numeric_limits<int64_t>::lowest());
   EXPECT_THAT(
-      ReadField("timestamp_seconds", FieldFormat_Format_TIMESTAMP_SECONDS,
+      ReadField("timestamp_seconds", FieldFormat::TIMESTAMP_SECONDS,
                 types::TimestampType(), values::TimestampFromUnixMicros(0)),
       StatusIs(
           zetasql_base::OUT_OF_RANGE,
@@ -373,7 +372,7 @@ TEST_P(ReadProtoFieldsTest, TimestampSecondsOutOfRange) {
 
   kitchen_sink_.set_timestamp_seconds(std::numeric_limits<int64_t>::max());
   EXPECT_THAT(
-      ReadField("timestamp_seconds", FieldFormat_Format_TIMESTAMP_SECONDS,
+      ReadField("timestamp_seconds", FieldFormat::TIMESTAMP_SECONDS,
                 types::TimestampType(), values::TimestampFromUnixMicros(0)),
       StatusIs(
           zetasql_base::OUT_OF_RANGE,
@@ -385,7 +384,7 @@ TEST_P(ReadProtoFieldsTest, TimestampSecondsOutOfRange) {
 TEST_P(ReadProtoFieldsTest, TimestampMillis) {
   kitchen_sink_.set_timestamp_millis(10);
   EXPECT_THAT(
-      ReadField("timestamp_millis", FieldFormat_Format_TIMESTAMP_MILLIS,
+      ReadField("timestamp_millis", FieldFormat::TIMESTAMP_MILLIS,
                 types::TimestampType(), values::TimestampFromUnixMicros(0)),
       IsOkAndHolds(values::TimestampFromUnixMicros(10 * 1000)));
 }
@@ -393,7 +392,7 @@ TEST_P(ReadProtoFieldsTest, TimestampMillis) {
 TEST_P(ReadProtoFieldsTest, TimestampMillisOutOfRange) {
   kitchen_sink_.set_timestamp_millis(std::numeric_limits<int64_t>::lowest());
   EXPECT_THAT(
-      ReadField("timestamp_millis", FieldFormat_Format_TIMESTAMP_MILLIS,
+      ReadField("timestamp_millis", FieldFormat::TIMESTAMP_MILLIS,
                 types::TimestampType(), values::TimestampFromUnixMicros(0)),
       StatusIs(
           zetasql_base::OUT_OF_RANGE,
@@ -403,7 +402,7 @@ TEST_P(ReadProtoFieldsTest, TimestampMillisOutOfRange) {
 
   kitchen_sink_.set_timestamp_millis(std::numeric_limits<int64_t>::max());
   EXPECT_THAT(
-      ReadField("timestamp_millis", FieldFormat_Format_TIMESTAMP_MILLIS,
+      ReadField("timestamp_millis", FieldFormat::TIMESTAMP_MILLIS,
                 types::TimestampType(), values::TimestampFromUnixMicros(0)),
       StatusIs(
           zetasql_base::OUT_OF_RANGE,
@@ -415,7 +414,7 @@ TEST_P(ReadProtoFieldsTest, TimestampMillisOutOfRange) {
 TEST_P(ReadProtoFieldsTest, TimestampMicros) {
   kitchen_sink_.set_timestamp_micros(10);
   EXPECT_THAT(
-      ReadField("timestamp_micros", FieldFormat_Format_TIMESTAMP_MICROS,
+      ReadField("timestamp_micros", FieldFormat::TIMESTAMP_MICROS,
                 types::TimestampType(), values::TimestampFromUnixMicros(0)),
       IsOkAndHolds(values::TimestampFromUnixMicros(10)));
 }
@@ -423,7 +422,7 @@ TEST_P(ReadProtoFieldsTest, TimestampMicros) {
 TEST_P(ReadProtoFieldsTest, TimestampMicrosOutOfRange) {
   kitchen_sink_.set_timestamp_micros(std::numeric_limits<int64_t>::lowest());
   EXPECT_THAT(
-      ReadField("timestamp_micros", FieldFormat_Format_TIMESTAMP_MICROS,
+      ReadField("timestamp_micros", FieldFormat::TIMESTAMP_MICROS,
                 types::TimestampType(), values::TimestampFromUnixMicros(0)),
       StatusIs(
           zetasql_base::OUT_OF_RANGE,
@@ -433,7 +432,7 @@ TEST_P(ReadProtoFieldsTest, TimestampMicrosOutOfRange) {
 
   kitchen_sink_.set_timestamp_micros(std::numeric_limits<int64_t>::max());
   EXPECT_THAT(
-      ReadField("timestamp_micros", FieldFormat_Format_TIMESTAMP_MICROS,
+      ReadField("timestamp_micros", FieldFormat::TIMESTAMP_MICROS,
                 types::TimestampType(), values::TimestampFromUnixMicros(0)),
       StatusIs(
           zetasql_base::OUT_OF_RANGE,
@@ -445,7 +444,7 @@ TEST_P(ReadProtoFieldsTest, TimestampMicrosOutOfRange) {
 TEST_P(ReadProtoFieldsTest, TimestampMicrosFromUint64) {
   kitchen_sink_.set_timestamp_uint64(10);
   EXPECT_THAT(
-      ReadField("timestamp_uint64", FieldFormat_Format_TIMESTAMP_MICROS,
+      ReadField("timestamp_uint64", FieldFormat::TIMESTAMP_MICROS,
                 types::TimestampType(), values::TimestampFromUnixMicros(0)),
       IsOkAndHolds(values::TimestampFromUnixMicros(10)));
 }
@@ -453,14 +452,14 @@ TEST_P(ReadProtoFieldsTest, TimestampMicrosFromUint64) {
 TEST_P(ReadProtoFieldsTest, TimestampMicrosFromUint64BitCast) {
   kitchen_sink_.set_timestamp_uint64(std::numeric_limits<uint64_t>::max());
   EXPECT_THAT(
-      ReadField("timestamp_uint64", FieldFormat_Format_TIMESTAMP_MICROS,
+      ReadField("timestamp_uint64", FieldFormat::TIMESTAMP_MICROS,
                 types::TimestampType(), values::TimestampFromUnixMicros(0)),
       IsOkAndHolds(values::TimestampFromUnixMicros(-1)));
 }
 
 TEST_P(ReadProtoFieldsTest, Time) {
   kitchen_sink_.set_int64_val(10);
-  EXPECT_THAT(ReadField("int64_val", FieldFormat_Format_TIME_MICROS,
+  EXPECT_THAT(ReadField("int64_val", FieldFormat::TIME_MICROS,
                         types::TimeType(), values::TimeFromPacked64Micros(0)),
               IsOkAndHolds(values::TimeFromPacked64Micros(10)));
 }
@@ -468,7 +467,7 @@ TEST_P(ReadProtoFieldsTest, Time) {
 TEST_P(ReadProtoFieldsTest, TimeOutOfRange) {
   kitchen_sink_.set_int64_val(std::numeric_limits<int64_t>::max());
   EXPECT_THAT(
-      ReadField("int64_val", FieldFormat_Format_TIME_MICROS, types::TimeType(),
+      ReadField("int64_val", FieldFormat::TIME_MICROS, types::TimeType(),
                 values::TimeFromPacked64Micros(0)),
       StatusIs(zetasql_base::OUT_OF_RANGE,
                HasSubstr("Failed to interpret value for field "
@@ -478,14 +477,14 @@ TEST_P(ReadProtoFieldsTest, TimeOutOfRange) {
 
 TEST_P(ReadProtoFieldsTest, DateTime) {
   kitchen_sink_.set_int64_val(138630961515462656);
-  EXPECT_THAT(ReadField("int64_val", FieldFormat_Format_DATETIME_MICROS,
+  EXPECT_THAT(ReadField("int64_val", FieldFormat::DATETIME_MICROS,
                         types::DatetimeType(), values::NullDatetime()),
               IsOkAndHolds(values::Datetime(DatetimeValue())));
 }
 
 TEST_P(ReadProtoFieldsTest, InvalidDateTime) {
   kitchen_sink_.set_int64_val(-1000);
-  EXPECT_THAT(ReadField("int64_val", FieldFormat_Format_DATETIME_MICROS,
+  EXPECT_THAT(ReadField("int64_val", FieldFormat::DATETIME_MICROS,
                         types::DatetimeType(), values::NullDatetime()),
               StatusIs(zetasql_base::OUT_OF_RANGE,
                        HasSubstr("Failed to interpret value for field "
@@ -495,7 +494,7 @@ TEST_P(ReadProtoFieldsTest, InvalidDateTime) {
 
 TEST_P(ReadProtoFieldsTest, Uint64Datetime) {
   kitchen_sink_.set_uint64_val(138630961515462656);
-  EXPECT_THAT(ReadField("uint64_val", FieldFormat_Format_DATETIME_MICROS,
+  EXPECT_THAT(ReadField("uint64_val", FieldFormat::DATETIME_MICROS,
                         types::DatetimeType(), values::NullDatetime()),
               IsOkAndHolds(values::Datetime(DatetimeValue())));
 }
@@ -503,7 +502,7 @@ TEST_P(ReadProtoFieldsTest, Uint64Datetime) {
 TEST_P(ReadProtoFieldsTest, LargeUint64Datetime) {
   kitchen_sink_.set_uint64_val(1ULL << 60);
   EXPECT_THAT(
-      ReadField("uint64_val", FieldFormat_Format_DATETIME_MICROS,
+      ReadField("uint64_val", FieldFormat::DATETIME_MICROS,
                 types::DatetimeType(), values::NullDatetime()),
       StatusIs(zetasql_base::OUT_OF_RANGE,
                HasSubstr("Failed to interpret value for field "
@@ -514,19 +513,19 @@ TEST_P(ReadProtoFieldsTest, LargeUint64Datetime) {
 TEST_P(ReadProtoFieldsTest, GetHasBitForPresentOptionalField) {
   kitchen_sink_.set_int32_val(10);
 
-  EXPECT_THAT(ReadHasBit("int32_val", FieldFormat_Format_DEFAULT_FORMAT,
-                         types::Int32Type()),
-              IsOkAndHolds(values::Bool(true)));
+  EXPECT_THAT(
+      ReadHasBit("int32_val", FieldFormat::DEFAULT_FORMAT, types::Int32Type()),
+      IsOkAndHolds(values::Bool(true)));
 }
 
 TEST_P(ReadProtoFieldsTest, MissingOptionalField) {
-  EXPECT_THAT(ReadField("int32_val", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("int32_val", FieldFormat::DEFAULT_FORMAT,
                         types::Int32Type(), values::Int32(999)),
               IsOkAndHolds(values::Int32(999)));
 
-  EXPECT_THAT(ReadHasBit("int32_val", FieldFormat_Format_DEFAULT_FORMAT,
-                         types::Int32Type()),
-              IsOkAndHolds(values::Bool(false)));
+  EXPECT_THAT(
+      ReadHasBit("int32_val", FieldFormat::DEFAULT_FORMAT, types::Int32Type()),
+      IsOkAndHolds(values::Bool(false)));
 }
 
 TEST_P(ReadProtoFieldsTest, OptionalFieldLastValueTakesPrecedence) {
@@ -539,30 +538,30 @@ TEST_P(ReadProtoFieldsTest, OptionalFieldLastValueTakesPrecedence) {
   kitchen_sink_.SerializePartialToString(&bytes2);
 
   std::string bytes = bytes1 + bytes2;
-  EXPECT_THAT(ReadField("int32_val", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("int32_val", FieldFormat::DEFAULT_FORMAT,
                         types::Int32Type(), values::Int32(999), bytes),
               IsOkAndHolds(values::Int32(2)));
 }
 
 TEST_P(ReadProtoFieldsTest, MissingRequiredField) {
-  EXPECT_THAT(ReadField("int64_key_1", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("int64_key_1", FieldFormat::DEFAULT_FORMAT,
                         types::Int64Type(), values::Int64(999)),
               StatusIs(zetasql_base::OUT_OF_RANGE,
                        HasSubstr("Protocol buffer missing required field "
                                  "zetasql_test.KitchenSinkPB.int64_key_1")));
 
-  EXPECT_THAT(ReadHasBit("int64_key_1", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadHasBit("int64_key_1", FieldFormat::DEFAULT_FORMAT,
                          types::Int64Type()),
               IsOkAndHolds(values::Bool(false)));
 }
 
 TEST_P(ReadProtoFieldsTest, PresentRequiredField) {
   kitchen_sink_.set_int64_key_1(1);
-  EXPECT_THAT(ReadField("int64_key_1", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("int64_key_1", FieldFormat::DEFAULT_FORMAT,
                         types::Int64Type(), values::Int64(0)),
               IsOkAndHolds(values::Int64(1)));
 
-  EXPECT_THAT(ReadHasBit("int64_key_1", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadHasBit("int64_key_1", FieldFormat::DEFAULT_FORMAT,
                          types::Int64Type()),
               IsOkAndHolds(values::Bool(true)));
 }
@@ -571,82 +570,75 @@ TEST_P(ReadProtoFieldsTest, Repeated) {
   const Value ignored_default_value =
       Value::Array(types::Int32ArrayType(), {values::Int32(999)});
 
-  EXPECT_THAT(ReadField("repeated_int32_val", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("repeated_int32_val", FieldFormat::DEFAULT_FORMAT,
                         types::Int32ArrayType(), ignored_default_value),
               IsOkAndHolds(Value::Array(types::Int32ArrayType(), {})));
 
-  EXPECT_THAT(
-      ReadHasBit("repeated_int32_val", FieldFormat_Format_DEFAULT_FORMAT,
-                 types::Int32ArrayType()),
-      IsOkAndHolds(values::Bool(false)));
+  EXPECT_THAT(ReadHasBit("repeated_int32_val", FieldFormat::DEFAULT_FORMAT,
+                         types::Int32ArrayType()),
+              IsOkAndHolds(values::Bool(false)));
 
   kitchen_sink_.add_repeated_int32_val(10);
   EXPECT_THAT(
-      ReadField("repeated_int32_val", FieldFormat_Format_DEFAULT_FORMAT,
+      ReadField("repeated_int32_val", FieldFormat::DEFAULT_FORMAT,
                 types::Int32ArrayType(), ignored_default_value),
       IsOkAndHolds(Value::Array(types::Int32ArrayType(), {values::Int32(10)})));
 
-  EXPECT_THAT(
-      ReadHasBit("repeated_int32_val", FieldFormat_Format_DEFAULT_FORMAT,
-                 types::Int32ArrayType()),
-      IsOkAndHolds(values::Bool(true)));
+  EXPECT_THAT(ReadHasBit("repeated_int32_val", FieldFormat::DEFAULT_FORMAT,
+                         types::Int32ArrayType()),
+              IsOkAndHolds(values::Bool(true)));
 
   kitchen_sink_.add_repeated_int32_val(20);
   EXPECT_THAT(
-      ReadField("repeated_int32_val", FieldFormat_Format_DEFAULT_FORMAT,
+      ReadField("repeated_int32_val", FieldFormat::DEFAULT_FORMAT,
                 types::Int32ArrayType(), ignored_default_value),
       IsOkAndHolds(Value::Array(types::Int32ArrayType(),
                                 {values::Int32(10), values::Int32(20)})));
 
-  EXPECT_THAT(
-      ReadHasBit("repeated_int32_val", FieldFormat_Format_DEFAULT_FORMAT,
-                 types::Int32ArrayType()),
-      IsOkAndHolds(values::Bool(true)));
+  EXPECT_THAT(ReadHasBit("repeated_int32_val", FieldFormat::DEFAULT_FORMAT,
+                         types::Int32ArrayType()),
+              IsOkAndHolds(values::Bool(true)));
 }
 
 TEST_P(ReadProtoFieldsTest, PackedRepeated) {
   const Value ignored_default_value =
       Value::Array(types::Int32ArrayType(), {values::Int32(999)});
 
-  EXPECT_THAT(
-      ReadField("repeated_int32_packed", FieldFormat_Format_DEFAULT_FORMAT,
-                types::Int32ArrayType(), ignored_default_value),
-      IsOkAndHolds(Value::Array(types::Int32ArrayType(), {})));
+  EXPECT_THAT(ReadField("repeated_int32_packed", FieldFormat::DEFAULT_FORMAT,
+                        types::Int32ArrayType(), ignored_default_value),
+              IsOkAndHolds(Value::Array(types::Int32ArrayType(), {})));
 
-  EXPECT_THAT(
-      ReadHasBit("repeated_int32_packed", FieldFormat_Format_DEFAULT_FORMAT,
-                 types::Int32ArrayType()),
-      IsOkAndHolds(values::Bool(false)));
+  EXPECT_THAT(ReadHasBit("repeated_int32_packed", FieldFormat::DEFAULT_FORMAT,
+                         types::Int32ArrayType()),
+              IsOkAndHolds(values::Bool(false)));
 
   kitchen_sink_.add_repeated_int32_packed(10);
   EXPECT_THAT(
-      ReadField("repeated_int32_packed", FieldFormat_Format_DEFAULT_FORMAT,
+      ReadField("repeated_int32_packed", FieldFormat::DEFAULT_FORMAT,
                 types::Int32ArrayType(), ignored_default_value),
       IsOkAndHolds(Value::Array(types::Int32ArrayType(), {values::Int32(10)})));
 
-  EXPECT_THAT(
-      ReadHasBit("repeated_int32_packed", FieldFormat_Format_DEFAULT_FORMAT,
-                 types::Int32ArrayType()),
-      IsOkAndHolds(values::Bool(true)));
+  EXPECT_THAT(ReadHasBit("repeated_int32_packed", FieldFormat::DEFAULT_FORMAT,
+                         types::Int32ArrayType()),
+              IsOkAndHolds(values::Bool(true)));
 
   kitchen_sink_.add_repeated_int32_packed(20);
   EXPECT_THAT(
-      ReadField("repeated_int32_packed", FieldFormat_Format_DEFAULT_FORMAT,
+      ReadField("repeated_int32_packed", FieldFormat::DEFAULT_FORMAT,
                 types::Int32ArrayType(), ignored_default_value),
       IsOkAndHolds(Value::Array(types::Int32ArrayType(),
                                 {values::Int32(10), values::Int32(20)})));
 
-  EXPECT_THAT(
-      ReadHasBit("repeated_int32_packed", FieldFormat_Format_DEFAULT_FORMAT,
-                 types::Int32ArrayType()),
-      IsOkAndHolds(values::Bool(true)));
+  EXPECT_THAT(ReadHasBit("repeated_int32_packed", FieldFormat::DEFAULT_FORMAT,
+                         types::Int32ArrayType()),
+              IsOkAndHolds(values::Bool(true)));
 }
 
 TEST_P(ReadProtoFieldsTest, IgnoreAField) {
   // Set two fields but only read one. We should ignore the other one.
   kitchen_sink_.set_int64_key_1(1);
   kitchen_sink_.set_int64_key_2(2);
-  EXPECT_THAT(ReadField("int64_key_1", FieldFormat_Format_DEFAULT_FORMAT,
+  EXPECT_THAT(ReadField("int64_key_1", FieldFormat::DEFAULT_FORMAT,
                         types::Int64Type(), values::Int64(0)),
               IsOkAndHolds(values::Int64(1)));
 }
@@ -676,7 +668,7 @@ TEST_P(ReadProtoFieldsTest, ReadTwoFieldsAndOneMissingRequiredFieldTwice) {
   // infos[0] accesses int64_key_1, a present required field.
   ProtoFieldInfo info;
   info.descriptor = field_descriptor1;
-  info.format = FieldFormat_Format_DEFAULT_FORMAT;
+  info.format = FieldFormat::DEFAULT_FORMAT;
   info.type = types::Int64Type();
   info.default_value = Value::Int64(0);
   infos.push_back(info);
@@ -748,13 +740,13 @@ TEST_P(ReadProtoFieldsTest, SameFieldWithTwoFormats) {
 
   ProtoFieldInfo info1;
   info1.descriptor = field_descriptor;
-  info1.format = FieldFormat_Format_DEFAULT_FORMAT;
+  info1.format = FieldFormat::DEFAULT_FORMAT;
   info1.type = types::Int32Type();
   info1.default_value = values::Int32(0);
 
   ProtoFieldInfo info2;
   info2.descriptor = field_descriptor;
-  info2.format = FieldFormat_Format_DATE;
+  info2.format = FieldFormat::DATE;
   info2.type = types::DateType();
   info2.default_value = values::NullDate();
 

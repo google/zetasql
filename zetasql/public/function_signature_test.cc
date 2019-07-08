@@ -291,7 +291,7 @@ TEST(FunctionSignatureTests, FunctionSignatureTestsInternalProductMode) {
   FreestandingDeprecationWarning warning;
   warning.set_message("foo is deprecated");
   warning.mutable_deprecation_warning()->set_kind(
-      DeprecationWarning_Kind_PROTO3_FIELD_PRESENCE);
+      DeprecationWarning::PROTO3_FIELD_PRESENCE);
   ErrorLocation* location = warning.mutable_error_location();
   location->set_line(10);
   location->set_column(50);

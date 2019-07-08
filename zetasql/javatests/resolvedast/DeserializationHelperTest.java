@@ -35,6 +35,7 @@ import com.google.zetasql.ZetaSQLFunctions.SignatureArgumentKind;
 import com.google.zetasql.ZetaSQLType.ProtoTypeProto;
 import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.ZetaSQLValue.ValueProto;
+import com.google.zetasql.OneofDescriptorRefProto;
 import com.google.zetasql.Procedure;
 import com.google.zetasql.ProcedureRefProto;
 import com.google.zetasql.ResolvedColumnProto;

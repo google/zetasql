@@ -788,8 +788,8 @@ void SampleCatalog::LoadNestedCatalogs() {
 }
 
 static FreestandingDeprecationWarning CreateDeprecationWarning(
-    int id, DeprecationWarning_Kind kind =
-                DeprecationWarning_Kind_PROTO3_FIELD_PRESENCE) {
+    int id,
+    DeprecationWarning_Kind kind = DeprecationWarning::PROTO3_FIELD_PRESENCE) {
   FreestandingDeprecationWarning warning;
   const std::string foo_id = absl::StrCat("foo_", id);
   warning.set_message(absl::StrCat("Operation <foo", id, "> is deprecated"));
@@ -1065,7 +1065,7 @@ void SampleCatalog::LoadFunctions() {
   two_deprecation_warnings_signature.SetAdditionalDeprecationWarnings(
       {CreateDeprecationWarning(/*id=*/4),
        CreateDeprecationWarning(
-           /*id=*/5, DeprecationWarning_Kind_DEPRECATED_FUNCTION_SIGNATURE)});
+           /*id=*/5, DeprecationWarning::DEPRECATED_FUNCTION_SIGNATURE)});
   function->AddSignature(two_deprecation_warnings_signature);
   catalog_->AddOwnedFunction(function);
 }
@@ -2159,7 +2159,7 @@ void SampleCatalog::LoadTableValuedFunctionsWithDeprecationWarnings() {
   two_deprecation_warnings_signature.SetAdditionalDeprecationWarnings(
       {CreateDeprecationWarning(/*id=*/14),
        CreateDeprecationWarning(
-           /*id=*/15, DeprecationWarning_Kind_DEPRECATED_FUNCTION_SIGNATURE)});
+           /*id=*/15, DeprecationWarning::DEPRECATED_FUNCTION_SIGNATURE)});
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_two_deprecation_warnings"}, two_deprecation_warnings_signature,
       output_schema_two_types));

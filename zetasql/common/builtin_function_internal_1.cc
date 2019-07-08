@@ -1,0 +1,1479 @@
+//
+// Copyright 2019 ZetaSQL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+#include <ctype.h>
+
+#include <algorithm>
+#include <memory>
+#include <set>
+#include <utility>
+#include <vector>
+
+#include "zetasql/base/logging.h"
+#include "zetasql/common/builtin_function_internal.h"
+#include "zetasql/common/errors.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/cycle_detector.h"
+#include "zetasql/public/function.h"
+#include "zetasql/public/function.pb.h"
+#include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/functions/datetime.pb.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/type.pb.h"
+#include "zetasql/public/value.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
+#include "zetasql/base/case.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
+#include "zetasql/base/map_util.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status.h"
+#include "zetasql/base/status_macros.h"
+#include "zetasql/base/statusor.h"
+
+namespace zetasql {
+
+class AnalyzerOptions;
+
+using ::zetasql::functions::DateTimestampPartToSQL;
+
+using FunctionIdToNameMap = absl::flat_hash_map<FunctionSignatureId, std::string>;
+using NameToFunctionMap = std::map<std::string, std::unique_ptr<Function>>;
+
+// If std::string literal is compared against bytes, then we want the error message
+// to be more specific and helpful.
+static constexpr absl::string_view kErrorMessageCompareStringLiteralToBytes =
+    ". STRING and BYTES are different types that are not directly "
+    "comparable. To write a BYTES literal, use a b-prefixed literal "
+    "such as b'bytes value'";
+
+bool ArgumentsAreComparable(const std::vector<InputArgumentType>& arguments,
+                            const LanguageOptions& language_options,
+                            int* bad_argument_idx) {
+  *bad_argument_idx = -1;
+  for (int idx = 0; idx < arguments.size(); ++idx) {
+    if (!arguments[idx].type()->SupportsOrdering(
+            language_options, /*type_description=*/nullptr)) {
+      *bad_argument_idx = idx;
+      return false;
+    }
+  }
+  return true;
+}
+
+// Checks whether all arguments are/are not arrays depending on the value of the
+// 'is_array' flag.
+bool ArgumentsArrayType(const std::vector<InputArgumentType>& arguments,
+                        bool is_array, int* bad_argument_idx) {
+  *bad_argument_idx = -1;
+  for (int idx = 0; idx < arguments.size(); ++idx) {
+    if (arguments[idx].type()->IsArray() != is_array) {
+      *bad_argument_idx = idx;
+      return false;
+    }
+  }
+  return true;
+}
+
+// The argument <display_name> in the below ...FunctionSQL represents the
+// operator and should include space if inputs and operator needs to be space
+// separated for pretty printing.
+// TODO: Consider removing this callback, since Function now knows
+// whether it is operator, and has correct sql_name to print.
+std::string InfixFunctionSQL(const std::string& display_name,
+                        const std::vector<std::string>& inputs) {
+  std::string sql;
+  for (const std::string& text : inputs) {
+    if (!sql.empty()) {
+      absl::StrAppend(&sql, " ", absl::AsciiStrToUpper(display_name), " ");
+    }
+    // Check if input contains only alphanumeric characters or '_', in which
+    // case enclosing ( )'s are not needed.
+    if (find_if(text.begin(), text.end(), [](char c) {
+          return !(isalnum(c) || (c == '_'));
+        }) == text.end()) {
+      absl::StrAppend(&sql, text);
+    } else {
+      absl::StrAppend(&sql, "(", text, ")");
+    }
+  }
+  return sql;
+}
+std::string PreUnaryFunctionSQL(const std::string& display_name,
+                           const std::vector<std::string>& inputs) {
+  DCHECK_EQ(inputs.size(), 1);
+  return absl::StrCat(display_name, "(", inputs[0], ")");
+}
+std::string PostUnaryFunctionSQL(const std::string& display_name,
+                            const std::vector<std::string>& inputs) {
+  DCHECK_EQ(inputs.size(), 1);
+  return absl::StrCat("(", inputs[0], ")", display_name);
+}
+std::string DateAddOrSubFunctionSQL(const std::string& display_name,
+                               const std::vector<std::string>& inputs) {
+  DCHECK_EQ(inputs.size(), 3);
+  return absl::StrCat(display_name, "(", inputs[0], ", INTERVAL ", inputs[1],
+                      " ", inputs[2], ")");
+}
+
+std::string CountStarFunctionSQL(const std::vector<std::string>& inputs) {
+  DCHECK_LE(inputs.size(), 1);
+
+  if (inputs.size() == 1) {
+    return absl::StrCat("COUNT(* ", inputs[0], ")");
+  } else {
+    return "COUNT(*)";
+  }
+}
+
+std::string BetweenFunctionSQL(const std::vector<std::string>& inputs) {
+  DCHECK_EQ(inputs.size(), 3);
+  return absl::StrCat("(", inputs[0], ") BETWEEN (", inputs[1], ") AND (",
+                      inputs[2], ")");
+}
+std::string InListFunctionSQL(const std::vector<std::string>& inputs) {
+  DCHECK_GT(inputs.size(), 1);
+  std::vector<std::string> in_list(inputs.begin() + 1, inputs.end());
+  return absl::StrCat("(", inputs[0], ") IN (", absl::StrJoin(in_list, ", "),
+                      ")");
+}
+std::string CaseWithValueFunctionSQL(const std::vector<std::string>& inputs) {
+  DCHECK_GE(inputs.size(), 2);
+  DCHECK_EQ((inputs.size() - 2) % 2, 0);
+
+  std::string case_with_value;
+  absl::StrAppend(&case_with_value, "CASE (", inputs[0], ")");
+  for (int i = 1; i < inputs.size() - 1; i += 2) {
+    absl::StrAppend(&case_with_value, " WHEN (", inputs[i], ") THEN (",
+                    inputs[i + 1], ")");
+  }
+  absl::StrAppend(&case_with_value, " ELSE (", inputs[inputs.size() - 1], ")");
+  absl::StrAppend(&case_with_value, " END");
+
+  return case_with_value;
+}
+std::string CaseNoValueFunctionSQL(const std::vector<std::string>& inputs) {
+  DCHECK_GE(inputs.size(), 1);
+  DCHECK_EQ((inputs.size() - 1) % 2, 0);
+
+  std::string case_no_value;
+  absl::StrAppend(&case_no_value, "CASE");
+  for (int i = 0; i < inputs.size() - 1; i += 2) {
+    absl::StrAppend(&case_no_value, " WHEN (", inputs[i], ") THEN (",
+                    inputs[i + 1], ")");
+  }
+  absl::StrAppend(&case_no_value, " ELSE (", inputs[inputs.size() - 1], ")");
+  absl::StrAppend(&case_no_value, " END");
+
+  return case_no_value;
+}
+std::string InArrayFunctionSQL(const std::vector<std::string>& inputs) {
+  DCHECK_EQ(inputs.size(), 2);
+  return absl::StrCat("(", inputs[0], ") IN UNNEST(", inputs[1], ")");
+}
+std::string ArrayAtOffsetFunctionSQL(const std::vector<std::string>& inputs) {
+  DCHECK_EQ(inputs.size(), 2);
+  return absl::StrCat(inputs[0], "[OFFSET(", inputs[1], ")]");
+}
+std::string ArrayAtOrdinalFunctionSQL(const std::vector<std::string>& inputs) {
+  DCHECK_EQ(inputs.size(), 2);
+  return absl::StrCat(inputs[0], "[ORDINAL(", inputs[1], ")]");
+}
+std::string SafeArrayAtOffsetFunctionSQL(const std::vector<std::string>& inputs) {
+  DCHECK_EQ(inputs.size(), 2);
+  return absl::StrCat(inputs[0], "[SAFE_OFFSET(", inputs[1], ")]");
+}
+std::string SafeArrayAtOrdinalFunctionSQL(const std::vector<std::string>& inputs) {
+  DCHECK_EQ(inputs.size(), 2);
+  return absl::StrCat(inputs[0], "[SAFE_ORDINAL(", inputs[1], ")]");
+}
+std::string GenerateDateTimestampArrayFunctionSQL(
+    const std::string& function_name, const std::vector<std::string>& inputs) {
+  DCHECK(inputs.size() == 2 || inputs.size() == 4);
+  std::string sql = absl::StrCat(function_name, "(", inputs[0], ", ", inputs[1]);
+  if (inputs.size() == 4) {
+    if (inputs[2][0] == '[') {
+      // Fix the function signature text:
+      // INTERVAL [INT64] [DATE_TIME_PART] --> [INTERVAL INT64 DATE_TIME_PART]
+      DCHECK_EQ(inputs[3][0], '[');
+      absl::StrAppend(&sql, ", [INTERVAL ",
+                      inputs[2].substr(1, inputs[2].size() - 2), " ",
+                      inputs[3].substr(1, inputs[3].size() - 2), "]");
+    } else {
+      absl::StrAppend(&sql, ", INTERVAL ", inputs[2], " ", inputs[3]);
+    }
+  }
+  absl::StrAppend(&sql, ")");
+  return sql;
+}
+
+// For MakeArray we explicitly prepend the array type to the function sql, thus
+// array-type-name is expected to be passed as the first element of inputs.
+std::string MakeArrayFunctionSQL(const std::vector<std::string>& inputs) {
+  DCHECK_GT(inputs.size(), 0);
+  const std::string& type_name = inputs[0];
+  const std::vector<std::string> args(inputs.begin() + 1, inputs.end());
+  return absl::StrCat(type_name, "[", absl::StrJoin(args, ", "), "]");
+}
+
+std::string ExtractFunctionSQL(const std::vector<std::string>& inputs) {
+  DCHECK_GT(inputs.size(), 1);
+  std::string prefix = absl::StrCat("EXTRACT(", inputs[1], " FROM ", inputs[0]);
+  if (inputs.size() > 2) {
+    absl::StrAppend(&prefix, " AT TIME ZONE ", inputs[2]);
+  }
+  return absl::StrCat(prefix, ")");
+}
+
+std::string ExtractDateOrTimeFunctionSQL(const std::string& date_part,
+                                    const std::vector<std::string>& inputs) {
+  DCHECK_GT(inputs.size(), 0);
+  std::string prefix = absl::StrCat("EXTRACT(", date_part, " FROM ", inputs[0]);
+  if (inputs.size() > 1) {
+    absl::StrAppend(&prefix, " AT TIME ZONE ", inputs[1]);
+  }
+  return absl::StrCat(prefix, ")");
+}
+
+bool ArgumentIsStringLiteral(const InputArgumentType& argument) {
+  if (argument.type()->IsString() && argument.is_literal()) {
+    return true;
+  }
+  return false;
+}
+
+zetasql_base::Status CheckDateDiffArguments(
+    const std::string& function_name,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  if (arguments.size() != 3) {
+    // Let validation happen normally.  It will return an error later.
+    return ::zetasql_base::OkStatus();
+  }
+
+  // DATE_DIFF for Date only supports date parts DAY, WEEK*, MONTH, QUARTER,
+  // YEAR, ISOYEAR, ISOWEEK.  If the third argument is a literal then check the
+  // date part.
+  // TODO: Add a test where the date part is an enum via a normal
+  // function call, but not the expected enum type.
+  // The argument should be non-NULL because of
+  // Resolver::MakeDatePartEnumResolvedLiteralFromName, but check again for
+  // safety so we can't crash.
+  if (arguments[2].type()->IsEnum() && arguments[2].is_literal() &&
+      !arguments[2].is_literal_null()) {
+    switch (arguments[2].literal_value()->enum_value()) {
+      case functions::YEAR:
+      case functions::ISOYEAR:
+      case functions::QUARTER:
+      case functions::MONTH:
+      case functions::WEEK:
+      case functions::WEEK_MONDAY:
+      case functions::WEEK_TUESDAY:
+      case functions::WEEK_WEDNESDAY:
+      case functions::WEEK_THURSDAY:
+      case functions::WEEK_FRIDAY:
+      case functions::WEEK_SATURDAY:
+      case functions::ISOWEEK:
+      case functions::DAY:
+        return ::zetasql_base::OkStatus();
+      default:
+        return MakeSqlError() << function_name << " does not support the "
+                              << DateTimestampPartToSQL(
+                                     arguments[2].literal_value()->enum_value())
+                              << " date part";
+    }
+  }
+  // Let validation of other arguments happen normally.
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status CheckBitwiseOperatorArgumentsHaveSameType(
+    const std::string& operator_string,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  // We do not want non-literal arguments to implicitly coerce.  We currently
+  // have signatures for all the integer/BYTES types, so we only need to check
+  // that the arguments are both BYTES, or they are both integers and either
+  // they are both the same type or at least one is a literal.
+  if (arguments.size() != 2) {
+    // Let validation happen normally.  It will return an error later.
+    return ::zetasql_base::OkStatus();
+  }
+  if (arguments[0].type()->IsBytes() && arguments[1].type()->IsBytes()) {
+    return ::zetasql_base::OkStatus();
+  }
+  if (!arguments[0].type()->IsInteger() || !arguments[1].type()->IsInteger() ||
+      (!arguments[0].type()->Equals(arguments[1].type()) &&
+       !arguments[0].is_literal() && !arguments[1].is_literal())) {
+    return MakeSqlError()
+           << "Bitwise operator " << operator_string
+           << " requires two integer/BYTES arguments of the same type, "
+           << "but saw " << arguments[0].type()->DebugString() << " and "
+           << arguments[1].type()->DebugString();
+  }
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status CheckBitwiseOperatorFirstArgumentIsIntegerOrBytes(
+    const std::string& operator_string,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  // We do not want the first argument to implicitly coerce to integer.
+  // We currently have signatures for all the integer types and BYTES for the
+  // first argument, so we only need to check that it is an integer or BYTES
+  // and it is guaranteed to find an exact matching type for the first argument.
+  if (arguments.empty()) {
+    // Let validation happen normally.  It will return an error later.
+    return ::zetasql_base::OkStatus();
+  }
+  if (!arguments[0].type()->IsInteger() && !arguments[0].type()->IsBytes()) {
+    return MakeSqlError() << "The first argument to bitwise operator "
+                          << operator_string
+                          << " must be an integer or BYTES but saw "
+                          << arguments[0].type()->DebugString();
+  }
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status CheckDateTruncArguments(
+    const std::string& function_name,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  if (arguments.size() < 2) {
+    // Let validation happen normally.  It will return an error later.
+    return ::zetasql_base::OkStatus();
+  }
+
+  // DATE_TRUNC for Date only supports date parts DAY, WEEK, MONTH, QUARTER,
+  // YEAR.  If the second argument is a literal then check the date part.
+  if (arguments[1].type()->IsEnum() && arguments[1].is_literal()) {
+    switch (arguments[1].literal_value()->enum_value()) {
+      case functions::YEAR:
+      case functions::ISOYEAR:
+      case functions::QUARTER:
+      case functions::MONTH:
+      case functions::WEEK:
+      case functions::ISOWEEK:
+      case functions::WEEK_MONDAY:
+      case functions::WEEK_TUESDAY:
+      case functions::WEEK_WEDNESDAY:
+      case functions::WEEK_THURSDAY:
+      case functions::WEEK_FRIDAY:
+      case functions::WEEK_SATURDAY:
+      case functions::DAY:
+        return ::zetasql_base::OkStatus();
+      default:
+        return MakeSqlError() << function_name << " does not support the "
+                              << DateTimestampPartToSQL(
+                                     arguments[1].literal_value()->enum_value())
+                              << " date part";
+    }
+  }
+  // Let validation of other arguments happen normally.
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status CheckTimeTruncArguments(
+    const std::string& function_name,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  if (arguments.size() < 2) {
+    // Let validation happen normally.  It will return an error later.
+    return ::zetasql_base::OkStatus();
+  }
+
+  // TIME_TRUNC for Time only supports date parts HOUR, MINUTE, SECOND,
+  // MILLISECOND, MICROSECOND and NANOSECOD.
+  // If the second argument is a literal then check the date part.
+  if (arguments[1].type()->IsEnum() && arguments[1].is_literal()) {
+    switch (arguments[1].literal_value()->enum_value()) {
+      case functions::HOUR:
+      case functions::MINUTE:
+      case functions::SECOND:
+      case functions::MILLISECOND:
+      case functions::MICROSECOND:
+        return ::zetasql_base::OkStatus();
+      case functions::NANOSECOND:
+        if (language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
+          return ::zetasql_base::OkStatus();
+        }
+        break;
+      default:
+        break;
+    }
+    return MakeSqlError() << function_name << " does not support the "
+                          << DateTimestampPartToSQL(
+                                 arguments[1].literal_value()->enum_value())
+                          << " date part";
+  }
+  // Let validation of other arguments happen normally.
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status CheckExtractPreResolutionArguments(
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  // The first argument to the EXTRACT function cannot be a std::string literal
+  // since that causes overloading issues.  The argument can be either DATE,
+  // TIMESTAMP, or TIMESTAMP_* and a std::string literal coerces to all.
+  if (ArgumentIsStringLiteral(arguments[0])) {
+    return MakeSqlError()
+           << "EXTRACT does not support literal STRING arguments";
+  }
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status CheckExtractPostResolutionArguments(
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  if (arguments.size() > 1) {
+    ZETASQL_RET_CHECK(functions::DateTimestampPart_IsValid(
+        arguments[1].literal_value()->enum_value()));
+    functions::DateTimestampPart date_part =
+        static_cast<zetasql::functions::DateTimestampPart>(
+            arguments[1].literal_value()->enum_value());
+
+    if (arguments[0].type()->IsDate()) {
+      static std::set<functions::DateTimestampPart> valid_parts = {
+          functions::YEAR,          functions::ISOYEAR,
+          functions::QUARTER,       functions::MONTH,
+          functions::WEEK,          functions::WEEK_MONDAY,
+          functions::WEEK_TUESDAY,  functions::WEEK_WEDNESDAY,
+          functions::WEEK_THURSDAY, functions::WEEK_FRIDAY,
+          functions::WEEK_SATURDAY, functions::ISOWEEK,
+          functions::DAY,           functions::DAYOFWEEK,
+          functions::DAYOFYEAR};
+      if (!zetasql_base::ContainsKey(valid_parts, date_part)) {
+        return MakeSqlError() << ExtractingNotSupportedDatePart(
+                   "DATE", DateTimestampPartToSQL(
+                               arguments[1].literal_value()->enum_value()));
+      }
+    }
+    if (arguments[0].type()->IsTime()) {
+      static std::set<functions::DateTimestampPart> valid_parts = {
+          functions::NANOSECOND, functions::MICROSECOND, functions::MILLISECOND,
+          functions::SECOND,     functions::MINUTE,      functions::HOUR};
+      if (!zetasql_base::ContainsKey(valid_parts, date_part)) {
+        return MakeSqlError() << ExtractingNotSupportedDatePart(
+                   "TIME", DateTimestampPartToSQL(
+                               arguments[1].literal_value()->enum_value()));
+      }
+    }
+  }
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status CheckDateAddDateSubArguments(
+    const std::string& function_name,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  if (arguments.size() != 3) {
+    // Let validation happen normally.  It will return an error later.
+    return ::zetasql_base::OkStatus();
+  }
+
+  // For Date, the only supported date parts are DAY, WEEK, MONTH, QUARTER,
+  // YEAR.  For Timestamp, additional parts are supported.  If the third
+  // parameter is a literal std::string then check the date part.
+  if (arguments[2].type()->IsEnum() && arguments[2].is_literal()) {
+    switch (arguments[2].literal_value()->enum_value()) {
+      case functions::YEAR:
+      case functions::QUARTER:
+      case functions::MONTH:
+      case functions::WEEK:
+      case functions::DAY:
+        return ::zetasql_base::OkStatus();
+      default:
+        return MakeSqlError() << function_name << " does not support the "
+                              << DateTimestampPartToSQL(
+                                     arguments[2].literal_value()->enum_value())
+                              << " date part";
+    }
+  }
+  // Let validation of other arguments happen normally.
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status CheckDatetimeAddSubDiffArguments(
+    const std::string& function_name,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  if (arguments.size() != 3) {
+    // Let validation happen normally.  It will return an error later.
+    return ::zetasql_base::OkStatus();
+  }
+
+  if (arguments[2].type()->IsEnum() && arguments[2].is_literal()) {
+    switch (arguments[2].literal_value()->enum_value()) {
+      case functions::YEAR:
+      case functions::QUARTER:
+      case functions::MONTH:
+      case functions::WEEK:
+      case functions::DAY:
+      case functions::HOUR:
+      case functions::MINUTE:
+      case functions::SECOND:
+      case functions::MILLISECOND:
+      case functions::MICROSECOND:
+        return ::zetasql_base::OkStatus();
+      case functions::ISOYEAR:
+      case functions::ISOWEEK:
+      case functions::WEEK_MONDAY:
+      case functions::WEEK_TUESDAY:
+      case functions::WEEK_WEDNESDAY:
+      case functions::WEEK_THURSDAY:
+      case functions::WEEK_FRIDAY:
+      case functions::WEEK_SATURDAY:
+        if (function_name == "DATETIME_DIFF") {
+          // Only DATETIME_DIFF supports ISOYEAR, ISOWEEK, and WEEK_*, not
+          // DATETIME_ADD or DATETIME_SUB.
+          return ::zetasql_base::OkStatus();
+        }
+        break;
+      case functions::NANOSECOND:
+        if (language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
+          return ::zetasql_base::OkStatus();
+        }
+        break;
+      default:
+        break;
+    }
+    return MakeSqlError() << function_name << " does not support the "
+                          << DateTimestampPartToSQL(
+                                 arguments[2].literal_value()->enum_value())
+                          << " date part";
+  }
+  // Let validation of other arguments happen normally.
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status CheckTimestampAddTimestampSubArguments(
+    const std::string& function_name,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  if (arguments.size() != 3) {
+    // Let validation happen normally.  It will return an error later.
+    return ::zetasql_base::OkStatus();
+  }
+
+  if (arguments[2].type()->IsEnum() && arguments[2].is_literal()) {
+    switch (arguments[2].literal_value()->enum_value()) {
+      case functions::DAY:
+        if (zetasql_base::StringCaseEqual(function_name, "timestamp_add") ||
+            zetasql_base::StringCaseEqual(function_name, "timestamp_sub")) {
+          return ::zetasql_base::OkStatus();
+        }
+        break;
+      case functions::HOUR:
+      case functions::MINUTE:
+      case functions::SECOND:
+      case functions::MILLISECOND:
+      case functions::MICROSECOND:
+        return ::zetasql_base::OkStatus();
+      case functions::NANOSECOND: {
+        if (language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
+          return ::zetasql_base::OkStatus();
+        }
+        break;
+      }
+      default:
+        break;
+    }
+    return MakeSqlError() << function_name << " does not support the "
+                          << DateTimestampPartToSQL(
+                                 arguments[2].literal_value()->enum_value())
+                          << " date part";
+  }
+  // Let validation of other arguments happen normally.
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status CheckTimestampDiffArguments(
+    const std::string& function_name,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  if (arguments.size() != 3) {
+    // Let validation happen normally.  It will return an error later.
+    return ::zetasql_base::OkStatus();
+  }
+
+  // TIMESTAMP_DIFF for TIMESTAMP only supports date parts at DAY or
+  // finer granularity.
+  if (arguments[2].type()->IsEnum() && arguments[2].is_literal()) {
+    switch (arguments[2].literal_value()->enum_value()) {
+      case functions::DAY:
+        if (zetasql_base::StringCaseEqual(function_name, "timestamp_diff")) {
+          return ::zetasql_base::OkStatus();
+        }
+        break;
+      case functions::HOUR:
+      case functions::MINUTE:
+      case functions::SECOND:
+      case functions::MILLISECOND:
+      case functions::MICROSECOND:
+        return ::zetasql_base::OkStatus();
+      case functions::NANOSECOND: {
+        if (language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
+          return ::zetasql_base::OkStatus();
+        }
+        break;
+      }
+      default:
+        // Other parts are unsupported.
+        break;
+    }
+    return MakeSqlError() << function_name << " does not support the "
+                          << DateTimestampPartToSQL(
+                                 arguments[2].literal_value()->enum_value())
+                          << " date part";
+  }
+  // Let validation of other arguments happen normally.
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status CheckTimestampTruncArguments(
+    const std::string& function_name,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  if (arguments.size() != 2) {
+    // Let validation happen normally.  It will return an error later.
+    return ::zetasql_base::OkStatus();
+  }
+  if (arguments[1].type()->IsEnum() && arguments[1].is_literal()) {
+    switch (arguments[1].literal_value()->enum_value()) {
+      case functions::YEAR:
+      case functions::ISOYEAR:
+      case functions::QUARTER:
+      case functions::MONTH:
+      case functions::WEEK:
+      case functions::ISOWEEK:
+      case functions::WEEK_MONDAY:
+      case functions::WEEK_TUESDAY:
+      case functions::WEEK_WEDNESDAY:
+      case functions::WEEK_THURSDAY:
+      case functions::WEEK_FRIDAY:
+      case functions::WEEK_SATURDAY:
+      case functions::DAY:
+      case functions::HOUR:
+      case functions::MINUTE:
+      case functions::SECOND:
+      case functions::MILLISECOND:
+      case functions::MICROSECOND:
+        return ::zetasql_base::OkStatus();
+      case functions::NANOSECOND: {
+        if (language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
+          return ::zetasql_base::OkStatus();
+        }
+        break;
+      }
+      default:
+        break;
+    }
+    return MakeSqlError() << function_name << " does not support the "
+                          << DateTimestampPartToSQL(
+                                 arguments[1].literal_value()->enum_value())
+                          << " date part";
+  }
+  // Let validation of other arguments happen normally.
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status CheckGenerateDateArrayArguments(
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  if (arguments.size() != 4) {
+    // GENERATE_DATE_ARRAY(start, end, INTERVAL int) is not valid; if the
+    // interval is present, the date part must be as well.
+    if (arguments.size() != 2) {
+      return MakeSqlError()
+             << "Expected either GENERATE_DATE_ARRAY(start, end) or "
+                "GENERATE_DATE_ARRAY(start, end, INTERVAL int [date_part])";
+    }
+    return ::zetasql_base::OkStatus();
+  }
+
+  // For Date, the only supported date parts are DAY, WEEK, MONTH, QUARTER,
+  // YEAR.
+  if (arguments[3].is_literal()) {
+    switch (arguments[3].literal_value()->enum_value()) {
+      case functions::YEAR:
+      case functions::QUARTER:
+      case functions::MONTH:
+      case functions::WEEK:
+      case functions::DAY:
+        return ::zetasql_base::OkStatus();
+      default:
+        break;
+    }
+    return MakeSqlError() << "GENERATE_DATE_ARRAY does not support the "
+                          << DateTimestampPartToSQL(
+                                 arguments[3].literal_value()->enum_value())
+                          << " date part";
+  }
+  // Let validation of other arguments happen normally.
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status CheckGenerateTimestampArrayArguments(
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  if (arguments.size() != 4) {
+    // Wrong number of arguments; let validation continue normally.
+    return ::zetasql_base::OkStatus();
+  }
+
+  if (arguments[3].is_literal()) {
+    switch (arguments[3].literal_value()->enum_value()) {
+      case functions::MICROSECOND:
+      case functions::MILLISECOND:
+      case functions::SECOND:
+      case functions::MINUTE:
+      case functions::HOUR:
+      case functions::DAY:
+        return ::zetasql_base::OkStatus();
+      case functions::NANOSECOND:
+        if (language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
+          return ::zetasql_base::OkStatus();
+        }
+        break;
+      default:
+        break;
+    }
+    return MakeSqlError() << "GENERATE_TIMESTAMP_ARRAY does not support the "
+                          << DateTimestampPartToSQL(
+                                 arguments[3].literal_value()->enum_value())
+                          << " date part";
+  }
+  // Let validation of other arguments happen normally.
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status CheckJsonArguments(const std::vector<InputArgumentType>& arguments,
+                                const LanguageOptions& options) {
+  if (arguments.size() != 2) {
+    // Let validation happen normally. The resolver will return an error
+    // later.
+    return ::zetasql_base::OkStatus();
+  }
+  if (!arguments[1].is_literal() && !arguments[1].is_untyped() &&
+      !arguments[1].is_query_parameter()) {
+    return MakeSqlError()
+           << "JSONPath must be a std::string literal or query parameter";
+  }
+
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status CheckIsSupportedKeyType(
+    absl::string_view function_name,
+    const std::set<std::string>& supported_key_types, int key_type_argument_index,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  if (arguments.size() <= key_type_argument_index) {
+    // Wrong number of arguments; let validation happen normally.
+    return ::zetasql_base::OkStatus();
+  }
+
+  ZETASQL_RET_CHECK_LE(key_type_argument_index, 1);
+  const absl::string_view argument_index_name =
+      key_type_argument_index == 0 ? "First" : "Second";
+
+  const InputArgumentType& argument = arguments[key_type_argument_index];
+  if (!argument.is_literal() && !argument.is_query_parameter()) {
+    return MakeSqlError() << argument_index_name
+                          << " argument (key type) in function "
+                          << function_name
+                          << " must be a std::string literal or query parameter";
+  }
+
+  // If the type is wrong (or no type is assigned), or the argument is a query
+  // parameter, let validation continue.
+  if (!argument.type()->IsString() || !argument.is_literal()) {
+    return ::zetasql_base::OkStatus();
+  }
+
+  // Check the key type for std::string literals.
+  const std::string& key_type = argument.literal_value()->string_value();
+  if (!zetasql_base::ContainsKey(supported_key_types, key_type)) {
+    const std::string key_type_list =
+        supported_key_types.size() == 1
+            ? absl::StrCat("'", *supported_key_types.begin(), "'")
+            : absl::StrCat(
+                  "one of ",
+                  absl::StrJoin(
+                      supported_key_types, ", ",
+                      [](std::string* out, const absl::string_view key_type) {
+                        absl::StrAppend(out, "'", key_type, "'");
+                      }));
+    return MakeSqlError() << argument_index_name
+                          << " argument (key type) in function "
+                          << function_name << " must be " << key_type_list
+                          << ", but is '" << key_type << "'";
+  }
+  return ::zetasql_base::OkStatus();
+}
+
+const std::set<std::string>& GetSupportedKeyTypes() {
+  static const auto* kSupportedKeyTypes =
+      new std::set<std::string>{"AEAD_AES_GCM_256"};
+  return *kSupportedKeyTypes;
+}
+
+const std::set<std::string>& GetSupportedRawKeyTypes() {
+  static const auto* kSupportedKeyTypes =
+      new std::set<std::string>{"AES_GCM", "AES_CBC_PKCS"};
+  return *kSupportedKeyTypes;
+}
+
+bool IsStringLiteralComparedToBytes(const InputArgumentType& lhs_arg,
+                                    const InputArgumentType& rhs_arg) {
+  return (lhs_arg.type()->IsString() && lhs_arg.is_literal() &&
+          rhs_arg.type()->IsBytes()) ||
+         (lhs_arg.type()->IsBytes() && rhs_arg.type()->IsString() &&
+          rhs_arg.is_literal());
+}
+
+std::string NoMatchingSignatureForCaseNoValueFunction(
+    const std::string& qualified_function_name,
+    const std::vector<InputArgumentType>& arguments, ProductMode product_mode) {
+  std::string error_message =
+      absl::StrCat("No matching signature for ", qualified_function_name);
+  // Even number arguments represent WHEN expresssions and must be BOOL, except
+  // for the last argument (which is an ELSE argument).  Other arguments must
+  // all be coercible to a common supertype.
+  //
+  // We use ordered sets so that the order of types in error messages is
+  // deterministic.
+  std::set<std::string, zetasql_base::StringCaseLess> non_bool_when_types;
+  std::set<std::string, zetasql_base::StringCaseLess> then_else_types;
+  for (int i = 0; i < arguments.size(); ++i) {
+    if (i % 2 == 0 && i < arguments.size() - 1) {
+      // This must be a BOOL expression.  If not, remember it.
+      if (!arguments[i].type()->IsBool()) {
+        zetasql_base::InsertIfNotPresent(
+            &non_bool_when_types,
+            arguments[i].type()->ShortTypeName(product_mode));
+      }
+      continue;
+    }
+    // Otherwise, all THEN/ELSE types must be commonly coercible.  Ignore
+    // untyped arguments since they can (mostly) coerce to any type.
+    if (!arguments[i].is_untyped()) {
+      zetasql_base::InsertIfNotPresent(&then_else_types,
+                              arguments[i].type()->ShortTypeName(product_mode));
+    }
+  }
+  if (!non_bool_when_types.empty()) {
+    absl::StrAppend(&error_message,
+                    "; all WHEN argument types must be BOOL but found: ",
+                    absl::StrJoin(non_bool_when_types, ", "));
+  }
+  // Note that we can get a false positive in cases where the argument types
+  // are different but coercible (i.e., INT32 and INT64).  If this becomes
+  // a confusing issue in practice then we can tweak this logic further.
+  if (then_else_types.size() > 1) {
+    absl::StrAppend(&error_message,
+                    "; all THEN/ELSE arguments must be coercible to a common "
+                    "type but found: ",
+                    absl::StrJoin(then_else_types, ", "));
+  }
+  std::string argument_types;
+  for (int idx = 0; idx < arguments.size(); ++idx) {
+    if (idx % 2 == 0) {
+      if (idx < arguments.size() - 1) {
+        // WHEN, so add leading '('
+        absl::StrAppend(&argument_types, " (");
+      } else {
+        absl::StrAppend(&argument_types, " ");
+      }
+      absl::StrAppend(&argument_types,
+                      arguments[idx].UserFacingName(product_mode));
+    } else {
+      // THEN, so add trailing ')'
+      absl::StrAppend(&argument_types, " ",
+                      arguments[idx].UserFacingName(product_mode), ")");
+    }
+  }
+  absl::StrAppend(&error_message,
+                  "; actual argument types (WHEN THEN) ELSE:", argument_types);
+  return error_message;
+}
+
+std::string NoMatchingSignatureForInFunction(
+    const std::string& qualified_function_name,
+    const std::vector<InputArgumentType>& arguments, ProductMode product_mode) {
+  bool is_string_literal_compared_to_bytes = false;
+  const InputArgumentType lhs_argument = arguments[0];
+  InputArgumentTypeSet rhs_argument_set;
+  for (int idx = 1; idx < arguments.size(); ++idx) {
+    rhs_argument_set.Insert(arguments[idx]);
+    is_string_literal_compared_to_bytes |=
+        IsStringLiteralComparedToBytes(lhs_argument, arguments[idx]);
+  }
+  std::string error_message =
+      absl::StrCat("No matching signature for ", qualified_function_name,
+                   " for argument types ", lhs_argument.DebugString(), " and ",
+                   rhs_argument_set.ToString());
+  if (is_string_literal_compared_to_bytes) {
+    absl::StrAppend(&error_message, kErrorMessageCompareStringLiteralToBytes);
+  }
+  return error_message;
+}
+
+std::string NoMatchingSignatureForInArrayFunction(
+    const std::string& qualified_function_name,
+    const std::vector<InputArgumentType>& arguments, ProductMode product_mode) {
+  std::string error_message =
+      Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
+          qualified_function_name, arguments, product_mode);
+  const InputArgumentType lhs_arg = arguments[0];
+  const InputArgumentType rhs_arg = arguments[1];
+  bool is_string_literal_compared_to_bytes = false;
+  // The rhs can be an untyped or an array type. This is enforced in
+  // CheckInArrayArguments.
+  if (rhs_arg.type()->IsArray()) {
+    const Type* element_type = rhs_arg.type()->AsArray()->element_type();
+    if ((lhs_arg.type()->IsString() && lhs_arg.is_literal() &&
+         element_type->IsBytes()) ||
+        (lhs_arg.type()->IsBytes() && rhs_arg.is_literal() &&
+         element_type->IsString())) {
+      is_string_literal_compared_to_bytes = true;
+    }
+  }
+  if (is_string_literal_compared_to_bytes) {
+    absl::StrAppend(&error_message, kErrorMessageCompareStringLiteralToBytes);
+  }
+  return error_message;
+}
+
+std::string NoMatchingSignatureForComparisonOperator(
+    const std::string& operator_name,
+    const std::vector<InputArgumentType>& arguments, ProductMode product_mode) {
+  std::string error_message =
+      Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
+          operator_name, arguments, product_mode);
+  if (IsStringLiteralComparedToBytes(arguments[0], arguments[1])) {
+    absl::StrAppend(&error_message, kErrorMessageCompareStringLiteralToBytes);
+  }
+  return error_message;
+}
+
+std::string NoMatchingSignatureForFunctionUsingInterval(
+    const std::string& qualified_function_name,
+    const std::vector<InputArgumentType>& arguments, ProductMode product_mode,
+    int index_of_interval_argument) {
+  // index_of_interval_argument is the index of the INTERVAL expression in the
+  // function's argument list. For example, it is 1 for DATE_SUB(DATE, INTERVAL
+  // INT64 DATE_TIME_PART), and it is 2 for GENERATE_DATE_ARRAY(DATE, DATE,
+  // INTERVAL INT64 DATE_TIME_PART).
+  if (arguments.size() < index_of_interval_argument + 2) {
+    // No INTERVAL expression was resolved. This can happen if the INTERVAL
+    // expression is optional and unspecified in the function call.
+    return Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
+        qualified_function_name, arguments, product_mode);
+  }
+  // The INTERVAL expression was resolved and flattened as 2 arguments in the
+  // argument list.
+  std::vector<std::string> argument_texts;
+  argument_texts.reserve(arguments.size() - 1);
+  for (int i = 0; i < index_of_interval_argument; ++i) {
+    argument_texts.push_back(arguments[i].UserFacingName(product_mode));
+  }
+  argument_texts.push_back(absl::StrCat(
+      "INTERVAL ",
+      arguments[index_of_interval_argument].UserFacingName(product_mode), " ",
+      arguments[index_of_interval_argument + 1].UserFacingName(product_mode)));
+  for (int i = index_of_interval_argument + 2; i < arguments.size(); ++i) {
+    argument_texts.push_back(arguments[i].UserFacingName(product_mode));
+  }
+  return absl::StrCat(
+      "No matching signature for ", qualified_function_name,
+      " for argument types: ", absl::StrJoin(argument_texts, ", "));
+}
+
+std::string NoMatchingSignatureForDateOrTimeAddOrSubFunction(
+    const std::string& qualified_function_name,
+    const std::vector<InputArgumentType>& arguments, ProductMode product_mode) {
+  return NoMatchingSignatureForFunctionUsingInterval(
+      qualified_function_name, arguments, product_mode,
+      /*index_of_interval_argument=*/1);
+}
+
+std::string NoMatchingSignatureForGenerateDateOrTimestampArrayFunction(
+    const std::string& qualified_function_name,
+    const std::vector<InputArgumentType>& arguments, ProductMode product_mode) {
+  return NoMatchingSignatureForFunctionUsingInterval(
+      qualified_function_name, arguments, product_mode,
+      /*index_of_interval_argument=*/2);
+}
+
+// Supports 'ArgumentType' of either InputArgumentType or FunctionArgumentType.
+//
+// Example return values:
+//   DATE_TIME_PART FROM TIMESTAMP
+//   DATE FROM TIMESTAMP
+//   TIME FROM TIMESTAMP
+//   DATETIME FROM TIMESTAMP
+//   DATE_TIME_PART FROM TIMESTAMP AT TIME ZONE STRING
+//   DATETIME FROM TIMESTAMP [AT TIME ZONE STRING]
+//
+// 'include_bracket' indicates whether or not the 'AT TIME ZONE' argument
+// is enclosed in brackets to indicate that the clause is optional.
+// The input 'arguments' must be a valid signature for EXTRACT.
+//
+// If 'explicit_datepart_name' is non-empty, then the signature must not
+// have a date part argument.  Otherwise, the signature must have a date
+// part argument.
+//
+// For $extract, the date part argument is present in 'arguments', and
+// 'explicit_datepart_name' is empty.
+//
+// For $extract_date, $extract_time, and $extract_datetime, the date part
+// argument is *not* present in 'arguments', and 'explicit_datepart_name'
+// is non-empty.
+template <class ArgumentType>
+std::string GetExtractFunctionSignatureString(
+    const std::string& explicit_datepart_name,
+    const std::vector<ArgumentType>& arguments, ProductMode product_mode,
+    bool include_bracket) {
+  // The 0th argument is the one we are extracting the date part from.
+  const std::string source_type_string(arguments[0].UserFacingName(product_mode));
+  std::string datepart_string;
+  std::string timezone_string;
+  if (explicit_datepart_name.empty()) {
+    // The date part argument is present in 'arguments', so arguments[1]
+    // is the date part and arguments[2] (if present) is the time zone.
+    //
+    // DCHECK validated - given the non-standard function call syntax for
+    // EXTRACT, the parser enforces 2 or 3 arguments in the language.
+    DCHECK(arguments.size() == 2 || arguments.size() == 3);
+    // Expected invariant - the 1th argument is the date part argument.
+    DCHECK(arguments[1].type()->Equivalent(types::DatePartEnumType()));
+    datepart_string = arguments[1].UserFacingName(product_mode);
+    if (arguments.size() == 3) {
+      timezone_string = arguments[2].UserFacingName(product_mode);
+    }
+  } else {
+    // The date part is populated from 'explicit_datepart_name' and the
+    // date part argument is not present in 'arguments', so arguments[1]
+    // (if present) is the time zone.
+    //
+    // DCHECK validated - given the non-standard function call syntax for
+    // EXTRACT, the parser enforces 2 or 3 arguments in the language and
+    // the date part argument has been omitted from this signature (i.e.,
+    // $extract_date, etc.).
+    DCHECK(arguments.size() == 1 || arguments.size() == 2);
+    datepart_string = explicit_datepart_name;
+    // If present, the 1th argument is the optional timezone argument.
+    if (arguments.size() == 2) {
+      timezone_string = arguments[1].UserFacingName(product_mode);
+    }
+  }
+
+  std::string out;
+  absl::StrAppend(
+      &out, datepart_string, " FROM ", source_type_string,
+      (timezone_string.empty()
+           ? ""
+           : absl::StrCat(" ", (include_bracket ? "[" : ""), "AT TIME ZONE ",
+                          timezone_string, (include_bracket ? "]" : ""))));
+  return out;
+}
+
+std::string NoMatchingSignatureForExtractFunction(
+    const std::string& explicit_datepart_name, const std::string& qualified_function_name,
+    const std::vector<InputArgumentType>& arguments, ProductMode product_mode) {
+  std::string msg("No matching signature for function EXTRACT for argument types: ");
+  absl::StrAppend(&msg, GetExtractFunctionSignatureString(
+                            explicit_datepart_name, arguments, product_mode,
+                            /*include_bracket=*/false));
+  return msg;
+}
+
+std::string ExtractSupportedSignatures(const std::string& explicit_datepart_name,
+                                  const LanguageOptions& language_options,
+                                  const Function& function) {
+  std::string supported_signatures;
+  for (const FunctionSignature& signature : function.signatures()) {
+    // Ignore deprecated signatures, and signatures that include
+    // unsupported data types.
+    if (signature.HasUnsupportedType(language_options)) {
+      // We must check for unsupported types since some engines do not
+      // support the DATETIME/TIME types yet.
+      continue;
+    }
+    if (!supported_signatures.empty()) {
+      absl::StrAppend(&supported_signatures, "; ");
+    }
+    absl::StrAppend(
+        &supported_signatures, "EXTRACT(",
+        GetExtractFunctionSignatureString(
+            explicit_datepart_name, signature.arguments(),
+            language_options.product_mode(), true /* include_bracket */),
+        ")");
+  }
+  return supported_signatures;
+}
+
+std::string EmptySupportedSignatures(const LanguageOptions& language_options,
+                                const Function& function) {
+  return std::string();
+}
+
+zetasql_base::Status CheckArgumentsSupportEquality(
+    const std::string& comparison_name,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  for (int idx = 0; idx < arguments.size(); ++idx) {
+    if (!arguments[idx].type()->SupportsEquality(language_options)) {
+      return MakeSqlError()
+             << comparison_name << " is not defined for arguments of type "
+             << arguments[idx].DebugString();
+    }
+  }
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status CheckArgumentsSupportComparison(
+    const std::string& comparison_name,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  int bad_argument_idx;
+  if (ArgumentsAreComparable(arguments, language_options, &bad_argument_idx)) {
+    return ::zetasql_base::OkStatus();
+  }
+  return MakeSqlError() << comparison_name
+                        << " is not defined for arguments of type "
+                        << arguments[bad_argument_idx].DebugString();
+}
+
+zetasql_base::Status CheckMinMaxGreatestLeastArguments(
+    const std::string& function_name,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  ZETASQL_RETURN_IF_ERROR(CheckArgumentsSupportComparison(function_name, arguments,
+                                                  language_options));
+  // If we got here then the arguments are (pairwise) comparable.  But the
+  // MIN/MAX/GREATEST/LEAST functions do not support ARRAYs because they have
+  // weird behavior if the arrays contain elements that are NULLs or NaNs.
+  // This is because these functions are defined in terms of >/< operators,
+  // and >/< operators do not provide a total order when arrays contain
+  // elements that are NULLs/NaNs.
+  //
+  // For example, the following pair of arrays are clearly not equal, but both
+  // the > and < comparisons return NULL for this pair:
+  //
+  // [1, NULL, 2]
+  // [1, NULL, 3]
+  //
+  // >/< comparisons also return NULL for:
+  //
+  // [1, NULL, 3]
+  // [1, 2, 3]
+  //
+  // Similarly, both > and < comparisons return FALSE for this pair:
+  //
+  // [1, NaN, 2]
+  // [1, NaN, 3]
+  //
+  // As well as for this pair:
+  //
+  // [1, NaN, 3]
+  // [1, 2, 3]
+  //
+  for (int idx = 0; idx < arguments.size(); ++idx) {
+    if (arguments[idx].type()->IsArray()) {
+      return MakeSqlError()
+             << function_name << " is not defined for arguments of type "
+             << arguments[idx].DebugString();
+    }
+  }
+  return zetasql_base::OkStatus();
+}
+
+zetasql_base::Status CheckFirstArgumentSupportsEquality(
+    const std::string& comparison_name,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  if (arguments.empty() ||
+      arguments[0].type()->SupportsEquality(language_options)) {
+    return ::zetasql_base::OkStatus();
+  }
+  return MakeSqlError() << comparison_name
+                        << " is not defined for arguments of type "
+                        << arguments[0].DebugString();
+}
+
+zetasql_base::Status CheckArrayAggArguments(
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  int bad_argument_idx;
+  if (!ArgumentsArrayType(arguments, false /* is_array */, &bad_argument_idx)) {
+    return MakeSqlError() << "The argument to ARRAY_AGG must not be an array "
+                          << "type but was "
+                          << arguments[bad_argument_idx].DebugString();
+  }
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status CheckArrayConcatArguments(
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  int bad_argument_idx;
+  if (!ArgumentsArrayType(arguments, true /* is_array */, &bad_argument_idx)) {
+    return MakeSqlError()
+           << "The argument to ARRAY_CONCAT (or ARRAY_CONCAT_AGG) "
+           << "must be an array type but was "
+           << arguments[bad_argument_idx].DebugString();
+  }
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status CheckInArrayArguments(
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  ZETASQL_RET_CHECK_EQ(arguments.size(), 2);
+
+  // Untyped parameter can be coerced to any type.
+  bool array_is_untyped_parameter = arguments[1].is_untyped_query_parameter();
+
+  if (!array_is_untyped_parameter && !arguments[1].type()->IsArray()) {
+    return MakeSqlError()
+           << "Second argument of IN UNNEST must be an array but was "
+           << arguments[1].DebugString();
+  }
+
+  if (!arguments[0].type()->SupportsEquality(language_options)) {
+    return MakeSqlError() << "First argument to IN UNNEST of type "
+                          << arguments[0].DebugString()
+                          << " does not support equality comparison";
+  }
+
+  if (!array_is_untyped_parameter &&
+      !arguments[1].type()->AsArray()->element_type()->SupportsEquality(
+          language_options)) {
+    return MakeSqlError()
+           << "Second argument to IN UNNEST of type "
+           << arguments[1].DebugString()
+           << " is not supported because array element type is not "
+              "equality comparable";
+  }
+
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status CheckRangeBucketArguments(
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  if (arguments.size() != 2) {
+    // Let validation happen normally. It will return an error later.
+    return ::zetasql_base::OkStatus();
+  }
+
+  if (!arguments[0].type()->SupportsOrdering(language_options,
+                                             /*type_description=*/nullptr)) {
+    return MakeSqlError() << "First argument to RANGE_BUCKET of type "
+                          << arguments[0].type()->ShortTypeName(
+                                 language_options.product_mode())
+                          << " does not support ordering";
+  }
+
+  if (arguments[1].type()->IsArray()) {
+    if (!arguments[1].type()->AsArray()->element_type()->SupportsOrdering(
+            language_options, /*type_description=*/nullptr)) {
+      return MakeSqlError()
+             << "Second argument to RANGE_BUCKET of type "
+             << arguments[1].type()->ShortTypeName(
+                    language_options.product_mode())
+             << " is not supported because array element type does not support "
+             << "ordering";
+    }
+  } else {
+    // Untyped parameter can be coerced to any type.
+    if (!arguments[1].is_untyped_query_parameter()) {
+      return MakeSqlError()
+             << "Second argument of RANGE_BUCKET must be an array but was "
+             << arguments[1].type()->ShortTypeName(
+                    language_options.product_mode());
+    }
+  }
+
+  return zetasql_base::OkStatus();
+}
+
+// Returns true if an arithmetic operation has a floating point type as its
+// input.
+bool HasFloatingPointArgument(const std::vector<InputArgumentType>& arguments) {
+  for (const InputArgumentType& argument : arguments) {
+    if (argument.type()->IsFloatingPoint()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Returns true if an arithmetic operation has a numeric point type as its
+// input.
+bool HasNumericTypeArgument(const std::vector<InputArgumentType>& arguments) {
+  for (const InputArgumentType& argument : arguments) {
+    if (argument.type()->kind() == TYPE_NUMERIC) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Compute the result type for TOP_COUNT and TOP_SUM.
+// The output type is
+//   ARRAY<
+//     STRUCT<`value` <arguments[0].type()>,
+//            `<field2_name>` <arguments[1].type()> > >
+zetasql_base::StatusOr<const Type*> ComputeResultTypeForTopStruct(
+    const std::string& field2_name, Catalog* catalog, TypeFactory* type_factory,
+    CycleDetector* cycle_detector,
+    const std::vector<InputArgumentType>& arguments,
+    const AnalyzerOptions& analyzer_options) {
+  ZETASQL_RET_CHECK_GE(arguments.size(), 2);
+  const Type* element_type;
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeStructType(
+      {{"value", arguments[0].type()}, {field2_name, arguments[1].type()}},
+      &element_type));
+  const Type* result_type = nullptr;
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeArrayType(element_type, &result_type));
+  return result_type;
+}
+
+void InsertCreatedFunction(NameToFunctionMap* functions,
+                           const ZetaSQLBuiltinFunctionOptions& options,
+                           Function* function_in) {
+  std::unique_ptr<Function> function(function_in);
+  const LanguageOptions& language_options = options.language_options;
+
+  if (language_options.product_mode() == PRODUCT_EXTERNAL &&
+      !function->function_options().allow_external_usage) {
+    return;
+  }
+
+  if (!function->function_options().check_all_required_features_are_enabled(
+          language_options.GetEnabledLanguageFeatures())) {
+    return;
+  }
+
+  // Identify each signature that is unsupported via options checks.
+  absl::flat_hash_set<int> signatures_to_remove;
+  for (int idx = 0; idx < function->signatures().size(); ++idx) {
+    const FunctionSignature& signature = function->signatures()[idx];
+    if ((!options.include_function_ids.empty() &&
+         !zetasql_base::ContainsKey(
+             options.include_function_ids,
+             static_cast<FunctionSignatureId>(signature.context_id()))) ||
+        zetasql_base::ContainsKey(
+            options.exclude_function_ids,
+            static_cast<FunctionSignatureId>(signature.context_id())) ||
+        signature.HasUnsupportedType(language_options)) {
+      signatures_to_remove.insert(idx);
+    }
+  }
+
+  // Remove unsupported signatures.
+  if (!signatures_to_remove.empty()) {
+    if (signatures_to_remove.size() == function->signatures().size()) {
+      // We are removing all signatures, so we do not need to insert
+      // this function.
+      VLOG(4) << "Function excluded: " << function->Name();
+      return;
+    }
+
+    std::vector<FunctionSignature> new_signatures;
+    for (int idx = 0; idx < function->signatures().size(); ++idx) {
+      const FunctionSignature& signature = function->signatures()[idx];
+      if (!zetasql_base::ContainsKey(signatures_to_remove, idx)) {
+        new_signatures.push_back(signature);
+      } else {
+        VLOG(4) << "FunctionSignature excluded: "
+                << signature.DebugString(function->Name());
+      }
+    }
+    function->ResetSignatures(new_signatures);
+  }
+
+  // Not using IdentifierPathToString to avoid escaping things like '$add' and
+  // 'if'.
+  const std::string& name = absl::StrJoin(function->FunctionNamePath(), ".");
+  CHECK(functions->emplace(name, std::move(function)).second)
+      << name << "already exists";
+}
+
+void InsertFunctionImpl(
+    NameToFunctionMap* functions,
+    const ZetaSQLBuiltinFunctionOptions& options,
+    const std::vector<std::string>& name, Function::Mode mode,
+    const std::vector<FunctionSignatureOnHeap>& signatures_on_heap,
+    const FunctionOptions& function_options) {
+  std::vector<FunctionSignature> signatures;
+  signatures.reserve(signatures_on_heap.size());
+  for (const FunctionSignatureOnHeap& signature_on_heap : signatures_on_heap) {
+    signatures.emplace_back(signature_on_heap.Get());
+  }
+
+  FunctionOptions local_options = function_options;
+  if (mode == Function::AGGREGATE) {
+    // By default, all built-in aggregate functions can be used as analytic
+    // functions.
+    local_options.supports_over_clause = true;
+    local_options.window_ordering_support = FunctionOptions::ORDER_OPTIONAL;
+    local_options.supports_window_framing = true;
+  }
+
+  InsertCreatedFunction(
+      functions, options,
+      new Function(name, Function::kZetaSQLFunctionGroupName, mode,
+                   signatures, local_options));
+}
+
+void InsertFunction(NameToFunctionMap* functions,
+                    const ZetaSQLBuiltinFunctionOptions& options,
+                    const std::string& name, Function::Mode mode,
+                    const std::vector<FunctionSignatureOnHeap>& signatures,
+                    const FunctionOptions& function_options) {
+  InsertFunctionImpl(functions, options, {name}, mode, signatures,
+                     function_options);
+}
+
+// Note: This function is intentionally overloaded to prevent a default
+// FunctionOptions object to be allocated on the callers stack.
+void InsertFunction(NameToFunctionMap* functions,
+                    const ZetaSQLBuiltinFunctionOptions& options,
+                    const std::string& name, Function::Mode mode,
+                    const std::vector<FunctionSignatureOnHeap>& signatures) {
+  InsertFunctionImpl(functions, options, {name}, mode, signatures,
+                     FunctionOptions());
+}
+
+void InsertNamespaceFunction(
+    NameToFunctionMap* functions,
+    const ZetaSQLBuiltinFunctionOptions& options, const std::string& space,
+    const std::string& name, Function::Mode mode,
+    const std::vector<FunctionSignatureOnHeap>& signatures,
+    const FunctionOptions& function_options) {
+  InsertFunctionImpl(functions, options, {space, name}, mode, signatures,
+                     function_options);
+}
+
+}  // namespace zetasql

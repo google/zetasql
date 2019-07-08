@@ -177,7 +177,7 @@ class {{node.name}} {{node.class_final}} : public {{node.parent}} {
 
  # else
   void add_{{field.name}}({{field.element_arg_type}} v) {
-    {{field.member_name}}.push_back({{field.element_storage_type}}(v));
+    {{field.member_name}}.push_back(v);
   }
   void set_{{field.name}}({{field.setter_arg_type}} v) {
     {{field.member_name}} = v;

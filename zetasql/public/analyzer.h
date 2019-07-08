@@ -35,11 +35,13 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/node_hash_set.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "zetasql/base/status.h"
+#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 

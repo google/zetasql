@@ -1695,6 +1695,13 @@ zetasql_base::Status ConvertDateToString(int32_t date, std::string* out) {
   return ::zetasql_base::OkStatus();
 }
 
+zetasql_base::StatusOr<absl::CivilDay> ConvertDateToCivilDay(int32_t date) {
+  if (!IsValidDate(date)) {
+    return MakeEvalError() << "Invalid date value: " << date;
+  }
+  return EpochDaysToCivilDay(date);
+}
+
 zetasql_base::Status ConvertTimestampToStringWithoutTruncation(int64_t timestamp,
                                                        TimestampScale scale,
                                                        absl::TimeZone timezone,
@@ -2042,6 +2049,14 @@ zetasql_base::Status ConvertStringToDate(absl::string_view str, int32_t* date) {
   *date = CivilDayToEpochDays(civil_day);
   DCHECK(IsValidDate(*date));  // Invariant if MakeDate() succeeds.
   return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::StatusOr<int32_t> ConvertCivilDayToDate(absl::CivilDay civil_day) {
+  const int32_t date = CivilDayToEpochDays(civil_day);
+  if (!IsValidDate(date)) {
+    return MakeEvalError() << "Date value out of range: '" << civil_day << "'";
+  }
+  return date;
 }
 
 zetasql_base::Status ConvertStringToTimestamp(absl::string_view str,

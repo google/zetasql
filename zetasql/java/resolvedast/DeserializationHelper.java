@@ -38,6 +38,7 @@ import com.google.zetasql.ZetaSQLType.TypeProto;
 import com.google.zetasql.Model;
 import com.google.zetasql.ModelRefProto;
 import com.google.zetasql.NotFoundException;
+import com.google.zetasql.OneofDescriptorRefProto;
 import com.google.zetasql.Procedure;
 import com.google.zetasql.ProcedureRefProto;
 import com.google.zetasql.ResolvedColumnProto;

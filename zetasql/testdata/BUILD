@@ -25,6 +25,7 @@ filegroup(
         "bad_parse_schema.proto",
         "bad_parse_schema_simple.proto",
         "bad_test_schema.proto",
+        "external_extension.proto",
         "referenced_schema.proto",
         "referencing_schema.proto",
         "test_schema.proto",

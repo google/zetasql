@@ -927,12 +927,10 @@ void Unparser::visitASTSelect(const ASTSelect* node, void* data) {
     print("DISTINCT");
   }
 
-  // Visit all children except hint(), which we processed above.
-  // We can't just use visitASTChildren(node, data) because we need to insert
-  // the DISTINCT modifier after the hint node and before everything else.
   for (int i = 0; i < node->num_children(); ++i) {
     const ASTNode* child = node->child(i);
-    if (child != node->hint()) {
+    if (child != node->hint()
+        ) {
       child->Accept(this, data);
     }
   }
@@ -1921,6 +1919,23 @@ void Unparser::visitASTUpdateStatement(const ASTUpdateStatement* node,
   }
 }
 
+void Unparser::visitASTTruncateStatement(const ASTTruncateStatement* node,
+                                         void* data) {
+  println();
+  print("TRUNCATE TABLE");
+
+  node->name()->Accept(this, data);
+
+  if (node->where() != nullptr) {
+    println();
+    println("WHERE");
+    {
+      Formatter::Indenter indenter(&formatter_);
+      node->where()->Accept(this, data);
+    }
+  }
+}
+
 void Unparser::visitASTMergeAction(const ASTMergeAction* node, void* data) {
   println();
   switch (node->action_type()) {
@@ -2263,6 +2278,22 @@ void Unparser::visitASTDropColumnAction(const ASTDropColumnAction* node,
   node->column_name()->Accept(this, data);
 }
 
+void Unparser::visitASTAlterColumnOptionsAction(
+    const ASTAlterColumnOptionsAction* node, void* data) {
+  print("ALTER COLUMN");
+  node->column_name()->Accept(this, data);
+  print("SET OPTIONS");
+  node->options_list()->Accept(this, data);
+}
+
+void Unparser::visitASTAlterColumnTypeAction(
+    const ASTAlterColumnTypeAction* node, void* data) {
+  print("ALTER COLUMN");
+  node->column_name()->Accept(this, data);
+  print("SET DATA TYPE");
+  node->schema()->Accept(this, data);
+}
+
 void Unparser::visitASTAlterActionList(const ASTAlterActionList* node,
                                        void* data) {
   Formatter::Indenter indenter(&formatter_);
@@ -2453,6 +2484,14 @@ void Unparser::visitASTSingleAssignment(const ASTSingleAssignment* node,
   node->expression()->Accept(this, data);
 }
 
+void Unparser::visitASTParameterAssignment(const ASTParameterAssignment* node,
+                                           void* data) {
+  print("SET");
+  node->parameter()->Accept(this, data);
+  print("=");
+  node->expression()->Accept(this, data);
+}
+
 void Unparser::visitASTAssignmentFromStruct(const ASTAssignmentFromStruct* node,
                                   void* data) {
   print("SET");
@@ -2503,6 +2542,11 @@ void Unparser::visitASTBreakStatement(const ASTBreakStatement* node,
 void Unparser::visitASTContinueStatement(const ASTContinueStatement* node,
                                          void* data) {
   print(node->GetKeywordText());
+}
+
+void Unparser::visitASTReturnStatement(const ASTReturnStatement* node,
+                                       void* data) {
+  print("RETURN");
 }
 
 void Unparser::visitASTCreateProcedureStatement(

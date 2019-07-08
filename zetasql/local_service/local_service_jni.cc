@@ -23,6 +23,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
 #include <memory>
 
 #include "zetasql/local_service/local_service_grpc.h"
@@ -85,9 +86,9 @@ static jobject WrapFileDescriptor(JNIEnv* env, const int fd) {
   return javafd;
 }
 
-extern "C" JNIEXPORT jobject JNICALL
-Java_com_google_zetasql_JniChannelProvider_getSocketChannel(
-    JNIEnv* env) {
+}  // namespace
+
+jobject GetSocketChannel(JNIEnv* env) {
   jclass impl = env->FindClass("sun/nio/ch/SocketChannelImpl");
   if (impl == nullptr) {
     return nullptr;
@@ -122,6 +123,54 @@ Java_com_google_zetasql_JniChannelProvider_getSocketChannel(
   return sc;
 }
 
-}  // namespace
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad_zetasql_local_service(JavaVM* vm,
+                                                           void* reserved) {
+  JNIEnv* env = nullptr;
+  if (vm->GetEnv((void**)&env, JNI_VERSION_1_1) != JNI_OK) {
+    return -1;
+  }
+
+  jclass system = env->FindClass("java/lang/System");
+  if (system == nullptr) {
+    return -1;
+  }
+
+  jmethodID gp = env->GetStaticMethodID(
+      system, "getProperty", "(Ljava/lang/String;)Ljava/lang/String;");
+  if (gp == nullptr) {
+    return -1;
+  }
+
+  jstring classname = (jstring)env->CallStaticObjectMethod(
+      system, gp, env->NewStringUTF("zetasql.local_service.class"));
+  if (classname == nullptr) {
+    return -1;
+  }
+
+  const char* classnamestr = env->GetStringUTFChars(classname, nullptr);
+  jclass clazz = env->FindClass(classnamestr);
+  env->ReleaseStringUTFChars(classname, classnamestr);
+  classnamestr = nullptr;
+  if (clazz == nullptr) {
+    return -1;
+  }
+
+  static JNINativeMethod methods[] = {
+      {(char*)"getSocketChannel", (char*)"()Ljava/nio/channels/SocketChannel;",
+       (void*)GetSocketChannel},
+  };
+  if (env->RegisterNatives(clazz, methods,
+                           sizeof(methods) / sizeof(JNINativeMethod)) !=
+      JNI_OK) {
+    return -1;
+  }
+
+  return env->GetVersion();
+}
+
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
+  return JNI_OnLoad_zetasql_local_service(vm, reserved);
+}
+
 }  // namespace local_service
 }  // namespace zetasql

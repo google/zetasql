@@ -17,7 +17,9 @@
 #include "zetasql/base/bits.h"
 
 #include <string.h>
+
 #include <algorithm>
+#include <iostream>
 #include <vector>
 
 #include "gtest/gtest.h"

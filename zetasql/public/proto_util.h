@@ -30,16 +30,22 @@
 
 namespace zetasql {
 
-// Get the default value for a proto field, respecting zetasql annotations.
-// The <type> must be the same type as would be computed for <field>
-// using GetProtoFieldTypeAndDefault or ProtoType::GetProtoFieldType (with
-// <ignore_annotations> = false). For required fields, returns an invalid
-// default_value. For repeated fields, returns an empty array for default_value.
-//
+// Get the default value for a proto field. All zetasql annotations will be
+// respected for proto2 fields. The 'use_defaults' and 'use_field_defaults'
+// annotations will be ignored for proto3 fields. The <type> must be the same
+// type as would be computed for <field> using GetProtoFieldTypeAndDefault or
+// ProtoType::GetProtoFieldType (with <ignore_annotations> = false). For
+// required fields, returns an invalid default_value. For repeated fields,
+// returns an empty array for default_value.
+zetasql_base::Status GetProtoFieldDefaultV2(const google::protobuf::FieldDescriptor* field,
+                                    const Type* type, Value* default_value);
+// DEPRECATED: Callers should move to using GetProtoFieldDefaultV2. Note that
+// GetProtoFieldDefaultV2 does not respect the 'use_defaults' and
+// 'use_field_defaults' annotations for proto3 fields.
 zetasql_base::Status GetProtoFieldDefault(const google::protobuf::FieldDescriptor* field,
                                   const Type* type, Value* default_value);
-// DEPRECATED: Callers should move to the form above. <use_obsolete_timestamp>
-// must be false.
+// DEPRECATED: Callers should move to GetProtoFieldDefaultV2.
+// <use_obsolete_timestamp> must be false.
 zetasql_base::Status GetProtoFieldDefault(const google::protobuf::FieldDescriptor* field,
                                   const Type* type, bool use_obsolete_timestamp,
                                   Value* default_value);

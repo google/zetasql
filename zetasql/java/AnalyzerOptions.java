@@ -168,10 +168,12 @@ public class AnalyzerOptions implements Serializable {
     return inScopeExpressionColumn == null ? null : inScopeExpressionColumn.getValue();
   }
 
+  @SuppressWarnings("GoodTime") // should accept a java.time.ZoneId
   public void setDefaultTimezone(String timezone) {
     builder.setDefaultTimezone(timezone);
   }
 
+  @SuppressWarnings("GoodTime") // should return a java.time.ZoneId
   public String getDefaultTimezone() {
     return builder.getDefaultTimezone();
   }

@@ -69,6 +69,7 @@
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -768,8 +769,11 @@ static zetasql_base::StatusOr<bool> IsRawFieldExtraction(
   // value of this node is not null.
   return !type_with_annotations->Equals(node->type()) ||
          (node->type()->IsSimpleType() &&
-          !ProtoType::GetUseDefaultsExtension(node->field_descriptor()) &&
-          node->default_value().is_valid() && !node->default_value().is_null());
+          node->expr()->type()->AsProto()->descriptor()->file()->syntax() !=
+              google::protobuf::FileDescriptor::SYNTAX_PROTO3 &&
+             !ProtoType::GetUseDefaultsExtension(node->field_descriptor()) &&
+             node->default_value().is_valid() &&
+             !node->default_value().is_null());
 }
 
 zetasql_base::Status SQLBuilder::VisitResolvedGetProtoField(
@@ -839,6 +843,46 @@ zetasql_base::Status SQLBuilder::VisitResolvedGetProtoField(
 
   PushQueryFragment(node, text);
   return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status SQLBuilder::VisitResolvedReplaceField(
+    const ResolvedReplaceField* node) {
+  std::string text;
+  absl::StrAppend(&text, "REPLACE_FIELDS(");
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> proto_expr,
+                   ProcessNode(node->expr()));
+  absl::StrAppend(&text, proto_expr->GetSQL(), ",");
+  std::string replace_field_item_sql;
+  for (const std::unique_ptr<const ResolvedReplaceFieldItem>& replace_item :
+       node->replace_field_item_list()) {
+    if (!replace_field_item_sql.empty()) {
+      absl::StrAppend(&replace_field_item_sql, ",");
+    }
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> modified_value,
+                     ProcessNode(replace_item->expr()));
+    absl::StrAppend(&replace_field_item_sql, modified_value->GetSQL(), " AS ");
+    std::string field_path_sql;
+    for (const google::protobuf::FieldDescriptor* field :
+         replace_item->proto_field_path()) {
+      if (!field_path_sql.empty()) {
+        absl::StrAppend(&field_path_sql, ".");
+      }
+      if (field->is_extension()) {
+        absl::StrAppend(&field_path_sql, "(");
+      }
+      absl::StrAppend(&field_path_sql, field->is_extension()
+                                           ? field->full_name()
+                                           : field->name());
+      if (field->is_extension()) {
+        absl::StrAppend(&field_path_sql, ")");
+      }
+    }
+    absl::StrAppend(&replace_field_item_sql, field_path_sql);
+  }
+  absl::StrAppend(&text, replace_field_item_sql, ")");
+
+  PushQueryFragment(node, text);
+  return zetasql_base::OkStatus();
 }
 
 zetasql_base::Status SQLBuilder::VisitResolvedColumnRef(const ResolvedColumnRef* node) {
@@ -998,13 +1042,20 @@ zetasql_base::StatusOr<std::string> SQLBuilder::GetHintListString(
   return absl::StrJoin(hint_list_sql, ", ");
 }
 
+zetasql_base::Status SQLBuilder::AppendOptions(
+    const std::vector<std::unique_ptr<const ResolvedOption>>& option_list,
+    std::string* sql) {
+  ZETASQL_ASSIGN_OR_RETURN(const std::string options_string,
+                   GetHintListString(option_list));
+  absl::StrAppend(sql, " OPTIONS(", options_string, ")");
+  return zetasql_base::OkStatus();
+}
+
 zetasql_base::Status SQLBuilder::AppendOptionsIfPresent(
     const std::vector<std::unique_ptr<const ResolvedOption>>& option_list,
     std::string* sql) {
   if (!option_list.empty()) {
-    ZETASQL_ASSIGN_OR_RETURN(const std::string options_string,
-                     GetHintListString(option_list));
-    absl::StrAppend(sql, " OPTIONS(", options_string, ")");
+    ZETASQL_RETURN_IF_ERROR(AppendOptions(option_list, sql));
   }
   return zetasql_base::OkStatus();
 }
@@ -2477,7 +2528,7 @@ zetasql_base::StatusOr<std::string> SQLBuilder::ProcessCreateTableStmtBase(
   if (process_column_definitions) {
     absl::StrAppend(&sql, "(");
     std::vector<std::string> table_elements;
-    // Go through each column and generate the SQL correponding to it.
+    // Go through each column and generate the SQL corresponding to it.
     for (const auto& c : node->column_definition_list()) {
       std::string table_element = absl::StrCat(ToIdentifierLiteral(c->name()), " ");
       ZETASQL_RETURN_IF_ERROR(
@@ -2712,8 +2763,21 @@ zetasql_base::Status SQLBuilder::VisitResolvedCreateIndexStmt(
   // Dummy access so that we can pass CheckFieldsAccessed().
   ZETASQL_RET_CHECK(table_scan->table() != nullptr);
 
-  for (const ResolvedColumn& column : table_scan->column_list()) {
-    SetPathForColumn(column, ToIdentifierLiteral(column.name()));
+  if (table_scan->table()->IsValueTable()) {
+    if (table_scan->column_list_size() > 0) {
+      // Set the path of the value column as the table name. This is consistent
+      // with the spec in (broken link).
+      SetPathForColumn(table_scan->column_list(0), table_scan->table()->Name());
+      for (int i = 1; i < table_scan->column_list_size(); i++) {
+        SetPathForColumn(
+            table_scan->column_list(i),
+            ToIdentifierLiteral(table_scan->column_list(i).name()));
+      }
+    }
+  } else {
+    for (const ResolvedColumn& column : table_scan->column_list()) {
+      SetPathForColumn(column, ToIdentifierLiteral(column.name()));
+    }
   }
 
   if (!node->unnest_expressions_list().empty()) {
@@ -2733,6 +2797,11 @@ zetasql_base::Status SQLBuilder::VisitResolvedCreateIndexStmt(
             &sql, " WITH OFFSET ",
             ToIdentifierLiteral(index_unnest_expression->array_offset_column()
                                     ->column().name()));
+        SetPathForColumn(
+            index_unnest_expression->array_offset_column()->column(),
+            ToIdentifierLiteral(index_unnest_expression->array_offset_column()
+                                    ->column()
+                                    .name()));
       }
       absl::StrAppend(&sql, "\n");
     }
@@ -2753,7 +2822,7 @@ zetasql_base::Status SQLBuilder::VisitResolvedCreateIndexStmt(
     if (resolved_expr == nullptr) {
       // The index key is on the table column, array element column, or offset
       // column.
-      cols.push_back(absl::StrCat(item->column_ref()->column().name(),
+      cols.push_back(absl::StrCat(GetColumnPath(item->column_ref()->column()),
                                   item->descending() ? " DESC" : ""));
       continue;
     }
@@ -3762,6 +3831,25 @@ zetasql_base::StatusOr<std::string> SQLBuilder::GetAlterActionSQL(
                                   ->option_list()));
         alter_action_sql.push_back(
             absl::StrCat("SET OPTIONS(", options_string, ") "));
+      } break;
+      case RESOLVED_ADD_COLUMN_ACTION: {
+        const auto* add_action = alter_action->GetAs<ResolvedAddColumnAction>();
+        const auto* column_definition = add_action->column_definition();
+        std::string add_column =
+            absl::StrCat("ADD COLUMN ",
+                         add_action->is_if_not_exists() ? "IF NOT EXISTS " : "",
+                         column_definition->name(), " ");
+        ZETASQL_RETURN_IF_ERROR(AppendColumnSchema(
+            column_definition->type(), column_definition->is_hidden(),
+            column_definition->annotations(),
+            column_definition->generated_column_info(), &add_column));
+        alter_action_sql.push_back(std::move(add_column));
+      } break;
+      case RESOLVED_DROP_COLUMN_ACTION: {
+        auto* drop_action = alter_action->GetAs<ResolvedDropColumnAction>();
+        alter_action_sql.push_back(absl::StrCat(
+            "DROP COLUMN ", drop_action->is_if_exists() ? "IF EXISTS " : "",
+            drop_action->name()));
       } break;
       default:
         ZETASQL_RET_CHECK_FAIL() << "Unexpected AlterAction: "

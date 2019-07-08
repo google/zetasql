@@ -236,6 +236,17 @@ static std::string ToStringImpl(const google::protobuf::FieldDescriptor* field) 
   return field->is_extension() ?
       absl::StrCat("[", field->full_name(), "]"): field->name();
 }
+static std::string ToStringVectorFieldDescriptor(const std::vector<const google::protobuf::FieldDescriptor*>& field_vector) {
+  std::string output;
+  for (const google::protobuf::FieldDescriptor* field : field_vector) {
+    if (!output.empty()) {
+      absl::StrAppend(&output, ".");
+    }
+    absl::StrAppend(&output, ToStringImpl(field));
+  }
+  return output;
+}
+
 static std::string ToStringImpl(const ResolvedColumn& column) {
   return column.DebugString();
 }
@@ -504,6 +515,44 @@ static zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*> RestoreF
   return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
       << "Field number " << proto.number() << " is neither a field or a known "
       << "extension of " << proto_type->DebugString();
+}
+
+static zetasql_base::Status SaveToImpl(const google::protobuf::OneofDescriptor* oneof_desc,
+                               FileDescriptorSetMap* file_descriptor_set_map,
+                               OneofDescriptorRefProto* oneof_proto) {
+  TypeFactory factory;
+  const ProtoType* containing_proto_type;
+  ZETASQL_RETURN_IF_ERROR(factory.MakeProtoType(oneof_desc->containing_type(),
+                                        &containing_proto_type));
+  TypeProto containing_proto;
+  ZETASQL_RETURN_IF_ERROR(
+      containing_proto_type->SerializeToProtoAndDistinctFileDescriptors(
+          &containing_proto, file_descriptor_set_map));
+  *oneof_proto->mutable_containing_proto() = containing_proto.proto_type();
+  oneof_proto->set_index(oneof_desc->index());
+  return ::zetasql_base::OkStatus();
+}
+
+static zetasql_base::StatusOr<const google::protobuf::OneofDescriptor*> RestoreFromImpl(
+    const OneofDescriptorRefProto& oneof_proto,
+    const ResolvedNode::RestoreParams& params) {
+  TypeProto containing_proto;
+  containing_proto.set_type_kind(TypeKind::TYPE_PROTO);
+  *containing_proto.mutable_proto_type() = oneof_proto.containing_proto();
+  const Type* containing_type;
+  ZETASQL_RETURN_IF_ERROR(params.type_factory->DeserializeFromProtoUsingExistingPools(
+      containing_proto, params.pools, &containing_type));
+  ZETASQL_RET_CHECK(containing_type != nullptr);
+  const ProtoType* containing_proto_type = containing_type->AsProto();
+  ZETASQL_RET_CHECK(containing_proto_type != nullptr);
+  if (oneof_proto.index() < 0 ||
+      oneof_proto.index() >=
+          containing_proto_type->descriptor()->oneof_decl_count()) {
+    return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+           << "Invalid Oneof index " << oneof_proto.index() << " in message "
+           << containing_proto_type->DebugString();
+  }
+  return containing_proto_type->descriptor()->oneof_decl(oneof_proto.index());
 }
 
 static zetasql_base::Status SaveToImpl(

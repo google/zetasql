@@ -75,7 +75,7 @@ enum class ImportType {
 %skeleton "lalr1.cc"
 %define parser_class_name {BisonParserImpl}
 
-%error-verbose
+%define parse.error verbose
 
 // This uses a generated "position" and "location" class, where "location" is a
 // range of positions. "position" keeps track of the file name, line and column.
@@ -237,7 +237,7 @@ enum class ImportType {
 // AMBIGUOUS CASE 3: SAFE_CAST(...)
 // --------------------------------
 // The SAFE_CAST keyword is non-reserved and can be used as an identifier. This
-// causes a shift/reduce conflict between keyword_as_identifier and the rule
+// causes one shift/reduce conflict between keyword_as_identifier and the rule
 // that starts with "SAFE_CAST" "(". It is resolved in favor of the SAFE_CAST(
 // rule, which is the desired behavior.
 //
@@ -295,9 +295,15 @@ enum class ImportType {
 // In order to use OUT/INOUT as identifier, it needs to be escaped with
 // backticks.
 //
-// Expected shift/reduce conflicts as described above.
+// Total expected shift/reduce conflicts as described above:
+//   2: EXPRESSION SUBQUERY
+//   1: INSERT VALUES
+//   1: SAFE CAST
+//   3: CREATE TABLE FUNCTION
+//   2: CREATE TABLE CONSTRAINTS
+//   1: REPLACE FIELDS
+//   4: CREATE PROCEDURE
 %expect 14
-
 
 %union {
   bool boolean;
@@ -692,6 +698,7 @@ using zetasql::ASTInsertStatement;
 %token KW_REPLACE "REPLACE"
 %token KW_REPLACE_FIELDS "REPLACE_FIELDS"
 %token KW_RESTRICT "RESTRICT"
+%token KW_RETURN "RETURN"
 %token KW_RETURNS "RETURNS"
 %token KW_REVOKE "REVOKE"
 %token KW_ROLLBACK "ROLLBACK"
@@ -716,6 +723,8 @@ using zetasql::ASTInsertStatement;
 %token KW_TIME "TIME"
 %token KW_TIMESTAMP "TIMESTAMP"
 %token KW_TRANSACTION "TRANSACTION"
+%token KW_TRUNCATE "TRUNCATE"
+%token KW_TYPE "TYPE"
 %token KW_UNIQUE "UNIQUE"
 %token KW_UPDATE "UPDATE"
 %token KW_VALUE "VALUE"
@@ -830,6 +839,7 @@ using zetasql::ASTInsertStatement;
 %type <node> if_statement_unclosed
 %type <node> break_statement
 %type <node> continue_statement
+%type <node> return_statement
 %type <node> loop_statement
 %type <node> while_statement
 %type <node> import_statement
@@ -931,6 +941,7 @@ using zetasql::ASTInsertStatement;
 %type <node> options_list_prefix
 %type <node> order_by_clause_prefix
 %type <node> ordering_expression
+%type <expression> named_parameter_expression
 %type <expression> parameter_expression
 %type <expression> parenthesized_expression
 %type <node> parenthesized_in_rhs
@@ -974,7 +985,6 @@ using zetasql::ASTInsertStatement;
 %type <node> select_list
 %type <node> select_list_prefix
 %type <node> select_list_with_trailing_comma
-%type <node> set_transaction_statement
 %type <node> show_statement
 %type <node> simple_column_schema_inner
 %type <node> sql_function_body
@@ -1021,6 +1031,7 @@ using zetasql::ASTInsertStatement;
 %type <node> terminated_statement
 %type <node> transaction_mode
 %type <node> transaction_mode_list
+%type <node> truncate_statement
 %type <node> tvf
 %type <node> tvf_argument
 %type <node> tvf_prefix
@@ -1207,7 +1218,7 @@ unterminated_script_statement:
     | loop_statement
     | break_statement
     | continue_statement
-    | set_statement
+    | return_statement
     ;
 
 terminated_statement:
@@ -1223,8 +1234,9 @@ sql_statement_body:
     | assert_statement
     | dml_statement
     | merge_statement
+    | truncate_statement
     | begin_statement
-    | set_transaction_statement
+    | set_statement
     | commit_statement
     | start_batch_statement
     | run_batch_statement
@@ -1315,6 +1327,14 @@ alter_action:
         auto* node = MAKE_NODE(ASTDropColumnAction, @$, {$4});
         node->set_is_if_exists($3);
         $$ = node;
+      }
+    | "ALTER" "COLUMN" identifier "SET" "DATA" "TYPE" column_schema_inner
+      {
+        $$ = MAKE_NODE(ASTAlterColumnTypeAction, @$, {$3, $7});
+      }
+    | "ALTER" "COLUMN" identifier "SET" "OPTIONS" options_list
+      {
+        $$ = MAKE_NODE(ASTAlterColumnOptionsAction, @$, {$3, $6});
       }
     ;
 
@@ -1521,11 +1541,37 @@ opt_transaction_keyword:
     | /* Nothing */
     ;
 
-set_transaction_statement:
+set_statement:
     "SET" "TRANSACTION" transaction_mode_list
       {
         $$ = MAKE_NODE(ASTSetTransactionStatement, @$, {$3});
       }
+    | "SET" identifier "=" expression
+    {
+      $$ = MAKE_NODE(ASTSingleAssignment, @$, {$2, $4});
+    }
+    | "SET" named_parameter_expression "=" expression
+    {
+      $$ = MAKE_NODE(ASTParameterAssignment, @$, {$2, $4});
+    }
+    | "SET" "(" identifier_list ")" "=" expression
+    {
+      $$ = MAKE_NODE(ASTAssignmentFromStruct, @$, {$3, $6});
+    }
+    | "SET" "(" ")"
+    {
+      // Provide improved error message for an empty variable list.
+      YYERROR_AND_ABORT_AT(@3,
+        "Parenthesized SET statement requires a variable list");
+    }
+    | "SET" identifier "," identifier_list "="
+    {
+      // Provide improved error message for missing parentheses around a
+      // list of multiple variables.
+      YYERROR_AND_ABORT_AT(@2,
+        "Using SET with multiple variables requires parentheses around the "
+        "variable list");
+    }
     ;
 
 commit_statement:
@@ -2996,7 +3042,8 @@ select:
     opt_group_by_clause opt_having_clause opt_window_clause
       {
         auto* select =
-            MAKE_NODE(ASTSelect, @$, {$2, $5, $6, $7, $8, $9, $10, $11});
+            MAKE_NODE(ASTSelect, @$, {$2,
+                                      $5, $6, $7, $8, $9, $10, $11});
         select->set_distinct($4 == AllOrDistinctKeyword::kDistinct);
         $$ = select;
       }
@@ -4484,6 +4531,19 @@ date_or_time_literal:
     ;
 
 parameter_expression:
+    named_parameter_expression
+    | "?"
+      {
+        auto* parameter_expr = MAKE_NODE(ASTParameterExpr, @$, {});
+        // Bison's algorithm guarantees that the "?" productions are reduced in
+        // left-to-right order.
+        parameter_expr->set_position(
+          parser->GetNextPositionalParameterPosition());
+        $$ = parameter_expr;
+      }
+    ;
+
+named_parameter_expression:
     "@" identifier
       {
         $$ = MAKE_NODE(ASTParameterExpr, @$, {$2});
@@ -4493,15 +4553,6 @@ parameter_expression:
         zetasql::ASTIdentifier* reserved_keyword_identifier =
             parser->MakeIdentifier(@2, parser->GetInputText(@2));
         $$ = MAKE_NODE(ASTParameterExpr, @$, {reserved_keyword_identifier});
-      }
-    | "?"
-      {
-        auto* parameter_expr = MAKE_NODE(ASTParameterExpr, @$, {});
-        // Bison's algorithm guarantees that the "?" productions are reduced in
-        // left-to-right order.
-        parameter_expr->set_position(
-          parser->GetNextPositionalParameterPosition());
-        $$ = parameter_expr;
       }
     ;
 
@@ -5507,6 +5558,7 @@ keyword_as_identifier:
     | "REPLACE_FIELDS"
     | "RESTRICT"
     | "RETURNS"
+    | "RETURN"
     | "REVOKE"
     | "ROLLBACK"
     | "ROW"
@@ -5530,6 +5582,8 @@ keyword_as_identifier:
     | "TIMESTAMP"
     | "TRANSACTION"
     | "TRANSFORM"
+    | "TRUNCATE"
+    | "TYPE"
     | "UNIQUE"
     | "UPDATE"
     | "VALUE"
@@ -5955,6 +6009,13 @@ update_statement:
       }
     ;
 
+truncate_statement:
+    "TRUNCATE" "TABLE" path_expression opt_where_expression
+      {
+        $$ = MAKE_NODE(ASTTruncateStatement, @$, {$3, $4});
+      }
+    ;
+
 nested_dml_statement:
     "(" dml_statement ")"
       {
@@ -6136,7 +6197,7 @@ merge_when_clause_list:
     }
   ;
 
-// TODO: Consider to allow table_primary as merge_source, which
+// TODO: Consider allowing table_primary as merge_source, which
 // requires agreement about spec change.
 merge_source:
     table_path_expression
@@ -6449,28 +6510,12 @@ continue_statement:
     }
     ;
 
-set_statement:
-    "SET" identifier "=" expression
+// TODO: add expression to RETURN as defined in
+// (broken link) section "RETURN Statement".
+return_statement:
+    "RETURN"
     {
-      $$ = MAKE_NODE(ASTSingleAssignment, @$, {$2, $4});
-    }
-    | "SET" "(" identifier_list ")" "=" expression
-    {
-      $$ = MAKE_NODE(ASTAssignmentFromStruct, @$, {$3, $6});
-    }
-    | "SET" "(" ")"
-    {
-      // Provide improved error message for an empty variable list.
-      YYERROR_AND_ABORT_AT(@3,
-        "Parenthesized SET statement requires a variable list");
-    }
-    | "SET" identifier "," identifier_list "="
-    {
-      // Provide improved error message for missing parentheses around a
-      // list of multiple variables.
-      YYERROR_AND_ABORT_AT(@2,
-        "Using SET with multiple variables requires parentheses around the "
-        "variable list");
+      $$ = MAKE_NODE(ASTReturnStatement, @$, {});
     }
     ;
 
@@ -6546,8 +6591,14 @@ next_statement_kind_without_hint:
     | "RENAME" { $$ = zetasql::ASTRenameStatement::kConcreteNodeKind; }
     | "START" { $$ = zetasql::ASTBeginStatement::kConcreteNodeKind; }
     | "BEGIN" { $$ = zetasql::ASTBeginStatement::kConcreteNodeKind; }
-    | "SET" "TRANSACTION"
+    | "SET" "TRANSACTION" identifier
       { $$ = zetasql::ASTSetTransactionStatement::kConcreteNodeKind; }
+    | "SET" identifier "="
+      { $$ = zetasql::ASTSingleAssignment::kConcreteNodeKind; }
+    | "SET" named_parameter_expression "="
+      { $$ = zetasql::ASTParameterAssignment::kConcreteNodeKind; }
+    | "SET" "("
+      { $$ = zetasql::ASTAssignmentFromStruct::kConcreteNodeKind; }
     | "COMMIT" { $$ = zetasql::ASTCommitStatement::kConcreteNodeKind; }
     | "ROLLBACK" { $$ = zetasql::ASTRollbackStatement::kConcreteNodeKind; }
     | "START" "BATCH"
@@ -6592,12 +6643,16 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTCreateMaterializedViewStatement::kConcreteNodeKind; }
     | "CALL"
       { $$ = zetasql::ASTCallStatement::kConcreteNodeKind; }
+    | "RETURN"
+      { $$ = zetasql::ASTReturnStatement::kConcreteNodeKind; }
     | "IMPORT"
       { $$ = zetasql::ASTImportStatement::kConcreteNodeKind; }
     | "MODULE"
       { $$ = zetasql::ASTModuleStatement::kConcreteNodeKind; }
     | "ASSERT"
       { $$ = zetasql::ASTAssertStatement::kConcreteNodeKind; }
+    | "TRUNCATE"
+      { $$ = zetasql::ASTTruncateStatement::kConcreteNodeKind; }
     ;
 
 placeholder:;

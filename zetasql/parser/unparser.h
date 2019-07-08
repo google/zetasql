@@ -202,6 +202,10 @@ class Unparser : public ParseTreeVisitor {
                                  void* data) override;
   void visitASTAbortBatchStatement(const ASTAbortBatchStatement* node,
                                    void* data) override;
+  void visitASTAlterColumnOptionsAction(const ASTAlterColumnOptionsAction* node,
+                                        void* data) override;
+  void visitASTAlterColumnTypeAction(const ASTAlterColumnTypeAction* node,
+                                     void* data) override;
   void visitASTDropColumnAction(const ASTDropColumnAction* node,
                                 void* data) override;
   void visitASTDropStatement(const ASTDropStatement* node, void* data) override;
@@ -412,6 +416,8 @@ class Unparser : public ParseTreeVisitor {
                               void* data) override;
   void visitASTUpdateStatement(const ASTUpdateStatement* node,
                                void* data) override;
+  void visitASTTruncateStatement(const ASTTruncateStatement* node,
+                                 void* data) override;
   void visitASTMergeAction(const ASTMergeAction* node, void* data) override;
   void visitASTMergeWhenClause(const ASTMergeWhenClause* node,
                                void* data) override;
@@ -474,6 +480,8 @@ class Unparser : public ParseTreeVisitor {
                               void* data) override;
   void visitASTVariableDeclaration(const ASTVariableDeclaration* node,
                                    void* data) override;
+  void visitASTParameterAssignment(const ASTParameterAssignment* node,
+                                   void* data) override;
   void visitASTSingleAssignment(const ASTSingleAssignment* node,
                                 void* data) override;
 
@@ -486,6 +494,8 @@ class Unparser : public ParseTreeVisitor {
                               void* data) override;
   void visitASTContinueStatement(const ASTContinueStatement* node,
                                  void* data) override;
+  void visitASTReturnStatement(const ASTReturnStatement* node,
+                               void* data) override;
   void visitASTAssignmentFromStruct(const ASTAssignmentFromStruct* node,
                                     void* data) override;
   void visitASTCreateProcedureStatement(const ASTCreateProcedureStatement* node,

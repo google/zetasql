@@ -609,3 +609,25 @@ cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "general_trie",
+    hdrs = [
+        "general_trie.h",
+    ],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "//zetasql/base",
+    ],
+)
+
+cc_test(
+    name = "general_trie_unittest",
+    srcs = ["general_trie_unittest.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":general_trie",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base",
+    ],
+)

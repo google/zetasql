@@ -40,7 +40,7 @@ enum TestProto3Enum {
   ENUM2 = 2;
 }
 
-// Next_id: 64
+// Next_id: 67
 message Proto3KitchenSink {
   int32 int32_val = 1;
   uint32 uint32_val = 2;
@@ -74,6 +74,7 @@ message Proto3KitchenSink {
   repeated sfixed64 repeated_sfixed64_val = 28;
   repeated sint32 repeated_sint32_val = 29;
   repeated sint64 repeated_sint64_val = 30;
+  repeated int32 repeated_date = 65 [(zetasql.type) = DATE];
 
   message Nested {
     int64 nested_int64 = 1;
@@ -107,6 +108,17 @@ message Proto3KitchenSink {
   uint64 timestamp_uint64_default = 48 [(zetasql.format) = TIMESTAMP_MICROS];
 
   string nullable_string = 49 [(zetasql.use_defaults) = false];
+  int32 nullable_date = 64
+      [(zetasql.use_defaults) = false, (zetasql.format) = DATE];
+
+  message NullableNested {
+    option (zetasql.use_field_defaults) = false;
+
+    int64 nested_int64 = 1;
+    repeated int64 repeated_nested_int64 = 2;
+    int32 date = 3 [(zetasql.format) = DATE];
+  }
+  NullableNested nullable_nested_value = 66;
 
   TestProto3Enum test_enum = 50;
 

@@ -33,12 +33,18 @@ import java.io.Serializable;
 @Immutable
 public abstract class Type implements Serializable {
   // The valid date range is [ 0001-01-01, 9999-12-31 ].
+  @SuppressWarnings("GoodTime") // should be a java.time.LocalDate (?)
   public static final int DATE_MIN = -719162;
+
+  @SuppressWarnings("GoodTime") // should be a java.time.LocalDate (?)
   public static final int DATE_MAX = 2932896;
 
   // The valid timestamp range for timestamps is:
   //  [ 0001-01-01 00:00:00 UTC, 9999-12-31 23:59:59.999999 UTC ]
+  @SuppressWarnings("GoodTime") // should be a java.time.Instant
   public static final long TIMESTAMP_MICROS_MIN = -62135596800L * 1000000;
+
+  @SuppressWarnings("GoodTime") // should be a java.time.Instant
   public static final long TIMESTAMP_MICROS_MAX = 253402300800L * 1000000 - 1;
 
   // The order should be the same as the order in zetasql.TypeKind
@@ -69,17 +75,14 @@ public abstract class Type implements Serializable {
     "NUMERIC",
   };
 
-  /**
-   * Returns {@code true} if the given {@code date} value is within valid range.
-   */
+  /** Returns {@code true} if the given {@code date} value is within valid range. */
+  @SuppressWarnings("GoodTime") // should accept a java.time.LocalDate (?)
   public static boolean isValidDate(int date) {
     return date >= DATE_MIN && date <= DATE_MAX;
   }
 
-  /**
-   * Returns {@code true} if the given {@code timestamp} value is within valid
-   * range.
-   */
+  /** Returns {@code true} if the given {@code timestamp} value is within valid range. */
+  @SuppressWarnings("GoodTime") // should accept a java.time.Instant
   public static boolean isValidTimestampUnixMicros(long timestamp) {
     return timestamp >= TIMESTAMP_MICROS_MIN && timestamp <= TIMESTAMP_MICROS_MAX;
   }

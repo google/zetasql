@@ -595,7 +595,7 @@ class StructType : public Type {
   // Returns NULL if <name> is not found (uniquely).
   // Returns in <*is_ambiguous> whether this lookup was ambiguous.
   // If found_idx is non-NULL, returns position of found field in <*found_idx>.
-  const StructField* FindField(const std::string& name, bool* is_ambiguous,
+  const StructField* FindField(absl::string_view name, bool* is_ambiguous,
                                int* found_idx = nullptr) const;
 
   // Helper functions for determining Equals() or Equivalent() for struct

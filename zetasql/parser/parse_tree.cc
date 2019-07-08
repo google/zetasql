@@ -48,6 +48,8 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_ADD_CONSTRAINT_ACTION] = "AddConstraintAction";
   map[AST_ALIAS] = "Alias";
   map[AST_ALTER_ACTION_LIST] = "AlterActionList";
+  map[AST_ALTER_COLUMN_OPTIONS_ACTION] = "AlterColumnOptionsAction";
+  map[AST_ALTER_COLUMN_TYPE_ACTION] = "AlterColumnTypeAction";
   map[AST_ALTER_CONSTRAINT_ENFORCEMENT_ACTION] =
       "AlterConstraintEnforcementAction";
   map[AST_ALTER_CONSTRAINT_SET_OPTIONS_ACTION] =
@@ -178,6 +180,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_ORDER_BY] = "OrderBy";
   map[AST_ORDERING_EXPRESSION] = "OrderingExpression";
   map[AST_OR_EXPR] = "OrExpr";
+  map[AST_PARAMETER_ASSIGNMENT] = "ParameterAssignment";
   map[AST_PARAMETER_EXPR] = "ParameterExpr";
   map[AST_PARENTHESIZED_JOIN] = "ParenthesizedJoin";
   map[AST_PARTITION_BY] = "PartitionBy";
@@ -192,6 +195,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_REPEATABLE_CLAUSE] = "RepeatableClause";
   map[AST_REPLACE_FIELDS_ARG] = "ReplaceFieldsArg";
   map[AST_REPLACE_FIELDS_EXPRESSION] = "ReplaceFieldsExpression";
+  map[AST_RETURN_STATEMENT] = "ReturnStatement";
   map[AST_REVOKE_STATEMENT] = "RevokeStatement";
   map[AST_ROLLBACK_STATEMENT] = "RollbackStatement";
   map[AST_ROLLUP] = "Rollup";
@@ -236,6 +240,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_TRANSACTION_MODE_LIST] = "TransactionModeList";
   map[AST_TRANSACTION_READ_WRITE_MODE] = "TransactionReadWriteMode";
   map[AST_TRANSFORM_CLAUSE] = "TransformClause";
+  map[AST_TRUNCATE_STATEMENT] = "TruncateStatement";
   map[AST_TVF_ARGUMENT] = "TVFArgument";
   map[AST_TVF_SCHEMA_COLUMN] = "TVFSchemaColumn";
   map[AST_TVF_SCHEMA] = "TVFSchema";
@@ -1167,6 +1172,14 @@ std::string ASTAddColumnAction::GetSQLForAlterAction() const { return "ADD COLUM
 std::string ASTColumnPosition::SingleNodeDebugString() const {
   return absl::StrCat(ASTNode::SingleNodeDebugString(),
                       type() == PRECEDING ? "(PRECEDING)" : "(FOLLOWING)");
+}
+
+std::string ASTAlterColumnOptionsAction::GetSQLForAlterAction() const {
+  return "ALTER COLUMN SET OPTIONS";
+}
+
+std::string ASTAlterColumnTypeAction::GetSQLForAlterAction() const {
+  return "ALTER COLUMN SET DATA TYPE";
 }
 
 std::string ASTDropColumnAction::SingleNodeDebugString() const {

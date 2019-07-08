@@ -873,7 +873,6 @@ CROSS JOIN UNNEST(album.song) AS song_name;
 
 A common task when working with arrays is turning a subquery result into an
 array. In ZetaSQL, you can accomplish this using the
-
 [`ARRAY()`](functions-and-operators.md#array) function.
 
 For example, consider the following operation on the `sequences` table:

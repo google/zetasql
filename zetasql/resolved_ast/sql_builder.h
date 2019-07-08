@@ -217,6 +217,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedAnalyticFunctionCall* node) override;
   zetasql_base::Status VisitResolvedGetProtoField(
       const ResolvedGetProtoField* node) override;
+  zetasql_base::Status VisitResolvedReplaceField(
+      const ResolvedReplaceField* node) override;
   zetasql_base::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override;
   zetasql_base::Status VisitResolvedCast(const ResolvedCast* node) override;
   zetasql_base::Status VisitResolvedColumnHolder(
@@ -371,6 +373,11 @@ class SQLBuilder : public ResolvedASTVisitor {
   zetasql_base::StatusOr<std::string> GetHintListString(
       const std::vector<std::unique_ptr<const ResolvedOption>>& hint_list);
 
+  // Always append a (possibly empty) OPTIONS clause.
+  zetasql_base::Status AppendOptions(
+      const std::vector<std::unique_ptr<const ResolvedOption>>& option_list,
+      std::string* sql);
+  // Only append an OPTIONS clause if there is at least one option.
   zetasql_base::Status AppendOptionsIfPresent(
       const std::vector<std::unique_ptr<const ResolvedOption>>& option_list,
       std::string* sql);

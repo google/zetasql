@@ -924,7 +924,7 @@ std::string StructType::DebugString(bool details) const {
 }
 
 const StructType::StructField* StructType::FindField(
-    const std::string& name, bool* is_ambiguous, int* found_idx) const {
+    absl::string_view name, bool* is_ambiguous, int* found_idx) const {
   *is_ambiguous = false;
   if (found_idx != nullptr) *found_idx = -1;
 

@@ -356,6 +356,11 @@ arguments that matches the format specifiers. Here are some examples:
 <td>+0000000012+</td>
 </tr>
 <tr>
+<td>Integer with commas</td>
+<td>format("%'d", 123456789)</td>
+<td>123,456,789</td>
+</tr>
+<tr>
 <td>STRING</td>
 <td>format("-%s-", 'abcd efg')</td>
 <td>-abcd efg-</td>
@@ -891,9 +896,11 @@ FROM_HEX(string)
 
 Converts a hexadecimal-encoded STRING into BYTES format. Returns an error if the
 input STRING contains characters outside the range
-`(0..9, A..F, a..f)`. The lettercase of the characters does not matter. To
-convert BYTES to a hexadecimal-encoded
-STRING, use [TO_HEX][string-link-to-to-hex].
+`(0..9, A..F, a..f)`. The lettercase of the characters does not matter. If the
+input STRING has an odd number of characters, the function acts as if the input
+has an additional leading `0`. To convert BYTES to a
+hexadecimal-encoded STRING, use
+[TO_HEX][string-link-to-to-hex].
 
 **Return type**
 

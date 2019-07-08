@@ -133,6 +133,8 @@ SCALAR_FUNCTION_CALL_INFO = ScalarType(
 SCALAR_FIELD_DESCRIPTOR = ScalarType('const google::protobuf::FieldDescriptor*',
                                      'FieldDescriptorRefProto',
                                      'ZetaSQLFieldDescriptor')
+SCALAR_ENUM_DESCRIPTOR = ScalarType('const google::protobuf::EnumDescriptor*',
+                                    'EnumTypeProto', 'ZetaSQLEnumDescriptor')
 SCALAR_FIELD_FORMAT = ScalarType(
     'FieldFormat::Format',
     'FieldFormat.Format',
@@ -503,7 +505,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 128.
+          Next tag_id: 133.
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -1337,7 +1339,7 @@ def main(argv):
               ignorable=IGNORABLE,
               comment="""
               Default value to use when the proto field is not set. The default
-              may be NULL (e.g. for fields with a use_defaults=false
+              may be NULL (e.g. for proto2 fields with a use_defaults=false
               annotation).
 
               This will not be filled in (the Value will be uninitialized) if
@@ -1385,9 +1387,87 @@ def main(argv):
               Indicates that the default value should be returned if <expr> is
               NULL.
 
-              This can only be set for non-message fields and fields that are
-              not annotated with zetasql.use_defaults=false. This cannot be
-              set when <get_has_bit> is true or the field is required.
+              This can only be set for non-message fields. If the field is a
+              proto2 field, then it must be annotated with
+              zetasql.use_defaults=true. This cannot be set when <get_has_bit>
+              is true or the field is required.
+                      """),
+      ])
+
+  gen.AddNode(
+      name='ResolvedReplaceFieldItem',
+      tag_id=128,
+      parent='ResolvedArgument',
+      comment="""
+      An argument to the REPLACE_FIELDS() function which specifies a field path
+      and a value that this field will be set to. In SQL this is expressed as
+      <expr> AS <proto_field_path>.
+
+      <expr> and the last element in <proto_field_path> must be the same type.
+      """,
+      fields=[
+          Field(
+              'expr',
+              'ResolvedExpr',
+              tag_id=2,
+              comment="""
+              The value that the final field in <proto_field_path> will be set
+              to.
+
+              If <expr> is NULL, the field will be unset. If <proto_field_path>
+              is a required field, the engine must return an error if it is set
+              to NULL.
+              """),
+          Field(
+              'proto_field_path',
+              SCALAR_FIELD_DESCRIPTOR,
+              tag_id=4,
+              vector=True,
+              to_string_method='ToStringVectorFieldDescriptor',
+              java_to_string_method=
+              'toStringPeriodSeparatedForFieldDescriptors',
+              comment="""
+              A vector of FieldDescriptors that denote the field path to be
+              modified.
+
+              <proto_field_path> must be non-empty. Only the last field in the
+              path can be repeated or array.
+                      """),
+      ])
+
+  gen.AddNode(
+      name='ResolvedReplaceField',
+      tag_id=129,
+      parent='ResolvedExpr',
+      comment="""
+              Represents a call to the REPLACE_FIELDS() function. This function
+              can be used to copy a proto or struct, modify a few fields and
+              output the resulting proto or struct. The SQL syntax for this
+              function is REPLACE_FIELDS(<expr>, <replace_field_item_list>).
+
+              See (broken link) for more detail.
+      """,
+      fields=[
+          Field(
+              'expr',
+              'ResolvedExpr',
+              tag_id=2,
+              comment=""" The proto/struct to modify. """),
+          Field(
+              'replace_field_item_list',
+              'ResolvedReplaceFieldItem',
+              tag_id=3,
+              vector=True,
+              comment="""
+              The list of field paths to be modified along with their new
+              values.
+
+              Engines must check at evaluation time that the modifications in
+              <replace_field_item_list> obey the following rules
+              regarding updating protos in ZetaSQL:
+              - Modifying a subfield of a NULL-valued proto-valued field is an
+                error.
+              - Clearing a required field or subfield is an error.
                       """),
       ])
 
@@ -4226,8 +4306,42 @@ right.
       <option_list> has engine-specific directives that specify how to
                     alter the metadata for this object.
               """,
-       fields=[
+      fields=[
           Field('option_list', 'ResolvedOption', tag_id=2, vector=True),
+      ])
+
+  gen.AddNode(
+      name='ResolvedAddColumnAction',
+      tag_id=131,
+      parent='ResolvedAlterAction',
+      comment="""
+      ADD COLUMN action for ALTER TABLE statement
+              """,
+      fields=[
+          Field('is_if_not_exists', SCALAR_BOOL, tag_id=2),
+          Field(
+              'column_definition', 'ResolvedColumnDefinition', tag_id=3)
+      ])
+
+  gen.AddNode(
+      name='ResolvedDropColumnAction',
+      tag_id=132,
+      parent='ResolvedAlterAction',
+      comment="""
+      DROP COLUMN action for ALTER TABLE statement
+
+      <name> is the name of the column to drop.
+      <column_reference> references the column to be dropped, if it exists.
+             It might be missing if DROP IF EXISTS column does not exist.
+              """,
+      fields=[
+          Field('is_if_exists', SCALAR_BOOL, tag_id=2),
+          Field('name', SCALAR_STRING, tag_id=3),
+          Field(
+              'column_reference',
+              'ResolvedColumnRef',
+              tag_id=4,
+              ignorable=IGNORABLE),
       ])
 
   gen.AddNode(

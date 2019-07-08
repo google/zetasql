@@ -50,6 +50,8 @@ enum TestEnumWithAlias {
 }
 
 message TestExtraPB {
+  extensions 10323131;
+
   extensions 10323132 to max;
   optional int32 int32_val1 = 1;
   optional int32 int32_val2 = 2;
@@ -60,7 +62,7 @@ message RepeatedHolderPB {
   repeated TestExtraPB repeated_field = 1;
 }
 
-// Next ID to use: 104
+// Next ID to use: 106
 message KitchenSinkPB {
   required int64 int64_key_1 = 1;
   required int64 int64_key_2 = 2;
@@ -259,6 +261,11 @@ message KitchenSinkPB {
   repeated sint32 repeated_sint32_packed = 100 [packed = true];
   repeated sint64 repeated_sint64_packed = 101 [packed = true];
   repeated TestEnum repeated_enum_packed = 102 [packed = true];
+
+  oneof one_of_field {
+    int32 int32_one_of = 104;
+    string string_one_of = 105;
+  }
 
   reserved 103;  // Used for testing unknown fields.
 
@@ -541,6 +548,9 @@ message RecursivePB {
   optional int64 int64_val = 1;
   optional RecursivePB recursive_pb = 2;
   repeated RecursivePB repeated_recursive_pb = 3;
+  oneof test_oneof {
+    int64 oneof_int64_val = 4;
+  }
   extend RecursivePB {
     optional RecursivePB recursive_pb_extension = 100;
     repeated RecursivePB repeated_recursive_pb_extension = 101;

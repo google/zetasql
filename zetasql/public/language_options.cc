@@ -40,6 +40,8 @@ std::set<LanguageFeature> LanguageOptions::GetLanguageFeaturesForVersion(
       features.insert(FEATURE_V_1_3_DISALLOW_PROTO3_HAS_SCALAR_FIELD);
       features.insert(FEATURE_V_1_3_ARRAY_ORDERING);
       features.insert(FEATURE_V_1_3_OMIT_INSERT_COLUMN_LIST);
+      features.insert(FEATURE_V_1_3_IGNORE_PROTO3_USE_DEFAULTS);
+      features.insert(FEATURE_V_1_3_REPLACE_FIELDS);
       ABSL_FALLTHROUGH_INTENDED;
     // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
     // supposed to be stable and frozen, except possibly for bug fixes.

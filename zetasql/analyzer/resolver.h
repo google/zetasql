@@ -52,8 +52,10 @@
 #include "absl/base/attributes.h"
 #include "absl/base/macros.h"
 #include "absl/container/flat_hash_map.h"
+#include "zetasql/base/case.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
+#include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/status.h"
@@ -612,8 +614,8 @@ class Resolver {
 
   // Validates the ASTColumnAttributeList, in particular looking for
   // duplicate attribute definitions (i.e. "PRIMARY KEY" "PRIMARY KEY").
-  // - attribute_list is a pointer because its an optional construct that can be
-  // nullptr.
+  // - attribute_list is a pointer because it's an optional construct that can
+  // be nullptr.
   zetasql_base::Status ValidateColumnAttributeList(
       const ASTColumnAttributeList* attribute_list) const;
 
@@ -698,24 +700,27 @@ class Resolver {
     const ASTCreateIndexStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output);
 
-  // Validates a resolved expression on a storing clause of an index.
-  zetasql_base::Status ValidateResolvedExprOnStoring(
+  // Validates 'resolved_expr' on an index key or storing clause of an index.
+  //
+  // 'resolved_columns' stores all the resolved columns in index keys and
+  // storing columns. It errors out if the referred column of 'resolved_expr' is
+  // already in 'resolved_columns'. If not, the column is inserted into
+  // 'resolved_columns' for future usage.
+  zetasql_base::Status ValidateResolvedExprForCreateIndex(
       const ASTCreateIndexStatement* ast_statement,
       const ASTExpression* ast_expression,
-      std::set<IdString, IdStringCaseLess>* index_columns,
+      std::set<IdString, IdStringCaseLess>* resolved_columns,
       const ResolvedExpr* resolved_expr);
 
   // A helper that resolves 'unnest_expression_list' for CREATE INDEX statement.
   //
-  // 'name_list' and 'resolved_column_map' are expected to contain the top level
-  // columns in the table when this function is called.
+  // 'name_list' is expected to contain the available names from the base table.
   //
-  // When this function returns, populates 'name_list', 'resolved_column_map',
-  // and 'resolved_unnest_items' accordingly.
+  // When this function returns, populates 'name_list', and
+  // 'resolved_unnest_items' accordingly.
   zetasql_base::Status ResolveIndexUnnestExpressions(
       const ASTIndexUnnestExpressionList* unnest_expression_list,
       NameList* name_list,
-      std::map<IdString, ResolvedColumn, IdStringCaseLess>* resolved_column_map,
       std::vector<std::unique_ptr<const ResolvedUnnestItem>>*
           resolved_unnest_items);
 
@@ -990,6 +995,18 @@ class Resolver {
       std::unique_ptr<ResolvedStatement>* output,
       bool* has_only_set_options_action,
       std::vector<std::unique_ptr<const ResolvedAlterAction>>* alter_actions);
+
+  zetasql_base::Status ResolveAddColumnAction(
+      IdString table_name_id_string, const Table* table,
+      const ASTAddColumnAction* action, IdStringSetCase* new_columns,
+      IdStringSetCase* columns_to_drop,
+      std::unique_ptr<const ResolvedAlterAction>* alter_action);
+
+  zetasql_base::Status ResolveDropColumnAction(
+      IdString table_name_id_string, const Table* table,
+      const ASTDropColumnAction* action, IdStringSetCase* new_columns,
+      IdStringSetCase* columns_to_drop,
+      std::unique_ptr<const ResolvedAlterAction>* alter_action);
 
   zetasql_base::Status ResolveAlterTableStatement(
       const ASTAlterTableStatement* ast_statement,
@@ -1438,6 +1455,30 @@ class Resolver {
   zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*> FindExtensionFieldDescriptor(
       const ASTPathExpression* ast_path_expr,
       const google::protobuf::Descriptor* descriptor);
+
+  // Returns the FieldDescriptor corresponding to a top level field with the
+  // given <name>. The field is looked up  with respect to <descriptor>. Returns
+  // nullptr if no matching field was found.
+  ::zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*> FindFieldDescriptor(
+      const ASTNode* ast_name_location, const google::protobuf::Descriptor* descriptor,
+      absl::string_view name);
+
+  // Returns a vector of FieldDesciptors that correspond to each of the fields
+  // in the path <path_vector>. The first FieldDescriptor in the returned
+  // vector is looked up with respect to <root_descriptor>.
+  // <path_vector> must only contain nested field extractions.
+  zetasql_base::Status FindFieldDescriptors(
+      absl::Span<const ASTIdentifier* const> path_vector,
+      const google::protobuf::Descriptor* root_descriptor,
+      std::vector<const google::protobuf::FieldDescriptor*>* field_descriptors);
+
+  // Returns a vector of FieldDesciptors that correspond to each of the fields
+  // in the path <generalized_path>. The first FieldDescriptor in the returned
+  // vector is looked up with respect to <root_descriptor>.
+  zetasql_base::Status FindDescriptorsForReplaceFieldItem(
+      const ASTGeneralizedPathExpression* generalized_path,
+      const google::protobuf::Descriptor* root_descriptor,
+      std::vector<const google::protobuf::FieldDescriptor*>* field_descriptors);
 
   // Looks up a proto message type name first in <descriptor_pool> and then in
   // <catalog>. Returns NULL if the type name is not found. If
@@ -2118,6 +2159,11 @@ class Resolver {
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
+  zetasql_base::Status ResolveReplaceFieldsExpression(
+      const ASTReplaceFieldsExpression* ast_replace_fields,
+      ExprResolutionInfo* expr_resolution_info,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+
   zetasql_base::Status ResolveUnaryExpr(
       const ASTUnaryExpression* unary_expr,
       ExprResolutionInfo* expr_resolution_info,
@@ -2639,13 +2685,15 @@ class Resolver {
       QueryResolutionInfo* query_resolution_info);
 
   // Resolve the value part of a hint or option key/value pair.
-  // This includes checking against AnalyzerOptions::allowed_hints_and_options.
+  // This includes checking against <allowed> to ensure the options are
+  // valid (typically used with AnalyzerOptions::allowed_hints_and_options).
   // The value must be an identifier, literal or query parameter.
   // <is_hint> indicates if this is a hint or an option.
   // <ast_qualifier> must be NULL if !is_hint.
   zetasql_base::Status ResolveHintOrOptionAndAppend(
       const ASTExpression* ast_value, const ASTIdentifier* ast_qualifier,
       const ASTIdentifier* ast_name, bool is_hint,
+      const AllowedHintsAndOptions& allowed,
       std::vector<std::unique_ptr<const ResolvedOption>>* option_list);
 
   // Resolve <ast_hint> and add entries into <hints>.

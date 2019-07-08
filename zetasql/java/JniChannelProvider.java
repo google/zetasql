@@ -19,6 +19,8 @@ package com.google.zetasql;
 
 import com.google.auto.service.AutoService;
 import io.grpc.Channel;
+import io.grpc.LoadBalancerProvider;
+import io.grpc.LoadBalancerRegistry;
 import io.grpc.netty.NettyChannelBuilder;
 import io.netty.channel.ChannelException;
 import io.netty.channel.socket.nio.NioSocketChannel;
@@ -34,9 +36,23 @@ public class JniChannelProvider implements ClientChannelProvider {
   private static Channel channel = null;
 
   static {
+    // Pass class name to JNI_OnLoad
+    System.setProperty("zetasql.local_service.class",
+        JniChannelProvider.class.getName().replace('.', '/'));
     try {
       cz.adamh.utils.NativeUtils.loadLibraryFromJar("/zetasql/local_service/liblocal_service_jni.so");
     } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+    try {
+      // Ensure default gRPC LoadBalancer is loaded even if service loader is broken by shading.
+      LoadBalancerRegistry.getDefaultRegistry()
+          .register(
+              Class.forName("io.grpc.internal.PickFirstLoadBalancerProvider")
+                  .asSubclass(LoadBalancerProvider.class)
+                  .getDeclaredConstructor()
+                  .newInstance());
+    } catch (ReflectiveOperationException e) {
       throw new RuntimeException(e);
     }
   }

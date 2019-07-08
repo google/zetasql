@@ -434,6 +434,27 @@ enum LanguageFeature {
   // Spec: (broken link)
   FEATURE_V_1_3_OMIT_INSERT_COLUMN_LIST = 13005;
 
+  // If enabled, the 'use_defaults' and 'use_field_defaults' annotations are
+  // ignored for proto3 scalar fields. This results in the default value always
+  // being returned for proto3 scalar fields that are not explicitly set,
+  // including when they are annotated with 'use_defaults=false' or their parent
+  // message is annotated with 'use_field_defaults=false'. This aligns with
+  // proto3 semantics as proto3 does not expose whether scalar fields are set or
+  // not.
+  FEATURE_V_1_3_IGNORE_PROTO3_USE_DEFAULTS = 13006;
+
+  // Enables support for the REPLACE_FIELDS() function. REPLACE_FIELDS(p,
+  // <value> AS <field_path>) returns the proto obtained by setting p.field_path
+  // = value. If value is NULL, this unsets field_path or returns an error if
+  // the last component of field_path is a required field. Multiple fields can
+  // be modified: REPLACE_FIELDS(p, <value_1> AS <field_path_1>, ..., <value_n>
+  // AS <field_path_n>). REPLACE_FIELDS() can also be used to modify structs
+  // using the similar syntax: REPLACE_FIELDS(s, <value> AS
+  // <struct_field_path>).
+  // (broken link)
+  FEATURE_V_1_3_REPLACE_FIELDS = 13007
+      [(language_feature_options).in_development = true];
+
   // EXPERIMENTAL FEATURES
   // These are features supported in the code that are not currently part of
   // officially supported ZetaSQL as of any version.

@@ -31,6 +31,7 @@ import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor.JavaType;
 import com.google.protobuf.Descriptors.FileDescriptor;
 import com.google.protobuf.Descriptors.GenericDescriptor;
+import com.google.protobuf.Descriptors.OneofDescriptor;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.ExtensionRegistry.ExtensionInfo;
@@ -428,8 +429,8 @@ public class ZetaSQLDescriptorPool implements Serializable {
    * Pool for generated descriptors, i.e. those generated from .proto files and compiled into the
    * Java program. This is supposed to be shared by globally and is thread safe. Descriptors are
    * imported lazily because there's no efficient way to do it in a static intializer. Imported
-   * descriptors are kept forever, which is fine since the number of generated descriptors is
-   * fixed when the program is compiled.
+   * descriptors are kept forever, which is fine since the number of generated descriptors is fixed
+   * when the program is compiled.
    */
   private static class GeneratedDescriptorPool extends ZetaSQLDescriptorPool {
     /**

@@ -29,6 +29,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "zetasql/base/status.h"
+#include "zetasql/base/statusor.h"
 
 // ZetaSQL dates are represented as an int32_t value, indicating the offset
 // in days from the epoch 1970-01-01.  ZetaSQL dates are not timezone aware,
@@ -108,6 +109,10 @@ ABSL_MUST_USE_RESULT bool FromTime(absl::Time base_time, TimestampScale scale,
 // Returns a std::string of format "YYYY-MM-DD" for this date.  Returns error
 // status if conversion fails.
 zetasql_base::Status ConvertDateToString(int32_t date, std::string* out);
+
+// Returns an absl::CivilDay for this date, or an error status if conversion
+// fails.
+zetasql_base::StatusOr<absl::CivilDay> ConvertDateToCivilDay(int32_t date);
 
 // Populates <out> in canonical timestamp format based on the specified
 // <timezone>, for example:
@@ -259,6 +264,10 @@ zetasql_base::Status FormatTimeToString(absl::string_view format_string,
 // Supported format: "YYYY-[M]M-[D]D".
 // Returns error status if conversion fails.
 zetasql_base::Status ConvertStringToDate(absl::string_view str, int32_t* date);
+
+// Converts a civil time to a date value, or an error status if conversion
+// fails.
+zetasql_base::StatusOr<int32_t> ConvertCivilDayToDate(absl::CivilDay civil_day);
 
 // Converts the std::string representation of a timestamp to a timestamp integer
 // value of the specified <scale>.  The currently supported format is

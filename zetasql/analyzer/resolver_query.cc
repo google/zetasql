@@ -115,10 +115,9 @@ zetasql_base::Status Resolver::ResolveQueryAfterWith(
   if (query->query_expr()->node_kind() == AST_SELECT) {
     // If we just have a single SELECT, then we treat that specially so
     // we can resolve the ORDER BY and LIMIT directly inside that SELECT.
-    return ResolveSelect(
-        query->query_expr()->GetAs<ASTSelect>(),
-        query->order_by(), query->limit_offset(), scope,
-        query_alias, output, output_name_list);
+    return ResolveSelect(query->query_expr()->GetAsOrDie<ASTSelect>(),
+                         query->order_by(), query->limit_offset(), scope,
+                         query_alias, output, output_name_list);
   }
 
   ZETASQL_RETURN_IF_ERROR(ResolveQueryExpression(
@@ -798,20 +797,18 @@ zetasql_base::Status Resolver::ResolveQueryExpression(
     std::shared_ptr<const NameList>* output_name_list) {
   switch (query_expr->node_kind()) {
     case AST_SELECT:
-      return ResolveSelect(
-          query_expr->GetAs<ASTSelect>(),
-          nullptr /* order_by */, nullptr /* limit_offset */, scope,
-          query_alias, output, output_name_list);
+      return ResolveSelect(query_expr->GetAsOrDie<ASTSelect>(),
+                           nullptr /* order_by */, nullptr /* limit_offset */,
+                           scope, query_alias, output, output_name_list);
 
     case AST_SET_OPERATION:
-      return ResolveSetOperation(query_expr->GetAs<ASTSetOperation>(),
+      return ResolveSetOperation(query_expr->GetAsOrDie<ASTSetOperation>(),
                                  scope, output, output_name_list);
 
     case AST_QUERY:
-      return ResolveQuery(
-          query_expr->GetAs<ASTQuery>(),
-          scope, query_alias, false /* is_outer_query */,
-          output, output_name_list);
+      return ResolveQuery(query_expr->GetAsOrDie<ASTQuery>(), scope,
+                          query_alias, false /* is_outer_query */, output,
+                          output_name_list);
 
     default:
       break;
@@ -2062,7 +2059,7 @@ zetasql_base::Status Resolver::ResolveSelectStar(
   ColumnReplacements column_replacements;
   if (ast_select_expr->node_kind() == AST_STAR_WITH_MODIFIERS) {
     const ASTStarWithModifiers* ast_node =
-        ast_select_expr->GetAs<ASTStarWithModifiers>();
+        ast_select_expr->GetAsOrDie<ASTStarWithModifiers>();
     ZETASQL_RETURN_IF_ERROR(ResolveSelectStarModifiers(
         ast_node, ast_node->modifiers(),
         from_clause_name_list.get(), nullptr /* type_for_star */,
@@ -2105,11 +2102,11 @@ zetasql_base::Status Resolver::ResolveSelectDotStar(
   const ASTExpression* ast_expr;
   const ASTStarModifiers* ast_modifiers = nullptr;
   if (ast_dotstar->node_kind() == AST_DOT_STAR) {
-    ast_expr = ast_dotstar->GetAs<ASTDotStar>()->expr();
+    ast_expr = ast_dotstar->GetAsOrDie<ASTDotStar>()->expr();
   } else {
     ZETASQL_RET_CHECK_EQ(ast_dotstar->node_kind(), AST_DOT_STAR_WITH_MODIFIERS);
     const ASTDotStarWithModifiers* ast_with_modifiers =
-        ast_dotstar->GetAs<ASTDotStarWithModifiers>();
+        ast_dotstar->GetAsOrDie<ASTDotStarWithModifiers>();
     ast_expr = ast_with_modifiers->expr();
     ast_modifiers = ast_with_modifiers->modifiers();
   }
@@ -2126,7 +2123,8 @@ zetasql_base::Status Resolver::ResolveSelectDotStar(
   // Value table range variables are excluded here because we want to resolve
   // it to a value first and then expand its fields, if possible.
   if (ast_expr->node_kind() == AST_PATH_EXPRESSION) {
-    const ASTPathExpression* path_expr = ast_expr->GetAs<ASTPathExpression>();
+    const ASTPathExpression* path_expr =
+        ast_expr->GetAsOrDie<ASTPathExpression>();
 
     if (path_expr->num_names() == 1) {
       NameTarget target;
@@ -2727,9 +2725,9 @@ zetasql_base::Status Resolver::ResolveGroupByExprs(
     const SelectColumnState* group_by_column_state = nullptr;
     // Determine if the GROUP BY expression exactly matches a SELECT list alias.
     if (ast_group_by_expr->node_kind() == AST_PATH_EXPRESSION) {
-      const IdString alias =
-          ast_group_by_expr->GetAs<ASTPathExpression>()->first_name()
-          ->GetAsIdString();
+      const IdString alias = ast_group_by_expr->GetAsOrDie<ASTPathExpression>()
+                                 ->first_name()
+                                 ->GetAsIdString();
       ZETASQL_RETURN_IF_ERROR(
           query_resolution_info->select_column_state_list()->
               FindAndValidateSelectColumnStateByAlias(
@@ -2737,7 +2735,8 @@ zetasql_base::Status Resolver::ResolveGroupByExprs(
                   ast_group_by_expr, alias, &no_aggregation,
                   &group_by_column_state));
       if (group_by_column_state != nullptr &&
-          ast_group_by_expr->GetAs<ASTPathExpression>()->num_names() != 1) {
+          ast_group_by_expr->GetAsOrDie<ASTPathExpression>()->num_names() !=
+              1) {
         // We resolved the first identifier in a path expression to a SELECT
         // list alias.  There is currently no way that accessing the column's
         // fields in the GROUP BY can possibly be valid.  Consider:
@@ -3549,7 +3548,7 @@ zetasql_base::Status Resolver::ResolveLimitOffsetScan(
 static const ASTNode* GetASTNodeForColumn(
     const ASTNode* ast_location, int column_index, int num_columns) {
   if (ast_location->node_kind() == AST_QUERY) {
-    ast_location = ast_location->GetAs<ASTQuery>()->query_expr();
+    ast_location = ast_location->GetAsOrDie<ASTQuery>()->query_expr();
   }
   if (ast_location->node_kind() == AST_SELECT) {
     // We can only find a specific column if the column list matches 1:1 with
@@ -3557,7 +3556,7 @@ static const ASTNode* GetASTNodeForColumn(
     // Star can never expand to zero columns so if parse node has N children
     // and we have N columns, we know they must match 1:1.
     const ASTSelectList* select_list =
-        ast_location->GetAs<ASTSelect>()->select_list();
+        ast_location->GetAsOrDie<ASTSelect>()->select_list();
     if (select_list->columns().size() == num_columns) {
       ast_location = select_list->columns(column_index);
     }
@@ -3707,26 +3706,24 @@ zetasql_base::Status Resolver::ResolveTableExpression(
   switch (table_expr->node_kind()) {
     case AST_TABLE_PATH_EXPRESSION:
       return ResolveTablePathExpression(
-          table_expr->GetAs<ASTTablePathExpression>(),
-          local_scope, output, output_name_list);
+          table_expr->GetAsOrDie<ASTTablePathExpression>(), local_scope, output,
+          output_name_list);
 
     case AST_TABLE_SUBQUERY:
-      return ResolveTableSubquery(
-          table_expr->GetAs<ASTTableSubquery>(),
-          external_scope, output, output_name_list);
+      return ResolveTableSubquery(table_expr->GetAsOrDie<ASTTableSubquery>(),
+                                  external_scope, output, output_name_list);
 
     case AST_JOIN:
-      return ResolveJoin(
-          table_expr->GetAs<ASTJoin>(),
-          external_scope, local_scope, output, output_name_list);
+      return ResolveJoin(table_expr->GetAsOrDie<ASTJoin>(), external_scope,
+                         local_scope, output, output_name_list);
 
     case AST_PARENTHESIZED_JOIN:
-      return ResolveParenthesizedJoin(table_expr->GetAs<ASTParenthesizedJoin>(),
-                                      external_scope, local_scope, output,
-                                      output_name_list);
+      return ResolveParenthesizedJoin(
+          table_expr->GetAsOrDie<ASTParenthesizedJoin>(), external_scope,
+          local_scope, output, output_name_list);
 
     case AST_TVF:
-      return ResolveTVF(table_expr->GetAs<ASTTVF>(), external_scope,
+      return ResolveTVF(table_expr->GetAsOrDie<ASTTVF>(), external_scope,
                         local_scope, output, output_name_list);
 
     default:
@@ -3738,11 +3735,11 @@ zetasql_base::Status Resolver::ResolveTableExpression(
 
 IdString Resolver::GetAliasForExpression(const ASTNode* node) {
   if (node->node_kind() == AST_IDENTIFIER) {
-    return node->GetAs<ASTIdentifier>()->GetAsIdString();
+    return node->GetAsOrDie<ASTIdentifier>()->GetAsIdString();
   } else if (node->node_kind() == AST_PATH_EXPRESSION) {
-    return node->GetAs<ASTPathExpression>()->last_name()->GetAsIdString();
+    return node->GetAsOrDie<ASTPathExpression>()->last_name()->GetAsIdString();
   } else if (node->node_kind() == AST_DOT_IDENTIFIER) {
-    return node->GetAs<ASTDotIdentifier>()->name()->GetAsIdString();
+    return node->GetAsOrDie<ASTDotIdentifier>()->name()->GetAsIdString();
   } else {
     return IdString();
   }
@@ -4550,7 +4547,7 @@ zetasql_base::Status Resolver::ResolveJoin(
   // to resolve this join as an array scan.
   if (join->rhs()->node_kind() == AST_TABLE_PATH_EXPRESSION) {
     const ASTTablePathExpression* table_ref =
-        join->rhs()->GetAs<ASTTablePathExpression>();
+        join->rhs()->GetAsOrDie<ASTTablePathExpression>();
     const ASTPathExpression* rhs_path_expr = table_ref->path_expr();
     // We may have an unnest_expr instead of a path_expr here.
     // Single-word identifiers are always resolved as table names.
@@ -5153,7 +5150,7 @@ zetasql_base::StatusOr<Resolver::ResolvedTVFArgType> Resolver::ResolveTVFArg(
         // scalar subquery type. We check that the expression subquery
         // modifier type is NONE to exclude ARRAY and EXISTS subqueries.
         if (ast_expr->node_kind() != AST_EXPRESSION_SUBQUERY ||
-            ast_expr->GetAs<ASTExpressionSubquery>()->modifier() !=
+            ast_expr->GetAsOrDie<ASTExpressionSubquery>()->modifier() !=
                 ASTExpressionSubquery::NONE) {
           std::string error =
               absl::StrCat("Table-valued function ",
@@ -5161,13 +5158,13 @@ zetasql_base::StatusOr<Resolver::ResolvedTVFArgType> Resolver::ResolveTVFArg(
                            " must be a relation (i.e. table subquery)");
           if (ast_expr->node_kind() == AST_PATH_EXPRESSION &&
               zetasql_base::ContainsKey(with_subquery_map_,
-                               ast_expr->GetAs<ASTPathExpression>()
+                               ast_expr->GetAsOrDie<ASTPathExpression>()
                                    ->first_name()
                                    ->GetAsIdString())) {
             // The argument is a path expression referring to the WITH clause.
             // Return a specific error message helping the user figure out
             // what to change.
-            const std::string table_name = ast_expr->GetAs<ASTPathExpression>()
+            const std::string table_name = ast_expr->GetAsOrDie<ASTPathExpression>()
                                           ->first_name()
                                           ->GetAsString();
             absl::StrAppend(&error, "; if you meant to refer to table ",
@@ -5179,8 +5176,8 @@ zetasql_base::StatusOr<Resolver::ResolvedTVFArgType> Resolver::ResolveTVFArg(
           return MakeSqlErrorAt(ast_expr) << error;
         }
         ZETASQL_RETURN_IF_ERROR(ResolveQuery(
-            ast_expr->GetAs<ASTExpressionSubquery>()->query(), external_scope,
-            AllocateSubqueryName(), false /* is_outer_query */,
+            ast_expr->GetAsOrDie<ASTExpressionSubquery>()->query(),
+            external_scope, AllocateSubqueryName(), false /* is_outer_query */,
             &resolved_tvf_arg.scan, &resolved_tvf_arg.name_list));
       } else {
         // This argument has to be a model. Return an error.
@@ -5524,7 +5521,7 @@ zetasql_base::Status Resolver::ResolveArrayScan(
                          "Unrecognized name: ") &&
         unnest->expression()->node_kind() == AST_PATH_EXPRESSION) {
       const ASTPathExpression* path_expr =
-          unnest->expression()->GetAs<ASTPathExpression>();
+          unnest->expression()->GetAsOrDie<ASTPathExpression>();
       const Table* table;
       const zetasql_base::Status find_status =
           catalog_->FindTable(path_expr->ToIdentifierVector(), &table,

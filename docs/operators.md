@@ -264,16 +264,11 @@ is interpreted as:
 ( ( x * y ) / z )
 ```
 
-All comparison operators have the same priority and are grouped using left
-associativity. However, comparison operators are not associative. As a result,
-it is recommended that you use parentheses to improve readability and ensure
-expressions are resolved as desired. For example:
+All comparison operators have the same priority, but comparison operators are
+not associative. Therefore, parentheses are required in order to resolve
+ambiguity. For example:
 
 `(x < y) IS FALSE`
-
-is recommended over:
-
-`x < y IS FALSE`
 
 ### Element access operators
 

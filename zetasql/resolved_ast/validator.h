@@ -250,6 +250,11 @@ class Validator {
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedGetProtoField* get_proto_field) const;
 
+  zetasql_base::Status ValidateResolvedReplaceField(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const ResolvedReplaceField* replace_field) const;
+
   zetasql_base::Status ValidateResolvedSubqueryExpr(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,

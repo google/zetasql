@@ -98,10 +98,10 @@ cc_proto_library(
         #
         http_archive(
             name = "com_google_absl",
-            # Commit from 2019-01-08
-            url = "https://github.com/abseil/abseil-cpp/archive/b16aeb6756bdab08cdf12d40baab5b51f7d15b16.tar.gz",
-            sha256 = "0d042c15d349bf62586b86e4c70d785cb2d1e1948636920abdd8a79d6027879a",
-            strip_prefix = "abseil-cpp-b16aeb6756bdab08cdf12d40baab5b51f7d15b16",
+            # Commit from 2019-06-28
+            url = "https://github.com/abseil/abseil-cpp/archive/c964fcffac27bd4a9ff67fe393410dd1146ef8b8.tar.gz",
+            sha256 = "a8b00e4be7ad89a2c0a28b5fd8152fcb1972006560aca2ce85cb72b6985b577c",
+            strip_prefix = "abseil-cpp-c964fcffac27bd4a9ff67fe393410dd1146ef8b8",
         )
 
     # Abseil (Python)
@@ -176,6 +176,279 @@ cc_proto_library(
             url = "https://github.com/grpc/grpc-java/archive/v1.18.0.tar.gz",
             strip_prefix = "grpc-java-1.18.0",
             sha256 = "0b86e44f9530fd61eb044b3c64c7579f21857ba96bcd9434046fd22891483a6d",
+        )
+
+    if not native.existing_rule("com_google_code_findbugs_jsr305"):
+        jvm_maven_import_external(
+            name = "com_google_code_findbugs_jsr305",
+            artifact = "com.google.code.findbugs:jsr305:3.0.2",
+            tags = ["maven_coordinates=com.google.code.findbugs:jsr305:3.0.2"],
+            server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "766ad2a0783f2687962c8ad74ceecc38a28b9f72a2d085ee438b7813e928d0c7",
+            licenses = ["notice"],  # Apache 2.0
+        )
+
+    if not native.existing_rule("com_google_errorprone_error_prone_annotations"):
+        jvm_maven_import_external(
+            name = "com_google_errorprone_error_prone_annotations",
+            artifact = "com.google.errorprone:error_prone_annotations:2.3.2",
+            tags = ["maven_coordinates=com.google.errorprone:error_prone_annotations:2.3.2"],
+            server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "357cd6cfb067c969226c442451502aee13800a24e950fdfde77bcdb4565a668d",
+            licenses = ["notice"],  # Apache 2.0
+        )
+
+    if not native.existing_rule("com_google_j2objc_j2objc_annotations"):
+        jvm_maven_import_external(
+            name = "com_google_j2objc_j2objc_annotations",
+            artifact = "com.google.j2objc:j2objc-annotations:1.1",
+            tags = ["maven_coordinates=com.google.j2objc:j2objc-annotations:1.1"],
+            server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "2994a7eb78f2710bd3d3bfb639b2c94e219cedac0d4d084d516e78c16dddecf6",
+            licenses = ["notice"],  # Apache 2.0
+        )
+
+    if not native.existing_rule("org_codehaus_mojo_animal_sniffer_annotations"):
+        jvm_maven_import_external(
+            name = "org_codehaus_mojo_animal_sniffer_annotations",
+            artifact = "org.codehaus.mojo:animal-sniffer-annotations:1.17",
+            tags = ["maven_coordinates=org.codehaus.mojo:animal-sniffer-annotations:1.17"],
+            server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "92654f493ecfec52082e76354f0ebf87648dc3d5cec2e3c3cdb947c016747a53",
+            licenses = ["notice"],  # MIT
+        )
+
+    if not native.existing_rule("com_google_guava_guava"):
+        jvm_maven_import_external(
+            name = "com_google_guava_guava",
+            artifact = "com.google.guava:guava:26.0-android",
+            tags = ["maven_coordinates=com.google.guava:guava:26.0-android"],
+            server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "1d044ebb866ef08b7d04e998b4260c9b52fab6e6d6b68d207859486bb3686cd5",
+            licenses = ["notice"],  # Apache 2.0
+        )
+        native.bind(
+            name = "guava",
+            actual = "@com_google_guava_guava//jar",
+        )
+
+    if not native.existing_rule("com_google_code_gson_gson"):
+        jvm_maven_import_external(
+            name = "com_google_code_gson_gson",
+            artifact = "com.google.code.gson:gson:jar:2.7",
+            tags = ["maven_coordinates=com.google.code.gson:gson:jar:2.7"],
+            server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "2d43eb5ea9e133d2ee2405cc14f5ee08951b8361302fdd93494a3a997b508d32",
+            licenses = ["notice"],  # Apache 2.0
+        )
+        native.bind(
+            name = "gson",
+            actual = "@com_google_code_gson_gson//jar",
+        )
+
+    if not native.existing_rule("com_google_truth_truth"):
+        jvm_maven_import_external(
+            name = "com_google_truth_truth",
+            testonly = 1,
+            artifact = "com.google.truth:truth:0.44",
+            tags = ["maven_coordinates=com.google.truth:truth:0.44"],
+            server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "a9e6796786c9c77a5fe19b08e72fe0a620d53166df423d8861af9ebef4dc4247",
+            licenses = ["notice"],  # Apache 2.0
+        )
+
+    if not native.existing_rule("io_netty_netty_buffer"):
+        jvm_maven_import_external(
+            name = "io_netty_netty_buffer",
+            artifact = "io.netty:netty-buffer:4.1.34.Final",
+            tags = ["maven_coordinates=io.netty:netty-buffer:4.1.34.Final"],
+            server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "39dfe88df8505fd01fbf9c1dbb6b6fa9b0297e453c3dc4ce039ea578aea2eaa3",
+            licenses = ["notice"],  # Apache 2.0
+        )
+
+    if not native.existing_rule("io_netty_netty_codec"):
+        jvm_maven_import_external(
+            name = "io_netty_netty_codec",
+            artifact = "io.netty:netty-codec:4.1.34.Final",
+            tags = ["maven_coordinates=io.netty:netty-codec:4.1.34.Final"],
+            server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "52e9eeb3638a8ed0911c72a508c05fa4f9d3391125eae46f287d3a8a0776211d",
+            licenses = ["notice"],  # Apache 2.0
+        )
+
+    if not native.existing_rule("io_netty_netty_codec_http"):
+        jvm_maven_import_external(
+            name = "io_netty_netty_codec_http",
+            artifact = "io.netty:netty-codec-http:4.1.34.Final",
+            tags = ["maven_coordinates=io.netty:netty-codec-http:4.1.34.Final"],
+            server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "5df5556ef6b0e7ce7c72a359e4ca774fcdf8d8fe12f0b6332715eaa44cfe41f8",
+            licenses = ["notice"],  # Apache 2.0
+        )
+
+    if not native.existing_rule("io_netty_netty_codec_http2"):
+        jvm_maven_import_external(
+            name = "io_netty_netty_codec_http2",
+            artifact = "io.netty:netty-codec-http2:4.1.34.Final",
+            tags = ["maven_coordinates=io.netty:netty-codec-http2:4.1.34.Final"],
+            server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "319f66f3ab0d3aac3477febf19c259990ee8c639fc7da8822dfa58e7dab1bdcf",
+            licenses = ["notice"],  # Apache 2.0
+        )
+
+    if not native.existing_rule("io_netty_netty_common"):
+        jvm_maven_import_external(
+            name = "io_netty_netty_common",
+            artifact = "io.netty:netty-common:4.1.34.Final",
+            tags = ["maven_coordinates=io.netty:netty-common:4.1.34.Final"],
+            server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "122931117eacf370b054d0e8a2411efa81de4956a6c3f938b0f0eb915969a425",
+            licenses = ["notice"],  # Apache 2.0
+        )
+
+    if not native.existing_rule("io_netty_netty_handler"):
+        jvm_maven_import_external(
+            name = "io_netty_netty_handler",
+            artifact = "io.netty:netty-handler:4.1.34.Final",
+            tags = ["maven_coordinates=io.netty:netty-handler:4.1.34.Final"],
+            server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "035616801fe9894ca2490832cf9976536dac740f41e90de1cdd4ba46f04263d1",
+            licenses = ["notice"],  # Apache 2.0
+        )
+
+    if not native.existing_rule("io_netty_netty_resolver"):
+        jvm_maven_import_external(
+            name = "io_netty_netty_resolver",
+            artifact = "io.netty:netty-resolver:4.1.34.Final",
+            tags = ["maven_coordinates=io.netty:netty-resolver:4.1.34.Final"],
+            server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "774221ed4c130b532865770b10630bc12d0d400127da617ee0ac8de2a7ac2097",
+            licenses = ["notice"],  # Apache 2.0
+        )
+
+    if not native.existing_rule("io_netty_netty_transport"):
+        jvm_maven_import_external(
+            name = "io_netty_netty_transport",
+            artifact = "io.netty:netty-transport:4.1.34.Final",
+            tags = ["maven_coordinates=io.netty:netty-transport:4.1.34.Final"],
+            server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "2b3f7d3a595101def7d411793a675bf2a325964475fd7bdbbe448e908de09445",
+            exports = ["@io_netty_netty_common//jar"],
+            licenses = ["notice"],  # Apache 2.0
+        )
+
+    if not native.existing_rule("junit_junit"):
+        jvm_maven_import_external(
+            name = "junit_junit",
+            artifact = "junit:junit:4.12",
+            tags = ["maven_coordinates=junit:junit:4.12"],
+            server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "59721f0805e223d84b90677887d9ff567dc534d7c502ca903c0c2b17f05c116a",
+            licenses = ["notice"],  # EPL 1.0
+        )
+
+    if not native.existing_rule("com_google_api_grpc_proto_google_common_protos"):
+        jvm_maven_import_external(
+            name = "com_google_api_grpc_proto_google_common_protos",
+            artifact = "com.google.api.grpc:proto-google-common-protos:1.12.0",
+            tags = ["maven_coordinates=com.google.api.grpc:proto-google-common-protos:1.12.0"],
+            server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "bd60cd7a423b00fb824c27bdd0293aaf4781be1daba6ed256311103fb4b84108",
+            licenses = ["notice"],  # Apache 2.0
+        )
+
+    if not native.existing_rule("io_grpc_grpc_context"):
+        jvm_maven_import_external(
+            name = "io_grpc_grpc_context",
+            artifact = "io.grpc:grpc-context:1.18.0",
+            server_urls = ["http://central.maven.org/maven2"],
+            licenses = ["notice"],  # Apache 2.0
+        )
+
+    if not native.existing_rule("io_grpc_grpc_core"):
+        jvm_maven_import_external(
+            name = "io_grpc_grpc_core",
+            artifact = "io.grpc:grpc-core:1.18.0",
+            server_urls = ["http://central.maven.org/maven2"],
+            licenses = ["notice"],  # Apache 2.0
+            runtime_deps = [
+                "@io_opencensus_opencensus_api//jar",
+                "@io_opencensus_opencensus_contrib_grpc_metrics//jar",
+            ],
+        )
+
+    if not native.existing_rule("io_grpc_grpc_netty"):
+        jvm_maven_import_external(
+            name = "io_grpc_grpc_netty",
+            artifact = "io.grpc:grpc-netty:1.18.0",
+            server_urls = ["http://central.maven.org/maven2"],
+            licenses = ["notice"],  # Apache 2.0
+            runtime_deps = [
+                "@io_netty_netty_buffer//jar",
+                "@io_netty_netty_codec//jar",
+                "@io_netty_netty_codec_http//jar",
+                "@io_netty_netty_handler//jar",
+                "@io_netty_netty_resolver//jar",
+                "@io_netty_netty_transport//jar",
+            ],
+            deps = [
+                "@io_netty_netty_codec_http2//jar",
+            ],
+        )
+
+    if not native.existing_rule("io_grpc_grpc_stub"):
+        jvm_maven_import_external(
+            name = "io_grpc_grpc_stub",
+            artifact = "io.grpc:grpc-stub:1.18.0",
+            server_urls = ["http://central.maven.org/maven2"],
+            licenses = ["notice"],  # Apache 2.0
+        )
+
+    if not native.existing_rule("io_grpc_grpc_protobuf"):
+        jvm_maven_import_external(
+            name = "io_grpc_grpc_protobuf",
+            artifact = "io.grpc:grpc-protobuf:1.18.0",
+            server_urls = ["http://central.maven.org/maven2"],
+            licenses = ["notice"],  # Apache 2.0
+        )
+
+    if not native.existing_rule("io_grpc_grpc_protobuf_lite"):
+        jvm_maven_import_external(
+            name = "io_grpc_grpc_protobuf_lite",
+            artifact = "io.grpc:grpc-protobuf-lite:1.18.0",
+            server_urls = ["http://central.maven.org/maven2"],
+            licenses = ["notice"],  # Apache 2.0
+        )
+
+    if not native.existing_rule("javax_annotation_javax_annotation_api"):
+        jvm_maven_import_external(
+            name = "javax_annotation_javax_annotation_api",
+            artifact = "javax.annotation:javax.annotation-api:1.2",
+            tags = ["maven_coordinates=javax.annotation:javax.annotation-api:1.2"],
+            server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "5909b396ca3a2be10d0eea32c74ef78d816e1b4ead21de1d78de1f890d033e04",
+            licenses = ["reciprocal"],  # CDDL License
+        )
+
+    if not native.existing_rule("io_opencensus_opencensus_api"):
+        jvm_maven_import_external(
+            name = "io_opencensus_opencensus_api",
+            artifact = "io.opencensus:opencensus-api:0.21.0",
+            tags = ["maven_coordinates=io.opencensus:opencensus-api:0.21.0"],
+            server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "8e2cb0f6391d8eb0a1bcd01e7748883f0033b1941754f4ed3f19d2c3e4276fc8",
+            licenses = ["notice"],  # Apache 2.0
+        )
+
+    if not native.existing_rule("io_opencensus_opencensus_contrib_grpc_metrics"):
+        jvm_maven_import_external(
+            name = "io_opencensus_opencensus_contrib_grpc_metrics",
+            artifact = "io.opencensus:opencensus-contrib-grpc-metrics:0.21.0",
+            tags = ["maven_coordinates=io.opencensus:opencensus-contrib-grpc-metrics:0.21.0"],
+            server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "29fc79401082301542cab89d7054d2f0825f184492654c950020553ef4ff0ef8",
+            licenses = ["notice"],  # Apache 2.0
         )
 
     # Auto common
@@ -294,6 +567,7 @@ cc_proto_library(
         jvm_maven_import_external(
             name = "joda_time",
             artifact = "joda-time:joda-time:2.3",
+            tags = ["maven_coordinates=joda-time:joda-time:2.3"],
             server_urls = ["http://central.maven.org/maven2"],
             artifact_sha256 = "602fd8006641f8b3afd589acbd9c9b356712bdcf0f9323557ec8648cd234983b",
             licenses = ["notice"],  # Apache 2.0
@@ -367,6 +641,15 @@ java_library(
 )""",
         )
 
+    if not native.existing_rule("google_bazel_common"):
+        http_archive(
+            name = "google_bazel_common",
+            strip_prefix = "bazel-common-f3dc1a775d21f74fc6f4bbcf076b8af2f6261a69",
+            urls = ["https://github.com/google/bazel-common/archive/f3dc1a775d21f74fc6f4bbcf076b8af2f6261a69.zip"],
+            sha256 = "ccdd09559b49c7efd9e4b0b617b18e2a4bbdb2142fc30dfd3501eb5fa1294dcc",
+            patches = ["//bazel:common.patch"],
+        )
+
     ##########################################################################
     # Rules which depend on rules_foreign_cc
     #
@@ -394,14 +677,16 @@ java_library(
         strip_prefix = "flex-2.6.4",
         sha256 = "e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995",
         urls = ["https://github.com/westes/flex/releases/download/v2.6.4/flex-2.6.4.tar.gz"],
+        patches = ["//bazel:flex.patch"],
     )
 
     http_archive(
         name = "m4",
         build_file_content = all_content,
-        strip_prefix = "m4-1.4.13",
-        sha256 = "39333a95aaf8620c7f90f1db5527b9e53e993b173de9207df5ea506c91fea549",
-        urls = ["https://ftp.gnu.org/gnu/m4/m4-1.4.13.tar.gz"],
+        strip_prefix = "m4-1.4.18",
+        sha256 = "ab2633921a5cd38e48797bf5521ad259bdc4b979078034a3b790d7fec5493fab",
+        urls = ["https://ftp.gnu.org/gnu/m4/m4-1.4.18.tar.gz"],
+        patches = ["//bazel:m4.patch"],
     )
 
     http_archive(

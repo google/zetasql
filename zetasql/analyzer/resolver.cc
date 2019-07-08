@@ -653,6 +653,7 @@ static std::string HintName(const std::string& qualifier, const std::string& nam
 zetasql_base::Status Resolver::ResolveHintOrOptionAndAppend(
     const ASTExpression* ast_value, const ASTIdentifier* ast_qualifier,
     const ASTIdentifier* ast_name, bool is_hint,
+    const AllowedHintsAndOptions& allowed,
     std::vector<std::unique_ptr<const ResolvedOption>>* option_list) {
   ZETASQL_RET_CHECK(ast_name != nullptr);
 
@@ -703,9 +704,6 @@ zetasql_base::Status Resolver::ResolveHintOrOptionAndAppend(
         ast_value,
         reinterpret_cast<std::unique_ptr<const ResolvedNode>*>(&resolved_expr));
   }
-
-  const AllowedHintsAndOptions& allowed =
-      analyzer_options_.allowed_hints_and_options();
 
   // <found_ptr> points at the Type* of the hint or option we found.
   // If it points at a NULL, any type is allowed.
@@ -790,6 +788,7 @@ zetasql_base::Status Resolver::ResolveHintAndAppend(
         ast_hint_entry->qualifier(),
         ast_hint_entry->name(),
         true /* is_hint */,
+        analyzer_options_.allowed_hints_and_options(),
         hints));
   }
 
@@ -803,8 +802,9 @@ zetasql_base::Status Resolver::ResolveOptionsList(
     for (const ASTOptionsEntry* options_entry :
          options_list->options_entries()) {
       ZETASQL_RETURN_IF_ERROR(ResolveHintOrOptionAndAppend(
-          options_entry->value(), nullptr /* ast_qualifier */,
-          options_entry->name(), false /* is_hint */, resolved_options));
+          options_entry->value(), /*ast_qualifier=*/nullptr ,
+          options_entry->name(), /*is_hint=*/false,
+          analyzer_options_.allowed_hints_and_options(), resolved_options));
     }
   }
   return ::zetasql_base::OkStatus();
@@ -814,21 +814,22 @@ zetasql_base::Status Resolver::ResolveType(const ASTType* type,
                                    const Type** resolved_type) const {
   switch (type->node_kind()) {
     case AST_SIMPLE_TYPE: {
-      return ResolveSimpleType(type->GetAs<ASTSimpleType>(), resolved_type);
+      return ResolveSimpleType(type->GetAsOrDie<ASTSimpleType>(),
+                               resolved_type);
     }
 
     case AST_ARRAY_TYPE: {
       const ArrayType* array_type;
-      ZETASQL_RETURN_IF_ERROR(ResolveArrayType(type->GetAs<ASTArrayType>(),
-                                       &array_type));
+      ZETASQL_RETURN_IF_ERROR(
+          ResolveArrayType(type->GetAsOrDie<ASTArrayType>(), &array_type));
       *resolved_type = array_type;
       return ::zetasql_base::OkStatus();
     }
 
     case AST_STRUCT_TYPE: {
       const StructType* struct_type;
-      ZETASQL_RETURN_IF_ERROR(ResolveStructType(type->GetAs<ASTStructType>(),
-                                        &struct_type));
+      ZETASQL_RETURN_IF_ERROR(
+          ResolveStructType(type->GetAsOrDie<ASTStructType>(), &struct_type));
       *resolved_type = struct_type;
       return ::zetasql_base::OkStatus();
     }

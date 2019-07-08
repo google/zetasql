@@ -23,11 +23,13 @@
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/parser/ast_node_kind.h"
+#include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/testdata/error_catalog.h"
 #include "zetasql/testdata/sample_catalog.h"
+#include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/memory/memory.h"
@@ -121,6 +123,14 @@ class ResolverTest : public ::testing::Test {
                                         resolved_expression);
   }
 
+  zetasql_base::Status FindFieldDescriptors(
+      absl::Span<const ASTIdentifier* const> path_vector,
+      const google::protobuf::Descriptor* root_descriptor,
+      std::vector<const google::protobuf::FieldDescriptor*>* field_descriptors) {
+    return resolver_->FindFieldDescriptors(path_vector, root_descriptor,
+                                           field_descriptors);
+  }
+
   // Test that <cast_expression> successfully resolves to an expression
   // of the expected type.
   void TestCastExpression(const std::string& cast_expression,
@@ -147,12 +157,13 @@ class ResolverTest : public ::testing::Test {
     ASSERT_THAT(parsed_expression, NotNull());
     if (parsed_expression->node_kind() == AST_CASE_VALUE_EXPRESSION) {
       const auto& arguments =
-          parsed_expression->GetAs<ASTCaseValueExpression>()->arguments();
+          parsed_expression->GetAsOrDie<ASTCaseValueExpression>()->arguments();
       EXPECT_GE(arguments.size(), 3) << query;
     }
     if (parsed_expression->node_kind() == AST_CASE_NO_VALUE_EXPRESSION) {
       const auto& arguments =
-          parsed_expression->GetAs<ASTCaseNoValueExpression>()->arguments();
+          parsed_expression->GetAsOrDie<ASTCaseNoValueExpression>()
+              ->arguments();
       EXPECT_GE(arguments.size(), 2) << query;
     }
     ZETASQL_EXPECT_OK(ResolveExpr(parsed_expression, &resolved_expression))
@@ -260,6 +271,66 @@ class ResolverTest : public ::testing::Test {
         << "Query: " << query
         << "\nParsed expression: " << Unparse(parsed_expression);
     EXPECT_THAT(resolved_expr.get(), IsNull());
+  }
+
+  // 'path_expression' must parse to a ASTPathExpression or ASTIdentifier.
+  void TestFindFieldDescriptorsSuccess(
+      const std::string& path_expression,
+      const google::protobuf::Descriptor* root_descriptor) {
+    std::unique_ptr<ParserOutput> parser_output;
+    ZETASQL_ASSERT_OK(ParseExpression(path_expression, ParserOptions(), &parser_output))
+        << path_expression;
+    const ASTExpression* parsed_expression = parser_output->expression();
+    EXPECT_TRUE(parsed_expression->node_kind() == AST_IDENTIFIER ||
+                parsed_expression->node_kind() == AST_PATH_EXPRESSION);
+    absl::Span<const ASTIdentifier* const> path_vector;
+    if (parsed_expression->node_kind() == AST_IDENTIFIER) {
+      path_vector = {parsed_expression->GetAsOrDie<ASTIdentifier>()};
+    } else {
+      path_vector = parsed_expression->GetAsOrDie<ASTPathExpression>()->names();
+    }
+    std::vector<const google::protobuf::FieldDescriptor*> field_descriptors;
+    ZETASQL_ASSERT_OK(
+        FindFieldDescriptors(path_vector, root_descriptor, &field_descriptors));
+
+    // Ensure that the field path is valid by checking field containment.
+    std::string containing_proto_name = root_descriptor->full_name();
+    EXPECT_EQ(path_vector.size(), field_descriptors.size());
+    for (int i = 0; i < field_descriptors.size(); ++i) {
+      if (!field_descriptors[i]->is_extension()) {
+        EXPECT_EQ(path_vector[i]->GetAsString(), field_descriptors[i]->name());
+      }
+      EXPECT_EQ(containing_proto_name,
+                field_descriptors[i]->containing_type()->full_name())
+          << "Mismatched proto message " << containing_proto_name
+          << " and field " << field_descriptors[i]->full_name();
+      if (field_descriptors[i]->message_type() != nullptr) {
+        containing_proto_name =
+            field_descriptors[i]->message_type()->full_name();
+      }
+    }
+  }
+
+  // 'path_expression' must parse to a ASTPathExpression or ASTIdentifier.
+  void TestFindFieldDescriptorsFail(const std::string& path_expression,
+                                    const google::protobuf::Descriptor* root_descriptor,
+                                    const std::string& expected_error_substr) {
+    std::unique_ptr<ParserOutput> parser_output;
+    ZETASQL_ASSERT_OK(ParseExpression(path_expression, ParserOptions(), &parser_output))
+        << path_expression;
+    const ASTExpression* parsed_expression = parser_output->expression();
+    EXPECT_TRUE(parsed_expression->node_kind() == AST_IDENTIFIER ||
+                parsed_expression->node_kind() == AST_PATH_EXPRESSION);
+    absl::Span<const ASTIdentifier* const> path_vector;
+    if (parsed_expression->node_kind() == AST_IDENTIFIER) {
+      path_vector = {parsed_expression->GetAsOrDie<ASTIdentifier>()};
+    } else {
+      path_vector = parsed_expression->GetAsOrDie<ASTPathExpression>()->names();
+    }
+    std::vector<const google::protobuf::FieldDescriptor*> field_descriptors;
+    EXPECT_THAT(
+        FindFieldDescriptors(path_vector, root_descriptor, &field_descriptors),
+        StatusIs(_, HasSubstr(expected_error_substr)));
   }
 
   void TestResolverErrorMessage(const std::string& query,
@@ -670,6 +741,41 @@ TEST_F(ResolverTest, ResolvingBuiltinFucntionsFail) {
       "SAFE.(case when KitchenSink.int64_key_1 = 0 then NULL else "
       "KitchenSink end)",
       "Syntax error: Unexpected keyword CASE");
+}
+
+TEST_F(ResolverTest, TestFindFieldDescriptorsSuccess) {
+  zetasql_test::KitchenSinkPB kitchen_sink;
+  TestFindFieldDescriptorsSuccess("int64_key_1", kitchen_sink.descriptor());
+  TestFindFieldDescriptorsSuccess("int32_val", kitchen_sink.descriptor());
+  TestFindFieldDescriptorsSuccess("repeated_int32_val",
+                                  kitchen_sink.descriptor());
+  TestFindFieldDescriptorsSuccess("date64", kitchen_sink.descriptor());
+  TestFindFieldDescriptorsSuccess("nested_value.nested_int64",
+                                  kitchen_sink.descriptor());
+  TestFindFieldDescriptorsSuccess("nested_value.nested_repeated_int64",
+                                  kitchen_sink.descriptor());
+  zetasql_test::RecursivePB recursive_pb;
+  TestFindFieldDescriptorsSuccess("recursive_pb.recursive_pb.int64_val",
+                                  recursive_pb.descriptor());
+}
+
+TEST_F(ResolverTest, TestFindFieldDescriptorsFail) {
+  zetasql_test::KitchenSinkPB kitchen_sink;
+  const std::string& does_not_have_field = "does not have a field named ";
+  TestFindFieldDescriptorsFail(
+      "invalid_field", kitchen_sink.descriptor(),
+      absl::StrCat(does_not_have_field, "invalid_field"));
+  TestFindFieldDescriptorsFail(
+      "nested_value.invalid_field", kitchen_sink.descriptor(),
+      absl::StrCat(does_not_have_field, "invalid_field"));
+  const std::string& cannot_access_field =
+      "Cannot access field ";
+  TestFindFieldDescriptorsFail(
+      "int32_val.invalid_field", kitchen_sink.descriptor(),
+      absl::StrCat(cannot_access_field, "invalid_field"));
+  TestFindFieldDescriptorsFail(
+      "nested_value.nested_int64.invalid_field", kitchen_sink.descriptor(),
+      absl::StrCat(cannot_access_field, "invalid_field"));
 }
 
 TEST_F(ResolverTest, TestResolveParameterExpr) {

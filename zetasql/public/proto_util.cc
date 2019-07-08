@@ -58,11 +58,12 @@ namespace zetasql {
 
 static zetasql_base::Status GetProtoFieldDefaultImpl(
     const google::protobuf::FieldDescriptor* field, const Type* type,
-    bool always_use_defaults, Value* default_value) {
+    bool ignore_use_defaults_annotations, bool ignore_format_annotations,
+    Value* default_value) {
   if (ZETASQL_DEBUG_MODE) {
     TypeKind field_kind;
-    ZETASQL_RET_CHECK(ProtoType::FieldDescriptorToTypeKind(always_use_defaults, field,
-                                                   &field_kind)
+    ZETASQL_RET_CHECK(ProtoType::FieldDescriptorToTypeKind(ignore_format_annotations,
+                                                   field, &field_kind)
                   .ok());
     ZETASQL_RET_CHECK_EQ(type->kind(), field_kind);
   }
@@ -86,7 +87,7 @@ static zetasql_base::Status GetProtoFieldDefaultImpl(
   }
 
   const bool use_defaults = ProtoType::GetUseDefaultsExtension(field);
-  if (!use_defaults && !always_use_defaults) {
+  if (!use_defaults && !ignore_use_defaults_annotations) {
     *default_value = Value::Null(type);
     return ::zetasql_base::OkStatus();
   }
@@ -241,6 +242,16 @@ static zetasql_base::Status GetProtoFieldDefaultImpl(
   return ::zetasql_base::OkStatus();
 }
 
+zetasql_base::Status GetProtoFieldDefaultV2(const google::protobuf::FieldDescriptor* field,
+                                    const Type* type, Value* default_value) {
+  const bool& ignore_use_defaults =
+      field->containing_type()->file()->syntax() ==
+      google::protobuf::FileDescriptor::SYNTAX_PROTO3;
+  return GetProtoFieldDefaultImpl(field, type, ignore_use_defaults,
+                                  /*ignore_format_annotations=*/false,
+                                  default_value);
+}
+
 zetasql_base::Status GetProtoFieldDefault(const google::protobuf::FieldDescriptor* field,
                                   const Type* type, Value* default_value) {
   return GetProtoFieldDefault(field, type, /*use_obsolete_timestamp=*/false,
@@ -252,14 +263,17 @@ zetasql_base::Status GetProtoFieldDefault(const google::protobuf::FieldDescripto
                                   Value* default_value) {
   ZETASQL_RET_CHECK(!use_obsolete_timestamp);
   return GetProtoFieldDefaultImpl(field, type,
-                                  /*always_use_defaults=*/false, default_value);
+                                  /*ignore_use_defaults_annotations=*/false,
+                                  /*ignore_format_annotations=*/false,
+                                  default_value);
 }
 
 zetasql_base::Status GetProtoFieldDefaultRaw(const google::protobuf::FieldDescriptor* field,
                                      const Type* type, Value* default_value) {
   if (type->IsSimpleType() || type->IsArray()) {
     return GetProtoFieldDefaultImpl(field, type,
-                                    /*always_use_defaults=*/true,
+                                    /*ignore_use_defaults_annotations=*/true,
+                                    /*ignore_format_annotations=*/true,
                                     default_value);
   }
   *default_value = values::Null(type);

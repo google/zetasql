@@ -603,9 +603,10 @@ static std::string GeneralizedPathAsString(
       path));
   switch (path->node_kind()) {
     case AST_PATH_EXPRESSION:
-      return path->GetAs<ASTPathExpression>()->ToIdentifierPathString();
+      return path->GetAsOrDie<ASTPathExpression>()->ToIdentifierPathString();
     case AST_DOT_GENERALIZED_FIELD: {
-      const auto* dot_generalized_field = path->GetAs<ASTDotGeneralizedField>();
+      const auto* dot_generalized_field =
+          path->GetAsOrDie<ASTDotGeneralizedField>();
       return absl::StrCat(
           GeneralizedPathAsString(
               static_cast<const ASTGeneralizedPathExpression*>(
@@ -613,7 +614,7 @@ static std::string GeneralizedPathAsString(
           ".(", dot_generalized_field->path()->ToIdentifierPathString(), ")");
     }
     case AST_DOT_IDENTIFIER: {
-      const auto* dot_identifier = path->GetAs<ASTDotIdentifier>();
+      const auto* dot_identifier = path->GetAsOrDie<ASTDotIdentifier>();
       return absl::StrCat(
           GeneralizedPathAsString(
               static_cast<const ASTGeneralizedPathExpression*>(
@@ -621,7 +622,7 @@ static std::string GeneralizedPathAsString(
           ".", ToIdentifierLiteral(dot_identifier->name()->GetAsIdString()));
     }
     case AST_ARRAY_ELEMENT: {
-      const auto* array_element = path->GetAs<ASTArrayElement>();
+      const auto* array_element = path->GetAsOrDie<ASTArrayElement>();
       return absl::StrCat(GeneralizedPathAsString(
                               static_cast<const ASTGeneralizedPathExpression*>(
                                   array_element->array())),
@@ -773,9 +774,8 @@ zetasql_base::Status Resolver::PopulateUpdateTargetInfos(
 
       UpdateTargetInfo info;
       ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsExpression(
-          path->GetAs<ASTPathExpression>(), expr_resolution_info,
-          is_write ? ResolvedStatement::WRITE
-                   : ResolvedStatement::READ,
+          path->GetAsOrDie<ASTPathExpression>(), expr_resolution_info,
+          is_write ? ResolvedStatement::WRITE : ResolvedStatement::READ,
           &info.target));
       // We must check whether the column is writable.
       if (is_write && !is_nested) {
@@ -785,7 +785,8 @@ zetasql_base::Status Resolver::PopulateUpdateTargetInfos(
       return zetasql_base::OkStatus();
     }
     case AST_DOT_GENERALIZED_FIELD: {
-      const auto* dot_generalized_field = path->GetAs<ASTDotGeneralizedField>();
+      const auto* dot_generalized_field =
+          path->GetAsOrDie<ASTDotGeneralizedField>();
       ZETASQL_RETURN_IF_ERROR(PopulateUpdateTargetInfos(
           ast_update_item, is_nested,
           static_cast<const ASTGeneralizedPathExpression*>(
@@ -809,7 +810,7 @@ zetasql_base::Status Resolver::PopulateUpdateTargetInfos(
           dot_generalized_field->path(), &info.target);
     }
     case AST_DOT_IDENTIFIER: {
-      const auto* dot_identifier = path->GetAs<ASTDotIdentifier>();
+      const auto* dot_identifier = path->GetAsOrDie<ASTDotIdentifier>();
       ZETASQL_RETURN_IF_ERROR(PopulateUpdateTargetInfos(
           ast_update_item, is_nested,
           static_cast<const ASTGeneralizedPathExpression*>(
@@ -821,7 +822,7 @@ zetasql_base::Status Resolver::PopulateUpdateTargetInfos(
                                 &info.target);
     }
     case AST_ARRAY_ELEMENT: {
-      const auto* array_element = path->GetAs<ASTArrayElement>();
+      const auto* array_element = path->GetAsOrDie<ASTArrayElement>();
 
       // We do not allow nested DML statements to use array element
       // modification. To see why, consider this example:

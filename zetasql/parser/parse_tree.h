@@ -5224,6 +5224,27 @@ class ASTUpdateStatement final : public ASTSqlStatement {
   const ASTFromClause* from_clause_ = nullptr;                   // Optional
 };
 
+class ASTTruncateStatement final : public ASTSqlStatement {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_TRUNCATE_STATEMENT;
+
+  ASTTruncateStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+
+  const ASTPathExpression* name() const { return name_; }
+  const ASTExpression* where() const { return where_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&name_);
+    fl.AddOptionalExpression(&where_);
+  }
+
+  const ASTPathExpression* name_ = nullptr;  // Required
+  const ASTExpression* where_ = nullptr;     // Optional
+};
+
 class ASTMergeAction final : public ASTNode {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_MERGE_ACTION;
@@ -5902,6 +5923,55 @@ class ASTDropColumnAction final : public ASTAlterAction {
   bool is_if_exists_ = false;
 };
 
+// ALTER table action for "ALTER COLUMN SET TYPE" clause
+class ASTAlterColumnTypeAction final : public ASTAlterAction {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_ALTER_COLUMN_TYPE_ACTION;
+
+  ASTAlterColumnTypeAction() : ASTAlterAction(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+
+  std::string GetSQLForAlterAction() const override;
+
+  const ASTIdentifier* column_name() const { return column_name_; }
+  const ASTColumnSchema* schema() const { return schema_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&column_name_);
+    fl.AddRequired(&schema_);
+  }
+
+  const ASTIdentifier* column_name_ = nullptr;
+  const ASTColumnSchema* schema_ = nullptr;
+};
+
+// ALTER table action for "ALTER COLUMN SET OPTIONS" clause
+class ASTAlterColumnOptionsAction final : public ASTAlterAction {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind =
+      AST_ALTER_COLUMN_OPTIONS_ACTION;
+
+  ASTAlterColumnOptionsAction() : ASTAlterAction(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+
+  std::string GetSQLForAlterAction() const override;
+
+  const ASTIdentifier* column_name() const { return column_name_; }
+  const ASTOptionsList* options_list() const { return options_list_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&column_name_);
+    fl.AddRequired(&options_list_);
+  }
+
+  const ASTIdentifier* column_name_ = nullptr;
+  const ASTOptionsList* options_list_ = nullptr;
+};
+
 class ASTAlterActionList final : public ASTNode {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_ALTER_ACTION_LIST;
@@ -6256,14 +6326,25 @@ class ASTContinueStatement final : public ASTBreakContinueStatement {
  private:
 };
 
+class ASTReturnStatement final : public ASTScriptStatement {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_RETURN_STATEMENT;
+
+  ASTReturnStatement() : ASTScriptStatement(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+
+ private:
+  void InitFields() final {}
+};
+
 // A statement which assigns to a single variable from an expression.
 // Example:
 //   SET x = 3;
-class ASTSingleAssignment final : public ASTScriptStatement {
+class ASTSingleAssignment final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_SINGLE_ASSIGNMENT;
 
-  ASTSingleAssignment() : ASTScriptStatement(kConcreteNodeKind) {}
+  ASTSingleAssignment() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
 
   const ASTIdentifier* variable() const { return variable_; }
@@ -6280,15 +6361,39 @@ class ASTSingleAssignment final : public ASTScriptStatement {
   const ASTExpression* expression_ = nullptr;
 };
 
+// A statement which assigns to a query parameter from an expression.
+// Example:
+//   SET @x = 3;
+class ASTParameterAssignment final : public ASTStatement {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_PARAMETER_ASSIGNMENT;
+
+  ASTParameterAssignment() : ASTStatement(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+
+  const ASTParameterExpr* parameter() const { return parameter_; }
+  const ASTExpression* expression() const { return expression_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&parameter_);
+    fl.AddRequired(&expression_);
+  }
+
+  const ASTParameterExpr* parameter_ = nullptr;
+  const ASTExpression* expression_ = nullptr;
+};
+
 // A statement which assigns multiple variables to fields in a struct,
 // which each variable assigned to one field.
 // Example:
 //   SET (x, y) = (5, 10);
-class ASTAssignmentFromStruct final : public ASTScriptStatement {
+class ASTAssignmentFromStruct final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_ASSIGNMENT_FROM_STRUCT;
 
-  ASTAssignmentFromStruct() : ASTScriptStatement(kConcreteNodeKind) {}
+  ASTAssignmentFromStruct() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
 
   const ASTIdentifierList* variables() const { return variables_; }

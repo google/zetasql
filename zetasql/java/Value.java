@@ -263,6 +263,7 @@ public class Value implements Serializable {
   }
 
   /** Returns the int value representing the date if the type is date. */
+  @SuppressWarnings("GoodTime") // should return a java.time.LocalDate (?)
   public int getDateValue() {
     Preconditions.checkState(getType().getKind() == TypeKind.TYPE_DATE);
     Preconditions.checkState(!isNull);
@@ -270,6 +271,7 @@ public class Value implements Serializable {
   }
 
   /** Returns the long value encoding the time if the type is time. */
+  @SuppressWarnings("GoodTime") // should return a java.time.LocalTime (?)
   public long getTimeValue() {
     Preconditions.checkState(getType().getKind() == TypeKind.TYPE_TIME);
     Preconditions.checkState(!isNull);
@@ -302,9 +304,10 @@ public class Value implements Serializable {
   }
 
   /**
-   * Returns the long value of the unix timestamp at microsecond precision, if
-   * the type is timestamp.
+   * Returns the long value of the unix timestamp at microsecond precision, if the type is
+   * timestamp.
    */
+  @SuppressWarnings("GoodTime") // should return a java.time.Instant
   public long getTimestampUnixMicros() {
     Preconditions.checkState(getType().getKind() == TypeKind.TYPE_TIMESTAMP);
     Preconditions.checkState(!isNull);
@@ -1226,6 +1229,7 @@ public class Value implements Serializable {
    * @param v Days from Jan 1, 1970
    */
   // TODO: Implement other versions that takes Java Date/Time types.
+  @SuppressWarnings("GoodTime") // should accept a java.time.LocalDate (?)
   public static Value createDateValue(int v) {
     Preconditions.checkArgument(Type.isValidDate(v));
     ValueProto proto = ValueProto.newBuilder().setDateValue(v).build();
@@ -1238,6 +1242,7 @@ public class Value implements Serializable {
    * @param bitFieldTimeNanos Bit field encoding of hour/minute/second/nanos. See
    *     zetasql/public/civil_time.h for the encoding.
    */
+  @SuppressWarnings("GoodTime") // should accept a java.time.LocalTime (?)
   public static Value createTimeValue(long bitFieldTimeNanos) {
     decodePacked64TimeNanos(bitFieldTimeNanos);
     ValueProto proto = ValueProto.newBuilder().setTimeValue(bitFieldTimeNanos).build();
@@ -1251,6 +1256,7 @@ public class Value implements Serializable {
    *     zetasql/public/civil_time.h for the encoding.
    * @param nanos Subsecond part at nano second precision.
    */
+  @SuppressWarnings("GoodTime") // should accept a java.time.LocalDateTime (?)
   public static Value createDatetimeValue(long bitFieldDatetimeSeconds, int nanos) {
     Datetime datetime =
         Datetime.newBuilder()
@@ -1267,6 +1273,7 @@ public class Value implements Serializable {
    *
    * @param v Microseconds since epoch
    */
+  @SuppressWarnings("GoodTime") // should accept a java.time.Instant
   public static Value createTimestampValueFromUnixMicros(long v) {
     Preconditions.checkArgument(Type.isValidTimestampUnixMicros(v));
     ValueProto proto = ValueProto.newBuilder().setTimestampValue(Timestamps.fromMicros(v)).build();

@@ -162,8 +162,7 @@ zetasql_base::Status TableValuedFunction::Deserialize(
     TypeFactory* factory, std::unique_ptr<TableValuedFunction>* result) {
   auto tvf_name = [proto]() { return absl::StrJoin(proto.name_path(), "."); };
   ZETASQL_RET_CHECK(proto.has_type()) << tvf_name();
-  ZETASQL_RET_CHECK_NE(FunctionEnums_TableValuedFunctionType_INVALID, proto.type())
-      << tvf_name();
+  ZETASQL_RET_CHECK_NE(FunctionEnums::INVALID, proto.type()) << tvf_name();
   TableValuedFunction::TVFDeserializer deserializer =
       (*TvfDeserializers())[proto.type()];
   ZETASQL_RET_CHECK(deserializer != nullptr) << tvf_name();

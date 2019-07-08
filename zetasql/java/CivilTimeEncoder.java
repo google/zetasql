@@ -86,6 +86,7 @@ public final class CivilTimeEncoder {
    *
    * @see #decodePacked32TimeSeconds(int)
    */
+  @SuppressWarnings("GoodTime") // should accept a java.time.LocalTime
   public static int encodePacked32TimeSeconds(LocalTime time) {
     checkValidTimeSeconds(time);
     int bitFieldTimeSeconds = 0x0;
@@ -108,6 +109,7 @@ public final class CivilTimeEncoder {
    *
    * @see #encodePacked32TimeSeconds(LocalTime)
    */
+  @SuppressWarnings("GoodTime") // should return a java.time.LocalTime
   public static LocalTime decodePacked32TimeSeconds(int bitFieldTimeSeconds) {
     checkValidBitField(bitFieldTimeSeconds, TIME_SECONDS_MASK);
     int hourOfDay = getFieldFromBitField(bitFieldTimeSeconds, HOUR_MASK, HOUR_SHIFT);
@@ -131,6 +133,7 @@ public final class CivilTimeEncoder {
    *
    * @see #decodePacked64TimeMicros(long)
    */
+  @SuppressWarnings("GoodTime") // should accept a java.time.LocalTime
   public static long encodePacked64TimeMicros(LocalTime time) {
     checkValidTimeMillis(time);
     return (((long) encodePacked32TimeSeconds(time)) << MICRO_LENGTH)
@@ -152,6 +155,7 @@ public final class CivilTimeEncoder {
    *
    * @see #encodePacked64TimeMicros(LocalTime)
    */
+  @SuppressWarnings("GoodTime") // should return a java.time.LocalTime
   public static LocalTime decodePacked64TimeMicros(long bitFieldTimeMicros) {
     checkValidBitField(bitFieldTimeMicros, TIME_MICROS_MASK);
     int bitFieldTimeSeconds = (int) (bitFieldTimeMicros >> MICRO_LENGTH);
@@ -176,6 +180,7 @@ public final class CivilTimeEncoder {
    *
    * @see #decodePacked64TimeNanos(long)
    */
+  @SuppressWarnings("GoodTime") // should accept a java.time.LocalTime
   public static long encodePacked64TimeNanos(LocalTime time) {
     checkValidTimeMillis(time);
     return (((long) encodePacked32TimeSeconds(time)) << NANO_LENGTH)
@@ -197,6 +202,7 @@ public final class CivilTimeEncoder {
    *
    * @see #encodePacked64TimeNanos(LocalTime)
    */
+  @SuppressWarnings("GoodTime") // should return a java.time.LocalTime
   public static LocalTime decodePacked64TimeNanos(long bitFieldTimeNanos) {
     checkValidBitField(bitFieldTimeNanos, TIME_NANOS_MASK);
     int bitFieldTimeSeconds = (int) (bitFieldTimeNanos >> NANO_LENGTH);
@@ -221,6 +227,7 @@ public final class CivilTimeEncoder {
    *
    * @see #decodePacked64DatetimeSeconds(long)
    */
+  @SuppressWarnings("GoodTime") // should accept a java.time.LocalDateTime
   public static long encodePacked64DatetimeSeconds(LocalDateTime dateTime) {
     checkValidDateTimeSeconds(dateTime);
     long bitFieldDatetimeSeconds = 0x0L;
@@ -244,6 +251,7 @@ public final class CivilTimeEncoder {
    *
    * @see #encodePacked64DatetimeSeconds(LocalDateTime)
    */
+  @SuppressWarnings("GoodTime") // should return a java.time.LocalDateTime
   public static LocalDateTime decodePacked64DatetimeSeconds(long bitFieldDatetimeSeconds) {
     checkValidBitField(bitFieldDatetimeSeconds, DATETIME_SECONDS_MASK);
     int bitFieldTimeSeconds = (int) (bitFieldDatetimeSeconds & TIME_SECONDS_MASK);
@@ -276,6 +284,7 @@ public final class CivilTimeEncoder {
    *
    * @see #decodePacked64DatetimeMicros(long)
    */
+  @SuppressWarnings("GoodTime") // should accept a java.time.LocalDateTime
   public static long encodePacked64DatetimeMicros(LocalDateTime dateTime) {
     checkValidDateTimeMillis(dateTime);
     return (encodePacked64DatetimeSeconds(dateTime) << MICRO_LENGTH)
@@ -297,6 +306,7 @@ public final class CivilTimeEncoder {
    *
    * @see #encodePacked64DatetimeMicros(LocalDateTime)
    */
+  @SuppressWarnings("GoodTime") // should return a java.time.LocalDateTime
   public static LocalDateTime decodePacked64DatetimeMicros(long bitFieldDatetimeMicros) {
     checkValidBitField(bitFieldDatetimeMicros, DATETIME_MICROS_MASK);
     long bitFieldDatetimeSeconds = bitFieldDatetimeMicros >> MICRO_LENGTH;
@@ -314,6 +324,7 @@ public final class CivilTimeEncoder {
    * @see #encodePacked64DatetimeSeconds(LocalDateTime)
    * @see #decodePacked96DatetimeNanos(ValueProto.Datetime)
    */
+  @SuppressWarnings("GoodTime") // should accept a java.time.LocalDateTime
   public static ValueProto.Datetime encodePacked96DatetimeNanos(LocalDateTime dateTime) {
     checkValidDateTimeMillis(dateTime);
     return ValueProto.Datetime.newBuilder()
@@ -330,6 +341,7 @@ public final class CivilTimeEncoder {
    * @see #decodePacked64DatetimeSeconds(long)
    * @see #encodePacked96DatetimeNanos(LocalDateTime)
    */
+  @SuppressWarnings("GoodTime") // should return a java.time.LocalDateTime
   public static LocalDateTime decodePacked96DatetimeNanos(ValueProto.Datetime datetime) {
     checkValidBitField(datetime.getBitFieldDatetimeSeconds(), DATETIME_SECONDS_MASK);
     LocalDateTime dateTimeSeconds =

@@ -24,9 +24,7 @@ namespace local_service {
 
 // Returns a java SocketChannel wrapping one end of a socketpair()
 // and connects the other end to the local_service gRPC server.
-extern "C" JNIEXPORT jobject JNICALL
-Java_com_google_zetasql_JniChannelProvider_getSocketChannel(
-    JNIEnv* env);
+jobject GetSocketChannel(JNIEnv* env);
 
 }  // namespace local_service
 }  // namespace zetasql
