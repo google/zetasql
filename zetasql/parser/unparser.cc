@@ -1924,7 +1924,7 @@ void Unparser::visitASTTruncateStatement(const ASTTruncateStatement* node,
   println();
   print("TRUNCATE TABLE");
 
-  node->name()->Accept(this, data);
+  node->target_path()->Accept(this, data);
 
   if (node->where() != nullptr) {
     println();

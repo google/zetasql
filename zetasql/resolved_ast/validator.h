@@ -170,6 +170,9 @@ class Validator {
       const std::set<ResolvedColumn>& source_visible_columns,
       const std::set<ResolvedColumn>& target_visible_columns) const;
 
+  zetasql_base::Status ValidateResolvedTruncateStmt(
+      const ResolvedTruncateStmt* stmt) const;
+
   // Templated common code for all DML statements.
   template <class STMT>
   zetasql_base::Status ValidateResolvedDMLStmt(

@@ -960,6 +960,12 @@ ASTDeleteStatement::GetTargetPathForNonNested() const {
                                                target_path_);
 }
 
+zetasql_base::StatusOr<const ASTPathExpression*>
+ASTTruncateStatement::GetTargetPathForNonNested() const {
+  return GetTargetPathForNonNestedDMLStatement(/*statement_type=*/"TRUNCATE",
+                                               target_path_);
+}
+
 std::string ASTInsertStatement::SingleNodeDebugString() const {
   if (insert_mode_ == DEFAULT_MODE) {
     return ASTNode::SingleNodeDebugString();

@@ -3381,6 +3381,29 @@ zetasql_base::Status SQLBuilder::VisitResolvedDropRowPolicyStmt(
   return ::zetasql_base::OkStatus();
 }
 
+zetasql_base::Status SQLBuilder::VisitResolvedTruncateStmt(
+    const ResolvedTruncateStmt* node) {
+  std::string sql = "TRUNCATE TABLE ";
+  ZETASQL_RET_CHECK(node->table_scan() != nullptr) << "Missing target table.";
+  std::string name_path = ToIdentifierLiteral(node->table_scan()->table()->Name());
+  ZETASQL_RET_CHECK(!name_path.empty());
+  absl::StrAppend(&sql, name_path, " ");
+
+  // Make column aliases available for WHERE expression
+  for (const auto& column_definition : node->table_scan()->column_list()) {
+    computed_column_alias_[column_definition.column_id()] =
+        column_definition.name();
+  }
+
+  if (node->where_expr() != nullptr) {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> where,
+                     ProcessNode(node->where_expr()));
+    absl::StrAppend(&sql, " WHERE ", where->GetSQL());
+  }
+  PushQueryFragment(node, sql);
+  return ::zetasql_base::OkStatus();
+}
+
 zetasql_base::Status SQLBuilder::VisitResolvedDMLDefault(
     const ResolvedDMLDefault* node) {
   PushQueryFragment(node, "DEFAULT");

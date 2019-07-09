@@ -379,7 +379,14 @@ zetasql_base::Status Resolver::ResolveStatement(
       break;
 
     case AST_TRUNCATE_STATEMENT:
-      return MakeSqlErrorAt(statement) << "TRUNCATE TABLE is not supported.";
+      if (language().SupportsStatementKind(RESOLVED_TRUNCATE_STMT)) {
+        std::unique_ptr<ResolvedTruncateStmt> resolved_truncate_stmt;
+        ZETASQL_RETURN_IF_ERROR(ResolveTruncateStatement(
+            statement->GetAsOrDie<ASTTruncateStatement>(),
+            &resolved_truncate_stmt));
+        stmt = std::move(resolved_truncate_stmt);
+      }
+      break;
 
     case AST_MERGE_STATEMENT:
       if (language().SupportsStatementKind(RESOLVED_MERGE_STMT)) {

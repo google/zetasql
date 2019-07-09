@@ -104,6 +104,9 @@ class TableNameResolver {
   zetasql_base::Status FindInDeleteStatement(const ASTDeleteStatement* statement,
                                      const AliasSet& orig_visible_aliases);
 
+  zetasql_base::Status FindInTruncateStatement(const ASTTruncateStatement* statement,
+                                       const AliasSet& orig_visible_aliases);
+
   zetasql_base::Status FindInInsertStatement(const ASTInsertStatement* statement,
                                      const AliasSet& orig_visible_aliases);
 
@@ -475,6 +478,14 @@ zetasql_base::Status TableNameResolver::FindInStatement(
       }
       break;
 
+    case AST_TRUNCATE_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_TRUNCATE_STMT)) {
+        return FindInTruncateStatement(
+            statement->GetAsOrDie<ASTTruncateStatement>(), visible_aliases);
+      }
+      break;
+
     case AST_DROP_MATERIALIZED_VIEW_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
           RESOLVED_DROP_MATERIALIZED_VIEW_STMT)) {
@@ -666,6 +677,23 @@ zetasql_base::Status TableNameResolver::FindInDeleteStatement(
 
   ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(statement->where(), visible_aliases));
   return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status TableNameResolver::FindInTruncateStatement(
+    const ASTTruncateStatement* statement,
+    const AliasSet& orig_visible_aliases) {
+  AliasSet visible_aliases = orig_visible_aliases;
+
+  ZETASQL_ASSIGN_OR_RETURN(const ASTPathExpression* path_expr,
+                   statement->GetTargetPathForNonNested());
+  std::vector<std::string> path = path_expr->ToIdentifierVector();
+  if (!zetasql_base::ContainsKey(visible_aliases, absl::AsciiStrToLower(path[0]))) {
+    zetasql_base::InsertIfNotPresent(table_names_, path);
+    zetasql_base::InsertIfNotPresent(&visible_aliases,
+                            absl::AsciiStrToLower(path.back()));
+  }
+
+  return FindInExpressionsUnder(statement->where(), visible_aliases);
 }
 
 zetasql_base::Status TableNameResolver::FindInInsertStatement(

@@ -36,7 +36,8 @@ dependency resolution. After installing bazel (version >=0.22), simple run:
 ### How to Build (with bazel 0.27)
 Bazel disabled a lot of deprecated features in version 0.27.  For now, please
 use the following flags if you are using bazel 0.27.
-```bazel build \
+```
+bazel build \
   --incompatible_disable_deprecated_attr_params=false \
   --incompatible_string_join_requires_strings=false \
   --incompatible_new_actions_api=false \
@@ -44,7 +45,8 @@ use the following flags if you are using bazel 0.27.
   --incompatible_depset_is_not_iterable=false \
   --incompatible_no_support_tools_in_action_inputs=false \
   --host_force_python=PY2 \
-  zetasql/...```
+  zetasql/...
+```
 
 
 ### With docker

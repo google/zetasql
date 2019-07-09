@@ -96,6 +96,8 @@ ResolvedNodeKind GetStatementKind(ASTNodeKind node_kind) {
       return RESOLVED_UPDATE_STMT;
     case AST_MERGE_STATEMENT:
       return RESOLVED_MERGE_STMT;
+    case AST_TRUNCATE_STATEMENT:
+      return RESOLVED_TRUNCATE_STMT;
     case AST_DESCRIBE_STATEMENT:
       return RESOLVED_DESCRIBE_STMT;
     case AST_SHOW_STATEMENT:

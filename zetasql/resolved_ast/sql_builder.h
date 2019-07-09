@@ -178,6 +178,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedDropMaterializedViewStmt* node) override;
   zetasql_base::Status VisitResolvedDropRowPolicyStmt(
       const ResolvedDropRowPolicyStmt* node) override;
+  zetasql_base::Status VisitResolvedTruncateStmt(
+      const ResolvedTruncateStmt* node) override;
   zetasql_base::Status VisitResolvedUpdateStmt(
       const ResolvedUpdateStmt* node) override;
   zetasql_base::Status VisitResolvedInsertStmt(

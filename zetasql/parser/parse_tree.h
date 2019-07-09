@@ -5231,18 +5231,25 @@ class ASTTruncateStatement final : public ASTSqlStatement {
   ASTTruncateStatement() : ASTSqlStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
 
-  const ASTPathExpression* name() const { return name_; }
+  // Verifies that the target path is an ASTPathExpression and, if so, returns
+  // it. The behavior is undefined when called on a node that represents a
+  // nested TRUNCATE (but this is not allowed by the parser).
+  zetasql_base::StatusOr<const ASTPathExpression*> GetTargetPathForNonNested() const;
+
+  const ASTPathExpression* target_path() const {
+    return target_path_;
+  }
   const ASTExpression* where() const { return where_; }
 
  private:
   void InitFields() final {
     FieldLoader fl(this);
-    fl.AddRequired(&name_);
+    fl.AddRequired(&target_path_);
     fl.AddOptionalExpression(&where_);
   }
 
-  const ASTPathExpression* name_ = nullptr;  // Required
-  const ASTExpression* where_ = nullptr;     // Optional
+  const ASTPathExpression* target_path_ = nullptr;  // Required
+  const ASTExpression* where_ = nullptr;            // Optional
 };
 
 class ASTMergeAction final : public ASTNode {

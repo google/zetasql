@@ -1559,6 +1559,10 @@ zetasql_base::Status Validator::ValidateResolvedStatement(
     case RESOLVED_MERGE_STMT:
       status = ValidateResolvedMergeStmt(statement->GetAs<ResolvedMergeStmt>());
       break;
+    case RESOLVED_TRUNCATE_STMT:
+      status = ValidateResolvedTruncateStmt(
+          statement->GetAs<ResolvedTruncateStmt>());
+      break;
     case RESOLVED_ALTER_ROW_POLICY_STMT:
       status = ValidateResolvedAlterRowPolicyStmt(
           statement->GetAs<ResolvedAlterRowPolicyStmt>());
@@ -2805,6 +2809,28 @@ zetasql_base::Status Validator::ValidateResolvedMergeStmt(
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedMergeWhen(
         when_clause.get(), all_visible_columns, source_visible_columns,
         target_visible_columns));
+  }
+  return ::zetasql_base::OkStatus();
+}
+
+// Truncate statement is not supported in nested-DML, however, this is
+// enforced by the parser.
+zetasql_base::Status Validator::ValidateResolvedTruncateStmt(
+    const ResolvedTruncateStmt* stmt) const {
+  ZETASQL_RET_CHECK_NE(nullptr, stmt->table_scan());
+  ZETASQL_RETURN_IF_ERROR(
+      ValidateResolvedScan(stmt->table_scan(), {} /* visible_parameters */));
+  std::set<ResolvedColumn> target_visible_columns;
+  ZETASQL_RETURN_IF_ERROR(AddColumnList(stmt->table_scan()->column_list(),
+                                &target_visible_columns));
+
+  if (stmt->where_expr() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
+        target_visible_columns, {} /* visible_parameters */,
+        stmt->where_expr()));
+    ZETASQL_RET_CHECK(stmt->where_expr()->type()->IsBool())
+        << "TruncateStmt has WHERE expression with non-BOOL type: "
+        << stmt->where_expr()->type()->DebugString();
   }
   return ::zetasql_base::OkStatus();
 }

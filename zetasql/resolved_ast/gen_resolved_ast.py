@@ -505,7 +505,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 133.
+          Next tag_id: 134.
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -4154,6 +4154,32 @@ right.
               'ResolvedMergeWhen',
               tag_id=5,
               vector=True)
+      ])
+
+  gen.AddNode(
+      name='ResolvedTruncateStmt',
+      tag_id=133,
+      parent='ResolvedStatement',
+      comment="""
+      This represents a TRUNCATE TABLE statement.
+
+      Statement:
+        TRUNCATE TABLE <table_name> [WHERE <boolean_expression>]
+
+      <table_scan> is a TableScan for the target table, which is used during
+                   resolving and validation. Consumers can use either the table
+                   object inside it or name_path to reference the table.
+      <where_expr> boolean expression that can reference columns in
+                   ResolvedColumns (which the TableScan creates); the
+                   <where_expr> should always correspond to entire partitions,
+                   and is optional.
+              """,
+      fields=[
+          Field(
+              'table_scan',
+              'ResolvedTableScan',
+              tag_id=3),
+          Field('where_expr', 'ResolvedExpr', tag_id=4),
       ])
 
   gen.AddNode(

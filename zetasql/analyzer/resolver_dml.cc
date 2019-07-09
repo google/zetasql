@@ -193,6 +193,34 @@ zetasql_base::Status Resolver::ResolveDeleteStatementImpl(
   return ::zetasql_base::OkStatus();
 }
 
+zetasql_base::Status Resolver::ResolveTruncateStatement(
+    const ASTTruncateStatement* ast_statement,
+    std::unique_ptr<ResolvedTruncateStmt>* output) {
+  std::unique_ptr<const ResolvedTableScan> resolved_table_scan;
+  auto name_list = std::make_shared<const NameList>();
+  ZETASQL_ASSIGN_OR_RETURN(const ASTPathExpression* name_path,
+                   ast_statement->GetTargetPathForNonNested());
+  ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
+      name_path, GetAliasForExpression(name_path),
+      false /* has_explicit_alias */, name_path, nullptr /* hints */,
+      nullptr /* systime */, empty_name_scope_.get(), &resolved_table_scan,
+      &name_list));
+
+  const NameScope truncate_scope(*name_list);
+  std::unique_ptr<const ResolvedExpr> resolved_where_expr;
+
+  if (ast_statement->where() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_statement->where(), &truncate_scope,
+                                      "WHERE clause", &resolved_where_expr));
+    ZETASQL_RETURN_IF_ERROR(CheckIsBoolExpr(ast_statement->where(), "WHERE clause",
+                                    &resolved_where_expr));
+  }
+
+  *output = MakeResolvedTruncateStmt(std::move(resolved_table_scan),
+                                     std::move(resolved_where_expr));
+  return zetasql_base::OkStatus();
+}
+
 zetasql_base::Status Resolver::ResolveInsertValuesRow(
     const ASTInsertValuesRow* ast_insert_values_row,
     const NameScope* scope,

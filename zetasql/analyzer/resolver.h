@@ -977,6 +977,10 @@ class Resolver {
       ResolvedColumnList* resolved_insert_column_list,
       std::unique_ptr<const ResolvedInsertRow>* resolved_insert_row);
 
+  zetasql_base::Status ResolveTruncateStatement(
+      const ASTTruncateStatement* statement,
+      std::unique_ptr<ResolvedTruncateStmt>* output);
+
   zetasql_base::Status ResolveGrantStatement(
       const ASTGrantStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
