@@ -873,7 +873,9 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 +-------------------------+
 | [2, 1, -2, 3, -2, 1, 2] |
 +-------------------------+
+```
 
+```sql
 SELECT ARRAY_AGG(DISTINCT x) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
@@ -882,7 +884,9 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 +---------------+
 | [2, 1, -2, 3] |
 +---------------+
+```
 
+```sql
 SELECT ARRAY_AGG(x IGNORE NULLS) AS array_agg
 FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x;
 
@@ -891,7 +895,9 @@ FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x;
 +-------------------+
 | [1, -2, 3, -2, 1] |
 +-------------------+
+```
 
+```sql
 SELECT ARRAY_AGG(x ORDER BY ABS(x)) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 +-------------------------+
@@ -899,7 +905,9 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 +-------------------------+
 | [1, 1, 2, -2, -2, 2, 3] |
 +-------------------------+
+```
 
+```sql
 SELECT ARRAY_AGG(x LIMIT 5) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
@@ -908,7 +916,9 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 +-------------------+
 | [2, 1, -2, 3, -2] |
 +-------------------+
+```
 
+```sql
 SELECT ARRAY_AGG(DISTINCT x IGNORE NULLS ORDER BY x LIMIT 2) AS array_agg
 FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x;
 
@@ -917,7 +927,9 @@ FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x;
 +-----------+
 | [-2, 1]   |
 +-----------+
+```
 
+```sql
 SELECT
   x,
   ARRAY_AGG(x) OVER (ORDER BY ABS(x)) AS array_agg
@@ -934,7 +946,6 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 | 2  | [1, 1, 2, -2, -2, 2]    |
 | 3  | [1, 1, 2, -2, -2, 2, 3] |
 +----+-------------------------+
-
 ```
 
 ### ARRAY_CONCAT_AGG
@@ -3339,6 +3350,50 @@ SAFE_DIVIDE(X, Y)
 
 Equivalent to the division operator (<code>/</code>), but returns
 <code>NULL</code> if an error occurs, such as a division by zero error.
+
+### SAFE_MULTIPLY
+
+```
+SAFE_MULTIPLY(X, Y)
+```
+
+**Description**
+
+Equivalent to the multiplication operator (<code>*</code>), but returns
+<code>NULL</code> if overflow occurs.
+
+### SAFE_NEGATE
+
+```
+SAFE_NEGATE(X)
+```
+
+**Description**
+
+Equivalent to the unary minus operator (<code>-</code>), but returns
+<code>NULL</code> if overflow occurs.
+
+### SAFE_ADD
+
+```
+SAFE_ADD(X, Y)
+```
+
+**Description**
+
+Equivalent to the addition operator (<code>+</code>), but returns
+<code>NULL</code> if overflow occurs.
+
+### SAFE_SUBTRACT
+
+```
+SAFE_SUBTRACT(X, Y)
+```
+
+**Description**
+
+Equivalent to the subtraction operator (<code>-</code>), but returns
+<code>NULL</code> if overflow occurs.
 
 ### MOD
 

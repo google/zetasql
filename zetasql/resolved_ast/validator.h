@@ -72,8 +72,8 @@ class Validator {
       const ResolvedCreateMaterializedViewStmt* stmt) const;
   zetasql_base::Status ValidateResolvedCreateExternalTableStmt(
       const ResolvedCreateExternalTableStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedCreateRowPolicyStmt(
-      const ResolvedCreateRowPolicyStmt* stmt) const;
+  zetasql_base::Status ValidateResolvedCreateRowAccessPolicyStmt(
+      const ResolvedCreateRowAccessPolicyStmt* stmt) const;
   zetasql_base::Status ValidateResolvedCreateConstantStmt(
       const ResolvedCreateConstantStmt* stmt);
   zetasql_base::Status ValidateResolvedCreateFunctionStmt(
@@ -109,8 +109,8 @@ class Validator {
       const ResolvedDropMaterializedViewStmt* stmt) const;
   zetasql_base::Status ValidateResolvedDropFunctionStmt(
       const ResolvedDropFunctionStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedDropRowPolicyStmt(
-      const ResolvedDropRowPolicyStmt* stmt) const;
+  zetasql_base::Status ValidateResolvedDropRowAccessPolicyStmt(
+      const ResolvedDropRowAccessPolicyStmt* stmt) const;
   zetasql_base::Status ValidateResolvedGrantStmt(
       const ResolvedGrantStmt* stmt) const;
   zetasql_base::Status ValidateResolvedRevokeStmt(

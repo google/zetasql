@@ -358,6 +358,9 @@ zetasql_base::Status AnalyzerOptions::Deserialize(
   result->set_prune_unused_columns(proto.prune_unused_columns());
   result->set_allow_undeclared_parameters(proto.allow_undeclared_parameters());
   result->set_parameter_mode(proto.parameter_mode());
+  result->set_strict_validation_on_column_replacements(
+      proto.strict_validation_on_column_replacements());
+  result->set_preserve_column_aliases(proto.preserve_column_aliases());
 
   if (proto.has_allowed_hints_and_options()) {
     AllowedHintsAndOptions hints_and_options("");
@@ -415,6 +418,9 @@ zetasql_base::Status AnalyzerOptions::Serialize(
   proto->set_prune_unused_columns(prune_unused_columns_);
   proto->set_allow_undeclared_parameters(allow_undeclared_parameters_);
   proto->set_parameter_mode(parameter_mode_);
+  proto->set_strict_validation_on_column_replacements(
+      strict_validation_on_column_replacements_);
+  proto->set_preserve_column_aliases(preserve_column_aliases_);
 
   ZETASQL_RETURN_IF_ERROR(allowed_hints_and_options_.Serialize(
       map, proto->mutable_allowed_hints_and_options()));

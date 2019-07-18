@@ -623,6 +623,7 @@ using zetasql::ASTInsertStatement;
 // They go in a separate list below this one.
 // BEGIN_NON_RESERVED_KEYWORDS -- Do not remove this!
 %token KW_ABORT "ABORT"
+%token KW_ACCESS "ACCESS"
 %token KW_ACTION "ACTION"
 %token KW_ADD "ADD"
 %token KW_AGGREGATE "AGGREGATE"
@@ -654,6 +655,7 @@ using zetasql::ASTInsertStatement;
 %token KW_EXPLAIN "EXPLAIN"
 %token KW_EXPORT "EXPORT"
 %token KW_EXTERNAL "EXTERNAL"
+%token KW_FILTER "FILTER"
 %token KW_FILL "FILL"
 %token KW_FOREIGN "FOREIGN"
 %token KW_FUNCTION "FUNCTION"
@@ -781,7 +783,7 @@ using zetasql::ASTInsertStatement;
 %type <node> create_database_statement
 %type <node> create_function_statement
 %type <node> create_procedure_statement
-%type <node> create_row_policy_statement
+%type <node> create_row_access_policy_statement
 %type <node> create_external_table_statement
 %type <node> create_index_statement
 %type <node> create_table_function_statement
@@ -794,11 +796,12 @@ using zetasql::ASTInsertStatement;
 %type <node> describe_info
 %type <node> describe_statement
 %type <node> dml_statement
-%type <node> drop_all_row_policies_statement
+%type <node> drop_all_row_access_policies_statement
 %type <node> drop_statement
 %type <node> explain_statement
 %type <node> export_data_statement
 %type <expression> expression
+%type <node> grant_to_clause
 %type <node> index_storing_expression_list_prefix
 %type <node> index_storing_expression_list
 %type <expression> expression_or_default
@@ -806,6 +809,7 @@ using zetasql::ASTInsertStatement;
 %type <expression> extract_expression
 %type <expression> extract_expression_base
 %type <node> field_schema
+%type <node> filter_using_clause
 %type <expression> floating_point_literal
 %type <node> foreign_key_column_attribute
 %type <foreign_key_reference> foreign_key_reference
@@ -901,6 +905,7 @@ using zetasql::ASTInsertStatement;
 %type <expression> opt_from_path_expression
 %type <node> opt_function_parameters
 %type <node> opt_function_returns
+%type <node> opt_grant_to_clause
 %type <node> opt_group_by_clause
 %type <node> opt_having_clause
 %type <node> opt_having_modifier
@@ -1085,8 +1090,11 @@ using zetasql::ASTInsertStatement;
 %type <import_type> import_type
 
 %type <table_or_table_function_keywords> table_or_table_function
+%type <boolean> opt_access
 %type <boolean> opt_aggregate
 %type <boolean> opt_asc_or_desc
+%type <boolean> opt_filter
+%type <boolean> opt_grant
 %type <boolean> opt_if_exists
 %type <boolean> opt_if_not_exists
 %type <boolean> opt_natural
@@ -1246,7 +1254,7 @@ sql_statement_body:
     | create_function_statement
     | create_procedure_statement
     | create_index_statement
-    | create_row_policy_statement
+    | create_row_access_policy_statement
     | create_external_table_statement
     | create_model_statement
     | create_table_function_statement
@@ -1261,7 +1269,7 @@ sql_statement_body:
     | revoke_statement
     | rollback_statement
     | show_statement
-    | drop_all_row_policies_statement
+    | drop_all_row_access_policies_statement
     | drop_statement
     | call_statement
     | import_statement
@@ -1902,14 +1910,76 @@ sql_function_body:
       }
     ;
 
-create_row_policy_statement:
-    "CREATE" opt_or_replace "ROW" "POLICY" opt_if_not_exists opt_identifier
-        "ON" path_expression "TO" grantee_list row_policy_using_expression
+/* Returns true if GRANT is present. */
+opt_grant:
+    "GRANT"
       {
-        zetasql::ASTCreateRowPolicyStatement* create =
-            MAKE_NODE(ASTCreateRowPolicyStatement, @$, {$6, $8, $10, $11});
+        $$ = true;
+      }
+    | /* Nothing */
+      {
+        $$ = false;
+      }
+    ;
+
+grant_to_clause:
+    "GRANT" "TO" "(" grantee_list ")"
+      {
+        zetasql::ASTGrantToClause* grant_to =
+            MAKE_NODE(ASTGrantToClause, @$, {$4});
+        grant_to->set_has_grant_keyword_and_parens(true);
+        $$ = grant_to;
+      }
+    | "TO" grantee_list
+      {
+        zetasql::ASTGrantToClause* grant_to =
+            MAKE_NODE(ASTGrantToClause, @$, {$2});
+        grant_to->set_has_grant_keyword_and_parens(false);
+        $$ = grant_to;
+      }
+
+opt_grant_to_clause:
+    grant_to_clause
+      {
+        $$ = $1;
+      }
+    | /* Nothing */
+      {
+        $$ = nullptr;
+      }
+    ;
+
+/* Returns true if FILTER is present. */
+opt_filter:
+    "FILTER"
+      {
+        $$ = true;
+      }
+    | /* Nothing */
+      {
+        $$ = false;
+      }
+    ;
+
+filter_using_clause:
+    opt_filter row_policy_using_expression
+      {
+        zetasql::ASTFilterUsingClause* filter_using =
+            MAKE_NODE(ASTFilterUsingClause, @$, {$2});
+        filter_using->set_has_filter_keyword($1);
+        $$ = filter_using;
+      }
+
+create_row_access_policy_statement:
+    "CREATE" opt_or_replace "ROW" opt_access "POLICY" opt_if_not_exists
+        opt_identifier "ON" path_expression
+        opt_grant_to_clause filter_using_clause
+      {
+        zetasql::ASTCreateRowAccessPolicyStatement* create =
+            MAKE_NODE(ASTCreateRowAccessPolicyStatement, @$, {$7, $9, $10, $11});
         create->set_is_or_replace($2);
-        create->set_is_if_not_exists($5);
+        create->set_is_if_not_exists($6);
+        create->set_has_access_keyword($4);
         $$ = create;
       }
     ;
@@ -5482,6 +5552,7 @@ keyword_as_identifier:
     // at the top.
     // BEGIN_KEYWORD_AS_IDENTIFIER -- Do not remove this!
     "ABORT"
+    | "ACCESS"
     | "ACTION"
     | "AGGREGATE"
     | "ADD"
@@ -5513,6 +5584,7 @@ keyword_as_identifier:
     | "EXPLAIN"
     | "EXPORT"
     | "EXTERNAL"
+    | "FILTER"
     | "FILL"
     | "FOREIGN"
     | "FUNCTION"
@@ -6261,10 +6333,26 @@ opt_if_exists:
       }
     ;
 
-drop_all_row_policies_statement:
-    "DROP" "ALL" "ROW" "POLICIES" "ON" path_expression
+/* Returns true if ACCESS was specified. */
+opt_access:
+    "ACCESS"
       {
-        $$ = MAKE_NODE(ASTDropAllRowPoliciesStatement, @$, {$6});
+        $$ = true;
+      }
+    | /* Nothing */
+      {
+        $$ = false;
+      }
+    ;
+
+// TODO: Make new syntax mandatory.
+drop_all_row_access_policies_statement:
+    "DROP" "ALL" "ROW" opt_access "POLICIES" "ON" path_expression
+      {
+        auto* drop_all = MAKE_NODE(ASTDropAllRowAccessPoliciesStatement, @$,
+            {$7});
+        drop_all->set_has_access_keyword($4);
+        $$ = drop_all;
       }
     ;
 
@@ -6276,13 +6364,13 @@ on_path_expression:
     ;
 
 drop_statement:
-    "DROP" "ROW" "POLICY" opt_if_exists identifier on_path_expression
+    "DROP" "ROW" "ACCESS" "POLICY" opt_if_exists identifier on_path_expression
       {
-        // This is a DROP ROW POLICY statement.
-        auto* drop_row_policy =
-            MAKE_NODE(ASTDropRowPolicyStatement, @$, {$5, $6});
-        drop_row_policy->set_is_if_exists($4);
-        $$ = drop_row_policy;
+        // This is a DROP ROW ACCESS POLICY statement.
+        auto* drop_row_access_policy =
+            MAKE_NODE(ASTDropRowAccessPolicyStatement, @$, {$6, $7});
+        drop_row_access_policy->set_is_if_exists($5);
+        $$ = drop_row_access_policy;
       }
     | "DROP" schema_object_kind opt_if_exists path_expression
       opt_function_parameters
@@ -6568,10 +6656,12 @@ next_statement_kind_without_hint:
     | describe_keyword
       { $$ = zetasql::ASTDescribeStatement::kConcreteNodeKind; }
     | "SHOW" { $$ = zetasql::ASTShowStatement::kConcreteNodeKind; }
-    | "DROP" "ALL" "ROW" "POLICIES"
-      { $$ = zetasql::ASTDropAllRowPoliciesStatement::kConcreteNodeKind; }
-    | "DROP" "ROW" "POLICY"
-      { $$ = zetasql::ASTDropRowPolicyStatement::kConcreteNodeKind; }
+    | "DROP" "ALL" "ROW" opt_access "POLICIES"
+      {
+        $$ = zetasql::ASTDropAllRowAccessPoliciesStatement::kConcreteNodeKind;
+      }
+    | "DROP" "ROW" "ACCESS" "POLICY"
+      { $$ = zetasql::ASTDropRowAccessPolicyStatement::kConcreteNodeKind; }
     | "DROP" schema_object_kind
       {
         switch ($2) {
@@ -6635,8 +6725,8 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTCreateTableFunctionStatement::kConcreteNodeKind; }
     | "CREATE" opt_or_replace opt_create_scope "EXTERNAL"
       { $$ = zetasql::ASTCreateExternalTableStatement::kConcreteNodeKind; }
-    | "CREATE" opt_or_replace "ROW" "POLICY"
-      { $$ = zetasql::ASTCreateRowPolicyStatement::kConcreteNodeKind; }
+    | "CREATE" opt_or_replace "ROW" opt_access "POLICY"
+      { $$ = zetasql::ASTCreateRowAccessPolicyStatement::kConcreteNodeKind; }
     | "CREATE" opt_or_replace opt_create_scope "VIEW"
       { $$ = zetasql::ASTCreateViewStatement::kConcreteNodeKind; }
     | "CREATE" opt_or_replace "MATERIALIZED" "VIEW"

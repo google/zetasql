@@ -727,6 +727,8 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
   proto.set_parameter_mode(PARAMETER_POSITIONAL);
   proto.mutable_language_options()->set_product_mode(PRODUCT_INTERNAL);
   proto.set_default_timezone("Asia/Shanghai");
+  proto.set_strict_validation_on_column_replacements(true);
+  proto.set_preserve_column_aliases(true);
 
   auto* param = proto.add_query_parameters();
   param->set_name("q1");
@@ -837,6 +839,8 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
   ASSERT_EQ(ERROR_MESSAGE_WITH_PAYLOAD, options.error_message_mode());
   ASSERT_EQ(PRODUCT_INTERNAL, options.language().product_mode());
   ASSERT_EQ(PARAMETER_POSITIONAL, options.parameter_mode());
+  ASSERT_TRUE(options.strict_validation_on_column_replacements());
+  ASSERT_TRUE(options.preserve_column_aliases());
 
   ASSERT_EQ(5, options.query_parameters().size());
   ASSERT_TRUE(types::Int64Type()->Equals(options.query_parameters().at("q1")));
@@ -900,16 +904,13 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
 }
 
 TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
-  EXPECT_EQ(192,
-            sizeof(AnalyzerOptions) -
-            sizeof(LanguageOptions) -
-            sizeof(AllowedHintsAndOptions) -
-            sizeof(Catalog::FindOptions) -
-            2 * sizeof(QueryParametersMap) -
-            1 * sizeof(std::string))
+  EXPECT_EQ(200, sizeof(AnalyzerOptions) - sizeof(LanguageOptions) -
+                     sizeof(AllowedHintsAndOptions) -
+                     sizeof(Catalog::FindOptions) -
+                     2 * sizeof(QueryParametersMap) - 1 * sizeof(std::string))
       << "The size of AnalyzerOptions class has changed, please also update "
       << "the proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(14, AnalyzerOptionsProto::descriptor()->field_count())
+  EXPECT_EQ(16, AnalyzerOptionsProto::descriptor()->field_count())
       << "The number of fields in AnalyzerOptionsProto has changed, please "
       << "also update the serialization code accordingly.";
 }

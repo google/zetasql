@@ -88,4 +88,6 @@ message AnalyzerOptionsProto {
   optional ParameterMode parameter_mode = 13;
   optional AllowedHintsAndOptionsProto allowed_hints_and_options = 11;
   optional StatementContext statement_context = 14;
+  optional bool strict_validation_on_column_replacements = 16;
+  optional bool preserve_column_aliases = 17;
 }

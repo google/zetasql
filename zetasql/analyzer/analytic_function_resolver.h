@@ -118,6 +118,32 @@ class AnalyticFunctionResolver {
     const ASTWindowSpecification* ast_grouping_window_spec = nullptr;
   };
 
+  // Analytic functions in an analytic function group have a common
+  // PARTIITON BY and ORDER BY (their grouping window), which may be shared by
+  // multiple groups. The AnalyticFunctionGroupInfo stores the list of
+  // ResolvedAnalyticFunctionCall in a group and the AST nodes for PARTITION BY
+  // and ORDER BY. It does not contain the info for resolved
+  // partitioning/ordering expressions, which is stored in the value of the map
+  // <ast_to_resolved_info_> to be shared by multiple groups.
+  struct AnalyticFunctionGroupInfo {
+   public:
+    AnalyticFunctionGroupInfo(const ASTPartitionBy* ast_partition_by_in,
+                              const ASTOrderBy* ast_order_by_in)
+        : ast_partition_by(ast_partition_by_in),
+          ast_order_by(ast_order_by_in) {}
+
+    AnalyticFunctionGroupInfo(const AnalyticFunctionGroupInfo&) = delete;
+    AnalyticFunctionGroupInfo& operator=(const AnalyticFunctionGroupInfo&) =
+        delete;
+
+    const ASTPartitionBy* const ast_partition_by;
+    const ASTOrderBy* const ast_order_by;
+
+    // ResolvedComputedColumns of analytic function calls for output.
+    std::vector<std::unique_ptr<ResolvedComputedColumn>>
+        resolved_computed_columns;
+  };
+
   // Populates <named_window_info_map_> using the named windows in
   // <window_clause>.
   zetasql_base::Status SetWindowClause(const ASTWindowClause& window_clause);
@@ -170,15 +196,11 @@ class AnalyticFunctionResolver {
   // Returns the Coercer from <resolver_>.
   const Coercer& coercer() const;
 
+  // Returns <analytic_function_groups_> as a const reference.
+  const std::vector<std::unique_ptr<AnalyticFunctionGroupInfo>>&
+  analytic_function_groups() const;
+
  private:
-  // Analytic functions in an analytic function group have a common
-  // PARTIITON BY and ORDER BY (their grouping window), which may be shared by
-  // multiple groups. The AnalyticFunctionGroupInfo stores the list of
-  // ResolvedAnalyticFunctionCall in a group and the AST nodes for PARTITION BY
-  // and ORDER BY. It does not contain the info for resolved
-  // partitioning/ordering expressions, which is stored in the value of the map
-  // <ast_to_resolved_info_> to be shared by multiple groups.
-  struct AnalyticFunctionGroupInfo;
   // Contains all parser and resolved expressions for an analytic function call.
   // Used in ValidateAndRewriteExprsPostAggregation() to get resolved
   // expressions to rewrite for an analytic function.

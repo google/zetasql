@@ -175,6 +175,7 @@ const KeywordInfo* GetKeywordInfoForBisonToken(int bison_token) {
 const std::vector<KeywordInfo>& GetAllKeywords() {
   static const auto& keywords = *new std::vector<KeywordInfo>({
       {"abort", KW_ABORT},
+      {"access", KW_ACCESS},
       {"action", KW_ACTION},
       {"add", KW_ADD},
       {"aggregate", KW_AGGREGATE},
@@ -238,6 +239,7 @@ const std::vector<KeywordInfo>& GetAllKeywords() {
       {"extract", KW_EXTRACT, KeywordInfo::kReserved},
       {"false", KW_FALSE, KeywordInfo::kReserved},
       {"fetch", KW_FETCH, KeywordInfo::kReserved},
+      {"filter", KW_FILTER},
       {"fill", KW_FILL},
       {"following", KW_FOLLOWING, KeywordInfo::kReserved},
       {"for", KW_FOR, KeywordInfo::kReserved},
@@ -422,21 +424,20 @@ CreateNonReservedIdentifiersThatMustBeBackquotedTrie() {
   // identifiers also occur, and their meaning is different when they are
   // used without backquoting.
   for (const char* keyword : {
-           "current_date",
-           "current_datetime",
-           "current_time",
-           "current_timestamp",
-           "current_timestamp_micros",
-           "current_timestamp_millis",
-           "current_timestamp_seconds",
-           "function",
-           "inout",  // See AMBIGUOUS CASE 7 in bison_parser.y
-           "out",  // See AMBIGUOUS CASE 7 in bison_parser.y
-           "policy",  // DROP `row` `policy` versus DROP DROW POLICY
-           "replace",  // INSERT REPLACE versus INSERT `replace`
-           "row",  // DROP `row` `policy` versus DROP DROW POLICY
+           "access",  // DROP `row` `access` `policy` versus DROP ROW ACCESS
+                      // POLICY
+           "current_date", "current_datetime", "current_time",
+           "current_timestamp", "current_timestamp_micros",
+           "current_timestamp_millis", "current_timestamp_seconds", "function",
+           "inout",      // See AMBIGUOUS CASE 7 in bison_parser.y
+           "out",        // See AMBIGUOUS CASE 7 in bison_parser.y
+           "policy",     // DROP `row` `access` `policy` versus DROP ROW ACCESS
+                         // POLICY
+           "replace",    // INSERT REPLACE versus INSERT `replace`
+           "row",        // DROP `row` `access` `policy` versus DROP ROW ACCESS
+                         // POLICY
            "safe_cast",  // SAFE_CAST(...) versus `safe_cast`(3)
-           "update",  // INSERT UPDATE versus INSERT `update`
+           "update",     // INSERT UPDATE versus INSERT `update`
            // "value" is not included because it causes too much escaping for
            // this very commonly used name. The impact of this is small. The
            // only place where this can be interpreted as a keyword is in AS

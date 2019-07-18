@@ -102,24 +102,6 @@ struct AnalyticFunctionResolver::AnalyticFunctionInfo {
   // Copyable.
 };
 
-struct AnalyticFunctionResolver::AnalyticFunctionGroupInfo {
- public:
-  AnalyticFunctionGroupInfo(const ASTPartitionBy* ast_partition_by_in,
-                            const ASTOrderBy* ast_order_by_in)
-      : ast_partition_by(ast_partition_by_in), ast_order_by(ast_order_by_in) {}
-
-  AnalyticFunctionGroupInfo(const AnalyticFunctionGroupInfo&) = delete;
-  AnalyticFunctionGroupInfo& operator=(const AnalyticFunctionGroupInfo&) =
-      delete;
-
-  const ASTPartitionBy* const ast_partition_by;
-  const ASTOrderBy* const ast_order_by;
-
-  // ResolvedComputedColumns of analytic function calls for output.
-  std::vector<std::unique_ptr<ResolvedComputedColumn>>
-      resolved_computed_columns;
-};
-
 struct AnalyticFunctionResolver::WindowExprInfo {
  public:
   // Construct a WindowExprInfo for an alias reference to the 0-based
@@ -333,9 +315,16 @@ zetasql_base::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyti
     }
   }
 
-  // Create a ResolvedColumn.
-  const IdString alias = resolver_->MakeIdString(
-      absl::StrCat("$analytic", ++num_analytic_functions_));
+  // Create a ResolvedColumn. If this call is a top-level SELECT column and has
+  // an alias, use that alias.
+  ++num_analytic_functions_;
+  IdString alias = resolver_->GetColumnAliasForTopLevelExpression(
+      expr_resolution_info, ast_analytic_function_call);
+  if (alias.empty() ||
+      !resolver_->analyzer_options_.preserve_column_aliases()) {
+    alias = resolver_->MakeIdString(
+        absl::StrCat("$analytic", num_analytic_functions_));
+  }
   std::unique_ptr<const ResolvedAnalyticFunctionCall>
       resolved_analytic_function_call;
   const bool is_distinct = ast_analytic_function_call->function()->distinct();
@@ -1241,6 +1230,12 @@ zetasql_base::Status AnalyticFunctionResolver::CheckForConflictsWithReferencedWi
 const Coercer& AnalyticFunctionResolver::coercer() const {
   DCHECK(resolver_ != nullptr);
   return resolver_->coercer_;
+}
+
+const std::vector<
+    std::unique_ptr<AnalyticFunctionResolver::AnalyticFunctionGroupInfo>>&
+AnalyticFunctionResolver::analytic_function_groups() const {
+  return analytic_function_groups_;
 }
 
 }  // namespace zetasql

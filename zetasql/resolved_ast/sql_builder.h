@@ -133,8 +133,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedCreateMaterializedViewStmt* node) override;
   zetasql_base::Status VisitResolvedCreateExternalTableStmt(
       const ResolvedCreateExternalTableStmt* node) override;
-  zetasql_base::Status VisitResolvedCreateRowPolicyStmt(
-      const ResolvedCreateRowPolicyStmt* node) override;
+  zetasql_base::Status VisitResolvedCreateRowAccessPolicyStmt(
+      const ResolvedCreateRowAccessPolicyStmt* node) override;
   zetasql_base::Status VisitResolvedCreateConstantStmt(
       const ResolvedCreateConstantStmt* node) override;
   zetasql_base::Status VisitResolvedCreateFunctionStmt(
@@ -176,8 +176,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedDropFunctionStmt* node) override;
   zetasql_base::Status VisitResolvedDropMaterializedViewStmt(
       const ResolvedDropMaterializedViewStmt* node) override;
-  zetasql_base::Status VisitResolvedDropRowPolicyStmt(
-      const ResolvedDropRowPolicyStmt* node) override;
+  zetasql_base::Status VisitResolvedDropRowAccessPolicyStmt(
+      const ResolvedDropRowAccessPolicyStmt* node) override;
   zetasql_base::Status VisitResolvedTruncateStmt(
       const ResolvedTruncateStmt* node) override;
   zetasql_base::Status VisitResolvedUpdateStmt(

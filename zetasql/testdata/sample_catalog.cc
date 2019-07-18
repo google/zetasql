@@ -518,6 +518,11 @@ void SampleCatalog::LoadProtoTables() {
                                 {{"kitchen_sink", proto_KitchenSinkPB_},
                                  {"s", struct_with_kitchen_sink_type_}}));
 
+  AddOwnedTable(
+      new SimpleTable("DoublyNestedStructTable",
+                      {{"key", types_->get_int32()},
+                       {"doubly_nested_struct", doubly_nested_struct_type_}}));
+
   AddOwnedTable(new SimpleTable("KitchenSinkValueTable", proto_KitchenSinkPB_));
 
   AddOwnedTable(new SimpleTable("MessageWithKitchenSinkValueTable",

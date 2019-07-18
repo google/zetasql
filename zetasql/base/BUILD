@@ -631,3 +631,86 @@ cc_test(
         "//zetasql/base",
     ],
 )
+
+cc_library(
+    name = "flat_internal",
+    srcs = ["flat_internal.cc"],
+    hdrs = ["flat_internal.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = ["@com_google_absl//absl/meta:type_traits"],
+)
+
+cc_test(
+    name = "flat_internal_test",
+    srcs = [
+        "flat_internal_test.cc",
+    ],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":flat_internal",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "flat_set",
+    hdrs = [
+        "flat_set.h",
+    ],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":flat_internal",
+        "@com_google_absl//absl/meta:type_traits",
+    ],
+)
+
+cc_test(
+    name = "flat_set_test",
+    srcs = [
+        "flat_set_test.cc",
+    ],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":flat_set",
+        ":stl_util",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base",
+        "@com_google_absl//absl/container:inlined_vector",
+        "@com_google_absl//absl/hash:hash_testing",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/random",
+        "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_library(
+    name = "clock",
+    srcs = [
+        "clock.cc",
+    ],
+    hdrs = [
+        "clock.h",
+    ],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "//zetasql/base",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+cc_test(
+    name = "clock_test",
+    srcs = [
+        "clock_test.cc",
+    ],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":clock",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/time",
+    ],
+)

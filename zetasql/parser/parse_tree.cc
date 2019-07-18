@@ -96,7 +96,8 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_CREATE_INDEX_STATEMENT] = "CreateIndexStatement";
   map[AST_CREATE_PROCEDURE_STATEMENT] = "CreateProcedureStatement";
   map[AST_CREATE_MODEL_STATEMENT] = "CreateModelStatement";
-  map[AST_CREATE_ROW_POLICY_STATEMENT] = "CreateRowPolicyStatement";
+  map[AST_CREATE_ROW_ACCESS_POLICY_STATEMENT] =
+      "CreateRowAccessPolicyStatement";
   map[AST_CREATE_TABLE_FUNCTION_STATEMENT] = "CreateTableFunctionStatement";
   map[AST_CREATE_TABLE_STATEMENT] = "CreateTableStatement";
   map[AST_CREATE_VIEW_STATEMENT] = "CreateViewStatement";
@@ -111,17 +112,19 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_DOT_IDENTIFIER] = "DotIdentifier";
   map[AST_DOT_STAR_WITH_MODIFIERS] = "DotStarWithModifiers";
   map[AST_DOT_STAR] = "DotStar";
-  map[AST_DROP_ALL_ROW_POLICIES_STATEMENT] = "DropAllRowPoliciesStatement";
+  map[AST_DROP_ALL_ROW_ACCESS_POLICIES_STATEMENT] =
+      "DropAllRowAccessPoliciesStatement";
   map[AST_DROP_COLUMN_ACTION] = "DropColumnAction";
   map[AST_DROP_CONSTRAINT_ACTION] = "DropConstraintAction";
   map[AST_DROP_FUNCTION_STATEMENT] = "DropFunctionStatement";
-  map[AST_DROP_ROW_POLICY_STATEMENT] = "DropRowPolicyStatement";
+  map[AST_DROP_ROW_ACCESS_POLICY_STATEMENT] = "DropRowAccessPolicyStatement";
   map[AST_DROP_STATEMENT] = "DropStatement";
   map[AST_DROP_MATERIALIZED_VIEW_STATEMENT] = "DropMaterializedViewStatement";
   map[AST_EXPLAIN_STATEMENT] = "ExplainStatement";
   map[AST_EXPORT_DATA_STATEMENT] = "ExportDataStatement";
   map[AST_EXPRESSION_SUBQUERY] = "ExpressionSubquery";
   map[AST_EXTRACT_EXPRESSION] = "ExtractExpression";
+  map[AST_FILTER_USING_CLAUSE] = "FilterUsingClause";
   map[AST_FLOAT_LITERAL] = "FloatLiteral";
   map[AST_FOREIGN_KEY] = "ForeignKey";
   map[AST_FOREIGN_KEY_ACTIONS] = "ForeignKeyActions";
@@ -135,6 +138,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_FUNCTION_PARAMETER] = "FunctionParameter";
   map[AST_GENERATED_COLUMN_INFO] = "GeneratedColumnInfo";
   map[AST_GRANTEE_LIST] = "GranteeList";
+  map[AST_GRANT_TO_CLAUSE] = "GrantToClause";
   map[AST_GRANT_STATEMENT] = "GrantStatement";
   map[AST_GROUP_BY] = "GroupBy";
   map[AST_GROUPING_ITEM] = "GroupingItem";
@@ -638,7 +642,7 @@ std::string ASTDropFunctionStatement::SingleNodeDebugString() const {
                            : absl::StrCat(node_name, "(is_if_exists)");
 }
 
-std::string ASTDropRowPolicyStatement::SingleNodeDebugString() const {
+std::string ASTDropRowAccessPolicyStatement::SingleNodeDebugString() const {
   const std::string& node_name = ASTNode::SingleNodeDebugString();
   if (!is_if_exists()) {
     return node_name;
@@ -1204,31 +1208,35 @@ std::string ASTAlterStatementBase::SingleNodeDebugString() const {
   return absl::StrCat(node_name, "(is_if_exists)");
 }
 
-std::string SchemaObjectKindToName(SchemaObjectKind schema_object_kind) {
+std::ostream& operator<<(std::ostream& out, SchemaObjectKind kind) {
+  return out << SchemaObjectKindToName(kind);
+}
+
+absl::string_view SchemaObjectKindToName(SchemaObjectKind schema_object_kind) {
   switch (schema_object_kind) {
-    case(SchemaObjectKind::kAggregateFunction):
+    case SchemaObjectKind::kAggregateFunction:
       return "AGGREGATE FUNCTION";
-    case(SchemaObjectKind::kConstant):
+    case SchemaObjectKind::kConstant:
       return "CONSTANT";
-    case(SchemaObjectKind::kDatabase):
+    case SchemaObjectKind::kDatabase:
       return "DATABASE";
-    case(SchemaObjectKind::kExternalTable):
+    case SchemaObjectKind::kExternalTable:
       return "EXTERNAL TABLE";
-    case(SchemaObjectKind::kFunction):
+    case SchemaObjectKind::kFunction:
       return "FUNCTION";
-    case(SchemaObjectKind::kIndex):
+    case SchemaObjectKind::kIndex:
       return "INDEX";
-    case(SchemaObjectKind::kMaterializedView):
+    case SchemaObjectKind::kMaterializedView:
       return "MATERIALIZED VIEW";
-    case(SchemaObjectKind::kModel):
+    case SchemaObjectKind::kModel:
       return "MODEL";
-    case(SchemaObjectKind::kProcedure):
+    case SchemaObjectKind::kProcedure:
       return "PROCEDURE";
-    case(SchemaObjectKind::kTable):
+    case SchemaObjectKind::kTable:
       return "TABLE";
-    case(SchemaObjectKind::kTableFunction):
+    case SchemaObjectKind::kTableFunction:
       return "TABLE FUNCTION";
-    case(SchemaObjectKind::kView):
+    case SchemaObjectKind::kView:
       return "VIEW";
     default:
       return "<INVALID SCHEMA OBJECT KIND>";

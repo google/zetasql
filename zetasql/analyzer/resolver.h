@@ -839,8 +839,8 @@ class Resolver {
       FunctionArgumentTypeList* signature_arguments,
       bool* contains_templated_arguments);
 
-  zetasql_base::Status ResolveCreateRowPolicyStatement(
-      const ASTCreateRowPolicyStatement* ast_statement,
+  zetasql_base::Status ResolveCreateRowAccessPolicyStatement(
+      const ASTCreateRowAccessPolicyStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
   zetasql_base::Status ResolveExportDataStatement(
@@ -907,12 +907,12 @@ class Resolver {
       const ASTDropFunctionStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
-  zetasql_base::Status ResolveDropRowPolicyStatement(
-      const ASTDropRowPolicyStatement* ast_statement,
+  zetasql_base::Status ResolveDropRowAccessPolicyStatement(
+      const ASTDropRowAccessPolicyStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
-  zetasql_base::Status ResolveDropAllRowPoliciesStatement(
-      const ASTDropAllRowPoliciesStatement* ast_statement,
+  zetasql_base::Status ResolveDropAllRowAccessPoliciesStatement(
+      const ASTDropAllRowAccessPoliciesStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
   zetasql_base::Status ResolveDropMaterializedViewStatement(
@@ -1107,7 +1107,9 @@ class Resolver {
       std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
           transform_list,
       std::vector<std::unique_ptr<const ResolvedOutputColumn>>*
-          transform_output_column_list);
+          transform_output_column_list,
+      std::vector<std::unique_ptr<const ResolvedAnalyticFunctionGroup>>*
+          transform_analytic_function_group_list);
 
   // Resolves the grantee list, which only contains std::string literals and
   // parameters (given the parser rules).  The <ast_grantee_list> may be
@@ -1476,13 +1478,30 @@ class Resolver {
       const google::protobuf::Descriptor* root_descriptor,
       std::vector<const google::protobuf::FieldDescriptor*>* field_descriptors);
 
-  // Returns a vector of FieldDesciptors that correspond to each of the fields
-  // in the path <generalized_path>. The first FieldDescriptor in the returned
-  // vector is looked up with respect to <root_descriptor>.
-  zetasql_base::Status FindDescriptorsForReplaceFieldItem(
+  // Parses <generalized_path>, filling <struct_path> and/or <field_descriptors>
+  // as appropriate, with the struct and proto fields that correspond to each of
+  // the fields in the path. The first field is looked up with respect to
+  // <root_type>. Both <struct_path> and <field_descriptors> may be populated if
+  // <generalized_path> contains accesses to fields of a proto nested within a
+  // struct. In this case, when parsing the output vectors, the first part of
+  // <generalized_path> corresponds to <struct_path> and the last part to
+  // <field_descriptors>.
+  zetasql_base::Status FindFieldsForReplaceFieldItem(
       const ASTGeneralizedPathExpression* generalized_path,
-      const google::protobuf::Descriptor* root_descriptor,
+      const Type* root_type,
+      std::vector<std::pair<int, const StructType::StructField*>>* struct_path,
       std::vector<const google::protobuf::FieldDescriptor*>* field_descriptors);
+
+  // Returns a vector of StructFields and their indexes corresponding to the
+  // fields in the path represented by <path_vector>. The first field in the
+  // returned vector is looked up with respect to <root_struct>. If a field of
+  // proto type is encountered in the path, it will be inserted into
+  // <struct_path> and the function will return without examining any further
+  // fields in the path.
+  zetasql_base::Status FindStructFieldPrefix(
+      absl::Span<const ASTIdentifier* const> path_vector,
+      const StructType* root_struct,
+      std::vector<std::pair<int, const StructType::StructField*>>* struct_path);
 
   // Looks up a proto message type name first in <descriptor_pool> and then in
   // <catalog>. Returns NULL if the type name is not found. If
@@ -1628,8 +1647,8 @@ class Resolver {
       std::unique_ptr<const ResolvedScan>* scan,
       ResolvedColumnList* scan_column_list);
 
-  IdString ComputeSelectColumnAlias(
-    const ASTSelectColumn* ast_select_column, int column_idx) const;
+  IdString ComputeSelectColumnAlias(const ASTSelectColumn* ast_select_column,
+                                    int column_idx) const;
 
   // Compute the default alias to use for an expression.
   // This comes from the final identifier used in a path expression.
@@ -2840,6 +2859,13 @@ class Resolver {
   // Returns true if two values of the given types can be tested for equality
   // either directly or by coercing the values to a common supertype.
   bool SupportsEquality(const Type* type1, const Type* type2);
+
+  // Returns the column alias from <expr_resolution_info> if <ast_expr> matches
+  // the top level expression in <expr_resolution_info>. Returns an empty
+  // IdString if the <expr_resolution_info> has no top level expression,
+  // <ast_expr> does not match, or the column alias is an internal alias.
+  static IdString GetColumnAliasForTopLevelExpression(
+      ExprResolutionInfo* expr_resolution_info, const ASTExpression* ast_expr);
 
   friend class AnalyticFunctionResolver;
   friend class FunctionResolver;

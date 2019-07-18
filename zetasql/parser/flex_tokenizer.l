@@ -348,6 +348,7 @@ comment               ({cs_comment}|{dash_comment}|{pound_comment})
  */
  /* BEGIN_KEYWORDS -- Do not remove! */
 abort { return BisonParserImpl::token::KW_ABORT; }
+access { return BisonParserImpl::token::KW_ACCESS; }
 action { return BisonParserImpl::token::KW_ACTION; }
 add { return BisonParserImpl::token::KW_ADD; }
 aggregate { return BisonParserImpl::token::KW_AGGREGATE; }
@@ -444,6 +445,7 @@ extract { return BisonParserImpl::token::KW_EXTRACT; }
 false { return BisonParserImpl::token::KW_FALSE; }
 fetch { return BisonParserImpl::token::KW_FETCH; }
 fill { return BisonParserImpl::token::KW_FILL; }
+filter { return BisonParserImpl::token::KW_FILTER; }
 following { return BisonParserImpl::token::KW_FOLLOWING; }
 for { return BisonParserImpl::token::KW_FOR; }
 foreign { return BisonParserImpl::token::KW_FOREIGN; }

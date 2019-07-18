@@ -182,23 +182,29 @@ std::string SelectColumnState::DebugString(absl::string_view indent) const {
 SelectColumnState* SelectColumnStateList::AddSelectColumn(
     const ASTExpression* ast_expr, IdString alias,
     bool is_explicit) {
-  const int select_list_position = select_column_state_list_.size();
-  if (!IsInternalAlias(alias)) {
-    if (!zetasql_base::InsertIfNotPresent(&column_alias_to_state_list_position_, alias,
-                                 select_list_position)) {
-      // Now ambiguous.
-      column_alias_to_state_list_position_[alias] = -1;
-    }
-  }
-  select_column_state_list_.emplace_back(new SelectColumnState(
-      ast_expr, alias, is_explicit, select_list_position));
-  return select_column_state_list_.back().get();
+  SelectColumnState* select_column_state = new SelectColumnState(
+      ast_expr, alias, is_explicit, -1 /* select_list_position */);
+  AddSelectColumn(select_column_state, true /* save_mapping */);
+  return select_column_state;
 }
 
 void SelectColumnStateList::AddSelectColumn(
-    SelectColumnState* select_column_state) {
+    SelectColumnState* select_column_state, bool save_mapping) {
   DCHECK_EQ(select_column_state->select_list_position, -1);
   select_column_state->select_list_position = select_column_state_list_.size();
+  if (save_mapping) {
+    // Save a mapping from the alias to this SelectColumnState. The mapping is
+    // later used for validations performed by
+    // FindAndValidateSelectColumnStateByAlias().
+    const IdString alias = select_column_state->alias;
+    if (!IsInternalAlias(alias)) {
+      if (!zetasql_base::InsertIfNotPresent(&column_alias_to_state_list_position_, alias,
+                                   select_column_state->select_list_position)) {
+        // Now ambiguous.
+        column_alias_to_state_list_position_[alias] = -1;
+      }
+    }
+  }
   select_column_state_list_.push_back(absl::WrapUnique(select_column_state));
 }
 
@@ -325,29 +331,30 @@ std::string SelectColumnStateList::DebugString() const {
 }
 
 ExprResolutionInfo::ExprResolutionInfo(
-    const NameScope* name_scope_in,
-    const NameScope* aggregate_name_scope_in,
+    const NameScope* name_scope_in, const NameScope* aggregate_name_scope_in,
     bool allows_aggregation_in, bool allows_analytic_in,
     bool use_post_grouping_columns_in, const char* clause_name_in,
-    QueryResolutionInfo* query_resolution_info_in)
+    QueryResolutionInfo* query_resolution_info_in,
+    const ASTExpression* top_level_ast_expr_in, IdString column_alias_in)
     : name_scope(name_scope_in),
       aggregate_name_scope(aggregate_name_scope_in),
       allows_aggregation(allows_aggregation_in),
       allows_analytic(allows_analytic_in),
       clause_name(clause_name_in),
       query_resolution_info(query_resolution_info_in),
-      use_post_grouping_columns(use_post_grouping_columns_in) {}
+      use_post_grouping_columns(use_post_grouping_columns_in),
+      top_level_ast_expr(top_level_ast_expr_in),
+      column_alias(column_alias_in) {}
 
 ExprResolutionInfo::ExprResolutionInfo(
     const NameScope* name_scope_in,
-    QueryResolutionInfo* query_resolution_info_in)
-    : ExprResolutionInfo(name_scope_in,
-                         name_scope_in,
-                         true /* allows_aggregation */,
-                         true /* allows_analytic */,
-                         false /* use_post_grouping_columns */,
-                         "" /* clause_name */,
-                         query_resolution_info_in) {}
+    QueryResolutionInfo* query_resolution_info_in,
+    const ASTExpression* top_level_ast_expr_in, IdString column_alias_in)
+    : ExprResolutionInfo(
+          name_scope_in, name_scope_in, true /* allows_aggregation */,
+          true /* allows_analytic */, false /* use_post_grouping_columns */,
+          "" /* clause_name */, query_resolution_info_in, top_level_ast_expr_in,
+          column_alias_in) {}
 
 ExprResolutionInfo::ExprResolutionInfo(
     const NameScope* name_scope_in,
@@ -359,26 +366,24 @@ ExprResolutionInfo::ExprResolutionInfo(
           clause_name_in, nullptr /* query_resolution_info */) {}
 
 ExprResolutionInfo::ExprResolutionInfo(ExprResolutionInfo* parent)
-    : ExprResolutionInfo(
-          parent->name_scope, parent->aggregate_name_scope,
-          parent->allows_aggregation,
-          parent->allows_analytic,
-          parent->use_post_grouping_columns,
-          parent->clause_name, parent->query_resolution_info) {
+    : ExprResolutionInfo(parent->name_scope, parent->aggregate_name_scope,
+                         parent->allows_aggregation, parent->allows_analytic,
+                         parent->use_post_grouping_columns, parent->clause_name,
+                         parent->query_resolution_info,
+                         parent->top_level_ast_expr, parent->column_alias) {
   // Hack because I can't use initializer syntax and a delegated constructor.
   const_cast<ExprResolutionInfo*&>(this->parent) = parent;
 }
 
-ExprResolutionInfo::ExprResolutionInfo(
-    ExprResolutionInfo* parent,
-    const NameScope* name_scope_in,
-    const char* clause_name_in,
-    bool allows_analytic_in)
-    : ExprResolutionInfo(
-          name_scope_in, parent->aggregate_name_scope,
-          parent->allows_aggregation, allows_analytic_in,
-          parent->use_post_grouping_columns,
-          clause_name_in, parent->query_resolution_info) {
+ExprResolutionInfo::ExprResolutionInfo(ExprResolutionInfo* parent,
+                                       const NameScope* name_scope_in,
+                                       const char* clause_name_in,
+                                       bool allows_analytic_in)
+    : ExprResolutionInfo(name_scope_in, parent->aggregate_name_scope,
+                         parent->allows_aggregation, allows_analytic_in,
+                         parent->use_post_grouping_columns, clause_name_in,
+                         parent->query_resolution_info,
+                         parent->top_level_ast_expr, parent->column_alias) {
   // Hack because I can't use initializer syntax and a delegated constructor.
   const_cast<ExprResolutionInfo*&>(this->parent) = parent;
 }

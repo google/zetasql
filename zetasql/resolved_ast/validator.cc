@@ -410,27 +410,50 @@ zetasql_base::Status Validator::ValidateResolvedReplaceField(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const ResolvedReplaceField* replace_field) const {
-  ZETASQL_RET_CHECK(replace_field->expr()->type()->IsProto());
-  const std::string& base_proto_name =
-      replace_field->expr()->type()->AsProto()->descriptor()->full_name();
   for (const std::unique_ptr<const ResolvedReplaceFieldItem>&
            replace_field_item : replace_field->replace_field_item_list()) {
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
                                          replace_field_item->expr()));
-    std::string containing_proto_name = base_proto_name;
-    for (const google::protobuf::FieldDescriptor* field :
-         replace_field_item->proto_field_path()) {
+
+    ZETASQL_RET_CHECK(!replace_field_item->struct_index_path().empty() ||
+              !replace_field_item->proto_field_path().empty());
+    const StructType* current_struct_type =
+        replace_field->expr()->type()->AsStruct();
+    const zetasql::Type* last_struct_field_type;
+    for (const int field_index : replace_field_item->struct_index_path()) {
       // Ensure that the field path is valid by checking field containment.
-      ZETASQL_RET_CHECK(!containing_proto_name.empty())
-          << "Unable to identify parent message of field: "
-          << field->full_name();
-      ZETASQL_RET_CHECK_EQ(containing_proto_name, field->containing_type()->full_name())
-          << "Mismatched proto message " << containing_proto_name
-          << " and field " << field->full_name();
-      if (field->message_type() != nullptr) {
-        containing_proto_name = field->message_type()->full_name();
-      } else {
-        containing_proto_name.clear();
+      ZETASQL_RET_CHECK(current_struct_type != nullptr);
+      ZETASQL_RET_CHECK_GE(field_index, 0);
+      ZETASQL_RET_CHECK_LT(field_index, current_struct_type->num_fields());
+      last_struct_field_type = current_struct_type->field(field_index).type;
+      current_struct_type = last_struct_field_type->AsStruct();
+    }
+
+    if (!replace_field_item->proto_field_path().empty()) {
+      const std::string base_proto_name =
+          replace_field_item->struct_index_path().empty()
+              ? replace_field->expr()
+                    ->type()
+                    ->AsProto()
+                    ->descriptor()
+                    ->full_name()
+              : last_struct_field_type->AsProto()->descriptor()->full_name();
+      std::string containing_proto_name = base_proto_name;
+      for (const google::protobuf::FieldDescriptor* field :
+           replace_field_item->proto_field_path()) {
+        // Ensure that the field path is valid by checking field containment.
+        ZETASQL_RET_CHECK(!containing_proto_name.empty())
+            << "Unable to identify parent message of field: "
+            << field->full_name();
+        ZETASQL_RET_CHECK_EQ(containing_proto_name,
+                     field->containing_type()->full_name())
+            << "Mismatched proto message " << containing_proto_name
+            << " and field " << field->full_name();
+        if (field->message_type() != nullptr) {
+          containing_proto_name = field->message_type()->full_name();
+        } else {
+          containing_proto_name.clear();
+        }
       }
     }
   }
@@ -1453,9 +1476,9 @@ zetasql_base::Status Validator::ValidateResolvedStatement(
       status = ValidateResolvedCreateExternalTableStmt(
           statement->GetAs<ResolvedCreateExternalTableStmt>());
       break;
-    case RESOLVED_CREATE_ROW_POLICY_STMT:
-      status = ValidateResolvedCreateRowPolicyStmt(
-          statement->GetAs<ResolvedCreateRowPolicyStmt>());
+    case RESOLVED_CREATE_ROW_ACCESS_POLICY_STMT:
+      status = ValidateResolvedCreateRowAccessPolicyStmt(
+          statement->GetAs<ResolvedCreateRowAccessPolicyStmt>());
       break;
     case RESOLVED_CREATE_CONSTANT_STMT:
       status = ValidateResolvedCreateConstantStmt(
@@ -1532,9 +1555,9 @@ zetasql_base::Status Validator::ValidateResolvedStatement(
       status = ValidateResolvedDropFunctionStmt(
           statement->GetAs<ResolvedDropFunctionStmt>());
       break;
-    case RESOLVED_DROP_ROW_POLICY_STMT:
-      status = ValidateResolvedDropRowPolicyStmt(
-          statement->GetAs<ResolvedDropRowPolicyStmt>());
+    case RESOLVED_DROP_ROW_ACCESS_POLICY_STMT:
+      status = ValidateResolvedDropRowAccessPolicyStmt(
+          statement->GetAs<ResolvedDropRowAccessPolicyStmt>());
       break;
     case RESOLVED_GRANT_STMT:
       status = ValidateResolvedGrantStmt(
@@ -1902,8 +1925,8 @@ zetasql_base::Status Validator::ValidateResolvedCreateExternalTableStmt(
   return ::zetasql_base::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedCreateRowPolicyStmt(
-    const ResolvedCreateRowPolicyStmt* stmt) const {
+zetasql_base::Status Validator::ValidateResolvedCreateRowAccessPolicyStmt(
+    const ResolvedCreateRowAccessPolicyStmt* stmt) const {
 
   ZETASQL_RET_CHECK(stmt->table_scan() != nullptr);
   std::set<ResolvedColumn> visible_columns;
@@ -1913,7 +1936,7 @@ zetasql_base::Status Validator::ValidateResolvedCreateRowPolicyStmt(
   const ResolvedExpr* predicate = stmt->predicate();
   ZETASQL_RET_CHECK(predicate != nullptr);
   ZETASQL_RET_CHECK(predicate->type()->IsBool())
-      << "CreateRowPolicyStmt has predicate with non-BOOL type: "
+      << "CreateRowAccessPolicyStmt has predicate with non-BOOL type: "
       << predicate->type()->DebugString();
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
       visible_columns, {}  /* visible_parameters */, predicate));
@@ -2178,8 +2201,8 @@ zetasql_base::Status Validator::ValidateResolvedDropMaterializedViewStmt(
   return ::zetasql_base::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedDropRowPolicyStmt(
-    const ResolvedDropRowPolicyStmt* stmt) const {
+zetasql_base::Status Validator::ValidateResolvedDropRowAccessPolicyStmt(
+    const ResolvedDropRowAccessPolicyStmt* stmt) const {
   ZETASQL_RET_CHECK(!(stmt->is_drop_all() && stmt->is_if_exists()));
   return ::zetasql_base::OkStatus();
 }

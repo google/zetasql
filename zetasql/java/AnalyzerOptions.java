@@ -58,6 +58,8 @@ public class AnalyzerOptions implements Serializable {
     builder.setParameterMode(ParameterMode.PARAMETER_NAMED);
     builder.setErrorMessageMode(ErrorMessageMode.ERROR_MESSAGE_ONE_LINE);
     builder.setStatementContext(StatementContext.CONTEXT_DEFAULT);
+    builder.setStrictValidationOnColumnReplacements(false);
+    builder.setPreserveColumnAliases(false);
   }
 
   public AnalyzerOptionsProto serialize(FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
@@ -234,6 +236,22 @@ public class AnalyzerOptions implements Serializable {
     return builder.getParameterMode();
   }
 
+  public void setStrictValidationOnColumnReplacements(boolean value) {
+    builder.setStrictValidationOnColumnReplacements(value);
+  }
+
+  public boolean getStrictValidationOnColumnReplacements() {
+    return builder.getStrictValidationOnColumnReplacements();
+  }
+
+  public void setPreserveColumnAliases(boolean preserveColumnAliases) {
+    builder.setPreserveColumnAliases(preserveColumnAliases);
+  }
+
+  public boolean getPreserveColumnAliases() {
+    return builder.getPreserveColumnAliases();
+  }
+
   static AnalyzerOptions deserialize(
       AnalyzerOptionsProto proto, List<ZetaSQLDescriptorPool> pools, TypeFactory factory) {
     AnalyzerOptions options = new AnalyzerOptions();
@@ -245,6 +263,9 @@ public class AnalyzerOptions implements Serializable {
     options.setRecordParseLocations(proto.getRecordParseLocations());
     options.setAllowUndeclaredParameters(proto.getAllowUndeclaredParameters());
     options.setParameterMode(proto.getParameterMode());
+    options.setStrictValidationOnColumnReplacements(
+        proto.getStrictValidationOnColumnReplacements());
+    options.setPreserveColumnAliases(proto.getPreserveColumnAliases());
 
     if (proto.hasInScopeExpressionColumn()) {
       options.setInScopeExpressionColumn(

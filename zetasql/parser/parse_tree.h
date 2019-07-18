@@ -18,6 +18,7 @@
 #define ZETASQL_PARSER_PARSE_TREE_H_
 
 #include <stddef.h>
+#include <ostream>
 #include <set>
 #include <string>
 #include <type_traits>
@@ -86,8 +87,10 @@ enum class SchemaObjectKind {
   __SchemaObjectKind__switch_must_have_a_default__ = -1,
 };
 
-// Converts a SchemaObjectKind to the SQL std::string name of that kind.
-std::string SchemaObjectKindToName(SchemaObjectKind schema_object_kind);
+std::ostream& operator<<(std::ostream& out, SchemaObjectKind kind);
+
+// Converts a SchemaObjectKind to the SQL name of that kind.
+absl::string_view SchemaObjectKindToName(SchemaObjectKind schema_object_kind);
 
 // Base class for all AST nodes.
 class ASTNode : public zetasql_base::ArenaOnlyGladiator {
@@ -823,13 +826,13 @@ class ASTDropFunctionStatement final : public ASTSqlStatement {
   bool is_if_exists_ = false;
 };
 
-// Represents a DROP ROW POLICY statement.
-class ASTDropRowPolicyStatement final : public ASTSqlStatement {
+// Represents a DROP ROW ACCESS POLICY statement.
+class ASTDropRowAccessPolicyStatement final : public ASTSqlStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind =
-      AST_DROP_ROW_POLICY_STATEMENT;
+      AST_DROP_ROW_ACCESS_POLICY_STATEMENT;
 
-  ASTDropRowPolicyStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTDropRowAccessPolicyStatement() : ASTSqlStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
 
   // This adds the "if exists" modifier to the node name.
@@ -851,15 +854,18 @@ class ASTDropRowPolicyStatement final : public ASTSqlStatement {
   const ASTPathExpression* table_name_ = nullptr;
 };
 
-// Represents a DROP ALL ROW POLICIES statement.
-class ASTDropAllRowPoliciesStatement final : public ASTSqlStatement {
+// Represents a DROP ALL ROW ACCESS POLICIES statement.
+class ASTDropAllRowAccessPoliciesStatement final : public ASTSqlStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind =
-      AST_DROP_ALL_ROW_POLICIES_STATEMENT;
+      AST_DROP_ALL_ROW_ACCESS_POLICIES_STATEMENT;
 
-  ASTDropAllRowPoliciesStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTDropAllRowAccessPoliciesStatement() : ASTSqlStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   const ASTPathExpression* table_name() const { return table_name_; }
+
+  bool has_access_keyword() const { return has_access_keyword_; }
+  void set_has_access_keyword(bool value) { has_access_keyword_ = value; }
 
  private:
   void InitFields() final {
@@ -867,6 +873,7 @@ class ASTDropAllRowPoliciesStatement final : public ASTSqlStatement {
     fl.AddRequired(&table_name_);
   }
   const ASTPathExpression* table_name_ = nullptr;
+  bool has_access_keyword_ = false;
 };
 
 // Represents a DROP MATERIALIZED VIEW statement.
@@ -4078,32 +4085,85 @@ class ASTCreateIndexStatement final : public ASTCreateStatement {
   bool is_unique_ = false;
 };
 
-class ASTCreateRowPolicyStatement final : public ASTCreateStatement {
+class ASTGrantToClause final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_GRANT_TO_CLAUSE;
+
+  ASTGrantToClause() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+
+  const ASTGranteeList* grantee_list() const { return grantee_list_; }
+
+  bool has_grant_keyword_and_parens() const {
+    return has_grant_keyword_and_parens_;
+  }
+  void set_has_grant_keyword_and_parens(bool value) {
+    has_grant_keyword_and_parens_ = value;
+  }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&grantee_list_);
+  }
+
+  const ASTGranteeList* grantee_list_ = nullptr;  // Required.
+  bool has_grant_keyword_and_parens_ = false;
+};
+
+class ASTFilterUsingClause final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_FILTER_USING_CLAUSE;
+
+  ASTFilterUsingClause() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+
+  const ASTExpression* predicate() const { return predicate_; }
+
+  bool has_filter_keyword() const { return has_filter_keyword_; }
+  void set_has_filter_keyword(bool value) { has_filter_keyword_ = value; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&predicate_);
+  }
+
+  const ASTExpression* predicate_ = nullptr;  // Required.
+  bool has_filter_keyword_ = false;
+};
+
+class ASTCreateRowAccessPolicyStatement final : public ASTCreateStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind =
-      AST_CREATE_ROW_POLICY_STATEMENT;
+      AST_CREATE_ROW_ACCESS_POLICY_STATEMENT;
 
-  ASTCreateRowPolicyStatement() : ASTCreateStatement(kConcreteNodeKind) {}
+  ASTCreateRowAccessPolicyStatement() : ASTCreateStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
 
   const ASTIdentifier* name() const { return name_; }
   const ASTPathExpression* target_path() const { return target_path_; }
-  const ASTGranteeList* grantee_list() const { return grantee_list_; }
-  const ASTExpression* predicate() const { return predicate_; }
+  const ASTGrantToClause* grant_to() const { return grant_to_; }
+  const ASTFilterUsingClause* filter_using() const { return filter_using_; }
+
+  bool has_access_keyword() const { return has_access_keyword_; }
+  void set_has_access_keyword(bool value) { has_access_keyword_ = value; }
 
  private:
   void InitFields() final {
     FieldLoader fl(this);
     fl.AddOptional(&name_, AST_IDENTIFIER);
     fl.AddRequired(&target_path_);
-    fl.AddRequired(&grantee_list_);
-    fl.AddRequired(&predicate_);
+    fl.AddOptional(&grant_to_, AST_GRANT_TO_CLAUSE);
+    fl.AddRequired(&filter_using_);
   }
 
-  const ASTIdentifier* name_ = nullptr;             // Optional
-  const ASTPathExpression* target_path_ = nullptr;  // Required
-  const ASTGranteeList* grantee_list_ = nullptr;    // Required
-  const ASTExpression* predicate_ = nullptr;        // Required
+  const ASTIdentifier* name_ = nullptr;                 // Optional
+  const ASTPathExpression* target_path_ = nullptr;      // Required
+  const ASTGrantToClause* grant_to_ = nullptr;          // Optional
+  const ASTFilterUsingClause* filter_using_ = nullptr;  // Required
+
+  bool has_access_keyword_ = false;
 };
 
 class ASTCreateViewStatementBase : public ASTCreateStatement {

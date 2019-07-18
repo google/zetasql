@@ -326,11 +326,11 @@ zetasql_base::Status TableNameResolver::FindInStatement(
       }
       break;
 
-    case AST_CREATE_ROW_POLICY_STATEMENT:
+    case AST_CREATE_ROW_ACCESS_POLICY_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
-              RESOLVED_CREATE_ROW_POLICY_STMT)) {
-        const ASTCreateRowPolicyStatement* stmt =
-            statement->GetAs<ASTCreateRowPolicyStatement>();
+              RESOLVED_CREATE_ROW_ACCESS_POLICY_STMT)) {
+        const ASTCreateRowAccessPolicyStatement* stmt =
+            statement->GetAsOrDie<ASTCreateRowAccessPolicyStatement>();
         zetasql_base::InsertIfNotPresent(table_names_,
                                 stmt->target_path()->ToIdentifierVector());
         return ::zetasql_base::OkStatus();
@@ -500,13 +500,14 @@ zetasql_base::Status TableNameResolver::FindInStatement(
       }
       break;
 
-    case AST_DROP_ROW_POLICY_STATEMENT:
-    case AST_DROP_ALL_ROW_POLICIES_STATEMENT:
+    case AST_DROP_ROW_ACCESS_POLICY_STATEMENT:
+    case AST_DROP_ALL_ROW_ACCESS_POLICIES_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
-              RESOLVED_DROP_ROW_POLICY_STMT)) {
-        // Note that for a DROP [ALL] ROW [POLICY|POICIES] statement, the table
-        // name is not inserted into table_names_. Engines that need to know
-        // about the target table should handle that themselves.
+              RESOLVED_DROP_ROW_ACCESS_POLICY_STMT)) {
+        // Note that for a DROP [ALL] ROW (ACCESS POLICY|[ACCESS] POLICIES)
+        // statement, the table name is not inserted into table_names_. Engines
+        // that need to know about the target table should handle that
+        // themselves.
         return ::zetasql_base::OkStatus();
       }
       break;

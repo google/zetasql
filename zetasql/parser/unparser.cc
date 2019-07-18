@@ -605,22 +605,51 @@ void Unparser::visitASTCreateExternalTableStatement(
   }
 }
 
-void Unparser::visitASTCreateRowPolicyStatement(
-    const ASTCreateRowPolicyStatement* node, void* data) {
+void Unparser::visitASTGrantToClause(const ASTGrantToClause* node, void* data) {
+  if (node->has_grant_keyword_and_parens()) {
+    print("GRANT");
+  }
+  print("TO ");
+  if (node->has_grant_keyword_and_parens()) {
+    print("(");
+  }
+  node->grantee_list()->Accept(this, data);
+  if (node->has_grant_keyword_and_parens()) {
+    print(")");
+  }
+}
+
+void Unparser::visitASTFilterUsingClause(const ASTFilterUsingClause* node,
+                                         void* data) {
+  if (node->has_filter_keyword()) {
+    print("FILTER");
+  }
+  print("USING (");
+  node->predicate()->Accept(this, data);
+  print(")");
+}
+
+void Unparser::visitASTCreateRowAccessPolicyStatement(
+    const ASTCreateRowAccessPolicyStatement* node, void* data) {
   print("CREATE");
-  if (node->is_or_replace()) print("OR REPLACE");
-  print("ROW POLICY");
+  if (node->is_or_replace()) {
+    print("OR REPLACE");
+  }
+  print("ROW");
+  if (node->has_access_keyword()) {
+    print("ACCESS");
+  }
+  print("POLICY");
   if (node->is_if_not_exists()) print("IF NOT EXISTS");
   if (node->name() != nullptr) {
     node->name()->Accept(this, data);
   }
   print("ON");
   node->target_path()->Accept(this, data);
-  print("TO");
-  node->grantee_list()->Accept(this, data);
-  print("USING (");
-  node->predicate()->Accept(this, data);
-  print(")");
+  if (node->grant_to() != nullptr) {
+    node->grant_to()->Accept(this, data);
+  }
+  node->filter_using()->Accept(this, data);
 }
 
 void Unparser::visitASTExportDataStatement(
@@ -778,9 +807,9 @@ void Unparser::visitASTDropFunctionStatement(
   }
 }
 
-void Unparser::visitASTDropRowPolicyStatement(
-    const ASTDropRowPolicyStatement* node, void* data) {
-  print("DROP ROW POLICY");
+void Unparser::visitASTDropRowAccessPolicyStatement(
+    const ASTDropRowAccessPolicyStatement* node, void* data) {
+  print("DROP ROW ACCESS POLICY");
   if (node->is_if_exists()) {
     print("IF EXISTS");
   }
@@ -789,9 +818,13 @@ void Unparser::visitASTDropRowPolicyStatement(
   node->table_name()->Accept(this, data);
 }
 
-void Unparser::visitASTDropAllRowPoliciesStatement(
-    const ASTDropAllRowPoliciesStatement* node, void* data) {
-  print("DROP ALL ROW POLICIES ON");
+void Unparser::visitASTDropAllRowAccessPoliciesStatement(
+    const ASTDropAllRowAccessPoliciesStatement* node, void* data) {
+  print("DROP ALL ROW");
+  if (node->has_access_keyword()) {
+    print("ACCESS");
+  }
+  print("POLICIES ON");
   node->table_name()->Accept(this, data);
 }
 

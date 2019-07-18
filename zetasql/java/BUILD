@@ -21,25 +21,28 @@ package(
 )
 
 load("@google_bazel_common//tools/jarjar:jarjar.bzl", "jarjar_library")
+load("@google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
 load("//tools:maven.bzl", "pom_file")
+
+TYPES_SRCS = [
+    "ArrayType.java",
+    "CivilTimeEncoder.java",
+    "EnumType.java",
+    "FileDescriptorSetsBuilder.java",
+    "FunctionArgumentType.java",
+    "ZetaSQLDescriptorPool.java",
+    "ZetaSQLStrings.java",
+    "ProtoType.java",
+    "SimpleType.java",
+    "StructType.java",
+    "Type.java",
+    "TypeFactory.java",
+    "Value.java",
+]
 
 java_library(
     name = "types",
-    srcs = [
-        "ArrayType.java",
-        "CivilTimeEncoder.java",
-        "EnumType.java",
-        "FileDescriptorSetsBuilder.java",
-        "FunctionArgumentType.java",
-        "ProtoType.java",
-        "SimpleType.java",
-        "StructType.java",
-        "Type.java",
-        "TypeFactory.java",
-        "Value.java",
-        "ZetaSQLDescriptorPool.java",
-        "ZetaSQLStrings.java",
-    ],
+    srcs = TYPES_SRCS,
     tags = ["maven_coordinates=com.google.zetasql:types:${project.version}"],
     deps = [
         "//zetasql/proto:function_java_proto",
@@ -70,6 +73,16 @@ jarjar_library(
         "//zetasql/public:value_java_proto",
         "//zetasql/public/proto:type_annotation_java_proto",
     ],
+    rules = [
+        "zap com.google.protobuf.**",
+    ],
+)
+
+jarjar_library(
+    name = "types_src",
+    jars = [
+        ":libtypes-src.jar",
+    ],
 )
 
 pom_file(
@@ -89,22 +102,33 @@ pom_file(
     ],
 )
 
+CHANNEL_PROVIDER_SRCS = [
+    "ClientChannelProvider.java",
+]
+
 java_library(
     name = "channel_provider",
-    srcs = [
-        "ClientChannelProvider.java",
-    ],
+    srcs = CHANNEL_PROVIDER_SRCS,
     tags = ["maven_coordinates=com.google.zetasql:client:${project.version}"],
     deps = [
         "@io_grpc_grpc_core//jar",
     ],
 )
 
+javadoc_library(
+    name = "types_javadoc",
+    srcs = TYPES_SRCS,
+    root_packages = ["com.google.zetasql"],
+    deps = [":types"],
+)
+
+JNI_CHANNEL_SRCS = [
+    "JniChannelProvider.java",
+]
+
 java_library(
     name = "jni_channel",
-    srcs = [
-        "JniChannelProvider.java",
-    ],
+    srcs = JNI_CHANNEL_SRCS,
     resources = [
         "//zetasql/local_service:liblocal_service_jni.so",
     ],
@@ -133,6 +157,13 @@ jarjar_library(
     ],
 )
 
+jarjar_library(
+    name = "jni_channel_src",
+    jars = [
+        ":libjni_channel-src.jar",
+    ],
+)
+
 pom_file(
     name = "jni_channel_pom",
     artifact_id = "jni-channel",
@@ -142,36 +173,45 @@ pom_file(
     ],
 )
 
+javadoc_library(
+    name = "jni_channel_javadoc",
+    srcs = JNI_CHANNEL_SRCS,
+    root_packages = ["com.google.zetasql"],
+    deps = [":jni_channel"],
+)
+
+CLIENT_SRCS = [
+    "AllowedHintsAndOptions.java",
+    "AnalyzerOptions.java",
+    "Catalog.java",
+    "Client.java",
+    "Column.java",
+    "Constant.java",
+    "Function.java",
+    "FunctionSignature.java",
+    "ZetaSQLBuiltinFunctionOptions.java",
+    "LanguageOptions.java",
+    "Model.java",
+    "NotFoundException.java",
+    "ParseLocationRange.java",
+    "ParseResumeLocation.java",
+    "Procedure.java",
+    "ResolvedFunctionCallInfo.java",
+    "SimpleCatalog.java",
+    "SimpleColumn.java",
+    "SimpleModel.java",
+    "SimpleTable.java",
+    "SqlException.java",
+    "SqlFormatter.java",
+    "TVFRelation.java",
+    "TVFSignature.java",
+    "Table.java",
+    "TableValuedFunction.java",
+]
+
 java_library(
     name = "client",
-    srcs = [
-        "AllowedHintsAndOptions.java",
-        "AnalyzerOptions.java",
-        "Catalog.java",
-        "Client.java",
-        "Column.java",
-        "Constant.java",
-        "Function.java",
-        "FunctionSignature.java",
-        "LanguageOptions.java",
-        "Model.java",
-        "NotFoundException.java",
-        "ParseLocationRange.java",
-        "ParseResumeLocation.java",
-        "Procedure.java",
-        "ResolvedFunctionCallInfo.java",
-        "SimpleCatalog.java",
-        "SimpleColumn.java",
-        "SimpleModel.java",
-        "SimpleTable.java",
-        "SqlException.java",
-        "SqlFormatter.java",
-        "TVFRelation.java",
-        "TVFSignature.java",
-        "Table.java",
-        "TableValuedFunction.java",
-        "ZetaSQLBuiltinFunctionOptions.java",
-    ],
+    srcs = CLIENT_SRCS,
     deps = [
         ":channel_provider",
         ":types",
@@ -201,12 +241,14 @@ java_library(
 )
 
 # This is a separate package to avoid circular dependency.
+ANALYZER_SRCS = [
+    "Analyzer.java",
+    "AnalyzerHelper.java",
+]
+
 java_library(
     name = "analyzer",
-    srcs = [
-        "Analyzer.java",
-        "AnalyzerHelper.java",
-    ],
+    srcs = ANALYZER_SRCS,
     deps = [
         ":client",
         ":types",
@@ -252,6 +294,17 @@ jarjar_library(
     rules = [
         "rule io.grpc.** com.google.zetasql.@0",
         "rule io.opencensus.** com.google.zetasql.@0",
+        "zap com.google.protobuf.**",
+    ],
+)
+
+jarjar_library(
+    name = "client_src",
+    jars = [
+        ":libanalyzer-src.jar",
+        ":libchannel_provider-src.jar",
+        ":libclient-src.jar",
+        "//zetasql/java/resolvedast:libresolvedast-src.jar",
     ],
 )
 
@@ -286,6 +339,17 @@ pom_file(
         "@io_grpc_grpc_protobuf_lite//jar",
         "@io_opencensus_opencensus_api//jar",
         "@io_opencensus_opencensus_contrib_grpc_metrics//jar",
+    ],
+)
+
+javadoc_library(
+    name = "client_javadoc",
+    srcs = ANALYZER_SRCS + CHANNEL_PROVIDER_SRCS + CLIENT_SRCS,
+    root_packages = ["com.google.zetasql"],
+    deps = [
+        ":analyzer",
+        ":channel_provider",
+        ":client",
     ],
 )
 

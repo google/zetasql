@@ -199,10 +199,11 @@ zetasql_base::Status Resolver::ResolveStatement(
       }
       break;
 
-    case AST_CREATE_ROW_POLICY_STATEMENT:
-      if (language().SupportsStatementKind(RESOLVED_CREATE_ROW_POLICY_STMT)) {
-        ZETASQL_RETURN_IF_ERROR(ResolveCreateRowPolicyStatement(
-            statement->GetAsOrDie<ASTCreateRowPolicyStatement>(), &stmt));
+    case AST_CREATE_ROW_ACCESS_POLICY_STATEMENT:
+      if (language().SupportsStatementKind(
+              RESOLVED_CREATE_ROW_ACCESS_POLICY_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveCreateRowAccessPolicyStatement(
+            statement->GetAsOrDie<ASTCreateRowAccessPolicyStatement>(), &stmt));
       }
       break;
 
@@ -336,17 +337,20 @@ zetasql_base::Status Resolver::ResolveStatement(
       }
       break;
 
-    case AST_DROP_ROW_POLICY_STATEMENT:
-      if (language().SupportsStatementKind(RESOLVED_DROP_ROW_POLICY_STMT)) {
-        ZETASQL_RETURN_IF_ERROR(ResolveDropRowPolicyStatement(
-            statement->GetAsOrDie<ASTDropRowPolicyStatement>(), &stmt));
+    case AST_DROP_ROW_ACCESS_POLICY_STATEMENT:
+      if (language().SupportsStatementKind(
+              RESOLVED_DROP_ROW_ACCESS_POLICY_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveDropRowAccessPolicyStatement(
+            statement->GetAsOrDie<ASTDropRowAccessPolicyStatement>(), &stmt));
       }
       break;
 
-    case AST_DROP_ALL_ROW_POLICIES_STATEMENT:
-      if (language().SupportsStatementKind(RESOLVED_DROP_ROW_POLICY_STMT)) {
-        ZETASQL_RETURN_IF_ERROR(ResolveDropAllRowPoliciesStatement(
-            statement->GetAsOrDie<ASTDropAllRowPoliciesStatement>(), &stmt));
+    case AST_DROP_ALL_ROW_ACCESS_POLICIES_STATEMENT:
+      if (language().SupportsStatementKind(
+              RESOLVED_DROP_ROW_ACCESS_POLICY_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveDropAllRowAccessPoliciesStatement(
+            statement->GetAsOrDie<ASTDropAllRowAccessPoliciesStatement>(),
+            &stmt));
       }
       break;
 
@@ -1694,6 +1698,8 @@ zetasql_base::Status Resolver::ResolveCreateModelStatement(
   std::vector<std::unique_ptr<const ResolvedComputedColumn>> transform_list;
   std::vector<std::unique_ptr<const ResolvedOutputColumn>>
       transform_output_column_list;
+  std::vector<std::unique_ptr<const ResolvedAnalyticFunctionGroup>>
+      transform_analytic_function_group_list;
   const ASTTransformClause* transform_clause =
       ast_statement->transform_clause();
   if (transform_clause != nullptr) {
@@ -1709,7 +1715,8 @@ zetasql_base::Status Resolver::ResolveCreateModelStatement(
     ZETASQL_RETURN_IF_ERROR(ResolveModelTransformSelectList(
         from_scan_scope.get(), transform_clause->select_list(),
         select_statement_name_list, &transform_list,
-        &transform_output_column_list));
+        &transform_output_column_list,
+        &transform_analytic_function_group_list));
   }
 
   // Resolve options.
@@ -1722,7 +1729,8 @@ zetasql_base::Status Resolver::ResolveCreateModelStatement(
   *output = MakeResolvedCreateModelStmt(
       table_name, create_scope, create_mode, std::move(resolved_options),
       std::move(output_column_list), std::move(query_scan),
-      std::move(transform_list), std::move(transform_output_column_list));
+      std::move(transform_list), std::move(transform_output_column_list),
+      std::move(transform_analytic_function_group_list));
 
   return ::zetasql_base::OkStatus();
 }
@@ -3233,24 +3241,59 @@ zetasql_base::Status Resolver::ResolveGranteeList(
   return zetasql_base::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveCreateRowPolicyStatement(
-    const ASTCreateRowPolicyStatement* ast_statement,
+zetasql_base::Status Resolver::ResolveCreateRowAccessPolicyStatement(
+    const ASTCreateRowAccessPolicyStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
+  bool has_grant_clause = ast_statement->grant_to() != nullptr;
+  bool has_access_keyword = ast_statement->has_access_keyword();
+  bool has_grant_keyword_and_parens =
+      has_grant_clause &&
+      ast_statement->grant_to()->has_grant_keyword_and_parens();
+  bool has_filter_keyword = ast_statement->filter_using()->has_filter_keyword();
+
+  // We construct the correct row policy object name for error messaging based
+  // on the provided syntax.
+  std::string row_policy_object_name =
+      ast_statement->has_access_keyword() ? "ROW ACCESS POLICY" : "ROW POLICY";
+  std::string statement_name = absl::StrCat("CREATE ", row_policy_object_name);
   ResolvedCreateStatement::CreateScope create_scope;
   ResolvedCreateStatement::CreateMode create_mode;
-  ZETASQL_RETURN_IF_ERROR(ResolveCreateStatementOptions(
-      ast_statement, "CREATE ROW POLICY", &create_scope, &create_mode));
+  ZETASQL_RETURN_IF_ERROR(ResolveCreateStatementOptions(ast_statement, statement_name,
+                                                &create_scope, &create_mode));
 
   // The parser ensures that no lifetime modifier is specified on
-  // CREATE ROW POLICY statements.
+  // CREATE ROW ACCESS POLICY statements.
   ZETASQL_RET_CHECK(ast_statement->is_default_scope());
+
+  // If this feature is disabled, then the new syntax must be used.
+  if (!language().LanguageFeatureEnabled(
+          FEATURE_ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX)) {
+    if (!has_access_keyword) {
+      return MakeSqlErrorAt(ast_statement)
+             << "Expected keyword ACCESS between ROW and POLICY";
+    }
+    if (has_grant_clause && !has_grant_keyword_and_parens) {
+      return MakeSqlErrorAt(ast_statement->grant_to())
+             << "Expected keyword GRANT before TO";
+    }
+    if (!has_filter_keyword) {
+      return MakeSqlErrorAt(ast_statement->filter_using())
+             << "Expected keyword FILTER before USING";
+    }
+  } else {
+    // In the old syntax, the "[GRANT] TO" clause is required.
+    if (!has_grant_clause) {
+      return MakeSqlErrorAt(ast_statement)
+             << "Missing TO <grantee_list> clause";
+    }
+  }
 
   std::string policy_name;
   if (ast_statement->name() != nullptr) {
     policy_name = ast_statement->name()->GetAsString();
   } else if (create_mode != ResolvedCreateStatement::CREATE_DEFAULT) {
     return MakeSqlErrorAt(ast_statement)
-           << "CREATE ROW POLICY with "
+           << statement_name << " with "
            << ResolvedCreateStatementEnums::CreateMode_Name(create_mode)
            << " but policy name not specified";
   }
@@ -3261,22 +3304,25 @@ zetasql_base::Status Resolver::ResolveCreateRowPolicyStatement(
   std::string predicate_str;
 
   ZETASQL_RETURN_IF_ERROR(ResolveTableAndPredicate(
-      target_path, ast_statement->predicate(), "CREATE ROW POLICY statement",
-      &resolved_table_scan, &resolved_predicate, &predicate_str));
+      target_path, ast_statement->filter_using()->predicate(),
+      absl::StrCat(statement_name, " statement").c_str(), &resolved_table_scan,
+      &resolved_predicate, &predicate_str));
 
   std::vector<std::string> grantee_list;
   std::vector<std::unique_ptr<const ResolvedExpr>> grantee_expr_list;
-  ZETASQL_RETURN_IF_ERROR(ResolveGranteeList(ast_statement->grantee_list(),
-                                     &grantee_list, &grantee_expr_list));
+  if (has_grant_clause) {
+    ZETASQL_RETURN_IF_ERROR(
+        ResolveGranteeList(ast_statement->grant_to()->grantee_list(),
+                           &grantee_list, &grantee_expr_list));
+  }
 
-  ZETASQL_RET_CHECK(!ast_statement->is_temp())
-      << "CREATE TEMP ROW POLICY is not supported.";
+  ZETASQL_RET_CHECK(!ast_statement->is_temp()) << absl::StrFormat(
+      "CREATE TEMP %s is not supported", row_policy_object_name);
 
-  *output = MakeResolvedCreateRowPolicyStmt(
-      create_mode, policy_name, target_path->ToIdentifierVector(),
-      grantee_list, std::move(grantee_expr_list),
-      std::move(resolved_table_scan), std::move(resolved_predicate),
-      predicate_str);
+  *output = MakeResolvedCreateRowAccessPolicyStmt(
+      create_mode, policy_name, target_path->ToIdentifierVector(), grantee_list,
+      std::move(grantee_expr_list), std::move(resolved_table_scan),
+      std::move(resolved_predicate), predicate_str);
   return ::zetasql_base::OkStatus();
 }
 
@@ -3581,7 +3627,7 @@ zetasql_base::Status Resolver::ResolveDropStatement(
     std::unique_ptr<ResolvedStatement>* output) {
   const std::vector<std::string> name = ast_statement->name()->ToIdentifierVector();
   *output = MakeResolvedDropStmt(
-      SchemaObjectKindToName(ast_statement->schema_object_kind()),
+      std::string(SchemaObjectKindToName(ast_statement->schema_object_kind())),
       ast_statement->is_if_exists(), name);
   return ::zetasql_base::OkStatus();
 }
@@ -3655,23 +3701,29 @@ zetasql_base::Status Resolver::ResolveDropFunctionStatement(
   return ::zetasql_base::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveDropRowPolicyStatement(
-    const ASTDropRowPolicyStatement* ast_statement,
+zetasql_base::Status Resolver::ResolveDropRowAccessPolicyStatement(
+    const ASTDropRowAccessPolicyStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
-  *output = MakeResolvedDropRowPolicyStmt(
-      false,  // is_drop_all
-      ast_statement->is_if_exists(), ast_statement->name()->GetAsString(),
+  *output = MakeResolvedDropRowAccessPolicyStmt(
+      /*is_drop_all=*/false, ast_statement->is_if_exists(),
+      ast_statement->name()->GetAsString(),
       ast_statement->table_name()->ToIdentifierVector());
   return ::zetasql_base::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveDropAllRowPoliciesStatement(
-    const ASTDropAllRowPoliciesStatement* ast_statement,
+zetasql_base::Status Resolver::ResolveDropAllRowAccessPoliciesStatement(
+    const ASTDropAllRowAccessPoliciesStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
-  *output = MakeResolvedDropRowPolicyStmt(
-      true,   // is_drop_all
-      false,  // is_if_exisits
-      "", ast_statement->table_name()->ToIdentifierVector());
+  if (!language().LanguageFeatureEnabled(
+          FEATURE_ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX) &&
+      !ast_statement->has_access_keyword()) {
+    return MakeSqlErrorAt(ast_statement)
+           << "Expected keyword ACCESS between ROW and POLICY";
+  }
+  *output = MakeResolvedDropRowAccessPolicyStmt(
+      /*is_drop_all=*/true,
+      /*is_if_exists=*/false, /*name=*/"",
+      ast_statement->table_name()->ToIdentifierVector());
   return ::zetasql_base::OkStatus();
 }
 

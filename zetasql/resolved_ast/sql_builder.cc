@@ -862,6 +862,17 @@ zetasql_base::Status SQLBuilder::VisitResolvedReplaceField(
                      ProcessNode(replace_item->expr()));
     absl::StrAppend(&replace_field_item_sql, modified_value->GetSQL(), " AS ");
     std::string field_path_sql;
+    const StructType* current_struct_type = node->expr()->type()->AsStruct();
+    for (const int field_index : replace_item->struct_index_path()) {
+      if (!field_path_sql.empty()) {
+        absl::StrAppend(&field_path_sql, ".");
+      }
+      ZETASQL_RET_CHECK_LT(field_index, current_struct_type->num_fields());
+      absl::StrAppend(&field_path_sql,
+                      current_struct_type->field(field_index).name);
+      current_struct_type =
+          current_struct_type->field(field_index).type->AsStruct();
+    }
     for (const google::protobuf::FieldDescriptor* field :
          replace_item->proto_field_path()) {
       if (!field_path_sql.empty()) {
@@ -2706,7 +2717,7 @@ zetasql_base::Status SQLBuilder::VisitResolvedCreateModelStmt(
     // Rename columns in TRANSFORM with the aliases from SELECT statement.
     for (const auto& output_col : node->output_column_list()) {
       const int output_col_id = output_col->column().column_id();
-      const std::string alias = output_col->column().name();
+      const std::string alias = output_col->name();
       if (!zetasql_base::ContainsKey(computed_column_alias_, output_col_id)) {
         return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC) << absl::Substitute(
                    "Column id $0 with name '$1' is not found in "
@@ -2714,6 +2725,11 @@ zetasql_base::Status SQLBuilder::VisitResolvedCreateModelStmt(
                    output_col_id, alias);
       }
       computed_column_alias_[output_col_id] = alias;
+    }
+    for (const auto& analytic_function_group :
+         node->transform_analytic_function_group_list()) {
+      ZETASQL_RETURN_IF_ERROR(
+          VisitResolvedAnalyticFunctionGroup(analytic_function_group.get()));
     }
 
     // Assemble TRANSFORM clause sql std::string.
@@ -3364,14 +3380,14 @@ zetasql_base::Status SQLBuilder::VisitResolvedDropMaterializedViewStmt(
   return ::zetasql_base::OkStatus();
 }
 
-zetasql_base::Status SQLBuilder::VisitResolvedDropRowPolicyStmt(
-    const ResolvedDropRowPolicyStmt* node) {
+zetasql_base::Status SQLBuilder::VisitResolvedDropRowAccessPolicyStmt(
+    const ResolvedDropRowAccessPolicyStmt* node) {
   std::string sql;
   absl::StrAppend(&sql, "DROP ");
   if (node->is_drop_all()) {
-    absl::StrAppend(&sql, "ALL ROW POLICIES");
+    absl::StrAppend(&sql, "ALL ROW ACCESS POLICIES");
   } else {
-    absl::StrAppend(&sql, "ROW POLICY",
+    absl::StrAppend(&sql, "ROW ACCESS POLICY",
                     node->is_if_exists() ? " IF EXISTS " : " ",
                     ToIdentifierLiteral(node->name()));
   }
@@ -4067,13 +4083,13 @@ std::string SQLBuilder::sql() {
   return sql_;
 }
 
-zetasql_base::Status SQLBuilder::VisitResolvedCreateRowPolicyStmt(
-    const ResolvedCreateRowPolicyStmt* node) {
+zetasql_base::Status SQLBuilder::VisitResolvedCreateRowAccessPolicyStmt(
+    const ResolvedCreateRowAccessPolicyStmt* node) {
   std::string sql = "CREATE ";
   if (node->create_mode() == ResolvedCreateStatement::CREATE_OR_REPLACE) {
     absl::StrAppend(&sql, "OR REPLACE ");
   }
-  absl::StrAppend(&sql, " ROW POLICY ");
+  absl::StrAppend(&sql, "ROW ACCESS POLICY ");
   if (node->create_mode() == ResolvedCreateStatement::CREATE_IF_NOT_EXISTS) {
     absl::StrAppend(&sql, "IF NOT EXISTS ");
   }
@@ -4085,15 +4101,18 @@ zetasql_base::Status SQLBuilder::VisitResolvedCreateRowPolicyStmt(
   absl::StrAppend(&sql, "ON ",
                   IdentifierPathToString(node->target_name_path()));
 
-  ZETASQL_ASSIGN_OR_RETURN(std::string grantee_sql,
-                   GetGranteeListSQL(" TO ", node->grantee_list(),
-                                     node->grantee_expr_list()));
-  ZETASQL_RET_CHECK(!grantee_sql.empty());
-  absl::StrAppend(&sql, grantee_sql);
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::string grantee_sql,
+      GetGranteeListSQL("", node->grantee_list(), node->grantee_expr_list()));
+  if (!grantee_sql.empty()) {
+    absl::StrAppend(&sql, " GRANT TO (");
+    absl::StrAppend(&sql, grantee_sql);
+    absl::StrAppend(&sql, ")");
+  }
 
   // ProcessNode(node->predicate()) should produce an equivalent QueryFragment,
   // but we use the std::string form directly because it's simpler.
-  absl::StrAppend(&sql, " USING (", node->predicate_str(), ")");
+  absl::StrAppend(&sql, " FILTER USING (", node->predicate_str(), ")");
 
   PushQueryFragment(node, sql);
   return ::zetasql_base::OkStatus();

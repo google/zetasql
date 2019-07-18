@@ -1702,114 +1702,169 @@ zetasql_base::Status Resolver::FindFieldDescriptors(
   return zetasql_base::OkStatus();
 }
 
-zetasql_base::Status Resolver::FindDescriptorsForReplaceFieldItem(
-    const ASTGeneralizedPathExpression* generalized_path,
-    const google::protobuf::Descriptor* root_descriptor,
+static zetasql_base::Status MakeCannotAccessFieldError(
+    const ASTNode* field_to_extract_location, const std::string& field_to_extract,
+    const std::string& invalid_type_name, bool is_extension) {
+  return MakeSqlErrorAt(field_to_extract_location)
+         << "Cannot access " << (is_extension ? "extension (" : "field ")
+         << field_to_extract << (is_extension ? ")" : "")
+         << " on a value with type " << invalid_type_name;
+}
+
+static zetasql_base::Status GetLastSeenFieldTypeForReplaceFields(
+    const std::vector<std::pair<int, const StructType::StructField*>>&
+        struct_path,
+    const std::vector<const google::protobuf::FieldDescriptor*>& field_descriptors,
+    TypeFactory* type_factory, const Type** last_field_type) {
+  if (field_descriptors.empty()) {
+    // No proto fields have been extracted, therefore return the type of the
+    // last struct field.
+    *last_field_type = struct_path.back().second->type;
+    return zetasql_base::OkStatus();
+  }
+  ZETASQL_RETURN_IF_ERROR(type_factory->GetProtoFieldType(field_descriptors.back(),
+                                                  last_field_type));
+  return zetasql_base::OkStatus();
+}
+
+zetasql_base::Status Resolver::FindFieldsForReplaceFieldItem(
+    const ASTGeneralizedPathExpression* generalized_path, const Type* root_type,
+    std::vector<std::pair<int, const StructType::StructField*>>* struct_path,
     std::vector<const google::protobuf::FieldDescriptor*>* field_descriptors) {
   ZETASQL_RET_CHECK(generalized_path != nullptr);
+  ZETASQL_RET_CHECK(root_type->IsStructOrProto());
   switch (generalized_path->node_kind()) {
     case AST_PATH_EXPRESSION: {
-      const auto* full_path = generalized_path->GetAsOrDie<ASTPathExpression>();
-      if (full_path->parenthesized()) {
-        ZETASQL_ASSIGN_OR_RETURN(
-            const google::protobuf::FieldDescriptor* field_descriptor,
-            FindExtensionFieldDescriptor(full_path, root_descriptor));
-        field_descriptors->push_back(field_descriptor);
+      auto path_expression = generalized_path->GetAsOrDie<ASTPathExpression>();
+      if (root_type->IsProto()) {
+        if (path_expression->parenthesized()) {
+          ZETASQL_ASSIGN_OR_RETURN(
+              const google::protobuf::FieldDescriptor* field_descriptor,
+              FindExtensionFieldDescriptor(path_expression,
+                                           root_type->AsProto()->descriptor()));
+          field_descriptors->push_back(field_descriptor);
+        } else {
+          ZETASQL_RETURN_IF_ERROR(FindFieldDescriptors(
+              path_expression->names(), root_type->AsProto()->descriptor(),
+              field_descriptors));
+        }
       } else {
-        ZETASQL_RETURN_IF_ERROR(FindFieldDescriptors(
-            full_path->names(), root_descriptor, field_descriptors));
+        ZETASQL_RETURN_IF_ERROR(FindStructFieldPrefix(
+            path_expression->names(), root_type->AsStruct(), struct_path));
+        const Type* last_struct_field_type = struct_path->back().second->type;
+        if (last_struct_field_type->IsProto() &&
+            path_expression->num_names() != struct_path->size()) {
+          // There are proto extractions in this path expression.
+          ZETASQL_RETURN_IF_ERROR(FindFieldDescriptors(
+              path_expression->names().last(path_expression->num_names() -
+                                            struct_path->size()),
+              last_struct_field_type->AsProto()->descriptor(),
+              field_descriptors));
+        }
       }
-      return zetasql_base::OkStatus();
-    }
-    case AST_DOT_IDENTIFIER: {
-      const auto* dot_identifier_ast =
-          generalized_path->GetAsOrDie<ASTDotIdentifier>();
-      const auto* generalized_path_expr =
-          dot_identifier_ast->expr()
-              ->GetAsOrNull<ASTGeneralizedPathExpression>();
-      ZETASQL_RETURN_IF_ERROR(FindDescriptorsForReplaceFieldItem(
-          generalized_path_expr, root_descriptor, field_descriptors));
-      if (field_descriptors->back()->message_type() == nullptr) {
-        const Type* last_type;
-        ZETASQL_RETURN_IF_ERROR(type_factory_->GetProtoFieldType(
-            field_descriptors->back(), &last_type));
-        return MakeSqlErrorAt(dot_identifier_ast->name())
-               << "Cannot access field "
-               << dot_identifier_ast->name()->GetAsString()
-               << " on a value with type "
-               << last_type->ShortTypeName(product_mode());
-      }
-      ZETASQL_ASSIGN_OR_RETURN(
-          const google::protobuf::FieldDescriptor* field_descriptor,
-          FindFieldDescriptor(dot_identifier_ast->name(),
-                              field_descriptors->back()->message_type(),
-                              dot_identifier_ast->name()->GetAsString()));
-      if (field_descriptor == nullptr) {
-        return MakeSqlErrorAt(dot_identifier_ast->name())
-               << "Protocol buffer " << field_descriptors->back()->full_name()
-               << " does not have field named "
-               << dot_identifier_ast->name()->GetAsString();
-      }
-      field_descriptors->push_back(field_descriptor);
-      return zetasql_base::OkStatus();
+      break;
     }
     case AST_DOT_GENERALIZED_FIELD: {
-      const auto* dot_generalized_ast =
+      // This has to be a proto extension access since that is the only path
+      // expression that gets parsed to an ASTDotGeneralizedField.
+      auto dot_generalized_ast =
           generalized_path->GetAsOrDie<ASTDotGeneralizedField>();
-      const auto* generalized_path_expr =
+      auto generalized_path_expr =
           dot_generalized_ast->expr()
               ->GetAsOrNull<ASTGeneralizedPathExpression>();
-      ZETASQL_RETURN_IF_ERROR(FindDescriptorsForReplaceFieldItem(
-          generalized_path_expr, root_descriptor, field_descriptors));
-      if (field_descriptors->back()->message_type() == nullptr) {
-        const Type* last_type;
-        ZETASQL_RETURN_IF_ERROR(type_factory_->GetProtoFieldType(
-            field_descriptors->back(), &last_type));
-        return MakeSqlErrorAt(dot_generalized_ast->path())
-               << "Cannot access extension "
-               << dot_generalized_ast->path()->ToIdentifierPathString()
-               << " on a value with type "
-               << last_type->ShortTypeName(product_mode());
+      ZETASQL_RETURN_IF_ERROR(FindFieldsForReplaceFieldItem(
+          generalized_path_expr, root_type, struct_path, field_descriptors));
+
+      // The extension should be extracted from the last seen field in the path,
+      // which must be of proto type.
+      const Type* last_seen_type;
+      ZETASQL_RETURN_IF_ERROR(GetLastSeenFieldTypeForReplaceFields(
+          *struct_path, *field_descriptors, type_factory_, &last_seen_type));
+      if (!last_seen_type->IsProto()) {
+        return MakeCannotAccessFieldError(
+            dot_generalized_ast->path(),
+            dot_generalized_ast->path()->ToIdentifierPathString(),
+            last_seen_type->TypeName(product_mode()), /*is_extension=*/true);
       }
       ZETASQL_ASSIGN_OR_RETURN(const google::protobuf::FieldDescriptor* field_descriptor,
                        FindExtensionFieldDescriptor(
                            dot_generalized_ast->path(),
-                           field_descriptors->back()->message_type()));
+                           last_seen_type->AsProto()->descriptor()));
       field_descriptors->push_back(field_descriptor);
-      return zetasql_base::OkStatus();
+      break;
+    }
+    case AST_DOT_IDENTIFIER: {
+      // This has to be a proto field access since path expressions that parse
+      // to ASTDotIdentifier must have at least one parenthesized section of the
+      // path somewhere on the left side.
+      auto dot_identifier_ast =
+          generalized_path->GetAsOrDie<ASTDotIdentifier>();
+      auto generalized_path_expr =
+          dot_identifier_ast->expr()
+              ->GetAsOrNull<ASTGeneralizedPathExpression>();
+      ZETASQL_RETURN_IF_ERROR(FindFieldsForReplaceFieldItem(
+          generalized_path_expr, root_type, struct_path, field_descriptors));
+
+      // The field should be extracted from the last seen field in the path,
+      // which must be of proto type.
+      const Type* last_seen_type;
+      ZETASQL_RETURN_IF_ERROR(GetLastSeenFieldTypeForReplaceFields(
+          *struct_path, *field_descriptors, type_factory_, &last_seen_type));
+      if (!last_seen_type->IsProto()) {
+        return MakeCannotAccessFieldError(
+            dot_identifier_ast->name(),
+            dot_identifier_ast->name()->GetAsString(),
+            last_seen_type->TypeName(product_mode()), /*is_extension=*/false);
+      }
+      ZETASQL_RETURN_IF_ERROR(FindFieldDescriptors(
+          {dot_identifier_ast->name()}, last_seen_type->AsProto()->descriptor(),
+          field_descriptors));
+      break;
     }
     case AST_ARRAY_ELEMENT: {
       return MakeSqlErrorAt(generalized_path)
              << "Path expressions in REPLACE_FIELDS() cannot index array "
-                "elements";
+                "fields";
     }
     default: {
       ZETASQL_RET_CHECK_FAIL() << "Invalid generalized path expression input "
                        << generalized_path->DebugString();
     }
   }
+
   return zetasql_base::OkStatus();
 }
 
-// Attempts to add a std::string representation of 'path_vector' to
-// 'field_path_trie'. Returns an error if this path std::string overlaps with a path
-// that is already present in 'field_path_trie'. For example, message.nested and
-// message.nested.field are overlapping field paths, but message.nested.field1
-// and message.nested.field2 are not overlapping. Two paths that
-// modify the same OneOf field are also considered overlapping.
+// Builds the std::string representation of a field path using 'struct_path_prefix'
+// and 'proto_field_path_suffix' and attempts to add it to 'field_path_trie'. If
+// non-empty, the field path is expanded starting with the fields in
+// 'struct_path_prefix'. Returns an error if this path std::string overlaps with a
+// path that is already present in 'field_path_trie'. For example,
+// message.nested and message.nested.field are overlapping field paths, but
+// message.nested.field1 and message.nested.field2 are not overlapping. Two
+// paths that modify the same OneOf field are also considered overlapping.
 // 'oneof_path_to_full_path' maps from paths of OneOf fields that have already
 // been modified to the corresponding path expression that accessed the OneOf
-// path. If 'path_vector' modifies a OneOf field that has not already been
-// modified, it will be added to 'oneof_path_to_full_path'.
+// path. If 'proto_field_path_suffix' modifies a OneOf field that has not
+// already been modified, it will be added to 'oneof_path_to_full_path'.
 static zetasql_base::Status AddToFieldPathTrie(
     const ASTNode* path_location,
-    const std::vector<const google::protobuf::FieldDescriptor*>& path_vector,
+    const std::vector<std::pair<int, const StructType::StructField*>>&
+        struct_path_prefix,
+    const std::vector<const google::protobuf::FieldDescriptor*>& proto_field_path_suffix,
     absl::flat_hash_map<std::string, std::string>* oneof_path_to_full_path,
     zetasql_base::GeneralTrie<const ASTNode*, nullptr>* field_path_trie) {
   std::string path_string;
   bool overlapping_oneof = false;
   std::string shortest_oneof_path;
-  for (const google::protobuf::FieldDescriptor* field : path_vector) {
+  for (const std::pair<int, const StructType::StructField*>& struct_field :
+       struct_path_prefix) {
+    if (!path_string.empty()) {
+      absl::StrAppend(&path_string, ".");
+    }
+    absl::StrAppend(&path_string, struct_field.second->name);
+  }
+  for (const google::protobuf::FieldDescriptor* field : proto_field_path_suffix) {
     if (field->containing_oneof() != nullptr && shortest_oneof_path.empty()) {
       shortest_oneof_path =
           absl::StrCat(path_string, field->containing_oneof()->name());
@@ -1875,6 +1930,44 @@ static zetasql_base::Status AddToFieldPathTrie(
   return zetasql_base::OkStatus();
 }
 
+zetasql_base::Status Resolver::FindStructFieldPrefix(
+    absl::Span<const ASTIdentifier* const> path_vector,
+    const StructType* root_struct,
+    std::vector<std::pair<int, const StructType::StructField*>>* struct_path) {
+  ZETASQL_RET_CHECK(root_struct != nullptr);
+  const StructType* current_struct = root_struct;
+  for (const ASTIdentifier* const current_field : path_vector) {
+    if (current_struct == nullptr) {
+      // There was an attempt to modify a field of a non-message type field.
+      return MakeCannotAccessFieldError(
+          current_field, current_field->GetAsString(),
+          struct_path->back().second->type->ShortTypeName(product_mode()),
+          /*is_extension=*/false);
+    }
+    bool is_ambiguous = false;
+    int found_index;
+    const StructType::StructField* field = current_struct->FindField(
+        current_field->GetAsString(), &is_ambiguous, &found_index);
+    if (field == nullptr) {
+      if (is_ambiguous) {
+        return MakeSqlErrorAt(current_field)
+               << "Field name " << current_field->GetAsString()
+               << " is ambiguous";
+      }
+      return MakeSqlErrorAt(current_field)
+             << "Struct " << current_struct->ShortTypeName(product_mode())
+             << " does not have field named " << current_field->GetAsString();
+    }
+    struct_path->emplace_back(found_index, field);
+    if (field->type->IsProto()) {
+      return zetasql_base::OkStatus();
+    }
+    current_struct = field->type->AsStruct();
+  }
+
+  return zetasql_base::OkStatus();
+}
+
 zetasql_base::Status Resolver::ResolveReplaceFieldsExpression(
     const ASTReplaceFieldsExpression* ast_replace_fields,
     ExprResolutionInfo* expr_resolution_info,
@@ -1887,17 +1980,12 @@ zetasql_base::Status Resolver::ResolveReplaceFieldsExpression(
   std::unique_ptr<const ResolvedExpr> expr_to_modify;
   ZETASQL_RETURN_IF_ERROR(ResolveExpr(ast_replace_fields->expr(), expr_resolution_info,
                               &expr_to_modify));
-  if (expr_to_modify->type()->IsStruct()) {
+  if (!expr_to_modify->type()->IsStructOrProto()) {
     return MakeSqlErrorAt(ast_replace_fields->expr())
-           << "REPLACE_FIELDS is not yet suported for input of type STRUCT";
-  } else if (!expr_to_modify->type()->IsProto()) {
-    return MakeSqlErrorAt(ast_replace_fields->expr())
-           << "REPLACE_FIELDS expected input of type PROTO for first "
+           << "REPLACE_FIELDS() expected an input type with fields for first "
               "argument, but found type "
            << expr_to_modify->type()->ShortTypeName(product_mode());
   }
-  const google::protobuf::Descriptor* proto_descriptor =
-      expr_to_modify->type()->AsProto()->descriptor();
 
   std::vector<std::unique_ptr<const ResolvedReplaceFieldItem>>
       resolved_modify_items;
@@ -1919,18 +2007,23 @@ zetasql_base::Status Resolver::ResolveReplaceFieldsExpression(
                                 &replaced_field_expr));
 
     std::vector<const google::protobuf::FieldDescriptor*> field_descriptor_path;
-    ZETASQL_RETURN_IF_ERROR(FindDescriptorsForReplaceFieldItem(
-        replace_arg->path_expression(), proto_descriptor,
+    std::vector<std::pair<int, const StructType::StructField*>> struct_path;
+    ZETASQL_RETURN_IF_ERROR(FindFieldsForReplaceFieldItem(
+        replace_arg->path_expression(), expr_to_modify->type(), &struct_path,
         &field_descriptor_path));
     ZETASQL_RETURN_IF_ERROR(AddToFieldPathTrie(
-        replace_arg->path_expression(), field_descriptor_path,
+        replace_arg->path_expression(), struct_path, field_descriptor_path,
         &oneof_path_to_full_path, &field_path_trie));
 
     // Add a cast to the modified value if it needs to be coerced to the type
     // of the field.
     const Type* field_type;
-    ZETASQL_RETURN_IF_ERROR(type_factory_->GetProtoFieldType(
-        field_descriptor_path.back(), &field_type));
+    if (field_descriptor_path.empty()) {
+      field_type = struct_path.back().second->type;
+    } else {
+      ZETASQL_RETURN_IF_ERROR(type_factory_->GetProtoFieldType(
+          field_descriptor_path.back(), &field_type));
+    }
     zetasql::SignatureMatchResult match_result;
     if (!field_type->Equals(replaced_field_expr->type())) {
       if (!coercer_.AssignableTo(
@@ -1948,9 +2041,15 @@ zetasql_base::Status Resolver::ResolveReplaceFieldsExpression(
           /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
           &replaced_field_expr));
     }
-
-    resolved_modify_items.push_back(MakeResolvedReplaceFieldItem(
-        std::move(replaced_field_expr), field_descriptor_path));
+    std::vector<int> struct_index_path;
+    struct_index_path.reserve(struct_path.size());
+    for (const std::pair<int, const StructType::StructField*> struct_field :
+         struct_path) {
+      struct_index_path.push_back(struct_field.first);
+    }
+    resolved_modify_items.push_back(
+        MakeResolvedReplaceFieldItem(std::move(replaced_field_expr),
+                                     struct_index_path, field_descriptor_path));
   }
 
   const Type* field_type = expr_to_modify->type();
@@ -4448,16 +4547,24 @@ zetasql_base::Status Resolver::FinishResolvingAggregateFunction(
           std::move(limit_expr), function_call_info);
   MaybeRecordParseLocation(ast_function_call->function(),
                            resolved_agg_call.get());
-  const IdString alias = MakeIdString(absl::StrCat(
-      "$agg",
-      query_resolution_info->aggregate_columns_to_compute().size() + 1));
+
+  // If this <ast_function_call> is the top level function call in
+  // <expr_resolution_info> and it has an alias, then use that alias.
+  // Otherwise create an internal alias for this expression.
+  IdString alias = GetColumnAliasForTopLevelExpression(expr_resolution_info,
+                                                       ast_function_call);
+  if (alias.empty() || !analyzer_options_.preserve_column_aliases()) {
+    alias = MakeIdString(absl::StrCat(
+        "$agg",
+        query_resolution_info->aggregate_columns_to_compute().size() + 1));
+  }
 
   // Instead of leaving the aggregate ResolvedFunctionCall inline, we pull
   // it out into <query_resolution_info->aggregate_columns_to_compute().
   // The actual ResolvedExpr we return is a ColumnRef pointing to that
   // function call.
-  ResolvedColumn aggregate_column(
-      AllocateColumnId(), kAggregateId, alias, resolved_agg_call->type());
+  ResolvedColumn aggregate_column(AllocateColumnId(), kAggregateId, alias,
+                                  resolved_agg_call->type());
 
   query_resolution_info->AddAggregateComputedColumn(
       ast_function_call, MakeResolvedComputedColumn(
@@ -4946,6 +5053,16 @@ zetasql_base::Status Resolver::ResolveFunctionCallImpl(
       ToLocations(absl::Span<const ASTExpression* const>(ast_arguments)),
       function, error_mode, std::move(resolved_arguments), expr_resolution_info,
       resolved_expr_out);
+}
+
+IdString Resolver::GetColumnAliasForTopLevelExpression(
+    ExprResolutionInfo* expr_resolution_info, const ASTExpression* ast_expr) {
+  const IdString alias = expr_resolution_info->column_alias;
+  if (expr_resolution_info->top_level_ast_expr == ast_expr &&
+      !IsInternalAlias(expr_resolution_info->column_alias)) {
+    return alias;
+  }
+  return IdString();
 }
 
 }  // namespace zetasql

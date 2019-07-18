@@ -283,6 +283,23 @@ enum LanguageFeature {
   // (broken link).
   FEATURE_NAMED_ARGUMENTS = 31;
 
+  // Enables support for the old syntax for the DDL for ROW ACCESS POLICY,
+  // previously called ROW POLICY.
+  // When this feature is enabled, using the old syntax will not throw errors
+  // for CREATE ROW [ACCESS] POLICY and DROP ALL ROW [ACCESS] POLICIES, but the
+  // new syntax can still be used.
+  // When it is not enabled, the new syntax must be used for CREATE
+  // ROW ACCESS POLICY and DROP ALL ROW ACCESS POLICIES.
+  // The new syntax is always required for ALTER ROW ACCESS POLICY and DROP ROW
+  // ACCESS POLICY: at the time of this writing, these statements are new/not in
+  // use.
+  // This is a temporary feature that preserves legacy engine behavior that
+  // will be deprecated, and the new syntax will become mandatory (b/135116351).
+  // For more details on syntax changes, see (broken link).
+  // Note: This language feature is still WIP, so the behavior above might be
+  // partially true depending on implementation stage (b/135549966).
+  FEATURE_ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX = 32;
+
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
   //    New features should be added for the *next* version number.

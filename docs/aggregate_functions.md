@@ -163,7 +163,9 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 +-------------------------+
 | [2, 1, -2, 3, -2, 1, 2] |
 +-------------------------+
+```
 
+```sql
 SELECT ARRAY_AGG(DISTINCT x) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
@@ -172,7 +174,9 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 +---------------+
 | [2, 1, -2, 3] |
 +---------------+
+```
 
+```sql
 SELECT ARRAY_AGG(x IGNORE NULLS) AS array_agg
 FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x;
 
@@ -181,7 +185,9 @@ FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x;
 +-------------------+
 | [1, -2, 3, -2, 1] |
 +-------------------+
+```
 
+```sql
 SELECT ARRAY_AGG(x ORDER BY ABS(x)) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 +-------------------------+
@@ -189,7 +195,9 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 +-------------------------+
 | [1, 1, 2, -2, -2, 2, 3] |
 +-------------------------+
+```
 
+```sql
 SELECT ARRAY_AGG(x LIMIT 5) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
@@ -198,7 +206,9 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 +-------------------+
 | [2, 1, -2, 3, -2] |
 +-------------------+
+```
 
+```sql
 SELECT ARRAY_AGG(DISTINCT x IGNORE NULLS ORDER BY x LIMIT 2) AS array_agg
 FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x;
 
@@ -207,7 +217,9 @@ FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x;
 +-----------+
 | [-2, 1]   |
 +-----------+
+```
 
+```sql
 SELECT
   x,
   ARRAY_AGG(x) OVER (ORDER BY ABS(x)) AS array_agg
@@ -224,7 +236,6 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 | 2  | [1, 1, 2, -2, -2, 2]    |
 | 3  | [1, 1, 2, -2, -2, 2, 3] |
 +----+-------------------------+
-
 ```
 
 ### ARRAY_CONCAT_AGG

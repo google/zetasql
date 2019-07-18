@@ -1172,7 +1172,9 @@ zetasql_base::Status Resolver::ResolveModelTransformSelectList(
     const std::shared_ptr<const NameList>& input_cols_name_list,
     std::vector<std::unique_ptr<const ResolvedComputedColumn>>* transform_list,
     std::vector<std::unique_ptr<const ResolvedOutputColumn>>*
-        transform_output_column_list) {
+        transform_output_column_list,
+    std::vector<std::unique_ptr<const ResolvedAnalyticFunctionGroup>>*
+        transform_analytic_function_group_list) {
   QueryResolutionInfo query_info(this);
   for (int i = 0; i < select_list->columns().size(); ++i) {
     ZETASQL_RETURN_IF_ERROR(ResolveSelectColumnFirstPass(
@@ -1199,13 +1201,32 @@ zetasql_base::Status Resolver::ResolveModelTransformSelectList(
       return MakeSqlErrorAt(select_column_state->ast_expr)
              << "Aggregation functions are not supported in TRANSFORM clause";
     }
-    if (select_column_state->has_analytic) {
-      return MakeSqlErrorAt(select_column_state->ast_expr)
-             << "Analytic functions are not supported in TRANSFORM clause";
-    }
     if (!zetasql_base::InsertIfNotPresent(&col_names, select_column_state->alias)) {
       return MakeSqlErrorAt(select_column_state->ast_expr)
              << "Duplicate column aliases are disallowed in TRANSFORM clause";
+    }
+    if (select_column_state->has_analytic) {
+      const std::vector<
+          std::unique_ptr<AnalyticFunctionResolver::AnalyticFunctionGroupInfo>>&
+          analytic_function_groups =
+              query_info.analytic_resolver()->analytic_function_groups();
+      for (const auto& analytic_function_group : analytic_function_groups) {
+        if (analytic_function_group->ast_partition_by != nullptr ||
+            analytic_function_group->ast_order_by != nullptr) {
+          return MakeSqlErrorAt(select_column_state->ast_expr)
+                 << "Analytic functions with a non-empty OVER() clause are "
+                    "disallowed in the TRANSFORM clause";
+        }
+        // resolved_computed_columns could be empty after merging. We only add
+        // non-empty ones for clarity.
+        if (!analytic_function_group->resolved_computed_columns.empty()) {
+          transform_analytic_function_group_list->push_back(
+              MakeResolvedAnalyticFunctionGroup(
+                  /*partition_by=*/nullptr, /*order_by=*/nullptr,
+                  std::move(
+                      analytic_function_group->resolved_computed_columns)));
+        }
+      }
     }
 
     if (select_column_state->resolved_expr != nullptr) {
@@ -1639,11 +1660,11 @@ struct ColumnReplacements {
 // Return true if the caller should skip adding this column.
 // For replaces, the replacement column will have been added
 // to <select_column_state_list>.
+// TODO: Remove save_mapping once it becomes the default.
 static bool ExcludeOrReplaceColumn(
-    const ASTExpression* ast_expression,
-    IdString column_name,
+    const ASTExpression* ast_expression, IdString column_name,
     ColumnReplacements* column_replacements,
-    SelectColumnStateList* select_column_state_list) {
+    SelectColumnStateList* select_column_state_list, bool save_mapping) {
   if (column_replacements == nullptr) {
     return false;
   }
@@ -1653,7 +1674,8 @@ static bool ExcludeOrReplaceColumn(
   if (zetasql_base::ContainsKey(column_replacements->replaced_columns, column_name)) {
     select_column_state_list->AddSelectColumn(
         zetasql_base::FindOrDie(column_replacements->replaced_columns, column_name)
-            .release());
+            .release(),
+        save_mapping);
     // I'd use ZETASQL_RET_CHECK here, except then I'd have to return StatusOr<bool>.
     DCHECK(select_column_state_list->select_column_state_list().back() !=
            nullptr);
@@ -1674,9 +1696,10 @@ zetasql_base::Status Resolver::AddNameListToSelectList(
     // Process exclusions first because MakeColumnRef will add columns
     // to referenced_columns_ and then they cannot be pruned.
     if (!named_column.is_value_table_column &&
-        ExcludeOrReplaceColumn(ast_expression, named_column.name,
-                               column_replacements,
-                               select_column_state_list)) {
+        ExcludeOrReplaceColumn(
+            ast_expression, named_column.name, column_replacements,
+            select_column_state_list,
+            analyzer_options_.strict_validation_on_column_replacements())) {
       continue;
     }
 
@@ -1962,7 +1985,9 @@ zetasql_base::Status Resolver::ResolveSelectStarModifiers(
     }
   }
   for (const ASTStarReplaceItem* ast_replace_item : replace_items) {
-    ExprResolutionInfo expr_resolution_info(scope, query_resolution_info);
+    ExprResolutionInfo expr_resolution_info(
+        scope, query_resolution_info, ast_replace_item->expression(),
+        ast_replace_item->alias()->GetAsIdString());
     std::unique_ptr<const ResolvedExpr> resolved_expr;
     ZETASQL_RETURN_IF_ERROR(ResolveExpr(ast_replace_item->expression(),
                                 &expr_resolution_info, &resolved_expr));
@@ -2272,9 +2297,10 @@ zetasql_base::Status Resolver::AddColumnFieldsToSelectList(
                                                         product_mode()));
     }
 
-    if (ExcludeOrReplaceColumn(ast_expression, column_alias_if_no_fields,
-                               column_replacements,
-                               select_column_state_list)) {
+    if (ExcludeOrReplaceColumn(
+            ast_expression, column_alias_if_no_fields, column_replacements,
+            select_column_state_list,
+            analyzer_options_.strict_validation_on_column_replacements())) {
       return ::zetasql_base::OkStatus();
     }
 
@@ -2306,9 +2332,10 @@ zetasql_base::Status Resolver::AddColumnFieldsToSelectList(
 
       if ((excluded_field_names != nullptr &&
            zetasql_base::ContainsKey(*excluded_field_names, field_name)) ||
-          ExcludeOrReplaceColumn(ast_expression, field_name,
-                                 column_replacements,
-                                 select_column_state_list)) {
+          ExcludeOrReplaceColumn(
+              ast_expression, field_name, column_replacements,
+              select_column_state_list,
+              analyzer_options_.strict_validation_on_column_replacements())) {
         continue;
       }
 
@@ -2343,9 +2370,10 @@ zetasql_base::Status Resolver::AddColumnFieldsToSelectList(
       const google::protobuf::FieldDescriptor* field = entry.second;
 
       const IdString field_name = MakeIdString(field->name());
-      if (ExcludeOrReplaceColumn(ast_expression, field_name,
-                                 column_replacements,
-                                 select_column_state_list)) {
+      if (ExcludeOrReplaceColumn(
+              ast_expression, field_name, column_replacements,
+              select_column_state_list,
+              analyzer_options_.strict_validation_on_column_replacements())) {
         continue;
       }
 
@@ -2414,8 +2442,8 @@ zetasql_base::Status Resolver::ResolveSelectColumnFirstPass(
 
   // Save stack space for nested SELECT list subqueries.
   std::unique_ptr<ExprResolutionInfo> expr_resolution_info(
-      new ExprResolutionInfo(from_scan_scope, query_resolution_info));
-
+      new ExprResolutionInfo(from_scan_scope, query_resolution_info,
+                             ast_select_expr, select_column_state->alias));
   ZETASQL_RETURN_IF_ERROR(ResolveExpr(ast_select_expr, expr_resolution_info.get(),
                               &select_column_state->resolved_expr));
   if (expr_resolution_info->has_aggregation) {
@@ -2957,10 +2985,11 @@ zetasql_base::Status Resolver::ResolveSelectColumnSecondPass(
       }
     } else {
       ExprResolutionInfo expr_resolution_info(
-          group_by_scope, group_by_scope,
-          true /* allows_aggregation */, true /* allows_analytic */,
-          query_resolution_info->HasGroupByOrAggregation(),
-          "SELECT list", query_resolution_info);
+          group_by_scope, group_by_scope, true /* allows_aggregation */,
+          true /* allows_analytic */,
+          query_resolution_info->HasGroupByOrAggregation(), "SELECT list",
+          query_resolution_info, select_column_state->ast_expr,
+          select_column_state->alias);
       std::unique_ptr<const ResolvedExpr> resolved_expr;
       const zetasql_base::Status resolve_expr_status = ResolveExpr(
           select_column_state->ast_expr, &expr_resolution_info, &resolved_expr);

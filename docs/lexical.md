@@ -753,49 +753,83 @@ performance implications. Different engines may support different hints.
 
 ## Comments
 
-Comments are sequences of characters that the parser ignores. ZetaSQL
-supports the following types of comments.
+Comments are sequences of characters that the parser ignores.
+ZetaSQL supports the following types of comments.
 
 <a name="single-line-comments"></a>
 ### Single-line comments
 
-Single-line comments are supported by prepending `#` or `--` before the
-comment.
+Use a single-line comment if you want the comment to appear on a line by itself.
 
 **Examples**
 
-`SELECT x FROM T; # x is a field and T is a table`
+```
+# this is a single-line comment
+SELECT book FROM library;
+```
 
-Comment includes all characters from the '#' character to the end of the line.
+```
+-- this is a single-line comment
+SELECT book FROM library;
+```
 
-`SELECT x FROM T; --x is a field and T is a table`
+```
+/* this is a single-line comment */
+SELECT book FROM library;
+```
 
-Comment includes all characters from the '`--`' sequence to the end of the line. You can optionally add a space after the '`--`'.
+```
+SELECT book FROM library
+/* this is a single-line comment */
+WHERE book = "Ulysses";
+```
+
+### Inline comments
+
+Use an inline comment if you want the comment to appear on the same line as
+a statement. A comment that is prepended with `#` or `--` must appear to the
+right of a statement.
+
+**Examples**
+
+```
+SELECT book FROM library; # this is an inline comment
+```
+
+```
+SELECT book FROM library; -- this is an inline comment
+```
+
+```
+SELECT book FROM library; /* this is an inline comment */
+```
+
+```
+SELECT book FROM library /* this is an inline comment */ WHERE book = "Ulysses";
+```
 
 ### Multiline comments
 
-Multiline comments are supported by enclosing the comment using `/* <comment> */`.
+Use a multiline comment if you need the comment to span multiple lines.
+Nested multiline comments are not supported.
 
-**Example:**
-
-```
-SELECT x FROM T /* x is a field and T is a table */
-WHERE x = 3;
-```
-
-**Invalid example:**
+**Examples**
 
 ```
-SELECT x FROM T /* comment starts here
-                /* comment ends on this line */
-                this line is not considered a comment */
-WHERE x = 3;
+SELECT book FROM library
+/*
+  This is a multiline comment
+  on multiple lines
+*/
+WHERE book = "Ulysses";
 ```
 
-Comment includes all characters, including newlines, enclosed by the first
-occurrence of '`/*`' and the first subsequent occurrence of '`*/`'. Nested
-comments are not supported. The second example contains a nested comment that
-renders the query invalid.
+```
+SELECT book FROM library
+/* this is a multiline comment
+on two lines */
+WHERE book = "Ulysses";
+```
 
 <!-- END CONTENT -->
 

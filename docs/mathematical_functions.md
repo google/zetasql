@@ -370,6 +370,50 @@ SAFE_DIVIDE(X, Y)
 Equivalent to the division operator (<code>/</code>), but returns
 <code>NULL</code> if an error occurs, such as a division by zero error.
 
+### SAFE_MULTIPLY
+
+```
+SAFE_MULTIPLY(X, Y)
+```
+
+**Description**
+
+Equivalent to the multiplication operator (<code>*</code>), but returns
+<code>NULL</code> if overflow occurs.
+
+### SAFE_NEGATE
+
+```
+SAFE_NEGATE(X)
+```
+
+**Description**
+
+Equivalent to the unary minus operator (<code>-</code>), but returns
+<code>NULL</code> if overflow occurs.
+
+### SAFE_ADD
+
+```
+SAFE_ADD(X, Y)
+```
+
+**Description**
+
+Equivalent to the addition operator (<code>+</code>), but returns
+<code>NULL</code> if overflow occurs.
+
+### SAFE_SUBTRACT
+
+```
+SAFE_SUBTRACT(X, Y)
+```
+
+**Description**
+
+Equivalent to the subtraction operator (<code>-</code>), but returns
+<code>NULL</code> if overflow occurs.
+
 ### MOD
 
 ```

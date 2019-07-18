@@ -22,14 +22,13 @@
 #include <string>
 #include <vector>
 
-#include <cstdint>
-
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include <cstdint>
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
@@ -178,8 +177,13 @@ class SelectColumnStateList {
                                      IdString alias,
                                      bool is_explicit);
 
-  // Add an already created SelectColumnState. Takes ownership.
-  void AddSelectColumn(SelectColumnState* select_column_state);
+  // Add an already created SelectColumnState. Takes ownership. If save_mapping
+  // is true, saves a mapping from the alias to this SelectColumnState. The
+  // mapping is later used for validations performed by
+  // FindAndValidateSelectColumnStateByAlias().
+  // TODO: Remove save_mapping once it becomes the default.
+  void AddSelectColumn(SelectColumnState* select_column_state,
+                       bool save_mapping);
 
   // Finds a SELECT-list column by alias. Returns an error if the
   // name is ambiguous or the referenced column contains an aggregate or
@@ -244,14 +248,16 @@ struct ExprResolutionInfo {
   // constraints.  Takes a <name_scope_in> that is used to resolve the
   // expression against, and an <aggregate_name_scope_in> that is used
   // to resolve any expression that is an aggregate function argument.
-  // Does not take ownership of <select_column_state_list_in> or
-  // <query_resolution_info_in>.
-  ExprResolutionInfo(
-      const NameScope* name_scope_in,
-      const NameScope* aggregate_name_scope_in,
-      bool allows_aggregation_in, bool allows_analytic_in,
-      bool use_post_grouping_columns_in, const char* clause_name_in,
-      QueryResolutionInfo* query_resolution_info_in);
+  // Does not take ownership of <select_column_state_list_in>,
+  // <query_resolution_info_in>, or <top_level_ast_expr_in>.
+  ExprResolutionInfo(const NameScope* name_scope_in,
+                     const NameScope* aggregate_name_scope_in,
+                     bool allows_aggregation_in, bool allows_analytic_in,
+                     bool use_post_grouping_columns_in,
+                     const char* clause_name_in,
+                     QueryResolutionInfo* query_resolution_info_in,
+                     const ASTExpression* top_level_ast_expr_in = nullptr,
+                     IdString column_alias_in = IdString());
 
   // Construct an ExprResolutionInfo that allows both aggregation and
   // analytic expressions.
@@ -260,7 +266,9 @@ struct ExprResolutionInfo {
   // resolving LIMIT with an empty NameScope, so never resolves against
   // post-grouping columns.
   ExprResolutionInfo(const NameScope* name_scope_in,
-                     QueryResolutionInfo* query_resolution_info_in);
+                     QueryResolutionInfo* query_resolution_info_in,
+                     const ASTExpression* top_level_ast_expr_in = nullptr,
+                     IdString column_alias_in = IdString());
 
   // Construct an ExprResolutionInfo that disallows aggregation and analytic
   // expressions.
@@ -342,6 +350,16 @@ struct ExprResolutionInfo {
   // columns.  Gets set to false when resolving arguments of aggregation
   // functions.
   bool use_post_grouping_columns = false;
+
+  // The top-level AST expression being resolved in the current context. This
+  // field is set only when resolving SELECT columns. Not owned.
+  const ASTExpression* const top_level_ast_expr = nullptr;
+
+  // The column alias of the top-level AST expression in SELECT list, which will
+  // be used as the name of the resolved column when the top-level AST
+  // expression being resolved is an aggregate or an analytic function. This
+  // field is set only when resolving SELECT columns.
+  const IdString column_alias = IdString();
 };
 
 // Get an InputArgumentType for a ResolvedExpr, identifying whether or not it

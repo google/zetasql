@@ -467,6 +467,32 @@ class AnalyzerOptions {
     return allowed_hints_and_options_;
   }
 
+  // Controls whether to perform a strict validation on references to columns
+  // defined in REPLACE clauses
+  // ((broken link)#select-replace).
+  // TODO: Remove this option once it becomes the default.
+  void set_strict_validation_on_column_replacements(bool value) {
+    strict_validation_on_column_replacements_ = value;
+  }
+  bool strict_validation_on_column_replacements() const {
+    return strict_validation_on_column_replacements_;
+  }
+
+  // Controls whether to preserve aliases of aggregate columns and analytic
+  // function columns. This option has no effect on query semantics and just
+  // changes what names are used inside ResolvedColumns.
+  //
+  // If true, the analyzer uses column aliases as names of aggregate columns and
+  // analytic function columns if they exist, and falls back to using internal
+  // names such as "$agg1" otherwise. If false, the analyzer uses internal names
+  // unconditionally.
+  //
+  // TODO: Make this the default and remove this option.
+  void set_preserve_column_aliases(bool value) {
+    preserve_column_aliases_ = value;
+  }
+  bool preserve_column_aliases() const { return preserve_column_aliases_; }
+
   // Returns the ParserOptions to use for these AnalyzerOptions, including the
   // same id_string_pool() and arena() values.
   ParserOptions GetParserOptions() const;
@@ -557,6 +583,15 @@ class AnalyzerOptions {
   // types, and whether to give errors on unrecognized names.
   // See the class definition for details.
   AllowedHintsAndOptions allowed_hints_and_options_;
+
+  // Controls whether to perform a strict validation on references to columns
+  // defined in REPLACE clauses
+  // ((broken link)#select-replace).
+  bool strict_validation_on_column_replacements_ = false;
+
+  // Controls whether to preserve aliases of aggregate columns and analytic
+  // function columns. See set_preserve_column_aliases() for details.
+  bool preserve_column_aliases_ = false;
 
   // Copyable
 };

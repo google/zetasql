@@ -1400,10 +1400,23 @@ def main(argv):
       parent='ResolvedArgument',
       comment="""
       An argument to the REPLACE_FIELDS() function which specifies a field path
-      and a value that this field will be set to. In SQL this is expressed as
-      <expr> AS <proto_field_path>.
+      and a value that this field will be set to. The field path to be modified
+      can be constructed through the <struct_index_path> and <proto_field_path>
+      fields. These vectors correspond to field paths in a STRUCT and PROTO,
+      respectively. At least one of these vectors must be non-empty.
 
-      <expr> and the last element in <proto_field_path> must be the same type.
+      If only <struct_index_path> is non-empty, then the field path only
+      references top-level and nested struct fields.
+
+      If only <proto_field_path> is non-empty, then the field path only
+      references top-level and nested message fields.
+
+      If both <struct_index_path> and <proto_field_path> are non-empty, then the
+      field path should be expanded starting with <struct_index_path>. The last
+      field in <struct_index_path> will be the proto from which the first field
+      in <proto_field_path> is extracted.
+
+      <expr> and the field to be modified must be the same type.
       """,
       fields=[
           Field(
@@ -1419,19 +1432,34 @@ def main(argv):
               to NULL.
               """),
           Field(
+              'struct_index_path',
+              SCALAR_INT,
+              tag_id=3,
+              ignorable=IGNORABLE_DEFAULT,
+              vector=True,
+              to_string_method='ToStringCommaSeparated',
+              java_to_string_method='toStringCommaSeparatedForInt',
+              comment="""
+              A vector of integers that denotes the path to a struct field that
+              will be modified. The integer values in this vector correspond to
+              field positions (0-based) in a STRUCT. If <proto_field_path>
+              is also non-empty, then the field corresponding to the last index
+              in this vector should be of proto type.
+                      """),
+          Field(
               'proto_field_path',
               SCALAR_FIELD_DESCRIPTOR,
               tag_id=4,
+              ignorable=IGNORABLE_DEFAULT,
               vector=True,
               to_string_method='ToStringVectorFieldDescriptor',
-              java_to_string_method=
-              'toStringPeriodSeparatedForFieldDescriptors',
+              java_to_string_method='toStringPeriodSeparatedForFieldDescriptors',
               comment="""
-              A vector of FieldDescriptors that denote the field path to be
-              modified.
-
-              <proto_field_path> must be non-empty. Only the last field in the
-              path can be repeated or array.
+              A vector of FieldDescriptors that denotes the path to a proto
+              field that will be modified. If <struct_index_path> is also
+              non-empty, then the first element in this vector should be a
+              subfield of the proto corresponding to the last element in
+              <struct_index_path>.
                       """),
       ])
 
@@ -2888,6 +2916,10 @@ right.
       <transform_list> is the list of ResolvedComputedColumn in TRANSFORM
         clause.
       <transform_output_column_list> matches 1:1 with <transform_list> output.
+      <transform_analytic_function_group_list> is the list of
+        AnalyticFunctionGroup for analytic functions inside TRANSFORM clause.
+        The only valid group is for the full, unbounded window generated from
+        empty OVER() clause.
               """,
       fields=[
           Field(
@@ -2912,6 +2944,12 @@ right.
               'transform_output_column_list',
               'ResolvedOutputColumn',
               tag_id=6,
+              vector=True,
+              ignorable=IGNORABLE),
+          Field(
+              'transform_analytic_function_group_list',
+              'ResolvedAnalyticFunctionGroup',
+              tag_id=7,
               vector=True,
               ignorable=IGNORABLE)
       ])
@@ -4416,16 +4454,19 @@ right.
       ])
 
   gen.AddNode(
-      name='ResolvedCreateRowPolicyStmt',
+      name='ResolvedCreateRowAccessPolicyStmt',
       tag_id=73,
       parent='ResolvedStatement',
       comment="""
-      This statement: CREATE [OR REPLACE] ROW POLICY [IF NOT EXISTS] [<name>] ON
-                      <target_name_path> TO <grantee_list> USING (<predicate>);
+      This statement: CREATE [OR REPLACE] ROW ACCESS POLICY [IF NOT EXISTS]
+                      [<name>] ON <target_name_path>
+                      [GRANT TO (<grantee_list>)]
+                      FILTER USING (<predicate>);
 
       <create_mode> indicates if this was CREATE, CREATE OR REPLACE, or
                     CREATE IF NOT EXISTS.
-      <name> is the name of the row policy to be created or an empty string.
+      <name> is the name of the row access policy to be created or an empty
+             string.
       <target_name_path> is a vector giving the identifier path of the target
                          table.
       <table_scan> is a TableScan for the target table, which is used during
@@ -4476,13 +4517,13 @@ right.
   typedef ResolvedCreateStatement::CreateMode CreateMode;""")
 
   gen.AddNode(
-      name='ResolvedDropRowPolicyStmt',
+      name='ResolvedDropRowAccessPolicyStmt',
       tag_id=74,
       parent='ResolvedStatement',
       comment="""
       This statement:
-          DROP ROW POLICY <name> ON <target_name_path>; or
-          DROP ALL ROW POLICIES ON <target_name_path>;
+          DROP ROW ACCESS POLICY <name> ON <target_name_path>; or
+          DROP ALL ROW [ACCESS] POLICIES ON <target_name_path>;
 
       <is_drop_all> indicates that all policies should be dropped.
       <is_if_exists> silently ignore the "policy <name> does not exist" error.

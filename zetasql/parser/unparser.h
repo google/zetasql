@@ -169,8 +169,11 @@ class Unparser : public ParseTreeVisitor {
       const ASTCreateMaterializedViewStatement* node, void* data) override;
   void visitASTCreateExternalTableStatement(
       const ASTCreateExternalTableStatement* node, void* data) override;
-  void visitASTCreateRowPolicyStatement(
-      const ASTCreateRowPolicyStatement* node, void* data) override;
+  void visitASTGrantToClause(const ASTGrantToClause* node, void* data) override;
+  void visitASTFilterUsingClause(const ASTFilterUsingClause* node,
+                                 void* data) override;
+  void visitASTCreateRowAccessPolicyStatement(
+      const ASTCreateRowAccessPolicyStatement* node, void* data) override;
   void visitASTExportDataStatement(const ASTExportDataStatement* node,
                                    void* data) override;
   void visitASTCallStatement(const ASTCallStatement* node,
@@ -211,10 +214,10 @@ class Unparser : public ParseTreeVisitor {
   void visitASTDropStatement(const ASTDropStatement* node, void* data) override;
   void visitASTDropFunctionStatement(
       const ASTDropFunctionStatement* node, void* data) override;
-  void visitASTDropRowPolicyStatement(
-      const ASTDropRowPolicyStatement* node, void* data) override;
-  void visitASTDropAllRowPoliciesStatement(
-      const ASTDropAllRowPoliciesStatement* node, void* data) override;
+  void visitASTDropRowAccessPolicyStatement(
+      const ASTDropRowAccessPolicyStatement* node, void* data) override;
+  void visitASTDropAllRowAccessPoliciesStatement(
+      const ASTDropAllRowAccessPoliciesStatement* node, void* data) override;
   void visitASTDropMaterializedViewStatement(
       const ASTDropMaterializedViewStatement* node, void* data) override;
   void visitASTRenameStatement(const ASTRenameStatement* node,
