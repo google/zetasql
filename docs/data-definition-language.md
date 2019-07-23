@@ -10,6 +10,37 @@ statements.
 Where possible, this topic provides a link to the product-specific documentation
 for each statement.
 
+## CREATE DATABASE
+
+<pre>
+CREATE
+  DATABASE
+  database_name
+  [OPTIONS (key=value, ...)]
+</pre>
+
+**Description**
+
+The `CREATE DATABASE` statement creates a database. If you have schema
+options, you can add them when you create the database. These options are
+system-specific and follow the ZetaSQL
+[`HINT` syntax](lexical.md#hints).
+
+**Example**
+
+```sql
+CREATE DATABASE library OPTIONS(
+  base_dir=`/city/orgs`,
+  owner='libadmin'
+);
+
++--------------------+
+| Database           |
++--------------------+
+| library            |
++--------------------+
+```
+
 ## CREATE TABLE
 
 <pre>
@@ -32,6 +63,8 @@ CREATE
    PRIMARY KEY (column_name [ ASC | DESC ], ...) [ OPTIONS (...) ]
 </pre>
 
+**Description**
+
 The `CREATE TABLE` statement creates a table and adds any columns defined in the
 column definition list `(table_element, ...)`. If the `AS query` clause is
 absent, the column definition list must be present and contain at least one
@@ -46,14 +79,14 @@ the column definition list. The `column_type` can be any valid {{ product_name
 You can define a primary key on a table by providing a `primary_key_spec`
 clause, or by providing the `PRIMARY KEY` keyword in the `column_definition`.
 The optional `ASC` or `DESC` keyword within `primary_key_spec` specifies the
-sort order for any index the database engine builds on the primary key.
+sort order for any index the database system builds on the primary key.
 
 **Optional Clauses**
 
 +   `OR REPLACE`: Replaces any table with the same name if it exists. Cannot
     appear with `IF NOT EXISTS`.
 +   `TEMP | TEMPORARY`: Creates a temporary table. The lifetime of the table is
-    engine-specific.
+    system-specific.
 +   `IF NOT EXISTS`: If any table exists with the same name, the `CREATE`
     statement will have no effect. Cannot appear with `OR REPLACE`.
 +   `AS query`: Materializes the result of `query` into the new table.
@@ -71,6 +104,8 @@ CREATE
 AS query;
 ```
 
+**Description**
+
 The `CREATE VIEW` statement creates a view based on a specific query.
 
 **Optional Clauses**
@@ -78,7 +113,7 @@ The `CREATE VIEW` statement creates a view based on a specific query.
 +   `OR REPLACE`: Replaces any table with the same name if it exists. Cannot
     appear with `IF NOT EXISTS`.
 +   `TEMP | TEMPORARY`: Creates a temporary table. The lifetime of the table is
-    engine-specific.
+    system-specific.
 +   `IF NOT EXISTS`: If any table exists with the same name, the `CREATE`
     statement will have no effect. Cannot appear with `OR REPLACE`.
 
@@ -94,6 +129,8 @@ CREATE
   [OPTIONS (key=value, ...)];
 ```
 
+**Description**
+
 The `CREATE EXTERNAL TABLE` creates a table from external data. `CREATE EXTERNAL
 TABLE` also supports creating persistent definitions.
 
@@ -105,7 +142,7 @@ pointer to data that exists outside of the database.
 +   `OR REPLACE`: Replaces any table with the same name if it exists. Cannot
     appear with `IF NOT EXISTS`.
 +   `TEMP | TEMPORARY`: Creates a temporary table. The lifetime of the table is
-    engine-specific.
+    system-specific.
 +   `IF NOT EXISTS`: If any table exists with the same name, the `CREATE`
     statement will have no effect. Cannot appear with `OR REPLACE`.
 
@@ -114,6 +151,8 @@ pointer to data that exists outside of the database.
 ```
 DEFINE TABLE table_name (options);
 ```
+
+**Description**
 
 The `DEFINE TABLE` statement allows queries to run against an exported data
 source.
@@ -124,6 +163,8 @@ source.
 ALTER TABLE table_name SET OPTIONS (key=value, ...);
 ```
 
+**Description**
+
 The `ALTER` statement modifies schema options for a table. Because {{
 product_name }} does not define general DDL syntax, it only supports `ALTER` for
 changing table options which typically appear in the `OPTIONS` clause of a
@@ -131,7 +172,7 @@ changing table options which typically appear in the `OPTIONS` clause of a
 
 `table_name` is any identifier or dotted path.
 
-The option entries are engine specific. These follow the ZetaSQL
+The option entries are system-specific. These follow the ZetaSQL
 [`HINT` syntax](lexical.md#hints).
 
 This statement raises an error under these conditions:
@@ -151,6 +192,8 @@ The following semantics apply:
 RENAME object_type old_name_path TO new_name_path;
 ```
 
+**Description**
+
 The `RENAME` object renames an object. `object_type` indicates what type of
 object to rename.
 
@@ -159,6 +202,8 @@ object to rename.
 ```
 DROP object_type [IF EXISTS] object_path;
 ```
+
+**Description**
 
 The `DROP` statement drops an object. `object_type` indicates what type of
 object to drop.

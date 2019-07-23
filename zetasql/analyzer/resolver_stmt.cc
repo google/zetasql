@@ -2080,60 +2080,55 @@ zetasql_base::Status Resolver::ResolveAndAdaptQueryAndOutputColumns(
   return ::zetasql_base::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveCreateViewStatementBase(
-    const ASTCreateViewStatementBase* ast_statement, bool is_materialized,
-    std::unique_ptr<ResolvedStatement>* output) {
-  ResolvedCreateStatement::CreateScope create_scope;
-  ResolvedCreateStatement::CreateMode create_mode;
-  ZETASQL_RETURN_IF_ERROR(ResolveCreateStatementOptions(
-      ast_statement,
-      is_materialized ? "CREATE MATERIALIZED VIEW" : "CREATE VIEW",
-      &create_scope, &create_mode));
+zetasql_base::Status Resolver::ResolveCreateViewStatementBaseProperties(
+    const ASTCreateViewStatementBase* ast_statement,
+    const std::string& statement_type,
+    absl::string_view object_type,
+    std::vector<std::string>* table_name,
+    ResolvedCreateStatement::CreateScope* create_scope,
+    ResolvedCreateStatement::CreateMode* create_mode,
+    ResolvedCreateStatementEnums::SqlSecurity* sql_security,
+    std::vector<std::unique_ptr<const ResolvedOption>>* resolved_options,
+    std::vector<std::unique_ptr<const ResolvedOutputColumn>>*
+        output_column_list,
+    std::vector<std::unique_ptr<const ResolvedColumnDefinition>>*
+        column_definition_list,
+    std::unique_ptr<const ResolvedScan>* query_scan,
+    std::string* view_sql,
+    bool* is_value_table) {
+  ZETASQL_RETURN_IF_ERROR(ResolveCreateStatementOptions(ast_statement, statement_type,
+                                                create_scope, create_mode));
 
   ZETASQL_RET_CHECK(ast_statement->name() != nullptr);
-  const std::vector<std::string> table_name =
-      ast_statement->name()->ToIdentifierVector();
+  const IdString table_name_id_string =
+      MakeIdString(ast_statement->name()->ToIdentifierPathString());
+  *table_name = ast_statement->name()->ToIdentifierVector();
 
-  std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
   ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(ast_statement->options_list(),
-                                     &resolved_options));
+                                     resolved_options));
 
-  std::unique_ptr<const ResolvedScan> query_scan;
-  bool is_value_table = false;
-  std::vector<std::unique_ptr<const ResolvedOutputColumn>> output_column_list;
-
+  *is_value_table = false;
   {
     zetasql_base::VarSetter<absl::string_view> setter(
         &disallowing_query_parameters_with_error_,
         "Query parameters cannot be used inside SQL view bodies");
     ZETASQL_RETURN_IF_ERROR(ResolveQueryAndOutputColumns(
-        ast_statement->query(), is_materialized ? "MATERIALIZED VIEW" : "VIEW",
-        IdString(), kViewId, &query_scan, &is_value_table, &output_column_list,
-        /* column_definition_list = */ nullptr));
+        ast_statement->query(), object_type, table_name_id_string, kViewId,
+        query_scan, is_value_table, output_column_list,
+        column_definition_list));
   }
 
   const ParseLocationRange& ast_query_range =
       ast_statement->query()->GetParseLocationRange();
   ZETASQL_RET_CHECK_GE(sql_.length(), ast_query_range.end().GetByteOffset()) << sql_;
-  const absl::string_view view_sql =
+  absl::string_view sql =
       absl::ClippedSubstr(sql_, ast_query_range.start().GetByteOffset(),
                           ast_query_range.end().GetByteOffset() -
                               ast_query_range.start().GetByteOffset());
+  *view_sql = std::string(sql);
 
-  auto sql_security = static_cast<ResolvedCreateStatementEnums::SqlSecurity>(
+  *sql_security = static_cast<ResolvedCreateStatementEnums::SqlSecurity>(
       ast_statement->sql_security());
-
-  if (is_materialized) {
-    *output = MakeResolvedCreateMaterializedViewStmt(
-        table_name, create_scope, create_mode, std::move(resolved_options),
-        std::move(output_column_list), std::move(query_scan), std::string(view_sql),
-        sql_security, is_value_table);
-  } else {
-    *output = MakeResolvedCreateViewStmt(
-        table_name, create_scope, create_mode, std::move(resolved_options),
-        std::move(output_column_list), std::move(query_scan), std::string(view_sql),
-        sql_security, is_value_table);
-  }
 
   return ::zetasql_base::OkStatus();
 }
@@ -2141,19 +2136,101 @@ zetasql_base::Status Resolver::ResolveCreateViewStatementBase(
 zetasql_base::Status Resolver::ResolveCreateViewStatement(
     const ASTCreateViewStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
-  return ResolveCreateViewStatementBase(
-      ast_statement,
-      /*is_materialized=*/false,
-      output);
+  ResolvedCreateStatement::CreateScope create_scope;
+  ResolvedCreateStatement::CreateMode create_mode;
+  ResolvedCreateStatementEnums::SqlSecurity sql_security;
+  std::vector<std::string> table_name;
+  std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
+  std::unique_ptr<const ResolvedScan> query_scan;
+  std::vector<std::unique_ptr<const ResolvedOutputColumn>> output_column_list;
+  std::string view_sql;
+  bool is_value_table = false;
+
+  ZETASQL_RETURN_IF_ERROR(ResolveCreateViewStatementBaseProperties(
+      ast_statement, /*statement_type=*/"CREATE VIEW", /*object_type=*/"VIEW",
+      &table_name, &create_scope, &create_mode, &sql_security,
+      &resolved_options, &output_column_list,
+      /*column_definition_list=*/nullptr, &query_scan, &view_sql,
+      &is_value_table));
+
+  *output = MakeResolvedCreateViewStmt(
+      table_name, create_scope, create_mode, std::move(resolved_options),
+      std::move(output_column_list), std::move(query_scan), view_sql,
+      sql_security, is_value_table);
+
+  return ::zetasql_base::OkStatus();
 }
 
 zetasql_base::Status Resolver::ResolveCreateMaterializedViewStatement(
     const ASTCreateMaterializedViewStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
-  return ResolveCreateViewStatementBase(
-      ast_statement,
-      /*is_materialized=*/true,
-      output);
+  const std::string statement_type = "CREATE MATERIALIZED VIEW";
+  ResolvedCreateStatement::CreateScope create_scope;
+  ResolvedCreateStatement::CreateMode create_mode;
+  ResolvedCreateStatementEnums::SqlSecurity sql_security;
+  std::vector<std::string> table_name;
+  std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
+  std::unique_ptr<const ResolvedScan> query_scan;
+  std::vector<std::unique_ptr<const ResolvedOutputColumn>> output_column_list;
+  std::vector<std::unique_ptr<const ResolvedColumnDefinition>>
+      column_definition_list;
+  std::string view_sql;
+  bool is_value_table = false;
+
+  ZETASQL_RETURN_IF_ERROR(ResolveCreateViewStatementBaseProperties(
+      ast_statement, statement_type,
+      /*object_type=*/"MATERIALIZED VIEW", &table_name, &create_scope,
+      &create_mode, &sql_security, &resolved_options, &output_column_list,
+      &column_definition_list, &query_scan, &view_sql, &is_value_table));
+
+  // Set up the name scope for the table columns, which may appear in
+  // PARTITION BY and CLUSTER BY expressions.
+  NameList create_names;
+  for (const std::unique_ptr<const ResolvedColumnDefinition>&
+           column_definition : column_definition_list) {
+    ZETASQL_RETURN_IF_ERROR(create_names.AddColumn(
+        column_definition->column().name_id(), column_definition->column(),
+        /*is_explicit=*/true));
+    RecordColumnAccess(column_definition->column());
+  }
+  const NameScope name_scope(create_names);
+  QueryResolutionInfo query_info(this);
+
+  std::vector<std::unique_ptr<const ResolvedExpr>> partition_by_list;
+  std::vector<std::unique_ptr<const ResolvedExpr>> cluster_by_list;
+  if (ast_statement->partition_by() != nullptr) {
+    if (!language().LanguageFeatureEnabled(
+            FEATURE_CREATE_MATERIALIZED_VIEW_PARTITION_BY)) {
+      return MakeSqlErrorAt(ast_statement->partition_by())
+             << statement_type << " with PARTITION BY is unsupported";
+    }
+    // The parser should reject hints on PARTITION BY.
+    ZETASQL_RET_CHECK(ast_statement->partition_by()->hint() == nullptr);
+    ZETASQL_RETURN_IF_ERROR(ResolveCreateTablePartitionByList(
+        ast_statement->partition_by()->partitioning_expressions(),
+        PartitioningKind::PARTITION_BY, name_scope, &query_info,
+        &partition_by_list));
+  }
+  if (ast_statement->cluster_by() != nullptr) {
+    // The parser should reject hints on CLUSTER BY.
+    if (!language().LanguageFeatureEnabled(
+            FEATURE_CREATE_MATERIALIZED_VIEW_CLUSTER_BY)) {
+      return MakeSqlErrorAt(ast_statement->cluster_by())
+             << statement_type << " with CLUSTER BY is unsupported";
+    }
+    ZETASQL_RETURN_IF_ERROR(ResolveCreateTablePartitionByList(
+        ast_statement->cluster_by()->clustering_expressions(),
+        PartitioningKind::CLUSTER_BY, name_scope, &query_info,
+        &cluster_by_list));
+  }
+
+  *output = MakeResolvedCreateMaterializedViewStmt(
+      table_name, create_scope, create_mode, std::move(resolved_options),
+      std::move(output_column_list), std::move(query_scan), view_sql,
+      sql_security, is_value_table, std::move(column_definition_list),
+      std::move(partition_by_list), std::move(cluster_by_list));
+
+  return zetasql_base::OkStatus();
 }
 
 zetasql_base::Status Resolver::ResolveCreateExternalTableStatement(
@@ -3416,9 +3493,16 @@ zetasql_base::Status Resolver::ResolveCallStatement(
       num_args);
   std::vector<InputArgumentType> input_arg_types(num_args);
   for (int i = 0; i < num_args; ++i) {
+    const ASTTVFArgument* ast_tvf_argument = ast_call->arguments()[i];
+    // TODO: support resolving table/model clause.
+    if (ast_tvf_argument->table_clause() || ast_tvf_argument->model_clause()) {
+      return MakeSqlErrorAt(ast_tvf_argument)
+             << (ast_tvf_argument->table_clause() ? "Table" : "Model")
+             << " typed argument is not supported";
+    }
     std::unique_ptr<const ResolvedExpr> expr;
     ZETASQL_RETURN_IF_ERROR(
-        ResolveStandaloneExpr(sql_, ast_call->arguments()[i], &expr));
+        ResolveStandaloneExpr(sql_, ast_tvf_argument->expr(), &expr));
     input_arg_types[i] = GetInputArgumentTypeForExpr(expr.get());
     resolved_args_exprs[i] = std::move(expr);
   }

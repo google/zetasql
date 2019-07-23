@@ -303,11 +303,11 @@ cc_test(
     srcs = ["numeric_value_test.cc"],
     copts = ["-Wno-sign-compare"],
     deps = [
+        ":numeric_value",
         "@com_google_googletest//:gtest_main",
         "//zetasql/base:endian",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
-        "//zetasql/public:numeric_value",
         "@com_google_absl//absl/numeric:int128",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/strings",
@@ -397,6 +397,10 @@ cc_test(
     srcs = ["proto_util_test.cc"],
     copts = ["-Wno-sign-compare"],
     deps = [
+        ":civil_time",
+        ":type",
+        ":type_cc_proto",
+        ":value",
         "@com_google_googletest//:gtest_main",
         "//zetasql/base",
         "//zetasql/base:ret_check",
@@ -404,10 +408,6 @@ cc_test(
         "//zetasql/base:statusor",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/common/testing:proto_matchers",
-        "//zetasql/public:civil_time",
-        "//zetasql/public:type",
-        "//zetasql/public:type_cc_proto",
-        "//zetasql/public:value",
         "//zetasql/public/proto:type_annotation_cc_proto",
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_protobuf//:protobuf",
@@ -432,7 +432,7 @@ java_proto_library(
 proto_library(
     name = "deprecation_warning_proto",
     srcs = ["deprecation_warning.proto"],
-    deps = ["//zetasql/public:error_location_proto"],
+    deps = [":error_location_proto"],
 )
 
 cc_proto_library(
@@ -939,6 +939,22 @@ cc_library(
 )
 
 cc_library(
+    name = "collator",
+    srcs = ["collator.cc"],
+    hdrs = ["collator.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "//zetasql/base",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/strings",
+        "@icu",
+        "@icu//:common",
+    ],
+)
+
+cc_library(
     name = "constant",
     hdrs = ["constant.h"],
     copts = ["-Wno-sign-compare"],
@@ -1020,6 +1036,19 @@ cc_test(
     ],
 )
 
+cc_test(
+    name = "collator_test",
+    size = "small",
+    srcs = ["collator_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":collator",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base/testing:status_matchers",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
 cc_library(
     name = "parse_resume_location",
     hdrs = ["parse_resume_location.h"],
@@ -1091,9 +1120,11 @@ cc_library(
     ],
     copts = ["-Wno-sign-compare"],
     deps = [
+        ":error_helpers",
         ":options_cc_proto",
         ":parse_location",
         ":parse_resume_location",
+        ":strings",
         ":value",
         "//zetasql/base",
         "//zetasql/base:ret_check",
@@ -1102,8 +1133,6 @@ cc_library(
         "//zetasql/parser",
         "//zetasql/parser:bison_parser_generated_lib",
         "//zetasql/parser:keywords",
-        "//zetasql/public:error_helpers",
-        "//zetasql/public:strings",
         "//zetasql/public/functions:convert_string",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
         "@com_google_absl//absl/memory",

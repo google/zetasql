@@ -43,7 +43,7 @@ TYPES_SRCS = [
 java_library(
     name = "types",
     srcs = TYPES_SRCS,
-    tags = ["maven_coordinates=com.google.zetasql:types:${project.version}"],
+    tags = ["maven_coordinates=com.google.zetasql:zetasql-types:${project.version}"],
     deps = [
         "//zetasql/proto:function_java_proto",
         "//zetasql/public:function_java_proto",
@@ -87,7 +87,7 @@ jarjar_library(
 
 pom_file(
     name = "types_pom",
-    artifact_id = "types",
+    artifact_id = "zetasql-types",
     artifact_name = "Types",
     targets = [
         ":types",
@@ -109,7 +109,7 @@ CHANNEL_PROVIDER_SRCS = [
 java_library(
     name = "channel_provider",
     srcs = CHANNEL_PROVIDER_SRCS,
-    tags = ["maven_coordinates=com.google.zetasql:client:${project.version}"],
+    tags = ["maven_coordinates=com.google.zetasql:zetasql-client:${project.version}"],
     deps = [
         "@io_grpc_grpc_core//jar",
     ],
@@ -132,7 +132,7 @@ java_library(
     resources = [
         "//zetasql/local_service:liblocal_service_jni.so",
     ],
-    tags = ["maven_coordinates=com.google.zetasql:jni-channel:${project.version}"],
+    tags = ["maven_coordinates=com.google.zetasql:zetasql-jni-channel:${project.version}"],
     deps = [
         ":channel_provider",
         "//zetasql/local_service:local_service_jni",
@@ -166,7 +166,7 @@ jarjar_library(
 
 pom_file(
     name = "jni_channel_pom",
-    artifact_id = "jni-channel",
+    artifact_id = "zetasql-jni-channel",
     artifact_name = "JNI Channel",
     targets = [
         ":jni_channel",
@@ -310,7 +310,7 @@ jarjar_library(
 
 pom_file(
     name = "client_pom",
-    artifact_id = "client",
+    artifact_id = "zetasql-client",
     artifact_name = "Core Client",
     targets = [
         ":analyzer",

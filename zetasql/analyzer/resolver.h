@@ -498,9 +498,27 @@ class Resolver {
       ResolvedCreateStatement::CreateScope* create_scope,
       ResolvedCreateStatement::CreateMode* create_mode) const;
 
-  zetasql_base::Status ResolveCreateViewStatementBase(
-      const ASTCreateViewStatementBase* ast_statement, bool is_materialized,
-      std::unique_ptr<ResolvedStatement>* output);
+  // Resolves properties of ASTCreateViewStatementBase.
+  // Used by ResolveCreate(|Materialized)ViewStatement functions to resolve
+  // parts that are common between logical and materialized views.
+  // 'column_definition_list' parameter is set to nullptr for logical views.
+  // Other output arguments are always non-nulls.
+  zetasql_base::Status ResolveCreateViewStatementBaseProperties(
+      const ASTCreateViewStatementBase* ast_statement,
+      const std::string& statement_type,
+      absl::string_view object_type,
+      std::vector<std::string>* table_name,
+      ResolvedCreateStatement::CreateScope* create_scope,
+      ResolvedCreateStatement::CreateMode* create_mode,
+      ResolvedCreateStatementEnums::SqlSecurity* sql_security,
+      std::vector<std::unique_ptr<const ResolvedOption>>* resolved_options,
+      std::vector<std::unique_ptr<const ResolvedOutputColumn>>*
+          output_column_list,
+      std::vector<std::unique_ptr<const ResolvedColumnDefinition>>*
+          column_definition_list,
+      std::unique_ptr<const ResolvedScan>* query_scan,
+      std::string* view_sql,
+      bool* is_value_table);
 
   // Creates the ResolvedGeneratedColumnInfo from an ASTGeneratedColumnInfo.
   // - <ast_generated_column>: Is a pointer to the Generated Column
@@ -577,9 +595,9 @@ class Resolver {
   // - If <column_definition_list> is not null, then <column_definition_list>
   //   will be populated based on the output column list and
   //   <table_name_id_string> (the name of the table to be created).
-  //   Currently, when this is invoked for CREATE VIEW/MATERIALIZED_VIEW/MODEL
-  //   the <column_definition_list> is null, but for CREATE TABLE the
-  //   <column_definition_list> is non-null.
+  //   Currently, when this is invoked for CREATE VIEW/MODEL
+  //   the <column_definition_list> is null, but for CREATE
+  //   TABLE/MATERIALIZED_VIEW the <column_definition_list> is non-null.
   zetasql_base::Status ResolveQueryAndOutputColumns(
       const ASTQuery* query, absl::string_view object_type,
       IdString table_name_id_string, IdString internal_table_name,
@@ -685,9 +703,9 @@ class Resolver {
       std::vector<std::unique_ptr<const ResolvedCheckConstraint>>*
           check_constraint_list);
 
-  // Resolves the PARTITION BY or CLUSTER BY expressions of a CREATE TABLE
-  // statement. <clause_type> is either PARTITION_BY or CLUSTER_BY.
-  // <name_scope> and <query_info> are used for name resolution.
+  // Resolves the PARTITION BY or CLUSTER BY expressions of a CREATE
+  // TABLE/MATERIALIZED_VIEW statement. <clause_type> is either PARTITION_BY or
+  // CLUSTER_BY. <name_scope> and <query_info> are used for name resolution.
   // <partition_by_list_out>, which may be non-empty even in error cases.
   zetasql_base::Status ResolveCreateTablePartitionByList(
       absl::Span<const ASTExpression* const> expressions,

@@ -5246,9 +5246,49 @@ ResolvedArgumentRef(y)
       parent='ResolvedCreateViewBase',
       comment="""
       This statement:
-        CREATE MATERIALIZED VIEW <name> [OPTIONS (...)] AS SELECT ...
+        CREATE MATERIALIZED VIEW <name> [PARTITION BY expr, ...]
+        [CLUSTER BY expr, ...] [OPTIONS (...)] AS SELECT ...
+
+      <column_definition_list> matches 1:1 with the <output_column_list> in
+      ResolvedCreateViewBase and provides explicit definition for each
+      ResolvedColumn produced by <query>. Output column names and types must
+      match column definition names and types. If the table is a value table,
+      <column_definition_list> must have exactly one column, with a generated
+      name such as "$struct".
+
+      Currently <column_definition_list> contains the same schema information
+      (column names and types) as <output_definition_list>, but when/if we
+      allow specifying column OPTIONS as part of CMV statement, this information
+      will be available only in <column_definition_list>. Therefore, consumers
+      are encouraged to read from <column_definition_list> rather than from
+      <output_column_list> to determine the schema, if possible.
+
+      <partition_by_list> specifies the partitioning expressions for the
+                          materialized view.
+      <cluster_by_list> specifies the clustering expressions for the
+                        materialized view.
               """,
-      fields=[])
+      fields=[
+          Field(
+              'column_definition_list',
+              'ResolvedColumnDefinition',
+              tag_id=2,
+              vector=True,
+              # This is ignorable for backwards compatibility.
+              ignorable=IGNORABLE),
+          Field(
+              'partition_by_list',
+              'ResolvedExpr',
+              tag_id=3,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'cluster_by_list',
+              'ResolvedExpr',
+              tag_id=4,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+      ])
 
   gen.AddNode(
       name='ResolvedCreateProcedureStmt',

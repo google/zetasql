@@ -36,14 +36,18 @@ configure_make(
     name = "icu",
     configure_command = "source/configure",
     configure_env_vars = {
-        "CXXFLAGS": "-fPIC",  # For JNI
-        "CFLAGS": "-fPIC",  # For JNI
+          # For JNI
+        "CXXFLAGS": "-fPIC", # " -DU_STATIC_IMPLEMENTATION",
+        "CFLAGS": "-fPIC", # " -DU_STATIC_IMPLEMENTATION",  # For JNI
     },
     configure_options = [
+        "--enable-option-checking",
         "--enable-static",
+        "--enable-tools",  # needed to build data
         "--disable-shared",
+        "--disable-dyload",
         "--disable-extras",
-        "--disable-tools",
+        "--disable-plugins",
         "--disable-tests",
         "--disable-samples",
         "--with-data-packaging=static",

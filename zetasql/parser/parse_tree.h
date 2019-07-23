@@ -4185,13 +4185,6 @@ class ASTCreateViewStatementBase : public ASTCreateStatement {
   }
 
  protected:
-  void InitFields() override {
-    FieldLoader fl(this);
-    fl.AddRequired(&name_);
-    fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
-    fl.AddRequired(&query_);
-  }
-
   const ASTPathExpression* name_ = nullptr;
   SqlSecurity sql_security_;
   const ASTOptionsList* options_list_ = nullptr;
@@ -4204,6 +4197,14 @@ class ASTCreateViewStatement final : public ASTCreateViewStatementBase {
 
   ASTCreateViewStatement() : ASTCreateViewStatementBase(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&name_);
+    fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
+    fl.AddRequired(&query_);
+  }
 };
 
 // The gen_extra_files.sh can only parse the class definition that is on the
@@ -4216,6 +4217,22 @@ class ASTCreateMaterializedViewStatement final : public ASTCreateViewStatementBa
   ASTCreateMaterializedViewStatement()
       : ASTCreateViewStatementBase(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
+
+  const ASTPartitionBy* partition_by() const { return partition_by_; }
+  const ASTClusterBy* cluster_by() const { return cluster_by_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&name_);
+    fl.AddOptional(&partition_by_, AST_PARTITION_BY);
+    fl.AddOptional(&cluster_by_, AST_CLUSTER_BY);
+    fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
+    fl.AddRequired(&query_);
+  }
+
+  const ASTPartitionBy* partition_by_ = nullptr;             // May be NULL.
+  const ASTClusterBy* cluster_by_ = nullptr;                 // May be NULL.
 };
 
 class ASTExportDataStatement final : public ASTSqlStatement {
@@ -4248,7 +4265,7 @@ class ASTCallStatement final : public ASTSqlStatement {
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
 
   const ASTPathExpression* procedure_name() const { return procedure_name_; }
-  const absl::Span<const ASTExpression* const>& arguments() const {
+  const absl::Span<const ASTTVFArgument* const>& arguments() const {
     return arguments_;
   }
 
@@ -4260,7 +4277,7 @@ class ASTCallStatement final : public ASTSqlStatement {
   }
 
   const ASTPathExpression* procedure_name_ = nullptr;
-  absl::Span<const ASTExpression* const> arguments_;
+  absl::Span<const ASTTVFArgument* const> arguments_;
 };
 
 class ASTDefineTableStatement final : public ASTSqlStatement {

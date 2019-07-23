@@ -2578,10 +2578,11 @@ create_view_statement:
       }
     |
     "CREATE" opt_or_replace "MATERIALIZED" "VIEW" opt_if_not_exists
-    path_expression opt_sql_security_clause opt_options_list as_query
+    path_expression opt_sql_security_clause opt_partition_by_clause_no_hint
+    opt_cluster_by_clause_no_hint opt_options_list as_query
       {
         auto* create = MAKE_NODE(
-          ASTCreateMaterializedViewStatement, @$, {$6, $8, $9});
+          ASTCreateMaterializedViewStatement, @$, {$6, $8, $9, $10, $11});
         create->set_is_or_replace($2);
         create->set_scope(zetasql::ASTCreateStatement::DEFAULT_SCOPE);
         create->set_is_if_not_exists($5);
@@ -6292,11 +6293,11 @@ merge_statement:
   ;
 
 call_statement_with_args_prefix:
-    "CALL" path_expression "(" expression
+    "CALL" path_expression "(" tvf_argument
       {
         $$ = MAKE_NODE(ASTCallStatement, @$, {$2, $4});
       }
-    | call_statement_with_args_prefix "," expression
+    | call_statement_with_args_prefix "," tvf_argument
       {
         $$ = WithExtraChildren($1, {$3});
       }

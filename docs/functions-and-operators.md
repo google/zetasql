@@ -2617,8 +2617,8 @@ HLL_COUNT.INIT(input [, precision])
 
 **Description**
 
-A scalar function that takes one or more `input` values and aggregates them into
-a [HyperLogLog++][hll-link-to-hyperloglog-wikipedia] sketch. Each sketch
+An aggregate function that takes one or more `input` values and aggregates them
+into a [HyperLogLog++][hll-link-to-hyperloglog-wikipedia] sketch. Each sketch
 is represented using the `BYTES` data type. You can then merge sketches using
 `HLL_COUNT.MERGE` or `HLL_COUNT.MERGE_PARTIAL`. If no merging is needed,
 you can extract the final count of distinct values from the sketch using

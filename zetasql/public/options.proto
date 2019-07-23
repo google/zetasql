@@ -300,6 +300,14 @@ enum LanguageFeature {
   // partially true depending on implementation stage (b/135549966).
   FEATURE_ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX = 32;
 
+  // Enables support for PARTITION BY with CREATE MATERIALIZED VIEW.
+  // See (broken link).
+  FEATURE_CREATE_MATERIALIZED_VIEW_PARTITION_BY = 33;
+
+  // Enables support for CLUSTER BY with CREATE MATERIALIZED VIEW.
+  // See (broken link).
+  FEATURE_CREATE_MATERIALIZED_VIEW_CLUSTER_BY = 34;
+
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
   //    New features should be added for the *next* version number.

@@ -587,6 +587,12 @@ void Unparser::visitASTCreateMaterializedViewStatement(
   if (node->sql_security() != ASTCreateStatement::SQL_SECURITY_UNSPECIFIED) {
     print(node->GetSqlForSqlSecurity());
   }
+  if (node->partition_by() != nullptr) {
+    node->partition_by()->Accept(this, data);
+  }
+  if (node->cluster_by() != nullptr) {
+    node->cluster_by()->Accept(this, data);
+  }
   if (node->options_list() != nullptr) {
     print("OPTIONS");
     node->options_list()->Accept(this, data);

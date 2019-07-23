@@ -2881,8 +2881,53 @@ zetasql_base::Status SQLBuilder::VisitResolvedCreateViewStmt(
 
 zetasql_base::Status SQLBuilder::VisitResolvedCreateMaterializedViewStmt(
     const ResolvedCreateMaterializedViewStmt* node) {
-  return GetCreateViewStatement(node, node->is_value_table(),
-                                "MATERIALIZED VIEW");
+  // Dummy access on the fields so as to pass the final CheckFieldsAccessed() on
+  // a statement level before building the sql.
+  for (const auto& output_col : node->output_column_list()) {
+    output_col->name();
+    output_col->column();
+  }
+  for (const auto& column_def : node->column_definition_list()) {
+    column_def->name();
+    column_def->type();
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(QueryExpression * query_result,
+                   ProcessQuery(node->query(), node->output_column_list()));
+  std::unique_ptr<QueryExpression> query_expression(query_result);
+
+  std::string sql;
+  ZETASQL_RETURN_IF_ERROR(GetCreateStatementPrefix(node, "MATERIALIZED VIEW", &sql));
+
+  // Make column aliases available for PARTITION BY, CLUSTER BY.
+  for (const auto& column_definition : node->column_definition_list()) {
+    computed_column_alias_[column_definition->column().column_id()] =
+        column_definition->name();
+  }
+  absl::StrAppend(&sql, GetSqlSecuritySql(node->sql_security()));
+
+  if (!node->partition_by_list().empty()) {
+    absl::StrAppend(&sql, " PARTITION BY ");
+    ZETASQL_RETURN_IF_ERROR(GetPartitionByListString(node->partition_by_list(), &sql));
+  }
+  if (!node->cluster_by_list().empty()) {
+    absl::StrAppend(&sql, " CLUSTER BY ");
+    ZETASQL_RETURN_IF_ERROR(GetPartitionByListString(node->cluster_by_list(), &sql));
+  }
+  if (node->option_list_size() > 0) {
+    ZETASQL_ASSIGN_OR_RETURN(const std::string result,
+                     GetHintListString(node->option_list()));
+    absl::StrAppend(&sql, " OPTIONS(", result, ")");
+  }
+  // We should get a struct or a proto if is_value_table=true.
+  if (node->is_value_table()) {
+    ZETASQL_RET_CHECK_EQ(query_expression->SelectList().size(), 1);
+    query_expression->SetSelectAsModifier(" AS VALUE");
+  }
+  absl::StrAppend(&sql, " AS ", query_expression->GetSQLQuery());
+
+  PushQueryFragment(node, sql);
+  return ::zetasql_base::OkStatus();
 }
 
 zetasql_base::Status SQLBuilder::VisitResolvedCreateExternalTableStmt(
