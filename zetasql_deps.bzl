@@ -705,7 +705,10 @@ java_library(
         strip_prefix = "m4-1.4.18",
         sha256 = "ab2633921a5cd38e48797bf5521ad259bdc4b979078034a3b790d7fec5493fab",
         urls = ["https://ftp.gnu.org/gnu/m4/m4-1.4.18.tar.gz"],
-        patches = ["@com_google_zetasql//bazel:m4.patch"],
+        patches = [
+            "@com_google_zetasql//bazel:m4.patch",
+            "@com_google_zetasql//bazel:m4-1.4.18.patch"
+        ],
     )
 
     http_archive(

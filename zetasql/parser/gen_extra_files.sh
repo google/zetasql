@@ -16,6 +16,8 @@
 
 #!/bin/bash
 
+set -e -o pipefail
+
 if [[ "$#" != 4 ]]; then
   # Expected args are filenames for these:
   #   parse_tree.h                  (input)

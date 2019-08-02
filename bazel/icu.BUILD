@@ -32,14 +32,19 @@ filegroup(
     srcs = glob(["**"]),
 )
 
+configure_env_vars = {
+    "CXXFLAGS": "-fPIC",  # For JNI
+    "CFLAGS": "-fPIC",  # For JNI
+    "LIBS": "$$LDFLAGS$$",
+}
+
+darwin_configure_env_vars = {
+    "AR": "/usr/bin/ar -q"
+}
+
 configure_make(
     name = "icu",
     configure_command = "source/configure",
-    configure_env_vars = {
-        "CXXFLAGS": "-fPIC",  # For JNI
-        "CFLAGS": "-fPIC",  # For JNI
-        "LIBS": "$$LDFLAGS$$",
-    },
     configure_options = [
         "--enable-option-checking",
         "--enable-static",
@@ -52,6 +57,10 @@ configure_make(
         "--disable-samples",
         "--with-data-packaging=static",
     ],
+    configure_env_vars = select({
+        "@bazel_tools//src/conditions:darwin": dict(configure_env_vars, **darwin_configure_env_vars),
+        "//conditions:default": configure_env_vars,
+    }),
     lib_source = "@icu//:all",
     static_libraries = [
         "libicui18n.a",

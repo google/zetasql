@@ -26,6 +26,10 @@
 
 #include <memory>
 
+#if defined(__MACH__)
+#include <fcntl.h>
+#endif
+
 #include "zetasql/local_service/local_service_grpc.h"
 
 namespace zetasql {
@@ -44,23 +48,44 @@ static grpc::Server* GetServer() {
   return server;
 }
 
+void strerror_r_ext(int err, char *str, size_t str_len)
+{
+    if (err < sys_nerr) {
+        snprintf(str, str_len, "%s", sys_errlist[err]);
+    } else {
+        snprintf(str, str_len, "Unknown error %d", err);
+    }
+}
+
 static void ErrnoSocketException(JNIEnv* env) {
   char buf[128];
-  char* outstr = strerror_r(errno, buf, sizeof(buf));
+  strerror_r_ext(errno, buf, sizeof(buf));
 
   jclass e = env->FindClass("java/net/SocketException");
   if (e == nullptr) {
     return;
   }
-  env->ThrowNew(e, outstr);
+  env->ThrowNew(e, buf);
 }
 
 static int GetSocketFd(JNIEnv* env) {
   int sv[2];
-  if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0, sv) < 0) {
+
+#if defined(__MACH__)
+  int flags = SOCK_STREAM;
+#else
+  int flags = SOCK_STREAM | SOCK_NONBLOCK;
+#endif
+
+  if (socketpair(AF_UNIX, flags, 0, sv) < 0) {
     ErrnoSocketException(env);
     return -1;
   }
+
+#if defined(__MACH__)
+  fcntl(sv[0], F_SETFL, O_NONBLOCK);
+  fcntl(sv[1], F_SETFL, O_NONBLOCK);
+#endif
 
   // gRPC takes ownership of the first fd
   grpc::AddInsecureChannelFromFd(GetServer(), sv[0]);
