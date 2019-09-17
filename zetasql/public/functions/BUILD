@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-package(default_visibility = ["//zetasql:__subpackages__"])
+package(default_visibility = ["//:__subpackages__"])
 
 cc_library(
     name = "util",
@@ -282,4 +282,41 @@ cc_proto_library(
 java_proto_library(
     name = "normalize_mode_java_proto",
     deps = [":normalize_mode_proto"],
+)
+
+cc_library(
+    name = "common_proto",
+    srcs = ["common_proto.cc"],
+    hdrs = ["common_proto.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":date_time_util",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/common:errors",
+        "//zetasql/common:utf_util",
+        "//zetasql/public:civil_time",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_protobuf//:cc_wkt_protos",
+        "@com_googleapis_googleapis//:latlng_cc_proto",
+        "@com_googleapis_googleapis//:timeofday_cc_proto",
+    ],
+)
+
+cc_test(
+    name = "common_proto_test",
+    srcs = ["common_proto_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":common_proto",
+        ":date_time_util",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/public:civil_time",
+        "@com_google_absl//absl/strings",
+        "@com_google_protobuf//:cc_wkt_protos",
+        "@com_googleapis_googleapis//:timeofday_cc_proto",
+    ],
 )

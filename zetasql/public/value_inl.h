@@ -102,7 +102,7 @@ class Value::ProtoRep : public zetasql_base::SimpleReferenceCounted {
   const Cord value_;
 };
 
-class Value::GeographyRef : public zetasql_base::SimpleReferenceCounted {
+class Value::GeographyRef final : public zetasql_base::SimpleReferenceCounted {
  public:
   GeographyRef() {}
   GeographyRef(const GeographyRef&) = delete;
@@ -208,6 +208,11 @@ inline const Value& Value::operator=(const Value& that) {
   return *this;
 }
 
+// GCC does not like our use of memcpy here. So we disable its warnings.
+#if defined(__GNUC__) && (((__GNUC__ * 100) + __GNUC_MINOR__) >= 800)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wclass-memaccess"
+#endif
 inline Value::Value(Value&& that) noexcept {  // NOLINT(build/c++11)
   memcpy(this, &that, sizeof(Value));
   // Invalidate 'that' to disable its destructor.
@@ -226,6 +231,10 @@ inline Value& Value::operator=(Value&& that) noexcept {  // NOLINT(build/c++11)
   that.type_kind_ = kInvalidTypeKind;
   return *this;
 }
+
+#if defined(__GNUC__) && (((__GNUC__ * 100) + __GNUC_MINOR__) >= 800)
+#pragma GCC diagnostic pop
+#endif
 
 inline Value::Value(int32_t value)
     : type_kind_(TYPE_INT32), int32_value_(value) {
@@ -527,11 +536,14 @@ H AbslHashValue(H h, const Value& v) {
 
 template <typename H>
 H Value::HashValueInternal(H h) const {
+  // These codes are picked arbitrarily.
   static constexpr uint64_t kFloatNanHashCode = 0x739EF9A0B2C15522ull;
   static constexpr uint64_t kDoubleNanHashCode = 0xA00397BC84F93AA7ull;
   static constexpr uint64_t kGeographyHashCode = 0x98389DC9632631AEull;
 
-  if (is_null()) {
+  if (!is_valid() || is_null()) {
+    // Note that invalid Values have their own TypeKind, so hash codes for
+    // invalid Values do not collide with hash codes for NULL values.
     return H::combine(std::move(h), type_kind_);
   }
   switch (type_kind()) {

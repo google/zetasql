@@ -52,12 +52,13 @@ absl::Time SimulatedClock::TimeNow() {
   return now_;
 }
 
-void SimulatedClock::SetTime(absl::Time t) NO_THREAD_SAFETY_ANALYSIS {
-  UpdateTime([this, t]() EXCLUSIVE_LOCKS_REQUIRED(lock_) { now_ = t; });
+void SimulatedClock::SetTime(absl::Time t) ABSL_NO_THREAD_SAFETY_ANALYSIS {
+  UpdateTime([this, t]() ABSL_EXCLUSIVE_LOCKS_REQUIRED(lock_) { now_ = t; });
 }
 
-void SimulatedClock::AdvanceTime(absl::Duration d) NO_THREAD_SAFETY_ANALYSIS {
-  UpdateTime([this, d]() EXCLUSIVE_LOCKS_REQUIRED(lock_) { now_ += d; });
+void SimulatedClock::AdvanceTime(absl::Duration d)
+    ABSL_NO_THREAD_SAFETY_ANALYSIS {
+  UpdateTime([this, d]() ABSL_EXCLUSIVE_LOCKS_REQUIRED(lock_) { now_ += d; });
 }
 
 template <class T>

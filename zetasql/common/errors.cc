@@ -29,7 +29,7 @@ namespace zetasql {
 
 // Returns true if <status> has a internalErrorLocation payload.
 static bool HasInternalErrorLocation(const zetasql_base::Status& status) {
-  return internal::HasPayloadTyped<InternalErrorLocation>(status);
+  return internal::HasPayloadWithType<InternalErrorLocation>(status);
 }
 
 zetasql_base::Status StatusWithInternalErrorLocation(
@@ -41,8 +41,8 @@ zetasql_base::Status StatusWithInternalErrorLocation(
   return result;
 }
 
-ErrorSource MakeErrorSource(
-    const zetasql_base::Status& status, const std::string& text, ErrorMessageMode mode) {
+ErrorSource MakeErrorSource(const zetasql_base::Status& status, const std::string& text,
+                            ErrorMessageMode mode) {
   DCHECK(!status.ok());
   // Sanity check that status does not have an InternalErrorLocation.
   DCHECK(!HasInternalErrorLocation(status));
@@ -64,7 +64,7 @@ ErrorSource MakeErrorSource(
 // Returns ErrorSources from <status>, if present.
 const absl::optional<::google::protobuf::RepeatedPtrField<ErrorSource>> GetErrorSources(
     const zetasql_base::Status& status) {
-  if (internal::HasPayloadTyped<ErrorLocation>(status)) {
+  if (internal::HasPayloadWithType<ErrorLocation>(status)) {
     // Sanity check that an OK status does not have a payload.
     DCHECK(!status.ok());
 
@@ -91,15 +91,15 @@ zetasql_base::StatusOr<FreestandingDeprecationWarning> StatusToDeprecationWarnin
   ZETASQL_RET_CHECK(internal::HasPayload(from_status))
       << "Deprecation statuses must have payloads";
 
-  ZETASQL_RET_CHECK(!internal::HasPayloadTyped<InternalErrorLocation>(from_status))
+  ZETASQL_RET_CHECK(!internal::HasPayloadWithType<InternalErrorLocation>(from_status))
       << "Deprecation statuses cannot have InternalErrorLocation payloads";
 
-  ZETASQL_RET_CHECK(internal::HasPayloadTyped<ErrorLocation>(from_status))
+  ZETASQL_RET_CHECK(internal::HasPayloadWithType<ErrorLocation>(from_status))
       << "Deprecation statuses must have ErrorLocation payloads";
   *warning.mutable_error_location() =
       internal::GetPayload<ErrorLocation>(from_status);
 
-  ZETASQL_RET_CHECK(internal::HasPayloadTyped<DeprecationWarning>(from_status))
+  ZETASQL_RET_CHECK(internal::HasPayloadWithType<DeprecationWarning>(from_status))
       << "Deprecation statuses must have DeprecationWarning payloads";
   *warning.mutable_deprecation_warning() =
       internal::GetPayload<DeprecationWarning>(from_status);
@@ -128,7 +128,7 @@ StatusesToDeprecationWarnings(const std::vector<zetasql_base::Status>& from_stat
 
 zetasql_base::Status ConvertInternalErrorLocationToExternal(zetasql_base::Status status,
                                                     absl::string_view query) {
-  if (!internal::HasPayloadTyped<InternalErrorLocation>(status)) {
+  if (!internal::HasPayloadWithType<InternalErrorLocation>(status)) {
     // Nothing to do.
     return status;
   }

@@ -35,6 +35,10 @@
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/wire_format_lite.h"
 #include "zetasql/common/internal_value.h"
+#include "zetasql/public/analyzer.h"
+#include "zetasql/public/evaluator.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "zetasql/testing/test_value.h"
@@ -64,8 +68,150 @@ static void TestHashEqual(const Value& a, const Value& b) {
       << "\na: " << a << "\n"
       << "b: " << b;
 }
+static void TestHashNotEqual(const Value& a, const Value& b) {
+  EXPECT_NE(a.HashCode(), b.HashCode()) << "\na: " << a << "\n"
+                                        << "b: " << b;
+  EXPECT_NE(absl::Hash<Value>()(a), absl::Hash<Value>()(b))
+      << "\na: " << a << "\n"
+      << "b: " << b;
+}
 
-static Value TestGetSQL(const Value& value) { return value; }
+// Test that GetSQL returns a std::string that can be re-parsed as the Value.
+// Returns <value> so this can be used as a chained call anywhere we
+// construct a Value.
+// Also tests that GetSQLLiteral returns a std::string that can be reparsed as
+// a Value (which should be approximately equal to the original) where
+// possible.
+static Value TestGetSQL(const Value& value) {
+  // Make all compiled-in proto type names visible.
+  SimpleCatalog catalog("type_catalog");
+  catalog.AddZetaSQLFunctions();
+  catalog.SetDescriptorPool(
+      zetasql_test::KitchenSinkPB::descriptor()->file()->pool());
+
+  AnalyzerOptions analyzer_options;
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_NUMERIC_TYPE);
+
+  const bool testable_type = !value.type()->IsProto();
+  // Test round tripping GetSQL for non-legacy types.
+  if (testable_type) {
+    const std::string sql = value.GetSQL();
+    VLOG(1) << "sql: " << sql;
+
+    // We have to use the expression evaluator rather than just the analyzer
+    // because the returned SQL may be a non-literal.
+    PreparedExpression expr(sql);
+    const zetasql_base::Status prepare_status =
+        expr.Prepare(analyzer_options, &catalog);
+    ZETASQL_EXPECT_OK(prepare_status)
+        << "Value: " << value.DebugString() << "\nSQL: " << sql;
+
+    if (prepare_status.ok()) {
+      const zetasql_base::StatusOr<Value> result = expr.Execute();
+      ZETASQL_EXPECT_OK(result.status()) << value.DebugString();
+      if (result.ok()) {
+        const Value& new_value = result.ValueOrDie();
+        EXPECT_TRUE(value.Equals(new_value))
+            << "Value: " << value.FullDebugString()
+            << "\nSQL: " << sql
+            << "\nRe-parsed: " << new_value.FullDebugString();
+        EXPECT_EQ(value.DebugString(), new_value.DebugString());
+      }
+    }
+  }
+
+  // Test round tripping GetSQLLiteral for non-legacy types.
+  if (testable_type) {
+    const std::string sql = value.GetSQLLiteral();
+    VLOG(1) << "sql literal: " << sql;
+
+    // For GetSQLLiteral, we re-parse without a catalog because we don't
+    // expect any type names to show up.  e.g. For enums, we'll just get
+    // a std::string.
+    {
+      PreparedExpression expr(sql);
+      const zetasql_base::Status prepare_status = expr.Prepare(analyzer_options);
+      ZETASQL_EXPECT_OK(prepare_status)
+          << "Value: " << value.DebugString() << "\nSQL: " << sql;
+
+      if (prepare_status.ok()) {
+        const zetasql_base::StatusOr<Value> result = expr.Execute();
+        ZETASQL_EXPECT_OK(result.status()) << value.DebugString();
+        if (result.ok()) {
+          const Value& new_value = result.ValueOrDie();
+          VLOG(1) << "New value: " << new_value.DebugString();
+          if (value.type()->Equivalent(new_value.type())) {
+            EXPECT_TRUE(value.Equals(new_value))
+                << "Value: " << value.FullDebugString()
+                << "\nSQL literal: " << sql
+                << "\nRe-parsed: " << new_value.FullDebugString();
+            // Note that for STRUCTs, GetSQLLiteral returns a std::string that
+            // does not contain field name information.  So for STRUCTS,
+            // we might get a new_value that has an equivalent type, but
+            // not an Equals type.  In that case, the DebugString would not
+            // match so we only compare DebugStrings if the Values are equals
+            // and Types are Equals.
+            if (value.type()->Equals(new_value.type())) {
+              EXPECT_EQ(value.DebugString(), new_value.DebugString())
+                  << "value: " << value.FullDebugString()
+                  << "\nnew_value: " << new_value.FullDebugString();
+            }
+          }
+        }
+      }
+    }
+
+    bool is_bad_type = false;
+    // Exclude incomplete protos, which we won't be able to cast from
+    // std::string back to proto type.
+    if (value.type()->IsProto() && !value.is_null()) {
+      google::protobuf::DynamicMessageFactory message_factory;
+      std::unique_ptr<google::protobuf::Message> m(value.ToMessage(&message_factory));
+      if (!m->IsInitialized()) {
+        is_bad_type = true;
+      }
+    }
+    // Exclude arrays of non-widest-numeric types because we don't support
+    // casts of arrays.
+    if (value.type()->IsArray() && !value.is_null()) {
+      const Type* element_type = value.type()->AsArray()->element_type();
+      if (!(element_type->IsInt64() || element_type->IsString() ||
+            element_type->IsBytes() || element_type->IsDouble())) {
+        is_bad_type = true;
+      }
+    }
+
+    // Now try parsing the SQL literal with a CAST to the appropriate type.
+    // This should give back the original value.
+    // Some types are excluded because the CASTs won't be legal.
+    if (!is_bad_type) {
+      const std::string cast_expr = absl::StrCat(
+          "CAST(", sql, " AS ", value.type()->TypeName(PRODUCT_INTERNAL), ")");
+      PreparedExpression expr(cast_expr);
+      const zetasql_base::Status prepare_status =
+          expr.Prepare(analyzer_options, &catalog);
+      ZETASQL_EXPECT_OK(prepare_status)
+          << "Value: " << value.DebugString() << "\nSQL: " << cast_expr;
+
+      if (prepare_status.ok()) {
+        const zetasql_base::StatusOr<Value> result = expr.Execute();
+        ZETASQL_EXPECT_OK(result.status()) << value.DebugString();
+        if (result.ok()) {
+          const Value& new_value = result.ValueOrDie();
+          EXPECT_TRUE(value.Equals(new_value))
+              << "Value: " << value.FullDebugString()
+              << "\nSQL literal: " << sql
+              << "\nCAST expr: " << cast_expr
+              << "\nRe-parsed: " << new_value.FullDebugString();
+          EXPECT_EQ(value.DebugString(), new_value.DebugString());
+        }
+      }
+    }
+  }
+
+  return value;
+}
 
 class ValueTest : public ::testing::Test {
  public:
@@ -507,6 +653,11 @@ TEST_F(ValueTest, InvalidValue) {
   EXPECT_FALSE(invalid.Equals(valid));
   EXPECT_FALSE(valid.Equals(invalid));
   EXPECT_TRUE(valid.Equals(valid));
+
+  Value valid_null = Value::NullInt32();
+  TestHashEqual(invalid, invalid);
+  TestHashNotEqual(invalid, valid);
+  TestHashNotEqual(invalid, valid_null);
 }
 
 TEST_F(ValueTest, ConstructorTyping) {
@@ -1543,6 +1694,71 @@ TEST_F(ValueTest, ClassAndProtoSize) {
       << "update the serialization code accordingly.";
 }
 
+TEST_F(ValueTest, HashSet) {
+  absl::flat_hash_set<Value> s;
+  EXPECT_EQ(true, s.insert(Int64(1)).second);
+  EXPECT_EQ(false, s.insert(Int64(1)).second);
+  EXPECT_EQ(true, s.insert(NullInt64()).second);
+  EXPECT_EQ(false, s.insert(NullInt64()).second);
+
+  EXPECT_EQ(true, s.insert(Bool(true)).second);
+  EXPECT_EQ(false, s.insert(Bool(true)).second);
+  EXPECT_EQ(true, s.insert(NullBool()).second);
+  EXPECT_EQ(false, s.insert(NullBool()).second);
+
+  EXPECT_EQ(true, s.insert(Double(1.3)).second);
+  EXPECT_EQ(false, s.insert(Double(1.3)).second);
+  EXPECT_EQ(true, s.insert(NullDouble()).second);
+  EXPECT_EQ(false, s.insert(NullDouble()).second);
+
+  EXPECT_EQ(true, s.insert(String("foo")).second);
+  EXPECT_EQ(false, s.insert(String("foo")).second);
+  EXPECT_EQ(true, s.insert(NullString()).second);
+  EXPECT_EQ(false, s.insert(NullString()).second);
+
+  const EnumType* enum_type = GetTestEnumType();
+  EXPECT_EQ(true, s.insert(Enum(enum_type, 1)).second);
+  EXPECT_EQ(false, s.insert(Enum(enum_type, 1)).second);
+  EXPECT_EQ(true, s.insert(Null(enum_type)).second);
+  EXPECT_EQ(false, s.insert(Null(enum_type)).second);
+
+  const ProtoType* proto_type = GetTestProtoType();
+  std::string bytes("xyz");
+  EXPECT_EQ(true, s.insert(Proto(proto_type, bytes)).second);
+  EXPECT_EQ(false, s.insert(Proto(proto_type, bytes)).second);
+  EXPECT_EQ(true, s.insert(Null(proto_type)).second);
+  EXPECT_EQ(false, s.insert(Null(proto_type)).second);
+
+  std::vector<Value> values = {Int64(1), Int64(2), Int64(1), NullInt64(),
+                               NullInt64()};
+  Value bag1 = InternalValue::ArrayChecked(MakeArrayType(Int64Type()),
+                                           InternalValue::kIgnoresOrder,
+                                           std::move(values));
+
+  values = {Int64(1), NullInt64(), Int64(1), NullInt64(), Int64(2)};
+  Value bag2 = InternalValue::ArrayChecked(MakeArrayType(Int64Type()),
+                                           InternalValue::kIgnoresOrder,
+                                           std::move(values));
+
+  values = {Int64(1), NullInt64(), Int64(1), NullInt64(), Int64(2)};
+  Value array1 = InternalValue::ArrayChecked(MakeArrayType(Int64Type()),
+                                             InternalValue::kPreservesOrder,
+                                             std::move(values));
+
+  values = {Int64(1), NullInt64(), Int64(1), NullInt64(), Int64(2)};
+  Value array2 = InternalValue::ArrayChecked(MakeArrayType(Int64Type()),
+                                             InternalValue::kPreservesOrder,
+                                             std::move(values));
+
+  EXPECT_EQ(true, s.insert(bag1).second);
+  EXPECT_EQ(false, s.insert(bag1).second);
+  EXPECT_EQ(true, s.insert(bag2).second);
+  EXPECT_EQ(false, s.insert(bag2).second);
+
+  EXPECT_EQ(false, s.insert(array1).second);
+  EXPECT_EQ(false, s.insert(array2).second);
+}
+
 TEST_F(ValueTest, TimestampBounds) {
   const time_t lower = static_cast<time_t>(types::kTimestampSecondsMin);
   const time_t upper = static_cast<time_t>(types::kTimestampSecondsMax);
@@ -1925,6 +2141,74 @@ TEST_F(ValueTest, ParseInteger) {
 }
 
 TEST_F(ValueTest, PhysicalByteSize) {
+  // Coverage messes with the object sizes, so skip it.
+  if (std::getenv("BAZEL_CC_COVERAGE_TOOL") != nullptr) return;
+
+  // Null values.
+  EXPECT_EQ(sizeof(Value), Value::NullBool().physical_byte_size());
+  EXPECT_EQ(sizeof(Value), Value::NullBytes().physical_byte_size());
+  EXPECT_EQ(sizeof(Value), Value::NullDate().physical_byte_size());
+  EXPECT_EQ(sizeof(Value), Value::NullDatetime().physical_byte_size());
+  EXPECT_EQ(sizeof(Value), Value::NullDouble().physical_byte_size());
+  EXPECT_EQ(sizeof(Value), Value::NullFloat().physical_byte_size());
+  EXPECT_EQ(sizeof(Value), Value::NullInt32().physical_byte_size());
+  EXPECT_EQ(sizeof(Value), Value::NullInt64().physical_byte_size());
+  EXPECT_EQ(sizeof(Value), Value::NullNumeric().physical_byte_size());
+  EXPECT_EQ(sizeof(Value), Value::NullString().physical_byte_size());
+  EXPECT_EQ(sizeof(Value), Value::NullTime().physical_byte_size());
+  EXPECT_EQ(sizeof(Value), Value::NullTimestamp().physical_byte_size());
+  EXPECT_EQ(sizeof(Value), Value::NullUint32().physical_byte_size());
+  EXPECT_EQ(sizeof(Value), Value::NullUint64().physical_byte_size());
+
+  // Constant sized types.
+  auto bool_value = Value::Bool(true);
+  auto date_value = Value::Date(1);
+  auto int_value = Value::Int32(1);
+  EXPECT_EQ(sizeof(Value), bool_value.physical_byte_size());
+  EXPECT_EQ(sizeof(Value), date_value.physical_byte_size());
+  EXPECT_EQ(sizeof(Value), Value::DatetimeFromPacked64Micros(0X1F7EA704E5181CD)
+                               .physical_byte_size());
+  EXPECT_EQ(sizeof(Value), Value::Double(1.0).physical_byte_size());
+  EXPECT_EQ(sizeof(Value),
+            Value::Enum(GetTestEnumType(), 0).physical_byte_size());
+  EXPECT_EQ(sizeof(Value), Value::Float(1.0).physical_byte_size());
+  EXPECT_EQ(sizeof(Value), int_value.physical_byte_size());
+  EXPECT_EQ(sizeof(Value), Value::Int64(1).physical_byte_size());
+  EXPECT_EQ(48, Value::Numeric(NumericValue::FromDouble(1.0).ValueOrDie())
+                    .physical_byte_size());
+  EXPECT_EQ(sizeof(Value),
+            Value::Time(TimeValue::FromPacked64Micros(0xD38F1E240LL))
+                .physical_byte_size());
+  EXPECT_EQ(sizeof(Value),
+            Value::TimestampFromUnixMicros(1).physical_byte_size());
+  EXPECT_EQ(sizeof(Value), Value::Uint32(1).physical_byte_size());
+  EXPECT_EQ(sizeof(Value), Value::Uint64(1).physical_byte_size());
+
+  // Variable sized types.
+  uint64_t empty_array_size = values::Int64Array({}).physical_byte_size();
+  EXPECT_EQ(sizeof(Value) + sizeof(Value::TypedList), empty_array_size);
+  EXPECT_EQ(empty_array_size + Value::Int64(1).physical_byte_size(),
+            values::Int64Array({1}).physical_byte_size());
+  EXPECT_EQ(empty_array_size + 3 * Value::Int64(1).physical_byte_size(),
+            values::Int64Array({1, 2, 3}).physical_byte_size());
+
+  EXPECT_EQ(sizeof(Value) + sizeof(Value::StringRef),
+            Value::Bytes("").physical_byte_size());
+  EXPECT_EQ(sizeof(Value) + sizeof(Value::StringRef) + 3 * sizeof(char),
+            Value::Bytes("abc").physical_byte_size());
+  // Strings should be consistent with bytes.
+  EXPECT_EQ(Value::Bytes("").physical_byte_size(),
+            Value::String("").physical_byte_size());
+  EXPECT_EQ(Value::Bytes("abc").physical_byte_size(),
+            Value::String("abc").physical_byte_size());
+
+  // Structs should be consistent with their contents.
+  EXPECT_EQ(sizeof(Value) + sizeof(Value::TypedList),
+            Struct({}, {}).physical_byte_size());
+  EXPECT_EQ(sizeof(Value) + sizeof(Value::TypedList) +
+                bool_value.physical_byte_size() +
+                date_value.physical_byte_size(),
+            Struct({"b", "d"}, {bool_value, date_value}).physical_byte_size());
 }
 
 // Roundtrips Value through ValueProto and back.

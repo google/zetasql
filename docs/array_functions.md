@@ -135,11 +135,8 @@ INT64
 **Examples**
 
 ```sql
-
 WITH items AS
-  (SELECT ["apples", "bananas", NULL, "grapes"] as list
-  UNION ALL
-  SELECT ["coffee", "tea", "milk" ] as list
+  (SELECT ["coffee", NULL, "milk" ] as list
   UNION ALL
   SELECT ["cake", "pie"] as list)
 
@@ -150,8 +147,7 @@ ORDER BY size DESC;
 +---------------------------------+------+
 | list                            | size |
 +---------------------------------+------+
-| [apples, bananas, NULL, grapes] | 4    |
-| [coffee, tea, milk]             | 3    |
+| [coffee, NULL, milk]            | 3    |
 | [cake, pie]                     | 2    |
 +---------------------------------+------+
 ```
@@ -178,11 +174,8 @@ and its preceding delimiter.
 **Examples**
 
 ```sql
-
 WITH items AS
-  (SELECT ["apples", "bananas", "pears", "grapes"] as list
-  UNION ALL
-  SELECT ["coffee", "tea", "milk" ] as list
+  (SELECT ["coffee", "tea", "milk" ] as list
   UNION ALL
   SELECT ["cake", "pie", NULL] as list)
 
@@ -192,15 +185,14 @@ FROM items;
 +--------------------------------+
 | text                           |
 +--------------------------------+
-| apples--bananas--pears--grapes |
 | coffee--tea--milk              |
 | cake--pie                      |
 +--------------------------------+
+```
 
+```sql
 WITH items AS
-  (SELECT ["apples", "bananas", "pears", "grapes"] as list
-  UNION ALL
-  SELECT ["coffee", "tea", "milk" ] as list
+  (SELECT ["coffee", "tea", "milk" ] as list
   UNION ALL
   SELECT ["cake", "pie", NULL] as list)
 
@@ -210,7 +202,6 @@ FROM items;
 +--------------------------------+
 | text                           |
 +--------------------------------+
-| apples--bananas--pears--grapes |
 | coffee--tea--milk              |
 | cake--pie--MISSING             |
 +--------------------------------+
@@ -460,14 +451,13 @@ SELECT GENERATE_DATE_ARRAY('2016-01-01',
 The following uses non-constant dates to generate an array.
 
 ```sql
-WITH StartsAndEnds AS (
+SELECT GENERATE_DATE_ARRAY(date_start, date_end, INTERVAL 1 WEEK) AS date_range
+FROM (
   SELECT DATE '2016-01-01' AS date_start, DATE '2016-01-31' AS date_end
   UNION ALL SELECT DATE "2016-04-01", DATE "2016-04-30"
   UNION ALL SELECT DATE "2016-07-01", DATE "2016-07-31"
   UNION ALL SELECT DATE "2016-10-01", DATE "2016-10-31"
-)
-SELECT GENERATE_DATE_ARRAY(date_start, date_end, INTERVAL 1 WEEK) AS date_range
-FROM StartsAndEnds;
+) AS items;
 
 +--------------------------------------------------------------+
 | date_range                                                   |
@@ -499,9 +489,13 @@ inputs:
 + `end_timestamp`: `TIMESTAMP`
 + `step_expression`: `INT64`
 + Allowed `date_part` values are
-   `MICROSECOND`,
+  
+  `MICROSECOND` or `NANOSECOND` (depends on what the SQL engine supports),
+  
    `MILLISECOND`,
-   `SECOND`, `MINUTE`, `HOUR`, or `DAY`.
+  
+   `SECOND`,
+  `MINUTE`, `HOUR`, or `DAY`.
 
 The `step_expression` parameter determines the increment used to generate
 timestamps.
@@ -650,7 +644,6 @@ Varies depending on the elements in the ARRAY.
 **Examples**
 
 ```sql
-
 WITH items AS
   (SELECT ["apples", "bananas", "pears", "grapes"] as list
   UNION ALL
@@ -724,7 +717,6 @@ Varies depending on the elements in the ARRAY.
 **Example**
 
 ```sql
-
 WITH items AS
   (SELECT ["apples", "bananas", "pears", "grapes"] as list
   UNION ALL

@@ -81,8 +81,6 @@ class TableNameResolver {
   zetasql_base::Status FindInStatement(const ASTStatement* statement,
                                const AliasSet& visible_aliases);
 
-  zetasql_base::Status FindInStatementList(const ASTStatementListBase* statement_list);
-
   // Consumes either an ASTScript, ASTStatementList, or ASTScriptStatement.
   zetasql_base::Status FindInScriptNode(const ASTNode* node);
 
@@ -565,13 +563,19 @@ zetasql_base::Status TableNameResolver::FindInStatement(
         return ::zetasql_base::OkStatus();
       }
       break;
-    case AST_ALTER_ROW_POLICY_STATEMENT:
+    case AST_ALTER_ROW_ACCESS_POLICY_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
-              RESOLVED_ALTER_ROW_POLICY_STMT)) {
-        const ASTAlterRowPolicyStatement* stmt =
-            statement->GetAs<ASTAlterRowPolicyStatement>();
+              RESOLVED_ALTER_ROW_ACCESS_POLICY_STMT)) {
+        const ASTAlterRowAccessPolicyStatement* stmt =
+            statement->GetAs<ASTAlterRowAccessPolicyStatement>();
         zetasql_base::InsertIfNotPresent(table_names_,
-                                stmt->target_path()->ToIdentifierVector());
+                                stmt->path()->ToIdentifierVector());
+        return ::zetasql_base::OkStatus();
+      }
+      break;
+    case AST_ALTER_DATABASE_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_ALTER_DATABASE_STMT)) {
         return ::zetasql_base::OkStatus();
       }
       break;
@@ -731,8 +735,8 @@ zetasql_base::Status TableNameResolver::FindInUpdateStatement(
   if (!zetasql_base::ContainsKey(visible_aliases, absl::AsciiStrToLower(path[0]))) {
     zetasql_base::InsertIfNotPresent(table_names_, path);
     const std::string alias = statement->alias() == nullptr
-                             ? path.back()
-                             : statement->alias()->GetAsString();
+                                  ? path.back()
+                                  : statement->alias()->GetAsString();
     zetasql_base::InsertIfNotPresent(&visible_aliases, absl::AsciiStrToLower(alias));
   }
 

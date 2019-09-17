@@ -81,7 +81,8 @@ def _genlex_impl(ctx):
             "M4": ctx.executable._m4.path,
         },
         arguments = [args],
-        inputs = [ctx.executable._m4] + ctx.files.src + ctx.files.includes,
+        inputs = ctx.files.src + ctx.files.includes,
+        tools = [ctx.executable._m4],
         outputs = [ctx.outputs.out],
         mnemonic = "Flex",
         progress_message = "Generating %s from %s" % (

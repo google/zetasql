@@ -92,7 +92,7 @@ zetasql_base::Status Validator::ValidateResolvedParameter(
   const bool has_name = !resolved_param->name().empty();
   const bool has_position = resolved_param->position() > 0;
   if (has_name == has_position) {
-    return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::InternalErrorBuilder()
            << "Parameter is expected to have a name or a position but not "
               "both: "
            << resolved_param->DebugString();
@@ -104,7 +104,7 @@ zetasql_base::Status Validator::CheckColumnIsPresentInColumnSet(
     const ResolvedColumn& column,
     const std::set<ResolvedColumn>& visible_columns) const {
   if (!zetasql_base::ContainsKey(visible_columns, column)) {
-    return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::InternalErrorBuilder()
            << "Incorrect reference to column " << column.DebugString();
   }
   return ::zetasql_base::OkStatus();
@@ -116,7 +116,7 @@ zetasql_base::Status Validator::CheckColumnList(
   ZETASQL_RET_CHECK(nullptr != scan);
   for (const ResolvedColumn& column : scan->column_list()) {
     if (!zetasql_base::ContainsKey(visible_columns, column)) {
-      return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InternalErrorBuilder()
              << "Column list contains column " << column.DebugString()
              << " not visible in scan node\n"
              << scan->DebugString();
@@ -231,7 +231,7 @@ zetasql_base::Status Validator::ValidateStandaloneResolvedExpr(
       // where the validator uses more stack than parsing/analysis (b/65294961).
       return status;
     }
-    return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::InternalErrorBuilder()
            << "Resolved AST validation failed: " << status.message() << "\n"
            << expr->DebugString();
   }
@@ -251,6 +251,7 @@ zetasql_base::Status Validator::ValidateResolvedExpr(
     case RESOLVED_LITERAL:
     case RESOLVED_EXPRESSION_COLUMN:
     case RESOLVED_DMLDEFAULT:
+    case RESOLVED_SYSTEM_VARIABLE:
       // No validation required.
       break;
     case RESOLVED_PARAMETER:
@@ -358,7 +359,7 @@ zetasql_base::Status Validator::ValidateResolvedExpr(
                                        expr->GetAs<ResolvedReplaceField>()));
       break;
     default:
-      return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InternalErrorBuilder()
              << "Unhandled node kind: " << expr->node_kind_string()
              << " in ValidateResolvedExpr";
   }
@@ -536,7 +537,7 @@ zetasql_base::Status Validator::ValidateResolvedComputedColumn(
   if (computed_column->expr()->node_kind() == RESOLVED_COLUMN_REF &&
       computed_column->column() ==
         computed_column->expr()->GetAs<ResolvedColumnRef>()->column()) {
-    return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::InternalErrorBuilder()
            << "ResolvedComputedColumn expression cannot reference itself: "
            << computed_column->DebugString();
   }
@@ -582,13 +583,13 @@ zetasql_base::Status Validator::ValidateResolvedOutputColumnList(
   }
   if (is_value_table) {
     if (output_column_list.size() != 1) {
-      return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InternalErrorBuilder()
              << "Statement producing a value table must produce exactly one "
                 "column; this one has "
              << output_column_list.size();
     }
     if (!IsInternalAlias(output_column_list[0]->name())) {
-      return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InternalErrorBuilder()
              << "Statement producing a value table must produce an anonymous "
                 "column; this one has name "
              << ToIdentifierLiteral(output_column_list[0]->name());
@@ -765,7 +766,7 @@ zetasql_base::Status Validator::ValidateResolvedAggregateComputedColumn(
   const std::string& function_name = aggregate_function->Name();
   if (!aggregate_function->SupportsOrderingArguments() &&
       !aggregate_function_call->order_by_item_list().empty()) {
-    return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::InternalErrorBuilder()
            << "Aggregate function " << function_name
            << " does not support ordering arguments,"
            << " but has an ORDER BY clause:\n"
@@ -773,7 +774,7 @@ zetasql_base::Status Validator::ValidateResolvedAggregateComputedColumn(
   }
   if (!aggregate_function->SupportsLimitArguments() &&
       aggregate_function_call->limit() != nullptr) {
-    return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::InternalErrorBuilder()
            << "Aggregate function " << function_name
            << " does not support limiting arguments,"
            << " but has a LIMIT clause:\n"
@@ -902,7 +903,7 @@ static zetasql_base::Status ValidatePercentArgument(const ResolvedExpr* expr) {
                   value.double_value() >= 0.0 && value.double_value() <= 100.0);
     }
     if (!is_valid) {
-      return ::zetasql_base::UnknownErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::UnknownErrorBuilder()
              << "PERCENT argument value must be in the range [0, 100]";
     }
   }
@@ -993,7 +994,7 @@ zetasql_base::Status Validator::ValidateResolvedAnalyticFunctionGroup(
     const Function* analytic_function = analytic_function_call->function();
     const std::string function_name = analytic_function->Name();
     if (!analytic_function->SupportsOverClause()) {
-      return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InternalErrorBuilder()
              << "Function " << function_name
              << " cannot be used in an analytic function call, since it does "
                 "not"
@@ -1001,19 +1002,19 @@ zetasql_base::Status Validator::ValidateResolvedAnalyticFunctionGroup(
     }
     if (analytic_function_call->distinct()) {
       if (!analytic_function_call->function()->IsAggregate()) {
-        return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+        return ::zetasql_base::InternalErrorBuilder()
                << "Cannot specify DISTINCT for a non-aggregate analytic "
                   "function:\n"
                << analytic_function_call->DebugString();
       }
       if (analytic_function_call->argument_list_size() == 0) {
-        return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+        return ::zetasql_base::InternalErrorBuilder()
                << "DISTINCT function call " << function_name
                << " does not have an argument:\n"
                << analytic_function_call->DebugString();
       }
       if (group->order_by() != nullptr) {
-        return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+        return ::zetasql_base::InternalErrorBuilder()
                << "Cannot specify a window ORDER BY clause in a DISTINCT "
                   "analytic "
                   "function call:\n"
@@ -1026,7 +1027,7 @@ zetasql_base::Status Validator::ValidateResolvedAnalyticFunctionGroup(
                 ResolvedWindowFrameExpr::UNBOUNDED_PRECEDING ||
             window_frame->end_expr()->boundary_type() !=
                 ResolvedWindowFrameExpr::UNBOUNDED_FOLLOWING) {
-          return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+          return ::zetasql_base::InternalErrorBuilder()
                  << "The window frame for a DISTINCT analytic function call "
                     "must "
                     "be UNBOUNDED PRECEDING to UNBOUNDED FOLLOWING:\n"
@@ -1037,21 +1038,21 @@ zetasql_base::Status Validator::ValidateResolvedAnalyticFunctionGroup(
 
     if (!analytic_function->SupportsWindowFraming() &&
         analytic_function_call->window_frame() != nullptr) {
-      return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InternalErrorBuilder()
              << "Analytic function " << function_name
              << " does not support framing, but has a window framing clause:\n"
              << analytic_function_call->DebugString();
     }
     if (analytic_function->RequiresWindowOrdering() &&
         group->order_by() == nullptr) {
-      return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InternalErrorBuilder()
              << "Analytic function " << function_name
              << " must have a window ORDER BY clause:\n"
              << group->DebugString();
     }
     if (!analytic_function->SupportsWindowOrdering() &&
         group->order_by() != nullptr) {
-      return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InternalErrorBuilder()
              << "Analytic function " << function_name
              << " does not support a window ORDER BY clause:\n"
              << analytic_function_call->DebugString();
@@ -1070,7 +1071,7 @@ zetasql_base::Status Validator::ValidateResolvedAnalyticFunctionGroup(
       std::string no_partitioning_type;
       if (!column_ref->type()->SupportsPartitioning(language_options_,
                                                     &no_partitioning_type)) {
-        return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+        return ::zetasql_base::InternalErrorBuilder()
                << "Type of PARTITIONING expressions " << no_partitioning_type
                << " does not support partitioning:\n"
                << column_ref->DebugString();
@@ -1084,7 +1085,7 @@ zetasql_base::Status Validator::ValidateResolvedAnalyticFunctionGroup(
     for (const auto& order_by_item : group->order_by()->order_by_item_list()) {
       if (!order_by_item->column_ref()->type()->SupportsOrdering(
               language_options_, /*type_description=*/nullptr)) {
-        return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+        return ::zetasql_base::InternalErrorBuilder()
                << "Type of ORDERING expressions "
                << order_by_item->column_ref()->type()->DebugString()
                << " does not support ordering:\n"
@@ -1127,8 +1128,7 @@ zetasql_base::Status Validator::ValidateResolvedWindowFrame(
                                       window_frame->end_expr()));
 
   if (IsEmptyWindowFrame(*window_frame)) {
-    return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
-           << "Window frame must be non-empty";
+    return ::zetasql_base::InternalErrorBuilder() << "Window frame must be non-empty";
   }
 
   return ::zetasql_base::OkStatus();
@@ -1145,7 +1145,7 @@ zetasql_base::Status Validator::ValidateResolvedWindowFrameExpr(
     case ResolvedWindowFrameExpr::CURRENT_ROW:
     case ResolvedWindowFrameExpr::UNBOUNDED_FOLLOWING:
       if (window_frame_expr->expression() != nullptr) {
-        return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+        return ::zetasql_base::InternalErrorBuilder()
                << "Window frame boundary of type "
                << window_frame_expr->GetBoundaryTypeString()
                << " cannot have an offset expression:\n"
@@ -1155,7 +1155,7 @@ zetasql_base::Status Validator::ValidateResolvedWindowFrameExpr(
     case ResolvedWindowFrameExpr::OFFSET_PRECEDING:
     case ResolvedWindowFrameExpr::OFFSET_FOLLOWING: {
       if (window_frame_expr->expression() == nullptr) {
-        return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+        return ::zetasql_base::InternalErrorBuilder()
                << "Window frame boundary of type "
                << window_frame_expr->GetBoundaryTypeString()
                << " must specify an offset expression:\n"
@@ -1169,7 +1169,7 @@ zetasql_base::Status Validator::ValidateResolvedWindowFrameExpr(
       if (frame_unit == ResolvedWindowFrame::RANGE) {
         if (window_ordering == nullptr ||
             window_ordering->order_by_item_list_size() != 1) {
-          return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+          return ::zetasql_base::InternalErrorBuilder()
                  << "Must have exactly one ordering key for a RANGE-based "
                     "window"
                  << " with an offset boundary:\n"
@@ -1183,7 +1183,7 @@ zetasql_base::Status Validator::ValidateResolvedWindowFrameExpr(
       break;
     }
     default:
-      return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InternalErrorBuilder()
              << "Unhandled window boundary type:\n"
              << window_frame_expr->GetBoundaryTypeString();
   }
@@ -1197,7 +1197,7 @@ zetasql_base::Status Validator::ValidateResolvedWindowFrameExprType(
   switch (frame_unit) {
     case ResolvedWindowFrame::ROWS:
       if (!window_frame_expr.type()->IsInt64()) {
-        return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+        return ::zetasql_base::InternalErrorBuilder()
                << "ROWS-based window boundary expression must be INT64 type, "
                   "but "
                   "has type "
@@ -1208,14 +1208,14 @@ zetasql_base::Status Validator::ValidateResolvedWindowFrameExprType(
     case ResolvedWindowFrame::RANGE:
       ZETASQL_RET_CHECK(window_ordering_expr != nullptr);
       if (!window_ordering_expr->type()->IsNumerical()) {
-        return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+        return ::zetasql_base::InternalErrorBuilder()
                << "Ordering expression must be numeric type in a RANGE-based "
                   "window, but has type "
                << window_ordering_expr->type()->DebugString() << ":\n"
                << window_ordering_expr->DebugString();
       }
       if (!window_ordering_expr->type()->Equals(window_frame_expr.type())) {
-        return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+        return ::zetasql_base::InternalErrorBuilder()
                << "RANGE-based window boundary expression has a different type "
                   "with the ordering expression ("
                << window_frame_expr.type()->DebugString() << " vs. "
@@ -1586,9 +1586,9 @@ zetasql_base::Status Validator::ValidateResolvedStatement(
       status = ValidateResolvedTruncateStmt(
           statement->GetAs<ResolvedTruncateStmt>());
       break;
-    case RESOLVED_ALTER_ROW_POLICY_STMT:
-      status = ValidateResolvedAlterRowPolicyStmt(
-          statement->GetAs<ResolvedAlterRowPolicyStmt>());
+    case RESOLVED_ALTER_ROW_ACCESS_POLICY_STMT:
+      status = ValidateResolvedAlterRowAccessPolicyStmt(
+          statement->GetAs<ResolvedAlterRowAccessPolicyStmt>());
       break;
     case RESOLVED_ALTER_MATERIALIZED_VIEW_STMT:
       status = ValidateResolvedAlterObjectStmt(
@@ -1597,6 +1597,10 @@ zetasql_base::Status Validator::ValidateResolvedStatement(
     case RESOLVED_ALTER_TABLE_SET_OPTIONS_STMT:
       status = ValidateResolvedAlterTableSetOptionsStmt(
           statement->GetAs<ResolvedAlterTableSetOptionsStmt>());
+      break;
+    case RESOLVED_ALTER_DATABASE_STMT:
+      status = ValidateResolvedAlterObjectStmt(
+          statement->GetAs<ResolvedAlterDatabaseStmt>());
       break;
     case RESOLVED_ALTER_TABLE_STMT:
       status = ValidateResolvedAlterObjectStmt(
@@ -1637,7 +1641,7 @@ zetasql_base::Status Validator::ValidateResolvedStatement(
       // where the validator uses more stack than parsing/analysis (b/65294961).
       return status;
     }
-    return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::InternalErrorBuilder()
            << "Resolved AST validation failed: " << status.message() << "\n"
            << statement->DebugString();
   }
@@ -1701,7 +1705,7 @@ zetasql_base::Status Validator::ValidateResolvedCreateTableStmtBase(
   for (const auto& column_definition : stmt->column_definition_list()) {
     if (!zetasql_base::InsertIfNotPresent(&visible_columns,
                                  column_definition->column())) {
-      return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InternalErrorBuilder()
              << "Column already used: "
              << column_definition->column().DebugString();
     }
@@ -1720,7 +1724,7 @@ zetasql_base::Status Validator::ValidateResolvedCreateTableStmtBase(
   }
   for (const auto& pseudo_column : stmt->pseudo_column_list()) {
     if (!zetasql_base::InsertIfNotPresent(&visible_columns, pseudo_column)) {
-      return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InternalErrorBuilder()
              << "Column already used: " << pseudo_column.DebugString();
     }
   }
@@ -1728,12 +1732,12 @@ zetasql_base::Status Validator::ValidateResolvedCreateTableStmtBase(
     std::set<int> column_indexes;
     for (const int i : stmt->primary_key()->column_offset_list()) {
       if (i >= stmt->column_definition_list().size()) {
-        return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
-            << "Invalid column index " << i << " in PRIMARY KEY";
+        return ::zetasql_base::InternalErrorBuilder()
+               << "Invalid column index " << i << " in PRIMARY KEY";
       }
       if (zetasql_base::ContainsKey(column_indexes, i)) {
-        return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
-            << "Duplicate column index " << i << " in PRIMARY KEY";
+        return ::zetasql_base::InternalErrorBuilder()
+               << "Duplicate column index " << i << " in PRIMARY KEY";
       }
       column_indexes.insert(i);
     }
@@ -1854,12 +1858,11 @@ zetasql_base::Status Validator::ValidateResolvedCreateTableAsSelectStmt(
       stmt->is_value_table()));
   const int num_columns = stmt->column_definition_list_size();
   if (num_columns != stmt->output_column_list_size()) {
-    return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
-        << "Inconsistent length between column definition list ("
-        << stmt->column_definition_list_size()
-        << ") and output column list ("
-        << stmt->output_column_list_size()
-        << ")";
+    return ::zetasql_base::InternalErrorBuilder()
+           << "Inconsistent length between column definition list ("
+           << stmt->column_definition_list_size()
+           << ") and output column list (" << stmt->output_column_list_size()
+           << ")";
   }
   for (int i = 0; i < num_columns; ++i) {
     const ResolvedOutputColumn* output_column = stmt->output_column_list(i);
@@ -1868,19 +1871,19 @@ zetasql_base::Status Validator::ValidateResolvedCreateTableAsSelectStmt(
     const std::string& output_column_name = output_column->name();
     const std::string& column_def_name = column_def->name();
     if (output_column_name != column_def_name) {
-      return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
-          << "Output column name '" << output_column_name
-          << "' is different from column definition name '"
-          << column_def_name << "' for column " << (i + 1);
+      return ::zetasql_base::InternalErrorBuilder()
+             << "Output column name '" << output_column_name
+             << "' is different from column definition name '"
+             << column_def_name << "' for column " << (i + 1);
     }
     const Type* output_type = output_column->column().type();
     const Type* defined_type = column_def->type();
     if (!output_type->Equals(defined_type)) {
-      return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
-          << "Output column type " << output_type->DebugString()
-          << " is different from column definition type "
-          << defined_type->DebugString() << " for column " << (i + 1)
-          << " (" << column_def_name << ")";
+      return ::zetasql_base::InternalErrorBuilder()
+             << "Output column type " << output_type->DebugString()
+             << " is different from column definition type "
+             << defined_type->DebugString() << " for column " << (i + 1) << " ("
+             << column_def_name << ")";
     }
   }
   return ValidateResolvedCreateTableStmtBase(stmt);
@@ -2319,7 +2322,7 @@ zetasql_base::Status Validator::ValidateResolvedScan(
           scan->GetAs<ResolvedRelationArgumentScan>(), visible_parameters));
       break;
     default:
-      return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InternalErrorBuilder()
              << "Unhandled node kind: " << scan->node_kind_string()
              << " in ValidateResolvedScan";
   }
@@ -2358,7 +2361,7 @@ zetasql_base::Status Validator::ValidateResolvedScanOrdering(
 
     // For all other scan types, is_ordered is not allowed.
     default:
-      return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InternalErrorBuilder()
              << "Node kind: " << scan->node_kind_string()
              << " cannot have is_ordered=true:\n"
              << scan->DebugString();
@@ -2366,7 +2369,7 @@ zetasql_base::Status Validator::ValidateResolvedScanOrdering(
 
   ZETASQL_RET_CHECK(input_scan != nullptr);
   if (!input_scan->is_ordered()) {
-    return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::InternalErrorBuilder()
            << "Node has is_ordered=true but its input does not:\n"
            << scan->DebugString();
   }
@@ -2864,37 +2867,21 @@ zetasql_base::Status Validator::ValidateResolvedAlterTableSetOptionsStmt(
   return ::zetasql_base::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedAlterRowPolicyStmt(
-    const ResolvedAlterRowPolicyStmt* stmt) const {
+zetasql_base::Status Validator::ValidateResolvedAlterRowAccessPolicyStmt(
+    const ResolvedAlterRowAccessPolicyStmt* stmt) const {
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedAlterObjectStmt(stmt));
 
   ZETASQL_RET_CHECK(!stmt->name().empty());
-
-  bool has_new_name = !stmt->new_name().empty();
-
   ZETASQL_RET_CHECK(stmt->table_scan() != nullptr);
+  // Check that the last element of the name path, which should be the table
+  // name, matches the table scan name.
+  ZETASQL_RET_CHECK(zetasql_base::StringCaseEqual(stmt->name_path().back(),
+                            stmt->table_scan()->table()->Name()));
   std::set<ResolvedColumn> visible_columns;
   ZETASQL_RETURN_IF_ERROR(
       AddColumnList(stmt->table_scan()->column_list(), &visible_columns));
 
-  bool has_grantee_list = stmt->grantee_list_size() > 0 ||
-                          stmt->grantee_expr_list_size() > 0;
-
-  const ResolvedExpr* predicate = stmt->predicate();
-  bool has_predicate = predicate != nullptr;
-  if (has_predicate) {
-    ZETASQL_RET_CHECK(predicate->type()->IsBool())
-        << "AlterRowPolicyStmt has predicate with non-BOOL type: "
-        << predicate->type()->DebugString();
-    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
-        visible_columns, {}  /* visible_parameters */, predicate));
-  }
-
-  if (has_new_name || has_grantee_list || has_predicate) {
-    return ::zetasql_base::OkStatus();
-  }
-
-  return MakeSqlError() << "ALTER ROW POLICY must at least have one of the "
-                           "RENAME, TO or USING clause.";
+  return zetasql_base::OkStatus();
 }
 
 zetasql_base::Status Validator::ValidateResolvedRenameStmt(
@@ -3074,8 +3061,31 @@ zetasql_base::Status Validator::ValidateResolvedAlterAction(
     case RESOLVED_DROP_COLUMN_ACTION:
       ZETASQL_RET_CHECK(!action->GetAs<ResolvedDropColumnAction>()->name().empty());
       break;
+    case RESOLVED_GRANT_TO_ACTION:
+      ZETASQL_RET_CHECK(
+          action->GetAs<ResolvedGrantToAction>()->grantee_expr_list_size() > 0);
+      break;
+    case RESOLVED_FILTER_USING_ACTION: {
+      auto* filter_using = action->GetAs<ResolvedFilterUsingAction>();
+      ZETASQL_RET_CHECK(filter_using->predicate() != nullptr);
+      ZETASQL_RET_CHECK(filter_using->predicate()->type()->IsBool())
+          << "FilterUsing AlterRowAccessPolicy action has predicate with "
+             "non-BOOL type: "
+          << filter_using->predicate()->type()->DebugString();
+    } break;
+    case RESOLVED_REVOKE_FROM_ACTION: {
+      auto* revoke_from = action->GetAs<ResolvedRevokeFromAction>();
+      if (revoke_from->is_revoke_from_all()) {
+        ZETASQL_RET_CHECK(revoke_from->revokee_expr_list().empty());
+      } else {
+        ZETASQL_RET_CHECK(!revoke_from->revokee_expr_list().empty());
+      }
+    } break;
+    case RESOLVED_RENAME_TO_ACTION:
+      ZETASQL_RET_CHECK(!action->GetAs<ResolvedRenameToAction>()->new_name().empty());
+      break;
     default:
-      return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InternalErrorBuilder()
              << "Unhandled node kind: " << action->node_kind_string()
              << " in ValidateResolvedAlterAction";
   }

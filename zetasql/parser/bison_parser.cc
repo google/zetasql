@@ -185,9 +185,10 @@ static zetasql_base::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
     // tokens externally.
     if (expectation == "\".*\"") {
       expectation = "\".\"";
-    }
-    if (expectation == "\"@{\"") {
+    } else if (expectation == "\"@{\"") {
       expectation = "\"@\"";
+    } else if (expectation == "@@") {
+      expectation = "\"@@\"";
     }
     // If it looks like an uppercased keyword, say it's a keyword. All other
     // things such as std::string literals are described in lower case in the Bison
@@ -198,7 +199,8 @@ static zetasql_base::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
     }
   }
   // Deduplicate expectations. Transformations may have introduced duplicates.
-  std::set<std::string> expectations_set(expectations.begin(), expectations.end());
+  std::set<std::string> expectations_set(expectations.begin(),
+                                         expectations.end());
 
   // Remove an expectation that is sure to raise question marks with most users.
   // Positional parameters ("?") are only there for some specific client
@@ -247,7 +249,8 @@ static zetasql_base::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
                  zetasql_bison_parser::BisonParserImpl::token::KW_OVER) {
         // When the OVER keyword is used in the wrong place, we tell the user
         // exactly where it can be used.
-        return std::string("Syntax error: OVER keyword must follow a function call");
+        return std::string(
+            "Syntax error: OVER keyword must follow a function call");
       } else if (const KeywordInfo* keyword_info =
                      GetKeywordInfoForBisonToken(token)) {
         actual_token_description =
@@ -297,6 +300,9 @@ static zetasql_base::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
         // This is a single token for "@{", but we want to expose this as "@"
         // externally.
         actual_token_description = "\"@\"";
+      } else if (token ==
+                 zetasql_bison_parser::BisonParserImpl::token::KW_DOUBLE_AT) {
+        actual_token_description = "\"@@\"";
       } else if (token ==
                  zetasql_bison_parser::BisonParserImpl::token::KW_DOT_STAR) {
         // This is a single token for ".*", but we want to expose this as "."

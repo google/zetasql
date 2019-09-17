@@ -29,7 +29,7 @@ You can combine arrays using functions like
 You can build an array literal in ZetaSQL using brackets (`[` and
 `]`). Each element in an array is separated by a comma.
 
-```
+```sql
 SELECT [1, 2, 3] as numbers;
 
 SELECT ["apple", "pear", "orange"] as fruit;
@@ -40,7 +40,7 @@ SELECT [true, false, true] as booleans;
 You can also create arrays from any expressions that have compatible types. For
 example:
 
-```
+```sql
 SELECT [a, b, c]
 FROM
   (SELECT 5 AS a,
@@ -62,14 +62,14 @@ declares a literal. This expression works because all three expressions share
 To declare a specific data type for an array, use angle
 brackets (`<` and `>`). For example:
 
-```
+```sql
 SELECT ARRAY<DOUBLE>[1, 2, 3] as floats;
 ```
 
 Arrays of most data types, such as `INT64` or `STRING`, don't require
 that you declare them first.
 
-```
+```sql
 SELECT [1, 2, 3] as numbers;
 ```
 
@@ -89,7 +89,7 @@ generates an array of values from a starting and ending value and a step value.
 For example, the following query generates an array that contains all of the odd
 integers from 11 to 33, inclusive:
 
-```
+```sql
 SELECT GENERATE_ARRAY(11, 33, 2) AS odds;
 
 +--------------------------------------------------+
@@ -102,7 +102,7 @@ SELECT GENERATE_ARRAY(11, 33, 2) AS odds;
 You can also generate an array of values in descending order by giving a
 negative step value:
 
-```
+```sql
 SELECT GENERATE_ARRAY(21, 14, -1) AS countdown;
 
 +----------------------------------+
@@ -122,10 +122,11 @@ You can generate a set of `DATE` values using `GENERATE_DATE_ARRAY`. For
 example, this query returns the current `DATE` and the following
 `DATE`s at 1 `WEEK` intervals up to and including a later `DATE`:
 
-```
+```sql
 SELECT
   GENERATE_DATE_ARRAY('2017-11-21', '2017-12-31', INTERVAL 1 WEEK)
     AS date_array;
+
 +--------------------------------------------------------------------------+
 | date_array                                                               |
 +--------------------------------------------------------------------------+
@@ -143,7 +144,7 @@ is valid; casting from type `ARRAY<INT32>` to `ARRAY<BYTES>` is not valid.
 
 **Example**
 
-```
+```sql
 SELECT CAST(int_array AS ARRAY<DOUBLE>) AS double_array
 FROM (SELECT ARRAY<INT32>[1, 2, 3] AS int_array);
 
@@ -158,7 +159,7 @@ FROM (SELECT ARRAY<INT32>[1, 2, 3] AS int_array);
 
 Consider the following table, `sequences`:
 
-```
+```sql
 +---------------------+
 | some_numbers        |
 +---------------------+
@@ -176,7 +177,7 @@ for zero-based indexes, or
 [`ORDINAL`](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#offset-and-ordinal),
 for one-based indexes.
 
-```
+```sql
 WITH sequences AS
   (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
@@ -197,19 +198,18 @@ FROM sequences;
 
 You can use this DML statement to insert the example data:
 
-```
+```sql
 INSERT sequences
   (some_numbers, id)
 VALUES
   ([0, 1, 1, 2, 3, 5], 1),
   ([2, 4, 8, 16, 32], 2),
   ([5, 10], 3);
-
 ```
 
 This query shows how to use `OFFSET()` and `ORDINAL()`:
 
-```
+```sql
 SELECT some_numbers,
        some_numbers[OFFSET(1)] AS offset_1,
        some_numbers[ORDINAL(1)] AS ordinal_1
@@ -230,7 +230,7 @@ FROM sequences;
 
 The `ARRAY_LENGTH()` function returns the length of an array.
 
-```
+```sql
 WITH sequences AS
   (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
@@ -251,7 +251,7 @@ FROM sequences;
 Here's an example query, assuming the same definition of the `sequences` table
 as above, with the same sample rows:
 
-```
+```sql
 SELECT some_numbers,
        ARRAY_LENGTH(some_numbers) AS len
 FROM sequences;
@@ -281,7 +281,7 @@ then use the `ORDER BY` clause to order the rows by their offset.
 
 **Example**
 
-```
+```sql
 SELECT *
 FROM UNNEST(['foo', 'bar', 'baz', 'qux', 'corge', 'garply', 'waldo', 'fred'])
   AS element
@@ -322,7 +322,7 @@ to return a row for each element in the array column. Because of the
 `CROSS JOIN`, the `id` column contains the `id` values for the row in
 `sequences` that contains each number.
 
-```
+```sql
 WITH sequences AS
   (SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
@@ -364,7 +364,7 @@ of `PROTO` values. ZetaSQL treats repeated `PROTO` fields as
 The following example uses `UNNEST` with `CROSS JOIN` to flatten an `ARRAY` of
 `STRUCT`s.
 
-```
+```sql
 WITH races AS (
   SELECT "800M" AS race,
     [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits),
@@ -396,7 +396,7 @@ CROSS JOIN UNNEST(r.participants) as participant;
 +------+---------------------------------------+
 ```
 
-```
+```sql
 SELECT race,
        participant.name,
        participant.splits
@@ -443,7 +443,7 @@ represent a common way to get information from a repeated field.</p>
 
 **Example**
 
-```
+```sql
 WITH races AS (
   SELECT "800M" AS race,
     [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits),
@@ -472,7 +472,7 @@ FROM races;
 +------+---------------+
 ```
 
-```
+```sql
 SELECT race,
        (SELECT name
         FROM UNNEST(participants)
@@ -511,7 +511,7 @@ The following query shows the contents of a table where one row contains an
 `ARRAY` of `PROTO`s. All of the `PROTO` field values in the `ARRAY` appear in a
 single row.
 
-```
+```sql
 WITH table AS (
   SELECT
     'Let It Be' AS album_name,
@@ -559,7 +559,7 @@ joins the duplicated value of `table.album_name` to the `chart` table. This
 allows the query to include the `table.album_name` column in the `SELECT` list
 together with the `PROTO` fields `chart.chart_name` and `chart.rank`.
 
-```
+```sql
 WITH table AS (
   SELECT
     'Let It Be' AS album_name,
@@ -598,7 +598,7 @@ CROSS JOIN UNNEST(charts) AS chart;
 You can also get information from nested repeated fields. For example, the
 following statement returns the runner who had the fastest lap in an 800M race.
 
-```
+```sql
 WITH races AS (
  SELECT "800M" AS race,
    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits),
@@ -625,7 +625,7 @@ FROM races;
 +------+-------------------------+
 ```
 
-```
+```sql
 SELECT race,
        (SELECT name
         FROM UNNEST(participants),
@@ -655,7 +655,7 @@ Notice that the preceding query uses the comma operator (`,`) to perform an
 implicit `CROSS JOIN`. It is equivalent to the following example, which uses
 an explicit `CROSS JOIN`.
 
-```
+```sql
 WITH races AS (
  SELECT "800M" AS race,
    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits),
@@ -682,7 +682,7 @@ FROM races;
 +------+-------------------------+
 ```
 
-```
+```sql
 SELECT race,
        (SELECT name
         FROM UNNEST(participants)
@@ -711,7 +711,7 @@ FROM
 Note that flattening arrays with a `CROSS JOIN` excludes rows that have empty
 or NULL arrays. If you want to include these rows, use a `LEFT JOIN`.
 
-```
+```sql
 WITH races AS (
  SELECT "800M" AS race,
    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits),
@@ -746,7 +746,7 @@ GROUP BY name;
 +-------------+--------------------+
 ```
 
-```
+```sql
 SELECT
   name, sum(duration) as duration
 FROM
@@ -790,7 +790,7 @@ alias `album` and the repeated field `song`. All values of `song` for each
 
 **Example**
 
-```
+```sql
 WITH table AS (
   SELECT
     'The Beatles' AS band_name,
@@ -836,7 +836,7 @@ the `UNNEST` operator to each row and joins the output of `UNNEST` to the
 duplicated value of the column `band_name` and the non-repeated field
 `album_name`.
 
-```
+```sql
 WITH table AS (
   SELECT
     'The Beatles' AS band_name,
@@ -877,7 +877,7 @@ array. In ZetaSQL, you can accomplish this using the
 
 For example, consider the following operation on the `sequences` table:
 
-```
+```sql
 WITH sequences AS
   (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
   UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
@@ -896,7 +896,7 @@ FROM sequences;
 +--------------------+---------------------+
 ```
 
-```
+```sql
 SELECT some_numbers,
   ARRAY(SELECT x * 2
         FROM UNNEST(some_numbers) AS x) AS doubled
@@ -929,7 +929,7 @@ to filter the returned rows.
 <p class='note'><b>Note:</b> In the following examples, the resulting rows are
 not ordered.</p>
 
-```
+```sql
 WITH sequences AS
   (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
@@ -949,7 +949,7 @@ FROM sequences;
 +------------------------+
 ```
 
-```
+```sql
 SELECT
   ARRAY(SELECT x * 2
         FROM UNNEST(some_numbers) AS x
@@ -974,7 +974,7 @@ corresponding original row (`[5, 10]`) did not meet the filter requirement of
 You can also filter arrays by using `SELECT DISTINCT` to return only
 unique elements within an array.
 
-```
+```sql
 WITH sequences AS
   (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers)
 SELECT ARRAY(SELECT DISTINCT x
@@ -988,7 +988,7 @@ FROM sequences;
 +-----------------+
 ```
 
-```
+```sql
 SELECT ARRAY(SELECT DISTINCT x
              FROM UNNEST(some_numbers) AS x) AS unique_numbers
 FROM sequences
@@ -1006,7 +1006,7 @@ You can also filter rows of arrays by using the
 keyword filters rows containing arrays by determining if a specific
 value matches an element in the array.
 
-```
+```sql
 WITH sequences AS
   (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
@@ -1026,7 +1026,7 @@ FROM sequences;
 +--------------------+
 ```
 
-```
+```sql
 SELECT
    ARRAY(SELECT x
          FROM UNNEST(some_numbers) AS x
@@ -1062,7 +1062,7 @@ To scan an array for a specific value, use the `IN` operator with `UNNEST`.
 
 The following example returns `true` if the array contains the number 2.
 
-```
+```sql
 SELECT 2 IN UNNEST([0, 1, 1, 2, 3, 5]) AS contains_value;
 
 +----------------+
@@ -1080,7 +1080,7 @@ filter the results of `IN UNNEST` using the `WHERE` clause.
 The following example returns the `id` value for the rows where the array
 column contains the value 2.
 
-```
+```sql
 WITH sequences AS
   (SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
@@ -1109,7 +1109,7 @@ a subquery, and use `EXISTS` to check if the filtered table contains any rows.
 The following example returns the `id` value for the rows where the array
 column contains values greater than 5.
 
-```
+```sql
 WITH sequences AS
   (SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
@@ -1138,7 +1138,7 @@ non-matching rows from the table using `WHERE EXISTS`.
 The following example returns the rows where the array column contains a
 `STRUCT` whose field `b` has a value greater than 3.
 
-```
+```sql
 WITH sequences AS
   (SELECT 1 AS id, [STRUCT(0 AS a, 1 AS b)] AS some_numbers
    UNION ALL SELECT 2 AS id, [STRUCT(2 AS a, 4 AS b)] AS some_numbers
@@ -1163,7 +1163,7 @@ WHERE EXISTS (SELECT 1
 With ZetaSQL, you can aggregate values into an array using
 `ARRAY_AGG()`.
 
-```
+```sql
 WITH fruits AS
   (SELECT "apple" AS fruit
    UNION ALL SELECT "pear" AS fruit
@@ -1180,7 +1180,7 @@ FROM fruits;
 
 Consider the following table, `fruits`:
 
-```
+```sql
 CREATE TABLE fruits (
   fruit STRING(MAX),
   id INT64 NOT NULL
@@ -1189,7 +1189,7 @@ CREATE TABLE fruits (
 ```
 Assume the table is populated with the following data:
 
-```
+```sql
 +----+--------------+
 | id | fruit        |
 +----+--------------+
@@ -1201,7 +1201,7 @@ Assume the table is populated with the following data:
 
 You can use this DML statement to insert the example data:
 
-```
+```sql
 INSERT fruits
   (fruit, id)
 VALUES
@@ -1212,7 +1212,7 @@ VALUES
 
 This query shows how to use `ARRAY_AGG()`:
 
-```
+```sql
 SELECT ARRAY_AGG(fruit) AS fruit_basket
 FROM fruits;
 
@@ -1227,7 +1227,7 @@ The array returned by `ARRAY_AGG()` is in an arbitrary order, since the order in
 which the function concatenates values is not guaranteed. To order the array
 elements, use `ORDER BY`. For example:
 
-```
+```sql
 WITH fruits AS
   (SELECT "apple" AS fruit
    UNION ALL SELECT "pear" AS fruit
@@ -1246,7 +1246,7 @@ You can also apply aggregate functions such as `SUM()` to the elements in an
 array. For example, the following query returns the sum of array elements for
 each row of the `sequences` table.
 
-```
+```sql
 WITH sequences AS
   (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
@@ -1265,7 +1265,7 @@ FROM sequences s;
 +--------------------+------+
 ```
 
-```
+```sql
 SELECT some_numbers,
   (SELECT SUM(x)
    FROM UNNEST(s.some_numbers) x) AS sums
@@ -1285,7 +1285,7 @@ FROM sequences s;
 ZetaSQL also supports an aggregate function, `ARRAY_CONCAT_AGG()`,
 which concatenates the elements of an array column across rows.
 
-```
+```sql
 WITH aggregate_example AS
   (SELECT [1,2] AS numbers
    UNION ALL SELECT [3,4] AS numbers
@@ -1316,7 +1316,7 @@ type as the elements of the first argument.
 
 Example:
 
-```
+```sql
 WITH greetings AS
   (SELECT ["Hello", "World"] AS greeting)
 SELECT ARRAY_TO_STRING(greeting, " ") AS greetings
@@ -1340,7 +1340,7 @@ separator for `NULL` array elements.
 
 Example:
 
-```
+```sql
 SELECT
   ARRAY_TO_STRING(arr, ".", "N") AS non_empty_string,
   ARRAY_TO_STRING(arr, ".", "") AS empty_string,
@@ -1359,7 +1359,7 @@ FROM (SELECT ["a", NULL, "b", NULL, "c", NULL] AS arr);
 In some cases, you might want to combine multiple arrays into a single array.
 You can accomplish this using the `ARRAY_CONCAT()` function.
 
-```
+```sql
 SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
 
 +--------------------------------------------------+
@@ -1377,7 +1377,7 @@ directly. Instead, you must create an array of structs, with each struct
 containing a field of type `ARRAY`. To illustrate this, consider the following
 `points` table:
 
-```
+```sql
 +----------+
 | point    |
 +----------+
@@ -1393,7 +1393,7 @@ Now, let's say you wanted to create an array consisting of each `point` in the
 `points` table. To accomplish this, wrap the array returned from each row in a
 `STRUCT`, as shown below.
 
-```
+```sql
 WITH points AS
   (SELECT [1, 5] as point
    UNION ALL SELECT [2, 8] as point
@@ -1414,7 +1414,7 @@ SELECT ARRAY(
 
 You can use this DML statement to insert the example data:
 
-```
+```sql
 INSERT points
   (point, id)
 VALUES
@@ -1425,7 +1425,7 @@ VALUES
   ([5, 7], 5);
 ```
 
-```
+```sql
 SELECT ARRAY(
   SELECT STRUCT(point)
   FROM points)

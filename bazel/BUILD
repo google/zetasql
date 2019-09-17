@@ -23,7 +23,7 @@ load("@rules_foreign_cc//tools/build_defs:configure.bzl", "configure_make")
 licenses(["notice"])  # Apache v2.0
 
 package(
-    default_visibility = ["//zetasql:__subpackages__"],
+    default_visibility = ["//:__subpackages__"],
 )
 
 exports_files([
@@ -54,7 +54,10 @@ configure_make(
         "bison",
         "yacc",
     ],
-    configure_env_vars = {"M4": "$$EXT_BUILD_DEPS$$/m4/bin/m4"},
+    configure_env_vars = {
+        "M4": "$$EXT_BUILD_DEPS$$/m4/bin/m4",
+        "CC_FOR_BUILD": "$$CC$$",
+    },
     lib_source = "@bison//:all",
     static_libraries = ["liby.a"],
     deps = [":m4"],

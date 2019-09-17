@@ -492,17 +492,17 @@ class SafeArena : public BaseArena {
   SafeArena(char* first_block, const size_t block_size)
     : BaseArena(first_block, block_size, false) { }
 
-  void Reset() LOCKS_EXCLUDED(mutex_) override {
+  void Reset() ABSL_LOCKS_EXCLUDED(mutex_) override {
     absl::MutexLock lock(&mutex_);  // in case two threads Reset() at same time
     BaseArena::Reset();
   }
 
-  char* Alloc(const size_t size) LOCKS_EXCLUDED(mutex_) {
+  char* Alloc(const size_t size) ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock lock(&mutex_);
     return reinterpret_cast<char*>(GetMemory(size, 1));
   }
   void* AllocAligned(const size_t size, const int align)
-      LOCKS_EXCLUDED(mutex_) {
+      ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock lock(&mutex_);
     return GetMemory(size, align);
   }
@@ -517,7 +517,7 @@ class SafeArena : public BaseArena {
     return return_value;
   }
   // Free does nothing except for the last piece allocated.
-  void Free(void* memory, size_t size) LOCKS_EXCLUDED(mutex_) {
+  void Free(void* memory, size_t size) ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock lock(&mutex_);
     ReturnMemory(memory, size);
   }
@@ -561,22 +561,22 @@ class SafeArena : public BaseArena {
   // We can be more efficient if you realloc a std::string right after you allocate
   // it (eg allocate way-too-much space, fill it, realloc to just-big-enough)
   char* Realloc(char* s, size_t oldsize, size_t newsize)
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
   // If you know the new size is smaller (or equal), you don't need to know
   // oldsize.  We don't check that newsize is smaller, so you'd better be sure!
-  char* Shrink(char* s, size_t newsize) LOCKS_EXCLUDED(mutex_) {
+  char* Shrink(char* s, size_t newsize) ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock lock(&mutex_);
     AdjustLastAlloc(s, newsize);   // reclaim space if we can
     return s;                      // we never need to move if we go smaller
   }
 
-  Status status() LOCKS_EXCLUDED(mutex_) {
+  Status status() ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock lock(&mutex_);
     return status_;
   }
 
   // Number of bytes remaining before the arena has to allocate another block.
-  size_t bytes_until_next_allocation() LOCKS_EXCLUDED(mutex_) {
+  size_t bytes_until_next_allocation() ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock lock(&mutex_);
     return remaining_;
   }

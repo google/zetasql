@@ -17,6 +17,8 @@
 #ifndef ZETASQL_COMMON_STRING_UTIL_H_
 #define ZETASQL_COMMON_STRING_UTIL_H_
 
+#include <cmath>
+
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 
@@ -33,8 +35,11 @@ namespace zetasql {
 //
 // If this round-trip property is not required, consider simply absl::StrCat(v).
 inline std::string RoundTripFloatToString(float f) {
-  // Simply print a full precision for now.
-  return absl::StrFormat("%.9g", f);
+  if (!std::isnan(f)) {
+    // Simply print a full precision for now.
+    return absl::StrFormat("%.9g", f);
+  }
+  return "nan";
 }
 
 // Converts a double into a std::string which, if passed to `strtod()`, will produce
@@ -48,8 +53,11 @@ inline std::string RoundTripFloatToString(float f) {
 //
 // If this round-trip property is not required, consider simply absl::StrCat(v).
 inline std::string RoundTripDoubleToString(double d) {
-  // Simply print a full precision for now.
-  return absl::StrFormat("%.17g", d);
+  if (!std::isnan(d)) {
+    // Simply print a full precision for now.
+    return absl::StrFormat("%.17g", d);
+  }
+  return "nan";
 }
 
 // Alias for `RoundTripDoubleToString` to allow calling from templated methods
@@ -61,7 +69,7 @@ inline std::string RoundTripFloatToString(double d) {
 // Replace the first instance of `oldsub` with `newsub` inside `s`.  If
 // `oldsub` doesn't exist in `s`, just returns `s`.
 inline std::string ReplaceFirst(absl::string_view s, absl::string_view oldsub,
-                           absl::string_view newsub) {
+                                absl::string_view newsub) {
   absl::string_view::size_type pos = s.find(oldsub);
   if (pos == absl::string_view::npos) {
     return std::string(s);

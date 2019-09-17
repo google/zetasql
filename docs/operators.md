@@ -729,6 +729,8 @@ When using the `IN` operator, the following semantics apply:
 + `IN` with a `NULL` in the `IN`-list can only return TRUE or `NULL`, never FALSE
 + `NULL IN (NULL)` returns `NULL`
 + `IN UNNEST(<NULL array>)` returns FALSE (not `NULL`)
++ `NOT IN` with a `NULL` in the `IN`-list can only return FALSE or `NULL`, never
+   TRUE
 
 `IN` can be used with multi-part keys by using the struct constructor syntax.
 For example:

@@ -188,6 +188,27 @@ TEST(MakeNodeVector, MakeVectorBasicConstruction) {
   ASSERT_EQ(multi_literal.size(), 4);
 }
 
+TEST(MakeNodeVectorP, MakeVectorPBasicConstruction) {
+  std::vector<std::unique_ptr<const ResolvedLiteral>> single_literal =
+      MakeNodeVectorP<const ResolvedLiteral>(
+          MakeResolvedLiteral(Value::Int64(5)));
+  ASSERT_EQ(single_literal.size(), 1);
+
+  std::vector<std::unique_ptr<const ResolvedLiteral>> two_literal =
+      MakeNodeVectorP<const ResolvedLiteral>(
+          MakeResolvedLiteral(Value::Int64(1)),
+          MakeResolvedLiteral(Value::Int64(2)));
+  ASSERT_EQ(two_literal.size(), 2);
+
+  std::vector<std::unique_ptr<const ResolvedLiteral>> multi_literal =
+      MakeNodeVectorP<const ResolvedLiteral>(
+          MakeResolvedLiteral(Value::Int64(1)),
+          MakeResolvedLiteral(Value::Int64(2)),
+          MakeResolvedLiteral(Value::Int64(3)),
+          MakeResolvedLiteral(Value::Int64(4)));
+  ASSERT_EQ(multi_literal.size(), 4);
+}
+
 TEST(MakeNodeVector, MakeVectorConstructionLowestCommonAncestor) {
   const ResolvedColumn c1 =
       ResolvedColumn(1, "MakeColumn", "C", types::Int32Type());
@@ -196,6 +217,22 @@ TEST(MakeNodeVector, MakeVectorConstructionLowestCommonAncestor) {
       MakeNodeVector(MakeResolvedLiteral(Value::Int64(1)),
                      MakeResolvedColumnRef(c1.type(), c1, false));
   ASSERT_EQ(coerced_to_expr.size(), 2);
+}
+
+TEST(MakeNodeVectorP, MakeVectorConstructionIgnoreLowestCommonAncestor) {
+  const ResolvedColumn c1 =
+      ResolvedColumn(1, "MakeColumn", "C", types::Int32Type());
+
+  std::vector<std::unique_ptr<ResolvedExpr>> coerced_to_expr =
+      MakeNodeVectorP<ResolvedExpr>(
+          MakeResolvedLiteral(Value::Int64(1)),
+          MakeResolvedColumnRef(c1.type(), c1, false));
+  ASSERT_EQ(coerced_to_expr.size(), 2);
+  std::vector<std::unique_ptr<const ResolvedExpr>> coerced_to_const_expr =
+      MakeNodeVectorP<const ResolvedExpr>(
+          MakeResolvedLiteral(Value::Int64(1)),
+          MakeResolvedColumnRef(c1.type(), c1, false));
+  ASSERT_EQ(coerced_to_const_expr.size(), 2);
 }
 
 TEST(MakeNodeVector, MakeVectorConstructionConstness) {

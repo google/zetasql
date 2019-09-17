@@ -1349,6 +1349,25 @@ void GetEncryptionFunctions(TypeFactory* type_factory,
                             {bytes_type, bytes_type, bytes_type},
                             FN_AEAD_DECRYPT_BYTES}},
                           encryption_required);
+
+  // KMS.ENCRYPT is volatile since KMS encryption may use an algorithm that
+  // produces different ciphertext for repeated calls with the same plaintext.
+  InsertNamespaceFunction(
+      functions, options, "kms", "encrypt", SCALAR,
+      {{bytes_type, {string_type, string_type}, FN_KMS_ENCRYPT_STRING},
+       {bytes_type, {string_type, bytes_type}, FN_KMS_ENCRYPT_BYTES}},
+      FunctionOptions(encryption_required)
+          .set_volatility(FunctionEnums::VOLATILE));
+
+  InsertNamespaceFunction(
+      functions, options, "kms", "decrypt_string", SCALAR,
+      {{string_type, {string_type, bytes_type}, FN_KMS_DECRYPT_STRING}},
+      encryption_required);
+
+  InsertNamespaceFunction(
+      functions, options, "kms", "decrypt_bytes", SCALAR,
+      {{bytes_type, {string_type, bytes_type}, FN_KMS_DECRYPT_BYTES}},
+      encryption_required);
 }
 
 void GetGeographyFunctions(TypeFactory* type_factory,

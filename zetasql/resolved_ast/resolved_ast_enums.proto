@@ -65,6 +65,14 @@ message ResolvedSampleScanEnums {
   }
 }
 
+message ResolvedOrderByItemEnums {
+  enum NullOrderMode {
+    ORDER_UNSPECIFIED = 0;
+    NULLS_FIRST = 1;
+    NULLS_LAST = 2;
+  }
+}
+
 message ResolvedCreateStatementEnums {
   enum CreateScope {
     CREATE_DEFAULT_SCOPE = 0;
@@ -81,6 +89,14 @@ message ResolvedCreateStatementEnums {
     SQL_SECURITY_UNSPECIFIED = 0;
     SQL_SECURITY_DEFINER = 1;
     SQL_SECURITY_INVOKER = 2;
+  }
+  enum DeterminismLevel {
+    DETERMINISM_UNSPECIFIED = 0;
+    DETERMINISM_DETERMINISTIC = 1;
+    DETERMINISM_NOT_DETERMINISTIC = 2;
+    DETERMINISM_IMMUTABLE = 3;
+    DETERMINISM_STABLE = 4;
+    DETERMINISM_VOLATILE = 5;
   }
 }
 

@@ -17,6 +17,7 @@
 #include "zetasql/public/type.h"
 
 #include <stdlib.h>
+
 #include <algorithm>
 #include <limits>
 
@@ -36,6 +37,7 @@
 #include <cstdint>
 #include "absl/base/macros.h"
 #include "absl/base/optimization.h"
+#include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/match.h"
@@ -51,10 +53,11 @@
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
-namespace {
-constexpr int32_t kDefaultTypeFactoryNestingDepthLimit =
-    std::numeric_limits<int32_t>::max();
-}
+ABSL_FLAG(int32_t, zetasql_type_factory_nesting_depth_limit,
+          std::numeric_limits<int32_t>::max(),
+          "The maximum nesting depth for types that zetasql::TypeFactory "
+          "will allow to be created. Set this to a bounded value to avoid "
+          "stack overflows.");
 
 namespace zetasql {
 
@@ -1488,7 +1491,11 @@ bool TypeEquals::operator()(const Type* const type1,
 
 TypeFactory::TypeFactory()
     : cached_simple_types_(),
-      nesting_depth_limit_(kDefaultTypeFactoryNestingDepthLimit) {}
+      nesting_depth_limit_(
+          absl::GetFlag(FLAGS_zetasql_type_factory_nesting_depth_limit)) {
+  VLOG(2) << "Created TypeFactory " << this
+          ;
+}
 
 TypeFactory::~TypeFactory() {
   // Need to delete these in a loop because the destructor is only visible
@@ -1582,12 +1589,12 @@ zetasql_base::Status TypeFactory::MakeArrayType(
   *result = nullptr;
   AddDependency(element_type);
   if (element_type->IsArray()) {
-    return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
            << "Array of array types are not supported";
   } else {
     const int depth_limit = nesting_depth_limit();
     if (element_type->nesting_depth() + 1 > depth_limit) {
-      return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
              << "Array type would exceed nesting depth limit of "
              << depth_limit;
     }
@@ -1623,7 +1630,7 @@ zetasql_base::Status TypeFactory::MakeStructTypeFromVector(
     const int nesting_depth = field.type->nesting_depth();
     max_nesting_depth = std::max(max_nesting_depth, nesting_depth);
     if (ABSL_PREDICT_FALSE(nesting_depth + 1 > depth_limit)) {
-      return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
              << "Struct type would exceed nesting depth limit of "
              << depth_limit;
     }
@@ -1715,7 +1722,7 @@ zetasql_base::Status TypeFactory::MakeUnwrappedTypeFromProtoImpl(
     bool use_obsolete_timestamp, const Type** result_type,
     std::set<const google::protobuf::Descriptor*>* ancestor_messages) {
   if (!ancestor_messages->insert(message).second) {
-    return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
            << "Invalid proto " << message->full_name()
            << " has type annotations but is recursive";
   }
@@ -1729,7 +1736,7 @@ zetasql_base::Status TypeFactory::MakeUnwrappedTypeFromProtoImpl(
     // If we have zetasql.is_wrapper, unwrap the proto and return the type
     // of the contained field.
     if (message->field_count() != 1) {
-      return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
              << "Proto " << message->full_name()
              << " is invalid because it has zetasql.is_wrapper annotation"
                 " but does not have exactly one field";
@@ -1824,7 +1831,7 @@ zetasql_base::Status TypeFactory::GetProtoFieldTypeWithKind(
   } else if (kind == TYPE_PROTO) {
     ZETASQL_RETURN_IF_ERROR(MakeProtoType(field_descr->message_type(), type));
   } else {
-    return ::zetasql_base::UnimplementedErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::UnimplementedErrorBuilder()
            << "Unsupported type found: "
            << Type::TypeKindToString(kind, PRODUCT_INTERNAL);
   }
@@ -1989,7 +1996,7 @@ zetasql_base::Status TypeFactory::DeserializeFromProtoUsingExistingPools(
       *type = proto_type;
     } break;
     default:
-      return ::zetasql_base::UnimplementedErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::UnimplementedErrorBuilder()
              << "Making Type of kind "
              << Type::TypeKindToString(type_proto.type_kind(), PRODUCT_INTERNAL)
              << " from TypeProto is not implemented.";

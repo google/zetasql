@@ -27,6 +27,103 @@
 
 namespace zetasql_base {
 
+// Calls delete (non-array version) on pointers in the range [begin, end).
+//
+// Note: If you're calling this on an entire container, you probably want to
+// call STLDeleteElements(&container) instead (which also clears the container),
+// or use an ElementDeleter.
+template<typename ForwardIterator>
+void STLDeleteContainerPointers(ForwardIterator begin, ForwardIterator end) {
+  while (begin != end) {
+    auto temp = begin;
+    ++begin;
+    delete *temp;
+  }
+}
+
+// Deletes all the elements in an STL container and clears the container. This
+// function is suitable for use with a vector, set, hash_set, or any other STL
+// container which defines sensible begin(), end(), and clear() methods.
+//
+// If container is nullptr, this function is a no-op.
+//
+// As an alternative to calling STLDeleteElements() directly, consider
+// ElementDeleter (defined below), which ensures that your container's elements
+// are deleted when the ElementDeleter goes out of scope.
+template<typename T>
+void STLDeleteElements(T* container) {
+  if (!container) return;
+  STLDeleteContainerPointers(container->begin(), container->end());
+  container->clear();
+}
+
+// A very simple interface that simply provides a virtual destructor. It is used
+// as a non-templated base class for the TemplatedElementDeleter and
+// TemplatedValueDeleter classes.
+//
+// Clients should NOT use this class directly.
+class BaseDeleter {
+ public:
+  virtual ~BaseDeleter() {}
+  BaseDeleter(const BaseDeleter&) = delete;
+  void operator=(const BaseDeleter&) = delete;
+
+ protected:
+  BaseDeleter() {}
+};
+
+// Given a pointer to an STL container, this class will delete all the element
+// pointers when it goes out of scope.
+//
+// Clients should NOT use this class directly. Use ElementDeleter instead.
+template<typename STLContainer>
+class TemplatedElementDeleter : public BaseDeleter {
+ public:
+  explicit TemplatedElementDeleter(STLContainer* ptr)
+      : container_ptr_(ptr) {
+  }
+
+  virtual ~TemplatedElementDeleter() {
+    STLDeleteElements(container_ptr_);
+  }
+
+  TemplatedElementDeleter(const TemplatedElementDeleter&) = delete;
+  void operator=(const TemplatedElementDeleter&) = delete;
+
+ private:
+  STLContainer* container_ptr_;
+};
+
+// ElementDeleter is an RAII ((broken link)) object that deletes the elements in the
+// given container when it goes out of scope. This is similar to
+// std::unique_ptr<> except that a container's elements will be deleted rather
+// than the container itself.
+//
+// Example:
+//   std::vector<MyProto*> tmp_proto;
+//   ElementDeleter d(&tmp_proto);
+//   if (...) return false;
+//   ...
+//   return success;
+//
+// Since C++11, consider using containers of std::unique_ptr instead.
+class ElementDeleter {
+ public:
+  template<typename STLContainer>
+  explicit ElementDeleter(STLContainer* ptr)
+      : deleter_(new TemplatedElementDeleter<STLContainer>(ptr)) {
+  }
+
+  ~ElementDeleter() {
+    delete deleter_;
+  }
+
+  ElementDeleter(const ElementDeleter&) = delete;
+  void operator=(const ElementDeleter&) = delete;
+
+ private:
+  BaseDeleter* deleter_;
+};
 namespace stl_util_internal {
 
 // Like std::less, but allows heterogeneous arguments.

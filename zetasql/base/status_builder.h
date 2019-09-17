@@ -116,11 +116,11 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   StatusBuilder& LogWarning() { return Log(absl::LogSeverity::kWarning); }
   StatusBuilder& LogInfo() { return Log(absl::LogSeverity::kInfo); }
 
-  // Mutates the builder so that the result status and a stack trace will be
-  // logged when this builder is converted to a status.  This overrides the
-  // logging settings from earlier calls to any of the logging mutator
-  // functions.  Returns `*this` to allow method chaining.
-  StatusBuilder& LogWithStackTrace(absl::LogSeverity level);
+  // Mutates the builder so that a stack trace will be logged if the status is
+  // logged. One of the logging setters above should be called as well. If
+  // logging is not yet enabled this behaves as if LogInfo().EmitStackTrace()
+  // was called. Returns `*this` to allow method chaining.
+  StatusBuilder& EmitStackTrace();
 
   // Appends to the extra message that will be added to the original status.  By
   // default, the extra message is added to the original message with a
@@ -136,6 +136,86 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   // Sets the error code for the status that will be returned by this
   // StatusBuilder.  Returns `*this` to allow method chaining.
   StatusBuilder& SetErrorCode(StatusCode code);
+
+  ///////////////////////////////// Adaptors /////////////////////////////////
+  //
+  // A StatusBuilder `adaptor` is a functor which can be included in a builder
+  // method chain. There are two common variants:
+  //
+  // 1. `Pure policy` adaptors modify the StatusBuilder and return the modified
+  //    object, which can then be chained with further adaptors or mutations.
+  //
+  // 2. `Terminal` adaptors consume the builder's Status and return some
+  //    other type of object. Alternatively, the consumed Status may be used
+  //    for side effects, e.g. by passing it to a side channel. A terminal
+  //    adaptor cannot be chained.
+  //
+  // Careful: The conversion of StatusBuilder to Status has side effects!
+  // Adaptors must ensure that this conversion happens at most once in the
+  // builder chain. The easiest way to do this is to determine the adaptor type
+  // and follow the corresponding guidelines:
+  //
+  // Pure policy adaptors should:
+  // (a) Take a StatusBuilder as input parameter.
+  // (b) NEVER convert the StatusBuilder to Status:
+  //     - Never assign the builder to a Status variable.
+  //     - Never pass the builder to a function whose parameter type is Status,
+  //       including by reference (e.g. const Status&).
+  //     - Never pass the builder to any function which might convert the
+  //       builder to Status (i.e. this restriction is viral).
+  // (c) Return a StatusBuilder (usually the input parameter).
+  //
+  // Terminal adaptors should:
+  // (a) Take a Status as input parameter (not a StatusBuilder!).
+  // (b) Return a type matching the enclosing function. (This can be `void`.)
+  //
+  // Adaptors do not necessarily fit into one of these categories. However, any
+  // which satisfies the conversion rule can always be decomposed into a pure
+  // adaptor chained into a terminal adaptor. (This is recommended.)
+  //
+  // Examples
+  //
+  // Pure adaptors allow teams to configure team-specific error handling
+  // policies.  For example:
+  //
+  //   StatusBuilder TeamPolicy(StatusBuilder builder) {
+  //     AttachPayload(&builder, ...);
+  //     return std::move(builder).Log(base_logging::WARNING);
+  //   }
+  //
+  //   ZETASQL_RETURN_IF_ERROR(foo()).With(TeamPolicy);
+  //
+  // Because pure policy adaptors return the modified StatusBuilder, they
+  // can be chained with further adaptors, e.g.:
+  //
+  //   ZETASQL_RETURN_IF_ERROR(foo()).With(TeamPolicy).With(OtherTeamPolicy);
+  //
+  // Terminal adaptors are often used for type conversion. This allows
+  // ZETASQL_RETURN_IF_ERROR to be used in functions which do not return Status. For
+  // example, a function might want to return some default value on error:
+  //
+  //   int GetSysCounter() {
+  //     int value;
+  //     ZETASQL_RETURN_IF_ERROR(ReadCounterFile(filename, &value))
+  //         .LogInfo()
+  //         .With([](const zetasql_base::Status& unused) { return 0; });
+  //     return value;
+  //   }
+
+  // Calls `adaptor` on this status builder to apply policies, type conversions,
+  // and/or side effects on the StatusBuilder. Returns the value returned by
+  // `adaptor`, which may be any type including `void`. See comments above.
+  //
+  template <typename Adaptor>
+  auto With(Adaptor&& adaptor) & -> decltype(
+      std::forward<Adaptor>(adaptor)(*this)) {
+    return std::forward<Adaptor>(adaptor)(*this);
+  }
+  template <typename Adaptor>
+  auto With(Adaptor&& adaptor) && -> decltype(
+      std::forward<Adaptor>(adaptor)(std::move(*this))) {
+    return std::forward<Adaptor>(adaptor)(std::move(*this));
+  }
 
   // Returns true if the Status created by this builder will be ok().
   bool ok() const;
@@ -249,28 +329,38 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
 
 // Each of the functions below creates StatusBuilder with a canonical error.
 // The error code of the StatusBuilder matches the name of the function.
-StatusBuilder AbortedErrorBuilder(zetasql_base::SourceLocation location);
-StatusBuilder AlreadyExistsErrorBuilder(zetasql_base::SourceLocation location);
-StatusBuilder CancelledErrorBuilder(zetasql_base::SourceLocation location);
-StatusBuilder DataLossErrorBuilder(zetasql_base::SourceLocation location);
+StatusBuilder AbortedErrorBuilder(
+    zetasql_base::SourceLocation location = SourceLocation::current());
+StatusBuilder AlreadyExistsErrorBuilder(
+    zetasql_base::SourceLocation location = SourceLocation::current());
+StatusBuilder CancelledErrorBuilder(
+    zetasql_base::SourceLocation location = SourceLocation::current());
+StatusBuilder DataLossErrorBuilder(
+    zetasql_base::SourceLocation location = SourceLocation::current());
 StatusBuilder DeadlineExceededErrorBuilder(
-    zetasql_base::SourceLocation location);
+    zetasql_base::SourceLocation location = SourceLocation::current());
 StatusBuilder FailedPreconditionErrorBuilder(
-    zetasql_base::SourceLocation location);
-StatusBuilder InternalErrorBuilder(zetasql_base::SourceLocation location);
+    zetasql_base::SourceLocation location = SourceLocation::current());
+StatusBuilder InternalErrorBuilder(
+    zetasql_base::SourceLocation location = SourceLocation::current());
 StatusBuilder InvalidArgumentErrorBuilder(
-    zetasql_base::SourceLocation location);
-StatusBuilder NotFoundErrorBuilder(zetasql_base::SourceLocation location);
-StatusBuilder OutOfRangeErrorBuilder(zetasql_base::SourceLocation location);
+    zetasql_base::SourceLocation location = SourceLocation::current());
+StatusBuilder NotFoundErrorBuilder(
+    zetasql_base::SourceLocation location = SourceLocation::current());
+StatusBuilder OutOfRangeErrorBuilder(
+    zetasql_base::SourceLocation location = SourceLocation::current());
 StatusBuilder PermissionDeniedErrorBuilder(
-    zetasql_base::SourceLocation location);
+    zetasql_base::SourceLocation location = SourceLocation::current());
 StatusBuilder UnauthenticatedErrorBuilder(
-    zetasql_base::SourceLocation location);
+    zetasql_base::SourceLocation location = SourceLocation::current());
 StatusBuilder ResourceExhaustedErrorBuilder(
-    zetasql_base::SourceLocation location);
-StatusBuilder UnavailableErrorBuilder(zetasql_base::SourceLocation location);
-StatusBuilder UnimplementedErrorBuilder(zetasql_base::SourceLocation location);
-StatusBuilder UnknownErrorBuilder(zetasql_base::SourceLocation location);
+    zetasql_base::SourceLocation location = SourceLocation::current());
+StatusBuilder UnavailableErrorBuilder(
+    zetasql_base::SourceLocation location = SourceLocation::current());
+StatusBuilder UnimplementedErrorBuilder(
+    zetasql_base::SourceLocation location = SourceLocation::current());
+StatusBuilder UnknownErrorBuilder(
+    zetasql_base::SourceLocation location = SourceLocation::current());
 
 inline StatusBuilder::StatusBuilder(StatusCode code,
                                     zetasql_base::SourceLocation location)
@@ -333,12 +423,13 @@ inline StatusBuilder& StatusBuilder::Log(absl::LogSeverity level) {
   return *this;
 }
 
-inline StatusBuilder& StatusBuilder::LogWithStackTrace(
-    absl::LogSeverity level) {
+inline StatusBuilder& StatusBuilder::EmitStackTrace() {
   if (status_.ok()) return *this;
-  if (rep_ == nullptr) rep_.reset(new Rep());
-  rep_->logging_mode = Rep::LoggingMode::kLog;
-  rep_->log_severity = level;
+  if (rep_ == nullptr) {
+    rep_.reset(new Rep());
+    rep_->logging_mode = Rep::LoggingMode::kLog;
+    rep_->log_severity = absl::LogSeverity::kInfo;
+  }
   rep_->should_log_stack_trace = true;
   return *this;
 }

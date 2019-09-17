@@ -115,8 +115,19 @@ class Validator {
       const ResolvedGrantStmt* stmt) const;
   zetasql_base::Status ValidateResolvedRevokeStmt(
       const ResolvedRevokeStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedAlterRowPolicyStmt(
-      const ResolvedAlterRowPolicyStmt* stmt) const;
+  zetasql_base::Status ValidateResolvedGrantToAction(
+      const ResolvedGrantToAction* stmt) const;
+  zetasql_base::Status ValidateResolvedFilterUsingAction(
+      const ResolvedFilterUsingAction* stmt) const;
+  zetasql_base::Status ValidateResolvedRevokeFromAction(
+      const ResolvedRevokeFromAction* stmt) const;
+  zetasql_base::Status ValidateResolvedRenameToAction(
+      const ResolvedRenameToAction* stmt) const;
+  zetasql_base::Status ValidateResolvedRowAccessPolicyAlterAction(
+      const ResolvedAlterAction* action,
+      const std::set<ResolvedColumn>& visible_columns) const;
+  zetasql_base::Status ValidateResolvedAlterRowAccessPolicyStmt(
+      const ResolvedAlterRowAccessPolicyStmt* stmt) const;
   zetasql_base::Status ValidateResolvedAlterTableSetOptionsStmt(
       const ResolvedAlterTableSetOptionsStmt* stmt) const;
   zetasql_base::Status ValidateResolvedRenameStmt(

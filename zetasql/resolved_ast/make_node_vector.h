@@ -85,6 +85,14 @@ make_node_vector_internal::NodeVectorT<std::unique_ptr<Ts>...> MakeNodeVector(
   return vec;
 }
 
+template <typename R, class... Ts>
+std::vector<std::unique_ptr<R>> MakeNodeVectorP(std::unique_ptr<Ts>&&... args) {
+  std::vector<std::unique_ptr<R>> vec;
+  make_node_vector_internal::MakeNodeVectorInternal(
+      &vec, std::forward<std::unique_ptr<Ts>>(args)...);
+  return vec;
+}
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_RESOLVED_AST_MAKE_NODE_VECTOR_H_

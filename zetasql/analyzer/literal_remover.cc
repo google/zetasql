@@ -65,9 +65,9 @@ static bool IsSameLiteral(const ResolvedLiteral* a, const ResolvedLiteral* b) {
   return location_a == location_b && a->value() == b->value();
 }
 
-static std::string GenerateParameterName(const ResolvedLiteral* literal,
-                                    const AnalyzerOptions& analyzer_options,
-                                    int* index) {
+static std::string GenerateParameterName(
+    const ResolvedLiteral* literal, const AnalyzerOptions& analyzer_options,
+    int* index) {
   std::string type_name = Type::TypeKindToString(
       literal->type()->kind(), analyzer_options.language().product_mode());
   std::string param_name;

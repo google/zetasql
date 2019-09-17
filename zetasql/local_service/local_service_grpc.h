@@ -31,6 +31,16 @@ namespace local_service {
 class ZetaSqlLocalServiceGrpcImpl
     : public ZetaSqlLocalService::Service {
  public:
+  grpc::Status Prepare(grpc::ServerContext* context, const PrepareRequest* req,
+                       PrepareResponse* resp) override;
+
+  grpc::Status Unprepare(grpc::ServerContext* context,
+                         const UnprepareRequest* req,
+                         google::protobuf::Empty* unused) override;
+
+  grpc::Status Evaluate(grpc::ServerContext* context,
+                        const EvaluateRequest* req,
+                        EvaluateResponse* resp) override;
 
   grpc::Status GetTableFromProto(grpc::ServerContext* context,
                                  const TableFromProtoRequest* req,
@@ -38,6 +48,10 @@ class ZetaSqlLocalServiceGrpcImpl
 
   grpc::Status Analyze(grpc::ServerContext* context, const AnalyzeRequest* req,
                        AnalyzeResponse* resp) override;
+
+  grpc::Status BuildSql(grpc::ServerContext* context,
+                        const BuildSqlRequest* req,
+                        BuildSqlResponse* resp) override;
 
   grpc::Status ExtractTableNamesFromStatement(
       grpc::ServerContext* context,
@@ -48,6 +62,10 @@ class ZetaSqlLocalServiceGrpcImpl
       grpc::ServerContext* context,
       const ExtractTableNamesFromNextStatementRequest* req,
       ExtractTableNamesFromNextStatementResponse* resp) override;
+
+  grpc::Status FormatSql(grpc::ServerContext* context,
+                         const FormatSqlRequest* req,
+                         FormatSqlResponse* resp) override;
 
   grpc::Status RegisterCatalog(grpc::ServerContext* context,
                                const RegisterCatalogRequest* req,

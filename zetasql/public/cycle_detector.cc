@@ -43,7 +43,7 @@ zetasql_base::Status CycleDetector::ObjectInfo::DetectCycle(const std::string& o
   // We return INVALID_ARGUMENT, which the ZetaSQL Resolver detects in
   // order to add an error location to the Status returned from FindFunction()
   // calls.
-  return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC) << message;
+  return ::zetasql_base::InvalidArgumentErrorBuilder() << message;
 }
 
 bool CycleDetector::DetectCycleOrPushObject(const ObjectInfo* object_info) {

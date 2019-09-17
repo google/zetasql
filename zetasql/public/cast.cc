@@ -810,7 +810,7 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
 
     // TODO: implement missing casts.
     default:
-      return ::zetasql_base::UnimplementedErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::UnimplementedErrorBuilder()
              << "Unimplemented cast from " << v.type()->DebugString() << " to "
              << to_type->DebugString();
   }

@@ -35,11 +35,11 @@ TIMESTAMP
 ```sql
 SELECT CURRENT_TIMESTAMP() as now;
 
-+-------------------------------+
-| now                           |
-+-------------------------------+
-| 2016-05-16 18:12:47.145482+00 |
-+-------------------------------+
++----------------------------------+
+| now                              |
++----------------------------------+
+| 2016-05-16 18:12:47.145482639+00 |
++----------------------------------+
 ```
 
 ### EXTRACT
@@ -55,6 +55,7 @@ a supplied `timestamp_expression`.
 
 Allowed `part` values are:
 
++ `NANOSECOND`
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -241,7 +242,7 @@ any time zone.
 `TIMESTAMP_ADD` supports the following values for `date_part`:
 
 <ul>
-
+<li><code>NANOSECOND</code></li>
 <li><code>MICROSECOND</code></li>
 <li><code>MILLISECOND</code></li>
 <li><code>SECOND</code></li>
@@ -283,7 +284,7 @@ independent of any time zone.
 `TIMESTAMP_SUB` supports the following values for `date_part`:
 
 <ul>
-
+<li><code>NANOSECOND</code></li>
 <li><code>MICROSECOND</code></li>
 <li><code>MILLISECOND</code></li>
 <li><code>SECOND</code></li>
@@ -319,18 +320,23 @@ TIMESTAMP_DIFF(timestamp_expression, timestamp_expression, date_part)
 
 **Description**
 
-Returns the number of whole specified `date_part` intervals between two
-timestamps. The first `timestamp_expression` represents the later date; if the
-first `timestamp_expression` is earlier than the second `timestamp_expression`,
-the output is negative. Throws an error if the computation overflows the result
-type, such as if the difference in
-microseconds between
-the two timestamps would overflow an `INT64` value.
+<div>
+    <p>
+        Returns the number of whole specified <code>date_part</code> intervals
+        between two timestamps. The first <code>timestamp_expression</code>
+        represents the later date; if the first
+        <code>timestamp_expression</code> is earlier than the second
+        <code>timestamp_expression</code>, the output is negative.
+        Throws an error if the computation overflows the result type, such as
+        if the difference in nanoseconds between the two timestamps
+        would overflow an <code>INT64</code> value.
+    </p>
+</div>
 
 `TIMESTAMP_DIFF` supports the following values for `date_part`:
 
 <ul>
-
+<li><code>NANOSECOND</code></li>
 <li><code>MICROSECOND</code></li>
 <li><code>MILLISECOND</code></li>
 <li><code>SECOND</code></li>
@@ -385,6 +391,7 @@ Truncates a timestamp to the granularity of `date_part`.
 
 `TIMESTAMP_TRUNC` supports the following values for `date_part`:
 
++ `NANOSECOND`
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`

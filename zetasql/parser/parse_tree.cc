@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <functional>
 #include <queue>
+#include <stack>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/parser/ast_node_kind.h"
@@ -54,8 +55,9 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
       "AlterConstraintEnforcementAction";
   map[AST_ALTER_CONSTRAINT_SET_OPTIONS_ACTION] =
       "ASTAlterConstraintSetOptionsAction";
+  map[AST_ALTER_DATABASE_STATEMENT] = "AlterDatabaseStatement";
   map[AST_ALTER_MATERIALIZED_VIEW_STATEMENT] = "AlterMaterializedViewStatement";
-  map[AST_ALTER_ROW_POLICY_STATEMENT] = "AlterRowPolicyStatement";
+  map[AST_ALTER_ROW_ACCESS_POLICY_STATEMENT] = "AlterRowAccessPolicyStatement";
   map[AST_ALTER_TABLE_STATEMENT] = "AlterTableStatement";
   map[AST_ALTER_VIEW_STATEMENT] = "AlterViewStatement";
   map[AST_ANALYTIC_FUNCTION_CALL] = "AnalyticFunctionCall";
@@ -120,6 +122,8 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_DROP_ROW_ACCESS_POLICY_STATEMENT] = "DropRowAccessPolicyStatement";
   map[AST_DROP_STATEMENT] = "DropStatement";
   map[AST_DROP_MATERIALIZED_VIEW_STATEMENT] = "DropMaterializedViewStatement";
+  map[AST_EXCEPTION_HANDLER] = "ExceptionHandler";
+  map[AST_EXCEPTION_HANDLER_LIST] = "ExceptionHandlerList";
   map[AST_EXPLAIN_STATEMENT] = "ExplainStatement";
   map[AST_EXPORT_DATA_STATEMENT] = "ExportDataStatement";
   map[AST_EXPRESSION_SUBQUERY] = "ExpressionSubquery";
@@ -177,6 +181,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_NEW_CONSTRUCTOR] = "NewConstructor";
   map[AST_NOT_NULL_COLUMN_ATTRIBUTE] = "NotNullColumnAttribute";
   map[AST_NULL_LITERAL] = "NullLiteral";
+  map[AST_NULL_ORDER] = "NullOrder";
   map[AST_NUMERIC_LITERAL] = "NumericLiteral";
   map[AST_ON_CLAUSE] = "OnClause";
   map[AST_OPTIONS_ENTRY] = "OptionsEntry";
@@ -195,11 +200,13 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_PRIVILEGE] = "Privilege";
   map[AST_QUERY_STATEMENT] = "QueryStatement";
   map[AST_QUERY] = "Query";
+  map[AST_RENAME_TO_CLAUSE] = "RenameToClause";
   map[AST_RENAME_STATEMENT] = "RenameStatement";
   map[AST_REPEATABLE_CLAUSE] = "RepeatableClause";
   map[AST_REPLACE_FIELDS_ARG] = "ReplaceFieldsArg";
   map[AST_REPLACE_FIELDS_EXPRESSION] = "ReplaceFieldsExpression";
   map[AST_RETURN_STATEMENT] = "ReturnStatement";
+  map[AST_REVOKE_FROM_CLAUSE] = "RevokeFromClause";
   map[AST_REVOKE_STATEMENT] = "RevokeStatement";
   map[AST_ROLLBACK_STATEMENT] = "RollbackStatement";
   map[AST_ROLLUP] = "Rollup";
@@ -235,6 +242,8 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_STRUCT_CONSTRUCTOR_WITH_PARENS] = "StructConstructorWithParens";
   map[AST_STRUCT_FIELD] = "StructField";
   map[AST_STRUCT_TYPE] = "StructType";
+  map[AST_SYSTEM_VARIABLE_ASSIGNMENT] = "SystemVariableAssignment";
+  map[AST_SYSTEM_VARIABLE_EXPR] = "SystemVariableExpr";
   map[AST_TABLE_CLAUSE] = "TableClause";
   map[AST_TABLE_ELEMENT_LIST] = "TableElementList";
   map[AST_TABLE_PATH_EXPRESSION] = "TablePathExpression";
@@ -300,6 +309,37 @@ void ASTNode::AddChildren(absl::Span<ASTNode* const> children) {
       children_.push_back(child);
       child->set_parent(this);
     }
+  }
+}
+
+void ASTNode::TraverseNonRecursiveHelper(
+    const VisitResult& result, NonRecursiveParseTreeVisitor* visitor,
+    std::stack<std::function<void()>>* stack) {
+  // Push actions in the reverse order that they will execute in.
+  if (result.continuation() != nullptr) {
+    stack->push(result.continuation());
+  }
+  if (result.node_for_child_visit() != nullptr) {
+    const ASTNode* node = result.node_for_child_visit();
+    for (int i = node->num_children() - 1; i >= 0; --i) {
+      const ASTNode* child = node->child(i);
+      stack->push([visitor, child, stack]() {
+        TraverseNonRecursiveHelper(child->Accept(visitor), visitor, stack);
+      });
+    }
+  }
+}
+
+void ASTNode::TraverseNonRecursive(
+    NonRecursiveParseTreeVisitor* visitor) const {
+  std::stack<std::function<void()>> stack;
+  stack.push([this, &stack, visitor]() {
+    TraverseNonRecursiveHelper(Accept(visitor), visitor, &stack);
+  });
+  while (!stack.empty()) {
+    std::function<void()> task = stack.top();
+    stack.pop();
+    task();
   }
 }
 
@@ -405,7 +445,8 @@ void ASTNode::GetDescendantsWithKindsImpl(
   }
 }
 
-std::pair<std::string, std::string> ASTSetOperation::GetSQLForOperationPair() const {
+std::pair<std::string, std::string> ASTSetOperation::GetSQLForOperationPair()
+    const {
   if (op_type_ == NOT_SET) {
     return std::make_pair("<UNKNOWN SET OPERATOR>", "");
   }
@@ -509,6 +550,11 @@ std::string ASTJoin::GetSQLForJoinHint() const {
     case LOOKUP:
       return "LOOKUP";
   }
+}
+
+std::string ASTNullOrder::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(),
+                      nulls_first() ? "(NULLS FIRST)" : "(NULLS LAST)");
 }
 
 std::string ASTOrderingExpression::SingleNodeDebugString() const {
@@ -628,8 +674,9 @@ std::string ASTCastExpression::SingleNodeDebugString() const {
 }
 
 std::string ASTDropStatement::SingleNodeDebugString() const {
-  const std::string out = absl::StrCat(ASTNode::SingleNodeDebugString(), " ",
-                                  SchemaObjectKindToName(schema_object_kind()));
+  const std::string out =
+      absl::StrCat(ASTNode::SingleNodeDebugString(), " ",
+                   SchemaObjectKindToName(schema_object_kind()));
   if (!is_if_exists()) {
     return out;
   }
@@ -658,7 +705,8 @@ std::string ASTDropMaterializedViewStatement::SingleNodeDebugString() const {
   return absl::StrCat(node_name, "(is_if_exists)");
 }
 
-std::string ASTPathExpression::ToIdentifierPathString(size_t max_prefix_size) const {
+std::string ASTPathExpression::ToIdentifierPathString(
+    size_t max_prefix_size) const {
   const int end = max_prefix_size == 0
                       ? names_.size()
                       : std::min(names_.size(), max_prefix_size);
@@ -861,7 +909,8 @@ std::string ASTCreateFunctionStmtBase::SingleNodeDebugString() const {
   return ASTCreateStatement::SingleNodeDebugString();
 }
 
-static std::string SqlForSqlSecurity(ASTCreateStatement::SqlSecurity sql_security) {
+static std::string SqlForSqlSecurity(
+    ASTCreateStatement::SqlSecurity sql_security) {
   switch (sql_security) {
     case ASTCreateStatement::SQL_SECURITY_INVOKER:
       return "SQL SECURITY INVOKER";
@@ -872,23 +921,51 @@ static std::string SqlForSqlSecurity(ASTCreateStatement::SqlSecurity sql_securit
   }
 }
 
+static std::string SqlForDeterminismLevel(
+    ASTCreateFunctionStmtBase::DeterminismLevel level) {
+  switch (level) {
+    case ASTCreateFunctionStmtBase::NOT_DETERMINISTIC:
+      return "NOT DETERMINISTIC";
+    case ASTCreateFunctionStmtBase::DETERMINISTIC:
+      return "DETERMINISTIC";
+    case ASTCreateFunctionStmtBase::VOLATILE:
+      return "VOLATILE";
+    case ASTCreateFunctionStmtBase::STABLE:
+      return "STABLE";
+    case ASTCreateFunctionStmtBase::IMMUTABLE:
+      return "IMMUTABLE";
+    case ASTCreateFunctionStmtBase::DETERMINISM_UNSPECIFIED:
+      return "";
+  }
+}
+
 std::string ASTCreateFunctionStatement::SingleNodeDebugString() const {
   std::string aggregate = is_aggregate() ? "(is_aggregate=true)" : "";
-  std::string security_str = sql_security() != SQL_SECURITY_UNSPECIFIED
-                            ? absl::StrCat("(", GetSqlForSqlSecurity(), ")")
-                            : "";
+  std::string security_str =
+      sql_security() != SQL_SECURITY_UNSPECIFIED
+          ? absl::StrCat("(", GetSqlForSqlSecurity(), ")")
+          : "";
+  std::string determinism =
+      determinism_level() != DETERMINISM_UNSPECIFIED
+          ? absl::StrCat("(", GetSqlForDeterminismLevel(), ")")
+          : "";
   return absl::StrCat(ASTCreateFunctionStmtBase::SingleNodeDebugString(),
-                      aggregate, security_str);
+                      aggregate, security_str, determinism);
 }
 
 std::string ASTCreateFunctionStmtBase::GetSqlForSqlSecurity() const {
   return SqlForSqlSecurity(sql_security());
 }
 
+std::string ASTCreateFunctionStmtBase::GetSqlForDeterminismLevel() const {
+  return SqlForDeterminismLevel(determinism_level());
+}
+
 std::string ASTCreateViewStatementBase::SingleNodeDebugString() const {
-  std::string security_str = sql_security() != SQL_SECURITY_UNSPECIFIED
-                            ? absl::StrCat("(", GetSqlForSqlSecurity(), ")")
-                            : "";
+  std::string security_str =
+      sql_security() != SQL_SECURITY_UNSPECIFIED
+          ? absl::StrCat("(", GetSqlForSqlSecurity(), ")")
+          : "";
   return absl::StrCat(ASTCreateStatement::SingleNodeDebugString(),
                       security_str);
 }
@@ -1177,7 +1254,9 @@ std::string ASTAddColumnAction::SingleNodeDebugString() const {
                       is_if_not_exists() ? "(is_if_not_exists)" : "");
 }
 
-std::string ASTAddColumnAction::GetSQLForAlterAction() const { return "ADD COLUMN"; }
+std::string ASTAddColumnAction::GetSQLForAlterAction() const {
+  return "ADD COLUMN";
+}
 
 std::string ASTColumnPosition::SingleNodeDebugString() const {
   return absl::StrCat(ASTNode::SingleNodeDebugString(),
@@ -1196,8 +1275,30 @@ std::string ASTDropColumnAction::SingleNodeDebugString() const {
   return absl::StrCat(ASTNode::SingleNodeDebugString(),
                       is_if_exists() ? "(is_if_exists)" : "");
 }
+
 std::string ASTDropColumnAction::GetSQLForAlterAction() const {
   return "DROP COLUMN";
+}
+
+std::string ASTGrantToClause::GetSQLForAlterAction() const {
+  return "GRANT TO";
+}
+
+std::string ASTFilterUsingClause::GetSQLForAlterAction() const {
+  return "FILTER USING";
+}
+
+std::string ASTRevokeFromClause::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(),
+                      is_revoke_from_all() ? "(is_revoke_from_all)" : "");
+}
+
+std::string ASTRevokeFromClause::GetSQLForAlterAction() const {
+  return "REVOKE FROM";
+}
+
+std::string ASTRenameToClause::GetSQLForAlterAction() const {
+  return "RENAME TO";
 }
 
 std::string ASTAlterStatementBase::SingleNodeDebugString() const {

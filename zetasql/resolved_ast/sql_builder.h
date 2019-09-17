@@ -190,8 +190,10 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedGrantStmt* node) override;
   zetasql_base::Status VisitResolvedRevokeStmt(
       const ResolvedRevokeStmt* node) override;
-  zetasql_base::Status VisitResolvedAlterRowPolicyStmt(
-      const ResolvedAlterRowPolicyStmt* node) override;
+  zetasql_base::Status VisitResolvedAlterDatabaseStmt(
+      const ResolvedAlterDatabaseStmt* node) override;
+  zetasql_base::Status VisitResolvedAlterRowAccessPolicyStmt(
+      const ResolvedAlterRowAccessPolicyStmt* node) override;
   zetasql_base::Status VisitResolvedAlterTableSetOptionsStmt(
       const ResolvedAlterTableSetOptionsStmt* node) override;
   zetasql_base::Status VisitResolvedAlterTableStmt(
@@ -229,6 +231,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedSubqueryExpr* node) override;
   zetasql_base::Status VisitResolvedOption(const ResolvedOption* node) override;
   zetasql_base::Status VisitResolvedParameter(const ResolvedParameter* node) override;
+  zetasql_base::Status VisitResolvedSystemVariable(
+      const ResolvedSystemVariable* node) override;
   zetasql_base::Status VisitResolvedMakeProto(const ResolvedMakeProto* node) override;
   zetasql_base::Status VisitResolvedMakeProtoField(
       const ResolvedMakeProtoField* node) override;

@@ -39,6 +39,7 @@
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/flags/declare.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
@@ -46,6 +47,8 @@
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
+
+ABSL_DECLARE_FLAG(int32_t, zetasql_type_factory_nesting_depth_limit);
 
 namespace zetasql {
 
@@ -563,8 +566,8 @@ class ArrayType : public Type {
 // The SWIG compiler does not understand nested classes, so this cannot be
 // defined inside the scope of StructType.
 struct StructField {
-  StructField(const std::string& name_in, const Type* type_in)
-      : name(name_in), type(type_in) {}
+  StructField(std::string name_in, const Type* type_in)
+      : name(std::move(name_in)), type(type_in) {}
 
   std::string name;  // Empty std::string means this is an unnamed field.
   const Type* type;
@@ -1168,9 +1171,9 @@ class TypeFactory {
   // Maximum nesting depth for types supported by this TypeFactory. Any attempt
   // to create a type with a nesting_depth() greater than this will return an
   // error. If a limit is not set, the ZetaSQL analyzer may create types that
-  // it cannot destruct. Use kint32max for no limit. The default value of this
-  // field is controlled by FLAGS_zetasql_type_factory_nesting_depth_limit.
-  // The limit value must be >= 0.
+  // it cannot destruct. Use kint32max for no limit (the default).
+  // The limit value must be >= 0. The default value of this field can be
+  // overidden with FLAGS_zetasql_type_factory_nesting_depth_limit.
   int nesting_depth_limit() const LOCKS_EXCLUDED(mutex_);
   void set_nesting_depth_limit(int value) LOCKS_EXCLUDED(mutex_);
 

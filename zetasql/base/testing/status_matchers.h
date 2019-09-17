@@ -312,7 +312,7 @@ void AddFatalFailure(absl::string_view expression,
 
 }  // namespace internal_status
 
-// Macros for testing the results of functions that return absl::Status or
+// Macros for testing the results of functions that return zetasql_base::Status or
 // zetasql_base::StatusOr<T> (for any type T).
 #define ZETASQL_EXPECT_OK(expression) \
   EXPECT_THAT(expression, ::zetasql_base::testing::IsOk())

@@ -41,7 +41,8 @@ def _genyacc_impl(ctx):
             "M4": ctx.executable._m4.path,
         },
         arguments = [args],
-        inputs = [ctx.executable._m4] + ctx.files.src,
+        inputs = ctx.files.src,
+        tools = [ctx.executable._m4],
         outputs = outputs,
         mnemonic = "Yacc",
         progress_message = "Generating %s and %s from %s" %

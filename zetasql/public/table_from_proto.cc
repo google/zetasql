@@ -65,14 +65,14 @@ zetasql_base::Status TableFromProto::Init(const google::protobuf::Descriptor* de
 
   ZETASQL_RET_CHECK_EQ(table_type, SQL_TABLE);
   if (!row_type->IsStruct()) {
-    return ::zetasql_base::UnknownErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::UnknownErrorBuilder()
            << "Proto " << descriptor->full_name()
            << " decodes to non-struct type " << row_type->DebugString()
            << " so is not valid to use as a non-value table type";
   }
   for (const StructType::StructField& field : row_type->AsStruct()->fields()) {
     if (!AllowAnonymousColumnName() && field.name.empty()) {
-      return ::zetasql_base::UnknownErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::UnknownErrorBuilder()
              << "Proto " << descriptor->full_name()
              << " decodes to struct type " << row_type->DebugString()
              << " which has anonymous fields, so cannot be used as "

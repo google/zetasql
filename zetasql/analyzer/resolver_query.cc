@@ -749,7 +749,7 @@ zetasql_base::Status Resolver::ResolveOrderByItems(
 
     resolved_order_by_items->push_back(MakeResolvedOrderByItem(
         std::move(resolved_column_ref), std::move(resolved_collation_name),
-        item_info.is_descending));
+        item_info.is_descending, item_info.null_order));
 
     if (!resolved_order_by_items->back()->column_ref()->type()->
         SupportsOrdering(language(), /*type_description=*/nullptr)) {
@@ -2508,6 +2508,19 @@ zetasql_base::Status Resolver::ResolveOrderingExprs(
     std::vector<OrderByItemInfo>* order_by_info) {
   for (const ASTOrderingExpression* order_by_expression :
            ordering_expressions) {
+    ResolvedOrderByItemEnums::NullOrderMode null_order =
+        ResolvedOrderByItemEnums::ORDER_UNSPECIFIED;
+    if (order_by_expression->null_order() != nullptr) {
+      if (!language().LanguageFeatureEnabled(
+              FEATURE_V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY)) {
+        return MakeSqlErrorAt(order_by_expression->null_order())
+               << "NULLS FIRST and NULLS LAST are not supported";
+      } else {
+        null_order = order_by_expression->null_order()->nulls_first()
+                         ? ResolvedOrderByItemEnums::NULLS_FIRST
+                         : ResolvedOrderByItemEnums::NULLS_LAST;
+      }
+    }
     std::unique_ptr<const ResolvedExpr> resolved_order_expression;
     ZETASQL_RETURN_IF_ERROR(ResolveExpr(order_by_expression->expression(),
                                 expr_resolution_info,
@@ -2521,17 +2534,18 @@ zetasql_base::Status Resolver::ResolveOrderingExprs(
           resolved_order_expression->GetAs<ResolvedLiteral>()->value();
       if (value.type_kind() == TYPE_INT64 && !value.is_null()) {
         const int64_t int_value = value.int64_value() - 1;  // Make it 0-based.
-        order_by_info->emplace_back(
-            order_by_expression, int_value, order_by_expression->descending());
+        order_by_info->emplace_back(order_by_expression, int_value,
+                                    order_by_expression->descending(),
+                                    null_order);
       } else {
         return MakeSqlErrorAt(order_by_expression)
                << "Cannot ORDER BY literal values";
       }
       resolved_order_expression.reset();  // No longer needed.
     } else {
-      order_by_info->emplace_back(order_by_expression,
-                                  std::move(resolved_order_expression),
-                                  order_by_expression->descending());
+      order_by_info->emplace_back(
+          order_by_expression, std::move(resolved_order_expression),
+          order_by_expression->descending(), null_order);
     }
   }
   return ::zetasql_base::OkStatus();
@@ -3947,44 +3961,9 @@ zetasql_base::Status Resolver::ResolveTablePathExpression(
              << "FOR SYSTEM_TIME AS OF cannot be used with TABLE parameter "
              << path_expr->first_name()->GetAsIdString() << " to FUNCTION";
     }
-
-    // The path refers to a relation argument in a CREATE TABLE FUNCTION
-    // statement. Create and return a resolved relation argument reference.
-    const TVFRelation* tvf_relation = zetasql_base::FindOrNull(
-        function_table_arguments_, path_expr->first_name()->GetAsIdString());
-    ZETASQL_RET_CHECK(tvf_relation != nullptr);
-    std::unique_ptr<NameList> new_name_list(new NameList);
-    std::vector<ResolvedColumn> resolved_columns;
-    if (tvf_relation->is_value_table()) {
-      ZETASQL_RET_CHECK_EQ(1, tvf_relation->num_columns());
-      resolved_columns.push_back(ResolvedColumn(
-          AllocateColumnId(), path_expr->first_name()->GetAsIdString(),
-          kValueColumnId, tvf_relation->column(0).type));
-      ZETASQL_RETURN_IF_ERROR(new_name_list->AddValueTableColumn(
-          alias, resolved_columns[0], table_ref));
-      name_list = std::move(new_name_list);
-    } else {
-      resolved_columns.reserve(tvf_relation->num_columns());
-      for (const TVFRelation::Column& column : tvf_relation->columns()) {
-        resolved_columns.push_back(ResolvedColumn(
-            AllocateColumnId(),
-            id_string_pool_->Make(path_expr->first_name()->GetAsString()),
-            id_string_pool_->Make(column.name), column.type));
-        ZETASQL_RETURN_IF_ERROR(new_name_list->AddColumn(
-            resolved_columns.back().name_id(), resolved_columns.back(),
-            true /* is_explicit */));
-      }
-      name_list = std::move(new_name_list);
-      // Add a range variable for the TVF relation argument scan.
-      ZETASQL_RETURN_IF_ERROR(AddRangeVariable(alias, alias_location, &name_list));
-    }
-    auto relation_argument_scan = MakeResolvedRelationArgumentScan(
-        resolved_columns, path_expr->first_name()->GetAsString(),
-        tvf_relation->is_value_table());
-    ZETASQL_RETURN_IF_ERROR(
-        ResolveHintsForNode(table_ref->hint(), relation_argument_scan.get()));
-    MaybeRecordParseLocation(path_expr, relation_argument_scan.get());
-    this_scan = std::move(relation_argument_scan);
+    ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsFunctionTableArgument(
+        path_expr, table_ref->hint(), alias, alias_location, &this_scan,
+        &name_list));
   } else {
     std::unique_ptr<const ResolvedTableScan> table_scan;
     ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
@@ -4000,6 +3979,57 @@ zetasql_base::Status Resolver::ResolveTablePathExpression(
         ResolveTablesampleClause(table_ref->sample_clause(),
                                  &name_list, &this_scan));
   }
+
+  *output_name_list = name_list;
+  *output = std::move(this_scan);
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status Resolver::ResolvePathExpressionAsFunctionTableArgument(
+    const ASTPathExpression* path_expr, const ASTHint* hint, IdString alias,
+    const ASTNode* ast_location, std::unique_ptr<const ResolvedScan>* output,
+    std::shared_ptr<const NameList>* output_name_list) {
+  std::shared_ptr<const NameList> name_list;
+  std::unique_ptr<const ResolvedScan> this_scan;
+  // The path refers to a relation argument in a CREATE TABLE FUNCTION
+  // statement. Create and return a resolved relation argument reference.
+  const TVFRelation* tvf_relation = zetasql_base::FindOrNull(
+      function_table_arguments_, path_expr->first_name()->GetAsIdString());
+  ZETASQL_RET_CHECK(tvf_relation != nullptr);
+  std::unique_ptr<NameList> new_name_list(new NameList);
+  std::vector<ResolvedColumn> resolved_columns;
+  if (tvf_relation->is_value_table()) {
+    ZETASQL_RET_CHECK_EQ(1, tvf_relation->num_columns());
+    resolved_columns.push_back(ResolvedColumn(
+        AllocateColumnId(), path_expr->first_name()->GetAsIdString(),
+        kValueColumnId, tvf_relation->column(0).type));
+    ZETASQL_RETURN_IF_ERROR(new_name_list->AddValueTableColumn(
+        alias, resolved_columns[0], path_expr));
+    name_list = std::move(new_name_list);
+  } else {
+    resolved_columns.reserve(tvf_relation->num_columns());
+    for (const TVFRelation::Column& column : tvf_relation->columns()) {
+      resolved_columns.push_back(ResolvedColumn(
+          AllocateColumnId(),
+          id_string_pool_->Make(path_expr->first_name()->GetAsString()),
+          id_string_pool_->Make(column.name), column.type));
+      ZETASQL_RETURN_IF_ERROR(new_name_list->AddColumn(
+          resolved_columns.back().name_id(), resolved_columns.back(),
+          true /* is_explicit */));
+    }
+    name_list = std::move(new_name_list);
+    // Add a range variable for the TVF relation argument scan.
+    ZETASQL_RETURN_IF_ERROR(AddRangeVariable(alias, ast_location, &name_list));
+  }
+  auto relation_argument_scan = MakeResolvedRelationArgumentScan(
+      resolved_columns, path_expr->first_name()->GetAsString(),
+      tvf_relation->is_value_table());
+  if (hint != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(
+        ResolveHintsForNode(hint, relation_argument_scan.get()));
+  }
+  MaybeRecordParseLocation(path_expr, relation_argument_scan.get());
+  this_scan = std::move(relation_argument_scan);
 
   *output_name_list = name_list;
   *output = std::move(this_scan);
@@ -4292,9 +4322,9 @@ zetasql_base::Status Resolver::ResolveWithSubqueryRef(
 }
 
 zetasql_base::Status Resolver::ResolveColumnInUsing(
-    const ASTIdentifier* ast_identifier,
-    const NameList& name_list, const std::string& side_name,
-    IdString key_name, ResolvedColumn* found_column,
+    const ASTIdentifier* ast_identifier, const NameList& name_list,
+    const std::string& side_name, IdString key_name,
+    ResolvedColumn* found_column,
     std::unique_ptr<const ResolvedExpr>* compute_expr_for_found_column) {
   compute_expr_for_found_column->reset();
   // <ast_identifier> and <found_column> are redundant but we pass the
@@ -5124,6 +5154,7 @@ zetasql_base::StatusOr<Resolver::ResolvedTVFArgType> Resolver::ResolveTVFArg(
   if (ast_table_clause != nullptr) {
     // Resolve the TVF argument as a relation including all original columns
     // from the named table.
+    const Table* table = nullptr;
     if (ast_table_clause->tvf() != nullptr) {
       // The TABLE clause represents a TVF call with arguments. Resolve the
       // TVF inside. Then add an identity projection to match the plan shape
@@ -5135,33 +5166,35 @@ zetasql_base::StatusOr<Resolver::ResolvedTVFArgType> Resolver::ResolveTVFArg(
           MakeResolvedProjectScan(resolved_tvf_arg.scan->column_list(), {},
                                   std::move(resolved_tvf_arg.scan));
     } else {
-      // If the TVF argument is a TABLE argument, then the table name can be a
-      // WITH clause entry or a table from the <catalog_>.
-      //
-      // TODO: Add support for TABLE argument names that reference
-      // TVF table arguments from calling TVFs, i.e.,
-      //
-      //   CREATE TABLE FUNCTION outer_tvf(t table<x int64_t, y int64_t>) AS
-      //   SELECT * from inner_tvf(TABLE t);
-      //
-      // Here, the call to inner_tvf() references table 't', which is a table
-      // argument to outer_tvf().
-      if (ast_table_clause->table_path()->num_names() == 1 &&
-          zetasql_base::ContainsKey(
-              with_subquery_map_,
-              ast_table_clause->table_path()->first_name()->GetAsIdString())) {
-        ZETASQL_RETURN_IF_ERROR(ResolveWithSubqueryRef(
-            ast_table_clause->table_path(), /*hint=*/nullptr,
-            &resolved_tvf_arg.scan, &resolved_tvf_arg.name_list));
+      // If the TVF argument is a TABLE clause, then the table name can be a
+      // WITH clause entry, one of the table arguments to the TVF, or a table
+      // from the <catalog_>.
+      const ASTPathExpression* table_path = ast_table_clause->table_path();
+      if (table_path->num_names() == 1 &&
+          zetasql_base::ContainsKey(with_subquery_map_,
+                           table_path->first_name()->GetAsIdString())) {
+        ZETASQL_RETURN_IF_ERROR(ResolveWithSubqueryRef(table_path, /*hint=*/nullptr,
+                                               &resolved_tvf_arg.scan,
+                                               &resolved_tvf_arg.name_list));
         resolved_tvf_arg.scan =
             MakeResolvedProjectScan(resolved_tvf_arg.scan->column_list(), {},
                                     std::move(resolved_tvf_arg.scan));
+      } else if (table_path->num_names() == 1 &&
+                 zetasql_base::ContainsKey(function_table_arguments_,
+                                  table_path->first_name()->GetAsIdString()) &&
+                 catalog_->FindTable(table_path->ToIdentifierVector(), &table,
+                                     analyzer_options_.find_options())
+                         .code() == zetasql_base::StatusCode::kNotFound) {
+        ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsFunctionTableArgument(
+            table_path, /*hint=*/nullptr,
+            GetAliasForExpression(table_path),
+            /*ast_location=*/ast_table_clause, &resolved_tvf_arg.scan,
+            &resolved_tvf_arg.name_list));
       } else {
         ZETASQL_RET_CHECK(ast_expr == nullptr);
         std::unique_ptr<const ResolvedTableScan> table_scan;
         ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
-            ast_table_clause->table_path(),
-            GetAliasForExpression(ast_table_clause->table_path()),
+            table_path, GetAliasForExpression(table_path),
             false /* has_explicit_alias */, ast_table_clause,
             nullptr /* hints */, nullptr /* for_system_time */, external_scope,
             &table_scan, &resolved_tvf_arg.name_list));
@@ -5193,9 +5226,10 @@ zetasql_base::StatusOr<Resolver::ResolvedTVFArgType> Resolver::ResolveTVFArg(
             // The argument is a path expression referring to the WITH clause.
             // Return a specific error message helping the user figure out
             // what to change.
-            const std::string table_name = ast_expr->GetAsOrDie<ASTPathExpression>()
-                                          ->first_name()
-                                          ->GetAsString();
+            const std::string table_name =
+                ast_expr->GetAsOrDie<ASTPathExpression>()
+                    ->first_name()
+                    ->GetAsString();
             absl::StrAppend(&error, "; if you meant to refer to table ",
                             table_name,
                             " defined in the WITH clause then add the TABLE "
@@ -5371,9 +5405,10 @@ zetasql_base::Status Resolver::CoerceOrRearrangeTVFRelationArgColumns(
       tvf_signature_arg.options().relation_input_schema().columns().size();
   for (int required_col_idx = 0; required_col_idx < num_required_columns;
        ++required_col_idx) {
-    const std::string required_col_name =
-        tvf_signature_arg.options().relation_input_schema().column(
-            required_col_idx).name;
+    const std::string required_col_name = tvf_signature_arg.options()
+                                              .relation_input_schema()
+                                              .column(required_col_idx)
+                                              .name;
     int provided_col_idx;
     if (tvf_signature_arg.options().relation_input_schema().is_value_table()) {
       provided_col_idx = 0;

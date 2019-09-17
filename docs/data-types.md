@@ -476,10 +476,19 @@ Time transitions. To represent an absolute point in time, use a timestamp.
 <tbody>
 <tr>
 <td><code>DATETIME</code></td>
-<td>Represents a year, month, day, hour, minute, second, and subsecond.</td>
-
-<td>0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999.</td>
-
+<td>
+    Represents a year, month, day, hour, minute, second, and subsecond.
+    
+        The range of subsecond precision is determined by the SQL engine.
+    
+</td>
+<td>
+    
+        0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999999<br/>
+        or<br/>
+        0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999.<br/>
+    
+</td>
 </tr>
 </tbody>
 </table>
@@ -501,17 +510,21 @@ a user would see on a watch or calendar.
 ### Canonical format
 
 ```
-YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD]]
+YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]]
 ```
 
-+ `YYYY`: Four-digit year
-+ `[M]M`: One or two digit month
-+ `[D]D`: One or two digit day
-+ `( |T)`: A space or a `T` separator
-+ `[H]H`: One or two digit hour (valid values from 00 to 23)
-+ `[M]M`: One or two digit minutes (valid values from 00 to 59)
-+ `[S]S`: One or two digit seconds (valid values from 00 to 59)
-+ `[.DDDDDD]`: Up to six fractional digits (i.e. up to microsecond precision)
+<ul>
+    <li><code>YYYY</code>: Four-digit year</li>
+    <li><code>[M]M</code>: One or two digit month</li>
+    <li><code>[D]D</code>: One or two digit day</li>
+    <li><code>( |T)</code>: A space or a `T` separator</li>
+    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
+    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
+    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
+    
+        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
+    
+</ul>
 
 ## Time type
 
@@ -526,9 +539,18 @@ YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD]]
 <tbody>
 <tr>
 <td><code>TIME</code></td>
-<td>Represents a time, independent of a specific date.</td>
+<td>
+    Represents a time, independent of a specific date.
+    
+        The range of subsecond precision is determined by the SQL engine.
+    
+</td>
 
-<td>00:00:00 to 23:59:59.999999.</td>
+    <td>
+        00:00:00 to 23:59:59.999999999<br/>
+        or<br/>
+        00:00:00 to 23:59:59.999999.<br/>
+    </td>
 
 </tr>
 </tbody>
@@ -539,13 +561,17 @@ A TIME data type represents a time, independent of a specific date.
 ### Canonical format
 
 ```
-[H]H:[M]M:[S]S[.DDDDDD]
+[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]
 ```
 
-+ `[H]H`: One or two digit hour (valid values from 00 to 23)
-+ `[M]M`: One or two digit minutes (valid values from 00 to 59)
-+ `[S]S`: One or two digit seconds (valid values from 00 to 59)
-+ `[.DDDDDD]`: Up to six fractional digits (i.e. up to microsecond precision)
+<ul>
+    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
+    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
+    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
+    
+        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
+    
+</ul>
 
 ## Timestamp type
 
@@ -560,11 +586,22 @@ A TIME data type represents a time, independent of a specific date.
 <tbody>
 <tr>
 <td><code>TIMESTAMP</code></td>
-<td>Represents an absolute point in time, with
- microsecond
-precision.</td>
+<td>
+    Represents an absolute point in time, with
+    
+        microsecond or nanosecond
+    
+        precision.
+    
+        The range of subsecond precision is determined by the SQL engine.
+    
+</td>
 
-<td>0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999 UTC.</td>
+    <td>
+      0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999999 UTC<br/>
+      or<br/>
+      0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999 UTC.
+    </td>
 
 </tr>
 </tbody>
@@ -573,26 +610,39 @@ precision.</td>
 A timestamp represents an absolute point in time, independent of any time zone
 or convention such as Daylight Savings Time.
 
-TIMESTAMP provides
- microsecond
-precision.
+<div>
+
+</div>
+
+<div>
+    <p>
+        TIMESTAMP provides
+        
+            microsecond or nanosecond
+        
+        precision.
+    </p>
+</div>
 
 ### Canonical format
 
 ```
-YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD]][time zone]
+YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]][time zone]
 ```
 
-+ `YYYY`: Four-digit year
-+ `[M]M`: One or two digit month
-+ `[D]D`: One or two digit day
-+ `( |T)`: A space or a `T` separator
-+ `[H]H`: One or two digit hour (valid values from 00 to 23)
-+ `[M]M`: One or two digit minutes (valid values from 00 to 59)
-+ `[S]S`: One or two digit seconds (valid values from 00 to 59)
-+ `[.DDDDDD]`: Up to six fractional digits (i.e. up to microsecond precision)
-+ `[time zone]`: String representing the time zone. See the [time zones](#time-zones)
-  section for details.
+<ul>
+    <li><code>YYYY</code>: Four-digit year</li>
+    <li><code>[M]M</code>: One or two digit month</li>
+    <li><code>[D]D</code>: One or two digit day</li>
+    <li><code>( |T)</code>: A space or a `T` separator</li>
+    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
+    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
+    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
+    
+        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
+    
+    <li><code>[time zone]</code>: String representing the time zone. See the <a href="#time-zones">time zones</a> section for details.</li>
+</ul>
 
 Time zones are used when parsing timestamps or formatting timestamps for display.
 The timestamp value itself does not store a specific time zone.  A
@@ -675,7 +725,7 @@ A timestamp is simply an offset from 1970-01-01 00:00:00 UTC, assuming there are
 exactly 60 seconds per minute. Leap seconds are not represented as part of a
 stored timestamp.
 
-If your input contains values that use ":60" in the seconds field to represent a
+If the input contains values that use ":60" in the seconds field to represent a
 leap second, that leap second is not preserved when converting to a timestamp
 value. Instead that value is interpreted as a timestamp with ":00" in the
 seconds field of the following minute.

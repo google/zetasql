@@ -75,22 +75,24 @@ TEST(GetKeywordInfo, NonHit) {
 // delimiters do not need to be on a line by themselves. The lines that contain
 // the section delimiters are not included in the result. EXPECTs that the
 // section only occurs once, and that it is explicitly closed.
-std::vector<std::string> GetSectionFromFile(absl::string_view file_path,
-                                       absl::string_view section_delimiter) {
+std::vector<std::string> GetSectionFromFile(
+    absl::string_view file_path, absl::string_view section_delimiter) {
   bool in_section = false;
   bool seen_section = false;
   std::vector<std::string> result;
   int line_number = 0;
   for (const std::string& line : FileLines(file_path)) {
     ++line_number;
-    if (line.find(absl::StrCat("END_", section_delimiter)) != std::string::npos) {
+    if (line.find(absl::StrCat("END_", section_delimiter)) !=
+        std::string::npos) {
       EXPECT_TRUE(in_section) << line_number;
       in_section = false;
     }
     if (in_section) {
       result.push_back(line);
     }
-    if (line.find(absl::StrCat("BEGIN_", section_delimiter)) != std::string::npos) {
+    if (line.find(absl::StrCat("BEGIN_", section_delimiter)) !=
+        std::string::npos) {
       EXPECT_FALSE(in_section) << line_number;
       EXPECT_FALSE(seen_section) << line_number;
       in_section = true;
@@ -155,7 +157,6 @@ std::set<std::string> GetAllKeywordsSet() {
   return result;
 }
 
-
 std::string GetBisonParserPath() {
   return zetasql_base::JoinPath(
       getenv("TEST_SRCDIR"),
@@ -169,9 +170,8 @@ std::string GetFlexTokenizerPath() {
 }
 
 TEST(GetAllKeywords, ReservedMatchesGrammarReservedKeywords) {
-  std::set<std::string> rule_reserved_keywords =
-      ExtractQuotedKeywordsFromLines(
-          GetSectionFromFile(GetBisonParserPath(), "RESERVED_KEYWORD_RULE"));
+  std::set<std::string> rule_reserved_keywords = ExtractQuotedKeywordsFromLines(
+      GetSectionFromFile(GetBisonParserPath(), "RESERVED_KEYWORD_RULE"));
 
   std::set<std::string> reserved_keywords = GetKeywordsSet(/*reserved=*/true);
 
@@ -180,11 +180,11 @@ TEST(GetAllKeywords, ReservedMatchesGrammarReservedKeywords) {
 }
 
 TEST(GetAllKeywords, NonReservedMatchesGrammarKeywordAsIdentifier) {
-  std::set<std::string> keyword_as_identifier =
-      ExtractQuotedKeywordsFromLines(
-          GetSectionFromFile(GetBisonParserPath(), "KEYWORD_AS_IDENTIFIER"));
+  std::set<std::string> keyword_as_identifier = ExtractQuotedKeywordsFromLines(
+      GetSectionFromFile(GetBisonParserPath(), "KEYWORD_AS_IDENTIFIER"));
 
-  std::set<std::string> non_reserved_keywords = GetKeywordsSet(false /* reserved */);
+  std::set<std::string> non_reserved_keywords =
+      GetKeywordsSet(false /* reserved */);
 
   EXPECT_THAT(keyword_as_identifier,
               ::testing::ContainerEq(non_reserved_keywords));
@@ -195,7 +195,8 @@ TEST(GetAllKeywords, NonReservedMatchesGrammarNonReserved) {
       ExtractQuotedKeywordsFromLines(
           GetSectionFromFile(GetBisonParserPath(), "NON_RESERVED_KEYWORDS"));
 
-  std::set<std::string> non_reserved_keywords = GetKeywordsSet(false /* reserved */);
+  std::set<std::string> non_reserved_keywords =
+      GetKeywordsSet(false /* reserved */);
 
   EXPECT_THAT(grammar_non_reserved_keywords,
               ::testing::ContainerEq(non_reserved_keywords));
@@ -213,9 +214,8 @@ TEST(GetAllKeywords, ReservedMatchesGrammarReserved) {
 }
 
 TEST(GetAllKeywords, AllKeywordsHaveTokenizerRules) {
-  std::set<std::string> tokenizer_keywords =
-      ExtractTokenizerKeywordsFromLines(
-          GetSectionFromFile(GetFlexTokenizerPath(), "KEYWORDS"));
+  std::set<std::string> tokenizer_keywords = ExtractTokenizerKeywordsFromLines(
+      GetSectionFromFile(GetFlexTokenizerPath(), "KEYWORDS"));
 
   std::set<std::string> all_keywords = GetAllKeywordsSet();
 

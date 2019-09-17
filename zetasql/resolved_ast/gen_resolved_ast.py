@@ -23,6 +23,7 @@ Documentation is generated in resolved_ast.html.
 A viewable copy of the documentation is at (broken link).
 """
 
+import operator
 import os.path
 import re
 import time
@@ -189,6 +190,7 @@ SCALAR_JOIN_TYPE = EnumScalarType('JoinType', 'ResolvedJoinScan')
 SCALAR_SET_OPERATION_TYPE = EnumScalarType('SetOperationType',
                                            'ResolvedSetOperationScan')
 SCALAR_SAMPLE_UNIT = EnumScalarType('SampleUnit', 'ResolvedSampleScan')
+SCALAR_NULL_ORDER_MODE = EnumScalarType('NullOrderMode', 'ResolvedOrderByItem')
 SCALAR_CREATE_MODE = EnumScalarType('CreateMode', 'ResolvedCreateStatement')
 SCALAR_CREATE_SCOPE = EnumScalarType('CreateScope', 'ResolvedCreateStatement')
 SCALAR_READ_WRITE_TRANSACTION_MODE = EnumScalarType('ReadWriteMode',
@@ -211,6 +213,8 @@ SCALAR_FOREIGN_KEY_MATCH_MODE = EnumScalarType(
 SCALAR_FOREIGN_KEY_ACTION_OPERATION = EnumScalarType(
     'ActionOperation', 'ResolvedForeignKey')
 SCALAR_SQL_SECURITY = EnumScalarType('SqlSecurity', 'ResolvedCreateStatement')
+SCALAR_DETERMINISM_LEVEL = EnumScalarType('DeterminismLevel',
+                                          'ResolvedCreateStatement')
 
 
 def _Trim(s):
@@ -505,7 +509,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 134.
+          Next tag_id: 140.
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -675,7 +679,7 @@ class TreeGenerator(object):
   def _JavaEnumClasses(self):
     classes = []
     message_types = resolved_ast_enums_pb2.DESCRIPTOR.message_types_by_name
-    for name, message in message_types.iteritems():
+    for name, message in message_types.items():
       for enum_type in message.enum_types:
         classes.append('%s.%s' % (name, enum_type.name))
     return classes
@@ -787,13 +791,13 @@ class TreeGenerator(object):
 
     # {{items|sort_by_name}} can be used to sort a list of objects by name.
     def SortByName(items):
-      return sorted(items, cmp=lambda x, y: cmp(x['name'], y['name']))
+      return sorted(items, key=operator.itemgetter('name'))
 
     jinja_env.filters['sort_by_name'] = SortByName
 
     # {{items|sort_by_tag}} can be used to sort a list of objects by tag.
     def SortByTagId(items):
-      return sorted(items, cmp=lambda x, y: cmp(x['tag_id'], y['tag_id']))
+      return sorted(items, key=operator.itemgetter('tag_id'))
 
     jinja_env.filters['sort_by_tag'] = SortByTagId
 
@@ -880,7 +884,7 @@ def main(argv):
   #      resolved_ast.h.template \
   #      resolved_ast.cc \
   #      resolved_ast.h
-  input_file_paths = argv[1:1 + len(argv) / 2]
+  input_file_paths = argv[1:int(1 + len(argv) / 2)]
   output_file_paths = argv[1 + len(input_file_paths):]
 
   gen = TreeGenerator()
@@ -1036,6 +1040,25 @@ def main(argv):
               tag_id=2,
               comment="""
         The matching Constant from the Catalog.
+            """)
+      ])
+
+  gen.AddNode(
+      name='ResolvedSystemVariable',
+      tag_id=139,
+      parent='ResolvedExpr',
+      use_custom_debug_string=True,
+      comment="""
+      A reference to a system variable.
+              """,
+      fields=[
+          Field(
+              'name_path',
+              SCALAR_STRING,
+              vector=True,
+              tag_id=2,
+              comment="""
+        Path to system variable.
             """)
       ])
 
@@ -2145,6 +2168,10 @@ right.
       <collation_name> indicates the COLLATE specific rules of ordering.
       If non-NULL, must be a string literal or a string parameter.
       See (broken link).
+
+      <null_order> indicates the ordering of NULL values relative to non-NULL
+      values. NULLS_FIRST indicates that NULLS sort prior to non-NULL values,
+      and NULLS_LAST indicates that NULLS sort after non-NULL values.
               """,
       fields=[
           Field('column_ref', 'ResolvedColumnRef', tag_id=2),
@@ -2157,6 +2184,11 @@ right.
               'is_descending',
               SCALAR_BOOL,
               tag_id=4,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'null_order',
+              SCALAR_NULL_ORDER_MODE,
+              tag_id=5,
               ignorable=IGNORABLE_DEFAULT)
       ])
 
@@ -4321,6 +4353,18 @@ right.
       ])
 
   gen.AddNode(
+      name='ResolvedAlterDatabaseStmt',
+      tag_id=134,
+      parent='ResolvedAlterObjectStmt',
+      comment="""
+      This statement:
+        ALTER DATABASE [IF EXISTS] <name_path> <alter_action_list>
+
+      This statement could be used to change the database level options.
+              """,
+      fields=[])
+
+  gen.AddNode(
       name='ResolvedAlterMaterializedViewStmt',
       tag_id=127,
       parent='ResolvedAlterObjectStmt',
@@ -4550,71 +4594,106 @@ right.
       ])
 
   gen.AddNode(
-      name='ResolvedAlterRowPolicyStmt',
-      tag_id=75,
-      parent='ResolvedStatement',
+      name='ResolvedGrantToAction',
+      tag_id=135,
+      parent='ResolvedAlterAction',
       comment="""
-      This statement:
-          ALTER ROW POLICY [<name>] [RENAME TO <new_name>] ON <target_name_path>
-          [TO <grantee_list>] [USING (<predicate>)];
+      GRANT TO action for ALTER ROW ACCESS POLICY statement
 
-      <name> is the name of the row policy to be altered.
-      <new_name> is the optional new name of the row policy to be renamed to.
-                 Empty when RENAME TO clause is absent.
-      <target_name_path> is a vector giving the identifier path of the target
-                         table.
-      <table_scan> is a TableScan for the target table, which is used during
-                   resolving and validation. Consumers can use either the table
-                   object inside it or target_name_path to reference the table.
-      <grantee_list> (DEPRECATED) is the optional list of user principals the
-                     policy should apply to. Empty when TO <grantee_list>
-                     clause is absent.
-      <grantee_expr_list> is the optional list of user principals the policy
-                          should apply to, and may include parameters.  Empty
-                          when TO <grantee_list> clause is absent.
-      <predicate> is an optional boolean expression that selects the rows that
-                  are being made visible. Null if USING clause is absent.
-      <predicate_str> is the string form of the predicate. Empty if USING clause
-                      is absent.
-
-      Only one of <grantee_list> or <grantee_expr_list> will be populated,
-      depending on whether or not the FEATURE_PARAMETERS_IN_GRANTEE_LIST
-      is enabled.  The <grantee_list> is deprecated, and will be removed
-      along with the corresponding FEATURE once all engines have migrated to
-      use the <grantee_expr_list>.
+      <grantee_expr_list> is the list of grantees, and may include parameters.
               """,
       fields=[
-          Field('name', SCALAR_STRING, tag_id=2),
-          Field(
-              'new_name',
-              SCALAR_STRING,
-              ignorable=IGNORABLE_DEFAULT,
-              tag_id=3),
-          Field(
-              'target_name_path', SCALAR_STRING, tag_id=4, vector=True),
-          Field(
-              'grantee_list',
-              SCALAR_STRING,
-              ignorable=IGNORABLE_DEFAULT,
-              tag_id=5,
-              vector=True,
-              to_string_method='ToStringCommaSeparated',
-              java_to_string_method='toStringCommaSeparated'),
           Field(
               'grantee_expr_list',
               'ResolvedExpr',
-              ignorable=IGNORABLE_DEFAULT,
-              tag_id=9,
+              ignorable=NOT_IGNORABLE,
+              tag_id=2,
               vector=True),
+      ])
+
+  gen.AddNode(
+      name='ResolvedFilterUsingAction',
+      tag_id=136,
+      parent='ResolvedAlterAction',
+      comment="""
+      FILTER USING action for ALTER ROW ACCESS POLICY statement
+
+      <predicate> is a boolean expression that selects the rows that are being
+                  made visible.
+      <predicate_str> is the string form of the predicate.
+              """,
+      fields=[
+          Field(
+              'predicate', 'ResolvedExpr', tag_id=2, ignorable=IGNORABLE),
+          Field(
+              'predicate_str',
+              SCALAR_STRING,
+              tag_id=3,
+              ignorable=NOT_IGNORABLE)
+      ])
+
+  gen.AddNode(
+      name='ResolvedRevokeFromAction',
+      tag_id=137,
+      parent='ResolvedAlterAction',
+      comment="""
+      REVOKE FROM action for ALTER ROW ACCESS POLICY statement
+
+      <revokee_expr_list> is the list of revokees, and may include parameters.
+      <is_revoke_from_all> is a boolean indicating whether it was a REVOKE FROM
+                           ALL statement.
+              """,
+      fields=[
+          Field(
+              'revokee_expr_list',
+              'ResolvedExpr',
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=2,
+              vector=True),
+          Field(
+              'is_revoke_from_all',
+              SCALAR_BOOL,
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=3)
+      ])
+
+  gen.AddNode(
+      name='ResolvedRenameToAction',
+      tag_id=138,
+      parent='ResolvedAlterAction',
+      comment="""
+      RENAME TO action for ALTER ROW ACCESS POLICY statement
+
+      <new_name> is the new name of the row access policy.
+              """,
+      fields=[
+          Field(
+              'new_name', SCALAR_STRING, ignorable=NOT_IGNORABLE, tag_id=2),
+      ])
+
+  gen.AddNode(
+      name='ResolvedAlterRowAccessPolicyStmt',
+      tag_id=75,
+      parent='ResolvedAlterObjectStmt',
+      comment="""
+      This statement:
+          ALTER ROW ACCESS POLICY [IF EXISTS]
+          <name> ON <name_path>
+          <alter_action_list>
+
+      <name> is the name of the row access policy to be altered, scoped to the
+             table in the base <name_path>.
+      <table_scan> is a TableScan for the target table, which is used during
+                   resolving and validation. Consumers can use either the table
+                   object inside it or base <name_path> to reference the table.
+              """,
+      fields=[
+          Field('name', SCALAR_STRING, tag_id=2),
           Field(
               'table_scan',
               'ResolvedTableScan',
               tag_id=6,
               ignorable=IGNORABLE),
-          Field(
-              'predicate', 'ResolvedExpr', tag_id=7, ignorable=IGNORABLE),
-          Field(
-              'predicate_str', SCALAR_STRING, tag_id=8, ignorable=IGNORABLE)
       ])
 
   gen.AddNode(
@@ -4644,7 +4723,7 @@ right.
       comment="""
       This statement creates a user-defined function:
         CREATE [TEMP] FUNCTION [IF NOT EXISTS] <name_path> (<arg_list>)
-          [RETURNS <return_type>] [LANGUAGE <language>]
+          [RETURNS <return_type>] [<determinism_level>] [LANGUAGE <language>]
           [AS <code> | AS ( <function_expression> )] [OPTIONS (<option_list>)]
 
         <name_path> is the identifier path of the function.
@@ -4677,6 +4756,9 @@ right.
         <option_list> has engine-specific directives for modifying functions.
         <sql_security> is the declared security mode for the function. Values
                include 'INVOKER', 'DEFINER'.
+        <determinism_level> is the declared determinism level of the function.
+               Values are 'DETERMINISTIC', 'NOT DETERMINISTIC', 'IMMUTABLE',
+               'STABLE', 'VOLATILE'.
 
       Note that <function_expression> and <code> are both marked as IGNORABLE
       because an engine could look at either one (but might not look at both).
@@ -4783,8 +4865,27 @@ ResolvedArgumentRef(y)
               'sql_security',
               SCALAR_SQL_SECURITY,
               tag_id=12,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'determinism_level',
+              SCALAR_DETERMINISM_LEVEL,
+              tag_id=14,
               ignorable=IGNORABLE_DEFAULT)
-      ])
+      ],
+      extra_defs="""
+        static FunctionEnums::Volatility DeterminismLevelToVolatility(
+          ResolvedCreateStatementEnums::DeterminismLevel);
+
+        // Converts the function's determinism level into a volatility.
+        // Functions with unspecified/non deterministic/volatile
+        // specifiers are considered volatile, functions with deterministic
+        // and immutable specifiers are considered immutable and functions
+        // with the stable specifier are considered stable.
+        FunctionEnums::Volatility volatility() const {
+          return DeterminismLevelToVolatility(determinism_level());
+        }
+      """,
+  )
 
   gen.AddNode(
       name='ResolvedArgumentDef',
@@ -5310,10 +5411,18 @@ ResolvedArgumentRef(y)
                Catalog for future queries.
         <option_list> has engine-specific directives for modifying procedures.
         <procedure_body> is a string literal that contains the procedure body.
-               It includes everything between BEGIN and END. Procedure body is
-               a list of SQL statement which was parsed to be syntactically
-               correct when CREATE PROCEDURE is parsed, but will only be
-               analyzed when procedure is called later.
+               It includes everything from the BEGIN keyword to the END keyword,
+               inclusive.
+
+               The resolver will perform some basic validation on the procedure
+               body, for example, verifying that DECLARE statements are in the
+               proper position, and that variables are not declared more than
+               once, but any validation that requires the catalog (including
+               generating resolved tree nodes for individual statements) is
+               deferred until the procedure is actually called.  This deferral
+               makes it possible to define a procedure which references a table
+               or routine that does not yet exist, so long as the entity is
+               created before the procedure is called.
               """,
       fields=[
           Field(

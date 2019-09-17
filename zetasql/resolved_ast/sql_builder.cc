@@ -362,7 +362,7 @@ zetasql_base::StatusOr<std::string> SQLBuilder::GetSQL(const Value& value,
                         absl::StrJoin(elements_sql, ", "), "]");
   }
 
-  return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+  return ::zetasql_base::InvalidArgumentErrorBuilder()
          << "Value has unknown type: " << type->DebugString();
 }
 
@@ -1116,6 +1116,16 @@ zetasql_base::Status SQLBuilder::VisitResolvedOption(const ResolvedOption* node)
   return ::zetasql_base::OkStatus();
 }
 
+zetasql_base::Status SQLBuilder::VisitResolvedSystemVariable(
+    const ResolvedSystemVariable* node) {
+  std::string full_name = absl::StrJoin(
+      node->name_path(), ".", [](std::string* out, const std::string& input) {
+        absl::StrAppend(out, ToIdentifierLiteral(input));
+      });
+  PushQueryFragment(node, absl::StrCat("@@", full_name));
+  return zetasql_base::OkStatus();
+}
+
 zetasql_base::Status SQLBuilder::VisitResolvedParameter(const ResolvedParameter* node) {
   if (node->name().empty()) {
     std::string param_str;
@@ -1186,7 +1196,7 @@ zetasql_base::Status SQLBuilder::VisitResolvedMakeStruct(
   std::string text;
   absl::StrAppend(&text, struct_type->TypeName(options_.product_mode), "(");
   if (struct_type->num_fields() != node->field_list_size()) {
-    return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
            << "Number of fields of ResolvedMakeStruct and its corresponding "
               "StructType, do not match\n:"
            << node->DebugString() << "\nStructType:\n"
@@ -1208,11 +1218,19 @@ zetasql_base::Status SQLBuilder::VisitResolvedGetStructField(
   std::string text;
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
                    ProcessNode(node->expr()));
-  const std::string result_sql = result->GetSQL();
+  std::string result_sql = result->GetSQL();
+
   // When struct_expr is an empty identifier, we directly use the field_name to
   // access the struct field (in the generated sql). This shows up for in-scope
   // expression column fields where the expression column is anonymous.
   if (result_sql != kEmptyAlias) {
+    if (node->expr()->node_kind() == RESOLVED_CONSTANT ||
+        node->expr()->node_kind() == RESOLVED_SYSTEM_VARIABLE) {
+      // Enclose <result_sql> in parentheses to ensure that "(foo).bar"
+      // (accessing field bar of constant foo) does not get unparsed as
+      // "foo.bar" (accessing named constant bar in namespace foo).
+      result_sql = absl::StrCat("(", result_sql, ")");
+    }
     absl::StrAppend(&text, result_sql, ".");
   }
   const std::string& field_name =
@@ -1954,6 +1972,12 @@ zetasql_base::Status SQLBuilder::VisitResolvedOrderByItem(
   }
 
   absl::StrAppend(&text, node->is_descending() ? " DESC" : "");
+  if (node->null_order() != ResolvedOrderByItemEnums::ORDER_UNSPECIFIED) {
+    absl::StrAppend(&text,
+                    node->null_order() == ResolvedOrderByItemEnums::NULLS_FIRST
+                        ? " NULLS FIRST"
+                        : " NULLS LAST");
+  }
   PushQueryFragment(node, text);
   return ::zetasql_base::OkStatus();
 }
@@ -2351,6 +2375,24 @@ static std::string GetSqlSecuritySql(
   }
 }
 
+static std::string GetDeterminismLevelSql(
+    ResolvedCreateStatementEnums::DeterminismLevel level) {
+  switch (level) {
+    case ResolvedCreateStatementEnums::DETERMINISM_UNSPECIFIED:
+      return "";
+    case ResolvedCreateStatementEnums::DETERMINISM_DETERMINISTIC:
+      return " DETERMINISTIC";
+    case ResolvedCreateStatementEnums::DETERMINISM_NOT_DETERMINISTIC:
+      return " NOT DETERMINISTIC";
+    case ResolvedCreateStatementEnums::DETERMINISM_IMMUTABLE:
+      return " IMMUTABLE";
+    case ResolvedCreateStatementEnums::DETERMINISM_STABLE:
+      return " STABLE";
+    case ResolvedCreateStatementEnums::DETERMINISM_VOLATILE:
+      return " VOLATILE";
+  }
+}
+
 zetasql_base::Status SQLBuilder::GetCreateViewStatement(
     const ResolvedCreateViewBase* node, bool is_value_table,
     const std::string& view_type) {
@@ -2719,7 +2761,7 @@ zetasql_base::Status SQLBuilder::VisitResolvedCreateModelStmt(
       const int output_col_id = output_col->column().column_id();
       const std::string alias = output_col->name();
       if (!zetasql_base::ContainsKey(computed_column_alias_, output_col_id)) {
-        return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC) << absl::Substitute(
+        return ::zetasql_base::InternalErrorBuilder() << absl::Substitute(
                    "Column id $0 with name '$1' is not found in "
                    "computed_column_alias_",
                    output_col_id, alias);
@@ -2992,6 +3034,7 @@ zetasql_base::Status SQLBuilder::VisitResolvedCreateFunctionStmt(
       GetFunctionArgListString(node->argument_name_list(), node->signature()));
   absl::StrAppend(&sql, node->signature().GetSQLDeclaration(
                             node->argument_name_list(), options_.product_mode));
+  absl::StrAppend(&sql, GetDeterminismLevelSql(node->determinism_level()));
   bool is_sql_defined = absl::AsciiStrToUpper(node->language()) == "SQL";
   if (!is_sql_defined) {
     absl::StrAppend(&sql, " LANGUAGE ", ToIdentifierLiteral(node->language()));
@@ -3097,7 +3140,7 @@ zetasql_base::Status SQLBuilder::VisitResolvedCreateProcedureStmt(
     absl::StrAppend(&sql, " OPTIONS(", options_string, ") ");
   }
 
-  absl::StrAppend(&sql, "BEGIN\n", node->procedure_body(), "\nEND");
+  absl::StrAppend(&sql, node->procedure_body());
 
   PushQueryFragment(node, sql);
   return ::zetasql_base::OkStatus();
@@ -3862,6 +3905,11 @@ zetasql_base::Status SQLBuilder::VisitResolvedMergeWhen(const ResolvedMergeWhen*
   return ::zetasql_base::OkStatus();
 }
 
+zetasql_base::Status SQLBuilder::VisitResolvedAlterDatabaseStmt(
+    const ResolvedAlterDatabaseStmt* node) {
+  return GetResolvedAlterObjectStmtSQL(node, "DATABASE");
+}
+
 zetasql_base::Status SQLBuilder::VisitResolvedAlterTableSetOptionsStmt(
     const ResolvedAlterTableSetOptionsStmt* node) {
   std::string sql = "ALTER TABLE ";
@@ -3935,6 +3983,40 @@ zetasql_base::StatusOr<std::string> SQLBuilder::GetAlterActionSQL(
             "DROP COLUMN ", drop_action->is_if_exists() ? "IF EXISTS " : "",
             drop_action->name()));
       } break;
+      case RESOLVED_GRANT_TO_ACTION: {
+        auto* grant_to_action = alter_action->GetAs<ResolvedGrantToAction>();
+        ZETASQL_ASSIGN_OR_RETURN(
+            std::string grantee_sql,
+            GetGranteeListSQL("", {}, grant_to_action->grantee_expr_list()));
+        alter_action_sql.push_back(
+            absl::StrCat("GRANT TO (", grantee_sql, ")"));
+      } break;
+      case RESOLVED_FILTER_USING_ACTION: {
+        auto* filter_using_action =
+            alter_action->GetAs<ResolvedFilterUsingAction>();
+        alter_action_sql.push_back(absl::StrCat(
+            "FILTER USING (", filter_using_action->predicate_str(), ")"));
+      } break;
+      case RESOLVED_REVOKE_FROM_ACTION: {
+        auto* revoke_from_action =
+            alter_action->GetAs<ResolvedRevokeFromAction>();
+        std::string revokees;
+        if (revoke_from_action->is_revoke_from_all()) {
+          revokees = "ALL";
+        } else {
+          ZETASQL_ASSIGN_OR_RETURN(
+              std::string revokee_list,
+              GetGranteeListSQL("", {},
+                                revoke_from_action->revokee_expr_list()));
+          revokees = absl::StrCat("(", revokee_list, ")");
+        }
+        alter_action_sql.push_back(absl::StrCat("REVOKE FROM ", revokees));
+      } break;
+      case RESOLVED_RENAME_TO_ACTION: {
+        auto* rename_to_action = alter_action->GetAs<ResolvedRenameToAction>();
+        alter_action_sql.push_back(absl::StrCat(
+            "RENAME TO ", ToIdentifierLiteral(rename_to_action->new_name())));
+      } break;
       default:
         ZETASQL_RET_CHECK_FAIL() << "Unexpected AlterAction: "
                          << alter_action->DebugString();
@@ -3987,35 +4069,18 @@ zetasql_base::StatusOr<std::string> SQLBuilder::GetGranteeListSQL(
   return sql;
 }
 
-zetasql_base::Status SQLBuilder::VisitResolvedAlterRowPolicyStmt(
-    const ResolvedAlterRowPolicyStmt* node) {
-  std::string sql = "ALTER ROW POLICY ";
+zetasql_base::Status SQLBuilder::VisitResolvedAlterRowAccessPolicyStmt(
+    const ResolvedAlterRowAccessPolicyStmt* node) {
+  std::string sql = "ALTER ROW ACCESS POLICY ";
+  absl::StrAppend(&sql, node->is_if_exists() ? "IF EXISTS " : "");
   absl::StrAppend(&sql, ToIdentifierLiteral(node->name()));
-
-  if (!node->new_name().empty()) {
-    absl::StrAppend(&sql, " RENAME TO ", ToIdentifierLiteral(node->new_name()));
-  }
-
-  absl::StrAppend(&sql, " ON ",
-                  IdentifierPathToString(node->target_name_path()));
-
-  ZETASQL_ASSIGN_OR_RETURN(std::string grantee_sql,
-                   GetGranteeListSQL(" TO ", node->grantee_list(),
-                                     node->grantee_expr_list()));
-  if (!grantee_sql.empty()) {
-    absl::StrAppend(&sql, grantee_sql);
-  }
-
-  if (!node->predicate_str().empty()) {
-    // ProcessNode(node->predicate()) should produce an equivalent
-    // QueryFragment, but we use the std::string form directly because it's simpler.
-    absl::StrAppend(&sql, " USING (", node->predicate_str(), ")");
-  }
-
+  absl::StrAppend(&sql, " ON ", IdentifierPathToString(node->name_path()));
+  ZETASQL_ASSIGN_OR_RETURN(const std::string actions_string,
+                   GetAlterActionSQL(node->alter_action_list()));
+  absl::StrAppend(&sql, " ", actions_string);
   PushQueryFragment(node, sql);
   return ::zetasql_base::OkStatus();
 }
-
 
 zetasql_base::Status SQLBuilder::VisitResolvedPrivilege(const ResolvedPrivilege* node) {
   std::string sql;

@@ -24,6 +24,7 @@
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"
+#include "zetasql/common/simple_evaluator_table_iterator.h"
 #include "zetasql/public/builtin_function.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/constant.h"
@@ -52,7 +53,7 @@ class SimpleTableProto;
 // It acts as a simple container for objects in the Catalog.
 //
 // This class is thread-safe.
-class SimpleCatalog : public Catalog {
+class SimpleCatalog : public EnumerableCatalog {
  public:
   // Construct a Catalog with catalog name <name>.
   //
@@ -73,6 +74,10 @@ class SimpleCatalog : public Catalog {
 
   zetasql_base::Status GetModel(const std::string& name, const Model** model,
                         const FindOptions& options = FindOptions()) override
+      LOCKS_EXCLUDED(mutex_);
+
+  zetasql_base::Status GetConnection(const std::string& name, const Connection** connection,
+                             const FindOptions& options) override
       LOCKS_EXCLUDED(mutex_);
 
   zetasql_base::Status GetFunction(const std::string& name, const Function** function,
@@ -113,6 +118,7 @@ class SimpleCatalog : public Catalog {
   std::string SuggestConstant(
       const absl::Span<const std::string>& mistyped_path) override;
   // TODO: Implement SuggestModel function.
+  // TODO: Implement SuggestConnection function.
 
   // Add objects to the SimpleCatalog.
   // Names must be unique (case-insensitively) or the call will die.
@@ -140,6 +146,10 @@ class SimpleCatalog : public Catalog {
   void AddOwnedModel(const std::string& name, const Model* model);
   // Consider the unique_ptr version.
   void AddOwnedModel(const Model* model) LOCKS_EXCLUDED(mutex_);
+
+  void AddConnection(const std::string& name, const Connection* connection)
+      LOCKS_EXCLUDED(mutex_);
+  void AddConnection(const Connection* connection) LOCKS_EXCLUDED(mutex_);
 
   void AddType(const std::string& name, const Type* type) LOCKS_EXCLUDED(mutex_);
   // Similar to the previous, but does not take ownership of <type>.
@@ -302,6 +312,15 @@ class SimpleCatalog : public Catalog {
   // Return a TypeFactory owned by this SimpleCatalog.
   TypeFactory* type_factory() LOCKS_EXCLUDED(mutex_);
 
+  zetasql_base::Status GetCatalogs(
+      absl::flat_hash_set<const Catalog*>* output) const override;
+  zetasql_base::Status GetTables(
+      absl::flat_hash_set<const Table*>* output) const override;
+  zetasql_base::Status GetTypes(
+      absl::flat_hash_set<const Type*>* output) const override;
+  zetasql_base::Status GetFunctions(
+      absl::flat_hash_set<const Function*>* output) const override;
+
   // Accessors for reading a copy of the object lists in this SimpleCatalog.
   // This is intended primarily for tests.
   std::vector<const Table*> tables() const LOCKS_EXCLUDED(mutex_);
@@ -365,8 +384,17 @@ class SimpleCatalog : public Catalog {
   std::unique_ptr<TypeFactory> owned_type_factory_ GUARDED_BY(mutex_);
 
   absl::flat_hash_map<std::string, const Table*> tables_ GUARDED_BY(mutex_);
+  absl::flat_hash_map<std::string, const Connection*> connections_
+      GUARDED_BY(mutex_);
   absl::flat_hash_map<std::string, const Model*> models_ GUARDED_BY(mutex_);
+  // Case-insensitive map of names to Types explicitly added to the Catalog via
+  // AddType (including proto an enum types). Names in types_ override names in
+  // cached_proto_or_enum_types.
   absl::flat_hash_map<std::string, const Type*> types_ GUARDED_BY(mutex_);
+  // Case-sensitive map of names to cached ProtoType or EnumType objects created
+  // on-the-fly in GetType from the DescriptorPool.
+  absl::flat_hash_map<std::string, const Type*> cached_proto_or_enum_types_
+      GUARDED_BY(mutex_);
   absl::flat_hash_map<std::string, const Function*> functions_ GUARDED_BY(mutex_);
   absl::flat_hash_map<std::string, const TableValuedFunction*>
       table_valued_functions_ GUARDED_BY(mutex_);
@@ -376,6 +404,8 @@ class SimpleCatalog : public Catalog {
 
   std::vector<std::unique_ptr<const Table>> owned_tables_ GUARDED_BY(mutex_);
   std::vector<std::unique_ptr<const Model>> owned_models_ GUARDED_BY(mutex_);
+  std::vector<std::unique_ptr<const Connection>> owned_connections_
+      GUARDED_BY(mutex_);
   std::vector<std::unique_ptr<const Function>> owned_functions_
       GUARDED_BY(mutex_);
   std::vector<std::unique_ptr<const TableValuedFunction>>
@@ -464,6 +494,33 @@ class SimpleTable : public Table {
 
   int64_t GetSerializationId() const override { return id_; }
 
+  // Constructs an EvaluatorTableIterator from a list of column indexes.
+  // Represents the signature of Table::CreateEvaluatorTableIterator().
+  using EvaluatorTableIteratorFactory =
+      std::function<zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>(
+          absl::Span<const int>)>;
+
+  // Sets a factory to be returned by CreateEvaluatorTableIterator().
+  // CAVEAT: This is not preserved by serialization/deserialization. It is only
+  // relevant to users of the evaluator API defined in public/evaluator.h.
+  void SetEvaluatorTableIteratorFactory(
+      const EvaluatorTableIteratorFactory& factory) {
+    evaluator_table_iterator_factory_ =
+        absl::make_unique<EvaluatorTableIteratorFactory>(factory);
+  }
+
+  // Convenience method that calls SetEvaluatorTableIteratorFactory to
+  // correspond to a list of rows. More specifically, sets the table contents
+  // to a copy of 'rows' and sets up a callback to return those values when
+  // CreateEvaluatorTableIterator() is called.
+  // CAVEAT: This is not preserved by serialization/deserialization.  It is only
+  // relevant to users of the evaluator API defined in public/evaluator.h.
+  void SetContents(const std::vector<std::vector<Value>>& rows);
+
+  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+  CreateEvaluatorTableIterator(
+      absl::Span<const int> column_idxs) const override;
+
   // Serialize this table into protobuf. The provided map is used to store
   // serialized FileDescriptorSets, which can be deserialized into separate
   // DescriptorPools in order to reconstruct the Type. The map may be
@@ -486,6 +543,12 @@ class SimpleTable : public Table {
       std::unique_ptr<SimpleTable>* result);
 
  protected:
+  // Returns the current contents (passed to the last call to SetContents()) in
+  // column-major order.
+  const std::vector<std::shared_ptr<const std::vector<Value>>>&
+  column_major_contents() const {
+    return column_major_contents_;
+  }
 
  private:
   // Insert a column to columns_map_. Return error when
@@ -505,6 +568,12 @@ class SimpleTable : public Table {
   bool allow_anonymous_column_name_ = false;
   bool anonymous_column_seen_ = false;
   bool allow_duplicate_column_names_ = false;
+
+  // We use shared_ptrs to handle calls to SetContets() while there are
+  // iterators outstanding.
+  std::vector<std::shared_ptr<const std::vector<Value>>> column_major_contents_;
+  std::unique_ptr<EvaluatorTableIteratorFactory>
+      evaluator_table_iterator_factory_;
 
   static zetasql_base::Status ValidateNonEmptyColumnName(const std::string& column_name);
 };
@@ -571,10 +640,24 @@ class SimpleModel : public Model {
   int64_t id_ = 0;
 };
 
+class SimpleConnection : public Connection {
+ public:
+  explicit SimpleConnection(const std::string& name) : name_(name) {}
+  SimpleConnection(const SimpleConnection&) = delete;
+  SimpleConnection& operator=(const Connection&) = delete;
+
+  std::string Name() const override { return name_; }
+  std::string FullName() const override { return name_; }
+
+  // TODO: Add serialize and deserialize functions.
+ private:
+  const std::string name_;
+};
+
 // SimpleColumn is a concrete implementation of the Column interface.
 class SimpleColumn : public Column {
  public:
-  // Constructor.  Crashes if <name> is empty.
+  // Constructor.
   SimpleColumn(const std::string& table_name, const std::string& name, const Type* type,
                bool is_pseudo_column = false, bool is_writable_column = true);
   SimpleColumn(const SimpleColumn&) = delete;

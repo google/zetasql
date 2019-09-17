@@ -296,8 +296,6 @@ enum LanguageFeature {
   // This is a temporary feature that preserves legacy engine behavior that
   // will be deprecated, and the new syntax will become mandatory (b/135116351).
   // For more details on syntax changes, see (broken link).
-  // Note: This language feature is still WIP, so the behavior above might be
-  // partially true depending on implementation stage (b/135549966).
   FEATURE_ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX = 32;
 
   // Enables support for PARTITION BY with CREATE MATERIALIZED VIEW.
@@ -479,6 +477,9 @@ enum LanguageFeature {
   // (broken link)
   FEATURE_V_1_3_REPLACE_FIELDS = 13007
       [(language_feature_options).in_development = true];
+
+  // Enable NULLS FIRST/NULLS LAST in ORDER BY expressions.
+  FEATURE_V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY = 13008;
 
   // EXPERIMENTAL FEATURES
   // These are features supported in the code that are not currently part of

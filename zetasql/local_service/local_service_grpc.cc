@@ -82,6 +82,24 @@ grpc::Status ToGrpcStatus(zetasql_base::Status status) {
 
 }  // namespace
 
+grpc::Status ZetaSqlLocalServiceGrpcImpl::Prepare(
+    grpc::ServerContext* context, const PrepareRequest* req,
+    PrepareResponse* resp) {
+  return ToGrpcStatus(service_.Prepare(*req, resp));
+}
+
+grpc::Status ZetaSqlLocalServiceGrpcImpl::Unprepare(
+    grpc::ServerContext* context, const UnprepareRequest* req,
+    google::protobuf::Empty* unused) {
+  return ToGrpcStatus(service_.Unprepare(req->prepared_expression_id()));
+}
+
+grpc::Status ZetaSqlLocalServiceGrpcImpl::Evaluate(
+    grpc::ServerContext* context, const EvaluateRequest* req,
+    EvaluateResponse* resp) {
+  return ToGrpcStatus(service_.Evaluate(*req, resp));
+}
+
 grpc::Status ZetaSqlLocalServiceGrpcImpl::GetTableFromProto(
     grpc::ServerContext* context, const TableFromProtoRequest* req,
     SimpleTableProto* resp) {
@@ -92,6 +110,12 @@ grpc::Status ZetaSqlLocalServiceGrpcImpl::Analyze(
     grpc::ServerContext* context, const AnalyzeRequest* req,
     AnalyzeResponse* resp) {
   return ToGrpcStatus(service_.Analyze(*req, resp));
+}
+
+grpc::Status ZetaSqlLocalServiceGrpcImpl::BuildSql(
+    grpc::ServerContext* context, const BuildSqlRequest* req,
+    BuildSqlResponse* resp) {
+  return ToGrpcStatus(service_.BuildSql(*req, resp));
 }
 
 grpc::Status ZetaSqlLocalServiceGrpcImpl::ExtractTableNamesFromStatement(
@@ -106,6 +130,12 @@ grpc::Status ZetaSqlLocalServiceGrpcImpl::ExtractTableNamesFromNextStatement(
     const ExtractTableNamesFromNextStatementRequest* req,
     ExtractTableNamesFromNextStatementResponse* resp) {
   return ToGrpcStatus(service_.ExtractTableNamesFromNextStatement(*req, resp));
+}
+
+grpc::Status ZetaSqlLocalServiceGrpcImpl::FormatSql(
+    grpc::ServerContext* context, const FormatSqlRequest* req,
+    FormatSqlResponse* resp) {
+  return ToGrpcStatus(service_.FormatSql(*req, resp));
 }
 
 grpc::Status ZetaSqlLocalServiceGrpcImpl::RegisterCatalog(

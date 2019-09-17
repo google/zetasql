@@ -1,0 +1,164 @@
+//
+// Copyright 2019 ZetaSQL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+// A simple implementation of an EvaluatorTableIterator that just stores
+// everything in memory.
+
+#ifndef ZETASQL_COMMON_SIMPLE_EVALUATOR_TABLE_ITERATOR_H_
+#define ZETASQL_COMMON_SIMPLE_EVALUATOR_TABLE_ITERATOR_H_
+
+#include <functional>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "zetasql/base/logging.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/evaluator_table_iterator.h"
+#include "zetasql/public/type.h"
+#include "zetasql/public/value.h"
+#include <cstdint>
+#include "absl/base/thread_annotations.h"
+#include "absl/synchronization/mutex.h"
+#include "absl/time/time.h"
+#include "absl/types/span.h"
+#include "zetasql/base/source_location.h"
+#include "zetasql/base/status.h"
+#include "zetasql/base/status_builder.h"
+#include "zetasql/base/clock.h"
+
+namespace zetasql {
+
+class SimpleEvaluatorTableIterator : public EvaluatorTableIterator {
+ public:
+  // 'columns' is a list of the columns in the scan.
+  // '(*column_major_values[i])[j]' is the values of 'columns[j]' in the
+  // i-th row.
+  // 'end_status' is the zetasql_base::Status to return when we have reached the end
+  //  of 'column_major_values'.
+  // 'filter_column_idxs' is the list of column indexes for which to enforce the
+  // filters passed to SetColumnFilters().
+  // 'cancel_cb' is called when Cancel() is called.
+  // 'set_deadline_cb' is called when SetDeadline() is called.
+  // 'clock' is used to enforce deadlines.
+  SimpleEvaluatorTableIterator(
+      const std::vector<const Column*>& columns,
+      const std::vector<std::shared_ptr<const std::vector<Value>>>&
+          column_major_values,
+      const zetasql_base::Status& end_status,
+      const absl::flat_hash_set<int>& filter_column_idxs,
+      const std::function<void()>& cancel_cb,
+      const std::function<void(absl::Time)>& set_deadline_cb,
+      zetasql_base::Clock* clock)
+      : columns_(columns),
+        end_status_(end_status),
+        filter_column_idxs_(filter_column_idxs),
+        cancel_cb_(cancel_cb),
+        set_deadline_cb_(set_deadline_cb),
+        column_major_values_(column_major_values),
+        num_rows_(
+            column_major_values_.empty() ? 0 : column_major_values_[0]->size()),
+        clock_(clock) {
+    CHECK_EQ(columns.size(), column_major_values_.size());
+    for (const auto& values_for_column : column_major_values_) {
+      CHECK_EQ(num_rows_, values_for_column->size());
+    }
+  }
+
+  SimpleEvaluatorTableIterator(const SimpleEvaluatorTableIterator&) = delete;
+  SimpleEvaluatorTableIterator& operator=(const SimpleEvaluatorTableIterator&) =
+      delete;
+
+  int NumColumns() const override { return columns_.size(); }
+
+  std::string GetColumnName(int i) const override {
+    return columns_[i]->Name();
+  }
+
+  const Type* GetColumnType(int i) const override {
+    return columns_[i]->GetType();
+  }
+
+  zetasql_base::Status SetColumnFilterMap(
+      absl::flat_hash_map<int, std::unique_ptr<ColumnFilter>> filter_map)
+      override;
+
+  bool NextRow() override;
+
+  const Value& GetValue(int i) const override {
+    absl::ReaderMutexLock l(&mutex_);
+    return (*column_major_values_[i])[row_idx_];
+  }
+
+  zetasql_base::Status Status() const override {
+    absl::ReaderMutexLock l(&mutex_);
+    if (cancelled_) {
+      return zetasql_base::CancelledErrorBuilder()
+             << "EvaluatorTestTableIterator was cancelled";
+    }
+    if (deadline_exceeded_) {
+      return zetasql_base::DeadlineExceededErrorBuilder()
+             << "EvaluatorTestTableIterator deadline exceeded";
+    }
+    if (DoneLocked()) return end_status_;
+    return zetasql_base::OkStatus();
+  }
+
+  zetasql_base::Status Cancel() override {
+    absl::MutexLock l(&mutex_);
+    cancelled_ = true;
+    cancel_cb_();
+    return zetasql_base::OkStatus();
+  }
+
+  void SetDeadline(absl::Time deadline) override {
+    absl::MutexLock l(&mutex_);
+    deadline_ = deadline;
+    set_deadline_cb_(deadline);
+  }
+
+ private:
+  bool DoneLocked() const SHARED_LOCKS_REQUIRED(mutex_) {
+    if (column_major_values_.empty()) return true;
+    return row_idx_ >= num_rows_;
+  }
+
+  const std::vector<const Column*> columns_;
+  const zetasql_base::Status end_status_;
+  const absl::flat_hash_set<int> filter_column_idxs_;
+  const std::function<void()> cancel_cb_;
+  const std::function<void(absl::Time)> set_deadline_cb_;
+
+  mutable absl::Mutex mutex_;
+
+  std::vector<std::shared_ptr<const std::vector<Value>>> column_major_values_
+      GUARDED_BY(mutex_);
+  int64_t num_rows_ GUARDED_BY(mutex_);
+
+  int64_t row_idx_ GUARDED_BY(mutex_) = -1;
+  bool cancelled_ GUARDED_BY(mutex_) = false;
+  bool deadline_exceeded_ GUARDED_BY(mutex_) = false;
+  absl::Time deadline_ GUARDED_BY(mutex_) = absl::InfiniteFuture();
+  zetasql_base::Clock* clock_ GUARDED_BY(mutex_) PT_GUARDED_BY(mutex_);
+
+  // Contains the entries passed to 'filter_map' that are in
+  // 'filter_column_idxs_'.
+  absl::flat_hash_map<int, std::unique_ptr<ColumnFilter>> filter_map_;
+};
+
+}  // namespace zetasql
+
+#endif  // ZETASQL_COMMON_SIMPLE_EVALUATOR_TABLE_ITERATOR_H_

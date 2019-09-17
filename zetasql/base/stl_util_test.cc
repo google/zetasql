@@ -32,6 +32,52 @@ namespace {
 
 using testing::ElementsAre;
 
+// This templatized helper can subclass any class and count how many times
+// instances have been constructed or destructed.  It is used to make sure
+// that deletes are actually occurring.
+
+template <typename T>
+class InstanceCounter: public T {
+ public:
+  InstanceCounter<T>() : T() {
+    ++instance_count;
+  }
+  ~InstanceCounter<T>() {
+    --instance_count;
+  }
+  static int instance_count;
+};
+template <typename T>
+int InstanceCounter<T>::instance_count = 0;
+
+TEST(STLDeleteElementsTest, STLDeleteElements) {
+  std::vector<InstanceCounter<std::string> *> v;
+  v.push_back(new InstanceCounter<std::string>());
+  v.push_back(new InstanceCounter<std::string>());
+  v.push_back(new InstanceCounter<std::string>());
+  EXPECT_EQ(3, InstanceCounter<std::string>::instance_count);
+  STLDeleteElements(&v);
+  EXPECT_EQ(0, InstanceCounter<std::string>::instance_count);
+  EXPECT_EQ(0, v.size());
+
+  // Deleting nullptrs to containers is ok.
+  std::vector<InstanceCounter<std::string> *> *p = nullptr;
+  STLDeleteElements(p);
+}
+
+TEST(STLDeleteElementsTest, ElementDeleter) {
+  std::vector<InstanceCounter<std::string> *> v;
+  { // Create a new scope
+    ElementDeleter d(&v);
+    v.push_back(new InstanceCounter<std::string>());
+    v.push_back(new InstanceCounter<std::string>());
+    v.push_back(new InstanceCounter<std::string>());
+    EXPECT_EQ(3, InstanceCounter<std::string>::instance_count);
+  }
+  EXPECT_EQ(0, InstanceCounter<std::string>::instance_count);
+  EXPECT_EQ(0, v.size());
+}
+
 TEST(STLSetDifference, SimpleSet) {
   std::set<int> a, b, c;
   a.insert(1);

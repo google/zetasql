@@ -27,11 +27,11 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
    name = "rules_foreign_cc",
-   strip_prefix = "rules_foreign_cc-e3f4b5e0bc9dac9cf036616c13de25e6cd5051a2",
+   strip_prefix = "rules_foreign_cc-c3d5405cbc570257e7c9f75f902fab42241e6a53",
    urls = [
-      "https://github.com/bazelbuild/rules_foreign_cc/archive/e3f4b5e0bc9dac9cf036616c13de25e6cd5051a2.tar.gz",
+      "https://github.com/bazelbuild/rules_foreign_cc/archive/c3d5405cbc570257e7c9f75f902fab42241e6a53.tar.gz",
    ],
-   sha256 = "136470a38dcd00c7890230402b43004dc947bf1e3dd0289dd1bd2bfb1e0a3484"
+   sha256 = "4a643853f5be24458696b347e4507a8868369fb88d18df4c9edcf5f40394943c"
 )
 
 load("@rules_foreign_cc//:workspace_definitions.bzl", "rules_foreign_cc_dependencies")
@@ -48,6 +48,16 @@ load(":zetasql_deps.bzl", "zetasql_deps")
 # Download and Build dependencies.
 zetasql_deps()
 
-load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+protobuf_deps()
 
+load("@google_bazel_common//:workspace_defs.bzl", "google_common_workspace_rules")
+google_common_workspace_rules()
+
+load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
 grpc_deps()
+
+load("@io_grpc_grpc_java//:repositories.bzl", "grpc_java_repositories")
+grpc_java_repositories()
+
+

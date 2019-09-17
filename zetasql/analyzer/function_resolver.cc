@@ -66,12 +66,15 @@ FunctionResolver::FunctionResolver(Catalog* catalog, TypeFactory* type_factory,
     : catalog_(catalog), type_factory_(type_factory), resolver_(resolver) {
 }
 
-static const std::string* const kBitwiseNotFnName = new std::string("$bitwise_not");
+static const std::string* const kBitwiseNotFnName =
+    new std::string("$bitwise_not");
 static const std::string* const kInvalidUnaryOperatorFnName =
     new std::string("$invalid_unary_operator");
 static const std::string* const kNotFnName = new std::string("$not");
-static const std::string* const kUnaryMinusFnName = new std::string("$unary_minus");
-static const std::string* const kUnaryPlusFnName = new std::string("$unary_plus");
+static const std::string* const kUnaryMinusFnName =
+    new std::string("$unary_minus");
+static const std::string* const kUnaryPlusFnName =
+    new std::string("$unary_plus");
 
 const std::string& FunctionResolver::UnaryOperatorToFunctionName(
     ASTUnaryExpression::Op op) {
@@ -93,16 +96,20 @@ const std::string& FunctionResolver::UnaryOperatorToFunctionName(
 }
 
 static const std::string* const kAddFnName = new std::string("$add");
-static const std::string* const kBitwiseAndFnName = new std::string("$bitwise_and");
-static const std::string* const kBitwiseOrFnName = new std::string("$bitwise_or");
-static const std::string* const kBitwiseXorFnName = new std::string("$bitwise_xor");
+static const std::string* const kBitwiseAndFnName =
+    new std::string("$bitwise_and");
+static const std::string* const kBitwiseOrFnName =
+    new std::string("$bitwise_or");
+static const std::string* const kBitwiseXorFnName =
+    new std::string("$bitwise_xor");
 static const std::string* const kDivideFnName = new std::string("$divide");
 static const std::string* const kEqualFnName = new std::string("$equal");
 static const std::string* const kGreaterFnName = new std::string("$greater");
 static const std::string* const kGreaterOrEqualFnName =
     new std::string("$greater_or_equal");
 static const std::string* const kLessFnName = new std::string("$less");
-static const std::string* const kLessOrEqualFnName = new std::string("$less_or_equal");
+static const std::string* const kLessOrEqualFnName =
+    new std::string("$less_or_equal");
 static const std::string* const kLikeFnName = new std::string("$like");
 static const std::string* const kMultiplyFnName = new std::string("$multiply");
 static const std::string* const kNotEqualFnName = new std::string("$not_equal");
@@ -149,7 +156,8 @@ const std::string& FunctionResolver::BinaryOperatorToFunctionName(
   }
 }
 
-std::string FunctionResolver::SignatureArgumentKindTypeSet::DebugString() const {
+std::string FunctionResolver::SignatureArgumentKindTypeSet::DebugString()
+    const {
   switch (kind_) {
     case UNTYPED_NULL:
       return "UNTYPED NULL";
@@ -541,7 +549,8 @@ zetasql_base::Status FunctionResolver::CheckRelationArgumentTypes(
   // The input relation argument specifies a required schema. Start by building
   // a map from each provided column's name to its index in the ordered list of
   // columns in the relation.
-  std::map<std::string, int, zetasql_base::StringCaseLess> provided_col_name_to_required_col_idx;
+  std::map<std::string, int, zetasql_base::StringCaseLess>
+      provided_col_name_to_required_col_idx;
   for (int provided_col_idx = 0;
        provided_col_idx < provided_schema.num_columns(); ++provided_col_idx) {
     const std::string& provided_col_name =
@@ -1225,10 +1234,10 @@ zetasql_base::Status FunctionResolver::AddCastOrConvertLiteral(
 }
 
 namespace {
-bool GetFloatImage(const absl::flat_hash_map<int, std::string>& float_literal_images,
-                   const ASTNode* ast_location,
-                   const ResolvedLiteral* argument_literal,
-                   absl::string_view* float_image) {
+bool GetFloatImage(
+    const absl::flat_hash_map<int, std::string>& float_literal_images,
+    const ASTNode* ast_location, const ResolvedLiteral* argument_literal,
+    absl::string_view* float_image) {
   const std::string* float_image_ptr = zetasql_base::FindOrNull(
       float_literal_images, argument_literal->float_literal_id());
   if (float_image_ptr != nullptr) {
@@ -1687,9 +1696,10 @@ zetasql_base::Status FunctionResolver::ForwardNestedResolutionAnalysisError(
   } else if (HasErrorLocation(status)) {
     new_status = MakeFunctionExprAnalysisError(function, "");
     zetasql::internal::AttachPayload(
-        &new_status, SetErrorSourcesFromStatus(
-                         zetasql::internal::GetPayload<ErrorLocation>(status),
-                         status, mode, std::string(parse_resume_location.input())));
+        &new_status,
+        SetErrorSourcesFromStatus(
+            zetasql::internal::GetPayload<ErrorLocation>(status), status,
+            mode, std::string(parse_resume_location.input())));
   } else {
     new_status = StatusWithInternalErrorLocation(
         MakeFunctionExprAnalysisError(function, ""),
@@ -1858,9 +1868,10 @@ zetasql_base::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
 
 namespace {
 template <typename T>
-zetasql_base::Status CheckRange(T value, const ASTNode* arg_location, int idx,
-                        const FunctionArgumentTypeOptions& options,
-                        const std::function<std::string(int)>& BadArgErrorPrefix) {
+zetasql_base::Status CheckRange(
+    T value, const ASTNode* arg_location, int idx,
+    const FunctionArgumentTypeOptions& options,
+    const std::function<std::string(int)>& BadArgErrorPrefix) {
   static_assert(std::is_same<T, int64_t>::value || std::is_same<T, double>::value,
                 "CheckRange supports only int64_t and double");
   // Currently all ranges have integer bounds.

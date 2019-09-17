@@ -85,14 +85,14 @@ namespace zetasql {
 // TODO: This function currently only supports Status with
 // ErrorLocation, not Status with InternalErrorLocation.  Extend this to
 // support a Status with InternalErrorLocation if/when we need it.
-ErrorSource MakeErrorSource(
-    const zetasql_base::Status& status, const std::string& text, ErrorMessageMode mode);
+ErrorSource MakeErrorSource(const zetasql_base::Status& status, const std::string& text,
+                            ErrorMessageMode mode);
 
 // Creates a StatusBuilder for ZetaSQL errors using the INVALID_ARGUMENT
 // error code. Note: if you enable logging on the StatusBuilder, the logged
 // file/line location will not be useful.
 inline ::zetasql_base::StatusBuilder MakeSqlError() {
-  return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC);
+  return ::zetasql_base::InvalidArgumentErrorBuilder();
 }
 
 // Returns MakeSqlError() annotated with <point> as the error location.
@@ -104,7 +104,7 @@ inline ::zetasql_base::StatusBuilder MakeSqlErrorAtPoint(ParseLocationPoint poin
 // error code. Note: if you enable logging on the StatusBuilder, the logged
 // file/line location will not be useful.
 inline ::zetasql_base::StatusBuilder MakeEvalError() {
-  return ::zetasql_base::OutOfRangeErrorBuilder(ZETASQL_LOC);
+  return ::zetasql_base::OutOfRangeErrorBuilder();
 }
 
 // Same, but uses <error_location> as the error location.
@@ -121,8 +121,8 @@ zetasql_base::Status StatusWithInternalErrorLocation(
 zetasql_base::Status ConvertInternalErrorLocationToExternal(zetasql_base::Status status,
                                                     absl::string_view query);
 
-inline std::string ExtractingNotSupportedDatePart(absl::string_view from_type,
-                                             absl::string_view date_part_name) {
+inline std::string ExtractingNotSupportedDatePart(
+    absl::string_view from_type, absl::string_view date_part_name) {
   return absl::StrCat("EXTRACT from ", from_type, " does not support the ",
                       date_part_name, " date part");
 }

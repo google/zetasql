@@ -14,7 +14,7 @@
 # limitations under the License.
 
 package(
-    default_visibility = ["//zetasql:__subpackages__"],
+    default_visibility = ["//:__subpackages__"],
 )
 
 load("//bazel:bison.bzl", "genyacc")
@@ -80,6 +80,7 @@ cc_library(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:inlined_vector",
+        "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
@@ -150,6 +151,7 @@ cc_library(
         "parse_tree_decls.h",
         "parse_tree_errors.h",
         "parse_tree_visitor.h",
+        "visit_result.h",
     ],
     copts = ["-Wno-sign-compare"],
     tags = ["nofixdeps"],  # generated and real files are interdependent

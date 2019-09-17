@@ -48,7 +48,7 @@ enum FunctionSignatureId {
   // 1600-1699 Misc functions                (NextId: 1681)
   // 1700-1799 Net functions                 (NextId: 1716)
   // 1800-1899 More time functions           (NextId: 1833)
-  // 1900-1999 Hashing/encryption functions  (NextId: 1920)
+  // 1900-1999 Hashing/encryption functions  (NextId: 1924)
   // 2000-2199 Geography functions           (NextId: 2063)
 
   // enum value                       // Related function name
@@ -698,6 +698,10 @@ enum FunctionSignatureId {
   FN_AEAD_ENCRYPT_BYTES = 1917;     // aead.encrypt(bytes, bytes, bytes)
   FN_AEAD_DECRYPT_STRING = 1918;    // aead.decrypt_string(bytes, bytes, string)
   FN_AEAD_DECRYPT_BYTES = 1919;     // aead.decrypt_bytes(bytes, bytes, bytes)
+  FN_KMS_ENCRYPT_STRING = 1920;     // kms.encrypt(string, string)
+  FN_KMS_ENCRYPT_BYTES = 1921;      // kms.encrypt(string, bytes)
+  FN_KMS_DECRYPT_STRING = 1922;     // kms.decrypt_string(string, bytes)
+  FN_KMS_DECRYPT_BYTES = 1923;      // kms.decrypt_bytes(string, bytes)
 
   // ST_ family of functions (Geography related - (broken link))
   // Constructors

@@ -211,8 +211,8 @@ zetasql_base::Status Resolver::AddDeprecationWarning(
     if (source_warning != nullptr) {
       ZETASQL_RET_CHECK_EQ(kind, source_warning->deprecation_warning().kind());
 
-      ZETASQL_RET_CHECK(
-          zetasql::internal::HasPayloadTyped<InternalErrorLocation>(warning));
+      ZETASQL_RET_CHECK(zetasql::internal::HasPayloadWithType<InternalErrorLocation>(
+          warning));
       auto internal_error_location =
           zetasql::internal::GetPayload<InternalErrorLocation>(warning);
 
@@ -455,12 +455,14 @@ zetasql_base::Status Resolver::AssignTypeToUndeclaredParameter(
     // common supertypes.
     if (previous_type->Equivalent(type)) {
       return MakeSqlErrorAtPoint(location)
-             << "Undeclared parameter '" << absl::get<std::string>(name_or_position)
+             << "Undeclared parameter '"
+             << absl::get<std::string>(name_or_position)
              << "' is used assuming different versions of the same type ("
              << type->ShortTypeName(product_mode()) << ")";
     } else {
       return MakeSqlErrorAtPoint(location)
-             << "Undeclared parameter '" << absl::get<std::string>(name_or_position)
+             << "Undeclared parameter '"
+             << absl::get<std::string>(name_or_position)
              << "' is used assuming different types ("
              << previous_type->ShortTypeName(product_mode()) << " vs "
              << type->ShortTypeName(product_mode()) << ")";
@@ -601,7 +603,8 @@ zetasql_base::Status Resolver::ResolvePathExpressionAsType(
     const ASTPathExpression* path_expr,
     bool is_single_identifier,
     const Type** resolved_type) const {
-  const std::vector<std::string> identifier_path = path_expr->ToIdentifierVector();
+  const std::vector<std::string> identifier_path =
+      path_expr->ToIdentifierVector();
 
   // Check for SimpleTypes.
   if (identifier_path.size() == 1 &&
@@ -629,11 +632,10 @@ zetasql_base::Status Resolver::ResolvePathExpressionAsType(
                                     : path_expr->ToIdentifierPathString());
   }
 
-  const zetasql_base::Status status =
-      catalog_->FindType(
-          (is_single_identifier ? std::vector<std::string>{single_name}
-                                : identifier_path),
-          resolved_type, analyzer_options_.find_options());
+  const zetasql_base::Status status = catalog_->FindType(
+      (is_single_identifier ? std::vector<std::string>{single_name}
+                            : identifier_path),
+      resolved_type, analyzer_options_.find_options());
   if (status.code() == zetasql_base::StatusCode::kNotFound) {
     return MakeSqlErrorAt(path_expr)
            << "Type not found: "
@@ -644,7 +646,8 @@ zetasql_base::Status Resolver::ResolvePathExpressionAsType(
 }
 
 // Get name of a hint or option formatted appropriately for error messages.
-static std::string HintName(const std::string& qualifier, const std::string& name) {
+static std::string HintName(const std::string& qualifier,
+                            const std::string& name) {
   return absl::StrCat((qualifier.empty() ? "" : ToIdentifierLiteral(qualifier)),
                       (qualifier.empty() ? "" : "."),
                       ToIdentifierLiteral(name));

@@ -234,6 +234,17 @@ class BisonParser {
     return ++previous_positional_parameter_position_;
   }
 
+  // Move allocated_ast_nodes_ into ast_nodes and reset it. This releases
+  // ownership of allocated_ast_nodes_ so the AST can live beyond the lifetime
+  // of the parser. This is only intended to be used by a BisonParser that calls
+  // CreateASTNode directly instead of using the provided Parse() function. This
+  // situation should be rare and only relevant if you have a different parser
+  // implementation than the default ZetaSQL parser.
+  void ReleaseAllocatedASTNodes(
+      std::vector<std::unique_ptr<ASTNode>>* ast_nodes) {
+    *ast_nodes = std::move(*allocated_ast_nodes_);
+  }
+
  private:
   // Identifiers and literal values are allocated from this arena. Not owned.
   // Only valid during Parse().

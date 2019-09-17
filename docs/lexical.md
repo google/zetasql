@@ -205,9 +205,8 @@ Any sequence not in this table produces an error.
 ### Integer Literals
 
 Integer literals are either a sequence of decimal digits (0–9) or a hexadecimal
-value that is prefixed with "`0x`". Integers can be prefixed by "`+`" or "`-`"
-to represent positive and negative values, respectively.
-
+value that is prefixed with "`0x`" or "`0X`". Integers can be prefixed by "`+`"
+or "`-`" to represent positive and negative values, respectively.
 Examples:
 
 ```

@@ -31,6 +31,7 @@
 #include "zetasql/proto/function.pb.h"
 #include "zetasql/proto/simple_catalog.pb.h"
 #include "zetasql/public/parse_resume_location.pb.h"
+#include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/simple_table.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
@@ -60,11 +61,33 @@ class ZetaSqlLocalServiceImplTest : public ::testing::Test {
     ASSERT_NE(nullptr, proto_importer_->Import(
                            "zetasql/testdata/test_schema.proto"));
     pool_ = absl::make_unique<google::protobuf::DescriptorPool>(proto_importer_->pool());
+    EXPECT_EQ(0, service_.NumSavedPreparedExpression());
+  }
+
+  void TearDown() override {
+    EXPECT_EQ(0, service_.NumSavedPreparedExpression());
+  }
+
+  zetasql_base::Status Prepare(const PrepareRequest& request,
+                       PrepareResponse* response) {
+    return service_.Prepare(request, response);
+  }
+
+  zetasql_base::Status Unprepare(int64_t id) { return service_.Unprepare(id); }
+
+  zetasql_base::Status Evaluate(const EvaluateRequest& request,
+                        EvaluateResponse* response) {
+    return service_.Evaluate(request, response);
   }
 
   zetasql_base::Status Analyze(const AnalyzeRequest& request,
                        AnalyzeResponse* response) {
     return service_.Analyze(request, response);
+  }
+
+  zetasql_base::Status BuildSql(const BuildSqlRequest& request,
+                        BuildSqlResponse* response) {
+    return service_.BuildSql(request, response);
   }
 
   zetasql_base::Status ExtractTableNamesFromStatement(
@@ -79,6 +102,11 @@ class ZetaSqlLocalServiceImplTest : public ::testing::Test {
     return service_.ExtractTableNamesFromNextStatement(request, response);
   }
 
+  zetasql_base::Status FormatSql(const FormatSqlRequest& request,
+                         FormatSqlResponse* response) {
+    return service_.FormatSql(request, response);
+  }
+
   zetasql_base::Status UnregisterCatalog(int64_t id) {
     return service_.UnregisterCatalog(id);
   }
@@ -89,6 +117,10 @@ class ZetaSqlLocalServiceImplTest : public ::testing::Test {
 
   zetasql_base::Status AddSimpleTable(const AddSimpleTableRequest& request) {
     return service_.AddSimpleTable(request);
+  }
+
+  size_t NumSavedPreparedExpression() {
+    return service_.NumSavedPreparedExpression();
   }
 
   zetasql_base::Status GetTableFromProto(const TableFromProtoRequest& request,
@@ -108,6 +140,268 @@ class ZetaSqlLocalServiceImplTest : public ::testing::Test {
   std::unique_ptr<google::protobuf::DescriptorPool> pool_;
   TypeFactory factory_;
 };
+
+TEST_F(ZetaSqlLocalServiceImplTest, PrepareAndCleanup) {
+  PrepareRequest request;
+  TypeFactory factory;
+  FileDescriptorSetMap file_descriptor_set_map;
+
+  // Add a proto-type column.
+  const ProtoType* proto_type;
+  ZETASQL_ASSERT_OK(factory.MakeProtoType(zetasql_test::KitchenSinkPB::descriptor(),
+                                  &proto_type));
+  auto* column = request.mutable_options()->add_expression_columns();
+  column->set_name("c");
+  ZETASQL_ASSERT_OK(proto_type->SerializeToProtoAndDistinctFileDescriptors(
+      column->mutable_type(), &file_descriptor_set_map));
+
+  // And add an enum-type param.
+  const EnumType* enum_type;
+  ZETASQL_ASSERT_OK(factory.MakeEnumType(
+      pool_->FindEnumTypeByName("zetasql_test.TestEnum"), &enum_type));
+  auto* param = request.mutable_options()->add_query_parameters();
+  param->set_name("e");
+  ZETASQL_ASSERT_OK(enum_type->SerializeToProtoAndDistinctFileDescriptors(
+      param->mutable_type(), &file_descriptor_set_map));
+
+  // The proto and enum come from different descriptor pools, resulting 2 file
+  // descriptor sets.
+  ASSERT_EQ(2, file_descriptor_set_map.size());
+
+  for (int i = 0; i < file_descriptor_set_map.size(); ++i) {
+    request.add_file_descriptor_set();
+  }
+  for (const auto& pair : file_descriptor_set_map) {
+    *request.mutable_file_descriptor_set(pair.second->descriptor_set_index) =
+        pair.second->file_descriptor_set;
+  }
+
+  // Use the column and param in the expression.
+  request.set_sql("IF(c.int32_val=1, @e, null)");
+
+  PrepareResponse response;
+  ZETASQL_ASSERT_OK(Prepare(request, &response));
+
+  // Check result type and value.
+  EXPECT_EQ(TYPE_ENUM, response.output_type().type_kind());
+  EXPECT_EQ("zetasql_test.TestEnum",
+            response.output_type().enum_type().enum_name());
+  EXPECT_EQ(0, response.output_type().file_descriptor_set_size());
+  EXPECT_EQ(1, response.output_type().enum_type().file_descriptor_set_index());
+
+  // Check prepared id.
+  EXPECT_TRUE(response.has_prepared_expression_id());
+  EXPECT_EQ(1, NumSavedPreparedExpression());
+  ZETASQL_ASSERT_OK(Unprepare(response.prepared_expression_id()));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, PrepareFailuresNoRegister) {
+  PrepareRequest request;
+  PrepareResponse response;
+
+  request.set_sql("foo");
+  ASSERT_FALSE(Prepare(request, &response).ok());
+  // No prepared state saved on failure.
+  EXPECT_EQ(0, NumSavedPreparedExpression());
+
+  request.set_sql("foo + @bar");
+  auto* param = request.mutable_options()->add_query_parameters();
+  param->set_name("bar");
+  param->mutable_type()->set_type_kind(TYPE_INT64);
+
+  ASSERT_FALSE(Prepare(request, &response).ok());
+  EXPECT_EQ(0, NumSavedPreparedExpression());
+
+  auto* column = request.mutable_options()->add_expression_columns();
+  column->set_name("foo");
+  column->mutable_type()->set_type_kind(TYPE_STRING);
+
+  ASSERT_FALSE(Prepare(request, &response).ok());
+  EXPECT_EQ(0, NumSavedPreparedExpression());
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, Evaluate) {
+  EvaluateRequest request;
+
+  TypeFactory factory;
+  FileDescriptorSetMap file_descriptor_set_map;
+
+  // Add a proto-type column.
+  const ProtoType* proto_type;
+  ZETASQL_ASSERT_OK(factory.MakeProtoType(zetasql_test::KitchenSinkPB::descriptor(),
+                                  &proto_type));
+  auto* column = request.add_columns();
+  column->set_name("c");
+  ZETASQL_ASSERT_OK(proto_type->SerializeToProtoAndDistinctFileDescriptors(
+      column->mutable_type(), &file_descriptor_set_map));
+  zetasql_test::KitchenSinkPB pb;
+  pb.set_int32_val(1);
+  pb.set_int64_key_1(2);
+  pb.set_int64_key_2(3);
+  Value proto_value = values::Proto(proto_type, pb);
+  ValueProto proto_pb;
+  ZETASQL_ASSERT_OK(proto_value.Serialize(&proto_pb));
+  *column->mutable_value() = proto_pb;
+
+  // And add an enum-type param.
+  const EnumType* enum_type;
+  ZETASQL_ASSERT_OK(factory.MakeEnumType(
+      pool_->FindEnumTypeByName("zetasql_test.TestEnum"), &enum_type));
+  auto* param = request.add_params();
+  param->set_name("e");
+  ZETASQL_ASSERT_OK(enum_type->SerializeToProtoAndDistinctFileDescriptors(
+      param->mutable_type(), &file_descriptor_set_map));
+  Value enum_value = values::Enum(enum_type, 1);
+  ValueProto enum_pb;
+  ZETASQL_ASSERT_OK(enum_value.Serialize(&enum_pb));
+  *param->mutable_value() = enum_pb;
+
+  // The proto and enum come from different descriptor pools, resulting 2 file
+  // descriptor sets.
+  ASSERT_EQ(2, file_descriptor_set_map.size());
+
+  for (int i = 0; i < file_descriptor_set_map.size(); ++i) {
+    request.add_file_descriptor_set();
+  }
+  for (const auto& pair : file_descriptor_set_map) {
+    *request.mutable_file_descriptor_set(pair.second->descriptor_set_index) =
+        pair.second->file_descriptor_set;
+  }
+
+  // Use the column and param in the expression.
+  request.set_sql("IF(c.int32_val=1, @e, null)");
+
+  EvaluateResponse response;
+  ZETASQL_ASSERT_OK(Evaluate(request, &response));
+
+  // check result type and value.
+  EXPECT_EQ(TYPE_ENUM, response.type().type_kind());
+  EXPECT_EQ("zetasql_test.TestEnum", response.type().enum_type().enum_name());
+  EXPECT_EQ(0, response.type().file_descriptor_set_size());
+  EXPECT_EQ(1, response.type().enum_type().file_descriptor_set_index());
+  EXPECT_EQ(1, response.value().enum_value());
+  EXPECT_EQ(1, NumSavedPreparedExpression());
+  ZETASQL_ASSERT_OK(Unprepare(response.prepared_expression_id()));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, EvaluatePrepared) {
+  PrepareRequest request;
+  TypeFactory factory;
+  FileDescriptorSetMap file_descriptor_set_map;
+
+  // Add a proto-type column.
+  const ProtoType* proto_type;
+  ZETASQL_ASSERT_OK(factory.MakeProtoType(zetasql_test::KitchenSinkPB::descriptor(),
+                                  &proto_type));
+  auto* column = request.mutable_options()->add_expression_columns();
+  column->set_name("c");
+  ZETASQL_ASSERT_OK(proto_type->SerializeToProtoAndDistinctFileDescriptors(
+      column->mutable_type(), &file_descriptor_set_map));
+
+  // And add an enum-type param.
+  const EnumType* enum_type;
+  ZETASQL_ASSERT_OK(factory.MakeEnumType(
+      pool_->FindEnumTypeByName("zetasql_test.TestEnum"), &enum_type));
+  auto* param = request.mutable_options()->add_query_parameters();
+  param->set_name("e");
+  ZETASQL_ASSERT_OK(enum_type->SerializeToProtoAndDistinctFileDescriptors(
+      param->mutable_type(), &file_descriptor_set_map));
+
+  // The proto and enum come from different descriptor pools, resulting 2 file
+  // descriptor sets.
+  ASSERT_EQ(2, file_descriptor_set_map.size());
+
+  for (int i = 0; i < file_descriptor_set_map.size(); ++i) {
+    request.add_file_descriptor_set();
+  }
+  for (const auto& pair : file_descriptor_set_map) {
+    *request.mutable_file_descriptor_set(pair.second->descriptor_set_index) =
+        pair.second->file_descriptor_set;
+  }
+
+  // Use the column and param in the expression.
+  request.set_sql("IF(c.int32_val=1, @e, null)");
+
+  PrepareResponse response;
+  ZETASQL_ASSERT_OK(Prepare(request, &response));
+
+  EvaluateRequest evaluate_request;
+  evaluate_request.set_prepared_expression_id(
+      response.prepared_expression_id());
+
+  auto* evaluate_column = evaluate_request.add_columns();
+  evaluate_column->set_name("c");
+  ZETASQL_ASSERT_OK(proto_type->SerializeToProtoAndDistinctFileDescriptors(
+      evaluate_column->mutable_type(), &file_descriptor_set_map));
+  zetasql_test::KitchenSinkPB pb;
+  pb.set_int32_val(1);
+  pb.set_int64_key_1(2);
+  pb.set_int64_key_2(3);
+  Value proto_value = values::Proto(proto_type, pb);
+  ValueProto proto_pb;
+  ZETASQL_ASSERT_OK(proto_value.Serialize(&proto_pb));
+  *evaluate_column->mutable_value() = proto_pb;
+
+  // And add an enum-type param.
+  auto* evaluate_param = evaluate_request.add_params();
+  evaluate_param->set_name("e");
+  ZETASQL_ASSERT_OK(enum_type->SerializeToProtoAndDistinctFileDescriptors(
+      evaluate_param->mutable_type(), &file_descriptor_set_map));
+  Value enum_value = values::Enum(enum_type, 1);
+  ValueProto enum_pb;
+  ZETASQL_ASSERT_OK(enum_value.Serialize(&enum_pb));
+  *evaluate_param->mutable_value() = enum_pb;
+
+  EvaluateResponse evaluate_response;
+  ZETASQL_ASSERT_OK(Evaluate(evaluate_request, &evaluate_response));
+
+  // check result type and value.
+  EXPECT_EQ(TYPE_ENUM, evaluate_response.type().type_kind());
+  EXPECT_EQ(1, evaluate_response.value().enum_value());
+  EXPECT_EQ(1, NumSavedPreparedExpression());
+  ZETASQL_ASSERT_OK(Unprepare(response.prepared_expression_id()));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, EvaluateWithWrongId) {
+  EvaluateRequest evaluate_request;
+  evaluate_request.set_prepared_expression_id(12345);
+
+  EvaluateResponse evaluate_response;
+  ASSERT_FALSE(Evaluate(evaluate_request, &evaluate_response).ok());
+  // No prepared state saved on failure.
+  EXPECT_EQ(0, NumSavedPreparedExpression());
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, EvaluateFailuresNoRegister) {
+  EvaluateRequest request;
+  EvaluateResponse response;
+
+  request.set_sql("foo");
+  ASSERT_FALSE(Evaluate(request, &response).ok());
+  // No prepared state saved on failure.
+  EXPECT_EQ(0, NumSavedPreparedExpression());
+
+  request.set_sql("foo + @bar");
+  auto* param = request.add_params();
+  param->set_name("bar");
+  param->mutable_type()->set_type_kind(TYPE_INT64);
+  param->mutable_value()->set_int64_value(1);
+
+  ASSERT_FALSE(Evaluate(request, &response).ok());
+  EXPECT_EQ(0, NumSavedPreparedExpression());
+
+  auto* column = request.add_columns();
+  column->set_name("foo");
+  column->mutable_type()->set_type_kind(TYPE_STRING);
+  column->mutable_value()->set_string_value("");
+
+  ASSERT_FALSE(Evaluate(request, &response).ok());
+  EXPECT_EQ(0, NumSavedPreparedExpression());
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, UnprepareUnknownId) {
+  ASSERT_FALSE(Unprepare(10086).ok());
+}
 
 TEST_F(ZetaSqlLocalServiceImplTest, TableFromProto) {
   TableFromProtoRequest request;
@@ -469,6 +763,293 @@ TEST_F(ZetaSqlLocalServiceImplTest, Analyze) {
   AnalyzeResponse response3;
   ZETASQL_EXPECT_OK(Analyze(request3, &response3));
   EXPECT_EQ(40, response3.resume_byte_position());
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, AnalyzeExpression) {
+  SimpleCatalogProto catalog;
+
+  zetasql::ZetaSQLBuiltinFunctionOptionsProto options;
+  zetasql::ZetaSQLBuiltinFunctionOptionsProto* builtin_function_options =
+      catalog.mutable_builtin_function_options();
+  *builtin_function_options = options;
+
+  AnalyzeRequest request;
+  *request.mutable_simple_catalog() = catalog;
+  request.set_sql_expression("123");
+
+  AnalyzeResponse response;
+  ZETASQL_EXPECT_OK(Analyze(request, &response));
+
+  AnalyzeResponse expectedResponse;
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(
+      R"pb(resolved_expression {
+             resolved_literal_node {
+               parent { type { type_kind: TYPE_INT64 } }
+               value {
+                 type { type_kind: TYPE_INT64 }
+                 value { int64_value: 123 }
+               }
+               has_explicit_type: false
+               float_literal_id: 0
+             }
+           })pb",
+      &expectedResponse));
+  EXPECT_THAT(response, EqualsProto(expectedResponse));
+
+  AnalyzeRequest request2;
+  *request2.mutable_simple_catalog() = catalog;
+
+  request2.set_sql_expression("foo < 123");
+  auto* column = request2.mutable_options()->add_expression_columns();
+  column->set_name("foo");
+  column->mutable_type()->set_type_kind(TYPE_INT32);
+  AnalyzeResponse response2;
+  ZETASQL_EXPECT_OK(Analyze(request2, &response2));
+
+  AnalyzeResponse expectedResponse2;
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(
+      R"pb(resolved_expression {
+             resolved_function_call_base_node {
+               resolved_function_call_node {
+                 parent {
+                   parent { type { type_kind: TYPE_BOOL } }
+                   function { name: "ZetaSQL:$less" }
+                   signature {
+                     argument {
+                       kind: ARG_TYPE_FIXED
+                       type { type_kind: TYPE_INT32 }
+                       options {
+                         cardinality: REQUIRED
+                         extra_relation_input_columns_allowed: true
+                       }
+                       num_occurrences: 1
+                     }
+                     argument {
+                       kind: ARG_TYPE_FIXED
+                       type { type_kind: TYPE_INT32 }
+                       options {
+                         cardinality: REQUIRED
+                         extra_relation_input_columns_allowed: true
+                       }
+                       num_occurrences: 1
+                     }
+                     return_type {
+                       kind: ARG_TYPE_FIXED
+                       type { type_kind: TYPE_BOOL }
+                       options {
+                         cardinality: REQUIRED
+                         extra_relation_input_columns_allowed: true
+                       }
+                       num_occurrences: 1
+                     }
+                     context_id: 105
+                     options { is_deprecated: false }
+                   }
+                   argument_list {
+                     resolved_expression_column_node {
+                       parent { type { type_kind: TYPE_INT32 } }
+                       name: "foo"
+                     }
+                   }
+                   argument_list {
+                     resolved_literal_node {
+                       parent { type { type_kind: TYPE_INT32 } }
+                       value {
+                         type { type_kind: TYPE_INT32 }
+                         value { int32_value: 123 }
+                       }
+                       has_explicit_type: false
+                       float_literal_id: 0
+                     }
+                   }
+                   error_mode: DEFAULT_ERROR_MODE
+                 }
+                 function_call_info {}
+               }
+             }
+           })pb",
+      &expectedResponse2));
+  EXPECT_THAT(response2, EqualsProto(expectedResponse2));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, BuildSqlStatement) {
+  const std::string catalog_proto_text = R"pb(
+    name: "foo"
+    table {
+      name: "bar"
+      serialization_id: 1
+      column {
+        name: "baz"
+        type { type_kind: TYPE_INT32 }
+        is_pseudo_column: false
+      }
+    })pb";
+
+  SimpleCatalogProto catalog;
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(catalog_proto_text, &catalog));
+
+  BuildSqlRequest request;
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(
+      R"pb(resolved_statement {
+             resolved_query_stmt_node {
+               output_column_list {
+                 name: "baz"
+                 column {
+                   column_id: 1
+                   table_name: "bar"
+                   name: "baz"
+                   type { type_kind: TYPE_INT32 }
+                 }
+               }
+               is_value_table: false
+               query {
+                 resolved_project_scan_node {
+                   parent {
+                     column_list {
+                       column_id: 1
+                       table_name: "bar"
+                       name: "baz"
+                       type { type_kind: TYPE_INT32 }
+                     }
+                     is_ordered: false
+                   }
+                   input_scan {
+                     resolved_table_scan_node {
+                       parent {
+                         column_list {
+                           column_id: 1
+                           table_name: "bar"
+                           name: "baz"
+                           type { type_kind: TYPE_INT32 }
+                         }
+                         is_ordered: false
+                       }
+                       table {
+                         name: "bar"
+                         serialization_id: 1
+                         full_name: "bar"
+                       }
+                       column_index_list: 0
+                       alias: ""
+                     }
+                   }
+                 }
+               }
+             }
+           })pb",
+      &request));
+
+  *request.mutable_simple_catalog() = catalog;
+
+  BuildSqlResponse response;
+  ZETASQL_EXPECT_OK(BuildSql(request, &response));
+
+  BuildSqlResponse expectedResponse;
+  expectedResponse.set_sql(
+      "SELECT bar_2.a_1 AS baz FROM (SELECT bar.baz AS a_1 FROM bar) AS bar_2");
+
+  EXPECT_THAT(response, EqualsProto(expectedResponse));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, BuildSqlExpression) {
+  BuildSqlRequest request;
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(
+      R"pb(resolved_expression {
+             resolved_function_call_base_node {
+               resolved_function_call_node {
+                 parent {
+                   parent { type { type_kind: TYPE_BOOL } }
+                   function { name: "ZetaSQL:$less" }
+                   signature {
+                     argument {
+                       kind: ARG_TYPE_FIXED
+                       type { type_kind: TYPE_INT32 }
+                       options {
+                         cardinality: REQUIRED
+                         extra_relation_input_columns_allowed: true
+                       }
+                       num_occurrences: 1
+                     }
+                     argument {
+                       kind: ARG_TYPE_FIXED
+                       type { type_kind: TYPE_INT32 }
+                       options {
+                         cardinality: REQUIRED
+                         extra_relation_input_columns_allowed: true
+                       }
+                       num_occurrences: 1
+                     }
+                     return_type {
+                       kind: ARG_TYPE_FIXED
+                       type { type_kind: TYPE_BOOL }
+                       options {
+                         cardinality: REQUIRED
+                         extra_relation_input_columns_allowed: true
+                       }
+                       num_occurrences: 1
+                     }
+                     context_id: 105
+                     options { is_deprecated: false }
+                   }
+                   argument_list {
+                     resolved_expression_column_node {
+                       parent { type { type_kind: TYPE_INT32 } }
+                       name: "foo"
+                     }
+                   }
+                   argument_list {
+                     resolved_literal_node {
+                       parent { type { type_kind: TYPE_INT32 } }
+                       value {
+                         type { type_kind: TYPE_INT32 }
+                         value { int32_value: 123 }
+                       }
+                       has_explicit_type: false
+                       float_literal_id: 0
+                     }
+                   }
+                   error_mode: DEFAULT_ERROR_MODE
+                 }
+                 function_call_info {}
+               }
+             }
+           })pb",
+      &request));
+  SimpleCatalogProto catalog;
+
+  zetasql::ZetaSQLBuiltinFunctionOptionsProto options;
+  zetasql::ZetaSQLBuiltinFunctionOptionsProto* builtin_function_options =
+      catalog.mutable_builtin_function_options();
+  *builtin_function_options = options;
+
+  *request.mutable_simple_catalog() = catalog;
+
+  BuildSqlResponse response;
+  ZETASQL_EXPECT_OK(BuildSql(request, &response));
+
+  BuildSqlResponse expectedResponse;
+  expectedResponse.set_sql("foo < (CAST(123 AS INT32))");
+
+  EXPECT_THAT(response, EqualsProto(expectedResponse));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, FormatSql) {
+  FormatSqlRequest request;
+  request.set_sql("seLect foo, bar from some_table where something limit 10");
+
+  FormatSqlResponse response;
+  ZETASQL_EXPECT_OK(FormatSql(request, &response));
+
+  EXPECT_EQ(
+      "SELECT\n"
+      "  foo,\n"
+      "  bar\n"
+      "FROM\n"
+      "  some_table\n"
+      "WHERE\n"
+      "  something\n"
+      "LIMIT 10;",
+      response.sql());
 }
 
 TEST_F(ZetaSqlLocalServiceImplTest, GetBuiltinFunctions) {

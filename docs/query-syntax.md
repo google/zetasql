@@ -371,13 +371,9 @@ See [Aliases](#using_aliases) for information on syntax and visibility for
 <a id=analytic_functions></a>
 ## Analytic functions
 
-Clauses related to analytic functions are documented elsewhere.
-
-+  `OVER` Clause and `PARTITION BY`: See
-[Analytic Functions](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#analytic-functions).
-
-+ `WINDOW` Clause and Window Functions: See
-[WINDOW Clause](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#window-clause).
+Analytic functions and the clauses related to them, including `OVER`, `PARTITION
+BY`, and `WINDOW`, are documented in
+[Analytic Function Concepts](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
 
 ## FROM clause
 
@@ -671,11 +667,15 @@ Syntax:
 
 <pre>
 <span class="var">tablesample_type</span>:
-    <a href="#tablesample-operator">TABLESAMPLE</a> <span class="var">sample_method</span> (<span class="var">sample_size</span> <span class="var">percent_or_rows</span> )<br>
+    <a href="#tablesample-operator">TABLESAMPLE</a> <span class="var">sample_method</span> (<span class="var">sample_size</span> <span class="var">percent_or_rows</span>)
+    [ REPEATABLE(repeat_argument) ]
+
 <span class="var">sample_method</span>:
-    { BERNOULLI | SYSTEM | RESERVOIR }<br>
+    { BERNOULLI | SYSTEM | RESERVOIR }
+
 <span class="var">sample_size</span>:
-    <span class="var">numeric_value_expression</span><br>
+    <span class="var">numeric_value_expression</span>
+
 <span class="var">percent_or_rows</span>:
     { PERCENT | ROWS }
 </pre>
@@ -700,6 +700,12 @@ The `TABLESAMPLE` operator requires that you select either `ROWS` or `PERCENT`.
 If you select `PERCENT`, the value must be between 0 and 100. If you select
 `ROWS`, the value must be greater than or equal to 0.
 
+The `REPEATABLE` clause is optional. When it is used, repeated executions of
+the sampling operation return a result table with identical rows for a
+given repeat argument, as long as the underlying data does
+not change. `repeat_argument` represents a sampling seed
+and must be a positive value of type `INT64`.
+
 The following examples illustrate the use of the `TABLESAMPLE` operator.
 
 Select from a table using the `RESERVOIR` sampling method:
@@ -714,6 +720,13 @@ Select from a table using the `BERNOULLI` sampling method:
 ```sql
 SELECT MessageId
 FROM Messages TABLESAMPLE BERNOULLI (0.1 PERCENT);
+```
+
+Using `TABLESAMPLE` with a repeat argument:
+
+```sql
+SELECT MessageId
+FROM Messages TABLESAMPLE RESERVOIR (100 ROWS) REPEATABLE(10);
 ```
 
 Using `TABLESAMPLE` with a subquery:
@@ -2499,7 +2512,7 @@ Results:
 <a id=except></a>
 #### EXCEPT
 
-The query below returns last names in Roster that are **not **present in
+The query below returns last names in Roster that are **not** present in
 PlayerStats.
 
 ```

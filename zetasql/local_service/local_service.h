@@ -32,6 +32,8 @@
 namespace zetasql {
 namespace local_service {
 
+class PreparedExpressionPool;
+class PreparedExpressionState;
 class RegisteredCatalogPool;
 class RegisteredCatalogState;
 class RegisteredParseResumeLocationPool;
@@ -44,6 +46,18 @@ class ZetaSqlLocalServiceImpl {
   ZetaSqlLocalServiceImpl& operator=(const ZetaSqlLocalServiceImpl&) =
       delete;
   ~ZetaSqlLocalServiceImpl();
+
+  zetasql_base::Status Prepare(const PrepareRequest& request,
+                       PrepareResponse* response);
+
+  zetasql_base::Status Unprepare(int64_t id);
+
+  zetasql_base::Status Evaluate(const EvaluateRequest& request,
+                        EvaluateResponse* response);
+
+  zetasql_base::Status EvaluateImpl(const EvaluateRequest& request,
+                            PreparedExpressionState* state,
+                            EvaluateResponse* response);
 
   zetasql_base::Status GetTableFromProto(const TableFromProtoRequest& request,
                                  SimpleTableProto* response);
@@ -62,6 +76,13 @@ class ZetaSqlLocalServiceImpl {
                            ParseResumeLocation* location,
                            AnalyzeResponse* response);
 
+  zetasql_base::Status AnalyzeExpressionImpl(const AnalyzeRequest& request,
+                                     RegisteredCatalogState* catalog_state,
+                                     AnalyzeResponse* response);
+
+  zetasql_base::Status BuildSql(const BuildSqlRequest& request,
+                        BuildSqlResponse* response);
+
   zetasql_base::Status ExtractTableNamesFromStatement(
       const ExtractTableNamesFromStatementRequest& request,
       ExtractTableNamesFromStatementResponse* response);
@@ -70,10 +91,13 @@ class ZetaSqlLocalServiceImpl {
       const ExtractTableNamesFromNextStatementRequest& request,
       ExtractTableNamesFromNextStatementResponse* response);
 
-  zetasql_base::Status SerializeResolvedStatement(const AnalyzerOutput* output,
-                                          absl::string_view statement,
-                                          AnalyzeResponse* response,
-                                          RegisteredCatalogState* state);
+  zetasql_base::Status SerializeResolvedOutput(const AnalyzerOutput* output,
+                                       absl::string_view statement,
+                                       AnalyzeResponse* response,
+                                       RegisteredCatalogState* state);
+
+  zetasql_base::Status FormatSql(const FormatSqlRequest& request,
+                         FormatSqlResponse* response);
 
   zetasql_base::Status RegisterCatalog(const RegisterCatalogRequest& request,
                                RegisterResponse* response);
@@ -90,8 +114,12 @@ class ZetaSqlLocalServiceImpl {
 
  private:
   std::unique_ptr<RegisteredCatalogPool> registered_catalogs_;
+  std::unique_ptr<PreparedExpressionPool> prepared_expressions_;
   std::unique_ptr<RegisteredParseResumeLocationPool>
       registered_parse_resume_locations_;
+
+  // For testing.
+  size_t NumSavedPreparedExpression() const;
 
   friend class ZetaSqlLocalServiceImplTest;
 };

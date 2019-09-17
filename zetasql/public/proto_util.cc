@@ -38,6 +38,7 @@
 #include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/container/inlined_vector.h"
+#include "absl/flags/flag.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/map_util.h"
@@ -45,6 +46,12 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
+
+// This flag is only for testing the non-optimized path when reading one proto
+// field.
+ABSL_FLAG(bool, zetasql_read_proto_field_optimized_path, true,
+          "Use the specialized version of ReadProtoFields which looks for "
+          "only one field.");
 
 using google::protobuf::internal::WireFormatLite;
 
@@ -113,7 +120,7 @@ static zetasql_base::Status GetProtoFieldDefaultImpl(
         }
         ABSL_FALLTHROUGH_INTENDED;
       default:
-        return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+        return ::zetasql_base::InvalidArgumentErrorBuilder()
                << "Invalid date/time annotation on " << field->DebugString();
     }
   }
@@ -206,7 +213,7 @@ static zetasql_base::Status GetProtoFieldDefaultImpl(
           datetime_value /= 1000;
           break;
         default:
-          return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+          return ::zetasql_base::InvalidArgumentErrorBuilder()
                  << "Invalid field format for " << field->DebugString();
       }
       *default_value = Value::TimestampFromUnixMicros(datetime_value);
@@ -215,7 +222,7 @@ static zetasql_base::Status GetProtoFieldDefaultImpl(
     case TYPE_TIME: {
       TimeValue time = TimeValue::FromPacked64Micros(datetime_value);
       if (!time.IsValid()) {
-        return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+        return ::zetasql_base::InvalidArgumentErrorBuilder()
                << "Unable to decode default value for " << field->DebugString();
       }
       *default_value = Value::Time(time);
@@ -229,14 +236,14 @@ static zetasql_base::Status GetProtoFieldDefaultImpl(
       DatetimeValue datetime =
           DatetimeValue::FromPacked64Micros(datetime_value);
       if (!datetime.IsValid()) {
-        return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+        return ::zetasql_base::InvalidArgumentErrorBuilder()
                << "Unable to decode default value for " << field->DebugString();
       }
       *default_value = Value::Datetime(datetime);
       break;
     }
     default:
-      return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
              << "No default value for " << field->DebugString();
   }
   return ::zetasql_base::OkStatus();
@@ -354,7 +361,7 @@ static zetasql_base::Status Int64ToAdjustedTimestampInt64(FieldFormat::Format fo
       *adjusted_s = s;
       break;
     default:
-      return ::zetasql_base::OutOfRangeErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::OutOfRangeErrorBuilder()
              << "Invalid timestamp field format: " << format;
   }
   return ::zetasql_base::OkStatus();
@@ -631,7 +638,7 @@ static zetasql_base::StatusOr<Value> TranslateWireValue(
           return Value::Date(decoded_date);
         }
       }
-      return zetasql_base::OutOfRangeErrorBuilder(ZETASQL_LOC)
+      return zetasql_base::OutOfRangeErrorBuilder()
              << MakeReadValueErrorReason(field_descriptor, format, v);
     }
     case TYPE_TIMESTAMP: {
@@ -644,7 +651,7 @@ static zetasql_base::StatusOr<Value> TranslateWireValue(
           ABSL_PREDICT_FALSE(adjusted_timestamp > types::kTimestampMax)) {
         // Adjustment for precision caused arithmetic overflow, or is out of
         // bounds.
-        return zetasql_base::OutOfRangeErrorBuilder(ZETASQL_LOC)
+        return zetasql_base::OutOfRangeErrorBuilder()
                << MakeReadValueErrorReason(field_descriptor, format, v);
       } else {
         return Value::TimestampFromUnixMicros(adjusted_timestamp);
@@ -656,7 +663,7 @@ static zetasql_base::StatusOr<Value> TranslateWireValue(
       if (ABSL_PREDICT_TRUE(time.IsValid())) {
         return Value::Time(time);
       } else {
-        return zetasql_base::OutOfRangeErrorBuilder(ZETASQL_LOC)
+        return zetasql_base::OutOfRangeErrorBuilder()
                << MakeReadValueErrorReason(field_descriptor, format, v);
       }
     }
@@ -666,7 +673,7 @@ static zetasql_base::StatusOr<Value> TranslateWireValue(
       if (ABSL_PREDICT_TRUE(datetime.IsValid())) {
         return Value::Datetime(datetime);
       } else {
-        return zetasql_base::OutOfRangeErrorBuilder(ZETASQL_LOC)
+        return zetasql_base::OutOfRangeErrorBuilder()
                << MakeReadValueErrorReason(field_descriptor, format, v);
       }
     }
@@ -700,7 +707,7 @@ static zetasql_base::StatusOr<Value> TranslateWireValue(
       ZETASQL_RET_CHECK_NE(value, nullptr);
       const Value enum_value = Value::Enum(type->AsEnum(), *value);
       if (ABSL_PREDICT_FALSE(!enum_value.is_valid())) {
-        return zetasql_base::OutOfRangeErrorBuilder(ZETASQL_LOC)
+        return zetasql_base::OutOfRangeErrorBuilder()
                << MakeReadValueErrorReason(field_descriptor, format, *value);
       }
       return enum_value;
@@ -781,7 +788,7 @@ static zetasql_base::StatusOr<Value> ReadSingularProtoField(
       if (ABSL_PREDICT_TRUE(WireFormatLite::SkipField(&in, tag_and_type))) {
         continue;
       }
-      return ::zetasql_base::OutOfRangeErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::OutOfRangeErrorBuilder()
              << "Corrupted protocol buffer: "
              << "Failed to skip field with tag number " << tag_number << " in "
              << field_info.descriptor->containing_type()->full_name();
@@ -796,7 +803,7 @@ static zetasql_base::StatusOr<Value> ReadSingularProtoField(
       if (ABSL_PREDICT_FALSE(!ReadPackedWireValues(
               field_info.descriptor->number(), field_info.descriptor->type(),
               &in, &wire_values))) {
-        return ::zetasql_base::OutOfRangeErrorBuilder(ZETASQL_LOC)
+        return ::zetasql_base::OutOfRangeErrorBuilder()
                << "Corrupted protocol buffer: "
                << "Failed to read packed elements for field "
                << field_info.descriptor->full_name();
@@ -806,7 +813,7 @@ static zetasql_base::StatusOr<Value> ReadSingularProtoField(
       if (ABSL_PREDICT_FALSE(!ReadWireValue(field_info.descriptor->type(),
                                             tag_and_type, bytes, &in,
                                             &wire_value))) {
-        return zetasql_base::OutOfRangeErrorBuilder(ZETASQL_LOC)
+        return zetasql_base::OutOfRangeErrorBuilder()
                << "Corrupted protocol buffer: Failed to read value for field "
                << field_info.descriptor->full_name();
       }
@@ -841,7 +848,7 @@ static zetasql_base::StatusOr<Value> ReadSingularProtoField(
   }
   if (elements.empty()) {
     if (ABSL_PREDICT_FALSE(field_info.descriptor->is_required())) {
-      return zetasql_base::OutOfRangeErrorBuilder(ZETASQL_LOC)
+      return zetasql_base::OutOfRangeErrorBuilder()
              << "Protocol buffer missing required field "
              << field_info.descriptor->full_name();
     } else {
@@ -867,7 +874,10 @@ zetasql_base::Status ReadProtoFields(
     absl::Span<const ProtoFieldInfo* const> field_infos,
     const std::string& bytes,
     ProtoFieldValueList* field_value_list) {
-  const bool use_optimization = (field_infos.size() == 1);
+  const bool use_optimization =
+      field_infos.size() == 1 &&
+      absl::GetFlag(FLAGS_zetasql_read_proto_field_optimized_path);
+
   if (use_optimization) {
     ZETASQL_ASSIGN_OR_RETURN(zetasql_base::StatusOr<Value> value,
                      ReadSingularProtoField(*field_infos[0], bytes));
@@ -899,7 +909,7 @@ zetasql_base::Status ReadProtoFields(
         if (ABSL_PREDICT_TRUE(WireFormatLite::SkipField(&in, tag_and_type))) {
           continue;
         }
-        return ::zetasql_base::OutOfRangeErrorBuilder(ZETASQL_LOC)
+        return ::zetasql_base::OutOfRangeErrorBuilder()
                << "Corrupted protocol buffer: "
                << "Failed to skip field with tag number " << tag_number
                << " in " << some_field->containing_type()->full_name();
@@ -919,7 +929,7 @@ zetasql_base::Status ReadProtoFields(
       if (descriptor->is_packable() && IsPackedWireType(tag_and_type)) {
         if (ABSL_PREDICT_FALSE(!ReadPackedWireValues(
                 descriptor->number(), descriptor->type(), &in, &wire_values))) {
-          return ::zetasql_base::OutOfRangeErrorBuilder(ZETASQL_LOC)
+          return ::zetasql_base::OutOfRangeErrorBuilder()
                  << "Corrupted protocol buffer: "
                  << "Failed to read packed elements for field "
                  << descriptor->full_name();
@@ -928,7 +938,7 @@ zetasql_base::Status ReadProtoFields(
         WireValueType wire_value;
         if (ABSL_PREDICT_FALSE(!ReadWireValue(descriptor->type(), tag_and_type,
                                               bytes, &in, &wire_value))) {
-          return zetasql_base::OutOfRangeErrorBuilder(ZETASQL_LOC)
+          return zetasql_base::OutOfRangeErrorBuilder()
                  << "Corrupted protocol buffer: Failed to read value for field "
                  << descriptor->full_name();
         }

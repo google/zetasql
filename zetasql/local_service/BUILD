@@ -18,7 +18,7 @@ load("//:zetasql_grpc.bzl", "cc_grpc_library")
 load("@io_grpc_grpc_java//:java_grpc_library.bzl", "java_grpc_library")
 
 # ZetaSQL Server
-package(default_visibility = ["//zetasql:__subpackages__"])
+package(default_visibility = ["//:__subpackages__"])
 
 cc_library(
     name = "local_service",
@@ -42,17 +42,21 @@ cc_library(
         "//zetasql/proto:simple_catalog_cc_proto",
         "//zetasql/public:analyzer",
         "//zetasql/public:builtin_function",
+        "//zetasql/public:evaluator",
         "//zetasql/public:function",
+        "//zetasql/public:id_string",
         "//zetasql/public:language_options",
         "//zetasql/public:parse_resume_location",
         "//zetasql/public:parse_resume_location_cc_proto",
         "//zetasql/public:simple_catalog",
+        "//zetasql/public:sql_formatter",
         "//zetasql/public:templated_sql_tvf",
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/public:value_cc_proto",
         "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:sql_builder",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
@@ -81,6 +85,7 @@ cc_test(
         "//zetasql/proto:function_cc_proto",
         "//zetasql/proto:simple_catalog_cc_proto",
         "//zetasql/public:parse_resume_location_cc_proto",
+        "//zetasql/public:simple_catalog",
         "//zetasql/public:simple_table_cc_proto",
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",

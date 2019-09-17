@@ -14,7 +14,7 @@
 # limitations under the License.
 
 package(
-    default_visibility = ["//zetasql:__subpackages__"],
+    default_visibility = ["//:__subpackages__"],
 )
 
 cc_library(
@@ -99,12 +99,14 @@ cc_library(
         "//zetasql/resolved_ast:resolved_ast_enums_cc_proto",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
         "//zetasql/resolved_ast:validator",
+        "//zetasql/scripting:parsed_script",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/container:node_hash_set",
+        "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/hash",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",

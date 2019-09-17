@@ -71,6 +71,9 @@ service ZetaSqlLocalService {
   // position if end of input is not yet reached.
   rpc Analyze(AnalyzeRequest) returns (AnalyzeResponse) {
   }
+  // Build a SQL statement or expression from a resolved AST.
+  rpc BuildSql(BuildSqlRequest) returns (BuildSqlResponse) {
+  }
   // Validate statement and extract table names.
   rpc ExtractTableNamesFromStatement(ExtractTableNamesFromStatementRequest)
       returns (ExtractTableNamesFromStatementResponse) {
@@ -205,15 +208,35 @@ message AnalyzeRequest {
     ParseResumeLocationProto parse_resume_location = 6;
     // Set if using a registered parse resume location.
     RegisteredParseResumeLocationProto registered_parse_resume_location = 7;
+    // Expression.
+    string sql_expression = 8;
   }
 }
 
 message AnalyzeResponse {
   oneof result {
     AnyResolvedStatementProto resolved_statement = 1;
+    AnyResolvedExprProto resolved_expression = 3;
   }
   // Set only if the request had parse_resume_location.
   optional int32 resume_byte_position = 2;
+}
+
+message BuildSqlRequest {
+  optional SimpleCatalogProto simple_catalog = 1;
+  repeated google.protobuf.FileDescriptorSet file_descriptor_set = 2;
+  // Set if using a registered catalog, in which case simple_catalog and
+  // file_descriptor_set will be ignored.
+  optional int64 registered_catalog_id = 3;
+
+  oneof target {
+    AnyResolvedStatementProto resolved_statement = 4;
+    AnyResolvedExprProto resolved_expression = 5;
+  }
+}
+
+message BuildSqlResponse {
+  optional string sql = 1;
 }
 
 message ExtractTableNamesFromStatementRequest {

@@ -768,8 +768,7 @@ TEST_F(ResolverTest, TestFindFieldDescriptorsFail) {
   TestFindFieldDescriptorsFail(
       "nested_value.invalid_field", kitchen_sink.descriptor(),
       absl::StrCat(does_not_have_field, "invalid_field"));
-  const std::string& cannot_access_field =
-      "Cannot access field ";
+  const std::string& cannot_access_field = "Cannot access field ";
   TestFindFieldDescriptorsFail(
       "int32_val.invalid_field", kitchen_sink.descriptor(),
       absl::StrCat(cannot_access_field, "invalid_field"));
@@ -796,7 +795,8 @@ TEST_F(ResolverTest, TestResolveParameterExpr) {
 
 TEST_F(ResolverTest, TestResolveLiteralAsNumericTarget) {
   {
-    const std::string numeric_string = "99999999999999999999999999999.999999999";
+    const std::string numeric_string =
+        "99999999999999999999999999999.999999999";
     std::unique_ptr<const AnalyzerOutput> analyzer_output;
     ZETASQL_ASSERT_OK(AnalyzeExpressionForAssignmentToType(
         numeric_string, analyzer_options_, sample_catalog_->catalog(),
@@ -829,7 +829,8 @@ TEST_F(ResolverTest, TestResolveLiteralAsNumericTarget) {
 TEST_F(ResolverTest, TestExpectedErrorMessage) {
   // Comparing Bytes to String Literal (or vice versa) should generate a
   // specific error message (b/18798970)
-  const std::string expected_error_substr = "STRING and BYTES are different types";
+  const std::string expected_error_substr =
+      "STRING and BYTES are different types";
   TestResolverErrorMessage("'abc' < b'abd'", expected_error_substr);
   TestResolverErrorMessage("'abc' <= b'abd'", expected_error_substr);
   TestResolverErrorMessage("'abc' > b'abd'", expected_error_substr);

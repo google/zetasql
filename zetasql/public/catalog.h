@@ -25,6 +25,7 @@
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/type.h"
 #include <cstdint>
+#include "absl/container/flat_hash_set.h"
 #include "absl/types/span.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status.h"
@@ -38,6 +39,7 @@
 namespace zetasql {
 
 class Column;
+class Connection;
 class Constant;
 class CycleDetector;
 class Function;
@@ -55,6 +57,7 @@ class TableValuedFunction;
 //   - table-valued functions (TVFs)
 //   - procedures (can be invoked with CALL statement)
 //   - named constants
+//   - connections (external data source connections)
 //
 // A Catalog includes a separate namespace for each of these object types.
 // Objects of different types with the same name are allowed.
@@ -172,6 +175,10 @@ class Catalog {
                                  const Model** model,
                                  const FindOptions& options = FindOptions());
 
+  virtual zetasql_base::Status FindConnection(const absl::Span<const std::string>& path,
+                                      const Connection** connection,
+                                      const FindOptions& options);
+
   virtual zetasql_base::Status FindFunction(const absl::Span<const std::string>& path,
                                     const Function** function,
                                     const FindOptions& options = FindOptions());
@@ -249,6 +256,9 @@ class Catalog {
                           const Table** object, const FindOptions& options);
   zetasql_base::Status FindObject(const absl::Span<const std::string> path,
                           const Model** object, const FindOptions& options);
+  zetasql_base::Status FindObject(const absl::Span<const std::string> path,
+                          const Connection** object,
+                          const FindOptions& options);
   zetasql_base::Status FindObject(absl::Span<const std::string> path,
                           const Procedure** object, const FindOptions& options);
   zetasql_base::Status FindObject(absl::Span<const std::string> path,
@@ -320,6 +330,10 @@ class Catalog {
   virtual zetasql_base::Status GetModel(const std::string& name, const Model** model,
                                 const FindOptions& options = FindOptions());
 
+  virtual zetasql_base::Status GetConnection(const std::string& name,
+                                     const Connection** connection,
+                                     const FindOptions& options);
+
   virtual zetasql_base::Status GetFunction(
       const std::string& name,
       const Function** function,
@@ -358,6 +372,7 @@ class Catalog {
   // calling locations invoke the templatized version below instead.
   zetasql_base::Status TableNotFoundError(absl::Span<const std::string> path) const;
   zetasql_base::Status ModelNotFoundError(absl::Span<const std::string> path) const;
+  zetasql_base::Status ConnectionNotFoundError(absl::Span<const std::string> path) const;
   zetasql_base::Status FunctionNotFoundError(
       absl::Span<const std::string> path) const;
   zetasql_base::Status TableValuedFunctionNotFoundError(
@@ -377,11 +392,12 @@ class Catalog {
             std::is_same<ObjectType, TableValuedFunction>::value ||
             std::is_same<ObjectType, Table>::value ||
             std::is_same<ObjectType, Model>::value ||
+            std::is_same<ObjectType, Connection>::value ||
             std::is_same<ObjectType, Type>::value ||
             std::is_same<ObjectType, Procedure>::value ||
             std::is_same<ObjectType, Constant>::value,
-        "ObjectNotFoundError only supports Function, "
-        "TableValuedFunction, Table, Model, Type, Procedure, and Constant");
+        "ObjectNotFoundError only supports Function, TableValuedFunction, "
+        "Table, Model, Connection, Type, Procedure, and Constant");
     if (std::is_same<ObjectType, Function>::value) {
       return FunctionNotFoundError(path);
     } else if (std::is_same<ObjectType, TableValuedFunction>::value) {
@@ -390,6 +406,8 @@ class Catalog {
       return TableNotFoundError(path);
     } else if (std::is_same<ObjectType, Model>::value) {
       return ModelNotFoundError(path);
+    } else if (std::is_same<ObjectType, Connection>::value) {
+      return ConnectionNotFoundError(path);
     } else if (std::is_same<ObjectType, Type>::value) {
       return TypeNotFoundError(path);
     } else if (std::is_same<ObjectType, Procedure>::value) {
@@ -414,10 +432,11 @@ class Catalog {
             std::is_same<ObjectType, TableValuedFunction>::value ||
             std::is_same<ObjectType, Table>::value ||
             std::is_same<ObjectType, Model>::value ||
+            std::is_same<ObjectType, Connection>::value ||
             std::is_same<ObjectType, Type>::value ||
             std::is_same<ObjectType, Procedure>::value,
         "EmptyNamePathInternalError only supports Constant, Function, "
-        "TableValuedFunction, Table, Type, and Procedure");
+        "TableValuedFunction, Table, Model, Connection, Type, and Procedure");
     if (std::is_same<ObjectType, Constant>::value) {
       return EmptyNamePathInternalError("Constant");
     } else if (std::is_same<ObjectType, Function>::value) {
@@ -428,6 +447,8 @@ class Catalog {
       return EmptyNamePathInternalError("Table");
     } else if (std::is_same<ObjectType, Model>::value) {
       return EmptyNamePathInternalError("Model");
+    } else if (std::is_same<ObjectType, Connection>::value) {
+      return EmptyNamePathInternalError("Connection");
     } else if (std::is_same<ObjectType, Type>::value) {
       return EmptyNamePathInternalError("Type");
     } else if (std::is_same<ObjectType, Procedure>::value) {
@@ -443,6 +464,29 @@ class Catalog {
   zetasql_base::Status FindConstantWithPathPrefixImpl(
       const absl::Span<const std::string> path, int* num_names_consumed,
       const Constant** constant, const FindOptions& options);
+};
+
+// An extended Catalog interface that adds functions to enumerate schema objects
+// contained directly by this catalog.
+//
+// In comparison, the base Catalog interface supports lookup operations only, as
+// enumeration may be costly or impossible for some implementing engines and no
+// meaningful defaults can be provided by the interface.
+//
+// Implementing this interface is not necessary for using the analyser, but is
+// required for using the random query generator and may enable some auxilarry
+// operations in the reference implementation such as `SHOW TABLES` complete
+// scans of some information_schema views.
+class EnumerableCatalog : public Catalog {
+ public:
+  virtual zetasql_base::Status GetCatalogs(
+      absl::flat_hash_set<const Catalog*>* output) const = 0;
+  virtual zetasql_base::Status GetTables(
+      absl::flat_hash_set<const Table*>* output) const = 0;
+  virtual zetasql_base::Status GetTypes(
+      absl::flat_hash_set<const Type*>* output) const = 0;
+  virtual zetasql_base::Status GetFunctions(
+      absl::flat_hash_set<const Function*>* output) const = 0;
 };
 
 // A table or table-like object visible in a ZetaSQL query.
@@ -492,7 +536,7 @@ class Table {
   // implementation, using the interfaces in evaluator.h.
   virtual zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
   CreateEvaluatorTableIterator(absl::Span<const int> column_idxs) const {
-    return zetasql_base::UnimplementedErrorBuilder(ZETASQL_LOC)
+    return zetasql_base::UnimplementedErrorBuilder()
            << "Table " << FullName()
            << " does not support the API in evaluator.h";
   }
@@ -602,6 +646,32 @@ class Column {
   template <class ColumnSubclass>
   const ColumnSubclass* GetAs() const {
     return static_cast<const ColumnSubclass*>(this);
+  }
+};
+
+class Connection {
+ public:
+  virtual ~Connection() {}
+
+  // Gets the connection name.
+  virtual std::string Name() const = 0;
+
+  // Gets a fully-qualified description of this Connection.
+  virtual std::string FullName() const = 0;
+
+  // Returns whether or not this Connection is a specific connection interface
+  // or implementation.
+  template <class ConnectionSubclass>
+  bool Is() const {
+    return dynamic_cast<const ConnectionSubclass*>(this) != nullptr;
+  }
+
+  // Returns this Connection as ConnectionSubclass*. Must only be used when it
+  // is known that the object *is* this subclass, which can be checked using
+  // Is() before calling GetAs().
+  template <class ConnectionSubclass>
+  const ConnectionSubclass* GetAs() const {
+    return static_cast<const ConnectionSubclass*>(this);
   }
 };
 

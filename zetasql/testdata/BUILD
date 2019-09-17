@@ -15,7 +15,7 @@
 #
 
 package(
-    default_visibility = ["//zetasql:__subpackages__"],
+    default_visibility = ["//:__subpackages__"],
 )
 
 filegroup(
@@ -40,6 +40,12 @@ proto_library(
         "bad_test_schema.proto",
     ],
     deps = ["//zetasql/public/proto:type_annotation_proto"],
+)
+
+cc_proto_library(
+    name = "bad_test_schema_cc_proto",
+    testonly = 1,
+    deps = [":bad_test_schema_proto"],
 )
 
 java_proto_library(
@@ -138,6 +144,21 @@ java_proto_library(
     name = "ambiguous_has_java_proto",
     testonly = 1,
     deps = [":ambiguous_has_proto"],
+)
+
+cc_library(
+    name = "sample_system_variables",
+    testonly = 1,
+    srcs = ["sample_system_variables.cc"],
+    hdrs = ["sample_system_variables.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":test_schema_cc_proto",
+        "//zetasql/base:status",
+        "//zetasql/public:analyzer",
+        "//zetasql/public:type",
+        "@com_google_absl//absl/strings",
+    ],
 )
 
 cc_library(

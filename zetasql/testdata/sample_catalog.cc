@@ -89,8 +89,8 @@ zetasql_base::StatusOr<SimpleTable*> SampleCatalog::GetTable(const std::string& 
   if (table != nullptr) {
     return *table;
   } else {
-    return zetasql_base::NotFoundErrorBuilder(ZETASQL_LOC)
-        <<"SampleCatalog: Table " << name << " not found";
+    return zetasql_base::NotFoundErrorBuilder()
+           << "SampleCatalog: Table " << name << " not found";
   }
 }
 
@@ -790,6 +790,37 @@ void SampleCatalog::LoadNestedCatalogs() {
       Value::String("Test constant in nested catalog"),
       &string_constant_nonstandard_name));
   nested_catalog->AddOwnedConstant(string_constant_nonstandard_name.release());
+
+  // Add struct constant with the same name as a nested catalog
+  const StructType* nested_nested_catalog_type;
+  ZETASQL_CHECK_OK(types_->MakeStructType({{"xxxx", types_->get_int64()}},
+                                  &nested_nested_catalog_type));
+
+  SimpleCatalog* wwww_catalog = nested_catalog->MakeOwnedSimpleCatalog("wwww");
+
+  std::unique_ptr<SimpleConstant> wwww_constant;
+  ZETASQL_CHECK_OK(SimpleConstant::Create(
+      std::vector<std::string>{"nested_catalog", "wwww"},
+      Value::Struct(nested_nested_catalog_type, {Value::Int64(8)}),
+      &wwww_constant));
+  nested_catalog->AddOwnedConstant(wwww_constant.release());
+
+  std::unique_ptr<SimpleConstant> xxxx_constant;
+  ZETASQL_CHECK_OK(SimpleConstant::Create(
+      std::vector<std::string>{"nested_catalog", "wwww", "xxxx"},
+      Value::Struct(nested_nested_catalog_type, {Value::Int64(8)}),
+      &xxxx_constant));
+  wwww_catalog->AddOwnedConstant(xxxx_constant.release());
+
+  // Load a nested catalog with a name that resembles a system variable.
+  SimpleCatalog* at_at_nested_catalog =
+      catalog_->MakeOwnedSimpleCatalog("@@nested_catalog");
+  std::unique_ptr<SimpleConstant> at_at_nested_catalog_constant;
+  ZETASQL_CHECK_OK(
+      SimpleConstant::Create(std::vector<std::string>{"@@nested_catalog", "sysvar2"},
+                             Value::Int64(8), &at_at_nested_catalog_constant));
+  at_at_nested_catalog->AddOwnedConstant(
+      at_at_nested_catalog_constant.release());
 }
 
 static FreestandingDeprecationWarning CreateDeprecationWarning(
@@ -2761,6 +2792,17 @@ void SampleCatalog::LoadConstants() {
       std::vector<std::string>{"column_KitchenSink"}, Value::Int64(8),
       &standalone_expression_constant));
   catalog_->AddOwnedConstant(standalone_expression_constant.release());
+
+  // Load a constant with a name that resembles a system variable.
+  std::unique_ptr<SimpleConstant> sysvar1_constant;
+  ZETASQL_CHECK_OK(SimpleConstant::Create(std::vector<std::string>{"@@sysvar1"},
+                                  Value::Int64(8), &sysvar1_constant));
+  catalog_->AddOwnedConstant(sysvar1_constant.release());
+
+  std::unique_ptr<SimpleConstant> sysvar2_constant;
+  ZETASQL_CHECK_OK(SimpleConstant::Create(std::vector<std::string>{"@@sysvar2"},
+                                  Value::Int64(8), &sysvar2_constant));
+  catalog_->AddOwnedConstant(sysvar2_constant.release());
 }
 
 void SampleCatalog::AddOwnedTable(SimpleTable* table) {

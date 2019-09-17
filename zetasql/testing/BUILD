@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-package(default_visibility = ["//zetasql:__subpackages__"])
+package(default_visibility = ["//:__subpackages__"])
 
 cc_library(
     name = "test_value",
@@ -38,5 +38,25 @@ cc_library(
         "@com_google_absl//absl/types:span",
         "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_library(
+    name = "test_function",
+    testonly = 1,
+    srcs = ["test_function.cc"],
+    hdrs = ["test_function.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":test_value",
+        "//zetasql/base",
+        "//zetasql/base:map_util",
+        "//zetasql/base:status",
+        "//zetasql/common:float_margin",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:type",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "@com_google_absl//absl/strings",
     ],
 )

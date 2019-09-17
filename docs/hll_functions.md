@@ -20,15 +20,6 @@ is represented using the `BYTES` data type. You can then merge sketches using
 you can extract the final count of distinct values from the sketch using
 `HLL_COUNT.EXTRACT`.
 
-An `input` can be one of the following:
-
-<ul>
-<li>INT64</li>
-<li>UINT64</li>
-<li>STRING</li>
-<li>BYTES</li>
-</ul>
-
 This function supports an optional parameter, `precision`. This parameter
 defines the accuracy of the estimate at the cost of additional memory required
 to process the sketches or store them on disk. The following table shows the
@@ -58,9 +49,9 @@ If the input is NULL, this function returns NULL.
 For more information, see
 [HyperLogLog in Practice: Algorithmic Engineering of a State of The Art Cardinality Estimation Algorithm][hll-link-to-research-whitepaper].
 
-**Supported input type**
+**Supported input types**
 
-BYTES
+INT64, UINT64, NUMERIC, STRING, BYTES
 
 **Return type**
 

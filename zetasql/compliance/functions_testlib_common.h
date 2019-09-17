@@ -1,0 +1,257 @@
+//
+// Copyright 2019 ZetaSQL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+#ifndef ZETASQL_COMPLIANCE_FUNCTIONS_TESTLIB_COMMON_H_
+#define ZETASQL_COMPLIANCE_FUNCTIONS_TESTLIB_COMMON_H_
+
+#include <limits>
+#include <set>
+#include <string>
+#include <type_traits>
+#include <vector>
+
+#include "zetasql/base/logging.h"
+#include "zetasql/common/float_margin.h"
+#include "zetasql/public/functions/common_proto.h"
+#include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/type.h"
+#include "zetasql/public/type.pb.h"
+#include "zetasql/public/value.h"
+#include "zetasql/testing/test_function.h"
+#include "zetasql/testing/test_value.h"
+#include <cstdint>
+#include "absl/strings/string_view.h"
+#include "absl/time/time.h"
+#include "zetasql/base/status.h"
+#include "zetasql/base/statusor.h"
+
+namespace zetasql {
+
+constexpr auto kApproximate = kDefaultFloatMargin;
+constexpr auto kOneUlp = FloatMargin::UlpMarginStrictZero(1);
+
+const int32_t int32min = std::numeric_limits<int32_t>::min();
+const int32_t int32max = std::numeric_limits<int32_t>::max();
+const int64_t int64min = std::numeric_limits<int64_t>::min();
+const int64_t int64max = std::numeric_limits<int64_t>::max();
+const uint32_t uint32max = std::numeric_limits<uint32_t>::max();
+const uint64_t uint64max = std::numeric_limits<uint64_t>::max();
+
+const int32_t date_min = types::kDateMin;
+const int32_t date_max = types::kDateMax;
+const int64_t timestamp_min =  types::kTimestampMin;
+const int64_t timestamp_max =  types::kTimestampMax;
+
+const int64_t int32max_plus_one = static_cast<int64_t>(int32max) + 1;
+const int64_t int32min_minus_one = static_cast<int64_t>(int32min) - 1;
+const int64_t uint32max_plus_one = static_cast<int64_t>(uint32max) + 1;
+const uint64_t int64max_plus_one = static_cast<uint64_t>(int64max) + 1;
+
+const int64_t seconds_min = types::kTimestampSecondsMin;
+const int64_t seconds_max = types::kTimestampSecondsMax;
+const int64_t millis_min = types::kTimestampMillisMin;
+const int64_t millis_max = types::kTimestampMillisMax;
+const int64_t micros_min = types::kTimestampMicrosMin;
+const int64_t micros_max = types::kTimestampMicrosMax;
+const int64_t nanos_min = types::kTimestampNanosMin;
+const int64_t nanos_max = types::kTimestampNanosMax;
+
+const float floatmax = std::numeric_limits<float>::max();
+const float floatmin = std::numeric_limits<float>::lowest();
+const float floatminpositive = std::numeric_limits<float>::min();
+const float float_pos_inf = std::numeric_limits<float>::infinity();
+const float float_neg_inf = -std::numeric_limits<float>::infinity();
+const float float_nan = std::numeric_limits<float>::quiet_NaN();
+const double doublemax = std::numeric_limits<double>::max();
+const double doublemin = std::numeric_limits<double>::lowest();
+const double doubleminpositive = std::numeric_limits<double>::min();
+const double double_pos_inf = std::numeric_limits<double>::infinity();
+const double double_neg_inf = -std::numeric_limits<double>::infinity();
+const double double_nan = std::numeric_limits<double>::quiet_NaN();
+
+TypeFactory* type_factory();
+const EnumType* TestEnumType();
+const ProtoType* KitchenSinkProtoType();
+const ProtoType* Proto3TimestampType();
+const ProtoType* Proto3DateType();
+const ProtoType* Proto3LatLngType();
+const ProtoType* Proto3TimeOfDayType();
+
+const ProtoType* CivilTimeTypesSinkProtoType();
+const ProtoType* NullableIntProtoType();
+const StructType* SimpleStructType();
+const StructType* AnotherStructType();
+// Helpers for Values.
+Value Timestamp(int64_t v);
+Value Timestamp(absl::Time v);
+Value DateFromStr(absl::string_view str);
+Value TimestampFromStr(absl::string_view str,
+                       functions::TimestampScale = functions::kMicroseconds);
+Value DatetimeFromStr(absl::string_view str,
+                      functions::TimestampScale = functions::kMicroseconds);
+Value TimeFromStr(absl::string_view str,
+                  functions::TimestampScale = functions::kMicroseconds);
+Value TimeMicros(int hour, int minute, int second, int microseconds);
+Value TimeNanos(int hour, int minute, int second, int nanoseconds);
+Value DatetimeMicros(int year, int month, int day, int hour, int minute,
+                     int second, int microseconds);
+Value DatetimeNanos(int year, int month, int day, int hour, int minute,
+                    int second, int nanoseconds);
+
+Value KitchenSink(const std::string& proto_str);
+Value Proto3Timestamp(int64_t seconds, int32_t nanos);
+Value Proto3Date(int32_t year, int32_t month, int32_t day);
+Value Proto3LatLng(double latitude, double longitude);
+Value Proto3TimeOfDay(int32_t hour, int32_t minute, int32_t seconds, int32_t nanos);
+Value CivilTimeTypesSink(const std::string& proto_str);
+Value NullableInt(const std::string& proto_str);
+
+// Creates a Value for one of the Proto3 wrapper messages defined in
+// google/protobuf/wrappers.proto. The input argument type must correspond to
+// the 'value' field of the wrapper message.
+template <typename Wrapper>
+Value Proto3Wrapper(
+    const typename std::result_of<
+        functions::internal::ValidWrapperConversions(Wrapper)>::type& input) {
+  Wrapper proto3_wrapper;
+  proto3_wrapper.set_value(input);
+  std::string bytes;
+  CHECK(proto3_wrapper.SerializeToString(&bytes));
+
+  const ProtoType* wrapper_type;
+  ZETASQL_CHECK_OK(
+      type_factory()->MakeProtoType(Wrapper::descriptor(), &wrapper_type));
+
+  return Value::Proto(wrapper_type, bytes);
+}
+
+enum ComparisonResult {
+  NULL_VALUE,  // output should be NULL
+  EQUAL,       // left == right
+  LESS,        // left < right
+  UNORDERED,   // Values are not ordered. This can happen when comparing
+               // with floating point NaN or comparing two structs that
+               // are not equal.  For floating point comparisons all ops
+               // must return false except "!=" which returns true.  For
+               // struct comparisons "=" returns false and "!= returns
+               // true, while other comparisons are unsupported.
+  UNEQUAL,     // Values are definitively not equal, but they are not
+               // ordered.  This is similar to UNORDERED, but different
+               // in that non-equality comparisons return NULL, rather
+               // than TRUE or FALSE.  This happens for ARRAY comparisons,
+               // where arrays are different length, but where there is
+               // a NULL array element as part of the comparison.
+};
+
+struct ComparisonTest {
+  ComparisonTest(const ValueConstructor& left_in,
+                 const ValueConstructor& right_in, ComparisonResult result_in)
+      : left(left_in.get()), right(right_in.get()), result(result_in) {}
+  // Returns NaN of the correct type when result == UNORDERED.
+  Value GetNaN() const {
+    CHECK_EQ(result, UNORDERED);
+    if (left.type_kind() == TYPE_DOUBLE) {
+      return Value::Double(double_nan);
+    }
+    CHECK_EQ(left.type_kind(), TYPE_FLOAT);
+    return Value::Float(float_nan);
+  }
+  Value left;
+  Value right;
+  ComparisonResult result;
+};
+
+// Represents a test case for TIME and DATETIME asserting
+//   func(<input>)
+// either:
+//   returns a value that matches the expected output, or
+//   give an error with the same error code as the expected error status.
+// For the same <input>, the output might differ depending on the language
+// option FEATURE_TIMESTAMP_NANOS. <micros_output> and <nanos_output> keep the
+// expected output (or error) when FEATURE_TIMESTAMP_NANOS is disabled and
+// enabled, respectively.
+// <micros_output> and <nanos_output> should always have the same type if they
+// are not errors, and <output_type> will be populated to this type upon
+// construction. In case both output are errors, the <output_type> *must* be
+// explicitly specified (or the constructors will crash).
+// <required_features> specifies any language features (in addition to
+// FEATURE_V_1_2_CIVIL_TIME or FEATURE_TIMESTAMP_NANOS) that are required.
+struct CivilTimeTestCase {
+  CivilTimeTestCase(const std::vector<ValueConstructor>& input,
+                    const zetasql_base::StatusOr<Value>& expected_output,
+                    const Type* output_type = nullptr,
+                    const std::set<LanguageFeature>& required_features = {})
+      : CivilTimeTestCase(input, expected_output, expected_output, output_type,
+                          required_features) {}
+
+  // For test cases where <micros_output> is different with <nanos_output>.
+  CivilTimeTestCase(const std::vector<ValueConstructor>& input,
+                    const zetasql_base::StatusOr<Value>& micros_output,
+                    const zetasql_base::StatusOr<Value>& nanos_output,
+                    const Type* output_type = nullptr,
+                    const std::set<LanguageFeature>& required_features = {});
+
+  std::vector<ValueConstructor> input;
+  zetasql_base::StatusOr<Value> micros_output;
+  zetasql_base::StatusOr<Value> nanos_output;
+  std::set<LanguageFeature> required_features;
+  const Type* output_type;
+};
+
+// Wrap the test_case so that the same input can be tested in micros and nanos
+// mode.
+QueryParamsWithResult WrapResultForCivilTimeAndNanos(
+    const CivilTimeTestCase& test_case);
+
+// Adds the <test_case> to <result>, filling in the options map to try the same
+// test case in micros and nanos mode.
+void AddTestCaseWithWrappedResultForCivilTimeAndNanos(
+    const CivilTimeTestCase& test_case,
+    std::vector<QueryParamsWithResult>* result);
+
+// Wraps the result to require that FEATURE_NUMERIC_TYPE is enabled.
+// TODO: Remove this in favor of
+// QueryParamsWithResult::WrapWithFeature
+QueryParamsWithResult WrapResultForNumeric(
+    const std::vector<ValueConstructor>& params,
+    const QueryParamsWithResult::Result& result);
+
+// Forward declarations for functions related to legacy timestamp types.
+std::vector<std::vector<Value>> GetRowsOfLegacyTimestampValues();
+std::vector<ComparisonTest> GetLegacyTimestampComparisonTests();
+std::vector<QueryParamsWithResult> GetFunctionTestsLegacyTimestampIsNull();
+
+std::vector<std::vector<Value>> GetRowsOfValues();
+
+// Represents a test case for normalize and normalize_and_casefold functions,
+// which is controlled by is_casefold.
+// The expected_nfs should follow the exact same size and order of enums
+// defined in NormalizeMode.
+struct NormalizeTestCase {
+  NormalizeTestCase(const ValueConstructor& input,
+                    const std::vector<ValueConstructor>& expected_nfs,
+                    bool is_casefold = false)
+      : input(input), expected_nfs(expected_nfs), is_casefold(is_casefold) {}
+
+  const ValueConstructor input;
+  const std::vector<ValueConstructor> expected_nfs;
+  const bool is_casefold;
+};
+
+}  // namespace zetasql
+
+#endif  // ZETASQL_COMPLIANCE_FUNCTIONS_TESTLIB_COMMON_H_

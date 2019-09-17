@@ -73,9 +73,12 @@ zetasql_base::Status StatusWithInternalErrorLocation(const zetasql_base::Status&
       status, GetErrorLocationPoint(ast_node, include_leftmost_child));
 }
 
-zetasql_base::Status MakeStatusWithErrorLocation(
-    zetasql_base::StatusCode code, const std::string& message, const std::string& filename,
-    const std::string& query, const ASTNode* ast_node, bool include_leftmost_child) {
+zetasql_base::Status MakeStatusWithErrorLocation(zetasql_base::StatusCode code,
+                                         const std::string& message,
+                                         const std::string& filename,
+                                         const std::string& query,
+                                         const ASTNode* ast_node,
+                                         bool include_leftmost_child) {
   const zetasql_base::Status status =
       zetasql_base::StatusBuilder(code, ZETASQL_LOC).Attach(
           MakeInternalErrorLocation(ast_node, filename, include_leftmost_child))

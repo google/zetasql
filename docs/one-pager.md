@@ -212,9 +212,8 @@ Any sequence not in this table produces an error.
 #### Integer Literals
 
 Integer literals are either a sequence of decimal digits (0–9) or a hexadecimal
-value that is prefixed with "`0x`". Integers can be prefixed by "`+`" or "`-`"
-to represent positive and negative values, respectively.
-
+value that is prefixed with "`0x`" or "`0X`". Integers can be prefixed by "`+`"
+or "`-`" to represent positive and negative values, respectively.
 Examples:
 
 ```
@@ -1248,12 +1247,12 @@ SELECT '0x123' as hex_value, CAST('0x123' as INT64) as hex_to_int;
 | 0x123     | 291        |
 +-----------+------------+
 
-SELECT '0x123' as hex_value, CAST('-0x123' as INT64) as hex_to_int;
+SELECT '-0x123' as hex_value, CAST('-0x123' as INT64) as hex_to_int;
 
 +-----------+------------+
 | hex_value | hex_to_int |
 +-----------+------------+
-| 0x123     | -291       |
+| -0x123    | -291       |
 +-----------+------------+
 ```
 
@@ -2206,6 +2205,8 @@ When using the `IN` operator, the following semantics apply:
 + `IN` with a `NULL` in the `IN`-list can only return TRUE or `NULL`, never FALSE
 + `NULL IN (NULL)` returns `NULL`
 + `IN UNNEST(<NULL array>)` returns FALSE (not `NULL`)
++ `NOT IN` with a `NULL` in the `IN`-list can only return FALSE or `NULL`, never
+   TRUE
 
 `IN` can be used with multi-part keys by using the struct constructor syntax.
 For example:
@@ -3036,10 +3037,19 @@ Time transitions. To represent an absolute point in time, use a timestamp.
 <tbody>
 <tr>
 <td><code>DATETIME</code></td>
-<td>Represents a year, month, day, hour, minute, second, and subsecond.</td>
-
-<td>0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999.</td>
-
+<td>
+    Represents a year, month, day, hour, minute, second, and subsecond.
+    
+        The range of subsecond precision is determined by the SQL engine.
+    
+</td>
+<td>
+    
+        0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999999<br/>
+        or<br/>
+        0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999.<br/>
+    
+</td>
 </tr>
 </tbody>
 </table>
@@ -3061,17 +3071,21 @@ a user would see on a watch or calendar.
 #### Canonical format
 
 ```
-YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD]]
+YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]]
 ```
 
-+ `YYYY`: Four-digit year
-+ `[M]M`: One or two digit month
-+ `[D]D`: One or two digit day
-+ `( |T)`: A space or a `T` separator
-+ `[H]H`: One or two digit hour (valid values from 00 to 23)
-+ `[M]M`: One or two digit minutes (valid values from 00 to 59)
-+ `[S]S`: One or two digit seconds (valid values from 00 to 59)
-+ `[.DDDDDD]`: Up to six fractional digits (i.e. up to microsecond precision)
+<ul>
+    <li><code>YYYY</code>: Four-digit year</li>
+    <li><code>[M]M</code>: One or two digit month</li>
+    <li><code>[D]D</code>: One or two digit day</li>
+    <li><code>( |T)</code>: A space or a `T` separator</li>
+    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
+    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
+    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
+    
+        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
+    
+</ul>
 
 ### Time type
 
@@ -3086,9 +3100,18 @@ YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD]]
 <tbody>
 <tr>
 <td><code>TIME</code></td>
-<td>Represents a time, independent of a specific date.</td>
+<td>
+    Represents a time, independent of a specific date.
+    
+        The range of subsecond precision is determined by the SQL engine.
+    
+</td>
 
-<td>00:00:00 to 23:59:59.999999.</td>
+    <td>
+        00:00:00 to 23:59:59.999999999<br/>
+        or<br/>
+        00:00:00 to 23:59:59.999999.<br/>
+    </td>
 
 </tr>
 </tbody>
@@ -3099,13 +3122,17 @@ A TIME data type represents a time, independent of a specific date.
 #### Canonical format
 
 ```
-[H]H:[M]M:[S]S[.DDDDDD]
+[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]
 ```
 
-+ `[H]H`: One or two digit hour (valid values from 00 to 23)
-+ `[M]M`: One or two digit minutes (valid values from 00 to 59)
-+ `[S]S`: One or two digit seconds (valid values from 00 to 59)
-+ `[.DDDDDD]`: Up to six fractional digits (i.e. up to microsecond precision)
+<ul>
+    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
+    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
+    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
+    
+        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
+    
+</ul>
 
 ### Timestamp type
 
@@ -3120,11 +3147,22 @@ A TIME data type represents a time, independent of a specific date.
 <tbody>
 <tr>
 <td><code>TIMESTAMP</code></td>
-<td>Represents an absolute point in time, with
- microsecond
-precision.</td>
+<td>
+    Represents an absolute point in time, with
+    
+        microsecond or nanosecond
+    
+        precision.
+    
+        The range of subsecond precision is determined by the SQL engine.
+    
+</td>
 
-<td>0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999 UTC.</td>
+    <td>
+      0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999999 UTC<br/>
+      or<br/>
+      0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999 UTC.
+    </td>
 
 </tr>
 </tbody>
@@ -3133,26 +3171,39 @@ precision.</td>
 A timestamp represents an absolute point in time, independent of any time zone
 or convention such as Daylight Savings Time.
 
-TIMESTAMP provides
- microsecond
-precision.
+<div>
+
+</div>
+
+<div>
+    <p>
+        TIMESTAMP provides
+        
+            microsecond or nanosecond
+        
+        precision.
+    </p>
+</div>
 
 #### Canonical format
 
 ```
-YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD]][time zone]
+YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]][time zone]
 ```
 
-+ `YYYY`: Four-digit year
-+ `[M]M`: One or two digit month
-+ `[D]D`: One or two digit day
-+ `( |T)`: A space or a `T` separator
-+ `[H]H`: One or two digit hour (valid values from 00 to 23)
-+ `[M]M`: One or two digit minutes (valid values from 00 to 59)
-+ `[S]S`: One or two digit seconds (valid values from 00 to 59)
-+ `[.DDDDDD]`: Up to six fractional digits (i.e. up to microsecond precision)
-+ `[time zone]`: String representing the time zone. See the [time zones](#time-zones)
-  section for details.
+<ul>
+    <li><code>YYYY</code>: Four-digit year</li>
+    <li><code>[M]M</code>: One or two digit month</li>
+    <li><code>[D]D</code>: One or two digit day</li>
+    <li><code>( |T)</code>: A space or a `T` separator</li>
+    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
+    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
+    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
+    
+        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
+    
+    <li><code>[time zone]</code>: String representing the time zone. See the <a href="#time-zones">time zones</a> section for details.</li>
+</ul>
 
 Time zones are used when parsing timestamps or formatting timestamps for display.
 The timestamp value itself does not store a specific time zone.  A
@@ -3235,7 +3286,7 @@ A timestamp is simply an offset from 1970-01-01 00:00:00 UTC, assuming there are
 exactly 60 seconds per minute. Leap seconds are not represented as part of a
 stored timestamp.
 
-If your input contains values that use ":60" in the seconds field to represent a
+If the input contains values that use ":60" in the seconds field to represent a
 leap second, that leap second is not preserved when converting to a timestamp
 value. Instead that value is interpreted as a timestamp with ":00" in the
 seconds field of the following minute.
@@ -4015,13 +4066,9 @@ See [Aliases](#using_aliases) for information on syntax and visibility for
 <a id=analytic_functions></a>
 ### Analytic functions
 
-Clauses related to analytic functions are documented elsewhere.
-
-+  `OVER` Clause and `PARTITION BY`: See
-[Analytic Functions](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#analytic-functions).
-
-+ `WINDOW` Clause and Window Functions: See
-[WINDOW Clause](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#window-clause).
+Analytic functions and the clauses related to them, including `OVER`, `PARTITION
+BY`, and `WINDOW`, are documented in
+[Analytic Function Concepts](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
 
 ### FROM clause
 
@@ -4315,11 +4362,15 @@ Syntax:
 
 <pre>
 <span class="var">tablesample_type</span>:
-    <a href="#tablesample-operator">TABLESAMPLE</a> <span class="var">sample_method</span> (<span class="var">sample_size</span> <span class="var">percent_or_rows</span> )<br>
+    <a href="#tablesample-operator">TABLESAMPLE</a> <span class="var">sample_method</span> (<span class="var">sample_size</span> <span class="var">percent_or_rows</span>)
+    [ REPEATABLE(repeat_argument) ]
+
 <span class="var">sample_method</span>:
-    { BERNOULLI | SYSTEM | RESERVOIR }<br>
+    { BERNOULLI | SYSTEM | RESERVOIR }
+
 <span class="var">sample_size</span>:
-    <span class="var">numeric_value_expression</span><br>
+    <span class="var">numeric_value_expression</span>
+
 <span class="var">percent_or_rows</span>:
     { PERCENT | ROWS }
 </pre>
@@ -4344,6 +4395,12 @@ The `TABLESAMPLE` operator requires that you select either `ROWS` or `PERCENT`.
 If you select `PERCENT`, the value must be between 0 and 100. If you select
 `ROWS`, the value must be greater than or equal to 0.
 
+The `REPEATABLE` clause is optional. When it is used, repeated executions of
+the sampling operation return a result table with identical rows for a
+given repeat argument, as long as the underlying data does
+not change. `repeat_argument` represents a sampling seed
+and must be a positive value of type `INT64`.
+
 The following examples illustrate the use of the `TABLESAMPLE` operator.
 
 Select from a table using the `RESERVOIR` sampling method:
@@ -4358,6 +4415,13 @@ Select from a table using the `BERNOULLI` sampling method:
 ```sql
 SELECT MessageId
 FROM Messages TABLESAMPLE BERNOULLI (0.1 PERCENT);
+```
+
+Using `TABLESAMPLE` with a repeat argument:
+
+```sql
+SELECT MessageId
+FROM Messages TABLESAMPLE RESERVOIR (100 ROWS) REPEATABLE(10);
 ```
 
 Using `TABLESAMPLE` with a subquery:
@@ -6143,7 +6207,7 @@ Results:
 <a id=except></a>
 ##### EXCEPT
 
-The query below returns last names in Roster that are **not **present in
+The query below returns last names in Roster that are **not** present in
 PlayerStats.
 
 ```
@@ -7060,7 +7124,7 @@ You can combine arrays using functions like
 You can build an array literal in ZetaSQL using brackets (`[` and
 `]`). Each element in an array is separated by a comma.
 
-```
+```sql
 SELECT [1, 2, 3] as numbers;
 
 SELECT ["apple", "pear", "orange"] as fruit;
@@ -7071,7 +7135,7 @@ SELECT [true, false, true] as booleans;
 You can also create arrays from any expressions that have compatible types. For
 example:
 
-```
+```sql
 SELECT [a, b, c]
 FROM
   (SELECT 5 AS a,
@@ -7093,14 +7157,14 @@ declares a literal. This expression works because all three expressions share
 To declare a specific data type for an array, use angle
 brackets (`<` and `>`). For example:
 
-```
+```sql
 SELECT ARRAY<DOUBLE>[1, 2, 3] as floats;
 ```
 
 Arrays of most data types, such as `INT64` or `STRING`, don't require
 that you declare them first.
 
-```
+```sql
 SELECT [1, 2, 3] as numbers;
 ```
 
@@ -7120,7 +7184,7 @@ generates an array of values from a starting and ending value and a step value.
 For example, the following query generates an array that contains all of the odd
 integers from 11 to 33, inclusive:
 
-```
+```sql
 SELECT GENERATE_ARRAY(11, 33, 2) AS odds;
 
 +--------------------------------------------------+
@@ -7133,7 +7197,7 @@ SELECT GENERATE_ARRAY(11, 33, 2) AS odds;
 You can also generate an array of values in descending order by giving a
 negative step value:
 
-```
+```sql
 SELECT GENERATE_ARRAY(21, 14, -1) AS countdown;
 
 +----------------------------------+
@@ -7153,10 +7217,11 @@ You can generate a set of `DATE` values using `GENERATE_DATE_ARRAY`. For
 example, this query returns the current `DATE` and the following
 `DATE`s at 1 `WEEK` intervals up to and including a later `DATE`:
 
-```
+```sql
 SELECT
   GENERATE_DATE_ARRAY('2017-11-21', '2017-12-31', INTERVAL 1 WEEK)
     AS date_array;
+
 +--------------------------------------------------------------------------+
 | date_array                                                               |
 +--------------------------------------------------------------------------+
@@ -7174,7 +7239,7 @@ is valid; casting from type `ARRAY<INT32>` to `ARRAY<BYTES>` is not valid.
 
 **Example**
 
-```
+```sql
 SELECT CAST(int_array AS ARRAY<DOUBLE>) AS double_array
 FROM (SELECT ARRAY<INT32>[1, 2, 3] AS int_array);
 
@@ -7189,7 +7254,7 @@ FROM (SELECT ARRAY<INT32>[1, 2, 3] AS int_array);
 
 Consider the following table, `sequences`:
 
-```
+```sql
 +---------------------+
 | some_numbers        |
 +---------------------+
@@ -7207,7 +7272,7 @@ for zero-based indexes, or
 [`ORDINAL`](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#offset-and-ordinal),
 for one-based indexes.
 
-```
+```sql
 WITH sequences AS
   (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
@@ -7228,19 +7293,18 @@ FROM sequences;
 
 You can use this DML statement to insert the example data:
 
-```
+```sql
 INSERT sequences
   (some_numbers, id)
 VALUES
   ([0, 1, 1, 2, 3, 5], 1),
   ([2, 4, 8, 16, 32], 2),
   ([5, 10], 3);
-
 ```
 
 This query shows how to use `OFFSET()` and `ORDINAL()`:
 
-```
+```sql
 SELECT some_numbers,
        some_numbers[OFFSET(1)] AS offset_1,
        some_numbers[ORDINAL(1)] AS ordinal_1
@@ -7261,7 +7325,7 @@ FROM sequences;
 
 The `ARRAY_LENGTH()` function returns the length of an array.
 
-```
+```sql
 WITH sequences AS
   (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
@@ -7282,7 +7346,7 @@ FROM sequences;
 Here's an example query, assuming the same definition of the `sequences` table
 as above, with the same sample rows:
 
-```
+```sql
 SELECT some_numbers,
        ARRAY_LENGTH(some_numbers) AS len
 FROM sequences;
@@ -7312,7 +7376,7 @@ then use the `ORDER BY` clause to order the rows by their offset.
 
 **Example**
 
-```
+```sql
 SELECT *
 FROM UNNEST(['foo', 'bar', 'baz', 'qux', 'corge', 'garply', 'waldo', 'fred'])
   AS element
@@ -7353,7 +7417,7 @@ to return a row for each element in the array column. Because of the
 `CROSS JOIN`, the `id` column contains the `id` values for the row in
 `sequences` that contains each number.
 
-```
+```sql
 WITH sequences AS
   (SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
@@ -7395,7 +7459,7 @@ of `PROTO` values. ZetaSQL treats repeated `PROTO` fields as
 The following example uses `UNNEST` with `CROSS JOIN` to flatten an `ARRAY` of
 `STRUCT`s.
 
-```
+```sql
 WITH races AS (
   SELECT "800M" AS race,
     [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits),
@@ -7427,7 +7491,7 @@ CROSS JOIN UNNEST(r.participants) as participant;
 +------+---------------------------------------+
 ```
 
-```
+```sql
 SELECT race,
        participant.name,
        participant.splits
@@ -7474,7 +7538,7 @@ represent a common way to get information from a repeated field.</p>
 
 **Example**
 
-```
+```sql
 WITH races AS (
   SELECT "800M" AS race,
     [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits),
@@ -7503,7 +7567,7 @@ FROM races;
 +------+---------------+
 ```
 
-```
+```sql
 SELECT race,
        (SELECT name
         FROM UNNEST(participants)
@@ -7542,7 +7606,7 @@ The following query shows the contents of a table where one row contains an
 `ARRAY` of `PROTO`s. All of the `PROTO` field values in the `ARRAY` appear in a
 single row.
 
-```
+```sql
 WITH table AS (
   SELECT
     'Let It Be' AS album_name,
@@ -7590,7 +7654,7 @@ joins the duplicated value of `table.album_name` to the `chart` table. This
 allows the query to include the `table.album_name` column in the `SELECT` list
 together with the `PROTO` fields `chart.chart_name` and `chart.rank`.
 
-```
+```sql
 WITH table AS (
   SELECT
     'Let It Be' AS album_name,
@@ -7629,7 +7693,7 @@ CROSS JOIN UNNEST(charts) AS chart;
 You can also get information from nested repeated fields. For example, the
 following statement returns the runner who had the fastest lap in an 800M race.
 
-```
+```sql
 WITH races AS (
  SELECT "800M" AS race,
    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits),
@@ -7656,7 +7720,7 @@ FROM races;
 +------+-------------------------+
 ```
 
-```
+```sql
 SELECT race,
        (SELECT name
         FROM UNNEST(participants),
@@ -7686,7 +7750,7 @@ Notice that the preceding query uses the comma operator (`,`) to perform an
 implicit `CROSS JOIN`. It is equivalent to the following example, which uses
 an explicit `CROSS JOIN`.
 
-```
+```sql
 WITH races AS (
  SELECT "800M" AS race,
    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits),
@@ -7713,7 +7777,7 @@ FROM races;
 +------+-------------------------+
 ```
 
-```
+```sql
 SELECT race,
        (SELECT name
         FROM UNNEST(participants)
@@ -7742,7 +7806,7 @@ FROM
 Note that flattening arrays with a `CROSS JOIN` excludes rows that have empty
 or NULL arrays. If you want to include these rows, use a `LEFT JOIN`.
 
-```
+```sql
 WITH races AS (
  SELECT "800M" AS race,
    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits),
@@ -7777,7 +7841,7 @@ GROUP BY name;
 +-------------+--------------------+
 ```
 
-```
+```sql
 SELECT
   name, sum(duration) as duration
 FROM
@@ -7821,7 +7885,7 @@ alias `album` and the repeated field `song`. All values of `song` for each
 
 **Example**
 
-```
+```sql
 WITH table AS (
   SELECT
     'The Beatles' AS band_name,
@@ -7867,7 +7931,7 @@ the `UNNEST` operator to each row and joins the output of `UNNEST` to the
 duplicated value of the column `band_name` and the non-repeated field
 `album_name`.
 
-```
+```sql
 WITH table AS (
   SELECT
     'The Beatles' AS band_name,
@@ -7908,7 +7972,7 @@ array. In ZetaSQL, you can accomplish this using the
 
 For example, consider the following operation on the `sequences` table:
 
-```
+```sql
 WITH sequences AS
   (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
   UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
@@ -7927,7 +7991,7 @@ FROM sequences;
 +--------------------+---------------------+
 ```
 
-```
+```sql
 SELECT some_numbers,
   ARRAY(SELECT x * 2
         FROM UNNEST(some_numbers) AS x) AS doubled
@@ -7960,7 +8024,7 @@ to filter the returned rows.
 <p class='note'><b>Note:</b> In the following examples, the resulting rows are
 not ordered.</p>
 
-```
+```sql
 WITH sequences AS
   (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
@@ -7980,7 +8044,7 @@ FROM sequences;
 +------------------------+
 ```
 
-```
+```sql
 SELECT
   ARRAY(SELECT x * 2
         FROM UNNEST(some_numbers) AS x
@@ -8005,7 +8069,7 @@ corresponding original row (`[5, 10]`) did not meet the filter requirement of
 You can also filter arrays by using `SELECT DISTINCT` to return only
 unique elements within an array.
 
-```
+```sql
 WITH sequences AS
   (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers)
 SELECT ARRAY(SELECT DISTINCT x
@@ -8019,7 +8083,7 @@ FROM sequences;
 +-----------------+
 ```
 
-```
+```sql
 SELECT ARRAY(SELECT DISTINCT x
              FROM UNNEST(some_numbers) AS x) AS unique_numbers
 FROM sequences
@@ -8037,7 +8101,7 @@ You can also filter rows of arrays by using the
 keyword filters rows containing arrays by determining if a specific
 value matches an element in the array.
 
-```
+```sql
 WITH sequences AS
   (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
@@ -8057,7 +8121,7 @@ FROM sequences;
 +--------------------+
 ```
 
-```
+```sql
 SELECT
    ARRAY(SELECT x
          FROM UNNEST(some_numbers) AS x
@@ -8093,7 +8157,7 @@ To scan an array for a specific value, use the `IN` operator with `UNNEST`.
 
 The following example returns `true` if the array contains the number 2.
 
-```
+```sql
 SELECT 2 IN UNNEST([0, 1, 1, 2, 3, 5]) AS contains_value;
 
 +----------------+
@@ -8111,7 +8175,7 @@ filter the results of `IN UNNEST` using the `WHERE` clause.
 The following example returns the `id` value for the rows where the array
 column contains the value 2.
 
-```
+```sql
 WITH sequences AS
   (SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
@@ -8140,7 +8204,7 @@ a subquery, and use `EXISTS` to check if the filtered table contains any rows.
 The following example returns the `id` value for the rows where the array
 column contains values greater than 5.
 
-```
+```sql
 WITH sequences AS
   (SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
@@ -8169,7 +8233,7 @@ non-matching rows from the table using `WHERE EXISTS`.
 The following example returns the rows where the array column contains a
 `STRUCT` whose field `b` has a value greater than 3.
 
-```
+```sql
 WITH sequences AS
   (SELECT 1 AS id, [STRUCT(0 AS a, 1 AS b)] AS some_numbers
    UNION ALL SELECT 2 AS id, [STRUCT(2 AS a, 4 AS b)] AS some_numbers
@@ -8194,7 +8258,7 @@ WHERE EXISTS (SELECT 1
 With ZetaSQL, you can aggregate values into an array using
 `ARRAY_AGG()`.
 
-```
+```sql
 WITH fruits AS
   (SELECT "apple" AS fruit
    UNION ALL SELECT "pear" AS fruit
@@ -8211,7 +8275,7 @@ FROM fruits;
 
 Consider the following table, `fruits`:
 
-```
+```sql
 CREATE TABLE fruits (
   fruit STRING(MAX),
   id INT64 NOT NULL
@@ -8220,7 +8284,7 @@ CREATE TABLE fruits (
 ```
 Assume the table is populated with the following data:
 
-```
+```sql
 +----+--------------+
 | id | fruit        |
 +----+--------------+
@@ -8232,7 +8296,7 @@ Assume the table is populated with the following data:
 
 You can use this DML statement to insert the example data:
 
-```
+```sql
 INSERT fruits
   (fruit, id)
 VALUES
@@ -8243,7 +8307,7 @@ VALUES
 
 This query shows how to use `ARRAY_AGG()`:
 
-```
+```sql
 SELECT ARRAY_AGG(fruit) AS fruit_basket
 FROM fruits;
 
@@ -8258,7 +8322,7 @@ The array returned by `ARRAY_AGG()` is in an arbitrary order, since the order in
 which the function concatenates values is not guaranteed. To order the array
 elements, use `ORDER BY`. For example:
 
-```
+```sql
 WITH fruits AS
   (SELECT "apple" AS fruit
    UNION ALL SELECT "pear" AS fruit
@@ -8277,7 +8341,7 @@ You can also apply aggregate functions such as `SUM()` to the elements in an
 array. For example, the following query returns the sum of array elements for
 each row of the `sequences` table.
 
-```
+```sql
 WITH sequences AS
   (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
    UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
@@ -8296,7 +8360,7 @@ FROM sequences s;
 +--------------------+------+
 ```
 
-```
+```sql
 SELECT some_numbers,
   (SELECT SUM(x)
    FROM UNNEST(s.some_numbers) x) AS sums
@@ -8316,7 +8380,7 @@ FROM sequences s;
 ZetaSQL also supports an aggregate function, `ARRAY_CONCAT_AGG()`,
 which concatenates the elements of an array column across rows.
 
-```
+```sql
 WITH aggregate_example AS
   (SELECT [1,2] AS numbers
    UNION ALL SELECT [3,4] AS numbers
@@ -8347,7 +8411,7 @@ type as the elements of the first argument.
 
 Example:
 
-```
+```sql
 WITH greetings AS
   (SELECT ["Hello", "World"] AS greeting)
 SELECT ARRAY_TO_STRING(greeting, " ") AS greetings
@@ -8371,7 +8435,7 @@ separator for `NULL` array elements.
 
 Example:
 
-```
+```sql
 SELECT
   ARRAY_TO_STRING(arr, ".", "N") AS non_empty_string,
   ARRAY_TO_STRING(arr, ".", "") AS empty_string,
@@ -8390,7 +8454,7 @@ FROM (SELECT ["a", NULL, "b", NULL, "c", NULL] AS arr);
 In some cases, you might want to combine multiple arrays into a single array.
 You can accomplish this using the `ARRAY_CONCAT()` function.
 
-```
+```sql
 SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
 
 +--------------------------------------------------+
@@ -8408,7 +8472,7 @@ directly. Instead, you must create an array of structs, with each struct
 containing a field of type `ARRAY`. To illustrate this, consider the following
 `points` table:
 
-```
+```sql
 +----------+
 | point    |
 +----------+
@@ -8424,7 +8488,7 @@ Now, let's say you wanted to create an array consisting of each `point` in the
 `points` table. To accomplish this, wrap the array returned from each row in a
 `STRUCT`, as shown below.
 
-```
+```sql
 WITH points AS
   (SELECT [1, 5] as point
    UNION ALL SELECT [2, 8] as point
@@ -8445,7 +8509,7 @@ SELECT ARRAY(
 
 You can use this DML statement to insert the example data:
 
-```
+```sql
 INSERT points
   (point, id)
 VALUES
@@ -8456,7 +8520,7 @@ VALUES
   ([5, 7], 5);
 ```
 
-```
+```sql
 SELECT ARRAY(
   SELECT STRUCT(point)
   FROM points)
@@ -8474,6 +8538,391 @@ SELECT ARRAY(
 ```
 
 <!-- END CONTENT -->
+
+<!-- This file is auto-generated. DO NOT EDIT.                               -->
+
+<!-- BEGIN CONTENT -->
+
+## Data Definition Language statements
+
+ZetaSQL specifies the syntax for Data Definition Language (DDL)
+statements.
+
+Where possible, this topic provides a link to the product-specific documentation
+for each statement.
+
+### CREATE DATABASE
+
+<pre>
+CREATE
+  DATABASE
+  database_name
+  [OPTIONS (key=value, ...)]
+</pre>
+
+**Description**
+
+The `CREATE DATABASE` statement creates a database. If you have schema
+options, you can add them when you create the database. These options are
+system-specific and follow the ZetaSQL
+[`HINT` syntax](lexical.md#hints).
+
+**Example**
+
+```sql
+CREATE DATABASE library OPTIONS(
+  base_dir=`/city/orgs`,
+  owner='libadmin'
+);
+
++--------------------+
+| Database           |
++--------------------+
+| library            |
++--------------------+
+```
+
+### CREATE TABLE
+
+<pre>
+CREATE
+   [ OR REPLACE ]
+   [ TEMP | TEMPORARY ]
+   TABLE
+   [ IF NOT EXISTS ]
+   <span class="var">path_expression</span> [ ( <span class="var">table_element</span>, ...) ]
+   [ OPTIONS (...) ]
+   [ AS <span class="var">query</span> ];
+
+<span class="var">table_element:</span>
+   <span class="var">column_definition</span> | <span class="var">primary_key_spec</span>
+
+<span class="var">column_definition:</span>
+   <span class="var">column_name</span> <span class="var">column_type</span> [ PRIMARY KEY ] [ OPTIONS (...) ]
+
+<span class="var">primary_key_spec:</span>
+   PRIMARY KEY (column_name [ ASC | DESC ], ...) [ OPTIONS (...) ]
+</pre>
+
+**Description**
+
+The `CREATE TABLE` statement creates a table and adds any columns defined in the
+column definition list `(table_element, ...)`. If the `AS query` clause is
+absent, the column definition list must be present and contain at least one
+column definition. The value of `column_name` must be unique for each column in
+the table. If both the column definition list and the `AS query` clause are
+present, then the number of columns in the column definition list must match the
+number of columns selected in `query`, and the type of each column selected in
+`query` must be coercible to the column type in the corresponding position of
+the column definition list. The `column_type` can be any valid {{ product_name
+}} [data type](https://github.com/google/zetasql/blob/master/docs/data-types.md).
+
+You can define a primary key on a table by providing a `primary_key_spec`
+clause, or by providing the `PRIMARY KEY` keyword in the `column_definition`.
+The optional `ASC` or `DESC` keyword within `primary_key_spec` specifies the
+sort order for any index the database system builds on the primary key.
+
+**Optional Clauses**
+
++   `OR REPLACE`: Replaces any table with the same name if it exists. Cannot
+    appear with `IF NOT EXISTS`.
++   `TEMP | TEMPORARY`: Creates a temporary table. The lifetime of the table is
+    system-specific.
++   `IF NOT EXISTS`: If any table exists with the same name, the `CREATE`
+    statement will have no effect. Cannot appear with `OR REPLACE`.
++   `AS query`: Materializes the result of `query` into the new table.
+
+### CREATE VIEW
+
+```
+CREATE
+  [OR REPLACE]
+  [TEMP | TEMPORARY]
+  VIEW
+  [IF NOT EXISTS]
+  view_name
+  [OPTIONS (key=value, ...)]
+AS query;
+```
+
+**Description**
+
+The `CREATE VIEW` statement creates a view based on a specific query.
+
+**Optional Clauses**
+
++   `OR REPLACE`: Replaces any table with the same name if it exists. Cannot
+    appear with `IF NOT EXISTS`.
++   `TEMP | TEMPORARY`: Creates a temporary table. The lifetime of the table is
+    system-specific.
++   `IF NOT EXISTS`: If any table exists with the same name, the `CREATE`
+    statement will have no effect. Cannot appear with `OR REPLACE`.
+
+### CREATE EXTERNAL TABLE
+
+```
+CREATE
+  [OR REPLACE]
+  [TEMP | TEMPORARY]
+  EXTERNAL TABLE
+  [IF NOT EXISTS]
+  table_name
+  [OPTIONS (key=value, ...)];
+```
+
+**Description**
+
+The `CREATE EXTERNAL TABLE` creates a table from external data. `CREATE EXTERNAL
+TABLE` also supports creating persistent definitions.
+
+The `CREATE EXTERNAL TABLE` does not build a new table; instead, it creates a
+pointer to data that exists outside of the database.
+
+**Optional Clauses**
+
++   `OR REPLACE`: Replaces any table with the same name if it exists. Cannot
+    appear with `IF NOT EXISTS`.
++   `TEMP | TEMPORARY`: Creates a temporary table. The lifetime of the table is
+    system-specific.
++   `IF NOT EXISTS`: If any table exists with the same name, the `CREATE`
+    statement will have no effect. Cannot appear with `OR REPLACE`.
+
+### CREATE INDEX
+
+```
+CREATE
+  [OR REPLACE]
+  [UNIQUE]
+  INDEX
+  [IF NOT EXISTS]
+  index_name
+  ON
+  table_name [[AS] alias]
+  [UNNEST(array_expression) [[AS] alias] [WITH OFFSET [[AS] alias]] ...]
+  (key_expression [ASC|DESC], ...)
+  [STORING (stored_expression, ...)]
+  [OPTIONS (key=value, ...)];
+```
+
+**Description**
+
+The `CREATE INDEX` statement creates a secondary index for one or more
+values computed from expressions in a table.
+
+**Expressions**
+
++  `array_expression`: An immutable expression that is used to produce an array
+   value from each row of an indexed table.
++  `key_expression`: An immutable expression that is used to produce an index
+    key value. The expression must have a type that satisfies the requirement of
+    an index key column.
++  `stored_expression`: An immutable expression that is used to produce a value
+    stored in the index.
+
+**Optional Clauses**
+
++  `OR REPLACE`: If the index already exists, replace it. This cannot
+    appear with `IF NOT EXISTS`.
++  `UNIQUE`: Do not index the same key multiple times. Systems can choose how to
+    resolve conflicts in case the index is over a non-unique key.
++  `IF NOT EXISTS`: Do not create an index if it already exists. This cannot
+    appear with `OR REPLACE`.
++  `UNNEST(array_name)`: Create an index for the elements in an array.
++  `WITH OFFSET`: Return a separate column containing the offset value
+    for each row produced by the `UNNEST` operation.
++  `ASC | DESC`: Sort the indexed values in ascending or descending
+    order. `ASC` is the default value with respect to the sort defined by any
+    key parts to the left.
++  `STORING`: Specify additional values computed from the indexed base table row
+    to materialize with the index entry.
++  `OPTIONS`: If you have schema options, you can add them when you create the
+    index. These options are system-specific and follow the
+    ZetaSQL[`HINT` syntax](lexical.md#hints).
+
+**Examples**
+
+Create an index on a column in a table.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Key);
+```
+
+Create an index on multiple columns in a table.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Key, Value);
+```
+
+If the index already exists, replace it.
+
+```sql
+CREATE OR REPLACE INDEX i1 ON KeyValue (Key, Value);
+```
+
+If the index already exists, don't replace it.
+
+```sql
+CREATE INDEX IF NOT EXISTS i1 ON KeyValue (Key, Value);
+```
+
+Create an index that contains unique values.
+
+```sql
+CREATE UNIQUE INDEX i1 ON Books (Title);
+```
+
+Create an index that contains a schema option.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Value) OPTIONS (page_count=1);
+```
+
+Reference the table name for a column.
+
+```sql
+CREATE INDEX i1 ON KeyValue (KeyValue.Key, KeyValue.Value);
+```
+
+```sql
+CREATE INDEX i1 on KeyValue AS foo (foo.Key, foo.Value);
+```
+
+Use the path expression for a key.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Key.sub_field1.sub_field2);
+```
+
+Choose the sort order for the columns assigned to an index.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Key DESC, Value ASC);
+```
+
+Create an index on an array, but not the elements in an array.
+
+```sql
+CREATE INDEX i1 ON Books (BookList);
+```
+
+Create an index for the elements in an array.
+
+```sql
+CREATE INDEX i1 ON Books UNNEST (BookList) (BookList);
+```
+
+```sql
+CREATE INDEX i1 ON Books UNNEST (BookListA) AS a UNNEST (BookListB) AS b (a, b);
+```
+
+Create an index for the elements in an array using an offset.
+
+```sql
+CREATE index i1 on Books UNNEST(BookList) WITH OFFSET (BookList, offset);
+```
+
+```sql
+CREATE index i1 on Books UNNEST(BookList) WITH OFFSET AS foo (BookList, foo);
+```
+
+Store an additional column but don't sort it.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Value) STORING (Key);
+```
+
+Store multiple additional columns and don't sort them.
+
+```sql
+CREATE INDEX i1 ON Books (Title) STORING (First_Name, Last_Name);
+```
+
+Store a column but don't sort it. Reference a table name.
+
+```sql
+CREATE INDEX i1 ON Books (InStock) STORING (Books.Title);
+```
+
+Use an expression in the `STORING` clause.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Key) STORING (Key+1);
+```
+
+Use an implicit alias in the `STORING` clause.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Key) STORING (KeyValue);
+```
+
+### DEFINE TABLE
+
+```
+DEFINE TABLE table_name (options);
+```
+
+**Description**
+
+The `DEFINE TABLE` statement allows queries to run against an exported data
+source.
+
+### ALTER
+
+```
+ALTER TABLE table_name SET OPTIONS (key=value, ...);
+```
+
+**Description**
+
+The `ALTER` statement modifies schema options for a table. Because {{
+product_name }} does not define general DDL syntax, it only supports `ALTER` for
+changing table options which typically appear in the `OPTIONS` clause of a
+`CREATE TABLE` statement.
+
+`table_name` is any identifier or dotted path.
+
+The option entries are system-specific. These follow the ZetaSQL
+[`HINT` syntax](lexical.md#hints).
+
+This statement raises an error under these conditions:
+
++   The table does not exist.
++   A key is not recognized.
+
+The following semantics apply:
+
++   The value is updated for each key in the `SET OPTIONS` clause.
++   Keys not in the `SET OPTIONS` clause remain unchanged.
++   Setting a key value to `NULL` clears it.
+
+### RENAME
+
+```
+RENAME object_type old_name_path TO new_name_path;
+```
+
+**Description**
+
+The `RENAME` object renames an object. `object_type` indicates what type of
+object to rename.
+
+### DROP
+
+```
+DROP object_type [IF EXISTS] object_path;
+```
+
+**Description**
+
+The `DROP` statement drops an object. `object_type` indicates what type of
+object to drop.
+
+**Optional Clauses**
+
++   `IF EXISTS`: If no object exists at `object_path`, the `DROP` statement will
+    have no effect.
+
+ <!-- END CONTENT -->
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
@@ -11491,15 +11940,16 @@ FROM CustomerRangeWithCustomerType(100, 200, 'CUSTOMER_TYPE_ADVERTISER');
 ### Aggregate functions
 
 An *aggregate function* is a function that performs a calculation on a set of
-values. COUNT, MIN and MAX are examples of aggregate functions.
+values. `COUNT`, `MIN` and `MAX` are examples of aggregate functions.
 
 ```sql
 SELECT COUNT(*) as total_count, COUNT(fruit) as non_null_count,
        MIN(fruit) as min, MAX(fruit) as max
-FROM UNNEST([NULL, "apple", "pear", "orange"]) as fruit;
-```
+FROM (SELECT NULL as fruit UNION ALL
+      SELECT "apple" as fruit UNION ALL
+      SELECT "pear" as fruit UNION ALL
+      SELECT "orange" as fruit)
 
-```
 +-------------+----------------+-------+------+
 | total_count | non_null_count | min   | max  |
 +-------------+----------------+-------+------+
@@ -11560,7 +12010,9 @@ FROM UNNEST(["apple", "banana", "pear"]) as fruit;
 +-----------+
 | apple     |
 +-----------+
+```
 
+```sql
 SELECT
   fruit,
   ANY_VALUE(fruit) OVER (ORDER BY LENGTH(fruit) ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS any_value
@@ -11573,7 +12025,6 @@ FROM UNNEST(["apple", "banana", "pear"]) as fruit;
 | apple  | pear      |
 | banana | apple     |
 +--------+-----------+
-
 ```
 
 #### ARRAY_AGG
@@ -11676,6 +12127,7 @@ FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x;
 ```sql
 SELECT ARRAY_AGG(x ORDER BY ABS(x)) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
+
 +-------------------------+
 | array_agg               |
 +-------------------------+
@@ -11795,10 +12247,11 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 +-----------------------------------+
 | [NULL, 1, 2, 3, 4, 5, 6, 7, 8, 9] |
 +-----------------------------------+
+```
 
+```sql
 SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x)) AS array_concat_agg FROM (
-  SELECT [NULL, 1, 2, 3, 4] AS x
-  UNION ALL SELECT NULL
+  SELECT [1, 2, 3, 4] AS x
   UNION ALL SELECT [5, 6]
   UNION ALL SELECT [7, 8, 9]
 );
@@ -11806,12 +12259,13 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x)) AS array_concat_agg FROM (
 +-----------------------------------+
 | array_concat_agg                  |
 +-----------------------------------+
-| [5, 6, 7, 8, 9, NULL, 1, 2, 3, 4] |
+| [5, 6, 7, 8, 9, 1, 2, 3, 4]       |
 +-----------------------------------+
+```
 
+```sql
 SELECT ARRAY_CONCAT_AGG(x LIMIT 2) AS array_concat_agg FROM (
-  SELECT [NULL, 1, 2, 3, 4] AS x
-  UNION ALL SELECT NULL
+  SELECT [1, 2, 3, 4] AS x
   UNION ALL SELECT [5, 6]
   UNION ALL SELECT [7, 8, 9]
 );
@@ -11819,12 +12273,13 @@ SELECT ARRAY_CONCAT_AGG(x LIMIT 2) AS array_concat_agg FROM (
 +--------------------------+
 | array_concat_agg         |
 +--------------------------+
-| [NULL, 1, 2, 3, 4, 5, 6] |
+| [1, 2, 3, 4, 5, 6]       |
 +--------------------------+
+```
 
+```sql
 SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x) LIMIT 2) AS array_concat_agg FROM (
-  SELECT [NULL, 1, 2, 3, 4] AS x
-  UNION ALL SELECT NULL
+  SELECT [1, 2, 3, 4] AS x
   UNION ALL SELECT [5, 6]
   UNION ALL SELECT [7, 8, 9]
 );
@@ -11834,7 +12289,6 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x) LIMIT 2) AS array_concat_agg 
 +------------------+
 | [5, 6, 7, 8, 9]  |
 +------------------+
-
 ```
 
 #### AVG
@@ -11883,23 +12337,27 @@ The clauses are applied *in the following order*:
 
 ```sql
 SELECT AVG(x) as avg
-FROM UNNEST([0, 2, NULL, 4, 4, 5]) as x;
+FROM UNNEST([0, 2, 4, 4, 5]) as x;
 
 +-----+
 | avg |
 +-----+
 | 3   |
 +-----+
+```
 
+```sql
 SELECT AVG(DISTINCT x) AS avg
-FROM UNNEST([0, 2, NULL, 4, 4, 5]) AS x;
+FROM UNNEST([0, 2, 4, 4, 5]) AS x;
 
 +------+
 | avg  |
 +------+
 | 2.75 |
 +------+
+```
 
+```sql
 SELECT
   x,
   AVG(x) OVER (ORDER BY x ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS avg
@@ -11915,7 +12373,6 @@ FROM UNNEST([0, 2, NULL, 4, 4, 5]) AS x;
 | 4    | 4    |
 | 5    | 4.5  |
 +------+------+
-
 ```
 
 #### BIT_AND
@@ -12063,14 +12520,19 @@ SELECT BIT_XOR(x) AS bit_xor FROM UNNEST([5678, 1234]) AS x;
 +---------+
 | 4860    |
 +---------+
+```
 
+```sql
 SELECT BIT_XOR(x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
+
 +---------+
 | bit_xor |
 +---------+
 | 5678    |
 +---------+
+```
 
+```sql
 SELECT BIT_XOR(DISTINCT x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 
 +---------+
@@ -12078,7 +12540,6 @@ SELECT BIT_XOR(DISTINCT x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 +---------+
 | 4860    |
 +---------+
-
 ```
 
 #### COUNT
@@ -12132,33 +12593,49 @@ INT64
 ```sql
 SELECT
   COUNT(*) AS count_star,
-  COUNT(x) AS count_x,
   COUNT(DISTINCT x) AS count_dist_x
-FROM UNNEST([1, 4, NULL, 4, 5]) AS x;
+FROM UNNEST([1, 4, 4, 5]) AS x;
 
-+------------+---------+--------------+
-| count_star | count_x | count_dist_x |
-+------------+---------+--------------+
-| 5          | 4       | 3            |
-+------------+---------+--------------+
++------------+--------------+
+| count_star | count_dist_x |
++------------+--------------+
+| 4          | 3            |
++------------+--------------+
+```
 
+```sql
 SELECT
   x,
   COUNT(*) OVER (PARTITION BY MOD(x, 3)) AS count_star,
-  COUNT(x) OVER (PARTITION BY MOD(x, 3)) AS count_x,
   COUNT(DISTINCT x) OVER (PARTITION BY MOD(x, 3)) AS count_dist_x
+FROM UNNEST([1, 4, 4, 5]) AS x;
+
++------+------------+--------------+
+| x    | count_star | count_dist_x |
++------+------------+--------------+
+| 1    | 3          | 2            |
+| 4    | 3          | 2            |
+| 4    | 3          | 2            |
+| 5    | 1          | 1            |
++------+------------+--------------+
+```
+
+```sql
+SELECT
+  x,
+  COUNT(*) OVER (PARTITION BY MOD(x, 3)) AS count_star,
+  COUNT(x) OVER (PARTITION BY MOD(x, 3)) AS count_x
 FROM UNNEST([1, 4, NULL, 4, 5]) AS x;
 
-+------+------------+---------+--------------+
-| x    | count_star | count_x | count_dist_x |
-+------+------------+---------+--------------+
-| NULL | 1          | 0       | 0            |
-| 1    | 3          | 3       | 2            |
-| 4    | 3          | 3       | 2            |
-| 4    | 3          | 3       | 2            |
-| 5    | 1          | 1       | 1            |
-+------+------------+---------+--------------+
-
++------+------------+---------+
+| x    | count_star | count_x |
++------+------------+---------+
+| NULL | 1          | 0       |
+| 1    | 3          | 3       |
+| 4    | 3          | 3       |
+| 4    | 3          | 3       |
+| 5    | 1          | 1       |
++------+------------+---------+
 ```
 
 #### COUNTIF
@@ -12204,14 +12681,16 @@ INT64
 
 ```sql
 SELECT COUNTIF(x<0) AS num_negative, COUNTIF(x>0) AS num_positive
-FROM UNNEST([5, -2, 3, 6, -10, NULL, -7, 4, 0]) AS x;
+FROM UNNEST([5, -2, 3, 6, -10, -7, 4, 0]) AS x;
 
 +--------------+--------------+
 | num_negative | num_positive |
 +--------------+--------------+
 | 3            | 4            |
 +--------------+--------------+
+```
 
+```sql
 SELECT
   x,
   COUNTIF(x<0) OVER (ORDER BY ABS(x) ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS num_negative
@@ -12230,7 +12709,6 @@ FROM UNNEST([5, -2, 3, 6, -10, NULL, -7, 4, 0]) AS x;
 | -7   | 2            |
 | -10  | 2            |
 +------+--------------+
-
 ```
 
 #### LOGICAL_AND
@@ -12272,7 +12750,7 @@ BOOL
 **Examples**
 
 ```sql
-SELECT LOGICAL_AND(x) as logical_and FROM UNNEST([true, false, true]) as x;
+SELECT LOGICAL_AND(x) AS logical_and FROM UNNEST([true, false, true]) AS x;
 
 +-------------+
 | logical_and |
@@ -12320,7 +12798,7 @@ BOOL
 **Examples**
 
 ```sql
-SELECT LOGICAL_OR(x) as logical_or FROM UNNEST([true, false, true]) as x;
+SELECT LOGICAL_OR(x) AS logical_or FROM UNNEST([true, false, true]) AS x;
 
 +------------+
 | logical_or |
@@ -12373,14 +12851,16 @@ Same as the data type used as the input values.
 
 ```sql
 SELECT MAX(x) AS max
-FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
+FROM UNNEST([8, 37, 4, 55]) AS x;
 
 +-----+
 | max |
 +-----+
 | 55  |
 +-----+
+```
 
+```sql
 SELECT x, MAX(x) OVER (PARTITION BY MOD(x, 2)) AS max
 FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 
@@ -12394,7 +12874,6 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 | 37   | 55   |
 | 55   | 55   |
 +------+------+
-
 ```
 
 #### MIN
@@ -12441,14 +12920,16 @@ Same as the data type used as the input values.
 
 ```sql
 SELECT MIN(x) AS min
-FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
+FROM UNNEST([8, 37, 4, 55]) AS x;
 
 +-----+
 | min |
 +-----+
 | 4   |
 +-----+
+```
 
+```sql
 SELECT x, MIN(x) OVER (PARTITION BY MOD(x, 2)) AS min
 FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 
@@ -12462,7 +12943,6 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 | 37   | 37   |
 | 55   | 37   |
 +------+------+
-
 ```
 
 #### STRING_AGG
@@ -12539,52 +13019,64 @@ FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 +------------------------+
 | apple,pear,banana,pear |
 +------------------------+
+```
 
+```sql
 SELECT STRING_AGG(fruit, " & ") AS string_agg
-FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
+FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
 +------------------------------+
 | string_agg                   |
 +------------------------------+
 | apple & pear & banana & pear |
 +------------------------------+
+```
 
+```sql
 SELECT STRING_AGG(DISTINCT fruit, " & ") AS string_agg
-FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
+FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
 +-----------------------+
 | string_agg            |
 +-----------------------+
-| apple & banana & pear |
+| apple & pear & banana |
 +-----------------------+
+```
 
+```sql
 SELECT STRING_AGG(fruit, " & " ORDER BY LENGTH(fruit)) AS string_agg
-FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
+FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
 +------------------------------+
 | string_agg                   |
 +------------------------------+
 | pear & pear & apple & banana |
 +------------------------------+
+```
 
+```sql
 SELECT STRING_AGG(fruit, " & " LIMIT 2) AS string_agg
-FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
+FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
 +--------------+
 | string_agg   |
 +--------------+
 | apple & pear |
 +--------------+
+```
 
+```sql
 SELECT STRING_AGG(DISTINCT fruit, " & " ORDER BY fruit DESC LIMIT 2) AS string_agg
-FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
+FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
 +---------------+
 | string_agg    |
 +---------------+
 | pear & banana |
 +---------------+
+```
 
+```sql
 SELECT
   fruit,
   STRING_AGG(fruit, " & ") OVER (ORDER BY LENGTH(fruit)) AS string_agg
@@ -12599,7 +13091,6 @@ FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 | apple  | pear & pear & apple          |
 | banana | pear & pear & apple & banana |
 +--------+------------------------------+
-
 ```
 
 #### SUM
@@ -12669,7 +13160,9 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 +-----+
 | 25  |
 +-----+
+```
 
+```sql
 SELECT SUM(DISTINCT x) AS sum
 FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 
@@ -12678,7 +13171,9 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 +-----+
 | 15  |
 +-----+
+```
 
+```sql
 SELECT
   x,
   SUM(x) OVER (PARTITION BY MOD(x, 3)) AS sum
@@ -12697,7 +13192,9 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 | 5 | 9   |
 | 2 | 9   |
 +---+-----+
+```
 
+```sql
 SELECT
   x,
   SUM(DISTINCT x) OVER (PARTITION BY MOD(x, 3)) AS sum
@@ -12716,7 +13213,6 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 | 5 | 7   |
 | 2 | 7   |
 +---+-----+
-
 ```
 
 ### Aggregate Analytic Functions
@@ -12884,14 +13380,16 @@ rows or `expression` evaluates to NULL for all rows.
 
 ```sql
 SELECT APPROX_QUANTILES(x, 2) AS approx_quantiles
-FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
+FROM UNNEST([1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
 +------------------+
 | approx_quantiles |
 +------------------+
 | [1, 5, 10]       |
 +------------------+
+```
 
+```sql
 SELECT APPROX_QUANTILES(x, 100)[OFFSET(90)] AS percentile_90
 FROM UNNEST([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
@@ -12900,16 +13398,20 @@ FROM UNNEST([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) AS x;
 +---------------+
 | 9             |
 +---------------+
+```
 
+```sql
 SELECT APPROX_QUANTILES(DISTINCT x, 2) AS approx_quantiles
-FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
+FROM UNNEST([1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
 +------------------+
 | approx_quantiles |
 +------------------+
 | [1, 6, 10]       |
 +------------------+
+```
 
+```sql
 SELECT APPROX_QUANTILES(x, 2 RESPECT NULLS) AS approx_quantiles
 FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
@@ -12918,7 +13420,9 @@ FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 +------------------+
 | [NULL, 4, 10]    |
 +------------------+
+```
 
+```sql
 SELECT APPROX_QUANTILES(DISTINCT x, 2 RESPECT NULLS) AS approx_quantiles
 FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
@@ -12927,7 +13431,6 @@ FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 +------------------+
 | [NULL, 6, 10]    |
 +------------------+
-
 ```
 
 #### APPROX_TOP_COUNT
@@ -13046,7 +13549,7 @@ If the `weight` input is negative or `NaN`, this function returns an error.
 An ARRAY of type STRUCT.
 The STRUCT contains two fields: `value` and `sum`.
 The `value` field contains the value of the input expression. The `sum` field is
-the same type as`weight`, and is the approximate sum of the input weight
+the same type as `weight`, and is the approximate sum of the input weight
 associated with the `value` field.
 
 Returns `NULL` if there are zero input rows.
@@ -13130,15 +13633,6 @@ is represented using the `BYTES` data type. You can then merge sketches using
 you can extract the final count of distinct values from the sketch using
 `HLL_COUNT.EXTRACT`.
 
-An `input` can be one of the following:
-
-<ul>
-<li>INT64</li>
-<li>UINT64</li>
-<li>STRING</li>
-<li>BYTES</li>
-</ul>
-
 This function supports an optional parameter, `precision`. This parameter
 defines the accuracy of the estimate at the cost of additional memory required
 to process the sketches or store them on disk. The following table shows the
@@ -13168,9 +13662,9 @@ If the input is NULL, this function returns NULL.
 For more information, see
 [HyperLogLog in Practice: Algorithmic Engineering of a State of The Art Cardinality Estimation Algorithm][hll-link-to-research-whitepaper].
 
-**Supported input type**
+**Supported input types**
 
-BYTES
+INT64, UINT64, NUMERIC, STRING, BYTES
 
 **Return type**
 
@@ -14080,7 +14574,7 @@ COS(X)
 
 **Description**
 
-Computes cosine of X. Never fails.
+Computes the cosine of X where X is specified in radians. Never fails.
 
 #### COSH
 
@@ -14090,8 +14584,8 @@ COSH(X)
 
 **Description**
 
-Computes the hyperbolic cosine of X. Generates an error if an overflow
-occurs.
+Computes the hyperbolic cosine of X where X is specified in radians.
+Generates an error if overflow occurs.
 
 #### ACOS
 
@@ -14101,9 +14595,9 @@ ACOS(X)
 
 **Description**
 
-Computes the principal value of the arc cosine of X. The return value is in
-the range [0,]. Generates an error if X is a finite value outside of range
-[-1, 1].
+Computes the principal value of the inverse cosine of X. The return value is in
+the range [0,&pi;]. Generates an error if X is a value outside of the
+range [-1, 1].
 
 #### ACOSH
 
@@ -14113,8 +14607,8 @@ ACOSH(X)
 
 **Description**
 
-Computes the inverse hyperbolic cosine of X. Generates an error if X is a
-finite value less than 1.
+Computes the inverse hyperbolic cosine of X. Generates an error if X is a value
+less than 1.
 
 #### SIN
 
@@ -14124,7 +14618,7 @@ SIN(X)
 
 **Description**
 
-Computes the sine of X. Never fails.
+Computes the sine of X where X is specified in radians. Never fails.
 
 #### SINH
 
@@ -14134,8 +14628,8 @@ SINH(X)
 
 **Description**
 
-Computes the hyperbolic sine of X. Generates an error if an overflow
-occurs.
+Computes the hyperbolic sine of X where X is specified in radians. Generates
+an error if overflow occurs.
 
 #### ASIN
 
@@ -14145,9 +14639,9 @@ ASIN(X)
 
 **Description**
 
-Computes the principal value of the arc sine of X. The return value is in
-the range [-&pi;/2,&pi;/2]. Generates an error if X is a finite value outside of range
-[-1, 1].
+Computes the principal value of the inverse sine of X. The return value is in
+the range [-&pi;/2,&pi;/2]. Generates an error if X is outside of
+the range [-1, 1].
 
 #### ASINH
 
@@ -14167,7 +14661,8 @@ TAN(X)
 
 **Description**
 
-Computes tangent of X. Generates an error if an overflow occurs.
+Computes the tangent of X where X is specified in radians. Generates an error if
+overflow occurs.
 
 #### TANH
 
@@ -14177,7 +14672,8 @@ TANH(X)
 
 **Description**
 
-Computes hyperbolic tangent of X. Does not fail.
+Computes the hyperbolic tangent of X where X is specified in radians. Does not
+fail.
 
 #### ATAN
 
@@ -14187,8 +14683,8 @@ ATAN(X)
 
 **Description**
 
-Computes the principal value of the arc tangent of X. The return value is in
-the range [-&pi;/2,&pi;/2]. Does not fail.
+Computes the principal value of the inverse tangent of X. The return value is
+in the range [-&pi;/2,&pi;/2]. Does not fail.
 
 #### ATANH
 
@@ -14198,8 +14694,8 @@ ATANH(X)
 
 **Description**
 
-Computes the inverse hyperbolic tangent of X. Generates an error if the
-absolute value of X is greater or equal 1.
+Computes the inverse hyperbolic tangent of X. Generates an error if X is outside
+of the range [-1, 1].
 
 #### ATAN2
 
@@ -14209,10 +14705,10 @@ ATAN2(Y, X)
 
 **Description**
 
-Calculates the principal value of the arc tangent of Y/X using the signs of
+Calculates the principal value of the inverse tangent of Y/X using the signs of
 the two arguments to determine the quadrant. The return value is in the range
-[-&pi;,&pi;]. The behavior of this function is further illustrated in <a
-href="#special_atan2">the table below</a>.
+[-&pi;,&pi;]. The behavior of this function is further illustrated in
+<a href="#special_atan2">the table below</a>.
 
 <a name="special_atan2"></a>
 ##### Special cases for `ATAN2()`
@@ -17597,11 +18093,10 @@ The `json_string_expr` parameter must be a JSON-formatted string. For example:
 
 The `json_path_string_literal` parameter identifies the value or values you want
 to obtain from the JSON-formatted string. You construct this parameter using the
-[JSONPath][json-link-to-code-google-json-path] format. As part of this format,
-this parameter must start with a `$` symbol, which refers to the outermost level
-of the JSON-formatted string. You can identify child values using dot or
-bracket notation. If the JSON object is an array, you can use brackets to
-specify the array index.
+[JSONPath][json-path] format. As part of this format, this parameter must start
+with a `$` symbol, which refers to the outermost level of the JSON-formatted
+string. You can identify child values using dot or bracket notation. If the JSON
+object is an array, you can use brackets to specify the array index.
 
 | JSONPath | Description                       |
 |----------|-----------------------------------|
@@ -17690,7 +18185,7 @@ The above query produces the following result:
 +-------------------+
 | NULL              |
 | NULL              |
-| {"first":"Jamie"} |
+| "Jamie"           |
 +-------------------+
 ```
 
@@ -17750,11 +18245,10 @@ The `json_string_expr` parameter must be a JSON-formatted string. For example:
 
 The `json_path_string_literal` parameter identifies the value or values you want
 to obtain from the JSON-formatted string. You construct this parameter using the
-[JSONPath][json-link-to-code-google-json-path] format. As part of this format,
-this parameter must start with a `$` symbol, which refers to the outermost level
-of the JSON-formatted string. You can identify child values using dot or
-surrounded by double quotes. If the JSON object is an array, you can use
-brackets to specify the array index.
+[JSONPath][json-path] format. As part of this format, this parameter must start
+with a `$` symbol, which refers to the outermost level of the JSON-formatted
+string. You can identify child values using dot or surrounded by double quotes.
+If the JSON object is an array, you can use brackets to specify the array index.
 
 JSONPath | Description
 -------- | ----------------------
@@ -18160,7 +18654,7 @@ The above query produces the following result:
 +-----------------------+
 ```
 
-[json-link-to-code-google-json-path]: https://code.google.com/p/jsonpath
+[json-path]: https://github.com/json-path/JsonPath#operators
 
 <a name="array_functions"></a>
 ### Array functions
@@ -18298,11 +18792,8 @@ INT64
 **Examples**
 
 ```sql
-
 WITH items AS
-  (SELECT ["apples", "bananas", NULL, "grapes"] as list
-  UNION ALL
-  SELECT ["coffee", "tea", "milk" ] as list
+  (SELECT ["coffee", NULL, "milk" ] as list
   UNION ALL
   SELECT ["cake", "pie"] as list)
 
@@ -18313,8 +18804,7 @@ ORDER BY size DESC;
 +---------------------------------+------+
 | list                            | size |
 +---------------------------------+------+
-| [apples, bananas, NULL, grapes] | 4    |
-| [coffee, tea, milk]             | 3    |
+| [coffee, NULL, milk]            | 3    |
 | [cake, pie]                     | 2    |
 +---------------------------------+------+
 ```
@@ -18341,11 +18831,8 @@ and its preceding delimiter.
 **Examples**
 
 ```sql
-
 WITH items AS
-  (SELECT ["apples", "bananas", "pears", "grapes"] as list
-  UNION ALL
-  SELECT ["coffee", "tea", "milk" ] as list
+  (SELECT ["coffee", "tea", "milk" ] as list
   UNION ALL
   SELECT ["cake", "pie", NULL] as list)
 
@@ -18355,15 +18842,14 @@ FROM items;
 +--------------------------------+
 | text                           |
 +--------------------------------+
-| apples--bananas--pears--grapes |
 | coffee--tea--milk              |
 | cake--pie                      |
 +--------------------------------+
+```
 
+```sql
 WITH items AS
-  (SELECT ["apples", "bananas", "pears", "grapes"] as list
-  UNION ALL
-  SELECT ["coffee", "tea", "milk" ] as list
+  (SELECT ["coffee", "tea", "milk" ] as list
   UNION ALL
   SELECT ["cake", "pie", NULL] as list)
 
@@ -18373,7 +18859,6 @@ FROM items;
 +--------------------------------+
 | text                           |
 +--------------------------------+
-| apples--bananas--pears--grapes |
 | coffee--tea--milk              |
 | cake--pie--MISSING             |
 +--------------------------------+
@@ -18623,14 +19108,13 @@ SELECT GENERATE_DATE_ARRAY('2016-01-01',
 The following uses non-constant dates to generate an array.
 
 ```sql
-WITH StartsAndEnds AS (
+SELECT GENERATE_DATE_ARRAY(date_start, date_end, INTERVAL 1 WEEK) AS date_range
+FROM (
   SELECT DATE '2016-01-01' AS date_start, DATE '2016-01-31' AS date_end
   UNION ALL SELECT DATE "2016-04-01", DATE "2016-04-30"
   UNION ALL SELECT DATE "2016-07-01", DATE "2016-07-31"
   UNION ALL SELECT DATE "2016-10-01", DATE "2016-10-31"
-)
-SELECT GENERATE_DATE_ARRAY(date_start, date_end, INTERVAL 1 WEEK) AS date_range
-FROM StartsAndEnds;
+) AS items;
 
 +--------------------------------------------------------------+
 | date_range                                                   |
@@ -18662,9 +19146,13 @@ inputs:
 + `end_timestamp`: `TIMESTAMP`
 + `step_expression`: `INT64`
 + Allowed `date_part` values are
-   `MICROSECOND`,
+  
+  `MICROSECOND` or `NANOSECOND` (depends on what the SQL engine supports),
+  
    `MILLISECOND`,
-   `SECOND`, `MINUTE`, `HOUR`, or `DAY`.
+  
+   `SECOND`,
+  `MINUTE`, `HOUR`, or `DAY`.
 
 The `step_expression` parameter determines the increment used to generate
 timestamps.
@@ -18813,7 +19301,6 @@ Varies depending on the elements in the ARRAY.
 **Examples**
 
 ```sql
-
 WITH items AS
   (SELECT ["apples", "bananas", "pears", "grapes"] as list
   UNION ALL
@@ -18887,7 +19374,6 @@ Varies depending on the elements in the ARRAY.
 **Example**
 
 ```sql
-
 WITH items AS
   (SELECT ["apples", "bananas", "pears", "grapes"] as list
   UNION ALL
@@ -20394,6 +20880,69 @@ year.</td>
 [datetime-link-to-timezone-definitions]: #timezone-definitions
 [datetime-functions-link-to-supported-format-elements-for-datetime]: #supported-format-elements-for-datetime
 
+### Debugging functions
+
+ZetaSQL supports the following debugging functions.
+
+#### ERROR
+```
+ERROR(error_message)
+```
+
+**Description**
+
+Returns an error. The `error_message` argument is a `STRING`.
+
+ZetaSQL treats `ERROR` in the same way as any expression that may
+result in an error: there is no special guarantee of evaluation order.
+
+**Return Data Type**
+
+ZetaSQL infers the return type in context.
+
+**Examples**
+
+In the following example, the query returns an error message if the value of the
+row does not match one of two defined values.
+
+```sql
+SELECT
+  CASE
+    WHEN value = 'foo' THEN 'Value is foo.'
+    WHEN value = 'bar' THEN 'Value is bar.'
+    ELSE ERROR(concat('Found unexpected value: ', value))
+  END AS new_value
+FROM (
+  SELECT 'foo' AS value UNION ALL
+  SELECT 'bar' AS value UNION ALL
+  SELECT 'baz' AS value);
+
+Found unexpected value: baz
+```
+
+In the following example, ZetaSQL may evaluate the `ERROR` function
+before or after the <nobr>`x > 0`</nobr> condition, because ZetaSQL
+generally provides no ordering guarantees between `WHERE` clause conditions and
+there are no special guarantees for the `ERROR` function.
+
+```sql
+SELECT *
+FROM (SELECT -1 AS x)
+WHERE x > 0 AND ERROR('Example error');
+```
+
+In the next example, the `WHERE` clause evaluates an `IF` condition, which
+ensures that ZetaSQL only evaluates the `ERROR` function if the
+condition fails.
+
+```sql
+SELECT *
+FROM (SELECT -1 AS x)
+WHERE IF(x > 0, true, ERROR(FORMAT('Error: x must be positive but is %t', x)));'
+
+Error: x must be positive but is -1
+```
+
 ### Time functions
 
 ZetaSQL supports the following `TIME` functions.
@@ -20854,11 +21403,11 @@ TIMESTAMP
 ```sql
 SELECT CURRENT_TIMESTAMP() as now;
 
-+-------------------------------+
-| now                           |
-+-------------------------------+
-| 2016-05-16 18:12:47.145482+00 |
-+-------------------------------+
++----------------------------------+
+| now                              |
++----------------------------------+
+| 2016-05-16 18:12:47.145482639+00 |
++----------------------------------+
 ```
 
 #### EXTRACT
@@ -20874,6 +21423,7 @@ a supplied `timestamp_expression`.
 
 Allowed `part` values are:
 
++ `NANOSECOND`
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -21060,7 +21610,7 @@ any time zone.
 `TIMESTAMP_ADD` supports the following values for `date_part`:
 
 <ul>
-
+<li><code>NANOSECOND</code></li>
 <li><code>MICROSECOND</code></li>
 <li><code>MILLISECOND</code></li>
 <li><code>SECOND</code></li>
@@ -21102,7 +21652,7 @@ independent of any time zone.
 `TIMESTAMP_SUB` supports the following values for `date_part`:
 
 <ul>
-
+<li><code>NANOSECOND</code></li>
 <li><code>MICROSECOND</code></li>
 <li><code>MILLISECOND</code></li>
 <li><code>SECOND</code></li>
@@ -21138,18 +21688,23 @@ TIMESTAMP_DIFF(timestamp_expression, timestamp_expression, date_part)
 
 **Description**
 
-Returns the number of whole specified `date_part` intervals between two
-timestamps. The first `timestamp_expression` represents the later date; if the
-first `timestamp_expression` is earlier than the second `timestamp_expression`,
-the output is negative. Throws an error if the computation overflows the result
-type, such as if the difference in
-microseconds between
-the two timestamps would overflow an `INT64` value.
+<div>
+    <p>
+        Returns the number of whole specified <code>date_part</code> intervals
+        between two timestamps. The first <code>timestamp_expression</code>
+        represents the later date; if the first
+        <code>timestamp_expression</code> is earlier than the second
+        <code>timestamp_expression</code>, the output is negative.
+        Throws an error if the computation overflows the result type, such as
+        if the difference in nanoseconds between the two timestamps
+        would overflow an <code>INT64</code> value.
+    </p>
+</div>
 
 `TIMESTAMP_DIFF` supports the following values for `date_part`:
 
 <ul>
-
+<li><code>NANOSECOND</code></li>
 <li><code>MICROSECOND</code></li>
 <li><code>MILLISECOND</code></li>
 <li><code>SECOND</code></li>
@@ -21204,6 +21759,7 @@ Truncates a timestamp to the granularity of `date_part`.
 
 `TIMESTAMP_TRUNC` supports the following values for `date_part`:
 
++ `NANOSECOND`
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -21798,6 +22354,76 @@ For example:
 [timestamp-link-to-supported-format-elements-for-time-for-timestamp]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#supported-format-elements-for-timestamp
 
 [timestamp-link-to-timezone-definitions]: #timezone-definitions
+
+### Protocol buffer functions
+
+ZetaSQL supports the following protocol buffer functions.
+
+#### PROTO_DEFAULT_IF_NULL
+```
+PROTO_DEFAULT_IF_NULL(proto_field_expression)
+```
+
+**Description**
+
+Evaluates any expression that results in a proto field access.
+If the `proto_field_expression` evaluates to `NULL`, returns the default
+value for the field. Otherwise, returns the field value.
+
+Stipulations:
+
++ The expression cannot resolve to a required field.
++ The expression cannot resolve to a message field.
++ The expression must resolve to a regular proto field access, not
+  a virtual field.
++ The expression cannot access a field with
+  `zetasql.use_defaults=false`.
+
+**Return Data Type**
+
+Type of `proto_field_expression`.
+
+**Example**
+
+In the following example, each book in a library has a country of origin. If
+the country is not set, the country defaults to unknown.
+
+In this statement, table `library_books` contains a column named `book`,
+whose type is `Book`.
+
+```sql
+SELECT PROTO_DEFAULT_IF_NULL(book.country) as origin FROM library_books;
+```
+
+`Book` is a type that contains a field called `country`.
+
+```
+message Book {
+  optional string country = 4 [default = 'Unknown'];
+}
+```
+
+This is the result if `book.country` evaluates to `Canada`.
+
+```sql
++-----------------+
+| origin          |
++-----------------+
+| Canada          |
++-----------------+
+```
+
+This is the result if `book` is `NULL`. Since `book` is `NULL`,
+`book.country` evaluates to `NULL` and therefore the function result is the
+default value for `country`.
+
+```sql
++-----------------+
+| origin          |
++-----------------+
+| Unknown         |
++-----------------+
+```
 
 ### Security functions
 

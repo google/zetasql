@@ -64,15 +64,19 @@ struct FieldPathEqualsOperator {
 };
 
 struct OrderByItemInfo {
-  OrderByItemInfo(const ASTNode* ast_location_in, int64_t index,
-                  bool descending) :
-      ast_location(ast_location_in),
-      select_list_index(index), is_descending(descending) {}
+  OrderByItemInfo(const ASTNode* ast_location_in, int64_t index, bool descending,
+                  ResolvedOrderByItemEnums::NullOrderMode null_order)
+      : ast_location(ast_location_in),
+        select_list_index(index),
+        is_descending(descending),
+        null_order(null_order) {}
   OrderByItemInfo(const ASTNode* ast_location_in,
-                  std::unique_ptr<const ResolvedExpr> expr, bool descending)
+                  std::unique_ptr<const ResolvedExpr> expr, bool descending,
+                  ResolvedOrderByItemEnums::NullOrderMode null_order)
       : ast_location(ast_location_in),
         order_expression(std::move(expr)),
-        is_descending(descending) {}
+        is_descending(descending),
+        null_order(null_order) {}
 
   // This value is not valid as a 0-based select list index.
   static const int64_t kInvalidSelectListIndex =
@@ -95,6 +99,8 @@ struct OrderByItemInfo {
   ResolvedColumn order_column;
 
   bool is_descending;  // Indicates DESC or ASC.
+  // Indicates NULLS LAST or NULLS FIRST.
+  ResolvedOrderByItemEnums::NullOrderMode null_order;
 };
 
 // QueryGroupByAndAggregateInfo is used (and mutated) to store info related

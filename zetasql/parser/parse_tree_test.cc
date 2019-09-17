@@ -22,6 +22,7 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/parser/parse_tree_visitor.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/error_location.pb.h"
@@ -30,12 +31,14 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_payload.h"
 
 namespace zetasql {
+namespace testing {
 namespace {
 
 TEST(StatusWithInternalErrorLocation, ByteOffset) {
@@ -43,7 +46,7 @@ TEST(StatusWithInternalErrorLocation, ByteOffset) {
       ParseLocationPoint::FromByteOffset("filename_7", 7);
 
   const zetasql_base::Status status = StatusWithInternalErrorLocation(
-      ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC) << "Foo bar baz", point);
+      ::zetasql_base::InternalErrorBuilder() << "Foo bar baz", point);
   const InternalErrorLocation location =
       internal::GetPayload<InternalErrorLocation>(status);
   EXPECT_EQ(7, location.byte_offset());
@@ -60,10 +63,10 @@ TEST(ConvertInternalErrorLocationToExternal, ByteOffset) {
       ParseLocationPoint::FromByteOffset("filename_23", 23);
 
   const zetasql_base::Status status = StatusWithInternalErrorLocation(
-      ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC) << "Foo bar baz", point);
+      ::zetasql_base::InternalErrorBuilder() << "Foo bar baz", point);
   const zetasql_base::Status status2 =
       ConvertInternalErrorLocationToExternal(status, dummy_query);
-  EXPECT_FALSE(internal::HasPayloadTyped<InternalErrorLocation>(status2));
+  EXPECT_FALSE(internal::HasPayloadWithType<InternalErrorLocation>(status2));
   const ErrorLocation external_location =
       internal::GetPayload<ErrorLocation>(status2);
   EXPECT_EQ(2, external_location.line());
@@ -83,7 +86,7 @@ TEST(ConvertInternalErrorLocationToExternal, Idempotent) {
       ParseLocationPoint::FromByteOffset("filename_22", 22);
 
   const zetasql_base::Status status = StatusWithInternalErrorLocation(
-      ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC) << "Foo bar baz", point);
+      ::zetasql_base::InternalErrorBuilder() << "Foo bar baz", point);
   const zetasql_base::Status status2 =
       ConvertInternalErrorLocationToExternal(status, dummy_query);
   const zetasql_base::Status status3 =
@@ -93,8 +96,7 @@ TEST(ConvertInternalErrorLocationToExternal, Idempotent) {
 }
 
 TEST(ConvertInternalErrorLocationToExternal, NoPayload) {
-  const zetasql_base::Status status = ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
-                              << "Foo bar baz";
+  const zetasql_base::Status status = ::zetasql_base::InternalErrorBuilder() << "Foo bar baz";
 
   const zetasql_base::Status status2 =
       ConvertInternalErrorLocationToExternal(status, "abc" /* dummy query */);
@@ -106,15 +108,14 @@ TEST(ConvertInternalErrorLocationToExternal, NoLocationWithExtraPayload) {
   extra_extension.set_value("abc");
 
   const zetasql_base::Status status =
-      ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC).Attach(extra_extension)
-      << "Foo bar baz";
+      ::zetasql_base::InternalErrorBuilder().Attach(extra_extension) << "Foo bar baz";
 
   const zetasql_base::Status status2 =
       ConvertInternalErrorLocationToExternal(status, "abc" /* dummy query */);
-  EXPECT_FALSE(internal::HasPayloadTyped<InternalErrorLocation>(status2));
-  EXPECT_FALSE(internal::HasPayloadTyped<ErrorLocation>(status2));
+  EXPECT_FALSE(internal::HasPayloadWithType<InternalErrorLocation>(status2));
+  EXPECT_FALSE(internal::HasPayloadWithType<ErrorLocation>(status2));
   EXPECT_TRUE(
-      internal::HasPayloadTyped<zetasql_test::TestStatusPayload>(status2));
+      internal::HasPayloadWithType<zetasql_test::TestStatusPayload>(status2));
 }
 
 TEST(ConvertInternalErrorLocationToExternal, LocationWithExtraPayload) {
@@ -130,16 +131,15 @@ TEST(ConvertInternalErrorLocationToExternal, LocationWithExtraPayload) {
       ParseLocationPoint::FromByteOffset("filename_21", 21);
 
   const zetasql_base::Status status = StatusWithInternalErrorLocation(
-      ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC).Attach(extra_extension)
-          << "Foo bar baz",
+      ::zetasql_base::InternalErrorBuilder().Attach(extra_extension) << "Foo bar baz",
       point);
 
   const zetasql_base::Status status2 =
       ConvertInternalErrorLocationToExternal(status, dummy_query);
-  EXPECT_FALSE(internal::HasPayloadTyped<InternalErrorLocation>(status2));
-  EXPECT_TRUE(internal::HasPayloadTyped<ErrorLocation>(status2));
+  EXPECT_FALSE(internal::HasPayloadWithType<InternalErrorLocation>(status2));
+  EXPECT_TRUE(internal::HasPayloadWithType<ErrorLocation>(status2));
   EXPECT_TRUE(
-      internal::HasPayloadTyped<zetasql_test::TestStatusPayload>(status2));
+      internal::HasPayloadWithType<zetasql_test::TestStatusPayload>(status2));
 }
 
 // Return a std::string with counts of node kinds that looks like
@@ -310,5 +310,123 @@ TEST(ParseTreeTest, GetDescendantsWithKinds) {
   EXPECT_EQ("BinaryExpression:6 SetOperation:1", CountNodeKinds(found_nodes));
 }
 
+class TestVisitor : public NonRecursiveParseTreeVisitor {
+ public:
+  explicit TestVisitor(bool post_visit) : post_visit_(post_visit) {}
+  VisitResult defaultVisit(const ASTNode* node) override {
+    return VisitInternal(node, "default");
+  }
+
+  // Choose an arbitrary node type to provide a specific visitor for.
+  // This allows the test to verify that specific visit() methods are invoked
+  // when provided, rather than the default.
+  VisitResult visitASTPathExpression(const ASTPathExpression* node) override {
+    return VisitInternal(node, "path_expression");
+  }
+
+  const std::string& log() const { return log_; }
+
+  int pre_visit_count() const { return pre_visit_count_; }
+  int post_visit_count() const { return post_visit_count_; }
+
+ private:
+  VisitResult VisitInternal(const ASTNode* node, const std::string& label) {
+    ++pre_visit_count_;
+    absl::StrAppend(&log_, "preVisit(", label,
+                    "): ", node->SingleNodeDebugString(), "\n");
+
+    if (post_visit_) {
+      return VisitResult::VisitChildren(node, [node, this, label]() {
+        ++post_visit_count_;
+        absl::StrAppend(&log_, "postVisit(", label,
+                        "): ", node->SingleNodeDebugString(), "\n");
+      });
+    } else {
+      return VisitResult::VisitChildren(node);
+    }
+  }
+
+  int pre_visit_count_ = 0;
+  int post_visit_count_ = 0;
+  std::string log_ = "\n";
+  bool post_visit_;
+};
+
+TEST(ParseTreeTest, NonRecursiveVisitors_WithPostVisit) {
+  const std::string sql = "select (1+x) from t;";
+
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
+
+  TestVisitor visitor(/*post_visit=*/true);
+  parser_output->statement()->TraverseNonRecursive(&visitor);
+  std::string expected_log = R"(
+preVisit(default): QueryStatement
+preVisit(default): Query
+preVisit(default): Select
+preVisit(default): SelectList
+preVisit(default): SelectColumn
+preVisit(default): BinaryExpression(+)
+preVisit(default): IntLiteral(1)
+postVisit(default): IntLiteral(1)
+preVisit(path_expression): PathExpression
+preVisit(default): Identifier(x)
+postVisit(default): Identifier(x)
+postVisit(path_expression): PathExpression
+postVisit(default): BinaryExpression(+)
+postVisit(default): SelectColumn
+postVisit(default): SelectList
+preVisit(default): FromClause
+preVisit(default): TablePathExpression
+preVisit(path_expression): PathExpression
+preVisit(default): Identifier(t)
+postVisit(default): Identifier(t)
+postVisit(path_expression): PathExpression
+postVisit(default): TablePathExpression
+postVisit(default): FromClause
+postVisit(default): Select
+postVisit(default): Query
+postVisit(default): QueryStatement
+)";
+  ASSERT_THAT(visitor.log(), expected_log);
+  ASSERT_EQ(visitor.pre_visit_count(), visitor.post_visit_count());
+  ASSERT_GT(visitor.pre_visit_count(), 0);
+}
+
+TEST(ParseTreeTest, NonRecursiveVisitors_NoPostVisit) {
+  const std::string sql = "select (1+x) from t;";
+
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
+
+  TestVisitor visitor(/*post_visit=*/false);
+  parser_output->statement()->TraverseNonRecursive(&visitor);
+  std::string expected_log = R"(
+preVisit(default): QueryStatement
+preVisit(default): Query
+preVisit(default): Select
+preVisit(default): SelectList
+preVisit(default): SelectColumn
+preVisit(default): BinaryExpression(+)
+preVisit(default): IntLiteral(1)
+preVisit(path_expression): PathExpression
+preVisit(default): Identifier(x)
+preVisit(default): FromClause
+preVisit(default): TablePathExpression
+preVisit(path_expression): PathExpression
+preVisit(default): Identifier(t)
+)";
+  ASSERT_THAT(visitor.log(), expected_log);
+  ASSERT_GT(visitor.pre_visit_count(), 0);
+  ASSERT_EQ(visitor.post_visit_count(), 0);
+}
+
+// Returns a copy of <s> repeated <count> times.
+std::string Repeat(absl::string_view s, int count) {
+  CHECK_GT(count, 0);
+  return absl::StrJoin(std::vector<absl::string_view>(count, s), "");
+}
+
 }  // namespace
+}  // namespace testing
 }  // namespace zetasql

@@ -122,6 +122,21 @@ zetasql_base::Status Resolver::ResolveAlterActions(
   return ::zetasql_base::OkStatus();
 }
 
+zetasql_base::Status Resolver::ResolveAlterDatabaseStatement(
+    const ASTAlterDatabaseStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  bool has_only_set_options_action = true;
+  std::vector<std::unique_ptr<const ResolvedAlterAction>>
+      resolved_alter_actions;
+  ZETASQL_RETURN_IF_ERROR(ResolveAlterActions(ast_statement, "DATABASE", output,
+                                      &has_only_set_options_action,
+                                      &resolved_alter_actions));
+  *output = MakeResolvedAlterDatabaseStmt(
+      ast_statement->path()->ToIdentifierVector(),
+      std::move(resolved_alter_actions), ast_statement->is_if_exists());
+  return ::zetasql_base::OkStatus();
+}
+
 zetasql_base::Status Resolver::ResolveAlterTableStatement(
     const ASTAlterTableStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {

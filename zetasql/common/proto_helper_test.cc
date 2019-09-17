@@ -59,15 +59,15 @@ class MultiFileErrorCollector
 class ProtoHelperTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    const std::vector<std::string> test_files {
-      // Order matters for these imports.
-      "google/protobuf/descriptor.proto",
-      "zetasql/public/proto/type_annotation.proto",
-      "zetasql/testdata/test_schema.proto",
-      "zetasql/testdata/referencing_schema.proto",
-      "zetasql/testdata/referenced_schema.proto",
-      "zetasql/testdata/bad_test_schema.proto",
-      "zetasql/testdata/bad_extension_schema.proto",
+    const std::vector<std::string> test_files{
+        // Order matters for these imports.
+        "google/protobuf/descriptor.proto",
+        "zetasql/public/proto/type_annotation.proto",
+        "zetasql/testdata/test_schema.proto",
+        "zetasql/testdata/referencing_schema.proto",
+        "zetasql/testdata/referenced_schema.proto",
+        "zetasql/testdata/bad_test_schema.proto",
+        "zetasql/testdata/bad_extension_schema.proto",
     };
     source_tree_.MapPath(
         "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_protobuf"));
@@ -84,7 +84,8 @@ class ProtoHelperTest : public ::testing::Test {
   }
 
   zetasql_base::Status GetFileDescriptorSetContainingFile(
-      const std::string& filename, google::protobuf::FileDescriptorSet* file_descriptor_set) {
+      const std::string& filename,
+      google::protobuf::FileDescriptorSet* file_descriptor_set) {
     file_descriptor_set->Clear();
     const google::protobuf::FileDescriptor* file = pool_->FindFileByName(filename);
     std::set<const google::protobuf::FileDescriptor*> file_descriptors;

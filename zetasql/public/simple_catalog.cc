@@ -25,6 +25,7 @@
 #include "zetasql/public/procedure.h"
 #include "zetasql/public/simple_constant.pb.h"
 #include "zetasql/public/simple_table.pb.h"
+#include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/ascii.h"
@@ -34,6 +35,7 @@
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/statusor.h"
 
@@ -57,6 +59,14 @@ zetasql_base::Status SimpleCatalog::GetModel(const std::string& name, const Mode
   absl::MutexLock l(&mutex_);
   *model = zetasql_base::FindPtrOrNull(models_, absl::AsciiStrToLower(name));
   return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status SimpleCatalog::GetConnection(const std::string& name,
+                                          const Connection** connection,
+                                          const FindOptions& options) {
+  absl::MutexLock l(&mutex_);
+  *connection = zetasql_base::FindPtrOrNull(connections_, absl::AsciiStrToLower(name));
+  return zetasql_base::OkStatus();
 }
 
 zetasql_base::Status SimpleCatalog::GetFunction(
@@ -94,9 +104,19 @@ zetasql_base::Status SimpleCatalog::GetType(
   const google::protobuf::DescriptorPool* pool;
   {
     absl::MutexLock l(&mutex_);
+    // Types contained in types_ have case-insensitive names, so we lowercase
+    // the name as is done in AddType.
     *type = zetasql_base::FindPtrOrNull(types_, absl::AsciiStrToLower(name));
     if (*type != nullptr) {
       return ::zetasql_base::OkStatus();
+    }
+    if (descriptor_pool_ != nullptr) {
+      // Cached proto and enum names are case-sensitive, so we do not alter the
+      // name.
+      *type = zetasql_base::FindPtrOrNull(cached_proto_or_enum_types_, name);
+      if (*type != nullptr) {
+        return ::zetasql_base::OkStatus();
+      }
     }
     // Avoid holding the mutex while calling descriptor_pool_ methods.
     // descriptor_pool_ is const once it has been set.
@@ -104,19 +124,25 @@ zetasql_base::Status SimpleCatalog::GetType(
   }
 
   if (pool != nullptr) {
-    const google::protobuf::Descriptor* descriptor =
-        pool->FindMessageTypeByName(name);
+    const google::protobuf::Descriptor* descriptor = pool->FindMessageTypeByName(name);
     if (descriptor != nullptr) {
-      return type_factory()->MakeProtoType(descriptor, type);
+      ZETASQL_RETURN_IF_ERROR(type_factory()->MakeProtoType(descriptor, type));
+      absl::MutexLock l(&mutex_);
+      // Another caller may have inserted the type in the meantime, since we
+      // unlock after checking above. We use LookupOrInsert to consistently hand
+      // out the same pointer.
+      *type = zetasql_base::LookupOrInsert(&cached_proto_or_enum_types_, name, *type);
+      return zetasql_base::OkStatus();
     }
     const google::protobuf::EnumDescriptor* enum_descriptor =
         pool->FindEnumTypeByName(name);
     if (enum_descriptor != nullptr) {
-      return type_factory()->MakeEnumType(enum_descriptor, type);
+      ZETASQL_RETURN_IF_ERROR(type_factory()->MakeEnumType(enum_descriptor, type));
+      // Same comment as above.
+      absl::MutexLock l(&mutex_);
+      *type = zetasql_base::LookupOrInsert(&cached_proto_or_enum_types_, name, *type);
+      return zetasql_base::OkStatus();
     }
-    // TODO: We should probably add type into types_ so that if
-    // we try to look up the same type again we don't make multiple copies
-    // of the same proto/enum type.
   }
 
   DCHECK(*type == nullptr);
@@ -242,7 +268,8 @@ std::string SimpleCatalog::SuggestConstant(
       const std::string closest_name = catalog->SuggestConstant(
           mistyped_path.subspan(1, mistyped_path.length() - 1));
       if (!closest_name.empty()) {
-        return absl::StrCat(catalog->FullName(), ".", closest_name);
+        return absl::StrCat(ToIdentifierLiteral(catalog->FullName()), ".",
+                            closest_name);
       }
     }
   } else {
@@ -260,6 +287,12 @@ void SimpleCatalog::AddTable(const std::string& name, const Table* table) {
 void SimpleCatalog::AddModel(const std::string& name, const Model* model) {
   absl::MutexLock l(&mutex_);
   zetasql_base::InsertOrDie(&models_, absl::AsciiStrToLower(name), model);
+}
+
+void SimpleCatalog::AddConnection(const std::string& name,
+                                  const Connection* connection) {
+  absl::MutexLock l(&mutex_);
+  zetasql_base::InsertOrDie(&connections_, absl::AsciiStrToLower(name), connection);
 }
 
 void SimpleCatalog::AddType(const std::string& name, const Type* type) {
@@ -417,6 +450,10 @@ void SimpleCatalog::AddTable(const Table* table) {
 
 void SimpleCatalog::AddModel(const Model* model) {
   AddModel(model->Name(), model);
+}
+
+void SimpleCatalog::AddConnection(const Connection* connection) {
+  AddConnection(connection->Name(), connection);
 }
 
 void SimpleCatalog::AddCatalog(Catalog* catalog) {
@@ -710,6 +747,13 @@ zetasql_base::Status DeserializeImpl(
   return ::zetasql_base::OkStatus();
 }
 
+template <typename M, typename ValueContainer>
+void InsertValuesFromMap(const M& m, ValueContainer* value_container) {
+  for (const auto& kv : m) {
+    value_container->insert(kv.second);
+  }
+}
+
 }  // namespace
 
 zetasql_base::Status SimpleCatalog::Deserialize(
@@ -765,7 +809,7 @@ zetasql_base::Status SimpleCatalog::SerializeImpl(
     const std::string& table_name = entry.first;
     const Table* const table = entry.second;
     if (!table->Is<SimpleTable>()) {
-      return ::zetasql_base::UnknownErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::UnknownErrorBuilder()
              << "Cannot serialize non-SimpleTable " << table_name;
     }
     const SimpleTable* const simple_table = table->GetAs<SimpleTable>();
@@ -813,7 +857,7 @@ zetasql_base::Status SimpleCatalog::SerializeImpl(
       if (ignore_recursive) {
         continue;
       } else {
-        return ::zetasql_base::UnknownErrorBuilder(ZETASQL_LOC)
+        return ::zetasql_base::UnknownErrorBuilder()
                << "Recursive catalog not serializable.";
       }
     }
@@ -825,7 +869,7 @@ zetasql_base::Status SimpleCatalog::SerializeImpl(
     }
 
     if (!catalog->Is<SimpleCatalog>()) {
-      return ::zetasql_base::UnknownErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::UnknownErrorBuilder()
              << "Cannot serialize non-SimpleCatalog " << catalog_name;
     }
     const SimpleCatalog* const simple_catalog = catalog->GetAs<SimpleCatalog>();
@@ -837,7 +881,7 @@ zetasql_base::Status SimpleCatalog::SerializeImpl(
     const std::string& constant_name = entry.first;
     const Constant* const constant = entry.second;
     if (!constant->Is<SimpleConstant>()) {
-      return ::zetasql_base::UnknownErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::UnknownErrorBuilder()
              << "Cannot serialize non-SimpleConstant " << constant_name;
     }
     const SimpleConstant* const simple_constant =
@@ -847,6 +891,42 @@ zetasql_base::Status SimpleCatalog::SerializeImpl(
   }
 
   return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status SimpleCatalog::GetCatalogs(
+    absl::flat_hash_set<const Catalog*>* output) const {
+  ZETASQL_RET_CHECK_NE(output, nullptr);
+  ZETASQL_RET_CHECK(output->empty());
+  absl::MutexLock lock(&mutex_);
+  InsertValuesFromMap(catalogs_, output);
+  return zetasql_base::OkStatus();
+}
+
+zetasql_base::Status SimpleCatalog::GetTables(
+    absl::flat_hash_set<const Table*>* output) const {
+  ZETASQL_RET_CHECK_NE(output, nullptr);
+  ZETASQL_RET_CHECK(output->empty());
+  absl::MutexLock lock(&mutex_);
+  InsertValuesFromMap(tables_, output);
+  return zetasql_base::OkStatus();
+}
+
+zetasql_base::Status SimpleCatalog::GetTypes(
+    absl::flat_hash_set<const Type*>* output) const {
+  ZETASQL_RET_CHECK_NE(output, nullptr);
+  ZETASQL_RET_CHECK(output->empty());
+  absl::MutexLock lock(&mutex_);
+  InsertValuesFromMap(types_, output);
+  return zetasql_base::OkStatus();
+}
+
+zetasql_base::Status SimpleCatalog::GetFunctions(
+    absl::flat_hash_set<const Function*>* output) const {
+  ZETASQL_RET_CHECK_NE(output, nullptr);
+  ZETASQL_RET_CHECK(output->empty());
+  absl::MutexLock lock(&mutex_);
+  InsertValuesFromMap(functions_, output);
+  return zetasql_base::OkStatus();
 }
 
 std::vector<std::string> SimpleCatalog::table_names() const {
@@ -993,13 +1073,13 @@ zetasql_base::Status SimpleTable::AddColumn(const Column* column, bool is_owned)
 zetasql_base::Status SimpleTable::InsertColumnToColumnMap(const Column* column) {
   const std::string column_name = absl::AsciiStrToLower(column->Name());
   if (!allow_anonymous_column_name_ && column_name.empty()) {
-    return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
            << "Empty column names not allowed";
   }
 
   if (zetasql_base::ContainsKey(columns_map_, column_name)) {
     if (!allow_duplicate_column_names_) {
-      return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
              << "Duplicate column in " << FullName() << ": " << column->Name();
     }
     columns_map_.erase(column_name);
@@ -1014,6 +1094,49 @@ zetasql_base::Status SimpleTable::InsertColumnToColumnMap(const Column* column) 
     anonymous_column_seen_ = true;
   }
   return ::zetasql_base::OkStatus();
+}
+
+void SimpleTable::SetContents(const std::vector<std::vector<Value>>& rows) {
+  column_major_contents_.clear();
+  column_major_contents_.resize(NumColumns());
+  for (int i = 0; i < NumColumns(); ++i) {
+    auto column_values = std::make_shared<std::vector<Value>>();
+    column_values->reserve(rows.size());
+    for (int j = 0; j < rows.size(); ++j) {
+      column_values->push_back(rows[j][i]);
+    }
+    column_major_contents_[i] = column_values;
+  }
+
+  auto factory = [this, rows](absl::Span<const int> column_idxs)
+      -> zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>> {
+    std::vector<const Column*> columns;
+    std::vector<std::shared_ptr<const std::vector<Value>>> column_values;
+    column_values.reserve(column_idxs.size());
+    for (const int column_idx : column_idxs) {
+      columns.push_back(GetColumn(column_idx));
+      column_values.push_back(column_major_contents_[column_idx]);
+    }
+    std::unique_ptr<EvaluatorTableIterator> iter(
+        new SimpleEvaluatorTableIterator(
+            columns, column_values,
+            /*end_status=*/zetasql_base::OkStatus(), /*filter_column_idxs=*/{},
+            /*cancel_cb=*/[]() {},
+            /*set_deadline_cb=*/[](absl::Time t) {}, zetasql_base::Clock::RealClock()));
+    return iter;
+  };
+
+  SetEvaluatorTableIteratorFactory(factory);
+}
+
+zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+SimpleTable::CreateEvaluatorTableIterator(
+    absl::Span<const int> column_idxs) const {
+  if (evaluator_table_iterator_factory_ == nullptr) {
+    // Returns an error.
+    return Table::CreateEvaluatorTableIterator(column_idxs);
+  }
+  return (*evaluator_table_iterator_factory_)(column_idxs);
 }
 
 zetasql_base::Status SimpleTable::Serialize(
@@ -1202,7 +1325,7 @@ zetasql_base::Status SimpleModel::AddInput(const Column* column, bool is_owned) 
   }
   const std::string column_name = absl::AsciiStrToLower(column->Name());
   if (!zetasql_base::InsertIfNotPresent(&inputs_map_, column_name, column)) {
-    return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
            << "Duplicate input column in " << FullName() << ": "
            << column->Name();
   }
@@ -1220,7 +1343,7 @@ zetasql_base::Status SimpleModel::AddOutput(const Column* column, bool is_owned)
   }
   const std::string column_name = absl::AsciiStrToLower(column->Name());
   if (!zetasql_base::InsertIfNotPresent(&outputs_map_, column_name, column)) {
-    return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
            << "Duplicate output column in " << FullName() << ": "
            << column->Name();
   }

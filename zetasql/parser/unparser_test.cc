@@ -27,7 +27,6 @@ namespace zetasql {
 
 using testing::NotNull;
 
-
 static void CompareParseTrees(const ASTNode* expected_tree,
                               const ASTNode* unparsed_tree,
                               const std::string& expected_string,
@@ -44,10 +43,11 @@ static void CompareParseTrees(const ASTNode* expected_tree,
 }
 
 TEST(TestUnparser, QueryTest) {
-  std::string query_string("SELECT\n"
-                      "  *\n"
-                      "FROM\n"
-                      "  foo\n");
+  std::string query_string(
+      "SELECT\n"
+      "  *\n"
+      "FROM\n"
+      "  foo\n");
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_EXPECT_OK(ParseStatement(query_string, ParserOptions(), &parser_output));
   ASSERT_THAT(parser_output->statement(), NotNull());
@@ -64,9 +64,10 @@ TEST(TestUnparser, QueryTest) {
 }
 
 TEST(TestUnparser, ExpressionTest) {
-  std::string expression_string("CASE\n"
-                           "  WHEN a = 5 THEN true\n"
-                           "END\n");
+  std::string expression_string(
+      "CASE\n"
+      "  WHEN a = 5 THEN true\n"
+      "END\n");
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_EXPECT_OK(
       ParseExpression(expression_string, ParserOptions(), &parser_output));

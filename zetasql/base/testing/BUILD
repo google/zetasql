@@ -16,7 +16,7 @@
 
 licenses(["notice"])  # Apache v2.0
 
-package(default_visibility = ["//zetasql:__subpackages__"])
+package(default_visibility = ["//:__subpackages__"])
 
 cc_library(
     name = "status_matchers",

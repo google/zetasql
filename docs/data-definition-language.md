@@ -146,6 +146,174 @@ pointer to data that exists outside of the database.
 +   `IF NOT EXISTS`: If any table exists with the same name, the `CREATE`
     statement will have no effect. Cannot appear with `OR REPLACE`.
 
+## CREATE INDEX
+
+```
+CREATE
+  [OR REPLACE]
+  [UNIQUE]
+  INDEX
+  [IF NOT EXISTS]
+  index_name
+  ON
+  table_name [[AS] alias]
+  [UNNEST(array_expression) [[AS] alias] [WITH OFFSET [[AS] alias]] ...]
+  (key_expression [ASC|DESC], ...)
+  [STORING (stored_expression, ...)]
+  [OPTIONS (key=value, ...)];
+```
+
+**Description**
+
+The `CREATE INDEX` statement creates a secondary index for one or more
+values computed from expressions in a table.
+
+**Expressions**
+
++  `array_expression`: An immutable expression that is used to produce an array
+   value from each row of an indexed table.
++  `key_expression`: An immutable expression that is used to produce an index
+    key value. The expression must have a type that satisfies the requirement of
+    an index key column.
++  `stored_expression`: An immutable expression that is used to produce a value
+    stored in the index.
+
+**Optional Clauses**
+
++  `OR REPLACE`: If the index already exists, replace it. This cannot
+    appear with `IF NOT EXISTS`.
++  `UNIQUE`: Do not index the same key multiple times. Systems can choose how to
+    resolve conflicts in case the index is over a non-unique key.
++  `IF NOT EXISTS`: Do not create an index if it already exists. This cannot
+    appear with `OR REPLACE`.
++  `UNNEST(array_name)`: Create an index for the elements in an array.
++  `WITH OFFSET`: Return a separate column containing the offset value
+    for each row produced by the `UNNEST` operation.
++  `ASC | DESC`: Sort the indexed values in ascending or descending
+    order. `ASC` is the default value with respect to the sort defined by any
+    key parts to the left.
++  `STORING`: Specify additional values computed from the indexed base table row
+    to materialize with the index entry.
++  `OPTIONS`: If you have schema options, you can add them when you create the
+    index. These options are system-specific and follow the
+    ZetaSQL[`HINT` syntax](lexical.md#hints).
+
+**Examples**
+
+Create an index on a column in a table.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Key);
+```
+
+Create an index on multiple columns in a table.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Key, Value);
+```
+
+If the index already exists, replace it.
+
+```sql
+CREATE OR REPLACE INDEX i1 ON KeyValue (Key, Value);
+```
+
+If the index already exists, don't replace it.
+
+```sql
+CREATE INDEX IF NOT EXISTS i1 ON KeyValue (Key, Value);
+```
+
+Create an index that contains unique values.
+
+```sql
+CREATE UNIQUE INDEX i1 ON Books (Title);
+```
+
+Create an index that contains a schema option.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Value) OPTIONS (page_count=1);
+```
+
+Reference the table name for a column.
+
+```sql
+CREATE INDEX i1 ON KeyValue (KeyValue.Key, KeyValue.Value);
+```
+
+```sql
+CREATE INDEX i1 on KeyValue AS foo (foo.Key, foo.Value);
+```
+
+Use the path expression for a key.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Key.sub_field1.sub_field2);
+```
+
+Choose the sort order for the columns assigned to an index.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Key DESC, Value ASC);
+```
+
+Create an index on an array, but not the elements in an array.
+
+```sql
+CREATE INDEX i1 ON Books (BookList);
+```
+
+Create an index for the elements in an array.
+
+```sql
+CREATE INDEX i1 ON Books UNNEST (BookList) (BookList);
+```
+
+```sql
+CREATE INDEX i1 ON Books UNNEST (BookListA) AS a UNNEST (BookListB) AS b (a, b);
+```
+
+Create an index for the elements in an array using an offset.
+
+```sql
+CREATE index i1 on Books UNNEST(BookList) WITH OFFSET (BookList, offset);
+```
+
+```sql
+CREATE index i1 on Books UNNEST(BookList) WITH OFFSET AS foo (BookList, foo);
+```
+
+Store an additional column but don't sort it.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Value) STORING (Key);
+```
+
+Store multiple additional columns and don't sort them.
+
+```sql
+CREATE INDEX i1 ON Books (Title) STORING (First_Name, Last_Name);
+```
+
+Store a column but don't sort it. Reference a table name.
+
+```sql
+CREATE INDEX i1 ON Books (InStock) STORING (Books.Title);
+```
+
+Use an expression in the `STORING` clause.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Key) STORING (Key+1);
+```
+
+Use an implicit alias in the `STORING` clause.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Key) STORING (KeyValue);
+```
+
 ## DEFINE TABLE
 
 ```

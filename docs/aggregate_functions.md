@@ -5,15 +5,16 @@
 # Aggregate functions
 
 An *aggregate function* is a function that performs a calculation on a set of
-values. COUNT, MIN and MAX are examples of aggregate functions.
+values. `COUNT`, `MIN` and `MAX` are examples of aggregate functions.
 
 ```sql
 SELECT COUNT(*) as total_count, COUNT(fruit) as non_null_count,
        MIN(fruit) as min, MAX(fruit) as max
-FROM UNNEST([NULL, "apple", "pear", "orange"]) as fruit;
-```
+FROM (SELECT NULL as fruit UNION ALL
+      SELECT "apple" as fruit UNION ALL
+      SELECT "pear" as fruit UNION ALL
+      SELECT "orange" as fruit)
 
-```
 +-------------+----------------+-------+------+
 | total_count | non_null_count | min   | max  |
 +-------------+----------------+-------+------+
@@ -74,7 +75,9 @@ FROM UNNEST(["apple", "banana", "pear"]) as fruit;
 +-----------+
 | apple     |
 +-----------+
+```
 
+```sql
 SELECT
   fruit,
   ANY_VALUE(fruit) OVER (ORDER BY LENGTH(fruit) ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS any_value
@@ -87,7 +90,6 @@ FROM UNNEST(["apple", "banana", "pear"]) as fruit;
 | apple  | pear      |
 | banana | apple     |
 +--------+-----------+
-
 ```
 
 ### ARRAY_AGG
@@ -190,6 +192,7 @@ FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x;
 ```sql
 SELECT ARRAY_AGG(x ORDER BY ABS(x)) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
+
 +-------------------------+
 | array_agg               |
 +-------------------------+
@@ -309,10 +312,11 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 +-----------------------------------+
 | [NULL, 1, 2, 3, 4, 5, 6, 7, 8, 9] |
 +-----------------------------------+
+```
 
+```sql
 SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x)) AS array_concat_agg FROM (
-  SELECT [NULL, 1, 2, 3, 4] AS x
-  UNION ALL SELECT NULL
+  SELECT [1, 2, 3, 4] AS x
   UNION ALL SELECT [5, 6]
   UNION ALL SELECT [7, 8, 9]
 );
@@ -320,12 +324,13 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x)) AS array_concat_agg FROM (
 +-----------------------------------+
 | array_concat_agg                  |
 +-----------------------------------+
-| [5, 6, 7, 8, 9, NULL, 1, 2, 3, 4] |
+| [5, 6, 7, 8, 9, 1, 2, 3, 4]       |
 +-----------------------------------+
+```
 
+```sql
 SELECT ARRAY_CONCAT_AGG(x LIMIT 2) AS array_concat_agg FROM (
-  SELECT [NULL, 1, 2, 3, 4] AS x
-  UNION ALL SELECT NULL
+  SELECT [1, 2, 3, 4] AS x
   UNION ALL SELECT [5, 6]
   UNION ALL SELECT [7, 8, 9]
 );
@@ -333,12 +338,13 @@ SELECT ARRAY_CONCAT_AGG(x LIMIT 2) AS array_concat_agg FROM (
 +--------------------------+
 | array_concat_agg         |
 +--------------------------+
-| [NULL, 1, 2, 3, 4, 5, 6] |
+| [1, 2, 3, 4, 5, 6]       |
 +--------------------------+
+```
 
+```sql
 SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x) LIMIT 2) AS array_concat_agg FROM (
-  SELECT [NULL, 1, 2, 3, 4] AS x
-  UNION ALL SELECT NULL
+  SELECT [1, 2, 3, 4] AS x
   UNION ALL SELECT [5, 6]
   UNION ALL SELECT [7, 8, 9]
 );
@@ -348,7 +354,6 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x) LIMIT 2) AS array_concat_agg 
 +------------------+
 | [5, 6, 7, 8, 9]  |
 +------------------+
-
 ```
 
 ### AVG
@@ -397,23 +402,27 @@ The clauses are applied *in the following order*:
 
 ```sql
 SELECT AVG(x) as avg
-FROM UNNEST([0, 2, NULL, 4, 4, 5]) as x;
+FROM UNNEST([0, 2, 4, 4, 5]) as x;
 
 +-----+
 | avg |
 +-----+
 | 3   |
 +-----+
+```
 
+```sql
 SELECT AVG(DISTINCT x) AS avg
-FROM UNNEST([0, 2, NULL, 4, 4, 5]) AS x;
+FROM UNNEST([0, 2, 4, 4, 5]) AS x;
 
 +------+
 | avg  |
 +------+
 | 2.75 |
 +------+
+```
 
+```sql
 SELECT
   x,
   AVG(x) OVER (ORDER BY x ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS avg
@@ -429,7 +438,6 @@ FROM UNNEST([0, 2, NULL, 4, 4, 5]) AS x;
 | 4    | 4    |
 | 5    | 4.5  |
 +------+------+
-
 ```
 
 ### BIT_AND
@@ -577,14 +585,19 @@ SELECT BIT_XOR(x) AS bit_xor FROM UNNEST([5678, 1234]) AS x;
 +---------+
 | 4860    |
 +---------+
+```
 
+```sql
 SELECT BIT_XOR(x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
+
 +---------+
 | bit_xor |
 +---------+
 | 5678    |
 +---------+
+```
 
+```sql
 SELECT BIT_XOR(DISTINCT x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 
 +---------+
@@ -592,7 +605,6 @@ SELECT BIT_XOR(DISTINCT x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 +---------+
 | 4860    |
 +---------+
-
 ```
 
 ### COUNT
@@ -646,33 +658,49 @@ INT64
 ```sql
 SELECT
   COUNT(*) AS count_star,
-  COUNT(x) AS count_x,
   COUNT(DISTINCT x) AS count_dist_x
-FROM UNNEST([1, 4, NULL, 4, 5]) AS x;
+FROM UNNEST([1, 4, 4, 5]) AS x;
 
-+------------+---------+--------------+
-| count_star | count_x | count_dist_x |
-+------------+---------+--------------+
-| 5          | 4       | 3            |
-+------------+---------+--------------+
++------------+--------------+
+| count_star | count_dist_x |
++------------+--------------+
+| 4          | 3            |
++------------+--------------+
+```
 
+```sql
 SELECT
   x,
   COUNT(*) OVER (PARTITION BY MOD(x, 3)) AS count_star,
-  COUNT(x) OVER (PARTITION BY MOD(x, 3)) AS count_x,
   COUNT(DISTINCT x) OVER (PARTITION BY MOD(x, 3)) AS count_dist_x
+FROM UNNEST([1, 4, 4, 5]) AS x;
+
++------+------------+--------------+
+| x    | count_star | count_dist_x |
++------+------------+--------------+
+| 1    | 3          | 2            |
+| 4    | 3          | 2            |
+| 4    | 3          | 2            |
+| 5    | 1          | 1            |
++------+------------+--------------+
+```
+
+```sql
+SELECT
+  x,
+  COUNT(*) OVER (PARTITION BY MOD(x, 3)) AS count_star,
+  COUNT(x) OVER (PARTITION BY MOD(x, 3)) AS count_x
 FROM UNNEST([1, 4, NULL, 4, 5]) AS x;
 
-+------+------------+---------+--------------+
-| x    | count_star | count_x | count_dist_x |
-+------+------------+---------+--------------+
-| NULL | 1          | 0       | 0            |
-| 1    | 3          | 3       | 2            |
-| 4    | 3          | 3       | 2            |
-| 4    | 3          | 3       | 2            |
-| 5    | 1          | 1       | 1            |
-+------+------------+---------+--------------+
-
++------+------------+---------+
+| x    | count_star | count_x |
++------+------------+---------+
+| NULL | 1          | 0       |
+| 1    | 3          | 3       |
+| 4    | 3          | 3       |
+| 4    | 3          | 3       |
+| 5    | 1          | 1       |
++------+------------+---------+
 ```
 
 ### COUNTIF
@@ -718,14 +746,16 @@ INT64
 
 ```sql
 SELECT COUNTIF(x<0) AS num_negative, COUNTIF(x>0) AS num_positive
-FROM UNNEST([5, -2, 3, 6, -10, NULL, -7, 4, 0]) AS x;
+FROM UNNEST([5, -2, 3, 6, -10, -7, 4, 0]) AS x;
 
 +--------------+--------------+
 | num_negative | num_positive |
 +--------------+--------------+
 | 3            | 4            |
 +--------------+--------------+
+```
 
+```sql
 SELECT
   x,
   COUNTIF(x<0) OVER (ORDER BY ABS(x) ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS num_negative
@@ -744,7 +774,6 @@ FROM UNNEST([5, -2, 3, 6, -10, NULL, -7, 4, 0]) AS x;
 | -7   | 2            |
 | -10  | 2            |
 +------+--------------+
-
 ```
 
 ### LOGICAL_AND
@@ -786,7 +815,7 @@ BOOL
 **Examples**
 
 ```sql
-SELECT LOGICAL_AND(x) as logical_and FROM UNNEST([true, false, true]) as x;
+SELECT LOGICAL_AND(x) AS logical_and FROM UNNEST([true, false, true]) AS x;
 
 +-------------+
 | logical_and |
@@ -834,7 +863,7 @@ BOOL
 **Examples**
 
 ```sql
-SELECT LOGICAL_OR(x) as logical_or FROM UNNEST([true, false, true]) as x;
+SELECT LOGICAL_OR(x) AS logical_or FROM UNNEST([true, false, true]) AS x;
 
 +------------+
 | logical_or |
@@ -887,14 +916,16 @@ Same as the data type used as the input values.
 
 ```sql
 SELECT MAX(x) AS max
-FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
+FROM UNNEST([8, 37, 4, 55]) AS x;
 
 +-----+
 | max |
 +-----+
 | 55  |
 +-----+
+```
 
+```sql
 SELECT x, MAX(x) OVER (PARTITION BY MOD(x, 2)) AS max
 FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 
@@ -908,7 +939,6 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 | 37   | 55   |
 | 55   | 55   |
 +------+------+
-
 ```
 
 ### MIN
@@ -955,14 +985,16 @@ Same as the data type used as the input values.
 
 ```sql
 SELECT MIN(x) AS min
-FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
+FROM UNNEST([8, 37, 4, 55]) AS x;
 
 +-----+
 | min |
 +-----+
 | 4   |
 +-----+
+```
 
+```sql
 SELECT x, MIN(x) OVER (PARTITION BY MOD(x, 2)) AS min
 FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 
@@ -976,7 +1008,6 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 | 37   | 37   |
 | 55   | 37   |
 +------+------+
-
 ```
 
 ### STRING_AGG
@@ -1053,52 +1084,64 @@ FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 +------------------------+
 | apple,pear,banana,pear |
 +------------------------+
+```
 
+```sql
 SELECT STRING_AGG(fruit, " & ") AS string_agg
-FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
+FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
 +------------------------------+
 | string_agg                   |
 +------------------------------+
 | apple & pear & banana & pear |
 +------------------------------+
+```
 
+```sql
 SELECT STRING_AGG(DISTINCT fruit, " & ") AS string_agg
-FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
+FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
 +-----------------------+
 | string_agg            |
 +-----------------------+
-| apple & banana & pear |
+| apple & pear & banana |
 +-----------------------+
+```
 
+```sql
 SELECT STRING_AGG(fruit, " & " ORDER BY LENGTH(fruit)) AS string_agg
-FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
+FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
 +------------------------------+
 | string_agg                   |
 +------------------------------+
 | pear & pear & apple & banana |
 +------------------------------+
+```
 
+```sql
 SELECT STRING_AGG(fruit, " & " LIMIT 2) AS string_agg
-FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
+FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
 +--------------+
 | string_agg   |
 +--------------+
 | apple & pear |
 +--------------+
+```
 
+```sql
 SELECT STRING_AGG(DISTINCT fruit, " & " ORDER BY fruit DESC LIMIT 2) AS string_agg
-FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
+FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
 +---------------+
 | string_agg    |
 +---------------+
 | pear & banana |
 +---------------+
+```
 
+```sql
 SELECT
   fruit,
   STRING_AGG(fruit, " & ") OVER (ORDER BY LENGTH(fruit)) AS string_agg
@@ -1113,7 +1156,6 @@ FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 | apple  | pear & pear & apple          |
 | banana | pear & pear & apple & banana |
 +--------+------------------------------+
-
 ```
 
 ### SUM
@@ -1183,7 +1225,9 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 +-----+
 | 25  |
 +-----+
+```
 
+```sql
 SELECT SUM(DISTINCT x) AS sum
 FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 
@@ -1192,7 +1236,9 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 +-----+
 | 15  |
 +-----+
+```
 
+```sql
 SELECT
   x,
   SUM(x) OVER (PARTITION BY MOD(x, 3)) AS sum
@@ -1211,7 +1257,9 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 | 5 | 9   |
 | 2 | 9   |
 +---+-----+
+```
 
+```sql
 SELECT
   x,
   SUM(DISTINCT x) OVER (PARTITION BY MOD(x, 3)) AS sum
@@ -1230,6 +1278,5 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 | 5 | 7   |
 | 2 | 7   |
 +---+-----+
-
 ```
 

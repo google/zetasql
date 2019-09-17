@@ -42,7 +42,7 @@ int GetPayloadCount(const zetasql_base::Status& status) {
 }
 
 std::string PayloadToString(absl::string_view type_url,
-                       const zetasql_base::StatusCord& payload) {
+                            const zetasql_base::StatusCord& payload) {
   absl::string_view descriptor_full_name = type_url;
   if (absl::ConsumePrefix(&descriptor_full_name,
                           zetasql_base::kZetaSqlTypeUrlPrefix)) {
@@ -131,7 +131,7 @@ std::string StatusToString(const zetasql_base::Status& status) {
     return "OK";
   }
   std::string ret = absl::StrCat(LegacyStatusCodeToString(status.code()), ": ",
-                            status.message());
+                                 status.message());
   if (HasPayload(status)) {
     absl::StrAppend(&ret, " ", PayloadToString(status));
   }

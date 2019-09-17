@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <stack>
 #include <utility>
 
 #include "zetasql/base/logging.h"
@@ -1268,6 +1269,50 @@ static std::string CapitalizedNameForType(const Type* type) {
 }
 
 std::string Value::DebugString(bool verbose) const {
+  std::map<const Value*, std::string> debug_string_map;
+  std::vector<const Value*> inner_values;
+  std::stack<const Value*> stack;
+  stack.push(this);
+
+  // First pass - get an ordered list of inner values to get debug strings of.
+  while (!stack.empty()) {
+    const Value* value = stack.top();
+    stack.pop();
+    inner_values.push_back(value);
+    if (value->type_kind_ != kInvalidTypeKind && !value->is_null()) {
+      switch (value->type_kind()) {
+        case TYPE_STRUCT: {
+          const StructType* struct_type = value->type()->AsStruct();
+          for (int i = 0; i < struct_type->num_fields(); i++) {
+            stack.push(&value->fields()[i]);
+          }
+        } break;
+        case TYPE_ARRAY:
+          for (const auto& elem : value->elements()) {
+            stack.push(&elem);
+          }
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  // Now, traverse the list of inner values in reverse order so that parents
+  // don't get processed until all children are processed.  Calculate the debug
+  // std::string, storing the result on the map, using the map instead of a recursive
+  // call to retrieve child values.
+  for (int i = static_cast<int>(inner_values.size()) - 1; i >= 0; --i) {
+    debug_string_map[inner_values[i]] =
+        inner_values[i]->DebugStringInternal(verbose, debug_string_map);
+  }
+
+  return debug_string_map[inner_values[0]];
+}
+
+std::string Value::DebugStringInternal(
+    bool verbose,
+    const std::map<const Value*, std::string>& debug_string_map) const {
   if (type_kind_ == kInvalidTypeKind) { return "Uninitialized value"; }
   if (!is_valid())
     return absl::StrCat("Invalid value, type_kind: ", type_kind_);
@@ -1341,7 +1386,7 @@ std::string Value::DebugString(bool verbose) const {
         // overflow on the struct.
         std::vector<std::string> elems;
         for (const auto& t : elements()) {
-          elems.push_back(t.DebugString(verbose));
+          elems.push_back(debug_string_map.at(&t));
         }
         std::string order_str = order_kind() == kIgnoresOrder ? "unordered: " : "";
         s = absl::StrCat("[", order_str, absl::StrJoin(elems, ", "), "]");
@@ -1351,7 +1396,7 @@ std::string Value::DebugString(bool verbose) const {
         std::vector<std::string> fstr;
           const StructType* struct_type = type()->AsStruct();
           for (int i = 0; i < struct_type->num_fields(); i++) {
-            const std::string field_value = fields()[i].DebugString(verbose);
+            const std::string field_value = debug_string_map.at(&fields()[i]);
             if (struct_type->field(i).name.empty()) {
               fstr.push_back(field_value);
             } else {

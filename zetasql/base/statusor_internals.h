@@ -27,7 +27,59 @@
 
 namespace zetasql_base {
 
+template <typename T>
+class ABSL_MUST_USE_RESULT StatusOr;
+
 namespace statusor_internal {
+
+template <typename T, typename U>
+using IsStatusOrConversionAmbiguous =
+    absl::disjunction<std::is_constructible<T, StatusOr<U>&>,
+                      std::is_constructible<T, const StatusOr<U>&>,
+                      std::is_constructible<T, StatusOr<U>&&>,
+                      std::is_constructible<T, const StatusOr<U>&&>,
+                      std::is_convertible<StatusOr<U>&, T>,
+                      std::is_convertible<const StatusOr<U>&, T>,
+                      std::is_convertible<StatusOr<U>&&, T>,
+                      std::is_convertible<const StatusOr<U>&&, T>>;
+
+template <typename T, typename U>
+using IsStatusOrConversionAssigmentAmbiguous =
+    absl::disjunction<IsStatusOrConversionAmbiguous<T, U>,
+                      std::is_assignable<T&, StatusOr<U>&>,
+                      std::is_assignable<T&, const StatusOr<U>&>,
+                      std::is_assignable<T&, StatusOr<U>&&>,
+                      std::is_assignable<T&, const StatusOr<U>&&>>;
+
+template <typename T, typename U>
+struct IsAmbiguousStatusOrForInitialization
+    :  // Strip const-value references from the type and check again, else
+       // false_type.
+       public absl::conditional_t<
+           std::is_same<absl::remove_cv_t<absl::remove_reference_t<U>>,
+                        U>::value,
+           std::false_type,
+           IsAmbiguousStatusOrForInitialization<
+               T, absl::remove_cv_t<absl::remove_reference_t<U>>>> {};
+
+template <typename T, typename U>
+struct IsAmbiguousStatusOrForInitialization<T, StatusOr<U>>
+    : public IsStatusOrConversionAmbiguous<T, U> {};
+
+template <typename T, typename U>
+using IsStatusOrDirectInitializationAmbiguous = absl::disjunction<
+    std::is_same<StatusOr<T>, absl::remove_cv_t<absl::remove_reference_t<U>>>,
+    std::is_same<Status, absl::remove_cv_t<absl::remove_reference_t<U>>>,
+    std::is_same<absl::in_place_t,
+                 absl::remove_cv_t<absl::remove_reference_t<U>>>,
+    IsAmbiguousStatusOrForInitialization<T, U>>;
+
+template <typename T, typename U>
+using IsStatusOrDirectInitializationValid = absl::disjunction<
+    // The is same allows nested status ors to ignore this check iff they are
+    // the same type.
+    std::is_same<T, absl::remove_cv_t<absl::remove_reference_t<U>>>,
+    absl::negation<IsStatusOrDirectInitializationAmbiguous<T, U>>>;
 
 class Helper {
  public:
@@ -78,7 +130,7 @@ class StatusOrData {
   }
 
   template <typename U>
-  StatusOrData(const StatusOrData<U>& other) {
+  explicit StatusOrData(const StatusOrData<U>& other) {
     if (other.ok()) {
       MakeValue(other.data_);
       MakeStatus();
@@ -88,13 +140,19 @@ class StatusOrData {
   }
 
   template <typename U>
-  StatusOrData(StatusOrData<U>&& other) {
+  explicit StatusOrData(StatusOrData<U>&& other) {
     if (other.ok()) {
       MakeValue(std::move(other.data_));
       MakeStatus();
     } else {
       MakeStatus(std::move(other.status_));
     }
+  }
+
+  template <typename... Args>
+  explicit StatusOrData(absl::in_place_t, Args&&... args)
+      : data_(std::forward<Args>(args)...) {
+    MakeStatus();
   }
 
   explicit StatusOrData(const T& value) : data_(value) {

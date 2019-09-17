@@ -62,7 +62,7 @@ message RepeatedHolderPB {
   repeated TestExtraPB repeated_field = 1;
 }
 
-// Next ID to use: 106
+// Next ID to use: 107
 message KitchenSinkPB {
   required int64 int64_key_1 = 1;
   required int64 int64_key_2 = 2;
@@ -265,6 +265,9 @@ message KitchenSinkPB {
   oneof one_of_field {
     int32 int32_one_of = 104;
     string string_one_of = 105;
+  }
+  oneof one_of_field2 {
+    int64 int64_one_of = 106;
   }
 
   reserved 103;  // Used for testing unknown fields.
@@ -733,6 +736,12 @@ message FieldFormatsProto {
 
   optional bytes b_numeric = 914 [(zetasql.format) = NUMERIC];
   repeated bytes repeated_b_numeric = 915 [(zetasql.format) = NUMERIC];
+
+  extensions 1000;
+}
+
+extend FieldFormatsProto {
+  optional bytes b_numeric_extension = 1000 [(zetasql.format) = NUMERIC];
 }
 
 message TestSQLTable {

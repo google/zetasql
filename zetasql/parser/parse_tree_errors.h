@@ -128,10 +128,12 @@ zetasql_base::Status StatusWithInternalErrorLocation(
     bool include_leftmost_child = true);
 
 // Makes a new Status from <code> and <message> with an external ErrorLocation.
-zetasql_base::Status MakeStatusWithErrorLocation(
-    zetasql_base::StatusCode code, const std::string& message, const std::string& filename,
-    const std::string& query, const ASTNode* ast_node,
-    bool include_leftmost_child = true);
+zetasql_base::Status MakeStatusWithErrorLocation(zetasql_base::StatusCode code,
+                                         const std::string& message,
+                                         const std::string& filename,
+                                         const std::string& query,
+                                         const ASTNode* ast_node,
+                                         bool include_leftmost_child = true);
 
 // Returns an InternalErrorLocation pointing at ASTNode's start location,
 // including the given <filename> (if present).
@@ -145,9 +147,10 @@ InternalErrorLocation MakeInternalErrorLocation(
 // payload derived from <ast_location>, and that InternalErrorLocation
 // payload contains a new ErrorSource that wraps the <input_status>
 // based on <error_source_mode>.
-zetasql_base::Status WrapNestedErrorStatus(
-    const ASTNode* ast_location, const std::string& error_message,
-    const zetasql_base::Status& input_status, ErrorMessageMode error_source_mode);
+zetasql_base::Status WrapNestedErrorStatus(const ASTNode* ast_location,
+                                   const std::string& error_message,
+                                   const zetasql_base::Status& input_status,
+                                   ErrorMessageMode error_source_mode);
 
 }  // namespace zetasql
 

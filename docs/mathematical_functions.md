@@ -593,7 +593,7 @@ COS(X)
 
 **Description**
 
-Computes cosine of X. Never fails.
+Computes the cosine of X where X is specified in radians. Never fails.
 
 ### COSH
 
@@ -603,8 +603,8 @@ COSH(X)
 
 **Description**
 
-Computes the hyperbolic cosine of X. Generates an error if an overflow
-occurs.
+Computes the hyperbolic cosine of X where X is specified in radians.
+Generates an error if overflow occurs.
 
 ### ACOS
 
@@ -614,9 +614,9 @@ ACOS(X)
 
 **Description**
 
-Computes the principal value of the arc cosine of X. The return value is in
-the range [0,]. Generates an error if X is a finite value outside of range
-[-1, 1].
+Computes the principal value of the inverse cosine of X. The return value is in
+the range [0,&pi;]. Generates an error if X is a value outside of the
+range [-1, 1].
 
 ### ACOSH
 
@@ -626,8 +626,8 @@ ACOSH(X)
 
 **Description**
 
-Computes the inverse hyperbolic cosine of X. Generates an error if X is a
-finite value less than 1.
+Computes the inverse hyperbolic cosine of X. Generates an error if X is a value
+less than 1.
 
 ### SIN
 
@@ -637,7 +637,7 @@ SIN(X)
 
 **Description**
 
-Computes the sine of X. Never fails.
+Computes the sine of X where X is specified in radians. Never fails.
 
 ### SINH
 
@@ -647,8 +647,8 @@ SINH(X)
 
 **Description**
 
-Computes the hyperbolic sine of X. Generates an error if an overflow
-occurs.
+Computes the hyperbolic sine of X where X is specified in radians. Generates
+an error if overflow occurs.
 
 ### ASIN
 
@@ -658,9 +658,9 @@ ASIN(X)
 
 **Description**
 
-Computes the principal value of the arc sine of X. The return value is in
-the range [-&pi;/2,&pi;/2]. Generates an error if X is a finite value outside of range
-[-1, 1].
+Computes the principal value of the inverse sine of X. The return value is in
+the range [-&pi;/2,&pi;/2]. Generates an error if X is outside of
+the range [-1, 1].
 
 ### ASINH
 
@@ -680,7 +680,8 @@ TAN(X)
 
 **Description**
 
-Computes tangent of X. Generates an error if an overflow occurs.
+Computes the tangent of X where X is specified in radians. Generates an error if
+overflow occurs.
 
 ### TANH
 
@@ -690,7 +691,8 @@ TANH(X)
 
 **Description**
 
-Computes hyperbolic tangent of X. Does not fail.
+Computes the hyperbolic tangent of X where X is specified in radians. Does not
+fail.
 
 ### ATAN
 
@@ -700,8 +702,8 @@ ATAN(X)
 
 **Description**
 
-Computes the principal value of the arc tangent of X. The return value is in
-the range [-&pi;/2,&pi;/2]. Does not fail.
+Computes the principal value of the inverse tangent of X. The return value is
+in the range [-&pi;/2,&pi;/2]. Does not fail.
 
 ### ATANH
 
@@ -711,8 +713,8 @@ ATANH(X)
 
 **Description**
 
-Computes the inverse hyperbolic tangent of X. Generates an error if the
-absolute value of X is greater or equal 1.
+Computes the inverse hyperbolic tangent of X. Generates an error if X is outside
+of the range [-1, 1].
 
 ### ATAN2
 
@@ -722,10 +724,10 @@ ATAN2(Y, X)
 
 **Description**
 
-Calculates the principal value of the arc tangent of Y/X using the signs of
+Calculates the principal value of the inverse tangent of Y/X using the signs of
 the two arguments to determine the quadrant. The return value is in the range
-[-&pi;,&pi;]. The behavior of this function is further illustrated in <a
-href="#special_atan2">the table below</a>.
+[-&pi;,&pi;]. The behavior of this function is further illustrated in
+<a href="#special_atan2">the table below</a>.
 
 <a name="special_atan2"></a>
 #### Special cases for `ATAN2()`

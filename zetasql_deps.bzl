@@ -98,10 +98,10 @@ cc_proto_library(
         #
         http_archive(
             name = "com_google_absl",
-            # Commit from 2019-07-18
-            url = "https://github.com/abseil/abseil-cpp/archive/278b26058c036833a4f7f3047d3f4d9296527f87.tar.gz",
-            sha256 = "6f6bdbd73097dda8912941752f9f3a2ec4acd9fcd15d46fdf618db79ed3f94f1",
-            strip_prefix = "abseil-cpp-278b26058c036833a4f7f3047d3f4d9296527f87",
+            # Commit from 2019-08-15
+            url = "https://github.com/abseil/abseil-cpp/archive/aae8143cf9aa611f70d7ea9b95b8b8b383b2271a.tar.gz",
+            sha256 = "ff42d7e0cb00fe8b30bfa7e6793766f4098a096c31e923333ed346d4803f1667",
+            strip_prefix = "abseil-cpp-aae8143cf9aa611f70d7ea9b95b8b8b383b2271a",
         )
 
     # Abseil (Python)
@@ -152,30 +152,29 @@ cc_proto_library(
     if not native.existing_rule("com_google_protobuf"):
         http_archive(
             name = "com_google_protobuf",
-            urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.6.1.3.tar.gz"],
-            sha256 = "73fdad358857e120fd0fa19e071a96e15c0f23bb25f85d3f7009abfd4f264a2a",
-            strip_prefix = "protobuf-3.6.1.3",
+            urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.9.1.tar.gz"],
+            sha256 = "98e615d592d237f94db8bf033fba78cd404d979b0b70351a9e5aaff725398357",
+            strip_prefix = "protobuf-3.9.1",
         )
 
     # gRPC
     if not native.existing_rule("com_github_grpc_grpc"):
         http_archive(
             name = "com_github_grpc_grpc",
-            # Release 1.18.0
-            url = "https://github.com/grpc/grpc/archive/v1.18.0.tar.gz",
-            sha256 = "069a52a166382dd7b99bf8e7e805f6af40d797cfcee5f80e530ca3fc75fd06e2",
-            strip_prefix = "grpc-1.18.0",
-            patches = ["//bazel:grpc-1.18.patch"],
+            # Release v1.22.1
+            url = "https://github.com/grpc/grpc/archive/v1.22.1.tar.gz",
+            sha256 = "cce1d4585dd017980d4a407d8c5e9f8fc8c1dbb03f249b99e88a387ebb45a035",
+            strip_prefix = "grpc-1.22.1",
         )
 
     # gRPC Java
     if not native.existing_rule("io_grpc_grpc_java"):
         http_archive(
             name = "io_grpc_grpc_java",
-            # Release 1.18.0
-            url = "https://github.com/grpc/grpc-java/archive/v1.18.0.tar.gz",
-            strip_prefix = "grpc-java-1.18.0",
-            sha256 = "0b86e44f9530fd61eb044b3c64c7579f21857ba96bcd9434046fd22891483a6d",
+            # Release 1.22.1
+            url = "https://github.com/grpc/grpc-java/archive/v1.22.1.tar.gz",
+            strip_prefix = "grpc-java-1.22.1",
+            sha256 = "6e63bd6f5a82de0b84c802390adb8661013bad9ebf910ad7e1f3f72b5f798832",
         )
 
     if not native.existing_rule("com_google_code_findbugs_jsr305"):
@@ -232,6 +231,15 @@ cc_proto_library(
             actual = "@com_google_guava_guava//jar",
         )
 
+    if not native.existing_rule("com_google_guava_testlib"):
+        jvm_maven_import_external(
+            name = "com_google_guava_testlib",
+            artifact = "com.google.guava:guava-testlib:26.0-jre",
+            tags = ["maven_coordinates=com.google.guava:testlib:26.0-jre"],
+            server_urls = ["http://central.maven.org/maven2"],
+            licenses = ["notice"],  # Apache 2.0
+        )
+
     if not native.existing_rule("com_google_code_gson_gson"):
         jvm_maven_import_external(
             name = "com_google_code_gson_gson",
@@ -254,6 +262,17 @@ cc_proto_library(
             tags = ["maven_coordinates=com.google.truth:truth:0.44"],
             server_urls = ["http://central.maven.org/maven2"],
             artifact_sha256 = "a9e6796786c9c77a5fe19b08e72fe0a620d53166df423d8861af9ebef4dc4247",
+            licenses = ["notice"],  # Apache 2.0
+        )
+
+    if not native.existing_rule("com_google_truth_proto_extension"):
+        jvm_maven_import_external(
+            name = "com_google_truth_proto_extension",
+            testonly = 1,
+            artifact = "com.google.truth.extensions:truth-proto-extension:0.44",
+            tags = ["maven_coordinates=com.google.truth.extensions:truth-proto-extension:0.44"],
+            server_urls = ["http://central.maven.org/maven2"],
+            # artifact_sha256 = "a9e6796786c9c77a5fe19b08e72fe0a620d53166df423d8861af9ebef4dc4247",
             licenses = ["notice"],  # Apache 2.0
         )
 
@@ -591,12 +610,12 @@ java_library(
     if not native.existing_rule("com_google_googletest"):
         http_archive(
             name = "com_google_googletest",
-            # Commit on 2019-04-18
+            # Commit on 2019-07-18
             urls = [
-                "https://github.com/google/googletest/archive/a53e931dcd00c2556ee181d832e699c9f3c29036.tar.gz",
+                "https://github.com/google/googletest/archive/b77e5c76252bac322bb82c5b444f050bd0d92451.tar.gz",
             ],
-            strip_prefix = "googletest-a53e931dcd00c2556ee181d832e699c9f3c29036",
-            sha256 = "7850caaf8149a6aded637f472415f84e4246a21d979d3866d71b1e56242f8de2",
+            sha256 = "b666893f592a7728331e10f36e991e5f6090998dc267e511899215c52835512d",
+            strip_prefix = "googletest-b77e5c76252bac322bb82c5b444f050bd0d92451",
         )
 
     # RE2 Regex Framework, mostly used in unit tests.
@@ -644,10 +663,9 @@ java_library(
     if not native.existing_rule("google_bazel_common"):
         http_archive(
             name = "google_bazel_common",
-            strip_prefix = "bazel-common-f3dc1a775d21f74fc6f4bbcf076b8af2f6261a69",
-            urls = ["https://github.com/google/bazel-common/archive/f3dc1a775d21f74fc6f4bbcf076b8af2f6261a69.zip"],
-            sha256 = "ccdd09559b49c7efd9e4b0b617b18e2a4bbdb2142fc30dfd3501eb5fa1294dcc",
-            patches = ["//bazel:common.patch"],
+            strip_prefix = "bazel-common-67e793d85570be5a714de3327add930422b2fa6d",
+            urls = ["https://github.com/google/bazel-common/archive/67e793d85570be5a714de3327add930422b2fa6d.zip"],
+            sha256 = "62055cdfeb77affca6a02c08aca69934fd34413286b4a2504870de6d9c6848a2",
         )
 
     ##########################################################################
@@ -677,7 +695,7 @@ java_library(
         strip_prefix = "flex-2.6.4",
         sha256 = "e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995",
         urls = ["https://github.com/westes/flex/releases/download/v2.6.4/flex-2.6.4.tar.gz"],
-        patches = ["//bazel:flex.patch"],
+        patches = ["@com_google_zetasql//bazel:flex.patch"],
     )
 
     http_archive(
@@ -686,14 +704,14 @@ java_library(
         strip_prefix = "m4-1.4.18",
         sha256 = "ab2633921a5cd38e48797bf5521ad259bdc4b979078034a3b790d7fec5493fab",
         urls = ["https://ftp.gnu.org/gnu/m4/m4-1.4.18.tar.gz"],
-        patches = ["//bazel:m4.patch"],
+        patches = ["@com_google_zetasql//bazel:m4.patch"],
     )
 
     http_archive(
         name = "icu",
-        build_file = "//bazel:icu.BUILD",
+        build_file = "@com_google_zetasql//bazel:icu.BUILD",
         strip_prefix = "icu",
         sha256 = "627d5d8478e6d96fc8c90fed4851239079a561a6a8b9e48b0892f24e82d31d6c",
         urls = ["https://github.com/unicode-org/icu/releases/download/release-64-2/icu4c-64_2-src.tgz"],
-        patches = ["//bazel:icu4c-64_2.patch"],
+        patches = ["@com_google_zetasql//bazel:icu4c-64_2.patch"],
     )

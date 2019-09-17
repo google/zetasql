@@ -411,6 +411,7 @@ definer { return BisonParserImpl::token::KW_DEFINER; }
 delete { return BisonParserImpl::token::KW_DELETE; }
 desc { return BisonParserImpl::token::KW_DESC; }
 describe { return BisonParserImpl::token::KW_DESCRIBE; }
+deterministic { return BisonParserImpl::token::KW_DETERMINISTIC; }
 distinct { return BisonParserImpl::token::KW_DISTINCT; }
 do { return BisonParserImpl::token::KW_DO; }
 drop { return BisonParserImpl::token::KW_DROP; }
@@ -418,6 +419,7 @@ else { return BisonParserImpl::token::KW_ELSE; }
 end { return BisonParserImpl::token::KW_END; }
 enforced { return BisonParserImpl::token::KW_ENFORCED; }
 enum { return BisonParserImpl::token::KW_ENUM; }
+error { return BisonParserImpl::token::KW_ERROR; }
 escape { return BisonParserImpl::token::KW_ESCAPE; }
 except/{opt_whitespace}"(" { return BisonParserImpl::token::KW_EXCEPT; }
 except/{whitespace}(all|distinct|"@") {
@@ -436,6 +438,7 @@ except {
                    "EXCEPT must be followed by ALL, DISTINCT, or \"(\"");
   yyterminate();
 }
+exception { return BisonParserImpl::token::KW_EXCEPTION; }
 exclude { return BisonParserImpl::token::KW_EXCLUDE; }
 exists { return BisonParserImpl::token::KW_EXISTS; }
 explain { return BisonParserImpl::token::KW_EXPLAIN; }
@@ -446,6 +449,7 @@ false { return BisonParserImpl::token::KW_FALSE; }
 fetch { return BisonParserImpl::token::KW_FETCH; }
 fill { return BisonParserImpl::token::KW_FILL; }
 filter { return BisonParserImpl::token::KW_FILTER; }
+first { return BisonParserImpl::token::KW_FIRST; }
 following { return BisonParserImpl::token::KW_FOLLOWING; }
 for { return BisonParserImpl::token::KW_FOR; }
 foreign { return BisonParserImpl::token::KW_FOREIGN; }
@@ -461,6 +465,7 @@ having { return BisonParserImpl::token::KW_HAVING; }
 hidden { return BisonParserImpl::token::KW_HIDDEN; }
 if { return BisonParserImpl::token::KW_IF; }
 ignore { return BisonParserImpl::token::KW_IGNORE; }
+immutable { return BisonParserImpl::token::KW_IMMUTABLE; }
 import { return BisonParserImpl::token::KW_IMPORT; }
 in { return BisonParserImpl::token::KW_IN; }
 inout { return BisonParserImpl::token::KW_INOUT; }
@@ -477,6 +482,7 @@ isolation { return BisonParserImpl::token::KW_ISOLATION; }
 join { return BisonParserImpl::token::KW_JOIN; }
 key { return BisonParserImpl::token::KW_KEY; }
 language { return BisonParserImpl::token::KW_LANGUAGE; }
+last { return BisonParserImpl::token::KW_LAST; }
 lateral { return BisonParserImpl::token::KW_LATERAL; }
 leave { return BisonParserImpl::token::KW_LEAVE; }
 left { return BisonParserImpl::token::KW_LEFT; }
@@ -564,6 +570,7 @@ simple { return BisonParserImpl::token::KW_SIMPLE; }
 some { return BisonParserImpl::token::KW_SOME; }
 source { return BisonParserImpl::token::KW_SOURCE; }
 sql { return BisonParserImpl::token::KW_SQL; }
+stable { return BisonParserImpl::token::KW_STABLE; }
 start { return BisonParserImpl::token::KW_START; }
 stored { return BisonParserImpl::token::KW_STORED; }
 storing { return BisonParserImpl::token::KW_STORING; }
@@ -594,6 +601,7 @@ using { return BisonParserImpl::token::KW_USING; }
 value { return BisonParserImpl::token::KW_VALUE; }
 values { return BisonParserImpl::token::KW_VALUES; }
 view { return BisonParserImpl::token::KW_VIEW; }
+volatile { return BisonParserImpl::token::KW_VOLATILE; }
 weight { return BisonParserImpl::token::KW_WEIGHT; }
 when { return BisonParserImpl::token::KW_WHEN; }
 where { return BisonParserImpl::token::KW_WHERE; }
@@ -832,6 +840,7 @@ zone { return BisonParserImpl::token::KW_ZONE; }
   return BisonParserImpl::token::KW_OPEN_INTEGER_HINT;
 }
 "@"                       { return '@'; }
+"@@"                      { return BisonParserImpl::token::KW_DOUBLE_AT; }
 "." {
   if (IsDotGeneralizedIdentifierPrefixToken(prev_token_) ) {
     // When an identifier or unreserved keyword is followed by a dot, always

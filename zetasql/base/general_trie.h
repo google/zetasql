@@ -45,6 +45,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include <cstdint>
 
 namespace zetasql_base {
 
@@ -539,7 +540,7 @@ const T& GeneralTrieImpl<T, NullValuePolicy>::GetDataForMaximalPrefixWithLen(
     // See whether we have a match here
     if ((node->data_ != null_value_instance_) &&
         ((s[next_pos] == '\0') || (is_terminator == nullptr) ||
-         (is_terminator[s[next_pos]]))) {
+         (is_terminator[static_cast<int8_t>(s[next_pos])]))) {
       *chars_matched = next_pos;
       matched_data = &(node->data_);
     }

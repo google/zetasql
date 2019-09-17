@@ -297,6 +297,20 @@ static std::string ToStringImpl(
   LOG(DFATAL) << "Invalid SqlSecurity: " << sql_security;
   return absl::StrCat("INVALID_SQL_SECURITY(", sql_security, ")");
 }
+static std::string ToStringImpl(
+    ResolvedOrderByItemEnums::NullOrderMode null_order) {
+  std::string name = ResolvedOrderByItemEnums::NullOrderMode_Name(null_order);
+  if (!name.empty()) return name;
+  LOG(DFATAL) << "Invalid NullOrderMode: " << null_order;
+  return absl::StrCat("INVALID_NULL_ORDER(", null_order, ")");
+}
+static std::string ToStringImpl(
+    ResolvedCreateStatementEnums::DeterminismLevel level) {
+  std::string name = ResolvedCreateStatementEnums::DeterminismLevel_Name(level);
+  if (!name.empty()) return name;
+  LOG(DFATAL) << "Invalid DeterminismLevel: " << level;
+  return absl::StrCat("INVALID_DETERMINISM_LEVEL(", level, ")");
+}
 
 // Most vector<std::string> fields are identifier paths so we format
 // the value that way by default.
@@ -307,6 +321,21 @@ static std::string ToStringImpl(const std::vector<std::string>& value_vector) {
 // This formats a list of identifiers (quoting if needed).
 static std::string ToStringCommaSeparated(const std::vector<std::string>& value_vector) {
   return absl::StrCat("[", ToStringImpl(value_vector, ", "), "]");
+}
+
+static FunctionEnums::Volatility DeterminismLevelToVolatility(
+    ResolvedCreateStatementEnums::DeterminismLevel level) {
+  switch (level) {
+    case ResolvedCreateStatementEnums::DETERMINISM_VOLATILE:
+    case ResolvedCreateStatementEnums::DETERMINISM_NOT_DETERMINISTIC:
+    case ResolvedCreateStatementEnums::DETERMINISM_UNSPECIFIED:
+      return FunctionEnums::VOLATILE;
+    case ResolvedCreateStatementEnums::DETERMINISM_DETERMINISTIC:
+    case ResolvedCreateStatementEnums::DETERMINISM_IMMUTABLE:
+      return FunctionEnums::IMMUTABLE;
+    case ResolvedCreateStatementEnums::DETERMINISM_STABLE:
+      return FunctionEnums::STABLE;
+  }
 }
 
 // The SaveToImpl(ScalarType, FileDescriptorSetMap*, ScalarProtoType*) functions

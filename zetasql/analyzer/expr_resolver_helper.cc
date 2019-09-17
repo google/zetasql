@@ -40,6 +40,7 @@ bool IsConstantExpression(const ResolvedExpr* expr) {
     case RESOLVED_CONSTANT:
     case RESOLVED_LITERAL:
     case RESOLVED_PARAMETER:
+    case RESOLVED_SYSTEM_VARIABLE:
     case RESOLVED_ARGUMENT_REF:
     case RESOLVED_EXPRESSION_COLUMN:
     case RESOLVED_DMLDEFAULT:

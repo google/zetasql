@@ -33,6 +33,7 @@
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/flags/flag.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -57,6 +58,7 @@ namespace {
 class ReadProtoFieldsTest : public ::testing::TestWithParam<bool> {
  protected:
   ReadProtoFieldsTest() {
+    absl::SetFlag(&FLAGS_zetasql_read_proto_field_optimized_path, GetParam());
   }
 
   zetasql_base::StatusOr<Value> ReadField(

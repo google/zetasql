@@ -32,9 +32,13 @@ namespace zetasql_base {
 
 // Class representing a specific location in the source code of a program.
 // `zetasql_base::SourceLocation` is copyable.
-//
-// TODO: remove when absl::SourceLocation is available.
 class SourceLocation {
+  struct PrivateTag {
+   private:
+    explicit PrivateTag() = default;
+    friend class SourceLocation;
+  };
+
  public:
   // Avoid this constructor; it populates the object with dummy values.
   constexpr SourceLocation()
@@ -45,6 +49,29 @@ class SourceLocation {
   // by the `ZETASQL_LOC` macro, hence the name.
   static constexpr SourceLocation DoNotInvokeDirectly(std::uint_least32_t line,
                                                       const char* file_name) {
+    return SourceLocation(line, file_name);
+  }
+
+  // SourceLocation::current
+  //
+  // Creates a `SourceLocation` based on the current line and file.  APIs that
+  // accept a `SourceLocation` as a default parameter can use this to capture
+  // their caller's locations.
+  //
+  // Example:
+  //
+  //   void TracedAdd(int i, SourceLocation loc = SourceLocation::current()) {
+  //     std::cout << loc.file_name() << ":" << loc.line() << " added " << i;
+  //     ...
+  //   }
+  //
+  //   void UserCode() {
+  //     TracedAdd(1);
+  //     TracedAdd(2);
+  //   }
+  static constexpr SourceLocation current(
+      PrivateTag = PrivateTag{}, std::uint_least32_t line = __builtin_LINE(),
+      const char* file_name = __builtin_FILE()) {
     return SourceLocation(line, file_name);
   }
 
@@ -69,8 +96,6 @@ class SourceLocation {
 
   friend constexpr int UseUnused() {
     static_assert(SourceLocation(0, nullptr).unused_column_ == 0,
-                  "Use the otherwise-unused member.");
-    static_assert(SourceLocation(0, nullptr).unused_function_name_ == nullptr,
                   "Use the otherwise-unused member.");
     return 0;
   }

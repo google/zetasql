@@ -115,7 +115,7 @@ std::string FormatError(const zetasql_base::Status& status) {
   if (internal::HasPayload(status)) {
     std::string payload_string;
     std::string location_string;
-    if (internal::HasPayloadTyped<ErrorLocation>(status)) {
+    if (internal::HasPayloadWithType<ErrorLocation>(status)) {
       // Perform special formatting for location data.
       ErrorLocation location = internal::GetPayload<ErrorLocation>(status);
 
@@ -146,7 +146,7 @@ std::string FormatError(const zetasql_base::Status& status) {
 }
 
 bool HasErrorLocation(const zetasql_base::Status& status) {
-  return internal::HasPayloadTyped<ErrorLocation>(status);
+  return internal::HasPayloadWithType<ErrorLocation>(status);
 }
 
 bool GetErrorLocation(const zetasql_base::Status& status, ErrorLocation* location) {
@@ -263,7 +263,7 @@ static zetasql_base::Status UpdateErrorFromPayload(const zetasql_base::Status& s
     // remains on the Status.
     return status;
   }
-  ZETASQL_RET_CHECK(!internal::HasPayloadTyped<InternalErrorLocation>(status))
+  ZETASQL_RET_CHECK(!internal::HasPayloadWithType<InternalErrorLocation>(status))
       << "Status must not have InternalErrorLocation: "
       << internal::StatusToString(status);
   if (!status.ok()) {
@@ -289,7 +289,7 @@ static zetasql_base::Status UpdateErrorFromPayload(const zetasql_base::Status& s
 zetasql_base::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
                                          absl::string_view input_text,
                                          const zetasql_base::Status& status) {
-  ZETASQL_RET_CHECK(!internal::HasPayloadTyped<InternalErrorLocation>(status))
+  ZETASQL_RET_CHECK(!internal::HasPayloadWithType<InternalErrorLocation>(status))
       << "Status must not have InternalErrorLocation: "
       << internal::StatusToString(status);
   if (status.ok() || mode == ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD) {

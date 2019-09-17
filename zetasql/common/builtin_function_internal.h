@@ -54,7 +54,8 @@ class FunctionSignatureOnHeap {
   std::shared_ptr<FunctionSignature> signature_;
 };
 
-using FunctionIdToNameMap = absl::flat_hash_map<FunctionSignatureId, std::string>;
+using FunctionIdToNameMap =
+    absl::flat_hash_map<FunctionSignatureId, std::string>;
 using NameToFunctionMap = std::map<std::string, std::unique_ptr<Function>>;
 
 bool ArgumentsAreComparable(const std::vector<InputArgumentType>& arguments,
@@ -72,16 +73,16 @@ bool ArgumentsArrayType(const std::vector<InputArgumentType>& arguments,
 // TODO: Consider removing this callback, since Function now knows
 // whether it is operator, and has correct sql_name to print.
 std::string InfixFunctionSQL(const std::string& display_name,
-                        const std::vector<std::string>& inputs);
+                             const std::vector<std::string>& inputs);
 
 std::string PreUnaryFunctionSQL(const std::string& display_name,
-                           const std::vector<std::string>& inputs);
+                                const std::vector<std::string>& inputs);
 
 std::string PostUnaryFunctionSQL(const std::string& display_name,
-                            const std::vector<std::string>& inputs);
+                                 const std::vector<std::string>& inputs);
 
 std::string DateAddOrSubFunctionSQL(const std::string& display_name,
-                               const std::vector<std::string>& inputs);
+                                    const std::vector<std::string>& inputs);
 
 std::string CountStarFunctionSQL(const std::vector<std::string>& inputs);
 
@@ -99,12 +100,14 @@ std::string ArrayAtOffsetFunctionSQL(const std::vector<std::string>& inputs);
 
 std::string ArrayAtOrdinalFunctionSQL(const std::vector<std::string>& inputs);
 
-std::string SafeArrayAtOffsetFunctionSQL(const std::vector<std::string>& inputs);
+std::string SafeArrayAtOffsetFunctionSQL(
+    const std::vector<std::string>& inputs);
 
-std::string SafeArrayAtOrdinalFunctionSQL(const std::vector<std::string>& inputs);
+std::string SafeArrayAtOrdinalFunctionSQL(
+    const std::vector<std::string>& inputs);
 
-std::string GenerateDateTimestampArrayFunctionSQL(const std::string& function_name,
-                                             const std::vector<std::string>& inputs);
+std::string GenerateDateTimestampArrayFunctionSQL(
+    const std::string& function_name, const std::vector<std::string>& inputs);
 
 // For MakeArray we explicitly prepend the array type to the function sql, thus
 // array-type-name is expected to be passed as the first element of inputs.
@@ -112,8 +115,8 @@ std::string MakeArrayFunctionSQL(const std::vector<std::string>& inputs);
 
 std::string ExtractFunctionSQL(const std::vector<std::string>& inputs);
 
-std::string ExtractDateOrTimeFunctionSQL(const std::string& date_part,
-                                    const std::vector<std::string>& inputs);
+std::string ExtractDateOrTimeFunctionSQL(
+    const std::string& date_part, const std::vector<std::string>& inputs);
 
 bool ArgumentIsStringLiteral(const InputArgumentType& argument);
 
@@ -188,7 +191,8 @@ zetasql_base::Status CheckJsonArguments(const std::vector<InputArgumentType>& ar
 
 zetasql_base::Status CheckIsSupportedKeyType(
     absl::string_view function_name,
-    const std::set<std::string>& supported_key_types, int key_type_argument_index,
+    const std::set<std::string>& supported_key_types,
+    int key_type_argument_index,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
@@ -259,15 +263,16 @@ std::string GetExtractFunctionSignatureString(
     bool include_bracket);
 
 std::string NoMatchingSignatureForExtractFunction(
-    const std::string& explicit_datepart_name, const std::string& qualified_function_name,
+    const std::string& explicit_datepart_name,
+    const std::string& qualified_function_name,
     const std::vector<InputArgumentType>& arguments, ProductMode product_mode);
 
-std::string ExtractSupportedSignatures(const std::string& explicit_datepart_name,
-                                  const LanguageOptions& language_options,
-                                  const Function& function);
+std::string ExtractSupportedSignatures(
+    const std::string& explicit_datepart_name,
+    const LanguageOptions& language_options, const Function& function);
 
 std::string EmptySupportedSignatures(const LanguageOptions& language_options,
-                                const Function& function);
+                                     const Function& function);
 
 zetasql_base::Status CheckArgumentsSupportEquality(
     const std::string& comparison_name,

@@ -15,7 +15,7 @@
 #
 
 # Package for non-public protos.
-package(default_visibility = ["//zetasql:__subpackages__"])
+package(default_visibility = ["//:__subpackages__"])
 
 proto_library(
     name = "options_proto",

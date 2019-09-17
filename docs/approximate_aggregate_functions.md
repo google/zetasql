@@ -113,14 +113,16 @@ rows or `expression` evaluates to NULL for all rows.
 
 ```sql
 SELECT APPROX_QUANTILES(x, 2) AS approx_quantiles
-FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
+FROM UNNEST([1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
 +------------------+
 | approx_quantiles |
 +------------------+
 | [1, 5, 10]       |
 +------------------+
+```
 
+```sql
 SELECT APPROX_QUANTILES(x, 100)[OFFSET(90)] AS percentile_90
 FROM UNNEST([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
@@ -129,16 +131,20 @@ FROM UNNEST([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) AS x;
 +---------------+
 | 9             |
 +---------------+
+```
 
+```sql
 SELECT APPROX_QUANTILES(DISTINCT x, 2) AS approx_quantiles
-FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
+FROM UNNEST([1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
 +------------------+
 | approx_quantiles |
 +------------------+
 | [1, 6, 10]       |
 +------------------+
+```
 
+```sql
 SELECT APPROX_QUANTILES(x, 2 RESPECT NULLS) AS approx_quantiles
 FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
@@ -147,7 +153,9 @@ FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 +------------------+
 | [NULL, 4, 10]    |
 +------------------+
+```
 
+```sql
 SELECT APPROX_QUANTILES(DISTINCT x, 2 RESPECT NULLS) AS approx_quantiles
 FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
@@ -156,7 +164,6 @@ FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 +------------------+
 | [NULL, 6, 10]    |
 +------------------+
-
 ```
 
 ### APPROX_TOP_COUNT
@@ -275,7 +282,7 @@ If the `weight` input is negative or `NaN`, this function returns an error.
 An ARRAY of type STRUCT.
 The STRUCT contains two fields: `value` and `sum`.
 The `value` field contains the value of the input expression. The `sum` field is
-the same type as`weight`, and is the approximate sum of the input weight
+the same type as `weight`, and is the approximate sum of the input weight
 associated with the `value` field.
 
 Returns `NULL` if there are zero input rows.

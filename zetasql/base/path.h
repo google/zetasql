@@ -58,7 +58,7 @@ std::string JoinPathImpl(bool honor_abs,
 //
 // Usage:
 // std::string path = zetasql_base::JoinPath("/cns", dirname, filename);
-// std::string path = zetasql_base::JoinPath(FLAGS_test_srcdir, filename);
+// std::string path = zetasql_base::JoinPath(getenv("TEST_SRCDIR"), filename);
 //
 // 0, 1, 2-path specializations exist to optimize common cases.
 inline std::string JoinPath() { return std::string(); }

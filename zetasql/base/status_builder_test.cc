@@ -203,14 +203,6 @@ TEST(StatusBuilderTest, MultiAttach) {
       Eq(StatusWithPayload(CANCELLED, "stick", "boom")));
 }
 
-TEST(StatusBuilderTest, BuilderOnNestedType) {
-  static const char* const kError = "My custom error.";
-  auto return_builder = []() -> StatusOr<StatusOr<int>> {
-    return NotFoundErrorBuilder(ZETASQL_LOC) << kError;
-  };
-  EXPECT_THAT(return_builder(), StatusIs(NOT_FOUND, HasSubstr(kError)));
-}
-
 // This structure holds the details for testing a single canonical error code,
 // its creator, and its classifier.
 struct CanonicalErrorTest {

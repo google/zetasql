@@ -44,8 +44,8 @@ class StringAppendErrorCollector :
       = delete;
 
   void AddError(const std::string& filename, const std::string& element_name,
-                const google::protobuf::Message* descriptor,
-                ErrorLocation location, const std::string& message) override {
+                const google::protobuf::Message* descriptor, ErrorLocation location,
+                const std::string& message) override {
     absl::StrAppend(&error_, HasError() ? "\n" : "", filename, ": ",
                     element_name, ": ", message);
   }

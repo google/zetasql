@@ -100,15 +100,15 @@ TEST(StatusPayloadUtils, GetPayloadCount) {
 }
 
 TEST(StatusPayloadUtils, HasProto) {
-  EXPECT_FALSE(HasPayloadTyped<zetasql_test::TestStatusPayload>(
+  EXPECT_FALSE(HasPayloadWithType<zetasql_test::TestStatusPayload>(
       zetasql_base::OkStatus()));
 
   zetasql_base::Status status1 =
       zetasql_base::Status(zetasql_base::StatusCode::kCancelled, "");
   status1.SetPayload(StatusPayloadTypeUrl(),
                      ToStatusCord(zetasql_test::TestStatusPayload()));
-  EXPECT_TRUE(HasPayloadTyped<zetasql_test::TestStatusPayload>(status1));
-  EXPECT_FALSE(HasPayloadTyped<zetasql_test::TestStatusPayload2>(status1));
+  EXPECT_TRUE(HasPayloadWithType<zetasql_test::TestStatusPayload>(status1));
+  EXPECT_FALSE(HasPayloadWithType<zetasql_test::TestStatusPayload2>(status1));
 
   zetasql_base::Status status2 =
       zetasql_base::Status(zetasql_base::StatusCode::kCancelled, "");
@@ -116,8 +116,8 @@ TEST(StatusPayloadUtils, HasProto) {
                      ToStatusCord(zetasql_test::TestStatusPayload()));
   status2.SetPayload(StatusPayload2TypeUrl(),
                      ToStatusCord(zetasql_test::TestStatusPayload2()));
-  EXPECT_TRUE(HasPayloadTyped<zetasql_test::TestStatusPayload>(status2));
-  EXPECT_TRUE(HasPayloadTyped<zetasql_test::TestStatusPayload2>(status2));
+  EXPECT_TRUE(HasPayloadWithType<zetasql_test::TestStatusPayload>(status2));
+  EXPECT_TRUE(HasPayloadWithType<zetasql_test::TestStatusPayload2>(status2));
 }
 
 TEST(StatusPayloadUtils, GetPayload) {
@@ -222,7 +222,8 @@ TEST(StatusPayloadUtils, ToString) {
   internal::AttachPayload(&cancelled_with_payload, payload1);
   internal::AttachPayload(&cancelled_with_payload, payload2);
 
-  std::string cancelled_with_payload_str = StatusToString(cancelled_with_payload);
+  std::string cancelled_with_payload_str =
+      StatusToString(cancelled_with_payload);
 
   EXPECT_THAT(cancelled_with_payload_str, HasSubstr("cancelled"));
   EXPECT_THAT(cancelled_with_payload_str, HasSubstr("msg"));

@@ -41,7 +41,7 @@ std::string GetTypeUrl() {
 
 // Whether the given status has exactly one payload of type T.
 template <class T>
-bool HasPayloadTyped(const zetasql_base::Status& status) {
+bool HasPayloadWithType(const zetasql_base::Status& status) {
   return status.GetPayload(zetasql_base::GetTypeUrl<T>()).has_value();
 }
 

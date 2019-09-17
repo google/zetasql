@@ -77,7 +77,7 @@ message ValueProto {
     // Geography encoded using ::stlib::STGeographyEncoder
     bytes geography_value = 19;
     // Encoded numeric value. For the encoding format see documentation for
-    // NumericValue::SerializeToProtoBytes().
+    // NumericValue::SerializeAsProtoBytes().
     bytes numeric_value = 20;
     // User code that switches on this oneoff enum must have a default case so
     // builds won't break when new fields are added.

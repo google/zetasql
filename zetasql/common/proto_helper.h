@@ -52,8 +52,8 @@ class SimpleErrorCollector
 
   // ErrorCollector interface method.
   void AddError(const std::string& filename, const std::string& element_name,
-      const google::protobuf::Message* descriptor, ErrorLocation location,
-      const std::string& message) override {
+                const google::protobuf::Message* descriptor, ErrorLocation location,
+                const std::string& message) override {
     // This implementation is copied from AppendToStringErrorCollector(),
     // and <location> is ignored.  TODO: Figure out if <location>
     // is useful, and add it into the error std::string if so.  Looking at the

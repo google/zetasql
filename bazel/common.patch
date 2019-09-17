@@ -11,16 +11,3 @@ index 72eb7c6..dd55e11 100644
              executable = True,
              cfg = "host",
          ),
-diff --git a/tools/javadoc/javadoc.bzl b/tools/javadoc/javadoc.bzl
-index 67f5aac..1f1b984 100644
---- tools/javadoc/javadoc.bzl
-+++ tools/javadoc/javadoc.bzl
-@@ -65,6 +65,8 @@ def _javadoc_library(ctx):
-     jar_command = "%s/bin/jar cf %s -C tmp ." % (java_home, ctx.outputs.jar.path)
- 
-     srcs = depset(transitive = [src.files for src in ctx.attr.srcs]).to_list()
-+    for src in srcs:
-+      javadoc_command.append(src.path)
-     ctx.actions.run_shell(
-         inputs = srcs + classpath + ctx.files._jdk,
-         command = "%s && %s" % (" ".join(javadoc_command), jar_command

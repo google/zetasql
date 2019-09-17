@@ -530,6 +530,10 @@ class Value {
   // an approximate hash code.
   size_t HashCodeInternal(FloatMargin float_margin) const;
 
+  std::string DebugStringInternal(
+      bool verbose,
+      const std::map<const Value*, std::string>& debug_string_map) const;
+
   // type_kind_ is either zetasql::TypeKind or -1 for invalid values.
   int16_t type_kind_ = kInvalidTypeKind;
   bool is_null_ = false;

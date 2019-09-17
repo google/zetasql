@@ -56,7 +56,28 @@ class ResolvedLiteral;
 class ResolvedOption;
 class ResolvedStatement;
 
+// Performs a case-insensitive less-than vector<std::string> comparison, element
+// by element, using the C/POSIX locale for element comparisons. This function
+// object is useful as a template parameter for STL set/map of
+// std::vector<std::string>s, if uniqueness of the vector keys is case-insensitive.
+struct StringVectorCaseLess {
+  bool operator()(const std::vector<std::string>& v1,
+                  const std::vector<std::string>& v2) const;
+};
+
 typedef std::map<std::string, const Type*> QueryParametersMap;
+
+// Key = name path of system variable.  Value = type of variable.
+// Name elements in the key do not include the "@@" prefix.
+// For example, if @@foo.bar has type INT32, the corresponding map entry is:
+//    key = {"foo", "bar"}
+//    value = type_factory->get_int32()
+typedef std::map<std::vector<std::string>, const Type*, StringVectorCaseLess>
+    SystemVariablesMap;
+
+// Associates each system variable with its current value.
+using SystemVariableValuesMap =
+    std::map<std::vector<std::string>, Value, StringVectorCaseLess>;
 
 // This class specifies a set of allowed hints and options, and their expected
 // types.
@@ -497,6 +518,15 @@ class AnalyzerOptions {
   // same id_string_pool() and arena() values.
   ParserOptions GetParserOptions() const;
 
+  const SystemVariablesMap& system_variables() const {
+    return system_variables_;
+  }
+  void clear_system_variables() {
+    system_variables_.clear();
+  }
+  zetasql_base::Status AddSystemVariable(const std::vector<std::string>& name_path,
+                                 const Type* type);
+
  private:
   // ======================================================================
   // NOTE: Please update options.proto and AnalyzerOptions.java accordingly
@@ -516,6 +546,9 @@ class AnalyzerOptions {
   // 'lookup_expression_column_callback_' function.
   QueryParametersMap query_parameters_;
   QueryParametersMap expression_columns_;
+
+  // Maps system variables to their types.
+  SystemVariablesMap system_variables_;
 
   // Callback function to resolve columns in standalone expressions.
   LookupExpressionColumnCallback lookup_expression_column_callback_ = nullptr;
@@ -591,7 +624,7 @@ class AnalyzerOptions {
 
   // Controls whether to preserve aliases of aggregate columns and analytic
   // function columns. See set_preserve_column_aliases() for details.
-  bool preserve_column_aliases_ = false;
+  bool preserve_column_aliases_ = true;
 
   // Copyable
 };

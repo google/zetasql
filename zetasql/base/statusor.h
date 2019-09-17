@@ -44,7 +44,7 @@
 // Example usage of a StatusOr<std::unique_ptr<T>>:
 //
 //  StatusOr<std::unique_ptr<Foo>> result = FooFactory::MakeNewFoo(arg);
-//  if (!result) {
+//  if (!result.ok()) {  // Don't omit .ok().
 //    LOG(ERROR) << result.status();
 //  } else if (*result == nullptr) {
 //    LOG(ERROR) << "Unexpected null pointer";
@@ -56,8 +56,9 @@
 //
 //  StatusOr<Foo> FooFactory::MakeFoo(int arg) {
 //    if (arg <= 0) {
-//      return ::zetasql_base::Status(::zetasql_base::INVALID_ARGUMENT,
-//                                      "Arg must be positive");
+//      return
+//          ::zetasql_base::Status(::zetasql_base::StatusCode:kInvalidArgument,
+//                                 "Arg must be positive");
 //    }
 //    return Foo(arg);
 //  }
@@ -70,6 +71,8 @@
 
 #include "absl/base/attributes.h"
 #include "absl/base/macros.h"
+#include "absl/meta/type_traits.h"
+#include "absl/utility/utility.h"
 #include "zetasql/base/logging.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/statusor_internals.h"
@@ -109,19 +112,90 @@ class StatusOr : private statusor_internal::StatusOrData<T>,
   StatusOr(StatusOr&&) = default;
   StatusOr& operator=(StatusOr&&) = default;
 
-  // Conversion copy/move constructor, T must be convertible from U.
-  // TODO: These should not participate in overload resolution if U
-  // is not convertible to T.
-  template <typename U>
-  StatusOr(const StatusOr<U>& other);
-  template <typename U>
-  StatusOr(StatusOr<U>&& other);
+  // Converting constructors from StatusOr<U>, when T is constructible from U.
+  // To avoid ambiguity, they are disabled if T is also constructible from
+  // StatusOr<U>. Explicit iff the corresponding construction of T from U is
+  // explicit.
+  template <
+      typename U,
+      absl::enable_if_t<
+          absl::conjunction<
+              absl::negation<std::is_same<T, U>>,
+              std::is_constructible<T, const U&>,
+              std::is_convertible<const U&, T>,
+              absl::negation<statusor_internal::IsStatusOrConversionAmbiguous<
+                  T, U>>>::value,
+          int> = 0>
+  StatusOr(const StatusOr<U>& other)  // NOLINT
+      : Base(static_cast<const typename StatusOr<U>::Base&>(other)) {}
+  template <
+      typename U,
+      absl::enable_if_t<
+          absl::conjunction<
+              absl::negation<std::is_same<T, U>>,
+              std::is_constructible<T, const U&>,
+              absl::negation<std::is_convertible<const U&, T>>,
+              absl::negation<statusor_internal::IsStatusOrConversionAmbiguous<
+                  T, U>>>::value,
+          int> = 0>
+  explicit StatusOr(const StatusOr<U>& other)
+      : Base(static_cast<const typename StatusOr<U>::Base&>(other)) {}
 
-  // Conversion copy/move assignment operator, T must be convertible from U.
-  template <typename U>
-  StatusOr& operator=(const StatusOr<U>& other);
-  template <typename U>
-  StatusOr& operator=(StatusOr<U>&& other);
+  template <
+      typename U,
+      absl::enable_if_t<
+          absl::conjunction<
+              absl::negation<std::is_same<T, U>>, std::is_constructible<T, U&&>,
+              std::is_convertible<U&&, T>,
+              absl::negation<statusor_internal::IsStatusOrConversionAmbiguous<
+                  T, U>>>::value,
+          int> = 0>
+  StatusOr(StatusOr<U>&& other)  // NOLINT
+      : Base(static_cast<typename StatusOr<U>::Base&&>(other)) {}
+  template <
+      typename U,
+      absl::enable_if_t<
+          absl::conjunction<
+              absl::negation<std::is_same<T, U>>, std::is_constructible<T, U&&>,
+              absl::negation<std::is_convertible<U&&, T>>,
+              absl::negation<statusor_internal::IsStatusOrConversionAmbiguous<
+                  T, U>>>::value,
+          int> = 0>
+  explicit StatusOr(StatusOr<U>&& other)
+      : Base(static_cast<typename StatusOr<U>::Base&&>(other)) {}
+
+  // Conversion copy/move assignment operator, T must be constructible and
+  // assignable from U. Only enable if T cannot be directly assigned from
+  // StatusOr<U>.
+  template <
+      typename U,
+      absl::enable_if_t<
+          absl::conjunction<
+              absl::negation<std::is_same<T, U>>,
+              std::is_constructible<T, const U&>,
+              std::is_assignable<T, const U&>,
+              absl::negation<
+                  statusor_internal::IsStatusOrConversionAssigmentAmbiguous<
+                      T, U>>>::value,
+          int> = 0>
+  StatusOr& operator=(const StatusOr<U>& other) {
+    this->Assign(other);
+    return *this;
+  }
+  template <
+      typename U,
+      absl::enable_if_t<
+          absl::conjunction<
+              absl::negation<std::is_same<T, U>>, std::is_constructible<T, U&&>,
+              std::is_assignable<T, U&&>,
+              absl::negation<
+                  statusor_internal::IsStatusOrConversionAssigmentAmbiguous<
+                      T, U>>>::value,
+          int> = 0>
+  StatusOr& operator=(StatusOr<U>&& other) {
+    this->Assign(std::move(other));
+    return *this;
+  }
 
   // Constructs a new StatusOr with the given value. After calling this
   // constructor, this->ok() will be true and the contained value may be
@@ -157,6 +231,41 @@ class StatusOr : private statusor_internal::StatusOrData<T>,
   StatusOr(Status&& status);
   StatusOr& operator=(Status&& status);
 
+  // Constructs the inner value T in-place using the provided args, using the
+  // T(args...) constructor.
+  template <typename... Args>
+  explicit StatusOr(absl::in_place_t, Args&&... args);
+  template <typename U, typename... Args>
+  explicit StatusOr(absl::in_place_t, std::initializer_list<U> ilist,
+                    Args&&... args);
+
+  // Constructs the inner value T in-place using the provided args, using the
+  // T(U) (direct-initialization) constructor. Only valid if T can be
+  // constructed from a U. Can accept move or copy constructors. Explicit it
+  // U is not convertible to T. To avoid ambiguity, this is disabled if U is
+  // a StatusOr<J>, where J is convertible to T.
+  template <
+      typename U = T,
+      absl::enable_if_t<
+          absl::conjunction<
+              statusor_internal::IsStatusOrDirectInitializationValid<T, U&&>,
+              std::is_constructible<T, U&&>,
+              std::is_convertible<U&&, T>>::value,
+          int> = 0>
+  StatusOr(U&& u)  // NOLINT
+      : StatusOr(absl::in_place, std::forward<U>(u)) {}
+
+  template <
+      typename U = T,
+      absl::enable_if_t<
+          absl::conjunction<
+              statusor_internal::IsStatusOrDirectInitializationValid<T, U&&>,
+              std::is_constructible<T, U&&>,
+              absl::negation<std::is_convertible<U&&, T>>>::value,
+          int> = 0>
+  explicit StatusOr(U&& u)  // NOLINT
+      : StatusOr(absl::in_place, std::forward<U>(u)) {}
+
   // Returns this->ok()
   explicit operator bool() const { return ok(); }
 
@@ -189,7 +298,6 @@ class StatusOr : private statusor_internal::StatusOrData<T>,
   //
   // The std::move on statusor instead of on the whole expression enables
   // warnings about possible uses of the statusor object after the move.
-
   const T& ValueOrDie() const&;
   T& ValueOrDie() &;
   const T&& ValueOrDie() const&&;
@@ -228,13 +336,21 @@ class StatusOr : private statusor_internal::StatusOrData<T>,
   // complaints from any tools that are checking that errors are not dropped on
   // the floor.
   void IgnoreError() const;
+
+ private:
+  using statusor_internal::StatusOrData<T>::Assign;
+  template <typename U>
+  void Assign(const StatusOr<U>& other);
+  template <typename U>
+  void Assign(StatusOr<U>&& other);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation details for StatusOr<T>
 
 template <typename T>
-StatusOr<T>::StatusOr() : Base(Status(UNKNOWN, "")) {}
+StatusOr<T>::StatusOr()
+    : Base(Status(zetasql_base::StatusCode::kUnknown, "")) {}
 
 template <typename T>
 StatusOr<T>::StatusOr(const T& value) : Base(value) {}
@@ -262,39 +378,36 @@ StatusOr<T>& StatusOr<T>::operator=(Status&& status) {
 
 template <typename T>
 template <typename U>
-inline StatusOr<T>::StatusOr(const StatusOr<U>& other)
-    : Base(static_cast<const typename StatusOr<U>::Base&>(other)) {}
-
-template <typename T>
-template <typename U>
-inline StatusOr<T>& StatusOr<T>::operator=(const StatusOr<U>& other) {
-  if (other.ok())
+inline void StatusOr<T>::Assign(const StatusOr<U>& other) {
+  if (other.ok()) {
     this->Assign(other.ValueOrDie());
-  else
+  } else {
     this->Assign(other.status());
-  return *this;
+  }
 }
 
 template <typename T>
 template <typename U>
-inline StatusOr<T>::StatusOr(StatusOr<U>&& other)
-    : Base(static_cast<typename StatusOr<U>::Base&&>(other)) {}
-
-template <typename T>
-template <typename U>
-inline StatusOr<T>& StatusOr<T>::operator=(StatusOr<U>&& other) {
+inline void StatusOr<T>::Assign(StatusOr<U>&& other) {
   if (other.ok()) {
     this->Assign(std::move(other).ValueOrDie());
   } else {
     this->Assign(std::move(other).status());
   }
-  return *this;
 }
+template <typename T>
+template <typename... Args>
+StatusOr<T>::StatusOr(absl::in_place_t, Args&&... args)
+    : Base(absl::in_place, std::forward<Args>(args)...) {}
 
 template <typename T>
-const Status& StatusOr<T>::status() const& {
-  return this->status_;
-}
+template <typename U, typename... Args>
+StatusOr<T>::StatusOr(absl::in_place_t, std::initializer_list<U> ilist,
+                      Args&&... args)
+    : Base(absl::in_place, ilist, std::forward<Args>(args)...) {}
+
+template <typename T>
+const Status& StatusOr<T>::status() const & { return this->status_; }
 template <typename T>
 Status StatusOr<T>::status() && {
   return ok() ? OkStatus() : std::move(this->status_);

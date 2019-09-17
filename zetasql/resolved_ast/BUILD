@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-package(default_visibility = ["//zetasql:__subpackages__"])
+package(default_visibility = ["//:__subpackages__"])
 
 load("//zetasql/resolved_ast:build_rules.bzl", "gen_resolved_ast_files")
 

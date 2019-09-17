@@ -122,7 +122,8 @@ void Formatter::FormatLine(absl::string_view s) {
 bool Formatter::LastTokenIsSeparator() {
   // These are keywords emitted in uppercase in Unparser, so don't need to make
   // them case insensitive.
-  static const std::set<std::string> kWordSperarator = { "AND", "OR", "ON", "IN" };
+  static const std::set<std::string> kWordSperarator = {"AND", "OR", "ON",
+                                                        "IN"};
   static const std::set<char> kNonWordSperarator = {
       ',', '<', '>', '-', '+', '=', '*', '/', '%' };
   if (buffer_.empty()) return false;
@@ -159,6 +160,11 @@ void Unparser::PrintOpenParenIfNeeded(const ASTNode* node) {
   } else if (node->IsQueryExpression() &&
              node->GetAsOrDie<ASTQueryExpression>()->parenthesized()) {
     print("(");
+  } else if (node->node_kind() == AST_SYSTEM_VARIABLE_EXPR &&
+             node->parent() != nullptr &&
+             node->parent()->node_kind() == AST_DOT_IDENTIFIER) {
+    // "." takes precedence over "@@".
+    print("(");
   }
 }
 
@@ -171,6 +177,11 @@ void Unparser::PrintCloseParenIfNeeded(const ASTNode* node) {
   } else if (node->IsQueryExpression() &&
              node->GetAsOrDie<ASTQueryExpression>()->parenthesized()) {
     print(")");
+  } else if (node->node_kind() == AST_SYSTEM_VARIABLE_EXPR &&
+             node->parent() != nullptr &&
+             node->parent()->node_kind() == AST_DOT_IDENTIFIER) {
+    // "." takes precedence over "@@".
+    print(")");
   }
 }
 
@@ -178,8 +189,7 @@ void Unparser::UnparseLeafNode(const ASTLeaf* leaf_node) {
   print(leaf_node->image());
 }
 
-void Unparser::UnparseChildrenWithSeparator(const ASTNode* node,
-                                            void* data,
+void Unparser::UnparseChildrenWithSeparator(const ASTNode* node, void* data,
                                             const std::string& separator,
                                             bool break_line) {
   UnparseChildrenWithSeparator(node, data, 0, node->num_children(), separator,
@@ -188,10 +198,8 @@ void Unparser::UnparseChildrenWithSeparator(const ASTNode* node,
 
 // Unparse children of <node> from indices in the range [<begin>, <end>)
 // putting <separator> between them.
-void Unparser::UnparseChildrenWithSeparator(const ASTNode* node,
-                                            void* data,
-                                            int begin,
-                                            int end,
+void Unparser::UnparseChildrenWithSeparator(const ASTNode* node, void* data,
+                                            int begin, int end,
                                             const std::string& separator,
                                             bool break_line) {
   for (int i = begin; i < end; i++) {
@@ -367,8 +375,8 @@ void Unparser::visitASTTVFSchemaColumn(const ASTTVFSchemaColumn* node,
   UnparseChildrenWithSeparator(node, data, "");
 }
 
-static std::string GetCreateStatementPrefix(const ASTCreateStatement* node,
-                                       const std::string& create_object_type) {
+static std::string GetCreateStatementPrefix(
+    const ASTCreateStatement* node, const std::string& create_object_type) {
   std::string output("CREATE");
   if (node->is_or_replace()) absl::StrAppend(&output, " OR REPLACE");
   if (node->is_private()) absl::StrAppend(&output, " PRIVATE");
@@ -410,6 +418,10 @@ void Unparser::visitASTCreateFunctionStatement(
   }
   if (node->sql_security() != ASTCreateStatement::SQL_SECURITY_UNSPECIFIED) {
     print(node->GetSqlForSqlSecurity());
+  }
+  if (node->determinism_level() !=
+      ASTCreateFunctionStmtBase::DETERMINISM_UNSPECIFIED) {
+    print(node->GetSqlForDeterminismLevel());
   }
   if (node->language() != nullptr) {
     print("LANGUAGE");
@@ -1175,10 +1187,20 @@ void Unparser::visitASTOrderBy(const ASTOrderBy* node, void* data) {
   UnparseVectorWithSeparator(node->ordering_expressions(), data, ",");
 }
 
+void Unparser::visitASTNullOrder(const ASTNullOrder* node, void* data) {
+  if (node->nulls_first()) {
+    print("NULLS FIRST");
+  } else {
+    print("NULLS LAST");
+  }
+}
+
 void Unparser::visitASTOrderingExpression(const ASTOrderingExpression* node,
                                           void* data) {
-  visitASTChildren(node, data);
+  node->expression()->Accept(this, data);
+  if (node->collate()) node->collate()->Accept(this, data);
   if (node->descending()) print("DESC");
+  if (node->null_order()) node->null_order()->Accept(this, data);
 }
 
 void Unparser::visitASTLimitOffset(const ASTLimitOffset* node, void* data) {
@@ -1360,6 +1382,14 @@ void Unparser::visitASTParameterExpr(const ASTParameterExpr* node, void* data) {
     print("@");
     visitASTChildren(node, data);
   }
+}
+
+void Unparser::visitASTSystemVariableExpr(const ASTSystemVariableExpr* node,
+                                          void* data) {
+  PrintOpenParenIfNeeded(node);
+  print("@@");
+  visitASTChildren(node, data);
+  PrintCloseParenIfNeeded(node);
 }
 
 void Unparser::visitASTIntervalExpr(const ASTIntervalExpr* node, void* data) {
@@ -2196,6 +2226,12 @@ void Unparser::visitASTAlterMaterializedViewStatement(
   VisitAlterStatementBase(node, data);
 }
 
+void Unparser::visitASTAlterDatabaseStatement(
+    const ASTAlterDatabaseStatement* node, void* data) {
+  print("ALTER DATABASE");
+  VisitAlterStatementBase(node, data);
+}
+
 void Unparser::visitASTAlterTableStatement(const ASTAlterTableStatement* node,
                                            void* data) {
   print("ALTER TABLE");
@@ -2333,31 +2369,40 @@ void Unparser::visitASTAlterColumnTypeAction(
   node->schema()->Accept(this, data);
 }
 
+void Unparser::visitASTRevokeFromClause(const ASTRevokeFromClause* node,
+                                        void* data) {
+  print("REVOKE FROM ");
+  if (node->is_revoke_from_all()) {
+    print("ALL");
+  } else {
+    print("(");
+    node->revoke_from_list()->Accept(this, data);
+    print(")");
+  }
+}
+
+void Unparser::visitASTRenameToClause(const ASTRenameToClause* node,
+                                      void* data) {
+  print("RENAME TO");
+  node->new_name()->Accept(this, data);
+}
+
 void Unparser::visitASTAlterActionList(const ASTAlterActionList* node,
                                        void* data) {
   Formatter::Indenter indenter(&formatter_);
   UnparseChildrenWithSeparator(node, data, ",");
 }
 
-void Unparser::visitASTAlterRowPolicyStatement(
-    const ASTAlterRowPolicyStatement* node, void* data) {
-  print("ALTER ROW POLICY");
+void Unparser::visitASTAlterRowAccessPolicyStatement(
+    const ASTAlterRowAccessPolicyStatement* node, void* data) {
+  print("ALTER ROW ACCESS POLICY");
+  if (node->is_if_exists()) {
+    print("IF EXISTS");
+  }
   node->name()->Accept(this, data);
-  if (node->new_name() != nullptr) {
-    print("RENAME TO");
-    node->new_name()->Accept(this, data);
-  }
   print("ON");
-  node->target_path()->Accept(this, data);
-  if (node->grantee_list() != nullptr) {
-    print("TO");
-    node->grantee_list()->Accept(this, data);
-  }
-  if (node->predicate() != nullptr) {
-    print("USING (");
-    node->predicate()->Accept(this, data);
-    print(")");
-  }
+  node->path()->Accept(this, data);
+  node->action_list()->Accept(this, data);
 }
 
 void Unparser::visitASTCreateIndexStatement(const ASTCreateIndexStatement* node,
@@ -2390,16 +2435,11 @@ void Unparser::visitASTCreateIndexStatement(const ASTCreateIndexStatement* node,
   }
 }
 
-void Unparser::VisitStatementListBase(const ASTStatementListBase* node,
-                                      void* data) {
+void Unparser::visitASTStatementList(const ASTStatementList* node, void* data) {
   for (const ASTStatement* statement : node->statement_list()) {
     statement->Accept(this, data);
     println(";");
   }
-}
-
-void Unparser::visitASTStatementList(const ASTStatementList* node, void* data) {
-  VisitStatementListBase(node, data);
 }
 
 void Unparser::visitASTIfStatement(const ASTIfStatement* node, void* data) {
@@ -2424,7 +2464,10 @@ void Unparser::visitASTBeginEndBlock(const ASTBeginEndBlock* node, void* data) {
   println("BEGIN");
   {
     Formatter::Indenter indenter(&formatter_);
-    node->statement_list()->Accept(this, data);
+    node->statement_list_node()->Accept(this, data);
+  }
+  if (node->handler_list() != nullptr) {
+    node->handler_list()->Accept(this, data);
   }
   println("END");
 }
@@ -2531,6 +2574,14 @@ void Unparser::visitASTParameterAssignment(const ASTParameterAssignment* node,
   node->expression()->Accept(this, data);
 }
 
+void Unparser::visitASTSystemVariableAssignment(
+    const ASTSystemVariableAssignment* node, void* data) {
+  print("SET");
+  node->system_variable()->Accept(this, data);
+  print("=");
+  node->expression()->Accept(this, data);
+}
+
 void Unparser::visitASTAssignmentFromStruct(const ASTAssignmentFromStruct* node,
                                   void* data) {
   print("SET");
@@ -2570,7 +2621,7 @@ void Unparser::visitASTWhileStatement(const ASTWhileStatement* node,
 }
 
 void Unparser::visitASTScript(const ASTScript* node, void* data) {
-  VisitStatementListBase(node, data);
+  node->statement_list_node()->Accept(this, data);
 }
 
 void Unparser::visitASTBreakStatement(const ASTBreakStatement* node,
@@ -2607,6 +2658,21 @@ void Unparser::visitASTNamedArgument(const ASTNamedArgument* node, void* data) {
   node->name()->Accept(this, data);
   print(" => ");
   node->expr()->Accept(this, data);
+}
+
+void Unparser::visitASTExceptionHandler(const ASTExceptionHandler* node,
+                                        void* data) {
+  print("WHEN ERROR THEN");
+  Formatter::Indenter indenter(&formatter_);
+  node->statement_list()->Accept(this, data);
+  println();
+}
+void Unparser::visitASTExceptionHandlerList(const ASTExceptionHandlerList* node,
+                                            void* data) {
+  println("EXCEPTION");
+  for (const ASTExceptionHandler* handler : node->exception_handler_list()) {
+    handler->Accept(this, data);
+  }
 }
 
 }  // namespace parser

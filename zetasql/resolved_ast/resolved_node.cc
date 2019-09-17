@@ -319,6 +319,20 @@ std::string ResolvedConstant::GetNameForDebugString() const {
   return absl::StrCat("Constant");
 }
 
+void ResolvedSystemVariable::CollectDebugStringFields(
+    std::vector<DebugStringField>* fields) const {
+  SUPER::CollectDebugStringFields(fields);
+  fields->emplace(
+      fields->begin(), "",
+      absl::StrJoin(name_path(), ".", [](std::string* out, const std::string& in) {
+        absl::StrAppend(out, ToIdentifierLiteral(in));
+      }));
+}
+
+std::string ResolvedSystemVariable::GetNameForDebugString() const {
+  return absl::StrCat("SystemVariable");
+}
+
 // ResolvedFunctionCall gets formatted as
 //   FunctionCall(name(arg_types) -> type)
 // with only <arguments> printed as children.

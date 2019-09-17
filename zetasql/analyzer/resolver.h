@@ -236,6 +236,13 @@ class Resolver {
   absl::string_view sql_;
 
   Catalog* catalog_;
+
+  // Internal catalog for looking up system variables.  Content is imported
+  // directly from analyzer_options_.system_variables().  This field is
+  // initially set to nullptr, and is initialized the first time we encounter a
+  // reference to a system variable.
+  std::unique_ptr<Catalog> system_variables_catalog_;
+
   TypeFactory* type_factory_;
   const AnalyzerOptions& analyzer_options_;  // Not owned.
   Coercer coercer_;
@@ -494,7 +501,8 @@ class Resolver {
 
   // Resolve the CreateMode from a generic CREATE statement.
   zetasql_base::Status ResolveCreateStatementOptions(
-      const ASTCreateStatement* ast_statement, const std::string& statement_type,
+      const ASTCreateStatement* ast_statement,
+      const std::string& statement_type,
       ResolvedCreateStatement::CreateScope* create_scope,
       ResolvedCreateStatement::CreateMode* create_mode) const;
 
@@ -505,8 +513,7 @@ class Resolver {
   // Other output arguments are always non-nulls.
   zetasql_base::Status ResolveCreateViewStatementBaseProperties(
       const ASTCreateViewStatementBase* ast_statement,
-      const std::string& statement_type,
-      absl::string_view object_type,
+      const std::string& statement_type, absl::string_view object_type,
       std::vector<std::string>* table_name,
       ResolvedCreateStatement::CreateScope* create_scope,
       ResolvedCreateStatement::CreateMode* create_mode,
@@ -516,8 +523,7 @@ class Resolver {
           output_column_list,
       std::vector<std::unique_ptr<const ResolvedColumnDefinition>>*
           column_definition_list,
-      std::unique_ptr<const ResolvedScan>* query_scan,
-      std::string* view_sql,
+      std::unique_ptr<const ResolvedScan>* query_scan, std::string* view_sql,
       bool* is_value_table);
 
   // Creates the ResolvedGeneratedColumnInfo from an ASTGeneratedColumnInfo.
@@ -818,8 +824,8 @@ class Resolver {
 
   // Helper function that returns a customized error for unsupported (templated)
   // argument types in a function declaration.
-  zetasql_base::Status UnsupportedArgumentError(
-      const ASTFunctionParameter& argument, const std::string& context);
+  zetasql_base::Status UnsupportedArgumentError(const ASTFunctionParameter& argument,
+                                        const std::string& context);
 
   // This enum instructs the ResolveFunctionDeclaration method on what kind of
   // function it is currently resolving.
@@ -1007,8 +1013,13 @@ class Resolver {
       const ASTRevokeStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
-  zetasql_base::Status ResolveAlterRowPolicyStatement(
-      const ASTAlterRowPolicyStatement* ast_statement,
+  zetasql_base::Status ResolveRowAccessPolicyTableAndAlterActions(
+      const ASTAlterRowAccessPolicyStatement* ast_statement,
+      std::unique_ptr<const ResolvedTableScan>* resolved_table_scan,
+      std::vector<std::unique_ptr<const ResolvedAlterAction>>* alter_actions);
+
+  zetasql_base::Status ResolveAlterRowAccessPolicyStatement(
+      const ASTAlterRowAccessPolicyStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
   zetasql_base::Status ResolveAlterActions(
@@ -1029,6 +1040,10 @@ class Resolver {
       const ASTDropColumnAction* action, IdStringSetCase* new_columns,
       IdStringSetCase* columns_to_drop,
       std::unique_ptr<const ResolvedAlterAction>* alter_action);
+
+  zetasql_base::Status ResolveAlterDatabaseStatement(
+      const ASTAlterDatabaseStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
 
   zetasql_base::Status ResolveAlterTableStatement(
       const ASTAlterTableStatement* ast_statement,
@@ -1137,9 +1152,9 @@ class Resolver {
   // TODO: Enable this feature for all customers, and remove the
   // <grantee_list> from this function call.
   zetasql_base::Status ResolveGranteeList(
-      const ASTGranteeList* ast_grantee_list, std::vector<std::string>* grantee_list,
-      std::vector<std::unique_ptr<const ResolvedExpr>>*
-          grantee_expr_list);
+      const ASTGranteeList* ast_grantee_list,
+      std::vector<std::string>* grantee_list,
+      std::vector<std::unique_ptr<const ResolvedExpr>>* grantee_expr_list);
 
   static zetasql_base::Status CreateSelectNamelists(
       const SelectColumnState* select_column_state,
@@ -1463,14 +1478,13 @@ class Resolver {
   // may be literals coming from ProjectScans.
   // <argument_description> and <query_description> are the words used to
   // describe those entities in error messages.
-  zetasql_base::Status ResolveBuildProto(
-      const ASTNode* ast_type_location,
-      const ProtoType* proto_type,
-      const ResolvedScan* input_scan,
-      const std::string& argument_description,
-      const std::string& query_description,
-      std::vector<ResolvedBuildProtoArg>* arguments,
-      std::unique_ptr<const ResolvedExpr>* output);
+  zetasql_base::Status ResolveBuildProto(const ASTNode* ast_type_location,
+                                 const ProtoType* proto_type,
+                                 const ResolvedScan* input_scan,
+                                 const std::string& argument_description,
+                                 const std::string& query_description,
+                                 std::vector<ResolvedBuildProtoArg>* arguments,
+                                 std::unique_ptr<const ResolvedExpr>* output);
 
   // Returns the FieldDescriptor corresponding to <ast_path_expr>. First tries
   // to look up with respect to <descriptor>, and failing that extracts a type
@@ -1606,12 +1620,11 @@ class Resolver {
   // Resolves the table name and predicate expression in an ALTER ROW POLICY
   // or CREATE ROW POLICY statement.
   zetasql_base::Status ResolveTableAndPredicate(
-    const ASTPathExpression* table_path,
-    const ASTExpression* predicate,
-    const char* clause_name,
-    std::unique_ptr<const ResolvedTableScan>* resolved_table_scan,
-    std::unique_ptr<const ResolvedExpr>* resolved_predicate,
-    std::string* predicate_str);
+      const ASTPathExpression* table_path, const ASTExpression* predicate,
+      const char* clause_name,
+      std::unique_ptr<const ResolvedTableScan>* resolved_table_scan,
+      std::unique_ptr<const ResolvedExpr>* resolved_predicate,
+      std::string* predicate_str);
 
   // Create a ResolvedColumn for each ORDER BY item in <order_by_info> that
   // is not supposed to be a reference to a SELECT column (which currently only
@@ -1756,6 +1769,19 @@ class Resolver {
   zetasql_base::Status ResolveTablePathExpression(
       const ASTTablePathExpression* table_ref,
       const NameScope* scope,
+      std::unique_ptr<const ResolvedScan>* output,
+      std::shared_ptr<const NameList>* output_name_list);
+
+  // Resolve a path expression <path_expr> as a argument of table type within
+  // the context of a CREATE TABLE FUNCTION statement. The <path_expr> should
+  // exist as a key in the function_table_arguments_ map, and should only
+  // comprise a single-part name with exactly one element. The <hint> is
+  // optional and may be NULL.
+  zetasql_base::Status ResolvePathExpressionAsFunctionTableArgument(
+      const ASTPathExpression* path_expr,
+      const ASTHint* hint,
+      IdString alias,
+      const ASTNode* ast_location,
       std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* output_name_list);
 
@@ -2205,6 +2231,11 @@ class Resolver {
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
+  zetasql_base::Status ResolveSystemVariableExpression(
+      const ASTSystemVariableExpr* ast_system_variable_expr,
+      ExprResolutionInfo* expr_resolution_info,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+
   zetasql_base::Status ResolveUnaryExpr(
       const ASTUnaryExpression* unary_expr,
       ExprResolutionInfo* expr_resolution_info,
@@ -2421,7 +2452,8 @@ class Resolver {
 
   // Returns the std::string name of the ProtoExtractionType corresponding to
   // <extraction_type>.
-  static std::string ProtoExtractionTypeName(ProtoExtractionType extraction_type);
+  static std::string ProtoExtractionTypeName(
+      ProtoExtractionType extraction_type);
 
   // Resolves an EXTRACT(ACCESSOR(field) FROM proto) call.
   // <field_extraction_type_ast_location> is the ASTNode denoting the
@@ -2884,6 +2916,18 @@ class Resolver {
   // <ast_expr> does not match, or the column alias is an internal alias.
   static IdString GetColumnAliasForTopLevelExpression(
       ExprResolutionInfo* expr_resolution_info, const ASTExpression* ast_expr);
+
+  // Returns an error for an unrecognized identifier.  Errors take the form
+  // "Unrecognized name: foo", with a "Did you mean <bar>?" suggestion added
+  // if the path expression is sufficiently close to a symbol in <name_scope>
+  // or <catalog_>.
+  zetasql_base::Status GetUnrecognizedNameError(const ASTPathExpression* ast_path_expr,
+                                        const NameScope* name_scope);
+
+  // Returns an internal catalog used just for looking up system variables.
+  // The results of this function are cached in system_variables_catalog_, so
+  // only the first call actually populates the catalog.
+  Catalog* GetSystemVariablesCatalog();
 
   friend class AnalyticFunctionResolver;
   friend class FunctionResolver;

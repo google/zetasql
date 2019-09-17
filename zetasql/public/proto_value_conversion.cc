@@ -339,7 +339,7 @@ zetasql_base::Status MergeValueToProtoField(const Value& value,
                                                functions::kMicroseconds, scale,
                                                &converted_timestamp)
                .ok()) {
-        return ::zetasql_base::OutOfRangeErrorBuilder(ZETASQL_LOC).LogError()
+        return ::zetasql_base::OutOfRangeErrorBuilder().LogError()
                << "Cannot encode timestamp: " << value.ToUnixMicros()
                << " with format: " << FieldFormat::Format_Name(field_format);
       }
@@ -735,9 +735,9 @@ zetasql_base::Status ProtoFieldToValue(const google::protobuf::Message& proto,
       if (!functions::ConvertBetweenTimestamps(
                encoded_timestamp, scale, functions::kMicroseconds, &micros)
                .ok()) {
-        return ::zetasql_base::OutOfRangeErrorBuilder(ZETASQL_LOC).LogError()
-            << "Invalid encoded timestamp: " << encoded_timestamp
-            << " with format: " << FieldFormat::Format_Name(field_format);
+        return ::zetasql_base::OutOfRangeErrorBuilder().LogError()
+               << "Invalid encoded timestamp: " << encoded_timestamp
+               << " with format: " << FieldFormat::Format_Name(field_format);
       }
       *value_out = Value::TimestampFromUnixMicros(micros);
       return ::zetasql_base::OkStatus();
@@ -755,9 +755,9 @@ zetasql_base::Status ProtoFieldToValue(const google::protobuf::Message& proto,
       DatetimeValue datetime =
           DatetimeValue::FromPacked64Micros(encoded_datetime);
       if (!datetime.IsValid()) {
-        return ::zetasql_base::OutOfRangeErrorBuilder(ZETASQL_LOC).LogError()
-            << "Invalid encoded datetime: " << encoded_datetime
-            << " with format: " << FieldFormat::Format_Name(field_format);
+        return ::zetasql_base::OutOfRangeErrorBuilder().LogError()
+               << "Invalid encoded datetime: " << encoded_datetime
+               << " with format: " << FieldFormat::Format_Name(field_format);
       }
       *value_out = Value::Datetime(datetime);
       return ::zetasql_base::OkStatus();
@@ -774,9 +774,9 @@ zetasql_base::Status ProtoFieldToValue(const google::protobuf::Message& proto,
               : reflection->GetInt64(proto, field);
       TimeValue time = TimeValue::FromPacked64Micros(encoded_time);
       if (!time.IsValid()) {
-        return ::zetasql_base::OutOfRangeErrorBuilder(ZETASQL_LOC).LogError()
-            << "Invalid encoded time: " << encoded_time
-            << " with format: " << FieldFormat::Format_Name(field_format);
+        return ::zetasql_base::OutOfRangeErrorBuilder().LogError()
+               << "Invalid encoded time: " << encoded_time
+               << " with format: " << FieldFormat::Format_Name(field_format);
       }
       *value_out = Value::Time(time);
       return ::zetasql_base::OkStatus();

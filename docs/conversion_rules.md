@@ -408,12 +408,12 @@ SELECT '0x123' as hex_value, CAST('0x123' as INT64) as hex_to_int;
 | 0x123     | 291        |
 +-----------+------------+
 
-SELECT '0x123' as hex_value, CAST('-0x123' as INT64) as hex_to_int;
+SELECT '-0x123' as hex_value, CAST('-0x123' as INT64) as hex_to_int;
 
 +-----------+------------+
 | hex_value | hex_to_int |
 +-----------+------------+
-| 0x123     | -291       |
+| -0x123    | -291       |
 +-----------+------------+
 ```
 

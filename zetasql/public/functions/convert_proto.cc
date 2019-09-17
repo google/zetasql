@@ -37,7 +37,7 @@ static bool ProtoToStringInternal(const google::protobuf::Message* value, std::s
   if (!printer.Print(*value, &stream)) {
     // This can happen (e.g.) when the algorithm thinks it is out of buffer
     // space. Generally it is unexpected here.
-    *error = ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC)
+    *error = ::zetasql_base::InternalErrorBuilder()
              << "Failed to generate proto2 text format for printing a proto2 "
              << "message to a std::string.";
     return false;
@@ -70,7 +70,7 @@ bool StringToProto(const absl::string_view value, google::protobuf::Message* out
     ~Proto2ErrorCollector() final {}
 
     void AddError(int line, int column, const std::string& message) final {
-      *error_ = ::zetasql_base::OutOfRangeErrorBuilder(ZETASQL_LOC)
+      *error_ = ::zetasql_base::OutOfRangeErrorBuilder()
                 << "Error parsing proto: " << message << " [" << line + 1 << ":"
                 << column + 1 << "]";
     }

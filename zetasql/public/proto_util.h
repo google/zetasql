@@ -25,8 +25,11 @@
 #include "zetasql/public/value.h"
 #include <cstdint>
 #include "absl/container/flat_hash_map.h"
+#include "absl/flags/declare.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/statusor.h"
+
+ABSL_DECLARE_FLAG(bool, zetasql_read_proto_field_optimized_path);
 
 namespace zetasql {
 

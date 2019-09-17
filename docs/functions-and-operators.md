@@ -483,12 +483,12 @@ SELECT '0x123' as hex_value, CAST('0x123' as INT64) as hex_to_int;
 | 0x123     | 291        |
 +-----------+------------+
 
-SELECT '0x123' as hex_value, CAST('-0x123' as INT64) as hex_to_int;
+SELECT '-0x123' as hex_value, CAST('-0x123' as INT64) as hex_to_int;
 
 +-----------+------------+
 | hex_value | hex_to_int |
 +-----------+------------+
-| 0x123     | -291       |
+| -0x123    | -291       |
 +-----------+------------+
 ```
 
@@ -715,15 +715,16 @@ ZetaSQL provides the following additional conversion functions:
 ## Aggregate functions
 
 An *aggregate function* is a function that performs a calculation on a set of
-values. COUNT, MIN and MAX are examples of aggregate functions.
+values. `COUNT`, `MIN` and `MAX` are examples of aggregate functions.
 
 ```sql
 SELECT COUNT(*) as total_count, COUNT(fruit) as non_null_count,
        MIN(fruit) as min, MAX(fruit) as max
-FROM UNNEST([NULL, "apple", "pear", "orange"]) as fruit;
-```
+FROM (SELECT NULL as fruit UNION ALL
+      SELECT "apple" as fruit UNION ALL
+      SELECT "pear" as fruit UNION ALL
+      SELECT "orange" as fruit)
 
-```
 +-------------+----------------+-------+------+
 | total_count | non_null_count | min   | max  |
 +-------------+----------------+-------+------+
@@ -784,7 +785,9 @@ FROM UNNEST(["apple", "banana", "pear"]) as fruit;
 +-----------+
 | apple     |
 +-----------+
+```
 
+```sql
 SELECT
   fruit,
   ANY_VALUE(fruit) OVER (ORDER BY LENGTH(fruit) ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS any_value
@@ -797,7 +800,6 @@ FROM UNNEST(["apple", "banana", "pear"]) as fruit;
 | apple  | pear      |
 | banana | apple     |
 +--------+-----------+
-
 ```
 
 ### ARRAY_AGG
@@ -900,6 +902,7 @@ FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x;
 ```sql
 SELECT ARRAY_AGG(x ORDER BY ABS(x)) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
+
 +-------------------------+
 | array_agg               |
 +-------------------------+
@@ -1019,10 +1022,11 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 +-----------------------------------+
 | [NULL, 1, 2, 3, 4, 5, 6, 7, 8, 9] |
 +-----------------------------------+
+```
 
+```sql
 SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x)) AS array_concat_agg FROM (
-  SELECT [NULL, 1, 2, 3, 4] AS x
-  UNION ALL SELECT NULL
+  SELECT [1, 2, 3, 4] AS x
   UNION ALL SELECT [5, 6]
   UNION ALL SELECT [7, 8, 9]
 );
@@ -1030,12 +1034,13 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x)) AS array_concat_agg FROM (
 +-----------------------------------+
 | array_concat_agg                  |
 +-----------------------------------+
-| [5, 6, 7, 8, 9, NULL, 1, 2, 3, 4] |
+| [5, 6, 7, 8, 9, 1, 2, 3, 4]       |
 +-----------------------------------+
+```
 
+```sql
 SELECT ARRAY_CONCAT_AGG(x LIMIT 2) AS array_concat_agg FROM (
-  SELECT [NULL, 1, 2, 3, 4] AS x
-  UNION ALL SELECT NULL
+  SELECT [1, 2, 3, 4] AS x
   UNION ALL SELECT [5, 6]
   UNION ALL SELECT [7, 8, 9]
 );
@@ -1043,12 +1048,13 @@ SELECT ARRAY_CONCAT_AGG(x LIMIT 2) AS array_concat_agg FROM (
 +--------------------------+
 | array_concat_agg         |
 +--------------------------+
-| [NULL, 1, 2, 3, 4, 5, 6] |
+| [1, 2, 3, 4, 5, 6]       |
 +--------------------------+
+```
 
+```sql
 SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x) LIMIT 2) AS array_concat_agg FROM (
-  SELECT [NULL, 1, 2, 3, 4] AS x
-  UNION ALL SELECT NULL
+  SELECT [1, 2, 3, 4] AS x
   UNION ALL SELECT [5, 6]
   UNION ALL SELECT [7, 8, 9]
 );
@@ -1058,7 +1064,6 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x) LIMIT 2) AS array_concat_agg 
 +------------------+
 | [5, 6, 7, 8, 9]  |
 +------------------+
-
 ```
 
 ### AVG
@@ -1107,23 +1112,27 @@ The clauses are applied *in the following order*:
 
 ```sql
 SELECT AVG(x) as avg
-FROM UNNEST([0, 2, NULL, 4, 4, 5]) as x;
+FROM UNNEST([0, 2, 4, 4, 5]) as x;
 
 +-----+
 | avg |
 +-----+
 | 3   |
 +-----+
+```
 
+```sql
 SELECT AVG(DISTINCT x) AS avg
-FROM UNNEST([0, 2, NULL, 4, 4, 5]) AS x;
+FROM UNNEST([0, 2, 4, 4, 5]) AS x;
 
 +------+
 | avg  |
 +------+
 | 2.75 |
 +------+
+```
 
+```sql
 SELECT
   x,
   AVG(x) OVER (ORDER BY x ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS avg
@@ -1139,7 +1148,6 @@ FROM UNNEST([0, 2, NULL, 4, 4, 5]) AS x;
 | 4    | 4    |
 | 5    | 4.5  |
 +------+------+
-
 ```
 
 ### BIT_AND
@@ -1287,14 +1295,19 @@ SELECT BIT_XOR(x) AS bit_xor FROM UNNEST([5678, 1234]) AS x;
 +---------+
 | 4860    |
 +---------+
+```
 
+```sql
 SELECT BIT_XOR(x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
+
 +---------+
 | bit_xor |
 +---------+
 | 5678    |
 +---------+
+```
 
+```sql
 SELECT BIT_XOR(DISTINCT x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 
 +---------+
@@ -1302,7 +1315,6 @@ SELECT BIT_XOR(DISTINCT x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 +---------+
 | 4860    |
 +---------+
-
 ```
 
 ### COUNT
@@ -1356,33 +1368,49 @@ INT64
 ```sql
 SELECT
   COUNT(*) AS count_star,
-  COUNT(x) AS count_x,
   COUNT(DISTINCT x) AS count_dist_x
-FROM UNNEST([1, 4, NULL, 4, 5]) AS x;
+FROM UNNEST([1, 4, 4, 5]) AS x;
 
-+------------+---------+--------------+
-| count_star | count_x | count_dist_x |
-+------------+---------+--------------+
-| 5          | 4       | 3            |
-+------------+---------+--------------+
++------------+--------------+
+| count_star | count_dist_x |
++------------+--------------+
+| 4          | 3            |
++------------+--------------+
+```
 
+```sql
 SELECT
   x,
   COUNT(*) OVER (PARTITION BY MOD(x, 3)) AS count_star,
-  COUNT(x) OVER (PARTITION BY MOD(x, 3)) AS count_x,
   COUNT(DISTINCT x) OVER (PARTITION BY MOD(x, 3)) AS count_dist_x
+FROM UNNEST([1, 4, 4, 5]) AS x;
+
++------+------------+--------------+
+| x    | count_star | count_dist_x |
++------+------------+--------------+
+| 1    | 3          | 2            |
+| 4    | 3          | 2            |
+| 4    | 3          | 2            |
+| 5    | 1          | 1            |
++------+------------+--------------+
+```
+
+```sql
+SELECT
+  x,
+  COUNT(*) OVER (PARTITION BY MOD(x, 3)) AS count_star,
+  COUNT(x) OVER (PARTITION BY MOD(x, 3)) AS count_x
 FROM UNNEST([1, 4, NULL, 4, 5]) AS x;
 
-+------+------------+---------+--------------+
-| x    | count_star | count_x | count_dist_x |
-+------+------------+---------+--------------+
-| NULL | 1          | 0       | 0            |
-| 1    | 3          | 3       | 2            |
-| 4    | 3          | 3       | 2            |
-| 4    | 3          | 3       | 2            |
-| 5    | 1          | 1       | 1            |
-+------+------------+---------+--------------+
-
++------+------------+---------+
+| x    | count_star | count_x |
++------+------------+---------+
+| NULL | 1          | 0       |
+| 1    | 3          | 3       |
+| 4    | 3          | 3       |
+| 4    | 3          | 3       |
+| 5    | 1          | 1       |
++------+------------+---------+
 ```
 
 ### COUNTIF
@@ -1428,14 +1456,16 @@ INT64
 
 ```sql
 SELECT COUNTIF(x<0) AS num_negative, COUNTIF(x>0) AS num_positive
-FROM UNNEST([5, -2, 3, 6, -10, NULL, -7, 4, 0]) AS x;
+FROM UNNEST([5, -2, 3, 6, -10, -7, 4, 0]) AS x;
 
 +--------------+--------------+
 | num_negative | num_positive |
 +--------------+--------------+
 | 3            | 4            |
 +--------------+--------------+
+```
 
+```sql
 SELECT
   x,
   COUNTIF(x<0) OVER (ORDER BY ABS(x) ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS num_negative
@@ -1454,7 +1484,6 @@ FROM UNNEST([5, -2, 3, 6, -10, NULL, -7, 4, 0]) AS x;
 | -7   | 2            |
 | -10  | 2            |
 +------+--------------+
-
 ```
 
 ### LOGICAL_AND
@@ -1496,7 +1525,7 @@ BOOL
 **Examples**
 
 ```sql
-SELECT LOGICAL_AND(x) as logical_and FROM UNNEST([true, false, true]) as x;
+SELECT LOGICAL_AND(x) AS logical_and FROM UNNEST([true, false, true]) AS x;
 
 +-------------+
 | logical_and |
@@ -1544,7 +1573,7 @@ BOOL
 **Examples**
 
 ```sql
-SELECT LOGICAL_OR(x) as logical_or FROM UNNEST([true, false, true]) as x;
+SELECT LOGICAL_OR(x) AS logical_or FROM UNNEST([true, false, true]) AS x;
 
 +------------+
 | logical_or |
@@ -1597,14 +1626,16 @@ Same as the data type used as the input values.
 
 ```sql
 SELECT MAX(x) AS max
-FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
+FROM UNNEST([8, 37, 4, 55]) AS x;
 
 +-----+
 | max |
 +-----+
 | 55  |
 +-----+
+```
 
+```sql
 SELECT x, MAX(x) OVER (PARTITION BY MOD(x, 2)) AS max
 FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 
@@ -1618,7 +1649,6 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 | 37   | 55   |
 | 55   | 55   |
 +------+------+
-
 ```
 
 ### MIN
@@ -1665,14 +1695,16 @@ Same as the data type used as the input values.
 
 ```sql
 SELECT MIN(x) AS min
-FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
+FROM UNNEST([8, 37, 4, 55]) AS x;
 
 +-----+
 | min |
 +-----+
 | 4   |
 +-----+
+```
 
+```sql
 SELECT x, MIN(x) OVER (PARTITION BY MOD(x, 2)) AS min
 FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 
@@ -1686,7 +1718,6 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 | 37   | 37   |
 | 55   | 37   |
 +------+------+
-
 ```
 
 ### STRING_AGG
@@ -1763,52 +1794,64 @@ FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 +------------------------+
 | apple,pear,banana,pear |
 +------------------------+
+```
 
+```sql
 SELECT STRING_AGG(fruit, " & ") AS string_agg
-FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
+FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
 +------------------------------+
 | string_agg                   |
 +------------------------------+
 | apple & pear & banana & pear |
 +------------------------------+
+```
 
+```sql
 SELECT STRING_AGG(DISTINCT fruit, " & ") AS string_agg
-FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
+FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
 +-----------------------+
 | string_agg            |
 +-----------------------+
-| apple & banana & pear |
+| apple & pear & banana |
 +-----------------------+
+```
 
+```sql
 SELECT STRING_AGG(fruit, " & " ORDER BY LENGTH(fruit)) AS string_agg
-FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
+FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
 +------------------------------+
 | string_agg                   |
 +------------------------------+
 | pear & pear & apple & banana |
 +------------------------------+
+```
 
+```sql
 SELECT STRING_AGG(fruit, " & " LIMIT 2) AS string_agg
-FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
+FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
 +--------------+
 | string_agg   |
 +--------------+
 | apple & pear |
 +--------------+
+```
 
+```sql
 SELECT STRING_AGG(DISTINCT fruit, " & " ORDER BY fruit DESC LIMIT 2) AS string_agg
-FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
+FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
 +---------------+
 | string_agg    |
 +---------------+
 | pear & banana |
 +---------------+
+```
 
+```sql
 SELECT
   fruit,
   STRING_AGG(fruit, " & ") OVER (ORDER BY LENGTH(fruit)) AS string_agg
@@ -1823,7 +1866,6 @@ FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 | apple  | pear & pear & apple          |
 | banana | pear & pear & apple & banana |
 +--------+------------------------------+
-
 ```
 
 ### SUM
@@ -1893,7 +1935,9 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 +-----+
 | 25  |
 +-----+
+```
 
+```sql
 SELECT SUM(DISTINCT x) AS sum
 FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 
@@ -1902,7 +1946,9 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 +-----+
 | 15  |
 +-----+
+```
 
+```sql
 SELECT
   x,
   SUM(x) OVER (PARTITION BY MOD(x, 3)) AS sum
@@ -1921,7 +1967,9 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 | 5 | 9   |
 | 2 | 9   |
 +---+-----+
+```
 
+```sql
 SELECT
   x,
   SUM(DISTINCT x) OVER (PARTITION BY MOD(x, 3)) AS sum
@@ -1940,7 +1988,6 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 | 5 | 7   |
 | 2 | 7   |
 +---+-----+
-
 ```
 
 ## Statistical Aggregate Functions
@@ -2378,14 +2425,16 @@ rows or `expression` evaluates to NULL for all rows.
 
 ```sql
 SELECT APPROX_QUANTILES(x, 2) AS approx_quantiles
-FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
+FROM UNNEST([1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
 +------------------+
 | approx_quantiles |
 +------------------+
 | [1, 5, 10]       |
 +------------------+
+```
 
+```sql
 SELECT APPROX_QUANTILES(x, 100)[OFFSET(90)] AS percentile_90
 FROM UNNEST([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
@@ -2394,16 +2443,20 @@ FROM UNNEST([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) AS x;
 +---------------+
 | 9             |
 +---------------+
+```
 
+```sql
 SELECT APPROX_QUANTILES(DISTINCT x, 2) AS approx_quantiles
-FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
+FROM UNNEST([1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
 +------------------+
 | approx_quantiles |
 +------------------+
 | [1, 6, 10]       |
 +------------------+
+```
 
+```sql
 SELECT APPROX_QUANTILES(x, 2 RESPECT NULLS) AS approx_quantiles
 FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
@@ -2412,7 +2465,9 @@ FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 +------------------+
 | [NULL, 4, 10]    |
 +------------------+
+```
 
+```sql
 SELECT APPROX_QUANTILES(DISTINCT x, 2 RESPECT NULLS) AS approx_quantiles
 FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
@@ -2421,7 +2476,6 @@ FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 +------------------+
 | [NULL, 6, 10]    |
 +------------------+
-
 ```
 
 ### APPROX_TOP_COUNT
@@ -2540,7 +2594,7 @@ If the `weight` input is negative or `NaN`, this function returns an error.
 An ARRAY of type STRUCT.
 The STRUCT contains two fields: `value` and `sum`.
 The `value` field contains the value of the input expression. The `sum` field is
-the same type as`weight`, and is the approximate sum of the input weight
+the same type as `weight`, and is the approximate sum of the input weight
 associated with the `value` field.
 
 Returns `NULL` if there are zero input rows.
@@ -2624,15 +2678,6 @@ is represented using the `BYTES` data type. You can then merge sketches using
 you can extract the final count of distinct values from the sketch using
 `HLL_COUNT.EXTRACT`.
 
-An `input` can be one of the following:
-
-<ul>
-<li>INT64</li>
-<li>UINT64</li>
-<li>STRING</li>
-<li>BYTES</li>
-</ul>
-
 This function supports an optional parameter, `precision`. This parameter
 defines the accuracy of the estimate at the cost of additional memory required
 to process the sketches or store them on disk. The following table shows the
@@ -2662,9 +2707,9 @@ If the input is NULL, this function returns NULL.
 For more information, see
 [HyperLogLog in Practice: Algorithmic Engineering of a State of The Art Cardinality Estimation Algorithm][hll-link-to-research-whitepaper].
 
-**Supported input type**
+**Supported input types**
 
-BYTES
+INT64, UINT64, NUMERIC, STRING, BYTES
 
 **Return type**
 
@@ -2821,6 +2866,616 @@ FROM (
 [hll-link-to-approx-count-distinct]: #approx_count_distinct
 [hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
 [approximate-aggregation-concept]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation.md
+
+## KLL16 Quantile Functions
+
+ZetaSQL supports the following functions for estimating quantiles
+with approximate aggregate quantile sketches using the [KLL16 algorithm][link-to-kll-paper].
+For an explanation of how approximate aggregate functions work, see
+[Approximate Aggregation][approximate-aggregation-concept].
+
+Quantiles can be defined in two ways. First, for a positive integer *q*,
+*q-quantiles* are a set of values that partition an input set into *q* subsets
+of nearly equal size; that is, there are *q*-1 of the *q*-quantiles. Some of
+these have specific names: the single 2-quantile is the median; the 4-quantiles
+are quartiles, the 100-quantiles are percentiles, etc.
+
+To extract a set of *q*-quantiles, use the following functions, where *q* is the
+`number` argument:
+
++ `KLL_QUANTILES.MERGE_INT64`
++ `KLL_QUANTILES.MERGE_UINT64`
++ `KLL_QUANTILES.MERGE_DOUBLE`
++ `KLL_QUANTILES.EXTRACT_INT64`
++ `KLL_QUANTILES.EXTRACT_UINT64`
++ `KLL_QUANTILES.EXTRACT_DOUBLE`
+
+Alternatively, quantiles can be defined as individual *Φ-quantiles*, where Φ is
+a real number with 0 <= Φ <= 1. The Φ-quantile *x* is an element of the input
+such that a Φ fraction of the input is less than or equal to *x*, and a (1-Φ)
+fraction is greater than or equal to *x*. In this notation, the median is the
+0.5-quantile, and the 95th percentile is the 0.95-quantile.
+
+To extract individual Φ-quantiles, use the following functions, where Φ is the
+`phi` argument:
+
++ `KLL_QUANTILES.MERGE_POINT_INT64`
++ `KLL_QUANTILES.MERGE_POINT_UINT64`
++ `KLL_QUANTILES.MERGE_POINT_DOUBLE`
++ `KLL_QUANTILES.EXTRACT_POINT_INT64`
++ `KLL_QUANTILES.EXTRACT_POINT_UINT64`
++ `KLL_QUANTILES.EXTRACT_POINT_DOUBLE`
+
+### KLL_QUANTILES.INIT_INT64
+
+```
+KLL_QUANTILES.INIT_INT64(input[, precision])
+```
+
+**Description**
+
+Takes one or more `input` values and aggregates them into a
+[KLL16][link-to-kll-paper] sketch. This function represents the output sketch
+using the `BYTES` data type. This is an
+aggregate function.
+
+The `precision` argument defines the exactness of the returned approximate
+quantile *q*. By default, the rank of the approximate quantile in the input can
+be at most ±1/1000 * *n* off from ⌈Φ * *n*⌉, where *n* is the number of rows in
+the input and ⌈Φ * *n*⌉ is the rank of the exact quantile. If you provide a
+value for `precision`, the rank of the approximate quantile in the input can be
+at most ±1/`precision` * *n* off from the rank of the exact quantile. The error
+is within this error bound in 99.999% of cases.
+
+Note: This error guarantee only applies to the difference between exact and
+approximate ranks: the numerical difference between the exact and approximated
+value for a quantile can be arbitrarily large.
+
+**Example**
+
+```
+SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+FROM (SELECT 1 AS x UNION ALL
+      SELECT 2 AS x UNION ALL
+      SELECT 3 AS x UNION ALL
+      SELECT 4 AS x UNION ALL
+      SELECT 5 AS x);
+
++----------------------------------------------------------------------+
+| kll_sketch                                                           |
++----------------------------------------------------------------------+
+| "\010q\020\005 \004\212\007\025\010\200                              |
+| \020\350\007\032\001\001\"\001\005*\007\n\005\001\002\003\004\005"   |
++----------------------------------------------------------------------+
+```
+
+The query above takes a column of type `INT64` and
+outputs a sketch as `BYTES`
+that allows you to retrieve values whose ranks are within
+±1/1000 * 5 = ±1/200 ≈ 0 ranks of their exact quantile.
+
+**Supported Argument Types**
+
++ `input`: `INT64`
++ `precision`: `INT64`
+
+**Return Types**
+
+`BYTES`
+
+### KLL_QUANTILES.INIT_UINT64
+
+```
+KLL_QUANTILES.INIT_UINT64(input[, precision])
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
+`input` of type `UINT64`.
+
+**Supported Argument Types**
+
++ `input`: `UINT64`
++ `precision`: `INT64`
+
+**Return Types**
+
+`BYTES`
+
+### KLL_QUANTILES.INIT_DOUBLE
+
+```
+KLL_QUANTILES.INIT_DOUBLE(input[, precision])
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
+`input` of type `DOUBLE`.
+
+`KLL_QUANTILES.INIT_DOUBLE` orders values according to the ZetaSQL
+[floating point sort order][sort-order]. For example, `NaN` orders before
+<code>&#8209;inf</code>.
+
+**Supported Argument Types**
+
++ `input`: `DOUBLE`
++ `precision`: `INT64`
+
+**Return Types**
+
+`BYTES`
+
+### KLL_QUANTILES.MERGE_PARTIAL
+
+```
+KLL_QUANTILES.MERGE_PARTIAL(sketch)
+```
+
+**Description**
+
+Takes KLL16 sketches of the same underlying type and merges them to return a new
+sketch of the same underlying type. This is an aggregate function.
+
+Returns an error if two or more sketches don't have compatible underlying types,
+such as one sketch of `INT64` values and another of
+`DOUBLE` values.
+
+Returns an error if two or more sketches have different precisions.
+
+Returns an error if one or more inputs are not a valid KLL16 quantiles sketch.
+
+Ignores `NULL` sketches. If the input contains zero rows or only `NULL`
+sketches, the function returns `NULL`.
+
+You can initialize sketches with different optional clauses and merge them. For
+example, you can initialize a sketch with the `DISTINCT` clause and another
+sketch without any optional clauses, and then merge these two sketches.
+However, if you initialize sketches with the `DISTINCT` clause and merge them,
+the resulting sketch may still contain duplicates.
+
+**Example**
+
+```
+SELECT KLL_QUANTILES.MERGE_PARTIAL(kll_sketch) AS merged_sketch
+FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 1 AS x UNION ALL
+            SELECT 2 AS x UNION ALL
+            SELECT 3 AS x UNION ALL
+            SELECT 4 AS x UNION ALL
+            SELECT 5)
+      UNION ALL
+      SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 6 AS x UNION ALL
+            SELECT 7 AS x UNION ALL
+            SELECT 8 AS x UNION ALL
+            SELECT 9 AS x UNION ALL
+            SELECT 10 AS x));
+
++-----------------------------------------------------------------------------+
+| merged_sketch                                                               |
++-----------------------------------------------------------------------------+
+| "\010q\020\n \004\212\007\032\010\200 \020\350\007\032\001\001\"\001\n*     |
+| \014\n\n\001\002\003\004\005\006\007\010\t\n"                               |
++-----------------------------------------------------------------------------+
+```
+
+The query above initializes two KLL16 sketches from five rows of data each. Then
+it merges these two sketches into a new sketch, also as
+`BYTES`. Both input sketches have the same underlying
+data type and precision.
+
+**Supported Argument Types**
+
+`BYTES`
+
+**Return Types**
+
+`BYTES`
+
+### KLL_QUANTILES.MERGE_INT64
+
+```
+KLL_QUANTILES.MERGE_INT64(sketch, number)
+```
+
+**Description**
+
+Takes KLL16 sketches as `BYTES` and merges them into
+a new sketch, then
+returns the quantiles that divide the input into `number` equal-sized
+groups, along with the minimum and maximum values of the input. The output is
+an `ARRAY` containing the exact minimum value from
+the input data that you used
+to initialize the sketches, each approximate quantile, and the exact maximum
+value from the initial input data. This is an aggregate function.
+
+Returns an error if the underlying type of one or more input sketches is not
+compatible with type `INT64`.
+
+Returns an error if two or more sketches have different precisions.
+
+Returns an error if the input is not a valid KLL16 quantiles sketch.
+
+**Example**
+
+```
+SELECT KLL_QUANTILES.MERGE_INT64(kll_sketch, 2) AS merged_sketch
+FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 1 AS x UNION ALL
+            SELECT 2 AS x UNION ALL
+            SELECT 3 AS x UNION ALL
+            SELECT 4 AS x UNION ALL
+            SELECT 5)
+      UNION ALL
+      SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 6 AS x UNION ALL
+            SELECT 7 AS x UNION ALL
+            SELECT 8 AS x UNION ALL
+            SELECT 9 AS x UNION ALL
+            SELECT 10 AS x));
+
++---------------+
+| merged_sketch |
++---------------+
+| [1,5,10]      |
++---------------+
+```
+
+The query above initializes two KLL16 sketches from five rows of data each. Then
+it merges these two sketches and returns an `ARRAY`
+containing the minimum,
+median, and maximum values in the input sketches.
+
+**Supported Argument Types**
+
+Takes KLL16 sketches as `BYTES`, initialized on data
+of type `INT64`.
+
+**Return Types**
+
+`ARRAY` of type INT64.
+
+### KLL_QUANTILES.MERGE_UINT64
+
+```
+KLL_QUANTILES.MERGE_UINT64(sketch, number)
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.MERGE_INT64`](#kll-quantilesmerge-int64), but accepts
+`input` of type `UINT64`.
+
+**Supported Argument Types**
+
+Takes KLL16 sketches as `BYTES`, initialized on data
+of type `UINT64`.
+
+**Return Types**
+
+`ARRAY` of type `UINT64`.
+
+### KLL_QUANTILES.MERGE_DOUBLE
+
+```
+KLL_QUANTILES.MERGE_DOUBLE(sketch, number)
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.MERGE_INT64`](#kll-quantilesmerge-int64), but accepts
+`input` of type `DOUBLE`.
+
+`KLL_QUANTILES.MERGE_DOUBLE` orders values according to the ZetaSQL
+[floating point sort order][sort-order]. For example, `NaN` orders before
+<code>&#8209;inf</code>.
+
+**Supported Argument Types**
+
+Takes KLL16 sketches as `BYTES`, initialized on data
+of type `DOUBLE`.
+
+**Return Types**
+
+`ARRAY` of type `DOUBLE`.
+
+### KLL_QUANTILES.MERGE_POINT_INT64
+
+```
+KLL_QUANTILES.MERGE_POINT_INT64(sketch, phi)
+```
+
+**Description**
+
+Takes KLL16 sketches as `BYTES` and merges them, then
+extracts a single
+quantile from the merged sketch. The `phi` argument specifies the quantile
+to return as a fraction of the total number of rows in the input, normalized
+between 0 and 1. This means that the function will return a value *v* such that
+approximately Φ * *n* inputs are less than or equal to *v*, and a (1-Φ) / *n*
+inputs are greater than or equal to *v*. This is an aggregate function.
+
+Returns an error if the underlying type of one or more input sketches is not
+compatible with type `INT64`.
+
+Returns an error if the input is not a valid KLL16 quantiles sketch.
+
+Returns an error if two or more sketches have different precisions.
+
+**Example**
+
+```
+SELECT KLL_QUANTILES.MERGE_POINT_INT64(kll_sketch, .9) AS merged_sketch
+FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 1 AS x UNION ALL
+            SELECT 2 AS x UNION ALL
+            SELECT 3 AS x UNION ALL
+            SELECT 4 AS x UNION ALL
+            SELECT 5)
+      UNION ALL
+      SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 6 AS x UNION ALL
+            SELECT 7 AS x UNION ALL
+            SELECT 8 AS x UNION ALL
+            SELECT 9 AS x UNION ALL
+            SELECT 10 AS x));
+
++---------------+
+| merged_sketch |
++---------------+
+|             9 |
++---------------+
+```
+
+The query above initializes two KLL16 sketches from five rows of data each. Then
+it merges these two sketches and returns the value of the ninth decile or 90th
+percentile of the merged sketch.
+
+**Supported Argument Types**
+
++ Takes KLL16 sketches as `BYTES`, initialized on
+  data of type `INT64`.
++ `phi` is a `DOUBLE` between 0 and 1.
+
+**Return Types**
+
+`INT64`
+
+### KLL_QUANTILES.MERGE_POINT_UINT64
+
+```
+KLL_QUANTILES.MERGE_POINT_UINT64(sketch, phi)
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.MERGE_POINT_INT64`](#kll-quantilesmerge-point-int64), but
+accepts `input` of type `UINT64`.
+
+**Supported Argument Types**
+
++ Takes KLL16 sketches as `BYTES`, initialized on
+  data of type `UINT64`.
++ `phi` is a `DOUBLE` between 0 and 1.
+
+**Return Types**
+
+`UINT64`
+
+### KLL_QUANTILES.MERGE_POINT_DOUBLE
+
+```
+KLL_QUANTILES.MERGE_POINT_DOUBLE(sketch, phi)
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.MERGE_POINT_INT64`](#kll-quantilesmerge-point-int64), but
+accepts `input` of type `DOUBLE`.
+
+`KLL_QUANTILES.MERGE_POINT_DOUBLE` orders values according to the ZetaSQL
+[floating point sort order][sort-order]. For example, `NaN` orders before
+<code>&#8209;inf</code>.
+
+**Supported Argument Types**
+
++ Takes KLL16 sketches as `BYTES`, initialized on
+  data of type `DOUBLE`.
++ `phi` is a `DOUBLE` between 0 and 1.
+
+**Return Types**
+
+`DOUBLE`
+
+### KLL_QUANTILES.EXTRACT_INT64
+```
+KLL_QUANTILES.EXTRACT_INT64(sketch, number)
+```
+
+**Description**
+
+Takes a single KLL16 sketch as `BYTES` and returns a
+selected `number`
+of quantiles. The output is an `ARRAY` containing the
+exact minimum value from
+the input data that you used to initialize the sketch, each approximate
+quantile, and the exact maximum value from the initial input data. This is a
+scalar function, similar to `KLL_QUANTILES.MERGE_INT64`, but scalar rather than
+aggregate.
+
+Returns an error if the underlying type of the input sketch is not compatible
+with type `INT64`.
+
+Returns an error if the input is not a valid KLL16 quantiles sketch.
+
+**Example**
+
+```
+SELECT KLL_QUANTILES.EXTRACT_INT64(kll_sketch, 2) AS median
+FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 1 AS x UNION ALL
+            SELECT 2 AS x UNION ALL
+            SELECT 3 AS x UNION ALL
+            SELECT 4 AS x UNION ALL
+            SELECT 5 AS x));
+
++---------+
+| median  |
++---------+
+| [1,3,5] |
++---------+
+```
+
+The query above initializes a KLL16 sketch from five rows of data. Then
+it returns an `ARRAY` containing the minimum, median,
+and maximum values in the input sketch.
+
+**Supported Argument Types**
+
+Takes a KLL16 sketch as `BYTES` initialized on data
+of type `INT64`.
+
+**Return Types**
+
+`ARRAY` of type `INT64`.
+
+### KLL_QUANTILES.EXTRACT_UINT64
+```
+KLL_QUANTILES.EXTRACT_UINT64(sketch, number)
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.EXTRACT_INT64`](#kll-quantilesextract-int64), but accepts
+sketches initialized on data of type of type `UINT64`.
+
+**Supported Argument Types**
+
+Takes a KLL16 sketch as `BYTES` initialized on data
+of type `UINT64`.
+
+**Return Types**
+
+`ARRAY` of type `UINT64`.
+
+### KLL_QUANTILES.EXTRACT_DOUBLE
+```
+KLL_QUANTILES.EXTRACT_DOUBLE(sketch, number)
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.EXTRACT_INT64`](#kll-quantilesextract-int64), but accepts
+sketches initialized on data of type of type `DOUBLE`.
+
+**Supported Argument Types**
+
+Takes a KLL16 sketch as `BYTES` initialized on data
+of type `DOUBLE`.
+
+**Return Types**
+
+`ARRAY` of type `DOUBLE`.
+
+### KLL_QUANTILES.EXTRACT_POINT_INT64
+```
+KLL_QUANTILES.EXTRACT_POINT_INT64(sketch, phi)
+```
+
+**Description**
+
+Takes a single KLL16 sketch as `BYTES` and returns a
+single quantile.
+The `phi` argument specifies the quantile to return as a fraction of the total
+number of rows in the input, normalized between 0 and 1. This means that the
+function will return a value *v* such that approximately Φ * *n* inputs are less
+than or equal to *v*, and a (1-Φ) / *n* inputs are greater than or equal to *v*.
+This is an aggregate function.
+
+Returns an error if the underlying type of the input sketch is not compatible
+with type `INT64`.
+
+Returns an error if the input is not a valid KLL16 quantiles sketch.
+
+**Example**
+
+```
+SELECT KLL_QUANTILES.EXTRACT_POINT_INT64(kll_sketch, .8) AS quintile
+FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 1 AS x UNION ALL
+            SELECT 2 AS x UNION ALL
+            SELECT 3 AS x UNION ALL
+            SELECT 4 AS x UNION ALL
+            SELECT 5 AS x));
+
++----------+
+| quintile |
++----------+
+|      4   |
++----------+
+```
+
+The query above initializes a KLL16 sketch from five rows of data. Then
+it returns the value of the eighth decile or 80th percentile of the sketch.
+
+**Supported Argument Types**
+
++ Takes a KLL16 sketch as `BYTES`, initialized on
+  data of type `INT64`.
++ `phi` is a `DOUBLE` between 0 and 1.
+
+**Return Types**
+
+`INT64`
+
+### KLL_QUANTILES.EXTRACT_POINT_UINT64
+```
+KLL_QUANTILES.EXTRACT_POINT_UINT64(sketch, phi)
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.EXTRACT_POINT_INT64`](#kll-quantilesextract-point-int64),
+but accepts sketches initialized on data of type of type
+`UINT64`.
+
+**Supported Argument Types**
+
++ Takes a KLL16 sketch as `BYTES`, initialized on
+  data of type `UINT64`.
++ `phi` is a `DOUBLE` between 0 and 1.
+
+**Return Types**
+
+`UINT64`
+
+### KLL_QUANTILES.EXTRACT_POINT_DOUBLE
+```
+KLL_QUANTILES.EXTRACT_POINT_DOUBLE(sketch, phi)
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.EXTRACT_POINT_INT64`](#kll-quantilesextract-point-int64),
+but accepts sketches initialized on data of type of type
+`DOUBLE`.
+
+**Supported Argument Types**
+
++ Takes a KLL16 sketch as `BYTES`, initialized on
+  data of type `DOUBLE`.
++ `phi` is a `DOUBLE` between 0 and 1.
+
+**Return Types**
+
+`DOUBLE`
+
+[link-to-kll-paper]: https://arxiv.org/pdf/1603.05346v2.pdf
+
+[approximate-aggregation-concept]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation.md#storing-estimated-aggregate-values-as-sketches
+[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparison-operator-examples
 
 ## Numbering Functions
 
@@ -3574,7 +4229,7 @@ COS(X)
 
 **Description**
 
-Computes cosine of X. Never fails.
+Computes the cosine of X where X is specified in radians. Never fails.
 
 ### COSH
 
@@ -3584,8 +4239,8 @@ COSH(X)
 
 **Description**
 
-Computes the hyperbolic cosine of X. Generates an error if an overflow
-occurs.
+Computes the hyperbolic cosine of X where X is specified in radians.
+Generates an error if overflow occurs.
 
 ### ACOS
 
@@ -3595,9 +4250,9 @@ ACOS(X)
 
 **Description**
 
-Computes the principal value of the arc cosine of X. The return value is in
-the range [0,]. Generates an error if X is a finite value outside of range
-[-1, 1].
+Computes the principal value of the inverse cosine of X. The return value is in
+the range [0,&pi;]. Generates an error if X is a value outside of the
+range [-1, 1].
 
 ### ACOSH
 
@@ -3607,8 +4262,8 @@ ACOSH(X)
 
 **Description**
 
-Computes the inverse hyperbolic cosine of X. Generates an error if X is a
-finite value less than 1.
+Computes the inverse hyperbolic cosine of X. Generates an error if X is a value
+less than 1.
 
 ### SIN
 
@@ -3618,7 +4273,7 @@ SIN(X)
 
 **Description**
 
-Computes the sine of X. Never fails.
+Computes the sine of X where X is specified in radians. Never fails.
 
 ### SINH
 
@@ -3628,8 +4283,8 @@ SINH(X)
 
 **Description**
 
-Computes the hyperbolic sine of X. Generates an error if an overflow
-occurs.
+Computes the hyperbolic sine of X where X is specified in radians. Generates
+an error if overflow occurs.
 
 ### ASIN
 
@@ -3639,9 +4294,9 @@ ASIN(X)
 
 **Description**
 
-Computes the principal value of the arc sine of X. The return value is in
-the range [-&pi;/2,&pi;/2]. Generates an error if X is a finite value outside of range
-[-1, 1].
+Computes the principal value of the inverse sine of X. The return value is in
+the range [-&pi;/2,&pi;/2]. Generates an error if X is outside of
+the range [-1, 1].
 
 ### ASINH
 
@@ -3661,7 +4316,8 @@ TAN(X)
 
 **Description**
 
-Computes tangent of X. Generates an error if an overflow occurs.
+Computes the tangent of X where X is specified in radians. Generates an error if
+overflow occurs.
 
 ### TANH
 
@@ -3671,7 +4327,8 @@ TANH(X)
 
 **Description**
 
-Computes hyperbolic tangent of X. Does not fail.
+Computes the hyperbolic tangent of X where X is specified in radians. Does not
+fail.
 
 ### ATAN
 
@@ -3681,8 +4338,8 @@ ATAN(X)
 
 **Description**
 
-Computes the principal value of the arc tangent of X. The return value is in
-the range [-&pi;/2,&pi;/2]. Does not fail.
+Computes the principal value of the inverse tangent of X. The return value is
+in the range [-&pi;/2,&pi;/2]. Does not fail.
 
 ### ATANH
 
@@ -3692,8 +4349,8 @@ ATANH(X)
 
 **Description**
 
-Computes the inverse hyperbolic tangent of X. Generates an error if the
-absolute value of X is greater or equal 1.
+Computes the inverse hyperbolic tangent of X. Generates an error if X is outside
+of the range [-1, 1].
 
 ### ATAN2
 
@@ -3703,10 +4360,10 @@ ATAN2(Y, X)
 
 **Description**
 
-Calculates the principal value of the arc tangent of Y/X using the signs of
+Calculates the principal value of the inverse tangent of Y/X using the signs of
 the two arguments to determine the quadrant. The return value is in the range
-[-&pi;,&pi;]. The behavior of this function is further illustrated in <a
-href="#special_atan2">the table below</a>.
+[-&pi;,&pi;]. The behavior of this function is further illustrated in
+<a href="#special_atan2">the table below</a>.
 
 <a name="special_atan2"></a>
 #### Special cases for `ATAN2()`
@@ -7143,11 +7800,10 @@ The `json_string_expr` parameter must be a JSON-formatted string. For example:
 
 The `json_path_string_literal` parameter identifies the value or values you want
 to obtain from the JSON-formatted string. You construct this parameter using the
-[JSONPath][json-link-to-code-google-json-path] format. As part of this format,
-this parameter must start with a `$` symbol, which refers to the outermost level
-of the JSON-formatted string. You can identify child values using dot or
-bracket notation. If the JSON object is an array, you can use brackets to
-specify the array index.
+[JSONPath][json-path] format. As part of this format, this parameter must start
+with a `$` symbol, which refers to the outermost level of the JSON-formatted
+string. You can identify child values using dot or bracket notation. If the JSON
+object is an array, you can use brackets to specify the array index.
 
 | JSONPath | Description                       |
 |----------|-----------------------------------|
@@ -7236,7 +7892,7 @@ The above query produces the following result:
 +-------------------+
 | NULL              |
 | NULL              |
-| {"first":"Jamie"} |
+| "Jamie"           |
 +-------------------+
 ```
 
@@ -7296,11 +7952,10 @@ The `json_string_expr` parameter must be a JSON-formatted string. For example:
 
 The `json_path_string_literal` parameter identifies the value or values you want
 to obtain from the JSON-formatted string. You construct this parameter using the
-[JSONPath][json-link-to-code-google-json-path] format. As part of this format,
-this parameter must start with a `$` symbol, which refers to the outermost level
-of the JSON-formatted string. You can identify child values using dot or
-surrounded by double quotes. If the JSON object is an array, you can use
-brackets to specify the array index.
+[JSONPath][json-path] format. As part of this format, this parameter must start
+with a `$` symbol, which refers to the outermost level of the JSON-formatted
+string. You can identify child values using dot or surrounded by double quotes.
+If the JSON object is an array, you can use brackets to specify the array index.
 
 JSONPath | Description
 -------- | ----------------------
@@ -7706,7 +8361,7 @@ The above query produces the following result:
 +-----------------------+
 ```
 
-[json-link-to-code-google-json-path]: https://code.google.com/p/jsonpath
+[json-path]: https://github.com/json-path/JsonPath#operators
 
 <a name="array_functions"></a>
 ## Array functions
@@ -7844,11 +8499,8 @@ INT64
 **Examples**
 
 ```sql
-
 WITH items AS
-  (SELECT ["apples", "bananas", NULL, "grapes"] as list
-  UNION ALL
-  SELECT ["coffee", "tea", "milk" ] as list
+  (SELECT ["coffee", NULL, "milk" ] as list
   UNION ALL
   SELECT ["cake", "pie"] as list)
 
@@ -7859,8 +8511,7 @@ ORDER BY size DESC;
 +---------------------------------+------+
 | list                            | size |
 +---------------------------------+------+
-| [apples, bananas, NULL, grapes] | 4    |
-| [coffee, tea, milk]             | 3    |
+| [coffee, NULL, milk]            | 3    |
 | [cake, pie]                     | 2    |
 +---------------------------------+------+
 ```
@@ -7887,11 +8538,8 @@ and its preceding delimiter.
 **Examples**
 
 ```sql
-
 WITH items AS
-  (SELECT ["apples", "bananas", "pears", "grapes"] as list
-  UNION ALL
-  SELECT ["coffee", "tea", "milk" ] as list
+  (SELECT ["coffee", "tea", "milk" ] as list
   UNION ALL
   SELECT ["cake", "pie", NULL] as list)
 
@@ -7901,15 +8549,14 @@ FROM items;
 +--------------------------------+
 | text                           |
 +--------------------------------+
-| apples--bananas--pears--grapes |
 | coffee--tea--milk              |
 | cake--pie                      |
 +--------------------------------+
+```
 
+```sql
 WITH items AS
-  (SELECT ["apples", "bananas", "pears", "grapes"] as list
-  UNION ALL
-  SELECT ["coffee", "tea", "milk" ] as list
+  (SELECT ["coffee", "tea", "milk" ] as list
   UNION ALL
   SELECT ["cake", "pie", NULL] as list)
 
@@ -7919,7 +8566,6 @@ FROM items;
 +--------------------------------+
 | text                           |
 +--------------------------------+
-| apples--bananas--pears--grapes |
 | coffee--tea--milk              |
 | cake--pie--MISSING             |
 +--------------------------------+
@@ -8169,14 +8815,13 @@ SELECT GENERATE_DATE_ARRAY('2016-01-01',
 The following uses non-constant dates to generate an array.
 
 ```sql
-WITH StartsAndEnds AS (
+SELECT GENERATE_DATE_ARRAY(date_start, date_end, INTERVAL 1 WEEK) AS date_range
+FROM (
   SELECT DATE '2016-01-01' AS date_start, DATE '2016-01-31' AS date_end
   UNION ALL SELECT DATE "2016-04-01", DATE "2016-04-30"
   UNION ALL SELECT DATE "2016-07-01", DATE "2016-07-31"
   UNION ALL SELECT DATE "2016-10-01", DATE "2016-10-31"
-)
-SELECT GENERATE_DATE_ARRAY(date_start, date_end, INTERVAL 1 WEEK) AS date_range
-FROM StartsAndEnds;
+) AS items;
 
 +--------------------------------------------------------------+
 | date_range                                                   |
@@ -8208,9 +8853,13 @@ inputs:
 + `end_timestamp`: `TIMESTAMP`
 + `step_expression`: `INT64`
 + Allowed `date_part` values are
-   `MICROSECOND`,
+  
+  `MICROSECOND` or `NANOSECOND` (depends on what the SQL engine supports),
+  
    `MILLISECOND`,
-   `SECOND`, `MINUTE`, `HOUR`, or `DAY`.
+  
+   `SECOND`,
+  `MINUTE`, `HOUR`, or `DAY`.
 
 The `step_expression` parameter determines the increment used to generate
 timestamps.
@@ -8359,7 +9008,6 @@ Varies depending on the elements in the ARRAY.
 **Examples**
 
 ```sql
-
 WITH items AS
   (SELECT ["apples", "bananas", "pears", "grapes"] as list
   UNION ALL
@@ -8433,7 +9081,6 @@ Varies depending on the elements in the ARRAY.
 **Example**
 
 ```sql
-
 WITH items AS
   (SELECT ["apples", "bananas", "pears", "grapes"] as list
   UNION ALL
@@ -10400,11 +11047,11 @@ TIMESTAMP
 ```sql
 SELECT CURRENT_TIMESTAMP() as now;
 
-+-------------------------------+
-| now                           |
-+-------------------------------+
-| 2016-05-16 18:12:47.145482+00 |
-+-------------------------------+
++----------------------------------+
+| now                              |
++----------------------------------+
+| 2016-05-16 18:12:47.145482639+00 |
++----------------------------------+
 ```
 
 ### EXTRACT
@@ -10420,6 +11067,7 @@ a supplied `timestamp_expression`.
 
 Allowed `part` values are:
 
++ `NANOSECOND`
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -10606,7 +11254,7 @@ any time zone.
 `TIMESTAMP_ADD` supports the following values for `date_part`:
 
 <ul>
-
+<li><code>NANOSECOND</code></li>
 <li><code>MICROSECOND</code></li>
 <li><code>MILLISECOND</code></li>
 <li><code>SECOND</code></li>
@@ -10648,7 +11296,7 @@ independent of any time zone.
 `TIMESTAMP_SUB` supports the following values for `date_part`:
 
 <ul>
-
+<li><code>NANOSECOND</code></li>
 <li><code>MICROSECOND</code></li>
 <li><code>MILLISECOND</code></li>
 <li><code>SECOND</code></li>
@@ -10684,18 +11332,23 @@ TIMESTAMP_DIFF(timestamp_expression, timestamp_expression, date_part)
 
 **Description**
 
-Returns the number of whole specified `date_part` intervals between two
-timestamps. The first `timestamp_expression` represents the later date; if the
-first `timestamp_expression` is earlier than the second `timestamp_expression`,
-the output is negative. Throws an error if the computation overflows the result
-type, such as if the difference in
-microseconds between
-the two timestamps would overflow an `INT64` value.
+<div>
+    <p>
+        Returns the number of whole specified <code>date_part</code> intervals
+        between two timestamps. The first <code>timestamp_expression</code>
+        represents the later date; if the first
+        <code>timestamp_expression</code> is earlier than the second
+        <code>timestamp_expression</code>, the output is negative.
+        Throws an error if the computation overflows the result type, such as
+        if the difference in nanoseconds between the two timestamps
+        would overflow an <code>INT64</code> value.
+    </p>
+</div>
 
 `TIMESTAMP_DIFF` supports the following values for `date_part`:
 
 <ul>
-
+<li><code>NANOSECOND</code></li>
 <li><code>MICROSECOND</code></li>
 <li><code>MILLISECOND</code></li>
 <li><code>SECOND</code></li>
@@ -10750,6 +11403,7 @@ Truncates a timestamp to the granularity of `date_part`.
 
 `TIMESTAMP_TRUNC` supports the following values for `date_part`:
 
++ `NANOSECOND`
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -11344,6 +11998,76 @@ For example:
 [timestamp-link-to-supported-format-elements-for-time-for-timestamp]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#supported-format-elements-for-timestamp
 
 [timestamp-link-to-timezone-definitions]: #timezone-definitions
+
+## Protocol buffer functions
+
+ZetaSQL supports the following protocol buffer functions.
+
+### PROTO_DEFAULT_IF_NULL
+```
+PROTO_DEFAULT_IF_NULL(proto_field_expression)
+```
+
+**Description**
+
+Evaluates any expression that results in a proto field access.
+If the `proto_field_expression` evaluates to `NULL`, returns the default
+value for the field. Otherwise, returns the field value.
+
+Stipulations:
+
++ The expression cannot resolve to a required field.
++ The expression cannot resolve to a message field.
++ The expression must resolve to a regular proto field access, not
+  a virtual field.
++ The expression cannot access a field with
+  `zetasql.use_defaults=false`.
+
+**Return Data Type**
+
+Type of `proto_field_expression`.
+
+**Example**
+
+In the following example, each book in a library has a country of origin. If
+the country is not set, the country defaults to unknown.
+
+In this statement, table `library_books` contains a column named `book`,
+whose type is `Book`.
+
+```sql
+SELECT PROTO_DEFAULT_IF_NULL(book.country) as origin FROM library_books;
+```
+
+`Book` is a type that contains a field called `country`.
+
+```
+message Book {
+  optional string country = 4 [default = 'Unknown'];
+}
+```
+
+This is the result if `book.country` evaluates to `Canada`.
+
+```sql
++-----------------+
+| origin          |
++-----------------+
+| Canada          |
++-----------------+
+```
+
+This is the result if `book` is `NULL`. Since `book` is `NULL`,
+`book.country` evaluates to `NULL` and therefore the function result is the
+default value for `country`.
+
+```sql
++-----------------+
+| origin          |
++-----------------+
+| Unknown         |
++-----------------+
+```
 
 ## Security functions
 
@@ -12743,6 +13467,8 @@ When using the `IN` operator, the following semantics apply:
 + `IN` with a `NULL` in the `IN`-list can only return TRUE or `NULL`, never FALSE
 + `NULL IN (NULL)` returns `NULL`
 + `IN UNNEST(<NULL array>)` returns FALSE (not `NULL`)
++ `NOT IN` with a `NULL` in the `IN`-list can only return FALSE or `NULL`, never
+   TRUE
 
 `IN` can be used with multi-part keys by using the struct constructor syntax.
 For example:

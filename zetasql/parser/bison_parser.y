@@ -333,6 +333,7 @@ enum class ImportType {
   zetasql::ASTForeignKeyReference::Match foreign_key_match;
   zetasql::ASTForeignKeyActions::Action foreign_key_action;
   zetasql::ASTFunctionParameter::ProcedureParameterMode parameter_mode;
+  zetasql::ASTCreateFunctionStmtBase::DeterminismLevel determinism_level;
 
   // Not owned. The allocated nodes are all owned by the parser.
   // Nodes should use the most specific type available.
@@ -346,6 +347,7 @@ enum class ImportType {
   zetasql::ASTIdentifier* identifier;
   zetasql::ASTInsertStatement* insert_statement;
   zetasql::ASTNode* node;
+  zetasql::ASTStatementList* statement_list;
 }
 // Literals and identifiers. String, bytes and identifiers are not unescaped by
 // the tokenizer. This is done in the parser so that we can give better error
@@ -383,6 +385,7 @@ enum class ImportType {
 %token '[' "["
 %token ']' "]"
 %token '@' "@"
+%token KW_DOUBLE_AT "@@"
 %token '+' "+"
 %token '-' "-"
 %token '/' "/"
@@ -406,6 +409,12 @@ enum class ImportType {
 // is *much* faster than recursive productions (~2x speedup). The operator
 // precedence is defined by the order of the declarations here, with tokens
 // specified in the same declaration having the same precedence.
+//
+// The fake DOUBLE_AT_PRECEDENCE symbol is introduced to resolve a shift/reduce
+// conflict in the system_variable_expression rule. A potentially ambiguous
+// input is "@@a.b". Without modifying the rule's precedence, this could be
+// parsed as a system variable named "a" of type STRUCT or as a system variable
+// named "a.b".
 %left ".*"
 %left "OR"
 %left "AND"
@@ -418,6 +427,7 @@ enum class ImportType {
 %left "+" "-"
 %left "*" "/"
 %left UNARY_PRECEDENCE  // For all unary operators
+%precedence DOUBLE_AT_PRECEDENCE // Needs to appear before "."
 %left PRIMARY_PRECEDENCE "(" ")" "[" "]" "." // For ., .(...), [], etc.
 
 %code {
@@ -489,6 +499,7 @@ static bool IsUnparenthesizedNotExpression(zetasql::ASTNode* node) {
 }
 
 using zetasql::ASTInsertStatement;
+using zetasql::ASTCreateFunctionStmtBase;
 
 }
 
@@ -649,6 +660,7 @@ using zetasql::ASTInsertStatement;
 %token KW_DEFINER "DEFINER"
 %token KW_DELETE "DELETE"
 %token KW_DESCRIBE "DESCRIBE"
+%token KW_DETERMINISTIC "DETERMINISTIC"
 %token KW_DO "DO"
 %token KW_DROP "DROP"
 %token KW_ENFORCED "ENFORCED"
@@ -657,10 +669,12 @@ using zetasql::ASTInsertStatement;
 %token KW_EXTERNAL "EXTERNAL"
 %token KW_FILTER "FILTER"
 %token KW_FILL "FILL"
+%token KW_FIRST "FIRST"
 %token KW_FOREIGN "FOREIGN"
 %token KW_FUNCTION "FUNCTION"
 %token KW_GRANT "GRANT"
 %token KW_HIDDEN "HIDDEN"
+%token KW_IMMUTABLE "IMMUTABLE"
 %token KW_IMPORT "IMPORT"
 %token KW_INDEX "INDEX"
 %token KW_INOUT "INOUT"
@@ -670,6 +684,7 @@ using zetasql::ASTInsertStatement;
 %token KW_ISOLATION "ISOLATION"
 %token KW_KEY "KEY"
 %token KW_LANGUAGE "LANGUAGE"
+%token KW_LAST "LAST"
 %token KW_LEAVE "LEAVE"
 %token KW_LEVEL "LEVEL"
 %token KW_LOOP "LOOP"
@@ -712,6 +727,7 @@ using zetasql::ASTInsertStatement;
 %token KW_SIMPLE "SIMPLE"
 %token KW_SOURCE "SOURCE"
 %token KW_SQL "SQL"
+%token KW_STABLE "STABLE"
 %token KW_START "START"
 %token KW_STORED "STORED"
 %token KW_STORING "STORING"
@@ -731,11 +747,14 @@ using zetasql::ASTInsertStatement;
 %token KW_UPDATE "UPDATE"
 %token KW_VALUE "VALUE"
 %token KW_VALUES "VALUES"
+%token KW_VOLATILE "VOLATILE"
 %token KW_VIEW "VIEW"
 %token KW_WEIGHT "WEIGHT"
 %token KW_WHILE "WHILE"
 %token KW_WRITE "WRITE"
 %token KW_ZONE "ZONE"
+%token KW_EXCEPTION "EXCEPTION"
+%token KW_ERROR "ERROR"
 // END_NON_RESERVED_KEYWORDS -- Do not remove this!
 
 // This is not a keyword token. It represents all identifiers that are
@@ -783,6 +802,7 @@ using zetasql::ASTInsertStatement;
 %type <node> create_database_statement
 %type <node> create_function_statement
 %type <node> create_procedure_statement
+%type <node> create_row_access_policy_grant_to_clause
 %type <node> create_row_access_policy_statement
 %type <node> create_external_table_statement
 %type <node> create_index_statement
@@ -826,6 +846,7 @@ using zetasql::ASTInsertStatement;
 %type <node> procedure_parameter
 %type <node> procedure_parameters
 %type <node> procedure_parameters_prefix
+%type <determinism_level> opt_determinism_level
 %type <parameter_mode> opt_procedure_parameter_mode
 %type <expression> generalized_path_expression
 %type <node> grant_statement
@@ -840,6 +861,7 @@ using zetasql::ASTInsertStatement;
 %type <identifier> identifier_in_hints
 %type <node> if_statement
 %type <node> begin_end_block
+%type <node> opt_exception_handler
 %type <node> if_statement_unclosed
 %type <node> break_statement
 %type <node> continue_statement
@@ -882,6 +904,7 @@ using zetasql::ASTInsertStatement;
 %type <node> next_statement
 %type <node> next_script_statement
 %type <expression> null_literal
+%type <node> opt_null_order
 %type <expression> numeric_literal
 %type <node> on_clause
 %type <node> opt_and_expression
@@ -896,6 +919,7 @@ using zetasql::ASTInsertStatement;
 %type <node> opt_collate_clause
 %type <node> opt_column_list
 %type <node> opt_constraint_identity
+%type <node> opt_create_row_access_policy_grant_to_clause
 %type <create_scope> opt_create_scope
 %type <node> opt_at_system_time
 %type <node> opt_description
@@ -905,7 +929,6 @@ using zetasql::ASTInsertStatement;
 %type <expression> opt_from_path_expression
 %type <node> opt_function_parameters
 %type <node> opt_function_returns
-%type <node> opt_grant_to_clause
 %type <node> opt_group_by_clause
 %type <node> opt_having_clause
 %type <node> opt_having_modifier
@@ -922,17 +945,14 @@ using zetasql::ASTInsertStatement;
 %type <node> opt_order_by_clause
 %type <node> opt_partition_by_clause
 %type <node> opt_partition_by_clause_no_hint
-%type <node> opt_rename_to_identifier
 %type <node> opt_repeatable_clause
 %type <node> opt_returns
 %type <sql_security> opt_sql_security_clause
 %type <sql_security> sql_security_clause_kind
-%type <node> opt_row_policy_using_expression
 %type <node> opt_sample_clause
 %type <node> opt_sample_clause_suffix
 %type <node> opt_select_as_clause
 %type <node> opt_table_element_list
-%type <node> opt_to_grantee_list
 %type <node> opt_transaction_mode_list
 %type <node> opt_transform_clause
 %type <node> opt_where_clause
@@ -949,6 +969,7 @@ using zetasql::ASTInsertStatement;
 %type <expression> named_parameter_expression
 %type <expression> parameter_expression
 %type <expression> parenthesized_expression
+%type <expression> system_variable_expression
 %type <node> parenthesized_in_rhs
 %type <node> partition_by_clause_prefix
 %type <node> partition_by_clause_prefix_no_hint
@@ -980,7 +1001,8 @@ using zetasql::ASTInsertStatement;
 %type <node> revoke_statement
 %type <node> rollback_statement
 %type <node> rollup_list
-%type <node> row_policy_using_expression
+%type <node> row_access_policy_alter_action
+%type <node> row_access_policy_alter_action_list
 %type <node> run_batch_statement
 %type <node> sample_clause
 %type <node> sample_size
@@ -1002,11 +1024,10 @@ using zetasql::ASTInsertStatement;
 %type <node> statement
 %type <node> sql_statement
 %type <node> sql_statement_body
-%type <node> statement_list
-%type <node> non_empty_script
-%type <node> non_empty_terminated_script
+%type <statement_list> statement_list
 %type <node> script
-%type <node> non_empty_statement_list
+%type <statement_list> non_empty_statement_list
+%type <statement_list> unterminated_non_empty_statement_list
 %type <expression> string_literal
 %type <expression> string_literal_or_parameter
 %type <expression> struct_constructor
@@ -1094,7 +1115,6 @@ using zetasql::ASTInsertStatement;
 %type <boolean> opt_aggregate
 %type <boolean> opt_asc_or_desc
 %type <boolean> opt_filter
-%type <boolean> opt_grant
 %type <boolean> opt_if_exists
 %type <boolean> opt_if_not_exists
 %type <boolean> opt_natural
@@ -1357,10 +1377,49 @@ alter_action_list:
       }
     ;
 
-// Note - this excludes ROW POLICY for tactical reasons, since the
+row_access_policy_alter_action:
+    grant_to_clause
+    | "FILTER" "USING" "(" expression ")"
+      {
+        zetasql::ASTFilterUsingClause* node = MAKE_NODE(
+            ASTFilterUsingClause, @$, {$4});
+        node->set_has_filter_keyword(true);
+        $$ = node;
+      }
+    | "REVOKE" "FROM" "(" grantee_list ")"
+      {
+        $$ = MAKE_NODE(ASTRevokeFromClause, @$, {$4});
+      }
+    | "REVOKE" "FROM" "ALL"
+      {
+        zetasql::ASTRevokeFromClause* node = MAKE_NODE(
+            ASTRevokeFromClause, @$);
+        node->set_is_revoke_from_all(true);
+        $$ = node;
+      }
+    | "RENAME" "TO" identifier
+      {
+        $$ = MAKE_NODE(ASTRenameToClause, @$, {$3});
+      }
+    ;
+
+// This is split up the other ALTER actions since the alter actions for ROW
+// ACCESS POLICY are only used by ROW ACCESS POLICY at the moment.
+row_access_policy_alter_action_list:
+    row_access_policy_alter_action
+      {
+        $$ = MAKE_NODE(ASTAlterActionList, @$, {$1});
+      }
+    | row_access_policy_alter_action_list "," row_access_policy_alter_action
+      {
+        $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
+      }
+    ;
+
+// Note - this excludes ROW ACCESS POLICY for tactical reasons, since the
 // production rules for ALTER and DROP require very different syntax
-// for ROW POLICY as compared to other object kinds.  So we do not
-// want to match ROW POLICY here.
+// for ROW ACCESS POLICY as compared to other object kinds.  So we do not
+// want to match ROW ACCESS POLICY here.
 schema_object_kind:
     "AGGREGATE" "FUNCTION"
       { $$ = zetasql::SchemaObjectKind::kAggregateFunction; }
@@ -1400,9 +1459,11 @@ alter_statement:
         alter_action_list
       {
         zetasql::ASTAlterStatementBase* node = nullptr;
-        // Only ALTER TABLE, VIEW, and MATERIALIZED VIEW are currently
+        // Only ALTER DATABASE, TABLE, VIEW, and MATERIALIZED VIEW are currently
         // supported.
-        if ($2 == zetasql::SchemaObjectKind::kTable) {
+        if ($2 == zetasql::SchemaObjectKind::kDatabase) {
+          node = MAKE_NODE(ASTAlterDatabaseStatement, @$);
+        } else if ($2 == zetasql::SchemaObjectKind::kTable) {
           node = MAKE_NODE(ASTAlterTableStatement, @$);
         } else if ($2 == zetasql::SchemaObjectKind::kView) {
           node = MAKE_NODE(ASTAlterViewStatement, @$);
@@ -1415,32 +1476,13 @@ alter_statement:
         node->AddChildren({$4, $5});
         $$ = WithLocation(node, @$);
       }
-    | "ALTER" "ROW" "POLICY" identifier opt_rename_to_identifier "ON"
-      path_expression opt_to_grantee_list opt_row_policy_using_expression
+    | "ALTER" "ROW" "ACCESS" "POLICY" opt_if_exists identifier "ON"
+      path_expression row_access_policy_alter_action_list
       {
-        $$ = MAKE_NODE(ASTAlterRowPolicyStatement, @$, {$4, $5, $7, $8, $9});
-      }
-    ;
-
-opt_rename_to_identifier:
-    "RENAME" "TO" identifier
-      {
-        $$ = $3;
-      }
-    | /* Nothing */
-      {
-        $$ = nullptr;
-      }
-    ;
-
-opt_to_grantee_list:
-    "TO" grantee_list
-      {
-        $$ = $2;
-      }
-    | /* Nothing */
-      {
-        $$ = nullptr;
+        zetasql::ASTAlterRowAccessPolicyStatement* node = MAKE_NODE(
+            ASTAlterRowAccessPolicyStatement, @$, {$6, $8, $9});
+        node->set_is_if_exists($5);
+        $$ = node;
       }
     ;
 
@@ -1450,13 +1492,6 @@ opt_transform_clause:
         $$ = MAKE_NODE(ASTTransformClause, @$, {$3})
       }
     | /* Nothing */ { $$ = nullptr; }
-    ;
-
-row_policy_using_expression:
-    "USING" "(" expression ")"
-      {
-        $$ = $3;
-      }
     ;
 
 assert_statement:
@@ -1476,15 +1511,6 @@ opt_description:
         $$ = nullptr;
       }
     ;
-
-opt_row_policy_using_expression:
-    row_policy_using_expression
-    | /* Nothing */
-      {
-        $$ = nullptr;
-      }
-    ;
-
 
 transaction_mode:
     "READ" "ONLY"
@@ -1561,6 +1587,10 @@ set_statement:
     | "SET" named_parameter_expression "=" expression
     {
       $$ = MAKE_NODE(ASTParameterAssignment, @$, {$2, $4});
+    }
+    | "SET" system_variable_expression "=" expression
+    {
+      $$ = MAKE_NODE(ASTSystemVariableAssignment, @$, {$2, $4});
     }
     | "SET" "(" identifier_list ")" "=" expression
     {
@@ -1639,43 +1669,46 @@ create_database_statement:
 create_function_statement:
     "CREATE" opt_or_replace opt_create_scope opt_aggregate
         "FUNCTION" opt_if_not_exists function_declaration opt_function_returns
-        opt_sql_security_clause opt_language as_sql_function_body_or_string
-        opt_options_list
+        opt_sql_security_clause opt_determinism_level opt_language
+        as_sql_function_body_or_string opt_options_list
       {
         auto* create = MAKE_NODE(ASTCreateFunctionStatement, @$,
-                                 {$7, $8, $10, $11, $12});
+                                 {$7, $8, $11, $12, $13});
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_is_aggregate($4);
         create->set_is_if_not_exists($6);
         create->set_sql_security($9);
+        create->set_determinism_level($10);
         $$ = create;
       }
     | "CREATE" opt_or_replace opt_create_scope opt_aggregate
         "FUNCTION" opt_if_not_exists function_declaration opt_function_returns
-        opt_sql_security_clause opt_language "OPTIONS" options_list
+        opt_sql_security_clause opt_determinism_level opt_language "OPTIONS" options_list
         opt_as_sql_function_body_or_string
       {
         auto* create = MAKE_NODE(ASTCreateFunctionStatement, @$,
-                                 {$7, $8, $10, $13, $12});
+                                 {$7, $8, $11, $14, $13});
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_is_aggregate($4);
         create->set_is_if_not_exists($6);
         create->set_sql_security($9);
+        create->set_determinism_level($10);
         $$ = create;
       }
     | "CREATE" opt_or_replace opt_create_scope opt_aggregate
         "FUNCTION" opt_if_not_exists function_declaration opt_function_returns
-        opt_sql_security_clause opt_language
+        opt_sql_security_clause opt_determinism_level opt_language
       {
         auto* create = MAKE_NODE(ASTCreateFunctionStatement, @$,
-                                 {$7, $8, $10, nullptr, nullptr});
+                                 {$7, $8, $11, nullptr, nullptr});
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_is_aggregate($4);
         create->set_is_if_not_exists($6);
         create->set_sql_security($9);
+        create->set_determinism_level($10);
         $$ = create;
       }
     ;
@@ -1842,6 +1875,21 @@ opt_function_returns:
       }
     ;
 
+opt_determinism_level:
+    "DETERMINISTIC" {$$ = ASTCreateFunctionStmtBase::DETERMINISTIC;}
+    | "NOT" "DETERMINISTIC"
+      {$$ = ASTCreateFunctionStmtBase::NOT_DETERMINISTIC;}
+    | "IMMUTABLE"
+      {$$ = ASTCreateFunctionStmtBase::IMMUTABLE;}
+    | "STABLE"
+      {$$ = ASTCreateFunctionStmtBase::STABLE;}
+    | "VOLATILE"
+      {$$ = ASTCreateFunctionStmtBase::VOLATILE;}
+    | /* Nothing */
+      {$$ = ASTCreateFunctionStmtBase::DETERMINISM_UNSPECIFIED;}
+    ;
+
+
 opt_language:
     "LANGUAGE" identifier
       {
@@ -1910,18 +1958,6 @@ sql_function_body:
       }
     ;
 
-/* Returns true if GRANT is present. */
-opt_grant:
-    "GRANT"
-      {
-        $$ = true;
-      }
-    | /* Nothing */
-      {
-        $$ = false;
-      }
-    ;
-
 grant_to_clause:
     "GRANT" "TO" "(" grantee_list ")"
       {
@@ -1930,6 +1966,9 @@ grant_to_clause:
         grant_to->set_has_grant_keyword_and_parens(true);
         $$ = grant_to;
       }
+
+create_row_access_policy_grant_to_clause:
+    grant_to_clause
     | "TO" grantee_list
       {
         zetasql::ASTGrantToClause* grant_to =
@@ -1938,8 +1977,8 @@ grant_to_clause:
         $$ = grant_to;
       }
 
-opt_grant_to_clause:
-    grant_to_clause
+opt_create_row_access_policy_grant_to_clause:
+    create_row_access_policy_grant_to_clause
       {
         $$ = $1;
       }
@@ -1962,10 +2001,10 @@ opt_filter:
     ;
 
 filter_using_clause:
-    opt_filter row_policy_using_expression
+    opt_filter "USING" "(" expression ")"
       {
         zetasql::ASTFilterUsingClause* filter_using =
-            MAKE_NODE(ASTFilterUsingClause, @$, {$2});
+            MAKE_NODE(ASTFilterUsingClause, @$, {$4});
         filter_using->set_has_filter_keyword($1);
         $$ = filter_using;
       }
@@ -1973,7 +2012,7 @@ filter_using_clause:
 create_row_access_policy_statement:
     "CREATE" opt_or_replace "ROW" opt_access "POLICY" opt_if_not_exists
         opt_identifier "ON" path_expression
-        opt_grant_to_clause filter_using_clause
+        opt_create_row_access_policy_grant_to_clause filter_using_clause
       {
         zetasql::ASTCreateRowAccessPolicyStatement* create =
             MAKE_NODE(ASTCreateRowAccessPolicyStatement, @$, {$7, $9, $10, $11});
@@ -3384,7 +3423,10 @@ opt_natural:
 
 opt_outer: "OUTER" | /* Nothing */ ;
 
-int_literal_or_parameter: integer_literal | parameter_expression ;
+int_literal_or_parameter:
+    integer_literal
+    | parameter_expression
+    | system_variable_expression;
 
 cast_int_literal_or_parameter:
     "CAST" "(" int_literal_or_parameter "AS" type ")"
@@ -3778,6 +3820,11 @@ from_clause_contents:
         YYERROR_AND_ABORT_AT(
             @1, "Query parameters cannot be used in place of table names");
       }
+    | KW_DOUBLE_AT
+      {
+        YYERROR_AND_ABORT_AT(
+            @1, "System variables cannot be used in place of table names");
+      }
     ;
 
 opt_from_clause:
@@ -3962,7 +4009,26 @@ opt_asc_or_desc:
     | /* Nothing */ { $$ = false; }
     ;
 
-string_literal_or_parameter: string_literal | parameter_expression ;
+opt_null_order:
+    "NULLS" "FIRST"
+      {
+        auto* null_order = MAKE_NODE(ASTNullOrder, @$, {});
+        null_order->set_nulls_first(true);
+        $$ = null_order;
+      }
+    | "NULLS" "LAST"
+      {
+        auto* null_order = MAKE_NODE(ASTNullOrder, @$, {});
+        null_order->set_nulls_first(false);
+        $$ = null_order;
+      }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
+string_literal_or_parameter:
+    string_literal
+    | parameter_expression
+    | system_variable_expression;
 
 opt_collate_clause:
     "COLLATE" string_literal_or_parameter
@@ -3973,9 +4039,10 @@ opt_collate_clause:
     ;
 
 ordering_expression:
-    expression opt_collate_clause opt_asc_or_desc
+    expression opt_collate_clause opt_asc_or_desc opt_null_order
       {
-        auto* ordering_expr = MAKE_NODE(ASTOrderingExpression, @$, {$1, $2});
+        auto* ordering_expr =
+            MAKE_NODE(ASTOrderingExpression, @$, {$1, $2, $4});
         ordering_expr->set_descending($3);
         $$ = ordering_expr;
       }
@@ -4196,6 +4263,7 @@ expression:
     | floating_point_literal
     | date_or_time_literal
     | parameter_expression
+    | system_variable_expression
     | array_constructor
     | new_constructor
     | case_expression
@@ -5441,6 +5509,21 @@ identifier:
       }
     ;
 
+system_variable_expression:
+    KW_DOUBLE_AT path_expression %prec DOUBLE_AT_PRECEDENCE
+    {
+      $$ = MAKE_NODE(ASTSystemVariableExpr, @$, {$2});
+    }
+    | KW_DOUBLE_AT reserved_keyword_rule
+      {
+        zetasql::ASTIdentifier* reserved_keyword_identifier =
+            parser->MakeIdentifier(@2, parser->GetInputText(@2));
+        zetasql::ASTPathExpression* path =
+            MAKE_NODE(ASTPathExpression, @$, {reserved_keyword_identifier});
+        $$ = MAKE_NODE(ASTSystemVariableExpr, @$, {path});
+      }
+    ;
+
 // This production returns nothing -- the enclosing rule uses only the location
 // of the keyword to retrieve the token image from the parser input.
 reserved_keyword_rule:
@@ -5579,18 +5662,23 @@ keyword_as_identifier:
     | "DEFINER"
     | "DELETE"
     | "DESCRIBE"
+    | "DETERMINISTIC"
     | "DO"
     | "DROP"
     | "ENFORCED"
+    | "ERROR"
+    | "EXCEPTION"
     | "EXPLAIN"
     | "EXPORT"
     | "EXTERNAL"
     | "FILTER"
     | "FILL"
+    | "FIRST"
     | "FOREIGN"
     | "FUNCTION"
     | "GRANT"
     | "HIDDEN"
+    | "IMMUTABLE"
     | "IMPORT"
     | "INDEX"
     | "INSERT"
@@ -5600,6 +5688,7 @@ keyword_as_identifier:
     | "ITERATE"
     | "KEY"
     | "LANGUAGE"
+    | "LAST"
     | "LEAVE"
     | "LEVEL"
     | "LOOP"
@@ -5642,6 +5731,7 @@ keyword_as_identifier:
     | "SIMPLE"
     | "SOURCE"
     | "SQL"
+    | "STABLE"
     | "START"
     | "STORED"
     | "STORING"
@@ -5662,6 +5752,7 @@ keyword_as_identifier:
     | "VALUE"
     | "VALUES"
     | "VIEW"
+    | "VOLATILE"
     | "WEIGHT"
     | "WHILE"
     | "WRITE"
@@ -6431,43 +6522,33 @@ non_empty_statement_list:
         $$ = WithEndLocation(WithExtraChildren($1, {$2}), @$);
       };
 
-// non_empty_script differs subtly from non_empty_statement_list.
-//
-// The non_empty_statement_list rule is used for a statement list inside of
-// a scripting construct, and requires a terminating semi-colon after *all*
-// statements, including the last one.  non_empty_script is used for the
-// top-level statement list of a script, and allows the final semi-colon
-// to be optional.
-//
-// Thus, "SELECT 3; SELECT 4" is a valid script, but
-// "IF true then SELECT 3; SELECT 4 END IF;" is not a valid script.
-non_empty_script:
-    statement
+unterminated_non_empty_statement_list:
+    unterminated_statement
       {
-        $$ = MAKE_NODE(ASTScript, @$, {$1});
+        $$ = MAKE_NODE(ASTStatementList, @$, {$1});
       }
-    | non_empty_terminated_script statement
-      {
-        $$ = WithEndLocation(WithExtraChildren($1, {$2}), @$);
-      }
-    ;
-
-non_empty_terminated_script:
-    terminated_statement
-      {
-        $$ = MAKE_NODE(ASTScript, @$, {$1});
-      }
-    | non_empty_terminated_script terminated_statement
+    | non_empty_statement_list unterminated_statement
       {
         $$ = WithEndLocation(WithExtraChildren($1, {$2}), @$);
       };
 
 script:
-  non_empty_script
+  non_empty_statement_list
+  {
+    $1->set_variable_declarations_allowed(true);
+    $$ = MAKE_NODE(ASTScript, @$, {$1});
+  }
+  | unterminated_non_empty_statement_list
+  {
+    $1->set_variable_declarations_allowed(true);
+    $$ = MAKE_NODE(ASTScript, @$, {$1});
+  }
   | /* Nothing */
     {
       // Resolve to an empty script.
-      $$ = MAKE_NODE(ASTScript, @$, {});
+      zetasql::ASTStatementList* empty_stmt_list = MAKE_NODE(
+          ASTStatementList, @$, {});
+      $$ = MAKE_NODE(ASTScript, @$, {empty_stmt_list});
     }
   ;
 
@@ -6519,8 +6600,21 @@ if_statement:
     ;
 
 begin_end_block:
-    "BEGIN" statement_list "END" {
-      $$ = MAKE_NODE(ASTBeginEndBlock, @$, {$2});
+    "BEGIN" statement_list opt_exception_handler "END" {
+      $2->set_variable_declarations_allowed(true);
+      $$ = MAKE_NODE(ASTBeginEndBlock, @$, {$2, $3});
+    }
+    ;
+
+opt_exception_handler:
+    "EXCEPTION" "WHEN" "ERROR" "THEN" statement_list {
+      zetasql::ASTExceptionHandler* handler = MAKE_NODE(
+          ASTExceptionHandler, @2, {$5});
+      $$ = MAKE_NODE(ASTExceptionHandlerList, @1, {handler});
+    }
+    | /* Nothing */
+    {
+      $$ = nullptr;
     }
     ;
 
@@ -6688,6 +6782,8 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTSingleAssignment::kConcreteNodeKind; }
     | "SET" named_parameter_expression "="
       { $$ = zetasql::ASTParameterAssignment::kConcreteNodeKind; }
+    | "SET" system_variable_expression "="
+      { $$ = zetasql::ASTSystemVariableAssignment::kConcreteNodeKind; }
     | "SET" "("
       { $$ = zetasql::ASTAssignmentFromStruct::kConcreteNodeKind; }
     | "COMMIT" { $$ = zetasql::ASTCommitStatement::kConcreteNodeKind; }
@@ -6697,10 +6793,12 @@ next_statement_kind_without_hint:
     | "RUN" "BATCH" { $$ = zetasql::ASTRunBatchStatement::kConcreteNodeKind; }
     | "ABORT" "BATCH"
       { $$ = zetasql::ASTAbortBatchStatement::kConcreteNodeKind; }
+    | "ALTER" "DATABASE"
+      { $$ = zetasql::ASTAlterDatabaseStatement::kConcreteNodeKind; }
     | "ALTER" "TABLE"
       { $$ = zetasql::ASTAlterTableStatement::kConcreteNodeKind; }
     | "ALTER" "ROW"
-      { $$ = zetasql::ASTAlterRowPolicyStatement::kConcreteNodeKind; }
+      { $$ = zetasql::ASTAlterRowAccessPolicyStatement::kConcreteNodeKind; }
     | "ALTER" "VIEW"
       { $$ = zetasql::ASTAlterViewStatement::kConcreteNodeKind; }
     | "ALTER" "MATERIALIZED" "VIEW"

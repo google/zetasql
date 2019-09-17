@@ -24,11 +24,10 @@ The `json_string_expr` parameter must be a JSON-formatted string. For example:
 
 The `json_path_string_literal` parameter identifies the value or values you want
 to obtain from the JSON-formatted string. You construct this parameter using the
-[JSONPath][json-link-to-code-google-json-path] format. As part of this format,
-this parameter must start with a `$` symbol, which refers to the outermost level
-of the JSON-formatted string. You can identify child values using dot or
-bracket notation. If the JSON object is an array, you can use brackets to
-specify the array index.
+[JSONPath][json-path] format. As part of this format, this parameter must start
+with a `$` symbol, which refers to the outermost level of the JSON-formatted
+string. You can identify child values using dot or bracket notation. If the JSON
+object is an array, you can use brackets to specify the array index.
 
 | JSONPath | Description                       |
 |----------|-----------------------------------|
@@ -117,7 +116,7 @@ The above query produces the following result:
 +-------------------+
 | NULL              |
 | NULL              |
-| {"first":"Jamie"} |
+| "Jamie"           |
 +-------------------+
 ```
 
@@ -177,11 +176,10 @@ The `json_string_expr` parameter must be a JSON-formatted string. For example:
 
 The `json_path_string_literal` parameter identifies the value or values you want
 to obtain from the JSON-formatted string. You construct this parameter using the
-[JSONPath][json-link-to-code-google-json-path] format. As part of this format,
-this parameter must start with a `$` symbol, which refers to the outermost level
-of the JSON-formatted string. You can identify child values using dot or
-surrounded by double quotes. If the JSON object is an array, you can use
-brackets to specify the array index.
+[JSONPath][json-path] format. As part of this format, this parameter must start
+with a `$` symbol, which refers to the outermost level of the JSON-formatted
+string. You can identify child values using dot or surrounded by double quotes.
+If the JSON object is an array, you can use brackets to specify the array index.
 
 JSONPath | Description
 -------- | ----------------------
@@ -587,5 +585,5 @@ The above query produces the following result:
 +-----------------------+
 ```
 
-[json-link-to-code-google-json-path]: https://code.google.com/p/jsonpath
+[json-path]: https://github.com/json-path/JsonPath#operators
 

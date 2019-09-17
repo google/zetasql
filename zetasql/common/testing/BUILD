@@ -15,7 +15,7 @@
 #
 
 package(
-    default_visibility = ["//zetasql:__subpackages__"],
+    default_visibility = ["//:__subpackages__"],
 )
 
 cc_library(

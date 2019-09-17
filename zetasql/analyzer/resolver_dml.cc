@@ -815,11 +815,6 @@ zetasql_base::Status Resolver::PopulateUpdateTargetInfos(
     case AST_DOT_GENERALIZED_FIELD: {
       const auto* dot_generalized_field =
           path->GetAsOrDie<ASTDotGeneralizedField>();
-      ZETASQL_RETURN_IF_ERROR(PopulateUpdateTargetInfos(
-          ast_update_item, is_nested,
-          static_cast<const ASTGeneralizedPathExpression*>(
-              dot_generalized_field->expr()),
-          expr_resolution_info, update_target_infos));
       if (!language().LanguageFeatureEnabled(
               FEATURE_V_1_2_PROTO_EXTENSIONS_WITH_SET)) {
         // Using "proto" in the error message is clearer than "generalized field
@@ -831,6 +826,11 @@ zetasql_base::Status Resolver::PopulateUpdateTargetInfos(
                        ? "proto extensions"
                        : "generalized field access");
       }
+      ZETASQL_RETURN_IF_ERROR(PopulateUpdateTargetInfos(
+          ast_update_item, is_nested,
+          static_cast<const ASTGeneralizedPathExpression*>(
+              dot_generalized_field->expr()),
+          expr_resolution_info, update_target_infos));
       ZETASQL_RET_CHECK(!update_target_infos->empty());
       UpdateTargetInfo& info = update_target_infos->back();
       return ResolveExtensionFieldAccess(

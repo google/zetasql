@@ -27,8 +27,7 @@ namespace zetasql_base {
 namespace internal_ret_check {
 
 StatusBuilder RetCheckFailSlowPath(SourceLocation location) {
-  return InternalErrorBuilder(location).LogWithStackTrace(
-             absl::LogSeverity::kError)
+  return InternalErrorBuilder(location).EmitStackTrace()
          << "ZETASQL_RET_CHECK failure (" << location.file_name() << ":"
          << location.line() << ") ";
 }

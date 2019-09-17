@@ -83,6 +83,54 @@ class AnalyzerOptionsTest : public ::testing::Test {
   std::unique_ptr<SampleCatalog> sample_catalog_;
 };
 
+TEST_F(AnalyzerOptionsTest, AddSystemVariable) {
+  // Simple cases
+  EXPECT_EQ(options_.system_variables().size(), 0);
+  ZETASQL_EXPECT_OK(options_.AddSystemVariable({"bytes"}, type_factory_.get_bytes()));
+  ZETASQL_EXPECT_OK(options_.AddSystemVariable({"bool"}, type_factory_.get_bool()));
+  ZETASQL_EXPECT_OK(
+      options_.AddSystemVariable({"foo", "bar"}, type_factory_.get_string()));
+  ZETASQL_EXPECT_OK(options_.AddSystemVariable({"foo.bar", "baz"},
+                                       type_factory_.get_string()));
+
+  // Null type
+  EXPECT_THAT(
+      options_.AddSystemVariable({"zzz"}, nullptr),
+      StatusIs(
+          _, HasSubstr("Type associated with system variable cannot be NULL")));
+
+  // Unsupported type
+  AnalyzerOptions external_mode(options_);
+  external_mode.mutable_language_options()->set_product_mode(
+      ProductMode::PRODUCT_EXTERNAL);
+  EXPECT_THAT(
+      external_mode.AddSystemVariable({"zzz"}, type_factory_.get_int32()),
+      StatusIs(_,
+               HasSubstr("System variable zzz has unsupported type: INT32")));
+
+  // Duplicate variable
+  EXPECT_THAT(
+      options_.AddSystemVariable({"foo", "bar"}, type_factory_.get_int64()),
+      StatusIs(_, HasSubstr("Duplicate system variable foo.bar")));
+
+  // Duplicate variable (case insensitive)
+  EXPECT_THAT(
+      options_.AddSystemVariable({"FOO", "BaR"}, type_factory_.get_int64()),
+      StatusIs(_, HasSubstr("Duplicate system variable FOO.BaR")));
+
+  // Empty name path
+  EXPECT_THAT(
+      options_.AddSystemVariable({}, type_factory_.get_int64()),
+      StatusIs(_, HasSubstr("System variable cannot have empty name path")));
+
+  // name path with empty element
+  EXPECT_THAT(
+      options_.AddSystemVariable({""}, type_factory_.get_int64()),
+      StatusIs(
+          _,
+          HasSubstr("System variable cannot have empty std::string as path part")));
+}
+
 TEST_F(AnalyzerOptionsTest, AddQueryParameter) {
   EXPECT_EQ(options_.query_parameters().size(), 0);
   ZETASQL_EXPECT_OK(
@@ -474,7 +522,8 @@ TEST_F(AnalyzerOptionsTest, EofErrorMessageTrailingNewlinesAndWhitespace) {
   // end of statement errors. We're not testing all possible whitespace, but
   // one multibyte whitespace character is included to verify that we're using
   // the generic whitespace rule for this, and not some ASCII-only hack.
-  for (const std::string& whitespace : {" ", "   ", "\342\200\200" /* EN QUAD */}) {
+  for (const std::string& whitespace :
+       {" ", "   ", "\342\200\200" /* EN QUAD */}) {
     for (const std::string& newline : {"\n", "\r\n", "\n\r", "\r"}) {
       for (const std::string& more_whitespace :
            {"", " ", "   ", "\342\200\200" /* EN QUAD */}) {
@@ -676,13 +725,13 @@ class MultiFileErrorCollector
 TEST_F(AnalyzerOptionsTest, Deserialize) {
   TypeFactory factory;
 
-  const std::vector<std::string> test_files {
+  const std::vector<std::string> test_files{
       // Order matters for these imports.
       "google/protobuf/descriptor.proto",
       "zetasql/public/proto/type_annotation.proto",
       "zetasql/testdata/test_schema.proto",
       "zetasql/testdata/external_extension.proto",
-    };
+  };
   google::protobuf::compiler::DiskSourceTree source_tree;
   InitSourceTree(&source_tree);
   MultiFileErrorCollector error_collector;
@@ -728,7 +777,7 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
   proto.mutable_language_options()->set_product_mode(PRODUCT_INTERNAL);
   proto.set_default_timezone("Asia/Shanghai");
   proto.set_strict_validation_on_column_replacements(true);
-  proto.set_preserve_column_aliases(true);
+  proto.set_preserve_column_aliases(false);
 
   auto* param = proto.add_query_parameters();
   param->set_name("q1");
@@ -840,7 +889,7 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
   ASSERT_EQ(PRODUCT_INTERNAL, options.language().product_mode());
   ASSERT_EQ(PARAMETER_POSITIONAL, options.parameter_mode());
   ASSERT_TRUE(options.strict_validation_on_column_replacements());
-  ASSERT_TRUE(options.preserve_column_aliases());
+  ASSERT_FALSE(options.preserve_column_aliases());
 
   ASSERT_EQ(5, options.query_parameters().size());
   ASSERT_TRUE(types::Int64Type()->Equals(options.query_parameters().at("q1")));
@@ -906,11 +955,11 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
 TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
   EXPECT_EQ(200, sizeof(AnalyzerOptions) - sizeof(LanguageOptions) -
                      sizeof(AllowedHintsAndOptions) -
-                     sizeof(Catalog::FindOptions) -
+                     sizeof(Catalog::FindOptions) - sizeof(SystemVariablesMap) -
                      2 * sizeof(QueryParametersMap) - 1 * sizeof(std::string))
       << "The size of AnalyzerOptions class has changed, please also update "
       << "the proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(16, AnalyzerOptionsProto::descriptor()->field_count())
+  EXPECT_EQ(17, AnalyzerOptionsProto::descriptor()->field_count())
       << "The number of fields in AnalyzerOptionsProto has changed, please "
       << "also update the serialization code accordingly.";
 }
@@ -918,13 +967,13 @@ TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
 TEST_F(AnalyzerOptionsTest, AllowedHintsAndOptionsSerializeAndDeserialize) {
   TypeFactory factory;
 
-  const std::vector<std::string> test_files {
+  const std::vector<std::string> test_files{
       // Order matters for these imports.
       "google/protobuf/descriptor.proto",
       "zetasql/public/proto/type_annotation.proto",
       "zetasql/testdata/test_schema.proto",
       "zetasql/testdata/external_extension.proto",
-    };
+  };
   google::protobuf::compiler::DiskSourceTree source_tree;
   InitSourceTree(&source_tree);
   MultiFileErrorCollector error_collector;
@@ -994,10 +1043,10 @@ TEST(AllowedHintsAndOptionsTest, ClassAndProtoSize) {
 
 // Defines a triple for testing the SupportedStatement feature in ZetaSQL.
 struct SupportedStatementTestInput {
-  SupportedStatementTestInput(const std::string& stmt,
-                              bool success,
+  SupportedStatementTestInput(const std::string& stmt, bool success,
                               const std::set<ResolvedNodeKind>& statement_kinds)
-      : statement(stmt), expect_success(success),
+      : statement(stmt),
+        expect_success(success),
         supported_statement_kinds(statement_kinds) {}
   // The statement to attempt to parse and analyze.
   const std::string statement;
@@ -1072,10 +1121,12 @@ TEST(AnalyzerSupportedStatementsTest, AlterTableNotSupported) {
 // <expected_error_string> is only compared if it is non-empty and
 // <expect_success> is false.
 struct SupportedFeatureTestInput {
-  SupportedFeatureTestInput(
-      const std::string& stmt, const std::set<LanguageFeature>& features,
-      bool expect_success_in, const std::string& error_string = "")
-      : statement(stmt), supported_features(features),
+  SupportedFeatureTestInput(const std::string& stmt,
+                            const std::set<LanguageFeature>& features,
+                            bool expect_success_in,
+                            const std::string& error_string = "")
+      : statement(stmt),
+        supported_features(features),
         expect_success(expect_success_in),
         expected_error_string(error_string) {}
 
@@ -1218,13 +1269,13 @@ TEST(AnalyzerSupportedFeaturesTest, EnableFeaturesForVersion) {
 // a different DescriptorPool.  We have to load up a second DescriptorPool
 // manually to test this.
 TEST(AnalyzerTest, ExternalExtension) {
-  const std::vector<std::string> test_files {
+  const std::vector<std::string> test_files{
       // Order matters for these imports.
       "google/protobuf/descriptor.proto",
       "zetasql/public/proto/type_annotation.proto",
       "zetasql/testdata/test_schema.proto",
       "zetasql/testdata/external_extension.proto",
-    };
+  };
   google::protobuf::compiler::DiskSourceTree source_tree;
   InitSourceTree(&source_tree);
 
@@ -1239,7 +1290,8 @@ TEST(AnalyzerTest, ExternalExtension) {
   }
   std::unique_ptr<google::protobuf::DescriptorPool> external_pool(
       new google::protobuf::DescriptorPool(proto_importer->pool()));
-  const std::string external_extension_name = "zetasql_test.ExternalExtension";
+  const std::string external_extension_name =
+      "zetasql_test.ExternalExtension";
   const google::protobuf::Descriptor* external_extension =
       external_pool->FindMessageTypeByName(external_extension_name);
   ASSERT_NE(external_extension, nullptr);

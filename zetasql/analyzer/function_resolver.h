@@ -145,8 +145,10 @@ class FunctionResolver {
       std::unique_ptr<const ResolvedExpr>* argument) const;
 
   // Map an operator id from the parse tree to a ZetaSQL function name.
-  static const std::string& UnaryOperatorToFunctionName(ASTUnaryExpression::Op op);
-  static const std::string& BinaryOperatorToFunctionName(ASTBinaryExpression::Op op);
+  static const std::string& UnaryOperatorToFunctionName(
+      ASTUnaryExpression::Op op);
+  static const std::string& BinaryOperatorToFunctionName(
+      ASTBinaryExpression::Op op);
 
   // Returns the Coercer from <resolver_>.
   const Coercer& coercer() const;

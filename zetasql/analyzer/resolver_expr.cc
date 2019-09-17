@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/public/simple_catalog.h"
 #include <cstdint>
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
@@ -135,10 +136,8 @@ VerifyFieldExtendsMessage(const ASTNode* ast_node,
 }  // namespace
 
 zetasql_base::Status Resolver::ResolveBuildProto(
-    const ASTNode* ast_type_location,
-    const ProtoType* proto_type,
-    const ResolvedScan* input_scan,
-    const std::string& argument_description,
+    const ASTNode* ast_type_location, const ProtoType* proto_type,
+    const ResolvedScan* input_scan, const std::string& argument_description,
     const std::string& query_description,
     std::vector<ResolvedBuildProtoArg>* arguments,
     std::unique_ptr<const ResolvedExpr>* output) {
@@ -339,7 +338,8 @@ Resolver::FindExtensionFieldDescriptor(const ASTPathExpression* ast_path_expr,
   const std::vector<std::string> extension_path =
       ast_path_expr->ToIdentifierVector();
 
-  const std::string extension_name = Catalog::ConvertPathToProtoName(extension_path);
+  const std::string extension_name =
+      Catalog::ConvertPathToProtoName(extension_path);
 
   const google::protobuf::DescriptorPool* descriptor_pool = descriptor->file()->pool();
   if (!extension_name.empty()) {
@@ -428,7 +428,8 @@ zetasql_base::StatusOr<const google::protobuf::Descriptor*> Resolver::FindMessag
     const std::vector<std::string>& type_name_path,
     const google::protobuf::DescriptorPool* descriptor_pool,
     bool return_error_for_non_message) {
-  const std::string message_name = Catalog::ConvertPathToProtoName(type_name_path);
+  const std::string message_name =
+      Catalog::ConvertPathToProtoName(type_name_path);
   if (!message_name.empty()) {
     const google::protobuf::Descriptor* found_descriptor =
         descriptor_pool->FindMessageTypeByName(message_name);
@@ -723,6 +724,10 @@ zetasql_base::Status Resolver::ResolveExpr(
       return ResolveReplaceFieldsExpression(
           ast_expr->GetAsOrDie<ASTReplaceFieldsExpression>(),
           expr_resolution_info.get(), resolved_expr_out);
+    case AST_SYSTEM_VARIABLE_EXPR:
+      return ResolveSystemVariableExpression(
+          ast_expr->GetAsOrDie<ASTSystemVariableExpr>(),
+          expr_resolution_info.get(), resolved_expr_out);
     default:
       return MakeSqlErrorAt(ast_expr)
              << "Unhandled select-list expression for node kind "
@@ -918,6 +923,83 @@ zetasql_base::Status Resolver::ResolveColumnRefExprToPostGroupingColumn(
          << " which is neither grouped nor aggregated";
 }
 
+namespace {
+std::string GetUnrecognizedNameErrorWithCatalogSuggestion(
+    absl::Span<const std::string> name_parts, Catalog* catalog,
+    bool name_is_system_variable, bool suggesting_system_variable) {
+  std::string name_suggestion = catalog->SuggestConstant(name_parts);
+  if (!name_suggestion.empty()) {
+    std::string path_prefix = name_is_system_variable ? "@@" : "";
+    std::string suggestion_path_prefix = suggesting_system_variable ? "@@" : "";
+
+    std::string error_message;
+    absl::StrAppend(
+        &error_message, "Unrecognized name: ", path_prefix,
+        absl::StrJoin(name_parts, ".",
+                      [](std::string* out, const std::string& part) {
+                        absl::StrAppend(out, ToIdentifierLiteral(part));
+                      }),
+        "; Did you mean ", suggestion_path_prefix, name_suggestion, "?");
+    return error_message;
+  }
+  return "";
+}
+}  // namespace
+
+zetasql_base::Status Resolver::GetUnrecognizedNameError(
+    const ASTPathExpression* ast_path_expr, const NameScope* name_scope) {
+  std::vector<std::string> identifiers = ast_path_expr->ToIdentifierVector();
+  bool is_system_variable =
+      ast_path_expr->parent() != nullptr &&
+      ast_path_expr->parent()->node_kind() == AST_SYSTEM_VARIABLE_EXPR;
+  std::string path_prefix = is_system_variable ? "@@" : "";
+
+  IdStringPool id_string_pool;
+  const IdString first_name = id_string_pool.Make(identifiers[0]);
+  std::string error_message;
+  absl::StrAppend(&error_message, "Unrecognized name: ", path_prefix,
+                  ToIdentifierLiteral(first_name));
+
+  // See if we can come up with a name suggestion.  First, look for aliases in
+  // the current scope.
+  std::string name_suggestion;
+  if (name_scope != nullptr) {
+    name_suggestion = name_scope->SuggestName(first_name);
+    if (!name_suggestion.empty()) {
+      absl::StrAppend(&error_message, "; Did you mean ", name_suggestion, "?");
+    }
+  }
+
+  // Check the catalog for either a named constant or a system variable.  We'll
+  // check for both in all cases, but give priority to system variables if the
+  // original expression was a system variable, or a named constant, otherwise.
+  if (name_suggestion.empty()) {
+    std::string suggested_error_message =
+        GetUnrecognizedNameErrorWithCatalogSuggestion(
+            absl::MakeConstSpan(identifiers),
+            is_system_variable ? GetSystemVariablesCatalog() : catalog_,
+            /*name_is_system_variable=*/is_system_variable,
+            /*suggesting_system_variable=*/is_system_variable);
+    if (suggested_error_message.empty()) {
+      suggested_error_message = GetUnrecognizedNameErrorWithCatalogSuggestion(
+          absl::MakeConstSpan(identifiers),
+          is_system_variable ? catalog_ : GetSystemVariablesCatalog(),
+          /*name_is_system_variable=*/is_system_variable,
+          /*suggesting_system_variable=*/!is_system_variable);
+    }
+    if (!suggested_error_message.empty()) {
+      error_message = suggested_error_message;
+    }
+  }
+
+  if (is_system_variable) {
+    // Use the position of the '@@', rather than that of the name following it.
+    return MakeSqlErrorAt(ast_path_expr->parent()) << error_message;
+  } else {
+    return MakeSqlErrorAt(ast_path_expr) << error_message;
+  }
+}
+
 zetasql_base::Status Resolver::ValidateColumnForAggregateOrAnalyticSupport(
     const ResolvedColumn& resolved_column, IdString first_name,
     const ASTPathExpression* path_expr,
@@ -1068,7 +1150,8 @@ zetasql_base::Status Resolver::ResolvePathExpressionAsExpression(
     // expression column (for standalone expression evaluation only).
     // TODO: Move this to a separate function to handle this
     // case out of line.
-    const std::string lowercase_name = absl::AsciiStrToLower(first_name.ToString());
+    const std::string lowercase_name =
+        absl::AsciiStrToLower(first_name.ToString());
     const Type* column_type = zetasql_base::FindPtrOrNull(
         analyzer_options_.expression_columns(), lowercase_name);
 
@@ -1181,31 +1264,6 @@ zetasql_base::Status Resolver::ResolvePathExpressionAsExpression(
   }
   if (num_names_consumed == 0) {
     // No matching name could be found, so throw an error.
-    std::string error_message;
-    absl::StrAppend(&error_message,
-                    "Unrecognized name: ", ToIdentifierLiteral(first_name));
-    std::string name_suggestion;
-    if (expr_resolution_info->name_scope != nullptr) {
-      // Try to suggest an existing name in the current name scope.
-      name_suggestion =
-          expr_resolution_info->name_scope->SuggestName(first_name);
-      if (!name_suggestion.empty()) {
-        absl::StrAppend(&error_message, "; Did you mean ", name_suggestion,
-                        "?");
-      }
-    }
-    if (name_suggestion.empty()) {
-      // Try to suggest an existing constant name.
-      const std::vector<std::string> path_names = path_expr->ToIdentifierVector();
-      name_suggestion = catalog_->SuggestConstant(path_names);
-      if (!name_suggestion.empty()) {
-        error_message.clear();
-        absl::StrAppend(&error_message, "Unrecognized name: ",
-                        path_expr->ToIdentifierPathString());
-        absl::StrAppend(&error_message, "; Did you mean ", name_suggestion,
-                        "?");
-      }
-    }
     if (generated_column_cycle_detector_ != nullptr) {
       // When we are analyzing generated columns and there was an error, we
       // record the name of the column here so that the caller can try resolving
@@ -1220,7 +1278,10 @@ zetasql_base::Status Resolver::ResolvePathExpressionAsExpression(
       // that the resolver tries to resolve 'b' next.
       unresolved_column_name_in_generated_column_ = first_name;
     }
-    return MakeSqlErrorAt(path_expr) << error_message;
+    return GetUnrecognizedNameError(path_expr,
+                                    expr_resolution_info != nullptr
+                                        ? expr_resolution_info->name_scope
+                                        : nullptr);
   }
   ZETASQL_RET_CHECK(resolved_expr != nullptr);
 
@@ -1475,8 +1536,11 @@ zetasql_base::Status Resolver::MaybeResolveProtoFieldAccess(
   }
   // ZetaSQL supports has_X() for fields that have unsupported type
   // annotations, but accessing the field value would produce an error.
-  if (!get_has_bit && field_type->UsingFeatureV12CivilTimeType() &&
-      !language().LanguageFeatureEnabled(FEATURE_V_1_2_CIVIL_TIME)) {
+  if (!get_has_bit &&
+      ((field_type->UsingFeatureV12CivilTimeType() &&
+        !language().LanguageFeatureEnabled(FEATURE_V_1_2_CIVIL_TIME)) ||
+       (field_type->IsNumericType() &&
+        !language().LanguageFeatureEnabled(FEATURE_NUMERIC_TYPE)))) {
     return MakeSqlErrorAt(identifier)
            << "Field " << dot_name << " in protocol buffer "
            << lhs_proto->full_name() << " has unsupported type "
@@ -1615,8 +1679,10 @@ zetasql_base::Status Resolver::ResolveExtensionFieldAccess(
         GetProtoFieldTypeAndDefault(extension_field, type_factory_, &field_type,
                                     &default_value));
   }
-  if (field_type->UsingFeatureV12CivilTimeType() &&
-      !language().LanguageFeatureEnabled(FEATURE_V_1_2_CIVIL_TIME)) {
+  if ((field_type->UsingFeatureV12CivilTimeType() &&
+       !language().LanguageFeatureEnabled(FEATURE_V_1_2_CIVIL_TIME)) ||
+      (field_type->IsNumericType()  &&
+       !language().LanguageFeatureEnabled(FEATURE_NUMERIC_TYPE))) {
     return MakeSqlErrorAt(ast_path_expr)
            << "Protocol buffer extension " << extension_field->full_name()
            << " has unsupported type "
@@ -1703,8 +1769,9 @@ zetasql_base::Status Resolver::FindFieldDescriptors(
 }
 
 static zetasql_base::Status MakeCannotAccessFieldError(
-    const ASTNode* field_to_extract_location, const std::string& field_to_extract,
-    const std::string& invalid_type_name, bool is_extension) {
+    const ASTNode* field_to_extract_location,
+    const std::string& field_to_extract, const std::string& invalid_type_name,
+    bool is_extension) {
   return MakeSqlErrorAt(field_to_extract_location)
          << "Cannot access " << (is_extension ? "extension (" : "field ")
          << field_to_extract << (is_extension ? ")" : "")
@@ -1885,6 +1952,8 @@ static zetasql_base::Status AddToFieldPathTrie(
     }
   }
   if (overlapping_oneof) {
+    // TODO: Allow modifying fields from the same Oneof. This should
+    // be fine if only one of the new values is non-NULL.
     return MakeSqlErrorAt(path_location) << absl::StrCat(
                "Modifying multiple fields from the same OneOf is unsupported "
                "by REPLACE_FIELDS(). Field path ",
@@ -1965,6 +2034,99 @@ zetasql_base::Status Resolver::FindStructFieldPrefix(
     current_struct = field->type->AsStruct();
   }
 
+  return zetasql_base::OkStatus();
+}
+
+class SystemVariableConstant final : public Constant {
+ public:
+  SystemVariableConstant(const std::vector<std::string>& name_path,
+                         const Type* type)
+      : Constant(name_path), type_(type) {}
+
+  const Type* type() const override { return type_; }
+  std::string DebugString() const override { return FullName(); }
+
+ private:
+  const Type* const type_;
+};
+
+Catalog* Resolver::GetSystemVariablesCatalog() {
+  if (system_variables_catalog_ != nullptr) {
+    return system_variables_catalog_.get();
+  }
+
+  auto catalog = absl::make_unique<SimpleCatalog>("<system_variables>");
+  for (const auto& entry : analyzer_options_.system_variables()) {
+    std::vector<std::string> name_path = entry.first;
+    const zetasql::Type* type = entry.second;
+
+    // Traverse the name path, adding nested catalogs as necessary so that
+    // the entry has a place to go.
+    SimpleCatalog* target_catalog = catalog.get();
+    for (size_t i = 0; i < name_path.size() - 1; ++i) {
+      const std::string& path_elem = name_path[i];
+      Catalog* nested_catalog = nullptr;
+      ZETASQL_CHECK_OK(target_catalog->GetCatalog(path_elem, &nested_catalog));
+      if (nested_catalog == nullptr) {
+        auto new_catalog = absl::make_unique<SimpleCatalog>(path_elem);
+        nested_catalog = new_catalog.get();
+        target_catalog->AddOwnedCatalog(std::move(new_catalog));
+      }
+      target_catalog = static_cast<SimpleCatalog*>(nested_catalog);
+    }
+
+    target_catalog->AddOwnedConstant(
+        name_path.back(),
+        absl::make_unique<SystemVariableConstant>(name_path, type));
+  }
+  system_variables_catalog_ = std::move(catalog);
+  return system_variables_catalog_.get();
+}
+
+zetasql_base::Status Resolver::ResolveSystemVariableExpression(
+    const ASTSystemVariableExpr* ast_system_variable_expr,
+    ExprResolutionInfo* expr_resolution_info,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
+  Catalog* system_variables_catalog = GetSystemVariablesCatalog();
+
+  std::vector<std::string> path_parts =
+      ast_system_variable_expr->path()->ToIdentifierVector();
+
+  int num_names_consumed = 0;
+  const Constant* constant = nullptr;
+  zetasql_base::Status find_constant_with_path_prefix_status =
+      system_variables_catalog->FindConstantWithPathPrefix(
+          path_parts, &num_names_consumed, &constant,
+          analyzer_options_.find_options());
+
+  if (find_constant_with_path_prefix_status.code() ==
+      zetasql_base::StatusCode::kNotFound) {
+    return GetUnrecognizedNameError(ast_system_variable_expr->path(),
+                                    expr_resolution_info != nullptr
+                                        ? expr_resolution_info->name_scope
+                                        : nullptr);
+  }
+  ZETASQL_RETURN_IF_ERROR(find_constant_with_path_prefix_status);
+
+  // A constant was found.  Wrap it in an ResolvedSystemVariable node.
+  std::vector<std::string> name_path(num_names_consumed);
+  for (int i = 0; i < num_names_consumed; ++i) {
+    name_path[i] = ast_system_variable_expr->path()->name(i)->GetAsString();
+  }
+
+  auto resolved_system_variable =
+      MakeResolvedSystemVariable(constant->type(), name_path);
+  MaybeRecordParseLocation(ast_system_variable_expr,
+                           resolved_system_variable.get());
+  *resolved_expr_out = std::move(resolved_system_variable);
+
+  for (; num_names_consumed < ast_system_variable_expr->path()->num_names();
+       ++num_names_consumed) {
+    ZETASQL_RETURN_IF_ERROR(ResolveFieldAccess(
+        std::move(*resolved_expr_out),
+        ast_system_variable_expr->path()->name(num_names_consumed),
+        resolved_expr_out));
+  }
   return zetasql_base::OkStatus();
 }
 
@@ -2194,7 +2356,8 @@ zetasql_base::Status Resolver::ResolveBinaryExpr(
   // true/false/NULL), the general function name is resolved to
   // $is_true/$is_false/$is_null respectively with lhs_ as an argument.
   if (binary_expr->op() == ASTBinaryExpression::IS) {
-    const std::string& function_name = IsOperatorToFunctionName(binary_expr->rhs());
+    const std::string& function_name =
+        IsOperatorToFunctionName(binary_expr->rhs());
     ZETASQL_RETURN_IF_ERROR(ResolveFunctionCallByNameWithoutAggregatePropertyCheck(
         binary_expr, function_name, { binary_expr->lhs() },
         *kEmptyArgumentOptionMap, expr_resolution_info,
@@ -2229,7 +2392,8 @@ zetasql_base::Status Resolver::ResolveBitwiseShiftExpr(
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   const std::string& function_name = bitwise_shift_expr->is_left_shift()
-      ? "$bitwise_left_shift" : "$bitwise_right_shift";
+                                         ? "$bitwise_left_shift"
+                                         : "$bitwise_right_shift";
   ZETASQL_RETURN_IF_ERROR(ResolveFunctionCallByNameWithoutAggregatePropertyCheck(
       bitwise_shift_expr, function_name,
       { bitwise_shift_expr->lhs(), bitwise_shift_expr->rhs() },
@@ -2739,7 +2903,8 @@ Resolver::ProtoExtractionTypeFromName(const std::string& extraction_type_name) {
 }
 
 // static
-std::string Resolver::ProtoExtractionTypeName(ProtoExtractionType extraction_type) {
+std::string Resolver::ProtoExtractionTypeName(
+    ProtoExtractionType extraction_type) {
   switch (extraction_type) {
     case ProtoExtractionType::kHas:
       return "HAS";
@@ -4657,7 +4822,8 @@ zetasql_base::Status Resolver::ResolveFunctionCallWithResolvedArguments(
     std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
-  const std::vector<std::string> function_name_path = {std::string(function_name)};
+  const std::vector<std::string> function_name_path = {
+      std::string(function_name)};
   return ResolveFunctionCallWithResolvedArguments(
       ast_location, arg_locations, function_name_path,
       std::move(resolved_arguments), expr_resolution_info, resolved_expr_out);

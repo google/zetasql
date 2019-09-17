@@ -36,9 +36,9 @@ configure_make(
     name = "icu",
     configure_command = "source/configure",
     configure_env_vars = {
-          # For JNI
-        "CXXFLAGS": "-fPIC", # " -DU_STATIC_IMPLEMENTATION",
-        "CFLAGS": "-fPIC", # " -DU_STATIC_IMPLEMENTATION",  # For JNI
+        "CXXFLAGS": "-fPIC",  # For JNI
+        "CFLAGS": "-fPIC",  # For JNI
+        "LIBS": "$$LDFLAGS$$",
     },
     configure_options = [
         "--enable-option-checking",

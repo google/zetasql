@@ -61,7 +61,9 @@
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/scripting/parsed_script.h"
 #include "absl/base/casts.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/ascii.h"
@@ -414,10 +416,17 @@ zetasql_base::Status Resolver::ResolveStatement(
             statement->GetAsOrDie<ASTRevokeStatement>(), &stmt));
       }
       break;
-    case AST_ALTER_ROW_POLICY_STATEMENT:
-      if (language().SupportsStatementKind(RESOLVED_ALTER_ROW_POLICY_STMT)) {
-        ZETASQL_RETURN_IF_ERROR(ResolveAlterRowPolicyStatement(
-            statement->GetAsOrDie<ASTAlterRowPolicyStatement>(), &stmt));
+    case AST_ALTER_DATABASE_STATEMENT:
+      if (language().SupportsStatementKind(RESOLVED_ALTER_DATABASE_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveAlterDatabaseStatement(
+            statement->GetAsOrDie<ASTAlterDatabaseStatement>(), &stmt));
+      }
+      break;
+    case AST_ALTER_ROW_ACCESS_POLICY_STATEMENT:
+      if (language().SupportsStatementKind(
+              RESOLVED_ALTER_ROW_ACCESS_POLICY_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveAlterRowAccessPolicyStatement(
+            statement->GetAsOrDie<ASTAlterRowAccessPolicyStatement>(), &stmt));
       }
       break;
     case AST_ALTER_TABLE_STATEMENT:
@@ -554,8 +563,7 @@ static ResolvedCreateStatement::CreateScope ToResolvedCreateScope(
 }
 
 zetasql_base::Status Resolver::ResolveCreateStatementOptions(
-    const ASTCreateStatement* ast_statement,
-    const std::string& statement_type,
+    const ASTCreateStatement* ast_statement, const std::string& statement_type,
     ResolvedCreateStatement::CreateScope* create_scope,
     ResolvedCreateStatement::CreateMode* create_mode) const {
   *create_scope = ResolvedCreateStatement::CREATE_DEFAULT_SCOPE;
@@ -602,9 +610,9 @@ zetasql_base::Status Resolver::ResolveCreateStatementOptions(
     case ASTCreateStatement::PRIVATE:
       if (analyzer_options().statement_context() == CONTEXT_DEFAULT) {
         const std::string suffix =
-            (language().LanguageFeatureEnabled(FEATURE_EXPERIMENTAL_MODULES) ?
-             "only supported inside modules" :
-             "not supported");
+            (language().LanguageFeatureEnabled(FEATURE_EXPERIMENTAL_MODULES)
+                 ? "only supported inside modules"
+                 : "not supported");
         return MakeSqlErrorAt(ast_statement)
             << statement_type << " with PUBLIC or PRIVATE modifiers is "
             << suffix;
@@ -2082,8 +2090,7 @@ zetasql_base::Status Resolver::ResolveAndAdaptQueryAndOutputColumns(
 
 zetasql_base::Status Resolver::ResolveCreateViewStatementBaseProperties(
     const ASTCreateViewStatementBase* ast_statement,
-    const std::string& statement_type,
-    absl::string_view object_type,
+    const std::string& statement_type, absl::string_view object_type,
     std::vector<std::string>* table_name,
     ResolvedCreateStatement::CreateScope* create_scope,
     ResolvedCreateStatement::CreateMode* create_mode,
@@ -2093,8 +2100,7 @@ zetasql_base::Status Resolver::ResolveCreateViewStatementBaseProperties(
         output_column_list,
     std::vector<std::unique_ptr<const ResolvedColumnDefinition>>*
         column_definition_list,
-    std::unique_ptr<const ResolvedScan>* query_scan,
-    std::string* view_sql,
+    std::unique_ptr<const ResolvedScan>* query_scan, std::string* view_sql,
     bool* is_value_table) {
   ZETASQL_RETURN_IF_ERROR(ResolveCreateStatementOptions(ast_statement, statement_type,
                                                 create_scope, create_mode));
@@ -2333,6 +2339,24 @@ static zetasql_base::Status FailIfContainsParameterExpr(const ASTNode* node,
              entity_type, entity_name, unparsed_parameter_expr);
 }
 
+static ResolvedCreateStatementEnums::DeterminismLevel ConvertDeterminismLevel(
+    ASTCreateFunctionStmtBase::DeterminismLevel level) {
+  switch (level) {
+    case ASTCreateFunctionStmtBase::DETERMINISM_UNSPECIFIED:
+      return ResolvedCreateStatementEnums::DETERMINISM_UNSPECIFIED;
+    case ASTCreateFunctionStmtBase::DETERMINISTIC:
+      return ResolvedCreateStatementEnums::DETERMINISM_DETERMINISTIC;
+    case ASTCreateFunctionStmtBase::NOT_DETERMINISTIC:
+      return ResolvedCreateStatementEnums::DETERMINISM_NOT_DETERMINISTIC;
+    case ASTCreateFunctionStmtBase::IMMUTABLE:
+      return ResolvedCreateStatementEnums::DETERMINISM_IMMUTABLE;
+    case ASTCreateFunctionStmtBase::STABLE:
+      return ResolvedCreateStatementEnums::DETERMINISM_STABLE;
+    case ASTCreateFunctionStmtBase::VOLATILE:
+      return ResolvedCreateStatementEnums::DETERMINISM_VOLATILE;
+  }
+}
+
 zetasql_base::Status Resolver::ResolveCreateFunctionStatement(
     const ASTCreateFunctionStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
@@ -2556,7 +2580,8 @@ zetasql_base::Status Resolver::ResolveCreateFunctionStatement(
       function_name, create_scope, create_mode, has_explicit_return_type,
       return_type, argument_names, *signature, is_aggregate, language_string,
       code_string, std::move(resolved_aggregate_exprs),
-      std::move(resolved_expr), std::move(resolved_options), sql_security);
+      std::move(resolved_expr), std::move(resolved_options), sql_security,
+      ConvertDeterminismLevel(ast_statement->determinism_level()));
   MaybeRecordParseLocation(ast_statement->function_declaration()->name(),
                            output->get());
   return ::zetasql_base::OkStatus();
@@ -3068,12 +3093,26 @@ zetasql_base::Status Resolver::ResolveCreateProcedureStatement(
 
   // Copy procedure body from BEGIN <statement_list> END block
   const ParseLocationRange& range = ast_statement->begin_end_block()
-                                        ->statement_list()
                                         ->GetParseLocationRange();
   ZETASQL_RET_CHECK_GE(sql_.length(), range.end().GetByteOffset()) << sql_;
   absl::string_view procedure_body =
       sql_.substr(range.start().GetByteOffset(),
                   range.end().GetByteOffset() - range.start().GetByteOffset());
+
+  // Validates procedure body. See ParsedScript::Create() for the list of checks
+  // being done.
+  ParsedScript::ArgumentTypeMap arguments_map;
+  for (const ASTFunctionParameter* function_param :
+       ast_statement->parameters()->parameter_entries()) {
+    // Always use nullptr as type of variable, for type is not used during
+    // validation and getting correct type here is lengthy.
+    arguments_map[function_param->name()->GetAsIdString()] = nullptr;
+  }
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<const ParsedScript> parsed_script,
+      ParsedScript::CreateForRoutine(procedure_body, ParserOptions(),
+                                     analyzer_options_.error_message_mode(),
+                                     std::move(arguments_map)));
 
   *output = MakeResolvedCreateProcedureStmt(
       procedure_name, create_scope, create_mode, argument_names, *signature,
@@ -3240,8 +3279,7 @@ zetasql_base::Status Resolver::ResolveFunctionParameters(
 }
 
 zetasql_base::Status Resolver::ResolveTableAndPredicate(
-    const ASTPathExpression* table_path,
-    const ASTExpression* predicate,
+    const ASTPathExpression* table_path, const ASTExpression* predicate,
     const char* clause_name,
     std::unique_ptr<const ResolvedTableScan>* resolved_table_scan,
     std::unique_ptr<const ResolvedExpr>* resolved_predicate,
@@ -3266,11 +3304,14 @@ zetasql_base::Status Resolver::ResolveTableAndPredicate(
     ZETASQL_RETURN_IF_ERROR(
         CheckIsBoolExpr(predicate, "USING clause", resolved_predicate));
 
-    // Extract the std::string form of predicate expression using ZetaSQL unparser.
-    parser::Unparser predicate_unparser(predicate_str);
-    predicate->Accept(&predicate_unparser, nullptr /* data */);
-    predicate_unparser.FlushLine();
-    absl::StripAsciiWhitespace(predicate_str);
+    if (predicate_str != nullptr) {
+      // Extract the std::string form of predicate expression using ZetaSQL
+      // unparser.
+      parser::Unparser predicate_unparser(predicate_str);
+      predicate->Accept(&predicate_unparser, nullptr /* data */);
+      predicate_unparser.FlushLine();
+      absl::StripAsciiWhitespace(predicate_str);
+    }
   }
 
   return ::zetasql_base::OkStatus();
@@ -3280,10 +3321,6 @@ zetasql_base::Status Resolver::ResolveGranteeList(
     const ASTGranteeList* ast_grantee_list,
     std::vector<std::string>* grantee_list,
     std::vector<std::unique_ptr<const ResolvedExpr>>* grantee_expr_list) {
-  // The <ast_grantee_list> may be nullptr for ALTER ROW POLICY statements.
-  if (ast_grantee_list == nullptr) {
-    return zetasql_base::OkStatus();
-  }
   for (const ASTExpression* grantee : ast_grantee_list->grantee_list()) {
     if (language().LanguageFeatureEnabled(FEATURE_PARAMETERS_IN_GRANTEE_LIST)) {
       ZETASQL_RET_CHECK(grantee->node_kind() == AST_PARAMETER_EXPR ||
@@ -3403,43 +3440,100 @@ zetasql_base::Status Resolver::ResolveCreateRowAccessPolicyStatement(
   return ::zetasql_base::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveAlterRowPolicyStatement(
-    const ASTAlterRowPolicyStatement* ast_statement,
+zetasql_base::Status Resolver::ResolveAlterRowAccessPolicyStatement(
+    const ASTAlterRowAccessPolicyStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
-  ZETASQL_RET_CHECK(ast_statement->name() != nullptr);
+  ZETASQL_RET_CHECK(ast_statement->path() != nullptr);
 
-  std::string name = ast_statement->name()->GetAsString(), new_name;
-  if (ast_statement->new_name() != nullptr) {
-    new_name = ast_statement->new_name()->GetAsString();
-  }
-
-  const ASTPathExpression* target_path = ast_statement->target_path();
   std::unique_ptr<const ResolvedTableScan> resolved_table_scan;
-  std::unique_ptr<const ResolvedExpr> resolved_predicate;
-  std::string predicate_str;
-
-  ZETASQL_RETURN_IF_ERROR(ResolveTableAndPredicate(
-      target_path, ast_statement->predicate(), "ALTER ROW POLICY statement",
-      &resolved_table_scan, &resolved_predicate, &predicate_str));
-
-  std::vector<std::string> grantee_list;
-  std::vector<std::unique_ptr<const ResolvedExpr>> grantee_expr_list;
-  ZETASQL_RETURN_IF_ERROR(ResolveGranteeList(ast_statement->grantee_list(),
-                                     &grantee_list, &grantee_expr_list));
-
-  if (new_name.empty() && grantee_list.empty() &&
-      grantee_expr_list.empty() && resolved_predicate == nullptr) {
-    return MakeSqlErrorAt(ast_statement)
-           << "ALTER ROW POLICY must have at least one of RENAME TO "
-              "<new_name>, TO <new_grantee_list> or USING (new_predicate) "
-              "clause";
+  std::vector<std::unique_ptr<const ResolvedAlterAction>>
+      resolved_alter_actions;
+  const ASTAlterActionList* action_list = ast_statement->action_list();
+  absl::flat_hash_map<ASTNodeKind, std::unique_ptr<const ResolvedAlterAction>*>
+      action_map;
+  for (const ASTAlterAction* const action : action_list->actions()) {
+    std::unique_ptr<const ResolvedAlterAction>*& existing_action =
+        action_map[action->node_kind()];
+    std::unique_ptr<const ResolvedAlterAction> alter_action;
+    switch (action->node_kind()) {
+      case AST_GRANT_TO_CLAUSE: {
+        if (existing_action != nullptr) {
+          return MakeSqlErrorAt(action)
+                 << "Multiple GRANT TO actions are not supported";
+        }
+        auto* grant_to = action->GetAs<ASTGrantToClause>();
+        std::vector<std::string> grantee_list;
+        std::vector<std::unique_ptr<const ResolvedExpr>> grantee_expr_list;
+        ZETASQL_RETURN_IF_ERROR(ResolveGranteeList(grant_to->grantee_list(),
+                                           &grantee_list, &grantee_expr_list));
+        alter_action = MakeResolvedGrantToAction(std::move(grantee_expr_list));
+      } break;
+      case AST_FILTER_USING_CLAUSE: {
+        if (existing_action != nullptr) {
+          return MakeSqlErrorAt(action)
+                 << "Multiple FILTER USING actions are not supported";
+        }
+        auto* filter_using = action->GetAs<ASTFilterUsingClause>();
+        std::unique_ptr<const ResolvedExpr> resolved_predicate;
+        std::string predicate_str;
+        ZETASQL_RETURN_IF_ERROR(ResolveTableAndPredicate(
+            ast_statement->path(), filter_using->predicate(),
+            "ALTER ROW ACCESS POLICY FILTER USING action", &resolved_table_scan,
+            &resolved_predicate, &predicate_str));
+        alter_action = MakeResolvedFilterUsingAction(
+            std::move(resolved_predicate), predicate_str);
+      } break;
+      case AST_REVOKE_FROM_CLAUSE: {
+        if (existing_action != nullptr) {
+          return MakeSqlErrorAt(action)
+                 << "Multiple REVOKE FROM actions are not supported";
+        }
+        auto* revoke_from = action->GetAs<ASTRevokeFromClause>();
+        if (revoke_from->is_revoke_from_all()) {
+          if (action_map.contains(AST_GRANT_TO_CLAUSE)) {
+            return MakeSqlErrorAt(action) << "REVOKE FROM ALL action after "
+                                             "GRANT TO action is not supported";
+          }
+        }
+        std::vector<std::unique_ptr<const ResolvedExpr>> revokee_expr_list;
+        if (!revoke_from->is_revoke_from_all()) {
+          std::vector<std::string> revokee_list;
+          ZETASQL_RETURN_IF_ERROR(ResolveGranteeList(revoke_from->revoke_from_list(),
+                                             &revokee_list,
+                                             &revokee_expr_list));
+        }
+        alter_action = MakeResolvedRevokeFromAction(
+            std::move(revokee_expr_list), revoke_from->is_revoke_from_all());
+      } break;
+      case AST_RENAME_TO_CLAUSE: {
+        if (existing_action != nullptr) {
+          return MakeSqlErrorAt(action)
+                 << "Multiple RENAME TO actions are not supported";
+        }
+        auto* rename_to = action->GetAs<ASTRenameToClause>();
+        ZETASQL_RET_CHECK(rename_to->new_name());
+        alter_action =
+            MakeResolvedRenameToAction(rename_to->new_name()->GetAsString());
+      } break;
+      default:
+        return MakeSqlErrorAt(action)
+               << "ALTER ROW ACCESS POLICY doesn't support "
+               << action->GetNodeKindString() << " action.";
+    }
+    resolved_alter_actions.push_back(std::move(alter_action));
+    existing_action = &resolved_alter_actions.back();
   }
 
-  *output = MakeResolvedAlterRowPolicyStmt(
-      name, new_name, target_path->ToIdentifierVector(),
-      grantee_list, std::move(grantee_expr_list),
-      std::move(resolved_table_scan), std::move(resolved_predicate),
-      predicate_str);
+  if (resolved_table_scan == nullptr) {
+    ZETASQL_RETURN_IF_ERROR(ResolveTableAndPredicate(
+        ast_statement->path(), nullptr, "ALTER ROW ACCESS POLICY statement",
+        &resolved_table_scan, nullptr, nullptr));
+  }
+
+  *output = MakeResolvedAlterRowAccessPolicyStmt(
+      ast_statement->path()->ToIdentifierVector(),
+      std::move(resolved_alter_actions), ast_statement->is_if_exists(),
+      ast_statement->name()->GetAsString(), std::move(resolved_table_scan));
   return ::zetasql_base::OkStatus();
 }
 
@@ -3556,7 +3650,8 @@ zetasql_base::Status Resolver::ResolveDefineTableStatement(
 zetasql_base::Status Resolver::ResolveDescribeStatement(
     const ASTDescribeStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
-  const std::vector<std::string> name = ast_statement->name()->ToIdentifierVector();
+  const std::vector<std::string> name =
+      ast_statement->name()->ToIdentifierVector();
   const ASTIdentifier* object_type = ast_statement->optional_identifier();
   const ASTPathExpression* from_name = ast_statement->optional_from_name();
   *output = MakeResolvedDescribeStmt(
@@ -3709,7 +3804,8 @@ zetasql_base::Status Resolver::ResolveAbortBatchStatement(
 zetasql_base::Status Resolver::ResolveDropStatement(
     const ASTDropStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
-  const std::vector<std::string> name = ast_statement->name()->ToIdentifierVector();
+  const std::vector<std::string> name =
+      ast_statement->name()->ToIdentifierVector();
   *output = MakeResolvedDropStmt(
       std::string(SchemaObjectKindToName(ast_statement->schema_object_kind())),
       ast_statement->is_if_exists(), name);

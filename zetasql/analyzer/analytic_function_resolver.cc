@@ -1058,6 +1058,20 @@ zetasql_base::Status AnalyticFunctionResolver::ResolveWindowOrderByPostAggregati
       ast_order_by->ordering_expressions();
   ZETASQL_RET_CHECK_EQ(ast_ordering_exprs.size(), order_by_info->size());
   for (int i = 0; i < order_by_info->size(); ++i) {
+    ResolvedOrderByItemEnums::NullOrderMode null_order =
+        ResolvedOrderByItemEnums::ORDER_UNSPECIFIED;
+    if (ast_ordering_exprs[i]->null_order()) {
+      if (!resolver_->language().LanguageFeatureEnabled(
+              FEATURE_V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY)) {
+        return MakeSqlErrorAt(ast_ordering_exprs[i]->null_order())
+               << "NULLS FIRST and NULLS LAST are not supported";
+      } else {
+        null_order = ast_ordering_exprs[i]->null_order()->nulls_first()
+                         ? ResolvedOrderByItemEnums::NULLS_FIRST
+                         : ResolvedOrderByItemEnums::NULLS_LAST;
+      }
+    }
+
     // Since a window ORDER BY may be shared by multiple analytic functions,
     // do not create a new column if we have created one for this ordering
     // expression.
@@ -1087,7 +1101,8 @@ zetasql_base::Status AnalyticFunctionResolver::ResolveWindowOrderByPostAggregati
     order_by_items.emplace_back(
         MakeResolvedOrderByItem(std::move(resolved_column_ref),
                                 std::move(resolved_collation_name),
-                                ast_ordering_exprs[i]->descending()));
+                                ast_ordering_exprs[i]->descending(),
+                                null_order));
   }
 
   std::unique_ptr<ResolvedWindowOrdering> resolved_window_ordering =

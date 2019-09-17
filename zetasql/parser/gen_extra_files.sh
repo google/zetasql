@@ -31,6 +31,7 @@ fi
 echo '#ifndef STORAGE_ZETASQL_PARSER_PARSE_TREE_VISITOR_H_'
 echo '#define STORAGE_ZETASQL_PARSER_PARSE_TREE_VISITOR_H_'
 echo '#include "zetasql/parser/parse_tree.h"'
+echo '#include "zetasql/parser/visit_result.h"'
 echo
 echo 'namespace zetasql {'
 echo 'class ParseTreeVisitor {'
@@ -73,6 +74,30 @@ EOF
 
 echo '};'
 echo
+
+# Generate a non-recursive version of a parse tree visitor.
+echo 'class NonRecursiveParseTreeVisitor {'
+echo ' public:'
+echo '  virtual ~NonRecursiveParseTreeVisitor() {}'
+echo '  virtual VisitResult defaultVisit(const ASTNode* node) = 0;'
+echo '  VisitResult visit(const ASTNode* node) {'
+echo '    return defaultVisit(node);'
+echo '  }'
+
+# Generate a visitX method declaration for each concrete class X.
+sed -f - "$1" <<EOF
+# Matches the start of a final (i.e., concrete) class.
+/^class AST[a-zA-Z]* final : public/ {
+  # Do a search/replace to make the method definition.
+  s/class \(AST[a-zA-Z]*\).*/  virtual VisitResult visit\1(const \1* node) {return defaultVisit(node);};\n/
+  p
+}
+# Delete everything else so we just keep the new methods.
+d
+EOF
+
+echo '};'
+
 echo '}  // namespace zetasql'
 echo '#endif  // STORAGE_ZETASQL_PARSER_PARSE_TREE_VISITOR_H_'
 ) > "$2"
@@ -106,5 +131,18 @@ sed -f - "$1" <<EOF
 # Delete everything else so we just keep the new methods.
 d
 EOF
+
+# Generate the Accept method bodies for each class.
+sed -f - "$1" <<EOF
+# Matches the start of a final (i.e., non-abstract) class.
+/^class AST[a-zA-Z]* final : public/ {
+  # Do a search/replace to make the method definition.
+  s/class \(AST[a-zA-Z]*\).*/VisitResult \1::Accept(NonRecursiveParseTreeVisitor* visitor) const {\n  return visitor->visit\1(this);\n}\n/
+  p
+}
+# Delete everything else so we just keep the new methods.
+d
+EOF
+
 echo '}  // namespace zetasql'
 ) > "$4"

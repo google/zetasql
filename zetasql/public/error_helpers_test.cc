@@ -85,14 +85,13 @@ TEST(ErrorHelpersTest, FormatError) {
   EXPECT_EQ("Message2 [at 4:9]", FormatError(status2));
 
   // Error with code other than INVALID_ARGUMENT.
-  const zetasql_base::Status status3 = ::zetasql_base::UnknownErrorBuilder(ZETASQL_LOC)
-                               << "Message3";
+  const zetasql_base::Status status3 = ::zetasql_base::UnknownErrorBuilder() << "Message3";
   EXPECT_EQ("generic::unknown: Message3", internal::StatusToString(status3));
   EXPECT_EQ("generic::unknown: Message3", FormatError(status3));
 
   // Error with a zetasql payload but the wrong code.
   zetasql_base::Status status4 =
-      ::zetasql_base::UnknownErrorBuilder(ZETASQL_LOC).Attach(
+      ::zetasql_base::UnknownErrorBuilder().Attach(
           ParseLocationPoint::FromByteOffset(1).ToInternalErrorLocation())
       << "Message4";
   status4 = ConvertInternalErrorLocationToExternal(status4, dummy_query);
@@ -106,9 +105,8 @@ TEST(ErrorHelpersTest, FormatError) {
   extra_extension.set_value("abc");
 
   // Error with a non-ErrorLocation payload.
-  zetasql_base::Status status5 =
-      ::zetasql_base::UnknownErrorBuilder(ZETASQL_LOC).Attach(extra_extension)
-      << "Message5";
+  zetasql_base::Status status5 = ::zetasql_base::UnknownErrorBuilder().Attach(extra_extension)
+                         << "Message5";
   EXPECT_EQ(
       "generic::unknown: Message5 "
       "[zetasql_test.TestStatusPayload] { value: \"abc\" }",
@@ -148,7 +146,7 @@ TEST(ErrorHelpersTest, ErrorLocationHelpers) {
             internal::StatusToString(status1));
 
   zetasql_base::Status status2 =
-      ::zetasql_base::UnknownErrorBuilder(ZETASQL_LOC).Attach(
+      ::zetasql_base::UnknownErrorBuilder().Attach(
           ParseLocationPoint::FromByteOffset(1).ToInternalErrorLocation())
       << "Message2";
   status2 = ConvertInternalErrorLocationToExternal(status2, "123\n456");
@@ -503,7 +501,7 @@ static void RunTests(
       // The adjusted status must not have an InternalErrorLocation under
       // any mode.
       EXPECT_FALSE(
-          internal::HasPayloadTyped<InternalErrorLocation>(adjusted_status))
+          internal::HasPayloadWithType<InternalErrorLocation>(adjusted_status))
           << test_string;
       // The adjusted status should match the expected status std::string.
       EXPECT_EQ(FormatError(adjusted_status), expected_error_string)
@@ -517,8 +515,9 @@ static void RunTests(
         // have also have similar payloads.
         if (mode == ERROR_MESSAGE_WITH_PAYLOAD) {
           ASSERT_TRUE(internal::HasPayload(adjusted_status));
-          EXPECT_EQ(internal::HasPayloadTyped<ErrorLocation>(test_case.status),
-                    internal::HasPayloadTyped<ErrorLocation>(adjusted_status))
+          EXPECT_EQ(
+              internal::HasPayloadWithType<ErrorLocation>(test_case.status),
+              internal::HasPayloadWithType<ErrorLocation>(adjusted_status))
               << test_string;
         } else {
           // The original status had an ErrorLocation payload and/or another
@@ -529,7 +528,7 @@ static void RunTests(
           // The mode is not ERROR_MESSAGE_WITH_PAYLOAD, so the adjusted
           // status must not have an ErrorLocation.
           EXPECT_FALSE(
-              internal::HasPayloadTyped<ErrorLocation>(adjusted_status));
+              internal::HasPayloadWithType<ErrorLocation>(adjusted_status));
         }
       }
     }
@@ -604,7 +603,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorLocationPayloadTests) {
   // MaybeUpdateErrorFromPayload() doesn't consider the
   // error code.
   zetasql_base::Status status3 =
-      ::zetasql_base::UnknownErrorBuilder(ZETASQL_LOC).Attach(
+      ::zetasql_base::UnknownErrorBuilder().Attach(
           ParseLocationPoint::FromByteOffset(3).ToInternalErrorLocation())
       << "Message3";
   EXPECT_EQ("generic::unknown: Message3 "
@@ -637,8 +636,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorLocationPayloadTests) {
   zetasql_test::TestStatusPayload extra_extension;
   extra_extension.set_value("abc");
   const zetasql_base::Status status4 =
-      ::zetasql_base::UnknownErrorBuilder(ZETASQL_LOC).Attach(extra_extension)
-      << "Message4";
+      ::zetasql_base::UnknownErrorBuilder().Attach(extra_extension) << "Message4";
   const std::string expected_string4 = FormatError(status4);
   expected_result.clear();
   zetasql_base::InsertIfNotPresent(&expected_result, ERROR_MESSAGE_WITH_PAYLOAD,
@@ -1117,7 +1115,7 @@ TEST(ErrorHelpersTest, UpdateErrorLocationPayloadWithFilenameIfNotPresentTests)
   zetasql_base::Status updated_status =
       UpdateErrorLocationPayloadWithFilenameIfNotPresent(status,
                                                          "new_filename");
-  EXPECT_TRUE(internal::HasPayloadTyped<ErrorLocation>(updated_status));
+  EXPECT_TRUE(internal::HasPayloadWithType<ErrorLocation>(updated_status));
 
   ErrorLocation updated_status_location =
       internal::GetPayload<ErrorLocation>(updated_status);
@@ -1132,7 +1130,7 @@ TEST(ErrorHelpersTest, UpdateErrorLocationPayloadWithFilenameIfNotPresentTests)
   updated_status =
       UpdateErrorLocationPayloadWithFilenameIfNotPresent(status,
                                                          "new_filename");
-  EXPECT_TRUE(internal::HasPayloadTyped<ErrorLocation>(updated_status));
+  EXPECT_TRUE(internal::HasPayloadWithType<ErrorLocation>(updated_status));
 
   updated_status_location = internal::GetPayload<ErrorLocation>(updated_status);
   EXPECT_EQ("new_filename", updated_status_location.filename());

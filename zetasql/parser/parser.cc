@@ -29,6 +29,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/canonical_errors.h"

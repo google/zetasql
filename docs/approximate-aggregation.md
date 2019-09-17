@@ -33,6 +33,8 @@ users to specify the precision for the estimation.
 ZetaSQL supports
 [HyperLogLog++ cardinality estimation functions][hll-functions] for estimating
 the number of distinct values in a large dataset.
+ZetaSQL supports [KLL16 quantile estimation functions][kll-functions]
+for estimating quantile values in a large dataset.
 
 These functions operate on sketches that compress an arbitrary set into a
 fixed-memory representation. ZetaSQL stores these sketches as
@@ -105,12 +107,24 @@ distinct values in a data set. In ZetaSQL, the
 algorithm. The HyperLogLog++ algorithm improves on the HyperLogLog algorithm by
 using bias correction to reduce error for an important range of cardinalities.
 
+### KLL16
+
+The [KLL16][link-to-kll-paper] algorithm is an algorithm for estimating
+quantile values in a data set. In ZetaSQL, the
+[KLL16 quantile estimation functions][kll-functions] use this
+algorithm. The KLL16 algorithm improves on the [MP80 algorithm][mp80] by
+using variable-size buffers to reduce memory use for large data sets.
+
 [hll-link-to-hyperloglog-wikipedia]: https://en.wikipedia.org/wiki/HyperLogLog
 [hll-link-to-approx-count-distinct]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#approx_count_distinct
 [link-to-APPROX_]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#approximate-aggregate-functions
 [hll-functions]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#hyperloglog-functions
 [HyperLogLogPlusPlus-paper]: https://research.google.com/pubs/pub40671.html
 [exact-aggregate-fns]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#aggregate-functions
+
+[kll-functions]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#kll16-quantile-functions
+[link-to-kll-paper]: https://arxiv.org/pdf/1603.05346v2.pdf
+[mp80]: https://polylogblog.files.wordpress.com/2009/08/80munro-median.pdf
 
 <!-- END CONTENT -->
 

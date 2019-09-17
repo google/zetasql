@@ -47,7 +47,7 @@ static zetasql_base::Status ErrorWithLocation() {
 }
 
 static zetasql_base::Status ErrorNonSQL() {
-  return ::zetasql_base::NotFoundErrorBuilder(ZETASQL_LOC) << "Non-SQL error";
+  return ::zetasql_base::NotFoundErrorBuilder() << "Non-SQL error";
 }
 
 static zetasql_base::Status ReturnIfTest1() {

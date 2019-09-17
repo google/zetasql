@@ -53,7 +53,8 @@ class AnalyzerOptions;
 
 using ::zetasql::functions::DateTimestampPartToSQL;
 
-using FunctionIdToNameMap = absl::flat_hash_map<FunctionSignatureId, std::string>;
+using FunctionIdToNameMap =
+    absl::flat_hash_map<FunctionSignatureId, std::string>;
 using NameToFunctionMap = std::map<std::string, std::unique_ptr<Function>>;
 
 // If std::string literal is compared against bytes, then we want the error message
@@ -97,7 +98,7 @@ bool ArgumentsArrayType(const std::vector<InputArgumentType>& arguments,
 // TODO: Consider removing this callback, since Function now knows
 // whether it is operator, and has correct sql_name to print.
 std::string InfixFunctionSQL(const std::string& display_name,
-                        const std::vector<std::string>& inputs) {
+                             const std::vector<std::string>& inputs) {
   std::string sql;
   for (const std::string& text : inputs) {
     if (!sql.empty()) {
@@ -116,17 +117,17 @@ std::string InfixFunctionSQL(const std::string& display_name,
   return sql;
 }
 std::string PreUnaryFunctionSQL(const std::string& display_name,
-                           const std::vector<std::string>& inputs) {
+                                const std::vector<std::string>& inputs) {
   DCHECK_EQ(inputs.size(), 1);
   return absl::StrCat(display_name, "(", inputs[0], ")");
 }
 std::string PostUnaryFunctionSQL(const std::string& display_name,
-                            const std::vector<std::string>& inputs) {
+                                 const std::vector<std::string>& inputs) {
   DCHECK_EQ(inputs.size(), 1);
   return absl::StrCat("(", inputs[0], ")", display_name);
 }
 std::string DateAddOrSubFunctionSQL(const std::string& display_name,
-                               const std::vector<std::string>& inputs) {
+                                    const std::vector<std::string>& inputs) {
   DCHECK_EQ(inputs.size(), 3);
   return absl::StrCat(display_name, "(", inputs[0], ", INTERVAL ", inputs[1],
                       " ", inputs[2], ")");
@@ -195,18 +196,21 @@ std::string ArrayAtOrdinalFunctionSQL(const std::vector<std::string>& inputs) {
   DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(inputs[0], "[ORDINAL(", inputs[1], ")]");
 }
-std::string SafeArrayAtOffsetFunctionSQL(const std::vector<std::string>& inputs) {
+std::string SafeArrayAtOffsetFunctionSQL(
+    const std::vector<std::string>& inputs) {
   DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(inputs[0], "[SAFE_OFFSET(", inputs[1], ")]");
 }
-std::string SafeArrayAtOrdinalFunctionSQL(const std::vector<std::string>& inputs) {
+std::string SafeArrayAtOrdinalFunctionSQL(
+    const std::vector<std::string>& inputs) {
   DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(inputs[0], "[SAFE_ORDINAL(", inputs[1], ")]");
 }
 std::string GenerateDateTimestampArrayFunctionSQL(
     const std::string& function_name, const std::vector<std::string>& inputs) {
   DCHECK(inputs.size() == 2 || inputs.size() == 4);
-  std::string sql = absl::StrCat(function_name, "(", inputs[0], ", ", inputs[1]);
+  std::string sql =
+      absl::StrCat(function_name, "(", inputs[0], ", ", inputs[1]);
   if (inputs.size() == 4) {
     if (inputs[2][0] == '[') {
       // Fix the function signature text:
@@ -241,8 +245,8 @@ std::string ExtractFunctionSQL(const std::vector<std::string>& inputs) {
   return absl::StrCat(prefix, ")");
 }
 
-std::string ExtractDateOrTimeFunctionSQL(const std::string& date_part,
-                                    const std::vector<std::string>& inputs) {
+std::string ExtractDateOrTimeFunctionSQL(
+    const std::string& date_part, const std::vector<std::string>& inputs) {
   DCHECK_GT(inputs.size(), 0);
   std::string prefix = absl::StrCat("EXTRACT(", date_part, " FROM ", inputs[0]);
   if (inputs.size() > 1) {
@@ -782,7 +786,8 @@ zetasql_base::Status CheckJsonArguments(const std::vector<InputArgumentType>& ar
 
 zetasql_base::Status CheckIsSupportedKeyType(
     absl::string_view function_name,
-    const std::set<std::string>& supported_key_types, int key_type_argument_index,
+    const std::set<std::string>& supported_key_types,
+    int key_type_argument_index,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
   if (arguments.size() <= key_type_argument_index) {
@@ -1053,7 +1058,8 @@ std::string GetExtractFunctionSignatureString(
     const std::vector<ArgumentType>& arguments, ProductMode product_mode,
     bool include_bracket) {
   // The 0th argument is the one we are extracting the date part from.
-  const std::string source_type_string(arguments[0].UserFacingName(product_mode));
+  const std::string source_type_string(
+      arguments[0].UserFacingName(product_mode));
   std::string datepart_string;
   std::string timezone_string;
   if (explicit_datepart_name.empty()) {
@@ -1097,18 +1103,20 @@ std::string GetExtractFunctionSignatureString(
 }
 
 std::string NoMatchingSignatureForExtractFunction(
-    const std::string& explicit_datepart_name, const std::string& qualified_function_name,
+    const std::string& explicit_datepart_name,
+    const std::string& qualified_function_name,
     const std::vector<InputArgumentType>& arguments, ProductMode product_mode) {
-  std::string msg("No matching signature for function EXTRACT for argument types: ");
+  std::string msg(
+      "No matching signature for function EXTRACT for argument types: ");
   absl::StrAppend(&msg, GetExtractFunctionSignatureString(
                             explicit_datepart_name, arguments, product_mode,
                             /*include_bracket=*/false));
   return msg;
 }
 
-std::string ExtractSupportedSignatures(const std::string& explicit_datepart_name,
-                                  const LanguageOptions& language_options,
-                                  const Function& function) {
+std::string ExtractSupportedSignatures(
+    const std::string& explicit_datepart_name,
+    const LanguageOptions& language_options, const Function& function) {
   std::string supported_signatures;
   for (const FunctionSignature& signature : function.signatures()) {
     // Ignore deprecated signatures, and signatures that include
@@ -1132,7 +1140,7 @@ std::string ExtractSupportedSignatures(const std::string& explicit_datepart_name
 }
 
 std::string EmptySupportedSignatures(const LanguageOptions& language_options,
-                                const Function& function) {
+                                     const Function& function) {
   return std::string();
 }
 

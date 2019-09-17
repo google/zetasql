@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-package(default_visibility = ["//zetasql:__subpackages__"])
+package(default_visibility = ["//:__subpackages__"])
 
 cc_library(
     name = "type_helpers",
@@ -41,5 +41,64 @@ cc_test(
         "@com_google_googletest//:gtest_main",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/testing:test_value",
+    ],
+)
+
+cc_library(
+    name = "functions_testlib",
+    testonly = 1,
+    srcs = [
+        "functions_testlib_1.cc",
+        "functions_testlib_2.cc",
+        "functions_testlib_cast.cc",
+        "functions_testlib_common.cc",
+        "functions_testlib_format.cc",
+        "functions_testlib_format_floating_point.cc",
+        "functions_testlib_format_integral.cc",
+        "functions_testlib_format_nulls.cc",
+        "functions_testlib_format_strings.cc",
+        "functions_testlib_math.cc",
+        "functions_testlib_string.cc",
+        "functions_testlib_timestamp.cc",
+    ],
+    hdrs = [
+        "functions_testlib.h",
+        "functions_testlib_common.h",
+    ],
+    copts = [
+        "$(STACK_FRAME_UNLIMITED)",
+        "-Wno-sign-compare",
+    ],
+    deps = [
+        "//zetasql/base",
+        "//zetasql/base:map_util",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/base:stl_util",
+        "//zetasql/common:float_margin",
+        "//zetasql/common:status_payload_utils",
+        "//zetasql/public:civil_time",
+        "//zetasql/public:numeric_value",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:type",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/public/functions:common_proto",
+        "//zetasql/public/functions:date_time_util",
+        "//zetasql/public/functions:datetime_cc_proto",
+        "//zetasql/testdata:test_schema_cc_proto",
+        "//zetasql/testing:test_function",
+        "//zetasql/testing:test_value",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/time",
+        "@com_google_protobuf//:cc_wkt_protos",
+        "@com_google_protobuf//:protobuf",
+        "@com_google_re2//:re2",
+        "@com_googleapis_googleapis//:date_cc_proto",
+        "@com_googleapis_googleapis//:latlng_cc_proto",
+        "@com_googleapis_googleapis//:timeofday_cc_proto",
     ],
 )

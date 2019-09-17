@@ -15,7 +15,7 @@ This codebase is being open sourced in multiple phases:
 
 1. Parser and Analyzer **Complete**
    - Initial release includes only a subset of tests
-2. Reference Implementation
+2. Reference Implementation **In Progress**
 3. Compliance Tests
    - includes framework for validating compliance of arbitrary engines
 4. Misc tooling
@@ -26,31 +26,31 @@ documentation over time, particular related to developing engines with this
 framework. Documentation on the [language](docs/) itself is fairly
 complete.
 
+
+## Flags
+ZetaSQL uses the Abseil [Flags](https://abseil.io/blog/20190509-flags) library
+to handle commandline flags. Unless otherwise documented, all flags are for
+debugging purposes only and may change, stop working or be removed at any time.
+
+
 ## How to Build
 
 ZetaSQL uses [bazel](https://bazel.build) for building and
-dependency resolution. After installing bazel (version >=0.22), simple run:
+dependency resolution. After installing bazel (version >=0.25.3), simply run:
 
-```bazel build zetasql/...```
-
-### How to Build (with bazel 0.27)
-Bazel disabled a lot of deprecated features in version 0.27.  For now, please
-use the following flags if you are using bazel 0.27.
-```
-bazel build \
-  --incompatible_disable_deprecated_attr_params=false \
-  --incompatible_string_join_requires_strings=false \
-  --incompatible_new_actions_api=false \
-  --incompatible_require_ctx_in_configure_features=false \
-  --incompatible_depset_is_not_iterable=false \
-  --incompatible_no_support_tools_in_action_inputs=false \
-  --host_force_python=PY2 \
-  zetasql/...
-```
-
+```bazel build ...```
 
 ### With docker
  TODO: Add docker build script.
+
+## Example Usage
+A very basic command line tool is available to run simple queries with the
+reference implementation:
+```bazel run //zetasql/experimental:execute_query -- "select 1 + 1;"```
+
+The reference implementation is not yet completely released and currently
+supports only very basic operations and types. Notably, it doesn't support
+`SUM(DOUBLE)` or STRING functions.
 
 ## Versions
 

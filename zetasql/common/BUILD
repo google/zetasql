@@ -15,7 +15,7 @@
 #
 
 package(
-    default_visibility = ["//zetasql:__subpackages__"],
+    default_visibility = ["//:__subpackages__"],
     features = ["parse_headers"],
 )
 
@@ -226,5 +226,64 @@ cc_library(
         "@com_google_protobuf//:protobuf",
         "@com_googleapis_googleapis//:date_cc_proto",
         "@com_googleapis_googleapis//:timeofday_cc_proto",
+    ],
+)
+
+cc_library(
+    name = "simple_evaluator_table_iterator",
+    srcs = ["simple_evaluator_table_iterator.cc"],
+    hdrs = ["simple_evaluator_table_iterator.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "//zetasql/base",
+        "//zetasql/base:clock",
+        "//zetasql/base:source_location",
+        "//zetasql/base:status",
+        "//zetasql/public:catalog",
+        "//zetasql/public:evaluator_table_iterator",
+        "//zetasql/public:type",
+        "//zetasql/public:value",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_test(
+    name = "simple_evaluator_table_iterator_test",
+    srcs = ["simple_evaluator_table_iterator_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":simple_evaluator_table_iterator",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base:clock",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/public:simple_catalog",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "evaluator_test_table",
+    testonly = 1,
+    hdrs = ["evaluator_test_table.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":simple_evaluator_table_iterator",
+        "//zetasql/base",
+        "//zetasql/base:clock",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/public:catalog",
+        "//zetasql/public:evaluator_table_iterator",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/public:type",
+        "//zetasql/public:value",
+        "@com_google_absl//absl/types:span",
     ],
 )

@@ -93,10 +93,10 @@ class SimulatedClock : public Clock {
 
  private:
   template <class T>
-  void UpdateTime(const T& now_updater) LOCKS_EXCLUDED(lock_);
+  void UpdateTime(const T& now_updater) ABSL_LOCKS_EXCLUDED(lock_);
 
   absl::Mutex lock_;
-  absl::Time now_ GUARDED_BY(lock_);
+  absl::Time now_ ABSL_GUARDED_BY(lock_);
 };
 
 }  // namespace zetasql_base
