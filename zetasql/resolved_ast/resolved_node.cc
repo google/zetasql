@@ -62,8 +62,9 @@ std::string ResolvedNode::DebugString() const {
   return output;
 }
 
-void ResolvedNode::DebugStringImpl(
-    const std::string& prefix1, const std::string& prefix2, std::string* output) const {
+void ResolvedNode::DebugStringImpl(const std::string& prefix1,
+                                   const std::string& prefix2,
+                                   std::string* output) const {
   std::vector<DebugStringField> fields;
   CollectDebugStringFields(&fields);
 
@@ -99,9 +100,7 @@ void ResolvedNode::DebugStringImpl(
         for (const ResolvedNode* node : field.nodes) {
           DCHECK(node != nullptr);
           const std::string field_name_indent =
-              print_field_name
-                  ? (&field != &fields.back() ? "| " : "  ")
-                  : "";
+              print_field_name ? (&field != &fields.back() ? "| " : "  ") : "";
           const std::string field_value_indent =
               (node != field.nodes.back() ? "| " : "  ");
 
@@ -539,7 +538,8 @@ std::string ResolvedAggregateHavingModifier::HavingModifierKindToString(
   }
 }
 
-std::string ResolvedAggregateHavingModifier::GetHavingModifierKindString() const {
+std::string ResolvedAggregateHavingModifier::GetHavingModifierKindString()
+    const {
   return HavingModifierKindToString(kind_);
 }
 

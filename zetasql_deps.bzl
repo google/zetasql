@@ -152,9 +152,10 @@ cc_proto_library(
     if not native.existing_rule("com_google_protobuf"):
         http_archive(
             name = "com_google_protobuf",
-            urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.9.1.tar.gz"],
-            sha256 = "98e615d592d237f94db8bf033fba78cd404d979b0b70351a9e5aaff725398357",
-            strip_prefix = "protobuf-3.9.1",
+            urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.6.1.3.tar.gz"],
+            sha256 = "73fdad358857e120fd0fa19e071a96e15c0f23bb25f85d3f7009abfd4f264a2a",
+            strip_prefix = "protobuf-3.6.1.3",
+            patches = ["@com_google_zetasql//bazel:protobuf-v3.6.1.3.patch"],
         )
 
     # gRPC

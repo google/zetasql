@@ -21,6 +21,7 @@
 #include <utility>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/public/analyzer.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/strings.h"
@@ -125,28 +126,33 @@ class Evaluator {
   // populates 'query_output_iterator'.
   zetasql_base::Status Execute(
       const ParameterValueMap& columns, const ParameterValues& parameters,
+      const SystemVariableValuesMap& system_variables,
       Value* expression_output_value,
       std::unique_ptr<EvaluatorTableIterator>* query_output_iterator)
       ABSL_LOCKS_EXCLUDED(mutex_);
 
   zetasql_base::Status ExecuteAfterPrepare(
       const ParameterValueMap& columns, const ParameterValues& parameters,
+      const SystemVariableValuesMap& system_variables,
       Value* expression_output_value,
       std::unique_ptr<EvaluatorTableIterator>* query_output_iterator) const
       ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::ReaderMutexLock l(&mutex_);
-    return ExecuteAfterPrepareLocked(
-        columns, parameters, expression_output_value, query_output_iterator);
+    return ExecuteAfterPrepareLocked(columns, parameters, system_variables,
+                                     expression_output_value,
+                                     query_output_iterator);
   }
 
   zetasql_base::Status ExecuteAfterPrepareWithOrderedParams(
       const ParameterValueList& columns, const ParameterValueList& parameters,
+      const SystemVariableValuesMap& system_variables,
       Value* expression_output_value,
       std::unique_ptr<EvaluatorTableIterator>* query_output_iterator) const
       ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::ReaderMutexLock l(&mutex_);
     return ExecuteAfterPrepareWithOrderedParamsLocked(
-        columns, parameters, expression_output_value, query_output_iterator);
+        columns, parameters, system_variables, expression_output_value,
+        query_output_iterator);
   }
 
   zetasql_base::StatusOr<std::string> ExplainAfterPrepare() const
@@ -230,6 +236,7 @@ class Evaluator {
   // with a write lock).
   zetasql_base::Status ExecuteAfterPrepareLocked(
       const ParameterValueMap& columns, const ParameterValues& parameters,
+      const SystemVariableValuesMap& system_variables,
       Value* expression_output_value,
       std::unique_ptr<EvaluatorTableIterator>* query_output_iterator) const
       SHARED_LOCKS_REQUIRED(mutex_);
@@ -238,6 +245,7 @@ class Evaluator {
   // locked.
   zetasql_base::Status ExecuteAfterPrepareWithOrderedParamsLocked(
       const ParameterValueList& columns, const ParameterValueList& parameters,
+      const SystemVariableValuesMap& system_variables,
       Value* expression_output_value,
       std::unique_ptr<EvaluatorTableIterator>* query_output_iterator) const
       SHARED_LOCKS_REQUIRED(mutex_);
@@ -255,6 +263,9 @@ class Evaluator {
   zetasql_base::Status ValidateColumns(const ParameterValueList& columns) const
       SHARED_LOCKS_REQUIRED(mutex_);
   zetasql_base::Status ValidateParameters(const ParameterValueList& parameters) const
+      SHARED_LOCKS_REQUIRED(mutex_);
+  zetasql_base::Status ValidateSystemVariables(
+      const SystemVariableValuesMap& system_variables) const
       SHARED_LOCKS_REQUIRED(mutex_);
 
   bool is_prepared() const SHARED_LOCKS_REQUIRED(mutex_) {
@@ -328,6 +339,7 @@ class Evaluator {
   Parameters algebrizer_parameters_ GUARDED_BY(mutex_);
   // maps to variables
   ParameterMap algebrizer_column_map_ GUARDED_BY(mutex_);
+  SystemVariablesAlgebrizerMap algebrizer_system_variables_ GUARDED_BY(mutex_);
   bool is_prepared_ GUARDED_BY(mutex_) = false;
   std::unique_ptr<TypeFactory> owned_type_factory_ GUARDED_BY(mutex_)
       PT_GUARDED_BY(mutex_);
@@ -395,7 +407,6 @@ zetasql_base::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
   algebrizer_options.allow_order_by_limit_operator = true;
   algebrizer_options.push_down_filters = true;
 
-  SystemVariablesAlgebrizerMap algebrizer_system_variables;
   if (is_query_) {
     if (query_ == nullptr) {
       ZETASQL_RETURN_IF_ERROR(AnalyzeStatement(sql_, options, catalog,
@@ -429,7 +440,7 @@ zetasql_base::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
         query_, &output_column_list, &compiled_relational_op_,
         &output_column_names, &output_column_variables_,
         &algebrizer_parameters_, &algebrizer_column_map_,
-        &algebrizer_system_variables));
+        &algebrizer_system_variables_));
     ZETASQL_RET_CHECK_EQ(output_column_list.size(), output_column_names.size());
     for (int i = 0; i < output_column_list.size(); ++i) {
       output_columns_.emplace_back(HideInternalName(output_column_names[i]),
@@ -454,13 +465,7 @@ zetasql_base::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
     ZETASQL_RETURN_IF_ERROR(Algebrizer::AlgebrizeExpression(
         options.language(), algebrizer_options, evaluator_options_.type_factory,
         expr_, &compiled_value_expr_, &algebrizer_parameters_,
-        &algebrizer_column_map_, &algebrizer_system_variables));
-  }
-  // TODO: Remove this check when execution of system variables
-  // is supported.
-  if (!algebrizer_system_variables.empty()) {
-    return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
-           << "System variables are not supported.";
+        &algebrizer_column_map_, &algebrizer_system_variables_));
   }
 
   // Build the TupleSchema for the parameterss.
@@ -481,6 +486,9 @@ zetasql_base::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
     const ParameterList& params =
         algebrizer_parameters_.positional_parameters();
     vars.insert(vars.end(), params.begin(), params.end());
+  }
+  for (const auto& system_variable : algebrizer_system_variables_) {
+    vars.push_back(system_variable.second);
   }
   const TupleSchema params_schema(vars);
 
@@ -574,6 +582,7 @@ zetasql_base::Status Evaluator::TranslateParameterValueMapToList(
 
 zetasql_base::Status Evaluator::Execute(
     const ParameterValueMap& columns, const ParameterValues& parameters,
+    const SystemVariableValuesMap& system_variables,
     Value* expression_output_value,
     std::unique_ptr<EvaluatorTableIterator>* query_output_iterator) {
   {
@@ -583,7 +592,15 @@ zetasql_base::Status Evaluator::Execute(
       ZETASQL_RET_CHECK(analyzer_options_.query_parameters().empty() &&
                 analyzer_options_.positional_query_parameters().empty() &&
                 analyzer_options_.expression_columns().empty() &&
-                analyzer_options_.in_scope_expression_column_type() == nullptr);
+                analyzer_options_.in_scope_expression_column_type() ==
+                    nullptr &&
+                analyzer_options_.system_variables().empty());
+
+      for (const auto& system_variable : system_variables) {
+        ZETASQL_RETURN_IF_ERROR(analyzer_options_.AddSystemVariable(
+            system_variable.first, system_variable.second.type()));
+      }
+
       if (parameters.is_named()) {
         analyzer_options_.set_parameter_mode(PARAMETER_NAMED);
         for (const auto& p : parameters.named_parameters()) {
@@ -615,12 +632,14 @@ zetasql_base::Status Evaluator::Execute(
   }
 
   absl::ReaderMutexLock l(&mutex_);
-  return ExecuteAfterPrepareLocked(columns, parameters, expression_output_value,
+  return ExecuteAfterPrepareLocked(columns, parameters, system_variables,
+                                   expression_output_value,
                                    query_output_iterator);
 }
 
 zetasql_base::Status Evaluator::ExecuteAfterPrepareLocked(
     const ParameterValueMap& columns, const ParameterValues& parameters,
+    const SystemVariableValuesMap& system_variables,
     Value* expression_output_value,
     std::unique_ptr<EvaluatorTableIterator>* query_output_iterator) const {
   if (!has_prepare_succeeded()) {
@@ -645,7 +664,7 @@ zetasql_base::Status Evaluator::ExecuteAfterPrepareLocked(
   }
 
   return ExecuteAfterPrepareWithOrderedParamsLocked(
-      columns_list, parameters_list, expression_output_value,
+      columns_list, parameters_list, system_variables, expression_output_value,
       query_output_iterator);
 }
 
@@ -722,6 +741,7 @@ class TupleIteratorAdaptor : public EvaluatorTableIterator {
 
 zetasql_base::Status Evaluator::ExecuteAfterPrepareWithOrderedParamsLocked(
     const ParameterValueList& columns, const ParameterValueList& parameters,
+    const SystemVariableValuesMap& system_variables,
     Value* expression_output_value,
     std::unique_ptr<EvaluatorTableIterator>* query_output_iterator) const {
   if (!has_prepare_succeeded()) {
@@ -733,13 +753,17 @@ zetasql_base::Status Evaluator::ExecuteAfterPrepareWithOrderedParamsLocked(
 
   ZETASQL_RETURN_IF_ERROR(ValidateColumns(columns));
   ZETASQL_RETURN_IF_ERROR(ValidateParameters(parameters));
+  ZETASQL_RETURN_IF_ERROR(ValidateSystemVariables(system_variables));
 
   std::unique_ptr<EvaluationContext> context = CreateEvaluationContext();
 
   ParameterValueList params;
-  params.reserve(columns.size() + parameters.size());
+  params.reserve(columns.size() + parameters.size() + system_variables.size());
   params.insert(params.end(), columns.begin(), columns.end());
   params.insert(params.end(), parameters.begin(), parameters.end());
+  for (const auto& sysvar : system_variables) {
+    params.push_back(sysvar.second);
+  }
   const TupleData params_data = CreateTupleDataFromValues(params);
 
   if (is_query_) {
@@ -829,6 +853,62 @@ zetasql_base::Status Evaluator::ValidateColumns(
     ++i;
   }
 
+  return zetasql_base::OkStatus();
+}
+
+zetasql_base::Status Evaluator::ValidateSystemVariables(
+    const SystemVariableValuesMap& system_variables) const {
+  // Make sure <system_variables> is consistent with the analyzer options.
+  for (const auto& analyzer_options_sysvar :
+       analyzer_options_.system_variables()) {
+    const std::vector<std::string>& sysvar_name = analyzer_options_sysvar.first;
+    auto it = system_variables.find(sysvar_name);
+    if (it == system_variables.end()) {
+      return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+             << "No value provided for system variable "
+             << absl::StrJoin(sysvar_name, ".");
+    }
+    const Type* expected_type = analyzer_options_sysvar.second;
+    const Type* actual_type = it->second.type();
+    if (!expected_type->Equals(actual_type)) {
+      ProductMode product_mode =
+          analyzer_options_.language_options().product_mode();
+      return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+             << "Expected system variable '" << absl::StrJoin(sysvar_name, ".")
+             << "' to be of type " << expected_type->TypeName(product_mode)
+             << " but found " << actual_type->TypeName(product_mode);
+    }
+  }
+
+  for (const auto& sysvar : system_variables) {
+    const std::vector<std::string>& sysvar_name = sysvar.first;
+    auto it = analyzer_options_.system_variables().find(sysvar_name);
+    if (it == analyzer_options_.system_variables().end()) {
+      return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+             << "Value provided for system variable "
+             << absl::StrJoin(sysvar_name, ".")
+             << ", which is not in the AnalyzerOptions";
+    }
+  }
+
+  // Finally, do a sanity check that all algebrized system variables map to
+  // a known value.  These checks should never fail unless something is wrong
+  // with either the algebrizer, or the above checks.
+  for (const auto& sysvar : algebrizer_system_variables_) {
+    const std::vector<std::string>& sysvar_name = sysvar.first;
+    auto it = system_variables.find(sysvar_name);
+    ZETASQL_RET_CHECK(it != system_variables.end())
+        << "System variable " << absl::StrJoin(sysvar_name, ".")
+        << " exists in algebrizer, but no value provided.";
+    const Type* expected_type =
+        zetasql_base::FindPtrOrNull(analyzer_options_.system_variables(), sysvar_name);
+    ZETASQL_RET_CHECK(expected_type != nullptr)
+        << "Expected type not found for variable "
+        << absl::StrJoin(sysvar_name, ".");
+    ZETASQL_RET_CHECK(it->second.type()->Equals(expected_type))
+        << "Type mismatch between analyzer options and value type: "
+        << absl::StrJoin(sysvar_name, ".");
+  }
   return zetasql_base::OkStatus();
 }
 
@@ -936,30 +1016,32 @@ zetasql_base::StatusOr<int> PreparedExpression::GetPositionalParameterCount() co
 }
 
 zetasql_base::StatusOr<Value> PreparedExpression::Execute(
-    const ParameterValueMap& columns, const ParameterValueMap& parameters) {
+    const ParameterValueMap& columns, const ParameterValueMap& parameters,
+    const SystemVariableValuesMap& system_variables) {
   Value output;
   ZETASQL_RETURN_IF_ERROR(evaluator_->Execute(columns, ParameterValues(&parameters),
-                                      &output,
+                                      system_variables, &output,
                                       /*query_output_iterator=*/nullptr));
   return output;
 }
 
 zetasql_base::StatusOr<Value> PreparedExpression::ExecuteWithPositionalParams(
     const ParameterValueMap& columns,
-    const ParameterValueList& positional_parameters) {
+    const ParameterValueList& positional_parameters,
+    const SystemVariableValuesMap& system_variables) {
   Value output;
-  ZETASQL_RETURN_IF_ERROR(
-      evaluator_->Execute(columns, ParameterValues(&positional_parameters),
-                          &output, /*query_output_iterator=*/nullptr));
+  ZETASQL_RETURN_IF_ERROR(evaluator_->Execute(
+      columns, ParameterValues(&positional_parameters), system_variables,
+      &output, /*query_output_iterator=*/nullptr));
   return output;
 }
 
 zetasql_base::StatusOr<Value> PreparedExpression::ExecuteAfterPrepare(
-    const ParameterValueMap& columns,
-    const ParameterValueMap& parameters) const {
+    const ParameterValueMap& columns, const ParameterValueMap& parameters,
+    const SystemVariableValuesMap& system_variables) const {
   Value output;
   ZETASQL_RETURN_IF_ERROR(evaluator_->ExecuteAfterPrepare(
-      columns, ParameterValues(&parameters), &output,
+      columns, ParameterValues(&parameters), system_variables, &output,
       /*query_output_iterator=*/nullptr));
   return output;
 }
@@ -967,20 +1049,23 @@ zetasql_base::StatusOr<Value> PreparedExpression::ExecuteAfterPrepare(
 zetasql_base::StatusOr<Value>
 PreparedExpression::ExecuteAfterPrepareWithPositionalParams(
     const ParameterValueMap& columns,
-    const ParameterValueList& positional_parameters) const {
+    const ParameterValueList& positional_parameters,
+    const SystemVariableValuesMap& system_variables) const {
   Value output;
   ZETASQL_RETURN_IF_ERROR(evaluator_->ExecuteAfterPrepare(
-      columns, ParameterValues(&positional_parameters), &output,
+      columns, ParameterValues(&positional_parameters), system_variables,
+      &output,
       /*query_output_iterator=*/nullptr));
   return output;
 }
 
 zetasql_base::StatusOr<Value> PreparedExpression::ExecuteAfterPrepareWithOrderedParams(
-    const ParameterValueList& columns,
-    const ParameterValueList& parameters) const {
+    const ParameterValueList& columns, const ParameterValueList& parameters,
+    const SystemVariableValuesMap& system_variables) const {
   Value output;
   ZETASQL_RETURN_IF_ERROR(evaluator_->ExecuteAfterPrepareWithOrderedParams(
-      columns, parameters, &output, /*query_output_iterator=*/nullptr));
+      columns, parameters, system_variables, &output,
+      /*query_output_iterator=*/nullptr));
   return output;
 }
 
@@ -1016,31 +1101,34 @@ zetasql_base::StatusOr<int> PreparedQuery::GetPositionalParameterCount() const {
 }
 
 zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>> PreparedQuery::Execute(
-    const ParameterValueMap& parameters) {
+    const ParameterValueMap& parameters,
+    const SystemVariableValuesMap& system_variables) {
   std::unique_ptr<EvaluatorTableIterator> output;
   ZETASQL_RETURN_IF_ERROR(evaluator_->Execute(
-      /*columns=*/{}, ParameterValues(&parameters),
+      /*columns=*/{}, ParameterValues(&parameters), system_variables,
       /*expression_output_value=*/nullptr, &output));
   return output;
 }
 
 zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
 PreparedQuery::ExecuteWithPositionalParams(
-    const ParameterValueList& positional_parameters) {
+    const ParameterValueList& positional_parameters,
+    const SystemVariableValuesMap& system_variables) {
   std::unique_ptr<EvaluatorTableIterator> output;
   ZETASQL_RETURN_IF_ERROR(evaluator_->Execute(
-      /*columns=*/{}, ParameterValues(&positional_parameters),
+      /*columns=*/{}, ParameterValues(&positional_parameters), system_variables,
       /*expression_output_value=*/nullptr, &output));
   return output;
 }
 
 zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
 PreparedQuery::ExecuteAfterPrepareWithOrderedParams(
-    const ParameterValueList& parameters) const {
+    const ParameterValueList& parameters,
+    const SystemVariableValuesMap& system_variables) const {
   std::unique_ptr<EvaluatorTableIterator> output;
   ZETASQL_RETURN_IF_ERROR(evaluator_->ExecuteAfterPrepareWithOrderedParams(
-      /*columns=*/{}, parameters, /*expression_output_value=*/nullptr,
-      &output));
+      /*columns=*/{}, parameters, system_variables,
+      /*expression_output_value=*/nullptr, &output));
   return output;
 }
 

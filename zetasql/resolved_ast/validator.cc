@@ -3030,7 +3030,8 @@ zetasql_base::Status Validator::ValidateResolvedAlterObjectStmt(
       ZETASQL_RET_CHECK(new_columns.insert(name).second)
           << "Column added twice: " << name;
     } else if (action->node_kind() == RESOLVED_DROP_COLUMN_ACTION) {
-      const std::string name = action->GetAs<ResolvedDropColumnAction>()->name();
+      const std::string name =
+          action->GetAs<ResolvedDropColumnAction>()->name();
       ZETASQL_RET_CHECK(columns_to_drop.insert(name).second)
           << "Column dropped twice: " << name;
       ZETASQL_RET_CHECK(new_columns.find(name) == new_columns.end())

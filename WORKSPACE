@@ -48,9 +48,6 @@ load(":zetasql_deps.bzl", "zetasql_deps")
 # Download and Build dependencies.
 zetasql_deps()
 
-load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
-protobuf_deps()
-
 load("@google_bazel_common//:workspace_defs.bzl", "google_common_workspace_rules")
 google_common_workspace_rules()
 

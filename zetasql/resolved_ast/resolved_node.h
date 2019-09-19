@@ -280,8 +280,8 @@ class ResolvedNode {
   // "<name> := <node>", with <node>'s children as children of this node.
   void CollectDebugStringFieldsWithNameFormat(
       const ResolvedNode* node, std::vector<DebugStringField>* fields) const;
-  std::string GetNameForDebugStringWithNameFormat(const std::string& name,
-                                             const ResolvedNode* node) const;
+  std::string GetNameForDebugStringWithNameFormat(
+      const std::string& name, const ResolvedNode* node) const;
 
   // Given a vector of unique_ptrs, this returns a vector of raw pointers.
   // The output vector then owns the pointers, and the input vector is cleared.

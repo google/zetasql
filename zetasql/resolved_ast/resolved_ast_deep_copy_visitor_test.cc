@@ -104,8 +104,9 @@ class AddFilterToTableScan : public ResolvedASTDeepCopyVisitor {
  public:
   // Constructor for AddFilterToTableScan. Takes a table name and column
   // name to apply filter to, and the threshold in wihch to apply the >= on.
-  AddFilterToTableScan(const std::string& table_name, const std::string& column_name,
-                       int64_t threshold, SimpleCatalog* catalog)
+  AddFilterToTableScan(const std::string& table_name,
+                       const std::string& column_name, int64_t threshold,
+                       SimpleCatalog* catalog)
       : table_name_(table_name),
         column_name_(column_name),
         threshold_(threshold),
@@ -258,10 +259,12 @@ class ResolvedASTDeepCopyVisitorTest : public ::testing::Test {
   // Create AST and deep copied AST for a given query. Verify that all
   // statuses work as expected and that the debug std::string matches.
   std::unique_ptr<ResolvedNode> TestDeepCopyAST(const std::string& query);
-  std::unique_ptr<ResolvedNode> TestAddFilterToTableScan(const std::string& query);
+  std::unique_ptr<ResolvedNode> TestAddFilterToTableScan(
+      const std::string& query);
   std::unique_ptr<ResolvedNode> TestModifyJoinScan(const std::string& query);
   std::unique_ptr<ResolvedNode> TestCastFilterScan(const std::string& query);
-  void TestAddFilterToTableScanError(const std::string& query, const std::string& error);
+  void TestAddFilterToTableScanError(const std::string& query,
+                                     const std::string& error);
 
   // Keeps the analyzer outputs from the tests alive without having to pass them
   // around. This is a vector because there are tests that analyze multiple
@@ -305,10 +308,8 @@ std::unique_ptr<ResolvedNode> ResolvedASTDeepCopyVisitorTest::TestDeepCopyAST(
   return deep_copy_ast;
 }
 
-std::unique_ptr<ResolvedNode>
-ResolvedASTDeepCopyVisitorTest::ApplyCopyVisitor(
-    const std::string& query,
-    ResolvedASTDeepCopyVisitor* visitor) {
+std::unique_ptr<ResolvedNode> ResolvedASTDeepCopyVisitorTest::ApplyCopyVisitor(
+    const std::string& query, ResolvedASTDeepCopyVisitor* visitor) {
   // Parse query into AST.
   analyzer_outputs_.emplace_back();
   ZETASQL_EXPECT_OK(AnalyzeStatement(query, options_, &catalog_, &type_factory_,
@@ -335,7 +336,8 @@ ResolvedASTDeepCopyVisitorTest::ApplyCopyVisitor(
 }
 
 std::unique_ptr<ResolvedNode>
-ResolvedASTDeepCopyVisitorTest::TestAddFilterToTableScan(const std::string& query) {
+ResolvedASTDeepCopyVisitorTest::TestAddFilterToTableScan(
+    const std::string& query) {
   AddFilterToTableScan visitor("Temp", "int32_field", 50, &catalog_);
   return ApplyCopyVisitor(query, &visitor);
 }
@@ -443,7 +445,8 @@ TEST_F(ResolvedASTDeepCopyVisitorTest, TestAddFilterScanTest) {
 
 TEST_F(ResolvedASTDeepCopyVisitorTest, TestAddFilterScanTestError) {
   // Tests that it adds filter around the scan.
-  const std::string input = "SELECT int32_field FROM Temp WHERE int32_field >= 50";
+  const std::string input =
+      "SELECT int32_field FROM Temp WHERE int32_field >= 50";
   TestAddFilterToTableScanError(input, "No filter scans allowed");
 }
 

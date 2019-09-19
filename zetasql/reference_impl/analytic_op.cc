@@ -275,7 +275,7 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetValue(
       return ::zetasql_base::OutOfRangeErrorBuilder()
              << "Window frame offset for PRECEDING or FOLLOWING "
                 "must be non-negative, but was "
-             << offset_value;
+             << RoundTripFloatToString(offset_value);
     }
   } else if (range_offset_value->type()->IsDouble()) {
     const double offset_value = range_offset_value->double_value();
@@ -283,7 +283,7 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetValue(
       return ::zetasql_base::OutOfRangeErrorBuilder()
              << "Window frame offset for PRECEDING or FOLLOWING "
                 "must be non-negative, but was "
-             << offset_value;
+             << RoundTripDoubleToString(offset_value);
     }
   }
 

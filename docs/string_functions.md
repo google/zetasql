@@ -1516,7 +1516,7 @@ WITH email_addresses AS
 SELECT
   email,
   REGEXP_MATCH(email,
-               r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
+               r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
                AS valid_email_address
 FROM email_addresses;
 

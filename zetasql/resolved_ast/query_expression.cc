@@ -124,11 +124,12 @@ std::string QueryExpression::GetSQLQuery() const {
       // sorted by the column id.
       absl::StrAppend(
           &sql,
-          absl::StrJoin(group_by_list_, ", ",
-                        [](std::string* out,
-                           const std::pair<int, std::string>& column_id_and_string) {
-                          absl::StrAppend(out, column_id_and_string.second);
-                        }));
+          absl::StrJoin(
+              group_by_list_, ", ",
+              [](std::string* out,
+                 const std::pair<int, std::string>& column_id_and_string) {
+                absl::StrAppend(out, column_id_and_string.second);
+              }));
     }
   }
 
@@ -222,7 +223,8 @@ bool QueryExpression::TrySetSetOpScanList(
 }
 
 bool QueryExpression::TrySetGroupByClause(
-    const std::map<int, std::string>& group_by_list, const std::string& group_by_hints,
+    const std::map<int, std::string>& group_by_list,
+    const std::string& group_by_hints,
     const std::vector<int>& rollup_column_id_list) {
   if (!CanSetGroupByClause()) {
     return false;
@@ -235,7 +237,8 @@ bool QueryExpression::TrySetGroupByClause(
 }
 
 bool QueryExpression::TrySetOrderByClause(
-    const std::vector<std::string>& order_by_list, const std::string& order_by_hints) {
+    const std::vector<std::string>& order_by_list,
+    const std::string& order_by_hints) {
   if (!CanSetOrderByClause()) {
     return false;
   }
@@ -289,8 +292,8 @@ bool QueryExpression::CanSetLimitClause() const {
 }
 bool QueryExpression::CanSetOffsetClause() const { return !HasOffsetClause(); }
 
-const std::vector<std::pair<std::string, std::string>>& QueryExpression::SelectList()
-    const {
+const std::vector<std::pair<std::string, std::string>>&
+QueryExpression::SelectList() const {
   if (!set_op_scan_list_.empty()) {
     DCHECK(select_list_.empty());
     return set_op_scan_list_[0]->SelectList();

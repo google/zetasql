@@ -355,8 +355,7 @@ class SQLBuilder : public ResolvedASTVisitor {
   zetasql_base::Status GetSelectList(
       const ResolvedColumnList& column_list,
       const std::map<int64_t, const ResolvedExpr*>& col_to_expr_map,
-      const ResolvedScan* parent_scan,
-      QueryExpression* query_expression,
+      const ResolvedScan* parent_scan, QueryExpression* query_expression,
       std::vector<std::pair<std::string, std::string>>* select_list);
   // This overload does not expects a <col_to_expr_map> which is needed only
   // when select expressions are present in the column_list.
@@ -374,7 +373,8 @@ class SQLBuilder : public ResolvedASTVisitor {
   zetasql_base::Status AppendColumnSchema(
       const Type* type, bool is_hidden,
       const ResolvedColumnAnnotations* annotations,
-      const ResolvedGeneratedColumnInfo* generated_column_info, std::string* text);
+      const ResolvedGeneratedColumnInfo* generated_column_info,
+      std::string* text);
 
   zetasql_base::StatusOr<std::string> GetHintListString(
       const std::vector<std::unique_ptr<const ResolvedOption>>& hint_list);
@@ -437,9 +437,9 @@ class SQLBuilder : public ResolvedASTVisitor {
   // Get the first part of the syntax for a CREATE command, including statement
   // hints, the <object_type> (e.g. "TABLE") and name, and CREATE modifiers,
   // and a trailing space.
-  zetasql_base::Status GetCreateStatementPrefix(
-      const ResolvedCreateStatement* node, const std::string& object_type,
-      std::string* sql);
+  zetasql_base::Status GetCreateStatementPrefix(const ResolvedCreateStatement* node,
+                                        const std::string& object_type,
+                                        std::string* sql);
 
   // Appends PARTITION BY or CLUSTER BY expressions to the provided std::string, not
   // including the "PARTITION BY " or "CLUSTER BY " prefix.
@@ -451,14 +451,15 @@ class SQLBuilder : public ResolvedASTVisitor {
 
   // Get the "<privilege_list> ON <object_type> <name_path>" part of a GRANT or
   // REVOKE statement.
-  zetasql_base::Status GetPrivilegesString(
-      const ResolvedGrantOrRevokeStmt* node, std::string* sql);
+  zetasql_base::Status GetPrivilegesString(const ResolvedGrantOrRevokeStmt* node,
+                                   std::string* sql);
 
   // Helper functions to save the <path> used to access the column later.
   void SetPathForColumn(const ResolvedColumn& column, const std::string& path);
   void SetPathForColumnList(const ResolvedColumnList& column_list,
                             const std::string& scan_alias);
-  void SetPathForColumnsInScan(const ResolvedScan* scan, const std::string& alias);
+  void SetPathForColumnsInScan(const ResolvedScan* scan,
+                               const std::string& alias);
 
   // Helper function to ensure:
   // - Columns in <output_column_list> matches 1:1 in order with
@@ -483,7 +484,7 @@ class SQLBuilder : public ResolvedASTVisitor {
       ResolvedNonScalarFunctionCallBase::NullHandlingModifier kind);
 
   zetasql_base::StatusOr<std::string> GetSQL(const Value& value, ProductMode mode,
-                                bool is_constant_value = false);
+                                     bool is_constant_value = false);
 
   // Helper function to return corresponding SQL for a list of
   // ResolvedUpdateItems.
@@ -497,8 +498,7 @@ class SQLBuilder : public ResolvedASTVisitor {
       const std::vector<ResolvedColumn>& insert_column_list) const;
 
   zetasql_base::StatusOr<std::string> ProcessCreateTableStmtBase(
-      const ResolvedCreateTableStmtBase* node,
-      bool process_column_definitions);
+      const ResolvedCreateTableStmtBase* node, bool process_column_definitions);
 
   // Helper function for adding SQL for aggregate and group by lists.
   zetasql_base::Status ProcessAggregateScanBase(
@@ -519,8 +519,8 @@ class SQLBuilder : public ResolvedASTVisitor {
   // GRANT, REVOKE, CREATE/ALTER ROW POLICY statements.
   zetasql_base::StatusOr<std::string> GetGranteeListSQL(
       const std::string& prefix, const std::vector<std::string>& grantee_list,
-      const std::vector<
-          std::unique_ptr<const ResolvedExpr>>& grantee_expr_list);
+      const std::vector<std::unique_ptr<const ResolvedExpr>>&
+          grantee_expr_list);
 
   // A stack of QueryFragment kept to parallel the Visit call stack. Stores
   // return values of each Visit call which are then popped/used by the caller
@@ -599,14 +599,15 @@ class SQLBuilder : public ResolvedASTVisitor {
   // VisitResolvedUpdateArrayItem. An inner stack is used to construct a target
   // in VisitResolvedUpdateItem when there are no ResolvedUpdateArrayItem
   // children.
-  std::deque<
-      std::deque<std::pair<std::string /* target_sql */, std::string /* offset_sql */>>>
+  std::deque<std::deque<
+      std::pair<std::string /* target_sql */, std::string /* offset_sql */>>>
       update_item_targets_and_offsets_;
 
   // A stack of dml target paths kept to parallel the nesting of dml statements.
   // Populated in VisitResolvedUpdateItem and used in
   // VisitResolved<DMLType>Statement to refer the corresponding target path.
-  std::deque<std::pair<std::string /* target_path */, std::string /* target_alias */>>
+  std::deque<
+      std::pair<std::string /* target_path */, std::string /* target_alias */>>
       nested_dml_targets_;
 
   // All column names referenced in the query.

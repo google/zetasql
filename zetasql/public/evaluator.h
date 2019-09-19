@@ -327,12 +327,14 @@ class PreparedExpression {
   // constructor.
   zetasql_base::StatusOr<Value> Execute(
       const ParameterValueMap& columns = {},
-      const ParameterValueMap& parameters = {});
+      const ParameterValueMap& parameters = {},
+      const SystemVariableValuesMap& system_variables = {});
 
   // Same as above, but uses positional instead of named parameters.
   zetasql_base::StatusOr<Value> ExecuteWithPositionalParams(
       const ParameterValueMap& columns,
-      const ParameterValueList& positional_parameters);
+      const ParameterValueList& positional_parameters,
+      const SystemVariableValuesMap& system_variables = {});
 
   // This is the same as Execute, but is a const method, and requires that
   // Prepare has already been called. See the description of Execute for details
@@ -341,12 +343,14 @@ class PreparedExpression {
   // Thread safe. Multiple evaluations can proceed in parallel.
   zetasql_base::StatusOr<Value> ExecuteAfterPrepare(
       const ParameterValueMap& columns = {},
-      const ParameterValueMap& parameters = {}) const;
+      const ParameterValueMap& parameters = {},
+      const SystemVariableValuesMap& system_variables = {}) const;
 
   // Same as above, but uses positional instead of named parameters.
   zetasql_base::StatusOr<Value> ExecuteAfterPrepareWithPositionalParams(
       const ParameterValueMap& columns,
-      const ParameterValueList& positional_parameters) const;
+      const ParameterValueList& positional_parameters,
+      const SystemVariableValuesMap& system_variables = {}) const;
 
   // More efficient form of Execute that requires column and parameter values to
   // be passed in a particular order. It is intended for users that want to
@@ -360,8 +364,8 @@ class PreparedExpression {
   //
   // REQUIRES: Prepare() has been called successfully.
   zetasql_base::StatusOr<Value> ExecuteAfterPrepareWithOrderedParams(
-      const ParameterValueList& columns,
-      const ParameterValueList& parameters) const;
+      const ParameterValueList& columns, const ParameterValueList& parameters,
+      const SystemVariableValuesMap& system_variables = {}) const;
 
   // Returns a human-readable representation of how this expression would
   // actually be executed. Do not try to interpret this std::string with code, as the
@@ -444,11 +448,14 @@ class PreparedQuery {
   // This method is thread safe. Multiple executions can proceed in parallel,
   // each using a different iterator.
   zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>> Execute(
-      const ParameterValueMap& parameters = {});
+      const ParameterValueMap& parameters = {},
+      const SystemVariableValuesMap& system_variables = {});
 
   // Same as above, but uses positional instead of named parameters.
   zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
-  ExecuteWithPositionalParams(const ParameterValueList& positional_parameters);
+  ExecuteWithPositionalParams(
+      const ParameterValueList& positional_parameters,
+      const SystemVariableValuesMap& system_variables = {});
 
   // More efficient form of Execute that requires parameter values to be passed
   // in a particular order. If positional parameters are used, they are passed
@@ -458,7 +465,8 @@ class PreparedQuery {
   // REQUIRES: Prepare() has been called successfully.
   zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
   ExecuteAfterPrepareWithOrderedParams(
-      const ParameterValueList& parameters) const;
+      const ParameterValueList& parameters,
+      const SystemVariableValuesMap& system_variables = {}) const;
 
   // Returns a human-readable representation of how this query would actually
   // be executed. Do not try to interpret this std::string with code, as the

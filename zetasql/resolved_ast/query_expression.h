@@ -132,9 +132,11 @@ class QueryExpression {
   // * If any clause is not present inside the query its corresponding text
   //   would be empty.
   // * GetSQLQuery() will combine these fields into a single SQL query.
-  std::vector<std::pair<std::string /* with_alias */, std::string /* with_query */>>
+  std::vector<
+      std::pair<std::string /* with_alias */, std::string /* with_query */>>
       with_list_;
-  std::vector<std::pair<std::string /* select column */, std::string /* select alias */>>
+  std::vector<std::pair<std::string /* select column */,
+                        std::string /* select alias */>>
       select_list_;
   std::string select_as_modifier_;  // "AS TypeName", "AS STRUCT", or "AS VALUE"
   std::string query_hints_;

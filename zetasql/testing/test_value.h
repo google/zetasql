@@ -214,11 +214,10 @@ Value Array(absl::Span<const ValueConstructor> values,
 // the values in 'structs'. All vectors of values must agree on the type. If
 // type_factory is not provided the function will use the default static type
 // factory (see: static_type_factory()).
-Value StructArray(
-    absl::Span<const std::string> names,
-    absl::Span<const std::vector<ValueConstructor>> structs,
-    OrderPreservationKind order_kind = kPreservesOrder,
-    TypeFactory* type_factory = nullptr);
+Value StructArray(absl::Span<const std::string> names,
+                  absl::Span<const std::vector<ValueConstructor>> structs,
+                  OrderPreservationKind order_kind = kPreservesOrder,
+                  TypeFactory* type_factory = nullptr);
 
 // If type_factory is not provided the function will use the default static type
 // factory (see: static_type_factory())
