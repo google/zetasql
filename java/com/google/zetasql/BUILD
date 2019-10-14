@@ -139,6 +139,7 @@ java_library(
         "@com_google_auto_service",
         "@io_grpc_grpc_core//jar",
         "@io_grpc_grpc_netty//jar",
+        "@io_netty_netty_common//jar",
         "@io_netty_netty_transport//jar",
         "@native_utils",
     ],

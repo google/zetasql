@@ -23,9 +23,9 @@ import io.grpc.LoadBalancerProvider;
 import io.grpc.LoadBalancerRegistry;
 import io.grpc.netty.NettyChannelBuilder;
 import io.netty.channel.ChannelException;
-import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -36,7 +36,6 @@ import java.nio.channels.SocketChannel;
 public class JniChannelProvider implements ClientChannelProvider {
   private static final InetSocketAddress ADDRESS = new InetSocketAddress(0);
   private static Channel channel = null;
-  private static EventLoopGroup eventLoopGroup;
 
   private static String getLibraryPath() {
     String path = System.getProperty("zetasql.local_service.path");
@@ -134,8 +133,11 @@ public class JniChannelProvider implements ClientChannelProvider {
 
   private synchronized Channel getChannelInternal() {
     if (channel == null) {
-      // TODO release EventLoopGroup during shutdown
-      eventLoopGroup = new NioEventLoopGroup();
+      // The daemon flag tells the JVM to clean up on shutdown.
+      DefaultThreadFactory threadFactory =
+          new DefaultThreadFactory(/* poolType= */ "zetasqlJniChannel", /* daemon= */ true);
+      NioEventLoopGroup eventLoopGroup =
+          new NioEventLoopGroup(/* nThreads= */ 0, /* threadFactory= */ threadFactory);
       channel =
           NettyChannelBuilder.forAddress(ADDRESS)
               .channelType(SocketPairChannel.class)
