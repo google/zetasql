@@ -1846,6 +1846,8 @@ zetasql_base::Status Validator::ValidateResolvedGeneratedColumnInfo(
   ZETASQL_RET_CHECK(column_definition->type() != nullptr);
   ZETASQL_RET_CHECK(generated_column_info->expression()->type()->Equals(
       column_definition->type()));
+  ZETASQL_RET_CHECK(!(generated_column_info->is_on_write() &&
+              generated_column_info->is_stored()));
   return ::zetasql_base::OkStatus();
 }
 
@@ -1897,6 +1899,35 @@ zetasql_base::Status Validator::ValidateResolvedCreateModelStmt(
                                                    stmt->output_column_list(),
                                                    /*is_value_table=*/false));
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
+  if (!stmt->transform_list().empty()) {
+    // Validate transform_input_column_list is used properly in transform_list.
+    std::set<ResolvedColumn> transform_input_cols;
+    for (const auto& transform_input_col :
+         stmt->transform_input_column_list()) {
+      transform_input_cols.insert(transform_input_col->column());
+    }
+    for (const auto& group : stmt->transform_analytic_function_group_list()) {
+      ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(
+          group->analytic_function_list(), &transform_input_cols));
+    }
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedComputedColumnList(transform_input_cols, {},
+                                                       stmt->transform_list()));
+
+    // Validate transform_list is used properly in transform_output_column_list.
+    std::vector<ResolvedColumn> transform_resolved_cols;
+    for (const auto& transform_col : stmt->transform_list()) {
+      transform_resolved_cols.push_back(transform_col->column());
+    }
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedOutputColumnList(
+        transform_resolved_cols, stmt->transform_output_column_list(),
+        /*is_value_table=*/false));
+  } else {
+    // All transform related fields should be empty if there is no TRANSFORM
+    // clause.
+    ZETASQL_RET_CHECK(stmt->transform_input_column_list().empty());
+    ZETASQL_RET_CHECK(stmt->transform_output_column_list().empty());
+    ZETASQL_RET_CHECK(stmt->transform_analytic_function_group_list().empty());
+  }
   return ::zetasql_base::OkStatus();
 }
 

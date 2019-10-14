@@ -80,11 +80,9 @@ inline __int128 int128_abs(__int128 x) { return (x >= 0) ? x : -x; }
 // Internally the 224-bit number is stored as an array of 7 uint32_t words.
 //
 // The reason we need 224 bits of precision to implement the NUMERIC division is
-// because the NUMERIC value itself is represented as an 128-bit integer, we
-// need extra 64 bits to preserve the precision and to have an extra decimal
-// digit for rounding (total 10 decimal digits). On top of that we need 32 bits
-// to be able to normalize the numbers before performing long division (see
-// LongDivision()).
+// because the constructor (uint64_t hi, unsigned __int128 low) needs 192 bits.
+// On top of that we need 32 bits to be able to normalize the numbers before
+// performing long division (see LongDivision()).
 class Uint224 final {
  public:
   Uint224() {
@@ -165,19 +163,33 @@ class Uint224 final {
     }
   }
 
+  // Adds a Uint224 value to this 224-bit number. This operation does not check
+  // for overflow.
+  void AddUint224(const Uint224& rh) {
+    uint32_t carry = 0;
+    for (int i = 0; i < number_.size(); ++i) {
+      uint64_t tmp = static_cast<uint64_t>(number_[i]) + carry + rh.number_[i];
+      number_[i] = static_cast<uint32_t>(tmp);
+      carry = static_cast<uint32_t>(tmp >> 32);
+    }
+  }
+
   // Divides this 224-bit number by a single uint32_t value. The caller is
   // responsible for ensuring that the value is not zero.
   void DivideByUint32(uint32_t x) {
-    Uint224 quotient;
-
-    uint32_t carry = 0;
     for (int i = static_cast<int>(number_.size()) - 1; i >= 0; --i) {
-      uint64_t tmp = (static_cast<uint64_t>(carry) << 32) | number_[i];
-      quotient.number_[i] = static_cast<uint32_t>(tmp / x);
-      carry = tmp % x;
+      if (number_[i] != 0) {
+        uint64_t carry = 0;
+        do {
+          carry <<= 32;
+          carry |= number_[i];
+          DCHECK_LE(carry, (static_cast<uint64_t>(x) << 32));
+          number_[i] = static_cast<uint32_t>(carry / x);
+          carry = carry % x;
+        } while (--i >= 0);
+        return;
+      }
     }
-
-    *this = quotient;
   }
 
   // Divides by the given 224-bit value. The caller is responsible for ensuring
@@ -185,25 +197,27 @@ class Uint224 final {
   // the result will be rounded away from zero.
   void Divide(const Uint224& x, bool round_away_from_zero) {
     if (round_away_from_zero) {
-      // Rounding is achieved by multiplying the current value by 10 to preserve
-      // an extra decimal digit for rounding, then performing the actual
-      // division, then adding 5 to the result (to round away from zero), and
-      // finally dividing back by 10.
-      MultiplyByUint32(10);
+      // Rounding is achieved by adding floor(x/2) before dividing by x.
+      // The result is floor((y + floor(x/2)) / x), where y = *this.
+      // 1) If x is an even number, floor(x/2) = x/2 and thus
+      //    result = floor(y / x + 0.5) as expected.
+      // 2) If x is an odd number, then floor(x/2) = (x - 1) / 2, and
+      //    result = floor((y - 0.5) / x + 0.5).
+      //    Suppose y = q x + r where r = mod(y, x).
+      //    result = q + floor((r + (x - 1) / 2) / x).
+      //    2.1) If r >= (x + 1) / 2, then r + (x - 1) / 2 >= x,
+      //         and thus result = q + 1 as expected.
+      //    2.2) If r <= (x - 1) / 2, then r + (x - 1) / 2 <= x - 1,
+      //         and thus result = q as expected.
+      Uint224 half_x = x;
+      half_x.ShiftRight(1);
+      AddUint224(half_x);
     }
 
     if (x.NonZeroLength() > 1) {
       LongDivision(x);
     } else {
       DivideByUint32(x.number_[0]);
-    }
-
-    if (round_away_from_zero) {
-      AddUint32(5);
-      // TODO this line can be sped up by providing a templated (by a
-      // constant) implementation. Take another look at this to see if the
-      // division by a constant can be unified between here and multiplication.
-      DivideByUint32(10);
     }
   }
 
@@ -220,6 +234,10 @@ class Uint224 final {
   // Shifts the number left by the given number of bits. The number of bits must
   // not exceed 32.
   void ShiftLeft(int bits);
+
+  // Shifts the number right by the given number of bits. The number of bits
+  // must not exceed 32.
+  void ShiftRight(int bits);
 
   // Treats the given 'rh' value as a number consisting of 'n' uint32_t words and
   // subtracts it from this number starting at the given 'prefix_idx' index.
@@ -266,6 +284,14 @@ inline void Uint224::ShiftLeft(int bits) {
                  (number_[i - 1] >> (kBitsPerUint32 - bits));
   }
   number_[0] <<= bits;
+}
+
+inline void Uint224::ShiftRight(int bits) {
+  for (int i = 0; i < static_cast<int>(number_.size()) - 1; ++i) {
+    number_[i] = (number_[i] >> bits) |
+                 (number_[i + 1] << (kBitsPerUint32 - bits));
+  }
+  number_[number_.size() - 1] >>= bits;
 }
 
 inline void Uint224::PrefixSubtract(
@@ -542,7 +568,7 @@ zetasql_base::StatusOr<NumericValue> NumericValue::FromStringInternal(
       } else if (fract_count == kMaxFractionalDigits && !is_strict) {
         // Non-strict parsing, we get an extra digit in the fractional part, so
         // perform a half away from zero rounding.
-        fractional_part = (fractional_part * 10 + digit + 5) / 10;
+        fractional_part += (digit + 5) / 10;
       } else if (fract_count < kMaxFractionalDigits) {
         fractional_part = fractional_part * 10 + digit;
       }

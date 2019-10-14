@@ -40,6 +40,10 @@ FROM example;
 +---+-------+-------+----------------------+
 ```
 
+### FINGERPRINT
+
+Documentation is pending for this feature.
+
 ### MD5
 ```
 MD5(input)

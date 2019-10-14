@@ -2,9 +2,9 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
 # Approximate Aggregation
+
+<!-- BEGIN CONTENT -->
 
 This topic explains the concepts behind approximate
 aggregation in ZetaSQL.

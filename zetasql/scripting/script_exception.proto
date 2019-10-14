@@ -27,4 +27,34 @@ message ScriptException {
   // Message to expose through the "@@error.message" system variable.
   // If not set, the util::Status message will be used by default.
   optional string message = 1;
+
+  // A frame in the captured stack trace of an exception.
+  message StackTraceFrame {
+    // Line and column numbers are one-based and relative to the
+    // start of the script/procedure body that contains them.
+    optional int64 line = 1;
+    optional int64 column = 2;
+
+    // Set only when an error is inside of a module; identifies the name
+    // of the module which triggered the error.
+    optional string filename = 3;
+
+    // Set only when an error is inside of a procedure; identifies the name
+    // of the procedure which triggered the error.
+    optional string location = 4;
+  }
+
+  // Fields for the script executor's internal use only.  Engines should not set
+  // this when raising exceptions.
+  message Internal {
+    // Value to expose through the "@@error.statement_text" system variable.
+    // This field is set automatically by the script executor, based on the
+    // current statement at the time the exception is thrown.  Engines should
+    // not set it.
+    optional string statement_text = 1;
+
+    repeated StackTraceFrame stack_trace = 2;
+  }
+
+  optional Internal internal = 2;
 }

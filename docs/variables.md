@@ -1,8 +1,8 @@
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
 # Variables
+
+<!-- BEGIN CONTENT -->
 
 ZetaSQL specifies the syntax for the variable statements `SET` and
 `UNSET`.

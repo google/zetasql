@@ -1,10 +1,9 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
 # Lexical Structure and Syntax
 
+<!-- BEGIN CONTENT -->
 A ZetaSQL statement comprises a series of tokens. Tokens include
 *identifiers,* *quoted identifiers, literals*, *keywords*, *operators*, and
 *special characters*. You can separate tokens with whitespace (space, backspace,

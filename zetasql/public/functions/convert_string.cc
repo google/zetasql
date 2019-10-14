@@ -114,7 +114,8 @@ bool NumericToString(double value, std::string* out, zetasql_base::Status* error
 }
 
 template <>
-bool NumericToString(NumericValue value, std::string* out, zetasql_base::Status* error) {
+bool NumericToString(NumericValue value, std::string* out,
+                     zetasql_base::Status* error) {
   *out = value.ToString();
   return true;
 }

@@ -4005,6 +4005,7 @@ zetasql_base::Status Resolver::ResolvePathExpressionAsFunctionTableArgument(
         kValueColumnId, tvf_relation->column(0).type));
     ZETASQL_RETURN_IF_ERROR(new_name_list->AddValueTableColumn(
         alias, resolved_columns[0], path_expr));
+    new_name_list->set_is_value_table(true);
     name_list = std::move(new_name_list);
   } else {
     resolved_columns.reserve(tvf_relation->num_columns());
@@ -5150,6 +5151,8 @@ zetasql_base::StatusOr<Resolver::ResolvedTVFArgType> Resolver::ResolveTVFArg(
   const ASTExpression* ast_expr = ast_tvf_arg->expr();
   const ASTTableClause* ast_table_clause = ast_tvf_arg->table_clause();
   const ASTModelClause* ast_model_clause = ast_tvf_arg->model_clause();
+  const ASTConnectionClause* ast_connection_clause =
+      ast_tvf_arg->connection_clause();
   ResolvedTVFArgType resolved_tvf_arg;
   if (ast_table_clause != nullptr) {
     // Resolve the TVF argument as a relation including all original columns
@@ -5203,8 +5206,19 @@ zetasql_base::StatusOr<Resolver::ResolvedTVFArgType> Resolver::ResolveTVFArg(
     }
     RecordColumnAccess(resolved_tvf_arg.name_list->GetResolvedColumns());
   } else if (ast_expr != nullptr) {
+    if (ast_expr->node_kind() == AST_NAMED_ARGUMENT) {
+      // Make sure the language feature is enabled.
+      if (!language().LanguageFeatureEnabled(FEATURE_NAMED_ARGUMENTS)) {
+        return MakeSqlErrorAt(ast_expr)
+               << "Named arguments are not supported";
+      }
+      return MakeSqlErrorAt(ast_expr)
+             << "Named arguments are not supported yet for call to "
+             << "table-valued function " << tvf_catalog_entry->FullName();
+    }
     if (function_argument &&
-        (function_argument->IsRelation() || function_argument->IsModel())) {
+        (function_argument->IsRelation() || function_argument->IsModel() ||
+         function_argument->IsConnection())) {
       if (function_argument->IsRelation()) {
         // Resolve the TVF argument as a relation. The argument should be
         // written in the TVF call as a table subquery. We parsed all
@@ -5242,6 +5256,12 @@ zetasql_base::StatusOr<Resolver::ResolvedTVFArgType> Resolver::ResolveTVFArg(
             ast_expr->GetAsOrDie<ASTExpressionSubquery>()->query(),
             external_scope, AllocateSubqueryName(), false /* is_outer_query */,
             &resolved_tvf_arg.scan, &resolved_tvf_arg.name_list));
+      } else if (function_argument->IsConnection()) {
+        // This argument has to be a connection. Return an error.
+        return MakeSqlErrorAt(ast_expr)
+               << "Table-valued function " << tvf_catalog_entry->FullName()
+               << " argument " << arg_num
+               << " must be a connection specified with the CONNECTION keyword";
       } else {
         // This argument has to be a model. Return an error.
         return MakeSqlErrorAt(ast_expr)
@@ -5251,10 +5271,15 @@ zetasql_base::StatusOr<Resolver::ResolvedTVFArgType> Resolver::ResolveTVFArg(
       }
     } else {
       // Resolve the TVF argument as a scalar expression.
-      ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_expr, external_scope,
-                                        "FROM clause",
+      ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_expr, external_scope, "FROM clause",
                                         &resolved_tvf_arg.expr));
     }
+  } else if (ast_connection_clause != nullptr) {
+    // TODO: Connection clause is not supported for TVFs yet. We will
+    // add support for this in the future by extending function signature for
+    // TVFs.
+    return MakeSqlErrorAt(ast_connection_clause)
+           << "The CONNECTION clause is not supported yet";
   } else {
     ZETASQL_RET_CHECK(ast_model_clause != nullptr);
     std::unique_ptr<const ResolvedModel> resolved_model;

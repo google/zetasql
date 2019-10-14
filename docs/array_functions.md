@@ -19,9 +19,9 @@ the table must have exactly one column. Each element in the output `ARRAY` is
 the value of the single column of a row in the table.
 
 If `subquery` produces a
-[value table](https://github.com/google/zetasql/blob/master/docs/data-model.md#value-tables), then
-each element in the output `ARRAY` is the entire corresponding row of the value
-table.
+[value table](https://github.com/google/zetasql/blob/master/docs/data-model.md#value-tables),
+then each element in the output `ARRAY` is the entire corresponding row of the
+value table.
 
 **Constraints**
 

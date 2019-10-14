@@ -69,7 +69,8 @@ extern template std::string UnaryOverflowMessage<int64_t>(
     int64_t in, absl::string_view operator_symbol);
 
 template <typename T>
-std::string BinaryOverflowMessage(T in1, T in2, absl::string_view operator_symbol);
+std::string BinaryOverflowMessage(T in1, T in2,
+                                  absl::string_view operator_symbol);
 
 extern template std::string BinaryOverflowMessage<int32_t>(
     int32_t in1, int32_t in2, absl::string_view operator_symbol);

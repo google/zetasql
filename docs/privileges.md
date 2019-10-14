@@ -1,8 +1,8 @@
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
 # Privileges
+
+<!-- BEGIN CONTENT -->
 
 ZetaSQL specifies the syntax for the privilege statements `GRANT` and
 `REVOKE`.

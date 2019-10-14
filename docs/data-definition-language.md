@@ -1,8 +1,8 @@
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
 # Data Definition Language statements
+
+<!-- BEGIN CONTENT -->
 
 ZetaSQL specifies the syntax for Data Definition Language (DDL)
 statements.
@@ -49,47 +49,367 @@ CREATE
    [ TEMP | TEMPORARY ]
    TABLE
    [ IF NOT EXISTS ]
-   <span class="var">path_expression</span> [ ( <span class="var">table_element</span>, ...) ]
-   [ OPTIONS (...) ]
-   [ AS <span class="var">query</span> ];
+   table_name [ ( <span class="var">table_element</span>, ... ) ]
+   [ PARTITION [ hints ] BY partition_expression, ... ]
+   [ CLUSTER [ hints ] BY cluster_expression, ... ]
+   [ OPTIONS (key=value, ...) ]
+   [ AS query ];
 
 <span class="var">table_element:</span>
-   <span class="var">column_definition</span> | <span class="var">primary_key_spec</span>
-
-<span class="var">column_definition:</span>
-   <span class="var">column_name</span> <span class="var">column_type</span> [ PRIMARY KEY ] [ OPTIONS (...) ]
-
-<span class="var">primary_key_spec:</span>
-   PRIMARY KEY (column_name [ ASC | DESC ], ...) [ OPTIONS (...) ]
+   <span class="var"><a href="#defining-columns">column_definition</a></span> | <span class="var"><a href="#defining-table-constraints">constraint_definition</a></span>
 </pre>
 
 **Description**
 
-The `CREATE TABLE` statement creates a table and adds any columns defined in the
-column definition list `(table_element, ...)`. If the `AS query` clause is
-absent, the column definition list must be present and contain at least one
-column definition. The value of `column_name` must be unique for each column in
-the table. If both the column definition list and the `AS query` clause are
-present, then the number of columns in the column definition list must match the
-number of columns selected in `query`, and the type of each column selected in
-`query` must be coercible to the column type in the corresponding position of
-the column definition list. The `column_type` can be any valid {{ product_name
-}} [data type](https://github.com/google/zetasql/blob/master/docs/data-types.md).
+The `CREATE TABLE` statement creates a table and adds any table elements
+defined in the table element list `(table_element, ...)`. If the `AS query`
+clause is absent, the table element list must be present and contain at
+least one column definition. A table element can be a column definition
+or constraint definition. To learn more about column definitions, see
+[Defining Columns](#defining-columns). To learn more about constraint
+definitions, see [Defining Constraints](#defining-table-constraints).
 
-You can define a primary key on a table by providing a `primary_key_spec`
-clause, or by providing the `PRIMARY KEY` keyword in the `column_definition`.
-The optional `ASC` or `DESC` keyword within `primary_key_spec` specifies the
-sort order for any index the database system builds on the primary key.
+In a table, if both the table element list and the `AS query` clause
+are present, then the number of columns in the table element list must
+match the number of columns selected in `query`, and the type of each
+column selected in `query` must be assignable to the column type in the
+corresponding position of the table element list.
 
 **Optional Clauses**
 
-+   `OR REPLACE`: Replaces any table with the same name if it exists. Cannot
-    appear with `IF NOT EXISTS`.
-+   `TEMP | TEMPORARY`: Creates a temporary table. The lifetime of the table is
-    system-specific.
-+   `IF NOT EXISTS`: If any table exists with the same name, the `CREATE`
-    statement will have no effect. Cannot appear with `OR REPLACE`.
-+   `AS query`: Materializes the result of `query` into the new table.
++  `OR REPLACE`: Replaces any table with the same name if it exists. Cannot
+   appear with `IF NOT EXISTS`.
++  `TEMP | TEMPORARY`: Creates a temporary table. The lifetime of the table is
+   system-specific.
++  `IF NOT EXISTS`: If any table exists with the same name, the `CREATE`
+   statement will have no effect. Cannot appear with `OR REPLACE`.
++  `PARTITION BY`: Creates partitions of a table. The expression cannot
+   contain floating point types, non-groupable types, constants,
+   aggregate functions, or analytic functions.
++  `CLUSTER BY`: Co-locates rows if the rows are not distinct for the values
+   produced by the provided list of expressions.
+   If the table was partitioned, co-location occurs within each partition.
+   If the table was not partitioned, co-location occurs within the table.
++  `OPTIONS`: If you have schema options, you can add them when you create
+   the table. These options are system-specific and follow the
+   ZetaSQL[`HINT` syntax](lexical.md#hints)
++  `AS query`: Materializes the result of `query` into the new table.
+
+**Examples**
+
+Create a table.
+
+```sql
+CREATE TABLE books (title STRING, author STRING);
+```
+
+Create a table in a schema called `library`.
+
+```sql
+CREATE TABLE library.books (title STRING, author STRING);
+```
+
+Create a table that contains schema options.
+
+```sql
+CREATE TABLE books (title STRING, author STRING) OPTIONS (storage_kind=FLASH_MEMORY);
+```
+
+Partition a table.
+
+```sql
+CREATE TABLE books (title STRING, author STRING, publisher STRING, release_date DATE)
+PARTITION BY publisher, author;
+```
+
+Partition a table with a pseudocolumn. In the example below, SYSDATE represents
+the date when the book was added to the database. Replace SYSDATE with a
+psuedocolumn supported by your SQL service.
+
+```sql
+CREATE TABLE books (title STRING, author STRING)
+PARTITION BY sysdate;
+```
+
+Cluster a table.
+
+```sql
+CREATE TABLE books (
+  title STRING,
+  first_name STRING,
+  last_name STRING
+)
+CLUSTER BY last_name, first_name;
+```
+
+### Defining Columns
+
+<pre>
+<span class="var">column_definition:</span>
+   column_name
+   [ column_type ]
+   [ <span class="var">generation_clause</span> ]
+   [ <span class="var">column_attribute</span>, ... ]
+   [ OPTIONS (...) ]
+
+<span class="var">column_attribute:</span>
+  PRIMARY KEY
+  | NOT NULL
+  | HIDDEN
+  | [ CONSTRAINT constraint_name ] <span class="var"><a href="#defining-foreign-references">foreign_reference</a></span>
+
+<span class="var">generation_clause:</span>
+  AS generation_expression
+</pre>
+
+**Description**
+
+A column exists within a table. Each column describes one attribute of the
+rows that belong to the table.
+
++  The name of a column must be unique within a table.
++  Columns in a table are ordered. The order will have consequences on
+   some sorts of SQL statements such as `SELECT * FROM Table` and
+   `INSERT INTO Table VALUES (...)`.
++  A column can be generated. A generated column is a column in a base
+   table whose value is defined as a function of other columns in the
+   same row. To use a generated column, include the `generation_clause`
+   in the column definition.
++  If a column is not generated, `column_type` is required.
+
+**Attribute Kinds**
+
++  `PRIMARY KEY`: Declares that the column is the primary key of the table.
+   A table can have one primary key, thus the `PRIMARY KEY` attribute
+   can appear on at most one column and cannot occur on the same table with
+   a primary key defined as a separate table element.
++  `NOT NULL`: A value on a column cannot be null. More specifically, this is
+   shorthand for a constraint of the shape `CHECK [column_name] IS NOT NULL`.
++  `HIDDEN`: Hides a column if it should not appear in `SELECT * expansions`
+   or in structifications of a row variable, such as `SELECT t FROM Table t`.
++  `[ CONSTRAINT constraint_name ] foreign_reference`: The column in a
+   [foreign table to reference](#defining-foreign-references).
+   You can optionally name the constraint.
+   A constraint name must be unique within its schema; it cannot share the name
+   of other constraints.
+   If a constraint name is not provided, one is generated by the
+   implementing engine. Users can use INFORMATION_SCHEMA to look up
+   the generated names of table constraints.
+
+**Optional Clauses**
+
++  `column_type`: The  data type of the column.
+    This is optional for generated columns, but is required for non-generated
+    columns.
++  `generation_clause`: The function that describes a generation expression.
+   A generation expression must be a scalar expression. Subqueries are not
+   allowed.
++  `column_attribute`: A characteristic of the column.
++  `OPTIONS`: If you have schema options, you can add them when you create
+   the column. These options are system-specific and follow the
+   ZetaSQL[`HINT` syntax](lexical.md#hints)
+
+**Examples**
+
+Create a table with a primary key that can't be null.
+
+```sql
+CREATE TABLE books (title STRING, author STRING, isbn INT64 PRIMARY KEY NOT NULL);
+```
+
+Create a table with a generated column. In this example,
+the generated column holds the first and last name of an author.
+
+```sql
+CREATE TABLE authors(
+  firstName STRING HIDDEN,
+  lastName STRING HIDDEN,
+  fullName STRING CONCAT(firstName, " ", lastName)
+);
+```
+
+Create a table that contains schema options on column definitions.
+
+```sql
+CREATE TABLE books (
+  title STRING NOT NULL PRIMARY KEY,
+  author STRING
+      OPTIONS (is_deprecated=true, comment="Replaced by authorId column"),
+  authorId INT64 REFERENCES authors (id),
+  category STRING OPTIONS (description="LCC Subclass")
+)
+```
+
+### Defining Table Constraints
+
+<pre>
+<span class="var">constraint_definition:</span>
+   <span class="var">primary_key</span>
+   | <span class="var">foreign_key</span>
+   | <span class="var">check_constraint</span>
+
+<span class="var">primary_key:</span>
+  PRIMARY KEY (column_name [ ASC | DESC ], ... )
+  [ OPTIONS (...) ]
+
+<span class="var">foreign_key:</span>
+  [ CONSTRAINT constraint_name ]
+  FOREIGN KEY (column_name, ... )
+  <span class="var"><a href="#defining-foreign-references">foreign_reference</a></span>
+  [ OPTIONS (...) ]
+
+<span class="var">check_constraint:</span>
+  [ CONSTRAINT constraint_name ]
+  CHECK ( boolean_expression )
+  [ ENFORCED | NOT ENFORCED ]
+  [ OPTIONS (...) ]
+</pre>
+
+**Description**
+
+A `constraint_definition` is a rule enforced on the columns of a table.
+
+**Constraint Kinds**
+
++  `primary_key`: Defines a primary key for a table. A primary key provides
+   a unique identifier for each record in a table.
++  `foreign_key`:  Defines a foreign key for a table. A foreign key links
+   two tables together.
++  `check_constraint`: Restricts the data that can be added to certain
+   columns used by the expressions of the constraints.
+
+**Optional Clauses**
+
++  `CONSTRAINT`: Names the constraint.
+   A constraint name must be unique within its schema; it cannot share the name
+   of other constraints.
+   If a constraint name is not provided, one is generated by the
+   implementing engine. Users can use INFORMATION_SCHEMA to look up
+   the generated names of table constraints.
++  `ASC | DESC`: Specifies that the engine should optimize reading the
+   index records in ascending or descending order by this key part.
+   `ASC` is the default. Each key part will be sorted with respect to
+   the sort defined by any key parts to the left.
++  `ENFORCED | NOT ENFORCED`: Specifies whether or not the constraint
+   is enforced.
++  `OPTIONS`: If you have schema options, you can add them when you create
+   the constraint. These options are system-specific and follow the
+   ZetaSQL[`HINT` syntax](lexical.md#hints)
+
+**Examples**
+
+Create a primary key constraint, using the `title` and `author` columns
+in a table called `books`.
+
+```sql
+CREATE TABLE books (title STRING, author STRING, PRIMARY KEY (title ASC, author ASC));
+```
+
+Create a foreign key constraint. When data in the `top_authors` table
+is updated or deleted, make the same change in the `authors` table.
+
+```sql
+CREATE TABLE top_authors (
+  author_first_name STRING,
+  author_last_name STRING,
+  CONSTRAINT fk_top_authors_name
+    FOREIGN KEY (author_first_name, author_last_name)
+    REFERENCES authors (first_name, last_name)
+);
+```
+
+Create a check constraint. A row that contains values for `words_per_chapter`
+and `words_per_book` can only only be inserted into the `page_count_average`
+table if the `words_per_chapter` value is less than the `words_per_book` value.
+
+```sql
+CREATE TABLE page_count_average (
+  words_per_chapter INT64,
+  words_per_book INT64,
+  CHECK (words_per_chapter < words_per_book)
+);
+```
+
+### Defining Foreign References
+
+<pre>
+<span class="var">foreign_reference:</span>
+  REFERENCES table_name (column_name, ... )
+  [ MATCH { SIMPLE | FULL | NOT DISTINCT } ]
+  [ ON UPDATE <span class="var">referential_action</span> ]
+  [ ON DELETE <span class="var">referential_action</span> ]
+  [ ENFORCED | NOT ENFORCED ]
+
+<span class="var">referential_action:</span>
+  NO ACTION | RESTRICT | CASCADE | SET NULL
+</pre>
+
+**Description**
+
+A foreign key is used to define a relationship between the rows in two tables.
+The foreign key in one table can reference one or more columns in
+another table. A foreign reference can be used to assign constraints
+to a foreign key and to give a foreign key a unique name.
+
+**Optional Clauses**
+
++  `MATCH`: Specifies when a constraint validation for a referencing row
+   passes or fails. Your choices are:
+   +  `SIMPLE`:
+      +  Passes if *any column* of the local key is `NULL`.
+      +  Passes if the columns of the local key are pairwise-equal to the
+         columns of the referenced key for some row of the referenced table.
+   +  `FULL`:
+      +  Passes if *all columns* of the local key are `NULL`.
+      +  Passes if the columns of the local key are pairwise-equal to the
+         columns of the referenced key for some row of the referenced table.
+   +  `NOT DISTINCT`:
+      +  Passes if the columns of the local key are pairwise-not-distinct from
+         the columns of the referenced key for some row of the referenced table.
++  `ON UPDATE`: If data in the referenced table updates, your choices are:
+   +  `RESTRICT`: Fail the transaction.
+   +  `NO ACTION`: Don't update the referencing table. If the data in the
+      referencing table does not satisfy the constraint before it is
+      checked, the transaction will fail.
+   +  `CASCADE`: For each updated row in the referenced table,
+      update all matching rows in the referencing table so that
+      they continue to match the same row after the transaction.
+   +  `SET NULL`: Any change to a referenced column in the referenced table
+      causes the corresponding referencing column in matching rows of the
+      referencing table to be set to null.
++  `ON DELETE`: If data in the referenced table is deleted, your choices are:
+   +  `RESTRICT`: Fail the transaction.
+   +  `NO ACTION`: Don't delete the data in the referencing table. If the
+       data in the referencing table does not satisfy the constraint before it
+       is checked, the transaction will fail.
+   +  `CASCADE`: For each deleted row in the referenced table,
+      delete all matching rows in the referencing table so that
+      they continue to match the same row after the transaction.
+   +  `SET NULL`: If a row of the referenced table is deleted, then all
+       referencing columns in all matching rows of the referencing table
+       are set to null.
++  `ENFORCED | NOT ENFORCED`: Specifies whether or not the constraint
+   is enforced.
+
+**Examples**
+
+When data in the `top_books` table is updated or deleted, make the
+same change in the `books` table.
+
+```sql
+CREATE TABLE top_books (
+  book_name STRING,
+  CONSTRAINT fk_top_books_name
+    FOREIGN KEY (book_name)
+    REFERENCES books (title)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+);
+```
+
+## CREATE TABLE AS
+
+Documentation is pending for this feature.
 
 ## CREATE VIEW
 
@@ -313,6 +633,18 @@ Use an implicit alias in the `STORING` clause.
 ```sql
 CREATE INDEX i1 ON KeyValue (Key) STORING (KeyValue);
 ```
+
+## CREATE CONSTANT
+
+Documentation is pending for this feature.
+
+## CREATE FUNCTION
+
+Documentation is pending for this feature.
+
+## CREATE ROW POLICY
+
+Documentation is pending for this feature.
 
 ## DEFINE TABLE
 

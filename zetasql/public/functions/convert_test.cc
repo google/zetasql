@@ -36,13 +36,16 @@
 namespace zetasql {
 namespace functions {
 
-template <typename Type> std::string NumberToString(Type v) {
+template <typename Type>
+std::string NumberToString(Type v) {
   return absl::StrCat(v);
 }
-template<> std::string NumberToString<float>(float v) {
+template <>
+std::string NumberToString<float>(float v) {
   return absl::StrCat(v, "f");
 }
-template<> std::string NumberToString<double>(double v) {
+template <>
+std::string NumberToString<double>(double v) {
   return absl::StrCat(v, "d");
 }
 

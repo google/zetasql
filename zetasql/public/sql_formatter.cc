@@ -62,9 +62,9 @@ zetasql_base::Status FormatSql(const std::string& sql, std::string* formatted_sq
       if (return_status.ok()) {
         return_status = out_status;
       } else {
-        return_status =
-            ::zetasql_base::StatusBuilder(return_status, ZETASQL_LOC).SetAppend()
-            << "\n" << FormatError(out_status);
+        return_status = ::zetasql_base::StatusBuilder(return_status).SetAppend()
+                        << "\n"
+                        << FormatError(out_status);
       }
 
       // When statement is not parseable, we proceed to the next semicolon and

@@ -1018,7 +1018,11 @@ zetasql_base::Status SQLBuilder::AppendColumnSchema(
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
                      ProcessNode(generated_column_info->expression()));
 
-    absl::StrAppend(text, " AS ", result->GetSQL());
+    if (generated_column_info->is_on_write()) {
+      absl::StrAppend(text, " GENERATED ON WRITE");
+    }
+
+    absl::StrAppend(text, " AS (", result->GetSQL(), ")");
 
     if (generated_column_info->is_stored()) {
       absl::StrAppend(text, " STORED");
@@ -2745,6 +2749,11 @@ zetasql_base::Status SQLBuilder::VisitResolvedCreateModelStmt(
     output_col->name();
     output_col->column();
   }
+  for (const auto& column_definition : node->transform_input_column_list()) {
+    column_definition->name();
+    column_definition->column();
+    column_definition->type();
+  }
 
   std::string sql;
   // Restore CREATE MODEL sql prefix.
@@ -2761,7 +2770,17 @@ zetasql_base::Status SQLBuilder::VisitResolvedCreateModelStmt(
   if (!node->transform_list().empty()) {
     DCHECK_EQ(node->transform_list_size(),
               node->transform_output_column_list_size());
+    DCHECK_EQ(node->output_column_list_size(),
+              node->transform_input_column_list_size());
+    absl::flat_hash_map<std::string, /*column_id=*/int> query_column_name_id_map;
+    for (const auto& query_column_definition :
+         node->transform_input_column_list()) {
+      query_column_name_id_map.insert(
+          {query_column_definition->name(),
+           query_column_definition->column().column_id()});
+    }
     // Rename columns in TRANSFORM with the aliases from SELECT statement.
+    std::map</*column_id=*/int, std::string> computed_column_alias;
     for (const auto& output_col : node->output_column_list()) {
       const int output_col_id = output_col->column().column_id();
       const std::string alias = output_col->name();
@@ -2771,8 +2790,15 @@ zetasql_base::Status SQLBuilder::VisitResolvedCreateModelStmt(
                    "computed_column_alias_",
                    output_col_id, alias);
       }
-      computed_column_alias_[output_col_id] = alias;
+      if (!query_column_name_id_map.contains(alias)) {
+        return ::zetasql_base::InternalErrorBuilder() << absl::Substitute(
+                   "Column id $0 with name '$1' is not found in "
+                   "query_column_name_id_map",
+                   output_col_id, alias);
+      }
+      computed_column_alias.insert({query_column_name_id_map[alias], alias});
     }
+    computed_column_alias_.swap(computed_column_alias);
     for (const auto& analytic_function_group :
          node->transform_analytic_function_group_list()) {
       ZETASQL_RETURN_IF_ERROR(

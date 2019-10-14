@@ -1,10 +1,9 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
 # Data Types
 
+<!-- BEGIN CONTENT -->
 <p>
 ZetaSQL supports simple data types such as integers, as well as more
 complex types such as ARRAY,
@@ -32,10 +31,10 @@ properties in mind:
 <tr>
 <td>Nullable</td>
 <td nowrap><code>NULL</code> is a valid value.</td>
-<td>All
-data types.
+<td>
 
-</ul>
+All data types.
+
 </td>
 </tr>
 <tr>
@@ -46,6 +45,7 @@ data types.
 <li>PROTO</li>
 <li>ARRAY</li>
 <li>STRUCT</li>
+</ul>
 </td>
 </tr>
 <tr>
@@ -95,15 +95,11 @@ supported.
 <br/><br/>
 Protocol Buffer comparisons are not supported.
 
-<br/><br/>
-
 <br /><br />
 All types that support comparisons
 can be used in a <code>JOIN</code> condition. See
 <a href="https://github.com/google/zetasql/blob/master/docs/query-syntax.md#join_types">JOIN
-Types</a> for an explanation of join conditions.
-</td>
-</tr>
+Types</a> for an explanation of join conditions.</td></tr>
 </tbody>
 </table>
 

@@ -494,7 +494,8 @@ zetasql_base::Status Resolver::MakeEqualityComparison(
       ast_location, {ast_location, ast_location}, "$equal",
       false /* is_analytic */,
       MakeNodeVector(std::move(expr1), std::move(expr2)),
-      nullptr /* expected_result_type */, &resolved_function_call));
+      /*named_arguments=*/{}, nullptr /* expected_result_type */,
+      &resolved_function_call));
 
   *output_expr = std::move(resolved_function_call);
   return ::zetasql_base::OkStatus();
@@ -511,7 +512,7 @@ zetasql_base::Status Resolver::MakeNotExpr(
   arguments.push_back(std::move(expr));
   return ResolveFunctionCallWithResolvedArguments(
       ast_location, {ast_location}, "$not", std::move(arguments),
-      expr_resolution_info, expr_out);
+      /*named_arguments=*/{}, expr_resolution_info, expr_out);
 }
 
 zetasql_base::Status Resolver::MakeCoalesceExpr(
@@ -526,10 +527,12 @@ zetasql_base::Status Resolver::MakeCoalesceExpr(
 
   std::unique_ptr<ResolvedFunctionCall> resolved_function_call;
   // Coerces the arguments to a common supertype, if necessary.
+  size_t exprs_size = exprs.size();
   ZETASQL_RETURN_IF_ERROR(function_resolver_->ResolveGeneralFunctionCall(
-      ast_location, std::vector<const ASTNode*>(exprs.size(), ast_location),
+      ast_location, std::vector<const ASTNode*>(exprs_size, ast_location),
       "coalesce", false /* is_analytic */, std::move(exprs),
-      nullptr /* expected_result_type */, &resolved_function_call));
+      /*named_arguments=*/{}, nullptr /* expected_result_type */,
+      &resolved_function_call));
 
   *output_expr = std::move(resolved_function_call);
   return ::zetasql_base::OkStatus();
@@ -553,7 +556,8 @@ zetasql_base::Status Resolver::MakeAndExpr(
     ZETASQL_RETURN_IF_ERROR(function_resolver_->ResolveGeneralFunctionCall(
         ast_location, std::vector<const ASTNode*>(expr_count, ast_location),
         "$and", false /* is_analytic */, std::move(exprs),
-        nullptr /* expected_result_type */, &resolved_function_call));
+        /*named_arguments=*/{}, nullptr /* expected_result_type */,
+        &resolved_function_call));
 
     ZETASQL_RET_CHECK_EQ(resolved_function_call->function()->mode(),
                  Function::SCALAR);

@@ -28,8 +28,9 @@
 namespace zetasql {
 namespace functions {
 
-static bool ProtoToStringInternal(const google::protobuf::Message* value, std::string* out,
-                                  bool multiline, zetasql_base::Status* error) {
+static bool ProtoToStringInternal(const google::protobuf::Message* value,
+                                  std::string* out, bool multiline,
+                                  zetasql_base::Status* error) {
   google::protobuf::TextFormat::Printer printer;
   printer.SetUseUtf8StringEscaping(true);
   printer.SetSingleLineMode(!multiline);

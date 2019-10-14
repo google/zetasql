@@ -1409,7 +1409,7 @@ DMLValueExpr::GetScannedTupleAsColumnValues(
     auto insert_result =
         row_map->insert(std::make_pair(primary_key, row_number_and_values));
     if (!insert_result.second) {
-      return zetasql_base::StatusBuilder(duplicate_primary_key_error_code, ZETASQL_LOC)
+      return zetasql_base::StatusBuilder(duplicate_primary_key_error_code)
              << duplicate_primary_key_error_prefix << " ("
              << primary_key.ShortDebugString() << ")";
     }

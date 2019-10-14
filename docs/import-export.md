@@ -1,8 +1,8 @@
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
 # Data Export
+
+<!-- BEGIN CONTENT -->
 
 ZetaSQL specifies the syntax for the `EXPORT` statement.
 

@@ -763,9 +763,9 @@ TEST_F(NumericValueTest, Sign) {
 TEST_F(NumericValueTest, UnalignedReadWrite) {
   std::unique_ptr<char[]> buffer(new char[100]);
   char* buffer_ptr = buffer.get() + 3;
-  zetasql::NumericValue* value = new (buffer_ptr) NumericValue;
+  NumericValue* value = new (buffer_ptr) NumericValue;
   buffer_ptr += 20;
-  zetasql::NumericValue* max_value =
+  NumericValue* max_value =
       new (buffer_ptr) NumericValue(NumericValue::MaxValue());
 
   EXPECT_EQ(NumericValue(static_cast<int64_t>(0)), *value);

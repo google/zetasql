@@ -36,6 +36,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/common.h"
 #include "zetasql/reference_impl/function.h"
+#include "zetasql/reference_impl/proto_util.h"
 #include "zetasql/reference_impl/tuple.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
@@ -1095,9 +1096,55 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeExpressi
                                    expr->GetAs<ResolvedGetStructField>()));
       break;
     }
+    case RESOLVED_MAKE_PROTO: {
+      auto make_proto = expr->GetAs<ResolvedMakeProto>();
+      std::vector<MakeProtoFunction::FieldAndFormat> fields;
+      std::vector<std::unique_ptr<ValueExpr>> arguments;
+      for (const auto& field : make_proto->field_list()) {
+        const google::protobuf::FieldDescriptor* field_descr = field->field_descriptor();
+        ZETASQL_RETURN_IF_ERROR(ProtoUtil::CheckIsSupportedFieldFormat(
+            field->format(), field_descr));
+        fields.emplace_back(field_descr, field->format());
+        ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> value_op,
+                         AlgebrizeExpression(field->expr()));
+        arguments.push_back(std::move(value_op));
+      }
+      ZETASQL_ASSIGN_OR_RETURN(val_op, ScalarFunctionCallExpr::Create(
+                                   absl::make_unique<MakeProtoFunction>(
+                                       expr->type()->AsProto(), fields),
+                                   std::move(arguments)));
+      break;
+    }
     case RESOLVED_DMLDEFAULT: {
       // In the reference implementation, the default value is always NULL.
       ZETASQL_ASSIGN_OR_RETURN(val_op, ConstExpr::Create(Value::Null(expr->type())));
+      break;
+    }
+    case RESOLVED_REPLACE_FIELD: {
+      // TODO: Modify the ResolvedAST to propagate the field paths in
+      // a tree format to assist with traversal of the serialized proto.
+      auto replace_fields = expr->GetAs<ResolvedReplaceField>();
+      std::vector<ReplaceFieldsFunction::StructAndProtoPath> field_paths;
+      field_paths.reserve(replace_fields->replace_field_item_list_size());
+      // <arguments> will store root object to be modified as well as the new
+      // field values.
+      std::vector<std::unique_ptr<ValueExpr>> arguments;
+      arguments.reserve(replace_fields->replace_field_item_list_size() + 1);
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> root_expr,
+                       AlgebrizeExpression(replace_fields->expr()));
+      arguments.push_back(std::move(root_expr));
+      for (const auto& replace_field_item :
+           replace_fields->replace_field_item_list()) {
+        ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> new_value,
+                         AlgebrizeExpression(replace_field_item->expr()));
+        arguments.push_back(std::move(new_value));
+        field_paths.emplace_back(replace_field_item->struct_index_path(),
+                                 replace_field_item->proto_field_path());
+      }
+      ZETASQL_ASSIGN_OR_RETURN(val_op, ScalarFunctionCallExpr::Create(
+                                   absl::make_unique<ReplaceFieldsFunction>(
+                                       expr->type(), field_paths),
+                                   std::move(arguments)));
       break;
     }
     default:

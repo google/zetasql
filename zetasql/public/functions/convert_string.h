@@ -54,18 +54,22 @@ bool StringToNumeric(absl::string_view value, T* out,
 template <typename T>
 bool StringToNumeric(absl::string_view value, T* out, zetasql_base::Status* error);
 
-template <> bool NumericToString(bool value, std::string* out, zetasql_base::Status* error);
-template <> bool NumericToString(int32_t value, std::string* out, zetasql_base::Status* error);
-template <> bool NumericToString(int64_t value, std::string* out, zetasql_base::Status* error);
-template <> bool NumericToString(uint32_t value, std::string* out,
-                                 zetasql_base::Status* error);
-template <> bool NumericToString(uint64_t value, std::string* out,
-                                 zetasql_base::Status* error);
-template <> bool NumericToString(float value, std::string* out, zetasql_base::Status* error);
-template <> bool NumericToString(double value, std::string* out,
-                                 zetasql_base::Status* error);
-template <> bool NumericToString(NumericValue value, std::string* out,
-                                 zetasql_base::Status* error);
+template <>
+bool NumericToString(bool value, std::string* out, zetasql_base::Status* error);
+template <>
+bool NumericToString(int32_t value, std::string* out, zetasql_base::Status* error);
+template <>
+bool NumericToString(int64_t value, std::string* out, zetasql_base::Status* error);
+template <>
+bool NumericToString(uint32_t value, std::string* out, zetasql_base::Status* error);
+template <>
+bool NumericToString(uint64_t value, std::string* out, zetasql_base::Status* error);
+template <>
+bool NumericToString(float value, std::string* out, zetasql_base::Status* error);
+template <>
+bool NumericToString(double value, std::string* out, zetasql_base::Status* error);
+template <>
+bool NumericToString(NumericValue value, std::string* out, zetasql_base::Status* error);
 
 template <>
 bool StringToNumeric(absl::string_view value, bool* out, zetasql_base::Status* error);

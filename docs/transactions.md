@@ -1,8 +1,8 @@
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
 # Transactions
+
+<!-- BEGIN CONTENT -->
 
 ZetaSQL specifies the syntax for transaction statements, such as
 `BEGIN`.

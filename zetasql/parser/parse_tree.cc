@@ -88,6 +88,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_COLUMN_ATTRIBUTE_LIST] = "ColumnAttributeList";
   map[AST_COLUMN_LIST] = "ColumnList";
   map[AST_COLUMN_POSITION] = "ColumnPosition";
+  map[AST_CONNECTION_CLAUSE] = "ConnectionClause";
   map[AST_ADD_COLUMN_ACTION] = "AddColumnAction";
   map[AST_COMMIT_STATEMENT] = "CommitStatement";
   map[AST_CONTINUE_STATEMENT] = "Continue";
@@ -122,6 +123,8 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_DROP_ROW_ACCESS_POLICY_STATEMENT] = "DropRowAccessPolicyStatement";
   map[AST_DROP_STATEMENT] = "DropStatement";
   map[AST_DROP_MATERIALIZED_VIEW_STATEMENT] = "DropMaterializedViewStatement";
+  map[AST_ELSEIF_CLAUSE] = "ElseIf";
+  map[AST_ELSEIF_CLAUSE_LIST] = "ElseIfList";
   map[AST_EXCEPTION_HANDLER] = "ExceptionHandler";
   map[AST_EXCEPTION_HANDLER_LIST] = "ExceptionHandlerList";
   map[AST_EXPLAIN_STATEMENT] = "ExplainStatement";
@@ -1127,8 +1130,19 @@ std::string ASTSampleSize::GetSQLForUnit() const {
 }
 
 std::string ASTGeneratedColumnInfo::SingleNodeDebugString() const {
-  return absl::StrCat(ASTNode::SingleNodeDebugString(),
-                      is_stored_ ? "(is_stored=true)" : "");
+  std::vector<std::string> modifiers;
+  if (is_stored_) {
+    modifiers.push_back("is_stored=true");
+  }
+  if (is_on_write_) {
+    modifiers.push_back("is_on_write=true");
+  }
+  if (modifiers.empty()) {
+    return ASTNode::SingleNodeDebugString();
+  } else {
+    return absl::StrCat(ASTNode::SingleNodeDebugString(), "(",
+                        absl::StrJoin(modifiers, ", "), ")");
+  }
 }
 
 std::string ASTNotNullColumnAttribute::SingleNodeSqlString() const {

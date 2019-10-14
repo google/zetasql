@@ -3723,6 +3723,37 @@ static std::vector<FormatTimestampTest> GetFormatTimestampTests() {
   tests.push_back({"%4Y-%m-%d %H:%M:%E6S%Ez", timestamp, "Asia/Rangoon",
                    "10000-01-01 06:29:59.999999+06:30"});
 
+  // Check that FormatTimestamp removes subsecond timezone offset
+  // (before 1884 PST timezone had offset of 7h 52m 58s, but FormatTimestamp
+  // should only use 7h 52m).
+  ZETASQL_CHECK_OK(ConvertStringToTimestamp("1812-09-07 07:52:01", "UTC", kMicroseconds,
+                                    &timestamp));
+  tests.push_back(
+      {"%F %T", timestamp, "America/Los_Angeles", "1812-09-07 00:00:01"});
+  tests.push_back({"%F %T%z", timestamp, "America/Los_Angeles",
+                   "1812-09-07 00:00:01-0752"});
+  tests.push_back({"%Y%m%d", timestamp, "America/Los_Angeles", "18120907"});
+  tests.push_back({"%H:%M:%S", timestamp, "America/Los_Angeles", "00:00:01"});
+  tests.push_back(
+      {"%c", timestamp, "America/Los_Angeles", "Mon Sep  7 00:00:01 1812"});
+
+  // Check that %F and %Y remove leading zeros
+  ZETASQL_CHECK_OK(ConvertStringToTimestamp(
+      "0001-02-03 00:00:00",  "UTC", kMicroseconds, &timestamp));
+  tests.push_back({"%F %T", timestamp, "UTC", "1-02-03 00:00:00"});
+  tests.push_back({"%Y-%m-%d %T", timestamp, "UTC", "1-02-03 00:00:00"});
+  tests.push_back({"%Y%m%d", timestamp, "UTC", "10203"});
+  ZETASQL_CHECK_OK(ConvertStringToTimestamp(
+      "0100-02-03 00:00:00",  "UTC", kMicroseconds, &timestamp));
+  tests.push_back({"%F %T", timestamp, "UTC", "100-02-03 00:00:00"});
+  tests.push_back({"%Y-%m-%d %T", timestamp, "UTC", "100-02-03 00:00:00"});
+  tests.push_back({"%Y%m%d", timestamp, "UTC", "1000203"});
+  ZETASQL_CHECK_OK(ConvertStringToTimestamp(
+      "1000-02-03 00:00:00",  "UTC", kMicroseconds, &timestamp));
+  tests.push_back({"%F %T", timestamp, "UTC", "1000-02-03 00:00:00"});
+  tests.push_back({"%Y-%m-%d %T", timestamp, "UTC", "1000-02-03 00:00:00"});
+  tests.push_back({"%Y%m%d", timestamp, "UTC", "10000203"});
+
   return tests;
 }
 

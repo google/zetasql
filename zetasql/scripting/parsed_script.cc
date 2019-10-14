@@ -203,15 +203,18 @@ class ValidateVariableDeclarationsVisitor
   const ParsedScript* parsed_script_;
 };
 
-// Visitor which records a mapping of each statement's index as a child of
-// its parent.  This is used by the script executor implementation to locate
-// the "next" statement after each statement finishes running.
-class PopulateMapStatementIndexVisitor : public NonRecursiveParseTreeVisitor {
+// Visitor which records a mapping of each statement and elseif clause's index
+// as a child of its parent.  This is used by the script executor implementation
+// to locate the "next" statement or elseif clause after each node finishes
+// running.
+class PopulateIndexMapsVisitor : public NonRecursiveParseTreeVisitor {
  public:
   // Caller retains ownership of map_statement_index.
-  explicit PopulateMapStatementIndexVisitor(
-      ParsedScript::StatementIndexMap* map_statement_index)
-      : map_statement_index_(map_statement_index) {}
+  explicit PopulateIndexMapsVisitor(
+      ParsedScript::StatementIndexMap* map_statement_index,
+      ParsedScript::ElseifClauseIndexMap* map_elseif_clauses)
+      : map_statement_index_(map_statement_index),
+        map_elseif_clauses_(map_elseif_clauses) {}
 
   VisitResult defaultVisit(const ASTNode* node) override {
     return VisitResult::VisitChildren(node);
@@ -223,9 +226,18 @@ class PopulateMapStatementIndexVisitor : public NonRecursiveParseTreeVisitor {
     }
     return VisitResult::VisitChildren(node);
   }
+  VisitResult visitASTElseifClauseList(
+      const ASTElseifClauseList* node) override {
+    int index = 0;
+    for (const ASTElseifClause* clause : node->elseif_clauses()) {
+      (*map_elseif_clauses_)[clause] = index++;
+    }
+    return VisitResult::VisitChildren(node);
+  }
 
  private:
   ParsedScript::StatementIndexMap* map_statement_index_;
+  ParsedScript::ElseifClauseIndexMap* map_elseif_clauses_;
 };
 
 // Visitor which builds a mapping, assocating each BREAK, CONTINUE, LEAVE, or
@@ -286,16 +298,16 @@ class FindStatementFromPositionVisitor : public NonRecursiveParseTreeVisitor {
   explicit FindStatementFromPositionVisitor(const ParseLocationPoint& location)
       : location_(location) {}
 
-  const ASTStatement* match() const { return match_; }
+  const ASTNode* match() const { return match_; }
 
   VisitResult defaultVisit(const ASTNode* node) override {
     if (match_ != nullptr) {
       return VisitResult::Empty();
     }
-    if (node->IsStatement()) {
+    if (node->IsStatement() || node->node_kind() == AST_ELSEIF_CLAUSE) {
       const ParseLocationRange& stmt_range = node->GetParseLocationRange();
       if (stmt_range.start() == location_) {
-        match_ = node->GetAs<ASTStatement>();
+        match_ = node;
         return VisitResult::Empty();
       }
       return VisitResult::VisitChildren(node);
@@ -313,6 +325,11 @@ class FindStatementFromPositionVisitor : public NonRecursiveParseTreeVisitor {
     return VisitResult::VisitChildren(node);
   }
 
+  VisitResult visitASTElseifClauseList(
+      const ASTElseifClauseList* node) override {
+    return VisitResult::VisitChildren(node);
+  }
+
   VisitResult visitASTStatementList(const ASTStatementList* node) override {
     return VisitResult::VisitChildren(node);
   }
@@ -323,11 +340,11 @@ class FindStatementFromPositionVisitor : public NonRecursiveParseTreeVisitor {
 
  private:
   const ParseLocationPoint location_;
-  const ASTStatement* match_ = nullptr;
+  const ASTNode* match_ = nullptr;
 };
 }  // namespace
 
-const ASTStatement* ParsedScript::FindStatementFromPosition(
+const ASTNode* ParsedScript::FindScriptNodeFromPosition(
     const ParseLocationPoint& start_pos) const {
   FindStatementFromPositionVisitor visitor(start_pos);
   script()->TraverseNonRecursive(&visitor);
@@ -335,11 +352,10 @@ const ASTStatement* ParsedScript::FindStatementFromPosition(
 }
 
 zetasql_base::StatusOr<ParsedScript::VariableTypeMap>
-ParsedScript::GetVariablesInScopeAtStatement(
-    const ASTStatement* next_statement) const {
+ParsedScript::GetVariablesInScopeAtNode(const ASTNode* next_node) const {
   VariableTypeMap variables;
 
-  for (const ASTNode* node = next_statement->parent(); node != nullptr;
+  for (const ASTNode* node = next_node->parent(); node != nullptr;
        node = node->parent()) {
     const ASTStatementList* stmt_list = node->GetAsOrNull<ASTStatementList>();
     if (stmt_list == nullptr || !stmt_list->variable_declarations_allowed()) {
@@ -349,7 +365,7 @@ ParsedScript::GetVariablesInScopeAtStatement(
     // Add variables declared in DECLARE statements up to, but not including,
     // the current statement.
     for (const ASTStatement* stmt : stmt_list->statement_list()) {
-      if (stmt == next_statement) {
+      if (stmt == next_node) {
         // Skip over DECLARE statements that haven't run yet when
         // <statement> is about to begin.
         break;
@@ -386,9 +402,9 @@ zetasql_base::Status ParsedScript::GatherInformationAndRunChecksInternal() {
   // statement in the script with its index in the child list of the statement's
   // parent.  This is used to transfer control when advancing through the
   // script.
-  PopulateMapStatementIndexVisitor map_statement_index_visitor(
-      &statement_index_map_);
-  script()->TraverseNonRecursive(&map_statement_index_visitor);
+  PopulateIndexMapsVisitor populate_index_visitor(&statement_index_map_,
+                                                  &elseif_clause_index_map_);
+  script()->TraverseNonRecursive(&populate_index_visitor);
 
   // Walk the parse tree, building up a map, associating each BREAK, CONTINUE,
   // LEAVE, or ITERATE statement with its innermost loop and set of blocks that

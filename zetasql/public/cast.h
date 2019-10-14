@@ -63,8 +63,7 @@ struct CastFunctionProperty {
   int cost;  // Cost to cast from one type to another.
 };
 
-using CastHashMap = absl::flat_hash_map<TypeKindPair, CastFunctionProperty,
-                                        TypeKindPairHasher>;
+using CastHashMap = absl::flat_hash_map<TypeKindPair, CastFunctionProperty>;
 
 // Returns a hash map with TypeKindPair as key, and CastFunctionProperty as
 // value.  This identifies whether the (from, to) cast pairs in the key are

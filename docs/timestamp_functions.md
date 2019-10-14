@@ -742,6 +742,18 @@ SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00") as micros;
 +------------------+
 ```
 
+### TIMESTAMP_FROM_UNIX_SECONDS
+
+Documentation is pending for this feature.
+
+### TIMESTAMP_FROM_UNIX_MILLIS
+
+Documentation is pending for this feature.
+
+### TIMESTAMP_FROM_UNIX_MICROS
+
+Documentation is pending for this feature.
+
 ### Supported format elements for TIMESTAMP
 
 Unless otherwise noted, TIMESTAMP functions that use format strings support the

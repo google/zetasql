@@ -194,6 +194,62 @@ cc_library(
 )
 
 cc_library(
+    name = "bitwise",
+    srcs = ["bitwise.cc"],
+    hdrs = ["bitwise.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":util",
+        "//zetasql/base",
+        "//zetasql/base:bits",
+        "//zetasql/base:status",
+        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "bitwise_test",
+    size = "small",
+    srcs = ["bitwise_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":bitwise",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/compliance:functions_testlib",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/testing:test_function",
+    ],
+)
+
+cc_library(
+    name = "bitcast",
+    hdrs = ["bitcast.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "//zetasql/base:status",
+        "@com_google_absl//absl/base",
+    ],
+)
+
+cc_test(
+    name = "bitcast_test",
+    size = "small",
+    srcs = ["bitcast_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":bitcast",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base:status",
+        "@com_google_absl//absl/base:core_headers",
+    ],
+)
+
+cc_library(
     name = "comparison",
     hdrs = ["comparison.h"],
     copts = ["-Wno-sign-compare"],
@@ -249,7 +305,7 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
-        "@com_google_protobuf//:cc_wkt_protos",
+        "@com_google_protobuf//:protobuf",
         "@com_googleapis_googleapis//:date_cc_proto",
     ],
 )

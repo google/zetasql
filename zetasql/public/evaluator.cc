@@ -385,8 +385,7 @@ static std::string HideInternalName(const std::string& name) {
 zetasql_base::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
                                       Catalog* catalog) {
   if (is_prepared()) {
-    return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
-           << "Prepare called twice";
+    return ::zetasql_base::InvalidArgumentErrorBuilder() << "Prepare called twice";
   }
   is_prepared_ = true;
   analyzer_options_ = options;
@@ -416,7 +415,7 @@ zetasql_base::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
           RESOLVED_QUERY_STMT) {
         // This error is only reachable if the user enabled additional
         // statement kinds in their AnalyzerOptions.
-        return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+        return ::zetasql_base::InvalidArgumentErrorBuilder()
                << "Statement is not a query: "
                << analyzer_output_->resolved_statement()->node_kind_string();
       }
@@ -507,11 +506,11 @@ zetasql_base::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
 zetasql_base::StatusOr<std::vector<std::string>> Evaluator::GetReferencedColumns() const {
   absl::ReaderMutexLock l(&mutex_);
   if (!is_prepared()) {
-    return ::zetasql_base::FailedPreconditionErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::FailedPreconditionErrorBuilder()
            << "Expression/Query has not been prepared";
   }
   if (!has_prepare_succeeded()) {
-    return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
            << "Invalid prepared expression/query";
   }
   std::vector<std::string> referenced_columns;
@@ -524,11 +523,11 @@ zetasql_base::StatusOr<std::vector<std::string>> Evaluator::GetReferencedColumns
 zetasql_base::StatusOr<std::vector<std::string>> Evaluator::GetReferencedParameters() const {
   absl::ReaderMutexLock l(&mutex_);
   if (!is_prepared()) {
-    return ::zetasql_base::FailedPreconditionErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::FailedPreconditionErrorBuilder()
            << "Expression/Query has not been prepared";
   }
   if (!has_prepare_succeeded()) {
-    return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
            << "Invalid prepared expression/query";
   }
   std::vector<std::string> referenced_parameters;
@@ -543,11 +542,11 @@ zetasql_base::StatusOr<std::vector<std::string>> Evaluator::GetReferencedParamet
 zetasql_base::StatusOr<int> Evaluator::GetPositionalParameterCount() const {
   absl::ReaderMutexLock l(&mutex_);
   if (!is_prepared()) {
-    return ::zetasql_base::FailedPreconditionErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::FailedPreconditionErrorBuilder()
            << "Expression/Query has not been prepared";
   }
   if (!has_prepare_succeeded()) {
-    return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
            << "Invalid prepared expression/query";
   }
   std::vector<int> referenced_positional_parameters;
@@ -570,7 +569,7 @@ zetasql_base::Status Evaluator::TranslateParameterValueMapToList(
     const Value* value =
         zetasql_base::FindPtrOrNull(normalized_parameters, variable_name);
     if (value == nullptr) {
-      return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
              << "Incomplete " << ParameterKindToString(kind) << " parameters "
              << v.first;
     }
@@ -645,7 +644,7 @@ zetasql_base::Status Evaluator::ExecuteAfterPrepareLocked(
   if (!has_prepare_succeeded()) {
     // Previous Prepare() failed with an analysis error or Prepare was never
     // called. Returns an error for consistency.
-    return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
            << "Invalid prepared expression/query";
   }
 
@@ -747,7 +746,7 @@ zetasql_base::Status Evaluator::ExecuteAfterPrepareWithOrderedParamsLocked(
   if (!has_prepare_succeeded()) {
     // Previous Prepare() failed with an analysis error or Prepare was never
     // called. Returns an error for consistency.
-    return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
            << "Invalid prepared expression/query";
   }
 
@@ -761,8 +760,8 @@ zetasql_base::Status Evaluator::ExecuteAfterPrepareWithOrderedParamsLocked(
   params.reserve(columns.size() + parameters.size() + system_variables.size());
   params.insert(params.end(), columns.begin(), columns.end());
   params.insert(params.end(), parameters.begin(), parameters.end());
-  for (const auto& sysvar : system_variables) {
-    params.push_back(sysvar.second);
+  for (const auto& algebrizer_sysvar : algebrizer_system_variables_) {
+    params.push_back(system_variables.at(algebrizer_sysvar.first));
   }
   const TupleData params_data = CreateTupleDataFromValues(params);
 
@@ -825,7 +824,7 @@ const Type* Evaluator::expression_output_type() const {
 zetasql_base::Status Evaluator::ValidateColumns(
     const ParameterValueList& columns) const {
   if (columns.size() != algebrizer_column_map_.size()) {
-    return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+    return zetasql_base::InvalidArgumentErrorBuilder()
            << "Incorrect number of column parameters. Expected "
            << algebrizer_column_map_.size() << " but found " << columns.size();
   }
@@ -844,7 +843,7 @@ zetasql_base::Status Evaluator::ValidateColumns(
     ZETASQL_RET_CHECK(expected_type != nullptr)
         << "Expected type not found for variable " << variable_name;
     if (!expected_type->Equals(value.type())) {
-      return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+      return zetasql_base::InvalidArgumentErrorBuilder()
              << "Expected column parameter '" << variable_name
              << "' to be of type " << expected_type->DebugString()
              << " but found " << value.type()->DebugString();
@@ -864,7 +863,7 @@ zetasql_base::Status Evaluator::ValidateSystemVariables(
     const std::vector<std::string>& sysvar_name = analyzer_options_sysvar.first;
     auto it = system_variables.find(sysvar_name);
     if (it == system_variables.end()) {
-      return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+      return zetasql_base::InvalidArgumentErrorBuilder()
              << "No value provided for system variable "
              << absl::StrJoin(sysvar_name, ".");
     }
@@ -873,7 +872,7 @@ zetasql_base::Status Evaluator::ValidateSystemVariables(
     if (!expected_type->Equals(actual_type)) {
       ProductMode product_mode =
           analyzer_options_.language_options().product_mode();
-      return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+      return zetasql_base::InvalidArgumentErrorBuilder()
              << "Expected system variable '" << absl::StrJoin(sysvar_name, ".")
              << "' to be of type " << expected_type->TypeName(product_mode)
              << " but found " << actual_type->TypeName(product_mode);
@@ -884,7 +883,7 @@ zetasql_base::Status Evaluator::ValidateSystemVariables(
     const std::vector<std::string>& sysvar_name = sysvar.first;
     auto it = analyzer_options_.system_variables().find(sysvar_name);
     if (it == analyzer_options_.system_variables().end()) {
-      return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+      return zetasql_base::InvalidArgumentErrorBuilder()
              << "Value provided for system variable "
              << absl::StrJoin(sysvar_name, ".")
              << ", which is not in the AnalyzerOptions";
@@ -916,7 +915,7 @@ zetasql_base::Status Evaluator::ValidateParameters(
     const ParameterValueList& parameters) const {
   if (algebrizer_parameters_.is_named()) {
     if (parameters.size() != algebrizer_parameters_.named_parameters().size()) {
-      return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+      return zetasql_base::InvalidArgumentErrorBuilder()
              << "Incorrect number of named parameters. Expected "
              << algebrizer_parameters_.named_parameters().size()
              << " but found " << parameters.size();
@@ -932,7 +931,7 @@ zetasql_base::Status Evaluator::ValidateParameters(
       ZETASQL_RET_CHECK(expected_type != nullptr)
           << "Expected type not found for variable " << variable_name;
       if (!expected_type->Equals(value.type())) {
-        return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+        return zetasql_base::InvalidArgumentErrorBuilder()
                << "Expected query parameter '" << variable_name
                << "' to be of type " << expected_type->DebugString()
                << " but found " << value.type()->DebugString();
@@ -943,7 +942,7 @@ zetasql_base::Status Evaluator::ValidateParameters(
   } else {
     if (parameters.size() <
         algebrizer_parameters_.positional_parameters().size()) {
-      return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+      return zetasql_base::InvalidArgumentErrorBuilder()
              << "Incorrect number of positional parameters. Expected at "
              << "least "
              << algebrizer_parameters_.positional_parameters().size()
@@ -962,7 +961,7 @@ zetasql_base::Status Evaluator::ValidateParameters(
       if (!expected_type->Equals(actual_type)) {
         // Parameter positions are 1-based, so use the correct position in the
         // error message.
-        return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
+        return ::zetasql_base::InvalidArgumentErrorBuilder()
                << "Expected positional parameter " << (i + 1)
                << " to be of type " << expected_type->DebugString()
                << " but found " << actual_type->DebugString();

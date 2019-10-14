@@ -1,9 +1,9 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
 # Working with Arrays
+
+<!-- BEGIN CONTENT -->
 
 In ZetaSQL, an array is an ordered list consisting of zero or more
 values of the same data type. You can construct arrays of simple data types,
@@ -1405,11 +1405,15 @@ SELECT ARRAY(
   FROM points)
   AS coordinates;
 
-+----------------------------------------------------+
-| coordinates                                        |
-+----------------------------------------------------+
-| [{[1, 5]}, {[2, 8]}, {[3, 7]}, {[4, 1]}, {[5, 7]}] |
-+----------------------------------------------------+
++-------------------+
+| coordinates       |
++-------------------+
+| [{point: [1,5]},  |
+|  {point: [2,8]},  |
+|  {point: [5,7]},  |
+|  {point: [3,7]},  |
+|  {point: [4,1]}]  |
++--------------------+
 ```
 
 You can use this DML statement to insert the example data:

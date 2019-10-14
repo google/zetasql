@@ -55,7 +55,8 @@ template std::string UnaryOverflowMessage<int64_t>(int64_t in,
                                             absl::string_view operator_symbol);
 
 template <typename T>
-std::string BinaryOverflowMessage(T in1, T in2, absl::string_view operator_symbol) {
+std::string BinaryOverflowMessage(T in1, T in2,
+                                  absl::string_view operator_symbol) {
   return absl::StrCat(ArithmeticType<T>::kName, " overflow: ", in1,
                       operator_symbol, in2);
 }

@@ -58,6 +58,11 @@ class FunctionResolver {
   // scalar functions. <is_analytic> indicates whether an OVER clause follows
   // this function call.
   // * Takes ownership of the ResolvedExprs in <arguments>.
+  // * <named_arguments> is a vector of any named arguments passed into this
+  //   function call along with each one's zero-based index of that argument as
+  //   resolved in <arguments>. The function resolver refers to them when
+  //   matching against function signatures as needed. These parse nodes
+  //   should correspond to a subset of <arguments>.
   // * <expected_result_type> is optional and when specified should match the
   //   result_type of the function signature while resolving. Otherwise there is
   //   no match.
@@ -67,6 +72,7 @@ class FunctionResolver {
       const Function* function, ResolvedFunctionCallBase::ErrorMode error_mode,
       bool is_analytic,
       std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
+      std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
       const Type* expected_result_type,
       std::unique_ptr<ResolvedFunctionCall>* resolved_expr_out);
 
@@ -78,6 +84,7 @@ class FunctionResolver {
       const std::vector<const ASTNode*>& arg_locations,
       const std::string& function_name, bool is_analytic,
       std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
+      std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
       const Type* expected_result_type,
       std::unique_ptr<ResolvedFunctionCall>* resolved_expr_out);
   zetasql_base::Status ResolveGeneralFunctionCall(
@@ -85,6 +92,7 @@ class FunctionResolver {
       const std::vector<const ASTNode*>& arg_locations,
       const std::vector<std::string>& function_name_path, bool is_analytic,
       std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
+      std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
       const Type* expected_result_type,
       std::unique_ptr<ResolvedFunctionCall>* resolved_expr_out);
 
@@ -246,6 +254,17 @@ class FunctionResolver {
   // resolved (possibly coerced) Type each resolved to in a particular function
   // call.
   typedef std::map<SignatureArgumentKind, const Type*> ArgKindToResolvedTypeMap;
+
+  // Iterates through <named_arguments> and compares them against <signature>,
+  // rearranging <arg_locations> and <arguments> to match the order of the given
+  // <named_arguments> or returning an error if an invariant is not satisfied.
+  zetasql_base::Status ProcessNamedArguments(
+      const std::string& function_name, const FunctionSignature& signature,
+      const ASTNode* ast_location,
+      const std::vector<std::pair<const ASTNamedArgument*, int>>&
+          named_arguments,
+      std::vector<const ASTNode*>* arg_locations,
+      std::vector<std::unique_ptr<const ResolvedExpr>>* arguments);
 
   static std::string ArgKindToInputTypesMapDebugString(
       const ArgKindToInputTypesMap& map);

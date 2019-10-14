@@ -1,9 +1,9 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
 # Modules
+
+<!-- BEGIN CONTENT -->
 
 ## What are modules?
 

@@ -499,13 +499,7 @@ class ASTStatement : public ASTNode {
   explicit ASTStatement(ASTNodeKind kind) : ASTNode(kind) {}
 
   bool IsStatement() const final { return true; }
-};
-
-class ASTSqlStatement : public ASTStatement {
- public:
-  explicit ASTSqlStatement(ASTNodeKind kind) : ASTStatement(kind) {}
-
-  bool IsSqlStatement() const final { return true; }
+  bool IsSqlStatement() const override { return true; }
 };
 
 class ASTScriptStatement : public ASTStatement {
@@ -513,14 +507,15 @@ class ASTScriptStatement : public ASTStatement {
   explicit ASTScriptStatement(ASTNodeKind kind) : ASTStatement(kind) {}
 
   bool IsScriptStatement() const final { return true; }
+  bool IsSqlStatement() const override { return false; }
 };
 
 // This wraps any other statement to add statement-level hints.
-class ASTHintedStatement final : public ASTSqlStatement {
+class ASTHintedStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_HINTED_STATEMENT;
 
-  ASTHintedStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTHintedStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -539,11 +534,11 @@ class ASTHintedStatement final : public ASTSqlStatement {
 };
 
 // Represents an EXPLAIN statement.
-class ASTExplainStatement final : public ASTSqlStatement {
+class ASTExplainStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_EXPLAIN_STATEMENT;
 
-  ASTExplainStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTExplainStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -559,11 +554,11 @@ class ASTExplainStatement final : public ASTSqlStatement {
 };
 
 // Represents a DESCRIBE statement.
-class ASTDescribeStatement final : public ASTSqlStatement {
+class ASTDescribeStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_DESCRIBE_STATEMENT;
 
-  ASTDescribeStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTDescribeStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -588,11 +583,11 @@ class ASTDescribeStatement final : public ASTSqlStatement {
 };
 
 // Represents a SHOW statement.
-class ASTShowStatement final : public ASTSqlStatement {
+class ASTShowStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_SHOW_STATEMENT;
 
-  ASTShowStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTShowStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
   const ASTIdentifier* identifier() const { return identifier_; }
@@ -688,11 +683,11 @@ class ASTTransactionModeList final : public ASTNode {
 };
 
 // Represents a BEGIN or START TRANSACTION statement.
-class ASTBeginStatement final : public ASTSqlStatement {
+class ASTBeginStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_BEGIN_STATEMENT;
 
-  ASTBeginStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTBeginStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -707,12 +702,12 @@ class ASTBeginStatement final : public ASTSqlStatement {
 };
 
 // Represents a SET TRANSACTION statement.
-class ASTSetTransactionStatement final : public ASTSqlStatement {
+class ASTSetTransactionStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind =
       AST_SET_TRANSACTION_STATEMENT;
 
-  ASTSetTransactionStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTSetTransactionStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -727,11 +722,11 @@ class ASTSetTransactionStatement final : public ASTSqlStatement {
 };
 
 // Represents a COMMIT statement.
-class ASTCommitStatement final : public ASTSqlStatement {
+class ASTCommitStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_COMMIT_STATEMENT;
 
-  ASTCommitStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTCommitStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -742,11 +737,11 @@ class ASTCommitStatement final : public ASTSqlStatement {
 };
 
 // Represents a ROLLBACK statement.
-class ASTRollbackStatement final : public ASTSqlStatement {
+class ASTRollbackStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_ROLLBACK_STATEMENT;
 
-  ASTRollbackStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTRollbackStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -756,11 +751,11 @@ class ASTRollbackStatement final : public ASTSqlStatement {
   }
 };
 
-class ASTStartBatchStatement final : public ASTSqlStatement {
+class ASTStartBatchStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_START_BATCH_STATEMENT;
 
-  ASTStartBatchStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTStartBatchStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -775,11 +770,11 @@ class ASTStartBatchStatement final : public ASTSqlStatement {
   const ASTIdentifier* batch_type_ = nullptr;
 };
 
-class ASTRunBatchStatement final : public ASTSqlStatement {
+class ASTRunBatchStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_RUN_BATCH_STATEMENT;
 
-  ASTRunBatchStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTRunBatchStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -789,11 +784,11 @@ class ASTRunBatchStatement final : public ASTSqlStatement {
   }
 };
 
-class ASTAbortBatchStatement final : public ASTSqlStatement {
+class ASTAbortBatchStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_ABORT_BATCH_STATEMENT;
 
-  ASTAbortBatchStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTAbortBatchStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -804,11 +799,11 @@ class ASTAbortBatchStatement final : public ASTSqlStatement {
 };
 
 // Represents a DROP statement.
-class ASTDropStatement final : public ASTSqlStatement {
+class ASTDropStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_DROP_STATEMENT;
 
-  ASTDropStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTDropStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -839,12 +834,12 @@ class ASTDropStatement final : public ASTSqlStatement {
 };
 
 // Represents a DROP FUNCTION statement.
-class ASTDropFunctionStatement final : public ASTSqlStatement {
+class ASTDropFunctionStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind =
       AST_DROP_FUNCTION_STATEMENT;
 
-  ASTDropFunctionStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTDropFunctionStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -869,12 +864,12 @@ class ASTDropFunctionStatement final : public ASTSqlStatement {
 };
 
 // Represents a DROP ROW ACCESS POLICY statement.
-class ASTDropRowAccessPolicyStatement final : public ASTSqlStatement {
+class ASTDropRowAccessPolicyStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind =
       AST_DROP_ROW_ACCESS_POLICY_STATEMENT;
 
-  ASTDropRowAccessPolicyStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTDropRowAccessPolicyStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -898,12 +893,12 @@ class ASTDropRowAccessPolicyStatement final : public ASTSqlStatement {
 };
 
 // Represents a DROP ALL ROW ACCESS POLICIES statement.
-class ASTDropAllRowAccessPoliciesStatement final : public ASTSqlStatement {
+class ASTDropAllRowAccessPoliciesStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind =
       AST_DROP_ALL_ROW_ACCESS_POLICIES_STATEMENT;
 
-  ASTDropAllRowAccessPoliciesStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTDropAllRowAccessPoliciesStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
   const ASTPathExpression* table_name() const { return table_name_; }
@@ -921,12 +916,12 @@ class ASTDropAllRowAccessPoliciesStatement final : public ASTSqlStatement {
 };
 
 // Represents a DROP MATERIALIZED VIEW statement.
-class ASTDropMaterializedViewStatement final : public ASTSqlStatement {
+class ASTDropMaterializedViewStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind =
       AST_DROP_MATERIALIZED_VIEW_STATEMENT;
 
-  ASTDropMaterializedViewStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTDropMaterializedViewStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -947,11 +942,11 @@ class ASTDropMaterializedViewStatement final : public ASTSqlStatement {
 };
 
 // Represents a RENAME statement.
-class ASTRenameStatement final : public ASTSqlStatement {
+class ASTRenameStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_RENAME_STATEMENT;
 
-  ASTRenameStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTRenameStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -973,11 +968,11 @@ class ASTRenameStatement final : public ASTSqlStatement {
 
 // Represents an IMPORT statement, which currently support MODULE or PROTO kind.
 // We want this statement to be a generic import at some point.
-class ASTImportStatement final : public ASTSqlStatement {
+class ASTImportStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_IMPORT_STATEMENT;
 
-  ASTImportStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTImportStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -1013,11 +1008,11 @@ class ASTImportStatement final : public ASTSqlStatement {
   const ASTOptionsList* options_list_ = nullptr;  // May be NULL.
 };
 
-class ASTModuleStatement final : public ASTSqlStatement {
+class ASTModuleStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_MODULE_STATEMENT;
 
-  ASTModuleStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTModuleStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -1035,11 +1030,11 @@ class ASTModuleStatement final : public ASTSqlStatement {
 };
 
 // Represents a single query statement.
-class ASTQueryStatement final : public ASTSqlStatement {
+class ASTQueryStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_QUERY_STATEMENT;
 
-  ASTQueryStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTQueryStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -3575,9 +3570,9 @@ class ASTOptionsEntry final : public ASTNode {
 // Common superclass of CREATE statements supporting the common
 // modifiers:
 //   CREATE [OR REPLACE] [TEMP|PUBLIC|PRIVATE] <object> [IF NOT EXISTS].
-class ASTCreateStatement : public ASTSqlStatement {
+class ASTCreateStatement : public ASTStatement {
  public:
-  explicit ASTCreateStatement(ASTNodeKind kind) : ASTSqlStatement(kind) {}
+  explicit ASTCreateStatement(ASTNodeKind kind) : ASTStatement(kind) {}
   enum Scope {
     DEFAULT_SCOPE = 0,
     PRIVATE,
@@ -3850,6 +3845,27 @@ class ASTModelClause final : public ASTNode {
   const ASTPathExpression* model_path_ = nullptr;
 };
 
+// This represents a clause of form "CONNECTION <target>", where <target> is a
+// connection name.
+class ASTConnectionClause final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_CONNECTION_CLAUSE;
+
+  ASTConnectionClause() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTPathExpression* connection_path() const { return connection_path_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&connection_path_);
+  }
+
+  const ASTPathExpression* connection_path_ = nullptr;
+};
+
 // This represents an argument to a table-valued function (TVF). ZetaSQL can
 // parse the argument in one of the following ways:
 //
@@ -3865,6 +3881,17 @@ class ASTModelClause final : public ASTNode {
 // (3) ZetaSQL parses the argument as "MODEL path"; this syntax represents a
 //     model argument. In this case the model_clause_ of this class is
 //     non-empty.
+//
+// (4) ZetaSQL parses the argument as "CONNECTION path"; this syntax
+//     represents a connection argument. In this case the connection_clause_ of
+//     this class is non-empty.
+//
+// (5) ZetaSQL parses the argument as a named argument; this behaves like when
+//     the argument is an expression with the extra requirement that the
+//     resolver rearranges the provided named arguments to match the required
+//     argument names from the function signature, if present. The named
+//     argument is stored in the expr_ of this class in this case since an
+//     ASTNamedArgument is a subclass of ASTExpression.
 class ASTTVFArgument final : public ASTNode {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_TVF_ARGUMENT;
@@ -3876,6 +3903,9 @@ class ASTTVFArgument final : public ASTNode {
   const ASTExpression* expr() const { return expr_; }
   const ASTTableClause* table_clause() const { return table_clause_; }
   const ASTModelClause* model_clause() const { return model_clause_; }
+  const ASTConnectionClause* connection_clause() const {
+    return connection_clause_;
+  }
 
  private:
   void InitFields() final {
@@ -3883,12 +3913,14 @@ class ASTTVFArgument final : public ASTNode {
     fl.AddOptionalExpression(&expr_);
     fl.AddOptional(&table_clause_, AST_TABLE_CLAUSE);
     fl.AddOptional(&model_clause_, AST_MODEL_CLAUSE);
+    fl.AddOptional(&connection_clause_, AST_CONNECTION_CLAUSE);
   }
 
   // Only one of the following may be non-null.
   const ASTExpression* expr_ = nullptr;
   const ASTTableClause* table_clause_ = nullptr;
   const ASTModelClause* model_clause_ = nullptr;
+  const ASTConnectionClause* connection_clause_ = nullptr;
 };
 
 // This represents a CREATE CONSTANT statement, i.e.,
@@ -3919,12 +3951,12 @@ class ASTCreateConstantStatement final : public ASTCreateStatement {
 
 // This represents a CREATE DATABASE statement, i.e.,
 // CREATE DATABASE <name> [OPTIONS (name=value, ...)];
-class ASTCreateDatabaseStatement final : public ASTSqlStatement {
+class ASTCreateDatabaseStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind =
       AST_CREATE_DATABASE_STATEMENT;
 
-  ASTCreateDatabaseStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTCreateDatabaseStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -4418,12 +4450,12 @@ class ASTCreateMaterializedViewStatement final : public ASTCreateViewStatementBa
   const ASTClusterBy* cluster_by_ = nullptr;                 // May be NULL.
 };
 
-class ASTExportDataStatement final : public ASTSqlStatement {
+class ASTExportDataStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind =
       AST_EXPORT_DATA_STATEMENT;
 
-  ASTExportDataStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTExportDataStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -4441,11 +4473,11 @@ class ASTExportDataStatement final : public ASTSqlStatement {
   const ASTQuery* query_ = nullptr;
 };
 
-class ASTCallStatement final : public ASTSqlStatement {
+class ASTCallStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_CALL_STATEMENT;
 
-  ASTCallStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTCallStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -4465,12 +4497,12 @@ class ASTCallStatement final : public ASTSqlStatement {
   absl::Span<const ASTTVFArgument* const> arguments_;
 };
 
-class ASTDefineTableStatement final : public ASTSqlStatement {
+class ASTDefineTableStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind =
       AST_DEFINE_TABLE_STATEMENT;
 
-  ASTDefineTableStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTDefineTableStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -4700,11 +4732,11 @@ class ASTDefaultLiteral final : public ASTExpression {
   }
 };
 
-class ASTAssertStatement final : public ASTSqlStatement {
+class ASTAssertStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_ASSERT_STATEMENT;
 
-  ASTAssertStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTAssertStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -4745,11 +4777,11 @@ class ASTAssertRowsModified final : public ASTNode {
 // This is used for both top-level DELETE statements and for nested DELETEs
 // inside ASTUpdateItem. When used at the top-level, the target is always a
 // path expression.
-class ASTDeleteStatement final : public ASTSqlStatement {
+class ASTDeleteStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_DELETE_STATEMENT;
 
-  ASTDeleteStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTDeleteStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -5065,6 +5097,8 @@ class ASTGeneratedColumnInfo final : public ASTNode {
   const ASTExpression* expression() const { return expression_; }
   bool is_stored() const { return is_stored_; }
   void set_is_stored(bool is_stored) { is_stored_ = is_stored; }
+  bool is_on_write() const { return is_on_write_; }
+  void set_is_on_write(bool is_on_write) { is_on_write_ = is_on_write; }
 
  private:
   void InitFields() final {
@@ -5074,6 +5108,7 @@ class ASTGeneratedColumnInfo final : public ASTNode {
 
   const ASTExpression* expression_ = nullptr;
   bool is_stored_ = false;
+  bool is_on_write_ = false;
 };
 
 // Base class for CREATE TABLE elements, including column definitions and
@@ -5313,11 +5348,11 @@ class ASTInsertValuesRowList final : public ASTNode {
 // This is used for both top-level INSERT statements and for nested INSERTs
 // inside ASTUpdateItem. When used at the top-level, the target is always a
 // path expression.
-class ASTInsertStatement final : public ASTSqlStatement {
+class ASTInsertStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_INSERT_STATEMENT;
 
-  ASTInsertStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTInsertStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
@@ -5473,11 +5508,11 @@ class ASTUpdateItemList final : public ASTNode {
 // This is used for both top-level UPDATE statements and for nested UPDATEs
 // inside ASTUpdateItem. When used at the top-level, the target is always a
 // path expression.
-class ASTUpdateStatement final : public ASTSqlStatement {
+class ASTUpdateStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_UPDATE_STATEMENT;
 
-  ASTUpdateStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTUpdateStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -5524,11 +5559,11 @@ class ASTUpdateStatement final : public ASTSqlStatement {
   const ASTFromClause* from_clause_ = nullptr;                   // Optional
 };
 
-class ASTTruncateStatement final : public ASTSqlStatement {
+class ASTTruncateStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_TRUNCATE_STATEMENT;
 
-  ASTTruncateStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTTruncateStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -5674,11 +5709,11 @@ class ASTMergeWhenClauseList final : public ASTNode {
   absl::Span<const ASTMergeWhenClause* const> clause_list_;
 };
 
-class ASTMergeStatement final : public ASTSqlStatement {
+class ASTMergeStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_MERGE_STATEMENT;
 
-  explicit ASTMergeStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  explicit ASTMergeStatement() : ASTStatement(kConcreteNodeKind) {}
   ASTMergeStatement(const ASTMergeStatement&) = delete;
   ASTMergeStatement& operator=(const ASTMergeStatement&) = delete;
   ~ASTMergeStatement() override {}
@@ -5785,11 +5820,11 @@ class ASTGranteeList final : public ASTNode {
   absl::Span<const ASTExpression* const> grantee_list_;
 };
 
-class ASTGrantStatement final : public ASTSqlStatement {
+class ASTGrantStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_GRANT_STATEMENT;
 
-  ASTGrantStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTGrantStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -5813,11 +5848,11 @@ class ASTGrantStatement final : public ASTSqlStatement {
   const ASTGranteeList* grantee_list_ = nullptr;    // Required
 };
 
-class ASTRevokeStatement final : public ASTSqlStatement {
+class ASTRevokeStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_REVOKE_STATEMENT;
 
-  ASTRevokeStatement() : ASTSqlStatement(kConcreteNodeKind) {}
+  ASTRevokeStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -6401,9 +6436,9 @@ class ASTAlterActionList final : public ASTNode {
 };
 
 // Common parent class for ALTER statement, e.g., ALTER TABLE/ALTER VIEW
-class ASTAlterStatementBase : public ASTSqlStatement {
+class ASTAlterStatementBase : public ASTStatement {
  public:
-  explicit ASTAlterStatementBase(ASTNodeKind kind) : ASTSqlStatement(kind) {}
+  explicit ASTAlterStatementBase(ASTNodeKind kind) : ASTStatement(kind) {}
 
   // This adds the "if exists" modifier to the node name.
   std::string SingleNodeDebugString() const override;
@@ -6633,6 +6668,58 @@ class ASTScript final : public ASTNode {
   const ASTStatementList* statement_list_ = nullptr;
 };
 
+// Represents an ELSEIF clause in an IF statement.
+class ASTElseifClause final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_ELSEIF_CLAUSE;
+
+  ASTElseifClause() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+
+  // Returns the ASTIfStatement that this ASTElseifClause belongs to.
+  const ASTIfStatement* if_stmt() const {
+    return parent()->parent()->GetAsOrDie<ASTIfStatement>();
+  }
+
+  // Required fields
+  const ASTExpression* condition() const { return condition_; }
+  const ASTStatementList* body() const { return body_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&condition_);
+    fl.AddRequired(&body_);
+  }
+
+  const ASTExpression* condition_ = nullptr;  // Required
+  const ASTStatementList* body_ = nullptr;    // Required
+};
+
+// Represents a list of ELSEIF clauses.  Note that this list is never empty,
+// as the grammar will not create an ASTElseifClauseList object unless there
+// exists at least one ELSEIF clause.
+class ASTElseifClauseList final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_ELSEIF_CLAUSE_LIST;
+
+  ASTElseifClauseList() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const absl::Span<const ASTElseifClause* const>& elseif_clauses() const {
+    return elseif_clauses_;
+  }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRestAsRepeated(&elseif_clauses_);
+  }
+  absl::Span<const ASTElseifClause* const> elseif_clauses_;
+};
+
 class ASTIfStatement final : public ASTScriptStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_IF_STATEMENT;
@@ -6644,7 +6731,12 @@ class ASTIfStatement final : public ASTScriptStatement {
   // Required fields.
   const ASTExpression* condition() const { return condition_; }
   const ASTStatementList* then_list() const { return then_list_; }
-  // Optional field.
+
+  // Optional; nullptr if no ELSEIF clauses are specified.  If present, the
+  // list will never be empty.
+  const ASTElseifClauseList* elseif_clauses() const { return elseif_clauses_; }
+
+  // Optional; nullptr if no ELSE clause is specified
   const ASTStatementList* else_list() const { return else_list_; }
 
  private:
@@ -6652,11 +6744,13 @@ class ASTIfStatement final : public ASTScriptStatement {
     FieldLoader fl(this);
     fl.AddRequired(&condition_);
     fl.AddRequired(&then_list_);
+    fl.AddOptional(&elseif_clauses_, AST_ELSEIF_CLAUSE_LIST);
     fl.AddOptional(&else_list_, AST_STATEMENT_LIST);
   }
 
   const ASTExpression* condition_ = nullptr;     // Required
   const ASTStatementList* then_list_ = nullptr;  // Required
+  const ASTElseifClauseList* elseif_clauses_ = nullptr;  // Required
   const ASTStatementList* else_list_ = nullptr;  // Optional
 };
 
@@ -6896,11 +6990,11 @@ class ASTReturnStatement final : public ASTScriptStatement {
 // A statement which assigns to a single variable from an expression.
 // Example:
 //   SET x = 3;
-class ASTSingleAssignment final : public ASTStatement {
+class ASTSingleAssignment final : public ASTScriptStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_SINGLE_ASSIGNMENT;
 
-  ASTSingleAssignment() : ASTStatement(kConcreteNodeKind) {}
+  ASTSingleAssignment() : ASTScriptStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 
@@ -6975,11 +7069,11 @@ class ASTSystemVariableAssignment final : public ASTStatement {
 // which each variable assigned to one field.
 // Example:
 //   SET (x, y) = (5, 10);
-class ASTAssignmentFromStruct final : public ASTStatement {
+class ASTAssignmentFromStruct final : public ASTScriptStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_ASSIGNMENT_FROM_STRUCT;
 
-  ASTAssignmentFromStruct() : ASTStatement(kConcreteNodeKind) {}
+  ASTAssignmentFromStruct() : ASTScriptStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
 

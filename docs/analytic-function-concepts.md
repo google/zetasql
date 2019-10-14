@@ -1,9 +1,9 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
 # Analytic Functions Concepts
+
+<!-- BEGIN CONTENT -->
 
 This topic explains how analytic functions work in ZetaSQL. For a
 description of the different analytic functions that ZetaSQL

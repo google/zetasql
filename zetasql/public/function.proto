@@ -94,6 +94,12 @@ enum SignatureArgumentKind {
   // table_valued_function.h.
   ARG_TYPE_MODEL = 11;
 
+  // Connection type. This is only valid for table-valued functions (TVFs). This
+  // sepcifies a connection for EXTERNAL_QUERY TVF.
+  // For more information, please see TVFConnectionArgument in
+  // table_valued_function.h.
+  ARG_TYPE_CONNECTION = 12;
+
   __SignatureArgumentKind__switch_must_have_a_default__ = -1;
 }
 

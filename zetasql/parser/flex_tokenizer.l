@@ -392,6 +392,7 @@ cluster { return BisonParserImpl::token::KW_CLUSTER; }
 collate { return BisonParserImpl::token::KW_COLLATE; }
 column { return BisonParserImpl::token::KW_COLUMN; }
 commit { return BisonParserImpl::token::KW_COMMIT; }
+connection { return BisonParserImpl::token::KW_CONNECTION; }
 constant { return BisonParserImpl::token::KW_CONSTANT; }
 constraint { return BisonParserImpl::token::KW_CONSTRAINT; }
 continue { return BisonParserImpl::token::KW_CONTINUE; }
@@ -416,6 +417,7 @@ distinct { return BisonParserImpl::token::KW_DISTINCT; }
 do { return BisonParserImpl::token::KW_DO; }
 drop { return BisonParserImpl::token::KW_DROP; }
 else { return BisonParserImpl::token::KW_ELSE; }
+elseif { return BisonParserImpl::token::KW_ELSEIF; }
 end { return BisonParserImpl::token::KW_END; }
 enforced { return BisonParserImpl::token::KW_ENFORCED; }
 enum { return BisonParserImpl::token::KW_ENUM; }
@@ -456,6 +458,7 @@ foreign { return BisonParserImpl::token::KW_FOREIGN; }
 from { return BisonParserImpl::token::KW_FROM; }
 full { return BisonParserImpl::token::KW_FULL; }
 function { return BisonParserImpl::token::KW_FUNCTION; }
+generated { return BisonParserImpl::token::KW_GENERATED; }
 grant { return BisonParserImpl::token::KW_GRANT; }
 group { return BisonParserImpl::token::KW_GROUP; }
 grouping { return BisonParserImpl::token::KW_GROUPING; }
@@ -601,6 +604,7 @@ using { return BisonParserImpl::token::KW_USING; }
 value { return BisonParserImpl::token::KW_VALUE; }
 values { return BisonParserImpl::token::KW_VALUES; }
 view { return BisonParserImpl::token::KW_VIEW; }
+views { return BisonParserImpl::token::KW_VIEWS; }
 volatile { return BisonParserImpl::token::KW_VOLATILE; }
 weight { return BisonParserImpl::token::KW_WEIGHT; }
 when { return BisonParserImpl::token::KW_WHEN; }

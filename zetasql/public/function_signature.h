@@ -402,6 +402,7 @@ class FunctionArgumentType {
 
   bool IsRelation() const { return kind_ == ARG_TYPE_RELATION; }
   bool IsModel() const { return kind_ == ARG_TYPE_MODEL; }
+  bool IsConnection() const { return kind_ == ARG_TYPE_CONNECTION; }
   bool IsFixedRelation() const {
     return kind_ == ARG_TYPE_RELATION &&
         options_->has_relation_input_schema();

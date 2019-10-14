@@ -200,6 +200,10 @@ Value GetMinValue(TypeKind type_kind) {
 // Returns true if the data type of <value> has positive infinity and it
 // has the value equal to positive infinity.
 bool IsPosInf(const Value& value) {
+  if (value.is_null()) {
+    // A value of NULL is not positive infinity.
+    return false;
+  }
   switch (value.type_kind()) {
     case TYPE_FLOAT: {
       float v = value.float_value();
@@ -217,6 +221,10 @@ bool IsPosInf(const Value& value) {
 // Returns true if the data type of <value> has negative infinity and it
 // has the value equal to negative infinity.
 bool IsNegInf(const Value& value) {
+  if (value.is_null()) {
+    // A value of NULL is not negative infinity.
+    return false;
+  }
   switch (value.type_kind()) {
     case TYPE_FLOAT: {
       float v = value.float_value();
@@ -234,6 +242,10 @@ bool IsNegInf(const Value& value) {
 // Returns true if the data type of <value> has NaN and it has the value equal
 // to NaN.
 bool IsNaN(const Value& value) {
+  if (value.is_null()) {
+    // A value of NULL is not not-a-number (since it's not a number).
+    return false;
+  }
   switch (value.type_kind()) {
     case TYPE_FLOAT:
       return std::isnan(value.float_value());
@@ -1253,12 +1265,9 @@ void WindowFrameBoundaryArg::DivideDescendingPartition(
     int order_key_slot_idx, int* end_pos_inf, int* start_neg_inf,
     int* start_nan_key, int* start_null_key) const {
   int tuple_id = 0;
-  // Value passed to IsPosInf cannot be null.
-  if (!partition[tuple_id]->slot(order_key_slot_idx).value().is_null()) {
-    while (tuple_id < partition.size() &&
-           IsPosInf(partition[tuple_id]->slot(order_key_slot_idx).value())) {
-      ++tuple_id;
-    }
+  while (tuple_id < partition.size() &&
+         IsPosInf(partition[tuple_id]->slot(order_key_slot_idx).value())) {
+    ++tuple_id;
   }
   *end_pos_inf = tuple_id - 1;
 

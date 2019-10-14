@@ -16,6 +16,26 @@
 
 package(default_visibility = ["//:__subpackages__"])
 
+proto_library(
+    name = "test_driver_proto",
+    srcs = ["test_driver.proto"],
+    deps = [
+        "//zetasql/public:options_proto",
+        "//zetasql/public:type_proto",
+        "//zetasql/public:value_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "test_driver_cc_proto",
+    deps = [":test_driver_proto"],
+)
+
+java_proto_library(
+    name = "test_driver_java_proto",
+    deps = [":test_driver_proto"],
+)
+
 cc_library(
     name = "type_helpers",
     srcs = ["type_helpers.cc"],

@@ -1317,17 +1317,6 @@ static const int64_t kTimestampSecondsMax = kTimestampNanosMax / 1000000000;
 }  // namespace types
 
 typedef std::pair<TypeKind, TypeKind> TypeKindPair;
-struct TypeKindPairHasher {
-  size_t operator()(const TypeKindPair& kinds) const {
-    return (kinds.first * (TypeKind_MAX + 1)) + kinds.second;
-  }
-};
-
-struct TypeKindHasher {
-  size_t operator()(TypeKind kind) const {
-    return kind;
-  }
-};
 
 // Returns true if this is a valid TypeKind. This is stronger than the proto
 // provided TypeKind_IsValid(), as it also returns false for the dummy

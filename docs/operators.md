@@ -612,7 +612,7 @@ these characters:
 <li>An underscore "_" matches a single character or byte</li>
 <li>You can escape "\", "_", or "%" using two backslashes. For example, <code>
 "\\%"</code>. If you are using raw strings, only a single backslash is
-required. For example, <code>r"\%".</li>
+required. For example, <code>r"\%"</code>.</li>
 </ul>
 </td>
 </tr>

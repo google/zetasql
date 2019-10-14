@@ -167,7 +167,7 @@ static zetasql_base::Status GetProtoFieldDefaultImpl(
       zetasql_base::Status status = functions::DecodeFormattedDate(
           datetime_value, format, &decoded_date, &is_null);
       if (!status.ok()) {
-        return ::zetasql_base::StatusBuilder(status.code(), ZETASQL_LOC)
+        return ::zetasql_base::StatusBuilder(status.code())
                << "Unable to decode default value for " << field->DebugString()
                << ": " << status.message();
       }

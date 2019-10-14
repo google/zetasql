@@ -2,9 +2,9 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
 # ZetaSQL Data Model
+
+<!-- BEGIN CONTENT -->
 
 The following sections provide an overview of the ZetaSQL data
 model.

@@ -299,7 +299,7 @@ public class Value implements Serializable {
     EnumType enumType = type.asEnum();
     int value = getEnumValue();
     String name = enumType.findName(value);
-    Preconditions.checkNotNull(name, "Value " + value + " not in " + enumType);
+    Preconditions.checkNotNull(name, "Value %s not in %s", value, enumType);
     return name;
   }
 
@@ -954,7 +954,7 @@ public class Value implements Serializable {
   public static Value deserialize(Type type, ValueProto proto) {
     Preconditions.checkNotNull(type);
     Preconditions.checkNotNull(proto);
-    Preconditions.checkArgument(isSupportedTypeKind(type), "Type not supported " + type);
+    Preconditions.checkArgument(isSupportedTypeKind(type), "Type not supported %s", type);
 
     if (Value.isNullValue(proto)) {
       return new Value(type, proto);

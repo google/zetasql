@@ -80,7 +80,7 @@ zetasql_base::Status MakeStatusWithErrorLocation(zetasql_base::StatusCode code,
                                          const ASTNode* ast_node,
                                          bool include_leftmost_child) {
   const zetasql_base::Status status =
-      zetasql_base::StatusBuilder(code, ZETASQL_LOC).Attach(
+      zetasql_base::StatusBuilder(code).Attach(
           MakeInternalErrorLocation(ast_node, filename, include_leftmost_child))
       << message;
   return ConvertInternalErrorLocationToExternal(status, query);
@@ -103,9 +103,8 @@ zetasql_base::Status WrapNestedErrorStatus(const ASTNode* ast_location,
                                    const zetasql_base::Status& input_status,
                                    ErrorMessageMode error_source_mode) {
   zetasql_base::StatusBuilder error_status_builder =
-      zetasql_base::IsInternal(input_status)
-          ? zetasql_base::StatusBuilder(input_status, ZETASQL_LOC)
-          : MakeSqlError();
+      zetasql_base::IsInternal(input_status) ? zetasql_base::StatusBuilder(input_status)
+                                     : MakeSqlError();
   return error_status_builder.Attach(
              SetErrorSourcesFromStatus(MakeInternalErrorLocation(ast_location),
                                        input_status, error_source_mode))

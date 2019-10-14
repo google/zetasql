@@ -648,7 +648,7 @@ void SampleCatalog::LoadNestedCatalogs() {
   FunctionSignature signature(
       {types_->get_int64(), {types_->get_int64()}, /*context_id=*/-1});
   std::vector<std::string> function_name_path = {"nested_catalog",
-                                            "nested_function"};
+                                                 "nested_function"};
   Function* function =
       new Function(function_name_path, "sample_functions",
                    Function::SCALAR, {signature});
@@ -677,7 +677,7 @@ void SampleCatalog::LoadNestedCatalogs() {
   std::unique_ptr<SimpleConstant> constant_struct;
   ZETASQL_CHECK_OK(SimpleConstant::Create(
       std::vector<std::string>{"nested_catalog", "nested_nested_catalog",
-                          "TestConstantStruct"},
+                               "TestConstantStruct"},
       Value::Struct(nested_constant_struct_type,
                     {Value::Int32(-3456),
                      Value::Struct(nested_struct_type_,
@@ -816,9 +816,9 @@ void SampleCatalog::LoadNestedCatalogs() {
   SimpleCatalog* at_at_nested_catalog =
       catalog_->MakeOwnedSimpleCatalog("@@nested_catalog");
   std::unique_ptr<SimpleConstant> at_at_nested_catalog_constant;
-  ZETASQL_CHECK_OK(
-      SimpleConstant::Create(std::vector<std::string>{"@@nested_catalog", "sysvar2"},
-                             Value::Int64(8), &at_at_nested_catalog_constant));
+  ZETASQL_CHECK_OK(SimpleConstant::Create(
+      std::vector<std::string>{"@@nested_catalog", "sysvar2"}, Value::Int64(8),
+      &at_at_nested_catalog_constant));
   at_at_nested_catalog->AddOwnedConstant(
       at_at_nested_catalog_constant.release());
 }
@@ -1103,6 +1103,46 @@ void SampleCatalog::LoadFunctions() {
        CreateDeprecationWarning(
            /*id=*/5, DeprecationWarning::DEPRECATED_FUNCTION_SIGNATURE)});
   function->AddSignature(two_deprecation_warnings_signature);
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function that takes two named arguments with one signature.
+  const auto named_required_format_arg = zetasql::FunctionArgumentType(
+      types_->get_string(), zetasql::FunctionArgumentTypeOptions()
+                                .set_argument_name("format_string"));
+  const auto named_required_date_arg = zetasql::FunctionArgumentType(
+      types_->get_string(), zetasql::FunctionArgumentTypeOptions()
+                                .set_argument_name("date_string"));
+  const auto named_optional_format_arg = zetasql::FunctionArgumentType(
+      types_->get_string(), zetasql::FunctionArgumentTypeOptions()
+                                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                                .set_argument_name("format_string"));
+  const auto named_optional_date_arg = zetasql::FunctionArgumentType(
+      types_->get_string(), zetasql::FunctionArgumentTypeOptions()
+                                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                                .set_argument_name("date_string"));
+  const auto mode = Function::SCALAR;
+  function = new Function("fn_named_args", "sample_functions", mode);
+  function->AddSignature({types_->get_bool(),
+                          {named_required_format_arg, named_required_date_arg},
+                          /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add functions with two named optional/repeated arguments on one signature.
+  function = new Function("fn_named_args_optional", "sample_functions", mode);
+  function->AddSignature({types_->get_bool(),
+                          {named_optional_format_arg, named_optional_date_arg},
+                          /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function that takes two named arguments with two signatures.
+  function =
+      new Function("fn_named_args_two_signatures", "sample_functions", mode);
+  function->AddSignature({types_->get_bool(),
+                          {named_required_format_arg, named_required_date_arg},
+                          /*context_id=*/-1});
+  function->AddSignature({types_->get_bool(),
+                          {named_required_date_arg, named_required_format_arg},
+                          /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 }
 
@@ -2669,20 +2709,19 @@ void SampleCatalog::LoadProcedures() {
 void SampleCatalog::LoadConstants() {
   // Load constants that are owned by 'catalog_'.
   std::unique_ptr<SimpleConstant> int64_constant;
-  ZETASQL_CHECK_OK(SimpleConstant::Create(
-      std::vector<std::string>{"TestConstantInt64"}, Value::Int64(1L),
-      &int64_constant));
+  ZETASQL_CHECK_OK(SimpleConstant::Create(std::vector<std::string>{"TestConstantInt64"},
+                                  Value::Int64(1L), &int64_constant));
   catalog_->AddOwnedConstant(int64_constant.release());
   std::unique_ptr<SimpleConstant> string_constant;
-  ZETASQL_CHECK_OK(SimpleConstant::Create(
-      std::vector<std::string>{"TestConstantString"}, Value::String("foo"),
-      &string_constant));
+  ZETASQL_CHECK_OK(
+      SimpleConstant::Create(std::vector<std::string>{"TestConstantString"},
+                             Value::String("foo"), &string_constant));
   catalog_->AddOwnedConstant(string_constant.release());
 
   std::unique_ptr<SimpleConstant> string_constant_nonstandard_name;
-  ZETASQL_CHECK_OK(SimpleConstant::Create(std::vector<std::string>{"Test Constant-String"},
-                                  Value::String("foo bar"),
-                                  &string_constant_nonstandard_name));
+  ZETASQL_CHECK_OK(SimpleConstant::Create(
+      std::vector<std::string>{"Test Constant-String"},
+      Value::String("foo bar"), &string_constant_nonstandard_name));
   catalog_->AddOwnedConstant(string_constant_nonstandard_name.release());
 
   // Load a constant that is not owned by 'catalog_'.
@@ -2708,23 +2747,21 @@ void SampleCatalog::LoadConstants() {
 
   // Load a constant that conflicts with a value table.
   std::unique_ptr<SimpleConstant> value_table_constant;
-  ZETASQL_CHECK_OK(SimpleConstant::Create(
-      std::vector<std::string>{"Int32ValueTable"}, Value::Int32(3),
-      &value_table_constant));
+  ZETASQL_CHECK_OK(SimpleConstant::Create(std::vector<std::string>{"Int32ValueTable"},
+                                  Value::Int32(3), &value_table_constant));
   catalog_->AddOwnedConstant(value_table_constant.release());
 
   // Load a constant that conflicts with a type.
   std::unique_ptr<SimpleConstant> type_constant;
-  ZETASQL_CHECK_OK(SimpleConstant::Create(
-      std::vector<std::string>{"NameConflictType"}, Value::Bool(false),
-      &type_constant));
+  ZETASQL_CHECK_OK(SimpleConstant::Create(std::vector<std::string>{"NameConflictType"},
+                                  Value::Bool(false), &type_constant));
   catalog_->AddOwnedConstant(type_constant.release());
 
   // Load a constant that conflicts with zero-argument functions.
   std::unique_ptr<SimpleConstant> zero_argument_function_constant;
-  ZETASQL_CHECK_OK(SimpleConstant::Create(
-      std::vector<std::string>{"sort_count"}, Value::Int64(4),
-      &zero_argument_function_constant));
+  ZETASQL_CHECK_OK(SimpleConstant::Create(std::vector<std::string>{"sort_count"},
+                                  Value::Int64(4),
+                                  &zero_argument_function_constant));
   catalog_->AddOwnedConstant(zero_argument_function_constant.release());
 
   std::unique_ptr<SimpleConstant>
@@ -2737,16 +2774,16 @@ void SampleCatalog::LoadConstants() {
 
   // Load a constant that conflicts with a multi-argument function.
   std::unique_ptr<SimpleConstant> multi_argument_function_constant;
-  ZETASQL_CHECK_OK(SimpleConstant::Create(
-      std::vector<std::string>{"concat"}, Value::Int64(5),
-      &multi_argument_function_constant));
+  ZETASQL_CHECK_OK(SimpleConstant::Create(std::vector<std::string>{"concat"},
+                                  Value::Int64(5),
+                                  &multi_argument_function_constant));
   catalog_->AddOwnedConstant(multi_argument_function_constant.release());
 
   // Load a constant that conflicts with a zero-argument TVF.
   std::unique_ptr<SimpleConstant> zero_argument_tvf_constant;
-  ZETASQL_CHECK_OK(SimpleConstant::Create(
-      std::vector<std::string>{"tvf_no_args"}, Value::Int64(6),
-      &zero_argument_tvf_constant));
+  ZETASQL_CHECK_OK(SimpleConstant::Create(std::vector<std::string>{"tvf_no_args"},
+                                  Value::Int64(6),
+                                  &zero_argument_tvf_constant));
   catalog_->AddOwnedConstant(zero_argument_tvf_constant.release());
 
   // Load a constant that conflicts with a multi-argument TVF.
@@ -2788,9 +2825,9 @@ void SampleCatalog::LoadConstants() {
   // Load a constant that conflicts with an expression column in standalone
   // expression resolution.
   std::unique_ptr<SimpleConstant> standalone_expression_constant;
-  ZETASQL_CHECK_OK(SimpleConstant::Create(
-      std::vector<std::string>{"column_KitchenSink"}, Value::Int64(8),
-      &standalone_expression_constant));
+  ZETASQL_CHECK_OK(
+      SimpleConstant::Create(std::vector<std::string>{"column_KitchenSink"},
+                             Value::Int64(8), &standalone_expression_constant));
   catalog_->AddOwnedConstant(standalone_expression_constant.release());
 
   // Load a constant with a name that resembles a system variable.

@@ -87,8 +87,8 @@ TEST(CommonProtoTest, ConvertProto3TimeOfDay) {
        TimeValue::FromHMSAndNanos(-1, -1, -1, -1), "Invalid Proto3"}};
 
   for (const ConvertProto3TimeOfDay& test : kTestInput) {
-    const std::string test_input_string = absl::StrCat("proto3_time_of_day_to_time(",
-                                                  test.time.DebugString(), ")");
+    const std::string test_input_string = absl::StrCat(
+        "proto3_time_of_day_to_time(", test.time.DebugString(), ")");
     TimeValue actual;
     const zetasql_base::Status status =
         ConvertProto3TimeOfDayToTime(test.time, test.scale, &actual);

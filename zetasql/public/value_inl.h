@@ -352,7 +352,7 @@ inline Value Value::Enum(const EnumType* type, absl::string_view name) {
   return Value(type, name);
 }
 inline Value Value::Proto(const ProtoType* type, const std::string& value) {
-  return Value(type, std::move(value));
+  return Value(type, value);
 }
 
 inline Value Value::NullInt32() { return Value(types::Int32Type()); }

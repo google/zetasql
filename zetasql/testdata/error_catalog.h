@@ -42,14 +42,12 @@ class ErrorCatalog : public Catalog {
       ::zetasql_base::StatusCode code,
       std::unique_ptr<ErrorCatalog>* error_catalog);
 
-  std::string FullName() const override {
-    return "catalog_with_errors";
-  }
+  std::string FullName() const override { return "catalog_with_errors"; }
 
   // Catalog interface implementations that always return an error.
-  zetasql_base::Status FindTable(
-      const absl::Span<const std::string>& path, const Table** table,
-      const FindOptions& options = FindOptions()) override;
+  zetasql_base::Status FindTable(const absl::Span<const std::string>& path,
+                         const Table** table,
+                         const FindOptions& options = FindOptions()) override;
   zetasql_base::Status FindFunction(
       const absl::Span<const std::string>& path, const Function** function,
       const FindOptions& options = FindOptions()) override;
@@ -60,9 +58,9 @@ class ErrorCatalog : public Catalog {
   zetasql_base::Status FindProcedure(
       const absl::Span<const std::string>& path, const Procedure** procedure,
       const FindOptions& options = FindOptions()) override;
-  zetasql_base::Status FindType(
-      const absl::Span<const std::string>& path, const Type** type,
-      const FindOptions& options = FindOptions()) override;
+  zetasql_base::Status FindType(const absl::Span<const std::string>& path,
+                        const Type** type,
+                        const FindOptions& options = FindOptions()) override;
   zetasql_base::Status FindConstantWithPathPrefix(
       const absl::Span<const std::string> path, int* num_names_consumed,
       const Constant** constant,

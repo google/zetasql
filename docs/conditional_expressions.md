@@ -1,6 +1,6 @@
 
 
-# Conditional Expressions
+# Conditional expressions
 
 Conditional expressions impose constraints on the evaluation order of their
 inputs. In essence, they are evaluated left to right, with short-circuiting, and

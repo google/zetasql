@@ -933,8 +933,8 @@ zetasql_base::Status Resolver::PopulateUpdateTargetInfos(
             array_element->position(),
             /*arg_locations=*/
             {unwrapped_ast_position_expr, unwrapped_ast_position_expr},
-            subtraction_name, std::move(subtraction_args), expr_resolution_info,
-            &info.array_offset));
+            subtraction_name, std::move(subtraction_args),
+            /*named_arguments=*/{}, expr_resolution_info, &info.array_offset));
       } else {
         ZETASQL_RET_CHECK_EQ(function_name, kArrayAtOffset);
       }

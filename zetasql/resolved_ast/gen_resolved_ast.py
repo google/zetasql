@@ -2248,14 +2248,25 @@ right.
         ResolvedColumnDefinitions in the enclosing statement.
         - The expression can never include a subquery.
 
-      <is_stored> indicates whether the value of the expression should be stored
-      or not. When is_stored is true, <expression> cannot contain a volatile
-      function (e.g. RAND).
+      <is_stored> indicates whether the value of the expression should be
+      pre-emptively computed to save work at read time. When is_stored is true,
+      <expression> cannot contain a volatile function (e.g. RAND).
+
+      <is_on_write> indicates that the value of this column should be calculated
+      at write time. As opposed to <is_stored> the <expression> can contain
+      volatile functions (e.g. RAND).
+
+      Only one of <is_stored> or <is_on_write> can be true.
 
       See (broken link).""",
       fields=[
           Field('expression', 'ResolvedExpr', tag_id=2),
-          Field('is_stored', SCALAR_BOOL, tag_id=3)
+          Field('is_stored', SCALAR_BOOL, tag_id=3),
+          Field(
+              'is_on_write',
+              SCALAR_BOOL,
+              tag_id=4,
+              ignorable=IGNORABLE_DEFAULT)
       ])
 
   gen.AddNode(
@@ -2941,17 +2952,43 @@ right.
         CREATE [TEMP] MODEL <name> [TRANSFORM(...)] [OPTIONS (...)] AS SELECT ..
 
       <option_list> has engine-specific directives for how to train this model.
-      <output_column_list> matches 1:1 with the <query>'s column_list, and
-                           identifies the names and types of the columns output
-                           from the select statement.
+      <output_column_list> matches 1:1 with the <query>'s column_list and the
+                           <column_definition_list>, and identifies the names
+                           and types of the columns output from the select
+                           statement.
       <query> is the select statement.
+      <transform_input_column_list> introduces new ResolvedColumns that have the
+        same names and types of the columns in the <output_column_list>. The
+        transform expressions resolve against these ResolvedColumns. It's only
+        set when <transform_list> is non-empty.
       <transform_list> is the list of ResolvedComputedColumn in TRANSFORM
         clause.
       <transform_output_column_list> matches 1:1 with <transform_list> output.
+        It records the names of the output columns from TRANSFORM clause.
       <transform_analytic_function_group_list> is the list of
         AnalyticFunctionGroup for analytic functions inside TRANSFORM clause.
-        The only valid group is for the full, unbounded window generated from
-        empty OVER() clause.
+        It records the input expression of the analytic functions. It can
+        see all the columns from <transform_input_column_list>. The only valid
+        group is for the full, unbounded window generated from empty OVER()
+        clause.
+        For example, CREATE MODEL statement
+        "create model Z
+          transform (max(c) over() as d)
+          options ()
+          as select 1 c, 2 b;"
+        will generate transform_analytic_function_group_list:
+        +-transform_analytic_function_group_list=
+          +-AnalyticFunctionGroup
+            +-analytic_function_list=
+              +-d#5 :=
+                +-AnalyticFunctionCall(ZetaSQL:max(INT64) -> INT64)
+                  +-ColumnRef(type=INT64, column=Z.c#3)
+                  +-window_frame=
+                    +-WindowFrame(frame_unit=ROWS)
+                      +-start_expr=
+                      | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                      +-end_expr=
+                        +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
               """,
       fields=[
           Field(
@@ -2967,23 +3004,29 @@ right.
               vector=True),
           Field('query', 'ResolvedScan', tag_id=4),
           Field(
+              'transform_input_column_list',
+              'ResolvedColumnDefinition',
+              tag_id=8,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
               'transform_list',
               'ResolvedComputedColumn',
               tag_id=5,
               vector=True,
-              ignorable=IGNORABLE),
+              ignorable=IGNORABLE_DEFAULT),
           Field(
               'transform_output_column_list',
               'ResolvedOutputColumn',
               tag_id=6,
               vector=True,
-              ignorable=IGNORABLE),
+              ignorable=IGNORABLE_DEFAULT),
           Field(
               'transform_analytic_function_group_list',
               'ResolvedAnalyticFunctionGroup',
               tag_id=7,
               vector=True,
-              ignorable=IGNORABLE)
+              ignorable=IGNORABLE_DEFAULT)
       ])
 
   gen.AddNode(

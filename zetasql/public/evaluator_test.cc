@@ -1,0 +1,3034 @@
+//
+// Copyright 2019 ZetaSQL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+#include "zetasql/public/evaluator.h"
+
+#include <memory>
+#include <string>
+#include <utility>
+
+#include "zetasql/base/logging.h"
+#include "google/protobuf/descriptor.pb.h"
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/dynamic_message.h"
+#include "google/protobuf/message.h"
+#include "google/protobuf/text_format.h"
+#include "zetasql/common/evaluator_test_table.h"
+#include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/analyzer.h"
+#include "zetasql/public/civil_time.h"
+#include "zetasql/public/function.h"
+#include "zetasql/public/function.pb.h"
+#include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/type.pb.h"
+#include "zetasql/reference_impl/evaluation.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/testdata/test_schema.pb.h"
+#include "zetasql/testing/test_value.h"
+#include "zetasql/testing/using_test_value.cc"
+#include "gmock/gmock.h"
+#include "gtest/gtest.h"
+#include <cstdint>
+#include "absl/flags/flag.h"
+#include "absl/memory/memory.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/time/time.h"
+#include "absl/types/span.h"
+#include "zetasql/base/stl_util.h"
+#include "zetasql/base/clock.h"
+
+extern absl::Flag<int64_t>
+    FLAGS_zetasql_simple_iterator_call_time_now_rows_period;
+
+namespace zetasql {
+namespace {
+
+using ::testing::_;
+using ::testing::ElementsAre;
+using ::testing::HasSubstr;
+using ::testing::IsEmpty;
+using ::testing::UnorderedElementsAre;
+using ::zetasql_base::testing::IsOkAndHolds;
+using ::zetasql_base::testing::StatusIs;
+
+class UDFEvalTest : public ::testing::Test {
+ public:
+  const int kFunctionId = 5000;
+
+  void SetUp() override {
+    catalog_ = absl::make_unique<SimpleCatalog>("udf_catalog");
+    catalog_->AddZetaSQLFunctions();
+    ZETASQL_ASSERT_OK(analyzer_options_.AddQueryParameter(
+        "param", types::StringType()));
+  }
+
+  SimpleCatalog* catalog() const {
+    return catalog_.get();
+  }
+
+  std::unique_ptr<SimpleCatalog> catalog_;
+  AnalyzerOptions analyzer_options_;
+  FunctionOptions function_options_;
+};
+
+TEST(EvaluatorTest, SimpleExpression) {
+  PreparedExpression expr("1 + 2");
+  EXPECT_EQ(Int64(3), expr.Execute().ValueOrDie());
+  EXPECT_EQ(Int64(3), expr.Execute().ValueOrDie());
+  EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
+}
+
+TEST(EvaluatorTest, ColumnExpression) {
+  PreparedExpression expr("a + b");
+  EXPECT_EQ(Int64(3), expr.Execute(
+      {{"a", Int64(1)}, {"b", Int64(2)}}).ValueOrDie());
+  EXPECT_EQ(Int64(5), expr.Execute(
+      {{"a", Int64(-1)}, {"b", Int64(6)}}).ValueOrDie());
+  EXPECT_THAT(
+      expr.Execute({{"a", Int64(-1)}, {"b", Double(6)}}),
+      StatusIs(zetasql_base::INVALID_ARGUMENT,
+               HasSubstr("Expected column parameter 'b' to be of type INT64")));
+  // If we call Execute more than once, we must pass in the exact same
+  // set of columns.
+  EXPECT_THAT(expr.Execute({{"a", Int64(-1)}}),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("Incomplete column parameters")));
+  EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
+}
+
+TEST(EvaluatorTest, NoRecoveryFromError) {
+  PreparedExpression expr("a * 2");
+  EXPECT_THAT(expr.Execute({{"a", Value::String("foo")}}),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("No matching signature")));
+  EXPECT_THAT(expr.Execute({{"a", Value::Int64(1)}}),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("Invalid prepared expression")));
+  EXPECT_DEATH(expr.output_type(), "Invalid prepared expression");
+}
+
+TEST(EvaluatorTest, BooleanExpression) {
+  PreparedExpression expr("(a > 1 AND a < 5) OR b IS NOT NULL");
+  EXPECT_EQ(True(), expr.Execute(
+      {{"a", Int64(0)}, {"b", Int64(0)}}).ValueOrDie());
+  EXPECT_EQ(True(), expr.Execute(
+      {{"a", Int64(3)}, {"b", NullInt64()}}).ValueOrDie());
+  EXPECT_EQ(False(), expr.Execute(
+      {{"a", Int64(0)}, {"b", NullInt64()}}).ValueOrDie());
+  EXPECT_TRUE(types::BoolType()->Equals(expr.output_type()));
+}
+
+TEST(EvaluatorTest, ExpressionWithSubquery) {
+  PreparedExpression expr("1 + (SELECT a)");
+  EXPECT_EQ(Int64(3), expr.Execute({{"a", Int64(2)}}).ValueOrDie());
+}
+
+TEST(EvaluatorTest, SubqueryExpression) {
+  PreparedExpression expr("(SELECT 1 + a)");
+  EXPECT_EQ(Int64(3), expr.Execute({{"a", Int64(2)}}).ValueOrDie());
+}
+
+TEST(EvaluatorTest, WithClauseSubquerySimple) {
+  const std::string query("(WITH t AS (SELECT 2 as b) SELECT b FROM t)");
+
+  // By default, the AnalyzerOptions used for Prepare/Execute do not enable
+  // the LanguageFeature to support WITH clause inside subqueries.
+  PreparedExpression expr(query);
+  EXPECT_THAT(expr.Execute({}),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("WITH is not supported on subqueries in this "
+                                 "language version")));
+
+  // Prepare the expression with appropriate AnalyzerOptions.
+  PreparedExpression expr2(query);
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
+  AnalyzerOptions analyzer_options(language_options);
+  ZETASQL_ASSERT_OK(expr2.Prepare(analyzer_options));
+  const zetasql_base::StatusOr<Value> result = expr2.Execute({});
+  EXPECT_THAT(result, IsOkAndHolds(Int64(2)));
+}
+
+TEST(EvaluatorTest, WithClauseSubquery) {
+  PreparedExpression expr("(WITH t AS (SELECT 2 + @a as b) SELECT b FROM t)");
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
+  AnalyzerOptions analyzer_options(language_options);
+  ZETASQL_ASSERT_OK(analyzer_options.AddQueryParameter("a", types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
+  const zetasql_base::StatusOr<Value> result = expr.Execute({}, {{"a", Int64(2)}});
+  EXPECT_THAT(result, IsOkAndHolds(Int64(4)));
+}
+
+TEST(EvaluatorTest, WithClauseSubquery_b119901615) {
+  PreparedExpression expr(
+      "(WITH a AS (SELECT true as b, 15 as c) SELECT IF(b, c, -1) FROM a)");
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
+  AnalyzerOptions analyzer_options(language_options);
+  ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
+  zetasql_base::StatusOr<Value> result = expr.Execute({});
+  EXPECT_THAT(result, IsOkAndHolds(Int64(15)));
+}
+
+TEST(EvaluatorTest, QueryAsExpression) {
+  PreparedExpression expr("SELECT 1 + a");
+  EXPECT_THAT(expr.Execute({{"a", Int64(2)}}),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("Unexpected keyword SELECT")));
+}
+
+TEST(EvaluatorTest, QueryAsArray) {
+  PreparedExpression query("ARRAY(SELECT a UNION ALL SELECT b)");
+  Value result = query.Execute(
+      {{"a", Double(3.0)}, {"b", Double(5.0)}}).ValueOrDie();
+  EXPECT_EQ(Array({3.0, 5.0}), result);
+}
+
+TEST(EvaluatorTest, ExpressionFromArray) {
+  PreparedExpression expr("(SELECT t.y FROM UNNEST(arr) t WHERE t.x = 2)");
+  Value arr1 = StructArray({"x", "y"}, {{1ll, 3.0}, {2ll, 5.0}});
+  EXPECT_EQ(Double(5.0), expr.Execute({{"arr", arr1}}).ValueOrDie());
+  Value arr2 = StructArray({"x", "y"}, {{1ll, 3.0}, {200ll, 5.0}});
+  EXPECT_EQ(NullDouble(), expr.Execute({{"arr", arr2}}).ValueOrDie());
+  Value arr3 = StructArray({"x", "y"}, {{2ll, 3.0}, {2ll, 5.0}});
+  EXPECT_THAT(
+      expr.Execute({{"arr", arr3}}),
+      StatusIs(zetasql_base::OUT_OF_RANGE, HasSubstr("More than one element")));
+}
+
+TEST(EvaluatorTest, ArrayExpressionOnHeap) {
+  PreparedExpression* expr =
+      new PreparedExpression(
+          "ARRAY(SELECT AS STRUCT 1,2 UNION ALL SELECT AS STRUCT 3,4)");
+  EXPECT_EQ(StructArray({"", ""}, {{1ll, 2ll}, {3ll, 4ll}}),
+            expr->Execute().ValueOrDie());
+  delete expr;
+}
+
+TEST(EvaluatorTest, ExpressionWithSystemVariables) {
+  PreparedExpression expr("(@@sysvar1 + @@sysvar2.foo) * col + @@sysvar1");
+
+  SystemVariableValuesMap system_variables;
+  system_variables[{"sysvar1"}] = Value::Int64(3);
+  system_variables[{"sysvar2", "foo"}] = Value::Int64(8);
+
+  Value result = expr.Execute({{"col", Value::Int64(5)}}, {}, system_variables)
+                     .ValueOrDie();
+  EXPECT_EQ(Value::Int64(58), result);
+}
+
+TEST(EvaluatorTest, ExpressionWithUnusedSystemVariables) {
+  PreparedExpression expr("(@@row_count)");
+
+  SystemVariableValuesMap system_variables;
+  system_variables[{"row_count"}] = Value::Int64(3);
+  system_variables[{"error", "message"}] = Value::Int64(8);
+
+  Value result = expr.Execute({{"col", Value::Int64(5)}}, {}, system_variables)
+                     .ValueOrDie();
+  EXPECT_EQ(Value::Int64(3), result);
+}
+
+TEST(EvaluatorTest, ExpressionWithUnusedSystemVariables2) {
+  PreparedExpression expr("(@@sysvar1 + @@sysvar2.foo) * col");
+
+  SystemVariableValuesMap system_variables;
+  system_variables[{"sysvar1"}] = Value::Int64(3);
+  system_variables[{"sysvar2", "foo"}] = Value::Int64(8);
+  system_variables[{"sysvar_unused"}] = Value::Int64(22);
+
+  Value result = expr.Execute({{"col", Value::Int64(5)}}, {}, system_variables)
+                     .ValueOrDie();
+  EXPECT_EQ(Value::Int64(55), result);
+}
+
+TEST(EvaluatorTest, ExpressionWithSystemVariablesAndQueryParameters) {
+  PreparedExpression expr("(@@sysvar1 + @@sysvar2.foo + @param1) * col");
+
+  SystemVariableValuesMap system_variables;
+  system_variables[{"sysvar1"}] = Value::Int64(3);
+  system_variables[{"sysvar2", "foo"}] = Value::Int64(8);
+
+  Value result = expr.Execute({{"col", Value::Int64(5)}},
+                              {{"param1", Value::Int64(1)}}, system_variables)
+                     .ValueOrDie();
+  EXPECT_EQ(Value::Int64(60), result);
+}
+
+TEST(EvaluatorTest, ExpressionWithSystemVariablesAndPositionalQueryParameters) {
+  PreparedExpression expr("(@@sysvar1 + @@sysvar2.foo + ? + ?) * col");
+
+  SystemVariableValuesMap system_variables;
+  system_variables[{"sysvar1"}] = Value::Int64(3);
+  system_variables[{"sysvar2", "foo"}] = Value::Int64(8);
+
+  Value result = expr.ExecuteWithPositionalParams(
+                         {{"col", Value::Int64(5)}},
+                         std::vector<Value>{Value::Int64(1), Value::Int64(2)},
+                         system_variables)
+                     .ValueOrDie();
+  EXPECT_EQ(Value::Int64(70), result);
+}
+
+TEST(EvaluatorTest, ExpressionWithQueryParameters) {
+  PreparedExpression expr("(@param1 + @param2) * col");
+  Value result = expr.Execute(
+      {{"col", Value::Int64(5)}},
+      {{"param1", Value::Int64(1)}, {"param2", Value::Int64(2)}}).ValueOrDie();
+  EXPECT_EQ(Value::Int64(15), result);
+}
+
+TEST(EvaluatorTest, ExpressionWithPositionalQueryParameters) {
+  PreparedExpression expr("(? + ?) * col");
+  Value result = expr.ExecuteWithPositionalParams(
+                         {{"col", Value::Int64(5)}},
+                         std::vector<Value>{Value::Int64(1), Value::Int64(2)})
+                     .ValueOrDie();
+  EXPECT_EQ(Value::Int64(15), result);
+}
+
+TEST(EvaluatorTest, Prepare) {
+  PreparedExpression expr("(@param1 + @param2) * col");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("param1", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("param2", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+  EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
+  Value result = expr.Execute(
+      {{"col", Value::Int64(5)}},
+      {{"param1", Value::Int64(1)}, {"param2", Value::Int64(2)}}).ValueOrDie();
+  EXPECT_EQ(Value::Int64(15), result);
+}
+
+TEST(EvaluatorTest, PrepareWithSystemVariables) {
+  PreparedExpression expr(
+      "(@@sysvar1 + @@sysvar2 + @@sysvar1) * col - @param1");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("param1", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("param2", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddSystemVariable({"sysvar1"}, types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddSystemVariable({"sysvar2"}, types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+  EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
+
+  SystemVariableValuesMap sysvar_values;
+  sysvar_values[{"sysvar1"}] = Value::Int64(12);
+  sysvar_values[{"sysvar2"}] = Value::Int64(10);
+
+  Value result =
+      expr.Execute({{"col", Value::Int64(5)}},
+                   {{"param1", Value::Int64(1)}, {"param2", Value::Int64(2)}},
+                   sysvar_values)
+          .ValueOrDie();
+  EXPECT_EQ(Value::Int64(169), result);
+}
+
+TEST(EvaluatorTest, PrepareWithPositionalParameters) {
+  PreparedExpression expr("(? + ?) * col");
+  AnalyzerOptions options;
+  options.set_parameter_mode(PARAMETER_POSITIONAL);
+  ZETASQL_ASSERT_OK(options.AddPositionalQueryParameter(types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddPositionalQueryParameter(types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+  EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
+
+  Value result =
+      expr.ExecuteWithPositionalParams({{"col", Value::Int64(5)}},
+                                       {Value::Int64(1), Value::Int64(2)})
+          .ValueOrDie();
+  EXPECT_EQ(Value::Int64(15), result);
+}
+
+TEST(EvaluatorTest, PrepareWithPositionalParametersAndSystemVariables) {
+  PreparedExpression expr("(? + ?) * col + @@sysvar1 + @@sysvar2");
+  AnalyzerOptions options;
+  options.set_parameter_mode(PARAMETER_POSITIONAL);
+  ZETASQL_ASSERT_OK(options.AddPositionalQueryParameter(types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddPositionalQueryParameter(types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddSystemVariable({"sysvar1"}, types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddSystemVariable({"sysvar2"}, types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+  EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
+
+  SystemVariableValuesMap sysvar_values;
+  sysvar_values[{"sysvar1"}] = Value::Int64(12);
+  sysvar_values[{"sysvar2"}] = Value::Int64(10);
+
+  Value result = expr.ExecuteWithPositionalParams(
+                         {{"col", Value::Int64(5)}},
+                         {Value::Int64(1), Value::Int64(2)}, sysvar_values)
+                     .ValueOrDie();
+  EXPECT_EQ(Value::Int64(37), result);
+}
+
+TEST(EvaluatorTest, ExecuteAfterPrepare) {
+  PreparedExpression expr("(@param1 + @param2) * col + @@sysvar1");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("param1", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("param2", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddSystemVariable({"sysvar1"}, types::Int64Type()));
+  // Check that ExecuteAfterPrepare gives an error if Prepare has not yet been
+  // called.
+  EXPECT_THAT(expr.ExecuteAfterPrepare(
+                  {{"col", Value::Int64(5)}},
+                  {{"param1", Value::Int64(1)}, {"param2", Value::Int64(2)}},
+                  {{{"sysvar1"}, Value::Int64(10)}}),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("Invalid prepared expression")));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+  EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
+
+  // Call ExecuteAfterPrepare against a const object: the point of having this
+  // method is so it can be const, and this protects against regressions should
+  // it be changed in future.
+  const PreparedExpression* const_expr = &expr;
+  Value result = const_expr
+                     ->ExecuteAfterPrepare({{"col", Value::Int64(5)}},
+                                           {{"param1", Value::Int64(1)},
+                                            {"param2", Value::Int64(2)}},
+                                           {{{"sysvar1"}, Value::Int64(10)}})
+                     .ValueOrDie();
+  EXPECT_EQ(Value::Int64(25), result);
+
+  // Check that ExecuteAfterPrepare gives an error if Prepare has been called,
+  // but failed.
+  PreparedExpression expr2("(@param1 + @param2) * col");
+  AnalyzerOptions options2;
+  ZETASQL_ASSERT_OK(options2.AddQueryParameter("param1", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options2.AddQueryParameter("param2", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options2.AddExpressionColumn("col", types::StringType()));
+  EXPECT_THAT(expr2.Prepare(options2),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("No matching signature for operator *")));
+  EXPECT_THAT(expr2.ExecuteAfterPrepare(
+                  {{"col", Value::Int64(5)}},
+                  {{"param1", Value::Int64(1)}, {"param2", Value::Int64(2)}}),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("Invalid prepared expression")));
+}
+
+TEST(EvaluatorTest, ExecuteAfterPrepareWithPositionalParameters) {
+  PreparedExpression expr("(? + ?) * col");
+  AnalyzerOptions options;
+  options.set_parameter_mode(PARAMETER_POSITIONAL);
+  ZETASQL_ASSERT_OK(options.AddPositionalQueryParameter(types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddPositionalQueryParameter(types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
+  // Check that ExecuteAfterPrepare gives an error if Prepare has not yet been
+  // called.
+  EXPECT_THAT(
+      expr.ExecuteAfterPrepareWithPositionalParams(
+          {{"col", Value::Int64(5)}}, {Value::Int64(1), Value::Int64(2)}),
+      StatusIs(zetasql_base::INVALID_ARGUMENT,
+               HasSubstr("Invalid prepared expression")));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+  EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
+
+  // Call ExecuteAfterPrepare against a const object: the point of having this
+  // method is so it can be const, and this protects against regressions should
+  // it be changed in future.
+  const PreparedExpression* const_expr = &expr;
+  Value result =
+      const_expr
+          ->ExecuteAfterPrepareWithPositionalParams(
+              {{"col", Value::Int64(5)}}, {Value::Int64(1), Value::Int64(2)})
+          .ValueOrDie();
+  EXPECT_EQ(Value::Int64(15), result);
+
+  // Check that ExecuteAfterPrepare gives an error if Prepare has been called,
+  // but failed.
+  PreparedExpression expr2("(? + ?) * col");
+  AnalyzerOptions options2;
+  options2.set_parameter_mode(PARAMETER_POSITIONAL);
+  ZETASQL_ASSERT_OK(options2.AddPositionalQueryParameter(types::Int64Type()));
+  ZETASQL_ASSERT_OK(options2.AddPositionalQueryParameter(types::Int64Type()));
+  ZETASQL_ASSERT_OK(options2.AddExpressionColumn("col", types::StringType()));
+  EXPECT_THAT(expr2.Prepare(options2),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("No matching signature for operator *")));
+  EXPECT_THAT(
+      expr2.ExecuteAfterPrepareWithPositionalParams(
+          {{"col", Value::Int64(5)}}, {Value::Int64(1), Value::Int64(2)}),
+      StatusIs(zetasql_base::INVALID_ARGUMENT,
+               HasSubstr("Invalid prepared expression")));
+}
+
+TEST(EvaluatorTest, PrepareFailOnAnalysis) {
+  PreparedExpression expr("@param + col");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("param", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::StringType()));
+  EXPECT_THAT(expr.Prepare(options),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("No matching signature")));
+}
+
+TEST(EvaluatorTest, PrepareExecuteExtraQueryParameter) {
+  PreparedExpression expr("@param + col");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("param", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("param2", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+  EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
+  Value result =
+      expr.Execute({{"col", Value::Int64(5)}},
+                   {{"param", Value::Int64(6)}, {"param2", Value::Int64(8)}})
+          .ValueOrDie();
+  EXPECT_EQ(result, Value::Int64(11));
+}
+
+TEST(EvaluatorTest, PrepareExecuteWrongQueryParameterType) {
+  PreparedExpression expr("@param + col");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("param", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+  EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
+  zetasql_base::Status status = expr.Execute(
+      {{"col", Value::Int64(5)}}, {{"param", Value::String("foo")}}).status();
+  EXPECT_THAT(
+      status,
+      StatusIs(
+          zetasql_base::INVALID_ARGUMENT,
+          HasSubstr("Expected query parameter 'param' to be of type INT64")));
+}
+
+TEST(EvaluatorTest, PrepareExecuteWrongPositionalQueryParameterType) {
+  PreparedExpression expr("? + col");
+  AnalyzerOptions options;
+  options.set_parameter_mode(PARAMETER_POSITIONAL);
+  ZETASQL_ASSERT_OK(options.AddPositionalQueryParameter(types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+  EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
+  zetasql_base::Status status =
+      expr.ExecuteWithPositionalParams({{"col", Value::Int64(5)}},
+                                       {Value::String("foo")})
+          .status();
+  EXPECT_THAT(
+      status,
+      StatusIs(
+          zetasql_base::INVALID_ARGUMENT,
+          HasSubstr("Expected positional parameter 1 to be of type INT64")));
+}
+
+TEST(EvaluatorTest, PrepareExecuteWrongSystemVariableType) {
+  PreparedExpression expr("@@sysvar + col");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddSystemVariable({"sysvar"}, types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+  EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
+  zetasql_base::Status status = expr.Execute({{"col", Value::Int64(5)}}, {},
+                                     {{{"sysvar"}, Value::String("foo")}})
+                            .status();
+  EXPECT_THAT(
+      status,
+      StatusIs(
+          zetasql_base::INVALID_ARGUMENT,
+          HasSubstr("Expected system variable 'sysvar' to be of type INT64")));
+}
+
+TEST(EvaluatorTest, PrepareExecuteSystemVariableMissingValue) {
+  PreparedExpression expr("@@sysvar + col");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddSystemVariable({"sysvar"}, types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+  EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
+  zetasql_base::Status status = expr.Execute({{"col", Value::Int64(5)}}, {}).status();
+  EXPECT_THAT(
+      status,
+      StatusIs(zetasql_base::INVALID_ARGUMENT,
+               HasSubstr("No value provided for system variable sysvar")));
+}
+
+TEST(EvaluatorTest, PrepareExecuteSystemMissingInAnalyzerOptions) {
+  // @@sysvar2 has a value, but isn't in the analyzer options.
+  // Even though @@sysvar2 is not used in the query, this is not allowed.
+  PreparedExpression expr("@@sysvar1 + col");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddSystemVariable({"sysvar1"}, types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+  EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
+  zetasql_base::Status status = expr.Execute({{"col", Value::Int64(5)}}, {},
+                                     {{{"sysvar1"}, Value::Int64(5)},
+                                      {{"sysvar2"}, Value::Int64(6)}})
+                            .status();
+  EXPECT_THAT(status,
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("Value provided for system variable sysvar2, "
+                                 "which is not in the AnalyzerOptions")));
+}
+
+TEST(EvaluatorTest, PrepareExecuteMismatchedPositionalQueryParameterCount) {
+  {
+    // Too few positional parameters to Prepare.
+    PreparedExpression expr("? + ? + col");
+    AnalyzerOptions options;
+    options.set_parameter_mode(PARAMETER_POSITIONAL);
+    ZETASQL_ASSERT_OK(options.AddPositionalQueryParameter(types::Int64Type()));
+    ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
+    EXPECT_THAT(
+        expr.Prepare(options),
+        StatusIs(
+            zetasql_base::INVALID_ARGUMENT,
+            HasSubstr("Query parameter number 2 is not defined (1 provided)")));
+  }
+
+  {
+    // Too many positional parameters to Prepare (not an error; the analyzer
+    // doesn't raise an error for extra parameters).
+    PreparedExpression expr("? + col");
+    AnalyzerOptions options;
+    options.set_parameter_mode(PARAMETER_POSITIONAL);
+    ZETASQL_ASSERT_OK(options.AddPositionalQueryParameter(types::Int64Type()));
+    ZETASQL_ASSERT_OK(options.AddPositionalQueryParameter(types::Int64Type()));
+    ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
+    ZETASQL_EXPECT_OK(expr.Prepare(options));
+  }
+
+  {
+    // Too few positional parameters to Execute.
+    PreparedExpression expr("? + ? + 1");
+    EXPECT_THAT(
+        expr.ExecuteWithPositionalParams({}, {Value::Int64(3)}).status(),
+        StatusIs(
+            zetasql_base::INVALID_ARGUMENT,
+            HasSubstr("Query parameter number 2 is not defined (1 provided)")));
+  }
+
+  {
+    // More positional parameters than needed; should be allowed.
+    PreparedExpression expr("? + ? + 1");
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        Value result,
+        expr.ExecuteWithPositionalParams(
+            {}, {Value::Int64(3), Value::Int64(4), Value::Int64(5)}));
+    EXPECT_EQ(Value::Int64(8), result);
+  }
+}
+
+TEST(EvaluatorTest, PrepareExecuteSubexpressionsWithPositionalQueryParameters) {
+  const ParameterValueList positional_parameters =
+      {Value::Int64(1), Value::Int64(2), Value::Int64(4), Value::Int64(8)};
+
+  AnalyzerOptions analyzer_options;
+  analyzer_options.set_parameter_mode(PARAMETER_POSITIONAL);
+  for (const Value& param : positional_parameters) {
+    ZETASQL_ASSERT_OK(analyzer_options.AddPositionalQueryParameter(param.type()));
+  }
+  auto catalog = absl::make_unique<SimpleCatalog>("foo");
+  catalog->AddZetaSQLFunctions();
+  TypeFactory type_factory;
+
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  ZETASQL_ASSERT_OK(AnalyzeExpression("(? + ?) + (? + ?)", analyzer_options,
+                              catalog.get(), &type_factory, &analyzer_output));
+  const ResolvedExpr* resolved_expr = analyzer_output->resolved_expr();
+  ASSERT_TRUE(resolved_expr != nullptr);
+  ASSERT_EQ(RESOLVED_FUNCTION_CALL, resolved_expr->node_kind());
+  const auto* resolved_function_call =
+      resolved_expr->GetAs<ResolvedFunctionCall>();
+  ASSERT_EQ(2, resolved_function_call->argument_list_size());
+
+  EvaluatorOptions options;
+  options.type_factory = &type_factory;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      Value result1,
+      PreparedExpression(resolved_function_call->argument_list(0), options)
+          .ExecuteWithPositionalParams({}, positional_parameters));
+  EXPECT_EQ(Value::Int64(3), result1);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      Value result2,
+      PreparedExpression(resolved_function_call->argument_list(1), options)
+          .ExecuteWithPositionalParams({}, positional_parameters));
+  EXPECT_EQ(Value::Int64(12), result2);
+}
+
+TEST(EvaluatorTest, PrepareExecuteSubexpressionsWithNamedQueryParameters) {
+  const ParameterValueMap parameters =
+      {{"param1", Value::Int64(1)}, {"param2", Value::Int64(2)},
+       {"param4", Value::Int64(4)}, {"param8", Value::Int64(8)}};
+
+  AnalyzerOptions analyzer_options;
+  analyzer_options.set_parameter_mode(PARAMETER_NAMED);
+  for (const auto& entry : parameters) {
+    ZETASQL_ASSERT_OK(analyzer_options.AddQueryParameter(
+        entry.first, entry.second.type()));
+  }
+  auto catalog = absl::make_unique<SimpleCatalog>("foo");
+  catalog->AddZetaSQLFunctions();
+  TypeFactory type_factory;
+
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  ZETASQL_ASSERT_OK(AnalyzeExpression("(@param1 + @param2) + (@param4 + @param8)",
+                              analyzer_options, catalog.get(), &type_factory,
+                              &analyzer_output));
+  const ResolvedExpr* resolved_expr = analyzer_output->resolved_expr();
+  ASSERT_TRUE(resolved_expr != nullptr);
+  ASSERT_EQ(RESOLVED_FUNCTION_CALL, resolved_expr->node_kind());
+  const auto* resolved_function_call =
+      resolved_expr->GetAs<ResolvedFunctionCall>();
+  ASSERT_EQ(2, resolved_function_call->argument_list_size());
+
+  EvaluatorOptions options;
+  options.type_factory = &type_factory;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      Value result1,
+      PreparedExpression(resolved_function_call->argument_list(0), options)
+          .Execute({}, parameters));
+  EXPECT_EQ(Value::Int64(3), result1);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      Value result2,
+      PreparedExpression(resolved_function_call->argument_list(1), options)
+          .Execute({}, parameters));
+  EXPECT_EQ(Value::Int64(12), result2);
+}
+
+TEST(EvaluatorTest, PrepareExecuteWrongColumnParameterType) {
+  PreparedExpression expr("@param + col");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("param", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+  EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
+  zetasql_base::Status status = expr.Execute(
+      {{"col", Value::String("foo")}}, {{"param", Value::Int64(1)}}).status();
+  EXPECT_THAT(
+      status,
+      StatusIs(
+          zetasql_base::INVALID_ARGUMENT,
+          HasSubstr("Expected column parameter 'col' to be of type INT64")));
+}
+
+TEST(EvaluatorTest, PrepareExecuteWithTable) {
+  SimpleTable test_table(
+      "TestTable", {{"a", types::Int64Type()}, {"b", types::StringType()}});
+  test_table.SetContents({{Int64(10), String("foo")},
+                          {Int64(20), String("bar")},
+                          {Int64(30), String("baz")}});
+
+  SimpleCatalog catalog("TestCatalog");
+  catalog.AddTable(test_table.Name(), &test_table);
+
+  PreparedExpression expr("(SELECT a FROM TestTable ORDER BY a LIMIT 1)");
+  ZETASQL_ASSERT_OK(expr.Prepare(AnalyzerOptions(), &catalog));
+  EXPECT_THAT(expr.Execute(), IsOkAndHolds(Value::Int64(10)));
+}
+
+TEST(EvaluatorTest, PrepareTwice) {
+  PreparedExpression expr("@param + col");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("param", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+  EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
+  EXPECT_THAT(expr.Prepare(options),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("Prepare called twice")));
+}
+
+TEST(EvaluatorTest, ExecuteAfterPrepareWithOrderedParamsWithQueryParameters) {
+  PreparedExpression expr("(@param1 + @param2) * col");
+
+  AnalyzerOptions options;
+  options.set_parameter_mode(PARAMETER_NAMED);
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("param1", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("param2", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
+
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+  EXPECT_THAT(expr.GetReferencedColumns(), IsOkAndHolds(ElementsAre("col")));
+  EXPECT_THAT(expr.GetReferencedParameters(),
+              IsOkAndHolds(UnorderedElementsAre("param2", "param1")));
+  EXPECT_THAT(expr.ExecuteAfterPrepareWithOrderedParams(
+                  {Value::Int64(5)}, {Value::Int64(1), Value::Int64(2)}),
+              IsOkAndHolds(Value::Int64(15)));
+}
+
+TEST(EvaluatorTest,
+     ExecuteAfterPrepareWithOrderedParamsWithPositionalQueryParameters) {
+  PreparedExpression expr("(? + ?) * col");
+
+  AnalyzerOptions options;
+  options.set_parameter_mode(PARAMETER_POSITIONAL);
+  ZETASQL_ASSERT_OK(options.AddPositionalQueryParameter(types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddPositionalQueryParameter(types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
+
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+  EXPECT_THAT(expr.GetReferencedColumns(), IsOkAndHolds(ElementsAre("col")));
+  EXPECT_THAT(expr.GetPositionalParameterCount(), IsOkAndHolds(2));
+  EXPECT_THAT(expr.ExecuteAfterPrepareWithOrderedParams(
+                  {Value::Int64(5)}, {Value::Int64(1), Value::Int64(2)}),
+              IsOkAndHolds(Value::Int64(15)));
+}
+
+TEST(EvaluatorTest, ExplainAfterPrepareWithoutPrepare) {
+  PreparedExpression expr("@param + col");
+  EXPECT_THAT(expr.ExplainAfterPrepare(),
+              StatusIs(zetasql_base::INTERNAL,
+                       HasSubstr("Prepare must be called first")));
+}
+
+TEST(EvaluatorTest, ExplainAfterPrepare) {
+  PreparedExpression expr("@param + col");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("param", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+  EXPECT_THAT(expr.ExplainAfterPrepare(),
+              IsOkAndHolds("RootExpr(Add($param, $col))"));
+}
+
+TEST(EvaluatorTest, GetReferencedParametersAsProperSubset) {
+  PreparedExpression expr("@param1 + @param2");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("param1", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("param2", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("param3", types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+
+  auto status_or_parameters = expr.GetReferencedParameters();
+  ZETASQL_ASSERT_OK(status_or_parameters);
+  EXPECT_THAT(std::move(status_or_parameters).ValueOrDie(),
+              UnorderedElementsAre("param1", "param2"));
+
+  ZETASQL_ASSERT_OK(expr.Execute({}, {{"param1", values::Int64(1)},
+        {"param2", values::Int64(2)}}));
+}
+
+TEST(EvaluatorTest, GetPositionalParameterCount) {
+  PreparedExpression expr("? + ? + ?");
+  AnalyzerOptions options;
+  options.set_parameter_mode(PARAMETER_POSITIONAL);
+  ZETASQL_ASSERT_OK(options.AddPositionalQueryParameter(types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddPositionalQueryParameter(types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddPositionalQueryParameter(types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+
+  EXPECT_THAT(expr.GetPositionalParameterCount(),
+              ::zetasql_base::testing::IsOkAndHolds(::testing::Eq(3)));
+
+  EXPECT_THAT(expr.ExecuteWithPositionalParams(
+                  {}, {values::Int64(1), values::Int64(2), values::Int64(3)}),
+              ::zetasql_base::testing::IsOkAndHolds(::testing::Eq(values::Int64(6))));
+}
+
+TEST(EvaluatorTest, GetReferencedParametersWithMixedCases) {
+  PreparedExpression expr("@PARAM");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("pArAm", types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+
+  auto status_or_parameters = expr.GetReferencedParameters();
+  ZETASQL_ASSERT_OK(status_or_parameters);
+  EXPECT_THAT(std::move(status_or_parameters).ValueOrDie(),
+              UnorderedElementsAre("param"));
+  ZETASQL_ASSERT_OK(expr.Execute({}, {{"PaRaM", values::Int64(1)}}));
+}
+
+TEST(EvaluatorTest, PrepareMismatchColumns) {
+  PreparedExpression expr("col0 + col1");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col0", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col2", types::Int64Type()));
+  // Set of columns involved in expression must be a subset of those
+  // visible to Prepare().
+  EXPECT_THAT(expr.Prepare(options),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("Unrecognized name: col1")));
+}
+
+TEST(EvaluatorTest, GetReferencedColumnsAsProperSubset) {
+  PreparedExpression expr("col0 + col1");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col0", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col1", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col2", types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+
+  auto status_or_columns = expr.GetReferencedColumns();
+  ZETASQL_ASSERT_OK(status_or_columns);
+  EXPECT_THAT(std::move(status_or_columns).ValueOrDie(),
+              UnorderedElementsAre("col0", "col1"));
+
+  auto status_or_value = expr.Execute({{"col0", values::Int64(1)},
+    {"col1", values::Int64(2)}});
+  ZETASQL_ASSERT_OK(status_or_value);
+}
+
+TEST(EvaluatorTest, GetReferencedColumnsInMixedCases) {
+  PreparedExpression expr("cOl");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("COL", types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+
+  auto status_or_columns = expr.GetReferencedColumns();
+  ZETASQL_ASSERT_OK(status_or_columns);
+  EXPECT_THAT(std::move(status_or_columns).ValueOrDie(),
+              UnorderedElementsAre("col"));
+  ZETASQL_ASSERT_OK(expr.Execute({{"CoL", values::Int64(1)}}));
+}
+
+TEST(EvaluatorTest, GetReferencedColumnsUsingCallback) {
+  PreparedExpression expr("col");
+  AnalyzerOptions options;
+  options.SetLookupExpressionColumnCallback(
+      [](const std::string& column_name, const Type** column_type) {
+        if (column_name == "col") {
+          *column_type = types::Int64Type();
+        }
+        return ::zetasql_base::OkStatus();
+      });
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+
+  auto status_or_columns = expr.GetReferencedColumns();
+  ZETASQL_ASSERT_OK(status_or_columns);
+  EXPECT_THAT(std::move(status_or_columns).ValueOrDie(),
+              UnorderedElementsAre("col"));
+  Value result = expr.Execute({{"col", values::Int64(1)}}).ValueOrDie();
+  EXPECT_EQ(Value::Int64(1), result);
+}
+
+TEST(EvaluatorTest, GetReferencedColumnsUsingCallbackInMixedCases) {
+  PreparedExpression expr("cOl");
+  AnalyzerOptions options;
+  options.SetLookupExpressionColumnCallback(
+      [](const std::string& column_name, const Type** column_type) {
+        if (column_name == "col") {
+          *column_type = types::Int64Type();
+        }
+        return ::zetasql_base::OkStatus();
+      });
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+
+  auto status_or_columns = expr.GetReferencedColumns();
+  ZETASQL_ASSERT_OK(status_or_columns);
+  EXPECT_THAT(std::move(status_or_columns).ValueOrDie(),
+              UnorderedElementsAre("col"));
+  Value result = expr.Execute({{"CoL", values::Int64(1)}}).ValueOrDie();
+  EXPECT_EQ(Value::Int64(1), result);
+}
+
+TEST(EvaluatorTest, GetReferencedColumnsThatAreNotAdded) {
+  PreparedExpression expr("col0 + col1");
+  ZETASQL_ASSERT_OK(expr.Execute({{"col0", Int64(1)}, {"col1", Int64(2)}}));
+  auto status_or_columns = expr.GetReferencedColumns();
+  ZETASQL_ASSERT_OK(status_or_columns);
+  EXPECT_THAT(std::move(status_or_columns).ValueOrDie(),
+              UnorderedElementsAre("col0", "col1"));
+}
+
+TEST(EvaluatorTest, GetReferencedColumnsFromExpressionsWithoutColumn) {
+  PreparedExpression expr("@param = 2");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddQueryParameter("param", types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+
+  auto status_or_columns = expr.GetReferencedColumns();
+  ZETASQL_ASSERT_OK(status_or_columns);
+  EXPECT_TRUE(std::move(status_or_columns).ValueOrDie().empty());
+}
+
+TEST(EvaluatorTest, GetReferencedInScopeColumns) {
+  TypeFactory type_factory;
+  const ProtoType* proto_type;
+  ZETASQL_ASSERT_OK(type_factory.MakeProtoType(
+      zetasql_test::KitchenSinkPB::descriptor(), &proto_type));
+
+  PreparedExpression expr("col0.int64_key_1 + int64_key_2");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.SetInScopeExpressionColumn("col0", proto_type));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+
+  auto status_or_columns = expr.GetReferencedColumns();
+  ZETASQL_ASSERT_OK(status_or_columns);
+  EXPECT_THAT(std::move(status_or_columns).ValueOrDie(),
+              UnorderedElementsAre("col0"));
+}
+
+TEST(EvaluatorTest, GetReferencedColumnsWithUnreferencedInScopeColumns) {
+  TypeFactory type_factory;
+  const ProtoType* proto_type;
+  ZETASQL_ASSERT_OK(type_factory.MakeProtoType(
+      zetasql_test::KitchenSinkPB::descriptor(), &proto_type));
+
+  PreparedExpression expr("col1 = 1");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.SetInScopeExpressionColumn("col0", proto_type));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col1", types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+
+  auto status_or_columns = expr.GetReferencedColumns();
+  ZETASQL_ASSERT_OK(status_or_columns);
+  EXPECT_THAT(std::move(status_or_columns).ValueOrDie(),
+              UnorderedElementsAre("col1"));
+}
+
+TEST(EvaluatorTest, GetReferencedColumnsInLowerCase) {
+  PreparedExpression expr("col0 + COL1 + cOL2");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("col0", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("COL1", types::Int64Type()));
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("cOL2", types::Int64Type()));
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+
+  auto status_or_columns = expr.GetReferencedColumns();
+  ZETASQL_ASSERT_OK(status_or_columns);
+  EXPECT_THAT(std::move(status_or_columns).ValueOrDie(),
+              UnorderedElementsAre("col0", "col1", "col2"));
+}
+
+TEST(EvaluatorTest, GetReferencedColumnsWithoutPrepare) {
+  PreparedExpression expr("@param + col");
+  EXPECT_THAT(expr.GetReferencedColumns(),
+              StatusIs(zetasql_base::FAILED_PRECONDITION,
+                       HasSubstr("Expression/Query has not been prepared")));
+}
+
+TEST(EvaluatorTest, GetReferencedColumnsAfterPrepareFailure) {
+  PreparedExpression expr("col0 col1");
+  AnalyzerOptions options;  // Empty options
+  EXPECT_FALSE(expr.Prepare(options).ok());
+  EXPECT_THAT(expr.GetReferencedColumns(),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("Invalid prepared expression/query")));
+}
+
+TEST(EvaluatorTest, GetReferencedColumnsFromConstantExpression) {
+  PreparedExpression expr("1 + 1");
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(expr.Prepare(options));
+
+  auto status_or_columns = expr.GetReferencedColumns();
+  ZETASQL_ASSERT_OK(status_or_columns);
+  EXPECT_TRUE(std::move(status_or_columns).ValueOrDie().empty());
+}
+
+TEST(EvaluatorTest, GetReferencedColumnsAfterExecute) {
+  PreparedExpression expr("col1 + col2");
+  ZETASQL_ASSERT_OK(expr.Execute(
+      {{"col1", values::Int64(1)}, {"col2", values::Int64(2)}}));
+
+  auto status_or_columns = expr.GetReferencedColumns();
+  ZETASQL_ASSERT_OK(status_or_columns);
+  std::vector<std::string> columns = std::move(status_or_columns).ValueOrDie();
+  EXPECT_THAT(columns, UnorderedElementsAre("col1", "col2"));
+  // Execute again with the obtained subset.
+  ParameterValueMap column_value_map;
+  for (const auto& column : columns) {
+    column_value_map[column] = values::Int64(1);
+  }
+  ZETASQL_ASSERT_OK(expr.Execute(column_value_map));
+}
+
+TEST(EvaluatorTest, ExpressionValueColumn) {
+  TypeFactory type_factory;
+  const ProtoType* proto_type;
+  ZETASQL_ASSERT_OK(type_factory.MakeProtoType(
+      zetasql_test::KitchenSinkPB::descriptor(), &proto_type));
+
+  zetasql_test::KitchenSinkPB input_value;
+  input_value.set_int64_key_1(5);
+  input_value.set_int64_key_2(10);
+
+  // Test using a named in-scope expression column (and a regular expression
+  // column).
+  {
+    PreparedExpression expr(
+        "int64_key_1 + value.int64_key_2 + if(has_date, 100, 0) + int_value");
+
+    AnalyzerOptions options;
+    ZETASQL_ASSERT_OK(options.AddExpressionColumn("int_value", types::Int32Type()));
+    ZETASQL_ASSERT_OK(options.SetInScopeExpressionColumn("value", proto_type));
+    ZETASQL_ASSERT_OK(expr.Prepare(options));
+    EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
+
+    Value result = expr.Execute(
+        {{"int_value", values::Int32(1000)},
+         {"value", values::Proto(proto_type, input_value)}}).ValueOrDie();
+    EXPECT_EQ(Value::Int64(1015), result);
+  }
+
+  // Test using an anonymous in-scope expression column.
+  {
+    PreparedExpression expr(
+        "int64_key_1 + int64_key_2 + if(has_date, 0, 100)");
+
+    AnalyzerOptions options;
+    ZETASQL_ASSERT_OK(options.SetInScopeExpressionColumn("", proto_type));
+    ZETASQL_ASSERT_OK(expr.Prepare(options));
+    EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
+
+    Value result = expr.Execute(
+        {{"", values::Proto(proto_type, input_value)}}).ValueOrDie();
+    EXPECT_EQ(Value::Int64(115), result);
+  }
+
+  // Test using anonymous in-scope expression column with implicit Prepare.
+  {
+    PreparedExpression expr(
+        "int64_key_1 + int64_key_2 + if(has_date, 0, 100) + int_value");
+
+    Value result = expr.Execute(
+        {{"", values::Proto(proto_type, input_value)},
+         {"int_value", values::Int32(1000)}}).ValueOrDie();
+    EXPECT_EQ(Value::Int64(1115), result);
+  }
+}
+
+TEST(EvaluatorTest, UnpreparedUnexecutedOutputType) {
+  PreparedExpression expr("1 + 2");
+  EXPECT_DEATH(expr.output_type(), "Prepare or Execute must be called first");
+}
+
+// This tests that if we provide an external TypeFactory, the returned
+// value will still be valid after the PreparedExpression is deleted.
+TEST(EvaluatorTest, ValueLifetime) {
+  TypeFactory type_factory;
+  Value value;
+  {
+    PreparedExpression expr("(1,2)", &type_factory);
+    value = expr.Execute().ValueOrDie();
+  }
+  EXPECT_EQ("STRUCT<INT64, INT64>", value.type()->DebugString());
+  EXPECT_EQ("{1, 2}", value.DebugString());
+}
+
+TEST(EvaluatorTest, LanguageOptions) {
+  // This is meant to test that LanguageOptions make it through to the
+  // appropriate place and affect what syntax is accepted and how things
+  // behave.  Currently, we don't have anything where the behavior differs, so
+  // we just try calling an analytic function, and get a different error
+  // depending whether analytic functions are enabled.
+  AnalyzerOptions options;
+
+  {
+    PreparedExpression expr("1 + RANK()");
+    EXPECT_THAT(expr.Prepare(options),
+                StatusIs(_, HasSubstr("Function not found: RANK")));
+  }
+
+  options.mutable_language()->EnableLanguageFeature(FEATURE_ANALYTIC_FUNCTIONS);
+  {
+    PreparedExpression expr("1 + RANK()");
+    EXPECT_THAT(expr.Prepare(options),
+                StatusIs(_, HasSubstr("Analytic function RANK cannot be "
+                                      "called without an OVER clause")));
+  }
+}
+
+TEST(EvaluatorTest, CurrentTimestamp) {
+  const absl::Time test_time = absl::FromUnixMicros(1479885478000LL);
+  zetasql_base::SimulatedClock clock(test_time);
+  EvaluatorOptions evaluator_options;
+  evaluator_options.clock = &clock;
+
+  PreparedExpression expr("CURRENT_TIMESTAMP()", evaluator_options);
+  Value value = expr.Execute().ValueOrDie();
+
+  EXPECT_EQ(test_time, value.ToTime());
+}
+
+absl::Time GetTestTime() {
+  absl::TimeZone gst;
+  CHECK(absl::LoadTimeZone("America/Los_Angeles", &gst));
+  return absl::FromDateTime(2016, 11, 22, 1, 2, 3, gst);
+}
+
+TEST(EvaluatorTest, CurrentDate) {
+  zetasql_base::SimulatedClock clock(GetTestTime());
+  EvaluatorOptions evaluator_options;
+  evaluator_options.clock = &clock;
+
+  PreparedExpression expr("CURRENT_DATE()", evaluator_options);
+  Value value = expr.Execute().ValueOrDie();
+
+  int32_t expected;
+  ZETASQL_ASSERT_OK(functions::ConstructDate(2016, 11, 22, &expected));
+  EXPECT_EQ(expected, value.date_value());
+}
+
+TEST(EvaluatorTest, CurrentDateTime) {
+  zetasql_base::SimulatedClock clock(GetTestTime());
+  EvaluatorOptions evaluator_options;
+  evaluator_options.clock = &clock;
+  AnalyzerOptions analyzer_options;
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      zetasql::LanguageFeature::FEATURE_V_1_2_CIVIL_TIME);
+
+  PreparedExpression expr("CURRENT_DATETIME()", evaluator_options);
+  ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
+  Value value = expr.Execute().ValueOrDie();
+
+  DatetimeValue expected;
+  ZETASQL_ASSERT_OK(functions::ConstructDatetime(2016, 11, 22, 1, 2, 3, &expected));
+  EXPECT_EQ(expected.DebugString(), value.datetime_value().DebugString());
+}
+
+TEST(EvaluatorTest, CurrentTime) {
+  zetasql_base::SimulatedClock clock(GetTestTime());
+  EvaluatorOptions evaluator_options;
+  evaluator_options.clock = &clock;
+  AnalyzerOptions analyzer_options;
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      zetasql::LanguageFeature::FEATURE_V_1_2_CIVIL_TIME);
+
+  PreparedExpression expr("CURRENT_TIME()", evaluator_options);
+  ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
+  Value value = expr.Execute().ValueOrDie();
+
+  TimeValue expected;
+  ZETASQL_ASSERT_OK(functions::ConstructTime(1, 2, 3, &expected));
+  EXPECT_EQ(expected.DebugString(), value.time_value().DebugString());
+}
+
+// Returns a PreparedExpression for SQL. Unlike the other tests in this file,
+// this expression is constructed from an AST, rather than by passing SQL
+// into the expression.
+struct PreparedExpressionFromAST {
+  std::unique_ptr<SimpleCatalog> catalog;
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  std::unique_ptr<PreparedExpression> expression;
+};
+PreparedExpressionFromAST ParseToASTAndPrepareOrDie(
+    const std::string& sql, const AnalyzerOptions& analyzer_options,
+    TypeFactory* type_factory) {
+  PreparedExpressionFromAST prepared_from_ast;
+  prepared_from_ast.catalog = absl::make_unique<SimpleCatalog>("foo");
+  prepared_from_ast.catalog->AddZetaSQLFunctions();
+
+  ZETASQL_CHECK_OK(AnalyzeExpression(sql, analyzer_options,
+                             prepared_from_ast.catalog.get(), type_factory,
+                             &prepared_from_ast.analyzer_output));
+
+  EvaluatorOptions evaluator_options;
+  evaluator_options.type_factory = type_factory;
+  prepared_from_ast.expression = absl::make_unique<PreparedExpression>(
+      prepared_from_ast.analyzer_output->resolved_expr(), evaluator_options);
+  ZETASQL_CHECK_OK(prepared_from_ast.expression->Prepare(analyzer_options));
+  return prepared_from_ast;
+}
+
+TEST(EvaluatorTest, PreparedFromAST_Execute) {
+  TypeFactory type_factory;
+  const ProtoType* proto_type;
+  ZETASQL_ASSERT_OK(type_factory.MakeProtoType(
+      zetasql_test::KitchenSinkPB::descriptor(), &proto_type));
+
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("int_value", types::Int32Type()));
+  ZETASQL_ASSERT_OK(options.SetInScopeExpressionColumn("value", proto_type));
+
+  PreparedExpressionFromAST prepared = ParseToASTAndPrepareOrDie(
+      "int64_key_1 + int64_key_2 + int_value", options, &type_factory);
+
+  EXPECT_THAT(prepared.expression->GetReferencedColumns().ValueOrDie(),
+              UnorderedElementsAre("value", "int_value"));
+  EXPECT_TRUE(types::Int64Type()->Equals(prepared.expression->output_type()))
+      << prepared.expression->output_type()->DebugString();
+
+  zetasql_test::KitchenSinkPB input_value;
+  input_value.set_int64_key_1(5);
+  input_value.set_int64_key_2(10);
+  Value result = prepared.expression
+                     ->ExecuteAfterPrepare(
+                         {{"int_value", values::Int32(1000)},
+                          {"value", values::Proto(proto_type, input_value)}})
+                     .ValueOrDie();
+  EXPECT_EQ(Value::Int64(1015), result);
+}
+
+TEST(EvaluatorTest, PreparedFromAST_ExecuteWithWrongColumn) {
+  TypeFactory type_factory;
+  AnalyzerOptions options;
+  ZETASQL_ASSERT_OK(options.AddExpressionColumn("int_value", types::Int32Type()));
+
+  PreparedExpressionFromAST prepared =
+      ParseToASTAndPrepareOrDie("int_value + 2", options, &type_factory);
+
+  EXPECT_THAT(
+      prepared.expression->ExecuteAfterPrepare(
+          {{"wrong_value", values::Int32(1000)}}),
+      zetasql_base::testing::StatusIs(zetasql_base::INVALID_ARGUMENT,
+                                "Incomplete column parameters int_value"));
+}
+
+TEST(EvaluatorTest, PreparedFromAST_Parameters) {
+  TypeFactory type_factory;
+  AnalyzerOptions options;
+  options.set_allow_undeclared_parameters(true);
+
+  PreparedExpressionFromAST prepared =
+      ParseToASTAndPrepareOrDie("@int_value + 2", options, &type_factory);
+
+  EXPECT_THAT(prepared.expression->GetReferencedParameters().ValueOrDie(),
+              UnorderedElementsAre("int_value"));
+}
+
+TEST(EvaluatorTest, PreparedFromAST_PositionalParameters) {
+  TypeFactory type_factory;
+  AnalyzerOptions options;
+  options.set_allow_undeclared_parameters(true);
+  options.set_parameter_mode(PARAMETER_POSITIONAL);
+
+  PreparedExpressionFromAST prepared =
+      ParseToASTAndPrepareOrDie("? + 2 = 5 AND ?", options, &type_factory);
+
+  EXPECT_THAT(prepared.expression->GetPositionalParameterCount(),
+              ::zetasql_base::testing::IsOkAndHolds(::testing::Eq(2)));
+}
+
+TEST(EvaluatorTest, PreparedFromAST_IllegalDeref) {
+  ResolvedColumn fake_column(1, IdString::MakeGlobal("fake_table"),
+                             IdString::MakeGlobal("fake_column"),
+                             types::Int64Type());
+  auto col_ref = MakeResolvedColumnRef(types::Int64Type(), fake_column, false);
+
+  PreparedExpression expression(col_ref.get(), EvaluatorOptions());
+  EXPECT_THAT(expression.Prepare(AnalyzerOptions()),
+              zetasql_base::testing::StatusIs(zetasql_base::INTERNAL));
+}
+
+TEST_F(UDFEvalTest, OkUDFEvaluator) {
+  function_options_.set_evaluator([](const absl::Span<const Value>& args) {
+    // Returns std::string length as int64_t.
+    return Value::Int64(args[0].string_value().size());
+  });
+  catalog()->AddOwnedFunction(new Function(
+      "MyUdf", "udf", Function::SCALAR,
+      {{types::Int64Type(), {types::StringType()}, kFunctionId}},
+      function_options_));
+  PreparedExpression expr("1 + myudf(@param)");
+  ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options_, catalog()));
+  Value result = expr.Execute(
+      {}, {{"param", Value::String("foo")}}).ValueOrDie();
+  EXPECT_EQ(Value::Int64(4), result);
+}
+
+TEST_F(UDFEvalTest, OkPolymorphicUDFEvaluator) {
+  static FunctionEvaluator evaluator_int64 =
+      [](const absl::Span<const Value>& args) {
+        return Value::Int64(args[0].int64_value() * 2);
+      };
+  static FunctionEvaluator evaluator_string =
+      [](const absl::Span<const Value>& args) {
+        return Value::Int64(args[0].string_value().size());
+      };
+  function_options_.set_evaluator_factory(
+      [](const FunctionSignature& signature) ->
+      zetasql_base::StatusOr<FunctionEvaluator>{
+        switch (signature.ConcreteArgumentType(0)->kind()) {
+          case TYPE_INT64: return evaluator_int64;
+          case TYPE_STRING: return evaluator_string;
+          case TYPE_BOOL: return FunctionEvaluator();
+          default:
+            return zetasql_base::Status(zetasql_base::StatusCode::kInternal,
+                                "Beg your pardon: " + signature.DebugString());
+        }
+      });
+  catalog()->AddOwnedFunction(new Function(
+      "MyUdf", "udf", Function::SCALAR,
+      {{types::Int64Type(), {ARG_TYPE_ANY_1}, kFunctionId}},
+      function_options_));
+  PreparedExpression expr("1 + myudf(myudf(@param))");
+  ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options_, catalog()));
+  Value result = expr.Execute(
+      {}, {{"param", Value::String("foo")}}).ValueOrDie();
+  EXPECT_EQ(Value::Int64(7), result);  // 7 = 1 + length("foo") * 2
+
+  PreparedExpression expr_double("1 + myudf(1.5)");
+  zetasql_base::Status status = expr_double.Prepare(analyzer_options_, catalog());
+  EXPECT_THAT(status,
+              StatusIs(zetasql_base::INTERNAL, HasSubstr("Beg your pardon")));
+
+  PreparedExpression expr_bool("1 + myudf(false)");
+  status = expr_bool.Prepare(analyzer_options_, catalog());
+  EXPECT_THAT(status,
+              StatusIs(zetasql_base::INTERNAL, HasSubstr("NULL evaluator")));
+}
+
+TEST_F(UDFEvalTest, UndefinedUDF) {
+  PreparedExpression expr("1 + myudf(@param)");
+  zetasql_base::Status status = expr.Prepare(analyzer_options_);
+  EXPECT_THAT(status, StatusIs(zetasql_base::INVALID_ARGUMENT,
+                               HasSubstr("Function not found")));
+}
+
+TEST_F(UDFEvalTest, NoUDFEvaluator) {
+  catalog()->AddOwnedFunction(new Function(
+      "MyUdf", "udf", Function::SCALAR,
+      {{types::Int64Type(), {types::StringType()}, kFunctionId}}));
+  PreparedExpression expr("1 + myudf(@param)");
+  zetasql_base::Status status = expr.Prepare(analyzer_options_, catalog());
+  EXPECT_THAT(status, StatusIs(zetasql_base::INVALID_ARGUMENT,
+                               HasSubstr("has no evaluator")));
+}
+
+TEST_F(UDFEvalTest, UDFEvaluatorRuntimeErrors) {
+  function_options_.set_evaluator(
+      [](const absl::Span<const Value>& args) -> zetasql_base::StatusOr<Value> {
+        std::string arg = args[0].string_value();
+        if (arg == "not found") {
+          return zetasql_base::Status(zetasql_base::StatusCode::kNotFound, "Wrong number");
+        } else if (arg == "wrong return type") {
+          // Returns Value::Int32 instead of Value::Int64.
+          return Value::Int32(arg.size());
+        } else if (arg == "invalid") {
+          return Value::Invalid();
+        }
+        return Value::Int64(arg.size());
+      });
+  catalog()->AddOwnedFunction(new Function(
+      "MyUdf", "udf", Function::SCALAR,
+      {{types::Int64Type(), {types::StringType()}, kFunctionId}},
+      function_options_));
+  PreparedExpression expr("1 + myudf(@param)");
+  ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options_, catalog()));
+
+  // Error-free call.
+  Value result = expr.Execute(
+      {}, {{"param", Value::String("foo")}}).ValueOrDie();
+  EXPECT_EQ(Value::Int64(4), result);
+
+  // Runtime errors.
+  zetasql_base::Status status;
+  status = expr.Execute(
+      {}, {{"param", Value::String("not found")}}).status();
+  EXPECT_THAT(status,
+              StatusIs(zetasql_base::NOT_FOUND, HasSubstr("Wrong number")));
+
+  status = expr.Execute(
+      {}, {{"param", Value::String("invalid")}}).status();
+  EXPECT_THAT(status, StatusIs(zetasql_base::INTERNAL,
+                               HasSubstr("Uninitialized value")));
+
+  if (ZETASQL_DEBUG_MODE) {
+    status = expr.Execute(
+        {}, {{"param", Value::String("wrong return type")}}).status();
+    EXPECT_THAT(status, StatusIs(zetasql_base::INTERNAL,
+                                 HasSubstr("Expected value of type: INT64")));
+  } else {
+    EXPECT_DEATH(
+        expr.Execute({}, {{"param", Value::String("wrong return type")}})
+            .IgnoreError(),
+        "Not an int64");
+  }
+}
+
+TEST(PreparedQuery, ExpressionQuery) {
+  PreparedQuery query("select 1 a, 2 b, 'abc'", EvaluatorOptions());
+  ZETASQL_EXPECT_OK(query.Prepare(AnalyzerOptions()));
+
+  EXPECT_EQ(3, query.num_columns());
+  EXPECT_EQ("a", query.column_name(0));
+  EXPECT_EQ("b", query.column_name(1));
+  EXPECT_EQ("", query.column_name(2));
+  EXPECT_EQ("INT64", query.column_type(0)->DebugString());
+  EXPECT_EQ("INT64", query.column_type(1)->DebugString());
+  EXPECT_EQ("STRING", query.column_type(2)->DebugString());
+
+  std::vector<PreparedQuery::NameAndType> columns = query.GetColumns();
+  EXPECT_EQ(3, columns.size());
+  EXPECT_EQ("a", columns[0].first);
+  EXPECT_EQ("b", columns[1].first);
+  // Anonymous columns get empty names.
+  EXPECT_EQ("", columns[2].first);
+  EXPECT_EQ("INT64", columns[0].second->DebugString());
+  EXPECT_EQ("INT64", columns[1].second->DebugString());
+  EXPECT_EQ("STRING", columns[2].second->DebugString());
+
+  EXPECT_FALSE(query.is_value_table());
+  EXPECT_EQ(3, query.resolved_query_stmt()->output_column_list_size());
+
+  EXPECT_THAT(query.GetReferencedParameters(), IsOkAndHolds(IsEmpty()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.Execute());
+
+  EXPECT_EQ(3, iter->NumColumns());
+  EXPECT_EQ("a", iter->GetColumnName(0));
+  EXPECT_EQ("b", iter->GetColumnName(1));
+  // Anonymous columns get empty names.
+  EXPECT_EQ("", iter->GetColumnName(2));
+  EXPECT_EQ("INT64", iter->GetColumnType(0)->DebugString());
+  EXPECT_EQ("INT64", iter->GetColumnType(1)->DebugString());
+  EXPECT_EQ("STRING", iter->GetColumnType(2)->DebugString());
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(1), iter->GetValue(0));
+  EXPECT_EQ(Int64(2), iter->GetValue(1));
+  EXPECT_EQ(String("abc"), iter->GetValue(2));
+
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST(PreparedQuery, NontrivialOutputColumnNames) {
+  // Query adapted from b/123093575.
+  const std::string query_str =
+      R"(SELECT
+  A.x AS y,
+  B.x AS z,
+  A.x,
+  B.x
+FROM
+  (
+    SELECT
+      *
+    FROM
+      ((
+        SELECT
+          1 AS x
+        ) UNION ALL(
+        SELECT
+          2 AS x
+        )
+      )
+  ) AS A,
+  (
+    SELECT
+      *
+    FROM
+      ((
+        SELECT
+          1 AS x
+        ) UNION ALL(
+        SELECT
+          2 AS x
+        )
+      )
+  ) AS B)";
+
+  PreparedQuery query(query_str, EvaluatorOptions());
+  ZETASQL_EXPECT_OK(query.Prepare(AnalyzerOptions()));
+
+  EXPECT_EQ(4, query.num_columns());
+  EXPECT_EQ("y", query.column_name(0));
+  EXPECT_EQ("z", query.column_name(1));
+  EXPECT_EQ("x", query.column_name(2));
+  EXPECT_EQ("x", query.column_name(3));
+  EXPECT_EQ("INT64", query.column_type(0)->DebugString());
+  EXPECT_EQ("INT64", query.column_type(1)->DebugString());
+  EXPECT_EQ("INT64", query.column_type(2)->DebugString());
+  EXPECT_EQ("INT64", query.column_type(3)->DebugString());
+
+  std::vector<PreparedQuery::NameAndType> columns = query.GetColumns();
+  EXPECT_EQ(4, columns.size());
+  EXPECT_EQ("y", columns[0].first);
+  EXPECT_EQ("z", columns[1].first);
+  EXPECT_EQ("INT64", columns[0].second->DebugString());
+  EXPECT_EQ("INT64", columns[1].second->DebugString());
+  EXPECT_EQ("INT64", columns[2].second->DebugString());
+  EXPECT_EQ("INT64", columns[3].second->DebugString());
+
+  EXPECT_FALSE(query.is_value_table());
+  EXPECT_EQ(4, query.resolved_query_stmt()->output_column_list_size());
+
+  EXPECT_THAT(query.GetReferencedParameters(), IsOkAndHolds(IsEmpty()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.Execute());
+
+  EXPECT_EQ(4, iter->NumColumns());
+  EXPECT_EQ("y", iter->GetColumnName(0));
+  EXPECT_EQ("z", iter->GetColumnName(1));
+  EXPECT_EQ("x", iter->GetColumnName(2));
+  EXPECT_EQ("x", iter->GetColumnName(3));
+  EXPECT_EQ("INT64", iter->GetColumnType(0)->DebugString());
+  EXPECT_EQ("INT64", iter->GetColumnType(1)->DebugString());
+  EXPECT_EQ("INT64", iter->GetColumnType(2)->DebugString());
+  EXPECT_EQ("INT64", iter->GetColumnType(3)->DebugString());
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(1), iter->GetValue(0));
+  EXPECT_EQ(Int64(1), iter->GetValue(1));
+  EXPECT_EQ(Int64(1), iter->GetValue(2));
+  EXPECT_EQ(Int64(1), iter->GetValue(3));
+
+  EXPECT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(1), iter->GetValue(0));
+  EXPECT_EQ(Int64(2), iter->GetValue(1));
+  EXPECT_EQ(Int64(1), iter->GetValue(2));
+  EXPECT_EQ(Int64(2), iter->GetValue(3));
+
+  EXPECT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(2), iter->GetValue(0));
+  EXPECT_EQ(Int64(1), iter->GetValue(1));
+  EXPECT_EQ(Int64(2), iter->GetValue(2));
+  EXPECT_EQ(Int64(1), iter->GetValue(3));
+
+  EXPECT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(2), iter->GetValue(0));
+  EXPECT_EQ(Int64(2), iter->GetValue(1));
+  EXPECT_EQ(Int64(2), iter->GetValue(2));
+  EXPECT_EQ(Int64(2), iter->GetValue(3));
+
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST(PreparedQuery, FromTable) {
+  SimpleTable test_table(
+      "TestTable", {{"a", types::Int64Type()}, {"b", types::StringType()}});
+  test_table.SetContents({{Int64(10), String("foo")},
+                          {Int64(20), String("bar")},
+                          {Int64(30), String("baz")}});
+
+  SimpleCatalog catalog("TestCatalog");
+  catalog.AddTable(test_table.Name(), &test_table);
+
+  PreparedQuery query("select a, b from TestTable", EvaluatorOptions());
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), &catalog));
+
+  EXPECT_EQ(2, query.num_columns());
+  EXPECT_EQ("a", query.column_name(0));
+  EXPECT_EQ("b", query.column_name(1));
+  EXPECT_EQ("INT64", query.column_type(0)->DebugString());
+  EXPECT_EQ("STRING", query.column_type(1)->DebugString());
+
+  EXPECT_FALSE(query.is_value_table());
+  EXPECT_EQ(2, query.resolved_query_stmt()->output_column_list_size());
+
+  EXPECT_THAT(query.GetReferencedParameters(), IsOkAndHolds(IsEmpty()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.Execute());
+  EXPECT_EQ(2, iter->NumColumns());
+  EXPECT_EQ("a", iter->GetColumnName(0));
+  EXPECT_EQ("b", iter->GetColumnName(1));
+  EXPECT_EQ("INT64", iter->GetColumnType(0)->DebugString());
+  EXPECT_EQ("STRING", iter->GetColumnType(1)->DebugString());
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(10), iter->GetValue(0));
+  EXPECT_EQ(String("foo"), iter->GetValue(1));
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(20), iter->GetValue(0));
+  EXPECT_EQ(String("bar"), iter->GetValue(1));
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(30), iter->GetValue(0));
+  EXPECT_EQ(String("baz"), iter->GetValue(1));
+
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST(PreparedQuery, FromTableOnlySecondColumn) {
+  SimpleTable test_table(
+      "TestTable", {{"a", types::Int64Type()}, {"b", types::StringType()}});
+  test_table.SetContents({{Int64(10), String("foo")},
+                          {Int64(20), String("bar")},
+                          {Int64(30), String("baz")}});
+
+  SimpleCatalog catalog("TestCatalog");
+  catalog.AddTable(test_table.Name(), &test_table);
+
+  PreparedQuery query("select b from TestTable", EvaluatorOptions());
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), &catalog));
+
+  EXPECT_EQ(1, query.num_columns());
+  EXPECT_EQ("b", query.column_name(0));
+  EXPECT_EQ("STRING", query.column_type(0)->DebugString());
+
+  EXPECT_FALSE(query.is_value_table());
+  EXPECT_EQ(1, query.resolved_query_stmt()->output_column_list_size());
+
+  EXPECT_THAT(query.GetReferencedParameters(), IsOkAndHolds(IsEmpty()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.Execute());
+  EXPECT_EQ(1, iter->NumColumns());
+  EXPECT_EQ("b", iter->GetColumnName(0));
+  EXPECT_EQ("STRING", iter->GetColumnType(0)->DebugString());
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(String("foo"), iter->GetValue(0));
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(String("bar"), iter->GetValue(0));
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(String("baz"), iter->GetValue(0));
+
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST(PreparedQuery, FromTableFailure) {
+  const std::string error = "Failed to read row from TestTable";
+  const zetasql_base::Status failure = zetasql_base::OutOfRangeErrorBuilder() << error;
+
+  EvaluatorTestTable test_table("TestTable", {{"a", types::Int64Type()}},
+                                {{Int64(10)}, {Int64(20)}, {Int64(30)}},
+                                failure);
+
+  SimpleCatalog catalog("TestCatalog");
+  catalog.AddTable(test_table.Name(), &test_table);
+
+  PreparedQuery query("select a from TestTable", EvaluatorOptions());
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), &catalog));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.Execute());
+
+  ASSERT_EQ(1, iter->NumColumns());
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(10), iter->GetValue(0));
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(20), iter->GetValue(0));
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(30), iter->GetValue(0));
+  EXPECT_FALSE(iter->NextRow());
+  EXPECT_THAT(iter->Status(), StatusIs(zetasql_base::OUT_OF_RANGE, error));
+}
+
+TEST(PreparedQuery, FromTableCancellation) {
+  SimpleTable test_table("TestTable", {{"a", types::Int64Type()}});
+  test_table.SetContents({{Int64(10)}, {Int64(20)}, {Int64(30)}});
+
+  SimpleCatalog catalog("TestCatalog");
+  catalog.AddTable(test_table.Name(), &test_table);
+
+  PreparedQuery query("select a from TestTable", EvaluatorOptions());
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), &catalog));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.Execute());
+
+  ASSERT_EQ(1, iter->NumColumns());
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(10), iter->GetValue(0));
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(20), iter->GetValue(0));
+
+  ZETASQL_EXPECT_OK(iter->Cancel());
+  EXPECT_FALSE(iter->NextRow());
+  EXPECT_THAT(iter->Status(), StatusIs(zetasql_base::CANCELLED, _));
+}
+
+TEST(PreparedQuery, FromTableDeadlineExceeded) {
+  absl::SetFlag(&FLAGS_zetasql_simple_iterator_call_time_now_rows_period, 1);
+
+  zetasql_base::SimulatedClock clock(absl::UnixEpoch());
+
+  EvaluatorTestTable test_table(
+      "TestTable", {{"a", types::Int64Type()}},
+      {{Int64(10)}, {Int64(20)}, {Int64(30)}},
+      /*end_status=*/zetasql_base::OkStatus(),
+      /*column_filter_idxs=*/{},
+      /*cancel_cb=*/[]() {},
+      /*set_deadline_cb=*/[](absl::Time /*deadline*/) {}, &clock);
+
+  SimpleCatalog catalog("TestCatalog");
+  catalog.AddTable(test_table.Name(), &test_table);
+
+  EvaluatorOptions options;
+  options.clock = &clock;
+
+  PreparedQuery query("select a from TestTable", options);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), &catalog));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.Execute());
+  iter->SetDeadline(clock.TimeNow() + absl::Seconds(10));
+
+  ASSERT_EQ(1, iter->NumColumns());
+  ASSERT_TRUE(iter->NextRow()) << iter->Status();
+  EXPECT_EQ(Int64(10), iter->GetValue(0));
+
+  clock.AdvanceTime(absl::Seconds(15));
+  EXPECT_FALSE(iter->NextRow());
+  EXPECT_THAT(iter->Status(), StatusIs(zetasql_base::StatusCode::kDeadlineExceeded, _));
+}
+
+TEST(PreparedQuery, OutputIsValueTable) {
+  PreparedQuery query("select as value 1 a", EvaluatorOptions());
+  ZETASQL_EXPECT_OK(query.Prepare(AnalyzerOptions()));
+
+  EXPECT_EQ(1, query.num_columns());
+  EXPECT_EQ("", query.column_name(0));
+  EXPECT_EQ("INT64", query.column_type(0)->DebugString());
+
+  std::vector<PreparedQuery::NameAndType> columns = query.GetColumns();
+  EXPECT_EQ(1, columns.size());
+  EXPECT_EQ("", columns[0].first);
+  EXPECT_EQ("INT64", columns[0].second->DebugString());
+
+  EXPECT_TRUE(query.is_value_table());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.Execute());
+
+  EXPECT_EQ(1, iter->NumColumns());
+  EXPECT_EQ("", iter->GetColumnName(0));
+  EXPECT_EQ("INT64", iter->GetColumnType(0)->DebugString());
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(1), iter->GetValue(0));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST(PreparedQuery, TwoIteratorsAtTheSameTime) {
+  SimpleTable test_table("TestTable", {{"a", types::Int64Type()}});
+  test_table.SetContents({{Int64(10)}, {Int64(20)}, {Int64(30)}});
+
+  SimpleCatalog catalog("TestCatalog");
+  catalog.AddTable(test_table.Name(), &test_table);
+  catalog.AddZetaSQLFunctions();
+
+  zetasql_base::SimulatedClock clock;
+  EvaluatorOptions options;
+  options.clock = &clock;
+
+  PreparedQuery query(
+      "select a, unix_seconds(current_timestamp()) from TestTable", options);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), &catalog));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter1,
+                       query.Execute());
+
+  ASSERT_TRUE(iter1->NextRow());
+  EXPECT_EQ(Int64(10), iter1->GetValue(0));
+  EXPECT_EQ(Int64(0), iter1->GetValue(1));
+
+  clock.AdvanceTime(absl::Seconds(1));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter2,
+                       query.Execute());
+
+  ASSERT_TRUE(iter1->NextRow());
+  EXPECT_EQ(Int64(20), iter1->GetValue(0));
+  EXPECT_EQ(Int64(0), iter1->GetValue(1));
+
+  ASSERT_TRUE(iter2->NextRow());
+  EXPECT_EQ(Int64(10), iter2->GetValue(0));
+  EXPECT_EQ(Int64(1), iter2->GetValue(1));
+
+  clock.AdvanceTime(absl::Seconds(1));
+
+  ASSERT_TRUE(iter1->NextRow());
+  EXPECT_EQ(Int64(30), iter1->GetValue(0));
+  EXPECT_EQ(Int64(0), iter1->GetValue(1));
+
+  ASSERT_TRUE(iter2->NextRow());
+  EXPECT_EQ(Int64(20), iter2->GetValue(0));
+  EXPECT_EQ(Int64(1), iter2->GetValue(1));
+
+  clock.AdvanceTime(absl::Seconds(1));
+
+  EXPECT_FALSE(iter1->NextRow());
+
+  ASSERT_TRUE(iter2->NextRow());
+  EXPECT_EQ(Int64(30), iter2->GetValue(0));
+  EXPECT_EQ(Int64(1), iter2->GetValue(1));
+  EXPECT_FALSE(iter2->NextRow());
+}
+
+TEST(PreparedQuery, Error) {
+  PreparedQuery query("select 1 + 'abc'", EvaluatorOptions());
+
+  EXPECT_THAT(query.Prepare(AnalyzerOptions()),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("No matching signature")));
+}
+
+TEST(PreparedQueryDeathTest, IteratorStillLiveOnDestruction) {
+  SimpleTable test_table("TestTable", {{"a", types::Int64Type()}});
+  test_table.SetContents({{Int64(10)}, {Int64(20)}, {Int64(30)}});
+
+  SimpleCatalog catalog("TestCatalog");
+  catalog.AddTable(test_table.Name(), &test_table);
+
+  auto query = absl::make_unique<PreparedQuery>("select a from TestTable",
+                                                EvaluatorOptions());
+  ZETASQL_ASSERT_OK(query->Prepare(AnalyzerOptions(), &catalog));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query->Execute());
+  EXPECT_DEATH(query.reset(), "cannot outlive the PreparedQuery object");
+}
+
+TEST(PreparedQuery, InvalidStatementKind) {
+  LanguageOptions language_options;
+  language_options.SetSupportedStatementKinds({RESOLVED_DELETE_STMT});
+  AnalyzerOptions analyzer_options(language_options);
+
+  SimpleTable table("TestTable");
+  SimpleCatalog catalog("TestCatalog");
+  catalog.AddTable(table.Name(), &table);
+
+  PreparedQuery query("delete from TestTable where true", EvaluatorOptions());
+  EXPECT_THAT(query.Prepare(analyzer_options, &catalog),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("Statement is not a query")));
+}
+
+TEST(PreparedQuery, Parameter) {
+  PreparedQuery query("select @p1, @p2", EvaluatorOptions());
+
+  AnalyzerOptions analyzer_options;
+  ZETASQL_EXPECT_OK(analyzer_options.AddQueryParameter("p1", types::Int64Type()));
+  ZETASQL_EXPECT_OK(analyzer_options.AddQueryParameter("p2", types::StringType()));
+  ZETASQL_EXPECT_OK(analyzer_options.AddQueryParameter("p3", types::DoubleType()));
+
+  ZETASQL_EXPECT_OK(query.Prepare(analyzer_options));
+
+  EXPECT_THAT(query.GetReferencedParameters(),
+              IsOkAndHolds(UnorderedElementsAre("p1", "p2")));
+  EXPECT_THAT(query.GetPositionalParameterCount(), IsOkAndHolds(0));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.Execute({{"p2", values::String("abc")},
+                                      {"p1", values::Int64(123)}}));
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(123), iter->GetValue(0));
+  EXPECT_EQ(String("abc"), iter->GetValue(1));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  iter.reset();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(iter, query.Execute({{"p2", values::NullString()},
+                                            {"p1", values::Int64(111)},
+                                            {"p3", values::NullDouble()},
+                                            {"p4", values::NullBytes()}}));
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(111), iter->GetValue(0));
+  EXPECT_EQ(NullString(), iter->GetValue(1));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  iter.reset();
+  EXPECT_THAT(query.Execute({{"p2", values::NullString()}}),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("Incomplete query parameters p1")));
+}
+
+TEST(PreparedQuery, PositionalParameter) {
+  PreparedQuery query("select ?, ?", EvaluatorOptions());
+
+  AnalyzerOptions analyzer_options;
+  analyzer_options.set_parameter_mode(PARAMETER_POSITIONAL);
+  ZETASQL_EXPECT_OK(analyzer_options.AddPositionalQueryParameter(types::Int64Type()));
+  ZETASQL_EXPECT_OK(analyzer_options.AddPositionalQueryParameter(types::StringType()));
+  ZETASQL_EXPECT_OK(analyzer_options.AddPositionalQueryParameter(types::DoubleType()));
+
+  ZETASQL_ASSERT_OK(query.Prepare(analyzer_options));
+
+  EXPECT_THAT(query.GetReferencedParameters(), IsOkAndHolds(IsEmpty()));
+  EXPECT_THAT(query.GetPositionalParameterCount(), IsOkAndHolds(2));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<EvaluatorTableIterator> iter,
+      query.ExecuteWithPositionalParams({Int64(123), String("abc")}));
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(123), iter->GetValue(0));
+  EXPECT_EQ(String("abc"), iter->GetValue(1));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  iter.reset();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      iter, query.ExecuteWithPositionalParams(
+                {Int64(111), NullString(), NullDouble(), NullBytes()}));
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(111), iter->GetValue(0));
+  EXPECT_EQ(NullString(), iter->GetValue(1));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  iter.reset();
+  EXPECT_THAT(query.ExecuteWithPositionalParams({Int64(100)}),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("Incorrect number of positional parameters")));
+}
+
+TEST(PreparedQuery, ExecuteAfterPrepareWithOrderedParamsWithParameter) {
+  PreparedQuery query("select @p1, @p2", EvaluatorOptions());
+
+  AnalyzerOptions analyzer_options;
+  ZETASQL_EXPECT_OK(analyzer_options.AddQueryParameter("p1", types::Int64Type()));
+  ZETASQL_EXPECT_OK(analyzer_options.AddQueryParameter("p2", types::StringType()));
+  ZETASQL_EXPECT_OK(analyzer_options.AddQueryParameter("p3", types::DoubleType()));
+
+  ZETASQL_EXPECT_OK(query.Prepare(analyzer_options));
+
+  EXPECT_THAT(query.GetReferencedParameters(),
+              IsOkAndHolds(ElementsAre("p1", "p2")));
+  EXPECT_THAT(query.GetPositionalParameterCount(), IsOkAndHolds(0));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams(
+                           {values::Int64(123), values::String("abc")}));
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(123), iter->GetValue(0));
+  EXPECT_EQ(String("abc"), iter->GetValue(1));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  iter.reset();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(iter, query.ExecuteAfterPrepareWithOrderedParams(
+                                 {values::Int64(111), values::NullString()}));
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(111), iter->GetValue(0));
+  EXPECT_EQ(NullString(), iter->GetValue(1));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  iter.reset();
+  EXPECT_THAT(
+      query.ExecuteAfterPrepareWithOrderedParams({values::NullString()}),
+      StatusIs(zetasql_base::INVALID_ARGUMENT,
+               HasSubstr("Incorrect number of named parameters")));
+}
+
+TEST(PreparedQuery,
+     ExecuteAfterPreparedWithOrderedParamsWithPositionalParameter) {
+  PreparedQuery query("select ?, ?", EvaluatorOptions());
+
+  AnalyzerOptions analyzer_options;
+  analyzer_options.set_parameter_mode(PARAMETER_POSITIONAL);
+  ZETASQL_EXPECT_OK(analyzer_options.AddPositionalQueryParameter(types::Int64Type()));
+  ZETASQL_EXPECT_OK(analyzer_options.AddPositionalQueryParameter(types::StringType()));
+  ZETASQL_EXPECT_OK(analyzer_options.AddPositionalQueryParameter(types::DoubleType()));
+
+  ZETASQL_ASSERT_OK(query.Prepare(analyzer_options));
+
+  EXPECT_THAT(query.GetReferencedParameters(), IsOkAndHolds(IsEmpty()));
+  EXPECT_THAT(query.GetPositionalParameterCount(), IsOkAndHolds(2));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<EvaluatorTableIterator> iter,
+      query.ExecuteAfterPrepareWithOrderedParams({Int64(123), String("abc")}));
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(123), iter->GetValue(0));
+  EXPECT_EQ(String("abc"), iter->GetValue(1));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  iter.reset();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      iter, query.ExecuteAfterPrepareWithOrderedParams(
+                {Int64(111), NullString(), NullDouble(), NullBytes()}));
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(Int64(111), iter->GetValue(0));
+  EXPECT_EQ(NullString(), iter->GetValue(1));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  iter.reset();
+  EXPECT_THAT(query.ExecuteAfterPrepareWithOrderedParams({Int64(100)}),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("Incorrect number of positional parameters")));
+}
+
+TEST(PreparedQuery, ExplainAfterPrepareWithoutPrepare) {
+  PreparedQuery query("select a, b from TestTable", EvaluatorOptions());
+  EXPECT_THAT(query.ExplainAfterPrepare(),
+              StatusIs(zetasql_base::INTERNAL,
+                       HasSubstr("Prepare must be called first")));
+}
+
+}  // namespace
+
+class PreparedQueryTest : public ::testing::Test {
+ protected:
+  void SetupContextCallback(PreparedQuery* query) {
+    query->SetCreateEvaluationCallbackTestOnly([this](EvaluationContext* cb) {
+      // There should only be one EvaluationContext in each of these tests.
+      CHECK(context_ == nullptr);
+      context_ = cb;
+    });
+  }
+
+  EvaluationContext* context_ = nullptr;
+};
+
+namespace {
+
+TEST_F(PreparedQueryTest, TopNAccumulator) {
+  SimpleTable test_table("TestTable", {{"a", types::Int64Type()}});
+  test_table.SetContents({{Int64(30)}, {Int64(20)}, {Int64(10)}});
+
+  SimpleCatalog catalog("TestCatalog");
+  catalog.AddTable(test_table.Name(), &test_table);
+  catalog.AddZetaSQLFunctions();
+
+  PreparedQuery query(
+      "select array_agg(a order by a limit 2) agg from TestTable",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+
+  AnalyzerOptions analyzer_options;
+  LanguageOptions* language_options = analyzer_options.mutable_language();
+  language_options->EnableLanguageFeature(FEATURE_V_1_1_ORDER_BY_IN_AGGREGATE);
+  language_options->EnableLanguageFeature(FEATURE_V_1_1_LIMIT_IN_AGGREGATE);
+
+  ZETASQL_ASSERT_OK(query.Prepare(analyzer_options, &catalog));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 1);
+  ASSERT_EQ(iter->GetColumnName(0), "agg");
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), values::Int64Array({10, 20}));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  EXPECT_TRUE(context_->used_top_n_accumulator());
+}
+
+// Test fixture for end-to-end tests of reading all fields from a proto in one
+// shot.
+class PreparedQueryProtoTest : public PreparedQueryTest {
+ protected:
+  void SetUp() override {
+    ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
+        zetasql_test::KitchenSinkPB::descriptor(), &proto_type_));
+
+    table_ =
+        absl::WrapUnique(new SimpleTable("TestTable", {{"col", proto_type_}}));
+    table_->SetContents({{GetProtoValue(1)}});
+
+    ZETASQL_ASSERT_OK(type_factory_.MakeStructType({{"kitchen_sink", proto_type_}},
+                                           &struct_with_just_proto_type_));
+    ZETASQL_ASSERT_OK(type_factory_.MakeStructType(
+        {{"kitchen_sink", proto_type_}, {"s", struct_with_just_proto_type_}},
+        &struct_with_proto_type_));
+
+    table2_ = absl::WrapUnique(new SimpleTable(
+        "TestTable2",
+        {{"kitchen_sink", proto_type_}, {"s", struct_with_proto_type_}}));
+    table2_->SetContents(
+        {{GetProtoValue(1),
+          values::Struct(
+              struct_with_proto_type_,
+              {GetProtoValue(10), values::Struct(struct_with_just_proto_type_,
+                                                 {GetProtoValue(100)})})}});
+
+    catalog_ = absl::make_unique<SimpleCatalog>("TestCatalog");
+    catalog_->AddTable(table_->Name(), table_.get());
+    catalog_->AddTable(table2_->Name(), table2_.get());
+    catalog_->AddZetaSQLFunctions();
+
+    catalog_->AddType("zetasql_test.KitchenSinkPB", proto_type_);
+
+    ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
+        zetasql_test::TestOptionalFields::descriptor(), &optional_type_));
+    catalog_->AddType("zetasql_test.TestOptionalFields", optional_type_);
+  }
+
+  Value GetProtoValue(int key) const {
+    zetasql_test::KitchenSinkPB proto;
+    proto.set_int64_key_1(key);
+    proto.set_int64_key_2(key + 1);
+
+    PopulateNestedProto(key, proto.mutable_nested_value());
+
+    zetasql_test::RewrappedNullableInt* rewrapped_nullable_int =
+        proto.mutable_rewrapped_nullable_int();
+    rewrapped_nullable_int->mutable_value()->set_value(key * 1000);
+
+    proto.add_nested_repeated_value()->set_nested_int64(2 * key * 10);
+    proto.add_nested_repeated_value()->set_nested_int64(3 * key * 10);
+
+    zetasql_test::KitchenSinkPB_OptionalGroup* group =
+        proto.mutable_optionalgroup();
+    group->set_int64_val(500);
+    group->add_optionalgroupnested()->set_int64_val(key * 1000 + 1);
+    group->add_optionalgroupnested()->set_int64_val(key * 1000 + 2);
+
+    std::string cord;
+    EXPECT_TRUE(proto.SerializeToString(&cord));
+    return Value::Proto(proto_type_, cord);
+  }
+
+  static void PopulateNestedProto(
+      int key, zetasql_test::KitchenSinkPB_Nested* nested) {
+    nested->set_nested_int64(key * 10);
+    nested->add_nested_repeated_int64(key * 100);
+    nested->add_nested_repeated_int64(key * 100 + 1);
+  }
+
+  int GetNumProtoDeserializations() const {
+    return context_->num_proto_deserializations();
+  }
+
+  TypeFactory type_factory_;
+  std::unique_ptr<SimpleTable> table_;
+  std::unique_ptr<SimpleTable> table2_;
+  std::unique_ptr<SimpleCatalog> catalog_;
+  const ProtoType* proto_type_ = nullptr;
+  const StructType* struct_with_just_proto_type_;
+  const StructType* struct_with_proto_type_;
+  const ProtoType* optional_type_ = nullptr;
+};
+
+TEST_F(PreparedQueryProtoTest, SelectProtoFromTable) {
+  PreparedQuery query("select col from TestTable", EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 1);
+  ASSERT_EQ(iter->GetColumnName(0), "col");
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), GetProtoValue(/*key=*/1));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  EXPECT_EQ(GetNumProtoDeserializations(), 0);
+}
+
+TEST_F(PreparedQueryProtoTest, SelectFieldFromProto) {
+  PreparedQuery query("select col.int64_key_1 from TestTable",
+                      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 1);
+  ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Int64(1));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  EXPECT_EQ(GetNumProtoDeserializations(), 1);
+}
+
+TEST_F(PreparedQueryProtoTest, SelectTwoFieldsFromProto) {
+  PreparedQuery query("select col.int64_key_1, col.int64_key_2 from TestTable",
+                      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
+  ASSERT_EQ(iter->GetColumnName(1), "int64_key_2");
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Int64(1));
+  EXPECT_EQ(iter->GetValue(1), Int64(2));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  EXPECT_EQ(GetNumProtoDeserializations(), 1);
+}
+
+TEST_F(PreparedQueryProtoTest, SelectTwoFieldsFromProtoInTwoRows) {
+  auto new_table =
+      absl::WrapUnique(new SimpleTable("NewTestTable", {{"col", proto_type_}}));
+  new_table->SetContents({{GetProtoValue(1)}, {GetProtoValue(3)}});
+  catalog_->AddTable(new_table->Name(), new_table.get());
+
+  PreparedQuery query(
+      "select col.int64_key_1, col.int64_key_2 from NewTestTable",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
+  ASSERT_EQ(iter->GetColumnName(1), "int64_key_2");
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Int64(1));
+  EXPECT_EQ(iter->GetValue(1), Int64(2));
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Int64(3));
+  EXPECT_EQ(iter->GetValue(1), Int64(4));
+
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  // One deserialization per row.
+  EXPECT_EQ(GetNumProtoDeserializations(), 2);
+}
+
+TEST_F(PreparedQueryProtoTest, SelectSameFieldTwice) {
+  PreparedQuery query("select col.int64_key_1, col.int64_key_1 from TestTable",
+                      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
+  ASSERT_EQ(iter->GetColumnName(1), "int64_key_1");
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Int64(1));
+  EXPECT_EQ(iter->GetValue(1), Int64(1));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  EXPECT_EQ(GetNumProtoDeserializations(), 1);
+}
+
+TEST_F(PreparedQueryProtoTest, SameFieldWithNoHasBitAndHasBit) {
+  PreparedQuery query(
+      "select col.int64_key_1, col.has_int64_key_1 from TestTable",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
+  ASSERT_EQ(iter->GetColumnName(1), "has_int64_key_1");
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Int64(1));
+  EXPECT_EQ(iter->GetValue(1), Bool(true));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  EXPECT_EQ(GetNumProtoDeserializations(), 1);
+}
+
+TEST_F(PreparedQueryProtoTest, SameFieldWithHasBitAndNoHasBit) {
+  PreparedQuery query(
+      "select col.has_int64_key_1, col.int64_key_1 from TestTable",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "has_int64_key_1");
+  ASSERT_EQ(iter->GetColumnName(1), "int64_key_1");
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Bool(true));
+  EXPECT_EQ(iter->GetValue(1), Int64(1));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  EXPECT_EQ(GetNumProtoDeserializations(), 1);
+}
+
+TEST_F(PreparedQueryProtoTest, SameProtoFieldWithNoHasBitAndHasBit) {
+  PreparedQuery query(
+      "select col.nested_value, col.has_nested_value from TestTable",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "nested_value");
+  ASSERT_EQ(iter->GetColumnName(1), "has_nested_value");
+
+  ASSERT_TRUE(iter->NextRow());
+
+  zetasql_test::KitchenSinkPB_Nested nested_value;
+  nested_value.set_nested_int64(10);
+  nested_value.add_nested_repeated_int64(100);
+  nested_value.add_nested_repeated_int64(101);
+   std::string bytes;
+  ASSERT_TRUE(nested_value.SerializeToString(&bytes));
+
+  const ProtoType* nested_type;
+  ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
+      zetasql_test::KitchenSinkPB_Nested::descriptor(), &nested_type));
+
+  EXPECT_EQ(iter->GetValue(0), Value::Proto(nested_type, bytes));
+  EXPECT_EQ(iter->GetValue(1), Bool(true));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  EXPECT_EQ(GetNumProtoDeserializations(), 1);
+}
+
+TEST_F(PreparedQueryProtoTest, SameProtoFieldWithHasBitAndNoHasBit) {
+  PreparedQuery query(
+      "select col.has_nested_value, col.nested_value from TestTable",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "has_nested_value");
+  ASSERT_EQ(iter->GetColumnName(1), "nested_value");
+
+  ASSERT_TRUE(iter->NextRow());
+
+  EXPECT_EQ(iter->GetValue(0), Bool(true));
+
+  zetasql_test::KitchenSinkPB_Nested nested_value;
+  nested_value.set_nested_int64(10);
+  nested_value.add_nested_repeated_int64(100);
+  nested_value.add_nested_repeated_int64(101);
+   std::string bytes;
+  ASSERT_TRUE(nested_value.SerializeToString(&bytes));
+
+  const ProtoType* nested_type;
+  ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
+      zetasql_test::KitchenSinkPB_Nested::descriptor(), &nested_type));
+
+  EXPECT_EQ(iter->GetValue(1), Value::Proto(nested_type, bytes));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  EXPECT_EQ(GetNumProtoDeserializations(), 1);
+}
+
+TEST_F(PreparedQueryProtoTest, SameFieldPathTwice) {
+  PreparedQuery query(
+      "select col.nested_value.nested_int64, "
+      "       col.nested_value.nested_int64 "
+      "from TestTable",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "nested_int64");
+  ASSERT_EQ(iter->GetColumnName(1), "nested_int64");
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Int64(10));
+  EXPECT_EQ(iter->GetValue(1), Int64(10));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  // Two deserializations: one for the column and one for the nested value.
+  EXPECT_EQ(GetNumProtoDeserializations(), 2);
+}
+
+TEST_F(PreparedQueryProtoTest, TwoFieldPaths) {
+  PreparedQuery query(
+      "select col.nested_value.nested_int64, "
+      "       col.nested_value.nested_repeated_int64 "
+      "from TestTable",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "nested_int64");
+  ASSERT_EQ(iter->GetColumnName(1), "nested_repeated_int64");
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Int64(10));
+  EXPECT_EQ(iter->GetValue(1), values::Int64Array({100, 101}));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  // Two deserializations: one for the column and one for the nested value.
+  EXPECT_EQ(GetNumProtoDeserializations(), 2);
+}
+
+TEST_F(PreparedQueryProtoTest, FieldAndSubfield) {
+  PreparedQuery query(
+      "select col.nested_value, col.nested_value.nested_int64 from TestTable",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "nested_value");
+  ASSERT_EQ(iter->GetColumnName(1), "nested_int64");
+
+  ASSERT_TRUE(iter->NextRow());
+
+  zetasql_test::KitchenSinkPB_Nested nested_value;
+  PopulateNestedProto(/*key=*/1, &nested_value);
+   std::string bytes;
+  ASSERT_TRUE(nested_value.SerializeToString(&bytes));
+
+  const ProtoType* nested_type;
+  ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
+      zetasql_test::KitchenSinkPB_Nested::descriptor(), &nested_type));
+
+  EXPECT_EQ(iter->GetValue(0), Value::Proto(nested_type, bytes));
+  EXPECT_EQ(iter->GetValue(1), Int64(10));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  // Two deserializations: one for the column and one for the nested value.
+  EXPECT_EQ(GetNumProtoDeserializations(), 2);
+}
+
+TEST_F(PreparedQueryProtoTest, SubfieldAndField) {
+  PreparedQuery query(
+      "select col.nested_value.nested_int64, col.nested_value from TestTable",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "nested_int64");
+  ASSERT_EQ(iter->GetColumnName(1), "nested_value");
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Int64(10));
+
+  zetasql_test::KitchenSinkPB_Nested nested_value;
+  PopulateNestedProto(/*key=*/1, &nested_value);
+   std::string bytes;
+  ASSERT_TRUE(nested_value.SerializeToString(&bytes));
+
+  const ProtoType* nested_type;
+  ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
+      zetasql_test::KitchenSinkPB_Nested::descriptor(), &nested_type));
+
+  EXPECT_EQ(iter->GetValue(1), Value::Proto(nested_type, bytes));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  // Two deserializations: one for the column and one for the nested value.
+  EXPECT_EQ(GetNumProtoDeserializations(), 2);
+}
+
+TEST_F(PreparedQueryProtoTest, FieldAndSubSubField) {
+  PreparedQuery query(
+      "select col.rewrapped_nullable_int, "
+      "       col.rewrapped_nullable_int.value.value "
+      "from TestTable",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "rewrapped_nullable_int");
+  ASSERT_EQ(iter->GetColumnName(1), "value");
+
+  ASSERT_TRUE(iter->NextRow());
+
+  zetasql_test::RewrappedNullableInt rewrapped_nullable_int;
+  rewrapped_nullable_int.mutable_value()->set_value(1000);
+   std::string bytes;
+  ASSERT_TRUE(rewrapped_nullable_int.SerializeToString(&bytes));
+
+  const ProtoType* rewrapped_type;
+  ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
+      zetasql_test::RewrappedNullableInt::descriptor(), &rewrapped_type));
+
+  EXPECT_EQ(iter->GetValue(0), Value::Proto(rewrapped_type, bytes));
+  EXPECT_EQ(iter->GetValue(1), Int32(1000));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  // Three deserializations: one for the column, one for rewrapped_nullable_int,
+  // and one for rewrapped_nullable_int.value.
+  EXPECT_EQ(GetNumProtoDeserializations(), 3);
+}
+
+TEST_F(PreparedQueryProtoTest, SubSubFieldAndField) {
+  PreparedQuery query(
+      "select col.rewrapped_nullable_int.value.value, "
+      "       col.rewrapped_nullable_int "
+      "from TestTable",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "value");
+  ASSERT_EQ(iter->GetColumnName(1), "rewrapped_nullable_int");
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Int32(1000));
+
+  zetasql_test::RewrappedNullableInt rewrapped_nullable_int;
+  rewrapped_nullable_int.mutable_value()->set_value(1000);
+   std::string bytes;
+  ASSERT_TRUE(rewrapped_nullable_int.SerializeToString(&bytes));
+
+  const ProtoType* rewrapped_type;
+  ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
+      zetasql_test::RewrappedNullableInt::descriptor(), &rewrapped_type));
+
+  EXPECT_EQ(iter->GetValue(1), Value::Proto(rewrapped_type, bytes));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  // Three deserializations: one for the column, one for rewrapped_nullable_int,
+  // and one for rewrapped_nullable_int.value.
+  EXPECT_EQ(GetNumProtoDeserializations(), 3);
+}
+
+TEST_F(PreparedQueryProtoTest, Complex) {
+  PreparedQuery query(
+      "select col.nested_value, "
+      "       col.nested_value.nested_int64, "
+      "       col.nested_value.nested_repeated_int64, "
+      "       col.int64_key_1 "
+      "from TestTable",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 4);
+  ASSERT_EQ(iter->GetColumnName(0), "nested_value");
+  ASSERT_EQ(iter->GetColumnName(1), "nested_int64");
+  ASSERT_EQ(iter->GetColumnName(2), "nested_repeated_int64");
+  ASSERT_EQ(iter->GetColumnName(3), "int64_key_1");
+
+  ASSERT_TRUE(iter->NextRow());
+
+  zetasql_test::KitchenSinkPB_Nested nested_value;
+  nested_value.set_nested_int64(10);
+  nested_value.add_nested_repeated_int64(100);
+  nested_value.add_nested_repeated_int64(101);
+   std::string bytes;
+  ASSERT_TRUE(nested_value.SerializeToString(&bytes));
+
+  const ProtoType* nested_type;
+  ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
+      zetasql_test::KitchenSinkPB_Nested::descriptor(), &nested_type));
+
+  EXPECT_EQ(iter->GetValue(0), Value::Proto(nested_type, bytes));
+  EXPECT_EQ(iter->GetValue(1), Int64(10));
+  EXPECT_EQ(iter->GetValue(2), values::Int64Array({100, 101}));
+  EXPECT_EQ(iter->GetValue(3), Int64(1));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  // Two deserializations: one for the column and one for the nested value.
+  EXPECT_EQ(GetNumProtoDeserializations(), 2);
+}
+
+TEST_F(PreparedQueryProtoTest, WithRepeatedFieldOffsets) {
+  PreparedQuery query(
+      "select col.nested_repeated_value[offset(0)] as v1, "
+      "       col.nested_repeated_value[offset(0)] as v2 "
+      "from TestTable",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "v1");
+  ASSERT_EQ(iter->GetColumnName(1), "v2");
+
+  ASSERT_TRUE(iter->NextRow());
+
+  zetasql_test::KitchenSinkPB_Nested nested_proto;
+  nested_proto.set_nested_int64(20);
+   std::string bytes;
+  ASSERT_TRUE(nested_proto.SerializeToString(&bytes));
+
+  const ProtoType* nested_type;
+  ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
+      zetasql_test::KitchenSinkPB_Nested::descriptor(), &nested_type));
+
+  const Value nested_value = Value::Proto(nested_type, bytes);
+
+  EXPECT_EQ(iter->GetValue(0), nested_value);
+  EXPECT_EQ(iter->GetValue(1), nested_value);
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  // One deserialization (for the column).
+  EXPECT_EQ(GetNumProtoDeserializations(), 1);
+}
+
+TEST_F(PreparedQueryProtoTest, WithRepeatedFieldOffsetsAndFieldAccesses) {
+  PreparedQuery query(
+      "select col.nested_repeated_value[offset(0)].nested_int64, "
+      "       col.nested_repeated_value[offset(0)].nested_int64 "
+      "from TestTable",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "nested_int64");
+  ASSERT_EQ(iter->GetColumnName(1), "nested_int64");
+
+  ASSERT_TRUE(iter->NextRow());
+
+  EXPECT_EQ(iter->GetValue(0), Int64(20));
+  EXPECT_EQ(iter->GetValue(1), Int64(20));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  // The column is only deserialized once, but nested_repeated_value[offset(0)]
+  // is deserialized twice.
+  EXPECT_EQ(GetNumProtoDeserializations(), 3);
+}
+
+TEST_F(PreparedQueryProtoTest,
+       MessageFieldWithRepeatedFieldOffsetsAndFieldAccesses) {
+  PreparedQuery query(
+      "select col.OptionalGroup.OptionalGroupNested[offset(0)].int64_val, "
+      "       col.OptionalGroup.OptionalGroupNested[offset(0)].int64_val "
+      "from TestTable",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "int64_val");
+  ASSERT_EQ(iter->GetColumnName(1), "int64_val");
+
+  ASSERT_TRUE(iter->NextRow());
+
+  EXPECT_EQ(iter->GetValue(0), Int64(1001));
+  EXPECT_EQ(iter->GetValue(1), Int64(1001));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  // The column and the optional group are only deserialized once, but the array
+  // element is deserialized twice.
+  EXPECT_EQ(GetNumProtoDeserializations(), 4);
+}
+
+TEST_F(PreparedQueryProtoTest, Subquery) {
+  PreparedQuery query(
+      "select a.int64_key_1, a.int64_key_2\n"
+      "from (select (new zetasql_test.KitchenSinkPB(\n"
+      "                  1 as int64_key_1, 2 as int64_key_2)) a)",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
+  ASSERT_EQ(iter->GetColumnName(1), "int64_key_2");
+
+  ASSERT_TRUE(iter->NextRow());
+
+  EXPECT_EQ(iter->GetValue(0), Int64(1));
+  EXPECT_EQ(iter->GetValue(1), Int64(2));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  // The proto is only deserialized once.
+  EXPECT_EQ(GetNumProtoDeserializations(), 1);
+}
+
+TEST_F(PreparedQueryProtoTest, ProtoFromStruct) {
+  PreparedQuery query("select s.kitchen_sink from TestTable2",
+                      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 1);
+  ASSERT_EQ(iter->GetColumnName(0), "kitchen_sink");
+
+  ASSERT_TRUE(iter->NextRow());
+
+  EXPECT_EQ(iter->GetValue(0), GetProtoValue(10));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  // The proto is extracted from a struct but not deserialized.
+  EXPECT_EQ(GetNumProtoDeserializations(), 0);
+}
+
+TEST_F(PreparedQueryProtoTest, FieldFromProtoFromStruct) {
+  PreparedQuery query("select s.kitchen_sink.int64_key_1 from TestTable2",
+                      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 1);
+  ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
+
+  ASSERT_TRUE(iter->NextRow());
+
+  EXPECT_EQ(iter->GetValue(0), Int64(10));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  EXPECT_EQ(GetNumProtoDeserializations(), 1);
+}
+
+TEST_F(PreparedQueryProtoTest, TwoFieldsFromProtoFromStruct) {
+  PreparedQuery query(
+      "select s.kitchen_sink.int64_key_1, s.kitchen_sink.int64_key_2 "
+      "from TestTable2",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
+  ASSERT_EQ(iter->GetColumnName(1), "int64_key_2");
+
+  ASSERT_TRUE(iter->NextRow());
+
+  EXPECT_EQ(iter->GetValue(0), Int64(10));
+  EXPECT_EQ(iter->GetValue(1), Int64(11));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  EXPECT_EQ(GetNumProtoDeserializations(), 1);
+}
+
+TEST_F(PreparedQueryProtoTest, SameFieldTwiceFromProtoFromStruct) {
+  PreparedQuery query(
+      "select s.kitchen_sink.int64_key_1, s.kitchen_sink.int64_key_1 "
+      "from TestTable2",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
+  ASSERT_EQ(iter->GetColumnName(1), "int64_key_1");
+
+  ASSERT_TRUE(iter->NextRow());
+
+  EXPECT_EQ(iter->GetValue(0), Int64(10));
+  EXPECT_EQ(iter->GetValue(1), Int64(10));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  EXPECT_EQ(GetNumProtoDeserializations(), 1);
+}
+
+TEST_F(PreparedQueryProtoTest,
+       SameFieldTwiceFromProtoFromStructOnceWithHasBit) {
+  PreparedQuery query(
+      "select s.kitchen_sink.int64_key_1, s.kitchen_sink.has_int64_key_1 "
+      "from TestTable2",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
+  ASSERT_EQ(iter->GetColumnName(1), "has_int64_key_1");
+
+  ASSERT_TRUE(iter->NextRow());
+
+  EXPECT_EQ(iter->GetValue(0), Int64(10));
+  EXPECT_EQ(iter->GetValue(1), Bool(true));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  EXPECT_EQ(GetNumProtoDeserializations(), 1);
+}
+
+TEST_F(PreparedQueryProtoTest, MixedProtoAndStructFieldPaths) {
+  PreparedQuery query(
+      "select"
+      " kitchen_sink.int64_key_1, kitchen_sink.int64_key_2,"
+      " kitchen_sink.nested_value, kitchen_sink.nested_value.nested_int64,"
+      " kitchen_sink.nested_value.nested_repeated_int64,"
+      " s.kitchen_sink.int64_key_1, s.kitchen_sink.int64_key_2,"
+      " s.kitchen_sink.nested_value, s.kitchen_sink.nested_value.nested_int64,"
+      " s.kitchen_sink.nested_value.nested_repeated_int64,"
+      " s.s.kitchen_sink.int64_key_1, s.s.kitchen_sink.int64_key_2,"
+      " s.s.kitchen_sink.nested_value,"
+      " s.s.kitchen_sink.nested_value.nested_int64,"
+      " s.s.kitchen_sink.nested_value.nested_repeated_int64 "
+      "from TestTable2",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 15);
+  ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
+  ASSERT_EQ(iter->GetColumnName(1), "int64_key_2");
+  ASSERT_EQ(iter->GetColumnName(2), "nested_value");
+  ASSERT_EQ(iter->GetColumnName(3), "nested_int64");
+  ASSERT_EQ(iter->GetColumnName(4), "nested_repeated_int64");
+  ASSERT_EQ(iter->GetColumnName(5), "int64_key_1");
+  ASSERT_EQ(iter->GetColumnName(6), "int64_key_2");
+  ASSERT_EQ(iter->GetColumnName(7), "nested_value");
+  ASSERT_EQ(iter->GetColumnName(8), "nested_int64");
+  ASSERT_EQ(iter->GetColumnName(9), "nested_repeated_int64");
+  ASSERT_EQ(iter->GetColumnName(10), "int64_key_1");
+  ASSERT_EQ(iter->GetColumnName(11), "int64_key_2");
+  ASSERT_EQ(iter->GetColumnName(12), "nested_value");
+  ASSERT_EQ(iter->GetColumnName(13), "nested_int64");
+  ASSERT_EQ(iter->GetColumnName(14), "nested_repeated_int64");
+
+  ASSERT_TRUE(iter->NextRow());
+
+  zetasql_test::KitchenSinkPB_Nested expected_nested1;
+  zetasql_test::KitchenSinkPB_Nested expected_nested2;
+  zetasql_test::KitchenSinkPB_Nested expected_nested3;
+
+  PopulateNestedProto(/*key=*/1, &expected_nested1);
+  PopulateNestedProto(/*key=*/10, &expected_nested2);
+  PopulateNestedProto(/*key=*/100, &expected_nested3);
+
+  std::string serialized_expected_nested1;
+  std::string serialized_expected_nested2;
+  std::string serialized_expected_nested3;
+
+  ASSERT_TRUE(expected_nested1.SerializeToString(&serialized_expected_nested1));
+  ASSERT_TRUE(expected_nested2.SerializeToString(&serialized_expected_nested2));
+  ASSERT_TRUE(expected_nested3.SerializeToString(&serialized_expected_nested3));
+
+  const ProtoType* nested_type;
+  ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
+      zetasql_test::KitchenSinkPB_Nested::descriptor(), &nested_type));
+
+  const Value expected_nested1_value =
+      Value::Proto(nested_type, serialized_expected_nested1);
+  const Value expected_nested2_value =
+      Value::Proto(nested_type, serialized_expected_nested2);
+  const Value expected_nested3_value =
+      Value::Proto(nested_type, serialized_expected_nested3);
+
+  EXPECT_EQ(iter->GetValue(0), Int64(1));
+  EXPECT_EQ(iter->GetValue(1), Int64(2));
+  EXPECT_EQ(iter->GetValue(2), expected_nested1_value);
+  EXPECT_EQ(iter->GetValue(3), Int64(10));
+  EXPECT_EQ(iter->GetValue(4), values::Int64Array({100, 101}));
+  EXPECT_EQ(iter->GetValue(5), Int64(10));
+  EXPECT_EQ(iter->GetValue(6), Int64(11));
+  EXPECT_EQ(iter->GetValue(7), expected_nested2_value);
+  EXPECT_EQ(iter->GetValue(8), Int64(100));
+  EXPECT_EQ(iter->GetValue(9), values::Int64Array({1000, 1001}));
+  EXPECT_EQ(iter->GetValue(10), Int64(100));
+  EXPECT_EQ(iter->GetValue(11), Int64(101));
+  EXPECT_EQ(iter->GetValue(12), expected_nested3_value);
+  EXPECT_EQ(iter->GetValue(13), Int64(1000));
+  EXPECT_EQ(iter->GetValue(14), values::Int64Array({10000, 10001}));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  // We deserialize the following protos:
+  // - kitchen_sink
+  // - kitchen_sink.nested_value
+  // - s.kitchen_sink
+  // - s.kitchen_sink.nested_value
+  // - s.s.kitchen_sink
+  // - s.s.kitchen_sink.nested_value
+  EXPECT_EQ(GetNumProtoDeserializations(), 6);
+}
+
+TEST_F(PreparedQueryProtoTest, ArbitraryProtoValuedExpression) {
+  PreparedQuery query(
+      "select new zetasql_test.TestOptionalFields().value, "
+      "       new zetasql_test.TestOptionalFields().value "
+      "from TestTable",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepareWithOrderedParams({}));
+  ASSERT_EQ(iter->NumColumns(), 2);
+  ASSERT_EQ(iter->GetColumnName(0), "value");
+  ASSERT_EQ(iter->GetColumnName(1), "value");
+
+  ASSERT_TRUE(iter->NextRow());
+
+  EXPECT_EQ(iter->GetValue(0), Int64(0));
+  EXPECT_EQ(iter->GetValue(1), Int64(0));
+
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  // We have to deserialize the proto-valued expression twice because it is not
+  // of the form column.field_path.
+  EXPECT_EQ(GetNumProtoDeserializations(), 2);
+}
+
+}  // namespace
+}  // namespace zetasql

@@ -25,6 +25,7 @@
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/analyzer/resolver.h"
 #include "zetasql/common/status_payload_utils.h"
+#include "zetasql/public/function_signature.h"
 #include <cstdint>
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
@@ -56,6 +57,7 @@
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/statusor.h"
 
@@ -970,6 +972,102 @@ zetasql_base::Status FunctionResolver::CheckCreateAggregateFunctionProperties(
   return zetasql_base::OkStatus();
 }
 
+zetasql_base::Status FunctionResolver::ProcessNamedArguments(
+    const std::string& function_name, const FunctionSignature& signature,
+    const ASTNode* ast_location,
+    const std::vector<std::pair<const ASTNamedArgument*, int>>& named_arguments,
+    std::vector<const ASTNode*>* arg_locations,
+    std::vector<std::unique_ptr<const ResolvedExpr>>* arguments) {
+  if (named_arguments.empty()) {
+    // Nothing to do.
+    return zetasql_base::OkStatus();
+  }
+  // Make sure the language feature is enabled.
+  if (!resolver_->language().LanguageFeatureEnabled(FEATURE_NAMED_ARGUMENTS)) {
+    return MakeSqlErrorAt(named_arguments[0].first)
+           << "Named arguments are not supported";
+  }
+  // Build a set of all required argument names in the function signature.
+  std::set<std::string, zetasql_base::StringCaseLess> required_argument_names;
+  for (const FunctionArgumentType& arg_type : signature.arguments()) {
+    if (arg_type.options().has_argument_name()) {
+      ZETASQL_RET_CHECK(zetasql_base::InsertIfNotPresent(&required_argument_names,
+                                        arg_type.options().argument_name()))
+          << "Duplicate named argument " << arg_type.options().argument_name()
+          << " found in signature for function " << function_name;
+    }
+  }
+  // Build a map from each argument name to the index in which the named
+  // argument appears in <arguments> and <arg_locations>.
+  std::map<std::string, int, zetasql_base::StringCaseLess> argument_names_to_indexes;
+  for (const std::pair<const ASTNamedArgument*, int>& named_arg :
+       named_arguments) {
+    // Map the argument name to the index in which it appears in the function
+    // call. If the name already exists in the map, this is a duplicate named
+    // argument which is not allowed.
+    const std::string provided_arg_name = named_arg.first->name()->GetAsString();
+    if (!zetasql_base::InsertIfNotPresent(&argument_names_to_indexes, provided_arg_name,
+                                 named_arg.second)) {
+      return MakeSqlErrorAt(named_arg.first)
+             << "Duplicate named argument " << provided_arg_name
+             << " found in call to function " << function_name;
+    }
+    // Make sure the provided argument name exists in the function signature.
+    if (!zetasql_base::ContainsKey(required_argument_names, provided_arg_name)) {
+      return MakeSqlErrorAt(named_arg.first)
+             << "Named argument " << provided_arg_name
+             << " not found in signature for call to function "
+             << function_name;
+    }
+  }
+  // Support is only implemented for signatures with all required arguments
+  // types so far.
+  // TODO: Support optional argument types.
+  // TODO: Support a combination of positional and named arguments.
+  if (named_arguments.size() < arguments->size()) {
+    return MakeSqlErrorAt(ast_location)
+           << "Combinations of positional arguments and named arguments are "
+           << "not supported yet";
+  } else if (std::any_of(
+                 signature.arguments().begin(), signature.arguments().end(),
+                 [](const FunctionArgumentType& arg) {
+                   return arg.cardinality() == FunctionArgumentType::OPTIONAL ||
+                          !arg.options().has_argument_name();
+                 })) {
+    return MakeSqlErrorAt(ast_location)
+           << "Named arguments are only supported so far for functions where "
+           << "all the argument types are required with mandatory argument "
+           << "names";
+  }
+  // Iterate through the function signature and rearrange the provided arguments
+  // using the 'named_arguments_to_indexes' map.
+  std::vector<const ASTNode*> new_arg_locations;
+  std::vector<std::unique_ptr<const ResolvedExpr>> new_arguments;
+  for (int i = 0; i < signature.arguments().size(); ++i) {
+    // Lookup the required argument name from the map of provided named
+    // arguments. If not found, return an error reporting the missing required
+    // argument name.
+    const FunctionArgumentType& arg_type = signature.arguments()[i];
+    const std::string& arg_name = arg_type.options().argument_name();
+    const int* index = zetasql_base::FindOrNull(argument_names_to_indexes, arg_name);
+    if (index == nullptr) {
+      return MakeSqlErrorAt(ast_location)
+             << "Call to function " << function_name
+             << " does not include required argument name " << arg_name;
+    }
+    // Repeated argument types may never have required argument names.
+    ZETASQL_RET_CHECK_NE(arg_type.cardinality(), FunctionArgumentType::REPEATED)
+        << "Call to function " << function_name << " includes named "
+        << "argument " << arg_name << " referring to a repeated argument "
+        << "type, which is not supported";
+    new_arg_locations.push_back(arg_locations->at(*index));
+    new_arguments.push_back(std::move(arguments->at(*index)));
+  }
+  *arg_locations = std::move(new_arg_locations);
+  *arguments = std::move(new_arguments);
+  return zetasql_base::OkStatus();
+}
+
 // TODO: Eventually we want to keep track of the closest
 // signature even if there is no match, so that we can provide a good
 // error message.  Currently, this code takes an early exit if a signature
@@ -1380,6 +1478,7 @@ zetasql_base::Status FunctionResolver::ResolveGeneralFunctionCall(
     const std::vector<const ASTNode*>& arg_locations,
     const std::vector<std::string>& function_name_path, bool is_analytic,
     std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
+    std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
     const Type* expected_result_type,
     std::unique_ptr<ResolvedFunctionCall>* resolved_expr_out) {
   const Function* function;
@@ -1389,7 +1488,8 @@ zetasql_base::Status FunctionResolver::ResolveGeneralFunctionCall(
                                            &function, &error_mode));
   return ResolveGeneralFunctionCall(
       ast_location, arg_locations, function, error_mode, is_analytic,
-      std::move(arguments), expected_result_type, resolved_expr_out);
+      std::move(arguments), std::move(named_arguments), expected_result_type,
+      resolved_expr_out);
 }
 
 zetasql_base::Status FunctionResolver::ResolveGeneralFunctionCall(
@@ -1397,22 +1497,27 @@ zetasql_base::Status FunctionResolver::ResolveGeneralFunctionCall(
     const std::vector<const ASTNode*>& arg_locations,
     const std::string& function_name, bool is_analytic,
     std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
+    std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
     const Type* expected_result_type,
     std::unique_ptr<ResolvedFunctionCall>* resolved_expr_out) {
   const std::vector<std::string> function_name_path = {function_name};
   return ResolveGeneralFunctionCall(
       ast_location, arg_locations, function_name_path, is_analytic,
-      std::move(arguments), expected_result_type, resolved_expr_out);
+      std::move(arguments), std::move(named_arguments), expected_result_type,
+      resolved_expr_out);
 }
 
 zetasql_base::Status FunctionResolver::ResolveGeneralFunctionCall(
     const ASTNode* ast_location,
-    const std::vector<const ASTNode*>& arg_locations, const Function* function,
-    ResolvedFunctionCallBase::ErrorMode error_mode, bool is_analytic,
+    const std::vector<const ASTNode*>& arg_locations_in,
+    const Function* function, ResolvedFunctionCallBase::ErrorMode error_mode,
+    bool is_analytic,
     std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
+    std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
     const Type* expected_result_type,
     std::unique_ptr<ResolvedFunctionCall>* resolved_expr_out) {
 
+  std::vector<const ASTNode*> arg_locations = arg_locations_in;
   ZETASQL_RET_CHECK(ast_location != nullptr);
   ZETASQL_RET_CHECK_EQ(arg_locations.size(), arguments.size());
 
@@ -1429,6 +1534,18 @@ zetasql_base::Status FunctionResolver::ResolveGeneralFunctionCall(
     return MakeSqlErrorAt(ast_location)
            << function->QualifiedSQLName(true /* capitalize_qualifier */)
            << " does not support an OVER clause";
+  }
+
+  // Check if the function call contains any named arguments.
+  if (!named_arguments.empty()) {
+    if (function->NumSignatures() != 1) {
+      return MakeSqlErrorAt(ast_location)
+             << "Named arguments are not supported yet for calls to functions "
+             << "with more than one signature";
+    }
+    ZETASQL_RETURN_IF_ERROR(ProcessNamedArguments(
+        function->FullName(), function->signatures()[0], ast_location,
+        named_arguments, &arg_locations, &arguments));
   }
 
   std::vector<InputArgumentType> input_argument_types;

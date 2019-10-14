@@ -148,14 +148,16 @@ SELECT
 ```
 1. DATE(year, month, day)
 2. DATE(timestamp_expression[, timezone])
+3. DATE(datetime_expression)
 ```
 
 **Description**
 
 1. Constructs a DATE from INT64 values representing the year, month, and day.
-2. Converts a `timestamp_expression` to a DATE data type. It supports an
+2. Extracts the DATE from a TIMESTAMP expression. It supports an
    optional parameter to [specify a timezone][date-functions-link-to-timezone-definitions]. If no
    timezone is specified, the default timezone, which is implementation defined, is used.
+3. Extracts the DATE from a DATETIME expression.
 
 **Return Data Type**
 
@@ -166,13 +168,15 @@ DATE
 ```sql
 SELECT
   DATE(2016, 12, 25) as date_ymd,
+  DATE(DATETIME "2016-12-25 23:59:59") as date_dt,
   DATE(TIMESTAMP "2016-12-25 05:30:00+07", "America/Los_Angeles") as date_tstz;
 
-+------------+------------+
-| date_ymd   | date_tstz  |
-+------------+------------+
-| 2016-12-25 | 2016-12-24 |
-+------------+------------+
++------------+------------+------------+
+| date_ymd   | date_dt    | date_tstz  |
++------------+------------+------------+
+| 2016-12-25 | 2016-12-25 | 2016-12-24 |
++------------+------------+------------+
+
 ```
 
 ### DATE_ADD

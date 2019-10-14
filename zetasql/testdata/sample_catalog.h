@@ -87,7 +87,8 @@ class SampleCatalog {
   void LoadTableValuedFunctions2();
   void LoadTableValuedFunctionsWithDeprecationWarnings();
   void LoadTemplatedSQLTableValuedFunctions();
-  void AddProcedureWithArgumentType(std::string type_name, const Type* arg_type);
+  void AddProcedureWithArgumentType(std::string type_name,
+                                    const Type* arg_type);
   void LoadProcedures();
   void LoadConstants();
 

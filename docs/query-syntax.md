@@ -1,9 +1,9 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
 # Query Syntax
+
+<!-- BEGIN CONTENT -->
 
 Query statements scan one or more tables or expressions and return the computed
 result rows. This topic describes the syntax for SQL queries in
@@ -1288,21 +1288,58 @@ HAVING SUM(PointsScored) > 15;
 ### Syntax
 
 <pre>
-ORDER BY <span class="var">expression</span> [{ ASC | DESC }] [, ...]
+ORDER BY expression
+  [{ ASC | DESC }]
+  [, ...]
 </pre>
 
 The `ORDER BY` clause specifies a column or expression as the sort criterion for
 the result set. If an ORDER BY clause is not present, the order of the results
-of a query is not defined. The default sort direction is `ASC`, which sorts the
-results in ascending order of `expression` values. `DESC` sorts the results in
-descending order. Column aliases from a `FROM` clause or `SELECT` list are
-allowed. If a query contains aliases in the `SELECT` clause, those aliases
+of a query is not defined. Column aliases from a `FROM` clause or `SELECT` list
+are allowed. If a query contains aliases in the `SELECT` clause, those aliases
 override names in the corresponding `FROM` clause.
+
+**Optional Clauses**
+
++  `ASC | DESC`: Sort the results in ascending or descending
+    order of `expression` values. `ASC` is the default value. 
+
+**Examples**
+
+Use the default sort order (ascending).
+
+```sql
+SELECT x, y
+FROM (SELECT 1 AS x, true AS y UNION ALL
+      SELECT 9, true)
+ORDER BY x;
++------+-------+
+| x    | y     |
++------+-------+
+| 1    | true  |
+| 9    | true  |
++------+-------+
+```
+
+Use descending sort order.
+
+```sql
+SELECT x, y
+FROM (SELECT 1 AS x, true AS y UNION ALL
+      SELECT 9, true)
+ORDER BY x DESC;
++------+-------+
+| x    | y     |
++------+-------+
+| 9    | true  |
+| 1    | true  |
++------+-------+
+```
 
 It is possible to order by multiple columns. In the example below, the result
 set is ordered first by `SchoolID` and then by `LastName`:
 
-```
+```sql
 SELECT LastName, PointsScored, OpponentID
 FROM PlayerStats
 ORDER BY SchoolID, LastName;
@@ -1324,7 +1361,7 @@ BY`.
 
 This query without parentheses:
 
-```
+```sql
 SELECT * FROM Roster
 UNION ALL
 SELECT * FROM TeamMascot
@@ -1333,7 +1370,7 @@ ORDER BY SchoolID;
 
 is equivalent to this query with parentheses:
 
-```
+```sql
 ( SELECT * FROM Roster
   UNION ALL
   SELECT * FROM TeamMascot )
@@ -1343,7 +1380,7 @@ ORDER BY SchoolID;
 but is not equivalent to this query, where the `ORDER BY` clause applies only to
 the second `SELECT` statement:
 
-```
+```sql
 SELECT * FROM Roster
 UNION ALL
 ( SELECT * FROM TeamMascot
@@ -1356,13 +1393,13 @@ the `SELECT` list.
 
 Example - the following two queries are equivalent:
 
-```
+```sql
 SELECT SUM(PointsScored), LastName
 FROM PlayerStats
 ORDER BY LastName;
 ```
 
-```
+```sql
 SELECT SUM(PointsScored), LastName
 FROM PlayerStats
 ORDER BY 2;

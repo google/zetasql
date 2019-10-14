@@ -16,6 +16,31 @@
 
 package(default_visibility = ["//:__subpackages__"])
 
+# Tested by value_expr_test.
+cc_library(
+    name = "proto_util",
+    srcs = ["proto_util.cc"],
+    hdrs = ["proto_util.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "//zetasql/base",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:source_location",
+        "//zetasql/base:status",
+        "//zetasql/common:internal_value",
+        "//zetasql/public:type",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/public/functions:arithmetics",
+        "//zetasql/public/functions:date_time_util",
+        "//zetasql/public/proto:type_annotation_cc_proto",
+        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/strings",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
 cc_library(
     name = "common",
     srcs = [
@@ -61,6 +86,7 @@ cc_library(
     deps = [
         ":common",
         ":parameters",
+        ":proto_util",
         ":variable_generator",
         "//zetasql/base",
         "//zetasql/base:cleanup",
@@ -88,6 +114,8 @@ cc_library(
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/public/functions:arithmetics",
+        "//zetasql/public/functions:bitcast",
+        "//zetasql/public/functions:bitwise",
         "//zetasql/public/functions:common_proto",
         "//zetasql/public/functions:comparison",
         "//zetasql/public/functions:date_time_util",
@@ -148,6 +176,7 @@ cc_library(
         ":common",
         ":evaluation",
         ":parameters",
+        ":proto_util",
         ":variable_generator",
         "//zetasql/analyzer",
         "//zetasql/base",
@@ -360,6 +389,7 @@ cc_test(
         "//zetasql/base:statusor",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/common:internal_value",
+        "//zetasql/common:status_payload_utils",
         "//zetasql/compliance:functions_testlib",
         "//zetasql/public:language_options",
         "//zetasql/public:type",

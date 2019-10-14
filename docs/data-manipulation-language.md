@@ -1,9 +1,9 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
 # Data Manipulation Reference
+
+<!-- BEGIN CONTENT -->
 
 ZetaSQL supports the following statements for manipulating data:
 

@@ -71,7 +71,7 @@ SELECT SAFE.SUBSTR('bar', 0, 2) AS safe_output;
 +-------------+
 ```
 
-[link-to-SAFE_DIVIDE]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#mathematical-functions
+[link-to-SAFE_DIVIDE]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#safe_divide
 [link-to-SAFE_CAST]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#safe-casting
 [link-to-operators]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#operators
 
@@ -4490,6 +4490,8 @@ the two arguments to determine the quadrant. The return value is in the range
 </tbody>
 </table>
 
+[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data-type-properties
+
 ## Navigation Functions
 
 The following sections describe the navigation functions that ZetaSQL
@@ -5255,6 +5257,10 @@ FROM example;
 | 3 |       | true  | -4880158226897771312 |
 +---+-------+-------+----------------------+
 ```
+
+### FINGERPRINT
+
+Documentation is pending for this feature.
 
 ### MD5
 ```
@@ -8383,9 +8389,9 @@ the table must have exactly one column. Each element in the output `ARRAY` is
 the value of the single column of a row in the table.
 
 If `subquery` produces a
-[value table](https://github.com/google/zetasql/blob/master/docs/data-model.md#value-tables), then
-each element in the output `ARRAY` is the entire corresponding row of the value
-table.
+[value table](https://github.com/google/zetasql/blob/master/docs/data-model.md#value-tables),
+then each element in the output `ARRAY` is the entire corresponding row of the
+value table.
 
 **Constraints**
 
@@ -9250,14 +9256,16 @@ SELECT
 ```
 1. DATE(year, month, day)
 2. DATE(timestamp_expression[, timezone])
+3. DATE(datetime_expression)
 ```
 
 **Description**
 
 1. Constructs a DATE from INT64 values representing the year, month, and day.
-2. Converts a `timestamp_expression` to a DATE data type. It supports an
+2. Extracts the DATE from a TIMESTAMP expression. It supports an
    optional parameter to [specify a timezone][date-functions-link-to-timezone-definitions]. If no
    timezone is specified, the default timezone, which is implementation defined, is used.
+3. Extracts the DATE from a DATETIME expression.
 
 **Return Data Type**
 
@@ -9268,13 +9276,15 @@ DATE
 ```sql
 SELECT
   DATE(2016, 12, 25) as date_ymd,
+  DATE(DATETIME "2016-12-25 23:59:59") as date_dt,
   DATE(TIMESTAMP "2016-12-25 05:30:00+07", "America/Los_Angeles") as date_tstz;
 
-+------------+------------+
-| date_ymd   | date_tstz  |
-+------------+------------+
-| 2016-12-25 | 2016-12-24 |
-+------------+------------+
++------------+------------+------------+
+| date_ymd   | date_dt    | date_tstz  |
++------------+------------+------------+
+| 2016-12-25 | 2016-12-25 | 2016-12-24 |
++------------+------------+------------+
+
 ```
 
 ### DATE_ADD
@@ -11754,6 +11764,18 @@ SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00") as micros;
 +------------------+
 ```
 
+### TIMESTAMP_FROM_UNIX_SECONDS
+
+Documentation is pending for this feature.
+
+### TIMESTAMP_FROM_UNIX_MILLIS
+
+Documentation is pending for this feature.
+
+### TIMESTAMP_FROM_UNIX_MICROS
+
+Documentation is pending for this feature.
+
 ### Supported format elements for TIMESTAMP
 
 Unless otherwise noted, TIMESTAMP functions that use format strings support the
@@ -12068,6 +12090,14 @@ default value for `country`.
 | Unknown         |
 +-----------------+
 ```
+
+### FROM PROTO
+
+Documentation is pending for this feature.
+
+### TO PROTO
+
+Documentation is pending for this feature.
 
 ## Security functions
 
@@ -13350,7 +13380,7 @@ these characters:
 <li>An underscore "_" matches a single character or byte</li>
 <li>You can escape "\", "_", or "%" using two backslashes. For example, <code>
 "\\%"</code>. If you are using raw strings, only a single backslash is
-required. For example, <code>r"\%".</li>
+required. For example, <code>r"\%"</code>.</li>
 </ul>
 </td>
 </tr>

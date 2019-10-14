@@ -223,6 +223,7 @@ cc_library(
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:cc_wkt_protos",
+        "@com_google_protobuf//:protobuf",
         "@com_googleapis_googleapis//:date_cc_proto",
         "@com_googleapis_googleapis//:timeofday_cc_proto",
     ],

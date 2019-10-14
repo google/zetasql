@@ -684,8 +684,15 @@ zetasql_base::Status Resolver::ResolveGeneratedColumnInfo(
     }
   }
 
-  *output = MakeResolvedGeneratedColumnInfo(std::move(resolved_expression),
-                                            ast_generated_column->is_stored());
+  if (ast_generated_column->is_stored() &&
+      ast_generated_column->is_on_write()) {
+    return MakeSqlErrorAt(ast_generated_column)
+           << "Generated columns cannot have both ON WRITE and STORED";
+  }
+
+  *output = MakeResolvedGeneratedColumnInfo(
+      std::move(resolved_expression), ast_generated_column->is_stored(),
+      ast_generated_column->is_on_write());
 
   return zetasql_base::OkStatus();
 }
@@ -1694,13 +1701,21 @@ zetasql_base::Status Resolver::ResolveCreateModelStatement(
   }
   bool is_value_table = false;
   std::unique_ptr<const ResolvedScan> query_scan;
-  std::vector<std::unique_ptr<const ResolvedOutputColumn>> output_column_list;
+  std::vector<std::unique_ptr<const ResolvedOutputColumn>>
+      query_output_column_list;
   const IdString table_name_id_string =
       MakeIdString(ast_statement->name()->ToIdentifierPathString());
+  std::vector<std::unique_ptr<const ResolvedColumnDefinition>>
+      transform_input_column_list;
+  const ASTTransformClause* transform_clause =
+      ast_statement->transform_clause();
+  std::vector<std::unique_ptr<const ResolvedColumnDefinition>>*
+      column_definition_list_ptr =
+          transform_clause == nullptr ? nullptr : &transform_input_column_list;
   ZETASQL_RETURN_IF_ERROR(ResolveQueryAndOutputColumns(
       query, /*object_type=*/"MODEL", table_name_id_string, kCreateAsId,
-      &query_scan, &is_value_table, &output_column_list,
-      /*column_definition_list=*/nullptr));
+      &query_scan, &is_value_table, &query_output_column_list,
+      column_definition_list_ptr));
 
   // Resolve transform list.
   std::vector<std::unique_ptr<const ResolvedComputedColumn>> transform_list;
@@ -1708,21 +1723,22 @@ zetasql_base::Status Resolver::ResolveCreateModelStatement(
       transform_output_column_list;
   std::vector<std::unique_ptr<const ResolvedAnalyticFunctionGroup>>
       transform_analytic_function_group_list;
-  const ASTTransformClause* transform_clause =
-      ast_statement->transform_clause();
   if (transform_clause != nullptr) {
-    std::shared_ptr<NameList> select_statement_name_list(new NameList);
-    for (const std::unique_ptr<const ResolvedOutputColumn>&
-             resolved_output_col : output_column_list) {
-      ZETASQL_RETURN_IF_ERROR(select_statement_name_list->AddColumn(
-          MakeIdString(resolved_output_col->name()),
-          resolved_output_col->column(), /*is_explicit=*/true));
+    DCHECK_EQ(query_output_column_list.size(),
+              transform_input_column_list.size());
+    std::shared_ptr<NameList> query_column_definition_name_list(new NameList);
+    query_column_definition_name_list->ReserveColumns(
+        static_cast<int>(transform_input_column_list.size()));
+    for (const auto& column_definition : transform_input_column_list) {
+      ZETASQL_RETURN_IF_ERROR(query_column_definition_name_list->AddColumn(
+          MakeIdString(column_definition->name()), column_definition->column(),
+          /*is_explicit=*/true));
     }
-    std::unique_ptr<const NameScope> from_scan_scope(
-        new NameScope(empty_name_scope_.get(), select_statement_name_list));
+    std::unique_ptr<const NameScope> from_scan_scope(new NameScope(
+        empty_name_scope_.get(), query_column_definition_name_list));
     ZETASQL_RETURN_IF_ERROR(ResolveModelTransformSelectList(
         from_scan_scope.get(), transform_clause->select_list(),
-        select_statement_name_list, &transform_list,
+        query_column_definition_name_list, &transform_list,
         &transform_output_column_list,
         &transform_analytic_function_group_list));
   }
@@ -1736,8 +1752,9 @@ zetasql_base::Status Resolver::ResolveCreateModelStatement(
       ast_statement->name()->ToIdentifierVector();
   *output = MakeResolvedCreateModelStmt(
       table_name, create_scope, create_mode, std::move(resolved_options),
-      std::move(output_column_list), std::move(query_scan),
-      std::move(transform_list), std::move(transform_output_column_list),
+      std::move(query_output_column_list), std::move(query_scan),
+      std::move(transform_input_column_list), std::move(transform_list),
+      std::move(transform_output_column_list),
       std::move(transform_analytic_function_group_list));
 
   return ::zetasql_base::OkStatus();
@@ -3588,10 +3605,14 @@ zetasql_base::Status Resolver::ResolveCallStatement(
   std::vector<InputArgumentType> input_arg_types(num_args);
   for (int i = 0; i < num_args; ++i) {
     const ASTTVFArgument* ast_tvf_argument = ast_call->arguments()[i];
-    // TODO: support resolving table/model clause.
-    if (ast_tvf_argument->table_clause() || ast_tvf_argument->model_clause()) {
+    // TODO: support resolving table/model/connection clause.
+    if (ast_tvf_argument->table_clause() || ast_tvf_argument->model_clause() ||
+        ast_tvf_argument->connection_clause()) {
       return MakeSqlErrorAt(ast_tvf_argument)
-             << (ast_tvf_argument->table_clause() ? "Table" : "Model")
+             << (ast_tvf_argument->table_clause()
+                     ? "Table"
+                     : (ast_tvf_argument->connection_clause() ? "Connection"
+                                                              : "Model"))
              << " typed argument is not supported";
     }
     std::unique_ptr<const ResolvedExpr> expr;

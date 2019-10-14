@@ -22,6 +22,7 @@
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/error_location.pb.h"
+#include "zetasql/public/function.pb.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
 #include "gmock/gmock.h"
@@ -817,6 +818,8 @@ static std::vector<FunctionArgumentType> GetTemplatedArgumentTypes() {
   templated_types.push_back(FunctionArgumentType(ARG_ENUM_ANY));
   templated_types.push_back(FunctionArgumentType(ARG_TYPE_ARBITRARY));
   templated_types.push_back(FunctionArgumentType(ARG_TYPE_RELATION));
+  templated_types.push_back(FunctionArgumentType(ARG_TYPE_MODEL));
+  templated_types.push_back(FunctionArgumentType(ARG_TYPE_CONNECTION));
   return templated_types;
 }
 
@@ -840,7 +843,7 @@ TEST(FunctionSignatureTests, TestIsTemplatedArgument) {
 
   // If a new enum value is added to SignatureArgumentKind then it *must*
   // be added to <templated_kinds> or <non_templated_kinds> as appropriate.
-  ASSERT_EQ(12, SignatureArgumentKind_ARRAYSIZE);
+  ASSERT_EQ(13, SignatureArgumentKind_ARRAYSIZE);
 
   std::set<SignatureArgumentKind> templated_kinds;
   templated_kinds.insert(ARG_TYPE_ANY_1);
@@ -852,6 +855,8 @@ TEST(FunctionSignatureTests, TestIsTemplatedArgument) {
   templated_kinds.insert(ARG_ENUM_ANY);
   templated_kinds.insert(ARG_TYPE_ARBITRARY);
   templated_kinds.insert(ARG_TYPE_RELATION);
+  templated_kinds.insert(ARG_TYPE_MODEL);
+  templated_kinds.insert(ARG_TYPE_CONNECTION);
 
   std::set<SignatureArgumentKind> non_templated_kinds;
   non_templated_kinds.insert(ARG_TYPE_FIXED);

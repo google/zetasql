@@ -269,6 +269,8 @@ std::string FunctionArgumentType::SignatureArgumentKindToString(
       return "ANY TABLE";
     case ARG_TYPE_MODEL:
       return "ANY MODEL";
+    case ARG_TYPE_CONNECTION:
+      return "ANY CONNECTION";
     case ARG_TYPE_ARBITRARY:
       return "<arbitrary>";
     case ARG_TYPE_VOID:

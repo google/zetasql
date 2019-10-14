@@ -36,41 +36,40 @@ zetasql_base::Status ErrorCatalog::Create(
   return ::zetasql_base::OkStatus();
 }
 
-zetasql_base::Status ErrorCatalog::FindTable(
-    const absl::Span<const std::string>& path, const Table** table,
-    const FindOptions& options) {
-  return ::zetasql_base::StatusBuilder(error_code_, ZETASQL_LOC) << "FindTable error";
+zetasql_base::Status ErrorCatalog::FindTable(const absl::Span<const std::string>& path,
+                                     const Table** table,
+                                     const FindOptions& options) {
+  return ::zetasql_base::StatusBuilder(error_code_) << "FindTable error";
 }
 
 zetasql_base::Status ErrorCatalog::FindFunction(
     const absl::Span<const std::string>& path, const Function** function,
     const FindOptions& options) {
-  return ::zetasql_base::StatusBuilder(error_code_, ZETASQL_LOC) << "FindFunction error";
+  return ::zetasql_base::StatusBuilder(error_code_) << "FindFunction error";
 }
 
 zetasql_base::Status ErrorCatalog::FindTableValuedFunction(
-    const absl::Span<const std::string>& path, const TableValuedFunction** function,
-    const FindOptions& options) {
-  return ::zetasql_base::StatusBuilder(error_code_, ZETASQL_LOC)
-      << "FindTableValuedFunction error";
+    const absl::Span<const std::string>& path,
+    const TableValuedFunction** function, const FindOptions& options) {
+  return ::zetasql_base::StatusBuilder(error_code_) << "FindTableValuedFunction error";
 }
 
-zetasql_base::Status ErrorCatalog::FindProcedure(const absl::Span<const std::string>& path,
-                                         const Procedure** procedure,
-                                         const FindOptions& options) {
-  return ::zetasql_base::StatusBuilder(error_code_, ZETASQL_LOC) << "FindProcedure error";
+zetasql_base::Status ErrorCatalog::FindProcedure(
+    const absl::Span<const std::string>& path, const Procedure** procedure,
+    const FindOptions& options) {
+  return ::zetasql_base::StatusBuilder(error_code_) << "FindProcedure error";
 }
 
 zetasql_base::Status ErrorCatalog::FindType(const absl::Span<const std::string>& path,
                                     const Type** type,
                                     const FindOptions& options) {
-  return ::zetasql_base::StatusBuilder(error_code_, ZETASQL_LOC) << "FindType error";
+  return ::zetasql_base::StatusBuilder(error_code_) << "FindType error";
 }
 
 zetasql_base::Status ErrorCatalog::FindConstantWithPathPrefix(
     const absl::Span<const std::string> path, int* num_names_consumed,
     const Constant** constant, const FindOptions& options) {
-  return ::zetasql_base::StatusBuilder(error_code_, ZETASQL_LOC) << "FindConstant error";
+  return ::zetasql_base::StatusBuilder(error_code_) << "FindConstant error";
 }
 
 }  // namespace zetasql

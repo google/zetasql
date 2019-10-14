@@ -336,6 +336,12 @@ void Unparser::visitASTModelClause(const ASTModelClause* node, void* data) {
   node->model_path()->Accept(this, data);
 }
 
+void Unparser::visitASTConnectionClause(const ASTConnectionClause* node,
+                                        void* data) {
+  print("CONNECTION ");
+  node->connection_path()->Accept(this, data);
+}
+
 void Unparser::visitASTTVF(const ASTTVF* node, void* data) {
   node->name()->Accept(this, data);
   print("(");
@@ -361,6 +367,9 @@ void Unparser::visitASTTVFArgument(const ASTTVFArgument* node, void* data) {
   }
   if (node->model_clause() != nullptr) {
     node->model_clause()->Accept(this, data);
+  }
+  if (node->connection_clause() != nullptr) {
+    node->connection_clause()->Accept(this, data);
   }
 }
 
@@ -1712,9 +1721,13 @@ void Unparser::visitASTStructColumnSchema(const ASTStructColumnSchema* node,
 
 void Unparser::visitASTGeneratedColumnInfo(const ASTGeneratedColumnInfo* node,
                                            void* data) {
-  print("AS");
+  if (node->is_on_write()) {
+    print("GENERATED ON WRITE");
+  }
+  print("AS (");
   DCHECK(node->expression() != nullptr);
   node->expression()->Accept(this, data);
+  print(")");
   if (node->is_stored()) {
     print("STORED");
   }
@@ -2442,6 +2455,24 @@ void Unparser::visitASTStatementList(const ASTStatementList* node, void* data) {
   }
 }
 
+void Unparser::visitASTElseifClause(const ASTElseifClause* node, void* data) {
+  print("ELSEIF");
+  node->condition()->Accept(this, data);
+  print("THEN");
+  {
+    Formatter::Indenter indenter(&formatter_);
+    node->body()->Accept(this, data);
+  }
+  println();
+}
+
+void Unparser::visitASTElseifClauseList(const ASTElseifClauseList* node,
+                                        void* data) {
+  for (const ASTElseifClause* else_if_clause : node->elseif_clauses()) {
+    else_if_clause->Accept(this, data);
+  }
+}
+
 void Unparser::visitASTIfStatement(const ASTIfStatement* node, void* data) {
   print("IF");
   node->condition()->Accept(this, data);
@@ -2449,6 +2480,9 @@ void Unparser::visitASTIfStatement(const ASTIfStatement* node, void* data) {
   {
     Formatter::Indenter indenter(&formatter_);
     node->then_list()->Accept(this, data);
+  }
+  if (node->elseif_clauses() != nullptr) {
+    node->elseif_clauses()->Accept(this, data);
   }
   if (node->else_list() != nullptr) {
     println();

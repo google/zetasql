@@ -2,9 +2,9 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
 # User-Defined Functions
+
+<!-- BEGIN CONTENT -->
 
 ZetaSQL supports
 user-defined functions (UDFs). A UDF enables you to create a function using

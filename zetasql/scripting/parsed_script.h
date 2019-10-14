@@ -38,6 +38,10 @@ class ParsedScript {
   // to its parent.  For each statement s, s->parent()->child(map[s]) == s.
   using StatementIndexMap = absl::flat_hash_map<const ASTStatement*, int>;
 
+  // Maps an ASTElseifClause pointer to the child index of that clause, relative
+  // to its parent.  For each clause c, c->parent()->child(map[c]) == c.
+  using ElseifClauseIndexMap = absl::flat_hash_map<const ASTElseifClause*, int>;
+
   // Mapping of each break/continue statement to a BreakContinueContext
   // structure.  All node pointers within each BreakContinueContext are
   // owend by <parser_output_>.
@@ -98,19 +102,23 @@ class ParsedScript {
     return statement_index_map_;
   }
 
+  const ElseifClauseIndexMap& elseif_clause_index_map() const {
+    return elseif_clause_index_map_;
+  }
+
   const BreakContinueMap& break_continue_map() const {
     return break_continue_map_;
   }
 
-  // Returns the statement in the script which starts at the given position,
+  // Returns the node in the script which starts at the given position,
   // or nullptr if no such statement exists.
-  const ASTStatement* FindStatementFromPosition(
+  const ASTNode* FindScriptNodeFromPosition(
       const ParseLocationPoint& start_pos) const;
 
   // Returns a map of all variables in scope immediately prior to the execution
-  // of <next_statement>.
-  zetasql_base::StatusOr<VariableTypeMap> GetVariablesInScopeAtStatement(
-      const ASTStatement* next_statement) const;
+  // of <next_node>.
+  zetasql_base::StatusOr<VariableTypeMap> GetVariablesInScopeAtNode(
+      const ASTNode* node) const;
 
  private:
   static zetasql_base::StatusOr<std::unique_ptr<ParsedScript>> CreateInternal(
@@ -148,11 +156,16 @@ class ParsedScript {
 
   // Map associating each statement in the AST with the index of the statement
   // relative to its parent.  We maintain the invariant that:
-  //   statement->parent()->child(map_statement_index_[statement]) == statement.
+  //   statement->parent()->child(statement_index_map_[statement]) == statement.
   // for all statements <statement> in the parse tree.
   //
   // <parser_output_> owns the lifetime of all ASTStatement objects in the map.
   StatementIndexMap statement_index_map_;
+
+  // Map associating each ELSEIF clause in the AST with the index of the clause
+  // relative to its ASTElseifClauseList parent.  We maintain the invariant
+  // that: clause->parent()->child(elseif_clause_index_map_[clause]) == clause.
+  ElseifClauseIndexMap elseif_clause_index_map_;
 
   // Map associating each BREAK/CONTINUE statement in the script with
   // information needed by the script executor to execute it.

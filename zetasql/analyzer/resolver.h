@@ -601,9 +601,9 @@ class Resolver {
   // - If <column_definition_list> is not null, then <column_definition_list>
   //   will be populated based on the output column list and
   //   <table_name_id_string> (the name of the table to be created).
-  //   Currently, when this is invoked for CREATE VIEW/MODEL
-  //   the <column_definition_list> is null, but for CREATE
-  //   TABLE/MATERIALIZED_VIEW the <column_definition_list> is non-null.
+  //   Currently, when this is invoked for CREATE VIEW the
+  //   <column_definition_list> is null, but for CREATE
+  //   TABLE/MATERIALIZED_VIEW/MODEL the <column_definition_list> is non-null.
   zetasql_base::Status ResolveQueryAndOutputColumns(
       const ASTQuery* query, absl::string_view object_type,
       IdString table_name_id_string, IdString internal_table_name,
@@ -2672,6 +2672,7 @@ class Resolver {
       const std::vector<const ASTNode*>& arg_locations,
       const Function* function, ResolvedFunctionCallBase::ErrorMode error_mode,
       std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
+      std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
@@ -2682,6 +2683,7 @@ class Resolver {
       const std::vector<const ASTNode*>& arg_locations,
       const std::vector<std::string>& function_name_path,
       std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
+      std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
@@ -2691,6 +2693,7 @@ class Resolver {
       const std::vector<const ASTNode*>& arg_locations,
       absl::string_view function_name,
       std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
+      std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 

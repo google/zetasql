@@ -295,6 +295,15 @@ enum class ImportType {
 // In order to use OUT/INOUT as identifier, it needs to be escaped with
 // backticks.
 //
+// AMBIGUOUS CASE 8: CREATE TABLE GENERATED
+// -------------------------------------------------------------
+// The GENERATED column is a non-reserved keyword, so when a generated column
+// is defined with "<name> [<type>] GENERATED [ON WRITE] AS ()", we have a
+// shift/reduce conflict, not knowing whether the word GENERATED is an
+// identifier from <type> or the keyword GENERATED because <type> is missing.
+// By default, Bison chooses "shift", treating GENERATED as a keyword. To use it
+// as an identifier, it needs to be escaped with backticks.
+//
 // Total expected shift/reduce conflicts as described above:
 //   2: EXPRESSION SUBQUERY
 //   1: INSERT VALUES
@@ -303,7 +312,8 @@ enum class ImportType {
 //   2: CREATE TABLE CONSTRAINTS
 //   1: REPLACE FIELDS
 //   4: CREATE PROCEDURE
-%expect 14
+//   1: CREATE TABLE GENERATED
+%expect 15
 
 %union {
   bool boolean;
@@ -649,6 +659,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_CLUSTER "CLUSTER"
 %token KW_COLUMN "COLUMN"
 %token KW_COMMIT "COMMIT"
+%token KW_CONNECTION "CONNECTION"
 %token KW_CONTINUE "CONTINUE"
 %token KW_CONSTANT "CONSTANT"
 %token KW_CONSTRAINT "CONSTRAINT"
@@ -664,6 +675,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_DO "DO"
 %token KW_DROP "DROP"
 %token KW_ENFORCED "ENFORCED"
+%token KW_ELSEIF "ELSEIF"
 %token KW_EXPLAIN "EXPLAIN"
 %token KW_EXPORT "EXPORT"
 %token KW_EXTERNAL "EXTERNAL"
@@ -672,6 +684,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_FIRST "FIRST"
 %token KW_FOREIGN "FOREIGN"
 %token KW_FUNCTION "FUNCTION"
+%token KW_GENERATED "GENERATED"
 %token KW_GRANT "GRANT"
 %token KW_HIDDEN "HIDDEN"
 %token KW_IMMUTABLE "IMMUTABLE"
@@ -749,6 +762,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_VALUES "VALUES"
 %token KW_VOLATILE "VOLATILE"
 %token KW_VIEW "VIEW"
+%token KW_VIEWS "VIEWS"
 %token KW_WEIGHT "WEIGHT"
 %token KW_WHILE "WHILE"
 %token KW_WRITE "WRITE"
@@ -798,6 +812,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> column_list_prefix
 %type <node> column_schema_inner
 %type <node> commit_statement
+%type <node> connection_clause
 %type <node> create_constant_statement
 %type <node> create_database_statement
 %type <node> create_function_statement
@@ -860,6 +875,8 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <identifier> identifier
 %type <identifier> identifier_in_hints
 %type <node> if_statement
+%type <node> elseif_clauses
+%type <node> opt_elseif_clauses
 %type <node> begin_end_block
 %type <node> opt_exception_handler
 %type <node> if_statement_unclosed
@@ -1013,6 +1030,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> select_list_prefix
 %type <node> select_list_with_trailing_comma
 %type <node> show_statement
+%type <identifier> show_target
 %type <node> simple_column_schema_inner
 %type <node> sql_function_body
 %type <node> star_except_list
@@ -2282,10 +2300,28 @@ opt_stored:
   ;
 
 generated_column_info:
-  "AS" expression opt_stored
+  "AS" "(" expression ")" opt_stored
     {
-      auto* column = MAKE_NODE(ASTGeneratedColumnInfo, @$, {$2});
-      column->set_is_stored($3);
+      auto* column = MAKE_NODE(ASTGeneratedColumnInfo, @$, {$3});
+      column->set_is_stored($5);
+      $$ = column;
+    }
+    // Since GENERATED is not a reserved keyword, this rule causes a
+    // shift/reduce conflict with keyword_as_identifier. See more detailed
+    // explanation at the "AMBIGUOUS CASES" section at the top of this file.
+  | "GENERATED" "AS" "(" expression ")" opt_stored
+    {
+      auto* column = MAKE_NODE(ASTGeneratedColumnInfo, @$, {$4});
+      column->set_is_stored($6);
+      $$ = column;
+    }
+    // Explicitly writing ON WRITE here, because if we wrote a separate
+    // opt_on_write grammar rule, we'd get a reduce/reduce conflict.
+  | "GENERATED" "ON" "WRITE" "AS" "(" expression ")" opt_stored
+    {
+      auto* column = MAKE_NODE(ASTGeneratedColumnInfo, @$, {$6});
+      column->set_is_stored($8);
+      column->set_is_on_write(true);
       $$ = column;
     }
   ;
@@ -2898,11 +2934,22 @@ grantee_list:
     ;
 
 show_statement:
-    "SHOW" identifier opt_from_path_expression opt_like_string_literal
+    "SHOW" show_target opt_from_path_expression opt_like_string_literal
       {
         $$ = MAKE_NODE(ASTShowStatement, @$, {$2, $3, $4});
       }
     ;
+
+show_target:
+  "MATERIALIZED" "VIEWS"
+    {
+      $$ = parser->MakeIdentifier(@$, "MATERIALIZED VIEWS");
+    }
+  | identifier
+    {
+      $$ = $1;
+    }
+  ;
 
 opt_like_string_literal:
     "LIKE" string_literal
@@ -3540,6 +3587,13 @@ model_clause:
       }
     ;
 
+connection_clause:
+    "CONNECTION" path_expression
+      {
+        $$ = MAKE_NODE(ASTConnectionClause, @$, {$2});
+      }
+    ;
+
 tvf_argument:
     expression
       {
@@ -3550,6 +3604,14 @@ tvf_argument:
         $$ = MAKE_NODE(ASTTVFArgument, @$, {$1});
       }
     | model_clause
+      {
+        $$ = MAKE_NODE(ASTTVFArgument, @$, {$1});
+      }
+    | connection_clause
+      {
+        $$ = MAKE_NODE(ASTTVFArgument, @$, {$1});
+      }
+    | named_argument
       {
         $$ = MAKE_NODE(ASTTVFArgument, @$, {$1});
       }
@@ -3568,6 +3630,24 @@ tvf_argument:
             "Syntax error: Model arguments for table-valued function "
             "calls written as \"MODEL path\" must not be enclosed in "
             "parentheses. To fix this, replace (MODEL path) with MODEL path");
+      }
+    | "(" connection_clause ")"
+      {
+        YYERROR_AND_ABORT_AT(
+            @1,
+            "Syntax error: Connection arguments for table-valued function "
+            "calls written as \"CONNECTION path\" must not be enclosed in "
+            "parentheses. To fix this, replace (CONNECTION path) with "
+            "CONNECTION path");
+      }
+    | "(" named_argument ")"
+      {
+        YYERROR_AND_ABORT_AT(
+            @1,
+            "Syntax error: Named arguments for table-valued function "
+            "calls written as \"name => value\" must not be enclosed in "
+            "parentheses. To fix this, replace (name => value) with "
+            "name => value");
       }
     | "SELECT"
       {
@@ -5651,6 +5731,7 @@ keyword_as_identifier:
     | "CLUSTER"
     | "COLUMN"
     | "COMMIT"
+    | "CONNECTION"
     | "CONSTANT"
     | "CONSTRAINT"
     | "CONTINUE"
@@ -5665,6 +5746,7 @@ keyword_as_identifier:
     | "DETERMINISTIC"
     | "DO"
     | "DROP"
+    | "ELSEIF"
     | "ENFORCED"
     | "ERROR"
     | "EXCEPTION"
@@ -5676,6 +5758,7 @@ keyword_as_identifier:
     | "FIRST"
     | "FOREIGN"
     | "FUNCTION"
+    | "GENERATED"
     | "GRANT"
     | "HIDDEN"
     | "IMMUTABLE"
@@ -5752,6 +5835,7 @@ keyword_as_identifier:
     | "VALUE"
     | "VALUES"
     | "VIEW"
+    | "VIEWS"
     | "VOLATILE"
     | "WEIGHT"
     | "WHILE"
@@ -6575,11 +6659,36 @@ opt_else:
       }
     ;
 
+elseif_clauses:
+  "ELSEIF" expression "THEN" statement_list
+  {
+    zetasql::ASTElseifClause* elseif_clause = MAKE_NODE(
+        ASTElseifClause, @1, {$2, $4});
+    $$ = MAKE_NODE(ASTElseifClauseList, @$, {elseif_clause});
+  }
+  | elseif_clauses "ELSEIF" expression "THEN" statement_list
+  {
+    zetasql::ASTElseifClause* elseif_clause = MAKE_NODE(
+        ASTElseifClause, @2, {$3, $5});
+    $1->AddChild(elseif_clause);
+    $$ = $1;
+  };
+
+opt_elseif_clauses:
+  elseif_clauses
+    {
+      $$ = $1;
+    }
+  | /*nothing*/
+    {
+      $$ = nullptr;
+    }
+  ;
+
 if_statement_unclosed:
-    "IF" expression "THEN" statement_list
-    opt_else
+    "IF" expression "THEN" statement_list opt_elseif_clauses opt_else
       {
-        $$ = MAKE_NODE(ASTIfStatement, @$, {$2, $4, $5});
+        $$ = MAKE_NODE(ASTIfStatement, @$, {$2, $4, $5, $6});
       }
     ;
 

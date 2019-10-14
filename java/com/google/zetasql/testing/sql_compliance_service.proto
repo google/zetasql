@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package zetasql.testing;
+
+import "google/protobuf/empty.proto";
+import "zetasql/compliance/test_driver.proto";
+import "zetasql/proto/options.proto";
+
+option java_package = "com.google.zetasql.testing";
+option java_multiple_files = true;
+
+// A mini proto service to enable ZetaSQL compliance testing for Java
+// ZetaSQL engines.
+service SqlComplianceService {
+  // Adapts TestDriver::CreateDatabase to Java engines.
+  rpc CreateDatabase(CreateDatabaseRequest) returns (CreateDatabaseResponse);
+
+  // Adapts TestDriver::ExecuteQuery to Java engines.
+  rpc ExecuteQuery(ExecuteQueryRequest) returns (ExecuteQueryResponse);
+
+  // Adapts TestDriver::GetSupportedLanguageOptions to Java engines.
+  rpc GetSupportedLanguageOptions(GetSupportedLanguageOptionsRequest)
+      returns (zetasql.LanguageOptionsProto);
+
+  // Adapts TestDriver::SetDefaultTimeZone to Java engines.
+  rpc SetDefaultTimeZone(SetDefaultTimeZoneRequest)
+      returns (google.protobuf.Empty);
+}
+
+message CreateDatabaseRequest {
+  zetasql.TestDatabaseProto test_database = 1;
+  // TODO: Also send proto/enum data here, if necessary?
+}
+
+message CreateDatabaseResponse {}
+
+message ExecuteQueryRequest {
+  string sql = 1;
+  map<string, zetasql.TypeAndValue> bind_params = 2;
+}
+
+message ExecuteQueryResponse {
+  zetasql.TypeAndValue rows = 1;
+}
+
+message GetSupportedLanguageOptionsRequest {}
+
+message SetDefaultTimeZoneRequest {
+  string time_zone = 1;
+}

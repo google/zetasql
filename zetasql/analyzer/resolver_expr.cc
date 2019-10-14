@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/parser/parse_tree_decls.h"
 #include "zetasql/public/simple_catalog.h"
 #include <cstdint>
 #include "google/protobuf/descriptor.pb.h"
@@ -728,6 +729,13 @@ zetasql_base::Status Resolver::ResolveExpr(
       return ResolveSystemVariableExpression(
           ast_expr->GetAsOrDie<ASTSystemVariableExpr>(),
           expr_resolution_info.get(), resolved_expr_out);
+    case AST_NAMED_ARGUMENT:
+      // Resolve named arguments for function calls by simply resolving the
+      // expression part of the argument. The function resolver will apply
+      // special handling to inspect the name part and integrate into function
+      // signature matching appropriately.
+      return ResolveExpr(ast_expr->GetAsOrDie<ASTNamedArgument>()->expr(),
+                         expr_resolution_info.get(), resolved_expr_out);
     default:
       return MakeSqlErrorAt(ast_expr)
              << "Unhandled select-list expression for node kind "
@@ -3440,7 +3448,8 @@ zetasql_base::Status Resolver::ResolveAnalyticFunctionCall(
   ZETASQL_RETURN_IF_ERROR(function_resolver_->ResolveGeneralFunctionCall(
       analytic_function_call, arg_locations, function_name_path,
       true /* is_analytic_function */, std::move(resolved_arguments),
-      nullptr /* expected_result_type */, &resolved_function_call));
+      /*named_arguments=*/{}, nullptr /* expected_result_type */,
+      &resolved_function_call));
   DCHECK(expr_resolution_info->query_resolution_info != nullptr);
   return expr_resolution_info->query_resolution_info->
              analytic_resolver()->ResolveOverClauseAndCreateAnalyticColumn(
@@ -3607,7 +3616,8 @@ zetasql_base::Status Resolver::ResolveArrayElement(
   return ResolveFunctionCallWithResolvedArguments(
       array_element->position(),
       {array_element, unwrapped_ast_position_expr} /* arg_locations */,
-      function_name, std::move(args), expr_resolution_info, resolved_expr_out);
+      function_name, std::move(args), /*named_arguments=*/{},
+      expr_resolution_info, resolved_expr_out);
 }
 
 const char Resolver::kArrayAtOffset[] = "$array_at_offset";
@@ -3712,7 +3722,8 @@ zetasql_base::Status Resolver::ResolveCaseNoValueExpression(
 
   return ResolveFunctionCallWithResolvedArguments(
       case_no_value, arg_locations, "$case_no_value",
-      std::move(resolved_arguments), expr_resolution_info, resolved_expr_out);
+      std::move(resolved_arguments), /*named_arguments=*/{},
+      expr_resolution_info, resolved_expr_out);
 }
 
 zetasql_base::Status Resolver::ResolveCaseValueExpression(
@@ -3740,7 +3751,8 @@ zetasql_base::Status Resolver::ResolveCaseValueExpression(
 
   return ResolveFunctionCallWithResolvedArguments(
       case_value, arg_locations, "$case_with_value",
-      std::move(resolved_arguments), expr_resolution_info, resolved_expr_out);
+      std::move(resolved_arguments), /*named_arguments=*/{},
+      expr_resolution_info, resolved_expr_out);
 }
 
 zetasql_base::Status Resolver::ResolveExtractExpression(
@@ -3889,7 +3901,8 @@ zetasql_base::Status Resolver::ResolveExtractExpression(
 
   return ResolveFunctionCallWithResolvedArguments(
       extract_expression, arg_locations, function_name,
-      std::move(resolved_arguments), expr_resolution_info, resolved_expr_out);
+      std::move(resolved_arguments), /*named_arguments=*/{},
+      expr_resolution_info, resolved_expr_out);
 }
 
 zetasql_base::Status Resolver::ResolveNewConstructor(
@@ -4083,8 +4096,8 @@ zetasql_base::Status Resolver::ResolveArrayConstructor(
 
     ZETASQL_RETURN_IF_ERROR(function_resolver_->ResolveGeneralFunctionCall(
         ast_array_constructor, ast_element_locations, "$make_array",
-        false /* is_analytic */, std::move(resolved_elements), array_type,
-        &resolved_function_call));
+        false /* is_analytic */, std::move(resolved_elements),
+        /*named_arguments=*/{}, array_type, &resolved_function_call));
     *resolved_expr_out = std::move(resolved_function_call);
   }
   return ::zetasql_base::OkStatus();
@@ -4804,6 +4817,7 @@ zetasql_base::Status Resolver::ResolveFunctionCallWithResolvedArguments(
     const std::vector<const ASTNode*>& arg_locations,
     const std::vector<std::string>& function_name_path,
     std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
+    std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   const Function* function;
@@ -4812,7 +4826,8 @@ zetasql_base::Status Resolver::ResolveFunctionCallWithResolvedArguments(
                                             &function, &error_mode));
   return ResolveFunctionCallWithResolvedArguments(
       ast_location, arg_locations, function, error_mode,
-      std::move(resolved_arguments), expr_resolution_info, resolved_expr_out);
+      std::move(resolved_arguments), std::move(named_arguments),
+      expr_resolution_info, resolved_expr_out);
 }
 
 zetasql_base::Status Resolver::ResolveFunctionCallWithResolvedArguments(
@@ -4820,13 +4835,15 @@ zetasql_base::Status Resolver::ResolveFunctionCallWithResolvedArguments(
     const std::vector<const ASTNode*>& arg_locations,
     absl::string_view function_name,
     std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
+    std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   const std::vector<std::string> function_name_path = {
       std::string(function_name)};
   return ResolveFunctionCallWithResolvedArguments(
       ast_location, arg_locations, function_name_path,
-      std::move(resolved_arguments), expr_resolution_info, resolved_expr_out);
+      std::move(resolved_arguments), std::move(named_arguments),
+      expr_resolution_info, resolved_expr_out);
 }
 
 zetasql_base::Status Resolver::ResolveProtoDefaultIfNull(
@@ -4907,10 +4924,10 @@ static bool IsProtoDefaultIfNull(
 
 zetasql_base::Status Resolver::ResolveFunctionCallWithResolvedArguments(
     const ASTNode* ast_location,
-    const std::vector<const ASTNode*>& arg_locations,
-    const Function* function,
+    const std::vector<const ASTNode*>& arg_locations, const Function* function,
     ResolvedFunctionCallBase::ErrorMode error_mode,
     std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
+    std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
 
@@ -4943,7 +4960,8 @@ zetasql_base::Status Resolver::ResolveFunctionCallWithResolvedArguments(
   ZETASQL_RETURN_IF_ERROR(function_resolver_->ResolveGeneralFunctionCall(
       ast_location, arg_locations, function, error_mode,
       false /* is_analytic */, std::move(resolved_arguments),
-      nullptr /* expected_result_type */, &resolved_function_call));
+      std::move(named_arguments), nullptr /* expected_result_type */,
+      &resolved_function_call));
 
   if (function->IsDeprecated()) {
     ZETASQL_RETURN_IF_ERROR(AddDeprecationWarning(
@@ -5152,8 +5170,8 @@ zetasql_base::Status Resolver::ResolveFunctionCallWithLiteralRetry(
   const zetasql_base::Status new_status = ResolveFunctionCallWithResolvedArguments(
       ast_location,
       ToLocations(absl::Span<const ASTExpression* const>(ast_arguments)),
-      function, error_mode, std::move(resolved_arguments), expr_resolution_info,
-      resolved_expr_out);
+      function, error_mode, std::move(resolved_arguments),
+      /*named_arguments=*/{}, expr_resolution_info, resolved_expr_out);
   if (!new_status.ok()) {
     // Return the original error.
     return status;
@@ -5193,17 +5211,11 @@ zetasql_base::Status Resolver::ResolveFunctionCallImpl(
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
 
   // Check if the function call contains any named arguments.
-  for (const ASTExpression* arg : arguments) {
+  std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments;
+  for (int i = 0; i < arguments.size(); ++i) {
+    const ASTExpression* arg = arguments[i];
     if (arg->node_kind() == AST_NAMED_ARGUMENT) {
-      if (!language().LanguageFeatureEnabled(FEATURE_NAMED_ARGUMENTS)) {
-        return MakeSqlErrorAt(arg)
-               << "ZetaSQL named arguments are not supported";
-      }
-      // TODO: Resolve the named argument value expression instead and
-      // then forward the associated names onwards into
-      // ResolveFunctionCallWithResolvedArguments below.
-      return MakeSqlErrorAt(arg)
-             << "ZetaSQL named arguments are not supported yet";
+      named_arguments.emplace_back(arg->GetAs<ASTNamedArgument>(), i);
     }
   }
 
@@ -5217,8 +5229,8 @@ zetasql_base::Status Resolver::ResolveFunctionCallImpl(
   return ResolveFunctionCallWithResolvedArguments(
       ast_location,
       ToLocations(absl::Span<const ASTExpression* const>(ast_arguments)),
-      function, error_mode, std::move(resolved_arguments), expr_resolution_info,
-      resolved_expr_out);
+      function, error_mode, std::move(resolved_arguments),
+      std::move(named_arguments), expr_resolution_info, resolved_expr_out);
 }
 
 IdString Resolver::GetColumnAliasForTopLevelExpression(

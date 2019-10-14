@@ -1,0 +1,67 @@
+//
+// Copyright 2019 ZetaSQL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+syntax = "proto2";
+
+package zetasql;
+
+import "zetasql/public/options.proto";
+import "zetasql/public/type.proto";
+import "zetasql/public/value.proto";
+
+option java_package = "com.google.zetasql";
+option java_multiple_files = true;
+
+message TestDatabaseProto {
+  repeated string proto_files = 1;  // *.proto files relative path.
+  optional bool runs_as_test = 2;  // When true, looks for files in test_srcdir.
+  repeated string proto_names = 3;  // Set of proto type names.
+  repeated string enum_names = 4;   // Set of enum type names.
+
+  // test_table.name should be unique with this list.
+  repeated TestTableProto test_tables = 5;
+}
+
+message TestTableOptionsProto {
+  // Defines expected table size after populating it with random data. The
+  // table will have a random size in [min, max].
+  optional int64 expected_table_size_min = 1;
+  optional int64 expected_table_size_max = 2;
+
+  // Indicates whether the table is a value table.
+  optional bool is_value_table = 3;
+
+  // Indicates the probability of NULL Values in each column of a table.
+  optional double nullable_probability = 4;
+
+  // A test table is only created if the test driver supports all of its
+  // required features, and even then it is only visible in tests that list all
+  // of its required features in their [required_features] sections.
+  repeated zetasql.LanguageFeature required_features = 5;
+}
+
+message TestTableProto {
+  optional string name = 1;
+
+  // ARRAY of STRUCTs, where the STRUCT field names are the column names.
+  optional TypeAndValue contents = 2;
+  optional TestTableOptionsProto options = 3;
+}
+
+message TypeAndValue {
+  optional zetasql.ValueProto value = 1;
+  optional zetasql.TypeProto type = 2;
+}

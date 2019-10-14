@@ -1059,13 +1059,15 @@ bool Value::LessThan(const Value& that) const {
                 subsecond_nanos_ < that.subsecond_nanos_);
       case TYPE_NUMERIC:
         return numeric_value() < that.numeric_value();
-      case TYPE_ENUM:
-        // TODO: change this to return false for consistency and to
-        // avoid crashes.
-        CHECK(type()->Equivalent(that.type()))
-            << "Cannot compare enum of type "
-            << type()->DebugString() << " and " << that.type()->DebugString();
+      case TYPE_ENUM: {
+        // The behaviour is undefined when the enum types are not compatible.
+        // Fails tests and log an error message in prod.
+        if (!type()->Equivalent(that.type())) {
+          LOG(DFATAL) << "Cannot compare enum of type " << type()->DebugString()
+                      << " and " << that.type()->DebugString();
+        }
         return enum_value() < that.enum_value();
+      }
       case TYPE_STRUCT:
         if (num_fields() != that.num_fields()) return false;
         // Because we return true as soon as 'LessThan' returns true for a

@@ -71,7 +71,7 @@ SELECT SAFE.SUBSTR('bar', 0, 2) AS safe_output;
 +-------------+
 ```
 
-[link-to-SAFE_DIVIDE]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#mathematical-functions
+[link-to-SAFE_DIVIDE]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#safe_divide
 [link-to-SAFE_CAST]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#safe-casting
 [link-to-operators]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#operators
 

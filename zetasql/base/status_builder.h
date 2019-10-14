@@ -67,16 +67,18 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
  public:
   // Creates a `StatusBuilder` from an StatusCode.  If logging is enabled,
   // it will use `location` as the location from which the log message occurs.
-  // A typical user will call this with `ZETASQL_LOC`.
-  StatusBuilder(StatusCode code, zetasql_base::SourceLocation location);
+  StatusBuilder(StatusCode code, zetasql_base::SourceLocation location =
+                                     SourceLocation::current());
 
   // Creates a `StatusBuilder` based on an original status.  If logging is
   // enabled, it will use `location` as the location from which the log message
-  // occurs.  A typical user will call this with `ZETASQL_LOC`.
-  StatusBuilder(const Status& original_status,
-                zetasql_base::SourceLocation location);
-  StatusBuilder(Status&& original_status,
-                zetasql_base::SourceLocation location);
+  // occurs.
+  StatusBuilder(
+      const Status& original_status,
+      zetasql_base::SourceLocation location = SourceLocation::current());
+  StatusBuilder(
+      Status&& original_status,
+      zetasql_base::SourceLocation location = SourceLocation::current());
 
   StatusBuilder(const StatusBuilder& sb);
   StatusBuilder& operator=(const StatusBuilder& sb);

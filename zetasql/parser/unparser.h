@@ -142,6 +142,8 @@ class Unparser : public ParseTreeVisitor {
                               void* data) override;
   void visitASTTableClause(const ASTTableClause* node, void* data) override;
   void visitASTModelClause(const ASTModelClause* node, void* data) override;
+  void visitASTConnectionClause(const ASTConnectionClause* node,
+                                void* data) override;
   void visitASTTVF(const ASTTVF* node, void* data) override;
   void visitASTTVFArgument(const ASTTVFArgument* node, void* data) override;
   void visitASTTVFSchema(const ASTTVFSchema* node, void* data) override;
@@ -489,6 +491,9 @@ class Unparser : public ParseTreeVisitor {
                                     void* data) override;
   void visitASTStatementList(const ASTStatementList* node, void* data) override;
   void visitASTIfStatement(const ASTIfStatement* node, void* data) override;
+  void visitASTElseifClause(const ASTElseifClause* node, void* data) override;
+  void visitASTElseifClauseList(const ASTElseifClauseList* node,
+                                void* data) override;
   void visitASTBeginEndBlock(const ASTBeginEndBlock* node, void* data) override;
   void visitASTIdentifierList(const ASTIdentifierList* node,
                               void* data) override;

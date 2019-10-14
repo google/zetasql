@@ -1,8 +1,8 @@
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
 # Utility statements
+
+<!-- BEGIN CONTENT -->
 
 ZetaSQL specifies the syntax for utility statements, such as
 `DESCRIBE`.

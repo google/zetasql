@@ -77,6 +77,9 @@ enum class FunctionKind {
   kArrayAgg,
   kArrayConcatAgg,
   kAvg,
+  kBitAnd,
+  kBitOr,
+  kBitXor,
   kCount,
   kCountIf,
   kCorr,
@@ -99,6 +102,20 @@ enum class FunctionKind {
   kIsFalse,
   // Cast function
   kCast,
+  // BitCast functions
+  kBitCastToInt32,
+  kBitCastToInt64,
+  kBitCastToUint32,
+  kBitCastToUint64,
+  // Bitwise functions
+  kBitwiseNot,
+  kBitwiseOr,
+  kBitwiseXor,
+  kBitwiseAnd,
+  kBitwiseLeftShift,
+  kBitwiseRightShift,
+  // BitCount functions
+  kBitCount,
   // Least and greatest functions
   kLeast,
   kGreatest,
@@ -116,7 +133,10 @@ enum class FunctionKind {
   kArrayAtOffset,
   kSafeArrayAtOrdinal,
   kSafeArrayAtOffset,
+  kFromProto,
+  kToProto,
   kMakeProto,
+  kReplaceFields,
   // Date/Time functions
   kDateAdd,
   kDateSub,
@@ -430,6 +450,29 @@ class CastFunction : public SimpleBuiltinScalarFunction {
                                EvaluationContext* context) const override;
 };
 
+
+class BitCastFunction : public BuiltinScalarFunction {
+ public:
+  using BuiltinScalarFunction::BuiltinScalarFunction;
+  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+            Value* result, ::zetasql_base::Status* status) const override;
+};
+
+class BitwiseFunction : public BuiltinScalarFunction {
+ public:
+  using BuiltinScalarFunction::BuiltinScalarFunction;
+  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+            Value* result, ::zetasql_base::Status* status) const override;
+};
+
+class BitCountFunction : public BuiltinScalarFunction {
+ public:
+  BitCountFunction()
+      : BuiltinScalarFunction(FunctionKind::kBitCount, types::Int64Type()) {}
+  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+            Value* result, ::zetasql_base::Status* status) const override;
+};
+
 class ArrayElementFunction : public BuiltinScalarFunction {
  public:
   ArrayElementFunction(int base, bool safe, const Type* output_type)
@@ -499,6 +542,53 @@ class MakeProtoFunction : public SimpleBuiltinScalarFunction {
   std::vector<FieldAndFormat> fields_;  // Not owned.
 };
 
+// This class is used to evaluate the REPLACE_FIELDS() SQL function, given
+// resolved arguments. The field paths to be modified in the root object must be
+// passed in the constructor. The resolved arguments list to evaluate should
+// consist of the root object and the new field values (in the order
+// corresponding to the initalized field paths).
+class ReplaceFieldsFunction : public SimpleBuiltinScalarFunction {
+ public:
+  //  A pair of paths that together represent a single field path of a Struct or
+  //  Proto type.
+  //  If only 'struct_index_path' is non-empty, then the field path only
+  //  references top-level and nested struct fields.
+  //
+  //  If only 'field_descriptor_path' is non-empty, then the field path only
+  //  references top-level and nested message fields.
+  //
+  //  If both path vectors are non-empty, the field path should be expanded
+  //  starting with the 'struct_index_path'. The Struct field corresponding to
+  //  the last index in 'struct_index_path' will be the proto from which the
+  //  first field in 'field_descriptor_path' is looked up with regards to.
+  struct StructAndProtoPath {
+    StructAndProtoPath(
+        std::vector<int> input_struct_index_path,
+        std::vector<const google::protobuf::FieldDescriptor*> input_field_descriptor_path)
+        : struct_index_path(input_struct_index_path),
+          field_descriptor_path(input_field_descriptor_path) {}
+
+    // A vector of indexes (0-based) that denotes the path to a struct field
+    // that will be modified.
+    std::vector<int> struct_index_path;
+
+    // A vector of FieldDescriptors that denotes the path to a proto field that
+    // will be modified
+    std::vector<const google::protobuf::FieldDescriptor*> field_descriptor_path;
+  };
+
+  ReplaceFieldsFunction(const Type* output_type,
+                        const std::vector<StructAndProtoPath>& field_paths)
+      : SimpleBuiltinScalarFunction(FunctionKind::kReplaceFields, output_type),
+        field_paths_(field_paths) {}
+
+  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+
+ private:
+  const std::vector<StructAndProtoPath> field_paths_;
+};
+
 class NullaryFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
@@ -559,6 +649,20 @@ class StringFromTimestampFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
   zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class FromProtoFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  zetasql_base::StatusOr<Value> Eval(const absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class ToProtoFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  zetasql_base::StatusOr<Value> Eval(const absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -984,7 +1088,6 @@ class PercentileDiscFunction : public BuiltinAnalyticFunction {
  private:
   bool ignore_nulls_;
 };
-
 
 }  // namespace zetasql
 

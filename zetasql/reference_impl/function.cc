@@ -43,6 +43,9 @@
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/functions/arithmetics.h"
+#include "zetasql/public/functions/bitcast.h"
+#include "zetasql/public/functions/bitwise.h"
+#include "zetasql/public/functions/common_proto.h"
 #include "zetasql/public/functions/comparison.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/datetime.pb.h"
@@ -56,6 +59,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/common.h"
 #include "zetasql/reference_impl/evaluation.h"
+#include "zetasql/reference_impl/proto_util.h"
 #include "zetasql/reference_impl/tuple_comparator.h"
 #include <cstdint>
 #include "absl/base/optimization.h"
@@ -333,6 +337,27 @@ FunctionMap::FunctionMap() {
   RegisterFunction(FunctionKind::kSafeArrayAtOrdinal, "$safe_array_at_ordinal",
                    "SafeArrayAtOrdinal");
   RegisterFunction(FunctionKind::kAvg, "avg", "Avg");
+  RegisterFunction(FunctionKind::kBitwiseAnd, "$bitwise_and", "BitwiseAnd");
+  RegisterFunction(FunctionKind::kBitwiseLeftShift, "$bitwise_left_shift",
+                   "BitwiseLeftShift");
+  RegisterFunction(FunctionKind::kBitwiseNot, "$bitwise_not", "BitwiseNot");
+  RegisterFunction(FunctionKind::kBitwiseOr, "$bitwise_or", "BitwiseOr");
+  RegisterFunction(FunctionKind::kBitwiseRightShift, "$bitwise_right_shift",
+                   "BitwiseRightShift");
+  RegisterFunction(FunctionKind::kBitwiseXor, "$bitwise_xor", "BitwiseXor");
+  RegisterFunction(FunctionKind::kBitAnd, "bit_and", "BitAnd");
+  RegisterFunction(FunctionKind::kBitOr, "bit_or", "BitOr");
+  RegisterFunction(FunctionKind::kBitXor, "bit_xor", "BitXor");
+  RegisterFunction(FunctionKind::kBitCount, "bit_count", "BitCount");
+  RegisterFunction(FunctionKind::kCast, "cast", "Cast");
+  RegisterFunction(FunctionKind::kBitCastToInt32, "bit_cast_to_int32",
+                   "BitCastToInt32");
+  RegisterFunction(FunctionKind::kBitCastToInt64, "bit_cast_to_int64",
+                   "BitCastToInt64");
+  RegisterFunction(FunctionKind::kBitCastToUint32, "bit_cast_to_uint32",
+                   "BitCastToUint32");
+  RegisterFunction(FunctionKind::kBitCastToUint64, "bit_cast_to_uint64",
+                   "BitCastToUint64");
   RegisterFunction(FunctionKind::kCount, "count", "Count");
   RegisterFunction(FunctionKind::kCountIf, "countif", "CountIf");
   RegisterFunction(FunctionKind::kDateAdd, "date_add", "Date_add");
@@ -359,6 +384,7 @@ FunctionMap::FunctionMap() {
   RegisterFunction(FunctionKind::kLessOrEqual, "$less_or_equal", "LessOrEqual");
   RegisterFunction(FunctionKind::kLogicalAnd, "logical_and", "LogicalAnd");
   RegisterFunction(FunctionKind::kLogicalOr, "logical_or", "LogicalOr");
+  RegisterFunction(FunctionKind::kMakeProto, "make_proto", "MakeProto");
   RegisterFunction(FunctionKind::kMax, "max", "Max");
   RegisterFunction(FunctionKind::kMin, "min", "Min");
   RegisterFunction(FunctionKind::kMod, "mod", "Mod");
@@ -437,6 +463,8 @@ FunctionMap::FunctionMap() {
                    "Unix_micros");
   RegisterFunction(FunctionKind::kStringFromTimestamp, "string",
                    "String");
+  RegisterFunction(FunctionKind::kFromProto, "from_proto", "From_proto");
+  RegisterFunction(FunctionKind::kToProto, "to_proto", "To_proto");
   RegisterFunction(FunctionKind::kDate, "date", "Date");
   RegisterFunction(FunctionKind::kTimestamp, "timestamp", "Timestamp");
   RegisterFunction(FunctionKind::kTime, "time", "Time");
@@ -717,6 +745,20 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new IsFunction(kind, output_type);
     case FunctionKind::kCast:
       return new CastFunction(kind, output_type);
+    case FunctionKind::kBitCastToInt32:
+    case FunctionKind::kBitCastToInt64:
+    case FunctionKind::kBitCastToUint32:
+    case FunctionKind::kBitCastToUint64:
+      return new BitCastFunction(kind, output_type);
+    case FunctionKind::kBitwiseNot:
+    case FunctionKind::kBitwiseOr:
+    case FunctionKind::kBitwiseXor:
+    case FunctionKind::kBitwiseAnd:
+    case FunctionKind::kBitwiseLeftShift:
+    case FunctionKind::kBitwiseRightShift:
+      return new BitwiseFunction(kind, output_type);
+    case FunctionKind::kBitCount:
+      return new BitCountFunction;
     case FunctionKind::kArrayAtOrdinal:
       return new ArrayElementFunction(1, false /* safe */, output_type);
     case FunctionKind::kArrayAtOffset:
@@ -800,6 +842,13 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new IntFromTimestampFunction(kind, output_type);
     case FunctionKind::kStringFromTimestamp:
       return new StringFromTimestampFunction(kind, output_type);
+    case FunctionKind::kFromProto:
+      return new FromProtoFunction(kind, output_type);
+    case FunctionKind::kToProto:
+      return new ToProtoFunction(kind, output_type);
+    case FunctionKind::kMakeProto:
+      ZETASQL_RET_CHECK_FAIL() << "MakeProto needs extra parameters";
+      break;
     case FunctionKind::kRand:
       return new RandFunction;
     case FunctionKind::kError:
@@ -1387,6 +1436,41 @@ zetasql_base::StatusOr<Value> CastFunction::Eval(absl::Span<const Value> args,
   return status_or;
 }
 
+bool BitCastFunction::Eval(absl::Span<const Value> args,
+                           EvaluationContext* context, Value* result,
+                           ::zetasql_base::Status* status) const {
+  DCHECK_EQ(args.size(), 1);
+  if (HasNulls(args)) {
+    *result = Value::Null(output_type());
+    return true;
+  }
+  const Value& val = args[0];
+  switch (FCT(kind(), val.type_kind())) {
+    case FCT(FunctionKind::kBitCastToInt32, TYPE_UINT32):
+      return InvokeUnary<int32_t, uint32_t>(&functions::BitCast<uint32_t, int32_t>,
+                                        args, result, status);
+    case FCT(FunctionKind::kBitCastToInt64, TYPE_UINT64):
+      return InvokeUnary<int64_t, uint64_t>(&functions::BitCast<uint64_t, int64_t>,
+                                        args, result, status);
+    case FCT(FunctionKind::kBitCastToUint32, TYPE_INT32):
+      return InvokeUnary<uint32_t, int32_t>(&functions::BitCast<int32_t, uint32_t>,
+                                        args, result, status);
+    case FCT(FunctionKind::kBitCastToUint64, TYPE_INT64):
+      return InvokeUnary<uint64_t, int64_t>(&functions::BitCast<int64_t, uint64_t>,
+                                        args, result, status);
+    case FCT(FunctionKind::kBitCastToInt32, TYPE_INT32):
+    case FCT(FunctionKind::kBitCastToInt64, TYPE_INT64):
+    case FCT(FunctionKind::kBitCastToUint32, TYPE_UINT32):
+    case FCT(FunctionKind::kBitCastToUint64, TYPE_UINT64):
+      *result = val;
+      return true;
+    default:
+      *status = ::zetasql_base::UnimplementedErrorBuilder()
+                << "Unsupported argument or output type for bit_cast.";
+      return false;
+  }
+}
+
 bool LogicalFunction::Eval(absl::Span<const Value> args,
                            EvaluationContext* context, Value* result,
                            ::zetasql_base::Status* status) const {
@@ -1571,6 +1655,18 @@ zetasql_base::Status BuiltinAggregateAccumulator::Reset() {
       }
       break;
     }
+    case FunctionKind::kBitOr:
+    case FunctionKind::kBitXor:
+      bit_int32_ = 0;
+      bit_int64_ = 0;
+      bit_uint32_ = 0;
+      bit_uint64_ = 0;
+      break;
+    case FunctionKind::kBitAnd:
+      // Initialize the bit variables to all ones.
+      bit_int32_ = bit_uint32_ = 0xffffffff;
+      bit_int64_ = bit_uint64_ = 0xffffffffffffffff;
+      break;
     case FunctionKind::kOrAgg:
     case FunctionKind::kLogicalOr:
       has_true_ = false;
@@ -1751,6 +1847,99 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       *status =
           UpdateMeanAndVariance(value.ToDouble(), count_, &avg_, &variance_);
       if (!status->ok()) return false;
+      break;
+    }
+    // Bitwise aggregates.
+    case FCT(FunctionKind::kBitAnd, TYPE_INT32): {
+      if (!functions::BitwiseAnd(bit_int32_, value.int32_value(), &bit_int32_,
+                                 status)) {
+        return false;
+      }
+      break;
+    }
+    case FCT(FunctionKind::kBitAnd, TYPE_INT64): {
+      if (!functions::BitwiseAnd(bit_int64_, value.int64_value(), &bit_int64_,
+                                 status)) {
+        return false;
+      }
+      break;
+    }
+    case FCT(FunctionKind::kBitAnd, TYPE_UINT32): {
+      if (!functions::BitwiseAnd(bit_uint32_, value.uint32_value(),
+                                 &bit_uint32_, status)) {
+        return false;
+      }
+      break;
+    }
+    case FCT(FunctionKind::kBitAnd, TYPE_UINT64): {
+      if (!functions::BitwiseAnd(bit_uint64_, value.uint64_value(),
+                                 &bit_uint64_, status)) {
+        return false;
+      }
+      break;
+    }
+    case FCT(FunctionKind::kBitOr, TYPE_INT32): {
+      if (!functions::BitwiseOr(bit_int32_, value.int32_value(), &bit_int32_,
+                                status)) {
+        return false;
+      }
+      break;
+    }
+    case FCT(FunctionKind::kBitOr, TYPE_INT64): {
+      if (!functions::BitwiseOr(bit_int64_, value.int64_value(), &bit_int64_,
+                                status)) {
+        return false;
+      }
+      break;
+    }
+    case FCT(FunctionKind::kBitOr, TYPE_UINT32): {
+      if (!functions::BitwiseOr(bit_uint32_, value.uint32_value(), &bit_uint32_,
+                                status)) {
+        return false;
+      }
+      break;
+    }
+    case FCT(FunctionKind::kBitOr, TYPE_UINT64): {
+      if (!functions::BitwiseOr(bit_uint64_, value.uint64_value(), &bit_uint64_,
+                                status)) {
+        return false;
+      }
+      break;
+    }
+    case FCT(FunctionKind::kBitXor, TYPE_INT32): {
+      if (count_ == 1) {
+        bit_int32_ = value.int32_value();
+      } else if (!functions::BitwiseXor(bit_int32_, value.int32_value(),
+                                        &bit_int32_, status)) {
+        return false;
+      }
+      break;
+    }
+    case FCT(FunctionKind::kBitXor, TYPE_INT64): {
+      if (count_ == 1) {
+        bit_int64_ = value.int64_value();
+      } else if (!functions::BitwiseXor(bit_int64_, value.int64_value(),
+                                        &bit_int64_, status)) {
+        return false;
+      }
+      break;
+    }
+    case FCT(FunctionKind::kBitXor, TYPE_UINT32): {
+      if (count_ == 1) {
+        bit_uint32_ = value.uint32_value();
+      } else if (!functions::BitwiseXor(bit_uint32_, value.uint32_value(),
+                                        &bit_uint32_, status)) {
+        return false;
+      }
+      break;
+    }
+    case FCT(FunctionKind::kBitXor, TYPE_UINT64): {
+      if (count_ == 1) {
+        bit_uint64_ = value.uint64_value();
+      } else if (!functions::BitwiseXor(bit_uint64_, value.uint64_value(),
+                                        &bit_uint64_, status)) {
+        return false;
+      }
       break;
     }
     case FCT(FunctionKind::kCountIf, TYPE_BOOL): {
@@ -2145,6 +2334,23 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
     case FCT(FunctionKind::kLogicalAnd, TYPE_BOOL):
       return has_false_ ? Value::Bool(false)
                         : (count_ == 0 ? Value::NullBool() : Value::Bool(true));
+    // Bitwise aggregates.
+    case FCT(FunctionKind::kBitAnd, TYPE_INT32):
+    case FCT(FunctionKind::kBitOr, TYPE_INT32):
+    case FCT(FunctionKind::kBitXor, TYPE_INT32):
+      return count_ > 0 ? Value::Int32(bit_int32_) : Value::NullInt32();
+    case FCT(FunctionKind::kBitAnd, TYPE_INT64):
+    case FCT(FunctionKind::kBitOr, TYPE_INT64):
+    case FCT(FunctionKind::kBitXor, TYPE_INT64):
+      return count_ > 0 ? Value::Int64(bit_int64_) : Value::NullInt64();
+    case FCT(FunctionKind::kBitAnd, TYPE_UINT32):
+    case FCT(FunctionKind::kBitOr, TYPE_UINT32):
+    case FCT(FunctionKind::kBitXor, TYPE_UINT32):
+      return count_ > 0 ? Value::Uint32(bit_uint32_) : Value::NullUint32();
+    case FCT(FunctionKind::kBitAnd, TYPE_UINT64):
+    case FCT(FunctionKind::kBitOr, TYPE_UINT64):
+    case FCT(FunctionKind::kBitXor, TYPE_UINT64):
+      return count_ > 0 ? Value::Uint64(bit_uint64_) : Value::NullUint64();
   }
   return ::zetasql_base::UnimplementedErrorBuilder()
          << "Unsupported aggregate function: " << function_->debug_name() << "("
@@ -2324,6 +2530,149 @@ BinaryStatFunction::CreateAccumulator(absl::Span<const Value> args,
   return BinaryStatAccumulator::Create(this, input_type(), context);
 }
 
+bool BitwiseFunction::Eval(absl::Span<const Value> args,
+                           EvaluationContext* context, Value* result,
+                           ::zetasql_base::Status* status) const {
+  if (HasNulls(args)) {
+    *result = Value::Null(output_type());
+    return true;
+  }
+  switch (FCT(kind(), args[0].type_kind())) {
+    case FCT(FunctionKind::kBitwiseNot, TYPE_INT32):
+      return InvokeUnary<int32_t>(&functions::BitwiseNot<int32_t>, args, result,
+                                status);
+    case FCT(FunctionKind::kBitwiseNot, TYPE_INT64):
+      return InvokeUnary<int64_t>(&functions::BitwiseNot<int64_t>, args, result,
+                                status);
+    case FCT(FunctionKind::kBitwiseNot, TYPE_UINT32):
+      return InvokeUnary<uint32_t>(&functions::BitwiseNot<uint32_t>, args, result,
+                                 status);
+    case FCT(FunctionKind::kBitwiseNot, TYPE_UINT64):
+      return InvokeUnary<uint64_t>(&functions::BitwiseNot<uint64_t>, args, result,
+                                 status);
+    case FCT(FunctionKind::kBitwiseNot, TYPE_BYTES):
+      return InvokeBytes<std::string>(&functions::BitwiseNotBytes, result,
+                                      status, args[0].bytes_value());
+
+    case FCT(FunctionKind::kBitwiseOr, TYPE_INT32):
+      return InvokeBinary<int32_t>(&functions::BitwiseOr<int32_t>, args, result,
+                                 status);
+    case FCT(FunctionKind::kBitwiseOr, TYPE_INT64):
+      return InvokeBinary<int64_t>(&functions::BitwiseOr<int64_t>, args, result,
+                                 status);
+    case FCT(FunctionKind::kBitwiseOr, TYPE_UINT32):
+      return InvokeBinary<uint32_t>(&functions::BitwiseOr<uint32_t>, args, result,
+                                  status);
+    case FCT(FunctionKind::kBitwiseOr, TYPE_UINT64):
+      return InvokeBinary<uint64_t>(&functions::BitwiseOr<uint64_t>, args, result,
+                                  status);
+    case FCT(FunctionKind::kBitwiseOr, TYPE_BYTES):
+      return InvokeBytes<std::string>(
+          &functions::BitwiseBinaryOpBytes<std::bit_or>, result, status,
+          args[0].bytes_value(), args[1].bytes_value());
+
+    case FCT(FunctionKind::kBitwiseXor, TYPE_INT32):
+      return InvokeBinary<int32_t>(&functions::BitwiseXor<int32_t>, args, result,
+                                 status);
+    case FCT(FunctionKind::kBitwiseXor, TYPE_INT64):
+      return InvokeBinary<int64_t>(&functions::BitwiseXor<int64_t>, args, result,
+                                 status);
+    case FCT(FunctionKind::kBitwiseXor, TYPE_UINT32):
+      return InvokeBinary<uint32_t>(&functions::BitwiseXor<uint32_t>, args, result,
+                                  status);
+    case FCT(FunctionKind::kBitwiseXor, TYPE_UINT64):
+      return InvokeBinary<uint64_t>(&functions::BitwiseXor<uint64_t>, args, result,
+                                  status);
+    case FCT(FunctionKind::kBitwiseXor, TYPE_BYTES):
+      return InvokeBytes<std::string>(
+          &functions::BitwiseBinaryOpBytes<std::bit_xor>, result, status,
+          args[0].bytes_value(), args[1].bytes_value());
+
+    case FCT(FunctionKind::kBitwiseAnd, TYPE_INT32):
+      return InvokeBinary<int32_t>(&functions::BitwiseAnd<int32_t>, args, result,
+                                 status);
+    case FCT(FunctionKind::kBitwiseAnd, TYPE_INT64):
+      return InvokeBinary<int64_t>(&functions::BitwiseAnd<int64_t>, args, result,
+                                 status);
+    case FCT(FunctionKind::kBitwiseAnd, TYPE_UINT32):
+      return InvokeBinary<uint32_t>(&functions::BitwiseAnd<uint32_t>, args, result,
+                                  status);
+    case FCT(FunctionKind::kBitwiseAnd, TYPE_UINT64):
+      return InvokeBinary<uint64_t>(&functions::BitwiseAnd<uint64_t>, args, result,
+                                  status);
+    case FCT(FunctionKind::kBitwiseAnd, TYPE_BYTES):
+      return InvokeBytes<std::string>(
+          &functions::BitwiseBinaryOpBytes<std::bit_and>, result, status,
+          args[0].bytes_value(), args[1].bytes_value());
+
+    case FCT(FunctionKind::kBitwiseLeftShift, TYPE_INT32):
+      return InvokeBinary<int32_t, int32_t, int64_t>(
+          &functions::BitwiseLeftShift<int32_t>, args, result, status);
+    case FCT(FunctionKind::kBitwiseLeftShift, TYPE_INT64):
+      return InvokeBinary<int64_t, int64_t, int64_t>(
+          &functions::BitwiseLeftShift<int64_t>, args, result, status);
+    case FCT(FunctionKind::kBitwiseLeftShift, TYPE_UINT32):
+      return InvokeBinary<uint32_t, uint32_t, int64_t>(
+          &functions::BitwiseLeftShift<uint32_t>, args, result, status);
+    case FCT(FunctionKind::kBitwiseLeftShift, TYPE_UINT64):
+      return InvokeBinary<uint64_t, uint64_t, int64_t>(
+          &functions::BitwiseLeftShift<uint64_t>, args, result, status);
+    case FCT(FunctionKind::kBitwiseLeftShift, TYPE_BYTES):
+      return InvokeBytes<std::string>(&functions::BitwiseLeftShiftBytes, result,
+                                      status, args[0].bytes_value(),
+                                      args[1].int64_value());
+
+    case FCT(FunctionKind::kBitwiseRightShift, TYPE_INT32):
+      return InvokeBinary<int32_t, int32_t, int64_t>(
+          &functions::BitwiseRightShift<int32_t>, args, result, status);
+    case FCT(FunctionKind::kBitwiseRightShift, TYPE_INT64):
+      return InvokeBinary<int64_t, int64_t, int64_t>(
+          &functions::BitwiseRightShift<int64_t>, args, result, status);
+    case FCT(FunctionKind::kBitwiseRightShift, TYPE_UINT32):
+      return InvokeBinary<uint32_t, uint32_t, int64_t>(
+          &functions::BitwiseRightShift<uint32_t>, args, result, status);
+    case FCT(FunctionKind::kBitwiseRightShift, TYPE_UINT64):
+      return InvokeBinary<uint64_t, uint64_t, int64_t>(
+          &functions::BitwiseRightShift<uint64_t>, args, result, status);
+    case FCT(FunctionKind::kBitwiseRightShift, TYPE_BYTES):
+      return InvokeBytes<std::string>(&functions::BitwiseRightShiftBytes,
+                                      result, status, args[0].bytes_value(),
+                                      args[1].int64_value());
+  }
+  *status = ::zetasql_base::UnimplementedErrorBuilder()
+            << "Unsupported bitwise function: " << debug_name();
+  return false;
+}
+
+bool BitCountFunction::Eval(absl::Span<const Value> args,
+                            EvaluationContext* context, Value* result,
+                            ::zetasql_base::Status* status) const {
+  CHECK_EQ(1, args.size());
+  if (HasNulls(args)) {
+    *result = Value::Null(output_type());
+    return true;
+  }
+  switch (args[0].type_kind()) {
+    case TYPE_INT32:
+      *result = Value::Make(functions::BitCount(args[0].int32_value()));
+      return true;
+    case TYPE_INT64:
+      *result = Value::Make(functions::BitCount(args[0].int64_value()));
+      return true;
+    case TYPE_UINT64:
+      *result = Value::Make(functions::BitCount(args[0].uint64_value()));
+      return true;
+    case TYPE_BYTES:
+      *result = Value::Make(functions::BitCount(args[0].bytes_value()));
+      return true;
+    default:
+      break;
+  }
+  *status = ::zetasql_base::UnimplementedErrorBuilder()
+            << "Unsupported BitCount function: " << debug_name();
+  return false;
+}
+
 zetasql_base::StatusOr<Value> ConcatFunction::Eval(absl::Span<const Value> args,
                                            EvaluationContext* context) const {
   if (HasNulls(args)) return Value::Null(output_type());
@@ -2354,6 +2703,130 @@ zetasql_base::StatusOr<Value> ConcatFunction::Eval(absl::Span<const Value> args,
     }
     return Value::Bytes(result);
   }
+}
+
+zetasql_base::StatusOr<Value> MakeProtoFunction::Eval(
+    absl::Span<const Value> args, EvaluationContext* context) const {
+  CHECK_EQ(args.size(), fields_.size());
+  std::string proto_cord;
+  {
+    google::protobuf::io::StringOutputStream cord_output(&proto_cord);
+
+    google::protobuf::io::CodedOutputStream coded_output(&cord_output);
+    for (int i = 0; i < args.size(); i++) {
+      bool nondeterministic = false;
+      ZETASQL_RETURN_IF_ERROR(ProtoUtil::WriteField(fields_[i].first, fields_[i].second,
+                                            args[i], &nondeterministic,
+                                            &coded_output));
+      if (nondeterministic) {
+        context->SetNonDeterministicOutput();
+      }
+    }
+  }
+  return Value::Proto(output_type()->AsProto(), proto_cord);
+}
+
+// Sets the proto field denoted by <path> to <new_field_value>. The first proto
+// field in <path> is looked up with regards to <parent_proto>.
+static zetasql_base::StatusOr<Value> ReplaceProtoFields(
+    const Value parent_proto,
+    const std::vector<const google::protobuf::FieldDescriptor*>& path,
+    const Value new_field_value, EvaluationContext* context) {
+  // TODO: Refactor this to code to modify the serialized proto
+  // instead of using reflection
+  ZETASQL_RET_CHECK(parent_proto.type()->IsProto());
+  if (parent_proto.is_null()) {
+    return MakeEvalError() << "REPLACE_FIELDS() cannot be used to modify the "
+                              "fields of a NULL valued proto";
+  }
+  if (new_field_value.is_null() && path.back()->is_required()) {
+    return MakeEvalError()
+           << "REPLACE_FIELDS() cannot be used to clear required fields";
+  }
+  google::protobuf::DynamicMessageFactory factory;
+  auto mutable_root_message =
+      absl::WrapUnique(parent_proto.ToMessage(&factory));
+  google::protobuf::Message* message_to_modify = mutable_root_message.get();
+  const google::protobuf::Reflection* reflection = message_to_modify->GetReflection();
+  // Get the Reflection object until the second-to-last path element as this
+  // message contains the field that we want to modify (i.e., the last element).
+  for (auto iter = path.begin(); iter != path.end() - 1; ++iter) {
+    if (!reflection->HasField(*message_to_modify, *iter)) {
+      return MakeEvalError() << "REPLACE_FIELDS() cannot be used to modify the "
+                                "fields of an unset proto";
+    }
+    message_to_modify =
+        reflection->MutableMessage(message_to_modify, *iter, &factory);
+    reflection = message_to_modify->GetReflection();
+  }
+  if (new_field_value.is_null()) {
+    reflection->ClearField(message_to_modify, path.back());
+  } else {
+    if (path.back()->is_repeated()) {
+      // Clear repeated fields, so MergeValueToProtoField does not append to
+      // them.
+      reflection->ClearField(message_to_modify, path.back());
+    }
+    ZETASQL_RETURN_IF_ERROR(MergeValueToProtoField(
+        new_field_value, path.back(), /*use_wire_format_annotations=*/false,
+        &factory, message_to_modify));
+  }
+
+  return Value::Proto(parent_proto.type()->AsProto(),
+                      mutable_root_message->SerializeAsString());
+}
+
+// Sets the field denoted by <path> to <new_field_value>. <path_index>
+// indicates which Struct field in <path> should be extracted from
+// <parent_struct>.
+static zetasql_base::StatusOr<Value> ReplaceStructFields(
+    const Value parent_struct,
+    const ReplaceFieldsFunction::StructAndProtoPath& path, int path_index,
+    const Value new_field_value, EvaluationContext* context) {
+  ZETASQL_RET_CHECK(parent_struct.type()->IsStruct());
+  std::vector<Value> new_struct_values = parent_struct.fields();
+  Value new_field = new_field_value;
+  if (path_index != path.struct_index_path.size() - 1) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        new_field,
+        ReplaceStructFields(
+            parent_struct.fields()[path.struct_index_path[path_index]], path,
+            path_index + 1, new_field_value, context));
+  } else if (!path.field_descriptor_path.empty()) {
+    // We have found the last Struct field in <path>. If <path> then traverses
+    // into a nested proto, write <new_field_value> to the final proto field.
+    ZETASQL_RET_CHECK(parent_struct.fields()[path.struct_index_path.back()]
+                  .type()
+                  ->IsProto());
+    ZETASQL_ASSIGN_OR_RETURN(new_field,
+                     ReplaceProtoFields(
+                         parent_struct.fields()[path.struct_index_path.back()],
+                         path.field_descriptor_path, new_field_value, context));
+  }
+  new_struct_values[path.struct_index_path[path_index]] = new_field;
+  return Value::Struct(parent_struct.type()->AsStruct(), new_struct_values);
+}
+
+zetasql_base::StatusOr<Value> ReplaceFieldsFunction::Eval(
+    absl::Span<const Value> args, EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(
+      field_paths_.size(),
+      args.size() - 1 /*The first argument is the root proto or struct*/);
+  ZETASQL_RET_CHECK(args[0].type()->IsStructOrProto());
+  Value output = args[0];
+  for (int i = 0; i < field_paths_.size(); ++i) {
+    if (output_type()->IsStruct()) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          output, ReplaceStructFields(output, field_paths_[i],
+                                      /*path_index=*/0, args[i + 1], context));
+    } else {
+      ZETASQL_ASSIGN_OR_RETURN(
+          output,
+          ReplaceProtoFields(output, field_paths_[i].field_descriptor_path,
+                             args[i + 1], context));
+    }
+  }
+  return output;
 }
 
 zetasql_base::StatusOr<Value> NullaryFunction::Eval(absl::Span<const Value> args,
@@ -2758,6 +3231,15 @@ zetasql_base::StatusOr<Value> StringFromTimestampFunction::Eval(
   return Value::String(result_string);
 }
 
+static functions::TimestampScale GetTimestampScale(
+    const LanguageOptions& options) {
+  if (options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
+    return functions::TimestampScale::kNanoseconds;
+  } else {
+    return functions::TimestampScale::kMicroseconds;
+  }
+}
+
 zetasql_base::StatusOr<Value> DateTruncFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
   // The signature arguments are (<date>, <datepart>).
@@ -2793,6 +3275,258 @@ zetasql_base::StatusOr<Value> TimestampTruncFunction::Eval(
                                               &int64_timestamp));
   }
   return Value::TimestampFromUnixMicros(int64_timestamp);
+}
+
+zetasql_base::StatusOr<Value> FromProtoFunction::Eval(
+    const absl::Span<const Value> args, EvaluationContext* context) const {
+  if (HasNulls(args)) return Value::Null(output_type());
+
+  // This function is idempotent, therefore we just return the input value if
+  // its type matches the output type.
+  if (output_type()->kind() == args[0].type_kind()) {
+    return args[0];
+  }
+  google::protobuf::DynamicMessageFactory factory;
+  std::unique_ptr<google::protobuf::Message> message;
+  message.reset(args[0].ToMessage(&factory));
+  switch (output_type()->kind()) {
+    case TYPE_TIMESTAMP: {
+      int64_t timestamp;
+      google::protobuf::Timestamp proto_timestamp;
+      functions::TimestampScale scale =
+          GetTimestampScale(context->GetLanguageOptions());
+      proto_timestamp.CopyFrom(*message);
+      ZETASQL_RETURN_IF_ERROR(functions::ConvertProto3TimestampToTimestamp(
+          proto_timestamp, scale, &timestamp));
+      return (scale == functions::TimestampScale::kNanoseconds)
+                 ? Value::Timestamp(absl::FromUnixNanos(timestamp))
+                 : Value::TimestampFromUnixMicros(timestamp);
+      break;
+    }
+    case TYPE_DATE: {
+      int32_t date;
+      google::type::Date proto_date;
+      proto_date.CopyFrom(*message);
+      ZETASQL_RETURN_IF_ERROR(functions::ConvertProto3DateToDate(proto_date, &date));
+      return Value::Date(date);
+      break;
+    }
+    case TYPE_TIME: {
+      TimeValue time;
+      google::type::TimeOfDay proto_time_of_day;
+      proto_time_of_day.CopyFrom(*message);
+      ZETASQL_RETURN_IF_ERROR(functions::ConvertProto3TimeOfDayToTime(
+          proto_time_of_day, GetTimestampScale(context->GetLanguageOptions()),
+          &time));
+      return Value::Time(time);
+      break;
+    }
+    case TYPE_DOUBLE: {
+      double double_value;
+      google::protobuf::DoubleValue proto_double_wrapper;
+      proto_double_wrapper.CopyFrom(*message);
+      ZETASQL_RETURN_IF_ERROR(
+          functions::ConvertProto3WrapperToType<google::protobuf::DoubleValue>(
+              proto_double_wrapper, &double_value));
+      return Value::Double(double_value);
+      break;
+    }
+    case TYPE_FLOAT: {
+      float float_value;
+      google::protobuf::FloatValue proto_float_wrapper;
+      proto_float_wrapper.CopyFrom(*message);
+      ZETASQL_RETURN_IF_ERROR(
+          functions::ConvertProto3WrapperToType<google::protobuf::FloatValue>(
+              proto_float_wrapper, &float_value));
+      return Value::Float(float_value);
+      break;
+    }
+    case TYPE_INT64: {
+      int64_t int64_value;
+      google::protobuf::Int64Value proto_int64_wrapper;
+      proto_int64_wrapper.CopyFrom(*message);
+      ZETASQL_RETURN_IF_ERROR(
+          functions::ConvertProto3WrapperToType<google::protobuf::Int64Value>(
+              proto_int64_wrapper, &int64_value));
+      return Value::Int64(int64_value);
+      break;
+    }
+    case TYPE_UINT64: {
+      uint64_t uint64_value;
+      google::protobuf::UInt64Value proto_uint64_wrapper;
+      proto_uint64_wrapper.CopyFrom(*message);
+      ZETASQL_RETURN_IF_ERROR(
+          functions::ConvertProto3WrapperToType<google::protobuf::UInt64Value>(
+              proto_uint64_wrapper, &uint64_value));
+      return Value::Uint64(uint64_value);
+      break;
+    }
+    case TYPE_INT32: {
+      int32_t int32_value;
+      google::protobuf::Int32Value proto_int32_wrapper;
+      proto_int32_wrapper.CopyFrom(*message);
+      ZETASQL_RETURN_IF_ERROR(
+          functions::ConvertProto3WrapperToType<google::protobuf::Int32Value>(
+              proto_int32_wrapper, &int32_value));
+      return Value::Int32(int32_value);
+      break;
+    }
+    case TYPE_UINT32: {
+      uint32_t uint32_value;
+      google::protobuf::UInt32Value proto_uint32_wrapper;
+      proto_uint32_wrapper.CopyFrom(*message);
+      ZETASQL_RETURN_IF_ERROR(
+          functions::ConvertProto3WrapperToType<google::protobuf::UInt32Value>(
+              proto_uint32_wrapper, &uint32_value));
+      return Value::Uint32(uint32_value);
+      break;
+    }
+    case TYPE_BOOL: {
+      bool bool_value;
+      google::protobuf::BoolValue proto_bool_wrapper;
+      proto_bool_wrapper.CopyFrom(*message);
+      ZETASQL_RETURN_IF_ERROR(
+          functions::ConvertProto3WrapperToType<google::protobuf::BoolValue>(
+              proto_bool_wrapper, &bool_value));
+      return Value::Bool(bool_value);
+      break;
+    }
+    case TYPE_BYTES: {
+      std::string bytes_value;
+      google::protobuf::BytesValue proto_bytes_wrapper;
+      proto_bytes_wrapper.CopyFrom(*message);
+      ZETASQL_RETURN_IF_ERROR(
+          functions::ConvertProto3WrapperToType<google::protobuf::BytesValue>(
+              proto_bytes_wrapper, &bytes_value));
+      return Value::Bytes(bytes_value);
+      break;
+    }
+    case TYPE_STRING: {
+      std::string string_value;
+      google::protobuf::StringValue proto_string_wrapper;
+      proto_string_wrapper.CopyFrom(*message);
+      ZETASQL_RETURN_IF_ERROR(
+          functions::ConvertProto3WrapperToType<google::protobuf::StringValue>(
+              proto_string_wrapper, &string_value));
+      return Value::String(string_value);
+      break;
+    }
+    default:
+      return ::zetasql_base::UnimplementedErrorBuilder()
+             << "Unsupported function: " << debug_name();
+  }
+}
+
+zetasql_base::StatusOr<Value> ToProtoFunction::Eval(const absl::Span<const Value> args,
+                                            EvaluationContext* context) const {
+  if (HasNulls(args)) return Value::Null(output_type());
+
+  // This function is idempotent if the input argument is a proto.
+  if (args[0].type()->IsProto()) {
+    return args[0];
+  }
+  switch (args[0].type_kind()) {
+    case TYPE_TIMESTAMP: {
+      google::protobuf::Timestamp proto_timestamp;
+      ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToProto3Timestamp(
+          args[0].ToTime(), &proto_timestamp));
+      return zetasql::values::Proto(output_type()->AsProto(),
+                                      proto_timestamp);
+      break;
+    }
+    case TYPE_DATE: {
+      google::type::Date proto_date;
+      ZETASQL_RETURN_IF_ERROR(functions::ConvertDateToProto3Date(args[0].date_value(),
+                                                         &proto_date));
+      return zetasql::values::Proto(output_type()->AsProto(), proto_date);
+      break;
+    }
+    case TYPE_TIME: {
+      google::type::TimeOfDay proto_time_of_day;
+      ZETASQL_RETURN_IF_ERROR(functions::ConvertTimeToProto3TimeOfDay(
+          args[0].time_value(), &proto_time_of_day));
+      return zetasql::values::Proto(output_type()->AsProto(),
+                                      proto_time_of_day);
+      break;
+    }
+    case TYPE_DOUBLE: {
+      google::protobuf::DoubleValue proto_double_wrapper;
+      functions::ConvertTypeToProto3Wrapper<google::protobuf::DoubleValue>(
+          args[0].double_value(), &proto_double_wrapper);
+      return zetasql::values::Proto(output_type()->AsProto(),
+                                      proto_double_wrapper);
+      break;
+    }
+    case TYPE_FLOAT: {
+      google::protobuf::FloatValue proto_float_wrapper;
+      functions::ConvertTypeToProto3Wrapper<google::protobuf::FloatValue>(
+          args[0].float_value(), &proto_float_wrapper);
+      return zetasql::values::Proto(output_type()->AsProto(),
+                                      proto_float_wrapper);
+      break;
+    }
+    case TYPE_INT64: {
+      google::protobuf::Int64Value proto_int64_wrapper;
+      functions::ConvertTypeToProto3Wrapper<google::protobuf::Int64Value>(
+          args[0].int64_value(), &proto_int64_wrapper);
+      return zetasql::values::Proto(output_type()->AsProto(),
+                                      proto_int64_wrapper);
+      break;
+    }
+    case TYPE_UINT64: {
+      google::protobuf::UInt64Value proto_uint64_wrapper;
+      functions::ConvertTypeToProto3Wrapper<google::protobuf::UInt64Value>(
+          args[0].uint64_value(), &proto_uint64_wrapper);
+      return zetasql::values::Proto(output_type()->AsProto(),
+                                      proto_uint64_wrapper);
+      break;
+    }
+    case TYPE_INT32: {
+      google::protobuf::Int32Value proto_int32_wrapper;
+      functions::ConvertTypeToProto3Wrapper<google::protobuf::Int32Value>(
+          args[0].int32_value(), &proto_int32_wrapper);
+      return zetasql::values::Proto(output_type()->AsProto(),
+                                      proto_int32_wrapper);
+      break;
+    }
+    case TYPE_UINT32: {
+      google::protobuf::UInt32Value proto_uint32_wrapper;
+      functions::ConvertTypeToProto3Wrapper<google::protobuf::UInt32Value>(
+          args[0].uint32_value(), &proto_uint32_wrapper);
+      return zetasql::values::Proto(output_type()->AsProto(),
+                                      proto_uint32_wrapper);
+      break;
+    }
+    case TYPE_BOOL: {
+      google::protobuf::BoolValue proto_bool_wrapper;
+      functions::ConvertTypeToProto3Wrapper<google::protobuf::BoolValue>(
+          args[0].bool_value(), &proto_bool_wrapper);
+      return zetasql::values::Proto(output_type()->AsProto(),
+                                      proto_bool_wrapper);
+      break;
+    }
+    case TYPE_BYTES: {
+      google::protobuf::BytesValue proto_bytes_wrapper;
+      functions::ConvertTypeToProto3Wrapper<google::protobuf::BytesValue>(
+          args[0].bytes_value(),
+          &proto_bytes_wrapper);
+      return zetasql::values::Proto(output_type()->AsProto(),
+                                      proto_bytes_wrapper);
+      break;
+    }
+    case TYPE_STRING: {
+      google::protobuf::StringValue proto_string_wrapper;
+      functions::ConvertTypeToProto3Wrapper<google::protobuf::StringValue>(
+          args[0].string_value(), &proto_string_wrapper);
+      return zetasql::values::Proto(output_type()->AsProto(),
+                                      proto_string_wrapper);
+      break;
+    }
+    default:
+      return ::zetasql_base::UnimplementedErrorBuilder()
+             << "Unsupported function: " << debug_name()
+             << " for input: " << args[0];
+  }
 }
 
 zetasql_base::StatusOr<Value> CivilTimeTruncFunction::Eval(

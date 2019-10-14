@@ -376,8 +376,6 @@ enum LanguageFeature {
   FEATURE_V_1_2_SAFE_FUNCTION_CALL = 12002;
 
   // Enable support for GROUP BY STRUCT.
-  // DO NOT TURN ON. This feature is still in development.
-  // TODO: update the comment when this feature is ready.
   FEATURE_V_1_2_GROUP_BY_STRUCT = 12003;
 
   // Enable use of proto extensions with NEW.

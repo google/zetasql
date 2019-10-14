@@ -6,12 +6,17 @@
 
 <!-- BEGIN CONTENT -->
 
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
+<!-- Product Overview -->
 
-<!-- BEGIN CONTENT -->
+<!-- Quickstarts -->
+
+<!-- Concepts -->
+
+<!-- This file is auto-generated. DO NOT EDIT.                               -->
 
 ## Lexical Structure and Syntax
 
+<!-- BEGIN CONTENT -->
 A ZetaSQL statement comprises a series of tokens. Tokens include
 *identifiers,* *quoted identifiers, literals*, *keywords*, *operators*, and
 *special characters*. You can separate tokens with whitespace (space, backspace,
@@ -2088,7 +2093,7 @@ these characters:
 <li>An underscore "_" matches a single character or byte</li>
 <li>You can escape "\", "_", or "%" using two backslashes. For example, <code>
 "\\%"</code>. If you are using raw strings, only a single backslash is
-required. For example, <code>r"\%".</li>
+required. For example, <code>r"\%"</code>.</li>
 </ul>
 </td>
 </tr>
@@ -2267,7 +2272,7 @@ otherwise.</td>
 [operators-link-to-math-functions]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#mathematical-functions
 [link-to-coercion]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#coercion
 
-## Conditional Expressions
+## Conditional expressions
 
 Conditional expressions impose constraints on the evaluation order of their
 inputs. In essence, they are evaluated left to right, with short-circuiting, and
@@ -2562,10 +2567,9 @@ a,b,c.</td>
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
 ## Data Types
 
+<!-- BEGIN CONTENT -->
 <p>
 ZetaSQL supports simple data types such as integers, as well as more
 complex types such as ARRAY,
@@ -2593,10 +2597,10 @@ properties in mind:
 <tr>
 <td>Nullable</td>
 <td nowrap><code>NULL</code> is a valid value.</td>
-<td>All
-data types.
+<td>
 
-</ul>
+All data types.
+
 </td>
 </tr>
 <tr>
@@ -2607,6 +2611,7 @@ data types.
 <li>PROTO</li>
 <li>ARRAY</li>
 <li>STRUCT</li>
+</ul>
 </td>
 </tr>
 <tr>
@@ -2656,15 +2661,11 @@ supported.
 <br/><br/>
 Protocol Buffer comparisons are not supported.
 
-<br/><br/>
-
 <br /><br />
 All types that support comparisons
 can be used in a <code>JOIN</code> condition. See
 <a href="https://github.com/google/zetasql/blob/master/docs/query-syntax.md#join_types">JOIN
-Types</a> for an explanation of join conditions.
-</td>
-</tr>
+Types</a> for an explanation of join conditions.</td></tr>
 </tbody>
 </table>
 
@@ -3696,9 +3697,9 @@ workarounds:
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
 ## Query Syntax
+
+<!-- BEGIN CONTENT -->
 
 Query statements scan one or more tables or expressions and return the computed
 result rows. This topic describes the syntax for SQL queries in
@@ -4983,21 +4984,58 @@ HAVING SUM(PointsScored) > 15;
 #### Syntax
 
 <pre>
-ORDER BY <span class="var">expression</span> [{ ASC | DESC }] [, ...]
+ORDER BY expression
+  [{ ASC | DESC }]
+  [, ...]
 </pre>
 
 The `ORDER BY` clause specifies a column or expression as the sort criterion for
 the result set. If an ORDER BY clause is not present, the order of the results
-of a query is not defined. The default sort direction is `ASC`, which sorts the
-results in ascending order of `expression` values. `DESC` sorts the results in
-descending order. Column aliases from a `FROM` clause or `SELECT` list are
-allowed. If a query contains aliases in the `SELECT` clause, those aliases
+of a query is not defined. Column aliases from a `FROM` clause or `SELECT` list
+are allowed. If a query contains aliases in the `SELECT` clause, those aliases
 override names in the corresponding `FROM` clause.
+
+**Optional Clauses**
+
++  `ASC | DESC`: Sort the results in ascending or descending
+    order of `expression` values. `ASC` is the default value. 
+
+**Examples**
+
+Use the default sort order (ascending).
+
+```sql
+SELECT x, y
+FROM (SELECT 1 AS x, true AS y UNION ALL
+      SELECT 9, true)
+ORDER BY x;
++------+-------+
+| x    | y     |
++------+-------+
+| 1    | true  |
+| 9    | true  |
++------+-------+
+```
+
+Use descending sort order.
+
+```sql
+SELECT x, y
+FROM (SELECT 1 AS x, true AS y UNION ALL
+      SELECT 9, true)
+ORDER BY x DESC;
++------+-------+
+| x    | y     |
++------+-------+
+| 9    | true  |
+| 1    | true  |
++------+-------+
+```
 
 It is possible to order by multiple columns. In the example below, the result
 set is ordered first by `SchoolID` and then by `LastName`:
 
-```
+```sql
 SELECT LastName, PointsScored, OpponentID
 FROM PlayerStats
 ORDER BY SchoolID, LastName;
@@ -5019,7 +5057,7 @@ BY`.
 
 This query without parentheses:
 
-```
+```sql
 SELECT * FROM Roster
 UNION ALL
 SELECT * FROM TeamMascot
@@ -5028,7 +5066,7 @@ ORDER BY SchoolID;
 
 is equivalent to this query with parentheses:
 
-```
+```sql
 ( SELECT * FROM Roster
   UNION ALL
   SELECT * FROM TeamMascot )
@@ -5038,7 +5076,7 @@ ORDER BY SchoolID;
 but is not equivalent to this query, where the `ORDER BY` clause applies only to
 the second `SELECT` statement:
 
-```
+```sql
 SELECT * FROM Roster
 UNION ALL
 ( SELECT * FROM TeamMascot
@@ -5051,13 +5089,13 @@ the `SELECT` list.
 
 Example - the following two queries are equivalent:
 
-```
+```sql
 SELECT SUM(PointsScored), LastName
 FROM PlayerStats
 ORDER BY LastName;
 ```
 
-```
+```sql
 SELECT SUM(PointsScored), LastName
 FROM PlayerStats
 ORDER BY 2;
@@ -6257,9 +6295,936 @@ Results:
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
+## Analytic Functions Concepts
+
 <!-- BEGIN CONTENT -->
 
+This topic explains how analytic functions work in ZetaSQL. For a
+description of the different analytic functions that ZetaSQL
+supports, see the reference topics for
+[navigation functions][navigation-functions-reference],
+[numbering functions][numbering-functions-reference], and
+[aggregate analytic functions][aggregate-analytic-functions-reference].
+
+In databases, an *analytic function* is a function that computes aggregate
+values over a group of rows. Unlike [aggregate functions][analytic-functions-link-to-aggregate-functions],
+which return a single aggregate value for a group of rows, analytic functions
+return a single value for each row by computing the function over a group
+of input rows.
+
+Analytic functions are a powerful mechanism for succinctly representing complex
+analytic operations, and they enable efficient evaluations that otherwise would
+involve expensive self-`JOIN`s or computation outside the SQL query.
+
+Analytic functions are also called "(analytic) window functions" in the SQL
+standard and some commercial databases. This is because an analytic function is
+evaluated over a group of rows, referred to as a `window` or `window frame`.
+In some other databases, they may be referred to as
+Online Analytical Processing (OLAP) functions.
+
+Simplified syntax:
+
+```
+analytic_function_name ( [ argument_list ] )
+  OVER (
+    [ PARTITION BY partition_expression_list ]
+    [ ORDER BY expression [{ ASC | DESC }] [, ...] ]
+    [ window_frame_clause ]
+  )
+```
+
+An analytic function requires an `OVER` clause, which defines the `window frame`
+that the analytic function is evaluated over. The `OVER` clause contains the
+following three optional clauses. ZetaSQL evaluates
+the sub-clauses of an `OVER` clause in the order in which they are written.
+
+  * A `PARTITION BY` clause divides the input rows into partitions, similar to
+    `GROUP BY` but without actually combining rows with the same key.
+  * An `ORDER BY` clause specifies the ordering within each partition.
+  * A `window_frame_clause` defines the `window frame` within the current
+    partition.
+
+The `OVER` clause can also be empty (`OVER()`) in which case the `window frame`
+includes all input rows.
+
+Analytic functions are evaluated after aggregation (GROUP BY and non-analytic
+aggregate functions).
+
+Example: Consider a company who wants to create a leaderboard for each
+department that shows a "seniority ranking" for each employee, i.e. showing
+which employees have been there the longest. The table `Employees` contains
+columns `Name`, `StartDate`, and `Department`.
+
+The following query calculates the rank of each employee within their
+department:
+
+```
+SELECT firstname, department, startdate,
+  RANK() OVER ( PARTITION BY department ORDER BY startdate ) AS rank
+FROM Employees;
+```
+
+The conceptual computing process is illustrated in Figure 1.
+
+![Markdown image] (images/analytic-function-illustration.png "Figure 1: Analytic Function Illustration")
+**Figure 1: Analytic Function Illustration**
+
+ZetaSQL evaluates the sub-clauses of an `OVER` clause in the order in
+which they appear:
+
+  1. `PARTITION BY`: The table is first split into two partitions by
+     `department`.
+  2. `ORDER BY`: The employee rows in each partition are ordered by `startdate`.
+  3. Framing: None. The window frame clause is disallowed for RANK(), as it is
+  for all [numbering functions][analytic-functions-link-to-numbering-functions].
+  4. `RANK()`: The seniority ranking is computed for each row over the
+  `window frame`.
+
+<a name="syntax"></a>
+#### Analytic Function Syntax
+
+```
+analytic_function_name ( [ argument_list ] )
+  OVER { window_name | ( [ window_specification ] ) }
+
+window_specification:
+  [ window_name ]
+  [ PARTITION BY partition_expression_list ]
+  [ ORDER BY expression [{ ASC | DESC }] [, ...] ]
+  [ window_frame_clause ]
+
+window_frame_clause:
+{ ROWS | RANGE }
+{
+  { UNBOUNDED PRECEDING | numeric_expression PRECEDING | CURRENT ROW }
+  |
+  { BETWEEN window_frame_boundary_start AND window_frame_boundary_end }
+}
+
+window_frame_boundary_start:
+{ UNBOUNDED PRECEDING | numeric_expression { PRECEDING | FOLLOWING } | CURRENT ROW }
+
+window_frame_boundary_end:
+{ UNBOUNDED FOLLOWING | numeric_expression { PRECEDING | FOLLOWING } | CURRENT ROW }
+```
+
+Analytic functions can appear as a scalar expression or a scalar expression
+operand in only two places in the query:
+
++ **The `SELECT` list**. If the analytic function appears in the SELECT list,
+its `argument_list` cannot refer to aliases introduced in the same SELECT list.
++ **The `ORDER BY` clause**. If the analytic function appears in the ORDER BY clause
+of the query, its `argument_list` can refer to SELECT list aliases.
+
+Additionally, an analytic function cannot refer to another analytic function in
+its `argument_list` or its `OVER` clause, even if indirectly through an
+alias.
+
+Invalid:
+
+```
+SELECT ROW_NUMBER() OVER () AS alias1
+FROM Singers
+ORDER BY ROW_NUMBER() OVER(PARTITION BY alias1)
+```
+
+In the query above, the analytic function `alias1` resolves to an analytic
+function: `ROW_NUMBER() OVER()`.
+
+##### OVER Clause
+
+Syntax:
+
+```
+OVER { window_name | ( [ window_specification ] ) }
+
+window_specification:
+  [ window_name ]
+  [ PARTITION BY partition_expression_list ]
+  [ ORDER BY sort_specification_list ]
+  [ window_frame_clause ]
+```
+
+The `OVER` clause has three possible components:
+
++ `PARTITION BY` clause
++ `ORDER BY` clause
++ A `window_frame_clause` or a `window_name`, which refers to a
+  `window_specification` defined in a `WINDOW` clause.
+
+If the `OVER` clause is empty, `OVER()`, the analytic function is computed over
+a single partition which contains all input rows, meaning that it will produce
+the same result for each output row.
+
+##### PARTITION BY Clause
+
+Syntax:
+
+```
+PARTITION BY expression [, ... ]
+```
+
+The `PARTITION BY` clause breaks up the input rows into separate partitions,
+over which the analytic function is independently evaluated. Multiple
+`expressions` are allowed in the `PARTITION BY` clause.
+
+The data type of `expression` must be [groupable](https://github.com/google/zetasql/blob/master/docs/data-types.md#data-type-properties)
+and support partitioning. This means the `expression` **cannot** be any of the
+following data types:
+
++ Floating point
++ Protocol buffer
+
+This list is almost identical to the list of data types that `GROUP BY` does not
+support, with the additional exclusion of floating point types (see "Groupable"
+in the Data Type Properties table at the top of
+[ZetaSQL Data Types][analytic-functions-link-to-data-types]).
+
+If no `PARTITION BY` clause is present, ZetaSQL treats the entire
+input as a single partition.
+
+##### ORDER BY Clause
+
+Syntax:
+
+```
+ORDER BY expression [ ASC | DESC ] [, ... ]
+```
+
+The `ORDER BY` clause defines an ordering within each partition. If no
+`ORDER BY` clause is present, row ordering within a partition is
+non-deterministic. Some analytic functions require `ORDER BY`; this is noted in
+the section for each family of analytic functions. Even if an `ORDER BY` clause
+is present, some functions are not sensitive to ordering within a `window frame`
+(e.g. `COUNT`).
+
+The `ORDER BY` clause within an `OVER` clause is consistent with the normal
+[`ORDER BY` clause][analytic-functions-link-to-order-by-clause] in that:
+
++ There can be multiple `expressions`.
++ `expression` must have a type that supports ordering.
++ An optional `ASC`/`DESC` specification is allowed for each `expression`.
++ NULL values order as the minimum possible value (first for `ASC`,
+  last for `DESC`)
+
+Data type support is identical to the normal
+[`ORDER BY` clause][analytic-functions-link-to-order-by-clause] in that the following types do **not** support ordering:
+
++ Array
++ Struct
++ Protocol buffer
+
+If the `OVER` clause contains an `ORDER BY` clause but no `window_frame_clause`,
+then the `ORDER BY` implicitly defines `window_frame_clause` as:
+
+```
+RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+```
+
+If neither `window_frame_clause` nor the `ORDER BY` clause is present,
+the `window frame` defaults to the entire partition.
+
+##### Window Frame Clause
+
+Syntax:
+
+```
+{ ROWS | RANGE }
+{
+  { UNBOUNDED PRECEDING | numeric_expression PRECEDING | CURRENT ROW }
+  |
+  { BETWEEN window_frame_boundary_start AND window_frame_boundary_end }
+}
+
+window_frame_boundary_start:
+{ UNBOUNDED PRECEDING | numeric_expression { PRECEDING | FOLLOWING } | CURRENT ROW }
+
+window_frame_boundary_end:
+{ UNBOUNDED FOLLOWING | numeric_expression { PRECEDING | FOLLOWING } | CURRENT ROW }
+```
+`window_frame_clause` defines the `window frame`, around the current row within
+a partition, over which the analytic function is evaluated.
+`window_frame_clause` allows both physical window frames (defined by `ROWS`) and
+logical window frames (defined by `RANGE`). If the `OVER` clause contains an
+`ORDER BY` clause but no `window_frame_clause`, then the `ORDER BY` implicitly
+defines `window_frame_clause` as:
+
+```
+RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+```
+
+If neither `window_frame_clause` nor the `ORDER BY` clause is present,
+the `window frame` defaults to the entire partition.
+
+The `numeric_expression` can only be a constant or a query parameter, both
+of which must have a non-negative value. Otherwise, ZetaSQL
+provides an error.
+
+Examples of window frame clauses:
+
+```
+ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+```
+
++ Includes the entire partition.
++ Example use: Compute a grand total over the partition.
+
+```
+ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+```
+
++ Includes all the rows in the partition before or including the current row.
++ Example use: Compute a cumulative sum.
+
+```
+ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING
+```
+
++ Includes all rows between two before and two after the current row.
++ Example use: Compute a moving average.
+
+If `window_frame_spec` uses the `BETWEEN` clause:
+
++ `window_frame_boundary_start` must specify a boundary that begins no later
+than that of the `window_frame_boundary_end`. This has the following
+consequences:
+    1.  If `window_frame_boundary_start` contains `CURRENT ROW`,
+       `window_frame_boundary_end` cannot contain `PRECEDING`.
+    2.  If `window_frame_boundary_start` contains `FOLLOWING`,
+       `window_frame_boundary_end` cannot contain `CURRENT ROW` or `PRECEDING`.
++ `window_frame_boundary_start` has no default value.
+
+Otherwise, the specified window_frame_spec boundary represents the start of the window frame and the end of the window frame boundary defaults to 'CURRENT ROW'. Thus,
+
+```
+ROWS 10 PRECEDING
+```
+
+is equivalent to
+
+```
+ROWS BETWEEN 10 PRECEDING AND CURRENT ROW
+```
+
+###### ROWS
+
+`ROWS`-based window frames compute the `window frame` based on physical offsets
+from the current row. For example, the window frame below defines a window frame
+of size five (at most) around the current row.
+
+```
+ROWS BETWEEN 2 PRECEDING and 2 FOLLOWING
+```
+
+The `numeric_expression` in `window_frame_clause` is interpreted as a number of
+rows from the current row, and must be a constant, non-negative integer. It may
+also be a query parameter.
+
+If the `window frame` for a given row extends beyond the beginning or end of the
+partition, then the `window frame` will only include rows from within that
+partition.
+
+Example: Consider the following table with columns `z`, `x`, and `y`.
+
+<table>
+<thead>
+<tr>
+<th>z</th>
+<th>x</th>
+<th>y</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>5</td>
+<td>AA</td>
+</tr>
+<tr>
+<td>2</td>
+<td>2</td>
+<td>AA</td>
+</tr>
+<tr>
+<td>3</td>
+<td>11</td>
+<td>AB</td>
+</tr>
+<tr>
+<td>4</td>
+<td>2</td>
+<td>AA</td>
+</tr>
+<tr>
+<td>5</td>
+<td>8</td>
+<td>AC</td>
+</tr>
+<tr>
+<td>6</td>
+<td>10</td>
+<td>AB</td>
+</tr>
+<tr>
+<td>7</td>
+<td>1</td>
+<td>AB</td>
+</tr>
+</tbody>
+</table>
+
+Consider the following analytic function:
+
+```
+SUM(x) OVER (PARTITION BY y ORDER BY z ROWS BETWEEN 1 PRECEDING AND 1
+FOLLOWING)
+```
+
+The `PARTITION BY` clause splits the table into 3 partitions based on their `y`
+value, and the `ORDER BY` orders the rows within each partition by their `z`
+value.
+
+Partition 1 of 3:
+
+<table>
+<thead>
+<tr>
+<th>z</th>
+<th>x</th>
+<th>y</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>5</td>
+<td>AA</td>
+</tr>
+<tr>
+<td>2</td>
+<td>2</td>
+<td>AA</td>
+</tr>
+<tr>
+<td>4</td>
+<td>2</td>
+<td>AA</td>
+</tr>
+</tbody>
+</table>
+
+Partition 2 of 3:
+
+<table>
+<thead>
+<tr>
+<th>z</th>
+<th>x</th>
+<th>y</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3</td>
+<td>11</td>
+<td>AB</td>
+</tr>
+<tr>
+<td>6</td>
+<td>10</td>
+<td>AB</td>
+</tr>
+<tr>
+<td>7</td>
+<td>1</td>
+<td>AB</td>
+</tr>
+</tbody>
+</table>
+
+Partition 3 of 3:
+
+<table>
+<thead>
+<tr>
+<th>z</th>
+<th>x</th>
+<th>y</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>5</td>
+<td>8</td>
+<td>AC</td>
+</tr>
+</tbody>
+</table>
+
+In the tables below, **bold** indicates the row currently being evaluated, and
+<font color="#D8CEF6">colored</font> cells indicates all the rows in the `window
+frame` for that row.
+
++ For the first row in the y = AA partition, the `window frame` includes only 2
+rows since there is no preceding row, even though the `window_frame_spec`
+indicates a window size of 3. The result of the analytic function is 7 for the
+first row.
+
+<table>
+<thead>
+<tr>
+<th>z</th>
+<th>x</th>
+<th>y</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td bgcolor="#D8CEF6"><b>1</b></td>
+<td bgcolor="#D8CEF6"><b>5</b></td>
+<td bgcolor="#D8CEF6"><b>AA</b></td>
+</tr>
+<tr>
+<td bgcolor="#D8CEF6">2</td>
+<td bgcolor="#D8CEF6">2</td>
+<td bgcolor="#D8CEF6">AA</td>
+</tr>
+<tr>
+<td>4</td>
+<td>2</td>
+<td>AA</td>
+</tr>
+</tbody>
+</table>
+
++ For the second row in the partition, the `window frame` includes all 3 rows.
+The result of the analytic function is 9 for the second row.
+
+<table>
+<thead>
+<tr>
+<th>z</th>
+<th>x</th>
+<th>y</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td bgcolor="#D8CEF6">1</td>
+<td bgcolor="#D8CEF6">5</td>
+<td bgcolor="#D8CEF6">AA</td>
+</tr>
+<tr>
+<td bgcolor="#D8CEF6"><b>2</b></td>
+<td bgcolor="#D8CEF6"><b>2</b></td>
+<td bgcolor="#D8CEF6"><b>AA</b></td>
+</tr>
+<tr>
+<td bgcolor="#D8CEF6">4</td>
+<td bgcolor="#D8CEF6">2</td>
+<td bgcolor="#D8CEF6">AA</td>
+</tr>
+</tbody>
+</table>
+
++ For the last row in the partition, the `window frame` includes only 2 rows
+since there is no following row.  The result of the analytic function is 4 for
+the third row.
+
+<table>
+<thead>
+<tr>
+<th>z</th>
+<th>x</th>
+<th>y</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>5</td>
+<td>AA</td>
+</tr>
+<tr>
+<td bgcolor="#D8CEF6">2</td>
+<td bgcolor="#D8CEF6">2</td>
+<td bgcolor="#D8CEF6">AA</td>
+</tr>
+<tr>
+<td bgcolor="#D8CEF6"><b>4</b></td>
+<td bgcolor="#D8CEF6"><b>2</b></td>
+<td bgcolor="#D8CEF6"><b>AA</b></td>
+</tr>
+</tbody>
+</table>
+
+###### RANGE
+
+`RANGE`-based window frames compute the `window frame` based on a logical range
+of rows around the current row based on the current row's `ORDER BY` key value.
+The provided range value is added or subtracted to the current row's key value
+to define a starting or ending range boundary for the `window frame`.
+
+The `ORDER BY` clause must be specified unless the window is:
+
+```
+RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING.
+```
+
+`numeric_expression` in the `window_frame_clause` is interpreted as an offset
+from the current row's value of the `ORDER BY` key. `numeric_expression` must
+have numeric type. DATE and TIMESTAMP are not currently supported. In addition,
+the `numeric_expression` must be a constant, non-negative integer or a
+parameter.
+
+In a `RANGE`-based window frame, there can be at most one `expression` in the
+`ORDER BY` clause, and `expression` must have a numeric type.
+
+Example of a `RANGE`-based window frame where there is a single partition:
+
+```
+SELECT x, COUNT(*) OVER ( ORDER BY x
+  RANGE BETWEEN 2 PRECEDING AND 2 FOLLOWING ) AS count_x
+FROM T;
+```
+
+In the tables below, **bold** indicates the row currently being evaluated, and
+<font color="#D8CEF6">colored</font> cells indicates all the rows in the
+`window frame` for that row.
+
++ For row 1, `x` = 5 and therefore `COUNT(*)` will only include rows where
+  3 &lt;=`x` &lt;= 7
+
+<table>
+<thead>
+<tr>
+<th>x</th>
+<th>count_x</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td bgcolor="#D8CEF6"><b>5</b></td>
+<td bgcolor="#D8CEF6"><b>1</b></td>
+</tr>
+<tr>
+<td>2</td>
+<td></td>
+</tr>
+<tr>
+<td>11</td>
+<td></td>
+</tr>
+<tr>
+<td>2</td>
+<td></td>
+</tr>
+<tr>
+<td>8</td>
+<td></td>
+</tr>
+<tr>
+<td>10</td>
+<td></td>
+</tr>
+<tr>
+<td>1</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+
++ For row 2, `x` = 2 and therefore `COUNT(*)` will only include rows where
+  0 &lt;= `x` &lt;= 4
+
+<table>
+<thead>
+<tr>
+<th>x</th>
+<th>count_x</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>5</td>
+<td>1</td>
+</tr>
+<tr>
+<td bgcolor="#D8CEF6"><b>2</b></td>
+<td bgcolor="#D8CEF6"><b>3</b></td>
+</tr>
+<tr>
+<td>11</td>
+<td></td>
+</tr>
+<tr>
+<td bgcolor="#D8CEF6">2</td>
+<td></td>
+</tr>
+<tr>
+<td>8</td>
+<td></td>
+</tr>
+<tr>
+<td>10</td>
+<td></td>
+</tr>
+<tr>
+<td bgcolor="#D8CEF6">1</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+
++ For row 3, `x` = 11 and therefore `COUNT(*)` will only include rows where
+  9 &lt;= `x` &lt;= 13
+
+<table>
+<thead>
+<tr>
+<th>x</th>
+<th>count_x</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>5</td>
+<td>1</td>
+</tr>
+<tr>
+<td>2</td>
+<td>3</td>
+</tr>
+<tr>
+<td bgcolor="#D8CEF6"><b>11</b></td>
+<td bgcolor="#D8CEF6"><b>2</b></td>
+</tr>
+<tr>
+<td>2</td>
+<td></td>
+</tr>
+<tr>
+<td>8</td>
+<td></td>
+</tr>
+<tr>
+<td bgcolor="#D8CEF6">10</td>
+<td></td>
+</tr>
+<tr>
+<td>1</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+
+#### WINDOW Clause
+
+Syntax:
+
+```
+WINDOW window_definition [, ...]
+window_definition: window_name AS ( window_specification )
+```
+
+A `WINDOW` clause defines a list of named windows whose `window_name` can be
+referenced in analytic functions in the `SELECT` list. This is useful when you
+want to use the same `window_frame_clause` for multiple analytic functions.
+
+The `WINDOW` clause can appear only at the end of a `SELECT` clause, as shown
+in [Query Syntax][analytic-functions-link-to-sql-syntax].
+
+##### Named Windows
+
+Once you define a `WINDOW` clause, you can use the named windows in analytic
+functions, but only in the `SELECT` list; you cannot use named windows in the
+`ORDER BY` clause. Named windows can appear either by themselves or embedded
+within an `OVER` clause. Named windows can refer to `SELECT` list aliases.
+
+Examples:
+
+```
+SELECT SUM(x) OVER window_name FROM ...
+```
+
+```
+SELECT SUM(x) OVER (
+  window_name
+  PARTITION BY...
+  ORDER BY...
+  window_frame_clause)
+FROM ...
+```
+
+When embedded within an `OVER` clause, the `window_specification` associated
+with `window_name` must be compatible with the `PARTITION BY`, `ORDER BY`, and
+`window_frame_clause` that are in the same `OVER` clause.
+
+ The following rules apply to named windows:
+
++ You can refer to named windows only in the `SELECT` list; you cannot refer to
+them in an `ORDER BY` clause, an outer query, or any subquery.
++ A window W1 (named or unnamed) may reference a named window NW2, with the
+following rules:
+    1. If W1 is a named window, then the referenced named window NW2 must precede
+       W1 in the same `WINDOW` clause.
+    2. W1 cannot contain a `PARTITION BY` clause
+    3. It cannot be true that both W1 and NW2 contain an `ORDER BY` clause
+    4. NW2 cannot contain a `window_frame_clause`.
++ If a (named or unnamed) window W1 references a named window NW2, then the
+resulting window specification is defined using:
+    1. The `PARTITION BY` from NW2, if there is one.
+    2.  The `ORDER BY` from W1 or NW2, if either is specified; it is not possible
+    for them to both have an `ORDER BY` clause.
+    3. The `window_frame_clause` from W1, if there is one.
+
+#### Hints
+
+ZetaSQL supports
+[hints][analytic-functions-link-to-hints] on both the `PARTITION BY` clause (analogously to `GROUP BY`) and the
+`ORDER BY` clause (analogously to the normal `ORDER BY` clause) in an `OVER`
+clause.
+
+#### Navigation Functions
+
+This topic explains how analytic navigation functions work. For a description of
+the analytic navigation functions ZetaSQL supports, see the
+[function reference for navigation functions][navigation-functions-reference].
+
+Navigation functions generally compute some `value_expression` over a different
+row in the window frame from the current row. The `OVER` clause syntax varies
+across navigation functions.
+
+`OVER` clause requirements:
+
++   `PARTITION BY`: Optional.
++   `ORDER BY`:
+    1.  Disallowed for `PERCENTILE_CONT` and `PERCENTILE_DISC`.
+    1.   Required for `FIRST_VALUE`, `LAST_VALUE`, `NTH_VALUE`, `LEAD`
+    and `LAG`.
++   `window_frame_clause`:
+    1.  Disallowed for  `PERCENTILE_CONT`, `PERCENTILE_DISC`, `LEAD` and `LAG`.
+    1.  Optional for `FIRST_VALUE`, `LAST_VALUE`, and `NTH_VALUE`.
+
+For all navigation functions, the result data type is the same type as
+`value_expression`.
+
+#### Numbering Functions
+
+This topic explains how analytic numbering functions work. For an explanation of
+the analytic numbering functions ZetaSQL supports, see the
+[numbering functions reference][numbering-functions-reference].
+
+Numbering functions assign integer values to each row based on their position
+within the specified window.
+
+Example of `RANK()`, `DENSE_RANK()`, and `ROW_NUMBER()`:
+
+```
+SELECT x,
+  RANK() OVER (ORDER BY x ASC) AS rank,
+  DENSE_RANK() OVER (ORDER BY x ASC) AS dense_rank,
+  ROW_NUMBER() OVER (PARTITION BY x ORDER BY y) AS row_num
+FROM ...
+```
+
+<table>
+<thead>
+<tr>
+<th>x</th>
+<th>rank</th>
+<th>dense_rank</th>
+<th>row_num</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>1</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr>
+<td>2</td>
+<td>2</td>
+<td>2</td>
+<td>2</td>
+</tr>
+<tr>
+<td>2</td>
+<td>2</td>
+<td>2</td>
+<td>3</td>
+</tr>
+<tr>
+<td>5</td>
+<td>4</td>
+<td>3</td>
+<td>4</td>
+</tr>
+<tr>
+<td>8</td>
+<td>5</td>
+<td>4</td>
+<td>5</td>
+</tr>
+<tr>
+<td>10</td>
+<td>6</td>
+<td>5</td>
+<td>6</td>
+</tr>
+<tr>
+<td>10</td>
+<td>6</td>
+<td>5</td>
+<td>7</td>
+</tr>
+</tbody>
+</table>
+
+* `RANK(): `For x=5, `rank` returns 4, since `RANK()` increments by the number
+of peers in the previous window ordering group.
+* `DENSE_RANK()`: For x=5, `dense_rank` returns 3, since `DENSE_RANK()` always
+increments by 1, never skipping a value.
+* `ROW_NUMBER(): `For x=5, `row_num` returns 4.
+
+#### Aggregate Analytic Functions
+
+ZetaSQL supports certain
+[aggregate functions][aggregate-analytic-functions-reference]
+as analytic functions.
+
+With these functions, the `OVER` clause is simply appended to the aggregate
+function call; the function call syntax remains otherwise unchanged. Like their
+aggregate function counterparts, these analytic functions perform aggregations,
+but specifically over the relevant window frame for each row. The result data
+types of these analytic functions are the same as their aggregate function
+counterparts.
+
+For a description of the aggregate analytic functions that ZetaSQL
+supports, see the [function reference for aggregate analytic functions][aggregate-analytic-functions-reference].
+
+[navigation-functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#navigation-functions
+[numbering-functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#numbering-functions
+[aggregate-analytic-functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#aggregate-analytic-functions
+
+[analytic-functions-link-to-aggregate-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md
+
+[analytic-functions-link-to-numbering-functions]: #numbering-functions
+[analytic-functions-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
+[analytic-functions-link-to-order-by-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#order_by_clause
+[analytic-functions-link-to-sql-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#sql-syntax
+[analytic-functions-link-to-hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
+[analytic-functions-link-to-coercion]: #coercion
+
+<!-- END CONTENT -->
+
+<!-- This file is auto-generated. DO NOT EDIT.                               -->
+
 ## Protocol Buffers
+
+<!-- BEGIN CONTENT -->
 
 Protocol buffers are a flexible, efficient mechanism for serializing structured
 data. They are easy to create, small in size, and efficient to send over RPCs.
@@ -7096,9 +8061,9 @@ FROM
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
 ## Working with Arrays
+
+<!-- BEGIN CONTENT -->
 
 In ZetaSQL, an array is an ordered list consisting of zero or more
 values of the same data type. You can construct arrays of simple data types,
@@ -8500,11 +9465,15 @@ SELECT ARRAY(
   FROM points)
   AS coordinates;
 
-+----------------------------------------------------+
-| coordinates                                        |
-+----------------------------------------------------+
-| [{[1, 5]}, {[2, 8]}, {[3, 7]}, {[4, 1]}, {[5, 7]}] |
-+----------------------------------------------------+
++-------------------+
+| coordinates       |
++-------------------+
+| [{point: [1,5]},  |
+|  {point: [2,8]},  |
+|  {point: [5,7]},  |
+|  {point: [3,7]},  |
+|  {point: [4,1]}]  |
++--------------------+
 ```
 
 You can use this DML statement to insert the example data:
@@ -8541,1349 +9510,9 @@ SELECT ARRAY(
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
-## Data Definition Language statements
-
-ZetaSQL specifies the syntax for Data Definition Language (DDL)
-statements.
-
-Where possible, this topic provides a link to the product-specific documentation
-for each statement.
-
-### CREATE DATABASE
-
-<pre>
-CREATE
-  DATABASE
-  database_name
-  [OPTIONS (key=value, ...)]
-</pre>
-
-**Description**
-
-The `CREATE DATABASE` statement creates a database. If you have schema
-options, you can add them when you create the database. These options are
-system-specific and follow the ZetaSQL
-[`HINT` syntax](lexical.md#hints).
-
-**Example**
-
-```sql
-CREATE DATABASE library OPTIONS(
-  base_dir=`/city/orgs`,
-  owner='libadmin'
-);
-
-+--------------------+
-| Database           |
-+--------------------+
-| library            |
-+--------------------+
-```
-
-### CREATE TABLE
-
-<pre>
-CREATE
-   [ OR REPLACE ]
-   [ TEMP | TEMPORARY ]
-   TABLE
-   [ IF NOT EXISTS ]
-   <span class="var">path_expression</span> [ ( <span class="var">table_element</span>, ...) ]
-   [ OPTIONS (...) ]
-   [ AS <span class="var">query</span> ];
-
-<span class="var">table_element:</span>
-   <span class="var">column_definition</span> | <span class="var">primary_key_spec</span>
-
-<span class="var">column_definition:</span>
-   <span class="var">column_name</span> <span class="var">column_type</span> [ PRIMARY KEY ] [ OPTIONS (...) ]
-
-<span class="var">primary_key_spec:</span>
-   PRIMARY KEY (column_name [ ASC | DESC ], ...) [ OPTIONS (...) ]
-</pre>
-
-**Description**
-
-The `CREATE TABLE` statement creates a table and adds any columns defined in the
-column definition list `(table_element, ...)`. If the `AS query` clause is
-absent, the column definition list must be present and contain at least one
-column definition. The value of `column_name` must be unique for each column in
-the table. If both the column definition list and the `AS query` clause are
-present, then the number of columns in the column definition list must match the
-number of columns selected in `query`, and the type of each column selected in
-`query` must be coercible to the column type in the corresponding position of
-the column definition list. The `column_type` can be any valid {{ product_name
-}} [data type](https://github.com/google/zetasql/blob/master/docs/data-types.md).
-
-You can define a primary key on a table by providing a `primary_key_spec`
-clause, or by providing the `PRIMARY KEY` keyword in the `column_definition`.
-The optional `ASC` or `DESC` keyword within `primary_key_spec` specifies the
-sort order for any index the database system builds on the primary key.
-
-**Optional Clauses**
-
-+   `OR REPLACE`: Replaces any table with the same name if it exists. Cannot
-    appear with `IF NOT EXISTS`.
-+   `TEMP | TEMPORARY`: Creates a temporary table. The lifetime of the table is
-    system-specific.
-+   `IF NOT EXISTS`: If any table exists with the same name, the `CREATE`
-    statement will have no effect. Cannot appear with `OR REPLACE`.
-+   `AS query`: Materializes the result of `query` into the new table.
-
-### CREATE VIEW
-
-```
-CREATE
-  [OR REPLACE]
-  [TEMP | TEMPORARY]
-  VIEW
-  [IF NOT EXISTS]
-  view_name
-  [OPTIONS (key=value, ...)]
-AS query;
-```
-
-**Description**
-
-The `CREATE VIEW` statement creates a view based on a specific query.
-
-**Optional Clauses**
-
-+   `OR REPLACE`: Replaces any table with the same name if it exists. Cannot
-    appear with `IF NOT EXISTS`.
-+   `TEMP | TEMPORARY`: Creates a temporary table. The lifetime of the table is
-    system-specific.
-+   `IF NOT EXISTS`: If any table exists with the same name, the `CREATE`
-    statement will have no effect. Cannot appear with `OR REPLACE`.
-
-### CREATE EXTERNAL TABLE
-
-```
-CREATE
-  [OR REPLACE]
-  [TEMP | TEMPORARY]
-  EXTERNAL TABLE
-  [IF NOT EXISTS]
-  table_name
-  [OPTIONS (key=value, ...)];
-```
-
-**Description**
-
-The `CREATE EXTERNAL TABLE` creates a table from external data. `CREATE EXTERNAL
-TABLE` also supports creating persistent definitions.
-
-The `CREATE EXTERNAL TABLE` does not build a new table; instead, it creates a
-pointer to data that exists outside of the database.
-
-**Optional Clauses**
-
-+   `OR REPLACE`: Replaces any table with the same name if it exists. Cannot
-    appear with `IF NOT EXISTS`.
-+   `TEMP | TEMPORARY`: Creates a temporary table. The lifetime of the table is
-    system-specific.
-+   `IF NOT EXISTS`: If any table exists with the same name, the `CREATE`
-    statement will have no effect. Cannot appear with `OR REPLACE`.
-
-### CREATE INDEX
-
-```
-CREATE
-  [OR REPLACE]
-  [UNIQUE]
-  INDEX
-  [IF NOT EXISTS]
-  index_name
-  ON
-  table_name [[AS] alias]
-  [UNNEST(array_expression) [[AS] alias] [WITH OFFSET [[AS] alias]] ...]
-  (key_expression [ASC|DESC], ...)
-  [STORING (stored_expression, ...)]
-  [OPTIONS (key=value, ...)];
-```
-
-**Description**
-
-The `CREATE INDEX` statement creates a secondary index for one or more
-values computed from expressions in a table.
-
-**Expressions**
-
-+  `array_expression`: An immutable expression that is used to produce an array
-   value from each row of an indexed table.
-+  `key_expression`: An immutable expression that is used to produce an index
-    key value. The expression must have a type that satisfies the requirement of
-    an index key column.
-+  `stored_expression`: An immutable expression that is used to produce a value
-    stored in the index.
-
-**Optional Clauses**
-
-+  `OR REPLACE`: If the index already exists, replace it. This cannot
-    appear with `IF NOT EXISTS`.
-+  `UNIQUE`: Do not index the same key multiple times. Systems can choose how to
-    resolve conflicts in case the index is over a non-unique key.
-+  `IF NOT EXISTS`: Do not create an index if it already exists. This cannot
-    appear with `OR REPLACE`.
-+  `UNNEST(array_name)`: Create an index for the elements in an array.
-+  `WITH OFFSET`: Return a separate column containing the offset value
-    for each row produced by the `UNNEST` operation.
-+  `ASC | DESC`: Sort the indexed values in ascending or descending
-    order. `ASC` is the default value with respect to the sort defined by any
-    key parts to the left.
-+  `STORING`: Specify additional values computed from the indexed base table row
-    to materialize with the index entry.
-+  `OPTIONS`: If you have schema options, you can add them when you create the
-    index. These options are system-specific and follow the
-    ZetaSQL[`HINT` syntax](lexical.md#hints).
-
-**Examples**
-
-Create an index on a column in a table.
-
-```sql
-CREATE INDEX i1 ON KeyValue (Key);
-```
-
-Create an index on multiple columns in a table.
-
-```sql
-CREATE INDEX i1 ON KeyValue (Key, Value);
-```
-
-If the index already exists, replace it.
-
-```sql
-CREATE OR REPLACE INDEX i1 ON KeyValue (Key, Value);
-```
-
-If the index already exists, don't replace it.
-
-```sql
-CREATE INDEX IF NOT EXISTS i1 ON KeyValue (Key, Value);
-```
-
-Create an index that contains unique values.
-
-```sql
-CREATE UNIQUE INDEX i1 ON Books (Title);
-```
-
-Create an index that contains a schema option.
-
-```sql
-CREATE INDEX i1 ON KeyValue (Value) OPTIONS (page_count=1);
-```
-
-Reference the table name for a column.
-
-```sql
-CREATE INDEX i1 ON KeyValue (KeyValue.Key, KeyValue.Value);
-```
-
-```sql
-CREATE INDEX i1 on KeyValue AS foo (foo.Key, foo.Value);
-```
-
-Use the path expression for a key.
-
-```sql
-CREATE INDEX i1 ON KeyValue (Key.sub_field1.sub_field2);
-```
-
-Choose the sort order for the columns assigned to an index.
-
-```sql
-CREATE INDEX i1 ON KeyValue (Key DESC, Value ASC);
-```
-
-Create an index on an array, but not the elements in an array.
-
-```sql
-CREATE INDEX i1 ON Books (BookList);
-```
-
-Create an index for the elements in an array.
-
-```sql
-CREATE INDEX i1 ON Books UNNEST (BookList) (BookList);
-```
-
-```sql
-CREATE INDEX i1 ON Books UNNEST (BookListA) AS a UNNEST (BookListB) AS b (a, b);
-```
-
-Create an index for the elements in an array using an offset.
-
-```sql
-CREATE index i1 on Books UNNEST(BookList) WITH OFFSET (BookList, offset);
-```
-
-```sql
-CREATE index i1 on Books UNNEST(BookList) WITH OFFSET AS foo (BookList, foo);
-```
-
-Store an additional column but don't sort it.
-
-```sql
-CREATE INDEX i1 ON KeyValue (Value) STORING (Key);
-```
-
-Store multiple additional columns and don't sort them.
-
-```sql
-CREATE INDEX i1 ON Books (Title) STORING (First_Name, Last_Name);
-```
-
-Store a column but don't sort it. Reference a table name.
-
-```sql
-CREATE INDEX i1 ON Books (InStock) STORING (Books.Title);
-```
-
-Use an expression in the `STORING` clause.
-
-```sql
-CREATE INDEX i1 ON KeyValue (Key) STORING (Key+1);
-```
-
-Use an implicit alias in the `STORING` clause.
-
-```sql
-CREATE INDEX i1 ON KeyValue (Key) STORING (KeyValue);
-```
-
-### DEFINE TABLE
-
-```
-DEFINE TABLE table_name (options);
-```
-
-**Description**
-
-The `DEFINE TABLE` statement allows queries to run against an exported data
-source.
-
-### ALTER
-
-```
-ALTER TABLE table_name SET OPTIONS (key=value, ...);
-```
-
-**Description**
-
-The `ALTER` statement modifies schema options for a table. Because {{
-product_name }} does not define general DDL syntax, it only supports `ALTER` for
-changing table options which typically appear in the `OPTIONS` clause of a
-`CREATE TABLE` statement.
-
-`table_name` is any identifier or dotted path.
-
-The option entries are system-specific. These follow the ZetaSQL
-[`HINT` syntax](lexical.md#hints).
-
-This statement raises an error under these conditions:
-
-+   The table does not exist.
-+   A key is not recognized.
-
-The following semantics apply:
-
-+   The value is updated for each key in the `SET OPTIONS` clause.
-+   Keys not in the `SET OPTIONS` clause remain unchanged.
-+   Setting a key value to `NULL` clears it.
-
-### RENAME
-
-```
-RENAME object_type old_name_path TO new_name_path;
-```
-
-**Description**
-
-The `RENAME` object renames an object. `object_type` indicates what type of
-object to rename.
-
-### DROP
-
-```
-DROP object_type [IF EXISTS] object_path;
-```
-
-**Description**
-
-The `DROP` statement drops an object. `object_type` indicates what type of
-object to drop.
-
-**Optional Clauses**
-
-+   `IF EXISTS`: If no object exists at `object_path`, the `DROP` statement will
-    have no effect.
-
- <!-- END CONTENT -->
-
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
-
-<!-- BEGIN CONTENT -->
-
-## Data Manipulation Reference
-
-ZetaSQL supports the following statements for manipulating data:
-
-+ `INSERT`
-+ `UPDATE`
-+ `DELETE`
-
-<a name="example-data"></a>
-### Example data
-
-The sections in this topic use the following table schemas.
-
-<a name="singers-table"></a>
-#### Singers table
-
-<table>
-<thead>
-<tr>
-<th>Column Name</th>
-<th>Data Type</th>
-<th>Default Value</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>SingerId</td>
-<td><code>INT64 NOT NULL</code></td>
-<td><code>&lt;auto-increment&gt;</code></td>
-</tr>
-<tr>
-<td>FirstName</td>
-<td><code>STRING</code></td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td>LastName</td>
-<td><code>STRING</code></td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td>BirthDate</td>
-<td><code>DATE</code></td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td>Status</td>
-<td><code>STRING</code></td>
-<td><code>"active"</code></td>
-</tr>
-<tr>
-<td>SingerInfo</td>
-<td><code>PROTO&lt;SingerMetadata&gt;</code></td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td>Albums</td>
-<td><code>PROTO&lt;Album&gt;</code></td>
-<td>&nbsp;</td>
-</tr>
-</tbody>
-</table>
-
-The proto, `SingerMetadata`, has the following definition:
-
-<pre>
-message SingerMetadata {
-  optional string    nationality = 1;
-  repeated Residence residence   = 2;<br/>
-  message Residence {
-    required int64  start_year   = 1;
-    optional int64  end_year     = 2;
-    optional string city         = 3;
-    optional string country      = 4 [default = "USA"];
-  }
-}
-</pre>
-
-The proto, `Album`, has the following definition:
-
-<pre>
-message Album {
-  optional string title = 1;
-  optional int32 tracks = 2;
-  repeated string comments = 3;
-  repeated Song song = 4;<br/>
-  message Song {
-    optional string songtitle = 1;
-    optional int32 length = 2;
-    repeated Chart chart = 3;<br/>
-    message Chart {
-      optional string chartname = 1;
-      optional int32 rank = 2;
-    }
-  }
-}
-</pre>
-
-<a name="concerts-table"></a>
-#### Concerts table
-
-<table>
-<thead>
-<tr>
-<th>Column Name</th>
-<th>Data Type</th>
-<th>Default Value</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>VenueId</td>
-<td><code>INT64 NOT NULL</code></td>
-<td><code>&lt;auto-increment&gt;</code></td>
-</tr>
-<tr>
-<td>SingerId</td>
-<td><code>INT64 NOT NULL</code></td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td>ConcertDate</td>
-<td><code>DATE NOT NULL</code></td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td>BeginTime</td>
-<td><code>TIMESTAMP</code></td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td>EndTime</td>
-<td><code>TIMESTAMP</code></td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td>TicketPrices</td>
-<td><code>ARRAY&lt;INT64&gt;</code></td>
-<td>&nbsp;</td>
-</tr>
-</tbody>
-</table>
-
-### INSERT statement
-
-Use the `INSERT` statement when you want to add new rows to a table.
-
-<pre>
-INSERT [[OR] IGNORE | REPLACE | UPDATE] [INTO] target_name
- (column_1 [, ..., column_n ] )
- input <br>[ASSERT_ROWS_MODIFIED m]<br/>
-input ::=
- VALUES (expr_1 [, ..., expr_n ] )
-        [, ..., (expr_k_1 [, ..., expr_k_n ] ) ]
-| SELECT_QUERY<br/>
-expr ::= value_expression | DEFAULT
-</pre>
-
-<a name="statement-rules"></a>
-`INSERT` statements must comply with the following rules:
-
-+ Column names must be specified.
-+ Duplicate names are not allowed in the list of target columns.
-+ Values must be added in the same order as the specified columns.
-+ The number of values added must match the number of specified columns.
-+ Values must have a type that is [compatible](#compatible-types) with the
-  target column.
-+ All non-null columns must appear in the column list, and have a non-null value
-  specified.
-
-Statements that don't follow these rules will raise an error.
-
-The following statement inserts a new row to the
-[Singers example table](#singers-table):
-
-```
-INSERT INTO Singers
-    (SingerId, FirstName, LastName, BirthDate, Status, SingerInfo)
-VALUES (5, "Catalina", "Smith", "1990-08-17", "active", "nationality:'U.S.A.'");
-```
-
-This next statement inserts multiple rows into the table:
-
-```
-INSERT INTO Singers
-    (SingerId, FirstName, LastName, BirthDate, Status, SingerInfo)
-VALUES (6, "Zak", "Sterling", "1996-03-12", "active", "nationality:'U.S.A.'"),
-       (7, "Edie", "Silver", "1998-01-23", "active", "nationality:'U.S.A.'");
-```
-
-You can construct `INSERT` statements to insert the results of a query. For
-example, the following statement inserts a new concert for a singer into
-the [Concerts table](#concerts-table).
-
-```
-INSERT INTO Concerts
-  (VenueId, SingerId, ConcertDate, BeginTime, EndTime, TicketPrices)
-SELECT c.VenueId, c.SingerId, DATE "2015-06-01", c.BeginTime, c.EndTime, c.TicketPrices
-  FROM Concerts c WHERE c.SingerId = 1;
-```
-
-<a name="compatible-types"></a>
-#### Value type compatibility
-
-Values added with an `INSERT` statement must be compatible with the target
-column's type. A value's type is considered compatible with the target column's
-type if one of the following criteria are met:
-
-+ The value type matches the column type exactly. (For example, inserting a
-value of type `INT32` in a column that also has a type of `INT32`.)
-+ The value type is one that can be implicitly coerced into another type. See
-the [Coercion](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#coercion) of the
-[Expressions, Functions, and Operators](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md)
-topic for more information.
-+ The value can be assigned after applying a narrowing integer or floating point
-cast. For example, if you attempt to add a value of `INT64` into a column that
-supports `INT32`, ZetaSQL automatically adds a narrowing cast to
-`INT32`.
-
-#### Default values
-
-If the target table supports a default value for a
-column, you can omit the column from the `INSERT` statement. Alternatively, you
-can insert the default value explicitly using the `DEFAULT` keyword.
-
-**Note:** If a column does not require a value, the default value is typically
-`NULL`.
-
-The following example inserts default values for all unspecified columns.
-For example, the [Singers table](#singers-table) has two columns that have
-defined default values&mdash;the `SingerId` column, which is auto-incremented;
- and the `Status` column, which has a default value of `active`. For all other
-columns, the default value is `NULL`.
-
-```
-INSERT INTO Singers
-  (FirstName)
-VALUES ("Neil");
-```
-
-If this was the first row added to the table, a `SELECT` statement querying
-this row would return the following:
-
-<table>
-<thead>
-<tr>
-<th>SingerId</th>
-<th>FirstName</th>
-<th>LastName</th>
-<th>BirthDate</th>
-<th>Status</th>
-<th>SingerInfo</th>
-<th>Albums</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>Neil</td>
-<td>NULL</td>
-<td>NULL</td>
-<td>active</td>
-<td>NULL</td>
-<td>NULL</td>
-</tr>
-</tbody>
-</table>
-
-If you construct an `INSERT` statement to use a default value for a
-column and that column does not support a default value, the statement fails.
-For example, the `Singers` table contains a column, `SingerId`, which cannot be
-`NULL`. Consequently, the following statement fails, because the `SingerId` does
-not support a default value:
-
-```
-INSERT INTO Singers
-  (SingerId, FirstName, LastName, BirthDate, Status, SingerInfo)
-VALUES (DEFAULT, "Andrew", "Duneskipper", "2000-01-15", "active", NULL);
-```
-
-#### Duplicate rows
-
-By default, an `INSERT` statement fails when it tries to add a duplicate row.
-A duplicate row is defined as one for which the
-primary key already exists in the table.
-
-You can change this behavior by choosing one of the following options for
-handling duplicate rows:
-
-+ `IGNORE`
-+ `REPLACE`
-+ `UPDATE`
-
-Your statement would resemble the following:
-
-<pre>
-INSERT [OR] IGNORE | REPLACE | UPDATE <em>&lt;rest of statement&gt;</em>
-</pre>
-
-These keywords require that your table includes a primary key. If the table does
-not have a primary key, the statement fails.
-
-In cases where an `INSERT` statement attempts to add the same row twice,
-ZetaSQL treats the inserts as if they were applied sequentially. This means
-that:
-
-+ For `INSERT IGNORE` statements, the first row is inserted, and the rest are
-ignored.
-+ For `INSERT REPLACE` statements, all but the last insert are replaced.
-+ For `INSERT UPDATE` statements, updates are applied sequentially, ending with
-the last update.
-
-##### INSERT IGNORE
-
-You can instruct your `INSERT` statement to skip any rows that have duplicate
-primary keys by using the `IGNORE` keyword.
-
-For example, the following statement instructs ZetaSQL to skip the
-row if it already exists in the table:
-
-```
-INSERT OR IGNORE INTO Singers
-    (FirstName, LastName, BirthDate, Status, SingerInfo)
-VALUES ("Catalina", "Smith", "1990-08-17", DEFAULT, "nationality:'U.S.A.'");
-```
-
-`INSERT IGNORE` ignores only duplicate rows that have the same primary key.
-ZetaSQL raises an error if any other constraint violation occurs, including
-duplicate keys in unique indexes.
-
-##### INSERT REPLACE
-
-You can instruct your `INSERT` statement to replace any rows that have duplicate
-primary keys by using the `REPLACE` statement. Replaced rows have the same
-primary key as the original row.
-
-In the following example, the `REPLACE` keyword is used instead of `IGNORE`.
-This time, the duplicate row replaces the existing row in the table.
-
-```
-INSERT OR REPLACE INTO Singers
-    (FirstName, LastName, BirthDate, Status, SingerInfo)
-VALUES ("Zak", "Sterling", "1996-03-12", "active", "nationality:'U.S.A.'");
-```
-
-Using `REPLACE` is the same as deleting the existing row and inserting a
-replacement one. As a result, any columns that you do not mention in the
-replacement row are cleared and replaced with their default values. If you want
-your statement to preserve the values of unspecified columns, use
-`INSERT UPDATE`.
-
-##### INSERT UPDATE
-
-With an `INSERT UPDATE` statement, the statement updates the columns specified
-for one or more rows. Columns that are not listed in the `INSERT` statement
-remain unchanged.
-
-The following example illustrates how `INSERT UPDATE` changes an existing row.
-In this case, the status is changed from `active` to `inactive`.
-
-```
-INSERT OR UPDATE INTO Singers
-    (SingerId, Status)
-VALUES (5, "inactive");
-```
-
-Notice that if the row does not exist, the previous statement inserts a new row
-with values in the specified fields, and all other values set to their
-corresponding defaults.
-
-When you use the `UPDATE` keyword, any column that you do not specify remains
-unchanged.
-
-#### INSERT and ASSERT_ROWS_MODIFIED
-
-With ZetaSQL, you can confirm how many rows are added each time you
-use an `INSERT` statement by using the `ASSERT_ROWS_MODIFIED` keyword.
-
-With the `ASSERT_ROWS_MODIFIED` keyword, you specify the number of rows you
-expect the command to insert, and ZetaSQL compares that number
-against the number of rows actually modified. This check occurs before
-ZetaSQL commits the change to the database. If the row count matches,
-ZetaSQL commits the changes.  Otherwise, ZetaSQL returns
-an error and rolls back the statement.
-
-When calculating the number of rows modified, ZetaSQL includes rows
-that were inserted, updated, or replaced. It does not count rows that were
-skipped through the `IGNORE` keyword. To illustrate this, consider the following
-example of a **Singers** table:
-
-<table>
-<thead>
-<tr>
-<th>SingerId</th>
-<th>FirstName</th>
-<th>LastName</th>
-<th>BirthDate</th>
-<th>SingerInfo</th>
-<th>Albums</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>5</td>
-<td>Alice</td>
-<td>Trentor</td>
-<td>1991-10-2</td>
-<td>"nationality: 'U.S.A.'</td>
-<td>NULL</td>
-</tr>
-</tbody>
-</table>
-
-```
-INSERT OR UPDATE INTO Singers
-    (SingerId, FirstName, LastName, Birthdate, Status, SingerInfo)
-VALUES (5, "Zak", "Sterling", "1996-03-12", "active", "nationality:'U.S.A.'"),
-       (6, "Edie", "Silver", "1998-01-23", "active", "nationality:'U.S.A.'")
-ASSERT_ROWS_MODIFIED 2;
-```
-
-One of the value expressions in the `INSERT` statement adds a new row, while the
-second updates an existing one. Both result in a total of 2 modified rows, which
-matches the `ASSERT_ROWS_MODIFIED 2` clause of the statement.
-
-The following statement uses `INSERT IGNORE` to add rows to the table.
-
-```
-INSERT OR IGNORE INTO Singers
-    (SingerId, FirstName, LastName, Birthdate, Status, SingerInfo)
-VALUES (5, "Zak", "Sterling", "1996-03-12", "active", "nationality:'U.S.A.'"),
-       (7, "Edie", "Silver", "1998-01-23", "active", "nationality:'U.S.A.'")
-ASSERT_ROWS_MODIFIED 1;
-```
-
-In this case, there is a collision when inserting a new row with a `SingerId` of
-`5`, because a row with that `SingerId` value already exists. This statement
-inserts one row, which matches the `ASSERT_ROWS_MODIFIED 1` statement.
-
-#### INSERT examples
-
-Add a new row to the `Singers` table.
-
-```
-INSERT INTO Singers
-    (SingerId, FirstName, LastName, BirthDate, Status, SingerInfo)
-VALUES (5, "Catalina", "Smith", "1990-08-17", DEFAULT, "nationality:'U.S.A.'");
-```
-
-**RESULT:** New singer, Catalina Smith, added to table.
-
-Try to add a singer, but only if the `SingerId` is not already in the table.
-
-```
-INSERT OR IGNORE INTO Singers
-    (SingerId, FirstName, LastName, BirthDate, Status, SingerInfo)
-VALUES (5, "Zak", "Sterling", "1996-03-12", "active", "nationality:'U.S.A.'");
-```
-
-**RESULT:** Table unaffected. Catalina Smith remains in the table.
-
-Try to add another singer and replace an existing row if it has the same
-`SingerId`.
-
-```
-INSERT OR REPLACE INTO Singers
-    (SingerId, FirstName, LastName, BirthDate, Status, SingerInfo)
-VALUES (5, "Zak", "Sterling", "1996-03-12", "active", "nationality:'U.S.A.'");
-```
-
-**RESULT:** Singer, Catalina Smith, replaced with Zak Sterling.
-
-Add a singer to the table, or update a singer if they already exist.
-
-```
-INSERT OR UPDATE INTO Singers
-    (SingerId, FirstName, LastName, Status)
-VALUES (5, "Zak", "Sterling", "inactive");
-```
-
-Existing row for Zak Sterling updated. His status is now `inactive`. All other
-values, such as `BirthDate`, remain unchanged.
-
-### DELETE Statement
-
-Use the `DELETE` statement when you want to delete rows from a table.
-
-<pre>
-DELETE [FROM] target_name
-WHERE condition<br>[ASSERT_ROWS_MODIFIED n]
-</pre>
-
-**Note**: `DELETE` statements must comply with all
-[statement rules](#statement-rules).
-
-#### WHERE keyword
-
-Each time you construct a `DELETE` statement, you must use the `WHERE` keyword,
-followed by a condition. For example:
-
-```
-DELETE FROM Singers
-WHERE LastName = "Sterling";
-```
-
-You can use the identifier for the target of the update as a range variable
-within the `WHERE` clause. For example:
-
-```
-DELETE FROM Singers s
-WHERE s.LastName = "Sterling";
-```
-
-Using an identifier can help make your `DELETE` statement more explicit with
-regards to what data ZetaSQL should update.
-
-The `WHERE` keyword is mandatory for any `DELETE` statement. However, you can
-set the condition for the `WHERE` keyword to be true, which results in the
-statement deleting all rows in the table.
-
-```
-DELETE FROM Singers s
-WHERE true;
-```
-
-#### DELETE and ASSERT_ROWS_MODIFIED
-
-With ZetaSQL, you can confirm how many rows were deleted each time
-you use a `DELETE` statement. You implement this confirmation through the
-`ASSERT_ROWS_MODIFIED` keyword.
-
-```
-DELETE FROM Singers
-WHERE LastName = "Sterling"
-ASSERT_ROWS_MODIFIED 1;
-```
-
-With the `ASSERT_ROWS_MODIFIED` keyword, you specify the number of rows you
-expect the command to delete, and compare that number against the number of rows
-actually deleted. This check occurs before ZetaSQL commits the change
-to the database. If the row count matches, ZetaSQL commits the
-changes. Otherwise, ZetaSQL returns an error and rolls back the
-statement.
-
-### UPDATE statement
-
-Use the `UPDATE` statement when you want to update existing rows within a table.
-
-<pre>
-UPDATE target_name
-SET update_item [, update_item]*
-WHERE condition<br>[ASSERT_ROWS_MODIFIED n]<br/>
-update_item ::= path_expression = expression
-              | path_expression = DEFAULT
-              | (dml_stmt)<br/>
-dml_stmt ::= insert_statement | update_statement | delete_statement
-</pre>
-
-**Note**: `UPDATE` statements must comply with all
-[statement rules](#statement-rules) and use
-[compatible types](#compatible-types).
-
-#### WHERE keyword
-
-Each `UPDATE` statement must include the `WHERE` keyword, followed by a
-condition. For example, the following statement illustrates an `UPDATE`
-statement that modifies the row with the primary key, `5`.
-
-```
-UPDATE Singers s
-SET s.Status = "inactive"
-WHERE s.SingerId = 5;
-```
-
-To update all rows in a table, use `WHERE true`. The following statement sets
-the SingerInfo value in all rows to `NULL` (the default value for the field).
-
-```
-UPDATE Singers s
-SET s.SingerInfo = DEFAULT
-WHERE true;
-```
-
-#### UPDATE and ASSERT_ROWS_MODIFIED
-
-With ZetaSQL, you can confirm how many rows were added each time you
-use an `UPDATE` statement. You implement this confirmation through the
-`ASSERT_ROWS_MODIFIED` keyword.
-
-**Note**: A row still counts as modified even if the updated values are
-identical to the previous values.
-
-With the `ASSERT_ROWS_MODIFIED` keyword, you specify the number of rows you
-expect the command to update. If the row count matches, ZetaSQL
-commits the changes. Otherwise, ZetaSQL returns an error and rolls
-back the statement.
-
-The `ASSERT_ROWS_MODIFIED` keyword is helpful when you want to be sure your
-statement changes only a specific number of rows. For example, the following
-statement verifies that exactly one row was found and updated.
-
-```
-UPDATE Singers s
-SET s.SingerInfo = DEFAULT
-WHERE s.SingerId = 5
-ASSERT_ROWS_MODIFIED 1;
-```
-
-#### Setting new values
-
-Each `UPDATE` statement requires a `SET` keyword. This keyword identifies the
-columns that you want to update.
-
-You specify values for specific columns using the syntax <em>column_name =
-expression</em>. Expressions can see all the columns within a table. For
-example:
-
-```
-UPDATE Singers s
-SET s.SingerId = s.SingerId + 1
-WHERE true
-```
-
-Any assignments within the expression happen simultaneously. For example, the
-following statement swaps the values in the `FirstName` and `LastName` column.
-
-```
-UPDATE Singers s
-SET s.FirstName = s.LastName,
-    s.LastName = s.FirstName
-WHERE true;
-```
-
-Within the `SET` clause, you can use the identifier for the target of the update
-as a table alias. For example:
-
-```
-UPDATE Singers s
-SET s.LastName = "Solo"
-WHERE s.SingerId = 5;
-```
-
-Using an identifier can help make your `UPDATE` statement more explicit with
-regards to what data ZetaSQL should update.
-
-#### Specifying columns
-
-An `UPDATE` statement must explicitly state which columns you want to update.
-Any column not included in the `UPDATE` statement remains unmodified.
-
-In the following example, notice that only the `Status` column is
-specified &mdash; consequently, the other columns
-(such as `SingerId`, `FirstName`, `LastName`, and `Birthdate`) remain unchanged.
-
-```
-UPDATE Singers s
-SET s.Status = "inactive"
-WHERE s.SingerId = 5;
-```
-
-You can specify the columns to update in any order; however, you can list each
-column only once. For example, the following statement is invalid and would be
-rejected by ZetaSQL:
-
-```
-UPDATE Singers s
-SET s.LastName = "Solo", s.LastName = "Organa"
-WHERE s.SingerId = 5;
-```
-
-`UPDATE` statements must use values that are compatible with the corresponding
-column's type. For example, a value of `1991-10-02` works for a column of type
-`Date`, but a value of `October 2, 1991` would not. You can, however, use values
-that can be cast to the type of the corresponding column. Casting happens
-automatically for numerical values (this is also referred to as
-[coercion](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#coercion)).
-
-If you attempt to set a column with an invalid value, the statement fails.
-For example, the following statement does not work:
-
-```
-UPDATE Singers s
-SET s.Birthdate = "October 2, 1991"
-WHERE s.SingerId = 5;
-```
-
-#### Returning columns to default values
-
-You can use an `UPDATE` statement to return any value to its corresponding
-default by using the `DEFAULT` keyword. In cases where the column contains a
-protocol buffer field, that field is cleared.
-
-For example, consider the following **Singers** table:
-
-<table>
-<thead>
-<tr>
-<th>SingerId</th>
-<th>FirstName</th>
-<th>LastName</th>
-<th>BirthDate</th>
-<th>SingerInfo</th>
-<th>Albums</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>5</td>
-<td>Alice</td>
-<td>Trentor</td>
-<td>1991-10-2</td>
-<td>"nationality: 'USA'"</td>
-<td>NULL</td>
-</tr>
-<tr>
-<td>6</td>
-<td>Zak</td>
-<td>Sterling</td>
-<td>1989-1-13</td>
-<td>"nationality: 'Australia'"</td>
-<td>NULL</td>
-</tr>
-</tbody>
-</table>
-
-If you run the following statement:
-
-```
-UPDATE Singers s
-SET s.SingerInfo = DEFAULT
-WHERE SingerId = 6;
-```
-
-The table is updated as follows:
-
-<table>
-<thead>
-<tr>
-<th>SingerId</th>
-<th>FirstName</th>
-<th>LastName</th>
-<th>BirthDate</th>
-<th>SingerInfo</th>
-<th>Albums</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>5</td>
-<td>Alice</td>
-<td>Trentor</td>
-<td>1991-10-2</td>
-<td>"nationality:'USA'"</td>
-<td>NULL</td>
-</tr>
-<tr>
-<td>6</td>
-<td>Zak</td>
-<td>Sterling</td>
-<td>1989-1-13</td>
-<td>NULL</td>
-<td>NULL</td>
-</tr>
-</tbody>
-</table>
-
-Notice that the row for `Zak Sterling` now has `NULL` in the `SingerInfo`
-column, because `NULL` is the default value for that column. The following
-example has the same effect:
-
-```
-UPDATE Singers s
-SET s.SingerInfo = NULL
-WHERE SingerId = 6;
-```
-
-#### Updating fields
-
-ZetaSQL allows you to update non-repeating or repeating fields within
-protocol buffers. To illustrate how to update a non-repeating field, consider
-the [Singers example table](#singers-table).  It contains a column, `Albums`, of
-type `PROTO<Albums>`, and `Albums` contains a non-repeating field `tracks`. The
-following statement updates the value of `tracks`:
-
-```
-UPDATE Singers s
-SET s.Albums.tracks = 15
-WHERE s.SingerId = 5 AND s.Albums.title = "Fire is Hot";
-```
-
-An update can replace a repeated field using an array of values, as shown below.
-
-```
-UPDATE Singers s
-SET s.Albums.comments = ["A good album!", "Hurt my ears!", "Totally inedible."]
-WHERE s.SingerId = 5 AND s.Albums.title = "Fire is Hot";
-```
-
-#### Nested updates
-
-Inside a parent update statement you can construct DML statements that modify
-a repeated field of a protocol buffer or an array.  Such statements are called
-**nested updates**.
-
-For example, the `Albums` column contains a repeated field `comments`. This
-nested update statement adds a comment to an album:
-
-```
-UPDATE Singers s
-SET (INSERT s.Albums.comments
-     VALUES ("Groovy!"))
-WHERE s.SingerId = 5 AND s.Albums.title = "Fire is Hot";
-```
-
-`Albums` also contains a repeated protocol buffer, `Song`, which provides
-information about a song on an album. This nested update statement updates the
-album with a new song:
-
-```
-UPDATE Singers s
-SET (INSERT s.Albums.Song(Song)
-     VALUES ("songtitle: 'Bonus Track', length: 180"))
-WHERE s.SingerId = 5 AND s.Albums.title = "Fire is Hot";
-```
-
-If the repeated field is another protocol buffer, you can provide the
-protocol buffer as a string literal. For example, the following statement adds a
-new song to an album and updates the number of tracks. Notice that this
-statement uses `ASSERT_ROWS_MODIFIED` to ensure that only one `Singer` is
-updated.
-
-```
-UPDATE Singers s
-SET (INSERT s.Albums.Song
-     VALUES ('''songtitle: 'Bonus Track', length:180''')),
-     s.Albums.tracks = 16
-WHERE s.SingerId = 5 and s.Albums.title = "Fire is Hot"
-ASSERT_ROWS_MODIFIED 1;
-```
-
-You can also nest a nested update statement in another nested update statement.
-For example, the `Song` protocol buffer itself has another repeated
-protocol buffer, `Chart`, which provides information on what chart the song
-appeared on, and what rank it had.
-
-The following statement adds a new chart to a song.
-
-```
-UPDATE Singers s
-SET (UPDATE s.Albums.Song so
-    SET (INSERT INTO so.Chart
-         VALUES ("chartname: 'Galaxy Top 100', rank: 5"))
-    WHERE so.songtitle = "Bonus Track")
-WHERE s.SingerId = 5
-ASSERT_ROWS_MODIFIED 1;
-```
-
-This next statement updates the chart to reflect a new rank for the song. Notice
-that each inner `UPDATE` statement uses `ASSERT_ROWS_MODIFIED 1` to ensure that
-only one update is made.
-
-```
-UPDATE Singers s
-SET (UPDATE s.Albums.Song so
-     SET (UPDATE so.Chart c
-          SET c.rank = 2
-          WHERE c.chartname = "Galaxy Top 100"
-          ASSERT_ROWS_MODIFIED 1)
-     WHERE so.songtitle = "Bonus Track"
-     ASSERT_ROWS_MODIFIED 1)
-WHERE s.SingerId = 5
-ASSERT_ROWS_MODIFIED 1;
-```
-
-ZetaSQL treats an array or repeated field inside a row that matches
-an `UPDATE WHERE` clause as a table, with individual elements of the array or
-field treated like rows. These rows can then have nested DML statements run
-against them, allowing you to delete, update, and insert data as needed.
-
-##### Modifying multiple fields
-
-The previous sections demonstrated how to update a single value within a
-compound data type. You can also perform multiple updates to a compound data
-type within a single statement. For example:
-
-```
-UPDATE UpdatedSingers s
-SET
-    (DELETE FROM s.SingerInfo.Residence r WHERE r.City = 'Seattle'),
-    (UPDATE s.Albums.Song song SET song.songtitle = 'No, This Is Rubbish' WHERE song.songtitle = 'This Is Pretty Good'),
-    (INSERT s.Albums.Song VALUES ("songtitle: 'The Second Best Song'"))
-WHERE SingerId = 3 AND s.Albums.title = 'Go! Go! Go!';
-```
-
-Nested queries are processed as follows:
-
-1. Delete all rows that match a `WHERE` clause of a `DELETE` statement.
-2. Update any remaining rows that match a `WHERE` clause of an `UPDATE`
-statement. Each row must match at most one `UPDATE WHERE` clause, or the
-statement fails due to overlapping updates.
-3. Insert all rows in `INSERT` statements.
-
-You must construct nested statements that affect the same field in the following
-order:
-
-+ `DELETE`
-+ `UPDATE`
-+ `INSERT`
-
-For example:
-
-```
-UPDATE UpdatedSingers s
-SET
-    (DELETE FROM s.SingerInfo.Residence r WHERE r.City = 'Seattle'),
-    (UPDATE s.SingerInfo.Residence r SET r.end_year = 2015 WHERE r.City = 'Eugene'),
-    (INSERT s.Albums.Song VALUES ("songtitle: 'The Second Best Song'"))
-WHERE SingerId = 3 AND s.Albums.title = 'Go! Go! Go!';
-```
-
-The following statement is invalid, because the `UPDATE` statement
-happens after the `INSERT` statement.
-
-```
-UPDATE UpdatedSingers s
-SET
-    (DELETE FROM s.SingerInfo.Residence r WHERE r.City = 'Seattle'),
-    (INSERT s.Albums.Song VALUES ("songtitle: 'The Second Best Song'")),
-    (UPDATE s.SingerInfo.Residence r SET r.end_year = 2015 WHERE r.City = 'Eugene')
-WHERE SingerId = 3 AND s.Albums.title = 'Go! Go! Go!';
-```
-
-**Note:** In nested queries, you cannot use `INSERT OR` statements. These types
-of statements don't work because arrays and other compound data types do not
-always have a primary key, so there is no applicable definition of duplicate
-rows.
-
-You can also add `ASSERT_ROWS_MODIFIED` to nested statements, as shown here:
-
-```
-UPDATE Singers
-SET
-    (DELETE FROM AlbumTitles a WHERE a.AlbumTitles = "Too Many Vegetables"
-        ASSERT_ROWS_MODIFIED 1),
-    (UPDATE AlbumTitles a SET a.AlbumTitles = "Album IV"
-        WHERE a.AlbumTitles = "Album Four"),
-    (INSERT AlbumTitles VALUES ("The Sloth and the Tiger"));
-```
-
-<!-- END CONTENT -->
-
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
-
-<!-- BEGIN CONTENT -->
-
 ## ZetaSQL Data Model
+
+<!-- BEGIN CONTENT -->
 
 The following sections provide an overview of the ZetaSQL data
 model.
@@ -10315,936 +9944,9 @@ value does not have a field called `ROWNUM`.
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
-## Analytic Functions Concepts
-
-This topic explains how analytic functions work in ZetaSQL. For a
-description of the different analytic functions that ZetaSQL
-supports, see the reference topics for
-[navigation functions][navigation-functions-reference],
-[numbering functions][numbering-functions-reference], and
-[aggregate analytic functions][aggregate-analytic-functions-reference].
-
-In databases, an *analytic function* is a function that computes aggregate
-values over a group of rows. Unlike [aggregate functions][analytic-functions-link-to-aggregate-functions],
-which return a single aggregate value for a group of rows, analytic functions
-return a single value for each row by computing the function over a group
-of input rows.
-
-Analytic functions are a powerful mechanism for succinctly representing complex
-analytic operations, and they enable efficient evaluations that otherwise would
-involve expensive self-`JOIN`s or computation outside the SQL query.
-
-Analytic functions are also called "(analytic) window functions" in the SQL
-standard and some commercial databases. This is because an analytic function is
-evaluated over a group of rows, referred to as a `window` or `window frame`.
-In some other databases, they may be referred to as
-Online Analytical Processing (OLAP) functions.
-
-Simplified syntax:
-
-```
-analytic_function_name ( [ argument_list ] )
-  OVER (
-    [ PARTITION BY partition_expression_list ]
-    [ ORDER BY expression [{ ASC | DESC }] [, ...] ]
-    [ window_frame_clause ]
-  )
-```
-
-An analytic function requires an `OVER` clause, which defines the `window frame`
-that the analytic function is evaluated over. The `OVER` clause contains the
-following three optional clauses. ZetaSQL evaluates
-the sub-clauses of an `OVER` clause in the order in which they are written.
-
-  * A `PARTITION BY` clause divides the input rows into partitions, similar to
-    `GROUP BY` but without actually combining rows with the same key.
-  * An `ORDER BY` clause specifies the ordering within each partition.
-  * A `window_frame_clause` defines the `window frame` within the current
-    partition.
-
-The `OVER` clause can also be empty (`OVER()`) in which case the `window frame`
-includes all input rows.
-
-Analytic functions are evaluated after aggregation (GROUP BY and non-analytic
-aggregate functions).
-
-Example: Consider a company who wants to create a leaderboard for each
-department that shows a "seniority ranking" for each employee, i.e. showing
-which employees have been there the longest. The table `Employees` contains
-columns `Name`, `StartDate`, and `Department`.
-
-The following query calculates the rank of each employee within their
-department:
-
-```
-SELECT firstname, department, startdate,
-  RANK() OVER ( PARTITION BY department ORDER BY startdate ) AS rank
-FROM Employees;
-```
-
-The conceptual computing process is illustrated in Figure 1.
-
-![Markdown image] (images/analytic-function-illustration.png "Figure 1: Analytic Function Illustration")
-**Figure 1: Analytic Function Illustration**
-
-ZetaSQL evaluates the sub-clauses of an `OVER` clause in the order in
-which they appear:
-
-  1. `PARTITION BY`: The table is first split into two partitions by
-     `department`.
-  2. `ORDER BY`: The employee rows in each partition are ordered by `startdate`.
-  3. Framing: None. The window frame clause is disallowed for RANK(), as it is
-  for all [numbering functions][analytic-functions-link-to-numbering-functions].
-  4. `RANK()`: The seniority ranking is computed for each row over the
-  `window frame`.
-
-<a name="syntax"></a>
-#### Analytic Function Syntax
-
-```
-analytic_function_name ( [ argument_list ] )
-  OVER { window_name | ( [ window_specification ] ) }
-
-window_specification:
-  [ window_name ]
-  [ PARTITION BY partition_expression_list ]
-  [ ORDER BY expression [{ ASC | DESC }] [, ...] ]
-  [ window_frame_clause ]
-
-window_frame_clause:
-{ ROWS | RANGE }
-{
-  { UNBOUNDED PRECEDING | numeric_expression PRECEDING | CURRENT ROW }
-  |
-  { BETWEEN window_frame_boundary_start AND window_frame_boundary_end }
-}
-
-window_frame_boundary_start:
-{ UNBOUNDED PRECEDING | numeric_expression { PRECEDING | FOLLOWING } | CURRENT ROW }
-
-window_frame_boundary_end:
-{ UNBOUNDED FOLLOWING | numeric_expression { PRECEDING | FOLLOWING } | CURRENT ROW }
-```
-
-Analytic functions can appear as a scalar expression or a scalar expression
-operand in only two places in the query:
-
-+ **The `SELECT` list**. If the analytic function appears in the SELECT list,
-its `argument_list` cannot refer to aliases introduced in the same SELECT list.
-+ **The `ORDER BY` clause**. If the analytic function appears in the ORDER BY clause
-of the query, its `argument_list` can refer to SELECT list aliases.
-
-Additionally, an analytic function cannot refer to another analytic function in
-its `argument_list` or its `OVER` clause, even if indirectly through an
-alias.
-
-Invalid:
-
-```
-SELECT ROW_NUMBER() OVER () AS alias1
-FROM Singers
-ORDER BY ROW_NUMBER() OVER(PARTITION BY alias1)
-```
-
-In the query above, the analytic function `alias1` resolves to an analytic
-function: `ROW_NUMBER() OVER()`.
-
-##### OVER Clause
-
-Syntax:
-
-```
-OVER { window_name | ( [ window_specification ] ) }
-
-window_specification:
-  [ window_name ]
-  [ PARTITION BY partition_expression_list ]
-  [ ORDER BY sort_specification_list ]
-  [ window_frame_clause ]
-```
-
-The `OVER` clause has three possible components:
-
-+ `PARTITION BY` clause
-+ `ORDER BY` clause
-+ A `window_frame_clause` or a `window_name`, which refers to a
-  `window_specification` defined in a `WINDOW` clause.
-
-If the `OVER` clause is empty, `OVER()`, the analytic function is computed over
-a single partition which contains all input rows, meaning that it will produce
-the same result for each output row.
-
-##### PARTITION BY Clause
-
-Syntax:
-
-```
-PARTITION BY expression [, ... ]
-```
-
-The `PARTITION BY` clause breaks up the input rows into separate partitions,
-over which the analytic function is independently evaluated. Multiple
-`expressions` are allowed in the `PARTITION BY` clause.
-
-The data type of `expression` must be [groupable](https://github.com/google/zetasql/blob/master/docs/data-types.md#data-type-properties)
-and support partitioning. This means the `expression` **cannot** be any of the
-following data types:
-
-+ Floating point
-+ Protocol buffer
-
-This list is almost identical to the list of data types that `GROUP BY` does not
-support, with the additional exclusion of floating point types (see "Groupable"
-in the Data Type Properties table at the top of
-[ZetaSQL Data Types][analytic-functions-link-to-data-types]).
-
-If no `PARTITION BY` clause is present, ZetaSQL treats the entire
-input as a single partition.
-
-##### ORDER BY Clause
-
-Syntax:
-
-```
-ORDER BY expression [ ASC | DESC ] [, ... ]
-```
-
-The `ORDER BY` clause defines an ordering within each partition. If no
-`ORDER BY` clause is present, row ordering within a partition is
-non-deterministic. Some analytic functions require `ORDER BY`; this is noted in
-the section for each family of analytic functions. Even if an `ORDER BY` clause
-is present, some functions are not sensitive to ordering within a `window frame`
-(e.g. `COUNT`).
-
-The `ORDER BY` clause within an `OVER` clause is consistent with the normal
-[`ORDER BY` clause][analytic-functions-link-to-order-by-clause] in that:
-
-+ There can be multiple `expressions`.
-+ `expression` must have a type that supports ordering.
-+ An optional `ASC`/`DESC` specification is allowed for each `expression`.
-+ NULL values order as the minimum possible value (first for `ASC`,
-  last for `DESC`)
-
-Data type support is identical to the normal
-[`ORDER BY` clause][analytic-functions-link-to-order-by-clause] in that the following types do **not** support ordering:
-
-+ Array
-+ Struct
-+ Protocol buffer
-
-If the `OVER` clause contains an `ORDER BY` clause but no `window_frame_clause`,
-then the `ORDER BY` implicitly defines `window_frame_clause` as:
-
-```
-RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-```
-
-If neither `window_frame_clause` nor the `ORDER BY` clause is present,
-the `window frame` defaults to the entire partition.
-
-##### Window Frame Clause
-
-Syntax:
-
-```
-{ ROWS | RANGE }
-{
-  { UNBOUNDED PRECEDING | numeric_expression PRECEDING | CURRENT ROW }
-  |
-  { BETWEEN window_frame_boundary_start AND window_frame_boundary_end }
-}
-
-window_frame_boundary_start:
-{ UNBOUNDED PRECEDING | numeric_expression { PRECEDING | FOLLOWING } | CURRENT ROW }
-
-window_frame_boundary_end:
-{ UNBOUNDED FOLLOWING | numeric_expression { PRECEDING | FOLLOWING } | CURRENT ROW }
-```
-`window_frame_clause` defines the `window frame`, around the current row within
-a partition, over which the analytic function is evaluated.
-`window_frame_clause` allows both physical window frames (defined by `ROWS`) and
-logical window frames (defined by `RANGE`). If the `OVER` clause contains an
-`ORDER BY` clause but no `window_frame_clause`, then the `ORDER BY` implicitly
-defines `window_frame_clause` as:
-
-```
-RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-```
-
-If neither `window_frame_clause` nor the `ORDER BY` clause is present,
-the `window frame` defaults to the entire partition.
-
-The `numeric_expression` can only be a constant or a query parameter, both
-of which must have a non-negative value. Otherwise, ZetaSQL
-provides an error.
-
-Examples of window frame clauses:
-
-```
-ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-```
-
-+ Includes the entire partition.
-+ Example use: Compute a grand total over the partition.
-
-```
-ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-```
-
-+ Includes all the rows in the partition before or including the current row.
-+ Example use: Compute a cumulative sum.
-
-```
-ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING
-```
-
-+ Includes all rows between two before and two after the current row.
-+ Example use: Compute a moving average.
-
-If `window_frame_spec` uses the `BETWEEN` clause:
-
-+ `window_frame_boundary_start` must specify a boundary that begins no later
-than that of the `window_frame_boundary_end`. This has the following
-consequences:
-    1.  If `window_frame_boundary_start` contains `CURRENT ROW`,
-       `window_frame_boundary_end` cannot contain `PRECEDING`.
-    2.  If `window_frame_boundary_start` contains `FOLLOWING`,
-       `window_frame_boundary_end` cannot contain `CURRENT ROW` or `PRECEDING`.
-+ `window_frame_boundary_start` has no default value.
-
-Otherwise, the specified window_frame_spec boundary represents the start of the window frame and the end of the window frame boundary defaults to 'CURRENT ROW'. Thus,
-
-```
-ROWS 10 PRECEDING
-```
-
-is equivalent to
-
-```
-ROWS BETWEEN 10 PRECEDING AND CURRENT ROW
-```
-
-###### ROWS
-
-`ROWS`-based window frames compute the `window frame` based on physical offsets
-from the current row. For example, the window frame below defines a window frame
-of size five (at most) around the current row.
-
-```
-ROWS BETWEEN 2 PRECEDING and 2 FOLLOWING
-```
-
-The `numeric_expression` in `window_frame_clause` is interpreted as a number of
-rows from the current row, and must be a constant, non-negative integer. It may
-also be a query parameter.
-
-If the `window frame` for a given row extends beyond the beginning or end of the
-partition, then the `window frame` will only include rows from within that
-partition.
-
-Example: Consider the following table with columns `z`, `x`, and `y`.
-
-<table>
-<thead>
-<tr>
-<th>z</th>
-<th>x</th>
-<th>y</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>5</td>
-<td>AA</td>
-</tr>
-<tr>
-<td>2</td>
-<td>2</td>
-<td>AA</td>
-</tr>
-<tr>
-<td>3</td>
-<td>11</td>
-<td>AB</td>
-</tr>
-<tr>
-<td>4</td>
-<td>2</td>
-<td>AA</td>
-</tr>
-<tr>
-<td>5</td>
-<td>8</td>
-<td>AC</td>
-</tr>
-<tr>
-<td>6</td>
-<td>10</td>
-<td>AB</td>
-</tr>
-<tr>
-<td>7</td>
-<td>1</td>
-<td>AB</td>
-</tr>
-</tbody>
-</table>
-
-Consider the following analytic function:
-
-```
-SUM(x) OVER (PARTITION BY y ORDER BY z ROWS BETWEEN 1 PRECEDING AND 1
-FOLLOWING)
-```
-
-The `PARTITION BY` clause splits the table into 3 partitions based on their `y`
-value, and the `ORDER BY` orders the rows within each partition by their `z`
-value.
-
-Partition 1 of 3:
-
-<table>
-<thead>
-<tr>
-<th>z</th>
-<th>x</th>
-<th>y</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>5</td>
-<td>AA</td>
-</tr>
-<tr>
-<td>2</td>
-<td>2</td>
-<td>AA</td>
-</tr>
-<tr>
-<td>4</td>
-<td>2</td>
-<td>AA</td>
-</tr>
-</tbody>
-</table>
-
-Partition 2 of 3:
-
-<table>
-<thead>
-<tr>
-<th>z</th>
-<th>x</th>
-<th>y</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>3</td>
-<td>11</td>
-<td>AB</td>
-</tr>
-<tr>
-<td>6</td>
-<td>10</td>
-<td>AB</td>
-</tr>
-<tr>
-<td>7</td>
-<td>1</td>
-<td>AB</td>
-</tr>
-</tbody>
-</table>
-
-Partition 3 of 3:
-
-<table>
-<thead>
-<tr>
-<th>z</th>
-<th>x</th>
-<th>y</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>5</td>
-<td>8</td>
-<td>AC</td>
-</tr>
-</tbody>
-</table>
-
-In the tables below, **bold** indicates the row currently being evaluated, and
-<font color="#D8CEF6">colored</font> cells indicates all the rows in the `window
-frame` for that row.
-
-+ For the first row in the y = AA partition, the `window frame` includes only 2
-rows since there is no preceding row, even though the `window_frame_spec`
-indicates a window size of 3. The result of the analytic function is 7 for the
-first row.
-
-<table>
-<thead>
-<tr>
-<th>z</th>
-<th>x</th>
-<th>y</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td bgcolor="#D8CEF6"><b>1</b></td>
-<td bgcolor="#D8CEF6"><b>5</b></td>
-<td bgcolor="#D8CEF6"><b>AA</b></td>
-</tr>
-<tr>
-<td bgcolor="#D8CEF6">2</td>
-<td bgcolor="#D8CEF6">2</td>
-<td bgcolor="#D8CEF6">AA</td>
-</tr>
-<tr>
-<td>4</td>
-<td>2</td>
-<td>AA</td>
-</tr>
-</tbody>
-</table>
-
-+ For the second row in the partition, the `window frame` includes all 3 rows.
-The result of the analytic function is 9 for the second row.
-
-<table>
-<thead>
-<tr>
-<th>z</th>
-<th>x</th>
-<th>y</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td bgcolor="#D8CEF6">1</td>
-<td bgcolor="#D8CEF6">5</td>
-<td bgcolor="#D8CEF6">AA</td>
-</tr>
-<tr>
-<td bgcolor="#D8CEF6"><b>2</b></td>
-<td bgcolor="#D8CEF6"><b>2</b></td>
-<td bgcolor="#D8CEF6"><b>AA</b></td>
-</tr>
-<tr>
-<td bgcolor="#D8CEF6">4</td>
-<td bgcolor="#D8CEF6">2</td>
-<td bgcolor="#D8CEF6">AA</td>
-</tr>
-</tbody>
-</table>
-
-+ For the last row in the partition, the `window frame` includes only 2 rows
-since there is no following row.  The result of the analytic function is 4 for
-the third row.
-
-<table>
-<thead>
-<tr>
-<th>z</th>
-<th>x</th>
-<th>y</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>5</td>
-<td>AA</td>
-</tr>
-<tr>
-<td bgcolor="#D8CEF6">2</td>
-<td bgcolor="#D8CEF6">2</td>
-<td bgcolor="#D8CEF6">AA</td>
-</tr>
-<tr>
-<td bgcolor="#D8CEF6"><b>4</b></td>
-<td bgcolor="#D8CEF6"><b>2</b></td>
-<td bgcolor="#D8CEF6"><b>AA</b></td>
-</tr>
-</tbody>
-</table>
-
-###### RANGE
-
-`RANGE`-based window frames compute the `window frame` based on a logical range
-of rows around the current row based on the current row's `ORDER BY` key value.
-The provided range value is added or subtracted to the current row's key value
-to define a starting or ending range boundary for the `window frame`.
-
-The `ORDER BY` clause must be specified unless the window is:
-
-```
-RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING.
-```
-
-`numeric_expression` in the `window_frame_clause` is interpreted as an offset
-from the current row's value of the `ORDER BY` key. `numeric_expression` must
-have numeric type. DATE and TIMESTAMP are not currently supported. In addition,
-the `numeric_expression` must be a constant, non-negative integer or a
-parameter.
-
-In a `RANGE`-based window frame, there can be at most one `expression` in the
-`ORDER BY` clause, and `expression` must have a numeric type.
-
-Example of a `RANGE`-based window frame where there is a single partition:
-
-```
-SELECT x, COUNT(*) OVER ( ORDER BY x
-  RANGE BETWEEN 2 PRECEDING AND 2 FOLLOWING ) AS count_x
-FROM T;
-```
-
-In the tables below, **bold** indicates the row currently being evaluated, and
-<font color="#D8CEF6">colored</font> cells indicates all the rows in the
-`window frame` for that row.
-
-+ For row 1, `x` = 5 and therefore `COUNT(*)` will only include rows where
-  3 &lt;=`x` &lt;= 7
-
-<table>
-<thead>
-<tr>
-<th>x</th>
-<th>count_x</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td bgcolor="#D8CEF6"><b>5</b></td>
-<td bgcolor="#D8CEF6"><b>1</b></td>
-</tr>
-<tr>
-<td>2</td>
-<td></td>
-</tr>
-<tr>
-<td>11</td>
-<td></td>
-</tr>
-<tr>
-<td>2</td>
-<td></td>
-</tr>
-<tr>
-<td>8</td>
-<td></td>
-</tr>
-<tr>
-<td>10</td>
-<td></td>
-</tr>
-<tr>
-<td>1</td>
-<td></td>
-</tr>
-</tbody>
-</table>
-
-+ For row 2, `x` = 2 and therefore `COUNT(*)` will only include rows where
-  0 &lt;= `x` &lt;= 4
-
-<table>
-<thead>
-<tr>
-<th>x</th>
-<th>count_x</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>5</td>
-<td>1</td>
-</tr>
-<tr>
-<td bgcolor="#D8CEF6"><b>2</b></td>
-<td bgcolor="#D8CEF6"><b>3</b></td>
-</tr>
-<tr>
-<td>11</td>
-<td></td>
-</tr>
-<tr>
-<td bgcolor="#D8CEF6">2</td>
-<td></td>
-</tr>
-<tr>
-<td>8</td>
-<td></td>
-</tr>
-<tr>
-<td>10</td>
-<td></td>
-</tr>
-<tr>
-<td bgcolor="#D8CEF6">1</td>
-<td></td>
-</tr>
-</tbody>
-</table>
-
-+ For row 3, `x` = 11 and therefore `COUNT(*)` will only include rows where
-  9 &lt;= `x` &lt;= 13
-
-<table>
-<thead>
-<tr>
-<th>x</th>
-<th>count_x</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>5</td>
-<td>1</td>
-</tr>
-<tr>
-<td>2</td>
-<td>3</td>
-</tr>
-<tr>
-<td bgcolor="#D8CEF6"><b>11</b></td>
-<td bgcolor="#D8CEF6"><b>2</b></td>
-</tr>
-<tr>
-<td>2</td>
-<td></td>
-</tr>
-<tr>
-<td>8</td>
-<td></td>
-</tr>
-<tr>
-<td bgcolor="#D8CEF6">10</td>
-<td></td>
-</tr>
-<tr>
-<td>1</td>
-<td></td>
-</tr>
-</tbody>
-</table>
-
-#### WINDOW Clause
-
-Syntax:
-
-```
-WINDOW window_definition [, ...]
-window_definition: window_name AS ( window_specification )
-```
-
-A `WINDOW` clause defines a list of named windows whose `window_name` can be
-referenced in analytic functions in the `SELECT` list. This is useful when you
-want to use the same `window_frame_clause` for multiple analytic functions.
-
-The `WINDOW` clause can appear only at the end of a `SELECT` clause, as shown
-in [Query Syntax][analytic-functions-link-to-sql-syntax].
-
-##### Named Windows
-
-Once you define a `WINDOW` clause, you can use the named windows in analytic
-functions, but only in the `SELECT` list; you cannot use named windows in the
-`ORDER BY` clause. Named windows can appear either by themselves or embedded
-within an `OVER` clause. Named windows can refer to `SELECT` list aliases.
-
-Examples:
-
-```
-SELECT SUM(x) OVER window_name FROM ...
-```
-
-```
-SELECT SUM(x) OVER (
-  window_name
-  PARTITION BY...
-  ORDER BY...
-  window_frame_clause)
-FROM ...
-```
-
-When embedded within an `OVER` clause, the `window_specification` associated
-with `window_name` must be compatible with the `PARTITION BY`, `ORDER BY`, and
-`window_frame_clause` that are in the same `OVER` clause.
-
- The following rules apply to named windows:
-
-+ You can refer to named windows only in the `SELECT` list; you cannot refer to
-them in an `ORDER BY` clause, an outer query, or any subquery.
-+ A window W1 (named or unnamed) may reference a named window NW2, with the
-following rules:
-    1. If W1 is a named window, then the referenced named window NW2 must precede
-       W1 in the same `WINDOW` clause.
-    2. W1 cannot contain a `PARTITION BY` clause
-    3. It cannot be true that both W1 and NW2 contain an `ORDER BY` clause
-    4. NW2 cannot contain a `window_frame_clause`.
-+ If a (named or unnamed) window W1 references a named window NW2, then the
-resulting window specification is defined using:
-    1. The `PARTITION BY` from NW2, if there is one.
-    2.  The `ORDER BY` from W1 or NW2, if either is specified; it is not possible
-    for them to both have an `ORDER BY` clause.
-    3. The `window_frame_clause` from W1, if there is one.
-
-#### Hints
-
-ZetaSQL supports
-[hints][analytic-functions-link-to-hints] on both the `PARTITION BY` clause (analogously to `GROUP BY`) and the
-`ORDER BY` clause (analogously to the normal `ORDER BY` clause) in an `OVER`
-clause.
-
-#### Navigation Functions
-
-This topic explains how analytic navigation functions work. For a description of
-the analytic navigation functions ZetaSQL supports, see the
-[function reference for navigation functions][navigation-functions-reference].
-
-Navigation functions generally compute some `value_expression` over a different
-row in the window frame from the current row. The `OVER` clause syntax varies
-across navigation functions.
-
-`OVER` clause requirements:
-
-+   `PARTITION BY`: Optional.
-+   `ORDER BY`:
-    1.  Disallowed for `PERCENTILE_CONT` and `PERCENTILE_DISC`.
-    1.   Required for `FIRST_VALUE`, `LAST_VALUE`, `NTH_VALUE`, `LEAD`
-    and `LAG`.
-+   `window_frame_clause`:
-    1.  Disallowed for  `PERCENTILE_CONT`, `PERCENTILE_DISC`, `LEAD` and `LAG`.
-    1.  Optional for `FIRST_VALUE`, `LAST_VALUE`, and `NTH_VALUE`.
-
-For all navigation functions, the result data type is the same type as
-`value_expression`.
-
-#### Numbering Functions
-
-This topic explains how analytic numbering functions work. For an explanation of
-the analytic numbering functions ZetaSQL supports, see the
-[numbering functions reference][numbering-functions-reference].
-
-Numbering functions assign integer values to each row based on their position
-within the specified window.
-
-Example of `RANK()`, `DENSE_RANK()`, and `ROW_NUMBER()`:
-
-```
-SELECT x,
-  RANK() OVER (ORDER BY x ASC) AS rank,
-  DENSE_RANK() OVER (ORDER BY x ASC) AS dense_rank,
-  ROW_NUMBER() OVER (PARTITION BY x ORDER BY y) AS row_num
-FROM ...
-```
-
-<table>
-<thead>
-<tr>
-<th>x</th>
-<th>rank</th>
-<th>dense_rank</th>
-<th>row_num</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>1</td>
-<td>1</td>
-<td>1</td>
-</tr>
-<tr>
-<td>2</td>
-<td>2</td>
-<td>2</td>
-<td>2</td>
-</tr>
-<tr>
-<td>2</td>
-<td>2</td>
-<td>2</td>
-<td>3</td>
-</tr>
-<tr>
-<td>5</td>
-<td>4</td>
-<td>3</td>
-<td>4</td>
-</tr>
-<tr>
-<td>8</td>
-<td>5</td>
-<td>4</td>
-<td>5</td>
-</tr>
-<tr>
-<td>10</td>
-<td>6</td>
-<td>5</td>
-<td>6</td>
-</tr>
-<tr>
-<td>10</td>
-<td>6</td>
-<td>5</td>
-<td>7</td>
-</tr>
-</tbody>
-</table>
-
-* `RANK(): `For x=5, `rank` returns 4, since `RANK()` increments by the number
-of peers in the previous window ordering group.
-* `DENSE_RANK()`: For x=5, `dense_rank` returns 3, since `DENSE_RANK()` always
-increments by 1, never skipping a value.
-* `ROW_NUMBER(): `For x=5, `row_num` returns 4.
-
-#### Aggregate Analytic Functions
-
-ZetaSQL supports certain
-[aggregate functions][aggregate-analytic-functions-reference]
-as analytic functions.
-
-With these functions, the `OVER` clause is simply appended to the aggregate
-function call; the function call syntax remains otherwise unchanged. Like their
-aggregate function counterparts, these analytic functions perform aggregations,
-but specifically over the relevant window frame for each row. The result data
-types of these analytic functions are the same as their aggregate function
-counterparts.
-
-For a description of the aggregate analytic functions that ZetaSQL
-supports, see the [function reference for aggregate analytic functions][aggregate-analytic-functions-reference].
-
-[navigation-functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#navigation-functions
-[numbering-functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#numbering-functions
-[aggregate-analytic-functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#aggregate-analytic-functions
-
-[analytic-functions-link-to-aggregate-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md
-
-[analytic-functions-link-to-numbering-functions]: #numbering-functions
-[analytic-functions-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
-[analytic-functions-link-to-order-by-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#order_by_clause
-[analytic-functions-link-to-sql-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#sql-syntax
-[analytic-functions-link-to-hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
-[analytic-functions-link-to-coercion]: #coercion
-
-<!-- END CONTENT -->
-
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
-
-<!-- BEGIN CONTENT -->
-
 ## User-Defined Functions
+
+<!-- BEGIN CONTENT -->
 
 ZetaSQL supports
 user-defined functions (UDFs). A UDF enables you to create a function using
@@ -11935,7 +10637,136 @@ FROM CustomerRangeWithCustomerType(100, 200, 'CUSTOMER_TYPE_ADVERTISER');
 
 <!-- END CONTENT -->
 
-## Function Reference
+<!-- This file is auto-generated. DO NOT EDIT.                               -->
+
+## Approximate Aggregation
+
+<!-- BEGIN CONTENT -->
+
+This topic explains the concepts behind approximate
+aggregation in ZetaSQL.
+
+### What is approximate aggregation?
+
+Approximate aggregation is the estimation of aggregate function
+outputs, such as cardinality and quantiles. Approximate
+aggregation requires less memory than normal aggregation functions like
+`COUNT(DISTINCT ...)`, but also introduces statistical uncertainty. This makes it
+appropriate for large data streams for which linear memory usage is impractical,
+as well as for data that is already approximate. Where exact results are
+necessary, use exact [aggregate functions][exact-aggregate-fns]. This topic
+describes the concepts behind approximate aggregation in ZetaSQL.
+
+### Fixed-precision approximate aggregation
+
+ZetaSQL supports
+[aggregate functions with fixed precision][link-to-APPROX_] for estimating
+cardinality and quantiles. These functions work directly on the input data,
+rather than an intermediate estimation of the data. These functions do not allow
+users to specify the precision for the estimation.
+
+### Storing estimated aggregate values as sketches
+
+ZetaSQL supports
+[HyperLogLog++ cardinality estimation functions][hll-functions] for estimating
+the number of distinct values in a large dataset.
+ZetaSQL supports [KLL16 quantile estimation functions][kll-functions]
+for estimating quantile values in a large dataset.
+
+These functions operate on sketches that compress an arbitrary set into a
+fixed-memory representation. ZetaSQL stores these sketches as
+`BYTES`. You can merge the sketches to produce a new sketch that represents the
+union of the input sketches, before you extract a final numeric estimate from
+the sketch.
+
+For example, consider the following table, which contains ice-cream flavors and
+the number of people who claimed to enjoy that flavor:
+
+Flavor            | People
+------------------|--------
+Vanilla           | 3945
+Chocolate         | 1728
+Strawberry        | 2051
+
+If this table is the result of aggregation, then it may not be possible to use
+the table to calculate cardinality. If you wanted to know the number of unique
+respondents, you couldn't use `SUM` to aggregate the `People` column, because
+some respondents may have responded positively to more than one flavor. On the
+other hand, performing an aggregate function over the underlying raw
+data can consume large amounts of time and memory.
+
+One solution is to store an approximate aggregate or **sketch** of the raw
+data. A sketch is a summary of the raw data. Sketches require less memory than
+the raw data, and you can extract an estimate, such as the estimated number of
+unique users, from the sketch.
+
+#### Specifying approximation precision
+
+ZetaSQL's sketch-based approximate aggregation functions
+allow you to specify the precision of the sketch when you create it. The
+precision of the sketch affects the accuracy of the estimate you can extract
+from the sketch. Higher precision requires additional memory to process the
+sketches or store them on disk, and reduces the relative error of any estimate
+you extract from the sketch. Once you have created the sketch, you can only
+merge it with other sketches of the same precision.
+
+#### Merging sketches
+
+You can merge two or more sketches to produce a new sketch which represents an
+estimate of the union of the data underlying the different sketches. The merge
+function, such as `HLL_COUNT.MERGE`,
+returns the estimate as a number, whereas the partial merge
+function, such as
+`HLL_COUNT.MERGE_PARTIAL`, returns the new sketch in `BYTES`.
+A partial merge is useful if you want to reduce a table that already contains
+sketches, but do not yet want to extract an estimate. For example, use this
+function if you want to create a sketch that you will merge with another sketch
+later.
+
+#### Extracting estimates from sketches
+
+Once you have stored a sketch or merged two or more sketches into a new sketch,
+you can use the extract function, such as
+`HLL_COUNT.EXTRACT`, to return an estimate of the underlying data,
+such as the estimated number of unique users, as a number.
+
+### Algorithms
+
+ This section describes the
+approximate aggregate algorithms that ZetaSQL supports.
+
+#### HyperLogLog++
+
+The [HyperLogLog++][HyperLogLogPlusPlus-paper] algorithm is an improvement on
+the [HyperLogLog][hll-link-to-hyperloglog-wikipedia] algorithm for estimating
+distinct values in a data set. In ZetaSQL, the
+[HyperLogLog++ cardinality estimation functions][hll-functions] use this
+algorithm. The HyperLogLog++ algorithm improves on the HyperLogLog algorithm by
+using bias correction to reduce error for an important range of cardinalities.
+
+#### KLL16
+
+The [KLL16][link-to-kll-paper] algorithm is an algorithm for estimating
+quantile values in a data set. In ZetaSQL, the
+[KLL16 quantile estimation functions][kll-functions] use this
+algorithm. The KLL16 algorithm improves on the [MP80 algorithm][mp80] by
+using variable-size buffers to reduce memory use for large data sets.
+
+[hll-link-to-hyperloglog-wikipedia]: https://en.wikipedia.org/wiki/HyperLogLog
+[hll-link-to-approx-count-distinct]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#approx_count_distinct
+[link-to-APPROX_]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#approximate-aggregate-functions
+[hll-functions]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#hyperloglog-functions
+[HyperLogLogPlusPlus-paper]: https://research.google.com/pubs/pub40671.html
+[exact-aggregate-fns]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#aggregate-functions
+
+[kll-functions]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#kll16-quantile-functions
+[link-to-kll-paper]: https://arxiv.org/pdf/1603.05346v2.pdf
+[mp80]: https://polylogblog.files.wordpress.com/2009/08/80munro-median.pdf
+
+<!-- END CONTENT -->
+
+<!-- Functions -->
+## [Function Reference](functions-reference.md)
 
 ### Aggregate functions
 
@@ -13822,6 +12653,616 @@ FROM (
 [hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
 [approximate-aggregation-concept]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation.md
 
+### KLL16 Quantile Functions
+
+ZetaSQL supports the following functions for estimating quantiles
+with approximate aggregate quantile sketches using the [KLL16 algorithm][link-to-kll-paper].
+For an explanation of how approximate aggregate functions work, see
+[Approximate Aggregation][approximate-aggregation-concept].
+
+Quantiles can be defined in two ways. First, for a positive integer *q*,
+*q-quantiles* are a set of values that partition an input set into *q* subsets
+of nearly equal size; that is, there are *q*-1 of the *q*-quantiles. Some of
+these have specific names: the single 2-quantile is the median; the 4-quantiles
+are quartiles, the 100-quantiles are percentiles, etc.
+
+To extract a set of *q*-quantiles, use the following functions, where *q* is the
+`number` argument:
+
++ `KLL_QUANTILES.MERGE_INT64`
++ `KLL_QUANTILES.MERGE_UINT64`
++ `KLL_QUANTILES.MERGE_DOUBLE`
++ `KLL_QUANTILES.EXTRACT_INT64`
++ `KLL_QUANTILES.EXTRACT_UINT64`
++ `KLL_QUANTILES.EXTRACT_DOUBLE`
+
+Alternatively, quantiles can be defined as individual *Φ-quantiles*, where Φ is
+a real number with 0 <= Φ <= 1. The Φ-quantile *x* is an element of the input
+such that a Φ fraction of the input is less than or equal to *x*, and a (1-Φ)
+fraction is greater than or equal to *x*. In this notation, the median is the
+0.5-quantile, and the 95th percentile is the 0.95-quantile.
+
+To extract individual Φ-quantiles, use the following functions, where Φ is the
+`phi` argument:
+
++ `KLL_QUANTILES.MERGE_POINT_INT64`
++ `KLL_QUANTILES.MERGE_POINT_UINT64`
++ `KLL_QUANTILES.MERGE_POINT_DOUBLE`
++ `KLL_QUANTILES.EXTRACT_POINT_INT64`
++ `KLL_QUANTILES.EXTRACT_POINT_UINT64`
++ `KLL_QUANTILES.EXTRACT_POINT_DOUBLE`
+
+#### KLL_QUANTILES.INIT_INT64
+
+```
+KLL_QUANTILES.INIT_INT64(input[, precision])
+```
+
+**Description**
+
+Takes one or more `input` values and aggregates them into a
+[KLL16][link-to-kll-paper] sketch. This function represents the output sketch
+using the `BYTES` data type. This is an
+aggregate function.
+
+The `precision` argument defines the exactness of the returned approximate
+quantile *q*. By default, the rank of the approximate quantile in the input can
+be at most ±1/1000 * *n* off from ⌈Φ * *n*⌉, where *n* is the number of rows in
+the input and ⌈Φ * *n*⌉ is the rank of the exact quantile. If you provide a
+value for `precision`, the rank of the approximate quantile in the input can be
+at most ±1/`precision` * *n* off from the rank of the exact quantile. The error
+is within this error bound in 99.999% of cases.
+
+Note: This error guarantee only applies to the difference between exact and
+approximate ranks: the numerical difference between the exact and approximated
+value for a quantile can be arbitrarily large.
+
+**Example**
+
+```
+SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+FROM (SELECT 1 AS x UNION ALL
+      SELECT 2 AS x UNION ALL
+      SELECT 3 AS x UNION ALL
+      SELECT 4 AS x UNION ALL
+      SELECT 5 AS x);
+
++----------------------------------------------------------------------+
+| kll_sketch                                                           |
++----------------------------------------------------------------------+
+| "\010q\020\005 \004\212\007\025\010\200                              |
+| \020\350\007\032\001\001\"\001\005*\007\n\005\001\002\003\004\005"   |
++----------------------------------------------------------------------+
+```
+
+The query above takes a column of type `INT64` and
+outputs a sketch as `BYTES`
+that allows you to retrieve values whose ranks are within
+±1/1000 * 5 = ±1/200 ≈ 0 ranks of their exact quantile.
+
+**Supported Argument Types**
+
++ `input`: `INT64`
++ `precision`: `INT64`
+
+**Return Types**
+
+`BYTES`
+
+#### KLL_QUANTILES.INIT_UINT64
+
+```
+KLL_QUANTILES.INIT_UINT64(input[, precision])
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
+`input` of type `UINT64`.
+
+**Supported Argument Types**
+
++ `input`: `UINT64`
++ `precision`: `INT64`
+
+**Return Types**
+
+`BYTES`
+
+#### KLL_QUANTILES.INIT_DOUBLE
+
+```
+KLL_QUANTILES.INIT_DOUBLE(input[, precision])
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
+`input` of type `DOUBLE`.
+
+`KLL_QUANTILES.INIT_DOUBLE` orders values according to the ZetaSQL
+[floating point sort order][sort-order]. For example, `NaN` orders before
+<code>&#8209;inf</code>.
+
+**Supported Argument Types**
+
++ `input`: `DOUBLE`
++ `precision`: `INT64`
+
+**Return Types**
+
+`BYTES`
+
+#### KLL_QUANTILES.MERGE_PARTIAL
+
+```
+KLL_QUANTILES.MERGE_PARTIAL(sketch)
+```
+
+**Description**
+
+Takes KLL16 sketches of the same underlying type and merges them to return a new
+sketch of the same underlying type. This is an aggregate function.
+
+Returns an error if two or more sketches don't have compatible underlying types,
+such as one sketch of `INT64` values and another of
+`DOUBLE` values.
+
+Returns an error if two or more sketches have different precisions.
+
+Returns an error if one or more inputs are not a valid KLL16 quantiles sketch.
+
+Ignores `NULL` sketches. If the input contains zero rows or only `NULL`
+sketches, the function returns `NULL`.
+
+You can initialize sketches with different optional clauses and merge them. For
+example, you can initialize a sketch with the `DISTINCT` clause and another
+sketch without any optional clauses, and then merge these two sketches.
+However, if you initialize sketches with the `DISTINCT` clause and merge them,
+the resulting sketch may still contain duplicates.
+
+**Example**
+
+```
+SELECT KLL_QUANTILES.MERGE_PARTIAL(kll_sketch) AS merged_sketch
+FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 1 AS x UNION ALL
+            SELECT 2 AS x UNION ALL
+            SELECT 3 AS x UNION ALL
+            SELECT 4 AS x UNION ALL
+            SELECT 5)
+      UNION ALL
+      SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 6 AS x UNION ALL
+            SELECT 7 AS x UNION ALL
+            SELECT 8 AS x UNION ALL
+            SELECT 9 AS x UNION ALL
+            SELECT 10 AS x));
+
++-----------------------------------------------------------------------------+
+| merged_sketch                                                               |
++-----------------------------------------------------------------------------+
+| "\010q\020\n \004\212\007\032\010\200 \020\350\007\032\001\001\"\001\n*     |
+| \014\n\n\001\002\003\004\005\006\007\010\t\n"                               |
++-----------------------------------------------------------------------------+
+```
+
+The query above initializes two KLL16 sketches from five rows of data each. Then
+it merges these two sketches into a new sketch, also as
+`BYTES`. Both input sketches have the same underlying
+data type and precision.
+
+**Supported Argument Types**
+
+`BYTES`
+
+**Return Types**
+
+`BYTES`
+
+#### KLL_QUANTILES.MERGE_INT64
+
+```
+KLL_QUANTILES.MERGE_INT64(sketch, number)
+```
+
+**Description**
+
+Takes KLL16 sketches as `BYTES` and merges them into
+a new sketch, then
+returns the quantiles that divide the input into `number` equal-sized
+groups, along with the minimum and maximum values of the input. The output is
+an `ARRAY` containing the exact minimum value from
+the input data that you used
+to initialize the sketches, each approximate quantile, and the exact maximum
+value from the initial input data. This is an aggregate function.
+
+Returns an error if the underlying type of one or more input sketches is not
+compatible with type `INT64`.
+
+Returns an error if two or more sketches have different precisions.
+
+Returns an error if the input is not a valid KLL16 quantiles sketch.
+
+**Example**
+
+```
+SELECT KLL_QUANTILES.MERGE_INT64(kll_sketch, 2) AS merged_sketch
+FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 1 AS x UNION ALL
+            SELECT 2 AS x UNION ALL
+            SELECT 3 AS x UNION ALL
+            SELECT 4 AS x UNION ALL
+            SELECT 5)
+      UNION ALL
+      SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 6 AS x UNION ALL
+            SELECT 7 AS x UNION ALL
+            SELECT 8 AS x UNION ALL
+            SELECT 9 AS x UNION ALL
+            SELECT 10 AS x));
+
++---------------+
+| merged_sketch |
++---------------+
+| [1,5,10]      |
++---------------+
+```
+
+The query above initializes two KLL16 sketches from five rows of data each. Then
+it merges these two sketches and returns an `ARRAY`
+containing the minimum,
+median, and maximum values in the input sketches.
+
+**Supported Argument Types**
+
+Takes KLL16 sketches as `BYTES`, initialized on data
+of type `INT64`.
+
+**Return Types**
+
+`ARRAY` of type INT64.
+
+#### KLL_QUANTILES.MERGE_UINT64
+
+```
+KLL_QUANTILES.MERGE_UINT64(sketch, number)
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.MERGE_INT64`](#kll-quantilesmerge-int64), but accepts
+`input` of type `UINT64`.
+
+**Supported Argument Types**
+
+Takes KLL16 sketches as `BYTES`, initialized on data
+of type `UINT64`.
+
+**Return Types**
+
+`ARRAY` of type `UINT64`.
+
+#### KLL_QUANTILES.MERGE_DOUBLE
+
+```
+KLL_QUANTILES.MERGE_DOUBLE(sketch, number)
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.MERGE_INT64`](#kll-quantilesmerge-int64), but accepts
+`input` of type `DOUBLE`.
+
+`KLL_QUANTILES.MERGE_DOUBLE` orders values according to the ZetaSQL
+[floating point sort order][sort-order]. For example, `NaN` orders before
+<code>&#8209;inf</code>.
+
+**Supported Argument Types**
+
+Takes KLL16 sketches as `BYTES`, initialized on data
+of type `DOUBLE`.
+
+**Return Types**
+
+`ARRAY` of type `DOUBLE`.
+
+#### KLL_QUANTILES.MERGE_POINT_INT64
+
+```
+KLL_QUANTILES.MERGE_POINT_INT64(sketch, phi)
+```
+
+**Description**
+
+Takes KLL16 sketches as `BYTES` and merges them, then
+extracts a single
+quantile from the merged sketch. The `phi` argument specifies the quantile
+to return as a fraction of the total number of rows in the input, normalized
+between 0 and 1. This means that the function will return a value *v* such that
+approximately Φ * *n* inputs are less than or equal to *v*, and a (1-Φ) / *n*
+inputs are greater than or equal to *v*. This is an aggregate function.
+
+Returns an error if the underlying type of one or more input sketches is not
+compatible with type `INT64`.
+
+Returns an error if the input is not a valid KLL16 quantiles sketch.
+
+Returns an error if two or more sketches have different precisions.
+
+**Example**
+
+```
+SELECT KLL_QUANTILES.MERGE_POINT_INT64(kll_sketch, .9) AS merged_sketch
+FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 1 AS x UNION ALL
+            SELECT 2 AS x UNION ALL
+            SELECT 3 AS x UNION ALL
+            SELECT 4 AS x UNION ALL
+            SELECT 5)
+      UNION ALL
+      SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 6 AS x UNION ALL
+            SELECT 7 AS x UNION ALL
+            SELECT 8 AS x UNION ALL
+            SELECT 9 AS x UNION ALL
+            SELECT 10 AS x));
+
++---------------+
+| merged_sketch |
++---------------+
+|             9 |
++---------------+
+```
+
+The query above initializes two KLL16 sketches from five rows of data each. Then
+it merges these two sketches and returns the value of the ninth decile or 90th
+percentile of the merged sketch.
+
+**Supported Argument Types**
+
++ Takes KLL16 sketches as `BYTES`, initialized on
+  data of type `INT64`.
++ `phi` is a `DOUBLE` between 0 and 1.
+
+**Return Types**
+
+`INT64`
+
+#### KLL_QUANTILES.MERGE_POINT_UINT64
+
+```
+KLL_QUANTILES.MERGE_POINT_UINT64(sketch, phi)
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.MERGE_POINT_INT64`](#kll-quantilesmerge-point-int64), but
+accepts `input` of type `UINT64`.
+
+**Supported Argument Types**
+
++ Takes KLL16 sketches as `BYTES`, initialized on
+  data of type `UINT64`.
++ `phi` is a `DOUBLE` between 0 and 1.
+
+**Return Types**
+
+`UINT64`
+
+#### KLL_QUANTILES.MERGE_POINT_DOUBLE
+
+```
+KLL_QUANTILES.MERGE_POINT_DOUBLE(sketch, phi)
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.MERGE_POINT_INT64`](#kll-quantilesmerge-point-int64), but
+accepts `input` of type `DOUBLE`.
+
+`KLL_QUANTILES.MERGE_POINT_DOUBLE` orders values according to the ZetaSQL
+[floating point sort order][sort-order]. For example, `NaN` orders before
+<code>&#8209;inf</code>.
+
+**Supported Argument Types**
+
++ Takes KLL16 sketches as `BYTES`, initialized on
+  data of type `DOUBLE`.
++ `phi` is a `DOUBLE` between 0 and 1.
+
+**Return Types**
+
+`DOUBLE`
+
+#### KLL_QUANTILES.EXTRACT_INT64
+```
+KLL_QUANTILES.EXTRACT_INT64(sketch, number)
+```
+
+**Description**
+
+Takes a single KLL16 sketch as `BYTES` and returns a
+selected `number`
+of quantiles. The output is an `ARRAY` containing the
+exact minimum value from
+the input data that you used to initialize the sketch, each approximate
+quantile, and the exact maximum value from the initial input data. This is a
+scalar function, similar to `KLL_QUANTILES.MERGE_INT64`, but scalar rather than
+aggregate.
+
+Returns an error if the underlying type of the input sketch is not compatible
+with type `INT64`.
+
+Returns an error if the input is not a valid KLL16 quantiles sketch.
+
+**Example**
+
+```
+SELECT KLL_QUANTILES.EXTRACT_INT64(kll_sketch, 2) AS median
+FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 1 AS x UNION ALL
+            SELECT 2 AS x UNION ALL
+            SELECT 3 AS x UNION ALL
+            SELECT 4 AS x UNION ALL
+            SELECT 5 AS x));
+
++---------+
+| median  |
++---------+
+| [1,3,5] |
++---------+
+```
+
+The query above initializes a KLL16 sketch from five rows of data. Then
+it returns an `ARRAY` containing the minimum, median,
+and maximum values in the input sketch.
+
+**Supported Argument Types**
+
+Takes a KLL16 sketch as `BYTES` initialized on data
+of type `INT64`.
+
+**Return Types**
+
+`ARRAY` of type `INT64`.
+
+#### KLL_QUANTILES.EXTRACT_UINT64
+```
+KLL_QUANTILES.EXTRACT_UINT64(sketch, number)
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.EXTRACT_INT64`](#kll-quantilesextract-int64), but accepts
+sketches initialized on data of type of type `UINT64`.
+
+**Supported Argument Types**
+
+Takes a KLL16 sketch as `BYTES` initialized on data
+of type `UINT64`.
+
+**Return Types**
+
+`ARRAY` of type `UINT64`.
+
+#### KLL_QUANTILES.EXTRACT_DOUBLE
+```
+KLL_QUANTILES.EXTRACT_DOUBLE(sketch, number)
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.EXTRACT_INT64`](#kll-quantilesextract-int64), but accepts
+sketches initialized on data of type of type `DOUBLE`.
+
+**Supported Argument Types**
+
+Takes a KLL16 sketch as `BYTES` initialized on data
+of type `DOUBLE`.
+
+**Return Types**
+
+`ARRAY` of type `DOUBLE`.
+
+#### KLL_QUANTILES.EXTRACT_POINT_INT64
+```
+KLL_QUANTILES.EXTRACT_POINT_INT64(sketch, phi)
+```
+
+**Description**
+
+Takes a single KLL16 sketch as `BYTES` and returns a
+single quantile.
+The `phi` argument specifies the quantile to return as a fraction of the total
+number of rows in the input, normalized between 0 and 1. This means that the
+function will return a value *v* such that approximately Φ * *n* inputs are less
+than or equal to *v*, and a (1-Φ) / *n* inputs are greater than or equal to *v*.
+This is an aggregate function.
+
+Returns an error if the underlying type of the input sketch is not compatible
+with type `INT64`.
+
+Returns an error if the input is not a valid KLL16 quantiles sketch.
+
+**Example**
+
+```
+SELECT KLL_QUANTILES.EXTRACT_POINT_INT64(kll_sketch, .8) AS quintile
+FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 1 AS x UNION ALL
+            SELECT 2 AS x UNION ALL
+            SELECT 3 AS x UNION ALL
+            SELECT 4 AS x UNION ALL
+            SELECT 5 AS x));
+
++----------+
+| quintile |
++----------+
+|      4   |
++----------+
+```
+
+The query above initializes a KLL16 sketch from five rows of data. Then
+it returns the value of the eighth decile or 80th percentile of the sketch.
+
+**Supported Argument Types**
+
++ Takes a KLL16 sketch as `BYTES`, initialized on
+  data of type `INT64`.
++ `phi` is a `DOUBLE` between 0 and 1.
+
+**Return Types**
+
+`INT64`
+
+#### KLL_QUANTILES.EXTRACT_POINT_UINT64
+```
+KLL_QUANTILES.EXTRACT_POINT_UINT64(sketch, phi)
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.EXTRACT_POINT_INT64`](#kll-quantilesextract-point-int64),
+but accepts sketches initialized on data of type of type
+`UINT64`.
+
+**Supported Argument Types**
+
++ Takes a KLL16 sketch as `BYTES`, initialized on
+  data of type `UINT64`.
++ `phi` is a `DOUBLE` between 0 and 1.
+
+**Return Types**
+
+`UINT64`
+
+#### KLL_QUANTILES.EXTRACT_POINT_DOUBLE
+```
+KLL_QUANTILES.EXTRACT_POINT_DOUBLE(sketch, phi)
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.EXTRACT_POINT_INT64`](#kll-quantilesextract-point-int64),
+but accepts sketches initialized on data of type of type
+`DOUBLE`.
+
+**Supported Argument Types**
+
++ Takes a KLL16 sketch as `BYTES`, initialized on
+  data of type `DOUBLE`.
++ `phi` is a `DOUBLE` between 0 and 1.
+
+**Return Types**
+
+`DOUBLE`
+
+[link-to-kll-paper]: https://arxiv.org/pdf/1603.05346v2.pdf
+
+[approximate-aggregation-concept]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation.md#storing-estimated-aggregate-values-as-sketches
+[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparison-operator-examples
+
 ### Numbering Functions
 
 The following sections describe the numbering functions that ZetaSQL
@@ -14835,6 +14276,8 @@ the two arguments to determine the quadrant. The return value is in the range
 </tbody>
 </table>
 
+[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data-type-properties
+
 ### Navigation Functions
 
 The following sections describe the navigation functions that ZetaSQL
@@ -15548,6 +14991,10 @@ FROM example;
 | 3 |       | true  | -4880158226897771312 |
 +---+-------+-------+----------------------+
 ```
+
+#### FINGERPRINT
+
+Documentation is pending for this feature.
 
 #### MD5
 ```
@@ -18676,9 +18123,9 @@ the table must have exactly one column. Each element in the output `ARRAY` is
 the value of the single column of a row in the table.
 
 If `subquery` produces a
-[value table](https://github.com/google/zetasql/blob/master/docs/data-model.md#value-tables), then
-each element in the output `ARRAY` is the entire corresponding row of the value
-table.
+[value table](https://github.com/google/zetasql/blob/master/docs/data-model.md#value-tables),
+then each element in the output `ARRAY` is the entire corresponding row of the
+value table.
 
 **Constraints**
 
@@ -19543,14 +18990,16 @@ SELECT
 ```
 1. DATE(year, month, day)
 2. DATE(timestamp_expression[, timezone])
+3. DATE(datetime_expression)
 ```
 
 **Description**
 
 1. Constructs a DATE from INT64 values representing the year, month, and day.
-2. Converts a `timestamp_expression` to a DATE data type. It supports an
+2. Extracts the DATE from a TIMESTAMP expression. It supports an
    optional parameter to [specify a timezone][date-functions-link-to-timezone-definitions]. If no
    timezone is specified, the default timezone, which is implementation defined, is used.
+3. Extracts the DATE from a DATETIME expression.
 
 **Return Data Type**
 
@@ -19561,13 +19010,15 @@ DATE
 ```sql
 SELECT
   DATE(2016, 12, 25) as date_ymd,
+  DATE(DATETIME "2016-12-25 23:59:59") as date_dt,
   DATE(TIMESTAMP "2016-12-25 05:30:00+07", "America/Los_Angeles") as date_tstz;
 
-+------------+------------+
-| date_ymd   | date_tstz  |
-+------------+------------+
-| 2016-12-25 | 2016-12-24 |
-+------------+------------+
++------------+------------+------------+
+| date_ymd   | date_dt    | date_tstz  |
++------------+------------+------------+
+| 2016-12-25 | 2016-12-25 | 2016-12-24 |
++------------+------------+------------+
+
 ```
 
 #### DATE_ADD
@@ -22110,6 +21561,18 @@ SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00") as micros;
 +------------------+
 ```
 
+#### TIMESTAMP_FROM_UNIX_SECONDS
+
+Documentation is pending for this feature.
+
+#### TIMESTAMP_FROM_UNIX_MILLIS
+
+Documentation is pending for this feature.
+
+#### TIMESTAMP_FROM_UNIX_MICROS
+
+Documentation is pending for this feature.
+
 #### Supported format elements for TIMESTAMP
 
 Unless otherwise noted, TIMESTAMP functions that use format strings support the
@@ -22424,6 +21887,14 @@ default value for `country`.
 | Unknown         |
 +-----------------+
 ```
+
+#### FROM PROTO
+
+Documentation is pending for this feature.
+
+#### TO PROTO
+
+Documentation is pending for this feature.
 
 ### Security functions
 
@@ -23093,6 +22564,1679 @@ FROM (
 [net-link-to-rfc-3986-appendix-a]: https://tools.ietf.org/html/rfc3986#appendix-A
 [net-link-to-public-suffix]: https://publicsuffix.org/list/
 [net-link-to-punycode]: https://en.wikipedia.org/wiki/Punycode
+
+<!-- Statements -->
+<!-- This file is auto-generated. DO NOT EDIT.                               -->
+
+## Data Definition Language statements
+
+<!-- BEGIN CONTENT -->
+
+ZetaSQL specifies the syntax for Data Definition Language (DDL)
+statements.
+
+Where possible, this topic provides a link to the product-specific documentation
+for each statement.
+
+### CREATE DATABASE
+
+<pre>
+CREATE
+  DATABASE
+  database_name
+  [OPTIONS (key=value, ...)]
+</pre>
+
+**Description**
+
+The `CREATE DATABASE` statement creates a database. If you have schema
+options, you can add them when you create the database. These options are
+system-specific and follow the ZetaSQL
+[`HINT` syntax](lexical.md#hints).
+
+**Example**
+
+```sql
+CREATE DATABASE library OPTIONS(
+  base_dir=`/city/orgs`,
+  owner='libadmin'
+);
+
++--------------------+
+| Database           |
++--------------------+
+| library            |
++--------------------+
+```
+
+### CREATE TABLE
+
+<pre>
+CREATE
+   [ OR REPLACE ]
+   [ TEMP | TEMPORARY ]
+   TABLE
+   [ IF NOT EXISTS ]
+   table_name [ ( <span class="var">table_element</span>, ... ) ]
+   [ PARTITION [ hints ] BY partition_expression, ... ]
+   [ CLUSTER [ hints ] BY cluster_expression, ... ]
+   [ OPTIONS (key=value, ...) ]
+   [ AS query ];
+
+<span class="var">table_element:</span>
+   <span class="var"><a href="#defining-columns">column_definition</a></span> | <span class="var"><a href="#defining-table-constraints">constraint_definition</a></span>
+</pre>
+
+**Description**
+
+The `CREATE TABLE` statement creates a table and adds any table elements
+defined in the table element list `(table_element, ...)`. If the `AS query`
+clause is absent, the table element list must be present and contain at
+least one column definition. A table element can be a column definition
+or constraint definition. To learn more about column definitions, see
+[Defining Columns](#defining-columns). To learn more about constraint
+definitions, see [Defining Constraints](#defining-table-constraints).
+
+In a table, if both the table element list and the `AS query` clause
+are present, then the number of columns in the table element list must
+match the number of columns selected in `query`, and the type of each
+column selected in `query` must be assignable to the column type in the
+corresponding position of the table element list.
+
+**Optional Clauses**
+
++  `OR REPLACE`: Replaces any table with the same name if it exists. Cannot
+   appear with `IF NOT EXISTS`.
++  `TEMP | TEMPORARY`: Creates a temporary table. The lifetime of the table is
+   system-specific.
++  `IF NOT EXISTS`: If any table exists with the same name, the `CREATE`
+   statement will have no effect. Cannot appear with `OR REPLACE`.
++  `PARTITION BY`: Creates partitions of a table. The expression cannot
+   contain floating point types, non-groupable types, constants,
+   aggregate functions, or analytic functions.
++  `CLUSTER BY`: Co-locates rows if the rows are not distinct for the values
+   produced by the provided list of expressions.
+   If the table was partitioned, co-location occurs within each partition.
+   If the table was not partitioned, co-location occurs within the table.
++  `OPTIONS`: If you have schema options, you can add them when you create
+   the table. These options are system-specific and follow the
+   ZetaSQL[`HINT` syntax](lexical.md#hints)
++  `AS query`: Materializes the result of `query` into the new table.
+
+**Examples**
+
+Create a table.
+
+```sql
+CREATE TABLE books (title STRING, author STRING);
+```
+
+Create a table in a schema called `library`.
+
+```sql
+CREATE TABLE library.books (title STRING, author STRING);
+```
+
+Create a table that contains schema options.
+
+```sql
+CREATE TABLE books (title STRING, author STRING) OPTIONS (storage_kind=FLASH_MEMORY);
+```
+
+Partition a table.
+
+```sql
+CREATE TABLE books (title STRING, author STRING, publisher STRING, release_date DATE)
+PARTITION BY publisher, author;
+```
+
+Partition a table with a pseudocolumn. In the example below, SYSDATE represents
+the date when the book was added to the database. Replace SYSDATE with a
+psuedocolumn supported by your SQL service.
+
+```sql
+CREATE TABLE books (title STRING, author STRING)
+PARTITION BY sysdate;
+```
+
+Cluster a table.
+
+```sql
+CREATE TABLE books (
+  title STRING,
+  first_name STRING,
+  last_name STRING
+)
+CLUSTER BY last_name, first_name;
+```
+
+#### Defining Columns
+
+<pre>
+<span class="var">column_definition:</span>
+   column_name
+   [ column_type ]
+   [ <span class="var">generation_clause</span> ]
+   [ <span class="var">column_attribute</span>, ... ]
+   [ OPTIONS (...) ]
+
+<span class="var">column_attribute:</span>
+  PRIMARY KEY
+  | NOT NULL
+  | HIDDEN
+  | [ CONSTRAINT constraint_name ] <span class="var"><a href="#defining-foreign-references">foreign_reference</a></span>
+
+<span class="var">generation_clause:</span>
+  AS generation_expression
+</pre>
+
+**Description**
+
+A column exists within a table. Each column describes one attribute of the
+rows that belong to the table.
+
++  The name of a column must be unique within a table.
++  Columns in a table are ordered. The order will have consequences on
+   some sorts of SQL statements such as `SELECT * FROM Table` and
+   `INSERT INTO Table VALUES (...)`.
++  A column can be generated. A generated column is a column in a base
+   table whose value is defined as a function of other columns in the
+   same row. To use a generated column, include the `generation_clause`
+   in the column definition.
++  If a column is not generated, `column_type` is required.
+
+**Attribute Kinds**
+
++  `PRIMARY KEY`: Declares that the column is the primary key of the table.
+   A table can have one primary key, thus the `PRIMARY KEY` attribute
+   can appear on at most one column and cannot occur on the same table with
+   a primary key defined as a separate table element.
++  `NOT NULL`: A value on a column cannot be null. More specifically, this is
+   shorthand for a constraint of the shape `CHECK [column_name] IS NOT NULL`.
++  `HIDDEN`: Hides a column if it should not appear in `SELECT * expansions`
+   or in structifications of a row variable, such as `SELECT t FROM Table t`.
++  `[ CONSTRAINT constraint_name ] foreign_reference`: The column in a
+   [foreign table to reference](#defining-foreign-references).
+   You can optionally name the constraint.
+   A constraint name must be unique within its schema; it cannot share the name
+   of other constraints.
+   If a constraint name is not provided, one is generated by the
+   implementing engine. Users can use INFORMATION_SCHEMA to look up
+   the generated names of table constraints.
+
+**Optional Clauses**
+
++  `column_type`: The  data type of the column.
+    This is optional for generated columns, but is required for non-generated
+    columns.
++  `generation_clause`: The function that describes a generation expression.
+   A generation expression must be a scalar expression. Subqueries are not
+   allowed.
++  `column_attribute`: A characteristic of the column.
++  `OPTIONS`: If you have schema options, you can add them when you create
+   the column. These options are system-specific and follow the
+   ZetaSQL[`HINT` syntax](lexical.md#hints)
+
+**Examples**
+
+Create a table with a primary key that can't be null.
+
+```sql
+CREATE TABLE books (title STRING, author STRING, isbn INT64 PRIMARY KEY NOT NULL);
+```
+
+Create a table with a generated column. In this example,
+the generated column holds the first and last name of an author.
+
+```sql
+CREATE TABLE authors(
+  firstName STRING HIDDEN,
+  lastName STRING HIDDEN,
+  fullName STRING CONCAT(firstName, " ", lastName)
+);
+```
+
+Create a table that contains schema options on column definitions.
+
+```sql
+CREATE TABLE books (
+  title STRING NOT NULL PRIMARY KEY,
+  author STRING
+      OPTIONS (is_deprecated=true, comment="Replaced by authorId column"),
+  authorId INT64 REFERENCES authors (id),
+  category STRING OPTIONS (description="LCC Subclass")
+)
+```
+
+#### Defining Table Constraints
+
+<pre>
+<span class="var">constraint_definition:</span>
+   <span class="var">primary_key</span>
+   | <span class="var">foreign_key</span>
+   | <span class="var">check_constraint</span>
+
+<span class="var">primary_key:</span>
+  PRIMARY KEY (column_name [ ASC | DESC ], ... )
+  [ OPTIONS (...) ]
+
+<span class="var">foreign_key:</span>
+  [ CONSTRAINT constraint_name ]
+  FOREIGN KEY (column_name, ... )
+  <span class="var"><a href="#defining-foreign-references">foreign_reference</a></span>
+  [ OPTIONS (...) ]
+
+<span class="var">check_constraint:</span>
+  [ CONSTRAINT constraint_name ]
+  CHECK ( boolean_expression )
+  [ ENFORCED | NOT ENFORCED ]
+  [ OPTIONS (...) ]
+</pre>
+
+**Description**
+
+A `constraint_definition` is a rule enforced on the columns of a table.
+
+**Constraint Kinds**
+
++  `primary_key`: Defines a primary key for a table. A primary key provides
+   a unique identifier for each record in a table.
++  `foreign_key`:  Defines a foreign key for a table. A foreign key links
+   two tables together.
++  `check_constraint`: Restricts the data that can be added to certain
+   columns used by the expressions of the constraints.
+
+**Optional Clauses**
+
++  `CONSTRAINT`: Names the constraint.
+   A constraint name must be unique within its schema; it cannot share the name
+   of other constraints.
+   If a constraint name is not provided, one is generated by the
+   implementing engine. Users can use INFORMATION_SCHEMA to look up
+   the generated names of table constraints.
++  `ASC | DESC`: Specifies that the engine should optimize reading the
+   index records in ascending or descending order by this key part.
+   `ASC` is the default. Each key part will be sorted with respect to
+   the sort defined by any key parts to the left.
++  `ENFORCED | NOT ENFORCED`: Specifies whether or not the constraint
+   is enforced.
++  `OPTIONS`: If you have schema options, you can add them when you create
+   the constraint. These options are system-specific and follow the
+   ZetaSQL[`HINT` syntax](lexical.md#hints)
+
+**Examples**
+
+Create a primary key constraint, using the `title` and `author` columns
+in a table called `books`.
+
+```sql
+CREATE TABLE books (title STRING, author STRING, PRIMARY KEY (title ASC, author ASC));
+```
+
+Create a foreign key constraint. When data in the `top_authors` table
+is updated or deleted, make the same change in the `authors` table.
+
+```sql
+CREATE TABLE top_authors (
+  author_first_name STRING,
+  author_last_name STRING,
+  CONSTRAINT fk_top_authors_name
+    FOREIGN KEY (author_first_name, author_last_name)
+    REFERENCES authors (first_name, last_name)
+);
+```
+
+Create a check constraint. A row that contains values for `words_per_chapter`
+and `words_per_book` can only only be inserted into the `page_count_average`
+table if the `words_per_chapter` value is less than the `words_per_book` value.
+
+```sql
+CREATE TABLE page_count_average (
+  words_per_chapter INT64,
+  words_per_book INT64,
+  CHECK (words_per_chapter < words_per_book)
+);
+```
+
+#### Defining Foreign References
+
+<pre>
+<span class="var">foreign_reference:</span>
+  REFERENCES table_name (column_name, ... )
+  [ MATCH { SIMPLE | FULL | NOT DISTINCT } ]
+  [ ON UPDATE <span class="var">referential_action</span> ]
+  [ ON DELETE <span class="var">referential_action</span> ]
+  [ ENFORCED | NOT ENFORCED ]
+
+<span class="var">referential_action:</span>
+  NO ACTION | RESTRICT | CASCADE | SET NULL
+</pre>
+
+**Description**
+
+A foreign key is used to define a relationship between the rows in two tables.
+The foreign key in one table can reference one or more columns in
+another table. A foreign reference can be used to assign constraints
+to a foreign key and to give a foreign key a unique name.
+
+**Optional Clauses**
+
++  `MATCH`: Specifies when a constraint validation for a referencing row
+   passes or fails. Your choices are:
+   +  `SIMPLE`:
+      +  Passes if *any column* of the local key is `NULL`.
+      +  Passes if the columns of the local key are pairwise-equal to the
+         columns of the referenced key for some row of the referenced table.
+   +  `FULL`:
+      +  Passes if *all columns* of the local key are `NULL`.
+      +  Passes if the columns of the local key are pairwise-equal to the
+         columns of the referenced key for some row of the referenced table.
+   +  `NOT DISTINCT`:
+      +  Passes if the columns of the local key are pairwise-not-distinct from
+         the columns of the referenced key for some row of the referenced table.
++  `ON UPDATE`: If data in the referenced table updates, your choices are:
+   +  `RESTRICT`: Fail the transaction.
+   +  `NO ACTION`: Don't update the referencing table. If the data in the
+      referencing table does not satisfy the constraint before it is
+      checked, the transaction will fail.
+   +  `CASCADE`: For each updated row in the referenced table,
+      update all matching rows in the referencing table so that
+      they continue to match the same row after the transaction.
+   +  `SET NULL`: Any change to a referenced column in the referenced table
+      causes the corresponding referencing column in matching rows of the
+      referencing table to be set to null.
++  `ON DELETE`: If data in the referenced table is deleted, your choices are:
+   +  `RESTRICT`: Fail the transaction.
+   +  `NO ACTION`: Don't delete the data in the referencing table. If the
+       data in the referencing table does not satisfy the constraint before it
+       is checked, the transaction will fail.
+   +  `CASCADE`: For each deleted row in the referenced table,
+      delete all matching rows in the referencing table so that
+      they continue to match the same row after the transaction.
+   +  `SET NULL`: If a row of the referenced table is deleted, then all
+       referencing columns in all matching rows of the referencing table
+       are set to null.
++  `ENFORCED | NOT ENFORCED`: Specifies whether or not the constraint
+   is enforced.
+
+**Examples**
+
+When data in the `top_books` table is updated or deleted, make the
+same change in the `books` table.
+
+```sql
+CREATE TABLE top_books (
+  book_name STRING,
+  CONSTRAINT fk_top_books_name
+    FOREIGN KEY (book_name)
+    REFERENCES books (title)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+);
+```
+
+### CREATE TABLE AS
+
+Documentation is pending for this feature.
+
+### CREATE VIEW
+
+```
+CREATE
+  [OR REPLACE]
+  [TEMP | TEMPORARY]
+  VIEW
+  [IF NOT EXISTS]
+  view_name
+  [OPTIONS (key=value, ...)]
+AS query;
+```
+
+**Description**
+
+The `CREATE VIEW` statement creates a view based on a specific query.
+
+**Optional Clauses**
+
++   `OR REPLACE`: Replaces any table with the same name if it exists. Cannot
+    appear with `IF NOT EXISTS`.
++   `TEMP | TEMPORARY`: Creates a temporary table. The lifetime of the table is
+    system-specific.
++   `IF NOT EXISTS`: If any table exists with the same name, the `CREATE`
+    statement will have no effect. Cannot appear with `OR REPLACE`.
+
+### CREATE EXTERNAL TABLE
+
+```
+CREATE
+  [OR REPLACE]
+  [TEMP | TEMPORARY]
+  EXTERNAL TABLE
+  [IF NOT EXISTS]
+  table_name
+  [OPTIONS (key=value, ...)];
+```
+
+**Description**
+
+The `CREATE EXTERNAL TABLE` creates a table from external data. `CREATE EXTERNAL
+TABLE` also supports creating persistent definitions.
+
+The `CREATE EXTERNAL TABLE` does not build a new table; instead, it creates a
+pointer to data that exists outside of the database.
+
+**Optional Clauses**
+
++   `OR REPLACE`: Replaces any table with the same name if it exists. Cannot
+    appear with `IF NOT EXISTS`.
++   `TEMP | TEMPORARY`: Creates a temporary table. The lifetime of the table is
+    system-specific.
++   `IF NOT EXISTS`: If any table exists with the same name, the `CREATE`
+    statement will have no effect. Cannot appear with `OR REPLACE`.
+
+### CREATE INDEX
+
+```
+CREATE
+  [OR REPLACE]
+  [UNIQUE]
+  INDEX
+  [IF NOT EXISTS]
+  index_name
+  ON
+  table_name [[AS] alias]
+  [UNNEST(array_expression) [[AS] alias] [WITH OFFSET [[AS] alias]] ...]
+  (key_expression [ASC|DESC], ...)
+  [STORING (stored_expression, ...)]
+  [OPTIONS (key=value, ...)];
+```
+
+**Description**
+
+The `CREATE INDEX` statement creates a secondary index for one or more
+values computed from expressions in a table.
+
+**Expressions**
+
++  `array_expression`: An immutable expression that is used to produce an array
+   value from each row of an indexed table.
++  `key_expression`: An immutable expression that is used to produce an index
+    key value. The expression must have a type that satisfies the requirement of
+    an index key column.
++  `stored_expression`: An immutable expression that is used to produce a value
+    stored in the index.
+
+**Optional Clauses**
+
++  `OR REPLACE`: If the index already exists, replace it. This cannot
+    appear with `IF NOT EXISTS`.
++  `UNIQUE`: Do not index the same key multiple times. Systems can choose how to
+    resolve conflicts in case the index is over a non-unique key.
++  `IF NOT EXISTS`: Do not create an index if it already exists. This cannot
+    appear with `OR REPLACE`.
++  `UNNEST(array_name)`: Create an index for the elements in an array.
++  `WITH OFFSET`: Return a separate column containing the offset value
+    for each row produced by the `UNNEST` operation.
++  `ASC | DESC`: Sort the indexed values in ascending or descending
+    order. `ASC` is the default value with respect to the sort defined by any
+    key parts to the left.
++  `STORING`: Specify additional values computed from the indexed base table row
+    to materialize with the index entry.
++  `OPTIONS`: If you have schema options, you can add them when you create the
+    index. These options are system-specific and follow the
+    ZetaSQL[`HINT` syntax](lexical.md#hints).
+
+**Examples**
+
+Create an index on a column in a table.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Key);
+```
+
+Create an index on multiple columns in a table.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Key, Value);
+```
+
+If the index already exists, replace it.
+
+```sql
+CREATE OR REPLACE INDEX i1 ON KeyValue (Key, Value);
+```
+
+If the index already exists, don't replace it.
+
+```sql
+CREATE INDEX IF NOT EXISTS i1 ON KeyValue (Key, Value);
+```
+
+Create an index that contains unique values.
+
+```sql
+CREATE UNIQUE INDEX i1 ON Books (Title);
+```
+
+Create an index that contains a schema option.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Value) OPTIONS (page_count=1);
+```
+
+Reference the table name for a column.
+
+```sql
+CREATE INDEX i1 ON KeyValue (KeyValue.Key, KeyValue.Value);
+```
+
+```sql
+CREATE INDEX i1 on KeyValue AS foo (foo.Key, foo.Value);
+```
+
+Use the path expression for a key.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Key.sub_field1.sub_field2);
+```
+
+Choose the sort order for the columns assigned to an index.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Key DESC, Value ASC);
+```
+
+Create an index on an array, but not the elements in an array.
+
+```sql
+CREATE INDEX i1 ON Books (BookList);
+```
+
+Create an index for the elements in an array.
+
+```sql
+CREATE INDEX i1 ON Books UNNEST (BookList) (BookList);
+```
+
+```sql
+CREATE INDEX i1 ON Books UNNEST (BookListA) AS a UNNEST (BookListB) AS b (a, b);
+```
+
+Create an index for the elements in an array using an offset.
+
+```sql
+CREATE index i1 on Books UNNEST(BookList) WITH OFFSET (BookList, offset);
+```
+
+```sql
+CREATE index i1 on Books UNNEST(BookList) WITH OFFSET AS foo (BookList, foo);
+```
+
+Store an additional column but don't sort it.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Value) STORING (Key);
+```
+
+Store multiple additional columns and don't sort them.
+
+```sql
+CREATE INDEX i1 ON Books (Title) STORING (First_Name, Last_Name);
+```
+
+Store a column but don't sort it. Reference a table name.
+
+```sql
+CREATE INDEX i1 ON Books (InStock) STORING (Books.Title);
+```
+
+Use an expression in the `STORING` clause.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Key) STORING (Key+1);
+```
+
+Use an implicit alias in the `STORING` clause.
+
+```sql
+CREATE INDEX i1 ON KeyValue (Key) STORING (KeyValue);
+```
+
+### CREATE CONSTANT
+
+Documentation is pending for this feature.
+
+### CREATE FUNCTION
+
+Documentation is pending for this feature.
+
+### CREATE ROW POLICY
+
+Documentation is pending for this feature.
+
+### DEFINE TABLE
+
+```
+DEFINE TABLE table_name (options);
+```
+
+**Description**
+
+The `DEFINE TABLE` statement allows queries to run against an exported data
+source.
+
+### ALTER
+
+```
+ALTER TABLE table_name SET OPTIONS (key=value, ...);
+```
+
+**Description**
+
+The `ALTER` statement modifies schema options for a table. Because {{
+product_name }} does not define general DDL syntax, it only supports `ALTER` for
+changing table options which typically appear in the `OPTIONS` clause of a
+`CREATE TABLE` statement.
+
+`table_name` is any identifier or dotted path.
+
+The option entries are system-specific. These follow the ZetaSQL
+[`HINT` syntax](lexical.md#hints).
+
+This statement raises an error under these conditions:
+
++   The table does not exist.
++   A key is not recognized.
+
+The following semantics apply:
+
++   The value is updated for each key in the `SET OPTIONS` clause.
++   Keys not in the `SET OPTIONS` clause remain unchanged.
++   Setting a key value to `NULL` clears it.
+
+### RENAME
+
+```
+RENAME object_type old_name_path TO new_name_path;
+```
+
+**Description**
+
+The `RENAME` object renames an object. `object_type` indicates what type of
+object to rename.
+
+### DROP
+
+```
+DROP object_type [IF EXISTS] object_path;
+```
+
+**Description**
+
+The `DROP` statement drops an object. `object_type` indicates what type of
+object to drop.
+
+**Optional Clauses**
+
++   `IF EXISTS`: If no object exists at `object_path`, the `DROP` statement will
+    have no effect.
+
+ <!-- END CONTENT -->
+
+<!-- This file is auto-generated. DO NOT EDIT.                               -->
+
+## Data Manipulation Reference
+
+<!-- BEGIN CONTENT -->
+
+ZetaSQL supports the following statements for manipulating data:
+
++ `INSERT`
++ `UPDATE`
++ `DELETE`
+
+<a name="example-data"></a>
+### Example data
+
+The sections in this topic use the following table schemas.
+
+<a name="singers-table"></a>
+#### Singers table
+
+<table>
+<thead>
+<tr>
+<th>Column Name</th>
+<th>Data Type</th>
+<th>Default Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SingerId</td>
+<td><code>INT64 NOT NULL</code></td>
+<td><code>&lt;auto-increment&gt;</code></td>
+</tr>
+<tr>
+<td>FirstName</td>
+<td><code>STRING</code></td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td>LastName</td>
+<td><code>STRING</code></td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td>BirthDate</td>
+<td><code>DATE</code></td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td>Status</td>
+<td><code>STRING</code></td>
+<td><code>"active"</code></td>
+</tr>
+<tr>
+<td>SingerInfo</td>
+<td><code>PROTO&lt;SingerMetadata&gt;</code></td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td>Albums</td>
+<td><code>PROTO&lt;Album&gt;</code></td>
+<td>&nbsp;</td>
+</tr>
+</tbody>
+</table>
+
+The proto, `SingerMetadata`, has the following definition:
+
+<pre>
+message SingerMetadata {
+  optional string    nationality = 1;
+  repeated Residence residence   = 2;<br/>
+  message Residence {
+    required int64  start_year   = 1;
+    optional int64  end_year     = 2;
+    optional string city         = 3;
+    optional string country      = 4 [default = "USA"];
+  }
+}
+</pre>
+
+The proto, `Album`, has the following definition:
+
+<pre>
+message Album {
+  optional string title = 1;
+  optional int32 tracks = 2;
+  repeated string comments = 3;
+  repeated Song song = 4;<br/>
+  message Song {
+    optional string songtitle = 1;
+    optional int32 length = 2;
+    repeated Chart chart = 3;<br/>
+    message Chart {
+      optional string chartname = 1;
+      optional int32 rank = 2;
+    }
+  }
+}
+</pre>
+
+<a name="concerts-table"></a>
+#### Concerts table
+
+<table>
+<thead>
+<tr>
+<th>Column Name</th>
+<th>Data Type</th>
+<th>Default Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>VenueId</td>
+<td><code>INT64 NOT NULL</code></td>
+<td><code>&lt;auto-increment&gt;</code></td>
+</tr>
+<tr>
+<td>SingerId</td>
+<td><code>INT64 NOT NULL</code></td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td>ConcertDate</td>
+<td><code>DATE NOT NULL</code></td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td>BeginTime</td>
+<td><code>TIMESTAMP</code></td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td>EndTime</td>
+<td><code>TIMESTAMP</code></td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td>TicketPrices</td>
+<td><code>ARRAY&lt;INT64&gt;</code></td>
+<td>&nbsp;</td>
+</tr>
+</tbody>
+</table>
+
+### INSERT statement
+
+Use the `INSERT` statement when you want to add new rows to a table.
+
+<pre>
+INSERT [[OR] IGNORE | REPLACE | UPDATE] [INTO] target_name
+ (column_1 [, ..., column_n ] )
+ input <br>[ASSERT_ROWS_MODIFIED m]<br/>
+input ::=
+ VALUES (expr_1 [, ..., expr_n ] )
+        [, ..., (expr_k_1 [, ..., expr_k_n ] ) ]
+| SELECT_QUERY<br/>
+expr ::= value_expression | DEFAULT
+</pre>
+
+<a name="statement-rules"></a>
+`INSERT` statements must comply with the following rules:
+
++ Column names must be specified.
++ Duplicate names are not allowed in the list of target columns.
++ Values must be added in the same order as the specified columns.
++ The number of values added must match the number of specified columns.
++ Values must have a type that is [compatible](#compatible-types) with the
+  target column.
++ All non-null columns must appear in the column list, and have a non-null value
+  specified.
+
+Statements that don't follow these rules will raise an error.
+
+The following statement inserts a new row to the
+[Singers example table](#singers-table):
+
+```
+INSERT INTO Singers
+    (SingerId, FirstName, LastName, BirthDate, Status, SingerInfo)
+VALUES (5, "Catalina", "Smith", "1990-08-17", "active", "nationality:'U.S.A.'");
+```
+
+This next statement inserts multiple rows into the table:
+
+```
+INSERT INTO Singers
+    (SingerId, FirstName, LastName, BirthDate, Status, SingerInfo)
+VALUES (6, "Zak", "Sterling", "1996-03-12", "active", "nationality:'U.S.A.'"),
+       (7, "Edie", "Silver", "1998-01-23", "active", "nationality:'U.S.A.'");
+```
+
+You can construct `INSERT` statements to insert the results of a query. For
+example, the following statement inserts a new concert for a singer into
+the [Concerts table](#concerts-table).
+
+```
+INSERT INTO Concerts
+  (VenueId, SingerId, ConcertDate, BeginTime, EndTime, TicketPrices)
+SELECT c.VenueId, c.SingerId, DATE "2015-06-01", c.BeginTime, c.EndTime, c.TicketPrices
+  FROM Concerts c WHERE c.SingerId = 1;
+```
+
+<a name="compatible-types"></a>
+#### Value type compatibility
+
+Values added with an `INSERT` statement must be compatible with the target
+column's type. A value's type is considered compatible with the target column's
+type if one of the following criteria are met:
+
++ The value type matches the column type exactly. (For example, inserting a
+value of type `INT32` in a column that also has a type of `INT32`.)
++ The value type is one that can be implicitly coerced into another type. See
+the [Coercion](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#coercion) of the
+[Expressions, Functions, and Operators](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md)
+topic for more information.
++ The value can be assigned after applying a narrowing integer or floating point
+cast. For example, if you attempt to add a value of `INT64` into a column that
+supports `INT32`, ZetaSQL automatically adds a narrowing cast to
+`INT32`.
+
+#### Default values
+
+If the target table supports a default value for a
+column, you can omit the column from the `INSERT` statement. Alternatively, you
+can insert the default value explicitly using the `DEFAULT` keyword.
+
+**Note:** If a column does not require a value, the default value is typically
+`NULL`.
+
+The following example inserts default values for all unspecified columns.
+For example, the [Singers table](#singers-table) has two columns that have
+defined default values&mdash;the `SingerId` column, which is auto-incremented;
+ and the `Status` column, which has a default value of `active`. For all other
+columns, the default value is `NULL`.
+
+```
+INSERT INTO Singers
+  (FirstName)
+VALUES ("Neil");
+```
+
+If this was the first row added to the table, a `SELECT` statement querying
+this row would return the following:
+
+<table>
+<thead>
+<tr>
+<th>SingerId</th>
+<th>FirstName</th>
+<th>LastName</th>
+<th>BirthDate</th>
+<th>Status</th>
+<th>SingerInfo</th>
+<th>Albums</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Neil</td>
+<td>NULL</td>
+<td>NULL</td>
+<td>active</td>
+<td>NULL</td>
+<td>NULL</td>
+</tr>
+</tbody>
+</table>
+
+If you construct an `INSERT` statement to use a default value for a
+column and that column does not support a default value, the statement fails.
+For example, the `Singers` table contains a column, `SingerId`, which cannot be
+`NULL`. Consequently, the following statement fails, because the `SingerId` does
+not support a default value:
+
+```
+INSERT INTO Singers
+  (SingerId, FirstName, LastName, BirthDate, Status, SingerInfo)
+VALUES (DEFAULT, "Andrew", "Duneskipper", "2000-01-15", "active", NULL);
+```
+
+#### Duplicate rows
+
+By default, an `INSERT` statement fails when it tries to add a duplicate row.
+A duplicate row is defined as one for which the
+primary key already exists in the table.
+
+You can change this behavior by choosing one of the following options for
+handling duplicate rows:
+
++ `IGNORE`
++ `REPLACE`
++ `UPDATE`
+
+Your statement would resemble the following:
+
+<pre>
+INSERT [OR] IGNORE | REPLACE | UPDATE <em>&lt;rest of statement&gt;</em>
+</pre>
+
+These keywords require that your table includes a primary key. If the table does
+not have a primary key, the statement fails.
+
+In cases where an `INSERT` statement attempts to add the same row twice,
+ZetaSQL treats the inserts as if they were applied sequentially. This means
+that:
+
++ For `INSERT IGNORE` statements, the first row is inserted, and the rest are
+ignored.
++ For `INSERT REPLACE` statements, all but the last insert are replaced.
++ For `INSERT UPDATE` statements, updates are applied sequentially, ending with
+the last update.
+
+##### INSERT IGNORE
+
+You can instruct your `INSERT` statement to skip any rows that have duplicate
+primary keys by using the `IGNORE` keyword.
+
+For example, the following statement instructs ZetaSQL to skip the
+row if it already exists in the table:
+
+```
+INSERT OR IGNORE INTO Singers
+    (FirstName, LastName, BirthDate, Status, SingerInfo)
+VALUES ("Catalina", "Smith", "1990-08-17", DEFAULT, "nationality:'U.S.A.'");
+```
+
+`INSERT IGNORE` ignores only duplicate rows that have the same primary key.
+ZetaSQL raises an error if any other constraint violation occurs, including
+duplicate keys in unique indexes.
+
+##### INSERT REPLACE
+
+You can instruct your `INSERT` statement to replace any rows that have duplicate
+primary keys by using the `REPLACE` statement. Replaced rows have the same
+primary key as the original row.
+
+In the following example, the `REPLACE` keyword is used instead of `IGNORE`.
+This time, the duplicate row replaces the existing row in the table.
+
+```
+INSERT OR REPLACE INTO Singers
+    (FirstName, LastName, BirthDate, Status, SingerInfo)
+VALUES ("Zak", "Sterling", "1996-03-12", "active", "nationality:'U.S.A.'");
+```
+
+Using `REPLACE` is the same as deleting the existing row and inserting a
+replacement one. As a result, any columns that you do not mention in the
+replacement row are cleared and replaced with their default values. If you want
+your statement to preserve the values of unspecified columns, use
+`INSERT UPDATE`.
+
+##### INSERT UPDATE
+
+With an `INSERT UPDATE` statement, the statement updates the columns specified
+for one or more rows. Columns that are not listed in the `INSERT` statement
+remain unchanged.
+
+The following example illustrates how `INSERT UPDATE` changes an existing row.
+In this case, the status is changed from `active` to `inactive`.
+
+```
+INSERT OR UPDATE INTO Singers
+    (SingerId, Status)
+VALUES (5, "inactive");
+```
+
+Notice that if the row does not exist, the previous statement inserts a new row
+with values in the specified fields, and all other values set to their
+corresponding defaults.
+
+When you use the `UPDATE` keyword, any column that you do not specify remains
+unchanged.
+
+#### INSERT and ASSERT_ROWS_MODIFIED
+
+With ZetaSQL, you can confirm how many rows are added each time you
+use an `INSERT` statement by using the `ASSERT_ROWS_MODIFIED` keyword.
+
+With the `ASSERT_ROWS_MODIFIED` keyword, you specify the number of rows you
+expect the command to insert, and ZetaSQL compares that number
+against the number of rows actually modified. This check occurs before
+ZetaSQL commits the change to the database. If the row count matches,
+ZetaSQL commits the changes.  Otherwise, ZetaSQL returns
+an error and rolls back the statement.
+
+When calculating the number of rows modified, ZetaSQL includes rows
+that were inserted, updated, or replaced. It does not count rows that were
+skipped through the `IGNORE` keyword. To illustrate this, consider the following
+example of a **Singers** table:
+
+<table>
+<thead>
+<tr>
+<th>SingerId</th>
+<th>FirstName</th>
+<th>LastName</th>
+<th>BirthDate</th>
+<th>SingerInfo</th>
+<th>Albums</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>5</td>
+<td>Alice</td>
+<td>Trentor</td>
+<td>1991-10-2</td>
+<td>"nationality: 'U.S.A.'</td>
+<td>NULL</td>
+</tr>
+</tbody>
+</table>
+
+```
+INSERT OR UPDATE INTO Singers
+    (SingerId, FirstName, LastName, Birthdate, Status, SingerInfo)
+VALUES (5, "Zak", "Sterling", "1996-03-12", "active", "nationality:'U.S.A.'"),
+       (6, "Edie", "Silver", "1998-01-23", "active", "nationality:'U.S.A.'")
+ASSERT_ROWS_MODIFIED 2;
+```
+
+One of the value expressions in the `INSERT` statement adds a new row, while the
+second updates an existing one. Both result in a total of 2 modified rows, which
+matches the `ASSERT_ROWS_MODIFIED 2` clause of the statement.
+
+The following statement uses `INSERT IGNORE` to add rows to the table.
+
+```
+INSERT OR IGNORE INTO Singers
+    (SingerId, FirstName, LastName, Birthdate, Status, SingerInfo)
+VALUES (5, "Zak", "Sterling", "1996-03-12", "active", "nationality:'U.S.A.'"),
+       (7, "Edie", "Silver", "1998-01-23", "active", "nationality:'U.S.A.'")
+ASSERT_ROWS_MODIFIED 1;
+```
+
+In this case, there is a collision when inserting a new row with a `SingerId` of
+`5`, because a row with that `SingerId` value already exists. This statement
+inserts one row, which matches the `ASSERT_ROWS_MODIFIED 1` statement.
+
+#### INSERT examples
+
+Add a new row to the `Singers` table.
+
+```
+INSERT INTO Singers
+    (SingerId, FirstName, LastName, BirthDate, Status, SingerInfo)
+VALUES (5, "Catalina", "Smith", "1990-08-17", DEFAULT, "nationality:'U.S.A.'");
+```
+
+**RESULT:** New singer, Catalina Smith, added to table.
+
+Try to add a singer, but only if the `SingerId` is not already in the table.
+
+```
+INSERT OR IGNORE INTO Singers
+    (SingerId, FirstName, LastName, BirthDate, Status, SingerInfo)
+VALUES (5, "Zak", "Sterling", "1996-03-12", "active", "nationality:'U.S.A.'");
+```
+
+**RESULT:** Table unaffected. Catalina Smith remains in the table.
+
+Try to add another singer and replace an existing row if it has the same
+`SingerId`.
+
+```
+INSERT OR REPLACE INTO Singers
+    (SingerId, FirstName, LastName, BirthDate, Status, SingerInfo)
+VALUES (5, "Zak", "Sterling", "1996-03-12", "active", "nationality:'U.S.A.'");
+```
+
+**RESULT:** Singer, Catalina Smith, replaced with Zak Sterling.
+
+Add a singer to the table, or update a singer if they already exist.
+
+```
+INSERT OR UPDATE INTO Singers
+    (SingerId, FirstName, LastName, Status)
+VALUES (5, "Zak", "Sterling", "inactive");
+```
+
+Existing row for Zak Sterling updated. His status is now `inactive`. All other
+values, such as `BirthDate`, remain unchanged.
+
+### DELETE Statement
+
+Use the `DELETE` statement when you want to delete rows from a table.
+
+<pre>
+DELETE [FROM] target_name
+WHERE condition<br>[ASSERT_ROWS_MODIFIED n]
+</pre>
+
+**Note**: `DELETE` statements must comply with all
+[statement rules](#statement-rules).
+
+#### WHERE keyword
+
+Each time you construct a `DELETE` statement, you must use the `WHERE` keyword,
+followed by a condition. For example:
+
+```
+DELETE FROM Singers
+WHERE LastName = "Sterling";
+```
+
+You can use the identifier for the target of the update as a range variable
+within the `WHERE` clause. For example:
+
+```
+DELETE FROM Singers s
+WHERE s.LastName = "Sterling";
+```
+
+Using an identifier can help make your `DELETE` statement more explicit with
+regards to what data ZetaSQL should update.
+
+The `WHERE` keyword is mandatory for any `DELETE` statement. However, you can
+set the condition for the `WHERE` keyword to be true, which results in the
+statement deleting all rows in the table.
+
+```
+DELETE FROM Singers s
+WHERE true;
+```
+
+#### DELETE and ASSERT_ROWS_MODIFIED
+
+With ZetaSQL, you can confirm how many rows were deleted each time
+you use a `DELETE` statement. You implement this confirmation through the
+`ASSERT_ROWS_MODIFIED` keyword.
+
+```
+DELETE FROM Singers
+WHERE LastName = "Sterling"
+ASSERT_ROWS_MODIFIED 1;
+```
+
+With the `ASSERT_ROWS_MODIFIED` keyword, you specify the number of rows you
+expect the command to delete, and compare that number against the number of rows
+actually deleted. This check occurs before ZetaSQL commits the change
+to the database. If the row count matches, ZetaSQL commits the
+changes. Otherwise, ZetaSQL returns an error and rolls back the
+statement.
+
+### UPDATE statement
+
+Use the `UPDATE` statement when you want to update existing rows within a table.
+
+<pre>
+UPDATE target_name
+SET update_item [, update_item]*
+WHERE condition<br>[ASSERT_ROWS_MODIFIED n]<br/>
+update_item ::= path_expression = expression
+              | path_expression = DEFAULT
+              | (dml_stmt)<br/>
+dml_stmt ::= insert_statement | update_statement | delete_statement
+</pre>
+
+**Note**: `UPDATE` statements must comply with all
+[statement rules](#statement-rules) and use
+[compatible types](#compatible-types).
+
+#### WHERE keyword
+
+Each `UPDATE` statement must include the `WHERE` keyword, followed by a
+condition. For example, the following statement illustrates an `UPDATE`
+statement that modifies the row with the primary key, `5`.
+
+```
+UPDATE Singers s
+SET s.Status = "inactive"
+WHERE s.SingerId = 5;
+```
+
+To update all rows in a table, use `WHERE true`. The following statement sets
+the SingerInfo value in all rows to `NULL` (the default value for the field).
+
+```
+UPDATE Singers s
+SET s.SingerInfo = DEFAULT
+WHERE true;
+```
+
+#### UPDATE and ASSERT_ROWS_MODIFIED
+
+With ZetaSQL, you can confirm how many rows were added each time you
+use an `UPDATE` statement. You implement this confirmation through the
+`ASSERT_ROWS_MODIFIED` keyword.
+
+**Note**: A row still counts as modified even if the updated values are
+identical to the previous values.
+
+With the `ASSERT_ROWS_MODIFIED` keyword, you specify the number of rows you
+expect the command to update. If the row count matches, ZetaSQL
+commits the changes. Otherwise, ZetaSQL returns an error and rolls
+back the statement.
+
+The `ASSERT_ROWS_MODIFIED` keyword is helpful when you want to be sure your
+statement changes only a specific number of rows. For example, the following
+statement verifies that exactly one row was found and updated.
+
+```
+UPDATE Singers s
+SET s.SingerInfo = DEFAULT
+WHERE s.SingerId = 5
+ASSERT_ROWS_MODIFIED 1;
+```
+
+#### Setting new values
+
+Each `UPDATE` statement requires a `SET` keyword. This keyword identifies the
+columns that you want to update.
+
+You specify values for specific columns using the syntax <em>column_name =
+expression</em>. Expressions can see all the columns within a table. For
+example:
+
+```
+UPDATE Singers s
+SET s.SingerId = s.SingerId + 1
+WHERE true
+```
+
+Any assignments within the expression happen simultaneously. For example, the
+following statement swaps the values in the `FirstName` and `LastName` column.
+
+```
+UPDATE Singers s
+SET s.FirstName = s.LastName,
+    s.LastName = s.FirstName
+WHERE true;
+```
+
+Within the `SET` clause, you can use the identifier for the target of the update
+as a table alias. For example:
+
+```
+UPDATE Singers s
+SET s.LastName = "Solo"
+WHERE s.SingerId = 5;
+```
+
+Using an identifier can help make your `UPDATE` statement more explicit with
+regards to what data ZetaSQL should update.
+
+#### Specifying columns
+
+An `UPDATE` statement must explicitly state which columns you want to update.
+Any column not included in the `UPDATE` statement remains unmodified.
+
+In the following example, notice that only the `Status` column is
+specified &mdash; consequently, the other columns
+(such as `SingerId`, `FirstName`, `LastName`, and `Birthdate`) remain unchanged.
+
+```
+UPDATE Singers s
+SET s.Status = "inactive"
+WHERE s.SingerId = 5;
+```
+
+You can specify the columns to update in any order; however, you can list each
+column only once. For example, the following statement is invalid and would be
+rejected by ZetaSQL:
+
+```
+UPDATE Singers s
+SET s.LastName = "Solo", s.LastName = "Organa"
+WHERE s.SingerId = 5;
+```
+
+`UPDATE` statements must use values that are compatible with the corresponding
+column's type. For example, a value of `1991-10-02` works for a column of type
+`Date`, but a value of `October 2, 1991` would not. You can, however, use values
+that can be cast to the type of the corresponding column. Casting happens
+automatically for numerical values (this is also referred to as
+[coercion](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#coercion)).
+
+If you attempt to set a column with an invalid value, the statement fails.
+For example, the following statement does not work:
+
+```
+UPDATE Singers s
+SET s.Birthdate = "October 2, 1991"
+WHERE s.SingerId = 5;
+```
+
+#### Returning columns to default values
+
+You can use an `UPDATE` statement to return any value to its corresponding
+default by using the `DEFAULT` keyword. In cases where the column contains a
+protocol buffer field, that field is cleared.
+
+For example, consider the following **Singers** table:
+
+<table>
+<thead>
+<tr>
+<th>SingerId</th>
+<th>FirstName</th>
+<th>LastName</th>
+<th>BirthDate</th>
+<th>SingerInfo</th>
+<th>Albums</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>5</td>
+<td>Alice</td>
+<td>Trentor</td>
+<td>1991-10-2</td>
+<td>"nationality: 'USA'"</td>
+<td>NULL</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Zak</td>
+<td>Sterling</td>
+<td>1989-1-13</td>
+<td>"nationality: 'Australia'"</td>
+<td>NULL</td>
+</tr>
+</tbody>
+</table>
+
+If you run the following statement:
+
+```
+UPDATE Singers s
+SET s.SingerInfo = DEFAULT
+WHERE SingerId = 6;
+```
+
+The table is updated as follows:
+
+<table>
+<thead>
+<tr>
+<th>SingerId</th>
+<th>FirstName</th>
+<th>LastName</th>
+<th>BirthDate</th>
+<th>SingerInfo</th>
+<th>Albums</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>5</td>
+<td>Alice</td>
+<td>Trentor</td>
+<td>1991-10-2</td>
+<td>"nationality:'USA'"</td>
+<td>NULL</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Zak</td>
+<td>Sterling</td>
+<td>1989-1-13</td>
+<td>NULL</td>
+<td>NULL</td>
+</tr>
+</tbody>
+</table>
+
+Notice that the row for `Zak Sterling` now has `NULL` in the `SingerInfo`
+column, because `NULL` is the default value for that column. The following
+example has the same effect:
+
+```
+UPDATE Singers s
+SET s.SingerInfo = NULL
+WHERE SingerId = 6;
+```
+
+#### Updating fields
+
+ZetaSQL allows you to update non-repeating or repeating fields within
+protocol buffers. To illustrate how to update a non-repeating field, consider
+the [Singers example table](#singers-table).  It contains a column, `Albums`, of
+type `PROTO<Albums>`, and `Albums` contains a non-repeating field `tracks`. The
+following statement updates the value of `tracks`:
+
+```
+UPDATE Singers s
+SET s.Albums.tracks = 15
+WHERE s.SingerId = 5 AND s.Albums.title = "Fire is Hot";
+```
+
+An update can replace a repeated field using an array of values, as shown below.
+
+```
+UPDATE Singers s
+SET s.Albums.comments = ["A good album!", "Hurt my ears!", "Totally inedible."]
+WHERE s.SingerId = 5 AND s.Albums.title = "Fire is Hot";
+```
+
+#### Nested updates
+
+Inside a parent update statement you can construct DML statements that modify
+a repeated field of a protocol buffer or an array.  Such statements are called
+**nested updates**.
+
+For example, the `Albums` column contains a repeated field `comments`. This
+nested update statement adds a comment to an album:
+
+```
+UPDATE Singers s
+SET (INSERT s.Albums.comments
+     VALUES ("Groovy!"))
+WHERE s.SingerId = 5 AND s.Albums.title = "Fire is Hot";
+```
+
+`Albums` also contains a repeated protocol buffer, `Song`, which provides
+information about a song on an album. This nested update statement updates the
+album with a new song:
+
+```
+UPDATE Singers s
+SET (INSERT s.Albums.Song(Song)
+     VALUES ("songtitle: 'Bonus Track', length: 180"))
+WHERE s.SingerId = 5 AND s.Albums.title = "Fire is Hot";
+```
+
+If the repeated field is another protocol buffer, you can provide the
+protocol buffer as a string literal. For example, the following statement adds a
+new song to an album and updates the number of tracks. Notice that this
+statement uses `ASSERT_ROWS_MODIFIED` to ensure that only one `Singer` is
+updated.
+
+```
+UPDATE Singers s
+SET (INSERT s.Albums.Song
+     VALUES ('''songtitle: 'Bonus Track', length:180''')),
+     s.Albums.tracks = 16
+WHERE s.SingerId = 5 and s.Albums.title = "Fire is Hot"
+ASSERT_ROWS_MODIFIED 1;
+```
+
+You can also nest a nested update statement in another nested update statement.
+For example, the `Song` protocol buffer itself has another repeated
+protocol buffer, `Chart`, which provides information on what chart the song
+appeared on, and what rank it had.
+
+The following statement adds a new chart to a song.
+
+```
+UPDATE Singers s
+SET (UPDATE s.Albums.Song so
+    SET (INSERT INTO so.Chart
+         VALUES ("chartname: 'Galaxy Top 100', rank: 5"))
+    WHERE so.songtitle = "Bonus Track")
+WHERE s.SingerId = 5
+ASSERT_ROWS_MODIFIED 1;
+```
+
+This next statement updates the chart to reflect a new rank for the song. Notice
+that each inner `UPDATE` statement uses `ASSERT_ROWS_MODIFIED 1` to ensure that
+only one update is made.
+
+```
+UPDATE Singers s
+SET (UPDATE s.Albums.Song so
+     SET (UPDATE so.Chart c
+          SET c.rank = 2
+          WHERE c.chartname = "Galaxy Top 100"
+          ASSERT_ROWS_MODIFIED 1)
+     WHERE so.songtitle = "Bonus Track"
+     ASSERT_ROWS_MODIFIED 1)
+WHERE s.SingerId = 5
+ASSERT_ROWS_MODIFIED 1;
+```
+
+ZetaSQL treats an array or repeated field inside a row that matches
+an `UPDATE WHERE` clause as a table, with individual elements of the array or
+field treated like rows. These rows can then have nested DML statements run
+against them, allowing you to delete, update, and insert data as needed.
+
+##### Modifying multiple fields
+
+The previous sections demonstrated how to update a single value within a
+compound data type. You can also perform multiple updates to a compound data
+type within a single statement. For example:
+
+```
+UPDATE UpdatedSingers s
+SET
+    (DELETE FROM s.SingerInfo.Residence r WHERE r.City = 'Seattle'),
+    (UPDATE s.Albums.Song song SET song.songtitle = 'No, This Is Rubbish' WHERE song.songtitle = 'This Is Pretty Good'),
+    (INSERT s.Albums.Song VALUES ("songtitle: 'The Second Best Song'"))
+WHERE SingerId = 3 AND s.Albums.title = 'Go! Go! Go!';
+```
+
+Nested queries are processed as follows:
+
+1. Delete all rows that match a `WHERE` clause of a `DELETE` statement.
+2. Update any remaining rows that match a `WHERE` clause of an `UPDATE`
+statement. Each row must match at most one `UPDATE WHERE` clause, or the
+statement fails due to overlapping updates.
+3. Insert all rows in `INSERT` statements.
+
+You must construct nested statements that affect the same field in the following
+order:
+
++ `DELETE`
++ `UPDATE`
++ `INSERT`
+
+For example:
+
+```
+UPDATE UpdatedSingers s
+SET
+    (DELETE FROM s.SingerInfo.Residence r WHERE r.City = 'Seattle'),
+    (UPDATE s.SingerInfo.Residence r SET r.end_year = 2015 WHERE r.City = 'Eugene'),
+    (INSERT s.Albums.Song VALUES ("songtitle: 'The Second Best Song'"))
+WHERE SingerId = 3 AND s.Albums.title = 'Go! Go! Go!';
+```
+
+The following statement is invalid, because the `UPDATE` statement
+happens after the `INSERT` statement.
+
+```
+UPDATE UpdatedSingers s
+SET
+    (DELETE FROM s.SingerInfo.Residence r WHERE r.City = 'Seattle'),
+    (INSERT s.Albums.Song VALUES ("songtitle: 'The Second Best Song'")),
+    (UPDATE s.SingerInfo.Residence r SET r.end_year = 2015 WHERE r.City = 'Eugene')
+WHERE SingerId = 3 AND s.Albums.title = 'Go! Go! Go!';
+```
+
+**Note:** In nested queries, you cannot use `INSERT OR` statements. These types
+of statements don't work because arrays and other compound data types do not
+always have a primary key, so there is no applicable definition of duplicate
+rows.
+
+You can also add `ASSERT_ROWS_MODIFIED` to nested statements, as shown here:
+
+```
+UPDATE Singers
+SET
+    (DELETE FROM AlbumTitles a WHERE a.AlbumTitles = "Too Many Vegetables"
+        ASSERT_ROWS_MODIFIED 1),
+    (UPDATE AlbumTitles a SET a.AlbumTitles = "Album IV"
+        WHERE a.AlbumTitles = "Album Four"),
+    (INSERT AlbumTitles VALUES ("The Sloth and the Tiger"));
+```
+
+<!-- END CONTENT -->
 
 <!-- END CONTENT -->
 
