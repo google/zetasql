@@ -676,6 +676,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_DROP "DROP"
 %token KW_ENFORCED "ENFORCED"
 %token KW_ELSEIF "ELSEIF"
+%token KW_EXECUTE "EXECUTE"
 %token KW_EXPLAIN "EXPLAIN"
 %token KW_EXPORT "EXPORT"
 %token KW_EXTERNAL "EXTERNAL"
@@ -687,6 +688,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_GENERATED "GENERATED"
 %token KW_GRANT "GRANT"
 %token KW_HIDDEN "HIDDEN"
+%token KW_IMMEDIATE "IMMEDIATE"
 %token KW_IMMUTABLE "IMMUTABLE"
 %token KW_IMPORT "IMPORT"
 %token KW_INDEX "INDEX"
@@ -705,6 +707,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_MATCHED "MATCHED"
 %token KW_MATERIALIZED "MATERIALIZED"
 %token KW_MAX "MAX"
+%token KW_MESSAGE "MESSAGE"
 %token KW_MIN "MIN"
 %token KW_MODEL "MODEL"
 %token KW_MODULE "MODULE"
@@ -721,6 +724,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_PRIVILEGES "PRIVILEGES"
 %token KW_PROCEDURE "PROCEDURE"
 %token KW_PUBLIC "PUBLIC"
+%token KW_RAISE "RAISE"
 %token KW_READ "READ"
 %token KW_REFERENCES "REFERENCES"
 %token KW_RENAME "RENAME"
@@ -876,6 +880,11 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <identifier> identifier_in_hints
 %type <node> if_statement
 %type <node> elseif_clauses
+%type <node> execute_immediate
+%type <node> opt_execute_into_clause
+%type <node> opt_execute_using_clause
+%type <node> execute_using_argument
+%type <node> execute_using_argument_list
 %type <node> opt_elseif_clauses
 %type <node> begin_end_block
 %type <node> opt_exception_handler
@@ -1149,6 +1158,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> opt_column_attributes
 %type <node> opt_field_attributes
 %type <node> opt_generated_column_info
+%type <node> raise_statement
 
 %type <binary_op> additive_operator
 %type <binary_op> comparative_operator
@@ -1265,6 +1275,7 @@ unterminated_script_statement:
     | break_statement
     | continue_statement
     | return_statement
+    | raise_statement
     ;
 
 terminated_statement:
@@ -1300,6 +1311,7 @@ sql_statement_body:
     | create_view_statement
     | define_table_statement
     | describe_statement
+    | execute_immediate
     | explain_statement
     | export_data_statement
     | grant_statement
@@ -5750,6 +5762,7 @@ keyword_as_identifier:
     | "ENFORCED"
     | "ERROR"
     | "EXCEPTION"
+    | "EXECUTE"
     | "EXPLAIN"
     | "EXPORT"
     | "EXTERNAL"
@@ -5761,6 +5774,7 @@ keyword_as_identifier:
     | "GENERATED"
     | "GRANT"
     | "HIDDEN"
+    | "IMMEDIATE"
     | "IMMUTABLE"
     | "IMPORT"
     | "INDEX"
@@ -5779,6 +5793,7 @@ keyword_as_identifier:
     | "MATCHED"
     | "MATERIALIZED"
     | "MAX"
+    | "MESSAGE"
     | "MIN"
     | "MODEL"
     | "MODULE"
@@ -5795,6 +5810,7 @@ keyword_as_identifier:
     | "PRIVILEGES"
     | "PROCEDURE"
     | "PUBLIC"
+    | "RAISE"
     | "READ"
     | "REFERENCES"
     | "RENAME"
@@ -6616,6 +6632,61 @@ unterminated_non_empty_statement_list:
         $$ = WithEndLocation(WithExtraChildren($1, {$2}), @$);
       };
 
+opt_execute_into_clause:
+  KW_INTO identifier_list
+    {
+      $$ = MAKE_NODE(ASTExecuteIntoClause, @$, {$2});
+    }
+  | /* Nothing */
+    {
+      $$ = nullptr;
+    }
+  ;
+
+execute_using_argument:
+  expression KW_AS identifier
+    {
+      auto* alias = MAKE_NODE(ASTAlias, @2, @3, {$3});
+      $$ = MAKE_NODE(ASTExecuteUsingArgument, @$, {$1, alias});
+    }
+  | expression
+    {
+      $$ = MAKE_NODE(ASTExecuteUsingArgument, @$, {$1, nullptr});
+    }
+  ;
+
+// Returns ASTExecuteUsingClause to avoid an unneeded AST class for accumulating
+// list values.
+execute_using_argument_list:
+  execute_using_argument
+    {
+      $$ = MAKE_NODE(ASTExecuteUsingClause, @$, {$1});
+    }
+  | execute_using_argument_list "," execute_using_argument
+    {
+      $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
+    }
+  ;
+
+opt_execute_using_clause:
+  KW_USING execute_using_argument_list
+    {
+      $$ = $2;
+    }
+  | /* Nothing */
+    {
+      $$ = nullptr;
+    }
+  ;
+
+execute_immediate:
+  KW_EXECUTE KW_IMMEDIATE expression opt_execute_into_clause
+  opt_execute_using_clause
+    {
+      $$ = MAKE_NODE(ASTExecuteImmediateStatement, @$, {$3, $4, $5});
+    }
+  ;
+
 script:
   non_empty_statement_list
   {
@@ -6811,6 +6882,16 @@ return_statement:
     }
     ;
 
+raise_statement:
+    "RAISE"
+    {
+      $$ = MAKE_NODE(ASTRaiseStatement, @$);
+    }
+    | "RAISE" "USING" "MESSAGE" "=" expression
+    {
+      $$ = MAKE_NODE(ASTRaiseStatement, @$, {$5});
+    };
+
 next_statement_kind:
     opt_hint next_statement_kind_without_hint
       {
@@ -6851,6 +6932,8 @@ next_statement_kind_without_hint:
     | next_statement_kind_parenthesized_select
     | "DEFINE" "TABLE"
       { $$ = zetasql::ASTDefineTableStatement::kConcreteNodeKind; }
+    | "EXECUTE" "IMMEDIATE"
+      { $$ = zetasql::ASTExecuteImmediateStatement::kConcreteNodeKind; }
     | "EXPORT" "DATA"
       { $$ = zetasql::ASTExportDataStatement::kConcreteNodeKind; }
     | "INSERT" { $$ = zetasql::ASTInsertStatement::kConcreteNodeKind; }

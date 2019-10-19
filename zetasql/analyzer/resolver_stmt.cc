@@ -39,6 +39,7 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/parse_tree_decls.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/parser/unparser.h"
 #include "zetasql/public/analyzer.h"
@@ -494,6 +495,12 @@ zetasql_base::Status Resolver::ResolveStatement(
       if (language().SupportsStatementKind(RESOLVED_CREATE_PROCEDURE_STMT)) {
         ZETASQL_RETURN_IF_ERROR(ResolveCreateProcedureStatement(
             statement->GetAsOrDie<ASTCreateProcedureStatement>(), &stmt));
+      }
+      break;
+    case AST_EXECUTE_IMMEDIATE_STATEMENT:
+      if (language().SupportsStatementKind(RESOLVED_EXECUTE_IMMEDIATE_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveExecuteImmediateStatement(
+            statement->GetAsOrDie<ASTExecuteImmediateStatement>(), &stmt));
       }
       break;
     default:
@@ -4177,6 +4184,13 @@ zetasql_base::Status Resolver::ResolveAssertStatement(
       std::move(resolved_expr),
       description == nullptr ? "" : description->string_value());
   return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status Resolver::ResolveExecuteImmediateStatement(
+    const ASTExecuteImmediateStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  return MakeSqlErrorAt(ast_statement)
+         << "EXECUTE IMMEDIATE is not yet implemented";
 }
 
 }  // namespace zetasql

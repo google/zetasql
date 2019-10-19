@@ -47,8 +47,11 @@ ParserOptions::ParserOptions()
       id_string_pool_(std::make_shared<IdStringPool>(arena_)) {}
 
 ParserOptions::ParserOptions(std::shared_ptr<IdStringPool> id_string_pool,
-                             std::shared_ptr<zetasql_base::UnsafeArena> arena)
-    : arena_(std::move(arena)), id_string_pool_(std::move(id_string_pool)) {}
+                             std::shared_ptr<zetasql_base::UnsafeArena> arena,
+                             const LanguageOptions* language_options)
+    : arena_(std::move(arena)),
+      id_string_pool_(std::move(id_string_pool)),
+      language_options_(language_options) {}
 
 ParserOptions::~ParserOptions() {}
 
@@ -92,7 +95,7 @@ zetasql_base::Status ParseStatement(absl::string_view statement_string,
       BisonParserMode::kStatement, /*filename=*/absl::string_view(),
       statement_string, /*start_byte_offset=*/0,
       parser_options.id_string_pool().get(), parser_options.arena().get(),
-      &ast_node, &other_allocated_ast_nodes,
+      parser_options.language_options(), &ast_node, &other_allocated_ast_nodes,
       /*next_statement_kind_result=*/nullptr,
       /*next_statement_is_ctas=*/nullptr,
       /*statement_end_byte_offset=*/nullptr);
@@ -118,9 +121,9 @@ zetasql_base::Status ParseScript(absl::string_view script_string,
   std::unique_ptr<ASTNode> ast_node;
   std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes;
   zetasql_base::Status status = parser.Parse(
-      BisonParserMode::kScript, /*filename=*/absl::string_view(),
-      script_string, /*start_byte_offset=*/0,
-      parser_options.id_string_pool().get(), parser_options.arena().get(),
+      BisonParserMode::kScript, /*filename=*/absl::string_view(), script_string,
+      /*start_byte_offset=*/0, parser_options.id_string_pool().get(),
+      parser_options.arena().get(), parser_options.language_options(),
       &ast_node, &other_allocated_ast_nodes,
       /*next_statement_kind_result=*/nullptr,
       /*next_statement_is_ctas=*/nullptr,
@@ -161,7 +164,8 @@ zetasql_base::Status ParseNextStatementInternal(ParseResumeLocation* resume_loca
   zetasql_base::Status status = parser.Parse(
       mode, resume_location->filename(), resume_location->input(),
       resume_location->byte_position(), parser_options.id_string_pool().get(),
-      parser_options.arena().get(), &ast_node, &other_allocated_ast_nodes,
+      parser_options.arena().get(), parser_options.language_options(),
+      &ast_node, &other_allocated_ast_nodes,
       nullptr /* next_statement_kind_result */,
       nullptr /* next_statement_is_ctas */, &next_statement_byte_offset);
   ZETASQL_RETURN_IF_ERROR(
@@ -217,7 +221,8 @@ zetasql_base::Status ParseType(absl::string_view type_string,
   zetasql_base::Status status = parser.Parse(
       BisonParserMode::kType, /* filename = */ absl::string_view(), type_string,
       0 /* offset */, parser_options.id_string_pool().get(),
-      parser_options.arena().get(), &ast_node, &other_allocated_ast_nodes,
+      parser_options.arena().get(), parser_options.language_options(),
+      &ast_node, &other_allocated_ast_nodes,
       nullptr /* next_statement_kind_result */,
       nullptr /* next_statement_is_ctas */,
       nullptr /* next_statement_byte_offset */);
@@ -244,7 +249,8 @@ zetasql_base::Status ParseExpression(absl::string_view expression_string,
   zetasql_base::Status status = parser.Parse(
       BisonParserMode::kExpression, /* filename = */ absl::string_view(),
       expression_string, 0 /* offset */, parser_options.id_string_pool().get(),
-      parser_options.arena().get(), &ast_node, &other_allocated_ast_nodes,
+      parser_options.arena().get(), parser_options.language_options(),
+      &ast_node, &other_allocated_ast_nodes,
       nullptr /* next_statement_kind_result */,
       nullptr /* next_statement_is_ctas */,
       nullptr /* next_statement_byte_offset */);
@@ -274,7 +280,7 @@ zetasql_base::Status ParseExpression(const ParseResumeLocation& resume_location,
       BisonParserMode::kExpression, resume_location.filename(),
       resume_location.input(), resume_location.byte_position(),
       parser_options.id_string_pool().get(), parser_options.arena().get(),
-      &ast_node, &other_allocated_ast_nodes,
+      parser_options.language_options(), &ast_node, &other_allocated_ast_nodes,
       nullptr /* next_statement_kind_result */,
       nullptr /* next_statement_is_ctas */,
       nullptr /* next_statement_byte_offset */);
@@ -296,6 +302,7 @@ ASTNodeKind ParseStatementKind(absl::string_view input,
                                 statement_is_ctas);
 }
 
+// TODO: Add LanguageOptions, since they control parser behavior.
 ASTNodeKind ParseNextStatementKind(const ParseResumeLocation& resume_location,
                                    bool* next_statement_is_ctas) {
   ZETASQL_DCHECK_OK(resume_location.Validate());
@@ -306,12 +313,13 @@ ASTNodeKind ParseNextStatementKind(const ParseResumeLocation& resume_location,
   IdStringPool id_string_pool;
   zetasql_base::UnsafeArena arena(/*block_size=*/1024);
   std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes;
-  parser.Parse(
-      BisonParserMode::kNextStatementKind, resume_location.filename(),
-      resume_location.input(), resume_location.byte_position(), &id_string_pool,
-      &arena, nullptr /* result */, &other_allocated_ast_nodes,
-      &next_statement_kind, next_statement_is_ctas,
-      nullptr /* next_statement_byte_offset */)
+  parser
+      .Parse(BisonParserMode::kNextStatementKind, resume_location.filename(),
+             resume_location.input(), resume_location.byte_position(),
+             &id_string_pool, &arena, nullptr /* language_options */,
+             nullptr /* result */, &other_allocated_ast_nodes,
+             &next_statement_kind, next_statement_is_ctas,
+             nullptr /* next_statement_byte_offset */)
       .IgnoreError();
   return next_statement_kind;
 }

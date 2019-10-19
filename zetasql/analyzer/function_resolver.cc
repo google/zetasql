@@ -977,7 +977,8 @@ zetasql_base::Status FunctionResolver::ProcessNamedArguments(
     const ASTNode* ast_location,
     const std::vector<std::pair<const ASTNamedArgument*, int>>& named_arguments,
     std::vector<const ASTNode*>* arg_locations,
-    std::vector<std::unique_ptr<const ResolvedExpr>>* arguments) {
+    std::vector<std::unique_ptr<const ResolvedExpr>>* expr_args,
+    std::vector<ResolvedTVFArg>* tvf_arg_types) {
   if (named_arguments.empty()) {
     // Nothing to do.
     return zetasql_base::OkStatus();
@@ -1024,7 +1025,10 @@ zetasql_base::Status FunctionResolver::ProcessNamedArguments(
   // types so far.
   // TODO: Support optional argument types.
   // TODO: Support a combination of positional and named arguments.
-  if (named_arguments.size() < arguments->size()) {
+  if ((expr_args != nullptr &&
+       expr_args->size() > named_arguments.size()) ||
+      (tvf_arg_types != nullptr &&
+       tvf_arg_types->size() > named_arguments.size())) {
     return MakeSqlErrorAt(ast_location)
            << "Combinations of positional arguments and named arguments are "
            << "not supported yet";
@@ -1040,9 +1044,10 @@ zetasql_base::Status FunctionResolver::ProcessNamedArguments(
            << "names";
   }
   // Iterate through the function signature and rearrange the provided arguments
-  // using the 'named_arguments_to_indexes' map.
+  // using the 'argument_names_to_indexes' map.
   std::vector<const ASTNode*> new_arg_locations;
-  std::vector<std::unique_ptr<const ResolvedExpr>> new_arguments;
+  std::vector<std::unique_ptr<const ResolvedExpr>> new_expr_args;
+  std::vector<ResolvedTVFArg> new_tvf_arg_types;
   for (int i = 0; i < signature.arguments().size(); ++i) {
     // Lookup the required argument name from the map of provided named
     // arguments. If not found, return an error reporting the missing required
@@ -1050,6 +1055,8 @@ zetasql_base::Status FunctionResolver::ProcessNamedArguments(
     const FunctionArgumentType& arg_type = signature.arguments()[i];
     const std::string& arg_name = arg_type.options().argument_name();
     const int* index = zetasql_base::FindOrNull(argument_names_to_indexes, arg_name);
+    // Note that combinations of positional arguments and named arguments are
+    // not supported yet.
     if (index == nullptr) {
       return MakeSqlErrorAt(ast_location)
              << "Call to function " << function_name
@@ -1060,11 +1067,25 @@ zetasql_base::Status FunctionResolver::ProcessNamedArguments(
         << "Call to function " << function_name << " includes named "
         << "argument " << arg_name << " referring to a repeated argument "
         << "type, which is not supported";
-    new_arg_locations.push_back(arg_locations->at(*index));
-    new_arguments.push_back(std::move(arguments->at(*index)));
+    if (arg_locations != nullptr) {
+      new_arg_locations.push_back(arg_locations->at(*index));
+    }
+    if (expr_args != nullptr) {
+      new_expr_args.push_back(std::move(expr_args->at(*index)));
+    }
+    if (tvf_arg_types != nullptr) {
+      new_tvf_arg_types.push_back(std::move(tvf_arg_types->at(*index)));
+    }
   }
-  *arg_locations = std::move(new_arg_locations);
-  *arguments = std::move(new_arguments);
+  if (arg_locations != nullptr) {
+    *arg_locations = std::move(new_arg_locations);
+  }
+  if (expr_args != nullptr) {
+    *expr_args = std::move(new_expr_args);
+  }
+  if (tvf_arg_types != nullptr) {
+    *tvf_arg_types = std::move(new_tvf_arg_types);
+  }
   return zetasql_base::OkStatus();
 }
 
@@ -1545,7 +1566,8 @@ zetasql_base::Status FunctionResolver::ResolveGeneralFunctionCall(
     }
     ZETASQL_RETURN_IF_ERROR(ProcessNamedArguments(
         function->FullName(), function->signatures()[0], ast_location,
-        named_arguments, &arg_locations, &arguments));
+        named_arguments, &arg_locations, &arguments,
+        /*tvf_arg_types=*/nullptr));
   }
 
   std::vector<InputArgumentType> input_argument_types;

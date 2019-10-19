@@ -2708,6 +2708,40 @@ void Unparser::visitASTExceptionHandlerList(const ASTExceptionHandlerList* node,
     handler->Accept(this, data);
   }
 }
+void Unparser::visitASTExecuteIntoClause(const ASTExecuteIntoClause* node,
+                                         void* data) {
+  print("INTO");
+  UnparseChildrenWithSeparator(node, data, ", ");
+}
+void Unparser::visitASTExecuteUsingArgument(const ASTExecuteUsingArgument* node,
+                                            void* data) {
+  visitASTChildren(node, data);
+}
+void Unparser::visitASTExecuteUsingClause(const ASTExecuteUsingClause* node,
+                                          void* data) {
+  print("USING");
+  UnparseChildrenWithSeparator(node, data, ", ");
+}
+void Unparser::visitASTExecuteImmediateStatement(
+    const ASTExecuteImmediateStatement* node, void* data) {
+  print("EXECUTE IMMEDIATE");
+  node->sql()->Accept(this, data);
+  if (node->into_clause() != nullptr) {
+    node->into_clause()->Accept(this, data);
+  }
+  if (node->using_clause() != nullptr) {
+    node->using_clause()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTRaiseStatement(const ASTRaiseStatement* node,
+                                      void* data) {
+  print("RAISE");
+  if (node->message() != nullptr) {
+    print("USING MESSAGE =");
+    node->message()->Accept(this, data);
+  }
+}
 
 }  // namespace parser
 }  // namespace zetasql

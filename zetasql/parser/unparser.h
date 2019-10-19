@@ -522,6 +522,16 @@ class Unparser : public ParseTreeVisitor {
   void visitASTCreateProcedureStatement(const ASTCreateProcedureStatement* node,
                                         void* data) override;
   void visitASTNamedArgument(const ASTNamedArgument* node, void* data) override;
+  void visitASTExecuteIntoClause(const ASTExecuteIntoClause* node,
+                                 void* data) override;
+  void visitASTExecuteUsingArgument(const ASTExecuteUsingArgument* node,
+                                    void* data) override;
+  void visitASTExecuteUsingClause(const ASTExecuteUsingClause* node,
+                                  void* data) override;
+  void visitASTExecuteImmediateStatement(
+      const ASTExecuteImmediateStatement* node, void* data) override;
+  void visitASTRaiseStatement(const ASTRaiseStatement* node,
+                              void* data) override;
 
  protected:
   // Set break_line to true if you want to print each child on a separate line.

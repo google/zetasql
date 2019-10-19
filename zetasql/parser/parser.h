@@ -24,6 +24,7 @@
 
 #include "zetasql/base/arena.h"
 #include "zetasql/parser/ast_node_kind.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/variant.h"
@@ -44,7 +45,10 @@ class ParserOptions {
  public:
   ParserOptions();
   ParserOptions(std::shared_ptr<IdStringPool> id_string_pool,
-                std::shared_ptr<zetasql_base::UnsafeArena> arena);
+                std::shared_ptr<zetasql_base::UnsafeArena> arena,
+                // Caller maintains ownership, and must ensure language_options
+                // lifetime exceeds parser_options.
+                const LanguageOptions* language_options = nullptr);
   ~ParserOptions();
 
   // Sets an IdStringPool for storing strings used in parsing. If it is not set,
@@ -72,6 +76,11 @@ class ParserOptions {
   // the same ParserOptions is no longer allowed.
   void CreateDefaultArenasIfNotSet();
 
+  void set_language_options(const LanguageOptions* language_options) {
+    language_options_ = language_options;
+  }
+  const LanguageOptions* language_options() const { return language_options_; }
+
  private:
   // Allocate all AST nodes in this arena.
   // The arena will also be referenced in ParserOutput to keep it alive.
@@ -80,6 +89,9 @@ class ParserOptions {
   // Allocate all IdStrings in the parse tree in this pool.
   // The pool will also be referenced in ParserOutput to keep it alive.
   std::shared_ptr<IdStringPool> id_string_pool_;
+
+  // LanguageOptions to control parser's behavior.
+  const LanguageOptions* language_options_ = nullptr;
 };
 
 // Output of a parse operation. The output parse tree can be accessed via

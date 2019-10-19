@@ -63,7 +63,8 @@ class ScalarType(object):
                passed_by_reference=False,
                has_proto_setter=False,
                is_enum=False,
-               scoped_ctype=None):
+               scoped_ctype=None,
+               java_default=None):
     """Create a ScalarType.
 
     Args:
@@ -89,6 +90,9 @@ class ScalarType(object):
           inner types.  Useful for locally declared enums that need to be
           referenced externally to that class.
           If not set, this defaults to using the same name as ctype.
+      java_default: Non-Constructor args require a default value. While java
+          field defaults match c++ (for PODS), it's best practice to
+          initialize them explicitly.
     """
     self.ctype = ctype
     self.is_enum = is_enum
@@ -111,6 +115,7 @@ class ScalarType(object):
       self.scoped_ctype = ctype
     else:
       self.scoped_ctype = scoped_ctype
+    self.java_default = java_default
     assert ctype not in SCALAR_TYPES
     SCALAR_TYPES[ctype] = self
 
@@ -147,14 +152,20 @@ SCALAR_STRING = ScalarType(
     proto_type='string',
     java_type='String',
     passed_by_reference=True,
-    has_proto_setter=True)
-SCALAR_BOOL = ScalarType('bool', java_type='boolean')
+    has_proto_setter=True,
+    java_default='')
+SCALAR_BOOL = ScalarType(
+    'bool',
+    java_type='boolean',
+    java_reference_type='Boolean',
+    java_default='false')
 SCALAR_INT = ScalarType(
     'int',
     'int64',
     java_type='long',
     java_reference_type='Long',
-    has_proto_setter=True)
+    has_proto_setter=True,
+    java_default='0')
 TABLE_VALUED_FUNCTION = ScalarType(
     'const TableValuedFunction*',
     'TableValuedFunctionRefProto',
@@ -364,6 +375,8 @@ def Field(name,
     member_type = ctype.ctype
     proto_type = ctype.proto_type
     has_proto_setter = ctype.has_proto_setter
+    java_default = ctype.java_default
+    nullable_java_type = ctype.java_reference_type
     member_accessor = member_name
     element_arg_type = None
     element_storage_type = None
@@ -371,6 +384,7 @@ def Field(name,
     release_return_type = None
     is_enum = ctype.is_enum
     is_move_only = False
+
     if ctype.passed_by_reference:
       setter_arg_type = 'const %s&' % member_type
       getter_return_type = 'const %s&' % member_type
@@ -385,8 +399,10 @@ def Field(name,
       setter_arg_type = 'const %s&' % member_type
       getter_return_type = setter_arg_type
       java_type = ctype.java_reference_type
+      java_default = 'ImmutableList.of()'
     else:
       java_type = ctype.java_type
+      java_default = ctype.java_default
 
     # For scalars, these are always the same
     maybe_ptr_setter_arg_type = setter_arg_type
@@ -403,6 +419,8 @@ def Field(name,
     element_unwrapper = '.get()'
     proto_type = '%sProto' % ctype
     java_type = ctype
+    nullable_java_type = ctype
+    java_default = None
     is_enum = False
     is_move_only = True
     if vector:
@@ -413,6 +431,7 @@ def Field(name,
       getter_return_type = 'const %s&' % member_type
       release_return_type = 'std::vector<%s>' % element_pointer_type
       member_accessor = member_name
+      java_default = 'ImmutableList.of()'
     else:
       member_type = element_storage_type
       maybe_ptr_setter_arg_type = element_pointer_type
@@ -421,6 +440,7 @@ def Field(name,
       element_arg_type = None
       element_storage_type = None
       member_accessor = member_name + '.get()'
+      java_default = None
 
     # For node vector, we use std::move, which requires setters = member.
     setter_arg_type = member_type
@@ -428,6 +448,7 @@ def Field(name,
   if vector:
     optional_or_repeated = 'repeated'
     full_java_type = 'ImmutableList<%s>' % java_type
+    nullable_java_type = full_java_type
   else:
     optional_or_repeated = 'optional'
     full_java_type = java_type
@@ -442,10 +463,17 @@ def Field(name,
   else:
     scoped_setter_arg_type = setter_arg_type
 
+  if (not is_constructor_arg) and java_default is None:
+    logging.fatal(
+        'Field %s must either be a constructor arg, or have a java_default. ctype:\n%s',
+        name, ctype)
+
   return {
       'ctype': ctype,
       'java_type': java_type,
       'full_java_type': full_java_type,
+      'nullable_java_type': nullable_java_type,
+      'java_default': java_default,
       'tag_id': tag_id,
       'member_name': member_name,  # member variable name
       'name': name,  # name without trailing underscore
@@ -509,7 +537,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 140.
+          Next tag_id: 141.
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -5493,6 +5521,15 @@ ResolvedArgumentRef(y)
               ignorable=NOT_IGNORABLE,
               tag_id=5),
       ])
+
+  gen.AddNode(
+      name='ResolvedExecuteImmediateStmt',
+      tag_id=140,
+      parent='ResolvedStatement',
+      comment="""
+      An EXECUTE IMMEDIATE statement
+              """,
+      fields=[])
 
   gen.Generate(input_file_paths, output_file_paths)
 

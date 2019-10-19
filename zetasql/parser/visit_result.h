@@ -19,6 +19,10 @@
 
 #include <functional>
 
+#include "zetasql/base/status.h"
+#include "zetasql/base/status_macros.h"
+#include "zetasql/base/statusor.h"
+
 namespace zetasql {
 
 class ASTNode;
@@ -35,11 +39,8 @@ class VisitResult {
   // Indicates that the children of <node> should be visited next; then,
   // <continuation> should be invoked.
   static VisitResult VisitChildren(const ASTNode* node,
-                                   std::function<void()> continuation) {
-    return VisitResult(node, [continuation]() {
-      continuation();
-      return VisitResult::Empty();
-    });
+                                   std::function<zetasql_base::Status()> continuation) {
+    return VisitResult(node, continuation);
   }
 
   VisitResult() : VisitResult(nullptr, nullptr) {}
@@ -51,10 +52,10 @@ class VisitResult {
   const ASTNode* node_for_child_visit() const { return node_; }
 
   // Action to perform after all children are visited; nullptr if not needed.
-  std::function<VisitResult()> continuation() const { return continuation_; }
+  std::function<zetasql_base::Status()> continuation() const { return continuation_; }
 
  private:
-  VisitResult(const ASTNode* node, std::function<VisitResult()> continuation)
+  VisitResult(const ASTNode* node, std::function<zetasql_base::Status()> continuation)
       : node_(node), continuation_(continuation) {}
 
   // Node to visit the children of, null to not perform any more visits.
@@ -63,7 +64,7 @@ class VisitResult {
 
   // Function to be invoked after all children have been visited.  nullptr to
   // skip.
-  std::function<VisitResult()> continuation_;
+  std::function<zetasql_base::Status()> continuation_;
 };
 }  // namespace zetasql
 

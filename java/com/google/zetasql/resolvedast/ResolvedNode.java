@@ -40,11 +40,11 @@ import java.util.List;
  * <p> In this hierarchy, classes are either abstract or leaves.
  */
 public abstract class ResolvedNode implements Serializable {
-
-  @SuppressWarnings("unused")
-  protected ResolvedNode(ResolvedNodeProto proto, DeserializationHelper helper) {
+  ResolvedNode(ResolvedNodeProto proto, DeserializationHelper helper) {
     // Nothing to deserialize for now.
   }
+
+  ResolvedNode() {}
 
   /**
    * Deserializes {@code proto} into a sub class of {@link ResolvedNode}. The
@@ -78,6 +78,52 @@ public abstract class ResolvedNode implements Serializable {
    * {@code visitor}.
    */
   protected void acceptChildren(ResolvedNodes.Visitor visitor) {}
+
+  /**
+   * Creates a Builder object from this node.
+   *
+   * <p>The returned builder is a distinct object; modifications to the builder do not change this
+   * object.
+   */
+  public abstract Builder toBuilder();
+
+  /**
+   * A builder class corresponding to ResolvedNode.
+   *
+   * <p>Note, there is a 'Builder' class hierarchy that matches the node class hierarchy found in {@
+   * link ResolvedNodes}.
+   *
+   * <p>This is declared such that you can chain 'setX' calls freely between a class and those
+   * classes it extends (transitively). Example: <code>
+   *  // Note: ResolvedArgumentRef extends ResolvedExpr
+   *  ResolvedArgumentRef ref =
+   *      ResolvedArgumentRef.newBuilder()
+   *        .setArgumentKind(...)  // A field on ResolvedArgumentRef
+   *        .setType(...)  // A field on ResolvedExpr
+   *        .setName("name")  // A field on ResolvedArgumentRef
+   *        .build();
+   * </code> Propagating 'is_ordered': Some setters will 'propagate' the 'is_ordered' field,
+   * example: {@link ResolvedNodes.ResolvedLimitOffsetScan#setInputScan}. The setters will will be
+   * documented as such.
+   *
+   * <p>Optional fields: Nearly all fields are required, and must have a non-null value. A small
+   * number of fields are optional and have default values.
+   */
+  public abstract static class Builder {
+    /**
+     * Create this object.
+     *
+     * @throws IllegalArgumentException if any required field is not set.
+     */
+    public abstract ResolvedNode build();
+
+    /**
+     * Validates that each required field is set.
+     *
+     * @throws IllegalArgumentException if any required field is not set.
+     */
+    void validate() {}
+  }
 
   @Override
   public final String toString() {

@@ -22,6 +22,7 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree_visitor.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/proto/internal_error_location.pb.h"
@@ -30,6 +31,7 @@
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "zetasql/base/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/source_location.h"
@@ -312,15 +314,22 @@ TEST(ParseTreeTest, GetDescendantsWithKinds) {
 
 class TestVisitor : public NonRecursiveParseTreeVisitor {
  public:
-  explicit TestVisitor(bool post_visit) : post_visit_(post_visit) {}
-  VisitResult defaultVisit(const ASTNode* node) override {
+  explicit TestVisitor(
+      bool post_visit,
+      const ASTNodeKind pre_visit_abort_on = kUnknownASTNodeKind,
+      const ASTNodeKind post_visit_abort_on = kUnknownASTNodeKind)
+      : post_visit_(post_visit),
+        pre_visit_abort_on_(pre_visit_abort_on),
+        post_visit_abort_on_(post_visit_abort_on) {}
+  zetasql_base::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
     return VisitInternal(node, "default");
   }
 
   // Choose an arbitrary node type to provide a specific visitor for.
   // This allows the test to verify that specific visit() methods are invoked
   // when provided, rather than the default.
-  VisitResult visitASTPathExpression(const ASTPathExpression* node) override {
+  zetasql_base::StatusOr<VisitResult> visitASTPathExpression(
+      const ASTPathExpression* node) override {
     return VisitInternal(node, "path_expression");
   }
 
@@ -330,17 +339,25 @@ class TestVisitor : public NonRecursiveParseTreeVisitor {
   int post_visit_count() const { return post_visit_count_; }
 
  private:
-  VisitResult VisitInternal(const ASTNode* node, const std::string& label) {
+  zetasql_base::StatusOr<VisitResult> VisitInternal(const ASTNode* node,
+                                            const std::string& label) {
     ++pre_visit_count_;
     absl::StrAppend(&log_, "preVisit(", label,
                     "): ", node->SingleNodeDebugString(), "\n");
 
-    if (post_visit_) {
-      return VisitResult::VisitChildren(node, [node, this, label]() {
+    if (node->node_kind() == pre_visit_abort_on_) {
+      return zetasql_base::InternalError("Traverse aborted in PreVisit stage");
+    } else if (post_visit_) {
+      auto continuation = [node, this, label]() -> zetasql_base::Status {
         ++post_visit_count_;
         absl::StrAppend(&log_, "postVisit(", label,
                         "): ", node->SingleNodeDebugString(), "\n");
-      });
+        if (node->node_kind() == post_visit_abort_on_) {
+          return zetasql_base::InternalError("Traverse aborted in PostVisit stage");
+        }
+        return zetasql_base::OkStatus();
+      };
+      return VisitResult::VisitChildren(node, continuation);
     } else {
       return VisitResult::VisitChildren(node);
     }
@@ -350,6 +367,8 @@ class TestVisitor : public NonRecursiveParseTreeVisitor {
   int post_visit_count_ = 0;
   std::string log_ = "\n";
   bool post_visit_;
+  ASTNodeKind pre_visit_abort_on_ = kUnknownASTNodeKind;
+  ASTNodeKind post_visit_abort_on_ = kUnknownASTNodeKind;
 };
 
 TEST(ParseTreeTest, NonRecursiveVisitors_WithPostVisit) {
@@ -359,7 +378,7 @@ TEST(ParseTreeTest, NonRecursiveVisitors_WithPostVisit) {
   ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
 
   TestVisitor visitor(/*post_visit=*/true);
-  parser_output->statement()->TraverseNonRecursive(&visitor);
+  ZETASQL_ASSERT_OK(parser_output->statement()->TraverseNonRecursive(&visitor));
   std::string expected_log = R"(
 preVisit(default): QueryStatement
 preVisit(default): Query
@@ -400,7 +419,7 @@ TEST(ParseTreeTest, NonRecursiveVisitors_NoPostVisit) {
   ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
 
   TestVisitor visitor(/*post_visit=*/false);
-  parser_output->statement()->TraverseNonRecursive(&visitor);
+  ZETASQL_ASSERT_OK(parser_output->statement()->TraverseNonRecursive(&visitor));
   std::string expected_log = R"(
 preVisit(default): QueryStatement
 preVisit(default): Query
@@ -419,6 +438,68 @@ preVisit(default): Identifier(t)
   ASSERT_THAT(visitor.log(), expected_log);
   ASSERT_GT(visitor.pre_visit_count(), 0);
   ASSERT_EQ(visitor.post_visit_count(), 0);
+}
+
+TEST(ParseTreeTest, NonRecursiveVisitors_AbortInPreVisit) {
+  const std::string sql = "select y, (1+x) from t;";
+
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
+
+  TestVisitor visitor(/*post_visit=*/true,
+                      /*pre_visit_abort_on=*/AST_INT_LITERAL);
+  ASSERT_THAT(parser_output->statement()->TraverseNonRecursive(&visitor),
+              ::zetasql_base::testing::StatusIs(
+                  zetasql_base::StatusCode::kInternal,
+                  ::testing::Eq("Traverse aborted in PreVisit stage")));
+  std::string expected_log = R"(
+preVisit(default): QueryStatement
+preVisit(default): Query
+preVisit(default): Select
+preVisit(default): SelectList
+preVisit(default): SelectColumn
+preVisit(path_expression): PathExpression
+preVisit(default): Identifier(y)
+postVisit(default): Identifier(y)
+postVisit(path_expression): PathExpression
+postVisit(default): SelectColumn
+preVisit(default): SelectColumn
+preVisit(default): BinaryExpression(+)
+preVisit(default): IntLiteral(1)
+)";
+  ASSERT_THAT(visitor.log(), expected_log);
+}
+
+TEST(ParseTreeTest, NonRecursiveVisitors_AbortInPostVisit) {
+  const std::string sql = "select y, (1+x) from t;";
+
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
+
+  TestVisitor visitor(/*post_visit=*/true,
+                      /*pre_visit_abort_on=*/kUnknownASTNodeKind,
+                      /*post_visit_abort_on=*/AST_INT_LITERAL);
+  ASSERT_THAT(parser_output->statement()->TraverseNonRecursive(&visitor),
+              ::zetasql_base::testing::StatusIs(
+                  zetasql_base::StatusCode::kInternal,
+                  ::testing::Eq("Traverse aborted in PostVisit stage")));
+  std::string expected_log = R"(
+preVisit(default): QueryStatement
+preVisit(default): Query
+preVisit(default): Select
+preVisit(default): SelectList
+preVisit(default): SelectColumn
+preVisit(path_expression): PathExpression
+preVisit(default): Identifier(y)
+postVisit(default): Identifier(y)
+postVisit(path_expression): PathExpression
+postVisit(default): SelectColumn
+preVisit(default): SelectColumn
+preVisit(default): BinaryExpression(+)
+preVisit(default): IntLiteral(1)
+postVisit(default): IntLiteral(1)
+)";
+  ASSERT_THAT(visitor.log(), expected_log);
 }
 
 // Returns a copy of <s> repeated <count> times.

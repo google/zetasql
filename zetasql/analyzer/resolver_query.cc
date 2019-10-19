@@ -4900,7 +4900,8 @@ zetasql_base::Status Resolver::ResolveTVF(
   // references to columns in previous tables in the same FROM clause as the
   // TVF. For this reason, we use 'external_scope' for the ExprResolutionInfo
   // object here when resolving expressions in the TVF call.
-  std::vector<ResolvedTVFArgType> resolved_tvf_args;
+  std::vector<ResolvedTVFArg> resolved_tvf_args;
+  std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments;
   resolved_tvf_args.reserve(num_tvf_args);
   for (int i = 0; i < num_tvf_args; ++i) {
     auto tvf_arg_or_status = ResolveTVFArg(
@@ -4911,9 +4912,19 @@ zetasql_base::Status Resolver::ResolveTVF(
             ? &function_signature.argument(i)
             : nullptr,
         tvf_catalog_entry,
+        &named_arguments,
         i);
     ZETASQL_RETURN_IF_ERROR(tvf_arg_or_status.status());
     resolved_tvf_args.push_back(std::move(tvf_arg_or_status).ValueOrDie());
+  }
+
+  // Check if the function call contains any named arguments.
+  FunctionResolver function_resolver(catalog_, type_factory_, this);
+  if (!named_arguments.empty()) {
+    ZETASQL_RETURN_IF_ERROR(function_resolver.ProcessNamedArguments(
+        tvf_name_string, function_signature, ast_tvf,
+        named_arguments, /*arg_locations=*/nullptr, /*expr_args=*/nullptr,
+        &resolved_tvf_args));
   }
 
   // Check if the TVF arguments match its signature. If not, return an error.
@@ -4924,7 +4935,6 @@ zetasql_base::Status Resolver::ResolveTVF(
     ZETASQL_RETURN_IF_ERROR(input_arg_type_or_status.status());
     input_arg_types.push_back(std::move(input_arg_type_or_status).ValueOrDie());
   }
-  FunctionResolver function_resolver(catalog_, type_factory_, this);
   std::unique_ptr<FunctionSignature> result_signature;
   SignatureMatchResult signature_match_result;
   if (!function_resolver.SignatureMatches(
@@ -4947,13 +4957,15 @@ zetasql_base::Status Resolver::ResolveTVF(
   for (int arg_idx = 0; arg_idx < num_tvf_args; ++arg_idx) {
     if (resolved_tvf_args[arg_idx].IsExpr()) {
       const Type* target_type = result_signature->ConcreteArgumentType(arg_idx);
-      if (!resolved_tvf_args[arg_idx].expr->type()->Equals(target_type)) {
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> expr,
+                       resolved_tvf_args[arg_idx].MoveExpr());
+      if (!expr->type()->Equals(target_type)) {
         ZETASQL_RETURN_IF_ERROR(function_resolver.AddCastOrConvertLiteral(
             ast_tvf->argument_entries()[arg_idx]->expr(), target_type,
             nullptr /* scan */, false /* set_has_explicit_type */,
-            false /* return_null_on_error */,
-            &resolved_tvf_args[arg_idx].expr));
+            false /* return_null_on_error */, &expr));
       }
+      resolved_tvf_args[arg_idx].SetExpr(std::move(expr));
     } else {
       bool must_add_projection = false;
       ZETASQL_RETURN_IF_ERROR(CheckIfMustCoerceOrRearrangeTVFRelationArgColumns(
@@ -4973,37 +4985,40 @@ zetasql_base::Status Resolver::ResolveTVF(
   tvf_input_arguments.reserve(num_tvf_args);
   for (int i = 0; i < num_tvf_args; ++i) {
     if (resolved_tvf_args[i].IsExpr()) {
-      if (resolved_tvf_args[i].expr->node_kind() == RESOLVED_LITERAL) {
-        const Value& value =
-            resolved_tvf_args[i].expr->GetAs<ResolvedLiteral>()->value();
+      ZETASQL_ASSIGN_OR_RETURN(const ResolvedExpr* const expr,
+                       resolved_tvf_args[i].GetExpr());
+      if (expr->node_kind() == RESOLVED_LITERAL) {
+        const Value& value = expr->GetAs<ResolvedLiteral>()->value();
         tvf_input_arguments.push_back(
             TVFInputArgumentType(InputArgumentType(value)));
       } else {
-        tvf_input_arguments.push_back(TVFInputArgumentType(
-            InputArgumentType(resolved_tvf_args[i].expr->type())));
+        tvf_input_arguments.push_back(
+            TVFInputArgumentType(InputArgumentType(expr->type())));
       }
-      tvf_input_arguments.back().set_scalar_expr(
-          resolved_tvf_args[i].expr.get());
+      tvf_input_arguments.back().set_scalar_expr(expr);
     } else if (resolved_tvf_args[i].IsModel()) {
-      tvf_input_arguments.push_back(TVFInputArgumentType(
-          TVFModelArgument(resolved_tvf_args[i].model->model())));
+      ZETASQL_ASSIGN_OR_RETURN(const ResolvedModel* const model,
+                       resolved_tvf_args[i].GetModel());
+      tvf_input_arguments.push_back(
+          TVFInputArgumentType(TVFModelArgument(model->model())));
     } else {
+      ZETASQL_ASSIGN_OR_RETURN(std::shared_ptr<const NameList> name_list,
+                       resolved_tvf_args[i].GetNameList());
       const std::vector<ResolvedColumn> column_list =
-          resolved_tvf_args[i].name_list->GetResolvedColumns();
-      const NameList& name_list = *resolved_tvf_args[i].name_list;
-      if (name_list.is_value_table()) {
-        ZETASQL_RET_CHECK_EQ(1, name_list.num_columns()) << ast_tvf->DebugString();
+          name_list->GetResolvedColumns();
+      if (name_list->is_value_table()) {
+        ZETASQL_RET_CHECK_EQ(1, name_list->num_columns()) << ast_tvf->DebugString();
         ZETASQL_RET_CHECK_EQ(1, column_list.size()) << ast_tvf->DebugString();
         tvf_input_arguments.push_back(TVFInputArgumentType(
             TVFRelation::ValueTable(column_list[0].type())));
       } else {
         TVFRelation::ColumnList tvf_relation_columns;
         tvf_relation_columns.reserve(column_list.size());
-        ZETASQL_RET_CHECK_GE(column_list.size(), name_list.num_columns())
+        ZETASQL_RET_CHECK_GE(column_list.size(), name_list->num_columns())
             << ast_tvf->DebugString();
-        for (int j = 0; j < name_list.num_columns(); ++j) {
-          tvf_relation_columns.emplace_back(name_list.column(j).name.ToString(),
-                                            column_list[j].type());
+        for (int j = 0; j < name_list->num_columns(); ++j) {
+          tvf_relation_columns.emplace_back(
+              name_list->column(j).name.ToString(), column_list[j].type());
         }
         tvf_input_arguments.push_back(
             TVFInputArgumentType(TVFRelation(tvf_relation_columns)));
@@ -5103,18 +5118,32 @@ zetasql_base::Status Resolver::ResolveTVF(
 
   // Create the resolved TVF scan.
   std::vector<const ResolvedTVFArgument*> final_resolved_tvf_args;
-  for (ResolvedTVFArgType& arg : resolved_tvf_args) {
-    ZETASQL_RET_CHECK_EQ(arg.scan != nullptr, arg.name_list != nullptr);
-
-    // We don't need the argument column list for models.
-    std::vector<ResolvedColumn> argument_column_list;
-    if (arg.name_list != nullptr) {
-      argument_column_list = arg.name_list->GetResolvedColumns();
+  for (ResolvedTVFArg& arg : resolved_tvf_args) {
+    if (arg.IsExpr()) {
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> expr,
+                       arg.MoveExpr());
+      final_resolved_tvf_args.push_back(
+          MakeResolvedTVFArgument(std::move(expr), /*scan=*/nullptr,
+                                  /*model=*/nullptr,
+                                  /*argument_column_list=*/{}).release());
+    } else if (arg.IsScan()) {
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedScan> scan,
+                       arg.MoveScan());
+      ZETASQL_ASSIGN_OR_RETURN(std::shared_ptr<const NameList> name_list,
+                       arg.GetNameList());
+      final_resolved_tvf_args.push_back(
+          MakeResolvedTVFArgument(/*expr=*/nullptr, std::move(scan),
+                                  /*model=*/nullptr,
+                                  name_list->GetResolvedColumns()).release());
+    } else {
+      ZETASQL_RET_CHECK(arg.IsModel());
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedModel> model,
+                       arg.MoveModel());
+      final_resolved_tvf_args.push_back(
+          MakeResolvedTVFArgument(/*expr=*/nullptr, /*scan=*/nullptr,
+                                  std::move(model),
+                                  /*argument_column_list=*/{}).release());
     }
-    final_resolved_tvf_args.push_back(
-        MakeResolvedTVFArgument(std::move(arg.expr), std::move(arg.scan),
-                                std::move(arg.model), argument_column_list)
-            .release());
   }
   std::string alias;
   if (ast_tvf->alias() != nullptr) {
@@ -5141,19 +5170,20 @@ zetasql_base::Status Resolver::ResolveTVF(
   return ::zetasql_base::OkStatus();
 }
 
-zetasql_base::StatusOr<Resolver::ResolvedTVFArgType> Resolver::ResolveTVFArg(
+zetasql_base::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
     const ASTTVFArgument* ast_tvf_arg,
     const NameScope* external_scope,
     const NameScope* local_scope,
     const FunctionArgumentType* function_argument,
     const TableValuedFunction* tvf_catalog_entry,
+    std::vector<std::pair<const ASTNamedArgument*, int>>* named_arguments,
     int arg_num) {
   const ASTExpression* ast_expr = ast_tvf_arg->expr();
   const ASTTableClause* ast_table_clause = ast_tvf_arg->table_clause();
   const ASTModelClause* ast_model_clause = ast_tvf_arg->model_clause();
   const ASTConnectionClause* ast_connection_clause =
       ast_tvf_arg->connection_clause();
-  ResolvedTVFArgType resolved_tvf_arg;
+  ResolvedTVFArg resolved_tvf_arg;
   if (ast_table_clause != nullptr) {
     // Resolve the TVF argument as a relation including all original columns
     // from the named table.
@@ -5162,12 +5192,14 @@ zetasql_base::StatusOr<Resolver::ResolvedTVFArgType> Resolver::ResolveTVFArg(
       // The TABLE clause represents a TVF call with arguments. Resolve the
       // TVF inside. Then add an identity projection to match the plan shape
       // expected by engines.
+      std::unique_ptr<const ResolvedScan> scan;
+      std::shared_ptr<const NameList> name_list;
       ZETASQL_RETURN_IF_ERROR(ResolveTVF(ast_table_clause->tvf(), external_scope,
-                                 local_scope, &resolved_tvf_arg.scan,
-                                 &resolved_tvf_arg.name_list));
-      resolved_tvf_arg.scan =
-          MakeResolvedProjectScan(resolved_tvf_arg.scan->column_list(), {},
-                                  std::move(resolved_tvf_arg.scan));
+                                 local_scope, &scan, &name_list));
+      const auto column_list = scan->column_list();
+      resolved_tvf_arg.SetScan(
+          MakeResolvedProjectScan(column_list, {}, std::move(scan)),
+          std::move(name_list));
     } else {
       // If the TVF argument is a TABLE clause, then the table name can be a
       // WITH clause entry, one of the table arguments to the TVF, or a table
@@ -5176,35 +5208,42 @@ zetasql_base::StatusOr<Resolver::ResolvedTVFArgType> Resolver::ResolveTVFArg(
       if (table_path->num_names() == 1 &&
           zetasql_base::ContainsKey(with_subquery_map_,
                            table_path->first_name()->GetAsIdString())) {
+        std::unique_ptr<const ResolvedScan> scan;
+        std::shared_ptr<const NameList> name_list;
         ZETASQL_RETURN_IF_ERROR(ResolveWithSubqueryRef(table_path, /*hint=*/nullptr,
-                                               &resolved_tvf_arg.scan,
-                                               &resolved_tvf_arg.name_list));
-        resolved_tvf_arg.scan =
-            MakeResolvedProjectScan(resolved_tvf_arg.scan->column_list(), {},
-                                    std::move(resolved_tvf_arg.scan));
+                                               &scan, &name_list));
+        const auto column_list = scan->column_list();
+        resolved_tvf_arg.SetScan(
+            MakeResolvedProjectScan(column_list, {}, std::move(scan)),
+            std::move(name_list));
       } else if (table_path->num_names() == 1 &&
                  zetasql_base::ContainsKey(function_table_arguments_,
                                   table_path->first_name()->GetAsIdString()) &&
                  catalog_->FindTable(table_path->ToIdentifierVector(), &table,
                                      analyzer_options_.find_options())
                          .code() == zetasql_base::StatusCode::kNotFound) {
+        std::unique_ptr<const ResolvedScan> scan;
+        std::shared_ptr<const NameList> name_list;
         ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsFunctionTableArgument(
-            table_path, /*hint=*/nullptr,
-            GetAliasForExpression(table_path),
-            /*ast_location=*/ast_table_clause, &resolved_tvf_arg.scan,
-            &resolved_tvf_arg.name_list));
+            table_path, /*hint=*/nullptr, GetAliasForExpression(table_path),
+            /*ast_location=*/ast_table_clause, &scan,
+            &name_list));
+        resolved_tvf_arg.SetScan(std::move(scan), std::move(name_list));
       } else {
         ZETASQL_RET_CHECK(ast_expr == nullptr);
         std::unique_ptr<const ResolvedTableScan> table_scan;
+        std::shared_ptr<const NameList> name_list;
         ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
             table_path, GetAliasForExpression(table_path),
             false /* has_explicit_alias */, ast_table_clause,
             nullptr /* hints */, nullptr /* for_system_time */, external_scope,
-            &table_scan, &resolved_tvf_arg.name_list));
-        resolved_tvf_arg.scan = std::move(table_scan);
+            &table_scan, &name_list));
+        resolved_tvf_arg.SetScan(std::move(table_scan), std::move(name_list));
       }
     }
-    RecordColumnAccess(resolved_tvf_arg.name_list->GetResolvedColumns());
+    ZETASQL_ASSIGN_OR_RETURN(std::shared_ptr<const NameList> name_list,
+                     resolved_tvf_arg.GetNameList());
+    RecordColumnAccess(name_list->GetResolvedColumns());
   } else if (ast_expr != nullptr) {
     if (ast_expr->node_kind() == AST_NAMED_ARGUMENT) {
       // Make sure the language feature is enabled.
@@ -5212,9 +5251,11 @@ zetasql_base::StatusOr<Resolver::ResolvedTVFArgType> Resolver::ResolveTVFArg(
         return MakeSqlErrorAt(ast_expr)
                << "Named arguments are not supported";
       }
-      return MakeSqlErrorAt(ast_expr)
-             << "Named arguments are not supported yet for call to "
-             << "table-valued function " << tvf_catalog_entry->FullName();
+      // Add the named argument to the map.
+      const ASTNamedArgument* named_arg = ast_expr->GetAs<ASTNamedArgument>();
+      named_arguments->emplace_back(named_arg, arg_num);
+      // Set 'ast_expr' to the named argument value for further resolving.
+      ast_expr = named_arg->expr();
     }
     if (function_argument &&
         (function_argument->IsRelation() || function_argument->IsModel() ||
@@ -5252,10 +5293,13 @@ zetasql_base::StatusOr<Resolver::ResolvedTVFArgType> Resolver::ResolveTVFArg(
           }
           return MakeSqlErrorAt(ast_expr) << error;
         }
+        std::unique_ptr<const ResolvedScan> scan;
+        std::shared_ptr<const NameList> name_list;
         ZETASQL_RETURN_IF_ERROR(ResolveQuery(
             ast_expr->GetAsOrDie<ASTExpressionSubquery>()->query(),
             external_scope, AllocateSubqueryName(), false /* is_outer_query */,
-            &resolved_tvf_arg.scan, &resolved_tvf_arg.name_list));
+            &scan, &name_list));
+        resolved_tvf_arg.SetScan(std::move(scan), std::move(name_list));
       } else if (function_argument->IsConnection()) {
         // This argument has to be a connection. Return an error.
         return MakeSqlErrorAt(ast_expr)
@@ -5271,8 +5315,10 @@ zetasql_base::StatusOr<Resolver::ResolvedTVFArgType> Resolver::ResolveTVFArg(
       }
     } else {
       // Resolve the TVF argument as a scalar expression.
-      ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_expr, external_scope, "FROM clause",
-                                        &resolved_tvf_arg.expr));
+      std::unique_ptr<const ResolvedExpr> expr;
+      ZETASQL_RETURN_IF_ERROR(
+          ResolveScalarExpr(ast_expr, external_scope, "FROM clause", &expr));
+      resolved_tvf_arg.SetExpr(std::move(expr));
     }
   } else if (ast_connection_clause != nullptr) {
     // TODO: Connection clause is not supported for TVFs yet. We will
@@ -5285,40 +5331,33 @@ zetasql_base::StatusOr<Resolver::ResolvedTVFArgType> Resolver::ResolveTVFArg(
     std::unique_ptr<const ResolvedModel> resolved_model;
     ZETASQL_RETURN_IF_ERROR(
         ResolveModel(ast_model_clause->model_path(), &resolved_model));
-    resolved_tvf_arg.model = std::move(resolved_model);
+    resolved_tvf_arg.SetModel(std::move(resolved_model));
   }
   return std::move(resolved_tvf_arg);
 }
 
 zetasql_base::StatusOr<InputArgumentType> Resolver::GetTVFArgType(
-    const ResolvedTVFArgType& resolved_tvf_arg) {
+    const ResolvedTVFArg& resolved_tvf_arg) {
   InputArgumentType input_arg_type;
   if (resolved_tvf_arg.IsExpr()) {
-    ZETASQL_RET_CHECK(resolved_tvf_arg.expr != nullptr);
-    ZETASQL_RET_CHECK(resolved_tvf_arg.scan == nullptr);
-    ZETASQL_RET_CHECK(resolved_tvf_arg.model == nullptr);
-    ZETASQL_RET_CHECK(resolved_tvf_arg.name_list == nullptr);
-    input_arg_type = GetInputArgumentTypeForExpr(resolved_tvf_arg.expr.get());
+    ZETASQL_ASSIGN_OR_RETURN(const ResolvedExpr* const expr,
+                     resolved_tvf_arg.GetExpr());
+    input_arg_type = GetInputArgumentTypeForExpr(expr);
   } else if (resolved_tvf_arg.IsScan()) {
-    ZETASQL_RET_CHECK(resolved_tvf_arg.expr == nullptr);
-    ZETASQL_RET_CHECK(resolved_tvf_arg.scan != nullptr);
-    ZETASQL_RET_CHECK(resolved_tvf_arg.model == nullptr);
-    ZETASQL_RET_CHECK(resolved_tvf_arg.name_list != nullptr);
-
-    if (resolved_tvf_arg.name_list->is_value_table()) {
-      input_arg_type =
-          InputArgumentType::RelationInputArgumentType(TVFRelation::ValueTable(
-              resolved_tvf_arg.name_list->column(0).column.type()));
+    ZETASQL_ASSIGN_OR_RETURN(std::shared_ptr<const NameList> name_list,
+                     resolved_tvf_arg.GetNameList());
+    if (name_list->is_value_table()) {
+      input_arg_type = InputArgumentType::RelationInputArgumentType(
+          TVFRelation::ValueTable(name_list->column(0).column.type()));
     } else {
       TVFRelation::ColumnList provided_input_relation_columns;
-      provided_input_relation_columns.reserve(
-          resolved_tvf_arg.name_list->num_columns());
+      provided_input_relation_columns.reserve(name_list->num_columns());
       // Loop over each explicit column returned from the relation argument.
       // Use the number of names in the relation argument's name list instead
       // of the scan's column_list().size() here since the latter includes
       // pseudo-columns, which we do not want to consider here.
-      for (int j = 0; j < resolved_tvf_arg.name_list->num_columns(); ++j) {
-        const NamedColumn& named_column = resolved_tvf_arg.name_list->column(j);
+      for (int j = 0; j < name_list->num_columns(); ++j) {
+        const NamedColumn& named_column = name_list->column(j);
         provided_input_relation_columns.emplace_back(
             named_column.name.ToString(), named_column.column.type());
       }
@@ -5327,13 +5366,10 @@ zetasql_base::StatusOr<InputArgumentType> Resolver::GetTVFArgType(
     }
   } else {
     // We are processing a model argument.
-    ZETASQL_RET_CHECK(resolved_tvf_arg.expr == nullptr);
-    ZETASQL_RET_CHECK(resolved_tvf_arg.scan == nullptr);
-    ZETASQL_RET_CHECK(resolved_tvf_arg.model != nullptr);
-    ZETASQL_RET_CHECK(resolved_tvf_arg.name_list == nullptr);
-
+    ZETASQL_ASSIGN_OR_RETURN(const ResolvedModel* const model,
+                     resolved_tvf_arg.GetModel());
     input_arg_type = InputArgumentType::ModelInputArgumentType(
-        TVFModelArgument(resolved_tvf_arg.model->model()));
+        TVFModelArgument(model->model()));
   }
   return input_arg_type;
 }
@@ -5341,7 +5377,7 @@ zetasql_base::StatusOr<InputArgumentType> Resolver::GetTVFArgType(
 zetasql_base::Status Resolver::CheckIfMustCoerceOrRearrangeTVFRelationArgColumns(
     const FunctionArgumentType& tvf_signature_arg,
     int arg_idx, const SignatureMatchResult& signature_match_result,
-    const ResolvedTVFArgType& resolved_tvf_arg, bool* add_projection) {
+    const ResolvedTVFArg& resolved_tvf_arg, bool* add_projection) {
   // If the function signature did not include a required schema for this
   // particular relation argument, there is no need to add a projection.
   if (!tvf_signature_arg.options().has_relation_input_schema()) {
@@ -5353,7 +5389,9 @@ zetasql_base::Status Resolver::CheckIfMustCoerceOrRearrangeTVFRelationArgColumns
   // columns was not equal to the number of required columns.
   const TVFRelation& required_schema =
       tvf_signature_arg.options().relation_input_schema();
-  const int num_provided_columns = resolved_tvf_arg.name_list->num_columns();
+  ZETASQL_ASSIGN_OR_RETURN(std::shared_ptr<const NameList> name_list,
+                   resolved_tvf_arg.GetNameList());
+  const int num_provided_columns = name_list->num_columns();
   if (required_schema.num_columns() != num_provided_columns) {
     *add_projection = true;
     return ::zetasql_base::OkStatus();
@@ -5379,11 +5417,10 @@ zetasql_base::Status Resolver::CheckIfMustCoerceOrRearrangeTVFRelationArgColumns
 
   // If the order of provided columns was not equal to the order of required
   // columns, add a projection to rearrange provided columns as needed.
-  ZETASQL_RET_CHECK_EQ(required_schema.num_columns(),
-               resolved_tvf_arg.name_list->columns().size());
+  ZETASQL_RET_CHECK_EQ(required_schema.num_columns(), name_list->columns().size());
   for (int i = 0; i < num_provided_columns; ++i) {
     if (!zetasql_base::CaseEqual(required_schema.column(i).name,
-                   resolved_tvf_arg.name_list->column(i).name.ToString())) {
+                   name_list->column(i).name.ToString())) {
       *add_projection = true;
       return ::zetasql_base::OkStatus();
     }
@@ -5396,7 +5433,7 @@ zetasql_base::Status Resolver::CheckIfMustCoerceOrRearrangeTVFRelationArgColumns
 zetasql_base::Status Resolver::CoerceOrRearrangeTVFRelationArgColumns(
     const FunctionArgumentType& tvf_signature_arg,
     int arg_idx, const SignatureMatchResult& signature_match_result,
-    const ASTNode* ast_location, ResolvedTVFArgType* resolved_tvf_arg) {
+    const ASTNode* ast_location, ResolvedTVFArg* resolved_tvf_arg) {
   // Generate a name for a new projection to perform the TVF relation argument
   // coercion and create vectors to hold new columns for the projection.
   const IdString new_project_alias = AllocateSubqueryName();
@@ -5409,7 +5446,9 @@ zetasql_base::Status Resolver::CoerceOrRearrangeTVFRelationArgColumns(
   // Use the number of names in the relation argument's name list instead of the
   // scan's column_list().size() here since the latter includes pseudo-columns,
   // which we do not want to consider here.
-  const int num_provided_columns = resolved_tvf_arg->name_list->num_columns();
+  ZETASQL_ASSIGN_OR_RETURN(std::shared_ptr<const NameList> name_list,
+                   resolved_tvf_arg->GetNameList());
+  const int num_provided_columns = name_list->num_columns();
   new_column_list.reserve(num_provided_columns);
   new_project_columns.reserve(num_provided_columns);
   new_project_name_list->ReserveColumns(num_provided_columns);
@@ -5418,8 +5457,8 @@ zetasql_base::Status Resolver::CoerceOrRearrangeTVFRelationArgColumns(
   // list of provided columns.
   std::map<std::string, int, zetasql_base::StringCaseLess> col_name_to_idx;
   for (int col_idx = 0; col_idx < num_provided_columns; ++col_idx) {
-    col_name_to_idx.emplace(
-        resolved_tvf_arg->name_list->column(col_idx).name.ToString(), col_idx);
+    col_name_to_idx.emplace(name_list->column(col_idx).name.ToString(),
+                            col_idx);
   }
 
   // Iterate through each required column of the relation from the function
@@ -5446,14 +5485,13 @@ zetasql_base::Status Resolver::CoerceOrRearrangeTVFRelationArgColumns(
         signature_match_result.tvf_arg_col_nums_to_coerce_type(),
         std::make_pair(arg_idx, provided_col_idx));
     const ResolvedColumn& provided_input_column =
-        resolved_tvf_arg->name_list->column(provided_col_idx).column;
+        name_list->column(provided_col_idx).column;
     if (result_type == nullptr) {
       new_column_list.push_back(provided_input_column);
     } else {
-      new_column_list.emplace_back(
-          AllocateColumnId(), new_project_alias,
-          resolved_tvf_arg->name_list->column(provided_col_idx).name,
-          result_type);
+      new_column_list.emplace_back(AllocateColumnId(), new_project_alias,
+                                   name_list->column(provided_col_idx).name,
+                                   result_type);
       std::unique_ptr<const ResolvedExpr> resolved_cast(
           MakeColumnRef(provided_input_column, false /* is_correlated */));
       ZETASQL_RETURN_IF_ERROR(ResolveCastWithResolvedArgument(
@@ -5466,15 +5504,17 @@ zetasql_base::Status Resolver::CoerceOrRearrangeTVFRelationArgColumns(
     // is not pruned away later.
     RecordColumnAccess(new_column_list.back());
     ZETASQL_RETURN_IF_ERROR(new_project_name_list->AddColumn(
-        resolved_tvf_arg->name_list->column(provided_col_idx).name,
-        new_column_list.back(), true /* is_explicit */));
+        name_list->column(provided_col_idx).name, new_column_list.back(),
+        true /* is_explicit */));
   }
 
   // Reset the scan and name list to the new projection.
-  resolved_tvf_arg->scan =
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedScan> scan,
+                   resolved_tvf_arg->MoveScan());
+  resolved_tvf_arg->SetScan(
       MakeResolvedProjectScan(new_column_list, std::move(new_project_columns),
-                              std::move(resolved_tvf_arg->scan));
-  resolved_tvf_arg->name_list = std::move(new_project_name_list);
+                              std::move(scan)),
+      std::move(new_project_name_list));
   return ::zetasql_base::OkStatus();
 }
 

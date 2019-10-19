@@ -392,6 +392,72 @@ std::vector<const ASTNode*> ToLocations(
   return ast_locations;
 }
 
+// This helper class is for resolving table-valued functions. It represents a
+// resolved argument to the TVF. The argument can be either a scalar
+// expression, in which case <expr> is filled, a relation, in which case
+// <scan> and <name_list> are filled (where <name_list> is for <scan>), or a
+// machine learning model, in which case <model> is filled.
+// The public accessors provide ways to set and retrieve the fields in a type
+// safe manner.
+class ResolvedTVFArg {
+ public:
+  void SetExpr(std::unique_ptr<const ResolvedExpr> expr) {
+    expr_ = std::move(expr);
+    type_ = EXPR;
+  }
+  void SetScan(std::unique_ptr<const ResolvedScan> scan,
+               std::shared_ptr<const NameList> name_list) {
+    scan_ = std::move(scan);
+    name_list_ = name_list;
+    type_ = SCAN;
+  }
+  void SetModel(std::unique_ptr<const ResolvedModel> model) {
+    model_ = std::move(model);
+    type_ = MODEL;
+  }
+
+  bool IsExpr() const { return type_ == EXPR; }
+  bool IsScan() const { return type_ == SCAN; }
+  bool IsModel() const { return type_ == MODEL; }
+
+  zetasql_base::StatusOr<const ResolvedExpr*> GetExpr() const {
+    ZETASQL_RET_CHECK(IsExpr());
+    return expr_.get();
+  }
+  zetasql_base::StatusOr<const ResolvedScan*> GetScan() const {
+    ZETASQL_RET_CHECK(IsScan());
+    return scan_.get();
+  }
+  zetasql_base::StatusOr<const ResolvedModel*> GetModel() const {
+    ZETASQL_RET_CHECK(IsModel());
+    return model_.get();
+  }
+  zetasql_base::StatusOr<std::shared_ptr<const NameList>> GetNameList() const {
+    ZETASQL_RET_CHECK(IsScan());
+    return name_list_;
+  }
+
+  zetasql_base::StatusOr<std::unique_ptr<const ResolvedExpr>> MoveExpr() {
+    ZETASQL_RET_CHECK(IsExpr());
+    return std::move(expr_);
+  }
+  zetasql_base::StatusOr<std::unique_ptr<const ResolvedScan>> MoveScan() {
+    ZETASQL_RET_CHECK(IsScan());
+    return std::move(scan_);
+  }
+  zetasql_base::StatusOr<std::unique_ptr<const ResolvedModel>> MoveModel() {
+    ZETASQL_RET_CHECK(IsModel());
+    return std::move(model_);
+  }
+
+ private:
+  enum { UNDEFINED, EXPR, SCAN, MODEL } type_ = UNDEFINED;
+  std::unique_ptr<const ResolvedExpr> expr_;
+  std::unique_ptr<const ResolvedScan> scan_;
+  std::unique_ptr<const ResolvedModel> model_;
+  std::shared_ptr<const NameList> name_list_;
+};
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_ANALYZER_EXPR_RESOLVER_HELPER_H_

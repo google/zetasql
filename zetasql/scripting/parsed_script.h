@@ -25,6 +25,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/declare.h"
 #include "zetasql/base/status.h"
+#include "zetasql/base/statusor.h"
 
 // Flag which controls the maximum supported nesting of script statements within
 // a ZetaSQL script.
@@ -112,7 +113,7 @@ class ParsedScript {
 
   // Returns the node in the script which starts at the given position,
   // or nullptr if no such statement exists.
-  const ASTNode* FindScriptNodeFromPosition(
+  zetasql_base::StatusOr<const ASTNode*> FindScriptNodeFromPosition(
       const ParseLocationPoint& start_pos) const;
 
   // Returns a map of all variables in scope immediately prior to the execution

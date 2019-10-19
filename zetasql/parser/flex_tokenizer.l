@@ -442,6 +442,7 @@ except {
 }
 exception { return BisonParserImpl::token::KW_EXCEPTION; }
 exclude { return BisonParserImpl::token::KW_EXCLUDE; }
+execute { return BisonParserImpl::token::KW_EXECUTE; }
 exists { return BisonParserImpl::token::KW_EXISTS; }
 explain { return BisonParserImpl::token::KW_EXPLAIN; }
 export { return BisonParserImpl::token::KW_EXPORT; }
@@ -468,6 +469,7 @@ having { return BisonParserImpl::token::KW_HAVING; }
 hidden { return BisonParserImpl::token::KW_HIDDEN; }
 if { return BisonParserImpl::token::KW_IF; }
 ignore { return BisonParserImpl::token::KW_IGNORE; }
+immediate { return BisonParserImpl::token::KW_IMMEDIATE; }
 immutable { return BisonParserImpl::token::KW_IMMUTABLE; }
 import { return BisonParserImpl::token::KW_IMPORT; }
 in { return BisonParserImpl::token::KW_IN; }
@@ -499,6 +501,7 @@ matched { return BisonParserImpl::token::KW_MATCHED; }
 materialized  { return BisonParserImpl::token::KW_MATERIALIZED; }
 max { return BisonParserImpl::token::KW_MAX; }
 merge { return BisonParserImpl::token::KW_MERGE; }
+message { return BisonParserImpl::token::KW_MESSAGE; }
 min { return BisonParserImpl::token::KW_MIN; }
 model { return BisonParserImpl::token::KW_MODEL; }
 module { return BisonParserImpl::token::KW_MODULE; }
@@ -545,6 +548,7 @@ private { return BisonParserImpl::token::KW_PRIVATE; }
 privileges { return BisonParserImpl::token::KW_PRIVILEGES; }
 proto { return BisonParserImpl::token::KW_PROTO; }
 public { return BisonParserImpl::token::KW_PUBLIC; }
+raise { return BisonParserImpl::token::KW_RAISE; }
 range { return BisonParserImpl::token::KW_RANGE; }
 read { return BisonParserImpl::token::KW_READ; }
 recursive { return BisonParserImpl::token::KW_RECURSIVE; }

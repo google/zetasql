@@ -18,6 +18,7 @@
 // ResolvedNodes.java GENERATED FROM ResolvedNodes.java.template
 package com.google.zetasql.resolvedast;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.protobuf.Descriptors.FieldDescriptor;
@@ -58,14 +59,16 @@ import com.google.zetasql.TypeAnnotationProto.FieldFormat;
 import com.google.zetasql.Value;
 import com.google.zetasql.ValueWithTypeProto;
 import com.google.zetasql.resolvedast.ResolvedColumn;
-# for enum_class in java_enum_classes
+# for enum_class in java_enum_classes|sort
 import com.google.zetasql.resolvedast.{{enum_class}};
 # endfor
 # for node in nodes|sort_by_name
-import com.google.zetasql.{{node.proto_type}};
   # if node.is_abstract
 import com.google.zetasql.{{node.proto_field_type}};
   # endif
+# endfor
+# for node in nodes|sort_by_name
+import com.google.zetasql.{{node.proto_type}};
 # endfor
 
 import java.util.List;
@@ -79,7 +82,6 @@ import java.util.List;
  * <p> In this hierarchy, classes are either abstract or leaves.
  */
 public final class ResolvedNodes {
-
   private ResolvedNodes() {}
 
   static ConstantRefProto serialize(Constant constant,
@@ -247,7 +249,7 @@ public final class ResolvedNodes {
     private final {{field.full_java_type}} {{field.name|lower_camel_case}};
   # endfor
     {{ blank_line }}
-    protected {{node.name}}({{node.proto_type}} proto, DeserializationHelper helper) {
+    {{node.name}}({{node.proto_type}} proto, DeserializationHelper helper) {
       super(proto.getParent(), helper);
   # for field in node.fields
     # if field.is_node_ptr
@@ -285,6 +287,133 @@ public final class ResolvedNodes {
       # endif
     # endif
   # endfor
+    }
+    {{ blank_line }}
+    {# Constructor that initializes fields in the superclass and in this class #}
+    {% set comma = joiner(",") %}
+    {{node.name}}(
+      {%- for field in (node.inherited_fields + node.fields) %}{{comma()}}
+        {{field.full_java_type}} {{field.name|lower_camel_case}}
+      {%- endfor %}) {
+      {% set comma = joiner(",") %}
+      super(
+        {%- for field in node.inherited_fields %}{{comma()}}
+          {{field.name|lower_camel_case}}
+        {%- endfor %});
+      {% for field in node.fields %}
+      this.{{field.member_name|lower_camel_case}} = {{field.name|lower_camel_case}};
+      {% endfor %}
+    }
+    {{ blank_line }}
+    {% if node.is_abstract %}
+    @Override
+    public abstract Builder toBuilder();
+    {% else %}
+    @Override
+    public Builder toBuilder() {
+      Builder builder = builder();
+      {% for field in (node.inherited_fields + node.fields) %}
+      builder.{{field.name|lower_camel_case}} = this.get{{field.name|upper_camel_case}}();
+      {% endfor %}
+      return builder;
+    }
+
+    public static Builder builder() {
+      return new Builder();
+    }
+    {% endif %}
+
+    {% if node.is_abstract %}
+    public static abstract class Builder extends {{ node.parent }}.Builder {
+    {% else %}
+    public static final class Builder extends {{node.parent}}.Builder {
+    {% endif %}
+      {% for field in (node.fields) %}
+      {% if field.is_constructor_arg %}
+      {# All is_constructor_arg are required, so we default to null and check that
+         they are set in validate(). #}
+      protected {{field.nullable_java_type}} {{field.name|lower_camel_case}} = null;
+      {% else %}
+      protected {{field.full_java_type}} {{field.name|lower_camel_case}} = {{field.java_default}};
+      {% endif %}
+      {% endfor %}
+      {{ blank_line }}
+      private Builder() {}
+      {{ blank_line }}
+      {% for field in (node.inherited_fields) %}
+      {%if field.is_vector %}
+      @Override
+      public Builder set{{field.name|upper_camel_case}}(List<{{field.java_type}}> v) {
+        super.set{{field.name|upper_camel_case}}(v);
+        return this;
+      }
+      {% else %}
+      @Override
+      public Builder set{{field.name|upper_camel_case}}({{field.full_java_type}} v) {
+        super.set{{field.name|upper_camel_case}}(v);
+        return this;
+      }
+      {% endif %}
+      {{blank_line}}
+      {% endfor %}
+      {{blank_line}}
+      {% for field in (node.fields) %}
+      {%- if field.javadoc %}{{field.javadoc}}
+      {%- elif field.propagate_order %}
+      /**
+       * Note: this method propagates the 'isOrdered' field from {@param v}.
+       * To override this, call setIsOrdered explicitly after calling this
+       * method.
+       */
+      {% endif %}
+      {%if field.is_vector %}
+      public Builder set{{field.name|upper_camel_case}}(List<{{field.java_type}}> v) {
+        {# Copy of performs null checking of v and it's elements. #}
+        this.{{field.name|lower_camel_case}} = ImmutableList.copyOf(v);
+        return this;
+      }
+      {% else %}
+      public Builder set{{field.name|upper_camel_case}}({{field.full_java_type}} v) {
+        this.{{field.name|lower_camel_case}} = v;
+        {% if field.full_java_type == field.nullable_java_type %}
+        Preconditions.checkNotNull(v, "{{field.name|lower_camel_case}} must not be null");
+        {% endif %}
+        {% if field.propagate_order %}
+        {# Perform the action on set, not on build, because users may wish to
+           directly call setIsOrdered(). #}
+        setIsOrdered(v.getIsOrdered());
+        {% endif %}
+        return this;
+      }
+      {% endif %}
+      {{blank_line}}
+      {% endfor %}
+
+      {% if node.is_abstract %}
+      @Override
+      public abstract {{node.name}} build();
+      {% else %}
+      @Override
+      public final {{node.name}} build() {
+        validate();
+        return new {{node.name}}(
+        {%- set comma = joiner(",") %}
+        {%- for field in node.inherited_fields + node.fields %}{{comma()}}
+            {{field.name|lower_camel_case}}
+        {%- endfor %});
+      }
+      {% endif %}
+
+      @Override
+      protected void validate() {
+        super.validate();
+        {% for field in (node.fields) %}
+        {% if field.is_constructor_arg %}
+        Preconditions.checkArgument(
+            {{field.name|lower_camel_case}} != null, "{{field.name|lower_camel_case}} must be set");
+        {% endif %}
+        {% endfor %}
+      }
     }
 
   # if node.is_abstract

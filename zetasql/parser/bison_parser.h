@@ -30,6 +30,7 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/position.hh"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
@@ -97,6 +98,7 @@ class BisonParser {
   zetasql_base::Status Parse(
       BisonParserMode mode, absl::string_view filename, absl::string_view input,
       int start_byte_offset, IdStringPool* id_string_pool, zetasql_base::UnsafeArena* arena,
+      const LanguageOptions* language_options,
       std::unique_ptr<zetasql::ASTNode>* output,
       std::vector<std::unique_ptr<ASTNode>>* other_allocated_ast_nodes,
       ASTNodeKind* next_statement_kind_result, bool* next_statement_is_ctas,
@@ -229,6 +231,8 @@ class BisonParser {
   IdString filename() const { return filename_; }
   IdStringPool* id_string_pool() const { return id_string_pool_; }
 
+  const LanguageOptions* language_options() { return language_options_; }
+
   // Returns the next 1-based parameter position.
   int GetNextPositionalParameterPosition() {
     return ++previous_positional_parameter_position_;
@@ -253,6 +257,9 @@ class BisonParser {
   // The parser allocates all ASTNodes in this arena. Not owned. Only valid
   // during Parse().
   zetasql_base::UnsafeArena* arena_;
+
+  // LanguageOptions to control parser's behavior.
+  const LanguageOptions* language_options_;
 
   // ASTNodes that are allocated by the parser are added to this vector during
   // parsing. The root node itself is added when it is allocated, but it is then

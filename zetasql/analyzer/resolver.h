@@ -31,6 +31,7 @@
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/parse_tree_decls.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/coercer.h"
@@ -1156,6 +1157,10 @@ class Resolver {
       std::vector<std::string>* grantee_list,
       std::vector<std::unique_ptr<const ResolvedExpr>>* grantee_expr_list);
 
+  zetasql_base::Status ResolveExecuteImmediateStatement(
+      const ASTExecuteImmediateStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
   static zetasql_base::Status CreateSelectNamelists(
       const SelectColumnState* select_column_state,
       NameList* post_group_by_alias_name_list,
@@ -1849,22 +1854,6 @@ class Resolver {
       std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* output_name_list);
 
-  // This helper struct is for resolving table-valued functions. It represents a
-  // resolved argument to the TVF. The argument can be either a scalar
-  // expression, in which case <expr> is filled, a relation, in which case
-  // <scan> and <name_list> are filled (where <name_list> is for <scan>), or a
-  // machine learning model, in which case <model> is filled.
-  struct ResolvedTVFArgType {
-    std::unique_ptr<const ResolvedExpr> expr;
-    std::unique_ptr<const ResolvedScan> scan;
-    std::unique_ptr<const ResolvedModel> model;
-    std::shared_ptr<const NameList> name_list;
-
-    bool IsExpr() const { return expr != nullptr; }
-    bool IsScan() const { return scan != nullptr; }
-    bool IsModel() const { return model != nullptr; }
-  };
-
   // Resolves a call to a table-valued function (TVF) represented by <ast_tvf>.
   // This returns a new ResolvedTVFScan which contains the name of the function
   // to call and the scalar and table-valued arguments to pass into the call.
@@ -1900,16 +1889,17 @@ class Resolver {
       std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* output_name_list);
 
-  zetasql_base::StatusOr<ResolvedTVFArgType> ResolveTVFArg(
+  zetasql_base::StatusOr<ResolvedTVFArg> ResolveTVFArg(
       const ASTTVFArgument* ast_tvf_arg,
       const NameScope* external_scope,
       const NameScope* local_scope,
       const FunctionArgumentType* function_argument,
       const TableValuedFunction* tvf_catalog_entry,
+      std::vector<std::pair<const ASTNamedArgument*, int>>* named_arguments,
       int arg_num);
 
   static zetasql_base::StatusOr<InputArgumentType> GetTVFArgType(
-      const ResolvedTVFArgType& resolved_tvf_arg);
+      const ResolvedTVFArg& resolved_tvf_arg);
 
   // Returns true in <add_projection> if the relation argument of
   // <tvf_signature_arg> at <arg_idx> has a required schema where the number,
@@ -1920,7 +1910,7 @@ class Resolver {
   zetasql_base::Status CheckIfMustCoerceOrRearrangeTVFRelationArgColumns(
       const FunctionArgumentType& tvf_signature_arg, int arg_idx,
       const SignatureMatchResult& signature_match_result,
-      const ResolvedTVFArgType& resolved_tvf_arg, bool* add_projection);
+      const ResolvedTVFArg& resolved_tvf_arg, bool* add_projection);
 
   // This method adds a ProjectScan on top of a relation argument for a
   // table-valued function relation argument when the function signature
@@ -1951,7 +1941,7 @@ class Resolver {
       const FunctionArgumentType& tvf_signature_arg, int arg_idx,
       const SignatureMatchResult& signature_match_result,
       const ASTNode* ast_location,
-      ResolvedTVFArgType* resolved_tvf_arg);
+      ResolvedTVFArg* resolved_tvf_arg);
 
   // Resolve a column in the USING clause on one side of the join.
   // <side_name> is "left" or "right", for error messages.

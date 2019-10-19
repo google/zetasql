@@ -182,6 +182,24 @@ class FunctionResolver {
       const ExprResolutionInfo* expr_info,
       QueryResolutionInfo* query_info);
 
+  // Iterates through <named_arguments> and compares them against <signature>,
+  // rearranging any of <arg_locations>, <expr_args>, and/or <tvf_arg_types> to
+  // match the order of the given <named_arguments> or returning an error if an
+  // invariant is not satisfied. The <arg_locations>, <expr_args>, and
+  // <tvf_arg_types> are all optional and will be ignored if NULL; any
+  // combination is acceptable. Note that combinations of positional and named
+  // arguments are not supported yet, so <expr_args> and <tvf_arg_types> are
+  // mutually exclusive for now, depending on whether we are resolving a scalar
+  // function call or a TVF call.
+  zetasql_base::Status ProcessNamedArguments(
+      const std::string& function_name, const FunctionSignature& signature,
+      const ASTNode* ast_location,
+      const std::vector<std::pair<const ASTNamedArgument*, int>>&
+          named_arguments,
+      std::vector<const ASTNode*>* arg_locations,
+      std::vector<std::unique_ptr<const ResolvedExpr>>* expr_args,
+      std::vector<ResolvedTVFArg>* tvf_arg_types);
+
  private:
   Catalog* catalog_;           // Not owned.
   TypeFactory* type_factory_;  // Not owned.
@@ -254,17 +272,6 @@ class FunctionResolver {
   // resolved (possibly coerced) Type each resolved to in a particular function
   // call.
   typedef std::map<SignatureArgumentKind, const Type*> ArgKindToResolvedTypeMap;
-
-  // Iterates through <named_arguments> and compares them against <signature>,
-  // rearranging <arg_locations> and <arguments> to match the order of the given
-  // <named_arguments> or returning an error if an invariant is not satisfied.
-  zetasql_base::Status ProcessNamedArguments(
-      const std::string& function_name, const FunctionSignature& signature,
-      const ASTNode* ast_location,
-      const std::vector<std::pair<const ASTNamedArgument*, int>>&
-          named_arguments,
-      std::vector<const ASTNode*>* arg_locations,
-      std::vector<std::unique_ptr<const ResolvedExpr>>* arguments);
 
   static std::string ArgKindToInputTypesMapDebugString(
       const ArgKindToInputTypesMap& map);

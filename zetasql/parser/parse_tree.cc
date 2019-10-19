@@ -27,6 +27,7 @@
 #include "zetasql/parser/parse_tree_visitor.h"
 // This is not a header -- it is a generated part of this source file.
 #include "zetasql/parser/parse_tree_accept_methods.inc"  
+#include "zetasql/parser/visit_result.h"
 #include "zetasql/public/strings.h"
 #include "absl/base/attributes.h"
 #include "absl/container/flat_hash_map.h"
@@ -35,6 +36,7 @@
 #include "absl/strings/str_join.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -127,6 +129,10 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_ELSEIF_CLAUSE_LIST] = "ElseIfList";
   map[AST_EXCEPTION_HANDLER] = "ExceptionHandler";
   map[AST_EXCEPTION_HANDLER_LIST] = "ExceptionHandlerList";
+  map[AST_EXECUTE_IMMEDIATE_STATEMENT] = "ExecuteImmediateStatement";
+  map[AST_EXECUTE_INTO_CLAUSE] = "ExecuteIntoClause";
+  map[AST_EXECUTE_USING_ARGUMENT] = "ExecuteUsingArgument";
+  map[AST_EXECUTE_USING_CLAUSE] = "ExecuteUsingClause";
   map[AST_EXPLAIN_STATEMENT] = "ExplainStatement";
   map[AST_EXPORT_DATA_STATEMENT] = "ExportDataStatement";
   map[AST_EXPRESSION_SUBQUERY] = "ExpressionSubquery";
@@ -203,6 +209,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_PRIVILEGE] = "Privilege";
   map[AST_QUERY_STATEMENT] = "QueryStatement";
   map[AST_QUERY] = "Query";
+  map[AST_RAISE_STATEMENT] = "Raise";
   map[AST_RENAME_TO_CLAUSE] = "RenameToClause";
   map[AST_RENAME_STATEMENT] = "RenameStatement";
   map[AST_REPEATABLE_CLAUSE] = "RepeatableClause";
@@ -315,35 +322,39 @@ void ASTNode::AddChildren(absl::Span<ASTNode* const> children) {
   }
 }
 
-void ASTNode::TraverseNonRecursiveHelper(
+zetasql_base::Status ASTNode::TraverseNonRecursiveHelper(
     const VisitResult& result, NonRecursiveParseTreeVisitor* visitor,
-    std::stack<std::function<void()>>* stack) {
+    std::vector<std::function<zetasql_base::Status()>>* stack) {
   // Push actions in the reverse order that they will execute in.
   if (result.continuation() != nullptr) {
-    stack->push(result.continuation());
+    stack->push_back(result.continuation());
   }
   if (result.node_for_child_visit() != nullptr) {
     const ASTNode* node = result.node_for_child_visit();
     for (int i = node->num_children() - 1; i >= 0; --i) {
       const ASTNode* child = node->child(i);
-      stack->push([visitor, child, stack]() {
-        TraverseNonRecursiveHelper(child->Accept(visitor), visitor, stack);
+      stack->push_back([visitor, child, stack]() -> zetasql_base::Status {
+        ZETASQL_ASSIGN_OR_RETURN(VisitResult child_result, child->Accept(visitor));
+        return TraverseNonRecursiveHelper(child_result, visitor, stack);
       });
     }
   }
+  return zetasql_base::OkStatus();
 }
 
-void ASTNode::TraverseNonRecursive(
+zetasql_base::Status ASTNode::TraverseNonRecursive(
     NonRecursiveParseTreeVisitor* visitor) const {
-  std::stack<std::function<void()>> stack;
-  stack.push([this, &stack, visitor]() {
-    TraverseNonRecursiveHelper(Accept(visitor), visitor, &stack);
+  std::vector<std::function<zetasql_base::Status()>> stack;
+  stack.push_back([this, &stack, visitor]() -> zetasql_base::Status {
+    ZETASQL_ASSIGN_OR_RETURN(VisitResult root_result, Accept(visitor));
+    return TraverseNonRecursiveHelper(root_result, visitor, &stack);
   });
   while (!stack.empty()) {
-    std::function<void()> task = stack.top();
-    stack.pop();
-    task();
+    std::function<zetasql_base::Status()> task = stack.back();
+    stack.pop_back();
+    ZETASQL_RETURN_IF_ERROR(task());
   }
+  return zetasql_base::OkStatus();
 }
 
 void ASTNode::Accept(ParseTreeVisitor* visitor, void* data) const {

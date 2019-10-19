@@ -29,6 +29,7 @@ cc_library(
     deps = [
         "//zetasql/base:map_util",
         "//zetasql/base:status",
+        "//zetasql/base:statusor",
         "//zetasql/common:errors",
         "//zetasql/parser",
         "//zetasql/public:options_cc_proto",

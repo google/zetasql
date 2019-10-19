@@ -45,11 +45,7 @@ namespace {
 // a stack overflow later, while traversing the tree.
 class VerifyMaxScriptingDepthVisitor : public NonRecursiveParseTreeVisitor {
  public:
-  VisitResult defaultVisit(const ASTNode* node) override {
-    if (!status_.ok()) {
-      return VisitResult::Empty();
-    }
-
+  zetasql_base::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
     // We limit the nesting level of script constructs to a fixed depth,
     // so that which scripts can and cannot execute is stable across
     // implementation changes to either the script executor code or the
@@ -65,10 +61,9 @@ class VerifyMaxScriptingDepthVisitor : public NonRecursiveParseTreeVisitor {
     // execute without a script to execute successfully, within a script.
     if (node->IsScriptStatement()) {
       if (++depth_ > max_depth_) {
-        status_ = MakeSqlErrorAt(node) << "Script statement nesting level "
-                                          "exceeds maximum supported limit of "
-                                       << max_depth_;
-        return VisitResult::Empty();
+        return MakeSqlErrorAt(node) << "Script statement nesting level "
+                                       "exceeds maximum supported limit of "
+                                    << max_depth_;
       }
     }
 
@@ -76,17 +71,14 @@ class VerifyMaxScriptingDepthVisitor : public NonRecursiveParseTreeVisitor {
       if (node->IsScriptStatement()) {
         --depth_;
       }
+      return zetasql_base::OkStatus();
     });
   }
-
-  zetasql_base::Status status() const { return status_; }
 
  private:
   int depth_ = 0;
   const int max_depth_ =
       absl::GetFlag(FLAGS_zetasql_scripting_max_nesting_level);
-
-  zetasql_base::Status status_;
 };
 
 // Visitor to verify that:
@@ -101,9 +93,7 @@ class ValidateVariableDeclarationsVisitor
       const ParsedScript* parsed_script)
       : parsed_script_(parsed_script) {}
 
-  zetasql_base::Status status() const { return status_; }
-
-  VisitResult defaultVisit(const ASTNode* node) override {
+  zetasql_base::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
     return VisitResult::VisitChildren(node);
   }
 
@@ -115,7 +105,8 @@ class ValidateVariableDeclarationsVisitor
     return stmt_list->variable_declarations_allowed();
   }
 
-  VisitResult visitASTStatementList(const ASTStatementList* node) override {
+  zetasql_base::StatusOr<VisitResult> visitASTStatementList(
+      const ASTStatementList* node) override {
     bool found_non_variable_decl = false;
 
     // Check for variable declaration outside of a block and for declaring
@@ -123,11 +114,10 @@ class ValidateVariableDeclarationsVisitor
     for (const ASTStatement* statement : node->statement_list()) {
       if (statement->node_kind() == AST_VARIABLE_DECLARATION) {
         if (found_non_variable_decl || !CanHaveDeclareStmtAsChild(node)) {
-          RecordError(
+          return MakeVariableDeclarationError(
               statement,
               "Variable declarations are allowed only at the start of a "
               "block or script");
-          return VisitResult::Empty();
         }
         // Check for variable redeclaration.
         for (const ASTIdentifier* id :
@@ -136,20 +126,18 @@ class ValidateVariableDeclarationsVisitor
                  ->identifier_list()) {
           if (!zetasql_base::InsertIfNotPresent(&variables_, id->GetAsIdString(),
                                        id->GetParseLocationRange().start())) {
-            RecordError(
+            return MakeVariableDeclarationError(
                 id,
                 absl::StrCat("Variable '", id->GetAsString(),
                              "' redeclaration"),
                 absl::StrCat(id->GetAsString(), " previously declared here"),
                 variables_[id->GetAsIdString()]);
-            return VisitResult::Empty();
           }
           if (zetasql_base::ContainsKey(parsed_script_->routine_arguments(),
                                id->GetAsIdString())) {
-            RecordError(id,
-                        absl::StrCat("Variable '", id->GetAsString(),
-                                     "' previously declared as an argument"));
-            return VisitResult::Empty();
+            return MakeVariableDeclarationError(
+                id, absl::StrCat("Variable '", id->GetAsString(),
+                                 "' previously declared as an argument"));
           }
         }
       } else {
@@ -157,30 +145,31 @@ class ValidateVariableDeclarationsVisitor
       }
     }
     return VisitResult::VisitChildren(node, [this, node]() {
-      if (status_.ok()) {
-        // Remove variables declared in this block so that a subsequent block
-        // can reuse the variable name.
-        for (const ASTStatement* statement : node->statement_list()) {
-          if (statement->node_kind() == AST_VARIABLE_DECLARATION) {
-            for (const ASTIdentifier* id :
-                 statement->GetAs<ASTVariableDeclaration>()
-                     ->variable_list()
-                     ->identifier_list()) {
-              variables_.erase(id->GetAsIdString());
-            }
+      // Remove variables declared in this block so that a subsequent block
+      // can reuse the variable name.
+      for (const ASTStatement* statement : node->statement_list()) {
+        if (statement->node_kind() == AST_VARIABLE_DECLARATION) {
+          for (const ASTIdentifier* id :
+               statement->GetAs<ASTVariableDeclaration>()
+                   ->variable_list()
+                   ->identifier_list()) {
+            variables_.erase(id->GetAsIdString());
           }
         }
       }
+      return zetasql_base::OkStatus();
     });
   }
 
-  void RecordError(const ASTNode* node, absl::string_view error_message) {
-    status_.Update(MakeSqlErrorAtNode(node, true) << error_message);
+  zetasql_base::Status MakeVariableDeclarationError(const ASTNode* node,
+                                            absl::string_view error_message) {
+    return MakeSqlErrorAtNode(node, true) << error_message;
   }
 
-  void RecordError(const ASTNode* node, const std::string& error_message,
-                   absl::string_view source_message,
-                   const ParseLocationPoint& source_location) {
+  zetasql_base::Status MakeVariableDeclarationError(
+      const ASTNode* node, const std::string& error_message,
+      absl::string_view source_message,
+      const ParseLocationPoint& source_location) {
     std::string script_text(parsed_script_->script_text());
     const InternalErrorLocation location = SetErrorSourcesFromStatus(
         MakeInternalErrorLocation(node),
@@ -188,10 +177,8 @@ class ValidateVariableDeclarationsVisitor
             MakeSqlErrorAtPoint(source_location) << source_message,
             script_text),
         parsed_script_->error_message_mode(), script_text);
-    status_.Update(MakeSqlError().Attach(location) << error_message);
+    return MakeSqlError().Attach(location) << error_message;
   }
-
-  zetasql_base::Status status_ = ::zetasql_base::OkStatus();
 
   // Associates each active variable with the location of its declaration.
   // Used to generate the error message if the script later attempts to declare
@@ -216,17 +203,18 @@ class PopulateIndexMapsVisitor : public NonRecursiveParseTreeVisitor {
       : map_statement_index_(map_statement_index),
         map_elseif_clauses_(map_elseif_clauses) {}
 
-  VisitResult defaultVisit(const ASTNode* node) override {
+  zetasql_base::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
     return VisitResult::VisitChildren(node);
   }
-  VisitResult visitASTStatementList(const ASTStatementList* node) override {
+  zetasql_base::StatusOr<VisitResult> visitASTStatementList(
+      const ASTStatementList* node) override {
     int index = 0;
     for (const ASTStatement* statement : node->statement_list()) {
       (*map_statement_index_)[statement] = index++;
     }
     return VisitResult::VisitChildren(node);
   }
-  VisitResult visitASTElseifClauseList(
+  zetasql_base::StatusOr<VisitResult> visitASTElseifClauseList(
       const ASTElseifClauseList* node) override {
     int index = 0;
     for (const ASTElseifClause* clause : node->elseif_clauses()) {
@@ -250,23 +238,24 @@ class PopulateBreakContinueMapVisitor : public NonRecursiveParseTreeVisitor {
       ParsedScript::BreakContinueMap* break_continue_map)
       : break_continue_map_(break_continue_map) {}
 
-  const zetasql_base::Status& status() const { return status_; }
-
-  VisitResult defaultVisit(const ASTNode* node) override {
+  zetasql_base::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
     return VisitResult::VisitChildren(node);
   }
-  VisitResult visitASTBreakStatement(const ASTBreakStatement* node) override {
-    (*break_continue_map_)[node] = CreateBreakContinueContext(node);
+  zetasql_base::StatusOr<VisitResult> visitASTBreakStatement(
+      const ASTBreakStatement* node) override {
+    ZETASQL_ASSIGN_OR_RETURN((*break_continue_map_)[node],
+                     CreateBreakContinueContext(node));
     return VisitResult::Empty();
   }
-  VisitResult visitASTContinueStatement(
+  zetasql_base::StatusOr<VisitResult> visitASTContinueStatement(
       const ASTContinueStatement* node) override {
-    (*break_continue_map_)[node] = CreateBreakContinueContext(node);
+    ZETASQL_ASSIGN_OR_RETURN((*break_continue_map_)[node],
+                     CreateBreakContinueContext(node));
     return VisitResult::Empty();
   }
 
  private:
-  BreakContinueContext CreateBreakContinueContext(
+  zetasql_base::StatusOr<BreakContinueContext> CreateBreakContinueContext(
       const ASTBreakContinueStatement* stmt) {
     const ASTLoopStatement* enclosing_loop = nullptr;
     std::vector<const ASTBeginEndBlock*> blocks_to_exit;
@@ -281,15 +270,14 @@ class PopulateBreakContinueMapVisitor : public NonRecursiveParseTreeVisitor {
       }
     }
     if (enclosing_loop == nullptr) {
-      status_ = MakeSqlErrorAtNode(stmt, true)
-                << stmt->GetKeywordText()
-                << " is only allowed inside of a loop body";
+      return MakeSqlErrorAtNode(stmt, true)
+             << stmt->GetKeywordText()
+             << " is only allowed inside of a loop body";
     }
     return BreakContinueContext(enclosing_loop, std::move(blocks_to_exit));
   }
 
   ParsedScript::BreakContinueMap* break_continue_map_;
-  zetasql_base::Status status_;
 };
 
 // Visitor to find the statement within a script that matches a given position.
@@ -300,7 +288,7 @@ class FindStatementFromPositionVisitor : public NonRecursiveParseTreeVisitor {
 
   const ASTNode* match() const { return match_; }
 
-  VisitResult defaultVisit(const ASTNode* node) override {
+  zetasql_base::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
     if (match_ != nullptr) {
       return VisitResult::Empty();
     }
@@ -315,26 +303,27 @@ class FindStatementFromPositionVisitor : public NonRecursiveParseTreeVisitor {
     return VisitResult::Empty();
   }
 
-  VisitResult visitASTExceptionHandlerList(
+  zetasql_base::StatusOr<VisitResult> visitASTExceptionHandlerList(
       const ASTExceptionHandlerList* node) override {
     return VisitResult::VisitChildren(node);
   }
 
-  VisitResult visitASTExceptionHandler(
+  zetasql_base::StatusOr<VisitResult> visitASTExceptionHandler(
       const ASTExceptionHandler* node) override {
     return VisitResult::VisitChildren(node);
   }
 
-  VisitResult visitASTElseifClauseList(
+  zetasql_base::StatusOr<VisitResult> visitASTElseifClauseList(
       const ASTElseifClauseList* node) override {
     return VisitResult::VisitChildren(node);
   }
 
-  VisitResult visitASTStatementList(const ASTStatementList* node) override {
+  zetasql_base::StatusOr<VisitResult> visitASTStatementList(
+      const ASTStatementList* node) override {
     return VisitResult::VisitChildren(node);
   }
 
-  VisitResult visitASTScript(const ASTScript* node) override {
+  zetasql_base::StatusOr<VisitResult> visitASTScript(const ASTScript* node) override {
     return VisitResult::VisitChildren(node);
   }
 
@@ -344,10 +333,10 @@ class FindStatementFromPositionVisitor : public NonRecursiveParseTreeVisitor {
 };
 }  // namespace
 
-const ASTNode* ParsedScript::FindScriptNodeFromPosition(
+zetasql_base::StatusOr<const ASTNode*> ParsedScript::FindScriptNodeFromPosition(
     const ParseLocationPoint& start_pos) const {
   FindStatementFromPositionVisitor visitor(start_pos);
-  script()->TraverseNonRecursive(&visitor);
+  ZETASQL_RETURN_IF_ERROR(script()->TraverseNonRecursive(&visitor));
   return visitor.match();
 }
 
@@ -391,12 +380,10 @@ zetasql_base::Status ParsedScript::GatherInformationAndRunChecksInternal() {
   // Check the maximum-depth constraint first, to ensure that other checks
   // do not cause a stack overflow in the case of a deeply nested script.
   VerifyMaxScriptingDepthVisitor max_depth_visitor;
-  script()->TraverseNonRecursive(&max_depth_visitor);
-  ZETASQL_RETURN_IF_ERROR(max_depth_visitor.status());
+  ZETASQL_RETURN_IF_ERROR(script()->TraverseNonRecursive(&max_depth_visitor));
 
   ValidateVariableDeclarationsVisitor var_decl_visitor(this);
-  script()->TraverseNonRecursive(&var_decl_visitor);
-  ZETASQL_RETURN_IF_ERROR(var_decl_visitor.status());
+  ZETASQL_RETURN_IF_ERROR(script()->TraverseNonRecursive(&var_decl_visitor));
 
   // Walk the parse tree, constructing a StatementIndexMap, associating each
   // statement in the script with its index in the child list of the statement's
@@ -404,15 +391,14 @@ zetasql_base::Status ParsedScript::GatherInformationAndRunChecksInternal() {
   // script.
   PopulateIndexMapsVisitor populate_index_visitor(&statement_index_map_,
                                                   &elseif_clause_index_map_);
-  script()->TraverseNonRecursive(&populate_index_visitor);
+  ZETASQL_RETURN_IF_ERROR(script()->TraverseNonRecursive(&populate_index_visitor));
 
   // Walk the parse tree, building up a map, associating each BREAK, CONTINUE,
   // LEAVE, or ITERATE statement with its innermost loop and set of blocks that
   // must exit in order to continue or exit the loop.
   PopulateBreakContinueMapVisitor break_continue_map_visitor(
       &break_continue_map_);
-  script()->TraverseNonRecursive(&break_continue_map_visitor);
-  ZETASQL_RETURN_IF_ERROR(break_continue_map_visitor.status());
+  ZETASQL_RETURN_IF_ERROR(script()->TraverseNonRecursive(&break_continue_map_visitor));
 
   return zetasql_base::OkStatus();
 }

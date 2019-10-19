@@ -79,8 +79,8 @@ echo
 echo 'class NonRecursiveParseTreeVisitor {'
 echo ' public:'
 echo '  virtual ~NonRecursiveParseTreeVisitor() {}'
-echo '  virtual VisitResult defaultVisit(const ASTNode* node) = 0;'
-echo '  VisitResult visit(const ASTNode* node) {'
+echo '  virtual zetasql_base::StatusOr<VisitResult> defaultVisit(const ASTNode* node) = 0;'
+echo '  zetasql_base::StatusOr<VisitResult> visit(const ASTNode* node) {'
 echo '    return defaultVisit(node);'
 echo '  }'
 
@@ -89,7 +89,7 @@ sed -f - "$1" <<EOF
 # Matches the start of a final (i.e., concrete) class.
 /^class AST[a-zA-Z]* final : public/ {
   # Do a search/replace to make the method definition.
-  s/class \(AST[a-zA-Z]*\).*/  virtual VisitResult visit\1(const \1* node) {return defaultVisit(node);};\n/
+  s/class \(AST[a-zA-Z]*\).*/  virtual zetasql_base::StatusOr<VisitResult> visit\1(const \1* node) {return defaultVisit(node);};\n/
   p
 }
 # Delete everything else so we just keep the new methods.
@@ -137,7 +137,7 @@ sed -f - "$1" <<EOF
 # Matches the start of a final (i.e., non-abstract) class.
 /^class AST[a-zA-Z]* final : public/ {
   # Do a search/replace to make the method definition.
-  s/class \(AST[a-zA-Z]*\).*/VisitResult \1::Accept(NonRecursiveParseTreeVisitor* visitor) const {\n  return visitor->visit\1(this);\n}\n/
+  s/class \(AST[a-zA-Z]*\).*/zetasql_base::StatusOr<VisitResult> \1::Accept(NonRecursiveParseTreeVisitor* visitor) const {\n  return visitor->visit\1(this);\n}\n/
   p
 }
 # Delete everything else so we just keep the new methods.

@@ -216,7 +216,12 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
   //
   // TraverseNonRecursive() may be used as an alternative to traditional
   // visitors when stack overflow caused by a deep parse tree is a concern.
-  void TraverseNonRecursive(NonRecursiveParseTreeVisitor* visitor) const;
+  //
+  // Returns OK if all visit() methods return an OK status.  If a visit method
+  // returns an error status, the traversal is aborted immediately, and the
+  // failed status from the visit() method is returned here.
+  zetasql_base::Status TraverseNonRecursive(
+      NonRecursiveParseTreeVisitor* visitor) const;
 
   // Accept the visitor.
   virtual void Accept(ParseTreeVisitor* visitor, void* data) const = 0;
@@ -287,7 +292,7 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
  protected:
   // Dispatches to non-recursive visitor implementation.
   // Used by TraverseNonRecursive().
-  ABSL_MUST_USE_RESULT virtual VisitResult Accept(
+  ABSL_MUST_USE_RESULT virtual zetasql_base::StatusOr<VisitResult> Accept(
       NonRecursiveParseTreeVisitor* visitor) const = 0;
 
   // Similar to GetDescendantsWithKinds. If 'continue_traversal' is true,
@@ -456,9 +461,9 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
     std::string* out_;
   };
 
-  static void TraverseNonRecursiveHelper(
+  static zetasql_base::Status TraverseNonRecursiveHelper(
       const VisitResult& result, NonRecursiveParseTreeVisitor* visitor,
-      std::stack<std::function<void()>>* stack);
+      std::vector<std::function<zetasql_base::Status()>>* stack);
 
   ASTNodeKind node_kind_;
 
@@ -480,7 +485,8 @@ class FakeASTNode final : public ASTNode {
   void Accept(ParseTreeVisitor* visitor, void* data) const override {
     LOG(FATAL) << "FakeASTNode does not support Accept";
   }
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override {
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override {
     LOG(FATAL) << "FakeASTNode does not support Accept";
   }
 
@@ -517,7 +523,8 @@ class ASTHintedStatement final : public ASTStatement {
 
   ASTHintedStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTHint* hint() const { return hint_; }
   const ASTStatement* statement() const { return statement_; }
@@ -540,7 +547,8 @@ class ASTExplainStatement final : public ASTStatement {
 
   ASTExplainStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTStatement* statement() const { return statement_; }
 
@@ -560,7 +568,8 @@ class ASTDescribeStatement final : public ASTStatement {
 
   ASTDescribeStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPathExpression* name() const { return name_; }
   const ASTIdentifier* optional_identifier() const {
@@ -589,7 +598,8 @@ class ASTShowStatement final : public ASTStatement {
 
   ASTShowStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   const ASTIdentifier* identifier() const { return identifier_; }
   const ASTPathExpression* optional_name() const { return optional_name_; }
   const ASTStringLiteral* optional_like_string() const {
@@ -621,7 +631,8 @@ class ASTTransactionIsolationLevel final : public ASTTransactionMode {
 
   ASTTransactionIsolationLevel() : ASTTransactionMode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTIdentifier* identifier1() const { return identifier1_; }
   // Second identifier can be non-null only if first identifier is non-null.
@@ -650,7 +661,8 @@ class ASTTransactionReadWriteMode final : public ASTTransactionMode {
 
   ASTTransactionReadWriteMode() : ASTTransactionMode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   Mode mode() const { return mode_; }
   void set_mode(Mode mode) { mode_ = mode; }
@@ -667,7 +679,8 @@ class ASTTransactionModeList final : public ASTNode {
 
   ASTTransactionModeList() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   absl::Span<const ASTTransactionMode* const> elements() const {
     return elements_;
@@ -689,7 +702,8 @@ class ASTBeginStatement final : public ASTStatement {
 
   ASTBeginStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTTransactionModeList* mode_list() const { return mode_list_; }
 
@@ -709,7 +723,8 @@ class ASTSetTransactionStatement final : public ASTStatement {
 
   ASTSetTransactionStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTTransactionModeList* mode_list() const { return mode_list_; }
 
@@ -728,7 +743,8 @@ class ASTCommitStatement final : public ASTStatement {
 
   ASTCommitStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
  private:
   void InitFields() final {
@@ -743,7 +759,8 @@ class ASTRollbackStatement final : public ASTStatement {
 
   ASTRollbackStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
  private:
   void InitFields() final {
@@ -757,7 +774,8 @@ class ASTStartBatchStatement final : public ASTStatement {
 
   ASTStartBatchStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTIdentifier* batch_type() const { return batch_type_; }
 
@@ -776,7 +794,8 @@ class ASTRunBatchStatement final : public ASTStatement {
 
   ASTRunBatchStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
  private:
   void InitFields() final {
@@ -790,7 +809,8 @@ class ASTAbortBatchStatement final : public ASTStatement {
 
   ASTAbortBatchStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
  private:
   void InitFields() final {
@@ -805,7 +825,8 @@ class ASTDropStatement final : public ASTStatement {
 
   ASTDropStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // This adds the "if exists" modifier to the node name.
   std::string SingleNodeDebugString() const override;
@@ -841,7 +862,8 @@ class ASTDropFunctionStatement final : public ASTStatement {
 
   ASTDropFunctionStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // This adds the "if exists" modifier to the node name.
   std::string SingleNodeDebugString() const override;
@@ -871,7 +893,8 @@ class ASTDropRowAccessPolicyStatement final : public ASTStatement {
 
   ASTDropRowAccessPolicyStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // This adds the "if exists" modifier to the node name.
   std::string SingleNodeDebugString() const override;
@@ -900,7 +923,8 @@ class ASTDropAllRowAccessPoliciesStatement final : public ASTStatement {
 
   ASTDropAllRowAccessPoliciesStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   const ASTPathExpression* table_name() const { return table_name_; }
 
   bool has_access_keyword() const { return has_access_keyword_; }
@@ -923,7 +947,8 @@ class ASTDropMaterializedViewStatement final : public ASTStatement {
 
   ASTDropMaterializedViewStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // This adds the "if exists" modifier to the node name.
   std::string SingleNodeDebugString() const override;
@@ -948,7 +973,8 @@ class ASTRenameStatement final : public ASTStatement {
 
   ASTRenameStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPathExpression* old_name() const { return old_name_; }
   const ASTPathExpression* new_name() const { return new_name_; }
@@ -974,7 +1000,8 @@ class ASTImportStatement final : public ASTStatement {
 
   ASTImportStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   enum ImportKind { MODULE, PROTO };
   void set_import_kind(ImportKind import_kind) { import_kind_ = import_kind; }
@@ -1014,7 +1041,8 @@ class ASTModuleStatement final : public ASTStatement {
 
   ASTModuleStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPathExpression* name() const { return name_; }
   const ASTOptionsList* options_list() const { return options_list_; }
@@ -1036,7 +1064,8 @@ class ASTQueryStatement final : public ASTStatement {
 
   ASTQueryStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTQuery* query() const { return query_; }
 
@@ -1055,7 +1084,8 @@ class ASTWithClause final : public ASTNode {
 
   ASTWithClause() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTWithClauseEntry* const>& with() const {
     return with_;
@@ -1077,7 +1107,8 @@ class ASTWithClauseEntry final : public ASTNode {
 
   ASTWithClauseEntry() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTIdentifier* alias() const { return alias_; }
   const ASTQuery* query() const { return query_; }
@@ -1115,7 +1146,8 @@ class ASTQuery final : public ASTQueryExpression {
 
   ASTQuery() : ASTQueryExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   void set_is_nested(bool is_nested) { is_nested_ = is_nested; }
   bool is_nested() const { return is_nested_; }
@@ -1155,7 +1187,8 @@ class ASTSetOperation final : public ASTQueryExpression {
 
   ASTSetOperation() : ASTQueryExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   // Returns the SQL keywords for the underlying set operation eg. UNION ALL,
@@ -1202,7 +1235,8 @@ class ASTSelect final : public ASTQueryExpression {
 
   ASTSelect() : ASTQueryExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   const ASTHint* hint() const { return hint_; }
@@ -1252,7 +1286,8 @@ class ASTSelectAs final : public ASTNode {
 
   ASTSelectAs() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   // AS <mode> kind.
@@ -1288,7 +1323,8 @@ class ASTSelectList final : public ASTNode {
 
   ASTSelectList() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTSelectColumn* const>& columns() const {
     return columns_;
@@ -1310,7 +1346,8 @@ class ASTSelectColumn final : public ASTNode {
 
   ASTSelectColumn() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* expression() const { return expression_; }
   const ASTAlias* alias() const { return alias_; }
@@ -1332,7 +1369,8 @@ class ASTAlias final : public ASTNode {
 
   ASTAlias() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTIdentifier* identifier() const { return identifier_; }
 
@@ -1355,7 +1393,8 @@ class ASTIntoAlias final : public ASTNode {
 
   ASTIntoAlias() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTIdentifier* identifier() const { return identifier_; }
 
@@ -1378,7 +1417,8 @@ class ASTFromClause final : public ASTNode {
 
   ASTFromClause() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // A FromClause has exactly one TableExpression child.
   // If the FROM clause has commas, they will be expressed as a tree
@@ -1402,7 +1442,8 @@ class ASTWindowClause final : public ASTNode {
 
   ASTWindowClause() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTWindowDefinition* const>& windows() const {
     return windows_;
@@ -1423,7 +1464,8 @@ class ASTUnnestExpression final : public ASTNode {
 
   ASTUnnestExpression() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* expression() const { return expression_; }
 
@@ -1442,7 +1484,8 @@ class ASTWithOffset final : public ASTNode {
 
   ASTWithOffset() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // alias may be NULL.
   const ASTAlias* alias() const { return alias_; }
@@ -1464,7 +1507,8 @@ class ASTUnnestExpressionWithOptAliasAndOffset final : public ASTNode {
 
   ASTUnnestExpressionWithOptAliasAndOffset() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTUnnestExpression* unnest_expression() const {
     return unnest_expression_;
@@ -1516,7 +1560,8 @@ class ASTTablePathExpression final : public ASTTableExpression {
 
   ASTTablePathExpression() : ASTTableExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // Exactly one of these two will be non-NULL.
   const ASTPathExpression* path_expr() const { return path_expr_; }
@@ -1560,7 +1605,8 @@ class ASTTableSubquery final : public ASTTableExpression {
 
   ASTTableSubquery() : ASTTableExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTQuery* subquery() const { return subquery_; }
   const ASTAlias* alias() const override { return alias_; }
@@ -1586,7 +1632,8 @@ class ASTJoin final : public ASTTableExpression {
 
   ASTJoin() : ASTTableExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   // The join type and hint strings
@@ -1638,7 +1685,8 @@ class ASTParenthesizedJoin final : public ASTTableExpression {
 
   ASTParenthesizedJoin() : ASTTableExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTJoin* join() const { return join_; }
   const ASTSampleClause* sample_clause() const { return sample_clause_; }
@@ -1660,7 +1708,8 @@ class ASTOnClause final : public ASTNode {
 
   ASTOnClause() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* expression() const { return expression_; }
 
@@ -1679,7 +1728,8 @@ class ASTUsingClause final : public ASTNode {
 
   ASTUsingClause() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTIdentifier* const>& keys() const {
     return keys_;
@@ -1700,7 +1750,8 @@ class ASTWhereClause final : public ASTNode {
 
   ASTWhereClause() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* expression() const { return expression_; }
 
@@ -1719,7 +1770,8 @@ class ASTRollup final : public ASTNode {
 
   ASTRollup() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTExpression* const>& expressions() const {
     return expressions_;
@@ -1740,7 +1792,8 @@ class ASTForSystemTime final : public ASTNode {
 
   ASTForSystemTime() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* expression() const { return expression_; }
 
@@ -1761,7 +1814,8 @@ class ASTGroupingItem final : public ASTNode {
 
   ASTGroupingItem() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // Exactly one of expression() and rollup() will be non-NULL.
   const ASTExpression* expression() const { return expression_; }
@@ -1784,7 +1838,8 @@ class ASTGroupBy final : public ASTNode {
 
   ASTGroupBy() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTHint* hint() const { return hint_; }
 
@@ -1809,7 +1864,8 @@ class ASTHaving final : public ASTNode {
 
   ASTHaving() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* expression() const { return expression_; }
 
@@ -1828,7 +1884,8 @@ class ASTCollate final : public ASTNode {
 
   ASTCollate() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* collation_name() const { return collation_name_; }
 
@@ -1847,7 +1904,8 @@ class ASTNullOrder final : public ASTNode {
 
   ASTNullOrder() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   void set_nulls_first(bool nulls_first) { nulls_first_ = nulls_first; }
   bool nulls_first() const { return nulls_first_; }
@@ -1869,7 +1927,8 @@ class ASTOrderingExpression final : public ASTNode {
 
   ASTOrderingExpression() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   void set_descending(bool descending) { descending_ = descending; }
   bool descending() const { return descending_; }
@@ -1899,7 +1958,8 @@ class ASTOrderBy final : public ASTNode {
 
   ASTOrderBy() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTHint* hint() const { return hint_; }
 
@@ -1924,7 +1984,8 @@ class ASTLimitOffset final : public ASTNode {
 
   ASTLimitOffset() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* limit() const { return limit_; }
   const ASTExpression* offset() const { return offset_; }
@@ -1948,7 +2009,8 @@ class ASTHavingModifier final : public ASTNode {
 
   ASTHavingModifier() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   enum ModifierKind { MIN, MAX };
   void set_modifier_kind(ModifierKind modifier_kind) {
@@ -2025,7 +2087,8 @@ class ASTAndExpr final : public ASTExpression {
 
   ASTAndExpr() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTExpression* const>& conjuncts() const {
     return conjuncts_;
@@ -2048,7 +2111,8 @@ class ASTOrExpr final : public ASTExpression {
 
   ASTOrExpr() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTExpression* const>& disjuncts() const {
     return disjuncts_;
@@ -2071,7 +2135,8 @@ class ASTBinaryExpression final : public ASTExpression {
 
   ASTBinaryExpression() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   // Returns name of the operator in SQL, including the NOT keyword when
@@ -2148,7 +2213,8 @@ class ASTBitwiseShiftExpression final : public ASTExpression {
 
   ASTBitwiseShiftExpression() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   void set_is_left_shift(bool is_left_shift) { is_left_shift_ = is_left_shift; }
@@ -2177,7 +2243,8 @@ class ASTInExpression final : public ASTExpression {
 
   ASTInExpression() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   void set_is_not(bool is_not) { is_not_ = is_not; }
@@ -2228,7 +2295,8 @@ class ASTInList final : public ASTNode {
 
   ASTInList() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTExpression* const>& list() const {
     return list_;
@@ -2250,7 +2318,8 @@ class ASTBetweenExpression final : public ASTExpression {
 
   ASTBetweenExpression() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   void set_is_not(bool is_not) { is_not_ = is_not; }
@@ -2285,7 +2354,8 @@ class ASTUnaryExpression final : public ASTExpression {
 
   ASTUnaryExpression() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   std::string GetSQLForOperator() const;
@@ -2323,7 +2393,8 @@ class ASTCastExpression final : public ASTExpression {
 
   ASTCastExpression() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   void set_is_safe_cast(bool is_safe_cast) {
@@ -2353,7 +2424,8 @@ class ASTCaseValueExpression final : public ASTExpression {
 
   ASTCaseValueExpression() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<
       const ASTExpression* const>& arguments() const { return arguments_; }
@@ -2374,7 +2446,8 @@ class ASTCaseNoValueExpression final : public ASTExpression {
 
   ASTCaseNoValueExpression() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<
       const ASTExpression* const>& arguments() const { return arguments_; }
@@ -2394,7 +2467,8 @@ class ASTExtractExpression final : public ASTExpression {
 
   ASTExtractExpression() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* lhs_expr() const { return lhs_expr_; }
   const ASTExpression* rhs_expr() const { return rhs_expr_; }
@@ -2421,7 +2495,8 @@ class ASTPathExpression final : public ASTGeneralizedPathExpression {
 
   ASTPathExpression() : ASTGeneralizedPathExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const int num_names() const { return names_.size(); }
   const absl::Span<const ASTIdentifier* const>& names() const {
@@ -2463,7 +2538,8 @@ class ASTParameterExpr final : public ASTParameterExprBase {
 
   ASTParameterExpr() : ASTParameterExprBase(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTIdentifier* name() const { return name_; }
   int position() const { return position_; }
@@ -2490,7 +2566,8 @@ class ASTSystemVariableExpr final : public ASTParameterExprBase {
 
   ASTSystemVariableExpr() : ASTParameterExprBase(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPathExpression* path() const { return path_; }
 
@@ -2510,7 +2587,8 @@ class ASTIntervalExpr final : public ASTExpression {
 
   ASTIntervalExpr() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* interval_value() const { return interval_value_; }
   const ASTIdentifier* date_part_name() const { return date_part_name_; }
@@ -2535,7 +2613,8 @@ class ASTDotIdentifier final : public ASTGeneralizedPathExpression {
 
   ASTDotIdentifier() : ASTGeneralizedPathExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* expr() const { return expr_; }
   const ASTIdentifier* name() const { return name_; }
@@ -2561,7 +2640,8 @@ class ASTDotGeneralizedField final : public ASTGeneralizedPathExpression {
 
   ASTDotGeneralizedField() : ASTGeneralizedPathExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* expr() const { return expr_; }
   const ASTPathExpression* path() const { return path_; }
@@ -2588,7 +2668,8 @@ class ASTFunctionCall final : public ASTExpression {
 
   ASTFunctionCall() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   const ASTPathExpression* function() const { return function_; }
@@ -2673,7 +2754,8 @@ class ASTNamedArgument final : public ASTExpression {
 
   ASTNamedArgument() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTIdentifier* name() const { return name_; }
   const ASTExpression* expr() const { return expr_; }
@@ -2698,7 +2780,8 @@ class ASTAnalyticFunctionCall final : public ASTExpression {
 
   ASTAnalyticFunctionCall() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTFunctionCall* function() const { return function_; }
   const ASTWindowSpecification* window_spec() const {
@@ -2724,7 +2807,8 @@ class ASTPartitionBy final : public ASTNode {
 
   ASTPartitionBy() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTHint* hint() const { return hint_; }
 
@@ -2750,7 +2834,8 @@ class ASTClusterBy final : public ASTNode {
 
   ASTClusterBy() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<
       const ASTExpression* const>& clustering_expressions() const {
@@ -2780,7 +2865,8 @@ class ASTWindowFrameExpr final : public ASTNode {
 
   ASTWindowFrameExpr() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   BoundaryType boundary_type() const { return boundary_type_; }
@@ -2817,7 +2903,8 @@ class ASTWindowFrame final : public ASTNode {
 
   ASTWindowFrame() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   void set_unit(FrameUnit frame_unit) { frame_unit_ = frame_unit; }
@@ -2853,7 +2940,8 @@ class ASTWindowSpecification final : public ASTNode {
 
   ASTWindowSpecification() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPartitionBy* partition_by() const { return partition_by_; }
   const ASTOrderBy* order_by() const { return order_by_; }
@@ -2883,7 +2971,8 @@ class ASTWindowDefinition final : public ASTNode {
 
   ASTWindowDefinition() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTIdentifier* name() const { return name_; }
   const ASTWindowSpecification* window_spec() const {
@@ -2909,7 +2998,8 @@ class ASTArrayElement final : public ASTGeneralizedPathExpression {
 
   ASTArrayElement() : ASTGeneralizedPathExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* array() const { return array_; }
   const ASTExpression* position() const { return position_; }
@@ -2933,7 +3023,8 @@ class ASTExpressionSubquery final : public ASTExpression {
 
   ASTExpressionSubquery() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   const ASTQuery* query() const { return query_; }
@@ -3006,7 +3097,8 @@ class ASTStar final : public ASTLeaf {
 
   ASTStar() : ASTLeaf(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 };
 
 class ASTStarReplaceItem final : public ASTNode {
@@ -3015,7 +3107,8 @@ class ASTStarReplaceItem final : public ASTNode {
 
   ASTStarReplaceItem() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* expression() const { return expression_; }
   const ASTIdentifier* alias() const { return alias_; }
@@ -3037,7 +3130,8 @@ class ASTStarExceptList final : public ASTNode {
 
   ASTStarExceptList() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTIdentifier* const>& identifiers() const {
     return identifiers_;
@@ -3059,7 +3153,8 @@ class ASTStarModifiers final : public ASTNode {
 
   ASTStarModifiers() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTStarExceptList* except_list() const { return except_list_; }
   const absl::Span<
@@ -3085,7 +3180,8 @@ class ASTStarWithModifiers final : public ASTExpression {
 
   ASTStarWithModifiers() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTStarModifiers* modifiers() const { return modifiers_; }
 
@@ -3104,7 +3200,8 @@ class ASTDotStar final : public ASTExpression {
 
   ASTDotStar() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* expr() const { return expr_; }
 
@@ -3125,7 +3222,8 @@ class ASTDotStarWithModifiers final : public ASTExpression {
 
   ASTDotStarWithModifiers() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* expr() const { return expr_; }
   const ASTStarModifiers* modifiers() const { return modifiers_; }
@@ -3147,7 +3245,8 @@ class ASTIdentifier final : public ASTExpression {
 
   ASTIdentifier() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   // Set the identifier std::string.  Input <identifier> is the unquoted identifier.
@@ -3175,7 +3274,8 @@ class ASTNewConstructorArg final : public ASTNode {
 
   ASTNewConstructorArg() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* expression() const { return expression_; }
 
@@ -3207,7 +3307,8 @@ class ASTNewConstructor final : public ASTExpression {
 
   ASTNewConstructor() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTSimpleType* type_name() const { return type_name_; }
 
@@ -3235,7 +3336,8 @@ class ASTArrayConstructor final : public ASTExpression {
 
   ASTArrayConstructor() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // May return NULL. Occurs only if the array is constructed through
   // ARRAY<type>[...] syntax and not ARRAY[...] or [...].
@@ -3263,7 +3365,8 @@ class ASTStructConstructorArg final : public ASTNode {
 
   ASTStructConstructorArg() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* expression() const { return expression_; }
   const ASTAlias* alias() const { return alias_; }
@@ -3288,7 +3391,8 @@ class ASTStructConstructorWithParens final : public ASTExpression {
 
   ASTStructConstructorWithParens() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTExpression* const>& field_expressions() const {
     return field_expressions_;
@@ -3319,7 +3423,8 @@ class ASTStructConstructorWithKeyword final : public ASTExpression {
 
   ASTStructConstructorWithKeyword() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTStructType* struct_type() const { return struct_type_; }
 
@@ -3347,7 +3452,8 @@ class ASTIntLiteral final : public ASTLeaf {
 
   ASTIntLiteral() : ASTLeaf(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   bool is_hex() const;
 };
@@ -3358,7 +3464,8 @@ class ASTNumericLiteral final : public ASTLeaf {
 
   ASTNumericLiteral() : ASTLeaf(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 };
 
 class ASTStringLiteral final : public ASTLeaf {
@@ -3367,7 +3474,8 @@ class ASTStringLiteral final : public ASTLeaf {
 
   ASTStringLiteral() : ASTLeaf(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // The parsed and validated value of this literal. The raw input value can be
   // found in image().
@@ -3386,7 +3494,8 @@ class ASTBytesLiteral final : public ASTLeaf {
 
   ASTBytesLiteral() : ASTLeaf(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // The parsed and validated value of this literal. The raw input value can be
   // found in image().
@@ -3405,7 +3514,8 @@ class ASTBooleanLiteral final : public ASTLeaf {
 
   ASTBooleanLiteral() : ASTLeaf(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   void set_value(bool value) { value_ = value; }
 
@@ -3421,7 +3531,8 @@ class ASTFloatLiteral final : public ASTLeaf {
 
   ASTFloatLiteral() : ASTLeaf(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 };
 
 class ASTNullLiteral final : public ASTLeaf {
@@ -3430,7 +3541,8 @@ class ASTNullLiteral final : public ASTLeaf {
 
   ASTNullLiteral() : ASTLeaf(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 };
 
 class ASTDateOrTimeLiteral final : public ASTExpression {
@@ -3439,7 +3551,8 @@ class ASTDateOrTimeLiteral final : public ASTExpression {
 
   ASTDateOrTimeLiteral() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   const TypeKind type_kind() const { return type_kind_; }
@@ -3465,7 +3578,8 @@ class ASTHint final : public ASTNode {
 
   ASTHint() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // This is the @num_shards hint shorthand that can occur anywhere that a
   // hint can occur, prior to @{...} hints.
@@ -3493,7 +3607,8 @@ class ASTHintEntry final : public ASTNode {
 
   ASTHintEntry() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTIdentifier* qualifier() const { return qualifier_; }
   const ASTIdentifier* name() const { return name_; }
@@ -3528,7 +3643,8 @@ class ASTOptionsList final : public ASTNode {
 
   ASTOptionsList() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTOptionsEntry* const>& options_entries() const {
     return options_entries_;
@@ -3549,7 +3665,8 @@ class ASTOptionsEntry final : public ASTNode {
 
   ASTOptionsEntry() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTIdentifier* name() const { return name_; }
 
@@ -3619,7 +3736,8 @@ class ASTFunctionParameter final : public ASTNode {
 
   ASTFunctionParameter() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   const ASTIdentifier* name() const { return name_; }
@@ -3697,7 +3815,8 @@ class ASTFunctionParameters final : public ASTNode {
 
   ASTFunctionParameters() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<
       const ASTFunctionParameter* const>& parameter_entries() const {
@@ -3720,7 +3839,8 @@ class ASTFunctionDeclaration final : public ASTNode {
 
   ASTFunctionDeclaration() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPathExpression* name() const { return name_; }
   const ASTFunctionParameters* parameters() const { return parameters_; }
@@ -3745,7 +3865,8 @@ class ASTSqlFunctionBody final : public ASTNode {
 
   ASTSqlFunctionBody() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* expression() const { return expression_; }
 
@@ -3769,7 +3890,8 @@ class ASTTVF final : public ASTTableExpression {
   ASTTVF() : ASTTableExpression(kConcreteNodeKind) {}
 
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPathExpression* name() const { return name_; }
   const absl::Span<const ASTTVFArgument* const>& argument_entries() const {
@@ -3806,7 +3928,8 @@ class ASTTableClause final : public ASTNode {
 
   ASTTableClause() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPathExpression* table_path() const { return table_path_; }
   const ASTTVF* tvf() const { return tvf_; }
@@ -3831,7 +3954,8 @@ class ASTModelClause final : public ASTNode {
 
   ASTModelClause() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPathExpression* model_path() const { return model_path_; }
 
@@ -3853,7 +3977,8 @@ class ASTConnectionClause final : public ASTNode {
 
   ASTConnectionClause() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPathExpression* connection_path() const { return connection_path_; }
 
@@ -3898,7 +4023,8 @@ class ASTTVFArgument final : public ASTNode {
 
   ASTTVFArgument() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* expr() const { return expr_; }
   const ASTTableClause* table_clause() const { return table_clause_; }
@@ -3933,7 +4059,8 @@ class ASTCreateConstantStatement final : public ASTCreateStatement {
 
   ASTCreateConstantStatement() : ASTCreateStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPathExpression* name() const { return name_; }
   const ASTExpression* expr() const { return expr_; }
@@ -3958,7 +4085,8 @@ class ASTCreateDatabaseStatement final : public ASTStatement {
 
   ASTCreateDatabaseStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPathExpression* name() const { return name_; }
   const ASTOptionsList* options_list() const { return options_list_; }
@@ -4038,7 +4166,8 @@ class ASTCreateFunctionStatement final : public ASTCreateFunctionStmtBase {
 
   ASTCreateFunctionStatement() : ASTCreateFunctionStmtBase(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   bool is_aggregate() const { return is_aggregate_; }
@@ -4074,7 +4203,8 @@ class ASTCreateProcedureStatement final : public ASTCreateStatement {
 
   ASTCreateProcedureStatement() : ASTCreateStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   const ASTPathExpression* name() const { return name_; }
   const ASTFunctionParameters* parameters() const { return parameters_; }
   const ASTOptionsList* options_list() const { return options_list_; }
@@ -4108,7 +4238,8 @@ class ASTCreateTableFunctionStatement final : public ASTCreateFunctionStmtBase {
   ASTCreateTableFunctionStatement()
       : ASTCreateFunctionStmtBase(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   const ASTTVFSchema* return_tvf_schema() const {
@@ -4138,7 +4269,8 @@ class ASTCreateTableStatement final : public ASTCreateStatement {
 
   ASTCreateTableStatement() : ASTCreateStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPathExpression* name() const { return name_; }
   const ASTTableElementList* table_element_list() const {
@@ -4174,7 +4306,8 @@ class ASTTransformClause final : public ASTNode {
 
   ASTTransformClause() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTSelectList* select_list() const { return select_list_; }
 
@@ -4193,7 +4326,8 @@ class ASTCreateModelStatement final : public ASTCreateStatement {
 
   ASTCreateModelStatement() : ASTCreateStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPathExpression* name() const { return name_; }
   const ASTTransformClause* transform_clause() const {
@@ -4224,7 +4358,8 @@ class ASTIndexItemList final : public ASTNode {
 
   ASTIndexItemList() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<
       const ASTOrderingExpression* const>& ordering_expressions() const {
@@ -4249,7 +4384,8 @@ class ASTIndexStoringExpressionList final : public ASTNode {
 
   ASTIndexStoringExpressionList() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTExpression* const>& expressions() const {
     return expressions_;
@@ -4272,7 +4408,8 @@ class ASTIndexUnnestExpressionList final : public ASTNode {
 
   ASTIndexUnnestExpressionList() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTUnnestExpressionWithOptAliasAndOffset* const>&
   unnest_expressions() const {
@@ -4297,7 +4434,8 @@ class ASTCreateIndexStatement final : public ASTCreateStatement {
 
   ASTCreateIndexStatement() : ASTCreateStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   const ASTPathExpression* name() const { return name_; }
@@ -4352,7 +4490,8 @@ class ASTCreateRowAccessPolicyStatement final : public ASTCreateStatement {
 
   ASTCreateRowAccessPolicyStatement() : ASTCreateStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTIdentifier* name() const { return name_; }
   const ASTPathExpression* target_path() const { return target_path_; }
@@ -4410,7 +4549,8 @@ class ASTCreateViewStatement final : public ASTCreateViewStatementBase {
 
   ASTCreateViewStatement() : ASTCreateViewStatementBase(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
  private:
   void InitFields() final {
@@ -4431,7 +4571,8 @@ class ASTCreateMaterializedViewStatement final : public ASTCreateViewStatementBa
   ASTCreateMaterializedViewStatement()
       : ASTCreateViewStatementBase(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPartitionBy* partition_by() const { return partition_by_; }
   const ASTClusterBy* cluster_by() const { return cluster_by_; }
@@ -4457,7 +4598,8 @@ class ASTExportDataStatement final : public ASTStatement {
 
   ASTExportDataStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTOptionsList* options_list() const { return options_list_; }
   const ASTQuery* query() const { return query_; }
@@ -4479,7 +4621,8 @@ class ASTCallStatement final : public ASTStatement {
 
   ASTCallStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPathExpression* procedure_name() const { return procedure_name_; }
   const absl::Span<const ASTTVFArgument* const>& arguments() const {
@@ -4504,7 +4647,8 @@ class ASTDefineTableStatement final : public ASTStatement {
 
   ASTDefineTableStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPathExpression* name() const { return name_; }
   const ASTOptionsList* options_list() const { return options_list_; }
@@ -4527,7 +4671,8 @@ class ASTCreateExternalTableStatement final : public ASTCreateStatement {
 
   ASTCreateExternalTableStatement() : ASTCreateStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPathExpression* name() const { return name_; }
   const ASTOptionsList* options_list() const { return options_list_; }
@@ -4558,7 +4703,8 @@ class ASTSimpleType final : public ASTType {
 
   ASTSimpleType() : ASTType(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPathExpression* type_name() const { return type_name_; }
 
@@ -4577,7 +4723,8 @@ class ASTArrayType final : public ASTType {
 
   ASTArrayType() : ASTType(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTType* element_type() const { return element_type_; }
 
@@ -4596,7 +4743,8 @@ class ASTStructType final : public ASTType {
 
   ASTStructType() : ASTType(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTStructField* const>& struct_fields() const {
     return struct_fields_;
@@ -4617,7 +4765,8 @@ class ASTStructField final : public ASTNode {
 
   ASTStructField() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // name_ will be NULL for anonymous fields like in STRUCT<int, std::string>.
   const ASTIdentifier* name() const { return name_; }
@@ -4650,7 +4799,8 @@ class ASTTemplatedParameterType final : public ASTNode {
 
   ASTTemplatedParameterType() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   TemplatedTypeKind kind() const { return kind_; }
   void set_kind(TemplatedTypeKind kind) { kind_ = kind; }
@@ -4676,7 +4826,8 @@ class ASTTVFSchema final : public ASTNode {
 
   ASTTVFSchema() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTTVFSchemaColumn* const>& columns() const {
     return columns_;
@@ -4699,7 +4850,8 @@ class ASTTVFSchemaColumn final : public ASTNode {
 
   ASTTVFSchemaColumn() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // name_ will be NULL for value tables.
   const ASTIdentifier* name() const { return name_; }
@@ -4724,7 +4876,8 @@ class ASTDefaultLiteral final : public ASTExpression {
 
   ASTDefaultLiteral() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
  private:
   void InitFields() final {
@@ -4738,7 +4891,8 @@ class ASTAssertStatement final : public ASTStatement {
 
   ASTAssertStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* expr() const { return expr_; }
   const ASTStringLiteral* description() const { return description_; }
@@ -4761,7 +4915,8 @@ class ASTAssertRowsModified final : public ASTNode {
 
   ASTAssertRowsModified() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* num_rows() const { return num_rows_; }
 
@@ -4783,7 +4938,8 @@ class ASTDeleteStatement final : public ASTStatement {
 
   ASTDeleteStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // Verifies that the target path is an ASTPathExpression and, if so, returns
   // it. The behavior is undefined when called on a node that represents a
@@ -4830,7 +4986,8 @@ class ASTNotNullColumnAttribute final : public ASTColumnAttribute {
 
   ASTNotNullColumnAttribute() : ASTColumnAttribute(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeSqlString() const override;
 
  private:
@@ -4845,7 +5002,8 @@ class ASTHiddenColumnAttribute final : public ASTColumnAttribute {
 
   ASTHiddenColumnAttribute() : ASTColumnAttribute(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeSqlString() const override;
 
  private:
@@ -4861,7 +5019,8 @@ class ASTPrimaryKeyColumnAttribute final : public ASTColumnAttribute {
 
   ASTPrimaryKeyColumnAttribute() : ASTColumnAttribute(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeSqlString() const override;
 
  private:
@@ -4877,7 +5036,8 @@ class ASTForeignKeyColumnAttribute final : public ASTColumnAttribute {
 
   ASTForeignKeyColumnAttribute() : ASTColumnAttribute(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeSqlString() const override;
 
   const ASTIdentifier* constraint_name() const { return constraint_name_; }
@@ -4900,7 +5060,8 @@ class ASTColumnAttributeList final : public ASTNode {
 
   ASTColumnAttributeList() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTColumnAttribute* const>& values() const {
     return values_;
@@ -4978,7 +5139,8 @@ class ASTSimpleColumnSchema final : public ASTColumnSchema {
 
   ASTSimpleColumnSchema() : ASTColumnSchema(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPathExpression* type_name() const { return type_name_; }
 
@@ -5001,7 +5163,8 @@ class ASTArrayColumnSchema final : public ASTColumnSchema {
 
   ASTArrayColumnSchema() : ASTColumnSchema(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTColumnSchema* element_schema() const { return element_schema_; }
 
@@ -5024,7 +5187,8 @@ class ASTStructColumnSchema final : public ASTColumnSchema {
 
   ASTStructColumnSchema() : ASTColumnSchema(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTStructColumnField* const>& struct_fields() const {
     return struct_fields_;
@@ -5050,7 +5214,8 @@ class ASTInferredTypeColumnSchema final : public ASTColumnSchema {
 
   ASTInferredTypeColumnSchema() : ASTColumnSchema(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
  private:
   void InitFields() final {
@@ -5067,7 +5232,8 @@ class ASTStructColumnField final : public ASTNode {
 
   ASTStructColumnField() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // name_ will be NULL for anonymous fields like in STRUCT<int, std::string>.
   const ASTIdentifier* name() const { return name_; }
@@ -5090,7 +5256,8 @@ class ASTGeneratedColumnInfo final : public ASTNode {
 
   ASTGeneratedColumnInfo() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   // Adds is_stored (if needed) to the debug std::string.
   std::string SingleNodeDebugString() const override;
 
@@ -5124,7 +5291,8 @@ class ASTColumnDefinition final : public ASTTableElement {
 
   ASTColumnDefinition() : ASTTableElement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTIdentifier* name() const { return name_; }
   const ASTColumnSchema* schema() const { return schema_; }
@@ -5160,7 +5328,8 @@ class ASTPrimaryKey final : public ASTTableConstraint {
 
   ASTPrimaryKey() : ASTTableConstraint(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTColumnList* column_list() const { return column_list_; }
   const ASTOptionsList* options_list() const { return options_list_; }
@@ -5182,7 +5351,8 @@ class ASTForeignKey final : public ASTTableConstraint {
 
   ASTForeignKey() : ASTTableConstraint(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTColumnList* column_list() const { return column_list_; }
   const ASTForeignKeyReference* reference() const { return reference_; }
@@ -5209,7 +5379,8 @@ class ASTCheckConstraint final : public ASTTableConstraint {
   ASTCheckConstraint() : ASTTableConstraint(kConcreteNodeKind) {}
 
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
   const ASTExpression* expression() const { return expression_; }
   const ASTOptionsList* options_list() const { return options_list_; }
@@ -5235,7 +5406,8 @@ class ASTTableElementList final : public ASTNode {
 
   ASTTableElementList() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTTableElement* const>& elements() const {
     return elements_;
@@ -5256,7 +5428,8 @@ class ASTColumnList final : public ASTNode {
 
   ASTColumnList() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTIdentifier* const>& identifiers() const {
     return identifiers_;
@@ -5281,7 +5454,8 @@ class ASTColumnPosition final : public ASTNode {
 
   ASTColumnPosition() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   void set_type(RelativePositionType type) {
@@ -5307,7 +5481,8 @@ class ASTInsertValuesRow final : public ASTNode {
 
   ASTInsertValuesRow() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // A row of values in a VALUES clause.  May include ASTDefaultLiteral.
   const absl::Span<const ASTExpression* const>& values() const {
@@ -5330,7 +5505,8 @@ class ASTInsertValuesRowList final : public ASTNode {
 
   ASTInsertValuesRowList() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTInsertValuesRow* const>& rows() const {
     return rows_;
@@ -5354,7 +5530,8 @@ class ASTInsertStatement final : public ASTStatement {
 
   ASTInsertStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   std::string GetSQLForInsertMode() const;
@@ -5437,7 +5614,8 @@ class ASTUpdateSetValue final : public ASTNode {
 
   ASTUpdateSetValue() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTGeneralizedPathExpression* path() const { return path_; }
 
@@ -5461,7 +5639,8 @@ class ASTUpdateItem final : public ASTNode {
 
   ASTUpdateItem() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTUpdateSetValue* set_value() const { return set_value_; }
   const ASTInsertStatement* insert_statement() const { return insert_; }
@@ -5490,7 +5669,8 @@ class ASTUpdateItemList final : public ASTNode {
 
   ASTUpdateItemList() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTUpdateItem* const>& update_items() const {
     return update_items_;
@@ -5514,7 +5694,8 @@ class ASTUpdateStatement final : public ASTStatement {
 
   ASTUpdateStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // Verifies that the target path is an ASTPathExpression and, if so, returns
   // it. The behavior is undefined when called on a node that represents a
@@ -5565,7 +5746,8 @@ class ASTTruncateStatement final : public ASTStatement {
 
   ASTTruncateStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // Verifies that the target path is an ASTPathExpression and, if so, returns
   // it. The behavior is undefined when called on a node that represents a
@@ -5604,7 +5786,8 @@ class ASTMergeAction final : public ASTNode {
   std::string SingleNodeDebugString() const override;
 
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // Exactly one of the INSERT/UPDATE/DELETE operation must be defined in
   // following ways,
@@ -5663,7 +5846,8 @@ class ASTMergeWhenClause final : public ASTNode {
   std::string GetSQLForMatchType() const;
 
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* search_condition() const { return search_condition_; }
 
@@ -5694,7 +5878,8 @@ class ASTMergeWhenClauseList final : public ASTNode {
   ~ASTMergeWhenClauseList() override {}
 
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTMergeWhenClause* const>& clause_list() const {
     return clause_list_;
@@ -5719,7 +5904,8 @@ class ASTMergeStatement final : public ASTStatement {
   ~ASTMergeStatement() override {}
 
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPathExpression* target_path() const { return target_path_; }
   const ASTAlias* alias() const { return alias_; }
@@ -5752,7 +5938,8 @@ class ASTPrivilege final : public ASTNode {
 
   ASTPrivilege() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTIdentifier* privilege_action() const { return privilege_action_; }
   const ASTColumnList* column_list() const { return column_list_; }
@@ -5777,7 +5964,8 @@ class ASTPrivileges final : public ASTNode {
 
   ASTPrivileges() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTPrivilege* const>& privileges() const {
     return privileges_;
@@ -5803,7 +5991,8 @@ class ASTGranteeList final : public ASTNode {
 
   ASTGranteeList() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTExpression* const>& grantee_list() const {
     return grantee_list_;
@@ -5826,7 +6015,8 @@ class ASTGrantStatement final : public ASTStatement {
 
   ASTGrantStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPrivileges* privileges() const { return privileges_; }
   const ASTIdentifier* target_type() const { return target_type_; }
@@ -5854,7 +6044,8 @@ class ASTRevokeStatement final : public ASTStatement {
 
   ASTRevokeStatement() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTPrivileges* privileges() const { return privileges_; }
   const ASTIdentifier* target_type() const { return target_type_; }
@@ -5882,7 +6073,8 @@ class ASTRepeatableClause final : public ASTNode {
 
   ASTRepeatableClause() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* argument() const { return argument_; }
 
@@ -5901,7 +6093,8 @@ class ASTReplaceFieldsArg final : public ASTNode {
 
   ASTReplaceFieldsArg() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* expression() const { return expression_; }
 
@@ -5927,7 +6120,8 @@ class ASTReplaceFieldsExpression final : public ASTExpression {
 
   ASTReplaceFieldsExpression() : ASTExpression(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* expr() const { return expr_; }
 
@@ -5952,7 +6146,8 @@ class ASTSampleSize final : public ASTNode {
 
   ASTSampleSize() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // Returns the SQL keyword for the sample-size unit, i.e. "ROWS" or "PERCENT".
   std::string GetSQLForUnit() const;
@@ -5986,7 +6181,8 @@ class ASTWithWeight final : public ASTNode {
 
   ASTWithWeight() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // alias may be NULL.
   const ASTAlias* alias() const { return alias_; }
@@ -6006,7 +6202,8 @@ class ASTSampleSuffix final : public ASTNode {
 
   ASTSampleSuffix() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // weight and repeat may be NULL.
   const ASTWithWeight* weight() const { return weight_; }
@@ -6029,7 +6226,8 @@ class ASTSampleClause final : public ASTNode {
 
   ASTSampleClause() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTIdentifier* sample_method() const { return sample_method_; }
   const ASTSampleSize* sample_size() const { return sample_size_; }
@@ -6062,7 +6260,8 @@ class ASTSetOptionsAction final : public ASTAlterAction {
 
   ASTSetOptionsAction() : ASTAlterAction(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   std::string GetSQLForAlterAction() const override;
 
@@ -6086,7 +6285,8 @@ class ASTAddConstraintAction final : public ASTAlterAction {
   ASTAddConstraintAction() : ASTAlterAction(kConcreteNodeKind) {}
   std::string SingleNodeDebugString() const override;
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   std::string GetSQLForAlterAction() const override;
 
@@ -6113,7 +6313,8 @@ class ASTDropConstraintAction final : public ASTAlterAction {
 
   ASTDropConstraintAction() : ASTAlterAction(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   std::string GetSQLForAlterAction() const override;
@@ -6140,7 +6341,8 @@ class ASTAlterConstraintEnforcementAction final : public ASTAlterAction {
 
   ASTAlterConstraintEnforcementAction() : ASTAlterAction(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   std::string GetSQLForAlterAction() const override;
@@ -6170,7 +6372,8 @@ class ASTAlterConstraintSetOptionsAction final : public ASTAlterAction {
 
   ASTAlterConstraintSetOptionsAction() : ASTAlterAction(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   std::string GetSQLForAlterAction() const override;
@@ -6199,7 +6402,8 @@ class ASTAddColumnAction final : public ASTAlterAction {
 
   ASTAddColumnAction() : ASTAlterAction(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   std::string GetSQLForAlterAction() const override;
@@ -6235,7 +6439,8 @@ class ASTDropColumnAction final : public ASTAlterAction {
 
   ASTDropColumnAction() : ASTAlterAction(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
   std::string GetSQLForAlterAction() const override;
@@ -6262,7 +6467,8 @@ class ASTAlterColumnTypeAction final : public ASTAlterAction {
 
   ASTAlterColumnTypeAction() : ASTAlterAction(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   std::string GetSQLForAlterAction() const override;
 
@@ -6288,7 +6494,8 @@ class ASTAlterColumnOptionsAction final : public ASTAlterAction {
 
   ASTAlterColumnOptionsAction() : ASTAlterAction(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   std::string GetSQLForAlterAction() const override;
 
@@ -6314,7 +6521,8 @@ class ASTGrantToClause final : public ASTAlterAction {
 
   ASTGrantToClause() : ASTAlterAction(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   std::string GetSQLForAlterAction() const override;
 
@@ -6345,7 +6553,8 @@ class ASTFilterUsingClause final : public ASTAlterAction {
 
   ASTFilterUsingClause() : ASTAlterAction(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   std::string GetSQLForAlterAction() const override;
 
@@ -6371,7 +6580,8 @@ class ASTRevokeFromClause final : public ASTAlterAction {
 
   ASTRevokeFromClause() : ASTAlterAction(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   std::string SingleNodeDebugString() const override;
 
@@ -6399,7 +6609,8 @@ class ASTRenameToClause final : public ASTAlterAction {
 
   ASTRenameToClause() : ASTAlterAction(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   std::string GetSQLForAlterAction() const override;
 
@@ -6420,7 +6631,8 @@ class ASTAlterActionList final : public ASTNode {
 
   ASTAlterActionList() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTAlterAction* const>& actions() const {
     return actions_;
@@ -6466,7 +6678,8 @@ class ASTAlterDatabaseStatement final : public ASTAlterStatementBase {
 
   ASTAlterDatabaseStatement() : ASTAlterStatementBase(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
  private:
   void InitFields() final {
@@ -6481,7 +6694,8 @@ class ASTAlterTableStatement final : public ASTAlterStatementBase {
 
   ASTAlterTableStatement() : ASTAlterStatementBase(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
  private:
   void InitFields() final {
@@ -6496,7 +6710,8 @@ class ASTAlterViewStatement final : public ASTAlterStatementBase {
 
   ASTAlterViewStatement() : ASTAlterStatementBase(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
  private:
   void InitFields() final {
@@ -6513,7 +6728,8 @@ class ASTAlterMaterializedViewStatement final : public ASTAlterStatementBase {
   ASTAlterMaterializedViewStatement()
       : ASTAlterStatementBase(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
  private:
   void InitFields() final {
@@ -6530,7 +6746,8 @@ class ASTAlterRowAccessPolicyStatement final : public ASTAlterStatementBase {
   ASTAlterRowAccessPolicyStatement()
       : ASTAlterStatementBase(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // Required fields.
   const ASTIdentifier* name() const { return name_; }
@@ -6551,7 +6768,8 @@ class ASTForeignKeyActions final : public ASTNode {
 
   ASTForeignKeyActions() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   std::string SingleNodeDebugString() const override;
 
@@ -6578,7 +6796,8 @@ class ASTForeignKeyReference final : public ASTNode {
 
   ASTForeignKeyReference() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   std::string SingleNodeDebugString() const override;
 
@@ -6622,7 +6841,8 @@ class ASTStatementList final : public ASTNode {
   }
 
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
   bool variable_declarations_allowed() const {
     return variable_declarations_allowed_;
   }
@@ -6650,7 +6870,8 @@ class ASTScript final : public ASTNode {
 
   ASTScript() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTStatementList* statement_list_node() const {
     return statement_list_;
@@ -6675,7 +6896,8 @@ class ASTElseifClause final : public ASTNode {
 
   ASTElseifClause() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // Returns the ASTIfStatement that this ASTElseifClause belongs to.
   const ASTIfStatement* if_stmt() const {
@@ -6706,7 +6928,8 @@ class ASTElseifClauseList final : public ASTNode {
 
   ASTElseifClauseList() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const absl::Span<const ASTElseifClause* const>& elseif_clauses() const {
     return elseif_clauses_;
@@ -6726,7 +6949,8 @@ class ASTIfStatement final : public ASTScriptStatement {
 
   ASTIfStatement() : ASTScriptStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // Required fields.
   const ASTExpression* condition() const { return condition_; }
@@ -6754,13 +6978,40 @@ class ASTIfStatement final : public ASTScriptStatement {
   const ASTStatementList* else_list_ = nullptr;  // Optional
 };
 
+class ASTRaiseStatement final : public ASTScriptStatement {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_RAISE_STATEMENT;
+
+  ASTRaiseStatement() : ASTScriptStatement(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTExpression* message() const { return message_; }
+
+  // A RAISE statement rethrows an existing exception, as opposed to creating
+  // a new exception, when none of the properties are set.  Currently, the only
+  // property is the message.  However, for future proofing, as more properties
+  // get added to RAISE later, code should call this function to check for a
+  // rethrow, rather than checking for the presence of a message, directly.
+  bool is_rethrow() const { return message_ == nullptr; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddOptionalExpression(&message_);
+  }
+  const ASTExpression* message_ = nullptr;  // Optional
+};
+
 class ASTExceptionHandler final : public ASTNode {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_EXCEPTION_HANDLER;
 
   ASTExceptionHandler() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // Required field; even an empty block still contains an empty statement list.
   const ASTStatementList* statement_list() const { return statement_list_; }
@@ -6782,7 +7033,8 @@ class ASTExceptionHandlerList final : public ASTNode {
 
   ASTExceptionHandlerList() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   absl::Span<const ASTExceptionHandler* const> exception_handler_list() const {
     return exception_handler_list_;
@@ -6801,7 +7053,8 @@ class ASTBeginEndBlock final : public ASTScriptStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_BEGIN_END_BLOCK;
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   ASTBeginEndBlock() : ASTScriptStatement(kConcreteNodeKind) {}
 
@@ -6832,7 +7085,8 @@ class ASTIdentifierList final : public ASTNode {
 
   ASTIdentifierList() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // Guaranteed by the parser to never be empty.
   absl::Span<const ASTIdentifier* const> identifier_list() const {
@@ -6853,7 +7107,8 @@ class ASTVariableDeclaration final : public ASTScriptStatement {
 
   ASTVariableDeclaration() : ASTScriptStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // Required fields
   const ASTIdentifierList* variable_list() const { return variable_list_; }
@@ -6905,7 +7160,8 @@ class ASTWhileStatement final : public ASTLoopStatement {
 
   ASTWhileStatement() : ASTLoopStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   // The <condition> is optional.  A null <condition> indicates a
   // LOOP...END LOOP construct.
@@ -6958,7 +7214,8 @@ class ASTBreakStatement final : public ASTBreakContinueStatement {
 
   ASTBreakStatement() : ASTBreakContinueStatement(kConcreteNodeKind, BREAK) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
  private:
 };
@@ -6970,7 +7227,8 @@ class ASTContinueStatement final : public ASTBreakContinueStatement {
   ASTContinueStatement()
       : ASTBreakContinueStatement(kConcreteNodeKind, CONTINUE) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
  private:
 };
@@ -6981,7 +7239,8 @@ class ASTReturnStatement final : public ASTScriptStatement {
 
   ASTReturnStatement() : ASTScriptStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
  private:
   void InitFields() final {}
@@ -6996,7 +7255,8 @@ class ASTSingleAssignment final : public ASTScriptStatement {
 
   ASTSingleAssignment() : ASTScriptStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTIdentifier* variable() const { return variable_; }
   const ASTExpression* expression() const { return expression_; }
@@ -7021,7 +7281,8 @@ class ASTParameterAssignment final : public ASTStatement {
 
   ASTParameterAssignment() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTParameterExpr* parameter() const { return parameter_; }
   const ASTExpression* expression() const { return expression_; }
@@ -7047,7 +7308,8 @@ class ASTSystemVariableAssignment final : public ASTStatement {
 
   ASTSystemVariableAssignment() : ASTStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTSystemVariableExpr* system_variable() const {
     return system_variable_;
@@ -7075,7 +7337,8 @@ class ASTAssignmentFromStruct final : public ASTScriptStatement {
 
   ASTAssignmentFromStruct() : ASTScriptStatement(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  VisitResult Accept(NonRecursiveParseTreeVisitor* visitor) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTIdentifierList* variables() const { return variables_; }
   const ASTExpression* struct_expression() const { return expression_; }
@@ -7089,6 +7352,99 @@ class ASTAssignmentFromStruct final : public ASTScriptStatement {
 
   const ASTIdentifierList* variables_ = nullptr;  // Required, not NULL
   const ASTExpression* expression_ = nullptr;  // Required, not NULL
+};
+
+class ASTExecuteIntoClause final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_EXECUTE_INTO_CLAUSE;
+
+  ASTExecuteIntoClause() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTIdentifierList* identifiers() const { return identifiers_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&identifiers_);
+  }
+
+  const ASTIdentifierList* identifiers_ = nullptr;
+};
+
+class ASTExecuteUsingArgument final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_EXECUTE_USING_ARGUMENT;
+
+  ASTExecuteUsingArgument() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTExpression* expression() const { return expression_; }
+  // Optional. Absent if this argument is positional. Present if it is named.
+  const ASTAlias* alias() const { return alias_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&expression_);
+    fl.AddOptional(&alias_, AST_ALIAS);
+  }
+
+  const ASTExpression* expression_ = nullptr;
+  const ASTAlias* alias_ = nullptr;
+};
+
+class ASTExecuteUsingClause final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_EXECUTE_USING_CLAUSE;
+
+  ASTExecuteUsingClause() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  absl::Span<const ASTExecuteUsingArgument* const> arguments() const {
+    return arguments_;
+  }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRestAsRepeated(&arguments_);
+  }
+
+  absl::Span<const ASTExecuteUsingArgument* const> arguments_;
+};
+
+class ASTExecuteImmediateStatement final : public ASTStatement {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind =
+      AST_EXECUTE_IMMEDIATE_STATEMENT;
+
+  ASTExecuteImmediateStatement() : ASTStatement(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTExpression* sql() const { return sql_; }
+  const ASTExecuteIntoClause* into_clause() const { return into_clause_; }
+  const ASTExecuteUsingClause* using_clause() const { return using_clause_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&sql_);
+    fl.AddOptional(&into_clause_, AST_EXECUTE_INTO_CLAUSE);
+    fl.AddOptional(&using_clause_, AST_EXECUTE_USING_CLAUSE);
+  }
+
+  const ASTExpression* sql_ = nullptr;
+  const ASTExecuteIntoClause* into_clause_ = nullptr;
+  const ASTExecuteUsingClause* using_clause_ = nullptr;
 };
 
 inline IdString ASTAlias::GetAsIdString() const {

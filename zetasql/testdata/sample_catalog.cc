@@ -2187,6 +2187,111 @@ void SampleCatalog::LoadTableValuedFunctions2() {
               /*extra_relation_input_columns_allowed=*/true)},
           context_id++),
       output_schema_two_types));
+
+  // Add a TVF that takes two scalar named arguments.
+  const auto named_required_format_arg = zetasql::FunctionArgumentType(
+      types_->get_string(), zetasql::FunctionArgumentTypeOptions()
+                                .set_argument_name("format_string"));
+  const auto named_required_date_arg = zetasql::FunctionArgumentType(
+      types_->get_string(), zetasql::FunctionArgumentTypeOptions()
+                                .set_argument_name("date_string"));
+  const auto named_required_any_relation_arg = zetasql::FunctionArgumentType(
+      ARG_TYPE_RELATION,
+      zetasql::FunctionArgumentTypeOptions().set_argument_name(
+          "any_relation_arg"));
+  const auto named_required_schema_relation_arg =
+      zetasql::FunctionArgumentType(
+          ARG_TYPE_RELATION, FunctionArgumentTypeOptions(
+                                 output_schema_two_types,
+                                 /*extra_relation_input_columns_allowed=*/false)
+                                 .set_argument_name("schema_relation_arg"));
+  const auto named_required_value_table_relation_arg =
+      zetasql::FunctionArgumentType(
+          ARG_TYPE_RELATION,
+          FunctionArgumentTypeOptions(
+              output_schema_proto_value_table,
+              /*extra_relation_input_columns_allowed=*/false)
+              .set_argument_name("value_table_relation_arg"));
+  const auto named_optional_string_arg = zetasql::FunctionArgumentType(
+      types_->get_string(), zetasql::FunctionArgumentTypeOptions()
+                                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                                .set_argument_name("format_string"));
+  const auto named_optional_date_arg = zetasql::FunctionArgumentType(
+      types_->get_string(), zetasql::FunctionArgumentTypeOptions()
+                                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                                .set_argument_name("date_string"));
+  const auto named_optional_any_relation_arg = zetasql::FunctionArgumentType(
+      ARG_TYPE_RELATION, zetasql::FunctionArgumentTypeOptions()
+                             .set_cardinality(FunctionArgumentType::OPTIONAL)
+                             .set_argument_name("any_relation_arg"));
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_named_required_scalar_args"},
+      {FunctionArgumentType::RelationWithSchema(
+           output_schema_two_types,
+           /*extra_relation_input_columns_allowed=*/false),
+       {named_required_format_arg, named_required_date_arg},
+       /*context_id=*/-1},
+      output_schema_two_types));
+
+  // Add a TVF with two named optional arguments.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_named_optional_scalar_args"},
+      {FunctionArgumentType::RelationWithSchema(
+           output_schema_two_types,
+           /*extra_relation_input_columns_allowed=*/false),
+       {named_optional_string_arg, named_optional_date_arg},
+       /*context_id=*/-1},
+      output_schema_two_types));
+
+  // Add a TVF with one optional named "any table" relation argument.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_named_optional_any_relation_arg"},
+      {FunctionArgumentType::RelationWithSchema(
+           output_schema_two_types,
+           /*extra_relation_input_columns_allowed=*/false),
+       {named_optional_any_relation_arg},
+       /*context_id=*/-1},
+      output_schema_two_types));
+
+  // Add a TVF with one required named "any table" relation argument.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_named_required_any_relation_arg"},
+      {FunctionArgumentType::RelationWithSchema(
+           output_schema_two_types,
+           /*extra_relation_input_columns_allowed=*/false),
+       {named_required_any_relation_arg},
+       /*context_id=*/-1},
+      output_schema_two_types));
+
+  // Add a TVF with one named relation argument with a required schema.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_named_required_schema_relation_arg"},
+      {FunctionArgumentType::RelationWithSchema(
+           output_schema_two_types,
+           /*extra_relation_input_columns_allowed=*/false),
+       {named_required_schema_relation_arg},
+       /*context_id=*/-1},
+      output_schema_two_types));
+
+  // Add a TVF with one named relation argument with a value table.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_named_required_value_table_relation_arg"},
+      {FunctionArgumentType::RelationWithSchema(
+           output_schema_two_types,
+           /*extra_relation_input_columns_allowed=*/false),
+       {named_required_value_table_relation_arg},
+       /*context_id=*/-1},
+      output_schema_two_types));
+
+  // Add a TVF with a combination of named scalar and relation arguments.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_named_scalar_and_relation_args"},
+      {FunctionArgumentType::RelationWithSchema(
+           output_schema_two_types,
+           /*extra_relation_input_columns_allowed=*/false),
+       {named_required_format_arg, named_required_schema_relation_arg},
+       /*context_id=*/-1},
+      output_schema_two_types));
 }
 
 void SampleCatalog::LoadTableValuedFunctionsWithDeprecationWarnings() {

@@ -631,7 +631,7 @@ void AnalyzerOptions::SetDdlPseudoColumns(
 }
 
 ParserOptions AnalyzerOptions::GetParserOptions() const {
-  return ParserOptions(id_string_pool(), arena());
+  return ParserOptions(id_string_pool(), arena(), &language_options_);
 }
 
 AnalyzerOutput::AnalyzerOutput(

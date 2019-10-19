@@ -327,12 +327,13 @@ static zetasql_base::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
 zetasql_base::Status BisonParser::Parse(
     BisonParserMode mode, absl::string_view filename, absl::string_view input,
     int start_byte_offset, IdStringPool* id_string_pool, zetasql_base::UnsafeArena* arena,
-    std::unique_ptr<ASTNode>* output,
+    const LanguageOptions* language_options, std::unique_ptr<ASTNode>* output,
     std::vector<std::unique_ptr<ASTNode>>* other_allocated_ast_nodes,
     ASTNodeKind* next_statement_kind_result, bool* next_statement_is_ctas,
     int* statement_end_byte_offset) {
   id_string_pool_ = id_string_pool;
   arena_ = arena;
+  language_options_ = language_options;
   allocated_ast_nodes_ =
       absl::make_unique<std::vector<std::unique_ptr<ASTNode>>>();
   auto clean_up_allocated_ast_nodes =
