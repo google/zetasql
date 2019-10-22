@@ -82,6 +82,25 @@ public class Analyzer implements Serializable {
         catalog, fileDescriptorSetsBuilder, response);
   }
 
+  public static String buildStatement(ResolvedNodes.ResolvedStatement statement, SimpleCatalog catalog) {
+
+    LocalService.BuildSqlRequest.Builder request = LocalService.BuildSqlRequest.newBuilder();
+    FileDescriptorSetsBuilder fileDescriptorSetsBuilder =
+        AnalyzerHelper.serializeSimpleCatalog(catalog, request);
+    AnyResolvedStatementProto.Builder resolvedExpr = AnyResolvedStatementProto.newBuilder();
+    statement.serialize(fileDescriptorSetsBuilder, resolvedExpr);
+    request.setResolvedStatement(resolvedExpr.build());
+
+    LocalService.BuildSqlResponse response;
+    try {
+      response = Client.getStub().buildSql(request.build());
+    } catch (StatusRuntimeException e) {
+      throw new SqlException(e);
+    }
+
+    return response.getSql();
+  }
+
   /**
    * Renders expression as a sql string.
    *
