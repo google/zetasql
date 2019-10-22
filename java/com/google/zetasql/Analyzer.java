@@ -82,7 +82,7 @@ public class Analyzer implements Serializable {
         catalog, fileDescriptorSetsBuilder, response);
   }
 
-  public static String buildStatement(ResolvedNodes.ResolvedStatement statement, SimpleCatalog catalog) {
+  public static String buildStatement(ResolvedStatement statement, SimpleCatalog catalog) {
 
     LocalService.BuildSqlRequest.Builder request = LocalService.BuildSqlRequest.newBuilder();
     FileDescriptorSetsBuilder fileDescriptorSetsBuilder =

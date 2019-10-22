@@ -597,13 +597,13 @@ zetasql_base::Status ZetaSqlLocalServiceImpl::BuildSql(const BuildSqlRequest& re
 
   std::unique_ptr<ResolvedNode> ast;
   if (request.has_resolved_statement()) {
-    ast = std::move(ResolvedStatement::RestoreFrom(request.resolved_statement(),
-                                                   restore_params)
-                        .ValueOrDie());
+    ZETASQL_ASSIGN_OR_RETURN(
+      ast, std::move(ResolvedStatement::RestoreFrom(request.resolved_statement(),
+                                                    restore_params)));
   } else if (request.has_resolved_expression()) {
-    ast = std::move(
-        ResolvedExpr::RestoreFrom(request.resolved_expression(), restore_params)
-            .ValueOrDie());
+    ZETASQL_ASSIGN_OR_RETURN(
+      ast, std::move(ResolvedExpr::RestoreFrom(request.resolved_expression(), 
+                                               restore_params)));
   } else {
     return ::zetasql_base::OkStatus();
   }
