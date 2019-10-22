@@ -152,7 +152,7 @@ public final class ResolvedNodes {
   }
 
   static TableRefProto serialize(Table table, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
-    return TableRefProto.newBuilder().setName(table.getName()).setSerializationId(table.getId()).build();
+    return TableRefProto.newBuilder().setFullName(table.getFullName()).setName(table.getName()).setSerializationId(table.getId()).build();
   }
 
   static TypeProto serialize(Type type, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
