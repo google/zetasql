@@ -383,6 +383,23 @@ class TVFModelArgument {
   const Model* model_;  // Not owned.
 };
 
+// This represents a connection passed as an input argument to a TVF. It
+// contains a pointer to the connection object in the catalog.
+class TVFConnectionArgument {
+ public:
+  // Creates a new TVFConnectionArgument using a connection catalog object.
+  // Does not take ownership of <connection>, which must outlive this class.
+  explicit TVFConnectionArgument(const Connection* connection)
+      : connection_(connection) {}
+
+  const Connection* connection() const { return connection_; }
+  std::string GetSQLDeclaration(ProductMode product_mode) const;
+  std::string DebugString() const;
+
+ private:
+  const Connection* connection_;  // Not owned.
+};
+
 // This represents one input argument to a call to a TVF.
 // Each such call includes zero or more input arguments.
 // Each input argument may be either scalar or relation.
@@ -407,11 +424,18 @@ class TVFInputArgumentType {
   explicit TVFInputArgumentType(const TVFModelArgument& model)
       : kind_(TVFInputArgumentTypeKind::MODEL), model_(model) {}
 
+  // Creates a connection argument.
+  explicit TVFInputArgumentType(const TVFConnectionArgument& connection)
+      : kind_(TVFInputArgumentTypeKind::CONNECTION), connection_(connection) {}
+
   bool is_scalar() const { return kind_ == TVFInputArgumentTypeKind::SCALAR; }
   bool is_relation() const {
     return kind_ == TVFInputArgumentTypeKind::RELATION;
   }
   bool is_model() const { return kind_ == TVFInputArgumentTypeKind::MODEL; }
+  bool is_connection() const {
+    return kind_ == TVFInputArgumentTypeKind::CONNECTION;
+  }
 
   ::zetasql_base::StatusOr<InputArgumentType> GetScalarArgType() const {
     ZETASQL_RET_CHECK(kind_ == TVFInputArgumentTypeKind::SCALAR);
@@ -444,12 +468,18 @@ class TVFInputArgumentType {
     DCHECK(is_model());
     return model_;
   }
+  const TVFConnectionArgument& connection() const {
+    DCHECK(is_connection());
+    return connection_;
+  }
 
   std::string DebugString() const {
     if (kind_ == TVFInputArgumentTypeKind::RELATION) {
       return relation_.DebugString();
     } else if (kind_ == TVFInputArgumentTypeKind::MODEL) {
       return model_.DebugString();
+    } else if (kind_ == TVFInputArgumentTypeKind::CONNECTION) {
+      return connection_.DebugString();
     } else if (scalar_arg_value_ != nullptr) {
       return InputArgumentType(*scalar_arg_value_).DebugString();
     } else {
@@ -458,7 +488,13 @@ class TVFInputArgumentType {
   }
 
  private:
-  enum class TVFInputArgumentTypeKind { UNKNOWN, MODEL, RELATION, SCALAR };
+  enum class TVFInputArgumentTypeKind {
+    UNKNOWN,
+    CONNECTION,
+    MODEL,
+    RELATION,
+    SCALAR
+  };
   // Defines whether this is a relation, scalar argument or a model.
   const TVFInputArgumentTypeKind kind_;
 
@@ -467,6 +503,7 @@ class TVFInputArgumentType {
   // Only one of the following is defined, based on kind_.
   const TVFRelation relation_ = TVFRelation({});
   const TVFModelArgument model_ = TVFModelArgument(nullptr);
+  const TVFConnectionArgument connection_ = TVFConnectionArgument(nullptr);
   const Type* scalar_arg_type_ = nullptr;
 
   // This is the literal value for 'scalar_arg_type_', if applicable. We store

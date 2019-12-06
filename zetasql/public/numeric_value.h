@@ -22,8 +22,10 @@
 #include <memory>
 #include <string>
 
+#include "zetasql/common/fixed_int.h"
 #include <cstdint>
 #include "absl/strings/string_view.h"
+#include "absl/types/optional.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/statusor.h"
 
@@ -43,11 +45,10 @@ class NumericValue final {
   // to define all possible built-in types.
   explicit constexpr NumericValue(int value);
   explicit constexpr NumericValue(unsigned int value);
-  explicit constexpr NumericValue(long value);           // NOLINT(runtime/int)
-  explicit constexpr NumericValue(unsigned long value);  // NOLINT(runtime/int)
-  explicit constexpr NumericValue(long long value);      // NOLINT(runtime/int)
-  // NOLINTNEXTLINE(runtime/int)
-  explicit constexpr NumericValue(unsigned long long value);
+  explicit constexpr NumericValue(long value);                // NOLINT
+  explicit constexpr NumericValue(unsigned long value);       // NOLINT
+  explicit constexpr NumericValue(long long value);           // NOLINT
+  explicit constexpr NumericValue(unsigned long long value);  // NOLINT
 
   // NUMERIC minimum and maximum limits.
   static constexpr NumericValue MaxValue();
@@ -186,6 +187,9 @@ class NumericValue final {
   // values. This class handles a temporary overflow while adding values.
   // OUT_OF_RANGE error is generated only when retrieving the sum and only if
   // the final sum is outside of the valid NUMERIC range.
+  // WARNING: This class is going to be replaced with SumAggregator. New code
+  // should not depend on sizeof(Aggregator) or its SerializeAsProtoBytes()
+  // implementation.
   class Aggregator final {
    public:
     // Adds a NUMERIC value to the input.
@@ -209,6 +213,10 @@ class NumericValue final {
     static zetasql_base::StatusOr<Aggregator> DeserializeFromProtoBytes(
         absl::string_view bytes);
 
+    bool operator==(const Aggregator& other) const {
+      return sum_lower_ == other.sum_lower_ && sum_upper_ == other.sum_upper_;
+    }
+
    private:
     // Higher 64 bits and lower 128 bits of the sum.
     // Both sum_lower and sum_upper are signed values. For smaller sums that
@@ -220,12 +228,88 @@ class NumericValue final {
     int64_t sum_upper_ = 0;
   };
 
+  // A temporary class. Will be renamed to Aggregator.
+  // Aggregates multiple NUMERIC values and produces sum and average of all
+  // values. This class handles a temporary overflow while adding values.
+  // OUT_OF_RANGE error is generated only when retrieving the sum and only if
+  // the final sum is outside of the valid NUMERIC range.
+  class SumAggregator final {
+   public:
+    // Adds a NUMERIC value to the input.
+    void Add(NumericValue value);
+    // Returns sum of all input values. Returns OUT_OF_RANGE error on overflow.
+    zetasql_base::StatusOr<NumericValue> GetSum() const;
+    // Returns sum of all input values divided by the specified divisor.
+    // Returns OUT_OF_RANGE error on overflow of the division result.
+    // Please note that the division result may be in the valid range even if
+    // the sum exceeds the range.
+    zetasql_base::StatusOr<NumericValue> GetAverage(uint64_t count) const;
+
+    // Merges the state with other SumAggregator instance's state.
+    void MergeWith(const SumAggregator& other);
+
+    std::string SerializeAsProtoBytes() const;
+    static zetasql_base::StatusOr<SumAggregator> DeserializeFromProtoBytes(
+        absl::string_view bytes);
+
+    bool operator==(const SumAggregator& other) const {
+      return sum_ == other.sum_;
+    }
+
+   private:
+    FixedInt<64, 3> sum_;
+  };
+
+  class VarianceAggregator {
+   public:
+    // Adds a NUMERIC value to the input.
+    void Add(NumericValue value);
+    // Removes a previously added NUMERIC value from the input.
+    // This method is provided for implementing analytic functions with
+    // sliding windows. If the value has not been added to the input, or if it
+    // has already been removed, then the result of this method is undefined.
+    void Subtract(NumericValue value);
+    // Returns the population variance, or absl::nullopt if count is 0.
+    absl::optional<double> GetPopulationVariance(uint64_t count) const;
+    // Returns the sampling variance, or absl::nullopt if count < 2.
+    absl::optional<double> GetSamplingVariance(uint64_t count) const;
+    // Returns the population standard deviation, or absl::nullopt if count is
+    // 0.
+    absl::optional<double> GetPopulationStdDev(uint64_t count) const;
+    // Returns the sampling standard deviation, or absl::nullopt if count < 2.
+    absl::optional<double> GetSamplingStdDev(uint64_t count) const;
+    // Merges the state with other VarianceAggregator instance's state.
+    void MergeWith(const VarianceAggregator& other);
+    // Serialization and deserialization methods that are intended to be
+    // used to store the state in protos.
+    // sum_ is length prefixed and serialized, followed by sum_square_.
+    std::string SerializeAsProtoBytes() const;
+    static zetasql_base::StatusOr<VarianceAggregator> DeserializeFromProtoBytes(
+        absl::string_view bytes);
+
+    bool operator==(const VarianceAggregator& other) const {
+      return sum_ == other.sum_ && sum_square_ == other.sum_square_;
+    }
+
+   private:
+    double GetVariance(uint64_t count, uint64_t count_offset) const;
+    FixedInt<64, 3> sum_;
+    FixedInt<64, 5> sum_square_;
+  };
+
  private:
   NumericValue(uint64_t high_bits, uint64_t low_bits);
   explicit constexpr NumericValue(__int128 value);
 
   static zetasql_base::StatusOr<NumericValue> FromStringInternal(
       absl::string_view str, bool is_strict);
+
+  template <int kNumBitsPerWord, int kNumWords>
+  static zetasql_base::StatusOr<NumericValue> FromFixedUint(
+      const FixedUint<kNumBitsPerWord, kNumWords>& val, bool negate);
+  template <int kNumBitsPerWord, int kNumWords>
+  static zetasql_base::StatusOr<NumericValue> FromFixedInt(
+      const FixedInt<kNumBitsPerWord, kNumWords>& val);
 
   // Rounds this NUMERIC value to the given number of decimal digits after the
   // decimal point (or before the decimal point if 'digits' is negative).
@@ -235,11 +319,9 @@ class NumericValue final {
   zetasql_base::StatusOr<NumericValue> RoundInternal(
       int64_t digits, bool round_away_from_zero) const;
 
-  // Perfoms the division operation. Will round the result if
-  // 'round_away_from_zero' is set to true. May return OUT_OF_RANGE if an
-  // overflow or division by zero occurs.
-  zetasql_base::StatusOr<NumericValue> DivideInternal(
-      NumericValue rh, bool round_away_from_zero) const;
+  // Raises this numeric value to the given power and returns the result.
+  // The caller should annotate the error with the inputs.
+  zetasql_base::StatusOr<NumericValue> PowerInternal(NumericValue exp) const;
 
   static constexpr uint32_t kScalingFactor = 1000000000;
 

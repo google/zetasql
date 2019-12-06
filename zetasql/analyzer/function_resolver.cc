@@ -16,6 +16,7 @@
 
 #include "zetasql/analyzer/function_resolver.h"
 
+#include <limits>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -104,6 +105,7 @@ static const std::string* const kBitwiseOrFnName =
     new std::string("$bitwise_or");
 static const std::string* const kBitwiseXorFnName =
     new std::string("$bitwise_xor");
+static const std::string* const kConcatOpFnName = new std::string("$concat_op");
 static const std::string* const kDivideFnName = new std::string("$divide");
 static const std::string* const kEqualFnName = new std::string("$equal");
 static const std::string* const kGreaterFnName = new std::string("$greater");
@@ -155,6 +157,8 @@ const std::string& FunctionResolver::BinaryOperatorToFunctionName(
     case ASTBinaryExpression::IS:
     case ASTBinaryExpression::NOT_SET:
       return *kInvalidBinaryOperatorStr;
+    case ASTBinaryExpression::CONCAT_OP:
+      return *kConcatOpFnName;
   }
 }
 
@@ -215,7 +219,8 @@ bool FunctionResolver::GetConcreteArgument(
     std::unique_ptr<FunctionArgumentType>* output_argument) const {
   DCHECK_NE(argument.kind(), ARG_TYPE_ARBITRARY);
   output_argument->reset();
-  if (argument.IsTemplated() && !argument.IsRelation() && !argument.IsModel()) {
+  if (argument.IsTemplated() && !argument.IsRelation() && !argument.IsModel() &&
+      !argument.IsConnection()) {
     const Type* const* found_type =
         zetasql_base::FindOrNull(templated_argument_map, argument.kind());
     if (found_type == nullptr) {
@@ -232,6 +237,9 @@ bool FunctionResolver::GetConcreteArgument(
   } else if (argument.IsModel()) {
     *output_argument = absl::make_unique<FunctionArgumentType>(
         ARG_TYPE_MODEL, argument.options(), num_occurrences);
+  } else if (argument.IsConnection()) {
+    *output_argument = absl::make_unique<FunctionArgumentType>(
+        ARG_TYPE_CONNECTION, argument.options(), num_occurrences);
   } else {
     *output_argument = absl::make_unique<FunctionArgumentType>(
         argument.type(), argument.options(), num_occurrences);
@@ -409,6 +417,12 @@ bool FunctionResolver::CheckArgumentTypesAndCollectTemplatedArguments(
       // No other signature argument types match model input arguments.
       return false;
     }
+    if (signature_argument.IsConnection() != input_argument.is_connection()) {
+      // Connection signature argument types match only connection input
+      // arguments.
+      // No other signature argument types match connection input arguments.
+      return false;
+    }
     if (signature_argument.IsRelation()) {
       bool signature_matches = false;
       const zetasql_base::Status status = CheckRelationArgumentTypes(
@@ -420,18 +434,21 @@ bool FunctionResolver::CheckArgumentTypesAndCollectTemplatedArguments(
       DCHECK(input_argument.is_model());
       // We currently only support ANY MODEL signatures and there is no need to
       // to check for coercion given that the models are templated.
+    } else if (signature_argument.IsConnection()) {
+      DCHECK(input_argument.is_connection());
+      // We currently only support ANY CONNECTION signatures and there is no
+      // need to to check for coercion given that the connections are templated.
     } else if (signature_argument.kind() == ARG_TYPE_ARBITRARY) {
       // Arbitrary kind arguments match any input argument type.
     } else if (!signature_argument.IsTemplated()) {
-      if ((((input_argument.type()->IsArray() ||
-             input_argument.type()->IsProto()) &&
-            !input_argument.type()->Equivalent(signature_argument.type())) ||
-           input_argument.type()->kind() !=
-               signature_argument.type()->kind()) &&
+      // Input argument type must either be equivalent or (if coercion is
+      // allowed) coercible to signature argument type.
+      if (!input_argument.type()->Equivalent(signature_argument.type()) &&
           (!allow_argument_coercion ||
-           !coercer().CoercesTo(input_argument, signature_argument.type(),
-                                false /* is_explicit */,
-                                signature_match_result))) {
+           (!coercer().CoercesTo(input_argument, signature_argument.type(),
+                                 false /* is_explicit */,
+                                 signature_match_result) &&
+            !signature_argument.AllowCoercionFrom(input_argument.type())))) {
         return false;
       }
     } else if (input_argument.is_untyped()) {
@@ -848,9 +865,10 @@ bool FunctionResolver::SignatureMatches(
   // We have a matching concrete signature, so update <signature_match_result>
   // for all arguments as compared to this signature.
   for (int idx = 0; idx < input_arguments.size(); ++idx) {
-    if (input_arguments[idx].is_relation() || input_arguments[idx].is_model()) {
-      // The cost of matching a relation/model-type argument is not currently
-      // considered in the SignatureMatchResult.
+    if (input_arguments[idx].is_relation() || input_arguments[idx].is_model() ||
+        input_arguments[idx].is_connection()) {
+      // The cost of matching a relation/model/connection-type argument is not
+      // currently considered in the SignatureMatchResult.
       continue;
     }
     const Type* input_argument_type = input_arguments[idx].type();
@@ -976,23 +994,24 @@ zetasql_base::Status FunctionResolver::ProcessNamedArguments(
     const std::string& function_name, const FunctionSignature& signature,
     const ASTNode* ast_location,
     const std::vector<std::pair<const ASTNamedArgument*, int>>& named_arguments,
+    bool return_error_if_named_arguments_do_not_match_signature,
+    bool* named_arguments_match_signature,
     std::vector<const ASTNode*>* arg_locations,
     std::vector<std::unique_ptr<const ResolvedExpr>>* expr_args,
-    std::vector<ResolvedTVFArg>* tvf_arg_types) {
-  if (named_arguments.empty()) {
-    // Nothing to do.
-    return zetasql_base::OkStatus();
-  }
+    std::vector<InputArgumentType>* input_arg_types,
+    std::vector<ResolvedTVFArg>* tvf_arg_types) const {
   // Make sure the language feature is enabled.
-  if (!resolver_->language().LanguageFeatureEnabled(FEATURE_NAMED_ARGUMENTS)) {
+  if (!named_arguments.empty() &&
+      !resolver_->language().LanguageFeatureEnabled(FEATURE_NAMED_ARGUMENTS)) {
     return MakeSqlErrorAt(named_arguments[0].first)
            << "Named arguments are not supported";
   }
-  // Build a set of all required argument names in the function signature.
-  std::set<std::string, zetasql_base::StringCaseLess> required_argument_names;
+  // Build a set of all argument names in the function signature argument
+  // options.
+  std::set<std::string, zetasql_base::StringCaseLess> argument_names_from_signature_options;
   for (const FunctionArgumentType& arg_type : signature.arguments()) {
     if (arg_type.options().has_argument_name()) {
-      ZETASQL_RET_CHECK(zetasql_base::InsertIfNotPresent(&required_argument_names,
+      ZETASQL_RET_CHECK(zetasql_base::InsertIfNotPresent(&argument_names_from_signature_options,
                                         arg_type.options().argument_name()))
           << "Duplicate named argument " << arg_type.options().argument_name()
           << " found in signature for function " << function_name;
@@ -1001,8 +1020,11 @@ zetasql_base::Status FunctionResolver::ProcessNamedArguments(
   // Build a map from each argument name to the index in which the named
   // argument appears in <arguments> and <arg_locations>.
   std::map<std::string, int, zetasql_base::StringCaseLess> argument_names_to_indexes;
-  for (const std::pair<const ASTNamedArgument*, int>& named_arg :
-       named_arguments) {
+  int first_named_arg_index = std::numeric_limits<int>::max();
+  int last_named_arg_index = -1;
+  for (int i = 0; i < named_arguments.size(); ++i) {
+    const std::pair<const ASTNamedArgument*, int>& named_arg =
+        named_arguments[i];
     // Map the argument name to the index in which it appears in the function
     // call. If the name already exists in the map, this is a duplicate named
     // argument which is not allowed.
@@ -1014,78 +1036,208 @@ zetasql_base::Status FunctionResolver::ProcessNamedArguments(
              << " found in call to function " << function_name;
     }
     // Make sure the provided argument name exists in the function signature.
-    if (!zetasql_base::ContainsKey(required_argument_names, provided_arg_name)) {
-      return MakeSqlErrorAt(named_arg.first)
-             << "Named argument " << provided_arg_name
-             << " not found in signature for call to function "
-             << function_name;
+    if (!zetasql_base::ContainsKey(argument_names_from_signature_options,
+                          provided_arg_name)) {
+      *named_arguments_match_signature = false;
+      if (return_error_if_named_arguments_do_not_match_signature) {
+        return MakeSqlErrorAt(named_arg.first)
+               << "Named argument " << provided_arg_name
+               << " not found in signature for call to function "
+               << function_name;
+      }
+      return zetasql_base::OkStatus();
     }
+    // Keep track of the first and last named argument index.
+    first_named_arg_index = std::min(first_named_arg_index, named_arg.second);
+    last_named_arg_index = std::max(last_named_arg_index, named_arg.second);
   }
-  // Support is only implemented for signatures with all required arguments
-  // types so far.
-  // TODO: Support optional argument types.
-  // TODO: Support a combination of positional and named arguments.
-  if ((expr_args != nullptr &&
-       expr_args->size() > named_arguments.size()) ||
-      (tvf_arg_types != nullptr &&
-       tvf_arg_types->size() > named_arguments.size())) {
-    return MakeSqlErrorAt(ast_location)
-           << "Combinations of positional arguments and named arguments are "
-           << "not supported yet";
-  } else if (std::any_of(
-                 signature.arguments().begin(), signature.arguments().end(),
-                 [](const FunctionArgumentType& arg) {
-                   return arg.cardinality() == FunctionArgumentType::OPTIONAL ||
-                          !arg.options().has_argument_name();
-                 })) {
-    return MakeSqlErrorAt(ast_location)
-           << "Named arguments are only supported so far for functions where "
-           << "all the argument types are required with mandatory argument "
-           << "names";
+    // Check that named arguments are not followed by positional arguments.
+  absl::optional<size_t> num_provided_args;
+  if (expr_args != nullptr) {
+    num_provided_args = expr_args->size();
+  }
+  if (input_arg_types != nullptr) {
+    if (num_provided_args.has_value()) {
+      ZETASQL_RET_CHECK_EQ(
+          *num_provided_args, input_arg_types->size());
+    }
+    num_provided_args = input_arg_types->size();
+  }
+  if (tvf_arg_types != nullptr) {
+    num_provided_args = tvf_arg_types->size();
+  }
+  if (!named_arguments.empty() &&
+      (last_named_arg_index - first_named_arg_index >= named_arguments.size() ||
+       last_named_arg_index < num_provided_args.value_or(1) - 1)) {
+    return MakeSqlErrorAt(named_arguments.back().first)
+           << "Call to function " << function_name << " must not specify "
+           << "positional arguments after named arguments; named arguments "
+           << "must be specified last in the argument list";
   }
   // Iterate through the function signature and rearrange the provided arguments
   // using the 'argument_names_to_indexes' map.
   std::vector<const ASTNode*> new_arg_locations;
   std::vector<std::unique_ptr<const ResolvedExpr>> new_expr_args;
+  std::vector<InputArgumentType> new_input_arg_types;
   std::vector<ResolvedTVFArg> new_tvf_arg_types;
   for (int i = 0; i < signature.arguments().size(); ++i) {
+    const FunctionArgumentType& arg_type = signature.arguments()[i];
+    const std::string& signature_arg_name = arg_type.options().has_argument_name()
+                                           ? arg_type.options().argument_name()
+                                           : "";
+    const int* index =
+        zetasql_base::FindOrNull(argument_names_to_indexes, signature_arg_name);
+    // For positional arguments that appear before any named arguments appear,
+    // simply retain their locations and argument types.
+    if (named_arguments.empty() || i < named_arguments[0].second) {
+      if (arg_locations != nullptr && i < arg_locations->size()) {
+        new_arg_locations.push_back(arg_locations->at(i));
+      }
+      if (expr_args != nullptr && i < expr_args->size()) {
+        new_expr_args.push_back(std::move(expr_args->at(i)));
+      }
+      if (input_arg_types != nullptr && i < input_arg_types->size()) {
+        new_input_arg_types.push_back(std::move(input_arg_types->at(i)));
+      }
+      if (tvf_arg_types != nullptr && i < tvf_arg_types->size()) {
+        new_tvf_arg_types.push_back(std::move(tvf_arg_types->at(i)));
+      }
+      // Make sure that the function signature does not specify an optional name
+      // for this positional argument that also appears later as a named
+      // argument in the function call.
+      if (!signature_arg_name.empty() && index != nullptr) {
+        *named_arguments_match_signature = false;
+        if (return_error_if_named_arguments_do_not_match_signature) {
+          return MakeSqlErrorAt(arg_locations->at(*index))
+                 << "Named argument " << signature_arg_name << " is invalid "
+                 << "because this call to function " << function_name
+                 << " also includes a positional argument corresponding to the "
+                 << "same name in the function signature";
+        }
+        return zetasql_base::OkStatus();
+      }
+      // Make sure that the function signature does not specify an argument
+      // name positionally when the options require that it must be named.
+      if (!signature_arg_name.empty() &&
+          arg_type.options().argument_name_is_mandatory()) {
+        *named_arguments_match_signature = false;
+        if (return_error_if_named_arguments_do_not_match_signature) {
+          return MakeSqlErrorAt(arg_locations->at(i))
+                 << "Positional argument is invalid because this function "
+                 << "restricts that this argument is referred to by name \""
+                 << signature_arg_name << "\" only";
+        }
+        return zetasql_base::OkStatus();
+      }
+      continue;
+    }
     // Lookup the required argument name from the map of provided named
     // arguments. If not found, return an error reporting the missing required
     // argument name.
-    const FunctionArgumentType& arg_type = signature.arguments()[i];
-    const std::string& arg_name = arg_type.options().argument_name();
-    const int* index = zetasql_base::FindOrNull(argument_names_to_indexes, arg_name);
-    // Note that combinations of positional arguments and named arguments are
-    // not supported yet.
-    if (index == nullptr) {
-      return MakeSqlErrorAt(ast_location)
-             << "Call to function " << function_name
-             << " does not include required argument name " << arg_name;
+    if (index == nullptr && arg_type.required()) {
+      *named_arguments_match_signature = false;
+      if (return_error_if_named_arguments_do_not_match_signature) {
+        return MakeSqlErrorAt(ast_location)
+               << "Call to function " << function_name
+               << " does not include required argument name "
+               << signature_arg_name;
+      }
+      return zetasql_base::OkStatus();
     }
     // Repeated argument types may never have required argument names.
     ZETASQL_RET_CHECK_NE(arg_type.cardinality(), FunctionArgumentType::REPEATED)
         << "Call to function " << function_name << " includes named "
-        << "argument " << arg_name << " referring to a repeated argument "
-        << "type, which is not supported";
+        << "argument " << signature_arg_name << " referring to a repeated "
+        << "argument type, which is not supported";
     if (arg_locations != nullptr) {
-      new_arg_locations.push_back(arg_locations->at(*index));
+      if (index != nullptr) {
+        new_arg_locations.push_back(arg_locations->at(*index));
+      } else {
+        new_arg_locations.push_back(ast_location);
+      }
     }
     if (expr_args != nullptr) {
-      new_expr_args.push_back(std::move(expr_args->at(*index)));
+      if (index != nullptr) {
+        new_expr_args.push_back(std::move(expr_args->at(*index)));
+      } else {
+        // Pass NULL if an optional argument was not named in the function call.
+        // Note that by this point we have enforced that the argument is
+        // optional by checking against all required and repeated argument types
+        // above.
+        ZETASQL_RET_CHECK(arg_type.optional());
+        new_expr_args.emplace_back(MakeResolvedLiteral(
+            arg_type.type(), zetasql::Value::Null(arg_type.type())));
+      }
+    }
+    if (input_arg_types != nullptr) {
+      if (index != nullptr) {
+        new_input_arg_types.push_back(std::move(input_arg_types->at(*index)));
+      } else {
+        ZETASQL_RET_CHECK(arg_type.optional());
+        new_input_arg_types.emplace_back(
+            InputArgumentType(zetasql::Value::Null(arg_type.type())));
+      }
     }
     if (tvf_arg_types != nullptr) {
-      new_tvf_arg_types.push_back(std::move(tvf_arg_types->at(*index)));
+      if (index != nullptr) {
+        new_tvf_arg_types.push_back(std::move(tvf_arg_types->at(*index)));
+      } else {
+        if (arg_type.IsRelation()) {
+          *named_arguments_match_signature = false;
+          if (return_error_if_named_arguments_do_not_match_signature) {
+            return MakeSqlErrorAt(ast_location)
+                   << "Call to table valued function " << function_name
+                   << "does not specify a value for table argument "
+                   << signature_arg_name;
+          }
+          return zetasql_base::OkStatus();
+        }
+        // Pass NULL if an optional argument was not named in the function call.
+        // Note that by this point we have enforced that the argument is
+        // optional by checking against all required and repeated argument types
+        // above.
+        ZETASQL_RET_CHECK(arg_type.optional());
+        std::unique_ptr<ResolvedExpr> expr = MakeResolvedLiteral(
+            arg_type.type(), zetasql::Value::Null(arg_type.type()));
+        ResolvedTVFArg arg;
+        arg.SetExpr(std::move(expr));
+        new_tvf_arg_types.emplace_back(std::move(arg));
+      }
     }
   }
+  // Append any remaining provided argument locations and values and move the
+  // new argument location and value vectors to the originals.
+  // Note that the former step is required in the presence of repeated arguments
+  // in the function signature, even though these must be specified
+  // positionally.
   if (arg_locations != nullptr) {
+    for (size_t i = signature.arguments().size(); i < arg_locations->size();
+         ++i) {
+      new_arg_locations.push_back(arg_locations->at(i));
+    }
     *arg_locations = std::move(new_arg_locations);
   }
   if (expr_args != nullptr) {
+    for (size_t i = signature.arguments().size(); i < expr_args->size(); ++i) {
+      new_expr_args.push_back(std::move(expr_args->at(i)));
+    }
     *expr_args = std::move(new_expr_args);
   }
+  if (input_arg_types != nullptr) {
+    for (size_t i = signature.arguments().size(); i < input_arg_types->size();
+         ++i) {
+      new_input_arg_types.push_back(std::move(input_arg_types->at(i)));
+    }
+    *input_arg_types = std::move(new_input_arg_types);
+  }
   if (tvf_arg_types != nullptr) {
+    for (size_t i = signature.arguments().size(); i < tvf_arg_types->size();
+         ++i) {
+      new_tvf_arg_types.push_back(std::move(tvf_arg_types->at(i)));
+    }
     *tvf_arg_types = std::move(new_tvf_arg_types);
   }
+  *named_arguments_match_signature = true;
   return zetasql_base::OkStatus();
 }
 
@@ -1094,18 +1246,37 @@ zetasql_base::Status FunctionResolver::ProcessNamedArguments(
 // error message.  Currently, this code takes an early exit if a signature
 // does not match and does not accurately determine how close the signature
 // was, nor does it keep track of the best non-matching signature.
-const FunctionSignature* FunctionResolver::FindMatchingSignature(
+zetasql_base::StatusOr<const FunctionSignature*>
+FunctionResolver::FindMatchingSignature(
     const Function* function,
-    const std::vector<InputArgumentType>& input_arguments) const {
+    const std::vector<InputArgumentType>& input_arguments_in,
+    const ASTNode* ast_location,
+    const std::vector<const ASTNode*>& arg_locations_in,
+    const std::vector<std::pair<const ASTNamedArgument*, int>>& named_arguments)
+    const {
   std::unique_ptr<FunctionSignature> best_result_signature;
   SignatureMatchResult best_result;
 
   VLOG(6) << "FindMatchingSignature for function: "
           << function->DebugString(/*verbose=*/true) << "\n  for arguments: "
           << InputArgumentType::ArgumentsToString(
-                 input_arguments, ProductMode::PRODUCT_INTERNAL);
+                 input_arguments_in, ProductMode::PRODUCT_INTERNAL);
 
   for (const FunctionSignature& signature : function->signatures()) {
+    // Check if the function call contains any named arguments, and rearrange
+    // 'input_arguments' appropriately if so.
+    std::vector<InputArgumentType> input_arguments = input_arguments_in;
+    std::vector<const ASTNode*> arg_locations = arg_locations_in;
+    bool named_arguments_match_signature = false;
+    ZETASQL_RETURN_IF_ERROR(ProcessNamedArguments(
+        function->FullName(), signature, ast_location, named_arguments,
+        /*return_error_if_named_arguments_do_not_match_signature=*/
+        (function->NumSignatures() == 1), &named_arguments_match_signature,
+        &arg_locations, /*expr_args=*/nullptr, &input_arguments,
+        /*tvf_arg_types=*/nullptr));
+    if (!named_arguments_match_signature) {
+      continue;
+    }
     std::unique_ptr<FunctionSignature> result_signature;
     SignatureMatchResult signature_match_result;
     if (SignatureMatches(input_arguments, signature,
@@ -1557,19 +1728,6 @@ zetasql_base::Status FunctionResolver::ResolveGeneralFunctionCall(
            << " does not support an OVER clause";
   }
 
-  // Check if the function call contains any named arguments.
-  if (!named_arguments.empty()) {
-    if (function->NumSignatures() != 1) {
-      return MakeSqlErrorAt(ast_location)
-             << "Named arguments are not supported yet for calls to functions "
-             << "with more than one signature";
-    }
-    ZETASQL_RETURN_IF_ERROR(ProcessNamedArguments(
-        function->FullName(), function->signatures()[0], ast_location,
-        named_arguments, &arg_locations, &arguments,
-        /*tvf_arg_types=*/nullptr));
-  }
-
   std::vector<InputArgumentType> input_argument_types;
   GetInputArgumentTypesForExprList(arguments, &input_argument_types);
 
@@ -1583,7 +1741,11 @@ zetasql_base::Status FunctionResolver::ResolveGeneralFunctionCall(
   }
 
   std::unique_ptr<const FunctionSignature> result_signature;
-  result_signature.reset(FindMatchingSignature(function, input_argument_types));
+  ZETASQL_ASSIGN_OR_RETURN(
+      const FunctionSignature* signature,
+      FindMatchingSignature(function, input_argument_types, ast_location,
+                            arg_locations, named_arguments));
+  result_signature.reset(signature);
 
   if (nullptr == result_signature) {
     ProductMode product_mode = resolver_->language().product_mode();
@@ -1621,6 +1783,16 @@ zetasql_base::Status FunctionResolver::ResolveGeneralFunctionCall(
       }
     }
   }
+  // If the function call includes any named arguments, call the
+  // ProcessNamedArguments method to update the order of 'arg_locations',
+  // 'arguments', and 'input_argument_types' appropriately.
+  bool named_arguments_match_signature = false;
+  ZETASQL_RETURN_IF_ERROR(ProcessNamedArguments(
+      function->FullName(), *result_signature, ast_location, named_arguments,
+      /*return_error_if_named_arguments_do_not_match_signature=*/false,
+      &named_arguments_match_signature, &arg_locations, &arguments,
+      &input_argument_types, /*tvf_arg_types=*/nullptr));
+  ZETASQL_RET_CHECK(named_arguments_match_signature);
   ZETASQL_RET_CHECK(result_signature->HasConcreteArguments());
   if (!function->Is<TemplatedSQLFunction>()) {
     ZETASQL_RET_CHECK(result_signature->IsConcrete());
@@ -1799,9 +1971,46 @@ zetasql_base::Status FunctionResolver::ResolveGeneralFunctionCall(
 
   ZETASQL_RET_CHECK(!result_signature->result_type().IsVoid());
 
-  *resolved_expr_out = MakeResolvedFunctionCall(
-      result_signature->result_type().type(), function, *result_signature,
-      std::move(arguments), error_mode, function_call_info);
+  // We transform the concatenation operator (||) function into the
+  // corresponding CONCAT or ARRAY_CONCAT function call here. Engines never
+  // see the concatenation operator function in the ResolvedAST, and only
+  // see the canonical CONCAT/ARRAY_CONCAT function call.
+  if (function->Name() == "$concat_op") {
+    const Function* concat_op_function;
+    ResolvedFunctionCallBase::ErrorMode concat_op_error_mode;
+    std::vector<std::string> function_name_path;
+    std::unique_ptr<const FunctionSignature> concat_op_result_signature;
+
+    if (result_signature->result_type().type()->IsArray()) {
+      function_name_path.push_back("array_concat");
+      ZETASQL_RETURN_IF_ERROR(resolver_->LookupFunctionFromCatalog(
+          ast_location, function_name_path, &concat_op_function,
+          &concat_op_error_mode));
+      ZETASQL_ASSIGN_OR_RETURN(const FunctionSignature* matched_signature,
+                       FindMatchingSignature(
+                           concat_op_function, input_argument_types,
+                           ast_location, arg_locations_in, named_arguments));
+      concat_op_result_signature.reset(matched_signature);
+    } else {
+      function_name_path.push_back("concat");
+      ZETASQL_RETURN_IF_ERROR(resolver_->LookupFunctionFromCatalog(
+          ast_location, function_name_path, &concat_op_function,
+          &concat_op_error_mode));
+      ZETASQL_ASSIGN_OR_RETURN(const FunctionSignature* matched_signature,
+                       FindMatchingSignature(
+                           concat_op_function, input_argument_types,
+                           ast_location, arg_locations_in, named_arguments));
+      concat_op_result_signature.reset(matched_signature);
+    }
+    *resolved_expr_out = MakeResolvedFunctionCall(
+        concat_op_result_signature->result_type().type(), concat_op_function,
+        *concat_op_result_signature, std::move(arguments), concat_op_error_mode,
+        function_call_info);
+  } else {
+    *resolved_expr_out = MakeResolvedFunctionCall(
+        result_signature->result_type().type(), function, *result_signature,
+        std::move(arguments), error_mode, function_call_info);
+  }
 
   if (ast_location->node_kind() == zetasql::ASTNodeKind::AST_FUNCTION_CALL) {
     auto ast_function_call = ast_location->GetAs<ASTFunctionCall>();

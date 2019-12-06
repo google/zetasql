@@ -35,6 +35,35 @@ constexpr zetasql_base::StatusCode INVALID_ARGUMENT =
 constexpr zetasql_base::StatusCode OUT_OF_RANGE = zetasql_base::StatusCode::kOutOfRange;
 }  // namespace
 
+std::vector<FunctionTestCall> GetStringConcatTests() {
+  return {
+      // concat(std::string...) -> std::string
+      {"concat", {NullString()}, NullString()},
+      {"concat", {NullString(), NullString()}, NullString()},
+      {"concat", {"a", NullString()}, NullString()},
+      {"concat", {NullString(), "b"}, NullString()},
+      {"concat", {"a", "b"}, "ab"},
+      {"concat", {"", ""}, ""},
+      {"concat", {"", NullString()}, NullString()},
+      {"concat", {"", "A"}, "A"},
+      {"concat", {"A", ""}, "A"},
+      {"concat", {"abc", "def", "xyz"}, "abcdefxyz"},
+
+      // concat(bytes...) -> bytes
+      {"concat", {NullBytes()}, NullBytes()},
+      {"concat", {NullBytes(), NullBytes()}, NullBytes()},
+      {"concat", {Bytes("a"), NullBytes()}, NullBytes()},
+      {"concat", {NullBytes(), Bytes("b")}, NullBytes()},
+      {"concat", {Bytes("a"), Bytes("b")}, Bytes("ab")},
+      {"concat", {Bytes(""), Bytes("")}, Bytes("")},
+      {"concat", {Bytes(""), NullBytes()}, NullBytes()},
+      {"concat", {Bytes(""), Bytes("A")}, Bytes("A")},
+      {"concat", {Bytes("A"), Bytes("")}, Bytes("A")},
+      {"concat", {Bytes("abc"), Bytes("def"), Bytes("xyz")},
+       Bytes("abcdefxyz")},
+  };
+}
+
 std::vector<FunctionTestCall> GetFunctionTestsString() {
   absl::string_view all_bytes_str(
       "\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12"
@@ -82,31 +111,7 @@ std::vector<FunctionTestCall> GetFunctionTestsString() {
       "\xfd\xfe\xff",
       256);
 
-  return {
-    // concat(std::string...) -> std::string
-    {"concat", {NullString()}, NullString()},
-    {"concat", {NullString(), NullString()}, NullString()},
-    {"concat", {"a", NullString()}, NullString()},
-    {"concat", {NullString(), "b"}, NullString()},
-    {"concat", {"a", "b"}, "ab"},
-    {"concat", {"", ""}, ""},
-    {"concat", {"", NullString()}, NullString()},
-    {"concat", {"", "A"}, "A"},
-    {"concat", {"A", ""}, "A"},
-    {"concat", {"abc", "def", "xyz"}, "abcdefxyz"},
-
-    // concat(bytes...) -> bytes
-    {"concat", {NullBytes()}, NullBytes()},
-    {"concat", {NullBytes(), NullBytes()}, NullBytes()},
-    {"concat", {Bytes("a"), NullBytes()}, NullBytes()},
-    {"concat", {NullBytes(), Bytes("b")}, NullBytes()},
-    {"concat", {Bytes("a"), Bytes("b")}, Bytes("ab")},
-    {"concat", {Bytes(""), Bytes("")}, Bytes("")},
-    {"concat", {Bytes(""), NullBytes()}, NullBytes()},
-    {"concat", {Bytes(""), Bytes("A")}, Bytes("A")},
-    {"concat", {Bytes("A"), Bytes("")}, Bytes("A")},
-    {"concat", {Bytes("abc"), Bytes("def"), Bytes("xyz")}, Bytes("abcdefxyz")},
-
+  std::vector<FunctionTestCall> results = {
     // strpos(std::string, std::string) -> int64
     {"strpos", {NullString(), ""}, NullInt64()},
     {"strpos", {NullString(), "x"}, NullInt64()},
@@ -685,6 +690,25 @@ std::vector<FunctionTestCall> GetFunctionTestsString() {
         "𐌼₡" U_FFFD "𐌼₡" U_FFFD U_FFFD "𐌼₡" U_FFFD "(" U_FFFD "(𐌼₡"},
 #undef U_FFFD
   };
+  std::vector<FunctionTestCall> tests_concat = GetStringConcatTests();
+  results.insert(results.end(),
+                 std::make_move_iterator(tests_concat.begin()),
+                 std::make_move_iterator(tests_concat.end())
+  );
+  return results;
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsStringConcatOperator() {
+  std::vector<QueryParamsWithResult> results;
+  // std::string || std::string -> std::string
+  // bytes || bytes -> bytes
+  // Test the test cases of concat function.
+  for (const FunctionTestCall& function_call : GetStringConcatTests()) {
+    if (function_call.params.params().size() == 2) {
+      results.push_back(function_call.params);
+    }
+  }
+  return results;
 }
 
 // Defines the test cases for std::string normalization functions.

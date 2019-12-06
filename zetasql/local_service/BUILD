@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-load("//:zetasql_grpc.bzl", "cc_grpc_library")
+load("@com_github_grpc_grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
 load("@io_grpc_grpc_java//:java_grpc_library.bzl", "java_grpc_library")
 
 # ZetaSQL Server
@@ -124,6 +124,7 @@ cc_proto_library(
 cc_grpc_library(
     name = "local_service_cc_grpc",
     srcs = [":local_service_proto"],
+    grpc_only = True,
     deps = [":local_service_cc_proto"],
 )
 

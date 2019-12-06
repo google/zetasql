@@ -911,9 +911,9 @@ counterparts.
 For a description of the aggregate analytic functions that ZetaSQL
 supports, see the [function reference for aggregate analytic functions][aggregate-analytic-functions-reference].
 
-[navigation-functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#navigation-functions
-[numbering-functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#numbering-functions
-[aggregate-analytic-functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#aggregate-analytic-functions
+[navigation-functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#navigation_functions
+[numbering-functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#numbering_functions
+[aggregate-analytic-functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#aggregate_analytic_functions
 
 [analytic-functions-link-to-aggregate-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md
 

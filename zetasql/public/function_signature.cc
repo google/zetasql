@@ -119,6 +119,10 @@ zetasql_base::Status FunctionArgumentType::Deserialize(
   if (proto.options().has_argument_name()) {
     options.set_argument_name(proto.options().argument_name());
   }
+  if (proto.options().has_argument_name_is_mandatory()) {
+    options.set_argument_name_is_mandatory(
+        proto.options().argument_name_is_mandatory());
+  }
   ParseLocationRange location;
   if (proto.options().has_argument_name_parse_location()) {
     ZETASQL_ASSIGN_OR_RETURN(location,
@@ -190,6 +194,9 @@ zetasql_base::Status FunctionArgumentType::Serialize(
   }
   if (options().has_argument_name()) {
     options_proto->set_argument_name(options().argument_name());
+  }
+  if (options().argument_name_is_mandatory()) {
+    options_proto->set_argument_name_is_mandatory(true);
   }
   absl::optional<ParseLocationRange> parse_location_range =
       options().argument_name_parse_location();
@@ -352,7 +359,7 @@ FunctionArgumentType::FunctionArgumentType(const Type* type,
 
 bool FunctionArgumentType::IsConcrete() const {
   if (kind_ != ARG_TYPE_FIXED && kind_ != ARG_TYPE_RELATION &&
-      kind_ != ARG_TYPE_MODEL) {
+      kind_ != ARG_TYPE_MODEL && kind_ != ARG_TYPE_CONNECTION) {
     return false;
   }
   if (num_occurrences_ < 0) {
@@ -410,6 +417,8 @@ std::string FunctionArgumentType::UserFacingName(ProductMode product_mode) const
         return "TABLE";
       case ARG_TYPE_MODEL:
         return "MODEL";
+      case ARG_TYPE_CONNECTION:
+        return "CONNECTION";
       case ARG_TYPE_VOID:
         return "VOID";
       case ARG_TYPE_FIXED:
@@ -454,6 +463,8 @@ std::string FunctionArgumentType::DebugString(bool verbose) const {
   if (verbose) {
     absl::StrAppend(&result, options_->OptionsDebugString());
   }
+  // TODO: If options_->has_argument_name(), include that name here.
+  // This will result in a lot of test diffs so may make sense to do separately.
   return result;
 }
 

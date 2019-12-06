@@ -14,16 +14,24 @@
 # limitations under the License.
 #
 
+""" Step 2 to load ZetaSQL dependencies. """
+
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:jvm.bzl", "jvm_maven_import_external")
 load("@bazel_tools//tools/build_defs/repo:java.bzl", "java_import_external")
 
-""" Declares dependencies of ZetaSQL """
+# Followup from zetasql_deps_step_1.bzl
+load("@rules_foreign_cc//:workspace_definitions.bzl", "rules_foreign_cc_dependencies")
 
-def zetasql_deps():
-    """Macro to include ZetaSQL's critical dependencies in a WORKSPACE.
+def _load_deps_from_step_1():
+    rules_foreign_cc_dependencies()
 
+def zetasql_deps_step_2():
+    """Step 2 macro to include ZetaSQL's critical dependencies in a WORKSPACE.
     """
+
+    # Followup from zetasql_deps_step_1.bzl
+    _load_deps_from_step_1()
     if not native.existing_rule("com_googleapis_googleapis"):
         # Very rarely updated, but just in case, here's how:
         #    COMMIT=<paste commit hex>
@@ -158,14 +166,31 @@ cc_proto_library(
             patches = ["@com_google_zetasql//bazel:protobuf-v3.6.1.3.patch"],
         )
 
+    # Required by gRPC
+    if not native.existing_rule("build_bazel_rules_apple"):
+        http_archive(
+            name = "build_bazel_rules_apple",
+            urls = ["https://github.com/bazelbuild/rules_apple/archive/0.18.0.tar.gz"],
+            sha256 = "53a8f9590b4026fbcfefd02c868e48683b44a314338d03debfb8e8f6c50d1239",
+            strip_prefix = "rules_apple-0.18.0",
+        )
+
+    # Required by gRPC
+    if not native.existing_rule("build_bazel_apple_support"):
+        http_archive(
+            name = "build_bazel_apple_support",
+            urls = ["https://github.com/bazelbuild/apple_support/archive/0.7.1.tar.gz"],
+            sha256 = "140fa73e1c712900097aabdb846172ffa0a5e9523b87d6c564c13116a6180a62",
+            strip_prefix = "apple_support-0.7.1",
+        )
+
     # gRPC
     if not native.existing_rule("com_github_grpc_grpc"):
         http_archive(
             name = "com_github_grpc_grpc",
-            # Release v1.22.1
-            url = "https://github.com/grpc/grpc/archive/v1.22.1.tar.gz",
-            sha256 = "cce1d4585dd017980d4a407d8c5e9f8fc8c1dbb03f249b99e88a387ebb45a035",
-            strip_prefix = "grpc-1.22.1",
+            urls = ["https://github.com/grpc/grpc/archive/v1.24.2.tar.gz"],
+            sha256 = "fd040f5238ff1e32b468d9d38e50f0d7f8da0828019948c9001e9a03093e1d8f",
+            strip_prefix = "grpc-1.24.2",
         )
 
     # gRPC Java
@@ -238,6 +263,7 @@ cc_proto_library(
             artifact = "com.google.guava:guava-testlib:26.0-jre",
             tags = ["maven_coordinates=com.google.guava:testlib:26.0-jre"],
             server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "3e738516af017c9de105bf3a7f0a9f69183e47520446cb6df9bc24050834011e",
             licenses = ["notice"],  # Apache 2.0
         )
 
@@ -273,7 +299,7 @@ cc_proto_library(
             artifact = "com.google.truth.extensions:truth-proto-extension:0.44",
             tags = ["maven_coordinates=com.google.truth.extensions:truth-proto-extension:0.44"],
             server_urls = ["http://central.maven.org/maven2"],
-            # artifact_sha256 = "a9e6796786c9c77a5fe19b08e72fe0a620d53166df423d8861af9ebef4dc4247",
+            artifact_sha256 = "d964495cee74d6933512c7b414c8723285a6413a4e3f46f558fbaf624dfd7c9f",
             licenses = ["notice"],  # Apache 2.0
         )
 
@@ -383,6 +409,7 @@ cc_proto_library(
             name = "io_grpc_grpc_context",
             artifact = "io.grpc:grpc-context:1.18.0",
             server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "12bc83b9fa3aa7550d75c4515b8ae74f124ba14d3692a5ef4737a2e855cbca2f",
             licenses = ["notice"],  # Apache 2.0
         )
 
@@ -396,6 +423,7 @@ cc_proto_library(
                 "@io_opencensus_opencensus_api//jar",
                 "@io_opencensus_opencensus_contrib_grpc_metrics//jar",
             ],
+            artifact_sha256 = "fcc02e49bb54771af51470e85611067a8b6718d0126af09da34bbb1e12096f5f",
         )
 
     if not native.existing_rule("io_grpc_grpc_netty"):
@@ -412,6 +440,7 @@ cc_proto_library(
                 "@io_netty_netty_resolver//jar",
                 "@io_netty_netty_transport//jar",
             ],
+            artifact_sha256 = "9954db681d8a80c143603712bcf85ab9c76284fb5817b0253bba9ea773bb6803",
             deps = [
                 "@io_netty_netty_codec_http2//jar",
             ],
@@ -423,12 +452,14 @@ cc_proto_library(
             artifact = "io.grpc:grpc-stub:1.18.0",
             server_urls = ["http://central.maven.org/maven2"],
             licenses = ["notice"],  # Apache 2.0
+            artifact_sha256 = "6509fbbcf953f9c426f891021279b2fb5fb21a27c38d9d9ef85fc081714c2450",
         )
 
     if not native.existing_rule("io_grpc_grpc_protobuf"):
         jvm_maven_import_external(
             name = "io_grpc_grpc_protobuf",
             artifact = "io.grpc:grpc-protobuf:1.18.0",
+            artifact_sha256 = "ab714cf4fec2c588f9d8582c2844485c287afa2a3a8da280c62404e312b2d2b1",
             server_urls = ["http://central.maven.org/maven2"],
             licenses = ["notice"],  # Apache 2.0
         )
@@ -438,6 +469,7 @@ cc_proto_library(
             name = "io_grpc_grpc_protobuf_lite",
             artifact = "io.grpc:grpc-protobuf-lite:1.18.0",
             server_urls = ["http://central.maven.org/maven2"],
+            artifact_sha256 = "108a16c2b70df636ee78976916d6de0b8f393b2b45b5b62909fc03c1a928ea9b",
             licenses = ["notice"],  # Apache 2.0
         )
 
@@ -624,10 +656,10 @@ java_library(
         http_archive(
             name = "com_google_re2",
             urls = [
-                "https://github.com/google/re2/archive/2018-09-01.tar.gz",
+                "https://github.com/google/re2/archive/2019-11-01.tar.gz",
             ],
-            sha256 = "1424b303582f71c6f9e19f3b21d320e3b80f4c37b9d4426270f1f80d11cacf43",
-            strip_prefix = "re2-2018-09-01",
+            sha256 = "5229d7e801bdb3d62a1b9d82de7c74eda223cb5e264d5bd04bcf31a933245d27",
+            strip_prefix = "re2-2019-11-01",
         )
 
     # Jinja2.
@@ -699,14 +731,15 @@ java_library(
         patches = ["@com_google_zetasql//bazel:flex.patch"],
     )
 
-    http_archive(
-        name = "m4",
-        build_file_content = all_content,
-        strip_prefix = "m4-1.4.18",
-        sha256 = "ab2633921a5cd38e48797bf5521ad259bdc4b979078034a3b790d7fec5493fab",
-        urls = ["https://ftp.gnu.org/gnu/m4/m4-1.4.18.tar.gz"],
-        patches = ["@com_google_zetasql//bazel:m4.patch"],
-    )
+    if not native.existing_rule("m4"):
+        http_archive(
+            name = "m4",
+            build_file_content = all_content,
+            strip_prefix = "m4-1.4.18",
+            sha256 = "ab2633921a5cd38e48797bf5521ad259bdc4b979078034a3b790d7fec5493fab",
+            urls = ["https://ftp.gnu.org/gnu/m4/m4-1.4.18.tar.gz"],
+            patches = ["@com_google_zetasql//bazel:m4.patch"],
+        )
 
     http_archive(
         name = "icu",

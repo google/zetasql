@@ -85,12 +85,14 @@ class SampleCatalog {
   // split it up in order to avoid lint warnings.
   void LoadTableValuedFunctions1();
   void LoadTableValuedFunctions2();
+  void LoadConnectionTableValuedFunctions();
   void LoadTableValuedFunctionsWithDeprecationWarnings();
   void LoadTemplatedSQLTableValuedFunctions();
   void AddProcedureWithArgumentType(std::string type_name,
                                     const Type* arg_type);
   void LoadProcedures();
   void LoadConstants();
+  void LoadConnections();
 
   void AddOwnedTable(SimpleTable* table);
 
@@ -139,6 +141,10 @@ class SampleCatalog {
 
   // Pointers are owned by 'catalog_'.
   std::unordered_map<std::string, SimpleTable*> tables_;
+
+  // Connections owned by this catalog.
+  std::unordered_map<std::string, std::unique_ptr<SimpleConnection>>
+      owned_connections_;
 };
 
 }  // namespace zetasql

@@ -48,7 +48,7 @@ a single column whose type is equality-compatible with the expression on the
 left side of the IN operator. Returns FALSE if the subquery returns zero rows.
 <code>x IN ()</code> is equivalent to <code>x IN (value, value, ...)</code>
 See the <code>IN</code> operator in
-<a href="functions-and-operators.md#comparison-operators">
+<a href="functions-and-operators.md#comparison_operators">
   Comparison Operators</a>
 
 for full semantics.</td>
@@ -192,3 +192,4 @@ a,b,c.</td>
 </table>
 
 [exp-sub-link-to-subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#subqueries
+

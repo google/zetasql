@@ -36,6 +36,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "absl/container/flat_hash_set.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/map_util.h"
@@ -1626,6 +1627,14 @@ zetasql_base::Status Validator::ValidateResolvedStatement(
       status =
           ValidateResolvedAssertStmt(statement->GetAs<ResolvedAssertStmt>());
       break;
+    case RESOLVED_ASSIGNMENT_STMT:
+      status = ValidateResolvedAssignmentStmt(
+          statement->GetAs<ResolvedAssignmentStmt>());
+      break;
+    case RESOLVED_EXECUTE_IMMEDIATE_STMT:
+      status = ValidateResolvedExecuteImmediateStmt(
+          statement->GetAs<ResolvedExecuteImmediateStmt>());
+      break;
     default:
       ZETASQL_RET_CHECK_FAIL() << "Cannot validate statement of type "
                        << statement->node_kind_string();
@@ -1955,8 +1964,7 @@ zetasql_base::Status Validator::ValidateResolvedCreateMaterializedViewStmt(
 
 zetasql_base::Status Validator::ValidateResolvedCreateExternalTableStmt(
     const ResolvedCreateExternalTableStmt* stmt) const {
-  ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
-  return ::zetasql_base::OkStatus();
+  return ValidateResolvedCreateTableStmtBase(stmt);
 }
 
 zetasql_base::Status Validator::ValidateResolvedCreateRowAccessPolicyStmt(
@@ -2956,6 +2964,36 @@ zetasql_base::Status Validator::ValidateResolvedModuleStmt(
   return ::zetasql_base::OkStatus();
 }
 
+zetasql_base::Status Validator::ValidateResolvedAssignmentStmt(
+    const ResolvedAssignmentStmt* stmt) const {
+  ZETASQL_RET_CHECK(stmt->target() != nullptr);
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
+      /*visible_columns=*/{}, /*visible_parameters=*/{}, stmt->target()));
+
+  // Verify that the target is an l-value.  Currently, only system variables
+  // and fields of system variables are supported.
+  const ResolvedNode* node = stmt->target();
+  while (node->node_kind() != RESOLVED_SYSTEM_VARIABLE) {
+    switch (node->node_kind()) {
+      case RESOLVED_GET_STRUCT_FIELD:
+        node = node->GetAs<ResolvedGetStructField>()->expr();
+        break;
+      case RESOLVED_GET_PROTO_FIELD:
+        node = node->GetAs<ResolvedGetProtoField>()->expr();
+        break;
+      default:
+        ZETASQL_RET_CHECK_FAIL() << "Expected l-value; got "
+                         << node->node_kind_string();
+    }
+  }
+
+  ZETASQL_RET_CHECK(stmt->expr() != nullptr);
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
+      /*visible_columns=*/{}, /*visible_parameters=*/{}, stmt->expr()));
+  ZETASQL_RET_CHECK(stmt->expr()->type()->Equals(stmt->target()->type()));
+  return ::zetasql_base::OkStatus();
+}
+
 zetasql_base::Status Validator::ValidateResolvedAssertStmt(
     const ResolvedAssertStmt* stmt) const {
   ZETASQL_RET_CHECK(stmt->expression() != nullptr);
@@ -2975,6 +3013,7 @@ zetasql_base::Status Validator::ValidateResolvedTVFArgument(
     // expression may be correlated.
     ZETASQL_RET_CHECK(resolved_tvf_arg->scan() == nullptr);
     ZETASQL_RET_CHECK(resolved_tvf_arg->model() == nullptr);
+    ZETASQL_RET_CHECK(resolved_tvf_arg->connection() == nullptr);
     ZETASQL_RET_CHECK_EQ(0, resolved_tvf_arg->argument_column_list_size());
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr({} /* visible_columns */,
                                          visible_parameters,
@@ -2983,12 +3022,19 @@ zetasql_base::Status Validator::ValidateResolvedTVFArgument(
     // This is a TVF model argument.
     ZETASQL_RET_CHECK(resolved_tvf_arg->scan() == nullptr);
     ZETASQL_RET_CHECK(resolved_tvf_arg->expr() == nullptr);
+    ZETASQL_RET_CHECK(resolved_tvf_arg->connection() == nullptr);
+  } else if (resolved_tvf_arg->connection() != nullptr) {
+    // This is a TVF connection argument.
+    ZETASQL_RET_CHECK(resolved_tvf_arg->scan() == nullptr);
+    ZETASQL_RET_CHECK(resolved_tvf_arg->expr() == nullptr);
+    ZETASQL_RET_CHECK(resolved_tvf_arg->model() == nullptr);
   } else {
     // Otherwise: this is a TVF relation argument. Validate the input relation,
     // passing through the 'visible_parameters' because correlation references
     // may be present in the scan.
     ZETASQL_RET_CHECK(resolved_tvf_arg->expr() == nullptr);
     ZETASQL_RET_CHECK(resolved_tvf_arg->model() == nullptr);
+    ZETASQL_RET_CHECK(resolved_tvf_arg->connection() == nullptr);
     ZETASQL_RET_CHECK(resolved_tvf_arg->scan() != nullptr);
     ZETASQL_RET_CHECK_GT(resolved_tvf_arg->argument_column_list_size(), 0);
     ZETASQL_RETURN_IF_ERROR(
@@ -3122,6 +3168,39 @@ zetasql_base::Status Validator::ValidateResolvedAlterAction(
              << " in ValidateResolvedAlterAction";
   }
   return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status Validator::ValidateResolvedExecuteImmediateStmt(
+    const ResolvedExecuteImmediateStmt* stmt) const {
+
+  ZETASQL_RET_CHECK(stmt->sql()->type()->IsString())
+      << "SQL must evaluate to type STRING";
+  absl::flat_hash_set<std::string> seen;
+  for (const std::string& into_identifier : stmt->into_identifier_list()) {
+    ZETASQL_RET_CHECK(seen.insert(absl::AsciiStrToLower(into_identifier)).second)
+        << "The same parameter cannot be assigned multiple times in an INTO "
+           "clause";
+  }
+
+  seen.clear();
+  bool expecting_names = false;
+  for (int i = 0; i < stmt->using_argument_list_size(); i++) {
+    const ResolvedExecuteImmediateArgument* expr = stmt->using_argument_list(i);
+    bool has_name = !expr->name().empty();
+    if (has_name) {
+      ZETASQL_RET_CHECK(seen.insert(absl::AsciiStrToLower(expr->name())).second)
+          << "The same parameter cannot be assigned multiple times in an INTO "
+             "clause";
+    }
+    if (i == 0) {
+      expecting_names = has_name;
+    } else {
+      ZETASQL_RET_CHECK(expecting_names == has_name)
+          << "Cannot mix named and positional parameters";
+    }
+  }
+
+  return zetasql_base::OkStatus();
 }
 
 }  // namespace zetasql

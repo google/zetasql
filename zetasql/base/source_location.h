@@ -28,6 +28,25 @@
 
 #include <cstdint>
 
+#include "absl/base/config.h"
+
+#if defined(__is_identifier)
+#define ZETASQL_INTERNAL_HAS_KEYWORD(x) !(__is_identifier(x))
+#else
+#define ZETASQL_INTERNAL_HAS_KEYWORD(x) 0
+#endif
+
+#if !defined(ZETASQL_INTERNAL_HAVE_SOURCE_LOCATION_CURRENT)
+#if ZETASQL_INTERNAL_HAS_KEYWORD(__builtin_LINE) && \
+    ZETASQL_INTERNAL_HAS_KEYWORD(__builtin_FILE)
+#define ZETASQL_INTERNAL_HAVE_SOURCE_LOCATION_CURRENT 1
+#else
+#define ZETASQL_INTERNAL_HAVE_SOURCE_LOCATION_CURRENT 0
+#endif
+#endif
+
+#undef ZETASQL_INTERNAL_HAS_KEYWORD
+
 namespace zetasql_base {
 
 // Class representing a specific location in the source code of a program.
@@ -52,6 +71,8 @@ class SourceLocation {
     return SourceLocation(line, file_name);
   }
 
+
+#if ZETASQL_INTERNAL_HAVE_SOURCE_LOCATION_CURRENT
   // SourceLocation::current
   //
   // Creates a `SourceLocation` based on the current line and file.  APIs that
@@ -74,7 +95,13 @@ class SourceLocation {
       const char* file_name = __builtin_FILE()) {
     return SourceLocation(line, file_name);
   }
-
+#else
+  // Creates a dummy `SourceLocation` of "<source_location>" at line number 1,
+  // if no `SourceLocation::current()` implementation is available.
+  static constexpr SourceLocation current() {
+    return SourceLocation(1, "<source_location>");
+  }
+#endif
   // The line number of the captured source location.
   constexpr std::uint_least32_t line() const { return line_; }
 

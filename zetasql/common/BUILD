@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
 package(
     default_visibility = ["//:__subpackages__"],
@@ -172,6 +171,54 @@ cc_library(
         "//zetasql/base",
         "//zetasql/base:mathutil",
         "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "fixed_int",
+    hdrs = ["fixed_int.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "//zetasql/base",
+        "//zetasql/base:bits",
+        "//zetasql/base:endian",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "fixed_int_test",
+    srcs = ["fixed_int_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":fixed_int",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base:mathutil",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/numeric:int128",
+        "@com_google_absl//absl/random",
+    ],
+)
+
+cc_library(
+    name = "int256",
+    srcs = ["int256.cc"],
+    hdrs = ["int256.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "@com_google_absl//absl/base:core_headers",
+    ],
+)
+
+cc_test(
+    name = "int256_test",
+    srcs = ["int256_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":int256",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/base:core_headers",
     ],
 )
 

@@ -162,6 +162,33 @@ class Resolver {
       std::vector<std::unique_ptr<const ResolvedOutputColumn>>*
           resolved_output_column_list);
 
+  // Given a resolved expression <resolved_expr>, along with the AST that
+  // generated it (<ast_expression>), coerces the expression to <target_type>,
+  // replacing <resolved_expr> with the modified result.  If the expression is
+  // already the correct type, it is simply left in place, without modification.
+  // If the expression cannot be coerced, an error is emitted.  Errors are
+  // returned with InternalErrorLocation.
+  //
+  // If <assignment_semantics> is true, coercion is implemented with looser
+  // rules intended for assignment situations.  See Coercer::AssignableTo() for
+  // details.
+  //
+  // <clause_name> is set when we are coercing the return value of a clause to
+  // its expected type, and is used only for formatting error messages.  If
+  // there is no clause name that makes sense, <clause_name> should be NULL, and
+  // a clause-agnostic error message will be used.
+  zetasql_base::Status CoerceExprToType(
+      const ASTExpression* ast_expression, const Type* target_type,
+      bool assignment_semantics, const char* clause_name,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr);
+
+  // Similar to the above function, but coerces to BOOL type.
+  // There is no <assignment_semantics> parameter, since assignment semantics
+  // do not matter when coercing to type BOOL.
+  zetasql_base::Status CoerceExprToBool(
+      const ASTExpression* ast_expression, const char* clause_name,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr);
+
   // Resolve the Type from the <type_name>.
   zetasql_base::Status ResolveTypeName(const std::string& type_name, const Type** type);
 
@@ -488,12 +515,12 @@ class Resolver {
   bool TypeSupportsGrouping(const Type* type,
                             std::string* no_grouping_type) const;
 
-  // Return an error if <expr> does not have BOOL type.
+  // Return an error if <expr> does not have STRING type.
   // If <expr> is an untyped undeclared parameter or untyped NULL, assigns it a
-  // BOOL type. <clause_name> is used in the error message.
-  zetasql_base::Status CheckIsBoolExpr(
-      const ASTNode* location, const char* clause_name,
-      std::unique_ptr<const ResolvedExpr>* expr);
+  // STRING type. <clause_name> is used in the error message.
+  zetasql_base::Status CheckIsStringExpr(const ASTNode* location,
+                                 const char* clause_name,
+                                 std::unique_ptr<const ResolvedExpr>* expr);
 
   zetasql_base::Status ResolveQueryStatement(
       const ASTQueryStatement* query_stmt,
@@ -1161,6 +1188,10 @@ class Resolver {
       const ASTExecuteImmediateStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
+  zetasql_base::Status ResolveSystemVariableAssignment(
+      const ASTSystemVariableAssignment* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
   static zetasql_base::Status CreateSelectNamelists(
       const SelectColumnState* select_column_state,
       NameList* post_group_by_alias_name_list,
@@ -1797,13 +1828,9 @@ class Resolver {
       std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* output_name_list);
 
-  // Resolve an identifier path that is known to start with an identifier
-  // resolving to a WITH subquery.
-  //
-  // Preconditions:
-  // - First identifier in path_expr resolves to a name in with_subquery_map_.
+  // Resolve a identifier that is known to resolve to a WITH subquery.
   zetasql_base::Status ResolveWithSubqueryRef(
-      const ASTPathExpression* path_expr,
+      const ASTIdentifier* with_table_name,
       const ASTHint* hint,
       std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* output_name_list);
@@ -2104,6 +2131,10 @@ class Resolver {
   zetasql_base::Status ResolveModel(
       const ASTPathExpression* path_expr,
       std::unique_ptr<const ResolvedModel>* resolved_model);
+
+  zetasql_base::Status ResolveConnection(
+      const ASTPathExpression* path_expr,
+      std::unique_ptr<const ResolvedConnection>* resolved_connection);
 
   // Resolves <path_expr> identified as <alias> as a scan from a table in
   // catalog_ (not from the <scope>). Flag <has_explicit_alias> identifies if
@@ -2677,6 +2708,16 @@ class Resolver {
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
+  // Common implementation for resolving arguments in the USING clause of
+  // EXECUTE IMMEDIATE statements.
+  zetasql_base::Status ResolveExecuteImmediateArgument(
+      const ASTExecuteUsingArgument* argument, ExprResolutionInfo* expr_info,
+      std::unique_ptr<const ResolvedExecuteImmediateArgument>* output);
+  // Common implementation for resolving EXECUTE IMMEDIATE statements.
+  zetasql_base::Status ResolveExecuteImmediateStatement(
+      const ASTExecuteImmediateStatement* ast_statement,
+      std::unique_ptr<const ResolvedStatement>* output);
+
  public:
   zetasql_base::Status ResolveFunctionCallWithResolvedArguments(
       const ASTNode* ast_location,
@@ -2921,6 +2962,45 @@ class Resolver {
   // The results of this function are cached in system_variables_catalog_, so
   // only the first call actually populates the catalog.
   Catalog* GetSystemVariablesCatalog();
+
+  // Struct to control the features to be resolved by
+  // ResolveCreateTableStmtBaseProperties.
+  struct ResolveCreateTableStmtBasePropertiesArgs {
+    const bool partition_by_enabled;
+    const bool cluster_by_enabled;
+    const bool table_element_list_enabled;
+  };
+
+  // Struct to store the properties of ASTCreateTableStmtBase.
+  struct ResolveCreateTableStatementBaseProperties {
+    std::vector<std::string> table_name;
+    ResolvedCreateStatement::CreateScope create_scope;
+    ResolvedCreateStatement::CreateMode create_mode;
+    std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
+    std::vector<std::unique_ptr<const ResolvedColumnDefinition>>
+        column_definition_list;
+    std::vector<ResolvedColumn> pseudo_column_list;
+    std::unique_ptr<ResolvedPrimaryKey> primary_key;
+    std::vector<std::unique_ptr<const ResolvedForeignKey>> foreign_key_list;
+    std::vector<std::unique_ptr<const ResolvedCheckConstraint>>
+        check_constraint_list;
+    std::vector<std::unique_ptr<const ResolvedExpr>> partition_by_list;
+    std::vector<std::unique_ptr<const ResolvedExpr>> cluster_by_list;
+    bool is_value_table;
+    std::unique_ptr<const ResolvedScan> query_scan;
+    std::vector<std::unique_ptr<const ResolvedOutputColumn>> output_column_list;
+  };
+
+  // Resolves the shared properties of the statements inheriting from
+  // ASTCreateTableStmtBase (ASTCreateTableStatement,
+  // ASTCreateExternalTableStatement). The optional features are resolved on the
+  // basis of flag values in resolved_properties_control_args.
+  zetasql_base::Status ResolveCreateTableStmtBaseProperties(
+      const ASTCreateTableStmtBase* ast_statement,
+      const std::string& statement_type, const ASTQuery* query,
+      const ResolveCreateTableStmtBasePropertiesArgs&
+          resolved_properties_control_args,
+      ResolveCreateTableStatementBaseProperties* statement_base_properties);
 
   friend class AnalyticFunctionResolver;
   friend class FunctionResolver;

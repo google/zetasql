@@ -179,10 +179,8 @@ rows that belong to the table.
 
 **Attribute Kinds**
 
-+  `PRIMARY KEY`: Declares that the column is the primary key of the table.
-   A table can have one primary key, thus the `PRIMARY KEY` attribute
-   can appear on at most one column and cannot occur on the same table with
-   a primary key defined as a separate table element.
++  `PRIMARY KEY`: Defines this column as the [primary key][primary-key]
+   of the table.
 +  `NOT NULL`: A value on a column cannot be null. More specifically, this is
    shorthand for a constraint of the shape `CHECK [column_name] IS NOT NULL`.
 +  `HIDDEN`: Hides a column if it should not appear in `SELECT * expansions`
@@ -271,8 +269,7 @@ A `constraint_definition` is a rule enforced on the columns of a table.
 
 **Constraint Kinds**
 
-+  `primary_key`: Defines a primary key for a table. A primary key provides
-   a unique identifier for each record in a table.
++  `primary_key`: Defines the [primary key][primary-key] for a table.
 +  `foreign_key`:  Defines a foreign key for a table. A foreign key links
    two tables together.
 +  `check_constraint`: Restricts the data that can be added to certain
@@ -407,9 +404,50 @@ CREATE TABLE top_books (
 );
 ```
 
-## CREATE TABLE AS
+### Using CREATE TABLE AS
 
-Documentation is pending for this feature.
+```
+CREATE TABLE table_definition AS query
+```
+
+**Description**
+
+The `CREATE TABLE AS` statement creates a table and materializes the result
+of a query into this new table. To learn more about the syntax for this
+statement, see [`CREATE TABLE`][create-table].
+
+**Examples**
+
+Copy all rows from a table called `old_books` to a new table called
+`books`.
+
+```sql
+CREATE TABLE books AS (SELECT * FROM old_books);
+```
+
+Copy rows from a table called `old_books` to a new table called `books`.
+If a book was published before 1900, do not add it to `books`.
+
+```sql
+CREATE TABLE books
+AS (SELECT * FROM old_books where year >= 1900)
+```
+
+Copy rows from a table called `old_books` to a new table called `books`.
+Only copy the `title` column into `books`.
+
+```sql
+CREATE TABLE books AS (SELECT title FROM old_books);
+```
+
+Copy rows from `old_books` and `ancient_books` to a new table called
+`books`.
+
+```sql
+CREATE TABLE books AS (
+  SELECT * FROM old_books UNION ALL
+  SELECT * FROM ancient_books);
+```
 
 ## CREATE VIEW
 
@@ -713,5 +751,38 @@ object to drop.
 +   `IF EXISTS`: If no object exists at `object_path`, the `DROP` statement will
     have no effect.
 
- <!-- END CONTENT -->
+## Terminology
+
+### Primary key
+
+A primary key constraint is an attribute of a table. A table can have at most
+one primary key constraint that includes one or more columns of that table.
+Each row in the table has a tuple that is the row's primary key. The primary key
+tuple has values that correspond to the columns in the primary key constraint.
+The primary key of all rows must be unique among the primary keys of all rows in
+the table.
+
+**Examples**
+
+In this example, a column in a table called `books` is assigned to a primary
+key. For each row in this table, the value in the `id` column must be distinct
+from the value in the `id` column of all other rows in the table.
+
+```sql
+CREATE TABLE books (title STRING, id STRING, PRIMARY KEY (id));
+```
+
+In this example, multiple columns in a table called `books` are assigned to a
+primary key. For each row in this table, the tuple of values in the `title` and
+`name` columns must together be distinct from the values in the respective
+`title` and `name` columns of all other rows in the table.
+
+```sql
+CREATE TABLE books (title STRING, name STRING, PRIMARY KEY (title, name));
+```
+
+<!-- END CONTENT -->
+
+[primary-key]: #primary-key
+[create-table]: #create-table
 

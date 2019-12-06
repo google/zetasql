@@ -120,7 +120,8 @@ int64_t ZetaSqlCollator::CompareUtf8(const absl::string_view s1,
     if (is_case_insensitive_) {
       ; // Just fall back to icu.
     } else {
-      return s1.compare(s2);
+      const int result = s1.compare(s2);
+      return result < 0 ? -1 : (result > 0 ? 1 : 0);
     }
   }
 

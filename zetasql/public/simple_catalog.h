@@ -121,75 +121,81 @@ class SimpleCatalog : public EnumerableCatalog {
   // TODO: Implement SuggestConnection function.
 
   // Add objects to the SimpleCatalog.
-  // Names must be unique (case-insensitively) or the call will die.
-  // Caller maintains ownership of all added objects which must outlive
-  // this catalog.
+  //  - Names must be unique (case-insensitively) or the call will die.
+  //  - For Add* methods, caller maintains ownership of all added objects, which
+  // must outlive this catalog.
+  //  - AddOwned* methods transfer ownership of the added object to the catalog.
+  //  - Methods that do not take name of the object as a parameter use object's
+  // own name.
+  //  - *IfNotPresent methods attempt to add the object to the catalog, and
+  // return false if the object is already present.
+  //  - AddOwned*IfNotPresent methods will take ownership only if they
+  // successfully added the object to the catalog.
+  //  - AddOwned*IfNotPresent methods that take unique_ptr as a parameter
+  //  will take ownership if they successfully added the object to the catalog,
+  //  or deallocate the object otherwise.
+  //
+  // NOTE: Consider using unique_ptr version of AddOwned* methods where
+  // available.
+
+  // Tables
   void AddTable(const std::string& name, const Table* table) LOCKS_EXCLUDED(mutex_);
   void AddTable(const Table* table) LOCKS_EXCLUDED(mutex_);
-  // Same as above, but take ownership of the added object.
   void AddOwnedTable(const std::string& name, std::unique_ptr<const Table> table)
       LOCKS_EXCLUDED(mutex_);
-  // Same as above, but take ownership of the added object.
+  bool AddOwnedTableIfNotPresent(const std::string& name,
+                                 std::unique_ptr<const Table> table)
+      LOCKS_EXCLUDED(mutex_);
   void AddOwnedTable(std::unique_ptr<const Table> table) LOCKS_EXCLUDED(mutex_);
-
-  // Consider the unique_ptr version.
   void AddOwnedTable(const std::string& name, const Table* table);
-  // Consider the unique_ptr version.
   void AddOwnedTable(const Table* table) LOCKS_EXCLUDED(mutex_);
 
+  // Models
   void AddModel(const std::string& name, const Model* model) LOCKS_EXCLUDED(mutex_);
   void AddModel(const Model* model) LOCKS_EXCLUDED(mutex_);
   void AddOwnedModel(const std::string& name, std::unique_ptr<const Model> model)
       LOCKS_EXCLUDED(mutex_);
   void AddOwnedModel(std::unique_ptr<const Model> model) LOCKS_EXCLUDED(mutex_);
-  // Consider the unique_ptr version.
   void AddOwnedModel(const std::string& name, const Model* model);
-  // Consider the unique_ptr version.
   void AddOwnedModel(const Model* model) LOCKS_EXCLUDED(mutex_);
 
+  // Connections
   void AddConnection(const std::string& name, const Connection* connection)
       LOCKS_EXCLUDED(mutex_);
   void AddConnection(const Connection* connection) LOCKS_EXCLUDED(mutex_);
 
+  // Types
   void AddType(const std::string& name, const Type* type) LOCKS_EXCLUDED(mutex_);
-  // Similar to the previous, but does not take ownership of <type>.
   bool AddTypeIfNotPresent(const std::string& name, const Type* type);
-  // Similar as above, but using the type's own name.
-  bool AddTypeIfNotPresent(const Type* type);
 
+  // Catalogs
   void AddCatalog(const std::string& name, Catalog* catalog) LOCKS_EXCLUDED(mutex_);
-  // Add a Table, Model, Catalog, or Function using its own name.
   void AddCatalog(Catalog* catalog) LOCKS_EXCLUDED(mutex_);
-
   void AddOwnedCatalog(const std::string& name, std::unique_ptr<Catalog> catalog);
   // TODO: Cleanup callers and delete
   void AddOwnedCatalog(std::unique_ptr<Catalog> catalog) LOCKS_EXCLUDED(mutex_);
-
-  // Consider the unique_ptr version.
   void AddOwnedCatalog(const std::string& name, Catalog* catalog);
-  // Consider the unique_ptr version.
   void AddOwnedCatalog(Catalog* catalog) LOCKS_EXCLUDED(mutex_);
+  bool AddOwnedCatalogIfNotPresent(const std::string& name,
+                                   std::unique_ptr<Catalog> catalog)
+      LOCKS_EXCLUDED(mutex_);
 
   // Add a new (owned) SimpleCatalog named <name>, and return it.
   SimpleCatalog* MakeOwnedSimpleCatalog(const std::string& name)
       LOCKS_EXCLUDED(mutex_);
 
+  // Functions
   void AddFunction(const std::string& name, const Function* function)
       LOCKS_EXCLUDED(mutex_);
   void AddFunction(const Function* function) LOCKS_EXCLUDED(mutex_);
-
   void AddOwnedFunction(const std::string& name,
                         std::unique_ptr<const Function> function);
   void AddOwnedFunction(std::unique_ptr<const Function> function)
       LOCKS_EXCLUDED(mutex_);
-
   bool AddOwnedFunctionIfNotPresent(const std::string& name,
                                     std::unique_ptr<Function>* function);
   bool AddOwnedFunctionIfNotPresent(std::unique_ptr<Function>* function);
-
-  // Consider the unique_ptr version.
   void AddOwnedFunction(const std::string& name, const Function* function);
-  // Consider the unique_ptr version.
   void AddOwnedFunction(const Function* function) LOCKS_EXCLUDED(mutex_);
 
   // Table Valued Functions
@@ -198,50 +204,42 @@ class SimpleCatalog : public EnumerableCatalog {
       LOCKS_EXCLUDED(mutex_);
   void AddTableValuedFunction(const TableValuedFunction* function)
       LOCKS_EXCLUDED(mutex_);
-
   void AddOwnedTableValuedFunction(
       const std::string& name, std::unique_ptr<const TableValuedFunction> function);
   void AddOwnedTableValuedFunction(
       std::unique_ptr<const TableValuedFunction> function);
-
   bool AddOwnedTableValuedFunctionIfNotPresent(
       const std::string& name, std::unique_ptr<TableValuedFunction>* table_function);
-  // Similar as above, but using the table function's own name.
   bool AddOwnedTableValuedFunctionIfNotPresent(
       std::unique_ptr<TableValuedFunction>* table_function);
-  // Consider the unique_ptr version.
   void AddOwnedTableValuedFunction(const std::string& name,
                                    const TableValuedFunction* function);
-  // Consider the unique_ptr version.
   void AddOwnedTableValuedFunction(const TableValuedFunction* function)
       LOCKS_EXCLUDED(mutex_);
 
-  // Procedure
+  // Procedures
   void AddProcedure(const std::string& name, const Procedure* procedure);
   void AddProcedure(const Procedure* procedure) LOCKS_EXCLUDED(mutex_);
   void AddOwnedProcedure(const std::string& name,
                          std::unique_ptr<const Procedure> procedure);
   void AddOwnedProcedure(std::unique_ptr<const Procedure> procedure)
       LOCKS_EXCLUDED(mutex_);
-
-  // Consider the unique_ptr version.
+  bool AddOwnedProcedureIfNotPresent(std::unique_ptr<Procedure> procedure)
+      LOCKS_EXCLUDED(mutex_);
   void AddOwnedProcedure(const std::string& name, const Procedure* procedure);
-  // Consider the unique_ptr version.
   void AddOwnedProcedure(const Procedure* procedure) LOCKS_EXCLUDED(mutex_);
 
-  // Constant
+  // Constants
   void AddConstant(const std::string& name, const Constant* constant);
   void AddConstant(const Constant* constant) LOCKS_EXCLUDED(mutex_);
-
   void AddOwnedConstant(const std::string& name,
                         std::unique_ptr<const Constant> constant);
   void AddOwnedConstant(std::unique_ptr<const Constant> constant)
       LOCKS_EXCLUDED(mutex_);
-
-  // Consider the unique_ptr version.
   void AddOwnedConstant(const std::string& name, const Constant* constant);
-  // Consider the unique_ptr version.
   void AddOwnedConstant(const Constant* constant) LOCKS_EXCLUDED(mutex_);
+  bool AddOwnedConstantIfNotPresent(std::unique_ptr<const Constant> constant)
+      LOCKS_EXCLUDED(mutex_);
 
   // Add ZetaSQL built-in function definitions into this catalog.
   // <options> can be used to select which functions get loaded.
@@ -350,10 +348,12 @@ class SimpleCatalog : public EnumerableCatalog {
                              bool ignore_recursive) const
       LOCKS_EXCLUDED(mutex_);
 
-  // Implements AddCatalog() interface for callers that already own mutex_.
+  // Helper methods for adding objects while holding <mutex_>.
   void AddCatalogLocked(const std::string& name, Catalog* catalog)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
-  // Helper methods for adding objects while holding <mutex_>.
+  void AddOwnedCatalogLocked(const std::string& name,
+                             std::unique_ptr<Catalog> catalog)
+      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   // TODO: Refactor the Add*() methods for other object types
   // to use a common locked implementation, similar to these for Function.
   void AddFunctionLocked(const std::string& name, const Function* function)
@@ -369,6 +369,8 @@ class SimpleCatalog : public EnumerableCatalog {
       std::unique_ptr<const TableValuedFunction> table_function)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   void AddTypeLocked(const std::string& name, const Type* type)
+      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  void AddConstantLocked(const std::string& name, const Constant* constant)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Unified implementation of SuggestFunction and SuggestTableValuedFunction.
@@ -388,13 +390,8 @@ class SimpleCatalog : public EnumerableCatalog {
       GUARDED_BY(mutex_);
   absl::flat_hash_map<std::string, const Model*> models_ GUARDED_BY(mutex_);
   // Case-insensitive map of names to Types explicitly added to the Catalog via
-  // AddType (including proto an enum types). Names in types_ override names in
-  // cached_proto_or_enum_types.
+  // AddType (including proto an enum types).
   absl::flat_hash_map<std::string, const Type*> types_ GUARDED_BY(mutex_);
-  // Case-sensitive map of names to cached ProtoType or EnumType objects created
-  // on-the-fly in GetType from the DescriptorPool.
-  absl::flat_hash_map<std::string, const Type*> cached_proto_or_enum_types_
-      GUARDED_BY(mutex_);
   absl::flat_hash_map<std::string, const Function*> functions_ GUARDED_BY(mutex_);
   absl::flat_hash_map<std::string, const TableValuedFunction*>
       table_valued_functions_ GUARDED_BY(mutex_);

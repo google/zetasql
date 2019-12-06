@@ -216,6 +216,9 @@ static std::string ToStringImpl(const Table* table) {
 static std::string ToStringImpl(const Model* model) {
   return model->FullName();
 }
+static std::string ToStringImpl(const Connection* connection) {
+  return connection->FullName();
+}
 static std::string ToStringImpl(const TableValuedFunction* tvf) {
   return absl::StrCat(absl::StrJoin(tvf->function_name_path(), "."), "(",
                 FunctionSignature::SignaturesToString(
@@ -381,6 +384,25 @@ static zetasql_base::StatusOr<const Model*> RestoreFromImpl(
   const std::vector<std::string> path = absl::StrSplit(proto.full_name(), '.');
   ZETASQL_RETURN_IF_ERROR(params.catalog->FindModel(path, &model));
   return model;
+}
+
+static zetasql_base::Status SaveToImpl(
+   const Connection* connection,
+   FileDescriptorSetMap* file_descriptor_set_map,
+   ConnectionRefProto* proto) {
+  proto->set_name(connection->Name());
+  proto->set_full_name(connection->FullName());
+  return ::zetasql_base::OkStatus();
+}
+
+static zetasql_base::StatusOr<const Connection*> RestoreFromImpl(
+    const ConnectionRefProto& proto,
+    const ResolvedNode::RestoreParams& params) {
+  const Connection* connection;
+  const std::vector<std::string> path = absl::StrSplit(proto.full_name(), '.');
+  ZETASQL_RETURN_IF_ERROR(params.catalog->FindConnection(path, &connection,
+                                                 Catalog::FindOptions()));
+  return connection;
 }
 
 static zetasql_base::Status SaveToImpl(
@@ -641,6 +663,12 @@ static zetasql_base::Status SaveToImpl(
       TVFModelProto* model_proto = arg_proto->mutable_model_argument();
       model_proto->set_name(arg.model().model()->Name());
       model_proto->set_full_name(arg.model().model()->FullName());
+    } else if (arg.is_connection()) {
+      TVFConnectionProto* connection_proto =
+          arg_proto->mutable_connection_argument();
+      connection_proto->set_name(arg.connection().connection()->Name());
+      connection_proto->set_full_name(
+          arg.connection().connection()->FullName());
     } else {
       ZETASQL_ASSIGN_OR_RETURN(const InputArgumentType& arg_type,
                        arg.GetScalarArgType());
@@ -703,6 +731,14 @@ static zetasql_base::StatusOr<std::shared_ptr<TVFSignature>> RestoreFromImpl(
       ZETASQL_RETURN_IF_ERROR(params.catalog->FindModel(path, &model));
       input_args.push_back(TVFInputArgumentType(TVFModelArgument(
         model)));
+    } else if (argument.has_connection_argument()) {
+      const Connection* connection;
+      const std::vector<std::string> path = absl::StrSplit(
+        argument.connection_argument().full_name(), '.');
+      ZETASQL_RETURN_IF_ERROR(params.catalog->FindConnection(path, &connection,
+                                                     Catalog::FindOptions()));
+      input_args.push_back(TVFInputArgumentType(TVFConnectionArgument(
+        connection)));
     } else {
       const ValueWithTypeProto& scalar_arg = argument.scalar_argument();
       if (scalar_arg.has_value()) {

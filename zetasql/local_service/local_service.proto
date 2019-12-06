@@ -146,6 +146,8 @@ message PrepareRequest {
   optional AnalyzerOptionsProto options = 2;
   // Serialized descriptor pools of all types in the request.
   repeated google.protobuf.FileDescriptorSet file_descriptor_set = 3;
+  optional SimpleCatalogProto simple_catalog = 4;
+  optional int64 registered_catalog_id = 5;
 }
 
 message PrepareResponse {

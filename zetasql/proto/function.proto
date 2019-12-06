@@ -52,6 +52,11 @@ message TVFModelProto {
   optional string full_name = 2;
 }
 
+message TVFConnectionProto {
+  optional string name = 1;
+  optional string full_name = 2;
+}
+
 // The fields in here are in FunctionArgumentTypeOptions in the c++ API.
 message FunctionArgumentTypeOptionsProto {
   optional FunctionEnums.ArgumentCardinality cardinality = 1;
@@ -68,6 +73,7 @@ message FunctionArgumentTypeOptionsProto {
   optional ParseLocationRangeProto argument_name_parse_location = 12;
   optional ParseLocationRangeProto argument_type_parse_location = 13;
   optional FunctionEnums.ProcedureArgumentMode procedure_argument_mode = 14;
+  optional bool argument_name_is_mandatory = 15 [default = false];
 }
 
 message FunctionArgumentTypeProto {
@@ -140,6 +146,7 @@ message TVFArgumentProto {
   optional ValueWithTypeProto scalar_argument = 1;
   optional TVFRelationProto relation_argument = 2;
   optional TVFModelProto model_argument = 3;
+  optional TVFConnectionProto connection_argument = 4;
 }
 
 message TVFSignatureOptionsProto {

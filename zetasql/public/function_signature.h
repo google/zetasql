@@ -105,6 +105,9 @@ class FunctionArgumentTypeOptions {
     DCHECK(has_argument_name());
     return argument_name_;
   }
+  bool argument_name_is_mandatory() const {
+    return argument_name_is_mandatory_;
+  }
   ProcedureArgumentMode procedure_argument_mode() const {
     return procedure_argument_mode_;
   }
@@ -156,10 +159,23 @@ class FunctionArgumentTypeOptions {
     argument_name_ = name;
     return *this;
   }
+  FunctionArgumentTypeOptions& set_argument_name_is_mandatory(bool value) {
+    argument_name_is_mandatory_ = value;
+    return *this;
+  }
   FunctionArgumentTypeOptions& set_procedure_argument_mode(
       ProcedureArgumentMode mode) {
     procedure_argument_mode_ = mode;
     return *this;
+  }
+  FunctionArgumentTypeOptions& set_allow_coercion_from(
+      std::function<bool(const zetasql::Type*)> allow_coercion_from) {
+    allow_coercion_from_ = allow_coercion_from;
+    return *this;
+  }
+
+  std::function<bool(const zetasql::Type*)> allow_coercion_from() const {
+    return allow_coercion_from_;
   }
 
   // Return a std::string describing the options (not including cardinality).
@@ -260,12 +276,21 @@ class FunctionArgumentTypeOptions {
   // INOUT: argument is used both for input to and output from the procedure.
   ProcedureArgumentMode procedure_argument_mode_ = FunctionEnums::NOT_SET;
 
+  // Callback to support custom argument coercion in addition to standard
+  // coercion rules.
+  std::function<bool(const zetasql::Type*)> allow_coercion_from_;
+
   // Optional user visible name for referring to the function argument by name
   // using explicit syntax: name => value. For CREATE [AGGREGATE/TABLE] FUNCTION
   // statements, this comes from the name specified for each argument in the
   // statement's function signature. In other cases, engines may assign this in
   // custom ways as needed.
   std::string argument_name_;
+
+  // If true, and the 'argument_name_' field is non-empty, the function call
+  // must refer to the argument by name only. The resolver will return an error
+  // if the function call attempts to refer to the argument positionally.
+  bool argument_name_is_mandatory_ = false;
 
   // Optional parse location range for argument name. It is populated by
   // resolver only when analyzing UDFs and TVFs. <record_parse_locations>
@@ -329,6 +354,12 @@ class FunctionArgumentType {
   // will accept any model.
   static FunctionArgumentType AnyModel() {
     return FunctionArgumentType(ARG_TYPE_MODEL);
+  }
+
+  // Constructs a connection argument type for a table-valued function. This
+  // argument will accept any connection.
+  static FunctionArgumentType AnyConnection() {
+    return FunctionArgumentType(ARG_TYPE_CONNECTION);
   }
 
   // Construct a relation argument type for a table-valued function.
@@ -412,6 +443,13 @@ class FunctionArgumentType {
   // Returns TRUE if kind_ is templated and it is related to the input kind
   // (i.e., the kinds are the same, or one is an array of the other).
   bool TemplatedKindIsRelated(SignatureArgumentKind kind) const;
+
+  bool AllowCoercionFrom(const zetasql::Type* actual_arg_type) const {
+    if (options_->allow_coercion_from() == nullptr) {
+      return false;
+    }
+    return options_->allow_coercion_from()(actual_arg_type);
+  }
 
   // Returns argument type name to be used in error messages.
   // This either would be a scalar short type name - DATE, INT64, BYTES etc. or

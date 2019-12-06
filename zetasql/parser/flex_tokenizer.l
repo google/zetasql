@@ -53,13 +53,6 @@
 /* This inclusive state is for BETWEEN...AND. In this state, everything works
    as normal, but the "AND" keyword is returned as KW_AND_FOR_BETWEEN instead of
    KW_AND. This resolves what would otherwise be ambiguous in the bison grammar.
-
-   For comparison, in F1 this was also a problem, and it was resolved by
-   duplicating the entire expression hierarchy exclusively for one of the
-   arguments of BETWEEN, so that the hierarchy would never include AND unless it
-   was parenthesized. This is very involved and error prone, and a tokenizer
-   state is a much cleaner solution.
-
    Note that this state is automatically turned off within parentheses and
    square brackets, using yy_push_state() and yy_pop_state(). That ensures that
    something like BETWEEN (a AND b) AND c still parses.
@@ -826,6 +819,7 @@ zone { return BisonParserImpl::token::KW_ZONE; }
   return '>';
 }
 ">="                      { return BisonParserImpl::token::KW_GREATER_EQUALS; }
+"||"                      { return BisonParserImpl::token::KW_CONCAT_OP; }
 "|"                       { return '|'; }
 "^"                       { return '^'; }
 "&"                       { return '&'; }

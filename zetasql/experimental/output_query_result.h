@@ -52,15 +52,13 @@ std::string ToPrettyOutputStyle(const zetasql::Value& result, bool is_value_tabl
 // Helper function shared by analyze_query and execute_script to convert
 // a query result into a human-readable display std::string.
 //
-// <resolved_stmt> and <algebrized_tree> cannot be nullptr, and provide
-// additional information about the query used to produce <result>, which may
-// affect the formatting.  For example, if the query is a DML statement, the
-// output format is altered to display the number of rows modified, and if the
-// query is a 'SELECT AS VALUE' statement, the column name is omitted from
-// output.
-std::string OutputPrettyStyleQueryResult(
-    const zetasql::Value& result, const ResolvedStatement* resolved_stmt,
-    const zetasql::ValueExpr* algebrized_tree);
+// <resolved_stmt> cannot be nullptr, and provides additional information about
+// the query used to produce <result>, which may affect the formatting.  For
+// example, if the query is a DML statement, the output format is altered to
+// display the number of rows modified, and if the query is a 'SELECT AS VALUE'
+// statement, the column name is omitted from output.
+std::string OutputPrettyStyleQueryResult(const zetasql::Value& result,
+                                    const ResolvedStatement* resolved_stmt);
 
 // Outputs the result of a standalone expression using pretty-style boxes.
 std::string OutputPrettyStyleExpressionResult(const zetasql::Value& result);

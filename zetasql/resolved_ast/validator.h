@@ -135,6 +135,8 @@ class Validator {
   zetasql_base::Status ValidateResolvedImportStmt(const ResolvedImportStmt* stmt) const;
   zetasql_base::Status ValidateResolvedModuleStmt(const ResolvedModuleStmt* stmt) const;
   zetasql_base::Status ValidateResolvedAssertStmt(const ResolvedAssertStmt* stmt) const;
+  zetasql_base::Status ValidateResolvedAssignmentStmt(
+      const ResolvedAssignmentStmt* stmt) const;
 
   // DML Statements, which can also be used as nested operations inside UPDATEs.
   // When used nested, they take a non-NULL <array_element_column> and
@@ -389,6 +391,9 @@ class Validator {
 
   zetasql_base::Status ValidateResolvedAlterAction(
       const ResolvedAlterAction* action) const;
+
+  zetasql_base::Status ValidateResolvedExecuteImmediateStmt(
+      const ResolvedExecuteImmediateStmt* stmt) const;
 
   // Check that <expr> contains only ColumnRefs, GetProtoField and
   // GetStructField expressions. Sets 'ref' to point to the leaf

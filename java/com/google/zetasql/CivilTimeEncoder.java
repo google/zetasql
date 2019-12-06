@@ -20,6 +20,7 @@ package com.google.zetasql;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.zetasql.ZetaSQLValue.ValueProto;
+import java.time.temporal.ChronoUnit;
 import org.joda.time.LocalDateTime;
 import org.joda.time.LocalTime;
 
@@ -206,7 +207,7 @@ public final class CivilTimeEncoder {
    *
    * @see #decodePacked64TimeMicrosAsJavaTime(long)
    */
-  @SuppressWarnings("GoodTime-ApiWithNumericTimeUnit")
+  @SuppressWarnings({"GoodTime-ApiWithNumericTimeUnit", "JavaLocalTimeGetNano"})
   public static long encodePacked64TimeMicros(java.time.LocalTime time) {
     checkValidTimeMicros(time);
     return (((long) encodePacked32TimeSeconds(time)) << MICRO_LENGTH) | (time.getNano() / 1_000L);
@@ -298,7 +299,7 @@ public final class CivilTimeEncoder {
    *
    * @see #decodePacked64TimeNanosAsJavaTime(long)
    */
-  @SuppressWarnings("GoodTime-ApiWithNumericTimeUnit")
+  @SuppressWarnings({"GoodTime-ApiWithNumericTimeUnit", "JavaLocalTimeGetNano"})
   public static long encodePacked64TimeNanos(java.time.LocalTime time) {
     checkValidTimeNanos(time);
     return (((long) encodePacked32TimeSeconds(time)) << NANO_LENGTH) | time.getNano();
@@ -510,7 +511,7 @@ public final class CivilTimeEncoder {
    *
    * @see #decodePacked64DatetimeMicrosAsJavaTime(long)
    */
-  @SuppressWarnings("GoodTime-ApiWithNumericTimeUnit")
+  @SuppressWarnings({"GoodTime-ApiWithNumericTimeUnit", "JavaLocalDateTimeGetNano"})
   public static long encodePacked64DatetimeMicros(java.time.LocalDateTime dateTime) {
     checkValidDateTimeMicros(dateTime);
     return (encodePacked64DatetimeSeconds(dateTime) << MICRO_LENGTH)
@@ -594,6 +595,7 @@ public final class CivilTimeEncoder {
    * @see #encodePacked64DatetimeSeconds(java.time.LocalDateTime)
    * @see #decodePacked96DatetimeNanosAsJavaTime(ValueProto.Datetime)
    */
+  @SuppressWarnings("JavaLocalDateTimeGetNano")
   public static ValueProto.Datetime encodePacked96DatetimeNanos(java.time.LocalDateTime dateTime) {
     checkValidDateTimeNanos(dateTime);
     return ValueProto.Datetime.newBuilder()
@@ -662,13 +664,11 @@ public final class CivilTimeEncoder {
 
   private static void checkValidTimeMicros(java.time.LocalTime time) {
     checkValidTimeSeconds(time);
-    checkArgument(
-        time.getNano() >= 0 && time.getNano() <= 999_999_999 && time.getNano() % 1_000 == 0);
+    checkArgument(time.equals(time.truncatedTo(ChronoUnit.MICROS)));
   }
 
   private static void checkValidTimeNanos(java.time.LocalTime time) {
     checkValidTimeSeconds(time);
-    checkArgument(time.getNano() >= 0 && time.getNano() <= 999_999_999);
   }
 
   private static void checkValidDateTimeSeconds(LocalDateTime dateTime) {
@@ -692,15 +692,11 @@ public final class CivilTimeEncoder {
 
   private static void checkValidDateTimeMicros(java.time.LocalDateTime dateTime) {
     checkValidDateTimeSeconds(dateTime);
-    checkArgument(
-        dateTime.getNano() >= 0
-            && dateTime.getNano() <= 999_999_999
-            && dateTime.getNano() % 1_000 == 0);
+    checkArgument(dateTime.equals(dateTime.truncatedTo(ChronoUnit.MICROS)));
   }
 
   private static void checkValidDateTimeNanos(java.time.LocalDateTime dateTime) {
     checkValidDateTimeSeconds(dateTime);
-    checkArgument(dateTime.getNano() >= 0 && dateTime.getNano() <= 999_999_999);
   }
 
   private static void checkValidMicroOfSecond(int microOfSecond) {

@@ -133,7 +133,7 @@ using BadArgumentErrorPrefixCallback =
 // Evaluates a function on the given arguments. Returns a status on error, and a
 // value on success.
 using FunctionEvaluator = std::function<zetasql_base::StatusOr<Value>(
-    const absl::Span<const Value>& arguments)>;
+    const absl::Span<const Value> arguments)>;
 
 // Takes a concrete function signature and returns a function evaluator or an
 // error if one cannot be constructed.

@@ -125,6 +125,8 @@ SCALAR_VALUE = ScalarType(
     'Value', 'ValueWithTypeProto', passed_by_reference=True)
 SCALAR_TABLE = ScalarType('const Table*', 'TableRefProto', 'Table')
 SCALAR_MODEL = ScalarType('const Model*', 'ModelRefProto', 'Model')
+SCALAR_CONNECTION = ScalarType('const Connection*', 'ConnectionRefProto',
+                               'Connection')
 SCALAR_RESOLVED_COLUMN = ScalarType(
     'ResolvedColumn', 'ResolvedColumnProto', passed_by_reference=True)
 SCALAR_CONSTANT = ScalarType('const Constant*', 'ConstantRefProto', 'Constant')
@@ -537,7 +539,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 141.
+          Next tag_id: 144.
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -1707,6 +1709,19 @@ value.
       ])
 
   gen.AddNode(
+      name='ResolvedConnection',
+      tag_id=141,
+      parent='ResolvedArgument',
+      comment="""
+      Represents a connection object as a TVF argument.
+      <connection> is the connection object encapsulated metadata to connect to
+      an external data source.
+              """,
+      fields=[
+          Field('connection', SCALAR_CONNECTION, tag_id=2),
+      ])
+
+  gen.AddNode(
       name='ResolvedSingleRowScan',
       tag_id=19,
       parent='ResolvedScan',
@@ -2576,12 +2591,13 @@ right.
       parent='ResolvedArgument',
       comment="""
       This represents an argument to a table-valued function (TVF). The argument
-      can be semantically scalar, relational or represent a model. Only one of
-      the three fields will be set.
+      can be semantically scalar, relational, represent a model or a connection.
+      Only one of the four fields will be set.
 
       <expr> The expression representing a scalar TVF argument.
       <scan> The scan representing a relational TVF argument.
       <model> The model representing an ML model TVF argument.
+      <connection> The connection representing a connection object TVF argument.
 
       <argument_column_list> maps columns from <scan> into specific columns
       of the TVF argument's input schema, matching those columns positionally.
@@ -2600,6 +2616,11 @@ right.
               'ResolvedModel',
               ignorable=IGNORABLE_DEFAULT,
               tag_id=5),
+          Field(
+              'connection',
+              'ResolvedConnection',
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=6),
           Field(
               'argument_column_list',
               SCALAR_RESOLVED_COLUMN,
@@ -3128,22 +3149,13 @@ right.
   gen.AddNode(
       name='ResolvedCreateExternalTableStmt',
       tag_id=42,
-      parent='ResolvedCreateStatement',
+      parent='ResolvedCreateTableStmtBase',
       comment="""
       This statement:
-        CREATE [TEMP] EXTERNAL TABLE <name> OPTIONS (...)
-
-      <option_list> has engine-specific directives that specify how to
-                    produce data for this external table.
-              """,
-      fields=[
-          Field(
-              'option_list',
-              'ResolvedOption',
-              tag_id=2,
-              vector=True,
-              ignorable=IGNORABLE_DEFAULT)
-      ])
+        CREATE [TEMP] EXTERNAL TABLE <name> [(column type, ...)]
+        [PARTITION BY expr, ...] [CLUSTER BY expr, ...] OPTIONS (...)
+            """,
+      fields=[])
 
   gen.AddNode(
       name='ResolvedExportDataStmt',
@@ -3151,10 +3163,10 @@ right.
       parent='ResolvedStatement',
       comment="""
       This statement:
-        EXPORT DATA (<option_list>) AS SELECT ...
+        EXPORT DATA [WITH CONNECTION] <connection> (<option_list>) AS SELECT ...
       which is used to run a query and export its result somewhere
       without giving the result a table name.
-
+      <connection> connection reference for accessing destination source.
       <option_list> has engine-specific directives for how and where to
                     materialize the query result.
       <output_column_list> has the names and types of the columns produced by
@@ -3166,6 +3178,11 @@ right.
       The query must produce named columns with unique names.
               """,
       fields=[
+          Field(
+              'connection',
+              'ResolvedConnection',
+              tag_id=6,
+              ignorable=IGNORABLE_DEFAULT),
           Field(
               'option_list',
               'ResolvedOption',
@@ -5523,13 +5540,77 @@ ResolvedArgumentRef(y)
       ])
 
   gen.AddNode(
+      name='ResolvedExecuteImmediateArgument',
+      tag_id=143,
+      parent='ResolvedArgument',
+      comment="""
+      An argument for an EXECUTE IMMEDIATE's USING clause.
+
+        <name> an optional name for this expression
+        <expression> the expression's value
+             """,
+      fields=[
+          Field('name', SCALAR_STRING, tag_id=2),
+          Field('expression', 'ResolvedExpr', tag_id=3),
+      ])
+
+  gen.AddNode(
       name='ResolvedExecuteImmediateStmt',
       tag_id=140,
       parent='ResolvedStatement',
       comment="""
       An EXECUTE IMMEDIATE statement
+          EXECUTE IMMEDIATE <sql> [<into_clause>] [<using_clause>]
+
+          <sql> a string expression indicating a SQL statement to be dynamically
+            executed
+          <into_identifier_list> the identifiers whose values should be set.
+            Identifiers should not be repeated in the list.
+          <using_argument_list> a list of arguments to supply for dynamic SQL.
+             The arguments should either be all named or all unnamed, and
+             arguments should not be repeated in the list.
               """,
-      fields=[])
+      fields=[
+          Field(
+              'sql', 'ResolvedExpr', ignorable=NOT_IGNORABLE, tag_id=2),
+          Field(
+              'into_identifier_list',
+              SCALAR_STRING,
+              ignorable=NOT_IGNORABLE,
+              tag_id=3,
+              vector=True,
+              to_string_method='ToStringCommaSeparated',
+              java_to_string_method='toStringCommaSeparated'),
+          Field(
+              'using_argument_list',
+              'ResolvedExecuteImmediateArgument',
+              ignorable=NOT_IGNORABLE,
+              tag_id=4,
+              vector=True),
+      ])
+
+  gen.AddNode(
+      name='ResolvedAssignmentStmt',
+      tag_id=142,
+      parent='ResolvedStatement',
+      comment="""
+      An assignment of a value to another value.
+      """,
+      fields=[
+          Field(
+              'target',
+              'ResolvedExpr',
+              tag_id=2,
+              comment='Target of the assignment.  Currently, this will be '
+              'either ResolvedSystemVariable, or a chain of ResolveGetField '
+              'operations around it.'),
+          Field(
+              'expr',
+              'ResolvedExpr',
+              tag_id=3,
+              comment='Value to assign into the target.  This will always be '
+              'the same type as the target.')
+      ])
 
   gen.Generate(input_file_paths, output_file_paths)
 

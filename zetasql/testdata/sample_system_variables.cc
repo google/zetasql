@@ -46,7 +46,11 @@ void SetupSampleSystemVariables(TypeFactory* type_factory,
                                 AnalyzerOptions* options) {
   const Type* int32_type = type_factory->get_int32();
   const Type* int64_type = type_factory->get_int64();
+  const Type* uint64_type = type_factory->get_uint64();
   const Type* string_type = type_factory->get_string();
+  const Type* timestamp_type = type_factory->get_timestamp();
+  const Type* int64_array_type;
+  ZETASQL_CHECK_OK(type_factory->MakeArrayType(int64_type, &int64_array_type));
 
   const StructType* struct_type;
   const StructType* nested_struct_type;
@@ -61,7 +65,11 @@ void SetupSampleSystemVariables(TypeFactory* type_factory,
   ZETASQL_CHECK_OK(type_factory->MakeProtoType(
       zetasql_test::KitchenSinkPB::descriptor(), &proto_type));
 
+  ZETASQL_CHECK_OK(AddSystemVariable({"int32_system_variable"}, int32_type, options));
+  ZETASQL_CHECK_OK(AddSystemVariable({"int64_array_system_variable"}, int64_array_type,
+                             options));
   ZETASQL_CHECK_OK(AddSystemVariable({"int64_system_variable"}, int64_type, options));
+  ZETASQL_CHECK_OK(AddSystemVariable({"uint64_system_variable"}, uint64_type, options));
   ZETASQL_CHECK_OK(AddSystemVariable({"struct_system_variable"}, nested_struct_type,
                              options));
   ZETASQL_CHECK_OK(AddSystemVariable({"sysvar_foo"}, foo_struct_type, options));
@@ -76,5 +84,7 @@ void SetupSampleSystemVariables(TypeFactory* type_factory,
   ZETASQL_CHECK_OK(AddSystemVariable({"sysvar.part1.part2"}, string_type, options));
   ZETASQL_CHECK_OK(
       AddSystemVariable({"sysvar", "part1", "part2"}, string_type, options));
+  ZETASQL_CHECK_OK(AddSystemVariable({"timestamp_system_variable"}, timestamp_type,
+                             options));
 }
 }  // namespace zetasql

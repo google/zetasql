@@ -54,6 +54,12 @@ message ModelRefProto {
   optional string full_name = 3;
 }
 
+// Reference to a connection
+message ConnectionRefProto {
+  optional string name = 1;
+  optional string full_name = 3;
+}
+
 // Reference to a named constant.
 message ConstantRefProto {
   // Full name of the function, e.g., catalog1.catalog2.Constant.

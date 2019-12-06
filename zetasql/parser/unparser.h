@@ -446,6 +446,8 @@ class Unparser : public ParseTreeVisitor {
   void visitASTSampleSize(const ASTSampleSize* node, void* data) override;
   void visitASTSampleSuffix(const ASTSampleSuffix* node, void* data) override;
   void visitASTWithWeight(const ASTWithWeight* node, void *data) override;
+  void visitASTWithConnectionClause(const ASTWithConnectionClause* node,
+                                    void* data) override;
   void visitASTSampleClause(const ASTSampleClause* node, void* data) override;
   void visitASTAlterMaterializedViewStatement(
       const ASTAlterMaterializedViewStatement* node, void* data) override;
@@ -542,9 +544,21 @@ class Unparser : public ParseTreeVisitor {
                                             int begin, int end,
                                             const std::string& separator,
                                             bool break_line = false);
+
   template <class NodeType>
-  void UnparseVectorWithSeparator(absl::Span<const NodeType* const> node_vector,
-                                  void* data, const std::string& separator);
+  void UnparseVectorWithSeparator(
+      absl::Span<const NodeType* const> node_vector, void* data,
+      const std::string& separator) {
+    bool first = true;
+    for (const NodeType* node : node_vector) {
+      if (first) {
+        first = false;
+      } else {
+        print(separator);
+      }
+      node->Accept(this, data);
+    }
+  }
 
  private:
   void VisitCheckConstraintSpec(const ASTCheckConstraint* node, void* data);

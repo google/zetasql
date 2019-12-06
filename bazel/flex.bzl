@@ -66,7 +66,7 @@ def _genlex_impl(ctx):
     if ctx.attr.prefix:
         prefix = ctx.attr.prefix
     else:
-        prefix = ctx.file.src.basename.partition(sep = ".")[0]
+        prefix = ctx.file.src.basename.partition(".")[0]
 
     # Construct the arguments.
     args = ctx.actions.args()

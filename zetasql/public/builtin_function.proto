@@ -38,14 +38,14 @@ enum FunctionSignatureId {
   // other special functions (CASE).  FunctionSignatureIds are assigned
   // in ranges:
   //
-  // 0002-0999 Non-standard function calls   (NextId: 260)
-  // 1000-1099 String functions              (NextId: 1063)
+  // 0002-0999 Non-standard function calls   (NextId: 261)
+  // 1000-1099 String functions              (NextId: 1065)
   // 1100-1199 Control flow functions        (NextId: 1104)
   // 1200-1299 Time functions                (Fully used)
   // 1300-1399 Math functions                (NextId: 1388)
-  // 1400-1499 Aggregate functions           (NextId: 1471)
+  // 1400-1499 Aggregate functions           (NextId: 1478)
   // 1500-1599 Analytic functions            (NextId: 1513)
-  // 1600-1699 Misc functions                (NextId: 1681)
+  // 1600-1699 Misc functions                (NextId: 1682)
   // 1700-1799 Net functions                 (NextId: 1716)
   // 1800-1899 More time functions           (NextId: 1833)
   // 1900-1999 Hashing/encryption functions  (NextId: 1924)
@@ -164,6 +164,7 @@ enum FunctionSignatureId {
   FN_SAFE_ARRAY_AT_OFFSET = 239;   // $safe_array_at_offset
   FN_SAFE_ARRAY_AT_ORDINAL = 240;  // $safe_array_at_ordinal
   FN_ARRAY_CONCAT = 236;           // array_concat(repeated array) -> array
+  FN_ARRAY_CONCAT_OP = 260;        // array_concat(array, array) -> array
   // array_to_string(array, string[, string]) -> string
   FN_ARRAY_TO_STRING = 237;
   // array_to_string(array, bytes[, bytes]) -> bytes
@@ -180,6 +181,8 @@ enum FunctionSignatureId {
   // String functions
   FN_CONCAT_STRING = 1000;          // concat(repeated string) -> string
   FN_CONCAT_BYTES = 1001;           // concat(repeated bytes) -> bytes
+  FN_CONCAT_OP_STRING = 1063;       // concat(string, string) -> string
+  FN_CONCAT_OP_BYTES = 1064;        // concat(bytes, bytes) -> bytes
   FN_STRPOS_STRING = 1002;          // strpos(string, string) -> string
   FN_STRPOS_BYTES = 1003;           // strpos(bytes, bytes) -> bytes
   FN_LOWER_STRING = 1006;           // lower(string) -> string
@@ -489,13 +492,20 @@ enum FunctionSignatureId {
   FN_HLL_COUNT_MERGE_PARTIAL = 1450;  // hll_count.merge_partial(bytes)
 
   // Statistical aggregate functions.
-  FN_CORR = 1435;         // corr
-  FN_COVAR_POP = 1436;    // covar_pop
-  FN_COVAR_SAMP = 1437;   // covar_samp
-  FN_STDDEV_POP = 1438;   // stddev_pop
-  FN_STDDEV_SAMP = 1439;  // stddev_samp
-  FN_VAR_POP = 1440;      // var_pop
-  FN_VAR_SAMP = 1441;     // var_samp
+  FN_CORR = 1435;                 // corr
+  FN_CORR_NUMERIC = 1471;         // corr
+  FN_COVAR_POP = 1436;            // covar_pop
+  FN_COVAR_POP_NUMERIC = 1472;    // covar_pop
+  FN_COVAR_SAMP = 1437;           // covar_samp
+  FN_COVAR_SAMP_NUMERIC = 1473;   // covar_samp
+  FN_STDDEV_POP = 1438;           // stddev_pop
+  FN_STDDEV_POP_NUMERIC = 1474;   // stddev_pop
+  FN_STDDEV_SAMP = 1439;          // stddev_samp
+  FN_STDDEV_SAMP_NUMERIC = 1475;  // stddev_samp
+  FN_VAR_POP = 1440;              // var_pop
+  FN_VAR_POP_NUMERIC = 1476;      // var_pop
+  FN_VAR_SAMP = 1441;             // var_samp
+  FN_VAR_SAMP_NUMERIC = 1477;     // var_samp
 
   FN_COUNTIF = 1443;  // countif
 
@@ -564,6 +574,8 @@ enum FunctionSignatureId {
 
   FN_JSON_EXTRACT = 1619;         // json_extract(string, string)
   FN_JSON_EXTRACT_SCALAR = 1620;  // json_extract_scalar(string, string)
+  FN_JSON_EXTRACT_ARRAY =
+      1681;  // json_extract_array(string[, string]) -> array
 
   FN_TO_JSON_STRING = 1622;  // to_json_string(any[, bool]) -> string
   FN_JSON_QUERY = 1623;      // json_query(string, string)

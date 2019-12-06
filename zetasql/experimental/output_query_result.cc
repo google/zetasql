@@ -18,6 +18,7 @@
 
 #include "zetasql/compliance/type_helpers.h"
 #include "zetasql/public/strings.h"
+#include "absl/strings/str_split.h"
 
 namespace zetasql {
 
@@ -48,9 +49,8 @@ namespace {
   return scan->table();
 }
 
-// Populates the following, assuming 'resolved_stmt' is a statement,
-// 'algebrized_stmt' is the corresponding algebrized ValueExpr, and 'value' is
-// the corresponding result:
+// Populates the following, assuming 'resolved_stmt' is a statement, and
+// 'value' is the corresponding result:
 // - 'num_rows_modified' with the number of rows modified
 //   (only set for DML statements).
 // - 'is_value_table' with true if 'resolved_stmt' operates on a value table.
@@ -58,7 +58,6 @@ namespace {
 //   full contents of the modified table after a DML statement.
 // - 'column_names' with the names of the columns of the rows in 'result_table'.
 ::zetasql_base::Status GetOutputColumnInfo(const ResolvedStatement* resolved_stmt,
-                                   const ValueExpr* algebrized_stmt,
                                    const Value& result,
                                    absl::optional<int64_t>* num_rows_modified,
                                    bool* is_value_table, Value* result_table,
@@ -114,9 +113,47 @@ namespace {
   return zetasql_base::OkStatus();
 }
 
+// Given a vector of column strings, returns a vector of lines, where each line
+// consists of a vector of portions of the respective column std::string.
+//
+// For example, the nth line of the output consists of the nth line of the first
+// std::string, followed by the nth line of the second std::string, etc., substituting the
+// empty std::string for any non-existent lines.  Line separators ("\n") are not
+// included in any of the column strings.
+//
+// The length of the result vector is the maximum number of lines that appears
+// in any column std::string.
+std::vector<std::vector<std::string>> SplitColumnStringsIntoLines(
+    const std::vector<std::string>& column_strings) {
+  // First, break down each column std::string into a vector of distinct lines.
+  std::vector<std::vector<std::string>> columns_by_line;
+  columns_by_line.reserve(column_strings.size());
+  for (const std::string& column_string : column_strings) {
+    columns_by_line.push_back(absl::StrSplit(column_string, '\n'));
+  }
+
+  // Find out the maximum number of lines present in any column strings. This
+  // is the number of lines we will need to return.
+  size_t max_lines = 0;
+  for (const std::vector<std::string>& lines_of_column : columns_by_line) {
+    max_lines = std::max(max_lines, lines_of_column.size());
+  }
+
+  // Now, compute the column texts, organized by line.
+  std::vector<std::vector<std::string>> lines_by_column;
+  lines_by_column.reserve(max_lines);
+  for (size_t i = 0; i < max_lines; ++i) {
+    std::vector<std::string>& cur_line = lines_by_column.emplace_back();
+    for (const std::vector<std::string>& column : columns_by_line) {
+      cur_line.push_back(i < column.size() ? column.at(i) : "");
+    }
+  }
+  return lines_by_column;
+}
+
 // Helper function to produce a std::string representation of a 'row',
 // given the input column std::string values and column buffer lengths.
-std::string GenerateRowStringFromColumns(
+std::string GenerateRowStringFromSingleLineColumns(
     const std::vector<std::string>& column_strings,
     const std::vector<size_t>& column_buffer_lengths) {
   CHECK_EQ(column_strings.size(), column_buffer_lengths.size());
@@ -141,15 +178,42 @@ std::string GenerateRowStringFromColumns(
   return row_string;
 }
 
+std::string GenerateRowStringFromColumns(
+    const std::vector<std::string>& column_strings,
+    const std::vector<size_t>& column_buffer_lengths) {
+  std::vector<std::vector<std::string>> lines_by_column =
+      SplitColumnStringsIntoLines(column_strings);
+
+  std::string row_string;
+  for (const std::vector<std::string>& line : lines_by_column) {
+    absl::StrAppend(&row_string, GenerateRowStringFromSingleLineColumns(
+                                     line, column_buffer_lengths));
+  }
+  return row_string;
+}
+
+std::string GetEscapedString(const Value& value) {
+  DCHECK(value.type()->IsString());
+  std::string literal = value.GetSQLLiteral();
+
+  // GetSQLLiteral() returns a quoted std::string.  Strip the enclosing quotes.
+  DCHECK_GE(literal.length(), 2);
+  DCHECK(literal[0] == '\"' || literal[0] == '\'');
+  DCHECK_EQ(literal[0], literal[literal.length() - 1]);
+  return literal.substr(1, literal.length() - 2);
+}
+
 // Converts 'value' to an output std::string and returns it.
-std::string ValueToOutputString(const Value& value) {
+std::string ValueToOutputString(const Value& value, bool escape_strings) {
   if (value.is_null()) return "NULL";
   if (value.type()->IsStruct()) {
     return absl::StrCat(
         "{",
         absl::StrJoin(value.fields(), ", ",
                       [](std::string* out, const zetasql::Value& value) {
-                        absl::StrAppend(out, ValueToOutputString(value));
+                        absl::StrAppend(
+                            out, ValueToOutputString(value,
+                                                     /*escape_strings=*/true));
                       }),
         "}");
   } else if (value.type()->IsArray()) {
@@ -157,13 +221,19 @@ std::string ValueToOutputString(const Value& value) {
         "[",
         absl::StrJoin(value.elements(), ", ",
                       [](std::string* out, const zetasql::Value& value) {
-                        absl::StrAppend(out, ValueToOutputString(value));
+                        absl::StrAppend(
+                            out, ValueToOutputString(value,
+                                                     /*escape_strings=*/true));
                       }),
         "]");
   } else if (value.type()->IsBytes()) {
     return EscapeBytes(value.bytes_value());
   } else if (value.type()->IsString()) {
-    return value.string_value();
+    if (escape_strings) {
+      return GetEscapedString(value);
+    } else {
+      return value.string_value();
+    }
   } else {
     return value.DebugString();
   }
@@ -223,10 +293,20 @@ std::string ToPrettyOutputStyle(const zetasql::Value& result, bool is_value_tabl
       const Value& column_value =
           is_value_table ? row_value : row_value.field(col_idx);
 
-      // TODO Consider using value.GetSQLLiteral here.
-      column_values[col_idx] = ValueToOutputString(column_value);
-      max_column_lengths[col_idx] = std::max(max_column_lengths[col_idx],
-                                             column_values[col_idx].length());
+      // Top-level values are printed in pretty-style, avoiding quotes around
+      // strings and show multi-line strings over multiple lines.  Values within
+      // an array or struct are displayed using the SQL syntax to produce a
+      // literal of that value.
+      column_values[col_idx] =
+          ValueToOutputString(column_value, /*escape_strings=*/false);
+      size_t max_line_length_of_column = 0;
+      for (absl::string_view line :
+           absl::StrSplit(column_values[col_idx], '\n')) {
+        max_line_length_of_column =
+            std::max(max_line_length_of_column, line.length());
+      }
+      max_column_lengths[col_idx] =
+          std::max(max_column_lengths[col_idx], max_line_length_of_column);
     }
     row_values.push_back(column_values);
   }
@@ -250,16 +330,14 @@ std::string ToPrettyOutputStyle(const zetasql::Value& result, bool is_value_tabl
   return output;
 }
 
-std::string OutputPrettyStyleQueryResult(
-    const zetasql::Value& result, const ResolvedStatement* resolved_stmt,
-    const zetasql::ValueExpr* algebrized_tree) {
+std::string OutputPrettyStyleQueryResult(const zetasql::Value& result,
+                                    const ResolvedStatement* resolved_stmt) {
   absl::optional<int64_t> num_rows_modified;
   bool is_value_table;
   std::vector<std::string> column_names;
   Value result_table;
-  ZETASQL_CHECK_OK(GetOutputColumnInfo(resolved_stmt, algebrized_tree, result,
-                               &num_rows_modified, &is_value_table,
-                               &result_table, &column_names));
+  ZETASQL_CHECK_OK(GetOutputColumnInfo(resolved_stmt, result, &num_rows_modified,
+                               &is_value_table, &result_table, &column_names));
 
   const std::string result_table_string =
       ToPrettyOutputStyle(result_table, is_value_table, column_names);
@@ -279,7 +357,7 @@ std::string OutputPrettyStyleQueryResult(
 }
 
 std::string OutputPrettyStyleExpressionResult(const zetasql::Value& result) {
-  std::string value_str = ValueToOutputString(result);
+  std::string value_str = ValueToOutputString(result, /*escape_strings=*/false);
   std::string separator = GetRowSeparator({value_str.length()});
 
   std::string output = separator;

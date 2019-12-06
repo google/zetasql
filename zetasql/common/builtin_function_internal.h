@@ -318,6 +318,10 @@ bool HasFloatingPointArgument(const std::vector<InputArgumentType>& arguments);
 // input.
 bool HasNumericTypeArgument(const std::vector<InputArgumentType>& arguments);
 
+// Returns true if FN_CONCAT_STRING function can coerce argument of given type
+// to STRING.
+bool CanStringConcatCoerceFrom(const zetasql::Type* arg_type);
+
 // Compute the result type for TOP_COUNT and TOP_SUM.
 // The output type is
 //   ARRAY<

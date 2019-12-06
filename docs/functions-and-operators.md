@@ -702,8 +702,8 @@ ZetaSQL provides the following additional conversion functions:
 + [TIME functions][con-rules-link-to-time-functions]
 + [TIMESTAMP functions][con-rules-link-to-timestamp-functions]
 
-[con-rules-link-to-literal-coercion]: #literal-coercion
-[con-rules-link-to-parameter-coercion]: #parameter-coercion
+[con-rules-link-to-literal-coercion]: #literal_coercion
+[con-rules-link-to-parameter-coercion]: #parameter_coercion
 [con-rules-link-to-time-zones]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time-zones
 
 [con-rules-link-to-safe-convert-bytes-to-string]: #safe_convert_bytes_to_string
@@ -8864,8 +8864,7 @@ inputs:
   
    `MILLISECOND`,
   
-   `SECOND`,
-  `MINUTE`, `HOUR`, or `DAY`.
+  `SECOND`, `MINUTE`, `HOUR`, or `DAY`.
 
 The `step_expression` parameter determines the increment used to generate
 timestamps.
@@ -9622,8 +9621,8 @@ allowed -- even if they are not in the format string.
 information (for example both `%F` and `%Y` affect the year), the last one
 generally overrides any earlier ones.
 
-See [Supported Format Elements For DATE][date-functions-link-to-supported-format-elements-for-date]
-for a list of format elements that this function supports.
+Note: This function supports [format elements][date-functions-link-to-supported-format-elements-for-date],
+but does not have full support for `%Q`, `%a`, `%A`, `%g`, `%G`, `%j`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 **Return Data Type**
 
@@ -9799,8 +9798,8 @@ space.</td>
  </tr>
 </table>
 
-[date-functions-link-to-timezone-definitions]: #timezone-definitions
-[date-functions-link-to-supported-format-elements-for-date]: #supported-format-elements-for-date
+[date-functions-link-to-timezone-definitions]: #timezone_definitions
+[date-functions-link-to-supported-format-elements-for-date]: #supported_format_elements_for_date
 
 ## DateTime functions
 
@@ -10342,6 +10341,9 @@ element overrides the later. See the descriptions
 of `%s`, `%C`, and `%y` in
 [Supported Format Elements For DATETIME][datetime-functions-link-to-supported-format-elements-for-datetime].
 
+Note: This function supports [format elements][datetime-functions-link-to-supported-format-elements-for-datetime],
+but does not have full support for `%Q`, `%a`, `%A`, `%g`, `%G`, `%j`, `%u`, `%U`, `%V`, `%w`, and `%W`.
+
 **Examples**
 
 The following example parses a `STRING` literal as a
@@ -10594,8 +10596,8 @@ year.</td>
  </tr>
 </table>
 
-[datetime-link-to-timezone-definitions]: #timezone-definitions
-[datetime-functions-link-to-supported-format-elements-for-datetime]: #supported-format-elements-for-datetime
+[datetime-link-to-timezone-definitions]: #timezone_definitions
+[datetime-functions-link-to-supported-format-elements-for-datetime]: #supported_format_elements_for_datetime
 
 ## Time functions
 
@@ -11019,8 +11021,8 @@ by a space.</td>
  </tr>
 </table>
 
-[time-link-to-timezone-definitions]: #timezone-definitions
-[time-link-to-supported-format-elements-for-time]: #supported-format-elements-for-time
+[time-link-to-timezone-definitions]: #timezone_definitions
+[time-link-to-supported-format-elements-for-time]: #supported_format_elements_for_time
 
 ## Timestamp functions
 
@@ -11158,6 +11160,7 @@ SELECT
   EXTRACT(WEEK FROM timestamp) AS week
 FROM Timestamps
 ORDER BY timestamp;
+
 +------------------------+---------+---------+------+------+
 | timestamp              | isoyear | isoweek | year | week |
 +------------------------+---------+---------+------+------+
@@ -11183,7 +11186,7 @@ SELECT
 FROM table;
 
 +------------------------+-------------+---------------+
-| timestamp              | week_sunday | week_monday |
+| timestamp              | week_sunday | week_monday   |
 +------------------------+-------------+---------------+
 | 2017-11-05 00:00:00+00 | 45          | 44            |
 +------------------------+-------------+---------------+
@@ -11198,7 +11201,7 @@ STRING(timestamp_expression[, timezone])
 **Description**
 
 Converts a `timestamp_expression` to a STRING data type. Supports an optional
-parameter to specify a timezone. See
+parameter to specify a time zone. See
 [Timezone definitions][timestamp-link-to-timezone-definitions] for information
 on how to specify a time zone.
 
@@ -11214,40 +11217,118 @@ SELECT STRING(TIMESTAMP "2008-12-25 15:30:00", "America/Los_Angeles") as string;
 +-------------------------------+
 | string                        |
 +-------------------------------+
-| 2008-12-25 15:30:00-08        |
+| 2008-12-25 07:30:00-08        |
 +-------------------------------+
 ```
 
 ### TIMESTAMP
 
-```
-1. TIMESTAMP(string_expression[, timezone])
-2. TIMESTAMP(date_expression[, timezone])
-3. TIMESTAMP(datetime_expression[, timezone])
+```sql
+TIMESTAMP(
+  string_expression[, timezone] |
+  date_expression[, timezone] |
+  datetime_expression[, timezone]
+)
 ```
 
 **Description**
 
-1. Converts a STRING expression to a TIMESTAMP data type.
-2. Converts a DATE object to a TIMESTAMP data type.
-3. Converts a DATETIME object to a TIMESTAMP data type.
++  `string_expression[, timezone]`: Converts a STRING expression to a TIMESTAMP
+   data type. `string_expression` must include a
+   timestamp literal.
+   If `string_expression` includes a timezone in the timestamp literal, do not
+   include an explicit `timezone`
+   argument.
++  `date_expression[, timezone]`: Converts a DATE object to a TIMESTAMP
+   data type.
++  `datetime_expression[, timezone]`: Converts a
+   DATETIME object to a TIMESTAMP data type.
 
-This function supports an optional parameter to
-[specify a timezone][timestamp-link-to-timezone-definitions]. If no timezone is specified, the
-default timezone, which is implementation defined, is used.
+This function supports an optional
+parameter to [specify a time zone][timestamp-link-to-timezone-definitions]. If
+no time zone is specified, the default time zone, which is implementation defined,
+is used.
 
 **Return Data Type**
 
 TIMESTAMP
 
-**Example**
+**Examples**
+
+In these examples, a time zone is specified.
 
 ```sql
-SELECT
-  CAST(TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles") AS STRING) AS timestamp_str,
-  CAST(TIMESTAMP(DATE "2008-12-25", "America/Los_Angeles") AS STRING) AS timestamp_date,
-  CAST(TIMESTAMP(DATETIME "2008-12-25 15:30:00", "America/Los_Angeles") AS STRING) AS timestamp_datetime;
+SELECT CAST(
+  TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles") AS STRING
+) AS timestamp_str;
 
++------------------------+
+| timestamp_str          |
++------------------------+
+| 2008-12-25 23:30:00+00 |
++------------------------+
+```
+
+```sql
+SELECT CAST(
+  TIMESTAMP("2008-12-25 15:30:00 America/Los_Angeles") AS STRING
+) AS timestamp_str_timezone;
+
++------------------------+
+| timestamp_str_timezone |
++------------------------+
+| 2008-12-25 23:30:00+00 |
++------------------------+
+```
+
+```sql
+SELECT CAST(
+  TIMESTAMP(DATETIME "2008-12-25 15:30:00", "America/Los_Angeles") AS STRING
+) AS timestamp_datetime;
+
++------------------------+
+| timestamp_datetime     |
++------------------------+
+| 2008-12-25 23:30:00+00 |
++------------------------+
+```
+
+```sql
+SELECT CAST(
+  TIMESTAMP(DATE "2008-12-25", "America/Los_Angeles") AS STRING
+) AS timestamp_date;
+
++------------------------+
+| timestamp_date         |
++------------------------+
+| 2008-12-25 08:00:00+00 |
++------------------------+
+```
+
+In these examples, assume that the default time zone is UTC.
+
+```sql
+SELECT CAST(
+  TIMESTAMP("2008-12-25 15:30:00") AS STRING
+) AS timestamp_str;
+
++------------------------+
+| timestamp_str          |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
+```
+
+```sql
+SELECT CAST(
+  TIMESTAMP(DATE "2008-12-25") AS STRING
+) AS timestamp_date;
+
++------------------------+
+| timestamp_date         |
++------------------------+
+| 2008-12-25 00:00:00+00 |
++------------------------+
 ```
 
 ### TIMESTAMP_ADD
@@ -11270,8 +11351,7 @@ any time zone.
 <li><code>SECOND</code></li>
 <li><code>MINUTE</code></li>
 <li><code>HOUR</code>. Equivalent to 60 <code>MINUTE</code>s.</li>
-<li><code>DAY</code>. Equivalent to 24
-<code>HOUR</code>s.
+<li><code>DAY</code>. Equivalent to 24 <code>HOUR</code>s.</li>
 </ul>
 
 **Return Data Types**
@@ -11312,8 +11392,7 @@ independent of any time zone.
 <li><code>SECOND</code></li>
 <li><code>MINUTE</code></li>
 <li><code>HOUR</code>. Equivalent to 60 <code>MINUTE</code>s.</li>
-<li><code>DAY</code>. Equivalent to 24
-<code>HOUR</code>s.
+<li><code>DAY</code>. Equivalent to 24 <code>HOUR</code>s.</li>
 </ul>
 
 **Return Data Type**
@@ -11364,8 +11443,7 @@ TIMESTAMP_DIFF(timestamp_expression, timestamp_expression, date_part)
 <li><code>SECOND</code></li>
 <li><code>MINUTE</code></li>
 <li><code>HOUR</code>. Equivalent to 60 <code>MINUTE</code>s.</li>
-<li><code>DAY</code>. Equivalent to 24
-<code>HOUR</code>s.
+<li><code>DAY</code>. Equivalent to 24 <code>HOUR</code>s.</li>
 </ul>
 
 **Return Data Type**
@@ -11451,12 +11529,12 @@ parameter applies to the following `date_parts`:
 + `YEAR`
 
 Use this parameter if you want to use a time zone other than the
-default timezone, which is implementation defined, as part of the
+default time zone, which is implementation defined, as part of the
 truncate operation.
 
 When truncating a `TIMESTAMP` to `MINUTE`
 or`HOUR`, `TIMESTAMP_TRUNC` determines the civil time of the
-`TIMESTAMP` in the specified (or default) timezone
+`TIMESTAMP` in the specified (or default) time zone
 and subtracts the minutes and seconds (when truncating to HOUR) or the seconds
 (when truncating to MINUTE) from that `TIMESTAMP`.
 While this provides intuitive results in most cases, the result is
@@ -11500,7 +11578,7 @@ FROM (SELECT TIMESTAMP('2017-11-06 00:00:00+12') AS timestamp);
 +------------------------+------------------------+------------------------+
 | timestamp              | utc_truncated          | nzdt_truncated         |
 +------------------------+------------------------+------------------------+
-| 2017-11-05 12:00:00+00 | 2017-10-30 07:00:00+00 | 2017-11-05 11:00:00+00 |
+| 2017-11-05 12:00:00+00 | 2017-10-30 00:00:00+00 | 2017-11-05 11:00:00+00 |
 +------------------------+------------------------+------------------------+
 ```
 
@@ -11554,6 +11632,28 @@ SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2008-12-25 15:30:00", "America/Los_Ange
 +--------------------------+
 ```
 
+```sql
+SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2008-12-25 15:30:00")
+  AS formatted;
+
++-------------+
+| formatted   |
++-------------+
+| Dec-25-2008 |
++-------------+
+```
+
+```sql
+SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2008-12-25 15:30:00")
+  AS formatted;
+
++-------------+
+| formatted   |
++-------------+
+| Dec 2008    |
++-------------+
+```
+
 ### PARSE_TIMESTAMP
 
 ```sql
@@ -11583,8 +11683,8 @@ information (for example both `%F` and `%Y` affect the year), the last one
 generally overrides any earlier ones, with some exceptions (see the descriptions
 of `%s`, `%C`, and `%y`).
 
-See [Supported Format Elements For TIMESTAMP][timestamp-link-to-supported-format-elements-for-time-for-timestamp]
-for a list of format elements that this function supports.
+Note: This function supports [format elements][timestamp-link-to-supported-format-elements-for-time-for-timestamp],
+but does not have full support for `%Q`, `%a`, `%A`, `%g`, `%G`, `%j`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 **Return Data Type**
 
@@ -11595,11 +11695,11 @@ TIMESTAMP
 ```sql
 SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008", "America/Los_Angeles") as parsed;
 
-+-------------------------+
-| parsed                  |
-+-------------------------+
-| 2008-12-25 15:30:00 UTC |
-+-------------------------+
++------------------------+
+| parsed                 |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
 ```
 
 ### TIMESTAMP_SECONDS
@@ -11622,11 +11722,11 @@ TIMESTAMP
 ```sql
 SELECT TIMESTAMP_SECONDS(1230219000) as timestamp;
 
-+-------------------------+
-| timestamp               |
-+-------------------------+
-| 2008-12-25 15:30:00 UTC |
-+-------------------------+
++------------------------+
+| timestamp              |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
 ```
 
 ### TIMESTAMP_MILLIS
@@ -11649,11 +11749,11 @@ TIMESTAMP
 ```sql
 SELECT TIMESTAMP_MILLIS(1230219000000) as timestamp;
 
-+-------------------------+
-| timestamp               |
-+-------------------------+
-| 2008-12-25 15:30:00 UTC |
-+-------------------------+
++------------------------+
+| timestamp              |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
 ```
 
 ### TIMESTAMP_MICROS
@@ -11676,11 +11776,11 @@ TIMESTAMP
 ```sql
 SELECT TIMESTAMP_MICROS(1230219000000000) as timestamp;
 
-+-------------------------+
-| timestamp               |
-+-------------------------+
-| 2008-12-25 15:30:00 UTC |
-+-------------------------+
++------------------------+
+| timestamp              |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
 ```
 
 ### UNIX_SECONDS
@@ -11701,7 +11801,7 @@ INT64
 **Example**
 
 ```sql
-SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00") as seconds;
+SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00 UTC") as seconds;
 
 +------------+
 | seconds    |
@@ -11755,7 +11855,7 @@ INT64
 **Example**
 
 ```sql
-SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00") as micros;
+SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00 UTC") as micros;
 
 +------------------+
 | micros           |
@@ -11766,15 +11866,84 @@ SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00") as micros;
 
 ### TIMESTAMP_FROM_UNIX_SECONDS
 
-Documentation is pending for this feature.
+```sql
+TIMESTAMP_FROM_UNIX_SECONDS(int64_expression)
+```
+
+**Description**
+
+Interprets `int64_expression` as the number of seconds since
+1970-01-01 00:00:00 UTC and creates a timestamp.
+
+**Return Data Type**
+
+TIMESTAMP
+
+**Example**
+
+```sql
+SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) as timestamp;
+
++------------------------+
+| timestamp              |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
+```
 
 ### TIMESTAMP_FROM_UNIX_MILLIS
 
-Documentation is pending for this feature.
+```sql
+TIMESTAMP_FROM_UNIX_MILLIS(int64_expression)
+```
+
+**Description**
+
+Interprets `int64_expression` as the number of milliseconds since
+1970-01-01 00:00:00 UTC and creates a timestamp.
+
+**Return Data Type**
+
+TIMESTAMP
+
+**Example**
+
+```sql
+SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) as timestamp;
+
++------------------------+
+| timestamp              |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
+```
 
 ### TIMESTAMP_FROM_UNIX_MICROS
 
-Documentation is pending for this feature.
+```sql
+TIMESTAMP_FROM_UNIX_MICROS(int64_expression)
+```
+
+**Description**
+
+Interprets `int64_expression` as the number of microseconds since
+1970-01-01 00:00:00 UTC and creates a timestamp.
+
+**Return Data Type**
+
+TIMESTAMP
+
+**Example**
+
+```sql
+SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) as timestamp;
+
++------------------------+
+| timestamp              |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
+```
 
 ### Supported format elements for TIMESTAMP
 
@@ -11810,7 +11979,7 @@ number (00-99).</td>
  </tr>
  <tr>
     <td>%c</td>
-    <td>The date and time representation.</td>
+    <td>The date and time representation in the format %a %b %e %T %Y.</td>
  </tr>
  <tr>
     <td>%D</td>
@@ -12004,22 +12173,31 @@ year.</td>
 ### Timezone definitions
 
 Certain date and timestamp functions allow you to override the default time zone
-and specify a different one. You can specify a timezone by supplying its UTC
-offset using the following format:
+and specify a different one. You can specify a time zone by either supplying
+the [time zone name][timezone-by-name] (for example, `America/Los_Angeles`)
+or time zone offset from UTC (for example, -08).
+
+If you choose to use a time zone offset, use this format:
 
 ```
 (+|-)H[H][:M[M]]
 ```
 
-For example:
+The following timestamps are equivalent because the time zone offset
+for `America/Los_Angeles` is `-08` for the specified date and time.
 
 ```
--08:00
+SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00 America/Los_Angeles") as millis;
 ```
 
-[timestamp-link-to-supported-format-elements-for-time-for-timestamp]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#supported-format-elements-for-timestamp
+```
+SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00-08:00") as millis;
+```
 
-[timestamp-link-to-timezone-definitions]: #timezone-definitions
+[timezone-by-name]: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+
+[timestamp-link-to-supported-format-elements-for-time-for-timestamp]: #supported_format_elements_for_timestamp
+[timestamp-link-to-timezone-definitions]: #timezone_definitions
 
 ## Protocol buffer functions
 
@@ -12045,7 +12223,7 @@ Stipulations:
 + The expression cannot access a field with
   `zetasql.use_defaults=false`.
 
-**Return Data Type**
+**Return Type**
 
 Type of `proto_field_expression`.
 
@@ -12093,11 +12271,488 @@ default value for `country`.
 
 ### FROM PROTO
 
-Documentation is pending for this feature.
+```
+FROM_PROTO(expression)
+```
+
+**Description**
+
+Returns a ZetaSQL value. The valid `expression` types are defined
+in the table below, along with the return types that they produce.
+Other input `expression` types are invalid. If `expression` cannot be converted
+to a valid value, an error is returned.
+
+<table width="100%">
+  <thead>
+    <tr>
+      <th width="50%"><code>expression</code> type</th>
+      <th width="50%">Return type</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <ul>
+        <li>INT32</li>
+        <li>google.protobuf.Int32Value</li>
+        </ul>
+      </td>
+      <td>INT32</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+        <li>UINT32</li>
+        <li>google.protobuf.UInt32Value</li>
+        </ul>
+      </td>
+      <td>UINT32</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+        <li>INT64</li>
+        <li>google.protobuf.Int64Value</li>
+        </ul>
+      </td>
+      <td>INT64</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+        <li>UINT64</li>
+        <li>google.protobuf.UInt64Value</li>
+        </ul>
+      </td>
+      <td>UINT64</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+        <li>FLOAT</li>
+        <li>google.protobuf.FloatValue</li>
+        </ul>
+      </td>
+      <td>FLOAT</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+        <li>DOUBLE</li>
+        <li>google.protobuf.DoubleValue</li>
+        </ul>
+      </td>
+      <td>DOUBLE</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+        <li>BOOL</li>
+        <li>google.protobuf.BoolValue</li>
+        </ul>
+      </td>
+      <td>BOOL</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+          <li>STRING</li>
+          <li>
+            google.protobuf.StringValue
+            <p>
+            Note: The <code>StringValue</code>
+            value field must be
+            UTF-8 encoded.
+            </p>
+          </li>
+        </ul>
+      </td>
+      <td>STRING</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+        <li>BYTES</li>
+        <li>google.protobuf.BytesValue</li>
+        </ul>
+      </td>
+      <td>BYTES</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+        <li>DATE</li>
+        <li>google.type.Date</li>
+        </ul>
+      </td>
+      <td>DATE</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+        <li>TIME</li>
+        <li>
+          google.type.TimeOfDay
+
+          
+
+          
+
+        </li>
+        </ul>
+      </td>
+      <td>TIME</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+        <li>TIMESTAMP</li>
+        <li>
+          google.protobuf.Timestamp
+
+          
+
+          
+
+        </li>
+        </ul>
+      </td>
+      <td>TIMESTAMP</td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Type**
+
+The return type depends upon the `expression` type. See the return types
+in the table above.
+
+**Examples**
+
+Convert a `google.type.Date` type into a `DATE` type.
+
+```sql
+SELECT FROM_PROTO(
+  new google.type.Date(
+    2019 as year,
+    10 as month,
+    30 as day
+  )
+)
+
++------------+
+| $col1      |
++------------+
+| 2019-10-30 |
++------------+
+```
+
+Pass in and return a `DATE` type.
+
+```sql
+SELECT FROM_PROTO(DATE '2019-10-30')
+
++------------+
+| $col1      |
++------------+
+| 2019-10-30 |
++------------+
+```
 
 ### TO PROTO
 
-Documentation is pending for this feature.
+```
+TO_PROTO(expression)
+```
+
+**Description**
+
+Returns a PROTO value. The valid `expression` types are defined in the
+table below, along with the return types that they produce. Other input
+`expression` types are invalid.
+
+<table width="100%">
+  <thead>
+    <tr>
+      <th width="50%"><code>expression</code> type</th>
+      <th width="50%">Return type</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <ul>
+        <li>INT32</li>
+        <li>google.protobuf.Int32Value</li>
+        </ul>
+      </td>
+      <td>google.protobuf.Int32Value</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+        <li>UINT32</li>
+        <li>google.protobuf.UInt32Value</li>
+        </ul>
+      </td>
+      <td>google.protobuf.UInt32Value</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+        <li>INT64</li>
+        <li>google.protobuf.Int64Value</li>
+        </ul>
+      </td>
+      <td>google.protobuf.Int64Value</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+        <li>UINT64</li>
+        <li>google.protobuf.UInt64Value</li>
+        </ul>
+      </td>
+      <td>google.protobuf.UInt64Value</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+        <li>FLOAT</li>
+        <li>google.protobuf.FloatValue</li>
+        </ul>
+      </td>
+      <td>google.protobuf.FloatValue</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+        <li>DOUBLE</li>
+        <li>google.protobuf.DoubleValue</li>
+        </ul>
+      </td>
+      <td>google.protobuf.DoubleValue</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+        <li>BOOL</li>
+        <li>google.protobuf.BoolValue</li>
+        </ul>
+      </td>
+      <td>google.protobuf.BoolValue</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+          <li>STRING</li>
+          <li>google.protobuf.StringValue</li>
+        </ul>
+      </td>
+      <td>google.protobuf.StringValue</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+        <li>BYTES</li>
+        <li>google.protobuf.BytesValue</li>
+        </ul>
+      </td>
+      <td>google.protobuf.BytesValue</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+        <li>DATE</li>
+        <li>google.type.Date</li>
+        </ul>
+      </td>
+      <td>google.type.Date</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+        <li>TIME</li>
+        <li>google.type.TimeOfDay</li>
+        </ul>
+      </td>
+      <td>google.type.TimeOfDay</td>
+    </tr>
+    <tr>
+      <td>
+        <ul>
+        <li>TIMESTAMP</li>
+        <li>google.protobuf.Timestamp</li>
+        </ul>
+      </td>
+      <td>google.protobuf.Timestamp</td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Type**
+
+The return type depends upon the `expression` type. See the return types
+in the table above.
+
+**Examples**
+
+Convert a `DATE` type into a `google.type.Date` type.
+
+```sql
+SELECT TO_PROTO(DATE '2019-10-30')
+
++--------------------------------+
+| $col1                          |
++--------------------------------+
+| {year: 2019 month: 10 day: 30} |
++--------------------------------+
+```
+
+Pass in and return a `google.type.Date` type.
+
+```sql
+SELECT TO_PROTO(
+  new google.type.Date(
+    2019 as year,
+    10 as month,
+    30 as day
+  )
+)
+
++--------------------------------+
+| $col1                          |
++--------------------------------+
+| {year: 2019 month: 10 day: 30} |
++--------------------------------+
+```
+
+### EXTRACT {#proto-extract}
+
+```sql
+EXTRACT( extraction_type (field) FROM proto_expression )
+
+extraction_type:
+  { FIELD | RAW | HAS }
+```
+
+**Description**
+
+Extracts a value from a proto. `proto_expression` represents the expression
+that returns a proto, `field` represents the field of the proto to extract from,
+and `extraction_type` determines the type of data to return. `EXTRACT` can be
+used to get values of ambiguous fields. An alternative to `EXTRACT` is the
+[dot operator][querying-protocol-buffers].
+
+**Extraction Types**
+
+You can choose the type of information to get with `EXTRACT`. Your choices are:
+
++  `FIELD`: Extract a value from a field.
++  `RAW`: Extract an uninterpreted value from a field.
+   Raw values ignore any ZetaSQL type annotations.
++  `HAS`: Returns `true` if a field is set in a proto message;
+   otherwise, `false`. Returns an error if this is used with a scalar proto3
+   field. Alternatively, use [`has_x`][has-value], to perform this task.
+
+**Return Type**
+
+The return type depends upon the extraction type in the query.
+
++  `FIELD`: Type of proto field.
++  `RAW`: Type of proto field, ignoring format annotations if present.
++  `HAS`: `BOOL`
+
+**Examples**
+
+Extract the year from a proto called `Date`.
+
+```sql
+SELECT EXTRACT(FIELD(year) FROM new google.type.Date(
+    2019 as year,
+    10 as month,
+    30 as day
+  )
+) as year;
+
++------------------+
+| year             |
++------------------+
+| 2019             |
++------------------+
+```
+
+Set up a proto2 called `Book`.
+
+```sql
+message Book {
+  optional int32 publish_date = 1 [ (zetasql.format) = DATE ];
+}
+```
+
+Extract `publish_date` from a proto called `Book`.
+
+```sql
+SELECT EXTRACT(FIELD(publish_date) FROM new Book(
+    ‘1970-05-04’ as publish_date,
+  )
+) as release_date;
+
++------------------+
+| release_date     |
++------------------+
+| 1970-05-04       |
++------------------+
+```
+
+Extract the uninterpreted `publish_date` from a proto called `Book`.
+In this example, the uninterpreted value is the number of days between
+1970-01-01 and 1970-05-04.
+
+```sql
+SELECT EXTRACT(RAW(publish_date) FROM new Book(
+    ‘1970-05-04’ as publish_date,
+  )
+) as release_date;
+
++------------------+
+| release_date     |
++------------------+
+| 123              |
++------------------+
+```
+
+Check to see if `publish_date` is set in a proto2 called `Book`.
+In this example, `publish_date` is set to 1970-05-04.
+
+```sql
+SELECT EXTRACT(HAS(publish_date) FROM new Book(
+    ‘1970-05-04’ as publish_date,
+  )
+) as has_release_date;
+
++------------------+
+| has_release_date |
++------------------+
+| true             |
++------------------+
+```
+
+Check to see if `publish_date` is set in a proto2 called `Book`.
+In this example, `publish_date` is not set.
+
+```sql
+SELECT EXTRACT(HAS(publish_date) FROM new Book()) as has_release_date;
+
++------------------+
+| has_release_date |
++------------------+
+| false            |
++------------------+
+```
+
+  [querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying-protocol-buffers
+  [has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#checking-if-a-non-repeated-field-has-a-value
 
 ## Security functions
 
@@ -13707,7 +14362,7 @@ a single column whose type is equality-compatible with the expression on the
 left side of the IN operator. Returns FALSE if the subquery returns zero rows.
 <code>x IN ()</code> is equivalent to <code>x IN (value, value, ...)</code>
 See the <code>IN</code> operator in
-<a href="functions-and-operators.md#comparison-operators">
+<a href="functions-and-operators.md#comparison_operators">
   Comparison Operators</a>
 
 for full semantics.</td>

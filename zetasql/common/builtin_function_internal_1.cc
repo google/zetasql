@@ -188,23 +188,36 @@ std::string InArrayFunctionSQL(const std::vector<std::string>& inputs) {
   DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat("(", inputs[0], ") IN UNNEST(", inputs[1], ")");
 }
+std::string ParenthesizedArrayFunctionSQL(const std::string& input) {
+  if (find_if(input.begin(), input.end(), [](char c) {
+        return c == '|';
+      }) == input.end()) {
+    return input;
+  } else {
+    return "(" + input + ")";
+  }
+}
 std::string ArrayAtOffsetFunctionSQL(const std::vector<std::string>& inputs) {
   DCHECK_EQ(inputs.size(), 2);
-  return absl::StrCat(inputs[0], "[OFFSET(", inputs[1], ")]");
+  return absl::StrCat(ParenthesizedArrayFunctionSQL(inputs[0]), "[OFFSET(",
+                      inputs[1], ")]");
 }
 std::string ArrayAtOrdinalFunctionSQL(const std::vector<std::string>& inputs) {
   DCHECK_EQ(inputs.size(), 2);
-  return absl::StrCat(inputs[0], "[ORDINAL(", inputs[1], ")]");
+  return absl::StrCat(ParenthesizedArrayFunctionSQL(inputs[0]), "[ORDINAL(",
+                      inputs[1], ")]");
 }
 std::string SafeArrayAtOffsetFunctionSQL(
     const std::vector<std::string>& inputs) {
   DCHECK_EQ(inputs.size(), 2);
-  return absl::StrCat(inputs[0], "[SAFE_OFFSET(", inputs[1], ")]");
+  return absl::StrCat(ParenthesizedArrayFunctionSQL(inputs[0]), "[SAFE_OFFSET(",
+                      inputs[1], ")]");
 }
 std::string SafeArrayAtOrdinalFunctionSQL(
     const std::vector<std::string>& inputs) {
   DCHECK_EQ(inputs.size(), 2);
-  return absl::StrCat(inputs[0], "[SAFE_ORDINAL(", inputs[1], ")]");
+  return absl::StrCat(ParenthesizedArrayFunctionSQL(inputs[0]),
+                      "[SAFE_ORDINAL(", inputs[1], ")]");
 }
 std::string GenerateDateTimestampArrayFunctionSQL(
     const std::string& function_name, const std::vector<std::string>& inputs) {
@@ -770,13 +783,15 @@ zetasql_base::Status CheckGenerateTimestampArrayArguments(
 
 zetasql_base::Status CheckJsonArguments(const std::vector<InputArgumentType>& arguments,
                                 const LanguageOptions& options) {
-  if (arguments.size() != 2) {
+  if (arguments.empty() || arguments.size() > 2) {
     // Let validation happen normally. The resolver will return an error
     // later.
     return ::zetasql_base::OkStatus();
   }
-  if (!arguments[1].is_literal() && !arguments[1].is_untyped() &&
-      !arguments[1].is_query_parameter()) {
+  // Checking if the JSONPath is literal or query parameter only or will return
+  // an error. Other form of JSONPath is not allowed for now.
+  if (arguments.size() == 2 && !arguments[1].is_literal() &&
+      !arguments[1].is_untyped() && !arguments[1].is_query_parameter()) {
     return MakeSqlError()
            << "JSONPath must be a std::string literal or query parameter";
   }
@@ -1323,6 +1338,12 @@ zetasql_base::Status CheckRangeBucketArguments(
   }
 
   return zetasql_base::OkStatus();
+}
+
+bool CanStringConcatCoerceFrom(const zetasql::Type* arg_type) {
+  return arg_type->IsBool() || arg_type->IsNumerical() ||
+         arg_type->IsTimestamp() || arg_type->IsCivilDateOrTimeType() ||
+        arg_type->IsProto() || arg_type->IsEnum();
 }
 
 // Returns true if an arithmetic operation has a floating point type as its

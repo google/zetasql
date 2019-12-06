@@ -1880,7 +1880,8 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoalesce() {
   return result;
 }
 
-std::vector<FunctionTestCall> GetFunctionTestsArray() {
+
+std::vector<FunctionTestCall> GetArrayConcatTests() {
   const Value empty_array = Value::EmptyArray(Int32ArrayType());
   const Value null_array = Value::Null(Int32ArrayType());
   const Value array_12 = Value::Array(Int32ArrayType(), {Int32(1), Int32(2)});
@@ -1892,6 +1893,30 @@ std::vector<FunctionTestCall> GetFunctionTestsArray() {
       Int32ArrayType(), {Int32(2), Int32(3), Int32(1), Int32(2)});
   const Value array_23123 = Value::Array(
       Int32ArrayType(), {Int32(2), Int32(3), Int32(1), Int32(2), Int32(3)});
+  const Value array_ab = Value::Array(StringArrayType(),
+                                      {String("a"), String("b")});
+  const Value array_c = Value::Array(StringArrayType(), {String("c")});
+  const Value array_abc = Value::Array(StringArrayType(),
+                                      {String("a"), String("b"), String("c")});
+  return {
+      // array_concat(array...) -> array
+      {"array_concat", {empty_array}, empty_array},
+      {"array_concat", {empty_array, empty_array}, empty_array},
+      {"array_concat", {empty_array, null_array}, null_array},
+      {"array_concat", {null_array}, null_array},
+      {"array_concat", {array_12}, array_12},
+      {"array_concat", {empty_array, array_12}, array_12},
+      {"array_concat", {array_12, empty_array}, array_12},
+      {"array_concat", {null_array, array_12}, null_array},
+      {"array_concat", {array_12, array_23}, array_1223},
+      {"array_concat", {array_23, array_12}, array_2312},
+      {"array_concat", {array_23, array_12, array_3}, array_23123},
+      {"array_concat", {array_ab}, array_ab},
+      {"array_concat", {array_ab, array_c}, array_abc},
+  };
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsArray() {
   const Value array_ab = Value::Array(StringArrayType(),
                                       {String("a"), String("b")});
   const Value array_c = Value::Array(StringArrayType(), {String("c")});
@@ -1930,22 +1955,7 @@ std::vector<FunctionTestCall> GetFunctionTestsArray() {
   const Value struct2 = Value::Struct(struct_type, {String("baz"), Int32(2)});
   const ArrayType* array_struct_type = MakeArrayType(struct_type);
 
-  return {
-      // array_concat(array...) -> array
-      {"array_concat", {empty_array}, empty_array},
-      {"array_concat", {empty_array, empty_array}, empty_array},
-      {"array_concat", {empty_array, null_array}, null_array},
-      {"array_concat", {null_array}, null_array},
-      {"array_concat", {array_12}, array_12},
-      {"array_concat", {empty_array, array_12}, array_12},
-      {"array_concat", {array_12, empty_array}, array_12},
-      {"array_concat", {null_array, array_12}, null_array},
-      {"array_concat", {array_12, array_23}, array_1223},
-      {"array_concat", {array_23, array_12}, array_2312},
-      {"array_concat", {array_23, array_12, array_3}, array_23123},
-      {"array_concat", {array_ab}, array_ab},
-      {"array_concat", {array_ab, array_c}, array_abc},
-
+  std::vector<FunctionTestCall> results = {
       // array_to_string -> std::string
       {"array_to_string", {Null(StringArrayType()), String(",")}, NullString()},
       {"array_to_string", {array_ab, NullString()}, NullString()},
@@ -2010,6 +2020,24 @@ std::vector<FunctionTestCall> GetFunctionTestsArray() {
        {Value::Array(array_struct_type, {struct0, struct1, struct2})},
        Value::Array(array_struct_type, {struct2, struct1, struct0})},
   };
+  std::vector<FunctionTestCall> tests_array_concat = GetArrayConcatTests();
+  results.insert(results.end(),
+                 std::make_move_iterator(tests_array_concat.begin()),
+                 std::make_move_iterator(tests_array_concat.end())
+  );
+  return results;
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayConcatOperator() {
+  std::vector<QueryParamsWithResult> results;
+  // array || array -> array
+  // Test the test cases of array_concat function.
+  for (const FunctionTestCall& function_call : GetArrayConcatTests()) {
+    if (function_call.params.params().size() == 2) {
+      results.push_back(function_call.params);
+    }
+  }
+  return results;
 }
 
 std::vector<FunctionTestCall> GetFunctionTestsBase32() {

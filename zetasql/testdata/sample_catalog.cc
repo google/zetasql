@@ -211,12 +211,14 @@ void SampleCatalog::LoadCatalogImpl(const LanguageOptions& language_options) {
   // Add various kinds of objects to the catalog(s).
   LoadTypes();
   LoadTables();
+  LoadConnections();
   LoadProtoTables();
   LoadNestedCatalogs();
   LoadFunctions();
   LoadTemplatedSQLUDFs();
   LoadTableValuedFunctions1();
   LoadTableValuedFunctions2();
+  LoadConnectionTableValuedFunctions();
   LoadTableValuedFunctionsWithDeprecationWarnings();
   LoadTemplatedSQLTableValuedFunctions();
   LoadProcedures();
@@ -638,6 +640,11 @@ void SampleCatalog::LoadNestedCatalogs() {
   nested_catalog->AddTable(key_value_table_);
   nested_catalog->AddTable("NestedKeyValue", key_value_table_);
 
+  // Add nested_catalog with some connections with the same and different names.
+  nested_catalog->AddConnection(owned_connections_.begin()->second.get());
+  nested_catalog->AddConnection("NestedConnection",
+                                owned_connections_.begin()->second.get());
+
   // Add recursive_catalog which points back to the same catalog.
   // This allows resolving names like
   //   recursive_catalog.recursive_catalog.recursive_catalog.TestTable
@@ -981,6 +988,18 @@ void SampleCatalog::LoadFunctions() {
       {types_->get_bool(), {struct_int32_date_type}, /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 
+  const StructType* struct_int64_string_type;
+  ZETASQL_CHECK_OK(types_->MakeStructType(
+      {{"a", types_->get_int64()}, {"b", types_->get_string()}},
+      &struct_int64_string_type));
+
+  // Add a function that takes a STRUCT<int64_t, std::string> and returns bool.
+  function = new Function("fn_on_struct_int64_string", "sample_functions",
+                          Function::SCALAR);
+  function->AddSignature(
+      {types_->get_bool(), {struct_int64_string_type}, /*context_id=*/-1});
+  catalog_->AddOwnedFunction(absl::WrapUnique(function));
+
   // Adds an aggregate function that takes no argument but supports order by.
   function = new Function(
       "sort_count", "sample_functions", Function::AGGREGATE,
@@ -1112,6 +1131,16 @@ void SampleCatalog::LoadFunctions() {
   const auto named_required_date_arg = zetasql::FunctionArgumentType(
       types_->get_string(), zetasql::FunctionArgumentTypeOptions()
                                 .set_argument_name("date_string"));
+  const auto named_required_format_arg_error_if_positional =
+      zetasql::FunctionArgumentType(
+          types_->get_string(), zetasql::FunctionArgumentTypeOptions()
+                                    .set_argument_name("format_string")
+                                    .set_argument_name_is_mandatory(true));
+  const auto named_required_date_arg_error_if_positional =
+      zetasql::FunctionArgumentType(
+          types_->get_string(), zetasql::FunctionArgumentTypeOptions()
+                                    .set_argument_name("date_string")
+                                    .set_argument_name_is_mandatory(true));
   const auto named_optional_format_arg = zetasql::FunctionArgumentType(
       types_->get_string(), zetasql::FunctionArgumentTypeOptions()
                                 .set_cardinality(FunctionArgumentType::OPTIONAL)
@@ -1120,6 +1149,20 @@ void SampleCatalog::LoadFunctions() {
       types_->get_string(), zetasql::FunctionArgumentTypeOptions()
                                 .set_cardinality(FunctionArgumentType::OPTIONAL)
                                 .set_argument_name("date_string"));
+  const auto non_named_required_format_arg = zetasql::FunctionArgumentType(
+          types_->get_string(),
+          zetasql::FunctionArgumentTypeOptions());
+  const auto non_named_required_date_arg = zetasql::FunctionArgumentType(
+          types_->get_string(),
+          zetasql::FunctionArgumentTypeOptions());
+  const auto non_named_optional_format_arg = zetasql::FunctionArgumentType(
+      types_->get_string(),
+      zetasql::FunctionArgumentTypeOptions()
+          .set_cardinality(FunctionArgumentType::OPTIONAL));
+  const auto non_named_optional_date_arg = zetasql::FunctionArgumentType(
+      types_->get_string(),
+      zetasql::FunctionArgumentTypeOptions()
+          .set_cardinality(FunctionArgumentType::OPTIONAL));
   const auto mode = Function::SCALAR;
   function = new Function("fn_named_args", "sample_functions", mode);
   function->AddSignature({types_->get_bool(),
@@ -1134,7 +1177,8 @@ void SampleCatalog::LoadFunctions() {
                           /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 
-  // Add a function that takes two named arguments with two signatures.
+  // Add a function that takes two named arguments with two signatures with
+  // optional argument types.
   function =
       new Function("fn_named_args_two_signatures", "sample_functions", mode);
   function->AddSignature({types_->get_bool(),
@@ -1142,6 +1186,52 @@ void SampleCatalog::LoadFunctions() {
                           /*context_id=*/-1});
   function->AddSignature({types_->get_bool(),
                           {named_required_date_arg, named_required_format_arg},
+                          /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function that takes two non-named arguments and one named argument in
+  // each of two signatures.
+  function = new Function("fn_three_named_args_two_signatures",
+                          "sample_functions", mode);
+  function->AddSignature(
+      {types_->get_bool(),
+       {non_named_required_format_arg, non_named_required_date_arg,
+        named_required_format_arg},
+       /*context_id=*/-1});
+  function->AddSignature(
+      {types_->get_bool(),
+       {non_named_required_format_arg, non_named_required_date_arg,
+        named_required_date_arg},
+       /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function with two named arguments where neither may be specified
+  // positionally.
+  function = new Function("fn_named_args_error_if_positional",
+                          "sample_functions", mode);
+  function->AddSignature({types_->get_bool(),
+                          {named_required_format_arg_error_if_positional,
+                           named_required_date_arg_error_if_positional},
+                          /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function with two named arguments where the first may not be
+  // specified positionally.
+  function = new Function("fn_named_args_error_if_positional_first_arg",
+                          "sample_functions", mode);
+  function->AddSignature({types_->get_bool(),
+                          {named_required_format_arg_error_if_positional,
+                           named_required_date_arg},
+                          /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function with two named arguments where the second may not be
+  // specified positionally.
+  function = new Function("fn_named_args_error_if_positional_second_arg",
+                          "sample_functions", mode);
+  function->AddSignature({types_->get_bool(),
+                          {named_required_format_arg,
+                           named_required_date_arg_error_if_positional},
                           /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 }
@@ -2294,6 +2384,45 @@ void SampleCatalog::LoadTableValuedFunctions2() {
       output_schema_two_types));
 }
 
+void SampleCatalog::LoadConnectionTableValuedFunctions() {
+  int64_t context_id = 0;
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_one_connection_arg_with_fixed_output"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              TVFRelation({{kTypeString, zetasql::types::StringType()}}),
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType::AnyConnection()}, context_id++),
+      TVFRelation({{kTypeString, zetasql::types::StringType()}})));
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_one_connection_one_string_arg_with_fixed_output"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              TVFRelation({{kTypeInt64, zetasql::types::Int64Type()},
+                           {kTypeString, zetasql::types::StringType()}}),
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType::AnyConnection(),
+           FunctionArgumentType(zetasql::types::StringType())},
+          context_id++),
+      TVFRelation({{kTypeInt64, zetasql::types::Int64Type()},
+                   {kTypeString, zetasql::types::StringType()}})));
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_two_connections_with_fixed_output"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              TVFRelation({{kTypeDouble, zetasql::types::DoubleType()},
+                           {kTypeString, zetasql::types::StringType()}}),
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType::AnyConnection(),
+           FunctionArgumentType::AnyConnection()},
+          context_id++),
+      TVFRelation({{kTypeDouble, zetasql::types::DoubleType()},
+                   {kTypeString, zetasql::types::StringType()}})));
+}
+
 void SampleCatalog::LoadTableValuedFunctionsWithDeprecationWarnings() {
   // Generate an empty output schema.
   TVFRelation empty_output_schema({});
@@ -2945,6 +3074,32 @@ void SampleCatalog::LoadConstants() {
   ZETASQL_CHECK_OK(SimpleConstant::Create(std::vector<std::string>{"@@sysvar2"},
                                   Value::Int64(8), &sysvar2_constant));
   catalog_->AddOwnedConstant(sysvar2_constant.release());
+
+  // Script variables are managed by the ScriptExecutor. Eventually, they get
+  // put into the catalog as constants. For testing, we'll add some "variables"
+  // here.
+  std::unique_ptr<SimpleConstant> string_variable_foo;
+  ZETASQL_CHECK_OK(SimpleConstant::Create(
+      std::vector<std::string>{"string_variable_foo"},
+      Value::String("string_variable_foo_value"), &string_variable_foo));
+  catalog_->AddOwnedConstant(std::move(string_variable_foo));
+
+  std::unique_ptr<SimpleConstant> string_variable_bar;
+  ZETASQL_CHECK_OK(SimpleConstant::Create(
+      std::vector<std::string>{"string_variable_bar"},
+      Value::String("string_variable_bar_value"), &string_variable_bar));
+  catalog_->AddOwnedConstant(std::move(string_variable_bar));
+}
+
+void SampleCatalog::LoadConnections() {
+  auto connection1 = absl::make_unique<SimpleConnection>("connection1");
+  auto connection2 = absl::make_unique<SimpleConnection>("connection2");
+  owned_connections_[connection1->Name()] = std::move(connection1);
+  owned_connections_[connection2->Name()] = std::move(connection2);
+  for (auto it = owned_connections_.begin(); it != owned_connections_.end();
+       ++it) {
+    catalog_->AddConnection(it->second.get());
+  }
 }
 
 void SampleCatalog::AddOwnedTable(SimpleTable* table) {

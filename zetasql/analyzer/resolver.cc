@@ -90,7 +90,7 @@ void Resolver::Reset(absl::string_view sql) {
   next_unnest_id_ = 1;
   analyzing_expression_ = false;
   analyzing_partition_by_clause_name_ = nullptr;
-  disallowing_query_parameters_with_error_ = nullptr;
+  disallowing_query_parameters_with_error_ = {};
   // generated_column_cycle_detector_ contains a pointer to a local object, so
   // there is no need to deallocate.
   generated_column_cycle_detector_ = nullptr;
@@ -244,30 +244,6 @@ zetasql_base::Status Resolver::AddDeprecationWarning(
 bool Resolver::TypeSupportsGrouping(const Type* type,
                                     std::string* no_grouping_type) const {
   return type->SupportsGrouping(language(), no_grouping_type);
-}
-
-zetasql_base::Status Resolver::CheckIsBoolExpr(
-    const ASTNode* location, const char* clause_name,
-    std::unique_ptr<const ResolvedExpr>* expr) {
-  if (!expr->get()->type()->IsBool()) {
-    ZETASQL_ASSIGN_OR_RETURN(
-        const bool type_assigned,
-        MaybeAssignTypeToUndeclaredParameter(expr, types::BoolType()));
-    if (type_assigned) {
-      return ::zetasql_base::OkStatus();
-    }
-
-    if (expr->get()->node_kind() == RESOLVED_LITERAL &&
-        !expr->get()->GetAs<ResolvedLiteral>()->has_explicit_type() &&
-        expr->get()->GetAs<ResolvedLiteral>()->value().is_null()) {
-      *expr = MakeResolvedLiteral(location, Value::NullBool());
-      return ::zetasql_base::OkStatus();
-    }
-    return MakeSqlErrorAt(location)
-           << clause_name << " should return type BOOL, but returns "
-           << expr->get()->type()->ShortTypeName(product_mode());
-  }
-  return ::zetasql_base::OkStatus();
 }
 
 zetasql_base::Status Resolver::ResolveStandaloneExpr(

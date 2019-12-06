@@ -18,43 +18,33 @@
 
 workspace(name = "com_google_zetasql")
 
-###
-# Setup `rules_foreign_cc`
-# This package allows us to take source-dependencies on non-bazelified packages.
-# In particular, it supports `./configure && make` style packages.
-###
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+# Bazel doesn't support recursively loading dependencies.
+# The recommended pattern is for a repo to provide a 'my_repo_deps()' method
+# which will download all dependencies. Thus, a _direct dependency of 'my_repo'
+# can ask it to load it dependencies. However, if 'my_repo' has dependencies
+# which themselves have dependencies, and provide a 'child_repo_deps()',
+# there is no way to compose a workspace such that 'my_repo_deps' calls
+# 'child_repo_deps' (since this would represent a serialization of
+# load-then-statement, which is forbidden).  So, we take the tactic of providing
+# a serialized sequence of numbered steps that must be invoked in series to
+# load all dependencies.  Copy the following code exactly into your WORKSPACE
+# to fully download all dependencies. The exactly nature of what happens at
+# each step may change over time (and additional steps may be added in the
+# future).
 
-http_archive(
-   name = "rules_foreign_cc",
-   strip_prefix = "rules_foreign_cc-c3d5405cbc570257e7c9f75f902fab42241e6a53",
-   urls = [
-      "https://github.com/bazelbuild/rules_foreign_cc/archive/c3d5405cbc570257e7c9f75f902fab42241e6a53.tar.gz",
-   ],
-   sha256 = "4a643853f5be24458696b347e4507a8868369fb88d18df4c9edcf5f40394943c"
-)
+# such that 'my_repo_deps'
+load("@com_google_zetasql//bazel:zetasql_deps_step_1.bzl", "zetasql_deps_step_1")
 
-load("@rules_foreign_cc//:workspace_definitions.bzl", "rules_foreign_cc_dependencies")
+zetasql_deps_step_1()
 
-rules_foreign_cc_dependencies()
+load("@com_google_zetasql//bazel:zetasql_deps_step_2.bzl", "zetasql_deps_step_2")
 
-###
-# Load Dependencies
-# Note this must be loaded _after_ rules_foreign_cc setup, because it
-# implicitly depends on it.
-###
-load(":zetasql_deps.bzl", "zetasql_deps")
+zetasql_deps_step_2()
 
-# Download and Build dependencies.
-zetasql_deps()
+load("@com_google_zetasql//bazel:zetasql_deps_step_3.bzl", "zetasql_deps_step_3")
 
-load("@google_bazel_common//:workspace_defs.bzl", "google_common_workspace_rules")
-google_common_workspace_rules()
+zetasql_deps_step_3()
 
-load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
-grpc_deps()
+load("@com_google_zetasql//bazel:zetasql_deps_step_4.bzl", "zetasql_deps_step_4")
 
-load("@io_grpc_grpc_java//:repositories.bzl", "grpc_java_repositories")
-grpc_java_repositories()
-
-
+zetasql_deps_step_4()

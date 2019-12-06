@@ -18,6 +18,8 @@ package(
     default_visibility = ["//:__subpackages__"],
 )
 
+exports_files(["external_extension.proto"])
+
 filegroup(
     name = "test_files",
     srcs = [

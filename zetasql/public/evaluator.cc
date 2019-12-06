@@ -392,7 +392,8 @@ zetasql_base::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
   analyzer_options_.set_prune_unused_columns(true);
 
   std::unique_ptr<SimpleCatalog> simple_catalog;
-  if (catalog == nullptr) {
+  if (catalog == nullptr &&
+      ((is_query_ && query_ == nullptr) || (!is_query_ && expr_ == nullptr))) {
     simple_catalog = absl::make_unique<SimpleCatalog>(
         "default_catalog", evaluator_options_.type_factory);
     catalog = simple_catalog.get();
@@ -467,7 +468,7 @@ zetasql_base::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
         &algebrizer_column_map_, &algebrizer_system_variables_));
   }
 
-  // Build the TupleSchema for the parameterss.
+  // Build the TupleSchema for the parameters.
   const int num_params =
       algebrizer_parameters_.is_named()
           ? algebrizer_parameters_.named_parameters().size()

@@ -17,8 +17,9 @@
 #ifndef ZETASQL_PUBLIC_TYPE_H_
 #define ZETASQL_PUBLIC_TYPE_H_
 
-// TODO Maybe store and re-use the same type object for all identical
-//   struct/array/proto/enum types?
+// TODO Store and re-use the same type object for all identical
+//   struct types. We currently do this for simple, array, proto, and enum
+//   types.
 
 #include <cstddef>
 #include <functional>
@@ -265,9 +266,6 @@ class Type {
   // from different DescriptorPools. If contained types may span multiple
   // DescriptorPools, then SerializeToProtoAndDistinctFileDescriptors must be
   // used instead.
-  // TODO: Migrate callers to use
-  // SerializeToProtoAndDistinctFileDescriptors instead, then delete this
-  // method.
   zetasql_base::Status SerializeToProtoAndFileDescriptors(
       TypeProto* type_proto,
       google::protobuf::FileDescriptorSet* file_descriptor_set = nullptr,
@@ -347,7 +345,6 @@ class Type {
   // Same as above, but returns a SQL name that is reparseable as part of a
   // query. This is not intended for user-facing informational or error
   // messages.
-  // TODO: Rename this to FullTypeName() or SQLTypeName() instead.
   virtual std::string TypeName(ProductMode mode) const = 0;
 
   // Returns the full description of the type without truncation. This should
@@ -355,7 +352,7 @@ class Type {
   // proto-based types, this will return PROTO<name> or ENUM<name>, which are
   // not valid to parse as SQL.
   // If <details> is true, then the description includes full proto descriptors.
-  virtual std::string DebugString(bool details = false) const = 0;
+  std::string DebugString(bool details = false) const;
 
   // Check if this type contains a field with the given name.
   enum HasFieldResult {
@@ -452,6 +449,12 @@ class Type {
       absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
       FileDescriptorSetMap* file_descriptor_set_map) const = 0;
 
+  // Return estimated size of memory owned by this type. Note: type can never
+  // own another type, only reference (all types are owned by TypeFactory). So,
+  // this function never calls GetEstimatedOwnedMemoryBytesSize for other types
+  // (such as element types of arrays or field types of structs).
+  virtual int64_t GetEstimatedOwnedMemoryBytesSize() const = 0;
+
   const TypeFactory* type_factory_;  // Used for lifetime checking only.
   const TypeKind kind_;
 
@@ -461,7 +464,7 @@ class Type {
   virtual bool SupportsGroupingImpl(const LanguageOptions& language_options,
                                     const Type** no_grouping_type) const;
 
-  // Recursive implementatiion of SupportsPartitioning, which returns in
+  // Recursive implementation of SupportsPartitioning, which returns in
   // "no_partitioning_type" the contained type that made partitioning
   // unsupported.
   virtual bool SupportsPartitioningImpl(
@@ -491,11 +494,14 @@ class SimpleType : public Type {
 #endif  // SWIG
 
   std::string TypeName(ProductMode mode) const override;
-  std::string DebugString(bool details = false) const override;
 
  protected:
   SimpleType(const TypeFactory* factory, TypeKind kind);
   ~SimpleType() override;
+
+  int64_t GetEstimatedOwnedMemoryBytesSize() const override {
+    return sizeof(*this);
+  }
 
  private:
   zetasql_base::Status SerializeToProtoAndDistinctFileDescriptorsImpl(
@@ -531,7 +537,6 @@ class ArrayType : public Type {
 
   std::string ShortTypeName(ProductMode mode) const override;
   std::string TypeName(ProductMode mode) const override;
-  std::string DebugString(bool details = false) const override;
 
   bool UsingFeatureV12CivilTimeType() const override {
     return element_type_->UsingFeatureV12CivilTimeType();
@@ -539,6 +544,14 @@ class ArrayType : public Type {
 
   int nesting_depth() const override {
     return element_type_->nesting_depth() + 1;
+  }
+
+ protected:
+  // Return estimated size of memory owned by this type. Array's owned memory
+  // does not include its element type's memory (which is owned by some
+  // TypeFactory).
+  int64_t GetEstimatedOwnedMemoryBytesSize() const override {
+    return sizeof(*this);
   }
 
  private:
@@ -620,13 +633,19 @@ class StructType : public Type {
 
   std::string ShortTypeName(ProductMode mode) const override;
   std::string TypeName(ProductMode mode) const override;
-  std::string DebugString(bool details = false) const override;
 
   // Check if the names in <fields> are valid.
   static zetasql_base::Status FieldNamesAreValid(
       const absl::Span<const StructField>& fields);
 
   int nesting_depth() const override { return nesting_depth_; }
+
+ protected:
+  // Return estimated size of memory owned by this type. Owned memory includes
+  // field names, but not the memory associated with field types (which are
+  // owned by some TypeFactory).
+  int64_t GetEstimatedOwnedMemoryBytesSize() const override
+      NO_THREAD_SAFETY_ANALYSIS;
 
  private:
   // Caller must enforce that <nesting_depth> is accurate. No verification is
@@ -647,10 +666,9 @@ class StructType : public Type {
       absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
       FileDescriptorSetMap* file_descriptor_set_map) const override;
 
-  std::string DebugStringImpl(
-      int field_limit,
-      const std::function<std::string(const zetasql::Type*)>&
-          field_debug_fn) const;
+  std::string TypeNameImpl(int field_limit,
+                           const std::function<std::string(const zetasql::Type*)>&
+                               field_debug_fn) const;
 
   const std::vector<StructField> fields_;
 
@@ -701,7 +719,6 @@ class ProtoType : public Type {
   std::string ShortTypeName(
       ProductMode mode_unused = ProductMode::PRODUCT_INTERNAL) const override;
   std::string TypeName() const;  // Proto-specific version does not need mode.
-  std::string DebugString(bool details = false) const override;
 
   // Get the ZetaSQL Type of the requested field of the proto, identified by
   // either tag number or name.  A new Type may be created so a type factory
@@ -843,6 +860,11 @@ class ProtoType : public Type {
     return ValidateTypeAnnotations(field, /*validated_descriptor_set=*/nullptr);
   }
 
+ protected:
+  int64_t GetEstimatedOwnedMemoryBytesSize() const override {
+    return sizeof(*this);
+  }
+
  private:
   // Returns true iff <validated_descriptor_set> is not null and already
   // contains <descriptor>.  Otherwise returns false and, if
@@ -933,7 +955,6 @@ class EnumType : public Type {
   std::string ShortTypeName(
       ProductMode mode_unused = ProductMode::PRODUCT_INTERNAL) const override;
   std::string TypeName() const;  // Enum-specific version does not need mode.
-  std::string DebugString(bool details = false) const override;
 
   bool UsingFeatureV12CivilTimeType() const override { return false; }
 
@@ -946,6 +967,11 @@ class EnumType : public Type {
   // Find the enum number given a corresponding name.  Returns true
   // upon success, and false if the name is not found.
   ABSL_MUST_USE_RESULT bool FindNumber(const std::string& name, int* number) const;
+
+ protected:
+  int64_t GetEstimatedOwnedMemoryBytesSize() const override {
+    return sizeof(*this);
+  }
 
  private:
   // Does not take ownership of <factory> or <enum_descr>.  The
@@ -1177,6 +1203,9 @@ class TypeFactory {
   int nesting_depth_limit() const LOCKS_EXCLUDED(mutex_);
   void set_nesting_depth_limit(int value) LOCKS_EXCLUDED(mutex_);
 
+  // Estimate memory size allocated to store TypeFactory's data in bytes
+  int64_t GetEstimatedOwnedMemoryBytesSize() const;
+
  private:
   // Store links to and from TypeFactories that this TypeFactory depends on.
   // This is used as a sanity check to catch incorrect destruction order.
@@ -1191,6 +1220,9 @@ class TypeFactory {
   const TYPE* TakeOwnership(const TYPE* type) LOCKS_EXCLUDED(mutex_);
   template <class TYPE>
   const TYPE* TakeOwnershipLocked(const TYPE* type)
+      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  template <class TYPE>
+  const TYPE* TakeOwnershipLocked(const TYPE* type, int64_t type_owned_bytes_size)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Mark that <other_type>'s factory must outlive <this>.
@@ -1223,9 +1255,21 @@ class TypeFactory {
   // TODO: Should TypeFactory have a DescriptorPool?
   mutable absl::Mutex mutex_;
   const Type* cached_simple_types_[TypeKind_ARRAYSIZE] GUARDED_BY(mutex_);
+  absl::flat_hash_map<const Type*, const ArrayType*> cached_array_types_
+      GUARDED_BY(mutex_);
+  absl::flat_hash_map<const google::protobuf::Descriptor*, const ProtoType*>
+      cached_proto_types_ GUARDED_BY(mutex_);
+  absl::flat_hash_map<const google::protobuf::EnumDescriptor*, const EnumType*>
+      cached_enum_types_ GUARDED_BY(mutex_);
+  // TODO: Once all Type objects are cached, we can likely eliminate
+  // this and treat the maps above as owning the Type objects.
   std::vector<const Type*> owned_types_ GUARDED_BY(mutex_);
 
   int nesting_depth_limit_ GUARDED_BY(mutex_);
+
+  // Stores estimation of how much memory was allocated by instances
+  // of types owned by this TypeFactory (in bytes)
+  int64_t estimated_memory_used_by_types_;
 };
 
 namespace types {

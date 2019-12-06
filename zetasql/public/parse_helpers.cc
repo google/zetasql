@@ -148,6 +148,10 @@ ResolvedNodeKind GetStatementKind(ASTNodeKind node_kind) {
       return RESOLVED_MODULE_STMT;
     case AST_ASSERT_STATEMENT:
       return RESOLVED_ASSERT_STMT;
+    case AST_SYSTEM_VARIABLE_ASSIGNMENT:
+      return RESOLVED_ASSIGNMENT_STMT;
+    case AST_EXECUTE_IMMEDIATE_STATEMENT:
+      return RESOLVED_EXECUTE_IMMEDIATE_STMT;
     default:
       break;
   }

@@ -179,6 +179,42 @@ class ExprArg : public AlgebraArg {
   const Type* type_;
 };
 
+// Operator argument class used by SortOp and AggregateOp for key arguments.
+class KeyArg : public ExprArg {
+ public:
+  enum SortOrder { kNotApplicable, kAscending, kDescending };
+  enum NullOrder { kDefaultNullOrder, kNullsFirst, kNullsLast };
+  explicit KeyArg(const VariableId& variable, std::unique_ptr<ValueExpr> key,
+                  SortOrder order = kNotApplicable,
+                  NullOrder null_order = kDefaultNullOrder)
+      : ExprArg(variable, std::move(key)),
+        order_(order),
+        null_order_(null_order) {}
+
+  KeyArg(const KeyArg&) = delete;
+  KeyArg& operator=(const KeyArg&) = delete;
+
+  void set_collation(std::unique_ptr<ValueExpr> collation) {
+    collation_ = std::move(collation);
+  }
+
+  SortOrder order() const { return order_; }
+  bool is_descending() const { return order_ == kDescending; }
+  NullOrder null_order() const { return null_order_; }
+  const ValueExpr* collation() const { return collation_.get(); }
+  ValueExpr* mutable_collation() { return collation_.get(); }
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  SortOrder order_;
+  NullOrder null_order_;
+  // <collation> indicates the COLLATE specific rules to sort the std::string fields.
+  // If nullptr, then strings are compared based on their UTF-8 encoding.
+  std::unique_ptr<ValueExpr> collation_;
+};
+
 struct AnalyticWindow {
   // Constructor for an empty window.
   AnalyticWindow()
@@ -310,7 +346,8 @@ class WindowFrameBoundaryArg : public AlgebraArg {
   zetasql_base::Status GetOffsetPrecedingRangeBoundariesAsc(
       bool is_end_boundary, const TupleSchema& schema,
       absl::Span<const TupleData* const> partition, int order_key_slot_idx,
-      const Value& offset_value, std::vector<int>* window_boundaries) const;
+      const Value& offset_value, KeyArg::NullOrder null_order,
+      std::vector<int>* window_boundaries) const;
 
   // Computes the boundary positions for a range-based start offset PRECEDING
   // boundary on a descending <partition>. If <is_end_boundary> then the window
@@ -319,7 +356,8 @@ class WindowFrameBoundaryArg : public AlgebraArg {
   zetasql_base::Status GetOffsetPrecedingRangeBoundariesDesc(
       bool is_end_boundary, const TupleSchema& schema,
       absl::Span<const TupleData* const> partition, int order_key_slot_idx,
-      const Value& offset_value, std::vector<int>* window_boundaries) const;
+      const Value& offset_value, KeyArg::NullOrder null_order,
+      std::vector<int>* window_boundaries) const;
 
   // Computes the boundary positions for a range-based start offset PRECEDING
   // boundary on an ascending <partition>. If <is_end_boundary> then the window
@@ -328,7 +366,8 @@ class WindowFrameBoundaryArg : public AlgebraArg {
   zetasql_base::Status GetOffsetFollowingRangeBoundariesAsc(
       bool is_end_boundary, const TupleSchema& schema,
       absl::Span<const TupleData* const> partition, int order_key_slot_idx,
-      const Value& offset_value, std::vector<int>* window_boundaries) const;
+      const Value& offset_value, KeyArg::NullOrder null_order,
+      std::vector<int>* window_boundaries) const;
 
   // Computes the boundary positions for a range-based start offset PRECEDING
   // boundary on a descending <partition>. If <is_end_boundary> then the window
@@ -337,39 +376,48 @@ class WindowFrameBoundaryArg : public AlgebraArg {
   zetasql_base::Status GetOffsetFollowingRangeBoundariesDesc(
       bool is_end_boundary, const TupleSchema& schema,
       absl::Span<const TupleData* const> partition, int order_key_slot_idx,
-      const Value& offset_value, std::vector<int>* window_boundaries) const;
+      const Value& offset_value, KeyArg::NullOrder null_order,
+      std::vector<int>* window_boundaries) const;
 
   // Divides the ascending partition into groups according to the order key
   // values and returns the boundary for each group.
   //
   // <end_null> is the position of the last tuple with a NULL key. -1 if there
-  // is no tuple with a NULL key.
+  // is no tuple with a NULL key. Unset if nulls_last is true
   // <end_nan> is the position of the last tuple with a NaN key. If not exists,
   // <end_nan> is equal to <end_null>.
   // <end_neg_inf> is the position of the last tuple with a negative infinity
   // key. If not exists, <end_neg_inf> is equal to <end_nan>.
   // <start_pos_inf> is the position of the first tuple with a positive infinity
-  // key. If not exists, <start_pos_inf> is equal to the size of the partition.
+  // key. If not exists, <start_pos_inf> is equal to the size of the partition,
+  // or <start_null_key> if nulls_last is true
+  // <start_null_key> is the position of the first tuple with a NULL key. If not
+  // exists, it is equal to the size of the partition. Unset if nulls_last is
+  // false
   void DivideAscendingPartition(const TupleSchema& schema,
                                 absl::Span<const TupleData* const> partition,
-                                int order_key_slot_idx, int* end_null,
-                                int* end_nan, int* end_neg_inf,
-                                int* start_pos_inf) const;
+                                int order_key_slot_idx, bool nulls_last,
+                                int* end_null, int* end_nan, int* end_neg_inf,
+                                int* start_pos_inf, int* start_null) const;
 
   // Divides the descending partition into groups according to the order key
   // values and returns the boundary for each group.
   //
+  // <end_null_key> is the position of the last tuple with a NULL key
+  // , or 0 if not exists. Unset if nulls_last is true
   // <end_pos_inf> is the position of the last tuple with a positive infinity
-  // key. 0 if not exists.
+  // key. 0 if not exists, or <end_null_key> if nulls_last is false
   // <start_neg_inf> is the position of the first tuple with a negative infinity
   // key. If not exists, it is equal to <start_nan_key>.
   // <start_nan_key> is the position of the first tuple with a NaN key. If not
   // eixsts, it is equal to <start_null_key>.
   // <start_null_key> is the position of the first tuple with a NULL key. If not
-  // exists, it is equal to the size of the partition.
+  // exists, it is equal to the size of the partition. Unset if nulls_last
+  // is false
   void DivideDescendingPartition(const TupleSchema& schema,
                                  absl::Span<const TupleData* const> partition,
-                                 int order_key_slot_idx, int* end_pos_inf,
+                                 int order_key_slot_idx, bool nulls_last,
+                                 int* end_null_key, int* end_pos_inf,
                                  int* start_neg_inf, int* start_nan_key,
                                  int* start_null_key) const;
 
@@ -504,42 +552,6 @@ class RelationalArg : public AlgebraArg {
 
   const RelationalArg* AsRelationalArg() const override { return this; }
   ~RelationalArg() override;
-};
-
-// Operator argument class used by SortOp and AggregateOp for key arguments.
-class KeyArg : public ExprArg {
- public:
-  enum SortOrder { kNotApplicable, kAscending, kDescending };
-  enum NullOrder { kDefaultNullOrder, kNullsFirst, kNullsLast };
-  explicit KeyArg(const VariableId& variable, std::unique_ptr<ValueExpr> key,
-                  SortOrder order = kNotApplicable,
-                  NullOrder null_order = kDefaultNullOrder)
-      : ExprArg(variable, std::move(key)),
-        order_(order),
-        null_order_(null_order) {}
-
-  KeyArg(const KeyArg&) = delete;
-  KeyArg& operator=(const KeyArg&) = delete;
-
-  void set_collation(std::unique_ptr<ValueExpr> collation) {
-    collation_ = std::move(collation);
-  }
-
-  SortOrder order() const { return order_; }
-  bool is_descending() const { return order_ == kDescending; }
-  NullOrder null_order() const { return null_order_; }
-  const ValueExpr* collation() const { return collation_.get(); }
-  ValueExpr* mutable_collation() { return collation_.get(); }
-
-  std::string DebugInternal(const std::string& indent,
-                            bool verbose) const override;
-
- private:
-  SortOrder order_;
-  NullOrder null_order_;
-  // <collation> indicates the COLLATE specific rules to sort the std::string fields.
-  // If nullptr, then strings are compared based on their UTF-8 encoding.
-  std::unique_ptr<ValueExpr> collation_;
 };
 
 // Accumulator interface that supports passing in a bunch of input rows and

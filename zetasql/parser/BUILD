@@ -13,12 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("//bazel:bison.bzl", "genyacc")
+load("//bazel:flex.bzl", "genlex")
+
 package(
     default_visibility = ["//:__subpackages__"],
 )
-
-load("//bazel:bison.bzl", "genyacc")
-load("//bazel:flex.bzl", "genlex")
 
 genrule(
     name = "gen_extra_files",
@@ -312,3 +312,8 @@ genyacc(
     header_out = "bison_parser.bison.h",
     source_out = "bison_parser.bison.cc",
 )
+
+exports_files([
+    "keywords.h",
+    "unparser.h",
+])

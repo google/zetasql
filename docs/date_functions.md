@@ -514,8 +514,8 @@ allowed -- even if they are not in the format string.
 information (for example both `%F` and `%Y` affect the year), the last one
 generally overrides any earlier ones.
 
-See [Supported Format Elements For DATE][date-functions-link-to-supported-format-elements-for-date]
-for a list of format elements that this function supports.
+Note: This function supports [format elements][date-functions-link-to-supported-format-elements-for-date],
+but does not have full support for `%Q`, `%a`, `%A`, `%g`, `%G`, `%j`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 **Return Data Type**
 
@@ -691,6 +691,6 @@ space.</td>
  </tr>
 </table>
 
-[date-functions-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone-definitions
-[date-functions-link-to-supported-format-elements-for-date]: https://github.com/google/zetasql/blob/master/docs/date_functions.md#supported-format-elements-for-date
+[date-functions-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
+[date-functions-link-to-supported-format-elements-for-date]: https://github.com/google/zetasql/blob/master/docs/date_functions.md#supported_format_elements_for_date
 

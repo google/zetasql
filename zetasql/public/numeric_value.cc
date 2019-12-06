@@ -16,23 +16,26 @@
 
 #include "zetasql/public/numeric_value.h"
 
+#include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+
 #include <algorithm>
-#include <array>
 #include <cmath>
-#include <cstdlib>
-#include <limits>
+#include <string>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/fixed_int.h"
+#include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/strings/ascii.h"
-#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/bits.h"
 #include "zetasql/base/endian.h"
-#include "zetasql/base/canonical_errors.h"
+#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
+#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -71,312 +74,7 @@ inline int int128_sign(__int128 x) {
   return (0 < x) - (x < 0);
 }
 
-inline __int128 int128_abs(__int128 x) { return (x >= 0) ? x : -x; }
-
-// This class provides an implementation for a 224-bit unsigned integer and some
-// operations on it. This implementation serves as an aid for implementation of
-// the NUMERIC division operation and should not be used outside of this file.
-//
-// Internally the 224-bit number is stored as an array of 7 uint32_t words.
-//
-// The reason we need 224 bits of precision to implement the NUMERIC division is
-// because the constructor (uint64_t hi, unsigned __int128 low) needs 192 bits.
-// On top of that we need 32 bits to be able to normalize the numbers before
-// performing long division (see LongDivision()).
-class Uint224 final {
- public:
-  Uint224() {
-    number_.fill(0);
-  }
-
-  explicit Uint224(__int128 x) {
-    number_.fill(0);
-    number_[0] = static_cast<uint32_t>(x);
-    number_[1] = static_cast<uint32_t>(x >> 32);
-    number_[2] = static_cast<uint32_t>(x >> 64);
-    number_[3] = static_cast<uint32_t>(x >> 96);
-  }
-
-  explicit Uint224(uint64_t x) {
-    number_.fill(0);
-    number_[0] = static_cast<uint32_t>(x);
-    number_[1] = static_cast<uint32_t>(x >> 32);
-  }
-
-  Uint224(uint64_t hi, unsigned __int128 low) {
-    number_.fill(0);
-    number_[0] = static_cast<uint32_t>(low);
-    number_[1] = static_cast<uint32_t>(low >> 32);
-    number_[2] = static_cast<uint32_t>(low >> 64);
-    number_[3] = static_cast<uint32_t>(low >> 96);
-    number_[4] = static_cast<uint32_t>(hi);
-    number_[5] = static_cast<uint32_t>(hi >> 32);
-  }
-
-  // Multiplies this 224-bit number by the given uint32_t value. This operation
-  // does not check for overflow.
-  void MultiplyByUint32(uint32_t x) {
-    uint32_t carry = 0;
-    for (int i = 0; i < number_.size(); ++i) {
-      uint64_t tmp = static_cast<uint64_t>(number_[i]) * x + carry;
-      number_[i] = static_cast<uint32_t>(tmp);
-      carry = static_cast<uint32_t>(tmp >> 32);
-    }
-  }
-
-  // Multiplies this 224-bit number by the given unsigned 224-bit value. May
-  // return OUT_OF_RANGE error if the result of the multiplication overflows.
-  zetasql_base::Status Multiply(const Uint224& rh) {
-    Uint224 res;
-
-    uint32_t carry = 0;
-    for (int j = 0; j < rh.number_.size(); ++j) {
-      for (int i = 0; i < number_.size(); ++i) {
-        if (i + j >= number_.size()) {
-          if (ABSL_PREDICT_FALSE(carry != 0)) {
-            return MakeEvalError() << "numeric overflow";
-          }
-          continue;
-        }
-        uint64_t tmp = static_cast<uint64_t>(number_[i]) * rh.number_[j] +
-            res.number_[i + j] + carry;
-        res.number_[i + j] = static_cast<uint32_t>(tmp);
-        carry = static_cast<uint32_t>(tmp >> 32);
-      }
-    }
-
-    *this = res;
-    return zetasql_base::OkStatus();
-  }
-
-  // Adds a uint32_t value to this 224-bit number. This operation does not check
-  // for overflow.
-  void AddUint32(uint32_t x) {
-    uint32_t carry = x;
-    for (int i = 0; i < number_.size(); ++i) {
-      uint64_t tmp = static_cast<uint64_t>(number_[i]) + carry;
-      number_[i] = static_cast<uint32_t>(tmp);
-      carry = static_cast<uint32_t>(tmp >> 32);
-      if (carry == 0) {
-        break;
-      }
-    }
-  }
-
-  // Adds a Uint224 value to this 224-bit number. This operation does not check
-  // for overflow.
-  void AddUint224(const Uint224& rh) {
-    uint32_t carry = 0;
-    for (int i = 0; i < number_.size(); ++i) {
-      uint64_t tmp = static_cast<uint64_t>(number_[i]) + carry + rh.number_[i];
-      number_[i] = static_cast<uint32_t>(tmp);
-      carry = static_cast<uint32_t>(tmp >> 32);
-    }
-  }
-
-  // Divides this 224-bit number by a single uint32_t value. The caller is
-  // responsible for ensuring that the value is not zero.
-  void DivideByUint32(uint32_t x) {
-    for (int i = static_cast<int>(number_.size()) - 1; i >= 0; --i) {
-      if (number_[i] != 0) {
-        uint64_t carry = 0;
-        do {
-          carry <<= 32;
-          carry |= number_[i];
-          DCHECK_LE(carry, (static_cast<uint64_t>(x) << 32));
-          number_[i] = static_cast<uint32_t>(carry / x);
-          carry = carry % x;
-        } while (--i >= 0);
-        return;
-      }
-    }
-  }
-
-  // Divides by the given 224-bit value. The caller is responsible for ensuring
-  // that the divisor is not zero. If 'round_away_from_zero' is set to true then
-  // the result will be rounded away from zero.
-  void Divide(const Uint224& x, bool round_away_from_zero) {
-    if (round_away_from_zero) {
-      // Rounding is achieved by adding floor(x/2) before dividing by x.
-      // The result is floor((y + floor(x/2)) / x), where y = *this.
-      // 1) If x is an even number, floor(x/2) = x/2 and thus
-      //    result = floor(y / x + 0.5) as expected.
-      // 2) If x is an odd number, then floor(x/2) = (x - 1) / 2, and
-      //    result = floor((y - 0.5) / x + 0.5).
-      //    Suppose y = q x + r where r = mod(y, x).
-      //    result = q + floor((r + (x - 1) / 2) / x).
-      //    2.1) If r >= (x + 1) / 2, then r + (x - 1) / 2 >= x,
-      //         and thus result = q + 1 as expected.
-      //    2.2) If r <= (x - 1) / 2, then r + (x - 1) / 2 <= x - 1,
-      //         and thus result = q as expected.
-      Uint224 half_x = x;
-      half_x.ShiftRight(1);
-      AddUint224(half_x);
-    }
-
-    if (x.NonZeroLength() > 1) {
-      LongDivision(x);
-    } else {
-      DivideByUint32(x.number_[0]);
-    }
-  }
-
-  // Returns OUT_OF_RANGE if the stored number cannot fit into int128. This is
-  // possible when, for example, diving a relatively large number by a number
-  // that is less than 1.
-  zetasql_base::StatusOr<__int128> to_int128() const;
-
- private:
-  // Returns the length of the number in uint32_t words minus the non-significant
-  // leading zeroes.
-  int NonZeroLength() const;
-
-  // Shifts the number left by the given number of bits. The number of bits must
-  // not exceed 32.
-  void ShiftLeft(int bits);
-
-  // Shifts the number right by the given number of bits. The number of bits
-  // must not exceed 32.
-  void ShiftRight(int bits);
-
-  // Treats the given 'rh' value as a number consisting of 'n' uint32_t words and
-  // subtracts it from this number starting at the given 'prefix_idx' index.
-  void PrefixSubtract(const Uint224& rh, int prefix_idx, int n);
-
-  // Treats the given 'rh' value as a number consisting of 'n' uint32_t words and
-  // compares it with this number starting at the given 'prefix_idx' index.
-  // Returns true if the prefix of this number under comparison is less than
-  // 'rh'.
-  bool PrefixLessThan(const Uint224& rh, int prefix_idx, int n) const;
-
-  // Performs a long division by the given 224-bit number.
-  void LongDivision(const Uint224& x);
-
-  // The 224-bit number stored as a sequence of 32-bit words. The number is
-  // stored in the little-endian order with the least significant word being at
-  // the index 0.
-  std::array<uint32_t, 7> number_;
-};
-
-inline zetasql_base::StatusOr<__int128> Uint224::to_int128() const {
-  if (NonZeroLength() > 4 || (number_[3] >> (kBitsPerUint32 - 1)) > 0) {
-    // Callers are expected to return a more specific error message.
-    return MakeEvalError() << "numeric overflow";
-  }
-  return (static_cast<__int128>(number_[3]) << 96) |
-         (static_cast<__int128>(number_[2]) << 64) |
-         (static_cast<__int128>(number_[1]) << 32) |
-         number_[0];
-}
-
-inline int Uint224::NonZeroLength() const {
-  for (int i = static_cast<int>(number_.size()) - 1; i >= 0; --i) {
-    if (number_[i] != 0) {
-      return i + 1;
-    }
-  }
-  return 0;
-}
-
-inline void Uint224::ShiftLeft(int bits) {
-  for (int i = static_cast<int>(number_.size()) - 1; i > 0; --i) {
-    number_[i] = (number_[i] << bits) |
-                 (number_[i - 1] >> (kBitsPerUint32 - bits));
-  }
-  number_[0] <<= bits;
-}
-
-inline void Uint224::ShiftRight(int bits) {
-  for (int i = 0; i < static_cast<int>(number_.size()) - 1; ++i) {
-    number_[i] = (number_[i] >> bits) |
-                 (number_[i + 1] << (kBitsPerUint32 - bits));
-  }
-  number_[number_.size() - 1] >>= bits;
-}
-
-inline void Uint224::PrefixSubtract(
-    const Uint224& rh, int prefix_idx, int n) {
-  int32_t borrow = 0;
-  for (int i = 0; i <= n; ++i) {
-    int64_t tmp = static_cast<int64_t>(number_[prefix_idx - n + i]) -
-                rh.number_[i] + borrow;
-    borrow = tmp < 0 ? -1 : 0;
-    number_[prefix_idx - n + i] = static_cast<uint32_t>(tmp);
-  }
-}
-
-inline bool Uint224::PrefixLessThan(
-    const Uint224& rh, int prefix_idx, int n) const {
-  int i = n;
-  for (; i > 0; --i) {
-    if (number_[prefix_idx - n + i] != rh.number_[i]) {
-      break;
-    }
-  }
-  return number_[prefix_idx - n + i] < rh.number_[i];
-}
-
-void Uint224::LongDivision(const Uint224& x) {
-  Uint224 divisor = x;
-
-  // Find the actual length of the dividend and the divisor.
-  int n = divisor.NonZeroLength();
-  int m = NonZeroLength();
-
-  // First we need to normalize the divisor to make the most significant digit
-  // of it larger than radix/2 (radix being 2^32 in our case). This is necessary
-  // for accurate guesses of the quotent digits. See Knuth "The Art of Computer
-  // Programming" Vol.2 for details.
-  //
-  // We perform normalization by finding how far we need to shift to make the
-  // most significant bit of the divisor 1. And then we shift both the divident
-  // and the divisor thus preserving the result of the division.
-  int non_zero_bit_idx = zetasql_base::Bits::FindMSBSetNonZero(
-      divisor.number_[n - 1]);
-  int shift_amount = kBitsPerUint32 - non_zero_bit_idx - 1;
-
-  if (shift_amount > 0) {
-    ShiftLeft(shift_amount);
-    divisor.ShiftLeft(shift_amount);
-  }
-
-  Uint224 quotient;
-
-  for (int i = m - n; i >= 0; --i) {
-    // Make the guess of the quotent digit. The guess we take here is:
-    //
-    //   qhat = min((divident[m] * b + divident[m-1]) / divisor[n], b-1)
-    //
-    // where b is the radix, which in our case is 2^32. In "The Art of Computer
-    // Programming" Vol.2 Knuth proves that given the normalization above this
-    // guess is often accurate and when not it is always larger than the actual
-    // quotent digit and is no larger than 2 removed from it.
-    uint64_t tmp = (static_cast<uint64_t>(number_[i + n]) << 32) |
-                 number_[i + n - 1];
-    uint64_t quotent_candidate = tmp / divisor.number_[n - 1];
-    if (quotent_candidate > std::numeric_limits<uint32_t>::max()) {
-      quotent_candidate = std::numeric_limits<uint32_t>::max();
-    }
-
-    Uint224 dq = divisor;
-    dq.MultiplyByUint32(static_cast<uint32_t>(quotent_candidate));
-
-    // If the guess was not accurate, adjust it. As stated above, at the worst,
-    // the original guess qhat is q + 2, where q is the actual quotent digit, so
-    // this loop will not be executed more than 2 iterations.
-    for (int iter = 0; PrefixLessThan(dq, i + n, n); ++iter) {
-      DCHECK_LT(iter, 2);
-      --quotent_candidate;
-      dq = divisor;
-      dq.MultiplyByUint32(static_cast<uint32_t>(quotent_candidate));
-    }
-
-    PrefixSubtract(dq, i + n, n);
-    quotient.number_[i] = static_cast<uint32_t>(quotent_candidate);
-  }
-
-  *this = quotient;
-}
+inline unsigned __int128 int128_abs(__int128 x) { return (x >= 0) ? x : -x; }
 
 }  // namespace
 
@@ -387,6 +85,28 @@ zetasql_base::StatusOr<NumericValue> NumericValue::FromStringStrict(
 
 zetasql_base::StatusOr<NumericValue> NumericValue::FromString(absl::string_view str) {
   return FromStringInternal(str, /*is_strict=*/false);
+}
+
+template <int kNumBitsPerWord, int kNumWords>
+zetasql_base::StatusOr<NumericValue> NumericValue::FromFixedUint(
+    const FixedUint<kNumBitsPerWord, kNumWords>& val, bool negate) {
+  if (ABSL_PREDICT_TRUE(val.NonZeroLength() <= 128 / kNumBitsPerWord)) {
+    unsigned __int128 v = static_cast<unsigned __int128>(val);
+    if (ABSL_PREDICT_TRUE(v <= internal::kNumericMax)) {
+      return NumericValue(static_cast<__int128>(negate ? -v : v));
+    }
+  }
+  return MakeEvalError() << "numeric overflow";
+}
+
+template <int kNumBitsPerWord, int kNumWords>
+zetasql_base::StatusOr<NumericValue> NumericValue::FromFixedInt(
+    const FixedInt<kNumBitsPerWord, kNumWords>& val) {
+  if (val < FixedInt<kNumBitsPerWord, kNumWords>(internal::kNumericMin) ||
+      val > FixedInt<kNumBitsPerWord, kNumWords>(internal::kNumericMax)) {
+    return MakeEvalError() << "numeric overflow";
+  }
+  return NumericValue(static_cast<__int128>(val));
 }
 
 size_t NumericValue::HashCode() const {
@@ -611,77 +331,38 @@ zetasql_base::StatusOr<NumericValue> NumericValue::FromStringInternal(
 zetasql_base::StatusOr<NumericValue> NumericValue::Multiply(NumericValue rh) const {
   const __int128 value = as_packed_int();
   const __int128 rh_value = rh.as_packed_int();
-  int sign_a = int128_sign(value);
-  int sign_b = int128_sign(rh_value);
-  __int128 a = int128_abs(value);
-  __int128 b = int128_abs(rh_value);
+  bool negative = value < 0;
+  bool rh_negative = rh_value < 0;
+  FixedUint<64, 4> product =
+      ExtendAndMultiply(FixedUint<64, 2>(int128_abs(value)),
+                        FixedUint<64, 2>(int128_abs(rh_value)));
 
-  uint64_t a1 = static_cast<uint64_t>(a >> 64);
-  uint64_t a0 = static_cast<uint64_t>(a);
-  uint64_t b1 = static_cast<uint64_t>(b >> 64);
-  uint64_t b0 = static_cast<uint64_t>(b);
-
-  // Partial products.
-  unsigned __int128 p0 = static_cast<unsigned __int128>(a0) * b0;
-  unsigned __int128 p1 = static_cast<unsigned __int128>(a1) * b0 +
-                         static_cast<unsigned __int128>(a0) * b1;
-  unsigned __int128 p2 = static_cast<unsigned __int128>(a1) * b1;
-
-  // Potentially round the result of the multiplication.
-  p0 += kScalingFactor / 2;
-
-  // Propagate carry overs.
-  p1 += static_cast<uint64_t>(p0 >> 64);
-  p2 += static_cast<uint64_t>(p1 >> 64);
-
-  // This is the max spillover in excess of 128 bits that can happen without
-  // resulting in overflow as the result of increased factional precision after
-  // multiplication. The precision will be adjusted below.
-  const int32_t kMaxSpillOver = 293873587;
-  if (ABSL_PREDICT_FALSE(p2 > kMaxSpillOver)) {
-    return MakeEvalError() << "numeric overflow: " << ToString() << " * "
-                           << rh.ToString();
+  // This value represents kNumericMax * kScalingFactor + kScalingFactor / 2.
+  // At this value, <res> would be internal::kNumericMax + 1 and overflow.
+  static constexpr FixedUint<64, 4> kOverflowThreshold(std::array<uint64_t, 4>{
+      6450984253243169536ULL, 13015503840481697412ULL, 293873587ULL, 0ULL});
+  if (ABSL_PREDICT_TRUE(product < kOverflowThreshold)) {
+    // Now we need to adjust the scale of the result. With a 32-bit constant
+    // divisor, the compiler is expected to emit no div instructions for the
+    // code below. We care about div instructions because they are much more
+    // expensive than multiplication (for example on Skylake throughput of a
+    // 64-bit multiplication is 1 cycle, compared to ~80-95 cycles for a
+    // division).
+    FixedUint<32, 5> res(product);
+    res += kScalingFactor / 2;
+    res /= kScalingFactor;
+    unsigned __int128 v = static_cast<unsigned __int128>(res);
+    // We already checked the value range, so no need to call FromPackedInt.
+    return NumericValue(
+        static_cast<__int128>(negative == rh_negative ? v : -v));
   }
-
-  uint32_t p1_hi = static_cast<uint32_t>(p1 >> 32);
-  uint32_t p1_lo = static_cast<uint32_t>(p1);
-  uint32_t p0_hi = static_cast<uint32_t>(p0 >> 32);
-  uint32_t p0_lo = static_cast<uint32_t>(p0);
-
-  // Now we need to adjust the scale of the result. We implement the long
-  // division algorith here for two reasons. First, there is no existing
-  // operator that would allow as to divide a number wider than int128, and
-  // second we want to capitalize on the compiler's optimization of turning a
-  // division by a constant into a multiplication. The compiler is expected to
-  // emit no div instructions for the code below. We care about div instructions
-  // because they are much more expensive compared to multiplication (for
-  // example on Skylake throughput of a 64bit multiplication is 1 cycle,
-  // compared to ~80-95 cycles for a division).
-  uint64_t t1_hi = (static_cast<uint64_t>(p2) << 32) | p1_hi;
-  uint32_t r1_hi = static_cast<uint32_t>(t1_hi / kScalingFactor);
-  uint64_t t1_lo = (static_cast<uint64_t>(t1_hi % kScalingFactor) << 32) | p1_lo;
-  uint32_t r1_lo = static_cast<uint32_t>(t1_lo / kScalingFactor);
-  uint64_t t0_hi = (static_cast<uint64_t>(t1_lo % kScalingFactor) << 32) | p0_hi;
-  uint32_t r0_hi = static_cast<uint32_t>(t0_hi / kScalingFactor);
-  uint64_t t0_lo = (static_cast<uint64_t>(t0_hi % kScalingFactor) << 32) | p0_lo;
-  uint32_t r0_lo = static_cast<uint32_t>(t0_lo / kScalingFactor);
-
-  __int128 res = (static_cast<__int128>(r1_hi) << 96) |
-                 (static_cast<__int128>(r1_lo) << 64) |
-                 (static_cast<__int128>(r0_hi) << 32) |
-                 r0_lo;
-
-  auto numeric_value_status = FromPackedInt((sign_a * sign_b) < 0 ? -res : res);
-  if (!numeric_value_status.ok()) {
-    return MakeEvalError() << "numeric overflow: " << ToString() << " * "
-                           << rh.ToString();
-  }
-  return numeric_value_status.ValueOrDie();
+  return MakeEvalError() << "numeric overflow: " << ToString() << " * "
+                         << rh.ToString();
 }
 
 NumericValue NumericValue::Abs(NumericValue value) {
   // The result is expected to be within the valid range.
-  return NumericValue(int128_abs(value.as_packed_int()));
+  return NumericValue(static_cast<__int128>(int128_abs(value.as_packed_int())));
 }
 
 NumericValue NumericValue::Sign(NumericValue value) {
@@ -690,6 +371,16 @@ NumericValue NumericValue::Sign(NumericValue value) {
 }
 
 zetasql_base::StatusOr<NumericValue> NumericValue::Power(NumericValue exp) const {
+  auto res_or_status = PowerInternal(exp);
+  if (res_or_status.ok()) {
+    return res_or_status;
+  }
+  return zetasql_base::StatusBuilder(res_or_status.status()).SetAppend()
+         << ": POW(" << ToString() << ", " << exp.ToString() << ")";
+}
+
+zetasql_base::StatusOr<NumericValue> NumericValue::PowerInternal(
+    NumericValue exp) const {
   // Any value raised to a zero power is always one.
   if (exp == NumericValue()) {
     return NumericValue(1);
@@ -697,8 +388,7 @@ zetasql_base::StatusOr<NumericValue> NumericValue::Power(NumericValue exp) const
 
   // An attempt to raise zero to a negative power results in division by zero.
   if (*this == NumericValue() && exp.as_packed_int() < 0) {
-    return MakeEvalError() << "division by zero: POW(" << ToString() << ", "
-                           << exp.ToString() << ")";
+    return MakeEvalError() << "division by zero";
   }
 
   // Otherwise zero raised to any power is still zero.
@@ -707,14 +397,13 @@ zetasql_base::StatusOr<NumericValue> NumericValue::Power(NumericValue exp) const
   }
 
   int exp_sign = int128_sign(exp.as_packed_int());
-  __int128 integer_exp = int128_abs(exp.as_packed_int()) / kScalingFactor;
-  __int128 fract_exp = int128_abs(exp.as_packed_int()) % kScalingFactor;
+  unsigned __int128 integer_exp =
+      int128_abs(exp.as_packed_int()) / kScalingFactor;
+  unsigned __int128 fract_exp =
+      int128_abs(exp.as_packed_int()) % kScalingFactor;
 
   // Determine the sign of the result.
-  int result_sign = 1;
-  if (as_packed_int() < 0 && (integer_exp % 2) != 0) {
-    result_sign = -1;
-  }
+  bool result_is_negative = as_packed_int() < 0 && (integer_exp % 2) != 0;
 
   if (as_packed_int() < 0 && fract_exp != 0) {
     return MakeEvalError()
@@ -727,50 +416,53 @@ zetasql_base::StatusOr<NumericValue> NumericValue::Power(NumericValue exp) const
     // reciprocal to the positive exponent, i.e. x^(-n) is computed as (1/x)^n.
     auto value_status = NumericValue(1).Divide(value);
     if (!value_status.ok()) {
-      return MakeEvalError() << "numeric overflow: POW(" << ToString() << ", "
-                             << exp.ToString() << ")";
+      return MakeEvalError() << "numeric overflow";
     }
     value = value_status.ValueOrDie();
   }
 
-  Uint224 ret(NumericValue(1).as_packed_int());
-  Uint224 squared(value.as_packed_int());
+  FixedUint<32, 7> ret(
+      static_cast<unsigned __int128>(NumericValue(1).as_packed_int()));
+  FixedUint<32, 7> squared(
+      static_cast<unsigned __int128>(value.as_packed_int()));
 
   // We are performing computations with extra digits of precision added. This
   // allows to preserve precision when raising small numbers, like 1.001, to
   // huge powers. We also use extra precision to perform rounding.
-  ret.MultiplyByUint32(kScalingFactor);
-  squared.MultiplyByUint32(kScalingFactor);
+  ret *= kScalingFactor;
+  squared *= kScalingFactor;
 
+  const FixedUint<32, 7> kScalingFactorSquareHalf(
+      static_cast<uint64_t>(kScalingFactor) * kScalingFactor / 2);
   for (;; integer_exp /= 2) {
     if ((integer_exp % 2) != 0) {
-      if (!ret.Multiply(squared).ok()) {
-        return MakeEvalError() << "numeric overflow: POW(" << ToString() << ", "
-                               << exp.ToString() << ")";
+      if (!ret.MultiplyAndCheckOverflow(squared)) {
+        return MakeEvalError() << "numeric overflow";
       }
       // Restore the scale.
-      ret.DivideByUint32(kScalingFactor);
-      ret.DivideByUint32(kScalingFactor);
+      ret += kScalingFactorSquareHalf;
+      ret /= kScalingFactor;
+      ret /= kScalingFactor;
     }
     if (integer_exp <= 1) {
       break;
     }
-    if (!squared.Multiply(squared).ok()) {
-      return MakeEvalError() << "numeric overflow: POW(" << ToString() << ", "
-                             << exp.ToString() << ")";
+    if (!squared.MultiplyAndCheckOverflow(squared)) {
+      return MakeEvalError() << "numeric overflow";
     }
     // Restore the scale.
-    squared.DivideByUint32(kScalingFactor);
-    squared.DivideByUint32(kScalingFactor);
+    squared += kScalingFactorSquareHalf;
+    squared /= kScalingFactor;
+    squared /= kScalingFactor;
   }
 
   // Round away from zero.
-  ret.AddUint32(kScalingFactor / 2);
+  ret += (kScalingFactor / 2);
   // Remove extra digits of precision that were introduced in the beginning.
-  ret.DivideByUint32(kScalingFactor);
+  ret /= kScalingFactor;
 
-  ZETASQL_ASSIGN_OR_RETURN(__int128 int128_res, ret.to_int128());
-  ZETASQL_ASSIGN_OR_RETURN(NumericValue res, NumericValue::FromPackedInt(int128_res));
+  ZETASQL_ASSIGN_OR_RETURN(NumericValue res,
+                   NumericValue::FromFixedUint(ret, result_is_negative));
 
   // We handle the practional part of the exponent by raising the original value
   // to the fractional part of the exponent by converting them to doubles and
@@ -787,7 +479,7 @@ zetasql_base::StatusOr<NumericValue> NumericValue::Power(NumericValue exp) const
     ZETASQL_ASSIGN_OR_RETURN(res, res.Multiply(fract_term));
   }
 
-  return (result_sign < 0) ? NumericValue::UnaryMinus(res) : res;
+  return res;
 }
 
 zetasql_base::StatusOr<NumericValue> NumericValue::RoundInternal(
@@ -869,66 +561,60 @@ zetasql_base::StatusOr<NumericValue> NumericValue::Floor() const {
 }
 
 zetasql_base::StatusOr<NumericValue> NumericValue::Divide(NumericValue rh) const {
-  return DivideInternal(rh, /* round_away_from_zero */ true);
-}
-
-zetasql_base::StatusOr<NumericValue> NumericValue::DivideInternal(
-    NumericValue rh, bool round_away_from_zero) const {
   const __int128 value = as_packed_int();
   const __int128 rh_value = rh.as_packed_int();
-  const int sign_value = int128_sign(value);
-  const int sign_rh_value = int128_sign(rh_value);
+  const bool is_negative = value < 0;
+  const bool rh_is_negative = rh_value < 0;
 
-  if (rh_value == 0) {
-    return MakeEvalError() << "division by zero: " << ToString() << " / "
-                           << rh.ToString();
+  if (ABSL_PREDICT_TRUE(rh_value != 0)) {
+    FixedUint<32, 5> dividend(int128_abs(value));
+    unsigned __int128 divisor = int128_abs(rh_value);
+
+    // To preserve the scale of the result we need to multiply the dividend by
+    // the scaling factor first.
+    dividend *= kScalingFactor;
+    dividend += FixedUint<32, 5>(divisor >> 1);
+    dividend /= FixedUint<32, 5>(divisor);
+
+    auto res_or_status =
+        NumericValue::FromFixedUint(dividend, is_negative != rh_is_negative);
+    if (ABSL_PREDICT_TRUE(res_or_status.ok())) {
+      return res_or_status;
+    }
+    return zetasql_base::StatusBuilder(res_or_status.status()).SetAppend()
+           << ": " << ToString() << " / " << rh.ToString();
   }
-
-  Uint224 dividend(int128_abs(value));
-  Uint224 divisor(int128_abs(rh_value));
-
-  // To preserve the scale of the result we need to multiply the dividend by the
-  // scaling factor first.
-  dividend.MultiplyByUint32(kScalingFactor);
-  dividend.Divide(divisor, round_away_from_zero);
-
-  auto to_int128_status = dividend.to_int128();
-  if (!to_int128_status.ok()) {
-    return MakeEvalError() << "numeric overflow: " << ToString() << " / "
-                           << rh.ToString();
-  }
-  const __int128 res = to_int128_status.ValueOrDie();
-  auto numeric_value_status = NumericValue::FromPackedInt(
-      (sign_value * sign_rh_value) < 0 ? -res : res);
-  if (!numeric_value_status.ok()) {
-    return MakeEvalError() << "numeric overflow: " << ToString() << " / "
-                           << rh.ToString();
-  }
-  return numeric_value_status.ValueOrDie();
+  return MakeEvalError() << "division by zero: " << ToString() << " / "
+                         << rh.ToString();
 }
 
 zetasql_base::StatusOr<NumericValue> NumericValue::IntegerDivide(
     NumericValue rh) const {
-  ZETASQL_ASSIGN_OR_RETURN(NumericValue quotent,
-                   DivideInternal(rh, /* round_away_from_zero */ false));
-  return quotent.Trunc(0);
+  __int128 rh_value = rh.as_packed_int();
+  if (ABSL_PREDICT_TRUE(rh_value != 0)) {
+    __int128 value = as_packed_int() / rh_value;
+    if (ABSL_PREDICT_TRUE(value <= internal::kNumericMax / kScalingFactor) &&
+        ABSL_PREDICT_TRUE(value >= internal::kNumericMin / kScalingFactor)) {
+      return NumericValue(value * kScalingFactor);
+    }
+    return MakeEvalError() << "numeric overflow: " << ToString() << " / "
+                           << rh.ToString();
+  }
+  return MakeEvalError() << "division by zero: " << ToString() << " / "
+                         << rh.ToString();
 }
 
 zetasql_base::StatusOr<NumericValue> NumericValue::Mod(NumericValue rh) const {
-  if ((rh != NumericValue()) &&
-      (int128_abs(rh.as_packed_int()) / kScalingFactor == 0)) {
-    // If the absolute value of the divisor is less than 1 then the operation is
-    // equivalent to a multiplication and the remainder is always zero.
-    return NumericValue();
+  __int128 rh_value = rh.as_packed_int();
+  if (ABSL_PREDICT_TRUE(rh_value != 0)) {
+    return NumericValue(as_packed_int() % rh_value);
   }
-
-  ZETASQL_ASSIGN_OR_RETURN(NumericValue q, IntegerDivide(rh));
-  ZETASQL_ASSIGN_OR_RETURN(NumericValue tmp_product, q.Multiply(rh));
-  return Subtract(tmp_product);
+  return MakeEvalError() << "division by zero: " << ToString() << " / "
+                         << rh.ToString();
 }
 
 std::string NumericValue::SerializeAsProtoBytes() const {
-  const __int128 value = as_packed_int();
+  __int128 value = as_packed_int();
 
   std::string ret;
 
@@ -937,7 +623,7 @@ std::string NumericValue::SerializeAsProtoBytes() const {
     return ret;
   }
 
-  const __int128 abs_value = int128_abs(value);
+  const unsigned __int128 abs_value = int128_abs(value);
   const uint64_t abs_value_hi = static_cast<uint64_t>(abs_value >> kBitsPerUint64);
   const uint64_t abs_value_lo = static_cast<uint64_t>(abs_value);
 
@@ -1035,7 +721,7 @@ NumericValue::Aggregator::GetAverage(uint64_t count) const {
     return MakeEvalError() << "division by zero: AVG";
   }
 
-  // The code below constructs an unsigned 196 bits of Uint224 from
+  // The code below constructs an unsigned 196 bits of FixedUint<32, 7> from
   // sum_upper_ and sum_lower_. The following cases need to be considered:
   // 1) If sum_upper_ is zero, the entire value (including the sign) comes
   //    from sum_lower_. We need to get abs(sum_lower_) because the division
@@ -1051,33 +737,33 @@ NumericValue::Aggregator::GetAverage(uint64_t count) const {
   //    no positive number that complements kInt128Min. We leave it as it is
   //    because kInt128Min (0x8000...0000) complements itself when converted to
   //    the unsigned 128 bit value.
-  int sign;
+  bool negate = false;
   __int128 lower;
   uint64_t upper_abs = std::abs(sum_upper_);
 
   if (ABSL_PREDICT_TRUE(upper_abs == 0)) {
-    sign = int128_sign(sum_lower_);
+    negate = sum_lower_ < 0;
     lower = (sum_lower_ != kInt128Min) ? int128_abs(sum_lower_) : sum_lower_;
   } else {
-    sign = sum_upper_ < 0 ? -1 : 1;
-    lower = (sign < 0 && sum_lower_ != kInt128Min) ? -sum_lower_ : sum_lower_;
+    negate = sum_upper_ < 0;
+    lower = (negate && sum_lower_ != kInt128Min) ? -sum_lower_ : sum_lower_;
     if (lower < 0)
       upper_abs--;
   }
 
-  Uint224 dividend(upper_abs, static_cast<unsigned __int128>(lower));
-  dividend.Divide(Uint224(count), /* round_away_from_zero */ true);
+  // The reason we need 224 bits of precision is because the constructor
+  // (uint64_t hi, unsigned __int128 low) needs 192 bits; on top of that we need
+  // 32 bits to be able to normalize the numbers before performing long division
+  // (see LongDivision()).
+  FixedUint<32, 6> dividend(upper_abs, static_cast<unsigned __int128>(lower));
+  dividend += FixedUint<32, 6>(count >> 1);
+  dividend /= FixedUint<32, 6>(count);
 
-  auto res_status = dividend.to_int128();
-  if (!res_status.ok()) {
-    return MakeEvalError() << "numeric overflow: AVG";
+  auto res_status = NumericValue::FromFixedUint(dividend, negate);
+  if (res_status.ok()) {
+    return res_status;
   }
-  __int128 res = res_status.ValueOrDie();
-  auto numeric_status = NumericValue::FromPackedInt(sign < 0 ? -res : res);
-  if (!numeric_status.ok()) {
-    return MakeEvalError() << "numeric overflow: AVG";
-  }
-  return numeric_status.ValueOrDie();
+  return MakeEvalError() << "numeric overflow: AVG";
 }
 
 void NumericValue::Aggregator::MergeWith(const Aggregator& other) {
@@ -1115,6 +801,147 @@ NumericValue::Aggregator::DeserializeFromProtoBytes(absl::string_view bytes) {
       (static_cast<unsigned __int128>(sum_lower_hi) << 64) + sum_lower_lo);
   res.sum_upper_ = zetasql_base::LittleEndian::Load64(bytes.substr(kBytesPerInt128).data());
   return res;
+}
+
+void NumericValue::SumAggregator::Add(NumericValue value) {
+  sum_ += FixedInt<64, 3>(value.as_packed_int());
+}
+
+zetasql_base::StatusOr<NumericValue> NumericValue::SumAggregator::GetSum() const {
+  auto res_status = NumericValue::FromFixedInt(sum_);
+  if (res_status.ok()) {
+    return res_status;
+  }
+  return MakeEvalError() << "numeric overflow: SUM";
+}
+
+zetasql_base::StatusOr<NumericValue> NumericValue::SumAggregator::GetAverage(
+    uint64_t count) const {
+  if (count == 0) {
+    return MakeEvalError() << "division by zero: AVG";
+  }
+
+  FixedInt<64, 3> dividend = sum_;
+  uint64_t half_count_for_rounding = count >> 1;
+  if (dividend.is_negative()) {
+    dividend -= half_count_for_rounding;
+  } else {
+    dividend += half_count_for_rounding;
+  }
+  dividend /= count;
+
+  auto res_status = NumericValue::FromFixedInt(dividend);
+  if (res_status.ok()) {
+    return res_status;
+  }
+  return MakeEvalError() << "numeric overflow: AVG";
+}
+
+void NumericValue::SumAggregator::MergeWith(const SumAggregator& other) {
+  sum_ += other.sum_;
+}
+
+std::string NumericValue::SumAggregator::SerializeAsProtoBytes() const {
+  return sum_.SerializeToBytes();
+}
+
+zetasql_base::StatusOr<NumericValue::SumAggregator>
+NumericValue::SumAggregator::DeserializeFromProtoBytes(
+    absl::string_view bytes) {
+  NumericValue::SumAggregator out;
+  if (out.sum_.DeserializeFromBytes(bytes)) {
+    return out;
+  }
+  return MakeEvalError() << "Invalid NumericValue::Aggregator encoding";
+}
+
+void NumericValue::VarianceAggregator::Add(NumericValue value) {
+  sum_ += FixedInt<64, 3>(value.as_packed_int());
+  FixedInt<64, 2> v(value.as_packed_int());
+  sum_square_ += FixedInt<64, 5>(ExtendAndMultiply(v, v));
+}
+
+void NumericValue::VarianceAggregator::Subtract(NumericValue value) {
+  sum_ -= FixedInt<64, 3>(value.as_packed_int());
+  FixedInt<64, 2> v(value.as_packed_int());
+  sum_square_ -= FixedInt<64, 5>(ExtendAndMultiply(v, v));
+}
+
+absl::optional<double> NumericValue::VarianceAggregator::GetPopulationVariance(
+    uint64_t count) const {
+  if (count > 0) {
+    return GetVariance(count, 0);
+  }
+  return absl::nullopt;
+}
+
+absl::optional<double> NumericValue::VarianceAggregator::GetSamplingVariance(
+    uint64_t count) const {
+  if (count > 1) {
+    return GetVariance(count, 1);
+  }
+  return absl::nullopt;
+}
+
+absl::optional<double> NumericValue::VarianceAggregator::GetPopulationStdDev(
+    uint64_t count) const {
+  if (count > 0) {
+    return std::sqrt(GetVariance(count, 0));
+  }
+  return absl::nullopt;
+}
+
+absl::optional<double> NumericValue::VarianceAggregator::GetSamplingStdDev(
+    uint64_t count) const {
+  if (count > 1) {
+    return std::sqrt(GetVariance(count, 1));
+  }
+  return absl::nullopt;
+}
+
+void NumericValue::VarianceAggregator::MergeWith(
+    const VarianceAggregator& other) {
+  sum_ += other.sum_;
+  sum_square_ += other.sum_square_;
+}
+
+double NumericValue::VarianceAggregator::GetVariance(
+    uint64_t count, uint64_t count_offset) const {
+  FixedInt<64, 6> numerator(sum_square_);
+  numerator *= count;
+  numerator -= ExtendAndMultiply(sum_, sum_);
+  FixedUint<64, 3> denominator(count);
+  denominator *= (count - count_offset);
+  denominator *= (static_cast<uint64_t>(kScalingFactor) * kScalingFactor);
+  return static_cast<double>(numerator) / static_cast<double>(denominator);
+}
+
+std::string NumericValue::VarianceAggregator::SerializeAsProtoBytes() const {
+  std::string sum_bytes = sum_.SerializeToBytes();
+  std::string sum_square_bytes = sum_square_.SerializeToBytes();
+  std::string out;
+  out.reserve(1 + sum_bytes.size() + sum_square_bytes.size());
+  static_assert(sizeof(sum_) < 128);
+  DCHECK_LT(sum_bytes.size(), 128);
+  out.push_back(static_cast<int8_t>(sum_bytes.size()));
+  absl::StrAppend(&out, sum_bytes, sum_square_bytes);
+  return out;
+}
+
+zetasql_base::StatusOr<NumericValue::VarianceAggregator>
+NumericValue::VarianceAggregator::DeserializeFromProtoBytes(
+    absl::string_view bytes) {
+  if (!bytes.empty()) {
+    int sum_len = bytes[0];
+    if (sum_len < bytes.size() - 1) {
+      NumericValue::VarianceAggregator out;
+      if (out.sum_.DeserializeFromBytes(bytes.substr(1, sum_len)) &&
+          out.sum_square_.DeserializeFromBytes(bytes.substr(sum_len + 1))) {
+        return out;
+      }
+    }
+  }
+  return MakeEvalError() << "Invalid NumericValue::VarianceAggregator encoding";
 }
 
 }  // namespace zetasql

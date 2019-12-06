@@ -214,21 +214,6 @@ void Unparser::UnparseChildrenWithSeparator(const ASTNode* node, void* data,
   }
 }
 
-template <class NodeType>
-void Unparser::UnparseVectorWithSeparator(
-    absl::Span<const NodeType* const> node_vector, void* data,
-    const std::string& separator) {
-  bool first = true;
-  for (const NodeType* node : node_vector) {
-    if (first) {
-      first = false;
-    } else {
-      print(separator);
-    }
-    node->Accept(this, data);
-  }
-}
-
 // Visitor implementation.
 
 void Unparser::visitASTHintedStatement(const ASTHintedStatement* node,
@@ -626,6 +611,18 @@ void Unparser::visitASTCreateExternalTableStatement(
     const ASTCreateExternalTableStatement* node, void* data) {
   print(GetCreateStatementPrefix(node, "EXTERNAL TABLE"));
   node->name()->Accept(this, data);
+  if (node->table_element_list() != nullptr) {
+    println();
+    node->table_element_list()->Accept(this, data);
+  }
+  // skipping println() in partition_by, cluster_by clauses to keep it in sync
+  // with CREATE TABLE statement.
+  if (node->partition_by() != nullptr) {
+    node->partition_by()->Accept(this, data);
+  }
+  if (node->cluster_by() != nullptr) {
+    node->cluster_by()->Accept(this, data);
+  }
   if (node->options_list() != nullptr) {
     print("OPTIONS");
     node->options_list()->Accept(this, data);
@@ -682,12 +679,22 @@ void Unparser::visitASTCreateRowAccessPolicyStatement(
 void Unparser::visitASTExportDataStatement(
     const ASTExportDataStatement* node, void* data) {
   print("EXPORT DATA");
+  if (node->with_connection_clause() != nullptr) {
+    print("WITH");
+    node->with_connection_clause()->Accept(this, data);
+  }
+
   if (node->options_list() != nullptr) {
     print("OPTIONS");
     node->options_list()->Accept(this, data);
   }
   println("AS");
   node->query()->Accept(this, data);
+}
+
+void Unparser::visitASTWithConnectionClause(const ASTWithConnectionClause* node,
+                                            void* data) {
+  node->connection_clause()->Accept(this, data);
 }
 
 void Unparser::visitASTCallStatement(
@@ -2585,7 +2592,9 @@ void Unparser::visitASTVariableDeclaration(const ASTVariableDeclaration* node,
                                            void* data) {
   print("DECLARE");
   node->variable_list()->Accept(this, data);
-  node->type()->Accept(this, data);
+  if (node->type() != nullptr) {
+    node->type()->Accept(this, data);
+  }
   if (node->default_value() != nullptr) {
     print("DEFAULT");
     node->default_value()->Accept(this, data);

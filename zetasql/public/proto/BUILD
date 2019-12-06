@@ -42,3 +42,8 @@ java_proto_library(
     name = "type_annotation_java_proto",
     deps = [":type_annotation_proto"],
 )
+
+exports_files([
+    "wire_format_annotation.proto",
+    "type_annotation.proto",
+])

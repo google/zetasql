@@ -1124,6 +1124,28 @@ class ASTWithClauseEntry final : public ASTNode {
   const ASTQuery* query_ = nullptr;
 };
 
+class ASTWithConnectionClause final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_WITH_CONNECTION_CLAUSE;
+
+  ASTWithConnectionClause() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTConnectionClause* connection_clause() const {
+    return connection_clause_;
+  }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&connection_clause_);
+  }
+
+  const ASTConnectionClause* connection_clause_;
+};
+
 // Superclass for all query expressions.  These are top-level syntactic
 // constructs (outside individual SELECTs) making up a query.  These include
 // Query itself, Select, UnionAll, etc.
@@ -2162,6 +2184,7 @@ class ASTBinaryExpression final : public ASTExpression {
     MINUS,        // "-"
     MULTIPLY,     // "*"
     DIVIDE,       // "/"
+    CONCAT_OP,    // "||"
   };
 
   void set_op(Op op) { op_ = op; }
@@ -4262,15 +4285,10 @@ class ASTCreateTableFunctionStatement final : public ASTCreateFunctionStmtBase {
   const ASTQuery* query_ = nullptr;
 };
 
-class ASTCreateTableStatement final : public ASTCreateStatement {
+class ASTCreateTableStmtBase : public ASTCreateStatement {
  public:
-  static constexpr ASTNodeKind kConcreteNodeKind =
-      AST_CREATE_TABLE_STATEMENT;
-
-  ASTCreateTableStatement() : ASTCreateStatement(kConcreteNodeKind) {}
-  void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  zetasql_base::StatusOr<VisitResult> Accept(
-      NonRecursiveParseTreeVisitor* visitor) const override;
+  explicit ASTCreateTableStmtBase(const ASTNodeKind kConcreteNodeKind)
+      : ASTCreateStatement(kConcreteNodeKind) {}
 
   const ASTPathExpression* name() const { return name_; }
   const ASTTableElementList* table_element_list() const {
@@ -4279,17 +4297,19 @@ class ASTCreateTableStatement final : public ASTCreateStatement {
   const ASTPartitionBy* partition_by() const { return partition_by_; }
   const ASTClusterBy* cluster_by() const { return cluster_by_; }
   const ASTOptionsList* options_list() const { return options_list_; }
-  const ASTQuery* query() const { return query_; }
 
- private:
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddRequired(&name_);
-    fl.AddOptional(&table_element_list_, AST_TABLE_ELEMENT_LIST);
-    fl.AddOptional(&partition_by_, AST_PARTITION_BY);
-    fl.AddOptional(&cluster_by_, AST_CLUSTER_BY);
-    fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
-    fl.AddOptional(&query_, AST_QUERY);
+ protected:
+  void InitCreateTableStmtBaseProperties(FieldLoader* fl,
+                                         bool is_option_list_required) {
+    fl->AddRequired(&name_);
+    fl->AddOptional(&table_element_list_, AST_TABLE_ELEMENT_LIST);
+    fl->AddOptional(&partition_by_, AST_PARTITION_BY);
+    fl->AddOptional(&cluster_by_, AST_CLUSTER_BY);
+    if (is_option_list_required) {
+      fl->AddRequired(&options_list_);
+    } else {
+      fl->AddOptional(&options_list_, AST_OPTIONS_LIST);
+    }
   }
 
   const ASTPathExpression* name_ = nullptr;
@@ -4297,6 +4317,27 @@ class ASTCreateTableStatement final : public ASTCreateStatement {
   const ASTPartitionBy* partition_by_ = nullptr;             // May be NULL.
   const ASTClusterBy* cluster_by_ = nullptr;                 // May be NULL.
   const ASTOptionsList* options_list_ = nullptr;             // May be NULL.
+};
+
+class ASTCreateTableStatement final : public ASTCreateTableStmtBase {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_CREATE_TABLE_STATEMENT;
+
+  ASTCreateTableStatement() : ASTCreateTableStmtBase(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTQuery* query() const { return query_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    InitCreateTableStmtBaseProperties(&fl,
+                                      /* is_option_list_required= */ false);
+    fl.AddOptional(&query_, AST_QUERY);
+  }
+
   const ASTQuery* query_ = nullptr;                          // May be NULL.
 };
 
@@ -4602,15 +4643,20 @@ class ASTExportDataStatement final : public ASTStatement {
       NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTOptionsList* options_list() const { return options_list_; }
+  const ASTWithConnectionClause* with_connection_clause() const {
+    return with_connection_;
+  }
   const ASTQuery* query() const { return query_; }
 
  private:
   void InitFields() final {
     FieldLoader fl(this);
+    fl.AddOptional(&with_connection_, AST_WITH_CONNECTION_CLAUSE);
     fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
     fl.AddRequired(&query_);
   }
 
+  const ASTWithConnectionClause* with_connection_ = nullptr;  // May be NULL.
   const ASTOptionsList* options_list_ = nullptr;  // May be NULL.
   const ASTQuery* query_ = nullptr;
 };
@@ -4664,28 +4710,21 @@ class ASTDefineTableStatement final : public ASTStatement {
   const ASTOptionsList* options_list_ = nullptr;
 };
 
-class ASTCreateExternalTableStatement final : public ASTCreateStatement {
+class ASTCreateExternalTableStatement final : public ASTCreateTableStmtBase {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind =
       AST_CREATE_EXTERNAL_TABLE_STATEMENT;
-
-  ASTCreateExternalTableStatement() : ASTCreateStatement(kConcreteNodeKind) {}
+  ASTCreateExternalTableStatement()
+      : ASTCreateTableStmtBase(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   zetasql_base::StatusOr<VisitResult> Accept(
       NonRecursiveParseTreeVisitor* visitor) const override;
 
-  const ASTPathExpression* name() const { return name_; }
-  const ASTOptionsList* options_list() const { return options_list_; }
-
  private:
   void InitFields() final {
     FieldLoader fl(this);
-    fl.AddRequired(&name_);
-    fl.AddRequired(&options_list_);
+    InitCreateTableStmtBaseProperties(&fl, /* is_option_list_required= */ true);
   }
-
-  const ASTPathExpression* name_ = nullptr;
-  const ASTOptionsList* options_list_ = nullptr;
 };
 
 class ASTType : public ASTNode {
@@ -7112,16 +7151,17 @@ class ASTVariableDeclaration final : public ASTScriptStatement {
 
   // Required fields
   const ASTIdentifierList* variable_list() const { return variable_list_; }
-  const ASTType* type() const { return type_; }
 
-  // Optional fields
+  // Optional fields; at least one of <type> and <default_value> must be
+  // present.
+  const ASTType* type() const { return type_; }
   const ASTExpression* default_value() const { return default_value_; }
 
  private:
   void InitFields() final {
     FieldLoader fl(this);
     fl.AddRequired(&variable_list_);
-    fl.AddRequired(&type_);
+    fl.AddOptionalType(&type_);
     fl.AddOptionalExpression(&default_value_);
   }
   const ASTIdentifierList* variable_list_ = nullptr;

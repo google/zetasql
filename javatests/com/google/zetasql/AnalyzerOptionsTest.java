@@ -125,21 +125,6 @@ public class AnalyzerOptionsTest {
   }
 
   @Test
-  public void testStrictValidationOnColumnReplacements() {
-    FileDescriptorSetsBuilder builder = new FileDescriptorSetsBuilder();
-    AnalyzerOptions options = new AnalyzerOptions();
-    assertThat(options.getStrictValidationOnColumnReplacements()).isFalse();
-    AnalyzerOptionsProto proto = options.serialize(builder);
-    assertThat(proto.getStrictValidationOnColumnReplacements()).isFalse();
-    checkDeserialize(proto, builder.getDescriptorPools());
-    options.setStrictValidationOnColumnReplacements(true);
-    assertThat(options.getStrictValidationOnColumnReplacements()).isTrue();
-    proto = options.serialize(builder);
-    assertThat(proto.getStrictValidationOnColumnReplacements()).isTrue();
-    checkDeserialize(proto, builder.getDescriptorPools());
-  }
-
-  @Test
   public void testErrorMessageMode() {
     FileDescriptorSetsBuilder builder = new FileDescriptorSetsBuilder();
     AnalyzerOptions options = new AnalyzerOptions();
@@ -335,7 +320,7 @@ public class AnalyzerOptionsTest {
             "The number of fields of AnalyzerOptionsProto has changed, please also update the "
                 + "serialization code accordingly.")
         .that(AnalyzerOptionsProto.getDescriptor().getFields())
-        .hasSize(17);
+        .hasSize(16);
     assertWithMessage(
             "The number of fields in AnalyzerOptions class has changed, please also update the "
                 + "proto and serialization code accordingly.")

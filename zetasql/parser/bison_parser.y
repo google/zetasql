@@ -29,6 +29,7 @@
 #include "zetasql/public/strings.h"
 #include "absl/memory/memory.h"
 #include "zetasql/base/case.h"
+#include "absl/strings/str_split.h"
 
 #define YYINITDEPTH 50
 
@@ -253,8 +254,8 @@ enum class ImportType {
 // favoring creating a new table-valued function. The user may workaround this
 // limitation by surrounding the FUNCTION token in backticks.
 // This case is responsible for 3 shift/reduce conflicts:
-// 1. 'table_or_table_function' used in create_external_table_statement
-//    encounters a shift/reduce conflict.
+// 1. The separate parser rules for CREATE EXTERNAL TABLE and CREATE EXTERNAL
+//    TABLE FUNCTION encounter a shift/reduce conflict.
 // 2. The separate parser rules for CREATE TABLE AS and CREATE TABLE FUNCTION
 //    encounter a shift/reduce confict.
 // 3. The separate next_statement_kind rules for CREATE TABLE AS and CREATE
@@ -313,7 +314,8 @@ enum class ImportType {
 //   1: REPLACE FIELDS
 //   4: CREATE PROCEDURE
 //   1: CREATE TABLE GENERATED
-%expect 15
+//   1: CREATE EXTERNAL TABLE FUNCTION
+%expect 16
 
 %union {
   bool boolean;
@@ -396,6 +398,7 @@ enum class ImportType {
 %token ']' "]"
 %token '@' "@"
 %token KW_DOUBLE_AT "@@"
+%token KW_CONCAT_OP "||"
 %token '+' "+"
 %token '-' "-"
 %token '/' "/"
@@ -435,6 +438,7 @@ enum class ImportType {
 %left "&"
 %left "<<" ">>"
 %left "+" "-"
+%left "||"
 %left "*" "/"
 %left UNARY_PRECEDENCE  // For all unary operators
 %precedence DOUBLE_AT_PRECEDENCE // Needs to appear before "."
@@ -824,6 +828,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> create_row_access_policy_grant_to_clause
 %type <node> create_row_access_policy_statement
 %type <node> create_external_table_statement
+%type <node> create_external_table_function_statement
 %type <node> create_index_statement
 %type <node> create_table_function_statement
 %type <node> create_model_statement
@@ -868,6 +873,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <determinism_level> opt_determinism_level
 %type <parameter_mode> opt_procedure_parameter_mode
 %type <expression> generalized_path_expression
+%type <expression> maybe_dashed_generalized_path_expression
 %type <node> grant_statement
 %type <node> grantee_list
 %type <node> group_by_clause_prefix
@@ -1000,6 +1006,9 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> partition_by_clause_prefix
 %type <node> partition_by_clause_prefix_no_hint
 %type <expression> path_expression
+%type <identifier> dashed_identifier
+%type <expression> dashed_path_expression
+%type <expression> maybe_dashed_path_expression
 %type <node> path_expression_or_string
 %type <expression> possibly_cast_int_literal_or_parameter
 %type <node> possibly_empty_column_list
@@ -1037,7 +1046,6 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> select_column
 %type <node> select_list
 %type <node> select_list_prefix
-%type <node> select_list_with_trailing_comma
 %type <node> show_statement
 %type <identifier> show_target
 %type <node> simple_column_schema_inner
@@ -1048,7 +1056,6 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> star_modifiers_with_replace_prefix
 %type <node> star_replace_item
 %type <node> start_batch_statement
-%type <node> statement
 %type <node> sql_statement
 %type <node> sql_statement_body
 %type <statement_list> statement_list
@@ -1114,6 +1121,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> with_clause_entry
 %type <node> with_clause_prefix
 %type <node> with_clause_with_trailing_comma
+%type <node> opt_with_connection_clause
 %type <node> alter_action_list
 %type <node> alter_action
 %type <node> named_argument
@@ -1207,13 +1215,6 @@ start_mode:
 
 opt_semicolon: ";" | /* Nothing */ ;
 
-statement:
-    unterminated_statement opt_semicolon
-      {
-        $$ = $1;
-      }
-    ;
-
 sql_statement:
     unterminated_sql_statement opt_semicolon
       {
@@ -1305,6 +1306,7 @@ sql_statement_body:
     | create_index_statement
     | create_row_access_policy_statement
     | create_external_table_statement
+    | create_external_table_function_statement
     | create_model_statement
     | create_table_function_statement
     | create_table_statement
@@ -1446,10 +1448,13 @@ row_access_policy_alter_action_list:
       }
     ;
 
-// Note - this excludes ROW ACCESS POLICY for tactical reasons, since the
-// production rules for ALTER and DROP require very different syntax
-// for ROW ACCESS POLICY as compared to other object kinds.  So we do not
-// want to match ROW ACCESS POLICY here.
+// Note - this excludes the following objects:
+// - ROW ACCESS POLICY for tactical reasons, since the production rules for
+//   ALTER and DROP require very different syntax for ROW ACCESS POLICY as
+//   compared to other object kinds.  So we do not want to match
+//   ROW ACCESS POLICY here.
+// - TABLE and TABLE FUNCTION, since we use different production for table path
+//   expressions (one which may contain dashes).
 schema_object_kind:
     "AGGREGATE" "FUNCTION"
       { $$ = zetasql::SchemaObjectKind::kAggregateFunction; }
@@ -1469,38 +1474,38 @@ schema_object_kind:
       { $$ = zetasql::SchemaObjectKind::kModel; }
     | "PROCEDURE"
       { $$ = zetasql::SchemaObjectKind::kProcedure; }
-    | table_or_table_function
-      {
-        switch ($1) {
-          case TableOrTableFunctionKeywords::kTableAndFunctionKeywords:
-            $$ = zetasql::SchemaObjectKind::kTableFunction;
-            break;
-          case TableOrTableFunctionKeywords::kTableKeyword:
-            $$ = zetasql::SchemaObjectKind::kTable;
-            break;
-        }
-      }
     | "VIEW"
       { $$ = zetasql::SchemaObjectKind::kView; }
     ;
 
 alter_statement:
-    "ALTER" schema_object_kind opt_if_exists path_expression
-        alter_action_list
+    "ALTER" table_or_table_function opt_if_exists maybe_dashed_path_expression
+      alter_action_list
+      {
+        if ($2 == TableOrTableFunctionKeywords::kTableAndFunctionKeywords) {
+          YYERROR_AND_ABORT_AT(@2, "ALTER TABLE FUNCTION is not supported");
+
+        }
+        zetasql::ASTAlterTableStatement* node = MAKE_NODE(
+          ASTAlterTableStatement, @$, {$4, $5});
+        node->set_is_if_exists($3);
+        $$ = node;
+      }
+    | "ALTER" schema_object_kind opt_if_exists path_expression
+      alter_action_list
       {
         zetasql::ASTAlterStatementBase* node = nullptr;
         // Only ALTER DATABASE, TABLE, VIEW, and MATERIALIZED VIEW are currently
         // supported.
         if ($2 == zetasql::SchemaObjectKind::kDatabase) {
           node = MAKE_NODE(ASTAlterDatabaseStatement, @$);
-        } else if ($2 == zetasql::SchemaObjectKind::kTable) {
-          node = MAKE_NODE(ASTAlterTableStatement, @$);
         } else if ($2 == zetasql::SchemaObjectKind::kView) {
           node = MAKE_NODE(ASTAlterViewStatement, @$);
         } else if ($2 == zetasql::SchemaObjectKind::kMaterializedView) {
           node = MAKE_NODE(ASTAlterMaterializedViewStatement, @$);
         } else {
-          YYERROR_UNEXPECTED_AND_ABORT_AT(@2);
+          YYERROR_AND_ABORT_AT(@2, absl::StrCat("ALTER ", absl::AsciiStrToUpper(
+            parser->GetInputText(@2)), " is not supported"));
         }
         node->set_is_if_exists($3);
         node->AddChildren({$4, $5});
@@ -2055,24 +2060,37 @@ create_row_access_policy_statement:
 
 create_external_table_statement:
     "CREATE" opt_or_replace opt_create_scope "EXTERNAL"
-    table_or_table_function opt_if_not_exists path_expression opt_options_list
+    "TABLE" opt_if_not_exists path_expression
+    opt_table_element_list opt_partition_by_clause_no_hint
+    opt_cluster_by_clause_no_hint opt_options_list
       {
-        if ($5 == TableOrTableFunctionKeywords::kTableAndFunctionKeywords) {
+        if ($11 == nullptr) {
           YYERROR_AND_ABORT_AT(
-              @4,
-              "Syntax error: CREATE EXTERNAL TABLE FUNCTION is not allowed");
-        }
-        if ($8 == nullptr) {
-          YYERROR_AND_ABORT_AT(
-              @8,
+              @11,
               "Syntax error: Expected keyword OPTIONS");
         }
         auto* create =
-            MAKE_NODE(ASTCreateExternalTableStatement, @$, {$7, $8});
+            MAKE_NODE(ASTCreateExternalTableStatement, @$,
+            {$7, $8, $9, $10, $11});
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_is_if_not_exists($6);
         $$ = create;
+      }
+    ;
+
+// This rule encounters a shift/reduce conflict with
+// 'create_external_table_statement' as noted in AMBIGUOUS CASE 4 in the
+// file-level comment. The syntax of this rule and
+// 'create_external_table_statement' must be kept the same until the "TABLE"
+// keyword, so that parser can choose between these two rules based on the
+// "FUNCTION" keyword conflict.
+create_external_table_function_statement:
+    "CREATE" opt_or_replace opt_create_scope "EXTERNAL" "TABLE" "FUNCTION"
+      {
+        YYERROR_AND_ABORT_AT(
+        @4,
+        "Syntax error: CREATE EXTERNAL TABLE FUNCTION is not supported");
       }
     ;
 
@@ -2127,8 +2145,9 @@ create_table_function_statement:
 // "FUNCTION" keyword conflict.
 create_table_statement:
     "CREATE" opt_or_replace opt_create_scope "TABLE" opt_if_not_exists
-    path_expression opt_table_element_list opt_partition_by_clause_no_hint
-    opt_cluster_by_clause_no_hint opt_options_list opt_as_query
+    maybe_dashed_path_expression opt_table_element_list
+    opt_partition_by_clause_no_hint opt_cluster_by_clause_no_hint
+    opt_options_list opt_as_query
       {
         zetasql::ASTCreateStatement* create =
             MAKE_NODE(ASTCreateTableStatement, @$, {$6, $7, $8, $9, $10, $11});
@@ -2172,6 +2191,10 @@ table_element_list_prefix:
     | table_element_list_prefix "," table_element
       {
         $$ = WithExtraChildren($1, {$3});
+      }
+    | table_element_list_prefix ","
+      {
+        $$ = WithEndLocation($1, @$);
       }
     ;
 
@@ -2731,9 +2754,9 @@ explain_statement:
     ;
 
 export_data_statement:
-    "EXPORT" "DATA" opt_options_list "AS" query
+    "EXPORT" "DATA" opt_with_connection_clause opt_options_list "AS" query
       {
-        $$ = MAKE_NODE(ASTExportDataStatement, @$, {$3, $5});
+        $$ = MAKE_NODE(ASTExportDataStatement, @$, {$3, $4, $6});
       }
     ;
 
@@ -3216,16 +3239,6 @@ select:
         select->set_distinct($4 == AllOrDistinctKeyword::kDistinct);
         $$ = select;
       }
-    | "SELECT" opt_hint
-      placeholder
-      opt_all_or_distinct
-      opt_select_as_clause select_list_with_trailing_comma "FROM"
-      {
-        // TODO: Consider pointing the error location at the comma
-        // instead of at the FROM.
-        YYERROR_AND_ABORT_AT(@7, "Syntax error: Trailing comma before the "
-                                 "FROM clause is not allowed");
-      }
     ;
 
 // AS STRUCT, AS VALUE, or AS <path expression>. This needs some special
@@ -3342,9 +3355,7 @@ select_list:
       {
         $$ = WithEndLocation($1, @$);
       }
-    ;
-
-select_list_with_trailing_comma:
+    |
     select_list_prefix ","
       {
         $$ = WithEndLocation($1, @$);
@@ -3725,7 +3736,7 @@ opt_with_offset_or_sample_clause:
 
 table_path_expression_base:
     unnest_expression
-    | path_expression { $$ = $1; }
+    | maybe_dashed_path_expression { $$ = $1; }
     | path_expression "["
       {
         YYERROR_AND_ABORT_AT(
@@ -4073,6 +4084,14 @@ with_clause_prefix:
       {
         $$ = WithExtraChildren($1, {$3});
       }
+    ;
+
+opt_with_connection_clause:
+    "WITH" connection_clause
+      {
+        $$ = MAKE_NODE(ASTWithConnectionClause, @$, {$2});
+      }
+    | /* Nothing */ { $$ = nullptr; }
     ;
 
 with_clause_with_trailing_comma:
@@ -4460,7 +4479,7 @@ expression:
                 "Expression to the left of LIKE must be parenthesized");
           }
           auto* binary_expression =
-              MAKE_NODE(ASTBinaryExpression, @2, @3, {$1, $3});
+              MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
           binary_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           binary_expression->set_op(zetasql::ASTBinaryExpression::LIKE);
           $$ = binary_expression;
@@ -4552,7 +4571,7 @@ expression:
                                  "must be parenthesized");
           }
           auto* binary_expression =
-              MAKE_NODE(ASTBinaryExpression, @2, @3, {$1, $3});
+              MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
           binary_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           binary_expression->set_op(zetasql::ASTBinaryExpression::IS);
           $$ = binary_expression;
@@ -4568,7 +4587,7 @@ expression:
                                  "must be parenthesized");
           }
           auto* binary_expression =
-              MAKE_NODE(ASTBinaryExpression, @2, @3, {$1, $3});
+              MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
           binary_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           binary_expression->set_op(zetasql::ASTBinaryExpression::IS);
           $$ = binary_expression;
@@ -4592,7 +4611,7 @@ expression:
                                  "comparison must be parenthesized");
           }
           auto* binary_expression =
-              MAKE_NODE(ASTBinaryExpression, @2, @3, {$1, $3});
+              MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
           binary_expression->set_op($2);
           $$ = binary_expression;
         }
@@ -4606,7 +4625,7 @@ expression:
           YYERROR_UNEXPECTED_AND_ABORT_AT(@3);
         }
         auto* binary_expression =
-            MAKE_NODE(ASTBinaryExpression, @2, @3, {$1, $3});
+            MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
         binary_expression->set_op(
             zetasql::ASTBinaryExpression::BITWISE_OR);
         $$ = binary_expression;
@@ -4621,7 +4640,7 @@ expression:
           YYERROR_UNEXPECTED_AND_ABORT_AT(@3);
         }
         auto* binary_expression =
-            MAKE_NODE(ASTBinaryExpression, @2, @3, {$1, $3});
+            MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
         binary_expression->set_op(
             zetasql::ASTBinaryExpression::BITWISE_XOR);
         $$ = binary_expression;
@@ -4636,9 +4655,24 @@ expression:
           YYERROR_UNEXPECTED_AND_ABORT_AT(@3);
         }
         auto* binary_expression =
-            MAKE_NODE(ASTBinaryExpression, @2, @3, {$1, $3});
+            MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
         binary_expression->set_op(
             zetasql::ASTBinaryExpression::BITWISE_AND);
+        $$ = binary_expression;
+      }
+    | expression "||" expression
+      {
+        // NOT has lower precedence but can be parsed unparenthesized in the
+        // rhs because it is not ambiguous. However, this is not allowed. Other
+        // expressions with lower precedence wouldn't be parsed as children, so
+        // we don't have to check for those.
+        if (IsUnparenthesizedNotExpression($3)) {
+          YYERROR_UNEXPECTED_AND_ABORT_AT(@3);
+        }
+        auto* binary_expression =
+            MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
+        binary_expression->set_op(
+            zetasql::ASTBinaryExpression::CONCAT_OP);
         $$ = binary_expression;
       }
     | expression shift_operator expression %prec "<<"
@@ -4665,7 +4699,7 @@ expression:
           YYERROR_UNEXPECTED_AND_ABORT_AT(@3);
         }
         auto* binary_expression =
-            MAKE_NODE(ASTBinaryExpression, @2, @3, {$1, $3});
+            MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
         binary_expression->set_op($2);
         $$ = binary_expression;
       }
@@ -4679,7 +4713,7 @@ expression:
           YYERROR_UNEXPECTED_AND_ABORT_AT(@3);
         }
         auto* binary_expression =
-            MAKE_NODE(ASTBinaryExpression, @2, @3, {$1, $3});
+            MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
         binary_expression->set_op($2);
         $$ = binary_expression;
       }
@@ -4711,6 +4745,145 @@ path_expression:
     | path_expression "." identifier
       {
         $$ = WithExtraChildren(WithEndLocation($1, @3), {$3});
+      }
+    ;
+
+dashed_identifier:
+    identifier "-" identifier
+      {
+        // a - b
+        if (@1.end.column != @2.begin.column ||
+            @2.end.column != @3.begin.column) {
+          YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
+        }
+        absl::string_view id1 = parser->GetInputText(@1);
+        absl::string_view id2 = parser->GetInputText(@3);
+        if (id1[0] == '`' || id2[0] == '`') {
+          YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
+        }
+        $$ = WithEndLocation(
+          parser->MakeIdentifier(@1, absl::StrCat(id1, "-", id2)), @3);
+      }
+    | dashed_identifier "-" identifier
+      {
+        // a-b - c
+        if (@1.end.column != @2.begin.column ||
+            @2.end.column != @3.begin.column) {
+          YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
+        }
+        absl::string_view id1 = $1->GetAsIdString().ToStringView();
+        absl::string_view id2 = parser->GetInputText(@3);
+        if (id2[0] == '`') {
+          YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
+        }
+        $$ = WithEndLocation(
+          parser->MakeIdentifier(@1, absl::StrCat(id1, "-", id2)), @3);
+      }
+    | identifier "-" INTEGER_LITERAL
+      {
+        // a - 5
+        if (@1.end.column != @2.begin.column ||
+            @2.end.column != @3.begin.column) {
+          YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
+        }
+        absl::string_view id1 = parser->GetInputText(@1);
+        absl::string_view id2 = parser->GetInputText(@3);
+        if (id1[0] == '`') {
+          YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
+        }
+        $$ = WithEndLocation(
+          parser->MakeIdentifier(@1, absl::StrCat(id1, "-", id2)), @3);
+      }
+    | dashed_identifier "-" INTEGER_LITERAL
+      {
+        // a-b - 5
+        if (@1.end.column != @2.begin.column ||
+            @2.end.column != @3.begin.column) {
+          YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
+        }
+        absl::string_view id1 = $1->GetAsIdString().ToStringView();
+        absl::string_view id2 = parser->GetInputText(@3);
+        $$ = WithEndLocation(parser->MakeIdentifier(
+          @1, absl::StrCat(id1, "-", id2)), @3);
+      }
+    | identifier '-' FLOATING_POINT_LITERAL identifier
+      {
+        // a - 1. b
+        if (@1.end.column != @2.begin.column ||
+            @2.end.column != @3.begin.column) {
+          YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
+        }
+        absl::string_view id1 = parser->GetInputText(@1);
+        absl::string_view id2 = parser->GetInputText(@3);
+        absl::string_view id3 = parser->GetInputText(@4);
+        if (id1[0] == '`') {
+          YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
+        }
+        // Here (and below) we need to handle the case where dot is lex'ed as
+        // part of floating number as opposed to path delimiter. To be able to
+        // restore individual parts correctly, we temporarily inject "\001"
+        // which is invalid character in identifier, later we will split on it.
+        // Since we checked that identifiers are already not quoted with "`",
+        // we know that "\001" could not have been part of the text.
+        $$ = WithEndLocation(parser->MakeIdentifier(
+          @1, absl::StrCat(id1, "-", id2, "\001", id3)), @4);
+      }
+    | dashed_identifier '-' FLOATING_POINT_LITERAL identifier
+      {
+        // a-b - 1. c
+        if (@1.end.column != @2.begin.column ||
+            @2.end.column != @3.begin.column) {
+          YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
+        }
+        absl::string_view id1 = $1->GetAsIdString().ToStringView();
+        absl::string_view id2 = parser->GetInputText(@3);
+        absl::string_view id3 = parser->GetInputText(@4);
+        $$ = WithEndLocation(parser->MakeIdentifier(
+          @1, absl::StrCat(id1, "-", id2, "\001", id3)), @4);
+      }
+
+dashed_path_expression:
+    dashed_identifier
+      {
+        // Handling the "a-1.b" case, where "1." was lexed as floating point
+        // literal, and we built "a-1.!b" path. Now go back and split on "\001"
+        // and restore "a-1" and "b" parts of the path.
+        absl::string_view id = $1->GetAsIdString().ToStringView();
+        std::vector<std::string> parts = absl::StrSplit(id, "\001");
+        if (absl::EndsWith(parts[0], ".")) {
+          parts[0] = parts[0].substr(0, parts[0].size() - 1);
+        }
+        auto path = MAKE_NODE(
+          ASTPathExpression, @$, {parser->MakeIdentifier(@1, parts[0])});
+        for (int i = 1; i < parts.size(); i++) {
+          path = WithExtraChildren(
+            WithEndLocation(path, @1), {parser->MakeIdentifier(@1, parts[i])});
+        }
+        $$ = path;
+      }
+    | dashed_path_expression "." identifier
+      {
+        $$ = WithExtraChildren(WithEndLocation($1, @3), {$3});
+      }
+    ;
+
+maybe_dashed_path_expression:
+    path_expression { $$ = $1; }
+    | dashed_path_expression
+      {
+        if (parser->language_options() != nullptr &&
+            parser->language_options()->LanguageFeatureEnabled(
+               zetasql::FEATURE_V_1_3_ALLOW_DASHES_IN_TABLE_NAME)) {
+          $$ = $1;
+        } else {
+          YYERROR_AND_ABORT_AT(
+              @1,
+              absl::StrCat(
+                "Syntax error: Table name contains '-' character. "
+                "It needs to be quoted: ",
+                zetasql::ToIdentifierLiteral(
+                  parser->GetInputText(@1), false)));
+        }
       }
     ;
 
@@ -5986,7 +6159,7 @@ insert_statement_prefix:
             ASTInsertStatement::kSeenOrIgnoreReplaceUpdate);
         $$ = insert;
       }
-   | insert_statement_prefix "INTO" generalized_path_expression
+   | insert_statement_prefix "INTO" maybe_dashed_generalized_path_expression
       {
         zetasql::ASTInsertStatement* insert = $1;
         if (insert->parse_progress() >= ASTInsertStatement::kSeenTargetPath) {
@@ -6249,8 +6422,9 @@ insert_values_list:
     ;
 
 delete_statement:
-    "DELETE" opt_from_keyword generalized_path_expression opt_as_alias
-    opt_with_offset_and_alias opt_where_expression opt_assert_rows_modified
+    "DELETE" opt_from_keyword maybe_dashed_generalized_path_expression
+    opt_as_alias opt_with_offset_and_alias opt_where_expression
+    opt_assert_rows_modified
       {
         $$ = MAKE_NODE(ASTDeleteStatement, @$, {$3, $4, $5, $6, $7});
       }
@@ -6265,16 +6439,16 @@ opt_with_offset_and_alias:
     ;
 
 update_statement:
-    "UPDATE" generalized_path_expression opt_as_alias opt_with_offset_and_alias
-    "SET" update_item_list
-    opt_from_clause opt_where_expression opt_assert_rows_modified
+    "UPDATE" maybe_dashed_generalized_path_expression opt_as_alias
+    opt_with_offset_and_alias "SET" update_item_list opt_from_clause
+    opt_where_expression opt_assert_rows_modified
       {
         $$ = MAKE_NODE(ASTUpdateStatement, @$, {$2, $3, $4, $6, $7, $8, $9});
       }
     ;
 
 truncate_statement:
-    "TRUNCATE" "TABLE" path_expression opt_where_expression
+    "TRUNCATE" "TABLE" maybe_dashed_path_expression opt_where_expression
       {
         $$ = MAKE_NODE(ASTTruncateStatement, @$, {$3, $4});
       }
@@ -6320,6 +6494,30 @@ generalized_path_expression:
         $$ = MAKE_NODE(ASTArrayElement, @2, @4, {$1, $3});
       }
     ;
+
+maybe_dashed_generalized_path_expression:
+  generalized_path_expression { $$ = $1; }
+  // TODO: This is just a regular path expression, not generalized one
+  // it doesn't allow extensions or array elements access. It is OK for now,
+  // since this production is only used in INSERT INTO and UPDATE statements
+  // which don't actually allow extensions or array element access anyway.
+  | dashed_path_expression
+    {
+      if (parser->language_options() != nullptr &&
+          parser->language_options()->LanguageFeatureEnabled(
+             zetasql::FEATURE_V_1_3_ALLOW_DASHES_IN_TABLE_NAME)) {
+        $$ = $1;
+      } else {
+        YYERROR_AND_ABORT_AT(
+            @1,
+            absl::StrCat(
+              "Syntax error: Table name contains '-' character. "
+              "It needs to be quoted: ",
+              zetasql::ToIdentifierLiteral(
+                parser->GetInputText(@1), false)));
+      }
+    }
+  ;
 
 // A "generalized extension path" is similar to a "generalized path expression"
 // in that they contain generalized field accesses. The primary difference is
@@ -6469,7 +6667,7 @@ merge_source:
     ;
 
 merge_statement_prefix:
-  "MERGE" opt_into path_expression opt_as_alias
+  "MERGE" opt_into maybe_dashed_path_expression opt_as_alias
   "USING" merge_source "ON" expression
     {
       $$ = MAKE_NODE(ASTMergeStatement, @$, {$3, $4, $6, $8});
@@ -6564,17 +6762,31 @@ drop_statement:
         drop_row_access_policy->set_is_if_exists($5);
         $$ = drop_row_access_policy;
       }
+    | "DROP" table_or_table_function opt_if_exists maybe_dashed_path_expression
+      {
+        if ($2 == TableOrTableFunctionKeywords::kTableAndFunctionKeywords) {
+          // ZetaSQL does not (yet) support DROP TABLE FUNCTION,
+          // though it should as per a recent spec.  Currently, table/aggregate
+          // functions are dropped via simple DROP FUNCTION statements.
+          YYERROR_AND_ABORT_AT(@2, absl::StrCat(
+            "DROP TABLE FUNCTION is not supported, use DROP FUNCTION ",
+            zetasql::ToIdentifierLiteral(parser->GetInputText(@4), false)));
+        }
+        auto* drop = MAKE_NODE(ASTDropStatement, @$, {$4});
+        drop->set_schema_object_kind(zetasql::SchemaObjectKind::kTable);
+        drop->set_is_if_exists($3);
+        $$ = drop;
+      }
     | "DROP" schema_object_kind opt_if_exists path_expression
       opt_function_parameters
       {
         // This is a DROP <object_type> <object_name> statement.
-        if ($2 == zetasql::SchemaObjectKind::kAggregateFunction ||
-            $2 == zetasql::SchemaObjectKind::kTableFunction) {
-          // ZetaSQL does not (yet) support DROP TABLE|AGGREGATE FUNCTION,
+        if ($2 == zetasql::SchemaObjectKind::kAggregateFunction) {
+          // ZetaSQL does not (yet) support DROP AGGREGATE FUNCTION,
           // though it should as per a recent spec.  Currently, table/aggregate
           // functions are dropped via simple DROP FUNCTION statements.
           YYERROR_AND_ABORT_AT(@2,
-                               "DROP (TABLE|AGGREGATE) FUNCTION is not "
+                               "DROP AGGREGATE FUNCTION is not "
                                "supported, use DROP FUNCTION");
         }
         if ($2 == zetasql::SchemaObjectKind::kFunction) {
@@ -6646,7 +6858,7 @@ opt_execute_into_clause:
 execute_using_argument:
   expression KW_AS identifier
     {
-      auto* alias = MAKE_NODE(ASTAlias, @2, @3, {$3});
+      auto* alias = MAKE_NODE(ASTAlias, @3, @3, {$3});
       $$ = MAKE_NODE(ASTExecuteUsingArgument, @$, {$1, alias});
     }
   | expression
@@ -6825,6 +7037,11 @@ variable_declaration:
     {
       $$ = MAKE_NODE(ASTVariableDeclaration, @$, {$2, $3, $4});
     }
+    |
+    "DECLARE" identifier_list "DEFAULT" expression
+    {
+      $$ = MAKE_NODE(ASTVariableDeclaration, @$, {$2, nullptr, $4});
+    }
     ;
 
 loop_statement:
@@ -6949,6 +7166,8 @@ next_statement_kind_without_hint:
       }
     | "DROP" "ROW" "ACCESS" "POLICY"
       { $$ = zetasql::ASTDropRowAccessPolicyStatement::kConcreteNodeKind; }
+    | "DROP" table_or_table_function
+      { $$ = zetasql::ASTDropStatement::kConcreteNodeKind; }
     | "DROP" schema_object_kind
       {
         switch ($2) {

@@ -617,6 +617,11 @@ public class SimpleCatalog extends Catalog {
     return null;
   }
 
+  public SimpleConnection getConnectionByFullName(String fullName) {
+    // TODO: Add support for Connection in the Java implementation.
+    return null;
+  }
+
   @Override
   protected Procedure getProcedure(String name, FindOptions options) {
     return procedures.get(name.toLowerCase());

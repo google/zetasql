@@ -72,9 +72,24 @@ void GetStringFunctions(TypeFactory* type_factory,
   const FunctionArgumentType::ArgumentCardinality OPTIONAL =
       FunctionArgumentType::OPTIONAL;
 
+  FunctionArgumentTypeOptions concat_option_1;
+  if (options.language_options.LanguageFeatureEnabled(
+          zetasql::FEATURE_V_1_3_CONCAT_MIXED_TYPES)) {
+    concat_option_1.set_allow_coercion_from(&CanStringConcatCoerceFrom);
+  }
+
+  FunctionArgumentTypeOptions concat_option_n;
+  concat_option_n.set_cardinality(REPEATED);
+  if (options.language_options.LanguageFeatureEnabled(
+          zetasql::FEATURE_V_1_3_CONCAT_MIXED_TYPES)) {
+    concat_option_n.set_allow_coercion_from(&CanStringConcatCoerceFrom);
+  }
+
   InsertFunction(
       functions, options, "concat", SCALAR,
-      {{string_type, {string_type, {string_type, REPEATED}}, FN_CONCAT_STRING},
+      {{string_type,
+        {{string_type, concat_option_1}, {string_type, concat_option_n}},
+        FN_CONCAT_STRING},
        {bytes_type, {bytes_type, {bytes_type, REPEATED}}, FN_CONCAT_BYTES}});
 
   InsertFunction(functions, options, "strpos", SCALAR,
@@ -522,6 +537,24 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                    FN_ARRAY_CONCAT}},
                  FunctionOptions().set_pre_resolution_argument_constraint(
                      &CheckArrayConcatArguments));
+
+  // $concat_op ("||"：CONCAT/ARRAY_CONCAT): returns the concatenation of
+  // the inputs.
+  // This function and its signatures are only used during internal resolution,
+  // and that the canonical representations in the ResolvedAST are the
+  // CONCAT/ARRAY_CONCAT function calls based on the types of the arguments.
+  InsertFunction(
+      functions, options, "$concat_op", SCALAR,
+      {{string_type, {string_type, string_type}, FN_CONCAT_OP_STRING},
+       {bytes_type, {bytes_type, bytes_type}, FN_CONCAT_OP_BYTES},
+       {ARG_ARRAY_TYPE_ANY_1,
+        {ARG_ARRAY_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_1},
+        FN_ARRAY_CONCAT_OP}},
+      FunctionOptions()
+          .set_supports_safe_error_mode(false)
+          .set_sql_name("||")
+          .set_get_sql_callback(bind_front(&InfixFunctionSQL, "||")));
+
   // ARRAY_TO_STRING: returns concatentation of elements of the input array.
   InsertFunction(functions, options, "array_to_string", SCALAR,
                  {{string_type,
@@ -683,6 +716,12 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
           &CheckJsonArguments));
   InsertFunction(functions, options, "json_value", SCALAR,
                  {{string_type, {string_type, string_type}, FN_JSON_VALUE}},
+                 FunctionOptions().set_pre_resolution_argument_constraint(
+                     &CheckJsonArguments));
+  InsertFunction(functions, options, "json_extract_array", SCALAR,
+                 {{array_string_type,
+                   {string_type, {string_type, OPTIONAL}},
+                   FN_JSON_EXTRACT_ARRAY}},
                  FunctionOptions().set_pre_resolution_argument_constraint(
                      &CheckJsonArguments));
 

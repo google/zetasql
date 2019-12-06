@@ -81,6 +81,44 @@ class VerifyMaxScriptingDepthVisitor : public NonRecursiveParseTreeVisitor {
       absl::GetFlag(FLAGS_zetasql_scripting_max_nesting_level);
 };
 
+// Visitor to verify that RAISE statements which rethrow an existing exception
+// are used only within an exception handler.
+class ValidateRaiseStatementsVisitor : public NonRecursiveParseTreeVisitor {
+ public:
+  ~ValidateRaiseStatementsVisitor() override {
+    DCHECK_EQ(exception_handler_nesting_level_, 0);
+  }
+
+  zetasql_base::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
+    if (node->IsExpression() || node->IsSqlStatement()) {
+      return VisitResult::Empty();
+    }
+    return VisitResult::VisitChildren(node);
+  }
+
+  zetasql_base::StatusOr<VisitResult> visitASTExceptionHandler(
+      const ASTExceptionHandler* node) override {
+    ++exception_handler_nesting_level_;
+    return VisitResult::VisitChildren(node, [this]() {
+      --exception_handler_nesting_level_;
+      return zetasql_base::OkStatus();
+    });
+  }
+
+  zetasql_base::StatusOr<VisitResult> visitASTRaiseStatement(
+      const ASTRaiseStatement* node) override {
+    if (node->is_rethrow() && exception_handler_nesting_level_ == 0) {
+      return MakeSqlErrorAt(node)
+             << "Cannot re-raise an existing exception outside of an exception "
+                "handler";
+    }
+    return VisitResult::Empty();
+  }
+
+ private:
+  int exception_handler_nesting_level_ = 0;
+};
+
 // Visitor to verify that:
 // 1) Variable declarations occur only at the start of either a BEGIN block or
 //    the entire script.
@@ -384,6 +422,9 @@ zetasql_base::Status ParsedScript::GatherInformationAndRunChecksInternal() {
 
   ValidateVariableDeclarationsVisitor var_decl_visitor(this);
   ZETASQL_RETURN_IF_ERROR(script()->TraverseNonRecursive(&var_decl_visitor));
+
+  ValidateRaiseStatementsVisitor raise_visitor;
+  ZETASQL_RETURN_IF_ERROR(script()->TraverseNonRecursive(&raise_visitor));
 
   // Walk the parse tree, constructing a StatementIndexMap, associating each
   // statement in the script with its index in the child list of the statement's

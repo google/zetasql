@@ -207,6 +207,10 @@ class SQLBuilder : public ResolvedASTVisitor {
   zetasql_base::Status VisitResolvedImportStmt(const ResolvedImportStmt* node) override;
   zetasql_base::Status VisitResolvedModuleStmt(const ResolvedModuleStmt* node) override;
   zetasql_base::Status VisitResolvedAssertStmt(const ResolvedAssertStmt* node) override;
+  zetasql_base::Status VisitResolvedAssignmentStmt(
+      const ResolvedAssignmentStmt* node) override;
+  zetasql_base::Status VisitResolvedExecuteImmediateStmt(
+      const ResolvedExecuteImmediateStmt* node) override;
 
   // Visit methods for types of ResolvedExpr.
   zetasql_base::Status VisitResolvedExpressionColumn(
@@ -343,6 +347,8 @@ class SQLBuilder : public ResolvedASTVisitor {
   // QueryFragment generated.
   zetasql_base::StatusOr<std::unique_ptr<QueryFragment>> ProcessNode(
       const ResolvedNode* node);
+  zetasql_base::StatusOr<std::string> ProcessExecuteImmediateArgument(
+      const ResolvedExecuteImmediateArgument* node);
 
   // Wraps the given <query_expression> corresponding to the scan <node> as a
   // subquery to the from clause, mutating the <query_expression> subsequently.
@@ -498,7 +504,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const std::vector<ResolvedColumn>& insert_column_list) const;
 
   zetasql_base::StatusOr<std::string> ProcessCreateTableStmtBase(
-      const ResolvedCreateTableStmtBase* node, bool process_column_definitions);
+      const ResolvedCreateTableStmtBase* node, bool process_column_definitions,
+      const std::string& table_type);
 
   // Helper function for adding SQL for aggregate and group by lists.
   zetasql_base::Status ProcessAggregateScanBase(
@@ -521,7 +528,17 @@ class SQLBuilder : public ResolvedASTVisitor {
       const std::string& prefix, const std::vector<std::string>& grantee_list,
       const std::vector<std::unique_ptr<const ResolvedExpr>>&
           grantee_expr_list);
-
+  // Helper function to append table_element, including column_schema and
+  // table_constraints, to sql.
+  zetasql_base::Status ProcessTableElementsBase(
+      std::string* sql,
+      const std::vector<std::unique_ptr<const ResolvedColumnDefinition>>&
+          column_definition_list,
+      const ResolvedPrimaryKey* resolved_primary_key,
+      const std::vector<std::unique_ptr<const ResolvedForeignKey>>&
+          foreign_key_list,
+      const std::vector<std::unique_ptr<const ResolvedCheckConstraint>>&
+          check_constraint_list);
   // A stack of QueryFragment kept to parallel the Visit call stack. Stores
   // return values of each Visit call which are then popped/used by the caller
   // of Accept.
@@ -617,6 +634,9 @@ class SQLBuilder : public ResolvedASTVisitor {
 
   // Options for building SQL.
   SQLBuilderOptions options_;
+
+  // True if we are unparsing the LHS of a SET statement.
+  bool in_set_lhs_ = false;
 };
 
 }  // namespace zetasql

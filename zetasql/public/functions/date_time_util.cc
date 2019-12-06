@@ -2303,29 +2303,55 @@ zetasql_base::Status ExtractFromDate(DateTimestampPart part, int32_t date,
   if (!IsValidDate(date)) {
     return MakeEvalError() << "Invalid date value: " << date;
   }
-  // Treat it as a timestamp at midnight on that date and invoke the timestamp
-  // extract function.
-  int64_t date_timestamp = static_cast<int64_t>(date) * kNaiveNumSecondsPerDay;
-  absl::TimeZone timezone;
-  ZETASQL_RETURN_IF_ERROR(MakeTimeZone("+0", &timezone));
+  absl::CivilDay day = EpochDaysToCivilDay(date);
   switch (part) {
     case YEAR:
-    case ISOYEAR:
+      // Year for valid dates fits into int32
+      *output = static_cast<int32_t>(day.year());
+      break;
+    case QUARTER:
+      *output = (day.month() - 1) / 3 + 1;
+      break;
     case MONTH:
+      *output = day.month();
+      break;
     case DAY:
+      *output = day.day();
+      break;
+    case ISOYEAR:
+      // Year for valid dates fits into int32
+      *output = static_cast<int32_t>(GetIsoYear(day));
+      break;
     case WEEK:
     case WEEK_MONDAY:
     case WEEK_TUESDAY:
     case WEEK_WEDNESDAY:
     case WEEK_THURSDAY:
     case WEEK_FRIDAY:
-    case WEEK_SATURDAY:
+    case WEEK_SATURDAY: {
+      const absl::CivilDay first_calendar_day_of_year(day.year(), 1, 1);
+      ZETASQL_ASSIGN_OR_RETURN(const absl::Weekday weekday,
+                       GetFirstWeekDayOfWeek(part));
+      const absl::CivilDay effective_first_day_of_year =
+          NextWeekdayOrToday(first_calendar_day_of_year, weekday);
+      if (day < effective_first_day_of_year) {
+        *output = 0;
+      } else {
+        // cast is safe, guaranteed to be less than 52.
+        *output =
+            static_cast<int32_t>(((day - effective_first_day_of_year) / 7) + 1);
+      }
+      break;
+    }
     case ISOWEEK:
+      *output = GetIsoWeek(day);
+      break;
     case DAYOFWEEK:
+      *output = DayOfWeekIntegerSunToSat1To7(absl::GetWeekday(day));
+      break;
     case DAYOFYEAR:
-    case QUARTER:
-      return ExtractFromTimestampInternal(
-          part, MakeTime(date_timestamp, kSeconds), timezone, output);
+      *output = absl::GetYearDay(day);
+      break;
     case DATE:
     case HOUR:
     case MINUTE:

@@ -229,7 +229,7 @@ You can construct NUMERIC literals using the
 
 Examples:
 
-```
+```sql
 SELECT NUMERIC '0';
 SELECT NUMERIC '123456';
 SELECT NUMERIC '-3.14';
@@ -243,7 +243,7 @@ SELECT NUMERIC '-9.876e-3';
 
 Syntax options:
 
-```
+```sql
 [+-]DIGITS.[DIGITS][e[+-]DIGITS]
 [DIGITS].DIGITS[e[+-]DIGITS]
 DIGITSe[+-]DIGITS
@@ -288,7 +288,7 @@ ZetaSQL cannot infer a type, the default type `ARRAY<INT64>` is used.
 
 Examples:
 
-```
+```sql
 [1, 2, 3]
 ['x', 'y', 'xy']
 ARRAY[1, 2, 3]
@@ -301,7 +301,7 @@ ARRAY<int64>[]
 
 Syntax:
 
-```
+```sql
 (elem[, elem...])
 ```
 
@@ -333,7 +333,7 @@ matching the types of the input expressions.
 
 Syntax:
 
-```
+```sql
 DATE 'YYYY-M[M]-D[D]'
 ```
 
@@ -342,14 +342,14 @@ years 1 and 9999, inclusive. Dates outside of this range are invalid.
 
 For example, the following date literal represents September 27, 2014:
 
-```
+```sql
 DATE '2014-09-27'
 ```
 
 String literals in canonical date format also implicitly coerce to DATE type
 when used where a DATE-type expression is expected. For example, in the query
 
-```
+```sql
 SELECT * FROM foo WHERE date_col = "2014-09-27"
 ```
 
@@ -360,7 +360,7 @@ the string literal `"2014-09-27"` will be coerced to a date literal.
 ### Time Literals
 Syntax:
 
-```
+```sql
 TIME '[H]H:[M]M:[S]S[.DDDDDD]]'
 ```
 
@@ -369,14 +369,14 @@ the canonical time format, enclosed in single quotation marks.
 
 For example, the following time represents 12:30 p.m.:
 
-```
+```sql
 TIME '12:30:00.45'
 ```
 
 ### DATETIME Literals
 Syntax:
 
-```
+```sql
 DATETIME 'YYYY-[M]M-[D]D [[H]H:[M]M:[S]S[.DDDDDD]]'
 ```
 
@@ -386,7 +386,7 @@ conforms to the canonical DATETIME format, enclosed in single quotation marks.
 For example, the following DATETIME represents 12:30 p.m. on September 27,
 2014:
 
-```
+```sql
 DATETIME '2014-09-27 12:30:00.45'
 ```
 
@@ -398,7 +398,7 @@ DATETIME literal when used where a DATETIME expression is expected.
 
 For example:
 
-```
+```sql
 SELECT * FROM foo
 WHERE datetime_col = "2014-09-27 12:30:00.45"
 ```
@@ -410,8 +410,8 @@ DATETIME literal.
 
 Syntax:
 
-```
-TIMESTAMP 'YYYY-[M]M-[D]D [[H]H:[M]M:[S]S[.DDDDDD]] [timezone]'
+```sql
+TIMESTAMP 'YYYY-[M]M-[D]D [[H]H:[M]M:[S]S[.DDDDDD] [timezone]]`
 ```
 
 Timestamp literals contain the `TIMESTAMP` keyword and a string literal that
@@ -422,7 +422,7 @@ Timestamps outside of this range are invalid.
 
 A timestamp literal can include a numerical suffix to indicate the time zone:
 
-```
+```sql
 TIMESTAMP '2014-09-27 12:30:00.45-08'
 ```
 
@@ -432,7 +432,7 @@ which is implementation defined, is used.
 For example, the following timestamp represents 12:30 p.m. on September 27,
 2014, using the which is implementation defined time zone:
 
-```
+```sql
 TIMESTAMP '2014-09-27 12:30:00.45'
 ```
 
@@ -444,7 +444,7 @@ timestamp expression is expected.  For example, in the following query, the
 string literal `"2014-09-27 12:30:00.45 America/Los_Angeles"` is coerced
 to a timestamp literal.
 
-```
+```sql
 SELECT * FROM foo
 WHERE timestamp_col = "2014-09-27 12:30:00.45 America/Los_Angeles"
 ```
@@ -462,7 +462,7 @@ format, which represents the offset from Coordinated Universal Time (UTC).
 
 Format:
 
-```
+```sql
 (+|-)H[H][:M[M]]
 ```
 
@@ -488,7 +488,7 @@ report the same time during a given part of the year. For example, `America/Los_
 
 Example:
 
-```
+```sql
 TIMESTAMP '2014-09-27 12:30:00 America/Los_Angeles'
 TIMESTAMP '2014-09-27 12:30:00 America/Argentina/Buenos_Aires'
 ```
@@ -710,14 +710,14 @@ Some interactive tools require statements to have a terminating semicolon.
 
 Syntax:
 
-```
+```sql
 @param
 ```
 
 Query parameters are denoted using identifiers preceded by the @ character. You
 define the parameter outside of the query statement.
 
-You can use query parameters to substitution arbitrary expressions. However,
+You can use query parameters to substitute arbitrary expressions. However,
 query parameters cannot be used to substitute identifiers, column names, table
 names, or other parts of the query itself.
 
@@ -728,7 +728,7 @@ but in those cases, you must define the parameter type at query analysis time.
 
 Example:
 
-```
+```sql
 SELECT * FROM Roster WHERE LastName = @myparam
 ```
 
@@ -739,7 +739,7 @@ returns all rows where `LastName` is equal to the value of query parameter `mypa
 
 Syntax:
 
-```
+```sql
 @{ [engine_name.]hint_name = value, ... }
 ```
 
@@ -761,22 +761,22 @@ Use a single-line comment if you want the comment to appear on a line by itself.
 
 **Examples**
 
-```
+```sql
 # this is a single-line comment
 SELECT book FROM library;
 ```
 
-```
+```sql
 -- this is a single-line comment
 SELECT book FROM library;
 ```
 
-```
+```sql
 /* this is a single-line comment */
 SELECT book FROM library;
 ```
 
-```
+```sql
 SELECT book FROM library
 /* this is a single-line comment */
 WHERE book = "Ulysses";
@@ -790,19 +790,19 @@ right of a statement.
 
 **Examples**
 
-```
+```sql
 SELECT book FROM library; # this is an inline comment
 ```
 
-```
+```sql
 SELECT book FROM library; -- this is an inline comment
 ```
 
-```
+```sql
 SELECT book FROM library; /* this is an inline comment */
 ```
 
-```
+```sql
 SELECT book FROM library /* this is an inline comment */ WHERE book = "Ulysses";
 ```
 
@@ -813,7 +813,7 @@ Nested multiline comments are not supported.
 
 **Examples**
 
-```
+```sql
 SELECT book FROM library
 /*
   This is a multiline comment
@@ -822,7 +822,7 @@ SELECT book FROM library
 WHERE book = "Ulysses";
 ```
 
-```
+```sql
 SELECT book FROM library
 /* this is a multiline comment
 on two lines */

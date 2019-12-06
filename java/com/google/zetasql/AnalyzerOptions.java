@@ -60,7 +60,6 @@ public class AnalyzerOptions implements Serializable {
     builder.setParameterMode(ParameterMode.PARAMETER_NAMED);
     builder.setErrorMessageMode(ErrorMessageMode.ERROR_MESSAGE_ONE_LINE);
     builder.setStatementContext(StatementContext.CONTEXT_DEFAULT);
-    builder.setStrictValidationOnColumnReplacements(false);
     builder.setPreserveColumnAliases(true);
   }
 
@@ -151,11 +150,11 @@ public class AnalyzerOptions implements Serializable {
   public Map<String, Type> getExpressionColumns() {
     return ImmutableMap.copyOf(expressionColumns);
   }
-  
+
   public void addDdlPseudoColumn(String name, Type type) {
     ddlPseudoColumns.put(name, type);
   }
-  
+
   public Map<String, Type> getDdlPseudoColumns() {
     return ImmutableMap.copyOf(ddlPseudoColumns);
   }
@@ -252,14 +251,6 @@ public class AnalyzerOptions implements Serializable {
     return builder.getParameterMode();
   }
 
-  public void setStrictValidationOnColumnReplacements(boolean value) {
-    builder.setStrictValidationOnColumnReplacements(value);
-  }
-
-  public boolean getStrictValidationOnColumnReplacements() {
-    return builder.getStrictValidationOnColumnReplacements();
-  }
-
   public void setPreserveColumnAliases(boolean preserveColumnAliases) {
     builder.setPreserveColumnAliases(preserveColumnAliases);
   }
@@ -279,8 +270,6 @@ public class AnalyzerOptions implements Serializable {
     options.setRecordParseLocations(proto.getRecordParseLocations());
     options.setAllowUndeclaredParameters(proto.getAllowUndeclaredParameters());
     options.setParameterMode(proto.getParameterMode());
-    options.setStrictValidationOnColumnReplacements(
-        proto.getStrictValidationOnColumnReplacements());
     options.setPreserveColumnAliases(proto.getPreserveColumnAliases());
 
     if (proto.hasInScopeExpressionColumn()) {

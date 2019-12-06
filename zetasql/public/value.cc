@@ -1281,7 +1281,7 @@ std::string Value::DebugString(bool verbose) const {
     const Value* value = stack.top();
     stack.pop();
     inner_values.push_back(value);
-    if (value->type_kind_ != kInvalidTypeKind && !value->is_null()) {
+    if (value->is_valid() && !value->is_null()) {
       switch (value->type_kind()) {
         case TYPE_STRUCT: {
           const StructType* struct_type = value->type()->AsStruct();

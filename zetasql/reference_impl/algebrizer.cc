@@ -478,8 +478,10 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeBetween(
   return let_expr;
 }
 
-zetasql_base::StatusOr<std::unique_ptr<AggregateArg>> Algebrizer::AlgebrizeAggregateFn(
-    const VariableId& variable, const ResolvedExpr* expr) {
+zetasql_base::StatusOr<std::unique_ptr<AggregateArg>>
+Algebrizer::AlgebrizeAggregateFn(
+    const VariableId& variable,
+    const ResolvedExpr* expr) {
   ZETASQL_RET_CHECK(expr->node_kind() == RESOLVED_AGGREGATE_FUNCTION_CALL ||
             expr->node_kind() == RESOLVED_ANALYTIC_FUNCTION_CALL)
       << expr->node_kind_string();
@@ -493,10 +495,11 @@ zetasql_base::StatusOr<std::unique_ptr<AggregateArg>> Algebrizer::AlgebrizeAggre
                      AlgebrizeExpression(argument_expr));
     arguments.push_back(std::move(argument));
   }
+
   const Type* type = aggregate_function->type();
   if (!aggregate_function->function()->IsZetaSQLBuiltin()) {
     return ::zetasql_base::InvalidArgumentErrorBuilder()
-           << "User-defined aggregate functions are unsupported: " << name;
+        << "User-defined aggregate functions are unsupported: " << name;
   }
 
   FunctionKind kind;
@@ -583,15 +586,14 @@ zetasql_base::StatusOr<std::unique_ptr<AggregateArg>> Algebrizer::AlgebrizeAggre
   switch (kind) {
     case FunctionKind::kCorr:
     case FunctionKind::kCovarPop:
-    case FunctionKind::kCovarSamp: {
+    case FunctionKind::kCovarSamp:
       function = absl::make_unique<BinaryStatFunction>(kind, type, input_type);
       break;
-      default:
-        function = absl::make_unique<BuiltinAggregateFunction>(
-            kind, type, num_input_fields, input_type,
-            IgnoresNullArguments(aggregate_function));
-        break;
-    }
+    default:
+      function = absl::make_unique<BuiltinAggregateFunction>(
+          kind, type, num_input_fields, input_type,
+          IgnoresNullArguments(aggregate_function));
+      break;
   }
 
   const AggregateArg::Distinctness distinctness =
@@ -2257,9 +2259,8 @@ Algebrizer::ApplyAlgebrizedFilterConjuncts(
 }
 
 zetasql_base::StatusOr<std::unique_ptr<AggregateOp>>
-Algebrizer::AlgebrizeAggregateScanBase(
-    const ResolvedAggregateScanBase* aggregate_scan,
-    bool allow_unused_columns) {
+Algebrizer::AlgebrizeAggregateScan(
+    const ResolvedAggregateScan* aggregate_scan) {
   // Algebrize the relational input of the aggregate.
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> input,
                    AlgebrizeScan(aggregate_scan->input_scan()));
@@ -2287,29 +2288,23 @@ Algebrizer::AlgebrizeAggregateScanBase(
   for (const std::unique_ptr<const ResolvedComputedColumn>& agg_expr :
        aggregate_scan->aggregate_list()) {
     const ResolvedColumn& column = agg_expr->column();
-    if (!allow_unused_columns) {
-      // Sanity check that all aggregate functions appear in the output column
-      // list, so that we don't accidentally return an aggregate function that
-      // the analyzer pruned from the scan. (If it did that, it should have
-      // pruned the aggregate function as well.)
-      ZETASQL_RET_CHECK(output_columns.contains(column)) << column.DebugString();
-    }
+    // Sanity check that all aggregate functions appear in the output column
+    // list, so that we don't accidentally return an aggregate function that
+    // the analyzer pruned from the scan. (If it did that, it should have
+    // pruned the aggregate function as well.)
+    ZETASQL_RET_CHECK(output_columns.contains(column)) << column.DebugString();
 
     // Add the aggregate function to the output.
     const VariableId agg_variable_name =
         column_to_variable_->AssignNewVariableToColumn(&column);
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AggregateArg> agg,
-                     AlgebrizeAggregateFn(agg_variable_name, agg_expr->expr()));
+                     AlgebrizeAggregateFn(
+                         agg_variable_name,
+                         agg_expr->expr()));
     aggregators.push_back(std::move(agg));
   }
   return AggregateOp::Create(std::move(keys), std::move(aggregators),
                              std::move(input));
-}
-
-zetasql_base::StatusOr<std::unique_ptr<AggregateOp>> Algebrizer::AlgebrizeAggregateScan(
-    const ResolvedAggregateScan* aggregate_scan) {
-  return AlgebrizeAggregateScanBase(aggregate_scan,
-                                    /*allow_unused_columns=*/false);
 }
 
 zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeAnalyticScan(
@@ -2615,7 +2610,9 @@ Algebrizer::AlgebrizeAnalyticFunctionCall(
 
   if (analytic_function_call->function()->mode() == Function::AGGREGATE) {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AggregateArg> aggregate_arg,
-                     AlgebrizeAggregateFn(variable, analytic_function_call));
+                     AlgebrizeAggregateFn(
+                         variable,
+                         analytic_function_call));
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AnalyticArg> analytic_arg,
                      AggregateAnalyticArg::Create(
                          std::move(window_frame), std::move(aggregate_arg),

@@ -627,8 +627,8 @@ ZetaSQL provides the following additional conversion functions:
 + [TIME functions][con-rules-link-to-time-functions]
 + [TIMESTAMP functions][con-rules-link-to-timestamp-functions]
 
-[con-rules-link-to-literal-coercion]: #literal-coercion
-[con-rules-link-to-parameter-coercion]: #parameter-coercion
+[con-rules-link-to-literal-coercion]: #literal_coercion
+[con-rules-link-to-parameter-coercion]: #parameter_coercion
 [con-rules-link-to-time-zones]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time-zones
 
 [con-rules-link-to-safe-convert-bytes-to-string]: https://github.com/google/zetasql/blob/master/docs/string_functions.md#safe_convert_bytes_to_string

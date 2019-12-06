@@ -34,6 +34,7 @@ cc_library(
         "//zetasql/reference_impl:algebrizer",
         "//zetasql/reference_impl:evaluation",
         "//zetasql/resolved_ast",
+        "@com_google_absl//absl/strings",
     ],
 )
 

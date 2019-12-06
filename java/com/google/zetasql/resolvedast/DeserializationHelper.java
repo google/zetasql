@@ -21,6 +21,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.zetasql.Connection;
+import com.google.zetasql.ConnectionRefProto;
 import com.google.zetasql.Constant;
 import com.google.zetasql.ConstantRefProto;
 import com.google.zetasql.FieldDescriptorRefProto;
@@ -142,6 +144,13 @@ public final class DeserializationHelper {
     return checkNotNull(
         catalog.getModelById(proto.getSerializationId()),
         "Could not find model '%s' in catalog.",
+        proto.getName());
+  }
+
+  Connection deserialize(ConnectionRefProto proto) {
+    return checkNotNull(
+        catalog.getConnectionByFullName(proto.getFullName()),
+        "Could not find connection '%s' in catalog.",
         proto.getName());
   }
 

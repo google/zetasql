@@ -1029,29 +1029,88 @@ void GetStatisticalFunctions(TypeFactory* type_factory,
                              const ZetaSQLBuiltinFunctionOptions& options,
                              NameToFunctionMap* functions) {
   const Type* double_type = type_factory->get_double();
+  const Type* numeric_type = type_factory->get_numeric();
   const Function::Mode AGGREGATE = Function::AGGREGATE;
 
-  // Support statistical finctions:
+  FunctionSignatureOptions has_numeric_type_argument;
+  has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
+
+  // Support statistical functions:
   // CORR, COVAR_POP, COVAR_SAMP,
   // STDDEV_POP, STDDEV_SAMP, STDDEV (alias for STDDEV_SAMP),
   // VAR_POP, VAR_SAMP, VARIANCE (alias for VAR_SAMP)
   // in both modes: aggregate and analytic.
-  InsertFunction(functions, options, "corr", AGGREGATE,
-                 {{double_type, {double_type, double_type}, FN_CORR}});
-  InsertFunction(functions, options, "covar_pop", AGGREGATE,
-                 {{double_type, {double_type, double_type}, FN_COVAR_POP}});
-  InsertFunction(functions, options, "covar_samp", AGGREGATE,
-                 {{double_type, {double_type, double_type}, FN_COVAR_SAMP}});
-  InsertFunction(functions, options, "stddev_pop", AGGREGATE,
-                 {{double_type, {double_type}, FN_STDDEV_POP}});
-  InsertFunction(functions, options, "stddev_samp", AGGREGATE,
-                 {{double_type, {double_type}, FN_STDDEV_SAMP}},
-                 FunctionOptions().set_alias_name("stddev"));
-  InsertFunction(functions, options, "var_pop", AGGREGATE,
-                 {{double_type, {double_type}, FN_VAR_POP}});
-  InsertFunction(functions, options, "var_samp", AGGREGATE,
-                 {{double_type, {double_type}, FN_VAR_SAMP}},
-                 FunctionOptions().set_alias_name("variance"));
+  // Enable the language feature to have signatures with numeric input.
+  // Binary functions
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_NUMERIC_COVAR_CORR_SIGNATURES)) {
+    InsertFunction(functions, options, "corr", AGGREGATE,
+                   {{double_type, {double_type, double_type}, FN_CORR}});
+    InsertFunction(functions, options, "covar_pop", AGGREGATE,
+                   {{double_type, {double_type, double_type}, FN_COVAR_POP}});
+    InsertFunction(functions, options, "covar_samp", AGGREGATE,
+                   {{double_type, {double_type, double_type}, FN_COVAR_SAMP}});
+  } else {
+    InsertFunction(functions, options, "corr", AGGREGATE,
+                   {{double_type,
+                     {numeric_type, numeric_type},
+                     FN_CORR_NUMERIC,
+                     has_numeric_type_argument},
+                    {double_type, {double_type, double_type}, FN_CORR}});
+    InsertFunction(functions, options, "covar_pop", AGGREGATE,
+                   {{double_type,
+                     {numeric_type, numeric_type},
+                     FN_COVAR_POP_NUMERIC,
+                     has_numeric_type_argument},
+                    {double_type, {double_type, double_type}, FN_COVAR_POP}});
+    InsertFunction(functions, options, "covar_samp", AGGREGATE,
+                   {{double_type,
+                     {numeric_type, numeric_type},
+                     FN_COVAR_SAMP_NUMERIC,
+                     has_numeric_type_argument},
+                    {double_type, {double_type, double_type}, FN_COVAR_SAMP}});
+  }
+  // Unary functions
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_NUMERIC_VARIANCE_STDDEV_SIGNATURES)) {
+    InsertFunction(functions, options, "stddev_pop", AGGREGATE,
+                   {{double_type, {double_type}, FN_STDDEV_POP}});
+    InsertFunction(functions, options, "stddev_samp", AGGREGATE,
+                   {{double_type, {double_type}, FN_STDDEV_SAMP}},
+                   FunctionOptions().set_alias_name("stddev"));
+    InsertFunction(functions, options, "var_pop", AGGREGATE,
+                   {{double_type, {double_type}, FN_VAR_POP}});
+    InsertFunction(functions, options, "var_samp", AGGREGATE,
+                   {{double_type, {double_type}, FN_VAR_SAMP}},
+                   FunctionOptions().set_alias_name("variance"));
+  } else {
+    InsertFunction(functions, options, "stddev_pop", AGGREGATE,
+                   {{double_type,
+                     {numeric_type},
+                     FN_STDDEV_POP_NUMERIC,
+                     has_numeric_type_argument},
+                    {double_type, {double_type}, FN_STDDEV_POP}});
+    InsertFunction(functions, options, "stddev_samp", AGGREGATE,
+                   {{double_type,
+                     {numeric_type},
+                     FN_STDDEV_SAMP_NUMERIC,
+                     has_numeric_type_argument},
+                    {double_type, {double_type}, FN_STDDEV_SAMP}},
+                   FunctionOptions().set_alias_name("stddev"));
+    InsertFunction(functions, options, "var_pop", AGGREGATE,
+                   {{double_type,
+                     {numeric_type},
+                     FN_VAR_POP_NUMERIC,
+                     has_numeric_type_argument},
+                    {double_type, {double_type}, FN_VAR_POP}});
+    InsertFunction(functions, options, "var_samp", AGGREGATE,
+                   {{double_type,
+                     {numeric_type},
+                     FN_VAR_SAMP_NUMERIC,
+                     has_numeric_type_argument},
+                    {double_type, {double_type}, FN_VAR_SAMP}},
+                   FunctionOptions().set_alias_name("variance"));
+  }
 }
 
 void GetAnalyticFunctions(TypeFactory* type_factory,

@@ -443,6 +443,10 @@ contains an array before the end of the path.</p>
 To work around this, wrap the path using <code>UNNEST</code>, or use the
 fully-qualified path.</p>
 
+<p class="note">Note: If a path has more than one name, and it matches a field
+name, it is interpreted as a field name. To force the path to be interpreted as
+a table name, wrap the path using <code>`</code>. </p>
+
 #### UNNEST
 
 The `UNNEST` operator takes an `ARRAY` and returns a
@@ -629,7 +633,7 @@ subqueries.
 
 There are two types of subquery:
 
-+  [Expression Subqueries](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#expression-subqueries),
++  [Expression Subqueries](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#expression_subqueries),
    which you can use in a query wherever expressions are valid. Expression
    subqueries return a single value.
 +  Table subqueries, which you can use only in a `FROM` clause. The outer
@@ -791,10 +795,11 @@ without actually calculating the Cartesian product.
 
 ### CROSS JOIN
 
-`CROSS JOIN` returns the Cartesian product of the two `from_item`s. In
-other words, it retains all rows from both `from_item`s and combines each
-row from the first `from_item`s with each row from the second
-`from_item`s.
+`CROSS JOIN` returns the Cartesian product of the two `from_item`s. In other
+words, it combines each row from the first `from_item` with each row from the
+second `from_item`. If there are *M* rows from the first and *N* rows from the
+second, the result is *M* * *N* rows. Note that if either `from_item` has zero
+rows, the result is zero rows.
 
 **Comma cross joins**
 
@@ -1572,6 +1577,20 @@ queries (to the left vs. right of the `INTERSECT` operator) does not matter.
 The `EXCEPT` operator returns rows from the left input query that are
 not present in the right input query.
 
+Example:
+
+```sql
+SELECT * FROM UNNEST(ARRAY<int64>[1, 2, 3]) AS number
+EXCEPT DISTINCT SELECT 1;
+
++--------+
+| number |
++--------+
+| 2      |
+| 3      |
++--------+
+```
+
 <a id="limit-clause_and_offset_clause"></a>
 ## LIMIT clause and OFFSET clause
 
@@ -1662,7 +1681,7 @@ FROM
     SELECT * FROM q1)  # q1 resolves to the third inner WITH subquery.
 ```
 
-ZetaSQL does not support `WITH RECURSIVE`.
+NOTE: ZetaSQL does not support `WITH RECURSIVE`.
 
 <a name="using_aliases"></a>
 ## Aliases

@@ -16,9 +16,17 @@ This codebase is being open sourced in multiple phases:
 1. Parser and Analyzer **Complete**
    - Initial release includes only a subset of tests
 2. Reference Implementation **In Progress**
+   - Base capability **Complete**
+   - Function library **In Progress**
 3. Compliance Tests
    - includes framework for validating compliance of arbitrary engines
 4. Misc tooling
+
+Multiplatform support is planned for the following platforms:
+
+ - Linux (Ubuntu 1804 is our reference platform, but others may work).
+ - MacOS (versions TDB)
+ - Windows (version TDB)
 
 Until all this code is released, we cannot provide any guarantees of API
 stability and cannot accept contributions. We will also be releasing more
@@ -35,10 +43,14 @@ debugging purposes only and may change, stop working or be removed at any time.
 
 ## How to Build
 
-ZetaSQL uses [bazel](https://bazel.build) for building and
-dependency resolution. After installing bazel (version >=0.25.3), simply run:
+ZetaSQL uses [bazel](https://bazel.build) for building and dependency
+resolution. After installing bazel (we maintain support for 1.0,
+but other versions may work), simply run:
 
 ```bazel build ...```
+
+## How to add as a Dependency in bazel
+See the (WORKSPACE) file, as it is a little unusual.
 
 ### With docker
  TODO: Add docker build script.

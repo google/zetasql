@@ -69,6 +69,10 @@ class ProtoHelperTest : public ::testing::Test {
         "zetasql/testdata/bad_test_schema.proto",
         "zetasql/testdata/bad_extension_schema.proto",
     };
+  // Support both sides of --noincompatible_generated_protos_in_virtual_imports.
+    source_tree_.MapPath(
+        "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_protobuf",
+            "_virtual_imports", "descriptor_proto"));
     source_tree_.MapPath(
         "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_protobuf"));
     source_tree_.MapPath(

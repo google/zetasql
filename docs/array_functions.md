@@ -494,8 +494,7 @@ inputs:
   
    `MILLISECOND`,
   
-   `SECOND`,
-  `MINUTE`, `HOUR`, or `DAY`.
+  `SECOND`, `MINUTE`, `HOUR`, or `DAY`.
 
 The `step_expression` parameter determines the increment used to generate
 timestamps.

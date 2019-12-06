@@ -177,8 +177,8 @@ zetasql_base::Status Resolver::ResolveDeleteStatementImpl(
   std::unique_ptr<const ResolvedExpr> resolved_where_expr;
   ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_statement->where(), scope,
                                     "WHERE clause", &resolved_where_expr));
-  ZETASQL_RETURN_IF_ERROR(CheckIsBoolExpr(ast_statement->where(), "WHERE clause",
-                                  &resolved_where_expr));
+  ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(
+      ast_statement->where(), "WHERE clause", &resolved_where_expr));
 
   std::unique_ptr<const ResolvedAssertRowsModified>
       resolved_assert_rows_modified;
@@ -212,8 +212,8 @@ zetasql_base::Status Resolver::ResolveTruncateStatement(
   if (ast_statement->where() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_statement->where(), &truncate_scope,
                                       "WHERE clause", &resolved_where_expr));
-    ZETASQL_RETURN_IF_ERROR(CheckIsBoolExpr(ast_statement->where(), "WHERE clause",
-                                    &resolved_where_expr));
+    ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(
+        ast_statement->where(), "WHERE clause", &resolved_where_expr));
   }
 
   *output = MakeResolvedTruncateStmt(std::move(resolved_table_scan),
@@ -1523,8 +1523,8 @@ zetasql_base::Status Resolver::ResolveUpdateStatementImpl(
   std::unique_ptr<const ResolvedExpr> resolved_where_expr;
   ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_statement->where(), update_scope,
                                     "UPDATE scope", &resolved_where_expr));
-  ZETASQL_RETURN_IF_ERROR(CheckIsBoolExpr(ast_statement->where(), "WHERE clause",
-                                  &resolved_where_expr));
+  ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(
+      ast_statement->where(), "WHERE clause", &resolved_where_expr));
 
   std::unique_ptr<const ResolvedAssertRowsModified>
       resolved_assert_rows_modified;
@@ -1597,9 +1597,9 @@ zetasql_base::Status Resolver::ResolveMergeStatement(
   ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(statement->merge_condition(),
                                     all_scope.get(), "merge condition",
                                     &resolved_merge_condition_expr));
-  ZETASQL_RETURN_IF_ERROR(CheckIsBoolExpr(statement->merge_condition(),
-                                  "merge condition",
-                                  &resolved_merge_condition_expr));
+  ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(
+      statement->merge_condition(), "merge condition",
+      &resolved_merge_condition_expr));
 
   IdStringHashMapCase<ResolvedColumn> target_table_columns;
   for (const ResolvedColumn& column :
@@ -1663,9 +1663,9 @@ zetasql_base::Status Resolver::ResolveMergeWhenClauseList(
       ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(when_clause->search_condition(),
                                         visible_name_scope, "match condition",
                                         &resolved_match_condition_expr));
-      ZETASQL_RETURN_IF_ERROR(CheckIsBoolExpr(when_clause->search_condition(),
-                                      "match condition",
-                                      &resolved_match_condition_expr));
+      ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(
+          when_clause->search_condition(), "match condition",
+          &resolved_match_condition_expr));
     }
 
     const ASTMergeAction* action = when_clause->action();

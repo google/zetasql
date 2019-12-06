@@ -319,9 +319,29 @@ zetasql_base::Status ZetaSqlLocalServiceImpl::Prepare(const PrepareRequest& requ
       request.options(), state->GetDescriptorPools(), state->GetTypeFactory(),
       &options));
 
-  PreparedExpression* exp = state->GetPreparedExpression();
+  RegisteredCatalogState* catalog_state = nullptr;
+  // Needed to hold the new state because shared_ptr doesn't support release().
+  std::unique_ptr<RegisteredCatalogState> new_catalog_state;
 
-  ZETASQL_RETURN_IF_ERROR(exp->Prepare(options));
+  if (request.has_registered_catalog_id()) {
+    int64_t id = request.registered_catalog_id();
+    std::shared_ptr<RegisteredCatalogState> shared_state =
+        registered_catalogs_->Get(id);
+    catalog_state = shared_state.get();
+    if (catalog_state == nullptr) {
+      return MakeSqlError() << "Registered catalog " << id << " unknown.";
+    }
+  } else if (request.has_simple_catalog()) {
+    new_catalog_state = absl::make_unique<RegisteredCatalogState>();
+    catalog_state = new_catalog_state.get();
+    ZETASQL_RETURN_IF_ERROR(catalog_state->Init(request.simple_catalog(),
+                                        request.file_descriptor_set()));
+  }
+
+  PreparedExpression* exp = state->GetPreparedExpression();
+  ZETASQL_RETURN_IF_ERROR(exp->Prepare(options, catalog_state != nullptr
+                                            ? catalog_state->GetCatalog()
+                                            : nullptr));
 
   ZETASQL_RETURN_IF_ERROR(SerializeTypeUsingExistingPools(
       exp->output_type(), state->GetDescriptorPools(),

@@ -12,9 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
 package(default_visibility = ["//:__subpackages__"])
+
+exports_files(["reference_impl.blacklist"])
 
 # Tested by value_expr_test.
 cc_library(
@@ -120,6 +121,10 @@ cc_library(
         "//zetasql/public/functions:comparison",
         "//zetasql/public/functions:date_time_util",
         "//zetasql/public/functions:datetime_cc_proto",
+        "//zetasql/public/functions:generate_array",
+        "//zetasql/public/functions:like",
+        "//zetasql/public/functions:math",
+        "//zetasql/public/functions:regexp",
         "//zetasql/public/proto:type_annotation_cc_proto",
         "//zetasql/resolved_ast",
         "//zetasql/resolved_ast:resolved_ast_enums_cc_proto",

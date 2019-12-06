@@ -56,6 +56,7 @@ cc_library(
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:span",
+        "@com_google_absl//absl/types:variant",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
     ],
@@ -166,6 +167,7 @@ cc_library(
         ":function",
         ":simple_constant_cc_proto",
         ":simple_table_cc_proto",
+        ":strings",
         ":type",
         ":value",
         "//zetasql/base",
@@ -294,9 +296,11 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/base:statusor",
         "//zetasql/common:errors",
+        "//zetasql/common:fixed_int",
         "@com_google_absl//absl/base:config",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:optional",
     ],
 )
 
@@ -310,7 +314,9 @@ cc_test(
         "@com_google_googletest//:gtest_main",
         "//zetasql/base:endian",
         "//zetasql/base:status",
+        "//zetasql/base:statusor",
         "//zetasql/base/testing:status_matchers",
+        "//zetasql/common:fixed_int",
         "@com_google_absl//absl/numeric:int128",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/strings",
@@ -391,6 +397,7 @@ cc_test(
         "//zetasql/testing:test_value",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/hash",
+        "@com_google_absl//absl/hash:hash_testing",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_protobuf//:cc_wkt_protos",
@@ -1368,3 +1375,5 @@ cc_test(
         "//zetasql/proto:function_cc_proto",
     ],
 )
+
+exports_files(["type_annotation.proto"])

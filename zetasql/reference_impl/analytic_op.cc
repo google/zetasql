@@ -524,11 +524,13 @@ zetasql_base::Status WindowFrameBoundaryArg::GetRangeBasedWindowBoundaries(
       if (order_key->is_descending()) {
         return GetOffsetPrecedingRangeBoundariesDesc(
             is_end_boundary, *schema_with_params, tuples_with_params,
-            order_key_slot_idx, offset_value, window_boundaries);
+            order_key_slot_idx, offset_value, order_key->null_order(),
+            window_boundaries);
       } else {
         return GetOffsetPrecedingRangeBoundariesAsc(
             is_end_boundary, *schema_with_params, tuples_with_params,
-            order_key_slot_idx, offset_value, window_boundaries);
+            order_key_slot_idx, offset_value, order_key->null_order(),
+            window_boundaries);
       }
     }
     case kOffsetFollowing: {
@@ -544,11 +546,13 @@ zetasql_base::Status WindowFrameBoundaryArg::GetRangeBasedWindowBoundaries(
       if (order_key->is_descending()) {
         return GetOffsetFollowingRangeBoundariesDesc(
             is_end_boundary, *schema_with_params, tuples_with_params,
-            order_key_slot_idx, offset_value, window_boundaries);
+            order_key_slot_idx, offset_value, order_key->null_order(),
+            window_boundaries);
       } else {
         return GetOffsetFollowingRangeBoundariesAsc(
             is_end_boundary, *schema_with_params, tuples_with_params,
-            order_key_slot_idx, offset_value, window_boundaries);
+            order_key_slot_idx, offset_value, order_key->null_order(),
+            window_boundaries);
       }
     }
   }
@@ -586,8 +590,10 @@ zetasql_base::Status WindowFrameBoundaryArg::SetGroupBoundaries(
 zetasql_base::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesAsc(
     bool is_end_boundary, const TupleSchema& schema,
     absl::Span<const TupleData* const> partition, int order_key_slot_idx,
-    const Value& offset_value, std::vector<int>* window_boundaries) const {
-  // The partition is divided into 6 groups.
+    const Value& offset_value, KeyArg::NullOrder null_order,
+    std::vector<int>* window_boundaries) const {
+  // The partition is divided into 6 groups, depending on the null ordering
+  // Nulls first:
   // --------------------------------------------------------------------
   // Group            Position                             Order key
   // ------------  -----------------------------     --------------------
@@ -598,8 +604,19 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesAs
   //  5(safe)      [start_safe_tuple, start_pos_inf)   [min + offset, max]
   //  6(pos inf)   [start_pos_inf, partition size)      positive infinity
   // --------------------------------------------------------------------
+  // Nulls last:
+  // --------------------------------------------------------------------
+  // Group            Position                             Order key
+  // ------------  -----------------------------     --------------------
+  //  1(nan)       [0, end_nan]                                NaN
+  //  2(neg inf)   (end_nan, end_neg_inf]               negative infinity
+  //  3(underflow) (end_neg_inf, start_safe_tuple)     [min, min + offset)
+  //  4(safe)      [start_safe_tuple, start_pos_inf)   [min + offset, max]
+  //  5(pos inf)   [start_pos_inf, start_null)         positive infinity
+  //  6(null)      [start_null, partition size]                NULL
+  // --------------------------------------------------------------------
   //
-  // Case 1: The offset is not positive infinity,
+  // Case 1: The offset is not positive infinity, nulls first
   // --------------------------------------------------------------------
   // Group              Start window boundary        End window boundary
   // ------------      ----------------------       ---------------------
@@ -610,13 +627,24 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesAs
   //  5(safe)          $(order_key - offset)         ^(order_key - offset)
   //  6(pos inf)          start_pos_inf               partition size - 1
   // --------------------------------------------------------------------
+  // Case 1: The offset is not positive infinity, nulls last
+  // --------------------------------------------------------------------
+  // Group              Start window boundary        End window boundary
+  // ------------      ----------------------       ---------------------
+  //  1(nan)                   0                           end_nan
+  //  2(neg inf)           end_nan + 1                   end_neg_inf
+  //  3(underflow)       end_neg_inf + 1                 end_neg_inf
+  //  4(safe)          $(order_key - offset)         ^(order_key - offset)
+  //  5(pos inf)          start_pos_inf                start_null - 1
+  //  6(null)              start_null                 partition size - 1
+  // --------------------------------------------------------------------
   // '$(order_key - offset)' refers to the position of the first tuple with
   // an order key >= (order_key - offset), while '^(
   // order_key - offset)' refers to the position of the last tuple with
   // an order key >= (order_key - offset).  'order_key' is the order key of
   // the row for which we are computing the window boundary.
   //
-  // Case 2: The offset is positive infinity,
+  // Case 2: The offset is positive infinity, nulls first
   // --------------------------------------------------------------------
   // Group              Start window boundary        End window boundary
   // ------------      ----------------------       ---------------------
@@ -627,19 +655,39 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesAs
   //  5(safe)              end_nan + 1                 end_neg_inf
   //  6(pos inf)              ERROR                       ERROR
   // --------------------------------------------------------------------
+  // Case 2: The offset is positive infinity, nulls last
+  // --------------------------------------------------------------------
+  // Group              Start window boundary        End window boundary
+  // ------------      ----------------------       ---------------------
+  //  1(nan)                    0                        end_nan
+  //  2(neg inf)           end_nan + 1                 start_null - 1
+  //  3(underflow)         end_nan + 1                 start_null - 1
+  //  4(safe)              end_nan + 1                 start_null - 1
+  //  5(pos inf)              ERROR                       ERROR
+  //  6(null)               start_null              partition size - 1
+  // --------------------------------------------------------------------
   // ERROR is reported for Group 6 with positive infinity, because
   // we want the boundary to move in one direction.
 
   window_boundaries->resize(partition.size());
 
-  int end_null, end_nan, end_neg_inf, start_pos_inf;
-  DivideAscendingPartition(schema, partition, order_key_slot_idx, &end_null,
-                           &end_nan, &end_neg_inf, &start_pos_inf);
+  int end_null, end_nan, end_neg_inf, start_pos_inf, start_null;
+  if (null_order != KeyArg::kNullsLast) {
+    DivideAscendingPartition(schema, partition, order_key_slot_idx,
+                             /*nulls_last=*/false, &end_null, &end_nan,
+                             &end_neg_inf, &start_pos_inf, &start_null);
+  } else {
+    DivideAscendingPartition(schema, partition, order_key_slot_idx,
+                             /*nulls_last=*/true, &end_null, &end_nan,
+                             &end_neg_inf, &start_pos_inf, &start_null);
+  }
 
   const int last_tuple_id = partition.size() - 1;
   if (IsPosInf(offset_value)) {
     // Check if Group 6 is empty.
-    if (start_pos_inf < partition.size()) {
+    if ((null_order != KeyArg::kNullsLast &&
+         start_pos_inf < partition.size()) ||
+        (null_order == KeyArg::kNullsLast && start_pos_inf < start_null)) {
       return ::zetasql_base::OutOfRangeErrorBuilder()
              << "Offset value cannot be positive infinity when "
                 "there exists a positive infinity order key "
@@ -647,23 +695,45 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesAs
     }
 
     if (!is_end_boundary) {
-      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
-          {
-              // {start_tuple_id, end_tuple_id, boundary}
-              {0, end_null, 0},                           // Group 1
-              {end_null + 1, end_nan, end_null + 1},      // Group 2
-              {end_nan + 1, last_tuple_id, end_nan + 1},  // Group 3-5
-          },
-          window_boundaries));
+      if (null_order != KeyArg::kNullsLast) {
+        ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+            {
+                // {start_tuple_id, end_tuple_id, boundary}
+                {0, end_null, 0},                           // Group 1
+                {end_null + 1, end_nan, end_null + 1},      // Group 2
+                {end_nan + 1, last_tuple_id, end_nan + 1},  // Group 3-5
+            },
+            window_boundaries));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+            {
+                // {start_tuple_id, end_tuple_id, boundary}
+                {0, end_nan, 0},                             // Group 1
+                {end_nan + 1, start_null - 1, end_nan + 1},  // Group 2-4
+                {start_null, last_tuple_id, start_null},     // Group 6
+            },
+            window_boundaries));
+      }
     } else {
-      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
-          {
-              // {start_tuple_id, end_tuple_id, boundary}
-              {0, end_null, end_null},                    // Group 1
-              {end_null + 1, end_nan, end_nan},           // Group 2
-              {end_nan + 1, last_tuple_id, end_neg_inf},  // Group 3-5
-          },
-          window_boundaries));
+      if (null_order != KeyArg::kNullsLast) {
+        ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+            {
+                // {start_tuple_id, end_tuple_id, boundary}
+                {0, end_null, end_null},                    // Group 1
+                {end_null + 1, end_nan, end_nan},           // Group 2
+                {end_nan + 1, last_tuple_id, end_neg_inf},  // Group 3-5
+            },
+            window_boundaries));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+            {
+                // {start_tuple_id, end_tuple_id, boundary}
+                {0, end_nan, end_nan},                       // Group 1
+                {end_nan + 1, end_neg_inf, end_neg_inf},     // Group 2-4
+                {start_null, last_tuple_id, last_tuple_id},  // Group 6
+            },
+            window_boundaries));
+      }
     }
 
     return ::zetasql_base::OkStatus();
@@ -724,28 +794,55 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesAs
   }
 
   if (!is_end_boundary) {
-    ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
-        {
-            // {start_tuple_id, end_tuple_id, boundary}
-            {0, end_null, 0},                         // Group 1
-            {end_null + 1, end_nan, end_null + 1},    // Group 2
-            {end_nan + 1, end_neg_inf, end_nan + 1},  // Group 3
-            {end_neg_inf + 1, start_safe_tuple - 1,
-             end_neg_inf + 1},                             // Group 4
-            {start_pos_inf, last_tuple_id, start_pos_inf}  // Group 6
-        },
-        window_boundaries));
+    if (null_order != KeyArg::kNullsLast) {
+      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+          {
+              // {start_tuple_id, end_tuple_id, boundary}
+              {0, end_null, 0},                         // Group 1
+              {end_null + 1, end_nan, end_null + 1},    // Group 2
+              {end_nan + 1, end_neg_inf, end_nan + 1},  // Group 3
+              {end_neg_inf + 1, start_safe_tuple - 1,
+               end_neg_inf + 1},                             // Group 4
+              {start_pos_inf, last_tuple_id, start_pos_inf}  // Group 6
+          },
+          window_boundaries));
+    } else {
+      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+          {
+              // {start_tuple_id, end_tuple_id, boundary}
+              {0, end_nan, 0},                          // Group 1
+              {end_nan + 1, end_neg_inf, end_nan + 1},  // Group 2
+              {end_neg_inf + 1, start_safe_tuple - 1,
+               end_neg_inf + 1},                               // Group 3
+              {start_pos_inf, start_null - 1, start_pos_inf},  // Group 5
+              {start_null, last_tuple_id, start_null}          // Group 6
+          },
+          window_boundaries));
+    }
   } else {
-    ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
-        {
-            // {start_tuple_id, end_tuple_id, boundary}
-            {0, end_null, end_null},                               // Group 1
-            {end_null + 1, end_nan, end_nan},                      // Group 2
-            {end_nan + 1, end_neg_inf, end_neg_inf},               // Group 3
-            {end_neg_inf + 1, start_safe_tuple - 1, end_neg_inf},  // Group 4
-            {start_pos_inf, last_tuple_id, last_tuple_id}          // Group 6
-        },
-        window_boundaries));
+    if (null_order != KeyArg::kNullsLast) {
+      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+          {
+              // {start_tuple_id, end_tuple_id, boundary}
+              {0, end_null, end_null},                               // Group 1
+              {end_null + 1, end_nan, end_nan},                      // Group 2
+              {end_nan + 1, end_neg_inf, end_neg_inf},               // Group 3
+              {end_neg_inf + 1, start_safe_tuple - 1, end_neg_inf},  // Group 4
+              {start_pos_inf, last_tuple_id, last_tuple_id}          // Group 6
+          },
+          window_boundaries));
+    } else {
+      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+          {
+              // {start_tuple_id, end_tuple_id, boundary}
+              {0, end_nan, end_nan},                                 // Group 1
+              {end_nan + 1, end_neg_inf, end_neg_inf},               // Group 2
+              {end_neg_inf + 1, start_safe_tuple - 1, end_neg_inf},  // Group 3
+              {start_pos_inf, start_null, start_null},               // Group 5
+              {start_null, last_tuple_id, last_tuple_id}             // Group 6
+          },
+          window_boundaries));
+    }
   }
 
   return ::zetasql_base::OkStatus();
@@ -754,7 +851,9 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesAs
 zetasql_base::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesDesc(
     bool is_end_boundary, const TupleSchema& schema,
     absl::Span<const TupleData* const> partition, int order_key_slot_idx,
-    const Value& offset_value, std::vector<int>* window_boundaries) const {
+    const Value& offset_value, KeyArg::NullOrder null_order,
+    std::vector<int>* window_boundaries) const {
+  // Nulls last
   // --------------------------------------------------------------------
   // Group            Position                             Order key
   // ------------  -----------------------------     --------------------
@@ -765,8 +864,19 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesDe
   //  5(nan)       [start_nan, start_null)                   NaN
   //  6(null)      [start_null, partition size)              NULL
   // --------------------------------------------------------------------
+  // Nulls first
+  // --------------------------------------------------------------------
+  // Group            Position                             Order key
+  // ------------  -----------------------------     --------------------
+  //  1(null)      [0, end_null]                             NULL
+  //  2(pos inf)   (end_null, end_pos_inf]              positive infinity
+  //  3(overflow)  (end_pos_inf, start_safe_tuple]     (max - offset, max]
+  //  4(safe)      [start_safe_tuple, start_neg_inf)   [min, max - offset]
+  //  5(neg inf)   [start_neg_inf, start_nan)          negative infinity
+  //  6(nan)       [start_nan, partition size)               NaN
+  // --------------------------------------------------------------------
   //
-  // Case 1: The offset is not positive infinity,
+  // Case 1: The offset is not positive infinity, nulls last
   // --------------------------------------------------------------------
   // Group              Start window boundary        End window boundary
   // ------------      ----------------------       ---------------------
@@ -777,13 +887,24 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesDe
   //  5(nan)               start_nan                   start_null - 1
   //  6(null)              start_null                partition size - 1
   // --------------------------------------------------------------------
+  // nulls first
+  // --------------------------------------------------------------------
+  // Group              Start window boundary        End window boundary
+  // ------------      ----------------------       ---------------------
+  //  1(null)                   0                         end_null
+  //  2(pos inf)          end_null + 1                  end_pos_inf
+  //  3(overflow)        end_pos_inf + 1                end_pos_inf
+  //  4(safe)          $(order_key + offset)        ^(order_key + offset)
+  //  5(neg inf)           start_neg_inf               start_nan - 1
+  //  6(nan)               start_nan                partition size - 1
+  // --------------------------------------------------------------------
   // '$(order_key + offset)' refers to the position of the first tuple
   // with an order key <= (order_key + offset), while '^(order_key + offset)'
   // refers to the position of the last tuple with an order
   // key <= (order_key + offset). 'order_key' is the order key of the row
   // for which we are computing the window boundary.
   //
-  // Case 2: The offset is positive infinity,
+  // Case 2: The offset is positive infinity, nulls last
   // --------------------------------------------------------------------
   // Group              Start window boundary        End window boundary
   // ------------      ----------------------       ---------------------
@@ -794,14 +915,32 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesDe
   //  5(nan)                start_nan                   start_null - 1
   //  6(null)               start_null               partition size - 1
   // -------------------------------------------------------------------
+  // nulls first
+  // --------------------------------------------------------------------
+  // Group              Start window boundary        End window boundary
+  // ------------      ----------------------       ---------------------
+  //  1(null)                   0                         end_null
+  //  2(pos inf)            end_null + 1                  end_pos_inf
+  //  3(overflow)           end_null + 1                  end_pos_inf
+  //  4(safe)               end_null + 1                  end_pos_inf
+  //  5(neg inf)              ERROR                        ERROR
+  //  6(nan)                start_nan               partition size - 1
+  // -------------------------------------------------------------------
   // ERROR is reported for Group 4 with negative infinity, because
   // the boundary does not "precede" GROUP 4.
 
   window_boundaries->resize(partition.size());
 
-  int end_pos_inf, start_neg_inf, start_nan, start_null;
-  DivideDescendingPartition(schema, partition, order_key_slot_idx, &end_pos_inf,
-                            &start_neg_inf, &start_nan, &start_null);
+  int end_null, end_pos_inf, start_neg_inf, start_nan, start_null;
+  if (null_order != KeyArg::kNullsFirst) {
+    DivideDescendingPartition(schema, partition, order_key_slot_idx,
+                              /*nulls_last=*/true, &end_null, &end_pos_inf,
+                              &start_neg_inf, &start_nan, &start_null);
+  } else {
+    DivideDescendingPartition(schema, partition, order_key_slot_idx,
+                              /*nulls_last=*/false, &end_null, &end_pos_inf,
+                              &start_neg_inf, &start_nan, &start_null);
+  }
 
   const int last_tuple_id = partition.size() - 1;
   if (IsPosInf(offset_value)) {
@@ -814,23 +953,45 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesDe
     }
 
     if (!is_end_boundary) {
-      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
-          {
-              // {start_tuple_id, end_tuple_id, boundary}
-              {0, start_neg_inf - 1, 0},               // Group 1-3
-              {start_nan, start_null - 1, start_nan},  // Group 5
-              {start_null, last_tuple_id, start_null}  // Group 6
-          },
-          window_boundaries));
+      if (null_order != KeyArg::kNullsFirst) {
+        ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+            {
+                // {start_tuple_id, end_tuple_id, boundary}
+                {0, start_neg_inf - 1, 0},               // Group 1-3
+                {start_nan, start_null - 1, start_nan},  // Group 5
+                {start_null, last_tuple_id, start_null}  // Group 6
+            },
+            window_boundaries));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+            {
+                // {start_tuple_id, end_tuple_id, boundary}
+                {0, end_null, 0},                                 // Group 1
+                {end_null + 1, start_neg_inf - 1, end_null + 1},  // Group 2-4
+                {start_nan, last_tuple_id, start_nan},            // Group 6
+            },
+            window_boundaries));
+      }
     } else {
-      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
-          {
-              // {start_tuple_id, end_tuple_id, boundary}
-              {0, start_neg_inf - 1, end_pos_inf},          // Group 1-3
-              {start_nan, start_null - 1, start_null - 1},  // Group 5
-              {start_null, last_tuple_id, last_tuple_id}    // Group 6
-          },
-          window_boundaries));
+      if (null_order != KeyArg::kNullsFirst) {
+        ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+            {
+                // {start_tuple_id, end_tuple_id, boundary}
+                {0, start_neg_inf - 1, end_pos_inf},          // Group 1-3
+                {start_nan, start_null - 1, start_null - 1},  // Group 5
+                {start_null, last_tuple_id, last_tuple_id}    // Group 6
+            },
+            window_boundaries));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+            {
+                // {start_tuple_id, end_tuple_id, boundary}
+                {0, end_null, end_null},                         // Group 1
+                {end_null + 1, start_neg_inf - 1, end_pos_inf},  // Group 2-4
+                {start_nan, last_tuple_id, last_tuple_id},       // Group 6
+            },
+            window_boundaries));
+      }
     }
 
     return ::zetasql_base::OkStatus();
@@ -885,28 +1046,55 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesDe
   }
 
   if (!is_end_boundary) {
-    ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
-        {
-            // {start_tuple_id, end_tuple_id, boundary}
-            {0, end_pos_inf, 0},  // Group 1
-            {end_pos_inf + 1, start_safe_tuple - 1,
-             end_pos_inf + 1},                              // Group 2
-            {start_neg_inf, start_nan - 1, start_neg_inf},  // Group 4
-            {start_nan, start_null - 1, start_nan},         // Group 5
-            {start_null, last_tuple_id, start_null}         // Group 6
-        },
-        window_boundaries));
+    if (null_order != KeyArg::kNullsFirst) {
+      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+          {
+              // {start_tuple_id, end_tuple_id, boundary}
+              {0, end_pos_inf, 0},  // Group 1
+              {end_pos_inf + 1, start_safe_tuple - 1,
+               end_pos_inf + 1},                              // Group 2
+              {start_neg_inf, start_nan - 1, start_neg_inf},  // Group 4
+              {start_nan, start_null - 1, start_nan},         // Group 5
+              {start_null, last_tuple_id, start_null}         // Group 6
+          },
+          window_boundaries));
+    } else {
+      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+          {
+              // {start_tuple_id, end_tuple_id, boundary}
+              {0, end_null, 0},                           // Group 1
+              {end_null + 1, end_pos_inf, end_null + 1},  // Group 2
+              {end_pos_inf + 1, start_safe_tuple - 1,
+               end_pos_inf + 1},                              // Group 3
+              {start_neg_inf, start_nan - 1, start_neg_inf},  // Group 5
+              {start_nan, last_tuple_id, start_nan}           // Group 6
+          },
+          window_boundaries));
+    }
   } else {
-    ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
-        {
-            // {start_tuple_id, end_tuple_id, boundary}
-            {0, end_pos_inf, end_pos_inf},                         // Group 1
-            {end_pos_inf + 1, start_safe_tuple - 1, end_pos_inf},  // Group 2
-            {start_neg_inf, start_nan - 1, start_nan - 1},         // Group 4
-            {start_nan, start_null - 1, start_null - 1},           // Group 5
-            {start_null, last_tuple_id, last_tuple_id}             // Group 6
-        },
-        window_boundaries));
+    if (null_order != KeyArg::kNullsFirst) {
+      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+          {
+              // {start_tuple_id, end_tuple_id, boundary}
+              {0, end_pos_inf, end_pos_inf},                         // Group 1
+              {end_pos_inf + 1, start_safe_tuple - 1, end_pos_inf},  // Group 2
+              {start_neg_inf, start_nan - 1, start_nan - 1},         // Group 4
+              {start_nan, start_null - 1, start_null - 1},           // Group 5
+              {start_null, last_tuple_id, last_tuple_id}             // Group 6
+          },
+          window_boundaries));
+    } else {
+      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+          {
+              // {start_tuple_id, end_tuple_id, boundary}
+              {0, end_null, end_null},                               // Group 1
+              {end_null + 1, end_pos_inf, end_pos_inf},              // Group 2
+              {end_pos_inf + 1, start_safe_tuple - 1, end_pos_inf},  // Group 3
+              {start_neg_inf, start_nan - 1, start_nan - 1},         // Group 5
+              {start_nan, last_tuple_id, last_tuple_id},             // Group 6
+          },
+          window_boundaries));
+    }
   }
 
   return ::zetasql_base::OkStatus();
@@ -915,8 +1103,10 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesDe
 zetasql_base::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesAsc(
     bool is_end_boundary, const TupleSchema& schema,
     absl::Span<const TupleData* const> partition, const int order_key_slot_idx,
-    const Value& offset_value, std::vector<int>* window_boundaries) const {
+    const Value& offset_value, KeyArg::NullOrder null_order,
+    std::vector<int>* window_boundaries) const {
   // The partition is divided into 6 groups.
+  // nulls first
   // --------------------------------------------------------------------
   // Group            Position                             Order key
   // ------------  -----------------------------     --------------------
@@ -927,8 +1117,19 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesAs
   //  5(overflow)  (end_safe_tuple, start_pos_inf)   (max - offset, max]
   //  6(pos inf)   [start_pos_inf, partition size)      positive infinity
   // --------------------------------------------------------------------
+  // nulls last
+  // --------------------------------------------------------------------
+  // Group            Position                             Order key
+  // ------------  -----------------------------     --------------------
+  //  1(nan)       [0, end_nan]                             NaN
+  //  2(neg inf)   (end_nan, end_neg_inf]               negative infinity
+  //  3(safe)      (end_neg_inf, end_safe_tuple]     [min, max - offset]
+  //  4(overflow)  (end_safe_tuple, start_pos_inf)   (max - offset, max]
+  //  5(pos inf)   [start_pos_inf, start_null)      positive infinity
+  //  6(null)      [start_null, partition size)             NULL
+  // --------------------------------------------------------------------
   //
-  // Case 1: The offset is not positive infinity,
+  // Case 1: The offset is not positive infinity, nulls first
   // --------------------------------------------------------------------
   // Group              Start window boundary        End window boundary
   // ------------      ----------------------       ---------------------
@@ -939,13 +1140,24 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesAs
   //  5(overflow)         start_pos_inf               start_pos_inf - 1
   //  6(pos inf)          start_pos_inf               partition size - 1
   // --------------------------------------------------------------------
+  // nulls last
+  // --------------------------------------------------------------------
+  // Group              Start window boundary        End window boundary
+  // ------------      ----------------------       ---------------------
+  //  1(nan)                    0                         end_nan
+  //  2(neg inf)           end_nan + 1                  end_neg_inf
+  //  3(safe)          $(order_key + offset)         ^(order_key + offset)
+  //  4(overflow)         start_pos_inf               start_pos_inf - 1
+  //  5(pos inf)          start_pos_inf               start_null - 1
+  //  6(null)               start_null              partition size - 1
+  // --------------------------------------------------------------------
   // '$(order_key + offset)' refers to the position of the first tuple with
   // an order key <= (order_key + offset), while '^(
   // order_key + offset)' refers to the position of the last tuple with
   // an order key <= (order_key + offset).  'order_key' is the order key of
   // the row for which we are computing the window boundary.
   //
-  // Case 2: The offset is positive infinity,
+  // Case 2: The offset is positive infinity, nulls first
   // --------------------------------------------------------------------
   // Group              Start window boundary        End window boundary
   // ------------      ----------------------       ---------------------
@@ -956,14 +1168,32 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesAs
   //  5(overflow)         start_pos_inf             partition size - 1
   //  6(pos inf)          start_pos_inf             partition size - 1
   // --------------------------------------------------------------------
+  // nulls last
+  // --------------------------------------------------------------------
+  // Group              Start window boundary        End window boundary
+  // ------------      ----------------------       ---------------------
+  //  1(nan)                    0                         end_nan
+  //  2(neg inf)              ERROR                        ERROR
+  //  3(safe)             start_pos_inf                 start_null - 1
+  //  4(overflow)         start_pos_inf                 start_null - 1
+  //  5(pos inf)          start_pos_inf                 start_null - 1
+  //  6(null)              start_null               partition size - 1
+  // --------------------------------------------------------------------
   // ERROR is reported for Group 3 with negative infinity, because
   // the boundary for Group 3 does not "follow" Group 3.
 
   window_boundaries->resize(partition.size());
 
-  int end_null, end_nan, end_neg_inf, start_pos_inf;
-  DivideAscendingPartition(schema, partition, order_key_slot_idx, &end_null,
-                           &end_nan, &end_neg_inf, &start_pos_inf);
+  int end_null, end_nan, end_neg_inf, start_pos_inf, start_null;
+  if (null_order != KeyArg::kNullsLast) {
+    DivideAscendingPartition(schema, partition, order_key_slot_idx,
+                             /*nulls_last=*/false, &end_null, &end_nan,
+                             &end_neg_inf, &start_pos_inf, &start_null);
+  } else {
+    DivideAscendingPartition(schema, partition, order_key_slot_idx,
+                             /*nulls_last=*/true, &end_null, &end_nan,
+                             &end_neg_inf, &start_pos_inf, &start_null);
+  }
 
   const int last_tuple_id = partition.size() - 1;
   if (IsPosInf(offset_value)) {
@@ -976,23 +1206,45 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesAs
     }
 
     if (!is_end_boundary) {
-      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
-          {
-              // {start_tuple_id, end_tuple_id, boundary}
-              {0, end_null, 0},                            // Group 1
-              {end_null + 1, end_nan, end_null + 1},       // Group 2
-              {end_nan + 1, last_tuple_id, start_pos_inf}  // Group 4-6
-          },
-          window_boundaries));
+      if (null_order != KeyArg::kNullsLast) {
+        ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+            {
+                // {start_tuple_id, end_tuple_id, boundary}
+                {0, end_null, 0},                            // Group 1
+                {end_null + 1, end_nan, end_null + 1},       // Group 2
+                {end_nan + 1, last_tuple_id, start_pos_inf}  // Group 4-6
+            },
+            window_boundaries));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+            {
+                // {start_tuple_id, end_tuple_id, boundary}
+                {0, end_nan, 0},                               // Group 1
+                {end_nan + 1, start_null - 1, start_pos_inf},  // Group 3-5
+                {start_null, last_tuple_id, start_null},       // Group 6
+            },
+            window_boundaries));
+      }
     } else {
-      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
-          {
-              // {start_tuple_id, end_tuple_id, boundary}
-              {0, end_null, end_null},                     // Group 1
-              {end_null + 1, end_nan, end_nan},            // Group 2
-              {end_nan + 1, last_tuple_id, last_tuple_id}  // Group 4-6
-          },
-          window_boundaries));
+      if (null_order != KeyArg::kNullsLast) {
+        ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+            {
+                // {start_tuple_id, end_tuple_id, boundary}
+                {0, end_null, end_null},                     // Group 1
+                {end_null + 1, end_nan, end_nan},            // Group 2
+                {end_nan + 1, last_tuple_id, last_tuple_id}  // Group 4-6
+            },
+            window_boundaries));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+            {
+                // {start_tuple_id, end_tuple_id, boundary}
+                {0, end_nan, end_nan},                          // Group 1
+                {end_nan + 1, start_null - 1, start_null - 1},  // Group 3-5
+                {start_null, last_tuple_id, last_tuple_id},     // Group 6
+            },
+            window_boundaries));
+      }
     }
 
     return ::zetasql_base::OkStatus();
@@ -1044,28 +1296,57 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesAs
   }
 
   if (!is_end_boundary) {
-    ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
-        {
-            // {start_tuple_id, end_tuple_id, boundary}
-            {0, end_null, 0},                                        // Group 1
-            {end_null + 1, end_nan, end_null + 1},                   // Group 2
-            {end_nan + 1, end_neg_inf, end_nan + 1},                 // Group 3
-            {end_safe_tuple + 1, start_pos_inf - 1, start_pos_inf},  // Group 4
-            {start_pos_inf, last_tuple_id, start_pos_inf}            // Group 6
-        },
-        window_boundaries));
+    if (null_order != KeyArg::kNullsLast) {
+      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+          {
+              // {start_tuple_id, end_tuple_id, boundary}
+              {0, end_null, 0},                         // Group 1
+              {end_null + 1, end_nan, end_null + 1},    // Group 2
+              {end_nan + 1, end_neg_inf, end_nan + 1},  // Group 3
+              {end_safe_tuple + 1, start_pos_inf - 1,
+               start_pos_inf},                               // Group 4
+              {start_pos_inf, last_tuple_id, start_pos_inf}  // Group 6
+          },
+          window_boundaries));
+    } else {
+      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+          {
+              // {start_tuple_id, end_tuple_id, boundary}
+              {0, end_nan, 0},                          // Group 1
+              {end_nan + 1, end_neg_inf, end_nan + 1},  // Group 2
+              {end_safe_tuple + 1, start_pos_inf - 1,
+               start_pos_inf},                                 // Group 4
+              {start_pos_inf, start_null - 1, start_pos_inf},  // Group 5
+              {start_null, last_tuple_id, start_null}          // Group 6
+          },
+          window_boundaries));
+    }
   } else {
-    ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
-        {
-            // {start_tuple_id, end_tuple_id, boundary}
-            {0, end_null, end_null},                  // Group 1
-            {end_null + 1, end_nan, end_nan},         // Group 2
-            {end_nan + 1, end_neg_inf, end_neg_inf},  // Group 3
-            {end_safe_tuple + 1, start_pos_inf - 1,
-             start_pos_inf - 1},                           // Group 4
-            {start_pos_inf, last_tuple_id, last_tuple_id}  // Group 6
-        },
-        window_boundaries));
+    if (null_order != KeyArg::kNullsLast) {
+      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+          {
+              // {start_tuple_id, end_tuple_id, boundary}
+              {0, end_null, end_null},                  // Group 1
+              {end_null + 1, end_nan, end_nan},         // Group 2
+              {end_nan + 1, end_neg_inf, end_neg_inf},  // Group 3
+              {end_safe_tuple + 1, start_pos_inf - 1,
+               start_pos_inf - 1},                           // Group 4
+              {start_pos_inf, last_tuple_id, last_tuple_id}  // Group 6
+          },
+          window_boundaries));
+    } else {
+      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+          {
+              // {start_tuple_id, end_tuple_id, boundary}
+              {0, end_nan, end_nan},                    // Group 1
+              {end_nan + 1, end_neg_inf, end_neg_inf},  // Group 2
+              {end_safe_tuple + 1, start_pos_inf - 1,
+               start_pos_inf - 1},                              // Group 4
+              {start_pos_inf, start_null - 1, start_null - 1},  // Group 5
+              {start_null, last_tuple_id, last_tuple_id}        // Group 6
+          },
+          window_boundaries));
+    }
   }
 
   return ::zetasql_base::OkStatus();
@@ -1074,8 +1355,9 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesAs
 zetasql_base::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesDesc(
     bool is_end_boundary, const TupleSchema& schema,
     absl::Span<const TupleData* const> partition, int order_key_slot_idx,
-    const Value& offset_value, std::vector<int>* window_boundaries) const {
-  // The partition is divided into 6 groups.
+    const Value& offset_value, KeyArg::NullOrder null_order,
+    std::vector<int>* window_boundaries) const {
+  // The partition is divided into 6 groups. nulls last
   // --------------------------------------------------------------------
   //     Group               Position                     Order key
   // ------------  -----------------------------     --------------------
@@ -1086,8 +1368,19 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesDe
   //  5(NaN)       [start_nan, start_null)                  NaN
   //  6(NULL)      [start_null, partition size)             NULL
   // ----------------------------------------------------------------------
+  // nulls first
+  // --------------------------------------------------------------------
+  //     Group               Position                     Order key
+  // ------------  -----------------------------     --------------------
+  //  1(NULL)      [0, end_null]                              NULL
+  //  2(pos inf)   (end_null, end_pos_inf]              positive infinity
+  //  3(safe)      (end_pos_inf, end_safe_tuple]      [min + offset, max]
+  //  4(underflow) (end_safe_tuple, start_neg_inf)    [min, min + offset)
+  //  5(neg inf)   [start_neg_inf, start_nan)          negative infinity
+  //  6(NaN)       [start_nan, partition size)                NaN
+  // ----------------------------------------------------------------------
   //
-  // Case 1: The offset is not positive infinity,
+  // Case 1: The offset is not positive infinity, nulls last
   // --------------------------------------------------------------------
   // Group              Start window boundary        End window boundary
   // ------------      ----------------------       ---------------------
@@ -1098,13 +1391,24 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesDe
   //  5(NaN)               start_nan                   start_null - 1
   //  6(NULL)              start_null                partition size - 1
   // --------------------------------------------------------------------
+  // nulls first
+  // --------------------------------------------------------------------
+  // Group              Start window boundary        End window boundary
+  // ------------      ----------------------       ---------------------
+  //  1(NULL)                   0                         end_null
+  //  2(pos inf)            end_null + 1                end_pos_inf
+  //  3(safe)          $(order_key - offset)        ^(order_key - offset)
+  //  4(underflow)        start_neg_inf                start_neg_inf - 1
+  //  5(neg inf)          start_neg_inf                 start_nan - 1
+  //  6(NaN)               start_nan                  partition size - 1
+  // --------------------------------------------------------------------
   // '$(order_key - offset)' refers to the position of the first tuple with
   // an order key <= (order_key - offset), while '^(order_key + offset)' refers
   // to the position of the last tuple with an order
   // key <= (order_key - offset).  'order_key' is the order key of the row for
   // which we are computing the window boundary.
   //
-  // Case 2: The offset is positive infinity,
+  // Case 2: The offset is positive infinity, nulls last
   // --------------------------------------------------------------------
   // Group              Start window boundary        End window boundary
   // ------------      ----------------------       ---------------------
@@ -1115,19 +1419,38 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesDe
   //  5(NaN)                start_nan                   start_null - 1
   //  6(NULL)               start_null                partition size - 1
   // --------------------------------------------------------------------
+  // nulls first
+  // --------------------------------------------------------------------
+  // Group              Start window boundary        End window boundary
+  // ------------      ----------------------       ---------------------
+  //  1(NULL)                   0                         end_null
+  //  2(pos inf)              ERROR                        ERROR
+  //  3(safe)              start_neg_inf                start_nan - 1
+  //  4(underflow)         start_neg_inf                start_nan - 1
+  //  5(neg inf)           start_neg_inf                start_nan - 1
+  //  6(NaN)                start_nan                 partition size - 1
+  // --------------------------------------------------------------------
   // ERROR is reported for Group 1 with positive infinity, because
   // we want to make the boundaries move in one direction.
 
   window_boundaries->resize(partition.size());
 
-  int end_pos_inf, start_neg_inf, start_nan, start_null;
-  DivideDescendingPartition(schema, partition, order_key_slot_idx, &end_pos_inf,
-                            &start_neg_inf, &start_nan, &start_null);
+  int end_null, end_pos_inf, start_neg_inf, start_nan, start_null;
+  if (null_order != KeyArg::kNullsFirst) {
+    DivideDescendingPartition(schema, partition, order_key_slot_idx,
+                              /*nulls_last=*/true, &end_null, &end_pos_inf,
+                              &start_neg_inf, &start_nan, &start_null);
+  } else {
+    DivideDescendingPartition(schema, partition, order_key_slot_idx,
+                              /*nulls_last=*/false, &end_null, &end_pos_inf,
+                              &start_neg_inf, &start_nan, &start_null);
+  }
 
   const int last_tuple_id = partition.size() - 1;
   if (IsPosInf(offset_value)) {
     // Check if Group 1 is not empty.
-    if (end_pos_inf >= 0) {
+    if ((null_order != KeyArg::kNullsFirst && end_pos_inf >= 0) ||
+        (null_order == KeyArg::kNullsFirst && end_pos_inf > end_null)) {
       return ::zetasql_base::OutOfRangeErrorBuilder()
              << "Offset value cannot be positive infinity when "
                 "there exists a positive infinity order key "
@@ -1135,23 +1458,45 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesDe
     }
 
     if (!is_end_boundary) {
-      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
-          {
-              // {start_tuple_id, end_tuple_id, boundary}
-              {0, start_nan - 1, start_neg_inf},       // Group 2-4
-              {start_nan, start_null - 1, start_nan},  // Group 5
-              {start_null, last_tuple_id, start_null}  // Group 6
-          },
-          window_boundaries));
+      if (null_order != KeyArg::kNullsFirst) {
+        ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+            {
+                // {start_tuple_id, end_tuple_id, boundary}
+                {0, start_nan - 1, start_neg_inf},       // Group 2-4
+                {start_nan, start_null - 1, start_nan},  // Group 5
+                {start_null, last_tuple_id, start_null}  // Group 6
+            },
+            window_boundaries));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+            {
+                // {start_tuple_id, end_tuple_id, boundary}
+                {0, end_null, 0},                              // Group 1
+                {end_null + 1, start_nan - 1, start_neg_inf},  // Group 3-5
+                {start_nan, last_tuple_id, start_nan},         // Group 6
+            },
+            window_boundaries));
+      }
     } else {
-      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
-          {
-              // {start_tuple_id, end_tuple_id, boundary}
-              {0, start_nan - 1, start_nan - 1},            // Group 2-4
-              {start_nan, start_null - 1, start_null - 1},  // Group 5
-              {start_null, last_tuple_id, last_tuple_id}    // Group 6
-          },
-          window_boundaries));
+      if (null_order != KeyArg::kNullsFirst) {
+        ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+            {
+                // {start_tuple_id, end_tuple_id, boundary}
+                {0, start_nan - 1, start_nan - 1},            // Group 2-4
+                {start_nan, start_null - 1, start_null - 1},  // Group 5
+                {start_null, last_tuple_id, last_tuple_id}    // Group 6
+            },
+            window_boundaries));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+            {
+                // {start_tuple_id, end_tuple_id, boundary}
+                {0, end_null, end_null},                       // Group 1
+                {end_null + 1, start_nan - 1, start_nan - 1},  // Group 3-5
+                {start_nan, last_tuple_id, last_tuple_id}      // Group 6
+            },
+            window_boundaries));
+      }
     }
 
     return ::zetasql_base::OkStatus();
@@ -1202,28 +1547,57 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesDe
   }
 
   if (!is_end_boundary) {
-    ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
-        {
-            // {start_tuple_id, end_tuple_id, boundary}
-            {0, end_pos_inf, 0},                                     // Group 1
-            {end_safe_tuple + 1, start_neg_inf - 1, start_neg_inf},  // Group 3
-            {start_neg_inf, start_nan - 1, start_neg_inf},           // Group 4
-            {start_nan, start_null - 1, start_nan},                  // Group 5
-            {start_null, last_tuple_id, start_null}                  // Group 6
-        },
-        window_boundaries));
+    if (null_order != KeyArg::kNullsFirst) {
+      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+          {
+              // {start_tuple_id, end_tuple_id, boundary}
+              {0, end_pos_inf, 0},  // Group 1
+              {end_safe_tuple + 1, start_neg_inf - 1,
+               start_neg_inf},                                // Group 3
+              {start_neg_inf, start_nan - 1, start_neg_inf},  // Group 4
+              {start_nan, start_null - 1, start_nan},         // Group 5
+              {start_null, last_tuple_id, start_null}         // Group 6
+          },
+          window_boundaries));
+    } else {
+      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+          {
+              // {start_tuple_id, end_tuple_id, boundary}
+              {0, end_null, 0},                           // Group 1
+              {end_null + 1, end_pos_inf, end_null + 1},  // Group 2
+              {end_safe_tuple + 1, start_neg_inf - 1,
+               start_neg_inf},                                // Group 3
+              {start_neg_inf, start_nan - 1, start_neg_inf},  // Group 5
+              {start_nan, last_tuple_id, start_nan}           // Group 6
+          },
+          window_boundaries));
+    }
   } else {
-    ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
-        {
-            // {start_tuple_id, end_tuple_id, boundary}
-            {0, end_pos_inf, end_pos_inf},  // Group 1
-            {end_safe_tuple + 1, start_neg_inf - 1,
-             start_neg_inf - 1},                            // Group 3
-            {start_neg_inf, start_nan - 1, start_nan - 1},  // Group 4
-            {start_nan, start_null - 1, start_null - 1},    // Group 5
-            {start_null, last_tuple_id, last_tuple_id}      // Group 6
-        },
-        window_boundaries));
+    if (null_order != KeyArg::kNullsFirst) {
+      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+          {
+              // {start_tuple_id, end_tuple_id, boundary}
+              {0, end_pos_inf, end_pos_inf},  // Group 1
+              {end_safe_tuple + 1, start_neg_inf - 1,
+               start_neg_inf - 1},                            // Group 3
+              {start_neg_inf, start_nan - 1, start_nan - 1},  // Group 4
+              {start_nan, start_null - 1, start_null - 1},    // Group 5
+              {start_null, last_tuple_id, last_tuple_id}      // Group 6
+          },
+          window_boundaries));
+    } else {
+      ZETASQL_RETURN_IF_ERROR(SetGroupBoundaries(
+          {
+              // {start_tuple_id, end_tuple_id, boundary}
+              {0, end_null, end_null},                   // Group 1
+              {end_null + 1, end_pos_inf, end_pos_inf},  // Group 2
+              {end_safe_tuple + 1, start_neg_inf - 1,
+               start_neg_inf - 1},                            // Group 3
+              {start_neg_inf, start_nan - 1, start_nan - 1},  // Group 5
+              {start_nan, last_tuple_id, last_tuple_id}       // Group 6
+          },
+          window_boundaries));
+    }
   }
 
   return ::zetasql_base::OkStatus();
@@ -1231,14 +1605,16 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesDe
 
 void WindowFrameBoundaryArg::DivideAscendingPartition(
     const TupleSchema& schema, absl::Span<const TupleData* const> partition,
-    int order_key_slot_idx, int* end_null, int* end_nan, int* end_neg_inf,
-    int* start_pos_inf) const {
+    int order_key_slot_idx, bool nulls_last, int* end_null, int* end_nan,
+    int* end_neg_inf, int* start_pos_inf, int* start_null) const {
   int tuple_id = 0;
-  while (tuple_id < partition.size() &&
-         partition[tuple_id]->slot(order_key_slot_idx).value().is_null()) {
-    ++tuple_id;
+  if (!nulls_last) {
+    while (tuple_id < partition.size() &&
+           partition[tuple_id]->slot(order_key_slot_idx).value().is_null()) {
+      ++tuple_id;
+    }
+    *end_null = tuple_id - 1;
   }
-  *end_null = tuple_id - 1;
 
   while (tuple_id < partition.size() &&
          IsNaN(partition[tuple_id]->slot(order_key_slot_idx).value())) {
@@ -1253,6 +1629,13 @@ void WindowFrameBoundaryArg::DivideAscendingPartition(
   *end_neg_inf = tuple_id - 1;
 
   tuple_id = partition.size() - 1;
+  if (nulls_last) {
+    while (tuple_id > *end_neg_inf &&
+           partition[tuple_id]->slot(order_key_slot_idx).value().is_null()) {
+      --tuple_id;
+    }
+    *start_null = tuple_id + 1;
+  }
   while (tuple_id > *end_neg_inf &&
          IsPosInf(partition[tuple_id]->slot(order_key_slot_idx).value())) {
     --tuple_id;
@@ -1262,9 +1645,18 @@ void WindowFrameBoundaryArg::DivideAscendingPartition(
 
 void WindowFrameBoundaryArg::DivideDescendingPartition(
     const TupleSchema& schema, absl::Span<const TupleData* const> partition,
-    int order_key_slot_idx, int* end_pos_inf, int* start_neg_inf,
-    int* start_nan_key, int* start_null_key) const {
+    int order_key_slot_idx, bool nulls_last, int* end_null_key,
+    int* end_pos_inf, int* start_neg_inf, int* start_nan_key,
+    int* start_null_key) const {
   int tuple_id = 0;
+  if (!nulls_last) {
+    while (tuple_id < partition.size() &&
+           partition[tuple_id]->slot(order_key_slot_idx).value().is_null()) {
+      ++tuple_id;
+    }
+    *end_null_key = tuple_id - 1;
+  }
+
   while (tuple_id < partition.size() &&
          IsPosInf(partition[tuple_id]->slot(order_key_slot_idx).value())) {
     ++tuple_id;
@@ -1272,11 +1664,13 @@ void WindowFrameBoundaryArg::DivideDescendingPartition(
   *end_pos_inf = tuple_id - 1;
 
   tuple_id = partition.size() - 1;
-  while (tuple_id > *end_pos_inf &&
-         partition[tuple_id]->slot(order_key_slot_idx).value().is_null()) {
-    --tuple_id;
+  if (nulls_last) {
+    while (tuple_id > *end_pos_inf &&
+           partition[tuple_id]->slot(order_key_slot_idx).value().is_null()) {
+      --tuple_id;
+    }
+    *start_null_key = tuple_id + 1;
   }
-  *start_null_key = tuple_id + 1;
 
   while (tuple_id > *end_pos_inf &&
          IsNaN(partition[tuple_id]->slot(order_key_slot_idx).value())) {

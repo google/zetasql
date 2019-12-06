@@ -103,6 +103,7 @@ cc_library(
     name = "source_location",
     hdrs = ["source_location.h"],
     copts = ["-Wno-sign-compare"],
+    deps = ["@com_google_absl//absl/base:config"],
 )
 
 cc_test(

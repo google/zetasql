@@ -31,6 +31,7 @@
 
 namespace zetasql {
 
+class TVFConnectionArgument;
 class TVFModelArgument;
 class TVFRelation;
 
@@ -122,6 +123,7 @@ class InputArgumentType {
   }
   bool is_relation() const { return category_ == kRelation; }
   bool is_model() const { return category_ == kModel; }
+  bool is_connection() const { return category_ == kConnection; }
 
   // Argument type name to be used in user facing text (i.e. error messages).
   std::string UserFacingName(ProductMode product_mode) const;
@@ -170,6 +172,13 @@ class InputArgumentType {
   static InputArgumentType ModelInputArgumentType(
       const TVFModelArgument& model_arg);
 
+  // Constructor for connection arguments. Only for use when analyzing
+  // table-valued functions. 'connection_arg' specifies the connection object
+  // for the provided input. For more information about connection argument, see
+  // table_valued_function.h.
+  static InputArgumentType ConnectionInputArgumentType(
+      const TVFConnectionArgument& connection_arg);
+
   bool has_relation_input_schema() const {
     return relation_input_schema_ != nullptr;
   }
@@ -194,7 +203,8 @@ class InputArgumentType {
     kUntypedNull,
     kUntypedEmptyArray,
     kRelation,
-    kModel
+    kModel,
+    kConnection,
   };
 
   explicit InputArgumentType(Category category, const Type* type)
@@ -220,6 +230,12 @@ class InputArgumentType {
   // argument. This is a shared pointer only because the InputArgumentType is
   // copyable and there is only need for one TVFModelArgument instance to exist.
   std::shared_ptr<const TVFModelArgument> model_arg_;
+
+  // This is only non-NULL for table-valued functions. It holds the connection
+  // argument. This is a shared pointer only because the InputArgumentType is
+  // copyable and there is only need for one TVFConnectionArgument instance to
+  // exist.
+  std::shared_ptr<const TVFConnectionArgument> connection_arg_;
   // Copyable.
 };
 

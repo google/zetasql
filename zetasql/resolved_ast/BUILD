@@ -14,9 +14,9 @@
 # limitations under the License.
 #
 
-package(default_visibility = ["//:__subpackages__"])
-
 load("//zetasql/resolved_ast:build_rules.bzl", "gen_resolved_ast_files")
+
+package(default_visibility = ["//:__subpackages__"])
 
 py_binary(
     name = "gen_resolved_ast",
@@ -68,15 +68,18 @@ gen_resolved_ast_files(
 proto_library(
     name = "resolved_node_kind_proto",
     srcs = ["resolved_node_kind.proto"],
+    visibility = ["//visibility:public"],
 )
 
 cc_proto_library(
     name = "resolved_node_kind_cc_proto",
+    visibility = ["//visibility:public"],
     deps = [":resolved_node_kind_proto"],
 )
 
 java_proto_library(
     name = "resolved_node_kind_java_proto",
+    visibility = ["//visibility:public"],
     deps = [":resolved_node_kind_proto"],
 )
 
@@ -100,6 +103,7 @@ cc_library(
         "resolved_node_kind.h",
     ],
     copts = ["-Wno-sign-compare"],
+    visibility = ["//visibility:public"],
     deps = [
         ":resolved_ast_cc_proto",
         ":resolved_ast_enums_cc_proto",
@@ -139,6 +143,7 @@ cc_library(
         "make_node_vector.h",
     ],
     copts = ["-Wno-sign-compare"],
+    visibility = ["//visibility:public"],
     deps = [
         ":resolved_ast",
         "@com_google_absl//absl/meta:type_traits",
@@ -150,6 +155,7 @@ cc_library(
     srcs = ["validator.cc"],
     hdrs = ["validator.h"],
     copts = ["-Wno-sign-compare"],
+    visibility = ["//visibility:public"],
     deps = [
         ":resolved_ast",
         ":resolved_ast_enums_cc_proto",
@@ -188,6 +194,7 @@ cc_library(
         "sql_builder.h",
     ],
     copts = ["-Wno-sign-compare"],
+    visibility = ["//visibility:public"],
     deps = [
         ":resolved_ast",
         ":resolved_ast_enums_cc_proto",
@@ -325,15 +332,18 @@ cc_test(
 proto_library(
     name = "resolved_ast_enums_proto",
     srcs = ["resolved_ast_enums.proto"],
+    visibility = ["//visibility:public"],
 )
 
 cc_proto_library(
     name = "resolved_ast_enums_cc_proto",
+    visibility = ["//visibility:public"],
     deps = [":resolved_ast_enums_proto"],
 )
 
 java_proto_library(
     name = "resolved_ast_enums_java_proto",
+    visibility = ["//visibility:public"],
     deps = [":resolved_ast_enums_proto"],
 )
 

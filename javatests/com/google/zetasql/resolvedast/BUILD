@@ -14,13 +14,13 @@
 # limitations under the License.
 #
 
+load("//javatests/com/google/zetasql:junit_test_suites.bzl", "junit_test_suites")
+
 # Tests for ZetaSQL resolvedast classes.
 package(
     default_testonly = 1,
     default_visibility = ["//:__subpackages__"],
 )
-
-load("//javatests/com/google/zetasql:junit_test_suites.bzl", "junit_test_suites")
 
 java_library(
     name = "tests",

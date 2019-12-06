@@ -1468,8 +1468,9 @@ zetasql_base::Status Resolver::ResolveHavingExpr(
                               resolved_having_expr));
 
   ZETASQL_RET_CHECK(*resolved_having_expr != nullptr);
-  ZETASQL_RETURN_IF_ERROR(CheckIsBoolExpr(having->expression(), "HAVING clause",
-                                  resolved_having_expr));
+  ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(
+      having->expression(), "HAVING clause", resolved_having_expr));
+
   if (!already_saw_group_by_or_aggregation &&
       query_resolution_info->HasGroupByOrAggregation()) {
     return MakeSqlErrorAt(having->expression())
@@ -1560,8 +1561,8 @@ zetasql_base::Status Resolver::ResolveWhereClauseAndCreateScan(
   static constexpr char kWhereClause[] = "WHERE clause";
   ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(where_clause->expression(), from_scan_scope,
                                     kWhereClause, &resolved_where));
-  ZETASQL_RETURN_IF_ERROR(CheckIsBoolExpr(where_clause->expression(), kWhereClause,
-                                  &resolved_where));
+  ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(
+      where_clause->expression(), kWhereClause, &resolved_where));
 
   const auto& tmp_column_list = (*current_scan)->column_list();
   *current_scan = MakeResolvedFilterScan(
@@ -1660,11 +1661,10 @@ struct ColumnReplacements {
 // Return true if the caller should skip adding this column.
 // For replaces, the replacement column will have been added
 // to <select_column_state_list>.
-// TODO: Remove save_mapping once it becomes the default.
 static bool ExcludeOrReplaceColumn(
     const ASTExpression* ast_expression, IdString column_name,
     ColumnReplacements* column_replacements,
-    SelectColumnStateList* select_column_state_list, bool save_mapping) {
+    SelectColumnStateList* select_column_state_list) {
   if (column_replacements == nullptr) {
     return false;
   }
@@ -1674,8 +1674,7 @@ static bool ExcludeOrReplaceColumn(
   if (zetasql_base::ContainsKey(column_replacements->replaced_columns, column_name)) {
     select_column_state_list->AddSelectColumn(
         zetasql_base::FindOrDie(column_replacements->replaced_columns, column_name)
-            .release(),
-        save_mapping);
+            .release());
     // I'd use ZETASQL_RET_CHECK here, except then I'd have to return StatusOr<bool>.
     DCHECK(select_column_state_list->select_column_state_list().back() !=
            nullptr);
@@ -1696,10 +1695,8 @@ zetasql_base::Status Resolver::AddNameListToSelectList(
     // Process exclusions first because MakeColumnRef will add columns
     // to referenced_columns_ and then they cannot be pruned.
     if (!named_column.is_value_table_column &&
-        ExcludeOrReplaceColumn(
-            ast_expression, named_column.name, column_replacements,
-            select_column_state_list,
-            analyzer_options_.strict_validation_on_column_replacements())) {
+        ExcludeOrReplaceColumn(ast_expression, named_column.name,
+                               column_replacements, select_column_state_list)) {
       continue;
     }
 
@@ -2297,10 +2294,8 @@ zetasql_base::Status Resolver::AddColumnFieldsToSelectList(
                                                         product_mode()));
     }
 
-    if (ExcludeOrReplaceColumn(
-            ast_expression, column_alias_if_no_fields, column_replacements,
-            select_column_state_list,
-            analyzer_options_.strict_validation_on_column_replacements())) {
+    if (ExcludeOrReplaceColumn(ast_expression, column_alias_if_no_fields,
+                               column_replacements, select_column_state_list)) {
       return ::zetasql_base::OkStatus();
     }
 
@@ -2332,10 +2327,9 @@ zetasql_base::Status Resolver::AddColumnFieldsToSelectList(
 
       if ((excluded_field_names != nullptr &&
            zetasql_base::ContainsKey(*excluded_field_names, field_name)) ||
-          ExcludeOrReplaceColumn(
-              ast_expression, field_name, column_replacements,
-              select_column_state_list,
-              analyzer_options_.strict_validation_on_column_replacements())) {
+          ExcludeOrReplaceColumn(ast_expression, field_name,
+                                 column_replacements,
+                                 select_column_state_list)) {
         continue;
       }
 
@@ -2370,10 +2364,9 @@ zetasql_base::Status Resolver::AddColumnFieldsToSelectList(
       const google::protobuf::FieldDescriptor* field = entry.second;
 
       const IdString field_name = MakeIdString(field->name());
-      if (ExcludeOrReplaceColumn(
-              ast_expression, field_name, column_replacements,
-              select_column_state_list,
-              analyzer_options_.strict_validation_on_column_replacements())) {
+      if (ExcludeOrReplaceColumn(ast_expression, field_name,
+                                 column_replacements,
+                                 select_column_state_list)) {
         continue;
       }
 
@@ -3937,7 +3930,8 @@ zetasql_base::Status Resolver::ResolveTablePathExpression(
 
   std::shared_ptr<const NameList> name_list;
   std::unique_ptr<const ResolvedScan> this_scan;
-  if (zetasql_base::ContainsKey(with_subquery_map_,
+  if (path_expr->num_names() == 1 &&
+      zetasql_base::ContainsKey(with_subquery_map_,
                        path_expr->first_name()->GetAsIdString())) {
     if (for_system_time != nullptr) {
       return MakeSqlErrorAt(for_system_time) << "FOR SYSTEM_TIME AS OF cannot "
@@ -3945,7 +3939,8 @@ zetasql_base::Status Resolver::ResolveTablePathExpression(
                                                 "in WITH clause";
     }
     ZETASQL_RETURN_IF_ERROR(ResolveWithSubqueryRef(
-        table_ref->path_expr(), table_ref->hint(), &this_scan, &name_list));
+        table_ref->path_expr()->first_name(), table_ref->hint(), &this_scan,
+        &name_list));
 
     if (name_list->is_value_table()) {
       ZETASQL_RETURN_IF_ERROR(ConvertValueTableNameListToNameListWithValueTable(
@@ -3954,7 +3949,8 @@ zetasql_base::Status Resolver::ResolveTablePathExpression(
       // Add a range variable for the with_ref scan.
       ZETASQL_RETURN_IF_ERROR(AddRangeVariable(alias, alias_location, &name_list));
     }
-  } else if (zetasql_base::ContainsKey(function_table_arguments_,
+  } else if (path_expr->num_names() == 1 &&
+             zetasql_base::ContainsKey(function_table_arguments_,
                               path_expr->first_name()->GetAsIdString())) {
     if (for_system_time != nullptr) {
       return MakeSqlErrorAt(for_system_time)
@@ -3965,6 +3961,9 @@ zetasql_base::Status Resolver::ResolveTablePathExpression(
         path_expr, table_ref->hint(), alias, alias_location, &this_scan,
         &name_list));
   } else {
+    // The (possibly multi-part) table name did not match the WITH clause or a
+    // table-valued argument (which only support single-part names), so try to
+    // resolve this name as a Table from the Catalog.
     std::unique_ptr<const ResolvedTableScan> table_scan;
     ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
         path_expr, alias, has_explicit_alias, alias_location, table_ref->hint(),
@@ -4233,28 +4232,20 @@ zetasql_base::Status Resolver::ResolveTablesampleClause(
 }
 
 // There's not much resolving left to do here.  We already know we have
-// an identifier path that starts with a WITH subquery alias.  We just check
-// that we don't have any unwanted path dotting into that alias, and
-// then build the ResolvedWithRefScan.
+// an identifier that matches a WITH subquery alias, so we build the
+// ResolvedWithRefScan.
 zetasql_base::Status Resolver::ResolveWithSubqueryRef(
-    const ASTPathExpression* path_expr,
+    const ASTIdentifier* with_table_name,
     const ASTHint* hint,
     std::unique_ptr<const ResolvedScan>* output,
     std::shared_ptr<const NameList>* output_name_list) {
-  ZETASQL_RET_CHECK(path_expr != nullptr);
+  ZETASQL_RET_CHECK(with_table_name != nullptr);
 
   const std::unique_ptr<WithSubqueryInfo>* with_subquery_info_ptr =
       zetasql_base::FindOrNull(with_subquery_map_,
-                      path_expr->first_name()->GetAsIdString());
+                      with_table_name->GetAsIdString());
   ZETASQL_RET_CHECK(with_subquery_info_ptr != nullptr);
   const WithSubqueryInfo& with_subquery_info = **with_subquery_info_ptr;
-
-  if (path_expr->num_names() > 1) {
-    return MakeSqlErrorAt(path_expr)
-           << "Identifier " << path_expr->ToIdentifierPathString()
-           << " starts from a WITH subquery alias; referencing "
-              "columns inside a WITH subquery alias is not allowed";
-  }
 
   // For each new column produced in the WithRefScan, we want to name it
   // using the WITH alias, not the original column name.  e.g. In
@@ -4768,8 +4759,8 @@ zetasql_base::Status Resolver::ResolveJoin(
       ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(join->on_clause()->expression(),
                                         on_scope.get(), kJoinOnClause,
                                         &join_condition));
-      ZETASQL_RETURN_IF_ERROR(CheckIsBoolExpr(join->on_clause()->expression(),
-                                      kJoinOnClause, &join_condition));
+      ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(
+          join->on_clause()->expression(), kJoinOnClause, &join_condition));
     } else {
       // No ON or USING clause.
       if (expect_join_condition) {
@@ -4888,18 +4879,18 @@ zetasql_base::Status Resolver::ResolveTVF(
   const int64_t signature_idx = 0;
   const FunctionSignature& function_signature =
       *tvf_catalog_entry->GetSignature(signature_idx);
-  const int num_tvf_args = ast_tvf->argument_entries().size();
+  int num_tvf_args = ast_tvf->argument_entries().size();
 
   ZETASQL_RETURN_IF_ERROR(AddAdditionalDeprecationWarningsForCalledFunction(
       ast_tvf, function_signature, tvf_catalog_entry->FullName(),
       /*is_tvf=*/true));
 
-  // Resolve the TVF arguments. Each one becomes either an expression, a scan or
-  // an ML model. We allow correlation references to the enclosing query if this
-  // TVF call is inside a scalar subquery expression, but we do not allow
-  // references to columns in previous tables in the same FROM clause as the
-  // TVF. For this reason, we use 'external_scope' for the ExprResolutionInfo
-  // object here when resolving expressions in the TVF call.
+  // Resolve the TVF arguments. Each one becomes either an expression, a scan,
+  // an ML model or a connection object. We allow correlation references to the
+  // enclosing query if this TVF call is inside a scalar subquery expression,
+  // but we do not allow references to columns in previous tables in the same
+  // FROM clause as the TVF. For this reason, we use 'external_scope' for the
+  // ExprResolutionInfo object here when resolving expressions in the TVF call.
   std::vector<ResolvedTVFArg> resolved_tvf_args;
   std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments;
   resolved_tvf_args.reserve(num_tvf_args);
@@ -4921,10 +4912,18 @@ zetasql_base::Status Resolver::ResolveTVF(
   // Check if the function call contains any named arguments.
   FunctionResolver function_resolver(catalog_, type_factory_, this);
   if (!named_arguments.empty()) {
+    bool named_arguments_match_signature = false;
     ZETASQL_RETURN_IF_ERROR(function_resolver.ProcessNamedArguments(
-        tvf_name_string, function_signature, ast_tvf,
-        named_arguments, /*arg_locations=*/nullptr, /*expr_args=*/nullptr,
+        tvf_name_string, function_signature, ast_tvf, named_arguments,
+        /*return_error_if_named_arguments_do_not_match_signature=*/
+        (tvf_catalog_entry->NumSignatures() == 1),
+        &named_arguments_match_signature, /*arg_locations=*/nullptr,
+        /*expr_args=*/nullptr, /*input_arg_types=*/nullptr,
         &resolved_tvf_args));
+    // TVFs can only have one signature for now, so either the above call
+    // returns an error, or all the named arguments match the signature.
+    ZETASQL_RET_CHECK(named_arguments_match_signature);
+    num_tvf_args = static_cast<int>(resolved_tvf_args.size());
   }
 
   // Check if the TVF arguments match its signature. If not, return an error.
@@ -4996,6 +4995,11 @@ zetasql_base::Status Resolver::ResolveTVF(
             TVFInputArgumentType(InputArgumentType(expr->type())));
       }
       tvf_input_arguments.back().set_scalar_expr(expr);
+    } else if (resolved_tvf_args[i].IsConnection()) {
+      ZETASQL_ASSIGN_OR_RETURN(const ResolvedConnection* const connection,
+                       resolved_tvf_args[i].GetConnection());
+      tvf_input_arguments.push_back(TVFInputArgumentType(
+          TVFConnectionArgument(connection->connection())));
     } else if (resolved_tvf_args[i].IsModel()) {
       ZETASQL_ASSIGN_OR_RETURN(const ResolvedModel* const model,
                        resolved_tvf_args[i].GetModel());
@@ -5124,7 +5128,7 @@ zetasql_base::Status Resolver::ResolveTVF(
                        arg.MoveExpr());
       final_resolved_tvf_args.push_back(
           MakeResolvedTVFArgument(std::move(expr), /*scan=*/nullptr,
-                                  /*model=*/nullptr,
+                                  /*model=*/nullptr, /*connection=*/nullptr,
                                   /*argument_column_list=*/{}).release());
     } else if (arg.IsScan()) {
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedScan> scan,
@@ -5133,15 +5137,22 @@ zetasql_base::Status Resolver::ResolveTVF(
                        arg.GetNameList());
       final_resolved_tvf_args.push_back(
           MakeResolvedTVFArgument(/*expr=*/nullptr, std::move(scan),
-                                  /*model=*/nullptr,
+                                  /*model=*/nullptr, /*connection=*/nullptr,
                                   name_list->GetResolvedColumns()).release());
+    } else if (arg.IsConnection()) {
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedConnection> connection,
+                       arg.MoveConnection());
+      final_resolved_tvf_args.push_back(
+          MakeResolvedTVFArgument(/*expr=*/nullptr, /*scan=*/nullptr,
+                                  /*model=*/nullptr, std::move(connection),
+                                  /*argument_column_list=*/{}).release());
     } else {
       ZETASQL_RET_CHECK(arg.IsModel());
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedModel> model,
                        arg.MoveModel());
       final_resolved_tvf_args.push_back(
           MakeResolvedTVFArgument(/*expr=*/nullptr, /*scan=*/nullptr,
-                                  std::move(model),
+                                  std::move(model), /*connection=*/nullptr,
                                   /*argument_column_list=*/{}).release());
     }
   }
@@ -5210,8 +5221,8 @@ zetasql_base::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
                            table_path->first_name()->GetAsIdString())) {
         std::unique_ptr<const ResolvedScan> scan;
         std::shared_ptr<const NameList> name_list;
-        ZETASQL_RETURN_IF_ERROR(ResolveWithSubqueryRef(table_path, /*hint=*/nullptr,
-                                               &scan, &name_list));
+        ZETASQL_RETURN_IF_ERROR(ResolveWithSubqueryRef(
+            table_path->first_name(), /*hint=*/nullptr, &scan, &name_list));
         const auto column_list = scan->column_list();
         resolved_tvf_arg.SetScan(
             MakeResolvedProjectScan(column_list, {}, std::move(scan)),
@@ -5273,22 +5284,15 @@ zetasql_base::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
               absl::StrCat("Table-valued function ",
                            tvf_catalog_entry->FullName(), " argument ", arg_num,
                            " must be a relation (i.e. table subquery)");
-          if (ast_expr->node_kind() == AST_PATH_EXPRESSION &&
-              zetasql_base::ContainsKey(with_subquery_map_,
-                               ast_expr->GetAsOrDie<ASTPathExpression>()
-                                   ->first_name()
-                                   ->GetAsIdString())) {
-            // The argument is a path expression referring to the WITH clause.
-            // Return a specific error message helping the user figure out
-            // what to change.
+          if (ast_expr->node_kind() == AST_PATH_EXPRESSION) {
             const std::string table_name =
                 ast_expr->GetAsOrDie<ASTPathExpression>()
-                    ->first_name()
-                    ->GetAsString();
+                    ->ToIdentifierPathString();
+            // Return a specific error message helping the user figure out
+            // what to change.
             absl::StrAppend(&error, "; if you meant to refer to table ",
-                            table_name,
-                            " defined in the WITH clause then add the TABLE "
-                            "keyword before the table name (i.e. TABLE ",
+                            table_name, " then add the TABLE keyword ",
+                            "before the table name (i.e. TABLE ",
                             table_name, ")");
           }
           return MakeSqlErrorAt(ast_expr) << error;
@@ -5321,11 +5325,10 @@ zetasql_base::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
       resolved_tvf_arg.SetExpr(std::move(expr));
     }
   } else if (ast_connection_clause != nullptr) {
-    // TODO: Connection clause is not supported for TVFs yet. We will
-    // add support for this in the future by extending function signature for
-    // TVFs.
-    return MakeSqlErrorAt(ast_connection_clause)
-           << "The CONNECTION clause is not supported yet";
+    std::unique_ptr<const ResolvedConnection> resolved_connection;
+    ZETASQL_RETURN_IF_ERROR(ResolveConnection(ast_connection_clause->connection_path(),
+                                      &resolved_connection));
+    resolved_tvf_arg.SetConnection(std::move(resolved_connection));
   } else {
     ZETASQL_RET_CHECK(ast_model_clause != nullptr);
     std::unique_ptr<const ResolvedModel> resolved_model;
@@ -5364,6 +5367,11 @@ zetasql_base::StatusOr<InputArgumentType> Resolver::GetTVFArgType(
       input_arg_type = InputArgumentType::RelationInputArgumentType(
           TVFRelation(provided_input_relation_columns));
     }
+  } else if (resolved_tvf_arg.IsConnection()) {
+    ZETASQL_ASSIGN_OR_RETURN(const ResolvedConnection* const connection,
+                     resolved_tvf_arg.GetConnection());
+    input_arg_type = InputArgumentType::ConnectionInputArgumentType(
+        TVFConnectionArgument(connection->connection()));
   } else {
     // We are processing a model argument.
     ZETASQL_ASSIGN_OR_RETURN(const ResolvedModel* const model,
@@ -5801,8 +5809,9 @@ zetasql_base::Status Resolver::ResolveArrayScan(
       ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(on_clause->expression(),
                                         on_clause_scope.get(), "ON clause",
                                         &resolved_condition));
-      ZETASQL_RETURN_IF_ERROR(CheckIsBoolExpr(on_clause->expression(), "JOIN ON clause",
-                                      &resolved_condition));
+      ZETASQL_RETURN_IF_ERROR(CoerceExprToBool(
+          on_clause->expression(), "JOIN ON clause",
+          &resolved_condition));
     }
   }
 
@@ -5897,6 +5906,24 @@ zetasql_base::Status Resolver::ResolveModel(
   return ::zetasql_base::OkStatus();
 }
 
+zetasql_base::Status Resolver::ResolveConnection(
+    const ASTPathExpression* path_expr,
+    std::unique_ptr<const ResolvedConnection>* resolved_connection) {
+  const Connection* connection = nullptr;
+  const zetasql_base::Status find_status =
+      catalog_->FindConnection(path_expr->ToIdentifierVector(), &connection,
+                               analyzer_options_.find_options());
+
+  if (find_status.code() == zetasql_base::StatusCode::kNotFound) {
+    return MakeSqlErrorAt(path_expr)
+           << "Connection not found: " << path_expr->ToIdentifierPathString();
+  }
+  ZETASQL_RETURN_IF_ERROR(find_status);
+
+  *resolved_connection = MakeResolvedConnection(connection);
+  return ::zetasql_base::OkStatus();
+}
+
 zetasql_base::Status Resolver::ResolvePathExpressionAsTableScan(
     const ASTPathExpression* path_expr, IdString alias, bool has_explicit_alias,
     const ASTNode* alias_location, const ASTHint* hints,
@@ -5934,6 +5961,22 @@ zetasql_base::Status Resolver::ResolvePathExpressionAsTableScan(
           "as tables. Identifier ",
           ToIdentifierLiteral(path_expr->first_name()->GetAsIdString()),
           " is in scope but unqualified names cannot be resolved here.)");
+    } else if (path_expr->num_names() > 1 &&
+               zetasql_base::ContainsKey(with_subquery_map_,
+                                path_expr->first_name()->GetAsIdString())) {
+      absl::StrAppend(
+          &error_message,
+          "; Table name ", path_expr->ToIdentifierPathString(),
+          " starts with a WITH clause alias and references a column from that",
+          " table, which is invalid in the FROM clause");
+    } else if (path_expr->num_names() > 1 &&
+               zetasql_base::ContainsKey(function_table_arguments_,
+                                path_expr->first_name()->GetAsIdString())) {
+      absl::StrAppend(
+          &error_message,
+          "; Table name ", path_expr->ToIdentifierPathString(),
+          " starts with a TVF table-valued argument name and references a ",
+          "column from that table, which is invalid in the FROM clause");
     } else {
       const std::string table_suggestion =
           catalog_->SuggestTable(path_expr->ToIdentifierVector());

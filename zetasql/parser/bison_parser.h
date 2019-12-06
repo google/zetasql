@@ -259,7 +259,7 @@ class BisonParser {
   zetasql_base::UnsafeArena* arena_;
 
   // LanguageOptions to control parser's behavior.
-  const LanguageOptions* language_options_;
+  const LanguageOptions* language_options_ = nullptr;
 
   // ASTNodes that are allocated by the parser are added to this vector during
   // parsing. The root node itself is added when it is allocated, but it is then

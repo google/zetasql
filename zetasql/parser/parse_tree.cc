@@ -287,6 +287,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_WINDOW_SPECIFICATION] = "WindowSpecification";
   map[AST_WITH_CLAUSE_ENTRY] = "WithClauseEntry";
   map[AST_WITH_CLAUSE] = "WithClause";
+  map[AST_WITH_CONNECTION_CLAUSE] = "WithConnectionClause";
   map[AST_WITH_OFFSET] = "WithOffset";
   map[AST_WITH_WEIGHT] = "WithWeight";
   for (int kind = kFirstASTNodeKind; kind <= kLastASTNodeKind;
@@ -638,6 +639,8 @@ std::string ASTBinaryExpression::GetSQLForOperator() const {
       return "*";
     case DIVIDE:
       return "/";
+    case CONCAT_OP:
+      return "||";
   }
 }
 

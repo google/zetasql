@@ -1537,6 +1537,8 @@ std::vector<FunctionTestCall> GetFunctionTestsRounding() {
         NumericValue(1LL)},
       {"ceiling", {NumericValue::FromString("-0.001").ValueOrDie()},
         NumericValue()},
+      {"ceil", {NumericValue::MaxValue()}, NullNumeric(), OUT_OF_RANGE},
+      {"ceiling", {NumericValue::MaxValue()}, NullNumeric(), OUT_OF_RANGE},
 
       {"floor", {NullNumeric()}, NullNumeric()},
       {"floor", {NumericValue()}, NumericValue()},

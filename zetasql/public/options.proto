@@ -306,6 +306,33 @@ enum LanguageFeature {
   // See (broken link).
   FEATURE_CREATE_MATERIALIZED_VIEW_CLUSTER_BY = 34;
 
+  // Enables support for column definition list in CREATE EXTERNAL TABLE.
+  // Example: CREATE EXTERNAL TABLE t (x FLOAT64)
+  FEATURE_CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST = 35;
+
+  // Enables support for PARTITION BY in CREATE EXTERNAL TABLE.
+  // Example: CREATE EXTERNAL TABLE t (x FLOAT64) PARTITION BY X OPTIONS()
+  // Make sure the feature FEATURE_CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST
+  // is enabled to support column lookup
+  FEATURE_CREATE_EXTERNAL_TABLE_WITH_PARTITION_BY = 36;
+
+  // Enables support for CLUSTER BY in CREATE EXTERNAL TABLE.
+  // Example:
+  // CREATE EXTERNAL TABLE t (x FLOAT64) PARTITION BY X CLUSTER BY X OPTIONS()
+  // Make sure the feature FEATURE_CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST
+  // is enabled to support column lookup.
+  FEATURE_CREATE_EXTERNAL_TABLE_WITH_CLUSTER_BY = 37;
+
+  // Enables support for NUMERIC data type as input in the binary statistics
+  // functions.
+  FEATURE_NUMERIC_COVAR_CORR_SIGNATURES = 38
+      [(language_feature_options).in_development = true];
+
+  // Enables support for NUMERIC data type as input in the unary statistics
+  // functions.
+  FEATURE_NUMERIC_VARIANCE_STDDEV_SIGNATURES = 39
+      [(language_feature_options).in_development = true];
+
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
   //    New features should be added for the *next* version number.
@@ -478,6 +505,21 @@ enum LanguageFeature {
 
   // Enable NULLS FIRST/NULLS LAST in ORDER BY expressions.
   FEATURE_V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY = 13008;
+
+  // Allows dashes in the first part of multi-part table name. This is to
+  // accommodate GCP project names which use dashes instead of underscores, e.g.
+  // crafty-tractor-287. So fully qualified table name which includes project
+  // name normally has to be quoted in the query, i.e. SELECT * FROM
+  // `crafty-tractor-287`.dataset.table This feature allows it to be used
+  // unquoted, i.e. SELECT * FROM crafty-tractor-287.dataset.table
+  FEATURE_V_1_3_ALLOW_DASHES_IN_TABLE_NAME = 13009;
+
+  // CONCAT allows arguments of different types, automatically coerced to
+  // STRING for FN_CONCAT_STRING signature. Only types which have CAST to
+  // STRING defined are allowed, and BYTES is explicitly excluded (since BYTES
+  // should match FN_CONCAT_BYTES signature).
+  FEATURE_V_1_3_CONCAT_MIXED_TYPES = 13010
+      [(language_feature_options).ideally_enabled = false];
 
   // EXPERIMENTAL FEATURES
   // These are features supported in the code that are not currently part of

@@ -488,17 +488,6 @@ class AnalyzerOptions {
     return allowed_hints_and_options_;
   }
 
-  // Controls whether to perform a strict validation on references to columns
-  // defined in REPLACE clauses
-  // ((broken link)#select-replace).
-  // TODO: Remove this option once it becomes the default.
-  void set_strict_validation_on_column_replacements(bool value) {
-    strict_validation_on_column_replacements_ = value;
-  }
-  bool strict_validation_on_column_replacements() const {
-    return strict_validation_on_column_replacements_;
-  }
-
   // Controls whether to preserve aliases of aggregate columns and analytic
   // function columns. This option has no effect on query semantics and just
   // changes what names are used inside ResolvedColumns.
@@ -616,11 +605,6 @@ class AnalyzerOptions {
   // types, and whether to give errors on unrecognized names.
   // See the class definition for details.
   AllowedHintsAndOptions allowed_hints_and_options_;
-
-  // Controls whether to perform a strict validation on references to columns
-  // defined in REPLACE clauses
-  // ((broken link)#select-replace).
-  bool strict_validation_on_column_replacements_ = false;
 
   // Controls whether to preserve aliases of aggregate columns and analytic
   // function columns. See set_preserve_column_aliases() for details.
@@ -817,6 +801,8 @@ zetasql_base::Status AnalyzeExpression(absl::string_view sql,
 // .../public/coercer.h.  If the conversion is not possible, an
 // error is issued, with a location attatched corresonding to the start of the
 // expression.
+//
+// If <target_type> is nullptr, behaves the same as AnalyzeExpression().
 zetasql_base::Status AnalyzeExpressionForAssignmentToType(
     absl::string_view sql, const AnalyzerOptions& options, Catalog* catalog,
     TypeFactory* type_factory, const Type* target_type,

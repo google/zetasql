@@ -16,13 +16,13 @@
 
 # Java API for ZetaSQL.
 
-package(
-    default_visibility = ["//:__subpackages__"],
-)
-
 load("@google_bazel_common//tools/jarjar:jarjar.bzl", "jarjar_library")
 load("@google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
 load("//tools:maven.bzl", "pom_file")
+
+package(
+    default_visibility = ["//visibility:public"],
+)
 
 TYPES_SRCS = [
     "ArrayType.java",
@@ -187,6 +187,7 @@ CLIENT_SRCS = [
     "Catalog.java",
     "Client.java",
     "Column.java",
+    "Connection.java",
     "Constant.java",
     "Function.java",
     "FunctionSignature.java",
@@ -201,6 +202,7 @@ CLIENT_SRCS = [
     "ResolvedFunctionCallInfo.java",
     "SimpleCatalog.java",
     "SimpleColumn.java",
+    "SimpleConnection.java",
     "SimpleModel.java",
     "SimpleTable.java",
     "SqlException.java",

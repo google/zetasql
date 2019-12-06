@@ -47,6 +47,7 @@
 #include "gtest/gtest.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/hash/hash.h"
+#include "absl/hash/hash_testing.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
@@ -236,12 +237,16 @@ class ValueTest : public ::testing::Test {
     return enum_type;
   }
 
+  const ArrayType* GetTestArrayType(const Type* element_type) {
+    const ArrayType* array_type;
+    ZETASQL_CHECK_OK(type_factory_.MakeArrayType(element_type, &array_type));
+    return array_type;
+  }
+
   // Cannot just use MakeArrayType(GetTestEnumType()), because ArrayType needs
   // to be created by the same TypeFactory as EnumType.
   const ArrayType* GetTestArrayEnumType() {
-    const ArrayType* array_type;
-    ZETASQL_CHECK_OK(type_factory_.MakeArrayType(GetTestEnumType(), &array_type));
-    return array_type;
+    return GetTestArrayType(GetTestEnumType());
   }
 
   const ProtoType* GetTestProtoType() {
@@ -596,50 +601,105 @@ TEST_F(ValueTest, GenericAccessors) {
   EXPECT_DEATH(Value::Make<double>(1.3).Get<float>(), "Not a float");
 }
 
-const absl::TimeZone utc = absl::UTCTimeZone();
-// Include all simple types. More complex types are tested in other tests.
-std::vector<std::pair<Value, Value>> hash_test_pairs() {
-  return {{Value::Int32(1001), Value::Int32(1002)},
-          {Value::Int64(1001), Value::Int64(1002)},
-          {Value::Uint32(1001), Value::Uint32(1002)},
-          {Value::Uint64(1001), Value::Uint64(1002)},
-          {Value::Bool(false), Value::Bool(true)},
-          {Value::Float(1.3f), Value::Float(1.4f)},
-          {Value::Double(1.3f), Value::Double(1.4f)},
-          {Value::String("a"), Value::String("b")},
-          {Value::StringValue(std::string("a")),   // NOLINT
-           Value::StringValue(std::string("b"))},  // NOLINT
-          {Value::Bytes("a"), Value::Bytes("b")},
-          {Value::Bytes(std::string("a")), Value::Bytes(std::string("b"))},  // NOLINT
-          {Value::Date(1001), Value::Date(1002)},
-          {Value::Timestamp(
-              absl::FromCivil(absl::CivilSecond(2018, 2, 14, 16, 36, 11), utc) +
-              absl::Nanoseconds(1)),
-           Value::Timestamp(
-              absl::FromCivil(absl::CivilSecond(2018, 2, 14, 16, 36, 11), utc) +
-              absl::Nanoseconds(2))},
-          {Value::Time(TimeValue::FromHMSAndNanos(16, 36, 11, 1)),
-           Value::Time(TimeValue::FromHMSAndNanos(16, 36, 11, 2))},
-          {Value::Datetime(
-               DatetimeValue::FromYMDHMSAndNanos(2018, 2, 14, 16, 36, 11, 1)),
-           Value::Datetime(
-               DatetimeValue::FromYMDHMSAndNanos(2018, 2, 14, 16, 36, 11, 2))},
-          {Value::Numeric(NumericValue(1001LL)),
-           Value::Numeric(NumericValue(1002LL))}};
-}
-
 // Verifies that HashCode() is consistent for the same value and not the same
 // for all values of the same given type.
 TEST_F(ValueTest, HashCode) {
-  for (const auto& pair : hash_test_pairs()) {
-    SCOPED_TRACE(::testing::Message()
-                 << "{ " << pair.first << ", " << pair.second << "}");
-    Value copy_of_first = pair.first;
-    Value null_value = Value::Null(pair.first.type());
-    EXPECT_EQ(pair.first.HashCode(), copy_of_first.HashCode());
-    EXPECT_NE(pair.first.HashCode(), null_value.HashCode());
-    EXPECT_NE(pair.first.HashCode(), pair.second.HashCode());
-  }
+  const absl::TimeZone utc = absl::UTCTimeZone();
+
+  const EnumType* enum_type = GetTestEnumType();
+  const EnumType* other_enum_type = GetOtherTestEnumType();
+
+  const ProtoType* proto_type = GetTestProtoType();
+  const ProtoType* other_proto_type = GetOtherTestProtoType();
+
+  const ArrayType* array_enum_type = GetTestArrayType(enum_type);
+  const ArrayType* array_other_enum_type = GetTestArrayType(other_enum_type);
+  const ArrayType* array_proto_type = GetTestArrayType(proto_type);
+  const ArrayType* array_other_proto_type = GetTestArrayType(other_proto_type);
+
+  // Include all simple types and some simple examples of complex types. Complex
+  // types have additional testing in other tests.
+  EXPECT_TRUE(absl::VerifyTypeImplementsAbslHashCorrectly({
+      // Invalid value.
+      Value(),
+      // Typed nulls.
+      Value::NullInt32(), Value::NullInt64(), Value::NullUint32(),
+      Value::NullUint64(), Value::NullBool(), Value::NullFloat(),
+      Value::NullDouble(), Value::NullBytes(), Value::NullString(),
+      Value::NullDate(), Value::NullTimestamp(), Value::NullTime(),
+      Value::NullDatetime(), Value::NullGeography(), Value::NullNumeric(),
+      Value::Null(enum_type), Value::Null(other_enum_type),
+      Value::Null(proto_type), Value::Null(other_proto_type),
+      Value::Null(types::Int32ArrayType()),
+      Value::Null(types::Int64ArrayType()),
+      Value::Null(array_enum_type), Value::Null(array_other_enum_type),
+      Value::Null(array_proto_type), Value::Null(array_other_proto_type),
+      // Simple scalar types.
+      Value::Int32(1001), Value::Int32(1002),
+      Value::Int64(1001), Value::Int64(1002),
+      Value::Uint32(1001), Value::Uint32(1002),
+      Value::Uint64(1001), Value::Uint64(1002),
+      Value::Bool(false), Value::Bool(true),
+      Value::Float(1.3f), Value::Float(1.4f),
+      Value::Double(1.3f), Value::Double(1.4f),
+      Value::String("a"), Value::String("b"),
+      Value::StringValue(std::string("a")),
+      Value::StringValue(std::string("b")),
+      Value::Bytes("a"), Value::Bytes("b"),
+      Value::Bytes(std::string("a")), Value::Bytes(std::string("b")),
+      Value::Date(1001), Value::Date(1002),
+      Value::Timestamp(
+          absl::FromCivil(absl::CivilSecond(2018, 2, 14, 16, 36, 11), utc) +
+          absl::Nanoseconds(1)),
+      Value::Timestamp(
+          absl::FromCivil(absl::CivilSecond(2018, 2, 14, 16, 36, 11), utc) +
+          absl::Nanoseconds(2)),
+      Value::Time(TimeValue::FromHMSAndNanos(16, 36, 11, 1)),
+      Value::Time(TimeValue::FromHMSAndNanos(16, 36, 11, 2)),
+      Value::Datetime(
+          DatetimeValue::FromYMDHMSAndNanos(2018, 2, 14, 16, 36, 11, 1)),
+      Value::Datetime(
+          DatetimeValue::FromYMDHMSAndNanos(2018, 2, 14, 16, 36, 11, 2)),
+      Value::Numeric(NumericValue(1001LL)),
+      Value::Numeric(NumericValue(1002LL)),
+      // Enums of two different types.
+      values::Enum(enum_type, 0), values::Enum(enum_type, 1),
+      values::Enum(other_enum_type, 0), values::Enum(other_enum_type, 1),
+      // Protos of two different types.
+      Value::Proto(proto_type, {}), Value::Proto(other_proto_type, {}),
+      // Arrays of various types.
+      values::Int32Array({}),
+      values::Int32Array({0, 1, 1, 2, 3, 5, 8, 13, 21}),
+      values::Int32Array({0, 1, 1, 2, 3, 5, 8, 13, -1}),
+      values::Int64Array({}),
+      values::Int64Array({0, 1, 1, 2, 3, 5, 8, 13, 21}),
+      values::Int64Array({0, 1, 1, 2, 3, 5, 8, 13, -1}),
+
+      values::EmptyArray(array_enum_type),
+      values::Array(array_enum_type, {values::Enum(enum_type, 0)}),
+      values::Array(
+          array_enum_type,
+          {values::Enum(enum_type, 0), values::Enum(enum_type, 1)}),
+      values::EmptyArray(array_other_enum_type),
+      values::Array(array_other_enum_type, {values::Enum(other_enum_type, 0)}),
+      values::Array(
+          array_other_enum_type,
+          {values::Enum(other_enum_type, 0), values::Enum(other_enum_type, 1)}),
+
+      values::EmptyArray(array_proto_type),
+      values::Array(array_proto_type, {Value::Proto(proto_type, {})}),
+      values::Array(
+          array_proto_type,
+          {Value::Proto(proto_type, {}), Value::Proto(proto_type, {})}),
+      values::EmptyArray(array_other_proto_type),
+      values::Array(
+          array_other_proto_type,
+          {Value::Proto(other_proto_type, {})}),
+      values::Array(
+          array_other_proto_type,
+          {Value::Proto(other_proto_type, {}),
+           Value::Proto(other_proto_type, {})}),
+  }));
 }
 
 TEST_F(ValueTest, InvalidValue) {

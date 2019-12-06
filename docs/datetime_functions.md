@@ -540,6 +540,9 @@ element overrides the later. See the descriptions
 of `%s`, `%C`, and `%y` in
 [Supported Format Elements For DATETIME][datetime-functions-link-to-supported-format-elements-for-datetime].
 
+Note: This function supports [format elements][datetime-functions-link-to-supported-format-elements-for-datetime],
+but does not have full support for `%Q`, `%a`, `%A`, `%g`, `%G`, `%j`, `%u`, `%U`, `%V`, `%w`, and `%W`.
+
 **Examples**
 
 The following example parses a `STRING` literal as a
@@ -792,6 +795,6 @@ year.</td>
  </tr>
 </table>
 
-[datetime-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone-definitions
-[datetime-functions-link-to-supported-format-elements-for-datetime]: https://github.com/google/zetasql/blob/master/docs/datetime_functions.md#supported-format-elements-for-datetime
+[datetime-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
+[datetime-functions-link-to-supported-format-elements-for-datetime]: https://github.com/google/zetasql/blob/master/docs/datetime_functions.md#supported_format_elements_for_datetime
 

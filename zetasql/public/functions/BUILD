@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-package(default_visibility = ["//:__subpackages__"])
+package(default_visibility = ["//visibility:public"])
 
 cc_library(
     name = "util",
@@ -153,6 +153,36 @@ cc_test(
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "like",
+    srcs = ["like.cc"],
+    hdrs = ["like.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/public:type_cc_proto",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+        "@com_google_re2//:re2",
+    ],
+)
+
+cc_test(
+    name = "like_test",
+    size = "small",
+    srcs = ["like_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":like",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base:status",
+        "@com_google_absl//absl/strings",
+        "@com_google_re2//:re2",
     ],
 )
 
@@ -310,6 +340,79 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "math",
+    srcs = ["math.cc"],
+    hdrs = ["math.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":arithmetics",
+        ":util",
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/public:numeric_value",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "math_test",
+    size = "small",
+    srcs = ["math_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":math",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/common:float_margin",
+        "//zetasql/compliance:functions_testlib",
+        "//zetasql/public:numeric_value",
+        "//zetasql/public:type",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/testing:test_function",
+        "@com_google_absl//absl/base:core_headers",
+    ],
+)
+
+cc_library(
+    name = "regexp",
+    srcs = ["regexp.cc"],
+    hdrs = ["regexp.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":util",
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+        "@com_google_re2//:re2",
+        "@icu//:headers",
+    ],
+)
+
+cc_test(
+    name = "regexp_test",
+    size = "small",
+    srcs = ["regexp_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":regexp",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base:status",
+        "//zetasql/compliance:functions_testlib",
+        "//zetasql/public:type",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/testing:test_function",
+    ],
+)
+
 proto_library(
     name = "datetime_proto",
     srcs = ["datetime.proto"],
@@ -338,6 +441,44 @@ cc_proto_library(
 java_proto_library(
     name = "normalize_mode_java_proto",
     deps = [":normalize_mode_proto"],
+)
+
+cc_library(
+    name = "generate_array",
+    hdrs = ["generate_array.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":arithmetics",
+        ":date_time_util",
+        ":datetime_cc_proto",
+        "//zetasql/base:source_location",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/public:numeric_value",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+cc_test(
+    name = "generate_array_test",
+    srcs = ["generate_array_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":generate_array",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base:status",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/common:float_margin",
+        "//zetasql/common:internal_value",
+        "//zetasql/compliance:functions_testlib",
+        "//zetasql/public:numeric_value",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/testing:test_function",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/strings",
+    ],
 )
 
 cc_library(

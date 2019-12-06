@@ -26,6 +26,8 @@ import com.google.protobuf.Descriptors.OneofDescriptor;
 import com.google.protobuf.Message;
 import com.google.protobuf.ProtocolMessageEnum;
 import com.google.zetasql.AnyResolvedNodeProto;
+import com.google.zetasql.Connection;
+import com.google.zetasql.ConnectionRefProto;
 import com.google.zetasql.Constant;
 import com.google.zetasql.ConstantRefProto;
 import com.google.zetasql.FieldDescriptorRefProto;
@@ -138,6 +140,10 @@ public final class ResolvedNodes {
 
   static ModelRefProto serialize(Model model, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     return ModelRefProto.newBuilder().setName(model.getName()).setSerializationId(model.getId()).build();
+  }
+
+  static ConnectionRefProto serialize(Connection connection, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
+    return ConnectionRefProto.newBuilder().setName(connection.getName()).build();
   }
 
   static ProcedureRefProto serialize(Procedure procedure,

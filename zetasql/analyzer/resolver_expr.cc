@@ -189,7 +189,9 @@ zetasql_base::Status Resolver::ResolveBuildProto(
                  << descriptor->full_name();
         }
         if (field->is_required()) {
-          DCHECK(zetasql_base::ContainsKey(missing_required_fields, field));
+          // Note that required fields may be listed twice, so this erase can
+          // be a no-op.  This condition will eventually trigger a duplicate
+          // column error below.
           missing_required_fields.erase(field);
         }
         break;
@@ -5241,6 +5243,72 @@ IdString Resolver::GetColumnAliasForTopLevelExpression(
     return alias;
   }
   return IdString();
+}
+
+zetasql_base::Status Resolver::CoerceExprToBool(
+    const ASTExpression* ast_expression, const char* clause_name,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr) {
+  return CoerceExprToType(ast_expression, type_factory_->get_bool(),
+                               /*assignment_semantics=*/false,
+                               clause_name, resolved_expr);
+}
+
+zetasql_base::Status Resolver::CoerceExprToType(
+    const ASTExpression* ast_expression, const Type* target_type,
+    bool assignment_semantics, const char* clause_name,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr) {
+  InputArgumentType expr_arg_type =
+      GetInputArgumentTypeForExpr(resolved_expr->get());
+  SignatureMatchResult sig_match_result;
+  Coercer coercer(type_factory_, analyzer_options_.default_time_zone(),
+                  &language());
+  bool success;
+  if (assignment_semantics) {
+    success = coercer.AssignableTo(expr_arg_type, target_type,
+                                   /*is_explicit=*/false, &sig_match_result);
+  } else {
+    success = coercer.CoercesTo(expr_arg_type, target_type,
+                                /*is_explicit=*/false, &sig_match_result);
+  }
+  if (!success) {
+    const std::string target_type_name =
+        target_type->ShortTypeName(language().product_mode());
+    const std::string expr_type_name =
+        resolved_expr->get()->type()->ShortTypeName(language().product_mode());
+    if (clause_name != nullptr) {
+      return MakeSqlErrorAt(ast_expression)
+             << clause_name << " should return type " << target_type_name
+             << ", but returns " << expr_type_name;
+    } else {
+      return MakeSqlErrorAt(ast_expression)
+             << "Expected type " << target_type_name << "; found "
+             << expr_type_name;
+    }
+  }
+
+  // The coercion is legal, so implement it by adding a cast.  Note that
+  // AddCastOrConvertLiteral() adds a cast node only when necessary.
+  ZETASQL_RETURN_IF_ERROR(FunctionResolver(catalog_, type_factory_, this)
+                      .AddCastOrConvertLiteral(ast_expression, target_type,
+                                               /*scan=*/nullptr,
+                                               /*set_has_explicit_type=*/false,
+                                               /*return_null_on_error=*/false,
+                                               resolved_expr));
+  return zetasql_base::OkStatus();
+}
+
+zetasql_base::Status Resolver::ResolveExecuteImmediateArgument(
+    const ASTExecuteUsingArgument* argument, ExprResolutionInfo* expr_info,
+    std::unique_ptr<const ResolvedExecuteImmediateArgument>* output) {
+  const std::string alias =
+      argument->alias() != nullptr ? argument->alias()->GetAsString() : "";
+
+  std::unique_ptr<const ResolvedExpr> expression;
+  ZETASQL_RETURN_IF_ERROR(ResolveExpr(argument->expression(), expr_info, &expression));
+
+  *output = MakeResolvedExecuteImmediateArgument(alias, std::move(expression));
+
+  return zetasql_base::OkStatus();
 }
 
 }  // namespace zetasql

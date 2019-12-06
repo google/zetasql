@@ -28,6 +28,7 @@
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/functions/regexp.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/type.h"
@@ -102,6 +103,7 @@ enum class FunctionKind {
   kIsFalse,
   // Cast function
   kCast,
+  kLike,
   // BitCast functions
   kBitCastToInt32,
   kBitCastToInt64,
@@ -116,6 +118,35 @@ enum class FunctionKind {
   kBitwiseRightShift,
   // BitCount functions
   kBitCount,
+  // Math functions
+  kAbs,
+  kSign,
+  kRound,
+  kTrunc,
+  kCeil,
+  kFloor,
+  kIsNan,
+  kIsInf,
+  kIeeeDivide,
+  kSqrt,
+  kPow,
+  kExp,
+  kNaturalLogarithm,
+  kDecimalLogarithm,
+  kLogarithm,
+  kCos,
+  kCosh,
+  kAcos,
+  kAcosh,
+  kSin,
+  kSinh,
+  kAsin,
+  kAsinh,
+  kTan,
+  kTanh,
+  kAtan,
+  kAtanh,
+  kAtan2,
   // Least and greatest functions
   kLeast,
   kGreatest,
@@ -133,10 +164,19 @@ enum class FunctionKind {
   kArrayAtOffset,
   kSafeArrayAtOrdinal,
   kSafeArrayAtOffset,
+  kGenerateArray,
+  kGenerateDateArray,
+  kGenerateTimestampArray,
+  kRangeBucket,
   kFromProto,
   kToProto,
   kMakeProto,
   kReplaceFields,
+  kRegexpExtract,
+  kRegexpExtractAll,
+  kRegexpContains,
+  kRegexpMatch,
+  kRegexpReplace,
   // Date/Time functions
   kDateAdd,
   kDateSub,
@@ -458,6 +498,23 @@ class BitCastFunction : public BuiltinScalarFunction {
             Value* result, ::zetasql_base::Status* status) const override;
 };
 
+class LikeFunction : public SimpleBuiltinScalarFunction {
+ public:
+  LikeFunction(FunctionKind kind, const Type* output_type,
+               std::unique_ptr<RE2> regexp)
+      : SimpleBuiltinScalarFunction(kind, output_type),
+        regexp_(std::move(regexp)) {}
+  ::zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+                               EvaluationContext* context) const override;
+
+  LikeFunction(const LikeFunction&) = delete;
+  LikeFunction& operator=(const LikeFunction&) = delete;
+
+ private:
+  // Regexp precompiled at prepare time; null if cannot be precompiled.
+  std::unique_ptr<RE2> regexp_;
+};
+
 class BitwiseFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
@@ -513,6 +570,53 @@ class GreatestFunction : public BuiltinScalarFunction {
                               output_type) {}
   bool Eval(absl::Span<const Value> args, EvaluationContext* context,
             Value* result, ::zetasql_base::Status* status) const override;
+};
+
+class GenerateArrayFunction : public SimpleBuiltinScalarFunction {
+ public:
+  explicit GenerateArrayFunction(const Type* output_type)
+      : SimpleBuiltinScalarFunction(FunctionKind::kGenerateArray, output_type) {
+  }
+  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class RangeBucketFunction : public SimpleBuiltinScalarFunction {
+ public:
+  RangeBucketFunction()
+      : SimpleBuiltinScalarFunction(FunctionKind::kRangeBucket,
+                                    types::Int64Type()) {}
+  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class MathFunction : public BuiltinScalarFunction {
+ public:
+  using BuiltinScalarFunction::BuiltinScalarFunction;
+  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+            Value* result, ::zetasql_base::Status* status) const override;
+};
+
+class RegexpFunction : public SimpleBuiltinScalarFunction {
+ public:
+  typedef std::function<zetasql_base::StatusOr<Value>(absl::Span<const Value> x,
+                                              functions::RegExp*)>
+      EvalFunction;
+  RegexpFunction(std::unique_ptr<functions::RegExp> regexp, EvalFunction func,
+                 FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type),
+        regexp_(std::move(regexp)),
+        func_(std::move(func)) {}
+
+  RegexpFunction(const RegexpFunction&) = delete;
+  RegexpFunction& operator=(const RegexpFunction&) = delete;
+
+  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+
+ private:
+  std::unique_ptr<functions::RegExp> regexp_;
+  EvalFunction func_;
 };
 
 class ConcatFunction : public SimpleBuiltinScalarFunction {

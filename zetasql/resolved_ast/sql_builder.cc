@@ -1232,9 +1232,22 @@ zetasql_base::Status SQLBuilder::VisitResolvedGetStructField(
   // When struct_expr is an empty identifier, we directly use the field_name to
   // access the struct field (in the generated sql). This shows up for in-scope
   // expression column fields where the expression column is anonymous.
+  //
+  // Parentheses are similarly necessary for system variables so that (@@a).b
+  // gets reparsed as field b of system variable "@@a", not system variable
+  // "@@a.b".
+  //
+  // There is one exception - if a system variable is the LHS of a SET
+  // statement, we do NOT insert the parentheses.  Since the grammar does not
+  // allow parentheses around expressions in the LHS of a SET statement, this
+  // is not only necessary to allow the generated SQL to parse, but also safe -
+  // if system variables "@@a" and "@@a.b" both exist, it is not possible to
+  // assign to field b of system variable "@@a".
+  //
   if (result_sql != kEmptyAlias) {
     if (node->expr()->node_kind() == RESOLVED_CONSTANT ||
-        node->expr()->node_kind() == RESOLVED_SYSTEM_VARIABLE) {
+        (node->expr()->node_kind() == RESOLVED_SYSTEM_VARIABLE &&
+         !in_set_lhs_)) {
       // Enclose <result_sql> in parentheses to ensure that "(foo).bar"
       // (accessing field bar of constant foo) does not get unparsed as
       // "foo.bar" (accessing named constant bar in namespace foo).
@@ -1476,6 +1489,13 @@ zetasql_base::Status SQLBuilder::VisitResolvedTVFScan(const ResolvedTVFScan* nod
       const std::string model_alias =
           ToIdentifierLiteral(argument->model()->model()->Name());
       argument_list.push_back(absl::StrCat("MODEL ", model_alias));
+      continue;
+    }
+
+    if (argument->connection() != nullptr) {
+      const std::string connection_alias =
+          ToIdentifierLiteral(argument->connection()->connection()->Name());
+      argument_list.push_back(absl::StrCat("CONNECTION ", connection_alias));
       continue;
     }
 
@@ -2573,11 +2593,97 @@ static std::string GetForeignKeyActionSql(
   }
 }
 
+zetasql_base::Status SQLBuilder::ProcessTableElementsBase(
+    std::string* sql,
+    const std::vector<std::unique_ptr<const ResolvedColumnDefinition>>&
+        column_definition_list,
+    const ResolvedPrimaryKey* resolved_primary_key,
+    const std::vector<std::unique_ptr<const ResolvedForeignKey>>&
+        foreign_key_list,
+    const std::vector<std::unique_ptr<const ResolvedCheckConstraint>>&
+        check_constraint_list) {
+  absl::StrAppend(sql, "(");
+  std::vector<std::string> table_elements;
+  // Go through each column and generate the SQL corresponding to it.
+  for (const auto& c : column_definition_list) {
+    std::string table_element = absl::StrCat(ToIdentifierLiteral(c->name()), " ");
+    ZETASQL_RETURN_IF_ERROR(
+        AppendColumnSchema(c->type(), c->is_hidden(), c->annotations(),
+                           c->generated_column_info(), &table_element));
+    table_elements.push_back(std::move(table_element));
+  }
+  if (resolved_primary_key != nullptr) {
+    const auto* pk = resolved_primary_key;
+    std::string primary_key = "PRIMARY KEY";
+    absl::StrAppend(&primary_key,
+                    GetColumnListSql(pk->column_offset_list(),
+                                     [&column_definition_list](int i) {
+                                       return column_definition_list[i]->name();
+                                     }),
+                    " ");
+    ZETASQL_RETURN_IF_ERROR(AppendOptionsIfPresent(pk->option_list(), &primary_key));
+    table_elements.push_back(primary_key);
+  }
+  for (const auto& fk : foreign_key_list) {
+    std::string foreign_key;
+    if (!fk->constraint_name().empty()) {
+      absl::StrAppend(&foreign_key, "CONSTRAINT ", fk->constraint_name(), " ");
+    }
+    absl::StrAppend(&foreign_key, "FOREIGN KEY",
+                    GetColumnListSql(fk->referencing_column_offset_list(),
+                                     [&column_definition_list](int i) {
+                                       return column_definition_list[i]->name();
+                                     }),
+                    " ");
+    absl::StrAppend(
+        &foreign_key, "REFERENCES ", fk->referenced_table()->Name(),
+        GetColumnListSql(fk->referenced_column_offset_list(),
+                         [&fk](int i) {
+                           return fk->referenced_table()->GetColumn(i)->Name();
+                         }),
+        " ");
+    absl::StrAppend(&foreign_key, "MATCH ",
+                    GetForeignKeyMatchSql(fk->match_mode()), " ");
+    absl::StrAppend(&foreign_key, "ON UPDATE ",
+                    GetForeignKeyActionSql(fk->update_action()), " ");
+    absl::StrAppend(&foreign_key, "ON DELETE ",
+                    GetForeignKeyActionSql(fk->delete_action()), " ");
+    if (!fk->enforced()) {
+      absl::StrAppend(&foreign_key, "NOT ");
+    }
+    absl::StrAppend(&foreign_key, "ENFORCED");
+    ZETASQL_RETURN_IF_ERROR(AppendOptionsIfPresent(fk->option_list(), &foreign_key));
+    table_elements.push_back(foreign_key);
+  }
+  for (const auto& check_constraint : check_constraint_list) {
+    std::string check_constraint_sql;
+    if (!check_constraint->constraint_name().empty()) {
+      absl::StrAppend(&check_constraint_sql, "CONSTRAINT ",
+                      check_constraint->constraint_name(), " ");
+    }
+    absl::StrAppend(&check_constraint_sql, "CHECK (");
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
+                     ProcessNode(check_constraint->expression()));
+    absl::StrAppend(&check_constraint_sql, result->GetSQL(), ") ");
+    if (!check_constraint->enforced()) {
+      absl::StrAppend(&check_constraint_sql, "NOT ");
+    }
+    absl::StrAppend(&check_constraint_sql, "ENFORCED");
+    ZETASQL_RETURN_IF_ERROR(AppendOptionsIfPresent(check_constraint->option_list(),
+                                           &check_constraint_sql));
+    table_elements.push_back(check_constraint_sql);
+  }
+  absl::StrAppend(sql, absl::StrJoin(table_elements, ", "));
+  absl::StrAppend(sql, ")");
+  return ::zetasql_base::OkStatus();
+}
+
 zetasql_base::StatusOr<std::string> SQLBuilder::ProcessCreateTableStmtBase(
-    const ResolvedCreateTableStmtBase* node, bool process_column_definitions) {
+    const ResolvedCreateTableStmtBase* node, bool process_column_definitions,
+    const std::string& table_type) {
   std::string sql;
 
-  ZETASQL_RETURN_IF_ERROR(GetCreateStatementPrefix(node, "TABLE", &sql));
+  ZETASQL_RETURN_IF_ERROR(GetCreateStatementPrefix(node, table_type, &sql));
   // Make column aliases available for PARTITION BY, CLUSTER BY and table
   // constraints.
   for (const auto& column_definition : node->column_definition_list()) {
@@ -2588,86 +2694,9 @@ zetasql_base::StatusOr<std::string> SQLBuilder::ProcessCreateTableStmtBase(
     computed_column_alias_[column.column_id()] = column.name();
   }
   if (process_column_definitions) {
-    absl::StrAppend(&sql, "(");
-    std::vector<std::string> table_elements;
-    // Go through each column and generate the SQL corresponding to it.
-    for (const auto& c : node->column_definition_list()) {
-      std::string table_element =
-          absl::StrCat(ToIdentifierLiteral(c->name()), " ");
-      ZETASQL_RETURN_IF_ERROR(
-          AppendColumnSchema(c->type(), c->is_hidden(), c->annotations(),
-                             c->generated_column_info(), &table_element));
-      table_elements.push_back(std::move(table_element));
-    }
-    if (node->primary_key() != nullptr) {
-      const auto* pk = node->primary_key();
-      std::string primary_key = "PRIMARY KEY";
-      absl::StrAppend(&primary_key,
-                      GetColumnListSql(
-                          pk->column_offset_list(),
-                          [node](int i) {
-                            return node->column_definition_list()[i]->name();
-                          }),
-                      " ");
-      ZETASQL_RETURN_IF_ERROR(AppendOptionsIfPresent(pk->option_list(), &primary_key));
-      table_elements.push_back(primary_key);
-    }
-    for (const auto& fk : node->foreign_key_list()) {
-      std::string foreign_key;
-      if (!fk->constraint_name().empty()) {
-        absl::StrAppend(&foreign_key,
-                        "CONSTRAINT ", fk->constraint_name(), " ");
-      }
-      absl::StrAppend(&foreign_key,
-                      "FOREIGN KEY",
-                      GetColumnListSql(
-                          fk->referencing_column_offset_list(),
-                          [node](int i) {
-                            return node->column_definition_list()[i]->name();
-                          }),
-                      " ");
-      absl::StrAppend(&foreign_key,
-                      "REFERENCES ",
-                      fk->referenced_table()->Name(),
-                      GetColumnListSql(
-                          fk->referenced_column_offset_list(),
-                          [&fk](int i) {
-                            return fk->referenced_table()->GetColumn(i)->Name();
-                          }),
-                      " ");
-      absl::StrAppend(&foreign_key, "MATCH ",
-                      GetForeignKeyMatchSql(fk->match_mode()), " ");
-      absl::StrAppend(&foreign_key, "ON UPDATE ",
-                      GetForeignKeyActionSql(fk->update_action()), " ");
-      absl::StrAppend(&foreign_key, "ON DELETE ",
-                      GetForeignKeyActionSql(fk->delete_action()), " ");
-      if (!fk->enforced()) {
-        absl::StrAppend(&foreign_key, "NOT ");
-      }
-      absl::StrAppend(&foreign_key, "ENFORCED");
-      ZETASQL_RETURN_IF_ERROR(AppendOptionsIfPresent(fk->option_list(), &foreign_key));
-      table_elements.push_back(foreign_key);
-    }
-    for (const auto& check_constraint : node->check_constraint_list()) {
-      std::string check_constraint_sql;
-      if (!check_constraint->constraint_name().empty()) {
-        absl::StrAppend(&check_constraint_sql, "CONSTRAINT ",
-                        check_constraint->constraint_name(), " ");
-      }
-      absl::StrAppend(&check_constraint_sql, "CHECK (");
-      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
-                       ProcessNode(check_constraint->expression()));
-      absl::StrAppend(&check_constraint_sql, result->GetSQL(), ") ");
-      if (!check_constraint->enforced()) {
-        absl::StrAppend(&check_constraint_sql, "NOT ");
-      }
-      absl::StrAppend(&check_constraint_sql, "ENFORCED");
-      ZETASQL_RETURN_IF_ERROR(AppendOptionsIfPresent(check_constraint->option_list(),
-                                             &check_constraint_sql));
-      table_elements.push_back(check_constraint_sql);
-    }
-    absl::StrAppend(&sql, absl::StrJoin(table_elements, ", "));
-    absl::StrAppend(&sql, ")");
+    ZETASQL_RETURN_IF_ERROR(ProcessTableElementsBase(
+        &sql, node->column_definition_list(), node->primary_key(),
+        node->foreign_key_list(), node->check_constraint_list()));
   }
   if (!node->partition_by_list().empty()) {
     absl::StrAppend(&sql, " PARTITION BY ");
@@ -2679,7 +2708,8 @@ zetasql_base::StatusOr<std::string> SQLBuilder::ProcessCreateTableStmtBase(
     ZETASQL_RETURN_IF_ERROR(GetPartitionByListString(node->cluster_by_list(), &sql));
   }
 
-  if (!node->option_list().empty()) {
+  if (node->node_kind() == RESOLVED_CREATE_EXTERNAL_TABLE_STMT ||
+      !node->option_list().empty()) {
     ZETASQL_ASSIGN_OR_RETURN(const std::string options_string,
                      GetHintListString(node->option_list()));
     absl::StrAppend(&sql, " OPTIONS(", options_string, ") ");
@@ -2690,9 +2720,10 @@ zetasql_base::StatusOr<std::string> SQLBuilder::ProcessCreateTableStmtBase(
 
 zetasql_base::Status SQLBuilder::VisitResolvedCreateTableStmt(
     const ResolvedCreateTableStmt* node) {
-  ZETASQL_ASSIGN_OR_RETURN(std::string sql,
-                   ProcessCreateTableStmtBase(
-                       node, /* process_column_definitions = */ true));
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::string sql,
+      ProcessCreateTableStmtBase(node, /*process_column_definitions=*/true,
+                                 /*table_type=*/"TABLE"));
   PushQueryFragment(node, sql);
   return ::zetasql_base::OkStatus();
 }
@@ -2728,8 +2759,9 @@ zetasql_base::Status SQLBuilder::VisitResolvedCreateTableAsSelectStmt(
       }
     }
   }
-  ZETASQL_ASSIGN_OR_RETURN(std::string sql, ProcessCreateTableStmtBase(
-                                        node, process_column_definitions));
+  ZETASQL_ASSIGN_OR_RETURN(std::string sql,
+                   ProcessCreateTableStmtBase(node, process_column_definitions,
+                                              /* table_type = */ "TABLE"));
   // We should get a struct or a proto if is_value_table=true.
   if (node->is_value_table()) {
     ZETASQL_RET_CHECK_EQ(query_expression->SelectList().size(), 1);
@@ -3005,13 +3037,11 @@ zetasql_base::Status SQLBuilder::VisitResolvedCreateMaterializedViewStmt(
 
 zetasql_base::Status SQLBuilder::VisitResolvedCreateExternalTableStmt(
     const ResolvedCreateExternalTableStmt* node) {
-  std::string sql;
-  ZETASQL_RETURN_IF_ERROR(GetCreateStatementPrefix(node, "EXTERNAL TABLE", &sql));
-
-  ZETASQL_ASSIGN_OR_RETURN(const std::string options_string,
-                   GetHintListString(node->option_list()));
-  absl::StrAppend(&sql, "OPTIONS(", options_string, ") ");
-
+  const bool process_column_definitions =
+      node->column_definition_list_size() > 0;
+  ZETASQL_ASSIGN_OR_RETURN(std::string sql,
+                   ProcessCreateTableStmtBase(node, process_column_definitions,
+                                              /*table_type=*/"EXTERNAL TABLE"));
   PushQueryFragment(node, sql);
   return ::zetasql_base::OkStatus();
 }
@@ -3215,6 +3245,11 @@ zetasql_base::Status SQLBuilder::VisitResolvedExportDataStmt(
     absl::StrAppend(&sql, " ");
   }
   absl::StrAppend(&sql, "EXPORT DATA ");
+  if (node->connection() != nullptr) {
+    const std::string connection_alias =
+        ToIdentifierLiteral(node->connection()->connection()->Name());
+    absl::StrAppend(&sql, "WITH CONNECTION ", connection_alias, " ");
+  }
   if (node->option_list_size() > 0) {
     ZETASQL_ASSIGN_OR_RETURN(const std::string result,
                      GetHintListString(node->option_list()));
@@ -3385,6 +3420,23 @@ zetasql_base::Status SQLBuilder::VisitResolvedRunBatchStmt(
 zetasql_base::Status SQLBuilder::VisitResolvedAbortBatchStmt(
     const ResolvedAbortBatchStmt* node) {
   PushQueryFragment(node, "ABORT BATCH");
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status SQLBuilder::VisitResolvedAssignmentStmt(
+    const ResolvedAssignmentStmt* node) {
+  CHECK_EQ(in_set_lhs_, false);
+  in_set_lhs_ = true;
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> target_sql,
+                   ProcessNode(node->target()));
+  in_set_lhs_ = false;
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> expr_sql,
+                   ProcessNode(node->expr()));
+
+  std::string sql;
+  absl::StrAppend(&sql, "SET ", target_sql->GetSQL(), " = ",
+                  expr_sql->GetSQL());
+  PushQueryFragment(node, sql);
   return ::zetasql_base::OkStatus();
 }
 
@@ -4318,6 +4370,48 @@ zetasql_base::Status SQLBuilder::VisitResolvedModuleStmt(
 
   PushQueryFragment(node, sql);
   return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::StatusOr<std::string> SQLBuilder::ProcessExecuteImmediateArgument(
+    const ResolvedExecuteImmediateArgument* node) {
+  std::string sql;
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> expr,
+                   ProcessNode(node->expression()));
+  absl::StrAppend(&sql, expr->GetSQL());
+  if (!node->name().empty()) {
+    absl::StrAppend(&sql, " AS ");
+    absl::StrAppend(&sql, node->name());
+  }
+  return sql;
+}
+
+zetasql_base::Status SQLBuilder::VisitResolvedExecuteImmediateStmt(
+    const ResolvedExecuteImmediateStmt* node) {
+  std::string sql = "EXECUTE IMMEDIATE ";
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> dynamic_sql,
+                   ProcessNode(node->sql()));
+  absl::StrAppend(&sql, dynamic_sql->GetSQL());
+
+  if (!node->into_identifier_list().empty()) {
+    std::string identifiers = absl::StrJoin(node->into_identifier_list(), ", ");
+    absl::StrAppend(&sql, " INTO ", identifiers);
+  }
+
+  if (!node->using_argument_list().empty()) {
+    absl::StrAppend(&sql, " USING ");
+    // After parsing, this list is guaranteed to have at least one argument.
+    for (int i = 0; i < node->using_argument_list_size(); i++) {
+      ZETASQL_ASSIGN_OR_RETURN(std::string arg_sql, ProcessExecuteImmediateArgument(
+                                                node->using_argument_list(i)));
+      if (i > 0) {
+        absl::StrAppend(&sql, ", ");
+      }
+      absl::StrAppend(&sql, arg_sql);
+    }
+  }
+
+  PushQueryFragment(node, sql);
+  return zetasql_base::OkStatus();
 }
 
 void SQLBuilder::PushSQLForQueryExpression(const ResolvedNode* node,

@@ -148,6 +148,22 @@ class ResolverTest : public ::testing::Test {
         << cast_expression;
   }
 
+  zetasql_base::StatusOr<std::unique_ptr<const ResolvedExpr>> ResolveAndCoerce(
+      const std::string& query, const Type* target_type,
+      bool assignment_semantics, const char* clause_name) {
+    std::unique_ptr<ParserOutput> parser_output;
+    std::unique_ptr<const ResolvedExpr> resolved_expression;
+    ZETASQL_CHECK_OK(ParseExpression(query, ParserOptions(), &parser_output)) << query;
+    const ASTExpression* parsed_expression = parser_output->expression();
+    ZETASQL_CHECK_OK(ResolveExpr(parsed_expression, &resolved_expression))
+        << "Query: " << query
+        << "\nParsed/Unparsed expression: " << Unparse(parsed_expression);
+    ZETASQL_RETURN_IF_ERROR(resolver_->CoerceExprToType(
+        parsed_expression, target_type, assignment_semantics, clause_name,
+        &resolved_expression));
+    return resolved_expression;
+  }
+
   void TestCaseExpression(const std::string& query,
                           const std::string& expected_case_function_name) {
     std::unique_ptr<ParserOutput> parser_output;
@@ -635,6 +651,63 @@ TEST_F(ResolverTest, TestResolveCastExpression) {
       R"error(Expected ")" but got identifier "PRECISION")error");
   ParseFunctionFails("CAST('foo' as CHAR VARYING(10))",
                      R"error(Expected ")" but got identifier "VARYING")error");
+}
+
+TEST_F(ResolverTest, TestCoerceToBoolSuccess) {
+  for (bool assignment_semantics : {true, false}) {
+    std::unique_ptr<const ResolvedExpr> resolved;
+    ZETASQL_ASSERT_OK_AND_ASSIGN(resolved,
+                         ResolveAndCoerce("TRUE", type_factory_.get_bool(),
+                                          assignment_semantics, "test clause"));
+    EXPECT_THAT(resolved->node_kind(), RESOLVED_LITERAL)
+        << resolved->DebugString();
+  }
+}
+
+TEST_F(ResolverTest, TestCoerceToBoolFail) {
+  for (bool assignment_semantics : {true, false}) {
+    EXPECT_THAT(
+        ResolveAndCoerce("5", type_factory_.get_bool(), assignment_semantics,
+                         "test clause"),
+        StatusIs(_, ::testing::AllOf(HasSubstr("test clause"),
+                                     HasSubstr("INT64"), HasSubstr("BOOL"))));
+  }
+}
+
+TEST_F(ResolverTest, TestCoerceToBoolFailNoClauseName) {
+  for (bool assignment_semantics : {true, false}) {
+    EXPECT_THAT(
+        ResolveAndCoerce("5", type_factory_.get_bool(), assignment_semantics,
+                         nullptr),
+        StatusIs(_, ::testing::AllOf(HasSubstr("INT64"), HasSubstr("BOOL"))));
+  }
+}
+
+TEST_F(ResolverTest, TestImplicitCoerceInt64LiteralToInt32Succeed) {
+  std::unique_ptr<const ResolvedExpr> resolved;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      resolved,
+      ResolveAndCoerce("5", type_factory_.get_int32(),
+                       /*assignment_semantics=*/false, "test clause"));
+  EXPECT_THAT(resolved->node_kind(), RESOLVED_LITERAL)
+      << resolved->DebugString();
+}
+
+TEST_F(ResolverTest, TestImplicitCoerceInt64ExprToInt32Fail) {
+  EXPECT_THAT(
+      ResolveAndCoerce("TestConstantInt64 + 1", type_factory_.get_int32(),
+                       /*assignment_semantics=*/false, "test clause"),
+      StatusIs(_, ::testing::AllOf(HasSubstr("test clause"), HasSubstr("INT64"),
+                                   HasSubstr("INT32"))));
+}
+
+TEST_F(ResolverTest, TestAssignmentCoerceInt64ExprToInt32Succeed) {
+  std::unique_ptr<const ResolvedExpr> resolved;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      resolved,
+      ResolveAndCoerce("TestConstantInt64 + 1", type_factory_.get_int32(),
+                       /*assignment_semantics=*/true, "test clause"));
+  EXPECT_THAT(resolved->node_kind(), RESOLVED_CAST) << resolved->DebugString();
 }
 
 TEST_F(ResolverTest, TestResolveCaseExpressions) {

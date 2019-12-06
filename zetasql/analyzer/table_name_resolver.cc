@@ -29,6 +29,7 @@
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/base/case.h"
 #include "zetasql/base/map_util.h"
@@ -78,44 +79,41 @@ class TableNameResolver {
  private:
   typedef std::set<std::string> AliasSet;  // Always lowercase.
 
-  zetasql_base::Status FindInStatement(const ASTStatement* statement,
-                               const AliasSet& visible_aliases);
+  zetasql_base::Status FindInStatement(const ASTStatement* statement);
 
   // Consumes either an ASTScript, ASTStatementList, or ASTScriptStatement.
   zetasql_base::Status FindInScriptNode(const ASTNode* node);
 
-  zetasql_base::Status FindInQueryStatement(const ASTQueryStatement* statement,
-                                    const AliasSet& visible_aliases);
+  zetasql_base::Status FindInQueryStatement(const ASTQueryStatement* statement);
 
   zetasql_base::Status FindInCreateViewStatement(
-      const ASTCreateViewStatement* statement,
-      const AliasSet& visible_aliases);
+      const ASTCreateViewStatement* statement);
 
   zetasql_base::Status FindInCreateMaterializedViewStatement(
-      const ASTCreateMaterializedViewStatement* statement,
-      const AliasSet& visible_aliases);
+      const ASTCreateMaterializedViewStatement* statement);
+
+  zetasql_base::Status FindInCreateTableFunctionStatement(
+      const ASTCreateTableFunctionStatement* statement);
 
   zetasql_base::Status FindInExportDataStatement(
-      const ASTExportDataStatement* statement,
-      const AliasSet& visible_aliases);
+      const ASTExportDataStatement* statement);
 
-  zetasql_base::Status FindInDeleteStatement(const ASTDeleteStatement* statement,
-                                     const AliasSet& orig_visible_aliases);
+  zetasql_base::Status FindInDeleteStatement(const ASTDeleteStatement* statement);
 
-  zetasql_base::Status FindInTruncateStatement(const ASTTruncateStatement* statement,
-                                       const AliasSet& orig_visible_aliases);
+  zetasql_base::Status FindInTruncateStatement(const ASTTruncateStatement* statement);
 
-  zetasql_base::Status FindInInsertStatement(const ASTInsertStatement* statement,
-                                     const AliasSet& orig_visible_aliases);
+  zetasql_base::Status FindInInsertStatement(const ASTInsertStatement* statement);
 
-  zetasql_base::Status FindInUpdateStatement(const ASTUpdateStatement* statement,
-                                     const AliasSet& orig_visible_aliases);
+  zetasql_base::Status FindInUpdateStatement(const ASTUpdateStatement* statement);
 
-  zetasql_base::Status FindInMergeStatement(const ASTMergeStatement* statement,
-                                    const AliasSet& visible_aliases);
+  zetasql_base::Status FindInMergeStatement(const ASTMergeStatement* statement);
 
+  // 'visible_aliases' includes things like the table name we are inserting
+  // into or deleting from.  It does *not* include WITH table aliases or TVF
+  // table-valued argument names (which are both tracked separately in
+  // 'local_table_aliases_').
   zetasql_base::Status FindInQuery(const ASTQuery* query,
-                           const AliasSet& orig_visible_aliases);
+                           const AliasSet& visible_aliases);
 
   zetasql_base::Status FindInQueryExpression(const ASTQueryExpression* query_expr,
                                      const ASTOrderBy* order_by,
@@ -128,7 +126,8 @@ class TableNameResolver {
                                   const AliasSet& visible_aliases);
 
   // When resolving the FROM clause, <external_visible_aliases> is the set
-  // of names visible in the query without any names from the FROM clause.
+  // of names visible in the query without any names from the FROM clause
+  // (excluding WITH names and TVF table-valued argument names).
   // <local_visible_aliases> includes all names visible in
   // <external_visible_alaises> plus names earlier in the same FROM clause
   // that are visible.  See corresponding methods in resolver.cc.
@@ -194,8 +193,9 @@ class TableNameResolver {
   // across recursive calls.
   TableResolutionTimeInfoMap* table_resolution_time_info_map_ = nullptr;
 
-  // The set of WITH aliases defined in the current statement.
-  AliasSet with_aliases_;
+  // The set of local table aliases, including TVF table-valued argument
+  // aliases and in-scope WITH aliases.
+  AliasSet local_table_aliases_;
 };
 
 zetasql_base::Status TableNameResolver::FindTableNamesAndTemporalReferences(
@@ -206,16 +206,17 @@ zetasql_base::Status TableNameResolver::FindTableNamesAndTemporalReferences(
     table_resolution_time_info_map_->clear();
   }
 
-  ZETASQL_RETURN_IF_ERROR(FindInStatement(&statement, {} /* visible_aliases */));
-
-  ZETASQL_RET_CHECK(with_aliases_.empty());  // Sanity check - these should get popped.
+  ZETASQL_RETURN_IF_ERROR(FindInStatement(&statement));
+  // Sanity check - these should get popped.
+  ZETASQL_RET_CHECK(local_table_aliases_.empty());
   return ::zetasql_base::OkStatus();
 }
 
 zetasql_base::Status TableNameResolver::FindTableNames(const ASTScript& script) {
   table_names_->clear();
   ZETASQL_RETURN_IF_ERROR(FindInScriptNode(&script));
-  ZETASQL_RET_CHECK(with_aliases_.empty());  // Sanity check - these should get popped.
+  // Sanity check - these should get popped.
+  ZETASQL_RET_CHECK(local_table_aliases_.empty());
   return ::zetasql_base::OkStatus();
 }
 
@@ -225,25 +226,22 @@ zetasql_base::Status TableNameResolver::FindInScriptNode(const ASTNode* node) {
     if (child->IsExpression()) {
       ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(child, /*visible_aliases=*/{}));
     } else if (child->IsSqlStatement()) {
-      ZETASQL_RETURN_IF_ERROR(FindInStatement(child->GetAs<ASTStatement>(),
-                                      /*visible_aliases=*/{}));
+      ZETASQL_RETURN_IF_ERROR(FindInStatement(child->GetAs<ASTStatement>()));
     }
     ZETASQL_RETURN_IF_ERROR(FindInScriptNode(child));
   }
   return zetasql_base::OkStatus();
 }
 
-zetasql_base::Status TableNameResolver::FindInStatement(
-    const ASTStatement* statement,
-    const AliasSet& visible_aliases) {
+zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
   // Find table name under OPTIONS (...) clause for any type of statement.
-  ZETASQL_RETURN_IF_ERROR(FindInOptionsListUnder(statement, visible_aliases));
+  ZETASQL_RETURN_IF_ERROR(FindInOptionsListUnder(statement, /*visible_aliases=*/{}));
   switch (statement->node_kind()) {
     case AST_QUERY_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_QUERY_STMT)) {
         return FindInQueryStatement(
-            static_cast<const ASTQueryStatement*>(statement), visible_aliases);
+            static_cast<const ASTQueryStatement*>(statement));
       }
       break;
 
@@ -252,7 +250,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(
               RESOLVED_EXPLAIN_STMT)) {
         const ASTExplainStatement* explain =
             static_cast<const ASTExplainStatement*>(statement);
-        return FindInStatement(explain->statement(), visible_aliases);
+        return FindInStatement(explain->statement());
       }
       break;
 
@@ -285,7 +283,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(
       } else {
         if (analyzer_options_->language().SupportsStatementKind(
                 RESOLVED_CREATE_TABLE_AS_SELECT_STMT)) {
-          return FindInQuery(query, visible_aliases);
+          return FindInQuery(query, /*visible_aliases=*/{});
         }
       }
       break;
@@ -298,22 +296,21 @@ zetasql_base::Status TableNameResolver::FindInStatement(
         if (query == nullptr) {
           return ::zetasql_base::OkStatus();
         }
-        return FindInQuery(query, visible_aliases);
+        return FindInQuery(query, /*visible_aliases=*/{});
       }
       break;
     case AST_CREATE_VIEW_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_CREATE_VIEW_STMT)) {
         return FindInCreateViewStatement(
-            statement->GetAs<ASTCreateViewStatement>(), visible_aliases);
+            statement->GetAs<ASTCreateViewStatement>());
       }
       break;
     case AST_CREATE_MATERIALIZED_VIEW_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_CREATE_MATERIALIZED_VIEW_STMT)) {
         return FindInCreateMaterializedViewStatement(
-            statement->GetAs<ASTCreateMaterializedViewStatement>(),
-            visible_aliases);
+            statement->GetAs<ASTCreateMaterializedViewStatement>());
       }
       break;
 
@@ -340,7 +337,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(
               RESOLVED_CREATE_CONSTANT_STMT)) {
         ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(
             static_cast<const ASTCreateConstantStatement*>(statement)->expr(),
-            visible_aliases));
+            /*visible_aliases=*/{}));
         return ::zetasql_base::OkStatus();
       }
       break;
@@ -351,7 +348,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(
         ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(
             static_cast<const ASTCreateFunctionStatement*>(statement)
                 ->sql_function_body(),
-            visible_aliases));
+            /*visible_aliases=*/{}));
         return ::zetasql_base::OkStatus();
       }
       break;
@@ -359,7 +356,8 @@ zetasql_base::Status TableNameResolver::FindInStatement(
     case AST_CREATE_TABLE_FUNCTION_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_CREATE_TABLE_FUNCTION_STMT)) {
-        return ::zetasql_base::OkStatus();
+        return FindInCreateTableFunctionStatement(
+            statement->GetAs<ASTCreateTableFunctionStatement>());
       }
       break;
 
@@ -374,7 +372,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_EXPORT_DATA_STMT)) {
         return FindInExportDataStatement(
-            statement->GetAs<ASTExportDataStatement>(), visible_aliases);
+            statement->GetAs<ASTExportDataStatement>());
       }
       break;
 
@@ -461,8 +459,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(
     case AST_DELETE_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_DELETE_STMT)) {
-        return FindInDeleteStatement(statement->GetAs<ASTDeleteStatement>(),
-                                     visible_aliases);
+        return FindInDeleteStatement(statement->GetAs<ASTDeleteStatement>());
       }
       break;
 
@@ -480,7 +477,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_TRUNCATE_STMT)) {
         return FindInTruncateStatement(
-            statement->GetAsOrDie<ASTTruncateStatement>(), visible_aliases);
+            statement->GetAsOrDie<ASTTruncateStatement>());
       }
       break;
 
@@ -523,24 +520,21 @@ zetasql_base::Status TableNameResolver::FindInStatement(
     case AST_INSERT_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_INSERT_STMT)) {
-        return FindInInsertStatement(statement->GetAs<ASTInsertStatement>(),
-                                     visible_aliases);
+        return FindInInsertStatement(statement->GetAs<ASTInsertStatement>());
       }
       break;
 
     case AST_UPDATE_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_UPDATE_STMT)) {
-        return FindInUpdateStatement(statement->GetAs<ASTUpdateStatement>(),
-                                     visible_aliases);
+        return FindInUpdateStatement(statement->GetAs<ASTUpdateStatement>());
       }
       break;
 
     case AST_MERGE_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_MERGE_STMT)) {
-        return FindInMergeStatement(statement->GetAs<ASTMergeStatement>(),
-                                    visible_aliases);
+        return FindInMergeStatement(statement->GetAs<ASTMergeStatement>());
       }
       break;
 
@@ -611,8 +605,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(
       break;
     case AST_HINTED_STATEMENT:
       return FindInStatement(
-          statement->GetAs<ASTHintedStatement>()->statement(),
-          visible_aliases);
+          statement->GetAs<ASTHintedStatement>()->statement());
     case AST_IMPORT_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_IMPORT_STMT)) {
@@ -631,7 +624,29 @@ zetasql_base::Status TableNameResolver::FindInStatement(
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_ASSERT_STMT)) {
         return FindInExpressionsUnder(
-            statement->GetAs<ASTAssertStatement>()->expr(), visible_aliases);
+            statement->GetAs<ASTAssertStatement>()->expr(),
+            /*visible_aliases=*/{});
+      }
+      break;
+    case AST_SYSTEM_VARIABLE_ASSIGNMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_ASSIGNMENT_STMT)) {
+        // The LHS, a system variable, cannot reference any tables.  But, the
+        // RHS expression can.
+        return FindInExpressionsUnder(
+            statement->GetAs<ASTSystemVariableAssignment>()->expression(),
+            /*visible_aliases=*/{});
+      }
+      break;
+    case AST_EXECUTE_IMMEDIATE_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_EXECUTE_IMMEDIATE_STMT)) {
+        const ASTExecuteImmediateStatement* stmt =
+            statement->GetAs<ASTExecuteImmediateStatement>();
+        ZETASQL_RETURN_IF_ERROR(
+            FindInExpressionsUnder(stmt->using_clause(),
+                                   /*visible_aliases=*/{}));
+        return FindInExpressionsUnder(stmt->sql(), /*visible_aliases=*/{});
       }
       break;
     default:
@@ -644,75 +659,91 @@ zetasql_base::Status TableNameResolver::FindInStatement(
 }
 
 zetasql_base::Status TableNameResolver::FindInQueryStatement(
-    const ASTQueryStatement* statement,
-    const AliasSet& visible_aliases) {
-  return FindInQuery(statement->query(), visible_aliases);
+    const ASTQueryStatement* statement) {
+  return FindInQuery(statement->query(), /*visible_aliases=*/{});
 }
 
 zetasql_base::Status TableNameResolver::FindInCreateViewStatement(
-    const ASTCreateViewStatement* statement,
-    const AliasSet& visible_aliases) {
-  return FindInQuery(statement->query(), visible_aliases);
+    const ASTCreateViewStatement* statement) {
+  return FindInQuery(statement->query(), /*visible_aliases=*/{});
 }
 
 zetasql_base::Status TableNameResolver::FindInCreateMaterializedViewStatement(
-    const ASTCreateMaterializedViewStatement* statement,
-    const AliasSet& visible_aliases) {
-  return FindInQuery(statement->query(), visible_aliases);
+    const ASTCreateMaterializedViewStatement* statement) {
+  return FindInQuery(statement->query(), /*visible_aliases=*/{});
+}
+
+zetasql_base::Status TableNameResolver::FindInCreateTableFunctionStatement(
+    const ASTCreateTableFunctionStatement* statement) {
+  if (statement->query() == nullptr) {
+    return ::zetasql_base::OkStatus();
+  }
+  ZETASQL_RET_CHECK(local_table_aliases_.empty());
+  for (const ASTFunctionParameter* const parameter
+           : statement->function_declaration()->parameters()->
+               parameter_entries()) {
+    // If it's a table parameter or is ANY TABLE or ANY TYPE then it is
+    // a name that we should ignore.
+    if (parameter->IsTableParameter() ||
+        (parameter->IsTemplated() &&
+         parameter->templated_parameter_type()->kind()
+           == ASTTemplatedParameterType::ANY_TABLE)) {
+      zetasql_base::InsertIfNotPresent(&local_table_aliases_,
+                              parameter->name()->GetAsString());
+    }
+  }
+  ZETASQL_RETURN_IF_ERROR(FindInQuery(statement->query(), /*visible_aliases=*/{}));
+  local_table_aliases_.clear();
+  return zetasql_base::OkStatus();
 }
 
 zetasql_base::Status TableNameResolver::FindInExportDataStatement(
-    const ASTExportDataStatement* statement,
-    const AliasSet& visible_aliases) {
-  return FindInQuery(statement->query(), visible_aliases);
+    const ASTExportDataStatement* statement) {
+  return FindInQuery(statement->query(), /*visible_aliases=*/{});
 }
 
 zetasql_base::Status TableNameResolver::FindInDeleteStatement(
-    const ASTDeleteStatement* statement, const AliasSet& orig_visible_aliases) {
-  AliasSet visible_aliases = orig_visible_aliases;
-
+    const ASTDeleteStatement* statement) {
   ZETASQL_ASSIGN_OR_RETURN(const ASTPathExpression* path_expr,
                    statement->GetTargetPathForNonNested());
   std::vector<std::string> path = path_expr->ToIdentifierVector();
-  if (!zetasql_base::ContainsKey(visible_aliases, absl::AsciiStrToLower(path[0]))) {
-    zetasql_base::InsertIfNotPresent(table_names_, path);
-    zetasql_base::InsertIfNotPresent(&visible_aliases,
-                            absl::AsciiStrToLower(path.back()));
-  }
+  zetasql_base::InsertIfNotPresent(table_names_, path);
+
+  AliasSet visible_aliases;
+  zetasql_base::InsertIfNotPresent(table_names_, path);
+  const std::string alias = statement->alias() == nullptr
+                                ? path.back()
+                                : statement->alias()->GetAsString();
+  zetasql_base::InsertIfNotPresent(&visible_aliases, absl::AsciiStrToLower(alias));
 
   ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(statement->where(), visible_aliases));
   return ::zetasql_base::OkStatus();
 }
 
 zetasql_base::Status TableNameResolver::FindInTruncateStatement(
-    const ASTTruncateStatement* statement,
-    const AliasSet& orig_visible_aliases) {
-  AliasSet visible_aliases = orig_visible_aliases;
+    const ASTTruncateStatement* statement) {
+  AliasSet visible_aliases;
 
   ZETASQL_ASSIGN_OR_RETURN(const ASTPathExpression* path_expr,
                    statement->GetTargetPathForNonNested());
   std::vector<std::string> path = path_expr->ToIdentifierVector();
-  if (!zetasql_base::ContainsKey(visible_aliases, absl::AsciiStrToLower(path[0]))) {
-    zetasql_base::InsertIfNotPresent(table_names_, path);
-    zetasql_base::InsertIfNotPresent(&visible_aliases,
-                            absl::AsciiStrToLower(path.back()));
-  }
+  zetasql_base::InsertIfNotPresent(table_names_, path);
+  zetasql_base::InsertIfNotPresent(&visible_aliases,
+                          absl::AsciiStrToLower(path.back()));
 
   return FindInExpressionsUnder(statement->where(), visible_aliases);
 }
 
 zetasql_base::Status TableNameResolver::FindInInsertStatement(
-    const ASTInsertStatement* statement, const AliasSet& orig_visible_aliases) {
-  AliasSet visible_aliases = orig_visible_aliases;
+    const ASTInsertStatement* statement) {
+  AliasSet visible_aliases;
 
   ZETASQL_ASSIGN_OR_RETURN(const ASTPathExpression* path_expr,
                    statement->GetTargetPathForNonNested());
   std::vector<std::string> path = path_expr->ToIdentifierVector();
-  if (!zetasql_base::ContainsKey(visible_aliases, absl::AsciiStrToLower(path[0]))) {
-    zetasql_base::InsertIfNotPresent(table_names_, path);
-    zetasql_base::InsertIfNotPresent(&visible_aliases,
-                            absl::AsciiStrToLower(path.back()));
-  }
+  zetasql_base::InsertIfNotPresent(table_names_, path);
+  zetasql_base::InsertIfNotPresent(&visible_aliases,
+                          absl::AsciiStrToLower(path.back()));
 
   if (statement->rows() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(statement->rows(), visible_aliases));
@@ -725,26 +756,24 @@ zetasql_base::Status TableNameResolver::FindInInsertStatement(
 }
 
 zetasql_base::Status TableNameResolver::FindInUpdateStatement(
-    const ASTUpdateStatement* statement, const AliasSet& orig_visible_aliases) {
-  AliasSet visible_aliases = orig_visible_aliases;
+    const ASTUpdateStatement* statement) {
+  AliasSet visible_aliases;
 
   ZETASQL_ASSIGN_OR_RETURN(const ASTPathExpression* path_expr,
                    statement->GetTargetPathForNonNested());
   const std::vector<std::string> path = path_expr->ToIdentifierVector();
 
-  if (!zetasql_base::ContainsKey(visible_aliases, absl::AsciiStrToLower(path[0]))) {
-    zetasql_base::InsertIfNotPresent(table_names_, path);
-    const std::string alias = statement->alias() == nullptr
-                                  ? path.back()
-                                  : statement->alias()->GetAsString();
-    zetasql_base::InsertIfNotPresent(&visible_aliases, absl::AsciiStrToLower(alias));
-  }
+  zetasql_base::InsertIfNotPresent(table_names_, path);
+  const std::string alias = statement->alias() == nullptr
+                                ? path.back()
+                                : statement->alias()->GetAsString();
+  zetasql_base::InsertIfNotPresent(&visible_aliases, absl::AsciiStrToLower(alias));
 
   if (statement->from_clause() != nullptr) {
     ZETASQL_RET_CHECK(statement->from_clause()->table_expression() != nullptr);
     ZETASQL_RETURN_IF_ERROR(FindInTableExpression(
         statement->from_clause()->table_expression(),
-        orig_visible_aliases,
+        /*external_visible_aliases=*/{},
         &visible_aliases));
   }
 
@@ -755,46 +784,39 @@ zetasql_base::Status TableNameResolver::FindInUpdateStatement(
 }
 
 zetasql_base::Status TableNameResolver::FindInMergeStatement(
-    const ASTMergeStatement* statement, const AliasSet& visible_aliases) {
-  AliasSet all_visible_aliases = visible_aliases;
+    const ASTMergeStatement* statement) {
+  AliasSet visible_aliases;
 
   const ASTPathExpression* path_expr = statement->target_path();
   std::vector<std::string> path = path_expr->ToIdentifierVector();
-  if (!zetasql_base::ContainsKey(all_visible_aliases, absl::AsciiStrToLower(path[0]))) {
-    zetasql_base::InsertIfNotPresent(table_names_, path);
-    zetasql_base::InsertIfNotPresent(&all_visible_aliases,
-                            absl::AsciiStrToLower(path.back()));
-  }
+  zetasql_base::InsertIfNotPresent(table_names_, path);
+  zetasql_base::InsertIfNotPresent(&visible_aliases,
+                          absl::AsciiStrToLower(path.back()));
 
   ZETASQL_RETURN_IF_ERROR(FindInTableExpression(statement->table_expression(),
-                                        visible_aliases, &all_visible_aliases));
+                                        /*external_visible_aliases=*/{},
+                                        &visible_aliases));
   ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(statement->merge_condition(),
-                                         all_visible_aliases));
+                                         visible_aliases));
   ZETASQL_RETURN_IF_ERROR(
-      FindInExpressionsUnder(statement->when_clauses(), all_visible_aliases));
+      FindInExpressionsUnder(statement->when_clauses(), visible_aliases));
 
   return ::zetasql_base::OkStatus();
 }
 
 zetasql_base::Status TableNameResolver::FindInQuery(
     const ASTQuery* query,
-    const AliasSet& orig_visible_aliases) {
-
-  AliasSet visible_aliases = orig_visible_aliases;
-
-  AliasSet old_with_aliases;
+    const AliasSet& visible_aliases) {
+  AliasSet old_local_table_aliases;
   if (query->with_clause() != nullptr) {
-    // Record the set of WITH aliases visible in the outer scope so we can
-    // restore that after processing the local query.
-    old_with_aliases = with_aliases_;
-
+    // Record the set of local table aliases visible in the outer scope so we
+    // can restore that after processing the local query.
+    old_local_table_aliases = local_table_aliases_;
     for (const ASTWithClauseEntry* with_entry : query->with_clause()->with()) {
       ZETASQL_RETURN_IF_ERROR(FindInQuery(with_entry->query(), visible_aliases));
-
       const std::string with_alias =
           absl::AsciiStrToLower(with_entry->alias()->GetAsString());
-      zetasql_base::InsertIfNotPresent(&visible_aliases, with_alias);
-      zetasql_base::InsertIfNotPresent(&with_aliases_, with_alias);
+      zetasql_base::InsertIfNotPresent(&local_table_aliases_, with_alias);
     }
   }
 
@@ -802,9 +824,9 @@ zetasql_base::Status TableNameResolver::FindInQuery(
                                         query->order_by(),
                                         visible_aliases));
 
-  // Restore outer WITH alias set if we modified it.
+  // Restore local table alias set if we modified it.
   if (query->with_clause() != nullptr) {
-    with_aliases_ = old_with_aliases;
+    local_table_aliases_ = old_local_table_aliases;
   }
   return ::zetasql_base::OkStatus();
 }
@@ -952,15 +974,25 @@ zetasql_base::Status TableNameResolver::FindInTVF(
   ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(tvf, *local_visible_aliases));
   for (const ASTTVFArgument* arg : tvf->argument_entries()) {
     if (arg->table_clause() != nullptr) {
-      if (arg->table_clause()->table_path() != nullptr &&
-          !zetasql_base::ContainsKey(with_aliases_,
-                            absl::AsciiStrToLower(arg->table_clause()
-                                                      ->table_path()
-                                                      ->first_name()
-                                                      ->GetAsString()))) {
-        zetasql_base::InsertIfNotPresent(
-            table_names_,
-            arg->table_clause()->table_path()->ToIdentifierVector());
+      // Single path names are table references, to either WITH clause
+      // tables or table-typed arguments to the TVF.  Multi-path names
+      // cannot be related to WITH clause tables or TVF arguments, so those
+      // must be table references.
+      if (arg->table_clause()->table_path() != nullptr) {
+        if (arg->table_clause()->table_path()->num_names() > 1) {
+          zetasql_base::InsertIfNotPresent(
+              table_names_,
+              arg->table_clause()->table_path()->ToIdentifierVector());
+        } else {
+          // This is a single-part name.
+          const std::string lower_name = absl::AsciiStrToLower(
+              arg->table_clause()->table_path()->first_name()->GetAsString());
+          if (!zetasql_base::ContainsKey(local_table_aliases_, lower_name)) {
+            zetasql_base::InsertIfNotPresent(
+                table_names_,
+                arg->table_clause()->table_path()->ToIdentifierVector());
+          }
+        }
       }
       if (arg->table_clause()->tvf() != nullptr) {
         ZETASQL_RETURN_IF_ERROR(FindInTVF(arg->table_clause()->tvf(),
@@ -977,14 +1009,8 @@ zetasql_base::Status TableNameResolver::FindInTableSubquery(
     const AliasSet& external_visible_aliases,
     AliasSet* local_visible_aliases) {
 
-  // A table subquery doesn't see any aliases for preceding scans in the
-  // from clause.  It can only see the external aliases and WITH aliases.
-  AliasSet subquery_visible_aliases = external_visible_aliases;
-  for (const std::string& alias : with_aliases_) {
-    zetasql_base::InsertIfNotPresent(&subquery_visible_aliases, alias);
-  }
   ZETASQL_RETURN_IF_ERROR(FindInQuery(table_subquery->subquery(),
-                              subquery_visible_aliases));
+                              external_visible_aliases));
 
   if (table_subquery->alias() != nullptr) {
     zetasql_base::InsertIfNotPresent(
@@ -1009,12 +1035,21 @@ zetasql_base::Status TableNameResolver::FindInTablePathExpression(
     ZETASQL_RET_CHECK(!path.empty());
 
     // Single identifiers are always table names, not range variable references,
-    // but could be WITH table references.
-    // For paths, check if the first identifier is a known alias.
+    // but could be WITH table references or references to TVF arguments that
+    // should be ignored.
+    //
+    // For paths, check if the first identifier is a known alias.  This allows
+    // us to ignore correlated alias references like:
+    //   SELECT ... FROM table AS t1, t1.arraycol
+    // However, we do not want to ignore this table name if the alias matches
+    // a WITH alias or TVF argument name, since multi-part table names never
+    // resolve to either of these (so the full multi-part name is a reference
+    // to an actual table).
     const std::string first_identifier = absl::AsciiStrToLower(path[0]);
+
     if (path.size() == 1
-            ? !zetasql_base::ContainsKey(with_aliases_, first_identifier)
-            : !zetasql_base::ContainsKey(*visible_aliases, first_identifier)) {
+            ? (!zetasql_base::ContainsKey(local_table_aliases_, first_identifier))
+            : (!zetasql_base::ContainsKey(*visible_aliases, first_identifier))) {
       zetasql_base::InsertIfNotPresent(table_names_, path);
       if (table_resolution_time_info_map_ != nullptr) {
         // Lookup for or insert a set of temporal expressions for 'path'.

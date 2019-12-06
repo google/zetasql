@@ -185,25 +185,23 @@ SelectColumnState* SelectColumnStateList::AddSelectColumn(
     bool is_explicit) {
   SelectColumnState* select_column_state = new SelectColumnState(
       ast_expr, alias, is_explicit, -1 /* select_list_position */);
-  AddSelectColumn(select_column_state, true /* save_mapping */);
+  AddSelectColumn(select_column_state);
   return select_column_state;
 }
 
 void SelectColumnStateList::AddSelectColumn(
-    SelectColumnState* select_column_state, bool save_mapping) {
+    SelectColumnState* select_column_state) {
   DCHECK_EQ(select_column_state->select_list_position, -1);
   select_column_state->select_list_position = select_column_state_list_.size();
-  if (save_mapping) {
-    // Save a mapping from the alias to this SelectColumnState. The mapping is
-    // later used for validations performed by
-    // FindAndValidateSelectColumnStateByAlias().
-    const IdString alias = select_column_state->alias;
-    if (!IsInternalAlias(alias)) {
-      if (!zetasql_base::InsertIfNotPresent(&column_alias_to_state_list_position_, alias,
-                                   select_column_state->select_list_position)) {
-        // Now ambiguous.
-        column_alias_to_state_list_position_[alias] = -1;
-      }
+  // Save a mapping from the alias to this SelectColumnState. The mapping is
+  // later used for validations performed by
+  // FindAndValidateSelectColumnStateByAlias().
+  const IdString alias = select_column_state->alias;
+  if (!IsInternalAlias(alias)) {
+    if (!zetasql_base::InsertIfNotPresent(&column_alias_to_state_list_position_, alias,
+                                 select_column_state->select_list_position)) {
+      // Now ambiguous.
+      column_alias_to_state_list_position_[alias] = -1;
     }
   }
   select_column_state_list_.push_back(absl::WrapUnique(select_column_state));

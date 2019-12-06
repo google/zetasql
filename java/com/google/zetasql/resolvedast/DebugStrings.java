@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.Descriptors.OneofDescriptor;
 import com.google.protobuf.ProtocolMessageEnum;
+import com.google.zetasql.Connection;
 import com.google.zetasql.Constant;
 import com.google.zetasql.FunctionSignature;
 import com.google.zetasql.ZetaSQLDescriptorPool.ZetaSQLFieldDescriptor;
@@ -136,6 +137,10 @@ class DebugStrings {
 
   static String toStringImpl(Model model) {
     return model.getFullName();
+  }
+
+  static String toStringImpl(Connection connection) {
+    return connection.getFullName();
   }
 
   static String toStringImpl(Table table) {

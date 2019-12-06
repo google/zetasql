@@ -77,10 +77,11 @@ bool IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
 // query specific than expression specific.
 struct SelectColumnState {
   explicit SelectColumnState(const ASTExpression* ast_expr_in,
-                             IdString alias_in,
-                             bool is_explicit_in,
+                             IdString alias_in, bool is_explicit_in,
                              int select_list_position_in)
-      : ast_expr(ast_expr_in), alias(alias_in), is_explicit(is_explicit_in),
+      : ast_expr(ast_expr_in),
+        alias(alias_in),
+        is_explicit(is_explicit_in),
         select_list_position(select_list_position_in) {}
 
   SelectColumnState(const SelectColumnState&) = delete;
@@ -174,16 +175,13 @@ class SelectColumnStateList {
   // that may raise an error. For more information, please see the beginning of
   // (broken link).
   SelectColumnState* AddSelectColumn(const ASTExpression* ast_expr,
-                                     IdString alias,
-                                     bool is_explicit);
+                                     IdString alias, bool is_explicit);
 
   // Add an already created SelectColumnState. Takes ownership. If save_mapping
   // is true, saves a mapping from the alias to this SelectColumnState. The
   // mapping is later used for validations performed by
   // FindAndValidateSelectColumnStateByAlias().
-  // TODO: Remove save_mapping once it becomes the default.
-  void AddSelectColumn(SelectColumnState* select_column_state,
-                       bool save_mapping);
+  void AddSelectColumn(SelectColumnState* select_column_state);
 
   // Finds a SELECT-list column by alias. Returns an error if the
   // name is ambiguous or the referenced column contains an aggregate or
@@ -191,8 +189,8 @@ class SelectColumnStateList {
   // If the name is not found, sets <*select_column_state> to NULL and
   // returns OK.
   zetasql_base::Status FindAndValidateSelectColumnStateByAlias(
-      const char* clause_name, const ASTNode* ast_location,
-      IdString alias, const ExprResolutionInfo* expr_resolution_info,
+      const char* clause_name, const ASTNode* ast_location, IdString alias,
+      const ExprResolutionInfo* expr_resolution_info,
       const SelectColumnState** select_column_state) const;
 
   // Finds a SELECT-list column by ordinal. Returns an error if
@@ -286,10 +284,8 @@ struct ExprResolutionInfo {
   // <allows_analytic>.
   // has_aggregation and has_analytic will be updated in parent on destruction.
   // Does not take ownership of <parent>.
-  ExprResolutionInfo(ExprResolutionInfo* parent,
-                     const NameScope* name_scope_in,
-                     const char* clause_name_in,
-                     bool allows_analytic_in);
+  ExprResolutionInfo(ExprResolutionInfo* parent, const NameScope* name_scope_in,
+                     const char* clause_name_in, bool allows_analytic_in);
 
   ExprResolutionInfo(const ExprResolutionInfo&) = delete;
   ExprResolutionInfo& operator=(const ExprResolutionInfo&) = delete;
@@ -415,10 +411,15 @@ class ResolvedTVFArg {
     model_ = std::move(model);
     type_ = MODEL;
   }
+  void SetConnection(std::unique_ptr<const ResolvedConnection> connection) {
+    connection_ = std::move(connection);
+    type_ = CONNECTION;
+  }
 
   bool IsExpr() const { return type_ == EXPR; }
   bool IsScan() const { return type_ == SCAN; }
   bool IsModel() const { return type_ == MODEL; }
+  bool IsConnection() const { return type_ == CONNECTION; }
 
   zetasql_base::StatusOr<const ResolvedExpr*> GetExpr() const {
     ZETASQL_RET_CHECK(IsExpr());
@@ -431,6 +432,10 @@ class ResolvedTVFArg {
   zetasql_base::StatusOr<const ResolvedModel*> GetModel() const {
     ZETASQL_RET_CHECK(IsModel());
     return model_.get();
+  }
+  zetasql_base::StatusOr<const ResolvedConnection*> GetConnection() const {
+    ZETASQL_RET_CHECK(IsConnection());
+    return connection_.get();
   }
   zetasql_base::StatusOr<std::shared_ptr<const NameList>> GetNameList() const {
     ZETASQL_RET_CHECK(IsScan());
@@ -449,12 +454,17 @@ class ResolvedTVFArg {
     ZETASQL_RET_CHECK(IsModel());
     return std::move(model_);
   }
+  zetasql_base::StatusOr<std::unique_ptr<const ResolvedConnection>> MoveConnection() {
+    ZETASQL_RET_CHECK(IsConnection());
+    return std::move(connection_);
+  }
 
  private:
-  enum { UNDEFINED, EXPR, SCAN, MODEL } type_ = UNDEFINED;
+  enum { UNDEFINED, EXPR, SCAN, MODEL, CONNECTION } type_ = UNDEFINED;
   std::unique_ptr<const ResolvedExpr> expr_;
   std::unique_ptr<const ResolvedScan> scan_;
   std::unique_ptr<const ResolvedModel> model_;
+  std::unique_ptr<const ResolvedConnection> connection_;
   std::shared_ptr<const NameList> name_list_;
 };
 

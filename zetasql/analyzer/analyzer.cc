@@ -30,7 +30,6 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/parser/parser.h"
-#include "zetasql/public/coercer.h"
 #include "zetasql/public/parse_helpers.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/type.h"
@@ -401,8 +400,6 @@ zetasql_base::Status AnalyzerOptions::Deserialize(
   result->set_prune_unused_columns(proto.prune_unused_columns());
   result->set_allow_undeclared_parameters(proto.allow_undeclared_parameters());
   result->set_parameter_mode(proto.parameter_mode());
-  result->set_strict_validation_on_column_replacements(
-      proto.strict_validation_on_column_replacements());
   result->set_preserve_column_aliases(proto.preserve_column_aliases());
 
   if (proto.has_allowed_hints_and_options()) {
@@ -471,8 +468,6 @@ zetasql_base::Status AnalyzerOptions::Serialize(
   proto->set_prune_unused_columns(prune_unused_columns_);
   proto->set_allow_undeclared_parameters(allow_undeclared_parameters_);
   proto->set_parameter_mode(parameter_mode_);
-  proto->set_strict_validation_on_column_replacements(
-      strict_validation_on_column_replacements_);
   proto->set_preserve_column_aliases(preserve_column_aliases_);
 
   ZETASQL_RETURN_IF_ERROR(allowed_hints_and_options_.Serialize(
@@ -879,33 +874,12 @@ static zetasql_base::Status ConvertExprToTargetType(
     const AnalyzerOptions& analyzer_options, Catalog* catalog,
     TypeFactory* type_factory, const Type* target_type,
     std::unique_ptr<const ResolvedExpr>* resolved_expr) {
-  InputArgumentType expr_arg_type =
-      GetInputArgumentTypeForExpr(resolved_expr->get());
-  SignatureMatchResult sig_match_result;
-  const LanguageOptions& language_options = analyzer_options.language_options();
-  if (!Coercer(type_factory, analyzer_options.default_time_zone(),
-               &language_options)
-           .AssignableTo(expr_arg_type, target_type, /*is_explicit=*/false,
-                         &sig_match_result)) {
-    return ConvertInternalErrorLocationToExternal(
-        MakeSqlErrorAt(&ast_expression) << absl::StrCat(
-            "Expected type ",
-            target_type->ShortTypeName(language_options.product_mode()),
-            "; found ",
-            resolved_expr->get()->type()->ShortTypeName(
-                language_options.product_mode())),
-        sql);
-  }
-
   Resolver resolver(catalog, type_factory, &analyzer_options);
-
-  ZETASQL_RETURN_IF_ERROR(FunctionResolver(catalog, type_factory, &resolver)
-                      .AddCastOrConvertLiteral(&ast_expression, target_type,
-                                               /*scan=*/nullptr,
-                                               /*set_has_explicit_type=*/true,
-                                               /*return_null_on_error=*/false,
-                                               resolved_expr));
-  return zetasql_base::OkStatus();
+  return ConvertInternalErrorLocationToExternal(
+      resolver.CoerceExprToType(&ast_expression, target_type,
+                                     /*assignment_semantics=*/true,
+                                     /*clause_name=*/nullptr, resolved_expr),
+      sql);
 }
 
 static zetasql_base::Status AnalyzeExpressionFromParserASTImpl(

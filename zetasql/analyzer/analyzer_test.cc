@@ -698,6 +698,10 @@ TEST_F(AnalyzerOptionsTest, DeprecationWarnings) {
 }
 
 void InitSourceTree(google::protobuf::compiler::DiskSourceTree* source_tree) {
+  // Support both sides of --incompatible_generated_protos_in_virtual_imports.
+  source_tree->MapPath(
+      "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_protobuf",
+            "_virtual_imports", "descriptor_proto"));
   source_tree->MapPath(
       "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_protobuf"));
   source_tree->MapPath(
@@ -776,7 +780,6 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
   proto.set_parameter_mode(PARAMETER_POSITIONAL);
   proto.mutable_language_options()->set_product_mode(PRODUCT_INTERNAL);
   proto.set_default_timezone("Asia/Shanghai");
-  proto.set_strict_validation_on_column_replacements(true);
   proto.set_preserve_column_aliases(false);
 
   auto* param = proto.add_query_parameters();
@@ -888,7 +891,6 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
   ASSERT_EQ(ERROR_MESSAGE_WITH_PAYLOAD, options.error_message_mode());
   ASSERT_EQ(PRODUCT_INTERNAL, options.language().product_mode());
   ASSERT_EQ(PARAMETER_POSITIONAL, options.parameter_mode());
-  ASSERT_TRUE(options.strict_validation_on_column_replacements());
   ASSERT_FALSE(options.preserve_column_aliases());
 
   ASSERT_EQ(5, options.query_parameters().size());
@@ -959,7 +961,7 @@ TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
                      2 * sizeof(QueryParametersMap) - 1 * sizeof(std::string))
       << "The size of AnalyzerOptions class has changed, please also update "
       << "the proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(17, AnalyzerOptionsProto::descriptor()->field_count())
+  EXPECT_EQ(16, AnalyzerOptionsProto::descriptor()->field_count())
       << "The number of fields in AnalyzerOptionsProto has changed, please "
       << "also update the serialization code accordingly.";
 }

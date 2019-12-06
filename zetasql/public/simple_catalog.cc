@@ -110,14 +110,6 @@ zetasql_base::Status SimpleCatalog::GetType(
     if (*type != nullptr) {
       return ::zetasql_base::OkStatus();
     }
-    if (descriptor_pool_ != nullptr) {
-      // Cached proto and enum names are case-sensitive, so we do not alter the
-      // name.
-      *type = zetasql_base::FindPtrOrNull(cached_proto_or_enum_types_, name);
-      if (*type != nullptr) {
-        return ::zetasql_base::OkStatus();
-      }
-    }
     // Avoid holding the mutex while calling descriptor_pool_ methods.
     // descriptor_pool_ is const once it has been set.
     pool = descriptor_pool_;
@@ -126,22 +118,12 @@ zetasql_base::Status SimpleCatalog::GetType(
   if (pool != nullptr) {
     const google::protobuf::Descriptor* descriptor = pool->FindMessageTypeByName(name);
     if (descriptor != nullptr) {
-      ZETASQL_RETURN_IF_ERROR(type_factory()->MakeProtoType(descriptor, type));
-      absl::MutexLock l(&mutex_);
-      // Another caller may have inserted the type in the meantime, since we
-      // unlock after checking above. We use LookupOrInsert to consistently hand
-      // out the same pointer.
-      *type = zetasql_base::LookupOrInsert(&cached_proto_or_enum_types_, name, *type);
-      return zetasql_base::OkStatus();
+      return type_factory()->MakeProtoType(descriptor, type);
     }
     const google::protobuf::EnumDescriptor* enum_descriptor =
         pool->FindEnumTypeByName(name);
     if (enum_descriptor != nullptr) {
-      ZETASQL_RETURN_IF_ERROR(type_factory()->MakeEnumType(enum_descriptor, type));
-      // Same comment as above.
-      absl::MutexLock l(&mutex_);
-      *type = zetasql_base::LookupOrInsert(&cached_proto_or_enum_types_, name, *type);
-      return zetasql_base::OkStatus();
+      return type_factory()->MakeEnumType(enum_descriptor, type);
     }
   }
 
@@ -325,7 +307,7 @@ void SimpleCatalog::AddFunctionLocked(
 
 void SimpleCatalog::AddFunction(const std::string& name, const Function* function) {
   absl::MutexLock l(&mutex_);
-  return AddFunctionLocked(name, function);
+  AddFunctionLocked(name, function);
 }
 
 void SimpleCatalog::AddTableValuedFunctionLocked(
@@ -337,7 +319,7 @@ void SimpleCatalog::AddTableValuedFunctionLocked(
 void SimpleCatalog::AddTableValuedFunction(
     const std::string& name, const TableValuedFunction* function) {
   absl::MutexLock l(&mutex_);
-  return AddTableValuedFunctionLocked(name, function);
+  AddTableValuedFunctionLocked(name, function);
 }
 
 void SimpleCatalog::AddProcedure(
@@ -348,6 +330,11 @@ void SimpleCatalog::AddProcedure(
 
 void SimpleCatalog::AddConstant(const std::string& name, const Constant* constant) {
   absl::MutexLock l(&mutex_);
+  AddConstantLocked(name, constant);
+}
+
+void SimpleCatalog::AddConstantLocked(const std::string& name,
+                                      const Constant* constant) {
   zetasql_base::InsertOrDie(&constants_, absl::AsciiStrToLower(name), constant);
 }
 
@@ -358,8 +345,19 @@ void SimpleCatalog::AddOwnedTable(const std::string& name,
   owned_tables_.push_back(std::move(table));
 }
 
+bool SimpleCatalog::AddOwnedTableIfNotPresent(
+    const std::string& name, std::unique_ptr<const Table> table) {
+  absl::MutexLock l(&mutex_);
+  if (!zetasql_base::InsertIfNotPresent(&tables_, absl::AsciiStrToLower(name),
+                               table.get())) {
+    return false;
+  }
+  owned_tables_.emplace_back(std::move(table));
+  return true;
+}
+
 void SimpleCatalog::AddOwnedTable(const std::string& name, const Table* table) {
-  return AddOwnedTable(name, absl::WrapUnique(table));
+  AddOwnedTable(name, absl::WrapUnique(table));
 }
 
 void SimpleCatalog::AddOwnedModel(const std::string& name,
@@ -425,6 +423,18 @@ void SimpleCatalog::AddOwnedProcedure(
   AddProcedure(name, procedure.get());
   absl::MutexLock l(&mutex_);
   owned_procedures_.push_back(std::move(procedure));
+}
+
+bool SimpleCatalog::AddOwnedProcedureIfNotPresent(
+    std::unique_ptr<Procedure> procedure) {
+  absl::MutexLock l(&mutex_);
+  if (!zetasql_base::InsertIfNotPresent(&procedures_,
+                               absl::AsciiStrToLower(procedure->Name()),
+                               procedure.get())) {
+    return false;
+  }
+  owned_procedures_.emplace_back(std::move(procedure));
+  return true;
 }
 
 void SimpleCatalog::AddOwnedProcedure(const std::string& name,
@@ -498,13 +508,29 @@ void SimpleCatalog::AddOwnedModel(const Model* model) {
 }
 
 void SimpleCatalog::AddOwnedCatalog(std::unique_ptr<Catalog> catalog) {
-  AddCatalog(catalog.get());
   absl::MutexLock l(&mutex_);
-  owned_catalogs_.emplace_back(std::move(catalog));
+  const std::string name = catalog->FullName();
+  AddOwnedCatalogLocked(name, std::move(catalog));
 }
 
 void SimpleCatalog::AddOwnedCatalog(Catalog* catalog) {
   AddOwnedCatalog(absl::WrapUnique(catalog));
+}
+
+void SimpleCatalog::AddOwnedCatalogLocked(const std::string& name,
+                                          std::unique_ptr<Catalog> catalog) {
+  AddCatalogLocked(name, catalog.get());
+  owned_catalogs_.emplace_back(std::move(catalog));
+}
+
+bool SimpleCatalog::AddOwnedCatalogIfNotPresent(
+    const std::string& name, std::unique_ptr<Catalog> catalog) {
+  absl::MutexLock l(&mutex_);
+  if (zetasql_base::ContainsKey(catalogs_, absl::AsciiStrToLower(name))) {
+    return false;
+  }
+  AddOwnedCatalogLocked(name, std::move(catalog));
+  return true;
 }
 
 void SimpleCatalog::AddOwnedFunction(std::unique_ptr<const Function> function) {
@@ -591,9 +617,21 @@ void SimpleCatalog::AddOwnedProcedure(const Procedure* procedure) {
 }
 
 void SimpleCatalog::AddOwnedConstant(std::unique_ptr<const Constant> constant) {
-  AddConstant(constant.get());
   absl::MutexLock l(&mutex_);
+  AddConstantLocked(constant->Name(), constant.get());
   owned_constants_.push_back(std::move(constant));
+}
+
+bool SimpleCatalog::AddOwnedConstantIfNotPresent(
+    std::unique_ptr<const Constant> constant) {
+  absl::MutexLock l(&mutex_);
+  if (!zetasql_base::InsertIfNotPresent(&constants_,
+                               absl::AsciiStrToLower(constant->Name()),
+                               constant.get())) {
+    return false;
+  }
+  owned_constants_.push_back(std::move(constant));
+  return true;
 }
 
 void SimpleCatalog::AddOwnedConstant(const Constant* constant) {
@@ -693,35 +731,55 @@ zetasql_base::Status DeserializeImpl(
     std::unique_ptr<SimpleTable> table;
     ZETASQL_RETURN_IF_ERROR(SimpleTable::Deserialize(
         table_proto, pools, catalog->type_factory(), &table));
-    const std::string& name = table_proto.has_name_in_catalog() ?
-        table_proto.name_in_catalog() : table_proto.name();
-    catalog->AddOwnedTable(name, table.release());
+    const std::string& name = table_proto.has_name_in_catalog()
+                                  ? table_proto.name_in_catalog()
+                                  : table_proto.name();
+    if (!catalog->AddOwnedTableIfNotPresent(name, std::move(table))) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate table '" << name << "' in serialized catalog";
+    }
   }
   for (const auto& named_type_proto : proto.named_type()) {
     const Type* type;
     ZETASQL_RETURN_IF_ERROR(
         catalog->type_factory()->DeserializeFromProtoUsingExistingPools(
             named_type_proto.type(), pools, &type));
-    catalog->AddType(named_type_proto.name(), type);
+    if (!catalog->AddTypeIfNotPresent(named_type_proto.name(), type)) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate type '" << named_type_proto.name()
+             << "' in serialized catalog";
+    }
   }
   for (const auto& catalog_proto : proto.catalog()) {
     std::unique_ptr<SimpleCatalog> sub_catalog(
         new SimpleCatalog(catalog_proto.name(), catalog->type_factory()));
-    ZETASQL_RETURN_IF_ERROR(DeserializeImpl(
-        catalog_proto, pools, sub_catalog.get()));
-    catalog->AddOwnedCatalog(catalog_proto.name(), sub_catalog.release());
+    ZETASQL_RETURN_IF_ERROR(DeserializeImpl(catalog_proto, pools, sub_catalog.get()));
+    if (!catalog->AddOwnedCatalogIfNotPresent(catalog_proto.name(),
+                                              std::move(sub_catalog))) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate catalog '" << catalog_proto.name()
+             << "' in serialized catalog";
+    }
   }
   for (const auto& function_proto : proto.custom_function()) {
     std::unique_ptr<Function> function;
     ZETASQL_RETURN_IF_ERROR(Function::Deserialize(
         function_proto, pools, catalog->type_factory(), &function));
-    catalog->AddOwnedFunction(function.release());
+    const std::string name = function->Name();
+    if (!catalog->AddOwnedFunctionIfNotPresent(&function)) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate function '" << name << "' in serialized catalog";
+    }
   }
   for (const auto& procedure_proto : proto.procedure()) {
     std::unique_ptr<Procedure> procedure;
     ZETASQL_RETURN_IF_ERROR(Procedure::Deserialize(
         procedure_proto, pools, catalog->type_factory(), &procedure));
-    catalog->AddOwnedProcedure(procedure.release());
+    const std::string name = procedure->Name();
+    if (!catalog->AddOwnedProcedureIfNotPresent(std::move(procedure))) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate procedure '" << name << "' in serialized catalog";
+    }
   }
   if (proto.has_builtin_function_options()) {
     ZetaSQLBuiltinFunctionOptions options(proto.builtin_function_options());
@@ -731,13 +789,21 @@ zetasql_base::Status DeserializeImpl(
     std::unique_ptr<TableValuedFunction> tvf;
     ZETASQL_RETURN_IF_ERROR(TableValuedFunction::Deserialize(
         tvf_proto, pools, catalog->type_factory(), &tvf));
-    catalog->AddOwnedTableValuedFunction(tvf.release());
+    const std::string name = tvf->Name();
+    if (!catalog->AddOwnedTableValuedFunctionIfNotPresent(&tvf)) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate TVF '" << name << "' in serialized catalog";
+    }
   }
   for (const auto& constant_proto : proto.constant()) {
     std::unique_ptr<SimpleConstant> constant;
     ZETASQL_RETURN_IF_ERROR(SimpleConstant::Deserialize(
         constant_proto, pools, catalog->type_factory(), &constant));
-    catalog->AddOwnedConstant(constant.release());
+    const std::string name = constant->Name();
+    if (!catalog->AddOwnedConstantIfNotPresent(std::move(constant))) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate constant '" << name << "' in serialized catalog";
+    }
   }
 
   if (proto.has_file_descriptor_set_index()) {

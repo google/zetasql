@@ -342,10 +342,17 @@ value. This field equals true if the value `X` is explicitly set in the message.
 
 This field is useful for determining if a protocol buffer field has an explicit
 value, or if reads will return a default value. Consider the protocol buffer
-example, which has a field `country`. This field has a default value of `United
-States`. You can construct a query to determine if a Customer protocol buffer
-message has a value for the country field by using the virtual field
-`has_country`:
+example, which has a field `country`. You can construct a query to determine if
+a Customer protocol buffer message has a value for the country field by using
+the virtual field `has_country`:
+
+```
+message ShippingAddress {
+  optional string name = 1;
+  optional string address = 2;
+  optional string country = 3;
+}
+```
 
 ```
 SELECT
@@ -354,7 +361,7 @@ FROM
   Customer c;
 ```
 
-If `has_country` returns `TRUE`, it indicates that the value for the country
+If `has_country` returns `TRUE`, it indicates that the value for the `country`
 field has been explicitly set. If it returns `FALSE` or `NULL`, it means the
 value is not explicitly set.
 
@@ -476,7 +483,9 @@ SELECT
 ## Querying protocol buffers
 
 You use the dot operator to access the fields contained within a protocol
-buffer.
+buffer. This can not be used to get values of ambiguous fields.
+If you need to reference an ambiguous field,
+see [`EXTRACT`][proto-extract].
 
 <a id=example_protocol_buffer_message></a>
 ### Example protocol buffer message
@@ -835,7 +844,8 @@ FROM
   UNNEST(t.proto_field.(some.package.Extension.repeated_extension_value)) value;
 ```
 
-[link_to_safe_cast]: https://github.com/google/zetasql/blob/master/docs/conversion_rules#safe_casting
+  [link_to_safe_cast]: https://github.com/google/zetasql/blob/master/docs/conversion_rules#safe_casting
+  [proto-extract]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators#proto-extract
 
 <!-- END CONTENT -->
 

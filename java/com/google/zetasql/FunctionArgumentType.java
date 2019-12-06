@@ -154,13 +154,14 @@ public final class FunctionArgumentType implements Serializable {
     }
 
     if (verbose) {
-      // We want to include the equivalent of the shortDebugString of the proto,
-      // but with the cardinality, and extra_relation_input_columns_allowed fields
-      // excluded.
+      // We want to include the equivalent of the shortDebugString of the proto, but with the
+      // cardinality, extra_relation_input_columns_allowed, and argument_name fields excluded.
       FunctionArgumentTypeOptionsProto.Builder tempBuilder =
           FunctionArgumentTypeOptionsProto.newBuilder(optionsBuilder.build());
       tempBuilder.clearCardinality();
       tempBuilder.clearExtraRelationInputColumnsAllowed();
+      tempBuilder.clearArgumentName();
+      tempBuilder.clearArgumentNameIsMandatory();
 
       String options = TextFormat.shortDebugString(tempBuilder);
       if (!options.isEmpty()) {

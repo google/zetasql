@@ -541,10 +541,54 @@ H Value::HashValueInternal(H h) const {
   static constexpr uint64_t kDoubleNanHashCode = 0xA00397BC84F93AA7ull;
   static constexpr uint64_t kGeographyHashCode = 0x98389DC9632631AEull;
 
+  // First, hash the type. Values are only equal if they have the
+  // same/equivalent types, and we want to avoid hash collisions between values
+  // of different types (e.g. INT32 0 vs. UINT32 0).
+  h = H::combine(std::move(h), type_kind_);
+  switch (type_kind_) {
+    case TYPE_ENUM:
+      // Enum types are equivalent if they have the same full name, so hash it.
+      h = H::combine(std::move(h),
+                     enum_type_->enum_descriptor()->full_name());
+      break;
+    case TYPE_ARRAY: {
+      // Array types are equivalent if their element types are equivalent,
+      // so we hash the element type kind.
+      const Type* element_type = list_ptr_->type()->AsArray()->element_type();
+      h = H::combine(std::move(h), element_type->kind());
+
+      // If the array elements are enums or protos, we also hash the full name
+      // of the element types because they are used for equivalency of the
+      // element types.
+      switch (element_type->kind()) {
+        case TYPE_ENUM:
+          h = H::combine(
+              std::move(h),
+              element_type->AsEnum()->enum_descriptor()->full_name());
+          break;
+        case TYPE_PROTO:
+          h = H::combine(
+              std::move(h),
+              element_type->AsProto()->descriptor()->full_name());
+          break;
+        default:
+          break;
+      }
+      break;
+    }
+    case TYPE_PROTO:
+      // Proto types are equivalent if they have the same full name, so hash it.
+      h = H::combine(std::move(h),
+                     proto_ptr_->type()->descriptor()->full_name());
+      break;
+    default:
+      break;
+  }
+
   if (!is_valid() || is_null()) {
     // Note that invalid Values have their own TypeKind, so hash codes for
     // invalid Values do not collide with hash codes for NULL values.
-    return H::combine(std::move(h), type_kind_);
+    return h;
   }
   switch (type_kind()) {
     case TYPE_INT32: {
@@ -584,16 +628,13 @@ H Value::HashValueInternal(H h) const {
       return H::combine(std::move(h), int32_value_);
     }
     case TYPE_TIMESTAMP: {
-      return H::combine(std::move(h), type_kind_, timestamp_seconds_,
-                        subsecond_nanos_);
+      return H::combine(std::move(h), timestamp_seconds_, subsecond_nanos_);
     }
     case TYPE_TIME: {
-      return H::combine(std::move(h), type_kind_, bit_field_32_value_,
-                        subsecond_nanos_);
+      return H::combine(std::move(h), bit_field_32_value_, subsecond_nanos_);
     }
     case TYPE_DATETIME: {
-      return H::combine(std::move(h), type_kind_, bit_field_64_value_,
-                        subsecond_nanos_);
+      return H::combine(std::move(h), bit_field_64_value_, subsecond_nanos_);
     }
     case TYPE_ENUM: {
       return H::combine(std::move(h), enum_value_);
@@ -608,16 +649,16 @@ H Value::HashValueInternal(H h) const {
       for (int i = 0; i < num_elements(); i++) {
         combined_hash += element_hasher(element(i));
       }
-      return H::combine(std::move(h), type_kind_, combined_hash);
+      return H::combine(std::move(h), combined_hash);
     }
     case TYPE_STRUCT: {
       // combine is an ordered combine, which is what we want.
-      return H::combine(std::move(h), type_kind_, fields());
+      return H::combine(std::move(h), fields());
     }
     case TYPE_PROTO: {
       // No efficient way to compute a hash on protobufs, so just let equals
       // sort it out.
-      return H::combine(std::move(h), TYPE_PROTO);
+      return H::combine(std::move(h), 0);
     }
     case TYPE_NUMERIC: {
       return H::combine(std::move(h), numeric_value());
@@ -631,7 +672,7 @@ H Value::HashValueInternal(H h) const {
     case __TypeKind__switch_must_have_a_default__:
       LOG(DFATAL) << "Unexpected expected internally only: " << type_kind_;
   }
-  return H::combine(std::move(h), type_kind_);
+  return h;
 }
 
 template <>

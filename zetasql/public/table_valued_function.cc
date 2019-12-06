@@ -286,6 +286,13 @@ std::string TVFModelArgument::GetSQLDeclaration(ProductMode product_mode) const 
 
 std::string TVFModelArgument::DebugString() const { return "ANY MODEL"; }
 
+std::string TVFConnectionArgument::GetSQLDeclaration(
+    ProductMode product_mode) const {
+  return "ANY CONNECTION";
+}
+
+std::string TVFConnectionArgument::DebugString() const { return "ANY CONNECTION"; }
+
 zetasql_base::Status FixedOutputSchemaTVF::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     TableValuedFunctionProto* proto) const {

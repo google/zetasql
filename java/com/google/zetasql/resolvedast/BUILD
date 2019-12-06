@@ -17,11 +17,11 @@
 # Description:
 #   ZetaSQL ResolvedAST Java library.
 
-package(
-    default_visibility = ["//:__subpackages__"],
-)
-
 load("//zetasql/resolved_ast:build_rules.bzl", "gen_resolved_ast_files")
+
+package(
+    default_visibility = ["//visibility:public"],
+)
 
 gen_resolved_ast_files(
     name = "run_gen_resolved_ast_java",

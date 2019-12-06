@@ -136,6 +136,7 @@ SELECT
   EXTRACT(WEEK FROM timestamp) AS week
 FROM Timestamps
 ORDER BY timestamp;
+
 +------------------------+---------+---------+------+------+
 | timestamp              | isoyear | isoweek | year | week |
 +------------------------+---------+---------+------+------+
@@ -161,7 +162,7 @@ SELECT
 FROM table;
 
 +------------------------+-------------+---------------+
-| timestamp              | week_sunday | week_monday |
+| timestamp              | week_sunday | week_monday   |
 +------------------------+-------------+---------------+
 | 2017-11-05 00:00:00+00 | 45          | 44            |
 +------------------------+-------------+---------------+
@@ -176,7 +177,7 @@ STRING(timestamp_expression[, timezone])
 **Description**
 
 Converts a `timestamp_expression` to a STRING data type. Supports an optional
-parameter to specify a timezone. See
+parameter to specify a time zone. See
 [Timezone definitions][timestamp-link-to-timezone-definitions] for information
 on how to specify a time zone.
 
@@ -192,40 +193,118 @@ SELECT STRING(TIMESTAMP "2008-12-25 15:30:00", "America/Los_Angeles") as string;
 +-------------------------------+
 | string                        |
 +-------------------------------+
-| 2008-12-25 15:30:00-08        |
+| 2008-12-25 07:30:00-08        |
 +-------------------------------+
 ```
 
 ### TIMESTAMP
 
-```
-1. TIMESTAMP(string_expression[, timezone])
-2. TIMESTAMP(date_expression[, timezone])
-3. TIMESTAMP(datetime_expression[, timezone])
+```sql
+TIMESTAMP(
+  string_expression[, timezone] |
+  date_expression[, timezone] |
+  datetime_expression[, timezone]
+)
 ```
 
 **Description**
 
-1. Converts a STRING expression to a TIMESTAMP data type.
-2. Converts a DATE object to a TIMESTAMP data type.
-3. Converts a DATETIME object to a TIMESTAMP data type.
++  `string_expression[, timezone]`: Converts a STRING expression to a TIMESTAMP
+   data type. `string_expression` must include a
+   timestamp literal.
+   If `string_expression` includes a timezone in the timestamp literal, do not
+   include an explicit `timezone`
+   argument.
++  `date_expression[, timezone]`: Converts a DATE object to a TIMESTAMP
+   data type.
++  `datetime_expression[, timezone]`: Converts a
+   DATETIME object to a TIMESTAMP data type.
 
-This function supports an optional parameter to
-[specify a timezone][timestamp-link-to-timezone-definitions]. If no timezone is specified, the
-default timezone, which is implementation defined, is used.
+This function supports an optional
+parameter to [specify a time zone][timestamp-link-to-timezone-definitions]. If
+no time zone is specified, the default time zone, which is implementation defined,
+is used.
 
 **Return Data Type**
 
 TIMESTAMP
 
-**Example**
+**Examples**
+
+In these examples, a time zone is specified.
 
 ```sql
-SELECT
-  CAST(TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles") AS STRING) AS timestamp_str,
-  CAST(TIMESTAMP(DATE "2008-12-25", "America/Los_Angeles") AS STRING) AS timestamp_date,
-  CAST(TIMESTAMP(DATETIME "2008-12-25 15:30:00", "America/Los_Angeles") AS STRING) AS timestamp_datetime;
+SELECT CAST(
+  TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles") AS STRING
+) AS timestamp_str;
 
++------------------------+
+| timestamp_str          |
++------------------------+
+| 2008-12-25 23:30:00+00 |
++------------------------+
+```
+
+```sql
+SELECT CAST(
+  TIMESTAMP("2008-12-25 15:30:00 America/Los_Angeles") AS STRING
+) AS timestamp_str_timezone;
+
++------------------------+
+| timestamp_str_timezone |
++------------------------+
+| 2008-12-25 23:30:00+00 |
++------------------------+
+```
+
+```sql
+SELECT CAST(
+  TIMESTAMP(DATETIME "2008-12-25 15:30:00", "America/Los_Angeles") AS STRING
+) AS timestamp_datetime;
+
++------------------------+
+| timestamp_datetime     |
++------------------------+
+| 2008-12-25 23:30:00+00 |
++------------------------+
+```
+
+```sql
+SELECT CAST(
+  TIMESTAMP(DATE "2008-12-25", "America/Los_Angeles") AS STRING
+) AS timestamp_date;
+
++------------------------+
+| timestamp_date         |
++------------------------+
+| 2008-12-25 08:00:00+00 |
++------------------------+
+```
+
+In these examples, assume that the default time zone is UTC.
+
+```sql
+SELECT CAST(
+  TIMESTAMP("2008-12-25 15:30:00") AS STRING
+) AS timestamp_str;
+
++------------------------+
+| timestamp_str          |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
+```
+
+```sql
+SELECT CAST(
+  TIMESTAMP(DATE "2008-12-25") AS STRING
+) AS timestamp_date;
+
++------------------------+
+| timestamp_date         |
++------------------------+
+| 2008-12-25 00:00:00+00 |
++------------------------+
 ```
 
 ### TIMESTAMP_ADD
@@ -248,8 +327,7 @@ any time zone.
 <li><code>SECOND</code></li>
 <li><code>MINUTE</code></li>
 <li><code>HOUR</code>. Equivalent to 60 <code>MINUTE</code>s.</li>
-<li><code>DAY</code>. Equivalent to 24
-<code>HOUR</code>s.
+<li><code>DAY</code>. Equivalent to 24 <code>HOUR</code>s.</li>
 </ul>
 
 **Return Data Types**
@@ -290,8 +368,7 @@ independent of any time zone.
 <li><code>SECOND</code></li>
 <li><code>MINUTE</code></li>
 <li><code>HOUR</code>. Equivalent to 60 <code>MINUTE</code>s.</li>
-<li><code>DAY</code>. Equivalent to 24
-<code>HOUR</code>s.
+<li><code>DAY</code>. Equivalent to 24 <code>HOUR</code>s.</li>
 </ul>
 
 **Return Data Type**
@@ -342,8 +419,7 @@ TIMESTAMP_DIFF(timestamp_expression, timestamp_expression, date_part)
 <li><code>SECOND</code></li>
 <li><code>MINUTE</code></li>
 <li><code>HOUR</code>. Equivalent to 60 <code>MINUTE</code>s.</li>
-<li><code>DAY</code>. Equivalent to 24
-<code>HOUR</code>s.
+<li><code>DAY</code>. Equivalent to 24 <code>HOUR</code>s.</li>
 </ul>
 
 **Return Data Type**
@@ -429,12 +505,12 @@ parameter applies to the following `date_parts`:
 + `YEAR`
 
 Use this parameter if you want to use a time zone other than the
-default timezone, which is implementation defined, as part of the
+default time zone, which is implementation defined, as part of the
 truncate operation.
 
 When truncating a `TIMESTAMP` to `MINUTE`
 or`HOUR`, `TIMESTAMP_TRUNC` determines the civil time of the
-`TIMESTAMP` in the specified (or default) timezone
+`TIMESTAMP` in the specified (or default) time zone
 and subtracts the minutes and seconds (when truncating to HOUR) or the seconds
 (when truncating to MINUTE) from that `TIMESTAMP`.
 While this provides intuitive results in most cases, the result is
@@ -478,7 +554,7 @@ FROM (SELECT TIMESTAMP('2017-11-06 00:00:00+12') AS timestamp);
 +------------------------+------------------------+------------------------+
 | timestamp              | utc_truncated          | nzdt_truncated         |
 +------------------------+------------------------+------------------------+
-| 2017-11-05 12:00:00+00 | 2017-10-30 07:00:00+00 | 2017-11-05 11:00:00+00 |
+| 2017-11-05 12:00:00+00 | 2017-10-30 00:00:00+00 | 2017-11-05 11:00:00+00 |
 +------------------------+------------------------+------------------------+
 ```
 
@@ -532,6 +608,28 @@ SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2008-12-25 15:30:00", "America/Los_Ange
 +--------------------------+
 ```
 
+```sql
+SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2008-12-25 15:30:00")
+  AS formatted;
+
++-------------+
+| formatted   |
++-------------+
+| Dec-25-2008 |
++-------------+
+```
+
+```sql
+SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2008-12-25 15:30:00")
+  AS formatted;
+
++-------------+
+| formatted   |
++-------------+
+| Dec 2008    |
++-------------+
+```
+
 ### PARSE_TIMESTAMP
 
 ```sql
@@ -561,8 +659,8 @@ information (for example both `%F` and `%Y` affect the year), the last one
 generally overrides any earlier ones, with some exceptions (see the descriptions
 of `%s`, `%C`, and `%y`).
 
-See [Supported Format Elements For TIMESTAMP][timestamp-link-to-supported-format-elements-for-time-for-timestamp]
-for a list of format elements that this function supports.
+Note: This function supports [format elements][timestamp-link-to-supported-format-elements-for-time-for-timestamp],
+but does not have full support for `%Q`, `%a`, `%A`, `%g`, `%G`, `%j`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 **Return Data Type**
 
@@ -573,11 +671,11 @@ TIMESTAMP
 ```sql
 SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008", "America/Los_Angeles") as parsed;
 
-+-------------------------+
-| parsed                  |
-+-------------------------+
-| 2008-12-25 15:30:00 UTC |
-+-------------------------+
++------------------------+
+| parsed                 |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
 ```
 
 ### TIMESTAMP_SECONDS
@@ -600,11 +698,11 @@ TIMESTAMP
 ```sql
 SELECT TIMESTAMP_SECONDS(1230219000) as timestamp;
 
-+-------------------------+
-| timestamp               |
-+-------------------------+
-| 2008-12-25 15:30:00 UTC |
-+-------------------------+
++------------------------+
+| timestamp              |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
 ```
 
 ### TIMESTAMP_MILLIS
@@ -627,11 +725,11 @@ TIMESTAMP
 ```sql
 SELECT TIMESTAMP_MILLIS(1230219000000) as timestamp;
 
-+-------------------------+
-| timestamp               |
-+-------------------------+
-| 2008-12-25 15:30:00 UTC |
-+-------------------------+
++------------------------+
+| timestamp              |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
 ```
 
 ### TIMESTAMP_MICROS
@@ -654,11 +752,11 @@ TIMESTAMP
 ```sql
 SELECT TIMESTAMP_MICROS(1230219000000000) as timestamp;
 
-+-------------------------+
-| timestamp               |
-+-------------------------+
-| 2008-12-25 15:30:00 UTC |
-+-------------------------+
++------------------------+
+| timestamp              |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
 ```
 
 ### UNIX_SECONDS
@@ -679,7 +777,7 @@ INT64
 **Example**
 
 ```sql
-SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00") as seconds;
+SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00 UTC") as seconds;
 
 +------------+
 | seconds    |
@@ -733,7 +831,7 @@ INT64
 **Example**
 
 ```sql
-SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00") as micros;
+SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00 UTC") as micros;
 
 +------------------+
 | micros           |
@@ -744,15 +842,84 @@ SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00") as micros;
 
 ### TIMESTAMP_FROM_UNIX_SECONDS
 
-Documentation is pending for this feature.
+```sql
+TIMESTAMP_FROM_UNIX_SECONDS(int64_expression)
+```
+
+**Description**
+
+Interprets `int64_expression` as the number of seconds since
+1970-01-01 00:00:00 UTC and creates a timestamp.
+
+**Return Data Type**
+
+TIMESTAMP
+
+**Example**
+
+```sql
+SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) as timestamp;
+
++------------------------+
+| timestamp              |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
+```
 
 ### TIMESTAMP_FROM_UNIX_MILLIS
 
-Documentation is pending for this feature.
+```sql
+TIMESTAMP_FROM_UNIX_MILLIS(int64_expression)
+```
+
+**Description**
+
+Interprets `int64_expression` as the number of milliseconds since
+1970-01-01 00:00:00 UTC and creates a timestamp.
+
+**Return Data Type**
+
+TIMESTAMP
+
+**Example**
+
+```sql
+SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) as timestamp;
+
++------------------------+
+| timestamp              |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
+```
 
 ### TIMESTAMP_FROM_UNIX_MICROS
 
-Documentation is pending for this feature.
+```sql
+TIMESTAMP_FROM_UNIX_MICROS(int64_expression)
+```
+
+**Description**
+
+Interprets `int64_expression` as the number of microseconds since
+1970-01-01 00:00:00 UTC and creates a timestamp.
+
+**Return Data Type**
+
+TIMESTAMP
+
+**Example**
+
+```sql
+SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) as timestamp;
+
++------------------------+
+| timestamp              |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
+```
 
 ### Supported format elements for TIMESTAMP
 
@@ -788,7 +955,7 @@ number (00-99).</td>
  </tr>
  <tr>
     <td>%c</td>
-    <td>The date and time representation.</td>
+    <td>The date and time representation in the format %a %b %e %T %Y.</td>
  </tr>
  <tr>
     <td>%D</td>
@@ -982,20 +1149,29 @@ year.</td>
 ### Timezone definitions
 
 Certain date and timestamp functions allow you to override the default time zone
-and specify a different one. You can specify a timezone by supplying its UTC
-offset using the following format:
+and specify a different one. You can specify a time zone by either supplying
+the [time zone name][timezone-by-name] (for example, `America/Los_Angeles`)
+or time zone offset from UTC (for example, -08).
+
+If you choose to use a time zone offset, use this format:
 
 ```
 (+|-)H[H][:M[M]]
 ```
 
-For example:
+The following timestamps are equivalent because the time zone offset
+for `America/Los_Angeles` is `-08` for the specified date and time.
 
 ```
--08:00
+SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00 America/Los_Angeles") as millis;
 ```
 
-[timestamp-link-to-supported-format-elements-for-time-for-timestamp]: #supported-format-elements-for-timestamp
+```
+SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00-08:00") as millis;
+```
 
-[timestamp-link-to-timezone-definitions]: #timezone-definitions
+[timezone-by-name]: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+
+[timestamp-link-to-supported-format-elements-for-time-for-timestamp]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#supported_format_elements_for_timestamp
+[timestamp-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#timezone_definitions
 

@@ -198,7 +198,8 @@ class Algebrizer {
 
   // Algebrize specific expressions.
   zetasql_base::StatusOr<std::unique_ptr<AggregateArg>> AlgebrizeAggregateFn(
-      const VariableId& variable, const ResolvedExpr* expr);
+      const VariableId& variable,
+      const ResolvedExpr* expr);
   zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeSubqueryExpr(
       const ResolvedSubqueryExpr* subquery_expr);
   zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeInArray(
@@ -321,9 +322,6 @@ class Algebrizer {
   zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeFilterScan(
       const ResolvedFilterScan* filter_scan,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
-  zetasql_base::StatusOr<std::unique_ptr<AggregateOp>> AlgebrizeAggregateScanBase(
-      const ResolvedAggregateScanBase* aggregate_scan,
-      bool allow_unused_columns);
   zetasql_base::StatusOr<std::unique_ptr<AggregateOp>> AlgebrizeAggregateScan(
       const ResolvedAggregateScan* aggregate_scan);
   zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeSetOperationScan(

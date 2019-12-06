@@ -139,6 +139,8 @@ std::string InputArgumentType::UserFacingName(ProductMode product_mode) const {
     return absl::StrCat("TABLE<", absl::StrJoin(type_strings, ", "), ">");
   } else if (is_model()) {
     return "MODEL";
+  } else if (is_connection()) {
+    return "CONNECTION";
   }
   if (type() == nullptr) {
     return DebugString(false);
@@ -203,6 +205,14 @@ InputArgumentType InputArgumentType::ModelInputArgumentType(
   InputArgumentType type;
   type.category_ = kModel;
   type.model_arg_.reset(new TVFModelArgument(model_arg));
+  return type;
+}
+
+InputArgumentType InputArgumentType::ConnectionInputArgumentType(
+    const TVFConnectionArgument& connection_arg) {
+  InputArgumentType type;
+  type.category_ = kConnection;
+  type.connection_arg_.reset(new TVFConnectionArgument(connection_arg));
   return type;
 }
 

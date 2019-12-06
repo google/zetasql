@@ -183,22 +183,37 @@ class FunctionResolver {
       QueryResolutionInfo* query_info);
 
   // Iterates through <named_arguments> and compares them against <signature>,
-  // rearranging any of <arg_locations>, <expr_args>, and/or <tvf_arg_types> to
-  // match the order of the given <named_arguments> or returning an error if an
-  // invariant is not satisfied. The <arg_locations>, <expr_args>, and
-  // <tvf_arg_types> are all optional and will be ignored if NULL; any
-  // combination is acceptable. Note that combinations of positional and named
-  // arguments are not supported yet, so <expr_args> and <tvf_arg_types> are
-  // mutually exclusive for now, depending on whether we are resolving a scalar
-  // function call or a TVF call.
+  // rearranging any of <arg_locations>, <expr_args>, <input_arg_types>, and/or
+  // <tvf_arg_types> to match the order of the given <named_arguments> or
+  // returning an error if an invariant is not satisfied. Sets
+  // <named_arguments_match_signature> to true if <named_arguments> are a match
+  // for <signature> or false otherwise. In the latter case, if
+  // <return_error_if_named_arguments_do_not_match_signature> is true, this
+  // method will return a descriptive error message.
+  //
+  // The <arg_locations>, <expr_args>, <input_arg_types>, and <tvf_arg_types>
+  // are all optional and will be ignored if NULL; any combination is
+  // acceptable. In practice, (<expr_args>, <input_arg_types>) and
+  // <tvf_arg_types> are generally mutually exclusive. If we are resolving a
+  // scalar function call, <expr_args> and/or <input_arg_types> are provided.
+  // Otherwise, if we are resolving a TVF call, <tvf_arg_types> are provided.
+  //
+  // If <signature> contains any optional arguments whose values are not
+  // provided (either positionally in <expr_args> or <tvf_arg_types> or named
+  // in <named_arguments>) then this method may inject suitable default values
+  // in <expr_args>, <input_arg_types>, and/or <tvf_arg_types>. Currently this
+  // method injects a NULL value for such missing arguments as a default policy.
   zetasql_base::Status ProcessNamedArguments(
       const std::string& function_name, const FunctionSignature& signature,
       const ASTNode* ast_location,
       const std::vector<std::pair<const ASTNamedArgument*, int>>&
           named_arguments,
+      bool return_error_if_named_arguments_do_not_match_signature,
+      bool* named_arguments_match_signature,
       std::vector<const ASTNode*>* arg_locations,
       std::vector<std::unique_ptr<const ResolvedExpr>>* expr_args,
-      std::vector<ResolvedTVFArg>* tvf_arg_types);
+      std::vector<InputArgumentType>* input_arg_types,
+      std::vector<ResolvedTVFArg>* tvf_arg_types) const;
 
  private:
   Catalog* catalog_;           // Not owned.
@@ -298,9 +313,22 @@ class FunctionResolver {
   // Returns a signature that matches the argument type list, returning
   // a concrete FunctionSignature if found.  If not found, returns NULL.
   // The caller takes ownership of the returned FunctionSignature.
-  const FunctionSignature* FindMatchingSignature(
+  //
+  // The <ast_location> and <arg_locations> identify the function call and
+  // argument locations for use in error messages. The <named_arguments>
+  // optionally identify a list of named arguments provided as part of the
+  // function call which may be used to help identify the signature. The pair in
+  // each of <named_arguments> comprises a pointer to the ASTNamedArgument
+  // object that the parser produced for this named argument reference and also
+  // an integer identifying the corresponding argument type by indexing into
+  // <input_arguments>.
+  zetasql_base::StatusOr<const FunctionSignature*> FindMatchingSignature(
       const Function* function,
-      const std::vector<InputArgumentType>& input_arguments) const;
+      const std::vector<InputArgumentType>& input_arguments,
+      const ASTNode* ast_location,
+      const std::vector<const ASTNode*>& arg_locations,
+      const std::vector<std::pair<const ASTNamedArgument*, int>>&
+          named_arguments) const;
 
   // Determines if the argument list count matches signature, returning the
   // number of times each repeated argument repeats and the number of

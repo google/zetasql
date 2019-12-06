@@ -20,9 +20,11 @@
 
 #include <algorithm>
 #include <limits>
+#include <type_traits>
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.pb.h"
+#include "google/protobuf/descriptor.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/proto_helper.h"
 #include "zetasql/proto/options.pb.h"
@@ -46,6 +48,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
+#include "absl/types/variant.h"
 #include "zetasql/base/cleanup.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
@@ -444,6 +447,72 @@ zetasql_base::Status Type::SerializeToSelfContainedProto(
 
 std::string Type::ShortTypeName(ProductMode mode) const { return TypeName(mode); }
 
+std::string Type::DebugString(bool details) const {
+  std::string debug_string;
+
+  std::vector<absl::variant<const Type*, std::string>> stack;
+  stack.push_back(this);
+  while (!stack.empty()) {
+    const auto stack_entry = stack.back();
+    stack.pop_back();
+    if (absl::holds_alternative<std::string>(stack_entry)) {
+      absl::StrAppend(&debug_string, absl::get<std::string>(stack_entry));
+      continue;
+    }
+    const Type* type = absl::get<const Type*>(stack_entry);
+    switch (type->kind()) {
+      case TypeKind::TYPE_ARRAY:
+        absl::StrAppend(&debug_string, "ARRAY<");
+        stack.push_back(">");
+        stack.push_back(type->AsArray()->element_type());
+        break;
+      case TypeKind::TYPE_STRUCT: {
+        const StructType* struct_type = type->AsStruct();
+        absl::StrAppend(&debug_string, "STRUCT<");
+        stack.push_back(">");
+        for (int i = struct_type->num_fields() - 1; i >= 0; --i) {
+          const StructField& field = struct_type->field(i);
+          stack.push_back(field.type);
+          std::string prefix = (i > 0) ? ", " : "";
+          if (!field.name.empty()) {
+            absl::StrAppend(&prefix, ToIdentifierLiteral(field.name), " ");
+          }
+          stack.push_back(prefix);
+        }
+        break;
+      }
+      case TypeKind::TYPE_PROTO: {
+        const google::protobuf::Descriptor* descriptor = type->AsProto()->descriptor();
+        absl::StrAppend(&debug_string, "PROTO<", descriptor->full_name());
+        if (details) {
+          absl::StrAppend(&debug_string,
+                          ", file name: ", descriptor->file()->name(), ", <",
+                          descriptor->DebugString(), ">");
+        }
+        absl::StrAppend(&debug_string, ">");
+      } break;
+      case TypeKind::TYPE_ENUM: {
+        const google::protobuf::EnumDescriptor* enum_descriptor =
+            type->AsEnum()->enum_descriptor();
+        absl::StrAppend(&debug_string, "ENUM<", enum_descriptor->full_name());
+        if (details) {
+          absl::StrAppend(&debug_string,
+                          ", file name: ", enum_descriptor->file()->name(),
+                          ", <", enum_descriptor->DebugString(), ">");
+        }
+        absl::StrAppend(&debug_string, ">");
+        break;
+      }
+      default:
+        CHECK(type->IsSimpleType());
+        absl::StrAppend(&debug_string,
+                        TypeKindToString(type->kind(), PRODUCT_INTERNAL));
+        break;
+    }
+  }
+  return debug_string;
+}
+
 namespace {
 
 // Helper function that finds a field or a named extension with the given name.
@@ -683,10 +752,6 @@ std::string SimpleType::TypeName(ProductMode mode) const {
   return TypeKindToString(kind_, mode);
 }
 
-std::string SimpleType::DebugString(bool unused_details) const {
-  return TypeKindToString(kind_, PRODUCT_INTERNAL);
-}
-
 ArrayType::ArrayType(const TypeFactory* factory, const Type* element_type)
     : Type(factory, TYPE_ARRAY),
       element_type_(element_type) {
@@ -784,9 +849,123 @@ std::string ArrayType::TypeName(ProductMode mode) const {
   return absl::StrCat("ARRAY<", element_type_->TypeName(mode), ">");
 }
 
-std::string ArrayType::DebugString(bool details) const {
-  return absl::StrCat("ARRAY<", element_type_->DebugString(details), ">");
+namespace {  // Helper Functions for memory usage estimation
+
+// Some implementations of some stl container (especially, strings), when their
+// content is smaller than container size, may store it within its own memory
+// without using any additional heap allocations. Function checks for such case.
+template <typename ContainerT>
+bool IsContentEmbedded(const ContainerT& container) {
+  const uint8_t* container_ptr = reinterpret_cast<const uint8_t*>(&container);
+  const uint8_t* data = reinterpret_cast<const uint8_t*>(container.data());
+
+  return data >= container_ptr && data < container_ptr + sizeof(container);
 }
+
+// Function returns the estimate (in bytes) of amount of memory that vector
+// could allocate externally to store its data content
+template <typename T>
+int64_t GetExternallyAllocatedMemoryEstimate(const std::vector<T>& container) {
+  return IsContentEmbedded(container) ? 0 : container.capacity() * sizeof(T);
+}
+
+// Function returns the estimate (in bytes) of amount of memory that std::string
+// could allocate externally to store its data content
+int64_t GetExternallyAllocatedMemoryEstimate(const std::string& str) {
+  return IsContentEmbedded(str) ? 0 : str.capacity() + 1;
+}
+
+template <typename ElementT>
+static size_t GetArrayAllocationMemoryEstimate(size_t elements_count) {
+  size_t result = elements_count * sizeof(ElementT);
+
+  //  Allocation most probably will be aligned, so round up result to alignment
+  constexpr size_t alignment = sizeof(void*);
+  constexpr size_t max_unaligned_mod = alignment - 1;
+  constexpr bool is_alignment_power_of_two =
+      (alignment != 0) && ((alignment & max_unaligned_mod) == 0);
+  static_assert(is_alignment_power_of_two);
+
+  return (result + max_unaligned_mod) & (~max_unaligned_mod);
+}
+
+// Rounds up the capacity to the next power of 2
+int64_t RoundUpToNextPowerOfTwo(int64_t n) {
+  if (n < 0 || (n & (1L << 62)) != 0) {
+    LOG(DFATAL) << "Out of range: " << n;
+    // Restrict to the valid range.
+    return n < 0 ? 1 : 1L << 62;
+  }
+
+  int64_t power = 1;
+  while (power <= n) {
+    power = power << 1;
+  }
+  return power;
+}
+
+// Capacity is increased by factor of 2: to allocate N elements, smallest
+// power of 2 - 1, which is bigger or equal to N elements will be found.
+// We must also account for a 7/8 load factor on organically grown maps.
+int64_t GetRawHashSetCapacityEstimateFromExpectedSize(int64_t expected_size) {
+  int64_t capacity = RoundUpToNextPowerOfTwo(expected_size) - 1;
+  return expected_size <= capacity - capacity / 8
+             ? capacity
+             : RoundUpToNextPowerOfTwo(capacity + 1) - 1;
+}
+
+// Estimate memory allocation of raw_hash_set, which is a base class for
+// absl::flat_hash_map and flat_hash_set
+template <typename SetT>
+int64_t GetRawHashSetExternallyAllocatedMemoryEstimate(
+    const SetT& set, int64_t count_of_expected_items_to_add) {
+  // If we know the capacity we should just use it. Otherwise we have to
+  // estimate what it will be after the expected number of items are added.
+  int64_t capacity = count_of_expected_items_to_add == 0
+                       ? set.capacity()
+                       : GetRawHashSetCapacityEstimateFromExpectedSize(
+                             count_of_expected_items_to_add + set.size());
+
+  if (capacity == 0) {
+    return 0;
+  }
+
+  // Abseil raw_hash_set, uses two tables: first one is hash slots array, which
+  // size is equal to capacity. The second one is array of control state bytes.
+  // Control state is kept for each slot. Last table is spit into groups of 16
+  // control bytes, table is padded with group size + 1 byte.
+  constexpr int control_state_padding = 17;
+  return GetArrayAllocationMemoryEstimate<typename SetT::slot_type>(capacity) +
+         GetArrayAllocationMemoryEstimate<uint8_t>(capacity +
+                                                 control_state_padding);
+}
+
+template <typename... Types>
+int64_t GetExternallyAllocatedMemoryEstimate(
+    const absl::flat_hash_map<Types...>& map,
+    int64_t count_of_expected_items_to_add = 0) {
+  return GetRawHashSetExternallyAllocatedMemoryEstimate<
+      absl::flat_hash_map<Types...>>(map, count_of_expected_items_to_add);
+}
+
+template <typename... Types>
+int64_t GetExternallyAllocatedMemoryEstimate(
+    const absl::flat_hash_set<Types...>& set,
+    int64_t count_of_expected_items_to_add = 0) {
+  return GetRawHashSetExternallyAllocatedMemoryEstimate<
+      absl::flat_hash_set<Types...>>(set, count_of_expected_items_to_add);
+}
+
+int64_t GetEstimatedStructFieldOwnedMemoryBytesSize(const StructField& field) {
+  static_assert(
+      sizeof(field) ==
+          sizeof(std::tuple<decltype(field.name), decltype(field.type)>),
+      "You need to update GetEstimatedStructFieldOwnedMemoryBytesSize "
+      "when you change StructField");
+
+  return sizeof(field) + GetExternallyAllocatedMemoryEstimate(field.name);
+}
+}  // namespace
 
 StructType::StructType(const TypeFactory* factory,
                        std::vector<StructField> fields, int nesting_depth)
@@ -880,7 +1059,7 @@ zetasql_base::Status StructType::SerializeToProtoAndDistinctFileDescriptorsImpl(
 
 // TODO DebugString and other recursive methods on struct types
 // may cause a stack overflow for deeply nested types.
-std::string StructType::DebugStringImpl(
+std::string StructType::TypeNameImpl(
     int field_limit,
     const std::function<std::string(const zetasql::Type*)>& field_debug_fn) const {
   const int num_fields_to_show = std::min<int>(field_limit, fields_.size());
@@ -908,22 +1087,14 @@ std::string StructType::ShortTypeName(ProductMode mode) const {
   const auto field_debug_fn = [=](const zetasql::Type* type) {
     return type->ShortTypeName(mode);
   };
-  return DebugStringImpl(field_limit, field_debug_fn);
+  return TypeNameImpl(field_limit, field_debug_fn);
 }
 
 std::string StructType::TypeName(ProductMode mode) const {
   const auto field_debug_fn = [=](const zetasql::Type* type) {
     return type->TypeName(mode);
   };
-  return DebugStringImpl(std::numeric_limits<int>::max(), field_debug_fn);
-}
-
-std::string StructType::DebugString(bool details) const {
-  const auto field_debug_fn = [=](const zetasql::Type* type) {
-    return type->DebugString(details);
-  };
-  // No limit on the number of struct fields to show.
-  return DebugStringImpl(std::numeric_limits<int>::max(), field_debug_fn);
+  return TypeNameImpl(std::numeric_limits<int>::max(), field_debug_fn);
 }
 
 const StructType::StructField* StructType::FindField(
@@ -966,6 +1137,25 @@ const StructType::StructField* StructType::FindField(
     if (found_idx != nullptr) *found_idx = field_index;
     return &fields_[field_index];
   }
+}
+
+int64_t StructType::GetEstimatedOwnedMemoryBytesSize() const {
+  int64_t result = sizeof(*this);
+
+  for (const StructField& field : fields_) {
+    result += GetEstimatedStructFieldOwnedMemoryBytesSize(field);
+  }
+
+  // Map field_name_to_index_map_ is built lazily, we account its memory
+  // in advance, which potentially can lead to overestimation.
+  int64_t fields_to_load = fields_.size() - field_name_to_index_map_.size();
+  if (fields_to_load < 0) {
+    fields_to_load = 0;
+  }
+  result += GetExternallyAllocatedMemoryEstimate(field_name_to_index_map_,
+                                                 fields_to_load);
+
+  return result;
 }
 
 ProtoType::ProtoType(const TypeFactory* factory,
@@ -1058,17 +1248,6 @@ std::string ProtoType::ShortTypeName(ProductMode mode_unused) const {
 
 std::string ProtoType::TypeName(ProductMode mode_unused) const {
   return TypeName();
-}
-
-std::string ProtoType::DebugString(bool details) const {
-  std::string debug_string;
-  absl::StrAppend(&debug_string, "PROTO<", descriptor_->full_name());
-  if (details) {
-    absl::StrAppend(&debug_string, ", file name: ", descriptor_->file()->name(),
-                    ", <", descriptor_->DebugString(), ">");
-  }
-  absl::StrAppend(&debug_string, ">");
-  return debug_string;
 }
 
 // static
@@ -1365,18 +1544,6 @@ std::string EnumType::TypeName(ProductMode mode_unused) const {
   return TypeName();
 }
 
-std::string EnumType::DebugString(bool details) const {
-  std::string debug_string;
-  absl::StrAppend(&debug_string, "ENUM<", enum_descriptor_->full_name());
-  if (details) {
-    absl::StrAppend(&debug_string,
-                    ", file name: ", enum_descriptor_->file()->name(), ", <",
-                    enum_descriptor_->DebugString(), ">");
-  }
-  absl::StrAppend(&debug_string, ">");
-  return debug_string;
-}
-
 bool EnumType::FindName(int number, const std::string** name) const {
   *name = nullptr;
   const google::protobuf::EnumValueDescriptor* value_descr =
@@ -1492,7 +1659,8 @@ bool TypeEquals::operator()(const Type* const type1,
 TypeFactory::TypeFactory()
     : cached_simple_types_(),
       nesting_depth_limit_(
-          absl::GetFlag(FLAGS_zetasql_type_factory_nesting_depth_limit)) {
+          absl::GetFlag(FLAGS_zetasql_type_factory_nesting_depth_limit)),
+      estimated_memory_used_by_types_(0) {
   VLOG(2) << "Created TypeFactory " << this
           ;
 }
@@ -1537,16 +1705,41 @@ void TypeFactory::set_nesting_depth_limit(int value) {
   nesting_depth_limit_ = value;
 }
 
+int64_t TypeFactory::GetEstimatedOwnedMemoryBytesSize() const {
+  // While we don't promise exact size (only estimation), we still lock a
+  // mutex here in case we may need protection from side effects of multi
+  // threaded accesses during concurrent unit tests. Also, function
+  // GetExternallyAllocatedMemoryEstimate doesn't declare thread safety (even
+  // though current implementation is safe).
+  absl::MutexLock l(&mutex_);
+  return sizeof(*this) + estimated_memory_used_by_types_ +
+         GetExternallyAllocatedMemoryEstimate(owned_types_) +
+         GetExternallyAllocatedMemoryEstimate(depends_on_factories_) +
+         GetExternallyAllocatedMemoryEstimate(factories_depending_on_this_) +
+         GetExternallyAllocatedMemoryEstimate(cached_array_types_) +
+         GetExternallyAllocatedMemoryEstimate(cached_proto_types_) +
+         GetExternallyAllocatedMemoryEstimate(cached_enum_types_);
+}
+
 template <class TYPE>
 const TYPE* TypeFactory::TakeOwnership(const TYPE* type) {
+  const int64_t type_owned_bytes_size = type->GetEstimatedOwnedMemoryBytesSize();
   absl::MutexLock l(&mutex_);
-  return TakeOwnershipLocked(type);
+  return TakeOwnershipLocked(type, type_owned_bytes_size);
 }
 
 template <class TYPE>
 const TYPE* TypeFactory::TakeOwnershipLocked(const TYPE* type) {
+  return TakeOwnershipLocked(type, type->GetEstimatedOwnedMemoryBytesSize());
+}
+
+template <class TYPE>
+const TYPE* TypeFactory::TakeOwnershipLocked(const TYPE* type,
+                                             int64_t type_owned_bytes_size) {
   DCHECK_EQ(type->type_factory_, this);
+  DCHECK_GT(type_owned_bytes_size, 0);
   owned_types_.push_back(type);
+  estimated_memory_used_by_types_ += type_owned_bytes_size;
   return type;
 }
 
@@ -1598,7 +1791,12 @@ zetasql_base::Status TypeFactory::MakeArrayType(
              << "Array type would exceed nesting depth limit of "
              << depth_limit;
     }
-    *result = TakeOwnership(new ArrayType(this, element_type));
+    absl::MutexLock lock(&mutex_);
+    auto& cached_result = cached_array_types_[element_type];
+    if (cached_result == nullptr) {
+      cached_result = TakeOwnershipLocked(new ArrayType(this, element_type));
+    }
+    *result = cached_result;
     return ::zetasql_base::OkStatus();
   }
 }
@@ -1651,7 +1849,12 @@ zetasql_base::Status TypeFactory::MakeStructTypeFromVector(
 
 zetasql_base::Status TypeFactory::MakeProtoType(
     const google::protobuf::Descriptor* descriptor, const ProtoType** result) {
-  *result = TakeOwnership(new ProtoType(this, descriptor));
+  absl::MutexLock lock(&mutex_);
+  auto& cached_result = cached_proto_types_[descriptor];
+  if (cached_result == nullptr) {
+    cached_result = TakeOwnershipLocked(new ProtoType(this, descriptor));
+  }
+  *result = cached_result;
   return ::zetasql_base::OkStatus();
 }
 
@@ -1662,7 +1865,12 @@ zetasql_base::Status TypeFactory::MakeProtoType(
 
 zetasql_base::Status TypeFactory::MakeEnumType(
     const google::protobuf::EnumDescriptor* enum_descriptor, const EnumType** result) {
-  *result = TakeOwnership(new EnumType(this, enum_descriptor));
+  absl::MutexLock lock(&mutex_);
+  auto& cached_result = cached_enum_types_[enum_descriptor];
+  if (cached_result == nullptr) {
+    cached_result = TakeOwnershipLocked(new EnumType(this, enum_descriptor));
+  }
+  *result = cached_result;
   return ::zetasql_base::OkStatus();
 }
 
