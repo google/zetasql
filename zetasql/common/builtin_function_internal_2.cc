@@ -50,7 +50,7 @@ namespace zetasql {
 
 class AnalyzerOptions;
 
-using ::zetasql_base::bind_front;
+using ::absl::bind_front;
 using ::zetasql::functions::DateTimestampPartToSQL;
 
 void GetDatetimeExtractFunctions(TypeFactory* type_factory,
@@ -157,7 +157,7 @@ void GetDatetimeConversionFunctions(
   const FunctionArgumentType::ArgumentCardinality OPTIONAL =
       FunctionArgumentType::OPTIONAL;
 
-  // Conversion functions from integer/std::string/date/timestamp to
+  // Conversion functions from integer/string/date/timestamp to
   // date/timestamp.
   InsertFunction(functions, options, "date_from_unix_date", SCALAR,
                  {{date_type, {int64_type}, FN_DATE_FROM_UNIX_DATE}});
@@ -209,7 +209,7 @@ void GetDatetimeConversionFunctions(
 
   const Type* unix_date_type = int64_type;
 
-  // Conversion functions from date/timestamp to integer and std::string.
+  // Conversion functions from date/timestamp to integer and string.
   InsertFunction(functions, options, "unix_date", SCALAR,
                  {{unix_date_type, {date_type}, FN_UNIX_DATE}});
 

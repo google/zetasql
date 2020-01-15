@@ -116,7 +116,10 @@ bool NumericToString(double value, std::string* out, zetasql_base::Status* error
 template <>
 bool NumericToString(NumericValue value, std::string* out,
                      zetasql_base::Status* error) {
-  *out = value.ToString();
+  // Use NumericValue::AppendToString instead of NumericValue::ToString()
+  // for minimizing memory allocations.
+  out->clear();
+  value.AppendToString(out);
   return true;
 }
 

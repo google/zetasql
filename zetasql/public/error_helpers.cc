@@ -34,11 +34,11 @@
 
 namespace zetasql {
 
-// Format an ErrorLocation using <format>, which is a std::string as in
+// Format an ErrorLocation using <format>, which is a string as in
 // strings::Substitute, with $0 being file, $1 being line, and $2 being column.
 // ErrorSource information is ignored (if present).
-static std::string FormatErrorLocation(
-    const ErrorLocation& location, const absl::string_view format) {
+static std::string FormatErrorLocation(const ErrorLocation& location,
+                                       const absl::string_view format) {
   return absl::Substitute(format, location.filename(), location.line(),
                           location.column());
 }
@@ -49,7 +49,7 @@ std::string FormatErrorLocation(const ErrorLocation& location) {
           FormatErrorLocation(location, "$1:$2"));
 }
 
-// Internal helper function to format the ErrorLocation std::string with format
+// Internal helper function to format the ErrorLocation string with format
 // [at file:line:column]
 static std::string FormatErrorLocationAtFileLineColumn(
     const ErrorLocation& location) {
@@ -57,8 +57,8 @@ static std::string FormatErrorLocationAtFileLineColumn(
 }
 
 std::string FormatErrorLocation(const ErrorLocation& location,
-                           absl::string_view input_text,
-                           ErrorMessageMode mode) {
+                                absl::string_view input_text,
+                                ErrorMessageMode mode) {
   std::string error_location_string =
       FormatErrorLocationAtFileLineColumn(location);
   if (mode == ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET) {
@@ -68,8 +68,8 @@ std::string FormatErrorLocation(const ErrorLocation& location,
 
   if (!location.error_source().empty()) {
     const std::string error_source_separator =
-        (mode == ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET ?
-         "\n" : "; ");
+        (mode == ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET ? "\n"
+                                                                       : "; ");
     std::string error_source_string;
     for (const ErrorSource& error_source : location.error_source()) {
       const std::string source_message = FormatErrorSource(error_source, mode);
@@ -87,7 +87,7 @@ std::string FormatErrorLocation(const ErrorLocation& location,
 }
 
 std::string FormatErrorSource(const ErrorSource& error_source,
-                         ErrorMessageMode mode) {
+                              ErrorMessageMode mode) {
   if (mode == ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD) {
     return "";
   }
@@ -172,11 +172,13 @@ static bool IsWordStart(const std::string& str, int column) {
   return !IsWordChar(str[column - 1]) && IsWordChar(str[column]);
 }
 
-// Constructs and returns a truncated input std::string based on <input>, <location>,
+// Constructs and returns a truncated input string based on <input>, <location>,
 // and <max_width_in>.  Also returns the error column.
-static void GetTruncatedInputStringInfo(
-    absl::string_view input, const ErrorLocation& location, int max_width_in,
-    std::string* truncated_input, int* error_column) {
+static void GetTruncatedInputStringInfo(absl::string_view input,
+                                        const ErrorLocation& location,
+                                        int max_width_in,
+                                        std::string* truncated_input,
+                                        int* error_column) {
   // We don't allow a max_width below a certain size.
   constexpr int kMinimumMaxWidth = 30;
   // If the error line is longer than max_width, give a substring of up
@@ -205,9 +207,9 @@ static void GetTruncatedInputStringInfo(
   if (truncated_input->size() > max_width) {
     const int one_half = max_width / 2;
     const int one_third = max_width / 3;
-    // If the error is near the start, just use a prefix of the std::string.
+    // If the error is near the start, just use a prefix of the string.
     if (*error_column > max_width - one_third) {
-      // Otherwise, try to find a word boundary to start the std::string on
+      // Otherwise, try to find a word boundary to start the string on
       // that puts the caret in the middle third of the output line.
       int found_start = -1;
       for (int start_column = std::max(0, *error_column - 2 * one_third);
@@ -237,15 +239,15 @@ static void GetTruncatedInputStringInfo(
   }
 }
 
-// Helper function to return an error std::string from an error line and column.
-static std::string GetErrorStringFromErrorLineAndColumn(const std::string& error_line,
-                                                   const int error_column) {
+// Helper function to return an error string from an error line and column.
+static std::string GetErrorStringFromErrorLineAndColumn(
+    const std::string& error_line, const int error_column) {
   return absl::StrFormat("%s\n%*s^", error_line, error_column, "");
 }
 
 std::string GetErrorStringWithCaret(absl::string_view input,
-                               const ErrorLocation& location,
-                               int max_width_in) {
+                                    const ErrorLocation& location,
+                                    int max_width_in) {
   std::string error_line;
   int error_column;
   GetTruncatedInputStringInfo(input, location, max_width_in, &error_line,
@@ -253,7 +255,7 @@ std::string GetErrorStringWithCaret(absl::string_view input,
   return GetErrorStringFromErrorLineAndColumn(error_line, error_column);
 }
 
-// Updates the <status> error std::string based on <input_text> and <mode>.
+// Updates the <status> error string based on <input_text> and <mode>.
 // See header comment for MaybeUpdateErrorFromPayload for details.
 static zetasql_base::Status UpdateErrorFromPayload(const zetasql_base::Status& status,
                                            absl::string_view input_text,
@@ -293,7 +295,7 @@ zetasql_base::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
       << "Status must not have InternalErrorLocation: "
       << internal::StatusToString(status);
   if (status.ok() || mode == ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD) {
-    // We do not update the error std::string with error payload, which
+    // We do not update the error string with error payload, which
     // could include location and/or nested errors.  We leave any payload
     // attached to the Status.
     return status;

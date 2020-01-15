@@ -32,7 +32,8 @@ StatusBuilder RetCheckFailSlowPath(SourceLocation location) {
          << location.line() << ") ";
 }
 
-StatusBuilder RetCheckFailSlowPath(SourceLocation location, std::string* condition) {
+StatusBuilder RetCheckFailSlowPath(SourceLocation location,
+                                   std::string* condition) {
   std::unique_ptr<std::string> cleanup(condition);
   return RetCheckFailSlowPath(location) << *condition << " ";
 }

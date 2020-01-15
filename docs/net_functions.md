@@ -630,11 +630,12 @@ FROM (
 
 [net-link-to-ipv6-rfc]: http://www.ietf.org/rfc/rfc2373.txt
 [net-link-to-cidr-notation]: https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing
+[net-link-to-rfc-3986-appendix-a]: https://tools.ietf.org/html/rfc3986#appendix-A
+[net-link-to-public-suffix]: https://publicsuffix.org/list/
+[net-link-to-punycode]: https://en.wikipedia.org/wiki/Punycode
+
 [net-link-to-ip-from-string]: #netip-from-string
 [net-link-to-ip-to-string]: #netip-to-string
 [net-link-to-ipv4-from-int64]: #netipv4-from-int64
 [net-link-to-ipv4-to-int64]: #netipv4-to-int64
-[net-link-to-rfc-3986-appendix-a]: https://tools.ietf.org/html/rfc3986#appendix-A
-[net-link-to-public-suffix]: https://publicsuffix.org/list/
-[net-link-to-punycode]: https://en.wikipedia.org/wiki/Punycode
 

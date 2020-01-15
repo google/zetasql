@@ -320,6 +320,8 @@ cc_test(
         "@com_google_absl//absl/numeric:int128",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:optional",
+        "@com_google_absl//absl/types:variant",
     ],
 )
 
@@ -771,9 +773,9 @@ cc_library(
         ":function",
         ":language_options",
         ":type",
-        "//zetasql/base:bind_front",
         "//zetasql/proto:options_cc_proto",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/functional:bind_front",
     ],
 )
 

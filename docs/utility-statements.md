@@ -24,7 +24,8 @@ DESC [object_type] object [FROM source];
 ```
 
 The `DESCRIBE` statement provides a description for an object, such as a table.
-This statement is analagous to [`EXPLAIN`](#explain). While `EXPLAIN` provides
+This statement is analogous to [`EXPLAIN`][explain-statement].
+While `EXPLAIN` provides
 information on how the query would be executed, `DESCRIBE` provides information
 about an object.
 
@@ -64,6 +65,8 @@ This statement uses the following variables:
 + `object`: Identifies the object.
 + `pattern`: Provides a pattern, such as a `STRING`, that object names should
   match.
+
+[explain-statement]: #explain
 
 <!-- END CONTENT -->
 

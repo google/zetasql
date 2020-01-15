@@ -257,7 +257,7 @@ class ResolvedASTDeepCopyVisitorTest : public ::testing::Test {
       const std::string& query, ResolvedASTDeepCopyVisitor* visitor);
 
   // Create AST and deep copied AST for a given query. Verify that all
-  // statuses work as expected and that the debug std::string matches.
+  // statuses work as expected and that the debug string matches.
   std::unique_ptr<ResolvedNode> TestDeepCopyAST(const std::string& query);
   std::unique_ptr<ResolvedNode> TestAddFilterToTableScan(
       const std::string& query);
@@ -284,7 +284,7 @@ std::unique_ptr<ResolvedNode> ResolvedASTDeepCopyVisitorTest::TestDeepCopyAST(
   ZETASQL_EXPECT_OK(AnalyzeStatement(query, options_, &catalog_, &type_factory_,
                              &analyzer_outputs_.back()));
 
-  // Get the original debug std::string.
+  // Get the original debug string.
   const std::string original_debug_string =
       analyzer_outputs_.back()->resolved_statement()->DebugString();
 
@@ -302,7 +302,7 @@ std::unique_ptr<ResolvedNode> ResolvedASTDeepCopyVisitorTest::TestDeepCopyAST(
   // Get the value from the StatusOr.
   auto deep_copy_ast = std::move(deep_copy).ValueOrDie();
 
-  // Verify that the debug std::string matches.
+  // Verify that the debug string matches.
   EXPECT_EQ(original_debug_string, deep_copy_ast->DebugString());
 
   return deep_copy_ast;
@@ -315,7 +315,7 @@ std::unique_ptr<ResolvedNode> ResolvedASTDeepCopyVisitorTest::ApplyCopyVisitor(
   ZETASQL_EXPECT_OK(AnalyzeStatement(query, options_, &catalog_, &type_factory_,
                              &analyzer_outputs_.back()));
 
-  // Get the original debug std::string.
+  // Get the original debug string.
   const std::string original_debug_string =
       analyzer_outputs_.back()->resolved_statement()->DebugString();
 
@@ -355,7 +355,7 @@ void ResolvedASTDeepCopyVisitorTest::TestAddFilterToTableScanError(
   ZETASQL_EXPECT_OK(AnalyzeStatement(query, options_, &catalog_, &type_factory_,
                              &analyzer_outputs_.back()));
 
-  // Get the original debug std::string.
+  // Get the original debug string.
   const std::string original_debug_string =
       analyzer_outputs_.back()->resolved_statement()->DebugString();
 
@@ -368,7 +368,7 @@ void ResolvedASTDeepCopyVisitorTest::TestAddFilterToTableScanError(
 
 TEST_F(ResolvedASTDeepCopyVisitorTest, DeepCopyASTTest) {
   // Test that we are able to perform deep copy of the AST with no errors
-  // and a matching debug std::string.
+  // and a matching debug string.
 
   // Test query.
   const std::string input_sql = R"(

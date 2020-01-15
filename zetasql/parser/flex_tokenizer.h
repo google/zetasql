@@ -122,7 +122,7 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
   // solve this, we add some useless input characters at the end of the stream
   // that are not in any [...] used by affected rules. The useless input
   // characters are never returned as a token; when it is found, we return EOF
-  // instead. All "open ended tokens" (unclosed std::string literal / comment)
+  // instead. All "open ended tokens" (unclosed string literal / comment)
   // that would include this bogus character in their location range are not
   // affected because they are all error tokens, and they immediately produce
   // errors that mention only their start location.

@@ -67,7 +67,7 @@ std::string PayloadToString(absl::string_view type_url,
 // lower-case camel case (except OK, which is just "OK"). Invalid codes
 // will be printed as an integer.
 std::string LegacyStatusCodeToString(zetasql_base::StatusCode code) {
-  // TODO: Fix std::string rendering once there is a
+  // TODO: Fix string rendering once there is a
   //                              free function we can clone.
   switch (code) {
     case zetasql_base::StatusCode::kOk:
@@ -124,7 +124,7 @@ std::string PayloadToString(const zetasql_base::Status& status) {
   return ret;
 }
 
-// Creates a human readable std::string from the status, including its payload.
+// Creates a human readable string from the status, including its payload.
 // Exact form is not defined.
 std::string StatusToString(const zetasql_base::Status& status) {
   if (status.ok()) {

@@ -18,15 +18,16 @@
 #define ZETASQL_PUBLIC_CATALOG_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <vector>
-
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/type.h"
 #include <cstdint>
 #include "absl/container/flat_hash_set.h"
 #include "absl/types/span.h"
+#include "absl/types/variant.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
@@ -221,9 +222,9 @@ class Catalog {
   // if <path> contains a suffix of field extractions from the constant.
   // FindConstant delegates to FindConstantWithPathPrefix and checks that the
   // path suffix is empty in case of a successful resolution.
-  zetasql_base::Status FindConstant(
-      const absl::Span<const std::string> path, const Constant** constant,
-      const FindOptions& options = FindOptions());
+  zetasql_base::Status FindConstant(const absl::Span<const std::string> path,
+                            const Constant** constant,
+                            const FindOptions& options = FindOptions());
 
   // Variant of FindConstant() that allows for trailing field references in
   // <path>.
@@ -247,8 +248,7 @@ class Catalog {
   // Overloaded helper functions that forward the call to the appropriate
   // Find*() function based on the <object> argument type.
   zetasql_base::Status FindObject(absl::Span<const std::string> path,
-                          const Function** object,
-                          const FindOptions& options);
+                          const Function** object, const FindOptions& options);
   zetasql_base::Status FindObject(absl::Span<const std::string> path,
                           const TableValuedFunction** object,
                           const FindOptions& options);
@@ -262,15 +262,13 @@ class Catalog {
   zetasql_base::Status FindObject(absl::Span<const std::string> path,
                           const Procedure** object, const FindOptions& options);
   zetasql_base::Status FindObject(absl::Span<const std::string> path,
-                          const Type** object,
-                          const FindOptions& options);
+                          const Type** object, const FindOptions& options);
   zetasql_base::Status FindObject(absl::Span<const std::string> path,
-                          const Constant** object,
-                          const FindOptions& options);
+                          const Constant** object, const FindOptions& options);
 
   // Given an identifier path, return the type name that results when combining
   // that path into a single protocol buffer type name, if applicable.
-  // Returns empty std::string if <path> cannot form a valid proto-style type name.
+  // Returns empty string if <path> cannot form a valid proto-style type name.
   //
   // Examples:
   //   ["A","B","C"] -> "A.B.C"
@@ -284,15 +282,19 @@ class Catalog {
   // The SuggestX methods are used to return a suggested alternate name. This is
   // used to give suggestions in error messages when the user-provided name is
   // not found.
-  // Return an empty std::string when there is nothing to suggest.
+  // Return an empty string when there is nothing to suggest.
   //
   // As an example implementation, refer to SimpleCatalog::SuggestX(...)
-  virtual std::string SuggestTable(const absl::Span<const std::string>& mistyped_path);
-  virtual std::string SuggestModel(const absl::Span<const std::string>& mistyped_path);
-  virtual std::string SuggestFunction(const absl::Span<const std::string>& mistyped_path);
+  virtual std::string SuggestTable(
+      const absl::Span<const std::string>& mistyped_path);
+  virtual std::string SuggestModel(
+      const absl::Span<const std::string>& mistyped_path);
+  virtual std::string SuggestFunction(
+      const absl::Span<const std::string>& mistyped_path);
   virtual std::string SuggestTableValuedFunction(
       const absl::Span<const std::string>& mistyped_path);
-  virtual std::string SuggestConstant(const absl::Span<const std::string>& mistyped_path);
+  virtual std::string SuggestConstant(
+      const absl::Span<const std::string>& mistyped_path);
 
   // Returns whether or not this Catalog is a specific catalog interface or
   // implementation.
@@ -322,10 +324,8 @@ class Catalog {
   //
   // These are normally overridden in subclasses.  The default implementations
   // always return not found, for Catalogs with no objects of that type.
-  virtual zetasql_base::Status GetTable(
-      const std::string& name,
-      const Table** table,
-      const FindOptions& options = FindOptions());
+  virtual zetasql_base::Status GetTable(const std::string& name, const Table** table,
+                                const FindOptions& options = FindOptions());
 
   virtual zetasql_base::Status GetModel(const std::string& name, const Model** model,
                                 const FindOptions& options = FindOptions());
@@ -334,58 +334,47 @@ class Catalog {
                                      const Connection** connection,
                                      const FindOptions& options);
 
-  virtual zetasql_base::Status GetFunction(
-      const std::string& name,
-      const Function** function,
-      const FindOptions& options = FindOptions());
+  virtual zetasql_base::Status GetFunction(const std::string& name,
+                                   const Function** function,
+                                   const FindOptions& options = FindOptions());
 
   virtual zetasql_base::Status GetTableValuedFunction(
-      const std::string& full_name,
-      const TableValuedFunction** function,
+      const std::string& full_name, const TableValuedFunction** function,
       const FindOptions& options = FindOptions());
 
-  virtual zetasql_base::Status GetProcedure(
-      const std::string& full_name,
-      const Procedure** procedure,
-      const FindOptions& options = FindOptions());
+  virtual zetasql_base::Status GetProcedure(const std::string& full_name,
+                                    const Procedure** procedure,
+                                    const FindOptions& options = FindOptions());
 
-  virtual zetasql_base::Status GetType(
-      const std::string& name,
-      const Type** type,
-      const FindOptions& options = FindOptions());
+  virtual zetasql_base::Status GetType(const std::string& name, const Type** type,
+                               const FindOptions& options = FindOptions());
 
-  virtual zetasql_base::Status GetCatalog(
-      const std::string& name,
-      Catalog** catalog,
-      const FindOptions& options = FindOptions());
+  virtual zetasql_base::Status GetCatalog(const std::string& name, Catalog** catalog,
+                                  const FindOptions& options = FindOptions());
 
-  virtual zetasql_base::Status GetConstant(
-      const std::string& name,
-      const Constant** constant,
-      const FindOptions& options = FindOptions());
+  virtual zetasql_base::Status GetConstant(const std::string& name,
+                                   const Constant** constant,
+                                   const FindOptions& options = FindOptions());
 
   // Helper functions for getting canonical versions of NOT_FOUND error
   // messages.
-  zetasql_base::Status GenericNotFoundError(
-      const std::string& object_type, absl::Span<const std::string> path) const;
+  zetasql_base::Status GenericNotFoundError(const std::string& object_type,
+                                    absl::Span<const std::string> path) const;
   // TODO: Remove these object-type specific functions, and have the
   // calling locations invoke the templatized version below instead.
   zetasql_base::Status TableNotFoundError(absl::Span<const std::string> path) const;
   zetasql_base::Status ModelNotFoundError(absl::Span<const std::string> path) const;
-  zetasql_base::Status ConnectionNotFoundError(absl::Span<const std::string> path) const;
-  zetasql_base::Status FunctionNotFoundError(
+  zetasql_base::Status ConnectionNotFoundError(
       absl::Span<const std::string> path) const;
+  zetasql_base::Status FunctionNotFoundError(absl::Span<const std::string> path) const;
   zetasql_base::Status TableValuedFunctionNotFoundError(
       absl::Span<const std::string> path) const;
-  zetasql_base::Status ProcedureNotFoundError(
-      absl::Span<const std::string> path) const;
-  zetasql_base::Status TypeNotFoundError(
-      absl::Span<const std::string> path) const;
-  zetasql_base::Status ConstantNotFoundError(
-      absl::Span<const std::string> path) const;
+  zetasql_base::Status ProcedureNotFoundError(absl::Span<const std::string> path) const;
+  zetasql_base::Status TypeNotFoundError(absl::Span<const std::string> path) const;
+  zetasql_base::Status ConstantNotFoundError(absl::Span<const std::string> path) const;
 
   // Templatized version of the previous functions.
-  template<class ObjectType>
+  template <class ObjectType>
   zetasql_base::Status ObjectNotFoundError(absl::Span<const std::string> path) const {
     static_assert(
         std::is_same<ObjectType, Function>::value ||
@@ -417,13 +406,12 @@ class Catalog {
     }
   }
 
-  zetasql_base::Status EmptyNamePathInternalError(const std::string& object_type)
-      const;
+  zetasql_base::Status EmptyNamePathInternalError(const std::string& object_type) const;
 
-  // Templatized version of the previous function.  The std::string argument
+  // Templatized version of the previous function.  The string argument
   // passed to EmptyNamePathInternalError matches those in catalog.cc.
   // TODO: Have catalog.cc call these templated methods and
-  // take the EmptyNamePathInternalError(<std::string) version private.
+  // take the EmptyNamePathInternalError(<string) version private.
   template <class ObjectType>
   zetasql_base::Status EmptyNamePathInternalError() const {
     static_assert(
@@ -503,6 +491,20 @@ class Table {
 
   virtual int NumColumns() const = 0;
   virtual const Column* GetColumn(int i) const = 0;
+
+  // Return ordinal indexes of primary key columns, ordered in the same way the
+  // key is defined.
+  //
+  // This is currently used in DML evaluation in Reference Implementation when
+  // clients need original values of key columns to be returned. Filling this
+  // value is optional, and a Table instance can leave it unset (empty
+  // std::optional).
+  //
+  // Cannot be set to a empty vector as a primary key should contain at least
+  // one element.
+  virtual std::optional<std::vector<int>> PrimaryKey() const {
+    return std::optional<std::vector<int>>();
+  }
 
   // This function returns nullptr for anonymous or duplicate column names.
   // TODO: The Table interface allows anonymous and duplicate columns,

@@ -48,7 +48,7 @@ namespace zetasql_base {
 
 // StringCaseCompare()
 //
-// Performs a case-insensitive std::string comparison, using the C/POSIX locale.
+// Performs a case-insensitive string comparison, using the C/POSIX locale.
 // Returns:
 //    less than 0:    if s1 < s2
 //    equal to 0:     if s1 == s2
@@ -71,7 +71,7 @@ inline bool StringCaseEqual(const std::string& s1, const std::string& s2) {
 
 // StringCaseLess()
 //
-// Performs a case-insensitive less-than std::string comparison, using the C/POSIX
+// Performs a case-insensitive less-than string comparison, using the C/POSIX
 // locale. This function object is useful as a template parameter for STL
 // set/map of strings, if uniqueness of keys is case-insensitive.
 struct StringCaseLess {

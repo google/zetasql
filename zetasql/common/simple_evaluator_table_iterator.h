@@ -131,7 +131,7 @@ class SimpleEvaluatorTableIterator : public EvaluatorTableIterator {
   }
 
  private:
-  bool DoneLocked() const SHARED_LOCKS_REQUIRED(mutex_) {
+  bool DoneLocked() const ABSL_SHARED_LOCKS_REQUIRED(mutex_) {
     if (column_major_values_.empty()) return true;
     return row_idx_ >= num_rows_;
   }
@@ -145,14 +145,14 @@ class SimpleEvaluatorTableIterator : public EvaluatorTableIterator {
   mutable absl::Mutex mutex_;
 
   std::vector<std::shared_ptr<const std::vector<Value>>> column_major_values_
-      GUARDED_BY(mutex_);
-  int64_t num_rows_ GUARDED_BY(mutex_);
+      ABSL_GUARDED_BY(mutex_);
+  int64_t num_rows_ ABSL_GUARDED_BY(mutex_);
 
-  int64_t row_idx_ GUARDED_BY(mutex_) = -1;
-  bool cancelled_ GUARDED_BY(mutex_) = false;
-  bool deadline_exceeded_ GUARDED_BY(mutex_) = false;
-  absl::Time deadline_ GUARDED_BY(mutex_) = absl::InfiniteFuture();
-  zetasql_base::Clock* clock_ GUARDED_BY(mutex_) PT_GUARDED_BY(mutex_);
+  int64_t row_idx_ ABSL_GUARDED_BY(mutex_) = -1;
+  bool cancelled_ ABSL_GUARDED_BY(mutex_) = false;
+  bool deadline_exceeded_ ABSL_GUARDED_BY(mutex_) = false;
+  absl::Time deadline_ ABSL_GUARDED_BY(mutex_) = absl::InfiniteFuture();
+  zetasql_base::Clock* clock_ ABSL_GUARDED_BY(mutex_) ABSL_PT_GUARDED_BY(mutex_);
 
   // Contains the entries passed to 'filter_map' that are in
   // 'filter_column_idxs_'.

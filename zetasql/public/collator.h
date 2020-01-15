@@ -60,7 +60,7 @@ class ZetaSqlCollator {
   static ZetaSqlCollator* CreateFromCollationName(
       const std::string& collation_name);
 
-  // A three valued std::string compare method based on the collate specific rules.
+  // A three valued string compare method based on the collate specific rules.
   //
   // Returns -1 if s1 is less than s2.
   // Returns 1 if s1 is greater than s2.

@@ -45,20 +45,21 @@ namespace zetasql {
 // types, but hasn't been adequately tested for protos or enums.
 //
 // If an error condition is detected or we cannot currently produce consistent
-// output then returns an error std::string.
-std::string ToPrettyOutputStyle(const zetasql::Value& result, bool is_value_table,
-                           const std::vector<std::string>& column_names);
+// output then returns an error string.
+std::string ToPrettyOutputStyle(const zetasql::Value& result,
+                                bool is_value_table,
+                                const std::vector<std::string>& column_names);
 
 // Helper function shared by analyze_query and execute_script to convert
-// a query result into a human-readable display std::string.
+// a query result into a human-readable display string.
 //
 // <resolved_stmt> cannot be nullptr, and provides additional information about
 // the query used to produce <result>, which may affect the formatting.  For
 // example, if the query is a DML statement, the output format is altered to
 // display the number of rows modified, and if the query is a 'SELECT AS VALUE'
 // statement, the column name is omitted from output.
-std::string OutputPrettyStyleQueryResult(const zetasql::Value& result,
-                                    const ResolvedStatement* resolved_stmt);
+std::string OutputPrettyStyleQueryResult(
+    const zetasql::Value& result, const ResolvedStatement* resolved_stmt);
 
 // Outputs the result of a standalone expression using pretty-style boxes.
 std::string OutputPrettyStyleExpressionResult(const zetasql::Value& result);

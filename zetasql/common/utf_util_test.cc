@@ -127,7 +127,7 @@ TEST(UtfUtilTest, PrettyTruncateUTF8) {
   EXPECT_EQ(PrettyTruncateUTF8(str1, 3), "123");
   EXPECT_EQ(PrettyTruncateUTF8(str1, 2), "12");
 
-  // Be error tolerant, worse case, return empty std::string.
+  // Be error tolerant, worse case, return empty string.
   EXPECT_EQ(PrettyTruncateUTF8(str1, 0), "");
   EXPECT_EQ(PrettyTruncateUTF8(str1, -4500), "");
 
@@ -148,7 +148,7 @@ TEST(UtfUtilTest, PrettyTruncateUTF8) {
   EXPECT_EQ(PrettyTruncateUTF8(str2, 3), "\x80\x80\x80");
   EXPECT_EQ(PrettyTruncateUTF8(str2, 2), "\x80\x80");
 
-  // Be error tolerant, worse case, return empty std::string.
+  // Be error tolerant, worse case, return empty string.
   EXPECT_EQ(PrettyTruncateUTF8(str2, 0), "");
   EXPECT_EQ(PrettyTruncateUTF8(str2, -4500), "");
 
@@ -177,7 +177,7 @@ TEST(UtfUtilTest, PrettyTruncateUTF8) {
   EXPECT_EQ(PrettyTruncateUTF8(str3, 2), "1");
   EXPECT_EQ(PrettyTruncateUTF8(str3, 1), "1");
 
-  // Be error tolerant, worse case, return empty std::string.
+  // Be error tolerant, worse case, return empty string.
   EXPECT_EQ(PrettyTruncateUTF8(str3, 0), "");
   EXPECT_EQ(PrettyTruncateUTF8(str3, -4500), "");
 }

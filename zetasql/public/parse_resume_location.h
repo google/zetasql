@@ -30,7 +30,7 @@ namespace zetasql {
 
 // This stores the parser input and a location, and is used as a restart token
 // in repeated calls to operations that parse multiple items from one input
-// std::string/string_view. Each successive call updates this location object so
+// string/string_view. Each successive call updates this location object so
 // the next call knows where to start.
 // The <filename> is informational, and only used for error messaging.
 class ParseResumeLocation {
@@ -84,7 +84,8 @@ class ParseResumeLocation {
   }
 
   // Creates a ParseResumeLocation that reads from the start of 'input'.
-  static ParseResumeLocation FromString(std::string filename, std::string input) {
+  static ParseResumeLocation FromString(std::string filename,
+                                        std::string input) {
     return ParseResumeLocation(std::move(filename), std::move(input));
   }
   // Similar to the previous, but without a filename.
@@ -141,7 +142,7 @@ class ParseResumeLocation {
     proto->set_allow_resume(allow_resume_);
   }
 
-  // If <verbose>, includes the input SQL std::string that the ParseResumeLocation
+  // If <verbose>, includes the input SQL string that the ParseResumeLocation
   // is related to.
   std::string DebugString(bool verbose = false) const {
     std::string debug_string = absl::StrCat(filename_, ":", byte_position_);
@@ -157,10 +158,12 @@ class ParseResumeLocation {
  private:
   friend class ParseResumeLocationTest;
 
-  // The parse will start from the beginning of the 'input' std::string.
+  // The parse will start from the beginning of the 'input' string.
   ParseResumeLocation(std::string filename, std::string input)
-      : filename_storage_(std::move(filename)), filename_(filename_storage_),
-        input_storage_(std::move(input)), input_(input_storage_) {}
+      : filename_storage_(std::move(filename)),
+        filename_(filename_storage_),
+        input_storage_(std::move(input)),
+        input_(input_storage_) {}
 
   // The parse will start from the beginning of the 'input' absl::string_view.
   // The <filename> and <input> must remain alive until after all the parse
@@ -168,7 +171,7 @@ class ParseResumeLocation {
   ParseResumeLocation(absl::string_view filename, absl::string_view input) :
       filename_(filename), input_(input) {}
 
-  // This is used as the backing store for 'filename' if the std::string constructor
+  // This is used as the backing store for 'filename' if the string constructor
   // is used.  If the FromStringView() constructor is used, then it is not
   // used.
   std::string filename_storage_;
@@ -176,7 +179,7 @@ class ParseResumeLocation {
   // The actual filename for the parser.
   absl::string_view filename_;
 
-  // This is used as the backing store for 'input' if the std::string constructor is
+  // This is used as the backing store for 'input' if the string constructor is
   // used. If the FromStringView() constructor is used, then it is not used.
   std::string input_storage_;
 

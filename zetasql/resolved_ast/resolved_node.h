@@ -65,7 +65,7 @@ class ResolvedNode {
   // e.g. zetasql::RESOLVED_TABLE_SCAN for ResolvedTableScan.
   virtual ResolvedNodeKind node_kind() const = 0;
 
-  // Return this node's kind as a std::string.
+  // Return this node's kind as a string.
   // e.g. "TableScan" for ResolvedTableScan.
   virtual std::string node_kind_string() const = 0;
 
@@ -267,7 +267,7 @@ class ResolvedNode {
   virtual void CollectDebugStringFields(
       std::vector<DebugStringField>* fields) const;
 
-  // Get the name std::string displayed for this node in the DebugString.
+  // Get the name string displayed for this node in the DebugString.
   // Normally it's just node_kind_string(), but it can be customized.
   virtual std::string GetNameForDebugString() const;
 

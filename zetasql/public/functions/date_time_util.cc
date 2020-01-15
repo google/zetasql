@@ -189,7 +189,7 @@ static bool ParsePrefixToDateParts(absl::string_view str, int* idx, int* year,
   }
   return true;
 }
-// Same as ParsePrefixToDateParts, but requires the entire std::string to be
+// Same as ParsePrefixToDateParts, but requires the entire string to be
 // consumed.
 static bool ParseStringToDateParts(absl::string_view str, int* idx, int* year,
                                    int* month, int* day) {
@@ -245,7 +245,7 @@ static bool ParsePrefixToTimeParts(absl::string_view str, TimestampScale scale,
   return true;
 }
 
-// Same as ParsePrefixToTimeParts, but requires the entire std::string to be
+// Same as ParsePrefixToTimeParts, but requires the entire string to be
 // consumed.
 static bool ParseStringToTimeParts(absl::string_view str, TimestampScale scale,
                                    int* idx, int* hour, int* minute,
@@ -255,8 +255,8 @@ static bool ParseStringToTimeParts(absl::string_view str, TimestampScale scale,
          *idx >= static_cast<int64_t>(str.length());
 }
 
-// Parses the std::string into the relevant timestamp parts.  <scale> indicates
-// the number of subsecond digits requested.  Parts not present in the std::string
+// Parses the string into the relevant timestamp parts.  <scale> indicates
+// the number of subsecond digits requested.  Parts not present in the string
 // get initialized to 0 as appropriate.  The subsecond part is
 // normalized to the requested scale, and if there are extra digits then
 // an error is produced.
@@ -327,7 +327,7 @@ static std::string DateErrorString(int32_t date) {
 }
 
 static std::string TimestampErrorString(int64_t timestamp, TimestampScale scale,
-                                   absl::TimeZone timezone) {
+                                        absl::TimeZone timezone) {
   std::string out;
   if (!ConvertTimestampToStringWithoutTruncation(timestamp, scale, timezone,
                                                  &out).ok()) {
@@ -349,7 +349,7 @@ static std::string DefaultTimestampFormatStr(TimestampScale scale) {
   }
 }
 
-// The format std::string returned is used by absl::StrFormat().
+// The format string returned is used by absl::StrFormat().
 static std::string DefaultTimeFormatStr(TimestampScale scale) {
   switch (scale) {
     case kSeconds:
@@ -363,7 +363,7 @@ static std::string DefaultTimeFormatStr(TimestampScale scale) {
   }
 }
 
-// The format std::string returned is used by absl::StrFormat().
+// The format string returned is used by absl::StrFormat().
 static std::string DefaultDatetimeFormatStr(TimestampScale scale) {
   switch (scale) {
     case kSeconds:
@@ -377,7 +377,8 @@ static std::string DefaultDatetimeFormatStr(TimestampScale scale) {
   }
 }
 
-static std::string TimestampErrorString(absl::Time time, absl::TimeZone timezone) {
+static std::string TimestampErrorString(absl::Time time,
+                                        absl::TimeZone timezone) {
   std::string out;
   if (!ConvertTimestampToString(time, kMicroseconds, timezone, &out).ok()) {
     out =
@@ -475,8 +476,8 @@ static bool TimeZonePartsToOffset(const char timezone_sign, int64_t timezone_hou
   return true;
 }
 
-// Parses the std::string into the relevant timestamp parts.  <scale> indicates
-// the number of subsecond digits requested.  Parts not present in the std::string
+// Parses the string into the relevant timestamp parts.  <scale> indicates
+// the number of subsecond digits requested.  Parts not present in the string
 // get initialized to 0 or "" as appropriate.  The subsecond part is
 // normalized to the requested scale, and if there are extra digits then
 // an error is produced.
@@ -1112,7 +1113,7 @@ static zetasql_base::Status FormatTimestampToStringInternal(
 static zetasql_base::Status ConvertTimestampToStringInternal(
     int64_t timestamp, TimestampScale scale, absl::TimeZone timezone,
     bool truncate_trailing_zeros, std::string* out) {
-  // When converting timestamp to std::string the result has 0, 3, or 6 digits
+  // When converting timestamp to string the result has 0, 3, or 6 digits
   // with trailing sets of three zeros truncated.
   if (truncate_trailing_zeros) {
     NarrowTimestampIfPossible(&timestamp, &scale);
@@ -1287,17 +1288,17 @@ static zetasql_base::Status MakeSubDatetimeOverflowError(const DatetimeValue& da
 }
 
 static std::string MakeInvalidTypedStrErrorMsg(absl::string_view type_name,
-                                          absl::string_view str,
-                                          TimestampScale scale) {
+                                               absl::string_view str,
+                                               TimestampScale scale) {
   return absl::StrCat(
-      "Invalid ", type_name, " std::string \"", str, "\"",
+      "Invalid ", type_name, " string \"", str, "\"",
       (scale != kMicroseconds
            ? absl::StrCat(" (scale ", TimestampScale_Name(scale), ")")
            : ""));
 }
 
-static std::string MakeInvalidTimestampStrErrorMsg(absl::string_view timestamp_str,
-                                              TimestampScale scale) {
+static std::string MakeInvalidTimestampStrErrorMsg(
+    absl::string_view timestamp_str, TimestampScale scale) {
   return MakeInvalidTypedStrErrorMsg("timestamp", timestamp_str, scale);
 }
 
@@ -1853,16 +1854,18 @@ static void SanitizeFormat(absl::string_view format_string,
 }
 
 // Sanitizes the <format_string> to only allow ones applicable to the date type
-// and produces a valid format std::string for date in <out>.
+// and produces a valid format string for date in <out>.
 // For non-date related formats such as Hour/Minute/Second/Timezone etc.,
 // escapes them to pass through as is.
-static void SanitizeDateFormat(absl::string_view format_string, std::string* out) {
+static void SanitizeDateFormat(absl::string_view format_string,
+                               std::string* out) {
   return SanitizeFormat(format_string, "cHIklMPpRrSsTXZz", out);
 }
 
 // Similar to SanitizeDateFormat, but escape those format elements for
 // Year/Month/Week/Day/Timezone etc..
-static void SanitizeTimeFormat(absl::string_view format_string, std::string* out) {
+static void SanitizeTimeFormat(absl::string_view format_string,
+                               std::string* out) {
   return SanitizeFormat(format_string, "AaBbhCcDdeFGgjmQsUuVWwxYyZz", out);
 }
 
@@ -1975,7 +1978,8 @@ zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
 
 zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
                                      absl::Time timestamp,
-                                     absl::TimeZone timezone, std::string* out) {
+                                     absl::TimeZone timezone,
+                                     std::string* out) {
   return FormatTimestampToString(format_str, timestamp, timezone,
                                  /*expand_quarter=*/true, out);
 }
@@ -1989,7 +1993,8 @@ zetasql_base::Status FormatTimestampToString(absl::string_view format_string,
 }
 
 zetasql_base::Status ConvertTimestampToString(absl::Time input, TimestampScale scale,
-                                      absl::TimeZone timezone, std::string* output) {
+                                      absl::TimeZone timezone,
+                                      std::string* output) {
   NarrowTimestampScaleIfPossible(input, &scale);
   return FormatTimestampToStringInternal(DefaultTimestampFormatStr(scale),
                                          input, timezone, /*truncate_tz=*/true,
@@ -3794,7 +3799,8 @@ zetasql_base::Status ExpandPercentZQ(absl::string_view format_string,
 
   for (size_t index = 0;; index += 2) {
     const size_t pct = format_string.find('%', index);
-    if (pct == format_string.size() - 1 || pct == std::string::npos) {  // no "%?"
+    if (pct == format_string.size() - 1 ||
+        pct == std::string::npos) {  // no "%?"
       absl::StrAppend(
           expanded_format_string,
           format_string.substr(index, format_string.size() - index));

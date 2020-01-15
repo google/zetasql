@@ -18,6 +18,7 @@
 
 #include <map>
 #include <memory>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/proto/simple_catalog.pb.h"
@@ -42,19 +43,18 @@
 namespace zetasql {
 
 SimpleCatalog::SimpleCatalog(const std::string& name, TypeFactory* type_factory)
-    : name_(name), type_factory_(type_factory) {
-}
+    : name_(name), type_factory_(type_factory) {}
 
-zetasql_base::Status SimpleCatalog::GetTable(
-    const std::string& name,
-    const Table** table,
-    const FindOptions& options) {
+zetasql_base::Status SimpleCatalog::GetTable(const std::string& name,
+                                     const Table** table,
+                                     const FindOptions& options) {
   absl::MutexLock l(&mutex_);
   *table = zetasql_base::FindPtrOrNull(tables_, absl::AsciiStrToLower(name));
   return ::zetasql_base::OkStatus();
 }
 
-zetasql_base::Status SimpleCatalog::GetModel(const std::string& name, const Model** model,
+zetasql_base::Status SimpleCatalog::GetModel(const std::string& name,
+                                     const Model** model,
                                      const FindOptions& options) {
   absl::MutexLock l(&mutex_);
   *model = zetasql_base::FindPtrOrNull(models_, absl::AsciiStrToLower(name));
@@ -69,18 +69,16 @@ zetasql_base::Status SimpleCatalog::GetConnection(const std::string& name,
   return zetasql_base::OkStatus();
 }
 
-zetasql_base::Status SimpleCatalog::GetFunction(
-    const std::string& name,
-    const Function** function,
-    const FindOptions& options) {
+zetasql_base::Status SimpleCatalog::GetFunction(const std::string& name,
+                                        const Function** function,
+                                        const FindOptions& options) {
   absl::MutexLock l(&mutex_);
   *function = zetasql_base::FindPtrOrNull(functions_, absl::AsciiStrToLower(name));
   return ::zetasql_base::OkStatus();
 }
 
 zetasql_base::Status SimpleCatalog::GetTableValuedFunction(
-    const std::string& name,
-    const TableValuedFunction** function,
+    const std::string& name, const TableValuedFunction** function,
     const FindOptions& options) {
   absl::MutexLock l(&mutex_);
   *function =
@@ -88,19 +86,16 @@ zetasql_base::Status SimpleCatalog::GetTableValuedFunction(
   return ::zetasql_base::OkStatus();
 }
 
-zetasql_base::Status SimpleCatalog::GetProcedure(
-    const std::string& name,
-    const Procedure** procedure,
-    const FindOptions& options) {
+zetasql_base::Status SimpleCatalog::GetProcedure(const std::string& name,
+                                         const Procedure** procedure,
+                                         const FindOptions& options) {
   absl::MutexLock l(&mutex_);
   *procedure = zetasql_base::FindPtrOrNull(procedures_, absl::AsciiStrToLower(name));
   return ::zetasql_base::OkStatus();
 }
 
-zetasql_base::Status SimpleCatalog::GetType(
-    const std::string& name,
-    const Type** type,
-    const FindOptions& options) {
+zetasql_base::Status SimpleCatalog::GetType(const std::string& name, const Type** type,
+                                    const FindOptions& options) {
   const google::protobuf::DescriptorPool* pool;
   {
     absl::MutexLock l(&mutex_);
@@ -131,10 +126,9 @@ zetasql_base::Status SimpleCatalog::GetType(
   return ::zetasql_base::OkStatus();
 }
 
-zetasql_base::Status SimpleCatalog::GetCatalog(
-    const std::string& name,
-    Catalog** catalog,
-    const FindOptions& options) {
+zetasql_base::Status SimpleCatalog::GetCatalog(const std::string& name,
+                                       Catalog** catalog,
+                                       const FindOptions& options) {
   absl::MutexLock l(&mutex_);
   *catalog = zetasql_base::FindPtrOrNull(catalogs_, absl::AsciiStrToLower(name));
   return ::zetasql_base::OkStatus();
@@ -161,7 +155,8 @@ std::string SimpleCatalog::SuggestTable(
     if (GetCatalog(name, &catalog).ok() && catalog != nullptr) {
       absl::Span<const std::string> mistyped_path_suffix =
           mistyped_path.subspan(1, mistyped_path.length() - 1);
-      const std::string closest_name = catalog->SuggestTable(mistyped_path_suffix);
+      const std::string closest_name =
+          catalog->SuggestTable(mistyped_path_suffix);
       if (!closest_name.empty()) {
         return absl::StrCat(catalog->FullName(), ".", closest_name);
       }
@@ -291,12 +286,13 @@ void SimpleCatalog::AddCatalog(const std::string& name, Catalog* catalog) {
   AddCatalogLocked(name, catalog);
 }
 
-void SimpleCatalog::AddCatalogLocked(const std::string& name, Catalog* catalog) {
+void SimpleCatalog::AddCatalogLocked(const std::string& name,
+                                     Catalog* catalog) {
   zetasql_base::InsertOrDie(&catalogs_, absl::AsciiStrToLower(name), catalog);
 }
 
-void SimpleCatalog::AddFunctionLocked(
-    const std::string& name, const Function* function) {
+void SimpleCatalog::AddFunctionLocked(const std::string& name,
+                                      const Function* function) {
   zetasql_base::InsertOrDie(&functions_, absl::AsciiStrToLower(name), function);
   if (!function->alias_name().empty() &&
       zetasql_base::StringCaseCompare(function->alias_name(), name) != 0) {
@@ -305,7 +301,8 @@ void SimpleCatalog::AddFunctionLocked(
   }
 }
 
-void SimpleCatalog::AddFunction(const std::string& name, const Function* function) {
+void SimpleCatalog::AddFunction(const std::string& name,
+                                const Function* function) {
   absl::MutexLock l(&mutex_);
   AddFunctionLocked(name, function);
 }
@@ -322,13 +319,14 @@ void SimpleCatalog::AddTableValuedFunction(
   AddTableValuedFunctionLocked(name, function);
 }
 
-void SimpleCatalog::AddProcedure(
-    const std::string& name, const Procedure* procedure) {
+void SimpleCatalog::AddProcedure(const std::string& name,
+                                 const Procedure* procedure) {
   absl::MutexLock l(&mutex_);
   zetasql_base::InsertOrDie(&procedures_, absl::AsciiStrToLower(name), procedure);
 }
 
-void SimpleCatalog::AddConstant(const std::string& name, const Constant* constant) {
+void SimpleCatalog::AddConstant(const std::string& name,
+                                const Constant* constant) {
   absl::MutexLock l(&mutex_);
   AddConstantLocked(name, constant);
 }
@@ -400,7 +398,8 @@ void SimpleCatalog::AddOwnedFunctionLocked(
 }
 
 void SimpleCatalog::AddOwnedTableValuedFunction(
-    const std::string& name, std::unique_ptr<const TableValuedFunction> function) {
+    const std::string& name,
+    std::unique_ptr<const TableValuedFunction> function) {
   AddTableValuedFunction(name, function.get());
   absl::MutexLock l(&mutex_);
   owned_table_valued_functions_.emplace_back(std::move(function));
@@ -579,7 +578,8 @@ void SimpleCatalog::AddOwnedTableValuedFunction(
 }
 
 bool SimpleCatalog::AddOwnedTableValuedFunctionIfNotPresent(
-    const std::string& name, std::unique_ptr<TableValuedFunction>* table_function) {
+    const std::string& name,
+    std::unique_ptr<TableValuedFunction>* table_function) {
   absl::MutexLock l(&mutex_);
   // If the table function name exists, return false.
   if (zetasql_base::ContainsKey(table_valued_functions_, absl::AsciiStrToLower(name))) {
@@ -595,7 +595,8 @@ bool SimpleCatalog::AddOwnedTableValuedFunctionIfNotPresent(
                                                  table_function);
 }
 
-bool SimpleCatalog::AddTypeIfNotPresent(const std::string& name, const Type* type) {
+bool SimpleCatalog::AddTypeIfNotPresent(const std::string& name,
+                                        const Type* type) {
   absl::MutexLock l(&mutex_);
   // If the table function name exists, return false.
   if (zetasql_base::ContainsKey(types_, absl::AsciiStrToLower(name))) {
@@ -667,7 +668,8 @@ void SimpleCatalog::AddZetaSQLFunctions(
   TypeFactory* type_factory = this->type_factory();
   GetZetaSQLFunctions(type_factory, options, &function_map);
   for (auto& function_pair : function_map) {
-    const std::vector<std::string>& path = function_pair.second->FunctionNamePath();
+    const std::vector<std::string>& path =
+        function_pair.second->FunctionNamePath();
     SimpleCatalog* catalog = this;
     if (path.size() > 1) {
       CHECK_LE(path.size(), 2);
@@ -857,19 +859,22 @@ zetasql_base::Status SimpleCatalog::SerializeImpl(
 
   // Convert hash maps to std::maps so that the serialization output is
   // deterministic.
-  const std::map<std::string, const Table*> tables(tables_.begin(), tables_.end());
-  const std::map<std::string, const Model*> models(models_.begin(), models_.end());
+  const std::map<std::string, const Table*> tables(tables_.begin(),
+                                                   tables_.end());
+  const std::map<std::string, const Model*> models(models_.begin(),
+                                                   models_.end());
   const std::map<std::string, const Type*> types(types_.begin(), types_.end());
   const std::map<std::string, const Function*> functions(functions_.begin(),
-                                                    functions_.end());
-  const std::map<std::string, const TableValuedFunction*> table_valued_functions(
-      table_valued_functions_.begin(), table_valued_functions_.end());
+                                                         functions_.end());
+  const std::map<std::string, const TableValuedFunction*>
+      table_valued_functions(table_valued_functions_.begin(),
+                             table_valued_functions_.end());
   const std::map<std::string, const Procedure*> procedures(procedures_.begin(),
-                                                      procedures_.end());
+                                                           procedures_.end());
   const std::map<std::string, const Catalog*> catalogs(catalogs_.begin(),
-                                                  catalogs_.end());
+                                                       catalogs_.end());
   const std::map<std::string, const Constant*> constants(constants_.begin(),
-                                                    constants_.end());
+                                                         constants_.end());
 
   for (const auto& entry : tables) {
     const std::string& table_name = entry.first;
@@ -1093,8 +1098,7 @@ SimpleTable::SimpleTable(const std::string& name,
 
 SimpleTable::SimpleTable(const std::string& name,
                          const std::vector<const Column*>& columns,
-                         bool take_ownership,
-                         const int64_t id)
+                         bool take_ownership, const int64_t id)
     : name_(name), id_(id) {
   for (const Column* column : columns) {
     ZETASQL_CHECK_OK(AddColumn(column, take_ownership));
@@ -1113,8 +1117,7 @@ SimpleTable::SimpleTable(const std::string& name, const Type* row_type,
 }
 
 SimpleTable::SimpleTable(const std::string& name, const int64_t id)
-    : name_(name), id_(id) {
-}
+    : name_(name), id_(id) {}
 
 const Column* SimpleTable::FindColumnByName(const std::string& name) const {
   if (name.empty()) {
@@ -1134,6 +1137,17 @@ zetasql_base::Status SimpleTable::AddColumn(const Column* column, bool is_owned)
     owned_columns_.emplace_back(std::move(column_owner));
   }
   return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status SimpleTable::SetPrimaryKey(std::vector<int> primary_key) {
+  for (int column_index : primary_key) {
+    if (column_index >= NumColumns()) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Invalid column index " << column_index << "in primary key";
+    }
+  }
+  primary_key_.emplace(primary_key);
+  return zetasql_base::OkStatus();
 }
 
 zetasql_base::Status SimpleTable::InsertColumnToColumnMap(const Column* column) {
@@ -1219,6 +1233,11 @@ zetasql_base::Status SimpleTable::Serialize(
     ZETASQL_RETURN_IF_ERROR(static_cast<const SimpleColumn*>(column)->Serialize(
         file_descriptor_set_map, column_proto));
   }
+  if (primary_key_.has_value()) {
+    for (int column_index : primary_key_.value()) {
+      proto->add_primary_key_column_index(column_index);
+    }
+  }
   if (allow_anonymous_column_name_) {
     proto->set_allow_anonymous_column_name(true);
   }
@@ -1247,13 +1266,22 @@ zetasql_base::Status SimpleTable::Deserialize(
         column_proto, table->Name(), pools, factory, &column));
     ZETASQL_RETURN_IF_ERROR(table->AddColumn(column.release(), true  /* owned */));
   }
+
+  if (proto.primary_key_column_index_size() > 0) {
+    std::vector<int> primary_key;
+    for (int column_index : proto.primary_key_column_index()) {
+      primary_key.push_back(column_index);
+    }
+    ZETASQL_RETURN_IF_ERROR(table->SetPrimaryKey(primary_key));
+  }
+
   *result = std::move(table);
   return ::zetasql_base::OkStatus();
 }
 
-SimpleColumn::SimpleColumn(const std::string& table_name, const std::string& name,
-                           const Type* type, bool is_pseudo_column,
-                           bool is_writable_column)
+SimpleColumn::SimpleColumn(const std::string& table_name,
+                           const std::string& name, const Type* type,
+                           bool is_pseudo_column, bool is_writable_column)
     : name_(name),
       full_name_(absl::StrCat(table_name, ".", name)),
       type_(type),
@@ -1278,11 +1306,9 @@ zetasql_base::Status SimpleColumn::Serialize(
 }
 
 zetasql_base::Status SimpleColumn::Deserialize(
-    const SimpleColumnProto& proto,
-    const std::string& table_name,
+    const SimpleColumnProto& proto, const std::string& table_name,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
-    TypeFactory* factory,
-    std::unique_ptr<SimpleColumn>* result) {
+    TypeFactory* factory, std::unique_ptr<SimpleColumn>* result) {
   const Type* type;
   ZETASQL_RETURN_IF_ERROR(factory->DeserializeFromProtoUsingExistingPools(
       proto.type(), pools, &type));

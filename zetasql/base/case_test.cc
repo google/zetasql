@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// This file tests std::string processing functions related to case:
+// This file tests string processing functions related to case:
 // uppercase, lowercase, etc.
 
 #include "zetasql/base/case.h"

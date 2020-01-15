@@ -53,7 +53,7 @@ class QueryExpression;
 //   SQLBuilder sql_builder;
 //   const ResolvedQueryStmt* node = ...;
 //   node->Accept(&sql_builder);
-//   const std::string& unparsed_sql = sql_builder.sql();
+//   const string& unparsed_sql = sql_builder.sql();
 //
 //   NOTE: SQL for the node gets appended onto the SQLBuilder's sql.
 //
@@ -110,7 +110,7 @@ class SQLBuilder : public ResolvedASTVisitor {
   // call, below.
   zetasql_base::Status Process(const ResolvedNode& ast);
 
-  // Returns the sql std::string for the last visited ResolvedAST.
+  // Returns the sql string for the last visited ResolvedAST.
   std::string sql();
 
   // Visit methods for types of ResolvedStatement.
@@ -447,7 +447,7 @@ class SQLBuilder : public ResolvedASTVisitor {
                                         const std::string& object_type,
                                         std::string* sql);
 
-  // Appends PARTITION BY or CLUSTER BY expressions to the provided std::string, not
+  // Appends PARTITION BY or CLUSTER BY expressions to the provided string, not
   // including the "PARTITION BY " or "CLUSTER BY " prefix.
   zetasql_base::Status GetPartitionByListString(
       const std::vector<std::unique_ptr<const ResolvedExpr>>& partition_by_list,

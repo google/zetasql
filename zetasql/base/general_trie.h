@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 // A trie is a 256-ary tree that represents a set of strings. GeneralTrie is a
-// class that uses a trie to map each std::string in some set to a piece of data
+// class that uses a trie to map each string in some set to a piece of data
 // of type T. GeneralTrie comes in two flavors:
 //
 // * GeneralTrie<T, T NULL_VALUE>, where NULL_VALUE is a value of type
@@ -74,7 +74,7 @@ class GeneralTrieImpl {
   GeneralTrieImpl();
   ~GeneralTrieImpl();
 
-  // Inserts the given std::string into the trie (or finds it if it's already
+  // Inserts the given string into the trie (or finds it if it's already
   // there) and associates a copy of the given data with it.
   void Insert(const char* s, const T& data);
 
@@ -91,7 +91,7 @@ class GeneralTrieImpl {
   bool SetData(const char* s, const T& data);
 
   // Finds the greatest number n such that:
-  //  1. the first n characters of s form a std::string in the trie;
+  //  1. the first n characters of s form a string in the trie;
   //  2. (s[n] == '\0') or is_terminator[s[n]] is true.
   // If there is no n that satisfies these conditions, the method returns
   // NullValuePolicy::Null().  Otherwise, it returns the data associated with
@@ -110,12 +110,12 @@ class GeneralTrieImpl {
                                           const bool* is_terminator) const;
 
   // Gets all strings (and associated data) matching the given
-  // std::string. The given std::string must match in its entirety.  Note: empty
-  // input std::string matches everything in the trie
+  // string. The given string must match in its entirety.  Note: empty
+  // input string matches everything in the trie
   void GetAllMatchingStrings(const char* s, int len,
                              std::vector<TrieData>* outdata) const;
 
-  // Calls traverser->Process() for each std::string in the trie.
+  // Calls traverser->Process() for each string in the trie.
   void PreorderTraverse(Traverser* traverser) const {
     PreorderTraverseDepth(traverser, -1);
   }
@@ -127,7 +127,7 @@ class GeneralTrieImpl {
     Traverse(traverser, &s, depth, true);
   }
 
-  // Calls traverser->Process() for each matching std::string in the trie.
+  // Calls traverser->Process() for each matching string in the trie.
   void PreorderTraverseAllMatchingStrings(const char* s, int len,
                                           Traverser* traverser) const {
     PreorderTraverseAllMatchingStringsDepth(s, len, traverser, -1);
@@ -200,7 +200,7 @@ class GeneralTrieImpl {
  private:
   typedef GeneralTrieImpl<T, NullValuePolicy> NodeT;
 
-  std::string comppath_;  // std::string compression: must match to continue
+  std::string comppath_;  // string compression: must match to continue
   T data_;
   const T null_value_instance_;  // allows return by reference
   int min_next_;                 // next_ array goes from min to max-1
@@ -210,17 +210,17 @@ class GeneralTrieImpl {
   inline NodeT* Next(int index) const;
   NodeT* SetNext(int index, NodeT* value);
 
-  // Calls traverser->Process() for each std::string in either preorder or postorder.
+  // Calls traverser->Process() for each string in either preorder or postorder.
   void Traverse(Traverser* traverser, std::string* s, int depth,
                 bool preorder) const;
 
-  // Calls traverser->Process() for each matching std::string in either preorder or
+  // Calls traverser->Process() for each matching string in either preorder or
   // postorder.
   void TraverseAllMatchingStrings(const char* s, int len, Traverser* traverser,
                                   int depth, bool preorder) const;
 
-  // get a ptr to the data corresponding to a given std::string.
-  // returns NullValuePolicy::Null() if the std::string is not present in the trie.
+  // get a ptr to the data corresponding to a given string.
+  // returns NullValuePolicy::Null() if the string is not present in the trie.
   // Used as a helper method to get and set data
   const T* GetDataPtr(const char* s) const;
 
@@ -264,7 +264,7 @@ class GeneralTrie
 template <class T, T NULL_VALUE>
 const T GeneralTrie<T, NULL_VALUE>::kNullValue = NULL_VALUE;
 
-// GeneralTrie version that supports classes, such as std::string,
+// GeneralTrie version that supports classes, such as string,
 // and linked_ptr<YourClass> (but see hint on top of header).
 template <class T>
 class ClassGeneralTrie
@@ -353,12 +353,12 @@ GeneralTrieImpl<T, NullValuePolicy>::SetNext(int index, NodeT* value) {
 
 // ----------------------------------------------------------------------
 // GeneralTrieImpl<T, NullValuePolicy>::Insert()
-//    Adds a std::string s to a trie.  Once we've gotten to the leaf, we set
+//    Adds a string s to a trie.  Once we've gotten to the leaf, we set
 //    its data to the specified data.
 //    The only complication is comppath.  Intuitively, comppath is
 //    prepended to the "next" array before trying to descend: if comppath
-//    is "arc", you can't follow next['h'] unless your std::string begins with
-//    "arch".  If your std::string begins "bath" instead, we need to break up
+//    is "arc", you can't follow next['h'] unless your string begins with
+//    "arch".  If your string begins "bath" instead, we need to break up
 //    the compression to insert.  For example: suppose n has comppath
 //    = "stro" and s = "strong".  This works fine: we just follow
 //    n->next['n'].  But what if s = "state"?  Then the "st" part of
@@ -506,7 +506,7 @@ bool GeneralTrieImpl<T, NullValuePolicy>::SetData(const char* s,
 // ----------------------------------------------------------------------
 // GeneralTrieImpl<T, NullValuePolicy>::GetDataForMaximalPrefix()
 //    Finds the greatest number n such that:
-//      1. the first n characters of s form a std::string in the trie;
+//      1. the first n characters of s form a string in the trie;
 //      2. (s[n] == '\0') or is_terminator[s[n]] is true.
 //    If there is no n that satisfies these conditions, the method returns
 //    NullValuePolicy::Null().  Otherwise, it returns the data associated
@@ -600,7 +600,7 @@ void GeneralTrieImpl<T, NullValuePolicy>::TraverseAllMatchingStrings(
     const char* s, int len, Traverser* traverser, int depth,
 
     bool preorder) const {
-  // first try to match the input std::string in its entirety
+  // first try to match the input string in its entirety
   const NodeT* node = this;
   int next_pos = 0;  // next position in s
   int brkpt = 0;     // next position in "node"
@@ -611,7 +611,7 @@ void GeneralTrieImpl<T, NullValuePolicy>::TraverseAllMatchingStrings(
   // the matches for 's'.
   while (node) {
     if (next_pos >= len) {
-      // done with input std::string. Note: empty input std::string
+      // done with input string. Note: empty input string
       // matches everything in the trie. A break here means
       // brkpt == 0 which is what we want (the entire
       // comppath_ at this node is a suffix).
@@ -641,7 +641,7 @@ void GeneralTrieImpl<T, NullValuePolicy>::TraverseAllMatchingStrings(
   if (node == nullptr) return;
 
   // we got here => we have one or more matches
-  std::string buf(s, len);  // all of the input std::string
+  std::string buf(s, len);  // all of the input string
   if (node->data_ != null_value_instance_ && brkpt == 0 && preorder) {
     // this node is a full match by itself
     traverser->Process(buf, node->data_);

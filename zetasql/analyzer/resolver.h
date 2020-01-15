@@ -378,7 +378,7 @@ class Resolver {
   IdStringHashSetCase unique_with_alias_names_;
 
   // Deprecation warnings to return.  The set is keyed on the kind of
-  // deprecation warning, and the warning std::string (not including the location).
+  // deprecation warning, and the warning string (not including the location).
   std::set<std::pair<DeprecationWarning::Kind, std::string>>
       unique_deprecation_warnings_;
   std::vector<zetasql_base::Status> deprecation_warnings_;
@@ -467,7 +467,7 @@ class Resolver {
       bool has_explicit_type, absl::string_view image);
 
   // Make a new resolved literal without location. Those are essentially
-  // constants produced by the resolver, which don't occur in the input std::string
+  // constants produced by the resolver, which don't occur in the input string
   // (e.g., NULLs for optional CASE branches) or cannot be replaced by
   // query parameters (e.g., DAY keyword in intervals).
   static std::unique_ptr<const ResolvedLiteral>
@@ -1172,7 +1172,7 @@ class Resolver {
       std::vector<std::unique_ptr<const ResolvedAnalyticFunctionGroup>>*
           transform_analytic_function_group_list);
 
-  // Resolves the grantee list, which only contains std::string literals and
+  // Resolves the grantee list, which only contains string literals and
   // parameters (given the parser rules).  The <ast_grantee_list> may be
   // nullptr for ALTER ROW POLICY statements.  Only one of <grantee_list> or
   // <grantee_expr_list> will be populated, depending on whether the
@@ -1719,7 +1719,7 @@ class Resolver {
 
   // Compute the default alias to use for an expression.
   // This comes from the final identifier used in a path expression.
-  // Returns empty std::string if this node doesn't have a default alias.
+  // Returns empty string if this node doesn't have a default alias.
   static IdString GetAliasForExpression(const ASTNode* node);
 
   // Return true if the first identifier on the path is a name that exists in
@@ -2471,7 +2471,7 @@ class Resolver {
   static zetasql_base::StatusOr<Resolver::ProtoExtractionType>
   ProtoExtractionTypeFromName(const std::string& extraction_type_name);
 
-  // Returns the std::string name of the ProtoExtractionType corresponding to
+  // Returns the string name of the ProtoExtractionType corresponding to
   // <extraction_type>.
   static std::string ProtoExtractionTypeName(
       ProtoExtractionType extraction_type);

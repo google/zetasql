@@ -629,11 +629,11 @@ ZetaSQL provides the following additional conversion functions:
 
 [con-rules-link-to-literal-coercion]: #literal_coercion
 [con-rules-link-to-parameter-coercion]: #parameter_coercion
-[con-rules-link-to-time-zones]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time-zones
+[con-rules-link-to-time-zones]: https://github.com/google/zetasql/blob/master/docs/data-types#time-zones
 
-[con-rules-link-to-safe-convert-bytes-to-string]: https://github.com/google/zetasql/blob/master/docs/string_functions.md#safe_convert_bytes_to_string
-[con-rules-link-to-date-functions]: https://github.com/google/zetasql/blob/master/docs/date_functions.md
-[con-rules-link-to-datetime-functions]: https://github.com/google/zetasql/blob/master/docs/datetime_functions.md
-[con-rules-link-to-time-functions]: https://github.com/google/zetasql/blob/master/docs/time_functions.md
-[con-rules-link-to-timestamp-functions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md
+[con-rules-link-to-safe-convert-bytes-to-string]: https://github.com/google/zetasql/blob/master/docs/string_functions#safe_convert_bytes_to_string
+[con-rules-link-to-date-functions]: https://github.com/google/zetasql/blob/master/docs/date_functions
+[con-rules-link-to-datetime-functions]: https://github.com/google/zetasql/blob/master/docs/datetime_functions
+[con-rules-link-to-time-functions]: https://github.com/google/zetasql/blob/master/docs/time_functions
+[con-rules-link-to-timestamp-functions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions
 

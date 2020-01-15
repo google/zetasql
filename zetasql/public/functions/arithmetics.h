@@ -191,6 +191,113 @@ inline bool UnaryMinus(NumericValue in, NumericValue* out,
 
 // ----------------------- Integer -----------------------
 
+// LLVM and Clang have builtin functions that implement overflow checking most
+// efficiently (using overflow flag). We use them when they are available.
+//   http://clang.llvm.org/docs/LanguageExtensions.html#builtin-functions
+// Even when this builtins are available we may still need more generic code
+// below when input types are not the same.
+#if __has_builtin(__builtin_uadd_overflow)
+
+static_assert(std::is_same<uint32_t, unsigned>::value,  // NOLINT(runtime/int)
+              "unsigned != uint32_t?");
+static_assert(std::is_same<int32_t, int>::value, "int != int32_t?");
+
+// 64-bit integers may be either 'long' or 'long long' depending on the system,
+// but we have to explicitly specify the underlying type in the name of the
+// built-in function. We store the result in an intermediate value to work
+// around that.
+template <>
+inline bool Add<uint64_t>(uint64_t in1, uint64_t in2, uint64_t *out,
+                        zetasql_base::Status* error) {
+  unsigned long long result;  // NOLINT(runtime/int)
+  bool has_overflow = __builtin_uaddll_overflow(in1, in2, &result);
+  *out = static_cast<uint64_t>(result);
+  if (ABSL_PREDICT_FALSE(has_overflow)) {
+    return internal::UpdateError(
+        error, internal::BinaryOverflowMessage(in1, in2, " + "));
+  } else {
+    return true;
+  }
+}
+
+template <>
+inline bool Multiply<uint64_t>(uint64_t in1, uint64_t in2, uint64_t* out,
+                             zetasql_base::Status* error) {
+  unsigned long long result;  // NOLINT(runtime/int)
+  bool has_overflow = __builtin_umulll_overflow(in1, in2, &result);
+  *out = static_cast<uint64_t>(result);
+  if (ABSL_PREDICT_FALSE(has_overflow)) {
+    return internal::UpdateError(
+        error, internal::BinaryOverflowMessage(in1, in2, " * "));
+  } else {
+    return true;
+  }
+}
+
+template <>
+inline bool Add<int32_t>(int32_t in1, int32_t in2, int32_t* out, zetasql_base::Status* error) {
+  if (ABSL_PREDICT_FALSE(__builtin_sadd_overflow(in1, in2, out))) {
+    return internal::UpdateError(
+        error, internal::BinaryOverflowMessage(in1, in2, " + "));
+  } else {
+    return true;
+  }
+}
+
+template <>
+inline bool Add<int64_t>(int64_t in1, int64_t in2, int64_t* out, zetasql_base::Status* error) {
+  long long result;  // NOLINT(runtime/int)
+  bool has_overflow = __builtin_saddll_overflow(in1, in2, &result);
+  *out = static_cast<int64_t>(result);
+  if (ABSL_PREDICT_FALSE(has_overflow)) {
+    return internal::UpdateError(
+        error, internal::BinaryOverflowMessage(in1, in2, " + "));
+  } else {
+    return true;
+  }
+}
+
+template <>
+inline bool Subtract<int64_t>(int64_t in1, int64_t in2, int64_t *out,
+                            zetasql_base::Status* error) {
+  long long result;  // NOLINT(runtime/int)
+  bool has_overflow = __builtin_ssubll_overflow(in1, in2, &result);
+  *out = static_cast<int64_t>(result);
+  if (ABSL_PREDICT_FALSE(has_overflow)) {
+    return internal::UpdateError(
+        error, internal::BinaryOverflowMessage(in1, in2, " - "));
+  } else {
+    return true;
+  }
+}
+
+template <>
+inline bool Multiply<int32_t>(int32_t in1, int32_t in2, int32_t* out,
+                            zetasql_base::Status* error) {
+  if (ABSL_PREDICT_FALSE(__builtin_smul_overflow(in1, in2, out))) {
+    return internal::UpdateError(
+        error, internal::BinaryOverflowMessage(in1, in2, " * "));
+  } else {
+    return true;
+  }
+}
+
+template <>
+inline bool Multiply<int64_t>(int64_t in1, int64_t in2, int64_t *out,
+                            zetasql_base::Status* error) {
+  long long result;  // NOLINT(runtime/int)
+  bool has_overflow = __builtin_smulll_overflow(in1, in2, &result);
+  *out = static_cast<int64_t>(result);
+  if (ABSL_PREDICT_FALSE(has_overflow)) {
+    return internal::UpdateError(
+        error, internal::BinaryOverflowMessage(in1, in2, " * "));
+  } else {
+    return true;
+  }
+}
+
+#else
+
 namespace arithmetics_internal {
 
 template <typename T>
@@ -238,6 +345,8 @@ inline bool Multiply(T in1, T in2, T *out,
   return arithmetics_internal::CheckSaturatedOverflow(in1, in2, " * ", result,
                                                       out, error);
 }
+
+#endif
 
 template <typename T>
 inline bool Modulo(T in1, T in2, T *out, zetasql_base::Status* error) {

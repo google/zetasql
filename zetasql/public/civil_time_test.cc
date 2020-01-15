@@ -334,7 +334,7 @@ TEST(CivilTimeValuesTest, DatetimeEncodingDecodingTest) {
 }
 
 TEST(CivilTimeValuesTest, TimeValueNormalizationTest) {
-  // The second member is the debug std::string for the normalized TimeValue.
+  // The second member is the debug string for the normalized TimeValue.
   std::vector<std::pair<TimeValue, std::string>> test_cases = {
       // leap seconds
       {TimeValue::FromHMSAndMicrosNormalized(23, 59, 60, 123456),
@@ -393,7 +393,7 @@ TEST(CivilTimeValuesTest, TimeValueNormalizationTest) {
 }
 
 TEST(CivilTimeValuesTest, DatetimeValueNormalizationTest) {
-  // The second member is the debug std::string for the normalized DatetimeValue.
+  // The second member is the debug string for the normalized DatetimeValue.
   std::vector<std::pair<DatetimeValue, std::string>> test_cases = {
       // leap second
       {DatetimeValue::FromYMDHMSAndMicrosNormalized(2015, 11, 6, 12, 59, 60,

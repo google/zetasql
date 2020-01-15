@@ -98,7 +98,8 @@ class TableValuedFunction {
   }
   // Table functions constructed this way should use AddSignature() to
   // add a related signature.
-  explicit TableValuedFunction(const std::vector<std::string>& function_name_path)
+  explicit TableValuedFunction(
+      const std::vector<std::string>& function_name_path)
       : function_name_path_(function_name_path) {}
 
   TableValuedFunction(const TableValuedFunction&) = delete;
@@ -107,7 +108,9 @@ class TableValuedFunction {
 
   // Returns the name of this TVF.
   const std::string& Name() const { return function_name_path_.back(); }
-  std::string FullName() const { return absl::StrJoin(function_name_path(), "."); }
+  std::string FullName() const {
+    return absl::StrJoin(function_name_path(), ".");
+  }
   const std::vector<std::string>& function_name_path() const {
     return function_name_path_;
   }
@@ -270,9 +273,9 @@ struct TVFSchemaColumn {
 
   // Deserializes a TVFSchema column from a protocol buffer.
   // ParseLocationRangeProto stores the filename that will become string_view
-  // when deserialized. Returned TVFSchemaColumn references a std::string owned by
+  // when deserialized. Returned TVFSchemaColumn references a string owned by
   // 'proto', and therefore 'proto' must outlive the returned value.
-  // TODO Add support for storing filename as std::string in
+  // TODO Add support for storing filename as string in
   // ParseLocationPoint.
   static zetasql_base::StatusOr<TVFSchemaColumn> FromProto(
       const TVFRelationColumnProto& proto,
@@ -559,7 +562,7 @@ class TVFSignature {
       arg_debug_strings.push_back(input_argument.DebugString());
     }
     std::string ret = absl::StrCat("(", absl::StrJoin(arg_debug_strings, ", "),
-                              ") -> ", result_schema_.DebugString());
+                                   ") -> ", result_schema_.DebugString());
     if (verbose) {
       const std::string deprecation_warnings_debug_string =
           DeprecationWarningsToDebugString(

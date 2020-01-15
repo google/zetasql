@@ -53,7 +53,7 @@ namespace zetasql {
 
 class AnalyzerOptions;
 
-using ::zetasql_base::bind_front;
+using ::absl::bind_front;
 
 void GetStringFunctions(TypeFactory* type_factory,
                         const ZetaSQLBuiltinFunctionOptions& options,
@@ -731,7 +731,7 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                    FN_TO_JSON_STRING}});
 
   // The signature is declared as
-  //   ERROR(std::string) -> int64
+  //   ERROR(string) -> int64
   // but this is special-cased in the resolver so that the result can be
   // coerced to anything, similar to untyped NULL.  This allows using this
   // in expressions like IF(<condition>, <value>, ERROR("message"))

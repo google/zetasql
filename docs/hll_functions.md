@@ -205,7 +205,7 @@ FROM (
 ```
 
 [hll-link-to-hyperloglog-wikipedia]: https://en.wikipedia.org/wiki/HyperLogLog
-[hll-link-to-approx-count-distinct]: #approx_count_distinct
 [hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
-[approximate-aggregation-concept]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation.md
+[hll-link-to-approx-count-distinct]: #approx_count_distinct
+[approximate-aggregation-concept]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation
 

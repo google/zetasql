@@ -44,9 +44,9 @@
 // milliseconds(3), microseconds(6), and nanoseconds(9).
 //
 // Converting between ZetaSQL timestamps and strings requires timezone
-// awareness - the timezone must be known in order to map a std::string
+// awareness - the timezone must be known in order to map a string
 // representation of a timestamp to a specific point in time or vice versa.
-// At the ZetaSQL level, the timezone can be embedded in the std::string or can
+// At the ZetaSQL level, the timezone can be embedded in the string or can
 // be provided via a default or separately specified value.  In this library,
 // the caller must always provide the relevant time zone to an operation
 // when one is required (this library does not have its own default time zone).
@@ -58,7 +58,7 @@ namespace functions {
 // error messages).
 absl::string_view DateTimestampPartToSQL(DateTimestampPart date_part);
 
-// Returns the empty std::string if 'date_part' is not a valid DateTimestampPart.
+// Returns the empty string if 'date_part' is not a valid DateTimestampPart.
 inline absl::string_view DateTimestampPartToSQL(int date_part) {
   return DateTimestampPartToSQL(static_cast<DateTimestampPart>(date_part));
 }
@@ -87,7 +87,7 @@ ABSL_MUST_USE_RESULT bool IsValidTimeZone(int timezone_minutes_offset);
 // Checks that a absl::Time value falls between 0001-01-01 and 9999-12-31 UTC.
 ABSL_MUST_USE_RESULT bool IsValidTime(absl::Time time);
 
-// Loads the TimeZone related to the std::string <timezone_string> into <timezone>,
+// Loads the TimeZone related to the string <timezone_string> into <timezone>,
 // returning success or failure if <timezone_string> is invalid.  Supports
 // a time zone of either the ZetaSQL canonical time zone format ('-08:00')
 // or time zone name ('America/Los_Angeles', etc.):
@@ -108,7 +108,7 @@ ABSL_MUST_USE_RESULT absl::Time MakeTime(int64_t timestamp, TimestampScale scale
 ABSL_MUST_USE_RESULT bool FromTime(absl::Time base_time, TimestampScale scale,
                                    int64_t* output);
 
-// Returns a std::string of format "YYYY-MM-DD" for this date.  Returns error
+// Returns a string of format "YYYY-MM-DD" for this date.  Returns error
 // status if conversion fails.
 zetasql_base::Status ConvertDateToString(int32_t date, std::string* out);
 
@@ -153,20 +153,21 @@ zetasql_base::Status ConvertTimestampToStringWithoutTruncation(
     int64_t timestamp, TimestampScale scale, absl::string_view timezone_string,
     std::string* out);
 
-// Populates a absl::Time timestamp into a std::string of canonical format. For
+// Populates a absl::Time timestamp into a string of canonical format. For
 // example: "2014-01-31 12:22:34.123456789-08".
 // The maximum number of fractional second digits produced is defined by
 // <scale>, and the number of fractional digits is a multiple of three
 // with trailing zeros truncated if necessary.
 // Returns error status if conversion fails.
 zetasql_base::Status ConvertTimestampToString(absl::Time input, TimestampScale scale,
-                                      absl::TimeZone timezone, std::string* output);
+                                      absl::TimeZone timezone,
+                                      std::string* output);
 
 zetasql_base::Status ConvertTimestampToString(absl::Time input, TimestampScale scale,
                                       absl::string_view timezone_string,
                                       std::string* output);
 
-// Populates a Time into a std::string of canonical format.
+// Populates a Time into a string of canonical format.
 // For example: "13:14:15.123456789" for nano precision.
 // Use scale to control the maximum number of digits for sub-second. Only
 // kMicroSeconds and kNanoSeconds are acceptable. Note that trailing 000's will
@@ -175,7 +176,7 @@ zetasql_base::Status ConvertTimestampToString(absl::Time input, TimestampScale s
 zetasql_base::Status ConvertTimeToString(TimeValue time, TimestampScale scale,
                                  std::string* out);
 
-// Populates a Datetime into a std::string of canonical format.
+// Populates a Datetime into a string of canonical format.
 // For example: "2014-01-31 13:14:15.123456789"
 // Use scale to control the maximum number of digits for sub-second. Only
 // kMicroSeconds and kNanoSeconds are acceptable. Note that trailing 000's will
@@ -251,7 +252,8 @@ zetasql_base::Status FormatDateToString(absl::string_view format_string, int32_t
 // (broken link), except that any time zone related
 // elements are not allowed.
 zetasql_base::Status FormatDatetimeToString(absl::string_view format_string,
-                                    const DatetimeValue& datetime, std::string* out);
+                                    const DatetimeValue& datetime,
+                                    std::string* out);
 
 // Populates <out> using the <format_string> as defined by absl::FormatTime() in
 // base/time.h. Returns error status if conversion fails.
@@ -262,7 +264,7 @@ zetasql_base::Status FormatDatetimeToString(absl::string_view format_string,
 zetasql_base::Status FormatTimeToString(absl::string_view format_string,
                                 const TimeValue& time, std::string* out);
 
-// Converts the std::string representation of a date to a date value.
+// Converts the string representation of a date to a date value.
 // Supported format: "YYYY-[M]M-[D]D".
 // Returns error status if conversion fails.
 zetasql_base::Status ConvertStringToDate(absl::string_view str, int32_t* date);
@@ -271,7 +273,7 @@ zetasql_base::Status ConvertStringToDate(absl::string_view str, int32_t* date);
 // fails.
 zetasql_base::StatusOr<int32_t> ConvertCivilDayToDate(absl::CivilDay civil_day);
 
-// Converts the std::string representation of a timestamp to a timestamp integer
+// Converts the string representation of a timestamp to a timestamp integer
 // value of the specified <scale>.  The currently supported format is
 // the date format optionally followed by a time and/or time zone
 // specified as either of:
@@ -292,7 +294,7 @@ zetasql_base::StatusOr<int32_t> ConvertCivilDayToDate(absl::CivilDay civil_day);
 //   '2014-01-31 12:12:34.123456789'
 //   '2014-01-31 12:12:34.123456789 America/Los_Angeles'
 //
-// If the time zone is not included in the std::string, then <default_timezone> is
+// If the time zone is not included in the string, then <default_timezone> is
 // applied for the conversion.
 //
 // Returns error status if there are more fractional digits than <scale>, or
@@ -303,9 +305,9 @@ zetasql_base::Status ConvertStringToTimestamp(absl::string_view str,
                                       absl::TimeZone default_timezone,
                                       TimestampScale scale, int64_t* timestamp);
 
-// If the time zone is not included in the std::string, then <default_timezone> is
-// applied for the conversion.  Uses the canonical timestamp std::string format.
-// If the time zone is included in the std::string and allow_tz_in_str is set to
+// If the time zone is not included in the string, then <default_timezone> is
+// applied for the conversion.  Uses the canonical timestamp string format.
+// If the time zone is included in the string and allow_tz_in_str is set to
 // false, an error will be returned.
 zetasql_base::Status ConvertStringToTimestamp(absl::string_view str,
                                       absl::TimeZone default_timezone,
@@ -317,7 +319,7 @@ zetasql_base::Status ConvertStringToTimestamp(absl::string_view str,
                                       TimestampScale scale,
                                       bool allow_tz_in_str, absl::Time* output);
 
-// Converts the std::string representation of a time to a time value of the specified
+// Converts the string representation of a time to a time value of the specified
 // <scale>. Returns error status if there are more fractional digits than
 // <scale>, or conversion otherwise fails.
 // Supported format: "[H]H:[M]M:[S]S[.DDDDDDDDD]".
@@ -343,7 +345,7 @@ zetasql_base::Status ConvertStringToTimestamp(absl::string_view str,
 zetasql_base::Status ConvertStringToTime(absl::string_view str, TimestampScale scale,
                                  TimeValue* output);
 
-// Converts the std::string representation of a datetime to a datetime value of the
+// Converts the string representation of a datetime to a datetime value of the
 // specified <scale>. Returns error status if there are more fractional digits
 // than <scale>, or conversion otherwise fails.
 // Supported format: "YYYY-[M]M-[D]D( |T)[[H]H:[M]M:[S]S[.DDDDDDDDD]]"
@@ -366,10 +368,10 @@ zetasql_base::Status ConvertStringToTimestamp(absl::string_view str,
                                       absl::string_view default_timezone_string,
                                       TimestampScale scale, int64_t* timestamp);
 
-// If the time zone is not included in the std::string, then
+// If the time zone is not included in the string, then
 // <default_timezone_string> is applied for the conversion.  Uses the
-// canonical timestamp std::string format.
-// If the time zone is included in the std::string and allow_tz_in_str is set to
+// canonical timestamp string format.
+// If the time zone is included in the string and allow_tz_in_str is set to
 // false, an error will be returned.
 zetasql_base::Status ConvertStringToTimestamp(absl::string_view str,
                                       absl::string_view default_timezone_string,

@@ -36,7 +36,7 @@ namespace zetasql {
 
 class InternalErrorLocation;
 
-// Point location in the input std::string.
+// Point location in the input string.
 // Use ParseLocationTranslator to translate a ParseLocationPoint into something
 // that can be used in relation to the input query.
 // The <filename> is informational, and only used for error messaging.
@@ -74,7 +74,7 @@ class ParseLocationPoint {
   // intended for public use.
   InternalErrorLocation ToInternalErrorLocation() const;
 
-  // Returns the std::string representation of this ParseLocationPoint, in the
+  // Returns the string representation of this ParseLocationPoint, in the
   // form of [filename:]byte_offset.
   std::string GetString() const {
     if (byte_offset_ >= 0) {
@@ -141,10 +141,10 @@ class ParseLocationRange {
   }
 
   // The 'filename' in start and end fields of ParseLocationRange is a
-  // string_view. This filename will point to the filename std::string in the
+  // string_view. This filename will point to the filename string in the
   // ParseLocationRangeProto. Therefore 'proto' must outlive the returned
   // ParseLocationRange.
-  // TODO Add support for storing filename as std::string in
+  // TODO Add support for storing filename as string in
   // ParseLocationPoint.
   static zetasql_base::StatusOr<ParseLocationRange> Create(
       const ParseLocationRangeProto& proto) {
@@ -162,7 +162,7 @@ class ParseLocationRange {
     return parse_location_range;
   }
 
-  // Returns the std::string representation of this parse location.
+  // Returns the string representation of this parse location.
   std::string GetString() const {
     if (!start_.filename().empty() && start_.filename() == end_.filename()) {
       return absl::StrCat(start_.filename(), ":", start_.GetByteOffset(), "-",
@@ -191,7 +191,7 @@ class ParseLocationRange {
 
 // Translates ParseLocationPoints to offsets and line/column numbers. For
 // translation of offsets to line/column numbers, does a pass over the input
-// std::string to record the byte offsets of every line. Accepted end of line
+// string to record the byte offsets of every line. Accepted end of line
 // characters are \n, \r\n, or \r.
 //
 // The input absl::string_view must outlive this class.

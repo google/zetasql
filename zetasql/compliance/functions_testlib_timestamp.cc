@@ -95,13 +95,14 @@ std::vector<FunctionTestCall> GetFunctionTestsDateAdd() {
       functions::DateTimestampPart_descriptor();
   ZETASQL_CHECK_OK(type_factory()->MakeEnumType(enum_descriptor, &part_enum));
 
-  auto date_add = [part_enum](std::string date, int64_t interval, std::string part,
-                              std::string result) {
+  auto date_add = [part_enum](std::string date, int64_t interval,
+                              std::string part, std::string result) {
     return FunctionTestCall(
         "date_add", {DateFromStr(date), Int64(interval), Enum(part_enum, part)},
         DateFromStr(result));
   };
-  auto date_add_error = [part_enum](std::string date, int64_t interval, std::string part) {
+  auto date_add_error = [part_enum](std::string date, int64_t interval,
+                                    std::string part) {
     return FunctionTestCall(
         "date_add", {DateFromStr(date), Int64(interval), Enum(part_enum, part)},
         NullDate(), OUT_OF_RANGE);
@@ -323,7 +324,8 @@ static QueryParamsWithResult::FeatureSet GetFeatureSetForDateTimestampPart(
 
 std::vector<FunctionTestCall> GetFunctionTestsDateTrunc() {
   const EnumType* part_type = types::DatePartEnumType();
-  auto date_trunc = [part_type](std::string date, std::string part, std::string result) {
+  auto date_trunc = [part_type](std::string date, std::string part,
+                                std::string result) {
     const Value part_value = Enum(part_type, part);
     const QueryParamsWithResult::Result date_result(DateFromStr(result));
     return FunctionTestCall(
@@ -1958,14 +1960,16 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampAdd() {
   ZETASQL_CHECK_OK(type_factory()->MakeEnumType(enum_descriptor, &part_enum));
 
   auto timestamp_add = [part_enum](const std::string& timestamp, int64_t interval,
-                                   const std::string& part, const std::string& result) {
+                                   const std::string& part,
+                                   const std::string& result) {
     return FunctionTestCall(
         "timestamp_add",
         {TimestampFromStr(timestamp), Int64(interval), Enum(part_enum, part)},
         TimestampFromStr(result));
   };
   auto timestamp_add_error = [part_enum](const std::string& timestamp,
-                                         int64_t interval, const std::string& part) {
+                                         int64_t interval,
+                                         const std::string& part) {
     return FunctionTestCall(
         "timestamp_add",
         {TimestampFromStr(timestamp), Int64(interval), Enum(part_enum, part)},
@@ -2181,7 +2185,8 @@ static std::vector<FunctionTestCall> GetFunctionTestsDateDiff() {
       functions::DateTimestampPart_descriptor();
   ZETASQL_CHECK_OK(type_factory()->MakeEnumType(part_descriptor, &part_type));
 
-  auto date_diff = [part_type](const std::string& date1, const std::string& date2,
+  auto date_diff = [part_type](const std::string& date1,
+                               const std::string& date2,
                                const std::string& part, int64_t result) {
     const Value part_value = Enum(part_type, part);
     const QueryParamsWithResult::Result diff_result(Int64(result));
@@ -3277,7 +3282,7 @@ std::vector<FunctionTestCall> GetFunctionTestsDateFromUnixDate() {
   return tests;
 }
 
-// Defines which parts need to be supported for this format std::string to work:
+// Defines which parts need to be supported for this format string to work:
 // - DATE means this format works with types that include a date:
 //   date, timestamp, datetime.
 // - TIME means this format works with types that include a time:
@@ -3523,13 +3528,13 @@ static std::vector<FormatDateTimestampCommonTest>
 }
 
 struct FormatTimestampTest {
-  std::string format_string;  // format std::string
+  std::string format_string;  // format string
   int64_t timestamp;         // int64_t timestamp (micros) value to format
   std::string timezone;    // time zone to use for formatting
-  std::string expected_result;  // expected output std::string
+  std::string expected_result;  // expected output string
 };
 
-// The following test cases do not have any '%z' or '%Z' in the format std::string,
+// The following test cases do not have any '%z' or '%Z' in the format string,
 // so they can be adapted as format_datetime() test cases.
 static std::vector<FormatTimestampTest> GetTimezoneFreeFormatTimestampTests() {
   int64_t timestamp;
@@ -3700,7 +3705,7 @@ static std::vector<FormatTimestampTest> GetFormatTimestampTests() {
   tests.push_back({"%4Y-%m-%d %H:%M:%E6S%Ez", timestamp, "UTC",
                    "0001-01-01 00:00:00.000000+00:00"});
 
-  // As with casting a timestamp to std::string, even though the canonical time
+  // As with casting a timestamp to string, even though the canonical time
   // zone offset for America/Timezone is -07:52:58 in year 1, we normalize
   // the time zone offset to only include the hour and minute parts.
   tests.push_back({"%4Y-%m-%d %H:%M:%E6S%Ez", timestamp, timezone,
@@ -3758,9 +3763,9 @@ static std::vector<FormatTimestampTest> GetFormatTimestampTests() {
 }
 
 struct FormatDateTest {
-  std::string format_string;    // format std::string
-  std::string date;             // date std::string to format
-  std::string expected_result;  // expected output std::string
+  std::string format_string;    // format string
+  std::string date;             // date string to format
+  std::string expected_result;  // expected output string
 };
 
 static std::vector<FormatDateTest> GetFormatDateTests() {
@@ -3877,7 +3882,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatDateTimestamp() {
   tests.push_back({"format_timestamp",
                    {String(""), Timestamp(0), String("invalid_timezone")},
                    NullString(), OUT_OF_RANGE});
-  // This was b/74112042.  If the timezone is an empty std::string that is an
+  // This was b/74112042.  If the timezone is an empty string that is an
   // error (it is not treated as the default timezone).
   tests.push_back({"format_timestamp",
                    {String(""), Timestamp(0), String("")},
@@ -3922,7 +3927,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatDatetime() {
     if (common_test.parts == TEST_FORMAT_TIMEZONE) {
       // Test cases with TEST_FORMAT_TIMEZONE include timezone-sensitive format
       // elements that are passed through as-is for datetime. The results of
-      // these test cases are exactly the same as the input format std::string.
+      // these test cases are exactly the same as the input format string.
       test_cases.push_back(CivilTimeTestCase(
           {{String(common_test.format_string), common_datetime}},
           String(common_test.format_string)));
@@ -4038,9 +4043,9 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatTime() {
 // does not indicate an error. It is safe to assume the output of such cases
 // are always initialized from 1970-01-01 00:00:00.0
 struct ParseDateTimestampCommonTest {
-  std::string format_string;      // The format std::string specified.
+  std::string format_string;      // The format string specified.
   TestFormatDateTimeParts parts;  // The format parts need to be supported.
-  std::string input_string;       // The input date/time std::string to parse.
+  std::string input_string;       // The input date/time string to parse.
   // Note that for TIME tests to be reused by TIMESTAMP, the test driver
   // needs some special handling to add a date part to the <expected_result>.
   std::string
@@ -4205,7 +4210,7 @@ GetParseDateTimestampCommonTests() {
        "Мо1969ша Пас09уманс03кий, школа 23", "1969-09-03"},
 
       // Embedded null bytes cause problems.  In theory, this first one
-      // should work since both the format and the timestamp std::string
+      // should work since both the format and the timestamp string
       // have corresponding null bytes used as separators in the same
       // relative position.  However, note that UTF8 character strings
       // cannot have embedded null bytes in them, so assuming valid
@@ -4213,16 +4218,16 @@ GetParseDateTimestampCommonTests() {
       // ever allow ParseTimestamp on bytes, then we will need to
       // address this.
       {"%Y\0%m\0%d", TEST_FORMAT_DATE, "2011\012\031", EXPECT_ERROR},
-      // This should fail since there is no month in the timestamp std::string.
+      // This should fail since there is no month in the timestamp string.
       {"%Y\0%m", TEST_FORMAT_DATE, "2012", "2012-01-01"},
-      // This should fail since there is no null byte in the timestamp std::string.
+      // This should fail since there is no null byte in the timestamp string.
       {"%Y\0", TEST_FORMAT_DATE, "2013", "2013-01-01"},
       // This should fail since there is an extra null byte in the timestamp.
       {"%Y", TEST_FORMAT_DATE, "2014\0", "2014-01-01"},
-      // This should fail since there is no day in the timestamp std::string.
+      // This should fail since there is no day in the timestamp string.
       // Note that the result does not include the month either.
       {"%Y\0%m\0%d", TEST_FORMAT_DATE, "2015\012", "2015-01-01"},
-      // This should fail since there is an extra day in the timestamp std::string.
+      // This should fail since there is an extra day in the timestamp string.
       {"%Y\0%m", TEST_FORMAT_DATE, "2016\012\031", EXPECT_ERROR},
 
       // Day names consume exactly the name or abbreviated name.
@@ -4290,15 +4295,15 @@ GetParseDateTimestampCommonTests() {
       {"%m%m", TEST_FORMAT_DATE, "212", EXPECT_ERROR},
       {"%m%m", TEST_FORMAT_DATE, "912", EXPECT_ERROR},
 
-      // We can run format elements together, and successfully parse the std::string
+      // We can run format elements together, and successfully parse the string
       // as long as the maximum digits for each element are present in the
-      // std::string.
+      // string.
       {"%E4Y%m%d", TEST_FORMAT_DATE, "20050308", "2005-03-08"},
       // Same test as previous, succeeds because %Y will only consume 4 digits
       // if it is immediately followed by another format element.
       {"%Y%m%d", TEST_FORMAT_DATE, "20050308", "2005-03-08"},
       // Same test as previous, but this fails because %Y won't consume a
-      // 0-prefixed 5 digit std::string if immediately followed by another format
+      // 0-prefixed 5 digit string if immediately followed by another format
       // element.
       {"%Y%m%d", TEST_FORMAT_DATE, "020050308", EXPECT_ERROR},
       // Same tests as the previous 2, but validateing behavior with %C.
@@ -4374,13 +4379,13 @@ GetParseDateTimestampCommonTests() {
       {"%Ez", TEST_FORMAT_TIMEZONE, "+14:00", "1970-01-01 00:00:00+14"},
       {"%Ez", TEST_FORMAT_TIMEZONE, "+14:01", EXPECT_ERROR},
 
-      // Beginning and trailing whitespaces in the timestamp std::string are
-      // ignored.  A space, '%t', or '%n' in the format std::string matches
-      // zero or more whitespaces in the timestamp std::string.
+      // Beginning and trailing whitespaces in the timestamp string are
+      // ignored.  A space, '%t', or '%n' in the format string matches
+      // zero or more whitespaces in the timestamp string.
       //
       // The whitespace format elements are ' ', '%t', and '%n'.
       //
-      // The currently supported whitespace characters in the timestamp std::string
+      // The currently supported whitespace characters in the timestamp string
       // are:
       //   space: ' '
       //   form feed: '\f'
@@ -4412,8 +4417,8 @@ GetParseDateTimestampCommonTests() {
       {"%Y- -%m", TEST_FORMAT_DATE, "2000- -04", kTestExpected20000401},
       {"%Y- -%m", TEST_FORMAT_DATE, "2000-  -04", kTestExpected20000401},
 
-      // If there is no space in the format std::string, there cannot be one in
-      // the timestamp std::string.  The following is an error.
+      // If there is no space in the format string, there cannot be one in
+      // the timestamp string.  The following is an error.
       {"%Y--%m", TEST_FORMAT_DATE, "2000- -04", EXPECT_ERROR},
 
       // Leading/trailing whitespace is ignored.
@@ -4822,7 +4827,7 @@ GetParseDateTimestampCommonTests() {
       {"a%%b", TEST_FORMAT_ANY, "a%%b", EXPECT_ERROR},
       {"a%%%%b", TEST_FORMAT_ANY, "a%%b", kTestExpected19700101},
 
-      // Supported format elements do not match the same std::string, since they
+      // Supported format elements do not match the same string, since they
       // expect a value that matches the element.
       {"%Y", TEST_FORMAT_ANY, "%Y", EXPECT_ERROR},
       {"%Q", TEST_FORMAT_ANY, "%Q", EXPECT_ERROR},
@@ -4873,7 +4878,7 @@ GetParseDateTimestampCommonTests() {
       {"%Q", TEST_FORMAT_DATE, "-1", EXPECT_ERROR},
 
       // %s (seconds since ZetaSQL epoch) overrides all other format elements,
-      // regardless of where it occurs in the std::string.
+      // regardless of where it occurs in the string.
       {"%Y-%m-%d %H:%M:%E6S%Ez %s", TEST_FORMAT_TIMEZONE,
        "2000-02-03 12:34:56.123456+06:30 0", "1970-01-01 00:00:00+00"},
       {"%s %Y-%m-%d %H:%M:%E6S%Ez", TEST_FORMAT_TIMEZONE,
@@ -5240,8 +5245,8 @@ class ParseTimestampTest {
   }
 
  private:
-  std::string format_;                // format std::string
-  std::string timestamp_string_;      // timestamp std::string to parse
+  std::string format_;                // format string
+  std::string timestamp_string_;      // timestamp string to parse
   std::string default_time_zone_;     // default time zone
   std::string expected_result_;       // "" indicates an error is expected
   std::string nano_expected_result_;  // "" indicates an error is expected
@@ -5263,7 +5268,7 @@ static std::vector<ParseTimestampTest> GetParseTimestampSpecificTests() {
       {"", "", "invalid_time_zone", EXPECT_ERROR},
       {"", "", "", EXPECT_ERROR},
 
-      // Tests that %Ez accepts 'Z' in the timestamp std::string.  This first
+      // Tests that %Ez accepts 'Z' in the timestamp string.  This first
       // test is the original test case for b/31088612.
       {"%Y-%m-%dT%H:%M:%E3S%Ez", "2016-06-30T00:00:00.000Z", "UTC",
        "2016-06-30 00:00:00 UTC"},
@@ -5271,7 +5276,7 @@ static std::vector<ParseTimestampTest> GetParseTimestampSpecificTests() {
        "2016-08-24 12:34:56 UTC"},
       {"%Y-%m-%d %H:%M:%E6S%Ez", "2016-08-24 12:34:56.123456Z", "UTC",
        "2016-08-24 12:34:56.123456 UTC"},
-      // Since the time zone is in the parse std::string, the default time zone
+      // Since the time zone is in the parse string, the default time zone
       // is irrelevant.
       {"%Ez", "Z", "America/Los_Angeles", "1970-01-01 00:00:00 UTC"},
 
@@ -5286,7 +5291,7 @@ static std::vector<ParseTimestampTest> GetParseTimestampSpecificTests() {
       {"%Ez", "ZZ", "UTC", EXPECT_ERROR},
       {"%Ez", "Z1", "UTC", EXPECT_ERROR},
       {"%Ez", "Za", "UTC", EXPECT_ERROR},
-      // But if the extra stuff is in the format std::string, then it is ok.
+      // But if the extra stuff is in the format string, then it is ok.
       {"%Eza", "Za", "UTC", "1970-01-01 00:00:00 UTC"},
       // And the %Ez can be embedded between other format elements.
       {"%Y-%Ez-%m", "2016-Z-04", "UTC", "2016-04-01 00:00:00 UTC"},
@@ -5345,7 +5350,7 @@ static std::vector<ParseTimestampTest> GetParseTimestampSpecificTests() {
   return tests;
 }
 
-// The format std::string in the test cases returned by this function should only
+// The format string in the test cases returned by this function should only
 // have the element "%E*S" or "%E#S".
 static std::vector<ParseTimestampTest> GetParseNanoTimestampSensitiveTests() {
   const char kTestExpected01123456[] = "1970-01-01 00:00:01.123456";
@@ -5558,7 +5563,7 @@ static std::vector<FunctionTestCall> GetFunctionTestsParseDatetime() {
     } else {
       expected_string = test.expected_result;
     }
-    // Assuming that expected_string is a well constructed datetime std::string.
+    // Assuming that expected_string is a well constructed datetime string.
     DatetimeValue datetime;
     ZETASQL_CHECK_OK(functions::ConvertStringToDatetime(expected_string, kMicroseconds,
                                                 &datetime));
@@ -5569,25 +5574,25 @@ static std::vector<FunctionTestCall> GetFunctionTestsParseDatetime() {
 
   // Add nano test cases.
   for (const ParseTimestampTest& test : GetParseNanoTimestampSensitiveTests()) {
-    auto ConvertTimestampStringToDatetime = [](const std::string& timestamp_string,
-                                               const std::string& timezone_string,
-                                               functions::TimestampScale
-                                                   scale) {
-      if (IsExpectedError(timestamp_string)) {
-        return zetasql_base::StatusOr<Value>(FunctionEvalError());
-      }
-      absl::Time timestamp;
-      absl::TimeZone timezone;
-      ZETASQL_CHECK_OK(functions::MakeTimeZone(timezone_string, &timezone));
-      ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
-          timestamp_string, timezone, scale, false /* allow_tz_in_str */,
-          &timestamp));
-      DatetimeValue datetime;
-      ZETASQL_CHECK_OK(functions::ConvertTimestampToDatetime(timestamp, timezone,
-                                                     &datetime));
-      CHECK(datetime.IsValid());
-      return zetasql_base::StatusOr<Value>(Value::Datetime(datetime));
-    };
+    auto ConvertTimestampStringToDatetime =
+        [](const std::string& timestamp_string,
+           const std::string& timezone_string,
+           functions::TimestampScale scale) {
+          if (IsExpectedError(timestamp_string)) {
+            return zetasql_base::StatusOr<Value>(FunctionEvalError());
+          }
+          absl::Time timestamp;
+          absl::TimeZone timezone;
+          ZETASQL_CHECK_OK(functions::MakeTimeZone(timezone_string, &timezone));
+          ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
+              timestamp_string, timezone, scale, false /* allow_tz_in_str */,
+              &timestamp));
+          DatetimeValue datetime;
+          ZETASQL_CHECK_OK(functions::ConvertTimestampToDatetime(timestamp, timezone,
+                                                         &datetime));
+          CHECK(datetime.IsValid());
+          return zetasql_base::StatusOr<Value>(Value::Datetime(datetime));
+        };
     test_cases.push_back(CivilTimeTestCase(
         {String(test.format()), String(test.timestamp_string())},
         ConvertTimestampStringToDatetime(
@@ -5613,9 +5618,9 @@ static std::vector<ParseTimestampTest> GetParseTimestampTests() {
 }
 
 struct ParseDateTest {
-  std::string format_string;    // format std::string
-  std::string date_string;      // date std::string to parse
-  std::string expected_result;  // expected output std::string
+  std::string format_string;    // format string
+  std::string date_string;      // date string to parse
+  std::string expected_result;  // expected output string
 };
 
 static std::vector<ParseDateTest> GetParseDateTests() {
@@ -6361,6 +6366,10 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampConversion() {
       {"timestamp", {NullString(), "+00"}, NullTimestamp()},
       // Returns NULL on NULL input, even if the time zone is invalid.
       {"timestamp", {NullString(), "invalid time zone"}, NullTimestamp()},
+      {"timestamp",
+       {String("2000-01-01"), /*timezone=*/""},
+       NullTimestamp(),
+       OUT_OF_RANGE},
       {"unix_seconds", {NullTimestamp()}, NullInt64()},
       {"unix_millis", {NullTimestamp()}, NullInt64()},
       {"unix_micros", {NullTimestamp()}, NullInt64()},

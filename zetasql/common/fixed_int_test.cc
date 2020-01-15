@@ -14,17 +14,39 @@
 // limitations under the License.
 //
 
+// The tests are organized as following:
+// 1) TYPED_TEST(Fixed{Uint|Int}GoldenDataTest, *) tests
+//    Fixed{Int|Uint}<64,2> and Fixed{Int|Uint}<32,4> using hand-crafted
+//    golden inputs and expected outputs;
+// 2) TYPED_TEST(Fixed{Uint|Int}GeneratedDataTest, *) tests
+//    Fixed{Int|Uint}{<64,2>|<64,3>|<32,4>|<32,5>} with generated inputs
+//    and derived expectations using native types;
+// 3) TEST(Fixed{Uint|Int}Test, *) tests Fixed{Int|Uint} with template
+//    parameters not fit into either of the above 2 categories.
+//
+// Most methods should be tested with 2), which has higher coverage than 1), but
+// if the derivation logic is not trivial, then 1) is also necessary.
+
 #include "zetasql/common/fixed_int.h"
 
 #include <functional>
+#include <limits>
 #include <sstream>
 #include <string>
+#include <type_traits>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include <cstdint>
 #include "absl/base/macros.h"
+#include "absl/hash/hash.h"
+#include "absl/hash/hash_testing.h"
 #include "absl/numeric/int128.h"
 #include "absl/random/random.h"
+#include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/optional.h"
 #include "zetasql/base/mathutil.h"
 
 namespace std {
@@ -50,6 +72,9 @@ constexpr int64_t kint64min = ~kint64max;
 constexpr uint64_t kuint32max = ~static_cast<uint32_t>(0);
 constexpr int64_t kint32max = kuint32max >> 1;
 constexpr int64_t kint32min = ~kint32max;
+constexpr uint32_t k1e9 = 1000000000;
+constexpr uint64_t k1e15 = 1000000000000000ULL;
+constexpr uint128 k1e30 = uint128{k1e15} * k1e15;
 
 template <typename V>
 constexpr V max128();
@@ -81,55 +106,333 @@ constexpr uint64_t kSorted64BitValues[] = {
     0,
     1,
     1000,
-    (1ull << 32) - 1,
+    kint32max,
+    (1ull << 31),
+    kuint32max,
     (1ull << 32),
-    (1ull << 63) - 1,
+    kint64max,
     (1ull << 63),
     kuint64max,
 };
 
-constexpr std::pair<int64_t, absl::string_view>
-    kSortedSerializedSigned64BitValues[] = {
-        {-4294967296, {"\x00\x00\x00\x00\xff", 5}},
-        {-16777216, {"\x00\x00\x00\xff", 4}},
-        {-65536, {"\x00\x00\xff", 3}},
-        {-32512, {"\x00\x81", 2}},
-        {-32768, {"\x00\x80", 2}},
-        {-1000, {"\x18\xfc", 2}},
-        {-256, {"\x00\xff", 2}},
-        {0, {"\x00", 1}},
-        {1, {"\x01", 1}},
-        {255, {"\xff\x00", 2}},
-        {256, {"\x00\x01", 2}},
-        {1000, {"\xe8\x03", 2}},
-        {32768, {"\x00\x80\x00", 3}},
-        {65536, {"\x00\x00\x01", 3}},
-        {16777216, {"\x00\x00\x00\x01", 4}},
-        {(1LL << 32) - 1, {"\xff\xff\xff\xff\x00", 5}},
-        {(1LL << 32), {"\x00\x00\x00\x00\x01", 5}},
-        {kint64max, {"\xff\xff\xff\xff\xff\xff\xff\x7f", 8}},
-        {kint64min, {"\x00\x00\x00\x00\x00\x00\x00\x80", 8}},
-        {-1, {"\xff", 1}},
+template <typename V>
+struct BinaryOpTestData {
+  static_assert(std::is_same_v<V, int128> || std::is_same_v<V, uint128>);
+  V input1;
+  V input2;
+  V expected_result;
+  bool expected_overflow = false;
 };
 
-constexpr std::pair<uint64_t, absl::string_view>
-    kSortedSerializedUnsigned64BitValues[] = {
-        {0, {"\x00", 1}},
-        {1, {"\x01", 1}},
-        {255, {"\xff", 1}},
-        {256, {"\x00\x01", 2}},
-        {1000, {"\xe8\x03", 2}},
-        {32768, {"\x00\x80", 2}},
-        {65536, {"\x00\x00\x01", 3}},
-        {16777216, {"\x00\x00\x00\x01", 4}},
-        {(1ULL << 32) - 1, {"\xff\xff\xff\xff", 4}},
-        {(1ULL << 32), {"\x00\x00\x00\x00\x01", 5}},
-        {(1ULL << 63) - 1, {"\xff\xff\xff\xff\xff\xff\xff\x7f", 8}},
-        {(1ULL << 63), {"\x00\x00\x00\x00\x00\x00\x00\x80", 8}},
-        {kuint64max, {"\xff\xff\xff\xff\xff\xff\xff\xff", 8}},
+// The TYPED_TEST(FixedUintGoldenDataTest, Add) will test input1 + input2 and
+// input2 + input1, so the entries below should have abs(input1) <= abs(input2).
+constexpr BinaryOpTestData<uint128> kUnsignedAddTestData[] = {
+    {0, 0, 0},
+    {0, 1, 1},
+    {1, 1, 2},
+    {10, 20, 30},
+    {1, kint32max, static_cast<uint128>(1) << 31},
+    {1, kuint32max, static_cast<uint128>(1) << 32},
+    {1, kint64max, static_cast<uint128>(1) << 63},
+    {1, kuint64max, static_cast<uint128>(1) << 64},
+    {1, kint128max, static_cast<uint128>(1) << 127},
+    {0, kuint128max, kuint128max},
+    {1, kuint128max - 1, kuint128max},
+    {1, kuint128max, 0, /* overflow */ true},
+    {kint128max, kint128max, kuint128max - 1},
+    {kint128max / 2, kint128max / 2 + 1, kint128max},
+    {kuint128max / 2 + 1, kint128max, kuint128max},
+    {kint128max, kuint128max, kint128max - 1, /* overflow */ true},
+    {kuint128max, kuint128max, kuint128max - 1, /* overflow */ true},
 };
 
-constexpr int64_t kFixedIntCastDoubleTestData64[] = {
+// The TYPED_TEST(FixedIntGoldenDataTest, Add) will test input1 + input2 and
+// input2 + input1, as well as the negated values (as long as int128min is not
+// involved), so the entries below should have abs(input1) <= abs(input2),
+// and should not include negative inputs unless one of values is int128min.
+constexpr BinaryOpTestData<int128> kSignedAddTestData[] = {
+    {0, 0, 0},
+    {0, 1, 1},
+    {1, 1, 2},
+    {10, 20, 30},
+    {1, kint32max, static_cast<int128>(1) << 31},
+    {1, kuint32max, static_cast<int128>(1) << 32},
+    {1, kint64max, static_cast<int128>(1) << 63},
+    {1, kuint64max, static_cast<int128>(1) << 64},
+    {0, kint128max, kint128max},
+    {1, kint128max - 1, kint128max},
+    {kint128max / 2, kint128max / 2 + 1, kint128max},
+    {kint128max, kint128max, -2, /* overflow */ true},
+
+    // Values involing kint128min.
+    {1, kint128max, kint128min, /* overflow */ true},
+    {-1, -kint128max, kint128min},
+    {kint128min / 2, kint128min / 2, kint128min},
+    {0, kint128min, kint128min},
+    {-1, kint128min + 1, kint128min},
+    {-1, kint128min, kint128max, /* overflow */ true},
+    {kint128min, kint128min, 0, /* overflow */ true},
+    {kint128max, kint128min, -1},
+};
+
+constexpr BinaryOpTestData<uint128> kUnsignedMultiplyTestData[] = {
+    {0, 0, 0},
+    {0, 1, 0},
+    {0, kint32max, 0},
+    {0, kuint32max, 0},
+    {0, kint64max, 0},
+    {0, kuint64max, 0},
+    {0, kint128max, 0},
+    {0, kuint128max, 0},
+    {1, 1, 1},
+    {1, kint32max, kint32max},
+    {1, kuint32max, kuint32max},
+    {1, kint64max, kint64max},
+    {1, kuint64max, kuint64max},
+    {1, kint128max, kint128max},
+    {1, kuint128max, kuint128max},
+    {2, 5, 10},
+    {2, kint32max, kuint32max - 1},
+    {2, kuint32max, 2 * static_cast<uint128>(kuint32max)},
+    {2, kint64max, kuint64max - 1},
+    {2, kuint64max, 2 * static_cast<uint128>(kuint64max)},
+    {2, kint128max, kuint128max - 1},
+    {2, kuint128max, kuint128max - 1, /* overflow */ true},
+    {uint128{1} << 38, uint128{19073486328125ULL} * 19073486328125ULL,
+     uint128{10000000000000000000ULL} * 10000000000000000000ULL},
+    {uint128{10000000000000000000ULL}, uint128{10000000000000000000ULL},
+     uint128{10000000000000000000ULL} * 10000000000000000000ULL},
+    {kint32max, kint64max, (uint128{1} << 94) - kint32max - kint64max - 1},
+    {kuint32max, kuint64max, (uint128{1} << 96) - kuint32max - kuint64max - 1},
+    {kuint64max, kuint64max, kuint128max - kuint64max - kuint64max},
+    {uint128{1} << 64, uint128{1} << 64, 0, /* overflow */ true},
+    {kint128max, kint128max, 1, /* overflow */ true},
+    {uint128{1} << 127, uint128{1} << 127, 0, /* overflow */ true},
+    {kuint128max, kuint128max, 1, /* overflow */ true},
+};
+
+constexpr BinaryOpTestData<int128> kSignedMultiplyTestData[] = {
+    {0, 0, 0},
+    {0, 1, 0},
+    {0, kint32max, 0},
+    {0, kuint32max, 0},
+    {0, kint64max, 0},
+    {0, kuint64max, 0},
+    {0, kint128max, 0},
+    {1, 1, 1},
+    {1, kint32max, kint32max},
+    {1, kuint32max, kuint32max},
+    {1, kint64max, kint64max},
+    {1, kuint64max, kuint64max},
+    {1, kint128max, kint128max},
+    {2, 5, 10},
+    {2, kint32max, kuint32max - 1},
+    {2, kuint32max, 2 * static_cast<int128>(kuint32max)},
+    {2, kint64max, kuint64max - 1},
+    {2, kuint64max, 2 * static_cast<int128>(kuint64max)},
+    {2, kint128max, -2, /* overflow */ true},
+    {int128{1} << 38, int128{19073486328125LL} * 19073486328125LL,
+     uint128{10000000000000000000ULL} * 10000000000000000000ULL},
+    {int128{1000000000000000000LL}, int128{1000000000000000000LL},
+     int128{1000000000000000000LL} * 1000000000000000000LL},
+    {kint32max, kint64max, (int128{1} << 94) - kint32max - kint64max - 1},
+    {kuint32max, kuint64max, (int128{1} << 96) - kuint32max - kuint64max - 1},
+    {kint64max, kint64max, (int128{1} << 126) - kint64max - kint64max - 1},
+    {kuint64max, kuint64max, int128{-1} - kuint64max - kuint64max,
+     /* overflow */ true},
+    {kint128max, kint128max, 1, /* overflow */ true},
+
+    {0, kint128min, 0},
+    {1, kint128min, kint128min},
+    {2, kint128min, 0, /* overflow */ true},
+    {kint32max, kint128min, kint128min, /* overflow */ true},
+    {kint128min, kint128min, 0, /* overflow */ true},
+};
+
+template <typename V>
+struct DivModTestData {
+  V dividend;
+  V divisor;
+  V expected_quotient;
+  V expected_remainder;
+  V expected_rounded_quotient;
+  bool expected_overflow = false;
+};
+
+constexpr DivModTestData<uint128> kUnsignedDivModTestData[] = {
+    {0, 1, 0, 0, 0},
+    {0, 2, 0, 0, 0},
+    {0, kuint32max, 0, 0, 0},
+    {0, uint128{1} << 32, 0, 0, 0},
+    {0, kuint128max, 0, 0, 0},
+    {1, 1, 1, 0, 1},
+    {1, 2, 0, 1, 1},
+    {1, 3, 0, 1, 0},
+    {1, kuint32max, 0, 1, 0},
+    {1, uint128{1} << 32, 0, 1, 0},
+    {1, kuint128max, 0, 1, 0},
+    {2, 1, 2, 0, 2},
+    {2, 2, 1, 0, 1},
+    {2, 3, 0, 2, 1},
+    {2, kuint32max, 0, 2, 0},
+    {2, uint128{1} << 32, 0, 2, 0},
+    {2, kuint128max, 0, 2, 0},
+    {kint32max, kuint32max, 0, kint32max, 0},
+    {uint128{kint32max} + 1, kuint32max, 0, uint128{kint32max} + 1, 1},
+    {kuint32max, 1, kuint32max, 0, kuint32max},
+    {kuint32max, 2, kint32max, 1, uint128{1} << 31},
+    {kuint32max, kuint32max, 1, 0, 1},
+    {kuint32max, uint128{1} << 32, 0, kuint32max, 1},
+    {kuint32max, kuint128max, 0, kuint32max, 0},
+    {kuint64max, 1, kuint64max, 0, kuint64max},
+    {kuint64max, 2, kint64max, 1, uint128{1} << 63},
+    {kuint64max, kuint32max, uint128{kuint32max} + 2, 0,
+     uint128{kuint32max} + 2},
+    {kuint64max, uint128{1} << 32, kuint32max, kuint32max, uint128{1} << 32},
+    {kuint64max, kuint128max, 0, kuint64max, 0},
+    {uint128{1} << 64, 1, uint128{1} << 64, 0, uint128{1} << 64},
+    {uint128{1} << 64, 2, uint128{1} << 63, 0, uint128{1} << 63},
+    {uint128{1} << 64, kuint32max, uint128{kuint32max} + 2, 1,
+     uint128{kuint32max} + 2},
+    {uint128{1} << 64, uint128{1} << 32, uint128{1} << 32, 0, uint128{1} << 32},
+    {uint128{1} << 64, kuint128max, 0, uint128{1} << 64, 0},
+    {kint128max, kuint128max, 0, kint128max, 0},
+    {uint128{1} << 127, kuint128max, 0, uint128{1} << 127, 1},
+    {kuint128max, 1, kuint128max, 0, kuint128max},
+    {kuint128max, 2, kint128max, 1, uint128{1} << 127},
+    {kuint128max, uint128{1} << 32, kuint128max >> 32, kuint32max,
+     uint128{1} << 96},
+    {kuint128max, kuint128max, 1, 0, 1},
+
+    {1234567890123456789LL, 10, 123456789012345678LL, 9, 123456789012345679LL},
+    {1234567890123456789LL, 100, 12345678901234567LL, 89, 12345678901234568LL},
+    {1234567890123456789LL, 1000, 1234567890123456LL, 789, 1234567890123457LL},
+    {1234567890123456789LL, 10000, 123456789012345LL, 6789, 123456789012346LL},
+    {1234567890123456789LL, 100000, 12345678901234LL, 56789, 12345678901235LL},
+    {1234567890123456789LL, 1000000, 1234567890123LL, 456789, 1234567890123LL},
+    {1234567890123456789LL, 10000000, 123456789012LL, 3456789, 123456789012LL},
+    {1234567890123456789LL, 100000000, 12345678901LL, 23456789, 12345678901LL},
+    {1234567890123456789LL, 1000000000, 1234567890LL, 123456789, 1234567890LL},
+    {1234567890123456789LL, 10000000000LL, 123456789, 123456789, 123456789},
+    {1234567890123456789LL, 100000000000LL, 12345678, 90123456789LL, 12345679},
+    {1234567890123456789LL, 1000000000000LL, 1234567, 890123456789LL, 1234568},
+    {1234567890123456789LL, 10000000000000LL, 123456, 7890123456789LL, 123457},
+    {1234567890123456789LL, 100000000000000LL, 12345, 67890123456789LL, 12346},
+    {1234567890123456789LL, 1000000000000000LL, 1234, 567890123456789LL, 1235},
+    {1234567890123456789LL, 10000000000000000LL, 123, 4567890123456789LL, 123},
+    {1234567890123456789LL, 100000000000000000LL, 12, 34567890123456789LL, 12},
+    {1234567890123456789LL, 1000000000000000000LL, 1, 234567890123456789LL, 1},
+    {1234567890123456789LL, 10000000000000000000ULL, 0, 1234567890123456789LL,
+     0},
+};
+
+constexpr DivModTestData<int128> kSignedDivModTestData[] = {
+    {0, 1, 0, 0, 0},
+    {0, 2, 0, 0, 0},
+    {0, kint32max, 0, 0, 0},
+    {0, kuint32max, 0, 0, 0},
+    {0, int128{1} << 32, 0, 0, 0},
+    {0, kint128max, 0, 0, 0},
+    {1, 1, 1, 0, 1},
+    {1, 2, 0, 1, 1},
+    {1, 3, 0, 1, 0},
+    {1, kint32max, 0, 1, 0},
+    {1, kuint32max, 0, 1, 0},
+    {1, int128{1} << 32, 0, 1, 0},
+    {1, kint128max, 0, 1, 0},
+    {2, 1, 2, 0, 2},
+    {2, 2, 1, 0, 1},
+    {2, 3, 0, 2, 1},
+    {2, kint32max, 0, 2, 0},
+    {2, kuint32max, 0, 2, 0},
+    {2, int128{1} << 32, 0, 2, 0},
+    {2, kint128max, 0, 2, 0},
+    {kint32max, kuint32max, 0, kint32max, 0},
+    {int128{kint32max} + 1, kuint32max, 0, int128{kint32max} + 1, 1},
+    {kuint32max, 1, kuint32max, 0, kuint32max},
+    {kuint32max, 2, kint32max, 1, int128{1} << 31},
+    {kuint32max, kint32max, 2, 1, 2},
+    {kuint32max, kuint32max, 1, 0, 1},
+    {kuint32max, int128{1} << 32, 0, kuint32max, 1},
+    {kuint32max, kint128max, 0, kuint32max, 0},
+    {kuint64max, 1, kuint64max, 0, kuint64max},
+    {kuint64max, 2, kint64max, 1, int128{1} << 63},
+    {kuint64max, kint32max, (int128{1} << 33) + 4, 3, (int128{1} << 33) + 4},
+    {kuint64max, kuint32max, int128{kuint32max} + 2, 0, int128{kuint32max} + 2},
+    {kuint64max, int128{1} << 32, kuint32max, kuint32max, int128{1} << 32},
+    {kuint64max, kint128max, 0, kuint64max, 0},
+    {int128{1} << 64, 1, int128{1} << 64, 0, int128{1} << 64},
+    {int128{1} << 64, 2, int128{1} << 63, 0, int128{1} << 63},
+    {int128{1} << 64, kint32max, (int128{1} << 33) + 4, 4,
+     (int128{1} << 33) + 4},
+    {int128{1} << 64, kuint32max, int128{kuint32max} + 2, 1,
+     int128{kuint32max} + 2},
+    {int128{1} << 64, int128{1} << 32, int128{1} << 32, 0, int128{1} << 32},
+    {int128{1} << 64, kint128max, 0, int128{1} << 64, 0},
+    {kint128max >> 1, kint128max, 0, kint128max >> 1, 0},
+    {uint128{1} << 126, kint128max, 0, uint128{1} << 126, 1},
+    {kint128max, 1, kint128max, 0, kint128max},
+    {kint128max, 2, kint128max >> 1, 1, int128{1} << 126},
+    {kint128max, kint32max,
+     (int128{1} << 96) + (int128{1} << 65) + (int128{1} << 34) + 8, 7,
+     (int128{1} << 96) + (int128{1} << 65) + (int128{1} << 34) + 8},
+    {kint128max, kuint32max,
+     (int128{1} << 95) + (int128{1} << 63) + (int128{1} << 31), kint32max,
+     (int128{1} << 95) + (int128{1} << 63) + (int128{1} << 31)},
+    {kint128max, int128{1} << 32, kint128max >> 32, kuint32max,
+     int128{1} << 95},
+    {kint128max, kint128max, 1, 0, 1},
+
+    {1234567890123456789LL, 10, 123456789012345678LL, 9, 123456789012345679LL},
+    {1234567890123456789LL, 100, 12345678901234567LL, 89, 12345678901234568LL},
+    {1234567890123456789LL, 1000, 1234567890123456LL, 789, 1234567890123457LL},
+    {1234567890123456789LL, 10000, 123456789012345LL, 6789, 123456789012346LL},
+    {1234567890123456789LL, 100000, 12345678901234LL, 56789, 12345678901235LL},
+    {1234567890123456789LL, 1000000, 1234567890123LL, 456789, 1234567890123LL},
+    {1234567890123456789LL, 10000000, 123456789012LL, 3456789, 123456789012LL},
+    {1234567890123456789LL, 100000000, 12345678901LL, 23456789, 12345678901LL},
+    {1234567890123456789LL, 1000000000, 1234567890LL, 123456789, 1234567890LL},
+    {1234567890123456789LL, 10000000000LL, 123456789, 123456789, 123456789},
+    {1234567890123456789LL, 100000000000LL, 12345678, 90123456789LL, 12345679},
+    {1234567890123456789LL, 1000000000000LL, 1234567, 890123456789LL, 1234568},
+    {1234567890123456789LL, 10000000000000LL, 123456, 7890123456789LL, 123457},
+    {1234567890123456789LL, 100000000000000LL, 12345, 67890123456789LL, 12346},
+    {1234567890123456789LL, 1000000000000000LL, 1234, 567890123456789LL, 1235},
+    {1234567890123456789LL, 10000000000000000LL, 123, 4567890123456789LL, 123},
+    {1234567890123456789LL, 100000000000000000LL, 12, 34567890123456789LL, 12},
+    {1234567890123456789LL, 1000000000000000000LL, 1, 234567890123456789LL, 1},
+    {1234567890123456789LL, 10000000000000000000ULL, 0, 1234567890123456789LL,
+     0},
+
+    {0, kint128min, 0, 0, 0},
+    {1, kint128min, 0, 1, 0},
+    {-1, kint128min, 0, -1, 0},
+    {kint128max, kint128min, 0, kint128max, -1},
+    {-kint128max, kint128min, 0, -kint128max, 1},
+    {kint128min, 1, kint128min, 0, kint128min},
+    {kint128min, -1, kint128min, 0, kint128min, /* overflow */ true},
+    {kint128min, 2, -(int128{1} << 126), 0, -(int128{1} << 126)},
+    {kint128min, -2, (int128{1} << 126), 0, (int128{1} << 126)},
+    {kint128min, kint32max,
+     -(int128{1} << 96) - (int128{1} << 65) - (int128{1} << 34) - 8, -8,
+     -(int128{1} << 96) - (int128{1} << 65) - (int128{1} << 34) - 8},
+    {kint128min, -kint32max,
+     (int128{1} << 96) + (int128{1} << 65) + (int128{1} << 34) + 8, -8,
+     (int128{1} << 96) + (int128{1} << 65) + (int128{1} << 34) + 8},
+    {kint128min, kuint32max,
+     -(int128{1} << 95) - (int128{1} << 63) - (int128{1} << 31),
+     -(int128{1} << 31),
+     -(int128{1} << 95) - (int128{1} << 63) - (int128{1} << 31) - 1},
+    {kint128min, -int128{kuint32max},
+     (int128{1} << 95) + (int128{1} << 63) + (int128{1} << 31),
+     -(int128{1} << 31),
+     (int128{1} << 95) + (int128{1} << 63) + (int128{1} << 31) + 1},
+    {kint128min, int128{1} << 32, -(int128{1} << 95), 0, -(int128{1} << 95)},
+    {kint128min, -(int128{1} << 32), int128{1} << 95, 0, int128{1} << 95},
+    {kint128min, kint128min, 1, 0, 1},
+};
+
+constexpr int64_t kCastDoubleTestData64[] = {
     0,
     // * Lowest 53 bits set
     0x1fffffffffffff,
@@ -157,7 +460,7 @@ constexpr int64_t kFixedIntCastDoubleTestData64[] = {
     0x1ffffffffffff,
 };
 
-constexpr int128 kFixedIntCastDoubleTestData128[] = {
+constexpr int128 kCastDoubleTestData128[] = {
     static_cast<int128>(absl::MakeUint128(0, 0)),
     // * Lowest 53 bits set
     static_cast<int128>(absl::MakeUint128(0, 0x1fffffffffffff)),
@@ -213,6 +516,567 @@ constexpr int128 kFixedIntCastDoubleTestData128[] = {
     static_cast<int128>(absl::MakeUint128(0x1fffffffffffff, 0)),
 };
 
+constexpr std::pair<int128, absl::string_view> kSerializedSignedValues[] = {
+    {kint128min,
+     {"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80", 16}},
+    {kint64min, {"\x00\x00\x00\x00\x00\x00\x00\x80", 8}},
+    {-4294967296, {"\x00\x00\x00\x00\xff", 5}},
+    {-16777216, {"\x00\x00\x00\xff", 4}},
+    {-65536, {"\x00\x00\xff", 3}},
+    {-32512, {"\x00\x81", 2}},
+    {-32768, {"\x00\x80", 2}},
+    {-1000, {"\x18\xfc", 2}},
+    {-256, {"\x00\xff", 2}},
+    {-1, {"\xff", 1}},
+    {0, {"\x00", 1}},
+    {1, {"\x01", 1}},
+    {255, {"\xff\x00", 2}},
+    {256, {"\x00\x01", 2}},
+    {1000, {"\xe8\x03", 2}},
+    {32768, {"\x00\x80\x00", 3}},
+    {65536, {"\x00\x00\x01", 3}},
+    {16777216, {"\x00\x00\x00\x01", 4}},
+    {(1LL << 32) - 1, {"\xff\xff\xff\xff\x00", 5}},
+    {(1LL << 32), {"\x00\x00\x00\x00\x01", 5}},
+    {kint64max, "\xff\xff\xff\xff\xff\xff\xff\x7f"},
+    {kint128max,
+     "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x7f"},
+};
+
+constexpr std::pair<uint128, absl::string_view> kSerializedUnsignedValues[] = {
+    {0, {"\x00", 1}},
+    {1, {"\x01", 1}},
+    {255, {"\xff", 1}},
+    {256, {"\x00\x01", 2}},
+    {1000, {"\xe8\x03", 2}},
+    {32768, {"\x00\x80", 2}},
+    {65536, {"\x00\x00\x01", 3}},
+    {16777216, {"\x00\x00\x00\x01", 4}},
+    {(1ULL << 32) - 1, {"\xff\xff\xff\xff", 4}},
+    {(1ULL << 32), {"\x00\x00\x00\x00\x01", 5}},
+    {(1ULL << 63) - 1, {"\xff\xff\xff\xff\xff\xff\xff\x7f", 8}},
+    {(1ULL << 63), {"\x00\x00\x00\x00\x00\x00\x00\x80", 8}},
+    {kuint64max, "\xff\xff\xff\xff\xff\xff\xff\xff"},
+    {kuint128max,
+     "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"},
+};
+
+constexpr absl::string_view kInvalidSerialized128BitValues[] = {
+    {"", 0},
+    "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
+};
+
+constexpr std::pair<int128, absl::string_view> kSortedStringSignedValues[] = {
+    {kint128min, "-170141183460469231731687303715884105728"},
+    {kint64min, "-9223372036854775808"},
+    {-281474976710656, "-281474976710656"},
+    {-4294967296, "-4294967296"},
+    {-268435456, "-268435456"},
+    {-16777216, "-16777216"},
+    {-65536, "-65536"},
+    {-32512, "-32512"},
+    {-32768, "-32768"},
+    {-1000, "-1000"},
+    {-256, "-256"},
+    {-1, "-1"},
+    {0, "0"},
+    {1, "1"},
+    {255, "255"},
+    {256, "256"},
+    {1000, "1000"},
+    {32768, "32768"},
+    {65536, "65536"},
+    {16777216, "16777216"},
+    {268435456, "268435456"},
+    {(1LL << 32) - 1, "4294967295"},
+    {(1LL << 32), "4294967296"},
+    {281474976710656, "281474976710656"},
+    {kint64max, "9223372036854775807"},
+    {kint64max, "9223372036854775807"},
+    {kint128max, "170141183460469231731687303715884105727"},
+};
+
+constexpr std::pair<uint128, absl::string_view> kSortedStringUnsignedValues[] =
+    {
+        {0, "0"},
+        {1, "1"},
+        {255, "255"},
+        {256, "256"},
+        {1000, "1000"},
+        {32768, "32768"},
+        {65536, "65536"},
+        {16777216, "16777216"},
+        {268435456, "268435456"},
+        {(1LL << 32) - 1, "4294967295"},
+        {(1LL << 32), "4294967296"},
+        {281474976710656, "281474976710656"},
+        {(1ULL << 63) - 1, "9223372036854775807"},
+        {(1ULL << 63), "9223372036854775808"},
+        {kuint64max, "18446744073709551615"},
+        {kuint128max, "340282366920938463463374607431768211455"},
+};
+
+constexpr std::pair<uint128, absl::string_view>
+    kSortedStringNonCanonicalValues[] = {
+        // Here number with 0 prefixes will not be parsed as an octal number.
+        {0, "0000000000000000000000000"},
+        {1, "0000000000000000000000001"},
+        {kuint64max, "0000000000000000000018446744073709551615"},
+};
+
+constexpr absl::string_view kInvalidStringSigned128BitValues[] = {
+    "",
+    "-",
+    "1.0",
+    "-1.0",
+    "1e2",
+    "-1e2",
+    "1.0e2",
+    "-1.0e2",
+    "+1",
+    " 1",
+    "1 ",
+    "1 1",
+    "0b1",
+    "0x1",
+    // -2^127 - 1
+    "-170141183460469231731687303715884105729",
+    // 2^127
+    "170141183460469231731687303715884105728",
+    // Valid numeric string + non-numeric characters
+    "-170141183460469231731687303715884105728Invalid",
+    "170141183460469231731687303715884105727Invalid",
+    // Non-numeric string
+    "Invalid",
+    "-Invalid",
+    "nan",
+    "inf",
+    "-inf",
+};
+
+constexpr absl::string_view kInvalidStringUnsigned128BitValues[] = {
+    "",
+    "-",
+    "-1",
+    "1.0",
+    "1e2",
+    "1.0e2",
+    "+1",
+    " 1",
+    "1 ",
+    "1 1",
+    "0b1",
+    "0x1",
+    // 2^128
+    "340282366920938463463374607431768211456",
+    // Valid numeric string + non-numeric characters
+    "340282366920938463463374607431768211455Invalid"
+    // Non-numeric string
+    "Invalid",
+    "nan",
+    "inf",
+};
+
+constexpr std::pair<uint128, int> kFindMSBSetNonZeroTestData[] = {
+    {0, 0},
+    {1, 0},
+    {0x10000, 16},
+    {0x1ffff, 16},
+    {0x40000, 18},
+    {0x4ff00, 18},
+    {0x10000000000000, 52},
+    {0x123456789abcde, 52},
+    {kuint64max, 63},
+    {uint128{1} << 127, 127},
+    {kuint128max, 127},
+};
+
+template <typename TypeParam>
+class FixedUintGoldenDataTest : public ::testing::Test {};
+
+template <typename TypeParam>
+class FixedIntGoldenDataTest : public ::testing::Test {};
+
+using FixedUint128Types = ::testing::Types<FixedUint<64, 2>, FixedUint<32, 4>>;
+TYPED_TEST_SUITE(FixedUintGoldenDataTest, FixedUint128Types);
+
+using FixedInt128Types = ::testing::Types<FixedInt<64, 2>, FixedInt<32, 4>>;
+TYPED_TEST_SUITE(FixedIntGoldenDataTest, FixedInt128Types);
+
+template <typename T, typename V, typename RhsType>
+void TestAdd(V x, V y, T expected_sum, bool expected_overflow) {
+  T lhs(x);
+  const RhsType rhs(y);
+  T& result = (lhs += rhs);
+  EXPECT_EQ(&result, &lhs);
+  EXPECT_EQ(lhs, expected_sum) << std::hex << std::showbase << x << " + " << y;
+
+  lhs = T(x);
+  EXPECT_EQ(lhs.AddOverflow(rhs), expected_overflow)
+      << std::hex << std::showbase << x << " AddOverflow " << y;
+  EXPECT_EQ(lhs, expected_sum)
+      << std::hex << std::showbase << x << " AddOverflow " << y;
+}
+
+template <typename T, typename V>
+void TestAddWithVariousRhsTypes(V x, V y, T expected_sum,
+                                bool expected_overflow) {
+  TestAdd<T, V, T>(x, y, expected_sum, expected_overflow);
+  using Word = typename T::Word;
+  if (y >= std::numeric_limits<Word>::min() &&
+      y <= std::numeric_limits<Word>::max()) {
+    TestAdd<T, V, Word>(x, y, expected_sum, expected_overflow);
+  }
+  using UnsignedWord = typename T::UnsignedWord;
+  if (!std::is_same_v<UnsignedWord, Word> &&
+      y >= std::numeric_limits<UnsignedWord>::min() &&
+      y <= std::numeric_limits<UnsignedWord>::max()) {
+    TestAdd<T, V, UnsignedWord>(x, y, expected_sum, expected_overflow);
+  }
+}
+
+TYPED_TEST(FixedUintGoldenDataTest, Add) {
+  using T = TypeParam;
+  for (const BinaryOpTestData<uint128>& item : kUnsignedAddTestData) {
+    const uint128 x = item.input1;
+    const uint128 y = item.input2;
+    const uint128 sum = item.expected_result;
+    TestAddWithVariousRhsTypes(x, y, T(sum), item.expected_overflow);
+    TestAddWithVariousRhsTypes(y, x, T(sum), item.expected_overflow);
+  }
+}
+
+TYPED_TEST(FixedIntGoldenDataTest, Add) {
+  using T = TypeParam;
+  for (const BinaryOpTestData<int128>& item : kSignedAddTestData) {
+    const int128 x = item.input1;
+    const int128 y = item.input2;
+    const int128 sum = item.expected_result;
+    TestAddWithVariousRhsTypes(x, y, T(sum), item.expected_overflow);
+    TestAddWithVariousRhsTypes(y, x, T(sum), item.expected_overflow);
+
+    if (x != kint128min && y != kint128min && sum != kint128min) {
+      TestAddWithVariousRhsTypes(-x, -y, T(-sum), item.expected_overflow);
+      TestAddWithVariousRhsTypes(-y, -x, T(-sum), item.expected_overflow);
+
+      TestAddWithVariousRhsTypes(sum, -x, T(y), item.expected_overflow);
+      TestAddWithVariousRhsTypes(-x, sum, T(y), item.expected_overflow);
+      TestAddWithVariousRhsTypes(sum, -y, T(x), item.expected_overflow);
+      TestAddWithVariousRhsTypes(-y, sum, T(x), item.expected_overflow);
+
+      TestAddWithVariousRhsTypes(-sum, x, T(-y), item.expected_overflow);
+      TestAddWithVariousRhsTypes(x, -sum, T(-y), item.expected_overflow);
+      TestAddWithVariousRhsTypes(-sum, y, T(-x), item.expected_overflow);
+      TestAddWithVariousRhsTypes(y, -sum, T(-x), item.expected_overflow);
+    }
+  }
+}
+
+template <typename T, typename V, typename RhsType>
+void TestSubtract(V x, V y, T expected_sum, bool expected_overflow) {
+  T lhs(x);
+  const RhsType rhs(y);
+  T& result = (lhs -= rhs);
+  EXPECT_EQ(&result, &lhs);
+  EXPECT_EQ(lhs, expected_sum) << std::hex << std::showbase << x << " - " << y;
+
+  lhs = T(x);
+  EXPECT_EQ(lhs.SubtractOverflow(rhs), expected_overflow)
+      << std::hex << std::showbase << x << " SubtractOverflow " << y;
+  EXPECT_EQ(lhs, expected_sum)
+      << std::hex << std::showbase << x << " SubtractOverflow " << y;
+}
+
+template <typename T, typename V>
+void TestSubtractWithVariousRhsTypes(V x, V y, T expected_sum,
+                                     bool expected_overflow) {
+  TestSubtract<T, V, T>(x, y, expected_sum, expected_overflow);
+  using Word = typename T::Word;
+  if (y >= std::numeric_limits<Word>::min() &&
+      y <= std::numeric_limits<Word>::max()) {
+    TestSubtract<T, V, Word>(x, y, expected_sum, expected_overflow);
+  }
+  using UnsignedWord = typename T::UnsignedWord;
+  if (!std::is_same_v<UnsignedWord, Word> &&
+      y >= std::numeric_limits<UnsignedWord>::min() &&
+      y <= std::numeric_limits<UnsignedWord>::max()) {
+    TestSubtract<T, V, UnsignedWord>(x, y, expected_sum, expected_overflow);
+  }
+}
+
+TYPED_TEST(FixedUintGoldenDataTest, Subtract) {
+  using T = TypeParam;
+  for (const BinaryOpTestData<uint128>& item : kUnsignedAddTestData) {
+    const uint128 x = item.input1;
+    const uint128 y = item.input2;
+    const uint128 sum = item.expected_result;
+    TestSubtractWithVariousRhsTypes(sum, x, T(y), item.expected_overflow);
+    TestSubtractWithVariousRhsTypes(sum, y, T(x), item.expected_overflow);
+  }
+}
+
+TYPED_TEST(FixedIntGoldenDataTest, Subtract) {
+  using T = TypeParam;
+  for (const BinaryOpTestData<int128>& item : kSignedAddTestData) {
+    const int128 x = item.input1;
+    const int128 y = item.input2;
+    const int128 sum = item.expected_result;
+    TestSubtractWithVariousRhsTypes(sum, x, T(y), item.expected_overflow);
+    TestSubtractWithVariousRhsTypes(sum, y, T(x), item.expected_overflow);
+    if (x != kint128min && y != kint128min && sum != kint128min) {
+      TestSubtractWithVariousRhsTypes(-sum, -x, T(-y), item.expected_overflow);
+      TestSubtractWithVariousRhsTypes(-sum, -y, T(-x), item.expected_overflow);
+
+      TestSubtractWithVariousRhsTypes(x, -y, T(sum), item.expected_overflow);
+      TestSubtractWithVariousRhsTypes(y, -x, T(sum), item.expected_overflow);
+      TestSubtractWithVariousRhsTypes(-x, y, T(-sum), item.expected_overflow);
+      TestSubtractWithVariousRhsTypes(-y, x, T(-sum), item.expected_overflow);
+
+      TestSubtractWithVariousRhsTypes(x, sum, T(-y), item.expected_overflow);
+      TestSubtractWithVariousRhsTypes(y, sum, T(-x), item.expected_overflow);
+      TestSubtractWithVariousRhsTypes(-x, -sum, T(y), item.expected_overflow);
+      TestSubtractWithVariousRhsTypes(-y, -sum, T(x), item.expected_overflow);
+    }
+  }
+}
+
+template <typename T, typename V, typename RhsType>
+void TestMultiply(V x, V y, T expected_product, bool expected_overflow) {
+  T lhs(x);
+  const RhsType rhs(y);
+  T& result = (lhs *= rhs);
+  EXPECT_EQ(&result, &lhs);
+  EXPECT_EQ(lhs, expected_product)
+      << std::hex << std::showbase << x << " * " << y;
+
+  lhs = T(x);
+  EXPECT_EQ(lhs.MultiplyOverflow(rhs), expected_overflow)
+      << std::hex << std::showbase << x << " MultiplyOverflow " << y;
+  EXPECT_EQ(lhs, expected_product)
+      << std::hex << std::showbase << x << " MultiplyOverflow " << y;
+}
+
+template <typename T, typename V>
+void TestMultiplyWithVariousRhsTypes(V x, V y, T expected_product,
+                                     bool expected_overflow) {
+  TestMultiply<T, V, T>(x, y, expected_product, expected_overflow);
+  using Word = typename T::Word;
+  if (y >= std::numeric_limits<Word>::min() &&
+      y <= std::numeric_limits<Word>::max()) {
+    TestMultiply<T, V, Word>(x, y, expected_product, expected_overflow);
+  }
+  using UnsignedWord = typename T::UnsignedWord;
+  if (!std::is_same_v<UnsignedWord, Word> &&
+      y >= std::numeric_limits<UnsignedWord>::min() &&
+      y <= std::numeric_limits<UnsignedWord>::max()) {
+    TestMultiply<T, V, UnsignedWord>(x, y, expected_product, expected_overflow);
+  }
+
+  // Test ExtendAndMultiply.
+
+  const T tx(x);
+  const T ty(y);
+  // Truncate the result of ExtendAndMultiply to T.
+  EXPECT_EQ(T(ExtendAndMultiply(tx, ty)), expected_product);
+
+  // When x has <= 64 bits and y has <= T::kNumBits - 64 bits, test
+  // ExtendAndMultiply(64-bit, T::kNumBits - 64 bits) and
+  // ExtendAndMultiply(T::kNumBits - 64 bits, 64-bit) without truncating
+  // the result.
+  constexpr int kNumBitsPerWord = sizeof(Word) * 8;
+  constexpr int kWordCount1 = sizeof(int64_t) / sizeof(Word);
+  using T1 = std::conditional_t<std::is_signed_v<Word>,
+                                FixedInt<kNumBitsPerWord, kWordCount1>,
+                                FixedUint<kNumBitsPerWord, kWordCount1>>;
+  constexpr int kWordCount2 = (sizeof(T) - sizeof(int64_t)) / sizeof(Word);
+  using T2 = std::conditional_t<std::is_signed_v<Word>,
+                                FixedInt<kNumBitsPerWord, kWordCount2>,
+                                FixedUint<kNumBitsPerWord, kWordCount2>>;
+  static_assert(sizeof(T1) + sizeof(T2) == sizeof(T));
+  T1 truncated_x(tx);
+  T2 truncated_y(ty);
+  if (T(truncated_x) == tx && T(truncated_y) == ty) {
+    EXPECT_EQ(ExtendAndMultiply(truncated_x, truncated_y), expected_product);
+    EXPECT_EQ(ExtendAndMultiply(truncated_y, truncated_x), expected_product);
+  }
+}
+
+TYPED_TEST(FixedUintGoldenDataTest, Multiply) {
+  using T = TypeParam;
+  for (const BinaryOpTestData<uint128>& item : kUnsignedMultiplyTestData) {
+    const uint128 x = item.input1;
+    const uint128 y = item.input2;
+    const uint128 product = item.expected_result;
+    TestMultiplyWithVariousRhsTypes(x, y, T(product), item.expected_overflow);
+    TestMultiplyWithVariousRhsTypes(y, x, T(product), item.expected_overflow);
+  }
+}
+
+TYPED_TEST(FixedIntGoldenDataTest, Multiply) {
+  using T = TypeParam;
+  for (const BinaryOpTestData<int128>& item : kSignedMultiplyTestData) {
+    const int128 x = item.input1;
+    const int128 y = item.input2;
+    const int128 product = item.expected_result;
+    bool expected_overflow = item.expected_overflow;
+    TestMultiplyWithVariousRhsTypes(x, y, T(product), expected_overflow);
+    TestMultiplyWithVariousRhsTypes(y, x, T(product), expected_overflow);
+
+    if (x != kint128min && y != kint128min && product != kint128min) {
+      TestMultiplyWithVariousRhsTypes(-x, y, T(-product), expected_overflow);
+      TestMultiplyWithVariousRhsTypes(y, -x, T(-product), expected_overflow);
+      TestMultiplyWithVariousRhsTypes(x, -y, T(-product), expected_overflow);
+      TestMultiplyWithVariousRhsTypes(-y, x, T(-product), expected_overflow);
+      TestMultiplyWithVariousRhsTypes(-x, -y, T(product), expected_overflow);
+      TestMultiplyWithVariousRhsTypes(-y, -x, T(product), expected_overflow);
+    }
+  }
+}
+
+template <typename T, typename V, typename RhsType>
+void TestDivModOps(V x, V y, T expected_quotient, T expected_remainder,
+                   absl::optional<T> expected_rounded_quotient) {
+  T lhs(x);
+  const RhsType rhs(y);
+  T& quotient = (lhs /= rhs);
+  EXPECT_EQ(&quotient, &lhs);
+  EXPECT_EQ(lhs, expected_quotient)
+      << std::hex << std::showbase << x << " / " << y;
+
+  lhs = T(x);
+  T& remainder = (lhs %= rhs);
+  EXPECT_EQ(&remainder, &lhs);
+  EXPECT_EQ(lhs, expected_remainder)
+      << std::hex << std::showbase << x << " % " << y;
+
+  if (expected_rounded_quotient.has_value()) {
+    lhs = T(x);
+    T& rounded_quotient = (lhs.DivAndRoundAwayFromZero(rhs));
+    EXPECT_EQ(&rounded_quotient, &lhs);
+    EXPECT_EQ(lhs, expected_rounded_quotient.value())
+        << std::hex << std::showbase << x << " DivAndRoundAwayFromZero " << y;
+  }
+}
+
+template <typename T, typename V, typename RhsType>
+void TestDivMod(V x, V y, T expected_quotient, RhsType expected_remainder) {
+  T lhs(x);
+  const RhsType rhs(y);
+  T quotient;
+  RhsType remainder;
+  lhs.DivMod(rhs, &quotient, &remainder);
+  EXPECT_EQ(quotient, expected_quotient)
+      << std::hex << std::showbase << x << " DivMod " << y;
+  EXPECT_EQ(remainder, expected_remainder)
+      << std::hex << std::showbase << x << " DivMod " << y;
+}
+
+template <typename T, typename V>
+void TestDivModWithVariousRhsTypes(
+    V x, V y, T expected_quotient, V expected_remainder,
+    absl::optional<T> expected_rounded_quotient) {
+  TestDivModOps<T, V, T>(x, y, expected_quotient, T(expected_remainder),
+                         expected_rounded_quotient);
+  TestDivMod<T, V, T>(x, y, expected_quotient, T(expected_remainder));
+  using Word = typename T::Word;
+  if (y >= std::numeric_limits<Word>::min() &&
+      y <= std::numeric_limits<Word>::max()) {
+    TestDivModOps<T, V, Word>(x, y, expected_quotient, T(expected_remainder),
+                              expected_rounded_quotient);
+    TestDivMod<T, V, Word>(x, y, expected_quotient, expected_remainder);
+  }
+  using UnsignedWord = typename T::UnsignedWord;
+  if (!std::is_same_v<UnsignedWord, Word> &&
+      y >= std::numeric_limits<UnsignedWord>::min() &&
+      y <= std::numeric_limits<UnsignedWord>::max()) {
+    TestDivModOps<T, V, UnsignedWord>(x, y, expected_quotient,
+                                      T(expected_remainder),
+                                      expected_rounded_quotient);
+  }
+}
+
+TYPED_TEST(FixedUintGoldenDataTest, DivMod) {
+  using T = TypeParam;
+  for (const DivModTestData<uint128>& item : kUnsignedDivModTestData) {
+    const uint128 x = item.dividend;
+    const uint128 y = item.divisor;
+    const uint128 quotient = item.expected_quotient;
+    const uint128 remainder = item.expected_remainder;
+    const uint128 rounded_quotient = item.expected_rounded_quotient;
+    TestDivModWithVariousRhsTypes<T>(x, y, T(quotient), remainder,
+                                     T(rounded_quotient));
+    if (quotient != 0) {
+      TestDivModWithVariousRhsTypes<T>(x, quotient, T(y + remainder / quotient),
+                                       remainder % quotient, absl::nullopt);
+    }
+  }
+  for (const BinaryOpTestData<uint128>& item : kUnsignedMultiplyTestData) {
+    const uint128 x = item.input1;
+    const uint128 y = item.input2;
+    const uint128 product = item.expected_result;
+    if (!item.expected_overflow) {
+      if (x != 0) {
+        TestDivModWithVariousRhsTypes<T>(product, x, T(y), uint128{0}, T(y));
+      }
+      if (y != 0) {
+        TestDivModWithVariousRhsTypes<T>(product, y, T(x), uint128{0}, T(x));
+      }
+    }
+  }
+}
+
+TYPED_TEST(FixedIntGoldenDataTest, DivMod) {
+  using T = TypeParam;
+  for (const DivModTestData<int128>& item : kSignedDivModTestData) {
+    const int128 x = item.dividend;
+    const int128 y = item.divisor;
+    const int128 quotient = item.expected_quotient;
+    const int128 remainder = item.expected_remainder;
+    const int128 rounded_quotient = item.expected_rounded_quotient;
+    TestDivModWithVariousRhsTypes<T>(x, y, T(quotient), remainder,
+                                     T(rounded_quotient));
+    if (quotient != 0 && !item.expected_overflow) {
+      TestDivModWithVariousRhsTypes<T>(x, quotient, T(y + remainder / quotient),
+                                       remainder % quotient, absl::nullopt);
+    }
+    if (x != kint128min && y != kint128min && quotient != kint128min) {
+      TestDivModWithVariousRhsTypes<T>(x, -y, T(-quotient), remainder,
+                                       T(-rounded_quotient));
+      TestDivModWithVariousRhsTypes<T>(-x, y, T(-quotient), -remainder,
+                                       T(-rounded_quotient));
+      TestDivModWithVariousRhsTypes<T>(-x, -y, T(quotient), -remainder,
+                                       T(rounded_quotient));
+    }
+  }
+  for (const BinaryOpTestData<int128>& item : kSignedMultiplyTestData) {
+    const int128 x = item.input1;
+    const int128 y = item.input2;
+    const int128 product = item.expected_result;
+    if (!item.expected_overflow) {
+      if (x != 0) {
+        TestDivModWithVariousRhsTypes<T>(product, x, T(y), int128{0}, T(y));
+        if (x != kint128min && y != kint128min && product != kint128min) {
+          TestDivModWithVariousRhsTypes<T>(-product, x, T(-y), int128{0},
+                                           T(-y));
+          TestDivModWithVariousRhsTypes<T>(product, -x, T(-y), int128{0},
+                                           T(-y));
+          TestDivModWithVariousRhsTypes<T>(-product, -x, T(y), int128{0}, T(y));
+        }
+      }
+      if (y != 0) {
+        TestDivModWithVariousRhsTypes<T>(product, y, T(x), int128{0}, T(x));
+        if (x != kint128min && y != kint128min && product != kint128min) {
+          TestDivModWithVariousRhsTypes<T>(-product, y, T(-x), int128{0},
+                                           T(-x));
+          TestDivModWithVariousRhsTypes<T>(product, -y, T(-x), int128{0},
+                                           T(-x));
+          TestDivModWithVariousRhsTypes<T>(-product, -y, T(x), int128{0}, T(x));
+        }
+      }
+    }
+  }
+}
+
 void CompareDouble(double actual, double expect) {
   EXPECT_EQ(actual, expect);
   zetasql_base::MathUtil::DoubleParts decomposed_actual = zetasql_base::MathUtil::Decompose(actual);
@@ -221,98 +1085,269 @@ void CompareDouble(double actual, double expect) {
   EXPECT_EQ(decomposed_actual.exponent, decomposed_expect.exponent);
 }
 
-template <typename T, typename V>
-void TestFixedIntCastDoubleForType(V x) {
-  T fixed_int_val = T(x);
-  CompareDouble(static_cast<double>(fixed_int_val), static_cast<double>(x));
+TYPED_TEST(FixedUintGoldenDataTest, CastDouble) {
+  using T = TypeParam;
+  for (uint64_t val : kCastDoubleTestData64) {
+    CompareDouble(static_cast<double>(T(val)), static_cast<double>(val));
+  }
+  for (uint128 val : kCastDoubleTestData128) {
+    CompareDouble(static_cast<double>(T(val)), static_cast<double>(val));
+  }
 }
 
-template <typename T>
-void TestFixedUintCastDouble(T x) {
-  TestFixedIntCastDoubleForType<FixedUint<32, 4>>(x);
-  TestFixedIntCastDoubleForType<FixedUint<32, 6>>(x);
-  TestFixedIntCastDoubleForType<FixedUint<32, 8>>(x);
-  TestFixedIntCastDoubleForType<FixedUint<64, 2>>(x);
-  TestFixedIntCastDoubleForType<FixedUint<64, 4>>(x);
+TYPED_TEST(FixedIntGoldenDataTest, CastDouble) {
+  using T = TypeParam;
+  for (int64_t val : kCastDoubleTestData64) {
+    CompareDouble(static_cast<double>(T(val)), static_cast<double>(val));
+    CompareDouble(static_cast<double>(T(-val)), static_cast<double>(-val));
+  }
+  for (int128 val : kCastDoubleTestData128) {
+    CompareDouble(static_cast<double>(T(val)), static_cast<double>(val));
+    CompareDouble(static_cast<double>(T(-val)), static_cast<double>(-val));
+  }
 }
 
-template <typename T>
-void TestFixedIntCastDouble(T x) {
-  TestFixedIntCastDoubleForType<FixedInt<32, 4>>(x);
-  TestFixedIntCastDoubleForType<FixedInt<32, 6>>(x);
-  TestFixedIntCastDoubleForType<FixedInt<32, 8>>(x);
-  TestFixedIntCastDoubleForType<FixedInt<64, 2>>(x);
-  TestFixedIntCastDoubleForType<FixedInt<64, 4>>(x);
+TEST(FixedUintTest, CastDoubleMax) {
+  // Given the kNumBitsPerWord can only be 32 or 64, to be casted to double, the
+  // actual max bits a FixedUint can have is 32 * 31 = 992
+  double double_max = static_cast<double>(FixedUint<32, 31>::max());
+  // Rounded up to 2^992
+  double expect = zetasql_base::MathUtil::IPow(2.0, 992);
+  CompareDouble(double_max, expect);
 }
 
-template <typename T, typename V>
-void TestShiftOperatorsForType(V x, V filler) {
-  for (uint i = 0; i < 128; ++i) {
-    T v = (T(x) >>= i);
-    EXPECT_EQ(v, T(x >> i)) << std::hex << std::showbase << x << " >> " << i;
+TEST(FixedIntTest, CastDoubleMax) {
+  // Given the kNumBitsPerWord can only be 32 or 64, to be casted to double, the
+  // actual max bits a FixedUint can have is 32 * 31 = 992
+  double double_max = static_cast<double>(FixedInt<32, 31>::max());
+  double double_min = static_cast<double>(FixedInt<32, 31>::min());
+  // Rounded up to 2^991
+  double expect_max = zetasql_base::MathUtil::IPow(2.0, 991);
+  double expect_min = zetasql_base::MathUtil::IPow(-2.0, 991);
+  CompareDouble(double_max, expect_max);
+  CompareDouble(double_min, expect_min);
+}
 
-    v = (T(x) <<= i);
-    EXPECT_EQ(static_cast<V>(v), x << i)
-        << std::hex << std::showbase << x << " << " << i;
-    if (T::kNumBits > 128) {
-      using SignedWord = std::make_signed_t<typename T::Word>;
-      EXPECT_EQ(
-          static_cast<SignedWord>(v.number()[128 / sizeof(SignedWord) / 8]),
-          i == 0 ? filler : static_cast<SignedWord>(x >> (128 - i)))
-          << std::hex << std::showbase << x << " << " << i;
+TYPED_TEST(FixedUintGoldenDataTest, SerializeToBytes) {
+  constexpr absl::string_view kExistingValue("\xff\0", 2);
+  for (auto pair : kSerializedUnsignedValues) {
+    std::string output(kExistingValue);
+    TypeParam(pair.first).SerializeToBytes(&output);
+    EXPECT_EQ(output, absl::StrCat(kExistingValue, pair.second));
+  }
+}
+
+TYPED_TEST(FixedUintGoldenDataTest, DeserializeFromBytes) {
+  for (auto pair : kSerializedUnsignedValues) {
+    TypeParam deserialized;
+    EXPECT_TRUE(deserialized.DeserializeFromBytes(pair.second));
+    EXPECT_EQ(deserialized, TypeParam(pair.first));
+  }
+  for (absl::string_view str : kInvalidSerialized128BitValues) {
+    EXPECT_FALSE(TypeParam().DeserializeFromBytes(str));
+  }
+}
+
+TYPED_TEST(FixedIntGoldenDataTest, SerializeToBytes) {
+  constexpr absl::string_view kExistingValue("\xff\0", 2);
+  for (auto pair : kSerializedSignedValues) {
+    std::string output(kExistingValue);
+    TypeParam(pair.first).SerializeToBytes(&output);
+    EXPECT_EQ(output, absl::StrCat(kExistingValue, pair.second));
+  }
+}
+
+TYPED_TEST(FixedIntGoldenDataTest, DeserializeFromBytes) {
+  for (auto pair : kSerializedSignedValues) {
+    TypeParam deserialized;
+    EXPECT_TRUE(deserialized.DeserializeFromBytes(pair.second));
+    EXPECT_EQ(deserialized, TypeParam(pair.first));
+  }
+  for (absl::string_view str : kInvalidSerialized128BitValues) {
+    EXPECT_FALSE(TypeParam().DeserializeFromBytes(str));
+  }
+}
+
+TYPED_TEST(FixedUintGoldenDataTest, ToString) {
+  for (auto pair : kSortedStringUnsignedValues) {
+    TypeParam value(pair.first);
+    EXPECT_EQ(pair.second, value.ToString());
+  }
+}
+
+TYPED_TEST(FixedIntGoldenDataTest, ToString) {
+  for (auto pair : kSortedStringSignedValues) {
+    TypeParam value(pair.first);
+    EXPECT_EQ(pair.second, value.ToString());
+  }
+}
+
+TYPED_TEST(FixedUintGoldenDataTest, ParseFromStringStrict) {
+  for (auto pair : kSortedStringUnsignedValues) {
+    TypeParam value;
+    EXPECT_TRUE(value.ParseFromStringStrict(pair.second));
+    EXPECT_EQ(TypeParam(pair.first), value);
+  }
+  for (auto pair : kSortedStringNonCanonicalValues) {
+    TypeParam value;
+    EXPECT_TRUE(value.ParseFromStringStrict(pair.second));
+    EXPECT_EQ(TypeParam(pair.first), value);
+  }
+  for (absl::string_view str : kInvalidStringUnsigned128BitValues) {
+    EXPECT_FALSE(TypeParam().ParseFromStringStrict(str));
+  }
+}
+
+TYPED_TEST(FixedIntGoldenDataTest, ParseFromStringStrict) {
+  for (auto pair : kSortedStringSignedValues) {
+    TypeParam value;
+    EXPECT_TRUE(value.ParseFromStringStrict(pair.second));
+    EXPECT_EQ(TypeParam(pair.first), value);
+  }
+  for (auto pair : kSortedStringNonCanonicalValues) {
+    TypeParam value;
+    EXPECT_TRUE(value.ParseFromStringStrict(pair.second));
+    EXPECT_EQ(TypeParam(static_cast<int128>(pair.first)), value);
+  }
+  for (absl::string_view str : kInvalidStringSigned128BitValues) {
+    EXPECT_FALSE(TypeParam().ParseFromStringStrict(str));
+  }
+}
+
+TYPED_TEST(FixedUintGoldenDataTest, FindMSBSetNonZero) {
+  for (auto pair : kFindMSBSetNonZeroTestData) {
+    EXPECT_EQ(TypeParam(pair.first).FindMSBSetNonZero(), pair.second);
+  }
+}
+
+std::vector<uint128> GenerateTestInputs() {
+  std::vector<uint128> result;
+  for (uint64_t x_lo : kSorted64BitValues) {
+    for (uint64_t x_hi : kSorted64BitValues) {
+      uint128 x = uint128{x_hi} << 64 | x_lo;
+      result.emplace_back(x);
     }
   }
+  absl::BitGen random;
+  for (int i = 0; i < 1000; ++i) {
+    result.emplace_back(absl::Uniform<uint16_t>(random));
+    result.emplace_back(absl::Uniform<uint32_t>(random));
+    result.emplace_back(absl::Uniform<uint64_t>(random));
+    uint64_t x_hi = absl::Uniform<uint64_t>(random);
+    uint64_t x_lo = absl::Uniform<uint64_t>(random);
+    result.emplace_back(uint128{x_hi} << 64 | x_lo);
+    uint64_t bits = absl::Uniform<uint16_t>(random);
+    uint8_t shift = absl::Uniform<uint8_t>(random, 0, 112);
+    result.emplace_back(uint128{bits} << shift);
+    bits = absl::Uniform<uint32_t>(random);
+    shift = absl::Uniform<uint8_t>(random, 0, 96);
+    result.emplace_back(uint128{bits} << shift);
+    bits = absl::Uniform<uint64_t>(random);
+    shift = absl::Uniform<uint8_t>(random, 0, 64);
+    result.emplace_back(uint128{bits} << shift);
+  }
+  return result;
+}
 
-  for (uint i : {static_cast<uint>(T::kNumBits), 0xffffffffu}) {
-    T v = (T(x) >>= i);
-    EXPECT_EQ(v, T(filler)) << std::hex << std::showbase << x << " >> " << i;
+const std::vector<uint128>& GetTestInputs() {
+  static auto* result = new std::vector<uint128>(GenerateTestInputs());
+  return *result;
+}
 
-    v = (T(x) <<= i);
-    EXPECT_EQ(v, T()) << std::hex << std::showbase << x << " << " << i;
+std::vector<std::pair<uint128, uint128>> GenerateTestInputPairs() {
+  std::vector<std::pair<uint128, uint128>> result;
+  for (uint64_t x_lo : kSorted64BitValues) {
+    for (uint64_t x_hi : kSorted64BitValues) {
+      uint128 x = uint128{x_hi} << 64 | x_lo;
+      for (uint64_t y_lo : kSorted64BitValues) {
+        for (uint64_t y_hi : kSorted64BitValues) {
+          uint128 y = uint128{y_hi} << 64 | y_lo;
+          result.emplace_back(x, y);
+        }
+      }
+    }
+  }
+  absl::BitGen random;
+  for (int i = 0; i < 10000; ++i) {
+    uint64_t x_hi = absl::Uniform<uint64_t>(random);
+    uint64_t x_lo = absl::Uniform<uint64_t>(random);
+    uint128 x = uint128{x_hi} << 64 | x_lo;
+    uint64_t y_hi = absl::Uniform<uint64_t>(random);
+    uint64_t y_lo = absl::Uniform<uint64_t>(random);
+    uint128 y = uint128{y_hi} << 64 | y_lo;
+    result.emplace_back(x, y);
+  }
+  return result;
+}
+
+const std::vector<std::pair<uint128, uint128>>& GetTestInputPairs() {
+  static auto* result =
+      new std::vector<std::pair<uint128, uint128>>(GenerateTestInputPairs());
+  return *result;
+}
+
+template <typename TypeParam>
+class FixedIntGeneratedDataTest : public ::testing::Test {};
+
+using FixedIntExtendedTypes =
+    ::testing::Types<FixedUint<64, 2>, FixedUint<64, 3>, FixedUint<32, 4>,
+                     FixedUint<32, 5>, FixedInt<64, 2>, FixedInt<64, 3>,
+                     FixedInt<32, 4>, FixedInt<32, 5>>;
+TYPED_TEST_SUITE(FixedIntGeneratedDataTest, FixedIntExtendedTypes);
+
+template <typename T>
+using V128 =
+    std::conditional_t<std::is_signed_v<typename T::Word>, int128, uint128>;
+
+TYPED_TEST(FixedIntGeneratedDataTest, Compare) {
+  for (std::pair<uint128, uint128> input : GetTestInputPairs()) {
+    const V128<TypeParam> x = input.first;
+    const V128<TypeParam> y = input.second;
+    TypeParam tx(x);
+    TypeParam ty(y);
+    EXPECT_EQ(tx == ty, x == y) << x << " == " << y;
+    EXPECT_EQ(tx != ty, x != y) << x << " != " << y;
+    EXPECT_EQ(tx < ty, x < y) << x << " < " << y;
+    EXPECT_EQ(tx > ty, x > y) << x << " > " << y;
+    EXPECT_EQ(tx <= ty, x <= y) << x << " <= " << y;
+    EXPECT_EQ(tx >= ty, x >= y) << x << " >= " << y;
   }
 }
 
-void TestShiftOperators(uint128 x) {
-  TestShiftOperatorsForType<FixedUint<32, 4>, uint128>(x, 0);
-  TestShiftOperatorsForType<FixedUint<32, 5>, uint128>(x, 0);
-  TestShiftOperatorsForType<FixedUint<64, 2>, uint128>(x, 0);
-  TestShiftOperatorsForType<FixedUint<64, 3>, uint128>(x, 0);
-  int128 sx = static_cast<int128>(x);
-  int128 filler = sx < 0 ? -1 : 0;
-  TestShiftOperatorsForType<FixedInt<32, 4>, int128>(sx, filler);
-  TestShiftOperatorsForType<FixedInt<32, 5>, int128>(sx, filler);
-  TestShiftOperatorsForType<FixedInt<64, 2>, int128>(sx, filler);
-  TestShiftOperatorsForType<FixedInt<64, 3>, int128>(sx, filler);
+TYPED_TEST(FixedIntGeneratedDataTest, Shift) {
+  using T = TypeParam;
+  for (V128<T> x : GetTestInputs()) {
+    V128<T> filler = x < 0 ? -1 : 0;
+
+    for (uint i = 0; i < 128; ++i) {
+      T v = (T(x) >>= i);
+      EXPECT_EQ(v, T(x >> i)) << std::hex << std::showbase << x << " >> " << i;
+
+      v = (T(x) <<= i);
+      EXPECT_EQ(static_cast<V128<T>>(v), x << i)
+          << std::hex << std::showbase << x << " << " << i;
+      if (T::kNumBits > 128) {
+        using Word = typename T::Word;
+        EXPECT_EQ(static_cast<Word>(v.number()[128 / sizeof(Word) / 8]),
+                  i == 0 ? filler : static_cast<Word>(x >> (128 - i)))
+            << std::hex << std::showbase << x << " << " << i;
+      }
+    }
+
+    for (uint i : {static_cast<uint>(T::kNumBits), 0xffffffffu}) {
+      T v = (T(x) >>= i);
+      EXPECT_EQ(v, T(filler)) << std::hex << std::showbase << x << " >> " << i;
+
+      v = (T(x) <<= i);
+      EXPECT_EQ(v, T()) << std::hex << std::showbase << x << " << " << i;
+    }
+  }
 }
 
 template <typename T, typename V>
-void TestComparisonOperatorsForType(V x, V y) {
-  T tx(x);
-  T ty(y);
-  EXPECT_EQ(tx == ty, x == y) << x << " == " << y;
-  EXPECT_EQ(tx != ty, x != y) << x << " != " << y;
-  EXPECT_EQ(tx < ty, x < y) << x << " < " << y;
-  EXPECT_EQ(tx > ty, x > y) << x << " > " << y;
-  EXPECT_EQ(tx <= ty, x <= y) << x << " <= " << y;
-  EXPECT_EQ(tx >= ty, x >= y) << x << " >= " << y;
-}
-
-void TestComparisonOperators(uint128 x, uint128 y) {
-  TestComparisonOperatorsForType<FixedUint<32, 4>, uint128>(x, y);
-  TestComparisonOperatorsForType<FixedUint<32, 5>, uint128>(x, y);
-  TestComparisonOperatorsForType<FixedUint<64, 2>, uint128>(x, y);
-  TestComparisonOperatorsForType<FixedUint<64, 3>, uint128>(x, y);
-
-  TestComparisonOperatorsForType<FixedInt<32, 4>, int128>(x, y);
-  TestComparisonOperatorsForType<FixedInt<32, 5>, int128>(x, y);
-  TestComparisonOperatorsForType<FixedInt<64, 2>, int128>(x, y);
-  TestComparisonOperatorsForType<FixedInt<64, 3>, int128>(x, y);
-}
-
-template <typename T, typename V>
-T GetExpectedSum(V x, V y) {
-  bool add128_overflow = y >= 0 ? x > max128<V>() - y : x < min128<V>() - y;
-  if (!add128_overflow) {
+T GetExpectedSum(V x, V y, bool* add128_overflow) {
+  *add128_overflow = y >= 0 ? x > max128<V>() - y : x < min128<V>() - y;
+  if (!(*add128_overflow)) {
     return T(x + y);
   }
   T expected(static_cast<V>(y >= 0 ? 1LL : -1LL));
@@ -321,15 +1356,155 @@ T GetExpectedSum(V x, V y) {
 }
 
 template <typename T, typename V>
-T GetExpectedDiff(V x, V y) {
-  bool sub128_overflow = y >= 0 ? x < min128<V>() + y : x > max128<V>() + y;
-  if (!sub128_overflow) {
+void TestAddWithSelfInput(V x) {
+  T t(x);
+  bool expected_add128_overflow = false;
+  T expected_sum = GetExpectedSum<T>(x, x, &expected_add128_overflow);
+  EXPECT_EQ(t += t, expected_sum)
+      << std::hex << std::showbase << x << " + " << x;
+  t = T(x);
+  bool expected_overflow =
+      expected_add128_overflow && sizeof(T) <= sizeof(int128);
+  EXPECT_EQ(t.AddOverflow(t), expected_overflow)
+      << std::hex << std::showbase << x << " AddOverflow " << x;
+  EXPECT_EQ(t, expected_sum)
+      << std::hex << std::showbase << x << " AddOverflow " << x;
+}
+
+TYPED_TEST(FixedIntGeneratedDataTest, Add) {
+  using T = TypeParam;
+  for (V128<T> input : GetTestInputs()) {
+    TestAddWithSelfInput<T>(input);
+  }
+  for (std::pair<uint128, uint128> input : GetTestInputPairs()) {
+    const V128<T> x = input.first;
+    const V128<T> y = input.second;
+    bool expected_add128_overflow = false;
+    T expected_sum = GetExpectedSum<T>(x, y, &expected_add128_overflow);
+    bool expected_overflow =
+        expected_add128_overflow && sizeof(T) <= sizeof(int128);
+    TestAddWithVariousRhsTypes(x, y, expected_sum, expected_overflow);
+  }
+}
+
+template <typename T, typename V>
+T GetExpectedDiff(V x, V y, bool* sub128_overflow) {
+  *sub128_overflow = y >= 0 ? x < min128<V>() + y : x > max128<V>() + y;
+  if (!(*sub128_overflow)) {
     return T(x - y);
   }
   T expected(static_cast<V>(y >= 0 ? -1LL : 1LL));
   expected <<= 128;
   return expected +=
          T(static_cast<V>(static_cast<uint128>(x) - static_cast<uint128>(y)));
+}
+
+template <typename T, typename V>
+void TestSubtractWithSelfInput(V x) {
+  T t(x);
+  EXPECT_EQ(t -= t, T()) << std::hex << std::showbase << x << " - " << x;
+  t = T(x);
+  EXPECT_FALSE(t.SubtractOverflow(t))
+      << std::hex << std::showbase << x << " SubtractOverflow " << x;
+  EXPECT_EQ(t, T()) << std::hex << std::showbase << x << " SubtractOverflow "
+                    << x;
+}
+
+TYPED_TEST(FixedIntGeneratedDataTest, Subtract) {
+  using T = TypeParam;
+  for (V128<T> input : GetTestInputs()) {
+    TestSubtractWithSelfInput<T>(input);
+  }
+  for (std::pair<uint128, uint128> input : GetTestInputPairs()) {
+    const V128<T> x = input.first;
+    const V128<T> y = input.second;
+    bool expected_sub128_overflow = false;
+    T expected_diff = GetExpectedDiff<T>(x, y, &expected_sub128_overflow);
+    bool expected_overflow =
+        expected_sub128_overflow &&
+        (sizeof(T) <= sizeof(int128) || std::is_unsigned_v<typename T::Word>);
+    TestSubtractWithVariousRhsTypes(x, y, expected_diff, expected_overflow);
+  }
+}
+
+// Cannot use fixed_int_internal::SafeAbs because std::make_unsigned_t<int128>
+// doesn't compile in zetasql
+inline uint128 SafeAbs(int128 x) {
+  return x < 0 ? -static_cast<uint128>(x) : x;
+}
+inline uint128 SafeAbs(uint128 x) { return x; }
+
+template <typename T, typename V>
+T GetExpectedProduct(V x, V y, bool* expected_overflow) {
+  uint128 abs_x = SafeAbs(x);
+  uint128 abs_y = SafeAbs(y);
+  uint64_t abs_x_lo = static_cast<uint64_t>(abs_x);
+  uint64_t abs_x_hi = static_cast<uint64_t>(abs_x >> 64);
+  uint64_t abs_y_lo = static_cast<uint64_t>(abs_y);
+  uint64_t abs_y_hi = static_cast<uint64_t>(abs_y >> 64);
+  uint128 product_hi = static_cast<uint128>(abs_x_hi) * abs_y_hi;
+  uint128 product_lo = static_cast<uint128>(abs_x_lo) * abs_y_lo;
+  uint128 product_mid1 = static_cast<uint128>(abs_x_hi) * abs_y_lo;
+  uint128 product_mid2 = static_cast<uint128>(abs_x_lo) * abs_y_hi;
+  product_hi += (product_mid1 >> 64) + (product_mid2 >> 64);
+  product_mid1 <<= 64;
+  product_mid2 <<= 64;
+  product_lo += product_mid1;
+  product_hi += (product_lo < product_mid1);
+  product_lo += product_mid2;
+  product_hi += (product_lo < product_mid2);
+  if ((x < 0) != (y < 0)) {
+    product_lo = -product_lo;
+    product_hi = (~product_hi) + (product_lo == 0);
+  }
+  constexpr int kNumBitsPerWord = sizeof(typename T::Word) * 8;
+  constexpr int kNumWords = sizeof(T) / sizeof(typename T::Word);
+  uint128 product[2] = {product_lo, product_hi};
+  using UnsignedWord = typename T::UnsignedWord;
+  std::array<UnsignedWord, kNumWords> number;
+  for (int i = 0; i < T::kNumBits; i += kNumBitsPerWord) {
+    number[i / kNumBitsPerWord] =
+        static_cast<UnsignedWord>(product[i / 128] >> (i % 128));
+  }
+  T result(number);
+  UnsignedWord extended_hi_bits = result < T() ? ~UnsignedWord{0} : 0;
+  *expected_overflow = false;
+  for (int i = T::kNumBits; i < 256; i += kNumBitsPerWord) {
+    if (static_cast<UnsignedWord>(product[i / 128] >> (i % 128)) !=
+        extended_hi_bits) {
+      *expected_overflow = true;
+      break;
+    }
+  }
+  return result;
+}
+
+template <typename T, typename V>
+void TestMultiplyWithSelfInput(V x) {
+  T t(x);
+  bool expected_overflow;
+  T expected_product = GetExpectedProduct<T>(x, x, &expected_overflow);
+  EXPECT_EQ(t *= t, expected_product)
+      << std::hex << std::showbase << x << " * " << x;
+  t = T(x);
+  EXPECT_EQ(t.MultiplyOverflow(t), expected_overflow)
+      << std::hex << std::showbase << x << " MultiplyOverflow " << x;
+  EXPECT_EQ(t, expected_product)
+      << std::hex << std::showbase << x << " MultiplyOverflow " << x;
+}
+
+TYPED_TEST(FixedIntGeneratedDataTest, Multiply) {
+  using T = TypeParam;
+  for (V128<T> input : GetTestInputs()) {
+    TestMultiplyWithSelfInput<T>(input);
+  }
+  for (std::pair<uint128, uint128> input : GetTestInputPairs()) {
+    const V128<T> x = input.first;
+    const V128<T> y = input.second;
+    bool expected_overflow;
+    T expected_product = GetExpectedProduct<T>(x, y, &expected_overflow);
+    TestMultiplyWithVariousRhsTypes(x, y, expected_product, expected_overflow);
+  }
 }
 
 template <typename T, typename V>
@@ -341,142 +1516,223 @@ T GetExpectedQuotient(V x, V y) {
   return T(x / y);
 }
 
-template <typename T, typename V, typename RhsType = T>
-void TestArithmeticOperatorsForType(V x, V y) {
-  T v = (T(x) += RhsType(y));
-  EXPECT_EQ(v, GetExpectedSum<T>(x, y))
-      << std::hex << std::showbase << x << " + " << y;
-
-  v = (T(x) -= RhsType(y));
-  EXPECT_EQ(v, GetExpectedDiff<T>(x, y))
-      << std::hex << std::showbase << x << " - " << y;
-
-#if !defined(ADDRESS_SANITIZER)
-  bool mul128_overflow =
-      (y > 0 && (x > max128<V>() / y || x < min128<V>() / y)) ||
-      (y < 0 && (x < max128<V>() / y || x > min128<V>() / y));
-  v = (T(x) *= RhsType(y));
-  if (!mul128_overflow) {
-    EXPECT_EQ(v, T(x * y)) << std::hex << std::showbase << x << " * " << y;
+template <typename T, typename V>
+V GetExpectedRemainder(V x, V y) {
+  if (std::is_same_v<V, int128> && x == kint128min && y == -1) {
+    // This the only case that causes 128-bit division overflow.
+    return 0;
   }
-
-  if (y != 0) {
-    v = (T(x) /= RhsType(y));
-    EXPECT_EQ(v, GetExpectedQuotient<T>(x, y))
-        << std::hex << std::showbase << x << " / " << y;
-  }
-#endif
+  return x % y;
 }
 
 template <typename T, typename V>
-void TestArithmeticOperatorsWithSelfForType(V x) {
+T GetExpectedRoundedQuotient(V x, V y) {
+  if (std::is_same_v<V, int128> && x == kint128min && y == -1) {
+    // This the only case that causes 128-bit division overflow.
+    return T() -= T(x);
+  }
+  V quotient = x / y;
+  V remainder = x % y;
+  auto abs_remainder = SafeAbs(remainder);
+  auto abs_y = SafeAbs(y);
+  if (abs_remainder > (abs_y - 1) / 2) {
+    quotient += (x < 0) == (y < 0) ? 1 : -1;
+  }
+  return T(quotient);
+}
+
+template <typename T, typename V>
+void TestDivModWithSelfInput(V x) {
   T t(x);
-  EXPECT_EQ(t += t, GetExpectedSum<T>(x, x))
-      << std::hex << std::showbase << x << " + " << x;
+  EXPECT_EQ(t /= t, T(V{1})) << std::hex << std::showbase << x << " / " << x;
 
   t = T(x);
-  EXPECT_EQ(t -= t, T()) << std::hex << std::showbase << x << " - " << x;
+  EXPECT_EQ(t %= t, T()) << std::hex << std::showbase << x << " % " << x;
+
+  t = T(x);
+  EXPECT_EQ(t.DivAndRoundAwayFromZero(t), T(V{1}))
+      << std::hex << std::showbase << x << " DivAndRoundAwayFromZero " << x;
+
+  t = T(x);
+  T remainder;
+  t.DivMod(t, &t, &remainder);
+  EXPECT_EQ(t, T(V{1})) << std::hex << std::showbase << x << " DivMod " << x;
+  EXPECT_EQ(remainder, T())
+      << std::hex << std::showbase << x << " DivMod " << x;
+
+  t = T(x);
+  T quotient;
+  t.DivMod(t, &quotient, &t);
+  EXPECT_EQ(quotient, T(V{1}))
+      << std::hex << std::showbase << x << " DivMod " << x;
+  EXPECT_EQ(t, T()) << std::hex << std::showbase << x << " DivMod " << x;
+
+  t = T(x);
+  t.DivMod(t, &t, &t);
+  EXPECT_EQ(t, T()) << std::hex << std::showbase << x << " DivMod " << x;
+
+  typename T::Word divisor_word = static_cast<typename T::Word>(x);
+  if (divisor_word != 0) {
+    t = T(x);
+    typename T::Word remainder_word;
+    t.DivMod(divisor_word, &t, &remainder_word);
+    T expected_quotient = GetExpectedQuotient<T, V>(x, divisor_word);
+    typename T::Word expected_remainder = static_cast<typename T::Word>(
+        GetExpectedRemainder<T, V>(x, divisor_word));
+    EXPECT_EQ(t, expected_quotient)
+        << std::hex << std::showbase << x << " DivMod " << divisor_word;
+    EXPECT_EQ(remainder_word, expected_remainder)
+        << std::hex << std::showbase << x << " DivMod " << divisor_word;
+  }
+}
+
+template <typename T, uint32_t divisor, typename V>
+void TestArithmeticOperatorsWithConstUnsignedWordForType(V x) {
+  std::integral_constant<uint32_t, divisor> const_divisor;
+  EXPECT_EQ(T(x) /= const_divisor, T(x) /= typename T::UnsignedWord{divisor});
+  EXPECT_EQ(T(x) %= const_divisor, T(x) %= typename T::UnsignedWord{divisor});
+  EXPECT_EQ(T(x).DivAndRoundAwayFromZero(const_divisor),
+            T(x).DivAndRoundAwayFromZero(typename T::UnsignedWord{divisor}));
+}
+
+template <typename T, typename W, W divisor, typename V>
+void TestArithmeticOperatorsWithConstWordForType(V x) {
+  std::integral_constant<W, divisor> const_divisor;
+  EXPECT_EQ(T(x) /= const_divisor, T(x) /= typename T::Word{divisor});
+  EXPECT_EQ(T(x) %= const_divisor, T(x) %= typename T::Word{divisor});
+  EXPECT_EQ(T(x).DivAndRoundAwayFromZero(const_divisor),
+            T(x).DivAndRoundAwayFromZero(typename T::Word{divisor}));
+  T t(x);
+  T quotient1, quotient2;
+  W remainder1;
+  typename T::Word remainder2;
+  t.DivMod(const_divisor, &quotient1, &remainder1);
+  t.DivMod(divisor, &quotient2, &remainder2);
+  EXPECT_EQ(quotient1, quotient2);
+  EXPECT_EQ(remainder1, remainder2);
+
+  t.DivMod(const_divisor, &quotient1, nullptr);
+  EXPECT_EQ(quotient1, quotient2);
+
+  t.DivMod(const_divisor, nullptr, &remainder1);
+  EXPECT_EQ(remainder1, remainder2);
+
+  t.DivMod(const_divisor, &t, &remainder1);
+  EXPECT_EQ(t, quotient2);
+  EXPECT_EQ(remainder1, remainder2);
+
+  t = T(x);
+  t.DivMod(const_divisor, &t, nullptr);
+  EXPECT_EQ(t, quotient2);
+}
+
+template <typename T>
+void TestArithmeticOperatorsWithConstWord(uint128 x) {
+  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 1>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 2>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 100>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, kint32max>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 0x80000000U>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, kuint32max>(x);
+}
+
+template <typename T>
+void TestArithmeticOperatorsWithConstWord(int128 x) {
+  TestArithmeticOperatorsWithConstWordForType<T, int32_t, 1>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, int32_t, 2>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, int32_t, 100>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, int32_t, kint32max>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, int32_t, -1>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, int32_t, -2>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, int32_t, -100>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, int32_t, -kint32max>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, int32_t, kint32min>(x);
+
+  TestArithmeticOperatorsWithConstUnsignedWordForType<T, 1>(x);
+  TestArithmeticOperatorsWithConstUnsignedWordForType<T, 2>(x);
+  TestArithmeticOperatorsWithConstUnsignedWordForType<T, 100>(x);
+  TestArithmeticOperatorsWithConstUnsignedWordForType<T, kint32max>(x);
+  TestArithmeticOperatorsWithConstUnsignedWordForType<T, 0x80000000U>(x);
+  TestArithmeticOperatorsWithConstUnsignedWordForType<T, kuint32max>(x);
+}
 
 #if !defined(ADDRESS_SANITIZER)
-  bool mul128_overflow =
-      (x > 0 && (x > max128<V>() / x || x < min128<V>() / x)) ||
-      (x < 0 && (x < max128<V>() / x || x > min128<V>() / x));
-  t = T(x);
-  t *= t;
-  if (!mul128_overflow) {
-    EXPECT_EQ(t, T(x * x)) << std::hex << std::showbase << x << " * " << x;
+TYPED_TEST(FixedIntGeneratedDataTest, DivMod) {
+  using T = TypeParam;
+  for (V128<T> input : GetTestInputs()) {
+    if (input != 0) {
+      TestDivModWithSelfInput<T>(input);
+      TestArithmeticOperatorsWithConstWord<T>(input);
+    }
   }
-
-  if (x != 0) {
-    t = T(x);
-    EXPECT_EQ(t /= t, T(V{1})) << std::hex << std::showbase << x << " / " << x;
+  for (std::pair<uint128, uint128> input : GetTestInputPairs()) {
+    const V128<T> x = input.first;
+    const V128<T> y = input.second;
+    if (y != 0) {
+      TestDivModWithVariousRhsTypes<T>(x, y, GetExpectedQuotient<T>(x, y),
+                                       GetExpectedRemainder<T>(x, y),
+                                       GetExpectedRoundedQuotient<T>(x, y));
+    }
   }
+}
 #endif
+
+TYPED_TEST(FixedIntGeneratedDataTest, CastInt128) {
+  using T = TypeParam;
+  for (V128<T> input : GetTestInputs()) {
+    EXPECT_EQ(static_cast<V128<T>>(T(input)), input);
+  }
 }
 
-void TestExtendAndMultiply(uint64_t x, uint64_t y) {
-  uint128 x_times_y = static_cast<uint128>(x) * y;
-  uint32_t x_lo = static_cast<uint32_t>(x);
-  uint32_t x_hi = static_cast<uint32_t>(x >> 32);
-  uint32_t y_lo = static_cast<uint32_t>(y);
-  uint32_t y_hi = static_cast<uint32_t>(y >> 32);
-  uint128 x_hi_y = (static_cast<uint128>(x_hi) << 64) | y;
-  uint128 x_hi_y_times_x_lo = x_hi_y * x_lo;
-  std::array<uint32_t, 1> x_lo_array = {x_lo};
-  std::array<uint32_t, 3> x_hi_y_as_array = {y_lo, y_hi, x_hi};
-
-  EXPECT_EQ(ExtendAndMultiply(FixedUint<64, 1>(x), FixedUint<64, 1>(y)),
-            (FixedUint<64, 2>(x_times_y)))
-      << std::hex << std::showbase << x << " * " << y;
-  EXPECT_EQ(ExtendAndMultiply(FixedUint<32, 2>(x), FixedUint<32, 2>(y)),
-            (FixedUint<32, 4>(x_times_y)))
-      << std::hex << std::showbase << x << " * " << y;
-  EXPECT_EQ(ExtendAndMultiply(FixedUint<32, 1>(x_lo_array),
-                              FixedUint<32, 3>(x_hi_y_as_array)),
-            (FixedUint<32, 4>(x_hi_y_times_x_lo)))
-      << std::hex << std::showbase << x_lo << " * " << x_hi_y;
-  EXPECT_EQ(ExtendAndMultiply(FixedUint<32, 3>(x_hi_y_as_array),
-                              FixedUint<32, 1>(x_lo_array)),
-            (FixedUint<32, 4>(x_hi_y_times_x_lo)))
-      << std::hex << std::showbase << x_hi_y << " * " << x_lo;
-
-  int64_t sx = static_cast<int64_t>(x);
-  int64_t sy = static_cast<int64_t>(y);
-  int128 sx_times_sy = static_cast<int128>(sx) * sy;
-  int32_t sx_lo = static_cast<int32_t>(x_lo);
-  int128 sx_hi_y = (static_cast<int128>(static_cast<int32_t>(x_hi)) << 64) | y;
-  int128 sx_hi_y_times_x_lo = sx_hi_y * sx_lo;
-  EXPECT_EQ(ExtendAndMultiply(FixedInt<64, 1>(sx), FixedInt<64, 1>(sy)),
-            (FixedInt<64, 2>(sx_times_sy)))
-      << std::hex << std::showbase << sx << " * " << y;
-  EXPECT_EQ(ExtendAndMultiply(FixedInt<32, 2>(sx), FixedInt<32, 2>(sy)),
-            (FixedInt<32, 4>(sx_times_sy)))
-      << std::hex << std::showbase << sx << " * " << sy;
-  EXPECT_EQ(ExtendAndMultiply(FixedInt<32, 1>(x_lo_array),
-                              FixedInt<32, 3>(x_hi_y_as_array)),
-            (FixedInt<32, 4>(sx_hi_y_times_x_lo)))
-      << std::hex << std::showbase << sx_lo << " * " << sx_hi_y;
-  EXPECT_EQ(ExtendAndMultiply(FixedInt<32, 3>(x_hi_y_as_array),
-                              FixedInt<32, 1>(x_lo_array)),
-            (FixedInt<32, 4>(sx_hi_y_times_x_lo)))
-      << std::hex << std::showbase << sx_hi_y << " * " << sx_lo;
+TYPED_TEST(FixedIntGeneratedDataTest, CastDouble) {
+  using T = TypeParam;
+  for (V128<T> input : GetTestInputs()) {
+    CompareDouble(static_cast<double>(T(input)), static_cast<double>(input));
+  }
 }
 
-void TestArithmeticOperatorsWithWord(uint128 x, uint64_t y) {
-  uint32_t y32 = static_cast<uint32_t>(y);
-  TestArithmeticOperatorsForType<FixedUint<32, 4>, uint128, uint32_t>(x, y32);
-  TestArithmeticOperatorsForType<FixedUint<32, 5>, uint128, uint32_t>(x, y32);
-  TestArithmeticOperatorsForType<FixedUint<64, 2>, uint128, uint64_t>(x, y);
-  TestArithmeticOperatorsForType<FixedUint<64, 3>, uint128, uint64_t>(x, y);
-
-  TestArithmeticOperatorsForType<FixedInt<32, 4>, int128, uint32_t>(x, y32);
-  TestArithmeticOperatorsForType<FixedInt<32, 5>, int128, uint32_t>(x, y32);
-  TestArithmeticOperatorsForType<FixedInt<64, 2>, int128, uint64_t>(x, y);
-  TestArithmeticOperatorsForType<FixedInt<64, 3>, int128, uint64_t>(x, y);
+TYPED_TEST(FixedIntGeneratedDataTest, SerializationRoundTrip) {
+  for (V128<TypeParam> input : GetTestInputs()) {
+    TypeParam t(input);
+    TypeParam deserialized;
+    std::string serialized;
+    t.SerializeToBytes(&serialized);
+    EXPECT_TRUE(deserialized.DeserializeFromBytes(serialized));
+    EXPECT_EQ(deserialized, t);
+  }
 }
 
-void TestArithmeticOperators(uint128 x, uint128 y) {
-  TestArithmeticOperatorsForType<FixedUint<32, 4>, uint128>(x, y);
-  TestArithmeticOperatorsForType<FixedUint<32, 5>, uint128>(x, y);
-  TestArithmeticOperatorsForType<FixedUint<64, 2>, uint128>(x, y);
-  TestArithmeticOperatorsForType<FixedUint<64, 3>, uint128>(x, y);
-
-  TestArithmeticOperatorsForType<FixedInt<32, 4>, int128>(x, y);
-  TestArithmeticOperatorsForType<FixedInt<32, 5>, int128>(x, y);
-  TestArithmeticOperatorsForType<FixedInt<64, 2>, int128>(x, y);
-  TestArithmeticOperatorsForType<FixedInt<64, 3>, int128>(x, y);
+TYPED_TEST(FixedIntGeneratedDataTest, HashCode) {
+  std::vector<TypeParam> values;
+  for (uint64_t x_lo : kSorted64BitValues) {
+    for (uint64_t x_hi : kSorted64BitValues) {
+      V128<TypeParam> x = uint128{x_hi} << 64 | x_lo;
+      values.emplace_back(x);
+    }
+  }
+  EXPECT_TRUE(absl::VerifyTypeImplementsAbslHashCorrectly(values));
 }
 
-void TestArithmeticOperatorsWithSelf(uint128 x) {
-  TestArithmeticOperatorsWithSelfForType<FixedUint<32, 4>, uint128>(x);
-  TestArithmeticOperatorsWithSelfForType<FixedUint<32, 5>, uint128>(x);
-  TestArithmeticOperatorsWithSelfForType<FixedUint<64, 2>, uint128>(x);
-  TestArithmeticOperatorsWithSelfForType<FixedUint<64, 3>, uint128>(x);
+TYPED_TEST(FixedIntGeneratedDataTest, ToString) {
+  using T = TypeParam;
+  for (V128<T> value : GetTestInputs()) {
+    std::ostringstream oss;
+    oss << value;
+    std::string expect = oss.str();
+    std::string actual = T(value).ToString();
+    EXPECT_EQ(expect, actual);
+  }
+}
 
-  TestArithmeticOperatorsWithSelfForType<FixedInt<32, 4>, int128>(x);
-  TestArithmeticOperatorsWithSelfForType<FixedInt<32, 5>, int128>(x);
-  TestArithmeticOperatorsWithSelfForType<FixedInt<64, 2>, int128>(x);
-  TestArithmeticOperatorsWithSelfForType<FixedInt<64, 3>, int128>(x);
+TYPED_TEST(FixedIntGeneratedDataTest, StringRoundTrip) {
+  using T = TypeParam;
+  for (V128<T> value : GetTestInputs()) {
+    T expect(value);
+    std::string str = expect.ToString();
+    T actual;
+    EXPECT_TRUE(actual.ParseFromStringStrict(str));
+    EXPECT_EQ(expect, actual);
+  }
 }
 
 template <template <int, int> class T, int k1, int n1, int k2, int n2>
@@ -495,9 +1751,9 @@ void TestConversion(V128 x) {
   T<64, 1> x_64_1(static_cast<V64>(x));
   T<32, 5> x_32_5(x);
   T<32, 4> x_32_4(x);
-  T<32, 3> x_32_3(static_cast<V64>(x >> 32));
-  x_32_3 <<= 32;
-  x_32_3 += static_cast<uint32_t>(x);
+  T<32, 3> x_32_3(std::array<uint32_t, 3>{static_cast<uint32_t>(x),
+                                        static_cast<uint32_t>(x >> 32),
+                                        static_cast<uint32_t>(x >> 64)});
   V128 x_lo96 = (x << 32) >> 32;
 
   EXPECT_EQ((T<64, 3>(x_64_2)), x_64_3);
@@ -546,232 +1802,38 @@ void TestConversion(V128 x) {
   EXPECT_EQ((Convert<T, 32, 3>(x_32_3, negative)), x_32_3);
 }
 
-TEST(FixedInt, FixedUintCastDoubleTest) {
-  for (uint64_t val : kFixedIntCastDoubleTestData64) {
-    TestFixedUintCastDouble(val);
-  }
-  for (uint128 val : kFixedIntCastDoubleTestData128) {
-    TestFixedUintCastDouble(val);
+TEST(FixedUintTest, Conversion) {
+  for (int128 input : GetTestInputs()) {
+    TestConversion<FixedInt, int128, int64_t>(input);
   }
 }
 
-TEST(FixedInt, FixedUintCastDoubleRandomTest) {
-  absl::BitGen random;
-  for (int i = 0; i < 1000; ++i) {
-    uint64_t random_val = absl::Uniform<uint32_t>(random);
-    TestFixedUintCastDouble(random_val);
-  }
-  for (int i = 0; i < 1000; ++i) {
-    uint64_t random_val = absl::Uniform<uint64_t>(random);
-    TestFixedUintCastDouble(random_val);
-  }
-  for (int i = 0; i < 1000; ++i) {
-    uint64_t random_hi = absl::Uniform<uint64_t>(random);
-    uint64_t random_lo = absl::Uniform<uint64_t>(random);
-    uint128 random_val =
-        static_cast<uint128>(absl::MakeUint128(random_hi, random_lo));
-    TestFixedUintCastDouble(random_val);
+TEST(FixedIntTest, Conversion) {
+  for (uint128 input : GetTestInputs()) {
+    TestConversion<FixedUint, uint128, uint64_t>(input);
   }
 }
 
-TEST(FixedInt, FixedUintCastDoubleMaxTest) {
-  // Given the kNumBitsPerWord can only be 32 or 64, to be casted to double, the
-  // actual max bits a FixedUint can have is 32 * 31 = 992
-  FixedUint<32, 31> max_fixed_uint;
-  max_fixed_uint -= 1;
-  double double_max = static_cast<double>(max_fixed_uint);
-  // Rounded up to 2^992
-  double expect = zetasql_base::MathUtil::IPow(2.0, 992);
-  CompareDouble(double_max, expect);
+TEST(FixedUintTest, MinMax) {
+  EXPECT_EQ((FixedUint<32, 2>::min()), (FixedUint<32, 2>(uint64_t{0})));
+  EXPECT_EQ((FixedUint<32, 2>::max()), (FixedUint<32, 2>(kuint64max)));
+  EXPECT_EQ((FixedUint<64, 1>::min()), (FixedUint<64, 1>(uint64_t{0})));
+  EXPECT_EQ((FixedUint<64, 1>::max()), (FixedUint<64, 1>(kuint64max)));
+  EXPECT_EQ((FixedUint<32, 4>::min()), (FixedUint<32, 4>(uint128{0})));
+  EXPECT_EQ((FixedUint<32, 4>::max()), (FixedUint<32, 4>(kuint128max)));
+  EXPECT_EQ((FixedUint<64, 2>::min()), (FixedUint<64, 2>(uint128{0})));
+  EXPECT_EQ((FixedUint<64, 2>::max()), (FixedUint<64, 2>(kuint128max)));
 }
 
-TEST(FixedInt, FixedIntCastDoubleTest) {
-  for (int64_t val : kFixedIntCastDoubleTestData64) {
-    TestFixedIntCastDouble(val);
-    TestFixedIntCastDouble(-val);
-  }
-  for (int128 val : kFixedIntCastDoubleTestData128) {
-    TestFixedIntCastDouble(val);
-    TestFixedIntCastDouble(-val);
-  }
-}
-
-TEST(FixedInt, FixedIntCastDoubleRandomTest) {
-  absl::BitGen random;
-  for (int i = 0; i < 1000; ++i) {
-    int64_t random_val = absl::Uniform<int32_t>(absl::IntervalClosed, random,
-                                            kint32min, kint32max);
-    TestFixedIntCastDouble(random_val);
-  }
-  for (int i = 0; i < 1000; ++i) {
-    int64_t random_val = absl::Uniform<int64_t>(absl::IntervalClosed, random,
-                                            kint64min, kint64max);
-    TestFixedIntCastDouble(random_val);
-  }
-  for (int i = 0; i < 1000; ++i) {
-    int64_t random_hi = absl::Uniform<int64_t>(absl::IntervalClosed, random,
-                                           kint64min, kint64max);
-    uint64_t random_lo = absl::Uniform<uint64_t>(random);
-    int128 random_val =
-        static_cast<int128>(absl::MakeUint128(random_hi, random_lo));
-    TestFixedIntCastDouble(random_val);
-  }
-}
-
-TEST(FixedInt, FixedIntCastDoubleMinMaxTest) {
-  // Given the kNumBitsPerWord can only be 32 or 64, to be casted to double, the
-  // actual max bits a FixedUint can have is 32 * 31 = 992
-  FixedInt<32, 31> max_fixed_int;
-  FixedInt<32, 31> min_fixed_int;
-  min_fixed_int += 1;
-  for (int i = 0; i < 31; ++i) {
-    min_fixed_int <<= 31;
-  }
-  min_fixed_int <<= 30;
-  max_fixed_int = -min_fixed_int;
-  max_fixed_int -= FixedInt<32, 31>::Word(1);
-  double double_max = static_cast<double>(max_fixed_int);
-  double double_min = static_cast<double>(min_fixed_int);
-  // Rounded up to 2^991
-  double expect_max = zetasql_base::MathUtil::IPow(2.0, 991);
-  double expect_min = zetasql_base::MathUtil::IPow(-2.0, 991);
-  CompareDouble(double_max, expect_max);
-  CompareDouble(double_min, expect_min);
-}
-
-TEST(FixedInt, OperatorsTest) {
-  for (uint64_t x_lo : kSorted64BitValues) {
-    for (uint64_t x_hi : kSorted64BitValues) {
-      const uint128 x = uint128{x_hi} << 64 | x_lo;
-      TestShiftOperators(x);
-      TestArithmeticOperatorsWithSelf(x);
-      TestExtendAndMultiply(x_lo, x_hi);
-      TestConversion<FixedUint, uint128, uint64_t>(x);
-      TestConversion<FixedInt, int128, int64_t>(static_cast<int128>(x));
-
-      for (uint64_t y_lo : kSorted64BitValues) {
-        TestArithmeticOperatorsWithWord(x, y_lo);
-
-        for (uint64_t y_hi : kSorted64BitValues) {
-          const uint128 y = uint128{y_hi} << 64 | y_lo;
-          TestArithmeticOperators(x, y);
-          TestComparisonOperators(x, y);
-        }
-      }
-    }
-  }
-}
-
-TEST(FixedInt, OperatorsRandomTest) {
-  absl::BitGen random;
-  for (int i = 0; i < 10000; ++i) {
-    uint64_t x_lo = absl::Uniform<uint64_t>(random);
-    uint64_t x_hi = absl::Uniform<uint64_t>(random);
-    const uint128 x = uint128{x_hi} << 64 | x_lo;
-    uint64_t y_lo = absl::Uniform<uint64_t>(random);
-    uint64_t y_hi = absl::Uniform<uint64_t>(random);
-    const uint128 y = uint128{y_hi} << 64 | y_lo;
-
-    TestShiftOperators(x);
-    TestArithmeticOperatorsWithSelf(x);
-    TestArithmeticOperatorsWithWord(x, y_lo);
-    TestArithmeticOperators(x, y);
-    TestComparisonOperators(x, y);
-    TestExtendAndMultiply(x_lo, x_hi);
-    TestConversion<FixedUint, uint128, uint64_t>(x);
-    TestConversion<FixedInt, int128, int64_t>(static_cast<int128>(x));
-  }
-}
-
-TEST(FixedInt, FindMSBSetNonZero) {
-  FixedUint<32, 2> v1(static_cast<uint64_t>(0));
-  FixedUint<32, 2> v2(static_cast<uint64_t>(1));
-  FixedUint<32, 2> v3(static_cast<uint64_t>(0x1ffff));
-  FixedUint<32, 4> v4(static_cast<uint64_t>(0x1fffffffffffff));
-  FixedUint<64, 4> v5(static_cast<uint64_t>(0x1fffffffffffff));
-  EXPECT_EQ(0, v1.FindMSBSetNonZero());
-  EXPECT_EQ(0, v2.FindMSBSetNonZero());
-  EXPECT_EQ(16, v3.FindMSBSetNonZero());
-  EXPECT_EQ(52, v4.FindMSBSetNonZero());
-  EXPECT_EQ(52, v5.FindMSBSetNonZero());
-}
-
-TEST(FixedInt, MultiplyAndCheckOverflow_Overflow) {
-  FixedUint<32, 2> v1(static_cast<uint64_t>(0x8000000000000000));
-  FixedUint<32, 2> v2(static_cast<uint64_t>(2));
-  FixedUint<32, 2> v3(static_cast<uint64_t>(184467459183));
-  FixedUint<32, 2> v4(static_cast<uint64_t>(9999999999));
-  EXPECT_FALSE(v1.MultiplyAndCheckOverflow(v2));
-  EXPECT_FALSE(v3.MultiplyAndCheckOverflow(v4));
-}
-
-TEST(FixedInt, Serialization) {
-  for (auto pair : kSortedSerializedSigned64BitValues) {
-    FixedInt<32, 2> ref1(pair.first);
-    FixedInt<64, 1> ref2(pair.first);
-    EXPECT_EQ(ref1.SerializeToBytes(), pair.second);
-    EXPECT_EQ(ref2.SerializeToBytes(), pair.second);
-  }
-}
-
-TEST(FixedInt, Deserialization) {
-  for (auto pair : kSortedSerializedSigned64BitValues) {
-    FixedInt<32, 2> ref1(pair.first);
-    FixedInt<64, 1> ref2(pair.first);
-    FixedInt<32, 2> test1;
-    FixedInt<64, 1> test2;
-    EXPECT_TRUE(test1.DeserializeFromBytes(pair.second));
-    EXPECT_EQ(test1, ref1);
-    EXPECT_TRUE(test2.DeserializeFromBytes(pair.second));
-    EXPECT_EQ(test2, ref2);
-  }
-}
-
-TEST(FixedInt, RandomRoundtrip) {
-  absl::BitGen random;
-  for (int i = 0; i < 10000; ++i) {
-    uint64_t bits = absl::Uniform<uint64_t>(random);
-    uint8_t shift = absl::Uniform<uint8_t>(random, 0, 64);
-    const int128 x = uint128{bits} << shift;
-    const int128 x_neg = -x;
-    FixedInt<32, 4> ref(x);
-    FixedInt<32, 4> ref_neg(x_neg);
-    FixedInt<32, 4> res;
-    EXPECT_TRUE(res.DeserializeFromBytes(ref.SerializeToBytes()));
-    FixedInt<32, 4> res_neg;
-    EXPECT_TRUE(res_neg.DeserializeFromBytes(ref_neg.SerializeToBytes()));
-    EXPECT_EQ(res, ref);
-    EXPECT_EQ(res_neg, ref_neg);
-  }
-}
-
-TEST(FixedUint, Serialization) {
-  for (auto pair : kSortedSerializedUnsigned64BitValues) {
-    FixedUint<32, 2> ref(pair.first);
-    EXPECT_EQ(ref.SerializeToBytes(), pair.second);
-  }
-}
-
-TEST(FixedUint, Deserialization) {
-  for (auto pair : kSortedSerializedUnsigned64BitValues) {
-    FixedUint<32, 2> ref(pair.first);
-    FixedUint<32, 2> test;
-    EXPECT_TRUE(test.DeserializeFromBytes(pair.second));
-    EXPECT_EQ(test, ref);
-  }
-}
-
-TEST(FixedUint, RandomRoundtrip) {
-  absl::BitGen random;
-  for (int i = 0; i < 10000; ++i) {
-    uint64_t bits = absl::Uniform<uint64_t>(random);
-    uint8_t shift = absl::Uniform<uint8_t>(random, 0, 64);
-    const uint128 x = uint128{bits} << shift;
-    FixedUint<32, 4> ref(x);
-    FixedUint<32, 4> res;
-    EXPECT_TRUE(res.DeserializeFromBytes(ref.SerializeToBytes()));
-    EXPECT_EQ(res, ref);
-  }
+TEST(FixedIntTest, MinMax) {
+  EXPECT_EQ((FixedInt<32, 2>::min()), (FixedInt<32, 2>(kint64min)));
+  EXPECT_EQ((FixedInt<32, 2>::max()), (FixedInt<32, 2>(kint64max)));
+  EXPECT_EQ((FixedInt<64, 1>::min()), (FixedInt<64, 1>(kint64min)));
+  EXPECT_EQ((FixedInt<64, 1>::max()), (FixedInt<64, 1>(kint64max)));
+  EXPECT_EQ((FixedInt<32, 4>::min()), (FixedInt<32, 4>(kint128min)));
+  EXPECT_EQ((FixedInt<32, 4>::max()), (FixedInt<32, 4>(kint128max)));
+  EXPECT_EQ((FixedInt<64, 2>::min()), (FixedInt<64, 2>(kint128min)));
+  EXPECT_EQ((FixedInt<64, 2>::max()), (FixedInt<64, 2>(kint128max)));
 }
 }  // namespace
 }  // namespace zetasql

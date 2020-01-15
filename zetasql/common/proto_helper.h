@@ -56,7 +56,7 @@ class SimpleErrorCollector
                 const std::string& message) override {
     // This implementation is copied from AppendToStringErrorCollector(),
     // and <location> is ignored.  TODO: Figure out if <location>
-    // is useful, and add it into the error std::string if so.  Looking at the
+    // is useful, and add it into the error string if so.  Looking at the
     // ErrorLocation enum, it is unclear if it is useful in this context.
     absl::StrAppend(&error_, !error_.empty() ? "\n" : "", filename, " : ",
                     element_name, " : ", message);

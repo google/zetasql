@@ -24,13 +24,13 @@
 
 namespace zetasql {
 
-// Converts a float into a std::string which, if passed to `strtof()`, will produce
+// Converts a float into a string which, if passed to `strtof()`, will produce
 // the original float to the same precision.
 //
 // Exception: for NaN values, `strtod(RoundTripFloatToString(NaN))`
 // may produce any NaN value, not necessarily the original NaN value.
 //
-// No guarantees are made about 'compactness' of the returned std::string.
+// No guarantees are made about 'compactness' of the returned string.
 // `1.0` may print as `1.0000000000000` or as `1.0`
 //
 // If this round-trip property is not required, consider simply absl::StrCat(v).
@@ -42,13 +42,13 @@ inline std::string RoundTripFloatToString(float f) {
   return "nan";
 }
 
-// Converts a double into a std::string which, if passed to `strtod()`, will produce
+// Converts a double into a string which, if passed to `strtod()`, will produce
 // the original float to the same precision.
 //
 // Exception: for NaN values, `strtod(RoundTripDoubleToString(NaN))`
 // may produce any NaN value, not necessarily the original NaN value.
 //
-// No guarantees are made about 'compactness' of the returned std::string.
+// No guarantees are made about 'compactness' of the returned string.
 // `1.0` may print as `1.0000000000000` or as `1.0`
 //
 // If this round-trip property is not required, consider simply absl::StrCat(v).

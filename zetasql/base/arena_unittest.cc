@@ -238,7 +238,7 @@ static void DoTest(const char* label, int blksize, char* buffer) {
       ((reinterpret_cast<uintptr_t>(buffer) % kPageSize) == 0)) {
     {
       ProtectableUnsafeArena pua(buffer, blksize);
-      TestArena((std::string("ProtectableUnsafeArena") + label).c_str(), &pua,
+      TestArena((string("ProtectableUnsafeArena") + label).c_str(), &pua,
                 blksize);
     }
     EnsureNoAddressInRangeIsPoisoned(buffer, blksize);
@@ -374,7 +374,6 @@ void TestArena2(UnsafeArena* const arena) {
 //--------------------------------------------------------------------
 // Test some fundamental STL containers
 
-
 static std::hash<std::string> string_hash;
 static std::equal_to<std::string> string_eq;
 static std::hash<uint32_t> int_hash;
@@ -414,7 +413,8 @@ struct strlt {
   }
 };
 
-typedef absl::node_hash_set<std::string, std::hash<std::string>, std::equal_to<std::string>,
+typedef absl::node_hash_set<std::string, std::hash<std::string>,
+                            std::equal_to<std::string>,
                             ArenaAllocator<std::string, UnsafeArena> >
     StringHSet;
 typedef absl::node_hash_set<const char*, test_hash<const char*>, streq,
@@ -424,11 +424,13 @@ typedef absl::node_hash_set<uint32_t, std::hash<uint32_t>, std::equal_to<uint32_
                             ArenaAllocator<uint32_t, UnsafeArena> >
     IntHSet;
 typedef std::set<std::string, std::less<std::string>,
-  ArenaAllocator<std::string, UnsafeArena> > StringSet;
+                 ArenaAllocator<std::string, UnsafeArena> >
+    StringSet;
 typedef std::set<char*, strlt, ArenaAllocator<char*, UnsafeArena> > CStringSet;
 typedef std::set<uint32_t, std::less<uint32_t>,
   ArenaAllocator<uint32_t, UnsafeArena> > IntSet;
-typedef std::vector<std::string, ArenaAllocator<std::string, UnsafeArena> > StringVec;
+typedef std::vector<std::string, ArenaAllocator<std::string, UnsafeArena> >
+    StringVec;
 typedef std::vector<const char*, ArenaAllocator<const char*, UnsafeArena> >
     CStringVec;
 typedef std::vector<char, ArenaAllocator<char, UnsafeArena> > CharVec;
@@ -437,20 +439,25 @@ typedef std::vector<uint32_t, ArenaAllocator<uint32_t, UnsafeArena> > IntVec;
 TEST(ArenaTest, STL) {
   printf("\nBeginning STL allocation test\n");
 
-  static const std::string test_strings[] =
-  { "aback", "abaft", "abandon", "abandoned", "abandoning",
-    "abandonment", "abandons", "abase", "abased", "abasement",
-    "abasements", "abases", "abash", "abashed", "abashes", "abashing",
-    "abasing", "abate", "abated", "abatement", "abatements", "abater",
-    "abates", "abating", "abbe", "abbey", "abbeys", "abbot", "abbots",
-    "abbreviate", "abbreviated", "abbreviates", "abbreviating",
-    "abbreviation", "abbreviations", "abdomen", "abdomens", "abdominal",
-    "abduct", "abducted", "abduction", "abductions", "abductor", "abductors",
-    "abducts", "Abe", "abed", "Abel", "Abelian", "Abelson", "Aberdeen",
-    "Abernathy", "aberrant", "aberration", "aberrations", "abet", "abets",
-    "abetted", "abetter", "abetting", "abeyance", "abhor", "abhorred",
-    "abhorrent", "abhorrer", "abhorring", "abhors", "abide", "abided",
-    "abides", "abiding"};
+  static const std::string test_strings[] = {
+      "aback",        "abaft",        "abandon",       "abandoned",
+      "abandoning",   "abandonment",  "abandons",      "abase",
+      "abased",       "abasement",    "abasements",    "abases",
+      "abash",        "abashed",      "abashes",       "abashing",
+      "abasing",      "abate",        "abated",        "abatement",
+      "abatements",   "abater",       "abates",        "abating",
+      "abbe",         "abbey",        "abbeys",        "abbot",
+      "abbots",       "abbreviate",   "abbreviated",   "abbreviates",
+      "abbreviating", "abbreviation", "abbreviations", "abdomen",
+      "abdomens",     "abdominal",    "abduct",        "abducted",
+      "abduction",    "abductions",   "abductor",      "abductors",
+      "abducts",      "Abe",          "abed",          "Abel",
+      "Abelian",      "Abelson",      "Aberdeen",      "Abernathy",
+      "aberrant",     "aberration",   "aberrations",   "abet",
+      "abets",        "abetted",      "abetter",       "abetting",
+      "abeyance",     "abhor",        "abhorred",      "abhorrent",
+      "abhorrer",     "abhorring",    "abhors",        "abide",
+      "abided",       "abides",       "abiding"};
 
   static const uint32_t test_ints[] = {
     53,         97,         193,       389,       769,
@@ -461,7 +468,7 @@ TEST(ArenaTest, STL) {
     1610612741};
 
   // Observe that although this definition is natural, used carelessly
-  // it can leak memory.  How?  A std::string is not a atomic type and its
+  // it can leak memory.  How?  A string is not a atomic type and its
   // memory is allocated by the standard allocation mechanism.  This
   // continues to be true even when it is in an STL container that is
   // otherwise arena allocated.  In order to free the strings, it is

@@ -390,7 +390,7 @@ zetasql_base::Status AnalyzerOptions::Deserialize(
 
   if (proto.has_default_timezone() &&
       !LoadTimeZone(proto.default_timezone(), &result->default_timezone_)) {
-    return MakeSqlError() << "Timezone std::string not parseable: "
+    return MakeSqlError() << "Timezone string not parseable: "
                           << proto.default_timezone();
   }
 
@@ -488,7 +488,7 @@ zetasql_base::Status AnalyzerOptions::AddSystemVariable(
   for (const std::string& name_path_part : name_path) {
     if (name_path_part.empty()) {
       return MakeSqlError()
-             << "System variable cannot have empty std::string as path part";
+             << "System variable cannot have empty string as path part";
     }
   }
 

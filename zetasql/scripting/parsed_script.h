@@ -20,10 +20,13 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/public/type.h"
 #include "zetasql/scripting/break_continue_context.h"
+#include "absl/base/macros.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/declare.h"
+#include "zetasql/base/case.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/statusor.h"
 
@@ -35,13 +38,9 @@ namespace zetasql {
 
 class ParsedScript {
  public:
-  // Maps an ASTStatement pointer to the child index of that statement, relative
+  // Maps an ASTNode pointer to the child index of that node, relative
   // to its parent.  For each statement s, s->parent()->child(map[s]) == s.
-  using StatementIndexMap = absl::flat_hash_map<const ASTStatement*, int>;
-
-  // Maps an ASTElseifClause pointer to the child index of that clause, relative
-  // to its parent.  For each clause c, c->parent()->child(map[c]) == c.
-  using ElseifClauseIndexMap = absl::flat_hash_map<const ASTElseifClause*, int>;
+  using NodeIndexMap = absl::flat_hash_map<const ASTNode*, int>;
 
   // Mapping of each break/continue statement to a BreakContinueContext
   // structure.  All node pointers within each BreakContinueContext are
@@ -58,6 +57,15 @@ class ParsedScript {
   using ArgumentTypeMap =
       absl::flat_hash_map<IdString, const Type*, IdStringCaseHash,
                           IdStringCaseEqualFunc>;
+
+  // Mapping of locations to query parameters.
+  using NamedQueryParameterMap = std::map<ParseLocationPoint, IdString>;
+
+  // Case-insensitive set of strings. Strings are not owned by the set.
+  using StringSet = std::set<absl::string_view, zetasql_base::CaseLess>;
+
+  // Either a map of named parameters or the number of positional parameters.
+  using QueryParameters = absl::optional<absl::variant<StringSet, int64_t>>;
 
   // Performs preliminary analysis on the parse tree for a zetasql script
   // before execution.  Currently, this includes the following:
@@ -99,17 +107,20 @@ class ParsedScript {
     return routine_arguments_;
   }
 
-  const StatementIndexMap& statement_index_map() const {
-    return statement_index_map_;
-  }
-
-  const ElseifClauseIndexMap& elseif_clause_index_map() const {
-    return elseif_clause_index_map_;
-  }
+  const NodeIndexMap& node_index_map() const { return node_index_map_; }
 
   const BreakContinueMap& break_continue_map() const {
     return break_continue_map_;
   }
+
+  StringSet GetNamedParameters(const ParseLocationRange& range) const;
+
+  // Returns a pair denoting the start index and length for the number of
+  // positional parameters in the given range.
+  //
+  // If no positional parameters are within the range, returns 0 for the length.
+  std::pair<int64_t, int64_t> GetPositionalParameters(
+      const ParseLocationRange& range) const;
 
   // Returns the node in the script which starts at the given position,
   // or nullptr if no such statement exists.
@@ -120,6 +131,10 @@ class ParsedScript {
   // of <next_node>.
   zetasql_base::StatusOr<VariableTypeMap> GetVariablesInScopeAtNode(
       const ASTNode* node) const;
+
+  // Validates the query parameters (e.g. no missing ones, not mixing named and
+  // positional parameters).
+  zetasql_base::Status CheckQueryParameters(const QueryParameters& parameters) const;
 
  private:
   static zetasql_base::StatusOr<std::unique_ptr<ParsedScript>> CreateInternal(
@@ -141,6 +156,15 @@ class ParsedScript {
   // external ErrorLocation.
   zetasql_base::Status GatherInformationAndRunChecksInternal();
 
+  // Populates <named_query_parameters_> and <positional_query_parameters_> with
+  // parameter locations. Returns an error if both positional and named query
+  // parameters are present.
+  zetasql_base::Status PopulateQueryParameters();
+  zetasql_base::Status CheckQueryParametersInternal(
+      const QueryParameters& parameters) const;
+  // Returns all named parameters in the script.
+  StringSet GetAllNamedParameters() const;
+
   // Controls the lifetime of the script AST, if it is owned by us.  Otherwise,
   // nullptr.
   std::unique_ptr<ParserOutput> parser_output_;
@@ -155,18 +179,16 @@ class ParsedScript {
   // How to report error messages in GatherInformationAndRunChecks().
   ErrorMessageMode error_message_mode_;
 
-  // Map associating each statement in the AST with the index of the statement
+  // Map associating each scripting node in the AST with the index of the node
   // relative to its parent.  We maintain the invariant that:
-  //   statement->parent()->child(statement_index_map_[statement]) == statement.
-  // for all statements <statement> in the parse tree.
+  //   node->parent()->child(node_index_map_[node]) == node.
+  // for all nodes in the map.
+  //
+  // A map entry is generated for all nodes in the parse tree, except for child
+  // nodes inside of a SQL statement or expression.
   //
   // <parser_output_> owns the lifetime of all ASTStatement objects in the map.
-  StatementIndexMap statement_index_map_;
-
-  // Map associating each ELSEIF clause in the AST with the index of the clause
-  // relative to its ASTElseifClauseList parent.  We maintain the invariant
-  // that: clause->parent()->child(elseif_clause_index_map_[clause]) == clause.
-  ElseifClauseIndexMap elseif_clause_index_map_;
+  NodeIndexMap node_index_map_;
 
   // Map associating each BREAK/CONTINUE statement in the script with
   // information needed by the script executor to execute it.
@@ -176,6 +198,11 @@ class ParsedScript {
 
   // Routine arguments existing from the beginning the script.
   ArgumentTypeMap routine_arguments_;
+
+  NamedQueryParameterMap named_query_parameters_;
+  // We want these to be sorted by ParseLocationPoint, and we also want to be
+  // able to quickly look up an query parameters by offset.
+  std::set<std::pair<ParseLocationPoint, int64_t>> positional_query_parameters_;
 };
 
 }  // namespace zetasql

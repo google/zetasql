@@ -21,6 +21,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.testing.SerializableTester;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
@@ -246,6 +247,26 @@ public class SimpleTableTest {
   }
 
   @Test
+  public void testPrimaryKey() {
+    SimpleTable table1 = new SimpleTable("t1", createColumns("t1"));
+    assertThat(table1.getPrimaryKey().isPresent()).isFalse();
+
+    table1.setPrimaryKey(ImmutableList.of(1));
+    assertThat(table1.getPrimaryKey().get()).isEqualTo(ImmutableList.of(1));
+
+    table1.setPrimaryKey(ImmutableList.of(1, 2));
+    assertThat(table1.getPrimaryKey().get()).isEqualTo(ImmutableList.of(1, 2));
+
+    try {
+      table1.setPrimaryKey(ImmutableList.of(1, 5));
+      fail();
+    } catch (IllegalArgumentException e) {
+      assertThat(e).hasMessageThat().isEqualTo("Invalid column index 5 in primary key");
+    }
+    assertThat(table1.getPrimaryKey().get()).isEqualTo(ImmutableList.of(1, 2));
+  }
+
+  @Test
   public void testFindColumnByName() {
     SimpleTable table1 = new SimpleTable("t1", createColumns("t1"));
     SimpleType type = TypeFactory.createSimpleType(TypeKind.TYPE_BOOL);
@@ -270,6 +291,7 @@ public class SimpleTableTest {
         new SimpleColumn("t1", "column2", factory.createProtoType(TypeProto.class));
     table1.addSimpleColumn(column1);
     table1.addSimpleColumn(column2);
+    table1.setPrimaryKey(ImmutableList.of(0));
     table1.setIsValueTable(true);
     FileDescriptorSetsBuilder descriptor = new FileDescriptorSetsBuilder();
 
@@ -284,6 +306,7 @@ public class SimpleTableTest {
       assertThat(table1.getColumn(i).serialize(descriptor).toString())
           .isEqualTo(table1.getColumn(i).serialize(descriptor).toString());
     }
+    assertThat(table2.getPrimaryKey().get()).isEqualTo(table1.getPrimaryKey().get());
     assertThat(table1.getId() == table2.getId()).isTrue();
     assertThat(descriptor.getFileDescriptorSetCount()).isEqualTo(1);
 

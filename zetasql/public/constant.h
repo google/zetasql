@@ -95,7 +95,7 @@ class Constant {
     return static_cast<const ConstantSubclass*>(this);
   }
 
-  // Returns a std::string describing this Constant for debugging purposes.
+  // Returns a string describing this Constant for debugging purposes.
   virtual std::string DebugString() const = 0;
 
  private:

@@ -74,7 +74,8 @@ class Procedure {
   // Returns a relevant (customizable) user facing text (to be used in error
   // message) for procedure signature. For example:
   // "PROCEDURE_NAME(DATE, DATE, DATE_TIME_PART)"
-  std::string GetSupportedSignatureUserFacingText(ProductMode product_mode) const;
+  std::string GetSupportedSignatureUserFacingText(
+      ProductMode product_mode) const;
 
  private:
   const std::vector<std::string> name_path_;

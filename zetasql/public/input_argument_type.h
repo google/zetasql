@@ -133,8 +133,8 @@ class InputArgumentType {
   // External error messaging should not be verbose.
   std::string DebugString(bool verbose = false) const;
 
-  // Returns a comma-separated std::string in vector order.  If <verbose>, then
-  // the generated std::string for each argument is also verbose.
+  // Returns a comma-separated string in vector order.  If <verbose>, then
+  // the generated string for each argument is also verbose.
   static std::string ArgumentsToString(
       const std::vector<InputArgumentType>& arguments,
       ProductMode product_mode = PRODUCT_INTERNAL);
@@ -299,7 +299,7 @@ class InputArgumentTypeSet {
 
   void clear();
 
-  // Returns a comma-separated std::string surrounded by {}, where the arguments
+  // Returns a comma-separated string surrounded by {}, where the arguments
   // are ordered by InputArgumentTypeLess.  If <verbose>, then untyped NULL
   // and parameter arguments are identified as such.
   std::string ToString(bool verbose = false) const;

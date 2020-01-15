@@ -55,8 +55,8 @@ static int HexDigitToInt(char x) {
 // <error>. If <error_offset> is non-NULL, returns the offset in <source> that
 // corresponds to the location of the error.
 static bool CheckForClosingString(absl::string_view source,
-                                  absl::string_view closing_str, std::string* error,
-                                  int* error_offset) {
+                                  absl::string_view closing_str,
+                                  std::string* error, int* error_offset) {
   if (closing_str.empty()) return true;
 
   const char* p = source.data();
@@ -112,7 +112,7 @@ static int AppendCodePoint(char* s, UChar32 cp) {
 // CUnescapeInternal()
 //    Unescapes C escape sequences and is the reverse of CEscape().
 //
-//    If 'source' is valid, stores the unescaped std::string and its size in
+//    If 'source' is valid, stores the unescaped string and its size in
 //    'dest' and 'dest_len' respectively, and returns true. Otherwise
 //    returns false and optionally stores the error description in
 //    'error' and the error offset in 'error_offset'. If 'error' is
@@ -120,13 +120,13 @@ static int AppendCodePoint(char* s, UChar32 cp) {
 //    Set 'error' and 'error_offset' to NULL to disable error reporting.
 //
 //    'dest' must point to a buffer that is at least as big as 'source'.  The
-//    unescaped std::string cannot grow bigger than the source std::string since no
+//    unescaped string cannot grow bigger than the source string since no
 //    unescaped sequence is longer than the corresponding escape sequence.
 //    'source' and 'dest' must not be the same.
 //
 // Originally COPIED FROM strings/escaping.cc, with the following modifications:
 // - Removed some code for unnecessary modes.
-// - The std::string is required to be well-formed UTF-8.
+// - The string is required to be well-formed UTF-8.
 // - Unicode surrogate code points are not allowed for
 //   \u and \U escape sequences.
 // - Extended the logic to support bytes literals, which have slightly different
@@ -203,7 +203,7 @@ static bool CUnescapeInternal(absl::string_view source,
       } else {
         if (is_raw_literal) {
           // For raw literals, all escapes are valid and those characters ('\\'
-          // and the escaped character) come through literally in the std::string.
+          // and the escaped character) come through literally in the string.
           *d++ = *p++;
           *d++ = *p++;
           continue;
@@ -232,7 +232,7 @@ static bool CUnescapeInternal(absl::string_view source,
         case '0': case '1': case '2': case '3': {
           // Octal escape '\ddd': requires exactly 3 octal digits.  Note that
           // the highest valid escape sequence is '\377'.
-          // For std::string literals, octal and hex escape sequences are interpreted
+          // For string literals, octal and hex escape sequences are interpreted
           // as unicode code points, and the related UTF8-encoded character is
           // added to the destination.  For bytes literals, octal and hex
           // escape sequences are interpreted as a single byte value.
@@ -275,7 +275,7 @@ static bool CUnescapeInternal(absl::string_view source,
         }
         case 'x': case 'X': {
           // Hex escape '\xhh': requires exactly 2 hex digits.
-          // For std::string literals, octal and hex escape sequences are
+          // For string literals, octal and hex escape sequences are
           // interpreted as unicode code points, and the related UTF8-encoded
           // character is added to the destination.  For bytes literals, octal
           // and hex escape sequences are interpreted as a single byte value.
@@ -458,11 +458,12 @@ static bool CUnescapeInternal(absl::string_view source,
   return true;
 }
 
-// Same as CUnescapeInternal above, but outputs into a std::string.
+// Same as CUnescapeInternal above, but outputs into a string.
 static bool CUnescapeInternal(absl::string_view source,
                               absl::string_view closing_str,
                               bool is_raw_literal, bool is_bytes_literal,
-                              std::string* dest, std::string* error, int* error_offset) {
+                              std::string* dest, std::string* error,
+                              int* error_offset) {
   dest->resize(source.size());
   int dest_size;
   if (!CUnescapeInternal(source, closing_str, is_raw_literal, is_bytes_literal,
@@ -493,7 +494,7 @@ static bool CUnescapeInternal(absl::string_view source,
 // This allows writing "ab'cd" or 'ab"cd' or `ab"cd` without extra escaping.
 // ----------------------------------------------------------------------
 static std::string CEscapeInternal(absl::string_view src, bool utf8_safe,
-                              char escape_quote_char) {
+                                   char escape_quote_char) {
   std::string dest;
   bool last_hex_escape = false;  // true if last output char was \xNN.
 
@@ -571,7 +572,7 @@ std::string EscapeString(absl::string_view str) {
 }
 
 std::string EscapeBytes(absl::string_view str, bool escape_all_bytes,
-                   char escape_quote_char) {
+                        char escape_quote_char) {
   std::string escaped_bytes;
   for (const char* p = str.begin(); p < str.end(); ++p) {
     unsigned char c = *p;
@@ -640,7 +641,7 @@ zetasql_base::Status ParseStringLiteral(absl::string_view str, std::string* out,
   const bool is_string_literal = MayBeStringLiteral(str);
   const bool is_raw_string_literal = MayBeRawStringLiteral(str);
   if (!is_string_literal && !is_raw_string_literal) {
-    const std::string error =           //
+    const std::string error =      //
         "Invalid string literal";
     if (error_string) *error_string = error;
     return MakeSqlError() << error;
@@ -648,7 +649,7 @@ zetasql_base::Status ParseStringLiteral(absl::string_view str, std::string* out,
 
   absl::string_view copy_str = str;
   if (is_raw_string_literal) {
-    // Strip off the prefix 'r' from the raw std::string content before parsing.
+    // Strip off the prefix 'r' from the raw string content before parsing.
     copy_str = absl::ClippedSubstr(copy_str, 1);
   }
 
@@ -769,7 +770,8 @@ static bool IsValidUnquotedIdentifier(absl::string_view str,
 }
 
 static zetasql_base::Status ParseIdentifierImpl(absl::string_view str, std::string* out,
-                                        std::string* error_string, int* error_offset,
+                                        std::string* error_string,
+                                        int* error_offset,
                                         bool allow_reserved_keywords) {
   if (error_offset) *error_offset = 0;
   // The closing quote is validated by CUnescapeInternal() below.
@@ -823,7 +825,7 @@ zetasql_base::Status ParseGeneralizedIdentifier(absl::string_view str, std::stri
 }
 
 std::string ToIdentifierLiteral(absl::string_view str,
-                           bool quote_reserved_keywords) {
+                                bool quote_reserved_keywords) {
   return IsValidUnquotedIdentifier(str, !quote_reserved_keywords) &&
                  !parser::NonReservedIdentifierMustBeBackquoted(str)
              ? std::string(str)
@@ -836,7 +838,7 @@ std::string ToIdentifierLiteral(IdString str, bool quote_reserved_keywords) {
 }
 
 std::string IdentifierPathToString(absl::Span<const std::string> path,
-                              bool quote_reserved_keywords) {
+                                   bool quote_reserved_keywords) {
   std::string result;
   for (const std::string& identifier : path) {
     if (result.empty()) {
@@ -850,7 +852,7 @@ std::string IdentifierPathToString(absl::Span<const std::string> path,
 }
 
 std::string IdentifierPathToString(absl::Span<const IdString> path,
-                              bool quote_reserved_keywords) {
+                                   bool quote_reserved_keywords) {
   std::string result;
   for (const IdString identifier : path) {
     if (result.empty()) {

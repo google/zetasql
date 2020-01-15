@@ -15,7 +15,7 @@
 // limitations under the License.
 //
 
-// This file contains std::string processing functions related to
+// This file contains string processing functions related to
 // numeric values.
 
 #include "zetasql/base/string_numbers.h"

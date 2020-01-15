@@ -97,7 +97,8 @@ std::string LanguageOptions::GetEnabledLanguageFeaturesAsString() const {
   return ToString(enabled_language_features_);
 }
 
-std::string LanguageOptions::ToString(const std::set<LanguageFeature>& features) {
+std::string LanguageOptions::ToString(
+    const std::set<LanguageFeature>& features) {
   std::set<std::string> strings;
   for (LanguageFeature feature : features) {
     strings.insert(LanguageFeature_Name(feature));

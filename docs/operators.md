@@ -41,8 +41,13 @@ statement.
 <td>&nbsp;</td>
 <td>[ ]</td>
 <td>ARRAY</td>
-<td>Array position. Must be used with OFFSET or ORDINAL&mdash;see <a
-href="#array_functions">ARRAY Functions</a>.</td>
+<td>Array position. Must be used with OFFSET or ORDINAL&mdash;see
+
+<a href="https://github.com/google/zetasql/blob/master/docs/array_functions#array_functions">
+
+Array Functions
+</a>
+.</td>
 <td>Binary</td>
 </tr>
 <tr>
@@ -126,8 +131,13 @@ href="#array_functions">ARRAY Functions</a>.</td>
 <td>9 (Comparison Operators)</td>
 <td>=</td>
 <td>Any comparable type. See
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a> for
-a complete list.</td>
+
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+
+Data Types
+</a>
+
+for a complete list.</td>
 <td>Equal</td>
 <td>Binary</td>
 </tr>
@@ -135,8 +145,13 @@ a complete list.</td>
 <td>&nbsp;</td>
 <td>&lt;</td>
 <td>Any comparable type. See
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a> for
-a complete list.</td>
+
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+
+Data Types
+</a>
+
+for a complete list.</td>
 <td>Less than</td>
 <td>Binary</td>
 </tr>
@@ -144,8 +159,13 @@ a complete list.</td>
 <td>&nbsp;</td>
 <td>&gt;</td>
 <td>Any comparable type. See
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a> for
-a complete list.</td>
+
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+
+Data Types
+</a>
+
+for a complete list.</td>
 <td>Greater than</td>
 <td>Binary</td>
 </tr>
@@ -153,8 +173,13 @@ a complete list.</td>
 <td>&nbsp;</td>
 <td>&lt;=</td>
 <td>Any comparable type. See
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a> for
-a complete list.</td>
+
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+
+Data Types
+</a>
+
+for a complete list.</td>
 <td>Less than or equal to</td>
 <td>Binary</td>
 </tr>
@@ -162,8 +187,13 @@ a complete list.</td>
 <td>&nbsp;</td>
 <td>&gt;=</td>
 <td>Any comparable type. See
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a> for
-a complete list.</td>
+
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+
+Data Types
+</a>
+
+for a complete list.</td>
 <td>Greater than or equal to</td>
 <td>Binary</td>
 </tr>
@@ -171,8 +201,13 @@ a complete list.</td>
 <td>&nbsp;</td>
 <td>!=, &lt;&gt;</td>
 <td>Any comparable type. See
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a> for
-a complete list.</td>
+
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+
+Data Types
+</a>
+
+for a complete list.</td>
 <td>Not equal</td>
 <td>Binary</td>
 </tr>
@@ -186,14 +221,28 @@ a complete list.</td>
 <tr>
 <td>&nbsp;</td>
 <td>[NOT] BETWEEN</td>
-<td>Any comparable types. See Data Types for list.</td>
+<td>Any comparable types. See
+
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+
+Data Types
+</a>
+
+for a complete list.</td>
 <td>Value is [not] within the range specified</td>
 <td>Binary</td>
 </tr>
 <tr>
 <td>&nbsp;</td>
 <td>[NOT] IN</td>
-<td>Any comparable types. See Data Types for list.</td>
+<td>Any comparable types. See
+
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+
+Data Types
+</a>
+
+for a complete list.</td>
 <td>Value is [not] in the set of values specified</td>
 <td>Binary</td>
 </tr>
@@ -296,9 +345,14 @@ e.g.expression.fieldname1.fieldname2...</td>
 <td>array_expression [position_keyword (int_expression ) ]</td>
 <td>See ARRAY Functions.</td>
 <td>Type T stored in ARRAY</td>
-<td>position_keyword is either OFFSET or ORDINAL. See <a
-href="#array_functions">ARRAY Functions</a> for the
-two functions that use this operator.</td>
+<td>position_keyword is either OFFSET or ORDINAL. See
+
+<a href="https://github.com/google/zetasql/blob/master/docs/array_functions#array_functions">
+
+Array Functions
+</a>
+
+for the two functions that use this operator.</td>
 </tr>
 </tbody>
 </table>
@@ -718,7 +772,7 @@ x IN UNNEST(@array_parameter)
 
 **Note:** A `NULL` ARRAY will be treated equivalently to an empty ARRAY.
 
-See the [Arrays][operators-link-to-arrays-topic] topic for more information on
+See the [Arrays][operators-link-to-filtering-arrays] topic for more information on
 how to use this syntax.
 
 When using the `IN` operator, the following semantics apply:
@@ -784,10 +838,11 @@ otherwise.</td>
 </tbody>
 </table>
 
-[operators-link-to-arrays-topic]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering-arrays
-[operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
-[operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from-clause
-[operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct-type
-[operators-link-to-math-functions]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#mathematical-functions
-[link-to-coercion]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#coercion
+[operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering-arrays
+[operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
+[operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax#from-clause
+[operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types#struct-type
+
+[operators-link-to-math-functions]: https://github.com/google/zetasql/blob/master/docs/mathematical_functions
+[link-to-coercion]: https://github.com/google/zetasql/blob/master/docs/conversion_rules#coercion
 

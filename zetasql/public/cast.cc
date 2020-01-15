@@ -318,7 +318,7 @@ zetasql_base::Status CheckLegacyRanges(int64_t timestamp,
   return ::zetasql_base::OkStatus();
 }
 
-// Conversion function from a numeric Value to a std::string Value that
+// Conversion function from a numeric Value to a string Value that
 // handles NULL Values but otherwise just wraps the ZetaSQL function
 // library function (which does not handle NULL values).
 // The function is invoked like:
@@ -338,13 +338,13 @@ static zetasql_base::StatusOr<Value> NumericToString(const Value& v) {
   }
 }
 
-// Conversion function from a numeric Value to a std::string Value that
+// Conversion function from a numeric Value to a string Value that
 // handles NULL Values but otherwise just wraps the ZetaSQL function
 // library function (which does not handle NULL values).
 // The function is invoked like:
 //   status = StringToNumeric<int32_t>(value)
 //
-// Crashes if the Value <v> is not a std::string.
+// Crashes if the Value <v> is not a string.
 template <typename T>
 static zetasql_base::StatusOr<Value> StringToNumeric(const Value& v) {
   if (v.is_null()) return Value::MakeNull<T>();
@@ -505,7 +505,7 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
     case FCT(TYPE_STRING, TYPE_ENUM): {
       const Value to_value = Value::Enum(to_type->AsEnum(), v.string_value());
       if (!to_value.is_valid()) {
-        return MakeEvalError() << "Out of range cast of std::string '"
+        return MakeEvalError() << "Out of range cast of string '"
                                << v.string_value() << "' to enum type "
                                << to_type->DebugString();
       }
@@ -520,7 +520,7 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
     case FCT(TYPE_STRING, TYPE_TIMESTAMP): {
       // TODO: These should be using the non-deprecated signature
       // that includes an argument to indicate if a timezone is allowed in
-      // the std::string or not.  If not allowed and there is a timezone then
+      // the string or not.  If not allowed and there is a timezone then
       // an error should be provided.
       if (language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
         absl::Time timestamp;
@@ -574,7 +574,7 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
         // also that a fully-defined proto might have a descendant field
         // that is an opaque proto).
         return MakeEvalError()
-               << "Invalid cast from std::string to opaque proto type "
+               << "Invalid cast from string to opaque proto type "
                << to_type->DebugString();
       }
       google::protobuf::DynamicMessageFactory msg_factory;
@@ -589,13 +589,13 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
       std::string cord_value;
       if (!message->SerializeToString(&cord_value)) {
         // TODO: This does not seem reachable given that we just
-        // successfully parsed the std::string to a valid message.
+        // successfully parsed the string to a valid message.
         std::string output_string(ToStringLiteral(v.string_value()));
         output_string =
             PrettyTruncateUTF8(output_string, MAX_LITERAL_DISPLAY_LENGTH);
         return MakeEvalError() << "Invalid cast to type "
                                << to_type->DebugString()
-                               << " from std::string: " << output_string;
+                               << " from string: " << output_string;
       }
       return Value::Proto(to_type->AsProto(), cord_value);
     }
@@ -739,9 +739,10 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
           msg_factory.GetPrototype(v.type()->AsProto()->descriptor())->New());
       std::string message_string;
       if (!message->ParsePartialFromString(v.ToCord())) {
-        std::string display_bytes = PrettyTruncateUTF8(
-            ToBytesLiteral(std::string(v.ToCord())), MAX_LITERAL_DISPLAY_LENGTH);
-        return MakeEvalError() << "Invalid cast to std::string from type "
+        std::string display_bytes =
+            PrettyTruncateUTF8(ToBytesLiteral(std::string(v.ToCord())),
+                               MAX_LITERAL_DISPLAY_LENGTH);
+        return MakeEvalError() << "Invalid cast to string from type "
                                << v.type()->DebugString() << ": "
                                << display_bytes;
       }

@@ -47,10 +47,10 @@ Any
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -59,6 +59,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -112,7 +115,7 @@ All data types except ARRAY.
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `IGNORE NULLS` or `RESPECT NULLS`: If `IGNORE NULLS` is
@@ -122,7 +125,7 @@ The clauses are applied *in the following order*:
     the NULL values are included in the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -137,7 +140,7 @@ The clauses are applied *in the following order*:
         possible value; that is, NULLs appear first in `ASC` sorts and last in
         `DESC` sorts.
     *   Floating point data types: see
-        [Floating Point Semantics](https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics)
+        [Floating Point Semantics][floating-point-semantics]
         on ordering and grouping.
     *   If `DISTINCT` is also specified, then
         the sort key must be the same as `expression`.
@@ -147,6 +150,9 @@ The clauses are applied *in the following order*:
 1.  `LIMIT`: Specifies the maximum number of `expression` inputs in the
     result.
     The limit `n` must be a constant INT64.
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -264,7 +270,7 @@ The clauses are applied *in the following order*:
 
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows. This clause
@@ -278,7 +284,7 @@ The clauses are applied *in the following order*:
         possible value; that is, NULLs appear first in `ASC` sorts and last in
         `DESC` sorts.
     *   Floating point data types: see
-        [Floating Point Semantics](https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics)
+        [Floating Point Semantics][floating-point-semantics]
         on ordering and grouping.
     *   If `ORDER BY` is not specified, the order of the elements in the output
         array is non-deterministic, which means you might receive a different
@@ -289,6 +295,9 @@ The clauses are applied *in the following order*:
     the number of elements in the arrays. An empty array counts as 1. A NULL
     array is not counted.
     The limit `n` must be a constant INT64.
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -377,12 +386,12 @@ means you might receive a different result each time you use this function.
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -391,6 +400,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -464,7 +476,7 @@ The clauses are applied *in the following order*:
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows. This clause
@@ -472,6 +484,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -513,7 +528,7 @@ The clauses are applied *in the following order*:
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows. This clause
@@ -521,6 +536,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -562,7 +580,7 @@ The clauses are applied *in the following order*:
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows. This clause
@@ -570,6 +588,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -634,12 +655,12 @@ COUNT([DISTINCT] expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -648,6 +669,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Types**
 
@@ -723,12 +747,12 @@ BOOL
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -737,6 +761,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Types**
 
@@ -795,10 +822,10 @@ BOOL
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -807,6 +834,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Types**
 
@@ -843,10 +873,10 @@ BOOL
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -855,6 +885,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Types**
 
@@ -895,10 +928,10 @@ Any data type except:
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -907,6 +940,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Types**
 
@@ -964,10 +1000,10 @@ Any data type except:
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -976,6 +1012,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Types**
 
@@ -1034,12 +1073,12 @@ BYTES
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -1054,7 +1093,7 @@ The clauses are applied *in the following order*:
         possible value; that is, NULLs appear first in `ASC` sorts and last in
         `DESC` sorts.
     *   Floating point data types: see
-        [Floating Point Semantics](https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics)
+        [Floating Point Semantics][floating-point-semantics]
         on ordering and grouping.
     *   If `DISTINCT` is also specified, then
         the sort key must be the same as `expression`.
@@ -1067,6 +1106,9 @@ The clauses are applied *in the following order*:
     not the number of characters or bytes in the inputs. An empty string counts
     as 1. A NULL string is not counted.
     The limit `n` must be a constant INT64.
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Types**
 
@@ -1179,12 +1221,12 @@ Any supported numeric data types.
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -1193,6 +1235,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Types**
 

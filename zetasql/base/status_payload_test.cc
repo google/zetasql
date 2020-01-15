@@ -27,7 +27,8 @@
 
 namespace zetasql_base {
 
-std::vector<std::pair<std::string, StatusCord>> GetEntries(const Status& status) {
+std::vector<std::pair<std::string, StatusCord>> GetEntries(
+    const Status& status) {
   std::vector<std::pair<std::string, StatusCord>> ret;
   status.ForEachPayload(
       [&ret](absl::string_view type_url, const StatusCord& payload) {

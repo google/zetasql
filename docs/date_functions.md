@@ -60,14 +60,14 @@ be one of:
   the first `WEEKDAY` of the year are in week 0. Valid values for `WEEKDAY` are
   `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`, and
   `SATURDAY`.
-+ `ISOWEEK`: Returns the [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) week
++ `ISOWEEK`: Returns the [ISO 8601 week][ISO-8601-week]
   number of the `date_expression`. `ISOWEEK`s begin on Monday. Return values
   are in the range [1, 53]. The first `ISOWEEK` of each ISO year begins on the
   Monday before the first Thursday of the Gregorian calendar year.
 +   `MONTH`
 +   `QUARTER`: Returns values in the range [1,4].
 +   `YEAR`
-+   `ISOYEAR`: Returns the [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601)
++   `ISOYEAR`: Returns the [ISO 8601][ISO-8601]
     week-numbering year, which is the Gregorian calendar year containing the
     Thursday of the week to which `date_expression` belongs.
 
@@ -273,12 +273,12 @@ non-positive.
 +  `WEEK(<WEEKDAY>)`: This date part begins on `WEEKDAY`. Valid values for
    `WEEKDAY` are `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`,
    `FRIDAY`, and `SATURDAY`.
-+  `ISOWEEK`: Uses [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601)
-   week boundaries. ISO weeks begin on Monday.
++  `ISOWEEK`: Uses [ISO 8601 week][ISO-8601-week]
+   boundaries. ISO weeks begin on Monday.
 +  `MONTH`
 +  `QUARTER`
 +  `YEAR`
-+  `ISOYEAR`: Uses the [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601)
++  `ISOYEAR`: Uses the [ISO 8601][ISO-8601]
     week-numbering year boundary. The ISO year boundary is the Monday of the
     first week whose Thursday belongs to the corresponding Gregorian calendar
     year.
@@ -375,14 +375,14 @@ Truncates the date to the specified granularity.
    `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`, and
    `SATURDAY`.
 +  `ISOWEEK`: Truncates `date_expression` to the preceding
-   [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) week boundary. `ISOWEEK`s
+   [ISO 8601 week][ISO-8601-week] boundary. `ISOWEEK`s
    begin on Monday. The first `ISOWEEK` of each ISO year contains the first
    Thursday of the corresponding Gregorian calendar year. Any `date_expression`
    earlier than this will truncate to the preceding Monday.
 +  `MONTH`
 +  `QUARTER`
 +  `YEAR`
-+  `ISOYEAR`: Truncates `date_expression` to the preceding [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601)
++  `ISOYEAR`: Truncates `date_expression` to the preceding [ISO 8601][ISO-8601]
     week-numbering year boundary. The ISO year boundary is the Monday of the
     first week whose Thursday belongs to the corresponding Gregorian calendar
     year.
@@ -479,7 +479,7 @@ for a list of format elements that this function supports.
 
 STRING
 
-**Example**
+**Examples**
 
 ```sql
 SELECT FORMAT_DATE("%x", DATE "2008-12-25") as US_format;
@@ -489,6 +489,26 @@ SELECT FORMAT_DATE("%x", DATE "2008-12-25") as US_format;
 +------------+
 | 12/25/08   |
 +------------+
+```
+
+```sql
+SELECT FORMAT_DATE("%b-%d-%Y", DATE "2008-12-25") AS formatted;
+
++-------------+
+| formatted   |
++-------------+
+| Dec-25-2008 |
++-------------+
+```
+
+```sql
+SELECT FORMAT_DATE("%b %Y", DATE "2008-12-25") AS formatted;
+
++-------------+
+| formatted   |
++-------------+
+| Dec 2008    |
++-------------+
 ```
 
 ### PARSE_DATE
@@ -610,14 +630,16 @@ space.</td>
  </tr>
  <tr>
     <td>%G</td>
-    <td>The ISO 8601 year with century as a decimal number. Each ISO year begins
+    <td>The <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a>
+    year with century as a decimal number. Each ISO year begins
     on the Monday before the first Thursday of the Gregorian calendar year.
     Note that %G and %Y may produce different results near Gregorian year
     boundaries, where the Gregorian year and ISO year can diverge.</td>
  </tr>
  <tr>
     <td>%g</td>
-    <td>The ISO 8601 year without century as a decimal number (00-99). Each ISO
+    <td>The <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a>
+    year without century as a decimal number (00-99). Each ISO
     year begins on the Monday before the first Thursday of the Gregorian
     calendar year. Note that %g and %y may produce different results near
     Gregorian year boundaries, where the Gregorian year and ISO year can
@@ -655,10 +677,12 @@ space.</td>
 </tr>
  <tr>
     <td>%V</td>
-    <td>The week number of the year (Monday as the first day of the week) as a
-    decimal number (01-53).  If the week containing January 1 has four or more
-    days in the new year, then it is week 1; otherwise it is week 53 of the
-    previous year, and the next week is week 1.</td>
+    <td>The <a href="https://en.wikipedia.org/wiki/ISO_week_date">ISO 8601</a>
+    week number of the year (Monday as the first
+    day of the week) as a decimal number (01-53).  If the week containing
+    January 1 has four or more days in the new year, then it is week 1;
+    otherwise it is week 53 of the previous year, and the next week is
+    week 1.</td>
  </tr>
  <tr>
     <td>%W</td>
@@ -691,6 +715,9 @@ space.</td>
  </tr>
 </table>
 
-[date-functions-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
-[date-functions-link-to-supported-format-elements-for-date]: https://github.com/google/zetasql/blob/master/docs/date_functions.md#supported_format_elements_for_date
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
+[date-functions-link-to-supported-format-elements-for-date]: #supported_format_elements_for_date
+
+[date-functions-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions#timezone_definitions
 

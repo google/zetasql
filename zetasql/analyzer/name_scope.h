@@ -86,7 +86,7 @@ class ValidNamePath {
     target_column_ = target_column;
   }
 
-  // Returns a std::string of the form:
+  // Returns a string of the form:
   //   name_path:target_column
   std::string DebugString() const;
 
@@ -147,7 +147,7 @@ class ValidFieldInfo {
     return valid_name_path_;
   }
 
-  // Returns a std::string of the form:
+  // Returns a string of the form:
   //   source_column:name_path:target_column
   // For example:
   //   col#1::col#2
@@ -671,7 +671,7 @@ class NameScope {
   bool HasName(IdString name) const;
 
   // Returns the closest suggestion on a <mistyped_name> from the names present
-  // in this scope, if one exists. Otherwise returns an empty std::string.
+  // in this scope, if one exists. Otherwise returns an empty string.
   std::string SuggestName(IdString mistyped_name) const;
 
   // Returns whether or not any of the local names (not in previous scopes)

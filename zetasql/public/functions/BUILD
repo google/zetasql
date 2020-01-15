@@ -168,7 +168,7 @@ cc_library(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
-        "@com_google_re2//:re2",
+        "@com_googlesource_code_re2//:re2",
     ],
 )
 
@@ -182,7 +182,7 @@ cc_test(
         "@com_google_googletest//:gtest_main",
         "//zetasql/base:status",
         "@com_google_absl//absl/strings",
-        "@com_google_re2//:re2",
+        "@com_googlesource_code_re2//:re2",
     ],
 )
 
@@ -341,6 +341,54 @@ cc_library(
 )
 
 cc_library(
+    name = "parse_date_time",
+    srcs = ["parse_date_time.cc"],
+    hdrs = ["parse_date_time.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":date_time_util",
+        ":datetime_cc_proto",
+        "//zetasql/base",
+        "//zetasql/base:mathutil",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/common:errors",
+        "//zetasql/public:civil_time",
+        "//zetasql/public:strings",
+        "//zetasql/public:type",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+cc_test(
+    name = "parse_date_time_test",
+    size = "small",
+    srcs = ["parse_date_time_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":date_time_util",
+        ":parse_date_time",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base",
+        "//zetasql/base:map_util",
+        "//zetasql/base:status",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/compliance:functions_testlib",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:type",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/testing:test_function",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+cc_library(
     name = "math",
     srcs = ["math.cc"],
     hdrs = ["math.h"],
@@ -380,6 +428,27 @@ cc_test(
 )
 
 cc_library(
+    name = "string",
+    srcs = ["string.cc"],
+    hdrs = ["string.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":normalize_mode_cc_proto",
+        ":util",
+        "//zetasql/base",
+        "//zetasql/base:map_util",
+        "//zetasql/base:status",
+        "//zetasql/base:stl_util",
+        "//zetasql/base:string_numbers",
+        "//zetasql/common:utf_util",
+        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/strings",
+        "@icu//:common",
+    ],
+)
+
+cc_library(
     name = "regexp",
     srcs = ["regexp.cc"],
     hdrs = ["regexp.h"],
@@ -391,7 +460,7 @@ cc_library(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
-        "@com_google_re2//:re2",
+        "@com_googlesource_code_re2//:re2",
         "@icu//:headers",
     ],
 )
@@ -515,5 +584,34 @@ cc_test(
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_googleapis_googleapis//:timeofday_cc_proto",
+    ],
+)
+
+cc_library(
+    name = "percentile",
+    srcs = ["percentile.cc"],
+    hdrs = ["percentile.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "//zetasql/base",
+        "//zetasql/base:mathutil",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:statusor",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "percentile_test",
+    size = "small",
+    srcs = ["percentile_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":percentile",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/common:string_util",
+        "@com_google_absl//absl/strings",
     ],
 )

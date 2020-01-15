@@ -68,7 +68,7 @@ zetasql_base::Status FormatSql(const std::string& sql, std::string* formatted_sq
       }
 
       // When statement is not parseable, we proceed to the next semicolon and
-      // just emit the original std::string in between.
+      // just emit the original string in between.
       std::vector<ParseToken> parse_tokens;
       ParseTokenOptions options;
       options.stop_at_end_of_statement = true;

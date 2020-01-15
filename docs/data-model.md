@@ -134,13 +134,13 @@ While tables do not have a type, some operations will construct an implicit
 definitions.
 
 For more information on the data types ZetaSQL supports, see
-[Data Types](https://github.com/google/zetasql/blob/master/docs/data-types.md).
+[Data Types][data-types].
 
 ## Constraints
 
 Constraints require that any writes to one or more columns, such as inserts or
 updates, conform to certain rules.
-[Data manipulation language (DML)](https://github.com/google/zetasql/blob/master/docs/data-manipulation-language.md)
+[Data manipulation language (DML)][data-manipulation-language]
 statements enforce constraints. ZetaSQL  supports the
 following constraints:
 
@@ -148,7 +148,7 @@ following constraints:
   specifies that the value of each row of these combined columns must be unique
   within that table. A table can contain at most one primary key constraint.
 
-  Some [data manipulation language (DML)](https://github.com/google/zetasql/blob/master/docs/data-manipulation-language.md)
+  Some [data manipulation language (DML)][data-manipulation-language]
   keywords may require the existence of a primary key.
   ZetaSQL also implicitly builds an index on the primary key. The
   default order of this index is ascending. The primary key can contain `NULL`
@@ -284,7 +284,7 @@ when you want to create a compound value, such as a protocol buffer, from a
 query result and store it as a table that acts like a value table.
 To return a query result as a
 value table, use the `SELECT AS` statement. See
-[Query Syntax](https://github.com/google/zetasql/blob/master/docs/query-syntax.md#value-tables)
+[Query Syntax][query-syntax-value-tables]
 for more information and examples.
 
 #### Example: Copying protocol buffers using value tables
@@ -293,7 +293,7 @@ In some cases you might not want to work with the data within a protocol buffer,
 but with the protocol buffer itself. 
 
 Using `SELECT AS VALUE` can help you keep your ZetaSQL statements as simple
-as possible. To illustrate this, consider the [AlbumReview](#value-table-example)
+as possible. To illustrate this, consider the [AlbumReview][value-table-example]
 example specified earlier. To create a new table from this data, you could
 write:
 
@@ -385,7 +385,7 @@ SELECT a FROM AlbumReviewData a
 
 ### Pseudo-columns and value tables
 
-The [Pseudo-columns](#pseudo-columns) section  describes how pseudo-columns
+The [Pseudo-columns][pseudo-columns] section  describes how pseudo-columns
 work with standard SQL tables. In most cases, pseudo-columns work the same with
 value tables. For example, consider this query:
 
@@ -431,6 +431,12 @@ SELECT a.ROWNUM, a.albumtitle AS title FROM (SELECT a FROM AlbumReviewData a)
 This query does not work. The reason it fails is because the subquery, `SELECT
 a FROM AlbumReviewData a`, returns an `AlbumReviewData` value only, and this
 value does not have a field called `ROWNUM`.
+
+[value-table-example]: #value-table-example
+[pseudo-columns]: #pseudo-columns
+[data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
+[data-manipulation-language]: https://github.com/google/zetasql/blob/master/docs/data-manipulation-language
+[query-syntax-value-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax#value-tables
 
 <!-- END CONTENT -->
 

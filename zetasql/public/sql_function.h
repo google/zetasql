@@ -63,9 +63,10 @@ class ResolvedExpr;
 // signatures (differing number and/or names of arguments).
 class SQLFunctionInterface : public Function {
  public:
-  SQLFunctionInterface(const std::string& name, const std::string& group, Mode mode,
-              const std::vector<FunctionSignature>& function_signatures,
-              const FunctionOptions& function_options)
+  SQLFunctionInterface(
+      const std::string& name, const std::string& group, Mode mode,
+      const std::vector<FunctionSignature>& function_signatures,
+      const FunctionOptions& function_options)
       : Function(name, group, mode, function_signatures, function_options) {}
   SQLFunctionInterface(const SQLFunctionInterface&) = delete;
   SQLFunctionInterface& operator=(const SQLFunctionInterface&) = delete;
@@ -148,21 +149,20 @@ class SQLFunction : public SQLFunctionInterface {
     return parse_resume_location_;
   }
 
-  // Returns a debug std::string that includes the <function_expression_> std::string,
+  // Returns a debug string that includes the <function_expression_> string,
   // if present.
   std::string FullDebugString() const;
 
  private:
   // Constructor for valid functions.
-  SQLFunction(
-      const std::string& name, Mode mode,
-      const std::vector<FunctionSignature>& function_signatures,
-      const FunctionOptions& function_options,
-      const ResolvedExpr* function_expression,
-      const std::vector<std::string>& argument_names,
-      absl::optional<ParseResumeLocation> parse_resume_location,
-      const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
-          aggregate_expression_list);
+  SQLFunction(const std::string& name, Mode mode,
+              const std::vector<FunctionSignature>& function_signatures,
+              const FunctionOptions& function_options,
+              const ResolvedExpr* function_expression,
+              const std::vector<std::string>& argument_names,
+              absl::optional<ParseResumeLocation> parse_resume_location,
+              const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
+                  aggregate_expression_list);
 
   const ResolvedExpr* function_expression_ = nullptr;  // Not owned.
   const std::vector<std::string> argument_names_;

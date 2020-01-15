@@ -422,6 +422,7 @@ by a space.</td>
  </tr>
 </table>
 
-[time-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#timezone_definitions
-[time-link-to-supported-format-elements-for-time]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#supported_format_elements_for_time
+[time-link-to-supported-format-elements-for-time]: #supported_format_elements_for_time
+
+[time-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions#timezone_definitions
 

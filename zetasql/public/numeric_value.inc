@@ -26,7 +26,6 @@
 
 #include "zetasql/common/errors.h"
 #include "absl/base/config.h"
-#include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/canonical_errors.h"
@@ -36,17 +35,12 @@ namespace zetasql {
 
 namespace internal {
 
-// Helper functions to build min and max NUMERIC values at compile time. We need
-// them because there is no way to build int128 literals. Note that these
-// functions perform no overflow checks on NUMERIC values and can produce any
-// int128 value, possibly outside of allowed NUMERIC range.
-constexpr __int128 int128_square(__int128 x) { return x * x; }
-constexpr __int128 int128_exp(__int128 x, int n) {
-  return n == 0 ? 1
-                : int128_square(int128_exp(x, n / 2)) * (n % 2 == 0 ? 1 : x);
-}
-constexpr __int128 kNumericMax = int128_exp(10, 38) - 1;
-constexpr __int128 kNumericMin = -int128_exp(10, 38) + 1;
+constexpr uint32_t k1e9 = 1000000000U;
+constexpr uint64_t k1e19 = static_cast<uint64_t>(k1e9) * k1e9 * 10;
+constexpr __int128 k1e38 = static_cast<__int128>(k1e19) * k1e19;
+constexpr __int128 kNumericMax = k1e38 - 1;
+constexpr __int128 kNumericMin = -kNumericMax;
+constexpr std::integral_constant<int32_t, internal::k1e9> kSignedScalingFactor{};
 
 // Adds two __int128 values and returns true if there was an overflow; otherwise
 // returns false.
@@ -209,6 +203,12 @@ inline zetasql_base::StatusOr<NumericValue> NumericValue::FromDouble(double valu
   return value_status.ValueOrDie();
 }
 
+inline std::string NumericValue::ToString() const {
+  std::string result;
+  AppendToString(&result);
+  return result;
+}
+
 template <typename H>
 inline H AbslHashValue(H h, const NumericValue& v) {
   return H::combine(std::move(h), v.high_bits_, v.low_bits_);
@@ -246,10 +246,9 @@ inline zetasql_base::StatusOr<T> NumericValue::To() const {
                 "In NumericValue::To<T>() T can only be one of "
                 "int32, int64_t, uint32_t or uint64");
 
-  __int128 value = as_packed_int();
-  __int128 rounded_value = value > 0 ? value + kScalingFactor / 2 :
-                                       value - kScalingFactor / 2;
-  rounded_value /= kScalingFactor;
+  __int128 rounded_value =
+      static_cast<__int128>(FixedInt<64, 2>(as_packed_int())
+          .DivAndRoundAwayFromZero(internal::kSignedScalingFactor));
   if (ABSL_PREDICT_FALSE((rounded_value < std::numeric_limits<T>::min()) ||
                          (rounded_value > std::numeric_limits<T>::max()))) {
     return MakeEvalError() << TypeName<T>() << " out of range: " << ToString();
@@ -257,28 +256,39 @@ inline zetasql_base::StatusOr<T> NumericValue::To() const {
   return static_cast<T>(rounded_value);
 }
 
-inline double NumericValue::ToDouble() const {
-  __int128 value = as_packed_int();
-  __int128 int_part = value / kScalingFactor;
-  __int128 fract_part = value % kScalingFactor;
-  return static_cast<double>(int_part) +
-         static_cast<double>(fract_part) / kScalingFactor;
-}
-
-inline __int128 NumericValue::as_packed_int() const {
+inline constexpr __int128 NumericValue::as_packed_int() const {
   return (static_cast<__int128>(high_bits_) << 64) + low_bits_;
 }
 
-inline uint64_t NumericValue::high_bits() const {
+inline constexpr uint64_t NumericValue::high_bits() const {
   return high_bits_;
 }
 
-inline uint64_t NumericValue::low_bits() const {
+inline constexpr uint64_t NumericValue::low_bits() const {
   return low_bits_;
 }
 
+inline int32_t NumericValue::GetFractionalPart() const {
+  int32_t remainder;
+  FixedInt<64, 2>(as_packed_int())
+      .DivMod(internal::kSignedScalingFactor, nullptr, &remainder);
+  return remainder;
+}
+
 inline bool NumericValue::has_fractional_part() const {
-  return as_packed_int() % kScalingFactor != 0;
+  return GetFractionalPart() != 0;
+}
+
+inline void NumericValue::Aggregator::Add(NumericValue value) {
+  const __int128 v = value.as_packed_int();
+  if (ABSL_PREDICT_FALSE(internal::int128_add_overflow(
+      sum_lower_, v, &sum_lower_))) {
+    sum_upper_ += v < 0 ? -1 : 1;
+  }
+}
+
+inline void NumericValue::SumAggregator::Add(NumericValue value) {
+  sum_ += FixedInt<64, 3>(value.as_packed_int());
 }
 
 }  // namespace zetasql

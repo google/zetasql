@@ -4,15 +4,12 @@
 # Data Types
 
 <!-- BEGIN CONTENT -->
-<p>
 ZetaSQL supports simple data types such as integers, as well as more
 complex types such as ARRAY,
 PROTO, and STRUCT. This page provides an overview of each data type,
 including allowed values. For information on
 data type literals and constructors, see
-<a href="https://github.com/google/zetasql/blob/master/docs/lexical.md#literals">
-Lexical Structure and Syntax</a>.
-</p>
+[Lexical Structure and Syntax][lexical-literals].
 
 ## Data type properties
 
@@ -98,8 +95,13 @@ Protocol Buffer comparisons are not supported.
 <br /><br />
 All types that support comparisons
 can be used in a <code>JOIN</code> condition. See
-<a href="https://github.com/google/zetasql/blob/master/docs/query-syntax.md#join_types">JOIN
-Types</a> for an explanation of join conditions.</td></tr>
+
+<a href="https://github.com/google/zetasql/blob/master/docs/query-syntax#join_types">
+
+JOIN Types
+</a>
+
+for an explanation of join conditions.</td></tr>
 </tbody>
 </table>
 
@@ -222,8 +224,7 @@ but the output would be non-finite. If the input contains non-finite values, the
 output can be non-finite. In general functions do not introduce `NaN`s or
 `+/-inf`. However, specific functions like `IEEE_DIVIDE` can return non-finite
 values on finite input. All such cases are noted explicitly in
-<a href="https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#mathematical-functions">
-Mathematical functions</a>.
+[Mathematical functions][mathematical-functions].
 
 ##### Mathematical function examples
 
@@ -499,7 +500,7 @@ A DATETIME represents a point in time. Each DATETIME contains the following:
 + second
 + subsecond
 
-Unlike [Timestamps](#timestamp-type), a DATETIME object does not refer to an
+Unlike [Timestamps][timestamp-type], a DATETIME object does not refer to an
 absolute instance in time. Instead, it is the _civil time_, or the time that
 a user would see on a watch or calendar.
 
@@ -650,7 +651,7 @@ explicitly specified, the default time zone, which is implementation defined, is
 Time zones are represented by strings in one of these two canonical formats:
 
 + Offset from Coordinated Universal Time (UTC), or the letter `Z` for UTC
-+ Time zone name from the [tz database](http://www.iana.org/time-zones)
++ Time zone name from the [tz database][tz-database]
 
 #### Offset from Coordinated Universal Time (UTC)
 
@@ -682,9 +683,9 @@ of the timestamp.
 
 #### Time zone name
 
-Time zone names are from the [tz database](http://www.iana.org/time-zones). For a
+Time zone names are from the [tz database][tz-database]. For a
 less comprehensive but simpler reference, see the
-[List of tz database time zones](http://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+[List of tz database time zones][tz-database-list]
 on Wikipedia.
 
 ##### Format
@@ -1098,7 +1099,7 @@ Protocol buffers provide structured data types with a defined serialization
 format and cross-language support libraries. Protocol buffer message types can
 contain optional, required or repeated fields, including nested messages. See
 the
-[Protocol Buffers Developer Guide](https://developers.google.com/protocol-buffers/docs/overview) for more detail.
+[Protocol Buffers Developer Guide][protocol-buffers-dev-guide] for more detail.
 
 Protocol buffer message types behave similarly to STRUCT types, and support
 similar operations like reading field values by name. Protocol buffer types are
@@ -1110,7 +1111,7 @@ presence of optional fields.
 Protocol buffer ENUM types are also available and can be referenced using the
 fully-qualified ENUM type name.
 
-See [Using Protocol Buffers](https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md)
+See [Using Protocol Buffers][protocol-buffers]
 for more information.
 
 ### Limited comparisons for PROTO
@@ -1126,6 +1127,18 @@ workarounds:
   * To get a simple approximation for inequality comparisons, you can cast PROTO
     to STRING. Note that this will do lexicographical ordering for numeric
     fields.
+
+[protocol-buffers-dev-guide]: https://developers.google.com/protocol-buffers/docs/overview
+[tz-database]: http://www.iana.org/time-zones
+[tz-database-list]: http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+[ogc-sfs]: http://www.opengeospatial.org/standards/sfs#downloads
+[WGS84-reference-ellipsoid]: https://en.wikipedia.org/wiki/World_Geodetic_System
+[timestamp-type]: #timestamp-type
+[protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers
+[lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical#literals
+
+[geography-functions]: https://github.com/google/zetasql/blob/master/docs/geography_functions
+[mathematical-functions]: https://github.com/google/zetasql/blob/master/docs/mathematical_functions
 
 <!-- END CONTENT -->
 

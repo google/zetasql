@@ -196,7 +196,8 @@ TEST(ErrorHelpersTest, ErrorLocationHelpers) {
   ClearErrorLocation(&status3);
 }
 
-static void TestGetCaret(const std::string& query, const ErrorLocation& location,
+static void TestGetCaret(const std::string& query,
+                         const ErrorLocation& location,
                          const std::string& expected_output) {
   EXPECT_EQ(expected_output, GetErrorStringWithCaret(query, location));
 }
@@ -231,7 +232,7 @@ TEST(ErrorHelpersTest, GetErrorStringWithCaret) {
   TestGetCaret(str1, MakeErrorLocation(3, 3),
                "ghi\n"
                "  ^");
-  TestGetCaret(str1, MakeErrorLocation(3, 4),  // One off end of std::string is okay.
+  TestGetCaret(str1, MakeErrorLocation(3, 4),  // One off end of string is okay.
                "ghi\n"
                "   ^");
 
@@ -249,15 +250,15 @@ TEST(ErrorHelpersTest, GetErrorStringWithCaret) {
                "                xxx     yyy\n"
                "                 ^");
 
-  // Test with \r in the std::string.
+  // Test with \r in the string.
   TestGetCaret("ab\rcd\ref", MakeErrorLocation(2, 1),
                "cd\n"
                "^");
-  // Test with \r\n in the std::string.
+  // Test with \r\n in the string.
   TestGetCaret("ab\r\ncd\r\nef", MakeErrorLocation(2, 1),
                "cd\n"
                "^");
-  // Test with \n\r in the std::string.  This does not count as a single newline,
+  // Test with \n\r in the string.  This does not count as a single newline,
   // so it ends up counting as two.
   TestGetCaret("ab\n\rcd\n\ref", MakeErrorLocation(2, 1),
                "\n"
@@ -310,7 +311,7 @@ TEST(ErrorHelpersTest, GetErrorStringWithCaret) {
                               MakeErrorLocation(1, line.length()), kMaxWidth));
 
   // These are example outputs from GetErrorStringWithCaret at various
-  // positions.  These look like substring of the full std::string of
+  // positions.  These look like substring of the full string of
   // length <= kMaxWidth that try to start at word boundary.
   // Some don't find an acceptable word boundary and just point at the middle.
   EXPECT_THAT(outputs, testing::ElementsAreArray({
@@ -383,7 +384,7 @@ TEST(ErrorHelpersTest, GetErrorStringWithCaret) {
           MakeErrorLocation(1, 35), 30 /* max_width */));
 
   // Here's one where we avoid slicing a UTF8 codepoint when we do max width
-  // truncation. In this example we choose to print a 29 byte error std::string
+  // truncation. In this example we choose to print a 29 byte error string
   // rather than slicing the 2-byte UTF8 codepoint in half.
   EXPECT_EQ("01234567890123456789012345...\n^",
             GetErrorStringWithCaret("01234567890123456789012345"
@@ -467,9 +468,10 @@ struct UpdateErrorFromPayloadTestCase {
  public:
   UpdateErrorFromPayloadTestCase(
       const std::string& query_in, const zetasql_base::Status& status_in,
-      const std::map<ErrorMessageMode, std::string>& expected_results_in) :
-      query(query_in), status(status_in), expected_results(expected_results_in)
-  {}
+      const std::map<ErrorMessageMode, std::string>& expected_results_in)
+      : query(query_in),
+        status(status_in),
+        expected_results(expected_results_in) {}
   ~UpdateErrorFromPayloadTestCase() {}
 
   std::string query;
@@ -478,16 +480,16 @@ struct UpdateErrorFromPayloadTestCase {
 };
 
 // Helper method that runs a list of test cases.  Each test case indicates
-// a source query std::string, a Status, and a map of <ErrorMessageMode, std::string>.
+// a source query string, a Status, and a map of <ErrorMessageMode, string>.
 // Each entry in the map identifies the expected result of calling
 // MaybeUpdateErrorFromPayload() for the given mode, followed by FormatError()
-// to get a std::string for the updated Status.
+// to get a string for the updated Status.
 static void RunTests(
     const std::vector<UpdateErrorFromPayloadTestCase> test_cases) {
   for (const UpdateErrorFromPayloadTestCase& test_case : test_cases) {
     for (const auto& map_entry : test_case.expected_results) {
       const ErrorMessageMode mode = map_entry.first;
-      const std::string &expected_error_string = map_entry.second;
+      const std::string& expected_error_string = map_entry.second;
       zetasql_base::Status adjusted_status =
           MaybeUpdateErrorFromPayload(mode, test_case.query, test_case.status);
       const std::string test_string = absl::StrCat(
@@ -503,7 +505,7 @@ static void RunTests(
       EXPECT_FALSE(
           internal::HasPayloadWithType<InternalErrorLocation>(adjusted_status))
           << test_string;
-      // The adjusted status should match the expected status std::string.
+      // The adjusted status should match the expected status string.
       EXPECT_EQ(FormatError(adjusted_status), expected_error_string)
           << test_string;
 
@@ -619,7 +621,8 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorLocationPayloadTests) {
   const std::string expected_payload_string3 =
       "generic::unknown: Message3 [zetasql.ErrorLocation] "
       "{ line: 1 column: 4 }";
-  const std::string expected_oneline_string3 = "generic::unknown: Message3 [at 1:4]";
+  const std::string expected_oneline_string3 =
+      "generic::unknown: Message3 [at 1:4]";
   const std::string expected_caret_string3 =
       "generic::unknown: Message3 [at 1:4]\n1234567890123456789_1\n   ^";
   expected_result.clear();
@@ -719,7 +722,7 @@ TEST(ErrorHelpersTest, BasicErrorSourcePayloadTests) {
   location.set_column(2);
 
   const std::string source_error_message = "source_error_message";
-  const std::string source_caret_string = "caret std::string 2\n      ^";
+  const std::string source_caret_string = "caret string 2\n      ^";
   ErrorLocation source_error_location;
   source_error_location.set_filename("source_file");
   source_error_location.set_line(1);
@@ -770,7 +773,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorSourcePayloadTests) {
   // MaybeUpdateErrorFromPayload() has no effect.
   zetasql_base::Status status = MakeSqlError() << "Message1";
   std::string expected_oneline_string = "Message1";
-  // These tests use FormatError() to compare the expected std::string to
+  // These tests use FormatError() to compare the expected string to
   // the updated status.  If the mode is ERROR_MESSAGE_MODE_WITH_PAYLOAD,
   // the result of FormatError() for a Status with payload is the
   // same as FormatError() on a Status updated for ERROR_MESSAGE_MODE_ONE_LINE
@@ -930,7 +933,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorSourcePayloadTests) {
   // 2) ERROR_MESSAGE_ONE_LINE - For a status with an ErrorLocation payload,
   //    the error location gets appended to the error message, i.e.,
   //    "<error message> [at 1:4]".  The location is relative to the
-  //    query/statement std::string that provided for resolution.  Nested errors
+  //    query/statement string that provided for resolution.  Nested errors
   //    are appended with their own error location.
   // 3) ERROR_MESSAGE_MULTI_LINE_WITH_CARET - The nested error message is
   //    provided along with the source statement and caret line indicating

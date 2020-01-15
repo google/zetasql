@@ -210,9 +210,9 @@ zetasql_base::StatusOr<int> ParseLocationTranslator::GetByteOffsetFromLineAndCol
 
   ZETASQL_ASSIGN_OR_RETURN(absl::string_view current_line, GetLineText(line));
   DCHECK_EQ(current_line.find('\r'), current_line.npos)
-      << "GetLineText() returned std::string with newline characters";
+      << "GetLineText() returned string with newline characters";
   DCHECK_EQ(current_line.find('\n'), current_line.npos)
-      << "GetLineText() returned std::string with newline characters";
+      << "GetLineText() returned string with newline characters";
 
   int byte_offset = 0;
   int curr_column = 1;

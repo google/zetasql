@@ -41,7 +41,7 @@
 
 namespace zetasql {
 
-// Creates a map of ASTNodeKind to a std::string representation of the node type's
+// Creates a map of ASTNodeKind to a string representation of the node type's
 // name. Access this map through GetNodeNamesMap().
 static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   absl::flat_hash_map<ASTNodeKind, std::string> map;
@@ -113,6 +113,9 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_DEFINE_TABLE_STATEMENT] = "DefineTableStatement";
   map[AST_DELETE_STATEMENT] = "DeleteStatement";
   map[AST_DESCRIBE_STATEMENT] = "DescribeStatement";
+  map[AST_DESCRIPTOR_COLUMN] = "DescriptorColumn";
+  map[AST_DESCRIPTOR_COLUMN_LIST] = "DescriptorColumnList";
+  map[AST_DESCRIPTOR] = "Descriptor";
   map[AST_DOT_GENERALIZED_FIELD] = "DotGeneralizedField";
   map[AST_DOT_IDENTIFIER] = "DotIdentifier";
   map[AST_DOT_STAR_WITH_MODIFIERS] = "DotStarWithModifiers";
@@ -298,7 +301,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   return map;
 }
 
-// Returns a map of ASTNodeKind to a std::string representation of the node type's
+// Returns a map of ASTNodeKind to a string representation of the node type's
 // name.
 static const absl::flat_hash_map<ASTNodeKind, std::string>& GetNodeNamesMap() {
   static const absl::flat_hash_map<ASTNodeKind, std::string>& map =
@@ -340,6 +343,10 @@ zetasql_base::Status ASTNode::TraverseNonRecursiveHelper(
       });
     }
   }
+  if (result.should_terminate()) {
+    stack->clear();
+  }
+
   return zetasql_base::OkStatus();
 }
 

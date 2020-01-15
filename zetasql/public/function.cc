@@ -140,11 +140,13 @@ Function::Function(const std::string& name, const std::string& group, Mode mode,
   }
 }
 
-Function::Function(
-    const std::vector<std::string>& name_path, const std::string& group, Mode mode,
-    const std::vector<FunctionSignature>& function_signatures,
-    const FunctionOptions& function_options)
-    : function_name_path_(name_path), group_(group), mode_(mode),
+Function::Function(const std::vector<std::string>& name_path,
+                   const std::string& group, Mode mode,
+                   const std::vector<FunctionSignature>& function_signatures,
+                   const FunctionOptions& function_options)
+    : function_name_path_(name_path),
+      group_(group),
+      mode_(mode),
       function_options_(function_options) {
   function_signatures_ = function_signatures;
   ZETASQL_CHECK_OK(CheckWindowSupportOptions());
@@ -354,7 +356,7 @@ std::string Function::GetSQL(const std::vector<std::string>& inputs) const {
   if (GetSQLCallback() != nullptr) {
     return GetSQLCallback()(inputs);
   }
-  std::string name = FullName(/*include_group=*/ false);
+  std::string name = FullName(/*include_group=*/false);
   if (function_options_.uses_upper_case_sql_name) {
     absl::AsciiStrToUpper(&name);
   }
@@ -374,8 +376,7 @@ zetasql_base::Status Function::CheckArgumentConstraints(
 // static
 const std::string Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
     const std::string& qualified_function_name,
-    const std::vector<InputArgumentType>& arguments,
-    ProductMode product_mode) {
+    const std::vector<InputArgumentType>& arguments, ProductMode product_mode) {
   return absl::StrCat(
       "No matching signature for ", qualified_function_name,
       (arguments.empty() ? " with no arguments"

@@ -646,16 +646,16 @@ zetasql_base::Status Resolver::ResolveHintOrOptionAndAppend(
 
   std::unique_ptr<const ResolvedExpr> resolved_expr;
 
-  // Single identifiers are accepted as hint values, and are stored as std::string
+  // Single identifiers are accepted as hint values, and are stored as string
   // values.  These show up in the AST as path expressions with one element.
   if (ast_value->node_kind() == AST_PATH_EXPRESSION) {
     const ASTPathExpression* path_expr
         = static_cast<const ASTPathExpression*>(ast_value);
     if (path_expr->num_names() == 1 && !path_expr->parenthesized()) {
       // For backward compatibility, standalone identifier names need to be
-      // treated as a literal std::string.  But, if the name happens to resolve
+      // treated as a literal string.  But, if the name happens to resolve
       // as an expression, emit an error, since it's not clear whether the user
-      // is referring to a literal std::string "foo" or a constant symbol named
+      // is referring to a literal string "foo" or a constant symbol named
       // "foo".  The user can resolve the error by either adding parentheses or
       // enclosing the name in quotation marks.
       const char* context = is_hint ? "hint" : "option";
@@ -665,7 +665,7 @@ zetasql_base::Status Resolver::ResolveHintOrOptionAndAppend(
         return MakeSqlErrorAt(ast_value)
                << "Unable to determine if "
                << path_expr->name(0)->GetAsIdString().ToStringView()
-               << " is a std::string or expression.  If a std::string is intended, "
+               << " is a string or expression.  If a string is intended, "
                << "please enclose it with quotation marks.  If an expression "
                << "is intended, please enclose it with parentheses.";
       }

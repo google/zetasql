@@ -69,7 +69,7 @@ void TestRoundtripValueHex(
   EXPECT_EQ(value, hexout) << "hexstr: " << hexstr << " hexout:" << hexout;
 }
 
-// Converting any numeric value to a std::string and then back must always return
+// Converting any numeric value to a string and then back must always return
 // the same value. This is guaranteed by NumericToString() implementation.
 template <typename T>
 void TestRoundtripValue(T value) {

@@ -20,7 +20,7 @@ If you're going to query protocol buffers, you need to understand how they are
 represented, what features they support, and what data they can contain. If
 you're unfamiliar with protocol buffers in general, or would like a refresher on
 how they work in languages other than SQL, see the
-[Protocol Buffers Developer Guide](https://developers.google.com/protocol-buffers).
+[Protocol Buffers Developer Guide][protocol-buffers-dev-guide].
 
 ## Constructing protocol buffers
 
@@ -37,8 +37,8 @@ NEW TypeName(field_1 [AS alias], ...field_n [AS alias])
 
 When using the `NEW` keyword to create a new protocol buffer:
 
-+ All field expressions must have an [explicit alias](https://github.com/google/zetasql/blob/master/docs/query-syntax#explicit-alias-syntax) or end with an identifier.
-  For example, the expression `a.b.c` has the [implicit alias](https://github.com/google/zetasql/blob/master/docs/query-syntax#implicit-aliases) `c`.
++ All field expressions must have an [explicit alias][explicit-alias] or end with an identifier.
+  For example, the expression `a.b.c` has the [implicit alias][implicit-alias] `c`.
 + `NEW` matches fields by alias to the field names of the protocol buffer.
   Aliases must be unique.
 + The expressions must be implicitly coercible or literal-coercible to the type
@@ -65,7 +65,7 @@ NEW TypeName(expr1 AS (path.to.extension), ...)
     extension path inside parentheses.
 +   `expr1` provides the value to set for the extension. `expr1` must be of the
     same type as the extension or
-    [coercible to that type](https://github.com/google/zetasql/blob/master/docs/one-pager#conversion-rules).
+    [coercible to that type][conversion-rules].
 
     Example:
 
@@ -124,7 +124,7 @@ an alias (explicitly or implicitly) that matches a unique protocol buffer field
 name; to construct the protocol buffer, the query matches each expression with a
 protocol buffer field by name. If no explicit alias is given, the expression
 must have an implicit alias according to the rules in
-[Implicit Aliases](https://github.com/google/zetasql/blob/master/docs/query-syntax.md#implicit_aliases).
+[Implicit Aliases][implicit-alias].
 
 When used with `SELECT DISTINCT`, or `GROUP BY` or `ORDER BY` using column
 ordinals, these operators are applied first, on the columns in the `SELECT`
@@ -147,7 +147,7 @@ stored in the `int64_val` field in the protocol buffer. Similarly, values from
 the `mytable.name` column are stored in the `string_val` protocol buffer field.
 
  `SELECT AS` does not support setting protocol
-buffer extensions. To do so, use the [NEW](#using_new) keyword instead. For
+buffer extensions. To do so, use the [NEW][new-keyword] keyword instead. For
 example,  to create a protocol buffer with an extension, change a query like
 this:
 
@@ -606,7 +606,7 @@ FROM
 ```
 
 For more information, see
-[Working with Arrays](https://github.com/google/zetasql/blob/master/docs/arrays.md).
+[Working with Arrays][working-with-arrays].
 
 ### Returning the number of elements in an array
 
@@ -623,9 +623,9 @@ FROM
 
 ### Querying map fields
 
-Maps are not a supported type in ZetaSQL. However, maps are <a href=
-"https://developers.google.com/protocol-buffers/docs/proto3#backwards-compatibility">
-implemented in proto3 as repeated fields</a>, so you can query maps by querying
+Maps are not a supported type in ZetaSQL. However, maps are
+[implemented in proto3 as repeated fields][protocol-buffer-compatibility],
+so you can query maps by querying
 the underlying repeated field. The underlying repeated field has `key` and
 `value` fields that can be queried.
 
@@ -647,7 +647,7 @@ WHERE
 
 ## Extensions
 
-[extensions](https://developers.google.com/protocol-buffers/docs/proto#extensions)
+[extensions][protocol-extensions]
 can be queried from `PROTO` values.
 
 <a id="extensions"></a>
@@ -731,7 +731,7 @@ FROM
 
 ### Nested extensions
 
-[Nested extensions](https://developers.google.com/protocol-buffers/docs/proto#nested-extensions)
+[Nested extensions][nested-extensions]
 are also supported. These are protocol buffer extensions that are declared
 within the scope of some other protocol message. For example:
 
@@ -844,8 +844,18 @@ FROM
   UNNEST(t.proto_field.(some.package.Extension.repeated_extension_value)) value;
 ```
 
-  [link_to_safe_cast]: https://github.com/google/zetasql/blob/master/docs/conversion_rules#safe_casting
-  [proto-extract]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators#proto-extract
+[protocol-buffer-compatibility]: https://developers.google.com/protocol-buffers/docs/proto3#backwards-compatibility
+[protocol-buffers-dev-guide]: https://developers.google.com/protocol-buffers
+[nested-extensions]: https://developers.google.com/protocol-buffers/docs/proto#nested-extensions
+
+[new-keyword]: #using_new
+[explicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax#explicit-alias-syntax
+[implicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax#implicit_aliases
+[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules
+[working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md
+
+[link_to_safe_cast]: https://github.com/google/zetasql/blob/master/docs/conversion_rules#safe_casting
+[proto-extract]: https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions#proto_extract
 
 <!-- END CONTENT -->
 

@@ -80,7 +80,7 @@ int64_t IdStringPool::AllocatePoolId() {
 }
 #endif
 
-// We want to keep one global empty std::string constant so that we can implement
+// We want to keep one global empty string constant so that we can implement
 // the default constructor and clear() as assignment, without allocating
 // a new Shared object.
 const IdString* const IdString::kEmptyString =

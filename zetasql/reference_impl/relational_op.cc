@@ -899,8 +899,8 @@ class SortTupleIterator : public TupleIterator {
     return zetasql_base::OkStatus();
   }
 
-  // We store a TupleIterator instead of the debug std::string to avoid having to
-  // compute the debug std::string unnecessarily.
+  // We store a TupleIterator instead of the debug string to avoid having to
+  // compute the debug string unnecessarily.
   const std::unique_ptr<TupleIterator> input_iter_for_debug_string_;
   const std::unique_ptr<const TupleSchema> schema_;
   const std::unique_ptr<TupleComparator> comparator_;
@@ -1933,7 +1933,7 @@ class RightInputForJoin {
   // the same requirements as RecordMatchingTupleJoined().
   virtual zetasql_base::StatusOr<bool> DidMatchingTupleJoin(int64_t index) const = 0;
 
-  // A human-readable debug std::string representing the right-hand side.
+  // A human-readable debug string representing the right-hand side.
   virtual std::string DebugString() const = 0;
 };
 
@@ -2004,8 +2004,8 @@ class UncorrelatedRightInput : public RightInputForJoin {
 
  private:
   const std::unique_ptr<TupleSchema> schema_;
-  // We store a TupleIterator instead of the debug std::string to avoid computing the
-  // debug std::string unnecessarily.
+  // We store a TupleIterator instead of the debug string to avoid computing the
+  // debug string unnecessarily.
   const std::unique_ptr<TupleIterator> iter_for_debug_string_;
 
   std::unique_ptr<TupleDataDeque> tuples_;
@@ -2200,8 +2200,8 @@ class UncorrelatedHashedRightInput : public RightInputForJoin {
   // therefore GetNumMatchingTuples()/etc. should iterate over everything.
   absl::optional<RightTupleList*> matching_right_tuple_list_ = nullptr;
 
-  // We store a TupleIterator instead of the debug std::string to avoid computing the
-  // debug std::string unnecessarily.
+  // We store a TupleIterator instead of the debug string to avoid computing the
+  // debug string unnecessarily.
   const std::unique_ptr<TupleIterator> iter_for_debug_string_;
 
   EvaluationContext* context_;
@@ -2209,8 +2209,8 @@ class UncorrelatedHashedRightInput : public RightInputForJoin {
 
 // Reads the input tuples from 'op' and populates them in 'tuples'. If
 // 'iter_for_debug_string' is non-NULL, populates it with the iterator. (We pass
-// around the iterator instead of the debug std::string to avoid computing the debug
-// std::string unnecessarily.)
+// around the iterator instead of the debug string to avoid computing the debug
+// string unnecessarily.)
 zetasql_base::Status ExtractFromRelationalOp(
     const RelationalOp* op, absl::Span<const TupleData* const> params,
     EvaluationContext* context, TupleDataDeque* tuples,

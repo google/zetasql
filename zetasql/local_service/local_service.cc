@@ -191,13 +191,14 @@ class BaseSavedState : public GenericState {
  protected:
   absl::Mutex mutex_;
 
-  bool initialized_ GUARDED_BY(mutex_);
+  bool initialized_ ABSL_GUARDED_BY(mutex_);
 
-  TypeFactory factory_ GUARDED_BY(mutex_);
+  TypeFactory factory_ ABSL_GUARDED_BY(mutex_);
 
   std::vector<std::unique_ptr<google::protobuf::DescriptorPool>> pools_
-      GUARDED_BY(mutex_);
-  std::vector<const google::protobuf::DescriptorPool*> const_pools_ GUARDED_BY(mutex_);
+      ABSL_GUARDED_BY(mutex_);
+  std::vector<const google::protobuf::DescriptorPool*> const_pools_
+      ABSL_GUARDED_BY(mutex_);
 };
 
 class PreparedExpressionState : public BaseSavedState {
@@ -224,7 +225,7 @@ class PreparedExpressionState : public BaseSavedState {
   }
 
  private:
-  std::unique_ptr<PreparedExpression> exp_ GUARDED_BY(mutex_);
+  std::unique_ptr<PreparedExpression> exp_ ABSL_GUARDED_BY(mutex_);
 };
 
 class PreparedExpressionPool : public SharedStatePool<PreparedExpressionState> {
@@ -266,7 +267,7 @@ class RegisteredCatalogState : public BaseSavedState {
   }
 
  private:
-  std::unique_ptr<SimpleCatalog> catalog_ GUARDED_BY(mutex_);
+  std::unique_ptr<SimpleCatalog> catalog_ ABSL_GUARDED_BY(mutex_);
 };
 
 class RegisteredCatalogPool : public SharedStatePool<RegisteredCatalogState> {};
@@ -294,7 +295,7 @@ class RegisteredParseResumeLocationState : public GenericState {
   }
 
  private:
-  ParseResumeLocation parse_resume_location_ GUARDED_BY(mutex_);
+  ParseResumeLocation parse_resume_location_ ABSL_GUARDED_BY(mutex_);
   absl::Mutex mutex_;
 };
 

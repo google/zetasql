@@ -42,7 +42,7 @@ namespace internal {
 // Given a collection of file paths, append them all together,
 // ensuring that the proper path separators are inserted between them.
 std::string JoinPathImpl(bool honor_abs,
-                    std::initializer_list<absl::string_view> paths) {
+                         std::initializer_list<absl::string_view> paths) {
   std::string result;
 
   if (paths.size() != 0) {

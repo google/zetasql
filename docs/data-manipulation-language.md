@@ -214,8 +214,8 @@ type if one of the following criteria are met:
 + The value type matches the column type exactly. (For example, inserting a
 value of type `INT32` in a column that also has a type of `INT32`.)
 + The value type is one that can be implicitly coerced into another type. See
-the [Coercion](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#coercion) of the
-[Expressions, Functions, and Operators](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md)
+the [Coercion][coercion] of the
+[Expressions, Functions, and Operators][functions-and-operators]
 topic for more information.
 + The value can be assigned after applying a narrowing integer or floating point
 cast. For example, if you attempt to add a value of `INT64` into a column that
@@ -678,7 +678,7 @@ column's type. For example, a value of `1991-10-02` works for a column of type
 `Date`, but a value of `October 2, 1991` would not. You can, however, use values
 that can be cast to the type of the corresponding column. Casting happens
 automatically for numerical values (this is also referred to as
-[coercion](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#coercion)).
+[coercion][coercion]).
 
 If you attempt to set a column with an invalid value, the statement fails.
 For example, the following statement does not work:
@@ -951,6 +951,9 @@ SET
         WHERE a.AlbumTitles = "Album Four"),
     (INSERT AlbumTitles VALUES ("The Sloth and the Tiger"));
 ```
+
+[coercion]: https://github.com/google/zetasql/blob/master/docs/conversion_rules#coercion
+[functions-and-operators]: https://github.com/google/zetasql/blob/master/docs/functions-reference
 
 <!-- END CONTENT -->
 

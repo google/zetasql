@@ -461,6 +461,13 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
     std::string* out_;
   };
 
+  // Helper function for TraverseNonRecursive, invoked immediately after each
+  // call to the visitor.
+  //   - <result> specifies the value returned by the visitor.
+  //   - <stack> specifies a list of pending visit operations that are needed to
+  //         complete the traversal; they will be executed in reverse order.
+  //         TraverseNonRecursiveHelper() adds or removes items to the stack as
+  //         necessary to implement the result of the visitor.
   static zetasql_base::Status TraverseNonRecursiveHelper(
       const VisitResult& result, NonRecursiveParseTreeVisitor* visitor,
       std::vector<std::function<zetasql_base::Status()>>* stack);
@@ -589,6 +596,48 @@ class ASTDescribeStatement final : public ASTStatement {
   const ASTPathExpression* name_ = nullptr;
   const ASTIdentifier* optional_identifier_ = nullptr;
   const ASTPathExpression* optional_from_name_ = nullptr;
+};
+
+class ASTDescriptorColumn final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_DESCRIPTOR_COLUMN;
+
+  ASTDescriptorColumn() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  ABSL_MUST_USE_RESULT zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  // Required fields
+  const ASTIdentifier* name() const { return name_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&name_);
+  }
+  const ASTIdentifier* name_ = nullptr;
+};
+
+class ASTDescriptorColumnList final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_DESCRIPTOR_COLUMN_LIST;
+
+  ASTDescriptorColumnList() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  ABSL_MUST_USE_RESULT zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  // Guaranteed by the parser to never be empty.
+  absl::Span<const ASTDescriptorColumn* const> descriptor_column_list() const {
+    return descriptor_column_list_;
+  }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRestAsRepeated(&descriptor_column_list_);
+  }
+  absl::Span<const ASTDescriptorColumn* const> descriptor_column_list_;
 };
 
 // Represents a SHOW statement.
@@ -1396,7 +1445,7 @@ class ASTAlias final : public ASTNode {
 
   const ASTIdentifier* identifier() const { return identifier_; }
 
-  // Get the unquoted and unescaped std::string value of this alias.
+  // Get the unquoted and unescaped string value of this alias.
   std::string GetAsString() const;
   IdString GetAsIdString() const;
 
@@ -1420,7 +1469,7 @@ class ASTIntoAlias final : public ASTNode {
 
   const ASTIdentifier* identifier() const { return identifier_; }
 
-  // Get the unquoted and unescaped std::string value of this alias.
+  // Get the unquoted and unescaped string value of this alias.
   std::string GetAsString() const;
   IdString GetAsIdString() const;
 
@@ -2529,7 +2578,7 @@ class ASTPathExpression final : public ASTGeneralizedPathExpression {
   const ASTIdentifier* first_name() const { return names_.front(); }
   const ASTIdentifier* last_name() const { return names_.back(); }
 
-  // Return this PathExpression as a dotted SQL identifier std::string, with
+  // Return this PathExpression as a dotted SQL identifier string, with
   // quoting if necessary.  If <max_prefix_size> is non-zero, include at most
   // that many identifiers from the prefix of <path>.
   std::string ToIdentifierPathString(size_t max_prefix_size = 0) const;
@@ -2625,6 +2674,26 @@ class ASTIntervalExpr final : public ASTExpression {
 
   const ASTExpression* interval_value_ = nullptr;
   const ASTIdentifier* date_part_name_ = nullptr;
+};
+
+class ASTDescriptor final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_DESCRIPTOR;
+
+  ASTDescriptor() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  ABSL_MUST_USE_RESULT zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTDescriptorColumnList* columns() const { return columns_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&columns_);
+  }
+
+  const ASTDescriptorColumnList* columns_ = nullptr;
 };
 
 // This is used for using dot to extract a field from an arbitrary expression.
@@ -3272,14 +3341,14 @@ class ASTIdentifier final : public ASTExpression {
       NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeDebugString() const override;
 
-  // Set the identifier std::string.  Input <identifier> is the unquoted identifier.
+  // Set the identifier string.  Input <identifier> is the unquoted identifier.
   // There is no validity checking here.  This assumes the identifier was
   // validated and unquoted in zetasql.jjt.
   void SetIdentifier(IdString identifier) {
     id_string_ = identifier;
   }
 
-  // Get the unquoted and unescaped std::string value of this identifier.
+  // Get the unquoted and unescaped string value of this identifier.
   IdString GetAsIdString() const { return id_string_; }
   std::string GetAsString() const { return id_string_.ToString(); }
 
@@ -4040,6 +4109,8 @@ class ASTConnectionClause final : public ASTNode {
 //     argument names from the function signature, if present. The named
 //     argument is stored in the expr_ of this class in this case since an
 //     ASTNamedArgument is a subclass of ASTExpression.
+// (6) ZetaSQL parses the argument as "DESCRIPTOR"; this syntax represents a
+//    descriptor on a list of columns with optional types.
 class ASTTVFArgument final : public ASTNode {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_TVF_ARGUMENT;
@@ -4055,6 +4126,7 @@ class ASTTVFArgument final : public ASTNode {
   const ASTConnectionClause* connection_clause() const {
     return connection_clause_;
   }
+  const ASTDescriptor* descriptor() const { return descriptor_; }
 
  private:
   void InitFields() final {
@@ -4063,6 +4135,7 @@ class ASTTVFArgument final : public ASTNode {
     fl.AddOptional(&table_clause_, AST_TABLE_CLAUSE);
     fl.AddOptional(&model_clause_, AST_MODEL_CLAUSE);
     fl.AddOptional(&connection_clause_, AST_CONNECTION_CLAUSE);
+    fl.AddOptional(&descriptor_, AST_DESCRIPTOR);
   }
 
   // Only one of the following may be non-null.
@@ -4070,6 +4143,7 @@ class ASTTVFArgument final : public ASTNode {
   const ASTTableClause* table_clause_ = nullptr;
   const ASTModelClause* model_clause_ = nullptr;
   const ASTConnectionClause* connection_clause_ = nullptr;
+  const ASTDescriptor* descriptor_ = nullptr;
 };
 
 // This represents a CREATE CONSTANT statement, i.e.,
@@ -4128,7 +4202,7 @@ class ASTCreateDatabaseStatement final : public ASTStatement {
 // This is the common superclass of CREATE FUNCTION and CREATE TABLE FUNCTION
 // statements. It contains all fields shared between the two types of
 // statements, including the function declaration, return type, OPTIONS list,
-// and std::string body (if present).
+// and string body (if present).
 class ASTCreateFunctionStmtBase : public ASTCreateStatement {
  public:
   enum DeterminismLevel {
@@ -4807,7 +4881,7 @@ class ASTStructField final : public ASTNode {
   zetasql_base::StatusOr<VisitResult> Accept(
       NonRecursiveParseTreeVisitor* visitor) const override;
 
-  // name_ will be NULL for anonymous fields like in STRUCT<int, std::string>.
+  // name_ will be NULL for anonymous fields like in STRUCT<int, string>.
   const ASTIdentifier* name() const { return name_; }
   const ASTType* type() const { return type_; }
 
@@ -5062,10 +5136,15 @@ class ASTPrimaryKeyColumnAttribute final : public ASTColumnAttribute {
       NonRecursiveParseTreeVisitor* visitor) const override;
   std::string SingleNodeSqlString() const override;
 
+  bool enforced() const { return enforced_; }
+  void set_enforced(bool enforced) { enforced_ = enforced; }
+
  private:
   void InitFields() final {
     FieldLoader fl(this);
   }
+
+  bool enforced_ = true;
 };
 
 class ASTForeignKeyColumnAttribute final : public ASTColumnAttribute {
@@ -5274,7 +5353,7 @@ class ASTStructColumnField final : public ASTNode {
   zetasql_base::StatusOr<VisitResult> Accept(
       NonRecursiveParseTreeVisitor* visitor) const override;
 
-  // name_ will be NULL for anonymous fields like in STRUCT<int, std::string>.
+  // name_ will be NULL for anonymous fields like in STRUCT<int, string>.
   const ASTIdentifier* name() const { return name_; }
   const ASTColumnSchema* schema() const { return schema_; }
 
@@ -5297,7 +5376,7 @@ class ASTGeneratedColumnInfo final : public ASTNode {
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   zetasql_base::StatusOr<VisitResult> Accept(
       NonRecursiveParseTreeVisitor* visitor) const override;
-  // Adds is_stored (if needed) to the debug std::string.
+  // Adds is_stored (if needed) to the debug string.
   std::string SingleNodeDebugString() const override;
 
   const ASTExpression* expression() const { return expression_; }
@@ -5370,8 +5449,11 @@ class ASTPrimaryKey final : public ASTTableConstraint {
   zetasql_base::StatusOr<VisitResult> Accept(
       NonRecursiveParseTreeVisitor* visitor) const override;
 
+  void set_enforced(bool enforced) { enforced_ = enforced; }
+
   const ASTColumnList* column_list() const { return column_list_; }
   const ASTOptionsList* options_list() const { return options_list_; }
+  bool enforced() const { return enforced_; }
 
  private:
   void InitFields() final {
@@ -5382,6 +5464,7 @@ class ASTPrimaryKey final : public ASTTableConstraint {
 
   const ASTColumnList* column_list_ = nullptr;
   const ASTOptionsList* options_list_ = nullptr;
+  bool enforced_ = true;
 };
 
 class ASTForeignKey final : public ASTTableConstraint {
@@ -6043,7 +6126,7 @@ class ASTGranteeList final : public ASTNode {
     fl.AddRestAsRepeated(&grantee_list_);
   }
 
-  // An ASTGranteeList element may either be a std::string literal or
+  // An ASTGranteeList element may either be a string literal or
   // parameter.
   absl::Span<const ASTExpression* const> grantee_list_;
 };
@@ -7103,6 +7186,11 @@ class ASTBeginEndBlock final : public ASTScriptStatement {
 
   absl::Span<const ASTStatement* const> statement_list() const {
     return statement_list_->statement_list();
+  }
+
+  bool has_exception_handler() const {
+    return handler_list_ != nullptr &&
+           !handler_list_->exception_handler_list().empty();
   }
 
   // Optional; nullptr indicates a BEGIN block without an EXCEPTION clause.

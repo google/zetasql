@@ -106,9 +106,9 @@ CREATE PRIVATE FUNCTION bar(b INT64) AS (b - 1);
 #### Creating user-defined functions and table functions
 
 Modules support creation of
-[user-defined functions](https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md),
+[user-defined functions][user-defined-functions],
 including
-[table-valued functions](https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs)
+[table-valued functions][table-valued-functions]
 with scalar and templated arguments.
 
 The `TEMP` keyword is not allowed in `CREATE ( PUBLIC | PRIVATE ) FUNCTION`
@@ -291,6 +291,9 @@ MODULE a.b.c;
 IMPORT MODULE x.y.z AS baz;
 CREATE PUBLIC FUNCTION foo(d int) AS (baz.bar(d));
 ```
+
+[user-defined-functions]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions
+[table-valued-functions]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions#tvfs
 
 <!-- END CONTENT -->
 

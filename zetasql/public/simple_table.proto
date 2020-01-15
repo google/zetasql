@@ -28,6 +28,7 @@ message SimpleTableProto {
   optional int64 serialization_id = 2;
   optional bool is_value_table = 3;
   repeated SimpleColumnProto column = 4;
+  repeated int32 primary_key_column_index = 9;
   // Alias name of the table when it is added to the parent catalog.  This is
   // only set when the Table is added to the Catalog using a different name
   // than the Table's name.  This name is not part of the SimpleTable, but

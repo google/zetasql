@@ -74,7 +74,7 @@
 //   FunctionOptions function_options;
 //   function_options.set_evaluator(
 //       [](const absl::Span<const Value>& args) {
-//         // Returns std::string length as int64_t.
+//         // Returns string length as int64_t.
 //         DCHECK_EQ(args.size(), 1);
 //         DCHECK(args[0].type()->Equals(zetasql::types::StringType()));
 //         return Value::Int64(args[0].string_value().size());
@@ -260,6 +260,9 @@ class PreparedExpression {
   // evaluator returns an error. 'catalog' must outlive Execute() and
   // output_type() calls.  'catalog' should contain ZetaSQL built-in functions
   // added by calling AddZetaSQLFunctions with 'options.language_options'.
+  //
+  // If a ResolvedExpr was already supplied to the PreparedExpression
+  // constructor, 'catalog' is ignored.
   zetasql_base::Status Prepare(const AnalyzerOptions& options,
                        Catalog* catalog = nullptr);
 
@@ -279,10 +282,10 @@ class PreparedExpression {
   //   options.AddExpressionColumn("extra_col", types::Int64Type());
   //   ZETASQL_CHECK_OK(expr.Prepare(options, &catalog));
   //   ...
-  //   const std::vector<std::string> columns =
+  //   const std::vector<string> columns =
   //              expr.GetReferencedColumns().ConsumeValueOrDie();
   //   ParameterValueMap col_map;
-  //   for (const std::string& col : columns) {
+  //   for (const string& col : columns) {
   //     col_map[col] = datastore.GetValueForColumn(col);
   //   }
   //   auto result = expr.Execute(col_map);
@@ -368,7 +371,7 @@ class PreparedExpression {
       const SystemVariableValuesMap& system_variables = {}) const;
 
   // Returns a human-readable representation of how this expression would
-  // actually be executed. Do not try to interpret this std::string with code, as the
+  // actually be executed. Do not try to interpret this string with code, as the
   // format can change at any time. Requires that Prepare has already been
   // called.
   zetasql_base::StatusOr<std::string> ExplainAfterPrepare() const;
@@ -418,6 +421,9 @@ class PreparedQuery {
   // evaluator returns an error. 'catalog' must outlive Execute() and
   // output_type() calls.  'catalog' should contain ZetaSQL built-in functions
   // added by calling AddZetaSQLFunctions with 'options.language_options'.
+  //
+  // If a ResolvedQueryStmt was already supplied to the PreparedQuery
+  // constructor, 'catalog' is ignored.
   zetasql_base::Status Prepare(const AnalyzerOptions& options,
                        Catalog* catalog = nullptr);
 
@@ -469,7 +475,7 @@ class PreparedQuery {
       const SystemVariableValuesMap& system_variables = {}) const;
 
   // Returns a human-readable representation of how this query would actually
-  // be executed. Do not try to interpret this std::string with code, as the
+  // be executed. Do not try to interpret this string with code, as the
   // format can change at any time. Requires that Prepare has already been
   // called.
   zetasql_base::StatusOr<std::string> ExplainAfterPrepare() const;

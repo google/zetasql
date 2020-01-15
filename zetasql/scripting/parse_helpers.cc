@@ -15,6 +15,7 @@
 //
 
 #include "zetasql/scripting/parse_helpers.h"
+
 #include "zetasql/scripting/parsed_script.h"
 #include "zetasql/base/status_macros.h"
 

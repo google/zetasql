@@ -2005,7 +2005,7 @@ zetasql_base::Status Validator::ValidateResolvedCreateFunctionStmt(
   if (contains_templated_args) {
     // This function declaration contained one or more templated argument types.
     // In this case the resolver sets the 'language' field to SQL and the 'code'
-    // field to contain the original std::string contents of the SQL expression body.
+    // field to contain the original string contents of the SQL expression body.
     // The 'arguments' are empty in this case since the templated type
     // information is present in the function signature instead.
     if (stmt->signature().result_type().IsTemplated()) {

@@ -35,13 +35,13 @@ This syntax consists of the following components:
     Creates a new function. A function can contain zero or more
     `named_parameter`s. To make the function
     temporary, use the `TEMP` or `TEMPORARY` keyword. To
-    make a [table-valued function](#tvfs), use the `TABLE`
+    make a [table-valued function][table-valued function], use the `TABLE`
     keyword. To make
-    an [aggregate function](#aggregate-udf-parameters), use the
+    an [aggregate function][aggregate-udf-parameters], use the
     `AGGREGATE` keyword.
 *   **named_parameter**. Consists of a comma-separated `param_name` and
     `param_type` pair. The value of `param_type` is a ZetaSQL
-    [data type]( data-types.md ).
+    [data type][data-types].
     The value of `param_type` may also be `ANY TYPE` for a
     SQL user-defined function or `ANY TABLE` for a table-valued function.
 +   **[RETURNS data_type]**. Specifies the data type
@@ -49,7 +49,7 @@ This syntax consists of the following components:
     `RETURNS` clause is optional and ZetaSQL infers the result type
     of the function from the SQL function body. If the
     function is defined in an external language, then the `RETURNS` clause is
-    required. See [Supported UDF data types](#supported-external-udf-data-types)
+    required. See [Supported UDF data types][supported-external-udf-data-types]
     for more information about allowed values for
     `data_type`.
 +   **[RETURNS TABLE]**. Specifies the schema of the table that a table-valued
@@ -67,13 +67,13 @@ This syntax consists of the following components:
 *   **[NOT AGGREGATE]**. Specifies that a parameter is not
     aggregate. Can only appear after `CREATE AGGREGATE FUNCTION`. A
     non-aggregate parameter [can appear anywhere in the function
-    definition.](#aggregate-udf-parameters)
+    definition.][aggregate-udf-parameters]
 
 ## External UDF structure
 
 Create external UDFs using the following structure.
 
-```
+```sql
 CREATE [TEMPORARY | TEMP] FUNCTION function_name ([named_parameter[, ...]])
   [RETURNS data_type]
   [LANGUAGE language]
@@ -84,7 +84,7 @@ CREATE [TEMPORARY | TEMP] FUNCTION function_name ([named_parameter[, ...]])
 
 The following example creates a UDF.
 
-```
+```sql
 CREATE FUNCTION multiplyInputs(x DOUBLE, y DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js AS """
@@ -111,7 +111,7 @@ FROM numbers;
 You can make this function temporary by using the `TEMP` or `TEMPORARY`
 keyword.
 
-```
+```sql
 CREATE TEMP FUNCTION multiplyInputs(x DOUBLE, y DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js AS """
@@ -137,7 +137,7 @@ FROM numbers;
 
 You can create multiple UDFs before a query. For example:
 
-```
+```sql
 CREATE TEMP FUNCTION multiplyInputs(x DOUBLE, y DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js AS """
@@ -172,7 +172,7 @@ FROM numbers;
 
 You can pass the result of a UDF as input to another UDF. For example:
 
-```
+```sql
 CREATE TEMP FUNCTION multiplyInputs(x DOUBLE, y DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js AS """
@@ -206,7 +206,7 @@ FROM numbers;
  The following example sums the values of all
 fields named "foo" in the given JSON string.
 
-```
+```sql
 CREATE TEMP FUNCTION SumFieldsNamedFoo(json_row STRING)
   RETURNS FLOAT64
   LANGUAGE js AS """
@@ -250,7 +250,7 @@ FROM Input AS t;
 External UDFs support code written in JavaScript, which you specify using `js`
 as the `LANGUAGE`. For example:
 
-```
+```sql
 CREATE TEMP FUNCTION greeting(a STRING)
 RETURNS STRING
 LANGUAGE js AS """
@@ -374,7 +374,7 @@ fraction of the timestamp</td>
 You must enclose external code in quotes. For simple, one line code snippets,
 you can use a standard quoted string:
 
-```
+```sql
 CREATE TEMP FUNCTION plusOne(x DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js
@@ -396,7 +396,7 @@ FROM UNNEST([1, 2, 3, 4, 5]) AS val;
 In cases where the snippet contains quotes, or consists of multiple lines, use
 triple-quoted blocks:
 
-```
+```sql
 CREATE TEMP FUNCTION customGreeting(a STRING)
 RETURNS STRING
 LANGUAGE js AS """
@@ -463,7 +463,7 @@ SQL user-defined function signatures can contain the following templated
 
 The following example shows a UDF that employs a SQL function.
 
-```
+```sql
 CREATE TEMP FUNCTION addFourAndDivide(x INT64, y INT64) AS ((x + 4) / y);
 WITH numbers AS
   (SELECT 1 as val
@@ -491,7 +491,7 @@ parameter. Inside the function definition, the aggregate `SUM` method takes the
 aggregate parameter `dividend`, while the non-aggregate division operator
 ( `/` ) takes the non-aggregate parameter `divisor`.
 
-```
+```sql
 CREATE TEMP AGGREGATE FUNCTION scaled_sum(dividend DOUBLE, divisor DOUBLE NOT AGGREGATE)
 AS (SUM(dividend) / divisor);
 SELECT scaled_sum(col1, 2) AS scaled_sum
@@ -508,7 +508,7 @@ FROM (SELECT 1 AS col1 UNION ALL
 ```
 
 The following example shows a SQL UDF that uses a
-[templated parameter](#templated-sql-udf-parameters). The resulting function
+[templated parameter][templated-parameters]. The resulting function
 accepts arguments of various types.
 
 ```sql
@@ -526,7 +526,7 @@ SELECT addFourAndDivideAny(3, 4) AS integer_output,
 ```
 
 The following example shows a SQL UDF that uses a
-[templated parameter](#templated-sql-udf-parameters) to return the last
+[templated parameter][templated-parameters] to return the last
 element of an array of any type.
 
 ```sql
@@ -559,7 +559,7 @@ table subquery.
 
 You create a TVF using the following structure.
 
-```
+```sql
 CREATE TEMPORARY | TEMP TABLE FUNCTION function_name
   ([argument_name data_type][, ...]*)
   [RETURNS TABLE<argument_name data_type [, ...]*>]
@@ -571,25 +571,25 @@ CREATE TEMPORARY | TEMP TABLE FUNCTION function_name
 An argument to a TVF can be of any supported ZetaSQL type or a table.
 
 Specify a table argument the same way you specify the fields of a
-[STRUCT](data-types.md#struct-type).
+[STRUCT][data-types-struct].
 
-```
+```sql
 argument_name TABLE<column_name data_type , column_name data_type [, ...]*>
 ```
 
-The table argument can specify a [value
-table](https://github.com/google/zetasql/blob/master/docs/data-model.md#value-tables), in which each row
+The table argument can specify a [value table][datamodel-value-tables],
+in which each row
 is a single column of a specific type. To specify a value table as an argument,
 include only the `data_type`, leaving out the `column_name`:
 
-```
+```sql
 argument_name TABLE<data_type>
 ```
 
 In many cases, the `data_type` of the single column in the value table is a
 protocol buffer; for example:
 
-```
+```sql
 CREATE TEMP TABLE FUNCTION AggregatedMovieLogs(
   TicketPurchases TABLE<analysis_conduit.codelab.MovieTicketPurchase>)
 ```
@@ -626,7 +626,7 @@ CREATE TEMP TABLE FUNCTION CustomerRangeWithCustomerType(
 #### Templated SQL TVF Parameters
 
 SQL table-valued function signatures can contain the following [templated
-parameter](#templated-sql-udf-parameters) values for `param_type`:
+parameter][templated-parameters] values for `param_type`:
 
 + `ANY TYPE`. The function will accept an input of any type for this argument.
   If more than one parameter has the type `ANY TYPE`, ZetaSQL does
@@ -690,8 +690,15 @@ SELECT CustomerId, Info
 FROM CustomerRangeWithCustomerType(100, 200, 'CUSTOMER_TYPE_ADVERTISER');
 ```
 
-[aggregate-fns-link]: functions-and-operators.md#aggregate-functions
-[group-by-link]: query-syntax.md#group-by-clause
+[table-valued function]: #tvfs
+[aggregate-udf-parameters]: #aggregate-udf-parameters
+[templated-parameters]: #templated-sql-udf-parameters
+[supported-external-udf-data-types]: #supported-external-udf-data-types
+[data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
+[data-types-struct]: https://github.com/google/zetasql/blob/master/docs/data-types#struct-type
+[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#value-tables
+[group-by-link]: https://github.com/google/zetasql/blob/master/docs/query-syntax#group-by-clause
+[aggregate-fns-link]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions
 
 <!-- END CONTENT -->
 

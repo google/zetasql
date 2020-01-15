@@ -242,7 +242,7 @@ static std::vector<ComparisonTest> GetArrayComparisonTests() {
 // comparisons (less than, etc.).  Therefore all tests should be defined
 // as EQUAL, UNORDERED (not equal), or NULL_VALUE.
 static std::vector<ComparisonTest> GetStructComparisonTests() {
-  const StructType* struct_type = SimpleStructType();  // a: std::string, b: int32
+  const StructType* struct_type = SimpleStructType();  // a: string, b: int32
   const Value struct0 = Value::Struct(struct_type, {String("foo"), Int32(0)});
   const Value struct1 = Value::Struct(struct_type, {String("bar"), Int32(1)});
   const Value struct_with_null2 =
@@ -253,7 +253,7 @@ static std::vector<ComparisonTest> GetStructComparisonTests() {
       Value::Struct(struct_type, {NullString(), NullInt32()});
   const Value null_struct = Value::Null(struct_type);
 
-  // a: std::string, b: {a: std::string b: int32_t}
+  // a: string, b: {a: string b: int32_t}
   const StructType* nested_struct_type;
   ZETASQL_CHECK_OK(type_factory()->MakeStructType(
       {{"a", StringType()}, {"b", struct_type}}, &nested_struct_type));
@@ -498,7 +498,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {Double(-1), Numeric(-1), EQUAL},
       {Double(1), NullNumeric(), NULL_VALUE},
 
-      // std::string
+      // string
       {"hello", "hello", EQUAL},
       {"bye", "hello", LESS},
       {"@", "A", LESS},
@@ -1069,7 +1069,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsIn() {
 }
 
 std::vector<QueryParamsWithResult> GetFunctionTestsStructIn() {
-  const StructType* struct_type = SimpleStructType();  // a: std::string, b: int32
+  const StructType* struct_type = SimpleStructType();  // a: string, b: int32
   const Value struct0 = Value::Struct(struct_type, {String("foo"), Int32(0)});
   const Value struct1 = Value::Struct(struct_type, {String("bar"), Int32(1)});
   const Value struct2 = Value::Struct(struct_type, {String("baz"), Int32(2)});
@@ -1751,7 +1751,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsAtOffset() {
       Value::Array(Int64ArrayType(), {Int64(10), Int64(11)});
   const Value string_array =
       Value::Array(StringArrayType(), {String("foo"), String("bar")});
-  const StructType* struct_type = SimpleStructType();  // a: std::string, b: int32
+  const StructType* struct_type = SimpleStructType();  // a: string, b: int32
   const ArrayType* array_struct_type;
   ZETASQL_CHECK_OK(type_factory()->MakeArrayType(struct_type, &array_struct_type));
   const Value struct0 = Value::Struct(struct_type, {String("foo"), Int32(0)});
@@ -1949,14 +1949,14 @@ std::vector<FunctionTestCall> GetFunctionTestsArray() {
                    {NullBytes(), Bytes("a"), NullBytes(), Bytes("b")});
   const Value array_empty_bytes = Value::Array(BytesArrayType(), {Bytes("")});
 
-  const StructType* struct_type = SimpleStructType();  // a: std::string, b: int32
+  const StructType* struct_type = SimpleStructType();  // a: string, b: int32
   const Value struct0 = Value::Struct(struct_type, {String("foo"), Int32(0)});
   const Value struct1 = Value::Struct(struct_type, {String("bar"), Int32(1)});
   const Value struct2 = Value::Struct(struct_type, {String("baz"), Int32(2)});
   const ArrayType* array_struct_type = MakeArrayType(struct_type);
 
   std::vector<FunctionTestCall> results = {
-      // array_to_string -> std::string
+      // array_to_string -> string
       {"array_to_string", {Null(StringArrayType()), String(",")}, NullString()},
       {"array_to_string", {array_ab, NullString()}, NullString()},
       {"array_to_string", {array_ab, String(","), NullString()}, NullString()},

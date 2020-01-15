@@ -30,7 +30,7 @@
 //
 // The ZETASQL_RET_CHECK* macros can only be used in functions that return
 // zetasql_base::Status or zetasql_base::StatusOr.  The generated
-// `zetasql_base::Status` will contain the std::string "ZETASQL_RET_CHECK failure".
+// `zetasql_base::Status` will contain the string "ZETASQL_RET_CHECK failure".
 //
 // On failure these routines will log a stack trace to `ERROR`.  The
 // `ZETASQL_RET_CHECK` macros end with a `zetasql_base::StatusBuilder` in their
@@ -59,7 +59,8 @@ StatusBuilder RetCheckFailSlowPath(SourceLocation location,
 // Takes ownership of `condition`.  This API is a little quirky because it is
 // designed to make use of the `::Check_*Impl` methods that implement `CHECK_*`
 // and `DCHECK_*`.
-StatusBuilder RetCheckFailSlowPath(SourceLocation location, std::string* condition);
+StatusBuilder RetCheckFailSlowPath(SourceLocation location,
+                                   std::string* condition);
 
 inline StatusBuilder RetCheckImpl(const Status& status, const char* condition,
                                   SourceLocation location) {
@@ -99,7 +100,7 @@ inline StatusBuilder RetCheckImpl(const Status& status, const char* condition,
   ZETASQL_RET_CHECK((lhs)op(rhs))
 #else
 #define ZETASQL_STATUS_MACROS_INTERNAL_RET_CHECK_OP(name, op, lhs, rhs)        \
-  while (std::string* _result = zetasql_base::Check_##name##Impl(                   \
+  while (std::string* _result = zetasql_base::Check_##name##Impl(              \
              ::zetasql_base::GetReferenceableValue(lhs),                       \
              ::zetasql_base::GetReferenceableValue(rhs),                       \
              #lhs " " #op " " #rhs))                                           \

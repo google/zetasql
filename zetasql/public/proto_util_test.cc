@@ -62,8 +62,8 @@ class ReadProtoFieldsTest : public ::testing::TestWithParam<bool> {
   }
 
   zetasql_base::StatusOr<Value> ReadField(
-      const std::string& field_name, FieldFormat::Format format, const Type* type,
-      const Value& default_value,
+      const std::string& field_name, FieldFormat::Format format,
+      const Type* type, const Value& default_value,
       const std::string &bytes,
       bool get_has_bit = false) {
     const google::protobuf::FieldDescriptor* field_descriptor =

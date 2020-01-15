@@ -77,10 +77,10 @@ static void TestHashNotEqual(const Value& a, const Value& b) {
       << "b: " << b;
 }
 
-// Test that GetSQL returns a std::string that can be re-parsed as the Value.
+// Test that GetSQL returns a string that can be re-parsed as the Value.
 // Returns <value> so this can be used as a chained call anywhere we
 // construct a Value.
-// Also tests that GetSQLLiteral returns a std::string that can be reparsed as
+// Also tests that GetSQLLiteral returns a string that can be reparsed as
 // a Value (which should be approximately equal to the original) where
 // possible.
 static Value TestGetSQL(const Value& value) {
@@ -129,7 +129,7 @@ static Value TestGetSQL(const Value& value) {
 
     // For GetSQLLiteral, we re-parse without a catalog because we don't
     // expect any type names to show up.  e.g. For enums, we'll just get
-    // a std::string.
+    // a string.
     {
       PreparedExpression expr(sql);
       const zetasql_base::Status prepare_status = expr.Prepare(analyzer_options);
@@ -147,7 +147,7 @@ static Value TestGetSQL(const Value& value) {
                 << "Value: " << value.FullDebugString()
                 << "\nSQL literal: " << sql
                 << "\nRe-parsed: " << new_value.FullDebugString();
-            // Note that for STRUCTs, GetSQLLiteral returns a std::string that
+            // Note that for STRUCTs, GetSQLLiteral returns a string that
             // does not contain field name information.  So for STRUCTS,
             // we might get a new_value that has an equivalent type, but
             // not an Equals type.  In that case, the DebugString would not
@@ -165,7 +165,7 @@ static Value TestGetSQL(const Value& value) {
 
     bool is_bad_type = false;
     // Exclude incomplete protos, which we won't be able to cast from
-    // std::string back to proto type.
+    // string back to proto type.
     if (value.type()->IsProto() && !value.is_null()) {
       google::protobuf::DynamicMessageFactory message_factory;
       std::unique_ptr<google::protobuf::Message> m(value.ToMessage(&message_factory));
@@ -342,7 +342,7 @@ TEST_F(ValueTest, DoubleFloatToString) {
     // strtod will fail for float because GetSQL() will have a CAST.
     EXPECT_EQ(value.type_kind() == TYPE_DOUBLE, absl::SimpleAtod(str, &d))
         << str;
-    // Neither float or double GetSQL() should return a valid integer std::string.
+    // Neither float or double GetSQL() should return a valid integer string.
     EXPECT_FALSE(absl::SimpleAtoi(str, &i)) << str;
   }
 }
@@ -407,15 +407,15 @@ TEST_F(ValueTest, StringDebugString) {
   EXPECT_EQ("\"ab'c\"", Value::String("ab'c").DebugString());
   EXPECT_EQ("\"ab\\x01 c\"",
             TestGetSQL(Value::String("ab\x01 c")).DebugString());
-  EXPECT_EQ(
-      "\"ab\\x01 c\"",
-      TestGetSQL(Value::String(std::string("ab\x01 c"))).DebugString());  // NOLINT
+  EXPECT_EQ("\"ab\\x01 c\"",
+            TestGetSQL(Value::String(std::string("ab\x01 c")))
+                .DebugString());  // NOLINT
 
   EXPECT_EQ("b\"ab\\x01 c\"",
             TestGetSQL(Value::Bytes("ab\x01 c")).DebugString());
-  EXPECT_EQ(
-      "b\"ab\\x01 c\"",
-      TestGetSQL(Value::Bytes(std::string("ab\x01 c"))).DebugString());  // NOLINT
+  EXPECT_EQ("b\"ab\\x01 c\"",
+            TestGetSQL(Value::Bytes(std::string("ab\x01 c")))
+                .DebugString());  // NOLINT
 }
 
 TEST_F(ValueTest, SimpleRoundTrip) {
@@ -729,8 +729,8 @@ TEST_F(ValueTest, ConstructorTyping) {
   EXPECT_TRUE(BoolType()->Equals(Value::Bool(false).type()));
   EXPECT_TRUE(FloatType()->Equals(Value::Float(3.1415f).type()));
   EXPECT_TRUE(DoubleType()->Equals(Value::Double(2.718281828459045).type()));
-  EXPECT_TRUE(
-      StringType()->Equals(Value::StringValue(std::string("argh")).type()));  // NOLINT
+  EXPECT_TRUE(StringType()->Equals(
+      Value::StringValue(std::string("argh")).type()));  // NOLINT
   EXPECT_TRUE(StringType()->Equals(Value::String("argh").type()));
   EXPECT_TRUE(
       BytesType()->Equals(Value::Bytes(std::string("argh")).type()));  // NOLINT
@@ -1048,8 +1048,8 @@ TEST_F(ValueTest, StructWithOneAnonymousField) {
 }
 
 TEST_F(ValueTest, StructWithTwoAnonymousFields) {
-  Value value = TestGetSQL(Struct(
-      {std::string(""), ""}, {Value::Int64(5), Value::String("abc")}));
+  Value value = TestGetSQL(
+      Struct({std::string(""), ""}, {Value::Int64(5), Value::String("abc")}));
   EXPECT_EQ(2, value.num_fields());
   EXPECT_EQ(5, value.field(0).int64_value());
   EXPECT_EQ("abc", value.field(1).string_value());
@@ -1175,8 +1175,8 @@ TEST_F(ValueTest, ArrayBag) {
 }
 
 TEST_F(ValueTest, NestedArrayBag) {
-  std::vector<std::string> table_columns = {
-    "bool_val", "double_val", "int64_val", "str_val"};
+  std::vector<std::string> table_columns = {"bool_val", "double_val",
+                                            "int64_val", "str_val"};
   auto nested_x = StructArray(table_columns, {
       {True(),  0.1, 1ll, "1"},
       {False(), 0.2, 2ll, "2"}, },
@@ -1647,7 +1647,7 @@ TEST_F(ValueTest, Proto) {
   std::string reason;
   EXPECT_FALSE(
       InternalValue::Equals(proto1, proto4, kExactFloatMargin, &reason));
-  // We test that get a reason but don't compare the actual reason std::string.
+  // We test that get a reason but don't compare the actual reason string.
   EXPECT_FALSE(reason.empty());
   LOG(INFO) << "Reason: " << reason;
 

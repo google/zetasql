@@ -52,7 +52,7 @@ ABSL_FLAG(std::string, mode, "execute",
           "to actually run the query and print the result.");
 
 // TODO: Consider allowing <proto> to be equal to "string" to
-// represent a std::string instead of a proto.
+// represent a string instead of a proto.
 
 namespace zetasql {
 

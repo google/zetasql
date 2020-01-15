@@ -252,6 +252,10 @@ struct NormalizeTestCase {
   const bool is_casefold;
 };
 
+const std::string EscapeKey(bool sql_standard_mode, const std::string& key);
+
+Value StringToBytes(const Value& value);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_COMPLIANCE_FUNCTIONS_TESTLIB_COMMON_H_

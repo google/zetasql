@@ -42,14 +42,15 @@ TEST(IdString, Test) {
   EXPECT_EQ(0, empty.size());
   EXPECT_EQ(0, empty_str.size());
 
-  const IdString s1 = ID(std::string("s1"));  // NOLINT: using std::string on purpose
+  const IdString s1 = ID(std::string("s1"));  // NOLINT: using string on purpose
   EXPECT_EQ("s1", s1.ToString());
 
   const IdString s1_copy = s1;
   EXPECT_EQ("s1", s1_copy.ToString());
   EXPECT_TRUE(s1 == s1_copy);
 
-  const IdString s1_alt = ID(std::string("s1"));  // NOLINT: using std::string on purpose
+  const IdString s1_alt =
+      ID(std::string("s1"));  // NOLINT: using string on purpose
   EXPECT_TRUE(s1 == s1_alt);
 
   EXPECT_EQ(2, s1.size());
@@ -91,7 +92,7 @@ TEST(IdString, Test) {
 }
 
 // Test cases for IdString comparison. In the tests below, each of the strings
-// here is compared to every other std::string, both using IdString and a "standard"
+// here is compared to every other string, both using IdString and a "standard"
 // comparison. The strings are chosen to exercise combinations of various
 // properties:
 // - Strings that are different only in case
@@ -166,7 +167,7 @@ TEST(IdString, Equals) {
   std::vector<std::string> test_cases = GetComparisonTestCases();
 
   // Make two IdString copies of the test cases. This ensures that even when we
-  // compare a std::string to itself, it will be using two different IdString
+  // compare a string to itself, it will be using two different IdString
   // instances.
   std::vector<IdString> test_id_string1;
   std::vector<IdString> test_id_string2;
@@ -193,7 +194,7 @@ TEST(IdString, CaseEquals) {
   std::vector<std::string> test_cases = GetComparisonTestCases();
 
   // Make two IdString copies of the test cases. This ensures that even when we
-  // compare a std::string to itself, it will be using two different IdString
+  // compare a string to itself, it will be using two different IdString
   // instances.
   std::vector<IdString> test_id_string1;
   std::vector<IdString> test_id_string2;
@@ -220,7 +221,7 @@ TEST(IdString, LessThan) {
   std::vector<std::string> test_cases = GetComparisonTestCases();
 
   // Make two IdString copies of the test cases. This ensures that even when we
-  // compare a std::string to itself, it will be using two different IdString
+  // compare a string to itself, it will be using two different IdString
   // instances.
   std::vector<IdString> test_id_string1;
   std::vector<IdString> test_id_string2;
@@ -247,7 +248,7 @@ TEST(IdString, CaseLessThan) {
   std::vector<std::string> test_cases = GetComparisonTestCases();
 
   // Make two IdString copies of the test cases. This ensures that even when we
-  // compare a std::string to itself, it will be using two different IdString
+  // compare a string to itself, it will be using two different IdString
   // instances.
   std::vector<IdString> test_id_string1;
   std::vector<IdString> test_id_string2;

@@ -71,9 +71,9 @@ SELECT SAFE.SUBSTR('bar', 0, 2) AS safe_output;
 +-------------+
 ```
 
-[link-to-SAFE_DIVIDE]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#safe_divide
-[link-to-SAFE_CAST]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#safe-casting
-[link-to-operators]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#operators
+[link-to-SAFE_DIVIDE]: #safe_divide
+[link-to-SAFE_CAST]: #safe-casting
+[link-to-operators]: #operators
 
 ## Conversion rules
 
@@ -704,13 +704,13 @@ ZetaSQL provides the following additional conversion functions:
 
 [con-rules-link-to-literal-coercion]: #literal_coercion
 [con-rules-link-to-parameter-coercion]: #parameter_coercion
-[con-rules-link-to-time-zones]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time-zones
+[con-rules-link-to-time-zones]: https://github.com/google/zetasql/blob/master/docs/data-types#time-zones
 
 [con-rules-link-to-safe-convert-bytes-to-string]: #safe_convert_bytes_to_string
-[con-rules-link-to-date-functions]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#date-functions
-[con-rules-link-to-datetime-functions]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#datetime-functions
-[con-rules-link-to-time-functions]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#time-functions
-[con-rules-link-to-timestamp-functions]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#timestamp-functions
+[con-rules-link-to-date-functions]: #date_functions
+[con-rules-link-to-datetime-functions]: #datetime_functions
+[con-rules-link-to-time-functions]: #time_functions
+[con-rules-link-to-timestamp-functions]: #timestamp_functions
 
 ## Aggregate functions
 
@@ -757,10 +757,10 @@ Any
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -769,6 +769,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -822,7 +825,7 @@ All data types except ARRAY.
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `IGNORE NULLS` or `RESPECT NULLS`: If `IGNORE NULLS` is
@@ -832,7 +835,7 @@ The clauses are applied *in the following order*:
     the NULL values are included in the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -847,7 +850,7 @@ The clauses are applied *in the following order*:
         possible value; that is, NULLs appear first in `ASC` sorts and last in
         `DESC` sorts.
     *   Floating point data types: see
-        [Floating Point Semantics](https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics)
+        [Floating Point Semantics][floating-point-semantics]
         on ordering and grouping.
     *   If `DISTINCT` is also specified, then
         the sort key must be the same as `expression`.
@@ -857,6 +860,9 @@ The clauses are applied *in the following order*:
 1.  `LIMIT`: Specifies the maximum number of `expression` inputs in the
     result.
     The limit `n` must be a constant INT64.
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -974,7 +980,7 @@ The clauses are applied *in the following order*:
 
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows. This clause
@@ -988,7 +994,7 @@ The clauses are applied *in the following order*:
         possible value; that is, NULLs appear first in `ASC` sorts and last in
         `DESC` sorts.
     *   Floating point data types: see
-        [Floating Point Semantics](https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics)
+        [Floating Point Semantics][floating-point-semantics]
         on ordering and grouping.
     *   If `ORDER BY` is not specified, the order of the elements in the output
         array is non-deterministic, which means you might receive a different
@@ -999,6 +1005,9 @@ The clauses are applied *in the following order*:
     the number of elements in the arrays. An empty array counts as 1. A NULL
     array is not counted.
     The limit `n` must be a constant INT64.
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -1087,12 +1096,12 @@ means you might receive a different result each time you use this function.
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -1101,6 +1110,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -1174,7 +1186,7 @@ The clauses are applied *in the following order*:
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows. This clause
@@ -1182,6 +1194,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -1223,7 +1238,7 @@ The clauses are applied *in the following order*:
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows. This clause
@@ -1231,6 +1246,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -1272,7 +1290,7 @@ The clauses are applied *in the following order*:
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows. This clause
@@ -1280,6 +1298,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -1344,12 +1365,12 @@ COUNT([DISTINCT] expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -1358,6 +1379,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Types**
 
@@ -1433,12 +1457,12 @@ BOOL
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -1447,6 +1471,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Types**
 
@@ -1505,10 +1532,10 @@ BOOL
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -1517,6 +1544,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Types**
 
@@ -1553,10 +1583,10 @@ BOOL
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -1565,6 +1595,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Types**
 
@@ -1605,10 +1638,10 @@ Any data type except:
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -1617,6 +1650,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Types**
 
@@ -1674,10 +1710,10 @@ Any data type except:
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -1686,6 +1722,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Types**
 
@@ -1744,12 +1783,12 @@ BYTES
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -1764,7 +1803,7 @@ The clauses are applied *in the following order*:
         possible value; that is, NULLs appear first in `ASC` sorts and last in
         `DESC` sorts.
     *   Floating point data types: see
-        [Floating Point Semantics](https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics)
+        [Floating Point Semantics][floating-point-semantics]
         on ordering and grouping.
     *   If `DISTINCT` is also specified, then
         the sort key must be the same as `expression`.
@@ -1777,6 +1816,9 @@ The clauses are applied *in the following order*:
     not the number of characters or bytes in the inputs. An empty string counts
     as 1. A NULL string is not counted.
     The limit `n` must be a constant INT64.
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Types**
 
@@ -1889,12 +1931,12 @@ Any supported numeric data types.
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -1903,6 +1945,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Types**
 
@@ -2020,10 +2065,10 @@ DOUBLE
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -2032,6 +2077,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Type**
 
@@ -2062,10 +2110,10 @@ DOUBLE
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -2074,6 +2122,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Type**
 
@@ -2104,10 +2155,10 @@ DOUBLE
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -2116,6 +2167,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Type**
 
@@ -2145,12 +2199,12 @@ DOUBLE
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -2159,6 +2213,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Type**
 
@@ -2186,12 +2243,12 @@ DOUBLE
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -2200,6 +2257,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Type**
 
@@ -2238,12 +2298,12 @@ DOUBLE
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -2252,6 +2312,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Type**
 
@@ -2279,12 +2342,12 @@ DOUBLE
 The clauses are applied *in the following order*:
 
 1.  `OVER`: Specifies a window. See
-    [Analytic Functions](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+    [Analytic Functions][analytic-functions].
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows.
@@ -2293,6 +2356,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Data Type**
 
@@ -2343,7 +2409,7 @@ Any data type **except**:
 
 `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows. This clause
@@ -2351,6 +2417,9 @@ Any data type **except**:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -2404,7 +2473,7 @@ The clauses are applied *in the following order*:
     the NULL values are included in the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows. This clause
@@ -2412,6 +2481,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -2499,7 +2571,7 @@ specifies the number of elements returned.
 
 `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows. This clause
@@ -2507,6 +2579,9 @@ specifies the number of elements returned.
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -2580,7 +2655,7 @@ If the `weight` input is negative or `NaN`, this function returns an error.
 
 `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows. This clause
@@ -2588,6 +2663,9 @@ If the `weight` input is negative or `NaN`, this function returns an error.
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -2656,7 +2734,7 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 +----------------------------+
 ```
 
-[link-to-approximate-aggregation]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation.md
+[link-to-approximate-aggregation]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation
 
 ## HyperLogLog++ Functions
 
@@ -2863,9 +2941,9 @@ FROM (
 ```
 
 [hll-link-to-hyperloglog-wikipedia]: https://en.wikipedia.org/wiki/HyperLogLog
-[hll-link-to-approx-count-distinct]: #approx_count_distinct
 [hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
-[approximate-aggregation-concept]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation.md
+[hll-link-to-approx-count-distinct]: #approx_count_distinct
+[approximate-aggregation-concept]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation
 
 ## KLL16 Quantile Functions
 
@@ -2959,6 +3037,9 @@ that allows you to retrieve values whose ranks are within
 + `input`: `INT64`
 + `precision`: `INT64`
 
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+
 **Return Types**
 
 `BYTES`
@@ -2978,6 +3059,9 @@ Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
 
 + `input`: `UINT64`
 + `precision`: `INT64`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Types**
 
@@ -3002,6 +3086,9 @@ Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
 
 + `input`: `DOUBLE`
 + `precision`: `INT64`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Types**
 
@@ -3133,6 +3220,9 @@ median, and maximum values in the input sketches.
 Takes KLL16 sketches as `BYTES`, initialized on data
 of type `INT64`.
 
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+
 **Return Types**
 
 `ARRAY` of type INT64.
@@ -3152,6 +3242,9 @@ Like [`KLL_QUANTILES.MERGE_INT64`](#kll-quantilesmerge-int64), but accepts
 
 Takes KLL16 sketches as `BYTES`, initialized on data
 of type `UINT64`.
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Types**
 
@@ -3176,6 +3269,9 @@ Like [`KLL_QUANTILES.MERGE_INT64`](#kll-quantilesmerge-int64), but accepts
 
 Takes KLL16 sketches as `BYTES`, initialized on data
 of type `DOUBLE`.
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Types**
 
@@ -3239,6 +3335,9 @@ percentile of the merged sketch.
   data of type `INT64`.
 + `phi` is a `DOUBLE` between 0 and 1.
 
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+
 **Return Types**
 
 `INT64`
@@ -3259,6 +3358,9 @@ accepts `input` of type `UINT64`.
 + Takes KLL16 sketches as `BYTES`, initialized on
   data of type `UINT64`.
 + `phi` is a `DOUBLE` between 0 and 1.
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Types**
 
@@ -3284,6 +3386,9 @@ accepts `input` of type `DOUBLE`.
 + Takes KLL16 sketches as `BYTES`, initialized on
   data of type `DOUBLE`.
 + `phi` is a `DOUBLE` between 0 and 1.
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Return Types**
 
@@ -3392,7 +3497,7 @@ The `phi` argument specifies the quantile to return as a fraction of the total
 number of rows in the input, normalized between 0 and 1. This means that the
 function will return a value *v* such that approximately Φ * *n* inputs are less
 than or equal to *v*, and a (1-Φ) / *n* inputs are greater than or equal to *v*.
-This is an aggregate function.
+This is a scalar function.
 
 Returns an error if the underlying type of the input sketch is not compatible
 with type `INT64`.
@@ -3473,9 +3578,8 @@ but accepts sketches initialized on data of type of type
 `DOUBLE`
 
 [link-to-kll-paper]: https://arxiv.org/pdf/1603.05346v2.pdf
-
-[approximate-aggregation-concept]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation.md#storing-estimated-aggregate-values-as-sketches
-[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparison-operator-examples
+[approximate-aggregation-concept]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation#storing-estimated-aggregate-values-as-sketches
+[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types#comparison-operator-examples
 
 ## Numbering Functions
 
@@ -3575,19 +3679,7 @@ non-deterministic.
 INT64
 
 [analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[navigation-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#navigation-functions
 [numbering-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#numbering-functions
-[aggregate-analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#aggregate-analytic-functions
-[navigation-function-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#navigation-functions
-
-[analytic-functions-link-to-aggregate-functions]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#aggregate-functions
-
-[analytic-functions-link-to-numbering-functions]: #numbering-functions
-[analytic-functions-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
-[analytic-functions-link-to-order-by-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#order_by_clause
-[analytic-functions-link-to-sql-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#sql-syntax
-[analytic-functions-link-to-hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
-[analytic-functions-link-to-coercion]: #coercion
 
 ## Bit Functions
 
@@ -3635,7 +3727,6 @@ FROM UNNEST([
 +-------+--------+---------------------------------------------+--------+
 ```
 
-<a name="mathematical-functions"></a>
 ## Mathematical functions
 
 All mathematical functions have the following behaviors:
@@ -4490,7 +4581,7 @@ the two arguments to determine the quadrant. The return value is in the range
 </tbody>
 </table>
 
-[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data-type-properties
+[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data-type-properties
 
 ## Navigation Functions
 
@@ -5152,18 +5243,8 @@ FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 
 ```
 
-[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-[navigation-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#navigation-functions
-[numbering-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#numbering-functions
-[aggregate-analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#aggregate-analytic-functions
-
-[analytic-functions-link-to-aggregate-functions]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#aggregate-functions
-
-[analytic-functions-link-to-numbering-functions]: #numbering-functions
-[analytic-functions-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
-[analytic-functions-link-to-order-by-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#order_by_clause
-[analytic-functions-link-to-sql-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#sql-syntax
-[analytic-functions-link-to-hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
+[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[navigation-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#navigation-functions
 
 ## Aggregate Analytic Functions
 
@@ -5212,12 +5293,11 @@ COUNT(*) OVER (ROWS UNBOUNDED PRECEDING)
 SUM(DISTINCT x) OVER ()
 ```
 
-[analytic-functions-link-to-aggregate-functions]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#aggregate-functions
+[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[aggregate-analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#aggregate-analytic-functions
 
-[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-[aggregate-analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#aggregate-analytic-functions
+[analytic-functions-link-to-aggregate-functions]: #aggregate_functions
 
-<a name="hash_functions"></a>
 ## Hash functions
 
 ### FARM_FINGERPRINT
@@ -5371,7 +5451,6 @@ SELECT SHA512("Hello World") as sha512;
 [hash-link-to-sha-1-wikipedia]: https://en.wikipedia.org/wiki/SHA-1
 [hash-link-to-sha-2-wikipedia]: https://en.wikipedia.org/wiki/SHA-2
 
-<a name="string_functions"></a>
 ## String functions
 
 <a name="string_values"></a>These string functions work on two different values:
@@ -5858,7 +5937,7 @@ Extensions from printf() are identified in <em>italics</em>.
     <code>inf</code><br/>
     <code>NaN</code></td>
     <td>
-    <span> NUMERIC<span><br><span> FLOAT<span><br><span> DOUBLE<span>
+    <span> NUMERIC</span><br><span> FLOAT</span><br><span> DOUBLE</span>
     </td>
  </tr>
  <tr>
@@ -5868,7 +5947,7 @@ Extensions from printf() are identified in <em>italics</em>.
     <code>inf</code><br/>
     NAN</td>
     <td>
-    <span> NUMERIC<span><br><span> FLOAT<span><br><span> DOUBLE<span>
+    <span> NUMERIC</span><br><span> FLOAT</span><br><span> DOUBLE</span>
     </td>
  </tr>
  <tr>
@@ -5878,7 +5957,7 @@ Extensions from printf() are identified in <em>italics</em>.
     <code>inf</code><br/>
     <code>NaN</code></td>
     <td>
-    <span> NUMERIC<span><br><span> FLOAT<span><br><span> DOUBLE<span>
+    <span> NUMERIC</span><br><span> FLOAT</span><br><span> DOUBLE</span>
     </td>
  </tr>
  <tr>
@@ -5888,7 +5967,7 @@ Extensions from printf() are identified in <em>italics</em>.
     <code>inf</code><br/>
     NAN</td>
     <td>
-    <span> NUMERIC<span><br><span> FLOAT<span><br><span> DOUBLE<span>
+    <span> NUMERIC</span><br><span> FLOAT</span><br><span> DOUBLE</span>
     </td>
  </tr>
  <tr>
@@ -5896,7 +5975,7 @@ Extensions from printf() are identified in <em>italics</em>.
     <td>Use the shortest representation, %e or %f</td>
     <td>392.65</td>
     <td>
-    <span> FLOAT<span><br><span> DOUBLE<span>
+    <span> FLOAT</span><br><span> DOUBLE</span>
     </td>
  </tr>
  <tr>
@@ -5904,7 +5983,7 @@ Extensions from printf() are identified in <em>italics</em>.
     <td>Use the shortest representation, %E or %F</td>
     <td>392.65</td>
     <td>
-    <span> FLOAT<span><br><span> DOUBLE<span>
+    <span> FLOAT</span><br><span> DOUBLE</span>
     </td>
  </tr>
  <tr>
@@ -5992,6 +6071,8 @@ specified (see width sub-specifier)</td>
   <li><code>FORMAT("%'x", 12345678)</code> returns <code>bc:614e</code></li>
   <li><code>FORMAT("%'o", 55555)</code> returns <code>15,4403</code></li>
   <p>This flag is only relevant for decimal, hex, and octal values.</p>
+  </ul>
+  </td>
  </tr>
 </table>
 
@@ -6073,7 +6154,7 @@ The STRING is formatted as follows:
     <td><code>NULL</code></td>
  </tr>
  <tr>
-    <td><span> INT32<span><br><span> INT64<span><br><span> UINT32<span><br><span> UINT64<span><br></td>
+    <td><span> INT32</span><br><span> INT64</span><br><span> UINT32</span><br><span> UINT64</span><br></td>
     <td>123</td>
     <td>123</td>
  </tr>
@@ -7272,11 +7353,11 @@ ARRAY of type BYTES
 ```sql
 
 WITH letters AS
-  (SELECT "a b c d" as letter_group
+  (SELECT "" as letter_group
   UNION ALL
-  SELECT "e f g h" as letter_group
+  SELECT "a" as letter_group
   UNION ALL
-  SELECT "i j k l" as letter_group)
+  SELECT "b c d" as letter_group)
 
 SELECT SPLIT(letter_group, " ") as example
 FROM letters;
@@ -7284,9 +7365,9 @@ FROM letters;
 +----------------------+
 | example              |
 +----------------------+
-| [a, b, c, d]         |
-| [e, f, g, h]         |
-| [i, j, k, l]         |
+| []                   |
+| [a]                  |
+| [b, c, d]            |
 +----------------------+
 ```
 
@@ -7760,27 +7841,25 @@ FROM items;
 +---------+
 ```
 
+[string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
+[string-link-to-unicode-character-definitions]: http://unicode.org/ucd/
+[string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
+[string-link-to-case-folding-wikipedia]: https://en.wikipedia.org/wiki/Letter_case#Case_folding
+[string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
 [string-link-to-strpos]: #strpos
 [string-link-to-string-values]: #string_values
 [string-link-to-char-length]: #char_length
 [string-link-to-code-points]: #to_code_points
-[string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
-[string-link-to-base32]: #to_base32
 [string-link-to-base64]: #to_base64
-[string-link-to-unicode-character-definitions]: http://unicode.org/ucd/
 [string-link-to-trim]: #trim
-[string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
 [string-link-to-normalize]: #normalize
-[string-link-to-case-folding-wikipedia]: https://en.wikipedia.org/wiki/Letter_case#Case_folding
-[string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
-
-[string-link-to-from-base32]: #from_base32
 [string-link-to-from-base64]: #from_base64
-[string-link-to-from-hex]: #from_hex
-[string-link-to-to-hex]: #to_hex
-
 [string-link-to-codepoints-to-string]: #code_points_to_string
 [string-link-to-codepoints-to-bytes]: #code_points_to_bytes
+[string-link-to-base32]: #to_base32
+[string-link-to-from-base32]: #from_base32
+[string-link-to-from-hex]: #from_hex
+[string-link-to-to-hex]: #to_hex
 
 ## JSON functions
 
@@ -8369,7 +8448,6 @@ The above query produces the following result:
 
 [json-path]: https://github.com/json-path/JsonPath#operators
 
-<a name="array_functions"></a>
 ## Array functions
 
 ### ARRAY
@@ -8381,15 +8459,15 @@ ARRAY(subquery)
 **Description**
 
 The `ARRAY` function returns an `ARRAY` with one element for each row in a
-[subquery](https://github.com/google/zetasql/blob/master/docs/query-syntax.md#subqueries).
+[subquery][subqueries].
 
 If `subquery` produces a
-[SQL table](https://github.com/google/zetasql/blob/master/docs/data-model.md#standard-sql-tables),
+[SQL table][datamodel-sql-tables],
 the table must have exactly one column. Each element in the output `ARRAY` is
 the value of the single column of a row in the table.
 
 If `subquery` produces a
-[value table](https://github.com/google/zetasql/blob/master/docs/data-model.md#value-tables),
+[value table][datamodel-value-tables],
 then each element in the output `ARRAY` is the entire corresponding row of the
 value table.
 
@@ -8404,7 +8482,7 @@ error.
 + If the subquery returns an `ARRAY` typed column or `ARRAY` typed rows, the
   `ARRAY` function returns an error: ZetaSQL does not support
   `ARRAY`s with elements of type
-  [`ARRAY`](https://github.com/google/zetasql/blob/master/docs/data-types.md#array-type).
+  [`ARRAY`][array-data-type].
 + If the subquery returns zero rows, the `ARRAY` function returns an empty
 `ARRAY`. It never returns a `NULL` `ARRAY`.
 
@@ -9107,6 +9185,11 @@ FROM items;
 +----------------------------------+---------------+----------------+
 ```
 
+[subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax#subqueries
+[datamodel-sql-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#standard-sql-tables
+[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#value-tables
+[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types#array-type
+
 ## Date functions
 
 ZetaSQL supports the following `DATE` functions.
@@ -9167,14 +9250,14 @@ be one of:
   the first `WEEKDAY` of the year are in week 0. Valid values for `WEEKDAY` are
   `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`, and
   `SATURDAY`.
-+ `ISOWEEK`: Returns the [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) week
++ `ISOWEEK`: Returns the [ISO 8601 week][ISO-8601-week]
   number of the `date_expression`. `ISOWEEK`s begin on Monday. Return values
   are in the range [1, 53]. The first `ISOWEEK` of each ISO year begins on the
   Monday before the first Thursday of the Gregorian calendar year.
 +   `MONTH`
 +   `QUARTER`: Returns values in the range [1,4].
 +   `YEAR`
-+   `ISOYEAR`: Returns the [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601)
++   `ISOYEAR`: Returns the [ISO 8601][ISO-8601]
     week-numbering year, which is the Gregorian calendar year containing the
     Thursday of the week to which `date_expression` belongs.
 
@@ -9380,12 +9463,12 @@ non-positive.
 +  `WEEK(<WEEKDAY>)`: This date part begins on `WEEKDAY`. Valid values for
    `WEEKDAY` are `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`,
    `FRIDAY`, and `SATURDAY`.
-+  `ISOWEEK`: Uses [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601)
-   week boundaries. ISO weeks begin on Monday.
++  `ISOWEEK`: Uses [ISO 8601 week][ISO-8601-week]
+   boundaries. ISO weeks begin on Monday.
 +  `MONTH`
 +  `QUARTER`
 +  `YEAR`
-+  `ISOYEAR`: Uses the [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601)
++  `ISOYEAR`: Uses the [ISO 8601][ISO-8601]
     week-numbering year boundary. The ISO year boundary is the Monday of the
     first week whose Thursday belongs to the corresponding Gregorian calendar
     year.
@@ -9482,14 +9565,14 @@ Truncates the date to the specified granularity.
    `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`, and
    `SATURDAY`.
 +  `ISOWEEK`: Truncates `date_expression` to the preceding
-   [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) week boundary. `ISOWEEK`s
+   [ISO 8601 week][ISO-8601-week] boundary. `ISOWEEK`s
    begin on Monday. The first `ISOWEEK` of each ISO year contains the first
    Thursday of the corresponding Gregorian calendar year. Any `date_expression`
    earlier than this will truncate to the preceding Monday.
 +  `MONTH`
 +  `QUARTER`
 +  `YEAR`
-+  `ISOYEAR`: Truncates `date_expression` to the preceding [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601)
++  `ISOYEAR`: Truncates `date_expression` to the preceding [ISO 8601][ISO-8601]
     week-numbering year boundary. The ISO year boundary is the Monday of the
     first week whose Thursday belongs to the corresponding Gregorian calendar
     year.
@@ -9586,7 +9669,7 @@ for a list of format elements that this function supports.
 
 STRING
 
-**Example**
+**Examples**
 
 ```sql
 SELECT FORMAT_DATE("%x", DATE "2008-12-25") as US_format;
@@ -9596,6 +9679,26 @@ SELECT FORMAT_DATE("%x", DATE "2008-12-25") as US_format;
 +------------+
 | 12/25/08   |
 +------------+
+```
+
+```sql
+SELECT FORMAT_DATE("%b-%d-%Y", DATE "2008-12-25") AS formatted;
+
++-------------+
+| formatted   |
++-------------+
+| Dec-25-2008 |
++-------------+
+```
+
+```sql
+SELECT FORMAT_DATE("%b %Y", DATE "2008-12-25") AS formatted;
+
++-------------+
+| formatted   |
++-------------+
+| Dec 2008    |
++-------------+
 ```
 
 ### PARSE_DATE
@@ -9717,14 +9820,16 @@ space.</td>
  </tr>
  <tr>
     <td>%G</td>
-    <td>The ISO 8601 year with century as a decimal number. Each ISO year begins
+    <td>The <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a>
+    year with century as a decimal number. Each ISO year begins
     on the Monday before the first Thursday of the Gregorian calendar year.
     Note that %G and %Y may produce different results near Gregorian year
     boundaries, where the Gregorian year and ISO year can diverge.</td>
  </tr>
  <tr>
     <td>%g</td>
-    <td>The ISO 8601 year without century as a decimal number (00-99). Each ISO
+    <td>The <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a>
+    year without century as a decimal number (00-99). Each ISO
     year begins on the Monday before the first Thursday of the Gregorian
     calendar year. Note that %g and %y may produce different results near
     Gregorian year boundaries, where the Gregorian year and ISO year can
@@ -9762,10 +9867,12 @@ space.</td>
 </tr>
  <tr>
     <td>%V</td>
-    <td>The week number of the year (Monday as the first day of the week) as a
-    decimal number (01-53).  If the week containing January 1 has four or more
-    days in the new year, then it is week 1; otherwise it is week 53 of the
-    previous year, and the next week is week 1.</td>
+    <td>The <a href="https://en.wikipedia.org/wiki/ISO_week_date">ISO 8601</a>
+    week number of the year (Monday as the first
+    day of the week) as a decimal number (01-53).  If the week containing
+    January 1 has four or more days in the new year, then it is week 1;
+    otherwise it is week 53 of the previous year, and the next week is
+    week 1.</td>
  </tr>
  <tr>
     <td>%W</td>
@@ -9798,8 +9905,11 @@ space.</td>
  </tr>
 </table>
 
-[date-functions-link-to-timezone-definitions]: #timezone_definitions
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
 [date-functions-link-to-supported-format-elements-for-date]: #supported_format_elements_for_date
+
+[date-functions-link-to-timezone-definitions]: #timezone_definitions
 
 ## DateTime functions
 
@@ -9895,14 +10005,14 @@ Allowed `part` values are:
   `datetime`s prior to the first `WEEKDAY` of the year are in week 0. Valid
   values for `WEEKDAY` are `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`,
   `THURSDAY`, `FRIDAY`, and `SATURDAY`.
-+ `ISOWEEK`: Returns the [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) week
++ `ISOWEEK`: Returns the [ISO 8601 week][ISO-8601-week]
   number of the `datetime_expression`. `ISOWEEK`s begin on Monday. Return values
   are in the range [1, 53]. The first `ISOWEEK` of each ISO year begins on the
   Monday before the first Thursday of the Gregorian calendar year.
 + `MONTH`
 + `QUARTER`
 + `YEAR`
-+ `ISOYEAR`: Returns the [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601)
++ `ISOYEAR`: Returns the [ISO 8601][ISO-8601]
   week-numbering year, which is the Gregorian calendar year containing the
   Thursday of the week to which `date_expression` belongs.
 + `DATE`
@@ -10099,12 +10209,12 @@ overflow an `INT64` value.
 + `WEEK(<WEEKDAY>)`: This date part begins on `WEEKDAY`. Valid values for
   `WEEKDAY` are `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`,
   `FRIDAY`, and `SATURDAY`.
-+ `ISOWEEK`: Uses [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601)
-  week boundaries. ISO weeks begin on Monday.
++ `ISOWEEK`: Uses [ISO 8601 week][ISO-8601-week]
+  boundaries. ISO weeks begin on Monday.
 + `MONTH`
 + `QUARTER`
 + `YEAR`
-+ `ISOYEAR`: Uses the [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601)
++ `ISOYEAR`: Uses the [ISO 8601][ISO-8601]
   week-numbering year boundary. The ISO year boundary is the Monday of the
   first week whose Thursday belongs to the corresponding Gregorian calendar
   year.
@@ -10217,14 +10327,14 @@ Truncates a `DATETIME` object to the granularity of `part`.
   `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`, and
   `SATURDAY`.
 + `ISOWEEK`: Truncates `datetime_expression` to the preceding
-   [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) week boundary. `ISOWEEK`s
+   [ISO 8601 week][ISO-8601-week] boundary. `ISOWEEK`s
    begin on Monday. The first `ISOWEEK` of each ISO year contains the first
    Thursday of the corresponding Gregorian calendar year. Any `date_expression`
    earlier than this will truncate to the preceding Monday.
 + `MONTH`
 + `QUARTER`
 + `YEAR`
-+ `ISOYEAR`: Truncates `datetime_expression` to the preceding [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601)
++ `ISOYEAR`: Truncates `datetime_expression` to the preceding [ISO 8601][ISO-8601]
     week-numbering year boundary. The ISO year boundary is the Monday of the
     first week whose Thursday belongs to the corresponding Gregorian calendar
     year.
@@ -10301,12 +10411,42 @@ for a list of format elements that this function supports.
 
 STRING
 
-**Example**
+**Examples**
 
 ```sql
 SELECT
   FORMAT_DATETIME("%c", DATETIME "2008-12-25 15:30:00")
   AS formatted;
+
++--------------------------+
+| formatted                |
++--------------------------+
+| Thu Dec 25 15:30:00 2008 |
++--------------------------+
+```
+
+```sql
+SELECT
+  FORMAT_DATETIME("%b-%d-%Y", DATETIME "2008-12-25 15:30:00")
+  AS formatted;
+
++-------------+
+| formatted   |
++-------------+
+| Dec-25-2008 |
++-------------+
+```
+
+```sql
+SELECT
+  FORMAT_DATETIME("%b %Y", DATETIME "2008-12-25 15:30:00")
+  AS formatted;
+
++-------------+
+| formatted   |
++-------------+
+| Dec 2008    |
++-------------+
 ```
 
 ### PARSE_DATETIME
@@ -10415,8 +10555,7 @@ following elements:
  <tr>
     <td>%C</td>
     <td>The century (a year divided by 100 and truncated to an integer) as a
-    decimal
-number (00-99).</td>
+    decimal number (00-99).</td>
  </tr>
  <tr>
     <td>%c</td>
@@ -10442,14 +10581,16 @@ space.</td>
  </tr>
  <tr>
     <td>%G</td>
-    <td>The ISO 8601 year with century as a decimal number. Each ISO year begins
+    <td>The <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a> year
+    with century as a decimal number. Each ISO year begins
     on the Monday before the first Thursday of the Gregorian calendar year.
     Note that %G and %Y may produce different results near Gregorian year
     boundaries, where the Gregorian year and ISO year can diverge.</td>
  </tr>
  <tr>
     <td>%g</td>
-    <td>The ISO 8601 year without century as a decimal number (00-99). Each ISO
+    <td>The <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a> year
+    without century as a decimal number (00-99). Each ISO
     year begins on the Monday before the first Thursday of the Gregorian
     calendar year. Note that %g and %y may produce different results near
     Gregorian year boundaries, where the Gregorian year and ISO year can
@@ -10532,8 +10673,7 @@ by a space.</td>
  <tr>
     <td>%U</td>
     <td>The week number of the year (Sunday as the first day of the week) as a
-    decimal
-number (00-53).</td>
+    decimal number (00-53).</td>
  </tr>
  <tr>
     <td>%u</td>
@@ -10542,16 +10682,17 @@ number (00-53).</td>
 </tr>
  <tr>
     <td>%V</td>
-    <td>The week number of the year (Monday as the first day of the week) as a
-    decimal number (01-53).  If the week containing January 1 has four or more
-    days in the new year, then it is week 1; otherwise it is week 53 of the
-    previous year, and the next week is week 1.</td>
+    <td>The <a href="https://en.wikipedia.org/wiki/ISO_week_date">ISO 8601</a>
+    week number of the year (Monday as the first
+    day of the week) as a decimal number (01-53).  If the week containing
+    January 1 has four or more days in the new year, then it is week 1;
+    otherwise it is week 53 of the previous year, and the next week is
+    week 1.</td>
  </tr>
  <tr>
     <td>%W</td>
     <td>The week number of the year (Monday as the first day of the week) as a
-    decimal
-number (00-53).</td>
+    decimal number (00-53).</td>
  </tr>
  <tr>
     <td>%w</td>
@@ -10596,8 +10737,11 @@ year.</td>
  </tr>
 </table>
 
-[datetime-link-to-timezone-definitions]: #timezone_definitions
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
 [datetime-functions-link-to-supported-format-elements-for-datetime]: #supported_format_elements_for_datetime
+
+[datetime-link-to-timezone-definitions]: #timezone_definitions
 
 ## Time functions
 
@@ -11021,8 +11165,9 @@ by a space.</td>
  </tr>
 </table>
 
-[time-link-to-timezone-definitions]: #timezone_definitions
 [time-link-to-supported-format-elements-for-time]: #supported_format_elements_for_time
+
+[time-link-to-timezone-definitions]: #timezone_definitions
 
 ## Timestamp functions
 
@@ -11094,14 +11239,14 @@ Allowed `part` values are:
   range [0, 53]. Weeks begin on `WEEKDAY`. `datetime`s prior to the first
   `WEEKDAY` of the year are in week 0. Valid values for `WEEKDAY` are `SUNDAY`,
   `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`, and `SATURDAY`.
-+ `ISOWEEK`: Returns the [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) week
++ `ISOWEEK`: Returns the [ISO 8601 week][ISO-8601-week]
   number of the `datetime_expression`. `ISOWEEK`s begin on Monday. Return values
   are in the range [1, 53]. The first `ISOWEEK` of each ISO year begins on the
   Monday before the first Thursday of the Gregorian calendar year.
 + `MONTH`
 + `QUARTER`
 + `YEAR`
-+ `ISOYEAR`: Returns the [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601)
++ `ISOYEAR`: Returns the [ISO 8601][ISO-8601]
   week-numbering year, which is the Gregorian calendar year containing the
   Thursday of the week to which `date_expression` belongs.
 + `DATE`
@@ -11504,14 +11649,14 @@ Truncates a timestamp to the granularity of `date_part`.
   `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`, and
   `SATURDAY`.
 + `ISOWEEK`: Truncates `timestamp_expression` to the preceding
-   [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) week boundary. `ISOWEEK`s
+   [ISO 8601 week][ISO-8601-week] boundary. `ISOWEEK`s
    begin on Monday. The first `ISOWEEK` of each ISO year contains the first
    Thursday of the corresponding Gregorian calendar year. Any `date_expression`
    earlier than this will truncate to the preceding Monday.
 + `MONTH`
 + `QUARTER`
 + `YEAR`
-+ `ISOYEAR`: Truncates `timestamp_expression` to the preceding [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601)
++ `ISOYEAR`: Truncates `timestamp_expression` to the preceding [ISO 8601][ISO-8601]
     week-numbering year boundary. The ISO year boundary is the Monday of the
     first week whose Thursday belongs to the corresponding Gregorian calendar
     year.
@@ -12001,14 +12146,18 @@ space.</td>
  </tr>
  <tr>
     <td>%G</td>
-    <td>The ISO 8601 year with century as a decimal number. Each ISO year begins
+    <td>The
+    <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a> year
+    with century as a decimal number. Each ISO year begins
     on the Monday before the first Thursday of the Gregorian calendar year.
     Note that %G and %Y may produce different results near Gregorian year
     boundaries, where the Gregorian year and ISO year can diverge.</td>
  </tr>
  <tr>
     <td>%g</td>
-    <td>The ISO 8601 year without century as a decimal number (00-99). Each ISO
+    <td>The
+    <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a> year
+    with century as a decimal number (00-99). Each ISO
     year begins on the Monday before the first Thursday of the Gregorian
     calendar year. Note that %g and %y may produce different results near
     Gregorian year boundaries, where the Gregorian year and ISO year can
@@ -12091,8 +12240,7 @@ by a space.</td>
  <tr>
     <td>%U</td>
     <td>The week number of the year (Sunday as the first day of the week) as a
-    decimal
-number (00-53).</td>
+    decimal number (00-53).</td>
  </tr>
  <tr>
     <td>%u</td>
@@ -12101,17 +12249,17 @@ number (00-53).</td>
 </tr>
  <tr>
     <td>%V</td>
-    <td>The week number of the year (Monday as the first day of the week) as a
-    decimal
-number (01-53).  If the week containing January 1 has four or more days in the
-new year, then it is week 1; otherwise it is week 53 of the previous year, and
-the next week is week 1.</td>
+   <td>The <a href="https://en.wikipedia.org/wiki/ISO_week_date">ISO 8601</a>
+    week number of the year (Monday as the first
+    day of the week) as a decimal number (01-53).  If the week containing
+    January 1 has four or more days in the new year, then it is week 1;
+    otherwise it is week 53 of the previous year, and the next week is
+    week 1.</td>
  </tr>
  <tr>
     <td>%W</td>
     <td>The week number of the year (Monday as the first day of the week) as a
-    decimal
-number (00-53).</td>
+    decimal number (00-53).</td>
  </tr>
  <tr>
     <td>%w</td>
@@ -12194,10 +12342,12 @@ SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00 America/Los_Angeles") as milli
 SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00-08:00") as millis;
 ```
 
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
 [timezone-by-name]: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
-[timestamp-link-to-supported-format-elements-for-time-for-timestamp]: #supported_format_elements_for_timestamp
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
+[timestamp-link-to-supported-format-elements-for-time-for-timestamp]: #supported_format_elements_for_timestamp
 
 ## Protocol buffer functions
 
@@ -12627,7 +12777,7 @@ SELECT TO_PROTO(
 +--------------------------------+
 ```
 
-### EXTRACT {#proto-extract}
+### EXTRACT {#proto_extract}
 
 ```sql
 EXTRACT( extraction_type (field) FROM proto_expression )
@@ -12751,8 +12901,8 @@ SELECT EXTRACT(HAS(publish_date) FROM new Book()) as has_release_date;
 +------------------+
 ```
 
-  [querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying-protocol-buffers
-  [has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#checking-if-a-non-repeated-field-has-a-value
+[querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers#querying-protocol-buffers
+[has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers#checking-if-a-non-repeated-field-has-a-value
 
 ## Security functions
 
@@ -12784,7 +12934,6 @@ SELECT SESSION_USER() as user;
 
 ```
 
-<a name="NET_functions"></a>
 ## Net functions
 
 ### NET.IP_FROM_STRING
@@ -13415,13 +13564,14 @@ FROM (
 
 [net-link-to-ipv6-rfc]: http://www.ietf.org/rfc/rfc2373.txt
 [net-link-to-cidr-notation]: https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing
+[net-link-to-rfc-3986-appendix-a]: https://tools.ietf.org/html/rfc3986#appendix-A
+[net-link-to-public-suffix]: https://publicsuffix.org/list/
+[net-link-to-punycode]: https://en.wikipedia.org/wiki/Punycode
+
 [net-link-to-ip-from-string]: #netip-from-string
 [net-link-to-ip-to-string]: #netip-to-string
 [net-link-to-ipv4-from-int64]: #netipv4-from-int64
 [net-link-to-ipv4-to-int64]: #netipv4-to-int64
-[net-link-to-rfc-3986-appendix-a]: https://tools.ietf.org/html/rfc3986#appendix-A
-[net-link-to-public-suffix]: https://publicsuffix.org/list/
-[net-link-to-punycode]: https://en.wikipedia.org/wiki/Punycode
 
 ## Operators
 
@@ -13464,8 +13614,13 @@ statement.
 <td>&nbsp;</td>
 <td>[ ]</td>
 <td>ARRAY</td>
-<td>Array position. Must be used with OFFSET or ORDINAL&mdash;see <a
-href="#array_functions">ARRAY Functions</a>.</td>
+<td>Array position. Must be used with OFFSET or ORDINAL&mdash;see
+
+<a href="functions-and-operators.md#array_functions">
+
+Array Functions
+</a>
+.</td>
 <td>Binary</td>
 </tr>
 <tr>
@@ -13549,8 +13704,13 @@ href="#array_functions">ARRAY Functions</a>.</td>
 <td>9 (Comparison Operators)</td>
 <td>=</td>
 <td>Any comparable type. See
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a> for
-a complete list.</td>
+
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+
+Data Types
+</a>
+
+for a complete list.</td>
 <td>Equal</td>
 <td>Binary</td>
 </tr>
@@ -13558,8 +13718,13 @@ a complete list.</td>
 <td>&nbsp;</td>
 <td>&lt;</td>
 <td>Any comparable type. See
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a> for
-a complete list.</td>
+
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+
+Data Types
+</a>
+
+for a complete list.</td>
 <td>Less than</td>
 <td>Binary</td>
 </tr>
@@ -13567,8 +13732,13 @@ a complete list.</td>
 <td>&nbsp;</td>
 <td>&gt;</td>
 <td>Any comparable type. See
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a> for
-a complete list.</td>
+
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+
+Data Types
+</a>
+
+for a complete list.</td>
 <td>Greater than</td>
 <td>Binary</td>
 </tr>
@@ -13576,8 +13746,13 @@ a complete list.</td>
 <td>&nbsp;</td>
 <td>&lt;=</td>
 <td>Any comparable type. See
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a> for
-a complete list.</td>
+
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+
+Data Types
+</a>
+
+for a complete list.</td>
 <td>Less than or equal to</td>
 <td>Binary</td>
 </tr>
@@ -13585,8 +13760,13 @@ a complete list.</td>
 <td>&nbsp;</td>
 <td>&gt;=</td>
 <td>Any comparable type. See
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a> for
-a complete list.</td>
+
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+
+Data Types
+</a>
+
+for a complete list.</td>
 <td>Greater than or equal to</td>
 <td>Binary</td>
 </tr>
@@ -13594,8 +13774,13 @@ a complete list.</td>
 <td>&nbsp;</td>
 <td>!=, &lt;&gt;</td>
 <td>Any comparable type. See
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a> for
-a complete list.</td>
+
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+
+Data Types
+</a>
+
+for a complete list.</td>
 <td>Not equal</td>
 <td>Binary</td>
 </tr>
@@ -13609,14 +13794,28 @@ a complete list.</td>
 <tr>
 <td>&nbsp;</td>
 <td>[NOT] BETWEEN</td>
-<td>Any comparable types. See Data Types for list.</td>
+<td>Any comparable types. See
+
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+
+Data Types
+</a>
+
+for a complete list.</td>
 <td>Value is [not] within the range specified</td>
 <td>Binary</td>
 </tr>
 <tr>
 <td>&nbsp;</td>
 <td>[NOT] IN</td>
-<td>Any comparable types. See Data Types for list.</td>
+<td>Any comparable types. See
+
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+
+Data Types
+</a>
+
+for a complete list.</td>
 <td>Value is [not] in the set of values specified</td>
 <td>Binary</td>
 </tr>
@@ -13719,9 +13918,14 @@ e.g.expression.fieldname1.fieldname2...</td>
 <td>array_expression [position_keyword (int_expression ) ]</td>
 <td>See ARRAY Functions.</td>
 <td>Type T stored in ARRAY</td>
-<td>position_keyword is either OFFSET or ORDINAL. See <a
-href="#array_functions">ARRAY Functions</a> for the
-two functions that use this operator.</td>
+<td>position_keyword is either OFFSET or ORDINAL. See
+
+<a href="functions-and-operators.md#array_functions">
+
+Array Functions
+</a>
+
+for the two functions that use this operator.</td>
 </tr>
 </tbody>
 </table>
@@ -14141,7 +14345,7 @@ x IN UNNEST(@array_parameter)
 
 **Note:** A `NULL` ARRAY will be treated equivalently to an empty ARRAY.
 
-See the [Arrays][operators-link-to-arrays-topic] topic for more information on
+See the [Arrays][operators-link-to-filtering-arrays] topic for more information on
 how to use this syntax.
 
 When using the `IN` operator, the following semantics apply:
@@ -14207,12 +14411,13 @@ otherwise.</td>
 </tbody>
 </table>
 
-[operators-link-to-arrays-topic]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering-arrays
-[operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
-[operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from-clause
-[operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct-type
-[operators-link-to-math-functions]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#mathematical-functions
-[link-to-coercion]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#coercion
+[operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering-arrays
+[operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
+[operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax#from-clause
+[operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types#struct-type
+
+[operators-link-to-math-functions]: #mathematical_functions
+[link-to-coercion]: #coercion
 
 ## Conditional expressions
 
@@ -14362,8 +14567,11 @@ a single column whose type is equality-compatible with the expression on the
 left side of the IN operator. Returns FALSE if the subquery returns zero rows.
 <code>x IN ()</code> is equivalent to <code>x IN (value, value, ...)</code>
 See the <code>IN</code> operator in
+
 <a href="functions-and-operators.md#comparison_operators">
-  Comparison Operators</a>
+
+Comparison Operators
+</a>
 
 for full semantics.</td>
 
@@ -14505,7 +14713,7 @@ a,b,c.</td>
 </tbody>
 </table>
 
-[exp-sub-link-to-subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#subqueries
+[exp-sub-link-to-subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax#subqueries
 
 ## Debugging functions
 

@@ -167,7 +167,7 @@ class QueryExpression {
   // initial query.
   std::map<int, std::string> group_by_list_;
   // Column IDs of group by keys in the ROLLUP list. group_by_list_ stores the
-  // std::string representations of these columns. Will be non-empty only if the
+  // string representations of these columns. Will be non-empty only if the
   // query used ROLLUP.
   std::vector<int> rollup_column_id_list_;
 

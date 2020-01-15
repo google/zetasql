@@ -178,8 +178,8 @@ class FunctionArgumentTypeOptions {
     return allow_coercion_from_;
   }
 
-  // Return a std::string describing the options (not including cardinality).
-  // If no options are set, this returns an empty std::string.
+  // Return a string describing the options (not including cardinality).
+  // If no options are set, this returns an empty string.
   // Otherwise, includes a leading space.
   std::string OptionsDebugString() const;
 
@@ -391,7 +391,7 @@ class FunctionArgumentType {
 
   // Deserialization of ParseLocationRange would refer to the filename in
   // ParseLocationRangeProto as string_view.
-  // TODO Add support for storing filename as std::string in
+  // TODO Add support for storing filename as string in
   // ParseLocationPoint.
   static zetasql_base::Status Deserialize(
       const FunctionArgumentTypeProto& proto,
@@ -739,11 +739,11 @@ class FunctionSignature {
 
   // If verbose is true, include FunctionOptions modifiers.
   std::string DebugString(const std::string& function_name = "",
-                     bool verbose = false) const;
+                          bool verbose = false) const;
 
-  // Returns a std::string containing the DebugString()s of all its
-  // signatures.  Each signature std::string is prefixed with <prefix>, and
-  // <separator> appears between each signature std::string.
+  // Returns a string containing the DebugString()s of all its
+  // signatures.  Each signature string is prefixed with <prefix>, and
+  // <separator> appears between each signature string.
   static std::string SignaturesToString(
       const std::vector<FunctionSignature>& signatures, bool verbose = false,
       const std::string& prefix = "  ", const std::string& separator = "\n");
@@ -755,7 +755,7 @@ class FunctionSignature {
   // The result is formatted as "(arg_name type, ...) RETURNS type", which
   // is valid to use in CREATE FUNCTION, DROP FUNCTION, etc, if possible.
   std::string GetSQLDeclaration(const std::vector<std::string>& argument_names,
-                           ProductMode product_mode) const;
+                                ProductMode product_mode) const;
 
   bool IsDeprecated() const { return options_.is_deprecated(); }
 

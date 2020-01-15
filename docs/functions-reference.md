@@ -8,7 +8,7 @@
 This page explains ZetaSQL expressions, including functions and
 operators.
 
-## Function call rules
+# Function call rules
 
 The following rules apply to all functions unless explicitly indicated otherwise
 in the function description:
@@ -71,9 +71,9 @@ SELECT SAFE.SUBSTR('bar', 0, 2) AS safe_output;
 +-------------+
 ```
 
-[link-to-SAFE_DIVIDE]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#safe_divide
-[link-to-SAFE_CAST]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#safe-casting
-[link-to-operators]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#operators
+[link-to-SAFE_DIVIDE]: #safe_divide
+[link-to-SAFE_CAST]: #safe-casting
+[link-to-operators]: #operators
 
 <!-- END CONTENT -->
 

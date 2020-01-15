@@ -757,7 +757,8 @@ struct InternalHasher {
 // so we get O(|V|^2.5).
 bool Value::EqualElementMultiSet(const Value& x, const Value& y,
                                  DeepOrderKindSpec* deep_order_spec,
-                                 FloatMargin float_margin, std::string* reason) {
+                                 FloatMargin float_margin,
+                                 std::string* reason) {
   using ValueCountMap =
       absl::flat_hash_map<Value, int, InternalHasher, InternalComparer>;
   InternalHasher hasher(float_margin);
@@ -1302,7 +1303,7 @@ std::string Value::DebugString(bool verbose) const {
 
   // Now, traverse the list of inner values in reverse order so that parents
   // don't get processed until all children are processed.  Calculate the debug
-  // std::string, storing the result on the map, using the map instead of a recursive
+  // string, storing the result on the map, using the map instead of a recursive
   // call to retrieve child values.
   for (int i = static_cast<int>(inner_values.size()) - 1; i >= 0; --i) {
     debug_string_map[inner_values[i]] =
@@ -1390,7 +1391,8 @@ std::string Value::DebugStringInternal(
         for (const auto& t : elements()) {
           elems.push_back(debug_string_map.at(&t));
         }
-        std::string order_str = order_kind() == kIgnoresOrder ? "unordered: " : "";
+        std::string order_str =
+            order_kind() == kIgnoresOrder ? "unordered: " : "";
         s = absl::StrCat("[", order_str, absl::StrJoin(elems, ", "), "]");
         break;
       }
@@ -1565,7 +1567,7 @@ std::string Value::GetSQLLiteral(ProductMode mode) const {
 
     if (type->IsDouble() || type->IsFloat()) {
       std::string s = type->IsDouble() ? RoundTripDoubleToString(double_value())
-                                  : RoundTripFloatToString(float_value());
+                                       : RoundTripFloatToString(float_value());
       // Make sure that doubles always print with a . or an 'e' so they
       // don't look like integers.
       if (s.find_first_not_of("-0123456789") == std::string::npos) {
@@ -1648,7 +1650,7 @@ const int kMaxColumnIndent = 15;
 
 std::string Indent(int columns) { return RepeatString(kIndentChar, columns); }
 
-// Returns the length of the longest line in a multi line formatted std::string.
+// Returns the length of the longest line in a multi line formatted string.
 size_t LongestLine(const std::string& formatted) {
   int64_t longest = 0;
   for (absl::string_view line : absl::StrSplit(formatted, '\n')) {
@@ -1702,9 +1704,10 @@ static int FindSubstitutionMarker(absl::string_view block_template) {
 }
 
 std::string FormatBlock(absl::string_view block_template,
-                   const std::vector<std::string>& elements, const std::string& separator,
-                   int block_indent_cols, WrapStyle wrap_style) {
-  // The length of the template std::string preceding the substitution marker.
+                        const std::vector<std::string>& elements,
+                        const std::string& separator, int block_indent_cols,
+                        WrapStyle wrap_style) {
+  // The length of the template string preceding the substitution marker.
   // This prefix may or may not have line returns.
   int prefix_len = FindSubstitutionMarker(block_template);
   // The position of the last line-return before the substitution marker
@@ -1787,7 +1790,7 @@ const int kStructIndent = 7;  // Length of "STRUCT<"
 // Helps FormatInternal print value types. This is a specific format for
 // types, so we choose not to add this as a generally used method on Type.
 std::string FormatType(const Type* type, ArrayElemFormat elem_format,
-                  int indent_cols) {
+                       int indent_cols) {
   ArrayElemFormat continue_elem_format =
       elem_format == ArrayElemFormat::FIRST_LEVEL_ONLY ? ArrayElemFormat::NONE
                                                        : elem_format;
@@ -1878,11 +1881,11 @@ std::string Value::FormatInternal(int indent, bool force_type) const {
     }
     google::protobuf::DynamicMessageFactory message_factory;
     std::unique_ptr<google::protobuf::Message> m(this->ToMessage(&message_factory));
-    // Split and re-wrap the proto debug std::string to achieve proper indentation.
+    // Split and re-wrap the proto debug string to achieve proper indentation.
     std::vector<std::string> field_strings =
         absl::StrSplit(m->DebugString(), '\n', absl::SkipWhitespace());
     bool wraps = field_strings.size() > 1;
-    // We don't need to sanitize the type std::string here since proto field names
+    // We don't need to sanitize the type string here since proto field names
     // cannot contain '$' characters.
     return FormatBlock(absl::StrCat(type_string, "{$0}"), field_strings, "",
                        indent, wraps ? WrapStyle::INDENT : WrapStyle::NONE);

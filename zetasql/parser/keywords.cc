@@ -223,6 +223,7 @@ const std::vector<KeywordInfo>& GetAllKeywords() {
       {"delete", KW_DELETE},
       {"desc", KW_DESC, KeywordInfo::kReserved},
       {"describe", KW_DESCRIBE},
+      {"descriptor", KW_DESCRIPTOR},
       {"deterministic", KW_DETERMINISTIC},
       {"distinct", KW_DISTINCT, KeywordInfo::kReserved},
       {"do", KW_DO},

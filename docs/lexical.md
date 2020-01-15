@@ -48,7 +48,7 @@ contains the special character "!" which is not a letter, number, or underscore.
 without being enclosed by backtick characters.
 
 Both identifiers and quoted identifiers are case insensitive, with some
-nuances. See [Case Sensitivity](#case_sensitivity) for further details.
+nuances. See [Case Sensitivity][case-sensitivity] for further details.
 
 Quoted identifiers have the same escape sequences as string literals,
 defined below.
@@ -436,7 +436,7 @@ For example, the following timestamp represents 12:30 p.m. on September 27,
 TIMESTAMP '2014-09-27 12:30:00.45'
 ```
 
-For more information about time zones, see [Time zone](#timezone).
+For more information about time zones, see [Time zone][time-zone].
 
 String literals with the canonical timestamp format, including those with
 time zone names, implicitly coerce to a timestamp literal when used where a
@@ -477,9 +477,9 @@ Examples:
 ```
 
 Time zones can also be expressed using string time zone names from the
-[tz database](http://www.iana.org/time-zones). For a less comprehensive but
+[tz database][tz-database]. For a less comprehensive but
 simpler reference, see the
-[List of tz database time zones](http://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+[List of tz database time zones][tz-database-time-zones]
 on Wikipedia. Canonical time zone names have the format
 `<continent/[region/]city>`, such as `America/Los_Angeles`.
 
@@ -496,7 +496,7 @@ TIMESTAMP '2014-09-27 12:30:00 America/Argentina/Buenos_Aires'
 <a id=enum_literals></a>
 ### Enum Literals
 
-There is no syntax for enum literals, but integer or string literals will coerce to enum type when necessary, or can be explicitly CAST to a specific enum type name. See "Literal Coercion" in [Expressions, Functions, and Operators](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md).
+There is no syntax for enum literals, but integer or string literals will coerce to enum type when necessary, or can be explicitly CAST to a specific enum type name. See "Literal Coercion" in [Expressions, Functions, and Operators][functions-reference].
 
 <a id=case_sensitivity></a>
 ## Case Sensitivity
@@ -828,6 +828,15 @@ SELECT book FROM library
 on two lines */
 WHERE book = "Ulysses";
 ```
+
+[tz-database]: http://www.iana.org/time-zones
+[tz-database-time-zones]: http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+
+[case-sensitivity]: #case_sensitivity
+[time-zone]: #timezone
+[query-reference]: https://github.com/google/zetasql/blob/master/docs/query-syntax
+
+[functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-reference
 
 <!-- END CONTENT -->
 

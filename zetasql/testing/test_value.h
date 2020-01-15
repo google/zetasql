@@ -242,7 +242,7 @@ const EnumType* MakeEnumType(const google::protobuf::EnumDescriptor* descriptor,
 
 // Matches x against y respecting array orderedness and using the default
 // floating point error margin. If the reason parameter is nullptr then no
-// mismatch diagnostic std::string will be populated.
+// mismatch diagnostic string will be populated.
 bool AlmostEqualsValue(const Value& x, const Value& y, std::string* reason);
 
 }  // namespace test_values

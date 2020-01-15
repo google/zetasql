@@ -19,6 +19,25 @@ package(
 )
 
 cc_library(
+    name = "control_flow_graph",
+    srcs = ["control_flow_graph.cc"],
+    hdrs = ["control_flow_graph.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":parsed_script",
+        ":script_segment",
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/parser",
+        "//zetasql/public:parse_location",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
     name = "parsed_script",
     srcs = ["parsed_script.cc"],
     hdrs = [
@@ -27,15 +46,34 @@ cc_library(
     ],
     copts = ["-Wno-sign-compare"],
     deps = [
+        ":error_helpers",
         "//zetasql/base:map_util",
         "//zetasql/base:status",
         "//zetasql/base:statusor",
         "//zetasql/common:errors",
         "//zetasql/parser",
         "//zetasql/public:options_cc_proto",
+        "//zetasql/public:parse_location",
         "//zetasql/public:type",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:variant",
+    ],
+)
+
+cc_test(
+    name = "parsed_script_test",
+    srcs = ["parsed_script_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":parsed_script",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/parser",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:variant",
     ],
 )
 
@@ -80,6 +118,7 @@ cc_library(
         "//zetasql/common:status_payload_utils",
         "//zetasql/parser",
         "//zetasql/public:error_location_cc_proto",
+        "@com_google_absl//absl/strings",
     ],
 )
 

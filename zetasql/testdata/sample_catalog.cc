@@ -836,7 +836,7 @@ static FreestandingDeprecationWarning CreateDeprecationWarning(
   FreestandingDeprecationWarning warning;
   const std::string foo_id = absl::StrCat("foo_", id);
   warning.set_message(absl::StrCat("Operation <foo", id, "> is deprecated"));
-  warning.set_caret_string(absl::StrCat("some caret std::string for ", foo_id, "\n",
+  warning.set_caret_string(absl::StrCat("some caret string for ", foo_id, "\n",
                                         "                      ^"));
   warning.mutable_deprecation_warning()->set_kind(kind);
 
@@ -969,7 +969,7 @@ void SampleCatalog::LoadFunctions() {
       {{types_->get_int64()}, {int64array_type_}, /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 
-  // Add a function that takes a STRUCT<int32_t, std::string> and returns bool.
+  // Add a function that takes a STRUCT<int32_t, string> and returns bool.
   function = new Function("fn_on_struct_int32_string", "sample_functions",
                           Function::SCALAR);
   function->AddSignature(
@@ -993,7 +993,7 @@ void SampleCatalog::LoadFunctions() {
       {{"a", types_->get_int64()}, {"b", types_->get_string()}},
       &struct_int64_string_type));
 
-  // Add a function that takes a STRUCT<int64_t, std::string> and returns bool.
+  // Add a function that takes a STRUCT<int64_t, string> and returns bool.
   function = new Function("fn_on_struct_int64_string", "sample_functions",
                           Function::SCALAR);
   function->AddSignature(
@@ -1019,7 +1019,7 @@ void SampleCatalog::LoadFunctions() {
 
   // Add the following test analytic functions. All functions have the same
   // list of function signatures:
-  //     arguments: (), (ARG_TYPE_ANY_1) and (<int64_t>, <std::string>))
+  //     arguments: (), (ARG_TYPE_ANY_1) and (<int64_t>, <string>))
   //     return: <int64_t>
   //
   // They differ in the window support:
@@ -1070,7 +1070,7 @@ void SampleCatalog::LoadFunctions() {
                           .set_supports_null_handling_modifier(true));
   catalog_->AddOwnedFunction(function);
 
-  // NULL_OF_TYPE(std::string) -> (a NULL of type matching the named simple type).
+  // NULL_OF_TYPE(string) -> (a NULL of type matching the named simple type).
   // This is testing resolving functions where the return type is determined
   // dynamically based on literal values of the arguments.
   // The callback overrides the INT64 return type in the signature.
@@ -1499,7 +1499,7 @@ void SampleCatalog::LoadTemplatedSQLUDFs() {
       /*argument_names=*/{"x"}, ParseResumeLocation::FromString("x")));
 
   // Add a UDF with a simple valid templated SQL body that returns a constant
-  // integer, and has an expected result type of a std::string. We will use
+  // integer, and has an expected result type of a string. We will use
   // this to test comparing the result type against the expected type when
   // testing templated SQL function calls.
   catalog_->AddOwnedFunction(new TemplatedSQLFunction(
@@ -2022,7 +2022,7 @@ void SampleCatalog::LoadTableValuedFunctions2() {
       output_schema_two_types));
 
   // Add a TVF with exactly one relation argument with a required input schema
-  // of one int64_t column and one std::string column.
+  // of one int64_t column and one string column.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_arg_int64_string_input_columns"},
       FunctionSignature(
@@ -2037,7 +2037,7 @@ void SampleCatalog::LoadTableValuedFunctions2() {
       output_schema_two_types));
 
   // Add a TVF with exactly one relation argument with a required input schema
-  // of one int64_t column and one std::string column, and no extra columns are allowed
+  // of one int64_t column and one string column, and no extra columns are allowed
   // in the input relation.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_arg_only_int64_string_input_columns"},
@@ -2053,8 +2053,8 @@ void SampleCatalog::LoadTableValuedFunctions2() {
       output_schema_two_types));
 
   // Add a TVF with two relation arguments, one with a required input schema of
-  // one uint64_t column and one std::string column, and the other with a required
-  // input schema of one date column and one std::string column.
+  // one uint64_t column and one string column, and the other with a required
+  // input schema of one date column and one string column.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_two_relation_args_uint64_string_and_date_string_input_columns"},
       FunctionSignature(
@@ -2219,7 +2219,7 @@ void SampleCatalog::LoadTableValuedFunctions2() {
       output_schema_two_types));
 
   // Add a TVF with exactly one relation argument with a required input schema
-  // of one std::string column, and extra input columns are allowed.
+  // of one string column, and extra input columns are allowed.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_filename_input_column_extra_input_columns_allowed"},
       FunctionSignature(FunctionArgumentType::RelationWithSchema(
@@ -2263,7 +2263,7 @@ void SampleCatalog::LoadTableValuedFunctions2() {
       output_schema_two_types));
 
   // Add a TVF with exactly one relation argument with a required input schema
-  // of one int64_t column and one std::string column.
+  // of one int64_t column and one string column.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_key_filename_input_columns"},
       FunctionSignature(
@@ -2842,12 +2842,12 @@ void SampleCatalog::LoadTemplatedSQLTableValuedFunctions() {
       /*arg_name_list=*/{"x"}, ParseResumeLocation::FromString("select null")));
 
   // Add a templated TVF with a required value-table output schema that returns
-  // NULL casted to std::string type.
+  // NULL casted to string type.
   catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
       {"tvf_templated_select_null_str_with_required_value_table_output_schema"},
       signature_return_value_table_string_col,
       /*arg_name_list=*/{"x"},
-      ParseResumeLocation::FromString("select cast(null as std::string)")));
+      ParseResumeLocation::FromString("select cast(null as string)")));
 
   // Add a templated TVF with a required output schema with two columns. The
   // function body returns the two columns in opposite order.

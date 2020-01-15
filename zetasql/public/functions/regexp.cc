@@ -30,9 +30,6 @@
 namespace zetasql {
 namespace functions {
 
-namespace {
-using RE2StringView = re2::StringPiece;
-}  // namespace
 bool RegExp::InitializePatternUtf8(absl::string_view pattern,
                                    zetasql_base::Status* error) {
   RE2::Options options;
@@ -75,31 +72,27 @@ bool RegExp::Extract(absl::string_view str, absl::string_view* out,
                      bool* is_null, zetasql_base::Status* error) {
   DCHECK(re_);
   if (str.data() == nullptr) {
-    // Ensure that the output std::string never has a null data pointer if a match is
+    // Ensure that the output string never has a null data pointer if a match is
     // found.
     str = absl::string_view("", 0);
   }
   *is_null = true;
   if (re_->NumberOfCapturingGroups() == 0) {
-    RE2StringView out_sv;
     // If there's no capturing subgroups return the entire matching substring.
     if (re_->Match(str,
                    0,           // startpos
                    str.size(),  // endpos
-                   RE2::UNANCHORED, &out_sv,
+                   RE2::UNANCHORED, out,
                    1) &&
-        out_sv.data() != nullptr) {  // number of matches at out.
+        out->data() != nullptr) {  // number of matches at out.
       *is_null = false;
-      *out = {out_sv.data(), out_sv.length()};
     }
     return true;
   } else if (re_->NumberOfCapturingGroups() == 1) {
     // If there's a single capturing group return substring matching that
     // group.
-    RE2StringView out_sv;
-    if (RE2::PartialMatch(str, *re_, &out_sv) && out_sv.data() != nullptr) {
+    if (RE2::PartialMatch(str, *re_, out) && out->data() != nullptr) {
       *is_null = false;
-      *out = {out_sv.data(), out_sv.length()};
     }
     return true;
   } else {
@@ -127,28 +120,28 @@ bool RegExp::ExtractAllNext(absl::string_view* out, zetasql_base::Status* error)
     *out = absl::string_view(nullptr, 0);
     return false;
   }
-  RE2StringView groups[2];
+  absl::string_view groups[2];
   if (!re_->Match(extract_all_input_,
                   extract_all_position_,      // startpos
                   extract_all_input_.size(),  // endpos
                   RE2::UNANCHORED, groups,
                   2)) {  // number of matches at out.
     *out = absl::string_view(nullptr, 0);
-    // No matches found in the remaining of the input std::string.
+    // No matches found in the remaining of the input string.
     return false;
   }
 
   extract_all_position_ = groups[0].end() - extract_all_input_.begin();
   if (re_->NumberOfCapturingGroups() == 0) {
     // If there's no capturing subgroups return the entire matching substring.
-    *out = {groups[0].data(), groups[0].length()};
+    *out = groups[0];
   } else {
     // If there's a single capturing group return substring matching that
     // group.
-    *out = {groups[1].data(), groups[1].length()};
+    *out = groups[1];
   }
   // RE2 library produces empty groups[0] when regular expression matches empty
-  // std::string, so in this case we need to advance input by one character.
+  // string, so in this case we need to advance input by one character.
   if (groups[0].empty() &&
       extract_all_position_ < static_cast<int64_t>(extract_all_input_.size())) {
     if (re_->options().utf8()) {
@@ -187,7 +180,7 @@ bool RegExp::Replace(absl::string_view str, absl::string_view newsub,
   // The following implementation is similar to RE2::GlobalReplace, with a few
   // important differences: (1) it works correctly with UTF-8 strings,
   // (2) it returns proper error message instead of logging it, and
-  // (3) limits the size of output std::string.
+  // (3) limits the size of output string.
 
   DCHECK(re_);
 
@@ -201,11 +194,11 @@ bool RegExp::Replace(absl::string_view str, absl::string_view newsub,
 
   // "newsub" can reference at most 9 capturing groups indexed 1 to 9. Index 0
   // is reserved for the entire matching substring.
-  std::vector<RE2StringView> match(10);
+  std::vector<absl::string_view> match(10);
 
   out->clear();
   // Points to the end of the previous match. This is necessary if the regular
-  // expression can match both empty std::string and some non-empty std::string, so that
+  // expression can match both empty string and some non-empty string, so that
   // we don't replace an empty match immediately following non-empty match.
   const char* lastend = nullptr;
   for (const char* p = str.data(); p <= str.end(); ) {
@@ -258,9 +251,8 @@ void RegExp::SetMaxOutSize(int32_t size) {
   max_out_size_ = size;
 }
 
-template <typename StringViewType>
 bool RegExp::Rewrite(const absl::string_view rewrite,
-                     const std::vector<StringViewType>& groups,
+                     const std::vector<absl::string_view>& groups,
                      std::string* out, zetasql_base::Status* error) {
   for (const char *s = rewrite.data(); s < rewrite.end(); ++s) {
     const char* start = s;

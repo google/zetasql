@@ -187,12 +187,12 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastString() {
 
 std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
   return {
-    // bool->std::string
+    // bool->string
     {{NullBool()}, NullString()},
     {{true}, String("true")},
     {{false}, String("false")},
 
-    // std::string->bool
+    // string->bool
     {{NullString()}, NullBool()},
     {{String("")}, NullBool(), OUT_OF_RANGE},
     {{String("0")}, NullBool(), OUT_OF_RANGE},
@@ -209,7 +209,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
     {{String("TRUE")}, true},
     {{String("FALSE")}, false},
 
-    // std::string->int64
+    // string->int64
     {{NullString()}, NullInt64()},
     {{String("")}, NullInt64(), OUT_OF_RANGE},
     {{String("a")}, NullInt64(), OUT_OF_RANGE},
@@ -219,7 +219,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
     {{String("-9223372036854775808")}, -9223372036854775807ll - 1},
     {{String("-9223372036854775809")}, NullInt64(), OUT_OF_RANGE},
 
-    // int64_t->std::string
+    // int64_t->string
     {{NullInt64()}, NullString()},
     {{0ll}, String("0")},
     {{123ll}, String("123")},
@@ -227,7 +227,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
     {{9223372036854775807ll}, String("9223372036854775807")},
     {{-9223372036854775807ll - 1}, String("-9223372036854775808")},
 
-    // std::string->uint64
+    // string->uint64
     {{NullString()}, NullUint64()},
     {{String("")}, NullUint64(), OUT_OF_RANGE},
     {{String("a")}, NullUint64(), OUT_OF_RANGE},
@@ -238,13 +238,13 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
     {{String("-1")}, NullUint64(), OUT_OF_RANGE},
     {{String("-9223372036854775809")}, NullUint64(), OUT_OF_RANGE},
 
-    // uint64_t->std::string
+    // uint64_t->string
     {{NullUint64()}, NullString()},
     {{0ull}, String("0")},
     {{123ull}, String("123")},
     {{18446744073709551615ull}, String("18446744073709551615")},
 
-    // std::string->int32
+    // string->int32
     {{NullString()}, NullInt32()},
     {{String("")}, NullInt32(), OUT_OF_RANGE},
     {{String("a")}, NullInt32(), OUT_OF_RANGE},
@@ -254,7 +254,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
     {{String("-2147483648")}, -2147483647 - 1},
     {{String("-2147483649")}, NullInt32(), OUT_OF_RANGE},
 
-    // int32_t->std::string
+    // int32_t->string
     {{NullInt32()}, NullString()},
     {{0}, String("0")},
     {{123}, String("123")},
@@ -262,7 +262,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
     {{2147483647}, String("2147483647")},
     {{-2147483647 - 1}, String("-2147483648")},
 
-    // std::string->uint32
+    // string->uint32
     {{NullString()}, NullUint32()},
     {{String("")}, NullUint32(), OUT_OF_RANGE},
     {{String("a")}, NullUint32(), OUT_OF_RANGE},
@@ -273,13 +273,13 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
     {{String("-1")}, NullUint32(), OUT_OF_RANGE},
     {{String("-4294967295")}, NullUint32(), OUT_OF_RANGE},
 
-    // uint32_t->std::string
+    // uint32_t->string
     {{NullUint32()}, NullString()},
     {{0u}, String("0")},
     {{123u}, String("123")},
     {{4294967295u}, String("4294967295")},
 
-    // std::string->float
+    // string->float
     {{NullString()}, NullFloat()},
     {{String("")}, NullFloat(), OUT_OF_RANGE},
     {{String(" ")}, NullFloat(), OUT_OF_RANGE},
@@ -300,7 +300,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
     {{String("nan")}, float_nan},
     {{String("NaN")}, float_nan},
 
-    // float->std::string
+    // float->string
     {{NullFloat()}, NullString()},
     {{0.0f}, String("0")},
     {{0.123f}, String("0.123")},
@@ -316,7 +316,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
     {{float_pos_inf}, String("inf")},
     {{float_neg_inf}, String("-inf")},
 
-    // std::string->double
+    // string->double
     {{NullString()}, NullDouble()},
     {{String("")}, NullDouble(), OUT_OF_RANGE},
     {{String(" ")}, NullDouble(), OUT_OF_RANGE},
@@ -344,7 +344,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
     {{String("nan")}, double_nan},
     {{String("NaN")}, double_nan},
 
-    // double->std::string
+    // double->string
     {{NullDouble()}, NullString()},
     {{0.0}, String("0")},
     {{0.123}, String("0.123")},
@@ -359,7 +359,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
     {{double_pos_inf}, String("inf")},
     {{double_neg_inf}, String("-inf")},
 
-    // std::string->numeric
+    // string->numeric
     QueryParamsWithResult({NullString()}, NullNumeric())
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
     QueryParamsWithResult({String("9223372036854775807")},
@@ -379,7 +379,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
                            .ValueOrDie()))
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
 
-    // numeric->std::string
+    // numeric->string
     QueryParamsWithResult({NullNumeric()}, NullString())
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
     QueryParamsWithResult(
@@ -480,7 +480,7 @@ static zetasql_base::Status CivilTimeCastEvalError() {
 static void AddInvalidTimeAndDatetimeCastFromStringTestCases(
     std::vector<QueryParamsWithResult>* result) {
   static const std::vector<std::string> time_test_cases = {
-      // malformed std::string
+      // malformed string
       "abc",
       // out-of-range hour
       "24:00:00",
@@ -493,7 +493,7 @@ static void AddInvalidTimeAndDatetimeCastFromStringTestCases(
       "12:30:-1",
       // out-of-range sub-second
       "12:34:56.-1",
-      // std::string with trailing unconsumed junks
+      // string with trailing unconsumed junks
       "12:34:56zzzz",
       "12:34:56.zzzz",
       "12:34:56.123zzz",
@@ -517,7 +517,7 @@ static void AddInvalidTimeAndDatetimeCastFromStringTestCases(
   }
 
   static const std::vector<std::string> datetime_test_cases = {
-      // malformed std::string
+      // malformed string
       "abc",
       // out-of-range year
       "10000-11-06 12:34:56",
@@ -545,7 +545,7 @@ static void AddInvalidTimeAndDatetimeCastFromStringTestCases(
       "9999-12-31 23:59:60",
       // 4 digits year part is required
       "125-01-02 01:02:03",
-      // std::string with trailing unconsumed junks
+      // string with trailing unconsumed junks
       "2006-01-02 12:34:56zzzz",
       "2006-01-02 12:34:56.zzzz",
       "2006-01-02 12:34:56.123zzz",
@@ -1841,11 +1841,11 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
       {{KitchenSink(kitchen_sink_string_1)}, String(kitchen_sink_string_1)},
       {{KitchenSink(kitchen_sink_string_2)}, String(kitchen_sink_string_2)},
       {{KitchenSink(kitchen_sink_string_3)}, String(kitchen_sink_string_3)},
-      // Parsing the input std::string unescapes the UTF characters, so the
+      // Parsing the input string unescapes the UTF characters, so the
       // result will be the same as in the third message.
       {{KitchenSink(kitchen_sink_string_4)}, String(kitchen_sink_string_3)},
       // Casting a PROTO with unknown fields to STRING results in some extra
-      // debug information, but the resulting std::string is not re-parseable.
+      // debug information, but the resulting string is not re-parseable.
       {{Proto(KitchenSinkProtoType(), kitchen_sink_cord_5)},
        String("int64_key_1: 1 int64_key_2: 2 103: 1000")},
       {{String("int64_key_1: 1 int64_key_2: 2 103: 1000")},
@@ -1858,7 +1858,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
       {{KitchenSink_equivalent(kitchen_sink_string_1)},
        KitchenSink(kitchen_sink_string_1)},
 
-      // Same basic std::string for conversion to proto, but differing
+      // Same basic string for conversion to proto, but differing
       // whitespaces, newlines, commas, field order, etc.
       {{String("int64_key_1: 1\nint64_key_2: 2\n")},
        KitchenSink(kitchen_sink_string_1)},
@@ -1888,7 +1888,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
 
       // Invalid strings for conversion to proto - they do not match the
       // KitchenSinkProto descriptor.
-      {{String("invalid std::string blahblahblah")}, null_proto, OUT_OF_RANGE},
+      {{String("invalid string blahblahblah")}, null_proto, OUT_OF_RANGE},
       // Missing required field(s).
       {{String("")}, null_proto, OUT_OF_RANGE},
       {{String("int64_key_1: 1")}, null_proto, OUT_OF_RANGE},
@@ -1914,7 +1914,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
                   "really really really long invalid cord"))},
        NullString(),
        OUT_OF_RANGE},
-      // The error message produced clips the std::string in the middle of the
+      // The error message produced clips the string in the middle of the
       // hex-bytes part.  Note that the sequence of bytes is converted to an
       // escaped Bytes literal before clipping, so there aren't really any
       // odd conditions to consider.

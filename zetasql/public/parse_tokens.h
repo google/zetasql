@@ -35,7 +35,7 @@ namespace zetasql {
 // Each token is one of the following:
 // * a keyword (or symbol)
 // * an identifier
-// * a literal value (e.g. int64_t, uint64_t, std::string or bytes)
+// * a literal value (e.g. int64_t, uint64_t, string or bytes)
 // * end_of_input
 //
 // A particular token may be valid as both a keyword and an identifier.
@@ -57,7 +57,7 @@ namespace zetasql {
 // symbol (e.g. punctation)    |  false           |  true
 // ---------------------------------------------------------------
 //
-// The Get() methods return an empty std::string if the token is not of that type.
+// The Get() methods return an empty string if the token is not of that type.
 // For example, the statement "DROP TABLE Name;" could be matched as follows:
 //   if (parse_tokens.size() == 4 &&
 //       parse_tokens[0].GetKeyword() == "DROP" &&
@@ -90,7 +90,7 @@ class ParseToken {
   // with quotes and escaping resolved.
   std::string GetIdentifier() const;
 
-  // Returns the exact SQL std::string that was the input for this token.
+  // Returns the exact SQL string that was the input for this token.
   absl::string_view GetImage() const;
 
   // Get the Value for a token of kind VALUE.  Return invalid value for
@@ -106,13 +106,13 @@ class ParseToken {
   // an integer or double value literal.
   Value GetValue() const;
 
-  // Get a SQL std::string for this token.  This includes quoting and escaping as
+  // Get a SQL string for this token.  This includes quoting and escaping as
   // necessary, but is not necessarily what was included in the original input.
   // Concatenating GetSQL() strings together (with spaces) will give a statement
   // that can be parsed back to the same tokens.
   std::string GetSQL() const;
 
-  // Get a descriptive std::string for this token that includes the token kind and
+  // Get a descriptive string for this token that includes the token kind and
   // the value.
   std::string DebugString() const;
 
@@ -127,7 +127,7 @@ class ParseToken {
     IDENTIFIER_OR_KEYWORD,  // An unquoted identifier.
     VALUE,                  // A literal value.
     COMMENT,                // A comment.
-    END_OF_INPUT,           // The end of the input std::string was reached.
+    END_OF_INPUT,           // The end of the input string was reached.
   };
 
   Kind kind() const { return kind_; }
@@ -164,16 +164,16 @@ struct ParseTokenOptions {
 
 // Gets a vector of ParseTokens starting from <resume_location>, and updates
 // <resume_location> to point at the location after the tokens that were
-// parsed. This is used to tokenize and (partially or fully) parse a std::string,
+// parsed. This is used to tokenize and (partially or fully) parse a string,
 // following zetasql tokenization rules for comments, quoting, literals, etc.
 // Returns an error on any tokenization failure, like bad characters,
 // unclosed quotes, invalid escapes, etc.
 //
-// By default, the entire std::string will be consumed and converted to
+// By default, the entire string will be consumed and converted to
 // ParseTokens.  The output will always have at least one token, and the
 // last token will always have IsEndOfInput() true.
 //
-// With some <options>, the entire input std::string may not be consumed in one
+// With some <options>, the entire input string may not be consumed in one
 // call.  In those cases, GetParseTokens can be called in a loop using
 // a ParseResumeLocation to continue where it left off.  The loop can stop
 // once one iteration returns a vector ending with an IsEndOfInput() token.
@@ -186,7 +186,7 @@ struct ParseTokenOptions {
 //
 // Example usage that parses the statement "DROP TABLE Name;":
 //
-//   std::string statement = ...;
+//   string statement = ...;
 //   ParseResumeLocation resume_location(statement);
 //   ParseTokenOptions options;
 //   vector<ParseToken> parse_tokens;

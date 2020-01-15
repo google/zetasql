@@ -18,10 +18,12 @@
 #define ZETASQL_SCRIPTING_ERROR_HELPERS_H_
 
 #include "zetasql/common/errors.h"
+#include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/scripting/script_exception.pb.h"
 #include "zetasql/scripting/script_segment.h"
+#include "absl/strings/str_join.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_payload.h"
 
@@ -70,6 +72,16 @@ inline zetasql_base::StatusBuilder MakeScriptException() {
 
 inline zetasql_base::StatusBuilder MakeScriptException(const ScriptException& ex) {
   return MakeEvalError().Attach(ex);
+}
+
+// Returns an error status representing an assignment to a read-only system
+// variable, using <location> to generate the line and column number of the
+// error message.
+inline zetasql_base::StatusBuilder AssignmentToReadOnlySystemVariable(
+    const ASTSystemVariableAssignment* assignment) {
+  return MakeScriptExceptionAt(assignment->system_variable())
+         << "Assignment to read-only system variable @@"
+         << assignment->system_variable()->path()->ToIdentifierPathString();
 }
 
 }  // namespace zetasql

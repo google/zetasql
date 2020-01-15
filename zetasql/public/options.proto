@@ -333,6 +333,10 @@ enum LanguageFeature {
   FEATURE_NUMERIC_VARIANCE_STDDEV_SIGNATURES = 39
       [(language_feature_options).in_development = true];
 
+  // Enables using NOT ENFORCED in primary keys.
+  // See (broken link).
+  FEATURE_UNENFORCED_PRIMARY_KEYS = 40;
+
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
   //    New features should be added for the *next* version number.

@@ -53,7 +53,10 @@
 #include "zetasql/public/functions/like.h"
 #include "zetasql/public/functions/math.h"
 #include "zetasql/public/functions/normalize_mode.pb.h"
+#include "zetasql/public/functions/parse_date_time.h"
+#include "zetasql/public/functions/percentile.h"
 #include "zetasql/public/functions/regexp.h"
+#include "zetasql/public/functions/string.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto_util.h"
@@ -538,6 +541,13 @@ FunctionMap::FunctionMap() {
   RegisterFunction(FunctionKind::kCovarSamp, "covar_samp", "Covar_samp");
   RegisterFunction(FunctionKind::kVarPop, "var_pop", "Var_pop");
   RegisterFunction(FunctionKind::kVarSamp, "var_samp", "Var_samp");
+  RegisterFunction(FunctionKind::kByteLength, "byte_length", "ByteLength");
+  RegisterFunction(FunctionKind::kCharLength, "char_length", "CharLength");
+  RegisterFunction(FunctionKind::kConcat, "concat", "Concat");
+  RegisterFunction(FunctionKind::kEndsWith, "ends_with", "EndsWith");
+  RegisterFunction(FunctionKind::kLength, "length", "Length");
+  RegisterFunction(FunctionKind::kLower, "lower", "Lower");
+  RegisterFunction(FunctionKind::kLtrim, "ltrim", "Ltrim");
   RegisterFunction(FunctionKind::kRegexpMatch, "regexp_match", "RegexpMatch");
   RegisterFunction(FunctionKind::kRegexpContains, "regexp_contains",
                    "RegexpContains");
@@ -547,6 +557,32 @@ FunctionMap::FunctionMap() {
                    "RegexpExtract");
   RegisterFunction(FunctionKind::kRegexpReplace, "regexp_replace",
                    "RegexpReplace");
+  RegisterFunction(FunctionKind::kReplace, "replace", "Replace");
+  RegisterFunction(FunctionKind::kRtrim, "rtrim", "Rtrim");
+  RegisterFunction(FunctionKind::kSplit, "split", "Split");
+  RegisterFunction(FunctionKind::kStartsWith, "starts_with", "StartsWith");
+  RegisterFunction(FunctionKind::kStrpos, "strpos", "Strpos");
+  RegisterFunction(FunctionKind::kSubstr, "substr", "Substr");
+  RegisterFunction(FunctionKind::kTrim, "trim", "Trim");
+  RegisterFunction(FunctionKind::kUpper, "upper", "Upper");
+  RegisterFunction(FunctionKind::kLpad, "lpad", "Lpad");
+  RegisterFunction(FunctionKind::kRpad, "rpad", "Rpad");
+  RegisterFunction(FunctionKind::kRepeat, "repeat", "Repeat");
+  RegisterFunction(FunctionKind::kReverse, "reverse", "Reverse");
+  RegisterFunction(FunctionKind::kSafeConvertBytesToString,
+                   "safe_convert_bytes_to_string", "SafeConvertBytesToString");
+  RegisterFunction(FunctionKind::kNormalize,
+                   "normalize", "Normalize");
+  RegisterFunction(FunctionKind::kNormalizeAndCasefold,
+                   "normalize_and_casefold", "NormalizeAndCasefold");
+  RegisterFunction(FunctionKind::kToBase64, "to_base64", "ToBase64");
+  RegisterFunction(FunctionKind::kFromBase64, "from_base64", "FromBase64");
+  RegisterFunction(FunctionKind::kToCodePoints, "to_code_points",
+                   "ToCodePoints");
+  RegisterFunction(FunctionKind::kCodePointsToString, "code_points_to_string",
+                   "CodePointsToString");
+  RegisterFunction(FunctionKind::kCodePointsToBytes, "code_points_to_bytes",
+                   "CodePointsToBytes");
   RegisterFunction(FunctionKind::kCurrentDate, "current_date", "Current_date");
   RegisterFunction(FunctionKind::kCurrentDatetime, "current_datetime",
                    "Current_datetime");
@@ -593,6 +629,14 @@ FunctionMap::FunctionMap() {
                    "Unix_micros");
   RegisterFunction(FunctionKind::kStringFromTimestamp, "string",
                    "String");
+  RegisterFunction(FunctionKind::kParseDate, "parse_date",
+                   "Parse_date");
+  RegisterFunction(FunctionKind::kParseDatetime, "parse_datetime",
+                   "Parse_datetime");
+  RegisterFunction(FunctionKind::kParseTime, "parse_time",
+                   "Parse_time");
+  RegisterFunction(FunctionKind::kParseTimestamp, "parse_timestamp",
+                   "Parse_timestamp");
   RegisterFunction(FunctionKind::kFromProto, "from_proto", "From_proto");
   RegisterFunction(FunctionKind::kToProto, "to_proto", "To_proto");
   RegisterFunction(FunctionKind::kDate, "date", "Date");
@@ -610,6 +654,8 @@ FunctionMap::FunctionMap() {
   RegisterFunction(FunctionKind::kNthValue, "nth_value", "Nth_value");
   RegisterFunction(FunctionKind::kLead, "lead", "Lead");
   RegisterFunction(FunctionKind::kLag, "lag", "Lag");
+  RegisterFunction(FunctionKind::kPercentileCont, "percentile_cont",
+                   "Percentile_cont");
   RegisterFunction(FunctionKind::kRand, "rand", "Rand");
 }
 
@@ -1084,6 +1130,37 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kAtanh:
     case FunctionKind::kAtan2:
       return new MathFunction(kind, output_type);
+    case FunctionKind::kConcat:
+      return new ConcatFunction(kind, output_type);
+    case FunctionKind::kLower:
+    case FunctionKind::kUpper:
+      return new CaseConverterFunction(kind, output_type);
+    case FunctionKind::kLength:
+    case FunctionKind::kByteLength:
+    case FunctionKind::kCharLength:
+    case FunctionKind::kStartsWith:
+    case FunctionKind::kEndsWith:
+    case FunctionKind::kSubstr:
+    case FunctionKind::kTrim:
+    case FunctionKind::kLtrim:
+    case FunctionKind::kRtrim:
+    case FunctionKind::kReplace:
+    case FunctionKind::kStrpos:
+    case FunctionKind::kSafeConvertBytesToString:
+    case FunctionKind::kNormalize:
+    case FunctionKind::kNormalizeAndCasefold:
+    case FunctionKind::kToBase64:
+    case FunctionKind::kFromBase64:
+    case FunctionKind::kLpad:
+    case FunctionKind::kRpad:
+    case FunctionKind::kRepeat:
+    case FunctionKind::kReverse:
+      return new StringFunction(kind, output_type);
+    case FunctionKind::kToCodePoints:
+      return new ToCodePointsFunction;
+    case FunctionKind::kCodePointsToString:
+    case FunctionKind::kCodePointsToBytes:
+      return new CodePointsToFunction(kind, output_type);
     case FunctionKind::kRegexpContains:
     case FunctionKind::kRegexpMatch:
     case FunctionKind::kRegexpExtract:
@@ -1093,6 +1170,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
                        CreateRegexpFunction(kind, output_type, arguments));
       return fct.release();
     }
+    case FunctionKind::kSplit:
+      return new SplitFunction(kind, output_type);
     case FunctionKind::kGenerateArray:
     case FunctionKind::kGenerateDateArray:
     case FunctionKind::kGenerateTimestampArray:
@@ -1178,6 +1257,14 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new FromProtoFunction(kind, output_type);
     case FunctionKind::kToProto:
       return new ToProtoFunction(kind, output_type);
+    case FunctionKind::kParseDate:
+      return new ParseDateFunction(kind, output_type);
+    case FunctionKind::kParseDatetime:
+      return new ParseDatetimeFunction(kind, output_type);
+    case FunctionKind::kParseTime:
+      return new ParseTimeFunction(kind, output_type);
+    case FunctionKind::kParseTimestamp:
+      return new ParseTimestampFunction(kind, output_type);
     case FunctionKind::kMakeProto:
       ZETASQL_RET_CHECK_FAIL() << "MakeProto needs extra parameters";
       break;
@@ -1379,6 +1466,67 @@ bool GreatestFunction::Eval(absl::Span<const Value> args,
     }
   }
   return true;
+}
+
+zetasql_base::StatusOr<Value> ToCodePointsFunction::Eval(
+    absl::Span<const Value> args, EvaluationContext* context) const {
+  DCHECK_EQ(args.size(), 1);
+  if (args[0].is_null()) return Value::Null(output_type());
+
+  std::vector<int64_t> codepoints;
+  zetasql_base::Status status;
+  switch (args[0].type_kind()) {
+    case TYPE_BYTES:
+      if (!functions::BytesToCodePoints(args[0].bytes_value(), &codepoints,
+                                        &status)) {
+        return status;
+      }
+      break;
+    case TYPE_STRING:
+      if (!functions::StringToCodePoints(args[0].string_value(), &codepoints,
+                                         &status)) {
+        return status;
+      }
+      break;
+    default:
+      return ::zetasql_base::UnimplementedErrorBuilder()
+             << "Unsupported argument type for to_code_points.";
+  }
+  return values::Int64Array(codepoints);
+}
+
+zetasql_base::StatusOr<Value> CodePointsToFunction::Eval(
+    absl::Span<const Value> args, EvaluationContext* context) const {
+  DCHECK_EQ(args.size(), 1);
+  if (args[0].is_null()) return Value::Null(output_type());
+
+  MaybeSetNonDeterministicArrayOutput(args[0], context);
+
+  std::vector<int64_t> codepoints;
+  codepoints.reserve(args[0].elements().size());
+  for (const Value& element : args[0].elements()) {
+    if (element.is_null()) {
+      return Value::Null(output_type());
+    }
+    codepoints.push_back(element.int64_value());
+  }
+  std::string out;
+  zetasql_base::Status status;
+  switch (output_type()->kind()) {
+    case TYPE_BYTES:
+      if (!functions::CodePointsToBytes(codepoints, &out, &status)) {
+        return status;
+      }
+      return values::Bytes(out);
+    case TYPE_STRING:
+      if (!functions::CodePointsToString(codepoints, &out, &status)) {
+        return status;
+      }
+      return values::String(out);
+    default:
+      return ::zetasql_base::UnimplementedErrorBuilder()
+             << "Unsupported argument type for code_points_to_string.";
+  }
 }
 
 zetasql_base::StatusOr<Value> GenerateArrayFunction::Eval(
@@ -2998,6 +3146,8 @@ class BinaryStatAccumulator : public AggregateAccumulator {
   double variance_y_ = 0;
   double covar_ = 0;
   bool input_has_nan_or_inf_ = false;
+  NumericValue::CovarianceAggregator numeric_covariance_aggregator_;  // Covar
+  NumericValue::CorrelationAggregator numeric_correlation_aggregator_;  // Corr
 };
 
 ::zetasql_base::Status BinaryStatAccumulator::Reset() {
@@ -3010,13 +3160,23 @@ class BinaryStatAccumulator : public AggregateAccumulator {
     return status;
   }
 
-  pair_count_ = 0;
-  mean_x_ = 0;
-  variance_x_ = 0;
-  mean_y_ = 0;
-  variance_y_ = 0;
-  covar_ = 0;
-  input_has_nan_or_inf_ = false;
+  switch (FCT2(function_->kind(),
+               input_type_->AsStruct()->field(0).type->kind(),
+               input_type_->AsStruct()->field(1).type->kind())) {
+    case FCT2(FunctionKind::kCovarPop, TYPE_NUMERIC, TYPE_NUMERIC):
+    case FCT2(FunctionKind::kCovarSamp, TYPE_NUMERIC, TYPE_NUMERIC):
+      numeric_covariance_aggregator_ = NumericValue::CovarianceAggregator();
+      break;
+    case FCT2(FunctionKind::kCovarPop, TYPE_DOUBLE, TYPE_DOUBLE):
+    case FCT2(FunctionKind::kCovarSamp, TYPE_DOUBLE, TYPE_DOUBLE):
+      pair_count_ = 0;
+      mean_x_ = 0;
+      variance_x_ = 0;
+      mean_y_ = 0;
+      variance_y_ = 0;
+      covar_ = 0;
+      input_has_nan_or_inf_ = false;
+  }
 
   return zetasql_base::OkStatus();
 }
@@ -3042,25 +3202,37 @@ bool BinaryStatAccumulator::Accumulate(const Value& value,
 
   ++pair_count_;
 
-  const double x = arg_x.ToDouble();
-  const double y = arg_y.ToDouble();
-  if (!std::isfinite(x) || !std::isfinite(y)) {
-    input_has_nan_or_inf_ = true;
+  switch (FCT2(function_->kind(),
+               input_type_->AsStruct()->field(0).type->kind(),
+               input_type_->AsStruct()->field(1).type->kind())) {
+    case FCT2(FunctionKind::kCovarPop, TYPE_NUMERIC, TYPE_NUMERIC):
+    case FCT2(FunctionKind::kCovarSamp, TYPE_NUMERIC, TYPE_NUMERIC):
+      numeric_covariance_aggregator_.Add(arg_x.numeric_value(),
+                                         arg_y.numeric_value());
+      break;
+    case FCT2(FunctionKind::kCovarPop, TYPE_DOUBLE, TYPE_DOUBLE):
+    case FCT2(FunctionKind::kCovarSamp, TYPE_DOUBLE, TYPE_DOUBLE):
+      const double x = arg_x.ToDouble();
+      const double y = arg_y.ToDouble();
+      if (!std::isfinite(x) || !std::isfinite(y)) {
+        input_has_nan_or_inf_ = true;
+      }
+      if (input_has_nan_or_inf_) {
+        if (pair_count_ >= min_required_pair_count_) {
+          *stop_accumulation = true;
+        }
+        return true;
+      }
+
+      *status = UpdateCovariance(x, y, mean_x_, mean_y_, pair_count_, &covar_);
+      if (!status->ok()) return false;
+
+      *status = UpdateMeanAndVariance(x, pair_count_, &mean_x_, &variance_x_);
+      if (!status->ok()) return false;
+
+      *status = UpdateMeanAndVariance(y, pair_count_, &mean_y_, &variance_y_);
   }
-  if (input_has_nan_or_inf_) {
-    if (pair_count_ >= min_required_pair_count_) {
-      *stop_accumulation = true;
-    }
-    return true;
-  }
 
-  *status = UpdateCovariance(x, y, mean_x_, mean_y_, pair_count_, &covar_);
-  if (!status->ok()) return false;
-
-  *status = UpdateMeanAndVariance(x, pair_count_, &mean_x_, &variance_x_);
-  if (!status->ok()) return false;
-
-  *status = UpdateMeanAndVariance(y, pair_count_, &mean_y_, &variance_y_);
   return status->ok();
 }
 
@@ -3076,13 +3248,19 @@ bool BinaryStatAccumulator::Accumulate(const Value& value,
 
   ::zetasql_base::Status error;
   double out_double = std::numeric_limits<double>::quiet_NaN();
-  switch (function_->kind()) {
-    case FunctionKind::kCovarPop: {
+  switch (FCT2(function_->kind(),
+               input_type_->AsStruct()->field(0).type->kind(),
+               input_type_->AsStruct()->field(1).type->kind())) {
+    case FCT2(FunctionKind::kCovarPop, TYPE_NUMERIC, TYPE_NUMERIC):
+      return CreateValueFromOptional(
+          numeric_covariance_aggregator_.GetPopulationCovariance(pair_count_));
+    case FCT2(FunctionKind::kCovarSamp, TYPE_NUMERIC, TYPE_NUMERIC):
+      return CreateValueFromOptional(
+          numeric_covariance_aggregator_.GetSamplingCovariance(pair_count_));
+    case FCT2(FunctionKind::kCovarPop, TYPE_DOUBLE, TYPE_DOUBLE):
       out_double = covar_;
       break;
-    }
-
-    case FunctionKind::kCovarSamp: {
+    case FCT2(FunctionKind::kCovarSamp, TYPE_DOUBLE, TYPE_DOUBLE):
       // out_double = covar * pair_count / (pair_count - 1)
       if (!functions::Multiply(covar_, static_cast<double>(pair_count_),
                                &out_double, &error) ||
@@ -3090,10 +3268,7 @@ bool BinaryStatAccumulator::Accumulate(const Value& value,
                              &out_double, &error)) {
         return error;
       }
-
       break;
-    }
-
     default: {
       return ::zetasql_base::UnimplementedErrorBuilder()
              << "Unsupported function: " << function_->debug_name() << "("
@@ -3469,10 +3644,224 @@ bool MathFunction::Eval(absl::Span<const Value> args,
   return false;
 }
 
+bool StringFunction::Eval(absl::Span<const Value> args,
+                          EvaluationContext* context, Value* result,
+                          ::zetasql_base::Status* status) const {
+  if (HasNulls(args)) {
+    *result = Value::Null(output_type());
+    return true;
+  }
+  switch (FCT_TYPE_ARITY(kind(), args[0].type_kind(), args.size())) {
+    case FCT_TYPE_ARITY(FunctionKind::kStrpos, TYPE_STRING, 2):
+      return Invoke<int64_t>(&functions::StrposUtf8, result, status,
+                           args[0].string_value(), args[1].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kStrpos, TYPE_BYTES, 2):
+      return Invoke<int64_t>(&functions::StrposBytes, result, status,
+                           args[0].bytes_value(), args[1].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kLength, TYPE_STRING, 1):
+      return Invoke<int64_t>(&functions::LengthUtf8, result, status,
+                           args[0].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kLength, TYPE_BYTES, 1):
+      return Invoke<int64_t>(&functions::LengthBytes, result, status,
+                           args[0].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kByteLength, TYPE_STRING, 1):
+      return Invoke<int64_t>(&functions::LengthBytes, result, status,
+                           args[0].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kByteLength, TYPE_BYTES, 1):
+      return Invoke<int64_t>(&functions::LengthBytes, result, status,
+                           args[0].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kCharLength, TYPE_STRING, 1):
+      return Invoke<int64_t>(&functions::LengthUtf8, result, status,
+                           args[0].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kStartsWith, TYPE_STRING, 2):
+      return Invoke<bool>(&functions::StartsWithUtf8, result, status,
+                          args[0].string_value(), args[1].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kStartsWith, TYPE_BYTES, 2):
+      return Invoke<bool>(&functions::StartsWithBytes, result, status,
+                          args[0].bytes_value(), args[1].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kEndsWith, TYPE_STRING, 2):
+      return Invoke<bool>(&functions::EndsWithUtf8, result, status,
+                          args[0].string_value(), args[1].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kEndsWith, TYPE_BYTES, 2):
+      return Invoke<bool>(&functions::EndsWithBytes, result, status,
+                          args[0].bytes_value(), args[1].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kSubstr, TYPE_STRING, 2):
+      return InvokeString<absl::string_view>(&functions::SubstrUtf8, result,
+                                             status, args[0].string_value(),
+                                             args[1].int64_value());
+    case FCT_TYPE_ARITY(FunctionKind::kSubstr, TYPE_STRING, 3):
+      return InvokeString<absl::string_view>(
+          &functions::SubstrWithLengthUtf8, result, status,
+          args[0].string_value(), args[1].int64_value(), args[2].int64_value());
+    case FCT_TYPE_ARITY(FunctionKind::kSubstr, TYPE_BYTES, 2):
+      return InvokeBytes<absl::string_view>(&functions::SubstrBytes, result,
+                                            status, args[0].bytes_value(),
+                                            args[1].int64_value());
+    case FCT_TYPE_ARITY(FunctionKind::kSubstr, TYPE_BYTES, 3):
+      return InvokeBytes<absl::string_view>(
+          &functions::SubstrWithLengthBytes, result, status,
+          args[0].bytes_value(), args[1].int64_value(), args[2].int64_value());
+    case FCT_TYPE_ARITY(FunctionKind::kTrim, TYPE_STRING, 1):
+      return InvokeString<absl::string_view>(&functions::TrimSpacesUtf8, result,
+                                             status, args[0].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kTrim, TYPE_STRING, 2):
+      return InvokeString<absl::string_view>(&functions::TrimUtf8, result,
+                                             status, args[0].string_value(),
+                                             args[1].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kTrim, TYPE_BYTES, 2):
+      return InvokeBytes<absl::string_view>(&functions::TrimBytes, result,
+                                            status, args[0].bytes_value(),
+                                            args[1].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kLtrim, TYPE_STRING, 1):
+      return InvokeString<absl::string_view>(&functions::LeftTrimSpacesUtf8,
+                                             result, status,
+                                             args[0].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kLtrim, TYPE_STRING, 2):
+      return InvokeString<absl::string_view>(&functions::LeftTrimUtf8, result,
+                                             status, args[0].string_value(),
+                                             args[1].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kLtrim, TYPE_BYTES, 2):
+      return InvokeBytes<absl::string_view>(&functions::LeftTrimBytes, result,
+                                            status, args[0].bytes_value(),
+                                            args[1].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kRtrim, TYPE_STRING, 1):
+      return InvokeString<absl::string_view>(&functions::RightTrimSpacesUtf8,
+                                             result, status,
+                                             args[0].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kRtrim, TYPE_STRING, 2):
+      return InvokeString<absl::string_view>(&functions::RightTrimUtf8, result,
+                                             status, args[0].string_value(),
+                                             args[1].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kRtrim, TYPE_BYTES, 2):
+      return InvokeBytes<absl::string_view>(&functions::RightTrimBytes, result,
+                                            status, args[0].bytes_value(),
+                                            args[1].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kReplace, TYPE_BYTES, 3):
+      return InvokeBytes<std::string>(
+          &functions::ReplaceBytes, result, status, args[0].bytes_value(),
+          args[1].bytes_value(), args[2].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kReplace, TYPE_STRING, 3):
+      return InvokeString<std::string>(
+          &functions::ReplaceUtf8, result, status, args[0].string_value(),
+          args[1].string_value(), args[2].string_value());
+
+    case FCT_TYPE_ARITY(FunctionKind::kRepeat, TYPE_BYTES, 2):
+      return InvokeBytes<std::string>(&functions::Repeat, result, status,
+                                      args[0].bytes_value(),
+                                      args[1].int64_value());
+    case FCT_TYPE_ARITY(FunctionKind::kRepeat, TYPE_STRING, 2):
+      return InvokeString<std::string>(&functions::Repeat, result, status,
+                                       args[0].string_value(),
+                                       args[1].int64_value());
+
+    case FCT_TYPE_ARITY(FunctionKind::kReverse, TYPE_BYTES, 1):
+      return InvokeBytes<std::string>(&functions::ReverseBytes, result, status,
+                                      args[0].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kReverse, TYPE_STRING, 1):
+      return InvokeString<std::string>(&functions::ReverseUtf8, result, status,
+                                       args[0].string_value());
+
+    case FCT_TYPE_ARITY(FunctionKind::kLpad, TYPE_BYTES, 2):
+      return InvokeBytes<std::string>(&functions::LeftPadBytesDefault, result,
+                                      status, args[0].bytes_value(),
+                                      args[1].int64_value());
+    case FCT_TYPE_ARITY(FunctionKind::kLpad, TYPE_STRING, 2):
+      return InvokeString<std::string>(&functions::LeftPadUtf8Default, result,
+                                       status, args[0].string_value(),
+                                       args[1].int64_value());
+
+    case FCT_TYPE_ARITY(FunctionKind::kLpad, TYPE_BYTES, 3):
+      return InvokeBytes<std::string>(
+          &functions::LeftPadBytes, result, status, args[0].bytes_value(),
+          args[1].int64_value(), args[2].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kLpad, TYPE_STRING, 3):
+      return InvokeString<std::string>(
+          &functions::LeftPadUtf8, result, status, args[0].string_value(),
+          args[1].int64_value(), args[2].string_value());
+
+    case FCT_TYPE_ARITY(FunctionKind::kRpad, TYPE_BYTES, 2):
+      return InvokeBytes<std::string>(&functions::RightPadBytesDefault, result,
+                                      status, args[0].bytes_value(),
+                                      args[1].int64_value());
+    case FCT_TYPE_ARITY(FunctionKind::kRpad, TYPE_STRING, 2):
+      return InvokeString<std::string>(&functions::RightPadUtf8Default, result,
+                                       status, args[0].string_value(),
+                                       args[1].int64_value());
+
+    case FCT_TYPE_ARITY(FunctionKind::kRpad, TYPE_BYTES, 3):
+      return InvokeBytes<std::string>(
+          &functions::RightPadBytes, result, status, args[0].bytes_value(),
+          args[1].int64_value(), args[2].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kRpad, TYPE_STRING, 3):
+      return InvokeString<std::string>(
+          &functions::RightPadUtf8, result, status, args[0].string_value(),
+          args[1].int64_value(), args[2].string_value());
+
+    case FCT_TYPE_ARITY(FunctionKind::kSafeConvertBytesToString, TYPE_BYTES, 1):
+      return InvokeString<std::string>(&functions::SafeConvertBytes, result,
+                                       status, args[0].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kNormalize, TYPE_STRING, 1):
+    case FCT_TYPE_ARITY(FunctionKind::kNormalize, TYPE_STRING, 2):
+      return InvokeString<std::string>(
+          &functions::Normalize, result, status, args[0].string_value(),
+          args.size() == 2
+              ? static_cast<functions::NormalizeMode>(args[1].enum_value())
+              : functions::NormalizeMode::NFC,
+          false /* is_casefold */);
+    case FCT_TYPE_ARITY(FunctionKind::kNormalizeAndCasefold, TYPE_STRING, 1):
+    case FCT_TYPE_ARITY(FunctionKind::kNormalizeAndCasefold, TYPE_STRING, 2):
+      return InvokeString<std::string>(
+          &functions::Normalize, result, status, args[0].string_value(),
+          args.size() == 2
+              ? static_cast<functions::NormalizeMode>(args[1].enum_value())
+              : functions::NormalizeMode::NFC,
+          true /* is_casefold */);
+    case FCT_TYPE_ARITY(FunctionKind::kToBase64, TYPE_BYTES, 1):
+      return InvokeString<std::string>(&functions::ToBase64, result, status,
+                                       args[0].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kFromBase64, TYPE_STRING, 1):
+      return InvokeBytes<std::string>(&functions::FromBase64, result, status,
+                                      args[0].string_value());
+  }
+  *status = ::zetasql_base::UnimplementedErrorBuilder()
+            << "Unsupported string function: " << debug_name();
+  return false;
+}
+
 zetasql_base::StatusOr<Value> RegexpFunction::Eval(absl::Span<const Value> args,
                                            EvaluationContext* context) const {
   if (HasNulls(args)) return Value::Null(output_type());
   return func_(args, regexp_.get());
+}
+
+zetasql_base::StatusOr<Value> SplitFunction::Eval(absl::Span<const Value> args,
+                                          EvaluationContext* context) const {
+  if (HasNulls(args)) return Value::Null(output_type());
+  zetasql_base::Status status;
+  std::vector<std::string> parts;
+  std::vector<Value> values;
+  if (args[0].type()->kind() == TYPE_STRING) {
+    const std::string& delimiter =
+        (args.size() == 1) ? "," : args[1].string_value();
+    if (!functions::SplitUtf8(args[0].string_value(), delimiter, &parts,
+                              &status)) {
+      return status;
+    }
+    for (const std::string& s : parts) {
+      values.push_back(Value::String(s));
+    }
+    return Value::Array(types::StringArrayType(), values);
+  } else {
+    zetasql_base::Status status;
+    if (!functions::SplitBytes(args[0].bytes_value(), args[1].bytes_value(),
+                               &parts, &status)) {
+      return status;
+    }
+    for (const std::string& s : parts) {
+      values.push_back(Value::Bytes(s));
+    }
+    return Value::Array(types::BytesArrayType(), values);
+  }
 }
 
 zetasql_base::StatusOr<Value> ConcatFunction::Eval(absl::Span<const Value> args,
@@ -3505,6 +3894,42 @@ zetasql_base::StatusOr<Value> ConcatFunction::Eval(absl::Span<const Value> args,
     }
     return Value::Bytes(result);
   }
+}
+
+zetasql_base::StatusOr<Value> CaseConverterFunction::Eval(
+    absl::Span<const Value> args, EvaluationContext* context) const {
+  if (HasNulls(args)) return Value::Null(output_type());
+  functions::Utf8CaseFunction case_function;
+  std::string result;
+  zetasql_base::Status error;
+  switch (FCT(kind(), output_type()->kind())) {
+    case FCT(FunctionKind::kUpper, TYPE_STRING):
+      if (!case_function.Upper(args[0].string_value(), &result, &error)) {
+        return error;
+      } else {
+        return Value::String(result);
+      }
+    case FCT(FunctionKind::kLower, TYPE_STRING):
+      if (!case_function.Lower(args[0].string_value(), &result, &error)) {
+        return error;
+      } else {
+        return Value::String(result);
+      }
+    case FCT(FunctionKind::kUpper, TYPE_BYTES):
+      if (!functions::UpperBytes(args[0].bytes_value(), &result, &error)) {
+        return error;
+      } else {
+        return Value::Bytes(result);
+      }
+    case FCT(FunctionKind::kLower, TYPE_BYTES):
+      if (!functions::LowerBytes(args[0].bytes_value(), &result, &error)) {
+        return error;
+      } else {
+        return Value::Bytes(result);
+      }
+  }
+  return ::zetasql_base::UnimplementedErrorBuilder()
+         << "Unsupported function: " << debug_name();
 }
 
 zetasql_base::StatusOr<Value> MakeProtoFunction::Eval(
@@ -4033,12 +4458,76 @@ zetasql_base::StatusOr<Value> StringFromTimestampFunction::Eval(
   return Value::String(result_string);
 }
 
+zetasql_base::StatusOr<Value> ParseDateFunction::Eval(
+    absl::Span<const Value> args, EvaluationContext* context) const {
+  DCHECK_EQ(args.size(), 2);
+  if (HasNulls(args)) return Value::Null(output_type());
+  int32_t date;
+  ZETASQL_RETURN_IF_ERROR(functions::ParseStringToDate(
+      args[0].string_value(), args[1].string_value(), &date));
+  return Value::Date(date);
+}
+
 static functions::TimestampScale GetTimestampScale(
     const LanguageOptions& options) {
   if (options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
     return functions::TimestampScale::kNanoseconds;
   } else {
     return functions::TimestampScale::kMicroseconds;
+  }
+}
+
+zetasql_base::StatusOr<Value> ParseDatetimeFunction::Eval(
+    absl::Span<const Value> args, EvaluationContext* context) const {
+  DCHECK_EQ(args.size(), 2);
+  if (HasNulls(args)) return Value::Null(output_type());
+  DatetimeValue datetime;
+  ZETASQL_RETURN_IF_ERROR(functions::ParseStringToDatetime(
+      args[0].string_value(), args[1].string_value(),
+      GetTimestampScale(context->GetLanguageOptions()), &datetime));
+  return Value::Datetime(datetime);
+}
+
+zetasql_base::StatusOr<Value> ParseTimeFunction::Eval(
+    absl::Span<const Value> args, EvaluationContext* context) const {
+  DCHECK_EQ(args.size(), 2);
+  if (HasNulls(args)) return Value::Null(output_type());
+  TimeValue time;
+  ZETASQL_RETURN_IF_ERROR(functions::ParseStringToTime(
+      args[0].string_value(), args[1].string_value(),
+      GetTimestampScale(context->GetLanguageOptions()), &time));
+  return Value::Time(time);
+}
+
+zetasql_base::StatusOr<Value> ParseTimestampFunction::Eval(
+    absl::Span<const Value> args, EvaluationContext* context) const {
+  ZETASQL_RET_CHECK(args.size() == 2 || args.size() == 3);
+  if (HasNulls(args)) return Value::Null(output_type());
+  if (context->GetLanguageOptions().LanguageFeatureEnabled(
+          FEATURE_TIMESTAMP_NANOS)) {
+    absl::Time timestamp;
+    if (args.size() == 2) {
+      ZETASQL_RETURN_IF_ERROR(functions::ParseStringToTimestamp(
+          args[0].string_value(), args[1].string_value(),
+          context->GetDefaultTimeZone(), &timestamp));
+    } else {
+      ZETASQL_RETURN_IF_ERROR(functions::ParseStringToTimestamp(
+          args[0].string_value(), args[1].string_value(),
+          args[2].string_value(), &timestamp));
+    }
+    return Value::Timestamp(timestamp);
+  } else {
+    int64_t timestamp;
+    if (args.size() == 2) {
+      ZETASQL_RETURN_IF_ERROR(functions::ParseStringToTimestamp(
+          args[0].string_value(), args[1].string_value(),
+          context->GetDefaultTimeZone(), &timestamp));
+    } else {
+      ZETASQL_RETURN_IF_ERROR(functions::ParseStringToTimestamp(
+          args[0].string_value(), args[1].string_value(),
+          args[2].string_value(), &timestamp));
+    }
+    return Value::TimestampFromUnixMicros(timestamp);
   }
 }
 
@@ -5299,4 +5788,225 @@ zetasql_base::Status LagFunction::Eval(const TupleSchema& schema,
 
   return ::zetasql_base::OkStatus();
 }
+
+zetasql_base::Status PercentileContFunction::Eval(
+    const TupleSchema& schema, const absl::Span<const TupleData* const>& tuples,
+    const absl::Span<const std::vector<Value>>& args,
+    const absl::Span<const AnalyticWindow>& windows,
+    const TupleComparator* comparator,
+    ResolvedFunctionCallBase::ErrorMode error_mode, EvaluationContext* context,
+    std::vector<Value>* result) const {
+  ZETASQL_RET_CHECK(windows.empty());
+  ZETASQL_RET_CHECK(comparator == nullptr);
+
+  // The optional arguments <offset> and <default expression> must have
+  // been populated with default expressions by the algebrizer if they are not
+  // specified.
+  ZETASQL_RET_CHECK_EQ(2, args.size());
+  const std::vector<Value>& values_arg = args[0];
+  // First argument <value expression> must have been evaluated on each
+  // input tuple.
+  ZETASQL_RET_CHECK_EQ(tuples.size(), args[0].size());
+  // Second argument <offset> must be a constant and of type double.
+  ZETASQL_RET_CHECK_EQ(1, args[1].size());
+  ZETASQL_RET_CHECK(args[1][0].type()->IsDouble());
+
+  if (args[1][0].is_null()) {
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
+           << "The second argument to the function PERCENTILE_CONT must not be"
+              " null";
+  }
+
+  const double percentile = args[1][0].double_value();
+  if (!(percentile >= 0 && percentile <= 1)) {
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
+           << "The second argument to the function PERCENTILE_CONT must be in"
+              " [0, 1]; got "
+           << percentile;
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(PercentileEvaluator percentile_evalutor,
+                   PercentileEvaluator::Create(percentile));
+
+  std::vector<double> normal_values;
+  normal_values.reserve(values_arg.size());
+  size_t num_nulls = 0;
+  for (const Value& value_arg : values_arg) {
+    ZETASQL_RET_CHECK(value_arg.type()->IsDouble());
+    if (value_arg.is_null()) {
+      ++num_nulls;
+    } else {
+      normal_values.push_back(value_arg.double_value());
+    }
+  }
+
+  double result_value;
+  bool result_is_not_null = percentile_evalutor.ComputePercentileCont<false>(
+      normal_values.begin(), normal_values.end(),
+      (ignore_nulls_ ? 0 : num_nulls), &result_value);
+  result->resize(
+      values_arg.size(),
+      result_is_not_null ? Value::Double(result_value) : Value::NullDouble());
+  return ::zetasql_base::OkStatus();
+}
+
+template <typename T, typename V = T, typename ValueCreationFn = Value(*)(T)>
+Value ComputePercentileDisc(
+    const PercentileEvaluator& percentile_evalutor,
+    const std::vector<Value>& values_arg,
+    const Type* type,
+    V (Value::*extract_value_fn)() const /* e.g., &Value::double_value */,
+    const ValueCreationFn& value_creation_fn /* e.g., &Value::Double */,
+    bool ignore_nulls) {
+  std::vector<T> normal_values;
+  normal_values.reserve(values_arg.size());
+  size_t num_nulls = 0;
+  for (const Value& value_arg : values_arg) {
+    if (value_arg.is_null()) {
+      ++num_nulls;
+    } else {
+      normal_values.push_back((value_arg.*extract_value_fn)());
+    }
+  }
+
+  auto itr = percentile_evalutor.ComputePercentileDisc<T, false>(
+      normal_values.begin(), normal_values.end(),
+      (ignore_nulls ? 0 : num_nulls));
+  return itr == normal_values.end() ?
+      Value::Null(type) : value_creation_fn(*itr);
+}
+
+zetasql_base::Status PercentileDiscFunction::Eval(
+    const TupleSchema& schema, const absl::Span<const TupleData* const>& tuples,
+    const absl::Span<const std::vector<Value>>& args,
+    const absl::Span<const AnalyticWindow>& windows,
+    const TupleComparator* comparator,
+    ResolvedFunctionCallBase::ErrorMode error_mode, EvaluationContext* context,
+    std::vector<Value>* result) const {
+  ZETASQL_RET_CHECK(windows.empty());
+  ZETASQL_RET_CHECK(comparator == nullptr);
+
+  // The optional arguments <offset> and <default expression> must have
+  // been populated with default expressions by the algebrizer if they are not
+  // specified.
+  ZETASQL_RET_CHECK_EQ(2, args.size());
+  const std::vector<Value>& values_arg = args[0];
+  // First argument <value expression> must have been evaluated on each
+  // input tuple.
+  ZETASQL_RET_CHECK_EQ(tuples.size(), args[0].size());
+  // Second argument <offset> must be a constant and of type double.
+  ZETASQL_RET_CHECK_EQ(1, args[1].size());
+  ZETASQL_RET_CHECK(args[1][0].type()->IsDouble());
+
+  if (args[1][0].is_null()) {
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
+           << "The second argument to the function PERCENTILE_CONT must not be"
+              " null";
+  }
+
+  const double percentile = args[1][0].double_value();
+  if (!(percentile >= 0 && percentile <= 1)) {
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
+           << "The second argument to the function PERCENTILE_CONT must be in"
+              " [0, 1]; got "
+           << percentile;
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(PercentileEvaluator percentile_evalutor,
+                   PercentileEvaluator::Create(percentile));
+
+  Value output_value;
+  const Type* type = output_type();
+  switch (output_type()->kind()) {
+    case TYPE_INT64:
+      output_value = ComputePercentileDisc<int64_t>(
+          percentile_evalutor, values_arg, type, &Value::int64_value,
+          &Value::Int64, ignore_nulls_);
+      break;
+    case TYPE_INT32:
+      output_value = ComputePercentileDisc<int32_t>(
+          percentile_evalutor, values_arg, type, &Value::int32_value,
+          &Value::Int32, ignore_nulls_);
+      break;
+    case TYPE_UINT64:
+      output_value = ComputePercentileDisc<uint64_t>(
+          percentile_evalutor, values_arg, type, &Value::uint64_value,
+          &Value::Uint64, ignore_nulls_);
+      break;
+    case TYPE_UINT32:
+      output_value = ComputePercentileDisc<uint32_t>(
+          percentile_evalutor, values_arg, type, &Value::uint32_value,
+          &Value::Uint32, ignore_nulls_);
+      break;
+    case TYPE_DOUBLE:
+      output_value = ComputePercentileDisc<double>(
+          percentile_evalutor, values_arg, type, &Value::double_value,
+          &Value::Double, ignore_nulls_);
+      break;
+    case TYPE_FLOAT:
+      output_value = ComputePercentileDisc<float>(
+          percentile_evalutor, values_arg, type, &Value::float_value,
+          &Value::Float, ignore_nulls_);
+      break;
+    case TYPE_NUMERIC:
+      output_value = ComputePercentileDisc<NumericValue>(
+          percentile_evalutor, values_arg, type, &Value::numeric_value,
+          &Value::Numeric, ignore_nulls_);
+      break;
+    case TYPE_BYTES:
+      output_value =
+          ComputePercentileDisc<absl::string_view, const std::string&>(
+              percentile_evalutor, values_arg, type, &Value::bytes_value,
+              &Value::Bytes, ignore_nulls_);
+      break;
+    case TYPE_STRING:
+      output_value =
+          ComputePercentileDisc<absl::string_view, const std::string&>(
+              percentile_evalutor, values_arg, type, &Value::string_value,
+              &Value::String, ignore_nulls_);
+      break;
+    case TYPE_BOOL:
+      output_value = ComputePercentileDisc<bool>(
+          percentile_evalutor, values_arg, type, &Value::bool_value,
+          &Value::Bool, ignore_nulls_);
+      break;
+    case TYPE_DATE:
+      output_value = ComputePercentileDisc<int32_t>(
+          percentile_evalutor, values_arg, type, &Value::date_value,
+          &Value::Date, ignore_nulls_);
+      break;
+    case TYPE_DATETIME:
+      output_value = ComputePercentileDisc<int64_t>(
+          percentile_evalutor, values_arg, type,
+          &Value::ToPacked64DatetimeMicros, &Value::DatetimeFromPacked64Micros,
+          ignore_nulls_);
+      break;
+    case TYPE_TIME:
+      output_value = ComputePercentileDisc<int64_t>(
+          percentile_evalutor, values_arg, type, &Value::ToPacked64TimeMicros,
+          &Value::TimeFromPacked64Micros, ignore_nulls_);
+      break;
+    case TYPE_TIMESTAMP:
+      output_value = ComputePercentileDisc<int64_t>(
+          percentile_evalutor, values_arg, type, &Value::ToUnixMicros,
+          &Value::TimestampFromUnixMicros, ignore_nulls_);
+      break;
+    case TYPE_ENUM:
+      output_value =
+          ComputePercentileDisc<int32_t, int32_t, std::function<Value(int32_t)>>(
+              percentile_evalutor, values_arg, type,
+              &Value::enum_value,
+              [type](int32_t value) -> Value {
+                return Value::Enum(type->AsEnum(), value);
+              },
+              ignore_nulls_);
+      break;
+    default:
+      return ::zetasql_base::UnimplementedErrorBuilder()
+             << "Unsupported argument type for percentile_disc.";
+  }
+  result->resize(values_arg.size(), output_value);
+  return ::zetasql_base::OkStatus();
+}
+
 }  // namespace zetasql

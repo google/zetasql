@@ -57,7 +57,7 @@ using FunctionIdToNameMap =
     absl::flat_hash_map<FunctionSignatureId, std::string>;
 using NameToFunctionMap = std::map<std::string, std::unique_ptr<Function>>;
 
-// If std::string literal is compared against bytes, then we want the error message
+// If string literal is compared against bytes, then we want the error message
 // to be more specific and helpful.
 static constexpr absl::string_view kErrorMessageCompareStringLiteralToBytes =
     ". STRING and BYTES are different types that are not directly "
@@ -446,9 +446,9 @@ zetasql_base::Status CheckTimeTruncArguments(
 zetasql_base::Status CheckExtractPreResolutionArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
-  // The first argument to the EXTRACT function cannot be a std::string literal
+  // The first argument to the EXTRACT function cannot be a string literal
   // since that causes overloading issues.  The argument can be either DATE,
-  // TIMESTAMP, or TIMESTAMP_* and a std::string literal coerces to all.
+  // TIMESTAMP, or TIMESTAMP_* and a string literal coerces to all.
   if (ArgumentIsStringLiteral(arguments[0])) {
     return MakeSqlError()
            << "EXTRACT does not support literal STRING arguments";
@@ -507,7 +507,7 @@ zetasql_base::Status CheckDateAddDateSubArguments(
 
   // For Date, the only supported date parts are DAY, WEEK, MONTH, QUARTER,
   // YEAR.  For Timestamp, additional parts are supported.  If the third
-  // parameter is a literal std::string then check the date part.
+  // parameter is a literal string then check the date part.
   if (arguments[2].type()->IsEnum() && arguments[2].is_literal()) {
     switch (arguments[2].literal_value()->enum_value()) {
       case functions::YEAR:
@@ -793,7 +793,7 @@ zetasql_base::Status CheckJsonArguments(const std::vector<InputArgumentType>& ar
   if (arguments.size() == 2 && !arguments[1].is_literal() &&
       !arguments[1].is_untyped() && !arguments[1].is_query_parameter()) {
     return MakeSqlError()
-           << "JSONPath must be a std::string literal or query parameter";
+           << "JSONPath must be a string literal or query parameter";
   }
 
   return ::zetasql_base::OkStatus();
@@ -819,7 +819,7 @@ zetasql_base::Status CheckIsSupportedKeyType(
     return MakeSqlError() << argument_index_name
                           << " argument (key type) in function "
                           << function_name
-                          << " must be a std::string literal or query parameter";
+                          << " must be a string literal or query parameter";
   }
 
   // If the type is wrong (or no type is assigned), or the argument is a query
@@ -828,7 +828,7 @@ zetasql_base::Status CheckIsSupportedKeyType(
     return ::zetasql_base::OkStatus();
   }
 
-  // Check the key type for std::string literals.
+  // Check the key type for string literals.
   const std::string& key_type = argument.literal_value()->string_value();
   if (!zetasql_base::ContainsKey(supported_key_types, key_type)) {
     const std::string key_type_list =

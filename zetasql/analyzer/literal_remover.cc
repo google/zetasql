@@ -123,7 +123,7 @@ zetasql_base::Status ReplaceLiteralsByParameters(
   std::sort(literals.begin(), literals.end(), LiteralParseLocationComparator());
 
   // <literals> are ordered by parse location. The loop below constructs
-  // <result_sql> by appending the <replacement> std::string for each encountered
+  // <result_sql> by appending the <replacement> string for each encountered
   // literal.
   ParseLocationTranslator translator(sql);
   int prefix_offset = 0;  // Offset in <sql> of the text preceding the literal.

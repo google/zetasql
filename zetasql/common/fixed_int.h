@@ -16,437 +16,164 @@
 
 // FixedUint and FixedInt are designed for multi- but fixed- precision integer
 // arithmetics.
-
+//
+// FixedUint and FixedInt store the data as an array of 32 or 64 bit words.
+// For example, FixedInt<64, 4> represents a 256-bit signed integer with
+// 4 uint64_t words (with alias Word=int64_t and UnsignedWord=uint64_t). In general,
+// 64-bit words perform better, except for some corner cases (see performance
+// hints below).
+//
+// Supported operators and functions
+//     Operator/function      Argument type           Notes
+//
+//         >>=, <<=           uint
+//   ==, !=, <, >, <=, >=     FixedUint/FixedInt
+//
+//      +=, AddOverflow       Word
+//      +=, AddOverflow       UnsignedWord            Same as Word for FixedUint
+//      +=, AddOverflow       FixedUint/FixedInt
+//
+//   -=, SubtractOverflow     Word
+//   -=, SubtractOverflow     UnsignedWord            Same as Word for FixedUint
+//   -=, SubtractOverflow     FixedUint/FixedInt
+//
+//   *=, MultiplyOverflow     Word
+//   *=, MultiplyOverflow     UnsignedWord            Same as Word for FixedUint
+//   *=, MultiplyOverflow     FixedUint/FixedInt
+//     ExtendAndMultiply      FixedUint/FixedInt
+//
+//            /=              integral_constant<uint32_t>
+//            /=              integral_constant<int32_t>    (FixedInt only)
+//            /=              Word
+//            /=              UnsignedWord            Same as Word for FixedUint
+//            /=              FixedUint/FixedInt
+//
+//            %=              integral_constant<uint32_t>
+//            %=              integral_constant<int32_t>    (FixedInt only)
+//            %=              Word
+//            %=              UnsignedWord            Same as Word for FixedUint
+//            %=              FixedUint/FixedInt
+//
+//  DivAndRoundAwayFromZero   integral_constant<uint32_t>
+//  DivAndRoundAwayFromZero   integral_constant<int32_t>    (FixedInt only)
+//  DivAndRoundAwayFromZero   Word
+//  DivAndRoundAwayFromZero   UnsignedWord            Same as Word for FixedUint
+//  DivAndRoundAwayFromZero   FixedUint/FixedInt
+//
+//          DivMod            integral_constant<uint32_t>   (FixedUint only)
+//          DivMod            integral_constant<int32_t>    (FixedInt only)
+//          DivMod            Word
+//          DivMod            UnsignedWord                (FixedUint only)
+//          DivMod            FixedUint/FixedInt
+//
+//        is_negative         None                        (FixedInt only)
+//       - (negation)         None                        (FixedInt only)
+//
+//      cast to double        None
+//  cast to int128/uint128    None
+//
+//        absl::Hash          None                        (FixedInt only)
+//
+//      AppendToString        std::string*
+//   ParseFromStringStrict    absl::string_view
+//
+//     SerializeToBytes       std::string*
+//   DeserializeFromBytes     absl::string_view
+//
+//
+// Arithmetic operator/function performance hints
+// * Left hand side:
+//   - FixedUint is generally no slower than FixedInt.
+//   - FixedUint<64, n> is generally faster than FixedUint<32, 2 * n>, and
+//     FixedInt<64, n> is generally faster than FixedInt<32, 2 * n>.
+//     <32, m> is recommended only when m is an odd number *and* the bottleneck
+//     is a division by integral_constant<uint32_t> or integral_constant<int32_t>.
+//
+// * Right hand side (from fastest to slowest):
+//     integral_constant<uint32_t> > integral_constant<int32_t> > UnsignedWord
+//       >= Word >= FixedUint/FixedInt
+//   For FixedUint on the left hand side, UnsignedWord = Word;
+//   for FixedInt on the left hand side, UnsignedWord is faster than Word.
+//   Note, constexpr int32_t/uint32 will not be converted to integral_constant.
+//   In C++, currently there is no reliable way to identify constexpr arguments.
+//
+// * Comparison among operators and functions:
+//   - is_negative is faster than comparison to zero.
+//   - MultiplyOverflow(FixedUint/FixedInt) is usually much slower than
+//     operator*= with the same argument type. Other *Overflow methods are
+//     slightly slower than the corresponding operator.
+//   - ExtendAndMultiply is faster than operator*= given the same output type.
+//   - DivMod is faster than calling operator/= and operator%= separately.
+//   - For a FixedInt, if multiple multiplications and/or divisions are
+//     performed, it is generally much faster if the FixedInt is converted to
+//     FixedUint first, because each multiplication or division with FixedInt
+//     involves up to 2 negations in the implementation, except for
+//     operator*=(UnsignedWord).
+//
+// Unless otherwise documented, the operators of this class do not check
+// overflows. If a result overflows, the result bits higher than the kNumBits
+// are silently dropped. This is consistent with the primitive integer types,
+// except that FixedInt overflow behavior is defined while int overflow behavior
+// is undefined in C/C++.
 #ifndef ZETASQL_COMMON_FIXED_INT_H_
 #define ZETASQL_COMMON_FIXED_INT_H_
+#include <math.h>
+#include <stddef.h>
+#include <string.h>
+#include <sys/types.h>
+
+#include <algorithm>
 #include <array>
+#include <iterator>
 #include <limits>
 #include <string>
+#include <type_traits>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/fixed_int_internal.h"
 #include "absl/base/attributes.h"
 #include <cstdint>
 #include "absl/base/optimization.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/bits.h"
-#include "zetasql/base/endian.h"
 
 namespace zetasql {
-
-namespace fixed_int_internal {
-
-template <int num_bits>  // num_bits must be 32, 64, or 128
-struct IntTraits;
-
-// The version of <type_traits> used in zetasql does not support
-// std::make_unsigned<__int128> or the std::make_signed counterpart,
-// so we have to define both Int and Uint explicitly.
-template <>
-struct IntTraits<32> {
-  using Int = int32_t;
-  using Uint = uint32_t;
-};
-
-template <>
-struct IntTraits<64> {
-  using Int = int64_t;
-  using Uint = uint64_t;
-};
-
-template <>
-struct IntTraits<128> {
-  using Int = __int128;
-  using Uint = unsigned __int128;
-};
-
-template <int num_bits>
-using Int = typename IntTraits<num_bits>::Int;
-
-template <int num_bits>
-using Uint = typename IntTraits<num_bits>::Uint;
-
-inline int FindMSBSetNonZero(uint32_t x) { return zetasql_base::Bits::FindMSBSetNonZero(x); }
-inline int FindMSBSetNonZero(uint64_t x) { return zetasql_base::Bits::FindMSBSetNonZero64(x); }
-
-// Helper functions for converting between a bigger integer type and an array of
-// smaller integer type in little-endian order. These functions do not check
-// array sizes.
-// Requirements: n must be >= m and (n/m) must be a power of 2.
-
-template <int n, int m>
-inline std::enable_if_t<n == m> UintToArray(Uint<n> src, Uint<m> dest[]) {
-  *dest = src;
-}
-
-template <int n, int m>
-inline std::enable_if_t<n != m> UintToArray(Uint<n> src, Uint<m> dest[]) {
-  constexpr int k = n / 2;
-  UintToArray<k, m>(static_cast<Uint<k>>(src), dest);
-  UintToArray<k, m>(static_cast<Uint<k>>(src >> k), &dest[k / m]);
-}
-
-template <int n, int m>
-inline std::enable_if_t<n == m, Uint<n>> ArrayToUint(const Uint<m> src[]) {
-  return src[0];
-}
-
-template <int n, int m>
-inline std::enable_if_t<n != m, Uint<n>> ArrayToUint(const Uint<m> src[]) {
-  constexpr int k = n / 2;
-  return (static_cast<Uint<n>>(ArrayToUint<k, m>(&src[k / m])) << k) |
-         ArrayToUint<k, m>(src);
-}
-
-template <int k>
-inline Uint<k * 2> MakeDword(const Uint<k> x[2]) {
-  return static_cast<Uint<k * 2>>(x[1]) << k | x[0];
-}
-
-// bits must be > 0 and < 64.
-inline uint64_t ShiftRightAndGetLowWord(const uint64_t x[2], uint bits) {
-  return (x[1] << (64 - bits)) | (x[0] >> bits);
-}
-
-// bits must be < 64.
-inline uint32_t ShiftRightAndGetLowWord(const uint32_t x[2], uint bits) {
-  return static_cast<uint32_t>(MakeDword<32>(x) >> bits);
-}
-
-template <typename Word>
-inline void ShiftLeftFast(Word* number, int num_words, uint bits) {
-  constexpr int kNumBitsPerWord = sizeof(Word) * 8;
-  DCHECK_GT(bits, 0);
-  DCHECK_LT(bits, kNumBitsPerWord);
-  int s = kNumBitsPerWord - bits;
-  for (int i = num_words - 1; i > 0; --i) {
-    number[i] = ShiftRightAndGetLowWord(number + (i - 1), s);
-  }
-  number[0] <<= bits;
-}
-
-template <typename Word>
-void ShiftLeft(Word* number, int num_words, uint bits) {
-  constexpr int kNumBitsPerWord = sizeof(Word) * 8;
-  if (ABSL_PREDICT_FALSE(bits >= num_words * kNumBitsPerWord)) {
-    std::fill(number, number + num_words, 0);
-    return;
-  }
-  int q = bits / kNumBitsPerWord;
-  int r = bits % kNumBitsPerWord;
-  int s = kNumBitsPerWord - r;
-  for (int i = num_words - 1; i > q; --i) {
-    auto tmp = MakeDword<kNumBitsPerWord>(number + (i - q - 1));
-    number[i] = static_cast<Word>(tmp >> s);
-  }
-  number[q] = number[0] << r;
-  for (int i = 0; i < q; ++i) {
-    number[i] = 0;
-  }
-}
-
-template <typename LastWord, typename Word>
-inline void ShiftRightFast(Word* number, int num_words, uint bits) {
-  constexpr int kNumBitsPerWord = sizeof(Word) * 8;
-  DCHECK_GT(bits, 0);
-  DCHECK_LT(bits, kNumBitsPerWord);
-  for (int i = 0; i < num_words - 1; ++i) {
-    number[i] = ShiftRightAndGetLowWord(number + i, bits);
-  }
-  number[num_words - 1] = static_cast<LastWord>(number[num_words - 1]) >> bits;
-}
-
-template <typename Filler, typename Word>
-void ShiftRight(Filler filler, Word* number, int num_words, uint bits) {
-  static_assert(sizeof(Filler) == sizeof(Word));
-  constexpr int kNumBitsPerWord = sizeof(Word) * 8;
-  if (ABSL_PREDICT_FALSE(bits >= num_words * kNumBitsPerWord)) {
-    std::fill(number, number + num_words, filler);
-    return;
-  }
-  int q = bits / kNumBitsPerWord;
-  int r = bits % kNumBitsPerWord;
-  int mid = num_words - q;
-  for (int i = 0; i < mid - 1; ++i) {
-    auto tmp = MakeDword<kNumBitsPerWord>(number + (i + q));
-    number[i] = static_cast<Word>(tmp >> r);
-  }
-  number[mid - 1] = static_cast<Filler>(number[num_words - 1]) >> r;
-  for (int i = mid; i < num_words; ++i) {
-    number[i] = filler;
-  }
-}
-
-template <int k>
-bool LessWithVariableSize(const Uint<k>* lhs, const Uint<k>* rhs, int size) {
-  for (int i = size - 1; i >= 0; --i) {
-    if (lhs[i] != rhs[i]) {
-      return lhs[i] < rhs[i];
-    }
-  }
-  return false;
-}
-
-// When the size is a small compile-time constant, Less<k, size> is much more
-// efficient.
-template <int k, int size>
-inline std::enable_if_t<size == 0, bool> Less(const Uint<k>* lhs,
-                                              const Uint<k>* rhs) {
-  return false;
-}
-
-template <int k, int size>
-inline std::enable_if_t<size == 1, bool> Less(const Uint<k>* lhs,
-                                              const Uint<k>* rhs) {
-  return lhs[0] < rhs[0];
-}
-
-template <int k, int size>
-inline std::enable_if_t<size == 2, bool> Less(const Uint<k>* lhs,
-                                              const Uint<k>* rhs) {
-  return MakeDword<k>(lhs) < MakeDword<k>(rhs);
-}
-
-template <int k, int size>
-inline std::enable_if_t<(size > 2 && size <= 8), bool> Less(
-    const Uint<k>* lhs, const Uint<k>* rhs) {
-  auto lh_dword = MakeDword<k>(lhs + size - 2);
-  auto rh_dword = MakeDword<k>(rhs + size - 2);
-  if (lh_dword != rh_dword) {
-    return lh_dword < rh_dword;
-  }
-  return Less<k, size - 2>(lhs, rhs);
-}
-
-template <int k, int size>
-inline std::enable_if_t<(size > 8), bool> Less(const Uint<k>* lhs,
-                                               const Uint<k>* rhs) {
-  return LessWithVariableSize<k>(lhs, rhs, size);
-}
-
-#ifdef __x86_64__
-inline uint8_t SubtractWithBorrow(uint32_t* x, uint32_t y, uint8_t carry) {
-  return _subborrow_u32(carry, *x, y, x);
-}
-
-inline uint8_t SubtractWithBorrow(uint64_t* x, uint64_t y, uint8_t carry) {
-  static_assert(sizeof(uint64_t) == sizeof(unsigned long long));  // NOLINT
-  unsigned long long tmp;                                       // NOLINT
-  carry = _subborrow_u64(carry, *x, y, &tmp);
-  *x = tmp;
-  return carry;
-}
-
-#else
-
-template <typename Word>
-inline uint8_t SubtractWithBorrow(Word* x, Word y, uint8_t carry) {
-  constexpr int k = sizeof(Word) * 8;
-  Uint<k * 2> lhs = *x;
-  Uint<k * 2> rhs = y;
-  rhs += carry;
-  *x = static_cast<Word>(lhs - rhs);
-  return lhs < rhs;
-}
-
-#endif
-
-template <typename Word>
-inline void SubtractWithVariableSize(Word lhs[], const Word rhs[], int size) {
-  uint8_t carry = 0;
-  for (int i = 0; i < size; ++i) {
-    carry = SubtractWithBorrow(&lhs[i], rhs[i], carry);
-  }
-}
-
-template <int size>
-inline void Subtract(std::array<uint32_t, size>& lhs,
-                     const std::array<uint32_t, size>& rhs) {
-  uint8_t carry = 0;
-  for (int i = 0; i < (size & ~1); i += 2) {
-    uint64_t tmp = MakeDword<32>(lhs.data() + i);
-    carry = SubtractWithBorrow(&tmp, MakeDword<32>(rhs.data() + i), carry);
-    lhs[i + 1] = static_cast<uint32_t>(tmp >> 32);
-    lhs[i] = static_cast<uint32_t>(tmp);
-  }
-  if (size & 1) {
-    SubtractWithBorrow(&lhs[size - 1], rhs[size - 1], carry);
-  }
-}
-
-template <int size>
-inline void Subtract(std::array<uint64_t, size>& lhs,
-                     const std::array<uint64_t, size>& rhs) {
-  if (size == 2) {
-    // For unknown reasons, the following code is faster than
-    // SubtractWithVariableSize for size = 2.
-    uint8_t carry = 0;
-    for (int i = 0; i < size; ++i) {
-      auto lh_tmp = static_cast<unsigned __int128>(lhs[i]);
-      auto rh_tmp = static_cast<unsigned __int128>(rhs[i]) + carry;
-      carry = lh_tmp < rh_tmp;
-      lhs[i] = static_cast<uint64_t>(lh_tmp - rh_tmp);
-    }
-  } else {
-    SubtractWithVariableSize(lhs.data(), rhs.data(), size);
-  }
-}
-
-template <int k, int n1, int n2>
-inline std::array<Uint<k>, n1 + n2> ExtendAndMultiply(
-    const std::array<fixed_int_internal::Uint<k>, n1>& lh,
-    const std::array<fixed_int_internal::Uint<k>, n2>& rh) {
-  using Word = Uint<k>;
-  using DWord = Uint<k * 2>;
-  std::array<Word, n1 + n2> res;
-  res.fill(0);
-  Word carry = 0;
-  for (int j = 0; j < n2; ++j) {
-    for (int i = 0; i < n1; ++i) {
-      DWord tmp = static_cast<DWord>(lh[i]) * rh[j] + res[i + j] + carry;
-      res[i + j] = static_cast<Word>(tmp);
-      carry = static_cast<Word>(tmp >> k);
-    }
-    res[n1 + j] = carry;
-    carry = 0;
-  }
-  return res;
-}
-
-template <int k>
-inline void Copy(const Uint<k>* src, int src_size, Uint<k>* dest, int dest_size,
-                 Uint<k> filler) {
-  int size = std::min(src_size, dest_size);
-  Uint<k>* p = std::copy(src, src + size, dest);
-  std::fill(p, dest + dest_size, filler);
-}
-
-template <int k>
-inline void Copy(const Uint<k>* src, int src_size, Uint<k * 2>* dest,
-                 int dest_size, Uint<k * 2> filler) {
-  int copy_size = std::min(src_size / 2, dest_size);
-  for (int i = 0; i < copy_size; ++i) {
-    dest[i] = (static_cast<Uint<2 * k>>(src[2 * i + 1]) << k) | src[2 * i];
-  }
-  if ((src_size & 1) != 0 && copy_size < dest_size) {
-    dest[copy_size] = (filler << k) | src[2 * copy_size];
-    ++copy_size;
-  }
-  std::fill(dest + copy_size, dest + dest_size, filler);
-}
-
-template <int k>
-inline void Copy(const Uint<k * 2>* src, int src_size, Uint<k>* dest,
-                 int dest_size, Uint<k> filler) {
-  int copy_size = std::min(src_size * 2, (dest_size & ~1));
-  for (int i = 0; i < copy_size; i += 2) {
-    dest[i] = static_cast<Uint<k>>(src[i / 2]);
-    dest[i + 1] = static_cast<Uint<k>>(src[i / 2] >> k);
-  }
-  if (copy_size < dest_size && copy_size < src_size * 2) {
-    dest[copy_size] = static_cast<Uint<k>>(src[copy_size / 2]);
-    ++copy_size;
-  }
-  std::fill(dest + copy_size, dest + dest_size, filler);
-}
-
-// allow_optimization is used only for testing.
-template <int k1, int n1, int k2, int n2, bool allow_optimization = true>
-inline std::array<Uint<k1>, n1> Convert(const std::array<Uint<k2>, n2>& src,
-                                        bool negative) {
-  std::array<Uint<k1>, n1> res;
-#ifndef IS_BIG_ENDIAN
-  if (allow_optimization) {
-    int copy_size = std::min(sizeof(src), sizeof(res));
-    memcpy(res.data(), src.data(), copy_size);
-    memset(reinterpret_cast<uint8_t*>(res.data()) + copy_size,
-           -static_cast<int8_t>(negative), sizeof(res) - copy_size);
-    return res;
-  }
-#endif
-  Copy<std::min(k1, k2)>(src.data(), n2, res.data(), n1,
-                         negative ? ~Uint<k1>{0} : 0);
-  return res;
-}
-
-template <int kNumBitsPerWord, int kNumWords>
-std::array<fixed_int_internal::Uint<kNumBitsPerWord>, kNumWords> toLittleEndian(
-    const std::array<fixed_int_internal::Uint<kNumBitsPerWord>, kNumWords>&
-        in) {
-  std::array<fixed_int_internal::Uint<kNumBitsPerWord>, kNumWords> tmp(in);
-#ifdef IS_BIG_ENDIAN
-  for (auto& word : tmp) {
-    word = zetasql_base::LittleEndian::FromHost(word);
-  }
-#endif
-  return tmp;
-}
-
-// Deserialize from minimum number of bytes needed to represent the number.
-// Similarly to Serialize, if use_twos_compl is true then a high 0x80 bit
-// will result in padding with 0xff rather than 0x00
-template <int kNumBitsPerWord, int kNumWords, bool use_twos_compl>
-static bool Deserialize(
-    absl::string_view bytes,
-    std::array<fixed_int_internal::Uint<kNumBitsPerWord>, kNumWords>* out) {
-  // We allow one extra byte in case of the 0x80 high byte case, see
-  // comments on Serialize for details
-  if (bytes.empty() || bytes.size() > sizeof(*out)) {
-    return false;
-  }
-  memcpy(out->data(), &bytes[0], bytes.size());
-  // Sign extend based on high bit
-  uint8_t extension = use_twos_compl && bytes.back() & 0x80 ? 0xff : 0x00;
-  memset(reinterpret_cast<uint8_t*>(out->data()) + bytes.size(), extension,
-         sizeof(*out) - bytes.size());
-#ifdef IS_BIG_ENDIAN
-  for (auto& word : *out) {
-    word = BigEndian::ToHost(word);
-  }
-#endif
-  return true;
-}
-
-}  // namespace fixed_int_internal
 
 template <int kNumBitsPerWord, int kNumWords>
 class FixedInt;
 
-// kNumBitsPerWord must be 32 or 64. Given the same kNumBitsPerWord * kNumWords
-// value, kNumBitsPerWord=64 is generally faster, except the following cases:
-// 1) Division by a value with more than 64 bits.
-// 2) Division by a compile-time constant that is a product of 32-bit integers.
-///   In this case, repeated division by 32-bit constant values is typically
-//    much faster because the compiler can replace the divisions with
-//    multiplications. This optimization works only with 32-bit constant
-//    divisors.
-//
-// Unless otherwise documented, the operators of this class do not check
-// overflows. If a result overflows, the result bits higher than the kNumBits
-// are silently dropped, for consistency with the primitive integer types.
 template <int kNumBitsPerWord, int kNumWords>
 class FixedUint final {
  public:
   using Word = fixed_int_internal::Uint<kNumBitsPerWord>;
-  using DWord = fixed_int_internal::Uint<kNumBitsPerWord * 2>;
+  using UnsignedWord = Word;
   static constexpr int kNumBits = kNumBitsPerWord * kNumWords;
   // The max bits an integer can have to be casted to double when all the bits
   // in the integer are set. Also limited by the kNumBitsPerWord.
   static constexpr int kMaxBitsToDouble = 992;
 
-  FixedUint() { number_.fill(0); }
-
-  explicit FixedUint(unsigned __int128 x) {
-    static_assert(kNumBits >= 128, "Size too small");
-    number_.fill(0);
-    fixed_int_internal::UintToArray<128, kNumBitsPerWord>(x, number_.data());
+  static constexpr FixedUint min() {
+    return FixedUint(fixed_int_internal::LeftPad<Word, kNumWords>(0));
+  }
+  static constexpr FixedUint max() {
+    return FixedUint(fixed_int_internal::LeftPad<Word, kNumWords>(~Word{0}));
   }
 
-  explicit FixedUint(uint64_t x) {
+  constexpr FixedUint()
+      : number_(fixed_int_internal::RightPad<Word, kNumWords>(0)) {}
+  constexpr explicit FixedUint(uint32_t x)
+      : number_(fixed_int_internal::RightPad<Word, kNumWords>(0, x)) {}
+  constexpr explicit FixedUint(uint64_t x)
+      : number_(fixed_int_internal::UintToArray<64, kNumBitsPerWord, kNumWords>(
+            x, 0)) {
     static_assert(kNumBits >= 64, "Size too small");
-    number_.fill(0);
-    fixed_int_internal::UintToArray<64, kNumBitsPerWord>(x, number_.data());
   }
-
+  constexpr explicit FixedUint(unsigned __int128 x)
+      : number_(
+            fixed_int_internal::UintToArray<128, kNumBitsPerWord, kNumWords>(
+                x, Word{0})) {
+    static_assert(kNumBits >= 128, "Size too small");
+  }
   FixedUint(uint64_t hi, unsigned __int128 low) {
     static_assert(kNumBits >= 192, "Size too small");
     number_.fill(0);
@@ -454,7 +181,6 @@ class FixedUint final {
     fixed_int_internal::UintToArray<64, kNumBitsPerWord>(
         hi, &number_[128 / kNumBitsPerWord]);
   }
-
   FixedUint(unsigned __int128 hi, unsigned __int128 low) {
     static_assert(kNumBits >= 256, "Size too small");
     number_.fill(0);
@@ -469,7 +195,6 @@ class FixedUint final {
   explicit FixedUint(const FixedUint<k, n>& src)
       : number_(fixed_int_internal::Convert<kNumBitsPerWord, kNumWords, k, n>(
             src.number(), false)) {}
-
   explicit constexpr FixedUint(
       const std::array<Word, kNumWords>& little_endian_number)
       : number_(little_endian_number) {}
@@ -515,131 +240,229 @@ class FixedUint final {
     return *this;
   }
 
-  // Multiplies this number by the given Word value.
-  FixedUint& operator*=(Word x) {
-    Word carry = 0;
-    for (int i = 0; i < kNumWords; ++i) {
-      DWord tmp = static_cast<DWord>(number_[i]) * x + carry;
-      number_[i] = static_cast<Word>(tmp);
-      carry = static_cast<Word>(tmp >> kNumBitsPerWord);
-    }
-    return *this;
+  // Returns true iff the result overflows.
+  bool AddOverflow(Word x) { return AddOverflow(FixedUint(x)); }
+  bool AddOverflow(const FixedUint& rh) {
+    return fixed_int_internal::Add<kNumWords>(number_, rh.number_) != 0;
   }
-
-  // Multiplies this number by the given value. If the multiplication overflows,
-  // the result bits higher than the kNumBits are silently dropped.
-  FixedUint& operator*=(const FixedUint& rh);
-
-  // Multiplies this number by the given value. Returns false iff the result of
-  // the multiplication overflows, in which case the data in *this is unchanged.
-  ABSL_MUST_USE_RESULT bool MultiplyAndCheckOverflow(const FixedUint& rh);
 
   FixedUint& operator+=(Word x) {
-    Word carry = x;
-    for (int i = 0; i < kNumWords; ++i) {
-      DWord tmp = static_cast<DWord>(number_[i]) + carry;
-      number_[i] = static_cast<Word>(tmp);
-      carry = static_cast<Word>(tmp >> kNumBitsPerWord);
-      if (carry == 0) {
-        break;
-      }
-    }
+    AddOverflow(x);
     return *this;
   }
-
   FixedUint& operator+=(const FixedUint& rh) {
-    Word carry = 0;
-    for (int i = 0; i < kNumWords; ++i) {
-      DWord tmp = static_cast<DWord>(number_[i]) + carry + rh.number_[i];
-      number_[i] = static_cast<Word>(tmp);
-      carry = static_cast<Word>(tmp >> kNumBitsPerWord);
-    }
+    fixed_int_internal::Add<kNumWords>(number_, rh.number_);
     return *this;
   }
 
-  FixedUint& operator-=(Word x) {
+  bool SubtractOverflow(Word x) {
     uint8_t carry = fixed_int_internal::SubtractWithBorrow(&number_[0], x, 0);
     for (int i = 1; i < kNumWords; ++i) {
       carry =
           fixed_int_internal::SubtractWithBorrow(&number_[i], Word{0}, carry);
     }
-    return *this;
+    return carry != 0;
+  }
+  bool SubtractOverflow(const FixedUint& rh) {
+    return fixed_int_internal::Subtract<kNumWords>(number_, rh.number_) != 0;
   }
 
+  FixedUint& operator-=(Word x) {
+    SubtractOverflow(x);
+    return *this;
+  }
   FixedUint& operator-=(const FixedUint& rh) {
     fixed_int_internal::Subtract<kNumWords>(number_, rh.number_);
     return *this;
   }
 
-  // The caller is responsible for ensuring that the value is not zero.
-  FixedUint& operator/=(Word x) {
-    for (int i = kNumWords - 1; i >= 0; --i) {
-      if (number_[i] != 0) {
-        DWord carry = 0;
-        do {
-          carry <<= kNumBitsPerWord;
-          carry |= number_[i];
-          number_[i] = static_cast<Word>(carry / x);
-          carry = carry % x;
-        } while (--i >= 0);
-        return *this;
-      }
+  FixedUint& operator*=(Word x) {
+    fixed_int_internal::MulWord(number_.data(), kNumWords, x);
+    return *this;
+  }
+  FixedUint& operator*=(const FixedUint& rh) {
+    FixedUint res;
+    PartialMultiplyOverflow(rh, &res);
+    return *this = res;
+  }
+
+  bool MultiplyOverflow(Word x) {
+    return fixed_int_internal::MulWord(number_.data(), kNumWords, x) != 0;
+  }
+  bool MultiplyOverflow(const FixedUint& rh) {
+    FixedUint res;
+    bool overflow = PartialMultiplyOverflow(rh, &res) ||
+                    NonZeroLength() + rh.NonZeroLength() > kNumWords + 1;
+    *this = res;
+    return overflow;
+  }
+
+  template <uint32_t divisor>
+  void DivMod(std::integral_constant<uint32_t, divisor> x, FixedUint* quotient,
+              uint32_t* remainder) const {
+    uint32_t r = fixed_int_internal::ShortDivModConstant<kNumWords>(
+        number_, x, quotient != nullptr ? &quotient->number_ : nullptr);
+    if (remainder != nullptr) {
+      *remainder = r;
     }
+  }
+  void DivMod(Word x, FixedUint* quotient, Word* remainder) const {
+    Word r = fixed_int_internal::ShortDivMod<Word, kNumWords>(
+        number_, x, quotient != nullptr ? &quotient->number_ : nullptr);
+    if (remainder != nullptr) {
+      *remainder = r;
+    }
+  }
+  // Computes *quotient = *this / divisor, and *remainder = *this % divisor.
+  // quotient and remainder can be null, this, or point to other instances.
+  // If quotient and remainder are the same and are not null, the instance will
+  // receive the remainder value.
+  void DivMod(const FixedUint& divisor, FixedUint* quotient,
+              FixedUint* remainder) const {
+    fixed_int_internal::DivMod<kNumWords>(
+        number_, divisor.number_,
+        quotient != nullptr ? &quotient->number_ : nullptr,
+        remainder != nullptr ? &remainder->number_ : nullptr);
+  }
+
+  // The caller is responsible for ensuring that the value is not zero.
+  template <uint32_t divisor>
+  FixedUint& operator/=(std::integral_constant<uint32_t, divisor> x) {
+    fixed_int_internal::ShortDivModConstant<kNumWords>(number_, x, &number_);
     return *this;
   }
 
   FixedUint& operator/=(const FixedUint& x) {
-    if (x.NonZeroLength() <= 1) {
-      return *this /= x.number_[0];
-    }
-    LongDivision(x);
+    fixed_int_internal::DivMod<kNumWords>(number_, x.number_, &number_,
+                                          nullptr);
     return *this;
   }
 
+  FixedUint& operator/=(Word divisor) {
+    if (kNumBitsPerWord == 32) {
+      fixed_int_internal::ShortDivMod<Word, kNumWords>(number_, divisor,
+                                                       &number_);
+      return *this;
+    }
+    FixedUint tmp;
+    tmp.number_[0] = divisor;
+    return *this /= tmp;
+  }
+
+  template <uint32_t divisor>
+  FixedUint& DivAndRoundAwayFromZero(
+      std::integral_constant<uint32_t, divisor> x) {
+    if (ABSL_PREDICT_TRUE(!AddOverflow(divisor >> 1))) {
+      return *this /= x;
+    }
+    *this -= x;
+    *this /= x;
+    return *this += Word{1};
+  }
+
+  FixedUint& DivAndRoundAwayFromZero(Word x) {
+    if (ABSL_PREDICT_TRUE(!AddOverflow(x >> 1))) {
+      return *this /= x;
+    }
+    *this -= x;
+    *this /= x;
+    return *this += Word{1};
+  }
+
+  FixedUint& DivAndRoundAwayFromZero(const FixedUint& x) {
+    FixedUint half_x = x;
+    half_x >>= 1;
+    uint8_t carry = fixed_int_internal::Add<kNumWords>(number_, half_x.number_);
+    if (ABSL_PREDICT_TRUE(carry == 0)) {
+      return *this /= x;
+    }
+    *this -= x;
+    *this /= x;
+    return *this += Word{1};
+  }
+
+  template <uint32_t divisor>
+  FixedUint& operator%=(std::integral_constant<uint32_t, divisor> x) {
+    number_[0] =
+        fixed_int_internal::ShortDivModConstant<kNumWords>(number_, x, nullptr);
+    std::fill(number_.begin() + 1, number_.end(), 0);
+    return *this;
+  }
+
+  FixedUint& operator%=(const FixedUint& x) {
+    DivMod(x, nullptr, this);
+    return *this;
+  }
+
+  FixedUint& operator%=(Word x) {
+    if (kNumBitsPerWord == 32) {
+      number_[0] =
+          fixed_int_internal::ShortDivMod<Word, kNumWords>(number_, x, nullptr);
+      std::fill(number_.begin() + 1, number_.end(), 0);
+      return *this;
+    }
+    FixedUint tmp;
+    tmp.number_[0] = x;
+    return *this %= tmp;
+  }
+
   // Returns the number of words excluding leading zero words.
-  int NonZeroLength() const;
+  int NonZeroLength() const {
+    return fixed_int_internal::NonZeroLength<Word, kNumWords>(number_.data());
+  }
 
   // Returns the first set most significant bit index, 0 based. If this number
   // is 0 then this function will return 0;
   int FindMSBSetNonZero() const;
 
-  const std::array<Word, kNumWords>& number() const { return number_; }
+  constexpr const std::array<Word, kNumWords>& number() const {
+    return number_;
+  }
 
   // Serializes to minimum number of bytes needed to represent the number.
-  std::string SerializeToBytes() const {
-    std::string out;
-
-    FixedUint<kNumBitsPerWord, kNumWords> little_endian;
-    little_endian.number_ =
-        fixed_int_internal::toLittleEndian<kNumBitsPerWord, kNumWords>(
-            number());
-
-    int non_zero_bit_idx = FindMSBSetNonZero();
-    int non_zero_byte_idx = non_zero_bit_idx / 8;
-    out.resize(non_zero_byte_idx + 1);
-    memcpy(&out[0], little_endian.number().data(), non_zero_byte_idx + 1);
-
-    return out;
+  // The result is appended to *out.
+  void SerializeToBytes(std::string* out) const {
+    fixed_int_internal::Serialize<false>(number(), '\0', out);
   }
 
   // Deserializes the output of Serialize() from a FixedUint (not FixedInt) with
   // the same template arguments. If the input is valid, false is returned and
   // this instance is unchanged.
   ABSL_MUST_USE_RESULT bool DeserializeFromBytes(absl::string_view bytes) {
-    return fixed_int_internal::Deserialize<kNumBitsPerWord, kNumWords, false>(
-        bytes, &number_);
+    return fixed_int_internal::Deserialize<false>(bytes, &number_);
+  }
+
+  // Convert the FixedUint to a readable string form.
+  std::string ToString() const {
+    std::string result;
+    AppendToString(&result);
+    return result;
+  }
+
+  void AppendToString(std::string* result) const;
+
+  // Parse digit-only string representation of an unsigned decimal integer and
+  // write the number into the FixedUint.
+  bool ParseFromStringStrict(absl::string_view str);
+
+  template <typename H>
+  friend H AbslHashValue(H h,
+                         const FixedUint<kNumBitsPerWord, kNumWords>& value) {
+    return H::combine(std::move(h), value.number_);
   }
 
  private:
-  friend class FixedUint<kNumBitsPerWord, kNumWords - 1>;
   friend class FixedInt<kNumBitsPerWord, kNumWords>;
 
-  // Performs a long division by the given number.
-  void LongDivision(const FixedUint& x);
+  // Computes *this * rh using only the products of the input words that fit
+  // into <result>, and returns whether these products result in an overflow.
+  // For example, in the case kNumWords = 2, then only
+  // number_[0] * rh.number_[0], number_[0] * rh.number_[1] and
+  // number_[1] * rh.number_[0] are considered.
+  bool PartialMultiplyOverflow(const FixedUint& rh, FixedUint* result) const;
 
-  // The number is
-  // stored in the little-endian order with the least significant word being at
-  // the index 0.
+  // The number is stored in the little-endian order with the least significant
+  // word being at the index 0.
   std::array<Word, kNumWords> number_;
 };
 
@@ -688,16 +511,6 @@ FixedUint<kNumBitsPerWord, kNumWords>::operator double() const {
 }
 
 template <int kNumBitsPerWord, int kNumWords>
-inline int FixedUint<kNumBitsPerWord, kNumWords>::NonZeroLength() const {
-  for (int i = kNumWords - 1; i >= 0; --i) {
-    if (number_[i] != 0) {
-      return i + 1;
-    }
-  }
-  return 0;
-}
-
-template <int kNumBitsPerWord, int kNumWords>
 inline int FixedUint<kNumBitsPerWord, kNumWords>::FindMSBSetNonZero() const {
   const int nzlen = NonZeroLength();
   if (nzlen == 0) {
@@ -708,117 +521,21 @@ inline int FixedUint<kNumBitsPerWord, kNumWords>::FindMSBSetNonZero() const {
 }
 
 template <int kNumBitsPerWord, int kNumWords>
-inline FixedUint<kNumBitsPerWord, kNumWords>&
-FixedUint<kNumBitsPerWord, kNumWords>::operator*=(const FixedUint& rh) {
-  FixedUint res;
+inline bool FixedUint<kNumBitsPerWord, kNumWords>::PartialMultiplyOverflow(
+    const FixedUint& rh, FixedUint* result) const {
+  using DWord = fixed_int_internal::Uint<kNumBitsPerWord * 2>;
+  Word overflow_carry = 0;
   for (int j = 0; j < kNumWords; ++j) {
     Word carry = 0;
     for (int i = 0; i < kNumWords - j; ++i) {
       DWord tmp = static_cast<DWord>(number_[i]) * rh.number_[j] +
-                  res.number_[i + j] + carry;
-      res.number_[i + j] = static_cast<Word>(tmp);
+                  result->number_[i + j] + carry;
+      result->number_[i + j] = static_cast<Word>(tmp);
       carry = static_cast<Word>(tmp >> kNumBitsPerWord);
     }
+    overflow_carry |= carry;
   }
-  return *this = res;
-}
-
-template <int kNumBitsPerWord, int kNumWords>
-inline bool FixedUint<kNumBitsPerWord, kNumWords>::MultiplyAndCheckOverflow(
-    const FixedUint& rh) {
-  const int this_msb = FindMSBSetNonZero();
-  const int rh_msb = rh.FindMSBSetNonZero();
-  if (this_msb + rh_msb >= kNumBits) {
-    return false;
-  }
-
-  FixedUint res;
-  Word carry = 0;
-  for (int j = 0; j < rh.number_.size(); ++j) {
-    for (int i = 0; i < number_.size(); ++i) {
-      if (i + j >= number_.size()) {
-        if (ABSL_PREDICT_FALSE(carry != 0)) {
-          return false;
-        }
-        continue;
-      }
-      DWord tmp = static_cast<DWord>(number_[i]) * rh.number_[j] +
-                  res.number_[i + j] + carry;
-      res.number_[i + j] = static_cast<Word>(tmp);
-      carry = static_cast<Word>(tmp >> kNumBitsPerWord);
-    }
-  }
-  *this = res;
-  return true;
-}
-
-template <int kNumBitsPerWord, int kNumWords>
-void FixedUint<kNumBitsPerWord, kNumWords>::LongDivision(const FixedUint& x) {
-  FixedUint<kNumBitsPerWord, kNumWords + 1> dividend(*this);
-  FixedUint<kNumBitsPerWord, kNumWords + 1> divisor(x);
-
-  // Find the actual length of the dividend and the divisor.
-  int n = divisor.NonZeroLength();
-  int m = NonZeroLength();
-
-  // First we need to normalize the divisor to make the most significant digit
-  // of it larger than radix/2 (radix being 2^kNumBitsPerWord in our case). This
-  // is necessary for accurate guesses of the quotent digits. See Knuth "The Art
-  // of Computer Programming" Vol.2 for details.
-  //
-  // We perform normalization by finding how far we need to shift to make the
-  // most significant bit of the divisor 1. And then we shift both the divident
-  // and the divisor thus preserving the result of the division.
-  int non_zero_bit_idx =
-      fixed_int_internal::FindMSBSetNonZero(divisor.number_[n - 1]);
-  int shift_amount = kNumBitsPerWord - non_zero_bit_idx - 1;
-
-  if (shift_amount > 0) {
-    dividend <<= shift_amount;
-    divisor <<= shift_amount;
-  }
-
-  FixedUint quotient;
-
-  for (int i = m - n; i >= 0; --i) {
-    // Make the guess of the quotent digit. The guess we take here is:
-    //
-    //   qhat = min((divident[m] * b + divident[m-1]) / divisor[n], b-1)
-    //
-    // where b is the radix, which in our case is 2^kNumBitsPerWord. In "The Art
-    // of Computer Programming" Vol.2 Knuth proves that given the normalization
-    // above this guess is often accurate and when not it is always larger than
-    // the actual quotent digit and is no larger than 2 removed from it.
-    DWord tmp =
-        (static_cast<DWord>(dividend.number_[i + n]) << kNumBitsPerWord) |
-        dividend.number_[i + n - 1];
-    DWord quotent_candidate = tmp / divisor.number_[n - 1];
-    if (quotent_candidate > std::numeric_limits<Word>::max()) {
-      quotent_candidate = std::numeric_limits<Word>::max();
-    }
-
-    FixedUint<kNumBitsPerWord, kNumWords + 1> dq = divisor;
-    dq *= static_cast<Word>(quotent_candidate);
-
-    // If the guess was not accurate, adjust it. As stated above, at the worst,
-    // the original guess qhat is q + 2, where q is the actual quotent digit, so
-    // this loop will not be executed more than 2 iterations.
-    for (int iter = 0;
-         fixed_int_internal::LessWithVariableSize<kNumBitsPerWord>(
-             dividend.number().data() + i, dq.number().data(), n + 1);
-         ++iter) {
-      DCHECK_LT(iter, 2);
-      --quotent_candidate;
-      dq = divisor;
-      dq *= static_cast<Word>(quotent_candidate);
-    }
-
-    fixed_int_internal::SubtractWithVariableSize(dividend.number_.data() + i,
-                                                 dq.number().data(), n + 1);
-    quotient.number_[i] = static_cast<Word>(quotent_candidate);
-  }
-
-  *this = quotient;
+  return overflow_carry != 0;
 }
 
 template <int kNumBitsPerWord, int kNumWords>
@@ -859,44 +576,101 @@ inline bool operator>=(const FixedUint<kNumBitsPerWord, kNumWords>& lh,
 }
 
 template <int kNumBitsPerWord, int kNumWords>
+void FixedUint<kNumBitsPerWord, kNumWords>::AppendToString(
+    std::string* result) const {
+  // 32-bit quotient is faster than 64-bit.
+  static_assert(kNumBits % 32 == 0);
+  FixedUint<32, kNumBits / 32> quotient(*this);
+  std::integral_constant<uint32_t, 1000000000> divisor;
+  // The number of segments needed = ceil(kNumBits * log(2) / log(1000000000))
+  // = ceil(kNumBits / 29.897352854) <= ceil(kNumBits / 29).
+  std::array<uint32_t, (kNumBits + 28) / 29> segments;
+  int num_segments = 0;
+  while (quotient.NonZeroLength() != 0) {
+    quotient.DivMod(divisor, &quotient, &segments[num_segments]);
+    ++num_segments;
+  }
+  fixed_int_internal::AppendSegmentsToString(segments.data(), num_segments,
+                                             result);
+}
+
+template <int kNumBitsPerWord, int kNumWords>
+bool FixedUint<kNumBitsPerWord, kNumWords>::ParseFromStringStrict(
+    absl::string_view str) {
+  if (ABSL_PREDICT_FALSE(str.empty())) {
+    return false;
+  }
+  Word radix = fixed_int_internal::IntTraits<kNumBitsPerWord>::kMaxPowerOf10;
+  size_t radix_log =
+      fixed_int_internal::IntTraits<kNumBitsPerWord>::kMaxPowerOf10Log;
+  size_t first_segment_length = (str.size() - 1) % radix_log + 1;
+  const char* ptr = str.data();
+  const char* end = ptr + str.size();
+  Word segment_val;
+  // Handle the first segment of string
+  if (ABSL_PREDICT_FALSE(!fixed_int_internal::ParseFromBase10UnsignedString(
+            str.substr(0, first_segment_length), &segment_val))) {
+    return false;
+  }
+  *this = FixedUint(segment_val);
+  for (ptr += first_segment_length; ptr < end; ptr += radix_log) {
+    if (ABSL_PREDICT_FALSE(MultiplyOverflow(radix)) ||
+        ABSL_PREDICT_FALSE(!fixed_int_internal::ParseFromBase10UnsignedString(
+            absl::string_view(ptr, radix_log), &segment_val)) ||
+        ABSL_PREDICT_FALSE(AddOverflow(segment_val))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+template <int kNumBitsPerWord, int kNumWords>
 class FixedInt final {
  public:
-  // Word is unsigned by design. Be careful when calling the binary operators
-  // with Word type; they do not check whether the argument is negative, for
-  // performance.
-  using Word = fixed_int_internal::Uint<kNumBitsPerWord>;
-  using DWord = fixed_int_internal::Uint<kNumBitsPerWord * 2>;
+  using Word = fixed_int_internal::Int<kNumBitsPerWord>;
+  using UnsignedWord = fixed_int_internal::Uint<kNumBitsPerWord>;
   static constexpr int kNumBits = kNumBitsPerWord * kNumWords;
   static constexpr int kMaxBitsToDouble = 992;
 
-  FixedInt() {}
-
-  explicit FixedInt(__int128 x) {
-    static_assert(kNumBits >= 128, "Size too small");
-    rep_.number_.fill(x >= 0 ? 0 : ~Word{0});
-    fixed_int_internal::UintToArray<128, kNumBitsPerWord>(
-        static_cast<unsigned __int128>(x), rep_.number_.data());
+  static constexpr FixedInt min() {
+    return FixedInt(fixed_int_internal::LeftPad<UnsignedWord, kNumWords>(
+        0, static_cast<UnsignedWord>(std::numeric_limits<Word>::min())));
+  }
+  static constexpr FixedInt max() {
+    constexpr UnsignedWord kMaxUnsigned =
+        std::numeric_limits<UnsignedWord>::max();
+    constexpr Word kMaxSigned = std::numeric_limits<Word>::max();
+    return FixedInt(fixed_int_internal::LeftPad<UnsignedWord, kNumWords>(
+        kMaxUnsigned, static_cast<UnsignedWord>(kMaxSigned)));
   }
 
-  explicit FixedInt(int64_t x) {
+  constexpr FixedInt() {}
+
+  constexpr explicit FixedInt(int32_t x)
+      : rep_(fixed_int_internal::RightPad<UnsignedWord, kNumWords>(
+            x >= 0 ? 0 : ~UnsignedWord{0},
+            static_cast<UnsignedWord>(static_cast<Word>(x)))) {}
+  constexpr explicit FixedInt(int64_t x)
+      : rep_(fixed_int_internal::UintToArray<64, kNumBitsPerWord, kNumWords>(
+            x, x >= 0 ? 0 : ~UnsignedWord{0})) {
     static_assert(kNumBits >= 64, "Size too small");
-    rep_.number_.fill(x >= 0 ? 0 : ~Word{0});
-    fixed_int_internal::UintToArray<64, kNumBitsPerWord>(static_cast<uint64_t>(x),
-                                                         rep_.number_.data());
   }
-
+  constexpr explicit FixedInt(__int128 x)
+      : rep_(fixed_int_internal::UintToArray<128, kNumBitsPerWord, kNumWords>(
+            x, x >= 0 ? 0 : ~UnsignedWord{0})) {
+    static_assert(kNumBits >= 128, "Size too small");
+  }
   FixedInt(int64_t hi, unsigned __int128 low) {
     static_assert(kNumBits >= 192, "Size too small");
-    rep_.number_.fill(hi >= 0 ? 0 : ~Word{0});
+    rep_.number_.fill(hi >= 0 ? 0 : ~UnsignedWord{0});
     fixed_int_internal::UintToArray<128, kNumBitsPerWord>(low,
                                                           rep_.number_.data());
     fixed_int_internal::UintToArray<64, kNumBitsPerWord>(
         static_cast<uint64_t>(hi), &rep_.number_[128 / kNumBitsPerWord]);
   }
-
   FixedInt(__int128 hi, unsigned __int128 low) {
     static_assert(kNumBits >= 256, "Size too small");
-    rep_.number_.fill(hi >= 0 ? 0 : ~Word{0});
+    rep_.number_.fill(hi >= 0 ? 0 : ~UnsignedWord{0});
     fixed_int_internal::UintToArray<128, kNumBitsPerWord>(low,
                                                           rep_.number_.data());
     fixed_int_internal::UintToArray<128, kNumBitsPerWord>(
@@ -910,7 +684,7 @@ class FixedInt final {
             src.number(), src.is_negative())) {}
 
   explicit constexpr FixedInt(
-      const std::array<Word, kNumWords>& little_endian_number)
+      const std::array<UnsignedWord, kNumWords>& little_endian_number)
       : rep_(little_endian_number) {}
 
   explicit operator __int128() const {
@@ -933,135 +707,338 @@ class FixedInt final {
   }
 
   FixedInt& operator>>=(uint bits) {
-    using SignedWord = std::make_signed_t<Word>;
     if (ABSL_PREDICT_TRUE(bits != 0)) {
       if (ABSL_PREDICT_TRUE(bits < kNumBitsPerWord)) {
-        fixed_int_internal::ShiftRightFast<SignedWord>(rep_.number_.data(),
-                                                       kNumWords, bits);
+        fixed_int_internal::ShiftRightFast<Word>(rep_.number_.data(), kNumWords,
+                                                 bits);
         return *this;
       }
-      SignedWord filler = -SignedWord{is_negative()};
+      Word filler = -Word{is_negative()};
       fixed_int_internal::ShiftRight(filler, rep_.number_.data(), kNumWords,
                                      bits);
     }
     return *this;
   }
 
-  FixedInt& operator+=(Word x) {
+  bool AddOverflow(UnsignedWord x) {
+    UnsignedWord old_val = rep_.number_[kNumWords - 1];
+    rep_ += x;
+    UnsignedWord new_val = rep_.number_[kNumWords - 1];
+    return ((~old_val & new_val) >> (sizeof(Word) * 8 - 1)) != 0;
+  }
+  bool AddOverflow(Word x) { return AddOverflow(FixedInt(x)); }
+  bool AddOverflow(const FixedInt& rh) {
+    UnsignedWord old_val = rep_.number_[kNumWords - 1];
+    UnsignedWord y = rh.rep_.number_[kNumWords - 1];
+    rep_ += rh.rep_;
+    UnsignedWord new_val = rep_.number_[kNumWords - 1];
+    return ((~(old_val ^ y) & (new_val ^ y)) >> (sizeof(Word) * 8 - 1)) != 0;
+  }
+
+  FixedInt& operator+=(UnsignedWord x) {
     rep_ += x;
     return *this;
   }
-
+  FixedInt& operator+=(Word x) { return *this += FixedInt(x); }
   FixedInt& operator+=(const FixedInt& rh) {
     rep_ += rh.rep_;
     return *this;
   }
 
-  FixedInt& operator-=(Word x) {
+  bool SubtractOverflow(UnsignedWord x) {
+    UnsignedWord old_val = rep_.number_[kNumWords - 1];
+    rep_ -= x;
+    UnsignedWord new_val = rep_.number_[kNumWords - 1];
+    return ((~new_val & old_val) >> (sizeof(Word) * 8 - 1)) != 0;
+  }
+  bool SubtractOverflow(Word x) { return SubtractOverflow(FixedInt(x)); }
+  bool SubtractOverflow(const FixedInt& rh) {
+    UnsignedWord old_val = rep_.number_[kNumWords - 1];
+    UnsignedWord y = rh.rep_.number_[kNumWords - 1];
+    rep_ -= rh.rep_;
+    UnsignedWord new_val = rep_.number_[kNumWords - 1];
+    return ((~(new_val ^ y) & (old_val ^ y)) >> (sizeof(Word) * 8 - 1)) != 0;
+  }
+
+  FixedInt& operator-=(UnsignedWord x) {
     rep_ -= x;
     return *this;
   }
-
+  FixedInt& operator-=(Word x) { return *this -= FixedInt(x); }
   FixedInt& operator-=(const FixedInt& rh) {
     rep_ -= rh.rep_;
     return *this;
   }
 
-  FixedInt& operator*=(Word x) {
+  FixedInt& operator*=(UnsignedWord x) {
     rep_ *= x;
     return *this;
   }
-
+  FixedInt& operator*=(Word x) {
+    if (x >= 0) {
+      rep_ *= x;
+      return *this;
+    }
+    rep_ *= -static_cast<UnsignedWord>(x);
+    *this = -(*this);
+    return *this;
+  }
   FixedInt& operator*=(const FixedInt& x) {
     rep_ *= x.rep_;
     return *this;
   }
 
-  FixedInt& operator/=(Word x) {
-    bool neg = is_negative();
-    if (!neg) {
-      rep_ /= x;
-      return *this;
+  bool MultiplyOverflow(UnsignedWord x) {
+    bool was_negative = is_negative();
+    UnsignedWord carry =
+        fixed_int_internal::MulWord(rep_.number_.data(), kNumWords, x);
+    // See comment at ExtendAndMultiply(FixedInt) for why we subtract x from
+    // carry.
+    carry -= was_negative ? x : 0;
+    return carry != (is_negative() ? ~UnsignedWord{0} : 0);
+  }
+  bool MultiplyOverflow(Word x) {
+    FixedInt<kNumBitsPerWord, kNumWords + 1> result =
+        ExtendAndMultiply(*this, FixedInt<kNumBitsPerWord, 1>(x));
+    *this = FixedInt(result);
+    return result.number()[kNumWords] != (is_negative() ? ~UnsignedWord{0} : 0);
+  }
+  // MultiplyOverflow(const FixedInt&) is much less efficient than
+  // operator*=(const FixedInt&) and MultiplyOverflow(Word).
+  bool MultiplyOverflow(const FixedInt& rh) {
+    bool result_non_positive = is_negative() != rh.is_negative();
+    if (ABSL_PREDICT_FALSE(is_negative())) {
+      *this = -(*this);
     }
-    negate();
-    rep_ /= x;
-    negate();
-    return *this;
+    bool overflow = rep_.MultiplyOverflow(SafeAbs(rh));
+    if (ABSL_PREDICT_FALSE(result_non_positive)) {
+      *this = -(*this);
+    }
+    return overflow ||
+           (result_non_positive != is_negative() && rep_.NonZeroLength() != 0);
   }
 
-  FixedInt& operator/=(const FixedInt& x) {
+  template <int32_t divisor>
+  void DivMod(std::integral_constant<int32_t, divisor> x, FixedInt* quotient,
+              int32_t* remainder) const {
     bool neg = is_negative();
-    bool x_neg = x.is_negative();
-    // Must make a copy even if x_neg is false, in case &x == this.
-    const FixedInt abs_x = x_neg ? -x : x;
-    if (neg) {
-      negate();
+    bool divisor_negative = divisor < 0;
+    const FixedInt& divident_abs = ABSL_PREDICT_TRUE(!neg) ? *this : -(*this);
+    uint32_t r = fixed_int_internal::ShortDivModConstant<kNumWords>(
+        divident_abs.rep_.number_, SafeAbs(x),
+        quotient != nullptr ? &quotient->rep_.number_ : nullptr);
+    if (ABSL_PREDICT_FALSE(neg != divisor_negative) && quotient != nullptr) {
+      *quotient = -(*quotient);
     }
-    rep_ /= abs_x.rep_;
-    if (neg != x_neg) {
-      negate();
+    if (remainder != nullptr) {
+      *remainder = ABSL_PREDICT_FALSE(neg) ? -r : r;
     }
-    return *this;
+  }
+  void DivMod(Word x, FixedInt* quotient, Word* remainder) const {
+    bool neg = is_negative();
+    bool divisor_negative = x < 0;
+    const FixedInt& divident_abs = ABSL_PREDICT_TRUE(!neg) ? *this : -(*this);
+    UnsignedWord r = fixed_int_internal::ShortDivMod<UnsignedWord, kNumWords>(
+        divident_abs.rep_.number_, SafeAbs(x),
+        quotient != nullptr ? &quotient->rep_.number_ : nullptr);
+    if (ABSL_PREDICT_FALSE(neg != divisor_negative) && quotient != nullptr) {
+      *quotient = -(*quotient);
+    }
+    if (remainder != nullptr) {
+      *remainder = ABSL_PREDICT_FALSE(neg) ? -r : r;
+    }
+  }
+  void DivMod(const FixedInt& divisor, FixedInt* quotient,
+              FixedInt* remainder) const {
+    bool neg = is_negative();
+    bool divisor_negative = divisor.is_negative();
+    const FixedInt& divident_abs = ABSL_PREDICT_TRUE(!neg) ? *this : -(*this);
+    const FixedInt& divisor_abs =
+        ABSL_PREDICT_TRUE(!divisor_negative) ? divisor : -divisor;
+    fixed_int_internal::DivMod<kNumWords>(
+        divident_abs.rep_.number_, divisor_abs.rep_.number_,
+        quotient != nullptr ? &quotient->rep_.number_ : nullptr,
+        remainder != nullptr ? &remainder->rep_.number_ : nullptr);
+    if (ABSL_PREDICT_FALSE(neg != divisor_negative) && quotient != nullptr &&
+        quotient != remainder) {
+      *quotient = -(*quotient);
+    }
+    if (ABSL_PREDICT_FALSE(neg) && remainder != nullptr) {
+      *remainder = -(*remainder);
+    }
+  }
+
+  template <uint32_t divisor>
+  FixedInt& operator/=(std::integral_constant<uint32_t, divisor> x) {
+    return InternalDivMod<DivOp, true>(x);
+  }
+  template <int32_t divisor>
+  FixedInt& operator/=(std::integral_constant<int32_t, divisor> x) {
+    return InternalDivMod<DivOp, true>(x);
+  }
+  FixedInt& operator/=(UnsignedWord x) {
+    return InternalDivMod<DivOp, true>(x);
+  }
+  FixedInt& operator/=(Word x) { return InternalDivMod<DivOp, true>(x); }
+  FixedInt& operator/=(const FixedInt& x) {
+    return InternalDivMod<DivOp, true>(x);
+  }
+
+  template <uint32_t divisor>
+  FixedInt& DivAndRoundAwayFromZero(std::integral_constant<uint32_t, divisor> x) {
+    return InternalDivMod<DivRoundOp, true>(x);
+  }
+  template <int32_t divisor>
+  FixedInt& DivAndRoundAwayFromZero(std::integral_constant<int32_t, divisor> x) {
+    return InternalDivMod<DivRoundOp, true>(x);
+  }
+  FixedInt& DivAndRoundAwayFromZero(UnsignedWord x) {
+    return InternalDivMod<DivRoundOp, true>(x);
+  }
+  FixedInt& DivAndRoundAwayFromZero(Word x) {
+    return InternalDivMod<DivRoundOp, true>(x);
+  }
+  FixedInt& DivAndRoundAwayFromZero(const FixedInt& x) {
+    return InternalDivMod<DivRoundOp, true>(x);
+  }
+
+  template <int32_t divisor>
+  FixedInt& operator%=(std::integral_constant<int32_t, divisor> x) {
+    return InternalDivMod<ModOp, false>(x);
+  }
+  template <uint32_t divisor>
+  FixedInt& operator%=(std::integral_constant<uint32_t, divisor> x) {
+    return InternalDivMod<ModOp, false>(x);
+  }
+  FixedInt& operator%=(UnsignedWord x) {
+    return InternalDivMod<ModOp, false>(x);
+  }
+  FixedInt& operator%=(Word x) { return InternalDivMod<ModOp, false>(x); }
+  FixedInt& operator%=(const FixedInt& x) {
+    return InternalDivMod<ModOp, false>(x);
   }
 
   bool is_negative() const {
-    return static_cast<std::make_signed_t<Word>>(*rep_.number().rbegin()) < 0;
+    return static_cast<Word>(*rep_.number().rbegin()) < 0;
   }
-  void negate() {
-    for (Word& w : rep_.number_) {
-      w = ~w;
-    }
-    rep_ += 1;
+  FixedInt operator-() const { return FixedInt() -= *this; }
+  constexpr const std::array<UnsignedWord, kNumWords>& number() const {
+    return rep_.number_;
   }
-  FixedInt operator-() const {
-    FixedInt res = *this;
-    res.negate();
-    return res;
-  }
-  const std::array<Word, kNumWords>& number() const { return rep_.number_; }
 
   // Serializes to minimum number of bytes needed to represent the number,
-  // using two's complement
-  std::string SerializeToBytes() const {
-    std::string out;
-
-    FixedInt<kNumBitsPerWord, kNumWords> little_endian(
-        fixed_int_internal::toLittleEndian<kNumBitsPerWord, kNumWords>(
-            number()));
-
-    const FixedInt<kNumBitsPerWord, kNumWords>& abs_val =
-        is_negative() ? -*this : *this;
-
-    int non_zero_bit_idx = abs_val.rep_.FindMSBSetNonZero();
-    int non_zero_byte_idx = non_zero_bit_idx / 8;
-    const char* little_endian_byte_ptr =
-        reinterpret_cast<const char*>(little_endian.number().data());
-    int copy_size = non_zero_byte_idx + 1;
-    // Sign extend the byte representation when the original non zero byte
-    // differs from one before it, i.e. if we have 0x..ff7f.. we want to copy
-    // out 0xff7f.. not 0x7f to ensure we distinguish between negative and non
-    // negatives.
-    if (copy_size < sizeof(*this) &&
-        ((little_endian_byte_ptr[copy_size] ^
-          little_endian_byte_ptr[non_zero_byte_idx]) &
-         '\x80') != 0) {
-      ++copy_size;
-    }
-    out.resize(copy_size);
-    memcpy(&out[0], little_endian.number().data(), copy_size);
-
-    return out;
+  // using two's complement. The result is appended to *out.
+  void SerializeToBytes(std::string* out) const {
+    fixed_int_internal::Serialize<true>(
+        number(), is_negative() ? '\xff' : '\0', out);
   }
 
   // Deserializes the output of Serialize() from a FixedInt (not FixedUint) with
   // the same template arguments. If the input is valid, false is returned and
   // this instance is unchanged.
   ABSL_MUST_USE_RESULT bool DeserializeFromBytes(absl::string_view bytes) {
-    return fixed_int_internal::Deserialize<kNumBitsPerWord, kNumWords, true>(
-        bytes, &rep_.number_);
+    return fixed_int_internal::Deserialize<true>(bytes, &rep_.number_);
+  }
+
+  // Convert the FixedInt to a readable string form.
+  std::string ToString() const {
+    std::string result;
+    AppendToString(&result);
+    return result;
+  }
+
+  void AppendToString(std::string* result) const {
+    if (ABSL_PREDICT_TRUE(!is_negative())) {
+      rep_.AppendToString(result);
+      return;
+    }
+    result->push_back('-');
+    (-(*this)).rep_.AppendToString(result);
+  }
+
+  // Parse string representation of a signed decimal integer with digits only
+  // except the minus sign at the front, and write the number into the
+  // FixedInt.
+  bool ParseFromStringStrict(absl::string_view str);
+
+  template <typename H>
+  friend H AbslHashValue(H h,
+                         const FixedInt<kNumBitsPerWord, kNumWords>& value) {
+    return H::combine(std::move(h), value.rep_);
   }
 
  private:
+  struct DivOp {
+    template <typename T>
+    void operator()(FixedInt& divident, const T& divisor) const {
+      divident.rep_ /= divisor;
+    }
+  };
+  struct DivRoundOp {
+    template <typename T>
+    void operator()(FixedInt& divident, const T& divisor) const {
+      // Highest value of rep_ is 0x8000...; the addition never overflows.
+      divident.rep_ += (divisor >> 1);
+      divident.rep_ /= divisor;
+    }
+    void operator()(
+        FixedInt& divident,
+        const FixedUint<kNumBitsPerWord, kNumWords>& divisor) const {
+      FixedUint<kNumBitsPerWord, kNumWords> tmp = divisor;
+      tmp >>= 1;
+      // Highest value of rep_ is 0x8000...; the addition never overflows.
+      divident.rep_ += tmp;
+      divident.rep_ /= divisor;
+    }
+  };
+  struct ModOp {
+    template <typename T>
+    void operator()(FixedInt& divident, const T& divisor) const {
+      divident.rep_ %= divisor;
+    }
+  };
+
+  template <typename Op, bool use_divisor_sign, typename T>
+  inline FixedInt& InternalDivMod(const T& divisor) {
+    bool neg = is_negative();
+    bool should_negate_again =
+        neg != (use_divisor_sign && internal_is_negative(divisor));
+    auto abs_divisor = SafeAbs(divisor);
+    if (ABSL_PREDICT_FALSE(neg)) {
+      *this = -(*this);
+    }
+    Op()(*this, abs_divisor);
+    if (ABSL_PREDICT_FALSE(should_negate_again)) {
+      *this = -(*this);
+    }
+    return *this;
+  }
+
+  template <typename V>
+  static bool internal_is_negative(V x) {
+    return x < 0;
+  }
+  static bool internal_is_negative(const FixedInt& x) {
+    return x.is_negative();
+  }
+  static FixedUint<kNumBitsPerWord, kNumWords> SafeAbs(const FixedInt& x) {
+    return ABSL_PREDICT_FALSE(x.is_negative()) ? (-x).rep_ : x.rep_;
+  }
+  static UnsignedWord SafeAbs(Word x) {
+    return fixed_int_internal::SafeAbs<Word>(x);
+  }
+  static UnsignedWord SafeAbs(UnsignedWord x) { return x; }
+  template <int32_t v>
+  static std::integral_constant<uint32_t, fixed_int_internal::SafeAbs(v)> SafeAbs(
+      std::integral_constant<int32_t, v> x) {
+    return std::integral_constant<uint32_t, fixed_int_internal::SafeAbs(v)>();
+  }
+  template <uint32_t v>
+  static std::integral_constant<uint32_t, v> SafeAbs(
+      std::integral_constant<uint32_t, v> x) {
+    return x;
+  }
+
   FixedUint<kNumBitsPerWord, kNumWords> rep_;
 };
 
@@ -1128,18 +1105,60 @@ inline FixedUint<k, n1 + n2> ExtendAndMultiply(const FixedUint<k, n1>& lh,
 }
 
 // Equivalent to FixedInt<k, n1 + n2>(x) *= FixedInt<k, n1 + n2>(y)
-// except that this method is typically 30% faster than the above code.
+// except that this method is typically 50-60% faster than the above code.
 // This method never overflows.
 template <int k, int n1, int n2>
 inline FixedInt<k, n1 + n2> ExtendAndMultiply(const FixedInt<k, n1>& lh,
                                               const FixedInt<k, n2>& rh) {
-  bool lh_is_negative = lh.is_negative();
-  bool rh_is_negative = rh.is_negative();
-  const FixedInt<k, n1>& lh_abs = !lh_is_negative ? lh : -lh;
-  const FixedInt<k, n2>& rh_abs = !rh_is_negative ? rh : -rh;
-  FixedInt<k, n1 + n2> res(fixed_int_internal::ExtendAndMultiply<k, n1, n2>(
-      lh_abs.number(), rh_abs.number()));
-  return lh_is_negative == rh_is_negative ? res : -res;
+  auto result = fixed_int_internal::ExtendAndMultiply<k, n1, n2>(
+      lh.number(), rh.number());
+  // Let b = 2 ^ k, L = lh.number() (treated as an unsigned integer) and
+  // R = rh.number() (treated as an unsigned integer).
+  // 1) If lh < 0 and rh > 0, then lh = L - b ^ n1 and rh = R;
+  //    lh * rh = L * R - R * b ^ n1 = result - R * b ^ n1;
+  //    we should subtract R * b ^ n1 from <result>.
+  // 2) Similarly, if lh > 0 and rh < 0, then we should subtract L * b ^ n2 from
+  //    <result>.
+  // 3) If lh < 0 and rh < 0, then
+  //    lh * rh = (L - b ^ n1) * (R - b ^ n2)
+  //            = L * R - R * b ^ n1 - L * b ^ n2 + b ^ (n1 + n2);
+  //    b ^ (n1 + n2) can be ignored because result has only n1 + n2 words.
+  //    We should subtract both R * b ^ n1 and L * b ^ n2.
+  if (ABSL_PREDICT_FALSE(lh.is_negative())) {
+    fixed_int_internal::SubtractWithVariableSize(result.data() + n1,
+                                                 rh.number().data(), n2);
+  }
+  if (ABSL_PREDICT_FALSE(rh.is_negative())) {
+    fixed_int_internal::SubtractWithVariableSize(result.data() + n2,
+                                                 lh.number().data(), n1);
+  }
+  return FixedInt<k, n1 + n2>(result);
+}
+
+template <int kNumBitsPerWord, int kNumWords>
+bool FixedInt<kNumBitsPerWord, kNumWords>::ParseFromStringStrict(
+    absl::string_view str) {
+  if (ABSL_PREDICT_FALSE(str.empty())) {
+    return false;
+  }
+  bool is_string_negative = false;
+  if (str.at(0) == '-') {
+    is_string_negative = true;
+    str.remove_prefix(1);
+  }
+  FixedUint<kNumBitsPerWord, kNumWords> abs;
+  if (ABSL_PREDICT_FALSE(!abs.ParseFromStringStrict(str))) {
+    return false;
+  }
+  *this = FixedInt(abs.number());
+  if (is_string_negative) {
+    *this = -(*this);
+  }
+  // Overflow when converting to signed fixed int
+  if (ABSL_PREDICT_FALSE(is_negative() != is_string_negative)) {
+    return false;
+  }
+  return true;
 }
 
 }  // namespace zetasql

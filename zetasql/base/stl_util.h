@@ -381,6 +381,39 @@ bool SortedContainersHaveIntersection(const In1& in1, const In2& in2) {
       in1, in2, zetasql_base::stl_util_internal::TransparentLess());
 }
 
+namespace stl_util_internal {
+
+// Is a subclass of true_type or false_type, depending on whether or not
+// T has a __resize_default_init member.
+template <typename string_type, typename = void>
+struct ResizeUninitializedTraits {
+  using HasMember = std::false_type;
+  static void Resize(string_type* s, size_t new_size) { s->resize(new_size); }
+};
+
+// __resize_default_init is provided by libc++ >= 8.0
+template <typename string_type>
+struct ResizeUninitializedTraits<
+    string_type, std::void_t<decltype(std::declval<string_type&>()
+                                          .__resize_default_init(237))> > {
+  using HasMember = std::true_type;
+  static void Resize(string_type* s, size_t new_size) {
+    s->__resize_default_init(new_size);
+  }
+};
+
+}  // namespace stl_util_internal
+
+// Like str->resize(new_size), except any new characters added to "*str" as a
+// result of resizing may be left uninitialized, rather than being filled with
+// '0' bytes. Typically used when code is then going to overwrite the backing
+// store of the std::string with known data.
+template <typename string_type, typename = void>
+inline void STLStringResizeUninitialized(string_type* s, size_t new_size) {
+  stl_util_internal::ResizeUninitializedTraits<string_type>::Resize(s,
+                                                                    new_size);
+}
+
 }  // namespace zetasql_base
 
 #endif  // THIRD_PARTY_ZETASQL_ZETASQL_BASE_STL_UTIL_H_

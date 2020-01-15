@@ -74,8 +74,8 @@ Status StatusWithPayload(StatusCode code, const std::string& msg,
   return s;
 }
 
-Status StatusWithPayload(StatusCode code, const std::string& msg, const std::string& str1,
-                         const std::string& str2) {
+Status StatusWithPayload(StatusCode code, const std::string& msg,
+                         const std::string& str1, const std::string& str2) {
   Status s(code, msg);
   SetTestPayload(str1, &s);
   SetTestPayload(str2, &s);
@@ -235,7 +235,8 @@ TEST(CanonicalErrorsTest, CreateAndClassify) {
 
     // Ensure that the creator does, in fact, create status objects in the
     // canonical space, with the expected error code and message.
-    std::string message = absl::StrCat("error code ", test.code, " test message");
+    std::string message =
+        absl::StrCat("error code ", test.code, " test message");
     Status status = test.creator(ZETASQL_LOC) << message;
     EXPECT_EQ(test.code, status.code());
     EXPECT_EQ(message, status.message());

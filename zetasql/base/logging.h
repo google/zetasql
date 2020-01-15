@@ -133,7 +133,7 @@ class CheckOpMessageBuilder {
   // Constructs an object to format a CheckOp message. This constructor
   // initializes the message first with exprtext followed by " (".
   //
-  // exprtext A std::string representation of the code in file at line.
+  // exprtext A string representation of the code in file at line.
   explicit CheckOpMessageBuilder(const char *exprtext);
   // Deletes "stream_".
   ~CheckOpMessageBuilder();
@@ -142,7 +142,7 @@ class CheckOpMessageBuilder {
   // Gets the output stream for writing the argument of the message. This
   // writes " vs. " to the stream first.
   std::ostream *ForVar2();
-  // Gets the built std::string contents. The stream is finished with an added ")".
+  // Gets the built string contents. The stream is finished with an added ")".
   std::string *NewString();
 
  private:
@@ -150,7 +150,8 @@ class CheckOpMessageBuilder {
 };
 
 template <typename T1, typename T2>
-std::string *MakeCheckOpString(const T1 &v1, const T2 &v2, const char *exprtext) {
+std::string *MakeCheckOpString(const T1 &v1, const T2 &v2,
+                               const char *exprtext) {
   CheckOpMessageBuilder comb(exprtext);
   MakeCheckOpValueString(comb.ForVar1(), v1);
   MakeCheckOpValueString(comb.ForVar2(), v2);
@@ -165,15 +166,15 @@ std::string *MakeCheckOpString(const T1 &v1, const T2 &v2, const char *exprtext)
 // name: an identifier that is the name of the comparison, such as
 //       Check_EQ or Check_NE.
 // op: the comparison operator, such as == or !=.
-#define DEFINE_CHECK_OP_IMPL(name, op)                              \
-  template <typename T1, typename T2>                               \
+#define DEFINE_CHECK_OP_IMPL(name, op)                                   \
+  template <typename T1, typename T2>                                    \
   inline std::string *name##Impl(const T1 &v1, const T2 &v2,             \
-                            const char *exprtext) {                 \
-    if (v1 op v2) return nullptr;                                   \
-    return MakeCheckOpString(v1, v2, exprtext);                     \
-  }                                                                 \
+                                 const char *exprtext) {                 \
+    if (v1 op v2) return nullptr;                                        \
+    return MakeCheckOpString(v1, v2, exprtext);                          \
+  }                                                                      \
   inline std::string *name##Impl(int v1, int v2, const char *exprtext) { \
-    return name##Impl<int, int>(v1, v2, exprtext);                  \
+    return name##Impl<int, int>(v1, v2, exprtext);                       \
   }
 
 // We use the full name Check_EQ, Check_NE, etc.
@@ -225,14 +226,15 @@ inline unsigned long long GetReferenceableValue(unsigned long long t) {
 // op: comparison operator, such as == or !=.
 // val1: first variable to be compared.
 // val2: second variable to be compared.
-#define ZETASQL_INTERNAL_CHECK_OP(name, op, val1, val2)         \
-while (std::unique_ptr<std::string> _result = std::unique_ptr<std::string>( \
-      ::zetasql_base::name##Impl(                               \
-          ::zetasql_base::GetReferenceableValue(val1),          \
-          ::zetasql_base::GetReferenceableValue(val2),          \
-          #val1 " " #op " " #val2)))                              \
-  ::zetasql_base::logging_internal::LogMessageFatal(            \
-      __FILE__, __LINE__, *_result).stream()
+#define ZETASQL_INTERNAL_CHECK_OP(name, op, val1, val2)                 \
+  while (std::unique_ptr<std::string> _result =                         \
+             std::unique_ptr<std::string>(::zetasql_base::name##Impl(   \
+                 ::zetasql_base::GetReferenceableValue(val1),           \
+                 ::zetasql_base::GetReferenceableValue(val2),           \
+                 #val1 " " #op " " #val2)))                             \
+  ::zetasql_base::logging_internal::LogMessageFatal(__FILE__, __LINE__, \
+                                                    *_result)           \
+      .stream()
 
 // Produces a LOG(FATAL) unless val1 equals val2.
 #define CHECK_EQ(val1, val2) \
@@ -320,7 +322,7 @@ class LogMessage {
   LogMessage(const LogMessage &) = delete;
   void operator=(const LogMessage &) = delete;
 
-  // Gets a reference to the underlying std::string stream.
+  // Gets a reference to the underlying string stream.
   std::ostream &stream() { return stream_; }
 
  protected:
@@ -333,7 +335,7 @@ class LogMessage {
   void SendToLog(const std::string &message_text);
 
   // stream_ reads all the input messages into a stringstream, then it's
-  // converted into a std::string in the destructor for printing.
+  // converted into a string in the destructor for printing.
   std::ostringstream stream_;
   const absl::LogSeverity severity_;
 };

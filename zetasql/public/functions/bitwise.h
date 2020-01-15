@@ -18,18 +18,18 @@
 // are defined:
 //
 //   bool BitwiseNot(T in1, T* out, zetasql_base::Status* error);
-//   bool BitwiseNotBytes(absl::string_view in, std::string* out,
+//   bool BitwiseNotBytes(absl::string_view in, string* out,
 //                        zetasql_base::Status* error);
 //   bool BitwiseOr(T in1, T in2, T* out, zetasql_base::Status* error);
 //   bool BitwiseXor(T in1, T in2, T* out, zetasql_base::Status* error);
 //   bool BitwiseAnd(T in1, T in2, T* out, zetasql_base::Status* error);
 //   bool BitwiseBinaryOpBytes(absl::string_view in1, absl::string_view in2,
-//                             std::string* out, zetasql_base::Status* error);
+//                             string* out, zetasql_base::Status* error);
 //   bool BitwiseLeftShift(T in1, int64_t in2, T* out, zetasql_base::Status* error);
-//   bool BitwiseLeftShiftBytes(absl::string_view in1, int64_t in2, std::string* out,
+//   bool BitwiseLeftShiftBytes(absl::string_view in1, int64_t in2, string* out,
 //                              zetasql_base::Status* error);
 //   bool BitwiseRightShift(T in1, int64_t in2, T* out, zetasql_base::Status* error);
-//   bool BitwiseRightShiftBytes(absl::string_view in1, int64_t in2, std::string* out,
+//   bool BitwiseRightShiftBytes(absl::string_view in1, int64_t in2, string* out,
 //                               zetasql_base::Status* error);
 //   int64_t BitCount(T in);
 //

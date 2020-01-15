@@ -75,11 +75,11 @@ void AttachPayload(zetasql_base::Status* status, const T& payload) {
   zetasql_base::AttachPayload<T>(status, payload);
 }
 
-// Creates a human readable std::string from the status payload (or empty if there
+// Creates a human readable string from the status payload (or empty if there
 // is no payload). Exact form is not defined.
 std::string PayloadToString(const zetasql_base::Status& status);
 
-// Creates a human readable std::string from the status, including its payload.
+// Creates a human readable string from the status, including its payload.
 // Exact form is not defined.
 std::string StatusToString(const zetasql_base::Status& status);
 

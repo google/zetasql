@@ -110,7 +110,7 @@ class LanguageOptions {
     return enabled_language_features_;
   }
 
-  // Returns a comma-separated std::string listing enabled LanguageFeatures.
+  // Returns a comma-separated string listing enabled LanguageFeatures.
   std::string GetEnabledLanguageFeaturesAsString() const;
   static std::string ToString(const std::set<LanguageFeature>& features);
 

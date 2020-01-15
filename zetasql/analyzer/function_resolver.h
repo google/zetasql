@@ -129,7 +129,7 @@ class FunctionResolver {
 
   // Returns a new error message reporting a failure parsing or analyzing the
   // SQL body. If 'message' is not empty, appends it to the end of the error
-  // std::string.
+  // string.
   static zetasql_base::Status MakeFunctionExprAnalysisError(
       const TemplatedSQLFunction& function, const std::string& message = "");
 

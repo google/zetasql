@@ -55,11 +55,11 @@ std::vector<LikeMatchTestParams> LikeMatchTestCases() {
     { "_", "\n", TYPE_STRING, true },
     { "_", "\r", TYPE_STRING, true },
 
-    // The pattern is not a valid UTF-8 std::string, so the regexp fails to compile
+    // The pattern is not a valid UTF-8 string, so the regexp fails to compile
     // with TYPE_STRING, but should still work with TYPE_BYTES.
     { "\xC2", "\xC2", TYPE_BYTES, true },
 
-    // Now the std::string itself is not valid UTF-8. Should fail
+    // Now the string itself is not valid UTF-8. Should fail
     // in TYPE_STRING mode.
     { "_", "\xC2", TYPE_STRING, false },
     { "_", "\xC2", TYPE_BYTES, true },
@@ -77,7 +77,7 @@ std::vector<LikeMatchTestParams> LikeMatchTestCases() {
     { "\\%\\_", "%_", TYPE_BYTES, true },
     { "\\%\\_", "ab", TYPE_BYTES, false },
 
-    // '%' should match any std::string
+    // '%' should match any string
     { "%", "", TYPE_STRING, true },
     { "%", "abc", TYPE_STRING, true },
     { "%", "фюы", TYPE_STRING, true },
@@ -110,7 +110,7 @@ TEST_P(LikeMatchTest, MatchTest) {
 
   std::unique_ptr<RE2> re;
 
-  SCOPED_TRACE(absl::Substitute("Matching pattern \"$0\" with std::string \"$1\"",
+  SCOPED_TRACE(absl::Substitute("Matching pattern \"$0\" with string \"$1\"",
                                 params.pattern, params.input));
   zetasql_base::Status status = CreateLikeRegexp(params.pattern, params.type, &re);
   ASSERT_TRUE(status.ok()) << status;

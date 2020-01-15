@@ -356,6 +356,9 @@ void Unparser::visitASTTVFArgument(const ASTTVFArgument* node, void* data) {
   if (node->connection_clause() != nullptr) {
     node->connection_clause()->Accept(this, data);
   }
+  if (node->descriptor() != nullptr) {
+    node->descriptor()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTTVFSchema(const ASTTVFSchema* node, void* data) {
@@ -541,6 +544,9 @@ void Unparser::visitASTHiddenColumnAttribute(
 void Unparser::visitASTPrimaryKeyColumnAttribute(
     const ASTPrimaryKeyColumnAttribute* node, void* data) {
   print("PRIMARY KEY");
+  if (!node->enforced()) {
+    print("NOT ENFORCED");
+  }
 }
 
 void Unparser::visitASTForeignKeyColumnAttribute(
@@ -724,6 +730,22 @@ void Unparser::visitASTDescribeStatement(const ASTDescribeStatement* node,
     print("FROM");
     node->optional_from_name()->Accept(this, data);
   }
+}
+
+void Unparser::visitASTDescriptorColumn(const ASTDescriptorColumn* node,
+                                        void* data) {
+  node->name()->Accept(this, data);
+}
+
+void Unparser::visitASTDescriptorColumnList(const ASTDescriptorColumnList* node,
+                                            void* data) {
+  UnparseChildrenWithSeparator(node, data, ", ");
+}
+
+void Unparser::visitASTDescriptor(const ASTDescriptor* node, void* data) {
+  print("DESCRIPTOR(");
+  node->columns()->Accept(this, data);
+  print(")");
 }
 
 void Unparser::visitASTShowStatement(const ASTShowStatement* node, void* data) {
@@ -2116,6 +2138,9 @@ void Unparser::visitASTPrimaryKey(const ASTPrimaryKey* node, void* data) {
     print("()");
   } else {
     node->column_list()->Accept(this, data);
+  }
+  if (!node->enforced()) {
+    print("NOT ENFORCED");
   }
   if (node->options_list() != nullptr) {
     print("OPTIONS");

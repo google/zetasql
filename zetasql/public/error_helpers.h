@@ -41,13 +41,14 @@ std::string FormatErrorLocation(const ErrorLocation& location);
 // information is appended based on <mode> (with ErrorSources separated by
 // a newline for WITH_CARET mode, or '; ' for ONE_LINE mode).
 std::string FormatErrorLocation(const ErrorLocation& location,
-                           absl::string_view input_text, ErrorMessageMode mode);
+                                absl::string_view input_text,
+                                ErrorMessageMode mode);
 
 // Format an ErrorSource payload.
-// If the <mode> is ERROR_MESSAGE_WITH_PAYLOAD then returns an empty std::string.
+// If the <mode> is ERROR_MESSAGE_WITH_PAYLOAD then returns an empty string.
 // Otherwise formats the ErrorSource based on <mode>.
 std::string FormatErrorSource(const ErrorSource& error_source,
-                         ErrorMessageMode mode);
+                              ErrorMessageMode mode);
 
 // Format an error message.  If this looks like a zetasql error, format it as
 // "message [at <ErrorLocation>] [<ErrorSource>, ...]" (effectively
@@ -66,17 +67,17 @@ bool GetErrorLocation(const zetasql_base::Status& status, ErrorLocation* locatio
 // Mutate <*status> by removing any attached zetasql::ErrorLocation payload.
 void ClearErrorLocation(zetasql_base::Status* status);
 
-// Returns a two-line std::string pointing at the error location in <input>.
+// Returns a two-line string pointing at the error location in <input>.
 // The first line will be substring of up to <max_width> characters from the
 // line of <input> with the error, using "..." to indicate truncation.
 // The second line will have spaces and a caret ("^") pointing at the error.
 // <location> must point to a character inside the <input>.
 // Tabs are expanded using spaces, assuming a tab width of eight.
 std::string GetErrorStringWithCaret(absl::string_view input,
-                               const ErrorLocation& location,
-                               int max_width_in = 80);
+                                    const ErrorLocation& location,
+                                    int max_width_in = 80);
 
-// Possibly updates the <status> error std::string based on <input_text> and <mode>.
+// Possibly updates the <status> error string based on <input_text> and <mode>.
 //
 // For OK status or <mode> ERROR_MESSAGE_WITH_PAYLOAD, simply returns <status>
 // (the call is a no-op).

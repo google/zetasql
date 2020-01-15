@@ -93,13 +93,13 @@ const CastHashMap& GetZetaSQLCasts();
 // by ZetaSQL, and conforming implementations are allowed to perform some
 // validation.
 //
-// Casting behavior between std::string/date and timestamp uses a time zone for
+// Casting behavior between string/date and timestamp uses a time zone for
 // the conversion, defined as follows:
-//   1) Timestamp to std::string/date
+//   1) Timestamp to string/date
 //      The timestamp is interpreted as of the <default_timezone>
-//      when producing the std::string/date.
+//      when producing the string/date.
 //   2) String to Timestamp
-//      If the timezone is present in the std::string then it is used, otherwise
+//      If the timezone is present in the string then it is used, otherwise
 //      the <default_timezone> is used.
 //   3) Date to Timestamp
 //      The date is interpreted as of midnight in the <default_timezone>.

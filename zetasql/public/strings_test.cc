@@ -39,9 +39,9 @@ using zetasql_base::testing::StatusIs;
 
 #define EXPECT_SUBSTRING(needle, haystack)                                \
   do {                                                                    \
-    const std::string tmp_needle = (needle);                                  \
-    const std::string tmp_haystack = (haystack);                              \
-    EXPECT_TRUE(std::string::npos != tmp_haystack.find(tmp_needle))            \
+    const std::string tmp_needle = (needle);                              \
+    const std::string tmp_haystack = (haystack);                          \
+    EXPECT_TRUE(std::string::npos != tmp_haystack.find(tmp_needle))       \
         << "Couldn't find \"" << tmp_needle << "\" in \"" << tmp_haystack \
         << "\"";                                                          \
   } while (0)
@@ -64,9 +64,10 @@ static void TestIdentifier(const std::string& orig) {
   EXPECT_EQ(orig, unquoted) << "quoted: " << quoted;
 }
 
-// <quoted> takes a std::string literal of the form '...', r'...', "..." or r"...".
+// <quoted> takes a string literal of the form '...', r'...', "..." or r"...".
 // <unquoted> is the expected parsed form of <quoted>.
-static void TestQuotedString(const std::string& unquoted, const std::string& quoted) {
+static void TestQuotedString(const std::string& unquoted,
+                             const std::string& quoted) {
   std::string actual_unquoted, error;
   int error_offset;
   ZETASQL_EXPECT_OK(ParseStringLiteral(quoted, &actual_unquoted, &error, &error_offset))
@@ -83,7 +84,8 @@ static void TestString(const std::string& unquoted) {
 }
 
 static void TestRawString(const std::string& unquoted) {
-  const std::string quote = (unquoted.find("'") == std::string::npos) ? "'" : "\"";
+  const std::string quote =
+      (unquoted.find("'") == std::string::npos) ? "'" : "\"";
   TestQuotedString(unquoted, absl::StrCat("r", quote, unquoted, quote));
   TestQuotedString(unquoted, absl::StrCat("r\"", unquoted, "\""));
   TestQuotedString(unquoted, absl::StrCat("r'''", unquoted, "'''"));
@@ -91,17 +93,19 @@ static void TestRawString(const std::string& unquoted) {
 }
 
 // <quoted> is the quoted version of <unquoted> and represents the original
-// std::string mentioned in the test case.
+// string mentioned in the test case.
 // This method compares the unescaped <unquoted> against its round trip version
 // i.e. after carrying out escaping followed by unescaping on it.
-static void TestBytesEscaping(const std::string& unquoted, const std::string& quoted) {
+static void TestBytesEscaping(const std::string& unquoted,
+                              const std::string& quoted) {
   std::string unescaped;
   ZETASQL_EXPECT_OK(UnescapeBytes(unquoted, &unescaped)) << quoted;
   const std::string escaped = EscapeBytes(unescaped);
   std::string unescaped2;
   ZETASQL_EXPECT_OK(UnescapeBytes(escaped, &unescaped2));
   EXPECT_EQ(unescaped, unescaped2);
-  const std::string escaped2 = EscapeBytes(unescaped, true /* escape_all_bytes */);
+  const std::string escaped2 =
+      EscapeBytes(unescaped, true /* escape_all_bytes */);
   std::string unescaped3;
   ZETASQL_EXPECT_OK(UnescapeBytes(escaped2, &unescaped3));
   EXPECT_EQ(unescaped, unescaped3);
@@ -153,13 +157,14 @@ static void TestQuotedRawBytesLiteral(const std::string& unquoted,
   EXPECT_EQ(unquoted, actual_unquoted) << "quoted: " << quoted;
 }
 
-// <unquoted> takes a std::string of not escaped unquoted bytes.
+// <unquoted> takes a string of not escaped unquoted bytes.
 static void TestUnescapedBytes(const std::string& unquoted) {
   TestBytesLiteral(ToBytesLiteral(unquoted));
 }
 
 static void TestRawBytes(const std::string& unquoted) {
-  const std::string quote = (unquoted.find("'") == std::string::npos) ? "'" : "\"";
+  const std::string quote =
+      (unquoted.find("'") == std::string::npos) ? "'" : "\"";
   TestQuotedRawBytesLiteral(unquoted,
                             absl::StrCat("rb", quote, unquoted, quote));
   TestQuotedRawBytesLiteral(unquoted,
@@ -199,7 +204,8 @@ static void TestValue(const std::string& orig) {
 // <expected_error_offset> and an error that contains substring
 // <expected_error_substr>. The last arguments are optional because most
 // flat-out bad inputs are rejected without further information.
-static void TestInvalidString(const std::string& str, int expected_error_offset = 0,
+static void TestInvalidString(const std::string& str,
+                              int expected_error_offset = 0,
                               const std::string& expected_error_substr = "") {
   std::string out, error_string;
   int error_offset;
@@ -230,7 +236,8 @@ static void TestInvalidString(const std::string& str, int expected_error_offset 
 // <expected_error_offset> and an error that contains substring
 // <expected_error_substr>. The last arguments are optional because most
 // flat-out bad inputs are rejected without further information.
-static void TestInvalidBytes(const std::string& str, int expected_error_offset = 0,
+static void TestInvalidBytes(const std::string& str,
+                             int expected_error_offset = 0,
                              const std::string& expected_error_substr = "") {
   std::string out, error_string;
   int error_offset;
@@ -272,7 +279,8 @@ TEST(StringsTest, TestParsingOfAllEscapeCharacters) {
       TestParseString(absl::StrCat("'''a\\", escape_piece, "0010ffff'''"));
     } else if (absl::ascii_isdigit(escape_char)) {
       // Can also escape 0-3.
-      const std::string test_string = absl::StrCat("'a\\", escape_piece, "00b'");
+      const std::string test_string =
+          absl::StrCat("'a\\", escape_piece, "00b'");
       const std::string test_triple_quoted_string =
           absl::StrCat("'''a\\", escape_piece, "00b'''");
       if (escape_char <= '3') {
@@ -313,7 +321,8 @@ TEST(StringsTest, TestParsingOfOctalEscapes) {
     absl::string_view lead_piece(&lead_char, 1);
     absl::string_view mid_piece(&mid_char, 1);
     absl::string_view end_piece(&end_char, 1);
-    const std::string test_string = absl::StrCat(lead_piece, mid_piece, end_piece);
+    const std::string test_string =
+        absl::StrCat(lead_piece, mid_piece, end_piece);
     TestParseString(absl::StrCat("'\\", test_string, "'"));
     TestParseString(absl::StrCat("'''\\", test_string, "'''"));
     TestParseBytes(absl::StrCat("b'\\", test_string, "'"));
@@ -367,7 +376,7 @@ TEST(StringsTest, TestParsingOfHexEscapes) {
 }
 
 TEST(StringsTest, RoundTrip) {
-  // Empty std::string is valid as a std::string but not an identifier.
+  // Empty string is valid as a string but not an identifier.
   TestStringEscaping("");
   TestString("");
 
@@ -402,7 +411,7 @@ TEST(StringsTest, RoundTrip) {
   TestValue("options");
 
   // Note that control characters and other odd byte values such as \0 are
-  // allowed in std::string literals as long as they are utf8 structurally valid.
+  // allowed in string literals as long as they are utf8 structurally valid.
   TestValue("\x01\x31");
   TestValue("abc\xb\x42\141bc");
   TestValue("123\1\x31\x32\x33");
@@ -677,9 +686,9 @@ TEST(RawBytesTest, InvalidRawBytes) {
   TestInvalidBytes("rb\"xyz\"\"", 6, "String cannot contain unescaped \"");
 }
 
-static void TestInvalidIdentifier(const std::string& str,
-                                  int expected_error_offset = 0,
-                                  const std::string& expected_error_substr = "") {
+static void TestInvalidIdentifier(
+    const std::string& str, int expected_error_offset = 0,
+    const std::string& expected_error_substr = "") {
   std::string out;
   std::string error_string;
   int error_offset = 0;
@@ -984,11 +993,10 @@ TEST(StringsTest, UTF8Unescape) {
     EXPECT_EQ(u, out) << "original escaped: '" << e << "'\nunescaped: '"
                       << out << "'\nexpected unescaped: '" << u << "'";
   }
-  std::string bad[] =
-     {"\\u1",  // too short
-      "\\U1",  // too short
-      "\\Uffffff",
-      "\\777"};  // exceeds 0xff
+  std::string bad[] = {"\\u1",  // too short
+                       "\\U1",  // too short
+                       "\\Uffffff",
+                       "\\777"};  // exceeds 0xff
   for (int i = 0; i < ABSL_ARRAYSIZE(bad); ++i) {
     const std::string& e = bad[i];
     std::string out;
@@ -1107,12 +1115,10 @@ struct ParseIdentifierPathTestCase {
   std::vector<std::string> output;
   std::string error;
 
-  ParseIdentifierPathTestCase(
-      const std::string& name,
-      const std::string& input,
-      const std::vector<std::string>& output,
-      const std::string& error = "")
-          : name(name), input(input), output(output), error(error) {}
+  ParseIdentifierPathTestCase(const std::string& name, const std::string& input,
+                              const std::vector<std::string>& output,
+                              const std::string& error = "")
+      : name(name), input(input), output(output), error(error) {}
 };
 
 TEST(StringsTest, ParseIdentifierPath) {

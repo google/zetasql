@@ -397,7 +397,8 @@ zetasql_base::Status FunctionArgumentType::IsValid() const {
   return ::zetasql_base::OkStatus();
 }
 
-std::string FunctionArgumentType::UserFacingName(ProductMode product_mode) const {
+std::string FunctionArgumentType::UserFacingName(
+    ProductMode product_mode) const {
   if (type() == nullptr) {
     switch (kind()) {
       case ARG_ARRAY_TYPE_ANY_1:
@@ -446,11 +447,13 @@ std::string FunctionArgumentType::UserFacingNameWithCardinality(
 
 std::string FunctionArgumentType::DebugString(bool verbose) const {
   // Note, an argument cannot be both repeated and optional.
-  std::string cardinality(repeated() ? "repeated" : optional() ? "optional" : "");
+  std::string cardinality(repeated() ? "repeated"
+                                     : optional() ? "optional" : "");
   std::string occurrences(IsConcrete() && !required()
-                         ? absl::StrCat("(", num_occurrences_, ")")
-                         : "");
-  std::string result = absl::StrCat(cardinality, occurrences, required() ? "" : " ");
+                              ? absl::StrCat("(", num_occurrences_, ")")
+                              : "");
+  std::string result =
+      absl::StrCat(cardinality, occurrences, required() ? "" : " ");
   if (type_ != nullptr) {
     absl::StrAppend(&result, type_->DebugString());
   } else if (IsRelation() && options_->has_relation_input_schema()) {
@@ -468,10 +471,11 @@ std::string FunctionArgumentType::DebugString(bool verbose) const {
   return result;
 }
 
-std::string FunctionArgumentType::GetSQLDeclaration(ProductMode product_mode) const {
+std::string FunctionArgumentType::GetSQLDeclaration(
+    ProductMode product_mode) const {
   // We emit comments for the things that don't have a SQL syntax currently.
   std::string cardinality(repeated() ? "/*repeated*/"
-                                : optional() ? "/*optional*/" : "");
+                                     : optional() ? "/*optional*/" : "");
   std::string result = absl::StrCat(cardinality, required() ? "" : " ");
   // TODO: Consider using UserFacingName() here.
   if (type_ != nullptr) {
@@ -676,7 +680,7 @@ bool FunctionSignature::CheckArgumentConstraints(
 }
 
 std::string FunctionSignature::DebugString(const std::string& function_name,
-                                      bool verbose) const {
+                                           bool verbose) const {
   std::string result = absl::StrCat(function_name, "(");
   int first = true;
   for (const FunctionArgumentType& argument : arguments_) {
@@ -707,7 +711,8 @@ std::string FunctionSignature::SignaturesToString(
 }
 
 std::string FunctionSignature::GetSQLDeclaration(
-    const std::vector<std::string>& argument_names, ProductMode product_mode) const {
+    const std::vector<std::string>& argument_names,
+    ProductMode product_mode) const {
   std::string out = "(";
   for (int i = 0; i < arguments_.size(); ++i) {
     if (i > 0) out += ", ";

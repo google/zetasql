@@ -111,7 +111,7 @@ class AlgebrizerTestBase : public ::testing::Test {
   }
 
   void TestAlgebrizeExpression(
-      const ResolvedExpr* resolved_expr, std::string expected,
+      const ResolvedExpr* resolved_expr, const std::string& expected,
       const ColumnToVariableMapping::Map* column_to_variable_map = nullptr) {
     zetasql_base::StatusOr<std::unique_ptr<const ValueExpr>> expr =
         TestAlgebrizeExpressionInternal(resolved_expr, column_to_variable_map);
@@ -295,21 +295,15 @@ class AlgebrizerTestBase : public ::testing::Test {
   };
   // Schema for test tables on the algebra side.
   std::vector<std::pair<std::string, const Type*>> test_table_columns_{
-      {kInt32Col, Int32Type()},
-      {kUint32Col, Uint32Type()},
-      {kInt64Col, Int64Type()},
-      {kUint64Col, Uint64Type()},
-      {kStringCol, StringType()},
-      {kBoolCol, BoolType()},
+      {kInt32Col, Int32Type()},   {kUint32Col, Uint32Type()},
+      {kInt64Col, Int64Type()},   {kUint64Col, Uint64Type()},
+      {kStringCol, StringType()}, {kBoolCol, BoolType()},
       {kDoubleCol, DoubleType()},
   };
   std::vector<std::pair<std::string, const Type*>> test_table_columns2_{
-      {kInt32Col2, Int32Type()},
-      {kUint32Col2, Uint32Type()},
-      {kInt64Col2, Int64Type()},
-      {kUint64Col2, Uint64Type()},
-      {kStringCol2, StringType()},
-      {kBoolCol2, BoolType()},
+      {kInt32Col2, Int32Type()},   {kUint32Col2, Uint32Type()},
+      {kInt64Col2, Int64Type()},   {kUint64Col2, Uint64Type()},
+      {kStringCol2, StringType()}, {kBoolCol2, BoolType()},
       {kDoubleCol2, DoubleType()},
   };
   // Test tables on the Algebra side.
@@ -761,8 +755,9 @@ TEST_F(StatementAlgebrizerTest, TableSelectAll) {
 // Parameters used for selecting columns.
 struct SingleColumnSelect {
   int column_idx;  // Index of the single column to select.
-  std::string struct_string;  // Debug std::string for the struct of the selected row.
-  std::string column_string;  // Debug std::string for the column selection itself.
+  std::string
+      struct_string;  // Debug string for the struct of the selected row.
+  std::string column_string;  // Debug string for the column selection itself.
 };
 
 class AlgebrizerTestSelectColumn
@@ -1027,7 +1022,7 @@ TEST_F(ExpressionAlgebrizerTest, UnknownFunction) {
 struct FilterTest {
   FunctionSignature signature;  // Test input
   std::vector<const ResolvedExpr*> arguments;  // Test input
-  std::string filter_condition;  // Test output
+  std::string filter_condition;                // Test output
 };
 
 class AlgebrizerTestFilters : public StatementAlgebrizerTest,
@@ -1465,8 +1460,8 @@ class AlgebrizerTestGroupingAggregation
       ResolvedColumnList* output_columns) {
     // Follows the naming scheme used by the resolver assuming the aggregate
     // columns are added to the output after the grouping columns.
-    std::string output_column_name = kAggNamePrefix +
-        std::to_string(*output_column_id - first_agg_id + 1);
+    std::string output_column_name =
+        kAggNamePrefix + std::to_string(*output_column_id - first_agg_id + 1);
     ResolvedColumn output_column((*output_column_id)++, kTableName,
                                  output_column_name, result_type);
     output_columns->push_back(output_column);

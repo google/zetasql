@@ -79,8 +79,8 @@ class ProtoValueConversionTest : public ::testing::Test {
   ~ProtoValueConversionTest() override {
   }
 
-  zetasql_base::Status ParseLiteralExpression(
-      const std::string& expression_sql, Value* value_out) {
+  zetasql_base::Status ParseLiteralExpression(const std::string& expression_sql,
+                                      Value* value_out) {
     std::unique_ptr<const AnalyzerOutput> output;
     LanguageOptions language_options;
     language_options.EnableLanguageFeature(FEATURE_NUMERIC_TYPE);
@@ -139,7 +139,8 @@ class ProtoValueConversionTest : public ::testing::Test {
   }
 
   zetasql_base::StatusOr<std::unique_ptr<google::protobuf::Message>> LiteralValueToProto(
-      const std::string& expression_sql, const ConvertTypeToProtoOptions& options) {
+      const std::string& expression_sql,
+      const ConvertTypeToProtoOptions& options) {
     Value value;
     ZETASQL_RETURN_IF_ERROR(ParseLiteralExpression(expression_sql, &value));
 
@@ -348,7 +349,8 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
         ASSERT_TRUE(RoundTripTest(test_expression, options));
       }
       if (array_wrappers) {
-        for (const std::string& test_expression : nullable_array_test_expressions) {
+        for (const std::string& test_expression :
+             nullable_array_test_expressions) {
           ASSERT_TRUE(RoundTripTest(test_expression, options));
         }
       }
@@ -365,13 +367,13 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
 TEST_F(ProtoValueConversionTest, ToProtoDefaultOptions) {
   const ConvertTypeToProtoOptions default_options;
   const std::vector<std::pair<std::string, std::string>> tests = {
-    // Dates should be encoded as zetasql DATEs by default.
-    // Timestamps should be encoded as TIMESTAMP_MICROS by default.
-    { "STRUCT(CAST('1970-01-02' AS DATE) AS d)", "d: 1" },
-    { "STRUCT(CAST(NULL AS DATE) AS d)", "" },
-    { "STRUCT(CAST('1970-01-01 00:00:12.345678 UTC' AS TIMESTAMP) AS t)",
-      "t: 12345678" },
-    { "STRUCT(CAST(NULL AS TIMESTAMP) AS t)", "" },
+      // Dates should be encoded as zetasql DATEs by default.
+      // Timestamps should be encoded as TIMESTAMP_MICROS by default.
+      {"STRUCT(CAST('1970-01-02' AS DATE) AS d)", "d: 1"},
+      {"STRUCT(CAST(NULL AS DATE) AS d)", ""},
+      {"STRUCT(CAST('1970-01-01 00:00:12.345678 UTC' AS TIMESTAMP) AS t)",
+       "t: 12345678"},
+      {"STRUCT(CAST(NULL AS TIMESTAMP) AS t)", ""},
   };
 
   for (const auto& sql_proto_pair : tests) {
@@ -389,8 +391,8 @@ TEST_F(ProtoValueConversionTest, DateDecimal) {
   options.field_format_map[TYPE_DATE] = FieldFormat::DATE_DECIMAL;
 
   const std::vector<std::pair<std::string, std::string>> tests = {
-    { "STRUCT(CAST('1970-01-02' AS DATE) AS d)", "d: 19700102" },
-    { "STRUCT(CAST(NULL AS DATE) AS d)", "" },
+      {"STRUCT(CAST('1970-01-02' AS DATE) AS d)", "d: 19700102"},
+      {"STRUCT(CAST(NULL AS DATE) AS d)", ""},
   };
 
   for (const auto& sql_proto_pair : tests) {
@@ -532,10 +534,10 @@ TEST_F(ProtoValueConversionTest, TimestampOutOfRange) {
 // Verify MergeValueToProtoField using various combinations of destination proto
 // field type, label and ZetaSQL format annotation.
 class MergeValueToProtoFieldTypeCombinationsTest
-    : public ::testing::TestWithParam<
-          ::testing::tuple<FieldDescriptorProto::Label,
-                           FieldDescriptorProto::Type, FieldFormat::Format,
-                           std::vector<Value>, std::string /* expected_proto */>> {
+    : public ::testing::TestWithParam<::testing::tuple<
+          FieldDescriptorProto::Label, FieldDescriptorProto::Type,
+          FieldFormat::Format, std::vector<Value>,
+          std::string /* expected_proto */>> {
  protected:
   FieldDescriptorProto::Label label() const {
     return ::testing::get<0>(GetParam());
@@ -547,7 +549,9 @@ class MergeValueToProtoFieldTypeCombinationsTest
   const std::vector<Value>& values() const {
     return ::testing::get<3>(GetParam());
   }
-  const std::string& expected_proto() const { return ::testing::get<4>(GetParam()); }
+  const std::string& expected_proto() const {
+    return ::testing::get<4>(GetParam());
+  }
 };
 
 TEST_P(MergeValueToProtoFieldTypeCombinationsTest, Do) {

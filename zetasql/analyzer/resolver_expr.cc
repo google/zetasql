@@ -1912,10 +1912,10 @@ zetasql_base::Status Resolver::FindFieldsForReplaceFieldItem(
   return zetasql_base::OkStatus();
 }
 
-// Builds the std::string representation of a field path using 'struct_path_prefix'
+// Builds the string representation of a field path using 'struct_path_prefix'
 // and 'proto_field_path_suffix' and attempts to add it to 'field_path_trie'. If
 // non-empty, the field path is expanded starting with the fields in
-// 'struct_path_prefix'. Returns an error if this path std::string overlaps with a
+// 'struct_path_prefix'. Returns an error if this path string overlaps with a
 // path that is already present in 'field_path_trie'. For example,
 // message.nested and message.nested.field are overlapping field paths, but
 // message.nested.field1 and message.nested.field2 are not overlapping. Two
@@ -3094,7 +3094,7 @@ zetasql_base::Status Resolver::ResolveIntervalArgument(
     resolved_arguments_out->pop_back();
 
     SignatureMatchResult result;
-    // Interval value must be either coercible to INT64 type, or be std::string
+    // Interval value must be either coercible to INT64 type, or be string
     // literal coercible to INT64 value.
     if (((resolved_interval_value_arg->node_kind() == RESOLVED_LITERAL ||
           resolved_interval_value_arg->node_kind() == RESOLVED_PARAMETER) &&
@@ -3519,7 +3519,7 @@ zetasql_base::Status Resolver::ResolveExplicitCast(
     }
   }
 
-  // Don't attempt to coerce std::string/bytes literals to protos in the
+  // Don't attempt to coerce string/bytes literals to protos in the
   // analyzer. Instead, put a ResolvedCast node in the resolved AST and let the
   // engines do it. There are at least two reasons for this:
   // 1) We might not have the appropriate proto descriptor here (particularly
@@ -4362,9 +4362,9 @@ zetasql_base::Status Resolver::ResolveStructConstructorImpl(
         // no way to represent that in the field Value of a Struct Value.
         // For example, consider the literal struct 'STRUCT(NULL, NULL)'.
         // If we create a Value of type STRUCT<int64_t, int64_t> then want to
-        // coerce that to STRUCT<int64_t, struct<std::string, int32_t>> then it will
+        // coerce that to STRUCT<int64_t, struct<string, int32_t>> then it will
         // fail since the second field of type int64_t cannot coerce to the
-        // second field of the target type struct<std::string, int32_t>.
+        // second field of the target type struct<string, int32_t>.
         if (struct_type == nullptr) {
           // If struct_type == nullptr then we are not forcing this to be an
           // explicitly typed struct.  Otherwise, we *can* allow this to

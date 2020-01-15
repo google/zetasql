@@ -17,7 +17,7 @@
 #ifndef THIRD_PARTY_ZETASQL_ZETASQL_BASE_STRING_NUMBERS_H_
 #define THIRD_PARTY_ZETASQL_ZETASQL_BASE_STRING_NUMBERS_H_
 
-// This file contains std::string processing functions related to
+// This file contains string processing functions related to
 // numeric values.
 
 #include <cstdint>

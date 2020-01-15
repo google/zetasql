@@ -2489,7 +2489,7 @@ zetasql_base::Status Resolver::ValidateAndResolveCollate(
        resolved_collate->get()->node_kind() != RESOLVED_PARAMETER) ||
       !resolved_collate->get()->type()->IsString()) {
     return MakeSqlErrorAt(ast_collate->collation_name())
-           << "COLLATE must be followed by a std::string literal or a std::string "
+           << "COLLATE must be followed by a string literal or a string "
               "parameter";
   }
   return ::zetasql_base::OkStatus();
@@ -4320,7 +4320,7 @@ zetasql_base::Status Resolver::ResolveColumnInUsing(
     std::unique_ptr<const ResolvedExpr>* compute_expr_for_found_column) {
   compute_expr_for_found_column->reset();
   // <ast_identifier> and <found_column> are redundant but we pass the
-  // std::string in to avoid doing extra std::string copy.
+  // string in to avoid doing extra string copy.
   DCHECK_EQ(ast_identifier->GetAsIdString(), key_name);
 
   NameTarget found_name;
@@ -5195,6 +5195,7 @@ zetasql_base::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
   const ASTConnectionClause* ast_connection_clause =
       ast_tvf_arg->connection_clause();
   ResolvedTVFArg resolved_tvf_arg;
+  const ASTDescriptor* ast_descriptor = ast_tvf_arg->descriptor();
   if (ast_table_clause != nullptr) {
     // Resolve the TVF argument as a relation including all original columns
     // from the named table.
@@ -5329,6 +5330,8 @@ zetasql_base::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
     ZETASQL_RETURN_IF_ERROR(ResolveConnection(ast_connection_clause->connection_path(),
                                       &resolved_connection));
     resolved_tvf_arg.SetConnection(std::move(resolved_connection));
+  } else if (ast_descriptor != nullptr) {
+    return MakeSqlErrorAt(ast_tvf_arg) << "DESCRIPTOR in TVF is not supported";
   } else {
     ZETASQL_RET_CHECK(ast_model_clause != nullptr);
     std::unique_ptr<const ResolvedModel> resolved_model;

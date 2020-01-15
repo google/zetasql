@@ -89,7 +89,8 @@ TEST(LanguageOptions, GetLanguageFeaturesForVersion) {
 
     const std::string version_name = LanguageVersion_Name(version);
     EXPECT_EQ("VERSION_", version_name.substr(0, 8));
-    const std::string version_suffix = absl::StrCat(version_name.substr(8), "_");
+    const std::string version_suffix =
+        absl::StrCat(version_name.substr(8), "_");
 
     std::set<LanguageFeature> computed_features;
     for (const LanguageFeature feature :

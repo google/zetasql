@@ -25,8 +25,8 @@
 
 namespace zetasql {
 
-zetasql_base::Status CycleDetector::ObjectInfo::DetectCycle(const std::string& object_type)
-    const {
+zetasql_base::Status CycleDetector::ObjectInfo::DetectCycle(
+    const std::string& object_type) const {
   if (!cycle_detected_) {
     return zetasql_base::OkStatus();
   }
@@ -72,7 +72,8 @@ void CycleDetector::PopObject(const ObjectInfo* expected_object_info) {
   DCHECK_EQ(objects_.size(), object_deque_.size());
 }
 
-CycleDetector::ObjectInfo::ObjectInfo(const std::string& name, const void* object,
+CycleDetector::ObjectInfo::ObjectInfo(const std::string& name,
+                                      const void* object,
                                       CycleDetector* cycle_detector)
     : name_(name), object_(object) {
   cycle_detected_ = DetectCycleOrAddToCycleDetector(cycle_detector);

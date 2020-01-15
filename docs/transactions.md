@@ -41,7 +41,7 @@ BEGIN TRANSACTION ISOLATION LEVEL READ COMMITTED;
 START TRANSACTION [ISOLATION LEVEL isolation_level]
 ```
 
-Synonymous with [`BEGIN`](#begin).
+Synonymous with [`BEGIN`][begin-transaction].
 
 ## COMMIT
 
@@ -58,6 +58,8 @@ ROLLBACK [TRANSACTION];
 ```
 
 Rolls back a transaction.
+
+[begin-transaction]: #begin
 
 <!-- END CONTENT -->
 

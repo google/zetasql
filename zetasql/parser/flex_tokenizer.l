@@ -201,12 +201,12 @@ whitespace_no_comments         {whitespace_character}+
    the escape is *always* eaten, even in raw strings. The actual validation of
    the escapes, and of things like UTF-8 structure, is done in the parser.
    This also allows us to use the same regex for raw strings that we use for any
-   other std::string. Raw strings interpret the escapes differently (they allow all
+   other string. Raw strings interpret the escapes differently (they allow all
    escapes and pass them through verbatim), but the termination condition is
    the same: escaped quotes don't count.
 
    In single quoted strings/bytes we don't accept \n so that a single-line
-   unterminated std::string literal is recognized as an unterminated std::string literal
+   unterminated string literal is recognized as an unterminated string literal
    at that point, instead of being bogusly matched up with another quote on a
    subsequent line. However, we do accept escaped newlines. These get a separate
    and nicer error message pointing directly at the escaped newline.
@@ -404,6 +404,7 @@ define { return BisonParserImpl::token::KW_DEFINE; }
 definer { return BisonParserImpl::token::KW_DEFINER; }
 delete { return BisonParserImpl::token::KW_DELETE; }
 desc { return BisonParserImpl::token::KW_DESC; }
+descriptor { return BisonParserImpl::token::KW_DESCRIPTOR; }
 describe { return BisonParserImpl::token::KW_DESCRIBE; }
 deterministic { return BisonParserImpl::token::KW_DETERMINISTIC; }
 distinct { return BisonParserImpl::token::KW_DISTINCT; }
@@ -620,21 +621,21 @@ zone { return BisonParserImpl::token::KW_ZONE; }
   return BisonParserImpl::token::STRING_LITERAL;
 }
 {unterminated_string_literal} {
-  SetOverrideError(*yylloc, "Syntax error: Unclosed std::string literal");
+  SetOverrideError(*yylloc, "Syntax error: Unclosed string literal");
   yyterminate();
 }
 {unterminated_triple_quoted_string_literal} {
   SetOverrideError(*yylloc,
-                   "Syntax error: Unclosed triple-quoted std::string literal");
+                   "Syntax error: Unclosed triple-quoted string literal");
   yyterminate();
 }
 {unterminated_raw_string_literal} {
-  SetOverrideError(*yylloc, "Syntax error: Unclosed raw std::string literal");
+  SetOverrideError(*yylloc, "Syntax error: Unclosed raw string literal");
   yyterminate();
 }
 {unterminated_triple_quoted_raw_string_literal} {
   SetOverrideError(*yylloc,
-                   "Syntax error: Unclosed triple-quoted raw std::string literal");
+                   "Syntax error: Unclosed triple-quoted raw string literal");
   yyterminate();
 }
 

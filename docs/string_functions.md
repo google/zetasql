@@ -486,7 +486,7 @@ Extensions from printf() are identified in <em>italics</em>.
     <code>inf</code><br/>
     <code>NaN</code></td>
     <td>
-    <span> NUMERIC<span><br><span> FLOAT<span><br><span> DOUBLE<span>
+    <span> NUMERIC</span><br><span> FLOAT</span><br><span> DOUBLE</span>
     </td>
  </tr>
  <tr>
@@ -496,7 +496,7 @@ Extensions from printf() are identified in <em>italics</em>.
     <code>inf</code><br/>
     NAN</td>
     <td>
-    <span> NUMERIC<span><br><span> FLOAT<span><br><span> DOUBLE<span>
+    <span> NUMERIC</span><br><span> FLOAT</span><br><span> DOUBLE</span>
     </td>
  </tr>
  <tr>
@@ -506,7 +506,7 @@ Extensions from printf() are identified in <em>italics</em>.
     <code>inf</code><br/>
     <code>NaN</code></td>
     <td>
-    <span> NUMERIC<span><br><span> FLOAT<span><br><span> DOUBLE<span>
+    <span> NUMERIC</span><br><span> FLOAT</span><br><span> DOUBLE</span>
     </td>
  </tr>
  <tr>
@@ -516,7 +516,7 @@ Extensions from printf() are identified in <em>italics</em>.
     <code>inf</code><br/>
     NAN</td>
     <td>
-    <span> NUMERIC<span><br><span> FLOAT<span><br><span> DOUBLE<span>
+    <span> NUMERIC</span><br><span> FLOAT</span><br><span> DOUBLE</span>
     </td>
  </tr>
  <tr>
@@ -524,7 +524,7 @@ Extensions from printf() are identified in <em>italics</em>.
     <td>Use the shortest representation, %e or %f</td>
     <td>392.65</td>
     <td>
-    <span> FLOAT<span><br><span> DOUBLE<span>
+    <span> FLOAT</span><br><span> DOUBLE</span>
     </td>
  </tr>
  <tr>
@@ -532,7 +532,7 @@ Extensions from printf() are identified in <em>italics</em>.
     <td>Use the shortest representation, %E or %F</td>
     <td>392.65</td>
     <td>
-    <span> FLOAT<span><br><span> DOUBLE<span>
+    <span> FLOAT</span><br><span> DOUBLE</span>
     </td>
  </tr>
  <tr>
@@ -620,6 +620,8 @@ specified (see width sub-specifier)</td>
   <li><code>FORMAT("%'x", 12345678)</code> returns <code>bc:614e</code></li>
   <li><code>FORMAT("%'o", 55555)</code> returns <code>15,4403</code></li>
   <p>This flag is only relevant for decimal, hex, and octal values.</p>
+  </ul>
+  </td>
  </tr>
 </table>
 
@@ -701,7 +703,7 @@ The STRING is formatted as follows:
     <td><code>NULL</code></td>
  </tr>
  <tr>
-    <td><span> INT32<span><br><span> INT64<span><br><span> UINT32<span><br><span> UINT64<span><br></td>
+    <td><span> INT32</span><br><span> INT64</span><br><span> UINT32</span><br><span> UINT64</span><br></td>
     <td>123</td>
     <td>123</td>
  </tr>
@@ -1900,11 +1902,11 @@ ARRAY of type BYTES
 ```sql
 
 WITH letters AS
-  (SELECT "a b c d" as letter_group
+  (SELECT "" as letter_group
   UNION ALL
-  SELECT "e f g h" as letter_group
+  SELECT "a" as letter_group
   UNION ALL
-  SELECT "i j k l" as letter_group)
+  SELECT "b c d" as letter_group)
 
 SELECT SPLIT(letter_group, " ") as example
 FROM letters;
@@ -1912,9 +1914,9 @@ FROM letters;
 +----------------------+
 | example              |
 +----------------------+
-| [a, b, c, d]         |
-| [e, f, g, h]         |
-| [i, j, k, l]         |
+| []                   |
+| [a]                  |
+| [b, c, d]            |
 +----------------------+
 ```
 
@@ -2388,25 +2390,23 @@ FROM items;
 +---------+
 ```
 
+[string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
+[string-link-to-unicode-character-definitions]: http://unicode.org/ucd/
+[string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
+[string-link-to-case-folding-wikipedia]: https://en.wikipedia.org/wiki/Letter_case#Case_folding
+[string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
 [string-link-to-strpos]: #strpos
 [string-link-to-string-values]: #string_values
 [string-link-to-char-length]: #char_length
 [string-link-to-code-points]: #to_code_points
-[string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
-[string-link-to-base32]: #to_base32
 [string-link-to-base64]: #to_base64
-[string-link-to-unicode-character-definitions]: http://unicode.org/ucd/
 [string-link-to-trim]: #trim
-[string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
 [string-link-to-normalize]: #normalize
-[string-link-to-case-folding-wikipedia]: https://en.wikipedia.org/wiki/Letter_case#Case_folding
-[string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
-
-[string-link-to-from-base32]: #from_base32
 [string-link-to-from-base64]: #from_base64
-[string-link-to-from-hex]: #from_hex
-[string-link-to-to-hex]: #to_hex
-
 [string-link-to-codepoints-to-string]: #code_points_to_string
 [string-link-to-codepoints-to-bytes]: #code_points_to_bytes
+[string-link-to-base32]: #to_base32
+[string-link-to-from-base32]: #from_base32
+[string-link-to-from-hex]: #from_hex
+[string-link-to-to-hex]: #to_hex
 

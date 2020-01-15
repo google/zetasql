@@ -25,8 +25,7 @@
 
 namespace zetasql {
 
-TableFromProto::TableFromProto(const std::string& name) : SimpleTable(name) {
-}
+TableFromProto::TableFromProto(const std::string& name) : SimpleTable(name) {}
 
 TableFromProto::~TableFromProto() {
 }

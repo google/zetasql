@@ -9,14 +9,14 @@ In ZetaSQL, an array is an ordered list consisting of zero or more
 values of the same data type. You can construct arrays of simple data types,
 such as `INT64`, and complex data types, such as `STRUCT`s. The current
 exception to this is the
-[`ARRAY`](https://github.com/google/zetasql/blob/master/docs/data-types.md#array-type) data
+[`ARRAY`][array-data-type] data
 type: arrays of arrays are not supported.
 
 With ZetaSQL, you can construct array literals,
  build arrays from subqueries using the
-[`ARRAY`](functions-and-operators.md#array) function,
+[`ARRAY`][array-function] function,
  and aggregate values into an array using the
-[`ARRAY_AGG`](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#array_agg)
+[`ARRAY_AGG`][array-agg-function]
 function.
 
 You can combine arrays using functions like
@@ -84,7 +84,7 @@ You can also construct an `ARRAY` with generated values.
 
 #### Generating arrays of integers
 
-[`GENERATE_ARRAY`](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#generate_array)
+[`GENERATE_ARRAY`][generate-array-function]
 generates an array of values from a starting and ending value and a step value.
 For example, the following query generates an array that contains all of the odd
 integers from 11 to 33, inclusive:
@@ -114,7 +114,7 @@ SELECT GENERATE_ARRAY(21, 14, -1) AS countdown;
 
 #### Generating arrays of dates
 
-[`GENERATE_DATE_ARRAY`](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#generate_date_array)
+[`GENERATE_DATE_ARRAY`][generate-date-array]
 generates an array of `DATE`s from a starting and ending `DATE` and a step
 `INTERVAL`.
 
@@ -136,7 +136,7 @@ SELECT
 
 ## Casting Arrays
 
-You can use [`CAST`](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#casting)
+You can use [`CAST`][casting]
 to cast arrays from one element type to another. The element types of the input
 `ARRAY` must be castable to the element types of the target `ARRAY`. For
 example, casting from type `ARRAY<INT32>` to `ARRAY<INT64>` or `ARRAY<STRING>`
@@ -172,9 +172,9 @@ Consider the following table, `sequences`:
 This table contains the column `some_numbers` of the `ARRAY` data type.
 To access elements from the arrays in this column, you must specify which type
 of indexing you want to use: either
-[`OFFSET`](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#offset-and-ordinal),
+[`OFFSET`][offset-and-ordinal],
 for zero-based indexes, or
-[`ORDINAL`](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#offset-and-ordinal),
+[`ORDINAL`][offset-and-ordinal],
 for one-based indexes.
 
 ```sql
@@ -270,7 +270,7 @@ FROM sequences;
 ## Flattening arrays
 
 To convert an `ARRAY` into a set of rows, also known as "flattening," use the
-[`UNNEST`](https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest)
+[`UNNEST`][unnest-query]
 operator. `UNNEST` takes an `ARRAY` and returns a table with a single row for
 each element in the `ARRAY`.
 
@@ -304,7 +304,7 @@ ORDER BY offset;
 
 To flatten an entire column of `ARRAY`s while preserving the values
 of the other columns in each row, use a
-[`CROSS JOIN`](https://github.com/google/zetasql/blob/master/docs/query-syntax.md#cross-join)
+[`CROSS JOIN`][cross-join-query]
 to join the table containing the `ARRAY` column to the `UNNEST` output of that
 `ARRAY` column.
 
@@ -317,7 +317,7 @@ the source table.
 
 **Example**
 
-The following example uses [`UNNEST`](https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest)
+The following example uses [`UNNEST`][unnest-query]
 to return a row for each element in the array column. Because of the
 `CROSS JOIN`, the `id` column contains the `id` values for the row in
 `sequences` that contains each number.
@@ -350,10 +350,41 @@ CROSS JOIN UNNEST(sequences.some_numbers) AS flattened_numbers;
 +------+-------------------+
 ```
 
+Note that for correlated cross joins the `UNNEST` operator is optional and the
+`CROSS JOIN` can be expressed as a comma-join. Using this shorthand notation,
+the above example becomes:
+
+```sql
+WITH sequences AS
+  (SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
+   UNION ALL SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
+   UNION ALL SELECT 3 AS id, [5, 10] AS some_numbers)
+SELECT id, flattened_numbers
+FROM sequences, sequences.some_numbers AS flattened_numbers;
+
++------+-------------------+
+| id   | flattened_numbers |
++------+-------------------+
+|    1 |                 0 |
+|    1 |                 1 |
+|    1 |                 1 |
+|    1 |                 2 |
+|    1 |                 3 |
+|    1 |                 5 |
+|    2 |                 2 |
+|    2 |                 4 |
+|    2 |                 8 |
+|    2 |                16 |
+|    2 |                32 |
+|    3 |                 5 |
+|    3 |                10 |
++------+-------------------+
+```
+
 ## Querying Nested and Repeated Fields
 
 If a table contains an `ARRAY` of `STRUCT`s or `PROTO`s, you can
-[flatten the `ARRAY`](#flattening-arrays) to query the fields of the `STRUCT` or
+[flatten the `ARRAY`][flattening-arrays] to query the fields of the `STRUCT` or
 `PROTO`.
 You can also flatten `ARRAY` type fields of `STRUCT` values and repeated fields
 of `PROTO` values. ZetaSQL treats repeated `PROTO` fields as
@@ -823,7 +854,7 @@ FROM table;
 
 To query the individual values of a repeated field, reference the field name
 using dot notation to return an `ARRAY`, and
-[flatten the `ARRAY` using `UNNEST`](#flattening-arrays). Use `CROSS JOIN` to
+[flatten the `ARRAY` using `UNNEST`][flattening-arrays]. Use `CROSS JOIN` to
 apply the `UNNEST` operator to each row and join the flattened `ARRAY`
 to the duplicated value of any non-repeated fields or columns.
 
@@ -873,7 +904,7 @@ CROSS JOIN UNNEST(album.song) AS song_name;
 
 A common task when working with arrays is turning a subquery result into an
 array. In ZetaSQL, you can accomplish this using the
-[`ARRAY()`](functions-and-operators.md#array) function.
+[`ARRAY()`][array-function] function.
 
 For example, consider the following operation on the `sequences` table:
 
@@ -918,7 +949,7 @@ This example starts with a table named sequences. This table contains a column,
 
 The query itself contains a subquery. This subquery selects each row in the
 `some_numbers` column and uses
-[`UNNEST`](https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest) to return the
+[`UNNEST`][unnest-query] to return the
 array as a set of rows. Next, it multiplies each value by two, and then
 recombines the rows back into an array using the `ARRAY()` operator.
 
@@ -1002,7 +1033,7 @@ WHERE id = 1;
 ```
 
 You can also filter rows of arrays by using the
-[`IN`](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#in-operators) keyword. This
+[`IN`][in-operators] keyword. This
 keyword filters rows containing arrays by determining if a specific
 value matches an element in the array.
 
@@ -1049,9 +1080,9 @@ the corresponding original row (`[5, 10]`) did not contain `2`.
 
 ## Scanning Arrays
 
-To check if an array contains a specific value, use the [`IN`](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#in-operators)
-operator with [`UNNEST`](https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest). To
-check if an array contains a value matching a condition, use the [`EXISTS`](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#expression-subqueries)
+To check if an array contains a specific value, use the [`IN`][in-operators]
+operator with [`UNNEST`][unnest-query]. To
+check if an array contains a value matching a condition, use the [`EXISTS`][expression-subqueries]
 function with `UNNEST`.
 
 ### Scanning for specific values
@@ -1372,7 +1403,7 @@ SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
 ## Building arrays of arrays
 
 ZetaSQL does not support building
-[arrays of arrays](https://github.com/google/zetasql/blob/master/docs/data-types.md#array-type)
+[arrays of arrays][array-data-type]
 directly. Instead, you must create an array of structs, with each struct
 containing a field of type `ARRAY`. To illustrate this, consider the following
 `points` table:
@@ -1445,6 +1476,20 @@ SELECT ARRAY(
 | point: [5,7] |
 +--------------+
 ```
+
+[flattening-arrays]: #flattening-arrays
+[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types#array-type
+[unnest-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax#unnest
+[cross-join-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax#cross-join
+
+[in-operators]: https://github.com/google/zetasql/blob/master/docs/operators#in_operators
+[expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries
+[casting]: https://github.com/google/zetasql/blob/master/docs/conversion_rules#casting
+[array-function]: https://github.com/google/zetasql/blob/master/docs/array_functions
+[array-agg-function]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions#array_agg
+[generate-array-function]: https://github.com/google/zetasql/blob/master/docs/array_functions#generate_array
+[generate-date-array]: https://github.com/google/zetasql/blob/master/docs/array_functions#generate_date_array
+[offset-and-ordinal]: https://github.com/google/zetasql/blob/master/docs/array_functions#offset_and_ordinal
 
 <!-- END CONTENT -->
 

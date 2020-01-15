@@ -155,11 +155,13 @@ TEST_P(CollatorTest, Comparison) {
   ASSERT_NE(collator.get(), nullptr);
   TestLessThan("ä", "Ä", collator.get());
 
-  // Very long std::string.
+  // Very long string.
   collator.reset(ZetaSqlCollator::CreateFromCollationName("en_US"));
   for (int32_t length = 100; length < 10000; ++length) {
-    TestEquals(std::string(length, 'a'), std::string(length, 'a'), collator.get());
-    TestLessThan(std::string(length, 'a'), std::string(length + 1, 'a'), collator.get());
+    TestEquals(std::string(length, 'a'), std::string(length, 'a'),
+               collator.get());
+    TestLessThan(std::string(length, 'a'), std::string(length + 1, 'a'),
+                 collator.get());
   }
 }
 

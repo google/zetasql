@@ -94,6 +94,7 @@ cc_library(
     copts = ["-Wno-sign-compare"],
     deps = [
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
     ],
 )
 
@@ -176,7 +177,11 @@ cc_library(
 
 cc_library(
     name = "fixed_int",
-    hdrs = ["fixed_int.h"],
+    srcs = ["fixed_int_internal.cc"],
+    hdrs = [
+        "fixed_int.h",
+        "fixed_int_internal.h",
+    ],
     copts = ["-Wno-sign-compare"],
     deps = [
         "//zetasql/base",
@@ -196,29 +201,12 @@ cc_test(
         "@com_google_googletest//:gtest_main",
         "//zetasql/base:mathutil",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/hash",
+        "@com_google_absl//absl/hash:hash_testing",
         "@com_google_absl//absl/numeric:int128",
         "@com_google_absl//absl/random",
-    ],
-)
-
-cc_library(
-    name = "int256",
-    srcs = ["int256.cc"],
-    hdrs = ["int256.h"],
-    copts = ["-Wno-sign-compare"],
-    deps = [
-        "@com_google_absl//absl/base:core_headers",
-    ],
-)
-
-cc_test(
-    name = "int256_test",
-    srcs = ["int256_test.cc"],
-    copts = ["-Wno-sign-compare"],
-    deps = [
-        ":int256",
-        "@com_google_googletest//:gtest_main",
-        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:optional",
     ],
 )
 

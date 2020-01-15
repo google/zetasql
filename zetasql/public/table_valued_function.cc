@@ -74,7 +74,7 @@ std::string TableValuedFunction::GetSignatureUserFacingText(
         argument.UserFacingName(language_options.product_mode());
     // If the argument is a relation argument to a table-valued function and the
     // function signature specifies a required input schema, append the types of
-    // the required columns to the user-facing signature std::string.
+    // the required columns to the user-facing signature string.
     if (argument.IsRelation() &&
         argument.options().has_relation_input_schema()) {
       const TVFRelation& relation_input_schema =
@@ -114,8 +114,7 @@ std::string TableValuedFunction::DebugString() const {
 
 std::string TableValuedFunction::GetTVFSignatureErrorMessage(
     const std::string& tvf_name_string,
-    const std::vector<InputArgumentType>& input_arg_types,
-    int signature_idx,
+    const std::vector<InputArgumentType>& input_arg_types, int signature_idx,
     const SignatureMatchResult& signature_match_result,
     const LanguageOptions& language_options) const {
   if (!signature_match_result.tvf_bad_call_error_message().empty()) {
@@ -280,7 +279,8 @@ zetasql_base::StatusOr<TVFRelation> TVFRelation::Deserialize(
   }
 }
 
-std::string TVFModelArgument::GetSQLDeclaration(ProductMode product_mode) const {
+std::string TVFModelArgument::GetSQLDeclaration(
+    ProductMode product_mode) const {
   return "ANY MODEL";
 }
 
@@ -291,7 +291,9 @@ std::string TVFConnectionArgument::GetSQLDeclaration(
   return "ANY CONNECTION";
 }
 
-std::string TVFConnectionArgument::DebugString() const { return "ANY CONNECTION"; }
+std::string TVFConnectionArgument::DebugString() const {
+  return "ANY CONNECTION";
+}
 
 zetasql_base::Status FixedOutputSchemaTVF::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,

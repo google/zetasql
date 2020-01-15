@@ -54,7 +54,7 @@
 //
 // FOR STRINGS: --Uses UnsafeArena (or SafeArena)--
 //    This is a special case of STL (below), but is simpler.  Use an
-//    astring, which acts like a std::string but allocates from the passed-in
+//    astring, which acts like a string but allocates from the passed-in
 //    arena:
 //       astring s(arena);             // or "sastring" to use a SafeArena
 //       s.assign(host);
@@ -158,8 +158,8 @@
 //    However, since the outer object is arena allocated, it's easy to
 //    forget to call delete on it, and needing to do so may seem to
 //    negate much of the benefit of arena allocation.  A specific
-//    example is use of std::vector<std::string> in an arena-allocated object,
-//    since type std::string is not atomic and is always allocated by the
+//    example is use of std::vector<string> in an arena-allocated object,
+//    since type string is not atomic and is always allocated by the
 //    default runtime allocator.  The arena definition provided here
 //    allows for much flexibility, but you ought to carefully consider
 //    before defining arena-allocated objects which in turn create
@@ -169,7 +169,7 @@
 // PUTTING IT ALL TOGETHER
 //    Here's a program that uses all of the above.  Note almost all the
 //    examples are the various ways to use "new" and STL.  Using the
-//    malloc-like features and the std::string type are much easier!
+//    malloc-like features and the string type are much easier!
 //
 // Class A : public Gladiator {
 //  public:
@@ -178,7 +178,7 @@
 //   std::vector<int, ArenaAllocator<int, UnsafeArena> >* v3;
 //   std::vector<int, ArenaAllocator<int, UnsafeArena> >* v4;
 //   std::vector<int>* v5;
-//   std::vector<std::string> vs;
+//   std::vector<string> vs;
 //   std::vector<astring> va;
 //   char *s;
 //   A() : v1(), v3(nullptr), v4(nullptr), vs(), va(), s(nullptr) {
@@ -237,13 +237,13 @@
 // main() {
 //   UnsafeArena arena(1024);
 //   A a1;                               // a1 is not on the arena
-//   a1.vs.push_back(std::string("hello"));   // hello is not copied onto the arena
+//   a1.vs.push_back(string("hello"));   // hello is not copied onto the arena
 //   a1.va.push_back(astring("hello", &arena));      // hello is on the arena,
 //                                                   // astring container isn't
 //   a1.s = arena.Strdup("hello");       // hello is on the arena
 //
 //   A* a2 = new (AllocateInArena, arena) A;         // a2 is on the arena
-//   a2.vs.push_back(std::string("hello"));   // hello is *still* not on the arena
+//   a2.vs.push_back(string("hello"));   // hello is *still* not on the arena
 //   a2.s = arena.Strdup("world");       // world is on the arena.  a1.s is ok
 //
 //   B b1(&arena);                       // B is not allocated on the arena
@@ -451,8 +451,8 @@ class UnsafeArena : public BaseArena {
     return MemdupPlusNUL(s, bytes);
   }
 
-  // You can realloc a previously-allocated std::string either bigger or smaller.
-  // We can be more efficient if you realloc a std::string right after you allocate
+  // You can realloc a previously-allocated string either bigger or smaller.
+  // We can be more efficient if you realloc a string right after you allocate
   // it (eg allocate way-too-much space, fill it, realloc to just-big-enough)
   char* Realloc(char* s, size_t oldsize, size_t newsize);
   // If you know the new size is smaller (or equal), you don't need to know
@@ -557,8 +557,8 @@ class SafeArena : public BaseArena {
     return MemdupPlusNUL(s, bytes);
   }
 
-  // You can realloc a previously-allocated std::string either bigger or smaller.
-  // We can be more efficient if you realloc a std::string right after you allocate
+  // You can realloc a previously-allocated string either bigger or smaller.
+  // We can be more efficient if you realloc a string right after you allocate
   // it (eg allocate way-too-much space, fill it, realloc to just-big-enough)
   char* Realloc(char* s, size_t oldsize, size_t newsize)
       ABSL_LOCKS_EXCLUDED(mutex_);

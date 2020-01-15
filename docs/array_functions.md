@@ -11,15 +11,15 @@ ARRAY(subquery)
 **Description**
 
 The `ARRAY` function returns an `ARRAY` with one element for each row in a
-[subquery](https://github.com/google/zetasql/blob/master/docs/query-syntax.md#subqueries).
+[subquery][subqueries].
 
 If `subquery` produces a
-[SQL table](https://github.com/google/zetasql/blob/master/docs/data-model.md#standard-sql-tables),
+[SQL table][datamodel-sql-tables],
 the table must have exactly one column. Each element in the output `ARRAY` is
 the value of the single column of a row in the table.
 
 If `subquery` produces a
-[value table](https://github.com/google/zetasql/blob/master/docs/data-model.md#value-tables),
+[value table][datamodel-value-tables],
 then each element in the output `ARRAY` is the entire corresponding row of the
 value table.
 
@@ -34,7 +34,7 @@ error.
 + If the subquery returns an `ARRAY` typed column or `ARRAY` typed rows, the
   `ARRAY` function returns an error: ZetaSQL does not support
   `ARRAY`s with elements of type
-  [`ARRAY`](https://github.com/google/zetasql/blob/master/docs/data-types.md#array-type).
+  [`ARRAY`][array-data-type].
 + If the subquery returns zero rows, the `ARRAY` function returns an empty
 `ARRAY`. It never returns a `NULL` `ARRAY`.
 
@@ -736,4 +736,9 @@ FROM items;
 | [cake, pie]                      | NULL          | NULL           |
 +----------------------------------+---------------+----------------+
 ```
+
+[subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax#subqueries
+[datamodel-sql-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#standard-sql-tables
+[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#value-tables
+[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types#array-type
 

@@ -622,7 +622,7 @@ static const ASTGeneralizedPathExpression* GetTargetPath(
   }
 }
 
-// Returns a std::string representation of <path> for use in error messages. Array
+// Returns a string representation of <path> for use in error messages. Array
 // index expressions are omitted for the sake of clarity. For example, for
 // a.b[<huge expression>].c, we simply return "a.b[].c".
 static std::string GeneralizedPathAsString(

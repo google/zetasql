@@ -55,9 +55,9 @@ class TemplatedSQLTVF : public TableValuedFunction {
  public:
   // Constructs a new templated SQL TVF named <function_name_path>, with a
   // single signature in <signature>. The <arg_name_list> should contain exactly
-  // one std::string for each argument name in <signature>, indicating the name of
+  // one string for each argument name in <signature>, indicating the name of
   // the argument. The <parse_resume_location> contains the source location
-  // and std::string contents of the table function's SQL query body.
+  // and string contents of the table function's SQL query body.
   TemplatedSQLTVF(const std::vector<std::string>& function_name_path,
                   const FunctionSignature& signature,
                   const std::vector<std::string>& arg_name_list,
@@ -66,7 +66,9 @@ class TemplatedSQLTVF : public TableValuedFunction {
         arg_name_list_(arg_name_list),
         parse_resume_location_(parse_resume_location) {}
 
-  const std::vector<std::string>& GetArgumentNames() const { return arg_name_list_; }
+  const std::vector<std::string>& GetArgumentNames() const {
+    return arg_name_list_;
+  }
 
   // If set, <resolution_catalog_> is used during the Resolve() call in order
   // to resolve the TVF expression (and overrides the <catalog> argument
@@ -128,7 +130,7 @@ class TemplatedSQLTVF : public TableValuedFunction {
 
   // Returns a new error reporting a failed expectation of the sql_body_
   // (for example, if it is a CREATE TABLE instead of a SELECT statement).
-  // If 'message' is not empty, appends it to the end of the error std::string.
+  // If 'message' is not empty, appends it to the end of the error string.
   zetasql_base::Status MakeTVFQueryAnalysisError(const std::string& message = "") const;
 
   // If non-NULL, this Catalog is used when the Resolve() method is called
@@ -177,7 +179,9 @@ class TemplatedSQLTVFSignature : public TVFSignature {
 
   // The list of names of all the function arguments, in the same order that
   // they appear in the function signature.
-  const std::vector<std::string>& GetArgumentNames() const { return arg_name_list_; }
+  const std::vector<std::string>& GetArgumentNames() const {
+    return arg_name_list_;
+  }
 
  private:
   const ResolvedQueryStmt* const resolved_templated_query_ = nullptr;

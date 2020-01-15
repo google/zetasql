@@ -390,7 +390,7 @@ class Type {
 
   static std::string TypeKindToString(TypeKind kind, ProductMode mode);
   static std::string TypeKindListToString(const std::vector<TypeKind>& kinds,
-                                     ProductMode mode);
+                                          ProductMode mode);
 
   // Returns whether <type_name> identifies a simple Type.
   static bool IsSimpleTypeName(const std::string& type_name, ProductMode mode);
@@ -488,6 +488,7 @@ typedef Type::FileDescriptorSetMap FileDescriptorSetMap;
 // except enum).
 class SimpleType : public Type {
  public:
+  SimpleType(const TypeFactory* factory, TypeKind kind);
 #ifndef SWIG
   SimpleType(const SimpleType&) = delete;
   SimpleType& operator=(const SimpleType&) = delete;
@@ -496,7 +497,6 @@ class SimpleType : public Type {
   std::string TypeName(ProductMode mode) const override;
 
  protected:
-  SimpleType(const TypeFactory* factory, TypeKind kind);
   ~SimpleType() override;
 
   int64_t GetEstimatedOwnedMemoryBytesSize() const override {
@@ -582,7 +582,7 @@ struct StructField {
   StructField(std::string name_in, const Type* type_in)
       : name(std::move(name_in)), type(type_in) {}
 
-  std::string name;  // Empty std::string means this is an unnamed field.
+  std::string name;  // Empty string means this is an unnamed field.
   const Type* type;
 };
 
@@ -645,7 +645,7 @@ class StructType : public Type {
   // field names, but not the memory associated with field types (which are
   // owned by some TypeFactory).
   int64_t GetEstimatedOwnedMemoryBytesSize() const override
-      NO_THREAD_SAFETY_ANALYSIS;
+      ABSL_NO_THREAD_SAFETY_ANALYSIS;
 
  private:
   // Caller must enforce that <nesting_depth> is accurate. No verification is
@@ -666,9 +666,10 @@ class StructType : public Type {
       absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
       FileDescriptorSetMap* file_descriptor_set_map) const override;
 
-  std::string TypeNameImpl(int field_limit,
-                           const std::function<std::string(const zetasql::Type*)>&
-                               field_debug_fn) const;
+  std::string TypeNameImpl(
+      int field_limit,
+      const std::function<std::string(const zetasql::Type*)>& field_debug_fn)
+      const;
 
   const std::vector<StructField> fields_;
 
@@ -683,7 +684,7 @@ class StructType : public Type {
   mutable absl::Mutex mutex_;
   mutable absl::flat_hash_map<absl::string_view, int, zetasql_base::StringViewCaseHash,
                               zetasql_base::StringViewCaseEqual>
-      field_name_to_index_map_ GUARDED_BY(mutex_);
+      field_name_to_index_map_ ABSL_GUARDED_BY(mutex_);
 
   friend class TypeFactory;
 };
@@ -827,7 +828,8 @@ class ProtoType : public Type {
 
   // Get the struct field name from a FieldDescriptor.
   static bool HasStructFieldName(const google::protobuf::FieldDescriptor* field);
-  static const std::string& GetStructFieldName(const google::protobuf::FieldDescriptor* field);
+  static const std::string& GetStructFieldName(
+      const google::protobuf::FieldDescriptor* field);
 
   // Validate TypeAnnotations for a file, proto, or field.  Protos not
   // in <validated_descriptor_set> are added to the set and validated.
@@ -923,7 +925,7 @@ class ProtoType : public Type {
 
 // An enum type.
 // Each EnumType object defines a set of legal numeric (int32_t) values.  Each
-// value has one (or more) std::string names.  The first name is treated as the
+// value has one (or more) string names.  The first name is treated as the
 // canonical name for that numeric value, and additional names are treated
 // as aliases.
 //
@@ -962,11 +964,13 @@ class EnumType : public Type {
   // upon success, and false if the number is not found.  For enum numbers
   // that are not unique, this function will return the canonical name
   // for that number.
-  ABSL_MUST_USE_RESULT bool FindName(int number, const std::string** name) const;
+  ABSL_MUST_USE_RESULT bool FindName(int number,
+                                     const std::string** name) const;
 
   // Find the enum number given a corresponding name.  Returns true
   // upon success, and false if the name is not found.
-  ABSL_MUST_USE_RESULT bool FindNumber(const std::string& name, int* number) const;
+  ABSL_MUST_USE_RESULT bool FindNumber(const std::string& name,
+                                       int* number) const;
 
  protected:
   int64_t GetEstimatedOwnedMemoryBytesSize() const override {
@@ -1200,8 +1204,8 @@ class TypeFactory {
   // it cannot destruct. Use kint32max for no limit (the default).
   // The limit value must be >= 0. The default value of this field can be
   // overidden with FLAGS_zetasql_type_factory_nesting_depth_limit.
-  int nesting_depth_limit() const LOCKS_EXCLUDED(mutex_);
-  void set_nesting_depth_limit(int value) LOCKS_EXCLUDED(mutex_);
+  int nesting_depth_limit() const ABSL_LOCKS_EXCLUDED(mutex_);
+  void set_nesting_depth_limit(int value) ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Estimate memory size allocated to store TypeFactory's data in bytes
   int64_t GetEstimatedOwnedMemoryBytesSize() const;
@@ -1210,23 +1214,23 @@ class TypeFactory {
   // Store links to and from TypeFactories that this TypeFactory depends on.
   // This is used as a sanity check to catch incorrect destruction order.
   mutable absl::flat_hash_set<const TypeFactory*> depends_on_factories_
-      GUARDED_BY(mutex_);
+      ABSL_GUARDED_BY(mutex_);
   mutable absl::flat_hash_set<const TypeFactory*> factories_depending_on_this_
-      GUARDED_BY(mutex_);
+      ABSL_GUARDED_BY(mutex_);
 
   // Add <type> into <owned_types_>.  Templated so it can return the
   // specific subclass of Type.
   template <class TYPE>
-  const TYPE* TakeOwnership(const TYPE* type) LOCKS_EXCLUDED(mutex_);
+  const TYPE* TakeOwnership(const TYPE* type) ABSL_LOCKS_EXCLUDED(mutex_);
   template <class TYPE>
   const TYPE* TakeOwnershipLocked(const TYPE* type)
-      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   template <class TYPE>
   const TYPE* TakeOwnershipLocked(const TYPE* type, int64_t type_owned_bytes_size)
-      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Mark that <other_type>'s factory must outlive <this>.
-  void AddDependency(const Type* other_type) LOCKS_EXCLUDED(mutex_);
+  void AddDependency(const Type* other_type) ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Get the Type for a proto field from its corresponding TypeKind. For
   // repeated fields, <kind> must be the base TypeKind for the field (i.e., the
@@ -1254,18 +1258,17 @@ class TypeFactory {
 
   // TODO: Should TypeFactory have a DescriptorPool?
   mutable absl::Mutex mutex_;
-  const Type* cached_simple_types_[TypeKind_ARRAYSIZE] GUARDED_BY(mutex_);
   absl::flat_hash_map<const Type*, const ArrayType*> cached_array_types_
-      GUARDED_BY(mutex_);
+      ABSL_GUARDED_BY(mutex_);
   absl::flat_hash_map<const google::protobuf::Descriptor*, const ProtoType*>
-      cached_proto_types_ GUARDED_BY(mutex_);
+      cached_proto_types_ ABSL_GUARDED_BY(mutex_);
   absl::flat_hash_map<const google::protobuf::EnumDescriptor*, const EnumType*>
-      cached_enum_types_ GUARDED_BY(mutex_);
+      cached_enum_types_ ABSL_GUARDED_BY(mutex_);
   // TODO: Once all Type objects are cached, we can likely eliminate
   // this and treat the maps above as owning the Type objects.
-  std::vector<const Type*> owned_types_ GUARDED_BY(mutex_);
+  std::vector<const Type*> owned_types_ ABSL_GUARDED_BY(mutex_);
 
-  int nesting_depth_limit_ GUARDED_BY(mutex_);
+  int nesting_depth_limit_ ABSL_GUARDED_BY(mutex_);
 
   // Stores estimation of how much memory was allocated by instances
   // of types owned by this TypeFactory (in bytes)

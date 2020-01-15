@@ -30,13 +30,13 @@ inline bool IsWellFormedUTF8(absl::string_view s) {
   return SpanWellFormedUTF8(s) == s.length();
 }
 
-// Returns a well-formed Unicode std::string. Replaces any ill-formed
+// Returns a well-formed Unicode string. Replaces any ill-formed
 // subsequences with the Unicode REPLACEMENT CHARACTER (U+FFFD).
 // This is usually rendered as a diamond with a question mark in the middle.
 std::string CoerceToWellFormedUTF8(absl::string_view input);
 
-// Truncate the given UTF8 std::string to ensure it is no more than max_bytes.
-// If truncated, attempts to create a well formed unicode std::string, and append an
+// Truncate the given UTF8 string to ensure it is no more than max_bytes.
+// If truncated, attempts to create a well formed unicode string, and append an
 // (ascii) ellipsis.  If max_bytes is < 3, no ellipsis is appended.
 std::string PrettyTruncateUTF8(absl::string_view input, int max_bytes);
 

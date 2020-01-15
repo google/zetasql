@@ -148,7 +148,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
         timestamp_seconds: 10
         timestamp_seconds_format: 11)";
   const Value proto_value = KitchenSink(kProtoValueString);
-  // Clean up the std::string to make it the same as FORMAT %p output.
+  // Clean up the string to make it the same as FORMAT %p output.
   std::string proto_value_str(kProtoValueString);
   // Remove first newline.
   RE2::Replace(&proto_value_str, "\n", "");
@@ -157,7 +157,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
   // Convert all newlines to single space.
   RE2::GlobalReplace(&proto_value_str, "\n", " ");
 
-  // Clean up the std::string to make it the same as FORMAT %P output.
+  // Clean up the string to make it the same as FORMAT %P output.
   std::string proto_value_multiline_str(kProtoValueString);
   // Remove first newline.
   RE2::Replace(&proto_value_multiline_str, "\n", "");

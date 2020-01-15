@@ -31,7 +31,7 @@ Any data type **except**:
 
 `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows. This clause
@@ -39,6 +39,9 @@ Any data type **except**:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -92,7 +95,7 @@ The clauses are applied *in the following order*:
     the NULL values are included in the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows. This clause
@@ -100,6 +103,9 @@ The clauses are applied *in the following order*:
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -187,7 +193,7 @@ specifies the number of elements returned.
 
 `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows. This clause
@@ -195,6 +201,9 @@ specifies the number of elements returned.
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -268,7 +277,7 @@ If the `weight` input is negative or `NaN`, this function returns an error.
 
 `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The minimum or maximum value is
+    maximum or minimum value for `expression2`. The  maximum or minimum value is
     equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
     ignores `NULL` values when computing the maximum or minimum value unless
     `expression2` evaluates to `NULL` for all rows. This clause
@@ -276,6 +285,9 @@ If the `weight` input is negative or `NaN`, this function returns an error.
     `ARRAY`
     `STRUCT`
     `PROTO`
+
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 **Returned Data Types**
 
@@ -344,5 +356,5 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 +----------------------------+
 ```
 
-[link-to-approximate-aggregation]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation.md
+[link-to-approximate-aggregation]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation
 

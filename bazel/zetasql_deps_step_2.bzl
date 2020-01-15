@@ -106,10 +106,10 @@ cc_proto_library(
         #
         http_archive(
             name = "com_google_absl",
-            # Commit from 2019-08-15
-            url = "https://github.com/abseil/abseil-cpp/archive/aae8143cf9aa611f70d7ea9b95b8b8b383b2271a.tar.gz",
-            sha256 = "ff42d7e0cb00fe8b30bfa7e6793766f4098a096c31e923333ed346d4803f1667",
-            strip_prefix = "abseil-cpp-aae8143cf9aa611f70d7ea9b95b8b8b383b2271a",
+            # Commit from 2019-12-16
+            url = "https://github.com/abseil/abseil-cpp/archive/bf86cfe165ef7d70dfe68f0b8fc0c018bc79a577.tar.gz",
+            sha256 = "6e477042edb279a7e3436f5d571b918389daea4b01d0d1e37ace50157d132b36",
+            strip_prefix = "abseil-cpp-bf86cfe165ef7d70dfe68f0b8fc0c018bc79a577",
         )
 
     # Abseil (Python)
@@ -652,14 +652,14 @@ java_library(
         )
 
     # RE2 Regex Framework, mostly used in unit tests.
-    if not native.existing_rule("com_google_re2"):
+    if not native.existing_rule("com_googlesource_code_re2"):
         http_archive(
-            name = "com_google_re2",
+            name = "com_googlesource_code_re2",
             urls = [
-                "https://github.com/google/re2/archive/2019-11-01.tar.gz",
+                "https://github.com/google/re2/archive/d1394506654e0a19a92f3d8921e26f7c3f4de969.tar.gz",
             ],
-            sha256 = "5229d7e801bdb3d62a1b9d82de7c74eda223cb5e264d5bd04bcf31a933245d27",
-            strip_prefix = "re2-2019-11-01",
+            sha256 = "ac855fb93dfa6878f88bc1c399b9a2743fdfcb3dc24b94ea9a568a1c990b1212",
+            strip_prefix = "re2-d1394506654e0a19a92f3d8921e26f7c3f4de969",
         )
 
     # Jinja2.
@@ -745,7 +745,7 @@ java_library(
         name = "icu",
         build_file = "@com_google_zetasql//bazel:icu.BUILD",
         strip_prefix = "icu",
-        sha256 = "627d5d8478e6d96fc8c90fed4851239079a561a6a8b9e48b0892f24e82d31d6c",
-        urls = ["https://github.com/unicode-org/icu/releases/download/release-64-2/icu4c-64_2-src.tgz"],
+        sha256 = "53e37466b3d6d6d01ead029e3567d873a43a5d1c668ed2278e253b683136d948",
+        urls = ["https://github.com/unicode-org/icu/releases/download/release-65-1/icu4c-65_1-src.tgz"],
         patches = ["@com_google_zetasql//bazel:icu4c-64_2.patch"],
     )

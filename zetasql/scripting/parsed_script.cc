@@ -23,8 +23,10 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/parser/parse_tree_visitor.h"
+#include "zetasql/scripting/error_helpers.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
+#include "absl/types/variant.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/status.h"
@@ -228,42 +230,27 @@ class ValidateVariableDeclarationsVisitor
   const ParsedScript* parsed_script_;
 };
 
-// Visitor which records a mapping of each statement and elseif clause's index
-// as a child of its parent.  This is used by the script executor implementation
-// to locate the "next" statement or elseif clause after each node finishes
-// running.
+// Visitor which records a mapping of each node's index as a child of its
+// parent.  This is used by the script executor implementation to locate the
+// "next" statement or elseif clause after each node finishes running.
 class PopulateIndexMapsVisitor : public NonRecursiveParseTreeVisitor {
  public:
   // Caller retains ownership of map_statement_index.
-  explicit PopulateIndexMapsVisitor(
-      ParsedScript::StatementIndexMap* map_statement_index,
-      ParsedScript::ElseifClauseIndexMap* map_elseif_clauses)
-      : map_statement_index_(map_statement_index),
-        map_elseif_clauses_(map_elseif_clauses) {}
+  explicit PopulateIndexMapsVisitor(ParsedScript::NodeIndexMap* map_node_index)
+      : map_node_index_(map_node_index) {}
 
   zetasql_base::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
-    return VisitResult::VisitChildren(node);
-  }
-  zetasql_base::StatusOr<VisitResult> visitASTStatementList(
-      const ASTStatementList* node) override {
-    int index = 0;
-    for (const ASTStatement* statement : node->statement_list()) {
-      (*map_statement_index_)[statement] = index++;
+    for (int i = 0; i < node->num_children(); i++) {
+      (*map_node_index_)[node->child(i)] = i;
     }
-    return VisitResult::VisitChildren(node);
-  }
-  zetasql_base::StatusOr<VisitResult> visitASTElseifClauseList(
-      const ASTElseifClauseList* node) override {
-    int index = 0;
-    for (const ASTElseifClause* clause : node->elseif_clauses()) {
-      (*map_elseif_clauses_)[clause] = index++;
+    if (node->IsExpression() || node->IsSqlStatement()) {
+      return VisitResult::Empty();
     }
     return VisitResult::VisitChildren(node);
   }
 
  private:
-  ParsedScript::StatementIndexMap* map_statement_index_;
-  ParsedScript::ElseifClauseIndexMap* map_elseif_clauses_;
+  ParsedScript::NodeIndexMap* map_node_index_;
 };
 
 // Visitor which builds a mapping, assocating each BREAK, CONTINUE, LEAVE, or
@@ -430,8 +417,7 @@ zetasql_base::Status ParsedScript::GatherInformationAndRunChecksInternal() {
   // statement in the script with its index in the child list of the statement's
   // parent.  This is used to transfer control when advancing through the
   // script.
-  PopulateIndexMapsVisitor populate_index_visitor(&statement_index_map_,
-                                                  &elseif_clause_index_map_);
+  PopulateIndexMapsVisitor populate_index_visitor(&node_index_map_);
   ZETASQL_RETURN_IF_ERROR(script()->TraverseNonRecursive(&populate_index_visitor));
 
   // Walk the parse tree, building up a map, associating each BREAK, CONTINUE,
@@ -440,6 +426,10 @@ zetasql_base::Status ParsedScript::GatherInformationAndRunChecksInternal() {
   PopulateBreakContinueMapVisitor break_continue_map_visitor(
       &break_continue_map_);
   ZETASQL_RETURN_IF_ERROR(script()->TraverseNonRecursive(&break_continue_map_visitor));
+
+  // Callers interested in validating query parameters should call
+  // CheckQueryParameters.
+  ZETASQL_RETURN_IF_ERROR(PopulateQueryParameters());
 
   return zetasql_base::OkStatus();
 }
@@ -480,12 +470,11 @@ zetasql_base::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::Create(
     ErrorMessageMode error_message_mode) {
   return CreateInternal(script_string, parser_options, error_message_mode, {});
 }
-
 zetasql_base::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::CreateForRoutine(
     absl::string_view script_string, const ParserOptions& parser_options,
     ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments) {
   return CreateInternal(script_string, parser_options, error_message_mode,
-                        routine_arguments);
+                        std::move(routine_arguments));
 }
 
 zetasql_base::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::Create(
@@ -496,6 +485,133 @@ zetasql_base::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::Create(
                                         error_message_mode, {}));
   ZETASQL_RETURN_IF_ERROR(parsed_script->GatherInformationAndRunChecks());
   return parsed_script;
+}
+
+zetasql_base::Status ParsedScript::PopulateQueryParameters() {
+  std::vector<const ASTNode*> query_parameters;
+  script()->GetDescendantSubtreesWithKinds({AST_PARAMETER_EXPR},
+                                           &query_parameters);
+  std::set<ParseLocationPoint> positional_points;
+  for (const ASTNode* node : query_parameters) {
+    const ASTParameterExpr* query_parameter =
+        node->GetAsOrDie<ASTParameterExpr>();
+    const ParseLocationRange& range = query_parameter->GetParseLocationRange();
+    const ParseLocationPoint& point = range.start();
+    if (query_parameter->name() == nullptr) {
+      positional_points.insert(point);
+    } else {
+      named_query_parameters_.insert(
+          {point, query_parameter->name()->GetAsIdString()});
+    }
+  }
+
+  if (!positional_points.empty() && !named_query_parameters_.empty()) {
+    return MakeScriptExceptionAt(script())
+           << "Cannot mix named and positional parameters in scripts";
+  }
+
+  // Add the proper indices now that we know the sort order.
+  int i = 0;
+  for (auto itr = positional_points.begin(); itr != positional_points.end();
+       ++itr) {
+    positional_query_parameters_.insert({*itr, i});
+    i++;
+  }
+
+  return zetasql_base::OkStatus();
+}
+
+std::pair<int64_t, int64_t> ParsedScript::GetPositionalParameters(
+    const ParseLocationRange& range) const {
+  // Slightly hacky, but we want to always search from the left hand side of a
+  // key.
+  auto lower = positional_query_parameters_.lower_bound({range.start(), -1});
+  auto upper = positional_query_parameters_.upper_bound({range.end(), -1});
+
+  // Attempt to return something sane if there are no positional parameters in
+  // the segment.
+  if (lower == upper) {
+    return {0, 0};
+  }
+
+  int64_t start = (*lower).second;
+  int64_t end = upper == positional_query_parameters_.end()
+                  ? positional_query_parameters_.size()
+                  : (*upper).second;
+  return {start, end - start};
+}
+
+ParsedScript::StringSet ParsedScript::GetNamedParameters(
+    const ParseLocationRange& range) const {
+  ParsedScript::StringSet result;
+
+  auto lower = named_query_parameters_.lower_bound(range.start());
+  auto upper = named_query_parameters_.upper_bound(range.end());
+  for (; lower != upper; ++lower) {
+    result.insert(lower->second.ToStringView());
+  }
+
+  return result;
+}
+
+ParsedScript::StringSet ParsedScript::GetAllNamedParameters() const {
+  ParsedScript::StringSet result;
+
+  for (auto itr = named_query_parameters_.begin();
+       itr != named_query_parameters_.end(); ++itr) {
+    result.insert(itr->second.ToStringView());
+  }
+
+  return result;
+}
+
+zetasql_base::Status ParsedScript::CheckQueryParameters(
+    const ParsedScript::QueryParameters& parameters) const {
+  return ConvertInternalErrorLocationAndAdjustErrorString(
+      error_message_mode(), script_text(),
+      CheckQueryParametersInternal(parameters));
+}
+
+zetasql_base::Status ParsedScript::CheckQueryParametersInternal(
+    const ParsedScript::QueryParameters& parameters) const {
+  // TODO: Remove this check once everywhere else uses parameters.
+  if (!parameters.has_value()) {
+    return zetasql_base::OkStatus();
+  }
+
+  int64_t num_positionals = positional_query_parameters_.size();
+  ParsedScript::StringSet named_parameters = GetAllNamedParameters();
+
+  if (num_positionals > 0) {
+    int64_t known_num_positionals = 0;
+    if (parameters.has_value() &&
+        absl::holds_alternative<int64_t>(parameters.value())) {
+      known_num_positionals = absl::get<int64_t>(parameters.value());
+    }
+    if (num_positionals > known_num_positionals) {
+      return MakeScriptExceptionAt(script())
+             << "Script has " << num_positionals
+             << " positional parameters but only " << known_num_positionals
+             << " were supplied";
+    }
+  } else if (!named_parameters.empty()) {
+    const ParsedScript::StringSet* known_named_parameters = nullptr;
+    if (parameters.has_value()) {
+      known_named_parameters =
+          absl::get_if<ParsedScript::StringSet>(&parameters.value());
+    }
+    IdStringPool pool;
+    for (absl::string_view parsed_name : named_parameters) {
+      if (known_named_parameters == nullptr ||
+          known_named_parameters->find(parsed_name) ==
+              known_named_parameters->end()) {
+        return MakeScriptExceptionAt(script())
+               << "Unknown named query parameter: " << parsed_name;
+      }
+    }
+  }
+
+  return zetasql_base::OkStatus();
 }
 
 }  // namespace zetasql

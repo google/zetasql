@@ -90,7 +90,7 @@ std::vector<QueryParamsWithResult>
 GetFunctionTestsCastNumeric();  // numeric only
 
 std::vector<QueryParamsWithResult>
-GetFunctionTestsCastString();  // std::string/bytes
+GetFunctionTestsCastString();  // string/bytes
 
 // Casts between strings and numeric types
 std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString();

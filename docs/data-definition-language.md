@@ -24,7 +24,7 @@ CREATE
 The `CREATE DATABASE` statement creates a database. If you have schema
 options, you can add them when you create the database. These options are
 system-specific and follow the ZetaSQL
-[`HINT` syntax](lexical.md#hints).
+[`HINT` syntax][hints].
 
 **Example**
 
@@ -66,8 +66,8 @@ defined in the table element list `(table_element, ...)`. If the `AS query`
 clause is absent, the table element list must be present and contain at
 least one column definition. A table element can be a column definition
 or constraint definition. To learn more about column definitions, see
-[Defining Columns](#defining-columns). To learn more about constraint
-definitions, see [Defining Constraints](#defining-table-constraints).
+[Defining Columns][defining-columns]. To learn more about constraint
+definitions, see [Defining Constraints][defining-constraints].
 
 In a table, if both the table element list and the `AS query` clause
 are present, then the number of columns in the table element list must
@@ -92,7 +92,7 @@ corresponding position of the table element list.
    If the table was not partitioned, co-location occurs within the table.
 +  `OPTIONS`: If you have schema options, you can add them when you create
    the table. These options are system-specific and follow the
-   ZetaSQL[`HINT` syntax](lexical.md#hints)
+   ZetaSQL[`HINT` syntax][hints]
 +  `AS query`: Materializes the result of `query` into the new table.
 
 **Examples**
@@ -186,7 +186,7 @@ rows that belong to the table.
 +  `HIDDEN`: Hides a column if it should not appear in `SELECT * expansions`
    or in structifications of a row variable, such as `SELECT t FROM Table t`.
 +  `[ CONSTRAINT constraint_name ] foreign_reference`: The column in a
-   [foreign table to reference](#defining-foreign-references).
+   [foreign table to reference][defining-foreign-reference].
    You can optionally name the constraint.
    A constraint name must be unique within its schema; it cannot share the name
    of other constraints.
@@ -205,7 +205,7 @@ rows that belong to the table.
 +  `column_attribute`: A characteristic of the column.
 +  `OPTIONS`: If you have schema options, you can add them when you create
    the column. These options are system-specific and follow the
-   ZetaSQL[`HINT` syntax](lexical.md#hints)
+   ZetaSQL[`HINT` syntax][hints]
 
 **Examples**
 
@@ -291,7 +291,7 @@ A `constraint_definition` is a rule enforced on the columns of a table.
    is enforced.
 +  `OPTIONS`: If you have schema options, you can add them when you create
    the constraint. These options are system-specific and follow the
-   ZetaSQL[`HINT` syntax](lexical.md#hints)
+   ZetaSQL[`HINT` syntax][hints]
 
 **Examples**
 
@@ -554,7 +554,7 @@ values computed from expressions in a table.
     to materialize with the index entry.
 +  `OPTIONS`: If you have schema options, you can add them when you create the
     index. These options are system-specific and follow the
-    ZetaSQL[`HINT` syntax](lexical.md#hints).
+    ZetaSQL[`HINT` syntax][hints].
 
 **Examples**
 
@@ -711,7 +711,7 @@ changing table options which typically appear in the `OPTIONS` clause of a
 `table_name` is any identifier or dotted path.
 
 The option entries are system-specific. These follow the ZetaSQL
-[`HINT` syntax](lexical.md#hints).
+[`HINT` syntax][hints].
 
 This statement raises an error under these conditions:
 
@@ -781,8 +781,12 @@ primary key. For each row in this table, the tuple of values in the `title` and
 CREATE TABLE books (title STRING, name STRING, PRIMARY KEY (title, name));
 ```
 
-<!-- END CONTENT -->
-
 [primary-key]: #primary-key
 [create-table]: #create-table
+[hints]: lexical#hints
+[defining-columns]: #defining-columns
+[defining-constraints]: #defining-table-constraints
+[defining-foreign-reference]: #defining-foreign-references
+
+<!-- END CONTENT -->
 

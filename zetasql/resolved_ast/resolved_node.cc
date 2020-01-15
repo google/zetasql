@@ -321,11 +321,11 @@ std::string ResolvedConstant::GetNameForDebugString() const {
 void ResolvedSystemVariable::CollectDebugStringFields(
     std::vector<DebugStringField>* fields) const {
   SUPER::CollectDebugStringFields(fields);
-  fields->emplace(
-      fields->begin(), "",
-      absl::StrJoin(name_path(), ".", [](std::string* out, const std::string& in) {
-        absl::StrAppend(out, ToIdentifierLiteral(in));
-      }));
+  fields->emplace(fields->begin(), "",
+                  absl::StrJoin(name_path(), ".",
+                                [](std::string* out, const std::string& in) {
+                                  absl::StrAppend(out, ToIdentifierLiteral(in));
+                                }));
 }
 
 std::string ResolvedSystemVariable::GetNameForDebugString() const {

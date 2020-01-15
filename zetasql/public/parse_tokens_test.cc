@@ -35,10 +35,11 @@ using ::zetasql_base::testing::IsOkAndHolds;
 using ::zetasql_base::testing::StatusIs;
 
 // This takes a member function of ParseToken (e.g. ParseToken::GetKeyword),
-// calls that function on each element of parse_tokens, and returns a std::string
+// calls that function on each element of parse_tokens, and returns a string
 // with the comma-separated strings of the results.
 template <class FUNC>
-static std::string Call(const std::vector<ParseToken> parse_tokens, FUNC function) {
+static std::string Call(const std::vector<ParseToken>& parse_tokens,
+                        FUNC function) {
   bool first = true;
   std::string result;
   for (const ParseToken& parse_token : parse_tokens) {
@@ -206,7 +207,8 @@ TEST(GetNextTokensTest, LocationsWithCommentsForNonCommentTokens) {
 
   std::vector<ParseToken> parse_tokens;
 
-  const std::string filename = "filename_LocationsWithCommentsForNonCommentTokens";
+  const std::string filename =
+      "filename_LocationsWithCommentsForNonCommentTokens";
   const std::string input =
       "SELECT\na * (\n  /* multi \n line \n comment */\na + b + c\n);\n";
   ParseResumeLocation location =

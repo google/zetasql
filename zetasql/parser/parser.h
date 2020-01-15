@@ -167,19 +167,19 @@ zetasql_base::Status ParseStatement(absl::string_view statement_string,
 // and mandatory for all other statements.
 //
 // <error_message_mode> describes how errors should be represented in the
-// returned Status - whether as a payload, or as part of the std::string.
+// returned Status - whether as a payload, or as part of the string.
 zetasql_base::Status ParseScript(absl::string_view script_string,
                          const ParserOptions& parser_options_in,
                          ErrorMessageMode error_message_mode,
                          std::unique_ptr<ParserOutput>* output);
 
-// Parses one statement from a std::string that may contain multiple statements.
+// Parses one statement from a string that may contain multiple statements.
 // This can be called in a loop with the same <resume_location> to parse
-// all statements from a std::string.
+// all statements from a string.
 //
 // Returns the parser output in <output> upon success. The AST can be retrieved
 // from output->statement(). <*at_end_of_input> will be true if parsing reached
-// the end of the std::string.
+// the end of the string.
 //
 // Statements are separated by semicolons.  A final semicolon is not required
 // on the last statement.  If only whitespace and comments follow the
@@ -224,13 +224,13 @@ zetasql_base::Status ParseExpression(absl::string_view expression_string,
                              const ParserOptions& parser_options_in,
                              std::unique_ptr<ParserOutput>* output);
 // Similar to the previous function, but takes a ParseResumeLocation that
-// indicates the source std::string that contains the expression, and the offset
-// into that std::string where the expression begins.
+// indicates the source string that contains the expression, and the offset
+// into that string where the expression begins.
 zetasql_base::Status ParseExpression(const ParseResumeLocation& resume_location,
                              const ParserOptions& parser_options_in,
                              std::unique_ptr<ParserOutput>* output);
 
-// Unparse a given AST back to a canonical SQL std::string and return it.
+// Unparse a given AST back to a canonical SQL string and return it.
 // Works for any AST node.
 std::string Unparse(const ASTNode* root);
 

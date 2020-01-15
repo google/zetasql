@@ -340,7 +340,7 @@ TEST(StatusOr, TestAssignmentStatusNotOkConverting) {
 TEST(StatusOr, SelfAssignment) {
   // Copy-assignment, status OK
   {
-    // A std::string long enough that it's likely to defeat any inline representation
+    // A string long enough that it's likely to defeat any inline representation
     // optimization.
     const std::string long_str(128, 'a');
 

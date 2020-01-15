@@ -113,7 +113,7 @@ using FunctionGetSQLCallback =
     std::function<std::string(const std::vector<std::string>&)>;
 
 // This callback signature takes an argument list and returns a custom error
-// message std::string to be used when no matching function signature is found for
+// message string to be used when no matching function signature is found for
 // the function based on the argument list.
 using NoMatchingSignatureCallback = std::function<std::string(
     const std::string&, const std::vector<InputArgumentType>&, ProductMode)>;
@@ -457,8 +457,8 @@ class Function {
   Function(const std::string& name, const std::string& group, Mode mode,
            const std::vector<FunctionSignature>& function_signatures,
            const FunctionOptions& function_options = FunctionOptions());
-  Function(const std::vector<std::string>& name_path, const std::string& group, Mode mode,
-           const std::vector<FunctionSignature>& function_signatures,
+  Function(const std::vector<std::string>& name_path, const std::string& group,
+           Mode mode, const std::vector<FunctionSignature>& function_signatures,
            const FunctionOptions& function_options = FunctionOptions());
   Function(const Function&) = delete;
   Function& operator=(const Function&) = delete;
@@ -665,9 +665,7 @@ class Function {
 
   const FunctionOptions& function_options() const { return function_options_; }
 
-  const std::string& alias_name() const {
-    return function_options_.alias_name;
-  }
+  const std::string& alias_name() const { return function_options_.alias_name; }
 
  private:
   bool is_operator() const;

@@ -19,6 +19,7 @@ package com.google.zetasql;
 
 import com.google.common.collect.ImmutableList;
 import java.io.Serializable;
+import java.util.Optional;
 
 /** A table or table-like object visible in a ZetaSQL query. */
 public interface Table extends Serializable {
@@ -39,6 +40,8 @@ public interface Table extends Serializable {
   public Column getColumn(int i);
 
   public ImmutableList<? extends Column> getColumnList();
+
+  public Optional<ImmutableList<Integer>> getPrimaryKey();
 
   public Column findColumnByName(String name);
 

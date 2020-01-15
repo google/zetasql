@@ -303,7 +303,7 @@ static zetasql_base::Status WriteValue(const google::protobuf::FieldDescriptor* 
   if (format == FieldFormat::DATE_DECIMAL) {
     // TODO:  Maybe this should not be a ZETASQL_RET_CHECK?  If we tried to
     // write an incompatible Value into this field then it would pop.  There
-    // is a similar unit test case for writing a std::string Value into a
+    // is a similar unit test case for writing a string Value into a
     // TIMESTAMP field, so we avoid a ZETASQL_RET_CHECK in that case to avoid
     // crashing the test.
     ZETASQL_RET_CHECK_EQ(value.type_kind(), TypeKind::TYPE_DATE);

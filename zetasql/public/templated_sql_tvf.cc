@@ -136,7 +136,7 @@ zetasql_base::Status TemplatedSQLTVF::Resolve(
   }
 
   // Create a separate new parser and parse the templated TVFs SQL query body.
-  // Use the same ID std::string pool from the original parser.
+  // Use the same ID string pool from the original parser.
   ParserOptions parser_options(analyzer_options->id_string_pool(),
                                analyzer_options->arena());
   std::unique_ptr<ParserOutput> parser_output;
@@ -246,9 +246,10 @@ zetasql_base::Status TemplatedSQLTVF::ForwardNestedResolutionAnalysisError(
   } else if (HasErrorLocation(status)) {
     new_status = MakeTVFQueryAnalysisError();
     zetasql::internal::AttachPayload(
-        &new_status, SetErrorSourcesFromStatus(
-                         zetasql::internal::GetPayload<ErrorLocation>(status),
-                         status, mode, std::string(parse_resume_location_.input())));
+        &new_status,
+        SetErrorSourcesFromStatus(
+            zetasql::internal::GetPayload<ErrorLocation>(status), status,
+            mode, std::string(parse_resume_location_.input())));
   } else {
     new_status = StatusWithInternalErrorLocation(
         MakeTVFQueryAnalysisError(),

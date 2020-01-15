@@ -41,7 +41,6 @@ cc_library(
     deps = [
         ":arena",
         ":logging",
-        "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/base:log_severity",
         "@com_google_absl//absl/synchronization",
@@ -54,7 +53,6 @@ cc_library(
     hdrs = ["logging.h"],
     copts = ["-Wno-sign-compare"],
     deps = [
-        "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/base:log_severity",
     ],
@@ -565,34 +563,6 @@ cc_test(
         ":string_numbers",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/strings",
-    ],
-)
-
-cc_library(
-    name = "bind_front",
-    srcs = [
-        "compressed_tuple.h",
-        "front_binder.h",
-        "invoke.h",
-    ],
-    hdrs = [
-        "bind_front.h",
-    ],
-    copts = ["-Wno-sign-compare"],
-    deps = [
-        "@com_google_absl//absl/meta:type_traits",
-        "@com_google_absl//absl/utility",
-    ],
-)
-
-cc_test(
-    name = "bind_front_test",
-    srcs = ["bind_front_test.cc"],
-    copts = ["-Wno-sign-compare"],
-    deps = [
-        ":bind_front",
-        "@com_google_googletest//:gtest_main",
-        "@com_google_absl//absl/memory",
     ],
 )
 

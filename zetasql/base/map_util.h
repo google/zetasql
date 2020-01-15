@@ -53,12 +53,12 @@
 // contain a few standard typedefs identifying the types of data they contain.
 // Given the following map declaration:
 //
-//   std::map<std::string, int> my_map;
+//   std::map<string, int> my_map;
 //
 // the notable typedefs would be as follows:
 //
-//   - key_type    -- std::string
-//   - value_type  -- std::pair<const std::string, int>
+//   - key_type    -- string
+//   - value_type  -- std::pair<const string, int>
 //   - mapped_type -- int
 //
 // Note that the map above contains two types of "values": the key-value pairs
@@ -71,7 +71,7 @@
 //
 //   my_map["foo"] = 3;
 //
-// has a key of "foo" (type: std::string) with a value of 3 (type: int).
+// has a key of "foo" (type: string) with a value of 3 (type: int).
 //
 
 #include <stddef.h>
@@ -207,9 +207,9 @@ const MapUtilMappedT<M>& FindWithDefault(const M& m,
 // WARNING: If a temporary object is passed as the default "value,"
 // this function will return a reference to that temporary object,
 // which will be destroyed at the end of the statement. A common
-// example: if you have a map with std::string values, and you pass a char*
+// example: if you have a map with string values, and you pass a char*
 // as the default "value," either use the returned value immediately
-// or store it in a std::string (not std::string&).
+// or store it in a string (not string&).
 //
 // TODO: Stop using this.
 template <typename M>
@@ -532,7 +532,7 @@ ReverseM ReverseMap(const M& m) {
 // m.
 //
 // Examples:
-//   std::map<std::string, MyType*> my_map;
+//   std::map<string, MyType*> my_map;
 //
 // One line cleanup:
 //     delete EraseKeyReturnValuePtr(&my_map, "abc");

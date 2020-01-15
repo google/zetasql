@@ -103,7 +103,7 @@ TEST(SqlFormatterTest, InvalidSingleStatement) {
       StatusIs(_, HasSubstr("Syntax error: Unexpected \";\" [at 1:1]")));
   EXPECT_EQ(";", formatted_sql);
 
-  // Semicolon in std::string.
+  // Semicolon in string.
   EXPECT_THAT(
       FormatSql("select ' ; ' as a as b;", &formatted_sql),
       StatusIs(_, HasSubstr("Syntax error: Unexpected keyword AS [at 1:19]")));

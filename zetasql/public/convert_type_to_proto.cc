@@ -79,13 +79,12 @@ class TypeToProtoConverter {
   std::map<const Type*, google::protobuf::DescriptorProto*> constructed_arrays_;
 
   // Add a field to <in_message>.
-  zetasql_base::Status MakeFieldDescriptor(
-      const Type* field_type,
-      const std::string& field_name,
-      bool store_field_name_as_annotation,
-      int field_number,
-      google::protobuf::FieldDescriptorProto::Label label,
-      google::protobuf::DescriptorProto* in_message);
+  zetasql_base::Status MakeFieldDescriptor(const Type* field_type,
+                                   const std::string& field_name,
+                                   bool store_field_name_as_annotation,
+                                   int field_number,
+                                   google::protobuf::FieldDescriptorProto::Label label,
+                                   google::protobuf::DescriptorProto* in_message);
 
   // Make a proto to represent <struct_type> in <in_message>, which is
   // assumed to be an empty message.
@@ -95,7 +94,8 @@ class TypeToProtoConverter {
 
   // Make a proto to represent <array_type> in <in_message>, which is
   // assumed to be an empty message.
-  zetasql_base::Status MakeArrayProto(const ArrayType* array_type, const std::string& name,
+  zetasql_base::Status MakeArrayProto(const ArrayType* array_type,
+                              const std::string& name,
                               google::protobuf::DescriptorProto* array_proto);
 
   // Get the DescriptorProto for a struct, re-using a cached one if possible.
@@ -118,10 +118,8 @@ class TypeToProtoConverter {
 };
 
 zetasql_base::Status TypeToProtoConverter::MakeFieldDescriptor(
-    const Type* field_type,
-    const std::string& field_name,
-    bool store_field_name_as_annotation,
-    int field_number,
+    const Type* field_type, const std::string& field_name,
+    bool store_field_name_as_annotation, int field_number,
     google::protobuf::FieldDescriptorProto::Label label,
     google::protobuf::DescriptorProto* in_message) {
   ZETASQL_RET_CHECK_GE(field_number, 1);
@@ -301,8 +299,7 @@ static bool IsValidFieldName(const absl::string_view name) {
 }
 
 zetasql_base::Status TypeToProtoConverter::MakeStructProto(
-    const StructType* struct_type,
-    const std::string& name,
+    const StructType* struct_type, const std::string& name,
     google::protobuf::DescriptorProto* struct_proto) {
   ZETASQL_RET_CHECK_EQ(struct_proto->field_size(), 0);
 
@@ -331,8 +328,7 @@ zetasql_base::Status TypeToProtoConverter::MakeStructProto(
 }
 
 zetasql_base::Status TypeToProtoConverter::MakeArrayProto(
-    const ArrayType* array_type,
-    const std::string& name,
+    const ArrayType* array_type, const std::string& name,
     google::protobuf::DescriptorProto* array_proto) {
   ZETASQL_RET_CHECK_EQ(array_proto->field_size(), 0);
 
@@ -547,8 +543,7 @@ zetasql_base::Status ConvertArrayToProto(
 
 zetasql_base::Status ConvertTableToProto(
     const std::vector<std::pair<std::string, const Type*>>& columns,
-    bool is_value_table,
-    google::protobuf::FileDescriptorProto* file,
+    bool is_value_table, google::protobuf::FileDescriptorProto* file,
     const ConvertTypeToProtoOptions& options) {
   TypeFactory type_factory;
   const Type* row_type;
@@ -590,8 +585,7 @@ zetasql_base::Status ConvertTableToProto(
 // definitions.  <message_names> is the full_name with the package stripped
 // off, split into parts.
 static google::protobuf::DescriptorProto* FindDescriptorProtoImpl(
-    const std::vector<std::string>& message_names,
-    int message_names_at,
+    const std::vector<std::string>& message_names, int message_names_at,
     google::protobuf::DescriptorProto* current_message) {
   if (current_message->name() != message_names[message_names_at]) {
     return nullptr;
@@ -613,8 +607,7 @@ static google::protobuf::DescriptorProto* FindDescriptorProtoImpl(
 // Find a proto message descriptor inside <file> with name <full_name>.
 // Return NULL if not found.
 static google::protobuf::DescriptorProto* FindDescriptorProto(
-    google::protobuf::FileDescriptorProto* file,
-    const std::string& full_name) {
+    google::protobuf::FileDescriptorProto* file, const std::string& full_name) {
   std::vector<std::string> message_names;
   if (!file->package().empty()) {
     if (!absl::StartsWith(full_name, absl::StrCat(file->package(), "."))) {
@@ -638,8 +631,7 @@ static google::protobuf::DescriptorProto* FindDescriptorProto(
 }
 
 zetasql_base::Status AddValueTableAnnotationForProto(
-    const std::string& message_full_name,
-    google::protobuf::FileDescriptorProto* file) {
+    const std::string& message_full_name, google::protobuf::FileDescriptorProto* file) {
   google::protobuf::DescriptorProto* message = FindDescriptorProto(file,
                                                          message_full_name);
   if (message == nullptr) {

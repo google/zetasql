@@ -103,7 +103,7 @@ class RegExp {
   bool Replace(absl::string_view str, absl::string_view newsub,
                std::string* out, zetasql_base::Status* error);
 
-  // Sets maximum length in bytes of an output std::string of any function
+  // Sets maximum length in bytes of an output string of any function
   // (e.g. Replace()). This limit is not strictly enforced, but it's
   // guaranteed that this size will not be exceeded by more than the length
   // of one of the input strings.
@@ -117,14 +117,13 @@ class RegExp {
   }
 
  private:
-  // Appends the "rewrite" std::string, with backslash substitutions from "groups",
-  // to std::string "out".
+  // Appends the "rewrite" string, with backslash substitutions from "groups",
+  // to string "out".
   // Similar to RE2::Rewrite but (1) returns a proper error message instead
-  // of logging it, and (2) enforces output std::string limit set by
+  // of logging it, and (2) enforces output string limit set by
   // SetMaxOutSize().
-  template <typename StringViewType>
   bool Rewrite(const absl::string_view rewrite,
-               const std::vector<StringViewType>& groups, std::string* out,
+               const std::vector<absl::string_view>& groups, std::string* out,
                zetasql_base::Status* error);
 
   // The compiled RE2 object. It is NULL if this has not been initialized yet.
@@ -134,13 +133,13 @@ class RegExp {
   // The following fields keep internal state of the matcher between calls of
   // ExtractAllReset() and ExtractAllNext().
 
-  // REGEXP_EXTRACT_ALL input std::string.
+  // REGEXP_EXTRACT_ALL input string.
   absl::string_view extract_all_input_;
   // Position of the next byte inside extract_all_input_ that will be matched by
   // ExtractAllNext().
   int extract_all_position_;
   // Keeps track whether match was the last one. It is needed to prevent
-  // infinite loop when input is empty and regexp matches empty std::string.
+  // infinite loop when input is empty and regexp matches empty string.
   bool last_match_;
 };
 

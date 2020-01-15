@@ -23,14 +23,17 @@
 #include <algorithm>
 #include <cmath>
 #include <string>
+#include <type_traits>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/fixed_int.h"
+#include "absl/base/attributes.h"
 #include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/optional.h"
 #include "zetasql/base/bits.h"
 #include "zetasql/base/endian.h"
 #include "zetasql/base/status.h"
@@ -74,7 +77,135 @@ inline int int128_sign(__int128 x) {
   return (0 < x) - (x < 0);
 }
 
-inline unsigned __int128 int128_abs(__int128 x) { return (x >= 0) ? x : -x; }
+inline unsigned __int128 int128_abs(__int128 x) {
+  // Must cast to unsigned type before negation. Negation of signed integer
+  // could overflow and has undefined behavior in C/C++.
+  return (x >= 0) ? x : -static_cast<unsigned __int128>(x);
+}
+
+FixedInt<64, 6> GetScaledCovarianceNumerator(const FixedInt<64, 3>& sum_x,
+                                             const FixedInt<64, 3>& sum_y,
+                                             const FixedInt<64, 5>& sum_product,
+                                             uint64_t count) {
+  FixedInt<64, 6> numerator(sum_product);
+  numerator *= count;
+  numerator -= ExtendAndMultiply(sum_x, sum_y);
+  return numerator;
+}
+
+double GetCovariance(const FixedInt<64, 3>& sum_x,
+                     const FixedInt<64, 3>& sum_y,
+                     const FixedInt<64, 5>& sum_product,
+                     uint64_t count,
+                     uint64_t count_offset) {
+  FixedInt<64, 6> numerator(
+      GetScaledCovarianceNumerator(sum_x, sum_y, sum_product, count));
+  FixedUint<64, 3> denominator(count);
+  denominator *= (count - count_offset);
+  denominator *= (static_cast<uint64_t>(NumericValue::kScalingFactor) *
+                  NumericValue::kScalingFactor);
+  return static_cast<double>(numerator) / static_cast<double>(denominator);
+}
+
+template <int n>
+void SerializeFixedInt(std::string* dest, const FixedInt<64, n>& num) {
+  num.SerializeToBytes(dest);
+}
+
+template <int n1, int... n>
+void SerializeFixedInt(std::string* dest, const FixedInt<64, n1>& num1,
+                       const FixedInt<64, n>&... num) {
+  static_assert(sizeof(num1) < 128);
+  size_t old_size = dest->size();
+  dest->push_back('\0');  // add a place holder for size
+  num1.SerializeToBytes(dest);
+  DCHECK_LE(dest->size() - old_size, 128);
+  (*dest)[old_size] = static_cast<char>(dest->size() - old_size - 1);
+  SerializeFixedInt(dest, num...);
+}
+
+template <int n>
+bool DeserializeFixedInt(absl::string_view bytes, FixedInt<64, n>* num) {
+  return num->DeserializeFromBytes(bytes);
+}
+
+template <int n1, int... n>
+bool DeserializeFixedInt(absl::string_view bytes, FixedInt<64, n1>* num1,
+                         FixedInt<64, n>*... num) {
+  if (!bytes.empty()) {
+    int len = bytes[0];
+    return len < bytes.size() - 1 &&
+           num1->DeserializeFromBytes(bytes.substr(1, len)) &&
+           DeserializeFixedInt(bytes.substr(len + 1), num...);
+  }
+  return false;
+}
+
+// Helper method for appending a decimal value to a string. This function
+// assumes the value is not zero, and the FixedInt string has already been
+// appended to output. This function adds the decimal point and adjusts the
+// leading and trailing zeros. Examples:
+// (1, 9, "-123") -> "-0.000000123"
+// (1, 9, "-123456789") -> "-0.123456789"
+// (1, 9, "-1234567890") -> "-1.23456789"
+void AddDecimalPointAndAdjustZeros(size_t first_digit_index, size_t scale,
+                                   std::string* output) {
+  size_t string_length = output->size();
+  // Make a string_view that includes only the digits, so that find_last_not_of
+  // does not search the substring before first_digit_index. This is for
+  // performance instead of correctness. Note, std::string::find_last_not_of
+  // doesn't have a signature that specifies the starting position.
+  absl::string_view fixed_uint_str(*output);
+  fixed_uint_str.remove_prefix(first_digit_index);
+  size_t fixed_uint_length = fixed_uint_str.size();
+  size_t zeros_to_truncate = std::min(
+      fixed_uint_length - fixed_uint_str.find_last_not_of('0') - 1, scale);
+  output->resize(string_length - zeros_to_truncate);
+  if (fixed_uint_length < scale + 1) {
+    // Add zeros and decimal point if smaller than 1.
+    output->insert(first_digit_index, scale + 2 - fixed_uint_length, '0');
+    (*output)[first_digit_index + 1] = '.';
+  } else if (zeros_to_truncate < scale) {
+    output->insert(string_length - scale, 1, '.');
+  }
+}
+
+// Computes static_cast<double>(value / kScalingFactor) with minimal precision
+// loss.
+double RemoveScaleAndConvertToDouble(__int128 value) {
+  if (value == 0) {
+    return 0;
+  }
+  using uint128 = unsigned __int128;
+  uint128 abs_value = int128_abs(value);
+  // binary_scaling_factor must be a power of 2, so that the division by it
+  // never loses any precision.
+  double binary_scaling_factor = 1;
+  // Make sure abs_value has at least 96 significant bits, so that after
+  // dividing by kScalingFactor, it has at least 64 significant bits
+  // before conversion to double.
+  if (abs_value < (uint128{1} << 96)) {
+    if (abs_value >= (uint128{1} << 64)) {
+      abs_value <<= 32;
+      binary_scaling_factor = static_cast<double>(uint128{1} << 32);
+    } else if (abs_value >= (uint128{1} << 32)) {
+      abs_value <<= 64;
+      binary_scaling_factor = static_cast<double>(uint128{1} << 64);
+    } else {
+      abs_value <<= 96;
+      binary_scaling_factor = static_cast<double>(uint128{1} << 96);
+    }
+  }
+  // Add kScalingFactor / 2 for rounding. NumericValue does not fully utilize
+  // the range of int128, so this addition never overflows.
+  abs_value += NumericValue::kScalingFactor / 2;
+  // FixedUint<64, 2> / std::integral_constant<uint32_t, *> is much faster than
+  // uint128 / uint32_t.
+  FixedUint<64, 2> tmp(abs_value);
+  tmp /= NumericValue::kScalingFactor;
+  double result = static_cast<double>(tmp) / binary_scaling_factor;
+  return value >= 0 ? result : -result;
+}
 
 }  // namespace
 
@@ -113,51 +244,21 @@ size_t NumericValue::HashCode() const {
   return absl::Hash<NumericValue>()(*this);
 }
 
-std::string NumericValue::ToString() const {
-  const __int128 value = as_packed_int();
-  const __int128 abs_value = int128_abs(value);
-
-  // First convert the integer part.
-  std::string ret;
-  for (__int128 int_part = abs_value / kScalingFactor;
-       int_part != 0; int_part /= 10) {
-    int digit = int_part % 10;
-    ret.append(1, digit + '0');
+void NumericValue::AppendToString(std::string* output) const {
+  if (as_packed_int() == 0) {
+    output->push_back('0');
+    return;
   }
-  if (ret.empty()) {
-    ret = "0";
-  }
-  if (value < 0) {
-    ret.append(1, '-');
-  }
-  std::reverse(ret.begin(), ret.end());
-
-  // And now convert the fractional part.
-  std::string fract_str;
-  for (__int128 fract_part = abs_value % kScalingFactor;
-       fract_part != 0; fract_part /= 10) {
-    int digit = fract_part % 10;
-    fract_str.append(1, digit + '0');
-  }
-
-  if (!fract_str.empty()) {
-    // Potentially add zeroes that will end up immediately after the decimal
-    // point.
-    if (fract_str.size() < kMaxFractionalDigits) {
-      fract_str.append(kMaxFractionalDigits - fract_str.size(), '0');
-    }
-    // Skip zeroes that will end up at the end of the fractional part.
-    auto idx = fract_str.find_first_not_of('0');
-    std::reverse(fract_str.begin() + idx, fract_str.end());
-    ret.append(1, '.');
-    ret.append(fract_str.substr(idx));
-  }
-
-  return ret;
+  size_t old_size = output->size();
+  FixedInt<64, 2> value(as_packed_int());
+  value.AppendToString(output);
+  size_t first_digit_index = old_size + value.is_negative();
+  AddDecimalPointAndAdjustZeros(first_digit_index, kMaxFractionalDigits,
+                                output);
 }
 
 // Parses a textual representation of a NUMERIC value. Returns an error if the
-// given std::string cannot be parsed as a number or if the textual numeric value
+// given string cannot be parsed as a number or if the textual numeric value
 // exceeds NUMERIC precision. If 'is_strict' is true then the function will
 // return an error if there are more that 9 digits in the fractional part,
 // otherwise the number will be rounded to contain no more than 9 fractional
@@ -187,7 +288,7 @@ zetasql_base::StatusOr<NumericValue> NumericValue::FromStringInternal(
     ++start;
   }
 
-  // Find position of the decimal dot and the exponent part in the std::string. The
+  // Find position of the decimal dot and the exponent part in the string. The
   // numerical part will be validated for correctness, namely we are going to
   // check that it consists only of digits and potentially a single dot.
   const char* exp_start = nullptr;
@@ -302,7 +403,7 @@ zetasql_base::StatusOr<NumericValue> NumericValue::FromStringInternal(
   }
 
   // If the exponent was bigger than zero there might be extra zeroes that
-  // should come after all digits in the std::string have been exhausted, account for
+  // should come after all digits in the string have been exhausted, account for
   // them now.
   for (; int_count < num_integer_digits; ++int_count) {
     value *= 10;
@@ -328,6 +429,10 @@ zetasql_base::StatusOr<NumericValue> NumericValue::FromStringInternal(
       number_or_status : MakeInvalidNumericError(str);
 }
 
+double NumericValue::ToDouble() const {
+  return RemoveScaleAndConvertToDouble(as_packed_int());
+}
+
 zetasql_base::StatusOr<NumericValue> NumericValue::Multiply(NumericValue rh) const {
   const __int128 value = as_packed_int();
   const __int128 rh_value = rh.as_packed_int();
@@ -348,8 +453,8 @@ zetasql_base::StatusOr<NumericValue> NumericValue::Multiply(NumericValue rh) con
     // expensive than multiplication (for example on Skylake throughput of a
     // 64-bit multiplication is 1 cycle, compared to ~80-95 cycles for a
     // division).
+    product += kScalingFactor / 2;
     FixedUint<32, 5> res(product);
-    res += kScalingFactor / 2;
     res /= kScalingFactor;
     unsigned __int128 v = static_cast<unsigned __int128>(res);
     // We already checked the value range, so no need to call FromPackedInt.
@@ -379,6 +484,97 @@ zetasql_base::StatusOr<NumericValue> NumericValue::Power(NumericValue exp) const
          << ": POW(" << ToString() << ", " << exp.ToString() << ")";
 }
 
+namespace {
+constexpr uint64_t kScalingFactorSquare =
+    static_cast<uint64_t>(NumericValue::kScalingFactor) *
+    static_cast<uint64_t>(NumericValue::kScalingFactor);
+constexpr unsigned __int128 kScalingFactorCube =
+    static_cast<unsigned __int128>(kScalingFactorSquare) *
+    NumericValue::kScalingFactor;
+
+// Divides input by kScalingFactor ^ 2 with rounding and store the result to
+// output. Returns false if the result cannot fit into FixedUint<64, 3>.
+template <int size>
+inline bool RemoveDoubleScale(FixedUint<64, size>* input,
+                              FixedUint<64, size - 1>* output) {
+  if (ABSL_PREDICT_TRUE(!input->AddOverflow(kScalingFactorSquare / 2)) &&
+      ABSL_PREDICT_TRUE(input->number()[size - 1] < kScalingFactorSquare)) {
+    *input /= NumericValue::kScalingFactor;
+    *input /= NumericValue::kScalingFactor;
+    *output = FixedUint<64, size - 1>(*input);
+    return true;
+  }
+  return false;
+}
+
+// Raises value to exp. *double_scaled_value (input and output) is scaled
+// by kScalingFactorSquare. Extra scaling is used for preserving
+// precision during computations.
+// Returns false if the result is too big (not necessarily an error).
+bool DoubleScaledPower(FixedUint<64, 3>* double_scaled_value,
+                       FixedUint<64, 2> unscaled_exp) {
+  FixedUint<64, 3> double_scaled_result(kScalingFactorSquare);
+  FixedUint<64, 3> double_scaled_power(*double_scaled_value);
+  unsigned __int128 exp = static_cast<unsigned __int128>(unscaled_exp);
+  while (true) {
+    if ((exp & 1) != 0) {
+      FixedUint<64, 6> tmp_scaled_4x =
+          ExtendAndMultiply(double_scaled_result, double_scaled_power);
+      if (ABSL_PREDICT_FALSE(tmp_scaled_4x.number()[4] != 0) ||
+          ABSL_PREDICT_FALSE(tmp_scaled_4x.number()[5] != 0)) {
+        return false;
+      }
+      FixedUint<64, 4> truncated_tmp_scaled_4x(tmp_scaled_4x);
+      if (ABSL_PREDICT_FALSE(!RemoveDoubleScale(&truncated_tmp_scaled_4x,
+                                                &double_scaled_result))) {
+        return false;
+      }
+    }
+    if (exp <= 1) {
+      *double_scaled_value = double_scaled_result;
+      return true;
+    }
+    if (ABSL_PREDICT_FALSE((double_scaled_power.number()[2] != 0))) {
+      return false;
+    }
+    FixedUint<64, 2> truncated_power(double_scaled_power);
+    FixedUint<64, 4> tmp_scaled_4x =
+        ExtendAndMultiply(truncated_power, truncated_power);
+    if (ABSL_PREDICT_FALSE(
+            !RemoveDoubleScale(&tmp_scaled_4x, &double_scaled_power))) {
+      return false;
+    }
+    exp >>= 1;
+  }
+}
+
+// *dest *= pow(abs_value / kScalingFactor, fract_exp / kScalingFactor) *
+// kScalingFactor
+zetasql_base::Status MultiplyByFractionalPower(unsigned __int128 abs_value,
+                                       int64_t fract_exp,
+                                       FixedUint<64, 3>* dest) {
+  // We handle the fractional part of the exponent by raising the original value
+  // to the fractional part of the exponent by converting them to doubles and
+  // using the standard library's pow() function.
+  // TODO Using std::pow() gives a result with reasonable precision
+  // (comparable to MS SQL and MySQL), but we can probably do better here.
+  // Explore a more accurate implementation in the future.
+  double fract_pow = std::pow(RemoveScaleAndConvertToDouble(abs_value),
+                              RemoveScaleAndConvertToDouble(fract_exp));
+  ZETASQL_ASSIGN_OR_RETURN(NumericValue fract_term,
+                   NumericValue::FromDouble(fract_pow));
+  FixedUint<64, 5> ret = ExtendAndMultiply(
+      *dest, FixedUint<64, 2>(
+                 static_cast<unsigned __int128>(fract_term.as_packed_int())));
+  if (ABSL_PREDICT_TRUE(ret.number()[3] == 0) &&
+      ABSL_PREDICT_TRUE(ret.number()[4] == 0)) {
+    *dest = FixedUint<64, 3>(ret);
+    return zetasql_base::OkStatus();
+  }
+  return MakeEvalError() << "numeric overflow";
+}
+}  // namespace
+
 zetasql_base::StatusOr<NumericValue> NumericValue::PowerInternal(
     NumericValue exp) const {
   // Any value raised to a zero power is always one.
@@ -386,101 +582,122 @@ zetasql_base::StatusOr<NumericValue> NumericValue::PowerInternal(
     return NumericValue(1);
   }
 
-  // An attempt to raise zero to a negative power results in division by zero.
-  if (*this == NumericValue() && exp.as_packed_int() < 0) {
-    return MakeEvalError() << "division by zero";
-  }
-
-  // Otherwise zero raised to any power is still zero.
+  const bool exp_is_negative = exp.as_packed_int() < 0;
   if (*this == NumericValue()) {
+    // An attempt to raise zero to a negative power results in division by zero.
+    if (exp_is_negative) {
+      return MakeEvalError() << "division by zero";
+    }
+    // Otherwise zero raised to any power is still zero.
     return NumericValue();
   }
-
-  int exp_sign = int128_sign(exp.as_packed_int());
-  unsigned __int128 integer_exp =
-      int128_abs(exp.as_packed_int()) / kScalingFactor;
-  unsigned __int128 fract_exp =
-      int128_abs(exp.as_packed_int()) % kScalingFactor;
-
-  // Determine the sign of the result.
-  bool result_is_negative = as_packed_int() < 0 && (integer_exp % 2) != 0;
-
-  if (as_packed_int() < 0 && fract_exp != 0) {
-    return MakeEvalError()
-           << "Negative NUMERIC value cannot be raised to a fractional power";
+  FixedUint<64, 2> abs_integer_exp;
+  uint32_t abs_fract_exp;
+  FixedUint<64, 2>(int128_abs(exp.as_packed_int()))
+      .DivMod(kScalingFactor, &abs_integer_exp, &abs_fract_exp);
+  int64_t fract_exp = abs_fract_exp;
+  if (exp.as_packed_int() < 0) {
+    fract_exp = -fract_exp;
   }
 
-  NumericValue value = NumericValue::Abs(*this);
-  if (exp_sign < 0) {
-    // If the exponent is negative then we compute the result by raising the
-    // reciprocal to the positive exponent, i.e. x^(-n) is computed as (1/x)^n.
-    auto value_status = NumericValue(1).Divide(value);
-    if (!value_status.ok()) {
-      return MakeEvalError() << "numeric overflow";
+  bool result_is_negative = false;
+  unsigned __int128 abs_value = int128_abs(as_packed_int());
+  if (as_packed_int() < 0) {
+    if (fract_exp != 0) {
+      return MakeEvalError()
+             << "Negative NUMERIC value cannot be raised to a fractional power";
     }
-    value = value_status.ValueOrDie();
+    result_is_negative = (abs_integer_exp.number()[0] & 1) != 0;
   }
 
-  FixedUint<32, 7> ret(
-      static_cast<unsigned __int128>(NumericValue(1).as_packed_int()));
-  FixedUint<32, 7> squared(
-      static_cast<unsigned __int128>(value.as_packed_int()));
-
-  // We are performing computations with extra digits of precision added. This
-  // allows to preserve precision when raising small numbers, like 1.001, to
-  // huge powers. We also use extra precision to perform rounding.
-  ret *= kScalingFactor;
-  squared *= kScalingFactor;
-
-  const FixedUint<32, 7> kScalingFactorSquareHalf(
-      static_cast<uint64_t>(kScalingFactor) * kScalingFactor / 2);
-  for (;; integer_exp /= 2) {
-    if ((integer_exp % 2) != 0) {
-      if (!ret.MultiplyAndCheckOverflow(squared)) {
-        return MakeEvalError() << "numeric overflow";
+  FixedUint<64, 3> double_scaled_value;
+  if (!exp_is_negative) {
+    double_scaled_value = FixedUint<64, 3>(abs_value);
+    double_scaled_value *= kScalingFactor;
+  } else {
+    // If the exponent is negative and abs_value is > 1, then we compute
+    // compute 1 / (abs_value ^ (-integer_exp)). Note, computing
+    // (1 / abs_value) ^ (-integer_exp) would lose precision in the division
+    // because the input of DoubleScaledPower can have only 9 digits after the
+    // decimal point.
+    if (abs_value > kScalingFactor) {
+      double_scaled_value = FixedUint<64, 3>(abs_value);
+      double_scaled_value *= kScalingFactor;
+      if (!DoubleScaledPower(&double_scaled_value, abs_integer_exp) ||
+          double_scaled_value > FixedUint<64, 3>(kScalingFactorCube * 2)) {
+        return NumericValue();
       }
-      // Restore the scale.
-      ret += kScalingFactorSquareHalf;
-      ret /= kScalingFactor;
-      ret /= kScalingFactor;
+      DCHECK(static_cast<unsigned __int128>(double_scaled_value) != 0);
+      if (fract_exp == 0) {
+        FixedUint<64, 3> numerator(kScalingFactorCube);  // triple-scaled
+        numerator.DivAndRoundAwayFromZero(double_scaled_value);
+        return NumericValue::FromFixedUint(numerator, result_is_negative);
+      }
+      FixedUint<64, 3> numerator(kScalingFactorSquare);
+      // Because fract_exp < 0, the upper bound of pow(abs_value, fract_exp)
+      // is pow(1e-9, -1) = 1e9 with scaled value = kScalingFactor ^ 2, which
+      // means MultiplyByFractionalPower should not overflow.
+      ZETASQL_RETURN_IF_ERROR(
+          MultiplyByFractionalPower(abs_value, fract_exp, &numerator));
+      // Now numerator is triple-scaled.
+      numerator.DivAndRoundAwayFromZero(double_scaled_value);
+      return NumericValue::FromFixedUint(numerator, result_is_negative);
     }
-    if (integer_exp <= 1) {
-      break;
-    }
-    if (!squared.MultiplyAndCheckOverflow(squared)) {
-      return MakeEvalError() << "numeric overflow";
-    }
-    // Restore the scale.
-    squared += kScalingFactorSquareHalf;
-    squared /= kScalingFactor;
-    squared /= kScalingFactor;
+    // If the exponent is negative and abs_value is <= 1, then we compute
+    // (1 / abs_value) ^ (-abs_integer_exp).
+    double_scaled_value = FixedUint<64, 3>(kScalingFactorCube);
+    FixedUint<64, 3> denominator(abs_value);
+    double_scaled_value.DivAndRoundAwayFromZero(denominator);
   }
 
-  // Round away from zero.
-  ret += (kScalingFactor / 2);
-  // Remove extra digits of precision that were introduced in the beginning.
-  ret /= kScalingFactor;
-
-  ZETASQL_ASSIGN_OR_RETURN(NumericValue res,
-                   NumericValue::FromFixedUint(ret, result_is_negative));
-
-  // We handle the practional part of the exponent by raising the original value
-  // to the fractional part of the exponent by converting them to doubles and
-  // using the standard library's pow() function.
-  if (fract_exp != 0) {
-    // TODO Using std::pow() gives a result with reasonable precision
-    // (comparable to MS SQL and MySQL), but we can probably do better here.
-    // Explore a more accurate implementation in the future.
-    double fract_pow = std::pow(
-        value.ToDouble(),
-        static_cast<double>(fract_exp) / kScalingFactor);
-    ZETASQL_ASSIGN_OR_RETURN(NumericValue fract_term,
-                     NumericValue::FromDouble(fract_pow));
-    ZETASQL_ASSIGN_OR_RETURN(res, res.Multiply(fract_term));
+  if (!DoubleScaledPower(&double_scaled_value, abs_integer_exp)) {
+    return MakeEvalError() << "numeric overflow";
   }
 
-  return res;
+  if (fract_exp == 0) {
+    // Divide double_scaled_value by kScalingFactor to make it single-scaled.
+    double_scaled_value.DivAndRoundAwayFromZero(kScalingFactor);
+    return NumericValue::FromFixedUint(double_scaled_value, result_is_negative);
+  }
+
+  ZETASQL_RETURN_IF_ERROR(
+      MultiplyByFractionalPower(abs_value, fract_exp, &double_scaled_value));
+  // After MultiplyByFractionalPower, tmp is triple-scaled. Divide it by
+  // kScalingFactor ^ 2 to make it single-scaled.
+  FixedUint<64, 2> ret;
+  if (ABSL_PREDICT_FALSE(!RemoveDoubleScale(&double_scaled_value, &ret))) {
+    return MakeEvalError() << "numeric overflow";
+  }
+  return NumericValue::FromFixedUint(ret, result_is_negative);
 }
+
+namespace {
+// Powers<base, size>() returns an array of <size> elements
+// {pow(base, size), pow(base, size - 1), ..., base}.
+template <__int128 base, int size, typename... T>
+constexpr std::enable_if_t<(sizeof...(T) == size), std::array<__int128, size>>
+Powers(T... v) {
+  return std::array<__int128, size>{v...};
+}
+
+template <__int128 base, int size, typename... T>
+constexpr std::enable_if_t<(sizeof...(T) < size), std::array<__int128, size>>
+Powers(T... v) {
+  return Powers<base, size>(v * base..., base);
+}
+
+template <int32_t divisor>
+inline void RoundConst32(bool round_away_from_zero, __int128* dividend) {
+  if (round_away_from_zero) {
+    *dividend += *dividend >= 0 ? divisor / 2 : divisor / -2;
+  }
+  int32_t remainder;
+  // This is much faster than "dividend % divisor".
+  FixedInt<64, 2>(*dividend).DivMod(std::integral_constant<int32_t, divisor>(),
+                                    nullptr, &remainder);
+  *dividend -= remainder;
+}
+}  // namespace
 
 zetasql_base::StatusOr<NumericValue> NumericValue::RoundInternal(
     int64_t digits, bool round_away_from_zero) const {
@@ -490,32 +707,52 @@ zetasql_base::StatusOr<NumericValue> NumericValue::RoundInternal(
     return *this;
   }
 
-  if (digits <= -kMaxIntegerDigits) {
+  if (digits < -kMaxIntegerDigits) {
     // Rounding all digits away results in zero.
     return NumericValue();
   }
 
   __int128 value = as_packed_int();
-  __int128 trunc_factor = internal::int128_exp(
-      10, static_cast<int>(kMaxFractionalDigits - digits));
 
-  if (round_away_from_zero) {
-    __int128 rounding_term =
-        value < 0 ? -trunc_factor / 2 : trunc_factor / 2;
-    if (internal::int128_add_overflow(value, rounding_term, &value)) {
-      return MakeEvalError() << "numeric overflow: ROUND(" << ToString() << ", "
-                             << digits << ")";
+  bool overflow = false;
+  switch (digits) {
+    // Fast paths for some common values of the second argument.
+    case 0:
+      RoundConst32<internal::k1e9>(round_away_from_zero, &value);
+      break;
+    case 1:
+      RoundConst32<100000000>(round_away_from_zero, &value);
+      break;
+    case 2:
+      RoundConst32<10000000>(round_away_from_zero, &value);
+      break;
+    case 3:
+      RoundConst32<1000000>(round_away_from_zero, &value);
+      break;
+    default: {
+      constexpr int kMaxDigits = kMaxFractionalDigits + kMaxIntegerDigits;
+      static constexpr std::array<__int128, kMaxDigits> kTruncFactors =
+          Powers<10, kMaxDigits>();
+      __int128 trunc_factor = kTruncFactors[digits + kMaxIntegerDigits];
+      if (round_away_from_zero) {
+        __int128 offset = trunc_factor >> 1;
+        __int128 rounding_term = value < 0 ? -offset : offset;
+        if (internal::int128_add_overflow(value, rounding_term, &value)) {
+          overflow = true;
+          break;
+        }
+      }
+      value -= value % trunc_factor;
     }
   }
-
-  value /= trunc_factor;
-  value *= trunc_factor;
-  auto res_status = NumericValue::FromPackedInt(value);
-  if (!res_status.ok()) {
-    return MakeEvalError() << "numeric overflow: ROUND(" << ToString() << ", "
-                           << digits << ")";
+  if (!overflow) {
+    auto res_status = NumericValue::FromPackedInt(value);
+    if (res_status.ok()) {
+      return res_status;
+    }
   }
-  return res_status.ValueOrDie();
+  return MakeEvalError() << "numeric overflow: ROUND(" << ToString() << ", "
+                         << digits << ")";
 }
 
 zetasql_base::StatusOr<NumericValue> NumericValue::Round(int64_t digits) const {
@@ -528,36 +765,24 @@ NumericValue NumericValue::Trunc(int64_t digits) const {
 
 zetasql_base::StatusOr<NumericValue> NumericValue::Ceiling() const {
   __int128 value = as_packed_int();
-  if (value % kScalingFactor > 0) {
-    if (ABSL_PREDICT_FALSE(internal::int128_add_overflow(
-            value, kScalingFactor, &value))) {
-      return MakeEvalError() << "numeric overflow: CEIL(" << ToString() << ")";
-    }
-  }
-  value /= kScalingFactor;
-  value *= kScalingFactor;
+  int64_t fract_part = GetFractionalPart();
+  value -= fract_part > 0 ? fract_part - kScalingFactor : fract_part;
   auto res_status = NumericValue::FromPackedInt(value);
-  if (!res_status.ok()) {
-    return MakeEvalError() << "numeric overflow: CEIL(" << ToString() << ")";
+  if (res_status.ok()) {
+    return res_status;
   }
-  return res_status.ValueOrDie();
+  return MakeEvalError() << "numeric overflow: CEIL(" << ToString() << ")";
 }
 
 zetasql_base::StatusOr<NumericValue> NumericValue::Floor() const {
   __int128 value = as_packed_int();
-  if (value % kScalingFactor < 0) {
-    if (ABSL_PREDICT_FALSE(internal::int128_add_overflow(
-            value, -static_cast<__int128>(kScalingFactor), &value))) {
-      return MakeEvalError() << "numeric overflow: FLOOR(" << ToString() << ")";
-    }
-  }
-  value /= kScalingFactor;
-  value *= kScalingFactor;
+  int64_t fract_part = GetFractionalPart();
+  value -= fract_part < 0 ? fract_part + kScalingFactor : fract_part;
   auto res_status = NumericValue::FromPackedInt(value);
-  if (!res_status.ok()) {
-    return MakeEvalError() << "numeric overflow: FLOOR(" << ToString() << ")";
+  if (res_status.ok()) {
+    return res_status;
   }
-  return res_status.ValueOrDie();
+  return MakeEvalError() << "numeric overflow: FLOOR(" << ToString() << ")";
 }
 
 zetasql_base::StatusOr<NumericValue> NumericValue::Divide(NumericValue rh) const {
@@ -567,14 +792,16 @@ zetasql_base::StatusOr<NumericValue> NumericValue::Divide(NumericValue rh) const
   const bool rh_is_negative = rh_value < 0;
 
   if (ABSL_PREDICT_TRUE(rh_value != 0)) {
-    FixedUint<32, 5> dividend(int128_abs(value));
+    FixedUint<64, 3> dividend(int128_abs(value));
     unsigned __int128 divisor = int128_abs(rh_value);
 
     // To preserve the scale of the result we need to multiply the dividend by
     // the scaling factor first.
     dividend *= kScalingFactor;
-    dividend += FixedUint<32, 5>(divisor >> 1);
-    dividend /= FixedUint<32, 5>(divisor);
+    // Not using DivAndRoundAwayFromZero because the addition never overflows
+    // and shifting unsigned __int128 is more efficient.
+    dividend += FixedUint<64, 3>(divisor >> 1);
+    dividend /= FixedUint<64, 3>(divisor);
 
     auto res_or_status =
         NumericValue::FromFixedUint(dividend, is_negative != rh_is_negative);
@@ -692,14 +919,6 @@ std::ostream& operator<<(std::ostream& out, NumericValue value) {
   return out << value.ToString();
 }
 
-void NumericValue::Aggregator::Add(NumericValue value) {
-  const __int128 v = value.as_packed_int();
-  if (ABSL_PREDICT_FALSE(internal::int128_add_overflow(
-      sum_lower_, v, &sum_lower_))) {
-    sum_upper_ += v < 0 ? -1 : 1;
-  }
-}
-
 zetasql_base::StatusOr<NumericValue> NumericValue::Aggregator::GetSum() const {
   if (sum_upper_ != 0) {
     return MakeEvalError() << "numeric overflow: SUM";
@@ -721,7 +940,7 @@ NumericValue::Aggregator::GetAverage(uint64_t count) const {
     return MakeEvalError() << "division by zero: AVG";
   }
 
-  // The code below constructs an unsigned 196 bits of FixedUint<32, 7> from
+  // The code below constructs an unsigned 196 bits of FixedUint<64, 3> from
   // sum_upper_ and sum_lower_. The following cases need to be considered:
   // 1) If sum_upper_ is zero, the entire value (including the sign) comes
   //    from sum_lower_. We need to get abs(sum_lower_) because the division
@@ -755,9 +974,9 @@ NumericValue::Aggregator::GetAverage(uint64_t count) const {
   // (uint64_t hi, unsigned __int128 low) needs 192 bits; on top of that we need
   // 32 bits to be able to normalize the numbers before performing long division
   // (see LongDivision()).
-  FixedUint<32, 6> dividend(upper_abs, static_cast<unsigned __int128>(lower));
-  dividend += FixedUint<32, 6>(count >> 1);
-  dividend /= FixedUint<32, 6>(count);
+  FixedUint<64, 3> dividend(upper_abs, static_cast<unsigned __int128>(lower));
+  dividend += FixedUint<64, 3>(count >> 1);
+  dividend /= FixedUint<64, 3>(count);
 
   auto res_status = NumericValue::FromFixedUint(dividend, negate);
   if (res_status.ok()) {
@@ -803,10 +1022,6 @@ NumericValue::Aggregator::DeserializeFromProtoBytes(absl::string_view bytes) {
   return res;
 }
 
-void NumericValue::SumAggregator::Add(NumericValue value) {
-  sum_ += FixedInt<64, 3>(value.as_packed_int());
-}
-
 zetasql_base::StatusOr<NumericValue> NumericValue::SumAggregator::GetSum() const {
   auto res_status = NumericValue::FromFixedInt(sum_);
   if (res_status.ok()) {
@@ -822,13 +1037,7 @@ zetasql_base::StatusOr<NumericValue> NumericValue::SumAggregator::GetAverage(
   }
 
   FixedInt<64, 3> dividend = sum_;
-  uint64_t half_count_for_rounding = count >> 1;
-  if (dividend.is_negative()) {
-    dividend -= half_count_for_rounding;
-  } else {
-    dividend += half_count_for_rounding;
-  }
-  dividend /= count;
+  dividend.DivAndRoundAwayFromZero(count);
 
   auto res_status = NumericValue::FromFixedInt(dividend);
   if (res_status.ok()) {
@@ -842,7 +1051,9 @@ void NumericValue::SumAggregator::MergeWith(const SumAggregator& other) {
 }
 
 std::string NumericValue::SumAggregator::SerializeAsProtoBytes() const {
-  return sum_.SerializeToBytes();
+  std::string str;
+  sum_.SerializeToBytes(&str);
+  return str;
 }
 
 zetasql_base::StatusOr<NumericValue::SumAggregator>
@@ -852,7 +1063,7 @@ NumericValue::SumAggregator::DeserializeFromProtoBytes(
   if (out.sum_.DeserializeFromBytes(bytes)) {
     return out;
   }
-  return MakeEvalError() << "Invalid NumericValue::Aggregator encoding";
+  return MakeEvalError() << "Invalid NumericValue::SumAggregator encoding";
 }
 
 void NumericValue::VarianceAggregator::Add(NumericValue value) {
@@ -870,7 +1081,7 @@ void NumericValue::VarianceAggregator::Subtract(NumericValue value) {
 absl::optional<double> NumericValue::VarianceAggregator::GetPopulationVariance(
     uint64_t count) const {
   if (count > 0) {
-    return GetVariance(count, 0);
+    return GetCovariance(sum_, sum_, sum_square_, count, 0);
   }
   return absl::nullopt;
 }
@@ -878,7 +1089,7 @@ absl::optional<double> NumericValue::VarianceAggregator::GetPopulationVariance(
 absl::optional<double> NumericValue::VarianceAggregator::GetSamplingVariance(
     uint64_t count) const {
   if (count > 1) {
-    return GetVariance(count, 1);
+    return GetCovariance(sum_, sum_, sum_square_, count, 1);
   }
   return absl::nullopt;
 }
@@ -886,7 +1097,8 @@ absl::optional<double> NumericValue::VarianceAggregator::GetSamplingVariance(
 absl::optional<double> NumericValue::VarianceAggregator::GetPopulationStdDev(
     uint64_t count) const {
   if (count > 0) {
-    return std::sqrt(GetVariance(count, 0));
+    return std::sqrt(
+        GetCovariance(sum_, sum_, sum_square_, count, 0));
   }
   return absl::nullopt;
 }
@@ -894,7 +1106,8 @@ absl::optional<double> NumericValue::VarianceAggregator::GetPopulationStdDev(
 absl::optional<double> NumericValue::VarianceAggregator::GetSamplingStdDev(
     uint64_t count) const {
   if (count > 1) {
-    return std::sqrt(GetVariance(count, 1));
+    return std::sqrt(
+        GetCovariance(sum_, sum_, sum_square_, count, 1));
   }
   return absl::nullopt;
 }
@@ -905,43 +1118,141 @@ void NumericValue::VarianceAggregator::MergeWith(
   sum_square_ += other.sum_square_;
 }
 
-double NumericValue::VarianceAggregator::GetVariance(
-    uint64_t count, uint64_t count_offset) const {
-  FixedInt<64, 6> numerator(sum_square_);
-  numerator *= count;
-  numerator -= ExtendAndMultiply(sum_, sum_);
-  FixedUint<64, 3> denominator(count);
-  denominator *= (count - count_offset);
-  denominator *= (static_cast<uint64_t>(kScalingFactor) * kScalingFactor);
-  return static_cast<double>(numerator) / static_cast<double>(denominator);
-}
-
 std::string NumericValue::VarianceAggregator::SerializeAsProtoBytes() const {
-  std::string sum_bytes = sum_.SerializeToBytes();
-  std::string sum_square_bytes = sum_square_.SerializeToBytes();
   std::string out;
-  out.reserve(1 + sum_bytes.size() + sum_square_bytes.size());
-  static_assert(sizeof(sum_) < 128);
-  DCHECK_LT(sum_bytes.size(), 128);
-  out.push_back(static_cast<int8_t>(sum_bytes.size()));
-  absl::StrAppend(&out, sum_bytes, sum_square_bytes);
+  SerializeFixedInt(&out, sum_, sum_square_);
   return out;
 }
 
 zetasql_base::StatusOr<NumericValue::VarianceAggregator>
 NumericValue::VarianceAggregator::DeserializeFromProtoBytes(
     absl::string_view bytes) {
-  if (!bytes.empty()) {
-    int sum_len = bytes[0];
-    if (sum_len < bytes.size() - 1) {
-      NumericValue::VarianceAggregator out;
-      if (out.sum_.DeserializeFromBytes(bytes.substr(1, sum_len)) &&
-          out.sum_square_.DeserializeFromBytes(bytes.substr(sum_len + 1))) {
-        return out;
-      }
-    }
+  VarianceAggregator out;
+  if (DeserializeFixedInt(bytes, &out.sum_, &out.sum_square_)) {
+    return out;
   }
   return MakeEvalError() << "Invalid NumericValue::VarianceAggregator encoding";
+}
+
+void NumericValue::CovarianceAggregator::Add(NumericValue x,
+                                             NumericValue y) {
+  sum_x_ += FixedInt<64, 3>(x.as_packed_int());
+  sum_y_ += FixedInt<64, 3>(y.as_packed_int());
+  FixedInt<64, 2> x_num(x.as_packed_int());
+  FixedInt<64, 2> y_num(y.as_packed_int());
+  sum_product_ += FixedInt<64, 5>(ExtendAndMultiply(x_num, y_num));
+}
+
+void NumericValue::CovarianceAggregator::Subtract(NumericValue x,
+                                                  NumericValue y) {
+  sum_x_ -= FixedInt<64, 3>(x.as_packed_int());
+  sum_y_ -= FixedInt<64, 3>(y.as_packed_int());
+  FixedInt<64, 2> x_num(x.as_packed_int());
+  FixedInt<64, 2> y_num(y.as_packed_int());
+  sum_product_ -= FixedInt<64, 5>(ExtendAndMultiply(x_num, y_num));
+}
+
+absl::optional<double>
+NumericValue::CovarianceAggregator::GetPopulationCovariance(
+    uint64_t count) const {
+  if (count > 0) {
+    return GetCovariance(sum_x_, sum_y_, sum_product_, count, 0);
+  }
+  return absl::nullopt;
+}
+
+absl::optional<double>
+NumericValue::CovarianceAggregator::GetSamplingCovariance(uint64_t count) const {
+  if (count > 1) {
+    return GetCovariance(sum_x_, sum_y_, sum_product_, count, 1);
+  }
+  return absl::nullopt;
+}
+
+void NumericValue::CovarianceAggregator::MergeWith(
+    const CovarianceAggregator& other) {
+  sum_x_ += other.sum_x_;
+  sum_y_ += other.sum_y_;
+  sum_product_ += other.sum_product_;
+}
+
+std::string NumericValue::CovarianceAggregator::SerializeAsProtoBytes() const {
+  std::string out;
+  SerializeFixedInt(&out, sum_product_, sum_x_, sum_y_);
+  return out;
+}
+
+zetasql_base::StatusOr<NumericValue::CovarianceAggregator>
+NumericValue::CovarianceAggregator::DeserializeFromProtoBytes(
+    absl::string_view bytes) {
+  CovarianceAggregator out;
+  if (DeserializeFixedInt(bytes, &out.sum_product_, &out.sum_x_, &out.sum_y_)) {
+    return out;
+  }
+  return MakeEvalError()
+         << "Invalid NumericValue::CovarianceAggregator encoding";
+}
+
+void NumericValue::CorrelationAggregator::Add(NumericValue x,
+                                             NumericValue y) {
+  cov_agg_.Add(x, y);
+  FixedInt<64, 2> x_num(x.as_packed_int());
+  FixedInt<64, 2> y_num(y.as_packed_int());
+  sum_square_x_ += FixedInt<64, 5>(ExtendAndMultiply(x_num, x_num));
+  sum_square_y_ += FixedInt<64, 5>(ExtendAndMultiply(y_num, y_num));
+}
+
+void NumericValue::CorrelationAggregator::Subtract(NumericValue x,
+                                                  NumericValue y) {
+  cov_agg_.Subtract(x, y);
+  FixedInt<64, 2> x_num(x.as_packed_int());
+  FixedInt<64, 2> y_num(y.as_packed_int());
+  sum_square_x_ -= FixedInt<64, 5>(ExtendAndMultiply(x_num, x_num));
+  sum_square_y_ -= FixedInt<64, 5>(ExtendAndMultiply(y_num, y_num));
+}
+
+absl::optional<double>
+NumericValue::CorrelationAggregator::GetCorrelation(uint64_t count) const {
+  if (count > 1) {
+    FixedInt<64, 6> numerator = GetScaledCovarianceNumerator(
+        cov_agg_.sum_x_, cov_agg_.sum_y_, cov_agg_.sum_product_, count);
+    FixedInt<64, 6> variance_numerator_x = GetScaledCovarianceNumerator(
+        cov_agg_.sum_x_, cov_agg_.sum_x_, sum_square_x_, count);
+    FixedInt<64, 6> variance_numerator_y = GetScaledCovarianceNumerator(
+        cov_agg_.sum_y_, cov_agg_.sum_y_, sum_square_y_, count);
+    FixedInt<64, 12> denominator_square =
+        ExtendAndMultiply(variance_numerator_x, variance_numerator_y);
+    return static_cast<double>(numerator) /
+           std::sqrt(static_cast<double>(denominator_square));
+  }
+  return absl::nullopt;
+}
+
+void NumericValue::CorrelationAggregator::MergeWith(
+    const CorrelationAggregator& other) {
+  cov_agg_.MergeWith(other.cov_agg_);
+  sum_square_x_ += other.sum_square_x_;
+  sum_square_y_ += other.sum_square_y_;
+}
+
+std::string NumericValue::CorrelationAggregator::SerializeAsProtoBytes() const {
+  std::string out;
+  SerializeFixedInt(&out, cov_agg_.sum_product_, cov_agg_.sum_x_,
+                    cov_agg_.sum_y_, sum_square_x_, sum_square_y_);
+  return out;
+}
+
+zetasql_base::StatusOr<NumericValue::CorrelationAggregator>
+NumericValue::CorrelationAggregator::DeserializeFromProtoBytes(
+    absl::string_view bytes) {
+  CorrelationAggregator out;
+  if (DeserializeFixedInt(bytes, &out.cov_agg_.sum_product_,
+                          &out.cov_agg_.sum_x_, &out.cov_agg_.sum_y_,
+                          &out.sum_square_x_, &out.sum_square_y_)) {
+    return out;
+  }
+  return MakeEvalError()
+         << "Invalid NumericValue::CorrelationAggregator encoding";
 }
 
 }  // namespace zetasql

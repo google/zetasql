@@ -68,7 +68,7 @@ zetasql_base::Status ConvertProto3TimeOfDayToTime(const google::type::TimeOfDay&
 
 // Converts a proto3 wrapper for a primitive type (defined
 // in google/protobuf/wrappers.proto) to a ZetaSQL type. Conversion
-// from google::protobuf::StringValue requires the std::string to be a valid UTF-8
+// from google::protobuf::StringValue requires the string to be a valid UTF-8
 // encoding. 'output' must have the same type as the 'value' field of the
 // wrapper message.
 template <typename Wrapper>

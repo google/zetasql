@@ -1028,7 +1028,8 @@ zetasql_base::Status FunctionResolver::ProcessNamedArguments(
     // Map the argument name to the index in which it appears in the function
     // call. If the name already exists in the map, this is a duplicate named
     // argument which is not allowed.
-    const std::string provided_arg_name = named_arg.first->name()->GetAsString();
+    const std::string provided_arg_name =
+        named_arg.first->name()->GetAsString();
     if (!zetasql_base::InsertIfNotPresent(&argument_names_to_indexes, provided_arg_name,
                                  named_arg.second)) {
       return MakeSqlErrorAt(named_arg.first)
@@ -1082,9 +1083,10 @@ zetasql_base::Status FunctionResolver::ProcessNamedArguments(
   std::vector<ResolvedTVFArg> new_tvf_arg_types;
   for (int i = 0; i < signature.arguments().size(); ++i) {
     const FunctionArgumentType& arg_type = signature.arguments()[i];
-    const std::string& signature_arg_name = arg_type.options().has_argument_name()
-                                           ? arg_type.options().argument_name()
-                                           : "";
+    const std::string& signature_arg_name =
+        arg_type.options().has_argument_name()
+            ? arg_type.options().argument_name()
+            : "";
     const int* index =
         zetasql_base::FindOrNull(argument_names_to_indexes, signature_arg_name);
     // For positional arguments that appear before any named arguments appear,
@@ -1565,7 +1567,7 @@ zetasql_base::Status FunctionResolver::ConvertLiteralToType(
   } else if (argument_value->type()->IsStruct()) {
     // TODO: Make this clearer by factoring it out to a helper function
     // that returns a zetasql_base::StatusOr<Value>, making 'success' unnecessary and
-    // allowing for a more detailed error message (like for std::string -> proto
+    // allowing for a more detailed error message (like for string -> proto
     // conversion below).
     bool success = true;
     if (!target_type->IsStruct() ||
@@ -1630,7 +1632,7 @@ zetasql_base::Status FunctionResolver::ConvertLiteralToType(
           << (argument_literal->has_explicit_type() ? "" : "literal ")
           << argument_value->DebugString() << " to type "
           << target_type->DebugString();
-      // Give a more detailed error message for std::string/bytes -> proto
+      // Give a more detailed error message for string/bytes -> proto
       // conversions, which can have subtle issues.
       const std::string& error_message =
           coerced_literal_value.status().error_message();
@@ -1656,7 +1658,7 @@ zetasql_base::Status FunctionResolver::ConvertLiteralToType(
     }
     // Remove parse location on the original literal.  We don't want to
     // do a replacement based on that one because it has the original type,
-    // not the inferred type, and it would have the same std::string location
+    // not the inferred type, and it would have the same string location
     // as the replacement literal.
     const_cast<ResolvedLiteral*>(argument_literal)->ClearParseLocationRange();
   }
@@ -2116,7 +2118,7 @@ zetasql_base::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
   }
 
   // Create a separate new parser and parse the function's SQL expression from
-  // the <parse_resume_location_>. Use the same ID std::string pool as the
+  // the <parse_resume_location_>. Use the same ID string pool as the
   // original parser.
   ParserOptions parser_options(analyzer_options.id_string_pool(),
                                analyzer_options.arena());

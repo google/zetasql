@@ -230,8 +230,7 @@ zetasql_base::Status ConvertTableToProto(
 // exactly one column.
 zetasql_base::Status ConvertTableToProto(
     const std::vector<std::pair<std::string, const Type*>>& columns,
-    bool is_value_table,
-    google::protobuf::FileDescriptorProto* file,
+    bool is_value_table, google::protobuf::FileDescriptorProto* file,
     const ConvertTypeToProtoOptions& options = ConvertTypeToProtoOptions());
 
 // Given a FileDescriptorProto, find the message named <message_full_name> and
@@ -244,8 +243,7 @@ zetasql_base::Status ConvertTableToProto(
 // At read time, the query engine should strip off this annotation,
 // giving back the user's original proto.
 zetasql_base::Status AddValueTableAnnotationForProto(
-    const std::string& message_full_name,
-    google::protobuf::FileDescriptorProto* file);
+    const std::string& message_full_name, google::protobuf::FileDescriptorProto* file);
 
 }  // namespace zetasql
 

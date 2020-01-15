@@ -29,7 +29,7 @@ namespace zetasql {
 namespace functions {
 namespace internal {
 
-// Contains a std::string constant with the name of the template parameter.
+// Contains a string constant with the name of the template parameter.
 template <typename T>
 struct ArithmeticType;
 
@@ -87,8 +87,10 @@ template <typename T>
 std::string DivisionByZeroMessage(T in1, T in2);
 
 extern template std::string DivisionByZeroMessage<int64_t>(int64_t in1, int64_t in2);
-extern template std::string DivisionByZeroMessage<uint64_t>(uint64_t in1, uint64_t in2);
-extern template std::string DivisionByZeroMessage<double>(double in1, double in2);
+extern template std::string DivisionByZeroMessage<uint64_t>(uint64_t in1,
+                                                          uint64_t in2);
+extern template std::string DivisionByZeroMessage<double>(double in1,
+                                                          double in2);
 
 // Updates `status` with `msg` and force code to `OUT_OF_RANGE`.
 // Additionally, coerces msg to be valid UTF-8 by replacing any

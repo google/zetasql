@@ -1040,8 +1040,8 @@ class AggregateTupleIterator : public TupleIterator {
   const std::unique_ptr<TupleSchema> output_schema_;
   const std::vector<const AggregateArg*> aggregators_;
   const std::unique_ptr<TupleDataDeque> tuples_;
-  // We store a TupleIterator instead of the debug std::string to avoid computing the
-  // debug std::string unnecessarily.
+  // We store a TupleIterator instead of the debug string to avoid computing the
+  // debug string unnecessarily.
   const std::unique_ptr<TupleIterator> input_iter_for_debug_string_;
   std::unique_ptr<TupleData> current_;
   EvaluationContext* context_;

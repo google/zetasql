@@ -125,12 +125,12 @@ class AlgebraArg {
   const RelationalOp* relational_op() const;
   RelationalOp* mutable_relational_op();
 
-  // Returns a std::string representation of the operator for debugging. If
+  // Returns a string representation of the operator for debugging. If
   // 'verbose' is true, prints more information.
   std::string DebugString(bool verbose = false) const;
 
-  // Returns a std::string representation of the argument for debugging.
-  // 'level' specifies the indentation level of the output std::string. If 'verbose'
+  // Returns a string representation of the argument for debugging.
+  // 'level' specifies the indentation level of the output string. If 'verbose'
   // is true, prints more information.
   virtual std::string DebugInternal(const std::string& indent,
                                     bool verbose) const;
@@ -210,7 +210,7 @@ class KeyArg : public ExprArg {
  private:
   SortOrder order_;
   NullOrder null_order_;
-  // <collation> indicates the COLLATE specific rules to sort the std::string fields.
+  // <collation> indicates the COLLATE specific rules to sort the string fields.
   // If nullptr, then strings are compared based on their UTF-8 encoding.
   std::unique_ptr<ValueExpr> collation_;
 };
@@ -973,12 +973,12 @@ class AlgebraNode {
   // Value and aggregator operators have an output type.
   virtual const Type* output_type() const = 0;
 
-  // Returns a std::string representation of the operator for debugging. If
+  // Returns a string representation of the operator for debugging. If
   // 'verbose' is true, prints more information.
   std::string DebugString(bool verbose = false) const;
 
-  // Returns a std::string representation of the operator for debugging.
-  // 'level' specifies the indentation level of the output std::string. If 'verbose'
+  // Returns a string representation of the operator for debugging.
+  // 'level' specifies the indentation level of the output string. If 'verbose'
   // is true, prints more information.
   virtual std::string DebugInternal(const std::string& indent,
                                     bool verbose) const = 0;
@@ -1020,7 +1020,7 @@ class AlgebraNode {
     }
   }
 
-  // Returns a debug std::string representation of 'node', which must have
+  // Returns a debug string representation of 'node', which must have
   // 'arg_names.size()' arguments. Each argument is printed with corresponding
   // entry of 'arg_mode' (which must have the same number of elements as
   // 'arg_names').
@@ -1141,8 +1141,8 @@ class RelationalOp : public AlgebraNode {
   virtual std::unique_ptr<TupleSchema> CreateOutputSchema() const = 0;
 
   // Returns the result of constructing a TupleIterator with this object with
-  // scrambling disabled and getting its debug std::string. If it isn't possible to
-  // determine that debug std::string (e.g., it requires evaluating an expression),
+  // scrambling disabled and getting its debug string. If it isn't possible to
+  // determine that debug string (e.g., it requires evaluating an expression),
   // returns an approximation.
   virtual std::string IteratorDebugString() const = 0;
 

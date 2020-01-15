@@ -226,7 +226,7 @@ Value NullableInt(const std::string& proto_str) {
 
 // Each returned row (vector) contains distinct values of a certain type.
 std::vector<std::vector<Value>> GetRowsOfValues() {
-  const StructType* struct_type = SimpleStructType();  // a: std::string, b: int32
+  const StructType* struct_type = SimpleStructType();  // a: string, b: int32
   const Value struct0 = Value::Struct(struct_type, {String("foo"), Int32(0)});
   const Value struct1 = Value::Struct(struct_type, {String("bar"), Int32(1)});
   const Value array0 = Value::Array(Int64ArrayType(), {Int64(0), Int64(1)});
@@ -352,6 +352,23 @@ QueryParamsWithResult WrapResultForNumeric(
   result_map.emplace(numeric_feature_set, QueryParamsWithResult::Result(
                                               result.result, result.status));
   return QueryParamsWithResult(params, result_map);
+}
+
+const std::string EscapeKey(bool sql_standard_mode, const std::string& key) {
+  if (sql_standard_mode) {
+    return absl::StrCat(".\"", key, "\"");
+  } else {
+    return absl::StrCat("['", key, "']");
+  }
+}
+
+Value StringToBytes(const Value& value) {
+  CHECK_EQ(value.type_kind(), TYPE_STRING);
+  if (value.is_null()) {
+    return Value::NullBytes();
+  } else {
+    return Value::Bytes(value.string_value());
+  }
 }
 
 }  // namespace zetasql

@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /** SimpleTable is a concrete implementation of the Table interface. */
@@ -53,6 +54,7 @@ public final class SimpleTable implements Table {
   private boolean isValueTable = false;
   private List<SimpleColumn> columns = new ArrayList<>();
   private Map<String, SimpleColumn> columnsMap = new HashMap<>();
+  private ImmutableList<Integer> primaryKey = null;
   private Set<String> duplicateColumnNames = new HashSet<>();
   private boolean allowAnonymousColumnName = false;
   private boolean anonymousColumnSeen = false;
@@ -116,6 +118,11 @@ public final class SimpleTable implements Table {
     for (SimpleColumn column : columns) {
       builder.addColumn(column.serialize(fileDescriptorSetsBuilder));
     }
+    if (primaryKey != null) {
+      for (Integer columnIndex : primaryKey) {
+        builder.addPrimaryKeyColumnIndex(columnIndex);
+      }
+    }
     return builder.build();
   }
 
@@ -144,6 +151,9 @@ public final class SimpleTable implements Table {
     table.setAllowDuplicateColumnNames(proto.getAllowDuplicateColumnNames());
     for (SimpleColumnProto column : proto.getColumnList()) {
       table.addSimpleColumn(SimpleColumn.deserialize(column, table.getName(), pools, factory));
+    }
+    if (proto.getPrimaryKeyColumnIndexCount() > 0) {
+      table.setPrimaryKey(proto.getPrimaryKeyColumnIndexList());
     }
     table.setIsValueTable(proto.getIsValueTable());
     return table;
@@ -208,6 +218,11 @@ public final class SimpleTable implements Table {
   @Override
   public ImmutableList<SimpleColumn> getColumnList() {
     return ImmutableList.copyOf(columns);
+  }
+
+  @Override
+  public Optional<ImmutableList<Integer>> getPrimaryKey() {
+    return Optional.ofNullable(primaryKey);
   }
 
   @Override
@@ -292,5 +307,13 @@ public final class SimpleTable implements Table {
     if (column.getName().isEmpty()) {
       anonymousColumnSeen = true;
     }
+  }
+
+  public void setPrimaryKey(List<Integer> columnIndexes) {
+    for (Integer columnIndex : columnIndexes) {
+      Preconditions.checkArgument(
+          columnIndex < getColumnCount(), "Invalid column index %s in primary key", columnIndex);
+    }
+    primaryKey = ImmutableList.copyOf(columnIndexes);
   }
 }

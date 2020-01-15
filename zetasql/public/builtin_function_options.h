@@ -28,7 +28,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/type.h"
 #include "absl/container/flat_hash_set.h"
-#include "zetasql/base/bind_front.h"
+#include "absl/functional/bind_front.h"
 
 namespace zetasql {
 

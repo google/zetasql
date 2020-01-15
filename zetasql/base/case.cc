@@ -15,7 +15,7 @@
 // limitations under the License.
 //
 
-// This file contains std::string processing functions related to
+// This file contains string processing functions related to
 // uppercase, lowercase, etc.
 
 #include "zetasql/base/case.h"

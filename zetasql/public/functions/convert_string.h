@@ -18,7 +18,7 @@
 // The following two functions are defined.
 //
 //   template <typename T>
-//   bool NumericToString(T value, std::string* out, zetasql_base::Status* error);
+//   bool NumericToString(T value, string* out, zetasql_base::Status* error);
 //   template <typename T>
 //   bool StringToNumeric(absl::string_view value, T* out, zetasql_base::Status* error);
 //

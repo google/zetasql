@@ -235,8 +235,8 @@ std::string TimeValue::DebugString() const {
   if (!IsValid()) {
     return "[INVALID]";
   }
-  std::string raw_output = absl::StrFormat("%02d:%02d:%02d.%09d", hour_, minute_,
-                                      second_, nanosecond_);
+  std::string raw_output = absl::StrFormat("%02d:%02d:%02d.%09d", hour_,
+                                           minute_, second_, nanosecond_);
   absl::string_view output(raw_output);
   while (absl::ConsumeSuffix(&output, "000")) {
     // Do nothing more

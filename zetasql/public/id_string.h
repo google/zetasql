@@ -42,11 +42,11 @@ namespace zetasql {
 
 class IdStringPool;
 
-// An IdString is an immutable std::string that supports cheap copying and
+// An IdString is an immutable string that supports cheap copying and
 // assignment.  It is intended primarily to store identifiers. Like
 // absl::string_view, it should preferably be passed by value.
 //
-// This class is meant to replace the standard std::string class, so its interface
+// This class is meant to replace the standard string class, so its interface
 // is a subset of the basic_string interface.
 //
 // IdStrings are allocated in an IdStringPool, using
@@ -55,7 +55,7 @@ class IdStringPool;
 //
 // IMPORTANT: The IdString contents (**and any copies of it**) are valid for
 // the lifetime of the IdStringPool.  Think of copying an IdString like copying
-// a absl::string_view - the IdString itself is a reference to a std::string stored
+// a absl::string_view - the IdString itself is a reference to a string stored
 // inside an IdStringPool.
 //
 // There is also a global pool IdStringPool::Global that can be used to
@@ -63,7 +63,7 @@ class IdStringPool;
 // Use IdString::MakeGlobal as a shorthand.
 class IdString {
  public:
-  // Create an empty std::string.
+  // Create an empty string.
   IdString() : IdString(*kEmptyString) {}
 
   // Create an IdString in the global IdStringPool.  Memory will never be freed.
@@ -95,8 +95,9 @@ class IdString {
     return std::string(value_->str).copy(s, len, pos);
   }
 
-  // Convert to a std::string.  This requires copying the value.
-  std::string ToString() const { CheckAlive();
+  // Convert to a string.  This requires copying the value.
+  std::string ToString() const {
+    CheckAlive();
     return std::string(value_->str);
   }
 
@@ -136,7 +137,7 @@ class IdString {
     return value_->str.size() < other.value_->str.size();
   }
 
-  // Case-insensitive std::string equality.
+  // Case-insensitive string equality.
   bool CaseEquals(IdString other) const {
     CheckAlive();
     other.CheckAlive();
@@ -174,12 +175,12 @@ class IdString {
   // Make a new IdString with the lower-cased value of this.
   IdString ToLower(IdStringPool* pool) const;
 
-  // Return a hash value for this std::string.
+  // Return a hash value for this string.
   // The hash value will be computed once and memoized.
   // Use like: hash_set<IdString, IdStringHash>.
   size_t Hash() const { CheckAlive(); return value_->Hash(); }
 
-  // Return a hash value for this std::string suitable for a case-insensitive hash
+  // Return a hash value for this string suitable for a case-insensitive hash
   // table.  The hash value will be computed once and memoized.
   // Use like: hash_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>.
   size_t HashCase() const { CheckAlive(); return value_->HashCase(); }
@@ -266,7 +267,7 @@ class IdString {
 
   const Shared* value_;
 #ifndef NDEBUG
-  // In debug mode only, we track which IdStringPool this std::string is allocated
+  // In debug mode only, we track which IdStringPool this string is allocated
   // in so we check that IdStrings are not used after the pool is destroyed.
   int64_t pool_id_;
 #endif
@@ -436,14 +437,14 @@ class IdStringPool {
     if (padded_size_words > 0) {
       // For performance, set the entire last word to 0 before the memcpy
       // instead of zeroing out the trailing bytes individually afterwards.
-      // Do this for both copies of the std::string.
+      // Do this for both copies of the string.
       string_buf_words[padded_size_words - 1] = 0;
       string_buf_words[padded_size_words + padded_size_words - 1] = 0;
     }
     // Copy the original into the second part of the buffer first.
     memcpy(string_buf_words + padded_size_words, str.data(), str.size());
 
-    // Create the lowercase version of the std::string in the first part of the
+    // Create the lowercase version of the string in the first part of the
     // buffer by copying from the second part.
     for (int i = 0; i < str.size(); ++i) {
       string_buf[i] = absl::ascii_tolower(string_buf[padded_size + i]);
@@ -465,9 +466,9 @@ class IdStringPool {
   // can store a pool_id in each IdString in debug mode and check that
   // we never access an IdString after its IdStringPool is gone.
   static std::unordered_set<int64_t>* live_pool_ids_
-      GUARDED_BY(global_mutex_) PT_GUARDED_BY(global_mutex_);
+      ABSL_GUARDED_BY(global_mutex_) ABSL_PT_GUARDED_BY(global_mutex_);
 
-  static int64_t max_pool_id_ GUARDED_BY(global_mutex_);
+  static int64_t max_pool_id_ ABSL_GUARDED_BY(global_mutex_);
 
   static int64_t AllocatePoolId();
 

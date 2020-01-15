@@ -36,7 +36,7 @@ bool UpdateError(zetasql_base::Status* status, absl::string_view msg) {
     // RegEx generates an error for invalid input, but the input could be
     // invalid UTF-8.
     // zetasql_base::Status will generate a warning in DEBUG mode if the error
-    // message is not UTF-8, so coerce it to be a valid UTF-8 std::string.
+    // message is not UTF-8, so coerce it to be a valid UTF-8 string.
     std::string error = CoerceToWellFormedUTF8(msg);
     *status = zetasql_base::Status(zetasql_base::StatusCode::kOutOfRange, error);
   }
@@ -49,10 +49,10 @@ std::string UnaryOverflowMessage(T in, absl::string_view operator_symbol) {
                       in);
 }
 
-template std::string UnaryOverflowMessage<int32_t>(int32_t in,
-                                            absl::string_view operator_symbol);
-template std::string UnaryOverflowMessage<int64_t>(int64_t in,
-                                            absl::string_view operator_symbol);
+template std::string UnaryOverflowMessage<int32_t>(
+    int32_t in, absl::string_view operator_symbol);
+template std::string UnaryOverflowMessage<int64_t>(
+    int64_t in, absl::string_view operator_symbol);
 
 template <typename T>
 std::string BinaryOverflowMessage(T in1, T in2,
@@ -61,14 +61,14 @@ std::string BinaryOverflowMessage(T in1, T in2,
                       operator_symbol, in2);
 }
 
-template std::string BinaryOverflowMessage<int32_t>(int32_t in1, int32_t in2,
-                                             absl::string_view operator_symbol);
-template std::string BinaryOverflowMessage<int64_t>(int64_t in1, int64_t in2,
-                                             absl::string_view operator_symbol);
+template std::string BinaryOverflowMessage<int32_t>(
+    int32_t in1, int32_t in2, absl::string_view operator_symbol);
+template std::string BinaryOverflowMessage<int64_t>(
+    int64_t in1, int64_t in2, absl::string_view operator_symbol);
 template std::string BinaryOverflowMessage<uint64_t>(
     uint64_t in1, uint64_t in2, absl::string_view operator_symbol);
-template std::string BinaryOverflowMessage<float>(float in1, float in2,
-                                             absl::string_view operator_symbol);
+template std::string BinaryOverflowMessage<float>(
+    float in1, float in2, absl::string_view operator_symbol);
 template std::string BinaryOverflowMessage<double>(
     double in1, double in2, absl::string_view operator_symbol);
 

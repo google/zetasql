@@ -40,6 +40,7 @@ class TestIntTraverser : public GeneralTrie<int, 0>::Traverser {
     CHECK_EQ(*it, data);
     expected_->erase(it);
   }
+
  private:
   std::list<int> *expected_;
 };

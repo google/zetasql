@@ -35,6 +35,7 @@
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/proto/wire_format_annotation.pb.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/public/type.pb.h"
 #include "absl/base/call_once.h"
 #include <cstdint>
 #include "absl/base/macros.h"
@@ -325,7 +326,7 @@ std::string Type::TypeKindToString(TypeKind kind, ProductMode mode) {
 }
 
 std::string Type::TypeKindListToString(const std::vector<TypeKind>& kinds,
-                                  ProductMode mode) {
+                                       ProductMode mode) {
   std::vector<std::string> kind_strings;
   kind_strings.reserve(kinds.size());
   for (const TypeKind& kind : kinds) {
@@ -445,7 +446,9 @@ zetasql_base::Status Type::SerializeToSelfContainedProto(
   return ::zetasql_base::OkStatus();
 }
 
-std::string Type::ShortTypeName(ProductMode mode) const { return TypeName(mode); }
+std::string Type::ShortTypeName(ProductMode mode) const {
+  return TypeName(mode);
+}
 
 std::string Type::DebugString(bool details) const {
   std::string debug_string;
@@ -519,7 +522,8 @@ namespace {
 // Possible return values are HAS_FIELD if the field exists, HAS_PSEUDO_FIELD
 // if the named extension exists, or HAS_NO_FIELD if neither exists.
 Type::HasFieldResult HasProtoFieldOrNamedExtension(
-    const google::protobuf::Descriptor* descriptor, const std::string& name, int* field_id) {
+    const google::protobuf::Descriptor* descriptor, const std::string& name,
+    int* field_id) {
   const google::protobuf::FieldDescriptor* field =
       ProtoType::FindFieldByNameIgnoreCase(descriptor, name);
   if (field != nullptr) {
@@ -869,7 +873,7 @@ int64_t GetExternallyAllocatedMemoryEstimate(const std::vector<T>& container) {
   return IsContentEmbedded(container) ? 0 : container.capacity() * sizeof(T);
 }
 
-// Function returns the estimate (in bytes) of amount of memory that std::string
+// Function returns the estimate (in bytes) of amount of memory that string
 // could allocate externally to store its data content
 int64_t GetExternallyAllocatedMemoryEstimate(const std::string& str) {
   return IsContentEmbedded(str) ? 0 : str.capacity() + 1;
@@ -1061,7 +1065,8 @@ zetasql_base::Status StructType::SerializeToProtoAndDistinctFileDescriptorsImpl(
 // may cause a stack overflow for deeply nested types.
 std::string StructType::TypeNameImpl(
     int field_limit,
-    const std::function<std::string(const zetasql::Type*)>& field_debug_fn) const {
+    const std::function<std::string(const zetasql::Type*)>& field_debug_fn)
+    const {
   const int num_fields_to_show = std::min<int>(field_limit, fields_.size());
   const bool output_truncated = num_fields_to_show < fields_.size();
 
@@ -1657,8 +1662,7 @@ bool TypeEquals::operator()(const Type* const type1,
 }
 
 TypeFactory::TypeFactory()
-    : cached_simple_types_(),
-      nesting_depth_limit_(
+    : nesting_depth_limit_(
           absl::GetFlag(FLAGS_zetasql_type_factory_nesting_depth_limit)),
       estimated_memory_used_by_types_(0) {
   VLOG(2) << "Created TypeFactory " << this
@@ -1743,38 +1747,27 @@ const TYPE* TypeFactory::TakeOwnershipLocked(const TYPE* type,
   return type;
 }
 
-const Type* TypeFactory::get_int32() { return MakeSimpleType(TYPE_INT32); }
-const Type* TypeFactory::get_int64() { return MakeSimpleType(TYPE_INT64); }
-const Type* TypeFactory::get_uint32() { return MakeSimpleType(TYPE_UINT32); }
-const Type* TypeFactory::get_uint64() { return MakeSimpleType(TYPE_UINT64); }
-const Type* TypeFactory::get_string() { return MakeSimpleType(TYPE_STRING); }
-const Type* TypeFactory::get_bytes() { return MakeSimpleType(TYPE_BYTES); }
-const Type* TypeFactory::get_bool() { return MakeSimpleType(TYPE_BOOL); }
-const Type* TypeFactory::get_float() { return MakeSimpleType(TYPE_FLOAT); }
-const Type* TypeFactory::get_double() { return MakeSimpleType(TYPE_DOUBLE); }
-const Type* TypeFactory::get_date() { return MakeSimpleType(TYPE_DATE); }
-const Type* TypeFactory::get_timestamp() {
-  return MakeSimpleType(TYPE_TIMESTAMP);
-}
-const Type* TypeFactory::get_time() { return MakeSimpleType(TYPE_TIME); }
-const Type* TypeFactory::get_datetime() {
-  return MakeSimpleType(TYPE_DATETIME);
-}
-const Type* TypeFactory::get_geography() {
-  return MakeSimpleType(TYPE_GEOGRAPHY);
-}
-const Type* TypeFactory::get_numeric() {
-  return MakeSimpleType(TYPE_NUMERIC);
-}
+const Type* TypeFactory::get_int32() { return types::Int32Type(); }
+const Type* TypeFactory::get_int64() { return types::Int64Type(); }
+const Type* TypeFactory::get_uint32() { return types::Uint32Type(); }
+const Type* TypeFactory::get_uint64() { return types::Uint64Type(); }
+const Type* TypeFactory::get_string() { return types::StringType(); }
+const Type* TypeFactory::get_bytes() { return types::BytesType(); }
+const Type* TypeFactory::get_bool() { return types::BoolType(); }
+const Type* TypeFactory::get_float() { return types::FloatType(); }
+const Type* TypeFactory::get_double() { return types::DoubleType(); }
+const Type* TypeFactory::get_date() { return types::DateType(); }
+const Type* TypeFactory::get_timestamp() { return types::TimestampType(); }
+const Type* TypeFactory::get_time() { return types::TimeType(); }
+const Type* TypeFactory::get_datetime() { return types::DatetimeType(); }
+const Type* TypeFactory::get_geography() { return types::GeographyType(); }
+const Type* TypeFactory::get_numeric() { return types::NumericType(); }
 
 const Type* TypeFactory::MakeSimpleType(TypeKind kind) {
   CHECK(Type::IsSimpleType(kind)) << kind;
-  absl::MutexLock l(&mutex_);
-  if (cached_simple_types_[kind] == nullptr) {
-    cached_simple_types_[kind] =
-        TakeOwnershipLocked(new SimpleType(this, kind));
-  }
-  return cached_simple_types_[kind];
+  const Type* type = types::TypeFromSimpleTypeKind(kind);
+  CHECK(type != nullptr);
+  return type;
 }
 
 zetasql_base::Status TypeFactory::MakeArrayType(
@@ -2252,240 +2245,281 @@ bool IsValidTypeKind(int kind) {
       kind != __TypeKind__switch_must_have_a_default__;
 }
 
-namespace types {
+namespace {
 
-static absl::once_flag s_static_init_once;
-// These variables are initialized by absl::call_once
-static TypeFactory* s_type_factory = nullptr;
-static const Type* s_int32_type = nullptr;
-static const Type* s_int64_type = nullptr;
-static const Type* s_uint32_type = nullptr;
-static const Type* s_uint64_type = nullptr;
-static const Type* s_bool_type = nullptr;
-static const Type* s_float_type = nullptr;
-static const Type* s_double_type = nullptr;
-static const Type* s_string_type = nullptr;
-static const Type* s_bytes_type = nullptr;
-static const Type* s_timestamp_type = nullptr;
-static const Type* s_date_type = nullptr;
-static const Type* s_time_type = nullptr;
-static const Type* s_datetime_type = nullptr;
-static const Type* s_geography_type = nullptr;
-static const Type* s_numeric_type = nullptr;
-static const EnumType* s_date_part_enum_type = nullptr;
-static const EnumType* s_normalize_mode_enum_type = nullptr;
-static const StructType* s_empty_struct_type = nullptr;
-static const ArrayType* s_int32_array_type = nullptr;
-static const ArrayType* s_int64_array_type = nullptr;
-static const ArrayType* s_uint32_array_type = nullptr;
-static const ArrayType* s_uint64_array_type = nullptr;
-static const ArrayType* s_bool_array_type = nullptr;
-static const ArrayType* s_float_array_type = nullptr;
-static const ArrayType* s_double_array_type = nullptr;
-static const ArrayType* s_string_array_type = nullptr;
-static const ArrayType* s_bytes_array_type = nullptr;
-static const ArrayType* s_timestamp_array_type = nullptr;
-static const ArrayType* s_date_array_type = nullptr;
-static const ArrayType* s_datetime_array_type = nullptr;
-static const ArrayType* s_time_array_type = nullptr;
-static const ArrayType* s_geography_array_type = nullptr;
-static const ArrayType* s_numeric_array_type = nullptr;
-static const absl::Time* kBaseTimeMin = nullptr;
-static const absl::Time* kBaseTimeMax = nullptr;
-
-static const ArrayType* MakeArrayType(const Type* element_type) {
-  const ArrayType* array_type;
-  ZETASQL_CHECK_OK(s_type_factory->MakeArrayType(element_type, &array_type));
-  return array_type;
+// Staticly initialize a few commonly used types.
+static TypeFactory* s_type_factory() {
+  static TypeFactory* s_type_factory = new TypeFactory();
+  return s_type_factory;
 }
 
-static void InitStatic() {
-  s_type_factory = new TypeFactory();
-  s_int32_type = s_type_factory->get_int32();
-  s_int64_type = s_type_factory->get_int64();
-  s_uint32_type = s_type_factory->get_uint32();
-  s_uint64_type = s_type_factory->get_uint64();
-  s_bool_type = s_type_factory->get_bool();
-  s_float_type = s_type_factory->get_float();
-  s_double_type = s_type_factory->get_double();
-  s_string_type = s_type_factory->get_string();
-  s_bytes_type = s_type_factory->get_bytes();
-  s_timestamp_type = s_type_factory->get_timestamp();
-  s_date_type = s_type_factory->get_date();
-  s_time_type = s_type_factory->get_time();
-  s_datetime_type = s_type_factory->get_datetime();
-  s_geography_type = s_type_factory->get_geography();
-  s_numeric_type = s_type_factory->get_numeric();
-  ZETASQL_CHECK_OK(s_type_factory->MakeStructType({}, &s_empty_struct_type));
-
-  s_int32_array_type = MakeArrayType(s_type_factory->get_int32());
-  s_int64_array_type = MakeArrayType(s_type_factory->get_int64());
-  s_uint32_array_type = MakeArrayType(s_type_factory->get_uint32());
-  s_uint64_array_type = MakeArrayType(s_type_factory->get_uint64());
-  s_bool_array_type = MakeArrayType(s_type_factory->get_bool());
-  s_float_array_type = MakeArrayType(s_type_factory->get_float());
-  s_double_array_type = MakeArrayType(s_type_factory->get_double());
-  s_string_array_type = MakeArrayType(s_type_factory->get_string());
-  s_bytes_array_type = MakeArrayType(s_type_factory->get_bytes());
-  s_timestamp_array_type = MakeArrayType(s_type_factory->get_timestamp());
-  s_date_array_type = MakeArrayType(s_type_factory->get_date());
-  s_datetime_array_type = MakeArrayType(s_type_factory->get_datetime());
-  s_time_array_type = MakeArrayType(s_type_factory->get_time());
-  s_geography_array_type = MakeArrayType(s_type_factory->get_geography());
-  s_numeric_array_type = MakeArrayType(s_type_factory->get_numeric());
-  kBaseTimeMin = new absl::Time(absl::FromUnixMicros(kTimestampMin));
-  kBaseTimeMax = new absl::Time(absl::FromUnixMicros(kTimestampMax) +
-                                absl::Nanoseconds(999));
-
-  const google::protobuf::EnumDescriptor* datepart_descr =
-      functions::DateTimestampPart_descriptor();
-  ZETASQL_CHECK_OK(s_type_factory->MakeEnumType(datepart_descr,
-                                        &s_date_part_enum_type));
-
-  const google::protobuf::EnumDescriptor* normalize_mode_descriptor =
-      functions::NormalizeMode_descriptor();
-  ZETASQL_CHECK_OK(s_type_factory->MakeEnumType(normalize_mode_descriptor,
-                                        &s_normalize_mode_enum_type));
-}
-
-const Type* Int32Type() {
-  absl::call_once(s_static_init_once, &InitStatic);
+static const Type* s_int32_type() {
+  static const Type* s_int32_type =
+      new SimpleType(s_type_factory(), TYPE_INT32);
   return s_int32_type;
 }
-const Type* Int64Type() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const Type* s_int64_type() {
+  static const Type* s_int64_type =
+      new SimpleType(s_type_factory(), TYPE_INT64);
   return s_int64_type;
 }
-const Type* Uint32Type() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const Type* s_uint32_type() {
+  static const Type* s_uint32_type =
+      new SimpleType(s_type_factory(), TYPE_UINT32);
   return s_uint32_type;
 }
-const Type* Uint64Type() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const Type* s_uint64_type() {
+  static const Type* s_uint64_type =
+      new SimpleType(s_type_factory(), TYPE_UINT64);
   return s_uint64_type;
 }
-const Type* BoolType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const Type* s_bool_type() {
+  static const Type* s_bool_type = new SimpleType(s_type_factory(), TYPE_BOOL);
   return s_bool_type;
 }
-const Type* FloatType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const Type* s_float_type() {
+  static const Type* s_float_type =
+      new SimpleType(s_type_factory(), TYPE_FLOAT);
   return s_float_type;
 }
-const Type* DoubleType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const Type* s_double_type() {
+  static const Type* s_double_type =
+      new SimpleType(s_type_factory(), TYPE_DOUBLE);
   return s_double_type;
 }
-const Type* StringType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const Type* s_string_type() {
+  static const Type* s_string_type =
+      new SimpleType(s_type_factory(), TYPE_STRING);
   return s_string_type;
 }
-const Type* BytesType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const Type* s_bytes_type() {
+  static const Type* s_bytes_type =
+      new SimpleType(s_type_factory(), TYPE_BYTES);
   return s_bytes_type;
 }
-const Type* DateType() {
-  absl::call_once(s_static_init_once, &InitStatic);
-  return s_date_type;
-}
-const Type* TimestampType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const Type* s_timestamp_type() {
+  static const Type* s_timestamp_type =
+      new SimpleType(s_type_factory(), TYPE_TIMESTAMP);
   return s_timestamp_type;
 }
-const Type* TimeType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const Type* s_date_type() {
+  static const Type* s_date_type = new SimpleType(s_type_factory(), TYPE_DATE);
+  return s_date_type;
+}
+
+static const Type* s_time_type() {
+  static const Type* s_time_type = new SimpleType(s_type_factory(), TYPE_TIME);
   return s_time_type;
 }
-const Type* DatetimeType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const Type* s_datetime_type() {
+  static const Type* s_datetime_type =
+      new SimpleType(s_type_factory(), TYPE_DATETIME);
   return s_datetime_type;
 }
-const Type* GeographyType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const Type* s_geography_type() {
+  static const Type* s_geography_type =
+      new SimpleType(s_type_factory(), TYPE_GEOGRAPHY);
   return s_geography_type;
 }
-const Type* NumericType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const Type* s_numeric_type() {
+  static const Type* s_numeric_type =
+      new SimpleType(s_type_factory(), TYPE_NUMERIC);
   return s_numeric_type;
 }
-const StructType* EmptyStructType() {
-  absl::call_once(s_static_init_once, &InitStatic);
-  return s_empty_struct_type;
-}
-const EnumType* DatePartEnumType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const EnumType* s_date_part_enum_type() {
+  static const EnumType* s_date_part_enum_type = [] {
+    const EnumType* enum_type;
+    ZETASQL_CHECK_OK(s_type_factory()->MakeEnumType(
+        functions::DateTimestampPart_descriptor(), &enum_type));
+    return enum_type;
+  }();
   return s_date_part_enum_type;
 }
-const EnumType* NormalizeModeEnumType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const EnumType* s_normalize_mode_enum_type() {
+  static const EnumType* s_normalize_mode_enum_type = [] {
+    const EnumType* enum_type;
+    ZETASQL_CHECK_OK(s_type_factory()->MakeEnumType(
+        functions::NormalizeMode_descriptor(), &enum_type));
+    return enum_type;
+  }();
   return s_normalize_mode_enum_type;
 }
 
-const ArrayType* Int32ArrayType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+static const StructType* s_empty_struct_type() {
+  static const StructType* s_empty_struct_type = [] {
+    const StructType* type;
+    ZETASQL_CHECK_OK(s_type_factory()->MakeStructType({}, &type));
+    return type;
+  }();
+  return s_empty_struct_type;
+}
+
+static const ArrayType* MakeArrayType(const Type* element_type) {
+  const ArrayType* array_type;
+  ZETASQL_CHECK_OK(s_type_factory()->MakeArrayType(element_type, &array_type));
+  return array_type;
+}
+
+static const ArrayType* s_int32_array_type() {
+  static const ArrayType* s_int32_array_type =
+      MakeArrayType(s_type_factory()->get_int32());
   return s_int32_array_type;
 }
-const ArrayType* Int64ArrayType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const ArrayType* s_int64_array_type() {
+  static const ArrayType* s_int64_array_type =
+      MakeArrayType(s_type_factory()->get_int64());
   return s_int64_array_type;
 }
-const ArrayType* Uint32ArrayType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const ArrayType* s_uint32_array_type() {
+  static const ArrayType* s_uint32_array_type =
+      MakeArrayType(s_type_factory()->get_uint32());
   return s_uint32_array_type;
 }
-const ArrayType* Uint64ArrayType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const ArrayType* s_uint64_array_type() {
+  static const ArrayType* s_uint64_array_type =
+      MakeArrayType(s_type_factory()->get_uint64());
   return s_uint64_array_type;
 }
-const ArrayType* BoolArrayType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const ArrayType* s_bool_array_type() {
+  static const ArrayType* s_bool_array_type =
+      MakeArrayType(s_type_factory()->get_bool());
   return s_bool_array_type;
 }
-const ArrayType* FloatArrayType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const ArrayType* s_float_array_type() {
+  static const ArrayType* s_float_array_type =
+      MakeArrayType(s_type_factory()->get_float());
   return s_float_array_type;
 }
-const ArrayType* DoubleArrayType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const ArrayType* s_double_array_type() {
+  static const ArrayType* s_double_array_type =
+      MakeArrayType(s_type_factory()->get_double());
   return s_double_array_type;
 }
-const ArrayType* StringArrayType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const ArrayType* s_string_array_type() {
+  static const ArrayType* s_string_array_type =
+      MakeArrayType(s_type_factory()->get_string());
   return s_string_array_type;
 }
-const ArrayType* BytesArrayType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const ArrayType* s_bytes_array_type() {
+  static const ArrayType* s_bytes_array_type =
+      MakeArrayType(s_type_factory()->get_bytes());
   return s_bytes_array_type;
 }
 
-const ArrayType* TimestampArrayType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+static const ArrayType* s_timestamp_array_type() {
+  static const ArrayType* s_timestamp_array_type =
+      MakeArrayType(s_type_factory()->get_timestamp());
   return s_timestamp_array_type;
 }
-const ArrayType* DateArrayType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+
+static const ArrayType* s_date_array_type() {
+  static const ArrayType* s_date_array_type =
+      MakeArrayType(s_type_factory()->get_date());
   return s_date_array_type;
 }
 
-const ArrayType* DatetimeArrayType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+static const ArrayType* s_datetime_array_type() {
+  static const ArrayType* s_datetime_array_type =
+      MakeArrayType(s_type_factory()->get_datetime());
   return s_datetime_array_type;
 }
 
-const ArrayType* TimeArrayType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+static const ArrayType* s_time_array_type() {
+  static const ArrayType* s_time_array_type =
+      MakeArrayType(s_type_factory()->get_time());
   return s_time_array_type;
 }
 
-const ArrayType* GeographyArrayType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+static const ArrayType* s_geography_array_type() {
+  static const ArrayType* s_geography_array_type =
+      MakeArrayType(s_type_factory()->get_geography());
   return s_geography_array_type;
 }
 
-const ArrayType* NumericArrayType() {
-  absl::call_once(s_static_init_once, &InitStatic);
+static const ArrayType* s_numeric_array_type() {
+  static const ArrayType* s_numeric_array_type =
+      MakeArrayType(s_type_factory()->get_numeric());
   return s_numeric_array_type;
 }
+
+static const absl::Time* GetkBaseTimeMin() {
+  static const absl::Time* kBaseTimeMin =
+      new absl::Time(absl::FromUnixMicros(types::kTimestampMin));
+  return kBaseTimeMin;
+}
+
+static const absl::Time* GetkBaseTimeMax() {
+  static const absl::Time* kBaseTimeMax = new absl::Time(
+      absl::FromUnixMicros(types::kTimestampMax) + absl::Nanoseconds(999));
+  return kBaseTimeMax;
+}
+
+}  // namespace
+
+namespace types {
+
+const Type* Int32Type() { return s_int32_type(); }
+const Type* Int64Type() { return s_int64_type(); }
+const Type* Uint32Type() { return s_uint32_type(); }
+const Type* Uint64Type() { return s_uint64_type(); }
+const Type* BoolType() { return s_bool_type(); }
+const Type* FloatType() { return s_float_type(); }
+const Type* DoubleType() { return s_double_type(); }
+const Type* StringType() { return s_string_type(); }
+const Type* BytesType() { return s_bytes_type(); }
+const Type* DateType() { return s_date_type(); }
+const Type* TimestampType() { return s_timestamp_type(); }
+const Type* TimeType() { return s_time_type(); }
+const Type* DatetimeType() { return s_datetime_type(); }
+const Type* GeographyType() { return s_geography_type(); }
+const Type* NumericType() { return s_numeric_type(); }
+const StructType* EmptyStructType() { return s_empty_struct_type(); }
+const EnumType* DatePartEnumType() { return s_date_part_enum_type(); }
+const EnumType* NormalizeModeEnumType() { return s_normalize_mode_enum_type(); }
+
+const ArrayType* Int32ArrayType() { return s_int32_array_type(); }
+const ArrayType* Int64ArrayType() { return s_int64_array_type(); }
+const ArrayType* Uint32ArrayType() { return s_uint32_array_type(); }
+const ArrayType* Uint64ArrayType() { return s_uint64_array_type(); }
+const ArrayType* BoolArrayType() { return s_bool_array_type(); }
+const ArrayType* FloatArrayType() { return s_float_array_type(); }
+const ArrayType* DoubleArrayType() { return s_double_array_type(); }
+const ArrayType* StringArrayType() { return s_string_array_type(); }
+const ArrayType* BytesArrayType() { return s_bytes_array_type(); }
+
+const ArrayType* TimestampArrayType() { return s_timestamp_array_type(); }
+const ArrayType* DateArrayType() { return s_date_array_type(); }
+
+const ArrayType* DatetimeArrayType() { return s_datetime_array_type(); }
+
+const ArrayType* TimeArrayType() { return s_time_array_type(); }
+
+const ArrayType* GeographyArrayType() { return s_geography_array_type(); }
+
+const ArrayType* NumericArrayType() { return s_numeric_array_type(); }
 
 const Type* TypeFromSimpleTypeKind(TypeKind type_kind) {
   switch (type_kind) {
@@ -2565,15 +2599,9 @@ const ArrayType* ArrayTypeFromSimpleTypeKind(TypeKind type_kind) {
   }
 }
 
-absl::Time TimestampMinBaseTime() {
-  absl::call_once(s_static_init_once, &InitStatic);
-  return *kBaseTimeMin;
-}
+absl::Time TimestampMinBaseTime() { return *GetkBaseTimeMin(); }
 
-absl::Time TimestampMaxBaseTime() {
-  absl::call_once(s_static_init_once, &InitStatic);
-  return *kBaseTimeMax;
-}
+absl::Time TimestampMaxBaseTime() { return *GetkBaseTimeMax(); }
 
 }  // namespace types
 
@@ -2582,7 +2610,7 @@ void TypeFactory::AddDependency(const Type* other_type) {
 
   // Do not add a dependency if the other factory is the same as this factory or
   // is the static factory (since the static factory is never destroyed).
-  if (other_factory == this || other_factory == types::s_type_factory) return;
+  if (other_factory == this || other_factory == s_type_factory()) return;
 
   {
     absl::MutexLock l(&mutex_);

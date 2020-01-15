@@ -1,4 +1,5 @@
 
+
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
 # Analytic Functions Concepts
@@ -174,7 +175,7 @@ The `PARTITION BY` clause breaks up the input rows into separate partitions,
 over which the analytic function is independently evaluated. Multiple
 `expressions` are allowed in the `PARTITION BY` clause.
 
-The data type of `expression` must be [groupable](https://github.com/google/zetasql/blob/master/docs/data-types.md#data-type-properties)
+The data type of `expression` must be [groupable][datatype-properties]
 and support partitioning. This means the `expression` **cannot** be any of the
 following data types:
 
@@ -898,7 +899,7 @@ increments by 1, never skipping a value.
 ### Aggregate Analytic Functions
 
 ZetaSQL supports certain
-[aggregate functions][aggregate-analytic-functions-reference]
+[aggregate functions][analytic-functions-link-to-aggregate-functions]
 as analytic functions.
 
 With these functions, the `OVER` clause is simply appended to the aggregate
@@ -911,18 +912,18 @@ counterparts.
 For a description of the aggregate analytic functions that ZetaSQL
 supports, see the [function reference for aggregate analytic functions][aggregate-analytic-functions-reference].
 
-[navigation-functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#navigation_functions
-[numbering-functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#numbering_functions
-[aggregate-analytic-functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#aggregate_analytic_functions
-
-[analytic-functions-link-to-aggregate-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md
-
 [analytic-functions-link-to-numbering-functions]: #numbering-functions
-[analytic-functions-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
-[analytic-functions-link-to-order-by-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#order_by_clause
-[analytic-functions-link-to-sql-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#sql-syntax
-[analytic-functions-link-to-hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
 [analytic-functions-link-to-coercion]: #coercion
+[datatype-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data-type-properties
+[analytic-functions-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
+[analytic-functions-link-to-order-by-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax#order_by_clause
+[analytic-functions-link-to-sql-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax#sql-syntax
+[analytic-functions-link-to-hints]: https://github.com/google/zetasql/blob/master/docs/lexical#hints
+
+[navigation-functions-reference]: https://github.com/google/zetasql/blob/master/docs/navigation_functions
+[numbering-functions-reference]: https://github.com/google/zetasql/blob/master/docs/numbering_functions
+[aggregate-analytic-functions-reference]: https://github.com/google/zetasql/blob/master/docs/aggregate_analytic_functions
+[analytic-functions-link-to-aggregate-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions
 
 <!-- END CONTENT -->
 

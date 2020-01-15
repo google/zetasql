@@ -114,18 +114,18 @@ namespace {
 }
 
 // Given a vector of column strings, returns a vector of lines, where each line
-// consists of a vector of portions of the respective column std::string.
+// consists of a vector of portions of the respective column string.
 //
 // For example, the nth line of the output consists of the nth line of the first
-// std::string, followed by the nth line of the second std::string, etc., substituting the
-// empty std::string for any non-existent lines.  Line separators ("\n") are not
+// string, followed by the nth line of the second string, etc., substituting the
+// empty string for any non-existent lines.  Line separators ("\n") are not
 // included in any of the column strings.
 //
 // The length of the result vector is the maximum number of lines that appears
-// in any column std::string.
+// in any column string.
 std::vector<std::vector<std::string>> SplitColumnStringsIntoLines(
     const std::vector<std::string>& column_strings) {
-  // First, break down each column std::string into a vector of distinct lines.
+  // First, break down each column string into a vector of distinct lines.
   std::vector<std::vector<std::string>> columns_by_line;
   columns_by_line.reserve(column_strings.size());
   for (const std::string& column_string : column_strings) {
@@ -151,8 +151,8 @@ std::vector<std::vector<std::string>> SplitColumnStringsIntoLines(
   return lines_by_column;
 }
 
-// Helper function to produce a std::string representation of a 'row',
-// given the input column std::string values and column buffer lengths.
+// Helper function to produce a string representation of a 'row',
+// given the input column string values and column buffer lengths.
 std::string GenerateRowStringFromSingleLineColumns(
     const std::vector<std::string>& column_strings,
     const std::vector<size_t>& column_buffer_lengths) {
@@ -196,14 +196,14 @@ std::string GetEscapedString(const Value& value) {
   DCHECK(value.type()->IsString());
   std::string literal = value.GetSQLLiteral();
 
-  // GetSQLLiteral() returns a quoted std::string.  Strip the enclosing quotes.
+  // GetSQLLiteral() returns a quoted string.  Strip the enclosing quotes.
   DCHECK_GE(literal.length(), 2);
   DCHECK(literal[0] == '\"' || literal[0] == '\'');
   DCHECK_EQ(literal[0], literal[literal.length() - 1]);
   return literal.substr(1, literal.length() - 2);
 }
 
-// Converts 'value' to an output std::string and returns it.
+// Converts 'value' to an output string and returns it.
 std::string ValueToOutputString(const Value& value, bool escape_strings) {
   if (value.is_null()) return "NULL";
   if (value.type()->IsStruct()) {
@@ -239,7 +239,7 @@ std::string ValueToOutputString(const Value& value, bool escape_strings) {
   }
 }
 
-// Returns a std::string to separate rows in an output table.  A "+" indicates
+// Returns a string to separate rows in an output table.  A "+" indicates
 // a column boundary, and "-" appears above or below a column.
 //
 // Example:
@@ -247,8 +247,8 @@ std::string ValueToOutputString(const Value& value, bool escape_strings) {
 std::string GetRowSeparator(const std::vector<size_t>& max_column_lengths) {
   std::string separator = "+";
   for (int col_idx = 0; col_idx < max_column_lengths.size(); ++col_idx) {
-    absl::StrAppend(&separator, std::string(max_column_lengths[col_idx] + 2, '-'),
-                    "+");
+    absl::StrAppend(&separator,
+                    std::string(max_column_lengths[col_idx] + 2, '-'), "+");
   }
   absl::StrAppend(&separator, "\n");
   return separator;
@@ -256,10 +256,11 @@ std::string GetRowSeparator(const std::vector<size_t>& max_column_lengths) {
 
 }  // namespace
 
-std::string ToPrettyOutputStyle(const zetasql::Value& result, bool is_value_table,
-                           const std::vector<std::string>& column_names) {
+std::string ToPrettyOutputStyle(const zetasql::Value& result,
+                                bool is_value_table,
+                                const std::vector<std::string>& column_names) {
   // The 'result' Value is expected to be a non-NULL array of struct values,
-  // if it is not as expected then return an error std::string.
+  // if it is not as expected then return an error string.
   if (result.is_null()) return "<null result>";
   const ArrayType* array_type = result.type()->AsArray();
   if (array_type == nullptr) return "<non-array result>";
@@ -330,8 +331,8 @@ std::string ToPrettyOutputStyle(const zetasql::Value& result, bool is_value_tabl
   return output;
 }
 
-std::string OutputPrettyStyleQueryResult(const zetasql::Value& result,
-                                    const ResolvedStatement* resolved_stmt) {
+std::string OutputPrettyStyleQueryResult(
+    const zetasql::Value& result, const ResolvedStatement* resolved_stmt) {
   absl::optional<int64_t> num_rows_modified;
   bool is_value_table;
   std::vector<std::string> column_names;

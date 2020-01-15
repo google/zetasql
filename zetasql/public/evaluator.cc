@@ -209,7 +209,7 @@ class Evaluator {
     COLUMN_PARAMETER,
   };
 
-  // Converts 'kind' to std::string.
+  // Converts 'kind' to string.
   static std::string ParameterKindToString(ParameterKind kind) {
     switch (kind) {
       case QUERY_PARAMETER:
@@ -230,7 +230,7 @@ class Evaluator {
 
   // Same a Prepare(), but the mutex is already locked.
   zetasql_base::Status PrepareLocked(const AnalyzerOptions& options, Catalog* catalog)
-      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Same as ExecuteAfterPrepare(), but the mutex is already locked (possibly
   // with a write lock).
@@ -239,7 +239,7 @@ class Evaluator {
       const SystemVariableValuesMap& system_variables,
       Value* expression_output_value,
       std::unique_ptr<EvaluatorTableIterator>* query_output_iterator) const
-      SHARED_LOCKS_REQUIRED(mutex_);
+      ABSL_SHARED_LOCKS_REQUIRED(mutex_);
 
   // Same as ExecuteAfterPrepareWithOrderedParams(), but with the mutex already
   // locked.
@@ -248,7 +248,7 @@ class Evaluator {
       const SystemVariableValuesMap& system_variables,
       Value* expression_output_value,
       std::unique_ptr<EvaluatorTableIterator>* query_output_iterator) const
-      SHARED_LOCKS_REQUIRED(mutex_);
+      ABSL_SHARED_LOCKS_REQUIRED(mutex_);
 
   // Checks if 'parameters_map' specifies valid values for all variables from
   // resolved variable map 'variable_map', and populates 'values' with the
@@ -257,29 +257,29 @@ class Evaluator {
   zetasql_base::Status TranslateParameterValueMapToList(
       const ParameterValueMap& parameters_map, const ParameterMap& variable_map,
       ParameterKind kind, ParameterValueList* variable_values) const
-      SHARED_LOCKS_REQUIRED(mutex_);
+      ABSL_SHARED_LOCKS_REQUIRED(mutex_);
 
   // Validates the arguments to ExecuteAfterPrepareWithOrderedParams().
   zetasql_base::Status ValidateColumns(const ParameterValueList& columns) const
-      SHARED_LOCKS_REQUIRED(mutex_);
+      ABSL_SHARED_LOCKS_REQUIRED(mutex_);
   zetasql_base::Status ValidateParameters(const ParameterValueList& parameters) const
-      SHARED_LOCKS_REQUIRED(mutex_);
+      ABSL_SHARED_LOCKS_REQUIRED(mutex_);
   zetasql_base::Status ValidateSystemVariables(
       const SystemVariableValuesMap& system_variables) const
-      SHARED_LOCKS_REQUIRED(mutex_);
+      ABSL_SHARED_LOCKS_REQUIRED(mutex_);
 
-  bool is_prepared() const SHARED_LOCKS_REQUIRED(mutex_) {
+  bool is_prepared() const ABSL_SHARED_LOCKS_REQUIRED(mutex_) {
     return is_prepared_;
   }
 
-  bool has_prepare_succeeded() const SHARED_LOCKS_REQUIRED(mutex_) {
+  bool has_prepare_succeeded() const ABSL_SHARED_LOCKS_REQUIRED(mutex_) {
     if (!is_prepared()) return false;
     if (is_query_) return compiled_relational_op_ != nullptr;
     return compiled_value_expr_ != nullptr;
   }
 
   std::unique_ptr<EvaluationContext> CreateEvaluationContext() const
-      SHARED_LOCKS_REQUIRED(mutex_) {
+      ABSL_SHARED_LOCKS_REQUIRED(mutex_) {
     // Construct the EvaluationOptions for the internal evaluation API from the
     // user-provided EvaluatorOptions. These are two different struct types with
     // unfortunately similar names.
@@ -333,46 +333,48 @@ class Evaluator {
   const ResolvedQueryStmt* query_ = nullptr;
 
   mutable absl::Mutex mutex_;
-  EvaluatorOptions evaluator_options_ GUARDED_BY(mutex_);
-  AnalyzerOptions analyzer_options_ GUARDED_BY(mutex_);
+  EvaluatorOptions evaluator_options_ ABSL_GUARDED_BY(mutex_);
+  AnalyzerOptions analyzer_options_ ABSL_GUARDED_BY(mutex_);
   // map or list of parameters
-  Parameters algebrizer_parameters_ GUARDED_BY(mutex_);
+  Parameters algebrizer_parameters_ ABSL_GUARDED_BY(mutex_);
   // maps to variables
-  ParameterMap algebrizer_column_map_ GUARDED_BY(mutex_);
-  SystemVariablesAlgebrizerMap algebrizer_system_variables_ GUARDED_BY(mutex_);
-  bool is_prepared_ GUARDED_BY(mutex_) = false;
-  std::unique_ptr<TypeFactory> owned_type_factory_ GUARDED_BY(mutex_)
-      PT_GUARDED_BY(mutex_);
+  ParameterMap algebrizer_column_map_ ABSL_GUARDED_BY(mutex_);
+  SystemVariablesAlgebrizerMap algebrizer_system_variables_
+      ABSL_GUARDED_BY(mutex_);
+  bool is_prepared_ ABSL_GUARDED_BY(mutex_) = false;
+  std::unique_ptr<TypeFactory> owned_type_factory_ ABSL_GUARDED_BY(mutex_)
+      ABSL_PT_GUARDED_BY(mutex_);
   // std::unique_ptr<EvaluationContext> evaluation_context_;
-  std::unique_ptr<const AnalyzerOutput> analyzer_output_ GUARDED_BY(mutex_)
-      PT_GUARDED_BY(mutex_);
+  std::unique_ptr<const AnalyzerOutput> analyzer_output_ ABSL_GUARDED_BY(mutex_)
+      ABSL_PT_GUARDED_BY(mutex_);
 
   // For expressions, Prepare populates compiled_value_expr_. For queries, it
   // populates compiled_relational_op.
-  std::unique_ptr<ValueExpr> compiled_value_expr_ GUARDED_BY(mutex_)
-      PT_GUARDED_BY(mutex_);
-  std::unique_ptr<RelationalOp> compiled_relational_op_ GUARDED_BY(mutex_)
-      PT_GUARDED_BY(mutex_);
+  std::unique_ptr<ValueExpr> compiled_value_expr_ ABSL_GUARDED_BY(mutex_)
+      ABSL_PT_GUARDED_BY(mutex_);
+  std::unique_ptr<RelationalOp> compiled_relational_op_ ABSL_GUARDED_BY(mutex_)
+      ABSL_PT_GUARDED_BY(mutex_);
 
   // Output columns corresponding to 'compiled_relational_op_' Only valid if
   // 'is_query_' is true.
-  std::vector<NameAndType> output_columns_ GUARDED_BY(mutex_);
+  std::vector<NameAndType> output_columns_ ABSL_GUARDED_BY(mutex_);
   // The i-th element corresponds to 'output_columns_[i]' in the TupleIterator
   // returned by 'compiled_relational_op_'. Only valid if 'is_query_' is true.
-  std::vector<VariableId> output_column_variables_ GUARDED_BY(mutex_);
+  std::vector<VariableId> output_column_variables_ ABSL_GUARDED_BY(mutex_);
 
   mutable absl::Mutex num_live_iterators_mutex_;
   // The number of live iterators corresponding to
   // 'compiled_relational_op_'. Only valid if 'is_query_' is true.  Mutable so
   // that it can be modified in ExecuteAfterPrepare(). It is only used for
   // sanity checking that an iterator does not outlive the Evaluator.
-  mutable int num_live_iterators_ GUARDED_BY(num_live_iterators_mutex_) = 0;
+  mutable int num_live_iterators_ ABSL_GUARDED_BY(num_live_iterators_mutex_) =
+      0;
 
   // The last EvaluationContext that we created, only for use by unit tests. May
   // be NULL.
   std::unique_ptr<std::function<void(EvaluationContext*)>>
-      create_evaluation_context_cb_test_only_ GUARDED_BY(mutex_)
-          PT_GUARDED_BY(mutex_);
+      create_evaluation_context_cb_test_only_ ABSL_GUARDED_BY(mutex_)
+          ABSL_PT_GUARDED_BY(mutex_);
 };
 
 namespace {
@@ -504,7 +506,8 @@ zetasql_base::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
   return ::zetasql_base::OkStatus();
 }
 
-zetasql_base::StatusOr<std::vector<std::string>> Evaluator::GetReferencedColumns() const {
+zetasql_base::StatusOr<std::vector<std::string>> Evaluator::GetReferencedColumns()
+    const {
   absl::ReaderMutexLock l(&mutex_);
   if (!is_prepared()) {
     return ::zetasql_base::FailedPreconditionErrorBuilder()
@@ -521,7 +524,8 @@ zetasql_base::StatusOr<std::vector<std::string>> Evaluator::GetReferencedColumns
   return referenced_columns;
 }
 
-zetasql_base::StatusOr<std::vector<std::string>> Evaluator::GetReferencedParameters() const {
+zetasql_base::StatusOr<std::vector<std::string>> Evaluator::GetReferencedParameters()
+    const {
   absl::ReaderMutexLock l(&mutex_);
   if (!is_prepared()) {
     return ::zetasql_base::FailedPreconditionErrorBuilder()
@@ -730,12 +734,14 @@ class TupleIteratorAdaptor : public EvaluatorTableIterator {
   const std::vector<int> tuple_indexes_;
   const std::function<void()> deletion_cb_;
   mutable absl::Mutex mutex_;
-  std::unique_ptr<EvaluationContext> context_ GUARDED_BY(mutex_)
-      PT_GUARDED_BY(mutex_);
-  bool called_next_ GUARDED_BY(mutex_) = false;
-  std::unique_ptr<TupleIterator> iter_ GUARDED_BY(mutex_) PT_GUARDED_BY(mutex_);
-  const TupleData* current_ GUARDED_BY(mutex_) PT_GUARDED_BY(mutex_) = nullptr;
-  zetasql_base::Status status_ GUARDED_BY(mutex_);
+  std::unique_ptr<EvaluationContext> context_ ABSL_GUARDED_BY(mutex_)
+      ABSL_PT_GUARDED_BY(mutex_);
+  bool called_next_ ABSL_GUARDED_BY(mutex_) = false;
+  std::unique_ptr<TupleIterator> iter_ ABSL_GUARDED_BY(mutex_)
+      ABSL_PT_GUARDED_BY(mutex_);
+  const TupleData* current_ ABSL_GUARDED_BY(mutex_)
+      ABSL_PT_GUARDED_BY(mutex_) = nullptr;
+  zetasql_base::Status status_ ABSL_GUARDED_BY(mutex_);
 };
 }  // namespace
 
@@ -1001,8 +1007,8 @@ zetasql_base::Status PreparedExpression::Prepare(const AnalyzerOptions& options,
   return evaluator_->Prepare(options, catalog);
 }
 
-zetasql_base::StatusOr<std::vector<std::string>> PreparedExpression::GetReferencedColumns()
-    const {
+zetasql_base::StatusOr<std::vector<std::string>>
+PreparedExpression::GetReferencedColumns() const {
   return evaluator_->GetReferencedColumns();
 }
 
@@ -1077,7 +1083,8 @@ const Type* PreparedExpression::output_type() const {
   return evaluator_->expression_output_type();
 }
 
-PreparedQuery::PreparedQuery(const std::string& sql, const EvaluatorOptions& options)
+PreparedQuery::PreparedQuery(const std::string& sql,
+                             const EvaluatorOptions& options)
     : evaluator_(new internal::Evaluator(sql, /*is_query=*/true, options)) {}
 
 PreparedQuery::PreparedQuery(const ResolvedQueryStmt* stmt,
@@ -1091,8 +1098,8 @@ zetasql_base::Status PreparedQuery::Prepare(const AnalyzerOptions& options,
   return evaluator_->Prepare(options, catalog);
 }
 
-zetasql_base::StatusOr<std::vector<std::string>> PreparedQuery::GetReferencedParameters()
-    const {
+zetasql_base::StatusOr<std::vector<std::string>>
+PreparedQuery::GetReferencedParameters() const {
   return evaluator_->GetReferencedParameters();
 }
 

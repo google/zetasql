@@ -92,8 +92,8 @@ class SharedStatePool {
 
  private:
   mutable absl::Mutex mutex_;
-  int64_t next_id_ GUARDED_BY(mutex_);
-  std::map<int64_t, std::shared_ptr<T>> saved_states_ GUARDED_BY(mutex_);
+  int64_t next_id_ ABSL_GUARDED_BY(mutex_);
+  std::map<int64_t, std::shared_ptr<T>> saved_states_ ABSL_GUARDED_BY(mutex_);
 
   static_assert(
       std::is_base_of<GenericState, T>::value,

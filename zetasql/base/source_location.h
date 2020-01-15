@@ -116,7 +116,7 @@ class SourceLocation {
   // macro below.
   //
   // `file_name` must outlive all copies of the `zetasql_base::SourceLocation`
-  // object, so in practice it should be a std::string literal.
+  // object, so in practice it should be a string literal.
   constexpr SourceLocation(std::uint_least32_t line, const char* file_name)
       : line_(line),
         file_name_(file_name) {}

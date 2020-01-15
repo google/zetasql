@@ -1150,7 +1150,7 @@ TEST_F(ProtoEvalTest, CreatePrimitiveProtoFields) {
   EXPECT_THAT(FormatProto("double_val", Float(0.5), &p),
               HasSubstr("out_of_range"));
 
-  // std::string
+  // string
   EXPECT_EQ("string_val: \"@\"", FormatProto("string_val", String("@"), &p));
   EXPECT_EQ("", FormatProto("string_val", NullString(), &p));
   EXPECT_THAT(FormatProto("string_val", Bytes("@"), &p),

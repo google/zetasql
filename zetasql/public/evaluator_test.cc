@@ -1324,7 +1324,7 @@ TEST(EvaluatorTest, PreparedFromAST_IllegalDeref) {
 
 TEST_F(UDFEvalTest, OkUDFEvaluator) {
   function_options_.set_evaluator([](const absl::Span<const Value>& args) {
-    // Returns std::string length as int64_t.
+    // Returns string length as int64_t.
     return Value::Int64(args[0].string_value().size());
   });
   catalog()->AddOwnedFunction(new Function(

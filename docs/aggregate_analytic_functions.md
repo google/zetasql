@@ -1,5 +1,4 @@
 
-
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
 # Aggregate Analytic Functions
@@ -49,8 +48,8 @@ COUNT(*) OVER (ROWS UNBOUNDED PRECEDING)
 SUM(DISTINCT x) OVER ()
 ```
 
-[analytic-functions-link-to-aggregate-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md
+[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[aggregate-analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#aggregate-analytic-functions
 
-[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-[aggregate-analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#aggregate-analytic-functions
+[analytic-functions-link-to-aggregate-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions
 

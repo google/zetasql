@@ -128,7 +128,7 @@ TEST_F(AnalyzerOptionsTest, AddSystemVariable) {
       options_.AddSystemVariable({""}, type_factory_.get_int64()),
       StatusIs(
           _,
-          HasSubstr("System variable cannot have empty std::string as path part")));
+          HasSubstr("System variable cannot have empty string as path part")));
 }
 
 TEST_F(AnalyzerOptionsTest, AddQueryParameter) {
@@ -654,7 +654,7 @@ TEST_F(AnalyzerOptionsTest, DeprecationWarnings) {
         status = AnalyzeStatement(sql, options_, &catalog, &type_factory_,
                                   &output);
       } else if (input_type == 1) {
-        // Parse two queries from one std::string.  The first query has no warnings.
+        // Parse two queries from one string.  The first query has no warnings.
         bool at_end;
         ParseResumeLocation location =
             ParseResumeLocation::FromStringView(multi_sql);
@@ -1138,7 +1138,7 @@ struct SupportedFeatureTestInput {
   const std::set<LanguageFeature> supported_features;
   // The expected outcome of the parse and analyze.
   const bool expect_success;
-  // The expected error std::string, only relevant if <expect_success> is false.
+  // The expected error string, only relevant if <expect_success> is false.
   const std::string expected_error_string;
 
   std::string FeaturesToString() const {

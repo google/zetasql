@@ -23,7 +23,6 @@
 #include <string>
 
 #include "zetasql/common/fixed_int.h"
-#include <cstdint>
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/status.h"
@@ -38,6 +37,9 @@ namespace zetasql {
 // Internally NUMERIC values are stored as scaled 128 bit integers.
 class NumericValue final {
  public:
+  // Must use integral_constant to utilize the compiler optimization for integer
+  // divisions with constant 32-bit divisors.
+  static constexpr std::integral_constant<uint32_t, 1000000000> kScalingFactor{};
   // Default constructor, constructs a zero value.
   constexpr NumericValue();
 
@@ -66,7 +68,7 @@ class NumericValue final {
                                                          uint64_t low_bits);
 
   // Parses a textual representation of a NUMERIC value. Returns an error if the
-  // given std::string cannot be parsed as a number or if the textual numeric value
+  // given string cannot be parsed as a number or if the textual numeric value
   // exceeds NUMERIC precision. This method will also return an error if the
   // textual representation has more than 9 digits after the decimal point.
   //
@@ -152,19 +154,21 @@ class NumericValue final {
   // Converts the NUMERIC value to a floating point number.
   double ToDouble() const;
 
-  // Converts the NUMERIC value into a std::string. String representation of NUMERICs
+  // Converts the NUMERIC value into a string. String representation of NUMERICs
   // follow regular rules of textual numeric values representation. For example,
-  // "1.34", "123", "0.23".
+  // "1.34", "123", "0.23". AppendToString is typically more efficient due to
+  // fewer memory allocations.
   std::string ToString() const;
+  void AppendToString(std::string* output) const;
 
   // Returns the packed NUMERIC value.
-  __int128 as_packed_int() const;
+  constexpr __int128 as_packed_int() const;
 
   // Returns high 64 bits of the packed NUMERIC value.
-  uint64_t high_bits() const;
+  constexpr uint64_t high_bits() const;
 
   // Returns low 64 bits of the packed NUMERIC value.
-  uint64_t low_bits() const;
+  constexpr uint64_t low_bits() const;
 
   // Returns whether the NUMERIC value has a fractional part.
   bool has_fractional_part() const;
@@ -260,6 +264,9 @@ class NumericValue final {
     FixedInt<64, 3> sum_;
   };
 
+  // Aggregates the input of multiple NUMERIC values and provides functions for
+  // the population/sample variance/standard deviation of the values in double
+  // data type.
   class VarianceAggregator {
    public:
     // Adds a NUMERIC value to the input.
@@ -292,9 +299,86 @@ class NumericValue final {
     }
 
    private:
-    double GetVariance(uint64_t count, uint64_t count_offset) const;
     FixedInt<64, 3> sum_;
     FixedInt<64, 5> sum_square_;
+  };
+
+  class CorrelationAggregator;
+
+  // Aggregates the input of multiple pairs of NUMERIC values and provides
+  // functions for the population/sample covariance of the pairs in double data
+  // type.
+  class CovarianceAggregator {
+   public:
+    // Adds a pair of NUMERIC values to the input.
+    void Add(NumericValue x, NumericValue y);
+    // Removes a previously added pair of NUMERIC values from the input.
+    // This method is provided for implementing analytic functions with
+    // sliding windows. If the pair has not been added to the input, or if it
+    // has already been removed, then the result of this method is undefined.
+    void Subtract(NumericValue x, NumericValue y);
+    // Returns the population covariance of non-null pairs from input, or
+    // absl::nullopt if count is 0.
+    absl::optional<double> GetPopulationCovariance(uint64_t count) const;
+    // Returns the sample covariance of non-null pairs from input, or
+    // absl::nullopt if count < 2.
+    absl::optional<double> GetSamplingCovariance(uint64_t count) const;
+    // Merges the state with other CovarianceAggregator instance's state.
+    void MergeWith(const CovarianceAggregator& other);
+    // Serialization and deserialization methods that are intended to be
+    // used to store the state in protos.
+    // sum_product_ is length prefixed and serialized, sum_x_ is length prefixed
+    // and serialized, followed by sum_y_.
+    std::string SerializeAsProtoBytes() const;
+    static zetasql_base::StatusOr<CovarianceAggregator> DeserializeFromProtoBytes(
+        absl::string_view bytes);
+
+    bool operator==(const CovarianceAggregator& other) const {
+      return sum_product_ == other.sum_product_ && sum_x_ == other.sum_x_ &&
+             sum_y_ == other.sum_y_;
+    }
+
+   private:
+    friend class CorrelationAggregator;
+    FixedInt<64, 5> sum_product_;
+    FixedInt<64, 3> sum_x_;
+    FixedInt<64, 3> sum_y_;
+  };
+
+  // Aggregates the input of multiple pairs of NUMERIC values and provides
+  // functions for the correlation of the pairs in double data type.
+  class CorrelationAggregator {
+   public:
+    // Adds a pair of NUMERIC values to the input.
+    void Add(NumericValue x, NumericValue y);
+    // Removes a previously added pair of NUMERIC values from the input.
+    // This method is provided for implementing analytic functions with
+    // sliding windows. If the pair has not been added to the input, or if it
+    // has already been removed, then the result of this method is undefined.
+    void Subtract(NumericValue x, NumericValue y);
+    // Returns the correlation coefficient for non-null pairs from input.
+    absl::optional<double> GetCorrelation(uint64_t count) const;
+    // Merges the state with other CorrelationAggregator instance's state.
+    void MergeWith(const CorrelationAggregator& other);
+    // Serialization and deserialization methods that are intended to be
+    // used to store the state in protos.
+    // Each of cov_agg_'s members are length prefixed and serialized, followed
+    // by sum_square_x_ length prefixed and serialized and then sum_square_y_
+    // serialized.
+    std::string SerializeAsProtoBytes() const;
+    static zetasql_base::StatusOr<CorrelationAggregator> DeserializeFromProtoBytes(
+        absl::string_view bytes);
+
+    bool operator==(const CorrelationAggregator& other) const {
+      return cov_agg_ == other.cov_agg_ &&
+             sum_square_x_ == other.sum_square_x_ &&
+             sum_square_y_ == other.sum_square_y_;
+    }
+
+   private:
+    CovarianceAggregator cov_agg_;
+    FixedInt<64, 5> sum_square_x_;
+    FixedInt<64, 5> sum_square_y_;
   };
 
  private:
@@ -323,7 +407,8 @@ class NumericValue final {
   // The caller should annotate the error with the inputs.
   zetasql_base::StatusOr<NumericValue> PowerInternal(NumericValue exp) const;
 
-  static constexpr uint32_t kScalingFactor = 1000000000;
+  // Returns the scaled fractional digits.
+  int32_t GetFractionalPart() const;
 
   // A NUMERIC value is stored as a scaled integer, the original NUMERIC value
   // is multiplied by the scaling factor 10^9. The intended representation is

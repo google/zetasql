@@ -45,6 +45,7 @@
 namespace zetasql {
 
 class SimpleCatalogProto;
+class SimpleColumn;
 class SimpleColumnProto;
 class SimpleConstantProto;
 class SimpleTableProto;
@@ -70,47 +71,48 @@ class SimpleCatalog : public EnumerableCatalog {
 
   zetasql_base::Status GetTable(const std::string& name, const Table** table,
                         const FindOptions& options = FindOptions()) override
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   zetasql_base::Status GetModel(const std::string& name, const Model** model,
                         const FindOptions& options = FindOptions()) override
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
-  zetasql_base::Status GetConnection(const std::string& name, const Connection** connection,
+  zetasql_base::Status GetConnection(const std::string& name,
+                             const Connection** connection,
                              const FindOptions& options) override
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   zetasql_base::Status GetFunction(const std::string& name, const Function** function,
                            const FindOptions& options = FindOptions()) override
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   zetasql_base::Status GetTableValuedFunction(
       const std::string& name, const TableValuedFunction** function,
       const FindOptions& options = FindOptions()) override
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   zetasql_base::Status GetProcedure(
-      const std::string& name,
-      const Procedure** procedure,
+      const std::string& name, const Procedure** procedure,
       const FindOptions& options = FindOptions()) override;
 
   zetasql_base::Status GetType(const std::string& name, const Type** type,
                        const FindOptions& options = FindOptions()) override
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   zetasql_base::Status GetCatalog(const std::string& name, Catalog** catalog,
                           const FindOptions& options = FindOptions()) override
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   zetasql_base::Status GetConstant(const std::string& name, const Constant** constant,
                            const FindOptions& options = FindOptions()) override
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   // For suggestions we look from the last level of <mistyped_path>:
   //  - Whether the object exists directly in sub-catalogs.
   //  - If not above, whether there is a single name that's misspelled in the
   //    current catalog.
-  std::string SuggestTable(const absl::Span<const std::string>& mistyped_path) override;
+  std::string SuggestTable(
+      const absl::Span<const std::string>& mistyped_path) override;
   std::string SuggestFunction(
       const absl::Span<const std::string>& mistyped_path) override;
   std::string SuggestTableValuedFunction(
@@ -139,107 +141,120 @@ class SimpleCatalog : public EnumerableCatalog {
   // available.
 
   // Tables
-  void AddTable(const std::string& name, const Table* table) LOCKS_EXCLUDED(mutex_);
-  void AddTable(const Table* table) LOCKS_EXCLUDED(mutex_);
-  void AddOwnedTable(const std::string& name, std::unique_ptr<const Table> table)
-      LOCKS_EXCLUDED(mutex_);
+  void AddTable(const std::string& name, const Table* table)
+      ABSL_LOCKS_EXCLUDED(mutex_);
+  void AddTable(const Table* table) ABSL_LOCKS_EXCLUDED(mutex_);
+  void AddOwnedTable(const std::string& name,
+                     std::unique_ptr<const Table> table)
+      ABSL_LOCKS_EXCLUDED(mutex_);
   bool AddOwnedTableIfNotPresent(const std::string& name,
                                  std::unique_ptr<const Table> table)
-      LOCKS_EXCLUDED(mutex_);
-  void AddOwnedTable(std::unique_ptr<const Table> table) LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
+  void AddOwnedTable(std::unique_ptr<const Table> table)
+      ABSL_LOCKS_EXCLUDED(mutex_);
   void AddOwnedTable(const std::string& name, const Table* table);
-  void AddOwnedTable(const Table* table) LOCKS_EXCLUDED(mutex_);
+  void AddOwnedTable(const Table* table) ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Models
-  void AddModel(const std::string& name, const Model* model) LOCKS_EXCLUDED(mutex_);
-  void AddModel(const Model* model) LOCKS_EXCLUDED(mutex_);
-  void AddOwnedModel(const std::string& name, std::unique_ptr<const Model> model)
-      LOCKS_EXCLUDED(mutex_);
-  void AddOwnedModel(std::unique_ptr<const Model> model) LOCKS_EXCLUDED(mutex_);
+  void AddModel(const std::string& name, const Model* model)
+      ABSL_LOCKS_EXCLUDED(mutex_);
+  void AddModel(const Model* model) ABSL_LOCKS_EXCLUDED(mutex_);
+  void AddOwnedModel(const std::string& name,
+                     std::unique_ptr<const Model> model)
+      ABSL_LOCKS_EXCLUDED(mutex_);
+  void AddOwnedModel(std::unique_ptr<const Model> model)
+      ABSL_LOCKS_EXCLUDED(mutex_);
   void AddOwnedModel(const std::string& name, const Model* model);
-  void AddOwnedModel(const Model* model) LOCKS_EXCLUDED(mutex_);
+  void AddOwnedModel(const Model* model) ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Connections
   void AddConnection(const std::string& name, const Connection* connection)
-      LOCKS_EXCLUDED(mutex_);
-  void AddConnection(const Connection* connection) LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
+  void AddConnection(const Connection* connection) ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Types
-  void AddType(const std::string& name, const Type* type) LOCKS_EXCLUDED(mutex_);
+  void AddType(const std::string& name, const Type* type)
+      ABSL_LOCKS_EXCLUDED(mutex_);
   bool AddTypeIfNotPresent(const std::string& name, const Type* type);
 
   // Catalogs
-  void AddCatalog(const std::string& name, Catalog* catalog) LOCKS_EXCLUDED(mutex_);
-  void AddCatalog(Catalog* catalog) LOCKS_EXCLUDED(mutex_);
-  void AddOwnedCatalog(const std::string& name, std::unique_ptr<Catalog> catalog);
+  void AddCatalog(const std::string& name, Catalog* catalog)
+      ABSL_LOCKS_EXCLUDED(mutex_);
+  void AddCatalog(Catalog* catalog) ABSL_LOCKS_EXCLUDED(mutex_);
+  void AddOwnedCatalog(const std::string& name,
+                       std::unique_ptr<Catalog> catalog);
   // TODO: Cleanup callers and delete
-  void AddOwnedCatalog(std::unique_ptr<Catalog> catalog) LOCKS_EXCLUDED(mutex_);
+  void AddOwnedCatalog(std::unique_ptr<Catalog> catalog)
+      ABSL_LOCKS_EXCLUDED(mutex_);
   void AddOwnedCatalog(const std::string& name, Catalog* catalog);
-  void AddOwnedCatalog(Catalog* catalog) LOCKS_EXCLUDED(mutex_);
+  void AddOwnedCatalog(Catalog* catalog) ABSL_LOCKS_EXCLUDED(mutex_);
   bool AddOwnedCatalogIfNotPresent(const std::string& name,
                                    std::unique_ptr<Catalog> catalog)
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Add a new (owned) SimpleCatalog named <name>, and return it.
   SimpleCatalog* MakeOwnedSimpleCatalog(const std::string& name)
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Functions
   void AddFunction(const std::string& name, const Function* function)
-      LOCKS_EXCLUDED(mutex_);
-  void AddFunction(const Function* function) LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
+  void AddFunction(const Function* function) ABSL_LOCKS_EXCLUDED(mutex_);
   void AddOwnedFunction(const std::string& name,
                         std::unique_ptr<const Function> function);
   void AddOwnedFunction(std::unique_ptr<const Function> function)
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
   bool AddOwnedFunctionIfNotPresent(const std::string& name,
                                     std::unique_ptr<Function>* function);
   bool AddOwnedFunctionIfNotPresent(std::unique_ptr<Function>* function);
   void AddOwnedFunction(const std::string& name, const Function* function);
-  void AddOwnedFunction(const Function* function) LOCKS_EXCLUDED(mutex_);
+  void AddOwnedFunction(const Function* function) ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Table Valued Functions
   void AddTableValuedFunction(const std::string& name,
                               const TableValuedFunction* function)
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
   void AddTableValuedFunction(const TableValuedFunction* function)
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
   void AddOwnedTableValuedFunction(
-      const std::string& name, std::unique_ptr<const TableValuedFunction> function);
+      const std::string& name,
+      std::unique_ptr<const TableValuedFunction> function);
   void AddOwnedTableValuedFunction(
       std::unique_ptr<const TableValuedFunction> function);
   bool AddOwnedTableValuedFunctionIfNotPresent(
-      const std::string& name, std::unique_ptr<TableValuedFunction>* table_function);
+      const std::string& name,
+      std::unique_ptr<TableValuedFunction>* table_function);
   bool AddOwnedTableValuedFunctionIfNotPresent(
       std::unique_ptr<TableValuedFunction>* table_function);
   void AddOwnedTableValuedFunction(const std::string& name,
                                    const TableValuedFunction* function);
   void AddOwnedTableValuedFunction(const TableValuedFunction* function)
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Procedures
   void AddProcedure(const std::string& name, const Procedure* procedure);
-  void AddProcedure(const Procedure* procedure) LOCKS_EXCLUDED(mutex_);
+  void AddProcedure(const Procedure* procedure) ABSL_LOCKS_EXCLUDED(mutex_);
   void AddOwnedProcedure(const std::string& name,
                          std::unique_ptr<const Procedure> procedure);
   void AddOwnedProcedure(std::unique_ptr<const Procedure> procedure)
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
   bool AddOwnedProcedureIfNotPresent(std::unique_ptr<Procedure> procedure)
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
   void AddOwnedProcedure(const std::string& name, const Procedure* procedure);
-  void AddOwnedProcedure(const Procedure* procedure) LOCKS_EXCLUDED(mutex_);
+  void AddOwnedProcedure(const Procedure* procedure)
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Constants
   void AddConstant(const std::string& name, const Constant* constant);
-  void AddConstant(const Constant* constant) LOCKS_EXCLUDED(mutex_);
+  void AddConstant(const Constant* constant) ABSL_LOCKS_EXCLUDED(mutex_);
   void AddOwnedConstant(const std::string& name,
                         std::unique_ptr<const Constant> constant);
   void AddOwnedConstant(std::unique_ptr<const Constant> constant)
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
   void AddOwnedConstant(const std::string& name, const Constant* constant);
-  void AddOwnedConstant(const Constant* constant) LOCKS_EXCLUDED(mutex_);
+  void AddOwnedConstant(const Constant* constant) ABSL_LOCKS_EXCLUDED(mutex_);
   bool AddOwnedConstantIfNotPresent(std::unique_ptr<const Constant> constant)
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Add ZetaSQL built-in function definitions into this catalog.
   // <options> can be used to select which functions get loaded.
@@ -251,7 +266,7 @@ class SimpleCatalog : public EnumerableCatalog {
   // Also: Functions and Catalogs with the same names must not already exist.
   void AddZetaSQLFunctions(const ZetaSQLBuiltinFunctionOptions& options =
                                  ZetaSQLBuiltinFunctionOptions())
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Set the google::protobuf::DescriptorPool to use when resolving Types.
   // All message and enum types declared in <pool> will be resolvable with
@@ -267,20 +282,20 @@ class SimpleCatalog : public EnumerableCatalog {
   // this SimpleCatalog.
   //
   void SetDescriptorPool(const google::protobuf::DescriptorPool* pool)
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
   void SetOwnedDescriptorPool(const google::protobuf::DescriptorPool* pool)
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Clear the set of functions stored in this Catalog and any subcatalogs
   // created for zetasql namespaces. Does not affect any other catalogs.
   // This can be called between calls to AddZetaSQLFunctions with different
   // options.
-  void ClearFunctions() LOCKS_EXCLUDED(mutex_);
+  void ClearFunctions() ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Clear the set of table-valued functions stored in this Catalog and any
   // subcatalogs created for zetasql namespaces. Does not affect any other
   // catalogs.
-  void ClearTableValuedFunctions() LOCKS_EXCLUDED(mutex_);
+  void ClearTableValuedFunctions() ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Deserialize SimpleCatalog from proto. Types will be deserialized using
   // the TypeFactory owned by this catalog and given Descriptors from the
@@ -305,10 +320,10 @@ class SimpleCatalog : public EnumerableCatalog {
   zetasql_base::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
                          SimpleCatalogProto* proto, bool ignore_builtin = true,
                          bool ignore_recursive = true) const
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Return a TypeFactory owned by this SimpleCatalog.
-  TypeFactory* type_factory() LOCKS_EXCLUDED(mutex_);
+  TypeFactory* type_factory() ABSL_LOCKS_EXCLUDED(mutex_);
 
   zetasql_base::Status GetCatalogs(
       absl::flat_hash_set<const Catalog*>* output) const override;
@@ -321,106 +336,115 @@ class SimpleCatalog : public EnumerableCatalog {
 
   // Accessors for reading a copy of the object lists in this SimpleCatalog.
   // This is intended primarily for tests.
-  std::vector<const Table*> tables() const LOCKS_EXCLUDED(mutex_);
-  std::vector<const Model*> models() const LOCKS_EXCLUDED(mutex_);
-  std::vector<const Type*> types() const LOCKS_EXCLUDED(mutex_);
-  std::vector<const Function*> functions() const LOCKS_EXCLUDED(mutex_);
+  std::vector<const Table*> tables() const ABSL_LOCKS_EXCLUDED(mutex_);
+  std::vector<const Model*> models() const ABSL_LOCKS_EXCLUDED(mutex_);
+  std::vector<const Type*> types() const ABSL_LOCKS_EXCLUDED(mutex_);
+  std::vector<const Function*> functions() const ABSL_LOCKS_EXCLUDED(mutex_);
   std::vector<const TableValuedFunction*> table_valued_functions() const
-      LOCKS_EXCLUDED(mutex_);
-  std::vector<const Procedure*> procedures() const LOCKS_EXCLUDED(mutex_);
-  std::vector<Catalog*> catalogs() const LOCKS_EXCLUDED(mutex_);
-  std::vector<const Constant*> constants() const LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
+  std::vector<const Procedure*> procedures() const ABSL_LOCKS_EXCLUDED(mutex_);
+  std::vector<Catalog*> catalogs() const ABSL_LOCKS_EXCLUDED(mutex_);
+  std::vector<const Constant*> constants() const ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Accessors for reading a copy of the key (object-name) lists in this
   // SimpleCatalog. Note that all keys are lower case.
-  std::vector<std::string> table_names() const LOCKS_EXCLUDED(mutex_);
-  std::vector<std::string> model_names() const LOCKS_EXCLUDED(mutex_);
-  std::vector<std::string> function_names() const LOCKS_EXCLUDED(mutex_);
+  std::vector<std::string> table_names() const ABSL_LOCKS_EXCLUDED(mutex_);
+  std::vector<std::string> model_names() const ABSL_LOCKS_EXCLUDED(mutex_);
+  std::vector<std::string> function_names() const ABSL_LOCKS_EXCLUDED(mutex_);
   std::vector<std::string> table_valued_function_names() const
-      LOCKS_EXCLUDED(mutex_);
-  std::vector<std::string> catalog_names() const LOCKS_EXCLUDED(mutex_);
-  std::vector<std::string> constant_names() const LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
+  std::vector<std::string> catalog_names() const ABSL_LOCKS_EXCLUDED(mutex_);
+  std::vector<std::string> constant_names() const ABSL_LOCKS_EXCLUDED(mutex_);
 
  private:
   zetasql_base::Status SerializeImpl(absl::flat_hash_set<const Catalog*>* seen_catalogs,
                              FileDescriptorSetMap* file_descriptor_set_map,
                              SimpleCatalogProto* proto, bool ignore_builtin,
                              bool ignore_recursive) const
-      LOCKS_EXCLUDED(mutex_);
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Helper methods for adding objects while holding <mutex_>.
   void AddCatalogLocked(const std::string& name, Catalog* catalog)
-      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   void AddOwnedCatalogLocked(const std::string& name,
                              std::unique_ptr<Catalog> catalog)
-      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   // TODO: Refactor the Add*() methods for other object types
   // to use a common locked implementation, similar to these for Function.
   void AddFunctionLocked(const std::string& name, const Function* function)
-      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   void AddOwnedFunctionLocked(const std::string& name,
                               std::unique_ptr<const Function> function)
-      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
-  void AddTableValuedFunctionLocked(
-      const std::string& name, const TableValuedFunction* table_function)
-      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+  void AddTableValuedFunctionLocked(const std::string& name,
+                                    const TableValuedFunction* table_function)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   void AddOwnedTableValuedFunctionLocked(
       const std::string& name,
       std::unique_ptr<const TableValuedFunction> table_function)
-      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   void AddTypeLocked(const std::string& name, const Type* type)
-      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   void AddConstantLocked(const std::string& name, const Constant* constant)
-      EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Unified implementation of SuggestFunction and SuggestTableValuedFunction.
   std::string SuggestFunctionOrTableValuedFunction(
-      bool is_table_valued_function, absl::Span<const std::string> mistyped_path);
+      bool is_table_valued_function,
+      absl::Span<const std::string> mistyped_path);
 
   const std::string name_;
 
   mutable absl::Mutex mutex_;
 
   // The TypeFactory can be allocated lazily, so may be NULL.
-  TypeFactory* type_factory_ GUARDED_BY(mutex_);
-  std::unique_ptr<TypeFactory> owned_type_factory_ GUARDED_BY(mutex_);
+  TypeFactory* type_factory_ ABSL_GUARDED_BY(mutex_);
+  std::unique_ptr<TypeFactory> owned_type_factory_ ABSL_GUARDED_BY(mutex_);
 
-  absl::flat_hash_map<std::string, const Table*> tables_ GUARDED_BY(mutex_);
+  absl::flat_hash_map<std::string, const Table*> tables_
+      ABSL_GUARDED_BY(mutex_);
   absl::flat_hash_map<std::string, const Connection*> connections_
-      GUARDED_BY(mutex_);
-  absl::flat_hash_map<std::string, const Model*> models_ GUARDED_BY(mutex_);
+      ABSL_GUARDED_BY(mutex_);
+  absl::flat_hash_map<std::string, const Model*> models_
+      ABSL_GUARDED_BY(mutex_);
   // Case-insensitive map of names to Types explicitly added to the Catalog via
   // AddType (including proto an enum types).
-  absl::flat_hash_map<std::string, const Type*> types_ GUARDED_BY(mutex_);
-  absl::flat_hash_map<std::string, const Function*> functions_ GUARDED_BY(mutex_);
+  absl::flat_hash_map<std::string, const Type*> types_ ABSL_GUARDED_BY(mutex_);
+  absl::flat_hash_map<std::string, const Function*> functions_
+      ABSL_GUARDED_BY(mutex_);
   absl::flat_hash_map<std::string, const TableValuedFunction*>
-      table_valued_functions_ GUARDED_BY(mutex_);
-  absl::flat_hash_map<std::string, const Procedure*> procedures_ GUARDED_BY(mutex_);
-  absl::flat_hash_map<std::string, Catalog*> catalogs_ GUARDED_BY(mutex_);
-  absl::flat_hash_map<std::string, const Constant*> constants_ GUARDED_BY(mutex_);
+      table_valued_functions_ ABSL_GUARDED_BY(mutex_);
+  absl::flat_hash_map<std::string, const Procedure*> procedures_
+      ABSL_GUARDED_BY(mutex_);
+  absl::flat_hash_map<std::string, Catalog*> catalogs_ ABSL_GUARDED_BY(mutex_);
+  absl::flat_hash_map<std::string, const Constant*> constants_
+      ABSL_GUARDED_BY(mutex_);
 
-  std::vector<std::unique_ptr<const Table>> owned_tables_ GUARDED_BY(mutex_);
-  std::vector<std::unique_ptr<const Model>> owned_models_ GUARDED_BY(mutex_);
+  std::vector<std::unique_ptr<const Table>> owned_tables_
+      ABSL_GUARDED_BY(mutex_);
+  std::vector<std::unique_ptr<const Model>> owned_models_
+      ABSL_GUARDED_BY(mutex_);
   std::vector<std::unique_ptr<const Connection>> owned_connections_
-      GUARDED_BY(mutex_);
+      ABSL_GUARDED_BY(mutex_);
   std::vector<std::unique_ptr<const Function>> owned_functions_
-      GUARDED_BY(mutex_);
+      ABSL_GUARDED_BY(mutex_);
   std::vector<std::unique_ptr<const TableValuedFunction>>
-      owned_table_valued_functions_ GUARDED_BY(mutex_);
+      owned_table_valued_functions_ ABSL_GUARDED_BY(mutex_);
   std::vector<std::unique_ptr<const Procedure>> owned_procedures_
-      GUARDED_BY(mutex_);
+      ABSL_GUARDED_BY(mutex_);
   std::vector<std::unique_ptr<const Catalog>> owned_catalogs_
-      GUARDED_BY(mutex_);
+      ABSL_GUARDED_BY(mutex_);
   std::vector<std::unique_ptr<const Constant>> owned_constants_
-      GUARDED_BY(mutex_);
+      ABSL_GUARDED_BY(mutex_);
 
   // Subcatalogs added for zetasql function namespaces. Kept separate from
   // owned_catalogs_ to keep them as SimpleCatalog types.
   absl::flat_hash_map<std::string, std::unique_ptr<SimpleCatalog>>
-      owned_zetasql_subcatalogs_ GUARDED_BY(mutex_);
+      owned_zetasql_subcatalogs_ ABSL_GUARDED_BY(mutex_);
 
-  const google::protobuf::DescriptorPool* descriptor_pool_ GUARDED_BY(mutex_) = nullptr;
-  std::unique_ptr<const google::protobuf::DescriptorPool> GUARDED_BY(mutex_)
+  const google::protobuf::DescriptorPool* descriptor_pool_ ABSL_GUARDED_BY(mutex_) =
+      nullptr;
+  std::unique_ptr<const google::protobuf::DescriptorPool> ABSL_GUARDED_BY(mutex_)
       owned_descriptor_pool_;
 };
 
@@ -436,13 +460,21 @@ class SimpleTable : public Table {
   // Make a table with the given Columns.
   // Crashes if there are duplicate column names.
   // Takes ownership of elements of <columns> if <take_ownership> is true.
-  SimpleTable(const std::string& name, const std::vector<const Column*>& columns,
+  SimpleTable(const std::string& name,
+              const std::vector<const Column*>& columns,
               bool take_ownership = false, const int64_t id = 0);
 
   // Make a value table with row type <row_type>.
-  // The value column has no name visible in SQL but will be called
-  // "value" in the resolved AST.
-  SimpleTable(const std::string& name, const Type* row_type, const int64_t id = 0);
+  // This constructor inserts a single column of type <row_type> into
+  // <columns_>, with the default name "value".  This column name "value"
+  // is not visible in SQL but will be appear in the resolved AST.
+  //
+  // One implication of this implementation is that FindColumnByName() will
+  // only be able to find the column with name "value", not the top level table
+  // columns of this SimpleTable (and the top level table columns of this
+  // SimpleTable do not have an associated Column).
+  SimpleTable(const std::string& name, const Type* row_type,
+              const int64_t id = 0);
 
   // Make a table with no Columns.  (Other constructors are ambiguous for this.)
   explicit SimpleTable(const std::string& name, const int64_t id = 0);
@@ -456,6 +488,9 @@ class SimpleTable : public Table {
   int NumColumns() const override { return columns_.size(); }
   const Column* GetColumn(int i) const override { return columns_[i]; }
   const Column* FindColumnByName(const std::string& name) const override;
+  std::optional<std::vector<int>> PrimaryKey() const override {
+    return primary_key_;
+  };
 
   bool IsValueTable() const override { return is_value_table_; }
 
@@ -488,6 +523,9 @@ class SimpleTable : public Table {
   // If is_owned is set to true but an error is returned, the column will be
   // deleted inside this function.
   zetasql_base::Status AddColumn(const Column* column, bool is_owned);
+
+  // Set primary key with give column ordinal indexes.
+  zetasql_base::Status SetPrimaryKey(std::vector<int> primary_key);
 
   int64_t GetSerializationId() const override { return id_; }
 
@@ -558,6 +596,7 @@ class SimpleTable : public Table {
   const std::string name_;
   bool is_value_table_ = false;
   std::vector<const Column*> columns_;
+  std::optional<std::vector<int>> primary_key_;
   std::vector<std::unique_ptr<const Column>> owned_columns_;
   absl::flat_hash_map<std::string, const Column*> columns_map_;
   absl::flat_hash_set<std::string> duplicate_column_names_;
@@ -572,7 +611,8 @@ class SimpleTable : public Table {
   std::unique_ptr<EvaluatorTableIteratorFactory>
       evaluator_table_iterator_factory_;
 
-  static zetasql_base::Status ValidateNonEmptyColumnName(const std::string& column_name);
+  static zetasql_base::Status ValidateNonEmptyColumnName(
+      const std::string& column_name);
 };
 
 // SimpleModel is a concrete implementation of the Model interface.
@@ -655,8 +695,9 @@ class SimpleConnection : public Connection {
 class SimpleColumn : public Column {
  public:
   // Constructor.
-  SimpleColumn(const std::string& table_name, const std::string& name, const Type* type,
-               bool is_pseudo_column = false, bool is_writable_column = true);
+  SimpleColumn(const std::string& table_name, const std::string& name,
+               const Type* type, bool is_pseudo_column = false,
+               bool is_writable_column = true);
   SimpleColumn(const SimpleColumn&) = delete;
   SimpleColumn& operator=(const SimpleColumn&) = delete;
 
@@ -686,11 +727,9 @@ class SimpleColumn : public Column {
   // The TypeFactory and the DescriptorPools must both outlive the result
   // SimpleColumn.
   static zetasql_base::Status Deserialize(
-      const SimpleColumnProto& proto,
-      const std::string& table_name,
+      const SimpleColumnProto& proto, const std::string& table_name,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
-      TypeFactory* factory,
-      std::unique_ptr<SimpleColumn>* result);
+      TypeFactory* factory, std::unique_ptr<SimpleColumn>* result);
 
  private:
   const std::string name_;
@@ -705,9 +744,9 @@ class SimpleConstant : public Constant {
  public:
   // Creates and returns a SimpleConstant, returning an error if <value> is
   // an invalid Value or the <name_path> is empty.
-  static zetasql_base::Status Create(
-      const std::vector<std::string>& name_path, const Value& value,
-      std::unique_ptr<SimpleConstant>* simple_constant);
+  static zetasql_base::Status Create(const std::vector<std::string>& name_path,
+                             const Value& value,
+                             std::unique_ptr<SimpleConstant>* simple_constant);
 
   ~SimpleConstant() override {}
 
@@ -735,9 +774,9 @@ class SimpleConstant : public Constant {
 
   const Value& value() const { return value_; }
 
-  // Returns a std::string describing this Constant for debugging purposes.
+  // Returns a string describing this Constant for debugging purposes.
   std::string DebugString() const override;
-  // Same as the previous, but includes the Type debug std::string.
+  // Same as the previous, but includes the Type debug string.
   std::string VerboseDebugString() const;
 
  private:

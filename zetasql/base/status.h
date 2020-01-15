@@ -115,7 +115,7 @@ class Status final {
   }
 
   // Return a combination of the error code name and message.
-  // Note, no guarantees are made as to the exact nature of the returned std::string.
+  // Note, no guarantees are made as to the exact nature of the returned string.
   // Subject to change at any time.
   std::string ToString() const;
 
@@ -153,7 +153,9 @@ inline bool Status::ok() const { return StatusCode::kOk == code_; }
 
 inline int Status::error_code() const { return static_cast<int>(code()); }
 
-inline std::string Status::error_message() const { return std::string(message()); }
+inline std::string Status::error_message() const {
+  return std::string(message());
+}
 
 inline StatusCode Status::CanonicalCode() const { return code(); }
 
@@ -187,7 +189,7 @@ inline Status OkStatus() { return Status(); }
 }  // namespace zetasql_base
 
 // This is better than CHECK((val).ok()) because the embedded
-// error std::string gets printed by the CHECK_EQ.
+// error string gets printed by the CHECK_EQ.
 #define ZETASQL_CHECK_OK(val) CHECK_EQ(::zetasql_base::OkStatus(), (val))
 #define ZETASQL_DCHECK_OK(val) DCHECK_EQ(::zetasql_base::OkStatus(), (val))
 #define ZETASQL_ZETASQL_CHECK_OK(val) DCHECK_EQ(::zetasql_base::OkStatus(), (val))

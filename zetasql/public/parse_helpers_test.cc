@@ -34,7 +34,7 @@ namespace zetasql {
 // Test cases that are valid for both IsValidStatementSyntax() and
 // IsValidNextStatementSyntax().
 struct ValidTestCase {
-  // The SQL std::string to test
+  // The SQL string to test
   std::string sql;
 
   // The following are only relevant for IsValidNextStatementSyntax() calls,
@@ -113,7 +113,7 @@ std::vector<ErrorTestCase> GetInvalidSyntaxTestCases() {
 // for IsValidStatementSyntax(), and all of these test cases return
 // <at_end_of_input> false for IsValidNextStatementSyntax().
 struct OtherTestCase {
-  // The SQL std::string to test
+  // The SQL string to test
   std::string sql;
 
   // The <byte_position> is only relevant for IsValidNextStatementSyntax()
@@ -121,7 +121,7 @@ struct OtherTestCase {
   // <parse_resume_location>.byte_position().
   int byte_position;
 
-  // The type of the first statement in the query std::string.  Only relevant
+  // The type of the first statement in the query string.  Only relevant
   // for tests which call GetNextStatementKind().
   ResolvedNodeKind statement_kind;
 };
@@ -240,7 +240,7 @@ TEST(IsValidNextStatementSyntaxTest, BasicStatements) {
   EXPECT_THAT(internal::StatusToString(status),
               HasSubstr("[zetasql.ErrorLocation] { line: 1 column: 22 }"));
 
-  // Test where the ParseResumeLocation is in the middle of a std::string.
+  // Test where the ParseResumeLocation is in the middle of a string.
   parse_resume_location = ParseResumeLocation::FromString(
       "some invalid stuff... SELECT * FROM T;  some more stuff");
   parse_resume_location.set_byte_position(22);
@@ -252,7 +252,7 @@ TEST(IsValidNextStatementSyntaxTest, BasicStatements) {
 }
 
 TEST(IsValidNextStatementSyntaxTest, MultiStatementsTest) {
-  // Test that loops through all the statements in a multi-statement std::string
+  // Test that loops through all the statements in a multi-statement string
   // to check syntax.
   ParseResumeLocation parse_resume_location = ParseResumeLocation::FromString(
       "SELECT * FROM T; SELECT * FROM U; SELECT * FROM V; CREATE TABLE T AS \n"

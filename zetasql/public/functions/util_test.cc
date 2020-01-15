@@ -29,7 +29,7 @@ namespace {
 using zetasql_base::testing::StatusIs;
 
 TEST(UpdateError, UpdateError) {
-  // Regular std::string.
+  // Regular string.
   ::zetasql_base::Status status;
   UpdateError(&status, "xyz");
   EXPECT_THAT(status, StatusIs(zetasql_base::OUT_OF_RANGE, "xyz"));

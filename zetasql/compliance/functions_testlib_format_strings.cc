@@ -85,7 +85,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatStrings() {
       {"format", {"%5.*s", 2, "abc"}, "   ab"},
       {"format", {"%*.2s", 5, "abc"}, "   ab"},
 
-      // This input std::string has a multi byte utf character. The character should
+      // This input string has a multi byte utf character. The character should
       // only count as one position for width and precision accounting.
       {"format", {"%5s", String("*€*")}, "  *€*"},
       {"format", {"%-5s", String("*€*")}, "*€*  "},
@@ -147,7 +147,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatStrings() {
       // Invalid UTF-8 characters in a Bytes value.
       {"format", {"%t", Value::Bytes("\xd7")}, "\\xd7"},
       {"format", {"%T", Value::Bytes("\xd7")}, "b\"\\xd7\""},
-      // Note: We don't test invalid UTF-8 in a std::string because that may not
+      // Note: We don't test invalid UTF-8 in a string because that may not
       // be possible in some engines.
 
       // Strings with embedded zeros.

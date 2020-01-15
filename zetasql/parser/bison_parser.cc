@@ -76,7 +76,7 @@ static std::string GetBisonParserModeName(BisonParserMode mode) {
 
 // The longest literal value that we're willing to echo in an error message.
 // This value is in bytes, not characters. It includes the quotes. The value was
-// chosen so that "Unexpected std::string literal" messages typically still fit on
+// chosen so that "Unexpected string literal" messages typically still fit on
 // one line. (Not an 80-column line, but a realistic line in a query UI.)
 //
 // When you change this limit, also adjust the test literals in
@@ -104,7 +104,7 @@ static std::string ShortenStringLiteralForError(absl::string_view literal) {
         static_cast<int64_t>(literal.size()) - num_end_quotes - 4) {
       return std::string(literal);
     }
-    // Don't cut the std::string off in the middle of a multibyte character.
+    // Don't cut the string off in the middle of a multibyte character.
     while (!IsWellFormedUTF8(literal.substr(0, excerpt_size))) {
       --excerpt_size;
     }
@@ -163,9 +163,7 @@ static zetasql_base::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
       "syntax error, unexpected .*, expecting (.*)"};
   // If there's no match, then 'expectations_string' will be empty.
   std::string expectations_string;
-  RE2::FullMatch(
-      std::string(bison_error_message),
-      *re_expectations, &expectations_string);
+  RE2::FullMatch(bison_error_message, *re_expectations, &expectations_string);
 
   // Transform the individual expectations, because Bison gives some weird
   // output for some of them.
@@ -191,7 +189,7 @@ static zetasql_base::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
       expectation = "\"@@\"";
     }
     // If it looks like an uppercased keyword, say it's a keyword. All other
-    // things such as std::string literals are described in lower case in the Bison
+    // things such as string literals are described in lower case in the Bison
     // parser's token names.
     static LazyRE2 re_keyword = {"[A-Z]+"};
     if (RE2::FullMatch(expectation, *re_keyword)) {
@@ -258,7 +256,7 @@ static zetasql_base::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
       } else if (token == zetasql_bison_parser::BisonParserImpl::token::
                               STRING_LITERAL) {
         // Escape physical newlines, to avoid multiline error messages. (Note
-        // that this is technically incorrect for raw std::string literals.)
+        // that this is technically incorrect for raw string literals.)
         std::string escaped_token_text = std::string(token_text);
         absl::StrReplaceAll({{"\r", "\\r"}}, &escaped_token_text);
         absl::StrReplaceAll({{"\n", "\\n"}}, &escaped_token_text);

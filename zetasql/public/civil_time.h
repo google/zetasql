@@ -171,7 +171,7 @@ class TimeValue {
   // Returns an invalid TimeValue if any time part is outside the valid range.
   static TimeValue FromPacked64Nanos(int64_t bit_field_time_nanos);
 
-  // Return a debug std::string like:
+  // Return a debug string like:
   //   "03:04:05.123456789"
   // where trailing 000's in the sub-second part will be trimmed, and if
   // sub-second part is 0, the trailing . will also be trimmed.
@@ -252,7 +252,7 @@ class TimeValue {
 //   invalid.
 //   9999-12-31 23:59:60   ->  10000-01-01 00:00:00  // invalid result
 //
-// Note that when parsing a DatetimeValue value from a std::string (using
+// Note that when parsing a DatetimeValue value from a string (using
 // functions/date_time_util.h), there is a special case for leap seconds.
 // Literal times with second :60 will have their subsecond part truncated to
 // preserve time ordering as closely as possible.
@@ -314,7 +314,7 @@ class DatetimeValue {
   // single 8 byte integer, so there is no facotry function for building a
   // DatetimeValue from a single int64_t.
 
-  // Return a debug std::string like:
+  // Return a debug string like:
   //   "2006-01-02 03:04:05.123456789"
   // where trailing 000's in the sub-second part will be trimmed, and if
   // sub-second part is 0, the trailing . will also be trimmed.

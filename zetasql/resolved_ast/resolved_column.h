@@ -57,9 +57,9 @@ class ResolvedColumn {
   // are required to be non-empty.
   //
   // NOTE: The IdString constructor is preferred because it avoids doing any
-  // std::string copying.  We don't want the std::string-based constructor to be called
+  // string copying.  We don't want the string-based constructor to be called
   // anywhere during zetasql analysis, but there are outside callers.
-  // WARNING: This std::string-based constructor allocates IdStrings in the
+  // WARNING: This string-based constructor allocates IdStrings in the
   // global IdStringPool, so they never get freed.  Avoid using this for an
   // unbounded number of strings.
   // TODO Maybe get this removed, or figure out a way to enforce that
@@ -104,7 +104,7 @@ class ResolvedColumn {
   int column_id() const { return column_id_; }
 
   // Get the table and column name.  The _id forms return an IdString so
-  // do not have to copy a std::string.  The non-_id forms are slower and should
+  // do not have to copy a string.  The non-_id forms are slower and should
   // not be used in zetasql analysis code.
   const std::string table_name() const { return table_name_.ToString(); }
   const std::string name() const { return name_.ToString(); }

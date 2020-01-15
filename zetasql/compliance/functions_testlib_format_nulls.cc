@@ -65,7 +65,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatNulls() {
         date: 9
         timestamp_seconds: 10
         timestamp_seconds_format: 11)";
-  // Clean up the std::string to make it the same as FORMAT %p output.
+  // Clean up the string to make it the same as FORMAT %p output.
   std::string proto_value_str(kProtoValueString);
   // Remove first newline.
   RE2::Replace(&proto_value_str, "\n", "");

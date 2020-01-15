@@ -28,8 +28,17 @@ genrule(
         "parse_tree_decls.h",
         "parse_tree_accept_methods.inc",
     ],
-    cmd = "$(location :gen_extra_files.sh) $(SRCS) $(OUTS)",
-    tools = ["gen_extra_files.sh"],
+    cmd = "$(location :gen_extra_files_tool) $(SRCS) $(OUTS)",
+    tools = [":gen_extra_files_tool"],
+)
+
+py_binary(
+    name = "gen_extra_files_tool",
+    srcs = ["gen_extra_files.py"],
+    main = "gen_extra_files.py",
+    python_version = "PY3",
+    deps = [
+    ],
 )
 
 cc_library(
@@ -86,7 +95,7 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
         "@com_google_absl//absl/types:variant",
-        "@com_google_re2//:re2",
+        "@com_googlesource_code_re2//:re2",
     ],
 )
 
@@ -182,7 +191,7 @@ cc_library(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
-        "@com_google_re2//:re2",
+        "@com_googlesource_code_re2//:re2",
     ],
 )
 
@@ -286,7 +295,7 @@ cc_test(
         "//zetasql/base",
         "//zetasql/base:path",
         "@com_google_absl//absl/strings",
-        "@com_google_re2//:re2",
+        "@com_googlesource_code_re2//:re2",
     ],
 )
 

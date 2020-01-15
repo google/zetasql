@@ -59,7 +59,7 @@ namespace zetasql {
 // Thread safety
 // -------------
 // Value has the same thread-safety properties as many other types like
-// std::string, vector<>, int, etc -- it is thread-compatible as defined by
+// string, vector<>, int, etc -- it is thread-compatible as defined by
 // (broken link). In particular, if no thread may call a non-const
 // method, then it is safe to concurrently call const methods. Copying a Value
 // produces a new instance that can be used concurrently with the original in
@@ -108,11 +108,11 @@ class Value {
   bool bool_value() const;             // REQUIRES: bool type
   float float_value() const;           // REQUIRES: float type
   double double_value() const;         // REQUIRES: double type
-  const std::string& string_value() const;  // REQUIRES: std::string type
+  const std::string& string_value() const;  // REQUIRES: string type
   const std::string& bytes_value() const;   // REQUIRES: bytes type
   int32_t date_value() const;            // REQUIRES: date type
   int32_t enum_value() const;            // REQUIRES: enum type
-  const std::string& enum_name() const;     // REQUIRES: enum type
+  const std::string& enum_name() const;  // REQUIRES: enum type
 
   // Returns timestamp value as absl::Time at nanoseconds precision.
   absl::Time ToTime() const;  // REQUIRES: timestamp type
@@ -146,7 +146,7 @@ class Value {
   uint64_t ToUint64() const;  // For bool, uint32_t, uint64
   // Use of this method for timestamp_ values is DEPRECATED.
   double ToDouble() const;  // For bool, int_, date, timestamp_, enum types.
-  std::string ToCord() const;  // For std::string, bytes, and protos
+  std::string ToCord() const;  // For string, bytes, and protos
 
   // Convert this value to a dynamically allocated proto Message.
   //
@@ -163,7 +163,9 @@ class Value {
   // with a known type, consider using ToCord() and ParseFromString() as follows:
   //   MyMessage pb;
   //   ...
-  //   ZETASQL_RETURN_IF_ERROR(pb.ParseFromString(value.ToCord()));
+  //   if (bool parse_ok = pb.ParseFromString(value.ToCord()); !parse_ok) {
+  //     /* Handle error */
+  //   }
   // This simpler pattern avoids passing in a message factory and avoids the
   // ownership issues associated with the returned Message.
   google::protobuf::Message* ToMessage(google::protobuf::DynamicMessageFactory* message_factory,
@@ -232,13 +234,13 @@ class Value {
   template <typename H>
   friend H AbslHashValue(H h, const Value& v);
 
-  // Returns printable std::string for this Value.
+  // Returns printable string for this Value.
   // Verbose DebugStrings include the type name.
   std::string ShortDebugString() const { return DebugString(false); }
   std::string FullDebugString() const { return DebugString(true); }
   std::string DebugString(bool verbose = false) const;
 
-  // Returns a pretty-printed (e.g. wrapped) std::string for the value.
+  // Returns a pretty-printed (e.g. wrapped) string for the value.
   // Suitable for printing in golden-tests and documentation.
   std::string Format() const;
 
@@ -251,7 +253,7 @@ class Value {
   //
   // Note: Arguably, GetSQL() and GetSQLLiteral() don't work quite right for
   // STRUCTs.  In particular, they do not preserve field names in the result
-  // std::string.  For example, if you have a STRUCT value like
+  // string.  For example, if you have a STRUCT value like
   // STRUCT<a INT64, b STRING>(1, 'a'), and call GetSQL(), the result will
   // be "(1, 'a')".  If we're only interested in the value itself and not the
   // original type (with named fields) then maybe that's ok.  Note that
@@ -281,7 +283,7 @@ class Value {
   static Value Float(float v);
   static Value Double(double v);
   // Unfortunately using the function name String causes issues for
-  // cs/zetasql::ValueConstructor constructor which takes std::string-like objects.
+  // cs/zetasql::ValueConstructor constructor which takes string-like objects.
   // Therefore using the name StringValue is a pragmatic way around this issue.
   static Value StringValue(std::string v);
   static Value String(absl::string_view v);
@@ -429,7 +431,7 @@ class Value {
   explicit Value(double value);
   // REQUIRES: type_kind is date or timestamp_{seconds|millis|micros}
   Value(TypeKind type_kind, int64_t value);
-  // REQUIRES: type_kind is std::string or bytes
+  // REQUIRES: type_kind is string or bytes
   Value(TypeKind type_kind, std::string value);
 
   // Constructs a typed NULL of the given 'type'.
@@ -472,7 +474,7 @@ class Value {
   // recursive shape of a DeepOrderKindSpec will follow that of the Value type
   // used to initialize it.
   struct DeepOrderKindSpec {
-    // For a simple type (e.g. int, std::string, enum) 'children' will be empty. For
+    // For a simple type (e.g. int, string, enum) 'children' will be empty. For
     // an array type, it will have one element representing the order spec for
     // the array element type. For a struct type, 'children' will contain one
     // element per field of the struct.
@@ -518,9 +520,10 @@ class Value {
   // nullptr. Called from EqualsInternal().
   static bool EqualElementMultiSet(const Value& x, const Value& y,
                                    DeepOrderKindSpec* deep_order_spec,
-                                   FloatMargin float_margin, std::string* reason);
+                                   FloatMargin float_margin,
+                                   std::string* reason);
 
-  // Returns a pretty-printed (e.g. wrapped) std::string for the value
+  // Returns a pretty-printed (e.g. wrapped) string for the value
   // indented a number of spaces according to the 'indent' parameter.
   // 'force_type' causes the top-level value to print its type. By
   // default, only Array values print their types.

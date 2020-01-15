@@ -315,7 +315,8 @@ enum class ImportType {
 //   4: CREATE PROCEDURE
 //   1: CREATE TABLE GENERATED
 //   1: CREATE EXTERNAL TABLE FUNCTION
-%expect 16
+//   1: DESCRIPTOR
+%expect 17
 
 %union {
   bool boolean;
@@ -454,7 +455,7 @@ inline int zetasql_bison_parserlex(
   return tokenizer->GetNextTokenFlex(yylloc);
 }
 
-// Generates a parse error with message 'msg' (which must be a std::string
+// Generates a parse error with message 'msg' (which must be a string
 // expression) at bison location 'location', and aborts the parser.
 #define YYERROR_AND_ABORT_AT(location, msg) \
     do { \
@@ -675,6 +676,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_DEFINER "DEFINER"
 %token KW_DELETE "DELETE"
 %token KW_DESCRIBE "DESCRIBE"
+%token KW_DESCRIPTOR "DESCRIPTOR"
 %token KW_DETERMINISTIC "DETERMINISTIC"
 %token KW_DO "DO"
 %token KW_DROP "DROP"
@@ -1197,6 +1199,10 @@ using zetasql::ASTCreateFunctionStmtBase;
 
 %type <boolean> opt_constraint_enforcement
 %type <boolean> constraint_enforcement
+
+%type <node> descriptor_column_list
+%type <node> descriptor_column
+%type <node> descriptor_argument
 
 %start start_mode
 %%
@@ -2227,7 +2233,7 @@ table_element_list_prefix:
 // never an IDENTIFIER. This enables the grammar to unambigously distinguish
 // between named foreign key constraints and column definition attributes. The
 // only requirement is that the third component of all table element rules,
-// direct and indirect, is a keyword or symbol (i.e., a std::string literal, such as
+// direct and indirect, is a keyword or symbol (i.e., a string literal, such as
 // "HIDDEN", "FOREIGN" or ".").
 //
 table_element:
@@ -2436,21 +2442,29 @@ column_attributes:
     | column_attributes constraint_enforcement
       {
         auto* last = $1->mutable_child($1->num_children() - 1);
-        if (last->node_kind() != zetasql::AST_FOREIGN_KEY_COLUMN_ATTRIBUTE) {
+        if (last->node_kind() != zetasql::AST_FOREIGN_KEY_COLUMN_ATTRIBUTE
+          && last->node_kind() != zetasql::AST_PRIMARY_KEY_COLUMN_ATTRIBUTE) {
           YYERROR_AND_ABORT_AT(@2,
               "Syntax error: Unexpected constraint enforcement clause");
         }
+        // Update the node's location to include constraint_enforcement.
         last = WithEndLocation(last, @$);
-        int index = last->find_child_index(
-            zetasql::AST_FOREIGN_KEY_REFERENCE);
-        if (index == -1) {
-          YYERROR_AND_ABORT_AT(@2,
-              "Internal Error: Expected foreign key reference");
+        if (last->node_kind() == zetasql::AST_FOREIGN_KEY_COLUMN_ATTRIBUTE) {
+          int index = last->find_child_index(
+              zetasql::AST_FOREIGN_KEY_REFERENCE);
+          if (index == -1) {
+            YYERROR_AND_ABORT_AT(@2,
+                "Internal Error: Expected foreign key reference");
+          }
+          zetasql::ASTForeignKeyReference* reference =
+              last->mutable_child(index)
+                  ->GetAsOrDie<zetasql::ASTForeignKeyReference>();
+          reference->set_enforced($2);
+        } else {
+          zetasql::ASTPrimaryKeyColumnAttribute* primary_key =
+              last->GetAsOrDie<zetasql::ASTPrimaryKeyColumnAttribute>();
+          primary_key->set_enforced($2);
         }
-        zetasql::ASTForeignKeyReference* reference =
-            last->mutable_child(index)
-                ->GetAsOrDie<zetasql::ASTForeignKeyReference>();
-        reference->set_enforced($2);
         $$ = WithEndLocation($1, @$);
       }
     ;
@@ -2519,9 +2533,12 @@ table_constraint_spec:
 // This rule produces 2 shift/reduce conflicts and requires manual parsing of
 // named constraints. See table_element for details.
 table_constraint_definition:
-    "PRIMARY" "KEY" possibly_empty_column_list opt_options_list
+    "PRIMARY" "KEY" possibly_empty_column_list opt_constraint_enforcement
+    opt_options_list
       {
-        $$ = MAKE_NODE(ASTPrimaryKey, @$, {$3, $4});
+        zetasql::ASTPrimaryKey* node = MAKE_NODE(ASTPrimaryKey, @$, {$3, $5});
+        node->set_enforced($4);
+        $$ = node;
       }
     | table_constraint_spec
     | identifier identifier table_constraint_spec
@@ -3239,6 +3256,15 @@ select:
         select->set_distinct($4 == AllOrDistinctKeyword::kDistinct);
         $$ = select;
       }
+    | "SELECT" opt_hint
+      placeholder
+      opt_all_or_distinct
+      opt_select_as_clause "FROM"
+      {
+        YYERROR_AND_ABORT_AT(
+            @6,
+            "Syntax error: SELECT list must not be empty");
+      }
     ;
 
 // AS STRUCT, AS VALUE, or AS <path expression>. This needs some special
@@ -3617,8 +3643,37 @@ connection_clause:
       }
     ;
 
+descriptor_column:
+    identifier
+      {
+        $$ = MAKE_NODE(ASTDescriptorColumn, @$, {$1, nullptr});
+      }
+    ;
+
+descriptor_column_list:
+    descriptor_column
+      {
+        $$ = MAKE_NODE(ASTDescriptorColumnList, @$, {$1});
+      }
+    | descriptor_column_list "," descriptor_column
+      {
+        $$ = WithExtraChildren($1, {$3});
+      }
+    ;
+
+descriptor_argument:
+    "DESCRIPTOR" "(" descriptor_column_list ")"
+      {
+        $$ = MAKE_NODE(ASTDescriptor, @$, {$3});
+      }
+    ;
+
 tvf_argument:
     expression
+      {
+        $$ = MAKE_NODE(ASTTVFArgument, @$, {$1});
+      }
+    | descriptor_argument
       {
         $$ = MAKE_NODE(ASTTVFArgument, @$, {$1});
       }
@@ -6030,6 +6085,7 @@ keyword_as_identifier:
     | "WHILE"
     | "WRITE"
     | "ZONE"
+    | "DESCRIPTOR"
     // END_KEYWORD_AS_IDENTIFIER -- Do not remove this!
     ;
 

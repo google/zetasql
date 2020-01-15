@@ -115,16 +115,16 @@ quantile values in a data set. In ZetaSQL, the
 algorithm. The KLL16 algorithm improves on the [MP80 algorithm][mp80] by
 using variable-size buffers to reduce memory use for large data sets.
 
-[hll-link-to-hyperloglog-wikipedia]: https://en.wikipedia.org/wiki/HyperLogLog
-[hll-link-to-approx-count-distinct]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#approx_count_distinct
-[link-to-APPROX_]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#approximate-aggregate-functions
-[hll-functions]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#hyperloglog-functions
-[HyperLogLogPlusPlus-paper]: https://research.google.com/pubs/pub40671.html
-[exact-aggregate-fns]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#aggregate-functions
-
-[kll-functions]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#kll16-quantile-functions
 [link-to-kll-paper]: https://arxiv.org/pdf/1603.05346v2.pdf
 [mp80]: https://polylogblog.files.wordpress.com/2009/08/80munro-median.pdf
+[HyperLogLogPlusPlus-paper]: https://research.google.com/pubs/pub40671.html
+[hll-link-to-hyperloglog-wikipedia]: https://en.wikipedia.org/wiki/HyperLogLog
+
+[hll-link-to-approx-count-distinct]: https://github.com/google/zetasql/blob/master/docs/hll_functions#approx_count_distinct
+[link-to-APPROX_]: https://github.com/google/zetasql/blob/master/docs/approximate_aggregate_functions
+[hll-functions]: https://github.com/google/zetasql/blob/master/docs/hll_functions
+[exact-aggregate-fns]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions
+[kll-functions]: https://github.com/google/zetasql/blob/master/docs/kll_functions
 
 <!-- END CONTENT -->
 

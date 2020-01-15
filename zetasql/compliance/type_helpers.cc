@@ -27,7 +27,7 @@
 namespace zetasql {
 
 static std::string GetColumnAlias(const std::string& alias) {
-  // We use the empty std::string as anonymous column name.
+  // We use the empty string as anonymous column name.
   return IsInternalAlias(alias) ? "" : alias;
 }
 

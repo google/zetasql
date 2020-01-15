@@ -54,7 +54,7 @@ namespace zetasql_base {
 // - When the original status is OK, all methods become no-ops and nothing will
 //   be logged.
 // - Messages streamed into the status builder are collected into a single
-//   additional message std::string.
+//   additional message string.
 // - The original Status's message and the additional message are joined
 //   together when the result status is built.
 // - By default, the messages will be joined with a convenience separator

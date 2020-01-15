@@ -97,7 +97,7 @@ struct SelectColumnState {
     return resolved_pre_group_by_select_column.IsInitialized();
   }
 
-  // Returns a multi-line debug std::string, where each line is prefixed by <indent>.
+  // Returns a multi-line debug string, where each line is prefixed by <indent>.
   std::string DebugString(absl::string_view indent = "") const;
 
   // Points at the * if this came from SELECT *.

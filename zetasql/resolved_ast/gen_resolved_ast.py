@@ -1437,8 +1437,11 @@ def main(argv):
               tag_id=7,
               ignorable=IGNORABLE_DEFAULT,
               comment="""
-              Indicates that the default value should be returned if <expr> is
-              NULL.
+              Indicates that the default value should be returned if <expr>
+              (the parent message) is NULL.  Note that this does *not* affect
+              the return value when the extracted field itself is unset, in
+              which case the return value depends on the extracted field's
+              annotations (e.g., use_field_defaults).
 
               This can only be set for non-message fields. If the field is a
               proto2 field, then it must be annotated with
@@ -2363,6 +2366,8 @@ right.
       <column_offset_list> provides the offsets of the column definitions that
                            comprise the primary key. This is empty when a
                            0-element primary key is defined.
+
+      <unenforced> specifies whether the constraint is unenforced.
       """,
       fields=[
           Field(
@@ -2377,7 +2382,9 @@ right.
               'ResolvedOption',
               tag_id=3,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT)
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'unenforced', SCALAR_BOOL, tag_id=4, ignorable=IGNORABLE_DEFAULT),
       ])
 
   gen.AddNode(

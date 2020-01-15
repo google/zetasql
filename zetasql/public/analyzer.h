@@ -56,10 +56,10 @@ class ResolvedLiteral;
 class ResolvedOption;
 class ResolvedStatement;
 
-// Performs a case-insensitive less-than vector<std::string> comparison, element
+// Performs a case-insensitive less-than vector<string> comparison, element
 // by element, using the C/POSIX locale for element comparisons. This function
 // object is useful as a template parameter for STL set/map of
-// std::vector<std::string>s, if uniqueness of the vector keys is case-insensitive.
+// std::vector<string>s, if uniqueness of the vector keys is case-insensitive.
 struct StringVectorCaseLess {
   bool operator()(const std::vector<std::string>& v1,
                   const std::vector<std::string>& v2) const;
@@ -160,12 +160,14 @@ struct AllowedHintsAndOptions {
   // but that it does not have an enforced Type, so any Type is allowed.
   // (We could allow callbacks or some other mechanism to specify more rules
   // about what types or values are allowed.)
-  absl::flat_hash_map<std::pair<std::string, std::string>, const Type*> hints_lower;
+  absl::flat_hash_map<std::pair<std::string, std::string>, const Type*>
+      hints_lower;
   absl::flat_hash_map<std::string, const Type*> options_lower;
 
  private:
-  zetasql_base::Status AddHintImpl(const std::string& qualifier, const std::string& name,
-                           const Type* type, bool allow_unqualified = true);
+  zetasql_base::Status AddHintImpl(const std::string& qualifier,
+                           const std::string& name, const Type* type,
+                           bool allow_unqualified = true);
   zetasql_base::Status AddOptionImpl(const std::string& name, const Type* type);
 };
 
@@ -332,7 +334,8 @@ class AnalyzerOptions {
   // Note that an error will be produced if type is not supported according to
   // the current language options.
   zetasql_base::Status AddExpressionColumn(const std::string& name, const Type* type);
-  zetasql_base::Status SetInScopeExpressionColumn(const std::string& name, const Type* type);
+  zetasql_base::Status SetInScopeExpressionColumn(const std::string& name,
+                                          const Type* type);
   void SetLookupExpressionColumnCallback(
       const LookupExpressionColumnCallback& lookup_expression_column_callback) {
     lookup_expression_column_callback_ = lookup_expression_column_callback;
@@ -373,7 +376,8 @@ class AnalyzerOptions {
   void SetDdlPseudoColumnsCallback(
       DdlPseudoColumnsCallback ddl_pseudo_columns_callback);
   void SetDdlPseudoColumns(
-      const std::vector<std::pair<std::string, const Type*>>& ddl_pseudo_columns);
+      const std::vector<std::pair<std::string, const Type*>>&
+          ddl_pseudo_columns);
   // Returns the callback to access pseudo-columns for the target of a DDL
   // statement.
   const DdlPseudoColumnsCallback& ddl_pseudo_columns_callback() const {
@@ -575,7 +579,7 @@ class AnalyzerOptions {
 
   // Some timestamp-related functions take an optional timezone argument, and
   // allow a default timezone to be used if the argument is not provided.
-  // The <default_timezone_> may also be used when coercing std::string literals
+  // The <default_timezone_> may also be used when coercing string literals
   // to timestamp literals during analysis.  Defaults to America/Los_Angeles.
   absl::TimeZone default_timezone_;
 
@@ -732,12 +736,12 @@ zetasql_base::Status AnalyzeStatement(absl::string_view sql,
                               Catalog* catalog, TypeFactory* type_factory,
                               std::unique_ptr<const AnalyzerOutput>* output);
 
-// Analyze one statement from a std::string that may contain multiple statements.
+// Analyze one statement from a string that may contain multiple statements.
 // This can be called in a loop with the same <resume_location> to parse
-// all statements from a std::string.
+// all statements from a string.
 //
 // On successful return,
-// <*at_end_of_input> is true if parsing reached the end of the std::string.
+// <*at_end_of_input> is true if parsing reached the end of the string.
 // <*output> contains the next statement found.
 //
 // Statements are separated by semicolons.  A final semicolon is not required
@@ -758,7 +762,7 @@ zetasql_base::Status AnalyzeNextStatement(
     bool* at_end_of_input);
 
 // Same as AnalyzeStatement(), but analyze from the parsed AST contained in a
-// ParserOutput instead of raw SQL std::string. For projects which are allowed to use
+// ParserOutput instead of raw SQL string. For projects which are allowed to use
 // the parser directly, using this may save double parsing. If the
 // AnalyzerOptions does not specify arena() or id_string_pool(), this will reuse
 // the arenas from the ParserOutput for analysis.
@@ -822,15 +826,12 @@ zetasql_base::Status AnalyzeExpressionFromParserAST(
 //
 // This can return errors that point at a location in the input. How this
 // location is reported is given by <options.error_message_mode()>.
-zetasql_base::Status AnalyzeType(
-    const std::string& type_name,
-    const AnalyzerOptions& options_in,
-    Catalog* catalog,
-    TypeFactory* type_factory,
-    const Type** output_type);
+zetasql_base::Status AnalyzeType(const std::string& type_name,
+                         const AnalyzerOptions& options_in, Catalog* catalog,
+                         TypeFactory* type_factory, const Type** output_type);
 
 // A set of table names found is returned in <*table_names>, where each
-// table name is an identifier path stored as a vector<std::string>.
+// table name is an identifier path stored as a vector<string>.
 // The identifiers will be in their as-written case.
 // There can be duplicates that differ only in case.
 typedef std::set<std::vector<std::string>> TableNamesSet;
@@ -854,12 +855,12 @@ zetasql_base::Status ExtractTableNamesFromStatement(absl::string_view sql,
                                             TableNamesSet* table_names);
 
 // Same as ExtractTableNamesFromStatement(), but extracts table names from one
-// SQL statement from a std::string. The std::string may contain multiple statements, so
+// SQL statement from a string. The string may contain multiple statements, so
 // this can be called in a loop with the same <resume_location> to parse all
-// statements from a std::string.
+// statements from a string.
 //
 // On successful return,
-// <*at_end_of_input> is true if parsing reached the end of the std::string.
+// <*at_end_of_input> is true if parsing reached the end of the string.
 // <*table_names> contains table names referenced in the next statement.
 //
 // Statements are separated by semicolons. A final semicolon is not required
@@ -873,7 +874,7 @@ zetasql_base::Status ExtractTableNamesFromNextStatement(
     TableNamesSet* table_names, bool* at_end_of_input);
 
 // Same as ExtractTableNamesFromStatement(), but extracts table names from the
-// parsed AST instead of a raw SQL std::string. For projects which are allowed to use
+// parsed AST instead of a raw SQL string. For projects which are allowed to use
 // the parser directly, using this may save double parsing.
 //
 // On successful return,
@@ -1014,7 +1015,7 @@ zetasql_base::Status ExtractTableResolutionTimeFromStatement(
     std::unique_ptr<ParserOutput>* parser_output);
 
 // Same as ExtractTableResolutionTimeFromStatement(), but extracts table
-// resolution time from the parsed AST instead of a raw SQL std::string.
+// resolution time from the parsed AST instead of a raw SQL string.
 // For projects which are allowed to use the parser directly, using this
 // may save double parsing.
 //

@@ -873,7 +873,7 @@ class TupleIterator {
   // PreservesOrder().
   virtual zetasql_base::Status DisableReordering() { return zetasql_base::OkStatus(); }
 
-  // Returns a debug std::string that consists mostly of the kinds of the iterators
+  // Returns a debug string that consists mostly of the kinds of the iterators
   // that are stacked (e.g.,
   // "FilterTupleIterator(ComputeTupleIterator(EvaluatorTableIterator))". In
   // most cases, more detailed information is available from the RelationalOp
@@ -932,7 +932,7 @@ class PassThroughTupleIterator : public TupleIterator {
   // An IteratorFactory returns a TupleIterator or an error.
   using IteratorFactory =
       std::function<zetasql_base::StatusOr<std::unique_ptr<TupleIterator>>()>;
-  // We avoid constructing the debug std::string where possible because that can be
+  // We avoid constructing the debug string where possible because that can be
   // expensive.
   using DebugStringFactory = std::function<std::string()>;
 

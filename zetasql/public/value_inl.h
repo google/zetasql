@@ -135,21 +135,17 @@ class Value::NumericRef : public zetasql_base::SimpleReferenceCounted {
 };
 
 // -------------------------------------------------------
-// StringRef is ref count wrapper around std::string.
+// StringRef is ref count wrapper around string.
 // -------------------------------------------------------
 class Value::StringRef : public zetasql_base::SimpleReferenceCounted {
  public:
   StringRef() {}
-  explicit StringRef(std::string value)
-      : value_(std::move(value)) {
-  }
+  explicit StringRef(std::string value) : value_(std::move(value)) {}
 
   StringRef(const StringRef&) = delete;
   StringRef& operator=(const StringRef&) = delete;
 
-  const std::string& value() const {
-    return value_;
-  }
+  const std::string& value() const { return value_; }
 
   uint64_t physical_byte_size() const {
     return sizeof(StringRef) + value_.size() * sizeof(char);
@@ -323,7 +319,9 @@ inline Value Value::String(const char (&str)[N]) {
   return Value::String(std::string(str, N - 1));
 }
 
-inline Value Value::Bytes(std::string v) { return Value(TYPE_BYTES, std::move(v)); }
+inline Value Value::Bytes(std::string v) {
+  return Value(TYPE_BYTES, std::move(v));
+}
 inline Value Value::Bytes(absl::string_view v) {
   return Value(TYPE_BYTES, std::string(v));
 }
@@ -463,7 +461,7 @@ inline double Value::double_value() const {
 }
 
 inline const std::string& Value::string_value() const {
-  CHECK_EQ(TYPE_STRING, type_kind_) << "Not a std::string value";
+  CHECK_EQ(TYPE_STRING, type_kind_) << "Not a string value";
   CHECK(!is_null_) << "Null value";
   return string_ptr_->value();
 }

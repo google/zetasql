@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-// This file tests std::string processing functions related to numeric values.
+// This file tests string processing functions related to numeric values.
 
 #include "zetasql/base/string_numbers.h"
 
@@ -174,7 +174,7 @@ inline const std::array<uint64_test_case, 34>& strtouint64_test_cases() {
 
       {"0x1234", true, 16, 0x1234},
 
-      // Base-10 std::string version.
+      // Base-10 string version.
       {"1234", true, 0, 1234},
       {nullptr, false, 0, 0},
   }};
@@ -247,10 +247,11 @@ TEST(stringtest, safe_strto32_base) {
   EXPECT_FALSE(zetasql_base::safe_strto32_base("-2147483649", &value, 10));
 
   // String version.
-  EXPECT_TRUE(zetasql_base::safe_strto32_base(std::string("0x1234"), &value, 16));
+  EXPECT_TRUE(
+      zetasql_base::safe_strto32_base(std::string("0x1234"), &value, 16));
   EXPECT_EQ(0x1234, value);
 
-  // Base-10 std::string version.
+  // Base-10 string version.
   EXPECT_TRUE(zetasql_base::safe_strto32_base("1234", &value, 10));
   EXPECT_EQ(1234, value);
 }
@@ -399,10 +400,11 @@ TEST(stringtest, safe_strto64_base) {
       zetasql_base::safe_strto64_base("-9223372036854775809", &value, 10));
 
   // String version.
-  EXPECT_TRUE(zetasql_base::safe_strto64_base(std::string("0x1234"), &value, 16));
+  EXPECT_TRUE(
+      zetasql_base::safe_strto64_base(std::string("0x1234"), &value, 16));
   EXPECT_EQ(0x1234, value);
 
-  // Base-10 std::string version.
+  // Base-10 string version.
   EXPECT_TRUE(zetasql_base::safe_strto64_base("1234", &value, 10));
   EXPECT_EQ(1234, value);
 }

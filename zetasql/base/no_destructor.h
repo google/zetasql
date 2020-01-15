@@ -35,15 +35,15 @@ namespace zetasql_base {
 // One key use case of NoDestructor (which in itself is not lazy) is optimizing
 // the following pattern of safe on-demand construction of an object with
 // non-trivial constructor in static storage without destruction ever happening:
-//   const std::string& MyString() {
-//     static std::string* x = new std::string("foo");  // note the "static"
+//   const string& MyString() {
+//     static string* x = new string("foo");  // note the "static"
 //     return *x;
 //   }
 // By using NoDestructor we do not need to involve heap allocation and
 // corresponding pointer following (and hence extra CPU cache usage/needs)
 // on each access:
-//   const std::string& MyString() {
-//     static NoDestructor<std::string> x("foo");
+//   const string& MyString() {
+//     static NoDestructor<string> x("foo");
 //     return *x;
 //   }
 // Since C++11 this static-in-a-function pattern results in exactly-once,
@@ -88,7 +88,7 @@ class NoDestructor {
   }
 
   // Forwards copy and move construction for T. Enables usage like this:
-  //   static NoDestructor<std::array<std::string, 3>> x{{{"1", "2", "3"}}};
+  //   static NoDestructor<std::array<string, 3>> x{{{"1", "2", "3"}}};
   //   static NoDestructor<std::vector<int>> x{{1, 2, 3}};
   explicit NoDestructor(const T& x) { new (&space_) T(x); }
   explicit NoDestructor(T&& x) { new (&space_) T(std::move(x)); }

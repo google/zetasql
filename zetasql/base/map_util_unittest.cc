@@ -47,7 +47,7 @@ TEST(MapUtil, ImplicitTypeConversion) {
   Map m;
 
   // Check that I can use a type that's implicitly convertible to the
-  // key or value type, such as const char* -> std::string.
+  // key or value type, such as const char* -> string.
   EXPECT_EQ("", FindWithDefault(m, "foo", ""));
   EXPECT_EQ("", FindWithDefault(m, "foo"));
   EXPECT_TRUE(InsertOrUpdate(&m, "foo", "bar"));
@@ -199,14 +199,11 @@ TEST(MapUtil, InsertKeysFromMap) {
   EXPECT_TRUE(keys_as_longs.empty());
 
   const std::pair<const std::string, int> number_names_array[] = {
-    std::make_pair("one", 1),
-    std::make_pair("two", 2),
-    std::make_pair("three", 3)
-  };
+      std::make_pair("one", 1), std::make_pair("two", 2),
+      std::make_pair("three", 3)};
   std::map<std::string, int> number_names_map(
-      number_names_array,
-      number_names_array +
-          sizeof number_names_array / sizeof *number_names_array);
+      number_names_array, number_names_array + sizeof number_names_array /
+                                                   sizeof *number_names_array);
   std::set<std::string> names;
   InsertKeysFromMap(number_names_map, &names);
   // No two numbers have the same name, so the container sizes must match.
@@ -227,14 +224,11 @@ TEST(MapUtil, AppendKeysFromMap) {
   EXPECT_TRUE(keys_as_longs.empty());
 
   const std::pair<const std::string, int> number_names_array[] = {
-    std::make_pair("one", 1),
-    std::make_pair("two", 2),
-    std::make_pair("three", 3)
-  };
+      std::make_pair("one", 1), std::make_pair("two", 2),
+      std::make_pair("three", 3)};
   std::map<std::string, int> number_names_map(
-      number_names_array,
-      number_names_array +
-          sizeof number_names_array / sizeof *number_names_array);
+      number_names_array, number_names_array + sizeof number_names_array /
+                                                   sizeof *number_names_array);
   std::deque<std::string> names;
   AppendKeysFromMap(number_names_map, &names);
   // No two numbers have the same name, so the container sizes must match.
@@ -262,14 +256,11 @@ TEST(MapUtil, AppendKeysFromMapIntoVector) {
   EXPECT_TRUE(keys_as_longs.empty());
 
   const std::pair<const std::string, int> number_names_array[] = {
-    std::make_pair("one", 1),
-    std::make_pair("two", 2),
-    std::make_pair("three", 3)
-  };
+      std::make_pair("one", 1), std::make_pair("two", 2),
+      std::make_pair("three", 3)};
   std::map<std::string, int> number_names_map(
-      number_names_array,
-      number_names_array +
-          sizeof number_names_array / sizeof *number_names_array);
+      number_names_array, number_names_array + sizeof number_names_array /
+                                                   sizeof *number_names_array);
   std::vector<std::string> names;
   AppendKeysFromMap(number_names_map, &names);
   // No two numbers have the same name, so the container sizes must match.
@@ -296,14 +287,11 @@ TEST(MapUtil, AppendValuesFromMap) {
   EXPECT_TRUE(values_as_longs.empty());
 
   const std::pair<const std::string, int> number_names_array[] = {
-    std::make_pair("one", 1),
-    std::make_pair("two", 2),
-    std::make_pair("three", 3)
-  };
+      std::make_pair("one", 1), std::make_pair("two", 2),
+      std::make_pair("three", 3)};
   std::map<std::string, int> number_names_map(
-      number_names_array,
-      number_names_array +
-          sizeof number_names_array / sizeof *number_names_array);
+      number_names_array, number_names_array + sizeof number_names_array /
+                                                   sizeof *number_names_array);
   std::deque<int> numbers;
   AppendValuesFromMap(number_names_map, &numbers);
   // No two numbers have the same name, so the container sizes must match.
@@ -330,14 +318,11 @@ TEST(MapUtil, AppendValuesFromMapIntoVector) {
   EXPECT_TRUE(values_as_longs.empty());
 
   const std::pair<const std::string, int> number_names_array[] = {
-    std::make_pair("one", 1),
-    std::make_pair("two", 2),
-    std::make_pair("three", 3)
-  };
+      std::make_pair("one", 1), std::make_pair("two", 2),
+      std::make_pair("three", 3)};
   std::map<std::string, int> number_names_map(
-      number_names_array,
-      number_names_array +
-          sizeof number_names_array / sizeof *number_names_array);
+      number_names_array, number_names_array + sizeof number_names_array /
+                                                   sizeof *number_names_array);
   std::vector<int> numbers;
   AppendValuesFromMap(number_names_map, &numbers);
   // No two numbers have the same name, so the container sizes must match.
@@ -394,7 +379,8 @@ INSTANTIATE_TYPED_TEST_SUITE_P(MapUtilTest, MapUtilIntIntSharedPtrOnlyTest,
                                MapIntIntSharedPtrOnlyTypes);
 
 using AssociateEraseMapTypes =
-    ::testing::Types<std::map<std::string, int>, absl::node_hash_map<std::string, int>>;
+    ::testing::Types<std::map<std::string, int>,
+                     absl::node_hash_map<std::string, int>>;
 
 template <class UnordMap>
 class AssociativeEraseIfTest : public ::testing::Test {};

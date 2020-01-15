@@ -52,7 +52,7 @@ TEST(TestUnparser, QueryTest) {
   ZETASQL_EXPECT_OK(ParseStatement(query_string, ParserOptions(), &parser_output));
   ASSERT_THAT(parser_output->statement(), NotNull());
   std::string unparsed_string = Unparse(parser_output->statement());
-  // Cannot generally do std::string equality because of capitalization and white
+  // Cannot generally do string equality because of capitalization and white
   // space issues, so we will reparse and also compare the parse trees.
   EXPECT_EQ(query_string, unparsed_string);
   std::unique_ptr<ParserOutput> unparsed_query_parser_output;
@@ -74,7 +74,7 @@ TEST(TestUnparser, ExpressionTest) {
   ASSERT_THAT(parser_output.get(), NotNull());
   ASSERT_THAT(parser_output->expression(), NotNull());
   std::string unparsed_expression_string = Unparse(parser_output->expression());
-  // Cannot generally do std::string equality because of capitalization and white
+  // Cannot generally do string equality because of capitalization and white
   // space issues, so we will reparse and also compare the parse trees.
   EXPECT_EQ(expression_string, unparsed_expression_string);
   std::unique_ptr<ParserOutput> unparsed_expression_parser_output;

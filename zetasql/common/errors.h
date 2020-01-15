@@ -77,8 +77,8 @@ namespace zetasql {
 
 // Make an ErrorSource from <status> and <text>.  If <text> is non-empty and
 // <mode> is ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET, then <text>
-// must be related to the ErrorLocation in <status> and a caret std::string is
-// constructed from <text> and <status> ErrorLocation. Otherwise no caret std::string
+// must be related to the ErrorLocation in <status> and a caret string is
+// constructed from <text> and <status> ErrorLocation. Otherwise no caret string
 // is constructed.
 // The returned ErrorSource gets its ErrorLocation from <status>.
 // Requires non-OK status.
@@ -133,9 +133,9 @@ const absl::optional<::google::protobuf::RepeatedPtrField<ErrorSource>> GetError
 
 // Sets ErrorSources on <error_location_in> from <status>, including
 // a new ErrorSource built from <status> (using <input_text_for_status> to
-// build a caret std::string for it), along with other ErrorSources from inside
+// build a caret string for it), along with other ErrorSources from inside
 // <status> (if any).  If <input_text_for_status> is empty, then the new
-// ErrorSource based on <status> will not include a caret std::string.
+// ErrorSource based on <status> will not include a caret string.
 // The 'ErrorLocationType' should be either an ErrorLocation or an
 // InternalErrorLocation.
 template <typename ErrorLocationType>
@@ -179,7 +179,7 @@ ErrorLocationType SetErrorSourcesFromStatusWithoutOutermostError(
   return error_location;
 }
 
-// Returns <warnings> as a std::string suitable for debug output.
+// Returns <warnings> as a string suitable for debug output.
 std::string DeprecationWarningsToDebugString(
     const std::vector<FreestandingDeprecationWarning>& warnings);
 
@@ -221,7 +221,7 @@ StatusesToDeprecationWarnings(const std::vector<zetasql_base::Status>& from_stat
 //
 // If <mode> is ERROR_MESSAGE_WITH_PAYLOAD, then returns the (possibly
 // updated) Status (with ErrorLocation if applicable).  For other modes,
-// updates the Status error std::string to include the external ErrorLocation
+// updates the Status error string to include the external ErrorLocation
 // info (line/offset), then clears the ErrorLocation payload from the
 // Status and returns that Status.
 inline zetasql_base::Status ConvertInternalErrorLocationAndAdjustErrorString(

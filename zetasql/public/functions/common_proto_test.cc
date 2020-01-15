@@ -166,7 +166,7 @@ TEST(CommonProtoTest, ConvertProto3Wrappers) {
   EXPECT_EQ(true, bool_output);
 
   // Specifically testing the conversion from
-  // std::string->google::protobuf::StringValue as it is the only case where an error
+  // string->google::protobuf::StringValue as it is the only case where an error
   // can occur.
   google::protobuf::StringValue string_proto;
   string_proto.set_value("Valid UTF8 string");

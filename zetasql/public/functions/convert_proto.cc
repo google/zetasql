@@ -40,7 +40,7 @@ static bool ProtoToStringInternal(const google::protobuf::Message* value,
     // space. Generally it is unexpected here.
     *error = ::zetasql_base::InternalErrorBuilder()
              << "Failed to generate proto2 text format for printing a proto2 "
-             << "message to a std::string.";
+             << "message to a string.";
     return false;
   }
   // The "SingleLineMode" sometimes puts an extra space at the end of the

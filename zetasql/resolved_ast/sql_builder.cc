@@ -19,7 +19,7 @@
 // - The ResolvedTree is traversed depth first and processed bottom up.
 //
 // - As we traverse the tree, for each ResolvedNode, we return a QueryFragment.
-//   A QueryFragment is either a std::string (of SQL text) or a QueryExpression. A
+//   A QueryFragment is either a string (of SQL text) or a QueryExpression. A
 //   QueryExpression is a data structure representing a partial query, with
 //   fields for various clauses (select, from, where, ...) filled in as strings.
 //
@@ -187,8 +187,8 @@ zetasql_base::Status SQLBuilder::Process(const ResolvedNode& ast) {
 std::string SQLBuilder::QueryFragment::GetSQL() const {
   if (query_expression != nullptr) {
     // At this stage all QueryExpression parts (SELECT list, FROM clause,
-    // etc.) have already had std::string fragments generated for them, so this
-    // step of concatenating all the std::string pieces is not sensitive to
+    // etc.) have already had string fragments generated for them, so this
+    // step of concatenating all the string pieces is not sensitive to
     // ProductMode.
     return query_expression->GetSQLQuery();
   }
@@ -306,7 +306,7 @@ zetasql_base::StatusOr<std::string> SQLBuilder::GetSQL(const Value& value,
     // TODO: May have an issue here with EXTERNAL mode.
     const std::string proto_str = value.DebugString();
     // Strip off the curly braces encapsulating the proto value, so that it
-    // could be recognized as a std::string literal in the unparsed sql, which could
+    // could be recognized as a string literal in the unparsed sql, which could
     // be coerced to a proto literal later.
     ZETASQL_RET_CHECK_GT(proto_str.size(), 1);
     ZETASQL_RET_CHECK_EQ(proto_str[0], '{');
@@ -416,7 +416,7 @@ zetasql_base::Status SQLBuilder::VisitResolvedFunctionCall(
     inputs.push_back(result->GetSQL());
   }
 
-  // Getting the SQL for a function given std::string arguments is not itself
+  // Getting the SQL for a function given string arguments is not itself
   // sensitive to the ProductMode.
   PushQueryFragment(node, GetFunctionCallSQL(node, inputs));
   return ::zetasql_base::OkStatus();
@@ -1116,7 +1116,7 @@ zetasql_base::Status SQLBuilder::VisitResolvedOption(const ResolvedOption* node)
 
     // Wrap the result sql in parentheses so that, when the generated text is
     // parsed, identifier expressions get treated as identifiers, rather than
-    // std::string literals.
+    // string literals.
     absl::StrAppend(&text, "(", result->GetSQL(), ")");
   }
   PushQueryFragment(node, text);
@@ -2606,7 +2606,8 @@ zetasql_base::Status SQLBuilder::ProcessTableElementsBase(
   std::vector<std::string> table_elements;
   // Go through each column and generate the SQL corresponding to it.
   for (const auto& c : column_definition_list) {
-    std::string table_element = absl::StrCat(ToIdentifierLiteral(c->name()), " ");
+    std::string table_element =
+        absl::StrCat(ToIdentifierLiteral(c->name()), " ");
     ZETASQL_RETURN_IF_ERROR(
         AppendColumnSchema(c->type(), c->is_hidden(), c->annotations(),
                            c->generated_column_info(), &table_element));
@@ -2621,6 +2622,9 @@ zetasql_base::Status SQLBuilder::ProcessTableElementsBase(
                                        return column_definition_list[i]->name();
                                      }),
                     " ");
+    if (pk->unenforced()) {
+      absl::StrAppend(&primary_key, " NOT ENFORCED");
+    }
     ZETASQL_RETURN_IF_ERROR(AppendOptionsIfPresent(pk->option_list(), &primary_key));
     table_elements.push_back(primary_key);
   }
@@ -2804,7 +2808,8 @@ zetasql_base::Status SQLBuilder::VisitResolvedCreateModelStmt(
               node->transform_output_column_list_size());
     DCHECK_EQ(node->output_column_list_size(),
               node->transform_input_column_list_size());
-    absl::flat_hash_map<std::string, /*column_id=*/int> query_column_name_id_map;
+    absl::flat_hash_map<std::string, /*column_id=*/int>
+        query_column_name_id_map;
     for (const auto& query_column_definition :
          node->transform_input_column_list()) {
       query_column_name_id_map.insert(
@@ -2837,7 +2842,7 @@ zetasql_base::Status SQLBuilder::VisitResolvedCreateModelStmt(
           VisitResolvedAnalyticFunctionGroup(analytic_function_group.get()));
     }
 
-    // Assemble TRANSFORM clause sql std::string.
+    // Assemble TRANSFORM clause sql string.
     std::vector<std::string> transform_list_strs;
     for (int i = 0; i < node->transform_list_size(); ++i) {
       const ResolvedComputedColumn* transform_element = node->transform_list(i);
@@ -3646,7 +3651,7 @@ zetasql_base::Status SQLBuilder::VisitResolvedUpdateItem(
       // The ResolvedColumn representing an array element has path
       // kEmptyAlias. It is suppressed by VisitResolvedGet{Proto,Struct}Field,
       // but if we are modifying the element and not a field of it, then we need
-      // to suppress the std::string here (or else we would get something like
+      // to suppress the string here (or else we would get something like
       // a[OFFSET(1)]``).
       if (target != kEmptyAlias) {
         if (i == 0) {
@@ -4115,7 +4120,7 @@ namespace {
 
 typedef std::string (*Escaper)(absl::string_view);
 
-// Formatter which escapes a std::string with given escaper function, such as
+// Formatter which escapes a string with given escaper function, such as
 // ToStringLiteral or ToIdentifierLiteral.
 class EscapeFormatter {
  public:
@@ -4308,7 +4313,7 @@ zetasql_base::Status SQLBuilder::VisitResolvedCreateRowAccessPolicyStmt(
   }
 
   // ProcessNode(node->predicate()) should produce an equivalent QueryFragment,
-  // but we use the std::string form directly because it's simpler.
+  // but we use the string form directly because it's simpler.
   absl::StrAppend(&sql, " FILTER USING (", node->predicate_str(), ")");
 
   PushQueryFragment(node, sql);

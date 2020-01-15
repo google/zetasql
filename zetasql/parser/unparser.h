@@ -58,16 +58,16 @@ class Formatter {
   Formatter(const Formatter&) = delete;
   Formatter& operator=(const Formatter&) = delete;
 
-  // Formats the std::string automatically according to the context.
+  // Formats the string automatically according to the context.
   // 1. Inserts necessary space between tokens.
   // 2. Calls FlushLine() when a line (excluding indentation) reachs column
   //    limit and it is at some point appropriate to break.
-  // Param std::string should not contain any leading or trailing whitespace,
+  // Param string should not contain any leading or trailing whitespace,
   // like ' ', '\n'.
   void Format(absl::string_view s);
 
   // Like Format, except always calls FlushLine().
-  // Use this if you explicitly wants to break the line after this std::string.
+  // Use this if you explicitly wants to break the line after this string.
   // For example,
   // 1. To put a newline after SELECT:
   //    FormatLine("SELECT");
@@ -478,6 +478,11 @@ class Unparser : public ParseTreeVisitor {
                               void* data) override;
   void visitASTAlterActionList(const ASTAlterActionList* node,
                                void* data) override;
+  void visitASTDescriptorColumn(const ASTDescriptorColumn* node,
+                                void* data) override;
+  void visitASTDescriptorColumnList(const ASTDescriptorColumnList* node,
+                                    void* data) override;
+  void visitASTDescriptor(const ASTDescriptor* node, void* data) override;
   void visitASTAlterRowAccessPolicyStatement(
       const ASTAlterRowAccessPolicyStatement* node, void* data) override;
 

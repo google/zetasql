@@ -124,7 +124,10 @@ cc_library(
         "//zetasql/public/functions:generate_array",
         "//zetasql/public/functions:like",
         "//zetasql/public/functions:math",
+        "//zetasql/public/functions:parse_date_time",
+        "//zetasql/public/functions:percentile",
         "//zetasql/public/functions:regexp",
+        "//zetasql/public/functions:string",
         "//zetasql/public/proto:type_annotation_cc_proto",
         "//zetasql/resolved_ast",
         "//zetasql/resolved_ast:resolved_ast_enums_cc_proto",
@@ -144,10 +147,10 @@ cc_library(
         "@com_google_absl//absl/types:variant",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
-        "@com_google_re2//:re2",
         "@com_googleapis_googleapis//:date_cc_proto",
         "@com_googleapis_googleapis//:latlng_cc_proto",
         "@com_googleapis_googleapis//:timeofday_cc_proto",
+        "@com_googlesource_code_re2//:re2",
     ],
 )
 
@@ -219,7 +222,7 @@ cc_library(
         "@com_google_absl//absl/types:variant",
         "@com_google_googletest//:gtest",
         "@com_google_protobuf//:protobuf",
-        "@com_google_re2//:re2",
+        "@com_googlesource_code_re2//:re2",
     ],
 )
 

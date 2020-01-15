@@ -40,8 +40,8 @@ zetasql_base::Status IsValidStatementSyntax(absl::string_view sql,
 // and sets <at_end_of_input> and updates <resume_location> to indicate the
 // start of the next statement (if not at end of input).
 //
-// This method can be invoked iteratively on a multi-statement std::string to
-// validate that all the statements in the std::string are valid syntax.
+// This method can be invoked iteratively on a multi-statement string to
+// validate that all the statements in the string are valid syntax.
 zetasql_base::Status IsValidNextStatementSyntax(
     ParseResumeLocation* resume_location, ErrorMessageMode error_message_mode,
     bool* at_end_of_input);

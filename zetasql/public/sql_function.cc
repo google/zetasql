@@ -40,8 +40,8 @@ SQLFunction::SQLFunction(
     absl::optional<ParseResumeLocation> parse_resume_location,
     const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
         aggregate_expression_list)
-    : SQLFunctionInterface(name, kSQLFunctionGroup, mode,
-                           function_signatures, function_options),
+    : SQLFunctionInterface(name, kSQLFunctionGroup, mode, function_signatures,
+                           function_options),
       function_expression_(function_expression),
       argument_names_(argument_names),
       parse_resume_location_(parse_resume_location),
@@ -77,7 +77,7 @@ zetasql_base::Status SQLFunction::Create(
 
 std::string SQLFunction::FullDebugString() const {
   std::string full_debug_string = DebugString(/*verbose=*/true);
-  // TODO: The current debug std::string prints the function signature
+  // TODO: The current debug string prints the function signature
   // and argument names separately.  It would be better to embed the argument
   // names in the signature strings.
   if (!GetArgumentNames().empty()) {

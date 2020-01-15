@@ -28,7 +28,7 @@ ZetaSQL.
     [ <a href="#where-clause">WHERE</a> <span class="var">bool_expression</span> ]
     [ <a href="#group-by-clause">GROUP</a> BY { <span class="var">expression</span> [, ...] | ROLLUP ( <span class="var">expression</span> [, ...] ) } ]
     [ <a href="#having-clause">HAVING</a> <span class="var">bool_expression</span> ]
-    [ <a href="https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#window-clause">WINDOW</a> <span class="var">window_name</span> AS ( <span class="var">window_definition</span> ) [, ...] ]
+    [ <a href="https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#window-clause">WINDOW</a> <span class="var">window_name</span> AS ( <span class="var">window_definition</span> ) [, ...] ]
 
 <span class="var">set_op</span>:
     <a href="#union">UNION</a> { ALL | DISTINCT } | <a href="#intersect">INTERSECT</a> { ALL | DISTINCT } | <a href="#except">EXCEPT</a> { ALL | DISTINCT }
@@ -116,7 +116,7 @@ Items in a `SELECT` list can be expressions. These expressions evaluate to a
 single value and produce one output column, with an optional explicit `alias`.
 
 If the expression does not have an explicit alias, it receives an implicit alias
-according to the rules for [implicit aliases](#implicit_aliases), if possible.
+according to the rules for [implicit aliases][implicit-aliases], if possible.
 Otherwise, the column is anonymous and you cannot refer to it by name elsewhere
 in the query.
 
@@ -277,7 +277,7 @@ when querying a regular table.
 
 In contexts where a query with exactly one column is expected, a value table
 query can be used instead.  For example, scalar subqueries and array subqueries
-(see [Subqueries](#subqueries)) normally require a single-column query, but in
+(see [Subqueries][subqueries]) normally require a single-column query, but in
 ZetaSQL, they also allow using a value table query.
 
 A query will produce a value table if it uses `SELECT AS`, using one of the
@@ -323,7 +323,7 @@ FROM
 
 `SELECT AS STRUCT` can be used in a scalar or array subquery to produce a single
 STRUCT type grouping multiple values together. Scalar
-and array subqueries (see [Subqueries](#subqueries)) are normally not allowed to
+and array subqueries (see [Subqueries][subqueries]) are normally not allowed to
 return multiple columns.
 
 #### SELECT AS VALUE
@@ -365,7 +365,7 @@ input value.
 
 ### Aliases
 
-See [Aliases](#using_aliases) for information on syntax and visibility for
+See [Aliases][using-aliases] for information on syntax and visibility for
 `SELECT` list aliases.
 
 <a id=analytic_functions></a>
@@ -373,7 +373,7 @@ See [Aliases](#using_aliases) for information on syntax and visibility for
 
 Analytic functions and the clauses related to them, including `OVER`, `PARTITION
 BY`, and `WINDOW`, are documented in
-[Analytic Function Concepts](https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md).
+[Analytic Function Concepts][analytic-concepts].
 
 ## FROM clause
 
@@ -452,7 +452,7 @@ a table name, wrap the path using <code>`</code>. </p>
 The `UNNEST` operator takes an `ARRAY` and returns a
 table, with one row for each element in the `ARRAY`.
 You can also use `UNNEST` outside of the `FROM` clause with the
-[`IN` operator](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#in-operators).
+[`IN` operator][in-operator].
 
 For input `ARRAY`s of most element types, the output of `UNNEST` generally has one
 column. This single column has an optional `alias`, which you can use to refer
@@ -486,7 +486,7 @@ FROM UNNEST(ARRAY<STRUCT<x INT64, y STRING>>[(1, 'foo'), (3, 'bar')]);
 ```
 
 Because the `UNNEST` operator returns a
-[value table](https://github.com/google/zetasql/blob/master/docs/query-syntax.md#value-tables),
+[value table][query-value-tables],
 you can alias `UNNEST` to define a range variable that you can reference
 elsewhere in the query. If you reference the range variable in the `SELECT`
 list, the query returns a `STRUCT` containing all of the fields of the original
@@ -596,7 +596,7 @@ produced by the <code>UNNEST</code> operation. This column has an optional
 SELECT * FROM UNNEST ( ) WITH OFFSET AS num;
 </pre>
 
-See the [`Arrays topic`](https://github.com/google/zetasql/blob/master/docs/arrays.md)
+See the [`Arrays topic`][working-with-arrays]
 for more ways to use `UNNEST`, including construction, flattening, and
 filtering.
 
@@ -633,7 +633,7 @@ subqueries.
 
 There are two types of subquery:
 
-+  [Expression Subqueries](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#expression_subqueries),
++  [Expression Subqueries][expression-subqueries],
    which you can use in a query wherever expressions are valid. Expression
    subqueries return a single value.
 +  Table subqueries, which you can use only in a `FROM` clause. The outer
@@ -755,7 +755,7 @@ WHERE S.ServerId="test" AND R.ThreadId = S.ThreadId;
 
 ### Aliases
 
-See [Aliases](#using_aliases) for information on syntax and visibility for
+See [Aliases][using-aliases] for information on syntax and visibility for
 `FROM` clause aliases.
 
 <a id="join_types"></a>
@@ -826,7 +826,7 @@ Invalid - comma cross join inside parentheses:
 SELECT * FROM t CROSS JOIN (Roster, TeamMascot);  // INVALID.
 ```
 
-See [Sequences of JOINs](#sequences_of_joins) for details on how a comma cross
+See [Sequences of JOINs][sequences-of-joins] for details on how a comma cross
 join behaves in a sequence of JOINs.
 
 ### FULL [OUTER] JOIN
@@ -1050,7 +1050,7 @@ for the `expression` in the `GROUP BY` clause. For multiple rows in the
 source table with non-distinct values for `expression`, the
 `GROUP BY` clause produces a single combined row. `GROUP BY` is commonly used
 when aggregate functions are present in the `SELECT` list, or to eliminate
-redundancy in the output. The data type of `expression` must be [groupable](https://github.com/google/zetasql/blob/master/docs/data-types.md#data-type-properties).
+redundancy in the output. The data type of `expression` must be [groupable][data-type-properties].
 
 Example:
 
@@ -1356,10 +1356,10 @@ The following rules apply when ordering values:
    possible value; that is, NULLs appear first in `ASC` sorts and last in `DESC`
    sorts.
 +  Floating point data types: see
-   [Floating Point Semantics](https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics)
+   [Floating Point Semantics][floating-point-semantics]
    on ordering and grouping.
 
-When used in conjunction with [set operators](#set-operators), the `ORDER BY` clause applies to the result set of the entire query; it does not
+When used in conjunction with [set operators][set-operators], the `ORDER BY` clause applies to the result set of the entire query; it does not
 apply only to the closest `SELECT` statement. For this reason, it can be helpful
 (though it is not required) to use parentheses to show the scope of the `ORDER
 BY`.
@@ -1434,7 +1434,7 @@ A `collation_string` contains a `collation_name` and can have an optional
 is a literal or a parameter.  Usually, this name is two letters that represent
 the language optionally followed by an underscore and two letters that
 represent the region&mdash;for example, `en_US`. These names are defined by the
-[Common Locale Data Repository (CLDR)](http://www.unicode.org/cldr/charts/latest/supplemental/language_territory_information.html).
+[Common Locale Data Repository (CLDR)][language-territory-information].
 A statement can also have a `collation_name` of `unicode`. This value means that
 the statement should return data using the default unicode collation.
 
@@ -1443,7 +1443,7 @@ In addition to the `collation_name`, a `collation_string` can have an optional
 specifies if the data comparisons should be case sensitive. Allowed values are
 `cs`, for case sensitive, and `ci`, for case insensitive. If a
 `collation_attribute` is not supplied, the
-[CLDR defaults](http://www.unicode.org/reports/tr35/tr35-collation.html#Setting_Options)
+[CLDR defaults][tr35-collation-settings]
 are used.
 
 #### COLLATE examples
@@ -1772,7 +1772,7 @@ FROM Singers s WHERE ReleaseDate = 1975;
 
 If the `FROM` clause contains an explicit alias, you must use the explicit alias
 instead of the implicit alias for the remainder of the query (see
-[Implicit Aliases](#implicit_aliases)). A table alias is useful for brevity or
+[Implicit Aliases][implicit-aliases]). A table alias is useful for brevity or
 to eliminate ambiguity in cases such as self-joins, where the same table is
 scanned multiple times during query processing.
 
@@ -2121,8 +2121,7 @@ Results:
 Example:
 
 ```
-SELECT * FROM Roster CROSS JOIN TeamMascot
-ON Roster.SchoolID = TeamMascot.SchoolID;
+SELECT * FROM Roster CROSS JOIN TeamMascot;
 ```
 
 Results:
@@ -2613,6 +2612,26 @@ Results:
 ```
 (empty)
 ```
+
+[language-territory-information]: http://www.unicode.org/cldr/charts/latest/supplemental/language_territory_information.html
+[tr35-collation-settings]: http://www.unicode.org/reports/tr35/tr35-collation.html#Setting_Options
+
+[implicit-aliases]: #implicit_aliases
+[subqueries]: #subqueries
+[using-aliases]: #using_aliases
+[sequences-of-joins]: #sequences_of_joins
+[set-operators]: #set-operators
+[union-syntax]: #union
+[join-hints]: #join-hints
+[analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays#flattening-arrays-and-repeated-fields
+[query-value-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax#value-tables
+[working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays
+[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data-type-properties
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+
+[in-operator]: https://github.com/google/zetasql/blob/master/docs/operators#in_operators
+[expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries
 
 <!-- END CONTENT -->
 

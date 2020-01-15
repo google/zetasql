@@ -1014,6 +1014,12 @@ zetasql_base::Status Resolver::ResolvePrimaryKey(
     const ASTPrimaryKey* ast_primary_key,
     std::unique_ptr<ResolvedPrimaryKey>* resolved_primary_key) {
   ZETASQL_RET_CHECK(!column_indexes.empty());
+  if (!analyzer_options_.language_options().LanguageFeatureEnabled(
+          FEATURE_UNENFORCED_PRIMARY_KEYS) &&
+      !ast_primary_key->enforced()) {
+    return MakeSqlErrorAt(ast_primary_key)
+           << "NOT ENFORCED primary key table constraints are unsupported";
+  }
   std::vector<int> column_index_list;
   if (ast_primary_key->column_list() != nullptr) {
     std::set<IdString, IdStringCaseLess> used_primary_key_columns;
@@ -1040,7 +1046,8 @@ zetasql_base::Status Resolver::ResolvePrimaryKey(
   ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(ast_primary_key->options_list(),
                                      &options));
   *resolved_primary_key =
-      MakeResolvedPrimaryKey(column_index_list, std::move(options));
+      MakeResolvedPrimaryKey(column_index_list, std::move(options),
+                             /*unenforced=*/!ast_primary_key->enforced());
   return ::zetasql_base::OkStatus();
 }
 
@@ -1061,16 +1068,26 @@ zetasql_base::Status Resolver::ResolvePrimaryKey(
           resolved_primary_key));
     } else if (table_element->node_kind() == AST_COLUMN_DEFINITION) {
       const auto* column = static_cast<const ASTColumnDefinition*>(table_element);
-      if (column->schema()->ContainsAttribute(
-          AST_PRIMARY_KEY_COLUMN_ATTRIBUTE)) {
-        if (*resolved_primary_key != nullptr) {
+      std::vector<const ASTPrimaryKeyColumnAttribute*> primary_key =
+          column->schema()->FindAttributes<ASTPrimaryKeyColumnAttribute>(
+              AST_PRIMARY_KEY_COLUMN_ATTRIBUTE);
+      if (!primary_key.empty()) {
+        if (*resolved_primary_key != nullptr || primary_key.size() > 1) {
           return MakeSqlErrorAt(column) << multiple_primary_keys_error;
+        }
+        const ASTPrimaryKeyColumnAttribute* attribute = primary_key.front();
+        if (!analyzer_options_.language_options().LanguageFeatureEnabled(
+                FEATURE_UNENFORCED_PRIMARY_KEYS) &&
+            !attribute->enforced()) {
+          return MakeSqlErrorAt(attribute) << "NOT ENFORCED primary key column "
+                                              "constraints are unsupported";
         }
         const int* column_index =
             zetasql_base::FindOrNull(column_indexes, column->name()->GetAsIdString());
         ZETASQL_RET_CHECK(column_index);
         *resolved_primary_key =
-            MakeResolvedPrimaryKey({*column_index}, {} /* options_list */);
+            MakeResolvedPrimaryKey({*column_index}, /*option_list=*/{},
+                                   /*unenforced=*/!attribute->enforced());
       }
     }
   }
@@ -2385,7 +2402,7 @@ zetasql_base::Status Resolver::ResolveCreateConstantStatement(
   return ::zetasql_base::OkStatus();
 }
 
-// Get an appropriate std::string to identify a create scope in an error message.
+// Get an appropriate string to identify a create scope in an error message.
 static std::string CreateScopeErrorString(
     ResolvedCreateStatement::CreateScope create_scope) {
   switch (create_scope) {
@@ -2486,7 +2503,7 @@ zetasql_base::Status Resolver::ResolveCreateFunctionStatement(
   if (function_language != nullptr && sql_function_body != nullptr) {
     if (sql_function_body->expression()->node_kind() ==
             AST_STRING_LITERAL) {
-      // Try to be helpful if someone writes AS ("""body""") with a std::string
+      // Try to be helpful if someone writes AS ("""body""") with a string
       // body enclosed in parentheses.
       return MakeSqlErrorAt(sql_function_body)
              << "Function body should not be enclosed in ( ) for non-SQL "
@@ -2715,7 +2732,7 @@ zetasql_base::Status Resolver::ResolveCreateTableFunctionStatement(
   }
   if (language == nullptr && code != nullptr) {
     return MakeSqlErrorAt(ast_statement)
-        << "Function cannot specify a literal std::string body without a LANGUAGE";
+        << "Function cannot specify a literal string body without a LANGUAGE";
   }
 
   std::string language_string = "UNDECLARED";
@@ -3197,6 +3214,7 @@ zetasql_base::Status Resolver::ResolveCreateProcedureStatement(
       ParsedScript::CreateForRoutine(procedure_body, ParserOptions(),
                                      analyzer_options_.error_message_mode(),
                                      std::move(arguments_map)));
+  ZETASQL_RETURN_IF_ERROR(parsed_script->CheckQueryParameters(absl::nullopt));
 
   *output = MakeResolvedCreateProcedureStmt(
       procedure_name, create_scope, create_mode, argument_names, *signature,
@@ -3391,7 +3409,7 @@ zetasql_base::Status Resolver::ResolveTableAndPredicate(
                                           "USING clause", resolved_predicate));
 
     if (predicate_str != nullptr) {
-      // Extract the std::string form of predicate expression using ZetaSQL
+      // Extract the string form of predicate expression using ZetaSQL
       // unparser.
       parser::Unparser predicate_unparser(predicate_str);
       predicate->Accept(&predicate_unparser, nullptr /* data */);
@@ -3430,7 +3448,7 @@ zetasql_base::Status Resolver::ResolveGranteeList(
     } else {
       if (grantee->node_kind() == AST_PARAMETER_EXPR) {
         return MakeSqlErrorAt(grantee)
-            << "The GRANTEE list only supports std::string literals, not parameters";
+            << "The GRANTEE list only supports string literals, not parameters";
       }
       ZETASQL_RET_CHECK(grantee->node_kind() == AST_STRING_LITERAL)
           << grantee->DebugString();
@@ -3953,7 +3971,7 @@ zetasql_base::Status Resolver::ResolveDropFunctionStatement(
         const Type* resolved_type;
         ZETASQL_RETURN_IF_ERROR(ResolveType(function_param->type(), &resolved_type));
         // Argument names are ignored for DROP FUNCTION statements, and are
-        // always provided as an empty std::string.  Argument kinds are also ignored.
+        // always provided as an empty string.  Argument kinds are also ignored.
         auto argument_def = MakeResolvedArgumentDef(
             "", resolved_type, ResolvedArgumentDef::SCALAR);
         resolved_args.push_back(std::move(argument_def));
@@ -4115,14 +4133,14 @@ zetasql_base::Status Resolver::ResolveImportStatement(
         file_path = ast_statement->string_value()->string_value();
         if (file_path.empty()) {
           return MakeSqlErrorAt(ast_statement->string_value())
-                 << "The IMPORT PROTO statement requires a non-empty std::string "
+                 << "The IMPORT PROTO statement requires a non-empty string "
                     "literal";
         }
       }
       // Check invalid parameters because they are not checked during parsing.
       if (ast_statement->name() != nullptr) {
         return MakeSqlErrorAt(ast_statement->name())
-               << "The IMPORT PROTO statement requires a std::string literal";
+               << "The IMPORT PROTO statement requires a string literal";
       }
       if (ast_statement->alias() != nullptr) {
         return MakeSqlErrorAt(ast_statement->alias())

@@ -41,7 +41,8 @@ TEST(ToPayload, Works) {
 // cs/testing/base/public/gmock_utils/status-matchers.h instead.
 static void CheckStatus(const zetasql_base::Status& s,
                         const zetasql_base::StatusCode error_code,
-                        const std::string& message, const std::string& payload_type,
+                        const std::string& message,
+                        const std::string& payload_type,
                         const std::string& payload_msg) {
   SCOPED_TRACE(testing::Message() << "Where s is " << s);
   EXPECT_EQ(error_code, s.CanonicalCode());
