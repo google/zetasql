@@ -48,7 +48,7 @@ struct IntTraits<32> {
   using Int = int32_t;
   using Uint = uint32_t;
   static constexpr Uint kMaxPowerOf10 = 1000000000;
-  static constexpr size_t kMaxPowerOf10Log = 9;
+  static constexpr size_t kMaxWholeDecimalDigits = 9;
 };
 
 template <>
@@ -56,7 +56,7 @@ struct IntTraits<64> {
   using Int = int64_t;
   using Uint = uint64_t;
   static constexpr Uint kMaxPowerOf10 = 10000000000000000000U;
-  static constexpr size_t kMaxPowerOf10Log = 19;
+  static constexpr size_t kMaxWholeDecimalDigits = 19;
 };
 
 template <>
@@ -818,6 +818,20 @@ bool ParseFromBase10UnsignedString(absl::string_view str, Word* result) {
 // <= 999999999. They must be in little endian order.
 void AppendSegmentsToString(const uint32_t segments[], int num_segments,
                             std::string* result);
+
+// PowersAsc<Word, first_value, base, size>() returns a std::array<Word, size>
+// {first_value, first_value * base, ..., first_value * pow(base, size - 1)}.
+template <typename Word, Word first_value, Word base, int size, typename... T>
+constexpr std::enable_if_t<(sizeof...(T) == size), std::array<Word, size>>
+PowersAsc(T... v) {
+  return std::array<Word, size>{v...};
+}
+
+template <typename Word, Word first_value, Word base, int size, typename... T>
+constexpr std::enable_if_t<(sizeof...(T) < size), std::array<Word, size>>
+PowersAsc(T... v) {
+  return PowersAsc<Word, first_value, base, size>(first_value, v * base...);
+}
 
 }  // namespace fixed_int_internal
 }  // namespace zetasql

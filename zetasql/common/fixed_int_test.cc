@@ -45,6 +45,7 @@
 #include "absl/random/random.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/mathutil.h"
@@ -566,7 +567,7 @@ constexpr absl::string_view kInvalidSerialized128BitValues[] = {
     "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
 };
 
-constexpr std::pair<int128, absl::string_view> kSortedStringSignedValues[] = {
+constexpr std::pair<int128, absl::string_view> kSignedValueStrings[] = {
     {kint128min, "-170141183460469231731687303715884105728"},
     {kint64min, "-9223372036854775808"},
     {-281474976710656, "-281474976710656"},
@@ -592,39 +593,55 @@ constexpr std::pair<int128, absl::string_view> kSortedStringSignedValues[] = {
     {(1LL << 32), "4294967296"},
     {281474976710656, "281474976710656"},
     {kint64max, "9223372036854775807"},
-    {kint64max, "9223372036854775807"},
     {kint128max, "170141183460469231731687303715884105727"},
 };
 
-constexpr std::pair<uint128, absl::string_view> kSortedStringUnsignedValues[] =
-    {
-        {0, "0"},
-        {1, "1"},
-        {255, "255"},
-        {256, "256"},
-        {1000, "1000"},
-        {32768, "32768"},
-        {65536, "65536"},
-        {16777216, "16777216"},
-        {268435456, "268435456"},
-        {(1LL << 32) - 1, "4294967295"},
-        {(1LL << 32), "4294967296"},
-        {281474976710656, "281474976710656"},
-        {(1ULL << 63) - 1, "9223372036854775807"},
-        {(1ULL << 63), "9223372036854775808"},
-        {kuint64max, "18446744073709551615"},
-        {kuint128max, "340282366920938463463374607431768211455"},
+constexpr std::pair<uint128, absl::string_view> kUnsignedValueStrings[] = {
+    {0, "0"},
+    {1, "1"},
+    {255, "255"},
+    {256, "256"},
+    {1000, "1000"},
+    {32768, "32768"},
+    {65536, "65536"},
+    {16777216, "16777216"},
+    {268435456, "268435456"},
+    {(1LL << 32) - 1, "4294967295"},
+    {(1LL << 32), "4294967296"},
+    {281474976710656, "281474976710656"},
+    {(1ULL << 63) - 1, "9223372036854775807"},
+    {(1ULL << 63), "9223372036854775808"},
+    {kuint64max, "18446744073709551615"},
+    {kuint128max, "340282366920938463463374607431768211455"},
 };
 
 constexpr std::pair<uint128, absl::string_view>
-    kSortedStringNonCanonicalValues[] = {
+    kNonCanonicalUnsignedValueStrings[] = {
         // Here number with 0 prefixes will not be parsed as an octal number.
         {0, "0000000000000000000000000"},
         {1, "0000000000000000000000001"},
         {kuint64max, "0000000000000000000018446744073709551615"},
+        {kuint128max, "000000000000340282366920938463463374607431768211455"},
 };
 
-constexpr absl::string_view kInvalidStringSigned128BitValues[] = {
+constexpr std::pair<int128, absl::string_view>
+    kNonCanonicalSignedValueStrings[] = {
+        // Here number with 0 prefixes will not be parsed as an octal number.
+        {0, "0000000000000000000000000"},
+        {0, "-0"},
+        {0, "-000"},
+        {1, "0000000000000000000000001"},
+        {1, "+1"},
+        {1, "+01"},
+        {kuint64max, "0000000000000000000018446744073709551615"},
+        {kuint64max, "+18446744073709551615"},
+        {kuint64max, "+0000000000000000000018446744073709551615"},
+        {kint128max, "000000000000170141183460469231731687303715884105727"},
+        {kint128max, "+170141183460469231731687303715884105727"},
+        {kint128max, "+000000000000170141183460469231731687303715884105727"},
+};
+
+constexpr absl::string_view kSigned128BitValueInvalidStrings[] = {
     "",
     "-",
     "1.0",
@@ -633,7 +650,8 @@ constexpr absl::string_view kInvalidStringSigned128BitValues[] = {
     "-1e2",
     "1.0e2",
     "-1.0e2",
-    "+1",
+    "+-1",
+    "-+1",
     " 1",
     "1 ",
     "1 1",
@@ -654,7 +672,7 @@ constexpr absl::string_view kInvalidStringSigned128BitValues[] = {
     "-inf",
 };
 
-constexpr absl::string_view kInvalidStringUnsigned128BitValues[] = {
+constexpr absl::string_view kUnsigned128BitValueInvalidStrings[] = {
     "",
     "-",
     "-1",
@@ -675,6 +693,84 @@ constexpr absl::string_view kInvalidStringUnsigned128BitValues[] = {
     "Invalid",
     "nan",
     "inf",
+};
+
+constexpr std::pair<int128, absl::string_view> kSignedValueStringSegments[] = {
+    {kint128min, "-1,70141183460469231731687303715884105728"},
+    {kint64min, "-092233,72036854775808"},
+    {-1000, "-1,0,00"},
+    {-256, "-2,5,6"},
+    {-1, "-0,1"},
+    {0, "0,0"},
+    {1, "+0,01"},
+    {256, "2,56,"},
+    {1000, "01,000"},
+    {kint64max, "+009,223,372,036,854,775,807"},
+    {kint128max, "000000000000,17014118346046923173168730371588410572,7"},
+};
+
+constexpr std::pair<uint128, absl::string_view> kUnsignedValueStringSegments[] =
+    {
+        {0, "0,0,"},
+        {1, "00,01"},
+        {256, "2,5,6"},
+        {1000, "1,000"},
+        {kuint64max, "18,446,744,073,709,551,615"},
+        {kuint128max, "3,40282366920938463463374607431768211455,"},
+        {kuint128max, "34028236692093846346337460743176821145,5"},
+        {kuint128max, "000000000000,340282366920938463463374607431768211455"},
+        {kuint128max, "0,0,0,0,0,0,0340282366920938463463374607431768211455"},
+};
+
+constexpr absl::string_view kSigned128BitValueInvalidStringSegments[] = {
+    "",
+    "-,1",
+    "+,1",
+    "1,.0",
+    "-1,.0",
+    "1,e2",
+    "-1,e2",
+    "1,.0e2",
+    "-1,.0e2",
+    "0, 1",
+    "1 ,",
+    "1 ,1",
+    "0,b1",
+    "0x,1",
+    // -2^127 - 1
+    "-17014118346046923173168730371588410572,9",
+    // 2^127
+    "17014118346046923173168730371588410572,8",
+    // Valid numeric string + non-numeric characters
+    "-170141183460469231731687303715884105728,Invalid",
+    "170141183460469231731687303715884105727,Invalid",
+    // Non-numeric string
+    "In,valid",
+    "-In,valid",
+};
+
+constexpr absl::string_view kUnsigned128BitValueInvalidStringSegments[] = {
+    "",
+    "-,1",
+    "1,.0",
+    "1,e2",
+    "1.,0e2",
+    "+,1",
+    " ,1",
+    "1, ",
+    "1 ,1",
+    "0,b1",
+    "0x,1",
+    // 2^128
+    "3,40282366920938463463374607431768211456",
+    // Overflow when adding the second segment
+    "34028236692093846346337460743176821145,6",
+    // Overflow when scaling up the first segment
+    "34028236692093846346337460743176821146,0",
+    // Valid numeric string + non-numeric characters
+    "34028236692093846346337460743176821145,5Invalid"
+    // Non-numeric string
+    "In,valid",
 };
 
 constexpr std::pair<uint128, int> kFindMSBSetNonZeroTestData[] = {
@@ -1169,48 +1265,114 @@ TYPED_TEST(FixedIntGoldenDataTest, DeserializeFromBytes) {
 }
 
 TYPED_TEST(FixedUintGoldenDataTest, ToString) {
-  for (auto pair : kSortedStringUnsignedValues) {
+  for (auto pair : kUnsignedValueStrings) {
     TypeParam value(pair.first);
     EXPECT_EQ(pair.second, value.ToString());
   }
 }
 
 TYPED_TEST(FixedIntGoldenDataTest, ToString) {
-  for (auto pair : kSortedStringSignedValues) {
+  for (auto pair : kSignedValueStrings) {
     TypeParam value(pair.first);
     EXPECT_EQ(pair.second, value.ToString());
   }
 }
 
 TYPED_TEST(FixedUintGoldenDataTest, ParseFromStringStrict) {
-  for (auto pair : kSortedStringUnsignedValues) {
+  for (auto pair : kUnsignedValueStrings) {
     TypeParam value;
-    EXPECT_TRUE(value.ParseFromStringStrict(pair.second));
+    EXPECT_TRUE(value.ParseFromStringStrict(pair.second)) << pair.second;
     EXPECT_EQ(TypeParam(pair.first), value);
   }
-  for (auto pair : kSortedStringNonCanonicalValues) {
+  for (auto pair : kNonCanonicalUnsignedValueStrings) {
     TypeParam value;
-    EXPECT_TRUE(value.ParseFromStringStrict(pair.second));
+    EXPECT_TRUE(value.ParseFromStringStrict(pair.second)) << pair.second;
     EXPECT_EQ(TypeParam(pair.first), value);
   }
-  for (absl::string_view str : kInvalidStringUnsigned128BitValues) {
-    EXPECT_FALSE(TypeParam().ParseFromStringStrict(str));
+  for (absl::string_view str : kUnsigned128BitValueInvalidStrings) {
+    EXPECT_FALSE(TypeParam().ParseFromStringStrict(str)) << str;
   }
 }
 
 TYPED_TEST(FixedIntGoldenDataTest, ParseFromStringStrict) {
-  for (auto pair : kSortedStringSignedValues) {
+  for (auto pair : kSignedValueStrings) {
     TypeParam value;
-    EXPECT_TRUE(value.ParseFromStringStrict(pair.second));
+    EXPECT_TRUE(value.ParseFromStringStrict(pair.second)) << pair.second;
     EXPECT_EQ(TypeParam(pair.first), value);
   }
-  for (auto pair : kSortedStringNonCanonicalValues) {
+  for (auto pair : kNonCanonicalSignedValueStrings) {
     TypeParam value;
-    EXPECT_TRUE(value.ParseFromStringStrict(pair.second));
+    EXPECT_TRUE(value.ParseFromStringStrict(pair.second)) << pair.second;
     EXPECT_EQ(TypeParam(static_cast<int128>(pair.first)), value);
   }
-  for (absl::string_view str : kInvalidStringSigned128BitValues) {
-    EXPECT_FALSE(TypeParam().ParseFromStringStrict(str));
+  for (absl::string_view str : kSigned128BitValueInvalidStrings) {
+    EXPECT_FALSE(TypeParam().ParseFromStringStrict(str)) << str;
+  }
+}
+
+template <typename TypeParam>
+bool SplitAndParseStringSegments(absl::string_view str, TypeParam* value) {
+  std::vector<absl::string_view> parts = absl::StrSplit(str, ',');
+  absl::Span<const absl::string_view> extra_segments = parts;
+  extra_segments.remove_prefix(1);
+  return value->ParseFromStringSegments(parts[0], extra_segments);
+}
+
+template <typename TypeParam>
+void TestParseFromTrivialStringSegments(absl::string_view valid_str,
+                                        TypeParam expected_output) {
+  TypeParam value;
+  EXPECT_TRUE(value.ParseFromStringSegments(valid_str, {})) << valid_str;
+  EXPECT_EQ(expected_output, value);
+
+  EXPECT_TRUE(value.ParseFromStringSegments(valid_str, {""})) << valid_str;
+  EXPECT_EQ(expected_output, value);
+
+  EXPECT_TRUE(value.ParseFromStringSegments(valid_str, {"", ""})) << valid_str;
+  EXPECT_EQ(expected_output, value);
+}
+
+TYPED_TEST(FixedUintGoldenDataTest, ParseFromStringSegments) {
+  for (auto pair : kUnsignedValueStrings) {
+    TestParseFromTrivialStringSegments(pair.second, TypeParam(pair.first));
+  }
+  for (auto pair : kNonCanonicalUnsignedValueStrings) {
+    TestParseFromTrivialStringSegments(pair.second, TypeParam(pair.first));
+  }
+  for (auto pair : kUnsignedValueStringSegments) {
+    TypeParam value;
+    EXPECT_TRUE(SplitAndParseStringSegments(pair.second, &value));
+    EXPECT_EQ(TypeParam(pair.first), value);
+  }
+  for (absl::string_view str : kUnsigned128BitValueInvalidStrings) {
+    TypeParam value;
+    EXPECT_FALSE(SplitAndParseStringSegments(str, &value));
+  }
+  for (absl::string_view str : kUnsigned128BitValueInvalidStringSegments) {
+    TypeParam value;
+    EXPECT_FALSE(SplitAndParseStringSegments(str, &value));
+  }
+}
+
+TYPED_TEST(FixedIntGoldenDataTest, ParseFromStringSegments) {
+  for (auto pair : kSignedValueStrings) {
+    TestParseFromTrivialStringSegments(pair.second, TypeParam(pair.first));
+  }
+  for (auto pair : kNonCanonicalSignedValueStrings) {
+    TestParseFromTrivialStringSegments(pair.second, TypeParam(pair.first));
+  }
+  for (auto pair : kSignedValueStringSegments) {
+    TypeParam value;
+    EXPECT_TRUE(SplitAndParseStringSegments(pair.second, &value));
+    EXPECT_EQ(TypeParam(pair.first), value);
+  }
+  for (absl::string_view str : kSigned128BitValueInvalidStrings) {
+    TypeParam value;
+    EXPECT_FALSE(SplitAndParseStringSegments(str, &value));
+  }
+  for (absl::string_view str : kSigned128BitValueInvalidStringSegments) {
+    TypeParam value;
+    EXPECT_FALSE(SplitAndParseStringSegments(str, &value));
   }
 }
 
@@ -1732,6 +1894,8 @@ TYPED_TEST(FixedIntGeneratedDataTest, StringRoundTrip) {
     T actual;
     EXPECT_TRUE(actual.ParseFromStringStrict(str));
     EXPECT_EQ(expect, actual);
+
+    TestParseFromTrivialStringSegments(str, expect);
   }
 }
 

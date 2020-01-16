@@ -45,8 +45,8 @@ class ParsedScript {
   // Mapping of each break/continue statement to a BreakContinueContext
   // structure.  All node pointers within each BreakContinueContext are
   // owend by <parser_output_>.
-  using BreakContinueMap =
-      absl::flat_hash_map<const ASTStatement*, BreakContinueContext>;
+  using BreakContinueMap = absl::flat_hash_map<const ASTBreakContinueStatement*,
+                                               BreakContinueContext>;
 
   // Mapping of variable name to ASTType.
   using VariableTypeMap =

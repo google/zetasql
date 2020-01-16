@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <string>
 #include <type_traits>
 
@@ -46,14 +47,13 @@ namespace {
 
 // Maximum number of decimal digits in the integer and the fractional part of a
 // NUMERIC value.
-const int kMaxIntegerDigits = 29;
-const int kMaxFractionalDigits = 9;
+constexpr int kMaxIntegerDigits = 29;
+constexpr int kMaxFractionalDigits = 9;
 
-const int kBitsPerByte = 8;
-const int kBitsPerUint32 = 32;
-const int kBitsPerUint64 = 64;
-const int kBitsPerInt64 = 64;
-const int kBitsPerInt128 = 128;
+constexpr int kBitsPerByte = 8;
+constexpr int kBitsPerUint64 = 64;
+constexpr int kBitsPerInt64 = 64;
+constexpr int kBitsPerInt128 = 128;
 constexpr int kBytesPerInt64 = kBitsPerInt64 / kBitsPerByte;
 constexpr int kBytesPerInt128 = kBitsPerInt128 / kBitsPerByte;
 
@@ -170,6 +170,177 @@ void AddDecimalPointAndAdjustZeros(size_t first_digit_index, size_t scale,
   }
 }
 
+// PowersAsc<Word, first_value, base, size>() returns a std::array<Word, size>
+// {first_value, first_value * base, ..., first_value * pow(base, size - 1)}.
+template <typename Word, Word first_value, Word base, int size, typename... T>
+constexpr std::enable_if_t<(sizeof...(T) == size), std::array<Word, size>>
+PowersAsc(T... v) {
+  return std::array<Word, size>{v...};
+}
+
+template <typename Word, Word first_value, Word base, int size, typename... T>
+constexpr std::enable_if_t<(sizeof...(T) < size), std::array<Word, size>>
+PowersAsc(T... v) {
+  return PowersAsc<Word, first_value, base, size>(first_value, v * base...);
+}
+
+// PowersAsc<Word, last_value, base, size>() returns a std::array<Word, size>
+// {last_value * pow(base, size - 1), last_value * pow(base, size - 2), ...,
+//  last_value}.
+template <typename Word, Word last_value, Word base, int size, typename... T>
+constexpr std::enable_if_t<(sizeof...(T) == size), std::array<Word, size>>
+PowersDesc(T... v) {
+  return std::array<Word, size>{v...};
+}
+
+template <typename Word, Word last_value, Word base, int size, typename... T>
+constexpr std::enable_if_t<(sizeof...(T) < size), std::array<Word, size>>
+PowersDesc(T... v) {
+  return PowersDesc<Word, last_value, base, size>(v * base..., last_value);
+}
+
+struct ENotationParts {
+  bool negative = false;
+  absl::string_view int_part;
+  absl::string_view fract_part;
+  absl::string_view exp_part;
+};
+
+#define RETURN_FALSE_IF(x) \
+  if (ABSL_PREDICT_FALSE(x)) return false
+
+bool SplitENotationParts(absl::string_view str, ENotationParts* parts) {
+  const char* start = str.data();
+  const char* end = str.data() + str.size();
+
+  // Skip whitespace.
+  for (; start < end && (absl::ascii_isspace(*start)); ++start) {
+  }
+  for (; start < end && absl::ascii_isspace(*(end - 1)); --end) {
+  }
+
+  // Empty or only spaces
+  RETURN_FALSE_IF(start == end);
+  *parts = ENotationParts();
+
+  parts->negative = (*start == '-');
+  start += (*start == '-' || *start == '+');
+  for (const char* c = end; --c >= start;) {
+    if (*c == 'e' || *c == 'E') {
+      parts->exp_part = absl::string_view(c + 1, end - c - 1);
+      RETURN_FALSE_IF(parts->exp_part.empty());
+      end = c;
+      break;
+    }
+  }
+  for (const char* c = start; c < end; ++c) {
+    if (*c == '.') {
+      parts->fract_part = absl::string_view(c + 1, end - c - 1);
+      end = c;
+      break;
+    }
+  }
+  parts->int_part = absl::string_view(start, end - start);
+  return true;
+}
+
+// Parses <exp_part> and add <extra_scale> to the result.
+// If <exp_part> represents an integer that is below int64min, the result is
+// int64min.
+bool ParseExponent(absl::string_view exp_part, uint extra_scale, int64_t* exp) {
+  *exp = extra_scale;
+  if (!exp_part.empty()) {
+    FixedInt<64, 1> exp_fixed_int;
+    if (ABSL_PREDICT_TRUE(exp_fixed_int.ParseFromStringStrict(exp_part))) {
+      RETURN_FALSE_IF(exp_fixed_int.AddOverflow(*exp));
+      *exp = exp_fixed_int.number()[0];
+    } else if (exp_part.size() > 1 && exp_part[0] == '-') {
+      // Still need to check whether exp_part contains only digits after '-'.
+      exp_part.remove_prefix(1);
+      for (char c : exp_part) {
+        RETURN_FALSE_IF(!std::isdigit(c));
+      }
+      *exp = std::numeric_limits<int64_t>::min();
+    } else {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Parses <int_part>.<fract_part>E<exp> to FixedUint.
+// If <strict> is true, treats the input as invalid if it does not represent
+// a whole number. If <strict> is false, rounds the input away from zero to a
+// whole number. Returns true iff the input is valid.
+template <int n>
+bool ParseNumber(absl::string_view int_part, absl::string_view fract_part,
+                 int64_t exp, bool strict, FixedUint<64, n>* output) {
+  *output = FixedUint<64, n>();
+  bool round_up = false;
+  if (exp >= 0) {
+    // Promote up to exp fractional digits to the integer part.
+    size_t num_promoted_fract_digits = fract_part.size();
+    if (exp < fract_part.size()) {
+      round_up = fract_part[exp] >= '5';
+      num_promoted_fract_digits = exp;
+    }
+    absl::string_view promoted_fract_part(fract_part.data(),
+                                          num_promoted_fract_digits);
+    fract_part.remove_prefix(num_promoted_fract_digits);
+    if (int_part.empty()) {
+      RETURN_FALSE_IF(!output->ParseFromStringStrict(promoted_fract_part));
+    } else {
+      RETURN_FALSE_IF(
+          !output->ParseFromStringSegments(int_part, {promoted_fract_part}));
+      int_part = absl::string_view();
+    }
+
+    // If exp is greater than the number of promoted fractional digits,
+    // scale the result up by pow(10, exp - num_promoted_fract_digits).
+    size_t extra_exp = static_cast<size_t>(exp) - num_promoted_fract_digits;
+    for (; extra_exp >= 19; extra_exp -= 19) {
+      RETURN_FALSE_IF(output->MultiplyOverflow(internal::k1e19));
+    }
+    if (extra_exp != 0) {
+      static constexpr std::array<uint64_t, 19> kPowers =
+          PowersAsc<uint64_t, 1, 10, 19>();
+      RETURN_FALSE_IF(output->MultiplyOverflow(kPowers[extra_exp]));
+    }
+  } else {  // exp < 0
+    RETURN_FALSE_IF(int_part.size() + fract_part.size() == 0);
+    // Demote up to -exp digits from int_part
+    if (exp >= static_cast<int64_t>(-int_part.size())) {
+      size_t int_digits = int_part.size() + exp;
+      round_up = int_part[int_digits] >= '5';
+      RETURN_FALSE_IF(int_digits != 0 &&
+                      !output->ParseFromStringStrict(
+                          absl::string_view(int_part.data(), int_digits)));
+      int_part.remove_prefix(int_digits);
+    }
+  }
+  // The remaining characters in int_part and fract_part have not been visited.
+  // They represent the fractional digits to be discarded. In strict mode, they
+  // must be zeros; otherwise they must be digits.
+  if (strict) {
+    for (char c : int_part) {
+      RETURN_FALSE_IF(c != '0');
+    }
+    for (char c : fract_part) {
+      RETURN_FALSE_IF(c != '0');
+    }
+  } else {
+    for (char c : int_part) {
+      RETURN_FALSE_IF(!std::isdigit(c));
+    }
+    for (char c : fract_part) {
+      RETURN_FALSE_IF(!std::isdigit(c));
+    }
+  }
+  RETURN_FALSE_IF(round_up && output->AddOverflow(uint64_t{1}));
+  return true;
+}
+#undef RETURN_FALSE_IF
+
 // Computes static_cast<double>(value / kScalingFactor) with minimal precision
 // loss.
 double RemoveScaleAndConvertToDouble(__int128 value) {
@@ -265,168 +436,20 @@ void NumericValue::AppendToString(std::string* output) const {
 // digits.
 zetasql_base::StatusOr<NumericValue> NumericValue::FromStringInternal(
     absl::string_view str, bool is_strict) {
-  constexpr __int128 kMaxIntegerPart = internal::kNumericMax / kScalingFactor;
-  // Max allowed value of the exponent part.
-  const int kMaxNumericExponent = 65536;
-
-  if (str.empty()) {
-    return MakeInvalidNumericError(str);
-  }
-
-  const char* start = str.data();
-  const char* end = str.data() + str.size();
-
-  // Skip whitespace.
-  for (; start < end && absl::ascii_isspace(*start); ++start) {}
-  for (; start < end && absl::ascii_isspace(*(end - 1)); --end) {}
-
-  int sign = 1;
-  if (*start == '+') {
-    ++start;
-  } else if (*start == '-') {
-    sign = -1;
-    ++start;
-  }
-
-  // Find position of the decimal dot and the exponent part in the string. The
-  // numerical part will be validated for correctness, namely we are going to
-  // check that it consists only of digits and potentially a single dot.
-  const char* exp_start = nullptr;
-  const char* dot_pos = nullptr;
-  for (const char* c = start; c < end; ++c) {
-    if (*c == '.') {
-      if (dot_pos != nullptr) {
-        return MakeInvalidNumericError(str);
-      }
-      dot_pos = c;
-      continue;
-    }
-    if (*c == 'e' || *c == 'E') {
-      exp_start = c + 1;
-      break;
-    }
-    ZETASQL_RETURN_IF_ERROR(ValidateAsciiDigit(*c, str));
-  }
-
-  // If the exponent part is present, validate and parse it now.
-  int64_t exponent = 0;
-  if (exp_start != nullptr) {
-    if (exp_start == end) {
-      return MakeInvalidNumericError(str);
-    }
-
-    const char* end_expluding_exponent = exp_start - 1;
-
-    int exp_sign = 1;
-    if (*exp_start == '+') {
-      ++exp_start;
-    } else if (*exp_start == '-') {
-      exp_sign = -1;
-      ++exp_start;
-    }
-
-    int num_exp_digits = 0;
-    for (; exp_start < end; ++exp_start, ++num_exp_digits) {
-      ZETASQL_RETURN_IF_ERROR(ValidateAsciiDigit(*exp_start, str));
-      if (ABSL_PREDICT_FALSE(exponent > kMaxNumericExponent)) {
-        return MakeInvalidNumericError(str);
-      }
-
-      int digit = *exp_start - '0';
-      exponent = exponent * 10 + digit;
-    }
-
-    if (num_exp_digits == 0) {
-      return MakeInvalidNumericError(str);
-    }
-
-    exponent *= exp_sign;
-    end = end_expluding_exponent;
-  }
-
-  int64_t num_integer_digits = dot_pos == nullptr ? end - start : dot_pos - start;
-  int64_t num_fract_digits = dot_pos == nullptr ? 0 : end - dot_pos - 1;
-  int64_t num_total_digits = num_integer_digits + num_fract_digits;
-
-  // We adjust the position of the decimal point if the exponent is present.
-  // That is done by changing the count of how many digits belong to the integer
-  // and the fractional parts.
-  num_integer_digits = std::max<int64_t>(0, num_integer_digits + exponent);
-  num_fract_digits = std::max<int64_t>(0, num_fract_digits - exponent);
-
-  // Parse the numerical part now.
-  __int128 value = 0;
-  __int128 fractional_part = 0;
-  int64_t int_count = 0;
-  int64_t fract_count = 0;
-
-  if (num_fract_digits > num_total_digits) {
-    // Account for the zeroes that come right after the point but before digits
-    // in the fractional part.
-    fract_count = num_fract_digits - num_total_digits;
-  }
-
-  for (const char* c = start; c < end; ++c) {
-    if (*c == '.') {
-      continue;
-    }
-
-    int digit = *c - '0';
-
-    if (int_count < num_integer_digits) {
-      ++int_count;
-      value = value * 10 + digit;
-
-      // After adding each digit, check if the integer part is outside the
-      // permitted range. The multiplication itself can't overflow, since we're
-      // operating on the lower bits prior to shifting by the scaling factor.
-      if (ABSL_PREDICT_FALSE(value > kMaxIntegerPart)) {
-        return MakeInvalidNumericError(str);
-      }
-    } else if (fract_count < num_fract_digits) {
-      if (fract_count >= kMaxFractionalDigits && is_strict && digit != 0) {
-        return MakeInvalidNumericError(str);
-      } else if (fract_count == kMaxFractionalDigits && !is_strict) {
-        // Non-strict parsing, we get an extra digit in the fractional part, so
-        // perform a half away from zero rounding.
-        fractional_part += (digit + 5) / 10;
-      } else if (fract_count < kMaxFractionalDigits) {
-        fractional_part = fractional_part * 10 + digit;
-      }
-
-      ++fract_count;
+  ENotationParts parts;
+  int64_t exp;
+  FixedUint<64, 2> abs;
+  if (ABSL_PREDICT_TRUE(SplitENotationParts(str, &parts)) &&
+      ABSL_PREDICT_TRUE(
+          ParseExponent(parts.exp_part, kMaxFractionalDigits, &exp)) &&
+      ABSL_PREDICT_TRUE(ParseNumber(parts.int_part, parts.fract_part, exp,
+                                    is_strict, &abs))) {
+    auto number_or_status = FromFixedUint(abs, parts.negative);
+    if (number_or_status.ok()) {
+      return number_or_status;
     }
   }
-
-  if ((int_count == 0) && (fract_count == 0)) {
-    return MakeInvalidNumericError(str);
-  }
-
-  // If the exponent was bigger than zero there might be extra zeroes that
-  // should come after all digits in the string have been exhausted, account for
-  // them now.
-  for (; int_count < num_integer_digits; ++int_count) {
-    value *= 10;
-
-    // After shifting for each zero, check if the integer part is outside the
-    // permitted range. The multiplication itself can't overflow, since we're
-    // operating on the lower bits prior to shifting by the scaling factor.
-    if (ABSL_PREDICT_FALSE(value > kMaxIntegerPart)) {
-      return MakeInvalidNumericError(str);
-    }
-  }
-
-  // Potentially add zeroes at the end of the fractional part.
-  for (int64_t i = num_fract_digits; i < kMaxFractionalDigits; ++i) {
-    fractional_part *= 10;
-  }
-
-  value *= kScalingFactor;
-  value += fractional_part;
-
-  auto number_or_status = FromPackedInt(value * sign);
-  return number_or_status.ok() ?
-      number_or_status : MakeInvalidNumericError(str);
+  return MakeInvalidNumericError(str);
 }
 
 double NumericValue::ToDouble() const {
@@ -672,19 +695,6 @@ zetasql_base::StatusOr<NumericValue> NumericValue::PowerInternal(
 }
 
 namespace {
-// Powers<base, size>() returns an array of <size> elements
-// {pow(base, size), pow(base, size - 1), ..., base}.
-template <__int128 base, int size, typename... T>
-constexpr std::enable_if_t<(sizeof...(T) == size), std::array<__int128, size>>
-Powers(T... v) {
-  return std::array<__int128, size>{v...};
-}
-
-template <__int128 base, int size, typename... T>
-constexpr std::enable_if_t<(sizeof...(T) < size), std::array<__int128, size>>
-Powers(T... v) {
-  return Powers<base, size>(v * base..., base);
-}
 
 template <int32_t divisor>
 inline void RoundConst32(bool round_away_from_zero, __int128* dividend) {
@@ -732,7 +742,7 @@ zetasql_base::StatusOr<NumericValue> NumericValue::RoundInternal(
     default: {
       constexpr int kMaxDigits = kMaxFractionalDigits + kMaxIntegerDigits;
       static constexpr std::array<__int128, kMaxDigits> kTruncFactors =
-          Powers<10, kMaxDigits>();
+          PowersDesc<__int128, 10, 10, kMaxDigits>();
       __int128 trunc_factor = kTruncFactors[digits + kMaxIntegerDigits];
       if (round_away_from_zero) {
         __int128 offset = trunc_factor >> 1;

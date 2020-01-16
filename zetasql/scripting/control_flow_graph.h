@@ -51,6 +51,9 @@ class ControlFlowEdge {
   const ControlFlowNode* successor() const { return successor_; }
   Kind kind() const { return kind_; }
 
+  // Returns a list of variables that get destroyed when this edge executes.
+  std::set<std::string> GetDestroyedVariables() const;
+
   // Returns a single-line debug string of this edge.  Does not include the
   // details of the successor/predecessor nodes.
   std::string DebugString() const;
@@ -59,11 +62,13 @@ class ControlFlowEdge {
   friend class ControlFlowGraphBuilder;
   ControlFlowEdge(const ControlFlowNode* predecessor,
                   const ControlFlowNode* successor, Kind kind,
-                  ControlFlowGraph* graph)
+                  ControlFlowGraph* graph,
+                  const std::vector<const ASTBeginEndBlock*>& blocks_to_exit)
       : predecessor_(predecessor),
         successor_(successor),
         kind_(kind),
-        graph_(graph) {}
+        graph_(graph),
+        blocks_to_exit_(blocks_to_exit) {}
 
   // Node which executes prior to this transition (owned by graph_).
   const ControlFlowNode* predecessor_;
@@ -76,6 +81,10 @@ class ControlFlowEdge {
 
   // The underlying ControlFlowGraph.
   ControlFlowGraph* graph_;
+
+  // Blocks exited by this edge.  All variables declared in this blocks go out
+  // of scope when this edge executes.
+  std::vector<const ASTBeginEndBlock*> blocks_to_exit_;
 };
 
 // A node in a control flow graph representing the execution of one AST node.
@@ -90,9 +99,10 @@ class ControlFlowEdge {
 // statement.
 //
 // If the script contains a LOOP statement with an empty body, a node will be
-// with an edge to itself, representing the empty loop body.  This node will
-// have a NULL AST-node, since there is no AST node in the loop body to
-// associate with it.
+// created with an edge to itself, representing the empty loop body.  This node
+// will have a NULL AST-node corresponding to the empty statement list; this is
+// the only time that an ASTStatementList will have a ControlFlowNode
+// associated with it.
 class ControlFlowNode {
  public:
   using EdgeMap =

@@ -208,7 +208,7 @@ cc_proto_library(
             name = "com_google_code_findbugs_jsr305",
             artifact = "com.google.code.findbugs:jsr305:3.0.2",
             tags = ["maven_coordinates=com.google.code.findbugs:jsr305:3.0.2"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "766ad2a0783f2687962c8ad74ceecc38a28b9f72a2d085ee438b7813e928d0c7",
             licenses = ["notice"],  # Apache 2.0
         )
@@ -218,7 +218,7 @@ cc_proto_library(
             name = "com_google_errorprone_error_prone_annotations",
             artifact = "com.google.errorprone:error_prone_annotations:2.3.2",
             tags = ["maven_coordinates=com.google.errorprone:error_prone_annotations:2.3.2"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "357cd6cfb067c969226c442451502aee13800a24e950fdfde77bcdb4565a668d",
             licenses = ["notice"],  # Apache 2.0
         )
@@ -228,7 +228,7 @@ cc_proto_library(
             name = "com_google_j2objc_j2objc_annotations",
             artifact = "com.google.j2objc:j2objc-annotations:1.1",
             tags = ["maven_coordinates=com.google.j2objc:j2objc-annotations:1.1"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "2994a7eb78f2710bd3d3bfb639b2c94e219cedac0d4d084d516e78c16dddecf6",
             licenses = ["notice"],  # Apache 2.0
         )
@@ -238,7 +238,7 @@ cc_proto_library(
             name = "org_codehaus_mojo_animal_sniffer_annotations",
             artifact = "org.codehaus.mojo:animal-sniffer-annotations:1.17",
             tags = ["maven_coordinates=org.codehaus.mojo:animal-sniffer-annotations:1.17"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "92654f493ecfec52082e76354f0ebf87648dc3d5cec2e3c3cdb947c016747a53",
             licenses = ["notice"],  # MIT
         )
@@ -248,7 +248,7 @@ cc_proto_library(
             name = "com_google_guava_guava",
             artifact = "com.google.guava:guava:26.0-android",
             tags = ["maven_coordinates=com.google.guava:guava:26.0-android"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "1d044ebb866ef08b7d04e998b4260c9b52fab6e6d6b68d207859486bb3686cd5",
             licenses = ["notice"],  # Apache 2.0
         )
@@ -262,7 +262,7 @@ cc_proto_library(
             name = "com_google_guava_testlib",
             artifact = "com.google.guava:guava-testlib:26.0-jre",
             tags = ["maven_coordinates=com.google.guava:testlib:26.0-jre"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "3e738516af017c9de105bf3a7f0a9f69183e47520446cb6df9bc24050834011e",
             licenses = ["notice"],  # Apache 2.0
         )
@@ -272,7 +272,7 @@ cc_proto_library(
             name = "com_google_code_gson_gson",
             artifact = "com.google.code.gson:gson:jar:2.7",
             tags = ["maven_coordinates=com.google.code.gson:gson:jar:2.7"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "2d43eb5ea9e133d2ee2405cc14f5ee08951b8361302fdd93494a3a997b508d32",
             licenses = ["notice"],  # Apache 2.0
         )
@@ -287,7 +287,7 @@ cc_proto_library(
             testonly = 1,
             artifact = "com.google.truth:truth:0.44",
             tags = ["maven_coordinates=com.google.truth:truth:0.44"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "a9e6796786c9c77a5fe19b08e72fe0a620d53166df423d8861af9ebef4dc4247",
             licenses = ["notice"],  # Apache 2.0
         )
@@ -298,7 +298,7 @@ cc_proto_library(
             testonly = 1,
             artifact = "com.google.truth.extensions:truth-proto-extension:0.44",
             tags = ["maven_coordinates=com.google.truth.extensions:truth-proto-extension:0.44"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "d964495cee74d6933512c7b414c8723285a6413a4e3f46f558fbaf624dfd7c9f",
             licenses = ["notice"],  # Apache 2.0
         )
@@ -308,7 +308,7 @@ cc_proto_library(
             name = "io_netty_netty_buffer",
             artifact = "io.netty:netty-buffer:4.1.34.Final",
             tags = ["maven_coordinates=io.netty:netty-buffer:4.1.34.Final"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "39dfe88df8505fd01fbf9c1dbb6b6fa9b0297e453c3dc4ce039ea578aea2eaa3",
             licenses = ["notice"],  # Apache 2.0
         )
@@ -318,7 +318,7 @@ cc_proto_library(
             name = "io_netty_netty_codec",
             artifact = "io.netty:netty-codec:4.1.34.Final",
             tags = ["maven_coordinates=io.netty:netty-codec:4.1.34.Final"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "52e9eeb3638a8ed0911c72a508c05fa4f9d3391125eae46f287d3a8a0776211d",
             licenses = ["notice"],  # Apache 2.0
         )
@@ -328,7 +328,7 @@ cc_proto_library(
             name = "io_netty_netty_codec_http",
             artifact = "io.netty:netty-codec-http:4.1.34.Final",
             tags = ["maven_coordinates=io.netty:netty-codec-http:4.1.34.Final"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "5df5556ef6b0e7ce7c72a359e4ca774fcdf8d8fe12f0b6332715eaa44cfe41f8",
             licenses = ["notice"],  # Apache 2.0
         )
@@ -338,7 +338,7 @@ cc_proto_library(
             name = "io_netty_netty_codec_http2",
             artifact = "io.netty:netty-codec-http2:4.1.34.Final",
             tags = ["maven_coordinates=io.netty:netty-codec-http2:4.1.34.Final"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "319f66f3ab0d3aac3477febf19c259990ee8c639fc7da8822dfa58e7dab1bdcf",
             licenses = ["notice"],  # Apache 2.0
         )
@@ -348,7 +348,7 @@ cc_proto_library(
             name = "io_netty_netty_common",
             artifact = "io.netty:netty-common:4.1.34.Final",
             tags = ["maven_coordinates=io.netty:netty-common:4.1.34.Final"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "122931117eacf370b054d0e8a2411efa81de4956a6c3f938b0f0eb915969a425",
             licenses = ["notice"],  # Apache 2.0
         )
@@ -358,7 +358,7 @@ cc_proto_library(
             name = "io_netty_netty_handler",
             artifact = "io.netty:netty-handler:4.1.34.Final",
             tags = ["maven_coordinates=io.netty:netty-handler:4.1.34.Final"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "035616801fe9894ca2490832cf9976536dac740f41e90de1cdd4ba46f04263d1",
             licenses = ["notice"],  # Apache 2.0
         )
@@ -368,7 +368,7 @@ cc_proto_library(
             name = "io_netty_netty_resolver",
             artifact = "io.netty:netty-resolver:4.1.34.Final",
             tags = ["maven_coordinates=io.netty:netty-resolver:4.1.34.Final"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "774221ed4c130b532865770b10630bc12d0d400127da617ee0ac8de2a7ac2097",
             licenses = ["notice"],  # Apache 2.0
         )
@@ -378,7 +378,7 @@ cc_proto_library(
             name = "io_netty_netty_transport",
             artifact = "io.netty:netty-transport:4.1.34.Final",
             tags = ["maven_coordinates=io.netty:netty-transport:4.1.34.Final"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "2b3f7d3a595101def7d411793a675bf2a325964475fd7bdbbe448e908de09445",
             exports = ["@io_netty_netty_common//jar"],
             licenses = ["notice"],  # Apache 2.0
@@ -389,7 +389,7 @@ cc_proto_library(
             name = "junit_junit",
             artifact = "junit:junit:4.12",
             tags = ["maven_coordinates=junit:junit:4.12"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "59721f0805e223d84b90677887d9ff567dc534d7c502ca903c0c2b17f05c116a",
             licenses = ["notice"],  # EPL 1.0
         )
@@ -399,7 +399,7 @@ cc_proto_library(
             name = "com_google_api_grpc_proto_google_common_protos",
             artifact = "com.google.api.grpc:proto-google-common-protos:1.12.0",
             tags = ["maven_coordinates=com.google.api.grpc:proto-google-common-protos:1.12.0"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "bd60cd7a423b00fb824c27bdd0293aaf4781be1daba6ed256311103fb4b84108",
             licenses = ["notice"],  # Apache 2.0
         )
@@ -408,7 +408,7 @@ cc_proto_library(
         jvm_maven_import_external(
             name = "io_grpc_grpc_context",
             artifact = "io.grpc:grpc-context:1.18.0",
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "12bc83b9fa3aa7550d75c4515b8ae74f124ba14d3692a5ef4737a2e855cbca2f",
             licenses = ["notice"],  # Apache 2.0
         )
@@ -417,7 +417,7 @@ cc_proto_library(
         jvm_maven_import_external(
             name = "io_grpc_grpc_core",
             artifact = "io.grpc:grpc-core:1.18.0",
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             licenses = ["notice"],  # Apache 2.0
             runtime_deps = [
                 "@io_opencensus_opencensus_api//jar",
@@ -430,7 +430,7 @@ cc_proto_library(
         jvm_maven_import_external(
             name = "io_grpc_grpc_netty",
             artifact = "io.grpc:grpc-netty:1.18.0",
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             licenses = ["notice"],  # Apache 2.0
             runtime_deps = [
                 "@io_netty_netty_buffer//jar",
@@ -450,7 +450,7 @@ cc_proto_library(
         jvm_maven_import_external(
             name = "io_grpc_grpc_stub",
             artifact = "io.grpc:grpc-stub:1.18.0",
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             licenses = ["notice"],  # Apache 2.0
             artifact_sha256 = "6509fbbcf953f9c426f891021279b2fb5fb21a27c38d9d9ef85fc081714c2450",
         )
@@ -460,7 +460,7 @@ cc_proto_library(
             name = "io_grpc_grpc_protobuf",
             artifact = "io.grpc:grpc-protobuf:1.18.0",
             artifact_sha256 = "ab714cf4fec2c588f9d8582c2844485c287afa2a3a8da280c62404e312b2d2b1",
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             licenses = ["notice"],  # Apache 2.0
         )
 
@@ -468,7 +468,7 @@ cc_proto_library(
         jvm_maven_import_external(
             name = "io_grpc_grpc_protobuf_lite",
             artifact = "io.grpc:grpc-protobuf-lite:1.18.0",
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "108a16c2b70df636ee78976916d6de0b8f393b2b45b5b62909fc03c1a928ea9b",
             licenses = ["notice"],  # Apache 2.0
         )
@@ -478,7 +478,7 @@ cc_proto_library(
             name = "javax_annotation_javax_annotation_api",
             artifact = "javax.annotation:javax.annotation-api:1.2",
             tags = ["maven_coordinates=javax.annotation:javax.annotation-api:1.2"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "5909b396ca3a2be10d0eea32c74ef78d816e1b4ead21de1d78de1f890d033e04",
             licenses = ["reciprocal"],  # CDDL License
         )
@@ -488,7 +488,7 @@ cc_proto_library(
             name = "io_opencensus_opencensus_api",
             artifact = "io.opencensus:opencensus-api:0.21.0",
             tags = ["maven_coordinates=io.opencensus:opencensus-api:0.21.0"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "8e2cb0f6391d8eb0a1bcd01e7748883f0033b1941754f4ed3f19d2c3e4276fc8",
             licenses = ["notice"],  # Apache 2.0
         )
@@ -498,7 +498,7 @@ cc_proto_library(
             name = "io_opencensus_opencensus_contrib_grpc_metrics",
             artifact = "io.opencensus:opencensus-contrib-grpc-metrics:0.21.0",
             tags = ["maven_coordinates=io.opencensus:opencensus-contrib-grpc-metrics:0.21.0"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "29fc79401082301542cab89d7054d2f0825f184492654c950020553ef4ff0ef8",
             licenses = ["notice"],  # Apache 2.0
         )
@@ -620,7 +620,7 @@ cc_proto_library(
             name = "joda_time",
             artifact = "joda-time:joda-time:2.3",
             tags = ["maven_coordinates=joda-time:joda-time:2.3"],
-            server_urls = ["http://central.maven.org/maven2"],
+            server_urls = ["https://repo1.maven.org/maven2"],
             artifact_sha256 = "602fd8006641f8b3afd589acbd9c9b356712bdcf0f9323557ec8648cd234983b",
             licenses = ["notice"],  # Apache 2.0
         )

@@ -76,6 +76,7 @@
 //
 //      AppendToString        std::string*
 //   ParseFromStringStrict    absl::string_view
+//  ParseFromStringSegments   absl::string_view
 //
 //     SerializeToBytes       std::string*
 //   DeserializeFromBytes     absl::string_view
@@ -136,6 +137,7 @@
 #include "absl/base/optimization.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
@@ -442,8 +444,28 @@ class FixedUint final {
   void AppendToString(std::string* result) const;
 
   // Parse digit-only string representation of an unsigned decimal integer and
-  // write the number into the FixedUint.
-  bool ParseFromStringStrict(absl::string_view str);
+  // write the number into the FixedUint. Returns true iff str is valid.
+  // If false is returned, the state of *this is undefined.
+  bool ParseFromStringStrict(absl::string_view str) {
+    return !str.empty() && ParseOrAppendDigits(str, false);
+  }
+  // Equivalent to ParseFromStringStrict(absl::StrCat(<all segments>)),
+  // except that no temporary string is created, and first_segment cannot be
+  // empty (extra_segments and its elements can be empty).
+  bool ParseFromStringSegments(
+      absl::string_view first_segment,
+      absl::Span<const absl::string_view> extra_segments) {
+    if (ABSL_PREDICT_FALSE(!ParseFromStringStrict(first_segment))) {
+      return false;
+    }
+    for (absl::string_view segment : extra_segments) {
+      if (ABSL_PREDICT_FALSE(!segment.empty() &&
+                             !ParseOrAppendDigits(segment, true))) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   template <typename H>
   friend H AbslHashValue(H h,
@@ -460,7 +482,10 @@ class FixedUint final {
   // number_[0] * rh.number_[0], number_[0] * rh.number_[1] and
   // number_[1] * rh.number_[0] are considered.
   bool PartialMultiplyOverflow(const FixedUint& rh, FixedUint* result) const;
-
+  // Either parse or append decimal digits. In append mode, for example,
+  // if *this = 123 and str = "456", then *this will become 123456.
+  // The caller must ensure str is not empty.
+  bool ParseOrAppendDigits(absl::string_view str, bool append);
   // The number is stored in the little-endian order with the least significant
   // word being at the index 0.
   std::array<Word, kNumWords> number_;
@@ -595,15 +620,13 @@ void FixedUint<kNumBitsPerWord, kNumWords>::AppendToString(
 }
 
 template <int kNumBitsPerWord, int kNumWords>
-bool FixedUint<kNumBitsPerWord, kNumWords>::ParseFromStringStrict(
-    absl::string_view str) {
-  if (ABSL_PREDICT_FALSE(str.empty())) {
-    return false;
-  }
+bool FixedUint<kNumBitsPerWord, kNumWords>::ParseOrAppendDigits(
+    absl::string_view str, bool append) {
+  DCHECK(!str.empty());
   Word radix = fixed_int_internal::IntTraits<kNumBitsPerWord>::kMaxPowerOf10;
-  size_t radix_log =
-      fixed_int_internal::IntTraits<kNumBitsPerWord>::kMaxPowerOf10Log;
-  size_t first_segment_length = (str.size() - 1) % radix_log + 1;
+  constexpr size_t kMaxDigitsPerSegment =
+      fixed_int_internal::IntTraits<kNumBitsPerWord>::kMaxWholeDecimalDigits;
+  size_t first_segment_length = (str.size() - 1) % kMaxDigitsPerSegment + 1;
   const char* ptr = str.data();
   const char* end = ptr + str.size();
   Word segment_val;
@@ -612,11 +635,21 @@ bool FixedUint<kNumBitsPerWord, kNumWords>::ParseFromStringStrict(
             str.substr(0, first_segment_length), &segment_val))) {
     return false;
   }
-  *this = FixedUint(segment_val);
-  for (ptr += first_segment_length; ptr < end; ptr += radix_log) {
+  if (append) {
+    static constexpr std::array<Word, kMaxDigitsPerSegment> kPowersOf10 =
+        fixed_int_internal::PowersAsc<Word, 10, 10, kMaxDigitsPerSegment>();
+    if (ABSL_PREDICT_FALSE(
+            MultiplyOverflow(kPowersOf10[first_segment_length - 1]) ||
+            AddOverflow(segment_val))) {
+      return false;
+    }
+  } else {
+    *this = FixedUint(segment_val);
+  }
+  for (ptr += first_segment_length; ptr < end; ptr += kMaxDigitsPerSegment) {
     if (ABSL_PREDICT_FALSE(MultiplyOverflow(radix)) ||
         ABSL_PREDICT_FALSE(!fixed_int_internal::ParseFromBase10UnsignedString(
-            absl::string_view(ptr, radix_log), &segment_val)) ||
+            absl::string_view(ptr, kMaxDigitsPerSegment), &segment_val)) ||
         ABSL_PREDICT_FALSE(AddOverflow(segment_val))) {
       return false;
     }
@@ -957,9 +990,39 @@ class FixedInt final {
   }
 
   // Parse string representation of a signed decimal integer with digits only
-  // except the minus sign at the front, and write the number into the
+  // except the plus/minus sign at the front, and write the number into the
   // FixedInt.
-  bool ParseFromStringStrict(absl::string_view str);
+  bool ParseFromStringStrict(absl::string_view str) {
+    if (ABSL_PREDICT_FALSE(str.empty())) {
+      return false;
+    }
+    bool negate = str.at(0) == '-';
+    str.remove_prefix(str.at(0) == '-' || str.at(0) == '+');
+    return rep_.ParseFromStringStrict(str) && SetSignAndAbs(negate, rep_);
+  }
+
+  bool ParseFromStringSegments(
+      absl::string_view first_segment,
+      absl::Span<const absl::string_view> extra_segments) {
+    if (ABSL_PREDICT_FALSE(first_segment.empty())) {
+      return false;
+    }
+    bool negate = first_segment.at(0) == '-';
+    first_segment.remove_prefix(first_segment.at(0) == '-' ||
+                                first_segment.at(0) == '+');
+    return rep_.ParseFromStringSegments(first_segment, extra_segments) &&
+           SetSignAndAbs(negate, rep_);
+  }
+
+  // Sets sign and absolute value. Returns false in case of overflow.
+  bool SetSignAndAbs(bool negative,
+                     const FixedUint<kNumBitsPerWord, kNumWords>& abs) {
+    rep_ = abs;
+    if (negative) {
+      *this = -(*this);
+    }
+    return is_negative() == negative || abs.NonZeroLength() == 0;
+  }
 
   template <typename H>
   friend H AbslHashValue(H h,
@@ -1133,32 +1196,6 @@ inline FixedInt<k, n1 + n2> ExtendAndMultiply(const FixedInt<k, n1>& lh,
                                                  lh.number().data(), n1);
   }
   return FixedInt<k, n1 + n2>(result);
-}
-
-template <int kNumBitsPerWord, int kNumWords>
-bool FixedInt<kNumBitsPerWord, kNumWords>::ParseFromStringStrict(
-    absl::string_view str) {
-  if (ABSL_PREDICT_FALSE(str.empty())) {
-    return false;
-  }
-  bool is_string_negative = false;
-  if (str.at(0) == '-') {
-    is_string_negative = true;
-    str.remove_prefix(1);
-  }
-  FixedUint<kNumBitsPerWord, kNumWords> abs;
-  if (ABSL_PREDICT_FALSE(!abs.ParseFromStringStrict(str))) {
-    return false;
-  }
-  *this = FixedInt(abs.number());
-  if (is_string_negative) {
-    *this = -(*this);
-  }
-  // Overflow when converting to signed fixed int
-  if (ABSL_PREDICT_FALSE(is_negative() != is_string_negative)) {
-    return false;
-  }
-  return true;
 }
 
 }  // namespace zetasql
