@@ -696,9 +696,10 @@ java_library(
     if not native.existing_rule("google_bazel_common"):
         http_archive(
             name = "google_bazel_common",
-            strip_prefix = "bazel-common-67e793d85570be5a714de3327add930422b2fa6d",
-            urls = ["https://github.com/google/bazel-common/archive/67e793d85570be5a714de3327add930422b2fa6d.zip"],
-            sha256 = "62055cdfeb77affca6a02c08aca69934fd34413286b4a2504870de6d9c6848a2",
+            strip_prefix = "bazel-common-5bd8dc4fce8157f1e894ad0b51288ac8bfa7a150",
+            urls = ["https://github.com/google/bazel-common/archive/5bd8dc4fce8157f1e894ad0b51288ac8bfa7a150.zip"],
+            sha256 = "86051547ed1fdc699a5688918a5da1bce312750e7ee00a0714b780f6ce8bb6e4",
+            patches = ["@com_google_zetasql//bazel:common.patch"],
         )
 
     ##########################################################################

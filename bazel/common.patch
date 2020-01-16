@@ -1,13 +1,11 @@
-diff --git a/tools/jarjar/jarjar.bzl b/tools/jarjar/jarjar.bzl
-index 72eb7c6..dd55e11 100644
 --- tools/jarjar/jarjar.bzl
 +++ tools/jarjar/jarjar.bzl
-@@ -76,7 +76,7 @@ jarjar_library = rule(
-             allow_files = [".jar"],
-         ),
-         "_jarjar": attr.label(
--            default = Label("//tools/jarjar"),
-+            default = Label("@bazel_tools//third_party/jarjar:jarjar_bin"),
-             executable = True,
-             cfg = "host",
-         ),
+@@ -79,7 +79,7 @@
+ # Additional attributes only used in opensource builds
+ _jarjar_library_attrs.update({
+     "_jarjar": attr.label(
+-        default = Label("//tools/jarjar"),
++        default = Label("@bazel_tools//third_party/jarjar:jarjar_bin"),
+         executable = True,
+         cfg = "host",
+     ),

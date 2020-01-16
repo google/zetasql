@@ -116,7 +116,25 @@ struct NodeData {
   //  - kind: entry.second
   std::vector<IncompleteEdge> end_edges;
 
-  // Returns true if the node does not execute any code.
+  // Returns true if this node is skipped entirely in the control-flow graph.
+  // This arises when execution of the node is completely empty, causing any
+  // edge leading into the node to instead go to whatever follows it.
+  // Examples include an empty statement list or BEGIN/END block.
+  //
+  // Note: Skipped nodes may still contain end-edges, representing unreachable
+  // statements within them, for example:
+  //
+  // BEGIN
+  // EXCEPTION WHEN ERROR THEN
+  //   SELECT 1;
+  // END;
+  // SELECT 2;
+  //
+  // In this script, execution of the BEGIN node is a nop because the exception
+  // handler clause can never be reached.  However, "SELECT 1" still exists as
+  // an end-edge, so that the "SELECT 1" => "SELECT 2" edge can be constructed
+  // later.  The end result is that "SELECT 1" is unreachable (no predecessors),
+  // but, if we were to somehow reach it, "SELECT 2" would come next.
   bool empty() const { return start == nullptr; }
 
   // Return true if this node refers to a statement require special
@@ -149,18 +167,15 @@ struct NodeData {
   std::string DebugString(const ParsedScript* script) const {
     std::string debug_string = DebugNodeIdentifier(ast_node, script);
     absl::StrAppend(&debug_string, " (");
-    if (empty()) {
-      absl::StrAppend(&debug_string, "<empty>");
-    } else {
-      absl::StrAppend(
-          &debug_string, "start: ", start->DebugString(), ", end edges: ",
-          absl::StrJoin(end_edges, ", ",
-                        [](std::string* out, const IncompleteEdge& edge) {
-                          absl::StrAppend(
-                              out, edge.predecessor->DebugString(), "( ",
+    absl::StrAppend(
+        &debug_string,
+        "start: ", (start == nullptr ? "<empty>" : start->DebugString()),
+        ", end edges: ",
+        absl::StrJoin(
+            end_edges, ", ", [](std::string* out, const IncompleteEdge& edge) {
+              absl::StrAppend(out, edge.predecessor->DebugString(), "( ",
                               ControlFlowEdgeKindString(edge.kind), ")");
-                        }));
-    }
+            }));
     absl::StrAppend(&debug_string, ")");
     return debug_string;
   }
@@ -176,6 +191,13 @@ struct LoopData {
   std::vector<ControlFlowNode*> continue_nodes;
 };
 
+// Contains information about a pending block.
+struct BlockWithExceptionHandlerData {
+  // Lists control-flow nodes which might throw an exception handled by the
+  // current block.
+  std::vector<ControlFlowNode*> handled_nodes;
+};
+
 }  // namespace
 
 // Parse tree visitor to set up a ControlFlowGraph.
@@ -185,7 +207,8 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
 
   zetasql_base::StatusOr<VisitResult> visitASTBreakStatement(
       const ASTBreakStatement* node) override {
-    ZETASQL_ASSIGN_OR_RETURN(NodeData * node_data, AddNodeDataAndGraphNode(node));
+    ZETASQL_ASSIGN_OR_RETURN(NodeData * node_data,
+                     AddNodeDataAndGraphNode(node, /*can_throw=*/false));
     ZETASQL_RET_CHECK(!loop_data_.empty()) << "BREAK statement without enclosing loop; "
                                       "ParsedScript should have failed earlier";
     loop_data_.back().break_nodes.push_back(node_data->start);
@@ -194,7 +217,8 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
 
   zetasql_base::StatusOr<VisitResult> visitASTContinueStatement(
       const ASTContinueStatement* node) override {
-    ZETASQL_ASSIGN_OR_RETURN(NodeData * node_data, AddNodeDataAndGraphNode(node));
+    ZETASQL_ASSIGN_OR_RETURN(NodeData * node_data,
+                     AddNodeDataAndGraphNode(node, /*can_throw=*/false));
     ZETASQL_RET_CHECK(!loop_data_.empty())
         << "CONTINUE statement without enclosing loop; ParsedScript should "
            "have failed earlier";
@@ -204,7 +228,8 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
 
   zetasql_base::StatusOr<VisitResult> visitASTReturnStatement(
       const ASTReturnStatement* node) override {
-    ZETASQL_ASSIGN_OR_RETURN(NodeData * node_data, AddNodeDataAndGraphNode(node));
+    ZETASQL_ASSIGN_OR_RETURN(NodeData * node_data,
+                     AddNodeDataAndGraphNode(node, /*can_throw=*/false));
 
     // Need to exit all blocks when executing a RETURN statement.
     std::vector<const ASTBeginEndBlock*> blocks_to_exit;
@@ -238,19 +263,68 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
     return VisitResult::VisitChildren(node);
   }
 
+  zetasql_base::StatusOr<VisitResult> visitASTExceptionHandlerList(
+      const ASTExceptionHandlerList* node) override {
+    return VisitResult::VisitChildren(node);
+  }
+
+  zetasql_base::StatusOr<VisitResult> visitASTExceptionHandler(
+      const ASTExceptionHandler* node) override {
+    return VisitResult::VisitChildren(node);
+  }
+
   zetasql_base::StatusOr<VisitResult> visitASTStatementList(
       const ASTStatementList* node) override {
+    // Check if this block adds any new exception handlers.
+    bool try_block = false;
+    if (node->parent()->node_kind() == AST_BEGIN_END_BLOCK &&
+        node->parent()
+            ->GetAsOrDie<ASTBeginEndBlock>()
+            ->has_exception_handler()) {
+      ZETASQL_RET_CHECK(node->parent()
+                    ->GetAsOrDie<ASTBeginEndBlock>()
+                    ->statement_list_node() == node)
+          << "Node should be the statement list of its enclosing block";
+      exception_handler_data_stack_.push_back(
+          exception_handler_block_data_map_
+              .at(node->parent()->GetAsOrDie<ASTBeginEndBlock>())
+              .get());
+      try_block = true;
+    }
+
     return VisitResult::VisitChildren(node, [=]() -> zetasql_base::Status {
+      if (try_block) {
+        ZETASQL_RET_CHECK(node->parent()
+                      ->GetAsOrDie<ASTBeginEndBlock>()
+                      ->statement_list_node() == node)
+            << "Node should be the statement list of its enclosing block";
+        exception_handler_data_stack_.pop_back();
+      }
+
       // Link together each of the statements in the list
       const NodeData* first_nonempty_child_data = nullptr;
       const NodeData* prev_nonempty_child_data = nullptr;
       const NodeData* curr_child_data = nullptr;
 
+      std::vector<IncompleteEdge> pending_unreachable_incomplete_edges;
+
       for (int i = 0; i < node->num_children(); ++i) {
         ZETASQL_ASSIGN_OR_RETURN(curr_child_data, GetNodeData(node->child(i)));
         if (curr_child_data->empty()) {
+          pending_unreachable_incomplete_edges.insert(
+              pending_unreachable_incomplete_edges.end(),
+              curr_child_data->end_edges.begin(),
+              curr_child_data->end_edges.end());
           continue;
         }
+
+        for (const IncompleteEdge& edge :
+             pending_unreachable_incomplete_edges) {
+          ZETASQL_RETURN_IF_ERROR(
+              LinkNodes(edge.predecessor, curr_child_data->start, edge.kind));
+        }
+        pending_unreachable_incomplete_edges.clear();
+
         if (prev_nonempty_child_data != nullptr &&
             !prev_nonempty_child_data->IsSpecialControlFlowStatement()) {
           ZETASQL_RETURN_IF_ERROR(
@@ -271,6 +345,11 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
         }
       }
 
+      stmt_list_node_data->end_edges.insert(
+          stmt_list_node_data->end_edges.end(),
+          pending_unreachable_incomplete_edges.begin(),
+          pending_unreachable_incomplete_edges.end());
+
       return zetasql_base::OkStatus();
     });
   }
@@ -285,8 +364,8 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
         graph_->start_node_ = graph_->end_node();
       } else {
         graph_->start_node_ = stmt_list_data->start;
-        ZETASQL_RETURN_IF_ERROR(LinkEndNodes(stmt_list_data, graph_->end_node_.get()));
       }
+      ZETASQL_RETURN_IF_ERROR(LinkEndNodes(stmt_list_data, graph_->end_node_.get()));
       return zetasql_base::OkStatus();
     });
   }
@@ -302,13 +381,13 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
 
       if_stmt_node_data->start = condition;
       if (then_list_data->empty()) {
-        if_stmt_node_data->AddOpenEndEdge(condition,
-                                      ControlFlowEdge::Kind::kTrueCondition);
+        if_stmt_node_data->AddOpenEndEdge(
+            condition, ControlFlowEdge::Kind::kTrueCondition);
       } else {
         ZETASQL_RETURN_IF_ERROR(LinkNodes(condition, then_list_data->start,
                                   ControlFlowEdge::Kind::kTrueCondition));
-        if_stmt_node_data->AddAllEndEdges(then_list_data);
       }
+      if_stmt_node_data->AddAllEndEdges(then_list_data);
 
       ControlFlowNode* prev_condition = condition;
       if (node->elseif_clauses() != nullptr) {
@@ -321,14 +400,14 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
 
           ZETASQL_RETURN_IF_ERROR(LinkNodes(prev_condition, curr_condition,
                                     ControlFlowEdge::Kind::kFalseCondition));
-          if (body_data->empty()) {
-            if_stmt_node_data->AddOpenEndEdge(
-                curr_condition, ControlFlowEdge::Kind::kTrueCondition);
-          } else {
+          if (!body_data->empty()) {
             ZETASQL_RETURN_IF_ERROR(LinkNodes(curr_condition, body_data->start,
                                       ControlFlowEdge::Kind::kTrueCondition));
-            if_stmt_node_data->AddAllEndEdges(body_data);
+          } else {
+            if_stmt_node_data->AddOpenEndEdge(
+                curr_condition, ControlFlowEdge::Kind::kTrueCondition);
           }
+          if_stmt_node_data->AddAllEndEdges(body_data);
           prev_condition = curr_condition;
         }
       }
@@ -341,8 +420,8 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
           has_nonempty_else = true;
           ZETASQL_RETURN_IF_ERROR(LinkNodes(prev_condition, else_data->start,
                                     ControlFlowEdge::Kind::kFalseCondition));
-          if_stmt_node_data->AddAllEndEdges(else_data);
         }
+        if_stmt_node_data->AddAllEndEdges(else_data);
       }
       if (!has_nonempty_else) {
         if_stmt_node_data->AddOpenEndEdge(prev_condition,
@@ -370,21 +449,24 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
         while_stmt_node_data->AddOpenEndEdge(
             condition_cfg_node, ControlFlowEdge::Kind::kFalseCondition);
       } else {
-        if (body_data->empty()) {
+        ControlFlowNode* body_start;
+        if (!body_data->empty()) {
+          body_start = body_data->start;
+          while_stmt_node_data->start = body_data->start;
+        } else {
           // Create a dummy control-flow node based on the body's empty
           // statement list with an edge onto itself.  Normally, we don't
           // generate control-flow nodes for empty statement lists, but we have
           // to make an exception in this case; otherwise, there would be no way
           // to represent an infinite loop without code in it.
           ZETASQL_ASSIGN_OR_RETURN(ControlFlowNode * body_cfg_node,
-                           AddGraphNode(node->body()));
+                           AddGraphNode(node->body(), /*can_throw=*/false));
           while_stmt_node_data->start = body_cfg_node;
           ZETASQL_RETURN_IF_ERROR(LinkNodes(body_cfg_node, body_cfg_node,
                                     ControlFlowEdge::Kind::kNormal));
-        } else {
-          while_stmt_node_data->start = body_data->start;
-          ZETASQL_RETURN_IF_ERROR(LinkEndNodes(body_data, body_data->start));
+          body_start = body_cfg_node;
         }
+        ZETASQL_RETURN_IF_ERROR(LinkEndNodes(body_data, body_start));
       }
 
       // Handle BREAK/CONTINUE statements inside the loop.
@@ -426,17 +508,69 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
   zetasql_base::StatusOr<VisitResult> visitASTBeginEndBlock(
       const ASTBeginEndBlock* node) override {
     if (node->has_exception_handler()) {
-      return zetasql_base::InternalErrorBuilder()
-             << "ControlGraphBuilder: Blocks with exception handlers not yet "
-                "implemented";
+      exception_handler_block_data_map_[node] =
+          absl::make_unique<BlockWithExceptionHandlerData>();
     }
     return VisitResult::VisitChildren(node, [=]() -> zetasql_base::Status {
+      // Handle the regular statement list
       ZETASQL_ASSIGN_OR_RETURN(const NodeData* stmt_list_data,
                        GetNodeData(node->statement_list_node()));
       ZETASQL_ASSIGN_OR_RETURN(NodeData * node_data, CreateNodeData(node));
       *node_data = *stmt_list_data;
       for (IncompleteEdge& edge : node_data->end_edges) {
         edge.blocks_exited.push_back(node);
+      }
+
+      if (node->has_exception_handler()) {
+        ZETASQL_ASSIGN_OR_RETURN(const NodeData* handler_stmt_list_data,
+                         GetNodeData(node->handler_list()
+                                         ->exception_handler_list()
+                                         .front()
+                                         ->statement_list()));
+
+        // Mark the end of the exception handler as a potential termination of
+        // the block.
+        node_data->AddAllEndEdges(handler_stmt_list_data);
+
+        // Add edges from all statements in the block (which can throw) to the
+        // start of the handler.
+        BlockWithExceptionHandlerData* block_data =
+            exception_handler_block_data_map_.at(node).get();
+        for (ControlFlowNode* cfg_node : block_data->handled_nodes) {
+          // Build up a list of blocks to be exited when <cfg_node> throws an
+          // exception, while transitioning to the exception handler.
+          std::vector<const ASTBeginEndBlock*> blocks_exited;
+          for (const ASTNode* parent = cfg_node->ast_node()->parent();
+               parent != node; parent = parent->parent()) {
+            ZETASQL_RET_CHECK(parent != nullptr)
+                << "Node " << cfg_node->DebugString()
+                << "can throw exception handled by current block, but is not a "
+                   "descendant of current block in AST";
+            if (parent->node_kind() == AST_EXCEPTION_HANDLER_LIST) {
+              // We're in an exception handler - skip over the block containing
+              // it, since the block's variables have already been destroyed
+              // before the handler was entered.
+              parent = parent->parent();
+              ZETASQL_RET_CHECK_EQ(parent->node_kind(), AST_BEGIN_END_BLOCK);
+              continue;
+            }
+            if (parent->node_kind() == AST_BEGIN_END_BLOCK) {
+              blocks_exited.push_back(parent->GetAsOrDie<ASTBeginEndBlock>());
+            }
+          }
+          blocks_exited.push_back(node);
+
+          // Add the edge from <cfg_node> to the exception handler.
+          if (!handler_stmt_list_data->empty()) {
+            ZETASQL_RETURN_IF_ERROR(LinkNodes(cfg_node, handler_stmt_list_data->start,
+                                      ControlFlowEdge::Kind::kException,
+                                      blocks_exited));
+          } else {
+            node_data->AddOpenEndEdge(
+                cfg_node, ControlFlowEdge::Kind::kException, blocks_exited);
+          }
+        }
+        exception_handler_block_data_map_.erase(node);
       }
       return zetasql_base::OkStatus();
     });
@@ -483,7 +617,8 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
     return zetasql::DebugNodeIdentifier(node, graph_->script());
   }
 
-  zetasql_base::StatusOr<ControlFlowNode*> AddGraphNode(const ASTNode* ast_node) {
+  zetasql_base::StatusOr<ControlFlowNode*> AddGraphNode(const ASTNode* ast_node,
+                                                bool can_throw = true) {
     auto emplace_result = graph_->node_map_.emplace(
         ast_node, absl::WrapUnique(new ControlFlowNode(ast_node, graph_)));
     if (!emplace_result.second) {
@@ -491,12 +626,17 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
              << "Graph node already exists for AST node "
              << DebugNodeIdentifier(ast_node);
     }
-    return emplace_result.first->second.get();
+    ControlFlowNode* cfg_node = emplace_result.first->second.get();
+    if (can_throw && !exception_handler_data_stack_.empty()) {
+      exception_handler_data_stack_.back()->handled_nodes.push_back(cfg_node);
+    }
+    return cfg_node;
   }
 
   zetasql_base::StatusOr<NodeData*> AddNodeDataAndGraphNode(
-      const ASTStatement* ast_stmt) {
-    ZETASQL_ASSIGN_OR_RETURN(ControlFlowNode * cfg_node, AddGraphNode(ast_stmt));
+      const ASTStatement* ast_stmt, bool can_throw = true) {
+    ZETASQL_ASSIGN_OR_RETURN(ControlFlowNode * cfg_node,
+                     AddGraphNode(ast_stmt, can_throw));
     ZETASQL_ASSIGN_OR_RETURN(NodeData * node_data, CreateNodeData(ast_stmt));
     node_data->start = cfg_node;
     node_data->AddOpenEndEdge(cfg_node, ControlFlowEdge::Kind::kNormal);
@@ -514,6 +654,7 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
   }
 
   zetasql_base::Status LinkEndNodes(const NodeData* pred, ControlFlowNode* succ) {
+    CHECK(succ != nullptr);
     for (auto edge : pred->end_edges) {
       ZETASQL_RETURN_IF_ERROR(
           LinkNodes(edge.predecessor, succ, edge.kind, edge.blocks_exited));
@@ -540,8 +681,19 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
       ControlFlowNode* cfg_pred, ControlFlowNode* cfg_succ,
       ControlFlowEdge::Kind kind,
       const std::vector<const ASTBeginEndBlock*>& exited_blocks = {}) {
-    if (cfg_pred->ast_node()->IsStatement() ||
-        cfg_pred->ast_node()->node_kind() == AST_STATEMENT_LIST) {
+    CHECK(cfg_pred != nullptr);
+    CHECK(cfg_succ != nullptr);
+    if (kind == ControlFlowEdge::Kind::kException) {
+      // Everything can throw except for break, continue, return,
+      // and empty statement list.
+      ZETASQL_RET_CHECK(cfg_pred->ast_node()->node_kind() != AST_BREAK_STATEMENT &&
+                cfg_pred->ast_node()->node_kind() != AST_CONTINUE_STATEMENT &&
+                cfg_pred->ast_node()->node_kind() != AST_RETURN_STATEMENT &&
+                cfg_pred->ast_node()->node_kind() != AST_STATEMENT_LIST)
+          << "Unexpected node kind throwing exception: "
+          << cfg_pred->ast_node()->SingleNodeDebugString();
+    } else if (cfg_pred->ast_node()->IsStatement() ||
+               cfg_pred->ast_node()->node_kind() == AST_STATEMENT_LIST) {
       ZETASQL_RET_CHECK(kind == ControlFlowEdge::Kind::kNormal)
           << "Unconditional statement must use normal edge"
           << cfg_pred->DebugString();
@@ -580,6 +732,20 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
   // currently visiting the body of.  One entry per loop statement, with the
   // innermost loop at the back of the list.
   std::vector<LoopData> loop_data_;
+
+  // Maps each ASTBeginEndBlock with an exception handler to its associated
+  // BlockWithExceptionHandlerData.  The map is built up as we traverse the
+  // block; when a block is finished being visted, it is used to add edges from
+  // each statement in the block to the start of the exception handler.
+  absl::flat_hash_map<const ASTBeginEndBlock*,
+                      std::unique_ptr<BlockWithExceptionHandlerData>>
+      exception_handler_block_data_map_;
+
+  // Stack keeping track of the statements that might throw in each block with
+  // an exception handler.  One entry per BEGIN block with an exception handler,
+  // with the innermost block at the back of the list.
+  // Each entry is owned by <exception_handler_block_data_map_>.
+  std::vector<BlockWithExceptionHandlerData*> exception_handler_data_stack_;
 
   // The ControlFlowGraph being built.
   ControlFlowGraph* graph_;
@@ -717,6 +883,7 @@ std::vector<const ControlFlowNode*> ControlFlowGraph::GetAllNodes() const {
 }
 
 std::string ControlFlowGraph::DebugString() const {
+  CHECK(start_node_ != nullptr);
   std::string debug_string;
   absl::StrAppend(&debug_string, "start: ", start_node_->DebugString(),
                   "\nedges:");
