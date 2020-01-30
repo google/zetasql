@@ -16,10 +16,12 @@
 
 // Implementations of the various ValueExprs.
 
+#include <algorithm>
 #include <array>
 #include <functional>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <type_traits>
@@ -51,7 +53,9 @@
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include <cstdint>
+#include "zetasql/base/cleanup.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -64,6 +68,7 @@
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
+#include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/statusor.h"
 
@@ -1280,15 +1285,16 @@ std::string DMLValueExpr::DebugInternal(const std::string& /*indent*/,
 }
 
 DMLValueExpr::DMLValueExpr(
-    bool is_value_table, const ArrayType* table_array_type,
-    const StructType* dml_output_type, const ResolvedNode* resolved_node,
-    const ResolvedColumnList* column_list,
+    const Table* table, const ArrayType* table_array_type,
+    const StructType* primary_key_type, const StructType* dml_output_type,
+    const ResolvedNode* resolved_node, const ResolvedColumnList* column_list,
     std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
     std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
     std::unique_ptr<const ResolvedExprMap> resolved_expr_map)
     : ValueExpr(dml_output_type),
-      is_value_table_(is_value_table),
+      table_(table),
       table_array_type_(table_array_type),
+      primary_key_type_(primary_key_type),
       dml_output_type_(dml_output_type),
       resolved_node_(resolved_node),
       column_list_(column_list),
@@ -1378,13 +1384,12 @@ DMLValueExpr::GetScannedTupleAsColumnValues(
 
 ::zetasql_base::Status DMLValueExpr::PopulatePrimaryKeyRowMap(
     const std::vector<std::vector<Value>>& original_rows,
-    zetasql_base::StatusCode duplicate_primary_key_error_code,
     absl::string_view duplicate_primary_key_error_prefix,
     EvaluationContext* context, PrimaryKeyRowMap* row_map,
     bool* has_primary_key) const {
-  ZETASQL_ASSIGN_OR_RETURN(const absl::optional<int> primary_key_index,
-                   GetPrimaryKeyColumnIndex(context));
-  *has_primary_key = primary_key_index.has_value();
+  ZETASQL_ASSIGN_OR_RETURN(const absl::optional<std::vector<int>> primary_key_indexes,
+                   GetPrimaryKeyColumnIndexes(context));
+  *has_primary_key = primary_key_indexes.has_value();
   for (int64_t row_number = 0; row_number < original_rows.size(); ++row_number) {
     // It is expensive to call this for every row, but this code is only used
     // for compliance testing, so it's ok.
@@ -1396,20 +1401,12 @@ DMLValueExpr::GetScannedTupleAsColumnValues(
     row_number_and_values.row_number = row_number;
     row_number_and_values.values = row_values;
 
-    bool row_has_primary_key;
     ZETASQL_ASSIGN_OR_RETURN(const Value primary_key,
-                     GetPrimaryKeyOrRowNumber(row_number_and_values, context,
-                                              &row_has_primary_key));
-    if (row_number == 0) {
-      *has_primary_key = row_has_primary_key;
-    } else {
-      ZETASQL_RET_CHECK_EQ(*has_primary_key, row_has_primary_key);
-    }
-
+                     GetPrimaryKeyOrRowNumber(row_number_and_values, context));
     auto insert_result =
         row_map->insert(std::make_pair(primary_key, row_number_and_values));
     if (!insert_result.second) {
-      return zetasql_base::StatusBuilder(duplicate_primary_key_error_code)
+      return zetasql_base::OutOfRangeErrorBuilder()
              << duplicate_primary_key_error_prefix << " ("
              << primary_key.ShortDebugString() << ")";
     }
@@ -1421,29 +1418,46 @@ DMLValueExpr::GetScannedTupleAsColumnValues(
 ::zetasql_base::StatusOr<Value> DMLValueExpr::GetPrimaryKeyOrRowNumber(
     const RowNumberAndValues& row_number_and_values, EvaluationContext* context,
     bool* has_primary_key) const {
-  ZETASQL_ASSIGN_OR_RETURN(const absl::optional<int> primary_key_index,
-                   GetPrimaryKeyColumnIndex(context));
-  if (has_primary_key != nullptr) {
-    *has_primary_key = primary_key_index.has_value();
-  }
-
-  if (!primary_key_index.has_value()) {
+  ZETASQL_ASSIGN_OR_RETURN(const absl::optional<std::vector<int>> primary_key_indexes,
+                   GetPrimaryKeyColumnIndexes(context));
+  if (!primary_key_indexes.has_value()) {
     return Value::Int64(row_number_and_values.row_number);
   }
-
-  const Value& primary_key =
-      row_number_and_values.values[primary_key_index.value()];
-  ZETASQL_RET_CHECK(primary_key.is_valid());
-  return primary_key;
+  // For emulated primary keys, use the emulated value (value of the first
+  // column) directly instead of making a Struct from the value. This avoids
+  // breaking tests depending on query plans. We may later remove this special
+  // case and update the tests.
+  if (context->options().emulate_primary_keys) {
+    ZETASQL_RET_CHECK_EQ(primary_key_indexes->size(), 1);
+    ZETASQL_RET_CHECK_EQ((*primary_key_indexes)[0], 0);
+    const Value& value = row_number_and_values.values[0];
+    ZETASQL_RET_CHECK(value.is_valid());
+    return value;
+  }
+  std::vector<Value> key_column_values;
+  for (int index : *primary_key_indexes) {
+    const Value& value = row_number_and_values.values[index];
+    ZETASQL_RET_CHECK(value.is_valid());
+    key_column_values.push_back(value);
+  }
+  return Value::Struct(primary_key_type_, key_column_values);
 }
 
-zetasql_base::StatusOr<absl::optional<int>> DMLValueExpr::GetPrimaryKeyColumnIndex(
-    EvaluationContext* context) const {
-  if (is_value_table_ || !context->options().emulate_primary_keys) {
-    return absl::optional<int>();
+zetasql_base::StatusOr<absl::optional<std::vector<int>>>
+DMLValueExpr::GetPrimaryKeyColumnIndexes(EvaluationContext* context) const {
+  if (is_value_table()) {
+    return absl::optional<std::vector<int>>();
   }
 
-  return absl::make_optional(0);
+  // The algebrizer can opt out of using primary key from the catalog.
+  if (primary_key_type_ == nullptr) {
+    return context->options().emulate_primary_keys
+               ? absl::make_optional(std::vector<int>{0})
+               : absl::optional<std::vector<int>>();
+  }
+  ZETASQL_RET_CHECK(!context->options().emulate_primary_keys)
+      << "Cannot emulate primary key while using the primary key set in Table";
+  return table_->PrimaryKey();
 }
 
 ::zetasql_base::StatusOr<Value> DMLValueExpr::GetDMLOutputValue(
@@ -1463,7 +1477,7 @@ zetasql_base::StatusOr<absl::optional<int>> DMLValueExpr::GetPrimaryKeyColumnInd
     ZETASQL_RETURN_IF_ERROR(context->VerifyNotAborted());
 
     ZETASQL_RET_CHECK_EQ(dml_output_row.size(), column_list_->size());
-    if (is_value_table_) {
+    if (is_value_table()) {
       ZETASQL_RET_CHECK_EQ(1, dml_output_row.size());
       dml_output_values.push_back(dml_output_row[0]);
     } else {
@@ -1516,14 +1530,15 @@ static zetasql_base::Status EvalRelationalOp(
 
 ::zetasql_base::StatusOr<std::unique_ptr<DMLDeleteValueExpr>>
 DMLDeleteValueExpr::Create(
-    bool is_value_table, const ArrayType* table_array_type,
-    const StructType* dml_output_type, const ResolvedDeleteStmt* resolved_node,
+    const Table* table, const ArrayType* table_array_type,
+    const StructType* primary_key_type, const StructType* dml_output_type,
+    const ResolvedDeleteStmt* resolved_node,
     const ResolvedColumnList* column_list,
     std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
     std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
     std::unique_ptr<const ResolvedExprMap> resolved_expr_map) {
   return absl::WrapUnique(new DMLDeleteValueExpr(
-      is_value_table, table_array_type, dml_output_type, resolved_node,
+      table, table_array_type, primary_key_type, dml_output_type, resolved_node,
       column_list, std::move(column_to_variable_mapping),
       std::move(resolved_scan_map), std::move(resolved_expr_map)));
 }
@@ -1565,14 +1580,13 @@ DMLDeleteValueExpr::Create(
   std::vector<std::unique_ptr<TupleData>> tuple_datas;
   ZETASQL_RETURN_IF_ERROR(EvalRelationalOp(*relational_op, params, context,
                                    &tuple_schema, &tuple_datas));
-
   for (const std::unique_ptr<TupleData>& tuple_data : tuple_datas) {
     // It is expensive to call this for every row, but this code is only used
     // for compliance testing, so it's ok.
     ZETASQL_RETURN_IF_ERROR(context->VerifyNotAborted());
 
     const Tuple tuple(tuple_schema.get(), tuple_data.get());
-    ZETASQL_ASSIGN_OR_RETURN(const std::vector<Value> tuple_as_values,
+    ZETASQL_ASSIGN_OR_RETURN(std::vector<Value> tuple_as_values,
                      GetScannedTupleAsColumnValues(*column_list_, tuple));
 
     // The WHERE clause can reference column values and statement parameters.
@@ -1582,8 +1596,14 @@ DMLDeleteValueExpr::Create(
     const bool deleted = (where_value == Bool(true));
     if (deleted) {
       ++num_rows_deleted;
+      if (!context->options().return_all_rows_for_dml) {
+        dml_output_rows.push_back(tuple_as_values);
+      }
     } else {
-      dml_output_rows.push_back(tuple_as_values);
+      // In all_rows mode,the output contains the remaining rows.
+      if (context->options().return_all_rows_for_dml) {
+        dml_output_rows.push_back(tuple_as_values);
+      }
     }
   }
 
@@ -1595,13 +1615,14 @@ DMLDeleteValueExpr::Create(
 }
 
 DMLDeleteValueExpr::DMLDeleteValueExpr(
-    bool is_value_table, const ArrayType* table_array_type,
-    const StructType* dml_output_type, const ResolvedDeleteStmt* resolved_node,
+    const Table* table, const ArrayType* table_array_type,
+    const StructType* primary_key_type, const StructType* dml_output_type,
+    const ResolvedDeleteStmt* resolved_node,
     const ResolvedColumnList* column_list,
     std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
     std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
     std::unique_ptr<const ResolvedExprMap> resolved_expr_map)
-    : DMLValueExpr(is_value_table, table_array_type, dml_output_type,
+    : DMLValueExpr(table, table_array_type, primary_key_type, dml_output_type,
                    resolved_node, column_list,
                    std::move(column_to_variable_mapping),
                    std::move(resolved_scan_map), std::move(resolved_expr_map)) {
@@ -1613,14 +1634,15 @@ DMLDeleteValueExpr::DMLDeleteValueExpr(
 
 ::zetasql_base::StatusOr<std::unique_ptr<DMLUpdateValueExpr>>
 DMLUpdateValueExpr::Create(
-    bool is_value_table, const ArrayType* table_array_type,
-    const StructType* dml_output_type, const ResolvedUpdateStmt* resolved_node,
+    const Table* table, const ArrayType* table_array_type,
+    const StructType* primary_key_type, const StructType* dml_output_type,
+    const ResolvedUpdateStmt* resolved_node,
     const ResolvedColumnList* column_list,
     std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
     std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
     std::unique_ptr<const ResolvedExprMap> resolved_expr_map) {
   return absl::WrapUnique(new DMLUpdateValueExpr(
-      is_value_table, table_array_type, dml_output_type, resolved_node,
+      table, table_array_type, primary_key_type, dml_output_type, resolved_node,
       column_list, std::move(column_to_variable_mapping),
       std::move(resolved_scan_map), std::move(resolved_expr_map)));
 }
@@ -1714,7 +1736,9 @@ DMLUpdateValueExpr::Create(
     if (joined_tuple_datas.empty()) {
       ZETASQL_ASSIGN_OR_RETURN(const std::vector<Value> dml_output_row,
                        GetScannedTupleAsColumnValues(*column_list_, tuple));
-      dml_output_rows.push_back(dml_output_row);
+      if (context->options().return_all_rows_for_dml) {
+        dml_output_rows.push_back(dml_output_row);
+      }
       continue;
     }
 
@@ -1741,8 +1765,8 @@ DMLUpdateValueExpr::Create(
   PrimaryKeyRowMap row_map;
   bool has_primary_key;
   ZETASQL_RETURN_IF_ERROR(PopulatePrimaryKeyRowMap(
-      dml_output_rows, ::zetasql_base::OUT_OF_RANGE,
-      duplicate_primary_key_error_prefix, context, &row_map, &has_primary_key));
+      dml_output_rows, duplicate_primary_key_error_prefix, context, &row_map,
+      &has_primary_key));
 
   ZETASQL_RETURN_IF_ERROR(VerifyNumRowsModified(stmt()->assert_rows_modified(), params,
                                         num_rows_modified, context));
@@ -1894,13 +1918,14 @@ DMLUpdateValueExpr::Create(
 }
 
 DMLUpdateValueExpr::DMLUpdateValueExpr(
-    bool is_value_table, const ArrayType* table_array_type,
-    const StructType* dml_output_type, const ResolvedUpdateStmt* resolved_node,
+    const Table* table, const ArrayType* table_array_type,
+    const StructType* primary_key_type, const StructType* dml_output_type,
+    const ResolvedUpdateStmt* resolved_node,
     const ResolvedColumnList* column_list,
     std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
     std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
     std::unique_ptr<const ResolvedExprMap> resolved_expr_map)
-    : DMLValueExpr(is_value_table, table_array_type, dml_output_type,
+    : DMLValueExpr(table, table_array_type, primary_key_type, dml_output_type,
                    resolved_node, column_list,
                    std::move(column_to_variable_mapping),
                    std::move(resolved_scan_map), std::move(resolved_expr_map)) {
@@ -2333,8 +2358,12 @@ DMLUpdateValueExpr::DMLUpdateValueExpr(
 ::zetasql_base::StatusOr<std::vector<Value>> DMLUpdateValueExpr::GetDMLOutputRow(
     const Tuple& tuple, const UpdateMap& update_map,
     EvaluationContext* context) const {
-  ZETASQL_ASSIGN_OR_RETURN(const absl::optional<int> primary_key_index,
-                   GetPrimaryKeyColumnIndex(context));
+  absl::flat_hash_set<int> key_index_set;
+  ZETASQL_ASSIGN_OR_RETURN(const absl::optional<std::vector<int>> key_indexes,
+                   GetPrimaryKeyColumnIndexes(context));
+  if (key_indexes.has_value()) {
+    key_index_set.insert(key_indexes->begin(), key_indexes->end());
+  }
 
   std::vector<Value> dml_output_row;
   for (int i = 0; i < column_list_->size(); ++i) {
@@ -2350,11 +2379,9 @@ DMLUpdateValueExpr::DMLUpdateValueExpr(
     } else {
       ZETASQL_ASSIGN_OR_RETURN(const Value new_value,
                        (*update_node_or_null)->GetNewValue(original_value));
-
-      if (primary_key_index == absl::make_optional(i)) {
+      if (key_index_set.contains(i)) {
         // Attempting to modify a primary key column.
         const LanguageOptions& language_options = context->GetLanguageOptions();
-
         if (language_options.LanguageFeatureEnabled(
                 FEATURE_DISALLOW_PRIMARY_KEY_UPDATES)) {
           return zetasql_base::OutOfRangeErrorBuilder()
@@ -2580,14 +2607,15 @@ DMLUpdateValueExpr::DMLUpdateValueExpr(
 
 ::zetasql_base::StatusOr<std::unique_ptr<DMLInsertValueExpr>>
 DMLInsertValueExpr::Create(
-    bool is_value_table, const ArrayType* table_array_type,
-    const StructType* dml_output_type, const ResolvedInsertStmt* resolved_node,
+    const Table* table, const ArrayType* table_array_type,
+    const StructType* primary_key_type, const StructType* dml_output_type,
+    const ResolvedInsertStmt* resolved_node,
     const ResolvedColumnList* column_list,
     std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
     std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
     std::unique_ptr<const ResolvedExprMap> resolved_expr_map) {
   return absl::WrapUnique(new DMLInsertValueExpr(
-      is_value_table, table_array_type, dml_output_type, resolved_node,
+      table, table_array_type, primary_key_type, dml_output_type, resolved_node,
       column_list, std::move(column_to_variable_mapping),
       std::move(resolved_scan_map), std::move(resolved_expr_map)));
 }
@@ -2637,13 +2665,19 @@ DMLInsertValueExpr::Create(
 
   absl::string_view duplicate_primary_key_error_prefix =
       "Found two rows with primary key";
+
+  // We currently store all old rows into `row_map` even in the case where we
+  // are only returning new rows. This is because we have to do the error
+  // checking that we do not cause a primary key collision. A future
+  // optimization might do this checking without materializing the entire
+  // updated PrimaryKeyRowMap in this case.
   PrimaryKeyRowMap row_map;
   bool has_primary_key;
   // Duplicate primary keys in the original table can only result from a problem
-  // with the test table.
+  // with the input table.
   ZETASQL_RETURN_IF_ERROR(PopulatePrimaryKeyRowMap(
-      original_rows, zetasql_base::INTERNAL, duplicate_primary_key_error_prefix,
-      context, &row_map, &has_primary_key));
+      original_rows, duplicate_primary_key_error_prefix, context, &row_map,
+      &has_primary_key));
   if (!has_primary_key &&
       stmt()->insert_mode() != ResolvedInsertStmt::OR_ERROR) {
     return zetasql_base::OutOfRangeErrorBuilder()
@@ -2660,17 +2694,21 @@ DMLInsertValueExpr::Create(
 
   ZETASQL_RETURN_IF_ERROR(resolved_node_->CheckFieldsAccessed());
 
-  return GetDMLOutputValue(num_rows_modified, row_map, context);
+  return context->options().return_all_rows_for_dml
+             ? GetDMLOutputValue(num_rows_modified, row_map, context)
+             : DMLValueExpr::GetDMLOutputValue(num_rows_modified,
+                                               rows_to_insert, context);
 }
 
 DMLInsertValueExpr::DMLInsertValueExpr(
-    bool is_value_table, const ArrayType* table_array_type,
-    const StructType* dml_output_type, const ResolvedInsertStmt* resolved_node,
+    const Table* table, const ArrayType* table_array_type,
+    const StructType* primary_key_type, const StructType* dml_output_type,
+    const ResolvedInsertStmt* resolved_node,
     const ResolvedColumnList* column_list,
     std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
     std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
     std::unique_ptr<const ResolvedExprMap> resolved_expr_map)
-    : DMLValueExpr(is_value_table, table_array_type, dml_output_type,
+    : DMLValueExpr(table, table_array_type, primary_key_type, dml_output_type,
                    resolved_node, column_list,
                    std::move(column_to_variable_mapping),
                    std::move(resolved_scan_map), std::move(resolved_expr_map)) {
@@ -2845,15 +2883,26 @@ DMLInsertValueExpr::DMLInsertValueExpr(
 
     ZETASQL_ASSIGN_OR_RETURN(const Value primary_key,
                      GetPrimaryKeyOrRowNumber(row_number_and_values, context));
-    if (primary_key.is_null() &&
-        context->GetLanguageOptions().LanguageFeatureEnabled(
+    if (context->GetLanguageOptions().LanguageFeatureEnabled(
             FEATURE_DISALLOW_NULL_PRIMARY_KEYS)) {
-      // Ideally this logic would be in the analyzer, but the analyzer cannot
-      // determine whether an expression is NULL. So the reference
-      // implementation must respect this feature for the sake of compliance
-      // testing other engines.
-      return zetasql_base::OutOfRangeErrorBuilder()
-             << "Cannot INSERT a NULL value into a primary key column";
+      bool primary_key_has_null;
+      if (primary_key_type_ == nullptr) {
+        primary_key_has_null = primary_key.is_null();
+      } else {
+        ZETASQL_RET_CHECK(primary_key.type()->IsStruct());
+        ZETASQL_RET_CHECK(!primary_key.is_null());
+        primary_key_has_null = std::any_of(
+            primary_key.fields().begin(), primary_key.fields().end(),
+            [](const Value& v) { return v.is_null(); });
+      }
+      if (primary_key_has_null) {
+        // Ideally this logic would be in the analyzer, but the analyzer cannot
+        // determine whether an expression is NULL. So the reference
+        // implementation must respect this feature for the sake of compliance
+        // testing other engines.
+        return zetasql_base::OutOfRangeErrorBuilder()
+               << "Cannot INSERT a NULL value into a primary key column";
+      }
     }
 
     auto insert_result =

@@ -24,7 +24,6 @@ cc_library(
     hdrs = ["control_flow_graph.h"],
     copts = ["-Wno-sign-compare"],
     deps = [
-        ":parsed_script",
         ":script_segment",
         "//zetasql/base",
         "//zetasql/base:status",

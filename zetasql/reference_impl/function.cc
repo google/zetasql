@@ -657,6 +657,12 @@ FunctionMap::FunctionMap() {
   RegisterFunction(FunctionKind::kPercentileCont, "percentile_cont",
                    "Percentile_cont");
   RegisterFunction(FunctionKind::kRand, "rand", "Rand");
+  RegisterFunction(FunctionKind::kMd5, "md5", "Md5");
+  RegisterFunction(FunctionKind::kSha1, "sha1", "Sha1");
+  RegisterFunction(FunctionKind::kSha256, "sha256", "Sha256");
+  RegisterFunction(FunctionKind::kSha512, "sha512", "Sha512");
+  RegisterFunction(FunctionKind::kFarmFingerprint, "farm_fingerprint",
+                   "FarmFingerprint");
 }
 
 const FunctionMap& GetFunctionMap() {
@@ -1270,6 +1276,13 @@ BuiltinScalarFunction::CreateValidatedRaw(
       break;
     case FunctionKind::kRand:
       return new RandFunction;
+    case FunctionKind::kMd5:
+    case FunctionKind::kSha1:
+    case FunctionKind::kSha256:
+    case FunctionKind::kSha512:
+      return new HashFunction(kind);
+    case FunctionKind::kFarmFingerprint:
+      return new FarmFingerprintFunction;
     case FunctionKind::kError:
       return new ErrorFunction(output_type);
     default:
@@ -5057,6 +5070,55 @@ zetasql_base::StatusOr<Value> RandFunction::Eval(absl::Span<const Value> args,
                                          EvaluationContext* context) const {
   ZETASQL_RET_CHECK(args.empty());
   return Value::Double(absl::Uniform<double>(rand_, 0, 1));
+}
+
+HashFunction::HashFunction(FunctionKind kind)
+    : SimpleBuiltinScalarFunction(kind, types::BytesType()),
+      hasher_(
+          functions::Hasher::Create([kind]() -> functions::Hasher::Algorithm {
+            switch (kind) {
+              case FunctionKind::kMd5:
+                return functions::Hasher::kMd5;
+              case FunctionKind::kSha1:
+                return functions::Hasher::kSha1;
+              case FunctionKind::kSha256:
+                return functions::Hasher::kSha256;
+              case FunctionKind::kSha512:
+                return functions::Hasher::kSha512;
+              default:
+                // Crash in debug mode, for non-debug mode fall back to MD5.
+                DLOG(FATAL) << "Unexpected function kind: "
+                            << static_cast<int>(kind);
+                return functions::Hasher::kMd5;
+            }
+          }())) {}
+
+zetasql_base::StatusOr<Value> HashFunction::Eval(absl::Span<const Value> args,
+                                         EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(1, args.size());
+  if (args[0].is_null()) {
+    return Value::Null(output_type());
+  }
+
+  const absl::string_view input = args[0].type_kind() == TYPE_BYTES
+                                      ? args[0].bytes_value()
+                                      : args[0].string_value();
+
+  return Value::Bytes(hasher_->Hash(input));
+}
+
+zetasql_base::StatusOr<Value> FarmFingerprintFunction::Eval(
+    absl::Span<const Value> args, EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(1, args.size());
+  if (args[0].is_null()) {
+    return Value::Null(output_type());
+  }
+
+  const absl::string_view input = args[0].type_kind() == TYPE_BYTES
+                                      ? args[0].bytes_value()
+                                      : args[0].string_value();
+
+  return Value::Int64(functions::FarmFingerprint(input));
 }
 
 zetasql_base::StatusOr<Value> ErrorFunction::Eval(absl::Span<const Value> args,

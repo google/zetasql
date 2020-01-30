@@ -17,11 +17,15 @@
 #include "zetasql/public/evaluator.h"
 
 #include <functional>
+#include <memory>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/strings.h"
@@ -35,6 +39,7 @@
 #include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node_kind.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/validator.h"
 #include "absl/memory/memory.h"
@@ -45,8 +50,10 @@
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
+#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 namespace {
@@ -84,26 +91,87 @@ class ParameterValues {
       parameters_;
 };
 
+// Implements EvaluatorTableModifyIterator by wrapping a vector of updated rows.
+//
+// Requires the same operation for all rows.
+//
+// Currently, the original primary key values are extracted from the updated row
+// contents, which assumes the primary key columns are not updated. This is
+// justified by the fact that we always enable
+// FEATURE_DISALLOW_PRIMARY_KEY_UPDATES in CreateEvaluationContext() below.
+//
+// `deletion_cb` will be called on deletion of an EvaluatorTableModifyIterator.
+// This is currently used by Evaluator to detect outliving iterators.
+class VectorEvaluatorTableModifyIterator : public EvaluatorTableModifyIterator {
+ public:
+  VectorEvaluatorTableModifyIterator(const std::vector<Value>& rows,
+                                     const Table* table, Operation operation,
+                                     const std::function<void()>& deletion_cb)
+      : rows_(rows),
+        table_(table),
+        operation_(operation),
+        deletion_cb_(deletion_cb) {}
+
+  ~VectorEvaluatorTableModifyIterator() override { deletion_cb_(); }
+
+  bool NextRow() override { return ++row_idx_ < rows_.size(); }
+
+  const Value& GetColumnValue(int i) const override {
+    return operation_ == EvaluatorTableModifyIterator::Operation::kDelete
+               ? invalid_value_
+               : rows_[row_idx_].field(i);
+  }
+
+  zetasql_base::Status Status() const override { return zetasql_base::OkStatus(); }
+
+  const Value& GetOriginalKeyValue(int i) const override {
+    return operation_ == EvaluatorTableModifyIterator::Operation::kInsert
+               ? invalid_value_
+               : rows_[row_idx_].field(table_->PrimaryKey()->at(i));
+  }
+
+  Operation GetOperation() const override { return operation_; }
+
+  const Table* table() const override { return table_; }
+
+ private:
+  // The content of the iterator. Each item represents a row update operation.
+  const std::vector<Value> rows_;
+  // The table to be updated.
+  const Table* table_;
+  // The type of operation for all rows.
+  const Operation operation_;
+  // The positional index of the current row in the row vector.
+  int row_idx_ = -1;
+  // The value to be returned by GetValue() for delete operations.
+  const Value invalid_value_ = Value::Invalid();
+  // A callback function called by the destructor, currently used by Evalutor to
+  // detect outliving iterators.
+  const std::function<void()> deletion_cb_;
+};
+
 }  // namespace
 
 namespace internal {
 
 class Evaluator {
  public:
-  Evaluator(const std::string& sql, bool is_query,
+  Evaluator(const std::string& sql, bool is_expr,
             const EvaluatorOptions& evaluator_options)
-      : sql_(sql), is_query_(is_query), evaluator_options_(evaluator_options) {
+      : sql_(sql), is_expr_(is_expr), evaluator_options_(evaluator_options) {
     MaybeInitTypeFactory();
   }
 
   Evaluator(const ResolvedExpr* expr, const EvaluatorOptions& evaluator_options)
-      : is_query_(false), expr_(expr), evaluator_options_(evaluator_options) {
+      : is_expr_(true), expr_(expr), evaluator_options_(evaluator_options) {
     MaybeInitTypeFactory();
   }
 
-  Evaluator(const ResolvedQueryStmt* query,
+  Evaluator(const ResolvedStatement* statement,
             const EvaluatorOptions& evaluator_options)
-      : is_query_(true), query_(query), evaluator_options_(evaluator_options) {
+      : is_expr_(false),
+        statement_(statement),
+        evaluator_options_(evaluator_options) {
     MaybeInitTypeFactory();
   }
 
@@ -176,20 +244,26 @@ class Evaluator {
   zetasql_base::StatusOr<int> GetPositionalParameterCount() const
       ABSL_LOCKS_EXCLUDED(mutex_);
 
-  // REQUIRES: is_query_ and Prepare() has been called successfully.
-  const ResolvedQueryStmt* resolved_query_stmt() const
+  // Makes an EvaluatorTableModifyIterator from the result of evaluating a
+  // DMLValueExpr and its input ResolvedStatement.
+  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
+  MakeUpdateIterator(const Value& value, const ResolvedStatement* statement);
+
+  // REQUIRES: !is_expr_ and Prepare() has been called successfully.
+  const ResolvedStatement* resolved_statement() const
       ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::ReaderMutexLock l(&mutex_);
-    CHECK(query_ != nullptr);
-    return query_;
+    CHECK(statement_ != nullptr);
+    return statement_;
   }
 
-  // REQUIRES: is_query_ and Prepare() has been called successfully.
+  // REQUIRES: the statement is ResolvedQueryStmt and Prepare() has been called
+  // successfully.
   using NameAndType = PreparedQuery::NameAndType;
   const std::vector<NameAndType>& query_output_columns() const
       ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::ReaderMutexLock l(&mutex_);
-    CHECK(query_ != nullptr);
+    CHECK(statement_ != nullptr);
     return output_columns_;
   }
 
@@ -274,8 +348,8 @@ class Evaluator {
 
   bool has_prepare_succeeded() const ABSL_SHARED_LOCKS_REQUIRED(mutex_) {
     if (!is_prepared()) return false;
-    if (is_query_) return compiled_relational_op_ != nullptr;
-    return compiled_value_expr_ != nullptr;
+    return compiled_value_expr_ != nullptr ||
+           compiled_relational_op_ != nullptr;
   }
 
   std::unique_ptr<EvaluationContext> CreateEvaluationContext() const
@@ -292,6 +366,7 @@ class Evaluator {
         evaluator_options_.max_value_byte_size;
     evaluation_options.max_intermediate_byte_size =
         evaluator_options_.max_intermediate_byte_size;
+    evaluation_options.return_all_rows_for_dml = false;
 
     auto context = absl::make_unique<EvaluationContext>(evaluation_options);
 
@@ -299,7 +374,10 @@ class Evaluator {
     if (evaluator_options_.default_time_zone.has_value()) {
       context->SetDefaultTimeZone(evaluator_options_.default_time_zone.value());
     }
-    context->SetLanguageOptions(analyzer_options_.language_options());
+    LanguageOptions language_options{analyzer_options_.language()};
+    language_options.EnableLanguageFeature(
+        FEATURE_DISALLOW_PRIMARY_KEY_UPDATES);
+    context->SetLanguageOptions(language_options);
 
     if (create_evaluation_context_cb_test_only_ != nullptr) {
       (*create_evaluation_context_cb_test_only_)(context.get());
@@ -318,19 +396,20 @@ class Evaluator {
     --num_live_iterators_;
   }
 
-  // The original SQL.  Not present if expr_ or query_ was passed in directly.
+  // The original SQL. Not present if expr_ or statement_ was passed in
+  // directly.
   const std::string sql_;
-  // True for queries, false for expressions. (Set by the constructor).
-  const bool is_query_;
+  // True for expressions, false for statements. (Set by the constructor).
+  const bool is_expr_;
 
-  // The resolved expression. Only valid if is_query_ is false, in which case
+  // The resolved expression. Only valid if is_expr_ is true, in which case
   // either sql_ or expr_ is passed in to the constructor. If sql_ is passed,
   // this is populated by Prepare.
   const ResolvedExpr* expr_ = nullptr;
-  // The resolved query. Only valid if is_query_ is true, in which case
-  // either sql_ or query_ is passed in to the constructor. If sql_ is passed,
-  // this is populated by Prepare.
-  const ResolvedQueryStmt* query_ = nullptr;
+  // The resolved statement. Only valid if is_expr_ is false, in which case
+  // either sql_ or statement_ is passed in to the constructor. If sql_ is
+  // passed, this is populated by Prepare.
+  const ResolvedStatement* statement_ = nullptr;
 
   mutable absl::Mutex mutex_;
   EvaluatorOptions evaluator_options_ ABSL_GUARDED_BY(mutex_);
@@ -355,18 +434,19 @@ class Evaluator {
   std::unique_ptr<RelationalOp> compiled_relational_op_ ABSL_GUARDED_BY(mutex_)
       ABSL_PT_GUARDED_BY(mutex_);
 
-  // Output columns corresponding to 'compiled_relational_op_' Only valid if
-  // 'is_query_' is true.
+  // Output columns corresponding to `compiled_relational_op_` Only valid if
+  // the statement is ResolvedQueryStmt.
   std::vector<NameAndType> output_columns_ ABSL_GUARDED_BY(mutex_);
-  // The i-th element corresponds to 'output_columns_[i]' in the TupleIterator
-  // returned by 'compiled_relational_op_'. Only valid if 'is_query_' is true.
+  // The i-th element corresponds to `output_columns_[i]` in the TupleIterator
+  // returned by `compiled_relational_op_`. Only valid if the statement is
+  // ResolvedQueryStmt.
   std::vector<VariableId> output_column_variables_ ABSL_GUARDED_BY(mutex_);
 
   mutable absl::Mutex num_live_iterators_mutex_;
-  // The number of live iterators corresponding to
-  // 'compiled_relational_op_'. Only valid if 'is_query_' is true.  Mutable so
-  // that it can be modified in ExecuteAfterPrepare(). It is only used for
-  // sanity checking that an iterator does not outlive the Evaluator.
+  // The number of live iterators corresponding to `compiled_relational_op_` or
+  // `complied_value_expr` with type `DMLValueExpr`. Only valid if !is_expr_.
+  // Mutable so that it can be modified in ExecuteAfterPrepare(). It is only
+  // used for sanity checking that an iterator does not outlive the Evaluator.
   mutable int num_live_iterators_ ABSL_GUARDED_BY(num_live_iterators_mutex_) =
       0;
 
@@ -394,8 +474,7 @@ zetasql_base::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
   analyzer_options_.set_prune_unused_columns(true);
 
   std::unique_ptr<SimpleCatalog> simple_catalog;
-  if (catalog == nullptr &&
-      ((is_query_ && query_ == nullptr) || (!is_query_ && expr_ == nullptr))) {
+  if (catalog == nullptr && (statement_ == nullptr && expr_ == nullptr)) {
     simple_catalog = absl::make_unique<SimpleCatalog>(
         "default_catalog", evaluator_options_.type_factory);
     catalog = simple_catalog.get();
@@ -409,26 +488,16 @@ zetasql_base::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
   algebrizer_options.allow_order_by_limit_operator = true;
   algebrizer_options.push_down_filters = true;
 
-  if (is_query_) {
-    if (query_ == nullptr) {
+  if (!is_expr_) {
+    if (statement_ == nullptr) {
       ZETASQL_RETURN_IF_ERROR(AnalyzeStatement(sql_, options, catalog,
                                        evaluator_options_.type_factory,
                                        &analyzer_output_));
-      if (analyzer_output_->resolved_statement()->node_kind() !=
-          RESOLVED_QUERY_STMT) {
-        // This error is only reachable if the user enabled additional
-        // statement kinds in their AnalyzerOptions.
-        return ::zetasql_base::InvalidArgumentErrorBuilder()
-               << "Statement is not a query: "
-               << analyzer_output_->resolved_statement()->node_kind_string();
-      }
-
-      query_ =
-          analyzer_output_->resolved_statement()->GetAs<ResolvedQueryStmt>();
+      statement_ = analyzer_output_->resolved_statement();
     } else {
       // TODO: When we're confident that it's no longer possible to
       // crash the reference implementation, remove this validation step.
-      ZETASQL_RETURN_IF_ERROR(Validator().ValidateResolvedStatement(query_));
+      ZETASQL_RETURN_IF_ERROR(Validator().ValidateResolvedStatement(statement_));
     }
 
     // Algebrize.
@@ -437,16 +506,36 @@ zetasql_base::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
     }
     ResolvedColumnList output_column_list;
     std::vector<std::string> output_column_names;
-    ZETASQL_RETURN_IF_ERROR(Algebrizer::AlgebrizeQueryStatementAsRelation(
-        options.language(), algebrizer_options, evaluator_options_.type_factory,
-        query_, &output_column_list, &compiled_relational_op_,
-        &output_column_names, &output_column_variables_,
-        &algebrizer_parameters_, &algebrizer_column_map_,
-        &algebrizer_system_variables_));
-    ZETASQL_RET_CHECK_EQ(output_column_list.size(), output_column_names.size());
-    for (int i = 0; i < output_column_list.size(); ++i) {
-      output_columns_.emplace_back(HideInternalName(output_column_names[i]),
-                                   output_column_list[i].type());
+    switch (statement_->node_kind()) {
+      case RESOLVED_QUERY_STMT: {
+        ZETASQL_RETURN_IF_ERROR(Algebrizer::AlgebrizeQueryStatementAsRelation(
+            options.language(), algebrizer_options,
+            evaluator_options_.type_factory,
+            statement_->GetAs<ResolvedQueryStmt>(), &output_column_list,
+            &compiled_relational_op_, &output_column_names,
+            &output_column_variables_, &algebrizer_parameters_,
+            &algebrizer_column_map_, &algebrizer_system_variables_));
+        ZETASQL_RET_CHECK_EQ(output_column_list.size(), output_column_names.size());
+        for (int i = 0; i < output_column_list.size(); ++i) {
+          output_columns_.emplace_back(HideInternalName(output_column_names[i]),
+                                       output_column_list[i].type());
+        }
+        break;
+      }
+      case RESOLVED_INSERT_STMT:
+      case RESOLVED_DELETE_STMT:
+      case RESOLVED_UPDATE_STMT: {
+        ZETASQL_RETURN_IF_ERROR(Algebrizer::AlgebrizeStatement(
+            options.language(), algebrizer_options,
+            evaluator_options_.type_factory, statement_, &compiled_value_expr_,
+            &algebrizer_parameters_, &algebrizer_column_map_,
+            &algebrizer_system_variables_));
+        break;
+      }
+      default:
+        return ::zetasql_base::InvalidArgumentErrorBuilder()
+               << "Evaluator does not support statement kind: "
+               << analyzer_output_->resolved_statement()->node_kind_string();
     }
   } else {
     if (expr_ == nullptr) {
@@ -495,7 +584,7 @@ zetasql_base::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
   const TupleSchema params_schema(vars);
 
   // Set the TupleSchema for the parameters.
-  if (is_query_) {
+  if (compiled_relational_op_ != nullptr) {
     ZETASQL_RETURN_IF_ERROR(
         compiled_relational_op_->SetSchemasForEvaluation({&params_schema}));
   } else {
@@ -672,6 +761,39 @@ zetasql_base::Status Evaluator::ExecuteAfterPrepareLocked(
       query_output_iterator);
 }
 
+zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
+Evaluator::MakeUpdateIterator(const Value& value,
+                              const ResolvedStatement* statement) {
+  const Table* table;
+  EvaluatorTableModifyIterator::Operation operation;
+  switch (statement->node_kind()) {
+    case RESOLVED_INSERT_STMT:
+      table = statement->GetAs<ResolvedInsertStmt>()->table_scan()->table();
+      operation = EvaluatorTableModifyIterator::Operation::kInsert;
+      break;
+    case RESOLVED_UPDATE_STMT:
+      table = statement->GetAs<ResolvedUpdateStmt>()->table_scan()->table();
+      operation = EvaluatorTableModifyIterator::Operation::kUpdate;
+      break;
+    case RESOLVED_DELETE_STMT:
+      table = statement->GetAs<ResolvedDeleteStmt>()->table_scan()->table();
+      operation = EvaluatorTableModifyIterator::Operation::kDelete;
+      break;
+    default:
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "MakeUpdateIterator() does not support statement kind: "
+             << statement->node_kind_string();
+  }
+
+  ZETASQL_RET_CHECK(value.type()->IsStruct());
+  ZETASQL_RET_CHECK_EQ(value.num_fields(), 2);
+  ZETASQL_RET_CHECK(value.field(1).type()->IsArray());
+  IncrementNumLiveIterators();
+  return absl::make_unique<VectorEvaluatorTableModifyIterator>(
+      value.field(1).elements(), table, operation,
+      std::bind(&Evaluator::DecrementNumLiveIterators, this));
+}
+
 namespace {
 // An EvaluatorTableIterator representation of a TupleIterator.
 class TupleIteratorAdaptor : public EvaluatorTableIterator {
@@ -772,8 +894,7 @@ zetasql_base::Status Evaluator::ExecuteAfterPrepareWithOrderedParamsLocked(
   }
   const TupleData params_data = CreateTupleDataFromValues(params);
 
-  if (is_query_) {
-    ZETASQL_RET_CHECK(compiled_relational_op_ != nullptr);
+  if (compiled_relational_op_ != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<TupleIterator> tuple_iter,
         compiled_relational_op_->Eval({&params_data},
@@ -811,8 +932,7 @@ zetasql_base::Status Evaluator::ExecuteAfterPrepareWithOrderedParamsLocked(
 zetasql_base::StatusOr<std::string> Evaluator::ExplainAfterPrepare() const {
   absl::ReaderMutexLock l(&mutex_);
   ZETASQL_RET_CHECK(is_prepared()) << "Prepare must be called first";
-  if (is_query_) {
-    ZETASQL_RET_CHECK(compiled_relational_op_ != nullptr);
+  if (compiled_relational_op_ != nullptr) {
     return compiled_relational_op_->DebugString();
   } else {
     ZETASQL_RET_CHECK(compiled_value_expr_ != nullptr);
@@ -822,7 +942,7 @@ zetasql_base::StatusOr<std::string> Evaluator::ExplainAfterPrepare() const {
 
 const Type* Evaluator::expression_output_type() const {
   absl::ReaderMutexLock l(&mutex_);
-  CHECK(!is_query_) << "Only expressions have output types";
+  CHECK(is_expr_) << "Only expressions have output types";
   CHECK(is_prepared()) << "Prepare or Execute must be called first";
   CHECK(compiled_value_expr_ != nullptr) << "Invalid prepared expression";
   return compiled_value_expr_->output_type();
@@ -994,7 +1114,7 @@ PreparedExpression::PreparedExpression(const std::string& sql,
 
 PreparedExpression::PreparedExpression(const std::string& sql,
                                        const EvaluatorOptions& options)
-    : evaluator_(new internal::Evaluator(sql, /*is_query=*/false, options)) {}
+    : evaluator_(new internal::Evaluator(sql, /*is_expr=*/true, options)) {}
 
 PreparedExpression::PreparedExpression(const ResolvedExpr* expression,
                                        const EvaluatorOptions& options)
@@ -1085,7 +1205,7 @@ const Type* PreparedExpression::output_type() const {
 
 PreparedQuery::PreparedQuery(const std::string& sql,
                              const EvaluatorOptions& options)
-    : evaluator_(new internal::Evaluator(sql, /*is_query=*/true, options)) {}
+    : evaluator_(new internal::Evaluator(sql, /*is_expr=*/false, options)) {}
 
 PreparedQuery::PreparedQuery(const ResolvedQueryStmt* stmt,
                              const EvaluatorOptions& options)
@@ -1095,7 +1215,15 @@ PreparedQuery::~PreparedQuery() {}
 
 zetasql_base::Status PreparedQuery::Prepare(const AnalyzerOptions& options,
                                     Catalog* catalog) {
-  return evaluator_->Prepare(options, catalog);
+  ZETASQL_RETURN_IF_ERROR(evaluator_->Prepare(options, catalog));
+  ZETASQL_RET_CHECK_NE(evaluator_->resolved_statement(), nullptr);
+  if (evaluator_->resolved_statement()->node_kind() != RESOLVED_QUERY_STMT) {
+    return zetasql_base::InvalidArgumentErrorBuilder()
+           << "Statement kind "
+           << evaluator_->resolved_statement()->node_kind_string()
+           << " does not correspond to a query.";
+  }
+  return zetasql_base::OkStatus();
 }
 
 zetasql_base::StatusOr<std::vector<std::string>>
@@ -1162,12 +1290,89 @@ std::vector<PreparedQuery::NameAndType> PreparedQuery::GetColumns() const {
 }
 
 const ResolvedQueryStmt* PreparedQuery::resolved_query_stmt() const {
-  return evaluator_->resolved_query_stmt();
+  return evaluator_->resolved_statement()->GetAs<ResolvedQueryStmt>();
 }
 
 void PreparedQuery::SetCreateEvaluationCallbackTestOnly(
     std::function<void(EvaluationContext*)> cb) {
   return evaluator_->SetCreateEvaluationCallbackTestOnly(cb);
+}
+
+PreparedModify::PreparedModify(const std::string& sql,
+                                           const EvaluatorOptions& options)
+    : evaluator_(new internal::Evaluator(sql, /*is_expr=*/false, options)) {}
+
+PreparedModify::PreparedModify(const ResolvedStatement* stmt,
+                                           const EvaluatorOptions& options)
+    : evaluator_(new internal::Evaluator(stmt, options)) {}
+
+PreparedModify::~PreparedModify() {}
+
+zetasql_base::Status PreparedModify::Prepare(const AnalyzerOptions& options,
+                                           Catalog* catalog) {
+  ZETASQL_RETURN_IF_ERROR(evaluator_->Prepare(options, catalog));
+  ZETASQL_RET_CHECK_NE(evaluator_->resolved_statement(), nullptr);
+  switch (evaluator_->resolved_statement()->node_kind()) {
+    case RESOLVED_INSERT_STMT:
+    case RESOLVED_DELETE_STMT:
+    case RESOLVED_UPDATE_STMT:
+      return zetasql_base::OkStatus();
+    default:
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "Statement kind "
+             << evaluator_->resolved_statement()->node_kind_string()
+             << " does not correspond to a DML statement.";
+  }
+}
+
+zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
+PreparedModify::Execute(const ParameterValueMap& parameters,
+                              const SystemVariableValuesMap& system_variables) {
+  Value value;
+  ZETASQL_RETURN_IF_ERROR(evaluator_->Execute(
+      /*columns=*/{}, ParameterValues(&parameters), system_variables, &value,
+      /*query_output_iterator=*/nullptr));
+  return evaluator_->MakeUpdateIterator(value, resolved_statement());
+}
+
+zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
+PreparedModify::ExecuteWithPositionalParams(
+    const ParameterValueList& positional_parameters,
+    const SystemVariableValuesMap& system_variables) {
+  Value value;
+  ZETASQL_RETURN_IF_ERROR(evaluator_->Execute(
+      /*columns=*/{}, ParameterValues(&positional_parameters), system_variables,
+      &value,
+      /*query_output_iterator=*/nullptr));
+  return evaluator_->MakeUpdateIterator(value, resolved_statement());
+}
+
+zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
+PreparedModify::ExecuteAfterPrepareWithOrderedParams(
+    const ParameterValueList& parameters,
+    const SystemVariableValuesMap& system_variables) const {
+  Value value;
+  ZETASQL_RETURN_IF_ERROR(evaluator_->ExecuteAfterPrepareWithOrderedParams(
+      /*columns=*/{}, parameters, system_variables, &value,
+      /*query_output_iterator=*/nullptr));
+  return evaluator_->MakeUpdateIterator(value, resolved_statement());
+}
+
+zetasql_base::StatusOr<std::string> PreparedModify::ExplainAfterPrepare() const {
+  return evaluator_->ExplainAfterPrepare();
+}
+
+const ResolvedStatement* PreparedModify::resolved_statement() const {
+  return evaluator_->resolved_statement();
+}
+
+zetasql_base::StatusOr<std::vector<std::string>>
+PreparedModify::GetReferencedParameters() const {
+  return evaluator_->GetReferencedParameters();
+}
+
+zetasql_base::StatusOr<int> PreparedModify::GetPositionalParameterCount() const {
+  return evaluator_->GetPositionalParameterCount();
 }
 
 }  // namespace zetasql

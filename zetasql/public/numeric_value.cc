@@ -367,14 +367,18 @@ double RemoveScaleAndConvertToDouble(__int128 value) {
       binary_scaling_factor = static_cast<double>(uint128{1} << 96);
     }
   }
-  // Add kScalingFactor / 2 for rounding. NumericValue does not fully utilize
-  // the range of int128, so this addition never overflows.
-  abs_value += NumericValue::kScalingFactor / 2;
   // FixedUint<64, 2> / std::integral_constant<uint32_t, *> is much faster than
   // uint128 / uint32_t.
   FixedUint<64, 2> tmp(abs_value);
-  tmp /= NumericValue::kScalingFactor;
-  double result = static_cast<double>(tmp) / binary_scaling_factor;
+  uint32_t remainder;
+  tmp.DivMod(NumericValue::kScalingFactor, &tmp, &remainder);
+  std::array<uint64_t, 2> n = tmp.number();
+  // If the remainder is not 0, set the least significant bit to 1 so that the
+  // round-to-even in static_cast<double>() will not treat the value as a tie
+  // between 2 nearest double values.
+  n[0] |= (remainder != 0);
+  double result =
+      static_cast<double>(FixedUint<64, 2>(n)) / binary_scaling_factor;
   return value >= 0 ? result : -result;
 }
 
@@ -399,16 +403,6 @@ zetasql_base::StatusOr<NumericValue> NumericValue::FromFixedUint(
     }
   }
   return MakeEvalError() << "numeric overflow";
-}
-
-template <int kNumBitsPerWord, int kNumWords>
-zetasql_base::StatusOr<NumericValue> NumericValue::FromFixedInt(
-    const FixedInt<kNumBitsPerWord, kNumWords>& val) {
-  if (val < FixedInt<kNumBitsPerWord, kNumWords>(internal::kNumericMin) ||
-      val > FixedInt<kNumBitsPerWord, kNumWords>(internal::kNumericMax)) {
-    return MakeEvalError() << "numeric overflow";
-  }
-  return NumericValue(static_cast<__int128>(val));
 }
 
 size_t NumericValue::HashCode() const {
@@ -454,6 +448,83 @@ zetasql_base::StatusOr<NumericValue> NumericValue::FromStringInternal(
 
 double NumericValue::ToDouble() const {
   return RemoveScaleAndConvertToDouble(as_packed_int());
+}
+
+inline unsigned __int128 Scalemantissa(uint64_t mantissa, uint32_t scale) {
+  return static_cast<unsigned __int128>(mantissa) * scale;
+}
+
+template <typename S, typename T>
+bool ScaleAndRoundAwayFromZero(S scale, double value, T* result) {
+  if (value == 0) {
+    *result = T();
+    return true;
+  }
+  constexpr int kNumOutputBits = sizeof(T) * 8;
+  zetasql_base::MathUtil::DoubleParts parts = zetasql_base::MathUtil::Decompose(value);
+  DCHECK_NE(parts.mantissa, 0) << value;
+  if (parts.exponent <= -kNumOutputBits) {
+    *result = T();
+    return true;
+  }
+  // Because mantissa != 0, parts.exponent >= kNumOutputBits - 1 would mean that
+  // (abs_mantissa * scale) << parts.exponent will exceed kNumOutputBits - 1
+  // bits. Note, the most significant bit in abs_result cannot be set, or the
+  // sign of *result will be wrong. We do not need to exempt the special case
+  // of 1 << (kNumOutputBits - 1) which might keep the sign correct, because
+  // <scale> is not a power of 2 and thus abs_result is never equal to
+  // 1 << (kNumOutputBits - 1).
+  if (ABSL_PREDICT_FALSE(parts.exponent >= kNumOutputBits - 1)) {
+    return false;
+  }
+  bool negative = parts.mantissa < 0;
+  uint64_t abs_mantissa =
+      negative ? -static_cast<uint64_t>(parts.mantissa) : parts.mantissa;
+  auto abs_result = Scalemantissa(abs_mantissa, scale);
+  static_assert(sizeof(abs_result) == sizeof(T));
+  if (parts.exponent < 0) {
+    abs_result >>= -1 - parts.exponent;
+    abs_result += uint64_t{1};  // round away from zero
+    abs_result >>= 1;
+  } else if (parts.exponent > 0) {
+    int msb_idx =
+        FixedUint<64, kNumOutputBits / 64>(abs_result).FindMSBSetNonZero();
+    if (ABSL_PREDICT_FALSE(msb_idx >= kNumOutputBits - 1 - parts.exponent)) {
+      return false;
+    }
+    abs_result <<= parts.exponent;
+  }
+  static_assert(sizeof(T) > sizeof(S) + sizeof(uint64_t));
+  // Because sizeof(T) is bigger than sizeof(S) + sizeof(uint64_t), the sign bit
+  // of abs_result cannot be 1 when parts.exponent = 0. Same for the cases
+  // where parts.exponent != 0. Therefore, we do not need to check overflow in
+  // negation.
+  T rv(abs_result);
+  DCHECK(rv >= T()) << value;
+  *result = negative ? -rv : rv;
+  return true;
+}
+
+zetasql_base::StatusOr<NumericValue> NumericValue::FromDouble(double value) {
+  if (ABSL_PREDICT_FALSE(!std::isfinite(value))) {
+    // This error message should be kept consistent with the error message found
+    // in .../public/functions/convert.h.
+    if (std::isnan(value)) {
+      // Don't show the negative sign for -nan values.
+      value = std::numeric_limits<double>::quiet_NaN();
+    }
+    return MakeEvalError() << "Illegal conversion of non-finite floating point "
+                              "number to numeric: "
+                           << value;
+  }
+  __int128 result = 0;
+  if (ScaleAndRoundAwayFromZero(kScalingFactor, value, &result)) {
+    zetasql_base::StatusOr<NumericValue> value_status = FromPackedInt(result);
+    if (ABSL_PREDICT_TRUE(value_status.ok())) {
+      return value_status;
+    }
+  }
+  return MakeEvalError() << "numeric out of range: " << value;
 }
 
 zetasql_base::StatusOr<NumericValue> NumericValue::Multiply(NumericValue rh) const {
@@ -718,13 +789,13 @@ zetasql_base::StatusOr<NumericValue> NumericValue::RoundInternal(
   }
 
   if (digits < -kMaxIntegerDigits) {
-    // Rounding all digits away results in zero.
+    // Rounding (kMaxIntegerDigits + 1) digits away results in zero.
+    // Rounding kMaxIntegerDigits digits away might result in overflow instead
+    // of zero.
     return NumericValue();
   }
 
   __int128 value = as_packed_int();
-
-  bool overflow = false;
   switch (digits) {
     // Fast paths for some common values of the second argument.
     case 0:
@@ -746,20 +817,15 @@ zetasql_base::StatusOr<NumericValue> NumericValue::RoundInternal(
       __int128 trunc_factor = kTruncFactors[digits + kMaxIntegerDigits];
       if (round_away_from_zero) {
         __int128 offset = trunc_factor >> 1;
-        __int128 rounding_term = value < 0 ? -offset : offset;
-        if (internal::int128_add_overflow(value, rounding_term, &value)) {
-          overflow = true;
-          break;
-        }
+        // The max result is < 1.5e38 < pow(2, 127); no need to check overflow.
+        value += (value < 0 ? -offset : offset);
       }
       value -= value % trunc_factor;
     }
   }
-  if (!overflow) {
-    auto res_status = NumericValue::FromPackedInt(value);
-    if (res_status.ok()) {
-      return res_status;
-    }
+  auto res_status = NumericValue::FromPackedInt(value);
+  if (res_status.ok()) {
+    return res_status;
   }
   return MakeEvalError() << "numeric overflow: ROUND(" << ToString() << ", "
                          << digits << ")";
@@ -897,32 +963,11 @@ std::string NumericValue::SerializeAsProtoBytes() const {
 
 zetasql_base::StatusOr<NumericValue> NumericValue::DeserializeFromProtoBytes(
     absl::string_view bytes) {
-  if (bytes.empty() || (bytes.size() > 16)) {
-    return MakeEvalError() << "Invalid numeric encoding";
+  FixedInt<64, 2> value;
+  if (ABSL_PREDICT_TRUE(value.DeserializeFromBytes(bytes))) {
+    return NumericValue::FromPackedInt(static_cast<__int128>(value));
   }
-
-  __int128 res = 0;
-
-#ifdef IS_BIG_ENDIAN
-  // Big endian platforms are not supported in production right now, so we do
-  // not care about optimizations here.
-  for (int i = bytes.size() - 1; i >= 0; --i) {
-    res = (res << kBitsPerByte) | bytes[i];
-  }
-#else
-  // TODO explore unrolling this call to memcpy.
-  memcpy(&res, bytes.data(), bytes.size());
-#endif
-
-  // Extend sign if the stored number is negative.
-  if ((bytes[bytes.size() - 1] & 0x80) != 0) {
-    __int128 sign = 0;
-    zetasql_base::Bits::SetBits(1, kBitsPerInt128 - 1, 1, &sign);
-    sign >>= (kBytesPerInt128 - bytes.size()) * kBitsPerByte;
-    res |= sign;
-  }
-
-  return NumericValue::FromPackedInt(res);
+  return MakeEvalError() << "Invalid numeric encoding";
 }
 
 std::ostream& operator<<(std::ostream& out, NumericValue value) {

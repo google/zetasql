@@ -7002,15 +7002,15 @@ elseif_clauses:
   "ELSEIF" expression "THEN" statement_list
   {
     zetasql::ASTElseifClause* elseif_clause = MAKE_NODE(
-        ASTElseifClause, @1, {$2, $4});
+        ASTElseifClause, @$, {$2, $4});
     $$ = MAKE_NODE(ASTElseifClauseList, @$, {elseif_clause});
   }
   | elseif_clauses "ELSEIF" expression "THEN" statement_list
   {
     zetasql::ASTElseifClause* elseif_clause = MAKE_NODE(
         ASTElseifClause, @2, {$3, $5});
-    $1->AddChild(elseif_clause);
-    $$ = $1;
+    $$ = WithEndLocation(WithExtraChildren(
+        $1, {WithEndLocation(elseif_clause, @$)}), @$);
   };
 
 opt_elseif_clauses:

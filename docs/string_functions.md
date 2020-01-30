@@ -250,13 +250,34 @@ CONCAT(value1[, ...])
 
 **Description**
 
-Concatenates one or more [values][string-link-to-string-values] into a single result.
+Concatenates one or more values into a single result. All values must be
+`BYTES` or data types that can be cast to `STRING`.
 
 **Return type**
 
 STRING or BYTES
 
 **Examples**
+
+```sql
+SELECT CONCAT("T.P.", " ", "Bar") as author;
+
++---------------------+
+| author              |
++---------------------+
+| T.P. Bar            |
++---------------------+
+```
+
+```sql
+SELECT CONCAT("Summer", " ", 1923) as release_date;
+
++---------------------+
+| release_date        |
++---------------------+
+| Summer 1923         |
++---------------------+
+```
 
 ```sql
 

@@ -21,6 +21,8 @@
 #include <vector>
 
 #include "zetasql/public/strings.h"
+#include "zetasql/public/type.h"
+#include "absl/strings/str_cat.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -62,6 +64,20 @@ zetasql_base::StatusOr<const ArrayType*> CreateTableArrayType(
   const ArrayType* table_array;
   ZETASQL_RETURN_IF_ERROR(type_factory->MakeArrayType(element_type, &table_array));
   return table_array;
+}
+
+zetasql_base::StatusOr<const StructType*> CreatePrimaryKeyType(
+    const ResolvedColumnList& table_columns,
+    const std::vector<int>& key_column_indexes, TypeFactory* type_factory) {
+  std::vector<StructType::StructField> fields;
+  fields.reserve(key_column_indexes.size());
+  for (int index : key_column_indexes) {
+    fields.emplace_back(absl::StrCat("pk#", table_columns[index].name()),
+                        table_columns[index].type());
+  }
+  const StructType* key_struct;
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeStructType(fields, &key_struct));
+  return key_struct;
 }
 
 zetasql_base::StatusOr<const StructType*> CreateDMLOutputType(

@@ -66,8 +66,11 @@
 //          DivMod            UnsignedWord                (FixedUint only)
 //          DivMod            FixedUint/FixedInt
 //
+//          is_zero           None
 //        is_negative         None                        (FixedInt only)
-//       - (negation)         None                        (FixedInt only)
+//    -, NegateOverflow       None                        (FixedInt only)
+//           abs              None                        (FixedInt only)
+//       SetSignAndAbs        bool, FixedUint             (FixedInt only)
 //
 //      cast to double        None
 //  cast to int128/uint128    None
@@ -99,7 +102,7 @@
 //   In C++, currently there is no reliable way to identify constexpr arguments.
 //
 // * Comparison among operators and functions:
-//   - is_negative is faster than comparison to zero.
+//   - is_zero and is_negative are faster than comparison to zero.
 //   - MultiplyOverflow(FixedUint/FixedInt) is usually much slower than
 //     operator*= with the same argument type. Other *Overflow methods are
 //     slightly slower than the corresponding operator.
@@ -408,6 +411,7 @@ class FixedUint final {
     return *this %= tmp;
   }
 
+  bool is_zero() const { return NonZeroLength() == 0; }
   // Returns the number of words excluding leading zero words.
   int NonZeroLength() const {
     return fixed_int_internal::NonZeroLength<Word, kNumWords>(number_.data());
@@ -611,7 +615,7 @@ void FixedUint<kNumBitsPerWord, kNumWords>::AppendToString(
   // = ceil(kNumBits / 29.897352854) <= ceil(kNumBits / 29).
   std::array<uint32_t, (kNumBits + 28) / 29> segments;
   int num_segments = 0;
-  while (quotient.NonZeroLength() != 0) {
+  while (!quotient.is_zero()) {
     quotient.DivMod(divisor, &quotient, &segments[num_segments]);
     ++num_segments;
   }
@@ -716,6 +720,9 @@ class FixedInt final {
       : rep_(fixed_int_internal::Convert<kNumBitsPerWord, kNumWords, k, n>(
             src.number(), src.is_negative())) {}
 
+  template <int k, int n>
+  explicit FixedInt(const FixedUint<k, n>& src) : rep_(src) {}
+
   explicit constexpr FixedInt(
       const std::array<UnsignedWord, kNumWords>& little_endian_number)
       : rep_(little_endian_number) {}
@@ -728,10 +735,8 @@ class FixedInt final {
     static_assert(kNumBits <= kMaxBitsToDouble,
                   "Size too big to convert to double.");
     static_assert(kNumBits > 0, "The number has less than one bit.");
-    if (is_negative()) {
-      return -static_cast<double>((-(*this)).rep_);
-    }
-    return static_cast<double>(rep_);
+    double abs_result = static_cast<double>(abs());
+    return ABSL_PREDICT_FALSE(is_negative()) ? -abs_result : abs_result;
   }
 
   FixedInt& operator<<=(uint bits) {
@@ -843,12 +848,10 @@ class FixedInt final {
     if (ABSL_PREDICT_FALSE(is_negative())) {
       *this = -(*this);
     }
-    bool overflow = rep_.MultiplyOverflow(SafeAbs(rh));
-    if (ABSL_PREDICT_FALSE(result_non_positive)) {
-      *this = -(*this);
-    }
-    return overflow ||
-           (result_non_positive != is_negative() && rep_.NonZeroLength() != 0);
+    // use | instead of ||, to call SetSignAndAbs even when MultiplyOverflow
+    // returns true.
+    return rep_.MultiplyOverflow(SafeAbs(rh)) |
+           !SetSignAndAbs(result_non_positive, rep_);
   }
 
   template <int32_t divisor>
@@ -951,12 +954,24 @@ class FixedInt final {
     return InternalDivMod<ModOp, false>(x);
   }
 
+  bool is_zero() const { return rep_.is_zero(); }
   bool is_negative() const {
-    return static_cast<Word>(*rep_.number().rbegin()) < 0;
+    return static_cast<Word>(rep_.number().back()) < 0;
   }
   FixedInt operator-() const { return FixedInt() -= *this; }
+  bool NegateOverflow() {
+    bool was_negative = is_negative();
+    FixedUint<kNumBitsPerWord, kNumWords> result;
+    bool is_nonzero = result.SubtractOverflow(rep_);
+    rep_ = result;
+    return is_nonzero && was_negative == is_negative();
+  }
+
   constexpr const std::array<UnsignedWord, kNumWords>& number() const {
     return rep_.number_;
+  }
+  FixedUint<kNumBitsPerWord, kNumWords> abs() const {
+    return ABSL_PREDICT_FALSE(is_negative()) ? (-(*this)).rep_ : rep_;
   }
 
   // Serializes to minimum number of bytes needed to represent the number,
@@ -1017,11 +1032,14 @@ class FixedInt final {
   // Sets sign and absolute value. Returns false in case of overflow.
   bool SetSignAndAbs(bool negative,
                      const FixedUint<kNumBitsPerWord, kNumWords>& abs) {
-    rep_ = abs;
-    if (negative) {
-      *this = -(*this);
+    if (!negative) {
+      rep_ = abs;
+      return !is_negative();
     }
-    return is_negative() == negative || abs.NonZeroLength() == 0;
+    FixedUint<kNumBitsPerWord, kNumWords> abs_copy = abs;
+    rep_ = FixedUint<kNumBitsPerWord, kNumWords>();
+    // SubtractOverflow returns false iff abs == 0.
+    return !rep_.SubtractOverflow(abs_copy) || is_negative();
   }
 
   template <typename H>
@@ -1085,7 +1103,7 @@ class FixedInt final {
     return x.is_negative();
   }
   static FixedUint<kNumBitsPerWord, kNumWords> SafeAbs(const FixedInt& x) {
-    return ABSL_PREDICT_FALSE(x.is_negative()) ? (-x).rep_ : x.rep_;
+    return x.abs();
   }
   static UnsignedWord SafeAbs(Word x) {
     return fixed_int_internal::SafeAbs<Word>(x);

@@ -20,7 +20,10 @@
 // This file contains string processing functions related to
 // numeric values.
 
+#include <cassert>
+
 #include <cstdint>
+#include "absl/strings/ascii.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql_base {
@@ -32,6 +35,17 @@ bool safe_strto64_base(absl::string_view text, int64_t* value, int base);
 bool safe_strtou32_base(absl::string_view text, uint32_t* value, int base);
 
 bool safe_strtou64_base(absl::string_view text, uint64_t* value, int base);
+
+inline int hex_digit_to_int(char c) {
+  static_assert('0' == 0x30 && 'A' == 0x41 && 'a' == 0x61,
+                "Character set must be ASCII.");
+  assert(absl::ascii_isxdigit(c));
+  int x = static_cast<unsigned char>(c);
+  if (x > '9') {
+    x += 9;
+  }
+  return x & 0xf;
+}
 
 }  // namespace zetasql_base
 

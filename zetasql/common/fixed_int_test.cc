@@ -18,7 +18,7 @@
 // 1) TYPED_TEST(Fixed{Uint|Int}GoldenDataTest, *) tests
 //    Fixed{Int|Uint}<64,2> and Fixed{Int|Uint}<32,4> using hand-crafted
 //    golden inputs and expected outputs;
-// 2) TYPED_TEST(Fixed{Uint|Int}GeneratedDataTest, *) tests
+// 2) TYPED_TEST(FixedIntGeneratedDataTest, *) tests
 //    Fixed{Int|Uint}{<64,2>|<64,3>|<32,4>|<32,5>} with generated inputs
 //    and derived expectations using native types;
 // 3) TEST(Fixed{Uint|Int}Test, *) tests Fixed{Int|Uint} with template
@@ -102,6 +102,13 @@ template <>
 constexpr uint128 min128<uint128>() {
   return 0;
 }
+
+// Cannot use fixed_int_internal::SafeAbs because std::make_unsigned_t<int128>
+// doesn't compile in zetasql
+inline uint128 SafeAbs(int128 x) {
+  return x < 0 ? -static_cast<uint128>(x) : x;
+}
+inline uint128 SafeAbs(uint128 x) { return x; }
 
 constexpr uint64_t kSorted64BitValues[] = {
     0,
@@ -787,6 +794,26 @@ constexpr std::pair<uint128, int> kFindMSBSetNonZeroTestData[] = {
     {kuint128max, 127},
 };
 
+constexpr std::pair<std::pair<bool, uint128>, std::pair<bool, int128>>
+    kSetSignAndAbsTestData[] = {
+        {{false, 0}, {true, 0}},
+        {{true, 0}, {true, 0}},
+        {{false, 1}, {true, 1}},
+        {{true, 1}, {true, -1}},
+        {{false, 1000}, {true, 1000}},
+        {{true, 1000}, {true, -1000}},
+        {{false, kuint64max}, {true, kuint64max}},
+        {{true, kuint64max}, {true, -static_cast<int128>(kuint64max)}},
+        {{false, kint128max}, {true, kint128max}},
+        {{true, kint128max}, {true, -kint128max}},
+        {{false, uint128{1} << 127}, {false, uint128{1} << 127}},
+        {{true, uint128{1} << 127}, {true, kint128min}},
+        {{false, (uint128{1} << 127) + 1}, {false, (uint128{1} << 127) + 1}},
+        {{true, (uint128{1} << 127) + 1}, {false, kint128max}},
+        {{false, kuint128max}, {false, kuint128max}},
+        {{true, kuint128max}, {false, 1}},
+};
+
 template <typename TypeParam>
 class FixedUintGoldenDataTest : public ::testing::Test {};
 
@@ -1173,6 +1200,30 @@ TYPED_TEST(FixedIntGoldenDataTest, DivMod) {
   }
 }
 
+template <typename T, typename V>
+void TestNegate(V x, T expected_result, bool expected_overflow) {
+  T value(x);
+  T negated_value = -value;
+  EXPECT_EQ(negated_value, expected_result)
+      << std::hex << std::showbase << "-(" << x << ")";
+
+  EXPECT_EQ(value.NegateOverflow(), expected_overflow)
+      << std::hex << std::showbase << "-(" << x << ")";
+  EXPECT_EQ(value, expected_result)
+      << std::hex << std::showbase << "-(" << x << ")";
+}
+
+TYPED_TEST(FixedIntGoldenDataTest, Negate) {
+  static constexpr int128 kTestData[] = {
+    0, 1, 1000, kint64max, kuint64max, kint128max
+  };
+  for (int128 input : kTestData) {
+    TestNegate(input, TypeParam(-input), false);
+    TestNegate(-input, TypeParam(input), false);
+  }
+  TestNegate(kint128min, TypeParam(kint128min), true);
+}
+
 void CompareDouble(double actual, double expect) {
   EXPECT_EQ(actual, expect);
   zetasql_base::MathUtil::DoubleParts decomposed_actual = zetasql_base::MathUtil::Decompose(actual);
@@ -1382,6 +1433,21 @@ TYPED_TEST(FixedUintGoldenDataTest, FindMSBSetNonZero) {
   }
 }
 
+TYPED_TEST(FixedIntGoldenDataTest, SetSignAndAbs) {
+  for (auto pair : kSetSignAndAbsTestData) {
+    TypeParam v;
+    constexpr int kNumBitsPerWord = sizeof(typename TypeParam::Word) * 8;
+    constexpr int kNumWords = TypeParam::kNumBits / kNumBitsPerWord;
+    FixedUint<kNumBitsPerWord, kNumWords> input_abs(pair.first.second);
+    bool expect_success = pair.second.first;
+    EXPECT_EQ(v.SetSignAndAbs(pair.first.first, input_abs), expect_success);
+    EXPECT_EQ(v, TypeParam(pair.second.second));
+    if (expect_success) {
+      EXPECT_EQ(v.abs(), input_abs);
+    }
+  }
+}
+
 std::vector<uint128> GenerateTestInputs() {
   std::vector<uint128> result;
   for (uint64_t x_lo : kSorted64BitValues) {
@@ -1476,6 +1542,30 @@ TYPED_TEST(FixedIntGeneratedDataTest, Compare) {
   }
 }
 
+template <int kNumBitsPerWord, int kNumWords>
+void TestComparisonToZero(
+    const FixedUint<kNumBitsPerWord, kNumWords>& fixed_uint, uint128 value) {
+  EXPECT_EQ(fixed_uint.is_zero(), value == 0);
+}
+
+template <int kNumBitsPerWord, int kNumWords>
+void TestComparisonToZero(const FixedInt<kNumBitsPerWord, kNumWords>& fixed_int,
+                          int128 value) {
+  EXPECT_EQ(fixed_int.is_zero(), value == 0);
+  EXPECT_EQ(fixed_int.is_negative(), value < 0);
+  FixedUint<kNumBitsPerWord, kNumWords> abs(SafeAbs(value));
+  EXPECT_EQ(fixed_int.abs(), abs);
+  FixedInt<kNumBitsPerWord, kNumWords> fixed_int2;
+  EXPECT_TRUE(fixed_int2.SetSignAndAbs(value < 0, abs));
+  EXPECT_EQ(fixed_int2, fixed_int);
+}
+
+TYPED_TEST(FixedIntGeneratedDataTest, CompareToZero) {
+  for (V128<TypeParam> x : GetTestInputs()) {
+    TestComparisonToZero(TypeParam(x), x);
+  }
+}
+
 TYPED_TEST(FixedIntGeneratedDataTest, Shift) {
   using T = TypeParam;
   for (V128<T> x : GetTestInputs()) {
@@ -1507,9 +1597,10 @@ TYPED_TEST(FixedIntGeneratedDataTest, Shift) {
 }
 
 template <typename T, typename V>
-T GetExpectedSum(V x, V y, bool* add128_overflow) {
-  *add128_overflow = y >= 0 ? x > max128<V>() - y : x < min128<V>() - y;
-  if (!(*add128_overflow)) {
+T GetExpectedSum(V x, V y, bool* expected_overflow) {
+  bool add128_overflow = y >= 0 ? x > max128<V>() - y : x < min128<V>() - y;
+  *expected_overflow = add128_overflow && sizeof(T) <= sizeof(int128);
+  if (!add128_overflow) {
     return T(x + y);
   }
   T expected(static_cast<V>(y >= 0 ? 1LL : -1LL));
@@ -1520,13 +1611,11 @@ T GetExpectedSum(V x, V y, bool* add128_overflow) {
 template <typename T, typename V>
 void TestAddWithSelfInput(V x) {
   T t(x);
-  bool expected_add128_overflow = false;
-  T expected_sum = GetExpectedSum<T>(x, x, &expected_add128_overflow);
+  bool expected_overflow = false;
+  T expected_sum = GetExpectedSum<T>(x, x, &expected_overflow);
   EXPECT_EQ(t += t, expected_sum)
       << std::hex << std::showbase << x << " + " << x;
   t = T(x);
-  bool expected_overflow =
-      expected_add128_overflow && sizeof(T) <= sizeof(int128);
   EXPECT_EQ(t.AddOverflow(t), expected_overflow)
       << std::hex << std::showbase << x << " AddOverflow " << x;
   EXPECT_EQ(t, expected_sum)
@@ -1541,18 +1630,18 @@ TYPED_TEST(FixedIntGeneratedDataTest, Add) {
   for (std::pair<uint128, uint128> input : GetTestInputPairs()) {
     const V128<T> x = input.first;
     const V128<T> y = input.second;
-    bool expected_add128_overflow = false;
-    T expected_sum = GetExpectedSum<T>(x, y, &expected_add128_overflow);
-    bool expected_overflow =
-        expected_add128_overflow && sizeof(T) <= sizeof(int128);
+    bool expected_overflow = false;
+    T expected_sum = GetExpectedSum<T>(x, y, &expected_overflow);
     TestAddWithVariousRhsTypes(x, y, expected_sum, expected_overflow);
   }
 }
 
 template <typename T, typename V>
-T GetExpectedDiff(V x, V y, bool* sub128_overflow) {
-  *sub128_overflow = y >= 0 ? x < min128<V>() + y : x > max128<V>() + y;
-  if (!(*sub128_overflow)) {
+T GetExpectedDiff(V x, V y, bool* expected_overflow) {
+  bool sub128_overflow = y >= 0 ? x < min128<V>() + y : x > max128<V>() + y;
+  *expected_overflow = sub128_overflow &&
+      (sizeof(T) <= sizeof(int128) || std::is_unsigned_v<typename T::Word>);
+  if (!sub128_overflow) {
     return T(x - y);
   }
   T expected(static_cast<V>(y >= 0 ? -1LL : 1LL));
@@ -1580,21 +1669,30 @@ TYPED_TEST(FixedIntGeneratedDataTest, Subtract) {
   for (std::pair<uint128, uint128> input : GetTestInputPairs()) {
     const V128<T> x = input.first;
     const V128<T> y = input.second;
-    bool expected_sub128_overflow = false;
-    T expected_diff = GetExpectedDiff<T>(x, y, &expected_sub128_overflow);
-    bool expected_overflow =
-        expected_sub128_overflow &&
-        (sizeof(T) <= sizeof(int128) || std::is_unsigned_v<typename T::Word>);
+    bool expected_overflow = false;
+    T expected_diff = GetExpectedDiff<T>(x, y, &expected_overflow);
     TestSubtractWithVariousRhsTypes(x, y, expected_diff, expected_overflow);
   }
 }
 
-// Cannot use fixed_int_internal::SafeAbs because std::make_unsigned_t<int128>
-// doesn't compile in zetasql
-inline uint128 SafeAbs(int128 x) {
-  return x < 0 ? -static_cast<uint128>(x) : x;
+template <typename T>
+void TestNegate(uint128 value) {
+  static_assert(std::is_unsigned_v<typename T::Word>);
 }
-inline uint128 SafeAbs(uint128 x) { return x; }
+
+template <typename T>
+void TestNegate(int128 value) {
+  static_assert(std::is_signed_v<typename T::Word>);
+  bool expected_overflow = false;
+  T expected_result = GetExpectedDiff<T>(int128{0}, value, &expected_overflow);
+  TestNegate(value, expected_result, expected_overflow);
+}
+
+TYPED_TEST(FixedIntGeneratedDataTest, Negate) {
+  for (V128<TypeParam> x : GetTestInputs()) {
+    TestNegate<TypeParam>(x);
+  }
+}
 
 template <typename T, typename V>
 T GetExpectedProduct(V x, V y, bool* expected_overflow) {
@@ -1899,82 +1997,89 @@ TYPED_TEST(FixedIntGeneratedDataTest, StringRoundTrip) {
   }
 }
 
-template <template <int, int> class T, int k1, int n1, int k2, int n2>
-T<k1, n1> Convert(const T<k2, n2>& src, bool negative) {
-  return T<k1, n1>(fixed_int_internal::Convert<k1, n1, k2, n2, false>(
+template <template <int, int> class Dest, int k1, int n1, int k2, int n2,
+          template <int, int> class Src>
+Dest<k1, n1> Convert(const Src<k2, n2>& src, bool negative) {
+  return Dest<k1, n1>(fixed_int_internal::Convert<k1, n1, k2, n2, false>(
       src.number(), negative));
 }
 
-template <template <int, int> class T, typename V128, typename V64>
+template <template <int, int> class Dest, template <int, int> class Src,
+          typename V128, typename V64>
 void TestConversion(V128 x) {
   std::ostringstream s;
   s << "x = " << std::hex << std::showbase << x;
   SCOPED_TRACE(s.str());
-  T<64, 3> x_64_3(x);
-  T<64, 2> x_64_2(x);
-  T<64, 1> x_64_1(static_cast<V64>(x));
-  T<32, 5> x_32_5(x);
-  T<32, 4> x_32_4(x);
-  T<32, 3> x_32_3(std::array<uint32_t, 3>{static_cast<uint32_t>(x),
-                                        static_cast<uint32_t>(x >> 32),
-                                        static_cast<uint32_t>(x >> 64)});
+  Src<64, 3> x_64_3(x);
+  Src<64, 2> x_64_2(x);
+  Src<64, 1> x_64_1(static_cast<V64>(x));
+  Src<32, 5> x_32_5(x);
+  Src<32, 4> x_32_4(x);
+  Src<32, 3> x_32_3(std::array<uint32_t, 3>{static_cast<uint32_t>(x),
+                                          static_cast<uint32_t>(x >> 32),
+                                          static_cast<uint32_t>(x >> 64)});
   V128 x_lo96 = (x << 32) >> 32;
 
-  EXPECT_EQ((T<64, 3>(x_64_2)), x_64_3);
-  EXPECT_EQ((T<64, 2>(x_64_2)), x_64_2);
-  EXPECT_EQ((T<64, 1>(x_64_2)), x_64_1);
-  EXPECT_EQ((T<32, 5>(x_64_2)), x_32_5);
-  EXPECT_EQ((T<32, 4>(x_64_2)), x_32_4);
-  EXPECT_EQ((T<32, 3>(x_64_2)), x_32_3);
+  EXPECT_EQ((Dest<64, 3>(x_64_2).number()), x_64_3.number());
+  EXPECT_EQ((Dest<64, 2>(x_64_2).number()), x_64_2.number());
+  EXPECT_EQ((Dest<64, 1>(x_64_2).number()), x_64_1.number());
+  EXPECT_EQ((Dest<32, 5>(x_64_2).number()), x_32_5.number());
+  EXPECT_EQ((Dest<32, 4>(x_64_2).number()), x_32_4.number());
+  EXPECT_EQ((Dest<32, 3>(x_64_2).number()), x_32_3.number());
 
-  EXPECT_EQ((T<64, 3>(x_32_4)), x_64_3);
-  EXPECT_EQ((T<64, 2>(x_32_4)), x_64_2);
-  EXPECT_EQ((T<64, 1>(x_64_2)), x_64_1);
-  EXPECT_EQ((T<32, 5>(x_32_4)), x_32_5);
-  EXPECT_EQ((T<32, 4>(x_32_4)), x_32_4);
-  EXPECT_EQ((T<32, 3>(x_64_2)), x_32_3);
+  EXPECT_EQ((Dest<64, 3>(x_32_4).number()), x_64_3.number());
+  EXPECT_EQ((Dest<64, 2>(x_32_4).number()), x_64_2.number());
+  EXPECT_EQ((Dest<64, 1>(x_64_2).number()), x_64_1.number());
+  EXPECT_EQ((Dest<32, 5>(x_32_4).number()), x_32_5.number());
+  EXPECT_EQ((Dest<32, 4>(x_32_4).number()), x_32_4.number());
+  EXPECT_EQ((Dest<32, 3>(x_64_2).number()), x_32_3.number());
 
-  EXPECT_EQ((T<64, 3>(x_32_3)), (T<64, 3>(x_lo96)));
-  EXPECT_EQ((T<64, 2>(x_32_3)), (T<64, 2>(x_lo96)));
-  EXPECT_EQ((T<64, 1>(x_32_3)), x_64_1);
-  EXPECT_EQ((T<32, 5>(x_32_3)), (T<32, 5>(x_lo96)));
-  EXPECT_EQ((T<32, 4>(x_32_3)), (T<32, 4>(x_lo96)));
-  EXPECT_EQ((T<32, 3>(x_32_3)), x_32_3);
+  EXPECT_EQ((Dest<64, 3>(x_32_3).number()), (Src<64, 3>(x_lo96).number()));
+  EXPECT_EQ((Dest<64, 2>(x_32_3).number()), (Src<64, 2>(x_lo96).number()));
+  EXPECT_EQ((Dest<64, 1>(x_32_3).number()), x_64_1.number());
+  EXPECT_EQ((Dest<32, 5>(x_32_3).number()), (Src<32, 5>(x_lo96).number()));
+  EXPECT_EQ((Dest<32, 4>(x_32_3).number()), (Src<32, 4>(x_lo96).number()));
+  EXPECT_EQ((Dest<32, 3>(x_32_3).number()), x_32_3.number());
 
   // Test the path without optimization.
   bool negative = x < 0;
-  EXPECT_EQ((Convert<T, 64, 3>(x_64_2, negative)), x_64_3);
-  EXPECT_EQ((Convert<T, 64, 2>(x_64_2, negative)), x_64_2);
-  EXPECT_EQ((Convert<T, 64, 1>(x_64_2, negative)), x_64_1);
-  EXPECT_EQ((Convert<T, 32, 5>(x_64_2, negative)), x_32_5);
-  EXPECT_EQ((Convert<T, 32, 4>(x_64_2, negative)), x_32_4);
-  EXPECT_EQ((Convert<T, 32, 3>(x_64_2, negative)), x_32_3);
+  EXPECT_EQ((Convert<Dest, 64, 3>(x_64_2, negative).number()), x_64_3.number());
+  EXPECT_EQ((Convert<Dest, 64, 2>(x_64_2, negative).number()), x_64_2.number());
+  EXPECT_EQ((Convert<Dest, 64, 1>(x_64_2, negative).number()), x_64_1.number());
+  EXPECT_EQ((Convert<Dest, 32, 5>(x_64_2, negative).number()), x_32_5.number());
+  EXPECT_EQ((Convert<Dest, 32, 4>(x_64_2, negative).number()), x_32_4.number());
+  EXPECT_EQ((Convert<Dest, 32, 3>(x_64_2, negative).number()), x_32_3.number());
 
-  EXPECT_EQ((Convert<T, 64, 3>(x_32_4, negative)), x_64_3);
-  EXPECT_EQ((Convert<T, 64, 2>(x_32_4, negative)), x_64_2);
-  EXPECT_EQ((Convert<T, 64, 1>(x_32_4, negative)), x_64_1);
-  EXPECT_EQ((Convert<T, 32, 5>(x_32_4, negative)), x_32_5);
-  EXPECT_EQ((Convert<T, 32, 4>(x_32_4, negative)), x_32_4);
-  EXPECT_EQ((Convert<T, 32, 3>(x_32_4, negative)), x_32_3);
+  EXPECT_EQ((Convert<Dest, 64, 3>(x_32_4, negative).number()), x_64_3.number());
+  EXPECT_EQ((Convert<Dest, 64, 2>(x_32_4, negative).number()), x_64_2.number());
+  EXPECT_EQ((Convert<Dest, 64, 1>(x_32_4, negative).number()), x_64_1.number());
+  EXPECT_EQ((Convert<Dest, 32, 5>(x_32_4, negative).number()), x_32_5.number());
+  EXPECT_EQ((Convert<Dest, 32, 4>(x_32_4, negative).number()), x_32_4.number());
+  EXPECT_EQ((Convert<Dest, 32, 3>(x_32_4, negative).number()), x_32_3.number());
 
   negative = x_lo96 < 0;
-  EXPECT_EQ((Convert<T, 64, 3>(x_32_3, negative)), (T<64, 3>(x_lo96)));
-  EXPECT_EQ((Convert<T, 64, 2>(x_32_3, negative)), (T<64, 2>(x_lo96)));
-  EXPECT_EQ((Convert<T, 64, 1>(x_32_3, negative)), x_64_1);
-  EXPECT_EQ((Convert<T, 32, 5>(x_32_3, negative)), (T<32, 5>(x_lo96)));
-  EXPECT_EQ((Convert<T, 32, 4>(x_32_3, negative)), (T<32, 4>(x_lo96)));
-  EXPECT_EQ((Convert<T, 32, 3>(x_32_3, negative)), x_32_3);
+  EXPECT_EQ((Convert<Dest, 64, 3>(x_32_3, negative).number()),
+            (Src<64, 3>(x_lo96).number()));
+  EXPECT_EQ((Convert<Dest, 64, 2>(x_32_3, negative).number()),
+            (Src<64, 2>(x_lo96).number()));
+  EXPECT_EQ((Convert<Dest, 64, 1>(x_32_3, negative).number()), x_64_1.number());
+  EXPECT_EQ((Convert<Dest, 32, 5>(x_32_3, negative).number()),
+            (Src<32, 5>(x_lo96).number()));
+  EXPECT_EQ((Convert<Dest, 32, 4>(x_32_3, negative).number()),
+            (Src<32, 4>(x_lo96).number()));
+  EXPECT_EQ((Convert<Dest, 32, 3>(x_32_3, negative).number()), x_32_3.number());
 }
 
 TEST(FixedUintTest, Conversion) {
-  for (int128 input : GetTestInputs()) {
-    TestConversion<FixedInt, int128, int64_t>(input);
+  for (uint128 input : GetTestInputs()) {
+    TestConversion<FixedUint, FixedUint, uint128, uint64_t>(input);
   }
 }
 
 TEST(FixedIntTest, Conversion) {
-  for (uint128 input : GetTestInputs()) {
-    TestConversion<FixedUint, uint128, uint64_t>(input);
+  for (int128 input : GetTestInputs()) {
+    TestConversion<FixedInt, FixedInt, int128, int64_t>(input);
+    TestConversion<FixedInt, FixedUint, uint128, uint64_t>(input);
   }
 }
 

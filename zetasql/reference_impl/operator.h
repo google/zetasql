@@ -2708,7 +2708,7 @@ class DMLValueExpr : public ValueExpr {
 
   // Returns true if the table being modified by the corresponding DML statement
   // is a value table.
-  bool is_value_table() const { return is_value_table_; }
+  bool is_value_table() const { return table_->IsValueTable(); }
 
   ::zetasql_base::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> schemas) override = 0;
@@ -2716,6 +2716,10 @@ class DMLValueExpr : public ValueExpr {
   // The returned value is a struct with two fields: an int64_t representing the
   // number of rows modified by the statement, and an array of structs, where
   // each element of the array represents a row of the modified table.
+  //
+  // If the object was constructed with a non-NULL primary key type, then it is
+  // an error to call this method with EvaluationOptions::emulate_primary_keys
+  // set to true.
   bool Eval(absl::Span<const TupleData* const> params,
             EvaluationContext* context, VirtualTupleSlot* result,
             ::zetasql_base::Status* status) const override {
@@ -2757,10 +2761,12 @@ class DMLValueExpr : public ValueExpr {
   using PrimaryKeyRowMap =
       std::unordered_map<Value, RowNumberAndValues, ValueHasher>;
 
+  // 'primary_key_type' may be NULL if we are not using a primary key from the
+  // Catalog, or if the Catalog specifies that the table has no primary key.
   DMLValueExpr(
-      bool is_value_table, const ArrayType* table_array_type,
-      const StructType* dml_output_type, const ResolvedNode* resolved_node,
-      const ResolvedColumnList* column_list,
+      const Table* table, const ArrayType* table_array_type,
+      const StructType* primary_key_type, const StructType* dml_output_type,
+      const ResolvedNode* resolved_node, const ResolvedColumnList* column_list,
       std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
       std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
       std::unique_ptr<const ResolvedExprMap> resolved_expr_map);
@@ -2800,11 +2806,10 @@ class DMLValueExpr : public ValueExpr {
   // have a primary key, uses the row number instead. Also sets
   // 'has_primary_key' to true if the table has a primary key. If a duplicate
   // primary key is found, the return value will have error code
-  // 'duplicate_primary_key_error_code' and error message
-  // 'duplicate_primary_key_error_prefix' + ' (' + <primary_key_value> + ')'.
+  // OUT_OF_RANGE and error message 'duplicate_primary_key_error_prefix' + ' ('
+  // + <primary_key_value> + ')'.
   ::zetasql_base::Status PopulatePrimaryKeyRowMap(
       const std::vector<std::vector<Value>>& original_rows,
-      zetasql_base::StatusCode duplicate_primary_key_error_code,
       absl::string_view duplicate_primary_key_error_prefix,
       EvaluationContext* context, PrimaryKeyRowMap* row_map,
       bool* has_primary_key) const;
@@ -2817,8 +2822,9 @@ class DMLValueExpr : public ValueExpr {
       const RowNumberAndValues& row_number_and_values,
       EvaluationContext* context, bool* has_primary_key = nullptr) const;
 
-  // Returns the index of the primary column in 'column_list_', if there is one.
-  ::zetasql_base::StatusOr<absl::optional<int>> GetPrimaryKeyColumnIndex(
+  // Returns indexes of the primary columns in 'column_list_', if there exists
+  // a primary key.
+  ::zetasql_base::StatusOr<absl::optional<std::vector<int>>> GetPrimaryKeyColumnIndexes(
       EvaluationContext* context) const;
 
   // Returns the output of Eval(), which has type 'dml_output_type_',
@@ -2832,8 +2838,9 @@ class DMLValueExpr : public ValueExpr {
       const std::vector<std::vector<Value>>& dml_output_rows,
       EvaluationContext* context) const;
 
-  const bool is_value_table_;
+  const Table* table_;
   const ArrayType* table_array_type_;
+  const StructType* primary_key_type_;
   const StructType* dml_output_type_;
   const ResolvedNode* resolved_node_;
   const ResolvedColumnList* column_list_;
@@ -2849,9 +2856,11 @@ class DMLDeleteValueExpr : public DMLValueExpr {
   DMLDeleteValueExpr(const DMLDeleteValueExpr&) = delete;
   DMLDeleteValueExpr& operator=(const DMLDeleteValueExpr&) = delete;
 
+  // 'primary_key_type' may be NULL if the table doesn't have a primary key or
+  // its primary key is not to be used in evaluting the DML expression.
   static ::zetasql_base::StatusOr<std::unique_ptr<DMLDeleteValueExpr>> Create(
-      bool is_value_table, const ArrayType* table_array_type,
-      const StructType* dml_output_type,
+      const Table* table, const ArrayType* table_array_type,
+      const StructType* primary_key_type, const StructType* dml_output_type,
       const ResolvedDeleteStmt* resolved_node,
       const ResolvedColumnList* column_list,
       std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
@@ -2865,9 +2874,11 @@ class DMLDeleteValueExpr : public DMLValueExpr {
                                EvaluationContext* context) const override;
 
  private:
+  // 'primary_key_type' may be NULL if the table doesn't have a primary key or
+  // its primary key is not to be used in evaluting the DML expression.
   DMLDeleteValueExpr(
-      bool is_value_table, const ArrayType* table_array_type,
-      const StructType* dml_output_type,
+      const Table* table, const ArrayType* table_array_type,
+      const StructType* primary_key_type, const StructType* dml_output_type,
       const ResolvedDeleteStmt* resolved_node,
       const ResolvedColumnList* column_list,
       std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
@@ -2885,9 +2896,11 @@ class DMLUpdateValueExpr : public DMLValueExpr {
   DMLUpdateValueExpr(const DMLUpdateValueExpr&) = delete;
   DMLUpdateValueExpr& operator=(const DMLUpdateValueExpr&) = delete;
 
+  // 'primary_key_type' may be NULL if the table doesn't have a primary key or
+  // its primary key is not to be used in evaluting the DML expression.
   static ::zetasql_base::StatusOr<std::unique_ptr<DMLUpdateValueExpr>> Create(
-      bool is_value_table, const ArrayType* table_array_type,
-      const StructType* dml_output_type,
+      const Table* table, const ArrayType* table_array_type,
+      const StructType* primary_key_type, const StructType* dml_output_type,
       const ResolvedUpdateStmt* resolved_node,
       const ResolvedColumnList* column_list,
       std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
@@ -3073,9 +3086,11 @@ class DMLUpdateValueExpr : public DMLValueExpr {
       std::unordered_map<ResolvedColumn, std::unique_ptr<UpdateNode>,
                          ResolvedColumnHasher>;
 
+  // 'primary_key_type' may be NULL if the table doesn't have a primary key or
+  // its primary key is not to be used in evaluting the DML expression.
   DMLUpdateValueExpr(
-      bool is_value_table, const ArrayType* table_array_type,
-      const StructType* dml_output_type,
+      const Table* table, const ArrayType* table_array_type,
+      const StructType* primary_key_type, const StructType* dml_output_type,
       const ResolvedUpdateStmt* resolved_node,
       const ResolvedColumnList* column_list,
       std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
@@ -3243,9 +3258,11 @@ class DMLInsertValueExpr : public DMLValueExpr {
   DMLInsertValueExpr(const DMLInsertValueExpr&) = delete;
   DMLInsertValueExpr& operator=(const DMLInsertValueExpr&) = delete;
 
+  // 'primary_key_type' may be NULL if the table doesn't have a primary key or
+  // its primary key is not to be used in evaluting the DML expression.
   static ::zetasql_base::StatusOr<std::unique_ptr<DMLInsertValueExpr>> Create(
-      bool is_value_table, const ArrayType* table_array_type,
-      const StructType* dml_output_type,
+      const Table* table, const ArrayType* table_array_type,
+      const StructType* primary_key_type, const StructType* dml_output_type,
       const ResolvedInsertStmt* resolved_node,
       const ResolvedColumnList* column_list,
       std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
@@ -3274,9 +3291,11 @@ class DMLInsertValueExpr : public DMLValueExpr {
       std::unordered_map<ResolvedColumn, InsertColumnOffsets,
                          ResolvedColumnHasher>;
 
+  // 'primary_key_type' may be NULL if the table doesn't have a primary key or
+  // its primary key is not to be used in evaluting the DML expression.
   DMLInsertValueExpr(
-      bool is_value_table, const ArrayType* table_array_type,
-      const StructType* dml_output_type,
+      const Table* table, const ArrayType* table_array_type,
+      const StructType* primary_key_type, const StructType* dml_output_type,
       const ResolvedInsertStmt* resolved_node,
       const ResolvedColumnList* column_list,
       std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,

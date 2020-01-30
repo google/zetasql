@@ -19,7 +19,7 @@
 <!-- BEGIN CONTENT -->
 A ZetaSQL statement comprises a series of tokens. Tokens include
 *identifiers,* *quoted identifiers, literals*, *keywords*, *operators*, and
-*special characters*. You can separate tokens with whitespace (space, backspace,
+*special characters*. You can separate tokens with whitespace (for example, space, backspace,
 tab, newline) or comments.
 
 <a id=identifiers></a>
@@ -717,6 +717,18 @@ string statement through an Application Programming Interface (API).
 In a request containing multiple statements, you must separate statements with
 semicolons, but the semicolon is generally optional after the final statement.
 Some interactive tools require statements to have a terminating semicolon.
+
+<a id=trailing_commas></a>
+### Trailing Commas
+
+You can optionally use a trailing comma (`,`) at the end of a list in a `SELECT`
+statement.
+
+**Example**
+
+```
+SELECT name, release_date, FROM Books
+```
 
 <a id=query_parameters></a>
 ### Query Parameters
@@ -3032,10 +3044,12 @@ valid UTF-8.
 
 All functions and operators that act on STRING values operate on Unicode
 characters rather than bytes. For example, functions like `SUBSTR` and `LENGTH`
-applied to STRING input count Unicode characters, not bytes. Comparisons are
-defined on Unicode characters. Comparisons for less than and `ORDER BY` compare
-character by character, and lower unicode code points are considered lower
-characters.
+applied to STRING input count the number of characters, not bytes.
+
+Each Unicode character has a numeric value called a code point assigned to it.
+Lower code points are assigned to lower characters. When characters are
+compared, the code points determine which characters are less than or greater
+than other characters.
 
 Most functions on STRING are also defined on BYTES. The BYTES version operates
 on raw bytes rather than Unicode characters. STRING and BYTES are separate types
@@ -15751,13 +15765,34 @@ CONCAT(value1[, ...])
 
 **Description**
 
-Concatenates one or more [values][string-link-to-string-values] into a single result.
+Concatenates one or more values into a single result. All values must be
+`BYTES` or data types that can be cast to `STRING`.
 
 **Return type**
 
 STRING or BYTES
 
 **Examples**
+
+```sql
+SELECT CONCAT("T.P.", " ", "Bar") as author;
+
++---------------------+
+| author              |
++---------------------+
+| T.P. Bar            |
++---------------------+
+```
+
+```sql
+SELECT CONCAT("Summer", " ", 1923) as release_date;
+
++---------------------+
+| release_date        |
++---------------------+
+| Summer 1923         |
++---------------------+
+```
 
 ```sql
 

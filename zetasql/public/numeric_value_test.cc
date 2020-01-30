@@ -29,9 +29,13 @@
 #include "zetasql/base/testing/status_matchers.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/base/casts.h"
 #include "absl/numeric/int128.h"
 #include "absl/random/random.h"
+#include "absl/strings/match.h"
+#include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/types/optional.h"
@@ -40,6 +44,12 @@
 #include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/statusor.h"
+
+namespace std {
+std::ostream& operator<<(std::ostream& o, __int128 x) {
+  return x < 0 ? (o << '-' << -absl::uint128(x)) : (o << absl::uint128(x));
+}
+}  // namespace std
 
 namespace zetasql {
 
@@ -64,6 +74,10 @@ constexpr __int128 k1e9 = 1000000000;
 constexpr __int128 k1e10 = k1e9 * 10;
 constexpr int64_t kint64min = std::numeric_limits<int64_t>::min();
 constexpr int64_t kint64max = std::numeric_limits<int64_t>::max();
+using uint128 = unsigned __int128;
+constexpr uint128 kuint128max = ~static_cast<uint128>(0);
+constexpr __int128 kint128max = kuint128max >> 1;
+constexpr __int128 kint128min = ~kint128max;
 
 class NumericValueTest : public testing::Test {
  protected:
@@ -491,12 +505,16 @@ TEST_F(NumericValueTest, FromString) {
 }
 
 // A lite version of Status that allows instantiation with constexpr.
-struct Error {
-  absl::string_view message_prefix;
+struct Error : absl::string_view {
+  constexpr explicit Error(absl::string_view message_prefix)
+      : absl::string_view(message_prefix) {}
 };
 
-constexpr Error kNumericOverflow = {"numeric overflow: "};
-constexpr Error kDivisionByZero = {"division by zero: "};
+constexpr Error kNumericOverflow("numeric overflow: ");
+constexpr Error kNumericOutOfRange("numeric out of range: ");
+constexpr Error kDivisionByZero("division by zero: ");
+constexpr Error kNumericIllegalNonFinite(
+    "Illegal conversion of non-finite floating point number to numeric: ");
 
 // A lite version of StatusOr that allows instantiation with constexpr.
 template <typename T>
@@ -508,6 +526,28 @@ struct NumericValueWrapper : absl::variant<Error, absl::string_view, int64_t> {
 };
 
 template <typename T>
+zetasql_base::StatusOr<T> GetNumericValue(const NumericValueWrapper& src) {
+  T value;
+  if (absl::holds_alternative<absl::string_view>(src)) {
+    ZETASQL_ASSIGN_OR_RETURN(value, T::FromString(absl::get<absl::string_view>(src)));
+  } else if (absl::holds_alternative<int64_t>(src)) {
+    value = T(absl::get<int64_t>(src));
+  } else {
+    return MakeEvalError() << absl::get<Error>(src);
+  }
+  if (src.negate) {
+    return T::UnaryMinus(value);
+  }
+  return value;
+}
+
+NumericValueWrapper operator-(const NumericValueWrapper& src) {
+  NumericValueWrapper result = src;
+  result.negate = !result.negate;
+  return result;
+}
+
+template <typename T>
 zetasql_base::StatusOr<T> GetValue(const T& src) {
   return src;
 }
@@ -517,7 +557,7 @@ zetasql_base::StatusOr<T> GetValue(const ErrorOr<T>& src) {
   if (absl::holds_alternative<T>(src)) {
     return absl::get<T>(src);
   }
-  return MakeEvalError() << absl::get<Error>(src).message_prefix;
+  return MakeEvalError() << absl::get<Error>(src);
 }
 
 template <typename T>
@@ -526,25 +566,7 @@ zetasql_base::StatusOr<T> GetValue(const zetasql_base::StatusOr<T>& src) {
 }
 
 zetasql_base::StatusOr<NumericValue> GetValue(const NumericValueWrapper& src) {
-  NumericValue value;
-  if (absl::holds_alternative<absl::string_view>(src)) {
-    ZETASQL_ASSIGN_OR_RETURN(
-        value, NumericValue::FromString(absl::get<absl::string_view>(src)));
-  } else if (absl::holds_alternative<int64_t>(src)) {
-    value = NumericValue(absl::get<int64_t>(src));
-  } else {
-    return MakeEvalError() << absl::get<Error>(src).message_prefix;
-  }
-  if (src.negate) {
-    value = NumericValue::UnaryMinus(value);
-  }
-  return value;
-}
-
-NumericValueWrapper operator-(const NumericValueWrapper& src) {
-  NumericValueWrapper result = src;
-  result.negate = !result.negate;
-  return result;
+  return GetNumericValue<NumericValue>(src);
 }
 
 // Returns a value that can be used in absl::StrCat.
@@ -696,7 +718,7 @@ void TestUnaryOp(Op op, const Input& input_wrapper,
     std::string expression =
         absl::Substitute(Op::kExpressionFormat, AlphaNum(input));
     EXPECT_THAT(
-        status_or_result,
+        status_or_result.status(),
         StatusIs(zetasql_base::OUT_OF_RANGE,
                  absl::StrCat(status_or_expected_output.status().message(),
                               expression)));
@@ -719,7 +741,7 @@ void TestBinaryOp(Op op, const Input1& input_wrapper1,
     std::string expression = absl::Substitute(
         Op::kExpressionFormat, AlphaNum(input1), AlphaNum(input2));
     EXPECT_THAT(
-        status_or_result,
+        status_or_result.status(),
         StatusIs(zetasql_base::OUT_OF_RANGE,
                  absl::StrCat(status_or_expected_output.status().message(),
                               expression)));
@@ -1013,6 +1035,8 @@ TEST_F(NumericValueTest, ToDouble) {
           {123, 123},
           {"123.5", 123.5},
           {"4503599627370496", 4503599627370496.0},
+          {"8.12407667", 8.12407667},  // test round to even
+          {"1974613819685343985664.0249533", 1974613819685343985664.0249533},
           {kMaxNumericValueStr, 1e29},
       };
 
@@ -1029,33 +1053,37 @@ TEST_F(NumericValueTest, ToDouble_RandomInputs) {
     double expected;
     ASSERT_TRUE(absl::SimpleAtod(v.ToString(), &expected));
     // Use EXPECT_EQ instead of EXPECT_DOUBLE_EQ to ensure exactness.
-    EXPECT_EQ(expected, v.ToDouble());
+    EXPECT_EQ(expected, v.ToDouble()) << v.ToString();
   }
 }
+static constexpr Error kInt32OutOfRange("int32 out of range: ");
+template <typename T>
+static constexpr NumericUnaryOpTestData<T, ErrorOr<int32_t>>
+    kToInt32ValueTestData[] = {
+        {0, 0},
+        {123, 123},
+        {-123, -123},
+        {"123.56", 124},
+        {"-123.56", -124},
+        {"123.5", 124},
+        {"-123.5", -124},
+        {"123.46", 123},
+        {"-123.46", -123},
+        {2147483647, 2147483647},
+        {-2147483648, -2147483648},
+        {2147483648, kInt32OutOfRange},
+        {-2147483649, kInt32OutOfRange},
+        {"2147483647.499999999", 2147483647},
+        {"-2147483648.499999999", -2147483648},
+        {"2147483647.5", kInt32OutOfRange},
+        {"-2147483648.5", kInt32OutOfRange},
+        {kMaxNumericValueStr, kInt32OutOfRange},
+        {kMinNumericValueStr, kInt32OutOfRange},
+};
 
 TEST_F(NumericValueTest, ToInt32) {
-  static constexpr Error kInt32OutOfRange = {"int32 out of range: "};
-  static constexpr NumericUnaryOpTestData<NumericValueWrapper, ErrorOr<int32_t>>
-      kTestData[] = {
-          {0, 0},
-          {123, 123},
-          {-123, -123},
-          {"123.56", 124},
-          {"-123.56", -124},
-          {"123.5", 124},
-          {"-123.5", -124},
-          {"123.46", 123},
-          {"-123.46", -123},
-          {2147483647, 2147483647},
-          {-2147483648, -2147483648},
-          {2147483648, kInt32OutOfRange},
-          {-2147483649, kInt32OutOfRange},
-          {kMaxNumericValueStr, kInt32OutOfRange},
-          {kMinNumericValueStr, kInt32OutOfRange},
-      };
-
   NumericToIntegerOp<int32_t> op;
-  for (const auto& data : kTestData) {
+  for (const auto& data : kToInt32ValueTestData<NumericValueWrapper>) {
     TestUnaryOp(op, data.input, data.expected_output);
   }
 }
@@ -1064,29 +1092,34 @@ TEST_F(NumericValueTest, RoundTripFromInt32) {
   TestRoundTripFromInteger<int32_t>();
 }
 
-TEST_F(NumericValueTest, ToInt64) {
-  static constexpr Error kInt64OutOfRange = {"int64 out of range: "};
-  static constexpr NumericUnaryOpTestData<NumericValueWrapper, ErrorOr<int64_t>>
-      kTestData[] = {
-          {0, 0},
-          {123, 123},
-          {-123, -123},
-          {"123.56", 124},
-          {"-123.56", -124},
-          {"123.5", 124},
-          {"-123.5", -124},
-          {"123.46", 123},
-          {"-123.46", -123},
-          {"9223372036854775807", 9223372036854775807LL},
-          {"-9223372036854775808", -9223372036854775807LL - 1},
-          {"9223372036854775808", kInt64OutOfRange},
-          {"-9223372036854775809", kInt64OutOfRange},
-          {kMaxNumericValueStr, kInt64OutOfRange},
-          {kMinNumericValueStr, kInt64OutOfRange},
-      };
+static constexpr Error kInt64OutOfRange("int64 out of range: ");
+template <typename T>
+static constexpr NumericUnaryOpTestData<T, ErrorOr<int64_t>>
+    kToInt64ValueTestData[] = {
+        {0, 0},
+        {123, 123},
+        {-123, -123},
+        {"123.56", 124},
+        {"-123.56", -124},
+        {"123.5", 124},
+        {"-123.5", -124},
+        {"123.46", 123},
+        {"-123.46", -123},
+        {"9223372036854775807", 9223372036854775807LL},
+        {"-9223372036854775808", -9223372036854775807LL - 1},
+        {"9223372036854775807.499999999", 9223372036854775807LL},
+        {"-9223372036854775808.499999999", -9223372036854775807LL - 1},
+        {"9223372036854775807.5", kInt64OutOfRange},
+        {"-9223372036854775808.5", kInt64OutOfRange},
+        {"9223372036854775808", kInt64OutOfRange},
+        {"-9223372036854775809", kInt64OutOfRange},
+        {kMaxNumericValueStr, kInt64OutOfRange},
+        {kMinNumericValueStr, kInt64OutOfRange},
+};
 
+TEST_F(NumericValueTest, ToInt64) {
   NumericToIntegerOp<int64_t> op;
-  for (const auto& data : kTestData) {
+  for (const auto& data : kToInt64ValueTestData<NumericValueWrapper>) {
     TestUnaryOp(op, data.input, data.expected_output);
   }
 }
@@ -1095,24 +1128,29 @@ TEST_F(NumericValueTest, RoundTripFromInt64) {
   TestRoundTripFromInteger<int64_t>();
 }
 
-TEST_F(NumericValueTest, ToUint32) {
-  static constexpr Error kUint32OutOfRange = {"uint32 out of range: "};
-  static constexpr NumericUnaryOpTestData<NumericValueWrapper, ErrorOr<uint32_t>>
-      kTestData[] = {
-          {0, 0},
-          {123, 123},
-          {"123.56", 124},
-          {"123.5", 124},
-          {"123.46", 123},
-          {4294967295, 4294967295U},
-          {4294967296, kUint32OutOfRange},
-          {-1, kUint32OutOfRange},
-          {kMaxNumericValueStr, kUint32OutOfRange},
-          {kMinNumericValueStr, kUint32OutOfRange},
-      };
+static constexpr Error kUint32OutOfRange("uint32 out of range: ");
+template <typename T>
+static constexpr NumericUnaryOpTestData<T, ErrorOr<uint32_t>>
+    kToUint32ValueTestData[] = {
+        {0, 0},
+        {123, 123},
+        {"123.56", 124},
+        {"123.5", 124},
+        {"123.46", 123},
+        {4294967295, 4294967295U},
+        {"4294967295.499999999", 4294967295U},
+        {"4294967295.5", kUint32OutOfRange},
+        {4294967296, kUint32OutOfRange},
+        {"-0.499999999", 0},
+        {"-0.5", kUint32OutOfRange},
+        {-1, kUint32OutOfRange},
+        {kMaxNumericValueStr, kUint32OutOfRange},
+        {kMinNumericValueStr, kUint32OutOfRange},
+};
 
+TEST_F(NumericValueTest, ToUint32) {
   NumericToIntegerOp<uint32_t> op;
-  for (const auto& data : kTestData) {
+  for (const auto& data : kToUint32ValueTestData<NumericValueWrapper>) {
     TestUnaryOp(op, data.input, data.expected_output);
   }
 }
@@ -1121,24 +1159,29 @@ TEST_F(NumericValueTest, RoundTripFromUint32) {
   TestRoundTripFromInteger<uint32_t>();
 }
 
-TEST_F(NumericValueTest, ToUint64) {
-  static constexpr Error kUint64OutOfRange = {"uint64 out of range: "};
-  static constexpr NumericUnaryOpTestData<NumericValueWrapper, ErrorOr<uint64_t>>
-      kTestData[] = {
-          {0, 0},
-          {123, 123},
-          {"123.56", 124},
-          {"123.5", 124},
-          {"123.46", 123},
-          {"18446744073709551615", 18446744073709551615ull},
-          {"18446744073709551616", kUint64OutOfRange},
-          {-1, kUint64OutOfRange},
-          {kMaxNumericValueStr, kUint64OutOfRange},
-          {kMinNumericValueStr, kUint64OutOfRange},
-      };
+static constexpr Error kUint64OutOfRange("uint64 out of range: ");
+template <typename T>
+static constexpr NumericUnaryOpTestData<T, ErrorOr<uint64_t>>
+    kToUint64ValueTestData[] = {
+        {0, 0},
+        {123, 123},
+        {"123.56", 124},
+        {"123.5", 124},
+        {"123.46", 123},
+        {"18446744073709551615", 18446744073709551615ull},
+        {"18446744073709551615.499999999", 18446744073709551615ull},
+        {"18446744073709551615.5", kUint64OutOfRange},
+        {"18446744073709551616", kUint64OutOfRange},
+        {"-0.499999999", 0},
+        {"-0.5", kUint64OutOfRange},
+        {-1, kUint64OutOfRange},
+        {kMaxNumericValueStr, kUint64OutOfRange},
+        {kMinNumericValueStr, kUint64OutOfRange},
+};
 
+TEST_F(NumericValueTest, ToUint64) {
   NumericToIntegerOp<uint64_t> op;
-  for (const auto& data : kTestData) {
+  for (const auto& data : kToUint64ValueTestData<NumericValueWrapper>) {
     TestUnaryOp(op, data.input, data.expected_output);
   }
 }
@@ -1148,9 +1191,6 @@ TEST_F(NumericValueTest, RoundTripFromUint64) {
 }
 
 TEST_F(NumericValueTest, FromDouble) {
-  static constexpr Error kNumericOutOfRange = {"numeric out of range: "};
-  static constexpr Error kIllegalNonFinite = {
-      "Illegal conversion of non-finite floating point number to numeric: "};
   static constexpr NumericUnaryOpTestData<double, NumericValueWrapper>
       kTestData[] = {
           {0, 0},
@@ -1172,16 +1212,48 @@ TEST_F(NumericValueTest, FromDouble) {
           {0.5555555555, "0.555555556"},
           {0.0000000001, 0},
 
+          {1.0000000001e29, kNumericOutOfRange},
+          // 3e29 * kScalingFactor is between int128max and uint128max.
+          {3e29, kNumericOutOfRange},
           {1e30, kNumericOutOfRange},
           {std::numeric_limits<double>::max(), kNumericOutOfRange},
 
-          {std::numeric_limits<double>::infinity(), kIllegalNonFinite},
+          {std::numeric_limits<double>::quiet_NaN(), kNumericIllegalNonFinite},
+          {std::numeric_limits<double>::signaling_NaN(),
+           kNumericIllegalNonFinite},
+          {std::numeric_limits<double>::infinity(), kNumericIllegalNonFinite},
       };
 
   NumericFromDoubleOp<NumericValue> op;
   for (const auto& data : kTestData) {
     TestUnaryOp(op, data.input, data.expected_output);
     TestUnaryOp(op, -data.input, -data.expected_output);
+  }
+}
+
+TEST_F(NumericValueTest, FromDouble_RandomInputs) {
+  NumericFromDoubleOp<NumericValue> op;
+  for (int i = 0; i < 10000; ++i) {
+    uint64_t bits = absl::Uniform<uint64_t>(random_);
+    double double_val = absl::bit_cast<double>(bits);
+    if (!std::isfinite(double_val)) {
+      TestUnaryOp(op, double_val,
+                  NumericValueWrapper(kNumericIllegalNonFinite));
+    } else {
+      std::string str = absl::StrFormat("%.11f", double_val);
+      if (absl::EndsWith(str, "50")) {
+        // Strings with suffix 50 could be from doubles with suffix 49 and
+        // get rounded up. In this case the test would fail while the result is
+        // correct. Skipping those cases for now.
+        continue;
+      }
+      auto expected = NumericValue::FromString(str);
+      if (expected.ok()) {
+        TestUnaryOp(op, double_val, expected);
+      } else {
+        TestUnaryOp(op, double_val, NumericValueWrapper(kNumericOutOfRange));
+      }
+    }
   }
 }
 
@@ -1230,8 +1302,8 @@ TEST_F(NumericValueTest, Divide) {
 }
 
 TEST_F(NumericValueTest, Power) {
-  static constexpr Error kNegativeToFractionalError = {
-      "Negative NUMERIC value cannot be raised to a fractional power: "};
+  static constexpr Error kNegativeToFractionalError(
+      "Negative NUMERIC value cannot be raised to a fractional power: ");
   static constexpr NumericBinaryOpTestData<> kTestData[] = {
       {0, 0, 1},
       {kMaxNumericValueStr, 0, 1},

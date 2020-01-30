@@ -65,6 +65,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/scripting/parsed_script.h"
 #include "absl/base/casts.h"
+#include "zetasql/base/cleanup.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"

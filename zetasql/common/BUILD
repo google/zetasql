@@ -323,3 +323,33 @@ cc_library(
         "@com_google_absl//absl/types:span",
     ],
 )
+
+cc_library(
+    name = "json_parser",
+    srcs = ["json_parser.cc"],
+    hdrs = ["json_parser.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "//zetasql/base",
+        "//zetasql/base:string_numbers",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_googlesource_code_re2//:re2",
+        "@icu//:headers",
+    ],
+)
+
+cc_test(
+    name = "json_parser_test",
+    srcs = ["json_parser_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":json_parser",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)

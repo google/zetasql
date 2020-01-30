@@ -56,6 +56,8 @@ struct EvaluationOptions {
   // If true, operations will act as if the first column of a non-value table is
   // a primary key that may not be NULL. EvaluationContext::AddTable() will also
   // verify tables accordingly.
+  // TODO: Migrate the compliance framework off this option and
+  // remove this option.
   bool emulate_primary_keys = false;
 
   // If true, the reference implementation will deterministically scramble the
@@ -90,6 +92,15 @@ struct EvaluationOptions {
   // storing accumulated Tuples (e.g., during an ORDER BY query). Exceeding this
   // limit results in an error.
   int64_t max_intermediate_byte_size = 128 * 1024 * 1024;
+
+  // If true, the results of DML statements will include all rows in the
+  // modified table; otherwise, only modified rows (i.e. those matching the
+  // WHERE clause) are included. For DELETE, 'modified rows' means the rows to
+  // be deleted.
+  //
+  // Note that rows are considered modified even if the new row happens to be
+  // the same as the old as long as they match the WHERE clause.
+  bool return_all_rows_for_dml = true;
 };
 
 class ProtoFieldReader;

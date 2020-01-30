@@ -331,17 +331,15 @@ template <int k1, int n1, int k2, int n2, bool allow_optimization = true>
 inline std::array<Uint<k1>, n1> Convert(const std::array<Uint<k2>, n2>& src,
                                         bool negative) {
   std::array<Uint<k1>, n1> res;
+  Uint<k1> extension = negative ? ~Uint<k1>{0} : 0;
 #ifndef ABSL_IS_BIG_ENDIAN
   if (allow_optimization) {
-    int copy_size = std::min(sizeof(src), sizeof(res));
-    memcpy(res.data(), src.data(), copy_size);
-    memset(reinterpret_cast<uint8_t*>(res.data()) + copy_size,
-           -static_cast<int8_t>(negative), sizeof(res) - copy_size);
+    res.fill(extension);
+    memcpy(res.data(), src.data(), std::min(sizeof(src), sizeof(res)));
     return res;
   }
 #endif
-  Copy<std::min(k1, k2)>(src.data(), n2, res.data(), n1,
-                         negative ? ~Uint<k1>{0} : 0);
+  Copy<std::min(k1, k2)>(src.data(), n2, res.data(), n1, extension);
   return res;
 }
 
@@ -776,14 +774,16 @@ template <bool is_signed, typename Word, size_t kNumWords>
 bool Deserialize(absl::string_view bytes, std::array<Word, kNumWords>* out) {
   // We allow one extra byte in case of the 0x80 high byte case, see
   // comments on Serialize for details
-  if (bytes.empty() || bytes.size() > sizeof(*out)) {
+  if (ABSL_PREDICT_FALSE(bytes.empty() || bytes.size() > sizeof(*out))) {
     return false;
   }
-  memcpy(out->data(), &bytes[0], bytes.size());
-  // Sign extend based on high bit
-  uint8_t extension = is_signed && (bytes.back() & '\x80') ? '\xff' : '\0';
-  memset(reinterpret_cast<uint8_t*>(out->data()) + bytes.size(), extension,
-         sizeof(*out) - bytes.size());
+  // Most callers already initialize *out to zero and the compiler is likely
+  // to optimize fill(0) away.
+  out->fill(0);
+  if (is_signed && (bytes.back() & '\x80')) {
+    out->fill(~Word{0});
+  }
+  memcpy(out->data(), bytes.data(), bytes.size());
   // The compiler is expected to remove this loop if the host is little endian.
   for (Word& word : *out) {
     static_assert(sizeof(Word) == sizeof(uint32_t) ||

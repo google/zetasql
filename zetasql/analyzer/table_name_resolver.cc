@@ -682,6 +682,9 @@ zetasql_base::Status TableNameResolver::FindInCreateTableFunctionStatement(
   for (const ASTFunctionParameter* const parameter
            : statement->function_declaration()->parameters()->
                parameter_entries()) {
+    if (parameter->name() == nullptr) {
+      continue;
+    }
     // If it's a table parameter or is ANY TABLE or ANY TYPE then it is
     // a name that we should ignore.
     if (parameter->IsTableParameter() ||

@@ -6,7 +6,7 @@
 <!-- BEGIN CONTENT -->
 A ZetaSQL statement comprises a series of tokens. Tokens include
 *identifiers,* *quoted identifiers, literals*, *keywords*, *operators*, and
-*special characters*. You can separate tokens with whitespace (space, backspace,
+*special characters*. You can separate tokens with whitespace (for example, space, backspace,
 tab, newline) or comments.
 
 <a id=identifiers></a>
@@ -704,6 +704,18 @@ string statement through an Application Programming Interface (API).
 In a request containing multiple statements, you must separate statements with
 semicolons, but the semicolon is generally optional after the final statement.
 Some interactive tools require statements to have a terminating semicolon.
+
+<a id=trailing_commas></a>
+## Trailing Commas
+
+You can optionally use a trailing comma (`,`) at the end of a list in a `SELECT`
+statement.
+
+**Example**
+
+```
+SELECT name, release_date, FROM Books
+```
 
 <a id=query_parameters></a>
 ## Query Parameters

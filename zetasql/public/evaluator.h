@@ -132,6 +132,25 @@
 // Once a query is successfully prepared, the output schema can be retrieved
 // using num_columns(), column_name(), column_type(), etc.  After Execute(), the
 // schema is also available from the EvaluatorTableIterator.
+//
+// Evaluating DML statements
+// ------------------
+// DML statements can be evaluated using PreparedModify. This works
+// similarly to PreparedQuery as described above.
+//
+// User-defined tables can be used by implementing the EvaluatorTableIterator
+// interface documented in evaluator_table_iter.h as follows:
+//
+//   std::unique_ptr<Table> table =
+//   ... Create a Table that overrides
+//       Table::CreateEvaluatorTableIterator() ...
+//   SimpleCatalog catalog;
+//   catalog.AddTable(table->Name(), table.get());
+//   PreparedModify statement("delete from <table> where true");
+//   ZETASQL_CHECK_OK(statement.Prepare(AnalyzerOptions(), &catalog));
+//   std::unique_ptr<EvaluatorTableModifyIterator> result =
+//     statement.Execute().ValueOrDie();
+//   ... Iterate over `result` (which lists deleted rows) ...
 
 #include <map>
 #include <memory>
@@ -141,10 +160,13 @@
 
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/base/thread_annotations.h"
+#include "absl/memory/memory.h"
 #include "absl/synchronization/mutex.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/statusor.h"
@@ -514,6 +536,172 @@ class PreparedQuery {
   void SetCreateEvaluationCallbackTestOnly(
       std::function<void(EvaluationContext*)> cb);
 
+  std::unique_ptr<internal::Evaluator> evaluator_;
+};
+
+// Represents modifications to multiple rows in a single table. Each row can
+// have a different type of DML operation.
+//
+// Example:
+//   PreparedModify statement(... build a PreparedModify ...)
+//   ZETASQL_ASSIGN_OR_RETURN(
+//     std::unique_ptr<EvaluatorTableModifyIterator> iter,
+//     statement->Execute(parameters));
+//   Table table = iter->table();
+//   while (true) {
+//     if (!iter->NextRow()) {
+//       ZETASQL_RETURN_IF_ERROR(iter->Status());
+//     }
+//     ... Do something with `iter->GetOperation()`, `iter->GetColumnValue(...)`
+//     and `iter->GetOriginalKeyValue()` ...
+//   }
+class EvaluatorTableModifyIterator {
+ public:
+  enum class Operation { kInsert, kDelete, kUpdate };
+
+  virtual ~EvaluatorTableModifyIterator() = default;
+
+  // The table to be modified. This is constant over all rows for this iterator.
+  virtual const Table* table() const = 0;
+
+  // Returns the type of DML operation on the current row.
+  virtual Operation GetOperation() const = 0;
+
+  // Returns the *modified* value of the i-th column of the current row.
+  // - if GetOperation() == kInsert, the content of a new row to be inserted
+  // - if GetOperation() == kDelete, always Value::Invalid()
+  // - if GetOperation() == kUpdate, the new content for an existing row to be
+  //   updated
+  //
+  // `i` must be a valid column index of table(), i.e. 0 <= i <
+  // table()->NumColumns();
+  //
+  // NextRow() must have been called at least once and the last call must have
+  // returned true.
+  virtual const Value& GetColumnValue(int i) const = 0;
+
+  // Returns the *original* value of the i-th key column of the current row.
+  // This can be used to identify the modified row.
+  //
+  // `i` must be a valid index in table()->PrimaryKey(), i.e. 0 <= i <
+  // table()->PrimaryKey()->size(). If the table doesn't specify PrimaryKey(),
+  // then there will be no valid input to call this function.
+  //
+  // NextRow() must have been called at least once and the last call must have
+  // returned true.
+  virtual const Value& GetOriginalKeyValue(int i) const = 0;
+
+  // Returns false if there is no next row. The caller must then check Status().
+  virtual bool NextRow() = 0;
+
+  // Returns OK unless the last call to NextRow() returned false because of an
+  // error.
+  virtual zetasql_base::Status Status() const = 0;
+};
+
+// Executes an DML statement and returns an EvaluatorTableModifyIterator.
+// Currently, INSERT, DELETE, and UPDATE are supported.
+//
+// FEATURE_DISALLOW_PRIMARY_KEY_UPDATES is implicitly enabled because primary
+// key updates are currently not supported.
+//
+// The underlying implementation is not optimized for performance.
+class PreparedModify {
+ public:
+  // Constructs using a ResolvedStatement directly. Does not take ownership of
+  // `stmt`. `stmt` must outlive this object.
+  //
+  // The AST must validate successfully with ValidateResolvedStatement.
+  // Otherwise, the program may crash in Prepare or Execute.
+  PreparedModify(const ResolvedStatement* stmt,
+                       const EvaluatorOptions& options);
+  PreparedModify(const std::string& sql, const EvaluatorOptions& options);
+  PreparedModify(const PreparedModify&) = delete;
+  PreparedModify& operator=(const PreparedModify&) = delete;
+  ~PreparedModify();
+
+  // This method can optionally be called before Execute() to set analyzer
+  // options and to return parsing and analysis errors, if any. If Prepare() is
+  // used, the names and types of query parameters must be set in `options`. (We
+  // also force `options.prune_unused_columns` since that would ideally be the
+  // default.)
+  //
+  // If `catalog` is set, it will be used to resolve tables and functions
+  // occurring in the query. Passing a custom `catalog` allows defining
+  // user-defined functions with custom evaluation specified via
+  // FunctionOptions, as well as user-defined tables (see the file comment for
+  // details). Calling any user-defined function that does not provide an
+  // evaluator returns an error. `catalog` must outlive Execute() and
+  // output_type() calls.  `catalog` should contain ZetaSQL built-in functions
+  // added by calling AddZetaSQLFunctions with `options.language_options`.
+  //
+  // If a ResolvedStatement was already supplied to the PreparedModify
+  // constructor, `catalog` is ignored.
+  zetasql_base::Status Prepare(const AnalyzerOptions& options,
+                       Catalog* catalog = nullptr);
+
+  // Executes the statement. This object must outlive the return value.
+  //
+  // If Prepare() has not been called, the first call to Execute will call
+  // Prepare with implicitly constructed AnalyzerOptions using the
+  // names and types from `parameters`.
+  //
+  // This method is thread safe. Multiple executions can proceed in parallel,
+  // each using a different iterator.
+  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>> Execute(
+      const ParameterValueMap& parameters = {},
+      const SystemVariableValuesMap& system_variables = {});
+
+  // Same as above, but uses positional instead of named parameters.
+  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
+  ExecuteWithPositionalParams(
+      const ParameterValueList& positional_parameters,
+      const SystemVariableValuesMap& system_variables = {});
+
+  // More efficient form of Execute that requires parameter values to be passed
+  // in a particular order. If positional parameters are used, they are passed
+  // in `parameters`. If named parameters are used, they are passed in
+  // `parameters` in the order returned by GetReferencedParameters.
+  //
+  // REQUIRES: Prepare() has been called successfully.
+  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
+  ExecuteAfterPrepareWithOrderedParams(
+      const ParameterValueList& parameters,
+      const SystemVariableValuesMap& system_variables = {}) const;
+
+  // Returns a human-readable representation of how this statement would
+  // actually be executed. Do not try to interpret this string with code, as the
+  // format can change at any time. Requires that Prepare has already been
+  // called.
+  zetasql_base::StatusOr<std::string> ExplainAfterPrepare() const;
+
+  // Get the list of parameters referenced in this statement.
+  //
+  // This method is similar to GetReferencedColumns(), but for parameters
+  // instead. This returns the minimal set of parameters that must be provided
+  // to Execute(). Named and positional parameters are mutually exclusive, so
+  // this will return an empty list if GetPositionalParameterCount() returns a
+  // non-zero number.
+  //
+  // REQUIRES: Prepare() or Execute() has been called successfully.
+  zetasql_base::StatusOr<std::vector<std::string>> GetReferencedParameters() const;
+
+  // Gets the number of positional parameters in this statement.
+  //
+  // This returns the number of positional parameters that must be provided to
+  // Execute(). Any extra positional parameters are ignored. Named and
+  // positional parameters are mutually exclusive, so this will return 0 if
+  // GetReferencedParameters() returns a non-empty list.
+  //
+  // REQUIRES: Prepare() or Execute() has been called successfully.
+  zetasql_base::StatusOr<int> GetPositionalParameterCount() const;
+
+  // Gets the resolved statement.
+  //
+  // REQUIRES: Prepare() or Execute() has been called successfully.
+  const ResolvedStatement* resolved_statement() const;
+
+ private:
   std::unique_ptr<internal::Evaluator> evaluator_;
 };
 

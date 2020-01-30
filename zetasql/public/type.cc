@@ -40,6 +40,7 @@
 #include <cstdint>
 #include "absl/base/macros.h"
 #include "absl/base/optimization.h"
+#include "zetasql/base/cleanup.h"
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "zetasql/base/case.h"
@@ -1929,9 +1930,8 @@ zetasql_base::Status TypeFactory::MakeUnwrappedTypeFromProtoImpl(
   }
   // Always erase 'message' before returning so 'ancestor_messages' contains
   // only ancestors of the current message being unwrapped.
-  auto cleanup = ::zetasql_base::MakeCleanup([message, ancestor_messages] {
-    ancestor_messages->erase(message);
-  });
+  auto cleanup = ::zetasql_base::MakeCleanup(
+      [message, ancestor_messages] { ancestor_messages->erase(message); });
   zetasql_base::Status return_status;
   if (ProtoType::GetIsWrapperAnnotation(message)) {
     // If we have zetasql.is_wrapper, unwrap the proto and return the type

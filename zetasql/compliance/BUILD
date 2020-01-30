@@ -48,6 +48,7 @@ cc_library(
         "//zetasql/public:strings",
         "//zetasql/public:type",
         "//zetasql/resolved_ast",
+        "@com_google_absl//absl/strings",
     ],
 )
 

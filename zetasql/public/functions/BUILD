@@ -588,6 +588,37 @@ cc_test(
 )
 
 cc_library(
+    name = "hash",
+    srcs = ["hash.cc"],
+    hdrs = ["hash.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "//zetasql/base",
+        "//zetasql/base:endian",
+        "@boringssl//:crypto",
+        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/strings",
+        "@com_google_farmhash//:farmhash_fingerprint",
+    ],
+)
+
+cc_test(
+    name = "hash_test",
+    srcs = ["hash_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":hash",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/compliance:functions_testlib",
+        "//zetasql/public:type",
+        "//zetasql/public:value",
+        "//zetasql/testing:test_function",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
     name = "percentile",
     srcs = ["percentile.cc"],
     hdrs = ["percentile.h"],

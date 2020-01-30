@@ -32,8 +32,14 @@
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/functions_testlib.h"
+#include "zetasql/compliance/functions_testlib_common.h"
+#include "zetasql/compliance/type_helpers.h"
+#include "zetasql/public/builtin_function.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto_util.h"
+#include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
@@ -43,8 +49,12 @@
 #include "zetasql/reference_impl/test_relational_op.h"
 #include "zetasql/reference_impl/tuple.h"
 #include "zetasql/reference_impl/tuple_test_util.h"
+#include "zetasql/reference_impl/variable_generator.h"
 #include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node_kind.h"
+#include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
@@ -58,6 +68,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
+#include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -80,7 +91,9 @@ using testing::Matcher;
 using testing::Not;
 using testing::Pointee;
 using testing::PrintToString;
+using testing::Property;
 using testing::TestWithParam;
+using testing::UnorderedElementsAre;
 using testing::UnorderedElementsAreArray;
 using testing::ValuesIn;
 
@@ -825,6 +838,850 @@ TEST_F(EvalTest, RootExpr) {
       *result.mutable_shared_proto_state();
   EXPECT_THAT(result_shared_state, Pointee(Eq(nullopt)));
   EXPECT_THAT(result_shared_state, HasRawPointer(params_shared_states[0]));
+}
+
+class DMLValueExprEvalTest : public EvalTest {
+ public:
+  DMLValueExprEvalTest() {
+    ZETASQL_CHECK_OK(table_.SetPrimaryKey({0}));
+    GetZetaSQLFunctions(type_factory(), ZetaSQLBuiltinFunctionOptions{},
+                          &functions_);
+  }
+
+  const Table* table() { return &table_; }
+
+  const Function* function(const std::string& name) {
+    return functions_[name].get();
+  }
+
+ private:
+  SimpleTable table_{"test_table",
+                     {{"int_val", Int64Type()}, {"str_val", StringType()}}};
+  std::map<std::string, std::unique_ptr<Function>> functions_;
+};
+
+TEST_F(DMLValueExprEvalTest, DMLInsertValueExpr) {
+  // Build a resolved AST for inserting a new row (3, "three") into the table.
+  std::unique_ptr<ResolvedTableScan> table_scan = MakeResolvedTableScan(
+      {ResolvedColumn{1, "test_table", "int_val", Int64Type()},
+       ResolvedColumn{2, "test_table", "str_val", StringType()}},
+      table(), /*for_system_time_expr=*/nullptr);
+  std::vector<std::unique_ptr<const ResolvedDMLValue>> row_values;
+  row_values.push_back(MakeResolvedDMLValue(
+      MakeResolvedLiteral(Int64Type(), Int64(3), /*has_explicit_type=*/
+                          true, /*float_literal_id=*/0)));
+  row_values.push_back(MakeResolvedDMLValue(
+      MakeResolvedLiteral(StringType(), String("three"), /*has_explicit_type=*/
+                          true, /*float_literal_id=*/0)));
+  std::vector<std::unique_ptr<const ResolvedInsertRow>> row_list;
+  row_list.push_back(MakeResolvedInsertRow(std::move(row_values)));
+  std::unique_ptr<ResolvedInsertStmt> stmt = MakeResolvedInsertStmt(
+      std::move(table_scan), ResolvedInsertStmt::OR_ERROR,
+      /*assert_rows_modified=*/nullptr,
+      {ResolvedColumn{1, "test_table", "int_val", Int64Type()},
+       ResolvedColumn{2, "test_table", "str_val", StringType()}},
+      /*query_parameter_list=*/{}, /*query=*/nullptr,
+      /*query_output_column_list=*/{}, std::move(row_list));
+
+  // Create output types.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const ArrayType* table_array_type,
+      CreateTableArrayType(stmt->table_scan()->column_list(),
+                           stmt->table_scan()->table()->IsValueTable(),
+                           type_factory()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const StructType* primary_key_type,
+      CreatePrimaryKeyType(stmt->table_scan()->column_list(),
+                           stmt->table_scan()->table()->PrimaryKey().value(),
+                           type_factory()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const StructType* dml_output_type,
+                       CreateDMLOutputType(table_array_type, type_factory()));
+
+  // Create a ColumnToVariableMapping.
+  auto column_to_variable_mapping = absl::make_unique<ColumnToVariableMapping>(
+      absl::make_unique<VariableGenerator>());
+
+  // Build a ResolvedScanMap and a ResolvedExprMap from the AST.
+  auto resolved_scan_map = absl::make_unique<ResolvedScanMap>();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ValueExpr> table_as_array_expr,
+      TableAsArrayExpr::Create(stmt->table_scan()->table()->Name(),
+                               table_array_type));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<RelationalOp> relation_op,
+      ArrayScanOp::Create(
+          /*element=*/VariableId(),
+          /*position=*/VariableId(),
+          {std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
+                              &stmt->table_scan()->column_list()[0]),
+                          0),
+           std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
+                              &stmt->table_scan()->column_list()[1]),
+                          1)},
+          std::move(table_as_array_expr)));
+  (*resolved_scan_map)[stmt->table_scan()] = std::move(relation_op);
+  auto resolved_expr_map = absl::make_unique<ResolvedExprMap>();
+  for (const auto& value : stmt->row_list(0)->value_list()) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::unique_ptr<ValueExpr> const_expr,
+        ConstExpr::Create(value->value()->GetAs<ResolvedLiteral>()->value()));
+    (*resolved_expr_map)[value->value()] = std::move(const_expr);
+  }
+
+  // Create the DMLInsertValueExpr to be tested.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<DMLInsertValueExpr> expr,
+      DMLInsertValueExpr::Create(
+          stmt->table_scan()->table(), table_array_type, primary_key_type,
+          dml_output_type, stmt.get(), &stmt->table_scan()->column_list(),
+          std::move(column_to_variable_mapping), std::move(resolved_scan_map),
+          std::move(resolved_expr_map)));
+
+  // Evaluate and check.
+  TupleSlot result;
+  zetasql_base::Status status;
+  // the case for return_all_rows_for_dml = true is covered by the reference
+  // implementation compliance tests
+  EvaluationOptions options{};
+  options.return_all_rows_for_dml = false;
+  EvaluationContext context{options};
+  ZETASQL_CHECK_OK(context.AddTableAsArray(
+      "test_table", /*is_value_table=*/false,
+      Value::Array(table_array_type,
+                   {Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(1), String("one")}),
+                    Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(2), NullString()}),
+                    Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(4), NullString()})}),
+      LanguageOptions{}));
+  ZETASQL_ASSERT_OK(expr->SetSchemasForEvaluation({}));
+  EXPECT_TRUE(expr->EvalSimple({}, &context, &result, &status));
+  ZETASQL_ASSERT_OK(status);
+  EXPECT_EQ(result.value().field(0).int64_value(), 1);
+  EXPECT_THAT(result.value().field(1).elements(),
+              UnorderedElementsAre(Property(
+                  &Value::fields, ElementsAre(Int64(3), String("three")))));
+}
+
+TEST_F(DMLValueExprEvalTest,
+       DMLInsertValueExprSetsPrimaryKeyValuesToNullWhenDisallowed) {
+  // Build a resolved AST for inserting a new row (3, "three") into the table.
+  std::unique_ptr<ResolvedTableScan> table_scan = MakeResolvedTableScan(
+      {ResolvedColumn{1, "test_table", "int_val", Int64Type()},
+       ResolvedColumn{2, "test_table", "str_val", StringType()}},
+      table(), /*for_system_time_expr=*/nullptr);
+  std::vector<std::unique_ptr<const ResolvedDMLValue>> row_values;
+  row_values.push_back(MakeResolvedDMLValue(
+      MakeResolvedLiteral(Int64Type(), NullInt64(), /*has_explicit_type=*/
+                          true, /*float_literal_id=*/0)));
+  row_values.push_back(MakeResolvedDMLValue(
+      MakeResolvedLiteral(StringType(), String("three"), /*has_explicit_type=*/
+                          true, /*float_literal_id=*/0)));
+  std::vector<std::unique_ptr<const ResolvedInsertRow>> row_list;
+  row_list.push_back(MakeResolvedInsertRow(std::move(row_values)));
+  std::unique_ptr<ResolvedInsertStmt> stmt = MakeResolvedInsertStmt(
+      std::move(table_scan), ResolvedInsertStmt::OR_ERROR,
+      /*assert_rows_modified=*/nullptr,
+      {ResolvedColumn{1, "test_table", "int_val", Int64Type()},
+       ResolvedColumn{2, "test_table", "str_val", StringType()}},
+      /*query_parameter_list=*/{}, /*query=*/nullptr,
+      /*query_output_column_list=*/{}, std::move(row_list));
+
+  // Create output types.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const ArrayType* table_array_type,
+      CreateTableArrayType(stmt->table_scan()->column_list(),
+                           stmt->table_scan()->table()->IsValueTable(),
+                           type_factory()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const StructType* primary_key_type,
+      CreatePrimaryKeyType(stmt->table_scan()->column_list(),
+                           stmt->table_scan()->table()->PrimaryKey().value(),
+                           type_factory()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const StructType* dml_output_type,
+                       CreateDMLOutputType(table_array_type, type_factory()));
+
+  // Create a ColumnToVariableMapping.
+  auto column_to_variable_mapping = absl::make_unique<ColumnToVariableMapping>(
+      absl::make_unique<VariableGenerator>());
+
+  // Build a ResolvedScanMap and a ResolvedExprMap from the AST.
+  auto resolved_scan_map = absl::make_unique<ResolvedScanMap>();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ValueExpr> table_as_array_expr,
+      TableAsArrayExpr::Create(stmt->table_scan()->table()->Name(),
+                               table_array_type));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<RelationalOp> relation_op,
+      ArrayScanOp::Create(
+          /*element=*/VariableId(),
+          /*position=*/VariableId(),
+          {std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
+                              &stmt->table_scan()->column_list()[0]),
+                          0),
+           std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
+                              &stmt->table_scan()->column_list()[1]),
+                          1)},
+          std::move(table_as_array_expr)));
+  (*resolved_scan_map)[stmt->table_scan()] = std::move(relation_op);
+  auto resolved_expr_map = absl::make_unique<ResolvedExprMap>();
+  for (const auto& value : stmt->row_list(0)->value_list()) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::unique_ptr<ValueExpr> const_expr,
+        ConstExpr::Create(value->value()->GetAs<ResolvedLiteral>()->value()));
+    (*resolved_expr_map)[value->value()] = std::move(const_expr);
+  }
+
+  // Create the DMLInsertValueExpr to be tested.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<DMLInsertValueExpr> expr,
+      DMLInsertValueExpr::Create(
+          stmt->table_scan()->table(), table_array_type, primary_key_type,
+          dml_output_type, stmt.get(), &stmt->table_scan()->column_list(),
+          std::move(column_to_variable_mapping), std::move(resolved_scan_map),
+          std::move(resolved_expr_map)));
+
+  // Evaluate and check.
+  TupleSlot result;
+  zetasql_base::Status status;
+  // the case for return_all_rows_for_dml = true is covered by the reference
+  // implementation compliance tests
+  EvaluationOptions options{};
+  options.return_all_rows_for_dml = false;
+  EvaluationContext context{options};;
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_DISALLOW_NULL_PRIMARY_KEYS);
+  context.SetLanguageOptions(language_options);
+  ZETASQL_CHECK_OK(context.AddTableAsArray(
+      "test_table", /*is_value_table=*/false,
+      Value::Array(table_array_type,
+                   {Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(1), String("one")}),
+                    Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(2), NullString()}),
+                    Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(4), NullString()})}),
+      language_options));
+  ZETASQL_ASSERT_OK(expr->SetSchemasForEvaluation({}));
+  EXPECT_FALSE(expr->EvalSimple({}, &context, &result, &status));
+  EXPECT_THAT(
+      status,
+      StatusIs(zetasql_base::OUT_OF_RANGE,
+               HasSubstr("INSERT a NULL value into a primary key column")));
+}
+
+TEST_F(DMLValueExprEvalTest, DMLDeleteValueExpr) {
+  // Build a resolved AST for deleting rows where str_val is null from the
+  // table.
+  std::unique_ptr<ResolvedTableScan> table_scan = MakeResolvedTableScan(
+      {ResolvedColumn{1, "test_table", "int_val", Int64Type()},
+       ResolvedColumn{2, "test_table", "str_val", StringType()}},
+      table(), /*for_system_time_expr=*/nullptr);
+  std::vector<std::unique_ptr<ResolvedColumnRef>> resolved_column_refs;
+  resolved_column_refs.push_back(MakeResolvedColumnRef(
+      table_scan->column_list(1).type(), table_scan->column_list(1),
+      /*is_correlated=*/false));
+  std::unique_ptr<ResolvedDeleteStmt> stmt = MakeResolvedDeleteStmt(
+      std::move(table_scan), /*assert_rows_modified=*/nullptr,
+      /*array_offset_column=*/nullptr, /*where_expr=*/
+      MakeResolvedFunctionCall(BoolType(), function("$is_null"),
+                               *function("$is_null")->GetSignature(0),
+                               std::move(resolved_column_refs),
+                               ResolvedFunctionCall::DEFAULT_ERROR_MODE));
+
+  // Create output types.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const ArrayType* table_array_type,
+      CreateTableArrayType(stmt->table_scan()->column_list(),
+                           stmt->table_scan()->table()->IsValueTable(),
+                           type_factory()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const StructType* primary_key_type,
+      CreatePrimaryKeyType(stmt->table_scan()->column_list(),
+                           stmt->table_scan()->table()->PrimaryKey().value(),
+                           type_factory()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const StructType* dml_output_type,
+                       CreateDMLOutputType(table_array_type, type_factory()));
+
+  // Create a ColumnToVariableMapping.
+  auto column_to_variable_mapping = absl::make_unique<ColumnToVariableMapping>(
+      absl::make_unique<VariableGenerator>());
+
+  // Build a ResolvedScanMap and a ResolvedExprMap from the AST.
+  auto resolved_scan_map = absl::make_unique<ResolvedScanMap>();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ValueExpr> table_as_array_expr,
+      TableAsArrayExpr::Create(stmt->table_scan()->table()->Name(),
+                               table_array_type));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<RelationalOp> relation_op,
+      ArrayScanOp::Create(
+          /*element=*/VariableId(),
+          /*position=*/VariableId(),
+          {std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
+                              &stmt->table_scan()->column_list()[0]),
+                          0),
+           std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
+                              &stmt->table_scan()->column_list()[1]),
+                          1)},
+          std::move(table_as_array_expr)));
+  (*resolved_scan_map)[stmt->table_scan()] = std::move(relation_op);
+  auto resolved_expr_map = absl::make_unique<ResolvedExprMap>();
+  std::vector<std::unique_ptr<ValueExpr>> arguments{};
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<DerefExpr> arg_expr,
+      DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
+                            &stmt->where_expr()
+                                 ->GetAs<ResolvedFunctionCall>()
+                                 ->argument_list(0)
+                                 ->GetAs<ResolvedColumnRef>()
+                                 ->column()),
+                        stmt->where_expr()
+                            ->GetAs<ResolvedFunctionCall>()
+                            ->argument_list(0)
+                            ->GetAs<ResolvedColumnRef>()
+                            ->column()
+                            .type()));
+  arguments.push_back(std::move(arg_expr));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      FunctionKind function_kind,
+      BuiltinFunctionCatalog::GetKindByName(stmt->where_expr()
+                                                ->GetAs<ResolvedFunctionCall>()
+                                                ->function()
+                                                ->Name()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ValueExpr> function_call_expr,
+      BuiltinScalarFunction::CreateCall(
+          function_kind, LanguageOptions{},
+          stmt->where_expr()->GetAs<ResolvedFunctionCall>()->type(),
+          std::move(arguments),
+          stmt->where_expr()->GetAs<ResolvedFunctionCall>()->error_mode()));
+  (*resolved_expr_map)[stmt->where_expr()] = std::move(function_call_expr);
+
+  // Create the DMLDeleteValueExpr to be tested.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<DMLDeleteValueExpr> expr,
+      DMLDeleteValueExpr::Create(
+          stmt->table_scan()->table(), table_array_type, primary_key_type,
+          dml_output_type, stmt.get(), &stmt->table_scan()->column_list(),
+          std::move(column_to_variable_mapping), std::move(resolved_scan_map),
+          std::move(resolved_expr_map)));
+
+  // Evaluate and check.
+  TupleSlot result;
+  zetasql_base::Status status;
+  // the case for return_all_rows_for_dml = true is covered by the reference
+  // implementation compliance tests
+  EvaluationOptions options{};
+  options.return_all_rows_for_dml = false;
+  EvaluationContext context{options};
+  ZETASQL_CHECK_OK(context.AddTableAsArray(
+      "test_table", /*is_value_table=*/false,
+      Value::Array(table_array_type,
+                   {Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(1), String("one")}),
+                    Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(2), NullString()}),
+                    Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(4), NullString()})}),
+      LanguageOptions{}));
+  ZETASQL_ASSERT_OK(expr->SetSchemasForEvaluation({}));
+  EXPECT_TRUE(expr->EvalSimple({}, &context, &result, &status));
+  ZETASQL_ASSERT_OK(status);
+  EXPECT_EQ(result.value().field(0).int64_value(), 2);
+  EXPECT_THAT(
+      result.value().field(1).elements(),
+      UnorderedElementsAre(
+          Property(&Value::fields, ElementsAre(Int64(2), NullString())),
+          Property(&Value::fields, ElementsAre(Int64(4), NullString()))));
+}
+
+TEST_F(DMLValueExprEvalTest, DMLUpdateValueExpr) {
+  // Build a resolved AST for updating str_val from null to 'unknown' in the
+  // table.
+  std::unique_ptr<ResolvedTableScan> table_scan = MakeResolvedTableScan(
+      {ResolvedColumn{1, "test_table", "int_val", Int64Type()},
+       ResolvedColumn{2, "test_table", "str_val", StringType()}},
+      table(), /*for_system_time_expr=*/nullptr);
+  std::vector<std::unique_ptr<ResolvedUpdateItem>> update_item_list;
+  update_item_list.push_back(MakeResolvedUpdateItem(
+      MakeResolvedColumnRef(table_scan->column_list(1).type(),
+                            table_scan->column_list(1),
+                            /*is_correlated=*/false),
+      MakeResolvedDMLValue(MakeResolvedLiteral(
+          StringType(), String("unknown"), /*has_explicit_type=*/
+          true, /*float_literal_id=*/0)),
+      /*element_column=*/nullptr, /*array_update_list=*/{}, /*delete_list=*/{},
+      /*update_list=*/{}, /*insert_list=*/{}));
+  std::vector<std::unique_ptr<ResolvedColumnRef>> resolved_column_refs;
+  resolved_column_refs.push_back(MakeResolvedColumnRef(
+      table_scan->column_list(1).type(), table_scan->column_list(1),
+      /*is_correlated=*/false));
+  std::unique_ptr<ResolvedUpdateStmt> stmt = MakeResolvedUpdateStmt(
+      std::move(table_scan), /*assert_rows_modified=*/nullptr,
+      /*array_offset_column=*/nullptr,
+      /*where_expr=*/
+      MakeResolvedFunctionCall(BoolType(), function("$is_null"),
+                               *function("$is_null")->GetSignature(0),
+                               std::move(resolved_column_refs),
+                               ResolvedFunctionCall::DEFAULT_ERROR_MODE),
+      /*update_item_list=*/std::move(update_item_list), /*from_scan=*/nullptr);
+
+  // Create output types.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const ArrayType* table_array_type,
+      CreateTableArrayType(stmt->table_scan()->column_list(),
+                           stmt->table_scan()->table()->IsValueTable(),
+                           type_factory()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const StructType* primary_key_type,
+      CreatePrimaryKeyType(stmt->table_scan()->column_list(),
+                           stmt->table_scan()->table()->PrimaryKey().value(),
+                           type_factory()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const StructType* dml_output_type,
+                       CreateDMLOutputType(table_array_type, type_factory()));
+
+  // Create a ColumnToVariableMapping.
+  auto column_to_variable_mapping = absl::make_unique<ColumnToVariableMapping>(
+      absl::make_unique<VariableGenerator>());
+
+  // Build a ResolvedScanMap and a ResolvedExprMap from the AST.
+  auto resolved_scan_map = absl::make_unique<ResolvedScanMap>();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ValueExpr> table_as_array_expr,
+      TableAsArrayExpr::Create(stmt->table_scan()->table()->Name(),
+                               table_array_type));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<RelationalOp> relation_op,
+      ArrayScanOp::Create(
+          /*element=*/VariableId(),
+          /*position=*/VariableId(),
+          {std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
+                              &stmt->table_scan()->column_list()[0]),
+                          0),
+           std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
+                              &stmt->table_scan()->column_list()[1]),
+                          1)},
+          std::move(table_as_array_expr)));
+  (*resolved_scan_map)[stmt->table_scan()] = std::move(relation_op);
+  auto resolved_expr_map = absl::make_unique<ResolvedExprMap>();
+  std::vector<std::unique_ptr<ValueExpr>> arguments{};
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<DerefExpr> arg_expr,
+      DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
+                            &stmt->where_expr()
+                                 ->GetAs<ResolvedFunctionCall>()
+                                 ->argument_list(0)
+                                 ->GetAs<ResolvedColumnRef>()
+                                 ->column()),
+                        stmt->where_expr()
+                            ->GetAs<ResolvedFunctionCall>()
+                            ->argument_list(0)
+                            ->GetAs<ResolvedColumnRef>()
+                            ->column()
+                            .type()));
+  arguments.push_back(std::move(arg_expr));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      FunctionKind function_kind,
+      BuiltinFunctionCatalog::GetKindByName(stmt->where_expr()
+                                                ->GetAs<ResolvedFunctionCall>()
+                                                ->function()
+                                                ->Name()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ValueExpr> function_call_expr,
+      BuiltinScalarFunction::CreateCall(
+          function_kind, LanguageOptions{},
+          stmt->where_expr()->GetAs<ResolvedFunctionCall>()->type(),
+          std::move(arguments),
+          stmt->where_expr()->GetAs<ResolvedFunctionCall>()->error_mode()));
+  (*resolved_expr_map)[stmt->where_expr()] = std::move(function_call_expr);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<DerefExpr> target_expr,
+      DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
+                            &stmt->update_item_list(0)
+                                 ->target()
+                                 ->GetAs<ResolvedColumnRef>()
+                                 ->column()),
+                        stmt->update_item_list(0)
+                            ->target()
+                            ->GetAs<ResolvedColumnRef>()
+                            ->column()
+                            .type()));
+  (*resolved_expr_map)[stmt->update_item_list(0)->target()] =
+      std::move(target_expr);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<ConstExpr> set_value_expr,
+                       ConstExpr::Create(stmt->update_item_list(0)
+                                             ->set_value()
+                                             ->value()
+                                             ->GetAs<ResolvedLiteral>()
+                                             ->value()));
+  (*resolved_expr_map)[stmt->update_item_list(0)->set_value()->value()] =
+      std::move(set_value_expr);
+  // Touch the getter to pass CheckFieldsAccessed().
+  ASSERT_EQ(stmt->update_item_list(0)->element_column(), nullptr);
+
+  // Create the DMLUpdateValueExpr to be tested.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<DMLUpdateValueExpr> expr,
+      DMLUpdateValueExpr::Create(
+          stmt->table_scan()->table(), table_array_type, primary_key_type,
+          dml_output_type, stmt.get(), &stmt->table_scan()->column_list(),
+          std::move(column_to_variable_mapping), std::move(resolved_scan_map),
+          std::move(resolved_expr_map)));
+
+  // Evaluate and check.
+  TupleSlot result;
+  zetasql_base::Status status;
+  // the case for return_all_rows_for_dml = true is covered by the reference
+  // implementation compliance tests
+  EvaluationOptions options{};
+  options.return_all_rows_for_dml = false;
+  EvaluationContext context{options};
+  ZETASQL_CHECK_OK(context.AddTableAsArray(
+      "test_table", /*is_value_table=*/false,
+      Value::Array(table_array_type,
+                   {Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(1), String("one")}),
+                    Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(2), NullString()}),
+                    Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(4), NullString()})}),
+      LanguageOptions{}));
+  ZETASQL_ASSERT_OK(expr->SetSchemasForEvaluation({}));
+  EXPECT_TRUE(expr->EvalSimple({}, &context, &result, &status));
+  ZETASQL_ASSERT_OK(status);
+  EXPECT_EQ(result.value().field(0).int64_value(), 2);
+  EXPECT_THAT(
+      result.value().field(1).elements(),
+      UnorderedElementsAre(
+          Property(&Value::fields, ElementsAre(Int64(2), String("unknown"))),
+          Property(&Value::fields, ElementsAre(Int64(4), String("unknown")))));
+}
+
+TEST_F(DMLValueExprEvalTest,
+       DMLUpdateValueExprModifiesPrimaryKeyWhenDisallowed) {
+  // Build a resolved AST for updating str_val from null to 'unknown' in the
+  // table.
+  std::unique_ptr<ResolvedTableScan> table_scan = MakeResolvedTableScan(
+      {ResolvedColumn{1, "test_table", "int_val", Int64Type()},
+       ResolvedColumn{2, "test_table", "str_val", StringType()}},
+      table(), /*for_system_time_expr=*/nullptr);
+  std::vector<std::unique_ptr<ResolvedUpdateItem>> update_item_list;
+  update_item_list.push_back(MakeResolvedUpdateItem(
+      MakeResolvedColumnRef(table_scan->column_list(0).type(),
+                            table_scan->column_list(0),
+                            /*is_correlated=*/false),
+      MakeResolvedDMLValue(MakeResolvedLiteral(Int64Type(),
+                                               Int64(0), /*has_explicit_type=*/
+                                               true, /*float_literal_id=*/0)),
+      /*element_column=*/nullptr, /*array_update_list=*/{}, /*delete_list=*/{},
+      /*update_list=*/{}, /*insert_list=*/{}));
+  std::vector<std::unique_ptr<ResolvedColumnRef>> resolved_column_refs;
+  resolved_column_refs.push_back(MakeResolvedColumnRef(
+      table_scan->column_list(1).type(), table_scan->column_list(1),
+      /*is_correlated=*/false));
+  std::unique_ptr<ResolvedUpdateStmt> stmt = MakeResolvedUpdateStmt(
+      std::move(table_scan), /*assert_rows_modified=*/nullptr,
+      /*array_offset_column=*/nullptr,
+      /*where_expr=*/
+      MakeResolvedFunctionCall(BoolType(), function("$is_null"),
+                               *function("$is_null")->GetSignature(0),
+                               std::move(resolved_column_refs),
+                               ResolvedFunctionCall::DEFAULT_ERROR_MODE),
+      /*update_item_list=*/std::move(update_item_list), /*from_scan=*/nullptr);
+
+  // Create output types.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const ArrayType* table_array_type,
+      CreateTableArrayType(stmt->table_scan()->column_list(),
+                           stmt->table_scan()->table()->IsValueTable(),
+                           type_factory()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const StructType* primary_key_type,
+      CreatePrimaryKeyType(stmt->table_scan()->column_list(),
+                           stmt->table_scan()->table()->PrimaryKey().value(),
+                           type_factory()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const StructType* dml_output_type,
+                       CreateDMLOutputType(table_array_type, type_factory()));
+
+  // Create a ColumnToVariableMapping.
+  auto column_to_variable_mapping = absl::make_unique<ColumnToVariableMapping>(
+      absl::make_unique<VariableGenerator>());
+
+  // Build a ResolvedScanMap and a ResolvedExprMap from the AST.
+  auto resolved_scan_map = absl::make_unique<ResolvedScanMap>();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ValueExpr> table_as_array_expr,
+      TableAsArrayExpr::Create(stmt->table_scan()->table()->Name(),
+                               table_array_type));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<RelationalOp> relation_op,
+      ArrayScanOp::Create(
+          /*element=*/VariableId(),
+          /*position=*/VariableId(),
+          {std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
+                              &stmt->table_scan()->column_list()[0]),
+                          0),
+           std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
+                              &stmt->table_scan()->column_list()[1]),
+                          1)},
+          std::move(table_as_array_expr)));
+  (*resolved_scan_map)[stmt->table_scan()] = std::move(relation_op);
+  auto resolved_expr_map = absl::make_unique<ResolvedExprMap>();
+  std::vector<std::unique_ptr<ValueExpr>> arguments{};
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<DerefExpr> arg_expr,
+      DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
+                            &stmt->where_expr()
+                                 ->GetAs<ResolvedFunctionCall>()
+                                 ->argument_list(0)
+                                 ->GetAs<ResolvedColumnRef>()
+                                 ->column()),
+                        stmt->where_expr()
+                            ->GetAs<ResolvedFunctionCall>()
+                            ->argument_list(0)
+                            ->GetAs<ResolvedColumnRef>()
+                            ->column()
+                            .type()));
+  arguments.push_back(std::move(arg_expr));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      FunctionKind function_kind,
+      BuiltinFunctionCatalog::GetKindByName(stmt->where_expr()
+                                                ->GetAs<ResolvedFunctionCall>()
+                                                ->function()
+                                                ->Name()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ValueExpr> function_call_expr,
+      BuiltinScalarFunction::CreateCall(
+          function_kind, LanguageOptions{},
+          stmt->where_expr()->GetAs<ResolvedFunctionCall>()->type(),
+          std::move(arguments),
+          stmt->where_expr()->GetAs<ResolvedFunctionCall>()->error_mode()));
+  (*resolved_expr_map)[stmt->where_expr()] = std::move(function_call_expr);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<DerefExpr> target_expr,
+      DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
+                            &stmt->update_item_list(0)
+                                 ->target()
+                                 ->GetAs<ResolvedColumnRef>()
+                                 ->column()),
+                        stmt->update_item_list(0)
+                            ->target()
+                            ->GetAs<ResolvedColumnRef>()
+                            ->column()
+                            .type()));
+  (*resolved_expr_map)[stmt->update_item_list(0)->target()] =
+      std::move(target_expr);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<ConstExpr> set_value_expr,
+                       ConstExpr::Create(stmt->update_item_list(0)
+                                             ->set_value()
+                                             ->value()
+                                             ->GetAs<ResolvedLiteral>()
+                                             ->value()));
+  (*resolved_expr_map)[stmt->update_item_list(0)->set_value()->value()] =
+      std::move(set_value_expr);
+  // Touch the getter to pass CheckFieldsAccessed().
+  ASSERT_EQ(stmt->update_item_list(0)->element_column(), nullptr);
+
+  // Create the DMLUpdateValueExpr to be tested.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<DMLUpdateValueExpr> expr,
+      DMLUpdateValueExpr::Create(
+          stmt->table_scan()->table(), table_array_type, primary_key_type,
+          dml_output_type, stmt.get(), &stmt->table_scan()->column_list(),
+          std::move(column_to_variable_mapping), std::move(resolved_scan_map),
+          std::move(resolved_expr_map)));
+
+  // Evaluate and check.
+  TupleSlot result;
+  zetasql_base::Status status;
+  // the case for return_all_rows_for_dml = true is covered by the reference
+  // implementation compliance tests
+  EvaluationOptions options{};
+  options.return_all_rows_for_dml = false;
+  EvaluationContext context{options};;
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_DISALLOW_PRIMARY_KEY_UPDATES);
+  context.SetLanguageOptions(language_options);
+  ZETASQL_CHECK_OK(context.AddTableAsArray(
+      "test_table", /*is_value_table=*/false,
+      Value::Array(table_array_type,
+                   {Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(1), String("one")}),
+                    Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(2), NullString()}),
+                    Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(4), NullString()})}),
+      language_options));
+  ZETASQL_ASSERT_OK(expr->SetSchemasForEvaluation({}));
+  EXPECT_FALSE(expr->EvalSimple({}, &context, &result, &status));
+  EXPECT_THAT(status, StatusIs(zetasql_base::OUT_OF_RANGE,
+                               HasSubstr("modify a primary key column")));
+}
+
+TEST_F(DMLValueExprEvalTest,
+       DMLUpdateValueExprSetsPrimaryKeyValuesToNullWhenDisallowed) {
+  // Build a resolved AST for updating str_val from null to 'unknown' in the
+  // table.
+  std::unique_ptr<ResolvedTableScan> table_scan = MakeResolvedTableScan(
+      {ResolvedColumn{1, "test_table", "int_val", Int64Type()},
+       ResolvedColumn{2, "test_table", "str_val", StringType()}},
+      table(), /*for_system_time_expr=*/nullptr);
+  std::vector<std::unique_ptr<ResolvedUpdateItem>> update_item_list;
+  update_item_list.push_back(MakeResolvedUpdateItem(
+      MakeResolvedColumnRef(table_scan->column_list(0).type(),
+                            table_scan->column_list(0),
+                            /*is_correlated=*/false),
+      MakeResolvedDMLValue(
+          MakeResolvedLiteral(Int64Type(), NullInt64(), /*has_explicit_type=*/
+                              true, /*float_literal_id=*/0)),
+      /*element_column=*/nullptr, /*array_update_list=*/{}, /*delete_list=*/{},
+      /*update_list=*/{}, /*insert_list=*/{}));
+  std::vector<std::unique_ptr<ResolvedColumnRef>> resolved_column_refs;
+  resolved_column_refs.push_back(MakeResolvedColumnRef(
+      table_scan->column_list(1).type(), table_scan->column_list(1),
+      /*is_correlated=*/false));
+  std::unique_ptr<ResolvedUpdateStmt> stmt = MakeResolvedUpdateStmt(
+      std::move(table_scan), /*assert_rows_modified=*/nullptr,
+      /*array_offset_column=*/nullptr,
+      /*where_expr=*/
+      MakeResolvedFunctionCall(BoolType(), function("$is_null"),
+                               *function("$is_null")->GetSignature(0),
+                               std::move(resolved_column_refs),
+                               ResolvedFunctionCall::DEFAULT_ERROR_MODE),
+      /*update_item_list=*/std::move(update_item_list), /*from_scan=*/nullptr);
+
+  // Create output types.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const ArrayType* table_array_type,
+      CreateTableArrayType(stmt->table_scan()->column_list(),
+                           stmt->table_scan()->table()->IsValueTable(),
+                           type_factory()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const StructType* primary_key_type,
+      CreatePrimaryKeyType(stmt->table_scan()->column_list(),
+                           stmt->table_scan()->table()->PrimaryKey().value(),
+                           type_factory()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const StructType* dml_output_type,
+                       CreateDMLOutputType(table_array_type, type_factory()));
+
+  // Create a ColumnToVariableMapping.
+  auto column_to_variable_mapping = absl::make_unique<ColumnToVariableMapping>(
+      absl::make_unique<VariableGenerator>());
+
+  // Build a ResolvedScanMap and a ResolvedExprMap from the AST.
+  auto resolved_scan_map = absl::make_unique<ResolvedScanMap>();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ValueExpr> table_as_array_expr,
+      TableAsArrayExpr::Create(stmt->table_scan()->table()->Name(),
+                               table_array_type));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<RelationalOp> relation_op,
+      ArrayScanOp::Create(
+          /*element=*/VariableId(),
+          /*position=*/VariableId(),
+          {std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
+                              &stmt->table_scan()->column_list()[0]),
+                          0),
+           std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
+                              &stmt->table_scan()->column_list()[1]),
+                          1)},
+          std::move(table_as_array_expr)));
+  (*resolved_scan_map)[stmt->table_scan()] = std::move(relation_op);
+  auto resolved_expr_map = absl::make_unique<ResolvedExprMap>();
+  std::vector<std::unique_ptr<ValueExpr>> arguments{};
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<DerefExpr> arg_expr,
+      DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
+                            &stmt->where_expr()
+                                 ->GetAs<ResolvedFunctionCall>()
+                                 ->argument_list(0)
+                                 ->GetAs<ResolvedColumnRef>()
+                                 ->column()),
+                        stmt->where_expr()
+                            ->GetAs<ResolvedFunctionCall>()
+                            ->argument_list(0)
+                            ->GetAs<ResolvedColumnRef>()
+                            ->column()
+                            .type()));
+  arguments.push_back(std::move(arg_expr));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      FunctionKind function_kind,
+      BuiltinFunctionCatalog::GetKindByName(stmt->where_expr()
+                                                ->GetAs<ResolvedFunctionCall>()
+                                                ->function()
+                                                ->Name()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ValueExpr> function_call_expr,
+      BuiltinScalarFunction::CreateCall(
+          function_kind, LanguageOptions{},
+          stmt->where_expr()->GetAs<ResolvedFunctionCall>()->type(),
+          std::move(arguments),
+          stmt->where_expr()->GetAs<ResolvedFunctionCall>()->error_mode()));
+  (*resolved_expr_map)[stmt->where_expr()] = std::move(function_call_expr);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<DerefExpr> target_expr,
+      DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
+                            &stmt->update_item_list(0)
+                                 ->target()
+                                 ->GetAs<ResolvedColumnRef>()
+                                 ->column()),
+                        stmt->update_item_list(0)
+                            ->target()
+                            ->GetAs<ResolvedColumnRef>()
+                            ->column()
+                            .type()));
+  (*resolved_expr_map)[stmt->update_item_list(0)->target()] =
+      std::move(target_expr);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<ConstExpr> set_value_expr,
+                       ConstExpr::Create(stmt->update_item_list(0)
+                                             ->set_value()
+                                             ->value()
+                                             ->GetAs<ResolvedLiteral>()
+                                             ->value()));
+  (*resolved_expr_map)[stmt->update_item_list(0)->set_value()->value()] =
+      std::move(set_value_expr);
+  // Touch the getter to pass CheckFieldsAccessed().
+  ASSERT_EQ(stmt->update_item_list(0)->element_column(), nullptr);
+
+  // Create the DMLUpdateValueExpr to be tested.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<DMLUpdateValueExpr> expr,
+      DMLUpdateValueExpr::Create(
+          stmt->table_scan()->table(), table_array_type, primary_key_type,
+          dml_output_type, stmt.get(), &stmt->table_scan()->column_list(),
+          std::move(column_to_variable_mapping), std::move(resolved_scan_map),
+          std::move(resolved_expr_map)));
+
+  // Evaluate and check.
+  TupleSlot result;
+  zetasql_base::Status status;
+  // the case for return_all_rows_for_dml = true is covered by the reference
+  // implementation compliance tests
+  EvaluationOptions options{};
+  options.return_all_rows_for_dml = false;
+  EvaluationContext context{options};;
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_DISALLOW_NULL_PRIMARY_KEYS);
+  context.SetLanguageOptions(language_options);
+  ZETASQL_CHECK_OK(context.AddTableAsArray(
+      "test_table", /*is_value_table=*/false,
+      Value::Array(table_array_type,
+                   {Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(1), String("one")}),
+                    Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(2), NullString()}),
+                    Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(4), NullString()})}),
+      language_options));
+  ZETASQL_ASSERT_OK(expr->SetSchemasForEvaluation({}));
+  EXPECT_FALSE(expr->EvalSimple({}, &context, &result, &status));
+  EXPECT_THAT(status, StatusIs(zetasql_base::OUT_OF_RANGE,
+                               HasSubstr("set a primary key column to NULL")));
 }
 
 // TODO: Many of the tests that use this fixture should probably be

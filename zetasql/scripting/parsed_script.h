@@ -200,9 +200,7 @@ class ParsedScript {
   ArgumentTypeMap routine_arguments_;
 
   NamedQueryParameterMap named_query_parameters_;
-  // We want these to be sorted by ParseLocationPoint, and we also want to be
-  // able to quickly look up an query parameters by offset.
-  std::set<std::pair<ParseLocationPoint, int64_t>> positional_query_parameters_;
+  std::map<ParseLocationPoint, int64_t> positional_query_parameters_;
 };
 
 }  // namespace zetasql

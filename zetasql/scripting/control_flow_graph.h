@@ -20,7 +20,6 @@
 #include <memory>
 
 #include "zetasql/parser/parse_tree.h"
-#include "zetasql/scripting/parsed_script.h"
 #include "absl/container/flat_hash_map.h"
 #include "zetasql/base/statusor.h"
 
@@ -54,6 +53,11 @@ class ControlFlowEdge {
   // Returns a list of variables that get destroyed when this edge executes.
   std::set<std::string> GetDestroyedVariables() const;
 
+  // Returns the number of exception handlers exited as a result of this edge.
+  int num_exception_handlers_exited() const {
+    return num_exception_handlers_exited_;
+  }
+
   // Returns a single-line debug string of this edge.  Does not include the
   // details of the successor/predecessor nodes.
   std::string DebugString() const;
@@ -63,12 +67,14 @@ class ControlFlowEdge {
   ControlFlowEdge(const ControlFlowNode* predecessor,
                   const ControlFlowNode* successor, Kind kind,
                   ControlFlowGraph* graph,
-                  const std::vector<const ASTBeginEndBlock*>& blocks_to_exit)
+                  const std::vector<const ASTBeginEndBlock*>& blocks_to_exit,
+                  int num_exception_handlers_exited)
       : predecessor_(predecessor),
         successor_(successor),
         kind_(kind),
         graph_(graph),
-        blocks_to_exit_(blocks_to_exit) {}
+        blocks_to_exit_(blocks_to_exit),
+        num_exception_handlers_exited_(num_exception_handlers_exited) {}
 
   // Node which executes prior to this transition (owned by graph_).
   const ControlFlowNode* predecessor_;
@@ -85,6 +91,9 @@ class ControlFlowEdge {
   // Blocks exited by this edge.  All variables declared in this blocks go out
   // of scope when this edge executes.
   std::vector<const ASTBeginEndBlock*> blocks_to_exit_;
+
+  // Number of exception handlers exited as a result of this edge.
+  int num_exception_handlers_exited_;
 };
 
 // A node in a control flow graph representing the execution of one AST node.
@@ -147,8 +156,10 @@ class ControlFlowNode {
 
 class ControlFlowGraph {
  public:
+  // Creates a ControlFlowGraph for the given script.
+  // (Both arguments must remain alive while the control-flow graph is alive).
   static zetasql_base::StatusOr<std::unique_ptr<const ControlFlowGraph>> Create(
-      const ParsedScript* script);
+      const ASTScript* script, absl::string_view script_text);
 
   // Node to execute at the start of the script, or <end_node()> if the script
   // terminates without executing any statements.  Never null.
@@ -167,7 +178,10 @@ class ControlFlowGraph {
   std::vector<const ControlFlowNode*> GetAllNodes() const;
 
   // The script used to generate this graph.
-  const ParsedScript* script() const { return script_; }
+  const ASTScript* ast_script() const { return ast_script_; }
+
+  // The text used to generate <ast_script_>.  Externally owned.
+  absl::string_view script_text() const { return script_text_; }
 
   // Returns a debug string for this graph.  The returned string is multi-line
   // and describes the start node, along with all edges in the graph.
@@ -175,7 +189,8 @@ class ControlFlowGraph {
 
  private:
   friend class ControlFlowGraphBuilder;
-  explicit ControlFlowGraph(const ParsedScript* script);
+  explicit ControlFlowGraph(const ASTScript* ast_script,
+                            absl::string_view script_text);
 
   // Node to execute at the start of the script.  This is normally set to the
   // first statement in the script.  If the script is empty, <start_node_> will
@@ -198,8 +213,11 @@ class ControlFlowGraph {
   // in this vector is arbitrary).
   std::vector<std::unique_ptr<ControlFlowEdge>> edges_;
 
-  // Owns the script text and all AST nodes.
-  const ParsedScript* script_;
+  // Script used to generate this graph (externally owned).
+  const ASTScript* ast_script_;
+
+  // Text used to generate <ast_script_>.  Used in DebugString() messages.
+  absl::string_view script_text_;
 };
 
 }  // namespace zetasql

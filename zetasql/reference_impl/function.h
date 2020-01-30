@@ -28,6 +28,7 @@
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/functions/hash.h"
 #include "zetasql/public/functions/regexp.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
@@ -273,6 +274,13 @@ enum class FunctionKind {
 
   // Random functions
   kRand,
+
+  // Hashing functions
+  kMd5,
+  kSha1,
+  kSha256,
+  kSha512,
+  kFarmFingerprint,
 
   // Error function
   kError,
@@ -947,6 +955,25 @@ class RandFunction : public SimpleBuiltinScalarFunction {
 
  protected:
   mutable absl::BitGen rand_;
+};
+
+class HashFunction : public SimpleBuiltinScalarFunction {
+ public:
+  explicit HashFunction(FunctionKind kind);
+  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+
+ private:
+  const std::unique_ptr<functions::Hasher> hasher_;
+};
+
+class FarmFingerprintFunction : public SimpleBuiltinScalarFunction {
+ public:
+  FarmFingerprintFunction()
+      : SimpleBuiltinScalarFunction(FunctionKind::kFarmFingerprint,
+                                    types::Int64Type()) {}
+  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
 };
 
 class ErrorFunction : public SimpleBuiltinScalarFunction {

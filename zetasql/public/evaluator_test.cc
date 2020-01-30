@@ -37,7 +37,9 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/value.h"
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
@@ -55,6 +57,7 @@
 #include "absl/time/time.h"
 #include "absl/types/span.h"
 #include "zetasql/base/stl_util.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/clock.h"
 
 extern absl::Flag<int64_t>
@@ -1647,6 +1650,302 @@ TEST(PreparedQuery, FromTable) {
   ZETASQL_EXPECT_OK(iter->Status());
 }
 
+class PreparedModifyTest : public ::testing::Test {
+ public:
+  void SetUp() override {
+    catalog_.AddZetaSQLFunctions();
+    auto test_table = absl::make_unique<SimpleTable>(
+        "test_table",
+        std::vector<SimpleTable::NameAndType>{
+            {"int_val", types::Int64Type()}, {"str_val", types::StringType()}});
+    test_table->SetContents({{Int64(1), String("one")},
+                            {Int64(2), String("two")},
+                            {Int64(4), String("four")}});
+    ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0}));
+    catalog_.AddOwnedTable(std::move(test_table));
+
+    analyzer_options_.mutable_language()->SetSupportsAllStatementKinds();
+  }
+
+  Catalog* catalog() { return &catalog_; }
+  const AnalyzerOptions& analyzer_options() { return analyzer_options_; }
+
+ private:
+  SimpleCatalog catalog_{"test_catalog"};
+  AnalyzerOptions analyzer_options_;
+};
+
+TEST_F(PreparedModifyTest, ExecutesInsert) {
+  PreparedModify modify(
+      "insert test_table(int_val, str_val) values(3, 'three')",
+      EvaluatorOptions());
+  ZETASQL_ASSERT_OK(modify.Prepare(analyzer_options(), catalog()));
+  ASSERT_EQ(modify.resolved_statement()->node_kind(), RESOLVED_INSERT_STMT);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableModifyIterator> iter,
+                       modify.Execute());
+  const Table* table;
+  ZETASQL_ASSERT_OK(catalog()->FindTable({"test_table"}, &table));
+
+  EXPECT_EQ(iter->table(), table);
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetColumnValue(0), Int64(3));
+  EXPECT_EQ(iter->GetColumnValue(1), String("three"));
+  EXPECT_FALSE(iter->GetOriginalKeyValue(0).is_valid());
+  EXPECT_EQ(iter->GetOperation(),
+            EvaluatorTableModifyIterator::Operation::kInsert);
+
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST_F(PreparedModifyTest, ExecutesDelete) {
+  PreparedModify modify("delete test_table where int_val in (2, 4)",
+                      EvaluatorOptions());
+  ZETASQL_ASSERT_OK(modify.Prepare(analyzer_options(), catalog()));
+  ASSERT_EQ(modify.resolved_statement()->node_kind(), RESOLVED_DELETE_STMT);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableModifyIterator> iter,
+                       modify.Execute());
+  const Table* table;
+  ZETASQL_ASSERT_OK(catalog()->FindTable({"test_table"}, &table));
+
+  EXPECT_EQ(iter->table(), table);
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_FALSE(iter->GetColumnValue(0).is_valid());
+  EXPECT_FALSE(iter->GetColumnValue(1).is_valid());
+  EXPECT_EQ(iter->GetOriginalKeyValue(0), Int64(2));
+  EXPECT_EQ(iter->GetOperation(),
+            EvaluatorTableModifyIterator::Operation::kDelete);
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_FALSE(iter->GetColumnValue(0).is_valid());
+  EXPECT_FALSE(iter->GetColumnValue(1).is_valid());
+  EXPECT_EQ(iter->GetOriginalKeyValue(0), Int64(4));
+  EXPECT_EQ(iter->GetOperation(),
+            EvaluatorTableModifyIterator::Operation::kDelete);
+
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST_F(PreparedModifyTest, ExecutesUpdate) {
+  PreparedModify modify(
+      "update test_table set str_val = 'foo' where int_val > 1",
+      EvaluatorOptions());
+  ZETASQL_ASSERT_OK(modify.Prepare(analyzer_options(), catalog()));
+  ASSERT_EQ(modify.resolved_statement()->node_kind(), RESOLVED_UPDATE_STMT);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableModifyIterator> iter,
+                       modify.Execute());
+  const Table* table;
+  ZETASQL_ASSERT_OK(catalog()->FindTable({"test_table"}, &table));
+
+  EXPECT_EQ(iter->table(), table);
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetColumnValue(0), Int64(2));
+  EXPECT_EQ(iter->GetColumnValue(1), String("foo"));
+  EXPECT_EQ(iter->GetOriginalKeyValue(0), Int64(2));
+  EXPECT_EQ(iter->GetOperation(),
+            EvaluatorTableModifyIterator::Operation::kUpdate);
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetColumnValue(0), Int64(4));
+  EXPECT_EQ(iter->GetColumnValue(1), String("foo"));
+  EXPECT_EQ(iter->GetOriginalKeyValue(0), Int64(4));
+  EXPECT_EQ(iter->GetOperation(),
+            EvaluatorTableModifyIterator::Operation::kUpdate);
+
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST_F(PreparedModifyTest, IteratorStillLiveOnDestruction) {
+  auto query = absl::make_unique<PreparedModify>(
+      "delete from test_table where true", EvaluatorOptions());
+  ZETASQL_ASSERT_OK(query->Prepare(analyzer_options(), catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableModifyIterator> iter,
+                       query->Execute());
+  EXPECT_DEATH(query.reset(), "cannot outlive the PreparedQuery object");
+}
+
+TEST_F(PreparedModifyTest, InvalidStatementKind) {
+  PreparedModify modify("select * from test_table", EvaluatorOptions());
+  EXPECT_THAT(modify.Prepare(analyzer_options(), catalog()),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("not correspond to a DML statement")));
+}
+
+TEST_F(PreparedModifyTest, Parameter) {
+  PreparedModify modify("insert test_table(int_val, str_val) values(@p1, @p2)",
+                        EvaluatorOptions());
+
+  AnalyzerOptions analyzer_options = PreparedModifyTest::analyzer_options();
+  ZETASQL_EXPECT_OK(analyzer_options.AddQueryParameter("p1", types::Int64Type()));
+  ZETASQL_EXPECT_OK(analyzer_options.AddQueryParameter("p2", types::StringType()));
+  ZETASQL_EXPECT_OK(analyzer_options.AddQueryParameter("p3", types::DoubleType()));
+
+  ZETASQL_EXPECT_OK(modify.Prepare(analyzer_options, catalog()));
+
+  EXPECT_THAT(modify.GetReferencedParameters(),
+              IsOkAndHolds(UnorderedElementsAre("p1", "p2")));
+  EXPECT_THAT(modify.GetPositionalParameterCount(), IsOkAndHolds(0));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<EvaluatorTableModifyIterator> iter,
+      modify.Execute({{"p2", String("three")}, {"p1", Int64(3)}}));
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetColumnValue(0), Int64(3));
+  EXPECT_EQ(iter->GetColumnValue(1), String("three"));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  iter.reset();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(iter, modify.Execute({{"p2", NullString()},
+                                             {"p1", Int64(0)},
+                                             {"p3", NullDouble()},
+                                             {"p4", NullBytes()}}));
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetColumnValue(0), Int64(0));
+  EXPECT_EQ(iter->GetColumnValue(1), NullString());
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  iter.reset();
+  EXPECT_THAT(modify.Execute({{"p2", values::NullString()}}),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("Incomplete query parameters p1")));
+}
+
+TEST_F(PreparedModifyTest, PositionalParameter) {
+  PreparedModify modify("insert test_table(int_val, str_val) values(?, ?)",
+                        EvaluatorOptions());
+
+  AnalyzerOptions analyzer_options = PreparedModifyTest::analyzer_options();
+  analyzer_options.set_parameter_mode(PARAMETER_POSITIONAL);
+  ZETASQL_EXPECT_OK(analyzer_options.AddPositionalQueryParameter(types::Int64Type()));
+  ZETASQL_EXPECT_OK(analyzer_options.AddPositionalQueryParameter(types::StringType()));
+  ZETASQL_EXPECT_OK(analyzer_options.AddPositionalQueryParameter(types::DoubleType()));
+
+  ZETASQL_ASSERT_OK(modify.Prepare(analyzer_options, catalog()));
+
+  EXPECT_THAT(modify.GetReferencedParameters(), IsOkAndHolds(IsEmpty()));
+  EXPECT_THAT(modify.GetPositionalParameterCount(), IsOkAndHolds(2));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<EvaluatorTableModifyIterator> iter,
+      modify.ExecuteWithPositionalParams({Int64(3), String("three")}));
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetColumnValue(0), Int64(3));
+  EXPECT_EQ(iter->GetColumnValue(1), String("three"));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  iter.reset();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      iter, modify.ExecuteWithPositionalParams(
+                {Int64(0), NullString(), NullDouble(), NullBytes()}));
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetColumnValue(0), Int64(0));
+  EXPECT_EQ(iter->GetColumnValue(1), NullString());
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  iter.reset();
+  EXPECT_THAT(modify.ExecuteWithPositionalParams({Int64(100)}),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("Incorrect number of positional parameters")));
+}
+
+TEST_F(PreparedModifyTest, ExecuteAfterPrepareWithOrderedParamsWithParameter) {
+  PreparedModify modify("insert test_table(int_val, str_val) values(@p1, @p2)",
+                        EvaluatorOptions());
+
+  AnalyzerOptions analyzer_options = PreparedModifyTest::analyzer_options();
+  ZETASQL_EXPECT_OK(analyzer_options.AddQueryParameter("p1", types::Int64Type()));
+  ZETASQL_EXPECT_OK(analyzer_options.AddQueryParameter("p2", types::StringType()));
+  ZETASQL_EXPECT_OK(analyzer_options.AddQueryParameter("p3", types::DoubleType()));
+
+  ZETASQL_EXPECT_OK(modify.Prepare(analyzer_options, catalog()));
+
+  EXPECT_THAT(modify.GetReferencedParameters(),
+              IsOkAndHolds(UnorderedElementsAre("p1", "p2")));
+  EXPECT_THAT(modify.GetPositionalParameterCount(), IsOkAndHolds(0));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<EvaluatorTableModifyIterator> iter,
+      modify.Execute({{"p2", String("three")}, {"p1", Int64(3)}}));
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetColumnValue(0), Int64(3));
+  EXPECT_EQ(iter->GetColumnValue(1), String("three"));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  iter.reset();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(iter, modify.Execute({{"p2", NullString()},
+                                             {"p1", Int64(0)},
+                                             {"p3", NullDouble()},
+                                             {"p4", NullBytes()}}));
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetColumnValue(0), Int64(0));
+  EXPECT_EQ(iter->GetColumnValue(1), NullString());
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  iter.reset();
+  EXPECT_THAT(modify.Execute({{"p2", values::NullString()}}),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("Incomplete query parameters p1")));
+}
+
+TEST_F(PreparedModifyTest,
+     ExecuteAfterPreparedWithOrderedParamsWithPositionalParameter) {
+  PreparedModify modify("insert test_table(int_val, str_val) values(?, ?)",
+                        EvaluatorOptions());
+
+  AnalyzerOptions analyzer_options = PreparedModifyTest::analyzer_options();
+  analyzer_options.set_parameter_mode(PARAMETER_POSITIONAL);
+  ZETASQL_EXPECT_OK(analyzer_options.AddPositionalQueryParameter(types::Int64Type()));
+  ZETASQL_EXPECT_OK(analyzer_options.AddPositionalQueryParameter(types::StringType()));
+  ZETASQL_EXPECT_OK(analyzer_options.AddPositionalQueryParameter(types::DoubleType()));
+
+  ZETASQL_ASSERT_OK(modify.Prepare(analyzer_options, catalog()));
+
+  EXPECT_THAT(modify.GetReferencedParameters(), IsOkAndHolds(IsEmpty()));
+  EXPECT_THAT(modify.GetPositionalParameterCount(), IsOkAndHolds(2));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<EvaluatorTableModifyIterator> iter,
+      modify.ExecuteWithPositionalParams({Int64(3), String("three")}));
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetColumnValue(0), Int64(3));
+  EXPECT_EQ(iter->GetColumnValue(1), String("three"));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  iter.reset();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      iter, modify.ExecuteWithPositionalParams(
+                {Int64(0), NullString(), NullDouble(), NullBytes()}));
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetColumnValue(0), Int64(0));
+  EXPECT_EQ(iter->GetColumnValue(1), NullString());
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  iter.reset();
+  EXPECT_THAT(modify.ExecuteWithPositionalParams({Int64(100)}),
+              StatusIs(zetasql_base::INVALID_ARGUMENT,
+                       HasSubstr("Incorrect number of positional parameters")));
+}
+
+TEST_F(PreparedModifyTest, ExplainAfterPrepareWithoutPrepare) {
+  PreparedModify modify("insert test_table(int_val, str_val) values(0, null)",
+                        EvaluatorOptions());
+  EXPECT_THAT(modify.ExplainAfterPrepare(),
+              StatusIs(zetasql_base::INTERNAL,
+                       HasSubstr("Prepare must be called first")));
+}
+
 TEST(PreparedQuery, FromTableOnlySecondColumn) {
   SimpleTable test_table(
       "TestTable", {{"a", types::Int64Type()}, {"b", types::StringType()}});
@@ -1890,7 +2189,7 @@ TEST(PreparedQuery, InvalidStatementKind) {
   PreparedQuery query("delete from TestTable where true", EvaluatorOptions());
   EXPECT_THAT(query.Prepare(analyzer_options, &catalog),
               StatusIs(zetasql_base::INVALID_ARGUMENT,
-                       HasSubstr("Statement is not a query")));
+                       HasSubstr("not correspond to a query")));
 }
 
 TEST(PreparedQuery, Parameter) {

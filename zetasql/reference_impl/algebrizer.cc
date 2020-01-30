@@ -3458,11 +3458,17 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeDMLState
       ast_root, resolved_scan_map.get(), resolved_expr_map.get(),
       &resolved_table_scan));
 
-  const bool is_value_table = resolved_table_scan->table()->IsValueTable();
+  const Table* table = resolved_table_scan->table();
   const ResolvedColumnList& column_list = resolved_table_scan->column_list();
   ZETASQL_ASSIGN_OR_RETURN(
       const ArrayType* table_array_type,
-      CreateTableArrayType(column_list, is_value_table, type_factory_));
+      CreateTableArrayType(column_list, table->IsValueTable(), type_factory_));
+  const StructType* key_type = nullptr;
+  if (table->PrimaryKey().has_value()) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        key_type, CreatePrimaryKeyType(column_list, table->PrimaryKey().value(),
+                                       type_factory_));
+  }
   ZETASQL_ASSIGN_OR_RETURN(const StructType* dml_output_type,
                    CreateDMLOutputType(table_array_type, type_factory_));
 
@@ -3479,7 +3485,7 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeDMLState
       ZETASQL_ASSIGN_OR_RETURN(
           value_expr,
           DMLDeleteValueExpr::Create(
-              is_value_table, table_array_type, dml_output_type,
+              table, table_array_type, key_type, dml_output_type,
               ast_root->GetAs<ResolvedDeleteStmt>(), &column_list,
               std::move(column_to_variable_), std::move(resolved_scan_map),
               std::move(resolved_expr_map)));
@@ -3489,7 +3495,7 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeDMLState
       ZETASQL_ASSIGN_OR_RETURN(
           value_expr,
           DMLUpdateValueExpr::Create(
-              is_value_table, table_array_type, dml_output_type,
+              table, table_array_type, key_type, dml_output_type,
               ast_root->GetAs<ResolvedUpdateStmt>(), &column_list,
               std::move(column_to_variable_), std::move(resolved_scan_map),
               std::move(resolved_expr_map)));
@@ -3499,7 +3505,7 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeDMLState
       ZETASQL_ASSIGN_OR_RETURN(
           value_expr,
           DMLInsertValueExpr::Create(
-              is_value_table, table_array_type, dml_output_type,
+              table, table_array_type, key_type, dml_output_type,
               ast_root->GetAs<ResolvedInsertStmt>(), &column_list,
               std::move(column_to_variable_), std::move(resolved_scan_map),
               std::move(resolved_expr_map)));

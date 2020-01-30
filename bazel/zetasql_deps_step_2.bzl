@@ -141,6 +141,28 @@ cc_proto_library(
             strip_prefix = "abseil-py-bd4d245ac1e36439cb44e7ac46cd1b3e48d8edfa",
         )
 
+    # Boringssl
+    if not native.existing_rule("boringssl"):
+        http_archive(
+            name = "boringssl",
+            # Commit from 2019 October 29
+            urls = [
+                "https://github.com/google/boringssl/archive/9e18928936ccb882192e9779b0fd355bec739bdd.tar.gz",
+            ],
+            sha256 = "19a951d1706a67be480809f6a6231675d29841be5682a7fe40bbcdf1e16f0147",
+            strip_prefix = "boringssl-9e18928936ccb882192e9779b0fd355bec739bdd",
+        )
+
+    # Farmhash
+    if not native.existing_rule("com_google_farmhash"):
+        http_archive(
+            name = "com_google_farmhash",
+            build_file = "@com_google_zetasql//bazel:farmhash.BUILD",
+            url = "https://github.com/google/farmhash/archive/816a4ae622e964763ca0862d9dbd19324a1eaf45.tar.gz",
+            sha256 = "6560547c63e4af82b0f202cb710ceabb3f21347a4b996db565a411da5b17aba0",
+            strip_prefix = "farmhash-816a4ae622e964763ca0862d9dbd19324a1eaf45",
+        )
+
     # required by protobuf_python
     if not native.existing_rule("six_archive"):
         http_archive(

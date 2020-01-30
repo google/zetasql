@@ -28,6 +28,7 @@
 #include "absl/base/config.h"
 #include "absl/base/optimization.h"
 #include "absl/strings/str_cat.h"
+#include "zetasql/base/mathutil.h"
 #include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/statusor.h"
 
@@ -40,6 +41,8 @@ constexpr uint64_t k1e19 = static_cast<uint64_t>(k1e9) * k1e9 * 10;
 constexpr __int128 k1e38 = static_cast<__int128>(k1e19) * k1e19;
 constexpr __int128 kNumericMax = k1e38 - 1;
 constexpr __int128 kNumericMin = -kNumericMax;
+constexpr uint32_t k5to12 = 244140625;
+constexpr uint32_t k5to13 = 1220703125;
 constexpr std::integral_constant<int32_t, internal::k1e9> kSignedScalingFactor{};
 
 // Adds two __int128 values and returns true if there was an overflow; otherwise
@@ -106,6 +109,17 @@ inline zetasql_base::StatusOr<NumericValue> NumericValue::FromPackedInt(
   return ret;
 }
 
+template <int kNumBitsPerWord, int kNumWords>
+inline zetasql_base::StatusOr<NumericValue> NumericValue::FromFixedInt(
+    const FixedInt<kNumBitsPerWord, kNumWords>& val) {
+  constexpr FixedInt<kNumBitsPerWord, kNumWords> kMin(internal::kNumericMin);
+  constexpr FixedInt<kNumBitsPerWord, kNumWords> kMax(internal::kNumericMax);
+  if (ABSL_PREDICT_TRUE(val >= kMin) && ABSL_PREDICT_TRUE(val <= kMax)) {
+    return NumericValue(static_cast<__int128>(val));
+  }
+  return MakeEvalError() << "numeric overflow";
+}
+
 inline zetasql_base::StatusOr<NumericValue> NumericValue::FromHighAndLowBits(
     uint64_t high_bits, uint64_t low_bits) {
   NumericValue ret(high_bits, low_bits);
@@ -118,34 +132,30 @@ inline zetasql_base::StatusOr<NumericValue> NumericValue::FromHighAndLowBits(
 }
 
 inline zetasql_base::StatusOr<NumericValue> NumericValue::Add(NumericValue rh) const {
-  __int128 res;
-  if (ABSL_PREDICT_FALSE(internal::int128_add_overflow(
-          as_packed_int(), rh.as_packed_int(), &res))) {
-    return MakeEvalError() << "numeric overflow: " << ToString() << " + "
-                           << rh.ToString();
+  FixedInt<64, 2> sum(as_packed_int());
+  bool overflow = sum.AddOverflow(FixedInt<64, 2>(rh.as_packed_int()));
+  if (ABSL_PREDICT_TRUE(!overflow)) {
+    auto numeric_value_status = FromFixedInt(sum);
+    if (ABSL_PREDICT_TRUE(numeric_value_status.ok())) {
+      return numeric_value_status;
+    }
   }
-  auto numeric_value_status = FromPackedInt(res);
-  if (!numeric_value_status.ok()) {
-    return MakeEvalError() << "numeric overflow: " << ToString() << " + "
-                           << rh.ToString();
-  }
-  return numeric_value_status.ValueOrDie();
+  return MakeEvalError() << "numeric overflow: " << ToString() << " + "
+                         << rh.ToString();
 }
 
 inline zetasql_base::StatusOr<NumericValue> NumericValue::Subtract(
     NumericValue rh) const {
-  __int128 res;
-  if (ABSL_PREDICT_FALSE(internal::int128_add_overflow(
-          as_packed_int(), -rh.as_packed_int(), &res))) {
-    return MakeEvalError() << "numeric overflow: " << ToString() << " - "
-                           << rh.ToString();
+  FixedInt<64, 2> diff(as_packed_int());
+  bool overflow = diff.SubtractOverflow(FixedInt<64, 2>(rh.as_packed_int()));
+  if (ABSL_PREDICT_TRUE(!overflow)) {
+    auto numeric_value_status = FromFixedInt(diff);
+    if (ABSL_PREDICT_TRUE(numeric_value_status.ok())) {
+      return numeric_value_status;
+    }
   }
-  auto numeric_value_status = FromPackedInt(res);
-  if (!numeric_value_status.ok()) {
-    return MakeEvalError() << "numeric overflow: " << ToString() << " - "
-                           << rh.ToString();
-  }
-  return numeric_value_status.ValueOrDie();
+  return MakeEvalError() << "numeric overflow: " << ToString() << " - "
+                         << rh.ToString();
 }
 
 inline NumericValue NumericValue::UnaryMinus(NumericValue value) {
@@ -175,32 +185,6 @@ inline bool NumericValue::operator>=(NumericValue rh) const {
 
 inline bool NumericValue::operator<=(NumericValue rh) const {
   return as_packed_int() <= rh.as_packed_int();
-}
-
-inline zetasql_base::StatusOr<NumericValue> NumericValue::FromDouble(double value) {
-  if (ABSL_PREDICT_FALSE(!std::isfinite(value))) {
-    // This error message should be kept consistent with the error message found
-    // in .../public/functions/convert.h.
-    return MakeEvalError() << "Illegal conversion of non-finite floating point "
-                              "number to numeric: "
-                           << value;
-  }
-
-  if (ABSL_PREDICT_FALSE((value <= -1e30) || (value >= 1e30))) {
-    return MakeEvalError() << "numeric out of range: " << value;
-  }
-
-  double int_part = trunc(value);
-  // Preserve an extra digit for rounding.
-  double fract_part = trunc((value - int_part) * kScalingFactor * 10);
-  __int128 rounded_fract_part =
-      (static_cast<__int128>(fract_part) + (value > 0 ? 5 : -5)) / 10;
-  zetasql_base::StatusOr<NumericValue> value_status = FromPackedInt(
-      static_cast<__int128>(int_part) * kScalingFactor + rounded_fract_part);
-  if (ABSL_PREDICT_FALSE(!value_status.ok())) {
-    return MakeEvalError() << "numeric out of range: " << value;
-  }
-  return value_status.ValueOrDie();
 }
 
 inline std::string NumericValue::ToString() const {
@@ -249,11 +233,11 @@ inline zetasql_base::StatusOr<T> NumericValue::To() const {
   __int128 rounded_value =
       static_cast<__int128>(FixedInt<64, 2>(as_packed_int())
           .DivAndRoundAwayFromZero(internal::kSignedScalingFactor));
-  if (ABSL_PREDICT_FALSE((rounded_value < std::numeric_limits<T>::min()) ||
-                         (rounded_value > std::numeric_limits<T>::max()))) {
-    return MakeEvalError() << TypeName<T>() << " out of range: " << ToString();
+  T result = static_cast<T>(rounded_value);
+  if (rounded_value == result) {
+    return result;
   }
-  return static_cast<T>(rounded_value);
+  return MakeEvalError() << TypeName<T>() << " out of range: " << ToString();
 }
 
 inline constexpr __int128 NumericValue::as_packed_int() const {

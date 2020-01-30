@@ -513,9 +513,8 @@ zetasql_base::Status ParsedScript::PopulateQueryParameters() {
   // Add the proper indices now that we know the sort order.
   int i = 0;
   for (auto itr = positional_points.begin(); itr != positional_points.end();
-       ++itr) {
+       ++itr, i++) {
     positional_query_parameters_.insert({*itr, i});
-    i++;
   }
 
   return zetasql_base::OkStatus();
@@ -523,10 +522,8 @@ zetasql_base::Status ParsedScript::PopulateQueryParameters() {
 
 std::pair<int64_t, int64_t> ParsedScript::GetPositionalParameters(
     const ParseLocationRange& range) const {
-  // Slightly hacky, but we want to always search from the left hand side of a
-  // key.
-  auto lower = positional_query_parameters_.lower_bound({range.start(), -1});
-  auto upper = positional_query_parameters_.upper_bound({range.end(), -1});
+  auto lower = positional_query_parameters_.lower_bound(range.start());
+  auto upper = positional_query_parameters_.upper_bound(range.end());
 
   // Attempt to return something sane if there are no positional parameters in
   // the segment.
@@ -534,10 +531,10 @@ std::pair<int64_t, int64_t> ParsedScript::GetPositionalParameters(
     return {0, 0};
   }
 
-  int64_t start = (*lower).second;
+  int64_t start = lower->second;
   int64_t end = upper == positional_query_parameters_.end()
                   ? positional_query_parameters_.size()
-                  : (*upper).second;
+                  : upper->second;
   return {start, end - start};
 }
 
