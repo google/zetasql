@@ -109,6 +109,24 @@ public class Analyzer implements Serializable {
     return response.getSql();
   }
 
+  public static String buildStatement(ResolvedStatement statement, SimpleCatalog catalog) {
+    BuildSqlRequest.Builder request = BuildSqlRequest.newBuilder();
+    FileDescriptorSetsBuilder fileDescriptorSetsBuilder =
+        AnalyzerHelper.serializeSimpleCatalog(catalog, request);
+    AnyResolvedStatementProto.Builder resolvedStatement = AnyResolvedStatementProto.newBuilder();
+    statement.serialize(fileDescriptorSetsBuilder, resolvedStatement);
+    request.setResolvedStatement(resolvedStatement.build());
+
+    BuildSqlResponse response;
+    try {
+      response = Client.getStub().buildSql(request.build());
+    } catch (StatusRuntimeException e) {
+      throw new SqlException(e);
+    }
+
+    return response.getSql();
+  }
+
   /**
    * Analyze the statement syntax and extract the table names. This function is a one-of which does
    * not require an instance of analyzer.
