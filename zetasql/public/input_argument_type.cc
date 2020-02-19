@@ -216,6 +216,12 @@ InputArgumentType InputArgumentType::ConnectionInputArgumentType(
   return type;
 }
 
+InputArgumentType InputArgumentType::DescriptorInputArgumentType() {
+  InputArgumentType type;
+  type.category_ = kDescriptor;
+  return type;
+}
+
 bool InputArgumentTypeSet::Insert(
     const InputArgumentType& argument, bool set_dominant) {
   if (set_dominant) {

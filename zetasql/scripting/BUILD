@@ -45,6 +45,7 @@ cc_library(
     ],
     copts = ["-Wno-sign-compare"],
     deps = [
+        ":control_flow_graph",
         ":error_helpers",
         "//zetasql/base:map_util",
         "//zetasql/base:status",

@@ -179,6 +179,11 @@ class InputArgumentType {
   static InputArgumentType ConnectionInputArgumentType(
       const TVFConnectionArgument& connection_arg);
 
+  // Constructor for descriptor argument. Only for use when analyzing
+  // table-valued functions. For more information about descriptor
+  // argument, see table_valued_function.h.
+  static InputArgumentType DescriptorInputArgumentType();
+
   bool has_relation_input_schema() const {
     return relation_input_schema_ != nullptr;
   }
@@ -205,6 +210,7 @@ class InputArgumentType {
     kRelation,
     kModel,
     kConnection,
+    kDescriptor,
   };
 
   explicit InputArgumentType(Category category, const Type* type)

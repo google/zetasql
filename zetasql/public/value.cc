@@ -52,6 +52,8 @@
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/time_proto_util.h"
 
+using zetasql::types::BigNumericArrayType;
+using zetasql::types::BigNumericType;
 using zetasql::types::BoolArrayType;
 using zetasql::types::BoolType;
 using zetasql::types::BytesArrayType;
@@ -117,6 +119,9 @@ Value::Value(const Type* type)
     case TYPE_NUMERIC:
       numeric_ptr_ = new NumericRef();
       break;
+    case TYPE_BIGNUMERIC:
+      bignumeric_ptr_ = new BigNumericRef();
+      break;
     case TYPE_ENUM:
       enum_type_ = type->AsEnum();
       break;
@@ -153,6 +158,9 @@ void Value::CopyFrom(const Value& that) {
       break;
     case TYPE_NUMERIC:
       numeric_ptr_->Ref();
+      break;
+    case TYPE_BIGNUMERIC:
+      bignumeric_ptr_->Ref();
       break;
     case TYPE_PROTO:
       proto_ptr_->Ref();
@@ -288,6 +296,7 @@ const Type* Value::type() const {
     case TYPE_DATETIME: return DatetimeType();
     case TYPE_GEOGRAPHY: return GeographyType();
     case TYPE_NUMERIC: return NumericType();
+    case TYPE_BIGNUMERIC: return BigNumericType();
     case TYPE_ENUM: return enum_type_;
     case TYPE_ARRAY:
     case TYPE_STRUCT:
@@ -432,6 +441,9 @@ uint64_t Value::physical_byte_size() const {
       break;
     case TYPE_NUMERIC:
       physical_size += sizeof(NumericRef);
+      break;
+    case TYPE_BIGNUMERIC:
+      physical_size += sizeof(BigNumericRef);
       break;
     case TYPE_STRING:
     case TYPE_BYTES:
@@ -620,6 +632,8 @@ bool Value::EqualsInternal(const Value& x, const Value& y, bool allow_bags,
              x.subsecond_nanos_ == y.subsecond_nanos_;
     case TYPE_NUMERIC:
       return x.numeric_value() == y.numeric_value();
+    case TYPE_BIGNUMERIC:
+      return x.bignumeric_value() == y.bignumeric_value();
     case TYPE_ENUM:
       return x.enum_value() == y.enum_value();
     case TYPE_ARRAY: {
@@ -834,6 +848,7 @@ static bool TypesSupportSqlEquals(const Type* type1, const Type* type2) {
     case TYPE_KIND_PAIR(TYPE_DATETIME, TYPE_DATETIME):
     case TYPE_KIND_PAIR(TYPE_ENUM, TYPE_ENUM):
     case TYPE_KIND_PAIR(TYPE_NUMERIC, TYPE_NUMERIC):
+    case TYPE_KIND_PAIR(TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
     case TYPE_KIND_PAIR(TYPE_FLOAT, TYPE_FLOAT):
     case TYPE_KIND_PAIR(TYPE_DOUBLE, TYPE_DOUBLE):
     case TYPE_KIND_PAIR(TYPE_INT64, TYPE_UINT64):
@@ -882,6 +897,7 @@ Value Value::SqlEquals(const Value& that) const {
     case TYPE_KIND_PAIR(TYPE_DATETIME, TYPE_DATETIME):
     case TYPE_KIND_PAIR(TYPE_ENUM, TYPE_ENUM):
     case TYPE_KIND_PAIR(TYPE_NUMERIC, TYPE_NUMERIC):
+    case TYPE_KIND_PAIR(TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
       return Value::Bool(Equals(that));
 
     case TYPE_KIND_PAIR(TYPE_STRUCT, TYPE_STRUCT): {
@@ -1060,6 +1076,8 @@ bool Value::LessThan(const Value& that) const {
                 subsecond_nanos_ < that.subsecond_nanos_);
       case TYPE_NUMERIC:
         return numeric_value() < that.numeric_value();
+      case TYPE_BIGNUMERIC:
+        return bignumeric_value() < that.bignumeric_value();
       case TYPE_ENUM: {
         // The behaviour is undefined when the enum types are not compatible.
         // Fails tests and log an error message in prod.
@@ -1116,6 +1134,7 @@ static bool TypesSupportSqlLessThan(const Type* type1, const Type* type2) {
     case TYPE_KIND_PAIR(TYPE_DATETIME, TYPE_DATETIME):
     case TYPE_KIND_PAIR(TYPE_ENUM, TYPE_ENUM):
     case TYPE_KIND_PAIR(TYPE_NUMERIC, TYPE_NUMERIC):
+    case TYPE_KIND_PAIR(TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
     case TYPE_KIND_PAIR(TYPE_FLOAT, TYPE_FLOAT):
     case TYPE_KIND_PAIR(TYPE_DOUBLE, TYPE_DOUBLE):
     case TYPE_KIND_PAIR(TYPE_INT64, TYPE_UINT64):
@@ -1150,6 +1169,8 @@ Value Value::SqlLessThan(const Value& that) const {
     case TYPE_KIND_PAIR(TYPE_DATETIME, TYPE_DATETIME):
     case TYPE_KIND_PAIR(TYPE_ENUM, TYPE_ENUM):
     case TYPE_KIND_PAIR(TYPE_NUMERIC, TYPE_NUMERIC):
+      return Value::Bool(LessThan(that));
+    case TYPE_KIND_PAIR(TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
       return Value::Bool(LessThan(that));
     case TYPE_KIND_PAIR(TYPE_FLOAT, TYPE_FLOAT):
       return Value::Bool(float_value() < that.float_value());  // false if NaN
@@ -1250,6 +1271,8 @@ static std::string CapitalizedNameForType(const Type* type) {
       return "Geography";
     case TYPE_NUMERIC:
       return "Numeric";
+    case TYPE_BIGNUMERIC:
+      return "BigNumeric";
     case TYPE_ENUM:
       return absl::StrCat("Enum<",
                           type->AsEnum()->enum_descriptor()->full_name(), ">");
@@ -1376,6 +1399,9 @@ std::string Value::DebugStringInternal(
       case TYPE_NUMERIC:
         s = numeric_value().ToString();
         break;
+      case TYPE_BIGNUMERIC:
+        s = bignumeric_value().ToString();
+        break;
       case TYPE_ENUM:
         if (verbose) {
           s = absl::StrCat(enum_name(), ":", enum_value());
@@ -1498,6 +1524,11 @@ std::string Value::GetSQL(ProductMode mode) const {
           "NUMERIC ", ToStringLiteral(numeric_value().ToString()));
     }
 
+    if (type->kind() == TYPE_BIGNUMERIC) {
+      return absl::StrCat("BIGNUMERIC ",
+                          ToStringLiteral(bignumeric_value().ToString()));
+    }
+
     // We need a cast for all numeric types except int64_t and double.
     if (type->IsNumerical() && !type->IsInt64() && !type->IsDouble()) {
       return absl::StrCat("CAST(", DebugString(), " AS ", type->TypeName(mode),
@@ -1579,6 +1610,11 @@ std::string Value::GetSQLLiteral(ProductMode mode) const {
     if (type->kind() == TYPE_NUMERIC) {
       return absl::StrCat(
           "NUMERIC ", ToStringLiteral(numeric_value().ToString()));
+    }
+
+    if (type->kind() == TYPE_BIGNUMERIC) {
+      return absl::StrCat("BIGNUMERIC ",
+                          ToStringLiteral(bignumeric_value().ToString()));
     }
 
     return DebugString();
@@ -1996,6 +2032,14 @@ Value NumericArray(absl::Span<const NumericValue> values) {
   return Value::Array(NumericArrayType(), value_vector);
 }
 
+Value BigNumericArray(absl::Span<const BigNumericValue> values) {
+  std::vector<Value> value_vector;
+  for (auto v : values) {
+    value_vector.push_back(Value::BigNumeric(v));
+  }
+  return Value::Array(BigNumericArrayType(), value_vector);
+}
+
 }  // namespace values
 
 zetasql_base::Status Value::Serialize(ValueProto* value_proto) const {
@@ -2028,6 +2072,10 @@ zetasql_base::Status Value::Serialize(ValueProto* value_proto) const {
       break;
     case TYPE_NUMERIC:
       value_proto->set_numeric_value(numeric_value().SerializeAsProtoBytes());
+      break;
+    case TYPE_BIGNUMERIC:
+      value_proto->set_bignumeric_value(
+          bignumeric_value().SerializeAsProtoBytes());
       break;
     case TYPE_STRING:
       value_proto->set_string_value(string_value());
@@ -2143,6 +2191,15 @@ zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
                        NumericValue::DeserializeFromProtoBytes(
                            value_proto.numeric_value()));
       return Numeric(numeric_v);
+    }
+    case TYPE_BIGNUMERIC: {
+      if (!value_proto.has_bignumeric_value()) {
+        return TypeMismatchError(value_proto, type);
+      }
+      ZETASQL_ASSIGN_OR_RETURN(BigNumericValue bignumeric_v,
+                       BigNumericValue::DeserializeFromProtoBytes(
+                           value_proto.bignumeric_value()));
+      return BigNumeric(bignumeric_v);
     }
     case TYPE_STRING:
       if (!value_proto.has_string_value()) {

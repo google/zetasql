@@ -23,6 +23,7 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/parser/parse_tree_visitor.h"
+#include "zetasql/scripting/control_flow_graph.h"
 #include "zetasql/scripting/error_helpers.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
@@ -253,58 +254,6 @@ class PopulateIndexMapsVisitor : public NonRecursiveParseTreeVisitor {
   ParsedScript::NodeIndexMap* map_node_index_;
 };
 
-// Visitor which builds a mapping, assocating each BREAK, CONTINUE, LEAVE, or
-// ITERATE statement with its innermost loop.  Used to determine the target
-// location of these statements, as well as any variable declaration blocks
-// that must be exited when the statement executes.
-class PopulateBreakContinueMapVisitor : public NonRecursiveParseTreeVisitor {
- public:
-  explicit PopulateBreakContinueMapVisitor(
-      ParsedScript::BreakContinueMap* break_continue_map)
-      : break_continue_map_(break_continue_map) {}
-
-  zetasql_base::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
-    return VisitResult::VisitChildren(node);
-  }
-  zetasql_base::StatusOr<VisitResult> visitASTBreakStatement(
-      const ASTBreakStatement* node) override {
-    ZETASQL_ASSIGN_OR_RETURN((*break_continue_map_)[node],
-                     CreateBreakContinueContext(node));
-    return VisitResult::Empty();
-  }
-  zetasql_base::StatusOr<VisitResult> visitASTContinueStatement(
-      const ASTContinueStatement* node) override {
-    ZETASQL_ASSIGN_OR_RETURN((*break_continue_map_)[node],
-                     CreateBreakContinueContext(node));
-    return VisitResult::Empty();
-  }
-
- private:
-  zetasql_base::StatusOr<BreakContinueContext> CreateBreakContinueContext(
-      const ASTBreakContinueStatement* stmt) {
-    const ASTLoopStatement* enclosing_loop = nullptr;
-    std::vector<const ASTBeginEndBlock*> blocks_to_exit;
-    for (const ASTNode* node = stmt->parent(); node != nullptr;
-         node = node->parent()) {
-      if (node->IsLoopStatement()) {
-        enclosing_loop = node->GetAs<ASTLoopStatement>();
-        break;
-      }
-      if (node->node_kind() == AST_BEGIN_END_BLOCK) {
-        blocks_to_exit.push_back(node->GetAs<ASTBeginEndBlock>());
-      }
-    }
-    if (enclosing_loop == nullptr) {
-      return MakeSqlErrorAtNode(stmt, true)
-             << stmt->GetKeywordText()
-             << " is only allowed inside of a loop body";
-    }
-    return BreakContinueContext(enclosing_loop, std::move(blocks_to_exit));
-  }
-
-  ParsedScript::BreakContinueMap* break_continue_map_;
-};
-
 // Visitor to find the statement within a script that matches a given position.
 class FindStatementFromPositionVisitor : public NonRecursiveParseTreeVisitor {
  public:
@@ -420,16 +369,14 @@ zetasql_base::Status ParsedScript::GatherInformationAndRunChecksInternal() {
   PopulateIndexMapsVisitor populate_index_visitor(&node_index_map_);
   ZETASQL_RETURN_IF_ERROR(script()->TraverseNonRecursive(&populate_index_visitor));
 
-  // Walk the parse tree, building up a map, associating each BREAK, CONTINUE,
-  // LEAVE, or ITERATE statement with its innermost loop and set of blocks that
-  // must exit in order to continue or exit the loop.
-  PopulateBreakContinueMapVisitor break_continue_map_visitor(
-      &break_continue_map_);
-  ZETASQL_RETURN_IF_ERROR(script()->TraverseNonRecursive(&break_continue_map_visitor));
-
   // Callers interested in validating query parameters should call
   // CheckQueryParameters.
   ZETASQL_RETURN_IF_ERROR(PopulateQueryParameters());
+
+  // Generates the control-flow graph.  Also, emits errors if the script
+  // contains a BREAK or CONTINUE statement outside of a loop.
+  ZETASQL_ASSIGN_OR_RETURN(control_flow_graph_,
+                   ControlFlowGraph::Create(script(), script_text()));
 
   return zetasql_base::OkStatus();
 }

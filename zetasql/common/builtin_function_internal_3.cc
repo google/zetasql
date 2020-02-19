@@ -543,9 +543,17 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   // This function and its signatures are only used during internal resolution,
   // and that the canonical representations in the ResolvedAST are the
   // CONCAT/ARRAY_CONCAT function calls based on the types of the arguments.
+  FunctionArgumentTypeOptions concat_option;
+  if (options.language_options.LanguageFeatureEnabled(
+          zetasql::FEATURE_V_1_3_CONCAT_MIXED_TYPES)) {
+    concat_option.set_allow_coercion_from(&CanStringConcatCoerceFrom);
+  }
+
   InsertFunction(
       functions, options, "$concat_op", SCALAR,
-      {{string_type, {string_type, string_type}, FN_CONCAT_OP_STRING},
+      {{string_type,
+        {{string_type, concat_option}, {string_type, concat_option}},
+        FN_CONCAT_OP_STRING},
        {bytes_type, {bytes_type, bytes_type}, FN_CONCAT_OP_BYTES},
        {ARG_ARRAY_TYPE_ANY_1,
         {ARG_ARRAY_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_1},

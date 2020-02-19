@@ -61,8 +61,7 @@ reference implementation:
 ```bazel run //zetasql/experimental:execute_query -- "select 1 + 1;"```
 
 The reference implementation is not yet completely released and currently
-supports only very basic operations and types. Notably, it doesn't support
-`SUM(DOUBLE)` or STRING functions.
+supports only a subset of functions and types.
 
 ## Versions
 

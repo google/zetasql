@@ -29,6 +29,7 @@
 #include "zetasql/parser/location.hh"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/position.hh"
+#include "zetasql/parser/statement_properties.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
@@ -84,10 +85,11 @@ class BisonParser {
   // returned ASTNodes have been deallocated.
   //
   // If mode is kNextStatementKind, then the next statement kind is returned in
-  // 'next_statement_kind_result', and no parse tree is returned. This may still
+  // 'ast_statement_properties', and no parse tree is returned. This may still
   // allocate into 'id_string_pool' if the prefix of the statement that needs to
-  // be parsed includes identifiers. In this mode, 'statement_end_byte_offset'
-  // is *not* set.
+  // be parsed includes identifiers, and may allocate ASTNodes into
+  // 'other_allocated_ast_nodes' if statement level hints are present. In this
+  // mode, 'statement_end_byte_offset' is *not* set.
   //
   // If mode is kNextStatement, the byte offset past the current statement's
   // closing semicolon is returned in 'statement_end_byte_offset'. If the
@@ -101,7 +103,7 @@ class BisonParser {
       const LanguageOptions* language_options,
       std::unique_ptr<zetasql::ASTNode>* output,
       std::vector<std::unique_ptr<ASTNode>>* other_allocated_ast_nodes,
-      ASTNodeKind* next_statement_kind_result, bool* next_statement_is_ctas,
+      ASTStatementProperties* ast_statement_properties,
       int* statement_end_byte_offset);
 
   // Returns the characters in the input range given by 'bison_location'. The

@@ -20,7 +20,6 @@ cc_library(
     name = "type",
     srcs = [
         "convert_type_to_proto.cc",
-        "type.cc",
     ],
     hdrs = [
         "convert_type_to_proto.h",
@@ -28,35 +27,17 @@ cc_library(
     ],
     copts = ["-Wno-sign-compare"],
     deps = [
-        ":language_options",
-        ":options_cc_proto",
-        ":strings",
         ":type_annotation_cc_proto",
         ":type_cc_proto",
         "//zetasql/base",
         "//zetasql/base:case",
-        "//zetasql/base:cleanup",
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
-        "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/common:errors",
-        "//zetasql/common:proto_helper",
-        "//zetasql/proto:options_cc_proto",
-        "//zetasql/public/functions:datetime_cc_proto",
-        "//zetasql/public/functions:normalize_mode_cc_proto",
         "//zetasql/public/proto:type_annotation_cc_proto",
-        "@com_google_absl//absl/base",
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/container:flat_hash_set",
-        "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/memory",
+        "//zetasql/public/types",
         "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
-        "@com_google_absl//absl/types:span",
-        "@com_google_absl//absl/types:variant",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
     ],
@@ -84,6 +65,7 @@ cc_library(
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
+        "@com_google_absl//absl/types:variant",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -319,6 +301,8 @@ cc_test(
         "//zetasql/base/testing:status_matchers",
         "//zetasql/common:fixed_int",
         "@com_google_absl//absl/base",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/hash:hash_testing",
         "@com_google_absl//absl/numeric:int128",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/strings",
@@ -1019,6 +1003,7 @@ cc_test(
     deps = [
         ":error_location_cc_proto",
         ":function",
+        ":function_cc_proto",
         ":type",
         "@com_google_googletest//:gtest_main",
         "//zetasql/base:status",
@@ -1155,6 +1140,7 @@ cc_library(
         "//zetasql/parser:keywords",
         "//zetasql/public/functions:convert_string",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
     ],
@@ -1253,10 +1239,12 @@ cc_library(
     ],
 )
 
+# Abstract base classes for the full and lite evaluators.
+# Use either :evaluator or :evaluator_lite instead.
 cc_library(
-    name = "evaluator",
-    srcs = ["evaluator.cc"],
-    hdrs = ["evaluator.h"],
+    name = "evaluator_base",
+    srcs = ["evaluator_base.cc"],
+    hdrs = ["evaluator_base.h"],
     copts = ["-Wno-sign-compare"],
     deps = [
         ":analyzer",
@@ -1291,6 +1279,30 @@ cc_library(
     ],
 )
 
+# Full evaluator implementation.
+cc_library(
+    name = "evaluator",
+    srcs = ["evaluator.cc"],
+    hdrs = ["evaluator.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":evaluator_base",
+        "//zetasql/reference_impl/functions:register_all",
+    ],
+)
+
+# Lite evaluator implementation; optimized for executable size at the expense
+# of some features. See evaluator_lite.h for pointers on what is excluded
+# and how to selectively reenable features.
+cc_library(
+    name = "evaluator_lite",
+    hdrs = ["evaluator_lite.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":evaluator_base",
+    ],
+)
+
 cc_test(
     name = "evaluator_test",
     size = "small",
@@ -1322,6 +1334,7 @@ cc_test(
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
         "//zetasql/testdata:test_schema_cc_proto",
         "//zetasql/testing:test_value",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
@@ -1329,6 +1342,19 @@ cc_test(
         "@com_google_absl//absl/types:span",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_test(
+    name = "evaluator_lite_test",
+    size = "small",
+    srcs = ["evaluator_lite_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":evaluator_lite",
+        ":value",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base/testing:status_matchers",
     ],
 )
 

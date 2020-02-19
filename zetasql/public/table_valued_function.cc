@@ -295,6 +295,10 @@ std::string TVFConnectionArgument::DebugString() const {
   return "ANY CONNECTION";
 }
 
+std::string TVFDescriptorArgument::DebugString() const {
+  return "ANY DESCRIPTOR";
+}
+
 zetasql_base::Status FixedOutputSchemaTVF::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     TableValuedFunctionProto* proto) const {

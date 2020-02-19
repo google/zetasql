@@ -271,6 +271,10 @@ struct FunctionOptions {
     supports_safe_error_mode = value;
     return *this;
   }
+  FunctionOptions& set_supports_distinct_modifier(bool value) {
+    supports_distinct_modifier = value;
+    return *this;
+  }
   FunctionOptions& set_supports_having_modifier(bool value) {
     supports_having_modifier = value;
     return *this;
@@ -397,6 +401,10 @@ struct FunctionOptions {
   // by the Random Query Generator to avoid generating impossible function
   // calls. Engines should generally never set this for non-built-in functions.
   bool supports_safe_error_mode = true;
+
+  // Indicates whether this function supports DISTINCT in arguments
+  // (affects aggregate functions only).
+  bool supports_distinct_modifier = true;
 
   // Indicates whether this function supports HAVING in arguments
   // (affects aggregate functions only).
@@ -658,6 +666,9 @@ class Function {
 
   // Returns true if HAVING is allowed in the function arguments.
   bool SupportsHavingModifier() const;
+
+  // Returns true if DISTINCT is allowed in the function arguments.
+  bool SupportsDistinctModifier() const;
 
   bool IsDeprecated() const {
     return function_options_.is_deprecated;

@@ -79,6 +79,9 @@ message ValueProto {
     // Encoded numeric value. For the encoding format see documentation for
     // NumericValue::SerializeAsProtoBytes().
     bytes numeric_value = 20;
+    // Encoded bignumeric value. For the encoding format see documentation for
+    // BigNumericValue::SerializeAsProtoBytes().
+    bytes bignumeric_value = 21;
     // User code that switches on this oneoff enum must have a default case so
     // builds won't break when new fields are added.
     bool __ValueProto__switch_must_have_a_default = 255;

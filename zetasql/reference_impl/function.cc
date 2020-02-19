@@ -74,9 +74,9 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
-#include "zetasql/base/cleanup.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
+#include "zetasql/base/exactfloat.h"
 #include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
@@ -255,30 +255,6 @@ bool Invoke(FunctionType function, Value* result, ::zetasql_base::Status* status
   }
   *result = Value::Make<OutType>(out);
   return true;
-}
-
-// Sets the provided EvaluationContext to have non-deterministic output if the
-// given array has more than one element and is not order-preserving.
-void MaybeSetNonDeterministicArrayOutput(const Value& array,
-                                         EvaluationContext* context) {
-  DCHECK(array.type()->IsArray());
-  if (!array.is_null() &&
-      array.num_elements() > 1 &&
-      (InternalValue::GetOrderKind(array) == InternalValue::kIgnoresOrder)) {
-    context->SetNonDeterministicOutput();
-  }
-}
-
-// This method is used only for setting non-deterministic output.
-// This method does not detect floating point types within STRUCTs or PROTOs,
-// which would be too expensive to call for each row.
-// Geography type internally contains floating point data, and thus treated
-// the same way for this purpose.
-bool HasFloatingPoint(const Type* type) {
-  return type->IsFloatingPoint() || type->IsGeography() ||
-         (type->IsArray() &&
-          (type->AsArray()->element_type()->IsFloatingPoint() ||
-           type->AsArray()->element_type()->IsGeography()));
 }
 
 zetasql_base::Status MakeMaxArrayValueByteSizeExceededError(
@@ -927,6 +903,67 @@ zetasql_base::Status ConcatError(int64_t max_output_size, zetasql_base::SourceLo
 
 }  // namespace
 
+ABSL_CONST_INIT absl::Mutex BuiltinFunctionRegistry::mu_(absl::kConstInit);
+
+/* static */ zetasql_base::StatusOr<BuiltinScalarFunction*>
+BuiltinFunctionRegistry::GetScalarFunction(FunctionKind kind,
+                                           const Type* output_type) {
+  absl::MutexLock lock(&mu_);
+  auto it = GetFunctionMap().find(kind);
+  if (it != GetFunctionMap().end()) {
+    return it->second(output_type);
+  } else {
+    return zetasql_base::UnimplementedErrorBuilder(ZETASQL_LOC)
+           << BuiltinFunctionCatalog::GetDebugNameByKind(kind)
+           << " is an optional function implementation which is not present "
+              "in this binary or has not been registered";
+  }
+}
+
+/* static */ void BuiltinFunctionRegistry::RegisterScalarFunction(
+    std::initializer_list<FunctionKind> kinds,
+    const std::function<BuiltinScalarFunction*(FunctionKind, const Type*)>&
+        constructor) {
+  absl::MutexLock lock(&mu_);
+  for (FunctionKind kind : kinds) {
+    GetFunctionMap()[kind] = [kind,
+                              constructor](const zetasql::Type* output_type) {
+      return constructor(kind, output_type);
+    };
+  }
+}
+
+/* static */ absl::flat_hash_map<
+    FunctionKind, BuiltinFunctionRegistry::ScalarFunctionConstructor>&
+BuiltinFunctionRegistry::GetFunctionMap() {
+  static auto* map =
+      new absl::flat_hash_map<FunctionKind, ScalarFunctionConstructor>();
+  return *map;
+}
+
+// Sets the provided EvaluationContext to have non-deterministic output if the
+// given array has more than one element and is not order-preserving.
+void MaybeSetNonDeterministicArrayOutput(const Value& array,
+                                         EvaluationContext* context) {
+  DCHECK(array.type()->IsArray());
+  if (!array.is_null() && array.num_elements() > 1 &&
+      (InternalValue::GetOrderKind(array) == InternalValue::kIgnoresOrder)) {
+    context->SetNonDeterministicOutput();
+  }
+}
+
+// This method is used only for setting non-deterministic output.
+// This method does not detect floating point types within STRUCTs or PROTOs,
+// which would be too expensive to call for each row.
+// Geography type internally contains floating point data, and thus treated
+// the same way for this purpose.
+bool HasFloatingPoint(const Type* type) {
+  return type->IsFloatingPoint() || type->IsGeography() ||
+         (type->IsArray() &&
+          (type->AsArray()->element_type()->IsFloatingPoint() ||
+           type->AsArray()->element_type()->IsGeography()));
+}
+
 // Function used to switch on a (function kind, output type) pair.
 static constexpr uint64_t FCT(FunctionKind function_kind, TypeKind type_kind) {
   return (static_cast<uint64_t>(function_kind) << 32) + type_kind;
@@ -1280,9 +1317,9 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kSha1:
     case FunctionKind::kSha256:
     case FunctionKind::kSha512:
-      return new HashFunction(kind);
     case FunctionKind::kFarmFingerprint:
-      return new FarmFingerprintFunction;
+      // Hash functions are optional.
+      return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     case FunctionKind::kError:
       return new ErrorFunction(output_type);
     default:
@@ -2315,6 +2352,7 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   int64_t count_ = 0;
   int64_t countif_ = 0;
   double out_double_ = 0;              // Max, Min, Avg
+  zetasql_base::ExactFloat out_exact_float_ = 0;     // Sum
   double avg_ = 0;                     // VarPop, VarSamp, StddevPop, StddevSamp
   double variance_ = 0;                // VarPop, VarSamp, StddevPop, StddevSamp
   int64_t out_int64_ = 0;                // Max, Min
@@ -2483,6 +2521,10 @@ zetasql_base::Status BuiltinAggregateAccumulator::Reset() {
       numeric_aggregator_ = NumericValue::SumAggregator();
       break;
 
+    // Sum
+    case FCT(FunctionKind::kSum, TYPE_DOUBLE):
+      out_exact_float_ = 0;
+      break;
     case FCT(FunctionKind::kSum, TYPE_INT64):
       out_int128_ = 0;
       break;
@@ -2828,6 +2870,10 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       out_uint128_ += value.uint64_value();
       break;
     }
+    case FCT(FunctionKind::kSum, TYPE_DOUBLE): {
+      out_exact_float_ += value.double_value();
+      break;
+    }
     case FCT(FunctionKind::kSum, TYPE_NUMERIC): {
       numeric_aggregator_.Add(value.numeric_value());
       break;
@@ -2945,6 +2991,18 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       }
       ZETASQL_ASSIGN_OR_RETURN(out_numeric_, numeric_aggregator_.GetAverage(count_));
       return Value::Numeric(out_numeric_);
+    }
+    // Sum
+    case FCT(FunctionKind::kSum, TYPE_DOUBLE): {
+      if (count_ == 0) {
+        return Value::NullDouble();
+      }
+      if (out_exact_float_.is_finite() &&
+          (out_exact_float_ > std::numeric_limits<double>::max() ||
+           out_exact_float_ < -std::numeric_limits<double>::max())) {
+        return ::zetasql_base::OutOfRangeErrorBuilder() << "double overflow";
+      }
+      return Value::Double(out_exact_float_.ToDouble());
     }
     case FCT(FunctionKind::kSum, TYPE_INT64): {
       if (count_ == 0) {
@@ -5070,55 +5128,6 @@ zetasql_base::StatusOr<Value> RandFunction::Eval(absl::Span<const Value> args,
                                          EvaluationContext* context) const {
   ZETASQL_RET_CHECK(args.empty());
   return Value::Double(absl::Uniform<double>(rand_, 0, 1));
-}
-
-HashFunction::HashFunction(FunctionKind kind)
-    : SimpleBuiltinScalarFunction(kind, types::BytesType()),
-      hasher_(
-          functions::Hasher::Create([kind]() -> functions::Hasher::Algorithm {
-            switch (kind) {
-              case FunctionKind::kMd5:
-                return functions::Hasher::kMd5;
-              case FunctionKind::kSha1:
-                return functions::Hasher::kSha1;
-              case FunctionKind::kSha256:
-                return functions::Hasher::kSha256;
-              case FunctionKind::kSha512:
-                return functions::Hasher::kSha512;
-              default:
-                // Crash in debug mode, for non-debug mode fall back to MD5.
-                DLOG(FATAL) << "Unexpected function kind: "
-                            << static_cast<int>(kind);
-                return functions::Hasher::kMd5;
-            }
-          }())) {}
-
-zetasql_base::StatusOr<Value> HashFunction::Eval(absl::Span<const Value> args,
-                                         EvaluationContext* context) const {
-  ZETASQL_RET_CHECK_EQ(1, args.size());
-  if (args[0].is_null()) {
-    return Value::Null(output_type());
-  }
-
-  const absl::string_view input = args[0].type_kind() == TYPE_BYTES
-                                      ? args[0].bytes_value()
-                                      : args[0].string_value();
-
-  return Value::Bytes(hasher_->Hash(input));
-}
-
-zetasql_base::StatusOr<Value> FarmFingerprintFunction::Eval(
-    absl::Span<const Value> args, EvaluationContext* context) const {
-  ZETASQL_RET_CHECK_EQ(1, args.size());
-  if (args[0].is_null()) {
-    return Value::Null(output_type());
-  }
-
-  const absl::string_view input = args[0].type_kind() == TYPE_BYTES
-                                      ? args[0].bytes_value()
-                                      : args[0].string_value();
-
-  return Value::Int64(functions::FarmFingerprint(input));
 }
 
 zetasql_base::StatusOr<Value> ErrorFunction::Eval(absl::Span<const Value> args,

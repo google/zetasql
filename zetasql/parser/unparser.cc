@@ -1346,6 +1346,12 @@ void Unparser::visitASTNumericLiteral(
   UnparseLeafNode(node);
 }
 
+void Unparser::visitASTBigNumericLiteral(const ASTBigNumericLiteral* node,
+                                         void* data) {
+  print("BIGNUMERIC");
+  UnparseLeafNode(node);
+}
+
 void Unparser::visitASTFloatLiteral(const ASTFloatLiteral* node, void* data) {
   UnparseLeafNode(node);
 }

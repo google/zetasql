@@ -46,7 +46,6 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -84,12 +83,8 @@ public class Value implements Serializable {
   private final ImmutableList<Value> fields;
   // Elements of an array Value.
   private final ImmutableList<Value> elements;
-  // Deserialized NUMERIC value if the type is TYPE_NUMERIC.
+  // Deserialized NUMERIC/BIGNUMERIC value if the type is TYPE_NUMERIC or TYPE_BIGNUMERIC.
   private final BigDecimal numericValue;
-
-  // Defines a math context used for values of TYPE_NUMERIC.
-  private static final MathContext numericMathContext = new MathContext(
-      38, java.math.RoundingMode.HALF_UP);
 
   // Number of digits after the decimal point supported by the NUMERIC data type.
   private static final int NUMERIC_SCALE = 9;
@@ -98,6 +93,16 @@ public class Value implements Serializable {
       new BigDecimal("99999999999999999999999999999.999999999");
   private static final BigDecimal MIN_NUMERIC_VALUE =
       new BigDecimal("-99999999999999999999999999999.999999999");
+
+  // Number of digits after the decimal point supported by the BIGNUMERIC data type.
+  private static final int BIGNUMERIC_SCALE = 38;
+  // Maximum and minimum allowed values for the BIGNUMERIC data type.
+  private static final BigDecimal MAX_BIGNUMERIC_VALUE =
+      new BigDecimal(
+          "578960446186580977117854925043439539266.34992332820282019728792003956564819967");
+  private static final BigDecimal MIN_BIGNUMERIC_VALUE =
+      new BigDecimal(
+          "-578960446186580977117854925043439539266.34992332820282019728792003956564819968");
 
   /** Creates an invalid Value */
   public Value() {
@@ -156,12 +161,13 @@ public class Value implements Serializable {
   }
 
   /**
-   * Creates a value of type NUMERIC.
+   * Creates a value of type NUMERIC or BIGNUMERIC.
+   *
    * @param proto
    * @param numericValue
    */
-  private Value(ValueProto proto, BigDecimal numericValue) {
-    this.type = TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC);
+  private Value(TypeKind typeKind, ValueProto proto, BigDecimal numericValue) {
+    this.type = TypeFactory.createSimpleType(typeKind);
     this.proto = checkNotNull(proto);
     this.isNull = Value.isNullValue(proto);
     this.fields = null;
@@ -234,9 +240,16 @@ public class Value implements Serializable {
     return proto.getDoubleValue();
   }
 
-  /** Returns the numeric value if the type is numeric. */
+  /** Returns the numeric value if the type is NUMERIC. */
   public BigDecimal getNumericValue() {
     Preconditions.checkState(getType().getKind() == TypeKind.TYPE_NUMERIC);
+    Preconditions.checkState(!isNull);
+    return numericValue;
+  }
+
+  /** Returns the numeric value if the type is BIGNUMERIC. */
+  public BigDecimal getBigNumericValue() {
+    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_BIGNUMERIC);
     Preconditions.checkState(!isNull);
     return numericValue;
   }
@@ -494,6 +507,7 @@ public class Value implements Serializable {
         // do hashCode() correctly.
         return false;
       case TYPE_NUMERIC:
+      case TYPE_BIGNUMERIC:
         if (other.getType().equivalent(type)) {
           return other.numericValue.compareTo(numericValue) == 0;
         }
@@ -565,6 +579,7 @@ public class Value implements Serializable {
         return Hashing.combineOrdered(hashCodes).asInt();
       }
       case TYPE_NUMERIC:
+      case TYPE_BIGNUMERIC:
         return numericValue.toBigInteger().hashCode();
       default:
         // Shouldn't happen, but it's a bad idea to throw from hashCode().
@@ -610,6 +625,7 @@ public class Value implements Serializable {
       case TYPE_TIME:
       case TYPE_DATETIME:
       case TYPE_NUMERIC:
+      case TYPE_BIGNUMERIC:
         return ZetaSQLStrings.convertSimpleValueToString(this, verbose);
       case TYPE_ENUM: {
         if (verbose) {
@@ -728,7 +744,9 @@ public class Value implements Serializable {
       case TYPE_DOUBLE: return getDoubleValue();
       case TYPE_FLOAT: return getFloatValue();
       case TYPE_ENUM: return getEnumValue();
-      case TYPE_NUMERIC: return numericValue.doubleValue();
+      case TYPE_NUMERIC:
+      case TYPE_BIGNUMERIC:
+        return numericValue.doubleValue();
       default:
         throw new IllegalStateException("Cannot coerce " + getType().getKind() + " to double");
     }
@@ -853,6 +871,9 @@ public class Value implements Serializable {
     if (type.isNumeric()) {
       return String.format("NUMERIC %s", ZetaSQLStrings.toStringLiteral(s));
     }
+    if (type.isBigNumeric()) {
+      return String.format("BIGNUMERIC %s", ZetaSQLStrings.toStringLiteral(s));
+    }
 
     if (type.isSimpleType()) {
       // Floats and doubles like "inf" and "nan" need to be quoted.
@@ -936,19 +957,23 @@ public class Value implements Serializable {
     return proto;
   }
 
-  private static Value deserializeNumeric(ValueProto proto) {
-    byte[] bytes = proto.getNumericValue().toByteArray();
-    // NUMERIC values are serialized as scaled integers in two's complement form in little endian
-    // order. BigInteger requires the same encoding but in big endian order, therefore we must
-    // reverse the bytes that come from the proto.
+  private static BigDecimal deserializeBigDecimal(
+      ByteString serializedValue,
+      int scale,
+      BigDecimal maxValue,
+      BigDecimal minValue,
+      String typeName) {
+    byte[] bytes = serializedValue.toByteArray();
+    // NUMERIC/BIGNUMERIC values are serialized as scaled integers in two's complement form in
+    // little endian order. BigInteger requires the same encoding but in big endian order,
+    // therefore we must reverse the bytes that come from the proto.
     Bytes.reverse(bytes);
     BigInteger scaledValue = new BigInteger(bytes);
-    BigDecimal decimalValue = new BigDecimal(scaledValue, NUMERIC_SCALE, numericMathContext);
-    if (decimalValue.compareTo(MAX_NUMERIC_VALUE) > 0
-        || decimalValue.compareTo(MIN_NUMERIC_VALUE) < 0) {
-      throw new IllegalArgumentException("Numeric overflow: " + decimalValue.toPlainString());
+    BigDecimal decimalValue = new BigDecimal(scaledValue, scale);
+    if (decimalValue.compareTo(maxValue) > 0 || decimalValue.compareTo(minValue) < 0) {
+      throw new IllegalArgumentException(typeName + " overflow: " + decimalValue.toPlainString());
     }
-    return new Value(proto, decimalValue);
+    return decimalValue;
   }
 
   public static Value deserialize(Type type, ValueProto proto) {
@@ -1046,7 +1071,28 @@ public class Value implements Serializable {
         if (!proto.hasNumericValue()) {
           throw typeMismatchException(type, proto);
         }
-        return deserializeNumeric(proto);
+        return new Value(
+            TypeKind.TYPE_NUMERIC,
+            proto,
+            deserializeBigDecimal(
+                proto.getNumericValue(),
+                NUMERIC_SCALE,
+                MAX_NUMERIC_VALUE,
+                MIN_NUMERIC_VALUE,
+                "Numeric"));
+      case TYPE_BIGNUMERIC:
+        if (!proto.hasBignumericValue()) {
+          throw typeMismatchException(type, proto);
+        }
+        return new Value(
+            TypeKind.TYPE_BIGNUMERIC,
+            proto,
+            deserializeBigDecimal(
+                proto.getBignumericValue(),
+                BIGNUMERIC_SCALE,
+                MAX_BIGNUMERIC_VALUE,
+                MIN_BIGNUMERIC_VALUE,
+                "BIGNUMERIC"));
       case TYPE_ENUM: {
         if (!proto.hasEnumValue()) {
           throw typeMismatchException(type, proto);
@@ -1115,6 +1161,7 @@ public class Value implements Serializable {
       case TYPE_DATETIME:
       case TYPE_TIME:
       case TYPE_NUMERIC:
+      case TYPE_BIGNUMERIC:
         return true;
       case TYPE_ARRAY:
         return isSupportedTypeKind(type.asArray().getElementType());
@@ -1191,22 +1238,40 @@ public class Value implements Serializable {
   }
 
   /** Returns a numeric Value that equals to {@code v}. */
-  public static Value createNumericValue(BigDecimal v) {
-    if (v.scale() > NUMERIC_SCALE) {
+  private static ByteString serializeBigDecimal(
+      BigDecimal v, int scale, BigDecimal maxValue, BigDecimal minValue, String typeName) {
+    if (v.scale() > scale) {
       throw new IllegalArgumentException(
-          "Numeric scale cannot exceed " + NUMERIC_SCALE + ": " + v.toPlainString());
+          typeName + " scale cannot exceed " + scale + ": " + v.toPlainString());
     }
-    if (v.compareTo(MAX_NUMERIC_VALUE) > 0 || v.compareTo(MIN_NUMERIC_VALUE) < 0) {
-      throw new IllegalArgumentException("Numeric overflow: " + v.toPlainString());
+    if (v.compareTo(maxValue) > 0 || v.compareTo(minValue) < 0) {
+      throw new IllegalArgumentException(typeName + " overflow: " + v.toPlainString());
     }
 
-    byte[] bytes = v.setScale(NUMERIC_SCALE).unscaledValue().toByteArray();
-    // NUMERIC values are serialized as scaled integers in two's complement form in little endian
+    byte[] bytes = v.setScale(scale).unscaledValue().toByteArray();
+    // NUMERIC/BIGNUMERIC values are serialized as scaled integers in two's complement form in
+    // little endian
     // order. BigInteger requires the same encoding but in big endian order, therefore we must
     // reverse the bytes that come from the proto.
     Bytes.reverse(bytes);
-    ValueProto proto = ValueProto.newBuilder().setNumericValue(ByteString.copyFrom(bytes)).build();
-    return new Value(proto, v);
+    return ByteString.copyFrom(bytes);
+  }
+
+  /** Returns a numeric Value that equals to {@code v}. */
+  public static Value createNumericValue(BigDecimal v) {
+    ByteString serializedValue =
+        serializeBigDecimal(v, NUMERIC_SCALE, MAX_NUMERIC_VALUE, MIN_NUMERIC_VALUE, "Numeric");
+    ValueProto proto = ValueProto.newBuilder().setNumericValue(serializedValue).build();
+    return new Value(TypeKind.TYPE_NUMERIC, proto, v);
+  }
+
+  /** Returns a BIGNUMERIC Value that equals to {@code v}. */
+  public static Value createBigNumericValue(BigDecimal v) {
+    ByteString serializedValue =
+        serializeBigDecimal(
+            v, BIGNUMERIC_SCALE, MAX_BIGNUMERIC_VALUE, MIN_BIGNUMERIC_VALUE, "BIGNUMERIC");
+    ValueProto proto = ValueProto.newBuilder().setBignumericValue(serializedValue).build();
+    return new Value(TypeKind.TYPE_BIGNUMERIC, proto, v);
   }
 
   /** Returns an string Value that equals to {@code v}. */

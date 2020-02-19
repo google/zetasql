@@ -176,13 +176,14 @@ class NumericValue final {
   // Serialization and deserialization methods for NUMERIC values that are
   // intended to be used to store them in protos. The encoding is variable in
   // length with max size of 16 bytes.
-  //
-  // Storage format:
-  // NUMERIC values are written as integers in two's complement form. The
-  // original numeric value is scaled by 10^9 to get the integer. The scaled
-  // integer is written in little endian mode with the repeating most
-  // significant bytes suppressed. The most significant bit of the most
-  // significant byte in the written sequence of bytes represents the sign.
+  // WARNING: currently, SerializeAsProtoBytes does not always produce the same
+  // result as SerializeAndAppendToProtoBytes. When the value is negative,
+  // SerializeAsProtoBytes might output one more byte than
+  // SerializeAndAppendToProtoBytes. The results of both methods can be
+  // deserialized with DeserializeFromProtoBytes.
+  // TODO: Make SerializeAsProtoBytes consistent with
+  // SerializeAndAppendToProtoBytes.
+  void SerializeAndAppendToProtoBytes(std::string* bytes) const;
   std::string SerializeAsProtoBytes() const;
   static zetasql_base::StatusOr<NumericValue> DeserializeFromProtoBytes(
       absl::string_view bytes);
@@ -382,6 +383,8 @@ class NumericValue final {
   };
 
  private:
+  friend class BigNumericValue;
+
   NumericValue(uint64_t high_bits, uint64_t low_bits);
   explicit constexpr NumericValue(__int128 value);
 
@@ -416,6 +419,165 @@ class NumericValue final {
   // not 16-byte aligned, it is split into two 64-bit components here.
   uint64_t high_bits_;
   uint64_t low_bits_;
+};
+
+// This class represents values of the ZetaSQL BIGNUMERIC type. Supports 38
+// full digits (and a partial 39th digit) before the decimal point and 38 digits
+// after the decimal point. The support value range is -2^255 * 10^-38 to (2^255
+// - 1) * 10^-38 (roughly 5.7896 * 10^38). The range covers all values of
+// uint128.
+// Internally NUMERIC values are stored as scaled FixedInt<64, 4>.
+class BigNumericValue final {
+ public:
+  static constexpr unsigned __int128 ScalingFactor();
+
+  // Default constructor, constructs a zero value.
+  constexpr BigNumericValue();
+
+  explicit BigNumericValue(int value);
+  explicit BigNumericValue(unsigned int value);
+  explicit BigNumericValue(long value);                // NOLINT
+  explicit BigNumericValue(unsigned long value);       // NOLINT
+  explicit BigNumericValue(long long value);           // NOLINT
+  explicit BigNumericValue(unsigned long long value);  // NOLINT
+  explicit BigNumericValue(__int128 value);
+  explicit BigNumericValue(unsigned __int128 value);
+  explicit BigNumericValue(NumericValue value);
+
+  // BIGNUMERIC minimum and maximum limits.
+  static constexpr BigNumericValue MaxValue();
+  static constexpr BigNumericValue MinValue();
+
+  // Constructs a BigNumericValue object using its packed representation.
+  static constexpr BigNumericValue FromPackedLittleEndianArray(
+      std::array<uint64_t, 4> uint_array);
+
+  // Parses a textual representation of a BigNumericValue. Returns an error if
+  // the given string cannot be parsed as a number or if the textual numeric
+  // value exceeds BIGNUMERIC precision. This method will also return an error
+  // if the textual representation has more than 38 digits after the decimal
+  // point.
+  //
+  // This method accepts the same number formats as ZetaSQL floating point
+  // literals, namely:
+  //   [+-]DIGITS[.[DIGITS]][e[+-]DIGITS]
+  //   [+-][DIGITS].DIGITS[e[+-]DIGITS]
+  static zetasql_base::StatusOr<BigNumericValue> FromStringStrict(
+      absl::string_view str);
+
+  // Like FromStringStrict() but accepts more than 38 digits after the point
+  // rounding the number to the nearest and ties away from zero.
+  static zetasql_base::StatusOr<BigNumericValue> FromString(absl::string_view str);
+
+  // Constructs a BigNumericValue from a double. This method might return an
+  // error if the given value cannot be converted to a BIGNUMERIC (e.g. NaN).
+  static zetasql_base::StatusOr<BigNumericValue> FromDouble(double value);
+
+  // Arithmetic operators. These operators can return OUT_OF_RANGE error on
+  // overflow. Additionally the division returns OUT_OF_RANGE if the divisor is
+  // zero.
+  zetasql_base::StatusOr<BigNumericValue> Add(const BigNumericValue& rh) const;
+  zetasql_base::StatusOr<BigNumericValue> Subtract(const BigNumericValue& rh) const;
+  zetasql_base::StatusOr<BigNumericValue> Multiply(const BigNumericValue& rh) const;
+  zetasql_base::StatusOr<BigNumericValue> Divide(const BigNumericValue& rh) const;
+
+  // An integer division operation. Similar to general division followed by
+  // truncating the result to the whole integer. May return OUT_OF_RANGE if an
+  // overflow or division by zero happens. This operation is the same as the SQL
+  // DIV function.
+  zetasql_base::StatusOr<BigNumericValue> IntegerDivide(
+      const BigNumericValue& rh) const;
+  // Returns a remainder of division of this numeric value by the given divisor.
+  // Returns an OUT_OF_RANGE error if the divisor is zero.
+  zetasql_base::StatusOr<BigNumericValue> Mod(const BigNumericValue& rh) const;
+
+  // Comparison operators.
+  bool operator==(const BigNumericValue& rh) const;
+  bool operator!=(const BigNumericValue& rh) const;
+  bool operator<(const BigNumericValue& rh) const;
+  bool operator>(const BigNumericValue& rh) const;
+  bool operator>=(const BigNumericValue& rh) const;
+  bool operator<=(const BigNumericValue& rh) const;
+
+  // Math functions.
+  static zetasql_base::StatusOr<BigNumericValue> UnaryMinus(
+      const BigNumericValue& value);
+  static zetasql_base::StatusOr<BigNumericValue> Abs(const BigNumericValue& value);
+  static BigNumericValue Sign(const BigNumericValue& value);
+
+  // Raises this BigNumericValue to the given power and returns the result.
+  // Returns OUT_OF_RANGE error on overflow.
+  zetasql_base::StatusOr<BigNumericValue> Power(const BigNumericValue& exp) const;
+
+  // Rounds this BigNumericValue to the given number of decimal digits after the
+  // decimal point. 'digits' can be negative to cause rounding of the digits to
+  // the left of the decimal point. Rounds the number to the nearest and ties
+  // away from zero. Returns OUT_OF_RANGE if the rounding causes numerical
+  // overflow.
+  zetasql_base::StatusOr<BigNumericValue> Round(int64_t digits) const;
+
+  // Similar to the method above, but rounds towards zero, i.e. truncates the
+  // number. Because this method truncates instead of rounding away from zero it
+  // never causes an error.
+  BigNumericValue Trunc(int64_t digits) const;
+
+  // Rounds this BigNumericValue upwards, returning the integer least upper
+  // bound of this value. Returns OUT_OF_RANGE error on overflow.
+  zetasql_base::StatusOr<BigNumericValue> Ceiling() const;
+
+  // Rounds this BigNumericValue downwards, returning the integer greatest lower
+  // bound of this value. Returns OUT_OF_RANGE error on overflow.
+  zetasql_base::StatusOr<BigNumericValue> Floor() const;
+
+  // Returns hash code for the BigNumericValue.
+  size_t HashCode() const;
+
+  template <typename H>
+  friend H AbslHashValue(H h, const BigNumericValue& v);
+
+  // Converts the BigNumericValue into a value of another number type. T can be
+  // one of int32_t, int64_t, uint32_t, uint64_t. Numeric values with fractional parts
+  // will be rounded to a whole integer with a half away from zero rounding
+  // semantics. This method will return OUT_OF_RANGE error if an overflow occurs
+  // during conversion.
+  template <class T>
+  zetasql_base::StatusOr<T> To() const;
+
+  // Converts the BigNumericValue to a NumericValue.
+  zetasql_base::StatusOr<NumericValue> ToNumericValue() const;
+
+  // Converts the BigNumericValue to a floating point number.
+  double ToDouble() const;
+
+  // Converts the BigNumericValue into a string. String representation of
+  // NUMERICs follow regular rules of textual numeric values representation. For
+  // example, "1.34", "123", "0.23". AppendToString is typically more efficient
+  // due to fewer memory allocations.
+  std::string ToString() const;
+  void AppendToString(std::string* output) const;
+
+  // Returns the packed uint64_t array in little endian order.
+  constexpr const std::array<uint64_t, 4>& ToPackedLittleEndianArray() const;
+
+  void SerializeAndAppendToProtoBytes(std::string* bytes) const;
+  std::string SerializeAsProtoBytes() const  {
+    std::string bytes;
+    SerializeAndAppendToProtoBytes(&bytes);
+    return bytes;
+  }
+  static zetasql_base::StatusOr<BigNumericValue> DeserializeFromProtoBytes(
+      absl::string_view bytes);
+
+ private:
+  explicit constexpr BigNumericValue(FixedInt<64, 4> value);
+  explicit constexpr BigNumericValue(std::array<uint64_t, 4> uint_array);
+  static zetasql_base::StatusOr<BigNumericValue> FromStringInternal(
+      absl::string_view str, bool is_strict);
+  template <int N>
+  static FixedUint<64, N - 1> RemoveScalingFactor(FixedUint<64, N> value);
+  static double RemoveScaleAndConvertToDouble(const FixedInt<64, 4>& value);
+
+  FixedInt<64, 4> value_;
 };
 
 // Allow NUMERIC values to be logged.

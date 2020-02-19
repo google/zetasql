@@ -334,7 +334,7 @@ void TestThatCeilOfRatioDenomMinusOneIsIncorrect(int64_t numerator,
 // Here we demonstrate why not to use CeilOfRatioDenomMinusOne
 void TestThatCeilOfRatioDenomMinusOneIsIncorrect() {
   // It does not work with negative values
-  TestThatCeilOfRatioDenomMinusOneIsIncorrect(-1LL, -2LL, -1LL);
+  TestThatCeilOfRatioDenomMinusOneIsIncorrect(int64_t{-1}, int64_t{-2}, int64_t{-1});
 
   // This would also fail if given kint64max because of signed integer overflow.
 }

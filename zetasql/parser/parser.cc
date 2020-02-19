@@ -96,8 +96,7 @@ zetasql_base::Status ParseStatement(absl::string_view statement_string,
       statement_string, /*start_byte_offset=*/0,
       parser_options.id_string_pool().get(), parser_options.arena().get(),
       parser_options.language_options(), &ast_node, &other_allocated_ast_nodes,
-      /*next_statement_kind_result=*/nullptr,
-      /*next_statement_is_ctas=*/nullptr,
+      /*ast_statement_properties=*/nullptr,
       /*statement_end_byte_offset=*/nullptr);
   ZETASQL_RETURN_IF_ERROR(
       ConvertInternalErrorLocationToExternal(status, statement_string));
@@ -125,8 +124,7 @@ zetasql_base::Status ParseScript(absl::string_view script_string,
       /*start_byte_offset=*/0, parser_options.id_string_pool().get(),
       parser_options.arena().get(), parser_options.language_options(),
       &ast_node, &other_allocated_ast_nodes,
-      /*next_statement_kind_result=*/nullptr,
-      /*next_statement_is_ctas=*/nullptr,
+      /*ast_statement_properties=*/nullptr,
       /*statement_end_byte_offset=*/nullptr);
 
   std::unique_ptr<ASTScript> script;
@@ -166,8 +164,7 @@ zetasql_base::Status ParseNextStatementInternal(ParseResumeLocation* resume_loca
       resume_location->byte_position(), parser_options.id_string_pool().get(),
       parser_options.arena().get(), parser_options.language_options(),
       &ast_node, &other_allocated_ast_nodes,
-      nullptr /* next_statement_kind_result */,
-      nullptr /* next_statement_is_ctas */, &next_statement_byte_offset);
+      /*ast_statement_properties=*/nullptr, &next_statement_byte_offset);
   ZETASQL_RETURN_IF_ERROR(
       ConvertInternalErrorLocationToExternal(status, resume_location->input()));
 
@@ -223,9 +220,8 @@ zetasql_base::Status ParseType(absl::string_view type_string,
       0 /* offset */, parser_options.id_string_pool().get(),
       parser_options.arena().get(), parser_options.language_options(),
       &ast_node, &other_allocated_ast_nodes,
-      nullptr /* next_statement_kind_result */,
-      nullptr /* next_statement_is_ctas */,
-      nullptr /* next_statement_byte_offset */);
+      /*ast_statement_properties=*/nullptr,
+      /*statement_end_byte_offset=*/nullptr);
   ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationToExternal(status, type_string));
   ZETASQL_RET_CHECK(ast_node != nullptr);
   ZETASQL_RET_CHECK(ast_node->IsType());
@@ -251,9 +247,8 @@ zetasql_base::Status ParseExpression(absl::string_view expression_string,
       expression_string, 0 /* offset */, parser_options.id_string_pool().get(),
       parser_options.arena().get(), parser_options.language_options(),
       &ast_node, &other_allocated_ast_nodes,
-      nullptr /* next_statement_kind_result */,
-      nullptr /* next_statement_is_ctas */,
-      nullptr /* next_statement_byte_offset */);
+      /*ast_statement_properties=*/nullptr,
+      /*statement_end_byte_offset=*/nullptr);
   ZETASQL_RETURN_IF_ERROR(
       ConvertInternalErrorLocationToExternal(status, expression_string));
   ZETASQL_RET_CHECK(ast_node != nullptr);
@@ -281,9 +276,8 @@ zetasql_base::Status ParseExpression(const ParseResumeLocation& resume_location,
       resume_location.input(), resume_location.byte_position(),
       parser_options.id_string_pool().get(), parser_options.arena().get(),
       parser_options.language_options(), &ast_node, &other_allocated_ast_nodes,
-      nullptr /* next_statement_kind_result */,
-      nullptr /* next_statement_is_ctas */,
-      nullptr /* next_statement_byte_offset */);
+      /*ast_statement_properties=*/nullptr,
+      /*statement_end_byte_offset=*/nullptr);
   ZETASQL_RETURN_IF_ERROR(
       ConvertInternalErrorLocationToExternal(status, resume_location.input()));
   ZETASQL_RET_CHECK(ast_node != nullptr);
@@ -297,31 +291,63 @@ zetasql_base::Status ParseExpression(const ParseResumeLocation& resume_location,
 }
 
 ASTNodeKind ParseStatementKind(absl::string_view input,
+                               const LanguageOptions& language_options,
                                bool* statement_is_ctas) {
   return ParseNextStatementKind(ParseResumeLocation::FromStringView(input),
+                                language_options, statement_is_ctas);
+}
+
+// DEPRECATED
+ASTNodeKind ParseNextStatementKind(const ParseResumeLocation& resume_location,
+                                   bool* statement_is_ctas) {
+  return ParseNextStatementKind(resume_location, LanguageOptions(),
                                 statement_is_ctas);
 }
 
-// TODO: Add LanguageOptions, since they control parser behavior.
 ASTNodeKind ParseNextStatementKind(const ParseResumeLocation& resume_location,
+                                   const LanguageOptions& language_options,
                                    bool* next_statement_is_ctas) {
   ZETASQL_DCHECK_OK(resume_location.Validate());
 
   parser::BisonParser parser;
-  ASTNodeKind next_statement_kind = kUnknownASTNodeKind;
-  *next_statement_is_ctas = false;
   IdStringPool id_string_pool;
   zetasql_base::UnsafeArena arena(/*block_size=*/1024);
   std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes;
+  parser::ASTStatementProperties ast_statement_properties;
   parser
       .Parse(BisonParserMode::kNextStatementKind, resume_location.filename(),
              resume_location.input(), resume_location.byte_position(),
-             &id_string_pool, &arena, nullptr /* language_options */,
-             nullptr /* result */, &other_allocated_ast_nodes,
-             &next_statement_kind, next_statement_is_ctas,
-             nullptr /* next_statement_byte_offset */)
+             &id_string_pool, &arena, &language_options, /*output=*/nullptr,
+             &other_allocated_ast_nodes, &ast_statement_properties,
+             /*statement_end_byte_offset=*/nullptr)
       .IgnoreError();
-  return next_statement_kind;
+  *next_statement_is_ctas = ast_statement_properties.is_create_table_as_select;
+  return ast_statement_properties.node_kind;
+}
+
+zetasql_base::Status ParseNextStatementProperties(
+    const ParseResumeLocation& resume_location,
+    const ParserOptions& parser_options,
+    std::vector<std::unique_ptr<ASTNode>>* allocated_ast_nodes,
+    parser::ASTStatementProperties* ast_statement_properties) {
+  ZETASQL_RETURN_IF_ERROR(resume_location.Validate());
+  ZETASQL_RET_CHECK(parser_options.AllArenasAreInitialized());
+
+  parser::BisonParser parser;
+
+  // Note that we ignore parse errors since they may occur after we have
+  // already determined some of the node properties, and we want to return
+  // whatever information we have in that case.  This is also consistent
+  // with Parse[Next]StatementKind() above.
+  parser.Parse(
+      BisonParserMode::kNextStatementKind, resume_location.filename(),
+      resume_location.input(), resume_location.byte_position(),
+      parser_options.id_string_pool().get(),
+      parser_options.arena().get(), parser_options.language_options(),
+      /*output=*/nullptr, allocated_ast_nodes,
+      ast_statement_properties, /*statement_end_byte_offset=*/nullptr)
+          .IgnoreError();
+  return zetasql_base::OkStatus();
 }
 
 }  // namespace zetasql

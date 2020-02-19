@@ -205,6 +205,12 @@ zetasql_base::Status TypeToProtoConverter::MakeFieldDescriptor(
           zetasql::format, FieldFormat::NUMERIC);
       break;
     }
+    case TYPE_BIGNUMERIC: {
+      proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_BYTES);
+      proto_field->mutable_options()->SetExtension(
+          zetasql::format, FieldFormat::BIGNUMERIC);
+      break;
+    }
     case TYPE_ENUM: {
       const EnumType* enum_type = field_type->AsEnum();
       proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_ENUM);

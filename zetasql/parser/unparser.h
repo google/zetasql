@@ -289,6 +289,8 @@ class Unparser : public ParseTreeVisitor {
   void visitASTIntLiteral(const ASTIntLiteral* node, void* data) override;
   void visitASTNumericLiteral(
       const ASTNumericLiteral* node, void* data) override;
+  void visitASTBigNumericLiteral(const ASTBigNumericLiteral* node,
+                                 void* data) override;
   void visitASTFloatLiteral(const ASTFloatLiteral* node, void* data) override;
   void visitASTStringLiteral(const ASTStringLiteral* node, void* data) override;
   void visitASTBytesLiteral(const ASTBytesLiteral* node, void* data) override;

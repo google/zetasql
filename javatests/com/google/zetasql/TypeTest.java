@@ -59,6 +59,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isInt32()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isInt32()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isInt32()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isInt32()).isFalse();
   }
 
   @Test
@@ -88,6 +89,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isInt64()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isInt64()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isInt64()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isInt64()).isFalse();
   }
 
   @Test
@@ -116,6 +118,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT32).isUint32()).isTrue();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isUint32()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isUint32()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isUint32()).isFalse();
   }
 
   @Test
@@ -144,6 +147,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT32).isUint64()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isUint64()).isTrue();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isUint64()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isUint64()).isFalse();
   }
 
   @Test
@@ -172,6 +176,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isBool()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isBool()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isBool()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isBool()).isFalse();
   }
 
   @Test
@@ -201,6 +206,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isFloat()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isFloat()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isFloat()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isFloat()).isFalse();
   }
 
   @Test
@@ -230,6 +236,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isDouble()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isDouble()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isDouble()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isDouble()).isFalse();
   }
 
   @Test
@@ -259,6 +266,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isString()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isString()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isString()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isString()).isFalse();
   }
 
   @Test
@@ -288,6 +296,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isBytes()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isBytes()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isBytes()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isBytes()).isFalse();
   }
 
   @Test
@@ -317,6 +326,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isDate()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isDate()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isDate()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isDate()).isFalse();
   }
 
   @Test
@@ -346,6 +356,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isTimestamp()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isTimestamp()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isTimestamp()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isTimestamp()).isFalse();
   }
 
   @Test
@@ -375,6 +386,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isGeography()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isGeography()).isTrue();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isGeography()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isGeography()).isFalse();
   }
 
   @Test
@@ -402,6 +414,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT32).isEnum()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isEnum()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isEnum()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isEnum()).isFalse();
   }
 
   @Test
@@ -430,6 +443,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT32).isArray()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isArray()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isArray()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isArray()).isFalse();
   }
 
   @Test
@@ -458,6 +472,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT32).isStruct()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isStruct()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isStruct()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isStruct()).isFalse();
   }
 
   @Test
@@ -486,6 +501,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT32).isProto()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isProto()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isProto()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isProto()).isFalse();
   }
 
   @Test
@@ -514,6 +530,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT32).isStructOrProto()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isStructOrProto()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isStructOrProto()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isStructOrProto()).isFalse();
   }
 
   @Test
@@ -542,6 +559,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT32).isFloatingPoint()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isFloatingPoint()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isFloatingPoint()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isFloatingPoint()).isFalse();
   }
 
   @Test
@@ -570,6 +588,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT32).isNumerical()).isTrue();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isNumerical()).isTrue();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isNumerical()).isTrue();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isNumerical()).isTrue();
   }
 
   @Test
@@ -598,6 +617,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT32).isInteger()).isTrue();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isInteger()).isTrue();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isInteger()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isInteger()).isFalse();
   }
 
   @Test
@@ -626,6 +646,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT32).isSignedInteger()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isSignedInteger()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isSignedInteger()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isSignedInteger()).isFalse();
   }
 
   @Test
@@ -654,6 +675,8 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT32).isUnsignedInteger()).isTrue();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isUnsignedInteger()).isTrue();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isUnsignedInteger()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isUnsignedInteger())
+        .isFalse();
   }
 
   @Test

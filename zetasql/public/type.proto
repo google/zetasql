@@ -25,7 +25,7 @@ option cc_enable_arenas = true;
 option java_package = "com.google.zetasql";
 option java_outer_classname = "ZetaSQLType";
 
-// NEXT_ID: 24
+// NEXT_ID: 25
 enum TypeKind {
   // User code that switches on this enum must have a default case so
   // builds won't break if new enums get added.
@@ -61,6 +61,9 @@ enum TypeKind {
 
   // NUMERIC is controlled by FEATURE_NUMERIC_TYPE
   TYPE_NUMERIC = 23;
+
+  // BIGNUMERIC is controlled by FEATURE_BIGNUMERIC_TYPE
+  TYPE_BIGNUMERIC = 24;
 }
 
 // This represents the serialized form of the zetasql::Type.

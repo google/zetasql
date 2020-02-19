@@ -123,7 +123,7 @@ void EnsureResolutionTimeInfoForEveryTable(
 // might be expensive.
 const AnalyzerOptions& GetOptionsWithArenas(
     const AnalyzerOptions* options, std::unique_ptr<AnalyzerOptions>* copy) {
-  if (options->AreAllArenasInitialized()) {
+  if (options->AllArenasAreInitialized()) {
     return *options;
   }
   *copy = absl::make_unique<AnalyzerOptions>(*options);

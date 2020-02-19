@@ -3460,6 +3460,7 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeDMLState
 
   const Table* table = resolved_table_scan->table();
   const ResolvedColumnList& column_list = resolved_table_scan->column_list();
+  ZETASQL_RET_CHECK_EQ(column_list.size(), table->NumColumns());
   ZETASQL_ASSIGN_OR_RETURN(
       const ArrayType* table_array_type,
       CreateTableArrayType(column_list, table->IsValueTable(), type_factory_));

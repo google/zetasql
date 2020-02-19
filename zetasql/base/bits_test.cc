@@ -286,10 +286,10 @@ TEST_F(BitsTest, CopyBits) {
   EXPECT_EQ(0x12349678, s32_dest);
 
   int64_t s64_dest = 0x123456789abcdef0LL;
-  Bits::CopyBits(&s64_dest, 0, 0LL, 0, 64);
+  Bits::CopyBits(&s64_dest, 0, int64_t{0}, 0, 64);
   EXPECT_EQ(0, s64_dest);
   s64_dest = 0x123456789abcdef0LL;
-  Bits::CopyBits(&s64_dest, 0, -1LL, 0, 64);
+  Bits::CopyBits(&s64_dest, 0, int64_t{-1}, 0, 64);
   EXPECT_EQ(-1, s64_dest);
   s64_dest = 0x123456789abcdef0LL;
   Bits::CopyBits(&s64_dest, 16, 0xf1fffff, 20, 4);

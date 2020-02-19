@@ -116,6 +116,11 @@ class {{node.name}} {{node.class_final}} : public {{node.parent}} {
 
 # endif
   template <typename SUBTYPE>
+  bool Is() const {
+    return dynamic_cast<const SUBTYPE*>(this) != nullptr;
+  }
+
+  template <typename SUBTYPE>
   const SUBTYPE* GetAs() const {
     return static_cast<const SUBTYPE*>(this);
   }

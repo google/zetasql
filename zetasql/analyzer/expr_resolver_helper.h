@@ -415,11 +415,16 @@ class ResolvedTVFArg {
     connection_ = std::move(connection);
     type_ = CONNECTION;
   }
+  void SetDescriptor(std::unique_ptr<const ResolvedDescriptor> descriptor) {
+    descriptor_ = std::move(descriptor);
+    type_ = DESCRIPTOR;
+  }
 
   bool IsExpr() const { return type_ == EXPR; }
   bool IsScan() const { return type_ == SCAN; }
   bool IsModel() const { return type_ == MODEL; }
   bool IsConnection() const { return type_ == CONNECTION; }
+  bool IsDescriptor() const { return type_ == DESCRIPTOR; }
 
   zetasql_base::StatusOr<const ResolvedExpr*> GetExpr() const {
     ZETASQL_RET_CHECK(IsExpr());
@@ -436,6 +441,10 @@ class ResolvedTVFArg {
   zetasql_base::StatusOr<const ResolvedConnection*> GetConnection() const {
     ZETASQL_RET_CHECK(IsConnection());
     return connection_.get();
+  }
+  zetasql_base::StatusOr<const ResolvedDescriptor*> GetDescriptor() const {
+    ZETASQL_RET_CHECK(IsDescriptor());
+    return descriptor_.get();
   }
   zetasql_base::StatusOr<std::shared_ptr<const NameList>> GetNameList() const {
     ZETASQL_RET_CHECK(IsScan());
@@ -458,13 +467,25 @@ class ResolvedTVFArg {
     ZETASQL_RET_CHECK(IsConnection());
     return std::move(connection_);
   }
+  zetasql_base::StatusOr<std::unique_ptr<const ResolvedDescriptor>> MoveDescriptor() {
+    ZETASQL_RET_CHECK(IsDescriptor());
+    return std::move(descriptor_);
+  }
 
  private:
-  enum { UNDEFINED, EXPR, SCAN, MODEL, CONNECTION } type_ = UNDEFINED;
+  enum {
+    UNDEFINED,
+    EXPR,
+    SCAN,
+    MODEL,
+    CONNECTION,
+    DESCRIPTOR
+  } type_ = UNDEFINED;
   std::unique_ptr<const ResolvedExpr> expr_;
   std::unique_ptr<const ResolvedScan> scan_;
   std::unique_ptr<const ResolvedModel> model_;
   std::unique_ptr<const ResolvedConnection> connection_;
+  std::unique_ptr<const ResolvedDescriptor> descriptor_;
   std::shared_ptr<const NameList> name_list_;
 };
 

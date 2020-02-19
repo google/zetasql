@@ -73,6 +73,7 @@ public abstract class Type implements Serializable {
     "DATETIME",
     "GEOGRAPHY",
     "NUMERIC",
+    "BIGNUMERIC",
   };
 
   /** Returns {@code true} if the given {@code date} value is within valid range. */
@@ -139,6 +140,10 @@ public abstract class Type implements Serializable {
     return kind == TypeKind.TYPE_NUMERIC;
   }
 
+  public boolean isBigNumeric() {
+    return kind == TypeKind.TYPE_BIGNUMERIC;
+  }
+
   public boolean isString() {
     return kind == TypeKind.TYPE_STRING;
   }
@@ -192,17 +197,31 @@ public abstract class Type implements Serializable {
   }
 
   public boolean isNumerical() {
-    return isInt32()
-           || isInt64()
-           || isUint32()
-           || isUint64()
-           || isFloat()
-           || isDouble()
-           || kind == TypeKind.TYPE_NUMERIC;
+    switch (kind) {
+      case TYPE_INT32:
+      case TYPE_INT64:
+      case TYPE_UINT32:
+      case TYPE_UINT64:
+      case TYPE_FLOAT:
+      case TYPE_DOUBLE:
+      case TYPE_NUMERIC:
+      case TYPE_BIGNUMERIC:
+        return true;
+      default:
+        return false;
+    }
   }
 
   public boolean isInteger() {
-    return isInt32() || isInt64() || isUint32() || isUint64();
+    switch (kind) {
+      case TYPE_INT32:
+      case TYPE_INT64:
+      case TYPE_UINT32:
+      case TYPE_UINT64:
+        return true;
+      default:
+        return false;
+    }
   }
 
   public boolean isSignedInteger() {

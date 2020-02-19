@@ -159,6 +159,9 @@ static zetasql_base::Status GetProtoFieldDefaultImpl(
     case TYPE_NUMERIC:
       *default_value = Value::Numeric(NumericValue());
       break;
+    case TYPE_BIGNUMERIC:
+      *default_value = Value::BigNumeric(BigNumericValue());
+      break;
     case TYPE_DATE: {
       const FieldFormat::Format format = ProtoType::GetFormatAnnotation(field);
 

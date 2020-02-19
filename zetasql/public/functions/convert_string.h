@@ -70,6 +70,9 @@ template <>
 bool NumericToString(double value, std::string* out, zetasql_base::Status* error);
 template <>
 bool NumericToString(NumericValue value, std::string* out, zetasql_base::Status* error);
+template <>
+bool NumericToString(BigNumericValue value, std::string* out,
+                     zetasql_base::Status* error);
 
 template <>
 bool StringToNumeric(absl::string_view value, bool* out, zetasql_base::Status* error);
@@ -87,6 +90,9 @@ template <>
 bool StringToNumeric(absl::string_view value, double* out, zetasql_base::Status* error);
 template <>
 bool StringToNumeric(absl::string_view value, NumericValue* out,
+                     zetasql_base::Status* error);
+template <>
+bool StringToNumeric(absl::string_view value, BigNumericValue* out,
                      zetasql_base::Status* error);
 
 }  // namespace functions

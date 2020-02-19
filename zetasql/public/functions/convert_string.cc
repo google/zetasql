@@ -124,6 +124,16 @@ bool NumericToString(NumericValue value, std::string* out,
 }
 
 template <>
+bool NumericToString(BigNumericValue value, std::string* out,
+                     zetasql_base::Status* error) {
+  // Use BigNumericValue::AppendToString instead of BigNumericValue::ToString()
+  // for minimizing memory allocations.
+  out->clear();
+  value.AppendToString(out);
+  return true;
+}
+
+template <>
 bool StringToNumeric(absl::string_view value, bool* out, zetasql_base::Status* error) {
   if (zetasql_base::CaseEqual(value, kTrueStringValue)) {
     *out = true;
@@ -213,6 +223,20 @@ bool StringToNumeric(absl::string_view value, NumericValue* out,
   }
   if (error != nullptr) {
     *error = numeric_status.status();
+  }
+  return false;
+}
+
+template <>
+bool StringToNumeric(absl::string_view value, BigNumericValue* out,
+                     zetasql_base::Status* error) {
+  const auto bignumeric_status = BigNumericValue::FromString(value);
+  if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
+    *out = bignumeric_status.ValueOrDie();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = bignumeric_status.status();
   }
   return false;
 }

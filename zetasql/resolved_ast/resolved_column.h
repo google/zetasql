@@ -106,6 +106,10 @@ class ResolvedColumn {
   // Get the table and column name.  The _id forms return an IdString so
   // do not have to copy a string.  The non-_id forms are slower and should
   // not be used in zetasql analysis code.
+  //
+  // <table_name> and <name> are for display only, have no defined meaning and
+  // are required to be non-empty.  Semantic behavior must never be defined
+  // using these names.
   const std::string table_name() const { return table_name_.ToString(); }
   const std::string name() const { return name_.ToString(); }
   IdString table_name_id() const { return table_name_; }

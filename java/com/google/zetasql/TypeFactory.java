@@ -78,6 +78,7 @@ public abstract class TypeFactory implements Serializable {
           .put("datetime", TypeKind.TYPE_DATETIME) // external
           .put("geography", TypeKind.TYPE_GEOGRAPHY) // external
           .put("numeric", TypeKind.TYPE_NUMERIC) // external
+          .put("bignumeric", TypeKind.TYPE_BIGNUMERIC) // external
           .build();
 
   //See (broken link) for approved list of externally visible types.
@@ -94,7 +95,8 @@ public abstract class TypeFactory implements Serializable {
           "time",
           "datetime",
           "geography",
-          "numeric");
+          "numeric",
+          "bignumeric");
 
   private static final ImmutableSet<TypeKind> SIMPLE_TYPE_KINDS =
       ImmutableSet.copyOf(SIMPLE_TYPE_KIND_NAMES.values());

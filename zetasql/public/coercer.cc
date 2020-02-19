@@ -61,7 +61,9 @@ static const SuperTypesMap* InitializeSuperTypesMap() {
       {TYPE_TIME, {TYPE_TIME}},
       {TYPE_DATETIME, {TYPE_DATETIME}},
       {TYPE_GEOGRAPHY, {TYPE_GEOGRAPHY}},
-      {TYPE_NUMERIC, {TYPE_NUMERIC, TYPE_DOUBLE}}};
+      {TYPE_NUMERIC, {TYPE_NUMERIC, TYPE_DOUBLE}},
+      // TODO: Implement cast and coercion for BIGNUMERIC.
+      {TYPE_BIGNUMERIC, {TYPE_BIGNUMERIC}}};
 
   for (const auto& entry : raw) {
     TypeKind type = entry.first;

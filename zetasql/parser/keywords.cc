@@ -192,6 +192,7 @@ const std::vector<KeywordInfo>& GetAllKeywords() {
       {"batch", KW_BATCH},
       {"begin", KW_BEGIN},
       {"between", KW_BETWEEN, KeywordInfo::kReserved},
+      {"bignumeric", KW_BIGNUMERIC},
       {"break", KW_BREAK},
       {"by", KW_BY, KeywordInfo::kReserved},
       {"call", KW_CALL},

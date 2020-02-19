@@ -1499,6 +1499,27 @@ zetasql_base::Status SQLBuilder::VisitResolvedTVFScan(const ResolvedTVFScan* nod
       continue;
     }
 
+    if (argument->descriptor_arg() != nullptr) {
+      std::string ret("DESCRIPTOR(");
+      // sql_builder tests require accessing descriptor_column_list but only
+      // descriptor_column_name_list is needed to rebuild sql query.
+      ZETASQL_RET_CHECK_GE(argument->descriptor_arg()->descriptor_column_list().size(),
+                   0);
+      bool need_comma = false;
+      for (const auto& column_name :
+           argument->descriptor_arg()->descriptor_column_name_list()) {
+        if (need_comma) {
+          absl::StrAppend(&ret, ",");
+        }
+        absl::StrAppend(&ret, column_name);
+        need_comma = true;
+      }
+
+      absl::StrAppend(&ret, ")");
+      argument_list.push_back(ret);
+      continue;
+    }
+
     // If this is a relation argument, generate SQL for each of its attributes.
     const ResolvedScan* scan = argument->scan();
     ZETASQL_RET_CHECK(scan != nullptr);

@@ -253,6 +253,10 @@ CONCAT(value1[, ...])
 Concatenates one or more values into a single result. All values must be
 `BYTES` or data types that can be cast to `STRING`.
 
+Note: You can also use the
+[|| concatenation operator][string-link-to-operators] to concatenate
+values into a string.
+
 **Return type**
 
 STRING or BYTES
@@ -2430,4 +2434,6 @@ FROM items;
 [string-link-to-from-base32]: #from_base32
 [string-link-to-from-hex]: #from_hex
 [string-link-to-to-hex]: #to_hex
+
+[string-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators
 

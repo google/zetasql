@@ -843,7 +843,7 @@ TEST(FunctionSignatureTests, TestIsTemplatedArgument) {
 
   // If a new enum value is added to SignatureArgumentKind then it *must*
   // be added to <templated_kinds> or <non_templated_kinds> as appropriate.
-  ASSERT_EQ(13, SignatureArgumentKind_ARRAYSIZE);
+  ASSERT_EQ(14, SignatureArgumentKind_ARRAYSIZE);
 
   std::set<SignatureArgumentKind> templated_kinds;
   templated_kinds.insert(ARG_TYPE_ANY_1);
@@ -857,6 +857,7 @@ TEST(FunctionSignatureTests, TestIsTemplatedArgument) {
   templated_kinds.insert(ARG_TYPE_RELATION);
   templated_kinds.insert(ARG_TYPE_MODEL);
   templated_kinds.insert(ARG_TYPE_CONNECTION);
+  templated_kinds.insert(ARG_TYPE_DESCRIPTOR);
 
   std::set<SignatureArgumentKind> non_templated_kinds;
   non_templated_kinds.insert(ARG_TYPE_FIXED);
@@ -932,6 +933,35 @@ TEST(FunctionSignatureTests, TestIsTemplatedSignature) {
   for (const auto& test : tests) {
     EXPECT_EQ(test.expected_is_templated,
               test.signature.IsTemplated()) << test.signature.DebugString();
+  }
+}
+
+TEST(FunctionSignatureTests, TestIsDescriptorTableOffsetArgumentValid) {
+  TypeFactory factory;
+  std::unique_ptr<FunctionSignature> signature;
+  TVFRelation tvf_relation({});
+  FunctionArgumentType arg_type = FunctionArgumentType::RelationWithSchema(
+      tvf_relation, /*extra_relation_input_columns_allowed=*/false);
+  FunctionArgumentType retuneType = FunctionArgumentType(factory.get_int32());
+  signature.reset(new FunctionSignature(
+      retuneType, {arg_type, FunctionArgumentType::AnyDescriptor(0)}, -1));
+
+  ZETASQL_EXPECT_OK(signature->IsValid());
+
+  EXPECT_DEBUG_DEATH(
+      signature.reset(new FunctionSignature(
+          retuneType, {FunctionArgumentType::AnyDescriptor(3), arg_type}, -1)),
+      "should point to a valid table argument");
+  if (!ZETASQL_DEBUG_MODE) {
+    EXPECT_FALSE(signature->IsValid().ok());
+  }
+
+  EXPECT_DEBUG_DEATH(
+      signature.reset(new FunctionSignature(
+          retuneType, {arg_type, FunctionArgumentType::AnyDescriptor(1)}, -1)),
+      "should point to a valid table argument");
+  if (!ZETASQL_DEBUG_MODE) {
+    EXPECT_FALSE(signature->IsValid().ok());
   }
 }
 

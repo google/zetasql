@@ -22,6 +22,8 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.zetasql.TypeTestBase.getDescriptorPoolWithTypeProtoAndTypeKind;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.common.testing.SerializableTester;
 import com.google.protobuf.ByteString;
@@ -38,7 +40,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -675,52 +679,32 @@ public class ValueTest {
     assertThat(Double.NEGATIVE_INFINITY == negativeInf.toDouble()).isTrue();
   }
 
+  private static final String MAX_NUMERIC_VALUE_STRING = "99999999999999999999999999999.999999999";
+  private static final String MIN_NUMERIC_VALUE_STRING = "-99999999999999999999999999999.999999999";
+
   @Test
   public void testNumericValue() {
+    List<String> valueStrings =
+        Arrays.asList("0", "1.2", "-1.2", MAX_NUMERIC_VALUE_STRING, MIN_NUMERIC_VALUE_STRING);
     Value zero = Value.createNumericValue(BigDecimal.ZERO);
-    Value onePointTwo = Value.createNumericValue(new BigDecimal("1.2"));
-    Value anotherOnePointTwo = Value.createNumericValue(new BigDecimal("1.2"));
-    Value minusOnePointTwo = Value.createNumericValue(new BigDecimal("-1.2"));
-    Value maxNumeric = Value.createNumericValue(
-        new BigDecimal("99999999999999999999999999999.999999999"));
-    Value minNumeric = Value.createNumericValue(
-        new BigDecimal("-99999999999999999999999999999.999999999"));
+    Value maxNumeric = Value.createNumericValue(new BigDecimal(MAX_NUMERIC_VALUE_STRING));
+    Value minNumeric = Value.createNumericValue(new BigDecimal(MIN_NUMERIC_VALUE_STRING));
+    for (String str : valueStrings) {
+      Value value = Value.createNumericValue(new BigDecimal(str));
+      assertThat(value.getType().getKind()).isEqualTo(TypeKind.TYPE_NUMERIC);
+      assertThat(value.isNull()).isFalse();
+      assertThat(value.isValid()).isTrue();
+      assertThat(value.getNumericValue()).isEqualTo(new BigDecimal(str));
 
-    assertThat(zero.getType().getKind()).isEqualTo(TypeKind.TYPE_NUMERIC);
-
-    assertThat(zero.isNull()).isFalse();
-    assertThat(onePointTwo.isNull()).isFalse();
-    assertThat(minusOnePointTwo.isNull()).isFalse();
-    assertThat(maxNumeric.isNull()).isFalse();
-    assertThat(minNumeric.isNull()).isFalse();
-
-    assertThat(zero.isValid()).isTrue();
-    assertThat(onePointTwo.isValid()).isTrue();
-    assertThat(minusOnePointTwo.isValid()).isTrue();
-    assertThat(maxNumeric.isValid()).isTrue();
-    assertThat(minNumeric.isValid()).isTrue();
-
-    assertThat(zero.getNumericValue().signum()).isEqualTo(0);
-    assertThat(onePointTwo.getNumericValue().compareTo(
-        new BigDecimal("1.2"))).isEqualTo(0);
-    assertThat(minusOnePointTwo.getNumericValue().compareTo(
-        new BigDecimal("-1.2"))).isEqualTo(0);
-    assertThat(maxNumeric.getNumericValue().compareTo(
-        new BigDecimal("99999999999999999999999999999.999999999"))).isEqualTo(0);
-    assertThat(minNumeric.getNumericValue().compareTo(
-        new BigDecimal("-99999999999999999999999999999.999999999"))).isEqualTo(0);
-
-    assertThat(anotherOnePointTwo.hashCode()).isEqualTo(onePointTwo.hashCode());
-
-    assertThat(onePointTwo).isEqualTo(anotherOnePointTwo);
-    assertThat(zero.equals(onePointTwo)).isFalse();
-
-    checkSerializeAndDeserialize(onePointTwo, anotherOnePointTwo);
-    checkSerializeAndDeserialize(zero);
-    checkSerializeAndDeserialize(onePointTwo);
-    checkSerializeAndDeserialize(minusOnePointTwo);
-    checkSerializeAndDeserialize(maxNumeric);
-    checkSerializeAndDeserialize(minNumeric);
+      Value anotherValue = Value.createNumericValue(new BigDecimal(str));
+      assertThat(value).isEqualTo(anotherValue);
+      assertThat(value.hashCode()).isEqualTo(anotherValue.hashCode());
+      assertThat(value.equals(zero)).isEqualTo(str.equals("0"));
+      assertThat(value.equals(maxNumeric)).isEqualTo(str.equals(MAX_NUMERIC_VALUE_STRING));
+      assertThat(value.equals(minNumeric)).isEqualTo(str.equals(MIN_NUMERIC_VALUE_STRING));
+      checkSerializeAndDeserialize(value, anotherValue);
+      assertThat(value.toDouble()).isEqualTo(Double.valueOf(str));
+    }
 
     try {
       zero.toInt64();
@@ -736,69 +720,177 @@ public class ValueTest {
       assertThat(e).hasMessageThat().isEqualTo("Cannot coerce TYPE_NUMERIC to uint64");
     }
 
-    assertThat(0.0 == zero.toDouble()).isTrue();
-    assertThat(1.2 == onePointTwo.toDouble()).isTrue();
-    assertThat(-1.2 == minusOnePointTwo.toDouble()).isTrue();
-
-    BigDecimal tooLarge = maxNumeric.getNumericValue().add(BigDecimal.ONE);
-    BigDecimal tooSmall = minNumeric.getNumericValue().subtract(BigDecimal.ONE);
-    BigDecimal wrongScale = new BigDecimal("0.000000000001");
-
-    try {
-      Value.createNumericValue(tooLarge);
-      fail("Expected IllegalArgumentException");
-    } catch (IllegalArgumentException e) {
-      assertThat(e).hasMessageThat().isEqualTo(
-          "Numeric overflow: 100000000000000000000000000000.999999999");
+    String minPositiveOverflowValue = "100000000000000000000000000000.000000000";
+    String maxNegativeOverflowValue = "-100000000000000000000000000000.000000000";
+    for (String str : Arrays.asList(minPositiveOverflowValue, maxNegativeOverflowValue)) {
+      try {
+        Value.createNumericValue(new BigDecimal(str));
+        fail("Expected IllegalArgumentException");
+      } catch (IllegalArgumentException e) {
+        String expectedError = "Numeric overflow: " + str;
+        assertThat(e).hasMessageThat().isEqualTo(expectedError);
+      }
     }
+
     try {
-      Value.createNumericValue(tooSmall);
+      Value.createNumericValue(new BigDecimal("1e-10"));
       fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
-      assertThat(e).hasMessageThat().isEqualTo(
-          "Numeric overflow: -100000000000000000000000000000.999999999");
-    }
-    try {
-      Value.createNumericValue(wrongScale);
-      fail("Expected IllegalArgumentException");
-    } catch (IllegalArgumentException e) {
-      assertThat(e).hasMessageThat().isEqualTo("Numeric scale cannot exceed 9: 0.000000000001");
+      assertThat(e).hasMessageThat().isEqualTo("Numeric scale cannot exceed 9: 0.0000000001");
     }
   }
 
   @Test
   public void testNumericValueDeserialize() {
-    ValueProto zeroProto = valueProtoFromText("numeric_value: '\\000'");
-    ValueProto onePointTwoProto = valueProtoFromText(
-        "numeric_value: '\\000\\214\\206G'");
-    ValueProto minusOnePointTwoProto = valueProtoFromText(
-        "numeric_value: '\\000ty\\270'");
-    ValueProto maxNumericProto = valueProtoFromText(
-        "numeric_value: '\\377\\377\\377\\377?\"\\212\\tz\\304\\206Z\\250L;K'");
-    ValueProto minNumericProto = valueProtoFromText(
-        "numeric_value: '\\001\\000\\000\\000\\300\\335u\\366\\205;y\\245W\\263\\304\\264'");
+    ImmutableMap<String, String> inputAndExpectedOutputs =
+        new ImmutableMap.Builder<String, String>()
+            .put("numeric_value: '\\000'", "0E-9")
+            .put("numeric_value: '\\x7f'", "0.000000127")
+            .put("numeric_value: '\\x80'", "-0.000000128")
+            .put("numeric_value: '\\x80\\x00'", "0.000000128")
+            .put("numeric_value: '\\x80\\xff'", "-0.000000128")
+            .put("numeric_value: '\\000\\214\\206G'", "1.200000000")
+            .put("numeric_value: '\\000ty\\270'", "-1.200000000")
+            .put(
+                "numeric_value: '\\377\\377\\377\\377\\077\"\\212\\tz\\304\\206Z\\250L;K'",
+                MAX_NUMERIC_VALUE_STRING)
+            .put(
+                "numeric_value: '\\001\\000\\000\\000\\300\\335u\\366\\205;y\\245W\\263\\304\\264'",
+                MIN_NUMERIC_VALUE_STRING)
+            .build();
+    Type type = TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC);
+    for (Map.Entry<String, String> pair : inputAndExpectedOutputs.entrySet()) {
+      ValueProto proto = valueProtoFromText(pair.getKey());
+      Value value = Value.deserialize(type, proto);
+      assertThat(value.getNumericValue()).isEqualTo(new BigDecimal(pair.getValue()));
+    }
 
-    Value zero = Value.deserialize(
-        TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC), zeroProto);
-    assertThat(zero.getNumericValue().compareTo(BigDecimal.ZERO)).isEqualTo(0);
+    List<String> invalidInputs =
+        Arrays.asList(
+            "numeric_value: '\\000\\000\\000\\000\\100\"\\212\\tz\\304\\206Z\\250L;K'",
+            "numeric_value: '\\000\\000\\000\\000\\300\\335u\\366\\205;y\\245W\\263\\304\\264'");
+    for (String str : invalidInputs) {
+      ValueProto proto = valueProtoFromText(str);
+      try {
+        Value.deserialize(type, proto);
+        fail("Expected IllegalArgumentException");
+      } catch (IllegalArgumentException e) {
+        assertThat(e).hasMessageThat().contains("Numeric overflow: ");
+      }
+    }
+  }
 
-    Value onePointTwo = Value.deserialize(
-        TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC), onePointTwoProto);
-    assertThat(onePointTwo.getNumericValue().compareTo(new BigDecimal("1.2"))).isEqualTo(0);
+  private static final String MAX_BIGNUMERIC_VALUE_STRING =
+      "578960446186580977117854925043439539266.34992332820282019728792003956564819967";
+  private static final String MIN_BIGNUMERIC_VALUE_STRING =
+      "-578960446186580977117854925043439539266.34992332820282019728792003956564819968";
 
-    Value minusOnePointTwo = Value.deserialize(
-        TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC), minusOnePointTwoProto);
-    assertThat(minusOnePointTwo.getNumericValue().compareTo(new BigDecimal("-1.2"))).isEqualTo(0);
+  @Test
+  public void testBigNumericValue() {
+    List<String> valueStrings =
+        Arrays.asList("0", "1.2", "-1.2", MAX_BIGNUMERIC_VALUE_STRING, MIN_BIGNUMERIC_VALUE_STRING);
+    Value zero = Value.createBigNumericValue(BigDecimal.ZERO);
+    Value maxBigNumeric = Value.createBigNumericValue(new BigDecimal(MAX_BIGNUMERIC_VALUE_STRING));
+    Value minBigNumeric = Value.createBigNumericValue(new BigDecimal(MIN_BIGNUMERIC_VALUE_STRING));
+    for (String str : valueStrings) {
+      Value value = Value.createBigNumericValue(new BigDecimal(str));
+      assertThat(value.getType().getKind()).isEqualTo(TypeKind.TYPE_BIGNUMERIC);
+      assertThat(value.isNull()).isFalse();
+      assertThat(value.isValid()).isTrue();
+      assertThat(value.getBigNumericValue()).isEqualTo(new BigDecimal(str));
 
-    Value maxNumeric = Value.deserialize(
-        TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC), maxNumericProto);
-    assertThat(maxNumeric.getNumericValue().compareTo(
-        new BigDecimal("99999999999999999999999999999.999999999"))).isEqualTo(0);
+      Value anotherValue = Value.createBigNumericValue(new BigDecimal(str));
+      assertThat(value).isEqualTo(anotherValue);
+      assertThat(value.hashCode()).isEqualTo(anotherValue.hashCode());
+      assertThat(value.equals(zero)).isEqualTo(str.equals("0"));
+      assertThat(value.equals(maxBigNumeric)).isEqualTo(str.equals(MAX_BIGNUMERIC_VALUE_STRING));
+      assertThat(value.equals(minBigNumeric)).isEqualTo(str.equals(MIN_BIGNUMERIC_VALUE_STRING));
+      checkSerializeAndDeserialize(value, anotherValue);
+      assertThat(value.toDouble()).isEqualTo(Double.valueOf(str));
+    }
 
-    Value minNumeric = Value.deserialize(
-        TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC), minNumericProto);
-    assertThat(minNumeric.getNumericValue().compareTo(
-        new BigDecimal("-99999999999999999999999999999.999999999"))).isEqualTo(0);
+    try {
+      zero.toInt64();
+      fail("Expected IllegalStateException");
+    } catch (IllegalStateException e) {
+      assertThat(e).hasMessageThat().isEqualTo("Cannot coerce TYPE_BIGNUMERIC to int64");
+    }
+
+    try {
+      zero.toUint64();
+      fail("Expected IllegalStateException");
+    } catch (IllegalStateException e) {
+      assertThat(e).hasMessageThat().isEqualTo("Cannot coerce TYPE_BIGNUMERIC to uint64");
+    }
+
+    String minPositiveOverflowValue =
+        "578960446186580977117854925043439539266.34992332820282019728792003956564819968";
+    String maxNegativeOverflowValue =
+        "-578960446186580977117854925043439539266.34992332820282019728792003956564819969";
+    for (String str : Arrays.asList(minPositiveOverflowValue, maxNegativeOverflowValue)) {
+      try {
+        Value.createBigNumericValue(new BigDecimal(str));
+        fail("Expected IllegalArgumentException");
+      } catch (IllegalArgumentException e) {
+        String expectedError = "BIGNUMERIC overflow: " + str;
+        assertThat(e).hasMessageThat().isEqualTo(expectedError);
+      }
+    }
+
+    try {
+      Value.createBigNumericValue(new BigDecimal("1e-39"));
+      fail("Expected IllegalArgumentException");
+    } catch (IllegalArgumentException e) {
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo(
+              "BIGNUMERIC scale cannot exceed 38: 0.000000000000000000000000000000000000001");
+    }
+  }
+
+  @Test
+  public void testBigNumericValueDeserialize() {
+    ImmutableMap<String, String> inputAndExpectedOutputs =
+        new ImmutableMap.Builder<String, String>()
+            .put("bignumeric_value: '\\000'", "0E-38")
+            .put("bignumeric_value: '\\x7f'", "127E-38")
+            .put("bignumeric_value: '\\x80'", "-128E-38")
+            .put("bignumeric_value: '\\x80\\x00'", "128E-38")
+            .put("bignumeric_value: '\\x80\\xff'", "-128E-38")
+            .put(
+                "bignumeric_value: '\\000\\000\\000\\000\\200\\217r\\v,R;\\006\\312(GZ'",
+                "1.20000000000000000000000000000000000000")
+            .put(
+                "bignumeric_value:"
+                    + " '\\000\\000\\000\\000\\200p\\215\\364\\323\\255\\304\\3715\\327\\270\\245'",
+                "-1.20000000000000000000000000000000000000")
+            .put(
+                "bignumeric_value: '" + Strings.repeat("\\xff", 31) + "\\x7f'",
+                MAX_BIGNUMERIC_VALUE_STRING)
+            .put(
+                "bignumeric_value: '" + Strings.repeat("\\x00", 31) + "\\x80'",
+                MIN_BIGNUMERIC_VALUE_STRING)
+            .build();
+    Type type = TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC);
+    for (Map.Entry<String, String> pair : inputAndExpectedOutputs.entrySet()) {
+      ValueProto proto = valueProtoFromText(pair.getKey());
+      Value value = Value.deserialize(type, proto);
+      assertThat(value.getBigNumericValue()).isEqualTo(new BigDecimal(pair.getValue()));
+    }
+
+    List<String> invalidInputs =
+        Arrays.asList(
+            "bignumeric_value: '" + Strings.repeat("\\xff", 31) + "\\x7f\\xff'",
+            "bignumeric_value: '" + Strings.repeat("\\x00", 31) + "\\x80\\x00'");
+    for (String str : invalidInputs) {
+      ValueProto proto = valueProtoFromText(str);
+      try {
+        Value.deserialize(type, proto);
+        fail("Expected IllegalArgumentException");
+      } catch (IllegalArgumentException e) {
+        assertThat(e).hasMessageThat().contains("BIGNUMERIC overflow");
+      }
+    }
   }
 
   @Test
@@ -1138,7 +1230,7 @@ public class ValueTest {
     }
 
     List<Long> invalidTimeValues =
-        java.util.Arrays.asList(
+        Arrays.asList(
             0x600000000000L, // 24:00:00
             0x3C000000000L, // 00:60:00
             0xF00000000L, // 00:00:60
@@ -1221,7 +1313,7 @@ public class ValueTest {
     }
 
     List<Long> invalidDatetimeBitFieldSecondValues =
-        java.util.Arrays.asList(
+        Arrays.asList(
             0L, //  0000-01-01 00:00:00
             0x9C40420000L, // 10000-01-01 00:00:00
             0x1ECB420000L, //  1970-13-01 00:00:00
@@ -1242,7 +1334,7 @@ public class ValueTest {
       } catch (IllegalArgumentException expected) {
       }
     }
-    List<Integer> invalidNanosValues = java.util.Arrays.asList(-1, 1000000000);
+    List<Integer> invalidNanosValues = Arrays.asList(-1, 1000000000);
     for (int invalidNanos : invalidNanosValues) {
       try {
         Value.createDatetimeValue(0x1EC8420000L /* 1970-01-01 00:00:00 */, invalidNanos);
@@ -1924,7 +2016,7 @@ public class ValueTest {
             "The number of fields of ValueProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(ValueProto.getDescriptor().getFields())
-        .hasSize(20);
+        .hasSize(21);
     assertWithMessage(
             "The number of fields of ValueProto::Array has changed, "
                 + "please also update the serialization code accordingly.")

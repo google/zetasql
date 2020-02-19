@@ -80,6 +80,12 @@ class ResolvedNode {
   // Calls the above Accept() method on all the direct children of this node.
   virtual zetasql_base::Status ChildrenAccept(ResolvedASTVisitor* visitor) const;
 
+  // Returns whether or not this node is a specific node type.
+  template <class SUBTYPE>
+  bool Is() const {
+    return dynamic_cast<const SUBTYPE*>(this) != nullptr;
+  }
+
   // Return this node static_cast as a SUBTYPE node.
   // Use only when this node is known to be of that type.
   // Subclasses specialize this to give stronger compile-time errors

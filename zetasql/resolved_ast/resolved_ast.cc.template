@@ -669,6 +669,12 @@ static zetasql_base::Status SaveToImpl(
       connection_proto->set_name(arg.connection().connection()->Name());
       connection_proto->set_full_name(
           arg.connection().connection()->FullName());
+    } else if (arg.is_descriptor()) {
+      TVFDescriptorProto* descriptor_proto =
+          arg_proto->mutable_descriptor_argument();
+      for (const auto& name : arg.descriptor_argument().column_names()) {
+        *(descriptor_proto->add_column_name()) = name;
+      }
     } else {
       ZETASQL_ASSIGN_OR_RETURN(const InputArgumentType& arg_type,
                        arg.GetScalarArgType());
@@ -739,6 +745,13 @@ static zetasql_base::StatusOr<std::shared_ptr<TVFSignature>> RestoreFromImpl(
                                                      Catalog::FindOptions()));
       input_args.push_back(TVFInputArgumentType(TVFConnectionArgument(
         connection)));
+    } else if (argument.has_descriptor_argument()) {
+      std::vector<std::string> names;
+      const TVFDescriptorProto& descriptor_arg = argument.descriptor_argument();
+      for (const auto& name : descriptor_arg.column_name()) {
+        names.push_back(name);
+      }
+      input_args.push_back(TVFInputArgumentType(TVFDescriptorArgument(names)));
     } else {
       const ValueWithTypeProto& scalar_arg = argument.scalar_argument();
       if (scalar_arg.has_value()) {

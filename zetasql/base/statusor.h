@@ -303,6 +303,12 @@ class StatusOr : private statusor_internal::StatusOrData<T>,
   const T&& ValueOrDie() const&&;
   T&& ValueOrDie() &&;
 
+  const T& value() const&;
+  T& value() &;
+  const T&& value() const&&;
+  T&& value() &&;
+
+
   // Returns a reference to the current value.
   //
   // REQUIRES: this->ok() == true, otherwise the behavior is undefined.
@@ -433,6 +439,30 @@ const T&& StatusOr<T>::ValueOrDie() const&& {
 
 template <typename T>
 T&& StatusOr<T>::ValueOrDie() && {
+  this->EnsureOk();
+  return std::move(this->data_);
+}
+
+template <typename T>
+const T& StatusOr<T>::value() const& {
+  this->EnsureOk();
+  return this->data_;
+}
+
+template <typename T>
+T& StatusOr<T>::value() & {
+  this->EnsureOk();
+  return this->data_;
+}
+
+template <typename T>
+const T&& StatusOr<T>::value() const&& {
+  this->EnsureOk();
+  return std::move(this->data_);
+}
+
+template <typename T>
+T&& StatusOr<T>::value() && {
   this->EnsureOk();
   return std::move(this->data_);
 }

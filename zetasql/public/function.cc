@@ -512,4 +512,8 @@ bool Function::SupportsHavingModifier() const {
   return function_options_.supports_having_modifier;
 }
 
+bool Function::SupportsDistinctModifier() const {
+  return function_options_.supports_distinct_modifier;
+}
+
 }  // namespace zetasql

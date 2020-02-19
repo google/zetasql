@@ -3560,6 +3560,16 @@ class ASTNumericLiteral final : public ASTLeaf {
       NonRecursiveParseTreeVisitor* visitor) const override;
 };
 
+class ASTBigNumericLiteral final : public ASTLeaf {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_BIGNUMERIC_LITERAL;
+
+  ASTBigNumericLiteral() : ASTLeaf(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+};
+
 class ASTStringLiteral final : public ASTLeaf {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_STRING_LITERAL;

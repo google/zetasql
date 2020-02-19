@@ -76,7 +76,7 @@ Resolver::Resolver(Catalog* catalog, TypeFactory* type_factory,
       id_string_pool_(analyzer_options_.id_string_pool().get()) {
   function_resolver_ =
       absl::make_unique<FunctionResolver>(catalog, type_factory, this);
-  DCHECK(analyzer_options_.AreAllArenasInitialized());
+  DCHECK(analyzer_options_.AllArenasAreInitialized());
 }
 
 Resolver::~Resolver() {

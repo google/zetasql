@@ -127,6 +127,14 @@ message FieldFormat {
     // Can be applied to bytes fields.
     NUMERIC = 10;
 
+    // A ZetaSQL BIGNUMERIC value. These values are encoded as scaled integers
+    // in two's complement form with the most significant bit storing the sign.
+    // See BigNumericValue::SerializeAsProtoBytes() for serialization format
+    // details.
+    //
+    // Can be applied to bytes fields.
+    BIGNUMERIC = 11;
+
     // User code that switches on this enum must have a default case so
     // builds won't break if new enums get added.
     __FieldFormat_Type__switch_must_have_a_default__ = -1;

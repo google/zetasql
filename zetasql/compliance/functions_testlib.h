@@ -89,6 +89,13 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastDateTime();
 std::vector<QueryParamsWithResult>
 GetFunctionTestsCastNumeric();  // numeric only
 
+// TODO: Reorganize the test cases once CAST for BIGNUMERIC is
+// implemented.
+std::vector<QueryParamsWithResult>
+GetFunctionTestsCastBigNumericString();  // String from/to BIGNUMERIC type
+std::vector<QueryParamsWithResult>
+GetFunctionTestsCastBigNumeric();  // Numeric types from/to BIGNUMERIC type
+
 std::vector<QueryParamsWithResult>
 GetFunctionTestsCastString();  // string/bytes
 

@@ -34,7 +34,6 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
-#include "zetasql/base/cleanup.h"
 #include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -328,7 +327,7 @@ zetasql_base::Status BisonParser::Parse(
     int start_byte_offset, IdStringPool* id_string_pool, zetasql_base::UnsafeArena* arena,
     const LanguageOptions* language_options, std::unique_ptr<ASTNode>* output,
     std::vector<std::unique_ptr<ASTNode>>* other_allocated_ast_nodes,
-    ASTNodeKind* next_statement_kind_result, bool* next_statement_is_ctas,
+    ASTStatementProperties* ast_statement_properties,
     int* statement_end_byte_offset) {
   id_string_pool_ = id_string_pool;
   arena_ = arena;
@@ -352,22 +351,21 @@ zetasql_base::Status BisonParser::Parse(
   bool move_error_location_past_whitespace = false;
   std::vector<ASTNode*> nodes_requiring_init_fields;
   zetasql_bison_parser::BisonParserImpl bison_parser_impl(
-      tokenizer_.get(), this, &output_node, next_statement_kind_result,
-      next_statement_is_ctas, &error_message, &error_location,
-      &move_error_location_past_whitespace, statement_end_byte_offset);
+      tokenizer_.get(), this, &output_node, ast_statement_properties,
+      &error_message, &error_location, &move_error_location_past_whitespace,
+      statement_end_byte_offset);
   const int parse_status_code = bison_parser_impl.parse();
   if (parse_status_code == kBisonParseSuccess &&
       tokenizer_->GetOverrideError().ok()) {
+    // Make sure InitFields() is called for all ASTNodes that were created.
+    // We don't use the result of InitFields() in the grammar itself, so we
+    // don't need to do this during parsing.
+    for (const auto& ast_node : *allocated_ast_nodes_) {
+      ast_node->InitFields();
+    }
+
     if (mode != BisonParserMode::kNextStatementKind) {
       ZETASQL_RET_CHECK(output_node != nullptr);
-
-      // Make sure InitFields() is called for all ASTNodes that were created.
-      // We don't use the result of InitFields() in the grammar itself, so we
-      // don't need to do this during parsing.
-      for (const auto& ast_node : *allocated_ast_nodes_) {
-        ast_node->InitFields();
-      }
-
       *output = nullptr;
       // Move 'output_node' out of 'allocated_ast_nodes_' and into '*output'.
       for (int i = allocated_ast_nodes_->size() - 1; i >= 0; --i) {
@@ -378,8 +376,8 @@ zetasql_base::Status BisonParser::Parse(
         }
       }
       ZETASQL_RET_CHECK_EQ(output->get(), output_node);
-      *other_allocated_ast_nodes = std::move(*allocated_ast_nodes_);
     }
+    *other_allocated_ast_nodes = std::move(*allocated_ast_nodes_);
     return ::zetasql_base::OkStatus();
   }
   // The tokenizer's error overrides the parser's error.

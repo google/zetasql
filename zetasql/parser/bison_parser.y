@@ -26,6 +26,7 @@
 #include "zetasql/parser/location.hh"
 #include "zetasql/parser/bison_parser.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/statement_properties.h"
 #include "zetasql/public/strings.h"
 #include "absl/memory/memory.h"
 #include "zetasql/base/case.h"
@@ -94,8 +95,8 @@ enum class ImportType {
 %parse-param {zetasql::parser::ZetaSqlFlexTokenizer* tokenizer}
 %parse-param {zetasql::parser::BisonParser* parser}
 %parse-param {zetasql::ASTNode** ast_node_result}
-%parse-param {zetasql::ASTNodeKind* next_statement_kind_result}
-%parse-param {bool* next_statement_is_ctas}
+%parse-param {zetasql::parser::ASTStatementProperties*
+                  ast_statement_properties}
 %parse-param {std::string* error_message}
 %parse-param {zetasql::ParseLocationPoint* error_location}
 %parse-param {bool* move_error_location_past_whitespace}
@@ -657,6 +658,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_ASSERT "ASSERT"
 %token KW_BATCH "BATCH"
 %token KW_BEGIN "BEGIN"
+%token KW_BIGNUMERIC "BIGNUMERIC"
 %token KW_BREAK "BREAK"
 %token KW_CALL "CALL"
 %token KW_CASCADE "CASCADE"
@@ -807,6 +809,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> assert_statement
 %type <expression_subquery> bare_expression_subquery
 %type <node> begin_statement
+%type <expression> bignumeric_literal
 %type <expression> boolean_literal
 %type <expression> bytes_literal
 %type <node> call_statement
@@ -1178,6 +1181,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <ast_node_kind> next_statement_kind
 %type <ast_node_kind> next_statement_kind_parenthesized_select
 %type <ast_node_kind> next_statement_kind_without_hint
+%type <ast_node_kind> next_statement_kind_create_modifiers
 %type <set_operation_type> query_set_operation_type
 %type <sample_size_unit> sample_size_unit
 %type <insert_mode> unambiguous_or_ignore_replace_update
@@ -1213,7 +1217,7 @@ start_mode:
     | MODE_NEXT_STATEMENT next_statement { *ast_node_result = $2; }
     | MODE_NEXT_SCRIPT_STATEMENT next_script_statement { *ast_node_result = $2; }
     | MODE_NEXT_STATEMENT_KIND next_statement_kind
-      { *next_statement_kind_result = $2; }
+      { ast_statement_properties->node_kind = $2; }
     | MODE_EXPRESSION expression { *ast_node_result = $2; }
     | MODE_TYPE type { *ast_node_result = $2; }
     ;
@@ -4426,6 +4430,7 @@ expression:
     | bytes_literal
     | integer_literal
     | numeric_literal
+    | bignumeric_literal
     | floating_point_literal
     | date_or_time_literal
     | parameter_expression
@@ -5783,6 +5788,15 @@ numeric_literal:
       }
     ;
 
+bignumeric_literal:
+    "BIGNUMERIC" STRING_LITERAL
+      {
+        auto* literal = MAKE_NODE(ASTBigNumericLiteral, @$);
+        literal->set_image(std::string(parser->GetInputText(@2)));
+        $$ = literal;
+      }
+    ;
+
 floating_point_literal:
     FLOATING_POINT_LITERAL
       {
@@ -5964,6 +5978,7 @@ keyword_as_identifier:
     | "ASSERT"
     | "BATCH"
     | "BEGIN"
+    | "BIGNUMERIC"
     | "BREAK"
     | "CALL"
     | "CASCADE"
@@ -7168,6 +7183,7 @@ raise_statement:
 next_statement_kind:
     opt_hint next_statement_kind_without_hint
       {
+        ast_statement_properties->statement_level_hints = $1;
         // The parser will complain about the remainder of the input if we let
         // the tokenizer continue to produce tokens, because we don't have any
         // grammar for the rest of the input.
@@ -7185,20 +7201,25 @@ next_statement_kind_parenthesized_select:
 next_statement_kind_table:
     "TABLE"
       {
-        // Set next_statement_kind_result before finishing parsing, so that
-        // in case there is a syntax error after "TABLE",
-        // ParseNextStatementKind() still returns
-        // ASTCreateTableStatement::kConcreteNodeKind.
-        *next_statement_kind_result =
+        // Set statement properties node_kind before finishing parsing, so that
+        // in the case of a syntax error after "TABLE", ParseNextStatementKind()
+        // still returns ASTCreateTableStatement::kConcreteNodeKind.
+        ast_statement_properties->node_kind =
             zetasql::ASTCreateTableStatement::kConcreteNodeKind;
       }
     ;
 
 next_statement_kind_create_table_opt_as_or_semicolon:
-    "AS" { *next_statement_is_ctas = true; }
+    "AS" { ast_statement_properties->is_create_table_as_select = true; }
     | ";"
     | /* nothing */
     ;
+
+next_statement_kind_create_modifiers:
+    opt_or_replace opt_create_scope
+      {
+        ast_statement_properties->create_scope = $2;
+      }
 
 next_statement_kind_without_hint:
     "EXPLAIN" { $$ = zetasql::ASTExplainStatement::kConcreteNodeKind; }
@@ -7272,29 +7293,49 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTAlterMaterializedViewStatement::kConcreteNodeKind; }
     | "CREATE" "DATABASE"
       { $$ = zetasql::ASTCreateDatabaseStatement::kConcreteNodeKind; }
-    | "CREATE" opt_or_replace opt_create_scope opt_aggregate "CONSTANT"
-      { $$ = zetasql::ASTCreateConstantStatement::kConcreteNodeKind; }
-    | "CREATE" opt_or_replace opt_create_scope opt_aggregate "FUNCTION"
-      { $$ = zetasql::ASTCreateFunctionStatement::kConcreteNodeKind; }
-    | "CREATE" opt_or_replace opt_create_scope "PROCEDURE"
-      { $$ = zetasql::ASTCreateProcedureStatement::kConcreteNodeKind; }
+    | "CREATE" next_statement_kind_create_modifiers opt_aggregate
+      "CONSTANT"
+      {
+        $$ = zetasql::ASTCreateConstantStatement::kConcreteNodeKind;
+      }
+    | "CREATE" next_statement_kind_create_modifiers opt_aggregate
+      "FUNCTION"
+      {
+        $$ = zetasql::ASTCreateFunctionStatement::kConcreteNodeKind;
+      }
+    | "CREATE" next_statement_kind_create_modifiers "PROCEDURE"
+      {
+        $$ = zetasql::ASTCreateProcedureStatement::kConcreteNodeKind;
+      }
     | "CREATE" opt_or_replace opt_unique "INDEX"
       { $$ = zetasql::ASTCreateIndexStatement::kConcreteNodeKind; }
-    | "CREATE" opt_or_replace opt_create_scope next_statement_kind_table
-      opt_if_not_exists path_expression opt_table_element_list
+    | "CREATE" next_statement_kind_create_modifiers
+      next_statement_kind_table opt_if_not_exists
+      maybe_dashed_path_expression opt_table_element_list
       opt_partition_by_clause_no_hint opt_cluster_by_clause_no_hint
       opt_options_list next_statement_kind_create_table_opt_as_or_semicolon
-      { $$ = zetasql::ASTCreateTableStatement::kConcreteNodeKind; }
-    | "CREATE" opt_or_replace opt_create_scope "MODEL"
-      { $$ = zetasql::ASTCreateModelStatement::kConcreteNodeKind; }
-    | "CREATE" opt_or_replace opt_create_scope "TABLE" "FUNCTION"
-      { $$ = zetasql::ASTCreateTableFunctionStatement::kConcreteNodeKind; }
-    | "CREATE" opt_or_replace opt_create_scope "EXTERNAL"
-      { $$ = zetasql::ASTCreateExternalTableStatement::kConcreteNodeKind; }
+      {
+        $$ = zetasql::ASTCreateTableStatement::kConcreteNodeKind;
+      }
+    | "CREATE" next_statement_kind_create_modifiers "MODEL"
+      {
+        $$ = zetasql::ASTCreateModelStatement::kConcreteNodeKind;
+      }
+    | "CREATE" next_statement_kind_create_modifiers "TABLE"
+      "FUNCTION"
+      {
+        $$ = zetasql::ASTCreateTableFunctionStatement::kConcreteNodeKind;
+      }
+    | "CREATE" next_statement_kind_create_modifiers "EXTERNAL"
+      {
+        $$ = zetasql::ASTCreateExternalTableStatement::kConcreteNodeKind;
+      }
     | "CREATE" opt_or_replace "ROW" opt_access "POLICY"
       { $$ = zetasql::ASTCreateRowAccessPolicyStatement::kConcreteNodeKind; }
-    | "CREATE" opt_or_replace opt_create_scope "VIEW"
-      { $$ = zetasql::ASTCreateViewStatement::kConcreteNodeKind; }
+    | "CREATE" next_statement_kind_create_modifiers "VIEW"
+      {
+        $$ = zetasql::ASTCreateViewStatement::kConcreteNodeKind;
+      }
     | "CREATE" opt_or_replace "MATERIALIZED" "VIEW"
       { $$ = zetasql::ASTCreateMaterializedViewStatement::kConcreteNodeKind; }
     | "CALL"

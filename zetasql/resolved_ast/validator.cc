@@ -1333,12 +1333,24 @@ zetasql_base::Status Validator::ValidateResolvedTVFScan(
     const std::set<ResolvedColumn>& visible_parameters) const {
   ZETASQL_RET_CHECK_EQ(resolved_tvf_scan->argument_list_size(),
                resolved_tvf_scan->signature()->input_arguments().size());
+  std::vector<int> table_argument_offsets;
+  std::vector<int> descriptor_offsets;
   for (int arg_idx = 0; arg_idx < resolved_tvf_scan->argument_list_size();
        ++arg_idx) {
     const ResolvedTVFArgument* resolved_tvf_arg =
         resolved_tvf_scan->argument_list(arg_idx);
+
     ZETASQL_RETURN_IF_ERROR(
         ValidateResolvedTVFArgument(visible_parameters, resolved_tvf_arg));
+
+    if (resolved_tvf_arg->scan() != nullptr) {
+      table_argument_offsets.push_back(arg_idx);
+    }
+
+    if (resolved_tvf_arg->descriptor_arg() != nullptr &&
+        resolved_tvf_arg->descriptor_arg()->descriptor_column_list_size() > 0) {
+      descriptor_offsets.push_back(arg_idx);
+    }
 
     // If the function signature specifies a required schema for the relation
     // argument, check that the column names and types are a superset of those
@@ -1374,6 +1386,47 @@ zetasql_base::Status Validator::ValidateResolvedTVFScan(
       // since function overloading is not supported.
       ZETASQL_RET_CHECK_EQ(tvf->NumSignatures(), 1);
     }
+  }
+
+  // If there is any descriptor in tvf call with resolved column names, should
+  // check table arguments to validate that those descriptor ResolvedColumns can
+  // be projected from one of the table arguments.
+  for (int descriptor_arg_index : descriptor_offsets) {
+    const ResolvedTVFArgument* resolved_descriptor_arg =
+        resolved_tvf_scan->argument_list(descriptor_arg_index);
+    const std::vector<ResolvedColumn>& descriptor_column_vector =
+        resolved_descriptor_arg->argument_column_list();
+    bool validationPassed = false;
+    for (int table_arg_index : table_argument_offsets) {
+      if (validationPassed) {
+        break;
+      }
+      const ResolvedTVFArgument* resolved_scan_arg =
+          resolved_tvf_scan->argument_list(table_arg_index);
+      const std::vector<ResolvedColumn>& table_argument_column_vector =
+          resolved_scan_arg->argument_column_list();
+      int descriptor_column_index;
+      for (descriptor_column_index = 0;
+           descriptor_column_index < descriptor_column_vector.size();
+           descriptor_column_index++) {
+        if (std::find(table_argument_column_vector.begin(),
+                      table_argument_column_vector.end(),
+                      descriptor_column_vector[descriptor_column_index]) !=
+            table_argument_column_vector.end()) {
+          break;
+        }
+      }
+
+      if (descriptor_column_index == descriptor_column_vector.size()) {
+        validationPassed = true;
+      }
+    }
+
+    ZETASQL_RET_CHECK(validationPassed)
+        << "ResolvedDescriptor has at least one resolved column in "
+           "descriptor_column_list that cannot be projected in any table "
+           "argument in the same TVF call"
+        << resolved_descriptor_arg->descriptor_arg()->DebugString();
   }
 
   ZETASQL_RET_CHECK(resolved_tvf_scan->signature() != nullptr);
@@ -3014,6 +3067,7 @@ zetasql_base::Status Validator::ValidateResolvedTVFArgument(
     ZETASQL_RET_CHECK(resolved_tvf_arg->scan() == nullptr);
     ZETASQL_RET_CHECK(resolved_tvf_arg->model() == nullptr);
     ZETASQL_RET_CHECK(resolved_tvf_arg->connection() == nullptr);
+    ZETASQL_RET_CHECK(resolved_tvf_arg->descriptor_arg() == nullptr);
     ZETASQL_RET_CHECK_EQ(0, resolved_tvf_arg->argument_column_list_size());
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr({} /* visible_columns */,
                                          visible_parameters,
@@ -3023,11 +3077,19 @@ zetasql_base::Status Validator::ValidateResolvedTVFArgument(
     ZETASQL_RET_CHECK(resolved_tvf_arg->scan() == nullptr);
     ZETASQL_RET_CHECK(resolved_tvf_arg->expr() == nullptr);
     ZETASQL_RET_CHECK(resolved_tvf_arg->connection() == nullptr);
+    ZETASQL_RET_CHECK(resolved_tvf_arg->descriptor_arg() == nullptr);
   } else if (resolved_tvf_arg->connection() != nullptr) {
     // This is a TVF connection argument.
     ZETASQL_RET_CHECK(resolved_tvf_arg->scan() == nullptr);
     ZETASQL_RET_CHECK(resolved_tvf_arg->expr() == nullptr);
     ZETASQL_RET_CHECK(resolved_tvf_arg->model() == nullptr);
+    ZETASQL_RET_CHECK(resolved_tvf_arg->descriptor_arg() == nullptr);
+  } else if (resolved_tvf_arg->descriptor_arg() != nullptr) {
+    // This is a TVF descriptor argument.
+    ZETASQL_RET_CHECK(resolved_tvf_arg->scan() == nullptr);
+    ZETASQL_RET_CHECK(resolved_tvf_arg->expr() == nullptr);
+    ZETASQL_RET_CHECK(resolved_tvf_arg->model() == nullptr);
+    ZETASQL_RET_CHECK(resolved_tvf_arg->connection() == nullptr);
   } else {
     // Otherwise: this is a TVF relation argument. Validate the input relation,
     // passing through the 'visible_parameters' because correlation references
@@ -3036,6 +3098,7 @@ zetasql_base::Status Validator::ValidateResolvedTVFArgument(
     ZETASQL_RET_CHECK(resolved_tvf_arg->model() == nullptr);
     ZETASQL_RET_CHECK(resolved_tvf_arg->connection() == nullptr);
     ZETASQL_RET_CHECK(resolved_tvf_arg->scan() != nullptr);
+    ZETASQL_RET_CHECK(resolved_tvf_arg->descriptor_arg() == nullptr);
     ZETASQL_RET_CHECK_GT(resolved_tvf_arg->argument_column_list_size(), 0);
     ZETASQL_RETURN_IF_ERROR(
         ValidateResolvedScan(resolved_tvf_arg->scan(), visible_parameters));

@@ -19,6 +19,7 @@
 #include "zetasql/base/logging.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/escaping.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/string_numbers.h"  // iwyu: keep
@@ -30,6 +31,10 @@ namespace zetasql {
 static const int kUnicodeEscapedLength = 6;
 static const int kLatin1HexEscapedLength = 4;
 static const int kLatin1OctEscapedLength = 4;
+
+static constexpr absl::string_view kTrue = "true";
+static constexpr absl::string_view kFalse = "false";
+static constexpr absl::string_view kNull = "null";
 
 // Regexp for validating and extracting a key or variable name.
 static LazyRE2 key_re = {"([\\w_$][\\d\\w_$]*)"};
@@ -184,6 +189,7 @@ bool JSONParser::ParseStringHelper(std::string* str) {
     if (flush_start == nullptr) {
       return;
     }
+    DCHECK_GE(flush_end, flush_start);
     str->append(flush_start, flush_end - flush_start);
   };
 
@@ -427,26 +433,24 @@ bool JSONParser::ParseArray() {
   return true;
 }
 
-static const int true_len = strlen("true");
-static const int false_len = strlen("false");
-static const int null_len = strlen("null");
-static const int function_len = strlen("function");
-
 bool JSONParser::ParseTrue() {
   if (!ParsedBool(true)) return ReportFailure("ParsedBool returned false");
-  p_.remove_prefix(true_len);
+  DCHECK_GE(p_.length(), kTrue.length());
+  p_.remove_prefix(kTrue.length());
   return true;
 }
 
 bool JSONParser::ParseFalse() {
   if (!ParsedBool(false)) return ReportFailure("ParsedBool returned false");
-  p_.remove_prefix(false_len);
+  DCHECK_GE(p_.length(), kFalse.length());
+  p_.remove_prefix(kFalse.length());
   return true;
 }
 
 bool JSONParser::ParseNull() {
   if (!ParsedNull()) return ReportFailure("ParsedNull returned false");
-  p_.remove_prefix(null_len);
+  DCHECK_GE(p_.length(), kNull.length());
+  p_.remove_prefix(kNull.length());
   return true;
 }
 
@@ -492,17 +496,44 @@ JSONParser::TokenType JSONParser::GetNextTokenType() {
     ReportFailure("Unexpected end of string");
     return UNKNOWN;  // Unexpected end of string.
   }
-  if (*p_.data() == '\"' || *p_.data() == '\'') return BEGIN_STRING;
-  if (*p_.data() == '-' || ('0' <= *p_.data() && *p_.data() <= '9'))
-    return BEGIN_NUMBER;
-  if (!strncmp(p_.data(), "true", true_len)) return BEGIN_TRUE;
-  if (!strncmp(p_.data(), "false", false_len)) return BEGIN_FALSE;
-  if (!strncmp(p_.data(), "null", null_len)) return BEGIN_NULL;
-  if (*p_.data() == '{') return BEGIN_OBJECT;
-  if (*p_.data() == '}') return END_OBJECT;
-  if (*p_.data() == '[') return BEGIN_ARRAY;
-  if (*p_.data() == ']') return END_ARRAY;
-  if (*p_.data() == ',') return VALUE_SEPARATOR;
+
+  switch (*p_.data()) {
+    case '\"':
+    case '\'':
+      return BEGIN_STRING;
+    case '-':
+    case '0':
+    case '1':
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case '9':
+      return BEGIN_NUMBER;
+    case '{':
+      return BEGIN_OBJECT;
+    case '}':
+      return END_OBJECT;
+    case '[':
+      return BEGIN_ARRAY;
+    case ']':
+      return END_ARRAY;
+    case ',':
+      return VALUE_SEPARATOR;
+    case 't':
+      if (absl::StartsWith(p_, kTrue)) return BEGIN_TRUE;
+      break;
+    case 'f':
+      if (absl::StartsWith(p_, kFalse)) return BEGIN_FALSE;
+      break;
+    case 'n':
+      if (absl::StartsWith(p_, kNull)) return BEGIN_NULL;
+      break;
+  }
+
   absl::string_view temp = p_;  // Consume modifies pointer.
   if (RE2::Consume(&temp, *key_re)) return BEGIN_KEY;
 

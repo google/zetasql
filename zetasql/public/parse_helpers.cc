@@ -22,6 +22,7 @@
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/parser/statement_properties.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
@@ -41,7 +42,6 @@ zetasql_base::Status IsValidNextStatementSyntax(ParseResumeLocation* resume_loca
                                         ErrorMessageMode error_message_mode,
                                         bool* at_end_of_input) {
   std::unique_ptr<ParserOutput> parser_output;
-  // Nothing in ParserOptions affects syntax, so use the default ParserOptions.
   const zetasql_base::Status parse_status = ParseNextStatement(
       resume_location, ParserOptions(), &parser_output, at_end_of_input);
   return MaybeUpdateErrorFromPayload(error_message_mode,
@@ -161,12 +161,154 @@ ResolvedNodeKind GetStatementKind(ASTNodeKind node_kind) {
 }
 
 ResolvedNodeKind GetNextStatementKind(
-    const ParseResumeLocation& resume_location) {
+    const ParseResumeLocation& resume_location,
+    const LanguageOptions& language_options) {
   bool statement_is_ctas = false;
-  ASTNodeKind node_kind =
-      ParseNextStatementKind(resume_location, &statement_is_ctas);
+  ASTNodeKind node_kind = ParseNextStatementKind(
+      resume_location, language_options, &statement_is_ctas);
   return statement_is_ctas ?
       RESOLVED_CREATE_TABLE_AS_SELECT_STMT : GetStatementKind(node_kind);
+}
+
+zetasql_base::Status GetStatementProperties(const std::string& input,
+                                    const LanguageOptions& language_options,
+                                    StatementProperties* statement_properties) {
+  return GetNextStatementProperties(ParseResumeLocation::FromStringView(input),
+                                    language_options, statement_properties);
+}
+
+zetasql_base::Status GetNextStatementProperties(
+    const ParseResumeLocation& resume_location,
+    const LanguageOptions& language_options,
+    StatementProperties* statement_properties) {
+  // Parsing the next statement properties may return an AST for statement
+  // level hints, so we create an arena here to own the AST nodes.
+  ParserOptions parser_options;
+  parser_options.set_language_options(&language_options);
+  parser_options.CreateDefaultArenasIfNotSet();
+
+  parser::ASTStatementProperties ast_statement_properties;
+  // Since the ASTStatementProperties will include the ASTHint node if
+  // statement level hints are present, we need a vector to own the allocated
+  // ASTNodes.
+  std::vector<std::unique_ptr<ASTNode>> allocated_ast_nodes;
+
+  ZETASQL_RETURN_IF_ERROR(ParseNextStatementProperties(
+      resume_location, parser_options, &allocated_ast_nodes,
+      &ast_statement_properties));
+
+  statement_properties->node_kind =
+      GetStatementKind(ast_statement_properties.node_kind);
+
+  if (ast_statement_properties.is_create_table_as_select) {
+    ZETASQL_RET_CHECK_EQ(statement_properties->node_kind, RESOLVED_CREATE_TABLE_STMT);
+    statement_properties->node_kind = RESOLVED_CREATE_TABLE_AS_SELECT_STMT;
+  }
+
+  statement_properties->is_create_temporary_object =
+      (ast_statement_properties.create_scope == ASTCreateStatement::TEMPORARY);
+
+  // Set the statement type (DDL, DML, etc.)
+  switch (ast_statement_properties.node_kind) {
+    case AST_QUERY_STATEMENT:
+      statement_properties->statement_category = StatementProperties::SELECT;
+      break;
+    case AST_ALTER_DATABASE_STATEMENT:
+    case AST_ALTER_MATERIALIZED_VIEW_STATEMENT:
+    case AST_ALTER_ROW_ACCESS_POLICY_STATEMENT:
+    case AST_ALTER_TABLE_STATEMENT:
+    case AST_ALTER_VIEW_STATEMENT:
+    case AST_CREATE_CONSTANT_STATEMENT:
+    case AST_CREATE_DATABASE_STATEMENT:
+    case AST_CREATE_EXTERNAL_TABLE_STATEMENT:
+    case AST_CREATE_FUNCTION_STATEMENT:
+    case AST_CREATE_INDEX_STATEMENT:
+    case AST_CREATE_MATERIALIZED_VIEW_STATEMENT:
+    case AST_CREATE_MODEL_STATEMENT:
+    case AST_CREATE_PROCEDURE_STATEMENT:
+    case AST_CREATE_ROW_ACCESS_POLICY_STATEMENT:
+    case AST_CREATE_TABLE_FUNCTION_STATEMENT:
+    case AST_CREATE_TABLE_STATEMENT:
+    case AST_CREATE_VIEW_STATEMENT:
+    case AST_RENAME_STATEMENT:
+    case AST_DEFINE_TABLE_STATEMENT:
+    case AST_DROP_ALL_ROW_ACCESS_POLICIES_STATEMENT:
+    case AST_DROP_FUNCTION_STATEMENT:
+    case AST_DROP_MATERIALIZED_VIEW_STATEMENT:
+    case AST_DROP_ROW_ACCESS_POLICY_STATEMENT:
+    case AST_DROP_STATEMENT:
+      statement_properties->statement_category = StatementProperties::DDL;
+      break;
+    case AST_DELETE_STATEMENT:
+    case AST_INSERT_STATEMENT:
+    case AST_MERGE_STATEMENT:
+    case AST_TRUNCATE_STATEMENT:
+    case AST_UPDATE_STATEMENT:
+      statement_properties->statement_category = StatementProperties::DML;
+      break;
+    case AST_ASSERT_STATEMENT:
+    case AST_ABORT_BATCH_STATEMENT:
+    case AST_BEGIN_STATEMENT:
+    case AST_CALL_STATEMENT:
+    case AST_COMMIT_STATEMENT:
+    case AST_DESCRIBE_STATEMENT:
+    case AST_EXECUTE_IMMEDIATE_STATEMENT:
+    case AST_EXPLAIN_STATEMENT:
+    case AST_EXPORT_DATA_STATEMENT:
+    case AST_GRANT_STATEMENT:
+    case AST_IMPORT_STATEMENT:
+    case AST_MODULE_STATEMENT:
+    case AST_PARAMETER_ASSIGNMENT:
+    case AST_REVOKE_STATEMENT:
+    case AST_RUN_BATCH_STATEMENT:
+    case AST_SET_TRANSACTION_STATEMENT:
+    case AST_SHOW_STATEMENT:
+    case AST_SINGLE_ASSIGNMENT:
+    case AST_START_BATCH_STATEMENT:
+    case AST_SYSTEM_VARIABLE_ASSIGNMENT:
+    case AST_ROLLBACK_STATEMENT:
+      statement_properties->statement_category = StatementProperties::OTHER;
+      break;
+    case kUnknownASTNodeKind:
+      statement_properties->statement_category = StatementProperties::UNKNOWN;
+      break;
+    default:
+      ZETASQL_RET_CHECK_FAIL() << "Unexpected AST node type: "
+                       << ASTNode::NodeKindToString(
+                           ast_statement_properties.node_kind);
+      break;
+  }
+
+  statement_properties->statement_level_hints.clear();
+  const absl::string_view sql_input = resume_location.input();
+  if (ast_statement_properties.statement_level_hints != nullptr) {
+    ZETASQL_RET_CHECK_EQ(ast_statement_properties.statement_level_hints->node_kind(),
+                 AST_HINT);
+    const ASTHint* statement_level_hints = static_cast<const ASTHint*>(
+        ast_statement_properties.statement_level_hints);
+    for (const ASTHintEntry* hint : statement_level_hints->hint_entries()) {
+      std::string hint_name_text =
+          (hint->qualifier() == nullptr ? hint->name()->GetAsString()
+           : absl::StrCat(hint->qualifier()->GetAsString(), ".",
+                          hint->name()->GetAsString()));
+
+      // Get the start and end byte offset of the hint's value expression,
+      // and use the text from the input string.
+      const int start_offset =
+          hint->value()->GetParseLocationRange().start().GetByteOffset();
+      const int end_offset =
+          hint->value()->GetParseLocationRange().end().GetByteOffset();
+      absl::string_view hint_expr_text =
+          sql_input.substr(start_offset, end_offset - start_offset);
+
+      // Note that this method does not return an error if there are duplicates.
+      // If there are duplicates, then this uses the last one.
+      statement_properties->statement_level_hints[std::move(hint_name_text)]
+          = std::string(hint_expr_text);
+    }
+  }
+
+  return zetasql_base::OkStatus();
 }
 
 }  // namespace zetasql

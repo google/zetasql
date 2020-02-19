@@ -18,8 +18,8 @@
 #define ZETASQL_PUBLIC_FUNCTIONS_CONVERT_H_
 
 // Implements pairwise conversion between the following types: int32_t, int64_t,
-// uint32_t, uint64_t, bool, float, double, NumericValue. The conversion function
-// has the following signature:
+// uint32_t, uint64_t, bool, float, double, NumericValue, and BigNumericValue. The
+// conversion function has the following signature:
 //
 //   template <typename FromType, typename ToType>
 //   bool Convert(const FromType& in, ToType* out, zetasql_base::Status* error);
@@ -32,6 +32,7 @@
 // Floating point numbers are rounded when converted to integers.
 
 #include <math.h>  // for round and roundf
+#include <cmath>
 #include <limits>
 #include <type_traits>
 
@@ -124,7 +125,8 @@ inline bool Convert(
                  std::is_same<FromType, bool>::value ||
                  std::is_same<FromType, float>::value ||
                  std::is_same<FromType, double>::value ||
-                 std::is_same<FromType, NumericValue>::value),
+                 std::is_same<FromType, NumericValue>::value ||
+                 std::is_same<FromType, BigNumericValue>::value),
                 "Invalid FromType");
   static_assert((std::is_same<ToType, int32_t>::value ||
                  std::is_same<ToType, int64_t>::value ||
@@ -133,7 +135,8 @@ inline bool Convert(
                  std::is_same<ToType, bool>::value ||
                  std::is_same<ToType, float>::value ||
                  std::is_same<ToType, double>::value ||
-                 std::is_same<ToType, NumericValue>::value),
+                 std::is_same<ToType, NumericValue>::value ||
+                 std::is_same<ToType, BigNumericValue>::value),
                 "Invalid ToType");
   return internal::Converter<FromType, ToType>::Convert(in, out, error);
 }
@@ -166,7 +169,15 @@ template <> inline bool Convert<int32_t, uint64_t>(
 template <>
 inline bool Convert<int32_t, NumericValue>(const int32_t& in, NumericValue* out,
                                          zetasql_base::Status* error) {
-  *out = NumericValue(static_cast<int64_t>(in));
+  *out = NumericValue(in);
+  return true;
+}
+
+template <>
+inline bool Convert<int32_t, BigNumericValue>(const int32_t& in,
+                                            BigNumericValue* out,
+                                            zetasql_base::Status* error) {
+  *out = BigNumericValue(in);
   return true;
 }
 
@@ -209,6 +220,14 @@ inline bool Convert<int64_t, NumericValue>(const int64_t& in, NumericValue* out,
   return true;
 }
 
+template <>
+inline bool Convert<int64_t, BigNumericValue>(const int64_t& in,
+                                            BigNumericValue* out,
+                                            zetasql_base::Status* error) {
+  *out = BigNumericValue(in);
+  return true;
+}
+
 // -------------- uint32_t --------------
 
 template <> inline bool Convert<uint32_t, int32_t>(
@@ -224,7 +243,15 @@ template <> inline bool Convert<uint32_t, int32_t>(
 template <>
 inline bool Convert<uint32_t, NumericValue>(const uint32_t& in, NumericValue* out,
                                           zetasql_base::Status* error) {
-  *out = NumericValue(static_cast<uint64_t>(in));
+  *out = NumericValue(in);
+  return true;
+}
+
+template <>
+inline bool Convert<uint32_t, BigNumericValue>(const uint32_t& in,
+                                             BigNumericValue* out,
+                                             zetasql_base::Status* error) {
+  *out = BigNumericValue(in);
   return true;
 }
 
@@ -267,15 +294,30 @@ inline bool Convert<uint64_t, NumericValue>(const uint64_t& in, NumericValue* ou
   return true;
 }
 
+template <>
+inline bool Convert<uint64_t, BigNumericValue>(const uint64_t& in,
+                                             BigNumericValue* out,
+                                             zetasql_base::Status* error) {
+  *out = BigNumericValue(in);
+  return true;
+}
+
 // -------------- bool --------------
 
 // We have to provide a specialization for this due to template instantations
 // used in tests, even though ZetaSQL does not support casting between BOOL
-// and NUMERIC.
+// and NUMERIC/BIGNUMERIC.
 template <>
 inline bool Convert<bool, NumericValue>(const bool& in, NumericValue* out,
                                         zetasql_base::Status* error) {
   *out = NumericValue(static_cast<int64_t>(in));
+  return true;
+}
+
+template <>
+inline bool Convert<bool, BigNumericValue>(const bool& in, BigNumericValue* out,
+                                           zetasql_base::Status* error) {
+  *out = BigNumericValue(static_cast<int64_t>(in));
   return true;
 }
 
@@ -358,6 +400,22 @@ inline bool Convert<float, NumericValue>(const float& in, NumericValue* out,
   }
   if (error != nullptr) {
     *error = numeric_value_status.status();
+  }
+  return false;
+}
+
+template <>
+inline bool Convert<float, BigNumericValue>(const float& in,
+                                            BigNumericValue* out,
+                                            zetasql_base::Status* error) {
+  const zetasql_base::StatusOr<BigNumericValue> bignumeric_value_status =
+      BigNumericValue::FromDouble(in);
+  if (ABSL_PREDICT_TRUE(bignumeric_value_status.ok())) {
+    *out = bignumeric_value_status.ValueOrDie();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = bignumeric_value_status.status();
   }
   return false;
 }
@@ -455,6 +513,22 @@ inline bool Convert<double, NumericValue>(const double& in, NumericValue* out,
   return false;
 }
 
+template <>
+inline bool Convert<double, BigNumericValue>(const double& in,
+                                             BigNumericValue* out,
+                                             zetasql_base::Status* error) {
+  const zetasql_base::StatusOr<BigNumericValue> bignumeric_value_status =
+      BigNumericValue::FromDouble(in);
+  if (ABSL_PREDICT_TRUE(bignumeric_value_status.ok())) {
+    *out = bignumeric_value_status.ValueOrDie();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = bignumeric_value_status.status();
+  }
+  return false;
+}
+
 // -------------- numeric --------------
 
 template <> inline bool Convert<NumericValue, int32_t>(
@@ -523,9 +597,113 @@ inline bool Convert<NumericValue, double>(const NumericValue& in, double* out,
 }
 
 template <>
+inline bool Convert<NumericValue, BigNumericValue>(const NumericValue& in,
+                                                   BigNumericValue* out,
+                                                   zetasql_base::Status* error) {
+  *out = BigNumericValue(in);
+  return true;
+}
+
+template <>
 inline bool Convert<NumericValue, bool>(const NumericValue& in, bool* out,
                                         zetasql_base::Status* error) {
   *out = in != NumericValue();
+  return true;
+}
+
+// -------------- bignumeric --------------
+
+template <> inline bool Convert<BigNumericValue, int32_t>(
+    const BigNumericValue& in, int32_t* out, zetasql_base::Status* error) {
+  const zetasql_base::StatusOr<int32_t> int32_status = in.To<int32_t>();
+  if (ABSL_PREDICT_TRUE(int32_status.ok())) {
+    *out = int32_status.ValueOrDie();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = int32_status.status();
+  }
+  return false;
+}
+
+template <> inline bool Convert<BigNumericValue, int64_t>(
+    const BigNumericValue& in, int64_t* out, zetasql_base::Status* error) {
+  const zetasql_base::StatusOr<int64_t> int64_status = in.To<int64_t>();
+  if (ABSL_PREDICT_TRUE(int64_status.ok())) {
+    *out = int64_status.ValueOrDie();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = int64_status.status();
+  }
+  return false;
+}
+
+template <> inline bool Convert<BigNumericValue, uint32_t>(
+    const BigNumericValue& in, uint32_t* out, zetasql_base::Status* error) {
+  const zetasql_base::StatusOr<uint32_t> uint32_status = in.To<uint32_t>();
+  if (ABSL_PREDICT_TRUE(uint32_status.ok())) {
+    *out = uint32_status.ValueOrDie();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = uint32_status.status();
+  }
+  return false;
+}
+
+template <> inline bool Convert<BigNumericValue, uint64_t>(
+    const BigNumericValue& in, uint64_t* out, zetasql_base::Status* error) {
+  const zetasql_base::StatusOr<uint64_t> uint64_status = in.To<uint64_t>();
+  if (ABSL_PREDICT_TRUE(uint64_status.ok())) {
+    *out = uint64_status.ValueOrDie();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = uint64_status.status();
+  }
+  return false;
+}
+
+// TODO: Implement a direct conversion from NUMERIC/BIGNUMERIC to
+// float without converting to double first to avoid the precision loss and
+// wrong results in some cases.
+template <> inline bool Convert<BigNumericValue, float>(
+    const BigNumericValue& in, float* out, zetasql_base::Status* error) {
+  *out = static_cast<float>(in.ToDouble());
+  if (ABSL_PREDICT_FALSE(std::isinf(*out))) {
+    return internal::UpdateError(
+        error, absl::StrCat(internal::kConvertOverflowFloat, in.ToString()));
+  }
+  return true;
+}
+
+template <>
+inline bool Convert<BigNumericValue, double>(const BigNumericValue& in,
+                                             double* out, zetasql_base::Status* error) {
+  *out = in.ToDouble();
+  return true;
+}
+
+template <>
+inline bool Convert<BigNumericValue, NumericValue>(const BigNumericValue& in,
+                                                   NumericValue* out,
+                                                   zetasql_base::Status* error) {
+  const zetasql_base::StatusOr<NumericValue> numeric_value_status = in.ToNumericValue();
+  if (ABSL_PREDICT_TRUE(numeric_value_status.ok())) {
+    *out = numeric_value_status.ValueOrDie();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = numeric_value_status.status();
+  }
+  return false;
+}
+
+template <>
+inline bool Convert<BigNumericValue, bool>(const BigNumericValue& in, bool* out,
+                                           zetasql_base::Status* error) {
+  *out = in != BigNumericValue();
   return true;
 }
 

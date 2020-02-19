@@ -27,6 +27,7 @@ import com.google.zetasqltest.TestSchemaProto.KitchenSinkPB;
 
 import java.util.Arrays;
 import java.util.List;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -139,6 +140,38 @@ public class AnalyzerTest {
     ResolvedExpr resolvedExpr = Analyzer.analyzeExpression(expression, options, catalog);
 
     String expectedResponse = "foo < (CAST(123 AS INT32))"; // Sql builder normalizes expression.
+    String response = Analyzer.buildExpression(resolvedExpr, catalog);
+    assertEquals(expectedResponse, response);
+  }
+
+  @Test
+  public void buildExpressionWithDatePartsRoundTrip() {
+    SimpleCatalog catalog = new SimpleCatalog("foo");
+    catalog.addZetaSQLFunctions(new ZetaSQLBuiltinFunctionOptions());
+
+    AnalyzerOptions options = new AnalyzerOptions();
+
+    String expression = "DATE_TRUNC(DATE \"2008-12-25\", MONTH)";
+    ResolvedExpr resolvedExpr = Analyzer.analyzeExpression(expression, options, catalog);
+
+    String expectedResponse = "DATE_TRUNC(DATE \"2008-12-25\", MONTH)";
+    String response = Analyzer.buildExpression(resolvedExpr, catalog);
+    assertEquals(expectedResponse, response);
+  }
+
+  @Test
+  @Ignore("hack in place to get DateParts working, doesn't work with register; see b/146434918")
+  public void buildExpressionWithDatePartsAndRegisteredCatalogRoundTrip() {
+    SimpleCatalog catalog = new SimpleCatalog("foo");
+    catalog.register();
+    catalog.addZetaSQLFunctions(new ZetaSQLBuiltinFunctionOptions());
+
+    AnalyzerOptions options = new AnalyzerOptions();
+
+    String expression = "DATE_TRUNC(DATE \"2008-12-25\", MONTH)";
+    ResolvedExpr resolvedExpr = Analyzer.analyzeExpression(expression, options, catalog);
+
+    String expectedResponse = "DATE_TRUNC(DATE \"2008-12-25\", MONTH)";
     String response = Analyzer.buildExpression(resolvedExpr, catalog);
     assertEquals(expectedResponse, response);
   }

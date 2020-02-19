@@ -403,6 +403,20 @@ class TVFConnectionArgument {
   const Connection* connection_;  // Not owned.
 };
 
+// This represents a descriptor passed as an input argument to a TVF. It
+// contains a list of column names.
+class TVFDescriptorArgument {
+ public:
+  explicit TVFDescriptorArgument(std::vector<std::string> column_names)
+      : column_names_(std::move(column_names)) {}
+
+  std::vector<std::string> column_names() const { return column_names_; }
+  std::string DebugString() const;
+
+ private:
+  std::vector<std::string> column_names_;
+};
+
 // This represents one input argument to a call to a TVF.
 // Each such call includes zero or more input arguments.
 // Each input argument may be either scalar or relation.
@@ -431,6 +445,11 @@ class TVFInputArgumentType {
   explicit TVFInputArgumentType(const TVFConnectionArgument& connection)
       : kind_(TVFInputArgumentTypeKind::CONNECTION), connection_(connection) {}
 
+  explicit TVFInputArgumentType(
+      const TVFDescriptorArgument& descriptor_argument)
+      : kind_(TVFInputArgumentTypeKind::DESCRIPTOR),
+        descriptor_argument_(descriptor_argument) {}
+
   bool is_scalar() const { return kind_ == TVFInputArgumentTypeKind::SCALAR; }
   bool is_relation() const {
     return kind_ == TVFInputArgumentTypeKind::RELATION;
@@ -439,7 +458,9 @@ class TVFInputArgumentType {
   bool is_connection() const {
     return kind_ == TVFInputArgumentTypeKind::CONNECTION;
   }
-
+  bool is_descriptor() const {
+    return kind_ == TVFInputArgumentTypeKind::DESCRIPTOR;
+  }
   ::zetasql_base::StatusOr<InputArgumentType> GetScalarArgType() const {
     ZETASQL_RET_CHECK(kind_ == TVFInputArgumentTypeKind::SCALAR);
     if (scalar_arg_value_ != nullptr) {
@@ -476,6 +497,11 @@ class TVFInputArgumentType {
     return connection_;
   }
 
+  const TVFDescriptorArgument& descriptor_argument() const {
+    DCHECK(is_descriptor());
+    return descriptor_argument_;
+  }
+
   std::string DebugString() const {
     if (kind_ == TVFInputArgumentTypeKind::RELATION) {
       return relation_.DebugString();
@@ -483,6 +509,8 @@ class TVFInputArgumentType {
       return model_.DebugString();
     } else if (kind_ == TVFInputArgumentTypeKind::CONNECTION) {
       return connection_.DebugString();
+    } else if (kind_ == TVFInputArgumentTypeKind::DESCRIPTOR) {
+      return descriptor_argument_.DebugString();
     } else if (scalar_arg_value_ != nullptr) {
       return InputArgumentType(*scalar_arg_value_).DebugString();
     } else {
@@ -496,7 +524,8 @@ class TVFInputArgumentType {
     CONNECTION,
     MODEL,
     RELATION,
-    SCALAR
+    SCALAR,
+    DESCRIPTOR
   };
   // Defines whether this is a relation, scalar argument or a model.
   const TVFInputArgumentTypeKind kind_;
@@ -507,6 +536,8 @@ class TVFInputArgumentType {
   const TVFRelation relation_ = TVFRelation({});
   const TVFModelArgument model_ = TVFModelArgument(nullptr);
   const TVFConnectionArgument connection_ = TVFConnectionArgument(nullptr);
+  const TVFDescriptorArgument descriptor_argument_ =
+      TVFDescriptorArgument(std::vector<std::string>());
   const Type* scalar_arg_type_ = nullptr;
 
   // This is the literal value for 'scalar_arg_type_', if applicable. We store

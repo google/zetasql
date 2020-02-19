@@ -218,6 +218,7 @@ void SampleCatalog::LoadCatalogImpl(const LanguageOptions& language_options) {
   LoadTemplatedSQLUDFs();
   LoadTableValuedFunctions1();
   LoadTableValuedFunctions2();
+  LoadDescriptorTableValuedFunctions();
   LoadConnectionTableValuedFunctions();
   LoadTableValuedFunctionsWithDeprecationWarnings();
   LoadTemplatedSQLTableValuedFunctions();
@@ -2314,6 +2315,7 @@ void SampleCatalog::LoadTableValuedFunctions2() {
       ARG_TYPE_RELATION, zetasql::FunctionArgumentTypeOptions()
                              .set_cardinality(FunctionArgumentType::OPTIONAL)
                              .set_argument_name("any_relation_arg"));
+
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_named_required_scalar_args"},
       {FunctionArgumentType::RelationWithSchema(
@@ -2381,6 +2383,112 @@ void SampleCatalog::LoadTableValuedFunctions2() {
            /*extra_relation_input_columns_allowed=*/false),
        {named_required_format_arg, named_required_schema_relation_arg},
        /*context_id=*/-1},
+      output_schema_two_types));
+}
+
+void SampleCatalog::LoadDescriptorTableValuedFunctions() {
+  int64_t context_id = 0;
+  const std::vector<OutputColumn> kOutputColumnsAllTypes =
+      GetOutputColumnsForAllTypes(types_);
+
+  TVFRelation output_schema_two_types =
+      GetOutputSchemaWithTwoTypes(kOutputColumnsAllTypes);
+
+  const std::string kInt64a = "int64a";
+  const std::string kInt64b = "int64b";
+
+  // Add a TVF with a table parameter and a descriptor with -1 table offset.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_one_relation_arg_one_descriptor"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType::RelationWithSchema(
+               TVFRelation({TVFRelation::Column(kInt64a, types_->get_int64())}),
+               /*extra_relation_input_columns_allowed=*/true),
+           FunctionArgumentType::AnyDescriptor()},
+          context_id++),
+      output_schema_two_types));
+
+  // Add a TVF with two table parameters, one descriptor with 0 table offset
+  // and one descriptor with 1 table offset.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_two_relations_arg_two_descriptors_resolved_names"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType::RelationWithSchema(
+               TVFRelation({TVFRelation::Column(kInt64a, types_->get_int64())}),
+               /*extra_relation_input_columns_allowed=*/true),
+           FunctionArgumentType::RelationWithSchema(
+               TVFRelation({TVFRelation::Column(kInt64b, types_->get_int64())}),
+               /*extra_relation_input_columns_allowed=*/true),
+           FunctionArgumentType::AnyDescriptor(0),
+           FunctionArgumentType::AnyDescriptor(1)},
+          context_id++),
+      output_schema_two_types));
+
+  // Add a TVF with a table parameter and a descriptor with 0 table offset.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_one_relation_arg_one_descriptor_resolved_names"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType::RelationWithSchema(
+               TVFRelation({TVFRelation::Column(kInt64a, types_->get_int64())}),
+               /*extra_relation_input_columns_allowed=*/true),
+           FunctionArgumentType::AnyDescriptor(0)},
+          context_id++),
+      output_schema_two_types));
+
+  // Add a TVF with a descriptor with 1 table offset and a table parameter.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_one_descriptor_resolved_names_one_relation_arg"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType::AnyDescriptor(1),
+           FunctionArgumentType::RelationWithSchema(
+               TVFRelation({TVFRelation::Column(kInt64a, types_->get_int64()),
+                            TVFRelation::Column(kInt64b, types_->get_int64())}),
+               /*extra_relation_input_columns_allowed=*/true)},
+          context_id++),
+      output_schema_two_types));
+
+  // Add a TVF with a descriptor with 1 table offset and a table parameter with
+  // ambiguous column naming problem.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_one_descriptor_resolved_names_one_relation_arg_ambiguous_naming"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType::AnyDescriptor(1),
+           FunctionArgumentType::RelationWithSchema(
+               TVFRelation({TVFRelation::Column(kInt64a, types_->get_int64()),
+                            TVFRelation::Column(kInt64b, types_->get_int64())}),
+               /*extra_relation_input_columns_allowed=*/true)},
+          context_id++),
+      output_schema_two_types));
+
+  // Add a TVF with a descriptor with 1 table offset, a table parameter and a
+  // descriptor with -1 table offset.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_one_descriptor_resolved_names_one_relation_arg_one_descriptor_arg"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType::AnyDescriptor(1),
+           FunctionArgumentType::RelationWithSchema(
+               TVFRelation({TVFRelation::Column(kInt64a, types_->get_int64())}),
+               /*extra_relation_input_columns_allowed=*/true),
+           FunctionArgumentType::AnyDescriptor()},
+          context_id++),
       output_schema_two_types));
 }
 

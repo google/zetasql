@@ -101,6 +101,9 @@ ARRAY_CONCAT(array_expression_1 [, array_expression_n])
 
 Concatenates one or more arrays with the same element type into a single array.
 
+Note: You can also use the [|| concatenation operator][array-link-to-operators]
+to concatenate arrays.
+
 **Return type**
 
 ARRAY
@@ -741,4 +744,6 @@ FROM items;
 [datamodel-sql-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#standard-sql-tables
 [datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#value-tables
 [array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types#array-type
+
+[array-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators
 

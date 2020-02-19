@@ -640,24 +640,4 @@ TEST(JSONParserTest, FunctionSimple) {
   }
 }
 
-TEST(JSONParserTest, InvalidUtf8WithNullAfterIt) {
-  // Tests to avoid regression in which non-debug builds could remove a prefix
-  // longer than the remainder of the string without triggering an error. If
-  // it so happened that a null character was there, the parser would get stuck
-  // in an infinte loop advancing the pointer 0 bytes each round.
-  absl::string_view badstr("\"\xf0\0\0\0", 2);
-  JSONParser parser(badstr);
-  EXPECT_FALSE(parser.Parse());
-}
-
-// Regression test for http://b/26423321
-TEST(JSONParserTest, NullBytesDontCauseInfiniteLoop) {
-  // Null bytes are allowed in JSON strings. Previously these would result in
-  // an infinite loop inside the SkipWhitespace method. This test verfies that
-  // they no longer do.
-  absl::string_view badstr(u8"\x00\x00\x00\x00", 2);
-  JSONParser parser(badstr);
-  EXPECT_FALSE(parser.Parse());
-}
-
 }  // namespace

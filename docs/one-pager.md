@@ -28,26 +28,33 @@ tab, newline) or comments.
 Identifiers are names that are associated with columns, tables, and other
 database objects.
 
-Identifiers must begin with a letter or an underscore.
-Subsequent characters can be letters, numbers, or underscores. Quoted
-identifiers are identifiers enclosed by backtick (`) characters and can
-contain any character, such as spaces or symbols. However, quoted identifiers
-cannot be empty. [Reserved Keywords](#reserved_keywords) can only be used as
-identifiers if enclosed by backticks.
++  Identifiers must begin with a letter or an underscore character.
++  Subsequent characters can be letters, numbers, or underscores.
++  Identifiers can be enclosed by backtick (`) characters to create
+   quoted identifiers.
+    +  Quoted identifiers can contain any character, such as spaces or symbols.
+    +  Quoted identifiers cannot be empty.
+    +  Quoted identifiers have the same escape sequences as
+       [string literals][string-literals].
++  Both identifiers and quoted identifiers are case insensitive, with some
+   nuances. See [Case Sensitivity][case-sensitivity] for further details.
++  [Reserved Keywords](#reserved_keywords) can only be used as quoted
+   identifiers. 
++  Table name identifiers have additional syntax to support dashes (-) when
+   referenced in`FROM` and `TABLE` clauses.
 
-Syntax (defined here as a regular expression):
+**Examples**
 
-<code>[A-Za-z\_][A-Za-z\_0-9]\*</code>
-
-Examples:
+These are valid identifiers:
 
 ```
 Customers5
 _dataField1
 ADGROUP
+`tableName~`
 ```
 
-Invalid examples:
+These are invalid identifiers:
 
 ```
 5Customers
@@ -60,11 +67,16 @@ contains the special character "!" which is not a letter, number, or underscore.
 `GROUP` is a reserved keyword, and therefore cannot be used as an identifier
 without being enclosed by backtick characters.
 
-Both identifiers and quoted identifiers are case insensitive, with some
-nuances. See [Case Sensitivity][case-sensitivity] for further details.
+You do not need to enclose table names that include dashes
+with backticks. These are equivalent:
 
-Quoted identifiers have the same escape sequences as string literals,
-defined below.
+```sql
+SELECT * FROM data-customers-287.mydatabase.mytable
+```
+
+```sql
+SELECT * FROM `data-customers-287`.mydatabase.mytable
+```
 
 <a id=literals></a>
 ### Literals
@@ -859,6 +871,7 @@ WHERE book = "Ulysses";
 
 [case-sensitivity]: #case_sensitivity
 [time-zone]: #timezone
+[string-literals]: #string_and_bytes_literals
 [query-reference]: https://github.com/google/zetasql/blob/master/docs/query-syntax
 
 [functions-reference]: #function-reference
@@ -1582,6 +1595,15 @@ Array Functions
 <td>Division</td>
 <td>Binary</td>
 </tr>
+
+<tr>
+<td>&nbsp;</td>
+<td>||</td>
+<td>STRING, BYTES, or ARRAY&#60;T&#62;</td>
+<td>Concatenation operator</td>
+<td>Binary</td>
+</tr>
+
 <tr>
 <td>4</td>
 <td>+</td>
@@ -2338,6 +2360,37 @@ otherwise.</td>
 <td>BOOL</td>
 <td>Returns TRUE if the BOOL operand evaluates to FALSE. Returns FALSE
 otherwise.</td>
+</tr>
+</tbody>
+</table>
+
+#### Concatenation operator
+
+The concatenation operator combines multiple values into one.
+
+<table>
+<thead>
+<tr>
+<th>Function Syntax</th>
+<th>Input Data Type</th>
+<th>Result Data Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td><pre>STRING || STRING [ || ... ]</pre></td>
+<td>STRING</td>
+<td>STRING</td>
+</tr>
+<tr>
+  <td><pre>BYTES || BYTES [ || ... ]</pre></td>
+<td>BYTES</td>
+<td>STRING</td>
+</tr>
+<tr>
+  <td><pre>ARRAY&#60;T&#62; || ARRAY&#60;T&#62; [ || ... ]</pre></td>
+<td>ARRAY&#60;T&#62;</td>
+<td>ARRAY&#60;T&#62;</td>
 </tr>
 </tbody>
 </table>
@@ -15768,6 +15821,10 @@ CONCAT(value1[, ...])
 Concatenates one or more values into a single result. All values must be
 `BYTES` or data types that can be cast to `STRING`.
 
+Note: You can also use the
+[|| concatenation operator][string-link-to-operators] to concatenate
+values into a string.
+
 **Return type**
 
 STRING or BYTES
@@ -17946,6 +18003,10 @@ FROM items;
 [string-link-to-from-hex]: #from_hex
 [string-link-to-to-hex]: #to_hex
 
+[string-link-to-operators]: #operators
+
+[string-link-to-operators]: #operators
+
 ## JSON functions
 
 ZetaSQL supports functions that help you retrieve data stored in
@@ -18634,6 +18695,9 @@ ARRAY_CONCAT(array_expression_1 [, array_expression_n])
 
 Concatenates one or more arrays with the same element type into a single array.
 
+Note: You can also use the [|| concatenation operator][array-link-to-operators]
+to concatenate arrays.
+
 **Return type**
 
 ARRAY
@@ -19275,10 +19339,13 @@ FROM items;
 [datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#value-tables
 [array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types#array-type
 
+[array-link-to-operators]: #operators
+
 [subqueries]: #subqueries
 [datamodel-sql-tables]: #standard-sql-tables
 [datamodel-value-tables]: #value-tables
 [array-data-type]: #array-type
+[array-link-to-operators]: #operators
 
 ## Date functions
 

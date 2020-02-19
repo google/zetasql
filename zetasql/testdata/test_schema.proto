@@ -737,6 +737,9 @@ message FieldFormatsProto {
   optional bytes b_numeric = 914 [(zetasql.format) = NUMERIC];
   repeated bytes repeated_b_numeric = 915 [(zetasql.format) = NUMERIC];
 
+  optional bytes b_bignumeric = 916 [(zetasql.format) = BIGNUMERIC];
+  repeated bytes repeated_b_bignumeric = 917 [(zetasql.format) = BIGNUMERIC];
+
   extensions 1000;
 }
 

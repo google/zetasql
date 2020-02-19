@@ -54,6 +54,10 @@ class AnalyzerHelper {
     return fileDescriptorSetsBuilder;
   }
 
+  /**
+   * Includes a hack to allow DatePart enums to be properly serialized, however this doesn't support
+   * registered catalogs.
+   */
   public static FileDescriptorSetsBuilder serializeSimpleCatalog(
       SimpleCatalog catalog, BuildSqlRequest.Builder request) {
     FileDescriptorSetsBuilder fileDescriptorSetsBuilder;
@@ -62,6 +66,7 @@ class AnalyzerHelper {
       request.setRegisteredCatalogId(catalog.getRegisteredId());
     } else {
       fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
+      fileDescriptorSetsBuilder.addAllFileDescriptors(ZetaSQLDescriptorPool.getGeneratedPool());
       request.setSimpleCatalog(catalog.serialize(fileDescriptorSetsBuilder));
       request.addAllFileDescriptorSet(fileDescriptorSetsBuilder.build());
     }

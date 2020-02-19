@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/numeric_value.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "gmock/gmock.h"

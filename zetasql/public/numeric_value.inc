@@ -41,6 +41,8 @@ constexpr uint64_t k1e19 = static_cast<uint64_t>(k1e9) * k1e9 * 10;
 constexpr __int128 k1e38 = static_cast<__int128>(k1e19) * k1e19;
 constexpr __int128 kNumericMax = k1e38 - 1;
 constexpr __int128 kNumericMin = -kNumericMax;
+constexpr uint32_t k5to9  = 1953125;
+constexpr uint32_t k5to10 = 9765625;
 constexpr uint32_t k5to12 = 244140625;
 constexpr uint32_t k5to13 = 1220703125;
 constexpr std::integral_constant<int32_t, internal::k1e9> kSignedScalingFactor{};
@@ -273,6 +275,213 @@ inline void NumericValue::Aggregator::Add(NumericValue value) {
 
 inline void NumericValue::SumAggregator::Add(NumericValue value) {
   sum_ += FixedInt<64, 3>(value.as_packed_int());
+}
+
+inline constexpr unsigned __int128 BigNumericValue::ScalingFactor() {
+  return internal::k1e38;
+}
+
+inline constexpr BigNumericValue::BigNumericValue(
+    std::array<uint64_t, 4> uint_array)
+    : value_(uint_array) {}
+
+inline constexpr BigNumericValue::BigNumericValue(FixedInt<64, 4> value)
+    : value_(value) {}
+
+inline constexpr BigNumericValue::BigNumericValue() {}
+
+inline BigNumericValue::BigNumericValue(int value)
+    : BigNumericValue(static_cast<long long>(value)) {}  // NOLINT
+
+inline BigNumericValue::BigNumericValue(unsigned int value)
+    : BigNumericValue(static_cast<unsigned long long>(value)) {}  // NOLINT
+
+inline BigNumericValue::BigNumericValue(long value)      // NOLINT
+    : BigNumericValue(static_cast<long long>(value)) {}  // NOLINT
+
+inline BigNumericValue::BigNumericValue(unsigned long value)      // NOLINT
+    : BigNumericValue(static_cast<unsigned long long>(value)) {}  // NOLINT
+
+inline BigNumericValue::BigNumericValue(long long value)  // NOLINT
+    : value_(ExtendAndMultiply(FixedInt<64, 1>(static_cast<int64_t>(value)),
+                               FixedInt<64, 2>(internal::k1e38))) {}
+
+inline BigNumericValue::BigNumericValue(unsigned long long value)  // NOLINT
+    : value_(ExtendAndMultiply(FixedUint<64, 1>(static_cast<uint64_t>(value)),
+                               FixedUint<64, 2>(ScalingFactor()))) {}
+
+inline BigNumericValue::BigNumericValue(__int128 value)
+    : value_(ExtendAndMultiply(FixedInt<64, 2>(value),
+                               FixedInt<64, 2>(internal::k1e38))) {}
+
+inline BigNumericValue::BigNumericValue(unsigned __int128 value)
+    : value_(ExtendAndMultiply(FixedUint<64, 2>(value),
+                               FixedUint<64, 2>(ScalingFactor()))) {}
+
+inline BigNumericValue::BigNumericValue(NumericValue value)
+    : value_(ExtendAndMultiply(
+          FixedInt<64, 2>(value.as_packed_int()),
+          FixedInt<64, 2>(internal::k1e38 / NumericValue::kScalingFactor))) {}
+
+inline constexpr BigNumericValue BigNumericValue::MaxValue() {
+  return BigNumericValue(FixedInt<64, 4>::max());
+}
+
+inline constexpr BigNumericValue BigNumericValue::MinValue() {
+  return BigNumericValue(FixedInt<64, 4>::min());
+}
+
+inline constexpr BigNumericValue BigNumericValue::FromPackedLittleEndianArray(
+    std::array<uint64_t, 4> uint_array) {
+  return BigNumericValue(uint_array);
+}
+
+inline constexpr const std::array<uint64_t, 4>&
+BigNumericValue::ToPackedLittleEndianArray() const {
+  return value_.number();
+}
+
+inline zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Add(
+    const BigNumericValue& rh) const {
+  BigNumericValue res(this->value_);
+  if (ABSL_PREDICT_FALSE(res.value_.AddOverflow(rh.value_))) {
+    return MakeEvalError() << "BigNumeric overflow: " << ToString() << " + "
+                           << rh.ToString();
+  }
+  return res;
+}
+
+inline zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Subtract(
+    const BigNumericValue& rh) const {
+  BigNumericValue res(this->value_);
+  if (ABSL_PREDICT_FALSE(res.value_.SubtractOverflow(rh.value_))) {
+    return MakeEvalError() << "BigNumeric overflow: " << ToString() << " - "
+                           << rh.ToString();
+  }
+  return res;
+}
+
+inline bool BigNumericValue::operator==(const BigNumericValue& rh) const {
+  return value_ == rh.value_;
+}
+
+inline bool BigNumericValue::operator!=(const BigNumericValue& rh) const {
+  return value_ != rh.value_;
+}
+
+inline bool BigNumericValue::operator<(const BigNumericValue& rh) const {
+  return value_ < rh.value_;
+}
+
+inline bool BigNumericValue::operator>(const BigNumericValue& rh) const {
+  return value_ > rh.value_;
+}
+
+inline bool BigNumericValue::operator>=(const BigNumericValue& rh) const {
+  return value_ >= rh.value_;
+}
+
+inline bool BigNumericValue::operator<=(const BigNumericValue& rh) const {
+  return value_ <= rh.value_;
+}
+
+inline zetasql_base::StatusOr<BigNumericValue> BigNumericValue::UnaryMinus(
+    const BigNumericValue& value) {
+  FixedInt<64, 4> result = value.value_;
+  if (ABSL_PREDICT_TRUE(!result.NegateOverflow())) {
+    return BigNumericValue(result);
+  }
+  return MakeEvalError()
+      << "BigNumeric overflow: -(" << value.ToString() << ")";
+}
+
+inline double BigNumericValue::ToDouble() const {
+  return BigNumericValue::RemoveScaleAndConvertToDouble(value_);
+}
+
+inline std::string BigNumericValue::ToString() const {
+  std::string result;
+  AppendToString(&result);
+  return result;
+}
+
+template <int N>
+inline
+FixedUint<64, N - 1>
+BigNumericValue::RemoveScalingFactor(FixedUint<64, N> value) {
+  // The following code computes ROUND(truncated_product / 10^38).
+  // Suppose the theoretical value of truncated_product / 5^38 in binary
+  // format is (x).(y), where x is the integer part, and y is the fractional
+  // part that can have infinite number of bits. Then
+  // truncated_product / 10^38 = (x >> 38).(lower 38 bits of x)(y), and thus
+  // ROUND(truncated_product / 10^38) = (x >> 38) + (38th bit of x).
+  // To compute x = FLOOR(truncated_product / 5^38), we use 3 divisions by
+  // 32-bit constants for optimal performance.
+  value /= std::integral_constant<uint32_t, internal::k5to13>();
+  value /= std::integral_constant<uint32_t, internal::k5to13>();
+  value /= std::integral_constant<uint32_t, internal::k5to12>();
+  // 5^38 > 2^64, so the highest uint64_t must be 0, even after adding 2^38.
+  DCHECK_EQ(value.number()[N - 1], 0);
+  FixedUint<64, N - 1> value_trunc(value);
+  if (value_trunc.number()[0] & (1ULL << 37)) {
+    value_trunc += (uint64_t{1} << 38);
+  }
+  value_trunc >>= 38;
+  return value_trunc;
+}
+
+template<class T>
+inline zetasql_base::StatusOr<T> BigNumericValue::To() const {
+  static_assert(std::is_same<T, int32_t>::value ||
+                std::is_same<T, int64_t>::value ||
+                std::is_same<T, uint32_t>::value ||
+                std::is_same<T, uint64_t>::value,
+                "In BigNumericValue::To<T>() T can only be one of "
+                "int32, int64_t, uint32_t or uint64");
+  bool is_negative = value_.is_negative();
+  FixedUint<64, 4> abs_value = value_.abs();
+  if (abs_value.number()[3] == 0) {
+    FixedUint<64, 2> rounded_value =
+        RemoveScalingFactor(FixedUint<64, 3>(abs_value));
+    if (rounded_value.number()[1] == 0) {
+      unsigned __int128 abs_result = rounded_value.number()[0];
+      __int128 result = is_negative ? -abs_result : abs_result;
+      T truncated_result = static_cast<T>(result);
+      if (result == truncated_result) {
+        return truncated_result;
+      }
+    }
+  }
+  return MakeEvalError() << TypeName<T>() << " out of range: " << ToString();
+}
+
+inline zetasql_base::StatusOr<NumericValue> BigNumericValue::ToNumericValue() const {
+  bool is_negative = value_.is_negative();
+  FixedUint<64, 4> abs_value = value_.abs();
+  // Divide by 10^29 (the difference in scaling factors),
+  // using 5^29 = 5^10 * 5^10 * 5^9, then a shift by 29
+  abs_value /= std::integral_constant<uint32_t, internal::k5to10>();
+  abs_value /= std::integral_constant<uint32_t, internal::k5to10>();
+  abs_value /= std::integral_constant<uint32_t, internal::k5to9>();
+  DCHECK_EQ(abs_value.number()[3], 0);
+  FixedUint<64, 3> abs_value_trunc(abs_value);
+  if (abs_value_trunc.number()[0] & (1ULL << 28)) {
+    abs_value_trunc += (uint64_t{1} << 29);
+  }
+  abs_value_trunc >>= 29;
+  if (abs_value_trunc.number()[2] == 0) {
+     zetasql_base::StatusOr<NumericValue> result =
+       NumericValue::FromFixedUint(abs_value_trunc, is_negative);
+     if (result.ok()) {
+       return *result;
+     }
+  }
+  return MakeEvalError() << "numeric out of range: " << ToString();
+}
+
+template <typename H>
+inline H AbslHashValue(H h, const BigNumericValue& v) {
+  return H::combine(std::move(h), v.value_);
 }
 
 }  // namespace zetasql

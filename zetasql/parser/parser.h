@@ -24,6 +24,7 @@
 
 #include "zetasql/base/arena.h"
 #include "zetasql/parser/ast_node_kind.h"
+#include "zetasql/parser/statement_properties.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "absl/strings/string_view.h"
@@ -75,6 +76,11 @@ class ParserOptions {
   // WARNING: After calling this, calling Parse functions concurrently with
   // the same ParserOptions is no longer allowed.
   void CreateDefaultArenasIfNotSet();
+
+  // Returns true if arena() and id_string_pool() are both non-NULL.
+  bool AllArenasAreInitialized() const {
+    return arena_ != nullptr && id_string_pool_ != nullptr;
+  }
 
   void set_language_options(const LanguageOptions* language_options) {
     language_options_ = language_options;
@@ -242,14 +248,46 @@ std::string Unparse(const ASTNode* root);
 // <*statement_is_ctas> will be set to true iff the query is CREATE
 // TABLE AS SELECT, and false otherwise.
 ASTNodeKind ParseStatementKind(absl::string_view input,
+                               const LanguageOptions& language_options,
                                bool* statement_is_ctas);
 
-// Same as ParseStatementKind, but determines the statement kind for the next
+// Similar to ParseStatementKind, but determines the statement kind for the next
 // statement starting from <resume_location>.
+//
+// <language_options> are used for parsing.
+//
 // <statement_is_ctas> cannot null; its content will be set to true iff
 // the query is CREATE TABLE AS SELECT.
 ASTNodeKind ParseNextStatementKind(const ParseResumeLocation& resume_location,
+                                   const LanguageOptions& language_options,
                                    bool* next_statement_is_ctas);
+
+// DEPRECATED - Parsing semantics depend on LanguageOptions, so migrate to the
+// version above.
+//
+ASTNodeKind ParseNextStatementKind(const ParseResumeLocation& resume_location,
+                                   bool* next_statement_is_ctas);
+
+// Parse the first few keywords from <resume_location> (ignoring whitespace
+// and comments), to determine basic statement properties.
+//
+// Requires that <resume_location> is valid and <parser_options> includes
+// initialized arenas, or an error is returned.
+//
+// Requires that <parser_options> has appropriate LanguageOptions set.
+// Also requires that all arenas are initialized, since the returned
+// <ast_statement_properties> might point at hints that are allocated in
+// those arenas (so the <parser_options> arenas must outlive the returned
+// <ast_statement_properties>).
+//
+// The returned <ast_statement_properties> currently includes the ASTNodeKind,
+// whether the statement is CTAS, the CREATE statement scope (TEMP, etc.) if
+// relevant, and statement level hints.
+zetasql_base::Status ParseNextStatementProperties(
+    const ParseResumeLocation& resume_location,
+    const ParserOptions& parser_options,
+    std::vector<std::unique_ptr<ASTNode>>* allocated_ast_nodes,
+    parser::ASTStatementProperties* ast_statement_properties);
 
 }  // namespace zetasql
 

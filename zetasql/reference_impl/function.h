@@ -28,7 +28,6 @@
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/function.h"
-#include "zetasql/public/functions/hash.h"
 #include "zetasql/public/functions/regexp.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
@@ -457,6 +456,32 @@ class BuiltinAnalyticFunction : public AnalyticFunctionBody {
 
  private:
   FunctionKind kind_;
+};
+
+// Provides a method to look up the implementation class for built-in functions.
+class BuiltinFunctionRegistry {
+ public:
+  BuiltinFunctionRegistry(const BuiltinFunctionRegistry&) = delete;
+  BuiltinFunctionRegistry& operator=(const BuiltinFunctionRegistry&) = delete;
+
+  static zetasql_base::StatusOr<BuiltinScalarFunction*> GetScalarFunction(
+      FunctionKind kind, const Type* output_type);
+
+  // Registers a function implementation for one or more FunctionKinds.
+  static void RegisterScalarFunction(
+      std::initializer_list<FunctionKind> kinds,
+      const std::function<BuiltinScalarFunction*(FunctionKind, const Type*)>&
+          constructor);
+
+ private:
+  BuiltinFunctionRegistry() {}
+
+  using ScalarFunctionConstructor =
+      std::function<BuiltinScalarFunction*(const Type*)>;
+  static absl::flat_hash_map<FunctionKind, ScalarFunctionConstructor>&
+      GetFunctionMap();
+
+  static absl::Mutex mu_;
 };
 
 class ArithmeticFunction : public BuiltinScalarFunction {
@@ -957,25 +982,6 @@ class RandFunction : public SimpleBuiltinScalarFunction {
   mutable absl::BitGen rand_;
 };
 
-class HashFunction : public SimpleBuiltinScalarFunction {
- public:
-  explicit HashFunction(FunctionKind kind);
-  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
-                             EvaluationContext* context) const override;
-
- private:
-  const std::unique_ptr<functions::Hasher> hasher_;
-};
-
-class FarmFingerprintFunction : public SimpleBuiltinScalarFunction {
- public:
-  FarmFingerprintFunction()
-      : SimpleBuiltinScalarFunction(FunctionKind::kFarmFingerprint,
-                                    types::Int64Type()) {}
-  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
-                             EvaluationContext* context) const override;
-};
-
 class ErrorFunction : public SimpleBuiltinScalarFunction {
  public:
   explicit ErrorFunction(const Type* output_type)
@@ -1316,6 +1322,18 @@ class PercentileDiscFunction : public BuiltinAnalyticFunction {
  private:
   bool ignore_nulls_;
 };
+
+// This method is used only for setting non-deterministic output.
+// This method does not detect floating point types within STRUCTs or PROTOs,
+// which would be too expensive to call for each row.
+// Geography type internally contains floating point data, and thus treated
+// the same way for this purpose.
+bool HasFloatingPoint(const Type* type);
+
+// Sets the provided EvaluationContext to have non-deterministic output if the
+// given array has more than one element and is not order-preserving.
+void MaybeSetNonDeterministicArrayOutput(const Value& array,
+                                         EvaluationContext* context);
 
 }  // namespace zetasql
 

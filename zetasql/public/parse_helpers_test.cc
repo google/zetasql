@@ -285,13 +285,21 @@ TEST(IsValidNextStatementSyntaxTest, MultiStatementsTest) {
   EXPECT_EQ(statement_count, 3);
 }
 
-TEST(GetNextStatementKindTest, BasicStatements) {
+TEST(GetNextStatementKindAndPropertiesTest, BasicStatements) {
   for (const ValidTestCase& valid_test_case : GetValidTestCases()) {
     ParseResumeLocation parse_resume_location =
         ParseResumeLocation::FromString(valid_test_case.sql);
     ResolvedNodeKind kind = GetNextStatementKind(parse_resume_location);
     EXPECT_EQ(ResolvedNodeKind_Name(kind),
               ResolvedNodeKind_Name(valid_test_case.statement_kind))
+        << valid_test_case.sql;
+    StatementProperties statement_properties;
+    ZETASQL_ASSERT_OK(GetNextStatementProperties(parse_resume_location,
+                                         LanguageOptions(),
+                                         &statement_properties))
+        << valid_test_case.sql;
+    ASSERT_EQ(ResolvedNodeKind_Name(kind),
+              ResolvedNodeKind_Name(statement_properties.node_kind))
         << valid_test_case.sql;
   }
   for (const ErrorTestCase& invalid_test_case : GetInvalidSyntaxTestCases()) {
@@ -301,6 +309,14 @@ TEST(GetNextStatementKindTest, BasicStatements) {
     EXPECT_EQ(ResolvedNodeKind_Name(kind),
               ResolvedNodeKind_Name(invalid_test_case.statement_kind))
         << invalid_test_case.sql;
+    StatementProperties statement_properties;
+    ZETASQL_ASSERT_OK(GetNextStatementProperties(parse_resume_location,
+                                         LanguageOptions(),
+                                         &statement_properties))
+        << invalid_test_case.sql;
+    ASSERT_EQ(ResolvedNodeKind_Name(kind),
+              ResolvedNodeKind_Name(statement_properties.node_kind))
+        << invalid_test_case.sql;
   }
   for (const OtherTestCase& other_test_case : GetOtherTestCases()) {
     ParseResumeLocation parse_resume_location =
@@ -309,6 +325,112 @@ TEST(GetNextStatementKindTest, BasicStatements) {
     EXPECT_EQ(ResolvedNodeKind_Name(kind),
               ResolvedNodeKind_Name(other_test_case.statement_kind))
         << other_test_case.sql;
+    StatementProperties statement_properties;
+    ZETASQL_ASSERT_OK(GetNextStatementProperties(parse_resume_location,
+                                         LanguageOptions(),
+                                         &statement_properties))
+        << other_test_case.sql;
+    ASSERT_EQ(ResolvedNodeKind_Name(kind),
+              ResolvedNodeKind_Name(statement_properties.node_kind))
+        << other_test_case.sql;
+  }
+}
+
+struct StatementPropertiesTestCase {
+  // The SQL string to test
+  std::string sql;
+
+  // The expected properties of <sql>.
+  ResolvedNodeKind statement_kind;    // The statement's kind
+  StatementProperties::StatementCategory statement_category;  // DDL, DML, etc.
+  bool is_create_temp_object;         // CREATE TEMP TABLE, etc.
+  std::map<std::string, std::string> hint_map;  // Statement level hints.
+};
+
+std::vector<StatementPropertiesTestCase> GetStatementPropertiesTestCases() {
+  return {
+    {"SELECT * FROM T", RESOLVED_QUERY_STMT, StatementProperties::SELECT,
+     false, {},
+    },
+    {"CREATE TABLE T AS SELECT 1", RESOLVED_CREATE_TABLE_AS_SELECT_STMT,
+     StatementProperties::DDL, false, {},
+    },
+    {"CREATE TEMP TABLE T (A INT64);", RESOLVED_CREATE_TABLE_STMT,
+     StatementProperties::DDL, true, {},
+    },
+    {"INSERT INTO FOO VALUES (1,2,3)", RESOLVED_INSERT_STMT,
+     StatementProperties::DML, false, {},
+    },
+    {"EXPORT DATA OPTIONS", RESOLVED_EXPORT_DATA_STMT,
+     StatementProperties::OTHER, false, {},
+    },
+    {"@{a = 4, b = 1 +2} SELECT * FROM T", RESOLVED_QUERY_STMT,
+     StatementProperties::SELECT, false, {{"a", "4"}, {"b", "1 +2"}},
+    },
+    {"@{b = 5, a = 1 +2} SELECT * FROM T", RESOLVED_QUERY_STMT,
+     StatementProperties::SELECT, false, {{"a", "1 +2"}, {"b", "5"}},
+    },
+    {"@2 SELECT * FROM T", RESOLVED_QUERY_STMT,
+     StatementProperties::SELECT, false, {},
+    },
+    {"@{b = 9} CREATE TABLE T AS SELECT 1",
+     RESOLVED_CREATE_TABLE_AS_SELECT_STMT,
+     StatementProperties::DDL, false, {{"b", "9"}},
+    },
+    {"  /**/ @{b = 9} /**/ CREATE TABLE T AS SELECT 1",
+     RESOLVED_CREATE_TABLE_AS_SELECT_STMT,
+     StatementProperties::DDL, false, {{"b", "9"}},
+    }
+  };
+}
+
+TEST(GetNextStatementPropertiesTest, BasicStatements) {
+  for (const StatementPropertiesTestCase& test_case
+           : GetStatementPropertiesTestCases()) {
+    ParseResumeLocation parse_resume_location =
+        ParseResumeLocation::FromString(test_case.sql);
+
+    StatementProperties statement_properties;
+    ZETASQL_ASSERT_OK(GetNextStatementProperties(parse_resume_location,
+                                         LanguageOptions(),
+                                         &statement_properties))
+        << test_case.sql;
+
+    EXPECT_EQ(ResolvedNodeKind_Name(test_case.statement_kind),
+              ResolvedNodeKind_Name(statement_properties.node_kind))
+        << test_case.sql;
+    EXPECT_EQ(test_case.statement_category,
+              statement_properties.statement_category)
+        << test_case.sql;
+    EXPECT_EQ(test_case.is_create_temp_object,
+              statement_properties.is_create_temporary_object)
+        << test_case.sql;
+
+    // Create an ordered map for comparison.
+    std::map<std::string, std::string> statement_properties_hint_map(
+        statement_properties.statement_level_hints.begin(),
+        statement_properties.statement_level_hints.end());
+
+    EXPECT_EQ(test_case.hint_map.size(), statement_properties_hint_map.size())
+        << test_case.sql;
+
+    std::string expected_hints;
+    for (const auto map_entry : test_case.hint_map) {
+      absl::StrAppend(&expected_hints, map_entry.first, "=", map_entry.second,
+                      ";");
+    }
+    std::string fetched_hints;
+    for (const auto map_entry : statement_properties_hint_map) {
+      absl::StrAppend(&fetched_hints, map_entry.first, "=", map_entry.second,
+                    ";");
+    }
+    EXPECT_EQ(expected_hints, fetched_hints) << test_case.sql;
+
+    // Ensure that GetNextStatementKind returns the same kind.
+    ResolvedNodeKind kind = GetNextStatementKind(parse_resume_location);
+    EXPECT_EQ(ResolvedNodeKind_Name(kind),
+              ResolvedNodeKind_Name(statement_properties.node_kind))
+        << test_case.sql;
   }
 }
 

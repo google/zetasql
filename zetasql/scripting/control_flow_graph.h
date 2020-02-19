@@ -45,18 +45,41 @@ class ControlFlowEdge {
     kException,
   };
 
+  // Describes side effects to the execution of the script that happen as a
+  // result of transitioning along a control-flow edge.
+  struct SideEffects {
+    // The names of variables which go out of scope.  For edges which terminate
+    // the script, this does *NOT* include variables in the top-level scope
+    // (but may include variables from any inner blocks which are exited). This
+    // allows script variables to be inspected through
+    // ScriptExecutor::DebugString(), after the script has terminated, which
+    // many tests rely upon.
+    std::set<std::string> destroyed_variables;
+
+    // True if this edge enters an exception handler.  This is possible only
+    // when kind() == Kind::kException and the exception handler is non-empty.
+    bool exception_handler_entered = false;
+
+    // The number of exception handlers exited.  This represents the number of
+    // times that the script executor will need to pop its record of the
+    // "current" exception.  This affects the values of @@error.* system
+    // variables, as well as the details of the exception raised through the
+    // standalone RAISE statement.
+    int num_exception_handlers_exited = 0;
+  };
+
   const ControlFlowGraph* graph() const { return graph_; }
   const ControlFlowNode* predecessor() const { return predecessor_; }
   const ControlFlowNode* successor() const { return successor_; }
   Kind kind() const { return kind_; }
 
-  // Returns a list of variables that get destroyed when this edge executes.
-  std::set<std::string> GetDestroyedVariables() const;
-
-  // Returns the number of exception handlers exited as a result of this edge.
-  int num_exception_handlers_exited() const {
-    return num_exception_handlers_exited_;
-  }
+  // Computes the side effects that result from this edge.
+  // Note: While quick for most practical scripts, this function can take
+  // O(<length of script>) runtime to complete in the worst case, so this
+  // function should be called only when necessary.  Worst-case behavior can be
+  // realized in scripts with an excessive number of nested blocks or variable
+  // declarations.
+  SideEffects ComputeSideEffects() const;
 
   // Returns a single-line debug string of this edge.  Does not include the
   // details of the successor/predecessor nodes.
@@ -66,15 +89,12 @@ class ControlFlowEdge {
   friend class ControlFlowGraphBuilder;
   ControlFlowEdge(const ControlFlowNode* predecessor,
                   const ControlFlowNode* successor, Kind kind,
-                  ControlFlowGraph* graph,
-                  const std::vector<const ASTBeginEndBlock*>& blocks_to_exit,
-                  int num_exception_handlers_exited)
+                  const ASTNode* exit_to, ControlFlowGraph* graph)
       : predecessor_(predecessor),
         successor_(successor),
         kind_(kind),
-        graph_(graph),
-        blocks_to_exit_(blocks_to_exit),
-        num_exception_handlers_exited_(num_exception_handlers_exited) {}
+        exit_to_(exit_to),
+        graph_(graph) {}
 
   // Node which executes prior to this transition (owned by graph_).
   const ControlFlowNode* predecessor_;
@@ -85,16 +105,19 @@ class ControlFlowEdge {
   // Specifies when this transition happens
   Kind kind_;
 
+  // When non-nullptr, indicates that all AST ancestors from <predecessor_>
+  // (inclusive) to <exit_to_> (exclusive), are being exited.  This is used to
+  // calculate the edge's side effects.  A nullptr value indicates that the edge
+  // has no side effects.
+  const ASTNode* exit_to_;
+
   // The underlying ControlFlowGraph.
   ControlFlowGraph* graph_;
-
-  // Blocks exited by this edge.  All variables declared in this blocks go out
-  // of scope when this edge executes.
-  std::vector<const ASTBeginEndBlock*> blocks_to_exit_;
-
-  // Number of exception handlers exited as a result of this edge.
-  int num_exception_handlers_exited_;
 };
+
+// Returns the string-representation of a ControlFlowEdge::Kind enumeration.
+// This function is intended only for debug logging.
+std::string ControlFlowEdgeKindString(ControlFlowEdge::Kind kind);
 
 // A node in a control flow graph representing the execution of one AST node.
 //

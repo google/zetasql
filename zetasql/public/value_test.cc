@@ -545,6 +545,38 @@ TEST_F(ValueTest, Numeric) {
   }
 }
 
+TEST_F(ValueTest, BigNumeric) {
+  EXPECT_TRUE(Value::NullBigNumeric().is_null());
+  EXPECT_EQ(TYPE_BIGNUMERIC, Value::NullBigNumeric().type_kind());
+
+  // Verify that there are no memory leaks.
+  {
+    Value v1(Value::BigNumeric(BigNumericValue(1LL)));
+    EXPECT_EQ(TYPE_BIGNUMERIC, v1.type()->kind());
+    EXPECT_FALSE(v1.is_null());
+    Value v2(v1);
+    EXPECT_EQ(TYPE_BIGNUMERIC, v2.type()->kind());
+    EXPECT_FALSE(v2.is_null());
+  }
+
+  // Test the assignment operator.
+  {
+    Value v1 = Value::BigNumeric(BigNumericValue(100LL));
+    Value v2 = zetasql::values::BigNumeric(100LL);
+    Value v3 = Value::NullBigNumeric();
+    v3 = v1;
+    EXPECT_EQ(TYPE_BIGNUMERIC, v1.type()->kind());
+    EXPECT_EQ(TYPE_BIGNUMERIC, v2.type()->kind());
+    EXPECT_EQ(TYPE_BIGNUMERIC, v3.type()->kind());
+    EXPECT_FALSE(v3.is_null());
+    EXPECT_EQ(BigNumericValue(100LL), v1.bignumeric_value());
+    EXPECT_EQ(BigNumericValue(100LL), v2.bignumeric_value());
+    EXPECT_EQ(BigNumericValue(100LL), v3.bignumeric_value());
+    v1 = Value::Int32(1);
+    EXPECT_EQ(TYPE_BIGNUMERIC, v3.type()->kind());
+  }
+}
+
 TEST_F(ValueTest, GenericAccessors) {
   // Return types.
   static Value v;
@@ -628,6 +660,7 @@ TEST_F(ValueTest, HashCode) {
       Value::NullDouble(), Value::NullBytes(), Value::NullString(),
       Value::NullDate(), Value::NullTimestamp(), Value::NullTime(),
       Value::NullDatetime(), Value::NullGeography(), Value::NullNumeric(),
+      Value::NullBigNumeric(),
       Value::Null(enum_type), Value::Null(other_enum_type),
       Value::Null(proto_type), Value::Null(other_proto_type),
       Value::Null(types::Int32ArrayType()),
@@ -662,6 +695,8 @@ TEST_F(ValueTest, HashCode) {
           DatetimeValue::FromYMDHMSAndNanos(2018, 2, 14, 16, 36, 11, 2)),
       Value::Numeric(NumericValue(1001LL)),
       Value::Numeric(NumericValue(1002LL)),
+      Value::BigNumeric(BigNumericValue(1001LL)),
+      Value::BigNumeric(BigNumericValue(1002LL)),
       // Enums of two different types.
       values::Enum(enum_type, 0), values::Enum(enum_type, 1),
       values::Enum(other_enum_type, 0), values::Enum(other_enum_type, 1),
@@ -1743,7 +1778,7 @@ TEST_F(ValueTest, ClassAndProtoSize) {
   EXPECT_EQ(16, sizeof(Value))
       << "The size of Value class has changed, please also update the proto "
       << "and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(20, ValueProto::descriptor()->field_count())
+  EXPECT_EQ(21, ValueProto::descriptor()->field_count())
       << "The number of fields in ValueProto has changed, please also update "
       << "the serialization code accordingly.";
   EXPECT_EQ(1, ValueProto::Array::descriptor()->field_count())
@@ -2385,6 +2420,22 @@ TEST_F(ValueTest, Serialize) {
     Value::Numeric(NumericValue::MinValue()),
     Value::Numeric(NumericValue::MaxValue()),
     Value::NullNumeric()}));
+
+  SerializeDeserialize(Value::NullBigNumeric());
+  SerializeDeserialize(Value::BigNumeric(BigNumericValue()));
+  SerializeDeserialize(Value::BigNumeric(BigNumericValue(1LL)));
+  SerializeDeserialize(Value::BigNumeric(BigNumericValue(-1LL)));
+  SerializeDeserialize(Value::BigNumeric(BigNumericValue::MinValue()));
+  SerializeDeserialize(Value::BigNumeric(BigNumericValue::MaxValue()));
+
+  SerializeDeserialize(EmptyArray(types::BigNumericArrayType()));
+  SerializeDeserialize(Array({
+    Value::BigNumeric(BigNumericValue()),
+    Value::BigNumeric(BigNumericValue(-1LL)),
+    Value::BigNumeric(BigNumericValue(1LL)),
+    Value::BigNumeric(BigNumericValue::MinValue()),
+    Value::BigNumeric(BigNumericValue::MaxValue()),
+    Value::NullBigNumeric()}));
 
   SerializeDeserialize(NullString());
   SerializeDeserialize(String("Hello, world!"));

@@ -758,13 +758,18 @@ void Serialize(const std::array<Word, kNumWords>& number, char extension,
   }
   const char* src = reinterpret_cast<const char*>(little_endian_number.data());
 #endif
-  size_t copy_size = sizeof(number);
-  while (copy_size > 1 && src[copy_size - 1] == extension &&
-         // Skip last extension characters if they are redundant.
-         (!is_signed || ((src[copy_size - 2] ^ extension) & '\x80') == 0)) {
-    --copy_size;
+  const char* last_byte = src + sizeof(number) - 1;
+  // Skip last extension characters if they are redundant.
+  while (last_byte > src && *last_byte == extension) {
+    --last_byte;
   }
-  result->append(src, copy_size);
+  // If signed and the last byte has a different sign bit than the extension,
+  // add one extension byte to preserve the sign bit.
+  if (is_signed && last_byte < src + sizeof(number) &&
+      ((*last_byte ^ extension) & '\x80') != 0) {
+    ++last_byte;
+  }
+  result->append(src, last_byte - src + 1);
 }
 
 // Deserialize from minimum number of bytes needed to represent the number.

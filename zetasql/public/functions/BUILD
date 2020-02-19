@@ -90,6 +90,7 @@ cc_test(
         "@com_google_googletest//:gtest_main",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
+        "//zetasql/public:numeric_value",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "@com_google_absl//absl/strings",

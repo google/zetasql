@@ -241,6 +241,7 @@ java_library(
         "@com_google_guava_guava//jar",
         "@com_google_protobuf//:protobuf_java",
         "@io_grpc_grpc_core//jar",
+        "@javax_annotation_javax_annotation_api",
     ],
 )
 

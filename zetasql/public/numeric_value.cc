@@ -49,6 +49,7 @@ namespace {
 // NUMERIC value.
 constexpr int kMaxIntegerDigits = 29;
 constexpr int kMaxFractionalDigits = 9;
+constexpr int kBigNumericMaxFractionalDigits = 38;
 
 constexpr int kBitsPerByte = 8;
 constexpr int kBitsPerUint64 = 64;
@@ -452,6 +453,11 @@ double NumericValue::ToDouble() const {
 
 inline unsigned __int128 Scalemantissa(uint64_t mantissa, uint32_t scale) {
   return static_cast<unsigned __int128>(mantissa) * scale;
+}
+
+inline FixedUint<64, 4> Scalemantissa(uint64_t mantissa,
+                                      unsigned __int128 scale) {
+  return ExtendAndMultiply(FixedUint<64, 2>(mantissa), FixedUint<64, 2>(scale));
 }
 
 template <typename S, typename T>
@@ -961,6 +967,10 @@ std::string NumericValue::SerializeAsProtoBytes() const {
   return ret;
 }
 
+void NumericValue::SerializeAndAppendToProtoBytes(std::string* bytes) const {
+  FixedInt<64, 2>(as_packed_int()).SerializeToBytes(bytes);
+}
+
 zetasql_base::StatusOr<NumericValue> NumericValue::DeserializeFromProtoBytes(
     absl::string_view bytes) {
   FixedInt<64, 2> value;
@@ -1309,5 +1319,201 @@ NumericValue::CorrelationAggregator::DeserializeFromProtoBytes(
   return MakeEvalError()
          << "Invalid NumericValue::CorrelationAggregator encoding";
 }
+
+inline zetasql_base::Status MakeInvalidBigNumericError(absl::string_view str) {
+  return MakeEvalError() << "Invalid BIGNUMERIC value: " << str;
+}
+
+zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Multiply(
+    const BigNumericValue& rh) const {
+  bool lh_negative = value_.is_negative();
+  bool rh_negative = rh.value_.is_negative();
+  FixedUint<64, 8> abs_result_64x8 =
+      ExtendAndMultiply(value_.abs(), rh.value_.abs());
+  if (ABSL_PREDICT_TRUE(abs_result_64x8.number()[6] == 0) &&
+      ABSL_PREDICT_TRUE(abs_result_64x8.number()[7] == 0)) {
+    FixedUint<64, 5> abs_result_64x5 =
+        RemoveScalingFactor(FixedUint<64, 6>(abs_result_64x8));
+    if (ABSL_PREDICT_TRUE(abs_result_64x5.number()[4] == 0)) {
+      FixedInt<64, 4> result;
+      FixedUint<64, 4> abs_result_64x4(abs_result_64x5);
+      if (ABSL_PREDICT_TRUE(result.SetSignAndAbs(lh_negative != rh_negative,
+                                                 abs_result_64x4))) {
+        return BigNumericValue(result);
+      }
+    }
+  }
+  return MakeEvalError() << "BigNumeric overflow: " << ToString() << " * "
+                         << rh.ToString();
+}
+
+zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Divide(
+    const BigNumericValue& rh) const {
+  bool lh_negative = value_.is_negative();
+  bool rh_negative = rh.value_.is_negative();
+  if (ABSL_PREDICT_TRUE(!rh.value_.is_zero())) {
+    FixedUint<64, 4> abs_value = value_.abs();
+    FixedUint<64, 6> rh_abs_value(rh.value_.abs());
+    FixedUint<64, 6> scaled_abs_value =
+        ExtendAndMultiply(abs_value, FixedUint<64, 2>(ScalingFactor()));
+    scaled_abs_value.DivAndRoundAwayFromZero(rh_abs_value);
+    if (ABSL_PREDICT_TRUE(scaled_abs_value.number()[4] == 0 &&
+                          scaled_abs_value.number()[5] == 0)) {
+      FixedUint<64, 4> abs_result(scaled_abs_value);
+      FixedInt<64, 4> result;
+      if (ABSL_PREDICT_TRUE(
+              result.SetSignAndAbs(lh_negative != rh_negative, abs_result))) {
+        return BigNumericValue(result);
+      }
+    }
+    return MakeEvalError() << "BigNumeric overflow: " << ToString() << " / "
+                           << rh.ToString();
+  }
+  return MakeEvalError() << "division by zero: " << ToString() << " / "
+                         << rh.ToString();
+}
+
+double BigNumericValue::RemoveScaleAndConvertToDouble(
+    const FixedInt<64, 4>& value) {
+  bool is_negative = value.is_negative();
+  FixedUint<64, 4> abs_value = value.abs();
+  int num_32bit_words = FixedUint<32, 8>(abs_value).NonZeroLength();
+  static constexpr std::array<uint32_t, 14> kPowersOf5 =
+      PowersAsc<uint32_t, 1, 5, 14>();
+  double binary_scaling_factor = 1;
+  // To ensure precision, the number should have more than 54 bits after scaled
+  // down by the all factors as 5 in scaling factor (5^38, 89 bits). Since
+  // dividing the double by 2 won't produce precision loss, the value can be
+  // divided by 5 factors in the scaling factor for 3 times, and divided by all
+  // 2 factors in the scaling factor and binary scaling factor after converted
+  // to double.
+  switch (num_32bit_words) {
+    case 0:
+      return 0;
+    case 1:
+      abs_value <<= 144;
+      // std::exp2, std::pow and std::ldexp are not constexpr.
+      // Use static_cast from integers to compute the value at compile time.
+      binary_scaling_factor = static_cast<double>(__int128{1} << 100) *
+                              static_cast<double>(__int128{1} << 82);
+      break;
+    case 2:
+      abs_value <<= 112;
+      binary_scaling_factor = static_cast<double>(__int128{1} << 100) *
+                              static_cast<double>(__int128{1} << 50);
+      break;
+    case 3:
+      abs_value <<= 80;
+      binary_scaling_factor = static_cast<double>(__int128{1} << 118);
+      break;
+    case 4:
+      abs_value <<= 48;
+      binary_scaling_factor = static_cast<double>(__int128{1} << 86);
+      break;
+    case 5:
+      abs_value <<= 16;
+      binary_scaling_factor = static_cast<double>(__int128{1} << 54);
+      break;
+    default:
+      // shifting bits <= 0
+      binary_scaling_factor = static_cast<double>(__int128{1} << 38);
+  }
+  uint32_t remainder_bits;
+  abs_value.DivMod(std::integral_constant<uint32_t, kPowersOf5[13]>(), &abs_value,
+                   &remainder_bits);
+  uint32_t remainder;
+  abs_value.DivMod(std::integral_constant<uint32_t, kPowersOf5[13]>(), &abs_value,
+                   &remainder);
+  remainder_bits |= remainder;
+  abs_value.DivMod(std::integral_constant<uint32_t, kPowersOf5[12]>(), &abs_value,
+                   &remainder);
+  remainder_bits |= remainder;
+  std::array<uint64_t, 4> n = abs_value.number();
+  n[0] |= (remainder_bits != 0);
+  double result =
+      static_cast<double>(FixedUint<64, 4>(n)) / binary_scaling_factor;
+  return is_negative ? -result : result;
+}
+
+// Parses a textual representation of a BIGNUMERIC value. Returns an error if
+// the given string cannot be parsed as a number or if the textual numeric value
+// exceeds BIGNUMERIC range. If 'is_strict' is true then the function will
+// return an error if there are more that 38 digits in the fractional part,
+// otherwise the number will be rounded to contain no more than 38 fractional
+// digits.
+zetasql_base::StatusOr<BigNumericValue> BigNumericValue::FromStringInternal(
+    absl::string_view str, bool is_strict) {
+  ENotationParts parts;
+  int64_t exp;
+  FixedUint<64, 4> abs;
+  BigNumericValue result;
+  if (ABSL_PREDICT_TRUE(SplitENotationParts(str, &parts)) &&
+      ABSL_PREDICT_TRUE(ParseExponent(parts.exp_part,
+                                      kBigNumericMaxFractionalDigits, &exp)) &&
+      ABSL_PREDICT_TRUE(ParseNumber(parts.int_part, parts.fract_part, exp,
+                                    is_strict, &abs)) &&
+      ABSL_PREDICT_TRUE(result.value_.SetSignAndAbs(parts.negative, abs))) {
+    return result;
+  }
+  return MakeInvalidBigNumericError(str);
+}
+
+zetasql_base::StatusOr<BigNumericValue> BigNumericValue::FromStringStrict(
+    absl::string_view str) {
+  return FromStringInternal(str, /*is_strict=*/true);
+}
+
+zetasql_base::StatusOr<BigNumericValue> BigNumericValue::FromString(
+    absl::string_view str) {
+  return FromStringInternal(str, /*is_strict=*/false);
+}
+
+size_t BigNumericValue::HashCode() const {
+  return absl::Hash<BigNumericValue>()(*this);
+}
+
+zetasql_base::StatusOr<BigNumericValue> BigNumericValue::FromDouble(double value) {
+  if (ABSL_PREDICT_FALSE(!std::isfinite(value))) {
+    // This error message should be kept consistent with the error message found
+    // in .../public/functions/convert.h.
+    if (std::isnan(value)) {
+      // Don't show the negative sign for -nan values.
+      value = std::numeric_limits<double>::quiet_NaN();
+    }
+    return MakeEvalError() << "Illegal conversion of non-finite floating point "
+                              "number to BigNumeric: "
+                           << value;
+  }
+  FixedInt<64, 4> result;
+  if (ScaleAndRoundAwayFromZero(ScalingFactor(), value, &result)) {
+    return BigNumericValue(result);
+  }
+  return MakeEvalError() << "BigNumeric out of range: " << value;
+}
+
+void BigNumericValue::AppendToString(std::string* output) const {
+  if (value_.is_zero()) {
+    output->push_back('0');
+    return;
+  }
+  size_t old_size = output->size();
+  value_.AppendToString(output);
+  size_t first_digit_index = old_size + value_.is_negative();
+  AddDecimalPointAndAdjustZeros(first_digit_index, 38, output);
+}
+
+void BigNumericValue::SerializeAndAppendToProtoBytes(std::string* bytes) const {
+  value_.SerializeToBytes(bytes);
+}
+
+zetasql_base::StatusOr<BigNumericValue> BigNumericValue::DeserializeFromProtoBytes(
+    absl::string_view bytes) {
+  BigNumericValue out;
+  if (out.value_.DeserializeFromBytes(bytes)) {
+    return out;
+  }
+  return MakeEvalError() << "Invalid BigNumericValue encoding";
+}
+
 
 }  // namespace zetasql

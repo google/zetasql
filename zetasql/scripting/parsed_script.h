@@ -23,6 +23,7 @@
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/type.h"
 #include "zetasql/scripting/break_continue_context.h"
+#include "zetasql/scripting/control_flow_graph.h"
 #include "absl/base/macros.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/declare.h"
@@ -41,12 +42,6 @@ class ParsedScript {
   // Maps an ASTNode pointer to the child index of that node, relative
   // to its parent.  For each statement s, s->parent()->child(map[s]) == s.
   using NodeIndexMap = absl::flat_hash_map<const ASTNode*, int>;
-
-  // Mapping of each break/continue statement to a BreakContinueContext
-  // structure.  All node pointers within each BreakContinueContext are
-  // owend by <parser_output_>.
-  using BreakContinueMap = absl::flat_hash_map<const ASTBreakContinueStatement*,
-                                               BreakContinueContext>;
 
   // Mapping of variable name to ASTType.
   using VariableTypeMap =
@@ -109,8 +104,8 @@ class ParsedScript {
 
   const NodeIndexMap& node_index_map() const { return node_index_map_; }
 
-  const BreakContinueMap& break_continue_map() const {
-    return break_continue_map_;
+  const ControlFlowGraph& control_flow_graph() const {
+    return *control_flow_graph_;
   }
 
   StringSet GetNamedParameters(const ParseLocationRange& range) const;
@@ -190,17 +185,13 @@ class ParsedScript {
   // <parser_output_> owns the lifetime of all ASTStatement objects in the map.
   NodeIndexMap node_index_map_;
 
-  // Map associating each BREAK/CONTINUE statement in the script with
-  // information needed by the script executor to execute it.
-  //
-  // <parser_output_> owns the lifetime of all objects in the map.
-  BreakContinueMap break_continue_map_;
-
   // Routine arguments existing from the beginning the script.
   ArgumentTypeMap routine_arguments_;
 
   NamedQueryParameterMap named_query_parameters_;
   std::map<ParseLocationPoint, int64_t> positional_query_parameters_;
+
+  std::unique_ptr<const ControlFlowGraph> control_flow_graph_;
 };
 
 }  // namespace zetasql

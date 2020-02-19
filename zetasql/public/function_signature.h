@@ -92,6 +92,11 @@ class FunctionArgumentTypeOptions {
   bool has_relation_input_schema() const {
     return relation_input_schema_ != nullptr;
   }
+
+  const std::optional<int> get_resolve_descriptor_names_table_offset() const {
+    return descriptor_resolution_table_offset_;
+  }
+
   const TVFRelation& relation_input_schema() const {
     DCHECK(has_relation_input_schema());
     return *relation_input_schema_;
@@ -171,6 +176,11 @@ class FunctionArgumentTypeOptions {
   FunctionArgumentTypeOptions& set_allow_coercion_from(
       std::function<bool(const zetasql::Type*)> allow_coercion_from) {
     allow_coercion_from_ = allow_coercion_from;
+    return *this;
+  }
+  FunctionArgumentTypeOptions& set_resolve_descriptor_names_table_offset(
+      int table_offset) {
+    descriptor_resolution_table_offset_ = table_offset;
     return *this;
   }
 
@@ -302,6 +312,12 @@ class FunctionArgumentTypeOptions {
   // must also be set to true in the ZetaSQL analyzer options.
   absl::optional<ParseLocationRange> argument_type_parse_location_;
 
+  // Optional argument offset for descriptor argument types, which is only
+  // populated for descriptor arguments whose columns should be resolved
+  // from the table argument in the same tvf call at the specified argument
+  // offset. The value must be the offset of an argument with table type.
+  std::optional<int> descriptor_resolution_table_offset_;
+
   // Copyable
 };
 
@@ -360,6 +376,19 @@ class FunctionArgumentType {
   // argument will accept any connection.
   static FunctionArgumentType AnyConnection() {
     return FunctionArgumentType(ARG_TYPE_CONNECTION);
+  }
+
+  // Constructs a descriptor argument type for a table-valued function. This
+  // argument accepts a <table_offset> parameter to indicate if resolving column
+  // names from a table parameter. <table_offset> < 0 means does not resolve
+  // column names. <table_offset> >= 0 means an argument offset.
+  static FunctionArgumentType AnyDescriptor(int table_offset = -1) {
+    FunctionArgumentTypeOptions option =
+        FunctionArgumentTypeOptions(FunctionEnums::REQUIRED);
+    if (table_offset >= 0) {
+      option.set_resolve_descriptor_names_table_offset(table_offset);
+    }
+    return FunctionArgumentType(ARG_TYPE_DESCRIPTOR, option);
   }
 
   // Construct a relation argument type for a table-valued function.
@@ -440,6 +469,10 @@ class FunctionArgumentType {
   }
   bool IsVoid() const { return kind_ == ARG_TYPE_VOID; }
 
+  bool IsDescriptor() const { return kind_ == ARG_TYPE_DESCRIPTOR; }
+  std::optional<int> GetDescriptorResolutionTableOffset() const {
+    return options_->get_resolve_descriptor_names_table_offset();
+  }
   // Returns TRUE if kind_ is templated and it is related to the input kind
   // (i.e., the kinds are the same, or one is an array of the other).
   bool TemplatedKindIsRelated(SignatureArgumentKind kind) const;

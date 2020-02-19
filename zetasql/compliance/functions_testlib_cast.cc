@@ -1285,11 +1285,11 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastInteger() {
     {{Int32(int32min)}, Double(int32min)},
     QueryParamsWithResult(
         {Int32(int32max)},
-        Value::Numeric(NumericValue(static_cast<int64_t>(int32max))))
+        Value::Numeric(NumericValue(int32max)))
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
     QueryParamsWithResult(
         {Int32(int32min)},
-        Value::Numeric(NumericValue(static_cast<int64_t>(int32min))))
+        Value::Numeric(NumericValue(int32min)))
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
 
     {{static_cast<int64_t>(int32max)}, Int32(int32max)},
@@ -1330,7 +1330,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastInteger() {
     {{Uint32(0)}, Double(0)},
     QueryParamsWithResult(
         {Uint32(uint32max)},
-        Value::Numeric(NumericValue(static_cast<uint64_t>(uint32max))))
+        Value::Numeric(NumericValue(uint32max)))
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
     QueryParamsWithResult({Uint32(0)}, Value::Numeric(NumericValue()))
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
@@ -1357,11 +1357,11 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastInteger() {
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
 
     QueryParamsWithResult(
-        {Value::Numeric(NumericValue(static_cast<int64_t>(int32max)))},
+        {Value::Numeric(NumericValue(int32max))},
         Int32(int32max))
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
     QueryParamsWithResult(
-        {Value::Numeric(NumericValue(static_cast<int64_t>(int32min)))},
+        {Value::Numeric(NumericValue(int32min))},
         Int32(int32min))
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
     QueryParamsWithResult({Value::Numeric(NumericValue(int64max))},
@@ -1371,7 +1371,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastInteger() {
                           Int64(int64min))
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
     QueryParamsWithResult(
-        {Value::Numeric(NumericValue(static_cast<uint64_t>(uint32max)))},
+        {Value::Numeric(NumericValue(uint32max))},
         Uint32(uint32max))
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
     QueryParamsWithResult({Value::Numeric(NumericValue())}, Uint32(0))
@@ -1428,7 +1428,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastFloat() {
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
     // Smallest positive number.
     QueryParamsWithResult({Float(std::numeric_limits<float>::min())},
-                          Value::Numeric(NumericValue(static_cast<int64_t>(0))))
+                          Value::Numeric(NumericValue(0)))
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
     QueryParamsWithResult(
         {Float(static_cast<float>(NumericValue::MaxValue().ToDouble()))},
@@ -1479,7 +1479,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastFloat() {
         Float(3.14159f))
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
     QueryParamsWithResult(
-        {Value::Numeric(NumericValue(static_cast<int64_t>(3)))}, Float(3))
+        {Value::Numeric(NumericValue(3))}, Float(3))
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
     QueryParamsWithResult({Value::Numeric(NumericValue())},
                           Float(0))
@@ -1521,7 +1521,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastDouble() {
                           Value::Numeric(NumericValue(double_uint64_out)))
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
     QueryParamsWithResult({Double(std::numeric_limits<double>::min())},
-                          Value::Numeric(NumericValue(static_cast<int64_t>(0))))
+                          Value::Numeric(NumericValue(0)))
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
     QueryParamsWithResult({Double(NumericValue::MaxValue().ToDouble())},
                           Value::Numeric(NumericValue::FromDouble(
@@ -1574,7 +1574,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastDouble() {
         Value::Numeric(NumericValue::FromDouble(3.14159).ValueOrDie()))
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
     QueryParamsWithResult(
-        {Value::Numeric(NumericValue(static_cast<int64_t>(3)))}, Double(3))
+        {Value::Numeric(NumericValue(3))}, Double(3))
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
     QueryParamsWithResult({Value::Numeric(NumericValue())},
                           Double(0))
@@ -1590,6 +1590,304 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastDouble() {
     QueryParamsWithResult({Value::Numeric(NumericValue::MinValue())},
                           Double(-1e+29))
         .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+  };
+}
+
+// TODO: Reorganize the test cases once CAST for BIGNUMERIC is
+// implemented.
+std::vector<QueryParamsWithResult> GetFunctionTestsCastBigNumeric() {
+  uint64_t float_uint64_in = uint64max - (1ull << 39);
+  uint64_t float_uint64_out = uint64max - (1ull << 40) + 1;
+  uint64_t double_uint64_in = uint64max - (1ull << 10);
+  uint64_t double_uint64_out = uint64max - (1ull << 11) + 1;
+  const std::set<LanguageFeature> kNumericFeatureSet = {
+      FEATURE_NUMERIC_TYPE, FEATURE_BIGNUMERIC_TYPE};
+  return {
+      // BIGNUMERIC -> BIGNUMERIC
+      QueryParamsWithResult({{Value::BigNumeric(BigNumericValue())},
+                             Value::BigNumeric(BigNumericValue())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{NullBigNumeric()}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+
+      // Other numeric types -> BIGNUMERIC
+      QueryParamsWithResult({Int32(int32max)},
+                            Value::BigNumeric(BigNumericValue(int32max)))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Int32(int32min)},
+                            Value::BigNumeric(BigNumericValue(int32min)))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Int64(int64max)},
+                            Value::BigNumeric(BigNumericValue(int64max)))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Int64(int64min)},
+                            Value::BigNumeric(BigNumericValue(int64min)))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Uint32(uint32max)},
+                            Value::BigNumeric(BigNumericValue(uint32max)))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Uint32(0)}, Value::BigNumeric(BigNumericValue()))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Uint64(uint64max)},
+                            Value::BigNumeric(BigNumericValue(uint64max)))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Uint64(0)}, Value::BigNumeric(BigNumericValue()))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Float(float_uint64_in)},
+          Value::BigNumeric(BigNumericValue(float_uint64_out)))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Float(std::numeric_limits<float>::min())},
+          Value::BigNumeric(BigNumericValue::FromString("1e-38").ValueOrDie()))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Float(std::numeric_limits<float>::max())},
+          Value::BigNumeric(BigNumericValue::FromString(
+                                "340282346638528859811704183484516925440")
+                                .ValueOrDie()))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Float(std::numeric_limits<float>::quiet_NaN())},
+                            NullBigNumeric(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Float(std::numeric_limits<float>::infinity())},
+                            NullBigNumeric(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Float(-std::numeric_limits<float>::infinity())},
+                            NullBigNumeric(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Double(double_uint64_in)},
+          Value::BigNumeric(BigNumericValue(double_uint64_out)))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Double(std::numeric_limits<double>::min())},
+                            Value::BigNumeric(BigNumericValue(0)))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Double(BigNumericValue::MaxValue().ToDouble())},
+          Value::BigNumeric(BigNumericValue::FromString(
+                                "578960446186580955070694765308237840384")
+                                .ValueOrDie()))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Double(std::numeric_limits<double>::max())},
+                            NullBigNumeric(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Double(std::numeric_limits<double>::quiet_NaN())},
+                            NullBigNumeric(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Double(std::numeric_limits<double>::infinity())},
+                            NullBigNumeric(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Double(-std::numeric_limits<double>::infinity())},
+                            NullBigNumeric(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::Numeric(NumericValue(int64max))},
+                            Value::BigNumeric(BigNumericValue(int64max)))
+          .WrapWithFeatureSet(kNumericFeatureSet),
+      QueryParamsWithResult({Value::Numeric(NumericValue(int64min))},
+                            Value::BigNumeric(BigNumericValue(int64min)))
+          .WrapWithFeatureSet(kNumericFeatureSet),
+      QueryParamsWithResult({Value::Numeric(NumericValue(uint64max))},
+                            Value::BigNumeric(BigNumericValue(uint64max)))
+          .WrapWithFeatureSet(kNumericFeatureSet),
+      QueryParamsWithResult({Value::Numeric(NumericValue())},
+                            Value::BigNumeric(BigNumericValue()))
+          .WrapWithFeatureSet(kNumericFeatureSet),
+      QueryParamsWithResult(
+          {Value::Numeric(NumericValue::MinValue())},
+          Value::BigNumeric(BigNumericValue(NumericValue::MinValue())))
+          .WrapWithFeatureSet(kNumericFeatureSet),
+      QueryParamsWithResult(
+          {Value::Numeric(NumericValue::MaxValue())},
+          Value::BigNumeric(BigNumericValue(NumericValue::MaxValue())))
+          .WrapWithFeatureSet(kNumericFeatureSet),
+
+      // BIGNUMERIC -> Other numeric types
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue(int32max))},
+                            Int32(int32max))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue(int32min))},
+                            Int32(int32min))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue(int64max))},
+                            Int64(int64max))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue(int64min))},
+                            Int64(int64min))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue(uint32max))},
+                            Uint32(uint32max))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue())}, Uint32(0))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue(uint64max))},
+                            Uint64(uint64max))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue())}, Uint64(0))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue(uint64max))},
+                            NullInt32(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue(uint64max))},
+                            NullUint32(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue(uint64max))},
+                            NullInt64(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue::MaxValue())},
+                            NullUint64(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue(int64max))},
+                            Value::Numeric(NumericValue(int64max)))
+          .WrapWithFeatureSet(kNumericFeatureSet),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue(int64min))},
+                            Value::Numeric(NumericValue(int64min)))
+          .WrapWithFeatureSet(kNumericFeatureSet),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue(uint64max))},
+                            Value::Numeric(NumericValue(uint64max)))
+          .WrapWithFeatureSet(kNumericFeatureSet),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue())},
+                            Value::Numeric(NumericValue()))
+          .WrapWithFeatureSet(kNumericFeatureSet),
+      QueryParamsWithResult(
+          {Value::BigNumeric(BigNumericValue(NumericValue::MinValue()))},
+          Value::Numeric(NumericValue::MinValue()))
+          .WrapWithFeatureSet(kNumericFeatureSet),
+      QueryParamsWithResult(
+          {Value::BigNumeric(BigNumericValue(NumericValue::MaxValue()))},
+          Value::Numeric(NumericValue::MaxValue()))
+          .WrapWithFeatureSet(kNumericFeatureSet),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue::MinValue())},
+                            NullNumeric(), OUT_OF_RANGE)
+          .WrapWithFeatureSet(kNumericFeatureSet),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue::MaxValue())},
+                            NullNumeric(), OUT_OF_RANGE)
+          .WrapWithFeatureSet(kNumericFeatureSet),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue())}, Float(0))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue(3))}, Float(3))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::BigNumeric(
+              BigNumericValue::FromDouble(3.14159).ValueOrDie())},
+          Float(3.14159f))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::BigNumeric(
+              BigNumericValue::FromDouble(3.9999997).ValueOrDie())},
+          Float(3.9999998f))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      // 2^127 * (2 - 2^(-24) - 2^(-53)) - 1
+      QueryParamsWithResult(
+          {Value::BigNumeric(BigNumericValue::FromStringStrict(
+                                 "-340282356779733642748073463979561713663")
+                                 .ValueOrDie())},
+          Float(std::numeric_limits<float>::lowest()))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::BigNumeric(BigNumericValue::FromStringStrict(
+                                 "340282356779733642748073463979561713663")
+                                 .ValueOrDie())},
+          Float(std::numeric_limits<float>::max()))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue::MaxValue())},
+                            NullFloat(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue::MinValue())},
+                            NullFloat(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue())}, Double(0))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue(3))}, Double(3))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::BigNumeric(
+              BigNumericValue::FromDouble(3.14159).ValueOrDie())},
+          Double(3.14159))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::BigNumeric(
+              BigNumericValue::FromDouble(3.9999999999999997).ValueOrDie())},
+          Double(3.9999999999999995))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue::MaxValue())},
+                            Double(5.7896044618658096e+38))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue::MinValue())},
+                            Double(-5.7896044618658096e+38))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+  };
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsCastBigNumericString() {
+  return {
+      // string->bignumeric
+      QueryParamsWithResult({NullString()}, NullBigNumeric())
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {String("9223372036854775807")},
+          Value::BigNumeric(BigNumericValue(9223372036854775807LL)))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({String("0")}, Value::BigNumeric(BigNumericValue()))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({String("0.0")},
+                            Value::BigNumeric(BigNumericValue()))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {String("-9223372036854775807")},
+          Value::BigNumeric(BigNumericValue(-9223372036854775807LL)))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {String("1e38")},
+          Value::BigNumeric(
+              BigNumericValue::FromStringStrict("1e38").ValueOrDie()))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {String("578960446186580977117854925043439539266."
+                  "34992332820282019728792003956564819967")},
+          Value::BigNumeric(BigNumericValue::FromStringStrict(
+                                "578960446186580977117854925043439539266."
+                                "34992332820282019728792003956564819967")
+                                .ValueOrDie()))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {String("-578960446186580977117854925043439539266."
+                  "34992332820282019728792003956564819968")},
+          Value::BigNumeric(BigNumericValue::FromStringStrict(
+                                "-578960446186580977117854925043439539266."
+                                "34992332820282019728792003956564819968")
+                                .ValueOrDie()))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+
+      // bignumeric->string
+      QueryParamsWithResult({NullBigNumeric()}, NullString())
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::BigNumeric(BigNumericValue(9223372036854775807LL))},
+          String("9223372036854775807"))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue())}, String("0"))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::BigNumeric(BigNumericValue(-9223372036854775807LL))},
+          String("-9223372036854775807"))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::BigNumeric(BigNumericValue::FromStringStrict(
+                                 "578960446186580977117854925043439539266."
+                                 "34992332820282019728792003956564819967")
+                                 .ValueOrDie())},
+          String("578960446186580977117854925043439539266."
+                 "34992332820282019728792003956564819967"))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::BigNumeric(BigNumericValue::FromStringStrict(
+                                 "-578960446186580977117854925043439539266."
+                                 "34992332820282019728792003956564819968")
+                                 .ValueOrDie())},
+          String("-578960446186580977117854925043439539266."
+                 "34992332820282019728792003956564819968"))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
   };
 }
 

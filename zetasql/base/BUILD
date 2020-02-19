@@ -142,7 +142,6 @@ cc_test(
 cc_library(
     name = "status",
     srcs = [
-        "canonical_errors.cc",
         "status.cc",
         "status_builder.cc",
         "status_payload.cc",
@@ -687,5 +686,54 @@ cc_test(
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
+    ],
+)
+
+cc_library(
+    name = "exactfloat",
+    srcs = [
+        "exactfloat.cc",
+    ],
+    hdrs = [
+        "exactfloat.h",
+    ],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "//zetasql/base",
+        "@boringssl//:crypto",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:fixed_array",
+    ],
+)
+
+cc_test(
+    name = "exactfloat_test",
+    srcs = [
+        "exactfloat_test.cc",
+    ],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":exactfloat",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base",
+        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/base:core_headers",
+    ],
+)
+
+cc_test(
+    name = "exactfloat_underflow_test",
+    timeout = "eternal",  # This test does take a long time.
+    srcs = [
+        "exactfloat_underflow_test.cc",
+    ],
+    copts = ["-Wno-sign-compare"],
+    shard_count = 4,
+    deps = [
+        ":exactfloat",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base",
+        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/base:core_headers",
     ],
 )

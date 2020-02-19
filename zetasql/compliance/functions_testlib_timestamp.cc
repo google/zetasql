@@ -5314,12 +5314,15 @@ static std::vector<ParseTimestampTest> GetParseTimestampSpecificTests() {
       // last then this would work.
       {"%EC", "100", "+01", "9999-12-31 23:00:00+00"},
 
-      // %Z takes a time zone name or canonical format time zone.
+      // %Z takes a time zone name or canonical format time zone (with optional
+      // "UTC" prefix).
       {"%Z", "America/Los_Angeles", "UTC", "1970-01-01 00:00:00-08"},
       {"%Z", "+00", "UTC", "1970-01-01 00:00:00+00"},
       {"%Z", "-00", "UTC", "1970-01-01 00:00:00+00"},
       {"%Z", "+00:30", "UTC", "1970-01-01 00:00:00+00:30"},
       {"%Z", "-00:30", "UTC", "1970-01-01 00:00:00-00:30"},
+      {"%Z", "UTC+8:30", "UTC", "1970-01-01 00:00:00+08:30"},
+      {"%Z", "UTC-0540", "UTC", "1970-01-01 00:00:00-05:40"},
       {"%Z", "Z", "UTC", EXPECT_ERROR},
 
       // %z takes a time zone offset of the form +/-HHMM (not a
@@ -5329,6 +5332,7 @@ static std::vector<ParseTimestampTest> GetParseTimestampSpecificTests() {
       {"%z", "-00", "UTC", "1970-01-01 00:00:00+00"},
       {"%z", "+0030", "UTC", "1970-01-01 00:00:00+00:30"},
       {"%z", "-0030", "UTC", "1970-01-01 00:00:00-00:30"},
+      {"%z", "UTC+0030", "UTC", EXPECT_ERROR},
       {"%z", "Z", "UTC", EXPECT_ERROR},
 
       // %Ez takes a time zone offset of the form +/-HH:MM, or 'Z' (but
@@ -5338,6 +5342,7 @@ static std::vector<ParseTimestampTest> GetParseTimestampSpecificTests() {
       {"%Ez", "-00", "UTC", "1970-01-01 00:00:00+00"},
       {"%Ez", "+00:30", "UTC", "1970-01-01 00:00:00+00:30"},
       {"%Ez", "-00:30", "UTC", "1970-01-01 00:00:00-00:30"},
+      {"%Ez", "UTC-00:30", "UTC", EXPECT_ERROR},
       {"%Ez", "Z", "UTC", "1970-01-01 00:00:00+00"},
   });
 
@@ -6029,7 +6034,7 @@ std::vector<FunctionTestCall> GetFunctionTestsExtractFrom() {
     const absl::Weekday weekday = weekday_year.first;
     const absl::CivilYear year(weekday_year.second);
     // Sanity check that the year begins on the expected day.
-    CHECK_EQ(weekday, absl::GetWeekday(absl::CivilDay(year)));
+    CHECK_EQ(weekday, absl::GetWeekday(year));
 
     for (const DateTimestampPart date_part :
          {WEEK, WEEK_MONDAY, WEEK_TUESDAY, WEEK_WEDNESDAY, WEEK_THURSDAY,

@@ -57,6 +57,10 @@ message TVFConnectionProto {
   optional string full_name = 2;
 }
 
+message TVFDescriptorProto {
+  repeated string column_name = 1;
+}
+
 // The fields in here are in FunctionArgumentTypeOptions in the c++ API.
 message FunctionArgumentTypeOptionsProto {
   optional FunctionEnums.ArgumentCardinality cardinality = 1;
@@ -74,6 +78,7 @@ message FunctionArgumentTypeOptionsProto {
   optional ParseLocationRangeProto argument_type_parse_location = 13;
   optional FunctionEnums.ProcedureArgumentMode procedure_argument_mode = 14;
   optional bool argument_name_is_mandatory = 15 [default = false];
+  optional int32 descriptor_resolution_table_offset = 16 [default = -1];
 }
 
 message FunctionArgumentTypeProto {
@@ -147,6 +152,7 @@ message TVFArgumentProto {
   optional TVFRelationProto relation_argument = 2;
   optional TVFModelProto model_argument = 3;
   optional TVFConnectionProto connection_argument = 4;
+  optional TVFDescriptorProto descriptor_argument = 5;
 }
 
 message TVFSignatureOptionsProto {

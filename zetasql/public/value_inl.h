@@ -134,6 +134,27 @@ class Value::NumericRef : public zetasql_base::SimpleReferenceCounted {
   NumericValue value_;
 };
 
+// -------------------------------------------------------------
+// BigNumericRef is ref count wrapper around BigNumericValue.
+// -------------------------------------------------------------
+class Value::BigNumericRef : public zetasql_base::SimpleReferenceCounted {
+ public:
+  BigNumericRef() {}
+  explicit BigNumericRef(const BigNumericValue& value)
+      : value_(value) {
+  }
+
+  BigNumericRef(const BigNumericRef&) = delete;
+  BigNumericRef& operator=(const BigNumericRef&) = delete;
+
+  const BigNumericValue& value() {
+    return value_;
+  }
+
+ private:
+  BigNumericValue value_;
+};
+
 // -------------------------------------------------------
 // StringRef is ref count wrapper around string.
 // -------------------------------------------------------
@@ -184,6 +205,9 @@ inline void Value::Clear() {
       break;
     case TYPE_NUMERIC:
       numeric_ptr_->Unref();
+      break;
+    case TYPE_BIGNUMERIC:
+      bignumeric_ptr_->Unref();
       break;
     case TYPE_PROTO:
       proto_ptr_->Unref();
@@ -268,8 +292,11 @@ inline Value::Value(TypeKind type_kind, std::string value)
 }
 
 inline Value::Value(const NumericValue& numeric)
-    : type_kind_(TYPE_NUMERIC), numeric_ptr_(new NumericRef(numeric)) {
-}
+    : type_kind_(TYPE_NUMERIC), numeric_ptr_(new NumericRef(numeric)) {}
+
+inline Value::Value(const BigNumericValue& bignumeric)
+    : type_kind_(TYPE_BIGNUMERIC),
+      bignumeric_ptr_(new BigNumericRef(bignumeric)) {}
 
 inline Value Value::Struct(const StructType* type,
                            absl::Span<const Value> values) {
@@ -343,6 +370,9 @@ inline Value Value::Datetime(DatetimeValue datetime) {
 inline Value Value::Numeric(NumericValue v) {
   return Value(v);
 }
+inline Value Value::BigNumeric(BigNumericValue v) {
+  return Value(v);
+}
 inline Value Value::Enum(const EnumType* type, int64_t value) {
   return Value(type, value);
 }
@@ -377,6 +407,9 @@ inline Value Value::NullGeography() {
 }
 inline Value Value::NullNumeric() {
   return Value(types::NumericType());
+}
+inline Value Value::NullBigNumeric() {
+  return Value(types::BigNumericType());
 }
 inline Value Value::EmptyGeography() {
   CHECK(false);
@@ -500,6 +533,12 @@ inline const NumericValue& Value::numeric_value() const {
   return numeric_ptr_->value();
 }
 
+inline const BigNumericValue& Value::bignumeric_value() const {
+  CHECK_EQ(TYPE_BIGNUMERIC, type_kind_) << "Not a bignumeric type";
+  CHECK(!is_null_) << "Null value";
+  return bignumeric_ptr_->value();
+}
+
 inline bool Value::empty() const {
   return elements().empty();
 }
@@ -535,7 +574,8 @@ H AbslHashValue(H h, const Value& v) {
 template <typename H>
 H Value::HashValueInternal(H h) const {
   // These codes are picked arbitrarily.
-  static constexpr uint64_t kFloatNanHashCode = 0x739EF9A0B2C15522ull;
+  static constexpr uint64_t kNullHashCode =      0xCBFD5377B126E80Dull;
+  static constexpr uint64_t kFloatNanHashCode =  0x739EF9A0B2C15522ull;
   static constexpr uint64_t kDoubleNanHashCode = 0xA00397BC84F93AA7ull;
   static constexpr uint64_t kGeographyHashCode = 0x98389DC9632631AEull;
 
@@ -586,7 +626,7 @@ H Value::HashValueInternal(H h) const {
   if (!is_valid() || is_null()) {
     // Note that invalid Values have their own TypeKind, so hash codes for
     // invalid Values do not collide with hash codes for NULL values.
-    return h;
+    return H::combine(std::move(h), kNullHashCode);
   }
   switch (type_kind()) {
     case TYPE_INT32: {
@@ -661,6 +701,9 @@ H Value::HashValueInternal(H h) const {
     case TYPE_NUMERIC: {
       return H::combine(std::move(h), numeric_value());
     }
+    case TYPE_BIGNUMERIC: {
+      return H::combine(std::move(h), bignumeric_value());
+    }
     case TYPE_GEOGRAPHY: {
       // We have no good hasher for geography (??)
       // so we just rely on a constant for hashing.
@@ -691,6 +734,10 @@ template <>
 inline Value Value::Make<NumericValue>(NumericValue value) {
   return Value::Numeric(value);
 }
+template <>
+inline Value Value::Make<BigNumericValue>(BigNumericValue value) {
+  return Value::BigNumeric(value);
+}
 
 template <>
 inline Value Value::MakeNull<int32_t>() { return Value::NullInt32(); }
@@ -708,6 +755,10 @@ template <>
 inline Value Value::MakeNull<double>() { return Value::NullDouble(); }
 template <>
 inline Value Value::MakeNull<NumericValue>() { return Value::NullNumeric(); }
+template <>
+inline Value Value::MakeNull<BigNumericValue>() {
+  return Value::NullBigNumeric();
+}
 
 template <> inline int32_t Value::Get<int32_t>() const { return int32_value(); }
 template <> inline int64_t Value::Get<int64_t>() const { return int64_value(); }
@@ -718,6 +769,10 @@ template <> inline float Value::Get<float>() const { return float_value(); }
 template <> inline double Value::Get<double>() const { return double_value(); }
 template <>
 inline NumericValue Value::Get<NumericValue>() const { return numeric_value(); }
+template <>
+inline BigNumericValue Value::Get<BigNumericValue>() const {
+  return bignumeric_value();
+}
 
 namespace values {
 
@@ -752,6 +807,12 @@ inline Value DatetimeFromPacked64Micros(int64_t v) {
 inline Value Numeric(NumericValue v) { return Value::Numeric(v); }
 
 inline Value Numeric(int64_t v) { return Value::Numeric(NumericValue(v)); }
+
+inline Value BigNumeric(BigNumericValue v) { return Value::BigNumeric(v); }
+
+inline Value BigNumeric(int64_t v) {
+  return Value::BigNumeric(BigNumericValue(v));
+}
 
 inline Value Enum(const EnumType* enum_type, int32_t value) {
   return Value::Enum(enum_type, value);
@@ -805,6 +866,7 @@ inline Value NullTime() { return Value::NullTime(); }
 inline Value NullDatetime() { return Value::NullDatetime(); }
 inline Value NullGeography() { return Value::NullGeography(); }
 inline Value NullNumeric() { return Value::NullNumeric(); }
+inline Value NullBigNumeric() { return Value::NullBigNumeric(); }
 inline Value Null(const Type* type) { return Value::Null(type); }
 
 inline Value Invalid() { return Value::Invalid(); }

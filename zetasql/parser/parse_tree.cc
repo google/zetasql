@@ -73,6 +73,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_ASSIGNMENT_FROM_STRUCT] = "AssignmentFromStruct";
   map[AST_BEGIN_STATEMENT] = "BeginStatement";
   map[AST_BETWEEN_EXPRESSION] = "BetweenExpression";
+  map[AST_BIGNUMERIC_LITERAL] = "BigNumericLiteral";
   map[AST_BINARY_EXPRESSION] = "BinaryExpression";
   map[AST_BITWISE_SHIFT_EXPRESSION] = "BitwiseShiftExpression";
   map[AST_BEGIN_END_BLOCK] = "BeginEndBlock";

@@ -1917,13 +1917,14 @@ class Resolver {
       std::shared_ptr<const NameList>* output_name_list);
 
   zetasql_base::StatusOr<ResolvedTVFArg> ResolveTVFArg(
-      const ASTTVFArgument* ast_tvf_arg,
-      const NameScope* external_scope,
+      const ASTTVFArgument* ast_tvf_arg, const NameScope* external_scope,
       const NameScope* local_scope,
       const FunctionArgumentType* function_argument,
       const TableValuedFunction* tvf_catalog_entry,
       std::vector<std::pair<const ASTNamedArgument*, int>>* named_arguments,
-      int arg_num);
+      int arg_num,
+      std::unordered_map<int, std::unique_ptr<const NameScope>>*
+          tvf_table_scope_map);
 
   static zetasql_base::StatusOr<InputArgumentType> GetTVFArgType(
       const ResolvedTVFArg& resolved_tvf_arg);
@@ -2135,6 +2136,24 @@ class Resolver {
   zetasql_base::Status ResolveConnection(
       const ASTPathExpression* path_expr,
       std::unique_ptr<const ResolvedConnection>* resolved_connection);
+
+  // Performs first pass analysis on descriptor object. This
+  // pass includes preserving descriptor column names in ResolvedDescriptor.
+  zetasql_base::Status ResolveDescriptorFirstPass(
+      const ASTDescriptorColumnList* column_list,
+      std::unique_ptr<const ResolvedDescriptor>* resolved_descriptor);
+
+  // This method is used when descriptor objects appear in a TVF call. This
+  // method resolves descriptor_column_name_list within <resolved_descriptor>
+  // from <name_scope>. <name_scope> provides a namescope for the related input
+  // table and populates the descriptor_column_list in <resolved_descriptor>.
+  // <name_scope> must never be nullptr. <ast_tvf_argument> and
+  // <table_argument_offset> are used for error messaging.
+  zetasql_base::Status FinishResolvingDescriptor(
+      const ASTTVFArgument* ast_tvf_argument,
+      const std::unique_ptr<const NameScope>& name_scope,
+      int table_argument_offset,
+      std::unique_ptr<const ResolvedDescriptor>* resolved_descriptor);
 
   // Resolves <path_expr> identified as <alias> as a scan from a table in
   // catalog_ (not from the <scope>). Flag <has_explicit_alias> identifies if
@@ -2962,6 +2981,20 @@ class Resolver {
   // The results of this function are cached in system_variables_catalog_, so
   // only the first call actually populates the catalog.
   Catalog* GetSystemVariablesCatalog();
+
+  // Checks if the signature in the TVF matches input arguments. This method
+  // doesn't support signature overloading and assumes only one signature
+  // supported by the TVF. Returning integer is the index of the matching
+  // signature, in this case, it should always be 0 because this method is using
+  // the first signature to match input arguments; if it doesn't match, this
+  // method return a non-OK status.
+  zetasql_base::StatusOr<int> MatchTVFSignature(
+      const ASTTVF* ast_tvf, const TableValuedFunction* tvf_catalog_entry,
+      const NameScope* external_scope, const NameScope* local_scope,
+      const FunctionResolver& function_resolver,
+      std::unique_ptr<FunctionSignature>* result_signature,
+      std::vector<ResolvedTVFArg>* resolved_tvf_args,
+      SignatureMatchResult* signature_match_result);
 
   // Struct to control the features to be resolved by
   // ResolveCreateTableStmtBaseProperties.

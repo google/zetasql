@@ -68,6 +68,8 @@ const char kExceededPadOutputSize[] =
     "Output of LPAD/RPAD exceeds max allowed output size of 1MB";
 const char kExceededRepeatOutputSize[] =
     "Output of REPEAT exceeds max allowed output size of 1MB";
+const char kExceededReplaceOutputSize[] =
+    "Output of REPLACE exceeds max allowed output size of 1MB";
 
 // Verifies that the string length can be represented in a 32-bit signed int and
 // returns that value. Fitting in an int32_t is a requirement for icu methods.
@@ -88,26 +90,38 @@ static int32_t ClampToInt32Max(int64_t i) {
              : static_cast<int32_t>(i);
 }
 
-static void GlobalStringReplace(absl::string_view s, absl::string_view oldsub,
-                                absl::string_view newsub, std::string* res) {
+static bool GlobalStringReplace(absl::string_view s, absl::string_view oldsub,
+                                absl::string_view newsub, std::string* res,
+                                zetasql_base::Status* error) {
   if (oldsub.empty()) {
+    if (s.length() > kMaxOutputSize) {
+      return internal::UpdateError(error, kExceededReplaceOutputSize);
+    }
     res->append(s.data(), s.length());  // If empty, append the given string.
-    return;
+    return true;
   }
 
   absl::string_view::size_type start_pos = 0;
-  absl::string_view::size_type pos;
   while (true) {
-    pos = s.find(oldsub, start_pos);
+    absl::string_view::size_type pos = s.find(oldsub, start_pos);
     if (pos == absl::string_view::npos) {
       break;
+    }
+    const size_t total_append_size = (pos - start_pos) + newsub.length();
+    if (res->size() + total_append_size > kMaxOutputSize) {
+      return internal::UpdateError(error, kExceededReplaceOutputSize);
     }
     res->append(s.data() + start_pos, pos - start_pos);
     res->append(newsub.data(), newsub.length());
     // Start searching again after the "old".
     start_pos = pos + oldsub.length();
   }
-  res->append(s.data() + start_pos, s.length() - start_pos);
+  const size_t append_size = s.length() - start_pos;
+  if (res->size() + append_size > kMaxOutputSize) {
+    return internal::UpdateError(error, kExceededReplaceOutputSize);
+  }
+  res->append(s.data() + start_pos, append_size);
+  return true;
 }
 
 // Returns an icu::Normalizer2 instance according to the given <normalize_mode>.
@@ -662,8 +676,7 @@ bool ReplaceUtf8(absl::string_view str, absl::string_view oldsub,
                  absl::string_view newsub, std::string* out,
                  zetasql_base::Status* error) {
   out->clear();
-  GlobalStringReplace(str, oldsub, newsub, out);
-  return true;
+  return GlobalStringReplace(str, oldsub, newsub, out, error);
 }
 
 // REPLACE(BYTES, BYTES, BYTES) -> BYTES
@@ -671,8 +684,7 @@ bool ReplaceBytes(absl::string_view str, absl::string_view oldsub,
                   absl::string_view newsub, std::string* out,
                   zetasql_base::Status* error) {
   out->clear();
-  GlobalStringReplace(str, oldsub, newsub, out);
-  return true;
+  return GlobalStringReplace(str, oldsub, newsub, out, error);
 }
 
 template <class Container>

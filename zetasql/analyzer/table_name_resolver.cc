@@ -65,7 +65,7 @@ class TableNameResolver {
       type_factory_(type_factory), catalog_(catalog),
       table_names_(table_names),
       table_resolution_time_info_map_(table_resolution_time_info_map) {
-    DCHECK(analyzer_options_->AreAllArenasInitialized());
+    DCHECK(analyzer_options_->AllArenasAreInitialized());
   }
 
   TableNameResolver(const TableNameResolver&) = delete;

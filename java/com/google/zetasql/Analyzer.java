@@ -82,6 +82,14 @@ public class Analyzer implements Serializable {
         catalog, fileDescriptorSetsBuilder, response);
   }
 
+  /**
+   * Renders expression as a sql string.
+   *
+   * <p>Note, there is a bug that prevents DatePart enum from serializing correctly when @arg
+   * catalog is registered.
+   *
+   * <p>TODO: fix DatePart serializing in registered catalogs.
+   */
   public static String buildExpression(ResolvedExpr expression, SimpleCatalog catalog) {
 
     BuildSqlRequest.Builder request = BuildSqlRequest.newBuilder();

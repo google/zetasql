@@ -42,7 +42,6 @@ java_library(
         "//zetasql/public:type_proto_java_proto",
         "//zetasql/public:value_java_proto",
         "//zetasql/public/proto:type_annotation_java_proto",
-        "//zetasql/resolved_ast:resolved_ast_java_proto",
         "//zetasql/resolved_ast:resolved_node_kind_java_proto",  # buildcleaner: keep
         "//zetasql/testdata:bad_test_schema_java_proto",
         "//zetasql/testdata:test_schema_java_proto",

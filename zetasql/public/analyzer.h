@@ -417,7 +417,7 @@ class AnalyzerOptions {
   void CreateDefaultArenasIfNotSet();
 
   // Returns true if arena() and id_string_pool() are both non-NULL.
-  bool AreAllArenasInitialized() const {
+  bool AllArenasAreInitialized() const {
     return arena_ != nullptr && id_string_pool_ != nullptr;
   }
 

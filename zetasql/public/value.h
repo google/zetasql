@@ -134,6 +134,9 @@ class Value {
   // REQUIRES: numeric type
   const NumericValue& numeric_value() const;
 
+  // REQUIRES: bignumeric type
+  const BigNumericValue& bignumeric_value() const;
+
   // Generic accessor for numeric PODs.
   // REQUIRES: T is one of int32_t, int64_t, uint32_t, uint64_t, bool, float, double.
   // T must match exactly the type_kind() of this value.
@@ -309,6 +312,8 @@ class Value {
 
   static Value Numeric(NumericValue v);
 
+  static Value BigNumeric(BigNumericValue v);
+
   // Generic factory for numeric PODs.
   // REQUIRES: T is one of int32_t, int64_t, uint32_t, uint64_t, bool, float, double.
   template <typename T> inline static Value Make(T value);
@@ -333,6 +338,7 @@ class Value {
   static Value NullDatetime();
   static Value NullGeography();
   static Value NullNumeric();
+  static Value NullBigNumeric();
 
   // Returns an empty but non-null Geography value.
   static Value EmptyGeography();
@@ -407,6 +413,7 @@ class Value {
   friend struct InternalHasher;    // Defined in value.cc
   class GeographyRef;  // Defined in value_inl.h
   class NumericRef;  // Defined in value_inl.h
+  class BigNumericRef;  // Defined in value_inl.h
   class StringRef;  // Defined in value_inl.h
   class ProtoRep;   // Defined in value_inl.h
   class TypedList;  // Defined in value_inl.h
@@ -447,6 +454,8 @@ class Value {
   explicit Value(DatetimeValue datetime);
 
   explicit Value(const NumericValue& numeric);
+
+  explicit Value(const BigNumericValue& bignumeric);
 
   // Constructs an enum.
   Value(const EnumType* enum_type, int64_t value);
@@ -570,6 +579,7 @@ class Value {
     ProtoRep* proto_ptr_;        // Reffed. Used for protos.
     GeographyRef* geography_ptr_;  // Owned. Used for geographies.
     NumericRef* numeric_ptr_;  // Owned. Used for values of TYPE_NUMERIC.
+    BigNumericRef* bignumeric_ptr_;  // Owned. Used for values of TYPE_NUMERIC.
   };
   // Intentionally copyable.
 };
@@ -610,6 +620,8 @@ Value Datetime(DatetimeValue datetime);
 Value DatetimeFromPacked64Micros(int64_t v);
 Value Numeric(NumericValue v);
 Value Numeric(int64_t v);
+Value BigNumeric(BigNumericValue v);
+Value BigNumeric(int64_t v);
 Value Enum(const EnumType* enum_type, int32_t value);
 Value Enum(const EnumType* enum_type, absl::string_view name);
 Value Struct(const StructType* type, absl::Span<const Value> values);
@@ -641,6 +653,7 @@ Value NullTimestamp();
 Value NullTime();
 Value NullDatetime();
 Value NullNumeric();
+Value NullBigNumeric();
 Value Null(const Type* type);
 
 // Constructor for an invalid value.
@@ -659,6 +672,7 @@ Value BytesArray(absl::Span<const std::string> values);
 // Does not take ownership of Cord* values.
 
 Value NumericArray(absl::Span<const NumericValue> values);
+Value BigNumericArray(absl::Span<const BigNumericValue> values);
 
 }  // namespace values
 }  // namespace zetasql

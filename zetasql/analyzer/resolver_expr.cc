@@ -593,6 +593,7 @@ zetasql_base::Status Resolver::ResolveExpr(
     case AST_NULL_LITERAL:
     case AST_DATE_OR_TIME_LITERAL:
     case AST_NUMERIC_LITERAL:
+    case AST_BIGNUMERIC_LITERAL:
       return ResolveLiteralExpr(ast_expr, resolved_expr_out);
 
     case AST_STAR:
@@ -840,6 +841,27 @@ zetasql_base::Status Resolver::ResolveLiteralExpr(
       *resolved_expr_out =
           MakeResolvedLiteral(ast_expr, types::NumericType(),
                               Value::Numeric(value_or_status.ValueOrDie()),
+                              true /* set_has_explicit_type */);
+      return ::zetasql_base::OkStatus();
+    }
+
+    case AST_BIGNUMERIC_LITERAL: {
+      const ASTBigNumericLiteral* literal =
+          ast_expr->GetAsOrDie<ASTBigNumericLiteral>();
+      if (!language().LanguageFeatureEnabled(FEATURE_BIGNUMERIC_TYPE)) {
+        return MakeSqlErrorAt(literal)
+               << "BIGNUMERIC literals are not supported";
+      }
+      std::string unquoted_image;
+      ZETASQL_RETURN_IF_ERROR(ParseStringLiteral(literal->image(), &unquoted_image));
+      auto value_or_status = BigNumericValue::FromStringStrict(unquoted_image);
+      if (!value_or_status.status().ok()) {
+        return MakeSqlErrorAt(literal) << "Invalid BIGNUMERIC literal: "
+                                       << ToStringLiteral(unquoted_image);
+      }
+      *resolved_expr_out =
+          MakeResolvedLiteral(ast_expr, types::BigNumericType(),
+                              Value::BigNumeric(value_or_status.ValueOrDie()),
                               true /* set_has_explicit_type */);
       return ::zetasql_base::OkStatus();
     }
@@ -4461,6 +4483,12 @@ zetasql_base::Status Resolver::FinishResolvingAggregateFunction(
   const std::vector<std::unique_ptr<const ResolvedExpr>>& arg_list =
       (*resolved_function_call)->argument_list();
   if (ast_function_call->distinct()) {
+    if (!function->SupportsDistinctModifier()) {
+      return MakeSqlErrorAt(ast_function_call)
+             << function->QualifiedSQLName(true /* capitalize_qualifier */)
+             << " does not support DISTINCT in arguments";
+    }
+
     if (arg_list.empty()) {
       return MakeSqlErrorAt(ast_function_call)
              << "DISTINCT function call with no arguments is not allowed";

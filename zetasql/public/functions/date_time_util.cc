@@ -28,7 +28,9 @@
 #include "zetasql/public/functions/arithmetics.h"
 #include "zetasql/public/functions/date_time_util_internal.h"
 #include "zetasql/public/type.h"
+#include "zetasql/base/status.h"
 #include "absl/strings/ascii.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/strip.h"
@@ -432,9 +434,18 @@ static bool TimestampFromParts(absl::civil_year_t year, int month, int day,
   return true;
 }
 
-static bool ParseTimeZone(absl::string_view timezone_string,
-                          char* timezone_sign, int* timezone_hour,
-                          int* timezone_minute) {
+// Parse the offset-based time zone format with optional leading 'UTC':
+//   [UTC]+/-HH[[:]MM].
+// and returns time zone offset parts: sign, hour and minute.
+static bool ParseTimeZoneOffsetFormat(absl::string_view timezone_string,
+                                      char* timezone_sign, int* timezone_hour,
+                                      int* timezone_minute) {
+  // Optional "UTC" prefix before offset
+  absl::ConsumePrefix(&timezone_string, "UTC");
+  if (timezone_string.empty()) {
+    return false;
+  }
+
   // Check time zone sign.
   if (timezone_string[0] != '+' && timezone_string[0] != '-') {
     return false;
@@ -450,8 +461,9 @@ static bool ParseTimeZone(absl::string_view timezone_string,
   }
   if (idx >= static_cast<int64_t>(timezone_string.size())) return true;
 
-  if (!ParseCharacter(timezone_string, ':', &idx) ||
-      !CheckRemainingLength(timezone_string, idx, 1 /* remaining_length */) ||
+  // Skip optional ':' minutes delimiter
+  ParseCharacter(timezone_string, ':', &idx);
+  if (!CheckRemainingLength(timezone_string, idx, 1 /* remaining_length */) ||
       !ParseDigits(timezone_string, 1, 2, &idx, timezone_minute)) {
     return false;
   }
@@ -519,11 +531,22 @@ static zetasql_base::Status ParseStringToTimestampParts(
   } else if (str[idx] != '+' && str[idx] != '-') {
     return MakeEvalError() << "Invalid timestamp: '" << str << "'";
   }
+
   if (absl::ClippedSubstr(str, idx).empty()) {
     *string_includes_timezone = false;
     return ::zetasql_base::OkStatus();
   }
+
   *string_includes_timezone = true;
+  // Optional UTC prefix for timezone (preceded by exactly one space)
+  if (absl::StartsWith(str.substr(idx), " UTC")) {
+    idx += 4;
+    // If there is no offset after "UTC", it was simply UTC timezone.
+    if (absl::ClippedSubstr(str, idx).empty()) {
+      *timezone = absl::UTCTimeZone();
+      return zetasql_base::OkStatus();
+    }
+  }
   switch (str[idx]) {
     case '+':
     case '-':
@@ -1170,8 +1193,7 @@ static zetasql_base::Status ExtractFromTimestampInternal(DateTimestampPart part,
       *output = info.cs.day();
       break;
     case DAYOFWEEK:
-      *output = DayOfWeekIntegerSunToSat1To7(
-          absl::GetWeekday(absl::CivilDay(info.cs)));
+      *output = DayOfWeekIntegerSunToSat1To7(absl::GetWeekday(info.cs));
       break;
     case DAYOFYEAR:
       *output = absl::GetYearDay(absl::CivilDay(info.cs));
@@ -1721,6 +1743,100 @@ zetasql_base::Status ConvertTimestampToStringWithoutTruncation(
                                                    out);
 }
 
+// ConvertTimestampToStringWithTruncation is a popular function, because it is
+// used for CASTs from TIMESTAMP to STRING, and in STRING conversion. This
+// function is optimized for this conversion by hardcoding the rules of applying
+// "%E4Y-%m-%d %H:%M:%E(0|3|6)S%Ez" formatting.
+zetasql_base::Status ConvertTimestampMicrosToStringWithTruncation(
+    int64_t timestamp, absl::TimeZone timezone, std::string* out) {
+  absl::Time time = absl::FromUnixMicros(timestamp);
+  if (ABSL_PREDICT_FALSE(!IsValidTime(time))) {
+    return MakeEvalError() << "Invalid timestamp value: " << timestamp;
+  }
+  absl::TimeZone normalized_timezone = GetNormalizedTimeZone(time, timezone);
+
+  absl::TimeZone::CivilInfo info = normalized_timezone.At(time);
+
+  // YYYY-mm-dd HH:MM:SS.ssssss+oo:oo
+  // 01234567890123456789012345678901
+  // 0         1         2         3
+  // Maximum possible string size for the result.
+  static constexpr size_t kFormatYMDHMSSize = 32;
+  out->resize(kFormatYMDHMSSize);
+  char* data = out->data();
+
+  // YYYY-mm-dd HH:MM:SS.ssssss+oooo
+  // 0123456789012345678901234567890
+  // 0         1         2
+  // Carefully put characters corresponding to different parts of formatted
+  // string to the right positions.
+  data[0] = info.cs.year() / 1000 + '0';
+  data[1] = (info.cs.year() % 1000) / 100 + '0';
+  data[2] = (info.cs.year() % 100) / 10 + '0';
+  data[3] = info.cs.year() % 10 + '0';
+  data[4] = '-';
+  data[5] = info.cs.month() / 10 + '0';
+  data[6] = info.cs.month() % 10 + '0';
+  data[7] = '-';
+  data[8] = info.cs.day() / 10 + '0';
+  data[9] = info.cs.day() % 10 + '0';
+  data[10] = ' ';
+  data[11] = info.cs.hour() / 10 + '0';
+  data[12] = info.cs.hour() % 10 + '0';
+  data[13] = ':';
+  data[14] = info.cs.minute() / 10 + '0';
+  data[15] = info.cs.minute() % 10 + '0';
+  data[16] = ':';
+  data[17] = info.cs.second() / 10 + '0';
+  data[18] = info.cs.second() % 10 + '0';
+
+  // Deal with subsecond truncation to 0, 3 or 6 digits.
+  size_t pos = 19;
+  int64_t sub_seconds = timestamp % 1000000;
+  if (sub_seconds < 0) {
+    sub_seconds += 1000000;
+  }
+  if (sub_seconds > 0) {
+    data[19] = '.';
+    if (sub_seconds % 1000 > 0) {
+      for (int i = 5; i >= 0; i--) {
+        data[20 + i] = (sub_seconds % 10) + '0';
+        sub_seconds /= 10;
+      }
+      pos += 7;
+    } else {
+      sub_seconds /= 1000;
+      for (int i = 2; i >= 0; i--) {
+        data[20 + i] = (sub_seconds % 10) + '0';
+        sub_seconds /= 10;
+      }
+      pos += 4;
+    }
+  }
+
+  // Write timezone offset using HH:mm format
+  int32_t second_offset = info.offset;
+  if (info.offset >= 0) {
+    data[pos++] = '+';
+  } else {
+    data[pos++] = '-';
+    second_offset = -second_offset;
+  }
+  int32_t hour_offset = second_offset / 60 / 60;
+  int32_t minute_offset = (second_offset / 60) % 60;
+  data[pos++] = hour_offset / 10 + '0';
+  data[pos++] = hour_offset % 10 + '0';
+  if (minute_offset > 0) {
+    data[pos++] = ':';
+    data[pos++] = minute_offset / 10 + '0';
+    data[pos++] = minute_offset % 10 + '0';
+  }
+  // Initially we resized result for maximum possible size, here we set actual
+  // size.
+  out->resize(pos);
+  return zetasql_base::OkStatus();
+}
+
 zetasql_base::Status ConvertTimestampToStringWithTruncation(int64_t timestamp,
                                                     TimestampScale scale,
                                                     absl::TimeZone timezone,
@@ -2021,8 +2137,8 @@ zetasql_base::Status MakeTimeZone(absl::string_view timezone_string,
   char timezone_sign;
   int timezone_hour;
   int timezone_minute;
-  if (ParseTimeZone(timezone_string, &timezone_sign, &timezone_hour,
-                    &timezone_minute)) {
+  if (ParseTimeZoneOffsetFormat(timezone_string, &timezone_sign, &timezone_hour,
+                                &timezone_minute)) {
     int64_t seconds_offset;
     if (!TimeZonePartsToOffset(timezone_sign, timezone_hour, timezone_minute,
                                kSeconds, &seconds_offset)) {

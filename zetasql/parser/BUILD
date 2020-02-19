@@ -59,6 +59,7 @@ cc_library(
         "parse_tree_errors.h",
         "parse_tree_visitor.h",
         "parser.h",
+        "statement_properties.h",
         "unparser.h",
     ],
     copts = ["-Wno-sign-compare"],
@@ -113,6 +114,7 @@ cc_library(
         "location.hh",
         "position.hh",
         "stack.hh",
+        "statement_properties.h",
     ],
     # The Bison skeleton uses implicit fallthrough, so this won't compile
     # unless we turn the warning off.

@@ -136,6 +136,10 @@ zetasql_base::Status FunctionArgumentType::Deserialize(
                          proto.options().argument_type_parse_location()));
     options.set_argument_type_parse_location(location);
   }
+  if (proto.options().has_descriptor_resolution_table_offset()) {
+    options.set_resolve_descriptor_names_table_offset(
+        proto.options().descriptor_resolution_table_offset());
+  }
   if (proto.kind() == ARG_TYPE_FIXED) {
     const Type* type;
     ZETASQL_RETURN_IF_ERROR(factory->DeserializeFromProtoUsingExistingPools(
@@ -181,6 +185,11 @@ zetasql_base::Status FunctionArgumentType::Serialize(
   if (options().has_max_value()) {
     options_proto->set_max_value(options().max_value());
   }
+  if (options().get_resolve_descriptor_names_table_offset().has_value()) {
+    options_proto->set_descriptor_resolution_table_offset(
+        options().get_resolve_descriptor_names_table_offset().value());
+  }
+
   if (type() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(type()->SerializeToProtoAndDistinctFileDescriptors(
         proto->mutable_type(), file_descriptor_set_map));
@@ -278,6 +287,8 @@ std::string FunctionArgumentType::SignatureArgumentKindToString(
       return "ANY MODEL";
     case ARG_TYPE_CONNECTION:
       return "ANY CONNECTION";
+    case ARG_TYPE_DESCRIPTOR:
+      return "ANY DESCRIPTOR";
     case ARG_TYPE_ARBITRARY:
       return "<arbitrary>";
     case ARG_TYPE_VOID:
@@ -420,6 +431,8 @@ std::string FunctionArgumentType::UserFacingName(
         return "MODEL";
       case ARG_TYPE_CONNECTION:
         return "CONNECTION";
+      case ARG_TYPE_DESCRIPTOR:
+        return "DESCRIPTOR";
       case ARG_TYPE_VOID:
         return "VOID";
       case ARG_TYPE_FIXED:
@@ -832,6 +845,29 @@ zetasql_base::Status FunctionSignature::IsValid() const {
              << NumOptionalArguments() << ") for signature: " << DebugString();
     }
   }
+
+  // Check if descriptor's table offset arguments point to valid table
+  // arguments in the same TVF call.
+  for (int i = 0; i < arguments_.size(); i++) {
+    const FunctionArgumentType& argument_type = arguments_[i];
+    if (argument_type.IsDescriptor() &&
+        argument_type.options()
+            .get_resolve_descriptor_names_table_offset()
+            .has_value()) {
+      int table_offset = argument_type.options()
+                             .get_resolve_descriptor_names_table_offset()
+                             .value();
+      if (table_offset < 0 || table_offset >= arguments_.size() ||
+          !arguments_[table_offset].IsRelation()) {
+        return MakeSqlError()
+               << "The table offset argument (" << table_offset
+               << ") of descriptor at argument (" << i
+               << ") should point to a valid table argument for signature: "
+               << DebugString();
+      }
+    }
+  }
+
   return ::zetasql_base::OkStatus();
 }
 

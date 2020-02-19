@@ -18,6 +18,7 @@
 
 #include <stdlib.h>
 
+#include <array>
 #include <cmath>
 #include <functional>
 #include <limits>
@@ -30,6 +31,8 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/base/casts.h"
+#include <cstdint>
+#include "absl/hash/hash_testing.h"
 #include "absl/numeric/int128.h"
 #include "absl/random/random.h"
 #include "absl/strings/match.h"
@@ -60,6 +63,17 @@ constexpr absl::string_view kInvalidSerializedAggregators[] = {
     "A VERY LONG INVALID ENCODING",
 };
 
+constexpr uint64_t kSorted64BitValues[] = {
+    0,
+    1,
+    1000,
+    (1ull << 32) - 1,
+    (1ull << 32),
+    (1ull << 63) - 1,
+    (1ull << 63),
+    0ull - 1,
+};
+
 using zetasql_base::testing::StatusIs;
 
 constexpr absl::string_view kMinNumericValueStr =
@@ -72,6 +86,7 @@ constexpr __int128 kMaxNumericValuePacked =
     NumericValue::MaxValue().as_packed_int();
 constexpr __int128 k1e9 = 1000000000;
 constexpr __int128 k1e10 = k1e9 * 10;
+constexpr uint64_t kuint64max = std::numeric_limits<uint64_t>::max();
 constexpr int64_t kint64min = std::numeric_limits<int64_t>::min();
 constexpr int64_t kint64max = std::numeric_limits<int64_t>::max();
 using uint128 = unsigned __int128;
@@ -173,8 +188,18 @@ class NumericValueTest : public testing::Test {
 
   void TestSerialize(NumericValue value) {
     std::string bytes = value.SerializeAsProtoBytes();
-    NumericValue deserialized = NumericValue::DeserializeFromProtoBytes(
-        bytes).ValueOrDie();
+    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue deserialized,
+                         NumericValue::DeserializeFromProtoBytes(bytes));
+    EXPECT_EQ(value, deserialized);
+
+    absl::string_view kExistingValue = "existing_value";
+    bytes = kExistingValue;
+    value.SerializeAndAppendToProtoBytes(&bytes);
+    absl::string_view bytes_view = bytes;
+    ASSERT_TRUE(absl::StartsWith(bytes_view, kExistingValue)) << bytes_view;
+    bytes_view.remove_prefix(kExistingValue.size());
+    ZETASQL_ASSERT_OK_AND_ASSIGN(deserialized,
+                         NumericValue::DeserializeFromProtoBytes(bytes_view));
     EXPECT_EQ(value, deserialized);
   }
 
@@ -198,9 +223,6 @@ TEST_F(NumericValueTest, FromPackedInt) {
     EXPECT_EQ(packed, value.as_packed_int());
   }
 
-  constexpr unsigned __int128 kuint128max = ~static_cast<unsigned __int128>(0);
-  constexpr __int128 kint128max = kuint128max >> 1;
-  constexpr __int128 kint128min = ~kint128max;
   static constexpr __int128 kInvalidValues[] = {
       kMinNumericValuePacked - 1,
       kMaxNumericValuePacked + 1,
@@ -547,6 +569,18 @@ NumericValueWrapper operator-(const NumericValueWrapper& src) {
   return result;
 }
 
+// Defines a different type so that GetValue(BigNumericValueWrapper) returns
+// BigNumericValue.
+struct BigNumericValueWrapper : NumericValueWrapper {
+  using NumericValueWrapper::NumericValueWrapper;
+};
+
+BigNumericValueWrapper operator-(const BigNumericValueWrapper& src) {
+  BigNumericValueWrapper result = src;
+  result.negate = !result.negate;
+  return result;
+}
+
 template <typename T>
 zetasql_base::StatusOr<T> GetValue(const T& src) {
   return src;
@@ -569,6 +603,29 @@ zetasql_base::StatusOr<NumericValue> GetValue(const NumericValueWrapper& src) {
   return GetNumericValue<NumericValue>(src);
 }
 
+zetasql_base::StatusOr<BigNumericValue> GetValue(const BigNumericValueWrapper& src) {
+  return GetNumericValue<BigNumericValue>(src);
+}
+
+constexpr Error kBigNumericOverflow("BigNumeric overflow: ");
+constexpr Error kBigNumericOutOfRange("BigNumeric out of range: ");
+constexpr Error kBigNumericIllegalNonFinite(
+    "Illegal conversion of non-finite floating point number to BigNumeric: ");
+
+template <typename Input = BigNumericValueWrapper,
+          typename Output = BigNumericValueWrapper>
+struct BigNumericUnaryOpTestData {
+  Input input;
+  Output expected_output;
+};
+
+template <typename Input2 = BigNumericValueWrapper>
+struct BigNumericBinaryOpTestData {
+  BigNumericValueWrapper input1;
+  Input2 input2;
+  BigNumericValueWrapper expected_output;
+};
+
 // Returns a value that can be used in absl::StrCat.
 template <typename T>
 const T& AlphaNum(const T& src) {
@@ -576,6 +633,7 @@ const T& AlphaNum(const T& src) {
 }
 
 std::string AlphaNum(const NumericValue& src) { return src.ToString(); }
+std::string AlphaNum(const BigNumericValue& src) { return src.ToString(); }
 
 template <typename Input = NumericValueWrapper,
           typename Output = NumericValueWrapper>
@@ -693,6 +751,20 @@ struct NumericToDoubleOp {
     return operand.ToDouble();
   }
   static constexpr absl::string_view kExpressionFormat = "$0";
+};
+
+struct BigNumericToNumericOp {
+  zetasql_base::StatusOr<NumericValue> operator()(
+      const BigNumericValue& operand) const {
+    return operand.ToNumericValue();
+  }
+  static constexpr absl::string_view kExpressionFormat = "$0";
+};
+
+struct NumericToBigNumericOp {
+  BigNumericValue operator()(const NumericValue& operand) const {
+    return BigNumericValue(operand);
+  }
 };
 
 template <typename Output>
@@ -975,16 +1047,114 @@ TEST_F(NumericValueTest, IsTriviallyDestructible) {
 }
 
 TEST_F(NumericValueTest, SerializeSize) {
-  std::string bytes = NumericValue(1).SerializeAsProtoBytes();
-  EXPECT_EQ(4, bytes.size());
-  bytes = NumericValue(-1).SerializeAsProtoBytes();
-  EXPECT_EQ(4, bytes.size());
-  bytes = NumericValue::MaxValue().SerializeAsProtoBytes();
-  EXPECT_EQ(16, bytes.size());
-  bytes = NumericValue::MinValue().SerializeAsProtoBytes();
-  EXPECT_EQ(16, bytes.size());
-  bytes = NumericValue().SerializeAsProtoBytes();
-  EXPECT_EQ(1, bytes.size());
+  struct ExpectedSizes {
+    int size;
+    int negated_value_size_with_new_impl;
+  };
+  static constexpr NumericUnaryOpTestData<NumericValueWrapper, ExpectedSizes>
+      kTestData[] = {
+          {0, {1, 1}},
+          {"0.000000001", {1, 1}},
+          {"0.00000001", {1, 1}},
+          {"0.0000001", {1, 1}},
+          {"0.000000127", {1, 1}},
+          {"0.000000128", {2, 1}},
+          {"0.000000129", {2, 2}},
+          {"0.000001", {2, 2}},
+          {"0.00001", {2, 2}},
+          {"0.000032767", {2, 2}},
+          {"0.000032768", {3, 2}},
+          {"0.000032769", {3, 3}},
+          {"0.0001", {3, 3}},
+          {"0.001", {3, 3}},
+          {"0.008388607", {3, 3}},
+          {"0.008388608", {4, 3}},
+          {"0.008388609", {4, 4}},
+          {"0.01", {4, 4}},
+          {"0.1", {4, 4}},
+          {1, {4, 4}},
+          {"2.147483647", {4, 4}},
+          {"2.147483648", {5, 4}},
+          {"2.147483649", {5, 5}},
+          {10, {5, 5}},
+          {100, {5, 5}},
+          {"549.755813887", {5, 5}},
+          {"549.755813888", {6, 5}},
+          {"549.755813889", {6, 6}},
+          {1000, {6, 6}},
+          {10000, {6, 6}},
+          {100000, {6, 6}},
+          {"140737.488355327", {6, 6}},
+          {"140737.488355328", {7, 6}},
+          {"140737.488355329", {7, 7}},
+          {1000000, {7, 7}},
+          {10000000, {7, 7}},
+          {"36028797.018963967", {7, 7}},
+          {"36028797.018963968", {8, 7}},
+          {"36028797.018963969", {8, 8}},
+          {100000000, {8, 8}},
+          {1000000000, {8, 8}},
+          {"9223372036.854775807", {8, 8}},
+          {"9223372036.854775808", {9, 8}},
+          {"9223372036.854775809", {9, 9}},
+          {"1e10", {9, 9}},
+          {"1e11", {9, 9}},
+          {"1e12", {9, 9}},
+          {"2361183241434.822606847", {9, 9}},
+          {"2361183241434.822606848", {10, 9}},
+          {"2361183241434.822606849", {10, 10}},
+          {"1e13", {10, 10}},
+          {"1e14", {10, 10}},
+          {"604462909807314.587353087", {10, 10}},
+          {"604462909807314.587353088", {11, 10}},
+          {"604462909807314.587353089", {11, 11}},
+          {"1e15", {11, 11}},
+          {"1e16", {11, 11}},
+          {"1e17", {11, 11}},
+          {"154742504910672534.362390527", {11, 11}},
+          {"154742504910672534.362390528", {12, 11}},
+          {"154742504910672534.362390529", {12, 12}},
+          {"1e18", {12, 12}},
+          {"1e19", {12, 12}},
+          {"39614081257132168796.771975167", {12, 12}},
+          {"39614081257132168796.771975168", {13, 12}},
+          {"39614081257132168796.771975169", {13, 13}},
+          {"1e20", {13, 13}},
+          {"1e21", {13, 13}},
+          {"1e22", {13, 13}},
+          {"10141204801825835211973.625643007", {13, 13}},
+          {"10141204801825835211973.625643008", {14, 13}},
+          {"10141204801825835211973.625643009", {14, 14}},
+          {"1e23", {14, 14}},
+          {"1e24", {14, 14}},
+          {"2596148429267413814265248.164610047", {14, 14}},
+          {"2596148429267413814265248.164610048", {15, 14}},
+          {"2596148429267413814265248.164610049", {15, 15}},
+          {"1e25", {15, 15}},
+          {"1e26", {15, 15}},
+          {"664613997892457936451903530.140172287", {15, 15}},
+          {"664613997892457936451903530.140172288", {16, 15}},
+          {"664613997892457936451903530.140172289", {16, 16}},
+          {"1e27", {16, 16}},
+          {"1e28", {16, 16}},
+          {kMaxNumericValueStr, {16, 16}},
+      };
+  for (const auto& data : kTestData) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue value, GetValue(data.input));
+    EXPECT_EQ(data.expected_output.size, value.SerializeAsProtoBytes().size());
+
+    NumericValue negated_value = NumericValue::UnaryMinus(value);
+    EXPECT_EQ(data.expected_output.size,
+              negated_value.SerializeAsProtoBytes().size());
+
+    std::string output;
+    value.SerializeAndAppendToProtoBytes(&output);
+    EXPECT_EQ(data.expected_output.size, output.size());
+    output.clear();
+    negated_value.SerializeAndAppendToProtoBytes(&output);
+    EXPECT_EQ(data.expected_output.negated_value_size_with_new_impl,
+              output.size());
+  }
 }
 
 TEST_F(NumericValueTest, SerializeDeserializeProtoBytes) {
@@ -2528,6 +2698,1061 @@ TEST_F(NumericValueTest, Floor) {
   NumericFloorOp op;
   for (const NumericUnaryOpTestData<>& data : kTestData) {
     TestUnaryOp(op, data.input, data.expected_output);
+  }
+}
+
+class BigNumericValueTest : public NumericValueTest {
+ protected:
+  BigNumericValueTest() {}
+
+  inline BigNumericValue MkBigNumeric(const std::string& str) {
+    return BigNumericValue::FromStringStrict(str).ValueOrDie();
+  }
+
+  BigNumericValue MakeRandomBigNumeric() {
+    uint64_t x_0 = absl::Uniform<uint64_t>(random_);
+    uint64_t x_1 = absl::Uniform<uint64_t>(random_);
+    uint64_t x_2 = absl::Uniform<uint64_t>(random_);
+    uint64_t x_3 = absl::Uniform<uint64_t>(random_);
+    return BigNumericValue::FromPackedLittleEndianArray(
+        std::array<uint64_t, 4>{{x_0, x_1, x_2, x_3}});
+  }
+
+  BigNumericValue MakeRandomTinyBigNumeric() {
+    uint64_t x_0 = absl::Uniform<uint64_t>(random_);
+    uint64_t x_1 = absl::Uniform<uint64_t>(random_);
+    return BigNumericValue::FromPackedLittleEndianArray(
+        std::array<uint64_t, 4>{{x_0, x_1, 0, 0}});
+  }
+
+  void TestComparisonOperators(std::array<uint64_t, 4> x_array,
+                               std::array<uint64_t, 4> y_array) {
+    BigNumericValue x_bignumeric =
+        BigNumericValue::FromPackedLittleEndianArray(x_array);
+    BigNumericValue y_bignumeric =
+        BigNumericValue::FromPackedLittleEndianArray(y_array);
+    FixedInt<64, 4> x(x_array);
+    FixedInt<64, 4> y(y_array);
+    EXPECT_EQ(x_bignumeric == y_bignumeric, x == y);
+    EXPECT_EQ(x_bignumeric != y_bignumeric, x != y);
+    EXPECT_EQ(x_bignumeric < y_bignumeric, x < y);
+    EXPECT_EQ(x_bignumeric > y_bignumeric, x > y);
+    EXPECT_EQ(x_bignumeric <= y_bignumeric, x <= y);
+    EXPECT_EQ(x_bignumeric >= y_bignumeric, x >= y);
+  }
+
+  void TestSerialize(BigNumericValue value) {
+    std::string bytes = value.SerializeAsProtoBytes();
+    EXPECT_LE(bytes.size(), sizeof(BigNumericValue));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue deserialized,
+                         BigNumericValue::DeserializeFromProtoBytes(bytes));
+    EXPECT_EQ(value, deserialized);
+
+    absl::string_view kExistingValue = "existing_value";
+    bytes = kExistingValue;
+    value.SerializeAndAppendToProtoBytes(&bytes);
+    absl::string_view bytes_view = bytes;
+    ASSERT_TRUE(absl::StartsWith(bytes_view, kExistingValue)) << bytes_view;
+    bytes_view.remove_prefix(kExistingValue.size());
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        deserialized, BigNumericValue::DeserializeFromProtoBytes(bytes_view));
+    EXPECT_EQ(value, deserialized);
+  }
+
+  template <typename T>
+  std::string BuildScientificNotationString(T mantissa, int exp) {
+    std::ostringstream oss;
+    oss << mantissa << "e" << exp;
+    return oss.str();
+  }
+
+  template <typename T>
+  void TestRoundTripFromInteger() {
+    for (int i = 0; i < 1000; ++i) {
+      T from_integer = absl::Uniform<std::make_unsigned_t<T>>(random_);
+      BigNumericValue big_numeric_value(from_integer);
+      ZETASQL_ASSERT_OK_AND_ASSIGN(T to_integer, big_numeric_value.To<T>());
+      EXPECT_EQ(from_integer, to_integer) << big_numeric_value.ToString();
+    }
+  }
+
+  absl::BitGen random_;
+};
+
+constexpr absl::string_view kMinBigNumericValueStr =
+    "-578960446186580977117854925043439539266."
+    "34992332820282019728792003956564819968";
+constexpr absl::string_view kMaxBigNumericValueStr =
+    "578960446186580977117854925043439539266."
+    "34992332820282019728792003956564819967";
+constexpr std::array<uint64_t, 4> kMinBigNumericValuePacked =
+    BigNumericValue::MinValue().ToPackedLittleEndianArray();
+constexpr std::array<uint64_t, 4> kMaxBigNumericValuePacked =
+    BigNumericValue::MaxValue().ToPackedLittleEndianArray();
+
+using BigNumericStringTestData =
+    std::pair<absl::string_view, std::array<uint64_t, 4>>;
+constexpr BigNumericStringTestData kSortedBigNumericValueStringPairs[] = {
+    {kMinBigNumericValueStr, kMinBigNumericValuePacked},
+    {"-10000000000000000000",
+     {0xb600000000000000, 0x140234ab79b5257c, 0xd737834a3765da8e, kuint64max}},
+    {"-3.40282366920938463463374607431768211456",
+     {0, 0, kuint64max, kuint64max}},
+    {"-0.0000000000000000000000000000000000001",
+     {kuint64max - 9, kuint64max, kuint64max, kuint64max}},
+    {"-0.00000000000000000000000000000000000001",
+     {kuint64max, kuint64max, kuint64max, kuint64max}},
+    {"0", {0, 0, 0, 0}},
+    {"0.00000000000000000000000000000000000001", {1, 0, 0, 0}},
+    {"0.0000000000000000000000000000000000001", {10, 0, 0, 0}},
+    {"1", {687399551400673280ULL, 5421010862427522170ULL, 0, 0}},
+    {"10", {6873995514006732800ULL, 17316620476856118468ULL, 2, 0}},
+    {"10.01", {1346846287407874048ULL, 17370830585480393690ULL, 2, 0}},
+    {"1000000000", {0x5986800000000000, 0xb4a05bc8a8a4de84, 0x118427b3, 0}},
+    {kMaxBigNumericValueStr, kMaxBigNumericValuePacked},
+};
+constexpr BigNumericStringTestData kBigNumericValueValidFromStringPairs[] = {
+    {"-578960446186580977117854925043439539266349923328202820197287920039565648"
+     "19968e-38",
+     kMinBigNumericValuePacked},
+    {"-0."
+     "5789604461865809771178549250434395392663499233282028201972879200395656481"
+     "9968e39",
+     kMinBigNumericValuePacked},
+    {"-1e19",
+     {0xb600000000000000, 0x140234ab79b5257c, 0xd737834a3765da8e, kuint64max}},
+    {"-0.0000000001e29",
+     {0xb600000000000000, 0x140234ab79b5257c, 0xd737834a3765da8e, kuint64max}},
+    {"-34028236692.0938463463374607431768211456e-10",
+     {0, 0, kuint64max, kuint64max}},
+    {"-0.000000000340282366920938463463374607431768211456e10",
+     {0, 0, kuint64max, kuint64max}},
+    {"-0000003.40282366920938463463374607431768211456",
+     {0, 0, kuint64max, kuint64max}},
+    {"0000000000", {0, 0, 0, 0}},
+    {"   0000   ", {0, 0, 0, 0}},
+    {" 0000e000 ", {0, 0, 0, 0}},
+    {" 00.00e01 ", {0, 0, 0, 0}},
+    {" .00e0002 ", {0, 0, 0, 0}},
+    {" 00.e0003 ", {0, 0, 0, 0}},
+    {" +00e0004 ", {0, 0, 0, 0}},
+    {" -00e0005 ", {0, 0, 0, 0}},
+    {" 000e+006 ", {0, 0, 0, 0}},
+    {" 000e-007 ", {0, 0, 0, 0}},
+    {"  1e-38   ", {1, 0, 0, 0}},
+    {"10000000000e-48", {1, 0, 0, 0}},
+    {"1.0000000e-38", {1, 0, 0, 0}},
+    {"  1e-37   ", {10, 0, 0, 0}},
+    {"  1e+9    ", {0x5986800000000000, 0xb4a05bc8a8a4de84, 0x118427b3, 0}},
+    {"+0.00001e14", {0x5986800000000000, 0xb4a05bc8a8a4de84, 0x118427b3, 0}},
+    {"00001000000000", {0x5986800000000000, 0xb4a05bc8a8a4de84, 0x118427b3, 0}},
+    {"100000e+4", {0x5986800000000000, 0xb4a05bc8a8a4de84, 0x118427b3, 0}},
+    {"5789604461865809771178549250434395392663499233282028201972879200395656481"
+     "9967e-38",
+     kMaxBigNumericValuePacked},
+    {"0."
+     "5789604461865809771178549250434395392663499233282028201972879200395656481"
+     "9967e39",
+     kMaxBigNumericValuePacked},
+    // exponent below int64min
+    {"0E-99999999999999999999999999999999999999999999999999999999999",
+     {0, 0, 0, 0}},
+    {"-0.00000000000000000000000000000000000000000000000000000000000"
+     "E-99999999999999999999999999999999999999999999999999999999999",
+     {0, 0, 0, 0}},
+    {"+000000000000000000000000000000000000000000000000000000000000"
+     "E-99999999999999999999999999999999999999999999999999999999999",
+     {0, 0, 0, 0}},
+    {"   -.00000000000000000000000000000000000000000000000000000000000"
+     "E-99999999999999999999999999999999999999999999999999999999999   ",
+     {0, 0, 0, 0}},
+};
+constexpr BigNumericStringTestData kBigNumericValueNonStrictStringPairs[] = {
+    {"1e-9223372036854775808", {0, 0, 0, 0}},
+    {"-578960446186580977117854925043439539266349923328202820197287920039565648"
+     "199684e-39",
+     kMinBigNumericValuePacked},
+    {"-578960446186580977117854925043439539266."
+     "349923328202820197287920039565648199684",
+     kMinBigNumericValuePacked},
+    {"-0."
+     "5789604461865809771178549250434395392663499233282028201972879200395656481"
+     "99684e39",
+     kMinBigNumericValuePacked},
+    {"0.000000000000000000000000000000000000001", {0, 0, 0, 0}},
+    {"0.000000000000000000000000000000000000001000", {0, 0, 0, 0}},
+    {"1e-39", {0, 0, 0, 0}},
+    {"4.999e-39", {0, 0, 0, 0}},
+    {"5.000e-39", {1, 0, 0, 0}},
+    {"-3.402823669209384634633746074317682114564",
+     {0, 0, kuint64max, kuint64max}},
+    {"-3.402823669209384634633746074317682114565",
+     {kuint64max, kuint64max, kuint64max - 1, kuint64max}},
+    {"5789604461865809771178549250434395392663499233282028201972879200395656481"
+     "99674e-39",
+     kMaxBigNumericValuePacked},
+    {"578960446186580977117854925043439539266."
+     "349923328202820197287920039565648199674",
+     kMaxBigNumericValuePacked},
+    {"0."
+     "5789604461865809771178549250434395392663499233282028201972879200395656481"
+     "99674e39",
+     kMaxBigNumericValuePacked},
+    // exponent below int64min
+    {"1E-99999999999999999999999999999999999999999999999999999999999",
+     {0, 0, 0, 0}},
+    {"-1E-99999999999999999999999999999999999999999999999999999999999",
+     {0, 0, 0, 0}},
+    {"99999999999999999999999999999999999999999999999999999999999"
+     "99999999999999999999999999999999999999999999999999999999999"
+     "E-99999999999999999999999999999999999999999999999999999999999",
+     {0, 0, 0, 0}},
+    {"-99999999999999999999999999999999999999999999999999999999999"
+     "99999999999999999999999999999999999999999999999999999999999"
+     "E-99999999999999999999999999999999999999999999999999999999999",
+     {0, 0, 0, 0}},
+};
+constexpr absl::string_view kBigNumericValueInvalidStrings[] = {
+    // Invalid format
+    "",
+    "              ",
+    "e",
+    "1.0e",
+    "1.0f",
+    "1..0",
+    "1.2.3",
+    "e.",
+    ".e",
+    "e10",
+    "1.0e+",
+    "1.0e-",
+    "1.0e-+1",
+    "1.0e+-1",
+    "1.0ee+1",
+    "1.0ee-1",
+    "1.0e10e10",
+    "1.0e1.0",
+    "1.0e1.0",
+    "1.0fe1.0",
+    "1.0e1.0f",
+    "1.0e +10",
+    "1.0e1 0",
+    "nan",
+    "inf",
+    "+inf",
+    "-inf",
+    "1 2 3",
+    "++1",
+    "--1",
+    "+-1",
+    "-+1",
+    // Overflow
+    "578960446186580977117854925043439539266."
+    "34992332820282019728792003956564819968",
+    "-578960446186580977117854925043439539266."
+    "34992332820282019728792003956564819969",
+    "578960446186580977117854925043439539266."
+    "349923328202820197287920039565648199675",
+    "-578960446186580977117854925043439539266."
+    "349923328202820197287920039565648199685",
+    "0.578960446186580977117854925043439539266"
+    "34992332820282019728792003956564819968e39",
+    "-0.578960446186580977117854925043439539266"
+    "34992332820282019728792003956564819969e39",
+    "0.578960446186580977117854925043439539266"
+    "349923328202820197287920039565648199675e39",
+    "-0.578960446186580977117854925043439539266"
+    "349923328202820197287920039565648199685e39",
+    "578960446186580977117854925043439539266"
+    "34992332820282019728792003956564819968e-38",
+    "-578960446186580977117854925043439539266"
+    "34992332820282019728792003956564819969e-38",
+    "578960446186580977117854925043439539266"
+    "349923328202820197287920039565648199675e-39",
+    "-578960446186580977117854925043439539266"
+    "349923328202820197287920039565648199685e-39",
+    "1000000000000000000000000000000000000000",
+    "-1000000000000000000000000000000000000000",
+    "1.0e40",
+    "-1.0e40",
+    "0.0000000001e50",
+    "-0.0000000001e50",
+    // The integer part fits in 256-bit integer, but overflows in scaling.
+    "9999999999999999999999999999999999999999999999999999999999999999999999999",
+    "9999999999999999999999999999999999999999999999999999999999999999999999999"
+    ".999999999",
+    "-999999999999999999999999999999999999999999999999999999999999999999999999",
+    "-999999999999999999999999999999999999999999999999999999999999999999999999"
+    ".999999999",
+    // Exponent overflows.
+    "1e9223372036854775808",
+    "1e9223372036854775770",  // overflows when adding 38 to the exponent
+    "0e-9999999999999999999999999999999999999999999999999ABC",
+};
+
+struct BigNumericAddTestData {
+  BigNumericValueWrapper addend1;
+  BigNumericValueWrapper addend2;
+  BigNumericValueWrapper sum;
+};
+
+// Cases that do not involve the min value or overflow. Can apply common math.
+static constexpr BigNumericAddTestData kNormalBigNumericAddTestData[] = {
+    {kMaxBigNumericValueStr, 0, kMaxBigNumericValueStr},
+    {0, 0, 0},
+    {"1e-38", 0, "1e-38"},
+    {"1e-38", "2e-38", "3e-38"},
+    {"1e-38", "-2e-38", "-1e-38"},
+    {1, 2, 3},
+    {1, -1, 0},
+    {1, "1e-38", "1.00000000000000000000000000000000000001"},
+    {1, "-1e-38", "0.99999999999999999999999999999999999999"},
+};
+
+// Cases without overflow, rounding, and zero
+static constexpr BigNumericBinaryOpTestData<>
+    kNormalBigNumericMultiplyTestData[] = {
+        {1, "1e-38", "1e-38"},
+        {1, 1, 1},
+        {"0.5", 6, 3},
+        {2, 3, 6},
+        // 10^38 * 5^-38 = 2^38
+        {"1e38", "2.74877906944e-27", "274877906944"},
+        {4294967296, 4294967296, "18446744073709551616"},
+        // 2^38 * (5^19 * 2^-19) = 10^19
+        {"274877906944", "3.63797880709171295166015625e7", "1e19"},
+        // 5^38 * 2^38 = 10^38
+        {"363797880709171295166015625", "274877906944", "1e38"},
+        {1, kMaxBigNumericValueStr, kMaxBigNumericValueStr},
+        // Two factors of 2^255 - 1 x and y. (x / 1e19) * (y / 1e19) =
+        // (2^255 - 1) / 1e38
+        {"145040486610750631737778315940.6158317435996246631",
+         "3991716104.3478428820870502057", kMaxBigNumericValueStr},
+};
+
+constexpr std::pair<int, absl::string_view> kIntStringPairs[] = {
+    {0, "0"},
+    {1, "1"},
+    {7, "7"},
+    {10, "10"},
+    {33, "33"},
+    {100, "100"},
+    {511, "511"},
+    {1000, "1000"},
+};
+
+template <typename T>
+void NumericLimitConstructorCheck() {
+  EXPECT_EQ(BigNumericValue(std::numeric_limits<T>::min()).ToString(),
+            absl::StrFormat("%d", std::numeric_limits<T>::min()));
+  EXPECT_EQ(BigNumericValue(std::numeric_limits<T>::max()).ToString(),
+            absl::StrFormat("%d", std::numeric_limits<T>::max()));
+}
+
+TEST_F(BigNumericValueTest, IntegerConstructor) {
+  for (const auto& p : kIntStringPairs) {
+    EXPECT_EQ(BigNumericValue(p.first).ToString(), p.second);
+    EXPECT_EQ(BigNumericValue(static_cast<long>(p.first)).ToString(), p.second);
+    EXPECT_EQ(BigNumericValue(static_cast<long long>(p.first)).ToString(),
+              p.second);
+    EXPECT_EQ(BigNumericValue(static_cast<__int128>(p.first)).ToString(),
+              p.second);
+
+    EXPECT_EQ(BigNumericValue(static_cast<unsigned int>(p.first)).ToString(),
+              p.second);
+    EXPECT_EQ(BigNumericValue(static_cast<unsigned long>(p.first)).ToString(),
+              p.second);
+    EXPECT_EQ(BigNumericValue(
+        static_cast<unsigned long long>(p.first)).ToString(),
+        p.second);
+    EXPECT_EQ(BigNumericValue(
+        static_cast<unsigned __int128>(p.first)).ToString(),
+        p.second);
+
+    if (p.first != 0) {
+      std::string negated_str = absl::StrCat("-", p.second);
+      EXPECT_EQ(BigNumericValue(-p.first).ToString(), negated_str);
+      EXPECT_EQ(BigNumericValue(static_cast<long>(-p.first)).ToString(),
+                negated_str);
+      EXPECT_EQ(BigNumericValue(static_cast<long long>(-p.first)).ToString(),
+                negated_str);
+      EXPECT_EQ(BigNumericValue(static_cast<__int128>(-p.first)).ToString(),
+                negated_str);
+    }
+  }
+  NumericLimitConstructorCheck<int64_t>();
+  NumericLimitConstructorCheck<uint64_t>();
+  NumericLimitConstructorCheck<int>();
+  NumericLimitConstructorCheck<unsigned int>();
+  NumericLimitConstructorCheck<long>();                // NOLINT
+  NumericLimitConstructorCheck<unsigned long>();       // NOLINT
+  NumericLimitConstructorCheck<long long>();           // NOLINT
+  NumericLimitConstructorCheck<unsigned long long>();  // NOLINT
+  EXPECT_EQ(BigNumericValue(kint128min).ToString(),
+            "-170141183460469231731687303715884105728");
+  EXPECT_EQ(BigNumericValue(kint128max).ToString(),
+            "170141183460469231731687303715884105727");
+  EXPECT_EQ(BigNumericValue(kuint128max).ToString(),
+            "340282366920938463463374607431768211455");
+}
+
+TEST_F(BigNumericValueTest, NumericValueConstructor) {
+  for (const NumericStringTestData& pair : kToStringTestData) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue value,
+                         NumericValue::FromPackedInt(pair.first));
+    EXPECT_EQ(BigNumericValue(value).ToString(), value.ToString());
+  }
+}
+
+TEST_F(BigNumericValueTest, Add) {
+  static constexpr BigNumericBinaryOpTestData<> kSpecialTestData[] = {
+      {kMaxBigNumericValueStr, kMaxBigNumericValueStr, kBigNumericOverflow},
+      {kMaxBigNumericValueStr, "1e-38", kBigNumericOverflow},
+      {kMinBigNumericValueStr, kMinBigNumericValueStr, kBigNumericOverflow},
+      {kMinBigNumericValueStr, "-1e-38", kBigNumericOverflow},
+
+      {kMinBigNumericValueStr, 0, kMinBigNumericValueStr},
+      {kMinBigNumericValueStr, kMaxBigNumericValueStr, "-1e-38"},
+  };
+  NumericAddOp op;
+  for (const BigNumericAddTestData& data : kNormalBigNumericAddTestData) {
+    TestBinaryOp(op, data.addend1, data.addend2, data.sum);
+    TestBinaryOp(op, -data.addend1, -data.addend2, -data.sum);
+    TestBinaryOp(op, data.addend2, data.addend1, data.sum);
+    TestBinaryOp(op, -data.addend2, -data.addend1, -data.sum);
+    TestBinaryOp(op, data.sum, -data.addend1, data.addend2);
+    TestBinaryOp(op, -data.sum, data.addend1, -data.addend2);
+    TestBinaryOp(op, data.sum, -data.addend2, data.addend1);
+    TestBinaryOp(op, -data.sum, data.addend2, -data.addend1);
+  }
+  for (const BigNumericBinaryOpTestData<>& data : kSpecialTestData) {
+    TestBinaryOp(op, data.input1, data.input2, data.expected_output);
+    TestBinaryOp(op, data.input2, data.input1, data.expected_output);
+  }
+}
+
+TEST_F(BigNumericValueTest, Subtract) {
+  static constexpr BigNumericBinaryOpTestData<> kSpecialTestData[] = {
+      {kMaxBigNumericValueStr, kMinBigNumericValueStr, kBigNumericOverflow},
+      {kMaxBigNumericValueStr, "-1e-38", kBigNumericOverflow},
+      {kMinBigNumericValueStr, kMaxBigNumericValueStr, kBigNumericOverflow},
+      {kMinBigNumericValueStr, "1e-38", kBigNumericOverflow},
+      {0, kMinBigNumericValueStr, kBigNumericOverflow},
+      {"1e-38", kMinBigNumericValueStr, kBigNumericOverflow},
+
+      {kMinBigNumericValueStr, 0, kMinBigNumericValueStr},
+      {kMinBigNumericValueStr, kMinBigNumericValueStr, 0},
+      {"-1e-38", kMaxBigNumericValueStr, kMinBigNumericValueStr},
+      {"-1e-38", kMinBigNumericValueStr, kMaxBigNumericValueStr},
+  };
+  NumericSubtractOp op;
+  for (const BigNumericAddTestData& data : kNormalBigNumericAddTestData) {
+    TestBinaryOp(op, data.sum, data.addend1, data.addend2);
+    TestBinaryOp(op, -data.sum, -data.addend1, -data.addend2);
+    TestBinaryOp(op, data.sum, data.addend2, data.addend1);
+    TestBinaryOp(op, -data.sum, -data.addend2, -data.addend1);
+    TestBinaryOp(op, data.addend1, data.sum, -data.addend2);
+    TestBinaryOp(op, -data.addend1, -data.sum, data.addend2);
+    TestBinaryOp(op, data.addend2, data.sum, -data.addend1);
+    TestBinaryOp(op, -data.addend2, -data.sum, data.addend1);
+  }
+  for (const BigNumericBinaryOpTestData<>& data : kSpecialTestData) {
+    TestBinaryOp(op, data.input1, data.input2, data.expected_output);
+  }
+}
+
+TEST_F(BigNumericValueTest, Multiply) {
+  static constexpr BigNumericBinaryOpTestData<> kSpecialTestData[] = {
+      {kMinBigNumericValueStr, kMinBigNumericValueStr, kBigNumericOverflow},
+      {kMinBigNumericValueStr, kMaxBigNumericValueStr, kBigNumericOverflow},
+      {-1, kMinBigNumericValueStr, kBigNumericOverflow},
+      // Two factors of -(2^255 + 1) x and y. (x / 1e19) * (y / 1e19) =
+      // -(2^255 + 1) / 1e38 -> Overflow
+      {"-112712448241465033605533872070906047752.1979626733333956899",
+       "5.1366149455494753931", kBigNumericOverflow},
+      // Two factors of -(2^256 + 1) x and y. (x / 2) * (y / 1e38) =
+      // -(2^255 + 0.5) / 1e38 round down to -(2^255 + 1) / 1e38 -> Overflow
+      {"-619463180776448.5",
+       "934616397153579777691635.58199606896584051237541638188580280321",
+       kBigNumericOverflow},
+      // Two factors of -(2^258 + 1) x and y. (x / 8 / 1e19) * (y / 1e19) =
+      // -(2^255 + 0.125) / 1e38 round up to -(2^255) / 1e38
+      {"-972775953663059703615317563714681.0319961263583002625625",
+       "595163.1966296685834686149", kMinBigNumericValueStr},
+      // -(2^127 / 1e19) * (2^128 / 1e19) = -2^255 / 1e38
+      {"-17014118346046923173.1687303715884105728",
+       "34028236692093846346.3374607431768211456", kMinBigNumericValueStr},
+      {1, kMinBigNumericValueStr, kMinBigNumericValueStr},
+      // -((2^127 + 0.5) / 1e19) * ((2^128 - 1) / 1e19) =
+      // -(2^255 + 0.5) / 1e38 round down to -(2^255) / 1e38
+      {"-17014118346046923173.16873037158841057285",
+       "34028236692093846346.3374607431768211455", kMinBigNumericValueStr},
+      // 1.5 * (-(2^128 - 1) / 1e38) round down to -((3 * 2^127 - 1) / 1e38)
+      {"1.5", "-3.40282366920938463463374607431768211455",
+       "-5.10423550381407695195061911147652317183"},
+      // 0.5 * (-(2^128 - 1) / 1e38) round down to -(2^127 / 1e38)
+      {"0.5", "-3.40282366920938463463374607431768211455",
+       "-1.70141183460469231731687303715884105728"},
+      {0, 0, 0},
+      {0, "1e-38", 0},
+      {0, 1, 0},
+      {"1e-38", "0.1", 0},
+      {"2e-38", "3e-38", 0},
+      {"0.49999999999999999999999999999999999999", "1e-38", 0},
+      {"0.5", "1e-38", "1e-38"},
+      // 0.5 * ((2^128 - 1) / 1e38) round up to (2^127 / 1e38)
+      {"0.5", "3.40282366920938463463374607431768211455",
+       "1.70141183460469231731687303715884105728"},
+      // 1.5 * ((2^128 - 1) / 1e38) round up to (3 * 2^127 - 1) / 1e38
+      {"1.5", "3.40282366920938463463374607431768211455",
+       "5.10423550381407695195061911147652317183"},
+      {"1e-38", kMaxBigNumericValueStr,
+       "5.78960446186580977117854925043439539266"},
+      // Two factors of 2^256 - 3 x and y. (x / 2) * (y / 1e38) =
+      // (2^255 - 1.5) / 1e38 round up to (2^255 - 1) / 1e38
+      {"5375.5",
+       "107703552448438466583174574466270958."
+       "84407960623722496887680921217367047683",
+       kMaxBigNumericValueStr},
+      // Two factors of 2^257 - 3 x and y. (x / 4) * (y / 1e38) =
+      // (2^255 - 0.75) / 1e38 round down to (2^255 - 1) / 1e38
+      {"89670385.25",
+       "6456540189633912352549582974423.98396817805489832221748146540855906009",
+       kMaxBigNumericValueStr},
+      // ((2^127 + 0.5) / 1e19) * ((2^128 - 1) / 1e19) =
+      // (2^255 - 0.5) / 1e38 round up to 2^255 / 1e38 -> Overflow
+      {"17014118346046923173.16873037158841057285",
+       "34028236692093846346.3374607431768211455", kBigNumericOverflow},
+      // (2^127 / 1e19) * (2^128 / 1e19) = 2^255 / 1e38 -> Overflow
+      {"17014118346046923173.1687303715884105728",
+       "34028236692093846346.3374607431768211456", kBigNumericOverflow},
+      // ((2^192 - 1) / 1e38) * ((2^192 + 1) / 1e38) -> Overflow when truncating
+      // to 4 words
+      {"62771017353866807638.35789423207666416102355444464034512895",
+       "62771017353866807638.35789423207666416102355444464034512897",
+       kBigNumericOverflow},
+      {kMaxBigNumericValueStr, kMaxBigNumericValueStr, kBigNumericOverflow},
+  };
+  NumericMultiplyOp op;
+  for (const BigNumericBinaryOpTestData<>& data :
+       kNormalBigNumericMultiplyTestData) {
+    TestBinaryOp(op, data.input1, data.input2, data.expected_output);
+    TestBinaryOp(op, -data.input1, -data.input2, data.expected_output);
+    TestBinaryOp(op, data.input1, -data.input2, -data.expected_output);
+    TestBinaryOp(op, -data.input1, data.input2, -data.expected_output);
+    TestBinaryOp(op, data.input2, data.input1, data.expected_output);
+    TestBinaryOp(op, -data.input2, -data.input1, data.expected_output);
+    TestBinaryOp(op, data.input2, -data.input1, -data.expected_output);
+    TestBinaryOp(op, -data.input2, data.input1, -data.expected_output);
+  }
+  for (const BigNumericBinaryOpTestData<>& data : kSpecialTestData) {
+    TestBinaryOp(op, data.input1, data.input2, data.expected_output);
+    TestBinaryOp(op, data.input2, data.input1, data.expected_output);
+  }
+}
+
+TEST_F(BigNumericValueTest, Multiply_RandomCombinations) {
+  for (int i = 0; i < 1000; ++i) {
+    int64_t mantissa_x = static_cast<int64_t>(absl::Uniform<uint64_t>(random_));
+    int64_t mantissa_y = static_cast<int64_t>(absl::Uniform<uint64_t>(random_));
+    __int128 x = static_cast<__int128>(mantissa_x);
+    __int128 y = static_cast<__int128>(mantissa_y);
+    BigNumericValue big_numeric_x(x);
+    BigNumericValue big_numeric_y(y);
+    __int128 expect = x * y;
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue actual,
+                         big_numeric_x.Multiply(big_numeric_y));
+    EXPECT_EQ(BigNumericValue(expect), actual);
+
+    int exp_x = absl::Uniform<int32_t>(random_, -38, 1);
+    int exp_y = absl::Uniform<int32_t>(random_, -38, -37 - exp_x);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(big_numeric_x,
+                         BigNumericValue::FromString(
+                             BuildScientificNotationString(mantissa_x, exp_x)));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(big_numeric_y,
+                         BigNumericValue::FromString(
+                             BuildScientificNotationString(mantissa_y, exp_y)));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        BigNumericValue big_numeric_expect,
+        BigNumericValue::FromString(
+            BuildScientificNotationString(expect, exp_x + exp_y)));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(actual,
+                         big_numeric_x.Multiply(big_numeric_y));
+    EXPECT_EQ(big_numeric_expect, actual);
+  }
+}
+
+TEST_F(BigNumericValueTest, Divide) {
+  static constexpr BigNumericBinaryOpTestData<> kTestData[] = {
+      // Rounding
+      {"100000000000000000000000000000000000000", 3,
+       "33333333333333333333333333333333333333."
+       "33333333333333333333333333333333333333"},
+      {"100000000000000000000000000000000000000",
+       "33333333333333333333333333333333333333."
+       "33333333333333333333333333333333333333",
+       3},
+      {1, 3, "0.33333333333333333333333333333333333333"},
+      {2, 3, "0.66666666666666666666666666666666666667"},
+      {"1", "33333333333333333333333333333333333333",
+       "0.00000000000000000000000000000000000003"},
+      {"5.78960446186580977117854925043439539266", "1e-38",
+       "578960446186580977117854925043439539266"},
+      // Ties
+      // 1e28 / 2^67 The result ends at 39th digit which is a 5. Round up.
+      {"1e28", "147573952589676412928",
+       "67762635.78034402712546580005437135696411132813"},
+      // In the result, after the decimal dot, the digits following the 39th
+      // four is 20 of 9s and repeating 8s. Round down.
+      {"4000000000000000000000.00000000000000000049999999999999999999", "9e20",
+       "4.44444444444444444444444444444444444444"},
+      {"107703552448438466583174574466270958."
+       "84407960623722496887680921217367047683",
+       "0.00018602920658543391312436052460236258",
+       "578960446186580977117854925043439511018."
+       "86975388491694661714612717015190558901"},
+      {"6456540189633912352549582974423.98396817805489832221748146540855906009",
+       "0.00000001115195387208398326804333652621",
+       "578960446186580977117854925043064707303."
+       "32733510873638103607008167080036872013"},
+
+      // Overflow
+      {kMaxBigNumericValueStr, "0.3", kBigNumericOverflow},
+      {kMaxBigNumericValueStr, "0.6", kBigNumericOverflow},
+      {kMaxBigNumericValueStr, "0.99999999999999999999999999999999999999",
+       kBigNumericOverflow},
+      {kMaxBigNumericValueStr, "-0.99999999999999999999999999999999999999",
+       kBigNumericOverflow},
+      {"107703552448438466583174574466270958."
+       "84407960623722496887680921217367047683",
+       "0.00018602920658543391312436052460236257", kBigNumericOverflow},
+      {"6456540189633912352549582974423.98396817805489832221748146540855906009",
+       "0.00000001115195387208398326804333652620", kBigNumericOverflow},
+      {"1e20", "1e-19", kBigNumericOverflow},
+
+      // Divide by zero
+      {0, 0, kDivisionByZero},
+      {"0.1", 0, kDivisionByZero},
+      {1, 0, kDivisionByZero},
+      {kMaxNumericValueStr, 0, kDivisionByZero},
+  };
+  static constexpr BigNumericBinaryOpTestData<> kSpecialTestData[] = {
+      {kMinBigNumericValueStr, 1, kMinBigNumericValueStr},
+      // 2^255 / 1e38
+      {"134799733335753198973335075435.09815336818572211270286240551805124608",
+       "0.00000000023283064365386962890625", kBigNumericOverflow},
+      {kMinBigNumericValueStr, -1, kBigNumericOverflow},
+      {kMinBigNumericValueStr, "0.99999999999999999999999999999999999999",
+       kBigNumericOverflow},
+  };
+
+  NumericDivideOp op;
+  for (const BigNumericBinaryOpTestData<>& data : kTestData) {
+    TestBinaryOp(op, data.input1, data.input2, data.expected_output);
+    TestBinaryOp(op, -data.input1, -data.input2, data.expected_output);
+    TestBinaryOp(op, data.input1, -data.input2, -data.expected_output);
+    TestBinaryOp(op, -data.input1, data.input2, -data.expected_output);
+  }
+  for (const BigNumericBinaryOpTestData<>& data : kSpecialTestData) {
+    TestBinaryOp(op, data.input1, data.input2, data.expected_output);
+  }
+  for (const BigNumericBinaryOpTestData<>& data :
+       kNormalBigNumericMultiplyTestData) {
+    TestBinaryOp(op, data.expected_output, data.input1, data.input2);
+    TestBinaryOp(op, -data.expected_output, data.input1, -data.input2);
+    TestBinaryOp(op, data.expected_output, -data.input1, -data.input2);
+    TestBinaryOp(op, -data.expected_output, -data.input1, data.input2);
+    TestBinaryOp(op, data.expected_output, data.input2, data.input1);
+    TestBinaryOp(op, -data.expected_output, data.input2, -data.input1);
+    TestBinaryOp(op, data.expected_output, -data.input2, -data.input1);
+    TestBinaryOp(op, -data.expected_output, -data.input2, data.input1);
+  }
+}
+
+TEST_F(BigNumericValueTest, MultiplyDivisionRoundTrip) {
+  // This does not test rounding.
+  for (int i = 0; i < 1000; ++i) {
+    int64_t mantissa_x = static_cast<int64_t>(absl::Uniform<uint64_t>(random_));
+    int64_t mantissa_y = static_cast<int64_t>(absl::Uniform<uint64_t>(random_));
+    __int128 x = static_cast<__int128>(mantissa_x);
+    __int128 y = static_cast<__int128>(mantissa_y);
+    BigNumericValue big_numeric_x(x);
+    BigNumericValue big_numeric_y(y);
+    __int128 expect = x * y;
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue actual,
+                         big_numeric_x.Multiply(big_numeric_y));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue quotient_x,
+                        actual.Divide(big_numeric_y));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue quotient_y,
+                        actual.Divide(big_numeric_x));
+    EXPECT_EQ(BigNumericValue(expect), actual);
+    EXPECT_EQ(BigNumericValue(quotient_x), big_numeric_x);
+    EXPECT_EQ(BigNumericValue(quotient_y), big_numeric_y);
+
+
+    int exp_x = absl::Uniform<int32_t>(random_, -38, 1);
+    int exp_y = -38 - exp_x;
+    ZETASQL_ASSERT_OK_AND_ASSIGN(big_numeric_x,
+                         BigNumericValue::FromString(
+                             BuildScientificNotationString(mantissa_x, exp_x)));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(big_numeric_y,
+                         BigNumericValue::FromString(
+                             BuildScientificNotationString(mantissa_y, exp_y)));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        BigNumericValue big_numeric_expect,
+        BigNumericValue::FromString(
+            BuildScientificNotationString(expect, exp_x + exp_y)));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(actual,
+                         big_numeric_x.Multiply(big_numeric_y));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(quotient_x,
+                        actual.Divide(big_numeric_y));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(quotient_y,
+                        actual.Divide(big_numeric_x));
+    EXPECT_EQ(big_numeric_expect, actual);
+    EXPECT_EQ(BigNumericValue(quotient_x), big_numeric_x);
+    EXPECT_EQ(BigNumericValue(quotient_y), big_numeric_y);
+  }
+}
+
+TEST_F(BigNumericValueTest, HashCode) {
+  EXPECT_TRUE(absl::VerifyTypeImplementsAbslHashCorrectly(
+      {BigNumericValue::FromPackedLittleEndianArray(
+           std::array<uint64_t, 4>{{0, 0, 0, 0}}),
+       BigNumericValue::FromPackedLittleEndianArray(
+           std::array<uint64_t, 4>{{1, 0, 0, 0}}),
+       BigNumericValue::FromPackedLittleEndianArray(
+           std::array<uint64_t, 4>{{2, 0, 0, 0}}),
+       BigNumericValue::MaxValue(), BigNumericValue::MinValue(),
+       BigNumericValue::MaxValue()}));
+}
+
+TEST_F(BigNumericValueTest, FromString) {
+  for (BigNumericStringTestData data : kSortedBigNumericValueStringPairs) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue actual,
+                         BigNumericValue().FromString(data.first));
+    EXPECT_EQ(data.second, actual.ToPackedLittleEndianArray());
+  }
+  for (BigNumericStringTestData data : kBigNumericValueValidFromStringPairs) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue actual,
+                         BigNumericValue().FromString(data.first));
+    EXPECT_EQ(data.second, actual.ToPackedLittleEndianArray());
+  }
+  for (BigNumericStringTestData data : kBigNumericValueNonStrictStringPairs) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue actual,
+                         BigNumericValue().FromString(data.first));
+    EXPECT_EQ(data.second, actual.ToPackedLittleEndianArray());
+  }
+  for (absl::string_view str : kBigNumericValueInvalidStrings) {
+    EXPECT_THAT(BigNumericValue().FromString(str),
+                StatusIs(zetasql_base::OUT_OF_RANGE,
+                         absl::StrCat("Invalid BIGNUMERIC value: ", str)));
+  }
+}
+
+TEST_F(BigNumericValueTest, FromStringStrict) {
+  for (BigNumericStringTestData data : kSortedBigNumericValueStringPairs) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue actual,
+                         BigNumericValue().FromStringStrict(data.first));
+    EXPECT_EQ(data.second, actual.ToPackedLittleEndianArray());
+  }
+  for (BigNumericStringTestData data : kBigNumericValueValidFromStringPairs) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue actual,
+                         BigNumericValue().FromStringStrict(data.first));
+    EXPECT_EQ(data.second, actual.ToPackedLittleEndianArray());
+  }
+  for (BigNumericStringTestData data : kBigNumericValueNonStrictStringPairs) {
+    EXPECT_THAT(
+        BigNumericValue().FromStringStrict(data.first),
+        StatusIs(zetasql_base::OUT_OF_RANGE,
+                 absl::StrCat("Invalid BIGNUMERIC value: ", data.first)));
+  }
+  for (absl::string_view str : kBigNumericValueInvalidStrings) {
+    EXPECT_THAT(BigNumericValue().FromStringStrict(str),
+                StatusIs(zetasql_base::OUT_OF_RANGE,
+                         absl::StrCat("Invalid BIGNUMERIC value: ", str)));
+  }
+}
+
+TEST_F(BigNumericValueTest, FromDouble) {
+  static constexpr BigNumericUnaryOpTestData<double, BigNumericValueWrapper>
+      kTestData[] = {
+          {0, 0},
+          {0.00000000000001, "0.00000000000000999999999999999998819309"},
+          {0.99999999999999, "0.99999999999999000799277837359113618731"},
+          {1.5, "1.5"},
+          {123, 123},
+          {123.5, "123.5"},
+          {4503599627370496.0, "4503599627370496"},
+          {4951760157141521099596496896.0, "4951760157141521099596496896"},
+          {1.5e18, "1.5e18"},
+          {99999999999999999999999999999999999999.99999999999999999999999999999,
+           "99999999999999997748809823456034029568"},
+          {578960446186580977117854925043439539266.3499233282028201972879200395,
+           "578960446186580955070694765308237840384"},
+          // Rounded down to the double value nearest to kMaxBigNumericValue.
+          {578960446186580992849626628265399549952.0,
+           "578960446186580955070694765308237840384"},
+          // Rounded up and out of range.
+          {578960446186580992849626628265399549952.0000000000000000000000000001,
+           kBigNumericOutOfRange},
+
+          // Check rounding
+          {1048576.000000000116415321826934814453125, "1048576"},
+          {1048576.000000000116415321826934814453125000000000000000000000000001,
+           "1048576.00000000023283064365386962890625"},
+          {0.555555555555555555555555555,
+           "0.55555555555555558022717832500347867608"},
+          {0.0000000001, "0.00000000010000000000000000364321973155"},
+          // int256 < (value * 1e38) < uint256
+          {1.0000000001e39, kBigNumericOutOfRange},
+          {1e40, kBigNumericOutOfRange},
+          {std::numeric_limits<double>::max(), kBigNumericOutOfRange},
+
+          {std::numeric_limits<double>::quiet_NaN(),
+           kBigNumericIllegalNonFinite},
+          {std::numeric_limits<double>::signaling_NaN(),
+           kBigNumericIllegalNonFinite},
+          {std::numeric_limits<double>::infinity(),
+           kBigNumericIllegalNonFinite},
+      };
+
+  NumericFromDoubleOp<BigNumericValue> op;
+  for (const auto& data : kTestData) {
+    TestUnaryOp(op, data.input, data.expected_output);
+    TestUnaryOp(op, -data.input, -data.expected_output);
+  }
+}
+
+TEST_F(BigNumericValueTest, FromDouble_RandomInputs) {
+  NumericFromDoubleOp<BigNumericValue> op;
+  for (int i = 0; i < 10000; ++i) {
+    uint64_t bits = absl::Uniform<uint64_t>(random_);
+    double double_val = absl::bit_cast<double>(bits);
+    if (!std::isfinite(double_val)) {
+      TestUnaryOp(op, double_val,
+                  BigNumericValueWrapper(kBigNumericIllegalNonFinite));
+    } else {
+      std::string str = absl::StrFormat("%.40f", double_val);
+      if (absl::EndsWith(str, "50")) {
+        // Strings with suffix 50 could be from doubles with suffix 49 and
+        // get rounded up. In this case the test would fail while the result is
+        // correct. Skipping those cases for now.
+        continue;
+      }
+      auto expected = BigNumericValue::FromString(str);
+      if (expected.ok()) {
+        TestUnaryOp(op, double_val, expected);
+      } else {
+        TestUnaryOp(op, double_val,
+                    BigNumericValueWrapper(kBigNumericOutOfRange));
+      }
+    }
+  }
+}
+
+TEST_F(BigNumericValueTest, ToDouble) {
+  static constexpr BigNumericUnaryOpTestData<BigNumericValueWrapper, double>
+      kTestData[] = {
+          {0, 0},
+          {"1e-38", 1e-38},
+          {"0.000000001", 0.000000001},
+          {"0.999999999", 0.999999999},
+          {"0.99999999999999999999999999999999999999",
+           0.99999999999999999999999999999999999999},
+          {"1.5", 1.5},
+          {123, 123},
+          {"123.5", 123.5},
+          {"4503599627370496", 4503599627370496.0},
+          {"1048576.000000000116415321826934814453125",  // test round to even
+           1048576},
+          {"1048576.00000000011641532182693481445312500001",
+           1048576.00000000023283064365386962890625},
+          {"1974613819685343985664.0249533", 1974613819685343985664.0249533},
+          {kMaxBigNumericValueStr,
+           // Not copying all digits from kMaxBigNumericValueStr, just to fit
+           // the digits in one line. It already exceeds the max precision of
+           // double type.
+           578960446186580977117854925043439539266.349923328202820197287920039},
+      };
+
+  NumericToDoubleOp op;
+  for (const auto& data : kTestData) {
+    TestUnaryOp(op, data.input, data.expected_output);
+    TestUnaryOp(op, -data.input, -data.expected_output);
+  }
+  EXPECT_EQ(-578960446186580977117854925043439539266.34992332820282019728792003,
+            BigNumericValue::MinValue().ToDouble());
+}
+
+TEST_F(BigNumericValueTest, ToDouble_RandomInputs) {
+  for (int i = 0; i < 10000; ++i) {
+    BigNumericValue v = MakeRandomBigNumeric();
+    double expected;
+    ASSERT_TRUE(absl::SimpleAtod(v.ToString(), &expected));
+    EXPECT_EQ(expected, v.ToDouble()) << v.ToString();
+  }
+  for (int i = 0; i < 10000; ++i) {
+    BigNumericValue v = MakeRandomTinyBigNumeric();
+    double expected;
+    ASSERT_TRUE(absl::SimpleAtod(v.ToString(), &expected));
+    EXPECT_EQ(expected, v.ToDouble()) << v.ToString();
+  }
+}
+
+TEST_F(BigNumericValueTest, ToString) {
+  for (const auto& pair : kSortedBigNumericValueStringPairs) {
+    BigNumericValue value =
+        BigNumericValue::FromPackedLittleEndianArray(pair.second);
+    EXPECT_EQ(pair.first, value.ToString());
+    static constexpr char kExistingValue[] = "existing_value_1234567890";
+    std::string str = kExistingValue;
+    value.AppendToString(&str);
+    EXPECT_EQ(absl::StrCat(kExistingValue, pair.first), str);
+  }
+}
+
+TEST_F(BigNumericValueTest, OperatorsTest) {
+  for (uint64_t x_seg : kSorted64BitValues) {
+    for (uint64_t y_seg : kSorted64BitValues) {
+      TestComparisonOperators(
+          std::array<uint64_t, 4>{ {x_seg, x_seg, x_seg, x_seg} },
+          std::array<uint64_t, 4>{ {y_seg, y_seg, y_seg, y_seg} });
+    }
+  }
+}
+
+TEST_F(BigNumericValueTest, OperatorsRandomTest) {
+  for (int i = 0; i < 10000; ++i) {
+    TestComparisonOperators(MakeRandomBigNumeric().ToPackedLittleEndianArray(),
+                            MakeRandomBigNumeric().ToPackedLittleEndianArray());
+  }
+}
+
+TEST_F(BigNumericValueTest, UnaryMinus) {
+  static constexpr absl::string_view kValueStrings[] = {
+      "0",          "1e-38", "0.5",
+      "1",          "10",    "10.01",
+      "1000000000", "1e38",  kMaxBigNumericValueStr,
+  };
+  for (absl::string_view str : kValueStrings) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue value,
+                         BigNumericValue::FromString(str));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue expected_neg_value,
+                         BigNumericValue::FromString(absl::StrCat("-", str)));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue actual_neg_value,
+                         BigNumericValue::UnaryMinus(value));
+    EXPECT_EQ(expected_neg_value, actual_neg_value);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue double_neg_value,
+                         BigNumericValue::UnaryMinus(actual_neg_value));
+    EXPECT_EQ(value, double_neg_value);
+  }
+  EXPECT_THAT(BigNumericValue::UnaryMinus(BigNumericValue::MinValue()),
+              StatusIs(zetasql_base::OUT_OF_RANGE,
+                       absl::StrCat("BigNumeric overflow: -(",
+                                    kMinBigNumericValueStr, ")")));
+}
+
+TEST_F(BigNumericValueTest, SerializeDeserializeProtoBytes) {
+  for (const auto& pair : kSortedBigNumericValueStringPairs) {
+    BigNumericValue value =
+        BigNumericValue::FromPackedLittleEndianArray(pair.second);
+    TestSerialize(value);
+  }
+  const int kTestIterations = 500;
+  for (int i = 0; i < kTestIterations; ++i) {
+    TestSerialize(MakeRandomBigNumeric());
+  }
+}
+
+TEST_F(BigNumericValueTest, SerializeDeserializeInvalidProtoBytes) {
+  EXPECT_FALSE(BigNumericValue::DeserializeFromProtoBytes("").ok());
+  std::string bad_string(sizeof(BigNumericValue) + 1, '\x1');
+  EXPECT_FALSE(BigNumericValue::DeserializeFromProtoBytes(bad_string).ok());
+}
+
+TEST_F(BigNumericValueTest, ToInt32) {
+  NumericToIntegerOp<int32_t> op;
+  for (const auto& data : kToInt32ValueTestData<BigNumericValueWrapper>) {
+    TestUnaryOp(op, data.input, data.expected_output);
+  }
+}
+
+TEST_F(BigNumericValueTest, RoundTripFromInt32) {
+  TestRoundTripFromInteger<int32_t>();
+}
+
+TEST_F(BigNumericValueTest, ToUint32) {
+  NumericToIntegerOp<uint32_t> op;
+  for (const auto& data : kToUint32ValueTestData<BigNumericValueWrapper>) {
+    TestUnaryOp(op, data.input, data.expected_output);
+  }
+}
+
+TEST_F(BigNumericValueTest, RoundTripFromUint32) {
+  TestRoundTripFromInteger<uint32_t>();
+}
+
+TEST_F(BigNumericValueTest, ToInt64) {
+  NumericToIntegerOp<int64_t> op;
+  for (const auto& data : kToInt64ValueTestData<BigNumericValueWrapper>) {
+    TestUnaryOp(op, data.input, data.expected_output);
+  }
+}
+
+TEST_F(BigNumericValueTest, RoundTripFromInt64) {
+  TestRoundTripFromInteger<int64_t>();
+}
+
+TEST_F(BigNumericValueTest, ToUint64) {
+  NumericToIntegerOp<uint64_t> op;
+  for (const auto& data : kToUint64ValueTestData<BigNumericValueWrapper>) {
+    TestUnaryOp(op, data.input, data.expected_output);
+  }
+}
+
+TEST_F(BigNumericValueTest, RoundTripFromUint64) {
+  TestRoundTripFromInteger<uint64_t>();
+}
+
+TEST_F(BigNumericValueTest, ToNumericValue) {
+  static constexpr NumericUnaryOpTestData<BigNumericValueWrapper,
+                                          NumericValueWrapper>
+      kTestData[] = {
+          {0, 0},
+          {123, 123},
+          {"123.56", "123.56"},
+          {"123.5", "123.5"},
+          {"123.46", "123.46"},
+          {"18446744073709551615", "18446744073709551615"},
+          {"18446744073709551615.499999999", "18446744073709551615.499999999"},
+          {"18446744073709551615.12345678949999999999999999999999999999",
+           "18446744073709551615.123456789"},
+          {"18446744073709551615.5", "18446744073709551615.5"},
+          {"18446744073709551615.1234567895", "18446744073709551615.12345679"},
+          {"18446744073709551616", "18446744073709551616"},
+          {"0.499999999", "0.499999999"},
+          {"0.5", "0.5"},
+          {1, 1},
+          {"99999999999999999999999999999.999999999499999999",
+           "99999999999999999999999999999.999999999"},
+          {"99999999999999999999999999999.9999999995", kNumericOutOfRange},
+          {kMaxNumericValueStr, kMaxNumericValueStr},
+          {"100000000000000000000000000000", kNumericOutOfRange},
+          {kMaxBigNumericValueStr, kNumericOutOfRange}};
+  BigNumericToNumericOp op;
+  for (const auto& data : kTestData) {
+    TestUnaryOp(op, data.input, data.expected_output);
+    TestUnaryOp(op, -data.input, -data.expected_output);
+  }
+}
+
+TEST_F(BigNumericValueTest, NumericValueRoundTrip) {
+  for (int i = 0; i < 10000; ++i) {
+    NumericValue value = MakeRandomNumeric();
+    BigNumericValue big_num_value(value);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue converted_value,
+                         big_num_value.ToNumericValue());
+    EXPECT_EQ(converted_value, value);
   }
 }
 }  // namespace

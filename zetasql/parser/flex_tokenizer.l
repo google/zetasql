@@ -374,6 +374,7 @@ between {
   yy_push_state(IN_BETWEEN);
   return BisonParserImpl::token::KW_BETWEEN;
 }
+bignumeric { return BisonParserImpl::token::KW_BIGNUMERIC; }
 break { return BisonParserImpl::token::KW_BREAK; }
 by { return BisonParserImpl::token::KW_BY; }
 call { return BisonParserImpl::token::KW_CALL; }

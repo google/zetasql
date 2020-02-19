@@ -128,6 +128,11 @@ zetasql_base::Status ConvertTimestampToStringWithTruncation(int64_t timestamp,
                                                     absl::TimeZone timezone,
                                                     std::string* out);
 
+// Optimized version of ConvertTimestampToStringWithTruncation for microsecond
+// precision.
+zetasql_base::Status ConvertTimestampMicrosToStringWithTruncation(
+    int64_t timestamp, absl::TimeZone timezone, std::string* out);
+
 // Invokes MakeTimeZone() on <timezone_string> and invokes the prior function.
 // Returns error status if <timezone_string> is invalid or conversion fails.
 zetasql_base::Status ConvertTimestampToStringWithTruncation(

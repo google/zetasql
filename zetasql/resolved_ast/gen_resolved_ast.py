@@ -1725,6 +1725,34 @@ value.
       ])
 
   gen.AddNode(
+      name='ResolvedDescriptor',
+      tag_id=144,
+      parent='ResolvedArgument',
+      comment="""
+      Represents a descriptor object as a TVF argument.
+      <descriptor_column_list> contains resolved columns from the related input
+      table argument if FunctionArgumentTypeOptions.get_resolve_descriptor_names_table_offset()
+      returns a valid argument offset.
+      <descriptor_column_name_list> contains strings which represent columns
+      names.
+      """,
+      fields=[
+          Field(
+              'descriptor_column_list',
+              SCALAR_RESOLVED_COLUMN,
+              tag_id=2,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'descriptor_column_name_list',
+              SCALAR_STRING,
+              tag_id=3,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT,
+              to_string_method='ToStringCommaSeparated'),
+      ])
+
+  gen.AddNode(
       name='ResolvedSingleRowScan',
       tag_id=19,
       parent='ResolvedScan',
@@ -2598,13 +2626,15 @@ right.
       parent='ResolvedArgument',
       comment="""
       This represents an argument to a table-valued function (TVF). The argument
-      can be semantically scalar, relational, represent a model or a connection.
-      Only one of the four fields will be set.
+      can be semantically scalar, relational, represent a model, a connection or
+      a descriptor. Only one of the five fields will be set.
 
       <expr> The expression representing a scalar TVF argument.
       <scan> The scan representing a relational TVF argument.
       <model> The model representing an ML model TVF argument.
       <connection> The connection representing a connection object TVF argument.
+      <descriptor_arg> The descriptor representing a descriptor object TVF
+      argument.
 
       <argument_column_list> maps columns from <scan> into specific columns
       of the TVF argument's input schema, matching those columns positionally.
@@ -2613,10 +2643,14 @@ right.
               """,
       fields=[
           Field(
-              'expr', 'ResolvedExpr', ignorable=IGNORABLE_DEFAULT,
+              'expr',
+              'ResolvedExpr',
+              ignorable=IGNORABLE_DEFAULT,
               tag_id=2),
           Field(
-              'scan', 'ResolvedScan', ignorable=IGNORABLE_DEFAULT,
+              'scan',
+              'ResolvedScan',
+              ignorable=IGNORABLE_DEFAULT,
               tag_id=3),
           Field(
               'model',
@@ -2628,6 +2662,12 @@ right.
               'ResolvedConnection',
               ignorable=IGNORABLE_DEFAULT,
               tag_id=6),
+          Field(
+              # Can't name it 'descriptor' because of conflict in protos.
+              'descriptor_arg',
+              'ResolvedDescriptor',
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=7),
           Field(
               'argument_column_list',
               SCALAR_RESOLVED_COLUMN,

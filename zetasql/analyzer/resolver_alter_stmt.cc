@@ -198,15 +198,31 @@ zetasql_base::Status Resolver::ResolveAddColumnAction(
            << " in ALTER TABLE ADD COLUMN";
   }
 
+  // Check that ASTAddColumnAction does not contain various fields for which we
+  // don't have corresponding properties in ResolvedAlterAction yet.
+  // TODO: add corresponding properties and support.
   if (action->fill_expression() != nullptr) {
-    // TODO: add support
     return MakeSqlErrorAt(action->fill_expression())
            << "ALTER TABLE ADD COLUMN with FILL USING is not supported yet";
   }
   if (column->schema()->generated_column_info() != nullptr) {
-    // TODO: add support
     return MakeSqlErrorAt(action->column_definition()->name())
            << "ALTER TABLE ADD COLUMN does not support generated columns yet";
+  }
+  if (column->schema()->ContainsAttribute(AST_PRIMARY_KEY_COLUMN_ATTRIBUTE)) {
+    return MakeSqlErrorAt(action->column_definition()->name())
+           << "ALTER TABLE ADD COLUMN does not support primary key attribute"
+           << " (column: " << column_name << ")";
+  }
+  if (column->schema()->ContainsAttribute(AST_FOREIGN_KEY_COLUMN_ATTRIBUTE)) {
+    return MakeSqlErrorAt(action->column_definition()->name())
+           << "ALTER TABLE ADD COLUMN does not support foreign key attribute"
+           << " (column: " << column_name << ")";
+  }
+  if (action->column_position() != nullptr) {
+    return MakeSqlErrorAt(action->column_position())
+           << "ALTER TABLE ADD COLUMN with column position is not supported"
+           << " (column: " << column_name << ")";
   }
   // Check the column does not exist, unless it was just deleted by DROP COLUMN.
   if (table != nullptr && !action->is_if_not_exists() &&
