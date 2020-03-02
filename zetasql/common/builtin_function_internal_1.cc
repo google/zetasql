@@ -1357,11 +1357,23 @@ bool HasFloatingPointArgument(const std::vector<InputArgumentType>& arguments) {
   return false;
 }
 
-// Returns true if an arithmetic operation has a numeric point type as its
+// Returns true if an arithmetic operation has a numeric type as its
 // input.
 bool HasNumericTypeArgument(const std::vector<InputArgumentType>& arguments) {
   for (const InputArgumentType& argument : arguments) {
     if (argument.type()->kind() == TYPE_NUMERIC) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Returns true if an arithmetic operation has a bignumeric type as its
+// input.
+bool HasBigNumericTypeArgument(
+    const std::vector<InputArgumentType>& arguments) {
+  for (const InputArgumentType& argument : arguments) {
+    if (argument.type()->kind() == TYPE_BIGNUMERIC) {
       return true;
     }
   }

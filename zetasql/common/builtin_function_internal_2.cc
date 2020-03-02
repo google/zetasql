@@ -638,6 +638,7 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
   const Type* float_type = type_factory->get_float();
   const Type* double_type = type_factory->get_double();
   const Type* numeric_type = type_factory->get_numeric();
+  const Type* bignumeric_type = type_factory->get_bignumeric();
 
   const Function::Mode SCALAR = Function::SCALAR;
 
@@ -645,6 +646,8 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
   has_floating_point_argument.set_constraints(&HasFloatingPointArgument);
   FunctionSignatureOptions has_numeric_type_argument;
   has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
+  FunctionSignatureOptions has_bignumeric_type_argument;
+  has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
 
   // Note that the '$' prefix is used in function names for those that do not
   // support function call syntax.  Otherwise, syntax like ADD(<op1>, <op2>)
@@ -664,7 +667,11 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
        {numeric_type,
         {numeric_type, numeric_type},
         FN_ADD_NUMERIC,
-        has_numeric_type_argument}},
+        has_numeric_type_argument},
+       {bignumeric_type,
+        {bignumeric_type, bignumeric_type},
+        FN_ADD_BIGNUMERIC,
+        has_bignumeric_type_argument}},
       FunctionOptions()
           .set_supports_safe_error_mode(false)
           .set_sql_name("+")
@@ -678,6 +685,10 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
         {numeric_type, numeric_type},
         FN_SUBTRACT_NUMERIC,
         has_numeric_type_argument},
+       {bignumeric_type,
+        {bignumeric_type, bignumeric_type},
+        FN_SUBTRACT_BIGNUMERIC,
+        has_bignumeric_type_argument},
        {double_type,
         {double_type, double_type},
         FN_SUBTRACT_DOUBLE,
@@ -693,7 +704,11 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
        {numeric_type,
         {numeric_type, numeric_type},
         FN_DIVIDE_NUMERIC,
-        has_numeric_type_argument}},
+        has_numeric_type_argument},
+       {bignumeric_type,
+        {bignumeric_type, bignumeric_type},
+        FN_DIVIDE_BIGNUMERIC,
+        has_bignumeric_type_argument}},
       FunctionOptions()
           .set_supports_safe_error_mode(false)
           .set_sql_name("/")
@@ -710,7 +725,11 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
        {numeric_type,
         {numeric_type, numeric_type},
         FN_MULTIPLY_NUMERIC,
-        has_numeric_type_argument}},
+        has_numeric_type_argument},
+       {bignumeric_type,
+        {bignumeric_type, bignumeric_type},
+        FN_MULTIPLY_BIGNUMERIC,
+        has_bignumeric_type_argument}},
       FunctionOptions()
           .set_supports_safe_error_mode(false)
           .set_sql_name("*")
@@ -727,7 +746,11 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
                   {numeric_type,
                    {numeric_type},
                    FN_UNARY_MINUS_NUMERIC,
-                   has_numeric_type_argument}},
+                   has_numeric_type_argument},
+                  {bignumeric_type,
+                   {bignumeric_type},
+                   FN_UNARY_MINUS_BIGNUMERIC,
+                   has_bignumeric_type_argument}},
                  FunctionOptions()
                      .set_supports_safe_error_mode(false)
                      .set_sql_name("-")

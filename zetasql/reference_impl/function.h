@@ -39,7 +39,6 @@
 #include "zetasql/reference_impl/tuple_comparator.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include <cstdint>
-#include "absl/random/random.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "re2/re2.h"
@@ -168,6 +167,12 @@ enum class FunctionKind {
   kGenerateDateArray,
   kGenerateTimestampArray,
   kRangeBucket,
+  kJsonExtract,
+  kJsonExtractScalar,
+  kJsonExtractArray,
+  kJsonQuery,
+  kJsonValue,
+  // Proto functions
   kFromProto,
   kToProto,
   kMakeProto,
@@ -184,6 +189,8 @@ enum class FunctionKind {
   kNormalizeAndCasefold,
   kToBase64,
   kFromBase64,
+  kToHex,
+  kFromHex,
   kToCodePoints,
   kCodePointsToString,
   kCodePointsToBytes,
@@ -977,9 +984,6 @@ class RandFunction : public SimpleBuiltinScalarFunction {
       : SimpleBuiltinScalarFunction(FunctionKind::kRand, types::DoubleType()) {}
   zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
                              EvaluationContext* context) const override;
-
- protected:
-  mutable absl::BitGen rand_;
 };
 
 class ErrorFunction : public SimpleBuiltinScalarFunction {

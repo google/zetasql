@@ -31,6 +31,7 @@
 #include <cstdint>
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/declare.h"
+#include "absl/random/random.h"
 #include "absl/time/time.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/map_util.h"
@@ -163,6 +164,16 @@ class EvaluationContext {
   absl::TimeZone GetDefaultTimeZone() {
     LazilyInitializeDefaultTimeZone();
     return default_timezone_.value();
+  }
+
+  // If necessary, (lazily) initializes the random number generator. Lazy
+  // initialization saves time for most evaluations, which don't require random
+  // numbers.
+  absl::BitGen* GetRandomNumberGenerator() {
+    if (!rand_.has_value()) {
+      rand_.emplace();
+    }
+    return &rand_.value();
   }
 
   // Sets the clock to use when evaluating CURRENT_TIMESTAMP(),
@@ -337,6 +348,7 @@ class EvaluationContext {
   // is expensive.
   absl::optional<absl::TimeZone> default_timezone_;
   absl::optional<int64_t> current_timestamp_;
+  absl::optional<absl::BitGen> rand_;
   // Only valid if 'current_timestamp_' has a value.
   int32_t current_date_in_default_timezone_;
   DatetimeValue current_datetime_in_default_timezone_;

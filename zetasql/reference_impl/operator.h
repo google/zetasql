@@ -61,6 +61,7 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include <cstdint>
+#include "absl/container/node_hash_map.h"
 #include "absl/hash/hash.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/string_view.h"
@@ -2683,13 +2684,13 @@ class LetExpr: public ValueExpr {
 // descendants of a ResolvedExpr or another ResolvedScan) to their corresponding
 // RelationalOps.
 using ResolvedScanMap =
-    std::unordered_map<const ResolvedScan*, std::unique_ptr<RelationalOp>>;
+    absl::node_hash_map<const ResolvedScan*, std::unique_ptr<RelationalOp>>;
 
 // Maps all ResolvedExpr descendants of a node (except those that are also
 // descendants of a ResolvedScan or another ResolvedExpr) to their corresponding
 // ValueExprs.
 using ResolvedExprMap =
-    std::unordered_map<const ResolvedExpr*, std::unique_ptr<ValueExpr>>;
+    absl::node_hash_map<const ResolvedExpr*, std::unique_ptr<ValueExpr>>;
 
 // This abstract class is a hack to allow executing a resolved DML statement
 // directly off its resolved AST node without using an intermediate algebra.

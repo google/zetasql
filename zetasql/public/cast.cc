@@ -101,6 +101,7 @@ static const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(INT32,      STRING,     EXPLICIT);
   ADD_TO_MAP(INT32,      ENUM,       EXPLICIT_OR_LITERAL_OR_PARAMETER);
   ADD_TO_MAP(INT32,      NUMERIC,    IMPLICIT);
+  ADD_TO_MAP(INT32,      BIGNUMERIC, IMPLICIT);
 
   ADD_TO_MAP(INT64,      BOOL,       EXPLICIT);
   ADD_TO_MAP(INT64,      INT32,      EXPLICIT_OR_LITERAL);
@@ -112,6 +113,7 @@ static const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(INT64,      STRING,     EXPLICIT);
   ADD_TO_MAP(INT64,      ENUM,       EXPLICIT_OR_LITERAL_OR_PARAMETER);
   ADD_TO_MAP(INT64,      NUMERIC,    IMPLICIT);
+  ADD_TO_MAP(INT64,      BIGNUMERIC, IMPLICIT);
 
   ADD_TO_MAP(UINT32,     BOOL,       EXPLICIT);
   ADD_TO_MAP(UINT32,     INT32,      EXPLICIT_OR_LITERAL);
@@ -123,6 +125,7 @@ static const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(UINT32,     STRING,     EXPLICIT);
   ADD_TO_MAP(UINT32,     ENUM,       EXPLICIT_OR_LITERAL);
   ADD_TO_MAP(UINT32,     NUMERIC,    IMPLICIT);
+  ADD_TO_MAP(UINT32,     BIGNUMERIC, IMPLICIT);
 
   ADD_TO_MAP(UINT64,     BOOL,       EXPLICIT);
   ADD_TO_MAP(UINT64,     INT32,      EXPLICIT_OR_LITERAL);
@@ -134,6 +137,7 @@ static const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(UINT64,     STRING,     EXPLICIT);
   ADD_TO_MAP(UINT64,     ENUM,       EXPLICIT_OR_LITERAL);
   ADD_TO_MAP(UINT64,     NUMERIC,    IMPLICIT);
+  ADD_TO_MAP(UINT64,     BIGNUMERIC, IMPLICIT);
 
   ADD_TO_MAP(NUMERIC,    INT32,      EXPLICIT);
   ADD_TO_MAP(NUMERIC,    INT64,      EXPLICIT);
@@ -143,8 +147,16 @@ static const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(NUMERIC,    DOUBLE,     IMPLICIT);
   ADD_TO_MAP(NUMERIC,    STRING,     EXPLICIT);
   ADD_TO_MAP(NUMERIC,    NUMERIC,    IMPLICIT);
+  ADD_TO_MAP(NUMERIC,    BIGNUMERIC, IMPLICIT);
 
-  // TODO: Implement cast and coercion for BIGNUMERIC.
+  ADD_TO_MAP(BIGNUMERIC, INT32,      EXPLICIT);
+  ADD_TO_MAP(BIGNUMERIC, INT64,      EXPLICIT);
+  ADD_TO_MAP(BIGNUMERIC, UINT32,     EXPLICIT);
+  ADD_TO_MAP(BIGNUMERIC, UINT64,     EXPLICIT);
+  ADD_TO_MAP(BIGNUMERIC, FLOAT,      EXPLICIT);
+  ADD_TO_MAP(BIGNUMERIC, DOUBLE,     IMPLICIT);
+  ADD_TO_MAP(BIGNUMERIC, STRING,     EXPLICIT);
+  ADD_TO_MAP(BIGNUMERIC, NUMERIC,    EXPLICIT);
   ADD_TO_MAP(BIGNUMERIC, BIGNUMERIC, IMPLICIT);
 
   ADD_TO_MAP(FLOAT,      INT32,      EXPLICIT);
@@ -155,6 +167,7 @@ static const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(FLOAT,      DOUBLE,     IMPLICIT);
   ADD_TO_MAP(FLOAT,      STRING,     EXPLICIT);
   ADD_TO_MAP(FLOAT,      NUMERIC,    EXPLICIT);
+  ADD_TO_MAP(FLOAT,      BIGNUMERIC, EXPLICIT);
 
   ADD_TO_MAP(DOUBLE,     INT32,      EXPLICIT);
   ADD_TO_MAP(DOUBLE,     INT64,      EXPLICIT);
@@ -164,6 +177,7 @@ static const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(DOUBLE,     DOUBLE,     IMPLICIT);
   ADD_TO_MAP(DOUBLE,     STRING,     EXPLICIT);
   ADD_TO_MAP(DOUBLE,     NUMERIC,    EXPLICIT_OR_LITERAL);
+  ADD_TO_MAP(DOUBLE,     BIGNUMERIC, EXPLICIT_OR_LITERAL);
 
   ADD_TO_MAP(STRING,     INT32,      EXPLICIT);
   ADD_TO_MAP(STRING,     INT64,      EXPLICIT);
@@ -181,6 +195,7 @@ static const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(STRING,     PROTO,      EXPLICIT_OR_LITERAL_OR_PARAMETER);
   ADD_TO_MAP(STRING,     BOOL,       EXPLICIT);
   ADD_TO_MAP(STRING,     NUMERIC,    EXPLICIT);
+  ADD_TO_MAP(STRING,     BIGNUMERIC, EXPLICIT);
 
   ADD_TO_MAP(BYTES,      BYTES,      IMPLICIT);
   ADD_TO_MAP(BYTES,      STRING,     EXPLICIT);
@@ -417,6 +432,8 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
     case FCT(TYPE_INT32, TYPE_STRING): return NumericToString<int32_t>(v);
     case FCT(TYPE_INT32, TYPE_NUMERIC):
       return NumericCast<int32_t, NumericValue>(v);
+    case FCT(TYPE_INT32, TYPE_BIGNUMERIC):
+      return NumericCast<int32_t, BigNumericValue>(v);
 
     case FCT(TYPE_UINT32, TYPE_INT32): return NumericCast<uint32_t, int32_t>(v);
     case FCT(TYPE_UINT32, TYPE_INT64): return NumericCast<uint32_t, int64_t>(v);
@@ -427,6 +444,8 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
     case FCT(TYPE_UINT32, TYPE_STRING): return NumericToString<uint32_t>(v);
     case FCT(TYPE_UINT32, TYPE_NUMERIC):
       return NumericCast<uint32_t, NumericValue>(v);
+    case FCT(TYPE_UINT32, TYPE_BIGNUMERIC):
+      return NumericCast<uint32_t, BigNumericValue>(v);
 
     case FCT(TYPE_INT64, TYPE_INT32): return NumericCast<int64_t, int32_t>(v);
     case FCT(TYPE_INT64, TYPE_UINT32): return NumericCast<int64_t, uint32_t>(v);
@@ -437,6 +456,8 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
     case FCT(TYPE_INT64, TYPE_STRING): return NumericToString<int64_t>(v);
     case FCT(TYPE_INT64, TYPE_NUMERIC):
       return NumericCast<int64_t, NumericValue>(v);
+    case FCT(TYPE_INT64, TYPE_BIGNUMERIC):
+      return NumericCast<int64_t, BigNumericValue>(v);
 
     case FCT(TYPE_UINT64, TYPE_INT32): return NumericCast<uint64_t, int32_t>(v);
     case FCT(TYPE_UINT64, TYPE_INT64): return NumericCast<uint64_t, int64_t>(v);
@@ -447,6 +468,8 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
     case FCT(TYPE_UINT64, TYPE_STRING): return NumericToString<uint64_t>(v);
     case FCT(TYPE_UINT64, TYPE_NUMERIC):
       return NumericCast<uint64_t, NumericValue>(v);
+    case FCT(TYPE_UINT64, TYPE_BIGNUMERIC):
+      return NumericCast<uint64_t, BigNumericValue>(v);
 
     case FCT(TYPE_BOOL, TYPE_INT32): return NumericCast<bool, int32_t>(v);
     case FCT(TYPE_BOOL, TYPE_INT64): return NumericCast<bool, int64_t>(v);
@@ -462,6 +485,8 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
     case FCT(TYPE_FLOAT, TYPE_STRING): return NumericToString<float>(v);
     case FCT(TYPE_FLOAT, TYPE_NUMERIC):
       return NumericCast<float, NumericValue>(v);
+    case FCT(TYPE_FLOAT, TYPE_BIGNUMERIC):
+      return NumericCast<float, BigNumericValue>(v);
 
     case FCT(TYPE_DOUBLE, TYPE_INT32): return NumericCast<double, int32_t>(v);
     case FCT(TYPE_DOUBLE, TYPE_INT64): return NumericCast<double, int64_t>(v);
@@ -471,6 +496,8 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
     case FCT(TYPE_DOUBLE, TYPE_STRING): return NumericToString<double>(v);
     case FCT(TYPE_DOUBLE, TYPE_NUMERIC):
       return NumericCast<double, NumericValue>(v);
+    case FCT(TYPE_DOUBLE, TYPE_BIGNUMERIC):
+      return NumericCast<double, BigNumericValue>(v);
 
     case FCT(TYPE_INT32, TYPE_ENUM):
     case FCT(TYPE_INT64, TYPE_ENUM):
@@ -504,6 +531,8 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
     case FCT(TYPE_STRING, TYPE_DOUBLE): return StringToNumeric<double>(v);
     case FCT(TYPE_STRING, TYPE_NUMERIC):
       return StringToNumeric<NumericValue>(v);
+    case FCT(TYPE_STRING, TYPE_BIGNUMERIC):
+      return StringToNumeric<BigNumericValue>(v);
 
     case FCT(TYPE_STRING, TYPE_ENUM): {
       const Value to_value = Value::Enum(to_type->AsEnum(), v.string_value());
@@ -809,8 +838,27 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
       return NumericCast<NumericValue, float>(v);
     case FCT(TYPE_NUMERIC, TYPE_DOUBLE):
       return NumericCast<NumericValue, double>(v);
+    case FCT(TYPE_NUMERIC, TYPE_BIGNUMERIC):
+      return NumericCast<NumericValue, BigNumericValue>(v);
     case FCT(TYPE_NUMERIC, TYPE_STRING):
       return NumericToString<NumericValue>(v);
+
+    case FCT(TYPE_BIGNUMERIC, TYPE_INT32):
+      return NumericCast<BigNumericValue, int32_t>(v);
+    case FCT(TYPE_BIGNUMERIC, TYPE_INT64):
+      return NumericCast<BigNumericValue, int64_t>(v);
+    case FCT(TYPE_BIGNUMERIC, TYPE_UINT32):
+      return NumericCast<BigNumericValue, uint32_t>(v);
+    case FCT(TYPE_BIGNUMERIC, TYPE_UINT64):
+      return NumericCast<BigNumericValue, uint64_t>(v);
+    case FCT(TYPE_BIGNUMERIC, TYPE_FLOAT):
+      return NumericCast<BigNumericValue, float>(v);
+    case FCT(TYPE_BIGNUMERIC, TYPE_DOUBLE):
+      return NumericCast<BigNumericValue, double>(v);
+    case FCT(TYPE_BIGNUMERIC, TYPE_NUMERIC):
+      return NumericCast<BigNumericValue, NumericValue>(v);
+    case FCT(TYPE_BIGNUMERIC, TYPE_STRING):
+      return NumericToString<BigNumericValue>(v);
 
     // TODO: implement missing casts.
     default:

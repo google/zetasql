@@ -182,13 +182,6 @@ inline bool UnaryMinus(float in, float *out, zetasql_base::Status* error) {
   return true;
 }
 
-template <>
-inline bool UnaryMinus(NumericValue in, NumericValue* out,
-                       zetasql_base::Status* error) {
-  *out = NumericValue::UnaryMinus(in);
-  return true;
-}
-
 // ----------------------- Integer -----------------------
 
 // LLVM and Clang have builtin functions that implement overflow checking most
@@ -507,6 +500,13 @@ inline bool Divide(NumericValue in1, NumericValue in2, NumericValue* out,
 }
 
 template <>
+inline bool UnaryMinus(NumericValue in, NumericValue* out,
+                       zetasql_base::Status* error) {
+  *out = NumericValue::UnaryMinus(in);
+  return true;
+}
+
+template <>
 inline bool Modulo(NumericValue in1, NumericValue in2,
                    NumericValue *out, zetasql_base::Status* error) {
   zetasql_base::StatusOr<NumericValue> numeric_status = in1.Mod(in2);
@@ -532,6 +532,80 @@ inline bool IntegerDivide(NumericValue in1, NumericValue in2,
   }
   return false;
 }
+
+// ----------------------- BIGNUMERIC -----------------------
+
+template <>
+inline bool Add(BigNumericValue in1, BigNumericValue in2, BigNumericValue* out,
+                zetasql_base::Status* error) {
+  zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Add(in2);
+  if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
+    *out = bignumeric_status.ValueOrDie();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = bignumeric_status.status();
+  }
+  return false;
+}
+
+template <>
+inline bool Subtract(BigNumericValue in1, BigNumericValue in2,
+                     BigNumericValue* out, zetasql_base::Status* error) {
+  zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Subtract(in2);
+  if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
+    *out = bignumeric_status.ValueOrDie();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = bignumeric_status.status();
+  }
+  return false;
+}
+
+template <>
+inline bool Multiply(BigNumericValue in1, BigNumericValue in2,
+                     BigNumericValue* out, zetasql_base::Status* error) {
+  zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Multiply(in2);
+  if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
+    *out = bignumeric_status.ValueOrDie();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = bignumeric_status.status();
+  }
+  return false;
+}
+
+template <>
+inline bool Divide(BigNumericValue in1, BigNumericValue in2,
+                   BigNumericValue* out, zetasql_base::Status* error) {
+  zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Divide(in2);
+  if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
+    *out = bignumeric_status.ValueOrDie();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = bignumeric_status.status();
+  }
+  return false;
+}
+
+template <>
+inline bool UnaryMinus(BigNumericValue in, BigNumericValue* out,
+                       zetasql_base::Status* error) {
+  zetasql_base::StatusOr<BigNumericValue> bignumeric_status =
+      BigNumericValue::UnaryMinus(in);
+  if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
+    *out = bignumeric_status.ValueOrDie();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = bignumeric_status.status();
+  }
+  return false;
+}
+
 
 }  // namespace functions
 }  // namespace zetasql

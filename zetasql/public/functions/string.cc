@@ -31,6 +31,7 @@
 #include "zetasql/common/utf_util.h"
 #include "zetasql/public/functions/normalize_mode.pb.h"
 #include "zetasql/public/functions/util.h"
+#include "zetasql/base/string_numbers.h"
 #include "absl/base/casts.h"
 #include <cstdint>
 #include "absl/base/optimization.h"
@@ -840,6 +841,41 @@ bool FromBase64(absl::string_view str, std::string* out, zetasql_base::Status* e
   if (!absl::Base64Unescape(str, out)) {
     return internal::UpdateError(error,
                                  "Failed to decode invalid base64 string");
+  }
+  return true;
+}
+
+bool ToHex(absl::string_view str, std::string* out, zetasql_base::Status* error) {
+  *out = absl::BytesToHexString(str);
+  return true;
+}
+
+bool FromHex(absl::string_view str, std::string* out, zetasql_base::Status* error) {
+  if (str.empty()) {
+    out->clear();
+    return true;
+  }
+  int offset = 0;
+  for (char c : str) {
+    if (!absl::ascii_isxdigit(c)) {
+      return internal::UpdateError(
+          error, absl::Substitute("Failed to decode invalid hexadecimal "
+                                  "string due to character at offset $0: $1",
+                                  offset, str));
+    }
+    ++offset;
+  }
+  // Account for strings with an odd number of hex digits.
+  if (str.size() % 2 == 1) {
+    zetasql_base::STLStringResizeUninitialized(out, (str.size() + 1) / 2);
+    char* string_ptr = &(*out)[0];
+    *string_ptr = zetasql_base::hex_digit_to_int(str[0]);
+    ++string_ptr;
+    str.remove_prefix(1);
+    std::string tmp = absl::HexStringToBytes(str);
+    out->replace(1, tmp.size(), tmp);
+  } else {
+    *out = absl::HexStringToBytes(str);
   }
   return true;
 }

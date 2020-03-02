@@ -201,7 +201,7 @@ protocol buffer field types and the resulting ZetaSQL types.
 <thead>
 <tr>
 <th>Protocol Buffer Field Type</th>
-<th nowrap>ZetaSQL Type</th>
+<th style="white-space:nowrap">ZetaSQL Type</th>
 </tr>
 </thead>
 <tbody>

@@ -38,11 +38,11 @@ enum FunctionSignatureId {
   // other special functions (CASE).  FunctionSignatureIds are assigned
   // in ranges:
   //
-  // 0002-0999 Non-standard function calls   (NextId: 261)
+  // 0002-0999 Non-standard function calls   (NextId: 266)
   // 1000-1099 String functions              (NextId: 1065)
   // 1100-1199 Control flow functions        (NextId: 1104)
   // 1200-1299 Time functions                (Fully used)
-  // 1300-1399 Math functions                (NextId: 1388)
+  // 1300-1399 Math functions                (NextId: 1393)
   // 1400-1499 Aggregate functions           (NextId: 1478)
   // 1500-1599 Analytic functions            (NextId: 1513)
   // 1600-1699 Misc functions                (NextId: 1682)
@@ -57,11 +57,13 @@ enum FunctionSignatureId {
   FN_ADD_INT64 = 4;                        // $add
   FN_ADD_UINT64 = 119;                     // $add
   FN_ADD_NUMERIC = 248;                    // $add
+  FN_ADD_BIGNUMERIC = 261;                 // $add
   FN_AND = 5;                              // $and
   FN_CASE_NO_VALUE = 6;                    // $case_no_value
   FN_CASE_WITH_VALUE = 7;                  // $case_with_value
   FN_DIVIDE_DOUBLE = 40;                   // $divide
   FN_DIVIDE_NUMERIC = 250;                 // $divide
+  FN_DIVIDE_BIGNUMERIC = 263;              // $divide
   FN_GREATER = 107;                        // $greater
   FN_GREATER_INT64_UINT64 = 222;           // $greater
   FN_GREATER_UINT64_INT64 = 223;           // $greater
@@ -95,6 +97,7 @@ enum FunctionSignatureId {
   FN_MULTIPLY_INT64 = 44;                  // $multiply
   FN_MULTIPLY_UINT64 = 114;                // $multiply
   FN_MULTIPLY_NUMERIC = 251;               // $multiply
+  FN_MULTIPLY_BIGNUMERIC = 264;            // $multiply
   FN_NOT = 45;                             // $not
   FN_NOT_EQUAL = 109;                      // $not_equal
   FN_NOT_EQUAL_INT64_UINT64 = 232;         // $not_equal
@@ -104,12 +107,14 @@ enum FunctionSignatureId {
   FN_SUBTRACT_INT64 = 48;                  // $subtract
   FN_SUBTRACT_UINT64 = 117;                // $subtract
   FN_SUBTRACT_NUMERIC = 249;               // $subtract
+  FN_SUBTRACT_BIGNUMERIC = 262;            // $subtract
 
-  FN_UNARY_MINUS_INT32 = 83;     // $unary_minus
-  FN_UNARY_MINUS_INT64 = 84;     // $unary_minus
-  FN_UNARY_MINUS_FLOAT = 87;     // $unary_minus
-  FN_UNARY_MINUS_DOUBLE = 88;    // $unary_minus
-  FN_UNARY_MINUS_NUMERIC = 252;  // $unary_minus
+  FN_UNARY_MINUS_INT32 = 83;        // $unary_minus
+  FN_UNARY_MINUS_INT64 = 84;        // $unary_minus
+  FN_UNARY_MINUS_FLOAT = 87;        // $unary_minus
+  FN_UNARY_MINUS_DOUBLE = 88;       // $unary_minus
+  FN_UNARY_MINUS_NUMERIC = 252;     // $unary_minus
+  FN_UNARY_MINUS_BIGNUMERIC = 265;  // $unary_minus
 
   // Bitwise unary operators.
   FN_BITWISE_NOT_INT32 = 120;   // $bitwise_not
@@ -387,29 +392,34 @@ enum FunctionSignatureId {
   FN_DIV_UINT64 = 1355;   // div(uint64, uint64) -> uint64
   FN_DIV_NUMERIC = 1362;  // div(numeric, numeric) -> numeric
 
-  FN_IS_INF = 1317;                    // is_inf
-  FN_IS_NAN = 1318;                    // is_nan
-  FN_IEEE_DIVIDE_DOUBLE = 1319;        // ieee_divide
-  FN_IEEE_DIVIDE_FLOAT = 1320;         // ieee_divide
-  FN_SAFE_DIVIDE_DOUBLE = 1358;        // safe_divide
-  FN_SAFE_DIVIDE_NUMERIC = 1361;       // safe_divide
-  FN_SAFE_ADD_INT64 = 1371;            // safe_add
-  FN_SAFE_ADD_UINT64 = 1372;           // safe_add
-  FN_SAFE_ADD_DOUBLE = 1373;           // safe_add
-  FN_SAFE_ADD_NUMERIC = 1374;          // safe_add
-  FN_SAFE_SUBTRACT_INT64 = 1375;       // safe_subtract
-  FN_SAFE_SUBTRACT_UINT64 = 1376;      // safe_subtract
-  FN_SAFE_SUBTRACT_DOUBLE = 1377;      // safe_subtract
-  FN_SAFE_SUBTRACT_NUMERIC = 1378;     // safe_subtract
-  FN_SAFE_MULTIPLY_INT64 = 1379;       // safe_multiply
-  FN_SAFE_MULTIPLY_UINT64 = 1380;      // safe_multiply
-  FN_SAFE_MULTIPLY_DOUBLE = 1381;      // safe_multiply
-  FN_SAFE_MULTIPLY_NUMERIC = 1382;     // safe_multiply
-  FN_SAFE_UNARY_MINUS_INT32 = 1383;    // safe_negate
-  FN_SAFE_UNARY_MINUS_INT64 = 1384;    // safe_negate
-  FN_SAFE_UNARY_MINUS_FLOAT = 1385;    // safe_negate
-  FN_SAFE_UNARY_MINUS_DOUBLE = 1386;   // safe_negate
-  FN_SAFE_UNARY_MINUS_NUMERIC = 1387;  // safe_negate
+  FN_IS_INF = 1317;                       // is_inf
+  FN_IS_NAN = 1318;                       // is_nan
+  FN_IEEE_DIVIDE_DOUBLE = 1319;           // ieee_divide
+  FN_IEEE_DIVIDE_FLOAT = 1320;            // ieee_divide
+  FN_SAFE_DIVIDE_DOUBLE = 1358;           // safe_divide
+  FN_SAFE_DIVIDE_NUMERIC = 1361;          // safe_divide
+  FN_SAFE_DIVIDE_BIGNUMERIC = 1388;       // safe_divide
+  FN_SAFE_ADD_INT64 = 1371;               // safe_add
+  FN_SAFE_ADD_UINT64 = 1372;              // safe_add
+  FN_SAFE_ADD_DOUBLE = 1373;              // safe_add
+  FN_SAFE_ADD_NUMERIC = 1374;             // safe_add
+  FN_SAFE_ADD_BIGNUMERIC = 1389;          // safe_add
+  FN_SAFE_SUBTRACT_INT64 = 1375;          // safe_subtract
+  FN_SAFE_SUBTRACT_UINT64 = 1376;         // safe_subtract
+  FN_SAFE_SUBTRACT_DOUBLE = 1377;         // safe_subtract
+  FN_SAFE_SUBTRACT_NUMERIC = 1378;        // safe_subtract
+  FN_SAFE_SUBTRACT_BIGNUMERIC = 1390;     // safe_subtract
+  FN_SAFE_MULTIPLY_INT64 = 1379;          // safe_multiply
+  FN_SAFE_MULTIPLY_UINT64 = 1380;         // safe_multiply
+  FN_SAFE_MULTIPLY_DOUBLE = 1381;         // safe_multiply
+  FN_SAFE_MULTIPLY_NUMERIC = 1382;        // safe_multiply
+  FN_SAFE_MULTIPLY_BIGNUMERIC = 1391;     // safe_multiply
+  FN_SAFE_UNARY_MINUS_INT32 = 1383;       // safe_negate
+  FN_SAFE_UNARY_MINUS_INT64 = 1384;       // safe_negate
+  FN_SAFE_UNARY_MINUS_FLOAT = 1385;       // safe_negate
+  FN_SAFE_UNARY_MINUS_DOUBLE = 1386;      // safe_negate
+  FN_SAFE_UNARY_MINUS_NUMERIC = 1387;     // safe_negate
+  FN_SAFE_UNARY_MINUS_BIGNUMERIC = 1392;  // safe_negate
 
   FN_GREATEST = 1321;  // greatest
   FN_LEAST = 1322;     // least

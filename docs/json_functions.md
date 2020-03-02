@@ -16,44 +16,23 @@ json_path_string_literal)`, which returns scalar JSON values as STRINGs.
 
 **Description**
 
-The `json_string_expr` parameter must be a JSON-formatted string. For example:
+Extracts JSON values or JSON scalar values as strings.
 
-```
-{"class" : {"students" : [{"name" : "Jane"}]}}
-```
++  `json_string_expr`: A JSON-formatted string. For example:
 
-The `json_path_string_literal` parameter identifies the value or values you want
-to obtain from the JSON-formatted string. You construct this parameter using the
-[JSONPath][json-path] format. As part of this format, this parameter must start
-with a `$` symbol, which refers to the outermost level of the JSON-formatted
-string. You can identify child values using dot or bracket notation. If the JSON
-object is an array, you can use brackets to specify the array index.
+    ```
+    {"class" : {"students" : [{"name" : "Jane"}]}}
+    ```
++  `json_path_string_literal`: The [JSONpath][jsonpath-format] format.
+   This identifies the value or values you want to obtain from the
+   JSON-formatted string.
 
-| JSONPath | Description                       |
-|----------|-----------------------------------|
-| $        | Root object or element            |
-| . or []  | Child operator                    |
-| []       | Subscript operator                |
+In cases where a JSON key uses invalid JSONPath characters, you can escape
+those characters using single quotes and brackets.
 
-Both functions return `NULL` if the `json_path_string_literal` parameter does
-not match a value in `json_string_expr`. If the selected value for
-`JSON_EXTRACT_SCALAR` is not scalar, such as an object or an array, the function
-returns `NULL`.
+**Return type**
 
-If the JSONPath is invalid, these functions raise an error.
-
-In cases where a JSON key uses invalid JSONPath characters, you can escape those
-characters using single quotes and brackets, `[' ']`. For example:
-
-```sql
-SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") as hello;
-
-+-------+
-| hello |
-+-------+
-| world |
-+-------+
-```
+`STRING`s
 
 **Examples**
 
@@ -64,11 +43,7 @@ FROM UNNEST([
   '{"class" : {"students" : []}}',
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
-```
 
-The above query produces the following result:
-
-```json
 +-----------------------------------------------------------+
 | json_text_string                                          |
 +-----------------------------------------------------------+
@@ -85,11 +60,7 @@ FROM UNNEST([
   '{"class" : {"students" : []}}',
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
-```
 
-The above query produces the following result:
-
-```json
 +-----------------+
 | first_student   |
 +-----------------+
@@ -106,11 +77,7 @@ FROM UNNEST([
   '{"class" : {"students" : []}}',
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
-```
 
-The above query produces the following result:
-
-```json
 +-------------------+
 | second_student    |
 +-------------------+
@@ -127,11 +94,7 @@ FROM UNNEST([
   '{"class" : {"students" : []}}',
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
-```
 
-The above query produces the following result:
-
-```json
 +------------------------------------+
 | student_names                      |
 +------------------------------------+
@@ -146,16 +109,25 @@ SELECT JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.name') as json_name,
   JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.name') as scalar_name,
   JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.age') as json_age,
   JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.age') as scalar;
-```
 
-The above query produces the following result:
-
-```json
 +-----------+-------------+----------+--------+
 | json_name | scalar_name | json_age | scalar |
 +-----------+-------------+----------+--------+
 | "Jakob"   | Jakob       | "6"      | 6      |
 +-----------+-------------+----------+--------+
+```
+
+In cases where a JSON key uses invalid JSONPath characters, you can escape those
+characters using single quotes and brackets, `[' ']`. For example:
+
+```sql
+SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") as hello;
+
++-------+
+| hello |
++-------+
+| world |
++-------+
 ```
 
 ### JSON_QUERY or JSON_VALUE
@@ -168,43 +140,19 @@ which returns scalar JSON values as STRINGs.
 
 **Description**
 
-The `json_string_expr` parameter must be a JSON-formatted string. For example:
+Extracts JSON values or JSON scalar values as strings.
 
-```json
-{"class" : {"students" : [{"name" : "Jane"}]}}
-```
++  `json_string_expr`: A JSON-formatted string. For example:
 
-The `json_path_string_literal` parameter identifies the value or values you want
-to obtain from the JSON-formatted string. You construct this parameter using the
-[JSONPath][json-path] format. As part of this format, this parameter must start
-with a `$` symbol, which refers to the outermost level of the JSON-formatted
-string. You can identify child values using dot or surrounded by double quotes.
-If the JSON object is an array, you can use brackets to specify the array index.
+  ```
+  {"class" : {"students" : [{"name" : "Jane"}]}}
+  ```
++  `json_path_string_literal`: The [JSONpath][jsonpath-format] format.
+   This identifies the value or values you want to obtain from the
+   JSON-formatted string.
 
-JSONPath | Description
--------- | ----------------------
-$        | Root object or element
-.        | Child operator
-[]       | Subscript operator
-
-Both functions return `NULL` if the `json_path_string_literal` parameter does
-not match a value in `json_string_expr`. If the selected value for `JSON_VALUE`
-is not scalar, such as an object or an array, the function returns `NULL`.
-
-If the JSONPath is invalid, these functions raise an error.
-
-In cases where a JSON key uses invalid JSONPath characters, you can escape those
-characters using double quotes. For example:
-
-```sql
-SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c') as hello;
-
-+-------+
-| hello |
-+-------+
-| world |
-+-------+
-```
+In cases where a JSON key uses invalid JSONPath characters,
+you can escape those characters using double quotes.
 
 **Examples**
 
@@ -215,11 +163,7 @@ FROM UNNEST([
   '{"class" : {"students" : []}}',
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
-```
 
-The above query produces the following result:
-
-```json
 +-----------------------------------------------------------+
 | json_text_string                                          |
 +-----------------------------------------------------------+
@@ -236,11 +180,7 @@ FROM UNNEST([
   '{"class" : {"students" : []}}',
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
-```
 
-The above query produces the following result:
-
-```json
 +-----------------+
 | first_student   |
 +-----------------+
@@ -257,11 +197,7 @@ FROM UNNEST([
   '{"class" : {"students" : []}}',
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
-```
 
-The above query produces the following result:
-
-```json
 +-------------------+
 | second_student    |
 +-------------------+
@@ -278,11 +214,7 @@ FROM UNNEST([
   '{"class" : {"students" : []}}',
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
-```
 
-The above query produces the following result:
-
-```json
 +------------------------------------+
 | student_names                      |
 +------------------------------------+
@@ -297,16 +229,25 @@ SELECT JSON_QUERY('{ "name" : "Jakob", "age" : "6" }', '$.name') as json_name,
   JSON_VALUE('{ "name" : "Jakob", "age" : "6" }', '$.name') as scalar_name,
   JSON_QUERY('{ "name" : "Jakob", "age" : "6" }', '$.age') as json_age,
   JSON_VALUE('{ "name" : "Jakob", "age" : "6" }', '$.age') as scalar;
-```
 
-The above query produces the following result:
-
-```json
 +-----------+-------------+----------+--------+
 | json_name | scalar_name | json_age | scalar |
 +-----------+-------------+----------+--------+
 | "Jakob"   | Jakob       | "6"      | 6      |
 +-----------+-------------+----------+--------+
+```
+
+In cases where a JSON key uses invalid JSONPath characters, you can escape those
+characters using double quotes. For example:
+
+```sql
+SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c') as hello;
+
++-------+
+| hello |
++-------+
+| world |
++-------+
 ```
 
 ### TO_JSON_STRING
@@ -585,5 +526,41 @@ The above query produces the following result:
 +-----------------------+
 ```
 
+### JSONPath format
+
+Most JSON functions pass in a `json_string_expr` and `json_path_string_literal`
+parameter. The `json_string_expr` parameter passes in a JSON-formatted
+string, and the `json_path_string_literal` parameter identifies the value or
+values you want to obtain from the JSON-formatted string.
+
+The `json_string_expr` parameter must be a JSON string that is
+formatted like this:
+
+```json
+{"class" : {"students" : [{"name" : "Jane"}]}}
+```
+
+You construct the `json_path_string_literal` parameter using the
+[JSONPath][json-path] format. As part of this format, this parameter must start
+with a `$` symbol, which refers to the outermost level of the JSON-formatted
+string. You can identify child values using dots. If the JSON object is an
+array, you can use brackets to specify the array index. If the keys contain
+`$`, dots, or brackets, refer to each JSON function for how to escape
+them.
+
+JSONPath | Description            | Example               | Result using the above `json_string_expr`
+-------- | ---------------------- | --------------------- | -----------------------------------------
+$        | Root object or element | "$"                   | `{"class":{"students":[{"name":"Jane"}]}}`
+.        | Child operator         | "$.class.students"    | `[{"name":"Jane"}]`
+[]       | Subscript operator     | "$.class.students[0]" | `{"name":"Jane"}`
+
+A JSON functions returns `NULL` if the `json_path_string_literal` parameter does
+not match a value in `json_string_expr`. If the selected value for a scalar
+function is not scalar, such as an object or an array, the function
+returns `NULL`.
+
+If the JSONPath is invalid, the function raises an error.
+
+[jsonpath-format]: #jsonpath_format
 [json-path]: https://github.com/json-path/JsonPath#operators
 

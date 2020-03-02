@@ -122,6 +122,18 @@ inline zetasql_base::StatusOr<NumericValue> NumericValue::FromFixedInt(
   return MakeEvalError() << "numeric overflow";
 }
 
+template <int kNumBitsPerWord, int kNumWords>
+inline zetasql_base::StatusOr<NumericValue> NumericValue::FromFixedUint(
+    const FixedUint<kNumBitsPerWord, kNumWords>& val, bool negate) {
+  if (ABSL_PREDICT_TRUE(val.NonZeroLength() <= 128 / kNumBitsPerWord)) {
+    unsigned __int128 v = static_cast<unsigned __int128>(val);
+    if (ABSL_PREDICT_TRUE(v <= internal::kNumericMax)) {
+      return NumericValue(static_cast<__int128>(negate ? -v : v));
+    }
+  }
+  return MakeEvalError() << "numeric overflow";
+}
+
 inline zetasql_base::StatusOr<NumericValue> NumericValue::FromHighAndLowBits(
     uint64_t high_bits, uint64_t low_bits) {
   NumericValue ret(high_bits, low_bits);

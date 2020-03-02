@@ -1325,15 +1325,14 @@ FROM Strings;
 ### REGEXP_CONTAINS
 
 ```
-REGEXP_CONTAINS(value, regex)
+REGEXP_CONTAINS(value, regexp)
 ```
 
 **Description**
 
-Returns TRUE if `value` is a partial match for the regular expression,
-`regex`.
+Returns TRUE if `value` is a partial match for the regular expression, `regexp`.
 
-If the `regex` argument is invalid, the function returns an error.
+If the `regexp` argument is invalid, the function returns an error.
 
 You can search for a full match by using `^` (beginning of text) and `$` (end of
 text). Due to regular expression operator precedence, it is good practice to use
@@ -1394,14 +1393,15 @@ FROM
 ```
 
 ### REGEXP_EXTRACT
+
 ```
-REGEXP_EXTRACT(value, regex)
+REGEXP_EXTRACT(value, regexp)
 ```
 
 **Description**
 
 Returns the first substring in `value` that matches the regular expression,
-`regex`. Returns `NULL` if there is no match.
+`regexp`. Returns `NULL` if there is no match.
 
 If the regular expression contains a capturing group, the function returns the
 substring that is matched by that capturing group. If the expression does not
@@ -1466,14 +1466,15 @@ FROM email_addresses;
 ```
 
 ### REGEXP_EXTRACT_ALL
+
 ```
-REGEXP_EXTRACT_ALL(value, regex)
+REGEXP_EXTRACT_ALL(value, regexp)
 ```
 
 **Description**
 
 Returns an array of all substrings of `value` that match the regular expression,
-`regex`.
+`regexp`.
 
 The `REGEXP_EXTRACT_ALL` function only returns non-overlapping matches. For
 example, using this function to extract `ana` from `banana` returns only one
@@ -1511,15 +1512,14 @@ FROM code_markdown;
 <p class="caution"><strong>Deprecated.</strong> Use <a href="#regexp_contains">REGEXP_CONTAINS</a>.</p>
 
 ```
-REGEXP_MATCH(value, regex)
+REGEXP_MATCH(value, regexp)
 ```
 
 **Description**
 
-Returns TRUE if `value` is a full match for the regular expression,
-`regex`.
+Returns TRUE if `value` is a full match for the regular expression, `regexp`.
 
-If the `regex` argument is invalid, the function returns an error.
+If the `regexp` argument is invalid, the function returns an error.
 
 Note: ZetaSQL provides regular expression support using the
 [re2][string-link-to-re2] library; see that documentation for its
@@ -1557,18 +1557,19 @@ FROM email_addresses;
 ```
 
 ### REGEXP_REPLACE
+
 ```
-REGEXP_REPLACE(value, regex, replacement)
+REGEXP_REPLACE(value, regexp, replacement)
 ```
 
 **Description**
 
 Returns a STRING where all substrings of `value` that
-match regular expression `regex` are replaced with `replacement`.
+match regular expression `regexp` are replaced with `replacement`.
 
 You can use backslashed-escaped digits (\1 to \9) within the `replacement`
 argument to insert text matching the corresponding parenthesized group in the
-`regex` pattern. Use \0 to refer to the entire matching text.
+`regexp` pattern. Use \0 to refer to the entire matching text.
 
 Note: To add a backslash in your regular expression, you must first escape it.
 For example, `SELECT REGEXP_REPLACE("abc", "b(.)", "X\\1");` returns `aXc`.
@@ -1577,8 +1578,8 @@ The `REGEXP_REPLACE` function only replaces non-overlapping matches. For
 example, replacing `ana` within `banana` results in only one replacement, not
 two.
 
-If the `regex` argument is not a valid regular expression, this function returns
-an error.
+If the `regexp` argument is not a valid regular expression, this function
+returns an error.
 
 Note: ZetaSQL provides regular expression support using the
 [re2][string-link-to-re2] library; see that documentation for its

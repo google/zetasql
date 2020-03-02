@@ -1147,22 +1147,6 @@ cc_library(
 )
 
 cc_test(
-    name = "parse_helpers_test",
-    size = "small",
-    srcs = ["parse_helpers_test.cc"],
-    copts = ["-Wno-sign-compare"],
-    deps = [
-        ":parse_helpers",
-        ":parse_resume_location",
-        "@com_google_googletest//:gtest_main",
-        "//zetasql/base:status",
-        "//zetasql/base/testing:status_matchers",
-        "//zetasql/common:status_payload_utils",
-        "@com_google_absl//absl/strings",
-    ],
-)
-
-cc_test(
     name = "parse_tokens_test",
     size = "small",
     srcs = ["parse_tokens_test.cc"],

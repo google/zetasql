@@ -93,6 +93,8 @@ static Value TestGetSQL(const Value& value) {
   AnalyzerOptions analyzer_options;
   analyzer_options.mutable_language()->EnableLanguageFeature(
       FEATURE_NUMERIC_TYPE);
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_BIGNUMERIC_TYPE);
 
   const bool testable_type = !value.type()->IsProto();
   // Test round tripping GetSQL for non-legacy types.
@@ -540,7 +542,7 @@ TEST_F(ValueTest, Numeric) {
   {
     Value value = TestGetSQL(Value::Numeric(NumericValue(123LL)));
     EXPECT_EQ("NUMERIC", value.type()->DebugString());
-    EXPECT_TRUE(!value.is_null());
+    EXPECT_FALSE(value.is_null());
     EXPECT_EQ(NumericValue(123LL), value.numeric_value());
   }
 }
@@ -574,6 +576,13 @@ TEST_F(ValueTest, BigNumeric) {
     EXPECT_EQ(BigNumericValue(100LL), v3.bignumeric_value());
     v1 = Value::Int32(1);
     EXPECT_EQ(TYPE_BIGNUMERIC, v3.type()->kind());
+  }
+
+  {
+    Value value = TestGetSQL(Value::BigNumeric(BigNumericValue(123LL)));
+    EXPECT_EQ("BIGNUMERIC", value.type()->DebugString());
+    EXPECT_FALSE(value.is_null());
+    EXPECT_EQ(BigNumericValue(123LL), value.bignumeric_value());
   }
 }
 

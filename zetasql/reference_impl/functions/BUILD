@@ -48,3 +48,14 @@ cc_library(
         "//zetasql/reference_impl:evaluation",
     ],
 )
+
+cc_library(
+    name = "json",
+    srcs = ["json.cc"],
+    hdrs = ["json.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "//zetasql/public/functions:json",
+        "//zetasql/reference_impl:evaluation",
+    ],
+)

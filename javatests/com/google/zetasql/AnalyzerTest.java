@@ -20,8 +20,10 @@ package com.google.zetasql;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 
+import com.google.common.collect.ImmutableList;
 import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedExpr;
+import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedStatement;
 import com.google.zetasqltest.TestSchemaProto.KitchenSinkPB;
 
 
@@ -173,6 +175,28 @@ public class AnalyzerTest {
 
     String expectedResponse = "DATE_TRUNC(DATE \"2008-12-25\", MONTH)";
     String response = Analyzer.buildExpression(resolvedExpr, catalog);
+    assertEquals(expectedResponse, response);
+  }
+
+  @Test
+  public void buildStatementRoundTrip() {
+    SimpleCatalog catalog = new SimpleCatalog("foo");
+    catalog.addZetaSQLFunctions(new ZetaSQLBuiltinFunctionOptions());
+
+    SimpleColumn column =
+        new SimpleColumn("t", "bar", TypeFactory.createSimpleType(TypeKind.TYPE_INT32));
+    SimpleTable table = new SimpleTable("t", ImmutableList.of(column));
+    catalog.addSimpleTable(table);
+
+    AnalyzerOptions options = new AnalyzerOptions();
+    String sql = "select t.bar from t";
+
+    ResolvedStatement resolvedStatement = Analyzer.analyzeStatement(sql, options, catalog);
+    assertThat(resolvedStatement).isNotNull();
+
+    // Sql builder normalizes expression.
+    String expectedResponse = "SELECT t_2.a_1 AS bar FROM (SELECT t.bar AS a_1 FROM t) AS t_2";
+    String response = Analyzer.buildStatement(resolvedStatement, catalog);
     assertEquals(expectedResponse, response);
   }
 

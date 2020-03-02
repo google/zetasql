@@ -583,6 +583,9 @@ class BigNumericValue final {
 // Allow NUMERIC values to be logged.
 std::ostream& operator<<(std::ostream& out, NumericValue value);
 
+// Allow BIGNUMERIC values to be logged.
+std::ostream& operator<<(std::ostream& out, BigNumericValue value);
+
 }  // namespace zetasql
 
 // Include implementation of the inline methods. Out of line for clarity. It is

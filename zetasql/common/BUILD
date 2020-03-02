@@ -235,12 +235,12 @@ cc_library(
     hdrs = ["builtin_function_internal.h"],
     copts = ["-Wno-sign-compare"],
     deps = [
+        ":errors",
         "//zetasql/base",
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/base:statusor",
-        "//zetasql/common:errors",
         "//zetasql/proto:options_cc_proto",
         "//zetasql/public:builtin_function_cc_proto",
         "//zetasql/public:builtin_function_options",
@@ -351,5 +351,27 @@ cc_test(
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+cc_library(
+    name = "json_util",
+    srcs = ["json_util.cc"],
+    hdrs = ["json_util.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+cc_test(
+    name = "json_util_test",
+    srcs = ["json_util_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":json_util",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/strings",
     ],
 )

@@ -155,7 +155,8 @@ std::unique_ptr<const ResolvedLiteral> Resolver::MakeResolvedLiteral(
 std::unique_ptr<const ResolvedLiteral> Resolver::MakeResolvedFloatLiteral(
     const ASTNode* ast_location, const Type* type, const Value& value,
     bool has_explicit_type, absl::string_view image) {
-  if (!language().LanguageFeatureEnabled(FEATURE_NUMERIC_TYPE)) {
+  if (!language().LanguageFeatureEnabled(FEATURE_NUMERIC_TYPE) &&
+      !language().LanguageFeatureEnabled(FEATURE_BIGNUMERIC_TYPE)) {
     return MakeResolvedLiteral(ast_location, type, value, has_explicit_type);
   }
   const int float_literal_id = next_float_literal_image_id_++;

@@ -101,13 +101,35 @@ std::vector<QueryParamsWithResult> GetFunctionTestsUnaryMinus() {
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult({{NullNumeric()}, NullNumeric()})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+
+      // bignumeric
+      QueryParamsWithResult({{BigNumeric(-1)}, BigNumeric(1)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::FromStringStrict("3.14").ValueOrDie())},
+           BigNumeric(BigNumericValue::FromStringStrict("-3.14").ValueOrDie())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(0)}, BigNumeric(0)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(1)}, BigNumeric(-1)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::MaxValue())},
+           BigNumeric(BigNumericValue::FromStringStrict(
+                          "-578960446186580977117854925043439539266."
+                          "34992332820282019728792003956564819967")
+                          .ValueOrDie())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(BigNumericValue::MinValue())},
+                             NullBigNumeric(), OUT_OF_RANGE})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{NullBigNumeric()}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
   };
 }
 
+// TODO: Add test cases for coerced operations with BIGNUMERIC.
 std::vector<QueryParamsWithResult> GetFunctionTestsCoercedAdd() {
-  // These initial tests only cover addition between two same-type
-  // operands.  TODO: Add tests for addition between
-  // different types.
   return {
       // int32
       {{2, 3}, 5ll},
@@ -170,6 +192,42 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedAdd() {
           {{Numeric(NumericValue::MinValue()), Double(0.00001)},
            Double(-1e+29)})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+
+      // bignumeric
+      QueryParamsWithResult({{BigNumeric(-3), NullInt64()}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{NullBigNumeric(), Int64(5)}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(-3), Int64(5)}, BigNumeric(2)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::FromStringStrict("1.25").ValueOrDie()),
+            Int64(3)},
+           BigNumeric(BigNumericValue::FromStringStrict("4.25").ValueOrDie())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::FromStringStrict("2.02").ValueOrDie()),
+            Double(-1.01)},
+           Double(1.01)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{Double(5), BigNumeric(-3)}, Double(2)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::MaxValue()), Int64(-3)},
+           BigNumeric(BigNumericValue::FromStringStrict(
+                          "578960446186580977117854925043439539263."
+                          "34992332820282019728792003956564819967")
+                          .ValueOrDie())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::MaxValue()), Double(3.1)},
+           Double(5.7896044618658096e+38)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::MinValue()), Int64(-3)},
+           NullBigNumeric(),
+           OUT_OF_RANGE})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
   };
 }
 
@@ -236,6 +294,42 @@ std::vector<QueryParamsWithResult> GetFunctionTestsAdd() {
                              NullNumeric(),
                              OUT_OF_RANGE})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+
+      // bignumeric
+      QueryParamsWithResult(
+          {{BigNumeric(-3), NullBigNumeric()}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{NullBigNumeric(), BigNumeric(5)}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(-1), BigNumeric(100)}, BigNumeric(99)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::MaxValue()),
+            BigNumeric(BigNumericValue::MinValue())},
+           BigNumeric(
+               BigNumericValue::FromStringStrict("-1e-38").ValueOrDie())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::MinValue()),
+            BigNumeric(BigNumericValue::MaxValue())},
+           BigNumeric(
+               BigNumericValue::FromStringStrict("-1e-38").ValueOrDie())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::MinValue()),
+            BigNumeric(
+                BigNumericValue::FromStringStrict("-1e-38").ValueOrDie())},
+           NullBigNumeric(),
+           OUT_OF_RANGE})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::MaxValue()),
+            BigNumeric(
+                BigNumericValue::FromStringStrict("1e-38").ValueOrDie())},
+           NullBigNumeric(),
+           OUT_OF_RANGE})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
   };
 }
 
@@ -309,6 +403,42 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedSubtract() {
           {{Numeric(NumericValue::MinValue()), Double(0.00001)},
            Double(-1e+29)})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+
+      // bignumeric
+      QueryParamsWithResult({{BigNumeric(-3), NullInt64()}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{NullBigNumeric(), Int64(5)}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(-3), Int64(5)}, BigNumeric(-8)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::FromStringStrict("1.25").ValueOrDie()),
+            Int64(3)},
+           BigNumeric(BigNumericValue::FromStringStrict("-1.75").ValueOrDie())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::FromStringStrict("2.02").ValueOrDie()),
+            Double(-1)},
+           Double(3.02)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{Double(5), BigNumeric(-3)}, Double(8)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::MaxValue()), Int64(-3)},
+           NullBigNumeric(),
+           OUT_OF_RANGE})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::MaxValue()), Double(3.1)},
+           Double(5.7896044618658096e+38)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::MinValue()), Int64(-3)},
+           BigNumeric(BigNumericValue::FromStringStrict(
+                          "-578960446186580977117854925043439539263."
+                          "34992332820282019728792003956564819968")
+                          .ValueOrDie())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
   };
 }
 
@@ -382,6 +512,39 @@ std::vector<QueryParamsWithResult> GetFunctionTestsSubtract() {
                              NullNumeric(),
                              OUT_OF_RANGE})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+
+      // bignumeric
+      QueryParamsWithResult(
+          {{BigNumeric(-3), NullBigNumeric()}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{NullBigNumeric(), BigNumeric(5)}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(-1), BigNumeric(100)}, BigNumeric(-101)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(BigNumericValue::MaxValue()),
+                              BigNumeric(BigNumericValue::MaxValue())},
+                             BigNumeric(0)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(BigNumericValue::MinValue()),
+                              BigNumeric(BigNumericValue::MinValue())},
+                             BigNumeric(0)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::MaxValue()),
+            BigNumeric(
+                BigNumericValue::FromStringStrict("-1e-38").ValueOrDie())},
+           NullBigNumeric(),
+           OUT_OF_RANGE})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::MinValue()),
+            BigNumeric(
+                BigNumericValue::FromStringStrict("1e-38").ValueOrDie())},
+           NullBigNumeric(),
+           OUT_OF_RANGE})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
   };
 }
 
@@ -456,6 +619,36 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedMultiply() {
       QueryParamsWithResult(
           {{Numeric(NumericValue::MaxValue()), Double(0.00001)}, Double(1e+24)})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+
+      // bignumeric
+      QueryParamsWithResult({{BigNumeric(-3), NullInt64()}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{NullBigNumeric(), Int64(5)}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(-3), Int64(5)}, BigNumeric(-15)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::FromStringStrict("1.25").ValueOrDie()),
+            Int64(3)},
+           BigNumeric(BigNumericValue::FromStringStrict("3.75").ValueOrDie())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::FromStringStrict("2").ValueOrDie()),
+            Double(-1.01)},
+           Double(-2.02)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{Double(5), BigNumeric(-3)}, Double(-15)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(-3), Double(5)}, Double(-15)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::MaxValue()), Int64(-3)},
+           NullBigNumeric(), OUT_OF_RANGE})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::MaxValue()), Double(2)},
+           Double(1.1579208923731619e+39)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
   };
 }
 
@@ -523,6 +716,45 @@ std::vector<QueryParamsWithResult> GetFunctionTestsMultiply() {
                              NullNumeric(),
                              OUT_OF_RANGE})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+
+      // bignumeric
+      QueryParamsWithResult(
+          {{BigNumeric(-3), NullBigNumeric()}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{NullBigNumeric(), BigNumeric(5)}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(-3), BigNumeric(3)}, BigNumeric(-9)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::FromStringStrict("3.33").ValueOrDie()),
+            BigNumeric(-3)},
+           BigNumeric(BigNumericValue::FromStringStrict("-9.99").ValueOrDie())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(
+                BigNumericValue::FromStringStrict("-1e-38").ValueOrDie()),
+            BigNumeric(5)},
+           BigNumeric(
+               BigNumericValue::FromStringStrict("-5e-38").ValueOrDie())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(
+                BigNumericValue::FromStringStrict("-1e-20").ValueOrDie()),
+            BigNumeric(
+                BigNumericValue::FromStringStrict("-1e-20").ValueOrDie())},
+           BigNumeric(0)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(BigNumericValue::MaxValue()),
+                              BigNumeric(BigNumericValue::MaxValue())},
+                             NullBigNumeric(),
+                             OUT_OF_RANGE})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(BigNumericValue::MinValue()),
+                              BigNumeric(BigNumericValue::MaxValue())},
+                             NullBigNumeric(),
+                             OUT_OF_RANGE})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
   };
 }
 
@@ -687,6 +919,41 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedDivide() {
       QueryParamsWithResult(
           {{Double(5), Numeric(-3)}, Double(-1.6666666666666667)})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+
+      // bignumeric
+      QueryParamsWithResult({{BigNumeric(-3), NullInt64()}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{NullBigNumeric(), Int64(5)}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(-3), Int64(5)},
+           BigNumeric(BigNumericValue::FromStringStrict("-0.6").ValueOrDie())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::FromStringStrict("2.25").ValueOrDie()),
+            Int64(3)},
+           BigNumeric(BigNumericValue::FromStringStrict("0.75").ValueOrDie())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::FromStringStrict("2.02").ValueOrDie()),
+            Double(-1.01)},
+           Double(-2)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{Double(3), BigNumeric(-5)}, Double(-0.6)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(-3), Double(5)}, Double(-0.6)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::MaxValue()), Int64(-2)},
+           BigNumeric(BigNumericValue::FromStringStrict(
+                          "-289480223093290488558927462521719769633."
+                          "17496166410141009864396001978282409984")
+                          .ValueOrDie())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::MaxValue()), Double(2)},
+           Double(2.8948022309329048e+38)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
   };
 }
 
@@ -742,6 +1009,44 @@ std::vector<QueryParamsWithResult> GetFunctionTestsDivide() {
            NullNumeric(),
            OUT_OF_RANGE})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+
+      // bignumeric
+      QueryParamsWithResult(
+          {{BigNumeric(-3), NullBigNumeric()}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{NullBigNumeric(), BigNumeric(5)}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(-3), BigNumeric(3)}, BigNumeric(-1)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(-3), BigNumeric(0)}, NullBigNumeric(), OUT_OF_RANGE})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::FromStringStrict("3.33").ValueOrDie()),
+            BigNumeric(-3)},
+           BigNumeric(BigNumericValue::FromStringStrict("-1.11").ValueOrDie())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(5),
+            BigNumeric(
+                BigNumericValue::FromStringStrict("-1e-38").ValueOrDie())},
+           BigNumeric(BigNumericValue::FromStringStrict("-5e38").ValueOrDie())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(BigNumericValue::MaxValue()),
+                              BigNumeric(BigNumericValue::MaxValue())},
+                             BigNumeric(1)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(BigNumericValue::MaxValue()),
+                              BigNumeric(BigNumericValue::MinValue())},
+                             BigNumeric(-1)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::MaxValue()),
+            BigNumeric(BigNumericValue::FromStringStrict("-0.1").ValueOrDie())},
+           NullBigNumeric(),
+           OUT_OF_RANGE})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
   };
 }
 

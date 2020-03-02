@@ -1286,7 +1286,13 @@ zetasql_base::Status Resolver::ResolveForeignKeyReference(
 
     const int* referencing_column_offset = zetasql_base::FindOrNull(
         column_indexes, ast_referencing_column_identifier->GetAsIdString());
-    ZETASQL_RET_CHECK(referencing_column_offset);
+    // The offset may be null if the referecing column is a pseudocolumn.
+    if (referencing_column_offset == nullptr) {
+      return MakeSqlErrorAt(ast_referencing_column_identifier)
+             << "Unsupported foreign key column "
+             << ast_referencing_column_identifier->GetAsIdString()
+             << " either does not exist or is a pseudocolumn";
+    }
     ZETASQL_RET_CHECK(*referencing_column_offset < column_definitions.size());
     foreign_key->add_referencing_column_offset_list(
         *referencing_column_offset);

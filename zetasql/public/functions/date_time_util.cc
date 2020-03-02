@@ -1480,7 +1480,9 @@ static zetasql_base::Status TimestampTruncAtLeastMinute(absl::Time timestamp,
 
       int64_t timestamp_seconds;
       // Note: This conversion truncates the subseconds part
-      ZETASQL_RET_CHECK(FromTime(timestamp, kSeconds, &timestamp_seconds));
+      ZETASQL_RET_CHECK(FromTime(timestamp, kSeconds, &timestamp_seconds))
+          << "timestamp: " << timestamp
+          << ", scale: seconds, timestamp_seconds: " << timestamp_seconds;
 
       // Adjust the timestamp by the time zone offset.
       timestamp_seconds += seconds_offset_east_of_UTC;
@@ -1635,7 +1637,9 @@ static zetasql_base::Status TimestampTruncImpl(int64_t timestamp, TimestampScale
                                               &output_base_time));
   // In this case we know we have a valid timestamp input to the function, so
   // the truncated timestamp must be valid as well.
-  ZETASQL_RET_CHECK(FromTime(output_base_time, scale, output));
+  ZETASQL_RET_CHECK(FromTime(output_base_time, scale, output))
+      << "base_time: " << base_time << "\noutput_base_time: "
+      << output_base_time << ", scale: " << scale << ", output: " << *output;
   return ::zetasql_base::OkStatus();
 }
 
@@ -2552,6 +2556,9 @@ zetasql_base::Status ExtractFromDatetime(DateTimestampPart part,
     case YEAR:
       *output = datetime.Year();
       break;
+    case QUARTER:
+      *output = (datetime.Month() - 1) / 3 + 1;
+      break;
     case MONTH:
       *output = datetime.Month();
       break;
@@ -2576,25 +2583,52 @@ zetasql_base::Status ExtractFromDatetime(DateTimestampPart part,
     case NANOSECOND:
       *output = datetime.Nanoseconds();
       break;
-    case DAYOFWEEK:
-    case DAYOFYEAR:
-    case QUARTER:
     case DATE:
+      ZETASQL_RETURN_IF_ERROR(ConstructDate(datetime.Year(), datetime.Month(),
+                                    datetime.Day(), output));
+      break;
+    case DAYOFWEEK:
+      *output = DayOfWeekIntegerSunToSat1To7(absl::GetWeekday(
+          absl::CivilDay(datetime.Year(), datetime.Month(), datetime.Day())));
+      break;
+    case DAYOFYEAR:
+      *output = absl::GetYearDay(
+          absl::CivilDay(datetime.Year(), datetime.Month(), datetime.Day()));
+      break;
     case WEEK:
     case WEEK_MONDAY:
     case WEEK_TUESDAY:
     case WEEK_WEDNESDAY:
     case WEEK_THURSDAY:
     case WEEK_FRIDAY:
-    case WEEK_SATURDAY:
-    case ISOYEAR:
-    case ISOWEEK: {
-      absl::Time timestamp;
-      ZETASQL_RETURN_IF_ERROR(ConvertDatetimeToTimestamp(datetime, absl::UTCTimeZone(),
-                                                 &timestamp));
-      return ExtractFromTimestampInternal(part, timestamp, absl::UTCTimeZone(),
-                                          output);
+    case WEEK_SATURDAY: {
+      const absl::CivilDay first_calendar_day_of_year(datetime.Year(), 1, 1);
+
+      ZETASQL_ASSIGN_OR_RETURN(const absl::Weekday weekday,
+                       GetFirstWeekDayOfWeek(part));
+      const absl::CivilDay effective_first_day_of_year =
+          NextWeekdayOrToday(first_calendar_day_of_year, weekday);
+
+      const absl::CivilDay day(datetime.Year(), datetime.Month(),
+                               datetime.Day());
+      if (day < effective_first_day_of_year) {
+        *output = 0;
+      } else {
+        // cast is safe, guaranteed to be less than 52.
+        *output =
+            static_cast<int32_t>(((day - effective_first_day_of_year) / 7) + 1);
+      }
+      break;
     }
+    case ISOYEAR:
+      // cast is safe, year "guaranteed" safe by method contract.
+      *output = static_cast<int32_t>(GetIsoYear(
+          absl::CivilDay(datetime.Year(), datetime.Month(), datetime.Day())));
+      break;
+    case ISOWEEK:
+      *output = GetIsoWeek(
+          absl::CivilDay(datetime.Year(), datetime.Month(), datetime.Day()));
+      break;
     case DATETIME:
       return MakeEvalError() << "Unsupported DateTimestampPart "
                              << DateTimestampPart_Name(part)

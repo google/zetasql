@@ -405,6 +405,8 @@ double Value::ToDouble() const {
       return int64_value_;
     case TYPE_NUMERIC:
       return numeric_value().ToDouble();
+    case TYPE_BIGNUMERIC:
+      return bignumeric_value().ToDouble();
     case TYPE_ENUM:
       return enum_value_;
     case TYPE_TIMESTAMP:

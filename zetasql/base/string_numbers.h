@@ -47,6 +47,10 @@ inline int hex_digit_to_int(char c) {
   return x & 0xf;
 }
 
+inline std::string SimpleBtoa(bool value) {
+  return value ? std::string("true") : std::string("false");
+}
+
 }  // namespace zetasql_base
 
 #endif  // THIRD_PARTY_ZETASQL_ZETASQL_BASE_STRING_NUMBERS_H_

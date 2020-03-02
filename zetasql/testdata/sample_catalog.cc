@@ -359,7 +359,8 @@ void SampleCatalog::LoadTables() {
        {"timestamp_nanos", types_->get_timestamp()},
        // Real types resume here.
        {"timestamp", types_->get_timestamp()},
-       {"numeric", types_->get_numeric()}}));
+       {"numeric", types_->get_numeric()},
+       {"bignumeric", types_->get_bignumeric()}}));
 
   AddOwnedTable(
       new SimpleTable("GeographyTable", {{"key", types_->get_int64()},
@@ -369,6 +370,9 @@ void SampleCatalog::LoadTables() {
 
   AddOwnedTable(new SimpleTable("NumericTypeTable",
                                 {{"numeric_col", types_->get_numeric()}}));
+
+  AddOwnedTable(new SimpleTable(
+      "BigNumericTypeTable", {{"bignumeric_col", types_->get_bignumeric()}}));
 
   AddOwnedTable(new SimpleTable(
       "TwoIntegers",

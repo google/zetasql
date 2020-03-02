@@ -43,11 +43,13 @@ static const SuperTypesMap* InitializeSuperTypesMap() {
   // Initialize supertypes map.
   std::vector<std::pair<TypeKind, std::vector<TypeKind>>> raw = {
       {TYPE_BOOL, {TYPE_BOOL}},
-      {TYPE_INT32, {TYPE_INT32, TYPE_INT64, TYPE_NUMERIC, TYPE_DOUBLE}},
-      {TYPE_INT64, {TYPE_INT64, TYPE_NUMERIC, TYPE_DOUBLE}},
+      {TYPE_INT32,
+       {TYPE_INT32, TYPE_INT64, TYPE_NUMERIC, TYPE_BIGNUMERIC, TYPE_DOUBLE}},
+      {TYPE_INT64, {TYPE_INT64, TYPE_NUMERIC, TYPE_BIGNUMERIC, TYPE_DOUBLE}},
       {TYPE_UINT32,
-       {TYPE_INT64, TYPE_UINT32, TYPE_UINT64, TYPE_NUMERIC, TYPE_DOUBLE}},
-      {TYPE_UINT64, {TYPE_UINT64, TYPE_NUMERIC, TYPE_DOUBLE}},
+       {TYPE_INT64, TYPE_UINT32, TYPE_UINT64, TYPE_NUMERIC, TYPE_BIGNUMERIC,
+        TYPE_DOUBLE}},
+      {TYPE_UINT64, {TYPE_UINT64, TYPE_NUMERIC, TYPE_BIGNUMERIC, TYPE_DOUBLE}},
       {TYPE_FLOAT, {TYPE_FLOAT, TYPE_DOUBLE}},
       {TYPE_DOUBLE, {TYPE_DOUBLE}},
       {TYPE_STRING, {TYPE_STRING}},
@@ -61,9 +63,8 @@ static const SuperTypesMap* InitializeSuperTypesMap() {
       {TYPE_TIME, {TYPE_TIME}},
       {TYPE_DATETIME, {TYPE_DATETIME}},
       {TYPE_GEOGRAPHY, {TYPE_GEOGRAPHY}},
-      {TYPE_NUMERIC, {TYPE_NUMERIC, TYPE_DOUBLE}},
-      // TODO: Implement cast and coercion for BIGNUMERIC.
-      {TYPE_BIGNUMERIC, {TYPE_BIGNUMERIC}}};
+      {TYPE_NUMERIC, {TYPE_NUMERIC, TYPE_BIGNUMERIC, TYPE_DOUBLE}},
+      {TYPE_BIGNUMERIC, {TYPE_BIGNUMERIC, TYPE_DOUBLE}}};
 
   for (const auto& entry : raw) {
     TypeKind type = entry.first;
@@ -314,6 +315,7 @@ const Type* Coercer::GetCommonSuperTypeImpl(
   bool has_untyped_empty_array = false;
   bool has_floating_point_input = false;
   bool has_numeric_input = false;
+  bool has_bignumeric_input = false;
   for (const InputArgumentType& argument : argument_set.arguments()) {
     // Ignore untyped arguments since they do not contribute towards
     // supertyping if any other argument type is present. Also keeps
@@ -329,6 +331,9 @@ const Type* Coercer::GetCommonSuperTypeImpl(
     }
     if (argument.type()->IsNumericType()) {
       has_numeric_input = true;
+    }
+    if (argument.type()->IsBigNumericType()) {
+      has_bignumeric_input = true;
     }
     typed_arguments.push_back(&argument);
   }
@@ -453,13 +458,11 @@ const Type* Coercer::GetCommonSuperTypeImpl(
     // supertype, double is not an allowed supertype of combinations of
     // signed/unsigned integers unless a floating point numeric (non-literal
     // or literal) is also present in the arguments.
-    if (most_specific_kind == TYPE_DOUBLE && !has_floating_point_input) {
-      continue;
-    }
-
-    // Similar to the case above, NUMERIC is not allowed as a supertype unless
-    // an argument of type NUMERIC is present.
-    if (most_specific_kind == TYPE_NUMERIC && !has_numeric_input) {
+    // Similarly, NUMERIC and BIGNUMERIC are not allowed as a supertype unless
+    // an argument of the type is present.
+    if ((most_specific_kind == TYPE_DOUBLE && !has_floating_point_input) ||
+        (most_specific_kind == TYPE_NUMERIC && !has_numeric_input) ||
+        (most_specific_kind == TYPE_BIGNUMERIC && !has_bignumeric_input)) {
       continue;
     }
 

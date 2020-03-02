@@ -514,6 +514,63 @@ java_proto_library(
 )
 
 cc_library(
+    name = "json_internal",
+    srcs = ["json_internal.cc"],
+    hdrs = ["json_internal.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/base:string_numbers",
+        "//zetasql/common:json_parser",
+        "//zetasql/common:json_util",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+        "@com_googlesource_code_re2//:re2",
+    ],
+)
+
+cc_library(
+    name = "json",
+    srcs = ["json.cc"],
+    hdrs = ["json.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":json_internal",
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/base:string_numbers",
+        "//zetasql/common:errors",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "json_test",
+    srcs = ["json_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":json",
+        ":json_internal",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/common/testing:proto_matchers",
+        "//zetasql/compliance:functions_testlib",
+        "//zetasql/public:value",
+        "//zetasql/testing:test_function",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+cc_library(
     name = "generate_array",
     hdrs = ["generate_array.h"],
     copts = ["-Wno-sign-compare"],

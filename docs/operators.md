@@ -481,7 +481,7 @@ the first operand.
 <tr>
 <th>Name</th>
 <th>Syntax</th>
-<th nowrap>Input Data Type</th>
+<th style="white-space:nowrap">Input Data Type</th>
 <th>Description</th>
 </tr>
 </thead>
@@ -489,14 +489,14 @@ the first operand.
 <tr>
 <td>Bitwise not</td>
 <td>~ X</td>
-<td nowrap>Integer or BYTES</td>
+<td style="white-space:nowrap">Integer or BYTES</td>
 <td>Performs logical negation on each bit, forming the ones' complement of the
 given binary value.</td>
 </tr>
 <tr>
 <td>Bitwise or</td>
 <td>X | Y</td>
-<td nowrap>X: Integer or BYTES
+<td style="white-space:nowrap">X: Integer or BYTES
 <br>Y: Same type as X</td>
 <td>Takes two bit patterns of equal length and performs the logical inclusive OR
 operation on each pair of the corresponding bits.
@@ -505,8 +505,8 @@ This operator throws an error if X and Y are BYTES of different lengths.
 </tr>
 <tr>
 <td>Bitwise xor</td>
-<td nowrap>X ^ Y</td>
-<td nowrap>X: Integer or BYTES
+<td style="white-space:nowrap">X ^ Y</td>
+<td style="white-space:nowrap">X: Integer or BYTES
 <br>Y: Same type as X</td>
 <td>Takes two bit patterns of equal length and performs the logical exclusive OR
 operation on each pair of the corresponding bits.
@@ -515,8 +515,8 @@ This operator throws an error if X and Y are BYTES of different lengths.
 </tr>
 <tr>
 <td>Bitwise and</td>
-<td nowrap>X &amp; Y</td>
-<td nowrap>X: Integer or BYTES
+<td style="white-space:nowrap">X &amp; Y</td>
+<td style="white-space:nowrap">X: Integer or BYTES
 <br>Y: Same type as X</td>
 <td>Takes two bit patterns of equal length and performs the logical AND
 operation on each pair of the corresponding bits.
@@ -525,8 +525,8 @@ This operator throws an error if X and Y are BYTES of different lengths.
 </tr>
 <tr>
 <td>Left shift</td>
-<td nowrap>X &lt;&lt; Y</td>
-<td nowrap>X: Integer or BYTES
+<td style="white-space:nowrap">X &lt;&lt; Y</td>
+<td style="white-space:nowrap">X: Integer or BYTES
 <br>Y: INT64</td>
 <td>Shifts the first operand X to the left.
 This operator returns
@@ -539,8 +539,8 @@ This operator throws an error if Y is negative.</td>
 </tr>
 <tr>
 <td>Right shift</td>
-<td nowrap>X &gt;&gt; Y</td>
-<td nowrap>X: Integer or BYTES
+<td style="white-space:nowrap">X &gt;&gt; Y</td>
+<td style="white-space:nowrap">X: Integer or BYTES
 <br>Y: INT64</td>
 <td>Shifts the first operand X to the right. This operator does not do sign bit
 extension with a signed type (i.e. it fills vacant bits on the left with 0).
@@ -570,19 +570,19 @@ All logical operators allow only BOOL input.
 <tbody>
 <tr>
 <td>Logical NOT</td>
-<td nowrap>NOT X</td>
+<td style="white-space:nowrap">NOT X</td>
 <td>Returns FALSE if input is TRUE. Returns TRUE if input is FALSE. Returns <code>NULL</code>
 otherwise.</td>
 </tr>
 <tr>
 <td>Logical AND</td>
-<td nowrap>X AND Y</td>
+<td style="white-space:nowrap">X AND Y</td>
 <td>Returns FALSE if at least one input is FALSE. Returns TRUE if both X and Y
 are TRUE. Returns <code>NULL</code> otherwise.</td>
 </tr>
 <tr>
 <td>Logical OR</td>
-<td nowrap>X OR Y</td>
+<td style="white-space:nowrap">X OR Y</td>
 <td>Returns FALSE if both X and Y are FALSE. Returns TRUE if at least one input
 is TRUE. Returns <code>NULL</code> otherwise.</td>
 </tr>

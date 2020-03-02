@@ -5340,7 +5340,30 @@ FROM example;
 
 ### FINGERPRINT
 
-Documentation is pending for this feature.
+```
+FINGERPRINT(input)
+```
+
+**Description**
+
+Computes the fingerprint of the STRING
+or BYTES input using Fingerprint.
+
+**Return type**
+
+UINT64
+
+**Examples**
+
+```sql
+SELECT FINGERPRINT("Hello World") as fingerprint;
+
++----------------------+
+| fingerprint          |
++----------------------+
+| 4584092443788135411  |
++----------------------+
+```
 
 ### MD5
 ```
@@ -6776,15 +6799,14 @@ FROM Strings;
 ### REGEXP_CONTAINS
 
 ```
-REGEXP_CONTAINS(value, regex)
+REGEXP_CONTAINS(value, regexp)
 ```
 
 **Description**
 
-Returns TRUE if `value` is a partial match for the regular expression,
-`regex`.
+Returns TRUE if `value` is a partial match for the regular expression, `regexp`.
 
-If the `regex` argument is invalid, the function returns an error.
+If the `regexp` argument is invalid, the function returns an error.
 
 You can search for a full match by using `^` (beginning of text) and `$` (end of
 text). Due to regular expression operator precedence, it is good practice to use
@@ -6845,14 +6867,15 @@ FROM
 ```
 
 ### REGEXP_EXTRACT
+
 ```
-REGEXP_EXTRACT(value, regex)
+REGEXP_EXTRACT(value, regexp)
 ```
 
 **Description**
 
 Returns the first substring in `value` that matches the regular expression,
-`regex`. Returns `NULL` if there is no match.
+`regexp`. Returns `NULL` if there is no match.
 
 If the regular expression contains a capturing group, the function returns the
 substring that is matched by that capturing group. If the expression does not
@@ -6917,14 +6940,15 @@ FROM email_addresses;
 ```
 
 ### REGEXP_EXTRACT_ALL
+
 ```
-REGEXP_EXTRACT_ALL(value, regex)
+REGEXP_EXTRACT_ALL(value, regexp)
 ```
 
 **Description**
 
 Returns an array of all substrings of `value` that match the regular expression,
-`regex`.
+`regexp`.
 
 The `REGEXP_EXTRACT_ALL` function only returns non-overlapping matches. For
 example, using this function to extract `ana` from `banana` returns only one
@@ -6962,15 +6986,14 @@ FROM code_markdown;
 <p class="caution"><strong>Deprecated.</strong> Use <a href="#regexp_contains">REGEXP_CONTAINS</a>.</p>
 
 ```
-REGEXP_MATCH(value, regex)
+REGEXP_MATCH(value, regexp)
 ```
 
 **Description**
 
-Returns TRUE if `value` is a full match for the regular expression,
-`regex`.
+Returns TRUE if `value` is a full match for the regular expression, `regexp`.
 
-If the `regex` argument is invalid, the function returns an error.
+If the `regexp` argument is invalid, the function returns an error.
 
 Note: ZetaSQL provides regular expression support using the
 [re2][string-link-to-re2] library; see that documentation for its
@@ -7008,18 +7031,19 @@ FROM email_addresses;
 ```
 
 ### REGEXP_REPLACE
+
 ```
-REGEXP_REPLACE(value, regex, replacement)
+REGEXP_REPLACE(value, regexp, replacement)
 ```
 
 **Description**
 
 Returns a STRING where all substrings of `value` that
-match regular expression `regex` are replaced with `replacement`.
+match regular expression `regexp` are replaced with `replacement`.
 
 You can use backslashed-escaped digits (\1 to \9) within the `replacement`
 argument to insert text matching the corresponding parenthesized group in the
-`regex` pattern. Use \0 to refer to the entire matching text.
+`regexp` pattern. Use \0 to refer to the entire matching text.
 
 Note: To add a backslash in your regular expression, you must first escape it.
 For example, `SELECT REGEXP_REPLACE("abc", "b(.)", "X\\1");` returns `aXc`.
@@ -7028,8 +7052,8 @@ The `REGEXP_REPLACE` function only replaces non-overlapping matches. For
 example, replacing `ana` within `banana` results in only one replacement, not
 two.
 
-If the `regex` argument is not a valid regular expression, this function returns
-an error.
+If the `regexp` argument is not a valid regular expression, this function
+returns an error.
 
 Note: ZetaSQL provides regular expression support using the
 [re2][string-link-to-re2] library; see that documentation for its
@@ -7904,44 +7928,23 @@ json_path_string_literal)`, which returns scalar JSON values as STRINGs.
 
 **Description**
 
-The `json_string_expr` parameter must be a JSON-formatted string. For example:
+Extracts JSON values or JSON scalar values as strings.
 
-```
-{"class" : {"students" : [{"name" : "Jane"}]}}
-```
++  `json_string_expr`: A JSON-formatted string. For example:
 
-The `json_path_string_literal` parameter identifies the value or values you want
-to obtain from the JSON-formatted string. You construct this parameter using the
-[JSONPath][json-path] format. As part of this format, this parameter must start
-with a `$` symbol, which refers to the outermost level of the JSON-formatted
-string. You can identify child values using dot or bracket notation. If the JSON
-object is an array, you can use brackets to specify the array index.
+    ```
+    {"class" : {"students" : [{"name" : "Jane"}]}}
+    ```
++  `json_path_string_literal`: The [JSONpath][jsonpath-format] format.
+   This identifies the value or values you want to obtain from the
+   JSON-formatted string.
 
-| JSONPath | Description                       |
-|----------|-----------------------------------|
-| $        | Root object or element            |
-| . or []  | Child operator                    |
-| []       | Subscript operator                |
+In cases where a JSON key uses invalid JSONPath characters, you can escape
+those characters using single quotes and brackets.
 
-Both functions return `NULL` if the `json_path_string_literal` parameter does
-not match a value in `json_string_expr`. If the selected value for
-`JSON_EXTRACT_SCALAR` is not scalar, such as an object or an array, the function
-returns `NULL`.
+**Return type**
 
-If the JSONPath is invalid, these functions raise an error.
-
-In cases where a JSON key uses invalid JSONPath characters, you can escape those
-characters using single quotes and brackets, `[' ']`. For example:
-
-```sql
-SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") as hello;
-
-+-------+
-| hello |
-+-------+
-| world |
-+-------+
-```
+`STRING`s
 
 **Examples**
 
@@ -7952,11 +7955,7 @@ FROM UNNEST([
   '{"class" : {"students" : []}}',
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
-```
 
-The above query produces the following result:
-
-```json
 +-----------------------------------------------------------+
 | json_text_string                                          |
 +-----------------------------------------------------------+
@@ -7973,11 +7972,7 @@ FROM UNNEST([
   '{"class" : {"students" : []}}',
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
-```
 
-The above query produces the following result:
-
-```json
 +-----------------+
 | first_student   |
 +-----------------+
@@ -7994,11 +7989,7 @@ FROM UNNEST([
   '{"class" : {"students" : []}}',
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
-```
 
-The above query produces the following result:
-
-```json
 +-------------------+
 | second_student    |
 +-------------------+
@@ -8015,11 +8006,7 @@ FROM UNNEST([
   '{"class" : {"students" : []}}',
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
-```
 
-The above query produces the following result:
-
-```json
 +------------------------------------+
 | student_names                      |
 +------------------------------------+
@@ -8034,16 +8021,25 @@ SELECT JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.name') as json_name,
   JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.name') as scalar_name,
   JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.age') as json_age,
   JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.age') as scalar;
-```
 
-The above query produces the following result:
-
-```json
 +-----------+-------------+----------+--------+
 | json_name | scalar_name | json_age | scalar |
 +-----------+-------------+----------+--------+
 | "Jakob"   | Jakob       | "6"      | 6      |
 +-----------+-------------+----------+--------+
+```
+
+In cases where a JSON key uses invalid JSONPath characters, you can escape those
+characters using single quotes and brackets, `[' ']`. For example:
+
+```sql
+SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") as hello;
+
++-------+
+| hello |
++-------+
+| world |
++-------+
 ```
 
 ### JSON_QUERY or JSON_VALUE
@@ -8056,43 +8052,19 @@ which returns scalar JSON values as STRINGs.
 
 **Description**
 
-The `json_string_expr` parameter must be a JSON-formatted string. For example:
+Extracts JSON values or JSON scalar values as strings.
 
-```json
-{"class" : {"students" : [{"name" : "Jane"}]}}
-```
++  `json_string_expr`: A JSON-formatted string. For example:
 
-The `json_path_string_literal` parameter identifies the value or values you want
-to obtain from the JSON-formatted string. You construct this parameter using the
-[JSONPath][json-path] format. As part of this format, this parameter must start
-with a `$` symbol, which refers to the outermost level of the JSON-formatted
-string. You can identify child values using dot or surrounded by double quotes.
-If the JSON object is an array, you can use brackets to specify the array index.
+  ```
+  {"class" : {"students" : [{"name" : "Jane"}]}}
+  ```
++  `json_path_string_literal`: The [JSONpath][jsonpath-format] format.
+   This identifies the value or values you want to obtain from the
+   JSON-formatted string.
 
-JSONPath | Description
--------- | ----------------------
-$        | Root object or element
-.        | Child operator
-[]       | Subscript operator
-
-Both functions return `NULL` if the `json_path_string_literal` parameter does
-not match a value in `json_string_expr`. If the selected value for `JSON_VALUE`
-is not scalar, such as an object or an array, the function returns `NULL`.
-
-If the JSONPath is invalid, these functions raise an error.
-
-In cases where a JSON key uses invalid JSONPath characters, you can escape those
-characters using double quotes. For example:
-
-```sql
-SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c') as hello;
-
-+-------+
-| hello |
-+-------+
-| world |
-+-------+
-```
+In cases where a JSON key uses invalid JSONPath characters,
+you can escape those characters using double quotes.
 
 **Examples**
 
@@ -8103,11 +8075,7 @@ FROM UNNEST([
   '{"class" : {"students" : []}}',
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
-```
 
-The above query produces the following result:
-
-```json
 +-----------------------------------------------------------+
 | json_text_string                                          |
 +-----------------------------------------------------------+
@@ -8124,11 +8092,7 @@ FROM UNNEST([
   '{"class" : {"students" : []}}',
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
-```
 
-The above query produces the following result:
-
-```json
 +-----------------+
 | first_student   |
 +-----------------+
@@ -8145,11 +8109,7 @@ FROM UNNEST([
   '{"class" : {"students" : []}}',
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
-```
 
-The above query produces the following result:
-
-```json
 +-------------------+
 | second_student    |
 +-------------------+
@@ -8166,11 +8126,7 @@ FROM UNNEST([
   '{"class" : {"students" : []}}',
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
-```
 
-The above query produces the following result:
-
-```json
 +------------------------------------+
 | student_names                      |
 +------------------------------------+
@@ -8185,16 +8141,25 @@ SELECT JSON_QUERY('{ "name" : "Jakob", "age" : "6" }', '$.name') as json_name,
   JSON_VALUE('{ "name" : "Jakob", "age" : "6" }', '$.name') as scalar_name,
   JSON_QUERY('{ "name" : "Jakob", "age" : "6" }', '$.age') as json_age,
   JSON_VALUE('{ "name" : "Jakob", "age" : "6" }', '$.age') as scalar;
-```
 
-The above query produces the following result:
-
-```json
 +-----------+-------------+----------+--------+
 | json_name | scalar_name | json_age | scalar |
 +-----------+-------------+----------+--------+
 | "Jakob"   | Jakob       | "6"      | 6      |
 +-----------+-------------+----------+--------+
+```
+
+In cases where a JSON key uses invalid JSONPath characters, you can escape those
+characters using double quotes. For example:
+
+```sql
+SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c') as hello;
+
++-------+
+| hello |
++-------+
+| world |
++-------+
 ```
 
 ### TO_JSON_STRING
@@ -8473,6 +8438,42 @@ The above query produces the following result:
 +-----------------------+
 ```
 
+### JSONPath format
+
+Most JSON functions pass in a `json_string_expr` and `json_path_string_literal`
+parameter. The `json_string_expr` parameter passes in a JSON-formatted
+string, and the `json_path_string_literal` parameter identifies the value or
+values you want to obtain from the JSON-formatted string.
+
+The `json_string_expr` parameter must be a JSON string that is
+formatted like this:
+
+```json
+{"class" : {"students" : [{"name" : "Jane"}]}}
+```
+
+You construct the `json_path_string_literal` parameter using the
+[JSONPath][json-path] format. As part of this format, this parameter must start
+with a `$` symbol, which refers to the outermost level of the JSON-formatted
+string. You can identify child values using dots. If the JSON object is an
+array, you can use brackets to specify the array index. If the keys contain
+`$`, dots, or brackets, refer to each JSON function for how to escape
+them.
+
+JSONPath | Description            | Example               | Result using the above `json_string_expr`
+-------- | ---------------------- | --------------------- | -----------------------------------------
+$        | Root object or element | "$"                   | `{"class":{"students":[{"name":"Jane"}]}}`
+.        | Child operator         | "$.class.students"    | `[{"name":"Jane"}]`
+[]       | Subscript operator     | "$.class.students[0]" | `{"name":"Jane"}`
+
+A JSON functions returns `NULL` if the `json_path_string_literal` parameter does
+not match a value in `json_string_expr`. If the selected value for a scalar
+function is not scalar, such as an object or an array, the function
+returns `NULL`.
+
+If the JSONPath is invalid, the function raises an error.
+
+[jsonpath-format]: #jsonpath_format
 [json-path]: https://github.com/json-path/JsonPath#operators
 
 ## Array functions
@@ -14086,7 +14087,7 @@ the first operand.
 <tr>
 <th>Name</th>
 <th>Syntax</th>
-<th nowrap>Input Data Type</th>
+<th style="white-space:nowrap">Input Data Type</th>
 <th>Description</th>
 </tr>
 </thead>
@@ -14094,14 +14095,14 @@ the first operand.
 <tr>
 <td>Bitwise not</td>
 <td>~ X</td>
-<td nowrap>Integer or BYTES</td>
+<td style="white-space:nowrap">Integer or BYTES</td>
 <td>Performs logical negation on each bit, forming the ones' complement of the
 given binary value.</td>
 </tr>
 <tr>
 <td>Bitwise or</td>
 <td>X | Y</td>
-<td nowrap>X: Integer or BYTES
+<td style="white-space:nowrap">X: Integer or BYTES
 <br>Y: Same type as X</td>
 <td>Takes two bit patterns of equal length and performs the logical inclusive OR
 operation on each pair of the corresponding bits.
@@ -14110,8 +14111,8 @@ This operator throws an error if X and Y are BYTES of different lengths.
 </tr>
 <tr>
 <td>Bitwise xor</td>
-<td nowrap>X ^ Y</td>
-<td nowrap>X: Integer or BYTES
+<td style="white-space:nowrap">X ^ Y</td>
+<td style="white-space:nowrap">X: Integer or BYTES
 <br>Y: Same type as X</td>
 <td>Takes two bit patterns of equal length and performs the logical exclusive OR
 operation on each pair of the corresponding bits.
@@ -14120,8 +14121,8 @@ This operator throws an error if X and Y are BYTES of different lengths.
 </tr>
 <tr>
 <td>Bitwise and</td>
-<td nowrap>X &amp; Y</td>
-<td nowrap>X: Integer or BYTES
+<td style="white-space:nowrap">X &amp; Y</td>
+<td style="white-space:nowrap">X: Integer or BYTES
 <br>Y: Same type as X</td>
 <td>Takes two bit patterns of equal length and performs the logical AND
 operation on each pair of the corresponding bits.
@@ -14130,8 +14131,8 @@ This operator throws an error if X and Y are BYTES of different lengths.
 </tr>
 <tr>
 <td>Left shift</td>
-<td nowrap>X &lt;&lt; Y</td>
-<td nowrap>X: Integer or BYTES
+<td style="white-space:nowrap">X &lt;&lt; Y</td>
+<td style="white-space:nowrap">X: Integer or BYTES
 <br>Y: INT64</td>
 <td>Shifts the first operand X to the left.
 This operator returns
@@ -14144,8 +14145,8 @@ This operator throws an error if Y is negative.</td>
 </tr>
 <tr>
 <td>Right shift</td>
-<td nowrap>X &gt;&gt; Y</td>
-<td nowrap>X: Integer or BYTES
+<td style="white-space:nowrap">X &gt;&gt; Y</td>
+<td style="white-space:nowrap">X: Integer or BYTES
 <br>Y: INT64</td>
 <td>Shifts the first operand X to the right. This operator does not do sign bit
 extension with a signed type (i.e. it fills vacant bits on the left with 0).
@@ -14175,19 +14176,19 @@ All logical operators allow only BOOL input.
 <tbody>
 <tr>
 <td>Logical NOT</td>
-<td nowrap>NOT X</td>
+<td style="white-space:nowrap">NOT X</td>
 <td>Returns FALSE if input is TRUE. Returns TRUE if input is FALSE. Returns <code>NULL</code>
 otherwise.</td>
 </tr>
 <tr>
 <td>Logical AND</td>
-<td nowrap>X AND Y</td>
+<td style="white-space:nowrap">X AND Y</td>
 <td>Returns FALSE if at least one input is FALSE. Returns TRUE if both X and Y
 are TRUE. Returns <code>NULL</code> otherwise.</td>
 </tr>
 <tr>
 <td>Logical OR</td>
-<td nowrap>X OR Y</td>
+<td style="white-space:nowrap">X OR Y</td>
 <td>Returns FALSE if both X and Y are FALSE. Returns TRUE if at least one input
 is TRUE. Returns <code>NULL</code> otherwise.</td>
 </tr>

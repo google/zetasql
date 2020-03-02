@@ -781,6 +781,7 @@ void GetNumericFunctions(TypeFactory* type_factory,
   const Type* float_type = type_factory->get_float();
   const Type* double_type = type_factory->get_double();
   const Type* numeric_type = type_factory->get_numeric();
+  const Type* bignumeric_type = type_factory->get_bignumeric();
 
   const Function::Mode SCALAR = Function::SCALAR;
   const FunctionArgumentType::ArgumentCardinality REPEATED =
@@ -792,6 +793,8 @@ void GetNumericFunctions(TypeFactory* type_factory,
   has_floating_point_argument.set_constraints(&HasFloatingPointArgument);
   FunctionSignatureOptions has_numeric_type_argument;
   has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
+  FunctionSignatureOptions has_bignumeric_type_argument;
+  has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
 
   InsertFunction(functions, options, "abs", SCALAR,
                  {{int32_type, {int32_type}, FN_ABS_INT32},
@@ -907,7 +910,11 @@ void GetNumericFunctions(TypeFactory* type_factory,
                   {numeric_type,
                    {numeric_type, numeric_type},
                    FN_SAFE_ADD_NUMERIC,
-                   has_numeric_type_argument}});
+                   has_numeric_type_argument},
+                  {bignumeric_type,
+                   {bignumeric_type, bignumeric_type},
+                   FN_SAFE_ADD_BIGNUMERIC,
+                   has_bignumeric_type_argument}});
 
   InsertFunction(
       functions, options, "safe_subtract", SCALAR,
@@ -917,6 +924,10 @@ void GetNumericFunctions(TypeFactory* type_factory,
         {numeric_type, numeric_type},
         FN_SAFE_SUBTRACT_NUMERIC,
         has_numeric_type_argument},
+       {bignumeric_type,
+        {bignumeric_type, bignumeric_type},
+        FN_SAFE_SUBTRACT_BIGNUMERIC,
+        has_bignumeric_type_argument},
        {double_type,
         {double_type, double_type},
         FN_SAFE_SUBTRACT_DOUBLE,
@@ -933,7 +944,11 @@ void GetNumericFunctions(TypeFactory* type_factory,
        {numeric_type,
         {numeric_type, numeric_type},
         FN_SAFE_MULTIPLY_NUMERIC,
-        has_numeric_type_argument}});
+        has_numeric_type_argument},
+       {bignumeric_type,
+        {bignumeric_type, bignumeric_type},
+        FN_SAFE_MULTIPLY_BIGNUMERIC,
+        has_bignumeric_type_argument}});
 
   InsertFunction(
       functions, options, "safe_divide", SCALAR,
@@ -941,7 +956,11 @@ void GetNumericFunctions(TypeFactory* type_factory,
        {numeric_type,
         {numeric_type, numeric_type},
         FN_SAFE_DIVIDE_NUMERIC,
-        has_numeric_type_argument}});
+        has_numeric_type_argument},
+       {bignumeric_type,
+        {bignumeric_type, bignumeric_type},
+        FN_SAFE_DIVIDE_BIGNUMERIC,
+        has_bignumeric_type_argument}});
 
   InsertFunction(functions, options, "safe_negate", SCALAR,
                  {{int32_type, {int32_type}, FN_SAFE_UNARY_MINUS_INT32},
@@ -951,7 +970,11 @@ void GetNumericFunctions(TypeFactory* type_factory,
                   {numeric_type,
                    {numeric_type},
                    FN_SAFE_UNARY_MINUS_NUMERIC,
-                   has_numeric_type_argument}},
+                   has_numeric_type_argument},
+                  {bignumeric_type,
+                   {bignumeric_type},
+                   FN_SAFE_UNARY_MINUS_BIGNUMERIC,
+                   has_bignumeric_type_argument}},
                  FunctionOptions().set_arguments_are_coercible(false));
 
   InsertFunction(functions, options, "sqrt", SCALAR,

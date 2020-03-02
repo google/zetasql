@@ -1,0 +1,100 @@
+//
+// Copyright 2019 ZetaSQL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include "zetasql/public/functions/json.h"
+
+#include <memory>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include "zetasql/common/errors.h"
+#include "zetasql/public/functions/json_internal.h"
+#include "absl/memory/memory.h"
+#include "zetasql/base/status.h"
+#include "zetasql/base/status_macros.h"
+#include "zetasql/base/statusor.h"
+
+namespace zetasql {
+namespace functions {
+namespace {
+using json_internal::JSONPathExtractor;
+using json_internal::ValidJSONPathIterator;
+}  // namespace
+
+JsonPathEvaluator::~JsonPathEvaluator() {}
+
+JsonPathEvaluator::JsonPathEvaluator(std::unique_ptr<ValidJSONPathIterator> itr)
+    : path_iterator_(std::move(itr)) {}
+
+// static
+zetasql_base::StatusOr<std::unique_ptr<JsonPathEvaluator>> JsonPathEvaluator::Create(
+    absl::string_view json_path, bool sql_standard_mode) {
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValidJSONPathIterator> itr,
+                   ValidJSONPathIterator::Create(json_path, sql_standard_mode));
+  // Scan tokens as json_path may not persist beyond this call.
+  itr->Scan();
+  return absl::WrapUnique(new JsonPathEvaluator(std::move(itr)));
+}
+
+zetasql_base::Status JsonPathEvaluator::Extract(absl::string_view json,
+                                        std::string* value,
+                                        bool* is_null) const {
+  JSONPathExtractor parser(json, path_iterator_.get());
+  parser.set_special_character_escaping(escape_special_characters_);
+  value->clear();
+  parser.Extract(value, is_null);
+  if (parser.StoppedDueToStackSpace()) {
+    return MakeEvalError() << "JSON parsing failed due to deeply nested "
+                              "array/struct. Maximum nesting depth is "
+                           << JSONPathExtractor::kMaxParsingDepth;
+  }
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status JsonPathEvaluator::ExtractScalar(absl::string_view json,
+                                              std::string* value,
+                                              bool* is_null) const {
+  json_internal::JSONPathExtractScalar scalar_parser(json,
+                                                     path_iterator_.get());
+  value->clear();
+  scalar_parser.Extract(value, is_null);
+  if (scalar_parser.StoppedDueToStackSpace()) {
+    return MakeEvalError() << "JSON parsing failed due to deeply nested "
+                              "array/struct. Maximum nesting depth is "
+                           << JSONPathExtractor::kMaxParsingDepth;
+  }
+  return ::zetasql_base::OkStatus();
+}
+
+zetasql_base::Status JsonPathEvaluator::ExtractArray(absl::string_view json,
+                                             std::vector<std::string>* value,
+                                             bool* is_null) const {
+  json_internal::JSONPathArrayExtractor array_parser(json,
+                                                     path_iterator_.get());
+  array_parser.set_special_character_escaping(escape_special_characters_);
+  value->clear();
+  array_parser.ExtractArray(value, is_null);
+  if (array_parser.StoppedDueToStackSpace()) {
+    return MakeEvalError() << "JSON parsing failed due to deeply nested "
+                              "array/struct. Maximum nesting depth is "
+                           << JSONPathExtractor::kMaxParsingDepth;
+  }
+  return ::zetasql_base::OkStatus();
+}
+
+}  // namespace functions
+}  // namespace zetasql

@@ -314,9 +314,13 @@ zetasql_base::Status CheckRangeBucketArguments(
 // input.
 bool HasFloatingPointArgument(const std::vector<InputArgumentType>& arguments);
 
-// Returns true if an arithmetic operation has a numeric point type as its
+// Returns true if an arithmetic operation has a numeric type as its
 // input.
 bool HasNumericTypeArgument(const std::vector<InputArgumentType>& arguments);
+
+// Returns true if an arithmetic operation has a bignumeric type as its
+// input.
+bool HasBigNumericTypeArgument(const std::vector<InputArgumentType>& arguments);
 
 // Returns true if FN_CONCAT_STRING function can coerce argument of given type
 // to STRING.

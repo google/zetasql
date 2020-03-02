@@ -42,7 +42,30 @@ FROM example;
 
 ### FINGERPRINT
 
-Documentation is pending for this feature.
+```
+FINGERPRINT(input)
+```
+
+**Description**
+
+Computes the fingerprint of the STRING
+or BYTES input using Fingerprint.
+
+**Return type**
+
+UINT64
+
+**Examples**
+
+```sql
+SELECT FINGERPRINT("Hello World") as fingerprint;
+
++----------------------+
+| fingerprint          |
++----------------------+
+| 4584092443788135411  |
++----------------------+
+```
 
 ### MD5
 ```

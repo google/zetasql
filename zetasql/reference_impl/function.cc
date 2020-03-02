@@ -444,6 +444,13 @@ FunctionMap::FunctionMap() {
   RegisterFunction(FunctionKind::kGenerateTimestampArray,
                    "generate_timestamp_array", "GenerateTimestampArray");
   RegisterFunction(FunctionKind::kRangeBucket, "range_bucket", "RangeBucket");
+  RegisterFunction(FunctionKind::kJsonExtract, "json_extract", "JsonExtract");
+  RegisterFunction(FunctionKind::kJsonExtractScalar, "json_extract_scalar",
+                   "JsonExtractScalar");
+  RegisterFunction(FunctionKind::kJsonExtractArray, "json_extract_array",
+                   "JsonExtractArray");
+  RegisterFunction(FunctionKind::kJsonQuery, "json_query", "JsonQuery");
+  RegisterFunction(FunctionKind::kJsonValue, "json_value", "JsonValue");
   RegisterFunction(FunctionKind::kGreatest, "greatest", "Greatest");
   RegisterFunction(FunctionKind::kIsNull, "$is_null", "IsNull");
   RegisterFunction(FunctionKind::kIsTrue, "$is_true", "IsTrue");
@@ -553,6 +560,8 @@ FunctionMap::FunctionMap() {
                    "normalize_and_casefold", "NormalizeAndCasefold");
   RegisterFunction(FunctionKind::kToBase64, "to_base64", "ToBase64");
   RegisterFunction(FunctionKind::kFromBase64, "from_base64", "FromBase64");
+  RegisterFunction(FunctionKind::kToHex, "to_hex", "ToHex");
+  RegisterFunction(FunctionKind::kFromHex, "from_hex", "FromHex");
   RegisterFunction(FunctionKind::kToCodePoints, "to_code_points",
                    "ToCodePoints");
   RegisterFunction(FunctionKind::kCodePointsToString, "code_points_to_string",
@@ -1194,6 +1203,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kNormalizeAndCasefold:
     case FunctionKind::kToBase64:
     case FunctionKind::kFromBase64:
+    case FunctionKind::kToHex:
+    case FunctionKind::kFromHex:
     case FunctionKind::kLpad:
     case FunctionKind::kRpad:
     case FunctionKind::kRepeat:
@@ -1221,6 +1232,12 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new GenerateArrayFunction(output_type);
     case FunctionKind::kRangeBucket:
       return new RangeBucketFunction();
+    case FunctionKind::kJsonExtract:
+    case FunctionKind::kJsonExtractScalar:
+    case FunctionKind::kJsonExtractArray:
+    case FunctionKind::kJsonQuery:
+    case FunctionKind::kJsonValue:
+      return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     case FunctionKind::kArrayConcat:
       return new ArrayConcatFunction(kind, output_type);
     case FunctionKind::kArrayLength:
@@ -1731,6 +1748,9 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
     case FCT(FunctionKind::kAdd, TYPE_NUMERIC):
       return InvokeBinary<NumericValue>(&functions::Add<NumericValue>, args,
                                         result, status);
+    case FCT(FunctionKind::kAdd, TYPE_BIGNUMERIC):
+      return InvokeBinary<BigNumericValue>(&functions::Add<BigNumericValue>,
+                                           args, result, status);
 
     case FCT(FunctionKind::kSubtract, TYPE_INT64):
       return InvokeBinary<int64_t>(&functions::Subtract<int64_t>, args, result,
@@ -1744,6 +1764,9 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
     case FCT(FunctionKind::kSubtract, TYPE_NUMERIC):
       return InvokeBinary<NumericValue>(&functions::Subtract<NumericValue>,
                                         args, result, status);
+    case FCT(FunctionKind::kSubtract, TYPE_BIGNUMERIC):
+      return InvokeBinary<BigNumericValue>(
+          &functions::Subtract<BigNumericValue>, args, result, status);
 
     case FCT(FunctionKind::kMultiply, TYPE_INT64):
       return InvokeBinary<int64_t>(&functions::Multiply<int64_t>, args, result,
@@ -1757,6 +1780,9 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
     case FCT(FunctionKind::kMultiply, TYPE_NUMERIC):
       return InvokeBinary<NumericValue>(&functions::Multiply<NumericValue>,
                                         args, result, status);
+    case FCT(FunctionKind::kMultiply, TYPE_BIGNUMERIC):
+      return InvokeBinary<BigNumericValue>(
+          &functions::Multiply<BigNumericValue>, args, result, status);
 
     case FCT(FunctionKind::kDivide, TYPE_DOUBLE):
       return InvokeBinary<double>(&functions::Divide<double>, args, result,
@@ -1764,6 +1790,9 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
     case FCT(FunctionKind::kDivide, TYPE_NUMERIC):
       return InvokeBinary<NumericValue>(&functions::Divide<NumericValue>, args,
                                         result, status);
+    case FCT(FunctionKind::kDivide, TYPE_BIGNUMERIC):
+      return InvokeBinary<BigNumericValue>(&functions::Divide<BigNumericValue>,
+                                           args, result, status);
 
     case FCT(FunctionKind::kDiv, TYPE_INT64):
       return InvokeBinary<int64_t>(&functions::Divide<int64_t>, args, result,
@@ -1787,6 +1816,9 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
     case FCT(FunctionKind::kSafeAdd, TYPE_NUMERIC):
       return SafeInvokeBinary<NumericValue>(&functions::Add<NumericValue>, args,
                                             result, status);
+    case FCT(FunctionKind::kSafeAdd, TYPE_BIGNUMERIC):
+      return SafeInvokeBinary<BigNumericValue>(&functions::Add<BigNumericValue>,
+                                               args, result, status);
 
     case FCT(FunctionKind::kSafeSubtract, TYPE_INT64):
       return SafeInvokeBinary<int64_t>(&functions::Subtract<int64_t>, args, result,
@@ -1800,6 +1832,9 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
     case FCT(FunctionKind::kSafeSubtract, TYPE_NUMERIC):
       return SafeInvokeBinary<NumericValue>(&functions::Subtract<NumericValue>,
                                             args, result, status);
+    case FCT(FunctionKind::kSafeSubtract, TYPE_BIGNUMERIC):
+      return SafeInvokeBinary<BigNumericValue>(
+          &functions::Subtract<BigNumericValue>, args, result, status);
 
     case FCT(FunctionKind::kSafeMultiply, TYPE_INT64):
       return SafeInvokeBinary<int64_t>(&functions::Multiply<int64_t>, args, result,
@@ -1813,6 +1848,9 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
     case FCT(FunctionKind::kSafeMultiply, TYPE_NUMERIC):
       return SafeInvokeBinary<NumericValue>(&functions::Multiply<NumericValue>,
                                             args, result, status);
+    case FCT(FunctionKind::kSafeMultiply, TYPE_BIGNUMERIC):
+      return SafeInvokeBinary<BigNumericValue>(
+          &functions::Multiply<BigNumericValue>, args, result, status);
 
     case FCT(FunctionKind::kSafeDivide, TYPE_DOUBLE):
       return SafeInvokeBinary<double>(&functions::Divide<double>, args, result,
@@ -1820,6 +1858,9 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
     case FCT(FunctionKind::kSafeDivide, TYPE_NUMERIC):
       return SafeInvokeBinary<NumericValue>(&functions::Divide<NumericValue>,
                                             args, result, status);
+    case FCT(FunctionKind::kSafeDivide, TYPE_BIGNUMERIC):
+      return SafeInvokeBinary<BigNumericValue>(
+          &functions::Divide<BigNumericValue>, args, result, status);
 
     case FCT(FunctionKind::kMod, TYPE_INT64):
       return InvokeBinary<int64_t>(&functions::Modulo<int64_t>, args, result,
@@ -1846,6 +1887,9 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
     case FCT(FunctionKind::kUnaryMinus, TYPE_NUMERIC):
       return InvokeUnary<NumericValue>(&functions::UnaryMinus<NumericValue>,
                                        args, result, status);
+    case FCT(FunctionKind::kUnaryMinus, TYPE_BIGNUMERIC):
+      return InvokeUnary<BigNumericValue>(
+          &functions::UnaryMinus<BigNumericValue>, args, result, status);
 
     case FCT(FunctionKind::kSafeNegate, TYPE_INT64):
       return SafeInvokeUnary<int64_t>(&functions::UnaryMinus<int64_t, int64_t>, args,
@@ -1862,6 +1906,9 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
     case FCT(FunctionKind::kSafeNegate, TYPE_NUMERIC):
       return SafeInvokeUnary<NumericValue>(&functions::UnaryMinus<NumericValue>,
                                            args, result, status);
+    case FCT(FunctionKind::kSafeNegate, TYPE_BIGNUMERIC):
+      return SafeInvokeUnary<BigNumericValue>(
+          &functions::UnaryMinus<BigNumericValue>, args, result, status);
   }
   *status = ::zetasql_base::UnimplementedErrorBuilder()
             << "Unsupported arithmetic function: " << debug_name();
@@ -3893,6 +3940,12 @@ bool StringFunction::Eval(absl::Span<const Value> args,
     case FCT_TYPE_ARITY(FunctionKind::kFromBase64, TYPE_STRING, 1):
       return InvokeBytes<std::string>(&functions::FromBase64, result, status,
                                       args[0].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kToHex, TYPE_BYTES, 1):
+      return InvokeString<std::string>(&functions::ToHex, result, status,
+                                       args[0].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kFromHex, TYPE_STRING, 1):
+      return InvokeBytes<std::string>(&functions::FromHex, result, status,
+                                      args[0].string_value());
   }
   *status = ::zetasql_base::UnimplementedErrorBuilder()
             << "Unsupported string function: " << debug_name();
@@ -5127,7 +5180,8 @@ zetasql_base::StatusOr<Value> ExtractDatetimeFromFunction::Eval(
 zetasql_base::StatusOr<Value> RandFunction::Eval(absl::Span<const Value> args,
                                          EvaluationContext* context) const {
   ZETASQL_RET_CHECK(args.empty());
-  return Value::Double(absl::Uniform<double>(rand_, 0, 1));
+  return Value::Double(
+      absl::Uniform<double>(*context->GetRandomNumberGenerator(), 0, 1));
 }
 
 zetasql_base::StatusOr<Value> ErrorFunction::Eval(absl::Span<const Value> args,

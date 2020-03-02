@@ -1601,15 +1601,22 @@ zetasql_base::Status FunctionResolver::ConvertLiteralToType(
           Value::Struct(target_type->AsStruct(), coerced_field_literals);
     }
   } else if (argument_value->type()->IsFloatingPoint() &&
-             target_type->IsNumericType() &&
+             (target_type->IsNumericType() ||
+              target_type->IsBigNumericType()) &&
              GetFloatImage(resolver_->float_literal_images_, ast_location,
                            argument_literal, &float_literal_image)) {
-    // If we are casting a floating point literal into a NUMERIC reparse the
-    // original literal image instead of converting the floating point value
-    // to preserve precision.
-    ZETASQL_ASSIGN_OR_RETURN(NumericValue coerced_numeric,
-                     NumericValue::FromString(float_literal_image));
-    coerced_literal_value = Value::Numeric(coerced_numeric);
+    // If we are casting a floating point literal into a NUMERIC or BIGNUMERIC,
+    // reparse the original literal image instead of converting the floating
+    // point value to preserve precision.
+    if (target_type->IsNumericType()) {
+      ZETASQL_ASSIGN_OR_RETURN(NumericValue coerced_numeric,
+                       NumericValue::FromString(float_literal_image));
+      coerced_literal_value = Value::Numeric(coerced_numeric);
+    } else if (target_type->IsBigNumericType()) {
+      ZETASQL_ASSIGN_OR_RETURN(BigNumericValue coerced_bignumeric,
+                       BigNumericValue::FromString(float_literal_image));
+      coerced_literal_value = Value::BigNumeric(coerced_bignumeric);
+    }
   } else {
     // <coerced_literal_value> gets populated only when we can successfully
     // cast <argument_value> to <target_type>.

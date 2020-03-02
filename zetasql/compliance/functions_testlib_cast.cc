@@ -15,6 +15,7 @@
 //
 
 #include <limits>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -187,216 +188,284 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastString() {
 
 std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
   return {
-    // bool->string
-    {{NullBool()}, NullString()},
-    {{true}, String("true")},
-    {{false}, String("false")},
+      // bool->string
+      {{NullBool()}, NullString()},
+      {{true}, String("true")},
+      {{false}, String("false")},
 
-    // string->bool
-    {{NullString()}, NullBool()},
-    {{String("")}, NullBool(), OUT_OF_RANGE},
-    {{String("0")}, NullBool(), OUT_OF_RANGE},
-    {{String("1")}, NullBool(), OUT_OF_RANGE},
-    {{String("x")}, NullBool(), OUT_OF_RANGE},
-    {{String(" true")}, NullBool(), OUT_OF_RANGE},
-    {{String("true ")}, NullBool(), OUT_OF_RANGE},
-    {{String(" false")}, NullBool(), OUT_OF_RANGE},
-    {{String("false ")}, NullBool(), OUT_OF_RANGE},
-    {{String("true")}, true},
-    {{String("false")}, false},
-    {{String("True")}, true},
-    {{String("False")}, false},
-    {{String("TRUE")}, true},
-    {{String("FALSE")}, false},
+      // string->bool
+      {{NullString()}, NullBool()},
+      {{String("")}, NullBool(), OUT_OF_RANGE},
+      {{String("0")}, NullBool(), OUT_OF_RANGE},
+      {{String("1")}, NullBool(), OUT_OF_RANGE},
+      {{String("x")}, NullBool(), OUT_OF_RANGE},
+      {{String(" true")}, NullBool(), OUT_OF_RANGE},
+      {{String("true ")}, NullBool(), OUT_OF_RANGE},
+      {{String(" false")}, NullBool(), OUT_OF_RANGE},
+      {{String("false ")}, NullBool(), OUT_OF_RANGE},
+      {{String("true")}, true},
+      {{String("false")}, false},
+      {{String("True")}, true},
+      {{String("False")}, false},
+      {{String("TRUE")}, true},
+      {{String("FALSE")}, false},
 
-    // string->int64
-    {{NullString()}, NullInt64()},
-    {{String("")}, NullInt64(), OUT_OF_RANGE},
-    {{String("a")}, NullInt64(), OUT_OF_RANGE},
-    {{String("0")}, 0ll},
-    {{String("9223372036854775808")}, NullInt64(), OUT_OF_RANGE},
-    {{String("9223372036854775807")}, 9223372036854775807ll},
-    {{String("-9223372036854775808")}, -9223372036854775807ll - 1},
-    {{String("-9223372036854775809")}, NullInt64(), OUT_OF_RANGE},
+      // string->int64
+      {{NullString()}, NullInt64()},
+      {{String("")}, NullInt64(), OUT_OF_RANGE},
+      {{String("a")}, NullInt64(), OUT_OF_RANGE},
+      {{String("0")}, 0ll},
+      {{String("9223372036854775808")}, NullInt64(), OUT_OF_RANGE},
+      {{String("9223372036854775807")}, 9223372036854775807ll},
+      {{String("-9223372036854775808")}, -9223372036854775807ll - 1},
+      {{String("-9223372036854775809")}, NullInt64(), OUT_OF_RANGE},
 
-    // int64_t->string
-    {{NullInt64()}, NullString()},
-    {{0ll}, String("0")},
-    {{123ll}, String("123")},
-    {{-456ll}, String("-456")},
-    {{9223372036854775807ll}, String("9223372036854775807")},
-    {{-9223372036854775807ll - 1}, String("-9223372036854775808")},
+      // int64_t->string
+      {{NullInt64()}, NullString()},
+      {{0ll}, String("0")},
+      {{123ll}, String("123")},
+      {{-456ll}, String("-456")},
+      {{9223372036854775807ll}, String("9223372036854775807")},
+      {{-9223372036854775807ll - 1}, String("-9223372036854775808")},
 
-    // string->uint64
-    {{NullString()}, NullUint64()},
-    {{String("")}, NullUint64(), OUT_OF_RANGE},
-    {{String("a")}, NullUint64(), OUT_OF_RANGE},
-    {{String("0")}, 0ull},
-    {{String("123")}, 123ull},
-    {{String("18446744073709551615")}, 18446744073709551615ull},
-    {{String("18446744073709551616")}, NullUint64(), OUT_OF_RANGE},
-    {{String("-1")}, NullUint64(), OUT_OF_RANGE},
-    {{String("-9223372036854775809")}, NullUint64(), OUT_OF_RANGE},
+      // string->uint64
+      {{NullString()}, NullUint64()},
+      {{String("")}, NullUint64(), OUT_OF_RANGE},
+      {{String("a")}, NullUint64(), OUT_OF_RANGE},
+      {{String("0")}, 0ull},
+      {{String("123")}, 123ull},
+      {{String("18446744073709551615")}, 18446744073709551615ull},
+      {{String("18446744073709551616")}, NullUint64(), OUT_OF_RANGE},
+      {{String("-1")}, NullUint64(), OUT_OF_RANGE},
+      {{String("-9223372036854775809")}, NullUint64(), OUT_OF_RANGE},
 
-    // uint64_t->string
-    {{NullUint64()}, NullString()},
-    {{0ull}, String("0")},
-    {{123ull}, String("123")},
-    {{18446744073709551615ull}, String("18446744073709551615")},
+      // uint64_t->string
+      {{NullUint64()}, NullString()},
+      {{0ull}, String("0")},
+      {{123ull}, String("123")},
+      {{18446744073709551615ull}, String("18446744073709551615")},
 
-    // string->int32
-    {{NullString()}, NullInt32()},
-    {{String("")}, NullInt32(), OUT_OF_RANGE},
-    {{String("a")}, NullInt32(), OUT_OF_RANGE},
-    {{String("0")}, 0},
-    {{String("2147483648")}, NullInt32(), OUT_OF_RANGE},
-    {{String("2147483647")}, 2147483647},
-    {{String("-2147483648")}, -2147483647 - 1},
-    {{String("-2147483649")}, NullInt32(), OUT_OF_RANGE},
+      // string->int32
+      {{NullString()}, NullInt32()},
+      {{String("")}, NullInt32(), OUT_OF_RANGE},
+      {{String("a")}, NullInt32(), OUT_OF_RANGE},
+      {{String("0")}, 0},
+      {{String("2147483648")}, NullInt32(), OUT_OF_RANGE},
+      {{String("2147483647")}, 2147483647},
+      {{String("-2147483648")}, -2147483647 - 1},
+      {{String("-2147483649")}, NullInt32(), OUT_OF_RANGE},
 
-    // int32_t->string
-    {{NullInt32()}, NullString()},
-    {{0}, String("0")},
-    {{123}, String("123")},
-    {{-456}, String("-456")},
-    {{2147483647}, String("2147483647")},
-    {{-2147483647 - 1}, String("-2147483648")},
+      // int32_t->string
+      {{NullInt32()}, NullString()},
+      {{0}, String("0")},
+      {{123}, String("123")},
+      {{-456}, String("-456")},
+      {{2147483647}, String("2147483647")},
+      {{-2147483647 - 1}, String("-2147483648")},
 
-    // string->uint32
-    {{NullString()}, NullUint32()},
-    {{String("")}, NullUint32(), OUT_OF_RANGE},
-    {{String("a")}, NullUint32(), OUT_OF_RANGE},
-    {{String("0")}, 0u},
-    {{String("123")}, 123u},
-    {{String("4294967295")}, 4294967295u},
-    {{String("4294967296")}, NullUint32(), OUT_OF_RANGE},
-    {{String("-1")}, NullUint32(), OUT_OF_RANGE},
-    {{String("-4294967295")}, NullUint32(), OUT_OF_RANGE},
+      // string->uint32
+      {{NullString()}, NullUint32()},
+      {{String("")}, NullUint32(), OUT_OF_RANGE},
+      {{String("a")}, NullUint32(), OUT_OF_RANGE},
+      {{String("0")}, 0u},
+      {{String("123")}, 123u},
+      {{String("4294967295")}, 4294967295u},
+      {{String("4294967296")}, NullUint32(), OUT_OF_RANGE},
+      {{String("-1")}, NullUint32(), OUT_OF_RANGE},
+      {{String("-4294967295")}, NullUint32(), OUT_OF_RANGE},
 
-    // uint32_t->string
-    {{NullUint32()}, NullString()},
-    {{0u}, String("0")},
-    {{123u}, String("123")},
-    {{4294967295u}, String("4294967295")},
+      // uint32_t->string
+      {{NullUint32()}, NullString()},
+      {{0u}, String("0")},
+      {{123u}, String("123")},
+      {{4294967295u}, String("4294967295")},
 
-    // string->float
-    {{NullString()}, NullFloat()},
-    {{String("")}, NullFloat(), OUT_OF_RANGE},
-    {{String(" ")}, NullFloat(), OUT_OF_RANGE},
-    {{String("a")}, NullFloat(), OUT_OF_RANGE},
-    {{String("0")}, 0.0f},
-    {{String("0.123")}, 0.123f},
-    {{String("123")}, 123.0f},
-    {{String("-123")}, -123.0f},
-    {{String("1.123e+25")}, 1.123e25f},
-    {{String("1.234e-25")}, 1.234e-25f},
-    {{String("1.123456789e+25")}, 1.123456789e25f},
-    {{String("1.123456789123456e+25")}, 1.123456789e25f},
-    {{String("3.4028236e+38")}, float_pos_inf},
-    {{String("-3.4028236e+38")}, float_neg_inf},
-    {{String("inf")}, float_pos_inf},
-    {{String("+inf")}, float_pos_inf},
-    {{String("-inf")}, float_neg_inf},
-    {{String("nan")}, float_nan},
-    {{String("NaN")}, float_nan},
+      // string->float
+      {{NullString()}, NullFloat()},
+      {{String("")}, NullFloat(), OUT_OF_RANGE},
+      {{String(" ")}, NullFloat(), OUT_OF_RANGE},
+      {{String("a")}, NullFloat(), OUT_OF_RANGE},
+      {{String("0")}, 0.0f},
+      {{String("0.123")}, 0.123f},
+      {{String("123")}, 123.0f},
+      {{String("-123")}, -123.0f},
+      {{String("1.123e+25")}, 1.123e25f},
+      {{String("1.234e-25")}, 1.234e-25f},
+      {{String("1.123456789e+25")}, 1.123456789e25f},
+      {{String("1.123456789123456e+25")}, 1.123456789e25f},
+      {{String("3.4028236e+38")}, float_pos_inf},
+      {{String("-3.4028236e+38")}, float_neg_inf},
+      {{String("inf")}, float_pos_inf},
+      {{String("+inf")}, float_pos_inf},
+      {{String("-inf")}, float_neg_inf},
+      {{String("nan")}, float_nan},
+      {{String("NaN")}, float_nan},
 
-    // float->string
-    {{NullFloat()}, NullString()},
-    {{0.0f}, String("0")},
-    {{0.123f}, String("0.123")},
-    {{123.0f}, String("123")},
-    {{-123.0f}, String("-123")},
-    {{1.123e25f}, String("1.123e+25")},
-    {{1.234e-25f}, String("1.234e-25")},
-    {{0.1}, String("0.1")},
+      // float->string
+      {{NullFloat()}, NullString()},
+      {{0.0f}, String("0")},
+      {{0.123f}, String("0.123")},
+      {{123.0f}, String("123")},
+      {{-123.0f}, String("-123")},
+      {{1.123e25f}, String("1.123e+25")},
+      {{1.234e-25f}, String("1.234e-25")},
+      {{0.1}, String("0.1")},
 
-    {{floatmax}, String("3.4028235e+38")},
-    {{floatminpositive}, String("1.1754944e-38")},
-    {{float_nan}, String("nan")},
-    {{float_pos_inf}, String("inf")},
-    {{float_neg_inf}, String("-inf")},
+      {{floatmax}, String("3.4028235e+38")},
+      {{floatminpositive}, String("1.1754944e-38")},
+      {{float_nan}, String("nan")},
+      {{float_pos_inf}, String("inf")},
+      {{float_neg_inf}, String("-inf")},
 
-    // string->double
-    {{NullString()}, NullDouble()},
-    {{String("")}, NullDouble(), OUT_OF_RANGE},
-    {{String(" ")}, NullDouble(), OUT_OF_RANGE},
-    {{String("a")}, NullDouble(), OUT_OF_RANGE},
-    {{String("0")}, 0.0},
-    {{String("0.123")}, 0.123},
-    {{String("123")}, 123.0},
-    {{String("-123")}, -123.0},
-    {{String("1.123e+25")}, 1.123e25},
-    {{String("1.234e-25")}, 1.234e-25},
-    {{String("1.1234567891234e+25")}, 1.1234567891234e25},
-    {{String("1.123456789123456789e+25")}, 1.1234567891234567e25},
+      // string->double
+      {{NullString()}, NullDouble()},
+      {{String("")}, NullDouble(), OUT_OF_RANGE},
+      {{String(" ")}, NullDouble(), OUT_OF_RANGE},
+      {{String("a")}, NullDouble(), OUT_OF_RANGE},
+      {{String("0")}, 0.0},
+      {{String("0.123")}, 0.123},
+      {{String("123")}, 123.0},
+      {{String("-123")}, -123.0},
+      {{String("1.123e+25")}, 1.123e25},
+      {{String("1.234e-25")}, 1.234e-25},
+      {{String("1.1234567891234e+25")}, 1.1234567891234e25},
+      {{String("1.123456789123456789e+25")}, 1.1234567891234567e25},
 
-    // TODO: decide if conversion of a value out of the range should
-    // return an error instead of +/-inf.
-    {{String("1.797693134862316e+308")}, double_pos_inf},
-    {{String("-1.797693134862316e+308")}, double_neg_inf},
+      // TODO: decide if conversion of a value out of the range should
+      // return an error instead of +/-inf.
+      {{String("1.797693134862316e+308")}, double_pos_inf},
+      {{String("-1.797693134862316e+308")}, double_neg_inf},
 
-    {{String("1.0000000000000003")}, 1.0000000000000002},
-    {{String("inf")}, double_pos_inf},
-    {{String("+inf")}, double_pos_inf},
-    {{String("-inf")}, double_neg_inf},
+      {{String("1.0000000000000003")}, 1.0000000000000002},
+      {{String("inf")}, double_pos_inf},
+      {{String("+inf")}, double_pos_inf},
+      {{String("-inf")}, double_neg_inf},
 
-    // TODO: decide if Inf and NaN should really be case-insensetive.
-    {{String("nan")}, double_nan},
-    {{String("NaN")}, double_nan},
+      // TODO: decide if Inf and NaN should really be case-insensetive.
+      {{String("nan")}, double_nan},
+      {{String("NaN")}, double_nan},
 
-    // double->string
-    {{NullDouble()}, NullString()},
-    {{0.0}, String("0")},
-    {{0.123}, String("0.123")},
-    {{123.0}, String("123")},
-    {{-123.0}, String("-123")},
-    {{1.123e25}, String("1.123e+25")},
-    {{1.234e-25}, String("1.234e-25")},
-    {{1.1234567891234e25}, String("1.1234567891234e+25")},
-    {{doublemax}, String("1.7976931348623157e+308")},
-    {{doubleminpositive}, String("2.2250738585072014e-308")},
-    {{double_nan}, String("nan")},
-    {{double_pos_inf}, String("inf")},
-    {{double_neg_inf}, String("-inf")},
+      // double->string
+      {{NullDouble()}, NullString()},
+      {{0.0}, String("0")},
+      {{0.123}, String("0.123")},
+      {{123.0}, String("123")},
+      {{-123.0}, String("-123")},
+      {{1.123e25}, String("1.123e+25")},
+      {{1.234e-25}, String("1.234e-25")},
+      {{1.1234567891234e25}, String("1.1234567891234e+25")},
+      {{doublemax}, String("1.7976931348623157e+308")},
+      {{doubleminpositive}, String("2.2250738585072014e-308")},
+      {{double_nan}, String("nan")},
+      {{double_pos_inf}, String("inf")},
+      {{double_neg_inf}, String("-inf")},
 
-    // string->numeric
-    QueryParamsWithResult({NullString()}, NullNumeric())
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({String("9223372036854775807")},
-                          Value::Numeric(NumericValue(9223372036854775807ll)))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({String("0")}, Value::Numeric(NumericValue()))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({String("0.0")}, Value::Numeric(NumericValue()))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult(
-        {String("-9223372036854775807")},
-        Value::Numeric(NumericValue(-9223372036854775807ll)))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult(
-        {String("123456789.12345678")},
-        Value::Numeric(NumericValue::FromStringStrict("123456789.12345678")
-                           .ValueOrDie()))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      // string->numeric
+      QueryParamsWithResult({NullString()}, NullNumeric())
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({String("9223372036854775807")},
+                            Value::Numeric(NumericValue(9223372036854775807ll)))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({String("0")}, Value::Numeric(NumericValue()))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({String("0.0")}, Value::Numeric(NumericValue()))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult(
+          {String("-9223372036854775807")},
+          Value::Numeric(NumericValue(-9223372036854775807ll)))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult(
+          {String("123456789.12345678")},
+          Value::Numeric(NumericValue::FromStringStrict("123456789.12345678")
+                             .ValueOrDie()))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
 
-    // numeric->string
-    QueryParamsWithResult({NullNumeric()}, NullString())
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult(
-        {Value::Numeric(NumericValue(9223372036854775807ll))},
-        String("9223372036854775807"))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Value::Numeric(NumericValue())}, String("0"))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult(
-        {Value::Numeric(NumericValue(-9223372036854775807ll))},
-        String("-9223372036854775807"))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult(
-        {Value::Numeric(NumericValue::FromStringStrict("123456789.12345678")
-                            .ValueOrDie())},
-        String("123456789.12345678"))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      // string->bignumeric
+      QueryParamsWithResult({NullString()}, NullBigNumeric())
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {String("9223372036854775807")},
+          Value::BigNumeric(BigNumericValue(9223372036854775807LL)))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({String("0")}, Value::BigNumeric(BigNumericValue()))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({String("0.0")},
+                            Value::BigNumeric(BigNumericValue()))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {String("-9223372036854775807")},
+          Value::BigNumeric(BigNumericValue(-9223372036854775807LL)))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {String("1e38")},
+          Value::BigNumeric(
+              BigNumericValue::FromStringStrict("1e38").ValueOrDie()))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {String("578960446186580977117854925043439539266."
+                  "34992332820282019728792003956564819967")},
+          Value::BigNumeric(BigNumericValue::FromStringStrict(
+                                "578960446186580977117854925043439539266."
+                                "34992332820282019728792003956564819967")
+                                .ValueOrDie()))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {String("-578960446186580977117854925043439539266."
+                  "34992332820282019728792003956564819968")},
+          Value::BigNumeric(BigNumericValue::FromStringStrict(
+                                "-578960446186580977117854925043439539266."
+                                "34992332820282019728792003956564819968")
+                                .ValueOrDie()))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+
+      // numeric->string
+      QueryParamsWithResult({NullNumeric()}, NullString())
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::Numeric(NumericValue(9223372036854775807ll))},
+          String("9223372036854775807"))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Value::Numeric(NumericValue())}, String("0"))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::Numeric(NumericValue(-9223372036854775807ll))},
+          String("-9223372036854775807"))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::Numeric(NumericValue::FromStringStrict("123456789.12345678")
+                              .ValueOrDie())},
+          String("123456789.12345678"))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+
+      // bignumeric->string
+      QueryParamsWithResult({NullBigNumeric()}, NullString())
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::BigNumeric(BigNumericValue(9223372036854775807LL))},
+          String("9223372036854775807"))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Value::BigNumeric(BigNumericValue())}, String("0"))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::BigNumeric(BigNumericValue(-9223372036854775807LL))},
+          String("-9223372036854775807"))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::BigNumeric(BigNumericValue::FromStringStrict(
+                                 "578960446186580977117854925043439539266."
+                                 "34992332820282019728792003956564819967")
+                                 .ValueOrDie())},
+          String("578960446186580977117854925043439539266."
+                 "34992332820282019728792003956564819967"))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::BigNumeric(BigNumericValue::FromStringStrict(
+                                 "-578960446186580977117854925043439539266."
+                                 "34992332820282019728792003956564819968")
+                                 .ValueOrDie())},
+          String("-578960446186580977117854925043439539266."
+                 "34992332820282019728792003956564819968"))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
   };
 }
 
@@ -1247,152 +1316,147 @@ static std::vector<QueryParamsWithResult> GetFunctionTestsCastDoublePorted() {
 
 std::vector<QueryParamsWithResult> GetFunctionTestsCastInteger() {
   return {
-    {{Int32(0)}, Int32(0)},
-    {{Int64(0)}, Int64(0)},
-    {{Uint32(0)}, Uint32(0)},
-    {{Uint64(0)}, Uint64(0)},
-    {{Float(0)}, Float(0)},
-    {{Double(0)}, Double(0)},
-    QueryParamsWithResult(
-        {{Value::Numeric(NumericValue())}, Value::Numeric(NumericValue())})
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      {{Int32(0)}, Int32(0)},
+      {{Int64(0)}, Int64(0)},
+      {{Uint32(0)}, Uint32(0)},
+      {{Uint64(0)}, Uint64(0)},
+      {{Float(0)}, Float(0)},
+      {{Double(0)}, Double(0)},
+      QueryParamsWithResult(
+          {{Value::Numeric(NumericValue())}, Value::Numeric(NumericValue())})
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({{Value::BigNumeric(BigNumericValue())},
+                             Value::BigNumeric(BigNumericValue())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
 
-    {{NullInt32()}, NullInt32()},
-    {{NullInt64()}, NullInt64()},
-    {{NullUint32()}, NullUint32()},
-    {{NullUint64()}, NullUint64()},
-    {{NullFloat()}, NullFloat()},
-    {{NullDouble()}, NullDouble()},
-    {{NullDate()}, NullDate()},
-    QueryParamsWithResult({{NullNumeric()}, NullNumeric()})
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      {{NullInt32()}, NullInt32()},
+      {{NullInt64()}, NullInt64()},
+      {{NullUint32()}, NullUint32()},
+      {{NullUint64()}, NullUint64()},
+      {{NullFloat()}, NullFloat()},
+      {{NullDouble()}, NullDouble()},
+      {{NullDate()}, NullDate()},
+      QueryParamsWithResult({{NullNumeric()}, NullNumeric()})
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{NullBigNumeric()}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
 
-    {{Int32(int32max)}, Int32(int32max)},
-    {{Int32(int32max)}, Int64(int32max)},
-    {{Int32(int32max)}, Uint32(int32max)},
-    {{Int32(int32max)}, Uint64(int32max)},
-    {{Int32(int32max)}, Float(int32max)},
-    {{Int32(int32max)}, Double(int32max)},
-    {{Int32(-1)}, NullUint32(), OUT_OF_RANGE},
-    {{Int32(-1)}, NullUint64(), OUT_OF_RANGE},
-    {{Int32(int32min)}, Int32(int32min)},
-    {{Int32(int32min)}, Int64(int32min)},
-    {{Int32(int32min)}, Float(int32min)},
-    {{Int32(int32min)}, Double(int32min)},
-    {{Int32(int32min)}, Int32(int32min)},
-    {{Int32(int32min)}, Int64(int32min)},
-    {{Int32(int32min)}, Float(int32min)},
-    {{Int32(int32min)}, Double(int32min)},
-    QueryParamsWithResult(
-        {Int32(int32max)},
-        Value::Numeric(NumericValue(int32max)))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult(
-        {Int32(int32min)},
-        Value::Numeric(NumericValue(int32min)))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      // INT32
+      {{Int32(int32max)}, Int32(int32max)},
+      {{Int32(int32max)}, Int64(int32max)},
+      {{Int32(int32max)}, Uint32(int32max)},
+      {{Int32(int32max)}, Uint64(int32max)},
+      {{Int32(int32max)}, Float(int32max)},
+      {{Int32(int32max)}, Double(int32max)},
+      {{Int32(-1)}, NullUint32(), OUT_OF_RANGE},
+      {{Int32(-1)}, NullUint64(), OUT_OF_RANGE},
+      {{Int32(int32min)}, Int32(int32min)},
+      {{Int32(int32min)}, Int64(int32min)},
+      {{Int32(int32min)}, Float(int32min)},
+      {{Int32(int32min)}, Double(int32min)},
+      {{Int32(int32min)}, Int32(int32min)},
+      {{Int32(int32min)}, Int64(int32min)},
+      {{Int32(int32min)}, Float(int32min)},
+      {{Int32(int32min)}, Double(int32min)},
+      QueryParamsWithResult(
+          {Int32(int32max)},
+          Value::Numeric(NumericValue(int32max)))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Int32(int32min)},
+          Value::Numeric(NumericValue(int32min)))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Int32(int32max)},
+                            Value::BigNumeric(BigNumericValue(int32max)))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Int32(int32min)},
+                            Value::BigNumeric(BigNumericValue(int32min)))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
 
-    {{static_cast<int64_t>(int32max)}, Int32(int32max)},
-    {{static_cast<int64_t>(int32max) + 1}, NullInt32(), OUT_OF_RANGE},
-    {{Int64(int64max)}, Int64(int64max)},
-    {{Int64(uint32max)}, Uint32(uint32max)},
-    {{static_cast<int64_t>(uint32max) + 1}, NullUint32(), OUT_OF_RANGE},
-    {{Int64(int64max)}, Uint64(int64max)},
-    {{Int64(int64max)}, Float(int64max)},
-    {{Int64(int64max)}, Double(int64max)},
-    {{Int64(-1)}, NullUint32(), OUT_OF_RANGE},
-    {{Int64(-1)}, NullUint64(), OUT_OF_RANGE},
-    {{Int64(int32min)}, Int32(int32min)},
-    {{static_cast<int64_t>(int32min) - 1}, NullInt32(), OUT_OF_RANGE},
-    {{Int64(int64min)}, Int64(int64min)},
-    {{Int64(int64min)}, NullUint32(), OUT_OF_RANGE},
-    {{Int64(int64min)}, NullUint64(), OUT_OF_RANGE},
-    {{Int64(int64min)}, Float(int64min)},
-    {{Int64(int64min)}, Double(int64min)},
-    QueryParamsWithResult({Int64(int64max)},
-                          Value::Numeric(NumericValue(int64max)))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Int64(int64min)},
-                          Value::Numeric(NumericValue(int64min)))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      // INT64
+      {{static_cast<int64_t>(int32max)}, Int32(int32max)},
+      {{static_cast<int64_t>(int32max) + 1}, NullInt32(), OUT_OF_RANGE},
+      {{Int64(int64max)}, Int64(int64max)},
+      {{Int64(uint32max)}, Uint32(uint32max)},
+      {{static_cast<int64_t>(uint32max) + 1}, NullUint32(), OUT_OF_RANGE},
+      {{Int64(int64max)}, Uint64(int64max)},
+      {{Int64(int64max)}, Float(int64max)},
+      {{Int64(int64max)}, Double(int64max)},
+      {{Int64(-1)}, NullUint32(), OUT_OF_RANGE},
+      {{Int64(-1)}, NullUint64(), OUT_OF_RANGE},
+      {{Int64(int32min)}, Int32(int32min)},
+      {{static_cast<int64_t>(int32min) - 1}, NullInt32(), OUT_OF_RANGE},
+      {{Int64(int64min)}, Int64(int64min)},
+      {{Int64(int64min)}, NullUint32(), OUT_OF_RANGE},
+      {{Int64(int64min)}, NullUint64(), OUT_OF_RANGE},
+      {{Int64(int64min)}, Float(int64min)},
+      {{Int64(int64min)}, Double(int64min)},
+      QueryParamsWithResult({Int64(int64max)},
+                            Value::Numeric(NumericValue(int64max)))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Int64(int64min)},
+                            Value::Numeric(NumericValue(int64min)))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Int64(int64max)},
+                            Value::BigNumeric(BigNumericValue(int64max)))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Int64(int64min)},
+                            Value::BigNumeric(BigNumericValue(int64min)))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
 
-    {{Uint32(uint32max)}, NullInt32(), OUT_OF_RANGE},
-    {{Uint32(uint32max)}, Int64(uint32max)},
-    {{Uint32(uint32max)}, Uint32(uint32max)},
-    {{Uint32(uint32max)}, Uint64(uint32max)},
-    {{Uint32(uint32max)}, Float(uint32max)},
-    {{Uint32(uint32max)}, Double(uint32max)},
-    {{Uint32(0)}, Int32(0)},
-    {{Uint32(0)}, Int64(0)},
-    {{Uint32(0)}, Uint32(0)},
-    {{Uint32(0)}, Uint64(0)},
-    {{Uint32(0)}, Float(0)},
-    {{Uint32(0)}, Double(0)},
-    QueryParamsWithResult(
-        {Uint32(uint32max)},
-        Value::Numeric(NumericValue(uint32max)))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Uint32(0)}, Value::Numeric(NumericValue()))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      // UINT32
+      {{Uint32(uint32max)}, NullInt32(), OUT_OF_RANGE},
+      {{Uint32(uint32max)}, Int64(uint32max)},
+      {{Uint32(uint32max)}, Uint32(uint32max)},
+      {{Uint32(uint32max)}, Uint64(uint32max)},
+      {{Uint32(uint32max)}, Float(uint32max)},
+      {{Uint32(uint32max)}, Double(uint32max)},
+      {{Uint32(0)}, Int32(0)},
+      {{Uint32(0)}, Int64(0)},
+      {{Uint32(0)}, Uint32(0)},
+      {{Uint32(0)}, Uint64(0)},
+      {{Uint32(0)}, Float(0)},
+      {{Uint32(0)}, Double(0)},
+      QueryParamsWithResult(
+          {Uint32(uint32max)},
+          Value::Numeric(NumericValue(uint32max)))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Uint32(0)}, Value::Numeric(NumericValue()))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Uint32(uint32max)},
+          Value::BigNumeric(BigNumericValue(uint32max)))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Uint32(0)}, Value::BigNumeric(BigNumericValue()))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
 
-    {{Uint64(int32max)}, Int32(int32max)},
-    {{static_cast<uint64_t>(int32max) + 1}, NullInt32(), OUT_OF_RANGE},
-    {{static_cast<uint64_t>(int64max)}, Int64(int64max)},
-    {{static_cast<uint64_t>(int64max) + 1}, NullInt64(), OUT_OF_RANGE},
-    {{Uint64(uint32max)}, Uint32(uint32max)},
-    {{static_cast<uint64_t>(uint32max) + 1}, NullUint32(), OUT_OF_RANGE},
-    {{Uint64(uint64max)}, Uint64(uint64max)},
-    {{Uint64(uint64max)}, Float(uint64max)},
-    {{Uint64(uint64max)}, Double(uint64max)},
-    {{Uint64(0)}, Int32(0)},
-    {{Uint64(0)}, Int64(0)},
-    {{Uint64(0)}, Uint32(0)},
-    {{Uint64(0)}, Uint64(0)},
-    {{Uint64(0)}, Float(0)},
-    {{Uint64(0)}, Double(0)},
-    QueryParamsWithResult({Uint64(uint64max)},
-                          Value::Numeric(NumericValue(uint64max)))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Uint64(0)}, Value::Numeric(NumericValue()))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-
-    QueryParamsWithResult(
-        {Value::Numeric(NumericValue(int32max))},
-        Int32(int32max))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult(
-        {Value::Numeric(NumericValue(int32min))},
-        Int32(int32min))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Value::Numeric(NumericValue(int64max))},
-                          Int64(int64max))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Value::Numeric(NumericValue(int64min))},
-                          Int64(int64min))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult(
-        {Value::Numeric(NumericValue(uint32max))},
-        Uint32(uint32max))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Value::Numeric(NumericValue())}, Uint32(0))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Value::Numeric(NumericValue(uint64max))},
-                          Uint64(uint64max))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Value::Numeric(NumericValue())}, Uint64(0))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Value::Numeric(NumericValue(uint64max))},
-                          NullInt32(), OUT_OF_RANGE)
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Value::Numeric(NumericValue(uint64max))},
-                          NullUint32(), OUT_OF_RANGE)
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Value::Numeric(NumericValue(uint64max))},
-                          NullInt64(), OUT_OF_RANGE)
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Value::Numeric(NumericValue::MaxValue())},
-                          NullUint64(), OUT_OF_RANGE)
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      // UINT64
+      {{Uint64(int32max)}, Int32(int32max)},
+      {{static_cast<uint64_t>(int32max) + 1}, NullInt32(), OUT_OF_RANGE},
+      {{static_cast<uint64_t>(int64max)}, Int64(int64max)},
+      {{static_cast<uint64_t>(int64max) + 1}, NullInt64(), OUT_OF_RANGE},
+      {{Uint64(uint32max)}, Uint32(uint32max)},
+      {{static_cast<uint64_t>(uint32max) + 1}, NullUint32(), OUT_OF_RANGE},
+      {{Uint64(uint64max)}, Uint64(uint64max)},
+      {{Uint64(uint64max)}, Float(uint64max)},
+      {{Uint64(uint64max)}, Double(uint64max)},
+      {{Uint64(0)}, Int32(0)},
+      {{Uint64(0)}, Int64(0)},
+      {{Uint64(0)}, Uint32(0)},
+      {{Uint64(0)}, Uint64(0)},
+      {{Uint64(0)}, Float(0)},
+      {{Uint64(0)}, Double(0)},
+      QueryParamsWithResult({Uint64(uint64max)},
+                            Value::Numeric(NumericValue(uint64max)))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Uint64(0)}, Value::Numeric(NumericValue()))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Uint64(uint64max)},
+                            Value::BigNumeric(BigNumericValue(uint64max)))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({Uint64(0)}, Value::BigNumeric(BigNumericValue()))
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
   };
 }
 
@@ -1411,228 +1475,41 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastFloat() {
   uint64_t float_uint64_plus = float_uint64_in + 1;
   uint64_t float_uint64_out = uint64max - (1ull << 40) + 1;
   return {
-    {{static_cast<float>(float_int32_in)}, Int32(float_int32_out)},
-    {{static_cast<float>(float_int64_in)}, Int64(float_int64_out)},
-    {{static_cast<float>(float_uint32_in)}, Uint32(float_uint32_out)},
-    {{static_cast<float>(float_uint64_in)}, Uint64(float_uint64_out)},
-    {{static_cast<float>(float_int32_plus)}, NullInt32(), OUT_OF_RANGE},
-    {{static_cast<float>(float_int64_plus)}, NullInt64(), OUT_OF_RANGE},
-    {{static_cast<float>(float_uint32_plus)}, NullUint32(), OUT_OF_RANGE},
-    {{static_cast<float>(float_uint64_plus)}, NullUint64(), OUT_OF_RANGE},
-    {{static_cast<float>(int32min)}, Int32(int32min)},
-    {{static_cast<float>(int64min)}, Int64(int64min)},
-    {{static_cast<float>(-1)}, NullUint32(), OUT_OF_RANGE},
-    {{static_cast<float>(-1)}, NullUint64(), OUT_OF_RANGE},
-    QueryParamsWithResult({Float(float_uint64_in)},
-                          Value::Numeric(NumericValue(float_uint64_out)))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    // Smallest positive number.
-    QueryParamsWithResult({Float(std::numeric_limits<float>::min())},
-                          Value::Numeric(NumericValue(0)))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult(
-        {Float(static_cast<float>(NumericValue::MaxValue().ToDouble()))},
-        NullNumeric(), OUT_OF_RANGE)
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Float(std::numeric_limits<float>::max())},
-                          NullNumeric(), OUT_OF_RANGE)
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Float(std::numeric_limits<float>::quiet_NaN())},
-                          NullNumeric(), OUT_OF_RANGE)
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Float(std::numeric_limits<float>::infinity())},
-                          NullNumeric(), OUT_OF_RANGE)
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Float(-std::numeric_limits<float>::infinity())},
-                          NullNumeric(), OUT_OF_RANGE)
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    {{std::numeric_limits<float>::quiet_NaN()},
-     std::numeric_limits<float>::quiet_NaN()},
-    {{std::numeric_limits<float>::quiet_NaN()},
-     std::numeric_limits<double>::quiet_NaN()},
-    {{std::numeric_limits<float>::infinity()},
-     std::numeric_limits<float>::infinity()},
-    {{std::numeric_limits<float>::infinity()},
-     std::numeric_limits<double>::infinity()},
-    {{-std::numeric_limits<float>::infinity()},
-     -std::numeric_limits<float>::infinity()},
-    {{-std::numeric_limits<float>::infinity()},
-     -std::numeric_limits<double>::infinity()},
-    {{std::numeric_limits<float>::max()}, NullInt32(), OUT_OF_RANGE},
-    {{std::numeric_limits<float>::max()}, NullInt64(), OUT_OF_RANGE},
-    {{std::numeric_limits<float>::max()}, NullUint32(), OUT_OF_RANGE},
-    {{std::numeric_limits<float>::max()}, NullUint64(), OUT_OF_RANGE},
-    {{std::numeric_limits<float>::max()}, std::numeric_limits<float>::max()},
-    {{std::numeric_limits<float>::max()},
-     static_cast<double>(std::numeric_limits<float>::max())},
-    {{std::numeric_limits<float>::lowest()}, NullInt32(), OUT_OF_RANGE},
-    {{std::numeric_limits<float>::lowest()}, NullInt64(), OUT_OF_RANGE},
-    {{std::numeric_limits<float>::lowest()}, NullUint32(), OUT_OF_RANGE},
-    {{std::numeric_limits<float>::lowest()}, NullUint64(), OUT_OF_RANGE},
-    {{std::numeric_limits<float>::lowest()},
-     std::numeric_limits<float>::lowest()},
-    {{std::numeric_limits<float>::lowest()},
-     static_cast<double>(std::numeric_limits<float>::lowest())},
-    {{Float(0)}, Double(0)},
-    QueryParamsWithResult(
-        {Value::Numeric(NumericValue::FromDouble(3.14159).ValueOrDie())},
-        Float(3.14159f))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult(
-        {Value::Numeric(NumericValue(3))}, Float(3))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Value::Numeric(NumericValue())},
-                          Float(0))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult(
-        {Value::Numeric(
-            NumericValue::FromStringStrict("0.000000001").ValueOrDie())},
-        Float(1e-09f))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Value::Numeric(NumericValue::MaxValue())},
-                          Float(1e+29f))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Value::Numeric(NumericValue::MinValue())},
-                          Float(-1e+29f))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-  };
-}
-
-std::vector<QueryParamsWithResult> GetFunctionTestsCastDouble() {
-  // Maximal integers that roundtrip via integer-double-integer casts.
-  int64_t double_int64_in = int64max - (1ll << 9);
-  int64_t double_int64_plus = double_int64_in + 1;
-  int64_t double_int64_out = int64max - (1ll << 10) + 1;
-  uint64_t double_uint64_in = uint64max - (1ull << 10);
-  uint64_t double_uint64_plus = double_uint64_in + 1;
-  uint64_t double_uint64_out = uint64max - (1ull << 11) + 1;
-  return {
-    {{static_cast<double>(int32max)}, Int32(int32max)},
-    {{static_cast<double>(double_int64_in)}, Int64(double_int64_out)},
-    {{static_cast<double>(double_uint64_in)}, Uint64(double_uint64_out)},
-    {{static_cast<double>(double_int64_plus)}, NullInt64(), OUT_OF_RANGE},
-    {{static_cast<double>(double_uint64_plus)}, NullUint64(), OUT_OF_RANGE},
-    {{static_cast<double>(uint32max)}, Uint32(uint32max)},
-    {{static_cast<double>(int32min)}, Int32(int32min)},
-    {{static_cast<double>(int64min)}, Int64(int64min)},
-    {{static_cast<double>(-1)}, NullUint32(), OUT_OF_RANGE},
-    {{static_cast<double>(-1)}, NullUint64(), OUT_OF_RANGE},
-    QueryParamsWithResult({Double(double_uint64_in)},
-                          Value::Numeric(NumericValue(double_uint64_out)))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Double(std::numeric_limits<double>::min())},
-                          Value::Numeric(NumericValue(0)))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Double(NumericValue::MaxValue().ToDouble())},
-                          Value::Numeric(NumericValue::FromDouble(
-                                             99999999999999991433150857216.0)
-                                             .ValueOrDie()))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Double(std::numeric_limits<double>::max())},
-                          NullNumeric(), OUT_OF_RANGE)
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Double(std::numeric_limits<double>::quiet_NaN())},
-                          NullNumeric(), OUT_OF_RANGE)
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Double(std::numeric_limits<double>::infinity())},
-                          NullNumeric(), OUT_OF_RANGE)
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Double(-std::numeric_limits<double>::infinity())},
-                          NullNumeric(), OUT_OF_RANGE)
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    {{std::numeric_limits<double>::quiet_NaN()},
-     std::numeric_limits<float>::quiet_NaN()},
-    {{std::numeric_limits<double>::quiet_NaN()},
-     std::numeric_limits<double>::quiet_NaN()},
-    {{std::numeric_limits<double>::infinity()},
-     std::numeric_limits<float>::infinity()},
-    {{std::numeric_limits<double>::infinity()},
-     std::numeric_limits<double>::infinity()},
-    {{-std::numeric_limits<double>::infinity()},
-     -std::numeric_limits<float>::infinity()},
-    {{-std::numeric_limits<double>::infinity()},
-     -std::numeric_limits<double>::infinity()},
-    {{std::numeric_limits<double>::max()}, NullFloat(), OUT_OF_RANGE},
-    {{static_cast<double>(std::numeric_limits<float>::max()) * 2},
-     NullFloat(),
-     OUT_OF_RANGE},
-    {{std::numeric_limits<double>::max()},
-     std::numeric_limits<double>::max()},
-    {{std::numeric_limits<double>::lowest()}, NullInt32(), OUT_OF_RANGE},
-    {{std::numeric_limits<double>::lowest()}, NullInt64(), OUT_OF_RANGE},
-    {{std::numeric_limits<double>::lowest()}, NullUint32(), OUT_OF_RANGE},
-    {{std::numeric_limits<double>::lowest()}, NullUint64(), OUT_OF_RANGE},
-    {{std::numeric_limits<double>::lowest()}, NullFloat(), OUT_OF_RANGE},
-    {{static_cast<double>(std::numeric_limits<float>::lowest()) * 2},
-     NullFloat(),
-     OUT_OF_RANGE},
-    {{std::numeric_limits<double>::lowest()},
-     std::numeric_limits<double>::lowest()},
-    {{Double(0)}, Float(0)},
-    QueryParamsWithResult(
-        {Double(3.14159)},
-        Value::Numeric(NumericValue::FromDouble(3.14159).ValueOrDie()))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult(
-        {Value::Numeric(NumericValue(3))}, Double(3))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Value::Numeric(NumericValue())},
-                          Double(0))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult(
-        {Value::Numeric(
-            NumericValue::FromStringStrict("0.000000001").ValueOrDie())},
-        Double(1e-09))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Value::Numeric(NumericValue::MaxValue())},
-                          Double(1e+29))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({Value::Numeric(NumericValue::MinValue())},
-                          Double(-1e+29))
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-  };
-}
-
-// TODO: Reorganize the test cases once CAST for BIGNUMERIC is
-// implemented.
-std::vector<QueryParamsWithResult> GetFunctionTestsCastBigNumeric() {
-  uint64_t float_uint64_in = uint64max - (1ull << 39);
-  uint64_t float_uint64_out = uint64max - (1ull << 40) + 1;
-  uint64_t double_uint64_in = uint64max - (1ull << 10);
-  uint64_t double_uint64_out = uint64max - (1ull << 11) + 1;
-  const std::set<LanguageFeature> kNumericFeatureSet = {
-      FEATURE_NUMERIC_TYPE, FEATURE_BIGNUMERIC_TYPE};
-  return {
-      // BIGNUMERIC -> BIGNUMERIC
-      QueryParamsWithResult({{Value::BigNumeric(BigNumericValue())},
-                             Value::BigNumeric(BigNumericValue())})
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-      QueryParamsWithResult({{NullBigNumeric()}, NullBigNumeric()})
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-
-      // Other numeric types -> BIGNUMERIC
-      QueryParamsWithResult({Int32(int32max)},
-                            Value::BigNumeric(BigNumericValue(int32max)))
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-      QueryParamsWithResult({Int32(int32min)},
-                            Value::BigNumeric(BigNumericValue(int32min)))
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-      QueryParamsWithResult({Int64(int64max)},
-                            Value::BigNumeric(BigNumericValue(int64max)))
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-      QueryParamsWithResult({Int64(int64min)},
-                            Value::BigNumeric(BigNumericValue(int64min)))
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-      QueryParamsWithResult({Uint32(uint32max)},
-                            Value::BigNumeric(BigNumericValue(uint32max)))
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-      QueryParamsWithResult({Uint32(0)}, Value::BigNumeric(BigNumericValue()))
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-      QueryParamsWithResult({Uint64(uint64max)},
-                            Value::BigNumeric(BigNumericValue(uint64max)))
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-      QueryParamsWithResult({Uint64(0)}, Value::BigNumeric(BigNumericValue()))
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      {{static_cast<float>(float_int32_in)}, Int32(float_int32_out)},
+      {{static_cast<float>(float_int64_in)}, Int64(float_int64_out)},
+      {{static_cast<float>(float_uint32_in)}, Uint32(float_uint32_out)},
+      {{static_cast<float>(float_uint64_in)}, Uint64(float_uint64_out)},
+      {{static_cast<float>(float_int32_plus)}, NullInt32(), OUT_OF_RANGE},
+      {{static_cast<float>(float_int64_plus)}, NullInt64(), OUT_OF_RANGE},
+      {{static_cast<float>(float_uint32_plus)}, NullUint32(), OUT_OF_RANGE},
+      {{static_cast<float>(float_uint64_plus)}, NullUint64(), OUT_OF_RANGE},
+      {{static_cast<float>(int32min)}, Int32(int32min)},
+      {{static_cast<float>(int64min)}, Int64(int64min)},
+      {{static_cast<float>(-1)}, NullUint32(), OUT_OF_RANGE},
+      {{static_cast<float>(-1)}, NullUint64(), OUT_OF_RANGE},
+      QueryParamsWithResult({Float(float_uint64_in)},
+                            Value::Numeric(NumericValue(float_uint64_out)))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      // Smallest positive number.
+      QueryParamsWithResult({Float(std::numeric_limits<float>::min())},
+                            Value::Numeric(NumericValue(0)))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Float(static_cast<float>(NumericValue::MaxValue().ToDouble()))},
+          NullNumeric(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Float(std::numeric_limits<float>::max())},
+                            NullNumeric(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Float(std::numeric_limits<float>::quiet_NaN())},
+                            NullNumeric(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Float(std::numeric_limits<float>::infinity())},
+                            NullNumeric(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Float(-std::numeric_limits<float>::infinity())},
+                            NullNumeric(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
           {Float(float_uint64_in)},
           Value::BigNumeric(BigNumericValue(float_uint64_out)))
@@ -1656,6 +1533,108 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastBigNumeric() {
       QueryParamsWithResult({Float(-std::numeric_limits<float>::infinity())},
                             NullBigNumeric(), OUT_OF_RANGE)
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      {{std::numeric_limits<float>::quiet_NaN()},
+       std::numeric_limits<float>::quiet_NaN()},
+      {{std::numeric_limits<float>::quiet_NaN()},
+       std::numeric_limits<double>::quiet_NaN()},
+      {{std::numeric_limits<float>::infinity()},
+       std::numeric_limits<float>::infinity()},
+      {{std::numeric_limits<float>::infinity()},
+       std::numeric_limits<double>::infinity()},
+      {{-std::numeric_limits<float>::infinity()},
+       -std::numeric_limits<float>::infinity()},
+      {{-std::numeric_limits<float>::infinity()},
+       -std::numeric_limits<double>::infinity()},
+      {{std::numeric_limits<float>::max()}, NullInt32(), OUT_OF_RANGE},
+      {{std::numeric_limits<float>::max()}, NullInt64(), OUT_OF_RANGE},
+      {{std::numeric_limits<float>::max()}, NullUint32(), OUT_OF_RANGE},
+      {{std::numeric_limits<float>::max()}, NullUint64(), OUT_OF_RANGE},
+      {{std::numeric_limits<float>::max()}, std::numeric_limits<float>::max()},
+      {{std::numeric_limits<float>::max()},
+       static_cast<double>(std::numeric_limits<float>::max())},
+      {{std::numeric_limits<float>::lowest()}, NullInt32(), OUT_OF_RANGE},
+      {{std::numeric_limits<float>::lowest()}, NullInt64(), OUT_OF_RANGE},
+      {{std::numeric_limits<float>::lowest()}, NullUint32(), OUT_OF_RANGE},
+      {{std::numeric_limits<float>::lowest()}, NullUint64(), OUT_OF_RANGE},
+      {{std::numeric_limits<float>::lowest()},
+       std::numeric_limits<float>::lowest()},
+      {{std::numeric_limits<float>::lowest()},
+       static_cast<double>(std::numeric_limits<float>::lowest())},
+      {{Float(0)}, Double(0)},
+  };
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsCastDouble() {
+  // Maximal integers that roundtrip via integer-double-integer casts.
+  int64_t double_int64_in = int64max - (1ll << 9);
+  int64_t double_int64_plus = double_int64_in + 1;
+  int64_t double_int64_out = int64max - (1ll << 10) + 1;
+  uint64_t double_uint64_in = uint64max - (1ull << 10);
+  uint64_t double_uint64_plus = double_uint64_in + 1;
+  uint64_t double_uint64_out = uint64max - (1ull << 11) + 1;
+  return {
+      {{static_cast<double>(int32max)}, Int32(int32max)},
+      {{static_cast<double>(double_int64_in)}, Int64(double_int64_out)},
+      {{static_cast<double>(double_uint64_in)}, Uint64(double_uint64_out)},
+      {{static_cast<double>(double_int64_plus)}, NullInt64(), OUT_OF_RANGE},
+      {{static_cast<double>(double_uint64_plus)}, NullUint64(), OUT_OF_RANGE},
+      {{static_cast<double>(uint32max)}, Uint32(uint32max)},
+      {{static_cast<double>(int32min)}, Int32(int32min)},
+      {{static_cast<double>(int64min)}, Int64(int64min)},
+      {{static_cast<double>(-1)}, NullUint32(), OUT_OF_RANGE},
+      {{static_cast<double>(-1)}, NullUint64(), OUT_OF_RANGE},
+      QueryParamsWithResult({Double(double_uint64_in)},
+                            Value::Numeric(NumericValue(double_uint64_out)))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Double(std::numeric_limits<double>::min())},
+                            Value::Numeric(NumericValue(0)))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Double(NumericValue::MaxValue().ToDouble())},
+                            Value::Numeric(NumericValue::FromDouble(
+                                               99999999999999991433150857216.0)
+                                               .ValueOrDie()))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Double(std::numeric_limits<double>::max())},
+                            NullNumeric(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Double(std::numeric_limits<double>::quiet_NaN())},
+                            NullNumeric(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Double(std::numeric_limits<double>::infinity())},
+                            NullNumeric(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Double(-std::numeric_limits<double>::infinity())},
+                            NullNumeric(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      {{std::numeric_limits<double>::quiet_NaN()},
+       std::numeric_limits<float>::quiet_NaN()},
+      {{std::numeric_limits<double>::quiet_NaN()},
+       std::numeric_limits<double>::quiet_NaN()},
+      {{std::numeric_limits<double>::infinity()},
+       std::numeric_limits<float>::infinity()},
+      {{std::numeric_limits<double>::infinity()},
+       std::numeric_limits<double>::infinity()},
+      {{-std::numeric_limits<double>::infinity()},
+       -std::numeric_limits<float>::infinity()},
+      {{-std::numeric_limits<double>::infinity()},
+       -std::numeric_limits<double>::infinity()},
+      {{std::numeric_limits<double>::max()}, NullFloat(), OUT_OF_RANGE},
+      {{static_cast<double>(std::numeric_limits<float>::max()) * 2},
+       NullFloat(),
+       OUT_OF_RANGE},
+      {{std::numeric_limits<double>::max()},
+       std::numeric_limits<double>::max()},
+      {{std::numeric_limits<double>::lowest()}, NullInt32(), OUT_OF_RANGE},
+      {{std::numeric_limits<double>::lowest()}, NullInt64(), OUT_OF_RANGE},
+      {{std::numeric_limits<double>::lowest()}, NullUint32(), OUT_OF_RANGE},
+      {{std::numeric_limits<double>::lowest()}, NullUint64(), OUT_OF_RANGE},
+      {{std::numeric_limits<double>::lowest()}, NullFloat(), OUT_OF_RANGE},
+      {{static_cast<double>(std::numeric_limits<float>::lowest()) * 2},
+       NullFloat(),
+       OUT_OF_RANGE},
+      {{std::numeric_limits<double>::lowest()},
+       std::numeric_limits<double>::lowest()},
+      {{Double(0)}, Float(0)},
       QueryParamsWithResult(
           {Double(double_uint64_in)},
           Value::BigNumeric(BigNumericValue(double_uint64_out)))
@@ -1681,6 +1660,51 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastBigNumeric() {
       QueryParamsWithResult({Double(-std::numeric_limits<double>::infinity())},
                             NullBigNumeric(), OUT_OF_RANGE)
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+  };
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericValue() {
+  const std::set<LanguageFeature> kNumericFeatureSet = {
+      FEATURE_NUMERIC_TYPE, FEATURE_BIGNUMERIC_TYPE};
+  return {
+      // NUMERIC -> Other numeric types
+      QueryParamsWithResult(
+          {Value::Numeric(NumericValue(int32max))},
+          Int32(int32max))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::Numeric(NumericValue(int32min))},
+          Int32(int32min))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Value::Numeric(NumericValue(int64max))},
+                            Int64(int64max))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Value::Numeric(NumericValue(int64min))},
+                            Int64(int64min))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::Numeric(NumericValue(uint32max))},
+          Uint32(uint32max))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Value::Numeric(NumericValue())}, Uint32(0))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Value::Numeric(NumericValue(uint64max))},
+                            Uint64(uint64max))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Value::Numeric(NumericValue())}, Uint64(0))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Value::Numeric(NumericValue(uint64max))},
+                            NullInt32(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Value::Numeric(NumericValue(uint64max))},
+                            NullUint32(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Value::Numeric(NumericValue(uint64max))},
+                            NullInt64(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Value::Numeric(NumericValue::MaxValue())},
+                            NullUint64(), OUT_OF_RANGE)
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult({Value::Numeric(NumericValue(int64max))},
                             Value::BigNumeric(BigNumericValue(int64max)))
           .WrapWithFeatureSet(kNumericFeatureSet),
@@ -1694,13 +1718,54 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastBigNumeric() {
                             Value::BigNumeric(BigNumericValue()))
           .WrapWithFeatureSet(kNumericFeatureSet),
       QueryParamsWithResult(
+          {Value::Numeric(NumericValue::MaxValue())},
+          Value::BigNumeric(BigNumericValue(NumericValue::MaxValue())))
+          .WrapWithFeatureSet(kNumericFeatureSet),
+      QueryParamsWithResult(
           {Value::Numeric(NumericValue::MinValue())},
           Value::BigNumeric(BigNumericValue(NumericValue::MinValue())))
           .WrapWithFeatureSet(kNumericFeatureSet),
       QueryParamsWithResult(
-          {Value::Numeric(NumericValue::MaxValue())},
-          Value::BigNumeric(BigNumericValue(NumericValue::MaxValue())))
-          .WrapWithFeatureSet(kNumericFeatureSet),
+          {Value::Numeric(NumericValue::FromDouble(3.14159).ValueOrDie())},
+          Float(3.14159f))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::Numeric(NumericValue(3))}, Float(3))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Value::Numeric(NumericValue())}, Float(0))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::Numeric(
+              NumericValue::FromStringStrict("0.000000001").ValueOrDie())},
+          Float(1e-09f))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Value::Numeric(NumericValue::MaxValue())},
+                            Float(1e+29f))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Value::Numeric(NumericValue::MinValue())},
+                            Float(-1e+29f))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Double(3.14159)},
+          Value::Numeric(NumericValue::FromDouble(3.14159).ValueOrDie()))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::Numeric(NumericValue(3))}, Double(3))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Value::Numeric(NumericValue())},
+                            Double(0))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult(
+          {Value::Numeric(
+              NumericValue::FromStringStrict("0.000000001").ValueOrDie())},
+          Double(1e-09))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Value::Numeric(NumericValue::MaxValue())},
+                            Double(1e+29))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({Value::Numeric(NumericValue::MinValue())},
+                            Double(-1e+29))
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
 
       // BIGNUMERIC -> Other numeric types
       QueryParamsWithResult({Value::BigNumeric(BigNumericValue(int32max))},
@@ -1819,78 +1884,6 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastBigNumeric() {
   };
 }
 
-std::vector<QueryParamsWithResult> GetFunctionTestsCastBigNumericString() {
-  return {
-      // string->bignumeric
-      QueryParamsWithResult({NullString()}, NullBigNumeric())
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-      QueryParamsWithResult(
-          {String("9223372036854775807")},
-          Value::BigNumeric(BigNumericValue(9223372036854775807LL)))
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-      QueryParamsWithResult({String("0")}, Value::BigNumeric(BigNumericValue()))
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-      QueryParamsWithResult({String("0.0")},
-                            Value::BigNumeric(BigNumericValue()))
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-      QueryParamsWithResult(
-          {String("-9223372036854775807")},
-          Value::BigNumeric(BigNumericValue(-9223372036854775807LL)))
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-      QueryParamsWithResult(
-          {String("1e38")},
-          Value::BigNumeric(
-              BigNumericValue::FromStringStrict("1e38").ValueOrDie()))
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-      QueryParamsWithResult(
-          {String("578960446186580977117854925043439539266."
-                  "34992332820282019728792003956564819967")},
-          Value::BigNumeric(BigNumericValue::FromStringStrict(
-                                "578960446186580977117854925043439539266."
-                                "34992332820282019728792003956564819967")
-                                .ValueOrDie()))
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-      QueryParamsWithResult(
-          {String("-578960446186580977117854925043439539266."
-                  "34992332820282019728792003956564819968")},
-          Value::BigNumeric(BigNumericValue::FromStringStrict(
-                                "-578960446186580977117854925043439539266."
-                                "34992332820282019728792003956564819968")
-                                .ValueOrDie()))
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-
-      // bignumeric->string
-      QueryParamsWithResult({NullBigNumeric()}, NullString())
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-      QueryParamsWithResult(
-          {Value::BigNumeric(BigNumericValue(9223372036854775807LL))},
-          String("9223372036854775807"))
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-      QueryParamsWithResult({Value::BigNumeric(BigNumericValue())}, String("0"))
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-      QueryParamsWithResult(
-          {Value::BigNumeric(BigNumericValue(-9223372036854775807LL))},
-          String("-9223372036854775807"))
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-      QueryParamsWithResult(
-          {Value::BigNumeric(BigNumericValue::FromStringStrict(
-                                 "578960446186580977117854925043439539266."
-                                 "34992332820282019728792003956564819967")
-                                 .ValueOrDie())},
-          String("578960446186580977117854925043439539266."
-                 "34992332820282019728792003956564819967"))
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-      QueryParamsWithResult(
-          {Value::BigNumeric(BigNumericValue::FromStringStrict(
-                                 "-578960446186580977117854925043439539266."
-                                 "34992332820282019728792003956564819968")
-                                 .ValueOrDie())},
-          String("-578960446186580977117854925043439539266."
-                 "34992332820282019728792003956564819968"))
-          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
-  };
-}
-
 std::vector<QueryParamsWithResult> GetFunctionTestsCastBool() {
   const int32_t int32max = std::numeric_limits<int32_t>::max();
   const int32_t int32min = std::numeric_limits<int32_t>::min();
@@ -1899,38 +1892,38 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastBool() {
   const uint32_t uint32max = std::numeric_limits<uint32_t>::max();
   const uint64_t uint64max = std::numeric_limits<uint64_t>::max();
   return {
-    {{True()}, True()},
-    {{NullBool()}, NullBool()},
-    {{Int32(0)}, False()},
-    {{Int32(int32max)}, True()},
-    {{Int32(int32min)}, True()},
-    {{NullInt32()}, NullBool()},
-    {{Int64(0)}, False()},
-    {{Int64(int64max)}, True()},
-    {{Int64(int64min)}, True()},
-    {{NullInt64()}, NullBool()},
-    {{Uint32(0)}, False()},
-    {{Uint32(uint32max)}, True()},
-    {{NullUint32()}, NullBool()},
-    {{Int64(int32max)}, True()},
-    {{Uint64(0)}, False()},
-    {{Uint64(uint64max)}, True()},
-    {{NullUint64()}, NullBool()},
-    {{True()}, Int32(1)},
-    {{True()}, Int64(1)},
-    {{True()}, Uint32(1)},
-    {{True()}, Uint64(1)},
-    {{True()}, True()},
-    {{False()}, Int32(0)},
-    {{False()}, Int64(0)},
-    {{False()}, Uint32(0)},
-    {{False()}, Uint64(0)},
-    {{False()}, False()},
-    {{NullBool()}, NullInt32()},
-    {{NullBool()}, NullInt64()},
-    {{NullBool()}, NullUint32()},
-    {{NullBool()}, NullUint64()},
-    {{NullBool()}, NullBool()},
+      {{True()}, True()},
+      {{NullBool()}, NullBool()},
+      {{Int32(0)}, False()},
+      {{Int32(int32max)}, True()},
+      {{Int32(int32min)}, True()},
+      {{NullInt32()}, NullBool()},
+      {{Int64(0)}, False()},
+      {{Int64(int64max)}, True()},
+      {{Int64(int64min)}, True()},
+      {{NullInt64()}, NullBool()},
+      {{Uint32(0)}, False()},
+      {{Uint32(uint32max)}, True()},
+      {{NullUint32()}, NullBool()},
+      {{Int64(int32max)}, True()},
+      {{Uint64(0)}, False()},
+      {{Uint64(uint64max)}, True()},
+      {{NullUint64()}, NullBool()},
+      {{True()}, Int32(1)},
+      {{True()}, Int64(1)},
+      {{True()}, Uint32(1)},
+      {{True()}, Uint64(1)},
+      {{True()}, True()},
+      {{False()}, Int32(0)},
+      {{False()}, Int64(0)},
+      {{False()}, Uint32(0)},
+      {{False()}, Uint64(0)},
+      {{False()}, False()},
+      {{NullBool()}, NullInt32()},
+      {{NullBool()}, NullInt64()},
+      {{NullBool()}, NullUint32()},
+      {{NullBool()}, NullUint64()},
+      {{NullBool()}, NullBool()},
   };
 }
 
@@ -1942,6 +1935,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumeric() {
       GetFunctionTestsCastInteger(),
       GetFunctionTestsCastFloat(),
       GetFunctionTestsCastDouble(),
+      GetFunctionTestsCastNumericValue(),
       GetFunctionTestsCastIntPorted(),
       GetFunctionTestsCastUintPorted(),
       GetFunctionTestsCastFloatPorted(),

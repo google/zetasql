@@ -394,18 +394,6 @@ zetasql_base::StatusOr<NumericValue> NumericValue::FromString(absl::string_view 
   return FromStringInternal(str, /*is_strict=*/false);
 }
 
-template <int kNumBitsPerWord, int kNumWords>
-zetasql_base::StatusOr<NumericValue> NumericValue::FromFixedUint(
-    const FixedUint<kNumBitsPerWord, kNumWords>& val, bool negate) {
-  if (ABSL_PREDICT_TRUE(val.NonZeroLength() <= 128 / kNumBitsPerWord)) {
-    unsigned __int128 v = static_cast<unsigned __int128>(val);
-    if (ABSL_PREDICT_TRUE(v <= internal::kNumericMax)) {
-      return NumericValue(static_cast<__int128>(negate ? -v : v));
-    }
-  }
-  return MakeEvalError() << "numeric overflow";
-}
-
 size_t NumericValue::HashCode() const {
   return absl::Hash<NumericValue>()(*this);
 }
@@ -1515,5 +1503,8 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::DeserializeFromProtoByt
   return MakeEvalError() << "Invalid BigNumericValue encoding";
 }
 
+std::ostream& operator<<(std::ostream& out, BigNumericValue value) {
+  return out << value.ToString();
+}
 
 }  // namespace zetasql

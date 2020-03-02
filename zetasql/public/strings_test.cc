@@ -419,8 +419,7 @@ TEST(StringsTest, RoundTrip) {
 }
 
 TEST(StringsTest, InvalidString) {
-  const std::string kInvalidStringLiteral =  //
-      "Invalid string literal";
+  const std::string kInvalidStringLiteral = "Invalid string literal";
 
   TestInvalidString("A", 0, kInvalidStringLiteral);    // No quote at all
   TestInvalidString("'", 0, kInvalidStringLiteral);    // No closing quote
