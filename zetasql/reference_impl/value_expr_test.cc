@@ -31,6 +31,7 @@
 #include "zetasql/common/internal_value.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/compliance/functions_testlib_common.h"
 #include "zetasql/compliance/type_helpers.h"
@@ -65,6 +66,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
 #include "zetasql/base/status.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
@@ -383,9 +385,7 @@ class EvalTest : public ::testing::Test {
     proto.set_int64_key_1(i);
     proto.set_int64_key_2(10 * i);
 
-    std::string cord;
-    CHECK(proto.SerializeToString(&cord));
-    return Value::Proto(proto_type_, cord);
+    return Value::Proto(proto_type_, SerializeToCord(proto));
   }
 
   const ProtoType* proto_type_ = nullptr;
@@ -629,6 +629,79 @@ TEST_F(EvalTest, ArrayAtOffsetNonDeterminism) {
   EXPECT_THAT(EvalExpr(*fct, {&params_data2}, &context2),
               IsOkAndHolds(AnyOf(Int64(7), Int64(8))));
   EXPECT_FALSE(context2.IsDeterministicOutput());
+}
+
+TEST_F(EvalTest, CodePointsToStringBytesNonDeterminism) {
+  for (FunctionKind kind :
+       {FunctionKind::kCodePointsToBytes, FunctionKind::kCodePointsToString}) {
+    const Type* output_type = BytesType();
+    if (kind == FunctionKind::kCodePointsToString) {
+      output_type = StringType();
+    }
+
+    VariableId arr("arr");
+
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_arr,
+                         DerefExpr::Create(arr, Int64ArrayType()));
+
+    std::vector<std::unique_ptr<ValueExpr>> args;
+    args.push_back(std::move(deref_arr));
+
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        auto fct, ScalarFunctionCallExpr::Create(
+                      CreateFunction(kind, output_type), std::move(args)));
+    const TupleSchema params_schema({arr});
+    ZETASQL_ASSERT_OK(fct->SetSchemasForEvaluation({&params_schema}));
+
+    {
+      // Deterministic order (single element).
+
+      EvaluationContext context((EvaluationOptions()));
+      const TupleData params_data =
+          CreateTestTupleData({Array({Int64(70)}, kIgnoresOrder)});
+
+      if (kind == FunctionKind::kCodePointsToBytes) {
+        EXPECT_THAT(EvalExpr(*fct, {&params_data}, &context),
+                    IsOkAndHolds(Bytes("F")));
+      } else {
+        EXPECT_THAT(EvalExpr(*fct, {&params_data}, &context),
+                    IsOkAndHolds(String("F")));
+      }
+      EXPECT_TRUE(context.IsDeterministicOutput());
+    }
+
+    {
+      // Non-deterministic order (multiple elements).
+
+      EvaluationContext context((EvaluationOptions()));
+      const TupleData params_data = CreateTestTupleData(
+          {Array({Int64(70), Int64(111), Int64(111)}, kIgnoresOrder)});
+      if (kind == FunctionKind::kCodePointsToBytes) {
+        EXPECT_THAT(EvalExpr(*fct, {&params_data}, &context),
+                    IsOkAndHolds(Bytes("Foo")));
+      } else {
+        EXPECT_THAT(EvalExpr(*fct, {&params_data}, &context),
+                    IsOkAndHolds(String("Foo")));
+      }
+      EXPECT_FALSE(context.IsDeterministicOutput());
+    }
+
+    {
+      // Deterministic order (multiple ordered elements).
+
+      EvaluationContext context((EvaluationOptions()));
+      const TupleData params_data =
+          CreateTestTupleData({Array({Int64(70), Int64(111), Int64(111)})});
+      if (kind == FunctionKind::kCodePointsToBytes) {
+        EXPECT_THAT(EvalExpr(*fct, {&params_data}, &context),
+                    IsOkAndHolds(Bytes("Foo")));
+      } else {
+        EXPECT_THAT(EvalExpr(*fct, {&params_data}, &context),
+                    IsOkAndHolds(String("Foo")));
+      }
+      EXPECT_TRUE(context.IsDeterministicOutput());
+    }
+  }
 }
 
 TEST_F(EvalTest, ArrayReverseNonDeterminism) {
@@ -1714,9 +1787,8 @@ class ProtoEvalTest : public ::testing::Test {
   ::zetasql_base::StatusOr<Value> GetProtoField(const google::protobuf::Message* msg,
                                         const std::string& field_name) {
     const ProtoType* proto_type = MakeProtoType(msg);
-    std::string bytes;
-    ZETASQL_RET_CHECK(msg->SerializePartialToString(&bytes));
-    return GetProtoField(Value::Proto(proto_type, bytes), field_name);
+    return GetProtoField(Value::Proto(proto_type, SerializePartialToCord(*msg)),
+                         field_name);
   }
 
   // Reads 'field_name' of 'proto_value' using a GetProtoFieldExpr.
@@ -1736,9 +1808,8 @@ class ProtoEvalTest : public ::testing::Test {
   Value HasProtoFieldOrDie(const google::protobuf::Message* msg,
                            const std::string& field_name) {
     const ProtoType* proto_type = MakeProtoType(msg);
-    std::string bytes;
-    CHECK(msg->SerializePartialToString(&bytes));
-    return HasProtoFieldOrDie(Value::Proto(proto_type, bytes), field_name);
+    return HasProtoFieldOrDie(
+        Value::Proto(proto_type, SerializePartialToCord(*msg)), field_name);
   }
 
   // Checks presence of 'field_name' in 'proto_value' using a
@@ -1924,7 +1995,8 @@ class ProtoEvalTest : public ::testing::Test {
     CHECK(result.type()->IsProto());
     out->Clear();
     if (!result.is_null()) {
-      EXPECT_TRUE(out->ParsePartialFromString(result.ToCord()));
+      EXPECT_TRUE(ParsePartialFromCord(result.ToCord(), out))
+          << result.FullDebugString();
     }
     return zetasql_base::OkStatus();
   }
@@ -1933,9 +2005,7 @@ class ProtoEvalTest : public ::testing::Test {
                        const google::protobuf::Message& msg) {
     std::unique_ptr<google::protobuf::Message> tmp(msg.New());
     ZETASQL_CHECK_OK(MakeProto(fields, tmp.get()));
-    std::string bytes;
-    CHECK(tmp->SerializePartialToString(&bytes));
-    return Value::Proto(MakeProtoType(&msg), bytes);
+    return Value::Proto(MakeProtoType(&msg), SerializePartialToCord(*tmp));
   }
 
   // 'out' is cleared first.
@@ -2715,8 +2785,8 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprProtosEnums) {
   EXPECT_EQ(Value::Int64(88), GetProtoFieldOrDie(n, "nested_int64"));
   n->add_nested_repeated_int64(300);
   n->add_nested_repeated_int64(301);
-  ASSERT_TRUE(nested_tmp.ParseFromString(
-      GetProtoFieldOrDie(&p, "nested_value").ToCord()));
+  ASSERT_TRUE(ParseFromCord(GetProtoFieldOrDie(&p, "nested_value").ToCord(),
+                            &nested_tmp));
   EXPECT_EQ(n->DebugString(), nested_tmp.DebugString());
   EXPECT_EQ(Value::Bool(true), HasProtoFieldOrDie(&p, "nested_value"));
 
@@ -2726,8 +2796,7 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprProtosEnums) {
             GetProtoFieldOrDie(&p, "nested_repeated_value"));
   p.add_nested_repeated_value()->CopyFrom(*n);
   p.add_nested_repeated_value()->CopyFrom(*n);
-  std::string nested_bytes;
-  CHECK(n->SerializePartialToString(&nested_bytes));
+  absl::Cord nested_bytes = SerializePartialToCord(*n);
   EXPECT_EQ(Value::Array(nested_array_type,
                          {Value::Proto(nested_type, nested_bytes),
                           Value::Proto(nested_type, nested_bytes)}),
@@ -2766,8 +2835,8 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprProtosEnums) {
   zetasql_test::KitchenSinkPB::OptionalGroup* g = p.mutable_optional_group();
   g->set_int64_val(500);
   g->add_optionalgroupnested()->set_int64_val(510);
-  ASSERT_TRUE(group_tmp.ParseFromString(
-      GetProtoFieldOrDie(&p, "optional_group").ToCord()));
+  ASSERT_TRUE(ParseFromCord(GetProtoFieldOrDie(&p, "optional_group").ToCord(),
+                            &group_tmp));
   EXPECT_EQ(g->DebugString(), group_tmp.DebugString());
   EXPECT_EQ(Value::Bool(true), HasProtoFieldOrDie(&p, "optional_group"));
 
@@ -2781,9 +2850,9 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprProtosEnums) {
             GetProtoFieldOrDie(&p, "nested_repeated_group"));
   p.add_nested_repeated_group()->set_id(600);
   p.add_nested_repeated_group()->add_nestedrepeatedgroupnested()->set_id(610);
-  std::string group_bytes0, group_bytes1;
-  ASSERT_TRUE(p.nested_repeated_group(0).SerializePartialToString(&group_bytes0));
-  ASSERT_TRUE(p.nested_repeated_group(1).SerializePartialToString(&group_bytes1));
+
+  absl::Cord group_bytes0 = SerializePartialToCord(p.nested_repeated_group(0));
+  absl::Cord group_bytes1 = SerializePartialToCord(p.nested_repeated_group(1));
   EXPECT_EQ(Value::Array(repeated_group_array_type,
                          {Value::Proto(repeated_group_type, group_bytes0),
                           Value::Proto(repeated_group_type, group_bytes1)}),
@@ -2892,75 +2961,20 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprDefaultAnnotations) {
 TEST_F(ProtoEvalTest, GetProtoFieldExprLastFieldOccurrence) {
   // The latest value with the given tag is the one than matters.
   zetasql_test::KitchenSinkPB p;
-  std::string bytes, bytes1, bytes2;
 
   p.set_int32_val(5);
-  ASSERT_TRUE(p.SerializePartialToString(&bytes1));
+  absl::Cord bytes1 = SerializePartialToCord(p);
   p.set_int32_val(7);
-  ASSERT_TRUE(p.SerializePartialToString(&bytes2));
-  bytes += bytes1;
-  bytes += bytes2;
+  absl::Cord bytes2 = SerializePartialToCord(p);
+  absl::Cord bytes;
+  bytes.Append(bytes1);
+  bytes.Append(bytes2);
   Value proto_value = Value::Proto(MakeProtoType(&p), bytes);
   EXPECT_EQ(Value::Int32(7), GetProtoFieldOrDie(proto_value, "int32_val"));
   // Proto API has the same behavior.
   p.Clear();
-  ASSERT_TRUE(p.ParsePartialFromString(proto_value.ToCord()));
+  ASSERT_TRUE(ParsePartialFromCord(proto_value.ToCord(), &p));
   EXPECT_EQ(7, p.int32_val());
-}
-
-TEST_F(ProtoEvalTest, GetProtoFieldExprOutOfBoundsInt32) {
-  zetasql_test::KitchenSinkPB p;
-  std::string bytes;
-  // Append int32_val field with value 1. Streams are scoped to be closed
-  // correctly.
-  {
-    google::protobuf::io::StringOutputStream cord_stream(&bytes);
-    google::protobuf::io::CodedOutputStream out(&cord_stream);
-    out.WriteVarint32(WireFormatLite::MakeTag(
-        3 /* tag of int32_val */,
-        WireFormatLite::WIRETYPE_VARINT));
-    out.WriteVarint32(5);
-    // Append another int32_val field which has
-    // std::numeric_limits<int64_t>::max() value on the wire.
-    out.WriteVarint32(WireFormatLite::MakeTag(
-        3 /* tag of int32_val */,
-        WireFormatLite::WIRETYPE_VARINT));
-    out.WriteVarint64(std::numeric_limits<int64_t>::max());
-  }
-  // int64_t value is truncated to int32_t by WireFormatLite and is returned as -1
-  // (yes, this is weird).
-  Value proto_value = Value::Proto(MakeProtoType(&p), bytes);
-  EXPECT_EQ("{int32_val: -1}", proto_value.ShortDebugString());
-  EXPECT_EQ(Value::Int32(-1), GetProtoFieldOrDie(proto_value, "int32_val"));
-  // Append garbage at the end. This causes a corruption error.
-  {
-    google::protobuf::io::StringOutputStream cord_stream(&bytes);
-    google::protobuf::io::CodedOutputStream out(&cord_stream);
-    out.WriteVarint32(WireFormatLite::MakeTag(
-        150776, WireFormatLite::WIRETYPE_END_GROUP));
-  }
-  EXPECT_EQ(15, bytes.size());
-  proto_value = Value::Proto(MakeProtoType(&p), bytes);
-  EXPECT_THAT(GetProtoField(proto_value, "int32_val"),
-              StatusIs(zetasql_base::OUT_OF_RANGE,
-                       HasSubstr("Corrupted protocol buffer")));
-}
-
-TEST_F(ProtoEvalTest, GetProtoFieldExprCorruptedProto) {
-  zetasql_test::KitchenSinkPB p;
-  std::string bytes;
-  google::protobuf::io::StringOutputStream cord_stream(&bytes);
-  google::protobuf::io::CodedOutputStream out(&cord_stream);
-  out.WriteVarint32(WireFormatLite::MakeTag(
-      150776, WireFormatLite::WIRETYPE_END_GROUP));  // garbage
-  // Proto2 API won't parse the value.
-  ASSERT_FALSE(p.ParsePartialFromString(bytes));
-  Value proto_value = Value::Proto(MakeProtoType(&p), bytes);
-  EXPECT_EQ("{<unparseable>}", proto_value.ShortDebugString());
-  // Returns an error.
-  EXPECT_THAT(GetProtoField(proto_value, "int32_val"),
-              StatusIs(zetasql_base::OUT_OF_RANGE,
-                       HasSubstr("Corrupted protocol buffer")));
 }
 
 TEST_F(ProtoEvalTest, GetProtoFieldExprsMultipleFieldsMultipleRows) {
@@ -2989,17 +3003,13 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprsMultipleFieldsMultipleRows) {
     zetasql_test::KitchenSinkPB_Nested* nested3 = p3.mutable_nested_value();
     nested3->set_nested_int64(300);
 
-    std::string bytes1, bytes2, bytes3;
+    absl::Cord bytes1 = SerializeToCord(p1);
+    absl::Cord bytes2 = SerializeToCord(p2);
+    absl::Cord bytes3 = SerializeToCord(p3);
 
-    ASSERT_TRUE(p1.SerializeToString(&bytes1));
-    ASSERT_TRUE(p2.SerializeToString(&bytes2));
-    ASSERT_TRUE(p3.SerializeToString(&bytes3));
-
-    std::string nested_bytes1, nested_bytes2, nested_bytes3;
-
-    ASSERT_TRUE(nested1->SerializeToString(&nested_bytes1));
-    ASSERT_TRUE(nested2->SerializeToString(&nested_bytes2));
-    ASSERT_TRUE(nested3->SerializeToString(&nested_bytes3));
+    absl::Cord nested_bytes1 = SerializeToCord(*nested1);
+    absl::Cord nested_bytes2 = SerializeToCord(*nested2);
+    absl::Cord nested_bytes3 = SerializeToCord(*nested3);
 
     const std::vector<Value> v = {Value::Proto(MakeProtoType(&p1), bytes1),
                                   Value::Proto(MakeProtoType(&p2), bytes2),
@@ -3087,8 +3097,7 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprsMultipleFieldsMultipleRows) {
 
         zetasql_test::KitchenSinkPB_Nested nested_msg;
         nested_msg.set_nested_int64(3 * first_field_value);
-        std::string nested_bytes;
-        ASSERT_TRUE(nested_msg.SerializeToString(&nested_bytes));
+        absl::Cord nested_bytes = SerializeToCord(nested_msg);
         const Value nested_value =
             Value::Proto(MakeProtoType(&nested_msg), nested_bytes);
 

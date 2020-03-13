@@ -245,6 +245,7 @@ cc_library(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
         "@com_google_protobuf//:protobuf",
     ],
@@ -263,13 +264,8 @@ cc_library(
 
 cc_library(
     name = "numeric_value",
-    srcs = [
-        "numeric_value.cc",
-    ],
-    hdrs = [
-        "numeric_value.h",
-        "numeric_value.inc",
-    ],
+    srcs = ["numeric_value.cc"],
+    hdrs = ["numeric_value.h"],
     copts = ["-Wno-sign-compare"],
     deps = [
         "//zetasql/base",
@@ -280,7 +276,6 @@ cc_library(
         "//zetasql/base:statusor",
         "//zetasql/common:errors",
         "//zetasql/common:fixed_int",
-        "@com_google_absl//absl/base:config",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
@@ -356,6 +351,7 @@ cc_library(
         "@com_google_absl//absl/hash",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:span",
@@ -382,6 +378,7 @@ cc_test(
         "//zetasql/base/testing:status_matchers",
         "//zetasql/common:internal_value",
         "//zetasql/common/testing:proto_matchers",
+        "//zetasql/common/testing:testing_proto_util",
         "//zetasql/testdata:test_schema_cc_proto",
         "//zetasql/testing:test_value",
         "@com_google_absl//absl/container:flat_hash_set",
@@ -411,9 +408,11 @@ cc_test(
         "//zetasql/base:statusor",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/common/testing:proto_matchers",
+        "//zetasql/common/testing:testing_proto_util",
         "//zetasql/public/proto:type_annotation_cc_proto",
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -673,6 +672,7 @@ cc_library(
         "//zetasql/public/proto:type_annotation_cc_proto",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
     ],
@@ -942,17 +942,47 @@ cc_library(
     alwayslink = 1,
 )
 
+# :collator_lite is a basic collator implementation optimized for binary size,
+# supporting only the "unicode:cs" binary-comparison collation. You most likely
+# want :collator instead.
+cc_library(
+    name = "collator_lite",
+    srcs = ["collator_lite.cc"],
+    hdrs = ["collator.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "//zetasql/base",
+        "//zetasql/base:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/synchronization",
+    ],
+)
+
+cc_test(
+    name = "collator_lite_test",
+    srcs = ["collator_lite_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":collator_lite",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base/testing:status_matchers",
+    ],
+)
+
 cc_library(
     name = "collator",
     srcs = ["collator.cc"],
     hdrs = ["collator.h"],
     copts = ["-Wno-sign-compare"],
     deps = [
+        ":collator_lite",
         "//zetasql/base",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@icu",
         "@icu//:common",
     ],
@@ -1024,6 +1054,7 @@ cc_test(
         "//zetasql/base/testing:status_matchers",
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
     ],
 )
 
@@ -1271,7 +1302,7 @@ cc_library(
     copts = ["-Wno-sign-compare"],
     deps = [
         ":evaluator_base",
-        "//zetasql/reference_impl/functions:register_all",
+        "//zetasql/common:evaluator_registration_utils",
     ],
 )
 
@@ -1312,6 +1343,7 @@ cc_test(
         "//zetasql/base:stl_util",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/common:evaluator_test_table",
+        "//zetasql/common/testing:testing_proto_util",
         "//zetasql/public/functions:date_time_util",
         "//zetasql/reference_impl:evaluation",
         "//zetasql/resolved_ast",
@@ -1322,6 +1354,7 @@ cc_test(
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:span",
         "@com_google_protobuf//:cc_wkt_protos",

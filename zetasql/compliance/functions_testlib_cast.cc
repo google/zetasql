@@ -27,6 +27,7 @@
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/unknown_field_set.h"
 #include "zetasql/common/status_payload_utils.h"
+#include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/compliance/functions_testlib_common.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
@@ -37,6 +38,7 @@
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"
 #include <cstdint>
+#include "absl/strings/cord.h"
 #include "absl/time/civil_time.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/stl_util.h"
@@ -134,11 +136,10 @@ static std::vector<Type> ConcatTests(
 
 static Value KitchenSink_equivalent(const std::string& proto_str) {
   zetasql_test::KitchenSinkPB kitchen_sink_message;
-  std::string bytes;
   CHECK(google::protobuf::TextFormat::ParseFromString(proto_str,
                                             &kitchen_sink_message));
-  CHECK(kitchen_sink_message.SerializeToString(&bytes));
-  return Value::Proto(KitchenSinkProtoType_equivalent(), bytes);
+  return Value::Proto(KitchenSinkProtoType_equivalent(),
+                      SerializeToCord(kitchen_sink_message));
 }
 
 std::vector<QueryParamsWithResult> GetFunctionTestsCastString() {
@@ -1995,19 +1996,12 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
   const std::string kitchen_sink_string_4(
       "int64_key_1: 2 int64_key_2: 3 string_val: \"\\u2661\\u2662\"");
 
-  // Binary representations of the strings above.
-  std::string kitchen_sink_cord_1;
-  std::string kitchen_sink_cord_2;
-  std::string kitchen_sink_cord_3;
-  std::string kitchen_sink_cord_4;
-  // Corresponds to 'kitchen_sink_cord_1' with some unknown fields.
-  std::string kitchen_sink_cord_5;
   // Scratch message.
   zetasql_test::KitchenSinkPB kitchen_sink_message;
 
   CHECK(google::protobuf::TextFormat::ParseFromString(kitchen_sink_string_1,
                                             &kitchen_sink_message));
-  CHECK(kitchen_sink_message.SerializeToString(&kitchen_sink_cord_1));
+  absl::Cord kitchen_sink_cord_1 = SerializeToCord(kitchen_sink_message);
 
   const google::protobuf::Reflection* reflection = kitchen_sink_message.GetReflection();
   google::protobuf::UnknownFieldSet* unknown_fields =
@@ -2017,24 +2011,23 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
   CHECK(kitchen_sink_message.GetDescriptor()->IsReservedNumber(
       reserved_tag_number));
   unknown_fields->AddVarint(reserved_tag_number, /*value=*/1000);
-  CHECK(kitchen_sink_message.SerializeToString(&kitchen_sink_cord_5));
+  absl::Cord kitchen_sink_cord_5 = SerializeToCord(kitchen_sink_message);
 
   CHECK(google::protobuf::TextFormat::ParseFromString(kitchen_sink_string_2,
                                             &kitchen_sink_message));
-  CHECK(kitchen_sink_message.SerializeToString(&kitchen_sink_cord_2));
+  absl::Cord kitchen_sink_cord_2 = SerializeToCord(kitchen_sink_message);
   CHECK(google::protobuf::TextFormat::ParseFromString(kitchen_sink_string_3,
                                             &kitchen_sink_message));
-  CHECK(kitchen_sink_message.SerializeToString(&kitchen_sink_cord_3));
+  absl::Cord kitchen_sink_cord_3 = SerializeToCord(kitchen_sink_message);
   CHECK(google::protobuf::TextFormat::ParseFromString(kitchen_sink_string_4,
                                             &kitchen_sink_message));
-  CHECK(kitchen_sink_message.SerializeToString(&kitchen_sink_cord_4));
+  absl::Cord kitchen_sink_cord_4 = SerializeToCord(kitchen_sink_message);
 
   zetasql_test::NullableInt nullable_int_message;
   const std::string nullable_int_string_1("value: 1");
-  std::string nullable_int_cord_1;
   CHECK(google::protobuf::TextFormat::ParseFromString(nullable_int_string_1,
                                             &nullable_int_message));
-  CHECK(nullable_int_message.SerializeToString(&nullable_int_cord_1));
+  absl::Cord nullable_int_cord_1 = SerializeToCord(nullable_int_message);
 
   // Set up some equivalent but not equal enums and protos, both null and
   // non-null.
@@ -2174,9 +2167,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
       {{String(nullable_int_string_1)}, NullableInt(nullable_int_string_1)},
 
       // This also works for NullableInt, as there are no required fields.
-      {{String("")}, Proto(NullableIntProtoType(),
-        std::string(""))
-      },
+      {{String("")}, Proto(NullableIntProtoType(), absl::Cord(""))},
 
       // Invalid strings for conversion to proto - they do not match the
       // KitchenSinkProto descriptor.
@@ -2196,14 +2187,13 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
       {{String("int64_key_1: 1 int64_key_2: 2 repeated_int32_val: 3, 4")},
        null_proto,
        OUT_OF_RANGE},
-      {{Proto(KitchenSinkProtoType(), "invalid cord")},
+      {{Proto(KitchenSinkProtoType(), absl::Cord("invalid cord"))},
        NullString(),
        OUT_OF_RANGE},
 
       {{Proto(KitchenSinkProtoType(),
-              std::string(
-                  "really really really really really really really "
-                  "really really really long invalid cord"))},
+              absl::Cord("really really really really really really really "
+                         "really really really long invalid cord"))},
        NullString(),
        OUT_OF_RANGE},
       // The error message produced clips the string in the middle of the
@@ -2211,9 +2201,8 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
       // escaped Bytes literal before clipping, so there aren't really any
       // odd conditions to consider.
       {{Proto(KitchenSinkProtoType(),
-              std::string(
-                  "reallyXreallyXreallyXreallyXreallyXrellyX"
-                  "Google'\xe8\xb0\xb7\xe6\xad\x8c'Google"))},
+              absl::Cord("reallyXreallyXreallyXreallyXreallyXrellyX"
+                         "Google'\xe8\xb0\xb7\xe6\xad\x8c'Google"))},
        NullString(),
        OUT_OF_RANGE},
 
@@ -2239,11 +2228,8 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
       {{Proto(NullableIntProtoType(), nullable_int_cord_1)}, Bytes("\x08\x01")},
 
       // NullableInt has no required fields, so this should work.
-      {{Bytes("")}, Proto(NullableIntProtoType(),
-        std::string(""))},
-      {{Proto(NullableIntProtoType(),
-        std::string(""))},
-        Bytes("")},
+      {{Bytes("")}, Proto(NullableIntProtoType(), absl::Cord(""))},
+      {{Proto(NullableIntProtoType(), absl::Cord(""))}, Bytes("")},
   };
 }
 

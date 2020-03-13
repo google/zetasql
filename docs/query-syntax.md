@@ -2624,11 +2624,11 @@ Results:
 [union-syntax]: #union
 [join-hints]: #join-hints
 [analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays#flattening-arrays-and-repeated-fields
+[flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays#flattening_arrays
 [query-value-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax#value-tables
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays
-[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data-type-properties
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data_type_properties
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 [in-operator]: https://github.com/google/zetasql/blob/master/docs/operators#in_operators
 [expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries

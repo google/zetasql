@@ -28,6 +28,7 @@
 #include "google/protobuf/text_format.h"
 #include "zetasql/common/evaluator_test_table.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/function.h"
@@ -52,6 +53,7 @@
 #include <cstdint>
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/time/time.h"
@@ -1168,7 +1170,7 @@ TEST(EvaluatorTest, CurrentTimestamp) {
 absl::Time GetTestTime() {
   absl::TimeZone gst;
   CHECK(absl::LoadTimeZone("America/Los_Angeles", &gst));
-  return absl::FromDateTime(2016, 11, 22, 1, 2, 3, gst);
+  return absl::FromCivil(absl::CivilSecond(2016, 11, 22, 1, 2, 3), gst);
 }
 
 TEST(EvaluatorTest, CurrentDate) {
@@ -2468,9 +2470,7 @@ class PreparedQueryProtoTest : public PreparedQueryTest {
     group->add_optionalgroupnested()->set_int64_val(key * 1000 + 1);
     group->add_optionalgroupnested()->set_int64_val(key * 1000 + 2);
 
-    std::string cord;
-    EXPECT_TRUE(proto.SerializeToString(&cord));
-    return Value::Proto(proto_type_, cord);
+    return Value::Proto(proto_type_, SerializeToCord(proto));
   }
 
   static void PopulateNestedProto(
@@ -2675,8 +2675,7 @@ TEST_F(PreparedQueryProtoTest, SameProtoFieldWithNoHasBitAndHasBit) {
   nested_value.set_nested_int64(10);
   nested_value.add_nested_repeated_int64(100);
   nested_value.add_nested_repeated_int64(101);
-   std::string bytes;
-  ASSERT_TRUE(nested_value.SerializeToString(&bytes));
+  absl::Cord bytes = SerializeToCord(nested_value);
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
@@ -2712,8 +2711,7 @@ TEST_F(PreparedQueryProtoTest, SameProtoFieldWithHasBitAndNoHasBit) {
   nested_value.set_nested_int64(10);
   nested_value.add_nested_repeated_int64(100);
   nested_value.add_nested_repeated_int64(101);
-   std::string bytes;
-  ASSERT_TRUE(nested_value.SerializeToString(&bytes));
+  absl::Cord bytes = SerializeToCord(nested_value);
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
@@ -2796,8 +2794,8 @@ TEST_F(PreparedQueryProtoTest, FieldAndSubfield) {
 
   zetasql_test::KitchenSinkPB_Nested nested_value;
   PopulateNestedProto(/*key=*/1, &nested_value);
-   std::string bytes;
-  ASSERT_TRUE(nested_value.SerializeToString(&bytes));
+
+  absl::Cord bytes = SerializeToCord(nested_value);
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
@@ -2831,8 +2829,7 @@ TEST_F(PreparedQueryProtoTest, SubfieldAndField) {
 
   zetasql_test::KitchenSinkPB_Nested nested_value;
   PopulateNestedProto(/*key=*/1, &nested_value);
-   std::string bytes;
-  ASSERT_TRUE(nested_value.SerializeToString(&bytes));
+  absl::Cord bytes = SerializeToCord(nested_value);
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
@@ -2866,8 +2863,7 @@ TEST_F(PreparedQueryProtoTest, FieldAndSubSubField) {
 
   zetasql_test::RewrappedNullableInt rewrapped_nullable_int;
   rewrapped_nullable_int.mutable_value()->set_value(1000);
-   std::string bytes;
-  ASSERT_TRUE(rewrapped_nullable_int.SerializeToString(&bytes));
+  absl::Cord bytes = SerializeToCord(rewrapped_nullable_int);
 
   const ProtoType* rewrapped_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
@@ -2904,8 +2900,7 @@ TEST_F(PreparedQueryProtoTest, SubSubFieldAndField) {
 
   zetasql_test::RewrappedNullableInt rewrapped_nullable_int;
   rewrapped_nullable_int.mutable_value()->set_value(1000);
-   std::string bytes;
-  ASSERT_TRUE(rewrapped_nullable_int.SerializeToString(&bytes));
+  absl::Cord bytes = SerializeToCord(rewrapped_nullable_int);
 
   const ProtoType* rewrapped_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
@@ -2946,8 +2941,7 @@ TEST_F(PreparedQueryProtoTest, Complex) {
   nested_value.set_nested_int64(10);
   nested_value.add_nested_repeated_int64(100);
   nested_value.add_nested_repeated_int64(101);
-   std::string bytes;
-  ASSERT_TRUE(nested_value.SerializeToString(&bytes));
+  absl::Cord bytes = SerializeToCord(nested_value);
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
@@ -2984,8 +2978,7 @@ TEST_F(PreparedQueryProtoTest, WithRepeatedFieldOffsets) {
 
   zetasql_test::KitchenSinkPB_Nested nested_proto;
   nested_proto.set_nested_int64(20);
-   std::string bytes;
-  ASSERT_TRUE(nested_proto.SerializeToString(&bytes));
+  absl::Cord bytes = SerializeToCord(nested_proto);
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
@@ -3253,13 +3246,9 @@ TEST_F(PreparedQueryProtoTest, MixedProtoAndStructFieldPaths) {
   PopulateNestedProto(/*key=*/10, &expected_nested2);
   PopulateNestedProto(/*key=*/100, &expected_nested3);
 
-  std::string serialized_expected_nested1;
-  std::string serialized_expected_nested2;
-  std::string serialized_expected_nested3;
-
-  ASSERT_TRUE(expected_nested1.SerializeToString(&serialized_expected_nested1));
-  ASSERT_TRUE(expected_nested2.SerializeToString(&serialized_expected_nested2));
-  ASSERT_TRUE(expected_nested3.SerializeToString(&serialized_expected_nested3));
+  absl::Cord serialized_expected_nested1 = SerializeToCord(expected_nested1);
+  absl::Cord serialized_expected_nested2 = SerializeToCord(expected_nested2);
+  absl::Cord serialized_expected_nested3 = SerializeToCord(expected_nested3);
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(

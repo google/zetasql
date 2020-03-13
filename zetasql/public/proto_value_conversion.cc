@@ -31,6 +31,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/public/value.pb.h"
 #include <cstdint>
+#include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
@@ -424,7 +425,9 @@ zetasql_base::Status MergeValueToProtoField(const Value& value,
          reflection->MutableMessage(proto_out, field, message_factory);
       ValueProto value_proto;
       ZETASQL_RETURN_IF_ERROR(value.Serialize(&value_proto));
-      ZETASQL_RET_CHECK(submessage->ParseFromString(value_proto.proto_value()));
+      ZETASQL_RET_CHECK(submessage->ParseFromString(
+          std::string(value_proto.proto_value())));
+
       return ::zetasql_base::OkStatus();
     }
     case TYPE_NUMERIC: {
@@ -564,8 +567,10 @@ zetasql_base::Status ProtoFieldToValue(const google::protobuf::Message& proto,
           field->is_repeated() ?
           reflection->GetRepeatedMessage(proto, field, index) :
           reflection->GetMessage(proto, field);
-      std::string serialized;
-      submessage.SerializeToString(&serialized);
+      absl::Cord serialized;
+      std::string serialized_str;
+      submessage.SerializeToString(&serialized_str);
+      serialized = absl::Cord(serialized_str);
       *value_out = Value::Proto(proto_type, serialized);
       return ::zetasql_base::OkStatus();
     }

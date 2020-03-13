@@ -30,10 +30,12 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
+#include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/flags/flag.h"
+#include "absl/strings/cord.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -61,11 +63,11 @@ class ReadProtoFieldsTest : public ::testing::TestWithParam<bool> {
     absl::SetFlag(&FLAGS_zetasql_read_proto_field_optimized_path, GetParam());
   }
 
-  zetasql_base::StatusOr<Value> ReadField(
-      const std::string& field_name, FieldFormat::Format format,
-      const Type* type, const Value& default_value,
-      const std::string &bytes,
-      bool get_has_bit = false) {
+  zetasql_base::StatusOr<Value> ReadField(const std::string& field_name,
+                                  FieldFormat::Format format, const Type* type,
+                                  const Value& default_value,
+                                  const absl::Cord& bytes,
+                                  bool get_has_bit = false) {
     const google::protobuf::FieldDescriptor* field_descriptor =
         kitchen_sink_.GetDescriptor()->FindFieldByName(field_name);
     ZETASQL_RET_CHECK(field_descriptor != nullptr) << field_name;
@@ -80,9 +82,7 @@ class ReadProtoFieldsTest : public ::testing::TestWithParam<bool> {
                                   FieldFormat::Format format, const Type* type,
                                   const Value& default_value,
                                   bool get_has_bit = false) {
-    std::string bytes;
-
-    kitchen_sink_.SerializePartialToString(&bytes);
+    absl::Cord bytes = SerializePartialToCord(kitchen_sink_);
     return ReadField(field_name, format, type, default_value, bytes,
                      get_has_bit);
   }
@@ -223,18 +223,20 @@ TEST_P(ReadProtoFieldsTest, Enum) {
 }
 
 TEST_P(ReadProtoFieldsTest, EnumOutOfRange) {
-  std::string bytes;
+  absl::Cord bytes;
 
   // Append test_enum with value 1000. The streams are scoped to be closed
   // correctly.
   {
     using google::protobuf::internal::WireFormatLite;
-    google::protobuf::io::StringOutputStream cord_stream(&bytes);
+    std::string bytes_str;
+    google::protobuf::io::StringOutputStream cord_stream(&bytes_str);
 
     google::protobuf::io::CodedOutputStream out(&cord_stream);
     out.WriteVarint32(WireFormatLite::MakeTag(36 /* tag for test_enum */,
                                               WireFormatLite::WIRETYPE_VARINT));
     out.WriteVarint32(1000);
+    bytes = absl::Cord(bytes_str);
   }
 
   const google::protobuf::FieldDescriptor* field_descriptor =
@@ -277,7 +279,7 @@ TEST_P(ReadProtoFieldsTest, Message) {
   ASSERT_EQ(output_value.type_kind(), TYPE_PROTO);
 
   KitchenSinkPB::Nested output_nested;
-  ASSERT_TRUE(output_nested.ParseFromString(output_value.ToCord()));
+  ASSERT_TRUE(ParseFromCord(output_value.ToCord(), &output_nested));
   EXPECT_THAT(output_nested, EqualsProto(*nested));
 }
 
@@ -298,7 +300,7 @@ TEST_P(ReadProtoFieldsTest, Group) {
   ASSERT_EQ(output_value.type_kind(), TYPE_PROTO);
 
   KitchenSinkPB::OptionalGroup output_group;
-  ASSERT_TRUE(output_group.ParseFromString(output_value.ToCord()));
+  ASSERT_TRUE(ParseFromCord(output_value.ToCord(), &output_group));
   EXPECT_THAT(output_group, EqualsProto(*group));
 }
 
@@ -531,15 +533,15 @@ TEST_P(ReadProtoFieldsTest, MissingOptionalField) {
 }
 
 TEST_P(ReadProtoFieldsTest, OptionalFieldLastValueTakesPrecedence) {
-  std::string bytes1;
   kitchen_sink_.set_int32_val(1);
-  kitchen_sink_.SerializePartialToString(&bytes1);
+  absl::Cord bytes1 = SerializePartialToCord(kitchen_sink_);
 
-  std::string bytes2;
   kitchen_sink_.set_int32_val(2);
-  kitchen_sink_.SerializePartialToString(&bytes2);
+  absl::Cord bytes2 = SerializePartialToCord(kitchen_sink_);
 
-  std::string bytes = bytes1 + bytes2;
+  absl::Cord bytes = bytes1;
+  bytes.Append(bytes2);
+
   EXPECT_THAT(ReadField("int32_val", FieldFormat::DEFAULT_FORMAT,
                         types::Int32Type(), values::Int32(999), bytes),
               IsOkAndHolds(values::Int32(2)));
@@ -650,8 +652,7 @@ TEST_P(ReadProtoFieldsTest, ReadTwoFieldsAndOneMissingRequiredFieldTwice) {
   // Don't set int64_key_2, even though it is required.
   kitchen_sink_.set_int64_val(20);
 
-  std::string bytes;
-  kitchen_sink_.SerializePartialToString(&bytes);
+  absl::Cord bytes = SerializePartialToCord(kitchen_sink_);
 
   const google::protobuf::FieldDescriptor* field_descriptor1 =
       kitchen_sink_.GetDescriptor()->FindFieldByName("int64_key_1");
@@ -733,8 +734,7 @@ TEST_P(ReadProtoFieldsTest, ReadTwoFieldsAndOneMissingRequiredFieldTwice) {
 TEST_P(ReadProtoFieldsTest, SameFieldWithTwoFormats) {
   kitchen_sink_.set_date(10);
 
-  std::string bytes;
-  kitchen_sink_.SerializePartialToString(&bytes);
+  absl::Cord bytes = SerializePartialToCord(kitchen_sink_);
 
   const google::protobuf::FieldDescriptor* field_descriptor =
       kitchen_sink_.GetDescriptor()->FindFieldByName("date");

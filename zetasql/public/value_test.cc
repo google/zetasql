@@ -19,12 +19,12 @@
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
+
 #include <limits>
 #include <type_traits>
 #include <utility>
 
 #include "zetasql/base/logging.h"
-
 #include "google/protobuf/wrappers.pb.h"
 #include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
@@ -35,6 +35,7 @@
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/wire_format_lite.h"
 #include "zetasql/common/internal_value.h"
+#include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/evaluator.h"
 #include "zetasql/public/language_options.h"
@@ -443,9 +444,11 @@ TEST_F(ValueTest, BaseTime) {
   const absl::TimeZone utc = absl::UTCTimeZone();
 
   // Minimal and maximal representable timestamp value.
-  absl::Time tmin = absl::FromDateTime(00001, 01, 01, 00, 00, 00, utc);
+  absl::Time tmin =
+      absl::FromCivil(absl::CivilSecond(00001, 01, 01, 00, 00, 00), utc);
   absl::Time tmax =
-      absl::FromDateTime(10000, 01, 01, 00, 00, 00, utc) - absl::Nanoseconds(1);
+      absl::FromCivil(absl::CivilSecond(10000, 01, 01, 00, 00, 00), utc) -
+      absl::Nanoseconds(1);
   EXPECT_EQ("TIMESTAMP", Value::Timestamp(tmin).type()->DebugString());
   EXPECT_EQ("0001-01-01 00:00:00+00",
             Value::Timestamp(tmin).DebugString());
@@ -1163,6 +1166,18 @@ TEST_F(ValueTest, StringArray) {
   Value v1 = TestGetSQL(StringArray({"foo", "bar"}));
   EXPECT_EQ("Array[String(\"foo\"), String(\"bar\")]", v1.FullDebugString());
   EXPECT_EQ("[\"foo\", \"bar\"]", v1.ShortDebugString());
+  absl::Cord c1("foo"), c2("bar");
+  Value v2 = StringArray({&c1, &c2});
+  EXPECT_EQ(v1, v2);
+}
+
+TEST_F(ValueTest, BytesArray) {
+  Value v1 = TestGetSQL(BytesArray({"foo", "bar"}));
+  absl::Cord c1("foo"), c2("bar");
+  Value v2 = BytesArray({&c1, &c2});
+  EXPECT_EQ("Array[Bytes(b\"foo\"), Bytes(b\"bar\")]", v1.FullDebugString());
+  EXPECT_EQ("[b\"foo\", b\"bar\"]", v1.ShortDebugString());
+  EXPECT_EQ(v1, v2);
 }
 
 TEST_F(ValueTest, FloatArray) {
@@ -1612,9 +1627,8 @@ TEST_F(ValueTest, ArrayLessThan) {
 TEST_F(ValueTest, Proto) {
   const ProtoType* proto_type = GetTestProtoType();
   zetasql_test::KitchenSinkPB k;
-  std::string bytes;
+  absl::Cord bytes = SerializePartialToCord(k);
   // Empty proto.
-  ASSERT_TRUE(k.SerializePartialToString(&bytes));
   EXPECT_EQ(0, bytes.size());
   EXPECT_TRUE(Value::Proto(proto_type, bytes).type()->Equals(proto_type));
   if (ZETASQL_DEBUG_MODE) {
@@ -1638,7 +1652,7 @@ TEST_F(ValueTest, Proto) {
   EXPECT_EQ("{}", proto.ShortDebugString());
   // Non-empty proto.
   k.set_int32_val(3);
-  ASSERT_TRUE(k.SerializePartialToString(&bytes));
+  bytes = SerializePartialToCord(k);
   EXPECT_EQ(2, bytes.size());
   Value proto1 = TestGetSQL(Proto(proto_type, bytes));
   Value proto2 = proto1;
@@ -1648,7 +1662,7 @@ TEST_F(ValueTest, Proto) {
             proto1.FullDebugString());
   EXPECT_EQ("{int32_val: 3}", proto1.ShortDebugString());
   // Duplicate int32_val tag.
-  bytes += bytes;
+  bytes.Append(bytes);
   Value proto3 = TestGetSQL(Proto(proto_type, bytes));
   // Cord representation is different, but protos compare as equal.
   EXPECT_EQ(2, proto1.ToCord().size());
@@ -1672,10 +1686,9 @@ TEST_F(ValueTest, Proto) {
   // Test with a proto with a duplicate optional field.  The last one takes
   // precedence.
   k.set_int32_val(7);
-  std::string bytes4;
-  ASSERT_TRUE(k.SerializePartialToString(&bytes4));
+  absl::Cord bytes4 = SerializePartialToCord(k);
   // Now we have two duplicate 3 values followed by a 7.
-  bytes += bytes4;
+  bytes.Append(bytes4);
   Value proto4 = TestGetSQL(Proto(proto_type, bytes));
   EXPECT_EQ(6, proto4.ToCord().size());
   EXPECT_FALSE(proto1.Equals(proto4));
@@ -1697,24 +1710,27 @@ TEST_F(ValueTest, Proto) {
 
   // Proto with an unknown tag.
   bytes = "";  // clear bytes;
+  std::string str_bytes;
   {
-    google::protobuf::io::StringOutputStream cord_stream(&bytes);
+    google::protobuf::io::StringOutputStream cord_stream(&str_bytes);
     google::protobuf::io::CodedOutputStream out(&cord_stream);
     out.WriteVarint32(WireFormatLite::MakeTag(
         150775, WireFormatLite::WIRETYPE_VARINT));
     out.WriteVarint32(57);
   }
+  bytes = absl::Cord(str_bytes);
   EXPECT_EQ("{150775: 57}",
             TestGetSQL(Proto(proto_type, bytes)).ShortDebugString());
 
   // Invalid proto contents is accepted without validation, but renders as
   // <unparseable>.
   {
-    google::protobuf::io::StringOutputStream cord_stream(&bytes);
+    google::protobuf::io::StringOutputStream cord_stream(&str_bytes);
     google::protobuf::io::CodedOutputStream out(&cord_stream);
     out.WriteVarint32(WireFormatLite::MakeTag(
         150776, WireFormatLite::WIRETYPE_END_GROUP));
   }
+  bytes = absl::Cord(str_bytes);
   EXPECT_EQ("Proto<zetasql_test.KitchenSinkPB>{<unparseable>}",
             Proto(proto_type, bytes).FullDebugString());
   google::protobuf::DynamicMessageFactory message_factory;
@@ -1731,8 +1747,9 @@ TEST_F(ValueTest, Proto) {
   k.set_string_val("abc");
   std::string tag2;
   ASSERT_TRUE(k.SerializePartialToString(&tag2));
-  std::string tag_1_2_bytes = absl::StrCat(tag1, tag2);
-  std::string tag_2_1_bytes = absl::StrCat(tag2, tag1);
+  absl::Cord tag_1_2_bytes = absl::Cord(absl::StrCat(tag1, tag2));
+  absl::Cord tag_2_1_bytes = absl::Cord(absl::StrCat(tag2, tag1));
+
   Value proto_1_2 = TestGetSQL(Proto(proto_type, tag_1_2_bytes));
   Value proto_2_1 = TestGetSQL(Proto(proto_type, tag_2_1_bytes));
   EXPECT_EQ(proto_1_2, proto_2_1);
@@ -1776,9 +1793,9 @@ TEST_F(ValueTest, Proto) {
     WireFormatLite::WriteInt32(/*field_number=*/1, /*value=*/0, &output_stream);
   }
   google::protobuf::Int32Value unset_proto3;
-  std::string result_bytes = result;
+  absl::Cord result_bytes = absl::Cord(result);
   set_value = Value::Proto(proto3_type, result_bytes);
-  unset_value = Value::Proto(proto3_type, unset_proto3.SerializeAsString());
+  unset_value = Value::Proto(proto3_type, SerializeToCord(unset_proto3));
   EXPECT_TRUE(set_value.Equals(unset_value));
   TestHashEqual(set_value, unset_value);
 }
@@ -1827,7 +1844,7 @@ TEST_F(ValueTest, HashSet) {
   EXPECT_EQ(false, s.insert(Null(enum_type)).second);
 
   const ProtoType* proto_type = GetTestProtoType();
-  std::string bytes("xyz");
+  absl::Cord bytes("xyz");
   EXPECT_EQ(true, s.insert(Proto(proto_type, bytes)).second);
   EXPECT_EQ(false, s.insert(Proto(proto_type, bytes)).second);
   EXPECT_EQ(true, s.insert(Null(proto_type)).second);
@@ -2083,9 +2100,8 @@ TEST_F(ValueTest, ProtoFormatTest) {
   k.set_int64_key_1(1);
   k.set_int64_key_2(2);
   k.set_int32_val(3);
-  std::string bytes;
   // Empty proto.
-  ASSERT_TRUE(k.SerializePartialToString(&bytes));
+  absl::Cord bytes = SerializePartialToCord(k);
 
   const ProtoType* proto_type = GetTestProtoType();
   EXPECT_EQ(Struct({"p", "i"}, {Proto(proto_type, bytes), 1}).Format(),
@@ -2123,7 +2139,7 @@ TEST_F(ValueTest, EquivalentProtos) {
 
   zetasql_test::TestExtraPB proto_value;
   proto_value.set_int32_val1(5);
-  std::string bytes = proto_value.SerializeAsString();
+  absl::Cord bytes = absl::Cord(proto_value.SerializeAsString());
   Value value1 = Value::Proto(proto_type, bytes);
   Value value2 = Value::Proto(alt_proto_type, bytes);
   EXPECT_TRUE(value1.Equals(value2));
@@ -2524,8 +2540,7 @@ TEST_F(ValueTest, Serialize) {
       int64_key_2: 2
       )", &ks));
 
-  std::string ks_serialized;
-  ZETASQL_CHECK(ks.SerializePartialToString(&ks_serialized));
+  absl::Cord ks_serialized = SerializePartialToCord(ks);
 
   SerializeDeserialize(Null(proto_type));
   SerializeDeserialize(Proto(proto_type, ks_serialized));

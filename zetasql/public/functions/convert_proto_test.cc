@@ -29,26 +29,26 @@ namespace zetasql {
 namespace functions {
 namespace {
 
-TEST(ConvertProtoTest, BasicPrinting) {
+TEST(ConvertProtoTest, BasicPrintingCord) {
   zetasql_test::KitchenSinkPB proto;
   zetasql_base::Status error;
-  std::string out;
+  absl::Cord out;
 
   EXPECT_TRUE(ProtoToString(&proto, &out, &error));
-  EXPECT_EQ(out, "");
+  EXPECT_EQ(std::string(out), "");
   ZETASQL_EXPECT_OK(error);
 
   proto.set_int64_val(1984);
 
   EXPECT_TRUE(ProtoToString(&proto, &out, &error));
-  EXPECT_EQ(out, "int64_val: 1984");
+  EXPECT_EQ(std::string(out), "int64_val: 1984");
   ZETASQL_EXPECT_OK(error);
 
-  out.clear();
+  out.Clear();
   proto.set_string_val("spam");
 
   EXPECT_TRUE(ProtoToString(&proto, &out, &error));
-  EXPECT_EQ(out, "int64_val: 1984 string_val: \"spam\"");
+  EXPECT_EQ(std::string(out), "int64_val: 1984 string_val: \"spam\"");
   ZETASQL_EXPECT_OK(error);
 }
 
@@ -94,24 +94,25 @@ TEST(ConvertProtoTest, ParsingWithUnknownField) {
                  "Error parsing proto: Expected identifier, got: 123 [1:31]")));
 }
 
-TEST(ConvertProtoTest, ParsingWithExtensions) {
+TEST(ConvertProtoTest, ParsingWithExtensionsCord) {
   zetasql_test::KitchenSinkPB proto;
   zetasql_base::Status error;
-  std::string out;
+  absl::Cord out;
 
   EXPECT_TRUE(
       StringToProto("int64_key_1: 1 int64_key_2: 2 "
                     "[zetasql_test.KitchenSinkExtension.int_extension]: 1234",
                     &proto, &error));
-  EXPECT_EQ(proto.GetExtension(
-    zetasql_test::KitchenSinkExtension::int_extension), 1234);
+  EXPECT_EQ(
+      proto.GetExtension(zetasql_test::KitchenSinkExtension::int_extension),
+      1234);
   ZETASQL_EXPECT_OK(error);
 }
 
-TEST(ConvertProtoTest, ParsingWithUnknownExtension) {
+TEST(ConvertProtoTest, ParsingWithUnknownExtensionCord) {
   zetasql_test::KitchenSinkPB proto;
   zetasql_base::Status error;
-  std::string out;
+  absl::Cord out;
 
   EXPECT_FALSE(
       StringToProto("int64_key_1: 1 int64_key_2: 2 "

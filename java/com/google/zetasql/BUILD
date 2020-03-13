@@ -60,10 +60,18 @@ java_library(
     ],
 )
 
+java_library(
+    name = "types_proto_resources",
+    resources = [
+        "//zetasql/public/proto:type_annotation_filegroup",
+    ],
+)
+
 jarjar_library(
     name = "types_jar",
     jars = [
         ":types",
+        ":types_proto_resources",
         "//zetasql/proto:function_java_proto",
         "//zetasql/public:deprecation_warning_java_proto",
         "//zetasql/public:error_location_java_proto",

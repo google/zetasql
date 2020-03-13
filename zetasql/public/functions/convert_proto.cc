@@ -21,6 +21,7 @@
 #include "google/protobuf/io/tokenizer.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/text_format.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/match.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status_builder.h"
@@ -51,14 +52,24 @@ static bool ProtoToStringInternal(const google::protobuf::Message* value,
   return true;
 }
 
-bool ProtoToString(const google::protobuf::Message* value, std::string* out,
-                   zetasql_base::Status* error) {
-  return ProtoToStringInternal(value, out, false, error);
+static bool ProtoToStringInternal(const google::protobuf::Message* value, absl::Cord* out,
+                                  bool multiline, zetasql_base::Status* error) {
+  std::string str_out;
+  if (!ProtoToStringInternal(value, &str_out, multiline, error)) {
+    return false;
+  }
+  *out = absl::Cord(str_out);
+  return true;
 }
 
-bool ProtoToMultilineString(const google::protobuf::Message* value, std::string* out,
+bool ProtoToString(const google::protobuf::Message* value, absl::Cord* out,
+                   zetasql_base::Status* error) {
+  return ProtoToStringInternal(value, out, /*multiline=*/false, error);
+}
+
+bool ProtoToMultilineString(const google::protobuf::Message* value, absl::Cord* out,
                             zetasql_base::Status* error) {
-  return ProtoToStringInternal(value, out, false, error);
+  return ProtoToStringInternal(value, out, /*multiline=*/true, error);
 }
 
 bool StringToProto(const absl::string_view value, google::protobuf::Message* out,

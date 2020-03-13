@@ -26,6 +26,7 @@
 #include <cstdint>
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/declare.h"
+#include "absl/strings/cord.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/statusor.h"
 
@@ -123,8 +124,7 @@ using ProtoFieldValueList = std::vector<zetasql_base::StatusOr<Value>>;
 // proto of the common google::protobuf::Descriptor.
 zetasql_base::Status ReadProtoFields(
     absl::Span<const ProtoFieldInfo* const> field_infos,
-    const std::string& bytes,
-    ProtoFieldValueList* field_value_list);
+    const absl::Cord& bytes, ProtoFieldValueList* field_value_list);
 
 // Convenience form of ReadProtoFields() for reading a single field. Reads the
 // proto field matching tag and type of 'field_descr' from 'bytes' and returns
@@ -135,17 +135,15 @@ zetasql_base::Status ReadProtoFields(
 // values.  'default_value' may be an uninitialized Value for a required field.
 // Internally uses ReadProtoFields if --read_proto_field_optimized_path is
 // false, otherwise uses an version optimized for reading a single field.
-zetasql_base::Status ReadProtoField(
-    const google::protobuf::FieldDescriptor* field_descr, FieldFormat::Format format,
-    const Type* type, const Value& default_value, bool get_has_bit,
-    const std::string& bytes,
-    Value* output_value);
+zetasql_base::Status ReadProtoField(const google::protobuf::FieldDescriptor* field_descr,
+                            FieldFormat::Format format, const Type* type,
+                            const Value& default_value, bool get_has_bit,
+                            const absl::Cord& bytes, Value* output_value);
 // As above but `get_has_bit` is defaulted to false.
-zetasql_base::Status ReadProtoField(
-    const google::protobuf::FieldDescriptor* field_descr, FieldFormat::Format format,
-    const Type* type, const Value& default_value,
-    const std::string& bytes,
-    Value* output_value);
+zetasql_base::Status ReadProtoField(const google::protobuf::FieldDescriptor* field_descr,
+                            FieldFormat::Format format, const Type* type,
+                            const Value& default_value, const absl::Cord& bytes,
+                            Value* output_value);
 
 // Returns true in '*has_field' if a field with tag 'field_tag' exists in
 // 'bytes'. This ignores field type and repeatedness, and returns true as
@@ -154,8 +152,7 @@ zetasql_base::Status ReadProtoField(
 //
 // DEPRECATED: Use ReadProtoField instead.
 zetasql_base::Status ProtoHasField(
-    int32_t field_tag,
-    const std::string& bytes,
+    int32_t field_tag, const absl::Cord& bytes,
     bool* has_field);
 
 }  // namespace zetasql

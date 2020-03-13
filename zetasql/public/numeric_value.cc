@@ -16,11 +16,13 @@
 
 #include "zetasql/public/numeric_value.h"
 
+#include <ctype.h>
 #include <stddef.h>
-#include <stdint.h>
 #include <string.h>
+#include <sys/types.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <string>
@@ -29,15 +31,14 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/fixed_int.h"
-#include "absl/base/attributes.h"
-#include <cstdint>
 #include "absl/base/optimization.h"
+#include "zetasql/base/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/bits.h"
 #include "zetasql/base/endian.h"
-#include "zetasql/base/status.h"
+#include "zetasql/base/mathutil.h"
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/statusor.h"
 
@@ -972,109 +973,6 @@ std::ostream& operator<<(std::ostream& out, NumericValue value) {
   return out << value.ToString();
 }
 
-zetasql_base::StatusOr<NumericValue> NumericValue::Aggregator::GetSum() const {
-  if (sum_upper_ != 0) {
-    return MakeEvalError() << "numeric overflow: SUM";
-  }
-
-  auto res_status = NumericValue::FromPackedInt(sum_lower_);
-  if (!res_status.ok()) {
-    return MakeEvalError() << "numeric overflow: SUM";
-  }
-  return res_status.ValueOrDie();
-}
-
-zetasql_base::StatusOr<NumericValue>
-NumericValue::Aggregator::GetAverage(uint64_t count) const {
-  constexpr __int128 kInt128Min = static_cast<__int128>(
-      static_cast<unsigned __int128>(1) << (kBitsPerInt128 - 1));
-
-  if (count == 0) {
-    return MakeEvalError() << "division by zero: AVG";
-  }
-
-  // The code below constructs an unsigned 196 bits of FixedUint<64, 3> from
-  // sum_upper_ and sum_lower_. The following cases need to be considered:
-  // 1) If sum_upper_ is zero, the entire value (including the sign) comes
-  //    from sum_lower_. We need to get abs(sum_lower_) because the division
-  //    works on unsigned values.
-  // 2) If sum_upper_ is non-zero, the sign comes from it and sum_lower
-  //    may have a different sign. For example, if sum_upper_ is 3 and
-  //    sum_lower_ is -123, that means that the total value is
-  //    3 * 2^128 - 123. Since we pass an unsigned value to the division
-  //    method, the upper part needs to be adjusted by -1 in that case so that
-  //    the dividend looks like 2 * 2^128 + some_very_large_128_bit_value
-  //    where some_very_large_128_bit_value is -123 casted to an unsigned value.
-  // 3) If sum_lower_ is kInt128Min we can't change its sign because there is
-  //    no positive number that complements kInt128Min. We leave it as it is
-  //    because kInt128Min (0x8000...0000) complements itself when converted to
-  //    the unsigned 128 bit value.
-  bool negate = false;
-  __int128 lower;
-  uint64_t upper_abs = std::abs(sum_upper_);
-
-  if (ABSL_PREDICT_TRUE(upper_abs == 0)) {
-    negate = sum_lower_ < 0;
-    lower = (sum_lower_ != kInt128Min) ? int128_abs(sum_lower_) : sum_lower_;
-  } else {
-    negate = sum_upper_ < 0;
-    lower = (negate && sum_lower_ != kInt128Min) ? -sum_lower_ : sum_lower_;
-    if (lower < 0)
-      upper_abs--;
-  }
-
-  // The reason we need 224 bits of precision is because the constructor
-  // (uint64_t hi, unsigned __int128 low) needs 192 bits; on top of that we need
-  // 32 bits to be able to normalize the numbers before performing long division
-  // (see LongDivision()).
-  FixedUint<64, 3> dividend(upper_abs, static_cast<unsigned __int128>(lower));
-  dividend += FixedUint<64, 3>(count >> 1);
-  dividend /= FixedUint<64, 3>(count);
-
-  auto res_status = NumericValue::FromFixedUint(dividend, negate);
-  if (res_status.ok()) {
-    return res_status;
-  }
-  return MakeEvalError() << "numeric overflow: AVG";
-}
-
-void NumericValue::Aggregator::MergeWith(const Aggregator& other) {
-  if (ABSL_PREDICT_FALSE(internal::int128_add_overflow(
-      sum_lower_, other.sum_lower_, &sum_lower_))) {
-    sum_upper_ += other.sum_lower_ < 0 ? -1 : 1;
-  }
-
-  sum_upper_ += other.sum_upper_;
-}
-
-std::string NumericValue::Aggregator::SerializeAsProtoBytes() const {
-  std::string res;
-  res.resize(kBytesPerInt128 + kBytesPerInt64);
-  uint64_t sum_lower_lo = static_cast<uint64_t>(sum_lower_ & ~uint64_t{0});
-  uint64_t sum_lower_hi = static_cast<uint64_t>(
-      static_cast<unsigned __int128>(sum_lower_) >> kBitsPerUint64);
-  zetasql_base::LittleEndian::Store64(&res[0], sum_lower_lo);
-  zetasql_base::LittleEndian::Store64(&res[kBytesPerInt64], sum_lower_hi);
-  zetasql_base::LittleEndian::Store64(&res[kBytesPerInt128], sum_upper_);
-  return res;
-}
-
-zetasql_base::StatusOr<NumericValue::Aggregator>
-NumericValue::Aggregator::DeserializeFromProtoBytes(absl::string_view bytes) {
-  if (bytes.size() != kBytesPerInt128 + kBytesPerInt64) {
-    return MakeEvalError() << "Invalid NumericValue::Aggregator encoding";
-  }
-
-  Aggregator res;
-  uint64_t sum_lower_lo = zetasql_base::LittleEndian::Load64(bytes.data());
-  uint64_t sum_lower_hi =
-      zetasql_base::LittleEndian::Load64(bytes.substr(kBytesPerInt64).data());
-  res.sum_lower_ = static_cast<__int128>(
-      (static_cast<unsigned __int128>(sum_lower_hi) << 64) + sum_lower_lo);
-  res.sum_upper_ = zetasql_base::LittleEndian::Load64(bytes.substr(kBytesPerInt128).data());
-  return res;
-}
-
 zetasql_base::StatusOr<NumericValue> NumericValue::SumAggregator::GetSum() const {
   auto res_status = NumericValue::FromFixedInt(sum_);
   if (res_status.ok()) {
@@ -1503,7 +1401,7 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::DeserializeFromProtoByt
   return MakeEvalError() << "Invalid BigNumericValue encoding";
 }
 
-std::ostream& operator<<(std::ostream& out, BigNumericValue value) {
+std::ostream& operator<<(std::ostream& out, const BigNumericValue& value) {
   return out << value.ToString();
 }
 

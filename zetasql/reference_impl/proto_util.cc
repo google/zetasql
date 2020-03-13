@@ -32,6 +32,7 @@
 #include "zetasql/public/value.h"
 #include "absl/base/casts.h"
 #include <cstdint>
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
@@ -261,7 +262,7 @@ static zetasql_base::Status WriteScalarValue(
       break;
     case PAIR(FieldDescriptor::TYPE_MESSAGE, TYPE_PROTO):
     case PAIR(FieldDescriptor::TYPE_GROUP, TYPE_PROTO):
-      dst->WriteString(v.ToCord());
+      dst->WriteString(std::string(v.ToCord()));
       break;
 
     default:
@@ -311,8 +312,7 @@ static zetasql_base::Status WriteValue(const google::protobuf::FieldDescriptor* 
     const zetasql_base::Status status = functions::EncodeFormattedDate(
         value.date_value(), format, &encoded_date);
     if (!status.ok()) {
-      return ::zetasql_base::StatusBuilder(
-                 static_cast<::zetasql_base::StatusCode>(status.code()))
+      return ::zetasql_base::StatusBuilder(status.code())
              << "Cannot encode date " << value.FullDebugString()
              << " for field " << field_descr->full_name() << ": "
              << status.message();

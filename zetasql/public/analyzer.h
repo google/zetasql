@@ -520,6 +520,24 @@ class AnalyzerOptions {
   zetasql_base::Status AddSystemVariable(const std::vector<std::string>& name_path,
                                  const Type* type);
 
+  // If <types> is non empty, the result of analyzed SQL will be coerced to the
+  // given types using assignment semantics, requiring that the passed in SQL:
+  // * Is a query statement
+  // * Has a matching number of columns as the number of given types
+  // * Has columns whose types are coercible to the given types based on
+  //   positional order
+  // * Does not use untyped parameters as column output
+  // Otherwise an analysis error will be returned.
+  // Note that if a query produces a value table, the provided types must
+  // only contain a single struct or proto type.
+  // TODO: Remove this last condition
+  void set_target_column_types(absl::Span<const Type* const> types) {
+    target_column_types_ = std::vector<const Type*>(types.begin(), types.end());
+  }
+  absl::Span<const Type* const> get_target_column_types() const {
+    return target_column_types_;
+  }
+
  private:
   // ======================================================================
   // NOTE: Please update options.proto and AnalyzerOptions.java accordingly
@@ -613,6 +631,9 @@ class AnalyzerOptions {
   // Controls whether to preserve aliases of aggregate columns and analytic
   // function columns. See set_preserve_column_aliases() for details.
   bool preserve_column_aliases_ = true;
+
+  // Target output column types for a query.
+  std::vector<const Type*> target_column_types_;
 
   // Copyable
 };
@@ -807,6 +828,8 @@ zetasql_base::Status AnalyzeExpression(absl::string_view sql,
 // expression.
 //
 // If <target_type> is nullptr, behaves the same as AnalyzeExpression().
+// TODO: Deprecate this method and use AnalyzerOptions
+// target_column_types_ to trigger expression coercion to the target type.
 zetasql_base::Status AnalyzeExpressionForAssignmentToType(
     absl::string_view sql, const AnalyzerOptions& options, Catalog* catalog,
     TypeFactory* type_factory, const Type* target_type,

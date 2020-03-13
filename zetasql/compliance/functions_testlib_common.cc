@@ -25,11 +25,13 @@
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/text_format.h"
 #include "zetasql/common/status_payload_utils.h"
+#include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "zetasql/testing/using_test_value.cc"
+#include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 
@@ -37,9 +39,7 @@ namespace zetasql {
 namespace {
 
 Value ProtoToValue(const ProtoType* type, const google::protobuf::Message& msg) {
-  std::string bytes;
-  CHECK(msg.SerializeToString(&bytes));
-  return Value::Proto(type, bytes);
+  return Value::Proto(type, SerializeToCord(msg));
 }
 
 }  // namespace

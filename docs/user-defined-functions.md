@@ -695,7 +695,7 @@ FROM CustomerRangeWithCustomerType(100, 200, 'CUSTOMER_TYPE_ADVERTISER');
 [templated-parameters]: #templated-sql-udf-parameters
 [supported-external-udf-data-types]: #supported-external-udf-data-types
 [data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
-[data-types-struct]: https://github.com/google/zetasql/blob/master/docs/data-types#struct-type
+[data-types-struct]: https://github.com/google/zetasql/blob/master/docs/data-types#struct_type
 [datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#value-tables
 [group-by-link]: https://github.com/google/zetasql/blob/master/docs/query-syntax#group-by-clause
 [aggregate-fns-link]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions

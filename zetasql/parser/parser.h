@@ -262,12 +262,6 @@ ASTNodeKind ParseNextStatementKind(const ParseResumeLocation& resume_location,
                                    const LanguageOptions& language_options,
                                    bool* next_statement_is_ctas);
 
-// DEPRECATED - Parsing semantics depend on LanguageOptions, so migrate to the
-// version above.
-//
-ASTNodeKind ParseNextStatementKind(const ParseResumeLocation& resume_location,
-                                   bool* next_statement_is_ctas);
-
 // Parse the first few keywords from <resume_location> (ignoring whitespace
 // and comments), to determine basic statement properties.
 //

@@ -36,6 +36,7 @@
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"
 #include <cstdint>
+#include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 
@@ -2604,25 +2605,22 @@ std::vector<FunctionTestCall> GetFunctionTestsFromProto() {
       {"from_proto",
        {Proto3Wrapper<google::protobuf::StringValue>("12356789")},
        String("12356789")},
-
       {"from_proto",
-       {Proto3Wrapper<google::protobuf::BytesValue>(std::string("abcdefg"))},
-       Bytes(std::string("abcdefg"))},
+       {Proto3Wrapper<google::protobuf::BytesValue>(absl::Cord("abcdefg"))},
+       Bytes(absl::Cord("abcdefg"))},
       {"from_proto",
-       {Proto3Wrapper<google::protobuf::BytesValue>(std::string(""))},
-       Bytes(std::string(""))},
+       {Proto3Wrapper<google::protobuf::BytesValue>(absl::Cord(""))},
+       Bytes(absl::Cord(""))},
       {"from_proto",
-       {Proto3Wrapper<google::protobuf::BytesValue>(std::string("\xd7\x00"))},
+       {Proto3Wrapper<google::protobuf::BytesValue>(absl::Cord("\xd7\x00"))},
        Bytes("\xd7")},
       {"from_proto",
        {Proto3Wrapper<google::protobuf::BytesValue>(
-           std::string("\xFF\x80\x81xyz\x81\x80\xFF"))},
+           absl::Cord("\xFF\x80\x81xyz\x81\x80\xFF"))},
        Bytes("\xFF\x80\x81xyz\x81\x80\xFF")},
       {"from_proto",
-       {Proto3Wrapper<google::protobuf::BytesValue>(
-            std::string("a \0xyza \0"))},
+       {Proto3Wrapper<google::protobuf::BytesValue>(absl::Cord("a \0xyza \0"))},
        Bytes("a ")},
-
       {"from_proto",
        {Proto3Wrapper<google::protobuf::BoolValue>(true)},
        Bool(true)},

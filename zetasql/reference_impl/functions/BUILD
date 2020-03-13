@@ -32,6 +32,7 @@ cc_library(
     copts = ["-Wno-sign-compare"],
     deps = [
         ":hash",
+        ":json",
         "@com_google_absl//absl/base",
     ],
 )

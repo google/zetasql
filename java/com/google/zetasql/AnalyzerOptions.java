@@ -51,6 +51,7 @@ public class AnalyzerOptions implements Serializable {
   private transient AnalyzerOptionsProto.Builder builder = AnalyzerOptionsProto.newBuilder();
   private LanguageOptions languageOptions = new LanguageOptions();
   private AllowedHintsAndOptions allowedHintsAndOptions = new AllowedHintsAndOptions();
+  private final List<Type> targetColumnTypes = new ArrayList<>();
 
   public AnalyzerOptions() {
     builder.setDefaultTimezone("America/Los_Angeles");
@@ -117,6 +118,13 @@ public class AnalyzerOptions implements Serializable {
           .setType(typeProtoBuilder.build());
     }
 
+    builder.clearTargetColumnTypes();
+    for (Type type : targetColumnTypes) {
+      TypeProto.Builder typeProtoBuilder = TypeProto.newBuilder();
+      type.serialize(typeProtoBuilder, fileDescriptorSetsBuilder);
+      builder.addTargetColumnTypes(typeProtoBuilder.build());
+    }
+
     builder.setLanguageOptions(languageOptions.serialize());
     builder.clearAllowedHintsAndOptions();
     builder.setAllowedHintsAndOptions(allowedHintsAndOptions.serialize(fileDescriptorSetsBuilder));
@@ -165,6 +173,14 @@ public class AnalyzerOptions implements Serializable {
 
   public List<Type> getPositionalQueryParameters() {
     return ImmutableList.copyOf(positionalQueryParameters);
+  }
+
+  public void addTargetColumnType(Type type) {
+    targetColumnTypes.add(type);
+  }
+
+  public List<Type> getTargetColumnTypes() {
+    return ImmutableList.copyOf(targetColumnTypes);
   }
 
   public void setInScopeExpressionColumn(String name, Type type) {
@@ -299,6 +315,10 @@ public class AnalyzerOptions implements Serializable {
 
     for (QueryParameterProto column : proto.getDdlPseudoColumnsList()) {
       options.addDdlPseudoColumn(column.getName(), factory.deserialize(column.getType(), pools));
+    }
+
+    for (TypeProto type : proto.getTargetColumnTypesList()) {
+      options.addTargetColumnType(factory.deserialize(type, pools));
     }
 
     if (proto.hasAllowedHintsAndOptions()) {

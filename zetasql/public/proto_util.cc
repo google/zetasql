@@ -39,6 +39,7 @@
 #include "absl/base/optimization.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/flags/flag.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/map_util.h"
@@ -396,8 +397,11 @@ using WireValueType = absl::variant<
     float,
     // TYPE_DOUBLE
     double,
+    // Note that the underlying type is cord to remove the need to copy when
+    // these are turned into Value through Value::Proto.
     // TYPE_MESSAGE
     // TYPE_GROUP
+    absl::Cord,
     // TYPE_STRING
     // TYPE_BYTES
     std::string>;
@@ -406,12 +410,10 @@ using WireValueType = absl::variant<
 
 // Populates 'value' with the value of the field at the front of 'in' (which is
 // backed by 'bytes'), without considering any zetasql semantics.
-static bool ReadWireValue(
-    google::protobuf::FieldDescriptor::Type field_type,
-    uint32_t tag_and_type,
-    const std::string& bytes,
-    google::protobuf::io::CodedInputStream* in,
-    WireValueType* value) {
+static bool ReadWireValue(google::protobuf::FieldDescriptor::Type field_type,
+                          uint32_t tag_and_type, const absl::Cord& bytes,
+                          google::protobuf::io::CodedInputStream* in,
+                          WireValueType* value) {
   int32_t i32;
   int64_t i64;
   uint32_t ui32;
@@ -542,12 +544,26 @@ static bool ReadWireValue(
         return true;
       }
       return false;
-    case WireFormatLite::TYPE_BYTES:
-    case WireFormatLite::TYPE_MESSAGE:
     case WireFormatLite::TYPE_STRING: {
       std::string s;
       if (WireFormatLite::ReadString(in, &s)) {
         *value = std::move(s);
+        return true;
+      }
+      return false;
+    }
+    case WireFormatLite::TYPE_BYTES: {
+      std::string s;
+      if (WireFormatLite::ReadBytes(in, &s)) {
+        *value = std::move(s);
+        return true;
+      }
+      return false;
+    }
+    case WireFormatLite::TYPE_MESSAGE: {
+      std::string c;
+      if (WireFormatLite::ReadBytes(in, &c)) {
+        *value = absl::Cord(c);
         return true;
       }
       return false;
@@ -561,7 +577,7 @@ static bool ReadWireValue(
               WireFormatLite::WIRETYPE_END_GROUP));
       const int group_size =
           in->CurrentPosition() - start_position - end_group_tag_size;
-      *value = bytes.substr(start_position, group_size);
+      *value = bytes.Subcord(start_position, group_size);
       return true;
     }
   }
@@ -726,7 +742,7 @@ static zetasql_base::StatusOr<Value> TranslateWireValue(
       return Value::Bytes(*value);
     }
     case TYPE_PROTO: {
-      const std::string* const value = absl::get_if<std::string>(&wire_value);
+      const absl::Cord* const value = absl::get_if<absl::Cord>(&wire_value);
       ZETASQL_RET_CHECK_NE(value, nullptr);
 
       return Value::Proto(type->AsProto(), *value);
@@ -755,7 +771,7 @@ static bool ReadPackedWireValues(int tag_number,
     return false;
   }
   // Only primitive numeric/enum values can be packed.
-  std::string unused_bytes;
+  absl::Cord unused_bytes;
   google::protobuf::io::CodedInputStream::Limit limit = in->PushLimit(length);
   uint32_t tag_and_type = WireFormatLite::MakeTag(
       tag_number, WireFormatLite::WireTypeForFieldType(
@@ -774,8 +790,7 @@ static bool ReadPackedWireValues(int tag_number,
 
 // Optimized version of ReadProtoFields where only one field is being fetched.
 static zetasql_base::StatusOr<Value> ReadSingularProtoField(
-    const ProtoFieldInfo& field_info,
-    const std::string& bytes) {
+    const ProtoFieldInfo& field_info, const absl::Cord& bytes) {
   const int field_info_tag = field_info.descriptor->number();
 
   // The elements we have seen for 'field_info'. Only used if
@@ -783,7 +798,8 @@ static zetasql_base::StatusOr<Value> ReadSingularProtoField(
   absl::InlinedVector<Value, 8> elements;
   const bool is_packable = field_info.descriptor->is_packable();
   uint32_t tag_and_type;
-  google::protobuf::io::ArrayInputStream cord_stream(bytes.data(), bytes.size());
+  std::string bytes_str(bytes);
+  google::protobuf::io::ArrayInputStream cord_stream(bytes_str.data(), bytes_str.size());
   google::protobuf::io::CodedInputStream in(&cord_stream);
   while (0 < (tag_and_type = in.ReadTag())) {
     const int tag_number = WireFormatLite::GetTagFieldNumber(tag_and_type);
@@ -875,8 +891,7 @@ using ElementValueList = std::vector<std::vector<zetasql_base::StatusOr<Value>>>
 
 zetasql_base::Status ReadProtoFields(
     absl::Span<const ProtoFieldInfo* const> field_infos,
-    const std::string& bytes,
-    ProtoFieldValueList* field_value_list) {
+    const absl::Cord& bytes, ProtoFieldValueList* field_value_list) {
   const bool use_optimization =
       field_infos.size() == 1 &&
       absl::GetFlag(FLAGS_zetasql_read_proto_field_optimized_path);
@@ -902,7 +917,9 @@ zetasql_base::Status ReadProtoFields(
   ZETASQL_RET_CHECK(!field_infos.empty());
   const google::protobuf::FieldDescriptor* some_field = field_infos[0]->descriptor;
     uint32_t tag_and_type;
-    google::protobuf::io::ArrayInputStream cord_stream(bytes.data(), bytes.size());
+    std::string bytes_str(bytes);
+    google::protobuf::io::ArrayInputStream cord_stream(bytes_str.data(),
+    bytes_str.size());
     google::protobuf::io::CodedInputStream in(&cord_stream);
     while (0 < (tag_and_type = in.ReadTag())) {
       const int tag_number = WireFormatLite::GetTagFieldNumber(tag_and_type);
@@ -1015,11 +1032,10 @@ zetasql_base::Status ReadProtoFields(
   return zetasql_base::OkStatus();
 }
 
-zetasql_base::Status ReadProtoField(
-    const google::protobuf::FieldDescriptor* field_descr, FieldFormat::Format format,
-    const Type* type, const Value& default_value, bool get_has_bit,
-    const std::string& bytes,
-    Value* output_value) {
+zetasql_base::Status ReadProtoField(const google::protobuf::FieldDescriptor* field_descr,
+                            FieldFormat::Format format, const Type* type,
+                            const Value& default_value, bool get_has_bit,
+                            const absl::Cord& bytes, Value* output_value) {
   ProtoFieldInfo info;
   info.descriptor = field_descr;
   info.format = format;
@@ -1036,21 +1052,21 @@ zetasql_base::Status ReadProtoField(
   return zetasql_base::OkStatus();
 }
 
-zetasql_base::Status ReadProtoField(
-    const google::protobuf::FieldDescriptor* field_descr, FieldFormat::Format format,
-    const Type* type, const Value& default_value,
-    const std::string& bytes,
-    Value* output_value) {
+zetasql_base::Status ReadProtoField(const google::protobuf::FieldDescriptor* field_descr,
+                            FieldFormat::Format format, const Type* type,
+                            const Value& default_value, const absl::Cord& bytes,
+                            Value* output_value) {
   return ReadProtoField(field_descr, format, type, default_value, false, bytes,
                         output_value);
 }
 
 zetasql_base::Status ProtoHasField(
-    int32_t field_tag,
-    const std::string& bytes,
+    int32_t field_tag, const absl::Cord& bytes,
     bool* has_field) {
   *has_field = false;
-    google::protobuf::io::ArrayInputStream cord_stream(bytes.data(), bytes.size());
+    std::string bytes_str(bytes);
+    google::protobuf::io::ArrayInputStream cord_stream(bytes_str.data(),
+    bytes_str.size());
     google::protobuf::io::CodedInputStream in(&cord_stream);
     uint32_t tag_and_type;
     while (0 < (tag_and_type = in.ReadTag())) {

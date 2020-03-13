@@ -23,6 +23,7 @@
 
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/base/logging.h"
+#include "zetasql/common/errors.h"
 #include "zetasql/public/options.pb.h"
 #include <cstdint>
 #include "zetasql/analyzer/expr_resolver_helper.h"
@@ -252,6 +253,13 @@ zetasql_base::Status Resolver::ResolveStandaloneExpr(
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   Reset(sql);
   analyzing_expression_ = true;
+
+  // target_column_types is only allowed on statements
+  if (!analyzer_options().get_target_column_types().empty()) {
+    return MakeSqlError() << "AnalyzerOptions contain target column types, "
+                          << "which are not currently supported when resolving "
+                          << "standalone expressions";
+  }
 
   ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_expr, empty_name_scope_.get(),
                                     "standalone expression",

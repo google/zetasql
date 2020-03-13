@@ -22,6 +22,7 @@
 #define ZETASQL_PUBLIC_FUNCTIONS_CONVERT_PROTO_H_
 
 #include "google/protobuf/message.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 
@@ -30,11 +31,11 @@ namespace functions {
 
 // Convert 'value' to proto text format. The resulting text format proto is
 // appended to 'out'.
-bool ProtoToString(const google::protobuf::Message* value, std::string* out,
+bool ProtoToString(const google::protobuf::Message* value, absl::Cord* out,
                    zetasql_base::Status* error);
 
 // Same as above, but uses multiline proto text representation.
-bool ProtoToMultilineString(const google::protobuf::Message* value, std::string* out,
+bool ProtoToMultilineString(const google::protobuf::Message* value, absl::Cord* out,
                             zetasql_base::Status* error);
 
 // Convert a text format proto from 'value' to a google::protobuf::Message that is

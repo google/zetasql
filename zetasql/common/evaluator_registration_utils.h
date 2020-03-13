@@ -14,16 +14,14 @@
 // limitations under the License.
 //
 
-#include "zetasql/reference_impl/functions/register_all.h"
+#ifndef ZETASQL_COMMON_EVALUATOR_REGISTRATION_UTILS_H_
+#define ZETASQL_COMMON_EVALUATOR_REGISTRATION_UTILS_H_
 
-#include "zetasql/reference_impl/functions/hash.h"
-#include "zetasql/reference_impl/functions/json.h"
+namespace zetasql::internal {
 
-namespace zetasql {
+// Globally registers various bits required for the full evaluator.
+void EnableFullEvaluatorFeatures();
 
-void RegisterAllOptionalBuiltinFunctions() {
-  RegisterBuiltinJsonFunctions();
-  RegisterBuiltinHashFunctions();
-}
+}  // namespace zetasql::internal
 
-}  // namespace zetasql
+#endif  // ZETASQL_COMMON_EVALUATOR_REGISTRATION_UTILS_H_

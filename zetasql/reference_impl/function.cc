@@ -71,6 +71,7 @@
 #include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/memory/memory.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
@@ -444,13 +445,6 @@ FunctionMap::FunctionMap() {
   RegisterFunction(FunctionKind::kGenerateTimestampArray,
                    "generate_timestamp_array", "GenerateTimestampArray");
   RegisterFunction(FunctionKind::kRangeBucket, "range_bucket", "RangeBucket");
-  RegisterFunction(FunctionKind::kJsonExtract, "json_extract", "JsonExtract");
-  RegisterFunction(FunctionKind::kJsonExtractScalar, "json_extract_scalar",
-                   "JsonExtractScalar");
-  RegisterFunction(FunctionKind::kJsonExtractArray, "json_extract_array",
-                   "JsonExtractArray");
-  RegisterFunction(FunctionKind::kJsonQuery, "json_query", "JsonQuery");
-  RegisterFunction(FunctionKind::kJsonValue, "json_value", "JsonValue");
   RegisterFunction(FunctionKind::kGreatest, "greatest", "Greatest");
   RegisterFunction(FunctionKind::kIsNull, "$is_null", "IsNull");
   RegisterFunction(FunctionKind::kIsTrue, "$is_true", "IsTrue");
@@ -1232,12 +1226,6 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new GenerateArrayFunction(output_type);
     case FunctionKind::kRangeBucket:
       return new RangeBucketFunction();
-    case FunctionKind::kJsonExtract:
-    case FunctionKind::kJsonExtractScalar:
-    case FunctionKind::kJsonExtractArray:
-    case FunctionKind::kJsonQuery:
-    case FunctionKind::kJsonValue:
-      return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     case FunctionKind::kArrayConcat:
       return new ArrayConcatFunction(kind, output_type);
     case FunctionKind::kArrayLength:
@@ -4059,9 +4047,10 @@ zetasql_base::StatusOr<Value> CaseConverterFunction::Eval(
 zetasql_base::StatusOr<Value> MakeProtoFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
   CHECK_EQ(args.size(), fields_.size());
-  std::string proto_cord;
+  absl::Cord proto_cord;
+  std::string bytes_str;
   {
-    google::protobuf::io::StringOutputStream cord_output(&proto_cord);
+    google::protobuf::io::StringOutputStream cord_output(&bytes_str);
 
     google::protobuf::io::CodedOutputStream coded_output(&cord_output);
     for (int i = 0; i < args.size(); i++) {
@@ -4074,6 +4063,7 @@ zetasql_base::StatusOr<Value> MakeProtoFunction::Eval(
       }
     }
   }
+  proto_cord = absl::Cord(bytes_str);
   return Value::Proto(output_type()->AsProto(), proto_cord);
 }
 
@@ -4124,7 +4114,7 @@ static zetasql_base::StatusOr<Value> ReplaceProtoFields(
   }
 
   return Value::Proto(parent_proto.type()->AsProto(),
-                      mutable_root_message->SerializeAsString());
+                      absl::Cord(mutable_root_message->SerializeAsString()));
 }
 
 // Sets the field denoted by <path> to <new_field_value>. <path_index>
@@ -4807,7 +4797,7 @@ zetasql_base::StatusOr<Value> FromProtoFunction::Eval(
       break;
     }
     case TYPE_BYTES: {
-      std::string bytes_value;
+      absl::Cord bytes_value;
       google::protobuf::BytesValue proto_bytes_wrapper;
       proto_bytes_wrapper.CopyFrom(*message);
       ZETASQL_RETURN_IF_ERROR(
@@ -4923,8 +4913,7 @@ zetasql_base::StatusOr<Value> ToProtoFunction::Eval(const absl::Span<const Value
     case TYPE_BYTES: {
       google::protobuf::BytesValue proto_bytes_wrapper;
       functions::ConvertTypeToProto3Wrapper<google::protobuf::BytesValue>(
-          args[0].bytes_value(),
-          &proto_bytes_wrapper);
+          absl::Cord(args[0].bytes_value()), &proto_bytes_wrapper);
       return zetasql::values::Proto(output_type()->AsProto(),
                                       proto_bytes_wrapper);
       break;

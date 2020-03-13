@@ -19,6 +19,7 @@ Rules for adding './configure && make' style dependencies.
 """
 
 load("@rules_foreign_cc//tools/build_defs:configure.bzl", "configure_make")
+load(":ar_wrapper.bzl", "ar_wrapper")
 
 licenses(["notice"])  # Apache v2.0
 
@@ -31,15 +32,24 @@ exports_files([
     "flex.bzl",
 ])
 
+ar_wrapper(
+    name = "ar_wrapper",
+    visibility = ["//visibility:public"],
+)
+
 configure_make(
     name = "m4",
     binaries = [
         "m4",
     ],
+    configure_env_vars = {
+        "AR": "ar_wrapper",
+    },
     configure_options = [
         "--disable-nls",
     ],
     lib_source = "@m4//:all",
+    tools_deps = [":ar_wrapper"],
 )
 
 filegroup(
@@ -57,9 +67,11 @@ configure_make(
     configure_env_vars = {
         "M4": "$$EXT_BUILD_DEPS$$/m4/bin/m4",
         "CC_FOR_BUILD": "$$CC$$",
+        "AR": "ar_wrapper",
     },
     lib_source = "@bison//:all",
     static_libraries = ["liby.a"],
+    tools_deps = [":ar_wrapper"],
     deps = [":m4"],
 )
 
@@ -77,8 +89,12 @@ configure_make(
     # This seems to be necessary (using tools_dep and weird path) because unlike
     # bison, flex needs to invoke m4 during build (whereas bison needs it only
     # during `configure`).
-    configure_env_vars = {"M4": "$$EXT_BUILD_DEPS$$/m4/bin/m4"},
+    configure_env_vars = {
+        "M4": "$$EXT_BUILD_DEPS$$/m4/bin/m4",
+        "AR": "ar_wrapper",
+    },
     lib_source = "@flex//:all",
+    tools_deps = [":ar_wrapper"],
     deps = [":m4"],
 )
 

@@ -1477,8 +1477,8 @@ SELECT ARRAY(
 +--------------+
 ```
 
-[flattening-arrays]: #flattening-arrays
-[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types#array-type
+[flattening-arrays]: #flattening_arrays
+[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types#array_type
 [unnest-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax#unnest
 [cross-join-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax#cross-join
 

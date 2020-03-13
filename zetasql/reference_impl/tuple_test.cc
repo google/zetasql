@@ -72,7 +72,7 @@ TEST(TupleSlotTest, GetPhysicalByteSize) {
   ZETASQL_ASSERT_OK(type_factory.MakeProtoType(
       zetasql_test::KitchenSinkPB::descriptor(), &proto_type));
 
-  const std::string raw_bytes = "garbage";
+  const absl::Cord raw_bytes("garbage");
   const Value proto_value = Value::Proto(proto_type, raw_bytes);
 
   TupleSlot proto_slot;

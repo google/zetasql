@@ -914,7 +914,7 @@ supports, see the [function reference for aggregate analytic functions][aggregat
 
 [analytic-functions-link-to-numbering-functions]: #numbering-functions
 [analytic-functions-link-to-coercion]: #coercion
-[datatype-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data-type-properties
+[datatype-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data_type_properties
 [analytic-functions-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
 [analytic-functions-link-to-order-by-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax#order_by_clause
 [analytic-functions-link-to-sql-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax#sql-syntax

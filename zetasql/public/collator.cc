@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_split.h"
 #include "unicode/coll.h"
 #include "unicode/errorcode.h"
@@ -26,6 +27,7 @@
 #include "zetasql/base/ret_check.h"
 
 namespace zetasql {
+namespace {
 
 // Returns true if <collation_name> is valid and we were able to extract the
 // collation parts from it successfully. Otherwise false.
@@ -59,14 +61,71 @@ static bool ExtractCollationParts(const std::string& collation_name,
   }
   return true;
 }
-ZetaSqlCollator::ZetaSqlCollator(
+
+class ZetaSqlCollatorIcu : public ZetaSqlCollator {
+ public:
+  ZetaSqlCollatorIcu(std::unique_ptr<icu::Collator> icu_collator,
+                       bool is_unicode, bool is_case_insensitive);
+  ~ZetaSqlCollatorIcu() override {}
+
+  int64_t CompareUtf8(const absl::string_view s1, const absl::string_view s2,
+                    zetasql_base::Status* error) const override;
+
+  bool IsBinaryComparison() const override {
+    return icu_collator_ == nullptr && !is_case_insensitive_;
+  }
+
+ private:
+  // icu::Collator used for locale-specific ordering. Not initialized for case
+  // sensitive Unicode locale (i.e. is_unicode && !is_case_insensitive_).
+  const std::unique_ptr<const icu::Collator> icu_collator_;
+
+  // Set to true if instantiated with "unicode", i.e. default Unicode collation.
+  const bool is_unicode_;
+
+  // Collation attribute to specify whether the comparisons should be
+  // case-insensitive.
+  const bool is_case_insensitive_;
+};
+
+ZetaSqlCollatorIcu::ZetaSqlCollatorIcu(
     std::unique_ptr<icu::Collator> icu_collator, bool is_unicode,
     bool is_case_insensitive)
     : icu_collator_(std::move(icu_collator)),
       is_unicode_(is_unicode),
       is_case_insensitive_(is_case_insensitive) {}
 
-ZetaSqlCollator::~ZetaSqlCollator() {}
+int64_t ZetaSqlCollatorIcu::CompareUtf8(const absl::string_view s1,
+                                        const absl::string_view s2,
+                                        zetasql_base::Status* error) const {
+  if (is_unicode_) {
+    if (is_case_insensitive_) {
+      ; // Just fall back to icu.
+    } else {
+      const int result = s1.compare(s2);
+      return result < 0 ? -1 : (result > 0 ? 1 : 0);
+    }
+  }
+
+  icu::ErrorCode icu_error;
+
+  UCollationResult result = icu_collator_->compareUTF8(
+      icu::StringPiece(s1.data(), static_cast<int32_t>(s1.size())),
+      icu::StringPiece(s2.data(), static_cast<int32_t>(s2.size())), icu_error);
+  if (icu_error.isFailure()) {
+    *error = zetasql_base::Status(zetasql_base::StatusCode::kInvalidArgument,
+                          "Strings cannot be compared with the collator");
+    icu_error.reset();
+  }
+  // UCollationResult is a three valued enum UCOL_EQUAL, UCOL_LESS AND
+  // UCOL_GREATER.
+  static_assert(UCOL_LESS == -1, "compareUTF8 result conversion");
+  static_assert(UCOL_EQUAL == 0, "compareUTF8 result conversion");
+  static_assert(UCOL_GREATER == 1, "compareUTF8 result conversion");
+  return result;
+}
+
+}  // namespace
 
 // static
 ZetaSqlCollator* ZetaSqlCollator::CreateFromCollationName(
@@ -109,38 +168,8 @@ ZetaSqlCollator* ZetaSqlCollator::CreateFromCollationName(
     }
   }
 
-  return new ZetaSqlCollator(std::move(icu_collator), is_unicode,
-                               is_case_insensitive);
-}
-
-int64_t ZetaSqlCollator::CompareUtf8(const absl::string_view s1,
-                                     const absl::string_view s2,
-                                     zetasql_base::Status* error) const {
-  if (is_unicode_) {
-    if (is_case_insensitive_) {
-      ; // Just fall back to icu.
-    } else {
-      const int result = s1.compare(s2);
-      return result < 0 ? -1 : (result > 0 ? 1 : 0);
-    }
-  }
-
-  icu::ErrorCode icu_error;
-
-  UCollationResult result = icu_collator_->compareUTF8(
-      icu::StringPiece(s1.data(), static_cast<int32_t>(s1.size())),
-      icu::StringPiece(s2.data(), static_cast<int32_t>(s2.size())), icu_error);
-  if (icu_error.isFailure()) {
-    *error = zetasql_base::Status(zetasql_base::StatusCode::kInvalidArgument,
-                          "Strings cannot be compared with the collator");
-    icu_error.reset();
-  }
-  // UCollationResult is a three valued enum UCOL_EQUAL, UCOL_LESS AND
-  // UCOL_GREATER.
-  static_assert(UCOL_LESS == -1, "compareUTF8 result conversion");
-  static_assert(UCOL_EQUAL == 0, "compareUTF8 result conversion");
-  static_assert(UCOL_GREATER == 1, "compareUTF8 result conversion");
-  return result;
+  return new ZetaSqlCollatorIcu(std::move(icu_collator), is_unicode,
+                                  is_case_insensitive);
 }
 
 }  // namespace zetasql

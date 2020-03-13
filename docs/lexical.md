@@ -5,7 +5,7 @@
 
 <!-- BEGIN CONTENT -->
 A ZetaSQL statement comprises a series of tokens. Tokens include
-*identifiers,* *quoted identifiers, literals*, *keywords*, *operators*, and
+*identifiers*, *quoted identifiers*, *literals*, *keywords*, *operators*, and
 *special characters*. You can separate tokens with whitespace (for example, space, backspace,
 tab, newline) or comments.
 
@@ -26,7 +26,7 @@ database objects.
 +  Both identifiers and quoted identifiers are case insensitive, with some
    nuances. See [Case Sensitivity][case-sensitivity] for further details.
 +  [Reserved Keywords](#reserved_keywords) can only be used as quoted
-   identifiers. 
+   identifiers.
 +  Table name identifiers have additional syntax to support dashes (-) when
    referenced in`FROM` and `TABLE` clauses.
 
@@ -489,9 +489,9 @@ Examples:
 ```
 
 Time zones can also be expressed using string time zone names from the
-[tz database][tz-database]. For a less comprehensive but
-simpler reference, see the
-[List of tz database time zones][tz-database-time-zones]
+[tz database][tz-database]{: class=external target=_blank }. For a less
+comprehensive but simpler reference, see the
+[List of tz database time zones][tz-database-time-zones]{: class=external target=_blank }
 on Wikipedia. Canonical time zone names have the format
 `<continent/[region/]city>`, such as `America/Los_Angeles`.
 

@@ -1913,7 +1913,7 @@ DMLUpdateValueExpr::Create(
                                &message_factory, new_message.get()));
   }
   return Value::Proto(original_value.type()->AsProto(),
-                      new_message->SerializeAsString());
+                      absl::Cord(new_message->SerializeAsString()));
 }
 
 DMLUpdateValueExpr::DMLUpdateValueExpr(

@@ -39,6 +39,7 @@ configure_make(
         "CXXFLAGS": "-fPIC",  # For JNI
         "CFLAGS": "-fPIC",  # For JNI
         "LIBS": "$$LDFLAGS$$",
+        "AR": "ar_wrapper",
     },
     configure_options = [
         "--enable-option-checking",
@@ -59,6 +60,7 @@ configure_make(
         "libicuuc.a",
         "libicudata.a",
     ],
+    tools_deps = ["@com_google_zetasql//bazel:ar_wrapper"],
 )
 
 cc_library(

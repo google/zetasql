@@ -1302,18 +1302,18 @@ void PreparedQueryBase::SetCreateEvaluationCallbackTestOnly(
   return evaluator_->SetCreateEvaluationCallbackTestOnly(cb);
 }
 
-PreparedModify::PreparedModify(const std::string& sql,
-                                           const EvaluatorOptions& options)
+PreparedModifyBase::PreparedModifyBase(const std::string& sql,
+                                       const EvaluatorOptions& options)
     : evaluator_(new internal::Evaluator(sql, /*is_expr=*/false, options)) {}
 
-PreparedModify::PreparedModify(const ResolvedStatement* stmt,
-                                           const EvaluatorOptions& options)
+PreparedModifyBase::PreparedModifyBase(const ResolvedStatement* stmt,
+                                       const EvaluatorOptions& options)
     : evaluator_(new internal::Evaluator(stmt, options)) {}
 
-PreparedModify::~PreparedModify() {}
+PreparedModifyBase::~PreparedModifyBase() {}
 
-zetasql_base::Status PreparedModify::Prepare(const AnalyzerOptions& options,
-                                           Catalog* catalog) {
+zetasql_base::Status PreparedModifyBase::Prepare(const AnalyzerOptions& options,
+                                         Catalog* catalog) {
   ZETASQL_RETURN_IF_ERROR(evaluator_->Prepare(options, catalog));
   ZETASQL_RET_CHECK_NE(evaluator_->resolved_statement(), nullptr);
   switch (evaluator_->resolved_statement()->node_kind()) {
@@ -1330,8 +1330,8 @@ zetasql_base::Status PreparedModify::Prepare(const AnalyzerOptions& options,
 }
 
 zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
-PreparedModify::Execute(const ParameterValueMap& parameters,
-                              const SystemVariableValuesMap& system_variables) {
+PreparedModifyBase::Execute(const ParameterValueMap& parameters,
+                            const SystemVariableValuesMap& system_variables) {
   Value value;
   ZETASQL_RETURN_IF_ERROR(evaluator_->Execute(
       /*columns=*/{}, ParameterValues(&parameters), system_variables, &value,
@@ -1340,7 +1340,7 @@ PreparedModify::Execute(const ParameterValueMap& parameters,
 }
 
 zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
-PreparedModify::ExecuteWithPositionalParams(
+PreparedModifyBase::ExecuteWithPositionalParams(
     const ParameterValueList& positional_parameters,
     const SystemVariableValuesMap& system_variables) {
   Value value;
@@ -1352,7 +1352,7 @@ PreparedModify::ExecuteWithPositionalParams(
 }
 
 zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
-PreparedModify::ExecuteAfterPrepareWithOrderedParams(
+PreparedModifyBase::ExecuteAfterPrepareWithOrderedParams(
     const ParameterValueList& parameters,
     const SystemVariableValuesMap& system_variables) const {
   Value value;
@@ -1362,20 +1362,20 @@ PreparedModify::ExecuteAfterPrepareWithOrderedParams(
   return evaluator_->MakeUpdateIterator(value, resolved_statement());
 }
 
-zetasql_base::StatusOr<std::string> PreparedModify::ExplainAfterPrepare() const {
+zetasql_base::StatusOr<std::string> PreparedModifyBase::ExplainAfterPrepare() const {
   return evaluator_->ExplainAfterPrepare();
 }
 
-const ResolvedStatement* PreparedModify::resolved_statement() const {
+const ResolvedStatement* PreparedModifyBase::resolved_statement() const {
   return evaluator_->resolved_statement();
 }
 
 zetasql_base::StatusOr<std::vector<std::string>>
-PreparedModify::GetReferencedParameters() const {
+PreparedModifyBase::GetReferencedParameters() const {
   return evaluator_->GetReferencedParameters();
 }
 
-zetasql_base::StatusOr<int> PreparedModify::GetPositionalParameterCount() const {
+zetasql_base::StatusOr<int> PreparedModifyBase::GetPositionalParameterCount() const {
   return evaluator_->GetPositionalParameterCount();
 }
 

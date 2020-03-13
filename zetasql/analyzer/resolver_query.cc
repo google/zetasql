@@ -105,6 +105,7 @@ STATIC_IDSTRING(kPreProjectId, "$preproject");
 STATIC_IDSTRING(kProtoId, "$proto");
 STATIC_IDSTRING(kStructId, "$struct");
 STATIC_IDSTRING(kValueColumnId, "$value_column");
+STATIC_IDSTRING(kCastedColumnId, "$casted_column");
 STATIC_IDSTRING(kWeightId, "$sample_weight");
 STATIC_IDSTRING(kDummyTableId, "$dummy_table");
 
@@ -167,6 +168,13 @@ zetasql_base::Status Resolver::ResolveQuery(
 
   ZETASQL_RETURN_IF_ERROR(ResolveQueryAfterWith(query, scope, query_alias, output,
                                         output_name_list));
+
+  // Add coercions to the final column output types if needed.
+  if (is_outer_query && !analyzer_options().get_target_column_types().empty()) {
+    ZETASQL_RETURN_IF_ERROR(CoerceQueryStatementResultToTypes(
+        query, analyzer_options().get_target_column_types(), output,
+        output_name_list));
+  }
 
   // Now remove any WITH entry mappings we added, restoring what was visible
   // outside this WITH clause.
@@ -6256,6 +6264,122 @@ zetasql_base::Status Resolver::ResolvePathExpressionAsTableScan(
   MaybeRecordParseLocation(path_expr, table_scan.get());
   *output = std::move(table_scan);
   return ::zetasql_base::OkStatus();
+}
+
+namespace {
+
+// Extracts an expression from the given scan at the provided column,
+// returning nullptr if the column doesn't exist in the scan or does not
+// contain an expression.
+zetasql_base::StatusOr<const ResolvedExpr*> GetColumnExpr(
+    const ResolvedProjectScan* scan, const ResolvedColumn& column) {
+  for (const std::unique_ptr<const ResolvedComputedColumn>& computed_column :
+       scan->expr_list()) {
+    const ResolvedExpr* expr = computed_column->expr();
+    ZETASQL_RET_CHECK_NE(expr, nullptr);
+    if (computed_column->column().column_id() == column.column_id()) {
+      return expr;
+    }
+  }
+  return nullptr;
+}
+
+}  // namespace
+
+zetasql_base::Status Resolver::CoerceQueryStatementResultToTypes(
+    const ASTNode* ast_node, absl::Span<const Type* const> types,
+    std::unique_ptr<const ResolvedScan>* scan,
+    std::shared_ptr<const NameList>* output_name_list) {
+  const std::vector<NamedColumn>& column_list = (*output_name_list)->columns();
+  if (types.size() != column_list.size()) {
+    return MakeSqlErrorAt(ast_node)
+           << "Query has unexpected number of output columns, "
+           << "expected " << types.size() << ", but had " << column_list.size();
+  }
+  ZETASQL_RET_CHECK((*scan)->node_kind() == RESOLVED_PROJECT_SCAN);
+  ResolvedColumnList casted_column_list;
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>> casted_exprs;
+  auto name_list = std::make_shared<NameList>();
+  for (int i = 0; i < types.size(); ++i) {
+    const Type* result_type = column_list[i].column.type();
+    const Type* target_type = types[i];
+    if (result_type->Equals(target_type)) {
+      casted_column_list.emplace_back(column_list[i].column);
+      ZETASQL_RETURN_IF_ERROR(name_list->AddColumn(column_list[i].name,
+                                           column_list[i].column,
+                                           column_list[i].is_explicit));
+    } else {
+      // Extract and coerce an expression out of each column.
+      //
+      // When the result type of the query's output column does
+      // not match the target type, then we try to coerce the output
+      // column to the target type.  We use assignment coercion
+      // rules for determining if coercion is allowed.  We also use
+      // the projected expression when present (as opposed to the
+      // projected column), since that allows us to do extra coercion
+      // for literals such as:
+      //
+      // target_type: {DATE, TIMESTAMP}
+      // query: SELECT '2011-01-01' as d, '2011-01-01 12:34:56' as t;
+      //
+      // target_type: {ENUM}
+      // query: SELECT CAST(0 AS INT32) as e;
+
+      ZETASQL_ASSIGN_OR_RETURN(const ResolvedExpr* column_expr,
+                       GetColumnExpr((*scan)->GetAs<ResolvedProjectScan>(),
+                                     column_list[i].column));
+      std::unique_ptr<const ResolvedExpr> column_ref;
+      if (column_expr == nullptr) {
+        column_ref = MakeColumnRef(column_list[i].column);
+        column_expr = column_ref.get();
+      }
+      // Disallow untyped parameters for now, we can't mutably change them and
+      // adding in a duplicate parameter into the tree with a different type
+      // triggers an error.
+      if (column_expr->node_kind() == RESOLVED_PARAMETER &&
+          column_expr->GetAs<ResolvedParameter>()->is_untyped()) {
+        return MakeSqlErrorAt(ast_node)
+               << "Untyped parameter cannot be coerced to an output target "
+               << "type for a query";
+      }
+      SignatureMatchResult unused;
+      if (!coercer_.AssignableTo(GetInputArgumentTypeForExpr(column_expr),
+                                 target_type,
+                                 /* is_explicit = */ false, &unused)) {
+        return MakeSqlErrorAt(ast_node)
+               << "Query column " << (i + 1) << " has type "
+               << result_type->ShortTypeName(product_mode())
+               << " which cannot be coerced to target type "
+               << target_type->ShortTypeName(product_mode());
+      }
+      std::unique_ptr<const ResolvedExpr> casted_expr =
+          MakeColumnRef(column_list[i].column);
+      const ASTNode* ast_location =
+          GetASTNodeForColumn(ast_node, i, static_cast<int>(types.size()));
+      ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
+          ast_location, target_type, &**scan,
+          /* set_has_explicit_type =*/false,
+          /* return_null_on_error =*/false, &casted_expr));
+      const ResolvedColumn casted_column(AllocateColumnId(), kCastedColumnId,
+                                         column_list[i].name, target_type);
+      RecordColumnAccess(casted_column);
+      casted_column_list.emplace_back(casted_column);
+      casted_exprs.push_back(
+          MakeResolvedComputedColumn(casted_column, std::move(casted_expr)));
+      ZETASQL_RETURN_IF_ERROR(
+          name_list->AddColumn(column_list[i].name, casted_column,
+                               (*output_name_list)->column(i).is_explicit));
+    }
+  }
+  if (!casted_exprs.empty()) {
+    *scan = MakeResolvedProjectScan(casted_column_list, std::move(casted_exprs),
+                                    std::move(*scan));
+    ZETASQL_RET_CHECK_EQ((*output_name_list)->num_columns(), name_list->num_columns());
+    name_list->set_is_value_table((*output_name_list)->is_value_table());
+    *output_name_list = name_list;
+  }
+
+  return zetasql_base::OkStatus();
 }
 
 }  // namespace zetasql

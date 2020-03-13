@@ -206,18 +206,19 @@ class NumericValueTest : public testing::Test {
   absl::BitGen random_;
 };
 
+static constexpr __int128 kNumericValidPackedValues[] = {
+    0,
+    -1,
+    1,
+    -10000,
+    10000,
+    kint64min,
+    kint64max,
+    kMinNumericValuePacked,
+    kMaxNumericValuePacked};
 
 TEST_F(NumericValueTest, FromPackedInt) {
-  static constexpr __int128 kValidValues[] = {0,
-                                              -1,
-                                              1,
-                                              -10000,
-                                              10000,
-                                              kint64min,
-                                              kint64max,
-                                              kMinNumericValuePacked,
-                                              kMaxNumericValuePacked};
-  for (__int128 packed : kValidValues) {
+  for (__int128 packed : kNumericValidPackedValues) {
     ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue value,
                          NumericValue::FromPackedInt(packed));
     EXPECT_EQ(packed, value.as_packed_int());
@@ -753,6 +754,30 @@ struct NumericToDoubleOp {
   static constexpr absl::string_view kExpressionFormat = "$0";
 };
 
+template <typename T>
+struct CumulativeSumOp {
+  zetasql_base::StatusOr<T> operator()(const T& x) {
+    aggregator.Add(x);
+    return aggregator.GetSum();
+  }
+  static constexpr absl::string_view kExpressionFormat = "SUM";
+
+  typename T::SumAggregator aggregator;
+};
+
+template <typename T>
+struct CumulativeAverageOp {
+  zetasql_base::StatusOr<T> operator()(const T& x) {
+    aggregator.Add(x);
+    ++count;
+    return aggregator.GetAverage(count);
+  }
+  static constexpr absl::string_view kExpressionFormat = "AVG";
+
+  typename T::SumAggregator aggregator;
+  uint64_t count = 0;
+};
+
 struct BigNumericToNumericOp {
   zetasql_base::StatusOr<NumericValue> operator()(
       const BigNumericValue& operand) const {
@@ -777,7 +802,7 @@ struct NumericToIntegerOp {
 };
 
 template <typename Op, typename Input, typename Output>
-void TestUnaryOp(Op op, const Input& input_wrapper,
+void TestUnaryOp(Op& op, const Input& input_wrapper,
                  const Output& expected_output) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto input, GetValue(input_wrapper));
   auto status_or_result = GetValue(op(input));
@@ -798,7 +823,7 @@ void TestUnaryOp(Op op, const Input& input_wrapper,
 }
 
 template <typename Op, typename Input1, typename Input2, typename Output>
-void TestBinaryOp(Op op, const Input1& input_wrapper1,
+void TestBinaryOp(Op& op, const Input1& input_wrapper1,
                   const Input2& input_wrapper2, const Output& expected_output) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto input1, GetValue(input_wrapper1));
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto input2, GetValue(input_wrapper2));
@@ -1625,9 +1650,6 @@ TEST_F(NumericValueTest, Power_PowersOfTwo) {
 }
 
 template <typename T>
-class NumericValueByTypeTest : public NumericValueTest {};
-
-template <typename T>
 void AddValuesToAggregator(T* aggregator,
                            const std::vector<NumericValue>& values) {
   for (auto value : values) {
@@ -1654,7 +1676,7 @@ void AddValuesToAggregator<NumericValue::CorrelationAggregator>(
 }
 
 template <typename T>
-class AggregatorSerializationByTypeTest : public NumericValueByTypeTest<T> {
+class AggregatorSerializationByTypeTest : public NumericValueTest {
  protected:
   void TestSerializeAggregator(const std::vector<NumericValue>& values) {
     T aggregator;
@@ -1667,270 +1689,120 @@ class AggregatorSerializationByTypeTest : public NumericValueByTypeTest<T> {
   }
 };
 
-using SumAggregatorTypes =
-    ::testing::Types<NumericValue::Aggregator, NumericValue::SumAggregator>;
-using AllAggregatorTypes =
-    ::testing::Types<NumericValue::Aggregator, NumericValue::SumAggregator,
-                     NumericValue::VarianceAggregator,
-                     NumericValue::CovarianceAggregator,
-                     NumericValue::CorrelationAggregator>;
-
-TYPED_TEST_SUITE(NumericValueByTypeTest, SumAggregatorTypes);
+using AllAggregatorTypes = ::testing::Types<
+    NumericValue::SumAggregator, NumericValue::VarianceAggregator,
+    NumericValue::CovarianceAggregator, NumericValue::CorrelationAggregator>;
 
 TYPED_TEST_SUITE(AggregatorSerializationByTypeTest, AllAggregatorTypes);
 
-TYPED_TEST(NumericValueByTypeTest, AggregatorOneValue) {
-  TypeParam a1;
-  a1.Add(NumericValue(0));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue sum, a1.GetSum());
+struct SumAggregatorTestData {
+  int cumulative_count;  // defined only for easier verification of average
+  NumericValueWrapper input;
+  NumericValueWrapper expected_cumulative_sum;
+  NumericValueWrapper expected_cumulative_avg;
+};
+
+static constexpr SumAggregatorTestData kSumAggregatorTestData[] = {
+    {1, 1, 1, 1},
+    {2, 0, 1, "0.5"},
+    {3, -2, -1, "-0.333333333"},
+    {4, "1e-9", "-0.999999999", "-0.25"},
+    {5, kMaxNumericValueStr, "99999999999999999999999999999",
+     "19999999999999999999999999999.8"},
+    {6, 1, kNumericOverflow /* actual sum = 1e29 */,
+     "16666666666666666666666666666.666666667"},
+    {7, 0, kNumericOverflow /* actual sum = 1e29 */,
+     "14285714285714285714285714285.714285714"},
+    {8, "-1e-9", kMaxNumericValueStr, "1.25e28"},
+    {9, kMaxNumericValueStr, kNumericOverflow /* actual sum = max * 2 */,
+     "22222222222222222222222222222.222222222"},
+    {10, kMaxNumericValueStr, kNumericOverflow /* actual sum = max * 3 */,
+     "3e28"},
+    {11, kMinNumericValueStr, kNumericOverflow /* actual sum = max * 2 */,
+     "18181818181818181818181818181.818181818"},
+    {12, kMinNumericValueStr, kMaxNumericValueStr,
+     "8333333333333333333333333333.333333333"},
+    {13, kMinNumericValueStr, 0, 0},
+    {14, "7e-9", "7e-9", "1e-9" /* rounded up from 5e-10 */},
+    {15, 0, "7e-9", 0 /* rounded down from 4.6666666...e-10 */},
+};
+
+TEST(NumericSumAggregatorTest, Sum) {
+  // Test exactly one input value.
+  for (__int128 packed : kNumericValidPackedValues) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue input,
+                         NumericValue::FromPackedInt(packed));
+    NumericValue::SumAggregator aggregator;
+    aggregator.Add(input);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue sum, aggregator.GetSum());
+    EXPECT_EQ(input, sum);
+  }
+
+  // Test cumulative sum with different inputs.
+  CumulativeSumOp<NumericValue> sum_op;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue sum, sum_op.aggregator.GetSum());
   EXPECT_EQ(NumericValue(0), sum);
-
-  TypeParam a2;
-  a2.Add(NumericValue::MaxValue());
-  ZETASQL_ASSERT_OK_AND_ASSIGN(sum, a2.GetSum());
-  EXPECT_EQ(NumericValue::MaxValue(), sum);
-
-  TypeParam a3;
-  a3.Add(NumericValue::MinValue());
-  ZETASQL_ASSERT_OK_AND_ASSIGN(sum, a3.GetSum());
-  EXPECT_EQ(NumericValue::MinValue(), sum);
+  CumulativeSumOp<NumericValue> negated_sum_op;
+  for (const SumAggregatorTestData& data : kSumAggregatorTestData) {
+    TestUnaryOp(sum_op, data.input, data.expected_cumulative_sum);
+    TestUnaryOp(negated_sum_op, -data.input, -data.expected_cumulative_sum);
+  }
 }
 
-TYPED_TEST(NumericValueByTypeTest, AggregatorMultipleValues) {
-  const int64_t kCount = 10000;
-
-  TypeParam a1;
-  TypeParam a2;
-  TypeParam a3;
-
-  for (int64_t i = 1; i <= kCount; i++) {
-    a1.Add(NumericValue(i));
-    a2.Add(NumericValue(-i));
-    a3.Add(NumericValue(i % 2 ? i : -i));
-  }
-
-  ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue sum, a1.GetSum());
-  EXPECT_EQ(NumericValue((1 + kCount) * kCount / 2), sum);
-
-  ZETASQL_ASSERT_OK_AND_ASSIGN(sum, a2.GetSum());
-  EXPECT_EQ(NumericValue((-1LL - kCount) * kCount / 2), sum);
-  ZETASQL_ASSERT_OK_AND_ASSIGN(sum, a3.GetSum());
-  EXPECT_EQ(NumericValue(-kCount / 2), sum);
-
-  ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue expected,
-                       NumericValue::FromDouble((1 + kCount) / 2.0));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue avg, a1.GetAverage(kCount));
-  EXPECT_EQ(expected, avg);
-  ZETASQL_ASSERT_OK_AND_ASSIGN(expected,
-                       NumericValue::FromDouble((-1LL - kCount) / 2.0));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(sum, a2.GetSum());
-  ZETASQL_ASSERT_OK_AND_ASSIGN(avg, a2.GetAverage(kCount));
-  EXPECT_EQ(expected, avg);
-  ZETASQL_ASSERT_OK_AND_ASSIGN(expected, NumericValue::FromDouble(-0.5));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(sum, a3.GetSum());
-  ZETASQL_ASSERT_OK_AND_ASSIGN(avg, a3.GetAverage(kCount));
-  EXPECT_EQ(expected, avg);
-}
-
-TYPED_TEST(NumericValueByTypeTest, AggregatorAverageRounding) {
-  // 1/3 - rounding down.
-  TypeParam a1;
-  a1.Add(NumericValue(1));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue avg, a1.GetAverage(3));
-  EXPECT_EQ("0.333333333", avg.ToString());
-
-  // 2/3 - rounding up.
-  a1.Add(NumericValue(1));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(avg, a1.GetAverage(3));
-  EXPECT_EQ("0.666666667", avg.ToString());
-
-  // 5/11- rounding up.
-  a1.Add(NumericValue(3));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(avg, a1.GetAverage(11));
-  EXPECT_EQ("0.454545455", avg.ToString());
-
-  // -1/3 - rounding down.
-  TypeParam a2;
-  a2.Add(NumericValue(-1));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(avg, a2.GetAverage(3));
-  EXPECT_EQ("-0.333333333", avg.ToString());
-
-  // -4/6 - rounding up.
-  a2.Add(NumericValue(-1));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(avg, a2.GetAverage(3));
-  EXPECT_EQ("-0.666666667", avg.ToString());
-
-  // -5/11 - - rounding up.
-  a2.Add(NumericValue(-3));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(avg, a2.GetAverage(11));
-  EXPECT_EQ("-0.454545455", avg.ToString());
-}
-
-TYPED_TEST(NumericValueByTypeTest, AggregatorOverflow) {
-  TypeParam a1;
-
-  EXPECT_THAT(a1.GetAverage(0),
-              StatusIs(zetasql_base::OUT_OF_RANGE, "division by zero: AVG"));
-
-  a1.Add(NumericValue::MaxValue());
-  a1.Add(NumericValue(1));
-  EXPECT_THAT(a1.GetSum(),
-              StatusIs(zetasql_base::OUT_OF_RANGE, "numeric overflow: SUM"));
-  EXPECT_THAT(a1.GetAverage(1),
-              StatusIs(zetasql_base::OUT_OF_RANGE, "numeric overflow: AVG"));
-  a1.Add(NumericValue(-1));
-  // The sum no longer overflows.
-  ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue sum, a1.GetSum());
-  EXPECT_EQ(NumericValue::MaxValue(), sum);
-  ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue avg, a1.GetAverage(1));
-  EXPECT_EQ(NumericValue::MaxValue(), avg);
-
-  // Advance to 2 * MaxValue
-  a1.Add(NumericValue::MaxValue());
-  EXPECT_THAT(a1.GetSum(),
-              StatusIs(zetasql_base::OUT_OF_RANGE, "numeric overflow: SUM"));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(avg, a1.GetAverage(2));
-  EXPECT_EQ(NumericValue::MaxValue(), avg);
-
-  // Advance back to MaxValue
-  a1.Add(NumericValue::MinValue());
-  // The sum no longer overflows.
-  ZETASQL_ASSERT_OK_AND_ASSIGN(sum, a1.GetSum());
-  EXPECT_EQ(NumericValue::MaxValue(), sum);
-
-  // Advance the sum to 2 * MinValue
-  a1.Add(NumericValue::MinValue());
-  a1.Add(NumericValue::MinValue());
-  a1.Add(NumericValue::MinValue());
-  // The sum should overflow again.
-  EXPECT_THAT(a1.GetSum(),
-              StatusIs(zetasql_base::OUT_OF_RANGE, "numeric overflow: SUM"));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(avg, a1.GetAverage(6));
-  EXPECT_EQ("-33333333333333333333333333333.333333333", avg.ToString());
-
-  // Advance to 2 * MinValue - 1 so dividing by 2 overflows
-  a1.Add(NumericValue(-1));
-  EXPECT_THAT(a1.GetAverage(2),
-              StatusIs(zetasql_base::OUT_OF_RANGE, "numeric overflow: AVG"));
-
-  // Special case: adding 4 values which internal representation is exactly
-  // -2^125. That makes the sum exactly -2^127 which is the minimum
-  // possible __int128 value.
-  NumericValue large_negative =
-      TestFixture::MkNumeric("-42535295865117307932921825928.971026432");
-  TypeParam a2;
-  for (int i = 1; i <= 4; i++) {
-    a2.Add(large_negative);
-    ZETASQL_ASSERT_OK_AND_ASSIGN(avg, a2.GetAverage(i));
-    EXPECT_EQ(large_negative, avg);
-  }
-
-  EXPECT_THAT(a2.GetSum(),
-              StatusIs(zetasql_base::OUT_OF_RANGE, "numeric overflow: SUM"));
-
-  // Add 4 more of large_negative values - the end result should be the same.
-  for (int i = 1; i <= 4; i++) {
-    a2.Add(large_negative);
-    EXPECT_THAT(a2.GetSum(),
-                StatusIs(zetasql_base::OUT_OF_RANGE, "numeric overflow: SUM"));
-    ZETASQL_ASSERT_OK_AND_ASSIGN(avg, a2.GetAverage(4 + i));
-    EXPECT_EQ(large_negative, avg);
-  }
-
-  EXPECT_THAT(a2.GetAverage(2),
-              StatusIs(zetasql_base::OUT_OF_RANGE, "numeric overflow: AVG"));
-
-  // Add 10,000 max values, then 20,000 min values, then 10,000 max values.
-  const int kCount = 10000;
-  TypeParam a3;
-
-  for (int i = 0; i < kCount; i++) {
-    a3.Add(NumericValue::MaxValue());
-  }
-  for (int i = 0; i < kCount * 2; i++) {
-    a3.Add(NumericValue::MinValue());
-  }
-  for (int i = 0; i < kCount; i++) {
-    a3.Add(NumericValue::MaxValue());
-  }
-
-  ZETASQL_ASSERT_OK_AND_ASSIGN(sum, a3.GetSum());
-  EXPECT_EQ(NumericValue(0), sum);
-  ZETASQL_ASSERT_OK_AND_ASSIGN(avg, a3.GetAverage(kCount * 4));
-  EXPECT_EQ(NumericValue(0), avg);
-}
-
-TYPED_TEST(NumericValueByTypeTest, AggregatorMergeWith) {
-  std::vector<NumericValue> values = {
-    NumericValue(0),
-    NumericValue(1),
-    NumericValue::MaxValue(),
-    TestFixture::MkNumeric("-123.01"),
-    NumericValue::MinValue(),
-    NumericValue::MinValue(),
-    NumericValue::MinValue(),
-    NumericValue::MaxValue(),
-    NumericValue::MaxValue(),
-    NumericValue::MaxValue(),
-    TestFixture::MkNumeric("56.999999999")
-  };
-
-  // Single aggregator used as a control for the MergeWith operation.
-  TypeParam control;
-
-  // Tests different total number of aggregated values.
-  for (int num_values = 0; num_values <= values.size(); num_values++) {
-    if (num_values > 0) {
-      control.Add(values[num_values - 1]);
+TEST(NumericSumAggregatorTest, Avg) {
+  // Test repeated inputs with same value.
+  for (__int128 packed : kNumericValidPackedValues) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue input,
+                         NumericValue::FromPackedInt(packed));
+    NumericValue::SumAggregator aggregator;
+    for (uint64_t count = 1; count <= 1000; ++count) {
+      aggregator.Add(input);
+      ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue avg, aggregator.GetAverage(count));
+      EXPECT_EQ(input, avg);
     }
+  }
 
-    bool control_sum_overflow = !control.GetSum().ok();
-    NumericValue control_sum = control_sum_overflow
-        ? NumericValue() : control.GetSum().ValueOrDie();
-    NumericValue control_average = num_values > 0
-        ? control.GetAverage(num_values).ValueOrDie() : NumericValue();
+  // Test cumulative average with different inputs.
+  CumulativeAverageOp<NumericValue> avg_op;
+  EXPECT_THAT(avg_op.aggregator.GetAverage(0),
+              StatusIs(zetasql_base::OUT_OF_RANGE, "division by zero: AVG"));
+  CumulativeAverageOp<NumericValue> negated_avg_op;
+  for (const SumAggregatorTestData& data : kSumAggregatorTestData) {
+    TestUnaryOp(avg_op, data.input, data.expected_cumulative_avg);
+    TestUnaryOp(negated_avg_op, -data.input, -data.expected_cumulative_avg);
+  }
+}
 
-    // Break input values between two aggregators and test that merging them
-    // doesn't affect the sum or the average of values against the control
-    // aggregator.
-    for (int num_in_first_aggregator = 0; num_in_first_aggregator <= num_values;
-         num_in_first_aggregator++) {
-      TypeParam a1;
-      TypeParam a2;
-      for (int i = 0; i < num_in_first_aggregator; i++) {
-        a1.Add(values[i]);
+TEST(NumericSumAggregatorTest, MergeWith) {
+  constexpr int kNumInputs = ABSL_ARRAYSIZE(kSumAggregatorTestData);
+  // aggregators[j][k] is the sum of the inputs with indexes in [j, k).
+  NumericValue::SumAggregator aggregators[kNumInputs + 1][kNumInputs + 1];
+  for (int i = 0; i < kNumInputs; ++i) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue input,
+                         GetValue(kSumAggregatorTestData[i].input));
+    // Emit the i-th input to aggregators[j][k] iff j <= i < k.
+    for (int j = 0; j <= i; ++j) {
+      for (int k = i + 1; k <= kNumInputs; ++k) {
+        aggregators[j][k].Add(input);
       }
-      for (int i = num_in_first_aggregator; i < num_values; i++) {
-        a2.Add(values[i]);
-      }
-
-      TypeParam test;
-      test.MergeWith(a1);
-      test.MergeWith(a2);
-
-      if (control_sum_overflow) {
-        EXPECT_THAT(test.GetSum(), StatusIs(zetasql_base::OUT_OF_RANGE,
-                                            "numeric overflow: SUM"));
-      } else {
-        ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue sum, test.GetSum());
-        EXPECT_EQ(sum, control_sum);
-      }
-
-      if (num_values > 0) {
-        ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue avg, test.GetAverage(num_values));
-        EXPECT_EQ(avg, control_average);
+    }
+  }
+  for (int j = 0; j < kNumInputs; ++j) {
+    for (int k = j; k <= kNumInputs; ++k) {
+      for (int m = k; m <= kNumInputs; ++m) {
+        // Verify aggregators[j][k] + aggregators[k][m] = aggregators[j][m].
+        NumericValue::SumAggregator aggregator = aggregators[j][k];
+        aggregator.MergeWith(aggregators[k][m]);
+        EXPECT_EQ(aggregators[j][m], aggregator) << j << ", " << k << ", " << m;
+        aggregator = aggregators[k][m];
+        aggregator.MergeWith(aggregators[j][k]);
+        EXPECT_EQ(aggregators[j][m], aggregator) << j << ", " << k << ", " << m;
       }
     }
   }
 }
 
 TYPED_TEST(AggregatorSerializationByTypeTest, AggregatorSerialization) {
-  TypeParam a1;
-  std::string bytes = a1.SerializeAsProtoBytes();
-  if (std::is_same_v<TypeParam, NumericValue::Aggregator>) {
-    EXPECT_EQ(24, bytes.size());
-  }
-
   this->TestSerializeAggregator({NumericValue()});
   this->TestSerializeAggregator({NumericValue(1)});
   this->TestSerializeAggregator({NumericValue(-1)});
@@ -1955,12 +1827,12 @@ TYPED_TEST(AggregatorSerializationByTypeTest,
 TYPED_TEST(AggregatorSerializationByTypeTest,
            AggregatorDeserializationFailures) {
   for (absl::string_view string_view : kInvalidSerializedAggregators) {
-    EXPECT_THAT(TypeParam::DeserializeFromProtoBytes(string_view),
-                StatusIs(zetasql_base::OUT_OF_RANGE,
-                         testing::MatchesRegex(
-                             "Invalid "
-                             "NumericValue::(|Sum|Variance|Covariance|"
-                             "Correlation)Aggregator encoding")));
+    EXPECT_THAT(
+        TypeParam::DeserializeFromProtoBytes(string_view),
+        StatusIs(zetasql_base::OUT_OF_RANGE,
+                 testing::MatchesRegex("Invalid "
+                                       "NumericValue::(Sum|Variance|Covariance|"
+                                       "Correlation)?Aggregator encoding")));
   }
 }
 
@@ -3412,6 +3284,42 @@ TEST_F(BigNumericValueTest, MultiplyDivisionRoundTrip) {
     EXPECT_EQ(BigNumericValue(quotient_x), big_numeric_x);
     EXPECT_EQ(BigNumericValue(quotient_y), big_numeric_y);
   }
+}
+
+TEST_F(BigNumericValueTest, HasFractionalPart) {
+  static constexpr NumericUnaryOpTestData<BigNumericValueWrapper, bool>
+      kTestData[] = {
+          {"0.1", true},
+          {"0.01", true},
+          {"0.001", true},
+          {"0.000000001", true},
+          {"1e-38", true},
+          {"1.00000000000000000000000000000000000001", true},
+          {"10000000000000000000000000000000000000."
+           "00000000000000000000000000000000000001",
+           true},
+          {"0.987654321", true},
+          {"0.999999999", true},
+          {"1.000000001", true},
+          {"1", false},
+          {"10", false},
+          {"9999", false},
+          {"99999999999999999999999999999", false},
+          {"1e38", false},
+          {"99999999999999999999999999999.000000001", true},
+          {"10000000000000000000000000000000000000.1", true},
+          {kMaxNumericValueStr, true},
+          {kMaxBigNumericValueStr, true},
+      };
+
+  for (const auto& data : kTestData) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue value, GetValue(data.input));
+    EXPECT_EQ(data.expected_output, value.has_fractional_part());
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue negated,
+                         BigNumericValue::UnaryMinus(value));
+    EXPECT_EQ(data.expected_output, negated.has_fractional_part());
+  }
+  EXPECT_TRUE(BigNumericValue::MinValue().has_fractional_part());
 }
 
 TEST_F(BigNumericValueTest, HashCode) {

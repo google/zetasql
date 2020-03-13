@@ -131,6 +131,14 @@ zetasql_base::Status Resolver::ResolveStatement(
     }
   }
 
+  if (statement->node_kind() != AST_QUERY_STATEMENT) {
+    if (!analyzer_options().get_target_column_types().empty()) {
+      return MakeSqlErrorAt(statement)
+             << "Unexpected statement type, expected query "
+                "statement because output columns are required";
+    }
+  }
+
   switch (statement->node_kind()) {
     case AST_QUERY_STATEMENT:
       if (language().SupportsStatementKind(RESOLVED_QUERY_STMT)) {

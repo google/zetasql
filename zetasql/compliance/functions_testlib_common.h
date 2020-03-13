@@ -25,6 +25,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/float_margin.h"
+#include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/public/functions/common_proto.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/options.pb.h"
@@ -34,6 +35,7 @@
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
 #include <cstdint>
+#include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "zetasql/base/status.h"
@@ -129,16 +131,25 @@ Value Proto3Wrapper(
         functions::internal::ValidWrapperConversions(Wrapper)>::type& input) {
   Wrapper proto3_wrapper;
   proto3_wrapper.set_value(input);
-  std::string bytes;
-  CHECK(proto3_wrapper.SerializeToString(&bytes));
-
   const ProtoType* wrapper_type;
   ZETASQL_CHECK_OK(
       type_factory()->MakeProtoType(Wrapper::descriptor(), &wrapper_type));
 
-  return Value::Proto(wrapper_type, bytes);
+  return Value::Proto(wrapper_type, SerializeToCord(proto3_wrapper));
 }
 
+template <>
+inline Value Proto3Wrapper<google::protobuf::BytesValue>(
+    const absl::Cord& input) {
+  google::protobuf::BytesValue proto3_wrapper;
+  proto3_wrapper.set_value(std::string(input));
+  const ProtoType* wrapper_type;
+  ZETASQL_CHECK_OK(
+      type_factory()->MakeProtoType(google::protobuf::BytesValue::descriptor(),
+                                    &wrapper_type));
+
+  return Value::Proto(wrapper_type, SerializeToCord(proto3_wrapper));
+}
 enum ComparisonResult {
   NULL_VALUE,  // output should be NULL
   EQUAL,       // left == right

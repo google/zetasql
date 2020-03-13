@@ -16,37 +16,50 @@
 
 #include "zetasql/public/evaluator.h"
 
-#include "zetasql/reference_impl/functions/register_all.h"
+#include "zetasql/common/evaluator_registration_utils.h"
 
 namespace zetasql {
 
 PreparedExpression::PreparedExpression(const std::string& sql,
                                        TypeFactory* type_factory)
     : PreparedExpressionBase(sql, type_factory) {
-  RegisterAllOptionalBuiltinFunctions();
+  internal::EnableFullEvaluatorFeatures();
 }
 
 PreparedExpression::PreparedExpression(const std::string& sql,
                                        const EvaluatorOptions& options)
     : PreparedExpressionBase(sql, options) {
-  RegisterAllOptionalBuiltinFunctions();
+  internal::EnableFullEvaluatorFeatures();
 }
 
 PreparedExpression::PreparedExpression(const ResolvedExpr* expression,
                                        const EvaluatorOptions& options)
     : PreparedExpressionBase(expression, options) {
-  RegisterAllOptionalBuiltinFunctions();
+  internal::EnableFullEvaluatorFeatures();
 }
 
 PreparedQuery::PreparedQuery(const std::string& sql,
                              const EvaluatorOptions& options)
     : PreparedQueryBase(sql, options) {
-  RegisterAllOptionalBuiltinFunctions();
+  internal::EnableFullEvaluatorFeatures();
 }
+
 PreparedQuery::PreparedQuery(const ResolvedQueryStmt* stmt,
                              const EvaluatorOptions& options)
     : PreparedQueryBase(stmt, options) {
-  RegisterAllOptionalBuiltinFunctions();
+  internal::EnableFullEvaluatorFeatures();
+}
+
+PreparedModify::PreparedModify(const std::string& sql,
+                               const EvaluatorOptions& options)
+    : PreparedModifyBase(sql, options) {
+  internal::EnableFullEvaluatorFeatures();
+}
+
+PreparedModify::PreparedModify(const ResolvedStatement* stmt,
+                               const EvaluatorOptions& options)
+    : PreparedModifyBase(stmt, options) {
+  internal::EnableFullEvaluatorFeatures();
 }
 
 }  // namespace zetasql

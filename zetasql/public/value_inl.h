@@ -41,6 +41,7 @@
 #include "zetasql/public/value.h"  
 #include <cstdint>
 #include "absl/hash/hash.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
@@ -83,8 +84,7 @@ class Value::TypedList : public zetasql_base::SimpleReferenceCounted {
 // associated with a ProtoRep (specifically, already deserialized fields).
 class Value::ProtoRep : public zetasql_base::SimpleReferenceCounted {
  public:
-  using Cord = std::string;
-  ProtoRep(const ProtoType* type, Cord value)
+  ProtoRep(const ProtoType* type, absl::Cord value)
       : type_(type), value_(std::move(value)) {
     CHECK(type != nullptr);
     CHECK(type->descriptor() != nullptr);
@@ -94,12 +94,12 @@ class Value::ProtoRep : public zetasql_base::SimpleReferenceCounted {
   ProtoRep& operator=(const ProtoRep&) = delete;
 
   const ProtoType* type() const { return type_; }
-  const Cord& value() const { return value_; }
+  const absl::Cord& value() const { return value_; }
   uint64_t physical_byte_size() const { return sizeof(ProtoRep) + value_.size(); }
 
  private:
   const ProtoType* type_;
-  const Cord value_;
+  const absl::Cord value_;
 };
 
 class Value::GeographyRef final : public zetasql_base::SimpleReferenceCounted {
@@ -340,6 +340,9 @@ inline Value Value::StringValue(std::string v) {
 inline Value Value::String(absl::string_view v) {
   return Value(TYPE_STRING, std::string(v));
 }
+inline Value Value::String(const absl::Cord& v) {
+  return Value(TYPE_STRING, std::string(v));
+}
 
 template <size_t N>
 inline Value Value::String(const char (&str)[N]) {
@@ -350,6 +353,9 @@ inline Value Value::Bytes(std::string v) {
   return Value(TYPE_BYTES, std::move(v));
 }
 inline Value Value::Bytes(absl::string_view v) {
+  return Value(TYPE_BYTES, std::string(v));
+}
+inline Value Value::Bytes(const absl::Cord& v) {
   return Value(TYPE_BYTES, std::string(v));
 }
 template <size_t N>
@@ -379,8 +385,8 @@ inline Value Value::Enum(const EnumType* type, int64_t value) {
 inline Value Value::Enum(const EnumType* type, absl::string_view name) {
   return Value(type, name);
 }
-inline Value Value::Proto(const ProtoType* type, const std::string& value) {
-  return Value(type, value);
+inline Value Value::Proto(const ProtoType* type, absl::Cord value) {
+  return Value(type, std::move(value));
 }
 
 inline Value Value::NullInt32() { return Value(types::Int32Type()); }
@@ -784,9 +790,11 @@ inline Value Bool(bool v) { return Value::Bool(v); }
 inline Value Float(float v) { return Value::Float(v); }
 inline Value Double(double v) { return Value::Double(v); }
 inline Value String(absl::string_view v) { return Value::String(v); }
+inline Value String(const absl::Cord& v) { return Value::String(v); }
 template <size_t N>
 inline Value String(const char (&str)[N]) { return Value::String(str); }
 inline Value Bytes(absl::string_view v) { return Value::Bytes(v); }
+inline Value Bytes(const absl::Cord& v) { return Value::Bytes(v); }
 template <size_t N>
 inline Value Bytes(const char (&str)[N]) { return Value::Bytes(str); }
 inline Value Date(int32_t v) { return Value::Date(v); }
@@ -827,13 +835,13 @@ inline Value UnsafeStruct(const StructType* type, std::vector<Value>&& values) {
   return Value::UnsafeStruct(type, std::move(values));
 }
 
-inline Value Proto(const ProtoType* proto_type, const std::string& value) {
+inline Value Proto(const ProtoType* proto_type, absl::Cord value) {
   return Value::Proto(proto_type, std::move(value));
 }
 inline Value Proto(const ProtoType* proto_type, const google::protobuf::Message& msg) {
   std::string bytes;
   CHECK(msg.SerializeToString(&bytes));
-  return Value::Proto(proto_type, std::move(bytes));
+  return Value::Proto(proto_type, absl::Cord(bytes));
 }
 inline Value EmptyArray(const ArrayType* type) {
   return Value::Array(type, {});

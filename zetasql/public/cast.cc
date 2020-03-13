@@ -41,6 +41,7 @@
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.pb.h"
 #include <cstdint>
+#include "absl/strings/cord.h"
 #include "absl/strings/str_split.h"
 #include "absl/time/time.h"
 #include "zetasql/base/map_util.h"
@@ -615,11 +616,14 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
       zetasql_base::Status error;
       functions::StringToProto(v.string_value(), message.get(), &error);
       ZETASQL_RETURN_IF_ERROR(error);
-      // TODO: SerializeToString returns false if not all required
+      // TODO: SerializeToCord returns false if not all required
       // fields are present.  If we want to allow missing required fields
-      // We could use SerializePartialToString().
-      std::string cord_value;
-      if (!message->SerializeToString(&cord_value)) {
+      // We could use SerializePartialToCord().
+      absl::Cord cord_value;
+      std::string string_value;
+      bool is_valid = message->SerializeToString(&string_value);
+      cord_value = absl::Cord(string_value);
+      if (!is_valid) {
         // TODO: This does not seem reachable given that we just
         // successfully parsed the string to a valid message.
         std::string output_string(ToStringLiteral(v.string_value()));
@@ -629,7 +633,7 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
                                << to_type->DebugString()
                                << " from string: " << output_string;
       }
-      return Value::Proto(to_type->AsProto(), cord_value);
+      return Value::Proto(to_type->AsProto(), std::move(cord_value));
     }
 
     case FCT(TYPE_BYTES, TYPE_STRING): {
@@ -644,7 +648,7 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
     case FCT(TYPE_BYTES, TYPE_PROTO):
       // Opaque proto support does not affect this implementation, which does
       // no validation.
-      return Value::Proto(to_type->AsProto(), v.bytes_value());
+      return Value::Proto(to_type->AsProto(), absl::Cord(v.bytes_value()));
     case FCT(TYPE_DATE, TYPE_STRING): {
       std::string date;
       ZETASQL_RETURN_IF_ERROR(functions::ConvertDateToString(v.date_value(), &date));
@@ -769,8 +773,8 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
       google::protobuf::DynamicMessageFactory msg_factory;
       std::unique_ptr<google::protobuf::Message> message(
           msg_factory.GetPrototype(v.type()->AsProto()->descriptor())->New());
-      std::string message_string;
-      if (!message->ParsePartialFromString(v.ToCord())) {
+      bool is_valid = message->ParsePartialFromString(std::string(v.ToCord()));
+      if (!is_valid) {
         std::string display_bytes =
             PrettyTruncateUTF8(ToBytesLiteral(std::string(v.ToCord())),
                                MAX_LITERAL_DISPLAY_LENGTH);
@@ -779,7 +783,7 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
                                << display_bytes;
       }
       zetasql_base::Status error;
-      std::string printed_msg;
+      absl::Cord printed_msg;
       functions::ProtoToString(message.get(), &printed_msg, &error);
       ZETASQL_RETURN_IF_ERROR(error);
       return Value::String(std::string(printed_msg));

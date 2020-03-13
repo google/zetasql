@@ -56,10 +56,20 @@ static double kDecimalExponentFloat[kFloatMaxExponent -
 
 void InitExponents() {
   for (int i = 0; i < ABSL_ARRAYSIZE(kDecimalExponentDouble); ++i) {
+    // Note: exp10 and exp10l are GNU extensions. Fall back to pow and powl if
+    // they're not available.
+#ifdef _GNU_SOURCE
     kDecimalExponentDouble[i] = exp10l(i + kDoubleMinExponent);
+#else
+    kDecimalExponentDouble[i] = powl(10.0, i + kDoubleMinExponent);
+#endif
   }
   for (int i = 0; i < ABSL_ARRAYSIZE(kDecimalExponentFloat); ++i) {
+#ifdef _GNU_SOURCE
     kDecimalExponentFloat[i] = exp10(i + kFloatMinExponent);
+#else
+    kDecimalExponentFloat[i] = pow(10.0, i + kFloatMinExponent);
+#endif
   }
 }
 

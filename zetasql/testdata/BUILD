@@ -199,6 +199,7 @@ cc_library(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -210,6 +211,7 @@ cc_library(
     hdrs = ["error_catalog.h"],
     copts = ["-Wno-sign-compare"],
     deps = [
+        "//zetasql/base",
         "//zetasql/base:ret_check",
         "//zetasql/base:source_location",
         "//zetasql/base:status",

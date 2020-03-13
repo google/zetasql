@@ -41,7 +41,7 @@ Any data type **except**:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Returned Data Types**
 
@@ -105,7 +105,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Returned Data Types**
 
@@ -203,7 +203,7 @@ specifies the number of elements returned.
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Returned Data Types**
 
@@ -287,7 +287,7 @@ If the `weight` input is negative or `NaN`, this function returns an error.
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Returned Data Types**
 

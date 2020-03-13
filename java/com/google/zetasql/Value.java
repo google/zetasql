@@ -785,7 +785,7 @@ public class Value implements Serializable {
       // Use literal syntax for DATE, DATETIME, TIME and TIMESTAMP.
       return String.format("%s %s", type.typeName(), ZetaSQLStrings.toStringLiteral(s));
     }
-    if (type.isNumeric()) {
+    if (type.isNumeric() || type.isBigNumeric()) {
       return getSQLLiteral();
     }
     if (type.isGeography()) {

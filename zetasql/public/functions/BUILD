@@ -106,6 +106,7 @@ cc_library(
         "//zetasql/base:source_location",
         "//zetasql/base:status",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -621,6 +622,7 @@ cc_library(
         "//zetasql/common:utf_util",
         "//zetasql/public:civil_time",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_googleapis_googleapis//:latlng_cc_proto",
         "@com_googleapis_googleapis//:timeofday_cc_proto",
@@ -640,6 +642,7 @@ cc_test(
         "//zetasql/base/testing:status_matchers",
         "//zetasql/public:civil_time",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_googleapis_googleapis//:timeofday_cc_proto",
     ],

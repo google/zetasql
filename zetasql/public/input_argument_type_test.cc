@@ -24,6 +24,7 @@
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_join.h"
 
 namespace zetasql {
@@ -180,12 +181,15 @@ TEST(InputArgumentTypeTests, TestInputArgumentTypeLess) {
   ZETASQL_ASSERT_OK(
       type_factory.MakeProtoType(zetasql_test::KitchenSinkPB::descriptor(),
                                  &proto_type));
-  const Value proto_value(values::Proto(proto_type, "a"));
+
+  const Value proto_value(values::Proto(proto_type, absl::Cord("a")));
+
   const ProtoType* another_proto_type;
   ZETASQL_ASSERT_OK(
       type_factory.MakeProtoType(zetasql_test::TestExtraPB::descriptor(),
                                  &another_proto_type));
-  const Value another_proto_value(values::Proto(another_proto_type, "a"));
+  const Value another_proto_value(
+      values::Proto(another_proto_type, absl::Cord("a")));
 
   TestExpectedArgumentTypeLessPair(InputArgumentType(proto_type),
                                    InputArgumentType(proto_value));

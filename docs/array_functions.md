@@ -743,7 +743,7 @@ FROM items;
 [subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax#subqueries
 [datamodel-sql-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#standard-sql-tables
 [datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#value-tables
-[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types#array-type
+[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types#array_type
 
 [array-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators
 

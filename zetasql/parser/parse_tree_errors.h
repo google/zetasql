@@ -60,6 +60,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "absl/base/optimization.h"
+#include "zetasql/base/status.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
@@ -129,7 +130,7 @@ zetasql_base::Status StatusWithInternalErrorLocation(
 
 // Makes a new Status from <code> and <message> with an external ErrorLocation.
 zetasql_base::Status MakeStatusWithErrorLocation(zetasql_base::StatusCode code,
-                                         const std::string& message,
+                                         absl::string_view message,
                                          const std::string& filename,
                                          const std::string& query,
                                          const ASTNode* ast_node,

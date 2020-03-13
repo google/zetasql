@@ -24,6 +24,7 @@
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/base/status.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status.h"
@@ -74,7 +75,7 @@ zetasql_base::Status StatusWithInternalErrorLocation(const zetasql_base::Status&
 }
 
 zetasql_base::Status MakeStatusWithErrorLocation(zetasql_base::StatusCode code,
-                                         const std::string& message,
+                                         absl::string_view message,
                                          const std::string& filename,
                                          const std::string& query,
                                          const ASTNode* ast_node,

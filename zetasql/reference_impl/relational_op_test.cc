@@ -28,6 +28,7 @@
 #include "google/protobuf/wire_format_lite.h"
 #include "zetasql/common/evaluator_test_table.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"
@@ -50,6 +51,7 @@
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "zetasql/base/status.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
 #include "absl/types/optional.h"
@@ -139,10 +141,7 @@ class CreateIteratorTest : public ::testing::Test {
     proto.set_int64_key_1(i);
     proto.set_int64_key_2(10 * i);
 
-    std::string cord;
-    CHECK(proto.SerializeToString(&cord));
-
-    return Value::Proto(proto_type_, cord);
+    return Value::Proto(proto_type_, SerializeToCord(proto));
   }
 
   const ProtoType* proto_type_ = nullptr;

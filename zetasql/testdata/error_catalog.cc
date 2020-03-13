@@ -16,6 +16,7 @@
 
 #include "zetasql/testdata/error_catalog.h"
 
+#include "zetasql/base/status.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
@@ -29,9 +30,8 @@ class TableValuedFunction;
 class Type;
 
 zetasql_base::Status ErrorCatalog::Create(
-      ::zetasql_base::StatusCode code,
-      std::unique_ptr<ErrorCatalog>* error_catalog) {
-  ZETASQL_RET_CHECK_NE(::zetasql_base::OK, code);
+    zetasql_base::StatusCode code, std::unique_ptr<ErrorCatalog>* error_catalog) {
+  ZETASQL_RET_CHECK_NE(zetasql_base::StatusCode::kOk, code);
   error_catalog->reset(new ErrorCatalog(code));
   return ::zetasql_base::OkStatus();
 }

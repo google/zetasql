@@ -592,7 +592,7 @@ The range of subsecond precision is determined by the SQL engine.
 +  To represent a time, as it might appear on a clock,
    use a [TIME][time-type] object.
 +  To represent a date and time, as they might appear on a calendar and clock,
-   use a [DATETIME][date-type] object.
+   use a [DATETIME][datetime-type] object.
 
 <div>
 
@@ -618,7 +618,7 @@ YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]][time zone]
     <li><code>[time zone]</code>: String representing the time zone.
                                   When a time zone is not explicitly specified, the
                                   default time zone, which is implementation defined, is used.
-                                  See the <a href="#time-zones">time zones</a> section for details.
+                                  See the <a href="#time_zones">time zones</a> section for details.
    </li>
 </ul>
 
@@ -631,7 +631,7 @@ nor does it change when you apply a time zone offset.
 Time zones are represented by strings in one of these two canonical formats:
 
 + Offset from Coordinated Universal Time (UTC), or the letter `Z` for UTC
-+ Time zone name from the [tz database][tz-database]
++ Time zone name from the [tz database][tz-database]{: class=external target=_blank }
 
 #### Offset from Coordinated Universal Time (UTC)
 
@@ -665,9 +665,9 @@ of the timestamp.
 continent/[region/]city
 ```
 
-Time zone names are from the [tz database][tz-database]. For a
-less comprehensive but simpler reference, see the
-[List of tz database time zones][tz-database-list]
+Time zone names are from the [tz database][tz-database]{: class=external target=_blank }.
+For a less comprehensive but simpler reference, see the
+[List of tz database time zones][tz-database-list]{: class=external target=_blank }
 on Wikipedia.
 
 **Examples**
@@ -1099,10 +1099,10 @@ workarounds:
 [tz-database-list]: http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 [ogc-sfs]: http://www.opengeospatial.org/standards/sfs#downloads
 [WGS84-reference-ellipsoid]: https://en.wikipedia.org/wiki/World_Geodetic_System
-[timestamp-type]: #timestamp-type
-[date-type]: #date-type
-[datetime-type]: #datetime-type
-[time-type]: #time-type
+[timestamp-type]: #timestamp_type
+[date-type]: #date_type
+[datetime-type]: #datetime_type
+[time-type]: #time_type
 [protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers
 [lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical#literals
 

@@ -27,6 +27,7 @@
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/tuple.h"
 #include <cstdint>
+#include "zetasql/base/status.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -34,7 +35,7 @@
 
 namespace zetasql {
 
-// Populates 'collators' with the ZetaSqlCollators correspoding to the input
+// Populates 'collators' with the ZetaSqlCollators corresponding to the input
 // arguments.
 static zetasql_base::Status GetZetaSqlCollators(
     absl::Span<const KeyArg* const> keys,
@@ -55,12 +56,10 @@ static zetasql_base::Status GetZetaSqlCollators(
       }
 
       const std::string& collation_name = collation_value.string_value();
-      collators->emplace_back(
-          ZetaSqlCollator::CreateFromCollationName(collation_name));
-      if ((*collators)[i] == nullptr) {
-        return ::zetasql_base::OutOfRangeErrorBuilder()
-               << "COLLATE has invalid collation name";
-      }
+      ZETASQL_ASSIGN_OR_RETURN(
+          ZetaSqlCollator* collator,
+          ZetaSqlCollator::CreateFromCollationNameLite(collation_name));
+      collators->emplace_back(collator);
     } else {
       collators->emplace_back(nullptr);
     }

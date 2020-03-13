@@ -33,6 +33,7 @@
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include <cstdint>
+#include "absl/strings/cord.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/statusor.h"
@@ -52,7 +53,7 @@ struct ValidWrapperConversions {
     int32_t operator()(google::protobuf::Int32Value);
     uint32_t operator()(google::protobuf::UInt32Value);
     std::string operator()(google::protobuf::StringValue);
-    std::string operator()(google::protobuf::BytesValue);
+    absl::Cord operator()(google::protobuf::BytesValue);
 };
 }  // namespace internal
 
@@ -103,6 +104,18 @@ void ConvertTypeToProto3Wrapper(
   output->set_value(input);
 }
 
+template <>
+inline zetasql_base::Status ConvertProto3WrapperToType(
+    const google::protobuf::BytesValue& input, absl::Cord* output) {
+  *output = absl::Cord(input.value());
+  return zetasql_base::OkStatus();
+}
+
+template <>
+inline void ConvertTypeToProto3Wrapper(
+    const absl::Cord& input, google::protobuf::BytesValue* output) {
+  output->set_value(std::string(input));
+}
 }  // namespace functions
 }  // namespace zetasql
 

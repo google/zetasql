@@ -64,7 +64,7 @@ message AllowedHintsAndOptionsProto {
 }
 
 // Serialized form of AnalyzerOptions.
-// next id: 19
+// next id: 20
 message AnalyzerOptionsProto {
   message QueryParameterProto {
     optional string name = 1;
@@ -97,4 +97,5 @@ message AnalyzerOptionsProto {
   reserved 16;  // optional bool strict_validation_on_column_replacements = 16;
   optional bool preserve_column_aliases = 17;
   repeated SystemVariableProto system_variables = 18;
+  repeated TypeProto target_column_types = 19;
 }

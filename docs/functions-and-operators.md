@@ -298,9 +298,9 @@ Halfway cases such as 1.5 or -0.5 round away from zero.</td>
   point, it will round
   <a href="https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero">
   half away from zero</a>. Casting a <code>NaN</code>, <code>+inf</code> or
-  <code>-inf</code> will return an error. Casting a value
-  <a href="data-types#numeric-type">outside the range of NUMERIC</a> will
-  return an overflow error.
+  <code>-inf</code> will return an error. Casting a value outside the range of
+  <a href="data-types#numeric_type"><code>NUMERIC</code></a>
+  will return an overflow error.
 </td>
 </tr>
 <tr>
@@ -329,8 +329,9 @@ Conversions are case-insensitive.
 <td>STRING</td>
 <td>NUMERIC</td>
 <td>The numeric literal contained in the <code>STRING</code> must not exceed the
-  <a href="data-types#numeric-type">maximum precision or range of the
-<code>NUMERIC</code> type</a>, or an error will occur. If the number of digits
+maximum precision or range of the
+<a href="data-types#numeric_type"><code>NUMERIC</code></a>
+type, or an error will occur. If the number of digits
 after the decimal point exceeds nine, then the resulting <code>NUMERIC</code>
 value will round
 <a href="https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero">half
@@ -704,7 +705,7 @@ ZetaSQL provides the following additional conversion functions:
 
 [con-rules-link-to-literal-coercion]: #literal_coercion
 [con-rules-link-to-parameter-coercion]: #parameter_coercion
-[con-rules-link-to-time-zones]: https://github.com/google/zetasql/blob/master/docs/data-types#time-zones
+[con-rules-link-to-time-zones]: https://github.com/google/zetasql/blob/master/docs/data-types#time_zones
 
 [con-rules-link-to-safe-convert-bytes-to-string]: #safe_convert_bytes_to_string
 [con-rules-link-to-date-functions]: #date_functions
@@ -771,7 +772,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Returned Data Types**
 
@@ -862,7 +863,7 @@ The clauses are applied *in the following order*:
     The limit `n` must be a constant INT64.
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Returned Data Types**
 
@@ -1007,7 +1008,7 @@ The clauses are applied *in the following order*:
     The limit `n` must be a constant INT64.
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Returned Data Types**
 
@@ -1112,7 +1113,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Returned Data Types**
 
@@ -1196,7 +1197,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Returned Data Types**
 
@@ -1248,7 +1249,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Returned Data Types**
 
@@ -1300,7 +1301,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Returned Data Types**
 
@@ -1381,7 +1382,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Data Types**
 
@@ -1473,7 +1474,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Data Types**
 
@@ -1546,7 +1547,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Data Types**
 
@@ -1597,7 +1598,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Data Types**
 
@@ -1652,7 +1653,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Data Types**
 
@@ -1724,7 +1725,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Data Types**
 
@@ -1818,7 +1819,7 @@ The clauses are applied *in the following order*:
     The limit `n` must be a constant INT64.
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Data Types**
 
@@ -1947,7 +1948,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Data Types**
 
@@ -2079,7 +2080,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Data Type**
 
@@ -2124,7 +2125,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Data Type**
 
@@ -2169,7 +2170,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Data Type**
 
@@ -2215,7 +2216,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Data Type**
 
@@ -2259,7 +2260,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Data Type**
 
@@ -2314,7 +2315,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Data Type**
 
@@ -2358,7 +2359,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Data Type**
 
@@ -2419,7 +2420,7 @@ Any data type **except**:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Returned Data Types**
 
@@ -2483,7 +2484,7 @@ The clauses are applied *in the following order*:
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Returned Data Types**
 
@@ -2581,7 +2582,7 @@ specifies the number of elements returned.
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Returned Data Types**
 
@@ -2665,7 +2666,7 @@ If the `weight` input is negative or `NaN`, this function returns an error.
     `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Returned Data Types**
 
@@ -3038,7 +3039,7 @@ that allows you to retrieve values whose ranks are within
 + `precision`: `INT64`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Types**
 
@@ -3061,7 +3062,7 @@ Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
 + `precision`: `INT64`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Types**
 
@@ -3088,7 +3089,7 @@ Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
 + `precision`: `INT64`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Types**
 
@@ -3221,7 +3222,7 @@ Takes KLL16 sketches as `BYTES`, initialized on data
 of type `INT64`.
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Types**
 
@@ -3244,7 +3245,7 @@ Takes KLL16 sketches as `BYTES`, initialized on data
 of type `UINT64`.
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Types**
 
@@ -3271,7 +3272,7 @@ Takes KLL16 sketches as `BYTES`, initialized on data
 of type `DOUBLE`.
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Types**
 
@@ -3336,7 +3337,7 @@ percentile of the merged sketch.
 + `phi` is a `DOUBLE` between 0 and 1.
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Types**
 
@@ -3360,7 +3361,7 @@ accepts `input` of type `UINT64`.
 + `phi` is a `DOUBLE` between 0 and 1.
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Types**
 
@@ -3388,7 +3389,7 @@ accepts `input` of type `DOUBLE`.
 + `phi` is a `DOUBLE` between 0 and 1.
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 **Return Types**
 
@@ -3579,7 +3580,7 @@ but accepts sketches initialized on data of type of type
 
 [link-to-kll-paper]: https://arxiv.org/pdf/1603.05346v2.pdf
 [approximate-aggregation-concept]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation#storing-estimated-aggregate-values-as-sketches
-[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types#comparison-operator-examples
+[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types#comparison_operator_examples
 
 ## Numbering Functions
 
@@ -4581,7 +4582,7 @@ the two arguments to determine the quadrant. The return value is in the range
 </tbody>
 </table>
 
-[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data-type-properties
+[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data_type_properties
 
 ## Navigation Functions
 
@@ -9219,7 +9220,7 @@ FROM items;
 [subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax#subqueries
 [datamodel-sql-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#standard-sql-tables
 [datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#value-tables
-[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types#array-type
+[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types#array_type
 
 [array-link-to-operators]: #operators
 
@@ -14487,7 +14488,7 @@ The concatenation operator combines multiple values into one.
 [operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering-arrays
 [operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
 [operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax#from-clause
-[operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types#struct-type
+[operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types#struct_type
 
 [operators-link-to-math-functions]: #mathematical_functions
 [link-to-coercion]: #coercion

@@ -52,6 +52,14 @@ class PreparedQuery : public PreparedQueryBase {
   PreparedQuery(const ResolvedQueryStmt* stmt, const EvaluatorOptions& options);
 };
 
+// See evaluator_base.h for the full interface and usage instructions.
+class PreparedModify : public PreparedModifyBase {
+ public:
+  PreparedModify(const std::string& sql, const EvaluatorOptions& options);
+  PreparedModify(const ResolvedStatement* stmt,
+                 const EvaluatorOptions& options);
+};
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_PUBLIC_EVALUATOR_H_

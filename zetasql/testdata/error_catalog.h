@@ -21,6 +21,7 @@
 #include <string>
 
 #include "zetasql/public/catalog.h"
+#include "zetasql/base/status.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
 
@@ -38,9 +39,8 @@ class ErrorCatalog : public Catalog {
  public:
   // Static Create() function, which returns an error if 'code' is OK
   // (i.e., not an error code).
-  static zetasql_base::Status Create(
-      ::zetasql_base::StatusCode code,
-      std::unique_ptr<ErrorCatalog>* error_catalog);
+  static zetasql_base::Status Create(zetasql_base::StatusCode code,
+                             std::unique_ptr<ErrorCatalog>* error_catalog);
 
   std::string FullName() const override { return "catalog_with_errors"; }
 
@@ -69,10 +69,10 @@ class ErrorCatalog : public Catalog {
  private:
   // Private constructor, forcing users to invoke the Create() method
   // which validates the error code.
-  explicit ErrorCatalog(::zetasql_base::StatusCode code) : error_code_(code) {}
+  explicit ErrorCatalog(zetasql_base::StatusCode code) : error_code_(code) {}
 
   // The error code to use when building the return status.
-  ::zetasql_base::StatusCode error_code_;
+  zetasql_base::StatusCode error_code_;
 };
 
 }  // namespace zetasql

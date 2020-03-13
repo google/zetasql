@@ -394,6 +394,15 @@ zetasql_base::Status AnalyzerOptions::Deserialize(
                           << proto.default_timezone();
   }
 
+  std::vector<const Type*> expected_types;
+  for (const TypeProto& type_proto : proto.target_column_types()) {
+    const Type* type;
+    ZETASQL_RETURN_IF_ERROR(factory->DeserializeFromProtoUsingExistingPools(
+        type_proto, pools, &type));
+    expected_types.push_back(type);
+  }
+  result->set_target_column_types(expected_types);
+
   result->set_statement_context(proto.statement_context());
   result->set_error_message_mode(proto.error_message_mode());
   result->set_record_parse_locations(proto.record_parse_locations());
@@ -472,6 +481,11 @@ zetasql_base::Status AnalyzerOptions::Serialize(
 
   ZETASQL_RETURN_IF_ERROR(allowed_hints_and_options_.Serialize(
       map, proto->mutable_allowed_hints_and_options()));
+
+  for (const Type* type : target_column_types_) {
+    ZETASQL_RETURN_IF_ERROR(type->SerializeToProtoAndDistinctFileDescriptors(
+        proto->add_target_column_types(), map));
+  }
 
   return ::zetasql_base::OkStatus();
 }

@@ -26,6 +26,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "zetasql/base/status.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/status.h"
 
@@ -190,7 +191,7 @@ TEST(CommonProtoTest, ConvertTypeToProto3Wrapper) {
                                                           &bool_proto);
   EXPECT_EQ(true, bool_proto.value());
 
-  const std::string bytes_input("\xA4");
+  const absl::Cord bytes_input("\xA4");
   google::protobuf::BytesValue bytes_proto;
   ConvertTypeToProto3Wrapper<google::protobuf::BytesValue>(bytes_input,
                                                            &bytes_proto);

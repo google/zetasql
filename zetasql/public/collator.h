@@ -23,7 +23,7 @@
 #include <cstdint>
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
-#include "unicode/coll.h"
+#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -38,13 +38,15 @@ namespace zetasql {
 // int64_t compare_result = collator->CompareUtf8(s1, s2, &error);
 class ZetaSqlCollator {
  public:
-  ZetaSqlCollator() = delete;
   ZetaSqlCollator(const ZetaSqlCollator&) = delete;
   ZetaSqlCollator& operator=(const ZetaSqlCollator&) = delete;
-  ~ZetaSqlCollator();
+  virtual ~ZetaSqlCollator() = 0;
 
   // Returns a instance of ZetaSqlCollator corresponding to the given
   // <collation_name>. Returns nullptr if <collation_name> is not valid.
+  //
+  // Your build target must depend on :collator to use this function;
+  // :collator_lite is insufficient.
   //
   // A <collation_name> is composed as "<language_tag> ( ':' <attribute> )*".
   // - <language_tag> is considered valid only if it is "unicode" (which means
@@ -60,6 +62,22 @@ class ZetaSqlCollator {
   static ZetaSqlCollator* CreateFromCollationName(
       const std::string& collation_name);
 
+  // This lightweight version of CreateFromCollationName() supports only the
+  // "unicode:cs" collation, unless the full collator implementation has been
+  // linked in and statically registered, in which case it behaves the same way
+  // as CreateFromCollationName() above.
+  //
+  // ZetaSQL end users should not have any reason to call this function over
+  // CreateFromCollationName(); it is mostly an implementation detail of the
+  // :evaluator_lite target. It switches between the "lite" implementation and
+  // the full ICU-based implementation based on whether the latter has been
+  // registered with zetasql::internal::RegisterIcuCollatorImpl().
+  //
+  // This function never returns nullptr. The returned ZetaSqlCollator* is
+  // owned by the caller.
+  static zetasql_base::StatusOr<ZetaSqlCollator*> CreateFromCollationNameLite(
+      const std::string& collation_name);
+
   // A three valued string compare method based on the collate specific rules.
   //
   // Returns -1 if s1 is less than s2.
@@ -68,32 +86,31 @@ class ZetaSqlCollator {
   //
   // If an error occurs, <*error> will be updated.
   // Errors will never occur if <s1> and <s2> are valid UTF-8.
-  int64_t CompareUtf8(const absl::string_view s1, const absl::string_view s2,
-                    zetasql_base::Status* error) const;
+  virtual int64_t CompareUtf8(const absl::string_view s1,
+                            const absl::string_view s2,
+                            zetasql_base::Status* error) const = 0;
 
   // Returns true if this collator uses simple binary comparisons.
   // If true, engines can get equivalent behavior using binary comparison on
   // strings rather than using CompareUtf8, which may allow for more efficient
   // implementation.
-  bool IsBinaryComparison() const {
-    return icu_collator_ == nullptr && !is_case_insensitive_;
-  }
+  virtual bool IsBinaryComparison() const = 0;
 
- private:
-  ZetaSqlCollator(std::unique_ptr<icu::Collator> icu_collator,
-                    bool is_unicode, bool is_case_insensitive);
-
-  // icu::Collator used for locale-specific ordering. Not initialized for case
-  // sensitive Unicode locale (i.e. is_unicode && !is_case_insensitive_).
-  const std::unique_ptr<const icu::Collator> icu_collator_;
-
-  // Set to true if instantiated with "unicode", i.e. default Unicode collation.
-  const bool is_unicode_;
-
-  // Collation attribute to specify whether the comparisons should be
-  // case-insensitive.
-  const bool is_case_insensitive_;
+ protected:
+  ZetaSqlCollator() = default;
 };
+
+namespace internal {
+// Globally registers the collator implementation to be used by
+// ZetaSqlCollator::CreateFromCollationNameLite().
+// For internal ZetaSQL use only.
+void RegisterIcuCollatorImpl(
+    std::function<zetasql_base::StatusOr<ZetaSqlCollator*>(absl::string_view)>
+        create_fn);
+// Resets the globally registered collator implementation to the lightweight
+// default. For testing only.
+void RegisterDefaultCollatorImpl();
+}  // namespace internal
 
 }  // namespace zetasql
 

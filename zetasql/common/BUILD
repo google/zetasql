@@ -375,3 +375,16 @@ cc_test(
         "@com_google_absl//absl/strings",
     ],
 )
+
+cc_library(
+    name = "evaluator_registration_utils",
+    srcs = ["evaluator_registration_utils.cc"],
+    hdrs = ["evaluator_registration_utils.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "//zetasql/base:status",
+        "//zetasql/public:collator",
+        "//zetasql/reference_impl/functions:register_all",
+        "@com_google_absl//absl/base",
+    ],
+)

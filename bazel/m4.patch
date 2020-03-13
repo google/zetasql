@@ -112,3 +112,22 @@
  
  /* BSD stdio derived implementations.  */
  
+
+--- lib/vasnprintf.c
++++ lib/vasnprintf.c
+@@ -166,10 +166,13 @@
+   /* Use snprintf if it exists under the name 'snprintf' or '_snprintf'.
+      But don't use it on BeOS, since BeOS snprintf produces no output if the
+      size argument is >= 0x3000000.
+      Also don't use it on Linux libc5, since there snprintf with size = 1
+-     writes any output without bounds, like sprintf.  */
++     writes any output without bounds, like sprintf.
++     Also don't use it on MacOS. It crashes when %n is used with a writable
++     format string. (See "SECURITY CONSIDERATIONS" in the snprintf man page.)  */
+-# if (HAVE_DECL__SNPRINTF || HAVE_SNPRINTF) && !defined __BEOS__ && !(__GNU_LIBRARY__ == 1)
++# if (HAVE_DECL__SNPRINTF || HAVE_SNPRINTF) && !defined __BEOS__ && !(__GNU_LIBRARY__ == 1) \
++     && !defined __APPLE__
+ #  define USE_SNPRINTF 1
+ # else
+ #  define USE_SNPRINTF 0
+ # endif

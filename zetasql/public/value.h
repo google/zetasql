@@ -18,6 +18,7 @@
 #define ZETASQL_PUBLIC_VALUE_H_
 
 #include <stddef.h>
+
 #include <iosfwd>
 #include <memory>
 #include <string>
@@ -34,6 +35,7 @@
 #include "zetasql/public/value.pb.h"
 #include "absl/base/attributes.h"
 #include <cstdint>
+#include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
@@ -149,7 +151,7 @@ class Value {
   uint64_t ToUint64() const;  // For bool, uint32_t, uint64
   // Use of this method for timestamp_ values is DEPRECATED.
   double ToDouble() const;  // For bool, int_, date, timestamp_, enum types.
-  std::string ToCord() const;  // For string, bytes, and protos
+  absl::Cord ToCord() const;  // For string, bytes, and protos
 
   // Convert this value to a dynamically allocated proto Message.
   //
@@ -163,10 +165,10 @@ class Value {
   // Caller owns the returned object, which cannot outlive <message_factory>.
   //
   // Note: If all you want to do is to convert a proto Value into a c++ proto
-  // with a known type, consider using ToCord() and ParseFromString() as follows:
+  // with a known type, consider using ToCord() and ParseFromCord() as follows:
   //   MyMessage pb;
   //   ...
-  //   if (bool parse_ok = pb.ParseFromString(value.ToCord()); !parse_ok) {
+  //   if (bool parse_ok = pb.ParseFromCord(value.ToCord()); !parse_ok) {
   //     /* Handle error */
   //   }
   // This simpler pattern avoids passing in a message factory and avoids the
@@ -266,10 +268,10 @@ class Value {
   std::string GetSQL(ProductMode mode = PRODUCT_EXTERNAL) const;
 
   // Returns a SQL expression that is compatible as a literal for this value.
-  // This won't include CASTs and won't necessarily produce the exact same
-  // type when parsed on its own, but it should be the closest SQL literal
-  // form for this value.  Returned type names are sensitive to the SQL
-  // ProductMode (INTERNAL or EXTERNAL).
+  // This won't include CASTs except for non-finite floating point values, and
+  // won't necessarily produce the exact same type when parsed on its own, but
+  // it should be the closest SQL literal form for this value.  Returned type
+  // names are sensitive to the SQL ProductMode (INTERNAL or EXTERNAL).
   std::string GetSQLLiteral(ProductMode mode = PRODUCT_EXTERNAL) const;
 
   // We do not define < operator to prevent accidental use of values of mixed
@@ -290,10 +292,12 @@ class Value {
   // Therefore using the name StringValue is a pragmatic way around this issue.
   static Value StringValue(std::string v);
   static Value String(absl::string_view v);
+  static Value String(const absl::Cord& v);
   // str may contain '\0' in the middle, without getting truncated.
   template <size_t N> static Value String(const char (&str)[N]);
   static Value Bytes(std::string v);
   static Value Bytes(absl::string_view v);
+  static Value Bytes(const absl::Cord& v);
   // str may contain '\0' in the middle, without getting truncated.
   template <size_t N> static Value Bytes(const char (&str)[N]);
   static Value Date(int32_t v);
@@ -353,7 +357,7 @@ class Value {
   // sensitive.
   static Value Enum(const EnumType* type, absl::string_view name);
   // Creates a protocol buffer value.
-  static Value Proto(const ProtoType* type, const std::string& value);
+  static Value Proto(const ProtoType* type, absl::Cord value);
 
   // Creates a struct of the specified 'type' and given 'values'. The size of
   // the 'values' vector must agree with the number of fields in 'type', and the
@@ -404,6 +408,9 @@ class Value {
  private:
   // For access to StringRef and TypedList.
   FRIEND_TEST(ValueTest, PhysicalByteSize);
+
+  template <bool as_literal>
+  std::string GetSQLInternal(ProductMode mode) const;
 
   template <typename H>
   H HashValueInternal(H h) const;
@@ -462,7 +469,7 @@ class Value {
   Value(const EnumType* enum_type, absl::string_view name);
 
   // Constructs a proto.
-  Value(const ProtoType* proto_type, const std::string& value);
+  Value(const ProtoType* proto_type, absl::Cord value);
 
   // Clears the contents of the value and makes it invalid. Must be called
   // exactly once prior to destruction or assignment.
@@ -605,9 +612,11 @@ Value Bool(bool v);
 Value Float(float v);
 Value Double(double v);
 Value String(absl::string_view v);
+Value String(const absl::Cord& v);
 // str may contain '\0' in the middle, without getting truncated.
 template <size_t N> Value String(const char (&str)[N]);
 Value Bytes(absl::string_view v);
+Value Bytes(const absl::Cord& v);
 // str may contain '\0' in the middle, without getting truncated.
 template <size_t N> Value Bytes(const char (&str)[N]);
 Value Date(int32_t v);
@@ -628,7 +637,7 @@ Value Struct(const StructType* type, absl::Span<const Value> values);
 #ifndef SWIG
 Value UnsafeStruct(const StructType* type, std::vector<Value>&& values);
 #endif
-Value Proto(const ProtoType* proto_type, const std::string& value);
+Value Proto(const ProtoType* proto_type, absl::Cord value);
 Value Proto(const ProtoType* proto_type, const google::protobuf::Message& msg);
 Value EmptyArray(const ArrayType* type);
 Value Array(const ArrayType* type, absl::Span<const Value> values);
@@ -668,9 +677,12 @@ Value BoolArray(const std::vector<bool>& values);
 Value FloatArray(absl::Span<const float> values);
 Value DoubleArray(absl::Span<const double> values);
 Value StringArray(absl::Span<const std::string> values);
+// Does not take ownership of Cord* values.
+Value StringArray(absl::Span<const absl::Cord* const> values);
 Value BytesArray(absl::Span<const std::string> values);
 // Does not take ownership of Cord* values.
 
+Value BytesArray(absl::Span<const absl::Cord* const> values);
 Value NumericArray(absl::Span<const NumericValue> values);
 Value BigNumericArray(absl::Span<const BigNumericValue> values);
 

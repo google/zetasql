@@ -223,9 +223,9 @@ Halfway cases such as 1.5 or -0.5 round away from zero.</td>
   point, it will round
   <a href="https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero">
   half away from zero</a>. Casting a <code>NaN</code>, <code>+inf</code> or
-  <code>-inf</code> will return an error. Casting a value
-  <a href="data-types#numeric-type">outside the range of NUMERIC</a> will
-  return an overflow error.
+  <code>-inf</code> will return an error. Casting a value outside the range of
+  <a href="data-types#numeric_type"><code>NUMERIC</code></a>
+  will return an overflow error.
 </td>
 </tr>
 <tr>
@@ -254,8 +254,9 @@ Conversions are case-insensitive.
 <td>STRING</td>
 <td>NUMERIC</td>
 <td>The numeric literal contained in the <code>STRING</code> must not exceed the
-  <a href="data-types#numeric-type">maximum precision or range of the
-<code>NUMERIC</code> type</a>, or an error will occur. If the number of digits
+maximum precision or range of the
+<a href="data-types#numeric_type"><code>NUMERIC</code></a>
+type, or an error will occur. If the number of digits
 after the decimal point exceeds nine, then the resulting <code>NUMERIC</code>
 value will round
 <a href="https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero">half
@@ -629,7 +630,7 @@ ZetaSQL provides the following additional conversion functions:
 
 [con-rules-link-to-literal-coercion]: #literal_coercion
 [con-rules-link-to-parameter-coercion]: #parameter_coercion
-[con-rules-link-to-time-zones]: https://github.com/google/zetasql/blob/master/docs/data-types#time-zones
+[con-rules-link-to-time-zones]: https://github.com/google/zetasql/blob/master/docs/data-types#time_zones
 
 [con-rules-link-to-safe-convert-bytes-to-string]: https://github.com/google/zetasql/blob/master/docs/string_functions#safe_convert_bytes_to_string
 [con-rules-link-to-date-functions]: https://github.com/google/zetasql/blob/master/docs/date_functions

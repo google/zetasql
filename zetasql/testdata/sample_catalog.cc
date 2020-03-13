@@ -47,6 +47,7 @@
 #include <cstdint>
 #include "absl/memory/memory.h"
 #include "absl/strings/ascii.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/ret_check.h"
@@ -3073,7 +3074,7 @@ void SampleCatalog::LoadConstants() {
   // Load a constant that is not owned by 'catalog_'.
   const ProtoType* const proto_type =
       GetProtoType(zetasql_test::KitchenSinkPB::descriptor());
-  std::string text_proto = "int64_key_1: 1, int64_key_2: -999";
+  absl::Cord text_proto = absl::Cord("int64_key_1: 1, int64_key_2: -999");
 
   ZETASQL_CHECK_OK(SimpleConstant::Create(std::vector<std::string>{"TestConstantProto"},
                                   Value::Proto(proto_type, text_proto),

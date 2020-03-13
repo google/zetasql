@@ -30,3 +30,14 @@ cc_library(
         "@com_google_protobuf//:protobuf",
     ],
 )
+
+cc_library(
+    name = "testing_proto_util",
+    testonly = 1,
+    hdrs = ["testing_proto_util.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_protobuf//:protobuf",
+    ],
+)

@@ -41,6 +41,7 @@
 #include "absl/base/optimization.h"
 #include "absl/hash/hash.h"
 #include "absl/memory/memory.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -130,8 +131,7 @@ Value::Value(const Type* type)
       list_ptr_ = new TypedList(type);
       break;
     case TYPE_PROTO:
-      proto_ptr_ = new ProtoRep(type->AsProto(),
-                                "");
+      proto_ptr_ = new ProtoRep(type->AsProto(), absl::Cord());
       break;
     case TYPE_UNKNOWN:
     case __TypeKind__switch_must_have_a_default__:
@@ -230,7 +230,7 @@ Value::Value(const EnumType* enum_type, absl::string_view name)
   }
 }
 
-Value::Value(const ProtoType* proto_type, const std::string& value)
+Value::Value(const ProtoType* proto_type, absl::Cord value)
     : type_kind_(TYPE_PROTO),
       proto_ptr_(new ProtoRep(proto_type, std::move(value))) {}
 
@@ -467,17 +467,17 @@ uint64_t Value::physical_byte_size() const {
   return physical_size;
 }
 
-std::string Value::ToCord() const {
+absl::Cord Value::ToCord() const {
   CHECK(!is_null()) << "Null value";
   switch (type_kind_) {
     case TYPE_STRING:
     case TYPE_BYTES:
-      return string_ptr_->value();
+      return absl::Cord(string_ptr_->value());
     case TYPE_PROTO:
       return proto_ptr_->value();
     default:
       LOG(FATAL) << "Cannot coerce to Cord";
-      return "";
+      return absl::Cord();
   }
 }
 
@@ -516,7 +516,7 @@ google::protobuf::Message* Value::ToMessage(
   CHECK(!is_null());
   std::unique_ptr<google::protobuf::Message> m(
       message_factory->GetPrototype(type()->AsProto()->descriptor())->New());
-  const bool success = m->ParsePartialFromString(ToCord());
+  const bool success = m->ParsePartialFromString(std::string(ToCord()));
   if (!success && return_null_on_error) return nullptr;
   return m.release();
 }
@@ -704,11 +704,10 @@ bool Value::EqualsInternal(const Value& x, const Value& y, bool allow_bags,
 
       std::unique_ptr<google::protobuf::Message> x_msg(prototype->New());
       std::unique_ptr<google::protobuf::Message> y_msg(prototype->New());
-      if (!x_msg->ParsePartialFromString(x.ToCord()) ||
-          !y_msg->ParsePartialFromString(y.ToCord())) {
+      if (!x_msg->ParsePartialFromString(std::string(x.ToCord())) ||
+          !y_msg->ParsePartialFromString(std::string(y.ToCord()))) {
         return false;
       }
-
       // This does exact comparison of doubles.  It is possible to customize it
       // using set_float_comparison(MessageDifferencer::APPROXIMATE), which
       // makes it use zetasql_base::MathUtil::AlmostEqual, or to set up default
@@ -1481,184 +1480,136 @@ std::string Value::Format() const {
   return FormatInternal(0, true /* force type */);
 }
 
+template <typename V>
+inline std::string AddCast(const V& value, const Type* type, ProductMode mode) {
+  return absl::StrCat("CAST(", value, " AS ", type->TypeName(mode), ")");
+}
+
 // NOTE: There is a similar method in ../resolved_ast/sql_builder.cc.
 //
 // This is also basically the same as GetSQLLiteral below, except this adds
 // CASTs and explicit type names so the exact value comes back out.
 std::string Value::GetSQL(ProductMode mode) const {
-  const Type* type = this->type();
-
-  if (is_null()) {
-    return absl::StrCat("CAST(NULL AS ", type->TypeName(mode), ")");
-  }
-
-  if (type->IsTimestamp() ||
-      type->IsCivilDateOrTimeType()) {
-    // Use DATE, DATETIME, TIME and TIMESTAMP literal syntax.
-    return absl::StrCat(type->TypeName(mode), " ",
-                        ToStringLiteral(DebugString()));
-  }
-  if (type->IsSimpleType()) {
-    // Floats and doubles like "inf" and "nan" need to be quoted.
-    if (type->IsFloat() && !std::isfinite(float_value())) {
-      return absl::StrCat(
-          "CAST(", ToStringLiteral(RoundTripFloatToString(float_value())),
-          " AS ", type->TypeName(mode), ")");
-    }
-    if (type->IsDouble() && !std::isfinite(double_value())) {
-      return absl::StrCat(
-          "CAST(", ToStringLiteral(RoundTripDoubleToString(double_value())),
-          " AS ", type->TypeName(mode), ")");
-    }
-
-    if (type->IsDouble()) {
-      std::string s = RoundTripDoubleToString(double_value());
-      // Make sure that doubles always print with a . or an 'e' so they
-      // don't look like integers.
-      if (s.find_first_not_of("-0123456789") == std::string::npos) {
-        s.append(".0");
-      }
-      return s;
-    }
-
-    if (type->kind() == TYPE_NUMERIC) {
-      return absl::StrCat(
-          "NUMERIC ", ToStringLiteral(numeric_value().ToString()));
-    }
-
-    if (type->kind() == TYPE_BIGNUMERIC) {
-      return absl::StrCat("BIGNUMERIC ",
-                          ToStringLiteral(bignumeric_value().ToString()));
-    }
-
-    // We need a cast for all numeric types except int64_t and double.
-    if (type->IsNumerical() && !type->IsInt64() && !type->IsDouble()) {
-      return absl::StrCat("CAST(", DebugString(), " AS ", type->TypeName(mode),
-                          ")");
-    } else {
-      return DebugString();
-    }
-  }
-
-  if (type->IsEnum()) {
-    return absl::StrCat("CAST(", ToStringLiteral(DebugString()), " AS ",
-                        type->TypeName(mode), ")");
-  }
-  if (type->IsProto()) {
-    return absl::StrCat("CAST(", ToBytesLiteral(std::string(ToCord())), " AS ",
-                        type->TypeName(mode), ")");
-  }
-  if (type->IsStruct()) {
-    std::vector<std::string> fields_sql;
-    for (const Value& field_value : fields()) {
-      fields_sql.push_back(field_value.GetSQL(mode));
-    }
-    DCHECK_EQ(type->AsStruct()->num_fields(), fields_sql.size());
-    return absl::StrCat(type->TypeName(mode), "(",
-                        absl::StrJoin(fields_sql, ", "), ")");
-  }
-  if (type->IsArray()) {
-    std::vector<std::string> elements_sql;
-    for (const Value& element : elements()) {
-      elements_sql.push_back(element.GetSQL(mode));
-    }
-    return absl::StrCat(type->TypeName(mode), "[",
-                        absl::StrJoin(elements_sql, ", "), "]");
-  }
-
-  return DebugString();
+  return GetSQLInternal<false>(mode);
 }
 
 // This is basically the same as GetSQL() above, except this doesn't add CASTs
 // or explicit type names if the literal would be valid without them.
 std::string Value::GetSQLLiteral(ProductMode mode) const {
+  return GetSQLInternal<true>(mode);
+}
+
+template <bool as_literal>
+std::string Value::GetSQLInternal(ProductMode mode) const {
   const Type* type = this->type();
 
   if (is_null()) {
-    return "NULL";
+    return as_literal ? "NULL" : AddCast("NULL", type, mode);
   }
-
-  if (type->IsTimestamp() ||
-      type->IsCivilDateOrTimeType()) {
-    // Use DATE, DATETIME, TIME and TIMESTAMP literal syntax.
-    return absl::StrCat(type->TypeName(mode), " ",
-                        ToStringLiteral(DebugString()));
-  }
-
-  if (type->IsSimpleType()) {
-    // Floats and doubles like "inf" and "nan" need to be quoted.
-    if (type->IsFloat() && !std::isfinite(float_value())) {
-      return absl::StrCat(
-          "CAST(", ToStringLiteral(RoundTripFloatToString(float_value())),
-          " AS ", type->TypeName(mode), ")");
-    }
-    if (type->IsDouble() && !std::isfinite(double_value())) {
-      return absl::StrCat(
-          "CAST(", ToStringLiteral(RoundTripDoubleToString(double_value())),
-          " AS ", type->TypeName(mode), ")");
-    }
-
-    if (type->IsDouble() || type->IsFloat()) {
-      std::string s = type->IsDouble() ? RoundTripDoubleToString(double_value())
-                                       : RoundTripFloatToString(float_value());
-      // Make sure that doubles always print with a . or an 'e' so they
-      // don't look like integers.
-      if (s.find_first_not_of("-0123456789") == std::string::npos) {
-        s.append(".0");
+  switch (type->kind()) {
+    case TYPE_BOOL:
+      return (bool_value() ? "true" : "false");
+    case TYPE_STRING:
+      return ToStringLiteral(string_value());
+    case TYPE_BYTES:
+      return ToBytesLiteral(bytes_value());
+    case TYPE_TIMESTAMP:
+    case TYPE_DATE:
+    case TYPE_TIME:
+    case TYPE_DATETIME:
+      // Use DATE, DATETIME, TIME and TIMESTAMP literal syntax.
+      return absl::StrCat(type->TypeName(mode), " ",
+                          ToStringLiteral(DebugString()));
+    case TYPE_INT32:
+      return as_literal ? absl::StrCat(int32_value())
+                        : AddCast(int32_value(), type, mode);
+    case TYPE_UINT32:
+      return as_literal ? absl::StrCat(uint32_value())
+                        : AddCast(uint32_value(), type, mode);
+    case TYPE_INT64:
+      return absl::StrCat(int64_value());
+    case TYPE_UINT64:
+      return as_literal ? absl::StrCat(uint64_value())
+                        : AddCast(uint64_value(), type, mode);
+    case TYPE_FLOAT:
+      // Floats and doubles like "inf" and "nan" need to be quoted.
+      if (!std::isfinite(float_value())) {
+        return AddCast(ToStringLiteral(RoundTripFloatToString(float_value())),
+                       type, mode);
+      } else {
+        std::string s = RoundTripFloatToString(float_value());
+        // Make sure that doubles always print with a . or an 'e' so they
+        // don't look like integers.
+        if (as_literal &&
+            s.find_first_not_of("-0123456789") == std::string::npos) {
+          s.append(".0");
+        }
+        return as_literal ? s : AddCast(s, type, mode);
       }
-      return s;
-    }
-
-    if (type->kind() == TYPE_NUMERIC) {
+    case TYPE_DOUBLE:
+      if (!std::isfinite(double_value())) {
+        return AddCast(ToStringLiteral(RoundTripDoubleToString(double_value())),
+                       type, mode);
+      } else {
+        std::string s = RoundTripDoubleToString(double_value());
+        // Make sure that doubles always print with a . or an 'e' so they
+        // don't look like integers.
+        if (s.find_first_not_of("-0123456789") == std::string::npos) {
+          s.append(".0");
+        }
+        return s;
+      }
+    case TYPE_NUMERIC:
       return absl::StrCat(
           "NUMERIC ", ToStringLiteral(numeric_value().ToString()));
-    }
-
-    if (type->kind() == TYPE_BIGNUMERIC) {
+    case TYPE_BIGNUMERIC:
       return absl::StrCat("BIGNUMERIC ",
                           ToStringLiteral(bignumeric_value().ToString()));
+    case TYPE_ENUM: {
+      std::string s = ToStringLiteral(enum_name());
+      return as_literal ? s : AddCast(s, type, mode);
     }
-
-    return DebugString();
-  }
-
-  if (type->IsEnum()) {
-    return ToStringLiteral(DebugString());
-  }
-  if (type->IsProto()) {
-    google::protobuf::DynamicMessageFactory message_factory;
-    std::unique_ptr<google::protobuf::Message> message(this->ToMessage(&message_factory));
-    zetasql_base::Status status;
-    std::string out;
-    if (functions::ProtoToString(message.get(), &out, &status)) {
-      return ToStringLiteral(std::string(out));
-    } else {
-      // This branch is not expected, but try to return something.
-      return ToStringLiteral(message->ShortDebugString());
+    case TYPE_PROTO:
+      if (!as_literal) {
+        return AddCast(ToBytesLiteral(std::string(ToCord())), type, mode);
+      } else {
+        google::protobuf::DynamicMessageFactory message_factory;
+        std::unique_ptr<google::protobuf::Message> message(
+            this->ToMessage(&message_factory));
+        zetasql_base::Status status;
+        absl::Cord out;
+        if (functions::ProtoToString(message.get(), &out, &status)) {
+          return ToStringLiteral(std::string(out));
+        } else {
+          // This branch is not expected, but try to return something.
+          return ToStringLiteral(message->ShortDebugString());
+        }
+      }
+    case TYPE_STRUCT: {
+      if (as_literal && type->AsStruct()->num_fields() == 0) {
+        return "STRUCT()";
+      }
+      std::vector<std::string> fields_sql;
+      for (const Value& field_value : fields()) {
+        fields_sql.push_back(field_value.GetSQLInternal<as_literal>(mode));
+      }
+      DCHECK_EQ(type->AsStruct()->num_fields(), fields_sql.size());
+      const std::string& prefix =
+          !as_literal ? type->TypeName(mode)
+                      : type->AsStruct()->num_fields() == 1 ? "STRUCT" : "";
+      return absl::StrCat(prefix, "(", absl::StrJoin(fields_sql, ", "), ")");
     }
-  }
-
-  if (type->IsStruct()) {
-    if (type->AsStruct()->num_fields() == 0) {
-      return "STRUCT()";
+    case TYPE_ARRAY: {
+      std::vector<std::string> elements_sql;
+      for (const Value& element : elements()) {
+        elements_sql.push_back(element.GetSQLInternal<as_literal>(mode));
+      }
+      const std::string& prefix = as_literal ? "" : type->TypeName(mode);
+      return absl::StrCat(prefix, "[", absl::StrJoin(elements_sql, ", "), "]");
     }
-    std::vector<std::string> fields_sql;
-    for (const Value& field_value : fields()) {
-      fields_sql.push_back(field_value.GetSQLLiteral(mode));
-    }
-    DCHECK_EQ(type->AsStruct()->num_fields(), fields_sql.size());
-    return absl::StrCat((type->AsStruct()->num_fields() == 1 ? "STRUCT" : ""),
-                        "(", absl::StrJoin(fields_sql, ", "), ")");
+    default:
+      return DebugString();
   }
-  if (type->IsArray()) {
-    std::vector<std::string> elements_sql;
-    for (const Value& element : elements()) {
-      elements_sql.push_back(element.GetSQLLiteral(mode));
-    }
-    return absl::StrCat("[", absl::StrJoin(elements_sql, ", "), "]");
-  }
-
-  return DebugString();
 }
 
 std::string RepeatString(const std::string& text, int times) {
@@ -2018,10 +1969,26 @@ Value StringArray(absl::Span<const std::string> values) {
   return Value::Array(StringArrayType(), value_vector);
 }
 
+Value StringArray(absl::Span<const absl::Cord* const> values) {
+  std::vector<Value> value_vector;
+  for (auto v : values) {
+    value_vector.push_back(String(*v));
+  }
+  return Value::Array(StringArrayType(), value_vector);
+}
+
 Value BytesArray(absl::Span<const std::string> values) {
   std::vector<Value> value_vector;
   for (const std::string& v : values) {
     value_vector.push_back(Bytes(v));
+  }
+  return Value::Array(BytesArrayType(), value_vector);
+}
+
+Value BytesArray(absl::Span<const absl::Cord* const> values) {
+  std::vector<Value> value_vector;
+  for (auto v : values) {
+    value_vector.push_back(Bytes(*v));
   }
   return Value::Array(BytesArrayType(), value_vector);
 }
@@ -2125,7 +2092,7 @@ zetasql_base::Status Value::Serialize(ValueProto* value_proto) const {
       break;
     }
     case TYPE_PROTO:
-      value_proto->set_proto_value(ToCord());
+      value_proto->set_proto_value(std::string(ToCord()));
       break;
     default:
       return zetasql_base::Status(
@@ -2323,7 +2290,7 @@ zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
       if (!value_proto.has_proto_value()) {
         return TypeMismatchError(value_proto, type);
       }
-      return Proto(type->AsProto(), value_proto.proto_value());
+      return Proto(type->AsProto(), absl::Cord(value_proto.proto_value()));
     default:
       return zetasql_base::Status(
           zetasql_base::StatusCode::kInternal,

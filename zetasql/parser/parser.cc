@@ -297,13 +297,6 @@ ASTNodeKind ParseStatementKind(absl::string_view input,
                                 language_options, statement_is_ctas);
 }
 
-// DEPRECATED
-ASTNodeKind ParseNextStatementKind(const ParseResumeLocation& resume_location,
-                                   bool* statement_is_ctas) {
-  return ParseNextStatementKind(resume_location, LanguageOptions(),
-                                statement_is_ctas);
-}
-
 ASTNodeKind ParseNextStatementKind(const ParseResumeLocation& resume_location,
                                    const LanguageOptions& language_options,
                                    bool* next_statement_is_ctas) {

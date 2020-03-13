@@ -955,13 +955,13 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
 }
 
 TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
-  EXPECT_EQ(200, sizeof(AnalyzerOptions) - sizeof(LanguageOptions) -
+  EXPECT_EQ(224, sizeof(AnalyzerOptions) - sizeof(LanguageOptions) -
                      sizeof(AllowedHintsAndOptions) -
                      sizeof(Catalog::FindOptions) - sizeof(SystemVariablesMap) -
                      2 * sizeof(QueryParametersMap) - 1 * sizeof(std::string))
       << "The size of AnalyzerOptions class has changed, please also update "
       << "the proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(16, AnalyzerOptionsProto::descriptor()->field_count())
+  EXPECT_EQ(17, AnalyzerOptionsProto::descriptor()->field_count())
       << "The number of fields in AnalyzerOptionsProto has changed, please "
       << "also update the serialization code accordingly.";
 }
