@@ -33,6 +33,7 @@ cc_library(
     deps = [
         ":hash",
         ":json",
+        ":uuid",
         "@com_google_absl//absl/base",
     ],
 )
@@ -57,6 +58,18 @@ cc_library(
     copts = ["-Wno-sign-compare"],
     deps = [
         "//zetasql/public/functions:json",
+        "//zetasql/reference_impl:evaluation",
+    ],
+)
+
+cc_library(
+    name = "uuid",
+    srcs = ["uuid.cc"],
+    hdrs = ["uuid.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "//zetasql/public:value",
+        "//zetasql/public/functions:uuid",
         "//zetasql/reference_impl:evaluation",
     ],
 )

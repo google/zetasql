@@ -251,7 +251,8 @@ std::vector<std::vector<Value>> GetRowsOfValues() {
       {enum0, enum1},
       {KitchenSink("int64_key_1: 1 int64_key_2: 2"),
        KitchenSink("int64_key_1: 10 int64_key_2: 20")},
-      {NumericFromDouble(3.14), Numeric(-100)}};
+      {NumericFromDouble(3.14), Numeric(-100)},
+      {BigNumericFromDouble(3.14), BigNumeric(-100)}};
   return v;
 }
 

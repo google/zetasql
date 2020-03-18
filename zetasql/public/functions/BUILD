@@ -451,6 +451,35 @@ cc_library(
 )
 
 cc_library(
+    name = "uuid",
+    srcs = ["uuid.cc"],
+    hdrs = ["uuid.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "//zetasql/base:status",
+        "@com_google_absl//absl/random",
+        "@com_google_absl//absl/random:bit_gen_ref",
+    ],
+)
+
+cc_test(
+    name = "uuid_test",
+    size = "small",
+    srcs = ["uuid_test.cc"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":uuid",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "@com_google_absl//absl/random",
+        "@com_google_absl//absl/random:mock_distributions",
+        "@com_google_absl//absl/random:mocking_bit_gen",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
     name = "regexp",
     srcs = ["regexp.cc"],
     hdrs = ["regexp.h"],

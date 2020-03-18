@@ -35,6 +35,7 @@
 #include "zetasql/public/functions/convert_proto.h"
 #include "zetasql/public/functions/convert_string.h"
 #include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include <cstdint>
@@ -1352,19 +1353,19 @@ std::string Value::DebugStringInternal(
   } else {
     switch (type_kind()) {
       case TYPE_INT32:
-        s = absl::StrCat(int32_value());
-        break;
       case TYPE_INT64:
-        s = absl::StrCat(int64_value());
-        break;
       case TYPE_UINT32:
-        s = absl::StrCat(uint32_value());
-        break;
       case TYPE_UINT64:
-        s = absl::StrCat(uint64_value());
-        break;
       case TYPE_BOOL:
-        s = (bool_value() ? "true" : "false");
+      case TYPE_STRING:
+      case TYPE_BYTES:
+      case TYPE_DATE:
+      case TYPE_TIMESTAMP:
+      case TYPE_TIME:
+      case TYPE_DATETIME:
+      case TYPE_NUMERIC:
+      case TYPE_BIGNUMERIC:
+        s = GetSQLInternal<true, false>(PRODUCT_INTERNAL);
         break;
       case TYPE_FLOAT:
         s = RoundTripFloatToString(float_value());
@@ -1373,35 +1374,6 @@ std::string Value::DebugStringInternal(
         // TODO I would like to change this so it returns "1.0" rather
         // than "1", like GetSQL(), but that affects a lot of client code.
         s = RoundTripDoubleToString(double_value());
-        break;
-      case TYPE_STRING:
-        s = ToStringLiteral(string_value());
-        break;
-      case TYPE_BYTES:
-        s = ToBytesLiteral(bytes_value());
-        break;
-      case TYPE_DATE:
-        // Failure cannot actually happen in this context since date_value()
-        // is guaranteed to be valid.
-        ZETASQL_CHECK_OK(functions::ConvertDateToString(date_value(), &s));
-        break;
-      case TYPE_TIMESTAMP:
-        // Failure cannot actually happen in this context since the value
-        // is guaranteed to be valid.
-        ZETASQL_CHECK_OK(functions::ConvertTimestampToString(
-            ToTime(), functions::kNanoseconds, "+0" /* timezone */, &s));
-        break;
-      case TYPE_TIME:
-        s = time_value().DebugString();
-        break;
-      case TYPE_DATETIME:
-        s = datetime_value().DebugString();
-        break;
-      case TYPE_NUMERIC:
-        s = numeric_value().ToString();
-        break;
-      case TYPE_BIGNUMERIC:
-        s = bignumeric_value().ToString();
         break;
       case TYPE_ENUM:
         if (verbose) {
@@ -1480,26 +1452,98 @@ std::string Value::Format() const {
   return FormatInternal(0, true /* force type */);
 }
 
+namespace {
 template <typename V>
 inline std::string AddCast(const V& value, const Type* type, ProductMode mode) {
   return absl::StrCat("CAST(", value, " AS ", type->TypeName(mode), ")");
 }
+
+inline std::string AddTypePrefix(absl::string_view value, const Type* type,
+                                 ProductMode mode) {
+  return absl::StrCat(type->TypeName(mode), " ", ToStringLiteral(value));
+}
+
+std::string ComplexValueToString(
+    const Value* root, ProductMode mode, bool as_literal,
+    std::string (Value::*leaf_to_string_fn)(ProductMode mode) const) {
+  std::string result;
+  struct Entry {
+    const Value* value;
+    size_t next_child_index;
+  };
+  std::stack<Entry> stack;
+  stack.push(Entry{root, 0});
+  do {
+    Entry& top = stack.top();
+    const Type* type = top.value->type();
+    DCHECK(type->kind() == TYPE_STRUCT || type->kind() == TYPE_ARRAY);
+    DCHECK(!top.value->is_null());
+    const std::vector<Value>* children = nullptr;
+    char closure = '\0';
+    if (type->kind() == TYPE_STRUCT) {
+      if (top.next_child_index == 0) {
+        if (!as_literal) {
+          result.append(type->TypeName(mode));
+          result.push_back('(');
+        } else if (type->AsStruct()->num_fields() <= 1) {
+          result.append("STRUCT(");
+        } else {
+          result.push_back('(');
+        }
+      }
+      children = &top.value->fields();
+      closure = ')';
+    } else {
+      if (top.next_child_index == 0) {
+        if (!as_literal) {
+          result.append(type->TypeName(mode));
+        }
+        result.push_back('[');
+      }
+      children = &top.value->elements();
+      closure = ']';
+    }
+    const size_t num_children = children->size();
+    size_t child_index = top.next_child_index;
+    while (true) {
+      if (child_index >= num_children) {
+        result.push_back(closure);
+        stack.pop();
+        break;
+      }
+      if (child_index != 0) {
+        result.append(", ");
+      }
+      const Value& child = children->at(child_index);
+      ++child_index;
+      if (!child.is_null() && (child.type_kind() == TYPE_STRUCT ||
+                               child.type_kind() == TYPE_ARRAY)) {
+        top.next_child_index = child_index;
+        stack.push(Entry{&child, 0});
+        break;
+      }
+      result.append((child.*leaf_to_string_fn)(mode));
+    }
+  } while (!stack.empty());
+  return result;
+}
+}  // namespace
 
 // NOTE: There is a similar method in ../resolved_ast/sql_builder.cc.
 //
 // This is also basically the same as GetSQLLiteral below, except this adds
 // CASTs and explicit type names so the exact value comes back out.
 std::string Value::GetSQL(ProductMode mode) const {
-  return GetSQLInternal<false>(mode);
+  return GetSQLInternal<false, true>(mode);
 }
 
 // This is basically the same as GetSQL() above, except this doesn't add CASTs
 // or explicit type names if the literal would be valid without them.
 std::string Value::GetSQLLiteral(ProductMode mode) const {
-  return GetSQLInternal<true>(mode);
+  return GetSQLInternal<true, true>(mode);
 }
 
-template <bool as_literal>
+template <bool as_literal, bool maybe_add_simple_type_prefix>
 std::string Value::GetSQLInternal(ProductMode mode) const {
   const Type* type = this->type();
 
@@ -1513,13 +1557,29 @@ std::string Value::GetSQLInternal(ProductMode mode) const {
       return ToStringLiteral(string_value());
     case TYPE_BYTES:
       return ToBytesLiteral(bytes_value());
-    case TYPE_TIMESTAMP:
-    case TYPE_DATE:
-    case TYPE_TIME:
-    case TYPE_DATETIME:
-      // Use DATE, DATETIME, TIME and TIMESTAMP literal syntax.
-      return absl::StrCat(type->TypeName(mode), " ",
-                          ToStringLiteral(DebugString()));
+    case TYPE_DATE: {
+      std::string s;
+      // Failure cannot actually happen in this context since date_value()
+      // is guaranteed to be valid.
+      ZETASQL_CHECK_OK(functions::ConvertDateToString(date_value(), &s));
+      return maybe_add_simple_type_prefix ? AddTypePrefix(s, type, mode) : s;
+    }
+    case TYPE_TIMESTAMP: {
+      std::string s;
+      // Failure cannot actually happen in this context since the value
+      // is guaranteed to be valid.
+      ZETASQL_CHECK_OK(functions::ConvertTimestampToString(
+          ToTime(), functions::kNanoseconds, "+0" /* timezone */, &s));
+      return maybe_add_simple_type_prefix ? AddTypePrefix(s, type, mode) : s;
+    }
+    case TYPE_TIME: {
+      std::string s = time_value().DebugString();
+      return maybe_add_simple_type_prefix ? AddTypePrefix(s, type, mode) : s;
+    }
+    case TYPE_DATETIME: {
+      std::string s = datetime_value().DebugString();
+      return maybe_add_simple_type_prefix ? AddTypePrefix(s, type, mode) : s;
+    }
     case TYPE_INT32:
       return as_literal ? absl::StrCat(int32_value())
                         : AddCast(int32_value(), type, mode);
@@ -1559,12 +1619,18 @@ std::string Value::GetSQLInternal(ProductMode mode) const {
         }
         return s;
       }
-    case TYPE_NUMERIC:
-      return absl::StrCat(
-          "NUMERIC ", ToStringLiteral(numeric_value().ToString()));
-    case TYPE_BIGNUMERIC:
-      return absl::StrCat("BIGNUMERIC ",
-                          ToStringLiteral(bignumeric_value().ToString()));
+    case TYPE_NUMERIC: {
+      std::string s = numeric_value().ToString();
+      return maybe_add_simple_type_prefix
+                 ? absl::StrCat("NUMERIC ", ToStringLiteral(s))
+                 : s;
+    }
+    case TYPE_BIGNUMERIC: {
+      std::string s = bignumeric_value().ToString();
+      return maybe_add_simple_type_prefix
+                 ? absl::StrCat("BIGNUMERIC ", ToStringLiteral(s))
+                 : s;
+    }
     case TYPE_ENUM: {
       std::string s = ToStringLiteral(enum_name());
       return as_literal ? s : AddCast(s, type, mode);
@@ -1585,30 +1651,15 @@ std::string Value::GetSQLInternal(ProductMode mode) const {
           return ToStringLiteral(message->ShortDebugString());
         }
       }
-    case TYPE_STRUCT: {
-      if (as_literal && type->AsStruct()->num_fields() == 0) {
-        return "STRUCT()";
-      }
-      std::vector<std::string> fields_sql;
-      for (const Value& field_value : fields()) {
-        fields_sql.push_back(field_value.GetSQLInternal<as_literal>(mode));
-      }
-      DCHECK_EQ(type->AsStruct()->num_fields(), fields_sql.size());
-      const std::string& prefix =
-          !as_literal ? type->TypeName(mode)
-                      : type->AsStruct()->num_fields() == 1 ? "STRUCT" : "";
-      return absl::StrCat(prefix, "(", absl::StrJoin(fields_sql, ", "), ")");
-    }
-    case TYPE_ARRAY: {
-      std::vector<std::string> elements_sql;
-      for (const Value& element : elements()) {
-        elements_sql.push_back(element.GetSQLInternal<as_literal>(mode));
-      }
-      const std::string& prefix = as_literal ? "" : type->TypeName(mode);
-      return absl::StrCat(prefix, "[", absl::StrJoin(elements_sql, ", "), "]");
-    }
-    default:
-      return DebugString();
+    case TYPE_STRUCT:
+    case TYPE_ARRAY:
+      return ComplexValueToString(
+          this, mode, as_literal,
+          // For leaf nodes, it is fine to recursively call GetSQLInternal once.
+          &Value::GetSQLInternal<as_literal, maybe_add_simple_type_prefix>);
+    case TYPE_UNKNOWN:
+    case __TypeKind__switch_must_have_a_default__:
+      return "<Invalid value>";
   }
 }
 

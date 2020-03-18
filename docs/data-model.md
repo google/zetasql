@@ -436,7 +436,7 @@ value does not have a field called `ROWNUM`.
 [pseudo-columns]: #pseudo-columns
 [data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
 [data-manipulation-language]: https://github.com/google/zetasql/blob/master/docs/data-manipulation-language
-[query-syntax-value-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax#value-tables
+[query-syntax-value-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax#value_tables
 
 <!-- END CONTENT -->
 

@@ -1193,7 +1193,8 @@ class EvaluatorTableScanOp : public RelationalOp {
       absl::Span<const int> column_idxs,
       absl::Span<const std::string> column_names,
       absl::Span<const VariableId> variables,
-      std::vector<std::unique_ptr<ColumnFilterArg>> and_filters);
+      std::vector<std::unique_ptr<ColumnFilterArg>> and_filters,
+      std::unique_ptr<ValueExpr> read_time);
 
   // Returns a ColumnFilter corresponding to the intersection of 'filters'. This
   // method is only public for unit testing purposes.
@@ -1222,7 +1223,8 @@ class EvaluatorTableScanOp : public RelationalOp {
       absl::Span<const int> column_idxs,
       absl::Span<const std::string> column_names,
       absl::Span<const VariableId> variables,
-      std::vector<std::unique_ptr<ColumnFilterArg>> and_filters);
+      std::vector<std::unique_ptr<ColumnFilterArg>> and_filters,
+      std::unique_ptr<ValueExpr> read_time);
 
   const Table* table_;
   const std::string alias_;
@@ -1230,6 +1232,7 @@ class EvaluatorTableScanOp : public RelationalOp {
   const std::vector<std::string> column_names_;
   const std::vector<VariableId> variables_;
   std::vector<std::unique_ptr<ColumnFilterArg>> and_filters_;
+  std::unique_ptr<ValueExpr> read_time_;
 };
 
 // Evaluates some expressions and makes them available to 'body'. Each

@@ -2398,7 +2398,7 @@ The concatenation operator combines multiple values into one.
 
 [operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering-arrays
 [operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
-[operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax#from-clause
+[operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax#from_clause
 [operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types#struct_type
 
 [operators-link-to-filtering-arrays]: #filtering-arrays
@@ -3837,19 +3837,19 @@ ZetaSQL.
     <span class="var">query_expr</span>
 
 <span class="var">query_expr</span>:
-    [ <a href="#with-clause">WITH</a> <span class="var"><a href="#with_query_name">with_query_name</a></span> AS ( <span class="var">query_expr</span> ) [, ...] ]
+    [ <a href="#with_clause">WITH</a> <span class="var"><a href="#with_query_name">with_query_name</a></span> AS ( <span class="var">query_expr</span> ) [, ...] ]
     { <span class="var">select</span> | ( <span class="var">query_expr</span> ) | <span class="var">query_expr</span> <span class="var">set_op</span> <span class="var">query_expr</span> }
-    [ <a href="#order-by-clause">ORDER</a> BY <span class="var">expression</span> [{ ASC | DESC }] [, ...] ]
-    [ <a href="#limit-clause-and-offset-clause">LIMIT</a> <span class="var">count</span> [ OFFSET <span class="var">skip_rows</span> ] ]
+    [ <a href="#order_by_clause">ORDER</a> BY <span class="var">expression</span> [{ ASC | DESC }] [, ...] ]
+    [ <a href="#limit_clause_and_offset_clause">LIMIT</a> <span class="var">count</span> [ OFFSET <span class="var">skip_rows</span> ] ]
 
 <span class="var">select</span>:
-    <a href="#select-list">SELECT</a> [ AS { <span class="var"><a href="#select-as-typename">typename</a></span> | <a href="#select-as-struct">STRUCT</a> | <a href="#select-as-value">VALUE</a> } ] [{ ALL | DISTINCT }]
-        { [ <span class="var">expression</span>. ]* [ <a href="#select-except">EXCEPT</a> ( <span class="var">column_name</span> [, ...] ) ]<br>            [ <a href="#select-replace">REPLACE</a> ( <span class="var">expression</span> [ AS ] <span class="var">column_name</span> [, ...] ) ]<br>        | <span class="var">expression</span> [ [ AS ] <span class="var">alias</span> ] } [, ...]
-    [ <a href="#from-clause">FROM</a> <span class="var">from_item</span> [ <span class="var">tablesample_type</span> ] [, ...] ]
-    [ <a href="#where-clause">WHERE</a> <span class="var">bool_expression</span> ]
-    [ <a href="#group-by-clause">GROUP</a> BY { <span class="var">expression</span> [, ...] | ROLLUP ( <span class="var">expression</span> [, ...] ) } ]
-    [ <a href="#having-clause">HAVING</a> <span class="var">bool_expression</span> ]
-    [ <a href="#window-clause">WINDOW</a> <span class="var">window_name</span> AS ( <span class="var">window_definition</span> ) [, ...] ]
+    <a href="#select_list">SELECT</a> [ AS { <span class="var"><a href="#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ] [{ ALL | DISTINCT }]
+        { [ <span class="var">expression</span>. ]* [ <a href="#select_except">EXCEPT</a> ( <span class="var">column_name</span> [, ...] ) ]<br>            [ <a href="#select_replace">REPLACE</a> ( <span class="var">expression</span> [ AS ] <span class="var">column_name</span> [, ...] ) ]<br>        | <span class="var">expression</span> [ [ AS ] <span class="var">alias</span> ] } [, ...]
+    [ <a href="#from_clause">FROM</a> <span class="var">from_item</span> [ <span class="var">tablesample_type</span> ] [, ...] ]
+    [ <a href="#where_clause">WHERE</a> <span class="var">bool_expression</span> ]
+    [ <a href="#group_by_clause">GROUP</a> BY { <span class="var">expression</span> [, ...] | ROLLUP ( <span class="var">expression</span> [, ...] ) } ]
+    [ <a href="#having_clause">HAVING</a> <span class="var">bool_expression</span> ]
+    [ <a href="#window_clause">WINDOW</a> <span class="var">window_name</span> AS ( <span class="var">window_definition</span> ) [, ...] ]
 
 <span class="var">set_op</span>:
     <a href="#union">UNION</a> { ALL | DISTINCT } | <a href="#intersect">INTERSECT</a> { ALL | DISTINCT } | <a href="#except">EXCEPT</a> { ALL | DISTINCT }
@@ -3865,14 +3865,14 @@ ZetaSQL.
 }
 
 <span class="var">join</span>:
-    <span class="var">from_item</span> [ <span class="var">join_type</span> ] <a href="#join-types">JOIN</a> <span class="var">from_item</span>
-    [ { <a href="#on-clause">ON</a> <span class="var">bool_expression</span> | <a href="#using-clause">USING</a> ( <span class="var">join_column</span> [, ...] ) } ]
+    <span class="var">from_item</span> [ <span class="var">join_type</span> ] <a href="#join_types">JOIN</a> <span class="var">from_item</span>
+    [ { <a href="#on_clause">ON</a> <span class="var">bool_expression</span> | <a href="#using_clause">USING</a> ( <span class="var">join_column</span> [, ...] ) } ]
 
 <span class="var">join_type</span>:
-    { <a href="#inner-join">INNER</a> | <a href="#cross-join">CROSS</a> | <a href="#full-outer-join">FULL [OUTER]</a> | <a href="#left-outer-join">LEFT [OUTER]</a> | <a href="#right-outer-join">RIGHT [OUTER]</a> }
+    { <a href="#inner_join">INNER</a> | <a href="#cross_join">CROSS</a> | <a href="#full_outer_join">FULL [OUTER]</a> | <a href="#left_outer_join">LEFT [OUTER]</a> | <a href="#right_outer_join">RIGHT [OUTER]</a> }
 
 <span class="var">tablesample_type</span>:
-    <a href="#tablesample-operator">TABLESAMPLE</a> <span class="var">sample_method</span> (<span class="var">sample_size</span> <span class="var">percent_or_rows</span> )
+    <a href="#tablesample_operator">TABLESAMPLE</a> <span class="var">sample_method</span> (<span class="var">sample_size</span> <span class="var">percent_or_rows</span> )
 
 <span class="var">sample_method</span>:
     { BERNOULLI | SYSTEM | RESERVOIR }
@@ -4492,7 +4492,7 @@ Syntax:
 
 <pre>
 <span class="var">tablesample_type</span>:
-    <a href="#tablesample-operator">TABLESAMPLE</a> <span class="var">sample_method</span> (<span class="var">sample_size</span> <span class="var">percent_or_rows</span>)
+    <a href="#tablesample_operator">TABLESAMPLE</a> <span class="var">sample_method</span> (<span class="var">sample_size</span> <span class="var">percent_or_rows</span>)
     [ REPEATABLE(repeat_argument) ]
 
 <span class="var">sample_method</span>:
@@ -4587,10 +4587,10 @@ See [Aliases][using-aliases] for information on syntax and visibility for
 <pre>
 <span class="var">join</span>:
     <span class="var">from_item</span> [ <span class="var">join_type</span> ] JOIN <span class="var">from_item</span>
-    [ <a href="#on-clause">ON</a> <span class="var">bool_expression</span> | <a href="#using-clause">USING</a> ( <span class="var">join_column</span> [, ...] ) ]
+    [ <a href="#on_clause">ON</a> <span class="var">bool_expression</span> | <a href="#using_clause">USING</a> ( <span class="var">join_column</span> [, ...] ) ]
 
 <span class="var">join_type</span>:
-    { <a href="#inner-join">INNER</a> | <a href="#cross-join">CROSS</a> | <a href="#full-outer-join">FULL [OUTER]</a> | <a href="#left-outer-join">LEFT [OUTER]</a> | <a href="#right-outer-join">RIGHT [OUTER]</a> }
+    { <a href="#inner_join">INNER</a> | <a href="#cross_join">CROSS</a> | <a href="#full_outer_join">FULL [OUTER]</a> | <a href="#left_outer_join">LEFT [OUTER]</a> | <a href="#right_outer_join">RIGHT [OUTER]</a> }
 </pre>
 
 The `JOIN` clause merges two `from_item`s so that the `SELECT` clause can
@@ -6441,18 +6441,18 @@ Results:
 [subqueries]: #subqueries
 [using-aliases]: #using_aliases
 [sequences-of-joins]: #sequences_of_joins
-[set-operators]: #set-operators
+[set-operators]: #set_operators
 [union-syntax]: #union
-[join-hints]: #join-hints
+[join-hints]: #join_hints
+[query-value-tables]: #value_tables
 [analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays#flattening_arrays
-[query-value-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax#value-tables
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data_type_properties
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
 [analytic-concepts]: #analytic-functions-concepts
-[flattening-arrays]: #flattening-arrays-and-repeated-fields
+[flattening-arrays]: #flattening-arrays
 [in-operator]: #in-operators
 [query-value-tables]: #value-tables
 [working-with-arrays]: #working-with-arrays
@@ -7379,7 +7379,7 @@ supports, see the [function reference for aggregate analytic functions][aggregat
 [datatype-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data_type_properties
 [analytic-functions-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
 [analytic-functions-link-to-order-by-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax#order_by_clause
-[analytic-functions-link-to-sql-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax#sql-syntax
+[analytic-functions-link-to-sql-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax#sql_syntax
 [analytic-functions-link-to-hints]: https://github.com/google/zetasql/blob/master/docs/lexical#hints
 
 [navigation-functions-reference]: #navigation_functions
@@ -7673,7 +7673,7 @@ For example, suppose that `proto_msg` of type `PROTO` has a field named
 * The value of `leaf_field` if `proto_msg` is not `NULL` and `leaf_field`
   is set.
 
-##### zetasql.use_defaults
+#### zetasql.use_defaults
 
 You can change this default behavior using a special annotation on your protocol
 message definition, `zetasql.use_defaults`, which you set on an individual
@@ -7707,7 +7707,7 @@ treated like any other value of that type. For non-`PROTO` values, such as
 if the value for that field was set explicitly, or if it was read as a default
 value.
 
-##### zetasql.use_field_defaults
+#### zetasql.use_field_defaults
 
 The `zetasql.use_field_defaults` annotation is just like
 `zetasql.use_defaults`, but you set it on a message and it applies to all
@@ -7727,7 +7727,7 @@ message AnotherSimpleMessage {
 ```
 
 <a id=checking_if_a_field_has_a_value></a>
-##### Checking if a non-repeated field has a value
+#### Checking if a non-repeated field has a value
 
 You can detect whether `optional` fields are set using a virtual field, `has_X`,
 where `X` is the name of the field being checked. The type of the `has_X` field
@@ -7760,7 +7760,7 @@ field has been explicitly set. If it returns `FALSE` or `NULL`, it means the
 value is not explicitly set.
 
 <a id=checking_for_a_repeated_value></a>
-##### Checking for a repeated value
+#### Checking for a repeated value
 
 You can use an `EXISTS` subquery to scan inside a repeated field and check if
 any value exists with some desired property. For example, the following query
@@ -7781,7 +7781,7 @@ WHERE
            item.product_name = "Foo");
 ```
 
-##### Nullness and nested fields
+#### Nullness and nested fields
 
 A `PROTO` value may contain fields which are themselves `PROTO`s. When this
 happens it is possible for the nested `PROTO` itself to be `NULL`. In such a
@@ -8243,7 +8243,7 @@ FROM
 [nested-extensions]: https://developers.google.com/protocol-buffers/docs/proto#nested-extensions
 
 [new-keyword]: #using_new
-[explicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax#explicit-alias-syntax
+[explicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax#explicit_alias_syntax
 [implicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax#implicit_aliases
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md
@@ -9738,7 +9738,7 @@ SELECT ARRAY(
 [flattening-arrays]: #flattening_arrays
 [array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types#array_type
 [unnest-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax#unnest
-[cross-join-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax#cross-join
+[cross-join-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax#cross_join
 
 [array-data-type]: #array-type
 [array-function]: #array
@@ -10190,7 +10190,7 @@ value does not have a field called `ROWNUM`.
 [pseudo-columns]: #pseudo-columns
 [data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
 [data-manipulation-language]: https://github.com/google/zetasql/blob/master/docs/data-manipulation-language
-[query-syntax-value-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax#value-tables
+[query-syntax-value-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax#value_tables
 
 [data-types]: #data-types
 [data-manipulation-language]: #data-manipulation-reference
@@ -10895,7 +10895,7 @@ FROM CustomerRangeWithCustomerType(100, 200, 'CUSTOMER_TYPE_ADVERTISER');
 [data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
 [data-types-struct]: https://github.com/google/zetasql/blob/master/docs/data-types#struct_type
 [datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#value-tables
-[group-by-link]: https://github.com/google/zetasql/blob/master/docs/query-syntax#group-by-clause
+[group-by-link]: https://github.com/google/zetasql/blob/master/docs/query-syntax#group_by_clause
 [aggregate-fns-link]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions
 
 [data-types]: #data-types
@@ -24471,23 +24471,29 @@ source.
 
 ### ALTER
 
-```
-ALTER TABLE table_name SET OPTIONS (key=value, ...);
-```
+<pre>
+ALTER <span class="var">object_type</span> <span class="var">alter_action</span>, ...
+
+<span class="var">object_type</span>:
+  TABLE
+  | VIEW
+
+<span class="var">alter_action</span>:
+  SET OPTIONS (key=value, ...)
+  | ADD COLUMN [ IF NOT EXISTS ]  column_definition
+  | DROP COLUMN [ IF EXISTS ]  column_name
+</pre>
 
 **Description**
 
-The `ALTER` statement modifies schema options for a table. Because {{
-product_name }} does not define general DDL syntax, it only supports `ALTER` for
-changing table options which typically appear in the `OPTIONS` clause of a
-`CREATE TABLE` statement.
+The `ALTER` statement modifies metadata for a table or a view.
 
 `table_name` is any identifier or dotted path.
 
 The option entries are system-specific. These follow the ZetaSQL
 [`HINT` syntax][hints].
 
-This statement raises an error under these conditions:
+SET OPTIONS action raises an error under these conditions:
 
 +   The table does not exist.
 +   A key is not recognized.
@@ -24497,6 +24503,52 @@ The following semantics apply:
 +   The value is updated for each key in the `SET OPTIONS` clause.
 +   Keys not in the `SET OPTIONS` clause remain unchanged.
 +   Setting a key value to `NULL` clears it.
+
+ADD and DROP COLUMN actions raise an error under these conditions:
+
++   ADD COLUMN or DROP COLUMN are applied to a view.
++   ADD COLUMN specified without IF NOT EXIST and the column already exists.
++   DROP COLUMN specified without IF EXIST and the column does not exist.
+
+**Examples**
+
+The following examples illustrate ways to use the `ALTER SET OPTIONS` statement:
+
+Update table description.
+
+```sql
+ALTER TABLE my_dataset.my_table
+SET OPTIONS (description='my table');
+```
+
+Remove table description.
+
+```sql
+ALTER TABLE my_dataset.my_table
+SET OPTIONS (description=NULL);
+```
+
+The following example illustrates using the `ALTER ADD COLUMN` statement:
+
+```sql
+ALTER TABLE mydataset.mytable
+    ADD COLUMN A STRING,
+    ADD COLUMN IF NOT EXISTS B GEOGRAPHY,
+    ADD COLUMN C ARRAY<NUMERIC>,
+    ADD COLUMN D DATE OPTIONS(description="my description")
+```
+
+Add column A of type STRUCT.
+
+```sql
+ALTER TABLE mydataset.mytable
+ADD COLUMN A STRUCT<
+               B GEOGRAPHY,
+               C ARRAY<INT64>,
+               D INT64 NOT NULL,
+               E TIMESTAMP OPTIONS(description="creation time")
+             >
+```
 
 ### RENAME
 

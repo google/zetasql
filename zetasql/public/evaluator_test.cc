@@ -45,6 +45,8 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/testdata/populate_sample_tables.h"
+#include "zetasql/testdata/sample_catalog.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"
@@ -1218,6 +1220,78 @@ TEST(EvaluatorTest, CurrentTime) {
   TimeValue expected;
   ZETASQL_ASSERT_OK(functions::ConstructTime(1, 2, 3, &expected));
   EXPECT_EQ(expected.DebugString(), value.time_value().DebugString());
+}
+
+TEST(EvaluatorTest, ForSystemTimeAsOfWithUnsupportedTable) {
+  AnalyzerOptions analyzer_options;
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_1_FOR_SYSTEM_TIME_AS_OF);
+
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+
+  const std::string query(
+      "(SELECT COUNT(*) FROM KeyValue FOR SYSTEM TIME AS OF '2017-01-01')");
+  TypeFactory type_factory;
+  SampleCatalog catalog;
+  ZETASQL_ASSERT_OK(AnalyzeExpression(query, analyzer_options, catalog.catalog(),
+                              &type_factory, &analyzer_output));
+  ZETASQL_ASSERT_OK(PopulateSampleTables(&type_factory, &catalog));
+
+  PreparedExpression expr(analyzer_output->resolved_expr(), EvaluatorOptions());
+  EXPECT_THAT(
+      expr.Execute({}),
+      StatusIs(
+          zetasql_base::UNIMPLEMENTED,
+          HasSubstr("EvaluatorTableIterator::SetReadTime() not implemented")));
+}
+
+TEST(EvaluatorTest, ForSystemTimeAsOfWithSupportedTable) {
+  AnalyzerOptions analyzer_options;
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_1_FOR_SYSTEM_TIME_AS_OF);
+
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+
+  const std::string query(
+      "(SELECT COUNT(*) FROM KeyValueReadTimeIgnored FOR SYSTEM TIME AS OF "
+      "'2017-01-01')");
+  TypeFactory type_factory;
+  SampleCatalog catalog;
+  ZETASQL_ASSERT_OK(AnalyzeExpression(query, analyzer_options, catalog.catalog(),
+                              &type_factory, &analyzer_output));
+  ZETASQL_ASSERT_OK(PopulateSampleTables(&type_factory, &catalog));
+
+  PreparedExpression expr(analyzer_output->resolved_expr(), EvaluatorOptions());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value result, expr.Execute());
+  ASSERT_EQ(result, Value::Int64(4));
+}
+
+TEST(EvaluatorTest, QueryParamInForSystemTimeAsOfExpr) {
+  AnalyzerOptions analyzer_options;
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_1_FOR_SYSTEM_TIME_AS_OF);
+  ZETASQL_ASSERT_OK(analyzer_options.AddQueryParameter("query_param",
+                                               types::TimestampType()));
+
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+
+  const std::string query(
+      "(SELECT COUNT(*) FROM KeyValueReadTimeIgnored FOR SYSTEM TIME AS OF "
+      "@query_param)");
+  TypeFactory type_factory;
+  SampleCatalog catalog;
+  ZETASQL_ASSERT_OK(AnalyzeExpression(query, analyzer_options, catalog.catalog(),
+                              &type_factory, &analyzer_output));
+  ZETASQL_ASSERT_OK(PopulateSampleTables(&type_factory, &catalog));
+
+  ParameterValueMap param_values;
+  Value param_value = values::Timestamp(
+      absl::FromCivil(absl::CivilSecond(2018, 1, 1), absl::UTCTimeZone()));
+  zetasql_base::InsertOrDie(&param_values, "query_param", param_value);
+
+  PreparedExpression expr(analyzer_output->resolved_expr(), EvaluatorOptions());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value result, expr.Execute({}, param_values));
+  ASSERT_EQ(result, Value::Int64(4));
 }
 
 // Returns a PreparedExpression for SQL. Unlike the other tests in this file,

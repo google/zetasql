@@ -20,6 +20,7 @@
 #define ZETASQL_PUBLIC_EVALUATOR_TABLE_ITERATOR_H_
 
 #include "zetasql/public/value.h"
+#include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -126,6 +127,17 @@ class EvaluatorTableIterator {
   virtual zetasql_base::Status SetColumnFilterMap(
       absl::flat_hash_map<int, std::unique_ptr<ColumnFilter>> filter_map) {
     return zetasql_base::OkStatus();
+  }
+
+  // Indicates that the iterator should read from a snapshot of the table at the
+  // given moment in time, rather than the current table content. This function
+  // must be called prior to the first call to NextRow().
+  //
+  // This function should return InvalidArgumentError if the table is unreadable
+  // at 'read_time'.
+  virtual zetasql_base::Status SetReadTime(absl::Time read_time) {
+    return zetasql_base::UnimplementedError(
+        "EvaluatorTableIterator::SetReadTime() not implemented");
   }
 
   // Returns false if there is no next row. The caller must then check

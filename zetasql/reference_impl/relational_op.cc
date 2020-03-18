@@ -313,10 +313,11 @@ EvaluatorTableScanOp::Create(
     absl::Span<const int> column_idxs,
     absl::Span<const std::string> column_names,
     absl::Span<const VariableId> variables,
-    std::vector<std::unique_ptr<ColumnFilterArg>> and_filters) {
-  return absl::WrapUnique(new EvaluatorTableScanOp(table, alias, column_idxs,
-                                                   column_names, variables,
-                                                   std::move(and_filters)));
+    std::vector<std::unique_ptr<ColumnFilterArg>> and_filters,
+    std::unique_ptr<ValueExpr> read_time) {
+  return absl::WrapUnique(new EvaluatorTableScanOp(
+      table, alias, column_idxs, column_names, variables,
+      std::move(and_filters), std::move(read_time)));
 }
 
 ::zetasql_base::StatusOr<std::unique_ptr<ColumnFilter>>
@@ -420,6 +421,11 @@ EvaluatorTableScanOp::IntersectColumnFilters(
   for (std::unique_ptr<ColumnFilterArg>& filter : and_filters_) {
     ZETASQL_RETURN_IF_ERROR(filter->SetSchemasForEvaluation(params_schemas));
   }
+
+  if (read_time_ != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(read_time_->SetSchemasForEvaluation(params_schemas));
+  }
+
   return zetasql_base::OkStatus();
 }
 
@@ -491,8 +497,27 @@ class EvaluatorTableTupleIterator : public TupleIterator {
 EvaluatorTableScanOp::CreateIterator(absl::Span<const TupleData* const> params,
                                      int num_extra_slots,
                                      EvaluationContext* context) const {
+  absl::optional<absl::Time> read_time;
+  if (read_time_ != nullptr) {
+    std::shared_ptr<TupleSlot::SharedProtoState> shared_state;
+    Value time_value;
+    VirtualTupleSlot result(&time_value, &shared_state);
+    zetasql_base::Status status;
+    if (!read_time_->Eval(params, context, &result, &status)) {
+      return status;
+    }
+
+    // The resolver should have already verified that the FOR SYSTEM TIME AS OF
+    // expression is a timestamp.
+    ZETASQL_RET_CHECK(time_value.type()->IsTimestamp());
+    read_time = time_value.ToTime();
+  }
+
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<EvaluatorTableIterator> evaluator_table_iter,
                    table_->CreateEvaluatorTableIterator(column_idxs_));
+  if (read_time.has_value()) {
+    ZETASQL_RETURN_IF_ERROR(evaluator_table_iter->SetReadTime(read_time.value()));
+  }
 
   absl::flat_hash_map<int, std::vector<std::unique_ptr<ColumnFilter>>>
       filter_list_map;
@@ -560,13 +585,15 @@ EvaluatorTableScanOp::EvaluatorTableScanOp(
     absl::Span<const int> column_idxs,
     absl::Span<const std::string> column_names,
     absl::Span<const VariableId> variables,
-    std::vector<std::unique_ptr<ColumnFilterArg>> and_filters)
+    std::vector<std::unique_ptr<ColumnFilterArg>> and_filters,
+    std::unique_ptr<ValueExpr> read_time)
     : table_(table),
       alias_(alias),
       column_idxs_(column_idxs.begin(), column_idxs.end()),
       column_names_(column_names.begin(), column_names.end()),
       variables_(variables.begin(), variables.end()),
-      and_filters_(std::move(and_filters)) {}
+      and_filters_(std::move(and_filters)),
+      read_time_(std::move(read_time)) {}
 
 // -------------------------------------------------------
 // LetOp

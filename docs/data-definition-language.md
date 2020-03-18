@@ -697,23 +697,29 @@ source.
 
 ## ALTER
 
-```
-ALTER TABLE table_name SET OPTIONS (key=value, ...);
-```
+<pre>
+ALTER <span class="var">object_type</span> <span class="var">alter_action</span>, ...
+
+<span class="var">object_type</span>:
+  TABLE
+  | VIEW
+
+<span class="var">alter_action</span>:
+  SET OPTIONS (key=value, ...)
+  | ADD COLUMN [ IF NOT EXISTS ]  column_definition
+  | DROP COLUMN [ IF EXISTS ]  column_name
+</pre>
 
 **Description**
 
-The `ALTER` statement modifies schema options for a table. Because {{
-product_name }} does not define general DDL syntax, it only supports `ALTER` for
-changing table options which typically appear in the `OPTIONS` clause of a
-`CREATE TABLE` statement.
+The `ALTER` statement modifies metadata for a table or a view.
 
 `table_name` is any identifier or dotted path.
 
 The option entries are system-specific. These follow the ZetaSQL
 [`HINT` syntax][hints].
 
-This statement raises an error under these conditions:
+SET OPTIONS action raises an error under these conditions:
 
 +   The table does not exist.
 +   A key is not recognized.
@@ -723,6 +729,52 @@ The following semantics apply:
 +   The value is updated for each key in the `SET OPTIONS` clause.
 +   Keys not in the `SET OPTIONS` clause remain unchanged.
 +   Setting a key value to `NULL` clears it.
+
+ADD and DROP COLUMN actions raise an error under these conditions:
+
++   ADD COLUMN or DROP COLUMN are applied to a view.
++   ADD COLUMN specified without IF NOT EXIST and the column already exists.
++   DROP COLUMN specified without IF EXIST and the column does not exist.
+
+**Examples**
+
+The following examples illustrate ways to use the `ALTER SET OPTIONS` statement:
+
+Update table description.
+
+```sql
+ALTER TABLE my_dataset.my_table
+SET OPTIONS (description='my table');
+```
+
+Remove table description.
+
+```sql
+ALTER TABLE my_dataset.my_table
+SET OPTIONS (description=NULL);
+```
+
+The following example illustrates using the `ALTER ADD COLUMN` statement:
+
+```sql
+ALTER TABLE mydataset.mytable
+    ADD COLUMN A STRING,
+    ADD COLUMN IF NOT EXISTS B GEOGRAPHY,
+    ADD COLUMN C ARRAY<NUMERIC>,
+    ADD COLUMN D DATE OPTIONS(description="my description")
+```
+
+Add column A of type STRUCT.
+
+```sql
+ALTER TABLE mydataset.mytable
+ADD COLUMN A STRUCT<
+               B GEOGRAPHY,
+               C ARRAY<INT64>,
+               D INT64 NOT NULL,
+               E TIMESTAMP OPTIONS(description="creation time")
+             >
+```
 
 ## RENAME
 

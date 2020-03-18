@@ -499,6 +499,78 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {Double(-1), Numeric(-1), EQUAL},
       {Double(1), NullNumeric(), NULL_VALUE},
 
+      // bignumeric
+      {BigNumeric(0), BigNumeric(BigNumericValue::MaxValue()), LESS},
+      {BigNumeric(BigNumericValue::MinValue()), BigNumeric(0), LESS},
+      {BigNumeric(1), BigNumeric(1), EQUAL},
+      {BigNumeric(BigNumericValue::FromStringStrict("123.456").ValueOrDie()),
+       BigNumeric(BigNumericValue::FromStringStrict("123.654").ValueOrDie()),
+       LESS},
+      {BigNumeric(BigNumericValue::FromStringStrict("-123.654").ValueOrDie()),
+       BigNumeric(BigNumericValue::FromStringStrict("-123.456").ValueOrDie()),
+       LESS},
+      {BigNumeric(-1), BigNumeric(-1), EQUAL},
+      {BigNumeric(1), NullBigNumeric(), NULL_VALUE},
+
+      // bignumeric vs. int64
+      {Int64(0), BigNumeric(BigNumericValue::MaxValue()), LESS},
+      {BigNumeric(BigNumericValue::MinValue()), int64min, LESS},
+      {Int64(1), BigNumeric(1), EQUAL},
+      {Int64(123),
+       BigNumeric(BigNumericValue::FromStringStrict("123.654").ValueOrDie()),
+       LESS},
+      {BigNumeric(BigNumericValue::FromStringStrict("-123.456").ValueOrDie()),
+       Int64(-123), LESS},
+      {Int64(-1), BigNumeric(-1), EQUAL},
+      {Int64(1), NullBigNumeric(), NULL_VALUE},
+
+      // bignumeric vs. uint64
+      {Uint64(0), BigNumeric(BigNumericValue::MaxValue()), LESS},
+      {BigNumeric(BigNumericValue::MinValue()), uint64max, LESS},
+      {Uint64(1), BigNumeric(1), EQUAL},
+      {Uint64(123),
+       BigNumeric(BigNumericValue::FromStringStrict("123.654").ValueOrDie()),
+       LESS},
+      {BigNumeric(BigNumericValue::FromStringStrict("-123.456").ValueOrDie()),
+       Uint64(123), LESS},
+      {BigNumeric(-1), Uint64(1), LESS},
+      {Uint64(1), NullBigNumeric(), NULL_VALUE},
+
+      // bignumeric vs. floating point
+      {Double(0), BigNumeric(BigNumericValue::MaxValue()), LESS},
+      {doublemin, BigNumeric(BigNumericValue::MinValue()), LESS},
+      {double_neg_inf, BigNumeric(BigNumericValue::MinValue()), LESS},
+      {BigNumeric(BigNumericValue::MaxValue()), double_pos_inf, LESS},
+      {BigNumeric(BigNumericValue::MaxValue()), float_pos_inf, LESS},
+      {BigNumeric(BigNumericValue::MaxValue()), double_nan, UNORDERED},
+      {Double(1.0), BigNumeric(1), EQUAL},
+      {Double(0.0), BigNumeric(0), EQUAL},
+      {Double(-0.0), BigNumeric(0), EQUAL},
+      {Double(123),
+       BigNumeric(BigNumericValue::FromStringStrict("123.654").ValueOrDie()),
+       LESS},
+      {BigNumeric(BigNumericValue::FromStringStrict("-123.456").ValueOrDie()),
+       Double(-123), LESS},
+      {Double(-123.456),
+       BigNumeric(BigNumericValue::FromStringStrict("-123.456").ValueOrDie()),
+       EQUAL},
+      {Double(-1), BigNumeric(-1), EQUAL},
+      {Double(1), NullBigNumeric(), NULL_VALUE},
+
+      // bignumeric vs numeric
+      {Numeric(0), BigNumeric(BigNumericValue::MaxValue()), LESS},
+      {BigNumeric(BigNumericValue::MinValue()), Numeric(0), LESS},
+      {Numeric(1), BigNumeric(1), EQUAL},
+      {Numeric(NumericValue::FromStringStrict("123.456").ValueOrDie()),
+       BigNumeric(BigNumericValue::FromStringStrict("123.654").ValueOrDie()),
+       LESS},
+      {Numeric(NumericValue::FromStringStrict("-123.654").ValueOrDie()),
+       BigNumeric(BigNumericValue::FromStringStrict("-123.456").ValueOrDie()),
+       LESS},
+      {Numeric(-1), BigNumeric(-1), EQUAL},
+      {Numeric(1), NullBigNumeric(), NULL_VALUE},
+      {BigNumeric(1), NullNumeric(), NULL_VALUE},
+
       // string
       {"hello", "hello", EQUAL},
       {"bye", "hello", LESS},
@@ -660,6 +732,7 @@ static void AddTestWithPossiblyWrappedResultWithRequiredFeatures(
     std::vector<QueryParamsWithResult>* result) {
   bool has_any_civil_time = false;
   bool has_any_numeric = false;
+  bool has_any_bignumeric = false;
   bool has_any_array = false;
   // Check the inputs for civil time, numeric, and arrays.
   for (const auto& each : input) {
@@ -669,10 +742,16 @@ static void AddTestWithPossiblyWrappedResultWithRequiredFeatures(
     if (each.type()->IsNumericType()) {
       has_any_numeric = true;
     }
+    if (each.type()->IsBigNumericType()) {
+      has_any_bignumeric = true;
+    }
     if (each.type()->IsArray()) {
       has_any_array = true;
       if (each.type()->AsArray()->element_type()->IsNumericType()) {
         has_any_numeric = true;
+      }
+      if (each.type()->AsArray()->element_type()->IsBigNumericType()) {
+        has_any_bignumeric = true;
       }
     }
   }
@@ -683,10 +762,16 @@ static void AddTestWithPossiblyWrappedResultWithRequiredFeatures(
   if (out.type()->IsNumericType()) {
     has_any_numeric = true;
   }
+  if (out.type()->IsBigNumericType()) {
+    has_any_bignumeric = true;
+  }
   if (out.type()->IsArray()) {
     has_any_array = true;
     if (out.type()->AsArray()->element_type()->IsNumericType()) {
       has_any_numeric = true;
+    }
+    if (out.type()->AsArray()->element_type()->IsBigNumericType()) {
+      has_any_bignumeric = true;
     }
   }
 
@@ -700,6 +785,9 @@ static void AddTestWithPossiblyWrappedResultWithRequiredFeatures(
   }
   if (has_any_array && array_language_feature) {
     feature_set.insert(*array_language_feature);
+  }
+  if (has_any_bignumeric) {
+    feature_set.insert(FEATURE_BIGNUMERIC_TYPE);
   }
 
   // If the feature set is not empty then wrap the output result in
@@ -718,6 +806,16 @@ static void WrapNumericTestCases(std::vector<QueryParamsWithResult>* tests) {
     if (test_case.HasEmptyFeatureSetAndNothingElse() &&
         test_case.result().type()->IsNumericType()) {
       test_case = test_case.WrapWithFeature(FEATURE_NUMERIC_TYPE);
+    }
+  }
+}
+
+// Wraps any test cases that use BIGNUMERIC with FEATURE_BIGNUMERIC_TYPE.
+static void WrapBigNumericTestCases(std::vector<QueryParamsWithResult>* tests) {
+  for (auto& test_case : *tests) {
+    if (test_case.HasEmptyFeatureSetAndNothingElse() &&
+        test_case.result().type()->IsBigNumericType()) {
+      test_case = test_case.WrapWithFeature(FEATURE_BIGNUMERIC_TYPE);
     }
   }
 }
@@ -1800,6 +1898,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsIf() {
     result.push_back({{True(), v[1], v[0]}, v[1]});
   }
   WrapNumericTestCases(&result);
+  WrapBigNumericTestCases(&result);
   return result;
 }
 
@@ -1811,6 +1910,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsIfNull() {
     result.push_back({{v[1], v[0]}, v[1]});
   }
   WrapNumericTestCases(&result);
+  WrapBigNumericTestCases(&result);
   return result;
 }
 
@@ -1860,6 +1960,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsNullIf() {
     result.push_back({{v[1], v[1]}, null_value});
   }
   WrapNumericTestCases(&result);
+  WrapBigNumericTestCases(&result);
   return result;
 }
 
@@ -1878,6 +1979,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoalesce() {
     result.push_back({{v[1], v[0]}, v[1]});
   }
   WrapNumericTestCases(&result);
+  WrapBigNumericTestCases(&result);
   return result;
 }
 

@@ -279,7 +279,7 @@ For example, suppose that `proto_msg` of type `PROTO` has a field named
 * The value of `leaf_field` if `proto_msg` is not `NULL` and `leaf_field`
   is set.
 
-#### zetasql.use_defaults
+### zetasql.use_defaults
 
 You can change this default behavior using a special annotation on your protocol
 message definition, `zetasql.use_defaults`, which you set on an individual
@@ -313,7 +313,7 @@ treated like any other value of that type. For non-`PROTO` values, such as
 if the value for that field was set explicitly, or if it was read as a default
 value.
 
-#### zetasql.use_field_defaults
+### zetasql.use_field_defaults
 
 The `zetasql.use_field_defaults` annotation is just like
 `zetasql.use_defaults`, but you set it on a message and it applies to all
@@ -333,7 +333,7 @@ message AnotherSimpleMessage {
 ```
 
 <a id=checking_if_a_field_has_a_value></a>
-#### Checking if a non-repeated field has a value
+### Checking if a non-repeated field has a value
 
 You can detect whether `optional` fields are set using a virtual field, `has_X`,
 where `X` is the name of the field being checked. The type of the `has_X` field
@@ -366,7 +366,7 @@ field has been explicitly set. If it returns `FALSE` or `NULL`, it means the
 value is not explicitly set.
 
 <a id=checking_for_a_repeated_value></a>
-#### Checking for a repeated value
+### Checking for a repeated value
 
 You can use an `EXISTS` subquery to scan inside a repeated field and check if
 any value exists with some desired property. For example, the following query
@@ -387,7 +387,7 @@ WHERE
            item.product_name = "Foo");
 ```
 
-#### Nullness and nested fields
+### Nullness and nested fields
 
 A `PROTO` value may contain fields which are themselves `PROTO`s. When this
 happens it is possible for the nested `PROTO` itself to be `NULL`. In such a
@@ -849,7 +849,7 @@ FROM
 [nested-extensions]: https://developers.google.com/protocol-buffers/docs/proto#nested-extensions
 
 [new-keyword]: #using_new
-[explicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax#explicit-alias-syntax
+[explicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax#explicit_alias_syntax
 [implicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax#implicit_aliases
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md

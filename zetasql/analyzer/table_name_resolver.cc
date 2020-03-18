@@ -328,7 +328,8 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
             statement->GetAsOrDie<ASTCreateRowAccessPolicyStatement>();
         zetasql_base::InsertIfNotPresent(table_names_,
                                 stmt->target_path()->ToIdentifierVector());
-        return ::zetasql_base::OkStatus();
+        return FindInExpressionsUnder(stmt->filter_using()->predicate(),
+                                      /*visible_aliases=*/{});
       }
       break;
 

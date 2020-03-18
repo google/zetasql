@@ -35,6 +35,7 @@ zetasql_base::Status ValidateTypeSupportsEqualityComparison(const Type* type) {
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_NUMERIC:
+    case TYPE_BIGNUMERIC:
     case TYPE_STRING:
     case TYPE_BYTES:
     case TYPE_DATE:
@@ -64,6 +65,7 @@ zetasql_base::Status ValidateTypeSupportsOrderComparison(const Type* type) {
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_NUMERIC:
+    case TYPE_BIGNUMERIC:
     case TYPE_STRING:
     case TYPE_BYTES:
     case TYPE_DATE:

@@ -78,6 +78,9 @@ inline zetasql::Value NumericFromDouble(double v) {
   return Numeric(zetasql::NumericValue::FromDouble(v).ValueOrDie());
 }
 using zetasql::values::BigNumeric;  // NOLINT
+inline zetasql::Value BigNumericFromDouble(double v) {
+  return BigNumeric(zetasql::BigNumericValue::FromDouble(v).ValueOrDie());
+}
 using zetasql::values::Proto;
 using zetasql::values::String;
 using zetasql::values::Time;

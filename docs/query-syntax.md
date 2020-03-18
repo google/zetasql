@@ -16,19 +16,19 @@ ZetaSQL.
     <span class="var">query_expr</span>
 
 <span class="var">query_expr</span>:
-    [ <a href="#with-clause">WITH</a> <span class="var"><a href="#with_query_name">with_query_name</a></span> AS ( <span class="var">query_expr</span> ) [, ...] ]
+    [ <a href="#with_clause">WITH</a> <span class="var"><a href="#with_query_name">with_query_name</a></span> AS ( <span class="var">query_expr</span> ) [, ...] ]
     { <span class="var">select</span> | ( <span class="var">query_expr</span> ) | <span class="var">query_expr</span> <span class="var">set_op</span> <span class="var">query_expr</span> }
-    [ <a href="#order-by-clause">ORDER</a> BY <span class="var">expression</span> [{ ASC | DESC }] [, ...] ]
-    [ <a href="#limit-clause-and-offset-clause">LIMIT</a> <span class="var">count</span> [ OFFSET <span class="var">skip_rows</span> ] ]
+    [ <a href="#order_by_clause">ORDER</a> BY <span class="var">expression</span> [{ ASC | DESC }] [, ...] ]
+    [ <a href="#limit_clause_and_offset_clause">LIMIT</a> <span class="var">count</span> [ OFFSET <span class="var">skip_rows</span> ] ]
 
 <span class="var">select</span>:
-    <a href="#select-list">SELECT</a> [ AS { <span class="var"><a href="#select-as-typename">typename</a></span> | <a href="#select-as-struct">STRUCT</a> | <a href="#select-as-value">VALUE</a> } ] [{ ALL | DISTINCT }]
-        { [ <span class="var">expression</span>. ]* [ <a href="#select-except">EXCEPT</a> ( <span class="var">column_name</span> [, ...] ) ]<br>            [ <a href="#select-replace">REPLACE</a> ( <span class="var">expression</span> [ AS ] <span class="var">column_name</span> [, ...] ) ]<br>        | <span class="var">expression</span> [ [ AS ] <span class="var">alias</span> ] } [, ...]
-    [ <a href="#from-clause">FROM</a> <span class="var">from_item</span> [ <span class="var">tablesample_type</span> ] [, ...] ]
-    [ <a href="#where-clause">WHERE</a> <span class="var">bool_expression</span> ]
-    [ <a href="#group-by-clause">GROUP</a> BY { <span class="var">expression</span> [, ...] | ROLLUP ( <span class="var">expression</span> [, ...] ) } ]
-    [ <a href="#having-clause">HAVING</a> <span class="var">bool_expression</span> ]
-    [ <a href="https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#window-clause">WINDOW</a> <span class="var">window_name</span> AS ( <span class="var">window_definition</span> ) [, ...] ]
+    <a href="#select_list">SELECT</a> [ AS { <span class="var"><a href="https://github.com/google/zetasql/blob/master/docs/protocol-buffers#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ] [{ ALL | DISTINCT }]
+        { [ <span class="var">expression</span>. ]* [ <a href="#select_except">EXCEPT</a> ( <span class="var">column_name</span> [, ...] ) ]<br>            [ <a href="#select_replace">REPLACE</a> ( <span class="var">expression</span> [ AS ] <span class="var">column_name</span> [, ...] ) ]<br>        | <span class="var">expression</span> [ [ AS ] <span class="var">alias</span> ] } [, ...]
+    [ <a href="#from_clause">FROM</a> <span class="var">from_item</span> [ <span class="var">tablesample_type</span> ] [, ...] ]
+    [ <a href="#where_clause">WHERE</a> <span class="var">bool_expression</span> ]
+    [ <a href="#group_by_clause">GROUP</a> BY { <span class="var">expression</span> [, ...] | ROLLUP ( <span class="var">expression</span> [, ...] ) } ]
+    [ <a href="#having_clause">HAVING</a> <span class="var">bool_expression</span> ]
+    [ <a href="https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#window_clause">WINDOW</a> <span class="var">window_name</span> AS ( <span class="var">window_definition</span> ) [, ...] ]
 
 <span class="var">set_op</span>:
     <a href="#union">UNION</a> { ALL | DISTINCT } | <a href="#intersect">INTERSECT</a> { ALL | DISTINCT } | <a href="#except">EXCEPT</a> { ALL | DISTINCT }
@@ -44,14 +44,14 @@ ZetaSQL.
 }
 
 <span class="var">join</span>:
-    <span class="var">from_item</span> [ <span class="var">join_type</span> ] <a href="#join-types">JOIN</a> <span class="var">from_item</span>
-    [ { <a href="#on-clause">ON</a> <span class="var">bool_expression</span> | <a href="#using-clause">USING</a> ( <span class="var">join_column</span> [, ...] ) } ]
+    <span class="var">from_item</span> [ <span class="var">join_type</span> ] <a href="#join_types">JOIN</a> <span class="var">from_item</span>
+    [ { <a href="#on_clause">ON</a> <span class="var">bool_expression</span> | <a href="#using_clause">USING</a> ( <span class="var">join_column</span> [, ...] ) } ]
 
 <span class="var">join_type</span>:
-    { <a href="#inner-join">INNER</a> | <a href="#cross-join">CROSS</a> | <a href="#full-outer-join">FULL [OUTER]</a> | <a href="#left-outer-join">LEFT [OUTER]</a> | <a href="#right-outer-join">RIGHT [OUTER]</a> }
+    { <a href="#inner_join">INNER</a> | <a href="#cross_join">CROSS</a> | <a href="#full_outer_join">FULL [OUTER]</a> | <a href="#left_outer_join">LEFT [OUTER]</a> | <a href="#right_outer_join">RIGHT [OUTER]</a> }
 
 <span class="var">tablesample_type</span>:
-    <a href="#tablesample-operator">TABLESAMPLE</a> <span class="var">sample_method</span> (<span class="var">sample_size</span> <span class="var">percent_or_rows</span> )
+    <a href="#tablesample_operator">TABLESAMPLE</a> <span class="var">sample_method</span> (<span class="var">sample_size</span> <span class="var">percent_or_rows</span> )
 
 <span class="var">sample_method</span>:
     { BERNOULLI | SYSTEM | RESERVOIR }
@@ -671,7 +671,7 @@ Syntax:
 
 <pre>
 <span class="var">tablesample_type</span>:
-    <a href="#tablesample-operator">TABLESAMPLE</a> <span class="var">sample_method</span> (<span class="var">sample_size</span> <span class="var">percent_or_rows</span>)
+    <a href="#tablesample_operator">TABLESAMPLE</a> <span class="var">sample_method</span> (<span class="var">sample_size</span> <span class="var">percent_or_rows</span>)
     [ REPEATABLE(repeat_argument) ]
 
 <span class="var">sample_method</span>:
@@ -766,10 +766,10 @@ See [Aliases][using-aliases] for information on syntax and visibility for
 <pre>
 <span class="var">join</span>:
     <span class="var">from_item</span> [ <span class="var">join_type</span> ] JOIN <span class="var">from_item</span>
-    [ <a href="#on-clause">ON</a> <span class="var">bool_expression</span> | <a href="#using-clause">USING</a> ( <span class="var">join_column</span> [, ...] ) ]
+    [ <a href="#on_clause">ON</a> <span class="var">bool_expression</span> | <a href="#using_clause">USING</a> ( <span class="var">join_column</span> [, ...] ) ]
 
 <span class="var">join_type</span>:
-    { <a href="#inner-join">INNER</a> | <a href="#cross-join">CROSS</a> | <a href="#full-outer-join">FULL [OUTER]</a> | <a href="#left-outer-join">LEFT [OUTER]</a> | <a href="#right-outer-join">RIGHT [OUTER]</a> }
+    { <a href="#inner_join">INNER</a> | <a href="#cross_join">CROSS</a> | <a href="#full_outer_join">FULL [OUTER]</a> | <a href="#left_outer_join">LEFT [OUTER]</a> | <a href="#right_outer_join">RIGHT [OUTER]</a> }
 </pre>
 
 The `JOIN` clause merges two `from_item`s so that the `SELECT` clause can
@@ -2620,12 +2620,12 @@ Results:
 [subqueries]: #subqueries
 [using-aliases]: #using_aliases
 [sequences-of-joins]: #sequences_of_joins
-[set-operators]: #set-operators
+[set-operators]: #set_operators
 [union-syntax]: #union
-[join-hints]: #join-hints
+[join-hints]: #join_hints
+[query-value-tables]: #value_tables
 [analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays#flattening_arrays
-[query-value-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax#value-tables
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data_type_properties
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics

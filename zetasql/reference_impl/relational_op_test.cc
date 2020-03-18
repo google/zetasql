@@ -634,7 +634,7 @@ TEST_F(CreateIteratorTest, EvaluatorTableScanOp) {
       auto scan_op,
       EvaluatorTableScanOp::Create(&table, /*alias=*/"", {2, 3, 1},
                                    {"column2", "column3", "column1"}, {x, y, z},
-                                   /*and_filters=*/{}));
+                                   /*and_filters=*/{}, /*read_time=*/nullptr));
   EXPECT_EQ(scan_op->IteratorDebugString(),
             "EvaluatorTableTupleIterator(TestTable)");
   EXPECT_EQ(scan_op->DebugString(),
@@ -696,10 +696,11 @@ TEST_F(CreateIteratorTest, EvaluatorTableScanOpWithColumnFilter) {
   std::vector<std::unique_ptr<ColumnFilterArg>> and_filters;
   and_filters.push_back(std::move(filter));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(auto scan_op, EvaluatorTableScanOp::Create(
-                                         &table, /*alias=*/"", {2, 3, 1},
-                                         {"column2", "column3", "column1"},
-                                         {x, y, z}, std::move(and_filters)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto scan_op,
+      EvaluatorTableScanOp::Create(
+          &table, /*alias=*/"", {2, 3, 1}, {"column2", "column3", "column1"},
+          {x, y, z}, std::move(and_filters), /*read_time=*/nullptr));
   EXPECT_EQ(scan_op->IteratorDebugString(),
             "EvaluatorTableTupleIterator(TestTable)");
   EXPECT_EQ(scan_op->DebugString(),
@@ -738,7 +739,8 @@ TEST_F(CreateIteratorTest, EvaluatorTableScanOpFailure) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto scan_op, EvaluatorTableScanOp::Create(&table, /*alias=*/"", {0},
                                                  {"column0"}, {VariableId("x")},
-                                                 /*and_filters=*/{}));
+                                                 /*and_filters=*/{},
+                                                 /*read_time=*/nullptr));
 
   EvaluationContext context((EvaluationOptions()));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
@@ -765,7 +767,8 @@ TEST_F(CreateIteratorTest, EvaluatorTableScanOpCancellation) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto scan_op, EvaluatorTableScanOp::Create(&table, /*alias=*/"", {0},
                                                  {"column0"}, {VariableId("x")},
-                                                 /*and_filters=*/{}));
+                                                 /*and_filters=*/{},
+                                                 /*read_time=*/nullptr));
 
   EvaluationContext context((EvaluationOptions()));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
@@ -798,7 +801,8 @@ TEST_F(CreateIteratorTest, EvaluatorTableScanOpDeadlineExceeded) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto scan_op, EvaluatorTableScanOp::Create(&table, /*alias=*/"", {0},
                                                  {"column0"}, {VariableId("x")},
-                                                 /*and_filters=*/{}));
+                                                 /*and_filters=*/{},
+                                                 /*read_time=*/nullptr));
 
   EvaluationContext context((EvaluationOptions()));
   context.SetClockAndClearCurrentTimestamp(&clock);

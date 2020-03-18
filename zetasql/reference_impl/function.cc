@@ -445,6 +445,13 @@ FunctionMap::FunctionMap() {
   RegisterFunction(FunctionKind::kGenerateTimestampArray,
                    "generate_timestamp_array", "GenerateTimestampArray");
   RegisterFunction(FunctionKind::kRangeBucket, "range_bucket", "RangeBucket");
+  RegisterFunction(FunctionKind::kJsonExtract, "json_extract", "JsonExtract");
+  RegisterFunction(FunctionKind::kJsonExtractScalar, "json_extract_scalar",
+                   "JsonExtractScalar");
+  RegisterFunction(FunctionKind::kJsonExtractArray, "json_extract_array",
+                   "JsonExtractArray");
+  RegisterFunction(FunctionKind::kJsonQuery, "json_query", "JsonQuery");
+  RegisterFunction(FunctionKind::kJsonValue, "json_value", "JsonValue");
   RegisterFunction(FunctionKind::kGreatest, "greatest", "Greatest");
   RegisterFunction(FunctionKind::kIsNull, "$is_null", "IsNull");
   RegisterFunction(FunctionKind::kIsTrue, "$is_true", "IsTrue");
@@ -636,6 +643,8 @@ FunctionMap::FunctionMap() {
   RegisterFunction(FunctionKind::kPercentileCont, "percentile_cont",
                    "Percentile_cont");
   RegisterFunction(FunctionKind::kRand, "rand", "Rand");
+  RegisterFunction(FunctionKind::kGenerateUuid, "generate_uuid",
+                   "Generate_Uuid");
   RegisterFunction(FunctionKind::kMd5, "md5", "Md5");
   RegisterFunction(FunctionKind::kSha1, "sha1", "Sha1");
   RegisterFunction(FunctionKind::kSha256, "sha256", "Sha256");
@@ -1226,6 +1235,12 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new GenerateArrayFunction(output_type);
     case FunctionKind::kRangeBucket:
       return new RangeBucketFunction();
+    case FunctionKind::kJsonExtract:
+    case FunctionKind::kJsonExtractScalar:
+    case FunctionKind::kJsonExtractArray:
+    case FunctionKind::kJsonQuery:
+    case FunctionKind::kJsonValue:
+      return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     case FunctionKind::kArrayConcat:
       return new ArrayConcatFunction(kind, output_type);
     case FunctionKind::kArrayLength:
@@ -1318,6 +1333,9 @@ BuiltinScalarFunction::CreateValidatedRaw(
       break;
     case FunctionKind::kRand:
       return new RandFunction;
+    case FunctionKind::kGenerateUuid:
+      // UUID functions are optional.
+      return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     case FunctionKind::kMd5:
     case FunctionKind::kSha1:
     case FunctionKind::kSha256:
@@ -1954,6 +1972,7 @@ bool ComparisonFunction::Eval(absl::Span<const Value> args,
     case FCT2(FunctionKind::kLessOrEqual, TYPE_DATETIME, TYPE_DATETIME):
     case FCT2(FunctionKind::kLessOrEqual, TYPE_ENUM, TYPE_ENUM):
     case FCT2(FunctionKind::kLessOrEqual, TYPE_NUMERIC, TYPE_NUMERIC):
+    case FCT2(FunctionKind::kLessOrEqual, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
       *result = Value::Bool(x.LessThan(y) || x.Equals(y));
       return true;
 

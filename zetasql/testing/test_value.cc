@@ -71,9 +71,9 @@ Value StructArray(absl::Span<const std::string> names,
                   OrderPreservationKind order_kind, TypeFactory* type_factory) {
   std::vector<ValueConstructor> values;
   for (const auto& s : structs) {
-    values.push_back(Struct(names, s));
+    values.push_back(Struct(names, s, type_factory));
   }
-  return Array(values, order_kind);
+  return Array(values, order_kind, type_factory);
 }
 
 const ArrayType* MakeArrayType(const Type* element_type,

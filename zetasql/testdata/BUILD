@@ -219,3 +219,24 @@ cc_library(
         "@com_google_absl//absl/types:span",
     ],
 )
+
+cc_library(
+    name = "populate_sample_tables",
+    testonly = 1,
+    srcs = ["populate_sample_tables.cc"],
+    hdrs = ["populate_sample_tables.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":sample_catalog",
+        ":test_schema_cc_proto",
+        "//zetasql/base:status",
+        "//zetasql/public:catalog",
+        "//zetasql/public:language_options",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/public:type",
+        "//zetasql/public:value",
+        "//zetasql/reference_impl:evaluation",
+        "//zetasql/testing:test_value",
+        "@com_google_protobuf//:protobuf",
+    ],
+)

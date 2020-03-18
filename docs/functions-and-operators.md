@@ -14487,7 +14487,7 @@ The concatenation operator combines multiple values into one.
 
 [operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering-arrays
 [operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
-[operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax#from-clause
+[operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax#from_clause
 [operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types#struct_type
 
 [operators-link-to-math-functions]: #mathematical_functions

@@ -39,6 +39,7 @@
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/evaluator.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/numeric_value.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/testdata/test_schema.pb.h"
@@ -2759,12 +2760,7 @@ TEST_F(ValueTest, Deserialize) {
   EXPECT_THAT(status_or_value, StatusIs(zetasql_base::INTERNAL));
 }
 
-class ValueCompareTest : public ::testing::Test {
- public:
-  ValueCompareTest() {}
-  ValueCompareTest(const ValueCompareTest&) = delete;
-  ValueCompareTest& operator=(const ValueCompareTest&) = delete;
-  ~ValueCompareTest() override {}
+namespace {
 
   template <typename T> bool IsNaN(const Value& value) {
     return value.type()->IsFloatingPoint() &&
@@ -2772,26 +2768,34 @@ class ValueCompareTest : public ::testing::Test {
            std::isnan(value.Get<T>());
   }
 
-  template <typename T> void TestSortOrder() {
+  template <> bool IsNaN<NumericValue>(const Value& value) {
+    return false;
+  }
+
+  template <> bool IsNaN<BigNumericValue>(const Value& value) {
+    return false;
+  }
+
+  template <typename T>
+  void MakeSortedVector(std::vector<zetasql::Value>* values) {
     // In ZetaSQL the ordering of values is ((broken link)):
     // NULL, NaN(s), negative infinity, finite negative numbers, zero,
     // finite positive numbers, positive infinity.
-    std::vector<zetasql::Value> values;
 
     // NULL
-    values.push_back(zetasql::Value::MakeNull<T>());
+    values->push_back(zetasql::Value::MakeNull<T>());
 
     // NaN(s) - quiet and signaling, negative and positive
     if (std::numeric_limits<T>::has_quiet_NaN) {
-      values.push_back(zetasql::Value::Make(
+      values->push_back(zetasql::Value::Make(
           std::numeric_limits<T>::quiet_NaN()));
-      values.push_back(zetasql::Value::Make(
+      values->push_back(zetasql::Value::Make(
           -std::numeric_limits<T>::quiet_NaN()));
     }
     if (std::numeric_limits<T>::has_signaling_NaN) {
-      values.push_back(zetasql::Value::Make(
+      values->push_back(zetasql::Value::Make(
           std::numeric_limits<T>::signaling_NaN()));
-      values.push_back(zetasql::Value::Make(
+      values->push_back(zetasql::Value::Make(
           -std::numeric_limits<T>::signaling_NaN()));
     }
 
@@ -2799,27 +2803,81 @@ class ValueCompareTest : public ::testing::Test {
     if (std::numeric_limits<T>::is_signed) {
       // Negative infinity
       if (std::numeric_limits<T>::has_infinity) {
-        values.push_back(zetasql::Value::Make(
+        values->push_back(zetasql::Value::Make(
             -std::numeric_limits<T>::infinity()));
       }
       // Lowest finite number (will be negative)
-      values.push_back(zetasql::Value::Make(
+      values->push_back(zetasql::Value::Make(
           std::numeric_limits<T>::lowest()));
 
       // Some finite negative number
-      values.push_back(zetasql::Value::Make(static_cast<T>(-5)));
+      values->push_back(zetasql::Value::Make(static_cast<T>(-5)));
     }
     // Zero
-    values.push_back(zetasql::Value::Make(static_cast<T>(0)));
+    values->push_back(zetasql::Value::Make(static_cast<T>(0)));
     // Some finite positive number
-    values.push_back(zetasql::Value::Make(static_cast<T>(239)));
+    values->push_back(zetasql::Value::Make(static_cast<T>(239)));
     // Highest finite positive number
-    values.push_back(zetasql::Value::Make(std::numeric_limits<T>::max()));
+    values->push_back(zetasql::Value::Make(std::numeric_limits<T>::max()));
     // Positive infinity
     if (std::numeric_limits<T>::has_infinity) {
-      values.push_back(zetasql::Value::Make(
+      values->push_back(zetasql::Value::Make(
           std::numeric_limits<T>::infinity()));
     }
+  }
+
+  template <>
+  void MakeSortedVector<NumericValue>(std::vector<zetasql::Value>* values) {
+    // NULL
+    values->push_back(NullNumeric());
+    // Lowest finite number (will be negative)
+    values->push_back(Value::Numeric(NumericValue::MinValue()));
+
+    // Some finite negative number
+    values->push_back(Value::Numeric(NumericValue(-5)));
+    // Zero
+    values->push_back(Value::Numeric(NumericValue(0)));
+    // Some finite positive number
+    values->push_back(
+        Value::Numeric(NumericValue::FromStringStrict("123.4").ValueOrDie()));
+    // Highest finite positive number
+    values->push_back(Value::Numeric(NumericValue::MaxValue()));
+  }
+
+  template <>
+  void MakeSortedVector<BigNumericValue>(
+      std::vector<zetasql::Value>* values) {
+    // NULL
+    values->push_back(NullBigNumeric());
+    // Lowest finite number (will be negative)
+    values->push_back(Value::BigNumeric(BigNumericValue::MinValue()));
+
+    // Some finite negative number
+    values->push_back(Value::BigNumeric(BigNumericValue(-5)));
+    // Zero
+    values->push_back(Value::BigNumeric(BigNumericValue(0)));
+    // Some finite positive number
+    values->push_back(Value::BigNumeric(
+        BigNumericValue::FromStringStrict("123.4").ValueOrDie()));
+    // Highest finite positive number
+    values->push_back(Value::BigNumeric(BigNumericValue::MaxValue()));
+  }
+}  // namespace
+
+class ValueCompareTest : public ::testing::Test {
+ public:
+  ValueCompareTest() {}
+  ValueCompareTest(const ValueCompareTest&) = delete;
+  ValueCompareTest& operator=(const ValueCompareTest&) = delete;
+  ~ValueCompareTest() override {}
+
+  template <typename T> void TestSortOrder() {
+    // In ZetaSQL the ordering of values is ((broken link)):
+    // NULL, NaN(s), negative infinity, finite negative numbers, zero,
+    // finite positive numbers, positive infinity.
+    std::vector<zetasql::Value> values;
+
+    MakeSortedVector<T>(&values);
 
     size_t num_values = values.size();
     for (int i = 0; i < num_values; i++) {
@@ -2853,6 +2911,8 @@ TEST_F(ValueCompareTest, SortOrder) {
   TestSortOrder<uint64_t>();
   TestSortOrder<float>();
   TestSortOrder<double>();
+  TestSortOrder<NumericValue>();
+  TestSortOrder<BigNumericValue>();
 }
 
 }  // namespace zetasql

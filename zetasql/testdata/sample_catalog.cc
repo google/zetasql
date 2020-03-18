@@ -301,6 +301,65 @@ void SampleCatalog::LoadTypes() {
   catalog_->AddType("NameConflictType", name_conflict_type);
 }
 
+namespace {
+
+// Implementation of EvaluatorTableIterator which ignores SetReadTime(), but
+// delegates all other methods to an underlying iterator passed to the
+// constructor.
+class IgnoreReadTimeIterator : public EvaluatorTableIterator {
+ public:
+  explicit IgnoreReadTimeIterator(
+      std::unique_ptr<EvaluatorTableIterator> iterator)
+      : iterator_(std::move(iterator)) {}
+
+  int NumColumns() const override { return iterator_->NumColumns(); }
+  std::string GetColumnName(int i) const override {
+    return iterator_->GetColumnName(i);
+  }
+  const Type* GetColumnType(int i) const override {
+    return iterator_->GetColumnType(i);
+  }
+  zetasql_base::Status SetColumnFilterMap(
+      absl::flat_hash_map<int, std::unique_ptr<ColumnFilter>> filter_map)
+      override {
+    return iterator_->SetColumnFilterMap(std::move(filter_map));
+  }
+  zetasql_base::Status SetReadTime(absl::Time read_time) override {
+    return zetasql_base::OkStatus();
+  }
+  bool NextRow() override { return iterator_->NextRow(); }
+  const Value& GetValue(int i) const override { return iterator_->GetValue(i); }
+  zetasql_base::Status Status() const override { return iterator_->Status(); }
+  zetasql_base::Status Cancel() override { return iterator_->Cancel(); }
+  void SetDeadline(absl::Time deadline) override {
+    iterator_->SetDeadline(deadline);
+  }
+
+ private:
+  std::unique_ptr<EvaluatorTableIterator> iterator_;
+};
+
+// Minimal table implementation to support testing of FOR SYSTEM TIME AS OF.
+// This is just a modified version of SimpleTable which ignores the read time.
+class SimpleTableWithReadTimeIgnored : public SimpleTable {
+ public:
+  SimpleTableWithReadTimeIgnored(const std::string& name,
+                                 const std::vector<NameAndType>& columns,
+                                 const int64_t id = 0)
+      : SimpleTable(name, columns, id) {}
+
+  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+  CreateEvaluatorTableIterator(
+      absl::Span<const int> column_idxs) const override {
+    std::unique_ptr<EvaluatorTableIterator> iterator;
+    ZETASQL_ASSIGN_OR_RETURN(iterator,
+                     SimpleTable::CreateEvaluatorTableIterator(column_idxs));
+    return absl::make_unique<IgnoreReadTimeIterator>(std::move(iterator));
+  }
+};
+
+}  // namespace
+
 void SampleCatalog::LoadTables() {
   SimpleTable* value_table = new SimpleTable(
       "Value", {{"Value", types_->get_int64()},
@@ -313,6 +372,12 @@ void SampleCatalog::LoadTables() {
       {{"Key", types_->get_int64()}, {"Value", types_->get_string()}});
   AddOwnedTable(key_value_table);
   key_value_table_ = key_value_table;
+
+  SimpleTable* key_value_table_read_time_ignored =
+      new SimpleTableWithReadTimeIgnored(
+          "KeyValueReadTimeIgnored",
+          {{"Key", types_->get_int64()}, {"Value", types_->get_string()}});
+  AddOwnedTable(key_value_table_read_time_ignored);
 
   const SimpleModel* one_double_model =
       new SimpleModel("OneDoubleModel", {{"a", types_->get_double()}},

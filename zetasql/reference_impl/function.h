@@ -280,6 +280,7 @@ enum class FunctionKind {
 
   // Random functions
   kRand,
+  kGenerateUuid,
 
   // Hashing functions
   kMd5,

@@ -1329,6 +1329,12 @@ Algebrizer::CreateScanOfTableAsArray(const ResolvedScan* scan,
 zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeTableScan(
     const ResolvedTableScan* table_scan,
     std::vector<FilterConjunctInfo*>* active_conjuncts) {
+  std::unique_ptr<ValueExpr> system_time_expr;
+  if (table_scan->for_system_time_expr() != nullptr) {
+    ZETASQL_ASSIGN_OR_RETURN(system_time_expr,
+                     AlgebrizeExpression(table_scan->for_system_time_expr()));
+  }
+
   if (algebrizer_options_.use_arrays_for_tables) {
     // Construct the list of fields of the SELECT and place a scan operator
     // over the table.  The scan is required because a table has array type.
@@ -1382,7 +1388,7 @@ zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeTable
 
     return EvaluatorTableScanOp::Create(
         table_scan->table(), table_scan->alias(), column_idx_list, column_names,
-        variables, std::move(and_filters));
+        variables, std::move(and_filters), std::move(system_time_expr));
   }
 }
 

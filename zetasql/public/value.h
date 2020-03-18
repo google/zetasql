@@ -409,7 +409,7 @@ class Value {
   // For access to StringRef and TypedList.
   FRIEND_TEST(ValueTest, PhysicalByteSize);
 
-  template <bool as_literal>
+  template <bool as_literal, bool maybe_add_simple_type_prefix>
   std::string GetSQLInternal(ProductMode mode) const;
 
   template <typename H>
