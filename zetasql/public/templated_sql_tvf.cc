@@ -53,7 +53,7 @@
 
 namespace zetasql {
 
-zetasql_base::Status TemplatedSQLTVF::Serialize(
+absl::Status TemplatedSQLTVF::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     TableValuedFunctionProto* proto) const {
   proto->set_type(FunctionEnums::TEMPLATED_SQL_TVF);
@@ -65,7 +65,7 @@ zetasql_base::Status TemplatedSQLTVF::Serialize(
 }
 
 // static
-zetasql_base::Status TemplatedSQLTVF::Deserialize(
+absl::Status TemplatedSQLTVF::Deserialize(
     const TableValuedFunctionProto& proto,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
     TypeFactory* factory, std::unique_ptr<TableValuedFunction>* result) {
@@ -86,10 +86,10 @@ zetasql_base::Status TemplatedSQLTVF::Deserialize(
       ParseResumeLocation::FromProto(proto.parse_resume_location());
   *result = absl::make_unique<TemplatedSQLTVF>(path, *signature, arg_name_list,
                                                parse_resume_location);
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TemplatedSQLTVF::Resolve(
+absl::Status TemplatedSQLTVF::Resolve(
     const AnalyzerOptions* analyzer_options,
     const std::vector<TVFInputArgumentType>& input_arguments,
     const FunctionSignature& concrete_signature, Catalog* catalog,
@@ -219,10 +219,10 @@ zetasql_base::Status TemplatedSQLTVF::Resolve(
   tvf_signature->reset(new TemplatedSQLTVFSignature(
       input_arguments, return_tvf_relation, tvf_signature_options,
       resolved_templated_query.release(), GetArgumentNames()));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TemplatedSQLTVF::CheckIsValid() const {
+absl::Status TemplatedSQLTVF::CheckIsValid() const {
   for (const FunctionSignature& signature : signatures_) {
     ZETASQL_RET_CHECK(std::all_of(
         signature.arguments().begin(), signature.arguments().end(),
@@ -235,14 +235,14 @@ zetasql_base::Status TemplatedSQLTVF::CheckIsValid() const {
         << " but has " << signature.NumRequiredArguments()
         << " required arguments";
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TemplatedSQLTVF::ForwardNestedResolutionAnalysisError(
-    const zetasql_base::Status& status, ErrorMessageMode mode) const {
-  zetasql_base::Status new_status;
+absl::Status TemplatedSQLTVF::ForwardNestedResolutionAnalysisError(
+    const absl::Status& status, ErrorMessageMode mode) const {
+  absl::Status new_status;
   if (status.ok()) {
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   } else if (HasErrorLocation(status)) {
     new_status = MakeTVFQueryAnalysisError();
     zetasql::internal::AttachPayload(
@@ -269,7 +269,7 @@ zetasql_base::Status TemplatedSQLTVF::ForwardNestedResolutionAnalysisError(
           new_status, parse_resume_location_.input()));
 }
 
-zetasql_base::Status TemplatedSQLTVF::MakeTVFQueryAnalysisError(
+absl::Status TemplatedSQLTVF::MakeTVFQueryAnalysisError(
     const std::string& message) const {
   std::string result =
       absl::StrCat("Analysis of table-valued function ", FullName(), " failed");

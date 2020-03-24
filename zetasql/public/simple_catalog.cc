@@ -45,56 +45,56 @@ namespace zetasql {
 SimpleCatalog::SimpleCatalog(const std::string& name, TypeFactory* type_factory)
     : name_(name), type_factory_(type_factory) {}
 
-zetasql_base::Status SimpleCatalog::GetTable(const std::string& name,
+absl::Status SimpleCatalog::GetTable(const std::string& name,
                                      const Table** table,
                                      const FindOptions& options) {
   absl::MutexLock l(&mutex_);
   *table = zetasql_base::FindPtrOrNull(tables_, absl::AsciiStrToLower(name));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SimpleCatalog::GetModel(const std::string& name,
+absl::Status SimpleCatalog::GetModel(const std::string& name,
                                      const Model** model,
                                      const FindOptions& options) {
   absl::MutexLock l(&mutex_);
   *model = zetasql_base::FindPtrOrNull(models_, absl::AsciiStrToLower(name));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SimpleCatalog::GetConnection(const std::string& name,
+absl::Status SimpleCatalog::GetConnection(const std::string& name,
                                           const Connection** connection,
                                           const FindOptions& options) {
   absl::MutexLock l(&mutex_);
   *connection = zetasql_base::FindPtrOrNull(connections_, absl::AsciiStrToLower(name));
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SimpleCatalog::GetFunction(const std::string& name,
+absl::Status SimpleCatalog::GetFunction(const std::string& name,
                                         const Function** function,
                                         const FindOptions& options) {
   absl::MutexLock l(&mutex_);
   *function = zetasql_base::FindPtrOrNull(functions_, absl::AsciiStrToLower(name));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SimpleCatalog::GetTableValuedFunction(
+absl::Status SimpleCatalog::GetTableValuedFunction(
     const std::string& name, const TableValuedFunction** function,
     const FindOptions& options) {
   absl::MutexLock l(&mutex_);
   *function =
       zetasql_base::FindPtrOrNull(table_valued_functions_, absl::AsciiStrToLower(name));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SimpleCatalog::GetProcedure(const std::string& name,
+absl::Status SimpleCatalog::GetProcedure(const std::string& name,
                                          const Procedure** procedure,
                                          const FindOptions& options) {
   absl::MutexLock l(&mutex_);
   *procedure = zetasql_base::FindPtrOrNull(procedures_, absl::AsciiStrToLower(name));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SimpleCatalog::GetType(const std::string& name, const Type** type,
+absl::Status SimpleCatalog::GetType(const std::string& name, const Type** type,
                                     const FindOptions& options) {
   const google::protobuf::DescriptorPool* pool;
   {
@@ -103,7 +103,7 @@ zetasql_base::Status SimpleCatalog::GetType(const std::string& name, const Type*
     // the name as is done in AddType.
     *type = zetasql_base::FindPtrOrNull(types_, absl::AsciiStrToLower(name));
     if (*type != nullptr) {
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     // Avoid holding the mutex while calling descriptor_pool_ methods.
     // descriptor_pool_ is const once it has been set.
@@ -123,23 +123,23 @@ zetasql_base::Status SimpleCatalog::GetType(const std::string& name, const Type*
   }
 
   DCHECK(*type == nullptr);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SimpleCatalog::GetCatalog(const std::string& name,
+absl::Status SimpleCatalog::GetCatalog(const std::string& name,
                                        Catalog** catalog,
                                        const FindOptions& options) {
   absl::MutexLock l(&mutex_);
   *catalog = zetasql_base::FindPtrOrNull(catalogs_, absl::AsciiStrToLower(name));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SimpleCatalog::GetConstant(const std::string& name,
+absl::Status SimpleCatalog::GetConstant(const std::string& name,
                                         const Constant** constant,
                                         const FindOptions& options) {
   absl::MutexLock l(&mutex_);
   *constant = zetasql_base::FindPtrOrNull(constants_, absl::AsciiStrToLower(name));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 std::string SimpleCatalog::SuggestTable(
@@ -725,7 +725,7 @@ TypeFactory* SimpleCatalog::type_factory() {
 
 namespace {
 
-zetasql_base::Status DeserializeImpl(
+absl::Status DeserializeImpl(
     const SimpleCatalogProto& proto,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
     SimpleCatalog* catalog) {
@@ -812,7 +812,7 @@ zetasql_base::Status DeserializeImpl(
     catalog->SetDescriptorPool(pools[proto.file_descriptor_set_index()]);
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 template <typename M, typename ValueContainer>
@@ -824,7 +824,7 @@ void InsertValuesFromMap(const M& m, ValueContainer* value_container) {
 
 }  // namespace
 
-zetasql_base::Status SimpleCatalog::Deserialize(
+absl::Status SimpleCatalog::Deserialize(
     const SimpleCatalogProto& proto,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
     std::unique_ptr<SimpleCatalog>* result) {
@@ -832,10 +832,10 @@ zetasql_base::Status SimpleCatalog::Deserialize(
   std::unique_ptr<SimpleCatalog> catalog(new SimpleCatalog(proto.name()));
   ZETASQL_RETURN_IF_ERROR(DeserializeImpl(proto, pools, catalog.get()));
   *result = std::move(catalog);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SimpleCatalog::Serialize(
+absl::Status SimpleCatalog::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     SimpleCatalogProto* proto,
     bool ignore_builtin,
@@ -846,7 +846,7 @@ zetasql_base::Status SimpleCatalog::Serialize(
       ignore_builtin, ignore_recursive);
 }
 
-zetasql_base::Status SimpleCatalog::SerializeImpl(
+absl::Status SimpleCatalog::SerializeImpl(
     absl::flat_hash_set<const Catalog*>* seen_catalogs,
     FileDescriptorSetMap* file_descriptor_set_map, SimpleCatalogProto* proto,
     bool ignore_builtin, bool ignore_recursive) const {
@@ -961,43 +961,43 @@ zetasql_base::Status SimpleCatalog::SerializeImpl(
                                                proto->add_constant()));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SimpleCatalog::GetCatalogs(
+absl::Status SimpleCatalog::GetCatalogs(
     absl::flat_hash_set<const Catalog*>* output) const {
   ZETASQL_RET_CHECK_NE(output, nullptr);
   ZETASQL_RET_CHECK(output->empty());
   absl::MutexLock lock(&mutex_);
   InsertValuesFromMap(catalogs_, output);
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SimpleCatalog::GetTables(
+absl::Status SimpleCatalog::GetTables(
     absl::flat_hash_set<const Table*>* output) const {
   ZETASQL_RET_CHECK_NE(output, nullptr);
   ZETASQL_RET_CHECK(output->empty());
   absl::MutexLock lock(&mutex_);
   InsertValuesFromMap(tables_, output);
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SimpleCatalog::GetTypes(
+absl::Status SimpleCatalog::GetTypes(
     absl::flat_hash_set<const Type*>* output) const {
   ZETASQL_RET_CHECK_NE(output, nullptr);
   ZETASQL_RET_CHECK(output->empty());
   absl::MutexLock lock(&mutex_);
   InsertValuesFromMap(types_, output);
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SimpleCatalog::GetFunctions(
+absl::Status SimpleCatalog::GetFunctions(
     absl::flat_hash_set<const Function*>* output) const {
   ZETASQL_RET_CHECK_NE(output, nullptr);
   ZETASQL_RET_CHECK(output->empty());
   absl::MutexLock lock(&mutex_);
   InsertValuesFromMap(functions_, output);
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 std::vector<std::string> SimpleCatalog::table_names() const {
@@ -1087,8 +1087,8 @@ std::vector<const Constant*> SimpleCatalog::constants() const {
 
 SimpleTable::SimpleTable(const std::string& name,
                          const std::vector<NameAndType>& columns,
-                         const int64_t id)
-    : name_(name), id_(id) {
+                         const int64_t serialization_id)
+    : name_(name), id_(serialization_id) {
   for (const NameAndType& name_and_type : columns) {
     std::unique_ptr<SimpleColumn> column(
         new SimpleColumn(name, name_and_type.first, name_and_type.second));
@@ -1098,8 +1098,8 @@ SimpleTable::SimpleTable(const std::string& name,
 
 SimpleTable::SimpleTable(const std::string& name,
                          const std::vector<const Column*>& columns,
-                         bool take_ownership, const int64_t id)
-    : name_(name), id_(id) {
+                         bool take_ownership, const int64_t serialization_id)
+    : name_(name), id_(serialization_id) {
   for (const Column* column : columns) {
     ZETASQL_CHECK_OK(AddColumn(column, take_ownership));
   }
@@ -1126,7 +1126,7 @@ const Column* SimpleTable::FindColumnByName(const std::string& name) const {
   return zetasql_base::FindPtrOrNull(columns_map_, absl::AsciiStrToLower(name));
 }
 
-zetasql_base::Status SimpleTable::AddColumn(const Column* column, bool is_owned) {
+absl::Status SimpleTable::AddColumn(const Column* column, bool is_owned) {
   std::unique_ptr<const Column> column_owner;
   if (is_owned) {
     column_owner.reset(column);
@@ -1136,10 +1136,10 @@ zetasql_base::Status SimpleTable::AddColumn(const Column* column, bool is_owned)
   if (is_owned) {
     owned_columns_.emplace_back(std::move(column_owner));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SimpleTable::SetPrimaryKey(std::vector<int> primary_key) {
+absl::Status SimpleTable::SetPrimaryKey(std::vector<int> primary_key) {
   for (int column_index : primary_key) {
     if (column_index >= NumColumns()) {
       return ::zetasql_base::InvalidArgumentErrorBuilder()
@@ -1147,10 +1147,10 @@ zetasql_base::Status SimpleTable::SetPrimaryKey(std::vector<int> primary_key) {
     }
   }
   primary_key_.emplace(primary_key);
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SimpleTable::InsertColumnToColumnMap(const Column* column) {
+absl::Status SimpleTable::InsertColumnToColumnMap(const Column* column) {
   const std::string column_name = absl::AsciiStrToLower(column->Name());
   if (!allow_anonymous_column_name_ && column_name.empty()) {
     return ::zetasql_base::InvalidArgumentErrorBuilder()
@@ -1173,7 +1173,7 @@ zetasql_base::Status SimpleTable::InsertColumnToColumnMap(const Column* column) 
   if (column_name.empty()) {
     anonymous_column_seen_ = true;
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 void SimpleTable::SetContents(const std::vector<std::vector<Value>>& rows) {
@@ -1200,7 +1200,7 @@ void SimpleTable::SetContents(const std::vector<std::vector<Value>>& rows) {
     std::unique_ptr<EvaluatorTableIterator> iter(
         new SimpleEvaluatorTableIterator(
             columns, column_values,
-            /*end_status=*/zetasql_base::OkStatus(), /*filter_column_idxs=*/{},
+            /*end_status=*/absl::OkStatus(), /*filter_column_idxs=*/{},
             /*cancel_cb=*/[]() {},
             /*set_deadline_cb=*/[](absl::Time t) {}, zetasql_base::Clock::RealClock()));
     return iter;
@@ -1219,7 +1219,7 @@ SimpleTable::CreateEvaluatorTableIterator(
   return (*evaluator_table_iterator_factory_)(column_idxs);
 }
 
-zetasql_base::Status SimpleTable::Serialize(
+absl::Status SimpleTable::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     SimpleTableProto* proto) const {
   proto->Clear();
@@ -1244,10 +1244,10 @@ zetasql_base::Status SimpleTable::Serialize(
   if (allow_duplicate_column_names_) {
     proto->set_allow_duplicate_column_names(true);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SimpleTable::Deserialize(
+absl::Status SimpleTable::Deserialize(
       const SimpleTableProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory,
@@ -1276,7 +1276,7 @@ zetasql_base::Status SimpleTable::Deserialize(
   }
 
   *result = std::move(table);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 SimpleColumn::SimpleColumn(const std::string& table_name,
@@ -1291,7 +1291,7 @@ SimpleColumn::SimpleColumn(const std::string& table_name,
 SimpleColumn::~SimpleColumn() {
 }
 
-zetasql_base::Status SimpleColumn::Serialize(
+absl::Status SimpleColumn::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     SimpleColumnProto* proto) const {
   proto->Clear();
@@ -1302,10 +1302,10 @@ zetasql_base::Status SimpleColumn::Serialize(
   if (!IsWritableColumn()) {
     proto->set_is_writable_column(false);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SimpleColumn::Deserialize(
+absl::Status SimpleColumn::Deserialize(
     const SimpleColumnProto& proto, const std::string& table_name,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
     TypeFactory* factory, std::unique_ptr<SimpleColumn>* result) {
@@ -1316,17 +1316,17 @@ zetasql_base::Status SimpleColumn::Deserialize(
                                                 proto.is_pseudo_column(),
                                                 proto.is_writable_column());
   *result = std::move(column);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // static
-zetasql_base::Status SimpleConstant::Create(
+absl::Status SimpleConstant::Create(
     const std::vector<std::string>& name_path, const Value& value,
     std::unique_ptr<SimpleConstant>* simple_constant) {
   ZETASQL_RET_CHECK(!name_path.empty());
   ZETASQL_RET_CHECK(value.is_valid());
   simple_constant->reset(new SimpleConstant(name_path, value));
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 std::string SimpleConstant::DebugString() const {
@@ -1337,7 +1337,7 @@ std::string SimpleConstant::VerboseDebugString() const {
   return absl::StrCat(DebugString(), " (", type()->DebugString(), ")");
 }
 
-zetasql_base::Status SimpleConstant::Serialize(
+absl::Status SimpleConstant::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     SimpleConstantProto* simple_constant_proto) const {
   for (const std::string& name : name_path()) {
@@ -1346,10 +1346,10 @@ zetasql_base::Status SimpleConstant::Serialize(
   ZETASQL_RETURN_IF_ERROR(value().type()->SerializeToProtoAndDistinctFileDescriptors(
       simple_constant_proto->mutable_type(), file_descriptor_set_map));
   ZETASQL_RETURN_IF_ERROR(value().Serialize(simple_constant_proto->mutable_value()));
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SimpleConstant::Deserialize(
+absl::Status SimpleConstant::Deserialize(
     const SimpleConstantProto& simple_constant_proto,
     const std::vector<const google::protobuf::DescriptorPool*>& descriptor_pools,
     TypeFactory* type_factory,
@@ -1364,7 +1364,7 @@ zetasql_base::Status SimpleConstant::Deserialize(
   ZETASQL_ASSIGN_OR_RETURN(const Value value,
                    Value::Deserialize(simple_constant_proto.value(), type));
   simple_constant->reset(new SimpleConstant(name_path, value));
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 SimpleModel::SimpleModel(const std::string& name,
@@ -1410,7 +1410,7 @@ const Column* SimpleModel::FindOutputByName(const std::string& name) const {
   }
   return zetasql_base::FindPtrOrNull(outputs_map_, absl::AsciiStrToLower(name));
 }
-zetasql_base::Status SimpleModel::AddInput(const Column* column, bool is_owned) {
+absl::Status SimpleModel::AddInput(const Column* column, bool is_owned) {
   std::unique_ptr<const Column> column_owner;
   if (is_owned) {
     column_owner.reset(column);
@@ -1425,10 +1425,10 @@ zetasql_base::Status SimpleModel::AddInput(const Column* column, bool is_owned) 
   if (is_owned) {
     owned_inputs_outputs_.emplace_back(std::move(column_owner));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SimpleModel::AddOutput(const Column* column, bool is_owned) {
+absl::Status SimpleModel::AddOutput(const Column* column, bool is_owned) {
   std::unique_ptr<const Column> column_owner;
   if (is_owned) {
     column_owner.reset(column);
@@ -1443,7 +1443,7 @@ zetasql_base::Status SimpleModel::AddOutput(const Column* column, bool is_owned)
   if (is_owned) {
     owned_inputs_outputs_.emplace_back(std::move(column_owner));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

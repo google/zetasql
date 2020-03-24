@@ -22,7 +22,7 @@
 
 namespace zetasql {
 namespace {
-constexpr zetasql_base::StatusCode OUT_OF_RANGE = zetasql_base::StatusCode::kOutOfRange;
+constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 }  // namespace
 
 std::vector<FunctionTestCall> GetFunctionTestsNet() {
@@ -348,7 +348,7 @@ std::vector<FunctionTestCall> GetFunctionTestsNet() {
     CHECK(item.HasEmptyFeatureSetAndNothingElse());
     QueryParamsWithResult::ResultMap new_result_map = item.results();
     zetasql_base::FindOrDie(new_result_map, QueryParamsWithResult::kEmptyFeatureSet)
-        .status = ::zetasql_base::OkStatus();
+        .status = absl::OkStatus();
 
     QueryParamsWithResult new_item(item);
     new_item.set_results(new_result_map);

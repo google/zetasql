@@ -42,9 +42,9 @@
 
 namespace zetasql {
 namespace {
-constexpr zetasql_base::StatusCode INVALID_ARGUMENT =
-    zetasql_base::StatusCode::kInvalidArgument;
-constexpr zetasql_base::StatusCode OUT_OF_RANGE = zetasql_base::StatusCode::kOutOfRange;
+constexpr absl::StatusCode INVALID_ARGUMENT =
+    absl::StatusCode::kInvalidArgument;
+constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 }  // namespace
 
 std::vector<QueryParamsWithResult> GetFunctionTestsAnd() {
@@ -1880,7 +1880,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsSafeAtOffset() {
   for (auto& offset_test : offset_tests) {
     QueryParamsWithResult::ResultMap new_result_map = offset_test.results();
     for (auto& result : new_result_map) {
-      result.second.status = ::zetasql_base::OkStatus();
+      result.second.status = absl::OkStatus();
     }
     offset_test.set_results(new_result_map);
   }
@@ -2757,8 +2757,8 @@ std::vector<FunctionTestCall> GetFunctionTestsFromProto() {
   };
 }
 
-static zetasql_base::Status FunctionEvalError() {
-  return zetasql_base::Status(zetasql_base::StatusCode::kOutOfRange,
+static absl::Status FunctionEvalError() {
+  return absl::Status(absl::StatusCode::kOutOfRange,
                       "Function Evaluation Error");
 }
 

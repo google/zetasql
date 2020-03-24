@@ -31,7 +31,7 @@
 namespace zetasql {
 
 template <class NODE_TYPE>
-zetasql_base::Status Resolver::ResolveHintsForNode(const ASTHint* ast_hints,
+absl::Status Resolver::ResolveHintsForNode(const ASTHint* ast_hints,
                                            NODE_TYPE* resolved_node) {
   if (ast_hints != nullptr) {
     std::vector<std::unique_ptr<const ResolvedOption>> hints;
@@ -41,7 +41,7 @@ zetasql_base::Status Resolver::ResolveHintsForNode(const ASTHint* ast_hints,
       resolved_node->add_hint_list(std::move(hint));
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

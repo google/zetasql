@@ -73,7 +73,7 @@ TEST(AssignOrReturn, Works) {
     return ReturnError("ERROR");
   };
 
-  EXPECT_THAT(func().error_message(), Eq("EXPECTED"));
+  EXPECT_THAT(func().message(), Eq("EXPECTED"));
 }
 
 TEST(AssignOrReturn, WorksWithAppend) {
@@ -90,7 +90,7 @@ TEST(AssignOrReturn, WorksWithAppend) {
     return ReturnOk();
   };
 
-  EXPECT_THAT(func().error_message(),
+  EXPECT_THAT(func().message(),
               AllOf(HasSubstr("EXPECTED A"), HasSubstr("EXPECTED B")));
 }
 
@@ -111,7 +111,7 @@ TEST(AssignOrReturn, WorksWithAdaptorFunc) {
     return ReturnOk();
   };
 
-  EXPECT_THAT(func().error_message(),
+  EXPECT_THAT(func().message(),
               AllOf(HasSubstr("EXPECTED A"), HasSubstr("EXPECTED B")));
 }
 
@@ -123,7 +123,7 @@ TEST(AssignOrReturn, WorksWithAppendIncludingLocals) {
     return ReturnOk();
   };
 
-  EXPECT_THAT(func("EXPECTED B").error_message(),
+  EXPECT_THAT(func("EXPECTED B").message(),
               AllOf(HasSubstr("EXPECTED A"), HasSubstr("EXPECTED B")));
 }
 
@@ -138,7 +138,7 @@ TEST(AssignOrReturn, WorksForExistingVariable) {
     return ReturnError("ERROR");
   };
 
-  EXPECT_THAT(func().error_message(), Eq("EXPECTED"));
+  EXPECT_THAT(func().message(), Eq("EXPECTED"));
 }
 
 TEST(AssignOrReturn, UniquePtrWorks) {
@@ -149,7 +149,7 @@ TEST(AssignOrReturn, UniquePtrWorks) {
     return ReturnError("EXPECTED");
   };
 
-  EXPECT_THAT(func().error_message(), Eq("EXPECTED"));
+  EXPECT_THAT(func().message(), Eq("EXPECTED"));
 }
 
 TEST(AssignOrReturn, UniquePtrWorksForExistingVariable) {
@@ -163,7 +163,7 @@ TEST(AssignOrReturn, UniquePtrWorksForExistingVariable) {
     return ReturnError("EXPECTED");
   };
 
-  EXPECT_THAT(func().error_message(), Eq("EXPECTED"));
+  EXPECT_THAT(func().message(), Eq("EXPECTED"));
 }
 
 TEST(ReturnIfError, Works) {
@@ -174,7 +174,7 @@ TEST(ReturnIfError, Works) {
     return ReturnError("ERROR");
   };
 
-  EXPECT_THAT(func().error_message(), Eq("EXPECTED"));
+  EXPECT_THAT(func().message(), Eq("EXPECTED"));
 }
 
 TEST(ReturnIfError, WorksWithBuilder) {
@@ -185,7 +185,7 @@ TEST(ReturnIfError, WorksWithBuilder) {
     return ReturnErrorBuilder("ERROR");
   };
 
-  EXPECT_THAT(func().error_message(), Eq("EXPECTED"));
+  EXPECT_THAT(func().message(), Eq("EXPECTED"));
 }
 
 TEST(ReturnIfError, WorksWithLambda) {
@@ -195,7 +195,7 @@ TEST(ReturnIfError, WorksWithLambda) {
     return ReturnError("ERROR");
   };
 
-  EXPECT_THAT(func().error_message(), Eq("EXPECTED"));
+  EXPECT_THAT(func().message(), Eq("EXPECTED"));
 }
 
 TEST(ReturnIfError, WorksWithAppend) {
@@ -209,7 +209,7 @@ TEST(ReturnIfError, WorksWithAppend) {
     return zetasql_base::OkStatus();
   };
 
-  EXPECT_THAT(func().error_message(),
+  EXPECT_THAT(func().message(),
               AllOf(HasSubstr("EXPECTED A"), HasSubstr("EXPECTED B")));
 }
 

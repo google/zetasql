@@ -120,76 +120,76 @@ std::string ExtractDateOrTimeFunctionSQL(
 
 bool ArgumentIsStringLiteral(const InputArgumentType& argument);
 
-zetasql_base::Status CheckDateDiffArguments(
+absl::Status CheckDateDiffArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckBitwiseOperatorArgumentsHaveSameType(
+absl::Status CheckBitwiseOperatorArgumentsHaveSameType(
     const std::string& operator_string,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckBitwiseOperatorFirstArgumentIsIntegerOrBytes(
+absl::Status CheckBitwiseOperatorFirstArgumentIsIntegerOrBytes(
     const std::string& operator_string,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckDateTruncArguments(
+absl::Status CheckDateTruncArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckTimeTruncArguments(
+absl::Status CheckTimeTruncArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckExtractPreResolutionArguments(
+absl::Status CheckExtractPreResolutionArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckExtractPostResolutionArguments(
+absl::Status CheckExtractPostResolutionArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckDateAddDateSubArguments(
+absl::Status CheckDateAddDateSubArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckDatetimeAddSubDiffArguments(
+absl::Status CheckDatetimeAddSubDiffArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckTimestampAddTimestampSubArguments(
+absl::Status CheckTimestampAddTimestampSubArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckTimestampDiffArguments(
+absl::Status CheckTimestampDiffArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckTimestampTruncArguments(
+absl::Status CheckTimestampTruncArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckGenerateDateArrayArguments(
+absl::Status CheckGenerateDateArrayArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckGenerateTimestampArrayArguments(
+absl::Status CheckGenerateTimestampArrayArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckJsonArguments(const std::vector<InputArgumentType>& arguments,
+absl::Status CheckJsonArguments(const std::vector<InputArgumentType>& arguments,
                                 const LanguageOptions& options);
 
-zetasql_base::Status CheckIsSupportedKeyType(
+absl::Status CheckIsSupportedKeyType(
     absl::string_view function_name,
     const std::set<std::string>& supported_key_types,
     int key_type_argument_index,
@@ -274,39 +274,39 @@ std::string ExtractSupportedSignatures(
 std::string EmptySupportedSignatures(const LanguageOptions& language_options,
                                      const Function& function);
 
-zetasql_base::Status CheckArgumentsSupportEquality(
+absl::Status CheckArgumentsSupportEquality(
     const std::string& comparison_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckArgumentsSupportComparison(
+absl::Status CheckArgumentsSupportComparison(
     const std::string& comparison_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckMinMaxGreatestLeastArguments(
+absl::Status CheckMinMaxGreatestLeastArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckFirstArgumentSupportsEquality(
+absl::Status CheckFirstArgumentSupportsEquality(
     const std::string& comparison_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckArrayAggArguments(
+absl::Status CheckArrayAggArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckArrayConcatArguments(
+absl::Status CheckArrayConcatArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckInArrayArguments(
+absl::Status CheckInArrayArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-zetasql_base::Status CheckRangeBucketArguments(
+absl::Status CheckRangeBucketArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 

@@ -71,7 +71,7 @@ class CycleDetector {
     // Returns an error if the creation of this object introduced a cycle,
     // otherwise returns OK.  The <object_type> is used in the construction
     // of the returned error message, if applicable.
-    zetasql_base::Status DetectCycle(const std::string& object_type) const;
+    absl::Status DetectCycle(const std::string& object_type) const;
 
     std::string name() const { return name_; }
     const void* object() const { return object_; }

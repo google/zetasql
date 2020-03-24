@@ -252,7 +252,7 @@ TEST_P(ReadProtoFieldsTest, EnumOutOfRange) {
   EXPECT_THAT(
       ReadField("test_enum", FieldFormat::DEFAULT_FORMAT, enum_type,
                 Value::Enum(enum_type, 0), bytes),
-      StatusIs(zetasql_base::OUT_OF_RANGE,
+      StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("Failed to interpret value for field "
                          "zetasql_test.KitchenSinkPB.test_enum: 1000")));
 
@@ -315,7 +315,7 @@ TEST_P(ReadProtoFieldsTest, DateOutOfRange) {
   kitchen_sink_.set_date(-100 * 1000 * 1000);
   EXPECT_THAT(
       ReadField("date", FieldFormat::DATE, types::DateType(), values::Date(0)),
-      StatusIs(zetasql_base::OUT_OF_RANGE,
+      StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("Failed to interpret value for field "
                          "zetasql_test.KitchenSinkPB.date with field "
                          "format DATE: -100000000")));
@@ -323,7 +323,7 @@ TEST_P(ReadProtoFieldsTest, DateOutOfRange) {
   kitchen_sink_.set_date(100 * 1000 * 1000);
   EXPECT_THAT(
       ReadField("date", FieldFormat::DATE, types::DateType(), values::Date(0)),
-      StatusIs(zetasql_base::OUT_OF_RANGE,
+      StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("Failed to interpret value for field "
                          "zetasql_test.KitchenSinkPB.date with field "
                          "format DATE: 100000000")));
@@ -342,7 +342,7 @@ TEST_P(ReadProtoFieldsTest, DecodeDateDecimalFails) {
   EXPECT_THAT(
       ReadField("date_decimal", FieldFormat::DATE_DECIMAL, types::DateType(),
                 values::Date(10)),
-      StatusIs(zetasql_base::OUT_OF_RANGE,
+      StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("Failed to interpret value for field "
                          "zetasql_test.KitchenSinkPB.date_decimal with "
                          "field format DATE_DECIMAL: -100000000")));
@@ -369,7 +369,7 @@ TEST_P(ReadProtoFieldsTest, TimestampSecondsOutOfRange) {
       ReadField("timestamp_seconds", FieldFormat::TIMESTAMP_SECONDS,
                 types::TimestampType(), values::TimestampFromUnixMicros(0)),
       StatusIs(
-          zetasql_base::OUT_OF_RANGE,
+          absl::StatusCode::kOutOfRange,
           HasSubstr("Failed to interpret value for field "
                     "zetasql_test.KitchenSinkPB.timestamp_seconds with "
                     "field format TIMESTAMP_SECONDS: -9223372036854775808")));
@@ -379,7 +379,7 @@ TEST_P(ReadProtoFieldsTest, TimestampSecondsOutOfRange) {
       ReadField("timestamp_seconds", FieldFormat::TIMESTAMP_SECONDS,
                 types::TimestampType(), values::TimestampFromUnixMicros(0)),
       StatusIs(
-          zetasql_base::OUT_OF_RANGE,
+          absl::StatusCode::kOutOfRange,
           HasSubstr("Failed to interpret value for field "
                     "zetasql_test.KitchenSinkPB.timestamp_seconds with "
                     "field format TIMESTAMP_SECONDS: 9223372036854775807")));
@@ -399,7 +399,7 @@ TEST_P(ReadProtoFieldsTest, TimestampMillisOutOfRange) {
       ReadField("timestamp_millis", FieldFormat::TIMESTAMP_MILLIS,
                 types::TimestampType(), values::TimestampFromUnixMicros(0)),
       StatusIs(
-          zetasql_base::OUT_OF_RANGE,
+          absl::StatusCode::kOutOfRange,
           HasSubstr("Failed to interpret value for field "
                     "zetasql_test.KitchenSinkPB.timestamp_millis with "
                     "field format TIMESTAMP_MILLIS: -9223372036854775808")));
@@ -409,7 +409,7 @@ TEST_P(ReadProtoFieldsTest, TimestampMillisOutOfRange) {
       ReadField("timestamp_millis", FieldFormat::TIMESTAMP_MILLIS,
                 types::TimestampType(), values::TimestampFromUnixMicros(0)),
       StatusIs(
-          zetasql_base::OUT_OF_RANGE,
+          absl::StatusCode::kOutOfRange,
           HasSubstr("Failed to interpret value for field "
                     "zetasql_test.KitchenSinkPB.timestamp_millis with "
                     "field format TIMESTAMP_MILLIS: 9223372036854775807")));
@@ -429,7 +429,7 @@ TEST_P(ReadProtoFieldsTest, TimestampMicrosOutOfRange) {
       ReadField("timestamp_micros", FieldFormat::TIMESTAMP_MICROS,
                 types::TimestampType(), values::TimestampFromUnixMicros(0)),
       StatusIs(
-          zetasql_base::OUT_OF_RANGE,
+          absl::StatusCode::kOutOfRange,
           HasSubstr("Failed to interpret value for field "
                     "zetasql_test.KitchenSinkPB.timestamp_micros with "
                     "field format TIMESTAMP_MICROS: -9223372036854775808")));
@@ -439,7 +439,7 @@ TEST_P(ReadProtoFieldsTest, TimestampMicrosOutOfRange) {
       ReadField("timestamp_micros", FieldFormat::TIMESTAMP_MICROS,
                 types::TimestampType(), values::TimestampFromUnixMicros(0)),
       StatusIs(
-          zetasql_base::OUT_OF_RANGE,
+          absl::StatusCode::kOutOfRange,
           HasSubstr("Failed to interpret value for field "
                     "zetasql_test.KitchenSinkPB.timestamp_micros with "
                     "field format TIMESTAMP_MICROS: 9223372036854775807")));
@@ -473,7 +473,7 @@ TEST_P(ReadProtoFieldsTest, TimeOutOfRange) {
   EXPECT_THAT(
       ReadField("int64_val", FieldFormat::TIME_MICROS, types::TimeType(),
                 values::TimeFromPacked64Micros(0)),
-      StatusIs(zetasql_base::OUT_OF_RANGE,
+      StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("Failed to interpret value for field "
                          "zetasql_test.KitchenSinkPB.int64_val with field "
                          "format TIME_MICROS: 9223372036854775807")));
@@ -490,7 +490,7 @@ TEST_P(ReadProtoFieldsTest, InvalidDateTime) {
   kitchen_sink_.set_int64_val(-1000);
   EXPECT_THAT(ReadField("int64_val", FieldFormat::DATETIME_MICROS,
                         types::DatetimeType(), values::NullDatetime()),
-              StatusIs(zetasql_base::OUT_OF_RANGE,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Failed to interpret value for field "
                                  "zetasql_test.KitchenSinkPB.int64_val with "
                                  "field format DATETIME_MICROS: -1000")));
@@ -508,7 +508,7 @@ TEST_P(ReadProtoFieldsTest, LargeUint64Datetime) {
   EXPECT_THAT(
       ReadField("uint64_val", FieldFormat::DATETIME_MICROS,
                 types::DatetimeType(), values::NullDatetime()),
-      StatusIs(zetasql_base::OUT_OF_RANGE,
+      StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("Failed to interpret value for field "
                          "zetasql_test.KitchenSinkPB.uint64_val with "
                          "field format DATETIME_MICROS: 1152921504606846976")));
@@ -550,7 +550,7 @@ TEST_P(ReadProtoFieldsTest, OptionalFieldLastValueTakesPrecedence) {
 TEST_P(ReadProtoFieldsTest, MissingRequiredField) {
   EXPECT_THAT(ReadField("int64_key_1", FieldFormat::DEFAULT_FORMAT,
                         types::Int64Type(), values::Int64(999)),
-              StatusIs(zetasql_base::OUT_OF_RANGE,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Protocol buffer missing required field "
                                  "zetasql_test.KitchenSinkPB.int64_key_1")));
 
@@ -712,7 +712,7 @@ TEST_P(ReadProtoFieldsTest, ReadTwoFieldsAndOneMissingRequiredFieldTwice) {
 
   EXPECT_THAT(value_list[0], IsOkAndHolds(Value::Int64(1)));
   EXPECT_THAT(value_list[1],
-              StatusIs(zetasql_base::OUT_OF_RANGE,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Protocol buffer missing required field "
                                  "zetasql_test.KitchenSinkPB.int64_key_2")));
   EXPECT_THAT(value_list[2], IsOkAndHolds(Value::Int64(20)));
@@ -722,7 +722,7 @@ TEST_P(ReadProtoFieldsTest, ReadTwoFieldsAndOneMissingRequiredFieldTwice) {
 
   EXPECT_THAT(value_list[6], IsOkAndHolds(Value::Int64(1)));
   EXPECT_THAT(value_list[7],
-              StatusIs(zetasql_base::OUT_OF_RANGE,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Protocol buffer missing required field "
                                  "zetasql_test.KitchenSinkPB.int64_key_2")));
   EXPECT_THAT(value_list[8], IsOkAndHolds(Value::Int64(20)));

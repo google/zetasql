@@ -424,7 +424,7 @@ TEST_F(ExpressionAlgebrizerTest, AlgebrizeResolvedCivilTimeExpressions) {
                     language_options, AlgebrizerOptions(), &type_factory,
                     each.first.get(), &algebra_output, &parameters, &column_map,
                     &system_variables_map),
-                StatusIs(zetasql_base::INVALID_ARGUMENT,
+                StatusIs(absl::StatusCode::kInvalidArgument,
                          HasSubstr(absl::StrCat(
                              "Type not found: ",
                              each.first->type()->TypeName(

@@ -29,20 +29,20 @@
 
 namespace zetasql {
 
-zetasql_base::Status IsValidStatementSyntax(absl::string_view sql,
+absl::Status IsValidStatementSyntax(absl::string_view sql,
                                     ErrorMessageMode error_message_mode) {
   std::unique_ptr<ParserOutput> parser_output;
   // Nothing in ParserOptions affects syntax, so use the default ParserOptions.
-  const zetasql_base::Status parse_status =
+  const absl::Status parse_status =
       ParseStatement(sql, ParserOptions(), &parser_output);
   return MaybeUpdateErrorFromPayload(error_message_mode, sql, parse_status);
 }
 
-zetasql_base::Status IsValidNextStatementSyntax(ParseResumeLocation* resume_location,
+absl::Status IsValidNextStatementSyntax(ParseResumeLocation* resume_location,
                                         ErrorMessageMode error_message_mode,
                                         bool* at_end_of_input) {
   std::unique_ptr<ParserOutput> parser_output;
-  const zetasql_base::Status parse_status = ParseNextStatement(
+  const absl::Status parse_status = ParseNextStatement(
       resume_location, ParserOptions(), &parser_output, at_end_of_input);
   return MaybeUpdateErrorFromPayload(error_message_mode,
                                      resume_location->input(), parse_status);
@@ -170,14 +170,14 @@ ResolvedNodeKind GetNextStatementKind(
       RESOLVED_CREATE_TABLE_AS_SELECT_STMT : GetStatementKind(node_kind);
 }
 
-zetasql_base::Status GetStatementProperties(const std::string& input,
+absl::Status GetStatementProperties(const std::string& input,
                                     const LanguageOptions& language_options,
                                     StatementProperties* statement_properties) {
   return GetNextStatementProperties(ParseResumeLocation::FromStringView(input),
                                     language_options, statement_properties);
 }
 
-zetasql_base::Status GetNextStatementProperties(
+absl::Status GetNextStatementProperties(
     const ParseResumeLocation& resume_location,
     const LanguageOptions& language_options,
     StatementProperties* statement_properties) {
@@ -308,7 +308,7 @@ zetasql_base::Status GetNextStatementProperties(
     }
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

@@ -129,10 +129,10 @@ class ParseResumeLocation {
   // use only.
   void DisallowResume() { allow_resume_ = false; }
 
-  zetasql_base::Status Validate() const {
+  absl::Status Validate() const {
     ZETASQL_RET_CHECK_GE(byte_position(), 0);
     ZETASQL_RET_CHECK_LE(byte_position(), input().size());
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   void Serialize(ParseResumeLocationProto* proto) const {

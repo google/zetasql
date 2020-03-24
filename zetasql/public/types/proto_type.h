@@ -56,15 +56,15 @@ class ProtoType : public Type {
   // Get the ZetaSQL Type of the requested field of the proto, identified by
   // either tag number or name.  A new Type may be created so a type factory
   // is required.  If the field name or number is not found, then
-  // zetasql_base::INVALID_ARGUMENT is returned.  The last argument can be used
-  // to output the corresponding name/number as appropriate.
-  zetasql_base::Status GetFieldTypeByTagNumber(int number, TypeFactory* factory,
+  // absl::StatusCode::kInvalidArgument is returned.  The last argument can be
+  // used to output the corresponding name/number as appropriate.
+  absl::Status GetFieldTypeByTagNumber(int number, TypeFactory* factory,
                                        const Type** type,
                                        std::string* name = nullptr) const {
     return GetFieldTypeByTagNumber(
         number, factory, /*use_obsolete_timestamp=*/false, type, name);
   }
-  zetasql_base::Status GetFieldTypeByName(const std::string& name, TypeFactory* factory,
+  absl::Status GetFieldTypeByName(const std::string& name, TypeFactory* factory,
                                   const Type** type,
                                   int* number = nullptr) const {
     return GetFieldTypeByName(name, factory,
@@ -73,11 +73,11 @@ class ProtoType : public Type {
 
   // DEPRECATED: Callers should remove their dependencies on obsolete types and
   // move to the methods above.
-  zetasql_base::Status GetFieldTypeByTagNumber(int number, TypeFactory* factory,
+  absl::Status GetFieldTypeByTagNumber(int number, TypeFactory* factory,
                                        bool use_obsolete_timestamp,
                                        const Type** type,
                                        std::string* name = nullptr) const;
-  zetasql_base::Status GetFieldTypeByName(const std::string& name, TypeFactory* factory,
+  absl::Status GetFieldTypeByName(const std::string& name, TypeFactory* factory,
                                   bool use_obsolete_timestamp,
                                   const Type** type,
                                   int* number = nullptr) const;
@@ -89,7 +89,7 @@ class ProtoType : public Type {
   // field type is returned.
   //
   // This always ignores (does not unwrap) is_struct and is_wrapper annotations.
-  static zetasql_base::Status FieldDescriptorToTypeKind(
+  static absl::Status FieldDescriptorToTypeKind(
       bool ignore_annotations, const google::protobuf::FieldDescriptor* field,
       TypeKind* kind);
 
@@ -97,20 +97,20 @@ class ProtoType : public Type {
   // This is the same as the above signature with ignore_annotations = false.
   // This is the TypeKind for the field type visible in ZetaSQL, matching
   // the Type returned by GetProtoFieldType (except for array types).
-  static zetasql_base::Status FieldDescriptorToTypeKind(
+  static absl::Status FieldDescriptorToTypeKind(
       const google::protobuf::FieldDescriptor* field, TypeKind* kind) {
     return FieldDescriptorToTypeKind(
         /*ignore_annotations=*/false, field, kind);
   }
   // DEPRECATED: Callers should remove their dependencies on obsolete types and
   // move to the method above.
-  static zetasql_base::Status FieldDescriptorToTypeKind(
+  static absl::Status FieldDescriptorToTypeKind(
       const google::protobuf::FieldDescriptor* field, bool use_obsolete_timestamp,
       TypeKind* kind);
 
   // This is the same as FieldDescriptorToTypeKind except it ignores
   // repeatedness of the proto field and never returns TYPE_ARRAY.
-  static zetasql_base::Status FieldDescriptorToTypeKindBase(
+  static absl::Status FieldDescriptorToTypeKindBase(
       bool ignore_annotations, const google::protobuf::FieldDescriptor* field,
       TypeKind* kind) {
     return GetTypeKindFromFieldDescriptor(field, ignore_annotations,
@@ -118,14 +118,14 @@ class ProtoType : public Type {
                                           kind);
   }
   // This is the same as the above signature with ignore_annotations = false.
-  static zetasql_base::Status FieldDescriptorToTypeKindBase(
+  static absl::Status FieldDescriptorToTypeKindBase(
       const google::protobuf::FieldDescriptor* field, TypeKind* kind) {
     return FieldDescriptorToTypeKindBase(/*ignore_annotations=*/false, field,
                                          kind);
   }
   // DEPRECATED: Callers should remove their dependencies on obsolete types and
   // move to the method above.
-  static zetasql_base::Status FieldDescriptorToTypeKindBase(
+  static absl::Status FieldDescriptorToTypeKindBase(
       const google::protobuf::FieldDescriptor* field, bool use_obsolete_timestamp,
       TypeKind* kind) {
     return GetTypeKindFromFieldDescriptor(field,
@@ -171,25 +171,25 @@ class ProtoType : public Type {
   // recursively validating proto types of fields if <validated_descriptor_set>
   // is not NULL.
   template <typename SetPtrType>
-  static zetasql_base::Status ValidateTypeAnnotations(
+  static absl::Status ValidateTypeAnnotations(
       const google::protobuf::FileDescriptor* file_descriptor,
       SetPtrType validated_descriptor_set);
 
   template <typename SetPtrType>
-  static zetasql_base::Status ValidateTypeAnnotations(
+  static absl::Status ValidateTypeAnnotations(
       const google::protobuf::Descriptor* descriptor,
       SetPtrType validated_descriptor_set);
-  static zetasql_base::Status ValidateTypeAnnotations(
+  static absl::Status ValidateTypeAnnotations(
       const google::protobuf::Descriptor* descriptor) {
     return ValidateTypeAnnotations(descriptor,
                                    /*validated_descriptor_set=*/nullptr);
   }
 
   template <typename SetPtrType>
-  static zetasql_base::Status ValidateTypeAnnotations(
+  static absl::Status ValidateTypeAnnotations(
       const google::protobuf::FieldDescriptor* field,
       SetPtrType validated_descriptor_set);
-  static zetasql_base::Status ValidateTypeAnnotations(
+  static absl::Status ValidateTypeAnnotations(
       const google::protobuf::FieldDescriptor* field) {
     return ValidateTypeAnnotations(field, /*validated_descriptor_set=*/nullptr);
   }
@@ -241,11 +241,11 @@ class ProtoType : public Type {
   // Get the ZetaSQL TypeKind of the requested proto field. If
   // <ignore_format_annotations> is true, then format annotations are ignored
   // and the default TypeKind for the proto field type is returned.
-  static zetasql_base::Status GetTypeKindFromFieldDescriptor(
+  static absl::Status GetTypeKindFromFieldDescriptor(
       const google::protobuf::FieldDescriptor* field, bool ignore_format_annotations,
       bool use_obsolete_timestamp, TypeKind* kind);
 
-  zetasql_base::Status SerializeToProtoAndDistinctFileDescriptorsImpl(
+  absl::Status SerializeToProtoAndDistinctFileDescriptorsImpl(
       TypeProto* type_proto,
       absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
       FileDescriptorSetMap* file_descriptor_set_map) const override;
@@ -257,7 +257,7 @@ class ProtoType : public Type {
 
 // Implementation of templated methods of ProtoType.
 template <typename SetPtrType>
-zetasql_base::Status ProtoType::ValidateTypeAnnotations(
+absl::Status ProtoType::ValidateTypeAnnotations(
     const google::protobuf::FileDescriptor* file_descriptor,
     SetPtrType validated_descriptor_set) {
   // Check all messages.
@@ -276,16 +276,16 @@ zetasql_base::Status ProtoType::ValidateTypeAnnotations(
         ValidateTypeAnnotations(extension, validated_descriptor_set));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 template <typename SetPtrType>
-zetasql_base::Status ProtoType::ValidateTypeAnnotations(
+absl::Status ProtoType::ValidateTypeAnnotations(
     const google::protobuf::Descriptor* descriptor,
     SetPtrType validated_descriptor_set) {
   if (IsAlreadyValidated(validated_descriptor_set, descriptor)) {
     // Already validated this proto, return OK.
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // Check zetasql.is_wrapper.
@@ -314,11 +314,11 @@ zetasql_base::Status ProtoType::ValidateTypeAnnotations(
     ZETASQL_RETURN_IF_ERROR(ValidateTypeAnnotations(field, validated_descriptor_set));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 template <typename SetPtrType>
-zetasql_base::Status ProtoType::ValidateTypeAnnotations(
+absl::Status ProtoType::ValidateTypeAnnotations(
     const google::protobuf::FieldDescriptor* field,
     SetPtrType validated_descriptor_set) {
   const google::protobuf::FieldDescriptor::Type field_type = field->type();
@@ -441,7 +441,7 @@ zetasql_base::Status ProtoType::ValidateTypeAnnotations(
                                    validated_descriptor_set);
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Template override for std::nullptr_t. This is needed when the caller simply

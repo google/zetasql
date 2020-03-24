@@ -51,9 +51,9 @@
 
 namespace zetasql {
 namespace {
-constexpr zetasql_base::StatusCode INVALID_ARGUMENT =
-    zetasql_base::StatusCode::kInvalidArgument;
-constexpr zetasql_base::StatusCode OUT_OF_RANGE = zetasql_base::StatusCode::kOutOfRange;
+constexpr absl::StatusCode INVALID_ARGUMENT =
+    absl::StatusCode::kInvalidArgument;
+constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 }  // namespace
 
 using functions::DateTimestampPart;
@@ -407,13 +407,13 @@ static std::vector<FunctionTestCall> PrepareCivilTimeTestCaseAsFunctionTestCall(
   return out;
 }
 
-static zetasql_base::Status FunctionEvalError() {
-  return zetasql_base::Status(zetasql_base::StatusCode::kOutOfRange,
+static absl::Status FunctionEvalError() {
+  return absl::Status(absl::StatusCode::kOutOfRange,
                       "Function Evaluation Error");
 }
 
-static zetasql_base::Status AnalysisError() {
-  return zetasql_base::Status(zetasql_base::StatusCode::kInvalidArgument, "Analysis Error");
+static absl::Status AnalysisError() {
+  return absl::Status(absl::StatusCode::kInvalidArgument, "Analysis Error");
 }
 
 std::vector<CivilTimeTestCase> GetFunctionTestsDatetimeAdd() {
@@ -2562,7 +2562,7 @@ FunctionTestCall TimestampTruncTest(const std::string& timestamp_string,
 // as timestamps and as the time zone to use for truncation.
 FunctionTestCall TimestampTruncErrorTest(const std::string& timestamp_string,
                                          DateTimestampPart part,
-                                         zetasql_base::StatusCode code,
+                                         absl::StatusCode code,
                                          const std::string& timezone = "UTC") {
   int64_t timestamp;
   ZETASQL_CHECK_OK(ConvertStringToTimestamp(timestamp_string, timezone, kMicroseconds,

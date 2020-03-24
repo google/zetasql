@@ -207,7 +207,7 @@ void SelectColumnStateList::AddSelectColumn(
   select_column_state_list_.push_back(absl::WrapUnique(select_column_state));
 }
 
-zetasql_base::Status SelectColumnStateList::FindAndValidateSelectColumnStateByAlias(
+absl::Status SelectColumnStateList::FindAndValidateSelectColumnStateByAlias(
     const char* clause_name, const ASTNode* ast_location,
     IdString alias,
     const ExprResolutionInfo* expr_resolution_info,
@@ -231,10 +231,10 @@ zetasql_base::Status SelectColumnStateList::FindAndValidateSelectColumnStateByAl
       *select_column_state = found_select_column_state;
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SelectColumnStateList::FindAndValidateSelectColumnStateByOrdinal(
+absl::Status SelectColumnStateList::FindAndValidateSelectColumnStateByOrdinal(
     const std::string& expr_description, const ASTNode* ast_location,
     const int64_t ordinal, const ExprResolutionInfo* expr_resolution_info,
     const SelectColumnState** select_column_state) const {
@@ -250,10 +250,10 @@ zetasql_base::Status SelectColumnStateList::FindAndValidateSelectColumnStateByOr
       absl::StrCat(ordinal), ast_location, found_select_column_state,
       expr_resolution_info));
   *select_column_state = found_select_column_state;
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SelectColumnStateList::ValidateAggregateAndAnalyticSupport(
+absl::Status SelectColumnStateList::ValidateAggregateAndAnalyticSupport(
     const absl::string_view& column_description, const ASTNode* ast_location,
     const SelectColumnState* select_column_state,
     const ExprResolutionInfo* expr_resolution_info) {
@@ -277,7 +277,7 @@ zetasql_base::Status SelectColumnStateList::ValidateAggregateAndAnalyticSupport(
                    ? " after SELECT DISTINCT"
                    : "");
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 SelectColumnState* SelectColumnStateList::GetSelectColumnState(
@@ -637,7 +637,7 @@ bool IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
       return false;
   }
 
-  zetasql_base::Status status;
+  absl::Status status;
   status.Update(expr1->CheckFieldsAccessed());
   status.Update(expr2->CheckFieldsAccessed());
   if (!status.ok()) {

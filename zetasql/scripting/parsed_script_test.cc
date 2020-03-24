@@ -179,7 +179,7 @@ void CheckTestInput(const TestInput& test_input) {
       ParsedScript::Create(test_input.sql(), options,
                            ERROR_MESSAGE_WITH_PAYLOAD)
           .ValueOrDie();
-  zetasql_base::Status status = parsed->CheckQueryParameters(parameters);
+  absl::Status status = parsed->CheckQueryParameters(parameters);
 
   if (test_input.error().empty()) {
     CheckStatement(parsed->script()->GetParseLocationRange(), parsed.get(),

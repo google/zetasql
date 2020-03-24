@@ -97,7 +97,7 @@ class BisonParser {
   // set to -1, and the input was guaranteed to be parsed to the end.
   //
   // If mode is kStatement, then 'statement_end_byte_offset' is not set.
-  zetasql_base::Status Parse(
+  absl::Status Parse(
       BisonParserMode mode, absl::string_view filename, absl::string_view input,
       int start_byte_offset, IdStringPool* id_string_pool, zetasql_base::UnsafeArena* arena,
       const LanguageOptions* language_options,

@@ -507,7 +507,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
       -1 /* context_id */);
 
   EXPECT_THAT(signature->IsValidForTableValuedFunction(),
-              StatusIs(zetasql_base::StatusCode::kInternal,
+              StatusIs(absl::StatusCode::kInternal,
                        testing::HasSubstr(
                            "Repeated relation argument is not supported")));
 
@@ -519,7 +519,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
       FunctionArgumentType(factory.get_int64()), arguments,
       -1 /* context_id */);
   EXPECT_THAT(signature->IsValidForTableValuedFunction(),
-              StatusIs(zetasql_base::StatusCode::kInternal,
+              StatusIs(absl::StatusCode::kInternal,
                        testing::HasSubstr("Relation arguments cannot follow "
                                           "repeated or optional arguments")));
 
@@ -533,7 +533,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
       -1 /* context_id */);
 
   EXPECT_THAT(signature->IsValidForTableValuedFunction(),
-              StatusIs(zetasql_base::StatusCode::kInternal,
+              StatusIs(absl::StatusCode::kInternal,
                        testing::HasSubstr("Relation arguments cannot follow "
                                           "repeated or optional arguments")));
 
@@ -547,7 +547,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
       -1 /* context_id */);
 
   EXPECT_THAT(signature->IsValidForTableValuedFunction(),
-              StatusIs(zetasql_base::StatusCode::kInternal,
+              StatusIs(absl::StatusCode::kInternal,
                        testing::HasSubstr("Relation arguments cannot follow "
                                           "repeated or optional arguments")));
 

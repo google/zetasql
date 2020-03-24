@@ -514,16 +514,16 @@ TEST(SimpleFunctionTests, TestCheckArgumentConstraints) {
         {InputArgumentType(enum_type), InputArgumentType(enum_type)},
         LanguageOptions()));
 
-    const zetasql_base::Status struct_type_status = constraints(
+    const absl::Status struct_type_status = constraints(
         {InputArgumentType(struct_type), InputArgumentType(struct_type)},
         LanguageOptions());
     LanguageOptions language_options;
 
     language_options.EnableLanguageFeature(FEATURE_V_1_1_ARRAY_EQUALITY);
-    const zetasql_base::Status array_type_status = constraints(
+    const absl::Status array_type_status = constraints(
         {InputArgumentType(array_type), InputArgumentType(array_type)},
         LanguageOptions());
-    const zetasql_base::Status array_type_status_with_equality_support = constraints(
+    const absl::Status array_type_status_with_equality_support = constraints(
         {InputArgumentType(array_type), InputArgumentType(array_type)},
         language_options);
 

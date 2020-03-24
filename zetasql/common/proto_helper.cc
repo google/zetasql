@@ -58,7 +58,7 @@ class StringAppendErrorCollector :
 
 }  // namespace
 
-zetasql_base::Status PopulateFileDescriptorSet(
+absl::Status PopulateFileDescriptorSet(
     const google::protobuf::FileDescriptor* file_descr,
     absl::optional<int64_t> file_descriptor_set_max_size_bytes,
     google::protobuf::FileDescriptorSet* file_descriptor_set,
@@ -82,10 +82,10 @@ zetasql_base::Status PopulateFileDescriptorSet(
         << file_descriptor_set_max_size_bytes.value() << ", size = "
         << file_descriptor_set->ByteSizeLong();
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AddFileDescriptorSetToPool(
+absl::Status AddFileDescriptorSetToPool(
     const google::protobuf::FileDescriptorSet* file_descriptor_set,
     google::protobuf::DescriptorPool* pool) {
   StringAppendErrorCollector error_collector;
@@ -98,7 +98,7 @@ zetasql_base::Status AddFileDescriptorSetToPool(
              << error_collector.GetError();
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

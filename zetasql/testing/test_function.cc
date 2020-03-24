@@ -34,7 +34,7 @@ const QueryParamsWithResult::FeatureSet
 
 QueryParamsWithResult::QueryParamsWithResult(
     const std::vector<ValueConstructor>& arguments,
-    const ValueConstructor& result, zetasql_base::Status status)
+    const ValueConstructor& result, absl::Status status)
     : params_(ValueConstructor::ToValues(arguments)),
       results_({{kEmptyFeatureSet, {result, status}}}) {}
 
@@ -50,13 +50,13 @@ QueryParamsWithResult::QueryParamsWithResult(
     : params_(ValueConstructor::ToValues(arguments)),
       results_({{kEmptyFeatureSet,
                  {result, error_substring.empty()
-                              ? ::zetasql_base::OkStatus()
-                              : zetasql_base::Status(zetasql_base::StatusCode::kUnknown,
+                              ? absl::OkStatus()
+                              : absl::Status(absl::StatusCode::kUnknown,
                                              error_substring)}}}) {}
 
 QueryParamsWithResult::QueryParamsWithResult(
     const std::vector<ValueConstructor>& arguments,
-    const ValueConstructor& result, zetasql_base::StatusCode code)
+    const ValueConstructor& result, absl::StatusCode code)
     : params_(ValueConstructor::ToValues(arguments)),
       results_({{kEmptyFeatureSet, {result, code}}}) {}
 
@@ -64,7 +64,7 @@ const Value& QueryParamsWithResult::result() const {
   CHECK(HasEmptyFeatureSetAndNothingElse()) << *this;
   return result(kEmptyFeatureSet);
 }
-const zetasql_base::Status& QueryParamsWithResult::status() const {
+const absl::Status& QueryParamsWithResult::status() const {
   CHECK(HasEmptyFeatureSetAndNothingElse()) << *this;
   return status(kEmptyFeatureSet);
 }
@@ -81,11 +81,11 @@ QueryParamsWithResult::Result::Result(const ValueConstructor& result_in,
     : result(result_in.get()), status(), float_margin(float_margin_in) {}
 
 QueryParamsWithResult::Result::Result(const ValueConstructor& result_in,
-                                      zetasql_base::StatusCode code)
+                                      absl::StatusCode code)
     : result(result_in.get()), status(code, "") {}
 
 QueryParamsWithResult::Result::Result(const ValueConstructor& result_in,
-                                      const zetasql_base::Status& status_in)
+                                      const absl::Status& status_in)
     : result(result_in.get()), status(status_in) {}
 
 QueryParamsWithResult::QueryParamsWithResult(
@@ -128,7 +128,7 @@ const Value& QueryParamsWithResult::result(
   return zetasql_base::FindOrDie(results_, feature_set).result;
 }
 
-const zetasql_base::Status& QueryParamsWithResult::status(
+const absl::Status& QueryParamsWithResult::status(
     const FeatureSet& feature_set) const {
   return zetasql_base::FindOrDie(results_, feature_set).status;
 }
@@ -157,7 +157,7 @@ FunctionTestCall::FunctionTestCall(
 FunctionTestCall::FunctionTestCall(
     absl::string_view function_name,
     const std::vector<ValueConstructor>& arguments,
-    const ValueConstructor& result, zetasql_base::StatusCode code)
+    const ValueConstructor& result, absl::StatusCode code)
     : function_name(function_name), params(arguments, result, code) {}
 
 FunctionTestCall::FunctionTestCall(

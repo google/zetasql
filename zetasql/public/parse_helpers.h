@@ -37,7 +37,7 @@ struct ParseResumeLocation;
 //
 // TODO: Take LanguageOptions as input, which controls some parser
 // behavior.
-zetasql_base::Status IsValidStatementSyntax(absl::string_view sql,
+absl::Status IsValidStatementSyntax(absl::string_view sql,
                                     ErrorMessageMode error_message_mode);
 
 // Similar to the previous, but checks the validity of the next statement
@@ -47,7 +47,7 @@ zetasql_base::Status IsValidStatementSyntax(absl::string_view sql,
 //
 // This method can be invoked iteratively on a multi-statement string to
 // validate that all the statements in the string are valid syntax.
-zetasql_base::Status IsValidNextStatementSyntax(
+absl::Status IsValidNextStatementSyntax(
     ParseResumeLocation* resume_location, ErrorMessageMode error_message_mode,
     bool* at_end_of_input);
 
@@ -126,13 +126,13 @@ struct StatementProperties {
 //
 // Returns OK for invalid syntax, with an UNKNOWN statement node kind.  Only
 // returns internal errors.
-zetasql_base::Status GetStatementProperties(const std::string& input,
+absl::Status GetStatementProperties(const std::string& input,
                                     const LanguageOptions& language_options,
                                     StatementProperties* statement_properties);
 
 // Same as GetStatementProperties, but determines the statement properties for
 // the next statement starting from <resume_location>.
-zetasql_base::Status GetNextStatementProperties(
+absl::Status GetNextStatementProperties(
     const ParseResumeLocation& resume_location,
     const LanguageOptions& language_options,
     StatementProperties* statement_properties);

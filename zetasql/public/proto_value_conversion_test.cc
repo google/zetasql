@@ -79,7 +79,7 @@ class ProtoValueConversionTest : public ::testing::Test {
   ~ProtoValueConversionTest() override {
   }
 
-  zetasql_base::Status ParseLiteralExpression(const std::string& expression_sql,
+  absl::Status ParseLiteralExpression(const std::string& expression_sql,
                                       Value* value_out) {
     std::unique_ptr<const AnalyzerOutput> output;
     LanguageOptions language_options;
@@ -97,10 +97,10 @@ class ProtoValueConversionTest : public ::testing::Test {
         << expr->DebugString();
     const ResolvedLiteral* literal = expr->GetAs<ResolvedLiteral>();
     *value_out = literal->value();
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
-  zetasql_base::Status GetProtoDescriptorForType(
+  absl::Status GetProtoDescriptorForType(
       const Type* type,
       const ConvertTypeToProtoOptions& options_in,
       const google::protobuf::Descriptor** descriptor_out) {
@@ -127,7 +127,7 @@ class ProtoValueConversionTest : public ::testing::Test {
     *descriptor_out = file_descriptor->FindMessageTypeByName(message_name);
     ZETASQL_RET_CHECK(*descriptor_out != nullptr);
 
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // Performs the round-trip test for the given SQL expression and options.
@@ -150,7 +150,7 @@ class ProtoValueConversionTest : public ::testing::Test {
     return std::move(proto);
   }
 
-  zetasql_base::Status ValueToProto(
+  absl::Status ValueToProto(
       const Value& value,
       const ConvertTypeToProtoOptions& options,
       std::unique_ptr<google::protobuf::Message>* proto_out) {
@@ -161,7 +161,7 @@ class ProtoValueConversionTest : public ::testing::Test {
     proto_out->reset(message_factory_.GetPrototype(descriptor)->New());
     ZETASQL_RETURN_IF_ERROR(ConvertStructOrArrayValueToProtoMessage(
         value, &message_factory_, proto_out->get()));
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   TypeFactory type_factory_;
@@ -431,11 +431,11 @@ TEST_F(ProtoValueConversionTest, DateDecimal) {
       ASSERT_TRUE(google::protobuf::TextFormat::ParseFromString(
           absl::StrCat("d: ", invalid_date), proto.get()))
           << invalid_date;
-      EXPECT_THAT(
-          ConvertProtoMessageToStructOrArrayValue(
-              *proto, value.type(), &result_value),
-          StatusIs(::zetasql_base::OUT_OF_RANGE,
-                   HasSubstr("Invalid DATE_DECIMAL"))) << invalid_date;
+      EXPECT_THAT(ConvertProtoMessageToStructOrArrayValue(*proto, value.type(),
+                                                          &result_value),
+                  StatusIs(absl::StatusCode::kOutOfRange,
+                           HasSubstr("Invalid DATE_DECIMAL")))
+          << invalid_date;
     }
   }
 }
@@ -524,11 +524,10 @@ TEST_F(ProtoValueConversionTest, TimestampOutOfRange) {
   ASSERT_TRUE(google::protobuf::TextFormat::ParseFromString(
       absl::StrCat("t: ", std::numeric_limits<int64_t>::max()), proto.get()));
   Value result_value;
-  EXPECT_THAT(
-      ConvertProtoMessageToStructOrArrayValue(
-          *proto, value.type(), &result_value),
-      StatusIs(::zetasql_base::OUT_OF_RANGE,
-               HasSubstr("Invalid encoded timestamp")));
+  EXPECT_THAT(ConvertProtoMessageToStructOrArrayValue(*proto, value.type(),
+                                                      &result_value),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Invalid encoded timestamp")));
 }
 
 // Verify MergeValueToProtoField using various combinations of destination proto
@@ -1049,7 +1048,7 @@ TEST_P(MergeValueToProtoFieldTest, EdgeCases) {
       MergeValueToProtoField(struct_value, string_field,
                              use_wire_format_annotations_, &message_factory,
                              incorrect_proto.get()),
-      StatusIs(::zetasql_base::INTERNAL,
+      StatusIs(absl::StatusCode::kInternal,
                HasSubstr("Field and output proto descriptors do not match")));
 }
 

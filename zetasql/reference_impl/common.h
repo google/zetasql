@@ -26,11 +26,11 @@
 namespace zetasql {
 
 // Returns OK if 'type' supports equality comparison, error status otherwise.
-zetasql_base::Status ValidateTypeSupportsEqualityComparison(const Type* type);
+absl::Status ValidateTypeSupportsEqualityComparison(const Type* type);
 
 // Returns OK if 'type' supports less/greater comparison, error status
 // otherwise.
-zetasql_base::Status ValidateTypeSupportsOrderComparison(const Type* type);
+absl::Status ValidateTypeSupportsOrderComparison(const Type* type);
 
 // Releases the ownership of 'ptrs' in the input vector and returns a regular
 // vector of pointers. This method takes a non-const reference by design as it

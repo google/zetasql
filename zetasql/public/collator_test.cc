@@ -33,7 +33,7 @@ class CollatorTest : public ::testing::TestWithParam<CompareType> {
                   const ZetaSqlCollator* collator) {
     switch (GetParam()) {
       case CompareType::kCompare: {
-        zetasql_base::Status error;
+        absl::Status error;
         EXPECT_EQ(0, collator->CompareUtf8(s1, s2, &error)) << s1 << "==" << s2;
         ZETASQL_EXPECT_OK(error);
         EXPECT_EQ(0, collator->CompareUtf8(s2, s1, &error)) << s2 << "==" << s1;
@@ -47,7 +47,7 @@ class CollatorTest : public ::testing::TestWithParam<CompareType> {
                     const ZetaSqlCollator* collator) {
     switch (GetParam()) {
       case CompareType::kCompare: {
-        zetasql_base::Status error;
+        absl::Status error;
         EXPECT_EQ(-1, collator->CompareUtf8(s1, s2, &error)) << s1 << "<" << s2;
         ZETASQL_EXPECT_OK(error);
         EXPECT_EQ(1, collator->CompareUtf8(s2, s1, &error)) << s1 << ">" << s2;

@@ -108,198 +108,198 @@ class SQLBuilder : public ResolvedASTVisitor {
 
   // Visit all nodes in the AST tree and accumulate SQL to be returned via sql()
   // call, below.
-  zetasql_base::Status Process(const ResolvedNode& ast);
+  absl::Status Process(const ResolvedNode& ast);
 
   // Returns the sql string for the last visited ResolvedAST.
   std::string sql();
 
   // Visit methods for types of ResolvedStatement.
-  zetasql_base::Status VisitResolvedQueryStmt(const ResolvedQueryStmt* node) override;
-  zetasql_base::Status VisitResolvedExplainStmt(
+  absl::Status VisitResolvedQueryStmt(const ResolvedQueryStmt* node) override;
+  absl::Status VisitResolvedExplainStmt(
       const ResolvedExplainStmt* node) override;
-  zetasql_base::Status VisitResolvedCreateDatabaseStmt(
+  absl::Status VisitResolvedCreateDatabaseStmt(
       const ResolvedCreateDatabaseStmt* node) override;
-  zetasql_base::Status VisitResolvedCreateIndexStmt(
+  absl::Status VisitResolvedCreateIndexStmt(
     const ResolvedCreateIndexStmt* node) override;
-  zetasql_base::Status VisitResolvedCreateModelStmt(
+  absl::Status VisitResolvedCreateModelStmt(
       const ResolvedCreateModelStmt* node) override;
-  zetasql_base::Status VisitResolvedCreateTableStmt(
+  absl::Status VisitResolvedCreateTableStmt(
       const ResolvedCreateTableStmt* node) override;
-  zetasql_base::Status VisitResolvedCreateTableAsSelectStmt(
+  absl::Status VisitResolvedCreateTableAsSelectStmt(
       const ResolvedCreateTableAsSelectStmt* node) override;
-  zetasql_base::Status VisitResolvedCreateViewStmt(
+  absl::Status VisitResolvedCreateViewStmt(
       const ResolvedCreateViewStmt* node) override;
-  zetasql_base::Status VisitResolvedCreateMaterializedViewStmt(
+  absl::Status VisitResolvedCreateMaterializedViewStmt(
       const ResolvedCreateMaterializedViewStmt* node) override;
-  zetasql_base::Status VisitResolvedCreateExternalTableStmt(
+  absl::Status VisitResolvedCreateExternalTableStmt(
       const ResolvedCreateExternalTableStmt* node) override;
-  zetasql_base::Status VisitResolvedCreateRowAccessPolicyStmt(
+  absl::Status VisitResolvedCreateRowAccessPolicyStmt(
       const ResolvedCreateRowAccessPolicyStmt* node) override;
-  zetasql_base::Status VisitResolvedCreateConstantStmt(
+  absl::Status VisitResolvedCreateConstantStmt(
       const ResolvedCreateConstantStmt* node) override;
-  zetasql_base::Status VisitResolvedCreateFunctionStmt(
+  absl::Status VisitResolvedCreateFunctionStmt(
       const ResolvedCreateFunctionStmt* node) override;
-  zetasql_base::Status VisitResolvedCreateTableFunctionStmt(
+  absl::Status VisitResolvedCreateTableFunctionStmt(
       const ResolvedCreateTableFunctionStmt* node) override;
-  zetasql_base::Status VisitResolvedCreateProcedureStmt(
+  absl::Status VisitResolvedCreateProcedureStmt(
       const ResolvedCreateProcedureStmt* node) override;
-  zetasql_base::Status VisitResolvedArgumentDef(
+  absl::Status VisitResolvedArgumentDef(
       const ResolvedArgumentDef* node) override;
-  zetasql_base::Status VisitResolvedArgumentRef(
+  absl::Status VisitResolvedArgumentRef(
       const ResolvedArgumentRef* node) override;
-  zetasql_base::Status VisitResolvedExportDataStmt(
+  absl::Status VisitResolvedExportDataStmt(
       const ResolvedExportDataStmt* node) override;
-  zetasql_base::Status VisitResolvedCallStmt(const ResolvedCallStmt* node) override;
-  zetasql_base::Status VisitResolvedDefineTableStmt(
+  absl::Status VisitResolvedCallStmt(const ResolvedCallStmt* node) override;
+  absl::Status VisitResolvedDefineTableStmt(
       const ResolvedDefineTableStmt* node) override;
-  zetasql_base::Status VisitResolvedDescribeStmt(
+  absl::Status VisitResolvedDescribeStmt(
       const ResolvedDescribeStmt* node) override;
-  zetasql_base::Status VisitResolvedShowStmt(
+  absl::Status VisitResolvedShowStmt(
       const ResolvedShowStmt* node) override;
-  zetasql_base::Status VisitResolvedBeginStmt(const ResolvedBeginStmt* node) override;
-  zetasql_base::Status VisitResolvedSetTransactionStmt(
+  absl::Status VisitResolvedBeginStmt(const ResolvedBeginStmt* node) override;
+  absl::Status VisitResolvedSetTransactionStmt(
       const ResolvedSetTransactionStmt* node) override;
-  zetasql_base::Status VisitResolvedCommitStmt(const ResolvedCommitStmt* node) override;
-  zetasql_base::Status VisitResolvedRollbackStmt(
+  absl::Status VisitResolvedCommitStmt(const ResolvedCommitStmt* node) override;
+  absl::Status VisitResolvedRollbackStmt(
       const ResolvedRollbackStmt* node) override;
-  zetasql_base::Status VisitResolvedStartBatchStmt(
+  absl::Status VisitResolvedStartBatchStmt(
       const ResolvedStartBatchStmt* node) override;
-  zetasql_base::Status VisitResolvedRunBatchStmt(
+  absl::Status VisitResolvedRunBatchStmt(
       const ResolvedRunBatchStmt* node) override;
-  zetasql_base::Status VisitResolvedAbortBatchStmt(
+  absl::Status VisitResolvedAbortBatchStmt(
       const ResolvedAbortBatchStmt* node) override;
-  zetasql_base::Status VisitResolvedDeleteStmt(
+  absl::Status VisitResolvedDeleteStmt(
       const ResolvedDeleteStmt* node) override;
-  zetasql_base::Status VisitResolvedDropStmt(
+  absl::Status VisitResolvedDropStmt(
       const ResolvedDropStmt* node) override;
-  zetasql_base::Status VisitResolvedDropFunctionStmt(
+  absl::Status VisitResolvedDropFunctionStmt(
       const ResolvedDropFunctionStmt* node) override;
-  zetasql_base::Status VisitResolvedDropMaterializedViewStmt(
+  absl::Status VisitResolvedDropMaterializedViewStmt(
       const ResolvedDropMaterializedViewStmt* node) override;
-  zetasql_base::Status VisitResolvedDropRowAccessPolicyStmt(
+  absl::Status VisitResolvedDropRowAccessPolicyStmt(
       const ResolvedDropRowAccessPolicyStmt* node) override;
-  zetasql_base::Status VisitResolvedTruncateStmt(
+  absl::Status VisitResolvedTruncateStmt(
       const ResolvedTruncateStmt* node) override;
-  zetasql_base::Status VisitResolvedUpdateStmt(
+  absl::Status VisitResolvedUpdateStmt(
       const ResolvedUpdateStmt* node) override;
-  zetasql_base::Status VisitResolvedInsertStmt(
+  absl::Status VisitResolvedInsertStmt(
       const ResolvedInsertStmt* node) override;
-  zetasql_base::Status VisitResolvedMergeStmt(const ResolvedMergeStmt* node) override;
-  zetasql_base::Status VisitResolvedMergeWhen(const ResolvedMergeWhen* node) override;
-  zetasql_base::Status VisitResolvedGrantStmt(
+  absl::Status VisitResolvedMergeStmt(const ResolvedMergeStmt* node) override;
+  absl::Status VisitResolvedMergeWhen(const ResolvedMergeWhen* node) override;
+  absl::Status VisitResolvedGrantStmt(
       const ResolvedGrantStmt* node) override;
-  zetasql_base::Status VisitResolvedRevokeStmt(
+  absl::Status VisitResolvedRevokeStmt(
       const ResolvedRevokeStmt* node) override;
-  zetasql_base::Status VisitResolvedAlterDatabaseStmt(
+  absl::Status VisitResolvedAlterDatabaseStmt(
       const ResolvedAlterDatabaseStmt* node) override;
-  zetasql_base::Status VisitResolvedAlterRowAccessPolicyStmt(
+  absl::Status VisitResolvedAlterRowAccessPolicyStmt(
       const ResolvedAlterRowAccessPolicyStmt* node) override;
-  zetasql_base::Status VisitResolvedAlterTableSetOptionsStmt(
+  absl::Status VisitResolvedAlterTableSetOptionsStmt(
       const ResolvedAlterTableSetOptionsStmt* node) override;
-  zetasql_base::Status VisitResolvedAlterTableStmt(
+  absl::Status VisitResolvedAlterTableStmt(
       const ResolvedAlterTableStmt* node) override;
-  zetasql_base::Status VisitResolvedAlterViewStmt(
+  absl::Status VisitResolvedAlterViewStmt(
       const ResolvedAlterViewStmt* node) override;
-  zetasql_base::Status VisitResolvedAlterMaterializedViewStmt(
+  absl::Status VisitResolvedAlterMaterializedViewStmt(
       const ResolvedAlterMaterializedViewStmt* node) override;
-  zetasql_base::Status VisitResolvedRenameStmt(
+  absl::Status VisitResolvedRenameStmt(
       const ResolvedRenameStmt* node) override;
-  zetasql_base::Status VisitResolvedImportStmt(const ResolvedImportStmt* node) override;
-  zetasql_base::Status VisitResolvedModuleStmt(const ResolvedModuleStmt* node) override;
-  zetasql_base::Status VisitResolvedAssertStmt(const ResolvedAssertStmt* node) override;
-  zetasql_base::Status VisitResolvedAssignmentStmt(
+  absl::Status VisitResolvedImportStmt(const ResolvedImportStmt* node) override;
+  absl::Status VisitResolvedModuleStmt(const ResolvedModuleStmt* node) override;
+  absl::Status VisitResolvedAssertStmt(const ResolvedAssertStmt* node) override;
+  absl::Status VisitResolvedAssignmentStmt(
       const ResolvedAssignmentStmt* node) override;
-  zetasql_base::Status VisitResolvedExecuteImmediateStmt(
+  absl::Status VisitResolvedExecuteImmediateStmt(
       const ResolvedExecuteImmediateStmt* node) override;
 
   // Visit methods for types of ResolvedExpr.
-  zetasql_base::Status VisitResolvedExpressionColumn(
+  absl::Status VisitResolvedExpressionColumn(
       const ResolvedExpressionColumn* node) override;
-  zetasql_base::Status VisitResolvedLiteral(const ResolvedLiteral* node) override;
-  zetasql_base::Status VisitResolvedConstant(const ResolvedConstant* node) override;
-  zetasql_base::Status VisitResolvedFunctionCall(
+  absl::Status VisitResolvedLiteral(const ResolvedLiteral* node) override;
+  absl::Status VisitResolvedConstant(const ResolvedConstant* node) override;
+  absl::Status VisitResolvedFunctionCall(
       const ResolvedFunctionCall* node) override;
-  zetasql_base::Status VisitResolvedAggregateFunctionCall(
+  absl::Status VisitResolvedAggregateFunctionCall(
       const ResolvedAggregateFunctionCall* node) override;
-  zetasql_base::Status VisitResolvedAnalyticFunctionCall(
+  absl::Status VisitResolvedAnalyticFunctionCall(
       const ResolvedAnalyticFunctionCall* node) override;
-  zetasql_base::Status VisitResolvedGetProtoField(
+  absl::Status VisitResolvedGetProtoField(
       const ResolvedGetProtoField* node) override;
-  zetasql_base::Status VisitResolvedReplaceField(
+  absl::Status VisitResolvedReplaceField(
       const ResolvedReplaceField* node) override;
-  zetasql_base::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override;
-  zetasql_base::Status VisitResolvedCast(const ResolvedCast* node) override;
-  zetasql_base::Status VisitResolvedColumnHolder(
+  absl::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override;
+  absl::Status VisitResolvedCast(const ResolvedCast* node) override;
+  absl::Status VisitResolvedColumnHolder(
       const ResolvedColumnHolder* node) override;
-  zetasql_base::Status VisitResolvedSubqueryExpr(
+  absl::Status VisitResolvedSubqueryExpr(
       const ResolvedSubqueryExpr* node) override;
-  zetasql_base::Status VisitResolvedOption(const ResolvedOption* node) override;
-  zetasql_base::Status VisitResolvedParameter(const ResolvedParameter* node) override;
-  zetasql_base::Status VisitResolvedSystemVariable(
+  absl::Status VisitResolvedOption(const ResolvedOption* node) override;
+  absl::Status VisitResolvedParameter(const ResolvedParameter* node) override;
+  absl::Status VisitResolvedSystemVariable(
       const ResolvedSystemVariable* node) override;
-  zetasql_base::Status VisitResolvedMakeProto(const ResolvedMakeProto* node) override;
-  zetasql_base::Status VisitResolvedMakeProtoField(
+  absl::Status VisitResolvedMakeProto(const ResolvedMakeProto* node) override;
+  absl::Status VisitResolvedMakeProtoField(
       const ResolvedMakeProtoField* node) override;
-  zetasql_base::Status VisitResolvedMakeStruct(const ResolvedMakeStruct* node) override;
-  zetasql_base::Status VisitResolvedGetStructField(
+  absl::Status VisitResolvedMakeStruct(const ResolvedMakeStruct* node) override;
+  absl::Status VisitResolvedGetStructField(
       const ResolvedGetStructField* node) override;
-  zetasql_base::Status VisitResolvedOrderByItem(
+  absl::Status VisitResolvedOrderByItem(
       const ResolvedOrderByItem* node) override;
-  zetasql_base::Status VisitResolvedComputedColumn(
+  absl::Status VisitResolvedComputedColumn(
       const ResolvedComputedColumn* node) override;
-  zetasql_base::Status VisitResolvedAssertRowsModified(
+  absl::Status VisitResolvedAssertRowsModified(
       const ResolvedAssertRowsModified* node) override;
-  zetasql_base::Status VisitResolvedDMLDefault(const ResolvedDMLDefault* node) override;
-  zetasql_base::Status VisitResolvedDMLValue(const ResolvedDMLValue* node) override;
-  zetasql_base::Status VisitResolvedInsertRow(const ResolvedInsertRow* node) override;
-  zetasql_base::Status VisitResolvedUpdateItem(const ResolvedUpdateItem* node) override;
-  zetasql_base::Status VisitResolvedUpdateArrayItem(
+  absl::Status VisitResolvedDMLDefault(const ResolvedDMLDefault* node) override;
+  absl::Status VisitResolvedDMLValue(const ResolvedDMLValue* node) override;
+  absl::Status VisitResolvedInsertRow(const ResolvedInsertRow* node) override;
+  absl::Status VisitResolvedUpdateItem(const ResolvedUpdateItem* node) override;
+  absl::Status VisitResolvedUpdateArrayItem(
       const ResolvedUpdateArrayItem* node) override;
-  zetasql_base::Status VisitResolvedPrivilege(const ResolvedPrivilege* node) override;
-  zetasql_base::Status VisitResolvedAggregateHavingModifier(
+  absl::Status VisitResolvedPrivilege(const ResolvedPrivilege* node) override;
+  absl::Status VisitResolvedAggregateHavingModifier(
       const ResolvedAggregateHavingModifier* node) override;
 
   // Visit methods for types of ResolvedScan.
-  zetasql_base::Status VisitResolvedAnalyticScan(
+  absl::Status VisitResolvedAnalyticScan(
       const ResolvedAnalyticScan* node) override;
-  zetasql_base::Status VisitResolvedTableScan(const ResolvedTableScan* node) override;
-  zetasql_base::Status VisitResolvedProjectScan(
+  absl::Status VisitResolvedTableScan(const ResolvedTableScan* node) override;
+  absl::Status VisitResolvedProjectScan(
       const ResolvedProjectScan* node) override;
-  zetasql_base::Status VisitResolvedTVFScan(const ResolvedTVFScan* node) override;
-  zetasql_base::Status VisitResolvedRelationArgumentScan(
+  absl::Status VisitResolvedTVFScan(const ResolvedTVFScan* node) override;
+  absl::Status VisitResolvedRelationArgumentScan(
       const ResolvedRelationArgumentScan* node) override;
-  zetasql_base::Status VisitResolvedFilterScan(const ResolvedFilterScan* node) override;
-  zetasql_base::Status VisitResolvedJoinScan(const ResolvedJoinScan* node) override;
-  zetasql_base::Status VisitResolvedArrayScan(const ResolvedArrayScan* node) override;
-  zetasql_base::Status VisitResolvedLimitOffsetScan(
+  absl::Status VisitResolvedFilterScan(const ResolvedFilterScan* node) override;
+  absl::Status VisitResolvedJoinScan(const ResolvedJoinScan* node) override;
+  absl::Status VisitResolvedArrayScan(const ResolvedArrayScan* node) override;
+  absl::Status VisitResolvedLimitOffsetScan(
       const ResolvedLimitOffsetScan* node) override;
-  zetasql_base::Status VisitResolvedSetOperationScan(
+  absl::Status VisitResolvedSetOperationScan(
       const ResolvedSetOperationScan* node) override;
-  zetasql_base::Status VisitResolvedOrderByScan(
+  absl::Status VisitResolvedOrderByScan(
       const ResolvedOrderByScan* node) override;
-  zetasql_base::Status VisitResolvedAggregateScan(
+  absl::Status VisitResolvedAggregateScan(
       const ResolvedAggregateScan* node) override;
-  zetasql_base::Status VisitResolvedWithScan(const ResolvedWithScan* node) override;
-  zetasql_base::Status VisitResolvedWithRefScan(
+  absl::Status VisitResolvedWithScan(const ResolvedWithScan* node) override;
+  absl::Status VisitResolvedWithRefScan(
       const ResolvedWithRefScan* node) override;
-  zetasql_base::Status VisitResolvedSampleScan(
+  absl::Status VisitResolvedSampleScan(
       const ResolvedSampleScan* node) override;
-  zetasql_base::Status VisitResolvedSingleRowScan(
+  absl::Status VisitResolvedSingleRowScan(
       const ResolvedSingleRowScan* node) override;
 
   // Visit methods for analytic functions related nodes.
-  zetasql_base::Status VisitResolvedAnalyticFunctionGroup(
+  absl::Status VisitResolvedAnalyticFunctionGroup(
       const ResolvedAnalyticFunctionGroup* node) override;
-  zetasql_base::Status VisitResolvedWindowPartitioning(
+  absl::Status VisitResolvedWindowPartitioning(
       const ResolvedWindowPartitioning* node) override;
-  zetasql_base::Status VisitResolvedWindowOrdering(
+  absl::Status VisitResolvedWindowOrdering(
       const ResolvedWindowOrdering* node) override;
-  zetasql_base::Status VisitResolvedWindowFrame(
+  absl::Status VisitResolvedWindowFrame(
       const ResolvedWindowFrame* node) override;
-  zetasql_base::Status VisitResolvedWindowFrameExpr(
+  absl::Status VisitResolvedWindowFrameExpr(
       const ResolvedWindowFrameExpr* node) override;
 
-  zetasql_base::Status DefaultVisit(const ResolvedNode* node) override;
+  absl::Status DefaultVisit(const ResolvedNode* node) override;
 
  protected:
   // Holds SQL text of nodes representing expressions/subqueries and
@@ -352,31 +352,31 @@ class SQLBuilder : public ResolvedASTVisitor {
 
   // Wraps the given <query_expression> corresponding to the scan <node> as a
   // subquery to the from clause, mutating the <query_expression> subsequently.
-  zetasql_base::Status WrapQueryExpression(const ResolvedScan* node,
+  absl::Status WrapQueryExpression(const ResolvedScan* node,
                                    QueryExpression* query_expression);
 
   // Helper function which fetches <select_list> for columns present in
   // <column_list>. <parent_scan> is optional; if present, it points to the
   // ResolvedScan for which we are currently fetching a select list.
-  zetasql_base::Status GetSelectList(
+  absl::Status GetSelectList(
       const ResolvedColumnList& column_list,
       const std::map<int64_t, const ResolvedExpr*>& col_to_expr_map,
       const ResolvedScan* parent_scan, QueryExpression* query_expression,
       std::vector<std::pair<std::string, std::string>>* select_list);
   // This overload does not expects a <col_to_expr_map> which is needed only
   // when select expressions are present in the column_list.
-  zetasql_base::Status GetSelectList(
+  absl::Status GetSelectList(
       const ResolvedColumnList& column_list, QueryExpression* query_expression,
       std::vector<std::pair<std::string, std::string>>* select_list);
 
   // Adds select_list for columns present in <column_list> inside the
   // <query_expression>, if not present.
-  zetasql_base::Status AddSelectListIfNeeded(const ResolvedColumnList& column_list,
+  absl::Status AddSelectListIfNeeded(const ResolvedColumnList& column_list,
                                      QueryExpression* query_expression);
 
   // Merges the <type> and the <annotations> trees and prints the column
   // schema to <text>.
-  zetasql_base::Status AppendColumnSchema(
+  absl::Status AppendColumnSchema(
       const Type* type, bool is_hidden,
       const ResolvedColumnAnnotations* annotations,
       const ResolvedGeneratedColumnInfo* generated_column_info,
@@ -386,15 +386,15 @@ class SQLBuilder : public ResolvedASTVisitor {
       const std::vector<std::unique_ptr<const ResolvedOption>>& hint_list);
 
   // Always append a (possibly empty) OPTIONS clause.
-  zetasql_base::Status AppendOptions(
+  absl::Status AppendOptions(
       const std::vector<std::unique_ptr<const ResolvedOption>>& option_list,
       std::string* sql);
   // Only append an OPTIONS clause if there is at least one option.
-  zetasql_base::Status AppendOptionsIfPresent(
+  absl::Status AppendOptionsIfPresent(
       const std::vector<std::unique_ptr<const ResolvedOption>>& option_list,
       std::string* sql);
 
-  zetasql_base::Status AppendHintsIfPresent(
+  absl::Status AppendHintsIfPresent(
       const std::vector<std::unique_ptr<const ResolvedOption>>& hint_list,
       std::string* text);
 
@@ -436,20 +436,20 @@ class SQLBuilder : public ResolvedASTVisitor {
   int64_t GetUniqueId();
 
   // Get the sql for CreateViewStatement/CreateMaterializedViewStatement.
-  zetasql_base::Status GetCreateViewStatement(const ResolvedCreateViewBase* node,
+  absl::Status GetCreateViewStatement(const ResolvedCreateViewBase* node,
                                       bool is_value_table,
                                       const std::string& view_type);
 
   // Get the first part of the syntax for a CREATE command, including statement
   // hints, the <object_type> (e.g. "TABLE") and name, and CREATE modifiers,
   // and a trailing space.
-  zetasql_base::Status GetCreateStatementPrefix(const ResolvedCreateStatement* node,
+  absl::Status GetCreateStatementPrefix(const ResolvedCreateStatement* node,
                                         const std::string& object_type,
                                         std::string* sql);
 
   // Appends PARTITION BY or CLUSTER BY expressions to the provided string, not
   // including the "PARTITION BY " or "CLUSTER BY " prefix.
-  zetasql_base::Status GetPartitionByListString(
+  absl::Status GetPartitionByListString(
       const std::vector<std::unique_ptr<const ResolvedExpr>>& partition_by_list,
       std::string* sql);
 
@@ -457,7 +457,7 @@ class SQLBuilder : public ResolvedASTVisitor {
 
   // Get the "<privilege_list> ON <object_type> <name_path>" part of a GRANT or
   // REVOKE statement.
-  zetasql_base::Status GetPrivilegesString(const ResolvedGrantOrRevokeStmt* node,
+  absl::Status GetPrivilegesString(const ResolvedGrantOrRevokeStmt* node,
                                    std::string* sql);
 
   // Helper functions to save the <path> used to access the column later.
@@ -472,7 +472,7 @@ class SQLBuilder : public ResolvedASTVisitor {
   //   <query_expression> select-list.
   // - Column aliases in <output_column_list> (if not internal) matches the
   //   <query_expression> select-list.
-  zetasql_base::Status MatchOutputColumns(
+  absl::Status MatchOutputColumns(
       const std::vector<std::unique_ptr<const ResolvedOutputColumn>>&
           output_column_list,
       const ResolvedScan* query, QueryExpression* query_expression);
@@ -508,7 +508,7 @@ class SQLBuilder : public ResolvedASTVisitor {
       const std::string& table_type);
 
   // Helper function for adding SQL for aggregate and group by lists.
-  zetasql_base::Status ProcessAggregateScanBase(
+  absl::Status ProcessAggregateScanBase(
       const ResolvedAggregateScanBase* node,
       const std::vector<int>& rollup_column_id_list,
       QueryExpression* query_expression);
@@ -519,7 +519,7 @@ class SQLBuilder : public ResolvedASTVisitor {
           alter_action_list);
 
   // Helper function to return corresponding SQL for ResolvedAlterObjectStmt
-  zetasql_base::Status GetResolvedAlterObjectStmtSQL(
+  absl::Status GetResolvedAlterObjectStmtSQL(
       const ResolvedAlterObjectStmt* node, absl::string_view object_kind);
 
   // Helper function to return corresponding SQL from the grantee list of
@@ -530,7 +530,7 @@ class SQLBuilder : public ResolvedASTVisitor {
           grantee_expr_list);
   // Helper function to append table_element, including column_schema and
   // table_constraints, to sql.
-  zetasql_base::Status ProcessTableElementsBase(
+  absl::Status ProcessTableElementsBase(
       std::string* sql,
       const std::vector<std::unique_ptr<const ResolvedColumnDefinition>>&
           column_definition_list,

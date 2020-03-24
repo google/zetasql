@@ -89,7 +89,7 @@ class LanguageOptions;
 // Callback implementations are intended to validate the argument list
 // and return status indicating if the arguments are valid or providing a
 // relevant error message.
-using ArgumentConstraintsCallback = std::function<zetasql_base::Status(
+using ArgumentConstraintsCallback = std::function<absl::Status(
     const std::vector<InputArgumentType>&, const LanguageOptions&)>;
 
 // This callback signature takes an argument list as input and returns the
@@ -166,7 +166,7 @@ struct FunctionOptions {
         window_ordering_support(window_ordering_support_in),
         supports_window_framing(window_framing_support_in) {}
 
-  static zetasql_base::Status Deserialize(
+  static absl::Status Deserialize(
       const FunctionOptionsProto& proto,
       std::unique_ptr<FunctionOptions>* result);
 
@@ -472,13 +472,13 @@ class Function {
   Function& operator=(const Function&) = delete;
   virtual ~Function() {}
 
-  static zetasql_base::Status Deserialize(
+  static absl::Status Deserialize(
       const FunctionProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory,
       std::unique_ptr<Function>* result);
 
-  virtual zetasql_base::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
+  virtual absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
                                  FunctionProto* proto,
                                  bool omit_signatures = false) const;
 
@@ -488,7 +488,7 @@ class Function {
   // than one deserializer for the same 'type' is registered, or if any other
   // error occurs. For an example, please see the REGISTER_MODULE_INITIALIZER in
   // templated_sql_function.cc.
-  using FunctionDeserializer = std::function<zetasql_base::Status(
+  using FunctionDeserializer = std::function<absl::Status(
       const FunctionProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory, std::unique_ptr<Function>* result)>;
@@ -559,7 +559,7 @@ class Function {
 
   // Helper function to add function signatures with simple argument and
   // result types.
-  zetasql_base::Status AddSignature(const TypeKind result_kind,
+  absl::Status AddSignature(const TypeKind result_kind,
                             const std::vector<TypeKind>& input_kinds,
                             void* context, TypeFactory* factory);
   // Convenience function that returns the same Function object so that
@@ -587,7 +587,7 @@ class Function {
 
   // Returns Status indicating whether or not any specified constraints
   // were violated.  If <constraints_callback> is NULL returns OK.
-  static zetasql_base::Status CheckArgumentConstraints(
+  static absl::Status CheckArgumentConstraints(
       const std::vector<InputArgumentType>& arguments,
       const LanguageOptions& language_options,
       const ArgumentConstraintsCallback& constraints_callback);
@@ -632,7 +632,7 @@ class Function {
   // clause are violated:
   // 1) Scalar function cannot support the OVER clause;
   // 2) Analytic function must support the OVER clause.
-  zetasql_base::Status CheckWindowSupportOptions() const;
+  absl::Status CheckWindowSupportOptions() const;
 
   // Returns true if it supports the OVER clause (i.e. this function can act as
   // an analytic function). If true, the mode cannot be SCALAR.

@@ -49,7 +49,7 @@ static bool IsRegexSpecialChar(char c) {
   }
 }
 
-zetasql_base::Status CreateLikeRegexpWithOptions(absl::string_view pattern,
+absl::Status CreateLikeRegexpWithOptions(absl::string_view pattern,
                                          const RE2::Options& options,
                                          std::unique_ptr<RE2>* regexp) {
   std::string re_pattern;
@@ -64,7 +64,7 @@ zetasql_base::Status CreateLikeRegexpWithOptions(absl::string_view pattern,
     switch (c) {
       case '\\':
         if (i + 1 >= size) {
-          return zetasql_base::Status(zetasql_base::StatusCode::kOutOfRange,
+          return absl::Status(absl::StatusCode::kOutOfRange,
                               "LIKE pattern ends with a backslash");
         }
         c = pattern[++i];
@@ -89,15 +89,15 @@ zetasql_base::Status CreateLikeRegexpWithOptions(absl::string_view pattern,
 
   *regexp = absl::make_unique<RE2>(re_pattern, options);
   if (!(*regexp)->ok()) {
-    zetasql_base::Status error(zetasql_base::StatusCode::kOutOfRange, (*regexp)->error());
+    absl::Status error(absl::StatusCode::kOutOfRange, (*regexp)->error());
     regexp->reset();
     return error;
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status CreateLikeRegexp(absl::string_view pattern, TypeKind type,
+absl::Status CreateLikeRegexp(absl::string_view pattern, TypeKind type,
                               std::unique_ptr<RE2>* regexp) {
   DCHECK(type == TYPE_STRING || type == TYPE_BYTES);
   RE2::Options options;

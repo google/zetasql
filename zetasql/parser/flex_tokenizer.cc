@@ -24,7 +24,7 @@
 namespace zetasql {
 namespace parser {
 
-zetasql_base::Status ZetaSqlFlexTokenizer::GetNextToken(
+absl::Status ZetaSqlFlexTokenizer::GetNextToken(
     ParseLocationRange* location, int* token) {
   zetasql_bison_parser::location bison_location;
   bison_location.begin.column = location->start().GetByteOffset();

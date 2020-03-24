@@ -232,7 +232,7 @@ TEST_F(NumericValueTest, FromPackedInt) {
   };
   for (__int128 packed : kInvalidValues) {
     EXPECT_THAT(NumericValue::FromPackedInt(packed),
-                StatusIs(zetasql_base::OUT_OF_RANGE,
+                StatusIs(absl::StatusCode::kOutOfRange,
                          "numeric overflow: result out of range"));
   }
 }
@@ -274,7 +274,7 @@ TEST_F(NumericValueTest, FromHighAndLowBits) {
   };
   for (std::pair<uint64_t, uint64_t> bits : kInvalidValues) {
     EXPECT_THAT(NumericValue::FromHighAndLowBits(bits.first, bits.second),
-                StatusIs(zetasql_base::OUT_OF_RANGE,
+                StatusIs(absl::StatusCode::kOutOfRange,
                          "numeric overflow: result out of range"));
   }
 }
@@ -511,7 +511,7 @@ TEST_F(NumericValueTest, FromString) {
     // Test common failures for the strict and non-strict parsing.
     for (const absl::string_view input : kInvalidNumericStrings) {
       EXPECT_THAT(from_string(input),
-                  StatusIs(zetasql_base::OUT_OF_RANGE,
+                  StatusIs(absl::StatusCode::kOutOfRange,
                            absl::StrCat("Invalid NUMERIC value: ", input)));
     }
   }
@@ -522,7 +522,7 @@ TEST_F(NumericValueTest, FromString) {
     EXPECT_EQ(pair.first, value.as_packed_int()) << pair.second;
 
     EXPECT_THAT(NumericValue::FromStringStrict(pair.second),
-                StatusIs(zetasql_base::OUT_OF_RANGE,
+                StatusIs(absl::StatusCode::kOutOfRange,
                          absl::StrCat("Invalid NUMERIC value: ", pair.second)));
   }
 }
@@ -816,7 +816,7 @@ void TestUnaryOp(Op& op, const Input& input_wrapper,
         absl::Substitute(Op::kExpressionFormat, AlphaNum(input));
     EXPECT_THAT(
         status_or_result.status(),
-        StatusIs(zetasql_base::OUT_OF_RANGE,
+        StatusIs(absl::StatusCode::kOutOfRange,
                  absl::StrCat(status_or_expected_output.status().message(),
                               expression)));
   }
@@ -839,7 +839,7 @@ void TestBinaryOp(Op& op, const Input1& input_wrapper1,
         Op::kExpressionFormat, AlphaNum(input1), AlphaNum(input2));
     EXPECT_THAT(
         status_or_result.status(),
-        StatusIs(zetasql_base::OUT_OF_RANGE,
+        StatusIs(absl::StatusCode::kOutOfRange,
                  absl::StrCat(status_or_expected_output.status().message(),
                               expression)));
   }
@@ -952,11 +952,11 @@ TEST_F(NumericValueTest, Multiply_PowersOfTen) {
 
   // Next multiplication will add 30th number and cause overflow.
   EXPECT_THAT(positive.Multiply(NumericValue(10)),
-              StatusIs(zetasql_base::OUT_OF_RANGE,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        "numeric overflow: 10000000000000000000000000000 * 10"));
   EXPECT_THAT(
       negative.Multiply(NumericValue(10)),
-      StatusIs(zetasql_base::OUT_OF_RANGE,
+      StatusIs(absl::StatusCode::kOutOfRange,
                "numeric overflow: -10000000000000000000000000000 * 10"));
 
   positive = MkNumeric("0.1");
@@ -992,7 +992,7 @@ TEST_F(NumericValueTest, Multiply_AllPrecisionCombinations) {
                   n1.Multiply(n2).ValueOrDie().ToString());
       } else if (res_prec > 27) {
         EXPECT_THAT(n1.Multiply(n2),
-                    StatusIs(zetasql_base::OUT_OF_RANGE,
+                    StatusIs(absl::StatusCode::kOutOfRange,
                              absl::StrCat("numeric overflow: ", n1.ToString(),
                                           " * ", n2.ToString())));
       } else {
@@ -1074,7 +1074,7 @@ TEST_F(NumericValueTest, IsTriviallyDestructible) {
 TEST_F(NumericValueTest, SerializeSize) {
   struct ExpectedSizes {
     int size;
-    int negated_value_size_with_new_impl;
+    int negated_value_size;
   };
   static constexpr NumericUnaryOpTestData<NumericValueWrapper, ExpectedSizes>
       kTestData[] = {
@@ -1169,7 +1169,7 @@ TEST_F(NumericValueTest, SerializeSize) {
     EXPECT_EQ(data.expected_output.size, value.SerializeAsProtoBytes().size());
 
     NumericValue negated_value = NumericValue::UnaryMinus(value);
-    EXPECT_EQ(data.expected_output.size,
+    EXPECT_EQ(data.expected_output.negated_value_size,
               negated_value.SerializeAsProtoBytes().size());
 
     std::string output;
@@ -1177,8 +1177,7 @@ TEST_F(NumericValueTest, SerializeSize) {
     EXPECT_EQ(data.expected_output.size, output.size());
     output.clear();
     negated_value.SerializeAndAppendToProtoBytes(&output);
-    EXPECT_EQ(data.expected_output.negated_value_size_with_new_impl,
-              output.size());
+    EXPECT_EQ(data.expected_output.negated_value_size, output.size());
   }
 }
 
@@ -1202,13 +1201,13 @@ TEST_F(NumericValueTest, SerializeDeserializeProtoBytes) {
 TEST_F(NumericValueTest, DeserializeProtoBytesFailures) {
   std::string bytes;
 
-  EXPECT_THAT(NumericValue::DeserializeFromProtoBytes(bytes),
-              StatusIs(zetasql_base::OUT_OF_RANGE,
-                       "Invalid numeric encoding"));
+  EXPECT_THAT(
+      NumericValue::DeserializeFromProtoBytes(bytes),
+      StatusIs(absl::StatusCode::kOutOfRange, "Invalid numeric encoding"));
   bytes.resize(17);
-  EXPECT_THAT(NumericValue::DeserializeFromProtoBytes(bytes),
-              StatusIs(zetasql_base::OUT_OF_RANGE,
-                       "Invalid numeric encoding"));
+  EXPECT_THAT(
+      NumericValue::DeserializeFromProtoBytes(bytes),
+      StatusIs(absl::StatusCode::kOutOfRange, "Invalid numeric encoding"));
 
   bytes.resize(16);
   bytes[15] = 0x7f;
@@ -1216,7 +1215,7 @@ TEST_F(NumericValueTest, DeserializeProtoBytesFailures) {
     bytes[i] = 0xff;
   }
   EXPECT_THAT(NumericValue::DeserializeFromProtoBytes(bytes),
-              StatusIs(zetasql_base::OUT_OF_RANGE,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        ::testing::HasSubstr("numeric overflow: ")));
 }
 
@@ -1765,7 +1764,7 @@ TEST(NumericSumAggregatorTest, Avg) {
   // Test cumulative average with different inputs.
   CumulativeAverageOp<NumericValue> avg_op;
   EXPECT_THAT(avg_op.aggregator.GetAverage(0),
-              StatusIs(zetasql_base::OUT_OF_RANGE, "division by zero: AVG"));
+              StatusIs(absl::StatusCode::kOutOfRange, "division by zero: AVG"));
   CumulativeAverageOp<NumericValue> negated_avg_op;
   for (const SumAggregatorTestData& data : kSumAggregatorTestData) {
     TestUnaryOp(avg_op, data.input, data.expected_cumulative_avg);
@@ -1829,7 +1828,7 @@ TYPED_TEST(AggregatorSerializationByTypeTest,
   for (absl::string_view string_view : kInvalidSerializedAggregators) {
     EXPECT_THAT(
         TypeParam::DeserializeFromProtoBytes(string_view),
-        StatusIs(zetasql_base::OUT_OF_RANGE,
+        StatusIs(absl::StatusCode::kOutOfRange,
                  testing::MatchesRegex("Invalid "
                                        "NumericValue::(Sum|Variance|Covariance|"
                                        "Correlation)?Aggregator encoding")));
@@ -2525,8 +2524,9 @@ TEST_F(NumericValueTest, Mod) {
     TestBinaryOp(op, -data.input1, -data.input2, -data.expected_output);
   }
 
-  EXPECT_THAT(NumericValue(1).Mod(NumericValue()),
-              StatusIs(zetasql_base::OUT_OF_RANGE, "division by zero: 1 / 0"));
+  EXPECT_THAT(
+      NumericValue(1).Mod(NumericValue()),
+      StatusIs(absl::StatusCode::kOutOfRange, "division by zero: 1 / 0"));
 }
 
 TEST_F(NumericValueTest, Ceiling) {
@@ -3352,7 +3352,7 @@ TEST_F(BigNumericValueTest, FromString) {
   }
   for (absl::string_view str : kBigNumericValueInvalidStrings) {
     EXPECT_THAT(BigNumericValue().FromString(str),
-                StatusIs(zetasql_base::OUT_OF_RANGE,
+                StatusIs(absl::StatusCode::kOutOfRange,
                          absl::StrCat("Invalid BIGNUMERIC value: ", str)));
   }
 }
@@ -3371,12 +3371,12 @@ TEST_F(BigNumericValueTest, FromStringStrict) {
   for (BigNumericStringTestData data : kBigNumericValueNonStrictStringPairs) {
     EXPECT_THAT(
         BigNumericValue().FromStringStrict(data.first),
-        StatusIs(zetasql_base::OUT_OF_RANGE,
+        StatusIs(absl::StatusCode::kOutOfRange,
                  absl::StrCat("Invalid BIGNUMERIC value: ", data.first)));
   }
   for (absl::string_view str : kBigNumericValueInvalidStrings) {
     EXPECT_THAT(BigNumericValue().FromStringStrict(str),
-                StatusIs(zetasql_base::OUT_OF_RANGE,
+                StatusIs(absl::StatusCode::kOutOfRange,
                          absl::StrCat("Invalid BIGNUMERIC value: ", str)));
   }
 }
@@ -3555,7 +3555,7 @@ TEST_F(BigNumericValueTest, UnaryMinus) {
     EXPECT_EQ(value, double_neg_value);
   }
   EXPECT_THAT(BigNumericValue::UnaryMinus(BigNumericValue::MinValue()),
-              StatusIs(zetasql_base::OUT_OF_RANGE,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        absl::StrCat("BigNumeric overflow: -(",
                                     kMinBigNumericValueStr, ")")));
 }
@@ -3661,6 +3661,89 @@ TEST_F(BigNumericValueTest, NumericValueRoundTrip) {
     ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue converted_value,
                          big_num_value.ToNumericValue());
     EXPECT_EQ(converted_value, value);
+  }
+}
+
+struct BigNumericSumAggregatorTestData {
+  BigNumericValueWrapper input;
+  BigNumericValueWrapper expected_cumulative_sum;
+};
+
+// Cases without the min value and overflow.
+static constexpr BigNumericSumAggregatorTestData
+    kBigNumericSumAggregatorTestData[] = {
+        {1, 1},
+        {0, 1},
+        {-2, -1},
+        {"1e-38", "-0.99999999999999999999999999999999999999"},
+        {1, "1e-38"},
+        {"2e-38", "3e-38"},
+        {"-4e-38", "-1e-38"},
+        {"1e-38", 0},
+        {"-1e-38", "-1e-38"},
+        {-1, "-1.00000000000000000000000000000000000001"},
+        {"-17014118346046923173.1687303715884105728" /* -(2^127 / 1e19) */,
+         "-17014118346046923174.16873037158841057280000000000000000001"},
+        {"-17014118346046923173.1687303715884105728" /* -(2^127 / 1e19) */,
+         "-34028236692093846347.33746074317682114560000000000000000001"},
+        {"34028236692093846346.3374607431768211456" /* -(2^127 / 1e19) */,
+         "-1.00000000000000000000000000000000000001"},
+        {"10000000000000000000000000000000000000."
+           "00000000000000000000000000000000000001",
+         "9999999999999999999999999999999999999"},
+};
+
+// Cases with the min value and overflow.
+static constexpr BigNumericSumAggregatorTestData
+    kBigNumericSumAggregatorSpecialTestData[] = {
+        {kMaxBigNumericValueStr, kMaxBigNumericValueStr},
+        {0, kMaxBigNumericValueStr},
+        {"1e-38", kBigNumericOverflow},
+        {kMaxBigNumericValueStr /* actual sum = max * 2 + 1e-38*/,
+         kBigNumericOverflow},
+        {kMaxBigNumericValueStr /* actual sum = max * 3 + 1e-38*/,
+         kBigNumericOverflow},
+        {kMinBigNumericValueStr /* actual sum = max * 2*/, kBigNumericOverflow},
+        {kMinBigNumericValueStr,
+         "578960446186580977117854925043439539266."
+         "34992332820282019728792003956564819966"},
+        {kMinBigNumericValueStr, "-2e-38"},
+        {"1e-38", "-1e-38"},
+        {kMinBigNumericValueStr, kBigNumericOverflow},
+        {kMinBigNumericValueStr /* actual sum = min * 2 - 1e-38*/,
+         kBigNumericOverflow},
+        {kMaxBigNumericValueStr /* actual sum = min - 2e-38*/,
+         kBigNumericOverflow},
+        {"2e-38", kMinBigNumericValueStr},
+};
+
+TEST(BigNumericSumAggregatorTest, Sum) {
+  // Test exactly one input value.
+  for (BigNumericStringTestData data : kBigNumericValueValidFromStringPairs) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue input,
+                         BigNumericValue().FromString(data.first));
+    BigNumericValue::SumAggregator aggregator;
+    aggregator.Add(input);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue sum, aggregator.GetSum());
+    EXPECT_EQ(input, sum);
+  }
+
+  // Test cumulative sum with different inputs not involving min and overflow.
+  CumulativeSumOp<BigNumericValue> sum_op;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue sum, sum_op.aggregator.GetSum());
+  EXPECT_EQ(BigNumericValue(0), sum);
+  CumulativeSumOp<BigNumericValue> negated_sum_op;
+  for (const BigNumericSumAggregatorTestData& data :
+       kBigNumericSumAggregatorTestData) {
+    TestUnaryOp(sum_op, data.input, data.expected_cumulative_sum);
+    TestUnaryOp(negated_sum_op, -data.input, -data.expected_cumulative_sum);
+  }
+
+  // Test cumulative sum with different inputs with min and overflow.
+  CumulativeSumOp<BigNumericValue> overflow_sum_op;
+  for (const BigNumericSumAggregatorTestData& data :
+       kBigNumericSumAggregatorSpecialTestData) {
+    TestUnaryOp(overflow_sum_op, data.input, data.expected_cumulative_sum);
   }
 }
 }  // namespace

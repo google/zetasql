@@ -220,7 +220,7 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
   // Returns OK if all visit() methods return an OK status.  If a visit method
   // returns an error status, the traversal is aborted immediately, and the
   // failed status from the visit() method is returned here.
-  zetasql_base::Status TraverseNonRecursive(
+  absl::Status TraverseNonRecursive(
       NonRecursiveParseTreeVisitor* visitor) const;
 
   // Accept the visitor.
@@ -468,9 +468,9 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
   //         complete the traversal; they will be executed in reverse order.
   //         TraverseNonRecursiveHelper() adds or removes items to the stack as
   //         necessary to implement the result of the visitor.
-  static zetasql_base::Status TraverseNonRecursiveHelper(
+  static absl::Status TraverseNonRecursiveHelper(
       const VisitResult& result, NonRecursiveParseTreeVisitor* visitor,
-      std::vector<std::function<zetasql_base::Status()>>* stack);
+      std::vector<std::function<absl::Status()>>* stack);
 
   ASTNodeKind node_kind_;
 
@@ -2148,7 +2148,7 @@ class ASTGeneralizedPathExpression : public ASTExpression {
 
   // Returns an error if 'path' contains a node that cannot come from the
   // <generalized_path_expression> grammar rule.
-  static zetasql_base::Status VerifyIsPureGeneralizedPathExpression(
+  static absl::Status VerifyIsPureGeneralizedPathExpression(
       const ASTExpression* path);
 };
 

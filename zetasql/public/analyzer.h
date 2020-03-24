@@ -128,7 +128,7 @@ struct AllowedHintsAndOptions {
   // using the given TypeFactory and Descriptors from the given DescriptorPools.
   // The TypeFactory and the DescriptorPools must both outlive the result
   // AllowedHintsAndOptions.
-  static zetasql_base::Status Deserialize(
+  static absl::Status Deserialize(
       const AllowedHintsAndOptionsProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory,
@@ -139,7 +139,7 @@ struct AllowedHintsAndOptions {
   // into separate DescriptorPools in order to reconstruct the Type. The map
   // may be non-empty and may be used across calls to this method in order to
   // serialize multiple types. The map may NOT be null.
-  zetasql_base::Status Serialize(
+  absl::Status Serialize(
       FileDescriptorSetMap* file_descriptor_set_map,
       AllowedHintsAndOptionsProto* proto) const;
 
@@ -165,10 +165,10 @@ struct AllowedHintsAndOptions {
   absl::flat_hash_map<std::string, const Type*> options_lower;
 
  private:
-  zetasql_base::Status AddHintImpl(const std::string& qualifier,
+  absl::Status AddHintImpl(const std::string& qualifier,
                            const std::string& name, const Type* type,
                            bool allow_unqualified = true);
-  zetasql_base::Status AddOptionImpl(const std::string& name, const Type* type);
+  absl::Status AddOptionImpl(const std::string& name, const Type* type);
 };
 
 // AnalyzerOptions contains options that affect analyzer behavior. The language
@@ -176,7 +176,7 @@ struct AllowedHintsAndOptions {
 // language() member.
 class AnalyzerOptions {
  public:
-  typedef std::function<zetasql_base::Status(const std::string&, const Type**)>
+  typedef std::function<absl::Status(const std::string&, const Type**)>
       LookupExpressionColumnCallback;
 
   // Callback to retrieve pseudo-columns for the target of a DDL statement.
@@ -184,7 +184,7 @@ class AnalyzerOptions {
   // if any. The callback populates <pseudo_columns> with the names and types of
   // the pseudo-columns for the table. The names must be valid identifiers and
   // must be distinct.
-  using DdlPseudoColumnsCallback = std::function<zetasql_base::Status(
+  using DdlPseudoColumnsCallback = std::function<absl::Status(
       const std::vector<std::string>& table_name,
       const std::vector<const ResolvedOption*>& options,
       std::vector<std::pair<std::string, const Type*>>* pseudo_columns)>;
@@ -201,7 +201,7 @@ class AnalyzerOptions {
   // the given TypeFactory and Descriptors from the given DescriptorPools.
   // The TypeFactory and the DescriptorPools must both outlive the result
   // AnalyzerOptions.
-  static zetasql_base::Status Deserialize(
+  static absl::Status Deserialize(
       const AnalyzerOptionsProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory,
@@ -212,7 +212,7 @@ class AnalyzerOptions {
   // DescriptorPools in order to reconstruct the Type. The map may be
   // non-empty and may be used across calls to this method in order to
   // serialize multiple types. The map may NOT be null.
-  zetasql_base::Status Serialize(
+  absl::Status Serialize(
       FileDescriptorSetMap* map, AnalyzerOptionsProto* proto) const;
 
   // Options for the language. Please use the shorter versions below; these
@@ -255,7 +255,7 @@ class AnalyzerOptions {
   //
   // Note that an error will be produced if type is not supported according to
   // the current language options.
-  zetasql_base::Status AddQueryParameter(const std::string& name, const Type* type);
+  absl::Status AddQueryParameter(const std::string& name, const Type* type);
 
   const QueryParametersMap& query_parameters() const {
     return query_parameters_;
@@ -281,7 +281,7 @@ class AnalyzerOptions {
   // the current language options. At least as many positional parameters must
   // be provided as there are ? in the query. When allow_undeclared_parameters
   // is true, no positional parameters may be provided.
-  zetasql_base::Status AddPositionalQueryParameter(const Type* type);
+  absl::Status AddPositionalQueryParameter(const Type* type);
 
   // Defined positional parameters. Only used in positional parameter mode.
   // Index 0 corresponds with the query parameter at position 1 and so on.
@@ -333,8 +333,8 @@ class AnalyzerOptions {
   //
   // Note that an error will be produced if type is not supported according to
   // the current language options.
-  zetasql_base::Status AddExpressionColumn(const std::string& name, const Type* type);
-  zetasql_base::Status SetInScopeExpressionColumn(const std::string& name,
+  absl::Status AddExpressionColumn(const std::string& name, const Type* type);
+  absl::Status SetInScopeExpressionColumn(const std::string& name,
                                           const Type* type);
   void SetLookupExpressionColumnCallback(
       const LookupExpressionColumnCallback& lookup_expression_column_callback) {
@@ -517,7 +517,7 @@ class AnalyzerOptions {
   void clear_system_variables() {
     system_variables_.clear();
   }
-  zetasql_base::Status AddSystemVariable(const std::vector<std::string>& name_path,
+  absl::Status AddSystemVariable(const std::vector<std::string>& name_path,
                                  const Type* type);
 
   // If <types> is non empty, the result of analyzed SQL will be coerced to the
@@ -654,7 +654,7 @@ class AnalyzerOutput {
       std::unique_ptr<const ResolvedStatement> statement,
       const AnalyzerOutputProperties& analyzer_output_properties,
       std::unique_ptr<ParserOutput> parser_output,
-      const std::vector<zetasql_base::Status>& deprecation_warnings,
+      const std::vector<absl::Status>& deprecation_warnings,
       const QueryParametersMap& undeclared_parameters,
       const std::vector<const Type*>& undeclared_positional_parameters);
   AnalyzerOutput(
@@ -663,7 +663,7 @@ class AnalyzerOutput {
       std::unique_ptr<const ResolvedExpr> expr,
       const AnalyzerOutputProperties& analyzer_output_properties,
       std::unique_ptr<ParserOutput> parser_output,
-      const std::vector<zetasql_base::Status>& deprecation_warnings,
+      const std::vector<absl::Status>& deprecation_warnings,
       const QueryParametersMap& undeclared_parameters,
       const std::vector<const Type*>& undeclared_positional_parameters);
   AnalyzerOutput(const AnalyzerOutput&) = delete;
@@ -690,10 +690,10 @@ class AnalyzerOutput {
   // them.
   // If there are multiple warnings with the same error message and
   // DeprecationWarning::Kind, they will be deduplicated..
-  const std::vector<zetasql_base::Status>& deprecation_warnings() const {
+  const std::vector<absl::Status>& deprecation_warnings() const {
     return deprecation_warnings_;
   }
-  void set_deprecation_warnings(const std::vector<zetasql_base::Status>& warnings) {
+  void set_deprecation_warnings(const std::vector<absl::Status>& warnings) {
     deprecation_warnings_ = warnings;
   }
 
@@ -742,7 +742,7 @@ class AnalyzerOutput {
   // until after critical-path work is done.  May be NULL.
   std::unique_ptr<ParserOutput> parser_output_;
 
-  std::vector<zetasql_base::Status> deprecation_warnings_;
+  std::vector<absl::Status> deprecation_warnings_;
 
   QueryParametersMap undeclared_parameters_;
   std::vector<const Type*> undeclared_positional_parameters_;
@@ -752,7 +752,7 @@ class AnalyzerOutput {
 //
 // This can return errors that point at a location in the input. How this
 // location is reported is given by <options.error_message_mode()>.
-zetasql_base::Status AnalyzeStatement(absl::string_view sql,
+absl::Status AnalyzeStatement(absl::string_view sql,
                               const AnalyzerOptions& options_in,
                               Catalog* catalog, TypeFactory* type_factory,
                               std::unique_ptr<const AnalyzerOutput>* output);
@@ -774,7 +774,7 @@ zetasql_base::Status AnalyzeStatement(absl::string_view sql,
 //
 // After an error, <resume_location> may not be updated and analyzing further
 // statements is not supported.
-zetasql_base::Status AnalyzeNextStatement(
+absl::Status AnalyzeNextStatement(
     ParseResumeLocation* resume_location,
     const AnalyzerOptions& options_in,
     Catalog* catalog,
@@ -791,13 +791,13 @@ zetasql_base::Status AnalyzeNextStatement(
 // On success, the <*statement_parser_output> is moved to be owned by <*output>.
 // On failure, the ownership of <*statement_parser_output> remains unchanged.
 // The statement contained within remains valid.
-zetasql_base::Status AnalyzeStatementFromParserOutputOwnedOnSuccess(
+absl::Status AnalyzeStatementFromParserOutputOwnedOnSuccess(
     std::unique_ptr<ParserOutput>* statement_parser_output,
     const AnalyzerOptions& options, absl::string_view sql, Catalog* catalog,
     TypeFactory* type_factory, std::unique_ptr<const AnalyzerOutput>* output);
 // Similar to the previous function, but does *not* change ownership of
 // <statement_parser_output>.
-zetasql_base::Status AnalyzeStatementFromParserOutputUnowned(
+absl::Status AnalyzeStatementFromParserOutputUnowned(
     std::unique_ptr<ParserOutput>* statement_parser_output,
     const AnalyzerOptions& options, absl::string_view sql, Catalog* catalog,
     TypeFactory* type_factory, std::unique_ptr<const AnalyzerOutput>* output);
@@ -815,7 +815,7 @@ zetasql_base::Status AnalyzeStatementFromParserOutputUnowned(
 //
 // Can return errors that point at a location in the input. This location can be
 // reported in multiple ways depending on <options.error_message_mode()>.
-zetasql_base::Status AnalyzeExpression(absl::string_view sql,
+absl::Status AnalyzeExpression(absl::string_view sql,
                                const AnalyzerOptions& options, Catalog* catalog,
                                TypeFactory* type_factory,
                                std::unique_ptr<const AnalyzerOutput>* output);
@@ -830,7 +830,7 @@ zetasql_base::Status AnalyzeExpression(absl::string_view sql,
 // If <target_type> is nullptr, behaves the same as AnalyzeExpression().
 // TODO: Deprecate this method and use AnalyzerOptions
 // target_column_types_ to trigger expression coercion to the target type.
-zetasql_base::Status AnalyzeExpressionForAssignmentToType(
+absl::Status AnalyzeExpressionForAssignmentToType(
     absl::string_view sql, const AnalyzerOptions& options, Catalog* catalog,
     TypeFactory* type_factory, const Type* target_type,
     std::unique_ptr<const AnalyzerOutput>* output);
@@ -838,7 +838,7 @@ zetasql_base::Status AnalyzeExpressionForAssignmentToType(
 // TODO: Take a ParserOutput instead of ASTExpression; also make the
 // constructor of ParserOutput take an unowned ASTExpression.
 // Resolves a standalone AST expression.
-zetasql_base::Status AnalyzeExpressionFromParserAST(
+absl::Status AnalyzeExpressionFromParserAST(
     const ASTExpression& ast_expression, const AnalyzerOptions& options_in,
     absl::string_view sql, TypeFactory* type_factory, Catalog* catalog,
     std::unique_ptr<const AnalyzerOutput>* output);
@@ -849,7 +849,7 @@ zetasql_base::Status AnalyzeExpressionFromParserAST(
 //
 // This can return errors that point at a location in the input. How this
 // location is reported is given by <options.error_message_mode()>.
-zetasql_base::Status AnalyzeType(const std::string& type_name,
+absl::Status AnalyzeType(const std::string& type_name,
                          const AnalyzerOptions& options_in, Catalog* catalog,
                          TypeFactory* type_factory, const Type** output_type);
 
@@ -873,7 +873,7 @@ typedef std::set<std::vector<std::string>> TableNamesSet;
 // location is reported is given by <options.error_message_mode()>.
 //
 // Parameter table_names must not be null.
-zetasql_base::Status ExtractTableNamesFromStatement(absl::string_view sql,
+absl::Status ExtractTableNamesFromStatement(absl::string_view sql,
                                             const AnalyzerOptions& options_in,
                                             TableNamesSet* table_names);
 
@@ -892,7 +892,7 @@ zetasql_base::Status ExtractTableNamesFromStatement(absl::string_view sql,
 //
 // After an error, <resume_location> may not be updated and analyzing further
 // statements is not supported.
-zetasql_base::Status ExtractTableNamesFromNextStatement(
+absl::Status ExtractTableNamesFromNextStatement(
     ParseResumeLocation* resume_location, const AnalyzerOptions& options_in,
     TableNamesSet* table_names, bool* at_end_of_input);
 
@@ -902,7 +902,7 @@ zetasql_base::Status ExtractTableNamesFromNextStatement(
 //
 // On successful return,
 // <*table_names> contains table names referenced in the AST statement.
-zetasql_base::Status ExtractTableNamesFromASTStatement(
+absl::Status ExtractTableNamesFromASTStatement(
     const ASTStatement& ast_statement, const AnalyzerOptions& options_in,
     absl::string_view sql, TableNamesSet* table_names);
 
@@ -920,7 +920,7 @@ zetasql_base::Status ExtractTableNamesFromASTStatement(
 // location is reported is given by <options.error_message_mode()>.
 //
 // Parameter table_names must not be null.
-zetasql_base::Status ExtractTableNamesFromScript(absl::string_view sql,
+absl::Status ExtractTableNamesFromScript(absl::string_view sql,
                                          const AnalyzerOptions& options_in,
                                          TableNamesSet* table_names);
 
@@ -930,7 +930,7 @@ zetasql_base::Status ExtractTableNamesFromScript(absl::string_view sql,
 //
 // On successful return,
 // <*table_names> contains table names referenced in the AST statement.
-zetasql_base::Status ExtractTableNamesFromASTScript(const ASTScript& ast_script,
+absl::Status ExtractTableNamesFromASTScript(const ASTScript& ast_script,
                                             const AnalyzerOptions& options_in,
                                             absl::string_view sql,
                                             TableNamesSet* table_names);
@@ -1031,7 +1031,7 @@ typedef std::map<std::vector<std::string>, TableResolutionTimeInfo>
 //
 // This doesn't impose any restriction on the contents of the temporal
 // expressions other than that they resolve to timestamp type.
-zetasql_base::Status ExtractTableResolutionTimeFromStatement(
+absl::Status ExtractTableResolutionTimeFromStatement(
     absl::string_view sql, const AnalyzerOptions& options_in,
     TypeFactory* type_factory, Catalog* catalog,
     TableResolutionTimeInfoMap* table_resolution_time_info_map,
@@ -1047,7 +1047,7 @@ zetasql_base::Status ExtractTableResolutionTimeFromStatement(
 // appearing in the AST statement. TableResolutionTimeExpr.ast_expr in
 // <*table_resolution_time_info_map> will point to the elements in
 // <ast_statement>.
-zetasql_base::Status ExtractTableResolutionTimeFromASTStatement(
+absl::Status ExtractTableResolutionTimeFromASTStatement(
     const ASTStatement& ast_statement, const AnalyzerOptions& options_in,
     absl::string_view sql, TypeFactory* type_factory, Catalog* catalog,
     TableResolutionTimeInfoMap* table_resolution_time_info_map);
@@ -1065,7 +1065,7 @@ typedef std::map<std::string, zetasql::Value> GeneratedParameterMap;
 //
 // This can return errors that point at a location in the input. How this
 // location is reported is given by <options.error_message_mode()>.
-zetasql_base::Status ReplaceLiteralsByParameters(
+absl::Status ReplaceLiteralsByParameters(
     const std::string& sql,
     const absl::node_hash_set<std::string>& option_names_to_ignore,
     const AnalyzerOptions& analyzer_options,
@@ -1073,7 +1073,7 @@ zetasql_base::Status ReplaceLiteralsByParameters(
     GeneratedParameterMap* generated_parameters, std::string* result_sql);
 
 // Same as above only all options will be ignored.
-zetasql_base::Status ReplaceLiteralsByParameters(
+absl::Status ReplaceLiteralsByParameters(
     const std::string& sql, const AnalyzerOptions& analyzer_options,
     const AnalyzerOutput* analyzer_output, LiteralReplacementMap* literal_map,
     GeneratedParameterMap* generated_parameters, std::string* result_sql);

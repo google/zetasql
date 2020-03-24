@@ -24,7 +24,7 @@ namespace zetasql_base {
 
 namespace {
 
-StatusCord ToPayload(absl::string_view payload) { return StatusCord(payload); }
+absl::Cord ToPayload(absl::string_view payload) { return absl::Cord(payload); }
 
 TEST(ToPayload, Works) {
   EXPECT_EQ(ToPayload("a"), ToPayload("a"));
@@ -40,18 +40,16 @@ TEST(ToPayload, Works) {
 // Note: most code should not validate Status values this way.  Use
 // cs/testing/base/public/gmock_utils/status-matchers.h instead.
 static void CheckStatus(const zetasql_base::Status& s,
-                        const zetasql_base::StatusCode error_code,
+                        const zetasql_base::StatusCode code,
                         const std::string& message,
                         const std::string& payload_type,
                         const std::string& payload_msg) {
   SCOPED_TRACE(testing::Message() << "Where s is " << s);
-  EXPECT_EQ(error_code, s.CanonicalCode());
-  EXPECT_EQ(static_cast<int>(error_code), s.error_code());
-  EXPECT_EQ(error_code, s.code());
-  EXPECT_EQ(message, s.error_message());
+  EXPECT_EQ(static_cast<int>(code), s.raw_code());
+  EXPECT_EQ(code, s.code());
   EXPECT_EQ(message, s.message());
 
-  if (error_code == StatusCode::kOk) {
+  if (code == StatusCode::kOk) {
     EXPECT_TRUE(s.ok());
     EXPECT_EQ("OK", s.ToString());
   } else {
@@ -200,11 +198,11 @@ TEST(Status, EraseWorks) {
 }
 
 void VisitAndAssertEquals(const Status& status, absl::string_view find_type_url,
-                          const absl::optional<StatusCord>& expected) {
+                          const absl::optional<absl::Cord>& expected) {
   bool already_seen = false;
   status.ForEachPayload([&already_seen, find_type_url, expected](
                             absl::string_view type_url,
-                            const StatusCord& payload) {
+                            const absl::Cord& payload) {
     if (find_type_url == type_url) {
       ASSERT_FALSE(already_seen) << find_type_url << " has already been seen";
       already_seen = true;
@@ -223,8 +221,8 @@ TEST(Status, ForEachPayload_Multiple) {
   Status a = Status(StatusCode::kCancelled, "msg");
   a.SetPayload("type_a", ToPayload("bar"));
   a.SetPayload("type_b", ToPayload("foo"));
-  VisitAndAssertEquals(a, "type_a", "bar");
-  VisitAndAssertEquals(a, "type_b", "foo");
+  VisitAndAssertEquals(a, "type_a", absl::Cord("bar"));
+  VisitAndAssertEquals(a, "type_b", absl::Cord("foo"));
 }
 
 }  // namespace zetasql_base

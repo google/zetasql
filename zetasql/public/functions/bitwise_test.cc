@@ -54,17 +54,17 @@ inline absl::string_view GetValue<absl::string_view>(const Value& in) {
 template <typename T, typename Result>
 // Note: defining fn as std::function would confuse the compiler in template
 // argument inference.
-void TestBitwiseNot(bool (*fn)(T, Result*, zetasql_base::Status*),
+void TestBitwiseNot(bool (*fn)(T, Result*, absl::Status*),
                     const Value& in, const Value& expected,
-                    const zetasql_base::Status& expected_status) {
+                    const absl::Status& expected_status) {
   Result out = GetDummyValue<Result>();
-  zetasql_base::Status status;  // actual status
+  absl::Status status;  // actual status
   fn(GetValue<T>(in), &out, &status);
   if (expected_status.ok()) {
-    EXPECT_EQ(::zetasql_base::OkStatus(), status);
+    EXPECT_EQ(absl::OkStatus(), status);
     EXPECT_EQ(GetValue<T>(expected), out);
   } else {
-    EXPECT_NE(::zetasql_base::OkStatus(), status) << "Unexpected value: " << out;
+    EXPECT_NE(absl::OkStatus(), status) << "Unexpected value: " << out;
   }
 }
 
@@ -104,23 +104,23 @@ INSTANTIATE_TEST_SUITE_P(BitwiseNot, BitwiseNotTemplateTest,
 template <typename T1, typename T2, typename Result>
 // Note: defining fn as std::function would confuse the compiler in template
 // argument inference.
-void TestBitwiseBinaryOp(bool (*fn)(T1, T2, Result*, zetasql_base::Status*),
+void TestBitwiseBinaryOp(bool (*fn)(T1, T2, Result*, absl::Status*),
                          const Value& in1, const Value& in2,
                          const Value& expected,
-                         const zetasql_base::Status& expected_status) {
+                         const absl::Status& expected_status) {
   Result out = GetDummyValue<Result>();
-  zetasql_base::Status status;  // actual status
+  absl::Status status;  // actual status
   fn(GetValue<T1>(in1), GetValue<T2>(in2), &out, &status);
   if (expected_status.ok()) {
-    EXPECT_EQ(::zetasql_base::OkStatus(), status);
+    EXPECT_EQ(absl::OkStatus(), status);
     EXPECT_EQ(GetValue<T1>(expected), out);
   } else {
-    EXPECT_NE(::zetasql_base::OkStatus(), status) << "Unexpected value: " << out;
+    EXPECT_NE(absl::OkStatus(), status) << "Unexpected value: " << out;
   }
 }
 
 template <typename T1, typename T2, typename Result>
-using BinaryFunc = bool (*)(T1, T2, Result*, zetasql_base::Status*);
+using BinaryFunc = bool (*)(T1, T2, Result*, absl::Status*);
 
 struct BitwiseOrTraits {
   template <typename T>

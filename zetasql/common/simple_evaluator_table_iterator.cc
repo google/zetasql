@@ -23,7 +23,7 @@ ABSL_FLAG(int64_t, zetasql_simple_iterator_call_time_now_rows_period, 1000,
 
 namespace zetasql {
 
-zetasql_base::Status SimpleEvaluatorTableIterator::SetColumnFilterMap(
+absl::Status SimpleEvaluatorTableIterator::SetColumnFilterMap(
     absl::flat_hash_map<int, std::unique_ptr<ColumnFilter>> filter_map) {
   filter_map_.clear();
   for (auto& entry : filter_map) {
@@ -31,7 +31,7 @@ zetasql_base::Status SimpleEvaluatorTableIterator::SetColumnFilterMap(
       ZETASQL_RET_CHECK(filter_map_.insert(std::move(entry)).second);
     }
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 bool SimpleEvaluatorTableIterator::NextRow() {

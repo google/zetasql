@@ -77,12 +77,12 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
   // On input, 'location' must be the location of the previous token that was
   // generated. Returns the Bison token id in 'token' and the ZetaSQL location
   // in 'location'. Returns an error if the tokenizer sets override_error.
-  zetasql_base::Status GetNextToken(ParseLocationRange* location, int* token);
+  absl::Status GetNextToken(ParseLocationRange* location, int* token);
 
   // Returns a non-OK error status if the tokenizer encountered an error. This
   // error takes priority over a parser error, because the parser error is
   // always a consequence of the tokenizer error.
-  zetasql_base::Status GetOverrideError() const {
+  absl::Status GetOverrideError() const {
     return override_error_;
   }
 
@@ -160,7 +160,7 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
   // returning EOF to the bison parser, which then may or may not spew out its
   // own error message. The BisonParser wrapper then grabs the error from the
   // tokenizer instead.
-  zetasql_base::Status override_error_;
+  absl::Status override_error_;
 
   // If this is set to true, the next token returned will be EOF, even if we're
   // not at the end of the input.

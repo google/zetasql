@@ -31,7 +31,7 @@ namespace {
 
 TEST(ConvertProtoTest, BasicPrintingCord) {
   zetasql_test::KitchenSinkPB proto;
-  zetasql_base::Status error;
+  absl::Status error;
   absl::Cord out;
 
   EXPECT_TRUE(ProtoToString(&proto, &out, &error));
@@ -54,7 +54,7 @@ TEST(ConvertProtoTest, BasicPrintingCord) {
 
 TEST(ConvertProtoTest, BasicParsing) {
   zetasql_test::KitchenSinkPB proto;
-  zetasql_base::Status error;
+  absl::Status error;
 
   EXPECT_TRUE(StringToProto("int64_key_1: 1 int64_key_2: 2", &proto, &error));
   EXPECT_EQ(proto.int64_key_1(), 1);
@@ -71,7 +71,7 @@ TEST(ConvertProtoTest, BasicParsing) {
 
 TEST(ConvertProtoTest, ParsingWithoutRequiredField) {
   zetasql_test::KitchenSinkPB proto;
-  zetasql_base::Status error;
+  absl::Status error;
 
   EXPECT_FALSE(StringToProto("", &proto, &error));
   EXPECT_THAT(
@@ -83,7 +83,7 @@ TEST(ConvertProtoTest, ParsingWithoutRequiredField) {
 
 TEST(ConvertProtoTest, ParsingWithUnknownField) {
   zetasql_test::KitchenSinkPB proto;
-  zetasql_base::Status error;
+  absl::Status error;
 
   EXPECT_FALSE(
       StringToProto("int64_key_1: 1 int64_key_2: 2 123: 4", &proto, &error));
@@ -96,7 +96,7 @@ TEST(ConvertProtoTest, ParsingWithUnknownField) {
 
 TEST(ConvertProtoTest, ParsingWithExtensionsCord) {
   zetasql_test::KitchenSinkPB proto;
-  zetasql_base::Status error;
+  absl::Status error;
   absl::Cord out;
 
   EXPECT_TRUE(
@@ -111,7 +111,7 @@ TEST(ConvertProtoTest, ParsingWithExtensionsCord) {
 
 TEST(ConvertProtoTest, ParsingWithUnknownExtensionCord) {
   zetasql_test::KitchenSinkPB proto;
-  zetasql_base::Status error;
+  absl::Status error;
   absl::Cord out;
 
   EXPECT_FALSE(

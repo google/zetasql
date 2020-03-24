@@ -23,61 +23,61 @@ namespace local_service {
 
 namespace {
 
-grpc::Status ToGrpcStatus(zetasql_base::Status status) {
+grpc::Status ToGrpcStatus(absl::Status status) {
   if (status.ok()) {
     return grpc::Status();
   }
   grpc::StatusCode grpc_code;
   switch (status.code()) {
-    case zetasql_base::StatusCode::kCancelled:
+    case absl::StatusCode::kCancelled:
       grpc_code = grpc::CANCELLED;
       break;
-    case zetasql_base::StatusCode::kInvalidArgument:
+    case absl::StatusCode::kInvalidArgument:
       grpc_code = grpc::INVALID_ARGUMENT;
       break;
-    case zetasql_base::StatusCode::kDeadlineExceeded:
+    case absl::StatusCode::kDeadlineExceeded:
       grpc_code = grpc::DEADLINE_EXCEEDED;
       break;
-    case zetasql_base::StatusCode::kNotFound:
+    case absl::StatusCode::kNotFound:
       grpc_code = grpc::NOT_FOUND;
       break;
-    case zetasql_base::StatusCode::kAlreadyExists:
+    case absl::StatusCode::kAlreadyExists:
       grpc_code = grpc::ALREADY_EXISTS;
       break;
-    case zetasql_base::StatusCode::kPermissionDenied:
+    case absl::StatusCode::kPermissionDenied:
       grpc_code = grpc::PERMISSION_DENIED;
       break;
-    case zetasql_base::StatusCode::kResourceExhausted:
+    case absl::StatusCode::kResourceExhausted:
       grpc_code = grpc::RESOURCE_EXHAUSTED;
       break;
-    case zetasql_base::StatusCode::kFailedPrecondition:
+    case absl::StatusCode::kFailedPrecondition:
       grpc_code = grpc::FAILED_PRECONDITION;
       break;
-    case zetasql_base::StatusCode::kAborted:
+    case absl::StatusCode::kAborted:
       grpc_code = grpc::ABORTED;
       break;
-    case zetasql_base::StatusCode::kOutOfRange:
+    case absl::StatusCode::kOutOfRange:
       grpc_code = grpc::OUT_OF_RANGE;
       break;
-    case zetasql_base::StatusCode::kUnimplemented:
+    case absl::StatusCode::kUnimplemented:
       grpc_code = grpc::UNIMPLEMENTED;
       break;
-    case zetasql_base::StatusCode::kInternal:
+    case absl::StatusCode::kInternal:
       grpc_code = grpc::INTERNAL;
       break;
-    case zetasql_base::StatusCode::kUnavailable:
+    case absl::StatusCode::kUnavailable:
       grpc_code = grpc::UNAVAILABLE;
       break;
-    case zetasql_base::StatusCode::kDataLoss:
+    case absl::StatusCode::kDataLoss:
       grpc_code = grpc::DATA_LOSS;
       break;
-    case zetasql_base::StatusCode::kUnauthenticated:
+    case absl::StatusCode::kUnauthenticated:
       grpc_code = grpc::UNAUTHENTICATED;
       break;
     default:
       grpc_code = grpc::UNKNOWN;
   }
-  return grpc::Status(grpc_code, status.error_message(), "");
+  return grpc::Status(grpc_code, std::string(status.message()), "");
 }
 
 }  // namespace

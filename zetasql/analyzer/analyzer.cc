@@ -74,7 +74,7 @@ namespace {
 
 // Verifies that the provided AnalyzerOptions have a valid combination of
 // settings.
-zetasql_base::Status ValidateAnalyzerOptions(const AnalyzerOptions& options) {
+absl::Status ValidateAnalyzerOptions(const AnalyzerOptions& options) {
   switch (options.parameter_mode()) {
     case PARAMETER_NAMED:
       ZETASQL_RET_CHECK(options.positional_query_parameters().empty())
@@ -100,7 +100,7 @@ zetasql_base::Status ValidateAnalyzerOptions(const AnalyzerOptions& options) {
       break;
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Sets <has_default_resolution_time> to true for every table name in
@@ -138,7 +138,7 @@ void AllowedHintsAndOptions::AddOption(const std::string& name,
   ZETASQL_CHECK_OK(AddOptionImpl(name, type));
 }
 
-zetasql_base::Status AllowedHintsAndOptions::AddOptionImpl(const std::string& name,
+absl::Status AllowedHintsAndOptions::AddOptionImpl(const std::string& name,
                                                    const Type* type) {
   if (name.empty()) {
     return MakeSqlError() << "Option name should not be empty.";
@@ -147,7 +147,7 @@ zetasql_base::Status AllowedHintsAndOptions::AddOptionImpl(const std::string& na
                                type)) {
     return MakeSqlError() << "Duplicate option: " << name;
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 void AllowedHintsAndOptions::AddHint(const std::string& qualifier,
@@ -156,7 +156,7 @@ void AllowedHintsAndOptions::AddHint(const std::string& qualifier,
   ZETASQL_CHECK_OK(AddHintImpl(qualifier, name, type, allow_unqualified));
 }
 
-zetasql_base::Status AllowedHintsAndOptions::AddHintImpl(const std::string& qualifier,
+absl::Status AllowedHintsAndOptions::AddHintImpl(const std::string& qualifier,
                                                  const std::string& name,
                                                  const Type* type,
                                                  bool allow_unqualified) {
@@ -182,10 +182,10 @@ zetasql_base::Status AllowedHintsAndOptions::AddHintImpl(const std::string& qual
              << "Duplicate hint: " << name << ", with no qualifier";
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AllowedHintsAndOptions::Deserialize(
+absl::Status AllowedHintsAndOptions::Deserialize(
     const AllowedHintsAndOptionsProto& proto,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
     TypeFactory* factory,
@@ -221,10 +221,10 @@ zetasql_base::Status AllowedHintsAndOptions::Deserialize(
       ZETASQL_RETURN_IF_ERROR(result->AddOptionImpl(option.name(), nullptr));
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AllowedHintsAndOptions::Serialize(
+absl::Status AllowedHintsAndOptions::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     AllowedHintsAndOptionsProto* proto) const {
   proto->set_disallow_unknown_options(disallow_unknown_options);
@@ -306,7 +306,7 @@ zetasql_base::Status AllowedHintsAndOptions::Serialize(
           option_proto->mutable_type(), file_descriptor_set_map));
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 AnalyzerOptions::AnalyzerOptions()
@@ -329,7 +329,7 @@ void AnalyzerOptions::CreateDefaultArenasIfNotSet() {
   }
 }
 
-zetasql_base::Status AnalyzerOptions::Deserialize(
+absl::Status AnalyzerOptions::Deserialize(
     const AnalyzerOptionsProto& proto,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
     TypeFactory* factory,
@@ -417,11 +417,11 @@ zetasql_base::Status AnalyzerOptions::Deserialize(
         proto.allowed_hints_and_options(), pools, factory, &hints_and_options));
     result->set_allowed_hints_and_options(hints_and_options);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 
-zetasql_base::Status AnalyzerOptions::Serialize(
+absl::Status AnalyzerOptions::Serialize(
     FileDescriptorSetMap* map, AnalyzerOptionsProto* proto) const {
   language_options_.Serialize(proto->mutable_language_options());
 
@@ -487,10 +487,10 @@ zetasql_base::Status AnalyzerOptions::Serialize(
         proto->add_target_column_types(), map));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyzerOptions::AddSystemVariable(
+absl::Status AnalyzerOptions::AddSystemVariable(
     const std::vector<std::string>& name_path, const Type* type) {
   if (type == nullptr) {
     return MakeSqlError()
@@ -518,10 +518,10 @@ zetasql_base::Status AnalyzerOptions::AddSystemVariable(
                           << absl::StrJoin(name_path, ".");
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyzerOptions::AddQueryParameter(const std::string& name,
+absl::Status AnalyzerOptions::AddQueryParameter(const std::string& name,
                                                 const Type* type) {
   if (type == nullptr) {
     return MakeSqlError()
@@ -543,10 +543,10 @@ zetasql_base::Status AnalyzerOptions::AddQueryParameter(const std::string& name,
                           << absl::AsciiStrToLower(name);
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyzerOptions::AddPositionalQueryParameter(const Type* type) {
+absl::Status AnalyzerOptions::AddPositionalQueryParameter(const Type* type) {
   if (type == nullptr) {
     return MakeSqlError()
            << "Type associated with query parameter cannot be NULL";
@@ -567,10 +567,10 @@ zetasql_base::Status AnalyzerOptions::AddPositionalQueryParameter(const Type* ty
 
   positional_query_parameters_.push_back(type);
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyzerOptions::AddExpressionColumn(const std::string& name,
+absl::Status AnalyzerOptions::AddExpressionColumn(const std::string& name,
                                                   const Type* type) {
   if (type == nullptr) {
     return MakeSqlError()
@@ -592,10 +592,10 @@ zetasql_base::Status AnalyzerOptions::AddExpressionColumn(const std::string& nam
                           << absl::AsciiStrToLower(name);
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyzerOptions::SetInScopeExpressionColumn(
+absl::Status AnalyzerOptions::SetInScopeExpressionColumn(
     const std::string& name, const Type* type) {
   if (type == nullptr) {
     return MakeSqlError()
@@ -618,7 +618,7 @@ zetasql_base::Status AnalyzerOptions::SetInScopeExpressionColumn(
   }
   in_scope_expression_column_ = name_and_type;
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 void AnalyzerOptions::SetDdlPseudoColumnsCallback(
@@ -635,7 +635,7 @@ void AnalyzerOptions::SetDdlPseudoColumns(
              const std::vector<const ResolvedOption*>& options,
              std::vector<std::pair<std::string, const Type*>>* pseudo_columns) {
         *pseudo_columns = ddl_pseudo_columns_;
-        return zetasql_base::OkStatus();
+        return absl::OkStatus();
       };
 }
 
@@ -649,7 +649,7 @@ AnalyzerOutput::AnalyzerOutput(
     std::unique_ptr<const ResolvedStatement> statement,
     const AnalyzerOutputProperties& analyzer_output_properties,
     std::unique_ptr<ParserOutput> parser_output,
-    const std::vector<zetasql_base::Status>& deprecation_warnings,
+    const std::vector<absl::Status>& deprecation_warnings,
     const QueryParametersMap& undeclared_parameters,
     const std::vector<const Type*>& undeclared_positional_parameters)
     : id_string_pool_(std::move(id_string_pool)),
@@ -667,7 +667,7 @@ AnalyzerOutput::AnalyzerOutput(
     std::unique_ptr<const ResolvedExpr> expr,
     const AnalyzerOutputProperties& analyzer_output_properties,
     std::unique_ptr<ParserOutput> parser_output,
-    const std::vector<zetasql_base::Status>& deprecation_warnings,
+    const std::vector<absl::Status>& deprecation_warnings,
     const QueryParametersMap& undeclared_parameters,
     const std::vector<const Type*>& undeclared_positional_parameters)
     : id_string_pool_(std::move(id_string_pool)),
@@ -683,7 +683,7 @@ AnalyzerOutput::~AnalyzerOutput() {
 }
 
 // Common post-parsing work for AnalyzeStatement() series.
-static zetasql_base::Status FinishAnalyzeStatementImpl(
+static absl::Status FinishAnalyzeStatementImpl(
     absl::string_view sql, const ParserOutput& parser_output,
     Resolver* resolver, const AnalyzerOptions& options, Catalog* catalog,
     TypeFactory* type_factory,
@@ -716,11 +716,11 @@ static zetasql_base::Status FinishAnalyzeStatementImpl(
   // Make sure we're starting from a clean state for CheckFieldsAccessed.
   (*resolved_statement)->ClearFieldsAccessed();
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-static zetasql_base::Status UnsupportedStatementErrorOrStatus(
-    const zetasql_base::Status& status, const ParseResumeLocation& resume_location,
+static absl::Status UnsupportedStatementErrorOrStatus(
+    const absl::Status& status, const ParseResumeLocation& resume_location,
     const AnalyzerOptions& options) {
   ZETASQL_RET_CHECK(!status.ok()) << "Expected an error status";
   const ResolvedNodeKind kind = GetNextStatementKind(resume_location);
@@ -734,7 +734,7 @@ static zetasql_base::Status UnsupportedStatementErrorOrStatus(
   return status;
 }
 
-static zetasql_base::Status AnalyzeStatementImpl(
+static absl::Status AnalyzeStatementImpl(
     absl::string_view sql, const AnalyzerOptions& options, Catalog* catalog,
     TypeFactory* type_factory, std::unique_ptr<const AnalyzerOutput>* output) {
   output->reset();
@@ -743,7 +743,7 @@ static zetasql_base::Status AnalyzeStatementImpl(
 
   VLOG(1) << "Parsing statement:\n" << sql;
   std::unique_ptr<ParserOutput> parser_output;
-  const zetasql_base::Status status = ParseStatement(
+  const absl::Status status = ParseStatement(
       sql, options.GetParserOptions(), &parser_output);
   if (!status.ok()) {
     return UnsupportedStatementErrorOrStatus(
@@ -754,19 +754,19 @@ static zetasql_base::Status AnalyzeStatementImpl(
       &parser_output, options, sql, catalog, type_factory, output);
 }
 
-zetasql_base::Status AnalyzeStatement(absl::string_view sql,
+absl::Status AnalyzeStatement(absl::string_view sql,
                               const AnalyzerOptions& options_in,
                               Catalog* catalog, TypeFactory* type_factory,
                               std::unique_ptr<const AnalyzerOutput>* output) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
-  const zetasql_base::Status status =
+  const absl::Status status =
       AnalyzeStatementImpl(sql, options, catalog, type_factory, output);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), sql, status);
 }
 
-static zetasql_base::Status AnalyzeNextStatementImpl(
+static absl::Status AnalyzeNextStatementImpl(
     ParseResumeLocation* resume_location,
     const AnalyzerOptions& options,
     Catalog* catalog,
@@ -785,7 +785,7 @@ static zetasql_base::Status AnalyzeNextStatementImpl(
   }
 
   std::unique_ptr<ParserOutput> parser_output;
-  const zetasql_base::Status status = ParseNextStatement(
+  const absl::Status status = ParseNextStatement(
       resume_location, options.GetParserOptions(), &parser_output,
       at_end_of_input);
   if (!status.ok()) {
@@ -798,7 +798,7 @@ static zetasql_base::Status AnalyzeNextStatementImpl(
       type_factory, output);
 }
 
-zetasql_base::Status AnalyzeNextStatement(
+absl::Status AnalyzeNextStatement(
     ParseResumeLocation* resume_location,
     const AnalyzerOptions& options_in,
     Catalog* catalog,
@@ -807,14 +807,14 @@ zetasql_base::Status AnalyzeNextStatement(
     bool* at_end_of_input) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
-  const zetasql_base::Status status =
+  const absl::Status status =
       AnalyzeNextStatementImpl(resume_location, options, catalog,
                                type_factory, output, at_end_of_input);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), resume_location->input(), status);
 }
 
-static zetasql_base::Status AnalyzeStatementFromParserOutputImpl(
+static absl::Status AnalyzeStatementFromParserOutputImpl(
     std::unique_ptr<ParserOutput>* statement_parser_output,
     bool take_ownership_on_success, const AnalyzerOptions& options,
     absl::string_view sql, Catalog* catalog, TypeFactory* type_factory,
@@ -836,7 +836,7 @@ static zetasql_base::Status AnalyzeStatementFromParserOutputImpl(
 
   std::unique_ptr<const ResolvedStatement> resolved_statement;
   Resolver resolver(catalog, type_factory, &local_options);
-  const zetasql_base::Status status =
+  const absl::Status status =
       FinishAnalyzeStatementImpl(
           sql, *(statement_parser_output->get()), &resolver, local_options,
           catalog, type_factory, &resolved_statement);
@@ -856,10 +856,10 @@ static zetasql_base::Status AnalyzeStatementFromParserOutputImpl(
           resolver.deprecation_warnings()),
       resolver.undeclared_parameters(),
       resolver.undeclared_positional_parameters());
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyzeStatementFromParserOutputOwnedOnSuccess(
+absl::Status AnalyzeStatementFromParserOutputOwnedOnSuccess(
     std::unique_ptr<ParserOutput>* statement_parser_output,
     const AnalyzerOptions& options, absl::string_view sql, Catalog* catalog,
     TypeFactory* type_factory, std::unique_ptr<const AnalyzerOutput>* output) {
@@ -868,7 +868,7 @@ zetasql_base::Status AnalyzeStatementFromParserOutputOwnedOnSuccess(
       sql, catalog, type_factory, output);
 }
 
-zetasql_base::Status AnalyzeStatementFromParserOutputUnowned(
+absl::Status AnalyzeStatementFromParserOutputUnowned(
     std::unique_ptr<ParserOutput>* statement_parser_output,
     const AnalyzerOptions& options, absl::string_view sql, Catalog* catalog,
     TypeFactory* type_factory, std::unique_ptr<const AnalyzerOutput>* output) {
@@ -883,7 +883,7 @@ zetasql_base::Status AnalyzeStatementFromParserOutputUnowned(
 //
 // Upon success, a resolved tree that implements the conversion is stored in
 // <resolved_expr>, replacing the tree that was previously there.
-static zetasql_base::Status ConvertExprToTargetType(
+static absl::Status ConvertExprToTargetType(
     const ASTExpression& ast_expression, absl::string_view sql,
     const AnalyzerOptions& analyzer_options, Catalog* catalog,
     TypeFactory* type_factory, const Type* target_type,
@@ -896,7 +896,7 @@ static zetasql_base::Status ConvertExprToTargetType(
       sql);
 }
 
-static zetasql_base::Status AnalyzeExpressionFromParserASTImpl(
+static absl::Status AnalyzeExpressionFromParserASTImpl(
     const ASTExpression& ast_expression,
     std::unique_ptr<ParserOutput> parser_output, absl::string_view sql,
     const AnalyzerOptions& options, Catalog* catalog, TypeFactory* type_factory,
@@ -942,10 +942,10 @@ static zetasql_base::Status AnalyzeExpressionFromParserASTImpl(
           options.error_message_mode(), sql, resolver.deprecation_warnings()),
       resolver.undeclared_parameters(),
       resolver.undeclared_positional_parameters());
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-static zetasql_base::Status AnalyzeExpressionImpl(
+static absl::Status AnalyzeExpressionImpl(
     absl::string_view sql, const AnalyzerOptions& options_in, Catalog* catalog,
     TypeFactory* type_factory, const Type* target_type,
     std::unique_ptr<const AnalyzerOutput>* output) {
@@ -967,7 +967,7 @@ static zetasql_base::Status AnalyzeExpressionImpl(
       type_factory, target_type, output);
 }
 
-zetasql_base::Status AnalyzeExpression(absl::string_view sql,
+absl::Status AnalyzeExpression(absl::string_view sql,
                                const AnalyzerOptions& options, Catalog* catalog,
                                TypeFactory* type_factory,
                                std::unique_ptr<const AnalyzerOutput>* output) {
@@ -977,7 +977,7 @@ zetasql_base::Status AnalyzeExpression(absl::string_view sql,
                             output));
 }
 
-zetasql_base::Status AnalyzeExpressionForAssignmentToType(
+absl::Status AnalyzeExpressionForAssignmentToType(
     absl::string_view sql, const AnalyzerOptions& options, Catalog* catalog,
     TypeFactory* type_factory, const Type* target_type,
     std::unique_ptr<const AnalyzerOutput>* output) {
@@ -987,20 +987,20 @@ zetasql_base::Status AnalyzeExpressionForAssignmentToType(
                             output));
 }
 
-zetasql_base::Status AnalyzeExpressionFromParserAST(
+absl::Status AnalyzeExpressionFromParserAST(
     const ASTExpression& ast_expression, const AnalyzerOptions& options_in,
     absl::string_view sql, TypeFactory* type_factory, Catalog* catalog,
     std::unique_ptr<const AnalyzerOutput>* output) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
-  const zetasql_base::Status status = AnalyzeExpressionFromParserASTImpl(
+  const absl::Status status = AnalyzeExpressionFromParserASTImpl(
       ast_expression, /* parser_output = */ nullptr, sql, options, catalog,
       type_factory, /*target_type=*/nullptr, output);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), sql, status);
 }
 
-static zetasql_base::Status AnalyzeTypeImpl(const std::string& type_name,
+static absl::Status AnalyzeTypeImpl(const std::string& type_name,
                                     const AnalyzerOptions& options,
                                     Catalog* catalog, TypeFactory* type_factory,
                                     const Type** output_type) {
@@ -1013,21 +1013,21 @@ static zetasql_base::Status AnalyzeTypeImpl(const std::string& type_name,
   ZETASQL_RETURN_IF_ERROR(resolver.ResolveTypeName(type_name, output_type));
 
   VLOG(3) << "Resolved type: " << (*output_type)->DebugString();
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyzeType(const std::string& type_name,
+absl::Status AnalyzeType(const std::string& type_name,
                          const AnalyzerOptions& options_in, Catalog* catalog,
                          TypeFactory* type_factory, const Type** output_type) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
-  const zetasql_base::Status status =
+  const absl::Status status =
       AnalyzeTypeImpl(type_name, options, catalog, type_factory, output_type);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), type_name, status);
 }
 
-static zetasql_base::Status ExtractTableNamesFromStatementImpl(
+static absl::Status ExtractTableNamesFromStatementImpl(
     absl::string_view sql, const AnalyzerOptions& options,
     TableNamesSet* table_names) {
   ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options));
@@ -1041,7 +1041,7 @@ static zetasql_base::Status ExtractTableNamesFromStatementImpl(
                                          options, table_names);
 }
 
-static zetasql_base::Status ExtractTableResolutionTimeFromStatementImpl(
+static absl::Status ExtractTableResolutionTimeFromStatementImpl(
     absl::string_view sql, const AnalyzerOptions& options,
     TypeFactory* type_factory, Catalog* catalog,
     TableResolutionTimeInfoMap* table_resolution_time_info_map,
@@ -1061,35 +1061,35 @@ static zetasql_base::Status ExtractTableResolutionTimeFromStatementImpl(
   // map for every source table,
   EnsureResolutionTimeInfoForEveryTable(table_names,
                                         table_resolution_time_info_map);
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ExtractTableNamesFromStatement(absl::string_view sql,
+absl::Status ExtractTableNamesFromStatement(absl::string_view sql,
                                             const AnalyzerOptions& options_in,
                                             TableNamesSet* table_names) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
-  const zetasql_base::Status status =
+  const absl::Status status =
       ExtractTableNamesFromStatementImpl(sql, options, table_names);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), sql, status);
 }
 
-zetasql_base::Status ExtractTableResolutionTimeFromStatement(
+absl::Status ExtractTableResolutionTimeFromStatement(
     absl::string_view sql, const AnalyzerOptions& options_in,
     TypeFactory* type_factory, Catalog* catalog,
     TableResolutionTimeInfoMap* table_resolution_time_info_map,
     std::unique_ptr<ParserOutput>* parser_output) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
-  const zetasql_base::Status status = ExtractTableResolutionTimeFromStatementImpl(
+  const absl::Status status = ExtractTableResolutionTimeFromStatementImpl(
       sql, options, type_factory, catalog, table_resolution_time_info_map,
       parser_output);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), sql, status);
 }
 
-static zetasql_base::Status ExtractTableNamesFromNextStatementImpl(
+static absl::Status ExtractTableNamesFromNextStatementImpl(
     ParseResumeLocation* resume_location, const AnalyzerOptions& options,
     TableNamesSet* table_names, bool* at_end_of_input) {
   ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options));
@@ -1107,29 +1107,29 @@ static zetasql_base::Status ExtractTableNamesFromNextStatementImpl(
                                          options, table_names);
 }
 
-zetasql_base::Status ExtractTableNamesFromNextStatement(
+absl::Status ExtractTableNamesFromNextStatement(
     ParseResumeLocation* resume_location, const AnalyzerOptions& options_in,
     TableNamesSet* table_names, bool* at_end_of_input) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
-  const zetasql_base::Status status = ExtractTableNamesFromNextStatementImpl(
+  const absl::Status status = ExtractTableNamesFromNextStatementImpl(
       resume_location, options, table_names, at_end_of_input);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), resume_location->input(), status);
 }
 
-zetasql_base::Status ExtractTableNamesFromASTStatement(
+absl::Status ExtractTableNamesFromASTStatement(
     const ASTStatement& ast_statement, const AnalyzerOptions& options_in,
     absl::string_view sql, TableNamesSet* table_names) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
-  const zetasql_base::Status status = table_name_resolver::FindTables(
+  const absl::Status status = table_name_resolver::FindTables(
       sql, ast_statement, options, table_names);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), sql, status);
 }
 
-static zetasql_base::Status ExtractTableResolutionTimeFromASTStatementImpl(
+static absl::Status ExtractTableResolutionTimeFromASTStatementImpl(
     absl::string_view sql, const AnalyzerOptions& options,
     const ASTStatement& ast_statement, TypeFactory* type_factory,
     Catalog* catalog,
@@ -1147,16 +1147,16 @@ static zetasql_base::Status ExtractTableResolutionTimeFromASTStatementImpl(
   // map for every source table,
   EnsureResolutionTimeInfoForEveryTable(table_names,
                                         table_resolution_time_info_map);
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ExtractTableResolutionTimeFromASTStatement(
+absl::Status ExtractTableResolutionTimeFromASTStatement(
     const ASTStatement& ast_statement, const AnalyzerOptions& options_in,
     absl::string_view sql, TypeFactory* type_factory, Catalog* catalog,
     TableResolutionTimeInfoMap* table_resolution_time_info_map) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
-  const zetasql_base::Status status =
+  const absl::Status status =
       ExtractTableResolutionTimeFromASTStatementImpl(
           sql, options, ast_statement, type_factory, catalog,
           table_resolution_time_info_map);
@@ -1164,7 +1164,7 @@ zetasql_base::Status ExtractTableResolutionTimeFromASTStatement(
       options.error_message_mode(), sql, status);
 }
 
-zetasql_base::Status ExtractTableNamesFromScript(absl::string_view sql,
+absl::Status ExtractTableNamesFromScript(absl::string_view sql,
                                          const AnalyzerOptions& options_in,
                                          TableNamesSet* table_names) {
   ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options_in));
@@ -1176,19 +1176,19 @@ zetasql_base::Status ExtractTableNamesFromScript(absl::string_view sql,
                               options.error_message_mode(), &parser_output));
   VLOG(5) << "Parsed AST:\n" << parser_output->script()->DebugString();
 
-  zetasql_base::Status status = table_name_resolver::FindTableNamesInScript(
+  absl::Status status = table_name_resolver::FindTableNamesInScript(
       sql, *(parser_output->script()), options, table_names);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), sql, status);
 }
 
-zetasql_base::Status ExtractTableNamesFromASTScript(const ASTScript& ast_script,
+absl::Status ExtractTableNamesFromASTScript(const ASTScript& ast_script,
                                             const AnalyzerOptions& options_in,
                                             absl::string_view sql,
                                             TableNamesSet* table_names) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
-  const zetasql_base::Status status = table_name_resolver::FindTableNamesInScript(
+  const absl::Status status = table_name_resolver::FindTableNamesInScript(
       sql, ast_script, options, table_names);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), sql, status);

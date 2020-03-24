@@ -260,7 +260,7 @@ class Type {
   // <type_proto>.  Supports Types depending on descriptors from different
   // DescriptorPools by serializing into multiple FileDescriptorSets within
   // <type_proto>.
-  zetasql_base::Status SerializeToSelfContainedProto(
+  absl::Status SerializeToSelfContainedProto(
       TypeProto* type_proto) const;
 
   // Serialize the Type to protocol buffer form into <type_proto>.
@@ -283,7 +283,7 @@ class Type {
   // from different DescriptorPools. If contained types may span multiple
   // DescriptorPools, then SerializeToProtoAndDistinctFileDescriptors must be
   // used instead.
-  zetasql_base::Status SerializeToProtoAndFileDescriptors(
+  absl::Status SerializeToProtoAndFileDescriptors(
       TypeProto* type_proto,
       google::protobuf::FileDescriptorSet* file_descriptor_set = nullptr,
       std::set<const google::protobuf::FileDescriptor*>* file_descriptors =
@@ -339,7 +339,7 @@ class Type {
   // ZETASQL_RETURN_IF_ERROR(
   //     factory.DeserializeFromProtoUsingExistingPools(
   //         type_proto2, pools, &deserialized_type2));
-  zetasql_base::Status SerializeToProtoAndDistinctFileDescriptors(
+  absl::Status SerializeToProtoAndDistinctFileDescriptors(
       TypeProto* type_proto,
       FileDescriptorSetMap* file_descriptor_set_map) const;
 
@@ -347,7 +347,7 @@ class Type {
   // FileDescriptorSet size in <file_descriptor_sets_max_size_bytes>.
   // Returns an error and aborts if this size limit is exceeded by
   // the FileDescriptorSets in the <file_descriptor_set_map>.
-  zetasql_base::Status SerializeToProtoAndDistinctFileDescriptors(
+  absl::Status SerializeToProtoAndDistinctFileDescriptors(
       TypeProto* type_proto,
       absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
       FileDescriptorSetMap* file_descriptor_set_map) const;
@@ -461,7 +461,7 @@ class Type {
   // Internal implementation for Serialize methods.  This will append
   // Type information to <type_proto>, so the caller should make sure
   // that <type_proto> has been initialized properly before invoking.
-  virtual zetasql_base::Status SerializeToProtoAndDistinctFileDescriptorsImpl(
+  virtual absl::Status SerializeToProtoAndDistinctFileDescriptorsImpl(
       TypeProto* type_proto,
       absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
       FileDescriptorSetMap* file_descriptor_set_map) const = 0;

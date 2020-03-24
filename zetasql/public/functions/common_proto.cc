@@ -52,7 +52,7 @@ static bool IsValidProto3TimeOfDay(const google::type::TimeOfDay& time) {
 
 }  // namespace
 
-zetasql_base::Status ConvertTimeToProto3TimeOfDay(TimeValue input,
+absl::Status ConvertTimeToProto3TimeOfDay(TimeValue input,
                                           google::type::TimeOfDay* output) {
   if (!input.IsValid()) {
     return MakeEvalError()
@@ -63,10 +63,10 @@ zetasql_base::Status ConvertTimeToProto3TimeOfDay(TimeValue input,
   output->set_minutes(input.Minute());
   output->set_seconds(input.Second());
   output->set_nanos(input.Nanoseconds());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ConvertProto3TimeOfDayToTime(const google::type::TimeOfDay& input,
+absl::Status ConvertProto3TimeOfDayToTime(const google::type::TimeOfDay& input,
                                           TimestampScale scale,
                                           TimeValue* output) {
   if (!IsValidProto3TimeOfDay(input)) {
@@ -81,7 +81,7 @@ zetasql_base::Status ConvertProto3TimeOfDayToTime(const google::type::TimeOfDay&
     *output = TimeValue::FromHMSAndNanos(input.hours(), input.minutes(),
                                          input.seconds(), input.nanos());
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace functions

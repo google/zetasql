@@ -60,7 +60,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "absl/base/optimization.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
@@ -110,13 +110,13 @@ inline ::zetasql_base::StatusBuilder MakeSqlErrorAtLocalNode(const ASTNode* ast_
 #define RETURN_SQL_ERROR_AT_IF_ERROR(ast_node, expr)                         \
   do {                                                                       \
     /* Using _status below to avoid capture problems if expr is "status". */ \
-    const ::zetasql_base::Status _status = (expr);                                   \
+    const absl::Status _status = (expr);                                   \
     if (ABSL_PREDICT_FALSE(!_status.ok())) {                                 \
       return MakeSqlErrorAt((ast_node)) << _status.message();                \
     }                                                                        \
   } while (0)
 
-// If <status> is an error, returns a zetasql_base::Status with the
+// If <status> is an error, returns a absl::Status with the
 // InternalErrorLocation of the ErrorLocationPoint from <ast_node> attached.
 // Otherwise, just returns <status>.
 //
@@ -124,12 +124,12 @@ inline ::zetasql_base::StatusBuilder MakeSqlErrorAtLocalNode(const ASTNode* ast_
 //   ZETASQL_RETURN_IF_ERROR(StatusWithInternalErrorLocation(SomeFunction(),
 //                                                   ast_location));
 // to add ErrorLocations into error return paths that don't have locations.
-zetasql_base::Status StatusWithInternalErrorLocation(
-    const zetasql_base::Status& status, const ASTNode* ast_node,
+absl::Status StatusWithInternalErrorLocation(
+    const absl::Status& status, const ASTNode* ast_node,
     bool include_leftmost_child = true);
 
 // Makes a new Status from <code> and <message> with an external ErrorLocation.
-zetasql_base::Status MakeStatusWithErrorLocation(zetasql_base::StatusCode code,
+absl::Status MakeStatusWithErrorLocation(absl::StatusCode code,
                                          absl::string_view message,
                                          const std::string& filename,
                                          const std::string& query,
@@ -148,9 +148,9 @@ InternalErrorLocation MakeInternalErrorLocation(
 // payload derived from <ast_location>, and that InternalErrorLocation
 // payload contains a new ErrorSource that wraps the <input_status>
 // based on <error_source_mode>.
-zetasql_base::Status WrapNestedErrorStatus(const ASTNode* ast_location,
+absl::Status WrapNestedErrorStatus(const ASTNode* ast_location,
                                    const std::string& error_message,
-                                   const zetasql_base::Status& input_status,
+                                   const absl::Status& input_status,
                                    ErrorMessageMode error_source_mode);
 
 }  // namespace zetasql

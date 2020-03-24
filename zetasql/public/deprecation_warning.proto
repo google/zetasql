@@ -26,7 +26,7 @@ option java_outer_classname = "DeprecationWarningProtos";
 import "zetasql/public/error_location.proto";
 
 // Contains information about a deprecation warning emitted by the
-// analyzer. Currently attached to any util::Status returned by
+// analyzer. Currently attached to any absl::Status returned by
 // AnalyzerOutput::deprecation_warnings().
 message DeprecationWarning {
 
@@ -50,10 +50,10 @@ message DeprecationWarning {
 
   // TODO: Consider adding more (per-kind) structured information here
   // to facilitate automated analysis of deprecation warnings. For now, working
-  // with the util::Status error messages seems sufficient.
+  // with the absl::Status error messages seems sufficient.
 }
 
-// A non-util::Status-based representation of a deprecation warning that can be
+// A non-absl::Status-based representation of a deprecation warning that can be
 // stored in objects that can be stored in the resolved AST (e.g.,
 // FunctionSignatures).
 //

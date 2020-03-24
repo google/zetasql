@@ -47,7 +47,7 @@ namespace table_name_resolver {
 //
 // If <table_resolution_time_info_map> is null, <type_factory> and <catalog> are
 // ignored.
-zetasql_base::Status FindTableNamesAndResolutionTime(
+absl::Status FindTableNamesAndResolutionTime(
     absl::string_view sql, const ASTStatement& statement,
     const AnalyzerOptions& analyzer_options, TypeFactory* type_factory,
     Catalog* catalog, TableNamesSet* table_names,
@@ -58,12 +58,12 @@ zetasql_base::Status FindTableNamesAndResolutionTime(
 //
 // This works similarly to FindTableNamesAndResolutionTime(), with <catalog>,
 // <type_factory>, and <table_resolution_time_info_map> all nullptr.
-zetasql_base::Status FindTableNamesInScript(absl::string_view sql,
+absl::Status FindTableNamesInScript(absl::string_view sql,
                                     const ASTScript& script,
                                     const AnalyzerOptions& analyzer_options,
                                     TableNamesSet* table_names);
 
-inline zetasql_base::Status FindTables(absl::string_view sql,
+inline absl::Status FindTables(absl::string_view sql,
                                const ASTStatement& statement,
                                const AnalyzerOptions& analyzer_options,
                                TableNamesSet* table_names) {

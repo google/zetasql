@@ -81,7 +81,7 @@ class StructType : public Type {
   std::string TypeName(ProductMode mode) const override;
 
   // Check if the names in <fields> are valid.
-  static zetasql_base::Status FieldNamesAreValid(
+  static absl::Status FieldNamesAreValid(
       const absl::Span<const StructField>& fields);
 
   int nesting_depth() const override { return nesting_depth_; }
@@ -107,7 +107,7 @@ class StructType : public Type {
       const LanguageOptions& language_options,
       const Type** no_partitioning_type) const override;
 
-  zetasql_base::Status SerializeToProtoAndDistinctFileDescriptorsImpl(
+  absl::Status SerializeToProtoAndDistinctFileDescriptorsImpl(
       TypeProto* type_proto,
       absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
       FileDescriptorSetMap* file_descriptor_set_map) const override;

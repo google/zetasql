@@ -45,7 +45,7 @@ class EvaluatorTestTable : public SimpleTable {
       const std::string& name,
       const std::vector<std::pair<std::string, const Type*>>& columns,
       const std::vector<std::vector<Value>>& values,
-      const zetasql_base::Status& end_status,
+      const absl::Status& end_status,
       const absl::flat_hash_set<int>& column_filter_idxs = {},
       const std::function<void()>& cancel_cb = [] {},
       const std::function<void(absl::Time)>& set_deadline_cb =
@@ -86,7 +86,7 @@ class EvaluatorTestTable : public SimpleTable {
   }
 
  private:
-  const zetasql_base::Status end_status_;
+  const absl::Status end_status_;
   const absl::flat_hash_set<int> column_filter_idxs_;
   const std::function<void()> cancel_cb_;
   const std::function<void(absl::Time)> set_deadline_cb_;

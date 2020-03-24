@@ -59,14 +59,14 @@ class RegExp {
   // UTF-8 (InitializePatternUtf8) or Latin1 (InitializePatternBytes) encoding.
   // If the regular expression is not correct *error is updated
   // and false is returned.
-  bool InitializePatternUtf8(absl::string_view pattern, zetasql_base::Status* error);
-  bool InitializePatternBytes(absl::string_view pattern, zetasql_base::Status* error);
+  bool InitializePatternUtf8(absl::string_view pattern, absl::Status* error);
+  bool InitializePatternBytes(absl::string_view pattern, absl::Status* error);
 
   // REGEXP_CONTAINS (substring match)
-  bool Contains(absl::string_view str, bool* out, zetasql_base::Status* error);
+  bool Contains(absl::string_view str, bool* out, absl::Status* error);
 
   // REGEXP_MATCH (full match)
-  bool Match(absl::string_view str, bool* out, zetasql_base::Status* error);
+  bool Match(absl::string_view str, bool* out, absl::Status* error);
 
   // REGEXP_EXTRACT
   // If a match was extracted, returns true with *is_null set to false.
@@ -74,7 +74,7 @@ class RegExp {
   // If extraction failed for some other reason, returns false with a non-OK
   // status in *error.
   bool Extract(absl::string_view str, absl::string_view* out, bool* is_null,
-               zetasql_base::Status* error);
+               absl::Status* error);
 
   // REGEXP_EXTRACT_ALL
   // This ZetaSQL function returns an array of strings or bytes.
@@ -95,13 +95,13 @@ class RegExp {
   // Note that on success, error will _not_ be explicitly set to OK, but rather
   // left unchanged.
   void ExtractAllReset(const absl::string_view str);
-  bool ExtractAllNext(absl::string_view* out, zetasql_base::Status* error);
+  bool ExtractAllNext(absl::string_view* out, absl::Status* error);
 
   // REGEXP_REPLACE
   // Replaces all matching substrings in str with newsub and returns result
   // to *out.
   bool Replace(absl::string_view str, absl::string_view newsub,
-               std::string* out, zetasql_base::Status* error);
+               std::string* out, absl::Status* error);
 
   // Sets maximum length in bytes of an output string of any function
   // (e.g. Replace()). This limit is not strictly enforced, but it's
@@ -124,7 +124,7 @@ class RegExp {
   // SetMaxOutSize().
   bool Rewrite(const absl::string_view rewrite,
                const std::vector<absl::string_view>& groups, std::string* out,
-               zetasql_base::Status* error);
+               absl::Status* error);
 
   // The compiled RE2 object. It is NULL if this has not been initialized yet.
   std::unique_ptr<RE2> re_;

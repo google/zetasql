@@ -123,7 +123,7 @@ class Value {
   int64_t ToUnixMicros() const;  // REQUIRES: timestamp type.
   // Returns timestamp value as Unix epoch nanoseconds or an error if the value
   // does not fit into an int64_t.
-  zetasql_base::Status ToUnixNanos(int64_t* nanos) const;  // REQUIRES: timestamp type.
+  absl::Status ToUnixNanos(int64_t* nanos) const;  // REQUIRES: timestamp type.
 
   // Returns time and datetime values at micros precision as bitwise encoded
   // int64_t, see public/civil_time.h for the encoding.
@@ -398,7 +398,7 @@ class Value {
                                                 Value* value);
 
   // Serializes the Value into ValueProto protocol buffer.
-  zetasql_base::Status Serialize(ValueProto* value_proto) const;
+  absl::Status Serialize(ValueProto* value_proto) const;
 
   // Deserializes a ValueProto into Value. Since ValueProto does not know its
   // full type, the type information is passed as an additional parameter.
@@ -549,9 +549,7 @@ class Value {
   // an approximate hash code.
   size_t HashCodeInternal(FloatMargin float_margin) const;
 
-  std::string DebugStringInternal(
-      bool verbose,
-      const std::map<const Value*, std::string>& debug_string_map) const;
+  static std::string ComplexValueToDebugString(const Value* root, bool verbose);
 
   // type_kind_ is either zetasql::TypeKind or -1 for invalid values.
   int16_t type_kind_ = kInvalidTypeKind;

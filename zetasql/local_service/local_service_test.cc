@@ -72,54 +72,54 @@ class ZetaSqlLocalServiceImplTest : public ::testing::Test {
     EXPECT_EQ(0, service_.NumSavedPreparedExpression());
   }
 
-  zetasql_base::Status Prepare(const PrepareRequest& request,
+  absl::Status Prepare(const PrepareRequest& request,
                        PrepareResponse* response) {
     return service_.Prepare(request, response);
   }
 
-  zetasql_base::Status Unprepare(int64_t id) { return service_.Unprepare(id); }
+  absl::Status Unprepare(int64_t id) { return service_.Unprepare(id); }
 
-  zetasql_base::Status Evaluate(const EvaluateRequest& request,
+  absl::Status Evaluate(const EvaluateRequest& request,
                         EvaluateResponse* response) {
     return service_.Evaluate(request, response);
   }
 
-  zetasql_base::Status Analyze(const AnalyzeRequest& request,
+  absl::Status Analyze(const AnalyzeRequest& request,
                        AnalyzeResponse* response) {
     return service_.Analyze(request, response);
   }
 
-  zetasql_base::Status BuildSql(const BuildSqlRequest& request,
+  absl::Status BuildSql(const BuildSqlRequest& request,
                         BuildSqlResponse* response) {
     return service_.BuildSql(request, response);
   }
 
-  zetasql_base::Status ExtractTableNamesFromStatement(
+  absl::Status ExtractTableNamesFromStatement(
       const ExtractTableNamesFromStatementRequest& request,
       ExtractTableNamesFromStatementResponse* response) {
     return service_.ExtractTableNamesFromStatement(request, response);
   }
 
-  zetasql_base::Status ExtractTableNamesFromNextStatement(
+  absl::Status ExtractTableNamesFromNextStatement(
       const ExtractTableNamesFromNextStatementRequest& request,
       ExtractTableNamesFromNextStatementResponse* response) {
     return service_.ExtractTableNamesFromNextStatement(request, response);
   }
 
-  zetasql_base::Status FormatSql(const FormatSqlRequest& request,
+  absl::Status FormatSql(const FormatSqlRequest& request,
                          FormatSqlResponse* response) {
     return service_.FormatSql(request, response);
   }
 
-  zetasql_base::Status UnregisterCatalog(int64_t id) {
+  absl::Status UnregisterCatalog(int64_t id) {
     return service_.UnregisterCatalog(id);
   }
 
-  zetasql_base::Status UnregisterParseResumeLocation(int64_t id) {
+  absl::Status UnregisterParseResumeLocation(int64_t id) {
     return service_.UnregisterParseResumeLocation(id);
   }
 
-  zetasql_base::Status AddSimpleTable(const AddSimpleTableRequest& request) {
+  absl::Status AddSimpleTable(const AddSimpleTableRequest& request) {
     return service_.AddSimpleTable(request);
   }
 
@@ -127,12 +127,12 @@ class ZetaSqlLocalServiceImplTest : public ::testing::Test {
     return service_.NumSavedPreparedExpression();
   }
 
-  zetasql_base::Status GetTableFromProto(const TableFromProtoRequest& request,
+  absl::Status GetTableFromProto(const TableFromProtoRequest& request,
                                  SimpleTableProto* response) {
     return service_.GetTableFromProto(request, response);
   }
 
-  zetasql_base::Status GetBuiltinFunctions(
+  absl::Status GetBuiltinFunctions(
       const ZetaSQLBuiltinFunctionOptionsProto& proto,
       GetBuiltinFunctionsResponse* response) {
     return service_.GetBuiltinFunctions(proto, response);
@@ -478,7 +478,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, BadTableFromProto) {
   ZETASQL_CHECK_OK(
       proto_type->SerializeToProtoAndFileDescriptors(&proto, &descriptor_set));
   *request.mutable_proto() = proto.proto_type();
-  zetasql_base::Status status = GetTableFromProto(request, &response);
+  absl::Status status = GetTableFromProto(request, &response);
   ASSERT_FALSE(status.ok());
   EXPECT_EQ("Proto type name not found: zetasql_test.KitchenSinkPB",
             status.message());
@@ -499,7 +499,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, AnalyzeWrongCatalogId) {
   request.set_registered_catalog_id(12345);
 
   AnalyzeResponse response;
-  zetasql_base::Status status = Analyze(request, &response);
+  absl::Status status = Analyze(request, &response);
   EXPECT_FALSE(status.ok());
   EXPECT_EQ("generic::invalid_argument: Registered catalog 12345 unknown.",
             internal::StatusToString(status));
@@ -550,9 +550,9 @@ TEST_F(ZetaSqlLocalServiceImplTest, ExtractWithUnsupportedStatement) {
       &request));
 
   ExtractTableNamesFromNextStatementResponse response;
-  zetasql_base::Status status = ExtractTableNamesFromNextStatement(request, &response);
+  absl::Status status = ExtractTableNamesFromNextStatement(request, &response);
   EXPECT_THAT(status,
-              ::zetasql_base::testing::StatusIs(zetasql_base::StatusCode::kInvalidArgument));
+              ::zetasql_base::testing::StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST_F(ZetaSqlLocalServiceImplTest, ExtractWithWrongStatementSupported) {
@@ -569,9 +569,9 @@ TEST_F(ZetaSqlLocalServiceImplTest, ExtractWithWrongStatementSupported) {
       &request));
 
   ExtractTableNamesFromNextStatementResponse response;
-  zetasql_base::Status status = ExtractTableNamesFromNextStatement(request, &response);
+  absl::Status status = ExtractTableNamesFromNextStatement(request, &response);
   EXPECT_THAT(status,
-              ::zetasql_base::testing::StatusIs(zetasql_base::StatusCode::kInvalidArgument));
+              ::zetasql_base::testing::StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST_F(ZetaSqlLocalServiceImplTest, ExtractWithAllStatementsSupported) {
@@ -608,7 +608,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, ExtractTableNamesFromEmptyStatement) {
       &request));
 
   ExtractTableNamesFromNextStatementResponse response;
-  zetasql_base::Status status = ExtractTableNamesFromNextStatement(request, &response);
+  absl::Status status = ExtractTableNamesFromNextStatement(request, &response);
   ASSERT_FALSE(status.ok());
   EXPECT_EQ("Syntax error: Unexpected end of statement [at 1:30]",
             status.message());
@@ -624,9 +624,9 @@ TEST_F(ZetaSqlLocalServiceImplTest, ExtractWithBigResumePosition) {
       &request));
 
   ExtractTableNamesFromNextStatementResponse response;
-  zetasql_base::Status status = ExtractTableNamesFromNextStatement(request, &response);
+  absl::Status status = ExtractTableNamesFromNextStatement(request, &response);
   ASSERT_FALSE(status.ok());
-  EXPECT_THAT(status, ::zetasql_base::testing::StatusIs(zetasql_base::StatusCode::kInternal));
+  EXPECT_THAT(status, ::zetasql_base::testing::StatusIs(absl::StatusCode::kInternal));
 }
 
 TEST_F(ZetaSqlLocalServiceImplTest, ExtractWithNegativeResumePosition) {
@@ -639,9 +639,9 @@ TEST_F(ZetaSqlLocalServiceImplTest, ExtractWithNegativeResumePosition) {
       &request));
 
   ExtractTableNamesFromNextStatementResponse response;
-  zetasql_base::Status status = ExtractTableNamesFromNextStatement(request, &response);
+  absl::Status status = ExtractTableNamesFromNextStatement(request, &response);
   ASSERT_FALSE(status.ok());
-  EXPECT_THAT(status, ::zetasql_base::testing::StatusIs(zetasql_base::StatusCode::kInternal));
+  EXPECT_THAT(status, ::zetasql_base::testing::StatusIs(absl::StatusCode::kInternal));
 }
 
 TEST_F(ZetaSqlLocalServiceImplTest, ExtractTableNamesFromNextStatement) {
@@ -687,7 +687,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, ExtractTableNamesWithNoSemicolon) {
 }
 
 TEST_F(ZetaSqlLocalServiceImplTest, UnregisterWrongCatalogId) {
-  zetasql_base::Status status = UnregisterCatalog(12345);
+  absl::Status status = UnregisterCatalog(12345);
   EXPECT_FALSE(status.ok());
   EXPECT_EQ("generic::invalid_argument: Unknown catalog ID: 12345",
             internal::StatusToString(status));
@@ -701,7 +701,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, AnalyzeWrongParseResumeLocationId) {
   *request.mutable_registered_parse_resume_location() = location;
 
   AnalyzeResponse response;
-  zetasql_base::Status status = Analyze(request, &response);
+  absl::Status status = Analyze(request, &response);
   EXPECT_FALSE(status.ok());
   EXPECT_EQ(
       "generic::invalid_argument: "
@@ -710,7 +710,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, AnalyzeWrongParseResumeLocationId) {
 }
 
 TEST_F(ZetaSqlLocalServiceImplTest, UnregisterWrongParseResumeLocationId) {
-  zetasql_base::Status status = UnregisterParseResumeLocation(12345);
+  absl::Status status = UnregisterParseResumeLocation(12345);
   EXPECT_FALSE(status.ok());
   EXPECT_EQ("generic::invalid_argument: Unknown ParseResumeLocation ID: 12345",
             internal::StatusToString(status));
@@ -719,7 +719,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, UnregisterWrongParseResumeLocationId) {
 TEST_F(ZetaSqlLocalServiceImplTest, AddSimpleTableWithWrongCatalogId) {
   AddSimpleTableRequest request;
   request.set_registered_catalog_id(12345);
-  zetasql_base::Status status = AddSimpleTable(request);
+  absl::Status status = AddSimpleTable(request);
   EXPECT_FALSE(status.ok());
   EXPECT_EQ("generic::invalid_argument: Unknown catalog ID: 12345",
             internal::StatusToString(status));

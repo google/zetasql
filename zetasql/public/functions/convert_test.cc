@@ -58,7 +58,7 @@ std::string NumberToString<double>(double v) {
 template <typename FromType, typename ToType>
 inline void TestMonotonicity(ToType max) {
   ToType converted_x, converted_y;
-  zetasql_base::Status error, last_error;
+  absl::Status error, last_error;
   bool success = true;
   int num_iterations = 0;
   // divisor = 2 for integer FromType, 2.3 otherwise
@@ -128,14 +128,14 @@ inline void TestOutOfRange(ToType max) {
   VLOG(1) << "max_plus_epsilon: " << max_plus_epsilon
           << " epsilon: " << epsilon;
   ToType max_out;
-  zetasql_base::Status error;
+  absl::Status error;
   EXPECT_FALSE((Convert<FromType, ToType>(
       max_plus_epsilon, &max_out, &error)))
       << "Converted " << max_plus_epsilon << " to " << max_out;
   // Ensure that the value appears in the error message.
   EXPECT_THAT(error,
               ::zetasql_base::testing::StatusIs(
-                  zetasql_base::OUT_OF_RANGE,
+                  absl::StatusCode::kOutOfRange,
                   ::testing::HasSubstr(absl::StrCat(": ", max_plus_epsilon))));
 }
 
@@ -241,7 +241,7 @@ void FindMaximalRoundtripValue() {
   IntType result;
   while (upper > lower + 1) {
     IntType mid = (upper - lower) / 2 + lower;
-    zetasql_base::Status s;
+    absl::Status s;
     if (Convert<FloatType, IntType>(static_cast<FloatType>(mid), &result, &s)) {
       lower = mid;
     } else {

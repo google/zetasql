@@ -50,10 +50,10 @@ inline NumericValue GetDummyValue<NumericValue>() {
 
 template <typename T>
 void CompareResult(const QueryParamsWithResult& param,
-                   const zetasql_base::Status& actual_status, T actual_value) {
+                   const absl::Status& actual_status, T actual_value) {
   const Value& expected = param.result();
   if (param.status().ok()) {
-    EXPECT_EQ(::zetasql_base::OkStatus(), actual_status);
+    EXPECT_EQ(absl::OkStatus(), actual_status);
     ASSERT_EQ(expected.type_kind(), Value::MakeNull<T>().type_kind());
     if (isnan(expected.Get<T>())) {
       EXPECT_TRUE(isnan(actual_value)) << actual_value;
@@ -71,7 +71,7 @@ void CompareResult(const QueryParamsWithResult& param,
     EXPECT_THAT(
         actual_status,
         ::zetasql_base::testing::StatusIs(
-            ::zetasql_base::OUT_OF_RANGE,
+            absl::StatusCode::kOutOfRange,
             ::testing::HasSubstr(absl::StrCat(param.param(0).Get<T>()))));
   }
 }
@@ -79,13 +79,13 @@ void CompareResult(const QueryParamsWithResult& param,
 template <>
 void CompareResult<NumericValue>(
     const QueryParamsWithResult& param,
-    const zetasql_base::Status& actual_status, NumericValue actual_value) {
+    const absl::Status& actual_status, NumericValue actual_value) {
   // This assumes that the value is stored under NUMERIC feature set but
   // this should work with the default feature set too.
   const QueryParamsWithResult::Result& expected =
       param.results().begin()->second;
   if (expected.status.ok()) {
-    EXPECT_EQ(::zetasql_base::OkStatus(), actual_status);
+    EXPECT_EQ(absl::OkStatus(), actual_status);
     ASSERT_EQ(expected.result.type_kind(),
               Value::MakeNull<NumericValue>().type_kind());
     EXPECT_EQ(expected.result.Get<NumericValue>(), actual_value);
@@ -93,7 +93,7 @@ void CompareResult<NumericValue>(
     // Check for the first parameter in the error message.
     EXPECT_THAT(actual_status,
                 ::zetasql_base::testing::StatusIs(
-                    ::zetasql_base::OUT_OF_RANGE,
+                    absl::StatusCode::kOutOfRange,
                     ::testing::HasSubstr(
                         param.param(0).Get<NumericValue>().ToString())));
   }
@@ -101,10 +101,10 @@ void CompareResult<NumericValue>(
 
 template <>
 void CompareResult<bool>(const QueryParamsWithResult& param,
-                         const zetasql_base::Status& actual_status, bool actual_value) {
+                         const absl::Status& actual_status, bool actual_value) {
   const Value& expected = param.result();
   if (param.status().ok()) {
-    EXPECT_EQ(::zetasql_base::OkStatus(), actual_status);
+    EXPECT_EQ(absl::OkStatus(), actual_status);
     ASSERT_EQ(expected.type_kind(), Value::MakeNull<bool>().type_kind());
     EXPECT_EQ(expected.Get<bool>(), actual_value);
   } else {
@@ -112,7 +112,7 @@ void CompareResult<bool>(const QueryParamsWithResult& param,
     EXPECT_THAT(
         actual_status,
         ::zetasql_base::testing::StatusIs(
-            ::zetasql_base::OUT_OF_RANGE,
+            absl::StatusCode::kOutOfRange,
             ::testing::HasSubstr(absl::StrCat(param.param(0).Get<bool>()))));
   }
 }
@@ -120,7 +120,7 @@ void CompareResult<bool>(const QueryParamsWithResult& param,
 template <typename InType, typename OutType>
 void TestUnaryFunction(const QueryParamsWithResult& param,
                        bool (*function)(InType, OutType*,
-                           zetasql_base::Status* error)) {
+                           absl::Status* error)) {
   CHECK_EQ(1, param.num_params());
   const Value& input1 = param.param(0);
   if (input1.is_null()) {
@@ -128,7 +128,7 @@ void TestUnaryFunction(const QueryParamsWithResult& param,
   }
 
   OutType out = GetDummyValue<OutType>();
-  zetasql_base::Status status;  // actual status
+  absl::Status status;  // actual status
   function(input1.Get<InType>(), &out, &status);
   return CompareResult(param, status, out);
 }
@@ -136,7 +136,7 @@ void TestUnaryFunction(const QueryParamsWithResult& param,
 template <typename InType1, typename InType2, typename OutType>
 void TestBinaryFunction(const QueryParamsWithResult& param,
                         bool (*function)(InType1, InType2, OutType*,
-                            zetasql_base::Status* error)) {
+                            absl::Status* error)) {
   CHECK_EQ(2, param.num_params());
   const Value& input1 = param.param(0);
   const Value& input2 = param.param(1);
@@ -145,7 +145,7 @@ void TestBinaryFunction(const QueryParamsWithResult& param,
   }
 
   OutType out = GetDummyValue<OutType>();
-  zetasql_base::Status status;  // actual status
+  absl::Status status;  // actual status
   function(input1.Get<InType1>(), input2.Get<InType2>(), &out, &status);
   return CompareResult(param, status, out);
 }
@@ -355,13 +355,13 @@ TEST(NumericPowTest, ErrorMessage) {
   // POW is expected to produce a "floating point error" (rather than "floating
   // point overflow").
   NumericValue out;
-  ::zetasql_base::Status status;
+  absl::Status status;
   EXPECT_FALSE(Pow<NumericValue>(NumericValue::MaxValue(),
                                  NumericValue::MaxValue(), &out, &status));
   EXPECT_THAT(
       status,
       ::zetasql_base::testing::StatusIs(
-          ::zetasql_base::OUT_OF_RANGE,
+          absl::StatusCode::kOutOfRange,
           ::testing::HasSubstr("Floating point error in function: POW")));
 }
 

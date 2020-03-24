@@ -20,7 +20,7 @@
 // This file implements basic bitcast operations. The following functions
 // are defined:
 //
-//   bool BitCast(TIN in1, TOUT *out, zetasql_base::Status* error);
+//   bool BitCast(TIN in1, TOUT *out, absl::Status* error);
 //
 // Here TIN and TOUT can be one of the following types: int32_t, int64_t, uint32_t,
 // uint64_t.
@@ -32,7 +32,7 @@ namespace zetasql {
 namespace functions {
 
 template <typename TIN, typename TOUT>
-bool BitCast(TIN in, TOUT *out, zetasql_base::Status* error) {
+bool BitCast(TIN in, TOUT *out, absl::Status* error) {
   *out = absl::bit_cast<TOUT>(in);
   return true;
 }

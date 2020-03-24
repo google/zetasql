@@ -122,7 +122,7 @@ class VectorEvaluatorTableModifyIterator : public EvaluatorTableModifyIterator {
                : rows_[row_idx_].field(i);
   }
 
-  zetasql_base::Status Status() const override { return zetasql_base::OkStatus(); }
+  absl::Status Status() const override { return absl::OkStatus(); }
 
   const Value& GetOriginalKeyValue(int i) const override {
     return operation_ == EvaluatorTableModifyIterator::Operation::kInsert
@@ -184,7 +184,7 @@ class Evaluator {
         << "the PreparedQuery object.";
   }
 
-  zetasql_base::Status Prepare(const AnalyzerOptions& options, Catalog* catalog)
+  absl::Status Prepare(const AnalyzerOptions& options, Catalog* catalog)
       ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock l(&mutex_);
     return PrepareLocked(options, catalog);
@@ -192,14 +192,14 @@ class Evaluator {
 
   // For expressions, populates 'expression_output_value'. For queries,
   // populates 'query_output_iterator'.
-  zetasql_base::Status Execute(
+  absl::Status Execute(
       const ParameterValueMap& columns, const ParameterValues& parameters,
       const SystemVariableValuesMap& system_variables,
       Value* expression_output_value,
       std::unique_ptr<EvaluatorTableIterator>* query_output_iterator)
       ABSL_LOCKS_EXCLUDED(mutex_);
 
-  zetasql_base::Status ExecuteAfterPrepare(
+  absl::Status ExecuteAfterPrepare(
       const ParameterValueMap& columns, const ParameterValues& parameters,
       const SystemVariableValuesMap& system_variables,
       Value* expression_output_value,
@@ -211,7 +211,7 @@ class Evaluator {
                                      query_output_iterator);
   }
 
-  zetasql_base::Status ExecuteAfterPrepareWithOrderedParams(
+  absl::Status ExecuteAfterPrepareWithOrderedParams(
       const ParameterValueList& columns, const ParameterValueList& parameters,
       const SystemVariableValuesMap& system_variables,
       Value* expression_output_value,
@@ -303,12 +303,12 @@ class Evaluator {
   }
 
   // Same a Prepare(), but the mutex is already locked.
-  zetasql_base::Status PrepareLocked(const AnalyzerOptions& options, Catalog* catalog)
+  absl::Status PrepareLocked(const AnalyzerOptions& options, Catalog* catalog)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Same as ExecuteAfterPrepare(), but the mutex is already locked (possibly
   // with a write lock).
-  zetasql_base::Status ExecuteAfterPrepareLocked(
+  absl::Status ExecuteAfterPrepareLocked(
       const ParameterValueMap& columns, const ParameterValues& parameters,
       const SystemVariableValuesMap& system_variables,
       Value* expression_output_value,
@@ -317,7 +317,7 @@ class Evaluator {
 
   // Same as ExecuteAfterPrepareWithOrderedParams(), but with the mutex already
   // locked.
-  zetasql_base::Status ExecuteAfterPrepareWithOrderedParamsLocked(
+  absl::Status ExecuteAfterPrepareWithOrderedParamsLocked(
       const ParameterValueList& columns, const ParameterValueList& parameters,
       const SystemVariableValuesMap& system_variables,
       Value* expression_output_value,
@@ -328,17 +328,17 @@ class Evaluator {
   // resolved variable map 'variable_map', and populates 'values' with the
   // corresponding Values in the order they appear when iterating over
   // 'variable_map'. 'kind' is the kind of the parameters.
-  zetasql_base::Status TranslateParameterValueMapToList(
+  absl::Status TranslateParameterValueMapToList(
       const ParameterValueMap& parameters_map, const ParameterMap& variable_map,
       ParameterKind kind, ParameterValueList* variable_values) const
       ABSL_SHARED_LOCKS_REQUIRED(mutex_);
 
   // Validates the arguments to ExecuteAfterPrepareWithOrderedParams().
-  zetasql_base::Status ValidateColumns(const ParameterValueList& columns) const
+  absl::Status ValidateColumns(const ParameterValueList& columns) const
       ABSL_SHARED_LOCKS_REQUIRED(mutex_);
-  zetasql_base::Status ValidateParameters(const ParameterValueList& parameters) const
+  absl::Status ValidateParameters(const ParameterValueList& parameters) const
       ABSL_SHARED_LOCKS_REQUIRED(mutex_);
-  zetasql_base::Status ValidateSystemVariables(
+  absl::Status ValidateSystemVariables(
       const SystemVariableValuesMap& system_variables) const
       ABSL_SHARED_LOCKS_REQUIRED(mutex_);
 
@@ -464,7 +464,7 @@ static std::string HideInternalName(const std::string& name) {
 }
 }  // namespace
 
-zetasql_base::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
+absl::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
                                       Catalog* catalog) {
   if (is_prepared()) {
     return ::zetasql_base::InvalidArgumentErrorBuilder() << "Prepare called twice";
@@ -592,7 +592,7 @@ zetasql_base::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
         compiled_value_expr_->SetSchemasForEvaluation({&params_schema}));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 zetasql_base::StatusOr<std::vector<std::string>> Evaluator::GetReferencedColumns()
@@ -651,7 +651,7 @@ zetasql_base::StatusOr<int> Evaluator::GetPositionalParameterCount() const {
   return 0;
 }
 
-zetasql_base::Status Evaluator::TranslateParameterValueMapToList(
+absl::Status Evaluator::TranslateParameterValueMapToList(
     const ParameterValueMap& parameters_map, const ParameterMap& variable_map,
     ParameterKind kind, ParameterValueList* variable_values) const {
   std::unordered_map<std::string, const Value*> normalized_parameters;
@@ -670,10 +670,10 @@ zetasql_base::Status Evaluator::TranslateParameterValueMapToList(
     variable_values->push_back(*value);
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Evaluator::Execute(
+absl::Status Evaluator::Execute(
     const ParameterValueMap& columns, const ParameterValues& parameters,
     const SystemVariableValuesMap& system_variables,
     Value* expression_output_value,
@@ -730,7 +730,7 @@ zetasql_base::Status Evaluator::Execute(
                                    query_output_iterator);
 }
 
-zetasql_base::Status Evaluator::ExecuteAfterPrepareLocked(
+absl::Status Evaluator::ExecuteAfterPrepareLocked(
     const ParameterValueMap& columns, const ParameterValues& parameters,
     const SystemVariableValuesMap& system_variables,
     Value* expression_output_value,
@@ -836,12 +836,12 @@ class TupleIteratorAdaptor : public EvaluatorTableIterator {
     return current_->slot(tuple_indexes_[i]).value();
   }
 
-  zetasql_base::Status Status() const override {
+  absl::Status Status() const override {
     absl::MutexLock l(&mutex_);
     return iter_->Status();
   }
 
-  zetasql_base::Status Cancel() override {
+  absl::Status Cancel() override {
     absl::MutexLock l(&mutex_);
     return context_->CancelStatement();
   }
@@ -863,11 +863,11 @@ class TupleIteratorAdaptor : public EvaluatorTableIterator {
       ABSL_PT_GUARDED_BY(mutex_);
   const TupleData* current_ ABSL_GUARDED_BY(mutex_)
       ABSL_PT_GUARDED_BY(mutex_) = nullptr;
-  zetasql_base::Status status_ ABSL_GUARDED_BY(mutex_);
+  absl::Status status_ ABSL_GUARDED_BY(mutex_);
 };
 }  // namespace
 
-zetasql_base::Status Evaluator::ExecuteAfterPrepareWithOrderedParamsLocked(
+absl::Status Evaluator::ExecuteAfterPrepareWithOrderedParamsLocked(
     const ParameterValueList& columns, const ParameterValueList& parameters,
     const SystemVariableValuesMap& system_variables,
     Value* expression_output_value,
@@ -918,7 +918,7 @@ zetasql_base::Status Evaluator::ExecuteAfterPrepareWithOrderedParamsLocked(
     ZETASQL_RET_CHECK(compiled_value_expr_ != nullptr);
 
     TupleSlot result;
-    ::zetasql_base::Status status;
+    absl::Status status;
     if (!compiled_value_expr_->EvalSimple({&params_data}, context.get(),
                                           &result, &status)) {
       return status;
@@ -926,7 +926,7 @@ zetasql_base::Status Evaluator::ExecuteAfterPrepareWithOrderedParamsLocked(
     *expression_output_value = result.value();
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 zetasql_base::StatusOr<std::string> Evaluator::ExplainAfterPrepare() const {
@@ -948,7 +948,7 @@ const Type* Evaluator::expression_output_type() const {
   return compiled_value_expr_->output_type();
 }
 
-zetasql_base::Status Evaluator::ValidateColumns(
+absl::Status Evaluator::ValidateColumns(
     const ParameterValueList& columns) const {
   if (columns.size() != algebrizer_column_map_.size()) {
     return zetasql_base::InvalidArgumentErrorBuilder()
@@ -979,10 +979,10 @@ zetasql_base::Status Evaluator::ValidateColumns(
     ++i;
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Evaluator::ValidateSystemVariables(
+absl::Status Evaluator::ValidateSystemVariables(
     const SystemVariableValuesMap& system_variables) const {
   // Make sure <system_variables> is consistent with the analyzer options.
   for (const auto& analyzer_options_sysvar :
@@ -1035,10 +1035,10 @@ zetasql_base::Status Evaluator::ValidateSystemVariables(
         << "Type mismatch between analyzer options and value type: "
         << absl::StrJoin(sysvar_name, ".");
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Evaluator::ValidateParameters(
+absl::Status Evaluator::ValidateParameters(
     const ParameterValueList& parameters) const {
   if (algebrizer_parameters_.is_named()) {
     if (parameters.size() != algebrizer_parameters_.named_parameters().size()) {
@@ -1096,7 +1096,7 @@ zetasql_base::Status Evaluator::ValidateParameters(
     }
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 EvaluatorOptions EvaluatorOptionsFromTypeFactory(TypeFactory* type_factory) {
@@ -1122,7 +1122,7 @@ PreparedExpressionBase::PreparedExpressionBase(const ResolvedExpr* expression,
 
 PreparedExpressionBase::~PreparedExpressionBase() {}
 
-zetasql_base::Status PreparedExpressionBase::Prepare(const AnalyzerOptions& options,
+absl::Status PreparedExpressionBase::Prepare(const AnalyzerOptions& options,
                                              Catalog* catalog) {
   return evaluator_->Prepare(options, catalog);
 }
@@ -1216,7 +1216,7 @@ PreparedQueryBase::PreparedQueryBase(const ResolvedQueryStmt* stmt,
 
 PreparedQueryBase::~PreparedQueryBase() {}
 
-zetasql_base::Status PreparedQueryBase::Prepare(const AnalyzerOptions& options,
+absl::Status PreparedQueryBase::Prepare(const AnalyzerOptions& options,
                                         Catalog* catalog) {
   ZETASQL_RETURN_IF_ERROR(evaluator_->Prepare(options, catalog));
   ZETASQL_RET_CHECK_NE(evaluator_->resolved_statement(), nullptr);
@@ -1226,7 +1226,7 @@ zetasql_base::Status PreparedQueryBase::Prepare(const AnalyzerOptions& options,
            << evaluator_->resolved_statement()->node_kind_string()
            << " does not correspond to a query.";
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 zetasql_base::StatusOr<std::vector<std::string>>
@@ -1312,7 +1312,7 @@ PreparedModifyBase::PreparedModifyBase(const ResolvedStatement* stmt,
 
 PreparedModifyBase::~PreparedModifyBase() {}
 
-zetasql_base::Status PreparedModifyBase::Prepare(const AnalyzerOptions& options,
+absl::Status PreparedModifyBase::Prepare(const AnalyzerOptions& options,
                                          Catalog* catalog) {
   ZETASQL_RETURN_IF_ERROR(evaluator_->Prepare(options, catalog));
   ZETASQL_RET_CHECK_NE(evaluator_->resolved_statement(), nullptr);
@@ -1320,7 +1320,7 @@ zetasql_base::Status PreparedModifyBase::Prepare(const AnalyzerOptions& options,
     case RESOLVED_INSERT_STMT:
     case RESOLVED_DELETE_STMT:
     case RESOLVED_UPDATE_STMT:
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     default:
       return zetasql_base::InvalidArgumentErrorBuilder()
              << "Statement kind "

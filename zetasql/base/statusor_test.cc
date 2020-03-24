@@ -132,10 +132,12 @@ TEST(StatusOr, TestDefaultCtor) {
 
 TEST(StatusOrDeathTest, TestDefaultCtorValue) {
   StatusOr<int> thing;
-  EXPECT_DEATH(thing.ValueOrDie(), "Unknown");
+  EXPECT_DEATH(thing.ValueOrDie(),
+               absl::StatusCodeToString(absl::StatusCode::kUnknown));
 
   const StatusOr<int> thing2;
-  EXPECT_DEATH(thing.ValueOrDie(), "Unknown");
+  EXPECT_DEATH(thing.ValueOrDie(),
+               absl::StatusCodeToString(absl::StatusCode::kUnknown));
 }
 
 TEST(StatusOr, TestStatusCtor) {
@@ -502,7 +504,7 @@ TEST(StatusOr, RValueStatus) {
   EXPECT_FALSE(so.ok());  // NOLINT
   EXPECT_FALSE(so.status().ok());
   EXPECT_GE(static_cast<int>(so.status().code()), 0);
-  EXPECT_EQ(so.status().message(), "");
+  EXPECT_EQ(so.status().message(), "Status accessed after move.");
 }
 
 TEST(StatusOr, TestValue) {
@@ -689,12 +691,14 @@ TEST(StatusOr, MapToStatusOrUniquePtr) {
 
 TEST(StatusOrDeathTest, TestPointerValueNotOk) {
   StatusOr<int*> thing(CancelledError(""));
-  EXPECT_DEATH(thing.ValueOrDie(), "ancelled");
+  EXPECT_DEATH(thing.ValueOrDie(),
+               absl::StatusCodeToString(absl::StatusCode::kCancelled));
 }
 
 TEST(StatusOrDeathTest, TestPointerValueNotOkConst) {
   const StatusOr<int*> thing(CancelledError(""));
-  EXPECT_DEATH(thing.ValueOrDie(), "ancelled");
+  EXPECT_DEATH(thing.ValueOrDie(),
+               absl::StatusCodeToString(absl::StatusCode::kCancelled));
 }
 
 static StatusOr<int> MakeStatus() { return 100; }

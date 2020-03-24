@@ -30,7 +30,7 @@ class ProtoUtil {
   // Returns an error if 'format' is an unsupported format annotation,
   // or is not valid for <field>.
   // 'field' is optional and is used only for the error message.
-  static zetasql_base::Status CheckIsSupportedFieldFormat(
+  static absl::Status CheckIsSupportedFieldFormat(
       FieldFormat::Format format,
       const google::protobuf::FieldDescriptor* field);
 
@@ -40,7 +40,7 @@ class ProtoUtil {
   // places an array value with any order kind other than "kPreservesOrder" into
   // a repeated proto field 'nondeterministic' will be set to "true". Otherwise
   // 'nondeterministic' is unchanged.
-  static zetasql_base::Status WriteField(const google::protobuf::FieldDescriptor* field_descr,
+  static absl::Status WriteField(const google::protobuf::FieldDescriptor* field_descr,
                                  FieldFormat::Format format, const Value& value,
                                  bool* nondeterministic,
                                  google::protobuf::io::CodedOutputStream* dst);

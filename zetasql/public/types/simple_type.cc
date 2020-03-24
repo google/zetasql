@@ -26,13 +26,13 @@ SimpleType::SimpleType(const TypeFactory* factory, TypeKind kind)
 SimpleType::~SimpleType() {
 }
 
-zetasql_base::Status SimpleType::SerializeToProtoAndDistinctFileDescriptorsImpl(
+absl::Status SimpleType::SerializeToProtoAndDistinctFileDescriptorsImpl(
     TypeProto* type_proto,
     absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
     FileDescriptorSetMap* file_descriptor_set_map)
     const {
   type_proto->set_type_kind(kind_);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 std::string SimpleType::TypeName(ProductMode mode) const {

@@ -382,7 +382,7 @@ class SimpleBuiltinScalarFunction : public BuiltinScalarFunction {
                                        EvaluationContext* context) const = 0;
 
   bool Eval(absl::Span<const Value> args, EvaluationContext* context,
-            Value* result, ::zetasql_base::Status* status) const override {
+            Value* result, absl::Status* status) const override {
     auto status_or_value = Eval(args, context);
     if (!status_or_value.ok()) {
       *status = status_or_value.status();
@@ -441,7 +441,7 @@ class UserDefinedScalarFunction : public ScalarFunctionBody {
         function_name_(function_name) {}
   std::string debug_name() const override;
   bool Eval(absl::Span<const Value> args, EvaluationContext* context,
-            Value* result, ::zetasql_base::Status* status) const override;
+            Value* result, absl::Status* status) const override;
 
  private:
   FunctionEvaluator evaluator_;
@@ -496,42 +496,42 @@ class ArithmeticFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
   bool Eval(absl::Span<const Value> args, EvaluationContext* context,
-            Value* result, ::zetasql_base::Status* status) const override;
+            Value* result, absl::Status* status) const override;
 };
 
 class ComparisonFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
   bool Eval(absl::Span<const Value> args, EvaluationContext* context,
-            Value* result, ::zetasql_base::Status* status) const override;
+            Value* result, absl::Status* status) const override;
 };
 
 class LogicalFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
   bool Eval(absl::Span<const Value> args, EvaluationContext* context,
-            Value* result, ::zetasql_base::Status* status) const override;
+            Value* result, absl::Status* status) const override;
 };
 
 class ExistsFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
   bool Eval(absl::Span<const Value> args, EvaluationContext* context,
-            Value* result, ::zetasql_base::Status* status) const override;
+            Value* result, absl::Status* status) const override;
 };
 
 class ArrayLengthFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
   bool Eval(absl::Span<const Value> args, EvaluationContext* context,
-            Value* result, ::zetasql_base::Status* status) const override;
+            Value* result, absl::Status* status) const override;
 };
 
 class ArrayConcatFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
   bool Eval(absl::Span<const Value> args, EvaluationContext* context,
-            Value* result, ::zetasql_base::Status* status) const override;
+            Value* result, absl::Status* status) const override;
 };
 
 class ArrayToStringFunction : public SimpleBuiltinScalarFunction {
@@ -553,7 +553,7 @@ class IsFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
   bool Eval(absl::Span<const Value> args, EvaluationContext* context,
-            Value* result, ::zetasql_base::Status* status) const override;
+            Value* result, absl::Status* status) const override;
 };
 
 class CastFunction : public SimpleBuiltinScalarFunction {
@@ -568,7 +568,7 @@ class BitCastFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
   bool Eval(absl::Span<const Value> args, EvaluationContext* context,
-            Value* result, ::zetasql_base::Status* status) const override;
+            Value* result, absl::Status* status) const override;
 };
 
 class LikeFunction : public SimpleBuiltinScalarFunction {
@@ -592,7 +592,7 @@ class BitwiseFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
   bool Eval(absl::Span<const Value> args, EvaluationContext* context,
-            Value* result, ::zetasql_base::Status* status) const override;
+            Value* result, absl::Status* status) const override;
 };
 
 class BitCountFunction : public BuiltinScalarFunction {
@@ -600,7 +600,7 @@ class BitCountFunction : public BuiltinScalarFunction {
   BitCountFunction()
       : BuiltinScalarFunction(FunctionKind::kBitCount, types::Int64Type()) {}
   bool Eval(absl::Span<const Value> args, EvaluationContext* context,
-            Value* result, ::zetasql_base::Status* status) const override;
+            Value* result, absl::Status* status) const override;
 };
 
 class ArrayElementFunction : public BuiltinScalarFunction {
@@ -617,7 +617,7 @@ class ArrayElementFunction : public BuiltinScalarFunction {
     CHECK(base_ == 0 || base_ == 1) << base_;
   }
   bool Eval(absl::Span<const Value> args, EvaluationContext* context,
-            Value* result, ::zetasql_base::Status* status) const override;
+            Value* result, absl::Status* status) const override;
 
  protected:
   // This function supports both 0 based offset and 1 based ordinals, the value
@@ -633,7 +633,7 @@ class LeastFunction : public BuiltinScalarFunction {
   explicit LeastFunction(const Type* output_type)
       : BuiltinScalarFunction(FunctionKind::kLeast, output_type) {}
   bool Eval(absl::Span<const Value> args, EvaluationContext* context,
-            Value* result, ::zetasql_base::Status* status) const override;
+            Value* result, absl::Status* status) const override;
 };
 
 class GreatestFunction : public BuiltinScalarFunction {
@@ -642,7 +642,7 @@ class GreatestFunction : public BuiltinScalarFunction {
       : BuiltinScalarFunction(FunctionKind::kGreatest,
                               output_type) {}
   bool Eval(absl::Span<const Value> args, EvaluationContext* context,
-            Value* result, ::zetasql_base::Status* status) const override;
+            Value* result, absl::Status* status) const override;
 };
 
 class ToCodePointsFunction : public SimpleBuiltinScalarFunction {
@@ -683,14 +683,14 @@ class MathFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
   bool Eval(absl::Span<const Value> args, EvaluationContext* context,
-            Value* result, ::zetasql_base::Status* status) const override;
+            Value* result, absl::Status* status) const override;
 };
 
 class StringFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
   bool Eval(absl::Span<const Value> args, EvaluationContext* context,
-            Value* result, ::zetasql_base::Status* status) const override;
+            Value* result, absl::Status* status) const override;
 };
 
 class CaseConverterFunction : public SimpleBuiltinScalarFunction {
@@ -1008,7 +1008,7 @@ class DenseRankFunction : public BuiltinAnalyticFunction {
     return true;
   }
 
-  zetasql_base::Status Eval(const TupleSchema& schema,
+  absl::Status Eval(const TupleSchema& schema,
                     const absl::Span<const TupleData* const>& tuples,
                     const absl::Span<const std::vector<Value>>& args,
                     const absl::Span<const AnalyticWindow>& windows,
@@ -1031,7 +1031,7 @@ class RankFunction : public BuiltinAnalyticFunction {
     return true;
   }
 
-  zetasql_base::Status Eval(const TupleSchema& schema,
+  absl::Status Eval(const TupleSchema& schema,
                     const absl::Span<const TupleData* const>& tuples,
                     const absl::Span<const std::vector<Value>>& args,
                     const absl::Span<const AnalyticWindow>& windows,
@@ -1052,7 +1052,7 @@ class RowNumberFunction : public BuiltinAnalyticFunction {
     return false;
   }
 
-  zetasql_base::Status Eval(const TupleSchema& schema,
+  absl::Status Eval(const TupleSchema& schema,
                     const absl::Span<const TupleData* const>& tuples,
                     const absl::Span<const std::vector<Value>>& args,
                     const absl::Span<const AnalyticWindow>& windows,
@@ -1076,7 +1076,7 @@ class PercentRankFunction : public BuiltinAnalyticFunction {
     return true;
   }
 
-  zetasql_base::Status Eval(const TupleSchema& schema,
+  absl::Status Eval(const TupleSchema& schema,
                     const absl::Span<const TupleData* const>& tuples,
                     const absl::Span<const std::vector<Value>>& args,
                     const absl::Span<const AnalyticWindow>& windows,
@@ -1099,7 +1099,7 @@ class CumeDistFunction : public BuiltinAnalyticFunction {
     return true;
   }
 
-  zetasql_base::Status Eval(const TupleSchema& schema,
+  absl::Status Eval(const TupleSchema& schema,
                     const absl::Span<const TupleData* const>& tuples,
                     const absl::Span<const std::vector<Value>>& args,
                     const absl::Span<const AnalyticWindow>& windows,
@@ -1123,7 +1123,7 @@ class NtileFunction : public BuiltinAnalyticFunction {
 
   bool RequireTupleComparator() const override { return true; }
 
-  zetasql_base::Status Eval(const TupleSchema& schema,
+  absl::Status Eval(const TupleSchema& schema,
                     const absl::Span<const TupleData* const>& tuples,
                     const absl::Span<const std::vector<Value>>& args,
                     const absl::Span<const AnalyticWindow>& windows,
@@ -1158,7 +1158,7 @@ class FirstValueFunction : public BuiltinAnalyticFunction {
 
   bool RequireTupleComparator() const override { return true; }
 
-  zetasql_base::Status Eval(const TupleSchema& schema,
+  absl::Status Eval(const TupleSchema& schema,
                     const absl::Span<const TupleData* const>& tuples,
                     const absl::Span<const std::vector<Value>>& args,
                     const absl::Span<const AnalyticWindow>& windows,
@@ -1185,7 +1185,7 @@ class LastValueFunction : public BuiltinAnalyticFunction {
 
   bool RequireTupleComparator() const override { return true; }
 
-  zetasql_base::Status Eval(const TupleSchema& schema,
+  absl::Status Eval(const TupleSchema& schema,
                     const absl::Span<const TupleData* const>& tuples,
                     const absl::Span<const std::vector<Value>>& args,
                     const absl::Span<const AnalyticWindow>& windows,
@@ -1212,7 +1212,7 @@ class NthValueFunction : public BuiltinAnalyticFunction {
 
   bool RequireTupleComparator() const override { return true; }
 
-  zetasql_base::Status Eval(const TupleSchema& schema,
+  absl::Status Eval(const TupleSchema& schema,
                     const absl::Span<const TupleData* const>& tuples,
                     const absl::Span<const std::vector<Value>>& args,
                     const absl::Span<const AnalyticWindow>& windows,
@@ -1239,7 +1239,7 @@ class LeadFunction : public BuiltinAnalyticFunction {
 
   bool RequireTupleComparator() const override { return true; }
 
-  zetasql_base::Status Eval(const TupleSchema& schema,
+  absl::Status Eval(const TupleSchema& schema,
                     const absl::Span<const TupleData* const>& tuples,
                     const absl::Span<const std::vector<Value>>& args,
                     const absl::Span<const AnalyticWindow>& windows,
@@ -1263,7 +1263,7 @@ class LagFunction : public BuiltinAnalyticFunction {
 
   bool RequireTupleComparator() const override { return true; }
 
-  zetasql_base::Status Eval(const TupleSchema& schema,
+  absl::Status Eval(const TupleSchema& schema,
                     const absl::Span<const TupleData* const>& tuples,
                     const absl::Span<const std::vector<Value>>& args,
                     const absl::Span<const AnalyticWindow>& windows,
@@ -1289,7 +1289,7 @@ class PercentileContFunction : public BuiltinAnalyticFunction {
 
   bool RequireTupleComparator() const override { return false; }
 
-  zetasql_base::Status Eval(const TupleSchema& schema,
+  absl::Status Eval(const TupleSchema& schema,
                     const absl::Span<const TupleData* const>& tuples,
                     const absl::Span<const std::vector<Value>>& args,
                     const absl::Span<const AnalyticWindow>& windows,
@@ -1315,7 +1315,7 @@ class PercentileDiscFunction : public BuiltinAnalyticFunction {
 
   bool RequireTupleComparator() const override { return false; }
 
-  zetasql_base::Status Eval(const TupleSchema& schema,
+  absl::Status Eval(const TupleSchema& schema,
                     const absl::Span<const TupleData* const>& tuples,
                     const absl::Span<const std::vector<Value>>& args,
                     const absl::Span<const AnalyticWindow>& windows,

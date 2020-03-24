@@ -69,7 +69,7 @@ STATIC_IDSTRING(kElementId, "$element");
 STATIC_IDSTRING(kInsertId, "$insert");
 STATIC_IDSTRING(kInsertCastId, "$insert_cast");
 
-zetasql_base::Status Resolver::ResolveDMLTargetTable(
+absl::Status Resolver::ResolveDMLTargetTable(
     const ASTPathExpression* target_path, const ASTAlias* target_path_alias,
     IdString* alias,
     std::unique_ptr<const ResolvedTableScan>* resolved_table_scan,
@@ -98,10 +98,10 @@ zetasql_base::Status Resolver::ResolveDMLTargetTable(
       nullptr /* hints */, nullptr /* systime */, empty_name_scope_.get(),
       resolved_table_scan, name_list));
   ZETASQL_RET_CHECK((*name_list)->HasRangeVariable(*alias));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveDeleteStatement(
+absl::Status Resolver::ResolveDeleteStatement(
     const ASTDeleteStatement* ast_statement,
     std::unique_ptr<ResolvedDeleteStmt>* output) {
   IdString target_alias;
@@ -124,7 +124,7 @@ zetasql_base::Status Resolver::ResolveDeleteStatement(
                                     std::move(resolved_table_scan), output);
 }
 
-zetasql_base::Status Resolver::ResolveDeleteStatementImpl(
+absl::Status Resolver::ResolveDeleteStatementImpl(
     const ASTDeleteStatement* ast_statement, IdString target_alias,
     const NameScope* scope,
     std::unique_ptr<const ResolvedTableScan> resolved_table_scan,
@@ -190,10 +190,10 @@ zetasql_base::Status Resolver::ResolveDeleteStatementImpl(
   *output = MakeResolvedDeleteStmt(
       std::move(resolved_table_scan), std::move(resolved_assert_rows_modified),
       std::move(resolved_array_offset_column), std::move(resolved_where_expr));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveTruncateStatement(
+absl::Status Resolver::ResolveTruncateStatement(
     const ASTTruncateStatement* ast_statement,
     std::unique_ptr<ResolvedTruncateStmt>* output) {
   std::unique_ptr<const ResolvedTableScan> resolved_table_scan;
@@ -218,10 +218,10 @@ zetasql_base::Status Resolver::ResolveTruncateStatement(
 
   *output = MakeResolvedTruncateStmt(std::move(resolved_table_scan),
                                      std::move(resolved_where_expr));
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveInsertValuesRow(
+absl::Status Resolver::ResolveInsertValuesRow(
     const ASTInsertValuesRow* ast_insert_values_row,
     const NameScope* scope,
     const ResolvedColumnList& insert_columns,
@@ -260,10 +260,10 @@ zetasql_base::Status Resolver::ResolveInsertValuesRow(
   }
 
   *output = MakeResolvedInsertRow(std::move(dml_values));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveInsertValuesRow(
+absl::Status Resolver::ResolveInsertValuesRow(
     const ASTNode* ast_location, const ResolvedColumnList& value_columns,
     const ResolvedColumnList& insert_columns,
     std::unique_ptr<const ResolvedInsertRow>* output) {
@@ -296,13 +296,13 @@ zetasql_base::Status Resolver::ResolveInsertValuesRow(
   }
 
   *output = MakeResolvedInsertRow(std::move(dml_values));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // <insert_columns> is the list of columns inserted into the target table.
 // <output_column_list> returns the list of columns produced by <output> that
 // map positionally into <insert_columns>.
-zetasql_base::Status Resolver::ResolveInsertQuery(
+absl::Status Resolver::ResolveInsertQuery(
     const ASTQuery* query, const NameScope* nested_scope,
     const ResolvedColumnList& insert_columns,
     std::unique_ptr<const ResolvedScan>* output,
@@ -372,10 +372,10 @@ zetasql_base::Status Resolver::ResolveInsertQuery(
   ZETASQL_RET_CHECK_EQ(output_column_list->size(), insert_columns.size());
 
   *output = std::move(resolved_query);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveInsertStatement(
+absl::Status Resolver::ResolveInsertStatement(
     const ASTInsertStatement* ast_statement,
     std::unique_ptr<ResolvedInsertStmt>* output) {
   ZETASQL_ASSIGN_OR_RETURN(const ASTPathExpression* target_path,
@@ -470,7 +470,7 @@ zetasql_base::Status Resolver::ResolveInsertStatement(
       /*nested_scope=*/nullptr, output);
 }
 
-zetasql_base::Status Resolver::ResolveInsertStatementImpl(
+absl::Status Resolver::ResolveInsertStatementImpl(
     const ASTInsertStatement* ast_statement,
     std::unique_ptr<const ResolvedTableScan> resolved_table_scan,
     const ResolvedColumnList& insert_columns, const NameScope* nested_scope,
@@ -552,10 +552,10 @@ zetasql_base::Status Resolver::ResolveInsertStatementImpl(
       std::move(query_parameter_list), std::move(resolved_query),
       query_output_column_list, std::move(row_list));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveDMLValue(
+absl::Status Resolver::ResolveDMLValue(
     const ASTExpression* ast_value, const Type* target_type,
     const NameScope* scope, const char* clause_name,
     std::unique_ptr<const ResolvedDMLValue>* output) {
@@ -582,10 +582,10 @@ zetasql_base::Status Resolver::ResolveDMLValue(
   }
 
   *output = MakeResolvedDMLValue(std::move(resolved_value));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveDMLValue(
+absl::Status Resolver::ResolveDMLValue(
     const ASTNode* ast_location, const ResolvedColumn& referenced_column,
     const Type* target_type, std::unique_ptr<const ResolvedDMLValue>* output) {
   std::unique_ptr<const ResolvedExpr> resolved_value =
@@ -604,7 +604,7 @@ zetasql_base::Status Resolver::ResolveDMLValue(
     }
   }
   *output = MakeResolvedDMLValue(std::move(resolved_value));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Returns the path to the target to be updated inside the <ast_update_item>.
@@ -730,7 +730,7 @@ static bool AreFieldPathsOverlapping(const ResolvedExpr* field_path1,
   return IsSameFieldPath(field_path1, field_path2);
 }
 
-zetasql_base::Status Resolver::ResolveUpdateItemList(
+absl::Status Resolver::ResolveUpdateItemList(
     const ASTUpdateItemList* ast_update_item_list, bool is_nested,
     const NameScope* target_scope, const NameScope* update_scope,
     std::vector<std::unique_ptr<const ResolvedUpdateItem>>* update_item_list) {
@@ -747,10 +747,10 @@ zetasql_base::Status Resolver::ResolveUpdateItemList(
     update_item_list->push_back(std::move(update_item.resolved_update_item));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveUpdateItem(
+absl::Status Resolver::ResolveUpdateItem(
     const ASTUpdateItem* ast_update_item, bool is_nested,
     const NameScope* target_scope, const NameScope* update_scope,
     std::vector<UpdateItemAndLocation>* update_items) {
@@ -781,10 +781,10 @@ zetasql_base::Status Resolver::ResolveUpdateItem(
                                       &update_target_infos, &new_update_item));
   update_items->emplace_back(std::move(new_update_item));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::PopulateUpdateTargetInfos(
+absl::Status Resolver::PopulateUpdateTargetInfos(
     const ASTUpdateItem* ast_update_item, bool is_nested,
     const ASTGeneralizedPathExpression* path,
     ExprResolutionInfo* expr_resolution_info,
@@ -810,7 +810,7 @@ zetasql_base::Status Resolver::PopulateUpdateTargetInfos(
         ZETASQL_RETURN_IF_ERROR(VerifyUpdateTargetIsWritable(path, info.target.get()));
       }
       update_target_infos->emplace_back(std::move(info));
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     case AST_DOT_GENERALIZED_FIELD: {
       const auto* dot_generalized_field =
@@ -952,7 +952,7 @@ zetasql_base::Status Resolver::PopulateUpdateTargetInfos(
       UpdateTargetInfo new_info;
       new_info.target = std::move(ref);
       update_target_infos->emplace_back(std::move(new_info));
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     default:
       ZETASQL_RET_CHECK_FAIL() << "Unexpected node kind in PopulateUpdateTargetInfos: "
@@ -960,7 +960,7 @@ zetasql_base::Status Resolver::PopulateUpdateTargetInfos(
   }
 }
 
-zetasql_base::Status Resolver::VerifyUpdateTargetIsWritable(
+absl::Status Resolver::VerifyUpdateTargetIsWritable(
     const ASTNode* ast_location, const ResolvedExpr* target) {
   switch (target->node_kind()) {
     case RESOLVED_COLUMN_REF:
@@ -996,7 +996,7 @@ zetasql_base::StatusOr<bool> Resolver::IsColumnWritable(const ResolvedColumn& co
   return (*catalog_column)->IsWritableColumn();
 }
 
-zetasql_base::Status Resolver::VerifyTableScanColumnIsWritable(
+absl::Status Resolver::VerifyTableScanColumnIsWritable(
     const ASTNode* ast_location, const ResolvedColumn& column,
     const char* statement_type) {
   const zetasql::Column** catalog_column =
@@ -1008,14 +1008,14 @@ zetasql_base::Status Resolver::VerifyTableScanColumnIsWritable(
            << " value on non-writable column: " << (*catalog_column)->Name();
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Verify that the nested statements inside <resolved_update_item> (referencing
 // the same field) are added in the order: DELETE, UPDATE, INSERT.
 // <is_nested_delete> and <is_nested_update> denotes the type of nested
 // statement to be added to <resolved_update_item>.
-static zetasql_base::Status VerifyNestedStatementsOrdering(
+static absl::Status VerifyNestedStatementsOrdering(
     const ASTNode* ast_location,
     const ASTGeneralizedPathExpression* target_path,
     const ResolvedUpdateItem* resolved_update_item, bool is_nested_delete,
@@ -1048,10 +1048,10 @@ static zetasql_base::Status VerifyNestedStatementsOrdering(
              << err_message_suffix;
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ShouldMergeWithUpdateItem(
+absl::Status Resolver::ShouldMergeWithUpdateItem(
     const ASTUpdateItem* ast_update_item,
     const std::vector<UpdateTargetInfo>& update_target_infos,
     const UpdateItemAndLocation& update_item, bool* merge) {
@@ -1070,7 +1070,7 @@ zetasql_base::Status Resolver::ShouldMergeWithUpdateItem(
              << GeneralizedPathAsString(update_item.one_target_path);
     }
 
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   const bool ast_is_set_value = ast_update_item->set_value() != nullptr;
@@ -1167,10 +1167,10 @@ zetasql_base::Status Resolver::ShouldMergeWithUpdateItem(
   }
 
   *merge = true;
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::MergeWithUpdateItem(
+absl::Status Resolver::MergeWithUpdateItem(
     const NameScope* update_scope, const ASTUpdateItem* ast_input_update_item,
     std::vector<UpdateTargetInfo>* input_update_target_infos,
     UpdateItemAndLocation* merged_update_item) {
@@ -1402,10 +1402,10 @@ zetasql_base::Status Resolver::MergeWithUpdateItem(
     }
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveUpdateStatement(
+absl::Status Resolver::ResolveUpdateStatement(
     const ASTUpdateStatement* ast_statement,
     std::unique_ptr<ResolvedUpdateStmt>* output) {
   ZETASQL_ASSIGN_OR_RETURN(const ASTPathExpression* target_path,
@@ -1465,7 +1465,7 @@ zetasql_base::Status Resolver::ResolveUpdateStatement(
       std::move(resolved_from_scan), output);
 }
 
-zetasql_base::Status Resolver::ResolveUpdateStatementImpl(
+absl::Status Resolver::ResolveUpdateStatementImpl(
     const ASTUpdateStatement* ast_statement, bool is_nested,
     IdString target_alias, const NameScope* target_scope,
     const NameScope* update_scope,
@@ -1546,10 +1546,10 @@ zetasql_base::Status Resolver::ResolveUpdateStatementImpl(
       std::move(resolved_table_scan), std::move(resolved_assert_rows_modified),
       std::move(resolved_array_offset_column), std::move(resolved_where_expr),
       std::move(update_item_list), std::move(resolved_from_scan));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveMergeStatement(
+absl::Status Resolver::ResolveMergeStatement(
     const ASTMergeStatement* statement,
     std::unique_ptr<ResolvedMergeStmt>* output) {
   const ASTPathExpression* target_path = statement->target_path();
@@ -1616,10 +1616,10 @@ zetasql_base::Status Resolver::ResolveMergeStatement(
       std::move(resolved_target_table_scan), std::move(resolved_from_scan),
       std::move(resolved_merge_condition_expr), std::move(when_clause_list));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveMergeWhenClauseList(
+absl::Status Resolver::ResolveMergeWhenClauseList(
     const ASTMergeWhenClauseList* when_clause_list,
     const IdStringHashMapCase<ResolvedColumn>* target_table_columns,
     const NameScope* target_name_scope, const NameScope* source_name_scope,
@@ -1711,10 +1711,10 @@ zetasql_base::Status Resolver::ResolveMergeWhenClauseList(
         std::move(resolved_update_item_list)));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveMergeUpdateAction(
+absl::Status Resolver::ResolveMergeUpdateAction(
     const ASTUpdateItemList* update_item_list,
     const NameScope* target_name_scope, const NameScope* all_name_scope,
     std::vector<std::unique_ptr<const ResolvedUpdateItem>>*
@@ -1737,10 +1737,10 @@ zetasql_base::Status Resolver::ResolveMergeUpdateAction(
                                         target_name_scope, all_name_scope,
                                         resolved_update_item_list));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveMergeInsertAction(
+absl::Status Resolver::ResolveMergeInsertAction(
     const ASTMergeAction* merge_action,
     const IdStringHashMapCase<ResolvedColumn>* target_table_columns,
     const NameScope* target_name_scope, const NameScope* all_name_scope,
@@ -1834,10 +1834,10 @@ zetasql_base::Status Resolver::ResolveMergeInsertAction(
   RecordColumnAccess(*resolved_insert_column_list,
                      ResolvedStatement::WRITE);
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveAssertRowsModified(
+absl::Status Resolver::ResolveAssertRowsModified(
     const ASTAssertRowsModified* ast_node,
     std::unique_ptr<const ResolvedAssertRowsModified>* output) {
   ZETASQL_RET_CHECK(ast_node != nullptr);
@@ -1850,7 +1850,7 @@ zetasql_base::Status Resolver::ResolveAssertRowsModified(
       "ASSERT_ROWS_MODIFIED" /* clause_name */, ast_node->num_rows(),
       &resolved_expr));
   *output = MakeResolvedAssertRowsModified(std::move(resolved_expr));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

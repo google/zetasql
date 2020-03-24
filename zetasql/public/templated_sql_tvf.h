@@ -82,10 +82,10 @@ class TemplatedSQLTVF : public TableValuedFunction {
     allow_query_parameters_ = allow;
   }
 
-  zetasql_base::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
+  absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
                          TableValuedFunctionProto* proto) const override;
 
-  static zetasql_base::Status Deserialize(
+  static absl::Status Deserialize(
       const TableValuedFunctionProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory, std::unique_ptr<TableValuedFunction>* result);
@@ -102,7 +102,7 @@ class TemplatedSQLTVF : public TableValuedFunction {
   // TemplatedSQLTVFSignature. Otherwise, if this analysis fails, this method
   // instead sets the error_* fields in 'output_tvf_call' with information
   // about the error that occurred.
-  zetasql_base::Status Resolve(
+  absl::Status Resolve(
       const AnalyzerOptions* analyzer_options,
       const std::vector<TVFInputArgumentType>& input_arguments,
       const FunctionSignature& concrete_signature, Catalog* catalog,
@@ -116,7 +116,7 @@ class TemplatedSQLTVF : public TableValuedFunction {
  private:
   // Performs some quick sanity checks on the function signature before starting
   // nested analysis.
-  zetasql_base::Status CheckIsValid() const;
+  absl::Status CheckIsValid() const;
 
   // This is a helper method when parsing or analyzing the table function's
   // SQL expression body.  If 'status' is OK, also returns OK. Otherwise,
@@ -125,13 +125,13 @@ class TemplatedSQLTVF : public TableValuedFunction {
   // TODO: Remove ErrorMessageMode, once we consistently always save
   // these status objects with payload, and only produce the mode-versioned
   // status when fetched through FindXXX() calls?
-  zetasql_base::Status ForwardNestedResolutionAnalysisError(
-      const zetasql_base::Status& status, ErrorMessageMode mode) const;
+  absl::Status ForwardNestedResolutionAnalysisError(
+      const absl::Status& status, ErrorMessageMode mode) const;
 
   // Returns a new error reporting a failed expectation of the sql_body_
   // (for example, if it is a CREATE TABLE instead of a SELECT statement).
   // If 'message' is not empty, appends it to the end of the error string.
-  zetasql_base::Status MakeTVFQueryAnalysisError(const std::string& message = "") const;
+  absl::Status MakeTVFQueryAnalysisError(const std::string& message = "") const;
 
   // If non-NULL, this Catalog is used when the Resolve() method is called
   // to resolve the TVF expression for given arguments.

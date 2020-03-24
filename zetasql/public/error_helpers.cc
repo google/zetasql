@@ -17,6 +17,7 @@
 #include "zetasql/public/error_helpers.h"
 
 #include <ctype.h>
+
 #include <algorithm>
 
 #include "zetasql/base/logging.h"
@@ -25,6 +26,7 @@
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "absl/strings/cord.h"  
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/substitute.h"
@@ -106,8 +108,8 @@ std::string FormatErrorSource(const ErrorSource& error_source,
   return message;
 }
 
-std::string FormatError(const zetasql_base::Status& status) {
-  if (status.code() != zetasql_base::StatusCode::kInvalidArgument) {
+std::string FormatError(const absl::Status& status) {
+  if (status.code() != absl::StatusCode::kInvalidArgument) {
     return internal::StatusToString(status);
   }
 
@@ -123,7 +125,7 @@ std::string FormatError(const zetasql_base::Status& status) {
           " ", FormatErrorLocation(location, /*input_text=*/"",
                                    ErrorMessageMode::ERROR_MESSAGE_ONE_LINE));
 
-      zetasql_base::Status stripped_status = status;
+      absl::Status stripped_status = status;
 
       internal::ErasePayloadTyped<ErrorLocation>(&stripped_status);
       payload_string = internal::PayloadToString(stripped_status);
@@ -145,11 +147,11 @@ std::string FormatError(const zetasql_base::Status& status) {
   return message;
 }
 
-bool HasErrorLocation(const zetasql_base::Status& status) {
+bool HasErrorLocation(const absl::Status& status) {
   return internal::HasPayloadWithType<ErrorLocation>(status);
 }
 
-bool GetErrorLocation(const zetasql_base::Status& status, ErrorLocation* location) {
+bool GetErrorLocation(const absl::Status& status, ErrorLocation* location) {
   if (HasErrorLocation(status)) {
     *location = internal::GetPayload<ErrorLocation>(status);
     return true;
@@ -157,7 +159,7 @@ bool GetErrorLocation(const zetasql_base::Status& status, ErrorLocation* locatio
   return false;
 }
 
-void ClearErrorLocation(zetasql_base::Status* status) {
+void ClearErrorLocation(absl::Status* status) {
   return internal::ErasePayloadTyped<ErrorLocation>(status);
 }
 
@@ -257,7 +259,7 @@ std::string GetErrorStringWithCaret(absl::string_view input,
 
 // Updates the <status> error string based on <input_text> and <mode>.
 // See header comment for MaybeUpdateErrorFromPayload for details.
-static zetasql_base::Status UpdateErrorFromPayload(const zetasql_base::Status& status,
+static absl::Status UpdateErrorFromPayload(const absl::Status& status,
                                            absl::string_view input_text,
                                            ErrorMessageMode mode) {
   if (mode == ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD) {
@@ -279,7 +281,7 @@ static zetasql_base::Status UpdateErrorFromPayload(const zetasql_base::Status& s
           zetasql_base::Status(status.code(), new_message);
       // Copy payloads
       status.ForEachPayload([&new_status](
-          absl::string_view type_url, zetasql_base::StatusCord payload) {
+          absl::string_view type_url, const absl::Cord& payload) {
         new_status.SetPayload(type_url, payload);});
       ClearErrorLocation(&new_status);
       return new_status;
@@ -288,9 +290,9 @@ static zetasql_base::Status UpdateErrorFromPayload(const zetasql_base::Status& s
   return status;
 }
 
-zetasql_base::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
+absl::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
                                          absl::string_view input_text,
-                                         const zetasql_base::Status& status) {
+                                         const absl::Status& status) {
   ZETASQL_RET_CHECK(!internal::HasPayloadWithType<InternalErrorLocation>(status))
       << "Status must not have InternalErrorLocation: "
       << internal::StatusToString(status);
@@ -304,8 +306,8 @@ zetasql_base::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
   return UpdateErrorFromPayload(status, input_text, mode);
 }
 
-zetasql_base::Status UpdateErrorLocationPayloadWithFilenameIfNotPresent(
-    const zetasql_base::Status& status, const std::string& filename) {
+absl::Status UpdateErrorLocationPayloadWithFilenameIfNotPresent(
+    const absl::Status& status, const std::string& filename) {
   ErrorLocation error_location;
   if (filename.empty() || !GetErrorLocation(status, &error_location)) {
     return status;
@@ -318,7 +320,7 @@ zetasql_base::Status UpdateErrorLocationPayloadWithFilenameIfNotPresent(
   // 'module_filename'.
   error_location.set_filename(filename);
 
-  zetasql_base::Status copy = status;
+  absl::Status copy = status;
   ClearErrorLocation(&copy);
   internal::AttachPayload(&copy, error_location);
   return copy;

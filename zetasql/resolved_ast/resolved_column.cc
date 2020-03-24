@@ -43,7 +43,7 @@ std::string ResolvedColumn::ShortDebugString() const {
   return absl::StrCat(name_.ToStringView(), "#", column_id_);
 }
 
-zetasql_base::Status ResolvedColumn::SaveTo(
+absl::Status ResolvedColumn::SaveTo(
     FileDescriptorSetMap* file_descriptor_set_map,
     ResolvedColumnProto* proto) const {
   // Consider serializing ResolvedColumn in a separate table, indexed by

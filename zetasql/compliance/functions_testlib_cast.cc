@@ -48,7 +48,7 @@
 namespace zetasql {
 
 namespace {
-constexpr zetasql_base::StatusCode OUT_OF_RANGE = zetasql_base::StatusCode::kOutOfRange;
+constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 }  // namespace
 
 static google::protobuf::DescriptorPoolDatabase* s_descriptor_pool_database_ = nullptr;
@@ -543,8 +543,8 @@ struct CivilTimeCastTestCase : CivilTimeTestCase {
       : CivilTimeTestCase({input}, micros_output, nanos_output, output_type) {}
 };
 
-static zetasql_base::Status CivilTimeCastEvalError() {
-  return zetasql_base::Status(zetasql_base::StatusCode::kOutOfRange, "Civil time cast failed");
+static absl::Status CivilTimeCastEvalError() {
+  return absl::Status(absl::StatusCode::kOutOfRange, "Civil time cast failed");
 }
 
 static void AddInvalidTimeAndDatetimeCastFromStringTestCases(
@@ -2257,7 +2257,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsSafeCast() {
     for (const auto& each : test.results()) {
       const FeatureSet& feature_set = each.first;
       const Result& result_struct = each.second;
-      const ::zetasql_base::Status& status = result_struct.status;
+      const absl::Status& status = result_struct.status;
 
       // Reuses all the CAST tests for SAFE_CAST.
       // For tests with OUT_OF_RANGE errors, makes a test that expects NULL
@@ -2292,7 +2292,7 @@ GetFunctionTestsCastBetweenDifferentArrayTypes(bool arrays_with_nulls) {
     for (const auto& test_result : test.results()) {
       const QueryParamsWithResult::FeatureSet& feature_set = test_result.first;
       const QueryParamsWithResult::Result& result = test_result.second;
-      const zetasql_base::Status& status = result.status;
+      const absl::Status& status = result.status;
 
       const Value& cast_value = test.param(0);
       const Value& result_value = result.result;
@@ -2313,7 +2313,7 @@ GetFunctionTestsCastBetweenDifferentArrayTypes(bool arrays_with_nulls) {
                  feature_set.count(FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES));
         tests.push_back(QueryParamsWithResult(
             {from_array},
-            {{feature_set, {to_array, ::zetasql_base::INVALID_ARGUMENT}},
+            {{feature_set, {to_array, absl::StatusCode::kInvalidArgument}},
              {{zetasql_base::STLSetUnion(feature_set,
                                 {FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES})},
               {to_array, status}}}));
@@ -2327,10 +2327,11 @@ GetFunctionTestsCastBetweenDifferentArrayTypes(bool arrays_with_nulls) {
     const Value another_null_array = Value::Null(Int64ArrayType());
 
     tests.push_back(QueryParamsWithResult(
-        {null_array}, {{QueryParamsWithResult::kEmptyFeatureSet,
-                        {another_null_array, ::zetasql_base::INVALID_ARGUMENT}},
-                       {{FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES},
-                        {another_null_array, ::zetasql_base::OkStatus()}}}));
+        {null_array},
+        {{QueryParamsWithResult::kEmptyFeatureSet,
+          {another_null_array, absl::StatusCode::kInvalidArgument}},
+         {{FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES},
+          {another_null_array, absl::OkStatus()}}}));
   }
 
   return tests;

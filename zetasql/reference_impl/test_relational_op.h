@@ -34,10 +34,10 @@ class TestRelationalOp : public RelationalOp {
   TestRelationalOp(const TestRelationalOp&) = delete;
   TestRelationalOp& operator=(const TestRelationalOp&) = delete;
 
-  ::zetasql_base::Status SetSchemasForEvaluation(
+  absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override {
     // Eval() ignores the parameters.
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   ::zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
@@ -51,7 +51,7 @@ class TestRelationalOp : public RelationalOp {
 
     std::unique_ptr<TupleIterator> iter = absl::make_unique<TestTupleIterator>(
         variables_, iter_values, preserves_order_,
-        /*end_status=*/zetasql_base::OkStatus());
+        /*end_status=*/absl::OkStatus());
     return iter;
   }
 

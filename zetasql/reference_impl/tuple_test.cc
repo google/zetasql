@@ -219,7 +219,7 @@ TEST_F(ConcatTuplesTest, IgnoreExtraSlots) {
 
 TEST(MemoryAccountant, BasicTest) {
   MemoryAccountant accountant(/*total_num_bytes=*/100);
-  zetasql_base::Status status;
+  absl::Status status;
 
   EXPECT_TRUE(accountant.RequestBytes(50, &status));
   ZETASQL_EXPECT_OK(status);
@@ -238,9 +238,9 @@ TEST(MemoryAccountant, BasicTest) {
   EXPECT_EQ(accountant.remaining_bytes(), 0);
 
   EXPECT_FALSE(accountant.RequestBytes(1, &status));
-  EXPECT_THAT(status, StatusIs(zetasql_base::StatusCode::kResourceExhausted));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kResourceExhausted));
   EXPECT_EQ(accountant.remaining_bytes(), 0);
-  status = zetasql_base::OkStatus();
+  status = absl::OkStatus();
 
   accountant.ReturnBytes(50);
   EXPECT_EQ(accountant.remaining_bytes(), 50);
@@ -253,7 +253,7 @@ TEST(MemoryAccountant, BasicTest) {
   EXPECT_EQ(accountant.remaining_bytes(), 50);
 
   EXPECT_FALSE(accountant.RequestBytes(51, &status));
-  EXPECT_THAT(status, StatusIs(zetasql_base::StatusCode::kResourceExhausted));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kResourceExhausted));
   EXPECT_EQ(accountant.remaining_bytes(), 50);
 
   // Bring 'accountant' back to 100 bytes so we can destroy it.
@@ -275,9 +275,9 @@ TEST(TupleDataDeque, PushAndPopTest) {
 
     TupleData data = CreateTupleDataFromValues({Int64(num_tuples)});
 
-    zetasql_base::Status status;
+    absl::Status status;
     if (!deque.PushBack(absl::make_unique<TupleData>(data), &status)) {
-      ASSERT_THAT(status, StatusIs(zetasql_base::StatusCode::kResourceExhausted));
+      ASSERT_THAT(status, StatusIs(absl::StatusCode::kResourceExhausted));
       EXPECT_EQ(remaining_bytes, accountant.remaining_bytes());
       break;
     }
@@ -322,7 +322,7 @@ TEST(TupleDataDeque, DestructorTest) {
   {
     TupleDataDeque deque(&accountant);
     TupleData data = CreateTupleDataFromValues({Int64(10)});
-    zetasql_base::Status status;
+    absl::Status status;
     ASSERT_TRUE(deque.PushBack(absl::make_unique<TupleData>(data), &status));
     ASSERT_TRUE(deque.PushBack(absl::make_unique<TupleData>(data), &status));
     ASSERT_TRUE(deque.PushBack(absl::make_unique<TupleData>(data), &status));
@@ -340,7 +340,7 @@ TEST(TupleDataDeque, SetSlotTest) {
   for (int i = 0; i < num_tuples; ++i) {
     TupleData data(/*num_slots=*/2);
     data.mutable_slot(0)->SetValue(Int64(i));
-    zetasql_base::Status status;
+    absl::Status status;
     ASSERT_TRUE(deque.PushBack(absl::make_unique<TupleData>(data), &status));
   }
 
@@ -439,9 +439,9 @@ TEST(TupleDataOrderedQueue, InsertAndPopTest) {
       TupleData data = CreateTupleDataFromValues({Int64(num_tuples)});
 
       // The queue should reverse the order of the tuples.
-      zetasql_base::Status status;
+      absl::Status status;
       if (!q.Insert(absl::make_unique<TupleData>(data), &status)) {
-        ASSERT_THAT(status, StatusIs(zetasql_base::StatusCode::kResourceExhausted));
+        ASSERT_THAT(status, StatusIs(absl::StatusCode::kResourceExhausted));
         EXPECT_EQ(remaining_bytes, accountant.remaining_bytes());
         break;
       }
@@ -493,7 +493,7 @@ TEST(TupleDataOrderedQueue, DestructorTest) {
 
     TupleDataOrderedQueue q(*comparator, &accountant);
     TupleData data = CreateTupleDataFromValues({Int64(10)});
-    zetasql_base::Status status;
+    absl::Status status;
     ASSERT_TRUE(q.Insert(absl::make_unique<TupleData>(data), &status));
     ASSERT_TRUE(q.Insert(absl::make_unique<TupleData>(data), &status));
     ASSERT_TRUE(q.Insert(absl::make_unique<TupleData>(data), &status));
@@ -509,9 +509,9 @@ TEST(ValueHashSet, BasicTest) {
   int num_tuples = 0;
   while (true) {
     bool inserted;
-    zetasql_base::Status status;
+    absl::Status status;
     if (!set.Insert(Int64(num_tuples), &inserted, &status)) {
-      EXPECT_THAT(status, StatusIs(zetasql_base::StatusCode::kResourceExhausted));
+      EXPECT_THAT(status, StatusIs(absl::StatusCode::kResourceExhausted));
       EXPECT_FALSE(inserted);
       break;
     }
@@ -524,13 +524,13 @@ TEST(ValueHashSet, BasicTest) {
   for (int i = 0; i <= num_tuples; ++i) {
     const Value value = Int64(i);
     bool inserted;
-    zetasql_base::Status status;
+    absl::Status status;
     if (i < num_tuples) {
       EXPECT_TRUE(set.Insert(value, &inserted, &status));
       EXPECT_FALSE(inserted);
     } else {
       EXPECT_FALSE(set.Insert(value, &inserted, &status));
-      EXPECT_THAT(status, StatusIs(zetasql_base::StatusCode::kResourceExhausted));
+      EXPECT_THAT(status, StatusIs(absl::StatusCode::kResourceExhausted));
     }
   }
 
@@ -544,7 +544,7 @@ TEST(ValueHashSet, DestructorTest) {
     ValueHashSet set(&accountant);
     for (int i = 0; i <= 3; ++i) {
       bool inserted;
-      zetasql_base::Status status;
+      absl::Status status;
       EXPECT_TRUE(set.Insert(Int64(i), &inserted, &status));
       EXPECT_TRUE(inserted);
     }
@@ -569,7 +569,7 @@ TEST(ReorderingTupleIterator, BasicTest) {
         data.push_back(CreateTupleDataFromValues({value}));
       }
 
-      zetasql_base::Status expected_end_status;
+      absl::Status expected_end_status;
       if (error) {
         expected_end_status = zetasql_base::OutOfRangeErrorBuilder()
                               << "Some evaluation error";
@@ -584,7 +584,7 @@ TEST(ReorderingTupleIterator, BasicTest) {
       EXPECT_EQ(iter->DebugString(),
                 "ReorderingTupleIterator(TestTupleIterator)");
 
-      zetasql_base::Status end_status;
+      absl::Status end_status;
       std::vector<TupleData> output_data =
           ReadFromTupleIteratorFull(iter.get(), &end_status);
       EXPECT_EQ(end_status, expected_end_status);
@@ -611,7 +611,7 @@ TEST(ReorderingTupleIterator, DisableReordering) {
   }
   std::unique_ptr<TupleIterator> iter = absl::make_unique<TestTupleIterator>(
       std::vector<VariableId>{VariableId("foo")}, values,
-      /*preserves_order=*/true, zetasql_base::OkStatus());
+      /*preserves_order=*/true, absl::OkStatus());
 
   iter = absl::make_unique<ReorderingTupleIterator>(std::move(iter));
   EXPECT_FALSE(iter->PreservesOrder());
@@ -636,7 +636,7 @@ TEST(ReorderingTupleIterator, DisableReorderingFailsAfterNext) {
   }
   std::unique_ptr<TupleIterator> iter = absl::make_unique<TestTupleIterator>(
       std::vector<VariableId>{VariableId("foo")}, values,
-      /*preserves_order=*/true, zetasql_base::OkStatus());
+      /*preserves_order=*/true, absl::OkStatus());
 
   iter = absl::make_unique<ReorderingTupleIterator>(std::move(iter));
   EXPECT_FALSE(iter->PreservesOrder());
@@ -644,7 +644,7 @@ TEST(ReorderingTupleIterator, DisableReorderingFailsAfterNext) {
   ASSERT_TRUE(data != nullptr);
   EXPECT_THAT(
       iter->DisableReordering(),
-      StatusIs(zetasql_base::INTERNAL,
+      StatusIs(absl::StatusCode::kInternal,
                HasSubstr("DisableReordering() cannot be called after Next()")));
 }
 
@@ -665,15 +665,15 @@ TEST(PassThroughTupleIterator, FactoryFails) {
   ZETASQL_EXPECT_OK(iter.Status());
   const TupleData* data = iter.Next();
   EXPECT_TRUE(data == nullptr);
-  EXPECT_THAT(iter.Status(),
-              StatusIs(zetasql_base::INTERNAL, "Iterator factory failure"));
+  EXPECT_THAT(iter.Status(), StatusIs(absl::StatusCode::kInternal,
+                                      "Iterator factory failure"));
 }
 
 TEST(PassThroughTupleIterator, IteratorFails) {
   VariableId foo("foo"), bar("bar");
   const TupleSchema schema({foo, bar});
   PassThroughTupleIterator::IteratorFactory iterator_factory = [&schema]() {
-    zetasql_base::Status iterator_failure = zetasql_base::InternalErrorBuilder()
+    absl::Status iterator_failure = zetasql_base::InternalErrorBuilder()
                                     << "Iterator failure";
     auto iter = absl::make_unique<TestTupleIterator>(
         schema.variables(), std::vector<TupleData>(),
@@ -692,7 +692,7 @@ TEST(PassThroughTupleIterator, IteratorFails) {
   const TupleData* data = iter.Next();
   EXPECT_TRUE(data == nullptr);
   EXPECT_THAT(iter.Status(),
-              StatusIs(zetasql_base::INTERNAL, "Iterator failure"));
+              StatusIs(absl::StatusCode::kInternal, "Iterator failure"));
 }
 
 TEST(PassThroughTupleIterator, Success) {
@@ -705,7 +705,7 @@ TEST(PassThroughTupleIterator, Success) {
                                                                 &values]() {
     auto iter = absl::make_unique<TestTupleIterator>(
         schema.variables(), values,
-        /*preserves_order=*/true, /*end_status=*/zetasql_base::OkStatus());
+        /*preserves_order=*/true, /*end_status=*/absl::OkStatus());
     return zetasql_base::StatusOr<std::unique_ptr<TupleIterator>>(std::move(iter));
   };
   PassThroughTupleIterator::DebugStringFactory string_factory = [] {

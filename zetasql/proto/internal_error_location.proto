@@ -25,7 +25,7 @@ import "zetasql/public/error_location.proto";
 
 // Serialized form of ParseLocationPoint, only to be used inside the
 // ZetaSQL library to attach an error location in internal form to a
-// util::Status. This should never leave the library: externally we should
+// absl::Status. This should never leave the library: externally we should
 // attach an ErrorLocation proto.
 message InternalErrorLocation {
   optional int32 byte_offset = 3;

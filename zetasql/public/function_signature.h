@@ -422,13 +422,13 @@ class FunctionArgumentType {
   // ParseLocationRangeProto as string_view.
   // TODO Add support for storing filename as string in
   // ParseLocationPoint.
-  static zetasql_base::Status Deserialize(
+  static absl::Status Deserialize(
       const FunctionArgumentTypeProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory,
       std::unique_ptr<FunctionArgumentType>* result);
 
-  zetasql_base::Status Serialize(
+  absl::Status Serialize(
       FileDescriptorSetMap* file_descriptor_set_map,
       FunctionArgumentTypeProto* proto) const;
 
@@ -498,7 +498,7 @@ class FunctionArgumentType {
   std::string UserFacingNameWithCardinality(ProductMode product_mode) const;
 
   // Checks concrete arguments to validate the number of occurrences.
-  zetasql_base::Status IsValid() const;
+  absl::Status IsValid() const;
 
   // If verbose is true, include FunctionOptions modifiers.
   std::string DebugString(bool verbose = false) const;
@@ -598,7 +598,7 @@ class FunctionSignatureOptions {
   bool CheckFunctionSignatureConstraints(
       const std::vector<InputArgumentType>& arguments) const;
 
-  static zetasql_base::Status Deserialize(
+  static absl::Status Deserialize(
       const FunctionSignatureOptionsProto& proto,
       std::unique_ptr<FunctionSignatureOptions>* result);
 
@@ -673,13 +673,13 @@ class FunctionSignature {
 
   ~FunctionSignature() {}
 
-  static zetasql_base::Status Deserialize(
+  static absl::Status Deserialize(
       const FunctionSignatureProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory,
       std::unique_ptr<FunctionSignature>* result);
 
-  zetasql_base::Status Serialize(
+  absl::Status Serialize(
       FileDescriptorSetMap* file_descriptor_set_map,
       FunctionSignatureProto* proto) const;
 
@@ -742,18 +742,18 @@ class FunctionSignature {
   // arguments appear at the end.  There may be required arguments before
   // the repeated arguments, and there may be required arguments between the
   // repeated and optional arguments.
-  zetasql_base::Status IsValid() const;
+  absl::Status IsValid() const;
 
   // Checks specific invariants for the argument and return types for regular
   // function calls or table-valued function calls. The latter may use relation
   // types (returning true for FunctionArgumentType::IsRelation()) but the
   // former may not.
-  zetasql_base::Status IsValidForFunction() const;
-  zetasql_base::Status IsValidForTableValuedFunction() const;
+  absl::Status IsValidForFunction() const;
+  absl::Status IsValidForTableValuedFunction() const;
 
   // Checks if this signature is valid for Procedure.
   // Procedure may only have fixed required arguments.
-  zetasql_base::Status IsValidForProcedure() const;
+  absl::Status IsValidForProcedure() const;
 
   // Gets the first or last repeated argument index.  If there are no repeated
   // arguments then returns -1.

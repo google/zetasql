@@ -37,7 +37,7 @@ namespace zetasql {
 class ValueConstructor;
 
 // Represents the inputs and expected output of a query. If the expected
-// 'result' is a value, 'status' must be set to zetasql_base::Status::OK. Otherwise,
+// 'result' is a value, 'status' must be set to absl::Status::OK. Otherwise,
 // 'result' must be set to the NULL value of the proper result type.
 // 'status' should be set to OUT_OF_RANGE to indicate execution errors, or
 // INVALID_ARGUMENT to indicate analysis errors.
@@ -53,29 +53,29 @@ class QueryParamsWithResult {
  public:
   struct Result {
     Value result;
-    zetasql_base::Status status;
+    absl::Status status;
     FloatMargin float_margin = kExactFloatMargin;
 
     explicit Result(const ValueConstructor& result_in);
 
     Result(const ValueConstructor& result_in, FloatMargin float_margin_in);
 
-    Result(const ValueConstructor& result_in, zetasql_base::StatusCode code);
+    Result(const ValueConstructor& result_in, absl::StatusCode code);
 
-    Result(const ValueConstructor& result_in, const zetasql_base::Status& status_in);
+    Result(const ValueConstructor& result_in, const absl::Status& status_in);
   };
 
   // Constructs an instance that contains a single result.
   QueryParamsWithResult(const std::vector<ValueConstructor>& arguments,
                         const ValueConstructor& result,
-                        zetasql_base::Status status = ::zetasql_base::OkStatus());
+                        absl::Status status = absl::OkStatus());
 
   QueryParamsWithResult(const std::vector<ValueConstructor>& arguments,
                         const ValueConstructor& result,
                         FloatMargin float_margin_arg);
 
   QueryParamsWithResult(const std::vector<ValueConstructor>& arguments,
-                        const ValueConstructor& result, zetasql_base::StatusCode code);
+                        const ValueConstructor& result, absl::StatusCode code);
 
   QueryParamsWithResult(const std::vector<ValueConstructor>& arguments,
                         const ValueConstructor& result,
@@ -119,7 +119,7 @@ class QueryParamsWithResult {
   // Accessors for the common case where there is only one feature set and it is
   // empty. Otherwise, it is a fatal error to call these accessors.
   const Value& result() const;
-  const zetasql_base::Status& status() const;
+  const absl::Status& status() const;
   const FloatMargin& float_margin() const;
 
   // Accessor/setter for the ResultMap. We do not allow mutating the ResultMap
@@ -154,7 +154,7 @@ class QueryParamsWithResult {
  private:
   // Accessors to the fields mapped to a 'feature_set'.
   const Value& result(const FeatureSet& feature_set) const;
-  const zetasql_base::Status& status(const FeatureSet& feature_set) const;
+  const absl::Status& status(const FeatureSet& feature_set) const;
   const FloatMargin& float_margin(const FeatureSet& feature_set) const;
 
   std::vector<Value> params_;
@@ -179,7 +179,7 @@ struct FunctionTestCall {
 
   FunctionTestCall(absl::string_view function_name,
                    const std::vector<ValueConstructor>& arguments,
-                   const ValueConstructor& result, zetasql_base::StatusCode code);
+                   const ValueConstructor& result, absl::StatusCode code);
 
   FunctionTestCall(absl::string_view function_name_in,
                    const std::vector<ValueConstructor>& arguments_in,

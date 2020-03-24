@@ -146,7 +146,7 @@ class AnalyticFunctionResolver {
 
   // Populates <named_window_info_map_> using the named windows in
   // <window_clause>.
-  zetasql_base::Status SetWindowClause(const ASTWindowClause& window_clause);
+  absl::Status SetWindowClause(const ASTWindowClause& window_clause);
 
   // Releases ownership of <named_window_info_map_>.
   NamedWindowInfoMap* ReleaseNamedWindowInfoMap();
@@ -163,7 +163,7 @@ class AnalyticFunctionResolver {
   // ResolvedAnalyticFunctionCall and resolved expressions for PARTITION BY
   // and ORDER BY are stored in <analytic_function_groups_>.
   // Note that the argument list in <resolved_function_call> will be released.
-  zetasql_base::Status ResolveOverClauseAndCreateAnalyticColumn(
+  absl::Status ResolveOverClauseAndCreateAnalyticColumn(
       const ASTAnalyticFunctionCall* ast_analytic_function_call,
       ResolvedFunctionCall* resolved_function_call,
       ExprResolutionInfo* expr_resolution_info,
@@ -177,7 +177,7 @@ class AnalyticFunctionResolver {
   // reference columns created for partitioning or ordering expressions by
   // the wrapper ProjectScan if the partitioning or ordering expressions
   // originally reference SELECT-list columns.
-  zetasql_base::Status CreateAnalyticScan(
+  absl::Status CreateAnalyticScan(
       QueryResolutionInfo* query_resolution_info,
       std::unique_ptr<const ResolvedScan>* scan);
 
@@ -269,7 +269,7 @@ class AnalyticFunctionResolver {
 
   // Populates <flattened_window_info> with inherited window clauses and
   // update s the grouping window from the referenced window.
-  zetasql_base::Status ExtractWindowInfoFromReferencedWindow(
+  absl::Status ExtractWindowInfoFromReferencedWindow(
       FlattenedWindowInfo* flattened_window_info) const;
 
   // Checks whether <window_spec> has a conflicting clause with the referenced
@@ -278,13 +278,13 @@ class AnalyticFunctionResolver {
   // a conflict occurs.  For example, if referenced window B contains an ORDER
   // BY clause, then any referencing window A can only have a window frame -- it
   // cannot have PARTITION BY or ORDER BY.
-  zetasql_base::Status CheckForConflictsWithReferencedWindow(
+  absl::Status CheckForConflictsWithReferencedWindow(
       const ASTWindowSpecification* window_spec,
       const FlattenedWindowInfo* flattened_referenced_window_info) const;
 
   // Check whether ORDER BY and window frame must or cannot be present
   // based on the function requirements and whether there is DISTINCT.
-  zetasql_base::Status CheckWindowSupport(
+  absl::Status CheckWindowSupport(
       const ResolvedFunctionCall* resolved_function_call,
       const ASTAnalyticFunctionCall* ast_function_call,
       const ASTOrderBy* ast_order_by,
@@ -296,7 +296,7 @@ class AnalyticFunctionResolver {
   // <ast_to_resolved_info_> with <ast_partition_by> as the key.  The returned
   // <partition_by_info_out> is not owned by the caller, but by
   // <ast_to_resolved_info_map_>.
-  zetasql_base::Status ResolveWindowPartitionByPreAggregation(
+  absl::Status ResolveWindowPartitionByPreAggregation(
       const ASTPartitionBy* ast_partition_by,
       ExprResolutionInfo* expr_resolution_info,
       WindowExprInfoList** partition_by_info_out);
@@ -309,14 +309,14 @@ class AnalyticFunctionResolver {
   // <ast_to_resolved_info_map_>. If <is_in_range_window> is true and the option
   // DISALLOW_GROUP_BY_FLOAT is enabled, returns an error when there exists a
   // floating point order key.
-  zetasql_base::Status ResolveWindowOrderByPreAggregation(
+  absl::Status ResolveWindowOrderByPreAggregation(
       const ASTOrderBy* ast_order_by, bool is_in_range_window,
       ExprResolutionInfo* expr_resolution_info,
       WindowExprInfoList** order_by_info_out);
 
   // Resolves a window (partitioning/ordering expression) expression and
   // identifies whether it is an alias reference to a SELECT-list column.
-  zetasql_base::Status ResolveWindowExpression(
+  absl::Status ResolveWindowExpression(
       const char* clause_name, const ASTExpression* ast_expr,
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<WindowExprInfo>* resolved_item_out,
@@ -325,7 +325,7 @@ class AnalyticFunctionResolver {
   // Returns a ResolvedAnalyticFunctionGroup in
   // <resolved_analytic_function_group>. <analytic_column_list> is populated
   // with resolved columns for analytic functions to be output.
-  zetasql_base::Status ResolveAnalyticFunctionGroup(
+  absl::Status ResolveAnalyticFunctionGroup(
       QueryResolutionInfo* query_resolution_info,
       AnalyticFunctionGroupInfo* function_group_info,
       std::unique_ptr<ResolvedAnalyticFunctionGroup>*
@@ -336,7 +336,7 @@ class AnalyticFunctionResolver {
   // ResolvedWindowPartitioning in <resolved_window_partitioning_out>.
   // SELECT-list expressions in <select_column_state_list> will be rewritten to
   // reference partitioning columns if applicable.
-  zetasql_base::Status ResolveWindowPartitionByPostAggregation(
+  absl::Status ResolveWindowPartitionByPostAggregation(
       const ASTPartitionBy* ast_partition_by,
       QueryResolutionInfo* query_resolution_info,
       std::unique_ptr<const ResolvedWindowPartitioning>*
@@ -346,7 +346,7 @@ class AnalyticFunctionResolver {
   // in <resolved_window_ordering_out>. SELECT-list expressions in
   // <select_column_state_list> will be rewritten to reference ordering columns
   // if applicable.
-  zetasql_base::Status ResolveWindowOrderByPostAggregation(
+  absl::Status ResolveWindowOrderByPostAggregation(
       const ASTOrderBy* ast_order_by,
       QueryResolutionInfo* query_resolution_info,
       std::unique_ptr<const ResolvedWindowOrdering>*
@@ -358,7 +358,7 @@ class AnalyticFunctionResolver {
   // expression in <select_column_state_list> that is not a column reference.
   // For the latter case, the SELECT-list expression is rewritten to reference
   // the window expression.
-  zetasql_base::Status AddColumnForWindowExpression(
+  absl::Status AddColumnForWindowExpression(
       IdString query_alias, IdString column_alias,
       QueryResolutionInfo* query_resolution_info,
       WindowExprInfo* window_expr_info);
@@ -366,16 +366,16 @@ class AnalyticFunctionResolver {
   // <target_expr_type> specifies the type of an ordering expression, and will
   // be the type of each offset boundary expression in a RANGE-based window. It
   // can be NULL if the window frame is ROWS-based.
-  zetasql_base::Status ResolveWindowFrame(
+  absl::Status ResolveWindowFrame(
       const ASTWindowFrame* ast_window_frame, const Type* target_expr_type,
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedWindowFrame>* resolved_window_frame);
 
-  zetasql_base::Status ResolveWindowFrameUnit(
+  absl::Status ResolveWindowFrameUnit(
       const ASTWindowFrame* ast_window_frame,
       ResolvedWindowFrame::FrameUnit* resolved_unit) const;
 
-  zetasql_base::Status ResolveWindowFrameExpr(
+  absl::Status ResolveWindowFrameExpr(
       const ASTWindowFrameExpr* ast_frame_expr,
       const ResolvedWindowFrame::FrameUnit frame_unit,
       const Type* target_expr_type, ExprResolutionInfo* expr_resolution_info,
@@ -386,7 +386,7 @@ class AnalyticFunctionResolver {
   // OFFSET_PRECEDING or OFFSET_FOLLOWING.
   // The type of the returned <resolved_offset_expr> is INT64 if <frame_unit>
   // is ROWS. Otherwise, it is <ordering_expr_type>.
-  zetasql_base::Status ResolveWindowFrameOffsetExpr(
+  absl::Status ResolveWindowFrameOffsetExpr(
       const ASTWindowFrameExpr* ast_frame_expr,
       const ResolvedWindowFrame::FrameUnit frame_unit,
       const Type* ordering_expr_type,
@@ -395,13 +395,13 @@ class AnalyticFunctionResolver {
 
   // Validates that the window is not always empty by comparing the boundary
   // types to check if they are compatible.
-  zetasql_base::Status ValidateWindowFrameSize(
+  absl::Status ValidateWindowFrameSize(
       const ASTWindowFrame* ast_window_frame,
       const ResolvedWindowFrame* resolved_window_frame) const;
 
   // Checks that ORDER BY is specified and there is exactly one numeric ordering
   // expression for a RANGE-based window.
-  zetasql_base::Status ValidateOrderByInRangeBasedWindow(
+  absl::Status ValidateOrderByInRangeBasedWindow(
       const ASTOrderBy* ast_order_by, const ASTWindowFrame* ast_window_frame,
       WindowExprInfoList* order_by_info);
 

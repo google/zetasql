@@ -41,12 +41,12 @@ struct ArrayGenTrait {
   using elem_t = T;
   using step_t = TStep;
   static T ExtractStep(TStep in) { return in; }
-  static zetasql_base::Status GenerateNextValue(T start, T cur, TStep step,
+  static absl::Status GenerateNextValue(T start, T cur, TStep step,
                                         size_t num_elements, T* out) {
     // In the case of doubles we don't want to use the previous element,
     // as it might accumulate more error.
     // It will use: start + (num_elements*step)
-    zetasql_base::Status status;
+    absl::Status status;
     zetasql::functions::Multiply<T>(num_elements, step, out, &status);
     if (!status.ok()) {
       return status;
@@ -58,12 +58,12 @@ struct ArrayGenTrait {
 
 // static
 template <>
-inline zetasql_base::Status
+inline absl::Status
 ArrayGenTrait<NumericValue, NumericValue>::GenerateNextValue(
     NumericValue start, NumericValue cur, NumericValue step,
     size_t num_elements, NumericValue* out) {
   ZETASQL_ASSIGN_OR_RETURN(*out, cur.Add(step));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 struct DateIncrement {
@@ -76,13 +76,13 @@ struct ArrayGenTrait<int64_t, DateIncrement> {
   using elem_t = int64_t;
   using step_t = DateIncrement;
   static int64_t ExtractStep(DateIncrement in) { return in.value; }
-  static zetasql_base::Status GenerateNextValue(int64_t start, int64_t cur,
+  static absl::Status GenerateNextValue(int64_t start, int64_t cur,
                                         DateIncrement step, size_t num_elements,
                                         int64_t* out) {
     int32_t temp;
     ZETASQL_RETURN_IF_ERROR(AddDate(cur, step.unit, step.value, &temp));
     *out = temp;
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 };
 
@@ -102,7 +102,7 @@ struct ArrayGenTrait<absl::Time, TimestampIncrement> {
   static absl::Time ExtractStep(TimestampIncrement in) {
     return absl::FromUnixNanos(in.value);
   }
-  static zetasql_base::Status GenerateNextValue(absl::Time start, absl::Time cur,
+  static absl::Status GenerateNextValue(absl::Time start, absl::Time cur,
                                         TimestampIncrement step,
                                         size_t num_elements, absl::Time* out) {
     // The time zone is used only for error messages; passing UTC has no effect
@@ -112,7 +112,7 @@ struct ArrayGenTrait<absl::Time, TimestampIncrement> {
 };
 
 template <typename ElementType>
-zetasql_base::Status CheckStartEndStep(ElementType start, ElementType end,
+absl::Status CheckStartEndStep(ElementType start, ElementType end,
                                ElementType step_value) {
   if (step_value == 0) {
     return ::zetasql_base::OutOfRangeErrorBuilder() << "Sequence step cannot be 0.";
@@ -129,29 +129,29 @@ zetasql_base::Status CheckStartEndStep(ElementType start, ElementType end,
     return ::zetasql_base::OutOfRangeErrorBuilder()
            << "Sequence step cannot be +/-inf.";
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 template <>
-zetasql_base::Status inline CheckStartEndStep(NumericValue start, NumericValue end,
+absl::Status inline CheckStartEndStep(NumericValue start, NumericValue end,
                                       NumericValue step_value) {
   if (step_value == NumericValue()) {
     return ::zetasql_base::OutOfRangeErrorBuilder() << "Sequence step cannot be 0.";
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 template <>
-zetasql_base::Status inline CheckStartEndStep(absl::Time start, absl::Time end,
+absl::Status inline CheckStartEndStep(absl::Time start, absl::Time end,
                                       absl::Time step_value) {
   if (step_value == absl::UnixEpoch()) {
     return ::zetasql_base::OutOfRangeErrorBuilder() << "Sequence step cannot be 0.";
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 template <typename T>
-zetasql_base::Status GenerateArrayHelper(typename T::elem_t start,
+absl::Status GenerateArrayHelper(typename T::elem_t start,
                                  typename T::elem_t end,
                                  typename T::step_t step,
                                  std::vector<typename T::elem_t>* values) {
@@ -167,13 +167,13 @@ zetasql_base::Status GenerateArrayHelper(typename T::elem_t start,
   // Empty range cases.
   if ((start < end && step_value < zero_value) ||
       (start > end && step_value > zero_value)) {
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // Single element case. Handles start == end == +/-inf.
   if (start == end) {
     values->emplace_back(start);
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // When start <= end, generate the range [start, end].
@@ -186,7 +186,7 @@ zetasql_base::Status GenerateArrayHelper(typename T::elem_t start,
              << kMaxGeneratedArraySize << " elements.";
     }
     values->emplace_back(val);
-    zetasql_base::Status status =
+    absl::Status status =
         T::GenerateNextValue(start, val, step, values->size(), &val);
     if (!status.ok()) {
       // An overflow can only happen here if the generated element value would
@@ -194,11 +194,11 @@ zetasql_base::Status GenerateArrayHelper(typename T::elem_t start,
       break;
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 template <typename T, typename TStep>
-zetasql_base::Status GenerateArray(T start, T end, TStep step, std::vector<T>* values) {
+absl::Status GenerateArray(T start, T end, TStep step, std::vector<T>* values) {
   return GenerateArrayHelper<ArrayGenTrait<T, TStep>>(start, end, step, values);
 }
 

@@ -47,7 +47,7 @@ SQLFunction::SQLFunction(
       parse_resume_location_(parse_resume_location),
       aggregate_expression_list_(aggregate_expression_list) {}
 
-zetasql_base::Status SQLFunction::Create(
+absl::Status SQLFunction::Create(
     const std::string& name, Mode mode,
     const std::vector<FunctionSignature>& function_signatures,
     const FunctionOptions& function_options,
@@ -72,7 +72,7 @@ zetasql_base::Status SQLFunction::Create(
   sql_function->reset(new SQLFunction(
       name, mode, function_signatures, function_options, function_expression,
       argument_names, parse_resume_location, aggregate_expression_list));
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 std::string SQLFunction::FullDebugString() const {

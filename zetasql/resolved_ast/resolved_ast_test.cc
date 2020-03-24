@@ -407,7 +407,7 @@ TEST(ResolvedAST, Validator) {
                                          std::move(limit_offset_uptr));
   ResolvedQueryStmt* stmt = stmt_uptr.get();
   EXPECT_THAT(validator.ValidateResolvedStatement(stmt),
-              StatusIs(zetasql_base::INTERNAL,
+              StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("Unexpected literal with null value")));
 
   limit_offset->set_limit(
@@ -418,22 +418,22 @@ TEST(ResolvedAST, Validator) {
       MakeResolvedOutputColumn("col1", resolved_column1));
   const ResolvedColumn resolved_column2(2, "Table", "col2",
                                         type_factory.get_int32());
-  EXPECT_THAT(
-      validator.ValidateResolvedStatement(stmt),
-      StatusIs(zetasql_base::INTERNAL, HasSubstr("Incorrect reference to column "
-                                                "Table.col1#1")));
+  EXPECT_THAT(validator.ValidateResolvedStatement(stmt),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("Incorrect reference to column "
+                                 "Table.col1#1")));
 
   project->set_column_list({resolved_column1});
   limit_offset->set_column_list({resolved_column1});
   EXPECT_THAT(validator.ValidateResolvedStatement(stmt),
-              StatusIs(zetasql_base::INTERNAL,
+              StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("Column list contains column Table.col1#1 not "
                                  "visible in scan node\n"
                                  "ProjectScan")));
 
   filter_scan->set_column_list({resolved_column1});
   EXPECT_THAT(validator.ValidateResolvedStatement(stmt),
-              StatusIs(zetasql_base::INTERNAL,
+              StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("Column list contains column Table.col1#1 not "
                                  "visible in scan node\n"
                                  "FilterScan")));
@@ -441,7 +441,7 @@ TEST(ResolvedAST, Validator) {
   table_scan->set_column_list({resolved_column2});
   table_scan->set_column_index_list({1});
   EXPECT_THAT(validator.ValidateResolvedStatement(stmt),
-              StatusIs(zetasql_base::INTERNAL,
+              StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("Column list contains column Table.col1#1 not "
                                  "visible in scan node\n"
                                  "FilterScan")));
@@ -457,7 +457,7 @@ TEST(ResolvedAST, Validator) {
   filter_scan->set_filter_expr(std::move(bad_where));
   EXPECT_THAT(
       validator.ValidateResolvedStatement(stmt),
-      StatusIs(zetasql_base::INTERNAL,
+      StatusIs(absl::StatusCode::kInternal,
                HasSubstr("ResolvedExpr does not have a Type:\nFunctionCall")));
 
   filter_scan->set_filter_expr(std::move(bad_where_2));
@@ -465,7 +465,7 @@ TEST(ResolvedAST, Validator) {
   EXPECT_THAT(
       validator.ValidateResolvedStatement(stmt),
       StatusIs(
-          zetasql_base::INTERNAL,
+          absl::StatusCode::kInternal,
           HasSubstr(
               "ResolvedFunctionCall does not have a Function:\nFunctionCall")));
 
@@ -477,7 +477,7 @@ TEST(ResolvedAST, Validator) {
   EXPECT_THAT(
       validator.ValidateResolvedStatement(stmt),
       StatusIs(
-          zetasql_base::INTERNAL,
+          absl::StatusCode::kInternal,
           HasSubstr("ResolvedExpr does not have a Type:\nLiteral(value=4)")));
 }
 

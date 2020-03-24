@@ -129,7 +129,7 @@ class ParsedScript {
 
   // Validates the query parameters (e.g. no missing ones, not mixing named and
   // positional parameters).
-  zetasql_base::Status CheckQueryParameters(const QueryParameters& parameters) const;
+  absl::Status CheckQueryParameters(const QueryParameters& parameters) const;
 
  private:
   static zetasql_base::StatusOr<std::unique_ptr<ParsedScript>> CreateInternal(
@@ -144,18 +144,18 @@ class ParsedScript {
 
   // Called from Create() to walk the parse tree and perform non-trivial work
   // to initialize fields.
-  zetasql_base::Status GatherInformationAndRunChecks();
+  absl::Status GatherInformationAndRunChecks();
 
   // Helper function called by GatherInformationAndRunChecks().  Returns errors
   // with an InternalErrorLocation, which the caller then converts to an
   // external ErrorLocation.
-  zetasql_base::Status GatherInformationAndRunChecksInternal();
+  absl::Status GatherInformationAndRunChecksInternal();
 
   // Populates <named_query_parameters_> and <positional_query_parameters_> with
   // parameter locations. Returns an error if both positional and named query
   // parameters are present.
-  zetasql_base::Status PopulateQueryParameters();
-  zetasql_base::Status CheckQueryParametersInternal(
+  absl::Status PopulateQueryParameters();
+  absl::Status CheckQueryParametersInternal(
       const QueryParameters& parameters) const;
   // Returns all named parameters in the script.
   StringSet GetAllNamedParameters() const;

@@ -30,25 +30,25 @@ using zetasql_base::testing::StatusIs;
 
 TEST(UpdateError, UpdateError) {
   // Regular string.
-  ::zetasql_base::Status status;
+  absl::Status status;
   UpdateError(&status, "xyz");
-  EXPECT_THAT(status, StatusIs(zetasql_base::OUT_OF_RANGE, "xyz"));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kOutOfRange, "xyz"));
 
   // Valid UTF-8.
-  status = zetasql_base::OkStatus();
+  status = absl::OkStatus();
   UpdateError(&status, "xyzñ");
-  EXPECT_THAT(status, StatusIs(zetasql_base::OUT_OF_RANGE, "xyzñ"));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kOutOfRange, "xyzñ"));
 
   // Does nothing if status is already set.
-  status = zetasql_base::Status(zetasql_base::StatusCode::kInvalidArgument, "msg");
+  status = absl::Status(absl::StatusCode::kInvalidArgument, "msg");
   UpdateError(&status, "xyzñ");
-  EXPECT_THAT(status, StatusIs(zetasql_base::INVALID_ARGUMENT, "msg"));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kInvalidArgument, "msg"));
 
   // Invalid UTF-8 gets converted to valid UTF-8 with REPLACEMENT CHARACTER
   // used for invalid characters.
-  status = zetasql_base::OkStatus();
+  status = absl::OkStatus();
   UpdateError(&status, "xyz\xc3(");
-  EXPECT_THAT(status, StatusIs(zetasql_base::OUT_OF_RANGE, "xyz\uFFFD("));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kOutOfRange, "xyz\uFFFD("));
 }
 
 }  // anonymous namespace

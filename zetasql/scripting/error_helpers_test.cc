@@ -39,18 +39,18 @@ using ::testing::HasSubstr;
 using ::testing::Test;
 using ::zetasql_base::testing::StatusIs;
 
-// Matcher to verify that a zetasql_base::Status object does not have a payload of the
+// Matcher to verify that a absl::Status object does not have a payload of the
 // given type.
 template<class T>
-::testing::Matcher<const zetasql_base::Status&> HasNoPayloadWithType() {
+::testing::Matcher<const absl::Status&> HasNoPayloadWithType() {
   return ::testing::ResultOf(
-      [](const zetasql_base::Status& status) {
+      [](const absl::Status& status) {
         return internal::HasPayloadWithType<T>(status);
       },
       false);
 }
 
-zetasql_base::Status ConvertStatus(const zetasql_base::Status& status,
+absl::Status ConvertStatus(const absl::Status& status,
                            const ScriptSegment& segment) {
   ZETASQL_RETURN_IF_ERROR(status).With(ConvertLocalErrorToScriptError(segment));
   return status;
@@ -64,7 +64,7 @@ void TestConvertErrorWithSource(
       "SELECT 3;\n  SELECT outer_error_location, inner_error_location";
   const std::string error_stmt_text =
       "SELECT outer_error_location, inner_error_location";
-  zetasql_base::Status inner_status = ConvertInternalErrorLocationToExternal(
+  absl::Status inner_status = ConvertInternalErrorLocationToExternal(
       StatusWithInternalErrorLocation(
           zetasql_base::InternalError("Inner error"),
           ParseLocationPoint::FromByteOffset(
@@ -85,17 +85,18 @@ void TestConvertErrorWithSource(
   outer_location.set_byte_offset(
       static_cast<int>(error_stmt_text.find("outer_error_location")));
 
-  zetasql_base::Status outer_status = ConvertInternalErrorLocationToExternal(
+  absl::Status outer_status = ConvertInternalErrorLocationToExternal(
       MakeSqlError().Attach(
           SetErrorSourcesFromStatus(outer_location, inner_status,
                                     inner_error_message_mode, error_stmt_text))
           << "outer error",
       error_stmt_text);
 
-  EXPECT_THAT(MaybeUpdateErrorFromPayload(
-                  script_executor_error_message_mode, sql,
-                  ConvertStatus(outer_status, error_stmt_segment)),
-              StatusIs(zetasql_base::INVALID_ARGUMENT, expected_error_message));
+  EXPECT_THAT(
+      MaybeUpdateErrorFromPayload(
+          script_executor_error_message_mode, sql,
+          ConvertStatus(outer_status, error_stmt_segment)),
+      StatusIs(absl::StatusCode::kInvalidArgument, expected_error_message));
 }
 
 TEST(ConvertLocalErrorToScriptError, WithSourceAndOneLine) {
@@ -144,14 +145,13 @@ TEST(ConvertLocalErrorToScriptError, InvalidErrorLocation) {
   error_location.set_line(2);
   error_location.set_column(1);
 
-  zetasql_base::Status invalid_status = MakeSqlError().Attach(error_location)
+  absl::Status invalid_status = MakeSqlError().Attach(error_location)
       << "Test error message";
 
   EXPECT_THAT(ConvertStatus(invalid_status, error_stmt_segment),
-              AllOf(
-                  StatusIs(zetasql_base::INTERNAL,
-                           HasSubstr("No line 2 in SELECT error_location")),
-                  HasNoPayloadWithType<ErrorLocation>()));
+              AllOf(StatusIs(absl::StatusCode::kInternal,
+                             HasSubstr("No line 2 in SELECT error_location")),
+                    HasNoPayloadWithType<ErrorLocation>()));
 }
 
 }  // namespace

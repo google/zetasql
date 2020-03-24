@@ -57,13 +57,13 @@ class SQLTableValuedFunction : public TableValuedFunction {
   //
   // Does not take ownership of <create_tvf_statement>, which must outlive
   // this class.
-  static zetasql_base::Status Create(
+  static absl::Status Create(
       const ::zetasql::ResolvedCreateTableFunctionStmt* create_tvf_statement,
       std::unique_ptr<SQLTableValuedFunction>* simple_sql_tvf);
 
   // Returns a signature with the <actual_arguments>, and a result
   // schema from <tvf_schema_>.
-  zetasql_base::Status Resolve(
+  absl::Status Resolve(
       const AnalyzerOptions* analyzer_options,
       const std::vector<TVFInputArgumentType>& actual_arguments,
       const FunctionSignature& concrete_signature, Catalog* catalog,

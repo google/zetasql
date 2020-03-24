@@ -25,10 +25,10 @@
 
 namespace zetasql {
 
-zetasql_base::Status CycleDetector::ObjectInfo::DetectCycle(
+absl::Status CycleDetector::ObjectInfo::DetectCycle(
     const std::string& object_type) const {
   if (!cycle_detected_) {
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
   const std::vector<std::string>& cycle_names = cycle_detector_->ObjectNames();
   std::string message;

@@ -20,7 +20,7 @@ package zetasql;
 
 option java_package = "com.google.zetasql";
 
-// This proto is used as a util::Status error payload to give the location
+// This proto is used as a absl::Status error payload to give the location
 // for SQL parsing and analysis errors.
 message ErrorLocation {
 

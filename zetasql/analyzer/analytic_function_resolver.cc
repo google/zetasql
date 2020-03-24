@@ -52,7 +52,7 @@ STATIC_IDSTRING(kOrderById, "$orderby");
 // same OFFSET type. Returns an error pointing at <ast_start_frame_expr>
 // if the ending boundary precedes the starting boundary.
 template<class value_type>
-static zetasql_base::Status CompareWindowBoundaryValues(
+static absl::Status CompareWindowBoundaryValues(
     const ASTWindowFrameExpr* ast_start_frame_expr,
     value_type start_boundary_offset, value_type end_boudary_offset) {
   if (ast_start_frame_expr->boundary_type() ==
@@ -71,7 +71,7 @@ static zetasql_base::Status CompareWindowBoundaryValues(
                 "the ending framing expression value for FOLLOWING";
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 struct AnalyticFunctionResolver::AnalyticFunctionInfo {
@@ -156,7 +156,7 @@ AnalyticFunctionResolver::~AnalyticFunctionResolver() {
   }
 }
 
-zetasql_base::Status AnalyticFunctionResolver::SetWindowClause(
+absl::Status AnalyticFunctionResolver::SetWindowClause(
     const ASTWindowClause& window_clause) {
   ZETASQL_RET_CHECK(named_window_info_map_->empty());
   const absl::Span<const ASTWindowDefinition* const>& named_windows =
@@ -180,7 +180,7 @@ zetasql_base::Status AnalyticFunctionResolver::SetWindowClause(
     (*named_window_info_map_)[named_window_name] =
         std::move(flattened_window_info);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 AnalyticFunctionResolver::NamedWindowInfoMap*
@@ -194,7 +194,7 @@ void AnalyticFunctionResolver::DisableNamedWindowRefs(
   named_window_not_allowed_here_name_ = clause_name;
 }
 
-zetasql_base::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
+absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
     const ASTAnalyticFunctionCall* ast_analytic_function_call,
     ResolvedFunctionCall* resolved_function_call,
     ExprResolutionInfo* expr_resolution_info,
@@ -365,10 +365,10 @@ zetasql_base::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyti
   // Set the output resolved expression to be a column reference.
   *resolved_expr_out = resolver_->MakeColumnRef(resolved_column);
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyticFunctionResolver::CheckWindowSupport(
+absl::Status AnalyticFunctionResolver::CheckWindowSupport(
     const ResolvedFunctionCall* resolved_function_call,
     const ASTAnalyticFunctionCall* ast_function_call,
     const ASTOrderBy* ast_order_by,
@@ -430,10 +430,10 @@ zetasql_base::Status AnalyticFunctionResolver::CheckWindowSupport(
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyticFunctionResolver::ResolveWindowPartitionByPreAggregation(
+absl::Status AnalyticFunctionResolver::ResolveWindowPartitionByPreAggregation(
     const ASTPartitionBy* ast_partition_by,
     ExprResolutionInfo* expr_resolution_info,
     WindowExprInfoList** partition_by_info_out) {
@@ -442,7 +442,7 @@ zetasql_base::Status AnalyticFunctionResolver::ResolveWindowPartitionByPreAggreg
       zetasql_base::FindOrNull(ast_to_resolved_info_map_, ast_partition_by);
   if (existing_partition_by_info != nullptr) {
     *partition_by_info_out = existing_partition_by_info->get();
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   std::unique_ptr<WindowExprInfoList> partition_by_info(
@@ -475,10 +475,10 @@ zetasql_base::Status AnalyticFunctionResolver::ResolveWindowPartitionByPreAggreg
   *partition_by_info_out = partition_by_info.get();
   ast_to_resolved_info_map_[ast_partition_by] = std::move(partition_by_info);
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyticFunctionResolver::ResolveWindowOrderByPreAggregation(
+absl::Status AnalyticFunctionResolver::ResolveWindowOrderByPreAggregation(
     const ASTOrderBy* ast_order_by, bool is_in_range_window,
     ExprResolutionInfo* expr_resolution_info,
     WindowExprInfoList** order_by_info_out) {
@@ -486,7 +486,7 @@ zetasql_base::Status AnalyticFunctionResolver::ResolveWindowOrderByPreAggregatio
       zetasql_base::FindOrNull(ast_to_resolved_info_map_, ast_order_by);
   if (existing_order_by_info != nullptr) {
     *order_by_info_out = existing_order_by_info->get();
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   std::unique_ptr<WindowExprInfoList> order_by_info(
@@ -533,10 +533,10 @@ zetasql_base::Status AnalyticFunctionResolver::ResolveWindowOrderByPreAggregatio
   *order_by_info_out = order_by_info.get();
   ast_to_resolved_info_map_[ast_order_by] = std::move(order_by_info);
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyticFunctionResolver::ResolveWindowExpression(
+absl::Status AnalyticFunctionResolver::ResolveWindowExpression(
     const char* clause_name, const ASTExpression* ast_expr,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<WindowExprInfo>* resolved_item_out,
@@ -583,10 +583,10 @@ zetasql_base::Status AnalyticFunctionResolver::ResolveWindowExpression(
     *resolved_item_out = absl::make_unique<WindowExprInfo>(
         ast_expr, tmp_resolved_expr.release());
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyticFunctionResolver::ValidateOrderByInRangeBasedWindow(
+absl::Status AnalyticFunctionResolver::ValidateOrderByInRangeBasedWindow(
     const ASTOrderBy* ast_order_by, const ASTWindowFrame* ast_window_frame,
     WindowExprInfoList* order_by_info) {
   DCHECK_EQ(ast_window_frame->frame_unit(), ASTWindowFrame::RANGE);
@@ -600,7 +600,7 @@ zetasql_base::Status AnalyticFunctionResolver::ValidateOrderByInRangeBasedWindow
       // all rows as peers, so each row's window frame is the entire partition.
       // Thus, to avoid confusion we only allow RANGE BETWEEN UNBOUNDED
       // PRECEDING AND UNBOUNDED FOLLOWING.
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     if (ast_window_frame->end_expr() == nullptr) {
       // The window has an implicit CURRENT ROW end boundary expression, so
@@ -647,10 +647,10 @@ zetasql_base::Status AnalyticFunctionResolver::ValidateOrderByInRangeBasedWindow
                     resolver_->language().product_mode());
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyticFunctionResolver::ResolveWindowFrame(
+absl::Status AnalyticFunctionResolver::ResolveWindowFrame(
     const ASTWindowFrame* ast_window_frame, const Type* target_expr_type,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedWindowFrame>* resolved_window_frame) {
@@ -683,7 +683,7 @@ zetasql_base::Status AnalyticFunctionResolver::ResolveWindowFrame(
                                  resolved_window_frame->get());
 }
 
-zetasql_base::Status AnalyticFunctionResolver::ResolveWindowFrameUnit(
+absl::Status AnalyticFunctionResolver::ResolveWindowFrameUnit(
     const ASTWindowFrame* ast_window_frame,
     ResolvedWindowFrame::FrameUnit* resolved_unit) const {
 
@@ -695,10 +695,10 @@ zetasql_base::Status AnalyticFunctionResolver::ResolveWindowFrameUnit(
       *resolved_unit = ResolvedWindowFrame::RANGE;
       break;
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyticFunctionResolver::ResolveWindowFrameExpr(
+absl::Status AnalyticFunctionResolver::ResolveWindowFrameExpr(
     const ASTWindowFrameExpr* ast_frame_expr,
     const ResolvedWindowFrame::FrameUnit frame_unit,
     const Type* target_expr_type,
@@ -744,10 +744,10 @@ zetasql_base::Status AnalyticFunctionResolver::ResolveWindowFrameExpr(
           nullptr);
       break;
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyticFunctionResolver::ResolveWindowFrameOffsetExpr(
+absl::Status AnalyticFunctionResolver::ResolveWindowFrameOffsetExpr(
     const ASTWindowFrameExpr* ast_frame_expr,
     const ResolvedWindowFrame::FrameUnit frame_unit,
     const Type* ordering_expr_type,
@@ -830,10 +830,10 @@ zetasql_base::Status AnalyticFunctionResolver::ResolveWindowFrameOffsetExpr(
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyticFunctionResolver::ValidateWindowFrameSize(
+absl::Status AnalyticFunctionResolver::ValidateWindowFrameSize(
     const ASTWindowFrame* ast_window_frame,
     const ResolvedWindowFrame* resolved_window_frame) const {
   const ASTWindowFrameExpr* ast_start_frame_expr =
@@ -892,7 +892,7 @@ zetasql_base::Status AnalyticFunctionResolver::ValidateWindowFrameSize(
     return MakeSqlErrorAt(ast_end_frame_expr)
            << "Ending window framing expression cannot be UNBOUNDED PRECEDING";
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 bool AnalyticFunctionResolver::HasAnalytic() const {
@@ -904,7 +904,7 @@ bool AnalyticFunctionResolver::IsAnalyticColumn(
   return zetasql_base::ContainsKey(column_to_analytic_function_map_, resolved_column);
 }
 
-zetasql_base::Status AnalyticFunctionResolver::CreateAnalyticScan(
+absl::Status AnalyticFunctionResolver::CreateAnalyticScan(
     QueryResolutionInfo* query_resolution_info,
     std::unique_ptr<const ResolvedScan>* scan) {
   ZETASQL_RET_CHECK(HasAnalytic());
@@ -950,10 +950,10 @@ zetasql_base::Status AnalyticFunctionResolver::CreateAnalyticScan(
   *scan = std::move(analytic_scan);
 
   is_create_analytic_scan_successful_ = true;
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyticFunctionResolver::ResolveAnalyticFunctionGroup(
+absl::Status AnalyticFunctionResolver::ResolveAnalyticFunctionGroup(
     QueryResolutionInfo* query_resolution_info,
     AnalyticFunctionGroupInfo* function_group_info,
     std::unique_ptr<ResolvedAnalyticFunctionGroup>*
@@ -991,10 +991,10 @@ zetasql_base::Status AnalyticFunctionResolver::ResolveAnalyticFunctionGroup(
           std::move(resolved_window_ordering),
           std::move(analytic_function_groups));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyticFunctionResolver::ResolveWindowPartitionByPostAggregation(
+absl::Status AnalyticFunctionResolver::ResolveWindowPartitionByPostAggregation(
     const ASTPartitionBy* ast_partition_by,
     QueryResolutionInfo* query_resolution_info,
     std::unique_ptr<const ResolvedWindowPartitioning>*
@@ -1038,10 +1038,10 @@ zetasql_base::Status AnalyticFunctionResolver::ResolveWindowPartitionByPostAggre
   }
 
   *resolved_window_partitioning_out = std::move(resolved_window_partitioning);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyticFunctionResolver::ResolveWindowOrderByPostAggregation(
+absl::Status AnalyticFunctionResolver::ResolveWindowOrderByPostAggregation(
     const ASTOrderBy* ast_order_by,
     QueryResolutionInfo* query_resolution_info,
     std::unique_ptr<const ResolvedWindowOrdering>*
@@ -1115,10 +1115,10 @@ zetasql_base::Status AnalyticFunctionResolver::ResolveWindowOrderByPostAggregati
   }
 
   *resolved_window_ordering_out = std::move(resolved_window_ordering);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyticFunctionResolver::AddColumnForWindowExpression(
+absl::Status AnalyticFunctionResolver::AddColumnForWindowExpression(
     IdString query_alias, IdString column_alias,
     QueryResolutionInfo* query_resolution_info,
     WindowExprInfo* window_expr_info) {
@@ -1160,10 +1160,10 @@ zetasql_base::Status AnalyticFunctionResolver::AddColumnForWindowExpression(
   }
 
   window_expr_info->resolved_column_ref = std::move(resolved_column_ref);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyticFunctionResolver::ExtractWindowInfoFromReferencedWindow(
+absl::Status AnalyticFunctionResolver::ExtractWindowInfoFromReferencedWindow(
     FlattenedWindowInfo* flattened_window_info) const {
 
   const ASTWindowSpecification* window_spec =
@@ -1202,10 +1202,10 @@ zetasql_base::Status AnalyticFunctionResolver::ExtractWindowInfoFromReferencedWi
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AnalyticFunctionResolver::CheckForConflictsWithReferencedWindow(
+absl::Status AnalyticFunctionResolver::CheckForConflictsWithReferencedWindow(
     const ASTWindowSpecification* window_spec,
     const FlattenedWindowInfo* flattened_referenced_window_info) const {
   // The following three rules are in the SQL standard. They guarantee that:
@@ -1239,7 +1239,7 @@ zetasql_base::Status AnalyticFunctionResolver::CheckForConflictsWithReferencedWi
            << "If a window inherits an ORDER BY from its referenced window, it "
               "cannot have an inline ORDER BY";
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 const Coercer& AnalyticFunctionResolver::coercer() const {

@@ -150,22 +150,24 @@ TEST(IsValidStatementSyntaxTest, BasicStatements) {
         << valid_test_case.sql;
   }
   for (const ErrorTestCase& invalid_test_case : GetInvalidSyntaxTestCases()) {
-    const zetasql_base::Status status =
+    const absl::Status status =
         IsValidStatementSyntax(invalid_test_case.sql,
                                ERROR_MESSAGE_WITH_PAYLOAD);
-    EXPECT_THAT(status, StatusIs(zetasql_base::INVALID_ARGUMENT, HasSubstr(
-        invalid_test_case.expected_error_substring)));
+    EXPECT_THAT(
+        status,
+        StatusIs(absl::StatusCode::kInvalidArgument,
+                 HasSubstr(invalid_test_case.expected_error_substring)));
   }
   for (const OtherTestCase& other_test_case : GetOtherTestCases()) {
-    const zetasql_base::Status status =
+    const absl::Status status =
         IsValidStatementSyntax(other_test_case.sql,
                                ERROR_MESSAGE_WITH_PAYLOAD);
-    EXPECT_THAT(status, StatusIs(zetasql_base::INVALID_ARGUMENT,
+    EXPECT_THAT(status, StatusIs(absl::StatusCode::kInvalidArgument,
                                  HasSubstr("Syntax error")));
   }
 
   // Test that we get an error location payload from the error Status.
-  zetasql_base::Status status =
+  absl::Status status =
       IsValidStatementSyntax("SELECT * FROM oops I did it again",
                              ERROR_MESSAGE_WITH_PAYLOAD);
   // The syntax error location is at the 'did', since 'oops' is interpreted
@@ -208,10 +210,11 @@ TEST(IsValidNextStatementSyntaxTest, BasicStatements) {
     ParseResumeLocation parse_resume_location =
         ParseResumeLocation::FromString(invalid_test_case.sql);
     bool at_end_of_input;
-    const zetasql_base::Status status = IsValidNextStatementSyntax(
+    const absl::Status status = IsValidNextStatementSyntax(
         &parse_resume_location, ERROR_MESSAGE_WITH_PAYLOAD, &at_end_of_input);
-    EXPECT_THAT(status, StatusIs(zetasql_base::INVALID_ARGUMENT, HasSubstr(
-        invalid_test_case.expected_error_substring)))
+    EXPECT_THAT(status,
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr(invalid_test_case.expected_error_substring)))
         << invalid_test_case.sql;
   }
   for (const OtherTestCase& other_test_case : GetOtherTestCases()) {
@@ -232,10 +235,10 @@ TEST(IsValidNextStatementSyntaxTest, BasicStatements) {
   ParseResumeLocation parse_resume_location =
       ParseResumeLocation::FromString("SELECT * FROM oops I did it again");
   bool at_end_of_input;
-  zetasql_base::Status status =
+  absl::Status status =
       IsValidNextStatementSyntax(&parse_resume_location,
                                  ERROR_MESSAGE_WITH_PAYLOAD, &at_end_of_input);
-  EXPECT_THAT(status, StatusIs(zetasql_base::INVALID_ARGUMENT,
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kInvalidArgument,
                                HasSubstr("Syntax error")));
   EXPECT_THAT(internal::StatusToString(status),
               HasSubstr("[zetasql.ErrorLocation] { line: 1 column: 22 }"));
@@ -272,7 +275,7 @@ TEST(IsValidNextStatementSyntaxTest, MultiStatementsTest) {
       "SELECT * FROM T1;  SELECT * FROM T");
   at_end_of_input = false;
   statement_count = 0;
-  zetasql_base::Status status;
+  absl::Status status;
   while (status.ok() && !at_end_of_input) {
     status = IsValidNextStatementSyntax(
         &parse_resume_location, ERROR_MESSAGE_MULTI_LINE_WITH_CARET,

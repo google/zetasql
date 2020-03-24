@@ -53,7 +53,7 @@ public class JniChannelProvider implements ClientChannelProvider {
     if ("Linux".equals(os)) {
       return path + "liblocal_service_jni.so";
     } else if ("Mac OS X".equals(os)) {
-      return path + "liblocal_service_jni.jnilib";
+      return path + "liblocal_service_jni.dylib";
     }
     throw new RuntimeException("Unsupported os");
   }

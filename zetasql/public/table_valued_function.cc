@@ -38,13 +38,13 @@ const std::vector<FunctionSignature>& TableValuedFunction::signatures() const {
   return signatures_;
 }
 
-zetasql_base::Status TableValuedFunction::AddSignature(
+absl::Status TableValuedFunction::AddSignature(
     const FunctionSignature& function_signature) {
   ZETASQL_RET_CHECK_EQ(0, NumSignatures());
   ZETASQL_RETURN_IF_ERROR(function_signature.IsValidForTableValuedFunction())
       << function_signature.DebugString(FullName());
   signatures_.push_back(function_signature);
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 const FunctionSignature* TableValuedFunction::GetSignature(int64_t idx) const {
@@ -132,7 +132,7 @@ std::string TableValuedFunction::GetTVFSignatureErrorMessage(
   }
 }
 
-zetasql_base::Status TableValuedFunction::Serialize(
+absl::Status TableValuedFunction::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     TableValuedFunctionProto* proto) const {
   for (const std::string& name : function_name_path()) {
@@ -142,7 +142,7 @@ zetasql_base::Status TableValuedFunction::Serialize(
   ZETASQL_RET_CHECK_EQ(1, NumSignatures());
   ZETASQL_RETURN_IF_ERROR(GetSignature(0)->Serialize(file_descriptor_set_map,
                                              proto->mutable_signature()));
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // A TVFDeserializer for each TableValuedFunctionType. Thread safe after module
@@ -155,7 +155,7 @@ static std::vector<TableValuedFunction::TVFDeserializer>* TvfDeserializers() {
 }
 
 // static
-zetasql_base::Status TableValuedFunction::Deserialize(
+absl::Status TableValuedFunction::Deserialize(
     const TableValuedFunctionProto& proto,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
     TypeFactory* factory, std::unique_ptr<TableValuedFunction>* result) {
@@ -247,7 +247,7 @@ std::string TVFRelation::DebugString() const {
   return absl::StrCat("TABLE<", absl::StrJoin(strings, ", "), ">");
 }
 
-zetasql_base::Status TVFRelation::Serialize(
+absl::Status TVFRelation::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     TVFRelationProto* proto) const {
   for (const Column& col : columns_) {
@@ -255,7 +255,7 @@ zetasql_base::Status TVFRelation::Serialize(
                      col.ToProto(file_descriptor_set_map));
   }
   proto->set_is_value_table(is_value_table());
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // static
@@ -299,7 +299,7 @@ std::string TVFDescriptorArgument::DebugString() const {
   return "ANY DESCRIPTOR";
 }
 
-zetasql_base::Status FixedOutputSchemaTVF::Serialize(
+absl::Status FixedOutputSchemaTVF::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     TableValuedFunctionProto* proto) const {
   proto->set_type(FunctionEnums::FIXED_OUTPUT_SCHEMA_TVF);
@@ -307,7 +307,7 @@ zetasql_base::Status FixedOutputSchemaTVF::Serialize(
 }
 
 // static
-zetasql_base::Status FixedOutputSchemaTVF::Deserialize(
+absl::Status FixedOutputSchemaTVF::Deserialize(
     const TableValuedFunctionProto& proto,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
     TypeFactory* factory, std::unique_ptr<TableValuedFunction>* result) {
@@ -322,10 +322,10 @@ zetasql_base::Status FixedOutputSchemaTVF::Deserialize(
       signature->result_type().options().relation_input_schema();
   *result =
       absl::make_unique<FixedOutputSchemaTVF>(path, *signature, result_schema);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status FixedOutputSchemaTVF::Resolve(
+absl::Status FixedOutputSchemaTVF::Resolve(
     const AnalyzerOptions* analyzer_options,
     const std::vector<TVFInputArgumentType>& actual_arguments,
     const FunctionSignature& concrete_signature, Catalog* catalog,
@@ -336,10 +336,10 @@ zetasql_base::Status FixedOutputSchemaTVF::Resolve(
       concrete_signature.AdditionalDeprecationWarnings();
   tvf_signature->reset(
       new TVFSignature(actual_arguments, result_schema_, options));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ForwardInputSchemaToOutputSchemaTVF::Serialize(
+absl::Status ForwardInputSchemaToOutputSchemaTVF::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     TableValuedFunctionProto* proto) const {
   proto->set_type(FunctionEnums::FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_TVF);
@@ -347,7 +347,7 @@ zetasql_base::Status ForwardInputSchemaToOutputSchemaTVF::Serialize(
 }
 
 // static
-zetasql_base::Status ForwardInputSchemaToOutputSchemaTVF::Deserialize(
+absl::Status ForwardInputSchemaToOutputSchemaTVF::Deserialize(
     const TableValuedFunctionProto& proto,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
     TypeFactory* factory, std::unique_ptr<TableValuedFunction>* result) {
@@ -360,10 +360,10 @@ zetasql_base::Status ForwardInputSchemaToOutputSchemaTVF::Deserialize(
                                                  factory, &signature));
   *result =
       absl::make_unique<ForwardInputSchemaToOutputSchemaTVF>(path, *signature);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ForwardInputSchemaToOutputSchemaTVF::Resolve(
+absl::Status ForwardInputSchemaToOutputSchemaTVF::Resolve(
     const AnalyzerOptions* analyzer_options,
     const std::vector<TVFInputArgumentType>& actual_arguments,
     const FunctionSignature& concrete_signature, Catalog* catalog,
@@ -386,10 +386,10 @@ zetasql_base::Status ForwardInputSchemaToOutputSchemaTVF::Resolve(
   // Return the schema of the relation argument as the output schema.
   output_tvf_signature->reset(new TVFSignature(
       actual_arguments, actual_arguments[0].relation(), tvf_signature_options));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ForwardInputSchemaToOutputSchemaTVF::CheckIsValid() const {
+absl::Status ForwardInputSchemaToOutputSchemaTVF::CheckIsValid() const {
   // Check that the signature(s) actually contain a relation for the first
   // argument.
   for (const FunctionSignature& signature : signatures_) {
@@ -398,7 +398,7 @@ zetasql_base::Status ForwardInputSchemaToOutputSchemaTVF::CheckIsValid() const {
         << "Table-valued functions of type ForwardInputSchemaToOutputSchemaTVF "
         << "must accept a relation for the first argument: " << DebugString();
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 namespace {

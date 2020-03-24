@@ -33,17 +33,17 @@ namespace zetasql {
 
 ColumnCycleDetector::~ColumnCycleDetector() { DCHECK(visiting_stack_.empty()); }
 
-zetasql_base::Status ColumnCycleDetector::VisitNewColumn(const IdString& column) {
+absl::Status ColumnCycleDetector::VisitNewColumn(const IdString& column) {
   ZETASQL_RET_CHECK(zetasql_base::InsertIfNotPresent(&visiting_, column));
   ZETASQL_RET_CHECK(!current_column().has_value() ||
             zetasql_base::ContainsKey(edges_[current_column().value()], column))
       << "Current column " << current_column().value()
       << " is not present in edges";
   visiting_stack_.push_back(column);
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ColumnCycleDetector::FinishCurrentColumn() {
+absl::Status ColumnCycleDetector::FinishCurrentColumn() {
   // Remove from 'visiting_' and 'visiting_stack_'.
   ZETASQL_RET_CHECK(current_column().has_value());
   auto it = visiting_.find(current_column().value());
@@ -53,17 +53,17 @@ zetasql_base::Status ColumnCycleDetector::FinishCurrentColumn() {
 
   ZETASQL_RET_CHECK(!visiting_stack_.empty());
   visiting_stack_.pop_back();
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ColumnCycleDetector::AddDependencyOn(const IdString& column) {
+absl::Status ColumnCycleDetector::AddDependencyOn(const IdString& column) {
   ZETASQL_RET_CHECK(current_column().has_value());
 
   absl::flat_hash_set<IdString, IdStringHash>& adj_edges =
       edges_[current_column().value()];
   if (!zetasql_base::InsertIfNotPresent(&adj_edges, column)) {
     // Edge was already accounted for. See comments on 'edges_'.
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // Are we introducing a cycle?
@@ -87,7 +87,7 @@ zetasql_base::Status ColumnCycleDetector::AddDependencyOn(const IdString& column
     }
     return MakeSqlErrorAt(ast_node_) << message;
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 absl::optional<IdString> ColumnCycleDetector::current_column() const {

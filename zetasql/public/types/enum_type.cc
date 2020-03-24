@@ -34,7 +34,7 @@ const google::protobuf::EnumDescriptor* EnumType::enum_descriptor() const {
   return enum_descriptor_;
 }
 
-zetasql_base::Status EnumType::SerializeToProtoAndDistinctFileDescriptorsImpl(
+absl::Status EnumType::SerializeToProtoAndDistinctFileDescriptorsImpl(
     TypeProto* type_proto,
     absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
     FileDescriptorSetMap* file_descriptor_set_map) const {
@@ -52,7 +52,7 @@ zetasql_base::Status EnumType::SerializeToProtoAndDistinctFileDescriptorsImpl(
   if (set_index != 0) {
     enum_type_proto->set_file_descriptor_set_index(set_index);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 std::string EnumType::TypeName() const {

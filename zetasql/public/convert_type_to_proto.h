@@ -165,12 +165,12 @@ struct ConvertTypeToProtoOptions {
 // It is unspecified what the generated message names are, or where those
 // messages are stored, but a client using reflection to traverse a generated
 // proto can do so using only the field names, without examining message names.
-zetasql_base::Status ConvertStructToProto(
+absl::Status ConvertStructToProto(
     const StructType* struct_type,
     google::protobuf::FileDescriptorProto* file,
     const ConvertTypeToProtoOptions& options = ConvertTypeToProtoOptions());
 
-zetasql_base::Status ConvertArrayToProto(
+absl::Status ConvertArrayToProto(
     const ArrayType* array_type,
     google::protobuf::FileDescriptorProto* file,
     const ConvertTypeToProtoOptions& options = ConvertTypeToProtoOptions());
@@ -219,7 +219,7 @@ zetasql_base::Status ConvertArrayToProto(
 // any ZetaSQL result (table) type through a proto encoding, generate the
 // proto using ConvertTableToProto and then convert that proto back into
 // a Catalog Table using TableFromProto.
-zetasql_base::Status ConvertTableToProto(
+absl::Status ConvertTableToProto(
     const Type* row_type,
     bool is_value_table,
     google::protobuf::FileDescriptorProto* file,
@@ -228,7 +228,7 @@ zetasql_base::Status ConvertTableToProto(
 // Same as previous, but does not require converting the row type for
 // SQL tables to structs.  For value tables, <columns> must have
 // exactly one column.
-zetasql_base::Status ConvertTableToProto(
+absl::Status ConvertTableToProto(
     const std::vector<std::pair<std::string, const Type*>>& columns,
     bool is_value_table, google::protobuf::FileDescriptorProto* file,
     const ConvertTypeToProtoOptions& options = ConvertTypeToProtoOptions());
@@ -242,7 +242,7 @@ zetasql_base::Status ConvertTableToProto(
 //
 // At read time, the query engine should strip off this annotation,
 // giving back the user's original proto.
-zetasql_base::Status AddValueTableAnnotationForProto(
+absl::Status AddValueTableAnnotationForProto(
     const std::string& message_full_name, google::protobuf::FileDescriptorProto* file);
 
 }  // namespace zetasql

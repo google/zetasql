@@ -23,12 +23,16 @@ cc_library(
     name = "jni",
     srcs = [
         "@local_jdk//:jni_header",
-        "@local_jdk//:jni_md_header-linux",
-    ],
+    ] + select({
+        "@bazel_tools//src/conditions:darwin": ["@local_jdk//:jni_md_header-darwin"],
+        "@bazel_tools//src/conditions:linux_x86_64": ["@local_jdk//:jni_md_header-linux"],
+    }),
     copts = ["-Wno-sign-compare"],
     includes = [
         "../../external/local_jdk/include",
-        "../../external/local_jdk/include/linux",
-    ],
+    ] + select({
+        "@bazel_tools//src/conditions:darwin": ["../../external/local_jdk/include/darwin"],
+        "@bazel_tools//src/conditions:linux_x86_64": ["../../external/local_jdk/include/linux"],
+    }),
     linkstatic = 1,
 )

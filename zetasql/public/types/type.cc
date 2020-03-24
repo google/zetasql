@@ -329,7 +329,7 @@ bool Type::KindSpecificityLess(TypeKind kind1, TypeKind kind2) {
   return KindSpecificity(kind1) < KindSpecificity(kind2);
 }
 
-zetasql_base::Status Type::SerializeToProtoAndFileDescriptors(
+absl::Status Type::SerializeToProtoAndFileDescriptors(
     TypeProto* type_proto,
     google::protobuf::FileDescriptorSet* file_descriptor_set,
     std::set<const google::protobuf::FileDescriptor*>* file_descriptors) const {
@@ -368,10 +368,10 @@ zetasql_base::Status Type::SerializeToProtoAndFileDescriptors(
       file_descriptors->swap(file_descriptor_entry->file_descriptors);
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Type::SerializeToProtoAndDistinctFileDescriptors(
+absl::Status Type::SerializeToProtoAndDistinctFileDescriptors(
     TypeProto* type_proto,
     FileDescriptorSetMap* file_descriptor_set_map) const {
   // No limit on FileDescriptorSet size.
@@ -381,7 +381,7 @@ zetasql_base::Status Type::SerializeToProtoAndDistinctFileDescriptors(
       file_descriptor_set_map);
 }
 
-zetasql_base::Status Type::SerializeToProtoAndDistinctFileDescriptors(
+absl::Status Type::SerializeToProtoAndDistinctFileDescriptors(
     TypeProto* type_proto,
     absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
     FileDescriptorSetMap* file_descriptor_set_map) const {
@@ -391,7 +391,7 @@ zetasql_base::Status Type::SerializeToProtoAndDistinctFileDescriptors(
       type_proto, file_descriptor_sets_max_size_bytes, file_descriptor_set_map);
 }
 
-zetasql_base::Status Type::SerializeToSelfContainedProto(
+absl::Status Type::SerializeToSelfContainedProto(
     TypeProto* type_proto) const {
   type_proto->Clear();
   FileDescriptorSetMap file_descriptor_set_map;
@@ -413,7 +413,7 @@ zetasql_base::Status Type::SerializeToSelfContainedProto(
     ZETASQL_RET_CHECK(file_descriptor_set != nullptr);
     type_proto->add_file_descriptor_set()->Swap(file_descriptor_set);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 std::string Type::ShortTypeName(ProductMode mode) const {

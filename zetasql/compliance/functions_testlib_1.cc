@@ -49,9 +49,9 @@
 
 namespace zetasql {
 namespace {
-constexpr zetasql_base::StatusCode INVALID_ARGUMENT =
-    zetasql_base::StatusCode::kInvalidArgument;
-constexpr zetasql_base::StatusCode OUT_OF_RANGE = zetasql_base::StatusCode::kOutOfRange;
+constexpr absl::StatusCode INVALID_ARGUMENT =
+    absl::StatusCode::kInvalidArgument;
+constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 }  // namespace
 
 std::vector<FunctionTestCall> GetFunctionTestsBitCast() {

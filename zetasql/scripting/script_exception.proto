@@ -18,14 +18,14 @@ syntax = "proto2";
 
 package zetasql;
 
-// Payload to attach to util::Status to indicate that the error can be handled
+// Payload to attach to absl::Status to indicate that the error can be handled
 // by an EXCEPTION clause.
 //
 // TODO: Add additional fields for engine-specific system variables
 // that need to go out of scope when the exception handler is complete.
 message ScriptException {
   // Message to expose through the "@@error.message" system variable.
-  // If not set, the util::Status message will be used by default.
+  // If not set, the absl::Status message will be used by default.
   optional string message = 1;
 
   // A frame in the captured stack trace of an exception.

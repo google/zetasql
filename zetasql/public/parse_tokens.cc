@@ -50,7 +50,7 @@ enum class TokenizerState { kNone, kIdentifier, kIdentifierDot };
 
 // Returns a syntax error status with message 'error_message', located at byte
 // offset 'error_offset' into 'location'.
-static zetasql_base::Status MakeSyntaxErrorAtLocationOffset(
+static absl::Status MakeSyntaxErrorAtLocationOffset(
     const ParseLocationRange& location, int error_offset,
     const std::string& error_message) {
   absl::string_view filename = location.start().filename();
@@ -61,7 +61,7 @@ static zetasql_base::Status MakeSyntaxErrorAtLocationOffset(
       << "Syntax error: " << error_message;
 }
 
-static zetasql_base::Status ConvertBisonToken(int bison_token,
+static absl::Status ConvertBisonToken(int bison_token,
                                       const ParseLocationRange& location,
                                       std::string image,
                                       std::vector<ParseToken>* parse_tokens) {
@@ -115,7 +115,7 @@ static zetasql_base::Status ConvertBisonToken(int bison_token,
       std::string parsed_value;
       int error_offset;
       std::string error_message;
-      const zetasql_base::Status parse_status = ParseStringLiteral(
+      const absl::Status parse_status = ParseStringLiteral(
           image, &parsed_value, &error_message, &error_offset);
       if (!parse_status.ok()) {
         return MakeSyntaxErrorAtLocationOffset(location, error_offset,
@@ -130,7 +130,7 @@ static zetasql_base::Status ConvertBisonToken(int bison_token,
       std::string parsed_value;
       int error_offset;
       std::string error_message;
-      const zetasql_base::Status parse_status = ParseBytesLiteral(
+      const absl::Status parse_status = ParseBytesLiteral(
           image, &parsed_value, &error_message, &error_offset);
       if (!parse_status.ok()) {
         return MakeSyntaxErrorAtLocationOffset(location, error_offset,
@@ -188,7 +188,7 @@ static zetasql_base::Status ConvertBisonToken(int bison_token,
         std::string identifier;
         int error_offset;
         std::string error_message;
-        const zetasql_base::Status parse_status = ParseGeneralizedIdentifier(
+        const absl::Status parse_status = ParseGeneralizedIdentifier(
             image, &identifier, &error_message, &error_offset);
         if (!parse_status.ok()) {
           return MakeSyntaxErrorAtLocationOffset(location, error_offset,
@@ -227,10 +227,10 @@ static zetasql_base::Status ConvertBisonToken(int bison_token,
                                  ParseToken::KEYWORD);
       break;
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status GetParseTokens(const ParseTokenOptions& options,
+absl::Status GetParseTokens(const ParseTokenOptions& options,
                             ParseResumeLocation* resume_location,
                             std::vector<ParseToken>* tokens) {
   if (!resume_location->allow_resume()) {
@@ -286,7 +286,7 @@ zetasql_base::Status GetParseTokens(const ParseTokenOptions& options,
   ZETASQL_RET_CHECK(!tokens->empty());
   resume_location->set_byte_position(
       tokens->back().GetLocationRange().end().GetByteOffset());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 std::string ParseToken::GetKeyword() const {

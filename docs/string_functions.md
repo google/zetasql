@@ -351,7 +351,7 @@ FROM items;
 
 ```
 
-### FORMAT
+### FORMAT {#format_string}
 
 ZetaSQL supports a `FORMAT()` function for formatting strings. This
 function is similar to the C `printf` function. It produces a

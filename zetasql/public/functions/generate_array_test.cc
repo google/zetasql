@@ -45,16 +45,16 @@ namespace functions {
 
 TEST(GenerateArrayTest, TooManyElementsInt) {
   std::vector<int64_t> values;
-  zetasql_base::Status status = GenerateArray<int64_t, int64_t>(int64_t{1}, int64_t{1000000000},
+  absl::Status status = GenerateArray<int64_t, int64_t>(int64_t{1}, int64_t{1000000000},
                                                     int64_t{1}, &values);
-  EXPECT_THAT(status, zetasql_base::testing::StatusIs(zetasql_base::OUT_OF_RANGE));
+  EXPECT_THAT(status, zetasql_base::testing::StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST(GenerateArrayTest, TooManyElementsDouble) {
   std::vector<double> values;
-  zetasql_base::Status status = GenerateArray<double, double>(
+  absl::Status status = GenerateArray<double, double>(
       double{0}, double{1}, std::numeric_limits<double>::min(), &values);
-  EXPECT_THAT(status, zetasql_base::testing::StatusIs(zetasql_base::OUT_OF_RANGE));
+  EXPECT_THAT(status, zetasql_base::testing::StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST(GenerateArrayTest, ComplianceTests) {
@@ -70,7 +70,7 @@ TEST(GenerateArrayTest, ComplianceTests) {
       continue;
     }
     const Value& expected_result = test.params.results().begin()->second.result;
-    const zetasql_base::Status& expected_status =
+    const absl::Status& expected_status =
         test.params.results().begin()->second.status;
 
     const std::string params_string =
@@ -81,7 +81,7 @@ TEST(GenerateArrayTest, ComplianceTests) {
 
     const TypeKind input_type = params[0].type_kind();
     Value result;
-    zetasql_base::Status status;
+    absl::Status status;
     switch (input_type) {
       case TYPE_INT64: {
         std::vector<int64_t> output;
@@ -148,9 +148,7 @@ TEST(GenerateArrayTest, ComplianceTests) {
             << "\nReason: " << reason;
       }
     } else {
-      EXPECT_THAT(status,
-                  ::zetasql_base::testing::StatusIs(static_cast<::zetasql_base::StatusCode>(
-                      expected_status.code())));
+      EXPECT_THAT(status, ::zetasql_base::testing::StatusIs(expected_status.code()));
     }
   }
 }

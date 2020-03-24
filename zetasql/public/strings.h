@@ -39,7 +39,7 @@ namespace zetasql {
 // <error_string> is not NULL, then it is populated with the relevant error
 // message. If <error_offset> is not NULL, it is populated with the offset in
 // <str> at which the invalid input occurred.
-zetasql_base::Status UnescapeString(absl::string_view str, std::string* out,
+absl::Status UnescapeString(absl::string_view str, std::string* out,
                             std::string* error_string = nullptr,
                             int* error_offset = nullptr);
 
@@ -49,7 +49,7 @@ zetasql_base::Status UnescapeString(absl::string_view str, std::string* out,
 // is not NULL then it is populated with the relevant error message.  If
 // <error_offset> is not NULL, it is populated with the offset in  <str> at
 // which the invalid input occurred.
-zetasql_base::Status UnescapeBytes(absl::string_view str, std::string* out,
+absl::Status UnescapeBytes(absl::string_view str, std::string* out,
                            std::string* error_string = nullptr,
                            int* error_offset = nullptr);
 
@@ -69,7 +69,7 @@ std::string EscapeBytes(absl::string_view str, bool escape_all_bytes = false,
 // If an error occurs and <error_string> is not NULL, then it is populated with
 // the relevant error message. If <error_offset> is not NULL, it is populated
 // with the offset in <str> at which the invalid input occurred.
-zetasql_base::Status ParseStringLiteral(absl::string_view str, std::string* out,
+absl::Status ParseStringLiteral(absl::string_view str, std::string* out,
                                 std::string* error_string = nullptr,
                                 int* error_offset = nullptr);
 
@@ -78,7 +78,7 @@ zetasql_base::Status ParseStringLiteral(absl::string_view str, std::string* out,
 // If an error occurs and <error_string> is not NULL, then it is populated with
 // the relevant error message. If <error_offset> is not NULL, it is populated
 // with the offset in <str> at which the invalid input occurred.
-zetasql_base::Status ParseBytesLiteral(absl::string_view str, std::string* out,
+absl::Status ParseBytesLiteral(absl::string_view str, std::string* out,
                                std::string* error_string = nullptr,
                                int* error_offset = nullptr);
 
@@ -112,14 +112,14 @@ std::string ToDoubleQuotedBytesLiteral(absl::string_view str);
 // If an error occurs and <error_string> is not NULL, then it is populated with
 // the relevant error message. If <error_offset> is not NULL, it is populated
 // with the offset in <str> at which the invalid input occurred.
-zetasql_base::Status ParseIdentifier(absl::string_view str, std::string* out,
+absl::Status ParseIdentifier(absl::string_view str, std::string* out,
                              std::string* error_string = nullptr,
                              int* error_offset = nullptr);
 
 // Same as above, but allow reserved keywords to be identifiers. For example,
 // "SELECT" is valid as a generalized identifier but not as an identifier.
 // "`SELECT`" is valid for either.
-zetasql_base::Status ParseGeneralizedIdentifier(absl::string_view str, std::string* out,
+absl::Status ParseGeneralizedIdentifier(absl::string_view str, std::string* out,
                                         std::string* error_string = nullptr,
                                         int* error_offset = nullptr);
 
@@ -155,7 +155,7 @@ std::string IdentifierPathToString(absl::Span<const IdString> path,
 //   "abc.select.from.table" => {"abc", "select", "from", "table"}
 //   "abc.`def.ghi`" => {"abc", "def.ghi"}
 //   "123" => error
-zetasql_base::Status ParseIdentifierPath(absl::string_view str,
+absl::Status ParseIdentifierPath(absl::string_view str,
                                  std::vector<std::string>* out);
 
 // Return true if the string is a ZetaSQL keyword.

@@ -17,20 +17,20 @@
 // This file implements basic bitwise operations. The following functions
 // are defined:
 //
-//   bool BitwiseNot(T in1, T* out, zetasql_base::Status* error);
+//   bool BitwiseNot(T in1, T* out, absl::Status* error);
 //   bool BitwiseNotBytes(absl::string_view in, string* out,
-//                        zetasql_base::Status* error);
-//   bool BitwiseOr(T in1, T in2, T* out, zetasql_base::Status* error);
-//   bool BitwiseXor(T in1, T in2, T* out, zetasql_base::Status* error);
-//   bool BitwiseAnd(T in1, T in2, T* out, zetasql_base::Status* error);
+//                        absl::Status* error);
+//   bool BitwiseOr(T in1, T in2, T* out, absl::Status* error);
+//   bool BitwiseXor(T in1, T in2, T* out, absl::Status* error);
+//   bool BitwiseAnd(T in1, T in2, T* out, absl::Status* error);
 //   bool BitwiseBinaryOpBytes(absl::string_view in1, absl::string_view in2,
-//                             string* out, zetasql_base::Status* error);
-//   bool BitwiseLeftShift(T in1, int64_t in2, T* out, zetasql_base::Status* error);
+//                             string* out, absl::Status* error);
+//   bool BitwiseLeftShift(T in1, int64_t in2, T* out, absl::Status* error);
 //   bool BitwiseLeftShiftBytes(absl::string_view in1, int64_t in2, string* out,
-//                              zetasql_base::Status* error);
-//   bool BitwiseRightShift(T in1, int64_t in2, T* out, zetasql_base::Status* error);
+//                              absl::Status* error);
+//   bool BitwiseRightShift(T in1, int64_t in2, T* out, absl::Status* error);
 //   bool BitwiseRightShiftBytes(absl::string_view in1, int64_t in2, string* out,
-//                               zetasql_base::Status* error);
+//                               absl::Status* error);
 //   int64_t BitCount(T in);
 //
 // Here T can be one of the following types: int32_t, int64_t, uint32_t, uint64_t.
@@ -64,59 +64,59 @@ namespace zetasql {
 namespace functions {
 
 template <typename T>
-bool BitwiseNot(T in, T* out, zetasql_base::Status* error);
+bool BitwiseNot(T in, T* out, absl::Status* error);
 bool BitwiseNotBytes(absl::string_view in, std::string* out,
-                     zetasql_base::Status* error);
+                     absl::Status* error);
 template <typename T>
-bool BitwiseOr(T in1, T in2, T* out, zetasql_base::Status* error);
+bool BitwiseOr(T in1, T in2, T* out, absl::Status* error);
 template <typename T>
-bool BitwiseXor(T in1, T in2, T* out, zetasql_base::Status* error);
+bool BitwiseXor(T in1, T in2, T* out, absl::Status* error);
 template <typename T>
-bool BitwiseAnd(T in1, T in2, T* out, zetasql_base::Status* error);
+bool BitwiseAnd(T in1, T in2, T* out, absl::Status* error);
 // Op can be std::bit_and, std::bit_or, or std::bit_xor.
 template <template <typename T> class Op>
 bool BitwiseBinaryOpBytes(absl::string_view in1, absl::string_view in2,
-                          std::string* out, zetasql_base::Status* error);
+                          std::string* out, absl::Status* error);
 template <typename T>
-bool BitwiseLeftShift(T in1, int64_t in2, T* out, zetasql_base::Status* error);
+bool BitwiseLeftShift(T in1, int64_t in2, T* out, absl::Status* error);
 bool BitwiseLeftShiftBytes(absl::string_view in1, int64_t in2, std::string* out,
-                           zetasql_base::Status* error);
+                           absl::Status* error);
 template <typename T>
-bool BitwiseRightShift(T in1, int64_t in2, T* out, zetasql_base::Status* error);
+bool BitwiseRightShift(T in1, int64_t in2, T* out, absl::Status* error);
 bool BitwiseRightShiftBytes(absl::string_view in1, int64_t in2, std::string* out,
-                            zetasql_base::Status* error);
+                            absl::Status* error);
 int64_t BitCount(int32_t in);
 int64_t BitCount(int64_t in);
 int64_t BitCount(uint64_t in);
 int64_t BitCount(absl::string_view in);
 
 template <typename T>
-bool BitwiseNot(T in, T* out, zetasql_base::Status* error) {
+bool BitwiseNot(T in, T* out, absl::Status* error) {
   *out = ~in;
   return true;
 }
 
 template <typename T>
-bool BitwiseOr(T in1, T in2, T* out, zetasql_base::Status* error) {
+bool BitwiseOr(T in1, T in2, T* out, absl::Status* error) {
   *out = in1 | in2;
   return true;
 }
 
 template <typename T>
-bool BitwiseXor(T in1, T in2, T* out, zetasql_base::Status* error) {
+bool BitwiseXor(T in1, T in2, T* out, absl::Status* error) {
   *out = in1 ^ in2;
   return true;
 }
 
 template <typename T>
-bool BitwiseAnd(T in1, T in2, T* out, zetasql_base::Status* error) {
+bool BitwiseAnd(T in1, T in2, T* out, absl::Status* error) {
   *out = in1 & in2;
   return true;
 }
 
 template <template <typename T> class Op>
 bool BitwiseBinaryOpBytes(absl::string_view in1, absl::string_view in2,
-                          std::string* out, zetasql_base::Status* error) {
+                          std::string* out, absl::Status* error) {
   if (in1.size() != in2.size()) {
     internal::UpdateError(
         error,
@@ -140,7 +140,7 @@ bool BitwiseBinaryOpBytes(absl::string_view in1, absl::string_view in2,
 }
 
 template <typename T>
-bool BitwiseLeftShift(T in1, int64_t in2, T* out, zetasql_base::Status* error) {
+bool BitwiseLeftShift(T in1, int64_t in2, T* out, absl::Status* error) {
   typedef typename std::make_unsigned<T>::type UnsignedT;
   if (ABSL_PREDICT_FALSE(in2 < 0)) {
     internal::UpdateError(error, "Bitwise shift by negative offset.");
@@ -155,7 +155,7 @@ bool BitwiseLeftShift(T in1, int64_t in2, T* out, zetasql_base::Status* error) {
 }
 
 template <typename T>
-bool BitwiseRightShift(T in1, int64_t in2, T* out, zetasql_base::Status* error) {
+bool BitwiseRightShift(T in1, int64_t in2, T* out, absl::Status* error) {
   typedef typename std::make_unsigned<T>::type UnsignedT;
   if (ABSL_PREDICT_FALSE(in2 < 0)) {
     internal::UpdateError(error, "Bitwise shift by negative offset.");

@@ -21,6 +21,7 @@
 
 #include "google/protobuf/message.h"
 #include "absl/memory/memory.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_payload.h"
@@ -49,14 +50,12 @@ bool HasPayloadWithType(const zetasql_base::Status& status) {
 // the status does not contain a payload of the given type, but will not crash.
 template <class T>
 T GetPayload(const zetasql_base::Status& status) {
-  absl::optional<zetasql_base::StatusCord> payload =
-      status.GetPayload(GetTypeUrl<T>());
+  absl::optional<absl::Cord> payload = status.GetPayload(GetTypeUrl<T>());
   if (!payload.has_value()) {
     return T();
   }
   T proto;
-  // TODO: switch to cord once available.
-  if (!proto.ParseFromString(*payload)) {
+  if (!proto.ParseFromString(std::string(*payload))) {
     proto.Clear();  // Prefer empty over partial??
   }
   return proto;

@@ -75,11 +75,11 @@ RelationalOp::~RelationalOp() {}
 // RelationalOp
 // -------------------------------------------------------
 
-zetasql_base::Status RelationalOp::set_is_order_preserving(bool is_order_preserving) {
+absl::Status RelationalOp::set_is_order_preserving(bool is_order_preserving) {
   ZETASQL_RET_CHECK(!is_order_preserving || may_preserve_order())
       << "Operator cannot preserve order";
   is_order_preserving_ = is_order_preserving;
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 ::zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> RelationalOp::Eval(
@@ -122,7 +122,7 @@ InArrayColumnFilterArg::Create(const VariableId& variable, int column_idx,
       new InArrayColumnFilterArg(variable, column_idx, std::move(array)));
 }
 
-::zetasql_base::Status InArrayColumnFilterArg::SetSchemasForEvaluation(
+absl::Status InArrayColumnFilterArg::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   return array_->SetSchemasForEvaluation(params_schemas);
 }
@@ -131,7 +131,7 @@ InArrayColumnFilterArg::Create(const VariableId& variable, int column_idx,
     absl::Span<const TupleData* const> params,
     EvaluationContext* context) const {
   TupleSlot array;
-  ::zetasql_base::Status status;
+  absl::Status status;
   if (!array_->EvalSimple(params, context, &array, &status)) {
     return status;
   }
@@ -176,12 +176,12 @@ InListColumnFilterArg::Create(
       new InListColumnFilterArg(variable, column_idx, std::move(elements)));
 }
 
-::zetasql_base::Status InListColumnFilterArg::SetSchemasForEvaluation(
+absl::Status InListColumnFilterArg::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   for (std::unique_ptr<ValueExpr>& element : elements_) {
     ZETASQL_RETURN_IF_ERROR(element->SetSchemasForEvaluation(params_schemas));
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 ::zetasql_base::StatusOr<std::unique_ptr<ColumnFilter>> InListColumnFilterArg::Eval(
@@ -191,7 +191,7 @@ InListColumnFilterArg::Create(
   for (int i = 0; i < elements_.size(); ++i) {
     std::shared_ptr<TupleSlot::SharedProtoState> shared_state;
     VirtualTupleSlot result(&elements[i], &shared_state);
-    ::zetasql_base::Status status;
+    absl::Status status;
     if (!elements_[i]->Eval(params, context, &result, &status)) {
       return status;
     }
@@ -240,7 +240,7 @@ HalfUnboundedColumnFilterArg::Create(const VariableId& variable, int column_idx,
       variable, column_idx, kind, std::move(arg)));
 }
 
-::zetasql_base::Status HalfUnboundedColumnFilterArg::SetSchemasForEvaluation(
+absl::Status HalfUnboundedColumnFilterArg::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   return arg_->SetSchemasForEvaluation(params_schemas);
 }
@@ -249,7 +249,7 @@ HalfUnboundedColumnFilterArg::Create(const VariableId& variable, int column_idx,
 HalfUnboundedColumnFilterArg::Eval(absl::Span<const TupleData* const> params,
                                    EvaluationContext* context) const {
   TupleSlot arg;
-  ::zetasql_base::Status status;
+  absl::Status status;
   if (!arg_->EvalSimple(params, context, &arg, &status)) {
     return status;
   }
@@ -416,7 +416,7 @@ EvaluatorTableScanOp::IntersectColumnFilters(
   }
 }
 
-::zetasql_base::Status EvaluatorTableScanOp::SetSchemasForEvaluation(
+absl::Status EvaluatorTableScanOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   for (std::unique_ptr<ColumnFilterArg>& filter : and_filters_) {
     ZETASQL_RETURN_IF_ERROR(filter->SetSchemasForEvaluation(params_schemas));
@@ -426,7 +426,7 @@ EvaluatorTableScanOp::IntersectColumnFilters(
     ZETASQL_RETURN_IF_ERROR(read_time_->SetSchemasForEvaluation(params_schemas));
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 namespace {
@@ -476,7 +476,7 @@ class EvaluatorTableTupleIterator : public TupleIterator {
     return &current_;
   }
 
-  zetasql_base::Status Status() const override { return status_; }
+  absl::Status Status() const override { return status_; }
 
   std::string DebugString() const override {
     return EvaluatorTableScanOp::GetIteratorDebugString(name_);
@@ -489,7 +489,7 @@ class EvaluatorTableTupleIterator : public TupleIterator {
   bool called_next_ = false;
   std::unique_ptr<EvaluatorTableIterator> evaluator_table_iter_;
   TupleData current_;
-  zetasql_base::Status status_;
+  absl::Status status_;
 };
 }  // namespace
 
@@ -502,7 +502,7 @@ EvaluatorTableScanOp::CreateIterator(absl::Span<const TupleData* const> params,
     std::shared_ptr<TupleSlot::SharedProtoState> shared_state;
     Value time_value;
     VirtualTupleSlot result(&time_value, &shared_state);
-    zetasql_base::Status status;
+    absl::Status status;
     if (!read_time_->Eval(params, context, &result, &status)) {
       return status;
     }
@@ -610,7 +610,7 @@ std::string LetOp::GetIteratorDebugString(
   return absl::WrapUnique(new LetOp(std::move(assign), std::move(body)));
 }
 
-::zetasql_base::Status LetOp::SetSchemasForEvaluation(
+absl::Status LetOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   // Initialize 'schema_ptrs' with 'params_schemas', then extend 'schema_ptrs'
   // with new schemas owned by 'new_schemas'.
@@ -655,11 +655,11 @@ class LetOpTupleIterator : public TupleIterator {
 
   TupleData* Next() override { return iter_->Next(); }
 
-  zetasql_base::Status Status() const override { return iter_->Status(); }
+  absl::Status Status() const override { return iter_->Status(); }
 
   bool PreservesOrder() const override { return iter_->PreservesOrder(); }
 
-  zetasql_base::Status DisableReordering() override {
+  absl::Status DisableReordering() override {
     return iter_->DisableReordering();
   }
 
@@ -688,7 +688,7 @@ class LetOpTupleIterator : public TupleIterator {
   all_params.reserve(params.size() + assign().size());
   all_params.insert(all_params.end(), params.begin(), params.end());
 
-  ::zetasql_base::Status status;
+  absl::Status status;
   for (const ExprArg* a : assign()) {
     auto new_data = absl::make_unique<TupleData>(/*num_slots=*/1);
     if (!a->value_expr()->EvalSimple(all_params, context,
@@ -781,7 +781,7 @@ zetasql_base::StatusOr<std::unique_ptr<SortOp>> SortOp::Create(
   return op;
 }
 
-zetasql_base::Status SortOp::SetSchemasForEvaluation(
+absl::Status SortOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   if (has_limit_) {
     ZETASQL_RETURN_IF_ERROR(mutable_limit()->SetSchemasForEvaluation(params_schemas));
@@ -807,7 +807,7 @@ zetasql_base::Status SortOp::SetSchemasForEvaluation(
     ZETASQL_RETURN_IF_ERROR(value->mutable_value_expr()->SetSchemasForEvaluation(
         ConcatSpans(params_schemas, {input_schema.get()})));
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 namespace {
@@ -856,15 +856,15 @@ class SortTupleIterator : public TupleIterator {
     return current_.get();
   }
 
-  zetasql_base::Status Status() const override { return status_; }
+  absl::Status Status() const override { return status_; }
 
   bool PreservesOrder() const override { return !enable_reordering_; }
 
-  zetasql_base::Status DisableReordering() override {
+  absl::Status DisableReordering() override {
     ZETASQL_RET_CHECK_EQ(num_next_calls_, 0)
         << "DisableReordering() cannot be called after Next()";
     enable_reordering_ = false;
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   std::string DebugString() const override {
@@ -875,7 +875,7 @@ class SortTupleIterator : public TupleIterator {
  private:
   // Iterates over 'tuples_' and scrambles the order of tuples with the same
   // key.
-  zetasql_base::Status ReorderTuplesWithSameKey() {
+  absl::Status ReorderTuplesWithSameKey() {
     // Scramble the sorted order.
     std::vector<std::unique_ptr<TupleData>> tuples;
     tuples.reserve(tuples_->GetSize());
@@ -917,13 +917,13 @@ class SortTupleIterator : public TupleIterator {
     }
 
     ZETASQL_RET_CHECK(tuples_->IsEmpty());
-    zetasql_base::Status status;
+    absl::Status status;
     for (int idx : scrambled_idxs) {
       if (!tuples_->PushBack(std::move(tuples[idx]), &status)) {
         return status;
       }
     }
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // We store a TupleIterator instead of the debug string to avoid having to
@@ -936,7 +936,7 @@ class SortTupleIterator : public TupleIterator {
   std::unique_ptr<TupleData> current_;
   EvaluationContext* context_;
   bool enable_reordering_ = true;
-  zetasql_base::Status status_;
+  absl::Status status_;
 };
 }  // namespace
 
@@ -948,7 +948,7 @@ class SortTupleIterator : public TupleIterator {
 
   if (has_limit()) {
     TupleSlot slot;
-    ::zetasql_base::Status status;
+    absl::Status status;
     if (!limit()->EvalSimple(params, context, &slot, &status)) {
       return status;
     }
@@ -957,7 +957,7 @@ class SortTupleIterator : public TupleIterator {
 
   if (has_offset()) {
     TupleSlot slot;
-    ::zetasql_base::Status status;
+    absl::Status status;
     if (!offset()->EvalSimple(params, context, &slot, &status)) {
       return status;
     }
@@ -1013,7 +1013,7 @@ class SortTupleIterator : public TupleIterator {
       *comparator, context->memory_accountant());
   auto outputs =
       absl::make_unique<TupleDataDeque>(context->memory_accountant());
-  zetasql_base::Status status;
+  absl::Status status;
   while (true) {
     const TupleData* next_input = input_iter->Next();
     if (next_input == nullptr) {
@@ -1220,7 +1220,7 @@ std::string ComputeOp::GetIteratorDebugString(
   return absl::WrapUnique(new ComputeOp(std::move(map), std::move(input)));
 }
 
-::zetasql_base::Status ComputeOp::SetSchemasForEvaluation(
+absl::Status ComputeOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   ZETASQL_RETURN_IF_ERROR(mutable_input()->SetSchemasForEvaluation(params_schemas));
   const std::unique_ptr<const TupleSchema> input_schema =
@@ -1238,7 +1238,7 @@ std::string ComputeOp::GetIteratorDebugString(
     vars.push_back(arg->variable());
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 namespace {
@@ -1282,7 +1282,7 @@ class ComputeTupleIterator : public TupleIterator {
     for (int i = 0; i < expr_args_.size(); ++i) {
       TupleSlot* slot =
           current->mutable_slot(iter_->Schema().num_variables() + i);
-      ::zetasql_base::Status status;
+      absl::Status status;
       if (!expr_args_[i]->value_expr()->EvalSimple(
               ConcatSpans(absl::Span<const TupleData* const>(params_),
                           {current}),
@@ -1295,7 +1295,7 @@ class ComputeTupleIterator : public TupleIterator {
     return current;
   }
 
-  zetasql_base::Status Status() const override { return status_; }
+  absl::Status Status() const override { return status_; }
 
   std::string DebugString() const override {
     return ComputeOp::GetIteratorDebugString(iter_->DebugString());
@@ -1307,7 +1307,7 @@ class ComputeTupleIterator : public TupleIterator {
 
   std::unique_ptr<TupleIterator> iter_;
   std::unique_ptr<TupleSchema> output_schema_;
-  zetasql_base::Status status_;
+  absl::Status status_;
   EvaluationContext* context_;
 };
 }  // namespace
@@ -1380,7 +1380,7 @@ std::string FilterOp::GetIteratorDebugString(
   return absl::WrapUnique(new FilterOp(std::move(predicate), std::move(input)));
 }
 
-::zetasql_base::Status FilterOp::SetSchemasForEvaluation(
+absl::Status FilterOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   ZETASQL_RETURN_IF_ERROR(mutable_input()->SetSchemasForEvaluation(params_schemas));
 
@@ -1418,7 +1418,7 @@ class FilterTupleIterator : public TupleIterator {
       }
 
       TupleSlot slot;
-      ::zetasql_base::Status status;
+      absl::Status status;
       if (!predicate_->EvalSimple(
               ConcatSpans(absl::Span<const TupleData* const>(params_),
                           {current}),
@@ -1432,7 +1432,7 @@ class FilterTupleIterator : public TupleIterator {
     }
   }
 
-  zetasql_base::Status Status() const override { return status_; }
+  absl::Status Status() const override { return status_; }
 
   std::string DebugString() const override {
     return FilterOp::GetIteratorDebugString(iter_->DebugString());
@@ -1442,7 +1442,7 @@ class FilterTupleIterator : public TupleIterator {
   const ValueExpr* predicate_;
   const std::vector<const TupleData*> params_;
   std::unique_ptr<TupleIterator> iter_;
-  zetasql_base::Status status_;
+  absl::Status status_;
   EvaluationContext* context_;
 };
 }  // namespace
@@ -1515,7 +1515,7 @@ std::string LimitOp::GetIteratorDebugString(
   return op;
 }
 
-::zetasql_base::Status LimitOp::SetSchemasForEvaluation(
+absl::Status LimitOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   ZETASQL_RETURN_IF_ERROR(mutable_row_count()->SetSchemasForEvaluation(params_schemas));
   ZETASQL_RETURN_IF_ERROR(mutable_offset()->SetSchemasForEvaluation(params_schemas));
@@ -1566,7 +1566,7 @@ class LimitTupleIterator : public TupleIterator {
     return current;
   }
 
-  zetasql_base::Status Status() const override { return status_; }
+  absl::Status Status() const override { return status_; }
 
   std::string DebugString() const override {
     return LimitOp::GetIteratorDebugString(iter_->DebugString());
@@ -1575,7 +1575,7 @@ class LimitTupleIterator : public TupleIterator {
  private:
   // Update 'status_' and 'context_' to indicate that the iterator is done. If
   // 'iter_' is done, 'iter_status' contains its status.
-  void Finish(absl::optional<zetasql_base::Status> iter_status) {
+  void Finish(absl::optional<absl::Status> iter_status) {
     if (iter_status.has_value()) {
       status_ = iter_status.value();
     }
@@ -1609,7 +1609,7 @@ class LimitTupleIterator : public TupleIterator {
   std::unique_ptr<TupleIterator> iter_;
   // The row number of the next tuple returned by iter_->Next().
   int64_t next_iter_row_number_ = 0;
-  zetasql_base::Status status_;
+  absl::Status status_;
 };
 }  // namespace
 
@@ -1617,7 +1617,7 @@ zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> LimitOp::CreateIterator(
     absl::Span<const TupleData* const> params, int num_extra_slots,
     EvaluationContext* context) const {
   TupleSlot count_slot;
-  zetasql_base::Status status;
+  absl::Status status;
   if (!row_count()->EvalSimple(params, context, &count_slot, &status))
     return status;
   const Value& count = count_slot.value();
@@ -1716,7 +1716,7 @@ std::string EnumerateOp::GetIteratorDebugString(
   return absl::WrapUnique(new EnumerateOp(std::move(row_count)));
 }
 
-::zetasql_base::Status EnumerateOp::SetSchemasForEvaluation(
+absl::Status EnumerateOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   return mutable_row_count()->SetSchemasForEvaluation(params_schemas);
 }
@@ -1739,7 +1739,7 @@ class EnumerateTupleIterator : public TupleIterator {
             absl::GetFlag(
                 FLAGS_zetasql_call_verify_not_aborted_rows_period) ==
         0) {
-      zetasql_base::Status status = context_->VerifyNotAborted();
+      absl::Status status = context_->VerifyNotAborted();
       if (!status.ok()) {
         status_ = status;
         return nullptr;
@@ -1751,7 +1751,7 @@ class EnumerateTupleIterator : public TupleIterator {
     return &data_;
   }
 
-  zetasql_base::Status Status() const override { return status_; }
+  absl::Status Status() const override { return status_; }
 
   std::string DebugString() const override {
     return EnumerateOp::GetIteratorDebugString(absl::StrCat(count_));
@@ -1763,7 +1763,7 @@ class EnumerateTupleIterator : public TupleIterator {
   EvaluationContext* context_;
   TupleData data_;
   int64_t num_tuples_returned_ = 0;
-  zetasql_base::Status status_;
+  absl::Status status_;
 };
 }  // namespace
 
@@ -1771,7 +1771,7 @@ zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> EnumerateOp::CreateIterat
     absl::Span<const TupleData* const> params, int num_extra_slots,
     EvaluationContext* context) const {
   TupleSlot count_slot;
-  ::zetasql_base::Status status;
+  absl::Status status;
   if (!row_count()->EvalSimple(params, context, &count_slot, &status))
     return status;
   const Value& count = count_slot.value();
@@ -1863,7 +1863,7 @@ const std::string& JoinOp::JoinKindToString(JoinOp::JoinKind kind) {
       std::move(right_outputs)));
 }
 
-::zetasql_base::Status JoinOp::SetSchemasForEvaluation(
+absl::Status JoinOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   ZETASQL_RETURN_IF_ERROR(
       mutable_left_input()->SetSchemasForEvaluation(params_schemas));
@@ -1913,7 +1913,7 @@ const std::string& JoinOp::JoinKindToString(JoinOp::JoinKind kind) {
   ZETASQL_RETURN_IF_ERROR(mutable_remaining_join_expr()->SetSchemasForEvaluation(
       ConcatSpans(params_schemas, {left_schema.get(), right_schema.get()})));
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 namespace {
@@ -1936,7 +1936,7 @@ class RightInputForJoin {
   //
   // 'left_input' may be NULL if IsCorrelated() returns false. In that
   // case, the right input does not depend on the left-hand side.
-  virtual zetasql_base::Status ResetForLeftInput(const Tuple* left_input) = 0;
+  virtual absl::Status ResetForLeftInput(const Tuple* left_input) = 0;
 
   // Returns the number of tuples on this side of the join that the last call to
   // ResetForLeftInput() identified as possibly joining with the current left
@@ -1954,7 +1954,7 @@ class RightInputForJoin {
   // Records that GetMatchingTuple(index) joined with some left tuple. Has the
   // same requirements as GetMatchingTuple(). Also requires that IsCorrelated()
   // is false.
-  virtual zetasql_base::Status RecordMatchingTupleJoined(int64_t index) = 0;
+  virtual absl::Status RecordMatchingTupleJoined(int64_t index) = 0;
 
   // Returns true if GetMatchingTuple(index) joined with some left tuple. Has
   // the same requirements as RecordMatchingTupleJoined().
@@ -2004,8 +2004,8 @@ class UncorrelatedRightInput : public RightInputForJoin {
 
   const TupleSchema& Schema() const override { return *schema_; }
 
-  zetasql_base::Status ResetForLeftInput(const Tuple* /* left_input */) override {
-    return zetasql_base::OkStatus();
+  absl::Status ResetForLeftInput(const Tuple* /* left_input */) override {
+    return absl::OkStatus();
   }
 
   int64_t GetNumMatchingTuples() const override {
@@ -2016,9 +2016,9 @@ class UncorrelatedRightInput : public RightInputForJoin {
     return *tuples_and_bits_[index].tuple;
   }
 
-  zetasql_base::Status RecordMatchingTupleJoined(int64_t index) override {
+  absl::Status RecordMatchingTupleJoined(int64_t index) override {
     tuples_and_bits_[index].joined = true;
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   zetasql_base::StatusOr<bool> DidMatchingTupleJoin(int64_t index) const override {
@@ -2072,7 +2072,7 @@ class UncorrelatedHashedRightInput : public RightInputForJoin {
 
   const TupleSchema& Schema() const override { return *schema_; }
 
-  zetasql_base::Status ResetForLeftInput(const Tuple* left_input) override {
+  absl::Status ResetForLeftInput(const Tuple* left_input) override {
     if (left_input == nullptr) {
       matching_right_tuple_list_ = absl::nullopt;
     } else {
@@ -2092,7 +2092,7 @@ class UncorrelatedHashedRightInput : public RightInputForJoin {
         // that the result of NaN = NaN is false, but NULL.Equals(NULL) and
         // NaN.Equals(NaN) are both true.
         ZETASQL_RET_CHECK_EQ(key->num_slots(), other_key.num_slots());
-        zetasql_base::Status status;
+        absl::Status status;
         for (int i = 0; i < key->num_slots(); ++i) {
           const ComparisonFunction equals_function(FunctionKind::kEqual,
                                                    types::BoolType());
@@ -2109,7 +2109,7 @@ class UncorrelatedHashedRightInput : public RightInputForJoin {
         }
       }
     }
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   int64_t GetNumMatchingTuples() const override {
@@ -2133,7 +2133,7 @@ class UncorrelatedHashedRightInput : public RightInputForJoin {
     return *(*matching_right_tuple_list_.value())[index]->tuple;
   }
 
-  zetasql_base::Status RecordMatchingTupleJoined(int64_t index) override {
+  absl::Status RecordMatchingTupleJoined(int64_t index) override {
     if (!matching_right_tuple_list_.has_value()) {
       // No value -> iterate over everything.
       right_tuples_and_bits_[index].joined = true;
@@ -2141,7 +2141,7 @@ class UncorrelatedHashedRightInput : public RightInputForJoin {
       // Otherwise iterate over the list.
       (*matching_right_tuple_list_.value())[index]->joined = true;
     }
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   zetasql_base::StatusOr<bool> DidMatchingTupleJoin(int64_t index) const override {
@@ -2196,7 +2196,7 @@ class UncorrelatedHashedRightInput : public RightInputForJoin {
     for (int i = 0; i < args.size(); ++i) {
       const ExprArg* arg = args[i];
       TupleSlot* slot = key->mutable_slot(i);
-      zetasql_base::Status status;
+      absl::Status status;
       if (!arg->value_expr()->EvalSimple(ConcatSpans(params, {&row}), context,
                                          slot, &status)) {
         return status;
@@ -2238,14 +2238,14 @@ class UncorrelatedHashedRightInput : public RightInputForJoin {
 // 'iter_for_debug_string' is non-NULL, populates it with the iterator. (We pass
 // around the iterator instead of the debug string to avoid computing the debug
 // string unnecessarily.)
-zetasql_base::Status ExtractFromRelationalOp(
+absl::Status ExtractFromRelationalOp(
     const RelationalOp* op, absl::Span<const TupleData* const> params,
     EvaluationContext* context, TupleDataDeque* tuples,
     std::unique_ptr<TupleIterator>* iter_for_debug_string) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleIterator> iter,
                    op->CreateIterator(params, /*num_extra_slots=*/0, context));
   tuples->Clear();
-  zetasql_base::Status status;
+  absl::Status status;
   while (true) {
     TupleData* tuple = iter->Next();
     if (tuple == nullptr) {
@@ -2261,7 +2261,7 @@ zetasql_base::Status ExtractFromRelationalOp(
     *iter_for_debug_string = std::move(iter);
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Represents the right-hand input side of a join whose right-hand side can
@@ -2285,7 +2285,7 @@ class CorrelatedRightInput : public RightInputForJoin {
 
   const TupleSchema& Schema() const override { return *schema_; }
 
-  zetasql_base::Status ResetForLeftInput(const Tuple* left_input) override {
+  absl::Status ResetForLeftInput(const Tuple* left_input) override {
     // 'left_input' cannot be NULL because IsCorrelated() returns true.
     ZETASQL_RET_CHECK(left_input != nullptr);
 
@@ -2300,7 +2300,7 @@ class CorrelatedRightInput : public RightInputForJoin {
                                             &tuples_,
                                             /*iter_for_debug_string=*/nullptr));
     tuple_ptrs_ = tuples_.GetTuplePtrs();
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   int64_t GetNumMatchingTuples() const override { return tuple_ptrs_.size(); }
@@ -2309,7 +2309,7 @@ class CorrelatedRightInput : public RightInputForJoin {
     return *tuple_ptrs_[index];
   }
 
-  zetasql_base::Status RecordMatchingTupleJoined(int64_t index) override {
+  absl::Status RecordMatchingTupleJoined(int64_t index) override {
     ZETASQL_RET_CHECK_FAIL() << "RecordMatchingTupleJoined() cannot be called because "
                      << "IsCorrelated() returns true";
   }
@@ -2382,7 +2382,7 @@ class JoinTupleIterator : public TupleIterator {
   TupleData* Next() override {
     if (!left_padding_right_tuples_ && !next_left_tuple_.has_value() &&
         next_right_tuple_idx_ == 0) {
-      const zetasql_base::Status init_status = InitializeJoinCandidates();
+      const absl::Status init_status = InitializeJoinCandidates();
       if (!init_status.ok()) {
         status_ = init_status;
         return nullptr;
@@ -2423,7 +2423,7 @@ class JoinTupleIterator : public TupleIterator {
         left_tuple_joined_ = true;
 
         if (!right_input_->IsCorrelated()) {
-          zetasql_base::Status joined_status =
+          absl::Status joined_status =
               right_input_->RecordMatchingTupleJoined(next_right_tuple_idx_);
           if (!joined_status.ok()) {
             status_ = joined_status;
@@ -2432,7 +2432,7 @@ class JoinTupleIterator : public TupleIterator {
         }
       }
 
-      const zetasql_base::Status advance_status = Advance();
+      const absl::Status advance_status = Advance();
       if (!advance_status.ok()) {
         status_ = advance_status;
         return nullptr;
@@ -2444,7 +2444,7 @@ class JoinTupleIterator : public TupleIterator {
     }
   }
 
-  zetasql_base::Status Status() const override { return status_; }
+  absl::Status Status() const override { return status_; }
 
   std::string DebugString() const override {
     return JoinOp::GetIteratorDebugString(join_kind_, left_iter_->DebugString(),
@@ -2453,7 +2453,7 @@ class JoinTupleIterator : public TupleIterator {
 
  private:
   // Updates the private variables to point to the first candidate join tuples.
-  zetasql_base::Status InitializeJoinCandidates() {
+  absl::Status InitializeJoinCandidates() {
     ZETASQL_RET_CHECK(!next_left_tuple_.has_value());
     next_left_tuple_ = left_iter_->Next();
     if (next_left_tuple_ == nullptr) {
@@ -2470,7 +2470,7 @@ class JoinTupleIterator : public TupleIterator {
         return FinishJoiningLeftAndRightTuples();
       }
       done_ = true;
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
 
     ZETASQL_ASSIGN_OR_RETURN(const bool done_with_left_tuple,
@@ -2479,11 +2479,11 @@ class JoinTupleIterator : public TupleIterator {
       // We are done with the first left tuple, so move on to the next one.
       return AdvanceToNextLeftTupleWithJoinCandidates();
     }
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // Advances the private variables for the next candidate join tuples.
-  zetasql_base::Status Advance() {
+  absl::Status Advance() {
     ZETASQL_RET_CHECK(!done_);
 
     if (left_padding_right_tuples_) {
@@ -2504,14 +2504,14 @@ class JoinTupleIterator : public TupleIterator {
     // Advance to the next right tuple.
     ++next_right_tuple_idx_;
     if (next_right_tuple_idx_ < right_input_->GetNumMatchingTuples()) {
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     ZETASQL_ASSIGN_OR_RETURN(const bool done_with_left_tuple,
                      FinishRightTuplesForCurrentLeftTuple());
     ZETASQL_RET_CHECK_EQ(done_with_left_tuple, next_right_tuple_idx_ != -1)
         << next_right_tuple_idx_;
     if (!done_with_left_tuple) {
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     // We are out of right tuples for this left tuple, and there is no need to
     // pad the left tuple with NULLs. Advance to the next left tuple and reset
@@ -2528,7 +2528,7 @@ class JoinTupleIterator : public TupleIterator {
   // depending on 'join_kind_'.
   //
   // Requires that we are not left-padding right tuples.
-  zetasql_base::Status AdvanceToNextLeftTupleWithJoinCandidates() {
+  absl::Status AdvanceToNextLeftTupleWithJoinCandidates() {
     ZETASQL_RET_CHECK(!left_padding_right_tuples_);
 
     while (true) {
@@ -2544,7 +2544,7 @@ class JoinTupleIterator : public TupleIterator {
                        InitializeRightTuplesForCurrentLeftTuple());
       if (!done_with_left_tuple) {
         // The next output should be the current left tuple padded with NULLs.
-        return zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
     }
   }
@@ -2606,7 +2606,7 @@ class JoinTupleIterator : public TupleIterator {
   // If the join kind is not right outer or full outer join, simply sets 'done_'
   // to true. Otherwise, looks for the first right tuple that did not join and
   // sets 'left_padding_right_tuples_' to true.
-  zetasql_base::Status FinishJoiningLeftAndRightTuples() {
+  absl::Status FinishJoiningLeftAndRightTuples() {
     ZETASQL_RET_CHECK(!left_padding_right_tuples_);
     ZETASQL_RET_CHECK(next_left_tuple_.has_value());
     ZETASQL_RET_CHECK(next_left_tuple_.value() == nullptr);
@@ -2616,7 +2616,7 @@ class JoinTupleIterator : public TupleIterator {
       case JoinKind::kCrossApply:
       case JoinKind::kOuterApply:
         done_ = true;
-        return zetasql_base::OkStatus();
+        return absl::OkStatus();
       case JoinKind::kRightOuterJoin:
       case JoinKind::kFullOuterJoin:
         // For right outer and full outer joins, now we have to left-pad
@@ -2627,13 +2627,13 @@ class JoinTupleIterator : public TupleIterator {
         next_right_tuple_idx_ = 0;
         if (next_right_tuple_idx_ == right_input_->GetNumMatchingTuples()) {
           done_ = true;
-          return zetasql_base::OkStatus();
+          return absl::OkStatus();
         }
         ZETASQL_ASSIGN_OR_RETURN(
             const bool right_tuple_joined,
             right_input_->DidMatchingTupleJoin(next_right_tuple_idx_));
         if (!right_tuple_joined) {
-          return zetasql_base::OkStatus();
+          return absl::OkStatus();
         }
         return AdvanceToNextRightTupleForLeftPadding();
     }
@@ -2641,7 +2641,7 @@ class JoinTupleIterator : public TupleIterator {
 
   // Advances the next right tuple to the first one that did not join with any
   // left tuple. Requires 'left_padding_right_tuples_' to be true.
-  zetasql_base::Status AdvanceToNextRightTupleForLeftPadding() {
+  absl::Status AdvanceToNextRightTupleForLeftPadding() {
     ZETASQL_RET_CHECK(left_padding_right_tuples_);
     ZETASQL_RET_CHECK(join_kind_ == JoinKind::kRightOuterJoin ||
               join_kind_ == JoinKind::kFullOuterJoin)
@@ -2656,11 +2656,11 @@ class JoinTupleIterator : public TupleIterator {
           const bool right_tuple_joined,
           right_input_->DidMatchingTupleJoin(next_right_tuple_idx_));
       if (!right_tuple_joined) {
-        return zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
     }
     done_ = true;
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // Does the following:
@@ -2693,7 +2693,7 @@ class JoinTupleIterator : public TupleIterator {
     ZETASQL_RET_CHECK(left_input != nullptr || right_input != nullptr);
     if (left_input != nullptr && right_input != nullptr) {
       TupleSlot slot;
-      ::zetasql_base::Status status;
+      absl::Status status;
       if (!join_expr_->EvalSimple(
               ConcatSpans(absl::Span<const TupleData* const>(params_),
                           {left_input->data, right_input->data}),
@@ -2739,7 +2739,7 @@ class JoinTupleIterator : public TupleIterator {
         const ExprArg* arg = left_outputs_[i];
 
         TupleSlot* slot = output_tuple_.mutable_slot(next_slot_idx + i);
-        ::zetasql_base::Status status;
+        absl::Status status;
         if (!arg->value_expr()->EvalSimple(
                 ConcatSpans(absl::Span<const TupleData* const>(params_),
                             {left_input->data}),
@@ -2783,7 +2783,7 @@ class JoinTupleIterator : public TupleIterator {
         const ExprArg* arg = right_outputs_[i];
 
         TupleSlot* slot = output_tuple_.mutable_slot(next_slot_idx + i);
-        ::zetasql_base::Status status;
+        absl::Status status;
         if (!arg->value_expr()->EvalSimple(
                 ConcatSpans(absl::Span<const TupleData* const>(params_),
                             {right_input->data}),
@@ -2825,7 +2825,7 @@ class JoinTupleIterator : public TupleIterator {
 
   TupleData output_tuple_;
 
-  zetasql_base::Status status_;
+  absl::Status status_;
 
   EvaluationContext* context_;
   // The number of calls to JoinTuples(). Used to call
@@ -3080,7 +3080,7 @@ std::string ArrayScanOp::GetIteratorDebugString(
       new ArrayScanOp(element, position, fields, std::move(array)));
 }
 
-::zetasql_base::Status ArrayScanOp::SetSchemasForEvaluation(
+absl::Status ArrayScanOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   return mutable_array_expr()->SetSchemasForEvaluation(params_schemas);
 }
@@ -3163,15 +3163,15 @@ class ArrayScanTupleIterator : public TupleIterator {
     return &current_;
   }
 
-  zetasql_base::Status Status() const override { return status_; }
+  absl::Status Status() const override { return status_; }
 
   std::string DebugString() const override {
     return ArrayScanOp::GetIteratorDebugString(array_value_.DebugString());
   }
 
-  zetasql_base::Status Cancel() {
+  absl::Status Cancel() {
     cancelled_ = true;
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
  private:
@@ -3183,7 +3183,7 @@ class ArrayScanTupleIterator : public TupleIterator {
   TupleData current_;
   int next_element_idx_ = 0;
   bool cancelled_ = false;
-  zetasql_base::Status status_;
+  absl::Status status_;
   EvaluationContext* context_;
 };
 }  // namespace
@@ -3192,7 +3192,7 @@ class ArrayScanTupleIterator : public TupleIterator {
     absl::Span<const TupleData* const> params, int num_extra_slots,
     EvaluationContext* context) const {
   TupleSlot array_slot;
-  ::zetasql_base::Status status;
+  absl::Status status;
   if (!array_expr()->EvalSimple(params, context, &array_slot, &status))
     return status;
   std::unique_ptr<TupleIterator> iter =
@@ -3323,7 +3323,7 @@ static int terms_index(int i) { return i * 2 + 1; }
   return absl::WrapUnique(new UnionAllOp(std::move(inputs)));
 }
 
-::zetasql_base::Status UnionAllOp::SetSchemasForEvaluation(
+absl::Status UnionAllOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   for (int i = 0; i < num_rel(); ++i) {
     RelationalOp* rel = mutable_rel(i);
@@ -3334,7 +3334,7 @@ static int terms_index(int i) { return i * 2 + 1; }
           ConcatSpans(params_schemas, {schema.get()})));
     }
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 namespace {
@@ -3379,7 +3379,7 @@ class UnionAllTupleIterator : public TupleIterator {
 
     for (int i = 0; i < values.size(); ++i) {
       TupleSlot* slot = data_.mutable_slot(i);
-      ::zetasql_base::Status status;
+      absl::Status status;
       if (!values[i]->value_expr()->EvalSimple(
               ConcatSpans(absl::Span<const TupleData* const>(params_),
                           {next_input}),
@@ -3392,7 +3392,7 @@ class UnionAllTupleIterator : public TupleIterator {
     return &data_;
   }
 
-  zetasql_base::Status Status() const override { return status_; }
+  absl::Status Status() const override { return status_; }
 
   std::string DebugString() const override {
     std::vector<std::string> iter_strings;
@@ -3412,7 +3412,7 @@ class UnionAllTupleIterator : public TupleIterator {
       TupleData* next = iter->Next();
       if (next != nullptr) return next;
 
-      zetasql_base::Status iter_status = iter->Status();
+      absl::Status iter_status = iter->Status();
       if (!iter_status.ok()) {
         status_ = iter_status;
         return nullptr;
@@ -3431,7 +3431,7 @@ class UnionAllTupleIterator : public TupleIterator {
   std::vector<std::unique_ptr<TupleIterator>> iters_;
   int iter_idx_ = 0;  // Index of the current iterator in 'iters_'.
   TupleData data_;
-  zetasql_base::Status status_;
+  absl::Status status_;
   EvaluationContext* context_;
 };
 }  // namespace
@@ -3546,7 +3546,7 @@ RelationalOp* UnionAllOp::mutable_rel(int i) {
   return absl::WrapUnique(new RootOp(std::move(input), std::move(root_data)));
 }
 
-::zetasql_base::Status RootOp::SetSchemasForEvaluation(
+absl::Status RootOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   return mutable_input()->SetSchemasForEvaluation(params_schemas);
 }

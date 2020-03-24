@@ -78,7 +78,7 @@ namespace zetasql {
                        std::move(order_by_keys), std::move(limit), error_mode));
 }
 
-::zetasql_base::Status AggregateArg::SetSchemasForEvaluation(
+absl::Status AggregateArg::SetSchemasForEvaluation(
     const TupleSchema& group_schema,
     absl::Span<const TupleSchema* const> params_schemas) {
   const std::vector<const TupleSchema*> params_and_group_schemas =
@@ -105,7 +105,7 @@ namespace zetasql {
 
   group_schema_ =
       absl::make_unique<const TupleSchema>(group_schema.variables());
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 namespace {
@@ -121,10 +121,10 @@ class IntermediateAggregateAccumulator {
  public:
   virtual ~IntermediateAggregateAccumulator() {}
 
-  virtual ::zetasql_base::Status Reset() = 0;
+  virtual absl::Status Reset() = 0;
 
   virtual bool Accumulate(const TupleData& input_row, const Value& input_value,
-                          bool* stop_accumulation, ::zetasql_base::Status* status) = 0;
+                          bool* stop_accumulation, absl::Status* status) = 0;
 
   virtual ::zetasql_base::StatusOr<Value> GetFinalResult(
       bool inputs_in_defined_order) = 0;
@@ -144,11 +144,11 @@ class AggregateAccumulatorAdaptor : public IntermediateAggregateAccumulator {
   AggregateAccumulatorAdaptor& operator=(const AggregateAccumulatorAdaptor&) =
       delete;
 
-  ::zetasql_base::Status Reset() override { return accumulator_->Reset(); }
+  absl::Status Reset() override { return accumulator_->Reset(); }
 
   bool Accumulate(const TupleData& input_row, const Value& input_value,
-                  bool* stop_accumulation, ::zetasql_base::Status* status) override {
-    ::zetasql_base::Status error;
+                  bool* stop_accumulation, absl::Status* status) override {
+    absl::Status error;
     if (!accumulator_->Accumulate(input_value, stop_accumulation, &error)) {
       if (ShouldSuppressError(error, error_mode_)) {
         safe_result_ = Value::Null(output_type_);
@@ -168,7 +168,7 @@ class AggregateAccumulatorAdaptor : public IntermediateAggregateAccumulator {
     const ::zetasql_base::StatusOr<Value> status_or_value =
         accumulator_->GetFinalResult(inputs_in_defined_order);
     if (!status_or_value.ok()) {
-      const zetasql_base::Status& error = status_or_value.status();
+      const absl::Status& error = status_or_value.status();
       if (ShouldSuppressError(error, error_mode_)) {
         return Value::Null(output_type_);
       }
@@ -192,7 +192,7 @@ class LimitAccumulator : public IntermediateAggregateAccumulator {
       std::unique_ptr<IntermediateAggregateAccumulator> accumulator)
       : limit_(limit), accumulator_(std::move(accumulator)) {}
 
-  ::zetasql_base::Status Reset() override {
+  absl::Status Reset() override {
     num_rows_accumulated_ = 0;
     return accumulator_->Reset();
   }
@@ -201,7 +201,7 @@ class LimitAccumulator : public IntermediateAggregateAccumulator {
   LimitAccumulator& operator=(const LimitAccumulator&) = delete;
 
   bool Accumulate(const TupleData& input_row, const Value& value,
-                  bool* stop_accumulation, ::zetasql_base::Status* status) override {
+                  bool* stop_accumulation, absl::Status* status) override {
     // Handles the LIMIT 0 case.
     if (num_rows_accumulated_ >= limit_) {
       *stop_accumulation = true;
@@ -253,13 +253,13 @@ class OrderByAccumulator : public IntermediateAggregateAccumulator {
   OrderByAccumulator(const OrderByAccumulator&) = delete;
   OrderByAccumulator& operator=(const OrderByAccumulator&) = delete;
 
-  ::zetasql_base::Status Reset() override {
+  absl::Status Reset() override {
     inputs_.Clear();
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   bool Accumulate(const TupleData& input_row, const Value& value,
-                  bool* stop_accumulation, ::zetasql_base::Status* status) override {
+                  bool* stop_accumulation, absl::Status* status) override {
     *stop_accumulation = false;
 
     auto input = absl::make_unique<TupleData>(input_row);
@@ -281,7 +281,7 @@ class OrderByAccumulator : public IntermediateAggregateAccumulator {
     ZETASQL_RETURN_IF_ERROR(accumulator_->Reset());
 
     bool stop_accumulation;
-    ::zetasql_base::Status status;
+    absl::Status status;
     while (!inputs_.IsEmpty()) {
       std::unique_ptr<TupleData> input_row = inputs_.PopFront();
       ZETASQL_RET_CHECK(!input_row->slots().empty());
@@ -323,16 +323,16 @@ class TopNAccumulator : public IntermediateAggregateAccumulator {
         top_n_(*tuple_comparator_, context->memory_accountant()),
         accumulator_(std::move(accumulator)) {}
 
-  ::zetasql_base::Status Reset() override {
+  absl::Status Reset() override {
     top_n_.Clear();
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   TopNAccumulator(const TopNAccumulator&) = delete;
   TopNAccumulator& operator=(const TopNAccumulator&) = delete;
 
   bool Accumulate(const TupleData& input_row, const Value& value,
-                  bool* stop_accumulation, ::zetasql_base::Status* status) override {
+                  bool* stop_accumulation, absl::Status* status) override {
     *stop_accumulation = false;
 
     auto input = absl::make_unique<TupleData>(input_row);
@@ -352,7 +352,7 @@ class TopNAccumulator : public IntermediateAggregateAccumulator {
   ::zetasql_base::StatusOr<Value> GetFinalResult(
       bool /* inputs_in_defined_order */) override {
     bool stop_accumulation;
-    ::zetasql_base::Status status;
+    absl::Status status;
     while (!top_n_.IsEmpty()) {
       std::unique_ptr<TupleData> input_row = top_n_.PopFront();
       ZETASQL_RET_CHECK(!input_row->slots().empty());
@@ -392,7 +392,7 @@ class DistinctAccumulator : public IntermediateAggregateAccumulator {
       : distinct_values_(context->memory_accountant()),
         accumulator_(std::move(accumulator)) {}
 
-  ::zetasql_base::Status Reset() override {
+  absl::Status Reset() override {
     distinct_values_.Clear();
     return accumulator_->Reset();
   }
@@ -401,7 +401,7 @@ class DistinctAccumulator : public IntermediateAggregateAccumulator {
   DistinctAccumulator& operator=(const DistinctAccumulator&) = delete;
 
   bool Accumulate(const TupleData& input_row, const Value& value,
-                  bool* stop_accumulation, ::zetasql_base::Status* status) override {
+                  bool* stop_accumulation, absl::Status* status) override {
     *stop_accumulation = false;
 
     bool distinct;
@@ -443,10 +443,10 @@ class IgnoresNullAccumulator : public IntermediateAggregateAccumulator {
   IgnoresNullAccumulator(const IgnoresNullAccumulator&) = delete;
   IgnoresNullAccumulator& operator=(const IgnoresNullAccumulator&) = delete;
 
-  ::zetasql_base::Status Reset() override { return accumulator_->Reset(); }
+  absl::Status Reset() override { return accumulator_->Reset(); }
 
   bool Accumulate(const TupleData& input_row, const Value& value,
-                  bool* stop_accumulation, ::zetasql_base::Status* status) override {
+                  bool* stop_accumulation, absl::Status* status) override {
     *stop_accumulation = false;
 
     bool ignore = false;
@@ -505,13 +505,13 @@ class HavingExtremalValueAccumulator : public IntermediateAggregateAccumulator {
   HavingExtremalValueAccumulator& operator=(
       const HavingExtremalValueAccumulator&) = delete;
 
-  ::zetasql_base::Status Reset() override {
+  absl::Status Reset() override {
     extremal_having_value_ = Value::Invalid();
     return accumulator_->Reset();
   }
 
   bool Accumulate(const TupleData& input_row, const Value& value,
-                  bool* stop_accumulation, ::zetasql_base::Status* status) override {
+                  bool* stop_accumulation, absl::Status* status) override {
     *stop_accumulation = false;
 
     TupleSlot slot;
@@ -639,10 +639,10 @@ class IntermediateAggregateAccumulatorAdaptor : public AggregateArgAccumulator {
   IntermediateAggregateAccumulatorAdaptor& operator=(
       const IntermediateAggregateAccumulatorAdaptor&) = delete;
 
-  ::zetasql_base::Status Reset() override { return accumulator_->Reset(); }
+  absl::Status Reset() override { return accumulator_->Reset(); }
 
   bool Accumulate(const TupleData& input_row, bool* stop_accumulation,
-                  ::zetasql_base::Status* status) override {
+                  absl::Status* status) override {
     std::vector<Value> values(value_exprs_.size());
     for (int i = 0; i < value_exprs_.size(); ++i) {
       const ValueExpr* value_expr = value_exprs_[i];
@@ -684,7 +684,7 @@ class IntermediateAggregateAccumulatorAdaptor : public AggregateArgAccumulator {
 
 }  // namespace
 
-static zetasql_base::Status PopulateSlotsForKeysAndValues(
+static absl::Status PopulateSlotsForKeysAndValues(
     const TupleSchema& schema, absl::Span<const KeyArg* const> order_by_keys,
     std::vector<int>* slots_for_keys, std::vector<int>* slots_for_values) {
   // First populate 'slots_for_keys'.
@@ -706,7 +706,7 @@ static zetasql_base::Status PopulateSlotsForKeysAndValues(
     }
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 ::zetasql_base::StatusOr<std::unique_ptr<AggregateArgAccumulator>>
@@ -717,7 +717,7 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
   for (int i = 0; i < parameter_list_size(); ++i) {
     std::shared_ptr<TupleSlot::SharedProtoState> shared_state;
     VirtualTupleSlot slot(&args[i], &shared_state);
-    ::zetasql_base::Status status;
+    absl::Status status;
     if (!parameter(i)->Eval(params, context, &slot, &status)) return status;
   }
   ZETASQL_ASSIGN_OR_RETURN(
@@ -736,7 +736,7 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
   bool consumed_order_by = false;
   if (limit() != nullptr) {
     TupleSlot limit_slot;
-    ::zetasql_base::Status status;
+    absl::Status status;
     if (!limit()->EvalSimple(params, context, &limit_slot, &status))
       return status;
     const Value& limit_val = limit_slot.value();
@@ -817,7 +817,7 @@ zetasql_base::StatusOr<Value> AggregateArg::EvalAgg(
                    CreateAccumulator(params, context));
 
   bool stop_aggregation;
-  ::zetasql_base::Status status;
+  absl::Status status;
   for (const TupleData* row : group) {
     if (!accumulator->Accumulate(*row, &stop_aggregation, &status)) {
       return status;
@@ -969,7 +969,7 @@ zetasql_base::StatusOr<std::unique_ptr<AggregateOp>> AggregateOp::Create(
       std::move(keys), std::move(aggregators), std::move(input)));
 }
 
-::zetasql_base::Status AggregateOp::SetSchemasForEvaluation(
+absl::Status AggregateOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   ZETASQL_RETURN_IF_ERROR(mutable_input()->SetSchemasForEvaluation(params_schemas));
 
@@ -986,7 +986,7 @@ zetasql_base::StatusOr<std::unique_ptr<AggregateOp>> AggregateOp::Create(
         arg->SetSchemasForEvaluation(*input_schema, params_schemas));
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 namespace {
@@ -1016,7 +1016,7 @@ class AggregateTupleIterator : public TupleIterator {
             absl::GetFlag(
                 FLAGS_zetasql_call_verify_not_aborted_rows_period) ==
         0) {
-      zetasql_base::Status status = context_->VerifyNotAborted();
+      absl::Status status = context_->VerifyNotAborted();
       if (!status.ok()) {
         status_ = status;
         return nullptr;
@@ -1028,7 +1028,7 @@ class AggregateTupleIterator : public TupleIterator {
     return current_.get();
   }
 
-  zetasql_base::Status Status() const override { return status_; }
+  absl::Status Status() const override { return status_; }
 
   std::string DebugString() const override {
     return AggregateOp::GetIteratorDebugString(
@@ -1045,7 +1045,7 @@ class AggregateTupleIterator : public TupleIterator {
   const std::unique_ptr<TupleIterator> input_iter_for_debug_string_;
   std::unique_ptr<TupleData> current_;
   EvaluationContext* context_;
-  zetasql_base::Status status_;
+  absl::Status status_;
   int64_t num_next_calls_ = 0;
 };
 
@@ -1075,7 +1075,7 @@ class GroupValue {
   static zetasql_base::StatusOr<std::unique_ptr<GroupValue>> Create(
       std::unique_ptr<TupleData> key, MemoryAccountant* accountant) {
     const int64_t bytes_size = key->GetPhysicalByteSize();
-    zetasql_base::Status status;
+    absl::Status status;
     if (!accountant->RequestBytes(bytes_size, &status)) {
       return status;
     }
@@ -1123,7 +1123,7 @@ class GroupValue {
   // The key is owned by the GroupValue.
   absl::flat_hash_map<TupleDataPtr, std::unique_ptr<GroupValue>> group_map;
 
-  ::zetasql_base::Status status;
+  absl::Status status;
   while (true) {
     const TupleData* next_input = input_iter->Next();
     if (next_input == nullptr) {
@@ -1138,7 +1138,7 @@ class GroupValue {
     for (int i = 0; i < keys().size(); ++i) {
       TupleSlot* slot = key_data->mutable_slot(i);
       const KeyArg* key = keys()[i];
-      ::zetasql_base::Status status;
+      absl::Status status;
       if (!key->value_expr()->EvalSimple(params_and_input_tuple, context, slot,
                                          &status)) {
         return status;

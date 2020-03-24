@@ -92,7 +92,7 @@ bool StructType::UsingFeatureV12CivilTimeType() const {
   return false;
 }
 
-zetasql_base::Status StructType::SerializeToProtoAndDistinctFileDescriptorsImpl(
+absl::Status StructType::SerializeToProtoAndDistinctFileDescriptorsImpl(
     TypeProto* type_proto,
     absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
     FileDescriptorSetMap* file_descriptor_set_map) const {
@@ -108,7 +108,7 @@ zetasql_base::Status StructType::SerializeToProtoAndDistinctFileDescriptorsImpl(
         struct_field_proto->mutable_field_type(),
         file_descriptor_sets_max_size_bytes, file_descriptor_set_map));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 

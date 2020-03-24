@@ -125,9 +125,9 @@ Tuple ConcatTuples(const std::vector<Tuple>& tuples,
 // TupleDataDeque
 // -------------------------------------------------------
 
-zetasql_base::Status TupleDataDeque::SetSlot(int slot_idx, std::vector<Value> values) {
+absl::Status TupleDataDeque::SetSlot(int slot_idx, std::vector<Value> values) {
   ZETASQL_RET_CHECK_EQ(values.size(), datas_.size());
-  zetasql_base::Status status;
+  absl::Status status;
   int64_t i = 0;
   for (Entry& entry : datas_) {
     int64_t& byte_size = entry.first;
@@ -146,7 +146,7 @@ zetasql_base::Status TupleDataDeque::SetSlot(int slot_idx, std::vector<Value> va
 
     ++i;
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 void TupleDataDeque::Sort(const TupleComparator& comparator,

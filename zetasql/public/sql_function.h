@@ -122,7 +122,7 @@ class SQLFunction : public SQLFunctionInterface {
   // SQLTableFunction, and SQLConstantWithValue so that they take ownership
   // of <function_expression> and <aggregate_expression_list>.  This may help
   // avoid potential memory corruption and/or crash bugs.
-  static zetasql_base::Status Create(
+  static absl::Status Create(
       const std::string& name, Mode mode,
       const std::vector<FunctionSignature>& function_signatures,
       const FunctionOptions& function_options,

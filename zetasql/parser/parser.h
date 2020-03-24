@@ -162,7 +162,7 @@ class ParserOutput {
 //
 // This can return errors annotated with an ErrorLocation payload that indicates
 // the input location of an error.
-zetasql_base::Status ParseStatement(absl::string_view statement_string,
+absl::Status ParseStatement(absl::string_view statement_string,
                             const ParserOptions& parser_options_in,
                             std::unique_ptr<ParserOutput>* output);
 
@@ -174,7 +174,7 @@ zetasql_base::Status ParseStatement(absl::string_view statement_string,
 //
 // <error_message_mode> describes how errors should be represented in the
 // returned Status - whether as a payload, or as part of the string.
-zetasql_base::Status ParseScript(absl::string_view script_string,
+absl::Status ParseScript(absl::string_view script_string,
                          const ParserOptions& parser_options_in,
                          ErrorMessageMode error_message_mode,
                          std::unique_ptr<ParserOutput>* output);
@@ -197,7 +197,7 @@ zetasql_base::Status ParseScript(absl::string_view script_string,
 //
 // This can return errors annotated with an ErrorLocation payload that indicates
 // the input location of an error.
-zetasql_base::Status ParseNextStatement(ParseResumeLocation* resume_location,
+absl::Status ParseNextStatement(ParseResumeLocation* resume_location,
                                 const ParserOptions& parser_options_in,
                                 std::unique_ptr<ParserOutput>* output,
                                 bool* at_end_of_input);
@@ -207,7 +207,7 @@ zetasql_base::Status ParseNextStatement(ParseResumeLocation* resume_location,
 // WHILE...END WHILE, and BEGIN...END are returned as a single statement, and
 // may contain inner statements, which can be examined through the returned
 // parse tree.
-zetasql_base::Status ParseNextScriptStatement(ParseResumeLocation* resume_location,
+absl::Status ParseNextScriptStatement(ParseResumeLocation* resume_location,
                                       const ParserOptions& parser_options_in,
                                       std::unique_ptr<ParserOutput>* output,
                                       bool* at_end_of_input);
@@ -217,7 +217,7 @@ zetasql_base::Status ParseNextScriptStatement(ParseResumeLocation* resume_locati
 //
 // This can return errors annotated with an ErrorLocation payload that indicates
 // the input location of an error.
-zetasql_base::Status ParseType(absl::string_view type_string,
+absl::Status ParseType(absl::string_view type_string,
                        const ParserOptions& parser_options_in,
                        std::unique_ptr<ParserOutput>* output);
 
@@ -226,13 +226,13 @@ zetasql_base::Status ParseType(absl::string_view type_string,
 //
 // This can return errors annotated with an ErrorLocation payload that indicates
 // the input location of an error.
-zetasql_base::Status ParseExpression(absl::string_view expression_string,
+absl::Status ParseExpression(absl::string_view expression_string,
                              const ParserOptions& parser_options_in,
                              std::unique_ptr<ParserOutput>* output);
 // Similar to the previous function, but takes a ParseResumeLocation that
 // indicates the source string that contains the expression, and the offset
 // into that string where the expression begins.
-zetasql_base::Status ParseExpression(const ParseResumeLocation& resume_location,
+absl::Status ParseExpression(const ParseResumeLocation& resume_location,
                              const ParserOptions& parser_options_in,
                              std::unique_ptr<ParserOutput>* output);
 
@@ -277,7 +277,7 @@ ASTNodeKind ParseNextStatementKind(const ParseResumeLocation& resume_location,
 // The returned <ast_statement_properties> currently includes the ASTNodeKind,
 // whether the statement is CTAS, the CREATE statement scope (TEMP, etc.) if
 // relevant, and statement level hints.
-zetasql_base::Status ParseNextStatementProperties(
+absl::Status ParseNextStatementProperties(
     const ParseResumeLocation& resume_location,
     const ParserOptions& parser_options,
     std::vector<std::unique_ptr<ASTNode>>* allocated_ast_nodes,

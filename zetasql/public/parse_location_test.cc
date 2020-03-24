@@ -153,7 +153,7 @@ TEST(ParseLocationTranslator,
     int col = 1;
     SCOPED_TRACE(absl::StrCat("Testing line ", line, ", column ", col));
     EXPECT_THAT(translator.GetByteOffsetFromLineAndColumn(line, col),
-                StatusIs(zetasql_base::StatusCode::kInternal));
+                StatusIs(absl::StatusCode::kInternal));
   }
 
   // Test line numbers beyond the end of the input.
@@ -163,7 +163,7 @@ TEST(ParseLocationTranslator,
     int col = 1;
     SCOPED_TRACE(absl::StrCat("Testing line ", line, ", column ", col));
     EXPECT_THAT(translator.GetByteOffsetFromLineAndColumn(line, col),
-                StatusIs(zetasql_base::StatusCode::kInternal));
+                StatusIs(absl::StatusCode::kInternal));
   }
 }
 
@@ -209,7 +209,7 @@ TEST(ParseLocationTranslator, GetByteOffsetFromLineAndColumn) {
                                     prev_column + i));
           EXPECT_THAT(translator.GetByteOffsetFromLineAndColumn(
                           prev_line, prev_column + 1),
-                      StatusIs(zetasql_base::StatusCode::kInternal));
+                      StatusIs(absl::StatusCode::kInternal));
         }
       }
     }
@@ -221,7 +221,7 @@ TEST(ParseLocationTranslator, GetByteOffsetFromLineAndColumn) {
         SCOPED_TRACE(
             absl::StrCat("Testing line ", curr_line, ", column ", col));
         EXPECT_THAT(translator.GetByteOffsetFromLineAndColumn(curr_line, col),
-                    StatusIs(zetasql_base::StatusCode::kInternal));
+                    StatusIs(absl::StatusCode::kInternal));
       }
     }
 
@@ -254,7 +254,7 @@ TEST(ParseLocationTranslator, GetLineAndColumnFromByteOffset) {
     } else {
       EXPECT_THAT(translator.GetLineAndColumnAfterTabExpansion(
                       ParseLocationPoint::FromByteOffset(offset)),
-                  StatusIs(zetasql_base::StatusCode::kInternal));
+                  StatusIs(absl::StatusCode::kInternal));
     }
   }
 }
@@ -286,11 +286,11 @@ TEST(ParseLocationTranslator, InputTerminatesInMiddleOfUtf8Character) {
   // after the end of input.
   EXPECT_THAT(translator.GetLineAndColumnAfterTabExpansion(
                   ParseLocationPoint::FromByteOffset(1)),
-              StatusIs(zetasql_base::INTERNAL));
+              StatusIs(absl::StatusCode::kInternal));
   EXPECT_THAT(translator.GetByteOffsetFromLineAndColumn(1, 2),
-              StatusIs(zetasql_base::INTERNAL));
+              StatusIs(absl::StatusCode::kInternal));
   EXPECT_THAT(translator.GetByteOffsetFromLineAndColumn(2, 1),
-              StatusIs(zetasql_base::INTERNAL));
+              StatusIs(absl::StatusCode::kInternal));
 }
 
 TEST(ParseLocationTranslator, ExpandTabs) {
@@ -315,8 +315,8 @@ TEST(ParseLocationTranslator, GetLineTextWithOutOfBoundsLineNumbers) {
   ParseLocationTranslator translator(str);
 
   // Out of bounds locations will hit DCHECKs and DLOG(FATAL)s.
-  EXPECT_THAT(translator.GetLineText(0), StatusIs(zetasql_base::INTERNAL));
-  EXPECT_THAT(translator.GetLineText(4), StatusIs(zetasql_base::INTERNAL));
+  EXPECT_THAT(translator.GetLineText(0), StatusIs(absl::StatusCode::kInternal));
+  EXPECT_THAT(translator.GetLineText(4), StatusIs(absl::StatusCode::kInternal));
 }
 
 TEST(ParseLocationPointTest, BasicTests) {

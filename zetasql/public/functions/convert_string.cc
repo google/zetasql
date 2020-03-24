@@ -64,7 +64,7 @@ constexpr absl::string_view kFalseStringValue = "false";
 }  // anonymous namespace
 
 template <>
-bool NumericToString(bool value, std::string* out, zetasql_base::Status* error) {
+bool NumericToString(bool value, std::string* out, absl::Status* error) {
   if (value) {
     out->assign(kTrueStringValue.data(), kTrueStringValue.length());
   } else {
@@ -74,48 +74,48 @@ bool NumericToString(bool value, std::string* out, zetasql_base::Status* error) 
 }
 
 template <>
-bool NumericToString(int32_t value, std::string* out, zetasql_base::Status* error) {
+bool NumericToString(int32_t value, std::string* out, absl::Status* error) {
   out->clear();
   absl::StrAppend(out, value);
   return true;
 }
 
 template <>
-bool NumericToString(int64_t value, std::string* out, zetasql_base::Status* error) {
+bool NumericToString(int64_t value, std::string* out, absl::Status* error) {
   out->clear();
   absl::StrAppend(out, value);
   return true;
 }
 
 template <>
-bool NumericToString(uint32_t value, std::string* out, zetasql_base::Status* error) {
+bool NumericToString(uint32_t value, std::string* out, absl::Status* error) {
   out->clear();
   absl::StrAppend(out, value);
   return true;
 }
 
 template <>
-bool NumericToString(uint64_t value, std::string* out, zetasql_base::Status* error) {
+bool NumericToString(uint64_t value, std::string* out, absl::Status* error) {
   out->clear();
   absl::StrAppend(out, value);
   return true;
 }
 
 template <>
-bool NumericToString(float value, std::string* out, zetasql_base::Status* error) {
+bool NumericToString(float value, std::string* out, absl::Status* error) {
   *out = RoundTripFloatToString(value);
   return true;
 }
 
 template <>
-bool NumericToString(double value, std::string* out, zetasql_base::Status* error) {
+bool NumericToString(double value, std::string* out, absl::Status* error) {
   *out = RoundTripDoubleToString(value);
   return true;
 }
 
 template <>
 bool NumericToString(NumericValue value, std::string* out,
-                     zetasql_base::Status* error) {
+                     absl::Status* error) {
   // Use NumericValue::AppendToString instead of NumericValue::ToString()
   // for minimizing memory allocations.
   out->clear();
@@ -125,7 +125,7 @@ bool NumericToString(NumericValue value, std::string* out,
 
 template <>
 bool NumericToString(BigNumericValue value, std::string* out,
-                     zetasql_base::Status* error) {
+                     absl::Status* error) {
   // Use BigNumericValue::AppendToString instead of BigNumericValue::ToString()
   // for minimizing memory allocations.
   out->clear();
@@ -134,7 +134,7 @@ bool NumericToString(BigNumericValue value, std::string* out,
 }
 
 template <>
-bool StringToNumeric(absl::string_view value, bool* out, zetasql_base::Status* error) {
+bool StringToNumeric(absl::string_view value, bool* out, absl::Status* error) {
   if (zetasql_base::CaseEqual(value, kTrueStringValue)) {
     *out = true;
   } else if (zetasql_base::CaseEqual(value, kFalseStringValue)) {
@@ -147,7 +147,7 @@ bool StringToNumeric(absl::string_view value, bool* out, zetasql_base::Status* e
 }
 
 template <>
-bool StringToNumeric(absl::string_view value, int32_t* out, zetasql_base::Status* error) {
+bool StringToNumeric(absl::string_view value, int32_t* out, absl::Status* error) {
   TrimLeadingSpaces(&value);
   if (ABSL_PREDICT_FALSE(IsHex(value))) {
     if (ABSL_PREDICT_TRUE(
@@ -160,7 +160,7 @@ bool StringToNumeric(absl::string_view value, int32_t* out, zetasql_base::Status
 }
 
 template <>
-bool StringToNumeric(absl::string_view value, int64_t* out, zetasql_base::Status* error) {
+bool StringToNumeric(absl::string_view value, int64_t* out, absl::Status* error) {
   TrimLeadingSpaces(&value);
   if (ABSL_PREDICT_FALSE(IsHex(value))) {
     if (ABSL_PREDICT_TRUE(
@@ -174,7 +174,7 @@ bool StringToNumeric(absl::string_view value, int64_t* out, zetasql_base::Status
 
 template <>
 bool StringToNumeric(absl::string_view value, uint32_t* out,
-                     zetasql_base::Status* error) {
+                     absl::Status* error) {
   TrimLeadingSpaces(&value);
   if (ABSL_PREDICT_FALSE(IsHex(value))) {
     if (ABSL_PREDICT_TRUE(
@@ -188,7 +188,7 @@ bool StringToNumeric(absl::string_view value, uint32_t* out,
 
 template <>
 bool StringToNumeric(absl::string_view value, uint64_t* out,
-                     zetasql_base::Status* error) {
+                     absl::Status* error) {
   TrimLeadingSpaces(&value);
   if (ABSL_PREDICT_FALSE(IsHex(value))) {
     if (ABSL_PREDICT_TRUE(
@@ -201,21 +201,21 @@ bool StringToNumeric(absl::string_view value, uint64_t* out,
 }
 
 template <>
-bool StringToNumeric(absl::string_view value, float* out, zetasql_base::Status* error) {
+bool StringToNumeric(absl::string_view value, float* out, absl::Status* error) {
   if (ABSL_PREDICT_TRUE(absl::SimpleAtof(value, out))) return true;
   return internal::UpdateError(error, FormatError("Bad float value: ", value));
 }
 
 template <>
 bool StringToNumeric(absl::string_view value, double* out,
-                     zetasql_base::Status* error) {
+                     absl::Status* error) {
   if (ABSL_PREDICT_TRUE(absl::SimpleAtod(value, out))) return true;
   return internal::UpdateError(error, FormatError("Bad double value: ", value));
 }
 
 template <>
 bool StringToNumeric(absl::string_view value, NumericValue* out,
-                     zetasql_base::Status* error) {
+                     absl::Status* error) {
   const auto numeric_status = NumericValue::FromString(value);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
     *out = numeric_status.ValueOrDie();
@@ -229,7 +229,7 @@ bool StringToNumeric(absl::string_view value, NumericValue* out,
 
 template <>
 bool StringToNumeric(absl::string_view value, BigNumericValue* out,
-                     zetasql_base::Status* error) {
+                     absl::Status* error) {
   const auto bignumeric_status = BigNumericValue::FromString(value);
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
     *out = bignumeric_status.ValueOrDie();

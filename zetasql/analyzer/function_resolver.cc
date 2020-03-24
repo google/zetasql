@@ -425,7 +425,7 @@ bool FunctionResolver::CheckArgumentTypesAndCollectTemplatedArguments(
     }
     if (signature_argument.IsRelation()) {
       bool signature_matches = false;
-      const zetasql_base::Status status = CheckRelationArgumentTypes(
+      const absl::Status status = CheckRelationArgumentTypes(
           arg_idx, input_argument, signature_argument, allow_argument_coercion,
           signature_match_result, &signature_matches);
       ZETASQL_DCHECK_OK(status);
@@ -543,7 +543,7 @@ bool FunctionResolver::CheckArgumentTypesAndCollectTemplatedArguments(
   return true;
 }
 
-zetasql_base::Status FunctionResolver::CheckRelationArgumentTypes(
+absl::Status FunctionResolver::CheckRelationArgumentTypes(
     int arg_idx, const InputArgumentType& input_argument,
     const FunctionArgumentType& signature_argument,
     bool allow_argument_coercion,
@@ -553,7 +553,7 @@ zetasql_base::Status FunctionResolver::CheckRelationArgumentTypes(
     // Do nothing. As long as the input argument is a relation, the
     // signature matches.
     *signature_matches = true;
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
   const TVFRelation& provided_schema = input_argument.relation_input_schema();
   const TVFRelation& required_schema =
@@ -585,7 +585,7 @@ zetasql_base::Status FunctionResolver::CheckRelationArgumentTypes(
             arg_idx + 1));
         signature_match_result->set_tvf_bad_argument_index(arg_idx);
         *signature_matches = false;
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
     } else if (!signature_argument.options()
                     .extra_relation_input_columns_allowed() &&
@@ -598,7 +598,7 @@ zetasql_base::Status FunctionResolver::CheckRelationArgumentTypes(
                        provided_col_name, "\" for argument ", arg_idx + 1));
       signature_match_result->set_tvf_bad_argument_index(arg_idx);
       *signature_matches = false;
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
   }
 
@@ -627,7 +627,7 @@ zetasql_base::Status FunctionResolver::CheckRelationArgumentTypes(
                          " for argument ", arg_idx + 1));
         signature_match_result->set_tvf_bad_argument_index(arg_idx);
         *signature_matches = false;
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
     } else {
       const int* lookup = zetasql_base::FindOrNull(provided_col_name_to_required_col_idx,
@@ -640,7 +640,7 @@ zetasql_base::Status FunctionResolver::CheckRelationArgumentTypes(
             "\" not found in table passed as argument ", arg_idx + 1));
         signature_match_result->set_tvf_bad_argument_index(arg_idx);
         *signature_matches = false;
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       provided_col_idx = *lookup;
     }
@@ -670,11 +670,11 @@ zetasql_base::Status FunctionResolver::CheckRelationArgumentTypes(
           "\" of argument ", arg_idx + 1));
       signature_match_result->set_tvf_bad_argument_index(arg_idx);
       *signature_matches = false;
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
   }
   *signature_matches = true;
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 bool FunctionResolver::DetermineResolvedTypesForTemplatedArguments(
@@ -931,7 +931,7 @@ static ParseLocationPoint GetLocationFromResolvedNode(
 }
 
 // static
-zetasql_base::Status FunctionResolver::CheckCreateAggregateFunctionProperties(
+absl::Status FunctionResolver::CheckCreateAggregateFunctionProperties(
     const ResolvedExpr& resolved_expr,
     const ASTNode* sql_function_body_location,
     const ExprResolutionInfo* expr_info,
@@ -987,10 +987,10 @@ zetasql_base::Status FunctionResolver::CheckCreateAggregateFunctionProperties(
       }
     }
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status FunctionResolver::ProcessNamedArguments(
+absl::Status FunctionResolver::ProcessNamedArguments(
     const std::string& function_name, const FunctionSignature& signature,
     const ASTNode* ast_location,
     const std::vector<std::pair<const ASTNamedArgument*, int>>& named_arguments,
@@ -1046,7 +1046,7 @@ zetasql_base::Status FunctionResolver::ProcessNamedArguments(
                << " not found in signature for call to function "
                << function_name;
       }
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     // Keep track of the first and last named argument index.
     first_named_arg_index = std::min(first_named_arg_index, named_arg.second);
@@ -1116,7 +1116,7 @@ zetasql_base::Status FunctionResolver::ProcessNamedArguments(
                  << " also includes a positional argument corresponding to the "
                  << "same name in the function signature";
         }
-        return zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       // Make sure that the function signature does not specify an argument
       // name positionally when the options require that it must be named.
@@ -1129,7 +1129,7 @@ zetasql_base::Status FunctionResolver::ProcessNamedArguments(
                  << "restricts that this argument is referred to by name \""
                  << signature_arg_name << "\" only";
         }
-        return zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       continue;
     }
@@ -1144,7 +1144,7 @@ zetasql_base::Status FunctionResolver::ProcessNamedArguments(
                << " does not include required argument name "
                << signature_arg_name;
       }
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     // Repeated argument types may never have required argument names.
     ZETASQL_RET_CHECK_NE(arg_type.cardinality(), FunctionArgumentType::REPEATED)
@@ -1192,7 +1192,7 @@ zetasql_base::Status FunctionResolver::ProcessNamedArguments(
                    << "does not specify a value for table argument "
                    << signature_arg_name;
           }
-          return zetasql_base::OkStatus();
+          return absl::OkStatus();
         }
         // Pass NULL if an optional argument was not named in the function call.
         // Note that by this point we have enforced that the argument is
@@ -1240,7 +1240,7 @@ zetasql_base::Status FunctionResolver::ProcessNamedArguments(
     *tvf_arg_types = std::move(new_tvf_arg_types);
   }
   *named_arguments_match_signature = true;
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // TODO: Eventually we want to keep track of the closest
@@ -1348,7 +1348,7 @@ static void ConvertMakeStructToLiteralIfAllExplicitLiteralFields(
       true /* has_explicit_type */);
 }
 
-zetasql_base::Status ExtractStructFieldLocations(
+absl::Status ExtractStructFieldLocations(
     const StructType* to_struct_type,
     const ASTNode* ast_location,
     std::vector<const ASTNode*>* field_arg_locations) {
@@ -1387,7 +1387,7 @@ zetasql_base::Status ExtractStructFieldLocations(
     }
   }
   ZETASQL_RET_CHECK_EQ(field_arg_locations->size(), to_struct_type->num_fields());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // TODO The intent of this function seems to be for the caller to
@@ -1396,7 +1396,7 @@ zetasql_base::Status ExtractStructFieldLocations(
 // into a no-op if there's no change required.  I tried add an early bailout
 // if the types matched and a few tests started failing, mostly because of
 // differences in has_explicit_type.  This could probably be simplified.
-zetasql_base::Status FunctionResolver::AddCastOrConvertLiteral(
+absl::Status FunctionResolver::AddCastOrConvertLiteral(
     const ASTNode* ast_location, const Type* target_type,
     const ResolvedScan* scan, bool set_has_explicit_type,
     bool return_null_on_error,
@@ -1442,12 +1442,12 @@ zetasql_base::Status FunctionResolver::AddCastOrConvertLiteral(
         }
       }
 
-      const zetasql_base::Status cast_status = AddCastOrConvertLiteral(
+      const absl::Status cast_status = AddCastOrConvertLiteral(
           field_arg_locations[i], to_struct_type->field(i).type, scan,
           set_has_explicit_type, return_null_on_error, &field_exprs[i]);
       if (!cast_status.ok()) {
         // Propagate "Out of stack space" errors.
-        if (cast_status.code() == zetasql_base::StatusCode::kResourceExhausted) {
+        if (cast_status.code() == absl::StatusCode::kResourceExhausted) {
           return cast_status;
         }
         return MakeSqlErrorAt(field_arg_locations[i]) << cast_status.message();
@@ -1459,7 +1459,7 @@ zetasql_base::Status FunctionResolver::AddCastOrConvertLiteral(
     // convert this MakeStruct into a Literal instead.
     ConvertMakeStructToLiteralIfAllExplicitLiteralFields(argument);
 
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   } else if ((*argument)->node_kind() == RESOLVED_FUNCTION_CALL &&
              (*argument)->GetAs<ResolvedFunctionCall>()->function()->FullName(
                  true /* include_group */) == "ZetaSQL:error") {
@@ -1484,7 +1484,7 @@ zetasql_base::Status FunctionResolver::AddCastOrConvertLiteral(
     // because this no-op cast cannot fail.
     *argument = MakeResolvedCast(target_type, std::move(*argument),
                                  return_null_on_error);
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   const ResolvedLiteral* argument_literal = nullptr;
@@ -1518,7 +1518,7 @@ zetasql_base::Status FunctionResolver::AddCastOrConvertLiteral(
       const bool type_assigned,
       resolver_->MaybeAssignTypeToUndeclaredParameter(argument, target_type));
   if (type_assigned) {
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   return resolver_->ResolveCastWithResolvedArgument(
@@ -1549,7 +1549,7 @@ bool GetFloatImage(
 }
 }  // namespace
 
-zetasql_base::Status FunctionResolver::ConvertLiteralToType(
+absl::Status FunctionResolver::ConvertLiteralToType(
     const ASTNode* ast_location, const ResolvedLiteral* argument_literal,
     const Type* target_type, const ResolvedScan* scan,
     bool set_has_explicit_type, bool return_null_on_error,
@@ -1631,7 +1631,7 @@ zetasql_base::Status FunctionResolver::ConvertLiteralToType(
     if (return_null_on_error) {
       *converted_literal = resolver_->MakeResolvedLiteral(
           ast_location, Value::Null(target_type), set_has_explicit_type);
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     } else {
       zetasql_base::StatusBuilder builder =
           MakeSqlErrorAt(ast_location)
@@ -1641,8 +1641,8 @@ zetasql_base::Status FunctionResolver::ConvertLiteralToType(
           << target_type->DebugString();
       // Give a more detailed error message for string/bytes -> proto
       // conversions, which can have subtle issues.
-      const std::string& error_message =
-          coerced_literal_value.status().error_message();
+      absl::string_view error_message =
+          coerced_literal_value.status().message();
       const Type* argument_type = argument_value->type();
       if ((argument_type->IsString() || argument_type->IsBytes()) &&
           target_type->IsProto() && !error_message.empty()) {
@@ -1671,10 +1671,10 @@ zetasql_base::Status FunctionResolver::ConvertLiteralToType(
   }
   *converted_literal = std::move(replacement_literal);
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status FunctionResolver::ResolveGeneralFunctionCall(
+absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     const ASTNode* ast_location,
     const std::vector<const ASTNode*>& arg_locations,
     const std::vector<std::string>& function_name_path, bool is_analytic,
@@ -1693,7 +1693,7 @@ zetasql_base::Status FunctionResolver::ResolveGeneralFunctionCall(
       resolved_expr_out);
 }
 
-zetasql_base::Status FunctionResolver::ResolveGeneralFunctionCall(
+absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     const ASTNode* ast_location,
     const std::vector<const ASTNode*>& arg_locations,
     const std::string& function_name, bool is_analytic,
@@ -1708,7 +1708,7 @@ zetasql_base::Status FunctionResolver::ResolveGeneralFunctionCall(
       resolved_expr_out);
 }
 
-zetasql_base::Status FunctionResolver::ResolveGeneralFunctionCall(
+absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     const ASTNode* ast_location,
     const std::vector<const ASTNode*>& arg_locations_in,
     const Function* function, ResolvedFunctionCallBase::ErrorMode error_mode,
@@ -1954,7 +1954,7 @@ zetasql_base::Status FunctionResolver::ResolveGeneralFunctionCall(
       analyzer_options.mutable_find_options()->set_cycle_detector(
           &owned_cycle_detector);
     }
-    const zetasql_base::Status resolve_status = ResolveTemplatedSQLFunctionCall(
+    const absl::Status resolve_status = ResolveTemplatedSQLFunctionCall(
         ast_location, *sql_function, analyzer_options, input_arguments,
         &function_call_info);
 
@@ -2026,11 +2026,11 @@ zetasql_base::Status FunctionResolver::ResolveGeneralFunctionCall(
     resolver_->MaybeRecordParseLocation(ast_function_call->function(),
                                         resolved_expr_out->get());
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status FunctionResolver::MakeFunctionExprAnalysisError(
-    const TemplatedSQLFunction& function, const std::string& message) {
+absl::Status FunctionResolver::MakeFunctionExprAnalysisError(
+    const TemplatedSQLFunction& function, absl::string_view message) {
   std::string result =
       absl::StrCat("Analysis of function ", function.FullName(), " failed");
   if (!message.empty()) {
@@ -2043,13 +2043,13 @@ zetasql_base::Status FunctionResolver::MakeFunctionExprAnalysisError(
 // expression.  If 'status' is OK, also returns OK. Otherwise, returns a
 // new error forwarding any nested errors in 'status' obtained from the
 // nested parsing or analysis.
-zetasql_base::Status FunctionResolver::ForwardNestedResolutionAnalysisError(
-    const TemplatedSQLFunction& function, const zetasql_base::Status& status,
+absl::Status FunctionResolver::ForwardNestedResolutionAnalysisError(
+    const TemplatedSQLFunction& function, const absl::Status& status,
     ErrorMessageMode mode) {
   ParseResumeLocation parse_resume_location = function.GetParseResumeLocation();
-  zetasql_base::Status new_status;
+  absl::Status new_status;
   if (status.ok()) {
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   } else if (HasErrorLocation(status)) {
     new_status = MakeFunctionExprAnalysisError(function, "");
     zetasql::internal::AttachPayload(
@@ -2077,7 +2077,7 @@ zetasql_base::Status FunctionResolver::ForwardNestedResolutionAnalysisError(
                                              parse_resume_location.input()));
 }
 
-zetasql_base::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
+absl::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
     const ASTNode* ast_location, const TemplatedSQLFunction& function,
     const AnalyzerOptions& analyzer_options,
     const std::vector<InputArgumentType>& actual_arguments,
@@ -2168,14 +2168,13 @@ zetasql_base::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
       analyzer_options.error_message_mode()));
 
   if (function.IsAggregate()) {
-    const zetasql_base::Status status =
+    const absl::Status status =
         FunctionResolver::CheckCreateAggregateFunctionProperties(
             *resolved_sql_body, /*sql_function_body_location=*/nullptr,
             &expr_resolution_info, &query_resolution_info);
     if (!status.ok()) {
       return ForwardNestedResolutionAnalysisError(
-          function,
-          MakeFunctionExprAnalysisError(function, status.error_message()),
+          function, MakeFunctionExprAnalysisError(function, status.message()),
           analyzer_options.error_message_mode());
     }
   }
@@ -2196,12 +2195,12 @@ zetasql_base::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
     SignatureMatchResult result;
     if (coercer().CoercesTo(input_argument_type, expected_type.type(),
                             /*is_explicit=*/false, &result)) {
-      const zetasql_base::Status status = this->AddCastOrConvertLiteral(
+      const absl::Status status = this->AddCastOrConvertLiteral(
           ast_location, expected_type.type(), /*scan=*/nullptr,
           /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
           &resolved_sql_body);
       if (!status.ok()) {
-        return MakeFunctionExprAnalysisError(function, status.error_message());
+        return MakeFunctionExprAnalysisError(function, status.message());
       }
     } else {
       return MakeFunctionExprAnalysisError(
@@ -2220,12 +2219,12 @@ zetasql_base::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
       std::move(resolved_sql_body),
       query_resolution_info.release_aggregate_columns_to_compute()));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 namespace {
 template <typename T>
-zetasql_base::Status CheckRange(
+absl::Status CheckRange(
     T value, const ASTNode* arg_location, int idx,
     const FunctionArgumentTypeOptions& options,
     const std::function<std::string(int)>& BadArgErrorPrefix) {
@@ -2258,11 +2257,11 @@ zetasql_base::Status CheckRange(
       }
     }
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 }  // namespace
 
-zetasql_base::Status FunctionResolver::CheckArgumentValueConstraints(
+absl::Status FunctionResolver::CheckArgumentValueConstraints(
     const ASTNode* arg_location, int idx, const Value& value,
     const FunctionArgumentType& concrete_argument,
     const std::function<std::string(int)>& BadArgErrorPrefix) const {
@@ -2296,7 +2295,7 @@ zetasql_base::Status FunctionResolver::CheckArgumentValueConstraints(
         ZETASQL_RET_CHECK(!options.has_max_value());
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 const Coercer& FunctionResolver::coercer() const {

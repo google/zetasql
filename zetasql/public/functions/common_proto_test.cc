@@ -25,7 +25,7 @@
 #include "zetasql/public/functions/date_time_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/status.h"
@@ -91,7 +91,7 @@ TEST(CommonProtoTest, ConvertProto3TimeOfDay) {
     const std::string test_input_string = absl::StrCat(
         "proto3_time_of_day_to_time(", test.time.DebugString(), ")");
     TimeValue actual;
-    const zetasql_base::Status status =
+    const absl::Status status =
         ConvertProto3TimeOfDayToTime(test.time, test.scale, &actual);
     if (test.expected_error.empty()) {
       ZETASQL_ASSERT_OK(status) << test_input_string;
@@ -99,7 +99,7 @@ TEST(CommonProtoTest, ConvertProto3TimeOfDay) {
           << test_input_string;
     } else {
       EXPECT_THAT(status, zetasql_base::testing::StatusIs(
-                              zetasql_base::OUT_OF_RANGE,
+                              absl::StatusCode::kOutOfRange,
                               testing::HasSubstr(test.expected_error)))
           << test_input_string;
     }
@@ -138,7 +138,7 @@ TEST(CommonProtoTest, ConvertTimeOfDayToProto3) {
     const std::string test_input_string =
         absl::StrCat("time_to_time_of_day(", test.time.DebugString(), ")");
     google::type::TimeOfDay result;
-    const zetasql_base::Status status =
+    const absl::Status status =
         ConvertTimeToProto3TimeOfDay(test.time, &result);
     if (test.expected_error.empty()) {
       TimeValue expected;
@@ -149,7 +149,7 @@ TEST(CommonProtoTest, ConvertTimeOfDayToProto3) {
           << test_input_string;
     } else {
       EXPECT_THAT(status, zetasql_base::testing::StatusIs(
-                              zetasql_base::OUT_OF_RANGE,
+                              absl::StatusCode::kOutOfRange,
                               testing::HasSubstr(test.expected_error)))
           << test_input_string;
     }
@@ -157,7 +157,7 @@ TEST(CommonProtoTest, ConvertTimeOfDayToProto3) {
 }
 
 TEST(CommonProtoTest, ConvertProto3Wrappers) {
-  zetasql_base::Status status;
+  absl::Status status;
   google::protobuf::BoolValue bool_proto;
   bool_proto.set_value(true);
   bool bool_output;
@@ -180,7 +180,7 @@ TEST(CommonProtoTest, ConvertProto3Wrappers) {
   string_proto.set_value("\xA4");
   status = ConvertProto3WrapperToType<google::protobuf::StringValue>(
       string_proto, &string_output);
-  EXPECT_EQ(zetasql_base::StatusCode::kOutOfRange, status.code());
+  EXPECT_EQ(absl::StatusCode::kOutOfRange, status.code());
 }
 
 TEST(CommonProtoTest, ConvertTypeToProto3Wrapper) {

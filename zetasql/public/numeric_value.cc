@@ -32,11 +32,11 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/common/fixed_int.h"
 #include "absl/base/optimization.h"
-#include "zetasql/base/status.h"
+#include "absl/hash/hash.h"
+#include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
-#include "zetasql/base/bits.h"
 #include "zetasql/base/endian.h"
 #include "zetasql/base/mathutil.h"
 #include "zetasql/base/status_macros.h"
@@ -59,18 +59,18 @@ constexpr int kBitsPerInt128 = 128;
 constexpr int kBytesPerInt64 = kBitsPerInt64 / kBitsPerByte;
 constexpr int kBytesPerInt128 = kBitsPerInt128 / kBitsPerByte;
 
-inline zetasql_base::Status MakeInvalidNumericError(absl::string_view str) {
+inline absl::Status MakeInvalidNumericError(absl::string_view str) {
   return MakeEvalError() << "Invalid NUMERIC value: " << str;
 }
 
 // Returns OK if the given character is a decimal ascii digit '0' to '9'.
 // Returns an INVALID_ARGUMENT otherwise.
-inline zetasql_base::Status ValidateAsciiDigit(char c, absl::string_view str) {
+inline absl::Status ValidateAsciiDigit(char c, absl::string_view str) {
   if (ABSL_PREDICT_FALSE(!absl::ascii_isdigit(c))) {
     return MakeInvalidNumericError(str);
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Returns -1, 0 or 1 if the given int128 number is negative, zero of positive
@@ -639,7 +639,7 @@ bool DoubleScaledPower(FixedUint<64, 3>* double_scaled_value,
 
 // *dest *= pow(abs_value / kScalingFactor, fract_exp / kScalingFactor) *
 // kScalingFactor
-zetasql_base::Status MultiplyByFractionalPower(unsigned __int128 abs_value,
+absl::Status MultiplyByFractionalPower(unsigned __int128 abs_value,
                                        int64_t fract_exp,
                                        FixedUint<64, 3>* dest) {
   // We handle the fractional part of the exponent by raising the original value
@@ -658,7 +658,7 @@ zetasql_base::Status MultiplyByFractionalPower(unsigned __int128 abs_value,
   if (ABSL_PREDICT_TRUE(ret.number()[3] == 0) &&
       ABSL_PREDICT_TRUE(ret.number()[4] == 0)) {
     *dest = FixedUint<64, 3>(ret);
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
   return MakeEvalError() << "numeric overflow";
 }
@@ -911,51 +911,6 @@ zetasql_base::StatusOr<NumericValue> NumericValue::Mod(NumericValue rh) const {
                          << rh.ToString();
 }
 
-std::string NumericValue::SerializeAsProtoBytes() const {
-  __int128 value = as_packed_int();
-
-  std::string ret;
-
-  if (value == 0) {
-    ret.push_back(0);
-    return ret;
-  }
-
-  const unsigned __int128 abs_value = int128_abs(value);
-  const uint64_t abs_value_hi = static_cast<uint64_t>(abs_value >> kBitsPerUint64);
-  const uint64_t abs_value_lo = static_cast<uint64_t>(abs_value);
-
-  int non_zero_bit_idx = 0;
-  if (abs_value_hi != 0) {
-    non_zero_bit_idx =
-        zetasql_base::Bits::FindMSBSetNonZero64(abs_value_hi) + kBitsPerUint64;
-  } else {
-    non_zero_bit_idx = zetasql_base::Bits::FindMSBSetNonZero64(abs_value_lo);
-  }
-
-  int non_zero_byte_idx = non_zero_bit_idx / kBitsPerByte;
-  const char non_zero_byte = static_cast<char>(
-      abs_value >> (non_zero_byte_idx * kBitsPerByte));
-  if ((non_zero_byte & 0x80) != 0) {
-    ++non_zero_byte_idx;
-  }
-
-  ret.resize(non_zero_byte_idx + 1);
-#ifdef IS_BIG_ENDIAN
-  // Big endian platforms are not supported in production right now, so we do
-  // not care about optimizations here.
-  for (int i = 0; i < non_zero_byte_idx + 1; ++i, value >>= kBitsPerByte) {
-    ret[i] = static_cast<char>(value);
-  }
-#else
-  // TODO explore unrolling this call to memcpy.
-  memcpy(&ret[0], reinterpret_cast<const void*>(&value),
-         non_zero_byte_idx + 1);
-#endif
-
-  return ret;
-}
-
 void NumericValue::SerializeAndAppendToProtoBytes(std::string* bytes) const {
   FixedInt<64, 2>(as_packed_int()).SerializeToBytes(bytes);
 }
@@ -1206,7 +1161,7 @@ NumericValue::CorrelationAggregator::DeserializeFromProtoBytes(
          << "Invalid NumericValue::CorrelationAggregator encoding";
 }
 
-inline zetasql_base::Status MakeInvalidBigNumericError(absl::string_view str) {
+inline absl::Status MakeInvalidBigNumericError(absl::string_view str) {
   return MakeEvalError() << "Invalid BIGNUMERIC value: " << str;
 }
 
@@ -1403,6 +1358,15 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::DeserializeFromProtoByt
 
 std::ostream& operator<<(std::ostream& out, const BigNumericValue& value) {
   return out << value.ToString();
+}
+
+zetasql_base::StatusOr<BigNumericValue> BigNumericValue::SumAggregator::GetSum() const {
+  if (sum_.number()[4] ==
+      static_cast<uint64_t>(static_cast<int64_t>(sum_.number()[3]) >> 63)) {
+    FixedInt<64, 4> sum_trunc(sum_);
+    return BigNumericValue(sum_trunc);
+  }
+  return MakeEvalError() << "BigNumeric overflow: SUM";
 }
 
 }  // namespace zetasql

@@ -47,69 +47,69 @@ class ZetaSqlLocalServiceImpl {
       delete;
   ~ZetaSqlLocalServiceImpl();
 
-  zetasql_base::Status Prepare(const PrepareRequest& request,
+  absl::Status Prepare(const PrepareRequest& request,
                        PrepareResponse* response);
 
-  zetasql_base::Status Unprepare(int64_t id);
+  absl::Status Unprepare(int64_t id);
 
-  zetasql_base::Status Evaluate(const EvaluateRequest& request,
+  absl::Status Evaluate(const EvaluateRequest& request,
                         EvaluateResponse* response);
 
-  zetasql_base::Status EvaluateImpl(const EvaluateRequest& request,
+  absl::Status EvaluateImpl(const EvaluateRequest& request,
                             PreparedExpressionState* state,
                             EvaluateResponse* response);
 
-  zetasql_base::Status GetTableFromProto(const TableFromProtoRequest& request,
+  absl::Status GetTableFromProto(const TableFromProtoRequest& request,
                                  SimpleTableProto* response);
 
-  zetasql_base::Status GetBuiltinFunctions(
+  absl::Status GetBuiltinFunctions(
       const ZetaSQLBuiltinFunctionOptionsProto& proto,
       GetBuiltinFunctionsResponse* resp);
 
-  zetasql_base::Status AddSimpleTable(const AddSimpleTableRequest& request);
+  absl::Status AddSimpleTable(const AddSimpleTableRequest& request);
 
-  zetasql_base::Status Analyze(const AnalyzeRequest& request,
+  absl::Status Analyze(const AnalyzeRequest& request,
                        AnalyzeResponse* response);
 
-  zetasql_base::Status AnalyzeImpl(const AnalyzeRequest& request,
+  absl::Status AnalyzeImpl(const AnalyzeRequest& request,
                            RegisteredCatalogState* catalog_state,
                            ParseResumeLocation* location,
                            AnalyzeResponse* response);
 
-  zetasql_base::Status AnalyzeExpressionImpl(const AnalyzeRequest& request,
+  absl::Status AnalyzeExpressionImpl(const AnalyzeRequest& request,
                                      RegisteredCatalogState* catalog_state,
                                      AnalyzeResponse* response);
 
-  zetasql_base::Status BuildSql(const BuildSqlRequest& request,
+  absl::Status BuildSql(const BuildSqlRequest& request,
                         BuildSqlResponse* response);
 
-  zetasql_base::Status ExtractTableNamesFromStatement(
+  absl::Status ExtractTableNamesFromStatement(
       const ExtractTableNamesFromStatementRequest& request,
       ExtractTableNamesFromStatementResponse* response);
 
-  zetasql_base::Status ExtractTableNamesFromNextStatement(
+  absl::Status ExtractTableNamesFromNextStatement(
       const ExtractTableNamesFromNextStatementRequest& request,
       ExtractTableNamesFromNextStatementResponse* response);
 
-  zetasql_base::Status SerializeResolvedOutput(const AnalyzerOutput* output,
+  absl::Status SerializeResolvedOutput(const AnalyzerOutput* output,
                                        absl::string_view statement,
                                        AnalyzeResponse* response,
                                        RegisteredCatalogState* state);
 
-  zetasql_base::Status FormatSql(const FormatSqlRequest& request,
+  absl::Status FormatSql(const FormatSqlRequest& request,
                          FormatSqlResponse* response);
 
-  zetasql_base::Status RegisterCatalog(const RegisterCatalogRequest& request,
+  absl::Status RegisterCatalog(const RegisterCatalogRequest& request,
                                RegisterResponse* response);
 
-  zetasql_base::Status UnregisterCatalog(int64_t id);
+  absl::Status UnregisterCatalog(int64_t id);
 
-  zetasql_base::Status RegisterParseResumeLocation(
+  absl::Status RegisterParseResumeLocation(
       const ParseResumeLocationProto& location, RegisterResponse* response);
 
-  zetasql_base::Status UnregisterParseResumeLocation(int64_t id);
+  absl::Status UnregisterParseResumeLocation(int64_t id);
 
-  zetasql_base::Status GetLanguageOptions(const LanguageOptionsRequest& request,
+  absl::Status GetLanguageOptions(const LanguageOptionsRequest& request,
                                   LanguageOptionsProto* response);
 
  private:

@@ -86,7 +86,7 @@ static bool IsEmptyWindowFrame(const ResolvedWindowFrame& window_frame) {
   return false;
 }
 
-zetasql_base::Status Validator::ValidateResolvedParameter(
+absl::Status Validator::ValidateResolvedParameter(
     const ResolvedParameter* resolved_param) const {
   ZETASQL_RET_CHECK(nullptr != resolved_param);
   // If the parameter has a name, it must not have a position and vice versa.
@@ -98,20 +98,20 @@ zetasql_base::Status Validator::ValidateResolvedParameter(
               "both: "
            << resolved_param->DebugString();
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::CheckColumnIsPresentInColumnSet(
+absl::Status Validator::CheckColumnIsPresentInColumnSet(
     const ResolvedColumn& column,
     const std::set<ResolvedColumn>& visible_columns) const {
   if (!zetasql_base::ContainsKey(visible_columns, column)) {
     return ::zetasql_base::InternalErrorBuilder()
            << "Incorrect reference to column " << column.DebugString();
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::CheckColumnList(
+absl::Status Validator::CheckColumnList(
     const ResolvedScan* scan,
     const std::set<ResolvedColumn>& visible_columns) const {
   ZETASQL_RET_CHECK(nullptr != scan);
@@ -123,14 +123,14 @@ zetasql_base::Status Validator::CheckColumnList(
              << scan->DebugString();
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 Validator::Validator() {}
 
 Validator::~Validator() {}
 
-zetasql_base::Status Validator::ValidateResolvedExprList(
+absl::Status Validator::ValidateResolvedExprList(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const std::vector<std::unique_ptr<const ResolvedExpr>>& expr_list) const {
@@ -138,19 +138,19 @@ zetasql_base::Status Validator::ValidateResolvedExprList(
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
                                          expr_iter.get()));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedCast(
+absl::Status Validator::ValidateResolvedCast(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const ResolvedCast* resolved_cast) const {
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
                                        resolved_cast->expr()));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedConstant(
+absl::Status Validator::ValidateResolvedConstant(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const ResolvedConstant* resolved_constant) const {
@@ -164,10 +164,10 @@ zetasql_base::Status Validator::ValidateResolvedConstant(
       << resolved_constant->constant()->type()->DebugString() << ", found "
       << resolved_constant->type()->DebugString();
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedFunctionCallBase(
+absl::Status Validator::ValidateResolvedFunctionCallBase(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const ResolvedFunctionCallBase* resolved_function_call) const {
@@ -215,17 +215,17 @@ zetasql_base::Status Validator::ValidateResolvedFunctionCallBase(
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateStandaloneResolvedExpr(
+absl::Status Validator::ValidateStandaloneResolvedExpr(
     const ResolvedExpr* expr) const {
-  const zetasql_base::Status status =
+  const absl::Status status =
       ValidateResolvedExpr({} /* visible_columns */,
                            {} /* visible_parameters */,
                            expr);
   if (!status.ok()) {
-    if (status.code() == zetasql_base::StatusCode::kResourceExhausted) {
+    if (status.code() == absl::StatusCode::kResourceExhausted) {
       // Don't wrap a resource exhausted status into internal error. This error
       // may still occur for a valid properly resolved expression (stack
       // exhaustion in case of deeply nested expression). There exist cases
@@ -236,10 +236,10 @@ zetasql_base::Status Validator::ValidateStandaloneResolvedExpr(
            << "Resolved AST validation failed: " << status.message() << "\n"
            << expr->DebugString();
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedExpr(
+absl::Status Validator::ValidateResolvedExpr(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const ResolvedExpr* expr) const {
@@ -365,10 +365,10 @@ zetasql_base::Status Validator::ValidateResolvedExpr(
              << " in ValidateResolvedExpr";
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedGetProtoFieldExpr(
+absl::Status Validator::ValidateResolvedGetProtoFieldExpr(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const ResolvedGetProtoField* get_proto_field) const {
@@ -405,10 +405,10 @@ zetasql_base::Status Validator::ValidateResolvedGetProtoFieldExpr(
     ZETASQL_RET_CHECK(get_proto_field->type()->Equals(
         get_proto_field->default_value().type()));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedReplaceField(
+absl::Status Validator::ValidateResolvedReplaceField(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const ResolvedReplaceField* replace_field) const {
@@ -459,10 +459,10 @@ zetasql_base::Status Validator::ValidateResolvedReplaceField(
       }
     }
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedSubqueryExpr(
+absl::Status Validator::ValidateResolvedSubqueryExpr(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const ResolvedSubqueryExpr* resolved_subquery_expr) const {
@@ -515,10 +515,10 @@ zetasql_base::Status Validator::ValidateResolvedSubqueryExpr(
 
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(resolved_subquery_expr->hint_list()));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedComputedColumn(
+absl::Status Validator::ValidateResolvedComputedColumn(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const ResolvedComputedColumn* computed_column) const {
@@ -542,10 +542,10 @@ zetasql_base::Status Validator::ValidateResolvedComputedColumn(
            << "ResolvedComputedColumn expression cannot reference itself: "
            << computed_column->DebugString();
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedComputedColumnList(
+absl::Status Validator::ValidateResolvedComputedColumnList(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
@@ -556,20 +556,20 @@ zetasql_base::Status Validator::ValidateResolvedComputedColumnList(
         ValidateResolvedComputedColumn(visible_columns, visible_parameters,
                                        computed_column.get()));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedOutputColumn(
+absl::Status Validator::ValidateResolvedOutputColumn(
     const std::set<ResolvedColumn>& visible_columns,
     const ResolvedOutputColumn* output_column) const {
   ZETASQL_RET_CHECK(nullptr != output_column);
 
   ZETASQL_RETURN_IF_ERROR(CheckColumnIsPresentInColumnSet(
       output_column->column(), visible_columns));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedOutputColumnList(
+absl::Status Validator::ValidateResolvedOutputColumnList(
     const std::vector<ResolvedColumn>& visible_columns,
     const std::vector<std::unique_ptr<const ResolvedOutputColumn>>&
         output_column_list,
@@ -596,28 +596,28 @@ zetasql_base::Status Validator::ValidateResolvedOutputColumnList(
              << ToIdentifierLiteral(output_column_list[0]->name());
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::AddColumnList(const ResolvedColumnList& column_list,
+absl::Status Validator::AddColumnList(const ResolvedColumnList& column_list,
                                       std::set<ResolvedColumn>* visible_columns)
     const {
   ZETASQL_RET_CHECK(nullptr != visible_columns);
   for (const ResolvedColumn& column : column_list) {
     visible_columns->insert(column);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::AddColumnFromComputedColumn(
+absl::Status Validator::AddColumnFromComputedColumn(
     const ResolvedComputedColumn* computed_column,
     std::set<ResolvedColumn>* visible_columns) const {
   ZETASQL_RET_CHECK(nullptr != visible_columns && nullptr != computed_column);
   visible_columns->insert(computed_column->column());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::AddColumnsFromComputedColumnList(
+absl::Status Validator::AddColumnsFromComputedColumnList(
     const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
         computed_column_list,
     std::set<ResolvedColumn>* visible_columns) const {
@@ -626,10 +626,10 @@ zetasql_base::Status Validator::AddColumnsFromComputedColumnList(
     ZETASQL_RETURN_IF_ERROR(AddColumnFromComputedColumn(computed_column.get(),
                                                 visible_columns));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedTableScan(
+absl::Status Validator::ValidateResolvedTableScan(
     const ResolvedTableScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) const {
 
@@ -652,7 +652,7 @@ zetasql_base::Status Validator::ValidateResolvedTableScan(
   // should be removed.
   // TODO: remove this exception.
   if (scan->column_index_list_size() == 0) {
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // Checks that all columns have corresponding indexes.
@@ -665,10 +665,10 @@ zetasql_base::Status Validator::ValidateResolvedTableScan(
     ZETASQL_RET_CHECK(nullptr != table->GetColumn(index));
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedJoinScan(
+absl::Status Validator::ValidateResolvedJoinScan(
     const ResolvedJoinScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) const {
 
@@ -698,10 +698,10 @@ zetasql_base::Status Validator::ValidateResolvedJoinScan(
   }
   ZETASQL_RETURN_IF_ERROR(CheckColumnList(scan, visible_columns));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedArrayScan(
+absl::Status Validator::ValidateResolvedArrayScan(
     const ResolvedArrayScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) const {
 
@@ -731,10 +731,10 @@ zetasql_base::Status Validator::ValidateResolvedArrayScan(
   }
   ZETASQL_RETURN_IF_ERROR(CheckColumnList(scan, visible_columns));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedFilterScan(
+absl::Status Validator::ValidateResolvedFilterScan(
     const ResolvedFilterScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) const {
 
@@ -752,10 +752,10 @@ zetasql_base::Status Validator::ValidateResolvedFilterScan(
       << scan->filter_expr()->type()->DebugString();
   ZETASQL_RETURN_IF_ERROR(CheckColumnList(scan, visible_columns));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedAggregateComputedColumn(
+absl::Status Validator::ValidateResolvedAggregateComputedColumn(
     const ResolvedComputedColumn* computed_column,
     const std::set<ResolvedColumn>& input_scan_visible_columns,
     const std::set<ResolvedColumn>& visible_parameters) const {
@@ -794,10 +794,10 @@ zetasql_base::Status Validator::ValidateResolvedAggregateComputedColumn(
         aggregate_function_call->limit()));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedAggregateScanBase(
+absl::Status Validator::ValidateResolvedAggregateScanBase(
     const ResolvedAggregateScanBase* scan,
     const std::set<ResolvedColumn>& visible_parameters,
     std::set<ResolvedColumn>* input_scan_visible_columns) const {
@@ -812,10 +812,10 @@ zetasql_base::Status Validator::ValidateResolvedAggregateScanBase(
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedComputedColumnList(
       *input_scan_visible_columns, visible_parameters, scan->aggregate_list()));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedAggregateScan(
+absl::Status Validator::ValidateResolvedAggregateScan(
     const ResolvedAggregateScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) const {
 
@@ -878,10 +878,10 @@ zetasql_base::Status Validator::ValidateResolvedAggregateScan(
         computed_column.get(),
         input_scan_visible_columns, visible_parameters));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-static zetasql_base::Status ValidatePercentArgument(const ResolvedExpr* expr) {
+static absl::Status ValidatePercentArgument(const ResolvedExpr* expr) {
   ZETASQL_RET_CHECK(expr != nullptr);
   ZETASQL_RET_CHECK(expr->node_kind() == RESOLVED_LITERAL ||
             expr->node_kind() == RESOLVED_PARAMETER)
@@ -908,10 +908,10 @@ static zetasql_base::Status ValidatePercentArgument(const ResolvedExpr* expr) {
              << "PERCENT argument value must be in the range [0, 100]";
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedSampleScan(
+absl::Status Validator::ValidateResolvedSampleScan(
     const ResolvedSampleScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) const {
 
@@ -951,10 +951,10 @@ zetasql_base::Status Validator::ValidateResolvedSampleScan(
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedAnalyticScan(
+absl::Status Validator::ValidateResolvedAnalyticScan(
     const ResolvedAnalyticScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) const {
 
@@ -978,10 +978,10 @@ zetasql_base::Status Validator::ValidateResolvedAnalyticScan(
   }
   ZETASQL_RETURN_IF_ERROR(CheckColumnList(scan, visible_columns));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedAnalyticFunctionGroup(
+absl::Status Validator::ValidateResolvedAnalyticFunctionGroup(
     const ResolvedAnalyticFunctionGroup* group,
     const std::set<ResolvedColumn>& input_visible_columns,
     const std::set<ResolvedColumn>& visible_parameters) const {
@@ -1098,10 +1098,10 @@ zetasql_base::Status Validator::ValidateResolvedAnalyticFunctionGroup(
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedWindowFrame(
+absl::Status Validator::ValidateResolvedWindowFrame(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const ResolvedWindowOrdering* window_ordering,
@@ -1132,10 +1132,10 @@ zetasql_base::Status Validator::ValidateResolvedWindowFrame(
     return ::zetasql_base::InternalErrorBuilder() << "Window frame must be non-empty";
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedWindowFrameExpr(
+absl::Status Validator::ValidateResolvedWindowFrameExpr(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const ResolvedWindowOrdering* window_ordering,
@@ -1188,10 +1188,10 @@ zetasql_base::Status Validator::ValidateResolvedWindowFrameExpr(
              << "Unhandled window boundary type:\n"
              << window_frame_expr->GetBoundaryTypeString();
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedWindowFrameExprType(
+absl::Status Validator::ValidateResolvedWindowFrameExprType(
     const ResolvedWindowFrame::FrameUnit& frame_unit,
     const ResolvedExpr* window_ordering_expr,
     const ResolvedExpr& window_frame_expr) const {
@@ -1225,10 +1225,10 @@ zetasql_base::Status Validator::ValidateResolvedWindowFrameExprType(
       }
       break;
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedSetOperationScan(
+absl::Status Validator::ValidateResolvedSetOperationScan(
     const ResolvedSetOperationScan* set_op_scan,
     const std::set<ResolvedColumn>& visible_parameters) const {
 
@@ -1258,14 +1258,14 @@ zetasql_base::Status Validator::ValidateResolvedSetOperationScan(
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 static bool IsResolvedLiteralOrParameter(ResolvedNodeKind kind) {
   return kind == RESOLVED_LITERAL || kind == RESOLVED_PARAMETER;
 }
 
-zetasql_base::Status Validator::ValidateArgumentIsInt64Constant(
+absl::Status Validator::ValidateArgumentIsInt64Constant(
     const ResolvedExpr* expr) const {
   ZETASQL_RET_CHECK(expr != nullptr);
 
@@ -1288,10 +1288,10 @@ zetasql_base::Status Validator::ValidateArgumentIsInt64Constant(
         << "Unexpected literal with null value: " << value.DebugString();
     ZETASQL_RET_CHECK_GE(value.int64_value(), 0);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedLimitOffsetScan(
+absl::Status Validator::ValidateResolvedLimitOffsetScan(
     const ResolvedLimitOffsetScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) const {
 
@@ -1305,10 +1305,10 @@ zetasql_base::Status Validator::ValidateResolvedLimitOffsetScan(
 
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedScan(scan->input_scan(),
                                        visible_parameters));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedProjectScan(
+absl::Status Validator::ValidateResolvedProjectScan(
     const ResolvedProjectScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) const {
 
@@ -1325,10 +1325,10 @@ zetasql_base::Status Validator::ValidateResolvedProjectScan(
       AddColumnsFromComputedColumnList(scan->expr_list(), &visible_columns));
   ZETASQL_RETURN_IF_ERROR(CheckColumnList(scan, visible_columns));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedTVFScan(
+absl::Status Validator::ValidateResolvedTVFScan(
     const ResolvedTVFScan* resolved_tvf_scan,
     const std::set<ResolvedColumn>& visible_parameters) const {
   ZETASQL_RET_CHECK_EQ(resolved_tvf_scan->argument_list_size(),
@@ -1443,10 +1443,10 @@ zetasql_base::Status Validator::ValidateResolvedTVFScan(
   }
 
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(resolved_tvf_scan->hint_list()));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedRelationArgumentScan(
+absl::Status Validator::ValidateResolvedRelationArgumentScan(
     const ResolvedRelationArgumentScan* arg_ref,
     const std::set<ResolvedColumn>& visible_parameters) const {
   // If we're currently validating a ResolvedCreateTableFunctionStmt, find the
@@ -1460,10 +1460,10 @@ zetasql_base::Status Validator::ValidateResolvedRelationArgumentScan(
           return zetasql_base::CaseEqual(arg_ref->name(), arg_name);
         }));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedWithScan(
+absl::Status Validator::ValidateResolvedWithScan(
     const ResolvedWithScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) const {
 
@@ -1482,14 +1482,14 @@ zetasql_base::Status Validator::ValidateResolvedWithScan(
       AddColumnList(scan->query()->column_list(), &visible_columns));
   ZETASQL_RETURN_IF_ERROR(CheckColumnList(scan, visible_columns));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedStatement(
+absl::Status Validator::ValidateResolvedStatement(
     const ResolvedStatement* statement) {
   ZETASQL_RET_CHECK(nullptr != statement);
 
-  zetasql_base::Status status;
+  absl::Status status;
   switch (statement->node_kind()) {
     case RESOLVED_QUERY_STMT:
       status = ValidateResolvedQueryStmt(statement->GetAs<ResolvedQueryStmt>());
@@ -1696,7 +1696,7 @@ zetasql_base::Status Validator::ValidateResolvedStatement(
   status.Update(ValidateHintList(statement->hint_list()));
 
   if (!status.ok()) {
-    if (status.code() == zetasql_base::StatusCode::kResourceExhausted) {
+    if (status.code() == absl::StatusCode::kResourceExhausted) {
       // Don't wrap a resource exhausted status into internal error. This error
       // may still occur for a valid properly resolved expression (stack
       // exhaustion in case of deeply nested expression). There exist cases
@@ -1707,16 +1707,16 @@ zetasql_base::Status Validator::ValidateResolvedStatement(
            << "Resolved AST validation failed: " << status.message() << "\n"
            << statement->DebugString();
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedCreateDatabaseStmt(
+absl::Status Validator::ValidateResolvedCreateDatabaseStmt(
     const ResolvedCreateDatabaseStmt* stmt) const {
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedIndexStmt(
+absl::Status Validator::ValidateResolvedIndexStmt(
     const ResolvedCreateIndexStmt* stmt) const {
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
 
@@ -1756,10 +1756,10 @@ zetasql_base::Status Validator::ValidateResolvedIndexStmt(
                                            /*visible_parameters=*/{},
                                            stmt->storing_expression_list()));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedCreateTableStmtBase(
+absl::Status Validator::ValidateResolvedCreateTableStmtBase(
     const ResolvedCreateTableStmtBase* stmt) const {
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
   // Build the list of visible_columns.
@@ -1887,15 +1887,15 @@ zetasql_base::Status Validator::ValidateResolvedCreateTableStmtBase(
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
         visible_columns, {} /* visible_parameters */, cluster_by_expr.get()));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedCreateTableStmt(
+absl::Status Validator::ValidateResolvedCreateTableStmt(
     const ResolvedCreateTableStmt* stmt) const {
   return ValidateResolvedCreateTableStmtBase(stmt);
 }
 
-zetasql_base::Status Validator::ValidateResolvedGeneratedColumnInfo(
+absl::Status Validator::ValidateResolvedGeneratedColumnInfo(
     const ResolvedColumnDefinition* column_definition,
     const std::set<ResolvedColumn>& visible_columns) const {
   const ResolvedGeneratedColumnInfo* generated_column_info =
@@ -1910,10 +1910,10 @@ zetasql_base::Status Validator::ValidateResolvedGeneratedColumnInfo(
       column_definition->type()));
   ZETASQL_RET_CHECK(!(generated_column_info->is_on_write() &&
               generated_column_info->is_stored()));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedCreateTableAsSelectStmt(
+absl::Status Validator::ValidateResolvedCreateTableAsSelectStmt(
     const ResolvedCreateTableAsSelectStmt* stmt) const {
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedScan(
       stmt->query(), {} /* visible_parameters */));
@@ -1953,7 +1953,7 @@ zetasql_base::Status Validator::ValidateResolvedCreateTableAsSelectStmt(
   return ValidateResolvedCreateTableStmtBase(stmt);
 }
 
-zetasql_base::Status Validator::ValidateResolvedCreateModelStmt(
+absl::Status Validator::ValidateResolvedCreateModelStmt(
     const ResolvedCreateModelStmt* stmt) const {
   ZETASQL_RETURN_IF_ERROR(
       ValidateResolvedScan(stmt->query(), {} /* visible_parameters */));
@@ -1990,10 +1990,10 @@ zetasql_base::Status Validator::ValidateResolvedCreateModelStmt(
     ZETASQL_RET_CHECK(stmt->transform_output_column_list().empty());
     ZETASQL_RET_CHECK(stmt->transform_analytic_function_group_list().empty());
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedCreateViewStmt(
+absl::Status Validator::ValidateResolvedCreateViewStmt(
     const ResolvedCreateViewStmt* stmt) const {
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedScan(
       stmt->query(), {} /* visible_parameters */));
@@ -2001,10 +2001,10 @@ zetasql_base::Status Validator::ValidateResolvedCreateViewStmt(
       stmt->query()->column_list(), stmt->output_column_list(),
       stmt->is_value_table()));
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedCreateMaterializedViewStmt(
+absl::Status Validator::ValidateResolvedCreateMaterializedViewStmt(
     const ResolvedCreateMaterializedViewStmt* stmt) const {
   ZETASQL_RETURN_IF_ERROR(
       ValidateResolvedScan(stmt->query(), {} /* visible_parameters */));
@@ -2012,15 +2012,15 @@ zetasql_base::Status Validator::ValidateResolvedCreateMaterializedViewStmt(
                                                    stmt->output_column_list(),
                                                    stmt->is_value_table()));
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedCreateExternalTableStmt(
+absl::Status Validator::ValidateResolvedCreateExternalTableStmt(
     const ResolvedCreateExternalTableStmt* stmt) const {
   return ValidateResolvedCreateTableStmtBase(stmt);
 }
 
-zetasql_base::Status Validator::ValidateResolvedCreateRowAccessPolicyStmt(
+absl::Status Validator::ValidateResolvedCreateRowAccessPolicyStmt(
     const ResolvedCreateRowAccessPolicyStmt* stmt) const {
 
   ZETASQL_RET_CHECK(stmt->table_scan() != nullptr);
@@ -2036,18 +2036,18 @@ zetasql_base::Status Validator::ValidateResolvedCreateRowAccessPolicyStmt(
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
       visible_columns, {}  /* visible_parameters */, predicate));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedCreateConstantStmt(
+absl::Status Validator::ValidateResolvedCreateConstantStmt(
     const ResolvedCreateConstantStmt* stmt) {
   ZETASQL_RET_CHECK(stmt->expr() != nullptr);
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
       {} /* visible_columns */, {} /* visible_parameters */, stmt->expr()));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedCreateFunctionStmt(
+absl::Status Validator::ValidateResolvedCreateFunctionStmt(
     const ResolvedCreateFunctionStmt* stmt) {
   bool contains_templated_args =
       std::any_of(stmt->signature().arguments().begin(),
@@ -2116,12 +2116,12 @@ zetasql_base::Status Validator::ValidateResolvedCreateFunctionStmt(
     ZETASQL_RET_CHECK(parameter_nodes.empty());
   }
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Check that the function signature does not contain unsupported templated
 // argument types.
-static zetasql_base::Status CheckFunctionArgumentType(
+static absl::Status CheckFunctionArgumentType(
     const FunctionArgumentTypeList& argument_type_list,
     absl::string_view statement_type) {
   for (const FunctionArgumentType& arg_type : argument_type_list) {
@@ -2135,10 +2135,10 @@ static zetasql_base::Status CheckFunctionArgumentType(
                          << " argument type: " << arg_type.DebugString();
     }
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedCreateTableFunctionStmt(
+absl::Status Validator::ValidateResolvedCreateTableFunctionStmt(
     const ResolvedCreateTableFunctionStmt* stmt) {
   ZETASQL_RET_CHECK_EQ(stmt->argument_name_list().size(),
                stmt->signature().arguments().size());
@@ -2169,10 +2169,10 @@ zetasql_base::Status Validator::ValidateResolvedCreateTableFunctionStmt(
     ZETASQL_RET_CHECK(stmt->output_column_list().empty());
     ZETASQL_RET_CHECK(stmt->query() == nullptr);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedCreateProcedureStmt(
+absl::Status Validator::ValidateResolvedCreateProcedureStmt(
     const ResolvedCreateProcedureStmt* stmt) {
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
   ZETASQL_RET_CHECK_EQ(stmt->argument_name_list().size(),
@@ -2180,10 +2180,10 @@ zetasql_base::Status Validator::ValidateResolvedCreateProcedureStmt(
   ZETASQL_RETURN_IF_ERROR(CheckFunctionArgumentType(stmt->signature().arguments(),
                                             "CREATE PROCEDURE"));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedExportDataStmt(
+absl::Status Validator::ValidateResolvedExportDataStmt(
     const ResolvedExportDataStmt* stmt) const {
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedScan(
       stmt->query(), {} /* visible_parameters */));
@@ -2191,10 +2191,10 @@ zetasql_base::Status Validator::ValidateResolvedExportDataStmt(
       stmt->query()->column_list(), stmt->output_column_list(),
       stmt->is_value_table()));
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedCallStmt(
+absl::Status Validator::ValidateResolvedCallStmt(
     const ResolvedCallStmt* stmt) const {
 
   ZETASQL_RET_CHECK(stmt->procedure() != nullptr)
@@ -2211,66 +2211,66 @@ zetasql_base::Status Validator::ValidateResolvedCallStmt(
     ZETASQL_RET_CHECK(stmt->argument_list(i)->type()->Equals(
         stmt->signature().ConcreteArgumentType(i)));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedDefineTableStmt(
+absl::Status Validator::ValidateResolvedDefineTableStmt(
     const ResolvedDefineTableStmt* stmt) const {
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedDescribeStmt(
+absl::Status Validator::ValidateResolvedDescribeStmt(
     const ResolvedDescribeStmt* stmt) const {
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedShowStmt(
+absl::Status Validator::ValidateResolvedShowStmt(
     const ResolvedShowStmt* stmt) const {
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedBeginStmt(
+absl::Status Validator::ValidateResolvedBeginStmt(
     const ResolvedBeginStmt* stmt) const {
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedSetTransactionStmt(
+absl::Status Validator::ValidateResolvedSetTransactionStmt(
     const ResolvedSetTransactionStmt* stmt) const {
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedCommitStmt(
+absl::Status Validator::ValidateResolvedCommitStmt(
     const ResolvedCommitStmt* stmt) const {
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedRollbackStmt(
+absl::Status Validator::ValidateResolvedRollbackStmt(
     const ResolvedRollbackStmt* stmt) const {
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedStartBatchStmt(
+absl::Status Validator::ValidateResolvedStartBatchStmt(
     const ResolvedStartBatchStmt* stmt) const {
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedRunBatchStmt(
+absl::Status Validator::ValidateResolvedRunBatchStmt(
     const ResolvedRunBatchStmt* stmt) const {
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedAbortBatchStmt(
+absl::Status Validator::ValidateResolvedAbortBatchStmt(
     const ResolvedAbortBatchStmt* stmt) const {
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedDropStmt(
+absl::Status Validator::ValidateResolvedDropStmt(
     const ResolvedDropStmt* stmt) const {
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedDropFunctionStmt(
+absl::Status Validator::ValidateResolvedDropFunctionStmt(
     const ResolvedDropFunctionStmt* stmt) const {
   ZETASQL_RET_CHECK_EQ(stmt->signature() == nullptr, stmt->arguments() == nullptr);
   if (stmt->signature() != nullptr) {
@@ -2288,31 +2288,31 @@ zetasql_base::Status Validator::ValidateResolvedDropFunctionStmt(
     }
     ZETASQL_RET_CHECK(stmt->signature()->signature().result_type().IsVoid());
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedDropMaterializedViewStmt(
+absl::Status Validator::ValidateResolvedDropMaterializedViewStmt(
     const ResolvedDropMaterializedViewStmt* stmt) const {
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedDropRowAccessPolicyStmt(
+absl::Status Validator::ValidateResolvedDropRowAccessPolicyStmt(
     const ResolvedDropRowAccessPolicyStmt* stmt) const {
   ZETASQL_RET_CHECK(!(stmt->is_drop_all() && stmt->is_if_exists()));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedGrantStmt(
+absl::Status Validator::ValidateResolvedGrantStmt(
     const ResolvedGrantStmt* stmt) const {
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedRevokeStmt(
+absl::Status Validator::ValidateResolvedRevokeStmt(
     const ResolvedRevokeStmt* stmt) const {
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedOrderByScan(
+absl::Status Validator::ValidateResolvedOrderByScan(
     const ResolvedOrderByScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) const {
 
@@ -2327,10 +2327,10 @@ zetasql_base::Status Validator::ValidateResolvedOrderByScan(
                                          order_by_item->column_ref()));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedQueryStmt(
+absl::Status Validator::ValidateResolvedQueryStmt(
     const ResolvedQueryStmt* query) const {
   ZETASQL_RET_CHECK(nullptr != query);
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedScan(query->query(),
@@ -2338,10 +2338,10 @@ zetasql_base::Status Validator::ValidateResolvedQueryStmt(
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedOutputColumnList(
       query->query()->column_list(), query->output_column_list(),
       query->is_value_table()));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedScan(
+absl::Status Validator::ValidateResolvedScan(
     const ResolvedScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) const {
   ZETASQL_RET_CHECK(nullptr != scan);
@@ -2425,10 +2425,10 @@ zetasql_base::Status Validator::ValidateResolvedScan(
 
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(scan->hint_list()));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedScanOrdering(
+absl::Status Validator::ValidateResolvedScanOrdering(
     const ResolvedScan* scan) const {
   ZETASQL_RET_CHECK(nullptr != scan);
 
@@ -2437,7 +2437,7 @@ zetasql_base::Status Validator::ValidateResolvedScanOrdering(
   switch (scan->node_kind()) {
     // OrderByScan can always produce an ordered result.
     case RESOLVED_ORDER_BY_SCAN:
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
 
     // These scans can produce an ordered result if their input was ordered.
     // These cases fill in <input_scan>, which is checked below the switch.
@@ -2466,10 +2466,10 @@ zetasql_base::Status Validator::ValidateResolvedScanOrdering(
            << scan->DebugString();
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateHintList(
+absl::Status Validator::ValidateHintList(
     const std::vector<std::unique_ptr<const ResolvedOption>>& hint_list) const {
   for (const std::unique_ptr<const ResolvedOption>& hint : hint_list) {
     // The value in a Hint must be a constant so we don't pass any visible
@@ -2477,10 +2477,10 @@ zetasql_base::Status Validator::ValidateHintList(
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr({}, {}, hint->value()));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateColumnAnnotations(
+absl::Status Validator::ValidateColumnAnnotations(
     const ResolvedColumnAnnotations* annotations) const {
   ZETASQL_RET_CHECK(annotations != nullptr);
   for (const std::unique_ptr<const ResolvedColumnAnnotations>& child :
@@ -2491,7 +2491,7 @@ zetasql_base::Status Validator::ValidateColumnAnnotations(
 }
 
 template <class STMT>
-zetasql_base::Status Validator::ValidateResolvedDMLStmt(
+absl::Status Validator::ValidateResolvedDMLStmt(
     const STMT* stmt,
     const ResolvedColumn* array_element_column,
     std::set<ResolvedColumn>* visible_columns) const {
@@ -2520,10 +2520,10 @@ zetasql_base::Status Validator::ValidateResolvedDMLStmt(
         ValidateArgumentIsInt64Constant(stmt->assert_rows_modified()->rows()));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedInsertStmt(
+absl::Status Validator::ValidateResolvedInsertStmt(
     const ResolvedInsertStmt* stmt,
     const std::set<ResolvedColumn>* outer_visible_columns,
     const ResolvedColumn* array_element_column) const {
@@ -2609,10 +2609,10 @@ zetasql_base::Status Validator::ValidateResolvedInsertStmt(
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedDeleteStmt(
+absl::Status Validator::ValidateResolvedDeleteStmt(
     const ResolvedDeleteStmt* stmt,
     const std::set<ResolvedColumn>* outer_visible_columns,
     const ResolvedColumn* array_element_column) const {
@@ -2642,15 +2642,15 @@ zetasql_base::Status Validator::ValidateResolvedDeleteStmt(
   ZETASQL_RET_CHECK(stmt->where_expr()->type()->IsBool())
       << "DeleteStmt has WHERE expression with non-BOOL type: "
       << stmt->where_expr()->type()->DebugString();
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::CheckExprIsPath(const ResolvedExpr* expr,
+absl::Status Validator::CheckExprIsPath(const ResolvedExpr* expr,
                                         const ResolvedColumnRef** ref) const {
   switch (expr->node_kind()) {
     case RESOLVED_COLUMN_REF:
       *ref = expr->GetAs<ResolvedColumnRef>();
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     case RESOLVED_GET_PROTO_FIELD:
       return CheckExprIsPath(expr->GetAs<ResolvedGetProtoField>()->expr(), ref);
     case RESOLVED_GET_STRUCT_FIELD:
@@ -2662,7 +2662,7 @@ zetasql_base::Status Validator::CheckExprIsPath(const ResolvedExpr* expr,
   }
 }
 
-zetasql_base::Status Validator::ValidateResolvedUpdateStmt(
+absl::Status Validator::ValidateResolvedUpdateStmt(
     const ResolvedUpdateStmt* stmt,
     const std::set<ResolvedColumn>* outer_visible_columns,
     const ResolvedColumn* array_element_column) const {
@@ -2713,10 +2713,10 @@ zetasql_base::Status Validator::ValidateResolvedUpdateStmt(
       << "UpdateStmt has WHERE expression with non-BOOL type: "
       << stmt->where_expr()->type()->DebugString();
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedUpdateItem(
+absl::Status Validator::ValidateResolvedUpdateItem(
     const ResolvedUpdateItem* item, bool allow_nested_statements,
     const ResolvedColumn* array_element_column,
     const std::set<ResolvedColumn>& target_visible_columns,
@@ -2797,10 +2797,10 @@ zetasql_base::Status Validator::ValidateResolvedUpdateItem(
     }
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedUpdateArrayItem(
+absl::Status Validator::ValidateResolvedUpdateArrayItem(
     const ResolvedUpdateArrayItem* item, const ResolvedColumn& element_column,
     const std::set<ResolvedColumn>& target_visible_columns,
     const std::set<ResolvedColumn>& offset_and_where_visible_columns) const {
@@ -2818,10 +2818,10 @@ zetasql_base::Status Validator::ValidateResolvedUpdateArrayItem(
       item->update_item(), /*allow_nested_statements=*/false, &element_column,
       child_target_visible_columns, offset_and_where_visible_columns));
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedMergeWhen(
+absl::Status Validator::ValidateResolvedMergeWhen(
     const ResolvedMergeWhen* merge_when,
     const std::set<ResolvedColumn>& all_visible_columns,
     const std::set<ResolvedColumn>& source_visible_columns,
@@ -2894,10 +2894,10 @@ zetasql_base::Status Validator::ValidateResolvedMergeWhen(
       break;
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedMergeStmt(
+absl::Status Validator::ValidateResolvedMergeStmt(
     const ResolvedMergeStmt* stmt) const {
   ZETASQL_RET_CHECK_NE(nullptr, stmt->table_scan());
   ZETASQL_RETURN_IF_ERROR(
@@ -2928,12 +2928,12 @@ zetasql_base::Status Validator::ValidateResolvedMergeStmt(
         when_clause.get(), all_visible_columns, source_visible_columns,
         target_visible_columns));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Truncate statement is not supported in nested-DML, however, this is
 // enforced by the parser.
-zetasql_base::Status Validator::ValidateResolvedTruncateStmt(
+absl::Status Validator::ValidateResolvedTruncateStmt(
     const ResolvedTruncateStmt* stmt) const {
   ZETASQL_RET_CHECK_NE(nullptr, stmt->table_scan());
   ZETASQL_RETURN_IF_ERROR(
@@ -2950,16 +2950,16 @@ zetasql_base::Status Validator::ValidateResolvedTruncateStmt(
         << "TruncateStmt has WHERE expression with non-BOOL type: "
         << stmt->where_expr()->type()->DebugString();
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedAlterTableSetOptionsStmt(
+absl::Status Validator::ValidateResolvedAlterTableSetOptionsStmt(
     const ResolvedAlterTableSetOptionsStmt* stmt) const {
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedAlterRowAccessPolicyStmt(
+absl::Status Validator::ValidateResolvedAlterRowAccessPolicyStmt(
     const ResolvedAlterRowAccessPolicyStmt* stmt) const {
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedAlterObjectStmt(stmt));
 
@@ -2973,15 +2973,15 @@ zetasql_base::Status Validator::ValidateResolvedAlterRowAccessPolicyStmt(
   ZETASQL_RETURN_IF_ERROR(
       AddColumnList(stmt->table_scan()->column_list(), &visible_columns));
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedRenameStmt(
+absl::Status Validator::ValidateResolvedRenameStmt(
     const ResolvedRenameStmt* stmt) const {
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedImportStmt(
+absl::Status Validator::ValidateResolvedImportStmt(
     const ResolvedImportStmt* stmt) const {
 
   if (stmt->import_kind() == ResolvedImportStmt::MODULE) {
@@ -3005,19 +3005,19 @@ zetasql_base::Status Validator::ValidateResolvedImportStmt(
 
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedModuleStmt(
+absl::Status Validator::ValidateResolvedModuleStmt(
     const ResolvedModuleStmt* stmt) const {
 
   ZETASQL_RET_CHECK(!stmt->name_path().empty());
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedAssignmentStmt(
+absl::Status Validator::ValidateResolvedAssignmentStmt(
     const ResolvedAssignmentStmt* stmt) const {
   ZETASQL_RET_CHECK(stmt->target() != nullptr);
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
@@ -3044,19 +3044,19 @@ zetasql_base::Status Validator::ValidateResolvedAssignmentStmt(
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
       /*visible_columns=*/{}, /*visible_parameters=*/{}, stmt->expr()));
   ZETASQL_RET_CHECK(stmt->expr()->type()->Equals(stmt->target()->type()));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedAssertStmt(
+absl::Status Validator::ValidateResolvedAssertStmt(
     const ResolvedAssertStmt* stmt) const {
   ZETASQL_RET_CHECK(stmt->expression() != nullptr);
   ZETASQL_RET_CHECK(stmt->expression()->type()->IsBool());
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
       /*visible_columns=*/{}, /*visible_parameters=*/{}, stmt->expression()));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedTVFArgument(
+absl::Status Validator::ValidateResolvedTVFArgument(
     const std::set<ResolvedColumn>& visible_parameters,
     const ResolvedTVFArgument* resolved_tvf_arg) const {
   ZETASQL_RET_CHECK(resolved_tvf_arg != nullptr);
@@ -3115,10 +3115,10 @@ zetasql_base::Status Validator::ValidateResolvedTVFArgument(
           << argument_column.DebugString();
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateRelationSchemaInResolvedTVFArgument(
+absl::Status Validator::ValidateRelationSchemaInResolvedTVFArgument(
     const TVFRelation& required_input_schema,
     const TVFRelation& input_relation,
     const ResolvedTVFArgument* resolved_tvf_arg) const {
@@ -3152,10 +3152,10 @@ zetasql_base::Status Validator::ValidateRelationSchemaInResolvedTVFArgument(
           resolved_tvf_arg->argument_column_list(col_idx).type()));
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedAlterObjectStmt(
+absl::Status Validator::ValidateResolvedAlterObjectStmt(
     const ResolvedAlterObjectStmt* stmt) const {
   for (const auto& alter_action : stmt->alter_action_list()) {
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedAlterAction(alter_action.get()));
@@ -3179,10 +3179,10 @@ zetasql_base::Status Validator::ValidateResolvedAlterObjectStmt(
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedAlterAction(
+absl::Status Validator::ValidateResolvedAlterAction(
     const ResolvedAlterAction* action) const {
   switch (action->node_kind()) {
     case RESOLVED_SET_OPTIONS_ACTION:
@@ -3230,10 +3230,10 @@ zetasql_base::Status Validator::ValidateResolvedAlterAction(
              << "Unhandled node kind: " << action->node_kind_string()
              << " in ValidateResolvedAlterAction";
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Validator::ValidateResolvedExecuteImmediateStmt(
+absl::Status Validator::ValidateResolvedExecuteImmediateStmt(
     const ResolvedExecuteImmediateStmt* stmt) const {
 
   ZETASQL_RET_CHECK(stmt->sql()->type()->IsString())
@@ -3263,7 +3263,7 @@ zetasql_base::Status Validator::ValidateResolvedExecuteImmediateStmt(
     }
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

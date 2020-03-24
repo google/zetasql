@@ -32,11 +32,11 @@ namespace functions {
 // Convert 'value' to proto text format. The resulting text format proto is
 // appended to 'out'.
 bool ProtoToString(const google::protobuf::Message* value, absl::Cord* out,
-                   zetasql_base::Status* error);
+                   absl::Status* error);
 
 // Same as above, but uses multiline proto text representation.
 bool ProtoToMultilineString(const google::protobuf::Message* value, absl::Cord* out,
-                            zetasql_base::Status* error);
+                            absl::Status* error);
 
 // Convert a text format proto from 'value' to a google::protobuf::Message that is
 // populated into 'out'. The descriptors for all nested message types,
@@ -44,7 +44,7 @@ bool ProtoToMultilineString(const google::protobuf::Message* value, absl::Cord* 
 // reachable from the DescriptorPool associated with 'out'. Additionally,
 // the Reflection object accessible through 'out' must be available.
 bool StringToProto(const absl::string_view value, google::protobuf::Message* out,
-                   zetasql_base::Status* error);
+                   absl::Status* error);
 
 }  // namespace functions
 }  // namespace zetasql

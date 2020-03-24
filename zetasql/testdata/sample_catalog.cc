@@ -319,18 +319,18 @@ class IgnoreReadTimeIterator : public EvaluatorTableIterator {
   const Type* GetColumnType(int i) const override {
     return iterator_->GetColumnType(i);
   }
-  zetasql_base::Status SetColumnFilterMap(
+  absl::Status SetColumnFilterMap(
       absl::flat_hash_map<int, std::unique_ptr<ColumnFilter>> filter_map)
       override {
     return iterator_->SetColumnFilterMap(std::move(filter_map));
   }
-  zetasql_base::Status SetReadTime(absl::Time read_time) override {
+  absl::Status SetReadTime(absl::Time read_time) override {
     return zetasql_base::OkStatus();
   }
   bool NextRow() override { return iterator_->NextRow(); }
   const Value& GetValue(int i) const override { return iterator_->GetValue(i); }
-  zetasql_base::Status Status() const override { return iterator_->Status(); }
-  zetasql_base::Status Cancel() override { return iterator_->Cancel(); }
+  absl::Status Status() const override { return iterator_->Status(); }
+  absl::Status Cancel() override { return iterator_->Cancel(); }
   void SetDeadline(absl::Time deadline) override {
     iterator_->SetDeadline(deadline);
   }

@@ -322,7 +322,7 @@ static zetasql_base::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
   return MakeSqlErrorAtPoint(error_location) << bison_error_message;
 }
 
-zetasql_base::Status BisonParser::Parse(
+absl::Status BisonParser::Parse(
     BisonParserMode mode, absl::string_view filename, absl::string_view input,
     int start_byte_offset, IdStringPool* id_string_pool, zetasql_base::UnsafeArena* arena,
     const LanguageOptions* language_options, std::unique_ptr<ASTNode>* output,
@@ -378,7 +378,7 @@ zetasql_base::Status BisonParser::Parse(
       ZETASQL_RET_CHECK_EQ(output->get(), output_node);
     }
     *other_allocated_ast_nodes = std::move(*allocated_ast_nodes_);
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
   // The tokenizer's error overrides the parser's error.
   ZETASQL_RETURN_IF_ERROR(tokenizer_->GetOverrideError());

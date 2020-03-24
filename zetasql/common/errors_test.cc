@@ -35,18 +35,18 @@ using ::testing::IsEmpty;
 using ::zetasql_base::testing::IsOkAndHolds;
 using ::zetasql_base::testing::StatusIs;
 
-static zetasql_base::Status NoError() { return ::zetasql_base::OkStatus(); }
+static absl::Status NoError() { return absl::OkStatus(); }
 
-static zetasql_base::Status ErrorWithoutLocation() {
+static absl::Status ErrorWithoutLocation() {
   return MakeSqlError() << "No location";
 }
 
-static zetasql_base::Status ErrorWithLocation() {
+static absl::Status ErrorWithLocation() {
   return MakeSqlErrorAtPoint(ParseLocationPoint::FromByteOffset(10))
       << "With location";
 }
 
-static zetasql_base::Status ErrorNonSQL() {
+static absl::Status ErrorNonSQL() {
   return ::zetasql_base::NotFoundErrorBuilder() << "Non-SQL error";
 }
 
@@ -97,9 +97,10 @@ TEST(DeprecationWarnings, ToDebugString) {
 TEST(DeprecationWarnings, StatusToDeprecationWarning) {
   const std::string sql = "some sql statement";
 
-  const zetasql_base::Status uninitialized_status;
-  EXPECT_THAT(StatusToDeprecationWarning(uninitialized_status, sql),
-              StatusIs(zetasql_base::INTERNAL, HasSubstr("INVALID_ARGUMENT")));
+  const absl::Status uninitialized_status;
+  EXPECT_THAT(
+      StatusToDeprecationWarning(uninitialized_status, sql),
+      StatusIs(absl::StatusCode::kInternal, HasSubstr("INVALID_ARGUMENT")));
 
   FreestandingDeprecationWarning freestanding_deprecation_warning =
       CreateDeprecationWarning();
@@ -107,37 +108,38 @@ TEST(DeprecationWarnings, StatusToDeprecationWarning) {
   InternalErrorLocation internal_error_location;
   internal_error_location.set_byte_offset(6);
 
-  const zetasql_base::Status no_payload_status(
-      zetasql_base::StatusCode::kInvalidArgument,
+  const absl::Status no_payload_status(
+      absl::StatusCode::kInvalidArgument,
       freestanding_deprecation_warning.message());
-  EXPECT_THAT(StatusToDeprecationWarning(no_payload_status, sql),
-              StatusIs(zetasql_base::INTERNAL, HasSubstr("must have payloads")));
+  EXPECT_THAT(
+      StatusToDeprecationWarning(no_payload_status, sql),
+      StatusIs(absl::StatusCode::kInternal, HasSubstr("must have payloads")));
 
-  zetasql_base::Status missing_deprecation_warning = no_payload_status;
+  absl::Status missing_deprecation_warning = no_payload_status;
   internal::AttachPayload(&missing_deprecation_warning,
                           freestanding_deprecation_warning.error_location());
   EXPECT_THAT(StatusToDeprecationWarning(missing_deprecation_warning, sql),
-              StatusIs(zetasql_base::INTERNAL,
+              StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("DeprecationWarning payloads")));
 
-  zetasql_base::Status missing_error_location = no_payload_status;
+  absl::Status missing_error_location = no_payload_status;
   internal::AttachPayload(
       &missing_error_location,
       freestanding_deprecation_warning.deprecation_warning());
-  EXPECT_THAT(
-      StatusToDeprecationWarning(missing_error_location, sql),
-      StatusIs(zetasql_base::INTERNAL, HasSubstr("ErrorLocation payloads")));
+  EXPECT_THAT(StatusToDeprecationWarning(missing_error_location, sql),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("ErrorLocation payloads")));
 
-  zetasql_base::Status internal_error_location_instead_of_error_location =
+  absl::Status internal_error_location_instead_of_error_location =
       missing_error_location;
   internal::AttachPayload(&internal_error_location_instead_of_error_location,
                           internal_error_location);
   EXPECT_THAT(StatusToDeprecationWarning(
                   internal_error_location_instead_of_error_location, sql),
-              StatusIs(zetasql_base::INTERNAL,
+              StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("InternalErrorLocation payloads")));
 
-  zetasql_base::Status internal_error_location_and_error_location =
+  absl::Status internal_error_location_and_error_location =
       missing_error_location;
   internal::AttachPayload(&internal_error_location_and_error_location,
                           freestanding_deprecation_warning.error_location());
@@ -145,14 +147,14 @@ TEST(DeprecationWarnings, StatusToDeprecationWarning) {
                           internal_error_location);
   EXPECT_THAT(StatusToDeprecationWarning(
                   internal_error_location_and_error_location, sql),
-              StatusIs(zetasql_base::INTERNAL,
+              StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("InternalErrorLocation payloads")));
 
   FreestandingDeprecationWarning expected_warning =
       freestanding_deprecation_warning;
   expected_warning.set_caret_string("some sql statement\n    ^");
 
-  zetasql_base::Status correct_deprecation_status = missing_error_location;
+  absl::Status correct_deprecation_status = missing_error_location;
   internal::AttachPayload(&correct_deprecation_status,
                           freestanding_deprecation_warning.error_location());
   EXPECT_THAT(StatusToDeprecationWarning(correct_deprecation_status, sql),
@@ -161,10 +163,11 @@ TEST(DeprecationWarnings, StatusToDeprecationWarning) {
   zetasql_test::TestStatusPayload extra_payload;
   extra_payload.set_value("extra");
 
-  zetasql_base::Status extra_payload_status = correct_deprecation_status;
+  absl::Status extra_payload_status = correct_deprecation_status;
   internal::AttachPayload(&extra_payload_status, extra_payload);
-  EXPECT_THAT(StatusToDeprecationWarning(extra_payload_status, sql),
-              StatusIs(zetasql_base::INTERNAL, HasSubstr("extra payload")));
+  EXPECT_THAT(
+      StatusToDeprecationWarning(extra_payload_status, sql),
+      StatusIs(absl::StatusCode::kInternal, HasSubstr("extra payload")));
 }
 
 }  // namespace zetasql

@@ -27,7 +27,7 @@
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/tuple.h"
 #include <cstdint>
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -37,14 +37,14 @@ namespace zetasql {
 
 // Populates 'collators' with the ZetaSqlCollators corresponding to the input
 // arguments.
-static zetasql_base::Status GetZetaSqlCollators(
+static absl::Status GetZetaSqlCollators(
     absl::Span<const KeyArg* const> keys,
     absl::Span<const TupleData* const> params, EvaluationContext* context,
     std::vector<std::unique_ptr<const ZetaSqlCollator>>* collators) {
   for (int i = 0; i < keys.size(); ++i) {
     if (keys.at(i)->collation() != nullptr) {
       TupleSlot collation_slot;
-      ::zetasql_base::Status status;
+      absl::Status status;
       if (!keys.at(i)->collation()->EvalSimple(params, context, &collation_slot,
                                                &status)) {
         return status;
@@ -65,7 +65,7 @@ static zetasql_base::Status GetZetaSqlCollators(
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 zetasql_base::StatusOr<std::unique_ptr<TupleComparator>> TupleComparator::Create(
@@ -108,7 +108,7 @@ bool TupleComparator::operator()(const TupleData& t1,
     if (collator != nullptr) {
       DCHECK(v1.type()->IsString());
       DCHECK(v2.type()->IsString());
-      zetasql_base::Status status;
+      absl::Status status;
       int64_t result =
           collator->CompareUtf8(v1.string_value(), v2.string_value(), &status);
       ZETASQL_DCHECK_OK(status);

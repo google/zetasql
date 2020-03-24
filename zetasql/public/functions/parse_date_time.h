@@ -41,7 +41,7 @@ namespace functions {
 //
 // The supported format elements and their semantics are defined in:
 //   (broken link)
-zetasql_base::Status ParseStringToTimestamp(absl::string_view format_string,
+absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     const absl::TimeZone default_timezone,
                                     int64_t* timestamp);
@@ -49,18 +49,18 @@ zetasql_base::Status ParseStringToTimestamp(absl::string_view format_string,
 // Invokes MakeTimeZone() on <default_timezone_string> and invokes the prior
 // function.  Returns error status if <default_timezone_string> is invalid
 // or conversion fails.
-zetasql_base::Status ParseStringToTimestamp(absl::string_view format_string,
+absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::string_view default_timezone_string,
                                     int64_t* timestamp);
 
 // The 2 functions below support nanoseconds precision.
-zetasql_base::Status ParseStringToTimestamp(absl::string_view format_string,
+absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::string_view default_timezone_string,
                                     absl::Time* timestamp);
 
-zetasql_base::Status ParseStringToTimestamp(absl::string_view format_string,
+absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     const absl::TimeZone default_timezone,
                                     absl::Time* timestamp);
@@ -74,7 +74,7 @@ zetasql_base::Status ParseStringToTimestamp(absl::string_view format_string,
 //
 // Requires that the string_view arguments are UTF8.  The last byte of the
 // string_view can be (but is not required to be) a null-byte.
-zetasql_base::Status ParseStringToDate(absl::string_view format_string,
+absl::Status ParseStringToDate(absl::string_view format_string,
                                absl::string_view date_string,
                                int32_t* date);
 
@@ -94,7 +94,7 @@ zetasql_base::Status ParseStringToDate(absl::string_view format_string,
 //
 // Requires that the string_view arguments are UTF8.  The last byte of the
 // string_view can be (but is not required to be) a null-byte.
-zetasql_base::Status ParseStringToTime(absl::string_view format_string,
+absl::Status ParseStringToTime(absl::string_view format_string,
                                absl::string_view time_string,
                                TimestampScale scale,
                                TimeValue* time);
@@ -107,7 +107,7 @@ zetasql_base::Status ParseStringToTime(absl::string_view format_string,
 //
 // Requires that the string_view arguments are UTF8.  The last byte of the
 // string_view can be (but is not required to be) a null-byte.
-zetasql_base::Status ParseStringToDatetime(absl::string_view format_string,
+absl::Status ParseStringToDatetime(absl::string_view format_string,
                                    absl::string_view datetime_string,
                                    TimestampScale scale,
                                    DatetimeValue* datetime);

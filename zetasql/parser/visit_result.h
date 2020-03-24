@@ -39,7 +39,7 @@ class VisitResult {
   // Indicates that the children of <node> should be visited next; then,
   // <continuation> should be invoked.
   static VisitResult VisitChildren(const ASTNode* node,
-                                   std::function<zetasql_base::Status()> continuation) {
+                                   std::function<absl::Status()> continuation) {
     return VisitResult(node, continuation, false);
   }
 
@@ -57,13 +57,13 @@ class VisitResult {
   const ASTNode* node_for_child_visit() const { return node_; }
 
   // Action to perform after all children are visited; nullptr if not needed.
-  std::function<zetasql_base::Status()> continuation() const { return continuation_; }
+  std::function<absl::Status()> continuation() const { return continuation_; }
 
   // Returns true if the traversal should terminate.
   bool should_terminate() const { return terminate_; }
 
  private:
-  VisitResult(const ASTNode* node, std::function<zetasql_base::Status()> continuation,
+  VisitResult(const ASTNode* node, std::function<absl::Status()> continuation,
               bool terminate)
       : node_(node), continuation_(continuation), terminate_(terminate) {}
 
@@ -73,7 +73,7 @@ class VisitResult {
 
   // Function to be invoked after all children have been visited.  nullptr to
   // skip.
-  std::function<zetasql_base::Status()> continuation_;
+  std::function<absl::Status()> continuation_;
 
   // True to terminate the visit operation immediately, without invoking the
   // visitor for child nodes already queued.

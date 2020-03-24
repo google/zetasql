@@ -37,7 +37,7 @@
 
 namespace zetasql {
 
-zetasql_base::Status FormatSql(const std::string& sql, std::string* formatted_sql) {
+absl::Status FormatSql(const std::string& sql, std::string* formatted_sql) {
   ZETASQL_RET_CHECK_NE(formatted_sql, nullptr);
   formatted_sql->clear();
 
@@ -47,17 +47,17 @@ zetasql_base::Status FormatSql(const std::string& sql, std::string* formatted_sq
 
   ParseResumeLocation location = ParseResumeLocation::FromStringView(sql);
   bool at_end_of_input = false;
-  zetasql_base::Status return_status = ::zetasql_base::OkStatus();
+  absl::Status return_status = absl::OkStatus();
   while (!at_end_of_input) {
     std::unique_ptr<ParserOutput> parser_output;
 
-    const zetasql_base::Status status = ParseNextStatement(
+    const absl::Status status = ParseNextStatement(
         &location, ParserOptions(), &parser_output, &at_end_of_input);
 
     if (status.ok()) {
       formatted_statement.push_back(Unparse(parser_output->statement()));
     } else {
-      const zetasql_base::Status out_status = MaybeUpdateErrorFromPayload(
+      const absl::Status out_status = MaybeUpdateErrorFromPayload(
           ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET, sql, status);
       if (return_status.ok()) {
         return_status = out_status;
@@ -73,7 +73,7 @@ zetasql_base::Status FormatSql(const std::string& sql, std::string* formatted_sq
       ParseTokenOptions options;
       options.stop_at_end_of_statement = true;
       const int statement_start = location.byte_position();
-      const zetasql_base::Status token_status =
+      const absl::Status token_status =
           GetParseTokens(options, &location, &parse_tokens);
       // If GetParseTokens fails, just returns the original sql since there's no
       // way to proceed forward.

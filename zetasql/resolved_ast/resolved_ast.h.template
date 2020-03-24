@@ -102,8 +102,8 @@ class {{node.name}} {{node.class_final}} : public {{node.parent}} {
 # endif
   ~{{node.name}}() {{node.override_or_final}};
 
-  zetasql_base::Status Accept(ResolvedASTVisitor* visitor) const {{node.override_or_final}};
-  zetasql_base::Status ChildrenAccept(ResolvedASTVisitor* visitor) const {{node.override_or_final}};
+  absl::Status Accept(ResolvedASTVisitor* visitor) const {{node.override_or_final}};
+  absl::Status ChildrenAccept(ResolvedASTVisitor* visitor) const {{node.override_or_final}};
 
 # if not node.is_abstract
   ResolvedNodeKind node_kind() const {{node.override_or_final}} { return {{node.enum_name}}; }
@@ -111,7 +111,7 @@ class {{node.name}} {{node.class_final}} : public {{node.parent}} {
 
 # endif
 # if node.fields
-  zetasql_base::Status CheckFieldsAccessed() const {{node.override_or_final}};
+  absl::Status CheckFieldsAccessed() const {{node.override_or_final}};
   void ClearFieldsAccessed() const {{node.override_or_final}};
 
 # endif
@@ -126,14 +126,14 @@ class {{node.name}} {{node.class_final}} : public {{node.parent}} {
   }
 
   using SUPER::SaveTo;
-  zetasql_base::Status SaveTo(Type::FileDescriptorSetMap* file_descriptor_set_map,
+  absl::Status SaveTo(Type::FileDescriptorSetMap* file_descriptor_set_map,
                       {{node.proto_type}}* proto) const;
 
-  zetasql_base::Status SaveTo(Type::FileDescriptorSetMap* file_descriptor_set_map,
+  absl::Status SaveTo(Type::FileDescriptorSetMap* file_descriptor_set_map,
                       {{node.parent_proto_container_type}}* proto) const final;
 
 # if node.is_abstract
-  virtual zetasql_base::Status SaveTo(
+  virtual absl::Status SaveTo(
       Type::FileDescriptorSetMap* file_descriptor_set_map,
       {{node.proto_field_type}}* proto) const = 0;
 # endif

@@ -68,7 +68,7 @@ class Value;
 // - 'field' = repeated NullableInt64 (wrapper for an optional int64_t)
 //             or optional NullableInt64Array (wrapper for a repeated int64_t)
 //   'value' has TYPE_INT64 or TYPE_ARRAY(INT64)
-zetasql_base::Status ProtoFieldToValue(const google::protobuf::Message& proto,
+absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
                                const google::protobuf::FieldDescriptor* field, int index,
                                const Type* type,
                                bool use_wire_format_annotations,
@@ -123,14 +123,14 @@ zetasql_base::Status ProtoFieldToValue(const google::protobuf::Message& proto,
 // assigned to the proto subfield with tag 1, the second STRUCT field to tag 2,
 // and so on. The number of STRUCT fields must match the number of proto
 // subfields.
-zetasql_base::Status MergeValueToProtoField(const Value& value,
+absl::Status MergeValueToProtoField(const Value& value,
                                     const google::protobuf::FieldDescriptor* field,
                                     bool use_wire_format_annotations,
                                     google::protobuf::MessageFactory* message_factory,
                                     google::protobuf::Message* proto_out);
 // Note that 'use_wire_format_annotations = false' corresponds to ZetaSQL
 // query semantics, which does not match this method.
-inline zetasql_base::Status MergeValueToProtoField(
+inline absl::Status MergeValueToProtoField(
     const Value& value, const google::protobuf::FieldDescriptor* field,
     google::protobuf::MessageFactory* message_factory, google::protobuf::Message* proto_out) {
   return MergeValueToProtoField(value, field,
@@ -147,7 +147,7 @@ inline zetasql_base::Status MergeValueToProtoField(
 // may or may not have array wrappers and element wrappers, but an error
 // will result if 'value' contains a NULL for an array or array element that
 // does not have a wrapper in the corresponding descriptor.
-zetasql_base::Status ConvertStructOrArrayValueToProtoMessage(
+absl::Status ConvertStructOrArrayValueToProtoMessage(
     const Value& value, google::protobuf::MessageFactory* message_factory,
     google::protobuf::Message* proto_out);
 
@@ -155,7 +155,7 @@ zetasql_base::Status ConvertStructOrArrayValueToProtoMessage(
 // The type of the returned Value will be 'type', which must have been
 // created using TypeFactory::MakeUnwrappedTypeFromProto() on the
 // descriptor of 'proto'.
-zetasql_base::Status ConvertProtoMessageToStructOrArrayValue(
+absl::Status ConvertProtoMessageToStructOrArrayValue(
     const google::protobuf::Message& proto, const Type* type, Value* value_out);
 
 }  // namespace zetasql

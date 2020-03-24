@@ -32,7 +32,7 @@ const char SQLTableValuedFunction::kSQLTableValuedFunctionGroup[] =
     "Lazy_resolution_tvf";
 
 // static
-zetasql_base::Status SQLTableValuedFunction::Create(
+absl::Status SQLTableValuedFunction::Create(
     const ::zetasql::ResolvedCreateTableFunctionStmt* create_tvf_statement,
     std::unique_ptr<SQLTableValuedFunction>* simple_sql_tvf) {
   ZETASQL_RET_CHECK_NE(create_tvf_statement, nullptr);
@@ -45,10 +45,10 @@ zetasql_base::Status SQLTableValuedFunction::Create(
       create_tvf_statement->signature().IsValidForTableValuedFunction());
 
   simple_sql_tvf->reset(new SQLTableValuedFunction(create_tvf_statement));
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SQLTableValuedFunction::Resolve(
+absl::Status SQLTableValuedFunction::Resolve(
     const AnalyzerOptions* analyzer_options,
     const std::vector<TVFInputArgumentType>& actual_arguments,
     const FunctionSignature& concrete_signature, Catalog* catalog,
@@ -62,7 +62,7 @@ zetasql_base::Status SQLTableValuedFunction::Resolve(
       concrete_signature.AdditionalDeprecationWarnings();
   tvf_signature->reset(
       new TVFSignature(actual_arguments, tvf_schema_, tvf_signature_options));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // static

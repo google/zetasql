@@ -76,7 +76,7 @@ class ColumnCycleDetector {
   // Visits 'column'. RET_CHECKs if this method has already been called with the
   // same 'column'. Also requires that 'AddDependencyOn' has been called to
   // reflect that the current column has a dependency on 'column'.
-  zetasql_base::Status VisitNewColumn(const IdString& column);
+  absl::Status VisitNewColumn(const IdString& column);
 
   // Finishes visiting the current column and resets the current column to the
   // previously visited column (if there is one). It is an error to call this
@@ -84,11 +84,11 @@ class ColumnCycleDetector {
   // VisitNewColumn() should be matched by a call to FinishCurrentColumn(). If
   // you miss calling FinishCurrentColumn() it will hit a DCHECK on the
   // destructor.
-  zetasql_base::Status FinishCurrentColumn();
+  absl::Status FinishCurrentColumn();
 
   // Attempts to add a dependency for 'current_column()' on 'column',
   // returning an error if that introduces a cycle.
-  zetasql_base::Status AddDependencyOn(const IdString& column);
+  absl::Status AddDependencyOn(const IdString& column);
 
  private:
   // Tracks the current column of the depth-first search. This contains the last

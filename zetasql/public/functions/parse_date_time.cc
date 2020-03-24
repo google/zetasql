@@ -222,7 +222,7 @@ static const char* ParseTM(const char* dp, const char* fmt, struct tm* tm) {
 // but supports additional format element extensions and a few behavior
 // deviations for ZetaSQL semantics.
 // 'format' and 'timestamp_string' do not need to be null-terminated.
-static zetasql_base::Status ParseTime(absl::string_view format,
+static absl::Status ParseTime(absl::string_view format,
                               absl::string_view timestamp_string,
                               const absl::TimeZone default_timezone,
                               TimestampScale scale, absl::Time* timestamp) {
@@ -677,7 +677,7 @@ static zetasql_base::Status ParseTime(absl::string_view format,
       return MakeEvalError() << "Invalid result from parsing function";
     }
 
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // If we saw %z or %Ez then we want to interpret the parsed fields in
@@ -717,11 +717,11 @@ static zetasql_base::Status ParseTime(absl::string_view format,
     return MakeEvalError() << "Invalid result from parsing function";
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Validates that <format_string> does not have any <invalid_elements>.
-static zetasql_base::Status ValidateParseFormat(absl::string_view format_string,
+static absl::Status ValidateParseFormat(absl::string_view format_string,
                                         absl::string_view target_type_name,
                                         const char* invalid_elements) {
   const char* cur = format_string.data();
@@ -781,31 +781,31 @@ static zetasql_base::Status ValidateParseFormat(absl::string_view format_string,
       }
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Validates the <format_string> to only allow format elements applicable to the
 // DATE type.  Returns error for non-DATE related formats such as
 // Hour/Minute/Second/Timezone etc.
-static zetasql_base::Status ValidateDateFormat(absl::string_view format_string) {
+static absl::Status ValidateDateFormat(absl::string_view format_string) {
   return ValidateParseFormat(format_string, "DATE", "cHIklMPpRrSsTXZz");
 }
 
 // Similar to ValidateDateFormat, but return error for non-TIME related formats
 // such as Year/Month/Week/Day/Timezone etc..
-static zetasql_base::Status ValidateTimeFormat(absl::string_view format_string) {
+static absl::Status ValidateTimeFormat(absl::string_view format_string) {
   return ValidateParseFormat(format_string, "TIME",
                              "AaBbhCcDdeFGgjmsUuVWwxYyZz");
 }
 
 // Similar to ValidateDateFormat, but return error for format elements for
 // timezones.
-static zetasql_base::Status ValidateDatetimeFormat(absl::string_view format_string) {
+static absl::Status ValidateDatetimeFormat(absl::string_view format_string) {
   return ValidateParseFormat(format_string, "DATETIME", "Zz");
 }
 
 // The result timestamp is always at microseconds precision.
-static zetasql_base::Status ParseTime(absl::string_view format,
+static absl::Status ParseTime(absl::string_view format,
                               absl::string_view timestamp_string,
                               const absl::TimeZone default_timezone,
                               int64_t* timestamp) {
@@ -815,7 +815,7 @@ static zetasql_base::Status ParseTime(absl::string_view format,
   if (!ConvertTimeToTimestamp(base_time, timestamp)) {
     return MakeEvalError() << "Invalid result from parsing function";
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Parses the given <date_string> with respect to <format> and stores the
@@ -823,7 +823,7 @@ static zetasql_base::Status ParseTime(absl::string_view format,
 // First validates the <format> to disallow any unsupported DATE formats,
 // then invoke the ParseStringToTimestamp() to parse the <date_string> to
 // a timestamp then extracts the date part.
-static zetasql_base::Status ParseDate(absl::string_view format,
+static absl::Status ParseDate(absl::string_view format,
                               absl::string_view date_string, int32_t* date) {
   // Validates if the <format> has any unsupported DATE formats.
   ZETASQL_RETURN_IF_ERROR(ValidateDateFormat(format));
@@ -835,12 +835,12 @@ static zetasql_base::Status ParseDate(absl::string_view format,
                                          absl::UTCTimeZone(), &timestamp));
   ZETASQL_RETURN_IF_ERROR(ExtractFromTimestamp(DATE, timestamp, kMicroseconds,
                                        absl::UTCTimeZone(), date));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace
 
-zetasql_base::Status ParseStringToTimestamp(absl::string_view format_string,
+absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     const absl::TimeZone default_timezone,
                                     int64_t* timestamp) {
@@ -848,7 +848,7 @@ zetasql_base::Status ParseStringToTimestamp(absl::string_view format_string,
                    timestamp);
 }
 
-zetasql_base::Status ParseStringToTimestamp(absl::string_view format_string,
+absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::string_view default_timezone_string,
                                     int64_t* timestamp) {
@@ -858,16 +858,16 @@ zetasql_base::Status ParseStringToTimestamp(absl::string_view format_string,
                                 timestamp);
 }
 
-zetasql_base::Status ParseStringToTimestamp(absl::string_view format_string,
+absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     const absl::TimeZone default_timezone,
                                     absl::Time* timestamp) {
   ZETASQL_RETURN_IF_ERROR(ParseTime(format_string, timestamp_string, default_timezone,
                             kNanoseconds, timestamp));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ParseStringToTimestamp(absl::string_view format_string,
+absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::string_view default_timezone_string,
                                     absl::Time* timestamp) {
@@ -877,12 +877,12 @@ zetasql_base::Status ParseStringToTimestamp(absl::string_view format_string,
                                 timestamp);
 }
 
-zetasql_base::Status ParseStringToDate(absl::string_view format_string,
+absl::Status ParseStringToDate(absl::string_view format_string,
                                absl::string_view date_string, int32_t* date) {
   return ParseDate(format_string, date_string, date);
 }
 
-zetasql_base::Status ParseStringToTime(absl::string_view format_string,
+absl::Status ParseStringToTime(absl::string_view format_string,
                                absl::string_view time_string,
                                TimestampScale scale,
                                TimeValue* time) {
@@ -895,7 +895,7 @@ zetasql_base::Status ParseStringToTime(absl::string_view format_string,
   return ConvertTimestampToTime(base_time, absl::UTCTimeZone(), scale, time);
 }
 
-zetasql_base::Status ParseStringToDatetime(absl::string_view format_string,
+absl::Status ParseStringToDatetime(absl::string_view format_string,
                                    absl::string_view datetime_string,
                                    TimestampScale scale,
                                    DatetimeValue* datetime) {

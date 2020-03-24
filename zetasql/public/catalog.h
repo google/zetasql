@@ -164,32 +164,32 @@ class Catalog {
   // recommended), it is the implementation's responsibility to keep them
   // consistent.
   //
-  // Returns zetasql_base::NOT_FOUND if the name wasn't found.
+  // Returns absl::StatusCode::kNotFound if the name wasn't found.
   // Other errors indicate failures in the lookup mechanism and should
   // make the user's request fail.
   // TODO: Pass <path> by value, like for FindConstant(). Same below.
-  virtual zetasql_base::Status FindTable(const absl::Span<const std::string>& path,
+  virtual absl::Status FindTable(const absl::Span<const std::string>& path,
                                  const Table** table,
                                  const FindOptions& options = FindOptions());
 
-  virtual zetasql_base::Status FindModel(const absl::Span<const std::string>& path,
+  virtual absl::Status FindModel(const absl::Span<const std::string>& path,
                                  const Model** model,
                                  const FindOptions& options = FindOptions());
 
-  virtual zetasql_base::Status FindConnection(const absl::Span<const std::string>& path,
+  virtual absl::Status FindConnection(const absl::Span<const std::string>& path,
                                       const Connection** connection,
                                       const FindOptions& options);
 
-  virtual zetasql_base::Status FindFunction(const absl::Span<const std::string>& path,
+  virtual absl::Status FindFunction(const absl::Span<const std::string>& path,
                                     const Function** function,
                                     const FindOptions& options = FindOptions());
 
-  virtual zetasql_base::Status FindTableValuedFunction(
+  virtual absl::Status FindTableValuedFunction(
       const absl::Span<const std::string>& path,
       const TableValuedFunction** function,
       const FindOptions& options = FindOptions());
 
-  virtual zetasql_base::Status FindProcedure(
+  virtual absl::Status FindProcedure(
       const absl::Span<const std::string>& path, const Procedure** procedure,
       const FindOptions& options = FindOptions());
 
@@ -213,7 +213,7 @@ class Catalog {
   // lookup with joined paths if any identifier has dots is not a valid
   // proto identifier (including if it contains dots).
   // See ConvertPathToProtoName below.
-  virtual zetasql_base::Status FindType(const absl::Span<const std::string>& path,
+  virtual absl::Status FindType(const absl::Span<const std::string>& path,
                                 const Type** type,
                                 const FindOptions& options = FindOptions());
 
@@ -222,7 +222,7 @@ class Catalog {
   // if <path> contains a suffix of field extractions from the constant.
   // FindConstant delegates to FindConstantWithPathPrefix and checks that the
   // path suffix is empty in case of a successful resolution.
-  zetasql_base::Status FindConstant(const absl::Span<const std::string> path,
+  absl::Status FindConstant(const absl::Span<const std::string> path,
                             const Constant** constant,
                             const FindOptions& options = FindOptions());
 
@@ -237,33 +237,33 @@ class Catalog {
   //   constant and returns the length of the path prefix in
   //   <num_names_consumed>.
   // - If no such path prefix exists, sets <constant> to null and
-  //   <num_names_consumed> to 0, and returns zetasql_base::NOT_FOUND.
+  //   <num_names_consumed> to 0, and returns absl::StatusCode::kNotFound.
   //
   // Called by FindConstant. Subclasses can override this method to change the
   // lookup behavior.
-  virtual zetasql_base::Status FindConstantWithPathPrefix(
+  virtual absl::Status FindConstantWithPathPrefix(
       const absl::Span<const std::string> path, int* num_names_consumed,
       const Constant** constant, const FindOptions& options = FindOptions());
 
   // Overloaded helper functions that forward the call to the appropriate
   // Find*() function based on the <object> argument type.
-  zetasql_base::Status FindObject(absl::Span<const std::string> path,
+  absl::Status FindObject(absl::Span<const std::string> path,
                           const Function** object, const FindOptions& options);
-  zetasql_base::Status FindObject(absl::Span<const std::string> path,
+  absl::Status FindObject(absl::Span<const std::string> path,
                           const TableValuedFunction** object,
                           const FindOptions& options);
-  zetasql_base::Status FindObject(absl::Span<const std::string> path,
+  absl::Status FindObject(absl::Span<const std::string> path,
                           const Table** object, const FindOptions& options);
-  zetasql_base::Status FindObject(const absl::Span<const std::string> path,
+  absl::Status FindObject(const absl::Span<const std::string> path,
                           const Model** object, const FindOptions& options);
-  zetasql_base::Status FindObject(const absl::Span<const std::string> path,
+  absl::Status FindObject(const absl::Span<const std::string> path,
                           const Connection** object,
                           const FindOptions& options);
-  zetasql_base::Status FindObject(absl::Span<const std::string> path,
+  absl::Status FindObject(absl::Span<const std::string> path,
                           const Procedure** object, const FindOptions& options);
-  zetasql_base::Status FindObject(absl::Span<const std::string> path,
+  absl::Status FindObject(absl::Span<const std::string> path,
                           const Type** object, const FindOptions& options);
-  zetasql_base::Status FindObject(absl::Span<const std::string> path,
+  absl::Status FindObject(absl::Span<const std::string> path,
                           const Constant** object, const FindOptions& options);
 
   // Given an identifier path, return the type name that results when combining
@@ -324,58 +324,58 @@ class Catalog {
   //
   // These are normally overridden in subclasses.  The default implementations
   // always return not found, for Catalogs with no objects of that type.
-  virtual zetasql_base::Status GetTable(const std::string& name, const Table** table,
+  virtual absl::Status GetTable(const std::string& name, const Table** table,
                                 const FindOptions& options = FindOptions());
 
-  virtual zetasql_base::Status GetModel(const std::string& name, const Model** model,
+  virtual absl::Status GetModel(const std::string& name, const Model** model,
                                 const FindOptions& options = FindOptions());
 
-  virtual zetasql_base::Status GetConnection(const std::string& name,
+  virtual absl::Status GetConnection(const std::string& name,
                                      const Connection** connection,
                                      const FindOptions& options);
 
-  virtual zetasql_base::Status GetFunction(const std::string& name,
+  virtual absl::Status GetFunction(const std::string& name,
                                    const Function** function,
                                    const FindOptions& options = FindOptions());
 
-  virtual zetasql_base::Status GetTableValuedFunction(
+  virtual absl::Status GetTableValuedFunction(
       const std::string& full_name, const TableValuedFunction** function,
       const FindOptions& options = FindOptions());
 
-  virtual zetasql_base::Status GetProcedure(const std::string& full_name,
+  virtual absl::Status GetProcedure(const std::string& full_name,
                                     const Procedure** procedure,
                                     const FindOptions& options = FindOptions());
 
-  virtual zetasql_base::Status GetType(const std::string& name, const Type** type,
+  virtual absl::Status GetType(const std::string& name, const Type** type,
                                const FindOptions& options = FindOptions());
 
-  virtual zetasql_base::Status GetCatalog(const std::string& name, Catalog** catalog,
+  virtual absl::Status GetCatalog(const std::string& name, Catalog** catalog,
                                   const FindOptions& options = FindOptions());
 
-  virtual zetasql_base::Status GetConstant(const std::string& name,
+  virtual absl::Status GetConstant(const std::string& name,
                                    const Constant** constant,
                                    const FindOptions& options = FindOptions());
 
   // Helper functions for getting canonical versions of NOT_FOUND error
   // messages.
-  zetasql_base::Status GenericNotFoundError(const std::string& object_type,
+  absl::Status GenericNotFoundError(const std::string& object_type,
                                     absl::Span<const std::string> path) const;
   // TODO: Remove these object-type specific functions, and have the
   // calling locations invoke the templatized version below instead.
-  zetasql_base::Status TableNotFoundError(absl::Span<const std::string> path) const;
-  zetasql_base::Status ModelNotFoundError(absl::Span<const std::string> path) const;
-  zetasql_base::Status ConnectionNotFoundError(
+  absl::Status TableNotFoundError(absl::Span<const std::string> path) const;
+  absl::Status ModelNotFoundError(absl::Span<const std::string> path) const;
+  absl::Status ConnectionNotFoundError(
       absl::Span<const std::string> path) const;
-  zetasql_base::Status FunctionNotFoundError(absl::Span<const std::string> path) const;
-  zetasql_base::Status TableValuedFunctionNotFoundError(
+  absl::Status FunctionNotFoundError(absl::Span<const std::string> path) const;
+  absl::Status TableValuedFunctionNotFoundError(
       absl::Span<const std::string> path) const;
-  zetasql_base::Status ProcedureNotFoundError(absl::Span<const std::string> path) const;
-  zetasql_base::Status TypeNotFoundError(absl::Span<const std::string> path) const;
-  zetasql_base::Status ConstantNotFoundError(absl::Span<const std::string> path) const;
+  absl::Status ProcedureNotFoundError(absl::Span<const std::string> path) const;
+  absl::Status TypeNotFoundError(absl::Span<const std::string> path) const;
+  absl::Status ConstantNotFoundError(absl::Span<const std::string> path) const;
 
   // Templatized version of the previous functions.
   template <class ObjectType>
-  zetasql_base::Status ObjectNotFoundError(absl::Span<const std::string> path) const {
+  absl::Status ObjectNotFoundError(absl::Span<const std::string> path) const {
     static_assert(
         std::is_same<ObjectType, Function>::value ||
             std::is_same<ObjectType, TableValuedFunction>::value ||
@@ -406,14 +406,14 @@ class Catalog {
     }
   }
 
-  zetasql_base::Status EmptyNamePathInternalError(const std::string& object_type) const;
+  absl::Status EmptyNamePathInternalError(const std::string& object_type) const;
 
   // Templatized version of the previous function.  The string argument
   // passed to EmptyNamePathInternalError matches those in catalog.cc.
   // TODO: Have catalog.cc call these templated methods and
   // take the EmptyNamePathInternalError(<string) version private.
   template <class ObjectType>
-  zetasql_base::Status EmptyNamePathInternalError() const {
+  absl::Status EmptyNamePathInternalError() const {
     static_assert(
         std::is_same<ObjectType, Constant>::value ||
             std::is_same<ObjectType, Function>::value ||
@@ -449,7 +449,7 @@ class Catalog {
   // <num_names_consumed> is an input/output parameter that indicates the length
   // of the path prefix processed so far. It must be 0 in the outermost
   // invocation. It will get set to 0 if resolution fails.
-  zetasql_base::Status FindConstantWithPathPrefixImpl(
+  absl::Status FindConstantWithPathPrefixImpl(
       const absl::Span<const std::string> path, int* num_names_consumed,
       const Constant** constant, const FindOptions& options);
 };
@@ -467,13 +467,13 @@ class Catalog {
 // scans of some information_schema views.
 class EnumerableCatalog : public Catalog {
  public:
-  virtual zetasql_base::Status GetCatalogs(
+  virtual absl::Status GetCatalogs(
       absl::flat_hash_set<const Catalog*>* output) const = 0;
-  virtual zetasql_base::Status GetTables(
+  virtual absl::Status GetTables(
       absl::flat_hash_set<const Table*>* output) const = 0;
-  virtual zetasql_base::Status GetTypes(
+  virtual absl::Status GetTypes(
       absl::flat_hash_set<const Type*>* output) const = 0;
-  virtual zetasql_base::Status GetFunctions(
+  virtual absl::Status GetFunctions(
       absl::flat_hash_set<const Function*>* output) const = 0;
 };
 

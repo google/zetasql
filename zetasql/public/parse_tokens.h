@@ -200,7 +200,7 @@ struct ParseTokenOptions {
 //   } else {
 //     ...
 //   }
-zetasql_base::Status GetParseTokens(const ParseTokenOptions& options,
+absl::Status GetParseTokens(const ParseTokenOptions& options,
                             ParseResumeLocation* resume_location,
                             std::vector<ParseToken>* tokens);
 

@@ -500,11 +500,11 @@ int64_t Value::ToPacked64DatetimeMicros() const {
   return (bit_field_64_value_ << kMicrosShift) | (subsecond_nanos_ / 1000);
 }
 
-zetasql_base::Status Value::ToUnixNanos(int64_t* nanos) const {
+absl::Status Value::ToUnixNanos(int64_t* nanos) const {
   if (functions::FromTime(ToTime(), functions::kNanoseconds, nanos)) {
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
-  return zetasql_base::Status(zetasql_base::StatusCode::kOutOfRange,
+  return absl::Status(absl::StatusCode::kOutOfRange,
                       absl::StrCat("Timestamp value in Unix epoch nanoseconds "
                                    "exceeds 64 bit: ",
                                    DebugString()));
@@ -1296,51 +1296,81 @@ static std::string CapitalizedNameForType(const Type* type) {
   }
 }
 
-std::string Value::DebugString(bool verbose) const {
-  std::map<const Value*, std::string> debug_string_map;
-  std::vector<const Value*> inner_values;
-  std::stack<const Value*> stack;
-  stack.push(this);
-
-  // First pass - get an ordered list of inner values to get debug strings of.
-  while (!stack.empty()) {
-    const Value* value = stack.top();
-    stack.pop();
-    inner_values.push_back(value);
-    if (value->is_valid() && !value->is_null()) {
-      switch (value->type_kind()) {
-        case TYPE_STRUCT: {
-          const StructType* struct_type = value->type()->AsStruct();
-          for (int i = 0; i < struct_type->num_fields(); i++) {
-            stack.push(&value->fields()[i]);
-          }
-        } break;
-        case TYPE_ARRAY:
-          for (const auto& elem : value->elements()) {
-            stack.push(&elem);
-          }
-          break;
-        default:
-          break;
+// static
+std::string Value::ComplexValueToDebugString(const Value* root, bool verbose) {
+  std::string result;
+  struct Entry {
+    const Value* value;
+    size_t next_child_index;
+  };
+  std::stack<Entry> stack;
+  stack.push(Entry{root, 0});
+  do {
+    const Entry top = stack.top();
+    const Type* type = top.value->type();
+    DCHECK(type->kind() == TYPE_STRUCT || type->kind() == TYPE_ARRAY);
+    DCHECK(!top.value->is_null());
+    const std::vector<Value>* children = nullptr;
+    char closure = '\0';
+    const StructType* struct_type = nullptr;
+    if (type->kind() == TYPE_STRUCT) {
+      if (top.next_child_index == 0) {
+        if (verbose) {
+          result.append(CapitalizedNameForType(type));
+        }
+        result.push_back('{');
       }
+      children = &top.value->fields();
+      closure = '}';
+      struct_type = type->AsStruct();
+    } else {
+      if (top.next_child_index == 0) {
+        if (verbose) {
+          result.append("Array");
+        }
+        if (top.value->order_kind() == kIgnoresOrder) {
+          result.append("[unordered: ");
+        } else {
+          result.push_back('[');
+        }
+      }
+      children = &top.value->elements();
+      closure = ']';
     }
-  }
-
-  // Now, traverse the list of inner values in reverse order so that parents
-  // don't get processed until all children are processed.  Calculate the debug
-  // string, storing the result on the map, using the map instead of a recursive
-  // call to retrieve child values.
-  for (int i = static_cast<int>(inner_values.size()) - 1; i >= 0; --i) {
-    debug_string_map[inner_values[i]] =
-        inner_values[i]->DebugStringInternal(verbose, debug_string_map);
-  }
-
-  return debug_string_map[inner_values[0]];
+    const size_t num_children = children->size();
+    size_t child_index = top.next_child_index;
+    while (true) {
+      if (child_index >= num_children) {
+        result.push_back(closure);
+        stack.pop();
+        break;
+      }
+      if (child_index != 0) {
+        result.append(", ");
+      }
+      const Value& child = children->at(child_index);
+      if (struct_type != nullptr) {
+        const std::string& field_name = struct_type->fields()[child_index].name;
+        if (!field_name.empty()) {
+          result.append(field_name);
+          result.push_back(':');
+        }
+      }
+      ++child_index;
+      if (!child.is_null() && (child.type_kind() == TYPE_STRUCT ||
+                               child.type_kind() == TYPE_ARRAY)) {
+        stack.top().next_child_index = child_index;
+        stack.push(Entry{&child, 0});
+        break;
+      }
+      // For leaf nodes, it is fine to recursively call DebugString once.
+      result.append(child.DebugString(verbose));
+    }
+  } while (!stack.empty());
+  return result;
 }
 
-std::string Value::DebugStringInternal(
-    bool verbose,
-    const std::map<const Value*, std::string>& debug_string_map) const {
+std::string Value::DebugString(bool verbose) const {
   if (type_kind_ == kInvalidTypeKind) { return "Uninitialized value"; }
   if (!is_valid())
     return absl::StrCat("Invalid value, type_kind: ", type_kind_);
@@ -1348,6 +1378,7 @@ std::string Value::DebugStringInternal(
   // of recursion for structs and arrays.  Using StrCat/StrAppend in particular
   // adds large stack size per argument for the AlphaNum object.
   std::string s;
+  bool add_type_prefix = verbose;
   if (is_null()) {
     s = "NULL";
   } else {
@@ -1382,46 +1413,27 @@ std::string Value::DebugStringInternal(
           s = enum_name();
         }
         break;
-      case TYPE_ARRAY: {
-        // We don't do a stack check for arrays because we can't have recursion
-        // on arrays without also having structs, and we'll catch the stack
-        // overflow on the struct.
-        std::vector<std::string> elems;
-        for (const auto& t : elements()) {
-          elems.push_back(debug_string_map.at(&t));
-        }
-        std::string order_str =
-            order_kind() == kIgnoresOrder ? "unordered: " : "";
-        s = absl::StrCat("[", order_str, absl::StrJoin(elems, ", "), "]");
+      case TYPE_ARRAY:
+      case TYPE_STRUCT:
+        s = ComplexValueToDebugString(this, verbose);
+        add_type_prefix = false;
         break;
-      }
-      case TYPE_STRUCT: {
-        std::vector<std::string> fstr;
-          const StructType* struct_type = type()->AsStruct();
-          for (int i = 0; i < struct_type->num_fields(); i++) {
-            const std::string field_value = debug_string_map.at(&fields()[i]);
-            if (struct_type->field(i).name.empty()) {
-              fstr.push_back(field_value);
-            } else {
-              fstr.push_back(
-                  absl::StrCat(struct_type->field(i).name, ":", field_value));
-            }
-          }
-        s = absl::StrCat("{", absl::StrJoin(fstr, ", "), "}");
-        break;
-      }
       case TYPE_PROTO: {
         CHECK(type()->AsProto()->descriptor() != nullptr);
         google::protobuf::DynamicMessageFactory message_factory;
         std::unique_ptr<google::protobuf::Message> m(
             this->ToMessage(&message_factory,
                             /*return_null_on_error=*/true));
-        if (m == nullptr) {
-          s = "{<unparseable>}";
-        } else {
-          s = absl::StrCat(
-              "{", verbose ? m->DebugString() : m->ShortDebugString(), "}");
+        if (verbose) {
+          s = CapitalizedNameForType(type());
         }
+        if (m == nullptr) {
+          s.append("{<unparseable>}");
+        } else {
+          absl::StrAppend(
+              &s, "{", verbose ? m->DebugString() : m->ShortDebugString(), "}");
+        }
+        add_type_prefix = false;
         break;
       }
       case TYPE_UNKNOWN:
@@ -1430,19 +1442,8 @@ std::string Value::DebugStringInternal(
                    << type_kind();
     }
   }
-  if (ABSL_PREDICT_FALSE(verbose)) {
-    if (!is_null() && type_kind() == TYPE_ARRAY) {
-      // We exclude the full type name for non-NULL arrays.
-      // Note that this also means we don't see a type for non-empty arrays.
-      s = absl::StrCat("Array", s);
-    } else if (!is_null() &&
-               (type_kind() == TYPE_STRUCT || type_kind() == TYPE_PROTO)) {
-      // For structs and protos, we don't want to add extra parentheses.
-      s = absl::StrCat(CapitalizedNameForType(type()), s);
-    } else {
-      // In the normal case, we make "<type>(<value>)".
-      s = absl::StrCat(CapitalizedNameForType(type()), "(", s, ")");
-    }
+  if (add_type_prefix) {
+    s = absl::StrCat(CapitalizedNameForType(type()), "(", s, ")");
   }
   return s;
 }
@@ -1474,7 +1475,7 @@ std::string ComplexValueToString(
   std::stack<Entry> stack;
   stack.push(Entry{root, 0});
   do {
-    Entry& top = stack.top();
+    const Entry top = stack.top();
     const Type* type = top.value->type();
     DCHECK(type->kind() == TYPE_STRUCT || type->kind() == TYPE_ARRAY);
     DCHECK(!top.value->is_null());
@@ -1518,7 +1519,7 @@ std::string ComplexValueToString(
       ++child_index;
       if (!child.is_null() && (child.type_kind() == TYPE_STRUCT ||
                                child.type_kind() == TYPE_ARRAY)) {
-        top.next_child_index = child_index;
+        stack.top().next_child_index = child_index;
         stack.push(Entry{&child, 0});
         break;
       }
@@ -1642,7 +1643,7 @@ std::string Value::GetSQLInternal(ProductMode mode) const {
         google::protobuf::DynamicMessageFactory message_factory;
         std::unique_ptr<google::protobuf::Message> message(
             this->ToMessage(&message_factory));
-        zetasql_base::Status status;
+        absl::Status status;
         absl::Cord out;
         if (functions::ProtoToString(message.get(), &out, &status)) {
           return ToStringLiteral(std::string(out));
@@ -2062,10 +2063,10 @@ Value BigNumericArray(absl::Span<const BigNumericValue> values) {
 
 }  // namespace values
 
-zetasql_base::Status Value::Serialize(ValueProto* value_proto) const {
+absl::Status Value::Serialize(ValueProto* value_proto) const {
   value_proto->Clear();
   if (is_null()) {
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   switch (type_kind()) {
@@ -2146,17 +2147,17 @@ zetasql_base::Status Value::Serialize(ValueProto* value_proto) const {
       value_proto->set_proto_value(std::string(ToCord()));
       break;
     default:
-      return zetasql_base::Status(
-          zetasql_base::StatusCode::kInternal,
+      return absl::Status(
+          absl::StatusCode::kInternal,
           absl::StrCat("Unsupported type ", type()->DebugString()));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-static zetasql_base::Status TypeMismatchError(const ValueProto& value_proto,
+static absl::Status TypeMismatchError(const ValueProto& value_proto,
                                       const Type* type) {
-  return zetasql_base::Status(
-      zetasql_base::StatusCode::kInternal,
+  return absl::Status(
+      absl::StatusCode::kInternal,
       absl::StrCat("Type mismatch: provided type ", type->DebugString(),
                    " but proto <", value_proto.ShortDebugString(),
                    "> doesn't have field of that type and is not null."));
@@ -2236,8 +2237,8 @@ zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
         return TypeMismatchError(value_proto, type);
       }
       if (!functions::IsValidDate(value_proto.date_value())) {
-        return zetasql_base::Status(
-            zetasql_base::StatusCode::kOutOfRange,
+        return absl::Status(
+            absl::StatusCode::kOutOfRange,
             absl::StrCat("Invalid value for DATE: ", value_proto.date_value()));
       }
 
@@ -2250,14 +2251,14 @@ zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
       auto time_or =
           zetasql_base::DecodeGoogleApiProto(value_proto.timestamp_value());
       if (!time_or.ok()) {
-        return zetasql_base::Status(
-            zetasql_base::StatusCode::kOutOfRange,
+        return absl::Status(
+            absl::StatusCode::kOutOfRange,
             absl::StrCat("Invalid value for TIMESTAMP",
                          value_proto.timestamp_value().DebugString()));
       } else {
         absl::Time t = time_or.ValueOrDie();
         if (!functions::IsValidTime(t)) {
-          return zetasql_base::Status(zetasql_base::StatusCode::kOutOfRange,
+          return absl::Status(absl::StatusCode::kOutOfRange,
                               absl::StrCat("Invalid value for TIMESTAMP: ",
                                            absl::FormatTime(t)));
         } else {
@@ -2273,7 +2274,7 @@ zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
           value_proto.datetime_value().bit_field_datetime_seconds(),
           value_proto.datetime_value().nanos());
       if (!wrapper.IsValid()) {
-        return zetasql_base::Status(zetasql_base::StatusCode::kOutOfRange,
+        return absl::Status(absl::StatusCode::kOutOfRange,
                             "Invalid value for DATETIME");
       }
       return Datetime(wrapper);
@@ -2285,7 +2286,7 @@ zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
       TimeValue wrapper = TimeValue::FromPacked64Nanos(
           value_proto.time_value());
       if (!wrapper.IsValid()) {
-        return zetasql_base::Status(zetasql_base::StatusCode::kOutOfRange,
+        return absl::Status(absl::StatusCode::kOutOfRange,
                             "Invalid value for TIME");
       }
       return Time(wrapper);
@@ -2296,8 +2297,8 @@ zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
       }
       if (type->AsEnum()->enum_descriptor()->FindValueByNumber(
           value_proto.enum_value()) == nullptr) {
-        return zetasql_base::Status(
-            zetasql_base::StatusCode::kOutOfRange,
+        return absl::Status(
+            absl::StatusCode::kOutOfRange,
             absl::StrCat("Invalid value for ", type->DebugString(), ": ",
                          value_proto.enum_value()));
       }
@@ -2322,8 +2323,8 @@ zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
       const StructType* struct_type = type->AsStruct();
       if (value_proto.struct_value().field_size() !=
           struct_type->num_fields()) {
-        return zetasql_base::Status(
-            zetasql_base::StatusCode::kInternal,
+        return absl::Status(
+            absl::StatusCode::kInternal,
             absl::StrCat("Type mismatch for struct. Type has ",
                          struct_type->num_fields(), " fields, but proto has ",
                          value_proto.struct_value().field_size(), " fields."));
@@ -2343,8 +2344,8 @@ zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
       }
       return Proto(type->AsProto(), absl::Cord(value_proto.proto_value()));
     default:
-      return zetasql_base::Status(
-          zetasql_base::StatusCode::kInternal,
+      return absl::Status(
+          absl::StatusCode::kInternal,
           absl::StrCat("Unsupported type ", type->DebugString()));
   }
 }

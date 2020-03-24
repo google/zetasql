@@ -97,7 +97,7 @@ extern template std::string DivisionByZeroMessage<double>(double in1,
 // ill-formed subsequences with the Unicode REPLACEMENT CHARACTER (U+FFFD).
 // Does nothing if `status` == `nullptr` or if `status->ok()` is true.
 // Returns false for all inputs (for convenience).
-bool UpdateError(zetasql_base::Status* status, absl::string_view msg);
+bool UpdateError(absl::Status* status, absl::string_view msg);
 
 }  // namespace internal
 }  // namespace functions

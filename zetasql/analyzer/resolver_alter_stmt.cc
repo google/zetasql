@@ -35,7 +35,7 @@
 
 namespace zetasql {
 
-zetasql_base::Status Resolver::ResolveAlterActions(
+absl::Status Resolver::ResolveAlterActions(
     const ASTAlterStatementBase* ast_statement,
     absl::string_view alter_statement_kind,
     std::unique_ptr<ResolvedStatement>* output,
@@ -48,7 +48,7 @@ zetasql_base::Status Resolver::ResolveAlterActions(
   IdStringSetCase new_columns, column_to_drop;
   const Table* altered_table = nullptr;
   // We keep status, but don't fail unless we have ADD/DROP.
-  zetasql_base::Status table_status = FindTable(ast_statement->path(), &altered_table);
+  absl::Status table_status = FindTable(ast_statement->path(), &altered_table);
 
   *has_only_set_options_action = true;
   const ASTAlterActionList* action_list = ast_statement->action_list();
@@ -119,10 +119,10 @@ zetasql_base::Status Resolver::ResolveAlterActions(
                << action->GetNodeKindString() << " action.";
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveAlterDatabaseStatement(
+absl::Status Resolver::ResolveAlterDatabaseStatement(
     const ASTAlterDatabaseStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
   bool has_only_set_options_action = true;
@@ -134,10 +134,10 @@ zetasql_base::Status Resolver::ResolveAlterDatabaseStatement(
   *output = MakeResolvedAlterDatabaseStmt(
       ast_statement->path()->ToIdentifierVector(),
       std::move(resolved_alter_actions), ast_statement->is_if_exists());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveAlterTableStatement(
+absl::Status Resolver::ResolveAlterTableStatement(
     const ASTAlterTableStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
   bool has_only_set_options_action = true;
@@ -179,10 +179,10 @@ zetasql_base::Status Resolver::ResolveAlterTableStatement(
   } else {
     *output = std::move(alter_statement);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveAddColumnAction(
+absl::Status Resolver::ResolveAddColumnAction(
     IdString table_name_id_string, const Table* table,
     const ASTAddColumnAction* action, IdStringSetCase* new_columns,
     IdStringSetCase* columns_to_drop,
@@ -242,10 +242,10 @@ zetasql_base::Status Resolver::ResolveAddColumnAction(
 
   *alter_action = MakeResolvedAddColumnAction(action->is_if_not_exists(),
                                               std::move(column_definition));
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveDropColumnAction(
+absl::Status Resolver::ResolveDropColumnAction(
     IdString table_name_id_string, const Table* table,
     const ASTDropColumnAction* action, IdStringSetCase* new_columns,
     IdStringSetCase* columns_to_drop,
@@ -286,7 +286,7 @@ zetasql_base::Status Resolver::ResolveDropColumnAction(
   *alter_action = MakeResolvedDropColumnAction(action->is_if_exists(),
                                                column_name.ToString(),
                                                std::move(column_reference));
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

@@ -47,7 +47,7 @@ void TestRoundtripValueHex(
                             UIntT>::type value) {
   std::string hexstr = absl::StrCat("0x", absl::Hex(value));
   UIntT hexout;
-  zetasql_base::Status error;
+  absl::Status error;
   EXPECT_TRUE(StringToNumeric(hexstr, &hexout, &error))
       << " hexstr: " << hexstr;
   ZETASQL_EXPECT_OK(error) << "hexstr: " << hexstr << " hexout:" << hexout;
@@ -62,7 +62,7 @@ void TestRoundtripValueHex(
   std::string sign = value < 0 ? "-" : "";
   std::string hexstr = absl::StrCat(sign, "0x", absl::Hex(std::abs(value)));
   IntT hexout;
-  zetasql_base::Status error;
+  absl::Status error;
   EXPECT_TRUE(StringToNumeric(hexstr, &hexout, &error))
       << " hexstr: " << hexstr;
   ZETASQL_EXPECT_OK(error) << "hexstr: " << hexstr << " hexout:" << hexout;
@@ -74,7 +74,7 @@ void TestRoundtripValueHex(
 template <typename T>
 void TestRoundtripValue(T value) {
   std::string str;
-  zetasql_base::Status error;
+  absl::Status error;
   EXPECT_TRUE(NumericToString<T>(value, &str, &error));
   ZETASQL_EXPECT_OK(error);
   EXPECT_GT(str.size(), 0);
@@ -123,7 +123,7 @@ void TestSingleChar() {
   for (int i = 0; i < 256; ++i) {
     char buf = i;
     T out;
-    zetasql_base::Status error;
+    absl::Status error;
     if (absl::ascii_isdigit(i) && !std::is_same<bool, T>::value) {
       EXPECT_TRUE(StringToNumeric<T>(absl::string_view(&buf, 1), &out, &error));
       EXPECT_TRUE(error.ok());
@@ -139,7 +139,7 @@ template <typename T>
 void TestLongString() {
   char buf[256] = {0, };
   T out;
-  zetasql_base::Status error;
+  absl::Status error;
   EXPECT_FALSE(
       StringToNumeric<T>(absl::string_view(buf, sizeof(buf)), &out, &error));
   EXPECT_FALSE(error.ok());

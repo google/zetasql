@@ -25,13 +25,13 @@ cc_library(
     copts = ["-Wno-sign-compare"],
     deps = [
         ":script_segment",
-        "//zetasql/base",
         "//zetasql/base:status",
         "//zetasql/base:statusor",
         "//zetasql/parser",
         "//zetasql/public:parse_location",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
 )

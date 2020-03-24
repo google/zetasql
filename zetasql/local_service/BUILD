@@ -179,3 +179,9 @@ cc_binary(
     linkshared = 1,
     deps = [":local_service_jni"],
 )
+
+cc_binary(
+    name = "liblocal_service_jni.dylib",
+    linkshared = 1,
+    deps = [":local_service_jni"],
+)

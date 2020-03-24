@@ -603,8 +603,8 @@ class MemoryAccountant {
 
   // If there are 'num_bytes' available, updates the number of remaining bytes
   // accordingly and returns true. Else returns false and populates
-  // 'status'. Does not return zetasql_base::Status for performance reasons.
-  bool RequestBytes(int64_t num_bytes, zetasql_base::Status* status) {
+  // 'status'. Does not return absl::Status for performance reasons.
+  bool RequestBytes(int64_t num_bytes, absl::Status* status) {
     DCHECK_GE(num_bytes, 0);
     if (num_bytes > remaining_bytes_) {
       *status = zetasql_base::ResourceExhaustedErrorBuilder()
@@ -649,9 +649,9 @@ class TupleDataDeque {
 
   // Adds 'data' to the deque. Returns true on success. On failure, returns
   // false and populates 'status'. Any modifications to 'data' while it is in
-  // this object are unaccounted for. This method does not return zetasql_base::Status
+  // this object are unaccounted for. This method does not return absl::Status
   // for performance reasons.
-  bool PushBack(std::unique_ptr<TupleData> data, zetasql_base::Status* status) {
+  bool PushBack(std::unique_ptr<TupleData> data, absl::Status* status) {
     const int64_t byte_size = data->GetPhysicalByteSize() + sizeof(Entry);
     if (!accountant_->RequestBytes(byte_size, status)) {
       return false;
@@ -688,7 +688,7 @@ class TupleDataDeque {
   // Sets 'slot_idx' of the owned tuples according to 'values', which must have
   // the same number of entries as this object, and whose elements are moved
   // into the appropriate slots. Also updates the memory accountant accordingly.
-  zetasql_base::Status SetSlot(int slot_idx, std::vector<Value> values);
+  absl::Status SetSlot(int slot_idx, std::vector<Value> values);
 
   // Sorts the deque using std::sort or std::stable_sort.
   void Sort(const TupleComparator& comparator, bool use_stable_sort);
@@ -726,9 +726,9 @@ class TupleDataOrderedQueue {
 
   // Adds 'data' to the queue. Returns true on success. On failure, returns
   // false and populates 'status'. Any modifications to 'data' while it is in
-  // this object are unaccounted for. This method does not return zetasql_base::Status
+  // this object are unaccounted for. This method does not return absl::Status
   // for performance reasons.
-  bool Insert(std::unique_ptr<TupleData> data, zetasql_base::Status* status) {
+  bool Insert(std::unique_ptr<TupleData> data, absl::Status* status) {
     const int64_t byte_size = data->GetPhysicalByteSize() +
                             sizeof(std::pair<const TupleData*, ValueEntry>);
     if (!accountant_->RequestBytes(byte_size, status)) {
@@ -792,7 +792,7 @@ class ValueHashSet {
   // true. Otherwise requests bytes. If that succeeds, inserts 'value' into the
   // underlying set, sets 'inserted' to true, and returns false. Otherwise,
   // populates 'status' and returns false.
-  bool Insert(const Value& value, bool* inserted, zetasql_base::Status* status) {
+  bool Insert(const Value& value, bool* inserted, absl::Status* status) {
     *inserted = false;
     if (values_.contains(value)) {
       return true;
@@ -852,7 +852,7 @@ class TupleIterator {
   virtual TupleData* Next() = 0;
 
   // Returns the current status.
-  virtual zetasql_base::Status Status() const = 0;
+  virtual absl::Status Status() const = 0;
 
   // Returns false if this iterator is intentionally scrambling the order of
   // whatever it is iterating over. This should only be overridden by:
@@ -871,7 +871,7 @@ class TupleIterator {
   // operator that must preserve some partially sorted property of its
   // input. Should only be overridden by iterators that override
   // PreservesOrder().
-  virtual zetasql_base::Status DisableReordering() { return zetasql_base::OkStatus(); }
+  virtual absl::Status DisableReordering() { return absl::OkStatus(); }
 
   // Returns a debug string that consists mostly of the kinds of the iterators
   // that are stacked (e.g.,
@@ -896,15 +896,15 @@ class ReorderingTupleIterator : public TupleIterator {
 
   TupleData* Next() override;
 
-  zetasql_base::Status Status() const override { return status_; }
+  absl::Status Status() const override { return status_; }
 
   bool PreservesOrder() const override { return !reorder_; }
 
-  zetasql_base::Status DisableReordering() override {
+  absl::Status DisableReordering() override {
     ZETASQL_RET_CHECK(!called_next_)
         << "DisableReordering() cannot be called after Next()";
     reorder_ = false;
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   std::string DebugString() const override {
@@ -914,12 +914,12 @@ class ReorderingTupleIterator : public TupleIterator {
  private:
   std::unique_ptr<TupleIterator> iter_;
   // If 'iter_' is done, contains its final status.
-  absl::optional<zetasql_base::Status> done_status_;
+  absl::optional<absl::Status> done_status_;
   std::vector<TupleData> current_batch_;
   int num_read_from_current_batch_ = 0;
   bool called_next_ = false;  // True if Next() was called at least once.
   bool reorder_ = true;
-  zetasql_base::Status status_;
+  absl::Status status_;
 };
 
 // An iterator that calls a user-supplied callback that creates an internal
@@ -961,7 +961,7 @@ class PassThroughTupleIterator : public TupleIterator {
     return iter_->Next();
   }
 
-  zetasql_base::Status Status() const override {
+  absl::Status Status() const override {
     if (iter_ == nullptr) return iterator_factory_status_;
     return iter_->Status();
   }
@@ -976,7 +976,7 @@ class PassThroughTupleIterator : public TupleIterator {
   const TupleSchema schema_;
   const DebugStringFactory debug_string_factory_;
   std::unique_ptr<TupleIterator> iter_;
-  zetasql_base::Status iterator_factory_status_;
+  absl::Status iterator_factory_status_;
 };
 
 }  // namespace zetasql

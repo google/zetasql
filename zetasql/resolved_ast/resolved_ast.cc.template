@@ -346,14 +346,14 @@ static FunctionEnums::Volatility DeterminismLevelToVolatility(
 // argument is used for serialization of zetasql::Type and data structures
 // that contain zetasql::Types. For detailed usage, see comments above
 // Type::SerializeToProtoAndDistinctFileDescriptors().
-static zetasql_base::Status SaveToImpl(
+static absl::Status SaveToImpl(
     const Table* table,
     FileDescriptorSetMap* file_descriptor_set_map,
     TableRefProto* proto) {
   proto->set_name(table->Name());
   proto->set_serialization_id(table->GetSerializationId());
   proto->set_full_name(table->FullName());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // The RestoreFrom functions reverse the effect of the SaveTo functions.
@@ -366,14 +366,14 @@ static zetasql_base::StatusOr<const Table*> RestoreFromImpl(
   return table;
 }
 
-static zetasql_base::Status SaveToImpl(
+static absl::Status SaveToImpl(
     const Model* model,
     FileDescriptorSetMap* file_descriptor_set_map,
     ModelRefProto* proto) {
   proto->set_name(model->Name());
   proto->set_serialization_id(model->GetSerializationId());
   proto->set_full_name(model->FullName());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // The RestoreFrom functions reverse the effect of the SaveTo functions.
@@ -386,13 +386,13 @@ static zetasql_base::StatusOr<const Model*> RestoreFromImpl(
   return model;
 }
 
-static zetasql_base::Status SaveToImpl(
+static absl::Status SaveToImpl(
    const Connection* connection,
    FileDescriptorSetMap* file_descriptor_set_map,
    ConnectionRefProto* proto) {
   proto->set_name(connection->Name());
   proto->set_full_name(connection->FullName());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 static zetasql_base::StatusOr<const Connection*> RestoreFromImpl(
@@ -405,12 +405,12 @@ static zetasql_base::StatusOr<const Connection*> RestoreFromImpl(
   return connection;
 }
 
-static zetasql_base::Status SaveToImpl(
+static absl::Status SaveToImpl(
     const Constant* constant,
     FileDescriptorSetMap* file_descriptor_set_map,
     ConstantRefProto* proto) {
   proto->set_name(constant->FullName());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 static zetasql_base::StatusOr<const Constant*> RestoreFromImpl(
@@ -427,12 +427,12 @@ static zetasql_base::StatusOr<const Constant*> RestoreFromImpl(
   return constant;
 }
 
-static zetasql_base::Status SaveToImpl(
+static absl::Status SaveToImpl(
     const Function* func,
     FileDescriptorSetMap* file_descriptor_set_map,
     FunctionRefProto* proto) {
   proto->set_name(func->FullName(true  /* include_group */));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 static zetasql_base::StatusOr<const Function*> RestoreFromImpl(
@@ -453,12 +453,12 @@ static zetasql_base::StatusOr<const Function*> RestoreFromImpl(
   return func;
 }
 
-static zetasql_base::Status SaveToImpl(
+static absl::Status SaveToImpl(
     const TableValuedFunction* func,
     FileDescriptorSetMap* file_descriptor_set_map,
     TableValuedFunctionRefProto* proto) {
   proto->set_name(func->FullName());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 static zetasql_base::StatusOr<const TableValuedFunction*> RestoreFromImpl(
@@ -470,12 +470,12 @@ static zetasql_base::StatusOr<const TableValuedFunction*> RestoreFromImpl(
   return func;
 }
 
-static zetasql_base::Status SaveToImpl(
+static absl::Status SaveToImpl(
     const Procedure* procedure,
     FileDescriptorSetMap* file_descriptor_set_map,
     ProcedureRefProto* proto) {
   proto->set_name(procedure->FullName());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 static zetasql_base::StatusOr<const Procedure*> RestoreFromImpl(
@@ -487,7 +487,7 @@ static zetasql_base::StatusOr<const Procedure*> RestoreFromImpl(
   return procedure;
 }
 
-static zetasql_base::Status SaveToImpl(
+static absl::Status SaveToImpl(
     const FunctionSignature& sig,
     FileDescriptorSetMap* file_descriptor_set_map,
     FunctionSignatureProto* proto) {
@@ -506,7 +506,7 @@ static zetasql_base::StatusOr<FunctionSignature> RestoreFromImpl(
   return *sig;
 }
 
-static zetasql_base::Status SaveToImpl(
+static absl::Status SaveToImpl(
     const Type* type,
     FileDescriptorSetMap* file_descriptor_set_map,
     TypeProto* proto) {
@@ -523,7 +523,7 @@ static zetasql_base::StatusOr<const Type*> RestoreFromImpl(
   return type;
 }
 
-static zetasql_base::Status SaveToImpl(
+static absl::Status SaveToImpl(
     const google::protobuf::FieldDescriptor* desc,
     FileDescriptorSetMap* file_descriptor_set_map,
     FieldDescriptorRefProto* proto) {
@@ -535,7 +535,7 @@ static zetasql_base::Status SaveToImpl(
       &type_proto, file_descriptor_set_map));
   *proto->mutable_containing_proto() = type_proto.proto_type();
   proto->set_number(desc->number());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 static zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*> RestoreFromImpl(
@@ -568,7 +568,7 @@ static zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*> RestoreF
       << "extension of " << proto_type->DebugString();
 }
 
-static zetasql_base::Status SaveToImpl(const google::protobuf::OneofDescriptor* oneof_desc,
+static absl::Status SaveToImpl(const google::protobuf::OneofDescriptor* oneof_desc,
                                FileDescriptorSetMap* file_descriptor_set_map,
                                OneofDescriptorRefProto* oneof_proto) {
   TypeFactory factory;
@@ -581,7 +581,7 @@ static zetasql_base::Status SaveToImpl(const google::protobuf::OneofDescriptor* 
           &containing_proto, file_descriptor_set_map));
   *oneof_proto->mutable_containing_proto() = containing_proto.proto_type();
   oneof_proto->set_index(oneof_desc->index());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 static zetasql_base::StatusOr<const google::protobuf::OneofDescriptor*> RestoreFromImpl(
@@ -606,7 +606,7 @@ static zetasql_base::StatusOr<const google::protobuf::OneofDescriptor*> RestoreF
   return containing_proto_type->descriptor()->oneof_decl(oneof_proto.index());
 }
 
-static zetasql_base::Status SaveToImpl(
+static absl::Status SaveToImpl(
     const ResolvedColumn& column,
     FileDescriptorSetMap* file_descriptor_set_map,
     ResolvedColumnProto* proto) {
@@ -619,12 +619,12 @@ static zetasql_base::StatusOr<ResolvedColumn> RestoreFromImpl(
   return ResolvedColumn::RestoreFrom(proto, params);
 }
 
-static zetasql_base::Status SaveToImpl(
+static absl::Status SaveToImpl(
     const Value& value,
     FileDescriptorSetMap* file_descriptor_set_map,
     ValueWithTypeProto* proto) {
   if (!value.is_valid()) {
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
   ZETASQL_RETURN_IF_ERROR(value.Serialize(proto->mutable_value()));
   return SaveToImpl(
@@ -643,7 +643,7 @@ static zetasql_base::StatusOr<Value> RestoreFromImpl(
   return Value::Deserialize(proto.value(), type);
 }
 
-static zetasql_base::Status SaveToImpl(
+static absl::Status SaveToImpl(
     const std::shared_ptr<TVFSignature>& tvf_signature,
     FileDescriptorSetMap* file_descriptor_set_map,
     TVFSignatureProto* proto) {
@@ -706,7 +706,7 @@ static zetasql_base::Status SaveToImpl(
         warning;
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 static zetasql_base::StatusOr<std::shared_ptr<TVFSignature>> RestoreFromImpl(
@@ -794,12 +794,12 @@ static zetasql_base::StatusOr<std::shared_ptr<TVFSignature>> RestoreFromImpl(
   }
 }
 
-static zetasql_base::Status SaveToImpl(
+static absl::Status SaveToImpl(
     const std::shared_ptr<ResolvedFunctionCallInfo>& context,
     FileDescriptorSetMap* file_descriptor_set_map,
     ResolvedFunctionCallInfoProto* proto) {
   // TODO: Implement this for ResolvedFunctionCallInfo subclasses.
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 static zetasql_base::StatusOr<std::shared_ptr<ResolvedFunctionCallInfo>>
@@ -866,14 +866,14 @@ const ResolvedNodeKind {{node.name}}::TYPE;
 {{node.name}}::~{{node.name}}() {
 }
 
-zetasql_base::Status {{node.name}}::SaveTo(
+absl::Status {{node.name}}::SaveTo(
     Type::FileDescriptorSetMap* file_descriptor_set_map,
     {{node.parent_proto_container_type}}* proto) const {
   return SaveTo(
       file_descriptor_set_map, proto->mutable_{{node.member_name}}_node());
 }
 
-zetasql_base::Status {{node.name}}::SaveTo(
+absl::Status {{node.name}}::SaveTo(
     Type::FileDescriptorSetMap* file_descriptor_set_map,
     {{node.proto_type}}* proto) const {
   ZETASQL_RETURN_IF_ERROR(SUPER::SaveTo(
@@ -911,7 +911,7 @@ zetasql_base::Status {{node.name}}::SaveTo(
   # endif
  # endif
 # endfor
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 
@@ -1048,11 +1048,11 @@ void {{node.name}}::AddMutableChildNodePointers(
 }
 # endif
 {{ blank_line }}
-zetasql_base::Status {{node.name}}::Accept(ResolvedASTVisitor* visitor) const {
+absl::Status {{node.name}}::Accept(ResolvedASTVisitor* visitor) const {
   return visitor->Visit{{node.name}}(this);
 }
 
-zetasql_base::Status {{node.name}}::ChildrenAccept(ResolvedASTVisitor* visitor) const {
+absl::Status {{node.name}}::ChildrenAccept(ResolvedASTVisitor* visitor) const {
   ZETASQL_RETURN_IF_ERROR(SUPER::ChildrenAccept(visitor));
  # for field in node.fields
   # if field.is_node_ptr
@@ -1065,7 +1065,7 @@ zetasql_base::Status {{node.name}}::ChildrenAccept(ResolvedASTVisitor* visitor) 
   }
   # endif
  # endfor
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 # if node.fields and not node.use_custom_debug_string
@@ -1095,7 +1095,7 @@ void {{node.name}}::CollectDebugStringFields(
 
 # endif
 # if node.fields
-zetasql_base::Status {{node.name}}::CheckFieldsAccessed() const {
+absl::Status {{node.name}}::CheckFieldsAccessed() const {
   ZETASQL_RETURN_IF_ERROR(SUPER::CheckFieldsAccessed());
 
  # for field in node.fields
@@ -1130,7 +1130,7 @@ zetasql_base::Status {{node.name}}::CheckFieldsAccessed() const {
   }
   # endif
  # endfor
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 void {{node.name}}::ClearFieldsAccessed() const {

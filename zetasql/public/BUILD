@@ -269,7 +269,6 @@ cc_library(
     copts = ["-Wno-sign-compare"],
     deps = [
         "//zetasql/base",
-        "//zetasql/base:bits",
         "//zetasql/base:endian",
         "//zetasql/base:mathutil",
         "//zetasql/base:status",
@@ -277,6 +276,8 @@ cc_library(
         "//zetasql/common:errors",
         "//zetasql/common:fixed_int",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/hash",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
     ],
@@ -626,6 +627,7 @@ cc_library(
         "//zetasql/common:utf_util",
         "//zetasql/proto:internal_error_location_cc_proto",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:str_format",
     ],
 )
@@ -952,8 +954,8 @@ cc_library(
     hdrs = ["collator.h"],
     copts = ["-Wno-sign-compare"],
     deps = [
-        "//zetasql/base",
         "//zetasql/base:statusor",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
     ],

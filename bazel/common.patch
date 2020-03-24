@@ -9,3 +9,23 @@
          executable = True,
          cfg = "host",
      ),
+
+--- tools/maven/pom_file.bzl
++++ tools/maven/pom_file.bzl
+@@ -41,7 +41,7 @@
+ 
+ def _collect_maven_info_impl(_target, ctx):
+     tags = getattr(ctx.rule.attr, "tags", [])
+-    deps = getattr(ctx.rule.attr, "deps", [])
++    deps = getattr(ctx.rule.attr, "deps", []) + getattr(ctx.rule.attr, "runtime_deps", [])
+     exports = getattr(ctx.rule.attr, "exports", [])
+ 
+     maven_artifacts = []
+@@ -60,6 +60,7 @@
+     attr_aspects = [
+         "deps",
+         "exports",
++        "runtime_deps",
+     ],
+     doc = """
+     Collects the Maven information for targets, their dependencies, and their transitive exports.

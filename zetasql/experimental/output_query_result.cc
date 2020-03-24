@@ -57,7 +57,7 @@ namespace {
 // - 'result_table' with the array representing the output of a query, or the
 //   full contents of the modified table after a DML statement.
 // - 'column_names' with the names of the columns of the rows in 'result_table'.
-::zetasql_base::Status GetOutputColumnInfo(const ResolvedStatement* resolved_stmt,
+absl::Status GetOutputColumnInfo(const ResolvedStatement* resolved_stmt,
                                    const Value& result,
                                    absl::optional<int64_t>* num_rows_modified,
                                    bool* is_value_table, Value* result_table,
@@ -110,7 +110,7 @@ namespace {
           << "GetOutputColumnInfo() does not support resolved node kind "
           << ResolvedNodeKind_Name(resolved_stmt->node_kind());
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Given a vector of column strings, returns a vector of lines, where each line

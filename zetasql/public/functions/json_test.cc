@@ -38,7 +38,7 @@
 #include "zetasql/testing/test_function.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/substitute.h"
@@ -157,7 +157,7 @@ TEST(JsonTest, Compliance) {
 
       std::string value;
       bool is_null = false;
-      zetasql_base::Status status;
+      absl::Status status;
       bool sql_standard_mode = test.function_name == "json_query" ||
                                test.function_name == "json_value";
       auto evaluator_status =
@@ -224,7 +224,7 @@ TEST(JsonPathTest, JsonPathEndedWithDotStandardMode) {
 
     EXPECT_THAT(JsonPathEvaluator::Create(input_and_output.first,
                                           /*sql_standard_mode=*/true),
-                StatusIs(zetasql_base::StatusCode::kOutOfRange,
+                StatusIs(absl::StatusCode::kOutOfRange,
                          HasSubstr("Invalid token in JSONPath at:")));
   }
 }
@@ -415,21 +415,21 @@ TEST(IsValidJSONPathTest, BasicTests) {
 
   // Escaped a
   EXPECT_THAT(IsValidJSONPath("$['a']", /*sql_standard_mode=*/true),
-              StatusIs(zetasql_base::StatusCode::kOutOfRange,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Invalid token in JSONPath at:")));
   ZETASQL_EXPECT_OK(IsValidJSONPath("$['a']", /*sql_standard_mode=*/false));
   ZETASQL_EXPECT_OK(IsValidJSONPath("$.\"a\"", /*sql_standard_mode=*/true));
 
   // Escaped efgh
   EXPECT_THAT(IsValidJSONPath("$.a.b.c['efgh'].e", /*sql_standard_mode=*/true),
-              StatusIs(zetasql_base::StatusCode::kOutOfRange,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Invalid token in JSONPath at:")));
   ZETASQL_EXPECT_OK(IsValidJSONPath("$.a.b.c['efgh'].e", /*sql_standard_mode=*/false));
   ZETASQL_EXPECT_OK(IsValidJSONPath("$.a.b.c.\"efgh\".e", /*sql_standard_mode=*/true));
 
   // Escaped b.c.d
   EXPECT_THAT(IsValidJSONPath("$.a['b.c.d'].e", /*sql_standard_mode=*/true),
-              StatusIs(zetasql_base::StatusCode::kOutOfRange,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Invalid token in JSONPath at:")));
   ZETASQL_EXPECT_OK(IsValidJSONPath("$.a['b.c.d'].e", /*sql_standard_mode=*/false));
   ZETASQL_EXPECT_OK(IsValidJSONPath("$.a.\"b.c.d\".e", /*sql_standard_mode=*/true));
@@ -437,7 +437,7 @@ TEST(IsValidJSONPathTest, BasicTests) {
 
   EXPECT_THAT(
       IsValidJSONPath("$['a']['b']['c']['efgh']", /*sql_standard_mode=*/true),
-      StatusIs(zetasql_base::StatusCode::kOutOfRange,
+      StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("Invalid token in JSONPath at:")));
   ZETASQL_EXPECT_OK(IsValidJSONPath("$['a']['b']['c']['efgh']",
                             /*sql_standard_mode=*/false));
@@ -446,56 +446,56 @@ TEST(IsValidJSONPathTest, BasicTests) {
 
   EXPECT_THAT(IsValidJSONPath("$['a']['b']['c'][0]['e']['f']",
                               /*sql_standard_mode=*/true),
-              StatusIs(zetasql_base::StatusCode::kOutOfRange,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Invalid token in JSONPath at:")));
   ZETASQL_EXPECT_OK(IsValidJSONPath("$['a']['b']['c'][0]['e']['f']",
                             /*sql_standard_mode=*/false));
 
   EXPECT_THAT(IsValidJSONPath("$['a']['b\\'\\c\\\\d          ef']",
                               /*sql_standard_mode=*/true),
-              StatusIs(zetasql_base::StatusCode::kOutOfRange,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Invalid token in JSONPath at:")));
   ZETASQL_EXPECT_OK(IsValidJSONPath("$['a']['b\\'\\c\\\\d          ef']",
                             /*sql_standard_mode=*/false));
 
   EXPECT_THAT(IsValidJSONPath("$['a;;;;;\\\\']['b\\'\\c\\\\d          ef']",
                               /*sql_standard_mode=*/true),
-              StatusIs(zetasql_base::StatusCode::kOutOfRange,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Invalid token in JSONPath at:")));
   ZETASQL_EXPECT_OK(IsValidJSONPath("$['a;;;;;\\\\']['b\\'\\c\\\\d          ef']",
                             /*sql_standard_mode=*/false));
 
   EXPECT_THAT(IsValidJSONPath("$.a['\\'\\'\\'\\'\\'\\\\f '].g[1]",
                               /*sql_standard_mode=*/true),
-              StatusIs(zetasql_base::StatusCode::kOutOfRange,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Invalid token in JSONPath at:")));
   ZETASQL_EXPECT_OK(IsValidJSONPath("$.a['\\'\\'\\'\\'\\'\\\\f '].g[1]",
                             /*sql_standard_mode=*/false));
 
   EXPECT_THAT(IsValidJSONPath("$.a.b.c[efgh]", /*sql_standard_mode=*/true),
-              StatusIs(zetasql_base::StatusCode::kOutOfRange,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Invalid token in JSONPath at:")));
   ZETASQL_EXPECT_OK(IsValidJSONPath("$.a.b.c[efgh]", /*sql_standard_mode=*/false));
 
   // unsupported @ in the path.
   EXPECT_THAT(
       IsValidJSONPath("$.a.;;;;;;;c[0];;;.@.f", /*sql_standard_mode=*/true),
-      StatusIs(zetasql_base::StatusCode::kOutOfRange,
+      StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("Unsupported operator in JSONPath: @")));
   EXPECT_THAT(
       IsValidJSONPath("$.a.;;;;;;;.c[0].@.f", /*sql_standard_mode=*/true),
-      StatusIs(zetasql_base::StatusCode::kOutOfRange,
+      StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("Unsupported operator in JSONPath: @")));
   EXPECT_THAT(IsValidJSONPath("$..", /*sql_standard_mode=*/true),
-              StatusIs(zetasql_base::StatusCode::kOutOfRange,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Unsupported operator in JSONPath: ..")));
   EXPECT_THAT(
       IsValidJSONPath("$.a.b.c[f.g.h.i].m.f", /*sql_standard_mode=*/false),
-      StatusIs(zetasql_base::StatusCode::kOutOfRange,
+      StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("Invalid token in JSONPath at: [f.g.h.i]")));
   EXPECT_THAT(IsValidJSONPath("$.a.b.c['f.g.h.i'].[acdm].f",
                               /*sql_standard_mode=*/false),
-              StatusIs(zetasql_base::StatusCode::kOutOfRange,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Invalid token in JSONPath at: .[acdm]")));
 }
 
@@ -1202,12 +1202,12 @@ TEST(JSONPathArrayExtractorTest,
   std::string input_path("$.a.\"\'\'\\\\s \".g[ 1]");
   absl::string_view esc_input_path(input_path);
 
-  zetasql_base::Status status =
+  absl::Status status =
       ValidJSONPathIterator::Create(esc_input_path, /*sql_standard_mode=*/false)
           .status();
   EXPECT_THAT(
       status,
-      StatusIs(zetasql_base::StatusCode::kOutOfRange,
+      StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr(R"(Invalid token in JSONPath at: ."''\\s ".g[ 1])")));
 }
 
@@ -1374,29 +1374,29 @@ TEST(ValidJSONPathIterator, DegenerateCases) {
 
 TEST(ValidJSONPathIterator, InvalidEmptyJSONPathCreation) {
   std::string path = "$.a.*.b.c";
-  zetasql_base::Status status =
+  absl::Status status =
       ValidJSONPathIterator::Create(path, /*sql_standard_mode=*/true).status();
   EXPECT_THAT(status,
-              StatusIs(zetasql_base::StatusCode::kOutOfRange,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Unsupported operator in JSONPath: *")));
 
   path = "$.@";
   status =
       ValidJSONPathIterator::Create(path, /*sql_standard_mode=*/true).status();
   EXPECT_THAT(status,
-              StatusIs(zetasql_base::StatusCode::kOutOfRange,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Unsupported operator in JSONPath: @")));
 
   path = "$abc";
   status =
       ValidJSONPathIterator::Create(path, /*sql_standard_mode=*/true).status();
-  EXPECT_THAT(status, StatusIs(zetasql_base::StatusCode::kOutOfRange,
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kOutOfRange,
                                HasSubstr("Invalid token in JSONPath at: abc")));
 
   path = "";
   status =
       ValidJSONPathIterator::Create(path, /*sql_standard_mode=*/true).status();
-  EXPECT_THAT(status, StatusIs(zetasql_base::StatusCode::kOutOfRange,
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kOutOfRange,
                                HasSubstr("JSONPath must start with '$'")));
 }
 
@@ -1415,7 +1415,7 @@ TEST(JSONPathExtractor, ComplianceJSONExtract) {
                 test.function_name == "json_extract_scalar");
 
     std::string value;
-    zetasql_base::Status status;
+    absl::Status status;
     bool is_null = true;
     auto evaluator_status =
         ValidJSONPathIterator::Create(json_path, /*sql_standard_mode=*/false);
@@ -1463,7 +1463,7 @@ TEST(JSONPathExtractor, ComplianceJSONExtractStandard) {
                 test.function_name == "json_value");
 
     std::string value;
-    zetasql_base::Status status;
+    absl::Status status;
     bool is_null = true;
     auto evaluator_status =
         ValidJSONPathIterator::Create(json_path, /*sql_standard_mode=*/true);
@@ -1511,7 +1511,7 @@ TEST(JSONPathExtractor, ComplianceJSONExtractArray) {
 
     std::vector<std::string> output;
     Value result;
-    zetasql_base::Status status;
+    absl::Status status;
     bool is_null = true;
     auto evaluator_status =
         ValidJSONPathIterator::Create(json_path, /*sql_standard_mode=*/false);
@@ -1542,7 +1542,7 @@ TEST(JsonPathEvaluatorTest, ExtractingArrayCloseToLimitSucceeds) {
   const std::string nested_array_json(kNestingDepth, '[');
   std::string value;
   std::vector<std::string> array_value;
-  zetasql_base::Status status;
+  absl::Status status;
   bool is_null = true;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<JsonPathEvaluator> path_evaluator,
@@ -1582,13 +1582,13 @@ TEST(JsonPathEvaluatorTest, DeeplyNestedArrayCausesFailure) {
   std::vector<std::string> array_value;
   bool is_null = true;
   EXPECT_THAT(path_evaluator->Extract(nested_array_json, &value, &is_null),
-              StatusIs(zetasql_base::StatusCode::kOutOfRange,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        "JSON parsing failed due to deeply nested array/struct. "
                        "Maximum nesting depth is 1000"));
   EXPECT_TRUE(is_null);
   EXPECT_THAT(
       path_evaluator->ExtractScalar(nested_array_json, &value, &is_null),
-      StatusIs(zetasql_base::StatusCode::kOutOfRange,
+      StatusIs(absl::StatusCode::kOutOfRange,
                "JSON parsing failed due to deeply nested array/struct. "
                "Maximum nesting depth is 1000"));
   EXPECT_TRUE(is_null);
@@ -1597,7 +1597,7 @@ TEST(JsonPathEvaluatorTest, DeeplyNestedArrayCausesFailure) {
       JsonPathEvaluator::Create(json_path, /*sql_standard_mode=*/false));
   EXPECT_THAT(
       path_evaluator->ExtractArray(nested_array_json, &array_value, &is_null),
-      StatusIs(zetasql_base::StatusCode::kOutOfRange,
+      StatusIs(absl::StatusCode::kOutOfRange,
                "JSON parsing failed due to deeply nested array/struct. "
                "Maximum nesting depth is 1000"));
   EXPECT_TRUE(is_null);
@@ -1611,7 +1611,7 @@ TEST(JsonPathEvaluatorTest, ExtractingObjectCloseToLimitSucceeds) {
   }
   std::string value;
   std::vector<std::string> array_value;
-  zetasql_base::Status status;
+  absl::Status status;
   bool is_null = true;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<JsonPathEvaluator> path_evaluator,
@@ -1656,13 +1656,13 @@ TEST(JsonPathEvaluatorTest, DeeplyNestedObjectCausesFailure) {
   std::vector<std::string> array_value;
   bool is_null = true;
   EXPECT_THAT(path_evaluator->Extract(nested_object_json, &value, &is_null),
-              StatusIs(zetasql_base::StatusCode::kOutOfRange,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        "JSON parsing failed due to deeply nested array/struct. "
                        "Maximum nesting depth is 1000"));
   EXPECT_TRUE(is_null);
   EXPECT_THAT(
       path_evaluator->ExtractScalar(nested_object_json, &value, &is_null),
-      StatusIs(zetasql_base::StatusCode::kOutOfRange,
+      StatusIs(absl::StatusCode::kOutOfRange,
                "JSON parsing failed due to deeply nested array/struct. "
                "Maximum nesting depth is 1000"));
   EXPECT_TRUE(is_null);
@@ -1671,7 +1671,7 @@ TEST(JsonPathEvaluatorTest, DeeplyNestedObjectCausesFailure) {
       JsonPathEvaluator::Create(json_path, /*sql_standard_mode=*/false));
   EXPECT_THAT(
       path_evaluator->ExtractArray(nested_object_json, &array_value, &is_null),
-      StatusIs(zetasql_base::StatusCode::kOutOfRange,
+      StatusIs(absl::StatusCode::kOutOfRange,
                "JSON parsing failed due to deeply nested array/struct. "
                "Maximum nesting depth is 1000"));
   EXPECT_TRUE(is_null);

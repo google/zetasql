@@ -69,7 +69,7 @@ class ZetaSqlCollatorIcu : public ZetaSqlCollator {
   ~ZetaSqlCollatorIcu() override {}
 
   int64_t CompareUtf8(const absl::string_view s1, const absl::string_view s2,
-                    zetasql_base::Status* error) const override;
+                    absl::Status* error) const override;
 
   bool IsBinaryComparison() const override {
     return icu_collator_ == nullptr && !is_case_insensitive_;
@@ -97,7 +97,7 @@ ZetaSqlCollatorIcu::ZetaSqlCollatorIcu(
 
 int64_t ZetaSqlCollatorIcu::CompareUtf8(const absl::string_view s1,
                                         const absl::string_view s2,
-                                        zetasql_base::Status* error) const {
+                                        absl::Status* error) const {
   if (is_unicode_) {
     if (is_case_insensitive_) {
       ; // Just fall back to icu.
@@ -113,7 +113,7 @@ int64_t ZetaSqlCollatorIcu::CompareUtf8(const absl::string_view s1,
       icu::StringPiece(s1.data(), static_cast<int32_t>(s1.size())),
       icu::StringPiece(s2.data(), static_cast<int32_t>(s2.size())), icu_error);
   if (icu_error.isFailure()) {
-    *error = zetasql_base::Status(zetasql_base::StatusCode::kInvalidArgument,
+    *error = absl::Status(absl::StatusCode::kInvalidArgument,
                           "Strings cannot be compared with the collator");
     icu_error.reset();
   }

@@ -35,7 +35,7 @@ const uint64_t uint64max = std::numeric_limits<uint64_t>::max();
 template <typename TIN, typename TOUT>
 void TestBitCast(const TIN& in, const TOUT& expected) {
   TOUT out = 0;
-  zetasql_base::Status status;
+  absl::Status status;
   BitCast<TIN, TOUT>(in, &out, &status);
   EXPECT_EQ(expected, out);
 }

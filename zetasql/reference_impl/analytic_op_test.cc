@@ -46,7 +46,7 @@
 #include "gtest/gtest.h"
 #include <cstdint>
 #include "absl/memory/memory.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/types/optional.h"
@@ -140,7 +140,7 @@ struct AnalyticFunctionTestCase {
           window_ordering_comparator_info_in,
       const std::vector<Value>& expected_result_in,
       AnalyticOutputDeterminism output_determinism_in,
-      const zetasql_base::Status& expected_status_in = zetasql_base::Status())
+      const absl::Status& expected_status_in = absl::Status())
       : function_kind(function_kind_in),
         input_variables(input_variables_in),
         input_tuples(input_tuples_in),
@@ -162,7 +162,7 @@ struct AnalyticFunctionTestCase {
           window_ordering_comparator_info_in,
       const std::vector<Value>& expected_result_in,
       AnalyticOutputDeterminism output_determinism_in,
-      const zetasql_base::Status& expected_status_in = zetasql_base::Status())
+      const absl::Status& expected_status_in = absl::Status())
       : function_kind(function_kind_in),
         input_variables(input_variables_in),
         input_tuples(input_tuples_in),
@@ -198,7 +198,7 @@ struct AnalyticFunctionTestCase {
   std::vector<Value> expected_result;  // 1:1 matches with <input_tuples>.
   // Indicates whether the result is expected to be deterministic.
   AnalyticOutputDeterminism output_determinism;
-  zetasql_base::Status expected_status;
+  absl::Status expected_status;
 };
 
 std::ostream& operator<<(std::ostream& out,
@@ -402,11 +402,11 @@ std::vector<AnalyticFunctionTestCase> GetNumberingFunctionTestCases() {
   const std::vector<std::vector<Value>> empty_arguments;
   const std::vector<AnalyticWindow> empty_windows;
 
-  const zetasql_base::Status non_positive_error =
+  const absl::Status non_positive_error =
       ::zetasql_base::OutOfRangeErrorBuilder()
       << "The N value (number of buckets) for the NTILE function "
          "must be positive";
-  const zetasql_base::Status null_error =
+  const absl::Status null_error =
       ::zetasql_base::OutOfRangeErrorBuilder()
       << "The N value (number of buckets) for the NTILE function "
          "must not be NULL";
@@ -913,10 +913,10 @@ std::vector<AnalyticFunctionTestCase> GetNthValueTestCases() {
   const std::shared_ptr<WindowOrderingComparatorInfo> comparator_info_by_x =
       GenerateWindowOrderingComparatorBySlot(input_variables, 0);
 
-  const zetasql_base::Status non_positive_error =
+  const absl::Status non_positive_error =
       ::zetasql_base::OutOfRangeErrorBuilder()
       << "The N value for the NthValue function must be positive";
-  const zetasql_base::Status null_error =
+  const absl::Status null_error =
       ::zetasql_base::OutOfRangeErrorBuilder()
       << "The N value for the NthValue function must not be NULL";
 
@@ -1112,17 +1112,17 @@ std::vector<AnalyticFunctionTestCase> GetLeadLagTestCases() {
   const std::shared_ptr<WindowOrderingComparatorInfo> comparator_info_by_x =
       GenerateWindowOrderingComparatorBySlot(input_variables, 0);
 
-  const zetasql_base::Status null_offset_lead_error =
+  const absl::Status null_offset_lead_error =
       ::zetasql_base::InvalidArgumentErrorBuilder()
       << "The offset to the function LEAD must not be null";
-  const zetasql_base::Status negative_offset_lead_error =
+  const absl::Status negative_offset_lead_error =
       ::zetasql_base::InvalidArgumentErrorBuilder()
       << "The offset to the function LEAD must not be negative";
 
-  const zetasql_base::Status null_offset_lag_error =
+  const absl::Status null_offset_lag_error =
       ::zetasql_base::InvalidArgumentErrorBuilder()
       << "The offset to the function LAG must not be null";
-  const zetasql_base::Status negative_offset_lag_error =
+  const absl::Status negative_offset_lag_error =
       ::zetasql_base::InvalidArgumentErrorBuilder()
       << "The offset to the function LAG must not be negative";
 
@@ -2772,13 +2772,13 @@ TEST_F(AnalyticWindowTest, ValidateWindowNullOffsetValues) {
   ZETASQL_ASSERT_OK(preceding_boundary->SetSchemasForEvaluation({&params_schema}));
 
   EvaluationContext context((EvaluationOptions()));
-  zetasql_base::Status start_preceding_status =
+  absl::Status start_preceding_status =
       preceding_boundary->GetRowsBasedWindowBoundaries(
           false /* is_end_boundary */, 10 /* partition_size */, {&params_data},
           &context, &window_boundaries);
   EXPECT_EQ(expected_error_message, start_preceding_status.message());
 
-  zetasql_base::Status end_preceding_status =
+  absl::Status end_preceding_status =
       preceding_boundary->GetRowsBasedWindowBoundaries(
           true /* is_end_boundary */, 10 /* partition_size */, {&params_data},
           &context, &window_boundaries);
@@ -2793,13 +2793,13 @@ TEST_F(AnalyticWindowTest, ValidateWindowNullOffsetValues) {
                                      std::move(deref_offset_var_again)));
   ZETASQL_ASSERT_OK(following_boundary->SetSchemasForEvaluation({&params_schema}));
 
-  zetasql_base::Status start_following_status =
+  absl::Status start_following_status =
       following_boundary->GetRowsBasedWindowBoundaries(
           false /* is_end_boundary */, 10 /* partition_size */, {&params_data},
           &context, &window_boundaries);
   EXPECT_EQ(expected_error_message, start_following_status.message());
 
-  zetasql_base::Status end_following_status =
+  absl::Status end_following_status =
       following_boundary->GetRowsBasedWindowBoundaries(
           true /* is_end_boundary */, 10 /* partition_size */, {&params_data},
           &context, &window_boundaries);
@@ -2827,13 +2827,13 @@ TEST_F(AnalyticWindowTest, ValidateWindowNegativeOffsetValues) {
   ZETASQL_ASSERT_OK(preceding_boundary->SetSchemasForEvaluation({&params_schema}));
 
   EvaluationContext context((EvaluationOptions()));
-  zetasql_base::Status start_preceding_status =
+  absl::Status start_preceding_status =
       preceding_boundary->GetRowsBasedWindowBoundaries(
           false /* is_end_boundary */, 10 /* partition_size */, {&params_data},
           &context, &window_boundaries);
   EXPECT_EQ(expected_error_message, start_preceding_status.message());
 
-  zetasql_base::Status end_preceding_status =
+  absl::Status end_preceding_status =
       preceding_boundary->GetRowsBasedWindowBoundaries(
           true /* is_end_boundary */, 10 /* partition_size */, {&params_data},
           &context, &window_boundaries);
@@ -2848,13 +2848,13 @@ TEST_F(AnalyticWindowTest, ValidateWindowNegativeOffsetValues) {
                                      std::move(deref_offset_var_again)));
   ZETASQL_ASSERT_OK(following_boundary->SetSchemasForEvaluation({&params_schema}));
 
-  zetasql_base::Status start_following_status =
+  absl::Status start_following_status =
       following_boundary->GetRowsBasedWindowBoundaries(
           false /* is_end_boundary */, 10 /* partition_size */, {&params_data},
           &context, &window_boundaries);
   EXPECT_EQ(expected_error_message, start_following_status.message());
 
-  zetasql_base::Status end_following_status =
+  absl::Status end_following_status =
       following_boundary->GetRowsBasedWindowBoundaries(
           true /* is_end_boundary */, 10 /* partition_size */, {&params_data},
           &context, &window_boundaries);
@@ -3099,13 +3099,13 @@ TEST_P(AnalyticWindowInfinityOffsetTest, PosInfMinusPosInfError) {
   EvaluationContext context((EvaluationOptions()));
   std::vector<int> window_boundaries;
   {
-    zetasql_base::Status start_boundary_stauts =
+    absl::Status start_boundary_stauts =
         inf_preceding->GetRangeBasedWindowBoundaries(
             /*is_end_boundary=*/false, input_schema,
             GetTupleDataPtrs(asc_tuples), {asc_key.get()}, {&params_data},
             &context, &window_boundaries);
     window_boundaries.clear();
-    zetasql_base::Status end_boundary_stauts =
+    absl::Status end_boundary_stauts =
         inf_preceding->GetRangeBasedWindowBoundaries(
             /*is_end_boundary=*/true, input_schema,
             GetTupleDataPtrs(asc_tuples), {asc_key.get()}, {&params_data},
@@ -3124,13 +3124,13 @@ TEST_P(AnalyticWindowInfinityOffsetTest, PosInfMinusPosInfError) {
 
   {
     window_boundaries.clear();
-    zetasql_base::Status start_boundary_stauts =
+    absl::Status start_boundary_stauts =
         inf_preceding->GetRangeBasedWindowBoundaries(
             /*is_end_boundary=*/false, input_schema,
             GetTupleDataPtrs(desc_tuples), {desc_key.get()}, {&params_data},
             &context, &window_boundaries);
     window_boundaries.clear();
-    zetasql_base::Status end_boundary_stauts =
+    absl::Status end_boundary_stauts =
         inf_preceding->GetRangeBasedWindowBoundaries(
             /*is_end_boundary=*/true, input_schema,
             GetTupleDataPtrs(desc_tuples), {desc_key.get()}, {&params_data},
@@ -3149,13 +3149,13 @@ TEST_P(AnalyticWindowInfinityOffsetTest, PosInfMinusPosInfError) {
 
   {
     window_boundaries.clear();
-    zetasql_base::Status start_boundary_stauts =
+    absl::Status start_boundary_stauts =
         inf_following->GetRangeBasedWindowBoundaries(
             /*is_end_boundary=*/false, input_schema,
             GetTupleDataPtrs(asc_tuples), {asc_key.get()}, {&params_data},
             &context, &window_boundaries);
     window_boundaries.clear();
-    zetasql_base::Status end_boundary_stauts =
+    absl::Status end_boundary_stauts =
         inf_following->GetRangeBasedWindowBoundaries(
             /*is_end_boundary=*/true, input_schema,
             GetTupleDataPtrs(asc_tuples), {asc_key.get()}, {&params_data},
@@ -3174,13 +3174,13 @@ TEST_P(AnalyticWindowInfinityOffsetTest, PosInfMinusPosInfError) {
 
   {
     window_boundaries.clear();
-    zetasql_base::Status start_boundary_status =
+    absl::Status start_boundary_status =
         inf_following->GetRangeBasedWindowBoundaries(
             /*is_end_boundary=*/false, input_schema,
             GetTupleDataPtrs(desc_tuples), {desc_key.get()}, {&params_data},
             &context, &window_boundaries);
     window_boundaries.clear();
-    zetasql_base::Status end_boundary_status =
+    absl::Status end_boundary_status =
         inf_following->GetRangeBasedWindowBoundaries(
             /*is_end_boundary=*/true, input_schema,
             GetTupleDataPtrs(desc_tuples), {desc_key.get()}, {&params_data},
@@ -3490,10 +3490,10 @@ TEST_P(AnalyticOpTest, AnalyticOpTest) {
       iter, analytic_op->CreateIterator(EmptyParams(),
                                         /*num_extra_slots=*/1, &context));
   ZETASQL_ASSERT_OK(context.CancelStatement());
-  zetasql_base::Status status;
+  absl::Status status;
   data = ReadFromTupleIteratorFull(iter.get(), &status);
   EXPECT_TRUE(data.empty());
-  EXPECT_THAT(status, StatusIs(zetasql_base::CANCELLED, _));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kCancelled, _));
 
   // Check that scrambling works, but only if preserves_order is false.
   EvaluationContext scramble_context(GetScramblingEvaluationOptions());
@@ -3520,7 +3520,7 @@ TEST_P(AnalyticOpTest, AnalyticOpTest) {
       analytic_op->CreateIterator(EmptyParams(),
                                   /*num_extra_slots=*/1, &memory_context));
   EXPECT_THAT(ReadFromTupleIterator(memory_iter.get()),
-              StatusIs(zetasql_base::StatusCode::kResourceExhausted,
+              StatusIs(absl::StatusCode::kResourceExhausted,
                        HasSubstr("Out of memory")));
 }
 

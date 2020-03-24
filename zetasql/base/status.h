@@ -17,44 +17,13 @@
 #ifndef THIRD_PARTY_ZETASQL_ZETASQL_BASE_STATUS_H_
 #define THIRD_PARTY_ZETASQL_ZETASQL_BASE_STATUS_H_
 
-#include <ostream>
-#include <string>
-#include <unordered_map>
-
-#include "absl/base/attributes.h"
-#include "absl/container/node_hash_map.h"
-#include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
+#include "absl/status/status.h"  
 
 namespace zetasql_base {
-
-// TODO: replace with absl::Cord once available.
-using StatusCord = std::string;
-
-enum class StatusCode {
-  kOk = 0,
-  kCancelled = 1,
-  kUnknown = 2,
-  kInvalidArgument = 3,
-  kDeadlineExceeded = 4,
-  kNotFound = 5,
-  kAlreadyExists = 6,
-  kPermissionDenied = 7,
-  kResourceExhausted = 8,
-  kFailedPrecondition = 9,
-  kAborted = 10,
-  kOutOfRange = 11,
-  kUnimplemented = 12,
-  kInternal = 13,
-  kUnavailable = 14,
-  kDataLoss = 15,
-  kUnauthenticated = 16,
-  kDoNotUseReservedForFutureExpansionUseDefaultInSwitchInstead_ = 20
-};
-
-std::string StatusCodeToString(StatusCode e);
-
-std::ostream& operator<<(std::ostream& os, StatusCode code);
+using absl::OkStatus;
+using absl::Status;
+using absl::StatusCode;
+using absl::StatusCodeToString;
 
 // Handle both for now. This is meant to be _very short lived. Once internal
 // code can safely use the new naming, we will switch that that and drop this.
@@ -76,161 +45,46 @@ constexpr StatusCode INTERNAL = StatusCode::kInternal;
 constexpr StatusCode UNAVAILABLE = StatusCode::kUnavailable;
 constexpr StatusCode DATA_LOSS = StatusCode::kDataLoss;
 
-class ABSL_MUST_USE_RESULT Status;
+using absl::AbortedError;
+using absl::AlreadyExistsError;
+using absl::CancelledError;
+using absl::DataLossError;
+using absl::DeadlineExceededError;
+using absl::FailedPreconditionError;
+using absl::InternalError;
+using absl::InvalidArgumentError;
+using absl::NotFoundError;
+using absl::OutOfRangeError;
+using absl::PermissionDeniedError;
+using absl::ResourceExhaustedError;
+using absl::UnauthenticatedError;
+using absl::UnavailableError;
+using absl::UnimplementedError;
+using absl::UnknownError;
 
-class Status final {
- public:
-  // Builds an OK Status.
-  Status() = default;
-
-  // Constructs a Status object containing a status code and message.
-  // If `code == StatusCode::kOk`, `msg` is ignored and an object identical to
-  // an OK status is constructed.
-  Status(StatusCode code, absl::string_view message);
-
-  // Return the error message (if any).
-  absl::string_view message() const { return message_; }
-
-  // Returns true if the Status is OK.
-  ABSL_MUST_USE_RESULT bool ok() const;
-
-  // Deprecated. Use code().
-  int error_code() const;
-
-  // Deprecated. Use message().
-  std::string error_message() const;
-
-  // Deprecated. Use code().
-  StatusCode CanonicalCode() const;
-
-  // If "ok()", does nothing.  Else adds the given `payload` specified, by
-  // `type_url` as an additional payload.
-  void SetPayload(absl::string_view type_url, const StatusCord& payload);
-
-  bool operator==(const Status& x) const;
-  bool operator!=(const Status& x) const;
-
-  void Update(const Status& rhs) {
-    if (ok()) *this = rhs;
-  }
-
-  // Return a combination of the error code name and message.
-  // Note, no guarantees are made as to the exact nature of the returned string.
-  // Subject to change at any time.
-  std::string ToString() const;
-
-  // Deprecated. Just returns self.
-  Status ToCanonical() const;
-
-  // Ignores any errors. This method does nothing except potentially suppress
-  // complaints from any tools that are checking that errors are not dropped on
-  // the floor.
-  void IgnoreError() const;
-
-  // Returns the stored status code.
-  StatusCode code() const { return code_; }
-
-  // Retrieve a single value associated with `type_url`. Returns absl::nullopt
-  // if no value is associated with `type_url`.
-  absl::optional<StatusCord> GetPayload(const absl::string_view type_url) const;
-
-  // Erase the payload associated with `type_url`, if present.
-  void ErasePayload(absl::string_view type_url);
-
-  void ForEachPayload(
-      const std::function<void(absl::string_view, const StatusCord&)>& visitor)
-      const;
-
- private:
-  StatusCode code_ = StatusCode::kOk;
-  std::string message_;
-  // Structured error payload. String is a 'type_url' for example, a proto
-  // descriptor full name.
-  absl::node_hash_map<std::string, StatusCord> payload_;
-};
-
-inline bool Status::ok() const { return StatusCode::kOk == code_; }
-
-inline int Status::error_code() const { return static_cast<int>(code()); }
-
-inline std::string Status::error_message() const {
-  return std::string(message());
-}
-
-inline StatusCode Status::CanonicalCode() const { return code(); }
-
-inline Status Status::ToCanonical() const { return *this; }
-
-inline bool Status::operator==(const Status& x) const {
-  return (code_ == x.code_) && (message_ == x.message_) &&
-         (payload_ == x.payload_);
-}
-
-inline bool Status::operator!=(const Status& x) const { return !(*this == x); }
-
-inline void Status::IgnoreError() const {
-  // no-op
-}
-
-inline void Status::ForEachPayload(
-    const std::function<void(absl::string_view, const StatusCord&)>& visitor)
-    const {
-  for (auto it = payload_.begin(); it != payload_.end(); ++it) {
-    visitor(it->first, it->second);
-  }
-}
-
-// Prints a human-readable representation of 'x' to 'os'.
-std::ostream& operator<<(std::ostream& os, const Status& x);
-
-// Constructs an OK status object.
-inline Status OkStatus() { return Status(); }
-
-// Each of the functions below creates a canonical error with the given
-// message. The error code of the returned status object matches the name of
-// the function.
-Status AbortedError(absl::string_view message);
-Status AlreadyExistsError(absl::string_view message);
-Status CancelledError(absl::string_view message);
-Status DataLossError(absl::string_view message);
-Status DeadlineExceededError(absl::string_view message);
-Status FailedPreconditionError(absl::string_view message);
-Status InternalError(absl::string_view message);
-Status InvalidArgumentError(absl::string_view message);
-Status NotFoundError(absl::string_view message);
-Status OutOfRangeError(absl::string_view message);
-Status PermissionDeniedError(absl::string_view message);
-Status ResourceExhaustedError(absl::string_view message);
-Status UnauthenticatedError(absl::string_view message);
-Status UnavailableError(absl::string_view message);
-Status UnimplementedError(absl::string_view message);
-Status UnknownError(absl::string_view message);
-
-// Each of the functions below returns true if the given status matches the
-// canonical error code implied by the function's name.
-ABSL_MUST_USE_RESULT bool IsAborted(const Status& status);
-ABSL_MUST_USE_RESULT bool IsAlreadyExists(const Status& status);
-ABSL_MUST_USE_RESULT bool IsCancelled(const Status& status);
-ABSL_MUST_USE_RESULT bool IsDataLoss(const Status& status);
-ABSL_MUST_USE_RESULT bool IsDeadlineExceeded(const Status& status);
-ABSL_MUST_USE_RESULT bool IsFailedPrecondition(const Status& status);
-ABSL_MUST_USE_RESULT bool IsInternal(const Status& status);
-ABSL_MUST_USE_RESULT bool IsInvalidArgument(const Status& status);
-ABSL_MUST_USE_RESULT bool IsNotFound(const Status& status);
-ABSL_MUST_USE_RESULT bool IsOutOfRange(const Status& status);
-ABSL_MUST_USE_RESULT bool IsPermissionDenied(const Status& status);
-ABSL_MUST_USE_RESULT bool IsResourceExhausted(const Status& status);
-ABSL_MUST_USE_RESULT bool IsUnauthenticated(const Status& status);
-ABSL_MUST_USE_RESULT bool IsUnavailable(const Status& status);
-ABSL_MUST_USE_RESULT bool IsUnimplemented(const Status& status);
-ABSL_MUST_USE_RESULT bool IsUnknown(const Status& status);
+using absl::IsAborted;
+using absl::IsAlreadyExists;
+using absl::IsCancelled;
+using absl::IsDataLoss;
+using absl::IsDeadlineExceeded;
+using absl::IsFailedPrecondition;
+using absl::IsInternal;
+using absl::IsInvalidArgument;
+using absl::IsNotFound;
+using absl::IsOutOfRange;
+using absl::IsPermissionDenied;
+using absl::IsResourceExhausted;
+using absl::IsUnauthenticated;
+using absl::IsUnavailable;
+using absl::IsUnimplemented;
+using absl::IsUnknown;
 
 }  // namespace zetasql_base
 
 // This is better than CHECK((val).ok()) because the embedded
 // error string gets printed by the CHECK_EQ.
-#define ZETASQL_CHECK_OK(val) CHECK_EQ(::zetasql_base::OkStatus(), (val))
-#define ZETASQL_DCHECK_OK(val) DCHECK_EQ(::zetasql_base::OkStatus(), (val))
-#define ZETASQL_ZETASQL_CHECK_OK(val) DCHECK_EQ(::zetasql_base::OkStatus(), (val))
+#define ZETASQL_CHECK_OK(val) CHECK_EQ(::absl::OkStatus(), (val))
+#define ZETASQL_DCHECK_OK(val) DCHECK_EQ(::absl::OkStatus(), (val))
+#define ZETASQL_ZETASQL_CHECK_OK(val) DCHECK_EQ(::absl::OkStatus(), (val))
 
 #endif  // THIRD_PARTY_ZETASQL_ZETASQL_BASE_STATUS_H_

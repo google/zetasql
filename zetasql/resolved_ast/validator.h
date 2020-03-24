@@ -44,112 +44,112 @@ class Validator {
   Validator& operator=(const Validator&) = delete;
   ~Validator();
 
-  zetasql_base::Status ValidateResolvedStatement(const ResolvedStatement* statement);
+  absl::Status ValidateResolvedStatement(const ResolvedStatement* statement);
 
-  zetasql_base::Status ValidateStandaloneResolvedExpr(const ResolvedExpr* expr) const;
+  absl::Status ValidateStandaloneResolvedExpr(const ResolvedExpr* expr) const;
 
  private:
   const LanguageOptions language_options_;
 
   // Statements.
-  zetasql_base::Status ValidateResolvedQueryStmt(const ResolvedQueryStmt* query) const;
-  zetasql_base::Status ValidateResolvedCreateDatabaseStmt(
+  absl::Status ValidateResolvedQueryStmt(const ResolvedQueryStmt* query) const;
+  absl::Status ValidateResolvedCreateDatabaseStmt(
       const ResolvedCreateDatabaseStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedIndexStmt(
+  absl::Status ValidateResolvedIndexStmt(
       const ResolvedCreateIndexStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedCreateModelStmt(
+  absl::Status ValidateResolvedCreateModelStmt(
       const ResolvedCreateModelStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedCreateTableStmt(
+  absl::Status ValidateResolvedCreateTableStmt(
       const ResolvedCreateTableStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedGeneratedColumnInfo(
+  absl::Status ValidateResolvedGeneratedColumnInfo(
       const ResolvedColumnDefinition* column_definition,
       const std::set<ResolvedColumn>& visible_columns) const;
-  zetasql_base::Status ValidateResolvedCreateTableAsSelectStmt(
+  absl::Status ValidateResolvedCreateTableAsSelectStmt(
       const ResolvedCreateTableAsSelectStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedCreateViewStmt(
+  absl::Status ValidateResolvedCreateViewStmt(
       const ResolvedCreateViewStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedCreateMaterializedViewStmt(
+  absl::Status ValidateResolvedCreateMaterializedViewStmt(
       const ResolvedCreateMaterializedViewStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedCreateExternalTableStmt(
+  absl::Status ValidateResolvedCreateExternalTableStmt(
       const ResolvedCreateExternalTableStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedCreateRowAccessPolicyStmt(
+  absl::Status ValidateResolvedCreateRowAccessPolicyStmt(
       const ResolvedCreateRowAccessPolicyStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedCreateConstantStmt(
+  absl::Status ValidateResolvedCreateConstantStmt(
       const ResolvedCreateConstantStmt* stmt);
-  zetasql_base::Status ValidateResolvedCreateFunctionStmt(
+  absl::Status ValidateResolvedCreateFunctionStmt(
       const ResolvedCreateFunctionStmt* stmt);
-  zetasql_base::Status ValidateResolvedCreateTableFunctionStmt(
+  absl::Status ValidateResolvedCreateTableFunctionStmt(
       const ResolvedCreateTableFunctionStmt* stmt);
-  zetasql_base::Status ValidateResolvedCreateProcedureStmt(
+  absl::Status ValidateResolvedCreateProcedureStmt(
       const ResolvedCreateProcedureStmt* stmt);
-  zetasql_base::Status ValidateResolvedExportDataStmt(
+  absl::Status ValidateResolvedExportDataStmt(
       const ResolvedExportDataStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedCallStmt(const ResolvedCallStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedDefineTableStmt(
+  absl::Status ValidateResolvedCallStmt(const ResolvedCallStmt* stmt) const;
+  absl::Status ValidateResolvedDefineTableStmt(
       const ResolvedDefineTableStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedDescribeStmt(
+  absl::Status ValidateResolvedDescribeStmt(
       const ResolvedDescribeStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedShowStmt(
+  absl::Status ValidateResolvedShowStmt(
       const ResolvedShowStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedBeginStmt(const ResolvedBeginStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedSetTransactionStmt(
+  absl::Status ValidateResolvedBeginStmt(const ResolvedBeginStmt* stmt) const;
+  absl::Status ValidateResolvedSetTransactionStmt(
       const ResolvedSetTransactionStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedCommitStmt(const ResolvedCommitStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedRollbackStmt(
+  absl::Status ValidateResolvedCommitStmt(const ResolvedCommitStmt* stmt) const;
+  absl::Status ValidateResolvedRollbackStmt(
       const ResolvedRollbackStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedStartBatchStmt(
+  absl::Status ValidateResolvedStartBatchStmt(
       const ResolvedStartBatchStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedRunBatchStmt(
+  absl::Status ValidateResolvedRunBatchStmt(
       const ResolvedRunBatchStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedAbortBatchStmt(
+  absl::Status ValidateResolvedAbortBatchStmt(
       const ResolvedAbortBatchStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedDropStmt(
+  absl::Status ValidateResolvedDropStmt(
       const ResolvedDropStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedDropMaterializedViewStmt(
+  absl::Status ValidateResolvedDropMaterializedViewStmt(
       const ResolvedDropMaterializedViewStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedDropFunctionStmt(
+  absl::Status ValidateResolvedDropFunctionStmt(
       const ResolvedDropFunctionStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedDropRowAccessPolicyStmt(
+  absl::Status ValidateResolvedDropRowAccessPolicyStmt(
       const ResolvedDropRowAccessPolicyStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedGrantStmt(
+  absl::Status ValidateResolvedGrantStmt(
       const ResolvedGrantStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedRevokeStmt(
+  absl::Status ValidateResolvedRevokeStmt(
       const ResolvedRevokeStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedGrantToAction(
+  absl::Status ValidateResolvedGrantToAction(
       const ResolvedGrantToAction* stmt) const;
-  zetasql_base::Status ValidateResolvedFilterUsingAction(
+  absl::Status ValidateResolvedFilterUsingAction(
       const ResolvedFilterUsingAction* stmt) const;
-  zetasql_base::Status ValidateResolvedRevokeFromAction(
+  absl::Status ValidateResolvedRevokeFromAction(
       const ResolvedRevokeFromAction* stmt) const;
-  zetasql_base::Status ValidateResolvedRenameToAction(
+  absl::Status ValidateResolvedRenameToAction(
       const ResolvedRenameToAction* stmt) const;
-  zetasql_base::Status ValidateResolvedRowAccessPolicyAlterAction(
+  absl::Status ValidateResolvedRowAccessPolicyAlterAction(
       const ResolvedAlterAction* action,
       const std::set<ResolvedColumn>& visible_columns) const;
-  zetasql_base::Status ValidateResolvedAlterRowAccessPolicyStmt(
+  absl::Status ValidateResolvedAlterRowAccessPolicyStmt(
       const ResolvedAlterRowAccessPolicyStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedAlterTableSetOptionsStmt(
+  absl::Status ValidateResolvedAlterTableSetOptionsStmt(
       const ResolvedAlterTableSetOptionsStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedRenameStmt(
+  absl::Status ValidateResolvedRenameStmt(
       const ResolvedRenameStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedImportStmt(const ResolvedImportStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedModuleStmt(const ResolvedModuleStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedAssertStmt(const ResolvedAssertStmt* stmt) const;
-  zetasql_base::Status ValidateResolvedAssignmentStmt(
+  absl::Status ValidateResolvedImportStmt(const ResolvedImportStmt* stmt) const;
+  absl::Status ValidateResolvedModuleStmt(const ResolvedModuleStmt* stmt) const;
+  absl::Status ValidateResolvedAssertStmt(const ResolvedAssertStmt* stmt) const;
+  absl::Status ValidateResolvedAssignmentStmt(
       const ResolvedAssignmentStmt* stmt) const;
 
   // DML Statements, which can also be used as nested operations inside UPDATEs.
   // When used nested, they take a non-NULL <array_element_column> and
   // <outer_visible_columns>.
-  zetasql_base::Status ValidateResolvedInsertStmt(
+  absl::Status ValidateResolvedInsertStmt(
       const ResolvedInsertStmt* stmt,
       const std::set<ResolvedColumn>* outer_visible_columns = nullptr,
       const ResolvedColumn* array_element_column = nullptr) const;
-  zetasql_base::Status ValidateResolvedDeleteStmt(
+  absl::Status ValidateResolvedDeleteStmt(
       const ResolvedDeleteStmt* stmt,
       const std::set<ResolvedColumn>* outer_visible_columns = nullptr,
       const ResolvedColumn* array_element_column = nullptr) const;
-  zetasql_base::Status ValidateResolvedUpdateStmt(
+  absl::Status ValidateResolvedUpdateStmt(
       const ResolvedUpdateStmt* stmt,
       const std::set<ResolvedColumn>* outer_visible_columns = nullptr,
       const ResolvedColumn* array_element_column = nullptr) const;
@@ -158,7 +158,7 @@ class Validator {
   // ResolvedUpdateArrayItem. In the latter case, <array_element_column> is
   // non-NULL and is in <target_visible_columns> but not
   // <offset_and_where_visible_columns>.
-  zetasql_base::Status ValidateResolvedUpdateItem(
+  absl::Status ValidateResolvedUpdateItem(
       const ResolvedUpdateItem* item, bool allow_nested_statements,
       const ResolvedColumn* array_element_column,
       const std::set<ResolvedColumn>& target_visible_columns,
@@ -166,244 +166,244 @@ class Validator {
 
   // <element_column> is not in <target_visible_columns> or
   // <offset_and_where_visible_columns>
-  zetasql_base::Status ValidateResolvedUpdateArrayItem(
+  absl::Status ValidateResolvedUpdateArrayItem(
       const ResolvedUpdateArrayItem* item, const ResolvedColumn& element_column,
       const std::set<ResolvedColumn>& target_visible_columns,
       const std::set<ResolvedColumn>& offset_and_where_visible_columns) const;
 
   // Merge statement is not supported in nested-DML.
-  zetasql_base::Status ValidateResolvedMergeStmt(const ResolvedMergeStmt* stmt) const;
+  absl::Status ValidateResolvedMergeStmt(const ResolvedMergeStmt* stmt) const;
   // The source_visible_columns and target_visible_columns are visible columns
   // from source and target tables.
   // The all_visible_columns is union of source and target columns. Passed as a
   // parameter to avoid re-computing every time.
-  zetasql_base::Status ValidateResolvedMergeWhen(
+  absl::Status ValidateResolvedMergeWhen(
       const ResolvedMergeWhen* merge_when,
       const std::set<ResolvedColumn>& all_visible_columns,
       const std::set<ResolvedColumn>& source_visible_columns,
       const std::set<ResolvedColumn>& target_visible_columns) const;
 
-  zetasql_base::Status ValidateResolvedTruncateStmt(
+  absl::Status ValidateResolvedTruncateStmt(
       const ResolvedTruncateStmt* stmt) const;
 
   // Templated common code for all DML statements.
   template <class STMT>
-  zetasql_base::Status ValidateResolvedDMLStmt(
+  absl::Status ValidateResolvedDMLStmt(
       const STMT* stmt,
       const ResolvedColumn* array_element_column,
       std::set<ResolvedColumn>* visible_columns) const;
 
   // Validation calls for various subtypes of ResolvedScan operations.
-  zetasql_base::Status ValidateResolvedScan(
+  absl::Status ValidateResolvedScan(
       const ResolvedScan* scan,
       const std::set<ResolvedColumn>& visible_parameters) const;
-  zetasql_base::Status ValidateResolvedAggregateScanBase(
+  absl::Status ValidateResolvedAggregateScanBase(
       const ResolvedAggregateScanBase* scan,
       const std::set<ResolvedColumn>& visible_parameters,
       std::set<ResolvedColumn>* input_scan_visible_columns) const;
-  zetasql_base::Status ValidateResolvedAggregateScan(
+  absl::Status ValidateResolvedAggregateScan(
       const ResolvedAggregateScan* scan,
       const std::set<ResolvedColumn>& visible_parameters) const;
-  zetasql_base::Status ValidateResolvedTableScan(
+  absl::Status ValidateResolvedTableScan(
       const ResolvedTableScan* scan,
       const std::set<ResolvedColumn>& visible_parameters) const;
-  zetasql_base::Status ValidateResolvedJoinScan(
+  absl::Status ValidateResolvedJoinScan(
       const ResolvedJoinScan* scan,
       const std::set<ResolvedColumn>& visible_parameters) const;
-  zetasql_base::Status ValidateResolvedArrayScan(
+  absl::Status ValidateResolvedArrayScan(
       const ResolvedArrayScan* scan,
       const std::set<ResolvedColumn>& visible_parameters) const;
-  zetasql_base::Status ValidateResolvedFilterScan(
+  absl::Status ValidateResolvedFilterScan(
       const ResolvedFilterScan* scan,
       const std::set<ResolvedColumn>& visible_parameters) const;
-  zetasql_base::Status ValidateResolvedSetOperationScan(
+  absl::Status ValidateResolvedSetOperationScan(
       const ResolvedSetOperationScan* set_op_scan,
       const std::set<ResolvedColumn>& visible_parameters) const;
-  zetasql_base::Status ValidateResolvedProjectScan(
+  absl::Status ValidateResolvedProjectScan(
       const ResolvedProjectScan* scan,
       const std::set<ResolvedColumn>& visible_parameters) const;
-  zetasql_base::Status ValidateResolvedTVFScan(
+  absl::Status ValidateResolvedTVFScan(
       const ResolvedTVFScan* resolved_tvf_scan,
       const std::set<ResolvedColumn>& visible_parameters) const;
-  zetasql_base::Status ValidateResolvedRelationArgumentScan(
+  absl::Status ValidateResolvedRelationArgumentScan(
       const ResolvedRelationArgumentScan* arg_ref,
       const std::set<ResolvedColumn>& visible_parameters) const;
-  zetasql_base::Status ValidateResolvedOrderByScan(
+  absl::Status ValidateResolvedOrderByScan(
       const ResolvedOrderByScan* scan,
       const std::set<ResolvedColumn>& visible_parameters) const;
-  zetasql_base::Status ValidateResolvedLimitOffsetScan(
+  absl::Status ValidateResolvedLimitOffsetScan(
       const ResolvedLimitOffsetScan* scan,
       const std::set<ResolvedColumn>& visible_parameters) const;
-  zetasql_base::Status ValidateResolvedAnalyticScan(
+  absl::Status ValidateResolvedAnalyticScan(
       const ResolvedAnalyticScan* scan,
       const std::set<ResolvedColumn>& visible_parameters) const;
-  zetasql_base::Status ValidateResolvedSampleScan(
+  absl::Status ValidateResolvedSampleScan(
       const ResolvedSampleScan* scan,
       const std::set<ResolvedColumn>& visible_parameters) const;
 
   // For a scan with is_ordered=true, validate that this scan can legally
   // produce ordered output.
-  zetasql_base::Status ValidateResolvedScanOrdering(const ResolvedScan* scan) const;
+  absl::Status ValidateResolvedScanOrdering(const ResolvedScan* scan) const;
 
-  zetasql_base::Status ValidateResolvedWithScan(
+  absl::Status ValidateResolvedWithScan(
       const ResolvedWithScan* scan,
       const std::set<ResolvedColumn>& visible_parameters) const;
 
-  zetasql_base::Status ValidateResolvedAggregateComputedColumn(
+  absl::Status ValidateResolvedAggregateComputedColumn(
       const ResolvedComputedColumn* computed_column,
       const std::set<ResolvedColumn>& input_scan_visible_columns,
       const std::set<ResolvedColumn>& visible_parameters) const;
 
   // Verifies that all the internal references in <expr> are present in
   // the <visible_columns> scope.
-  zetasql_base::Status ValidateResolvedExpr(
+  absl::Status ValidateResolvedExpr(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedExpr* expr) const;
 
-  zetasql_base::Status ValidateResolvedGetProtoFieldExpr(
+  absl::Status ValidateResolvedGetProtoFieldExpr(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedGetProtoField* get_proto_field) const;
 
-  zetasql_base::Status ValidateResolvedReplaceField(
+  absl::Status ValidateResolvedReplaceField(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedReplaceField* replace_field) const;
 
-  zetasql_base::Status ValidateResolvedSubqueryExpr(
+  absl::Status ValidateResolvedSubqueryExpr(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedSubqueryExpr* resolved_subquery_expr) const;
 
   // Verifies that all the internal references in <expr_list> are present
   // in the <visible_columns> scope.
-  zetasql_base::Status ValidateResolvedExprList(
+  absl::Status ValidateResolvedExprList(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
       const std::vector<std::unique_ptr<const ResolvedExpr>>& expr_list) const;
 
-  zetasql_base::Status ValidateResolvedComputedColumn(
+  absl::Status ValidateResolvedComputedColumn(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedComputedColumn* computed_column) const;
 
-  zetasql_base::Status ValidateResolvedComputedColumnList(
+  absl::Status ValidateResolvedComputedColumnList(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
       const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
           computed_column_list) const;
 
-  zetasql_base::Status ValidateResolvedOutputColumn(
+  absl::Status ValidateResolvedOutputColumn(
       const std::set<ResolvedColumn>& visible_columns,
       const ResolvedOutputColumn* output_column) const;
 
-  zetasql_base::Status ValidateResolvedOutputColumnList(
+  absl::Status ValidateResolvedOutputColumnList(
       const std::vector<ResolvedColumn>& visible_columns,
       const std::vector<std::unique_ptr<const ResolvedOutputColumn>>&
           output_column_list,
       bool is_value_table) const;
-  zetasql_base::Status ValidateResolvedCreateTableStmtBase(
+  absl::Status ValidateResolvedCreateTableStmtBase(
       const ResolvedCreateTableStmtBase* stmt) const;
 
-  zetasql_base::Status ValidateResolvedCast(
+  absl::Status ValidateResolvedCast(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedCast* resolved_cast) const;
 
-  zetasql_base::Status ValidateResolvedConstant(
+  absl::Status ValidateResolvedConstant(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedConstant* resolved_constant) const;
 
-  zetasql_base::Status ValidateResolvedFunctionCallBase(
+  absl::Status ValidateResolvedFunctionCallBase(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedFunctionCallBase* resolved_function_call) const;
 
-  zetasql_base::Status ValidateHintList(
+  absl::Status ValidateHintList(
       const std::vector<std::unique_ptr<const ResolvedOption>>& hint_list)
       const;
 
-  zetasql_base::Status ValidateColumnAnnotations(
+  absl::Status ValidateColumnAnnotations(
       const ResolvedColumnAnnotations* annotations) const;
 
   // Verifies that only one of the parameter name and position is set.
-  zetasql_base::Status ValidateResolvedParameter(
+  absl::Status ValidateResolvedParameter(
       const ResolvedParameter* resolved_param) const;
 
-  zetasql_base::Status ValidateResolvedTVFArgument(
+  absl::Status ValidateResolvedTVFArgument(
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedTVFArgument* resolved_tvf_arg) const;
 
   // Validates TVF relation argument schema against the required input schema
   // in function signature.
-  zetasql_base::Status ValidateRelationSchemaInResolvedTVFArgument(
+  absl::Status ValidateRelationSchemaInResolvedTVFArgument(
       const TVFRelation& required_input_schema,
       const TVFRelation& input_relation,
       const ResolvedTVFArgument* resolved_tvf_arg) const;
 
-  zetasql_base::Status CheckColumnIsPresentInColumnSet(
+  absl::Status CheckColumnIsPresentInColumnSet(
       const ResolvedColumn& column,
       const std::set<ResolvedColumn>& visible_columns) const;
 
   // Verifies that the scan column list only contains column from the visible
   // set.
-  zetasql_base::Status CheckColumnList(const ResolvedScan* scan,
+  absl::Status CheckColumnList(const ResolvedScan* scan,
                                const std::set<ResolvedColumn>& visible_columns)
       const;
 
-  zetasql_base::Status AddColumnList(const ResolvedColumnList& column_list,
+  absl::Status AddColumnList(const ResolvedColumnList& column_list,
                              std::set<ResolvedColumn>* visible_columns) const;
-  zetasql_base::Status AddColumnFromComputedColumn(
+  absl::Status AddColumnFromComputedColumn(
       const ResolvedComputedColumn* computed_column,
       std::set<ResolvedColumn>* visible_columns) const;
-  zetasql_base::Status AddColumnsFromComputedColumnList(
+  absl::Status AddColumnsFromComputedColumnList(
       const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
           computed_column_list,
       std::set<ResolvedColumn>* visible_columns) const;
 
-  zetasql_base::Status ValidateResolvedAnalyticFunctionGroup(
+  absl::Status ValidateResolvedAnalyticFunctionGroup(
       const ResolvedAnalyticFunctionGroup* group,
       const std::set<ResolvedColumn>& input_visible_columns,
       const std::set<ResolvedColumn>& visible_parameters) const;
 
-  zetasql_base::Status ValidateResolvedWindowFrame(
+  absl::Status ValidateResolvedWindowFrame(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedWindowOrdering* window_ordering,
       const ResolvedWindowFrame* window_frame) const;
 
-  zetasql_base::Status ValidateResolvedWindowFrameExpr(
+  absl::Status ValidateResolvedWindowFrameExpr(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedWindowOrdering* window_ordering,
       const ResolvedWindowFrame::FrameUnit& frame_unit,
       const ResolvedWindowFrameExpr* window_frame_expr) const;
 
-  zetasql_base::Status ValidateResolvedWindowFrameExprType(
+  absl::Status ValidateResolvedWindowFrameExprType(
       const ResolvedWindowFrame::FrameUnit& frame_unit,
       const ResolvedExpr* window_ordering_expr,
       const ResolvedExpr& window_frame_expr) const;
 
-  zetasql_base::Status ValidateResolvedAlterObjectStmt(
+  absl::Status ValidateResolvedAlterObjectStmt(
       const ResolvedAlterObjectStmt* stmt) const;
 
-  zetasql_base::Status ValidateResolvedAlterAction(
+  absl::Status ValidateResolvedAlterAction(
       const ResolvedAlterAction* action) const;
 
-  zetasql_base::Status ValidateResolvedExecuteImmediateStmt(
+  absl::Status ValidateResolvedExecuteImmediateStmt(
       const ResolvedExecuteImmediateStmt* stmt) const;
 
   // Check that <expr> contains only ColumnRefs, GetProtoField and
   // GetStructField expressions. Sets 'ref' to point to the leaf
   // ResolvedColumnRef.
-  zetasql_base::Status CheckExprIsPath(const ResolvedExpr* expr,
+  absl::Status CheckExprIsPath(const ResolvedExpr* expr,
                                const ResolvedColumnRef** ref) const;
 
   // Validates whether <expr> is a literal or a parameter. In either case, it
   // should be of type int64_t.
-  zetasql_base::Status ValidateArgumentIsInt64Constant(const ResolvedExpr* expr) const;
+  absl::Status ValidateArgumentIsInt64Constant(const ResolvedExpr* expr) const;
 
   // Which ArgumentKinds are allowed in the current expression.
   // Set using scoped VarSetters.

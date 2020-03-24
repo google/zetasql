@@ -25,7 +25,7 @@
 #include "zetasql/public/types/type.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 
 namespace zetasql {
 namespace internal {  //   For internal use only
@@ -144,7 +144,7 @@ int64_t GetExternallyAllocatedMemoryEstimate(
 // descriptor sets, indexed by the file descriptor's pool. Returns the 0-based
 // <file_descriptor_set_index> corresponding to file descriptor set to which
 // the dependencies were added.  Returns an error on out-of-memory.
-zetasql_base::Status PopulateDistinctFileDescriptorSets(
+absl::Status PopulateDistinctFileDescriptorSets(
     const google::protobuf::FileDescriptor* file_descr,
     absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
     FileDescriptorSetMap* file_descriptor_set_map,

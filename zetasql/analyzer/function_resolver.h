@@ -66,7 +66,7 @@ class FunctionResolver {
   // * <expected_result_type> is optional and when specified should match the
   //   result_type of the function signature while resolving. Otherwise there is
   //   no match.
-  zetasql_base::Status ResolveGeneralFunctionCall(
+  absl::Status ResolveGeneralFunctionCall(
       const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
       const Function* function, ResolvedFunctionCallBase::ErrorMode error_mode,
@@ -79,7 +79,7 @@ class FunctionResolver {
   // These are the same as previous but they take a (possibly multipart)
   // function name and looks it up in the <resolver_> catalog.  Multipart
   // names are prefixed by their (nested) catalog names.
-  zetasql_base::Status ResolveGeneralFunctionCall(
+  absl::Status ResolveGeneralFunctionCall(
       const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
       const std::string& function_name, bool is_analytic,
@@ -87,7 +87,7 @@ class FunctionResolver {
       std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
       const Type* expected_result_type,
       std::unique_ptr<ResolvedFunctionCall>* resolved_expr_out);
-  zetasql_base::Status ResolveGeneralFunctionCall(
+  absl::Status ResolveGeneralFunctionCall(
       const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
       const std::vector<std::string>& function_name_path, bool is_analytic,
@@ -113,7 +113,7 @@ class FunctionResolver {
   //
   // Finally, once this check is complete, this method returns the result type
   // of this function call in <function_call_info>.
-  zetasql_base::Status ResolveTemplatedSQLFunctionCall(
+  absl::Status ResolveTemplatedSQLFunctionCall(
       const ASTNode* ast_location, const TemplatedSQLFunction& function,
       const AnalyzerOptions& analyzer_options,
       const std::vector<InputArgumentType>& actual_arguments,
@@ -123,15 +123,15 @@ class FunctionResolver {
   // expression.  If 'status' is OK, also returns OK. Otherwise, returns a
   // new error forwarding any nested errors in 'status' obtained from the
   // nested parsing or analysis.
-  static zetasql_base::Status ForwardNestedResolutionAnalysisError(
-      const TemplatedSQLFunction& function, const zetasql_base::Status& status,
+  static absl::Status ForwardNestedResolutionAnalysisError(
+      const TemplatedSQLFunction& function, const absl::Status& status,
       ErrorMessageMode mode);
 
   // Returns a new error message reporting a failure parsing or analyzing the
   // SQL body. If 'message' is not empty, appends it to the end of the error
   // string.
-  static zetasql_base::Status MakeFunctionExprAnalysisError(
-      const TemplatedSQLFunction& function, const std::string& message = "");
+  static absl::Status MakeFunctionExprAnalysisError(
+      const TemplatedSQLFunction& function, absl::string_view message = "");
 
   // Converts <argument> to <target_type> and replaces <argument> with the new
   // expression if successful. If <argument> is a converted literal and
@@ -144,7 +144,7 @@ class FunctionResolver {
   // Note: <ast_location> is expected to refer to the location of <argument>,
   // and would be more appropriate as type ASTExpression, though this would
   // require refactoring some callers.
-  zetasql_base::Status AddCastOrConvertLiteral(
+  absl::Status AddCastOrConvertLiteral(
       const ASTNode* ast_location,
       const Type* target_type,
       const ResolvedScan* scan,  // May be null
@@ -176,7 +176,7 @@ class FunctionResolver {
   // <expr_info> and <query_info> should be valid at the time that
   // <resolved_expr> is generated. Note that <sql_function_body_location> is
   // optional, and will be used to help construct the error message if present.
-  static zetasql_base::Status CheckCreateAggregateFunctionProperties(
+  static absl::Status CheckCreateAggregateFunctionProperties(
       const ResolvedExpr& resolved_expr,
       const ASTNode* sql_function_body_location,
       const ExprResolutionInfo* expr_info,
@@ -203,7 +203,7 @@ class FunctionResolver {
   // in <named_arguments>) then this method may inject suitable default values
   // in <expr_args>, <input_arg_types>, and/or <tvf_arg_types>. Currently this
   // method injects a NULL value for such missing arguments as a default policy.
-  zetasql_base::Status ProcessNamedArguments(
+  absl::Status ProcessNamedArguments(
       const std::string& function_name, const FunctionSignature& signature,
       const ASTNode* ast_location,
       const std::vector<std::pair<const ASTNamedArgument*, int>>&
@@ -362,7 +362,7 @@ class FunctionResolver {
   // This method is only relevant for table-valued functions. It returns true in
   // 'signature_matches' if a relation input argument type matches a signature
   // argument type, and sets information in 'signature_match_result' either way.
-  zetasql_base::Status CheckRelationArgumentTypes(
+  absl::Status CheckRelationArgumentTypes(
       int arg_idx, const InputArgumentType& input_argument,
       const FunctionArgumentType& signature_argument,
       bool allow_argument_coercion,
@@ -371,7 +371,7 @@ class FunctionResolver {
 
   // Check a literal argument value against value constraints for a given
   // argument, and return an error if any are violated.
-  zetasql_base::Status CheckArgumentValueConstraints(
+  absl::Status CheckArgumentValueConstraints(
       const ASTNode* arg_location, int idx, const Value& value,
       const FunctionArgumentType& concrete_argument,
       const std::function<std::string(int)>& BadArgErrorPrefix) const;
@@ -390,7 +390,7 @@ class FunctionResolver {
   // <return_null_on_error> indicates whether the cast should return a NULL
   // value of the <target_type> in case of cast failures, which should only be
   // set to true when using SAFE_CAST.
-  zetasql_base::Status ConvertLiteralToType(
+  absl::Status ConvertLiteralToType(
       const ASTNode* ast_location, const ResolvedLiteral* argument_literal,
       const Type* target_type, const ResolvedScan* scan,
       bool set_has_explicit_type, bool return_null_on_error,

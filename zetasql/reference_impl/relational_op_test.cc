@@ -50,7 +50,7 @@
 #include <cstdint>
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
@@ -685,7 +685,7 @@ TEST_F(CreateIteratorTest, EvaluatorTableScanOpWithColumnFilter) {
        {"column3", proto_type_}},
       {{Int64(10), Int64(100), String("foo1"), GetProtoValue(0)},
        {Int64(20), Int64(200), String("foo2"), GetProtoValue(1)}},
-      /*end_status=*/zetasql_base::OkStatus(), /*column_filter_idxs=*/{0, 1});
+      /*end_status=*/absl::OkStatus(), /*column_filter_idxs=*/{0, 1});
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto array_expr,
                        ConstExpr::Create(Int64Array({100, 110})));
@@ -732,7 +732,7 @@ TEST_F(CreateIteratorTest, EvaluatorTableScanOpWithColumnFilter) {
 
 TEST_F(CreateIteratorTest, EvaluatorTableScanOpFailure) {
   const std::string error = "Failed to read row from TestTable";
-  const zetasql_base::Status failure = zetasql_base::OutOfRangeErrorBuilder() << error;
+  const absl::Status failure = zetasql_base::OutOfRangeErrorBuilder() << error;
 
   EvaluatorTestTable table("TestTable", {{"column0", types::Int64Type()}},
                            {{Int64(10)}, {Int64(20)}}, failure);
@@ -746,14 +746,14 @@ TEST_F(CreateIteratorTest, EvaluatorTableScanOpFailure) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<TupleIterator> iter,
       scan_op->CreateIterator(EmptyParams(), /*num_extra_slots=*/1, &context));
-  zetasql_base::Status status;
+  absl::Status status;
   std::vector<TupleData> data = ReadFromTupleIteratorFull(iter.get(), &status);
   ASSERT_EQ(data.size(), 2);
   EXPECT_THAT(data[0].slots(),
               ElementsAre(IsTupleSlotWith(Int64(10), IsNull()), _));
   EXPECT_THAT(data[1].slots(),
               ElementsAre(IsTupleSlotWith(Int64(20), IsNull()), _));
-  EXPECT_THAT(status, StatusIs(zetasql_base::OUT_OF_RANGE, error));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kOutOfRange, error));
 }
 
 TEST_F(CreateIteratorTest, EvaluatorTableScanOpCancellation) {
@@ -762,7 +762,7 @@ TEST_F(CreateIteratorTest, EvaluatorTableScanOpCancellation) {
     ++num_cancel_calls;
   };
   EvaluatorTestTable table("TestTable", {{"column0", types::Int64Type()}},
-                           {{Int64(10)}, {Int64(20)}}, zetasql_base::OkStatus(),
+                           {{Int64(10)}, {Int64(20)}}, absl::OkStatus(),
                            /*column_filter_idxs=*/{}, cancel_cb);
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto scan_op, EvaluatorTableScanOp::Create(&table, /*alias=*/"", {0},
@@ -775,10 +775,10 @@ TEST_F(CreateIteratorTest, EvaluatorTableScanOpCancellation) {
       std::unique_ptr<TupleIterator> iter,
       scan_op->CreateIterator(EmptyParams(), /*num_extra_slots=*/1, &context));
   ZETASQL_ASSERT_OK(context.CancelStatement());
-  zetasql_base::Status status;
+  absl::Status status;
   std::vector<TupleData> data = ReadFromTupleIteratorFull(iter.get(), &status);
   EXPECT_TRUE(data.empty());
-  EXPECT_THAT(status, StatusIs(zetasql_base::CANCELLED, _));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kCancelled, _));
   EXPECT_EQ(num_cancel_calls, 1);
 }
 
@@ -795,7 +795,7 @@ TEST_F(CreateIteratorTest, EvaluatorTableScanOpDeadlineExceeded) {
 
   zetasql_base::SimulatedClock clock(absl::UnixEpoch());
   EvaluatorTestTable table("TestTable", {{"column0", types::Int64Type()}},
-                           {{Int64(10)}, {Int64(20)}}, zetasql_base::OkStatus(),
+                           {{Int64(10)}, {Int64(20)}}, absl::OkStatus(),
                            /*column_filter_idxs=*/{}, cancel_cb,
                            set_deadline_cb, &clock);
   ZETASQL_ASSERT_OK_AND_ASSIGN(
@@ -824,7 +824,7 @@ TEST_F(CreateIteratorTest, EvaluatorTableScanOpDeadlineExceeded) {
   EXPECT_EQ(num_cancel_calls, 0);
   EXPECT_THAT(deadlines, ElementsAre(deadline));
   EXPECT_TRUE(tuple == nullptr);
-  EXPECT_THAT(iter->Status(), StatusIs(zetasql_base::DEADLINE_EXCEEDED, _));
+  EXPECT_THAT(iter->Status(), StatusIs(absl::StatusCode::kDeadlineExceeded, _));
 }
 
 TEST_F(CreateIteratorTest, LetOp) {
@@ -924,7 +924,7 @@ TEST_F(CreateIteratorTest, LetOp) {
       GetIntermediateMemoryEvaluationOptions(/*total_bytes=*/1));
   EXPECT_THAT(let_op->CreateIterator({&params_data},
                                      /*num_extra_slots=*/1, &memory_context),
-              StatusIs(zetasql_base::StatusCode::kResourceExhausted));
+              StatusIs(absl::StatusCode::kResourceExhausted));
 }
 
 // For readability.
@@ -1032,10 +1032,10 @@ TEST_F(CreateIteratorTest, InnerJoin) {
       iter,
       join_op->CreateIterator({&params_data}, /*num_extra_slots=*/1, &context));
   ZETASQL_ASSERT_OK(context.CancelStatement());
-  zetasql_base::Status status;
+  absl::Status status;
   data = ReadFromTupleIteratorFull(iter.get(), &status);
   EXPECT_TRUE(data.empty());
-  EXPECT_THAT(status, StatusIs(zetasql_base::CANCELLED, _));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kCancelled, _));
 
   // Check that scrambling works. We have to use a new iterator variable because
   // the context must outlive the iterator.
@@ -1060,7 +1060,7 @@ TEST_F(CreateIteratorTest, InnerJoin) {
       /*total_bytes=*/100));
   EXPECT_THAT(join_op->CreateIterator({&params_data},
                                       /*num_extra_slots=*/1, &memory_context),
-              StatusIs(zetasql_base::StatusCode::kResourceExhausted,
+              StatusIs(absl::StatusCode::kResourceExhausted,
                        HasSubstr("Out of memory")));
 }
 
@@ -1186,10 +1186,10 @@ TEST_F(CreateIteratorTest, LeftOuterJoin) {
       iter,
       join_op->CreateIterator({&params_data}, /*num_extra_slots=*/1, &context));
   ZETASQL_ASSERT_OK(context.CancelStatement());
-  zetasql_base::Status status;
+  absl::Status status;
   data = ReadFromTupleIteratorFull(iter.get(), &status);
   EXPECT_TRUE(data.empty());
-  EXPECT_THAT(status, StatusIs(zetasql_base::CANCELLED, _));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kCancelled, _));
 
   // Check that scrambling works. We have to use a new iterator variable because
   // the context must outlive the iterator.
@@ -1215,7 +1215,7 @@ TEST_F(CreateIteratorTest, LeftOuterJoin) {
       /*total_bytes=*/100));
   EXPECT_THAT(join_op->CreateIterator({&params_data},
                                       /*num_extra_slots=*/1, &memory_context),
-              StatusIs(zetasql_base::StatusCode::kResourceExhausted,
+              StatusIs(absl::StatusCode::kResourceExhausted,
                        HasSubstr("Out of memory")));
 }
 
@@ -1346,10 +1346,10 @@ TEST_F(CreateIteratorTest, RightOuterJoin) {
       iter,
       join_op->CreateIterator({&params_data}, /*num_extra_slots=*/1, &context));
   ZETASQL_ASSERT_OK(context.CancelStatement());
-  zetasql_base::Status status;
+  absl::Status status;
   data = ReadFromTupleIteratorFull(iter.get(), &status);
   EXPECT_TRUE(data.empty());
-  EXPECT_THAT(status, StatusIs(zetasql_base::CANCELLED, _));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kCancelled, _));
 
   // Check that scrambling works. We have to use a new iterator variable because
   // the context must outlive the iterator.
@@ -1375,7 +1375,7 @@ TEST_F(CreateIteratorTest, RightOuterJoin) {
       /*total_bytes=*/100));
   EXPECT_THAT(join_op->CreateIterator({&params_data},
                                       /*num_extra_slots=*/1, &memory_context),
-              StatusIs(zetasql_base::StatusCode::kResourceExhausted,
+              StatusIs(absl::StatusCode::kResourceExhausted,
                        HasSubstr("Out of memory")));
 }
 
@@ -1514,7 +1514,7 @@ TEST_F(CreateIteratorTest, FullOuterJoin) {
       /*total_bytes=*/100));
   EXPECT_THAT(join_op->CreateIterator({&params_data},
                                       /*num_extra_slots=*/1, &memory_context),
-              StatusIs(zetasql_base::StatusCode::kResourceExhausted,
+              StatusIs(absl::StatusCode::kResourceExhausted,
                        HasSubstr("Out of memory")));
 }
 
@@ -1614,7 +1614,7 @@ TEST_F(CreateIteratorTest, FullOuterAllRightTuplesJoin) {
       /*total_bytes=*/10));
   EXPECT_THAT(join_op->CreateIterator({&params_data},
                                       /*num_extra_slots=*/1, &memory_context),
-              StatusIs(zetasql_base::StatusCode::kResourceExhausted,
+              StatusIs(absl::StatusCode::kResourceExhausted,
                        HasSubstr("Out of memory")));
 }
 
@@ -1756,10 +1756,10 @@ TEST_F(CreateIteratorTest, CrossApply) {
       iter,
       join_op->CreateIterator({&params_data}, /*num_extra_slots=*/1, &context));
   ZETASQL_ASSERT_OK(context.CancelStatement());
-  zetasql_base::Status status;
+  absl::Status status;
   data = ReadFromTupleIteratorFull(iter.get(), &status);
   EXPECT_TRUE(data.empty());
-  EXPECT_THAT(status, StatusIs(zetasql_base::CANCELLED, _));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kCancelled, _));
 
   // Check that scrambling works. We have to use a new iterator variable because
   // the context must outlive the iterator.
@@ -1789,7 +1789,7 @@ TEST_F(CreateIteratorTest, CrossApply) {
       join_op->CreateIterator({&params_data},
                               /*num_extra_slots=*/1, &memory_context));
   EXPECT_THAT(ReadFromTupleIterator(memory_iter.get()),
-              StatusIs(zetasql_base::StatusCode::kResourceExhausted,
+              StatusIs(absl::StatusCode::kResourceExhausted,
                        HasSubstr("Out of memory")));
 }
 
@@ -1941,10 +1941,10 @@ TEST_F(CreateIteratorTest, OuterApply) {
       iter,
       join_op->CreateIterator({&params_data}, /*num_extra_slots=*/1, &context));
   ZETASQL_ASSERT_OK(context.CancelStatement());
-  zetasql_base::Status status;
+  absl::Status status;
   data = ReadFromTupleIteratorFull(iter.get(), &status);
   EXPECT_TRUE(data.empty());
-  EXPECT_THAT(status, StatusIs(zetasql_base::CANCELLED, _));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kCancelled, _));
 
   // Check that scrambling works. We have to use a new iterator variable because
   // the context must outlive the iterator.
@@ -1975,7 +1975,7 @@ TEST_F(CreateIteratorTest, OuterApply) {
       join_op->CreateIterator({&params_data},
                               /*num_extra_slots=*/1, &memory_context));
   EXPECT_THAT(ReadFromTupleIterator(memory_iter.get()),
-              StatusIs(zetasql_base::StatusCode::kResourceExhausted,
+              StatusIs(absl::StatusCode::kResourceExhausted,
                        HasSubstr("Out of memory")));
 }
 
@@ -2095,10 +2095,10 @@ TEST_F(CreateIteratorTest, InnerHashJoin) {
       iter,
       join_op->CreateIterator({&params_data}, /*num_extra_slots=*/1, &context));
   ZETASQL_ASSERT_OK(context.CancelStatement());
-  zetasql_base::Status status;
+  absl::Status status;
   data = ReadFromTupleIteratorFull(iter.get(), &status);
   EXPECT_TRUE(data.empty());
-  EXPECT_THAT(status, StatusIs(zetasql_base::CANCELLED, _));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kCancelled, _));
 
   // Check that scrambling works. We have to use a new iterator variable because
   // the context must outlive the iterator.
@@ -2122,7 +2122,7 @@ TEST_F(CreateIteratorTest, InnerHashJoin) {
       /*total_bytes=*/100));
   EXPECT_THAT(join_op->CreateIterator({&params_data},
                                       /*num_extra_slots=*/1, &memory_context),
-              StatusIs(zetasql_base::StatusCode::kResourceExhausted,
+              StatusIs(absl::StatusCode::kResourceExhausted,
                        HasSubstr("Out of memory")));
 }
 
@@ -2288,10 +2288,10 @@ TEST_F(CreateIteratorTest, FullOuterHashJoin) {
       iter,
       join_op->CreateIterator({&params_data}, /*num_extra_slots=*/1, &context));
   ZETASQL_ASSERT_OK(context.CancelStatement());
-  zetasql_base::Status status;
+  absl::Status status;
   data = ReadFromTupleIteratorFull(iter.get(), &status);
   EXPECT_TRUE(data.empty());
-  EXPECT_THAT(status, StatusIs(zetasql_base::CANCELLED, _));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kCancelled, _));
 
   // Check that scrambling works. We have to use a new iterator variable because
   // the context must outlive the iterator.
@@ -2318,7 +2318,7 @@ TEST_F(CreateIteratorTest, FullOuterHashJoin) {
       /*total_bytes=*/100));
   EXPECT_THAT(join_op->CreateIterator({&params_data},
                                       /*num_extra_slots=*/1, &memory_context),
-              StatusIs(zetasql_base::StatusCode::kResourceExhausted,
+              StatusIs(absl::StatusCode::kResourceExhausted,
                        HasSubstr("Out of memory")));
 }
 
@@ -2412,10 +2412,10 @@ TEST_F(CreateIteratorTest, SortOpTotalOrder) {
       iter,
       sort_op->CreateIterator({&params_data}, /*num_extra_slots=*/1, &context));
   ZETASQL_ASSERT_OK(context.CancelStatement());
-  zetasql_base::Status status;
+  absl::Status status;
   data = ReadFromTupleIteratorFull(iter.get(), &status);
   EXPECT_TRUE(data.empty());
-  EXPECT_THAT(status, StatusIs(zetasql_base::CANCELLED, _));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kCancelled, _));
 
   // Check that enabling scrambling has no effect because the output is uniquely
   // ordered.
@@ -2451,7 +2451,7 @@ TEST_F(CreateIteratorTest, SortOpTotalOrder) {
       /*total_bytes=*/500));
   EXPECT_THAT(sort_op->CreateIterator({&params_data},
                                       /*num_extra_slots=*/1, &memory_context),
-              StatusIs(zetasql_base::StatusCode::kResourceExhausted,
+              StatusIs(absl::StatusCode::kResourceExhausted,
                        HasSubstr("Out of memory")));
 }
 
@@ -2953,28 +2953,28 @@ TEST_F(CreateIteratorTest, SortOpTotalOrderWithLimitAndOffset) {
   set_params(Int64(-1), Int64(0));
   EXPECT_THAT(
       sort_op->CreateIterator({&params_data}, /*num_extra_slots=*/0, &context),
-      StatusIs(zetasql_base::OUT_OF_RANGE,
+      StatusIs(absl::StatusCode::kOutOfRange,
                "Limit requires non-negative count and offset"));
 
   // Bad argument: LIMIT 1 OFFSET -1
   set_params(Int64(1), Int64(-1));
   EXPECT_THAT(
       sort_op->CreateIterator({&params_data}, /*num_extra_slots=*/0, &context),
-      StatusIs(zetasql_base::OUT_OF_RANGE,
+      StatusIs(absl::StatusCode::kOutOfRange,
                "Limit requires non-negative count and offset"));
 
   // Bad argument: LIMIT NULL OFFSET 0
   set_params(NullInt64(), Int64(0));
   EXPECT_THAT(
       sort_op->CreateIterator({&params_data}, /*num_extra_slots=*/0, &context),
-      StatusIs(zetasql_base::OUT_OF_RANGE,
+      StatusIs(absl::StatusCode::kOutOfRange,
                "Limit requires non-null count and offset"));
 
   // Bad argument: LIMIT 1 OFFSET NULL
   set_params(Int64(1), NullInt64());
   EXPECT_THAT(
       sort_op->CreateIterator({&params_data}, /*num_extra_slots=*/0, &context),
-      StatusIs(zetasql_base::OUT_OF_RANGE,
+      StatusIs(absl::StatusCode::kOutOfRange,
                "Limit requires non-null count and offset"));
 
   set_params(Int64(2), Int64(1));
@@ -3005,7 +3005,7 @@ TEST_F(CreateIteratorTest, SortOpTotalOrderWithLimitAndOffset) {
       /*total_bytes=*/500));
   EXPECT_THAT(sort_op->CreateIterator({&params_data},
                                       /*num_extra_slots=*/1, &memory_context),
-              StatusIs(zetasql_base::StatusCode::kResourceExhausted,
+              StatusIs(absl::StatusCode::kResourceExhausted,
                        HasSubstr("Out of memory")));
 }
 
@@ -3062,10 +3062,10 @@ TEST_F(CreateIteratorTest, ArrayScanOp) {
       iter,
       scan_op->CreateIterator({&params_data}, /*num_extra_slots=*/1, &context));
   ZETASQL_ASSERT_OK(context.CancelStatement());
-  zetasql_base::Status status;
+  absl::Status status;
   data = ReadFromTupleIteratorFull(iter.get(), &status);
   EXPECT_TRUE(data.empty());
-  EXPECT_THAT(status, StatusIs(zetasql_base::CANCELLED, _));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kCancelled, _));
 
   // Check that scrambling works.
   EvaluationContext scramble_context(GetScramblingEvaluationOptions());
@@ -3172,7 +3172,7 @@ TEST_F(CreateIteratorTest, TableScanAsArray) {
   EvaluationContext context_empty((EvaluationOptions()));
   EXPECT_THAT(scan_op->CreateIterator(EmptyParams(), /*num_extra_slots=*/0,
                                       &context_empty),
-              StatusIs(zetasql_base::OUT_OF_RANGE,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        "Table not populated with array: mytable"));
 
   EvaluationContext context_bad((EvaluationOptions()));
@@ -3182,7 +3182,7 @@ TEST_F(CreateIteratorTest, TableScanAsArray) {
   EXPECT_THAT(
       scan_op->CreateIterator(EmptyParams(), /*num_extra_slots=*/0,
                               &context_bad),
-      StatusIs(zetasql_base::OUT_OF_RANGE,
+      StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("deviates from the type reported in the catalog")));
 
   EvaluationContext context((EvaluationOptions()));
@@ -3529,28 +3529,28 @@ TEST_F(CreateIteratorTest, LimitOp_OrderedInput) {
   set_params(Int64(-1), Int64(0));
   EXPECT_THAT(limit_op->CreateIterator({&params_data}, /*num_extra_slots=*/0,
                                        &scramble_context),
-              StatusIs(zetasql_base::OUT_OF_RANGE,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        "Limit requires non-negative count and offset"));
 
   // Bad argument: LIMIT 1 OFFSET -1
   set_params(Int64(1), Int64(-1));
   EXPECT_THAT(limit_op->CreateIterator({&params_data}, /*num_extra_slots=*/0,
                                        &scramble_context),
-              StatusIs(zetasql_base::OUT_OF_RANGE,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        "Limit requires non-negative count and offset"));
 
   // Bad argument: LIMIT NULL OFFSET 0
   set_params(NullInt64(), Int64(0));
   EXPECT_THAT(limit_op->CreateIterator({&params_data}, /*num_extra_slots=*/0,
                                        &scramble_context),
-              StatusIs(zetasql_base::OUT_OF_RANGE,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        "Limit requires non-null count and offset"));
 
   // Bad argument: LIMIT 1 OFFSET NULL
   set_params(Int64(1), NullInt64());
   EXPECT_THAT(limit_op->CreateIterator({&params_data}, /*num_extra_slots=*/0,
                                        &scramble_context),
-              StatusIs(zetasql_base::OUT_OF_RANGE,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        "Limit requires non-null count and offset"));
 
   // LIMIT 2 OFFSET 0 (returns 2 rows)
@@ -3766,7 +3766,8 @@ TEST_F(CreateIteratorTest, EnumerateOp) {
   EvaluationContext context((EvaluationOptions()));
   EXPECT_THAT(
       enum_op->CreateIterator({&params_data}, /*num_extra_slots=*/1, &context),
-      StatusIs(zetasql_base::OUT_OF_RANGE, "Enumerate requires non-null count"));
+      StatusIs(absl::StatusCode::kOutOfRange,
+               "Enumerate requires non-null count"));
 
   for (int i = -1; i <= 3; ++i) {
     LOG(INFO) << "Testing EnumerateOp with count = " << i;
@@ -3796,10 +3797,10 @@ TEST_F(CreateIteratorTest, EnumerateOp) {
       enum_op->CreateIterator({&params_data}, /*num_extra_slots=*/1, &context));
   ZETASQL_ASSERT_OK(context.CancelStatement());
 
-  zetasql_base::Status status;
+  absl::Status status;
   std::vector<TupleData> data = ReadFromTupleIteratorFull(iter.get(), &status);
   EXPECT_TRUE(data.empty());
-  EXPECT_THAT(status, StatusIs(zetasql_base::CANCELLED, _));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kCancelled, _));
 
   // Check that scrambling works.
   EvaluationContext scramble_context(GetScramblingEvaluationOptions());
@@ -3923,7 +3924,7 @@ TEST(TimeoutTest, ShortTimeout) {
       join_op->CreateIterator(EmptyParams(), /*num_extra_slots=*/0, &context));
   EXPECT_THAT(
       ReadFromTupleIterator(iter.get()),
-      StatusIs(::zetasql_base::RESOURCE_EXHAUSTED,
+      StatusIs(absl::StatusCode::kResourceExhausted,
                ContainsRegex("The statement has been aborted because the "
                              "statement deadline .+ was exceeded.")));
 }

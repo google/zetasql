@@ -297,7 +297,7 @@ class PreparedExpressionBase {
   //
   // If a ResolvedExpr was already supplied to the PreparedExpression
   // constructor, 'catalog' is ignored.
-  zetasql_base::Status Prepare(const AnalyzerOptions& options,
+  absl::Status Prepare(const AnalyzerOptions& options,
                        Catalog* catalog = nullptr);
 
   // Get the list of column names referenced in this expression. The columns
@@ -459,7 +459,7 @@ class PreparedQueryBase {
   //
   // If a ResolvedQueryStmt was already supplied to the PreparedQuery
   // constructor, 'catalog' is ignored.
-  zetasql_base::Status Prepare(const AnalyzerOptions& options,
+  absl::Status Prepare(const AnalyzerOptions& options,
                        Catalog* catalog = nullptr);
 
   // Get the list of parameters referenced in this query.
@@ -609,7 +609,7 @@ class EvaluatorTableModifyIterator {
 
   // Returns OK unless the last call to NextRow() returned false because of an
   // error.
-  virtual zetasql_base::Status Status() const = 0;
+  virtual absl::Status Status() const = 0;
 };
 
 // Executes an DML statement and returns an EvaluatorTableModifyIterator.
@@ -655,7 +655,7 @@ class PreparedModifyBase {
   //
   // If a ResolvedStatement was already supplied to the PreparedModifyBase
   // constructor, `catalog` is ignored.
-  zetasql_base::Status Prepare(const AnalyzerOptions& options,
+  absl::Status Prepare(const AnalyzerOptions& options,
                        Catalog* catalog = nullptr);
 
   // Executes the statement. This object must outlive the return value.

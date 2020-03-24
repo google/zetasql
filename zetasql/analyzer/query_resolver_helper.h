@@ -231,13 +231,13 @@ class QueryResolutionInfo {
   // Returns true if <column>'s ResolvedColumn contains an analytic function.
   // Returns an error if <column> is not a <select_column_state_list_>
   // resolved select column.
-  zetasql_base::Status SelectListColumnHasAnalytic(const ResolvedColumn& column,
+  absl::Status SelectListColumnHasAnalytic(const ResolvedColumn& column,
                                            bool* has_analytic) const;
 
   // Returns the computed columns that do not contain analytic functions,
   // and removes them from <select_list_columns_to_compute_>. The caller
   // must take ownership of the returned pointers.
-  zetasql_base::Status GetAndRemoveSelectListColumnsWithoutAnalytic(
+  absl::Status GetAndRemoveSelectListColumnsWithoutAnalytic(
       std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
           select_columns_without_analytic_out);
 
@@ -251,7 +251,7 @@ class QueryResolutionInfo {
   // Returns whether or not the query includes analytic functions.
   bool HasAnalytic() const;
 
-  zetasql_base::Status CheckComputedColumnListsAreEmpty() const;
+  absl::Status CheckComputedColumnListsAreEmpty() const;
 
   void set_is_post_distinct(bool is_post_distinct) {
     group_by_info_.is_post_distinct = is_post_distinct;

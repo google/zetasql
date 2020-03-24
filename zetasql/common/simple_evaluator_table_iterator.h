@@ -47,7 +47,7 @@ class SimpleEvaluatorTableIterator : public EvaluatorTableIterator {
   // 'columns' is a list of the columns in the scan.
   // '(*column_major_values[i])[j]' is the values of 'columns[j]' in the
   // i-th row.
-  // 'end_status' is the zetasql_base::Status to return when we have reached the end
+  // 'end_status' is the absl::Status to return when we have reached the end
   //  of 'column_major_values'.
   // 'filter_column_idxs' is the list of column indexes for which to enforce the
   // filters passed to SetColumnFilters().
@@ -58,7 +58,7 @@ class SimpleEvaluatorTableIterator : public EvaluatorTableIterator {
       const std::vector<const Column*>& columns,
       const std::vector<std::shared_ptr<const std::vector<Value>>>&
           column_major_values,
-      const zetasql_base::Status& end_status,
+      const absl::Status& end_status,
       const absl::flat_hash_set<int>& filter_column_idxs,
       const std::function<void()>& cancel_cb,
       const std::function<void(absl::Time)>& set_deadline_cb,
@@ -92,7 +92,7 @@ class SimpleEvaluatorTableIterator : public EvaluatorTableIterator {
     return columns_[i]->GetType();
   }
 
-  zetasql_base::Status SetColumnFilterMap(
+  absl::Status SetColumnFilterMap(
       absl::flat_hash_map<int, std::unique_ptr<ColumnFilter>> filter_map)
       override;
 
@@ -103,7 +103,7 @@ class SimpleEvaluatorTableIterator : public EvaluatorTableIterator {
     return (*column_major_values_[i])[row_idx_];
   }
 
-  zetasql_base::Status Status() const override {
+  absl::Status Status() const override {
     absl::ReaderMutexLock l(&mutex_);
     if (cancelled_) {
       return zetasql_base::CancelledErrorBuilder()
@@ -114,14 +114,14 @@ class SimpleEvaluatorTableIterator : public EvaluatorTableIterator {
              << "EvaluatorTestTableIterator deadline exceeded";
     }
     if (DoneLocked()) return end_status_;
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
-  zetasql_base::Status Cancel() override {
+  absl::Status Cancel() override {
     absl::MutexLock l(&mutex_);
     cancelled_ = true;
     cancel_cb_();
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   void SetDeadline(absl::Time deadline) override {
@@ -137,7 +137,7 @@ class SimpleEvaluatorTableIterator : public EvaluatorTableIterator {
   }
 
   const std::vector<const Column*> columns_;
-  const zetasql_base::Status end_status_;
+  const absl::Status end_status_;
   const absl::flat_hash_set<int> filter_column_idxs_;
   const std::function<void()> cancel_cb_;
   const std::function<void(absl::Time)> set_deadline_cb_;

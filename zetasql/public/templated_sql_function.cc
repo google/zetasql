@@ -51,7 +51,7 @@ TemplatedSQLFunction::TemplatedSQLFunction(
 }
 
 // static
-zetasql_base::Status TemplatedSQLFunction::Deserialize(
+absl::Status TemplatedSQLFunction::Deserialize(
     const FunctionProto& proto,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
     TypeFactory* factory, std::unique_ptr<Function>* result) {
@@ -77,10 +77,10 @@ zetasql_base::Status TemplatedSQLFunction::Deserialize(
   *result = absl::make_unique<TemplatedSQLFunction>(
       name_path, *function_signature, argument_names,
       ParseResumeLocation::FromProto(proto.parse_resume_location()));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TemplatedSQLFunction::Serialize(
+absl::Status TemplatedSQLFunction::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map, FunctionProto* proto,
     bool omit_signatures) const {
   ZETASQL_RETURN_IF_ERROR(
@@ -89,7 +89,7 @@ zetasql_base::Status TemplatedSQLFunction::Serialize(
   for (const std::string& name : argument_names_) {
     proto->add_templated_sql_function_argument_name(name);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 TemplatedSQLFunctionCall::TemplatedSQLFunctionCall(const ResolvedExpr* expr)

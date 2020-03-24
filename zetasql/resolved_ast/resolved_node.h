@@ -75,10 +75,10 @@ class ResolvedNode {
   virtual bool IsStatement() const { return false; }
 
   // Calls the node-specific Visit... method inside the ResolvedASTVisitor.
-  virtual zetasql_base::Status Accept(ResolvedASTVisitor* visitor) const;
+  virtual absl::Status Accept(ResolvedASTVisitor* visitor) const;
 
   // Calls the above Accept() method on all the direct children of this node.
-  virtual zetasql_base::Status ChildrenAccept(ResolvedASTVisitor* visitor) const;
+  virtual absl::Status ChildrenAccept(ResolvedASTVisitor* visitor) const;
 
   // Returns whether or not this node is a specific node type.
   template <class SUBTYPE>
@@ -101,10 +101,10 @@ class ResolvedNode {
   // The FileDescriptorSetMap argument is used to serialize zetasql::Type
   // objects that are defined with proto/enum descriptors. See comments above
   // Type::SerializeToProtoAndDistinctFileDescriptors() for detailed usage.
-  zetasql_base::Status SaveTo(FileDescriptorSetMap* file_descriptor_set_map,
+  absl::Status SaveTo(FileDescriptorSetMap* file_descriptor_set_map,
                       ResolvedNodeProto* proto) const;
 
-  virtual zetasql_base::Status SaveTo(FileDescriptorSetMap* file_descriptor_set_map,
+  virtual absl::Status SaveTo(FileDescriptorSetMap* file_descriptor_set_map,
                               AnyResolvedNodeProto* proto) const = 0;
 
   // This contains parameters for deserialization. In general, all parameters
@@ -166,14 +166,14 @@ class ResolvedNode {
   // If a non-ignorable member is not accessed by a query engine, that engine
   // must not be interpreting that field, and so would interpret a query
   // incorrectly.  In such cases, CheckFieldsAccessed() will return a
-  // zetasql_base::UNIMPLEMENTED error with a message indicating what feature
-  // is unimplemented and what field wasn't accessed.
+  // absl::StatusCode::kUnimplemented error with a message indicating what
+  // feature is unimplemented and what field wasn't accessed.
   //
   // Engines should always call this method to ensure they are interpreting a
   // ZetaSQL query safely and not missing anything. We assume that if an
   // engine reads a field and sees a value it does not understand, the engine
   // itself will generate an unimplemented error.
-  virtual zetasql_base::Status CheckFieldsAccessed() const;
+  virtual absl::Status CheckFieldsAccessed() const;
 
   // Reset the field accessed markers in this node and its children.
   virtual void ClearFieldsAccessed() const;

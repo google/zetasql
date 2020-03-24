@@ -49,7 +49,7 @@ using ::zetasql_base::testing::StatusIs;
 // This is an example of copy-then-mutate during a deep copy.
 class ModifyJoinScan : public ResolvedASTDeepCopyVisitor {
  private:
-  zetasql_base::Status VisitResolvedJoinScan(
+  absl::Status VisitResolvedJoinScan(
       const ResolvedJoinScan* node) override {
     ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedJoinScan(node));
 
@@ -61,7 +61,7 @@ class ModifyJoinScan : public ResolvedASTDeepCopyVisitor {
 
     join->set_join_type(new_join_type);
 
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 };
 
@@ -72,7 +72,7 @@ class ModifyJoinScan : public ResolvedASTDeepCopyVisitor {
 // during copying.  The simpler method above is preferred.
 class CastFilterScan : public ResolvedASTDeepCopyVisitor {
  private:
-  zetasql_base::Status VisitResolvedFilterScan(
+  absl::Status VisitResolvedFilterScan(
       const ResolvedFilterScan* node) override {
     ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedFilterScan(node));
 
@@ -90,7 +90,7 @@ class CastFilterScan : public ResolvedASTDeepCopyVisitor {
                                              std::move(new_expr));
 
     PushNodeToStack(std::move(new_filter));
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 };
 
@@ -113,17 +113,17 @@ class AddFilterToTableScan : public ResolvedASTDeepCopyVisitor {
         catalog_(catalog) {}
 
  private:
-  zetasql_base::Status VisitResolvedFilterScan(
+  absl::Status VisitResolvedFilterScan(
       const ResolvedFilterScan* node) override {
     // Code does not exist for this case, so just return failure. In a real
     // example, you would likely try to make an association between the
     // table scan children of this node and add an AND clause to combine
     // the existing filter with the added one as appropriate.
-    return zetasql_base::Status(zetasql_base::StatusCode::kCancelled,
+    return absl::Status(absl::StatusCode::kCancelled,
                         "No filter scans allowed.");
   }
 
-  zetasql_base::Status VisitResolvedTableScan(const ResolvedTableScan* node) override {
+  absl::Status VisitResolvedTableScan(const ResolvedTableScan* node) override {
     // Visit a table scan. If it is on the correct table/column, add the filter.
     int column_id_in_scan = -1;
 
@@ -181,7 +181,7 @@ class AddFilterToTableScan : public ResolvedASTDeepCopyVisitor {
       PushNodeToStack(MakeResolvedFilterScan(node->column_list(),
                                              std::move(table_scan_copy),
                                              std::move(filter_expr)));
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     } else {
       // Does not contain the column, so we should not modify it.
       return CopyVisitResolvedTableScan(node);

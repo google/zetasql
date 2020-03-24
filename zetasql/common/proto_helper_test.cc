@@ -87,7 +87,7 @@ class ProtoHelperTest : public ::testing::Test {
     pool_ = absl::make_unique<google::protobuf::DescriptorPool>(proto_importer_->pool());
   }
 
-  zetasql_base::Status GetFileDescriptorSetContainingFile(
+  absl::Status GetFileDescriptorSetContainingFile(
       const std::string& filename,
       google::protobuf::FileDescriptorSet* file_descriptor_set) {
     file_descriptor_set->Clear();
@@ -144,7 +144,7 @@ TEST_F(ProtoHelperTest, PopulateFileDescriptorSet_TooBig) {
       "zetasql/public/proto/type_annotation.proto");
   google::protobuf::FileDescriptorSet file_descriptor_set;
   std::set<const google::protobuf::FileDescriptor*> file_descriptors;
-  const zetasql_base::Status status =
+  const absl::Status status =
       PopulateFileDescriptorSet(file, /*file_descriptor_set_max_size_bytes=*/0,
                                 &file_descriptor_set, &file_descriptors);
   ASSERT_FALSE(status.ok()) << status;

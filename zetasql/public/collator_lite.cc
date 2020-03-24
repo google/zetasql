@@ -27,7 +27,7 @@ class CaseSensitiveUnicodeCollator : public ZetaSqlCollator {
   CaseSensitiveUnicodeCollator() {}
 
   int64_t CompareUtf8(absl::string_view s1, absl::string_view s2,
-                    zetasql_base::Status* error) const override {
+                    absl::Status* error) const override {
     const int result = s1.compare(s2);
     return result < 0 ? -1 : (result > 0 ? 1 : 0);
   }

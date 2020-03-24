@@ -30,7 +30,7 @@ TableFromProto::TableFromProto(const std::string& name) : SimpleTable(name) {}
 TableFromProto::~TableFromProto() {
 }
 
-zetasql_base::Status TableFromProto::Init(const google::protobuf::Descriptor* descriptor,
+absl::Status TableFromProto::Init(const google::protobuf::Descriptor* descriptor,
                                   TypeFactory* type_factory,
                                   const TableFromProtoOptions& options) {
   ZETASQL_RET_CHECK_EQ(0, NumColumns()) << "TableFromProto::Init called twice";
@@ -46,7 +46,7 @@ zetasql_base::Status TableFromProto::Init(const google::protobuf::Descriptor* de
     ZETASQL_RETURN_IF_ERROR(AddColumn(new SimpleColumn(FullName(), "value", row_type),
                               true /* is_owned */));
     set_is_value_table(true);
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // This table is a zetasql table.  Convert the proto to a zetasql Type.
@@ -59,7 +59,7 @@ zetasql_base::Status TableFromProto::Init(const google::protobuf::Descriptor* de
     ZETASQL_RETURN_IF_ERROR(AddColumn(new SimpleColumn(FullName(), "value", row_type),
                               true /* is_owned */));
     set_is_value_table(true);
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   ZETASQL_RET_CHECK_EQ(table_type, SQL_TABLE);
@@ -82,7 +82,7 @@ zetasql_base::Status TableFromProto::Init(const google::protobuf::Descriptor* de
         true /* is_owned */));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

@@ -31,7 +31,7 @@ namespace functions {
 
 static bool ProtoToStringInternal(const google::protobuf::Message* value,
                                   std::string* out, bool multiline,
-                                  zetasql_base::Status* error) {
+                                  absl::Status* error) {
   google::protobuf::TextFormat::Printer printer;
   printer.SetUseUtf8StringEscaping(true);
   printer.SetSingleLineMode(!multiline);
@@ -53,7 +53,7 @@ static bool ProtoToStringInternal(const google::protobuf::Message* value,
 }
 
 static bool ProtoToStringInternal(const google::protobuf::Message* value, absl::Cord* out,
-                                  bool multiline, zetasql_base::Status* error) {
+                                  bool multiline, absl::Status* error) {
   std::string str_out;
   if (!ProtoToStringInternal(value, &str_out, multiline, error)) {
     return false;
@@ -63,20 +63,20 @@ static bool ProtoToStringInternal(const google::protobuf::Message* value, absl::
 }
 
 bool ProtoToString(const google::protobuf::Message* value, absl::Cord* out,
-                   zetasql_base::Status* error) {
+                   absl::Status* error) {
   return ProtoToStringInternal(value, out, /*multiline=*/false, error);
 }
 
 bool ProtoToMultilineString(const google::protobuf::Message* value, absl::Cord* out,
-                            zetasql_base::Status* error) {
+                            absl::Status* error) {
   return ProtoToStringInternal(value, out, /*multiline=*/true, error);
 }
 
 bool StringToProto(const absl::string_view value, google::protobuf::Message* out,
-                   zetasql_base::Status* error) {
+                   absl::Status* error) {
   class Proto2ErrorCollector : public google::protobuf::io::ErrorCollector {
    public:
-    explicit Proto2ErrorCollector(zetasql_base::Status* error) : error_(error) {}
+    explicit Proto2ErrorCollector(absl::Status* error) : error_(error) {}
     Proto2ErrorCollector(const Proto2ErrorCollector&) = delete;
     Proto2ErrorCollector& operator=(const Proto2ErrorCollector&) = delete;
     ~Proto2ErrorCollector() final {}
@@ -88,7 +88,7 @@ bool StringToProto(const absl::string_view value, google::protobuf::Message* out
     }
 
    private:
-    zetasql_base::Status* error_;  // Not owned
+    absl::Status* error_;  // Not owned
   };
 
   google::protobuf::TextFormat::Parser parser;

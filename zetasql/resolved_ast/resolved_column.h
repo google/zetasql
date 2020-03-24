@@ -93,7 +93,7 @@ class ResolvedColumn {
   // Return "<column>#<column_id>".
   std::string ShortDebugString() const;
 
-  zetasql_base::Status SaveTo(
+  absl::Status SaveTo(
       FileDescriptorSetMap* file_descriptor_set_map,
       ResolvedColumnProto* proto) const;
 

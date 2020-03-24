@@ -28,7 +28,7 @@
 #include "zetasql/public/functions/arithmetics.h"
 #include "zetasql/public/functions/date_time_util_internal.h"
 #include "zetasql/public/type.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
@@ -131,7 +131,7 @@ absl::string_view DateTimestampPartToSQL(DateTimestampPart date_part) {
   }
 }
 
-static zetasql_base::Status* const kNoError = nullptr;
+static absl::Status* const kNoError = nullptr;
 
 // Returns whether or not there are at least <remaining_length> characters left
 // beyond <current_idx> of <str>.
@@ -493,7 +493,7 @@ static bool TimeZonePartsToOffset(const char timezone_sign, int64_t timezone_hou
 // get initialized to 0 or "" as appropriate.  The subsecond part is
 // normalized to the requested scale, and if there are extra digits then
 // an error is produced.
-static zetasql_base::Status ParseStringToTimestampParts(
+static absl::Status ParseStringToTimestampParts(
     absl::string_view str, TimestampScale scale, int* year, int* month,
     int* day, int* hour, int* minute, int* second, int* subsecond,
     absl::TimeZone* timezone, bool* string_includes_timezone) {
@@ -509,7 +509,7 @@ static zetasql_base::Status ParseStringToTimestampParts(
     return MakeEvalError() << "Invalid timestamp: '" << str << "'";
   }
   if (idx >= static_cast<int64_t>(str.length()))
-    return ::zetasql_base::OkStatus();  // Done consuming <str>.
+    return absl::OkStatus();  // Done consuming <str>.
 
   // The rest are all optional: time, subseconds, time zone
 
@@ -527,14 +527,14 @@ static zetasql_base::Status ParseStringToTimestampParts(
       return MakeEvalError() << "Invalid timestamp: '" << str << "'";
     }
     if (idx >= static_cast<int64_t>(str.length()))
-      return ::zetasql_base::OkStatus();  // Done consuming <str>.
+      return absl::OkStatus();  // Done consuming <str>.
   } else if (str[idx] != '+' && str[idx] != '-') {
     return MakeEvalError() << "Invalid timestamp: '" << str << "'";
   }
 
   if (absl::ClippedSubstr(str, idx).empty()) {
     *string_includes_timezone = false;
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   *string_includes_timezone = true;
@@ -544,7 +544,7 @@ static zetasql_base::Status ParseStringToTimestampParts(
     // If there is no offset after "UTC", it was simply UTC timezone.
     if (absl::ClippedSubstr(str, idx).empty()) {
       *timezone = absl::UTCTimeZone();
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
   }
   switch (str[idx]) {
@@ -560,7 +560,7 @@ static zetasql_base::Status ParseStringToTimestampParts(
       }
       // UTC.
       *timezone = absl::UTCTimeZone();
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     default:
       break;
   }
@@ -576,10 +576,10 @@ static zetasql_base::Status ParseStringToTimestampParts(
 }
 
 // Converts timestamps between scales.
-static zetasql_base::Status ConvertBetweenTimestampsInternal(
+static absl::Status ConvertBetweenTimestampsInternal(
     int64_t input, TimestampScale input_scale, TimestampScale output_scale,
     int64_t* output) {
-  zetasql_base::Status error;
+  absl::Status error;
   if (input_scale == output_scale) {
     // No-op case.
     *output = input;
@@ -612,13 +612,13 @@ static zetasql_base::Status ConvertBetweenTimestampsInternal(
 }
 
 // Converts a timestamp interval between different scales.
-static zetasql_base::Status ConvertTimestampInterval(int64_t interval,
+static absl::Status ConvertTimestampInterval(int64_t interval,
                                              TimestampScale interval_scale,
                                              TimestampScale output_scale,
                                              int64_t* output) {
   if (interval_scale == output_scale) {
     *output = interval;
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
 #define FCT(scale1, scale2)\
@@ -634,7 +634,7 @@ static zetasql_base::Status ConvertTimestampInterval(int64_t interval,
       if (Multiply<int64_t>(interval,
                           powers_of_ten[output_scale - interval_scale], output,
                           kNoError)) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
     case FCT(kNanoseconds,  kMicroseconds):
@@ -644,7 +644,7 @@ static zetasql_base::Status ConvertTimestampInterval(int64_t interval,
     case FCT(kMicroseconds, kSeconds):
     case FCT(kMilliseconds, kSeconds):
       *output = interval / powers_of_ten[interval_scale - output_scale];
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     default:
       break;
   }
@@ -679,7 +679,7 @@ static void AdjustYearMonthDay(int* year, int* month, int* day) {
   }
 }
 
-static zetasql_base::Status CheckValidAddTimestampPart(DateTimestampPart part,
+static absl::Status CheckValidAddTimestampPart(DateTimestampPart part,
                                                bool is_legacy) {
   switch (part) {
     case YEAR:
@@ -699,7 +699,7 @@ static zetasql_base::Status CheckValidAddTimestampPart(DateTimestampPart part,
     case MILLISECOND:
     case MICROSECOND:
     case NANOSECOND:
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     case DATE:
     case DAYOFWEEK:
     case DAYOFYEAR:
@@ -728,7 +728,7 @@ static bool MakeDate(int year, int month, int day, absl::CivilDay* civil_day) {
   return true;
 }
 
-static zetasql_base::Status MakeAddTimestampOverflowError(int64_t timestamp,
+static absl::Status MakeAddTimestampOverflowError(int64_t timestamp,
                                                   DateTimestampPart part,
                                                   int64_t interval,
                                                   TimestampScale scale,
@@ -739,7 +739,7 @@ static zetasql_base::Status MakeAddTimestampOverflowError(int64_t timestamp,
                          << " causes overflow";
 }
 
-static zetasql_base::Status MakeAddTimestampOverflowError(absl::Time timestamp,
+static absl::Status MakeAddTimestampOverflowError(absl::Time timestamp,
                                                   DateTimestampPart part,
                                                   int64_t interval,
                                                   absl::TimeZone timezone) {
@@ -749,7 +749,7 @@ static zetasql_base::Status MakeAddTimestampOverflowError(absl::Time timestamp,
                          << " causes overflow";
 }
 
-static zetasql_base::Status MakeSubTimestampOverflowError(int64_t timestamp,
+static absl::Status MakeSubTimestampOverflowError(int64_t timestamp,
                                                   DateTimestampPart part,
                                                   int64_t interval,
                                                   TimestampScale scale,
@@ -760,7 +760,7 @@ static zetasql_base::Status MakeSubTimestampOverflowError(int64_t timestamp,
                          << " causes overflow";
 }
 
-static zetasql_base::Status MakeSubTimestampOverflowError(absl::Time timestamp,
+static absl::Status MakeSubTimestampOverflowError(absl::Time timestamp,
                                                   DateTimestampPart part,
                                                   int64_t interval,
                                                   absl::TimeZone timezone) {
@@ -889,7 +889,7 @@ static bool AddAtLeastDaysToDatetime(
   return true;
 }
 
-static zetasql_base::Status AddDuration(absl::Time timestamp, int64_t interval,
+static absl::Status AddDuration(absl::Time timestamp, int64_t interval,
                                 DateTimestampPart part, absl::TimeZone timezone,
                                 absl::Time* output) {
   switch (part) {
@@ -917,7 +917,7 @@ static zetasql_base::Status AddDuration(absl::Time timestamp, int64_t interval,
   if (!IsValidTime(*output)) {
     return MakeAddTimestampOverflowError(timestamp, part, interval, timezone);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // The differences between this function and AddTimestampInternal of int64
@@ -925,7 +925,7 @@ static zetasql_base::Status AddDuration(absl::Time timestamp, int64_t interval,
 // Adding an interval of granularity smaller than a day will not cause
 // arithmetic overflow. But it returns error status if the <output>
 // absl::Time is out of range.
-static zetasql_base::Status AddTimestampInternal(absl::Time timestamp,
+static absl::Status AddTimestampInternal(absl::Time timestamp,
                                          absl::TimeZone timezone,
                                          DateTimestampPart part, int64_t interval,
                                          absl::Time* output) {
@@ -943,10 +943,10 @@ static zetasql_base::Status AddTimestampInternal(absl::Time timestamp,
   }
   return AddDuration(timestamp, interval, part, timezone, output);
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-static zetasql_base::Status AddTimestampNanos(int64_t nanos, absl::TimeZone timezone,
+static absl::Status AddTimestampNanos(int64_t nanos, absl::TimeZone timezone,
                                       DateTimestampPart part, int64_t interval,
                                       int64_t* output);
 
@@ -954,7 +954,7 @@ static zetasql_base::Status AddTimestampNanos(int64_t nanos, absl::TimeZone time
 // The caller must verify that the input timestamp is valid.
 // Returns error status if the output timestamp is out of range or overflow
 // occurs during computation.
-static zetasql_base::Status AddTimestampInternal(int64_t timestamp, TimestampScale scale,
+static absl::Status AddTimestampInternal(int64_t timestamp, TimestampScale scale,
                                          absl::TimeZone timezone,
                                          DateTimestampPart part, int64_t interval,
                                          int64_t* output) {
@@ -1037,7 +1037,7 @@ static zetasql_base::Status AddTimestampInternal(int64_t timestamp, TimestampSca
     return MakeAddTimestampOverflowError(
         timestamp, part, interval, scale, timezone);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Adds an interval to a nanosecond timestamp value.  AddTimestampInternal
@@ -1046,7 +1046,7 @@ static zetasql_base::Status AddTimestampInternal(int64_t timestamp, TimestampSca
 // the interval value at nanoseconds precision can overflow an int64_t so
 // we handle this case separately.  So we perform the addition at microsecond
 // precision first, then add the nanosecond parts back in.
-static zetasql_base::Status AddTimestampNanos(int64_t nanos, absl::TimeZone timezone,
+static absl::Status AddTimestampNanos(int64_t nanos, absl::TimeZone timezone,
                                       DateTimestampPart part, int64_t interval,
                                       int64_t* output) {
   if (part == NANOSECOND) {
@@ -1066,7 +1066,7 @@ static zetasql_base::Status AddTimestampNanos(int64_t nanos, absl::TimeZone time
     // value must also be valid.  Check this invariant.
     DCHECK(IsValidTimestamp(*output, kNanoseconds));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 static void NarrowTimestampIfPossible(int64_t* timestamp, TimestampScale* scale) {
@@ -1106,7 +1106,7 @@ static absl::TimeZone GetNormalizedTimeZone(absl::Time base_time,
   return timezone;
 }
 
-static zetasql_base::Status FormatTimestampToStringInternal(
+static absl::Status FormatTimestampToStringInternal(
     absl::string_view format_string, absl::Time base_time,
     absl::TimeZone timezone, bool truncate_tz, bool expand_quarter,
     std::string* output) {
@@ -1130,10 +1130,10 @@ static zetasql_base::Status FormatTimestampToStringInternal(
     // Postgres.
     *output = std::string(absl::StripSuffix(*output, ":00"));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-static zetasql_base::Status ConvertTimestampToStringInternal(
+static absl::Status ConvertTimestampToStringInternal(
     int64_t timestamp, TimestampScale scale, absl::TimeZone timezone,
     bool truncate_trailing_zeros, std::string* out) {
   // When converting timestamp to string the result has 0, 3, or 6 digits
@@ -1175,7 +1175,7 @@ static ::zetasql_base::StatusOr<absl::Weekday> GetFirstWeekDayOfWeek(
 
 // Does not do bounds checking. base_time (in the given timezone)
 // must be guaranteed valid.
-static zetasql_base::Status ExtractFromTimestampInternal(DateTimestampPart part,
+static absl::Status ExtractFromTimestampInternal(DateTimestampPart part,
                                                  absl::Time base_time,
                                                  absl::TimeZone timezone,
                                                  int32_t* output) {
@@ -1276,24 +1276,24 @@ static zetasql_base::Status ExtractFromTimestampInternal(DateTimestampPart part,
       return MakeEvalError() << "Unexpected DateTimestampPart "
                              << DateTimestampPart_Name(part);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-static zetasql_base::Status MakeAddDateOverflowError(int32_t date, DateTimestampPart part,
+static absl::Status MakeAddDateOverflowError(int32_t date, DateTimestampPart part,
                                              int64_t interval) {
   return MakeEvalError() << "Adding " << interval << " "
                          << DateTimestampPart_Name(part) << " to date "
                          << DateErrorString(date) << " causes overflow";
 }
 
-static zetasql_base::Status MakeSubDateOverflowError(int32_t date, DateTimestampPart part,
+static absl::Status MakeSubDateOverflowError(int32_t date, DateTimestampPart part,
                                              int64_t interval) {
   return MakeEvalError() << "Subtracting " << interval << " "
                          << DateTimestampPart_Name(part) << " from date "
                          << DateErrorString(date) << " causes overflow";
 }
 
-static zetasql_base::Status MakeAddDatetimeOverflowError(const DatetimeValue& datetime,
+static absl::Status MakeAddDatetimeOverflowError(const DatetimeValue& datetime,
                                                  DateTimestampPart part,
                                                  int64_t interval) {
   return MakeEvalError() << "Adding " << interval << " "
@@ -1301,7 +1301,7 @@ static zetasql_base::Status MakeAddDatetimeOverflowError(const DatetimeValue& da
                          << datetime.DebugString() << " causes overflow";
 }
 
-static zetasql_base::Status MakeSubDatetimeOverflowError(const DatetimeValue& datetime,
+static absl::Status MakeSubDatetimeOverflowError(const DatetimeValue& datetime,
                                                  DateTimestampPart part,
                                                  int64_t interval) {
   return MakeEvalError() << "Subtracting " << interval << " "
@@ -1324,7 +1324,7 @@ static std::string MakeInvalidTimestampStrErrorMsg(
   return MakeInvalidTypedStrErrorMsg("timestamp", timestamp_str, scale);
 }
 
-static zetasql_base::Status TruncateDateImpl(
+static absl::Status TruncateDateImpl(
     int32_t date, DateTimestampPart part, bool enforce_range, int32_t* output) {
   if (!IsValidDate(date)) {
     return MakeEvalError() << "Invalid date value: " << date;
@@ -1381,10 +1381,10 @@ static zetasql_base::Status TruncateDateImpl(
                            << " resulted in an out of range date value: "
                            << *output;
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-static zetasql_base::Status TimestampTruncAtLeastMinute(absl::Time timestamp,
+static absl::Status TimestampTruncAtLeastMinute(absl::Time timestamp,
                                                 TimestampScale scale,
                                                 absl::TimeZone timezone,
                                                 DateTimestampPart part,
@@ -1398,7 +1398,7 @@ static zetasql_base::Status TimestampTruncAtLeastMinute(absl::Time timestamp,
       ZETASQL_RET_CHECK(TimestampFromParts(info.cs.year(), 1 /* month */, 1 /* mday */,
                                    0 /* hour */, 0 /* minute */, 0 /* second */,
                                    0 /* subsecond */, scale, timezone, output));
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     case ISOYEAR: {
       absl::CivilDay day = absl::CivilDay(info.cs);
       if (!IsValidCivilDay(day)) {
@@ -1412,20 +1412,20 @@ static zetasql_base::Status TimestampTruncAtLeastMinute(absl::Time timestamp,
                                    iso_civil_day.day(), 0 /* hour */,
                                    0 /* minute */, 0 /* second */,
                                    0 /* subsecond */, scale, timezone, output));
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     case QUARTER:
       ZETASQL_RET_CHECK(TimestampFromParts(
           info.cs.year(), (info.cs.month() - 1) / 3 * 3 + 1, 1 /* mday */,
           0 /* hour */, 0 /* minute */, 0 /* second */, 0 /* subsecond */,
           scale, timezone, output));
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     case MONTH:
       ZETASQL_RET_CHECK(TimestampFromParts(info.cs.year(), info.cs.month(),
                                    1 /* mday */, 0 /* hour */, 0 /* minute */,
                                    0 /* second */, 0 /* subsecond */, scale,
                                    timezone, output));
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     case WEEK:
     case ISOWEEK:
     case WEEK_MONDAY:
@@ -1447,14 +1447,14 @@ static zetasql_base::Status TimestampTruncAtLeastMinute(absl::Time timestamp,
           week_truncated_day.year(), week_truncated_day.month(),
           week_truncated_day.day(), 0 /* hour */, 0 /* minute */,
           0 /* second */, 0 /* subsecond */, scale, timezone, output));
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     case DAY:
       ZETASQL_RET_CHECK(TimestampFromParts(info.cs.year(), info.cs.month(),
                                    info.cs.day(), 0 /* hour */, 0 /* minute */,
                                    0 /* second */, 0 /* subsecond */, scale,
                                    timezone, output));
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     case HOUR:
     case MINUTE: {
       // For HOUR or MINUTE truncation of a timestamp, we identify the
@@ -1499,7 +1499,7 @@ static zetasql_base::Status TimestampTruncAtLeastMinute(absl::Time timestamp,
       // Re-adjust the timestamp by the time zone offset.
       timestamp_seconds -= seconds_offset_east_of_UTC;
       *output = MakeTime(timestamp_seconds, kSeconds);
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     case DATE:
     case DAYOFWEEK:
@@ -1518,7 +1518,7 @@ static zetasql_base::Status TimestampTruncAtLeastMinute(absl::Time timestamp,
   }
 }
 
-static zetasql_base::Status TimestampTruncImpl(int64_t timestamp, TimestampScale scale,
+static absl::Status TimestampTruncImpl(int64_t timestamp, TimestampScale scale,
                                        NewOrLegacyTimestampType timestamp_type,
                                        absl::TimeZone timezone,
                                        DateTimestampPart part, int64_t* output) {
@@ -1530,7 +1530,7 @@ static zetasql_base::Status TimestampTruncImpl(int64_t timestamp, TimestampScale
       ZETASQL_RET_CHECK_EQ(LEGACY_TIMESTAMP_TYPE, timestamp_type);
       if (part == SECOND) {
         *output = timestamp;  // nothing to truncate;
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       if (part == MILLISECOND || part == MICROSECOND || part == NANOSECOND) {
         return MakeEvalError()
@@ -1557,11 +1557,11 @@ static zetasql_base::Status TimestampTruncImpl(int64_t timestamp, TimestampScale
           *output -= 1;
         }
         *output *=  powers_of_ten[3];
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       if (part == MILLISECOND) {
         *output = timestamp;  // nothing to truncate;
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       if (part == MICROSECOND ||  part == NANOSECOND) {
         return MakeEvalError() << "Cannot truncate a TIMESTAMP_MILLIS value to "
@@ -1577,7 +1577,7 @@ static zetasql_base::Status TimestampTruncImpl(int64_t timestamp, TimestampScale
           *output -= 1;
         }
         *output *=  powers_of_ten[6];
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       if (part == MILLISECOND) {
         *output = timestamp / powers_of_ten[3];
@@ -1585,11 +1585,11 @@ static zetasql_base::Status TimestampTruncImpl(int64_t timestamp, TimestampScale
           *output -= 1;
         }
         *output *=  powers_of_ten[3];
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       if (part == MICROSECOND) {
         *output = timestamp;  // nothing to truncate;
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       if (part == NANOSECOND) {
         return MakeEvalError()
@@ -1607,7 +1607,7 @@ static zetasql_base::Status TimestampTruncImpl(int64_t timestamp, TimestampScale
           *output -= 1;
         }
         *output *=  powers_of_ten[9];
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       if (part == MILLISECOND) {
         *output = timestamp / powers_of_ten[6];
@@ -1615,7 +1615,7 @@ static zetasql_base::Status TimestampTruncImpl(int64_t timestamp, TimestampScale
           *output -= 1;
         }
         *output *= powers_of_ten[6];
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       if (part == MICROSECOND) {
         *output = timestamp / powers_of_ten[3];
@@ -1623,11 +1623,11 @@ static zetasql_base::Status TimestampTruncImpl(int64_t timestamp, TimestampScale
           *output -= 1;
         }
         *output *= powers_of_ten[3];
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       if (part == NANOSECOND) {
         *output = timestamp;  // nothing to truncate;
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
   }
@@ -1640,7 +1640,7 @@ static zetasql_base::Status TimestampTruncImpl(int64_t timestamp, TimestampScale
   ZETASQL_RET_CHECK(FromTime(output_base_time, scale, output))
       << "base_time: " << base_time << "\noutput_base_time: "
       << output_base_time << ", scale: " << scale << ", output: " << *output;
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 bool IsValidTimestamp(int64_t timestamp, TimestampScale scale) {
@@ -1713,13 +1713,13 @@ bool FromTime(absl::Time base_time, TimestampScale scale, int64_t* output) {
   return functions::IsValidTimestamp(*output, scale);
 }
 
-zetasql_base::Status ConvertDateToString(int32_t date, std::string* out) {
+absl::Status ConvertDateToString(int32_t date, std::string* out) {
   if (!IsValidDate(date)) {
     return MakeEvalError() << "Invalid date value: " << date;
   }
   absl::CivilDay day = EpochDaysToCivilDay(date);
   *out = absl::StrFormat("%04d-%02d-%02d", day.year(), day.month(), day.day());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 zetasql_base::StatusOr<absl::CivilDay> ConvertDateToCivilDay(int32_t date) {
@@ -1729,7 +1729,7 @@ zetasql_base::StatusOr<absl::CivilDay> ConvertDateToCivilDay(int32_t date) {
   return EpochDaysToCivilDay(date);
 }
 
-zetasql_base::Status ConvertTimestampToStringWithoutTruncation(int64_t timestamp,
+absl::Status ConvertTimestampToStringWithoutTruncation(int64_t timestamp,
                                                        TimestampScale scale,
                                                        absl::TimeZone timezone,
                                                        std::string* out) {
@@ -1738,7 +1738,7 @@ zetasql_base::Status ConvertTimestampToStringWithoutTruncation(int64_t timestamp
                                           out);
 }
 
-zetasql_base::Status ConvertTimestampToStringWithoutTruncation(
+absl::Status ConvertTimestampToStringWithoutTruncation(
     int64_t timestamp, TimestampScale scale, absl::string_view timezone_string,
     std::string* out) {
   absl::TimeZone timezone;
@@ -1751,7 +1751,7 @@ zetasql_base::Status ConvertTimestampToStringWithoutTruncation(
 // used for CASTs from TIMESTAMP to STRING, and in STRING conversion. This
 // function is optimized for this conversion by hardcoding the rules of applying
 // "%E4Y-%m-%d %H:%M:%E(0|3|6)S%Ez" formatting.
-zetasql_base::Status ConvertTimestampMicrosToStringWithTruncation(
+absl::Status ConvertTimestampMicrosToStringWithTruncation(
     int64_t timestamp, absl::TimeZone timezone, std::string* out) {
   absl::Time time = absl::FromUnixMicros(timestamp);
   if (ABSL_PREDICT_FALSE(!IsValidTime(time))) {
@@ -1838,10 +1838,10 @@ zetasql_base::Status ConvertTimestampMicrosToStringWithTruncation(
   // Initially we resized result for maximum possible size, here we set actual
   // size.
   out->resize(pos);
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ConvertTimestampToStringWithTruncation(int64_t timestamp,
+absl::Status ConvertTimestampToStringWithTruncation(int64_t timestamp,
                                                     TimestampScale scale,
                                                     absl::TimeZone timezone,
                                                     std::string* out) {
@@ -1850,7 +1850,7 @@ zetasql_base::Status ConvertTimestampToStringWithTruncation(int64_t timestamp,
                                           out);
 }
 
-zetasql_base::Status ConvertTimestampToStringWithTruncation(
+absl::Status ConvertTimestampToStringWithTruncation(
     int64_t timestamp, TimestampScale scale, absl::string_view timezone_string,
     std::string* out) {
   absl::TimeZone timezone;
@@ -1859,7 +1859,7 @@ zetasql_base::Status ConvertTimestampToStringWithTruncation(
                                                 out);
 }
 
-zetasql_base::Status ConvertTimeToString(TimeValue time, TimestampScale scale,
+absl::Status ConvertTimeToString(TimeValue time, TimestampScale scale,
                                  std::string* out) {
   ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
       << "Only kMicroseconds and kNanoseconds are acceptable values for scale";
@@ -1875,10 +1875,10 @@ zetasql_base::Status ConvertTimeToString(TimeValue time, TimestampScale scale,
   ZETASQL_RET_CHECK(format != nullptr);
   *out = absl::StrFormat(*format, time.Hour(), time.Minute(), time.Second(),
                          fraction_second);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ConvertDatetimeToString(DatetimeValue datetime,
+absl::Status ConvertDatetimeToString(DatetimeValue datetime,
                                      TimestampScale scale, std::string* out) {
   ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
       << "Only kMicroseconds and kNanoseconds are acceptable values for scale";
@@ -1896,7 +1896,7 @@ zetasql_base::Status ConvertDatetimeToString(DatetimeValue datetime,
   *out = absl::StrFormat(*format, datetime.Year(), datetime.Month(),
                          datetime.Day(), datetime.Hour(), datetime.Minute(),
                          datetime.Second(), fraction_second);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Sanitizes the <format_string> so that any character in the
@@ -1995,7 +1995,7 @@ static void SanitizeDatetimeFormat(absl::string_view format_string,
   return SanitizeFormat(format_string, "Zz", out);
 }
 
-zetasql_base::Status FormatDateToString(absl::string_view format_string, int32_t date,
+absl::Status FormatDateToString(absl::string_view format_string, int32_t date,
                                 bool expand_quarter, std::string* out) {
   if (!IsValidDate(date)) {
     return MakeEvalError() << "Invalid date value: " << date;
@@ -2008,15 +2008,15 @@ zetasql_base::Status FormatDateToString(absl::string_view format_string, int32_t
   ZETASQL_RETURN_IF_ERROR(FormatTimestampToString(date_format_string, date_timestamp,
                                           absl::UTCTimeZone(), expand_quarter,
                                           out));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status FormatDateToString(absl::string_view format_string, int32_t date,
+absl::Status FormatDateToString(absl::string_view format_string, int32_t date,
                                 std::string* out) {
   return FormatDateToString(format_string, date, /*expand_quarter=*/true, out);
 }
 
-zetasql_base::Status FormatDatetimeToString(absl::string_view format_string,
+absl::Status FormatDatetimeToString(absl::string_view format_string,
                                     const DatetimeValue& datetime,
                                     std::string* out) {
   if (!datetime.IsValid()) {
@@ -2031,10 +2031,10 @@ zetasql_base::Status FormatDatetimeToString(absl::string_view format_string,
 
   ZETASQL_RETURN_IF_ERROR(FormatTimestampToString(
       datetime_format_string, datetime_in_utc, absl::UTCTimeZone(), out));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status FormatTimeToString(absl::string_view format_string,
+absl::Status FormatTimeToString(absl::string_view format_string,
                                 const TimeValue& time, std::string* out) {
   if (!time.IsValid()) {
     return MakeEvalError() << "Invalid time value: " << time.DebugString();
@@ -2050,24 +2050,24 @@ zetasql_base::Status FormatTimeToString(absl::string_view format_string,
 
   ZETASQL_RETURN_IF_ERROR(FormatTimestampToString(time_format_string, time_in_epoch_day,
                                           absl::UTCTimeZone(), out));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
+absl::Status FormatTimestampToString(absl::string_view format_str,
                                      int64_t timestamp, absl::TimeZone timezone,
                                      bool expand_quarter, std::string* out) {
   return FormatTimestampToString(format_str, MakeTime(timestamp, kMicroseconds),
                                  timezone, expand_quarter, out);
 }
 
-zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
+absl::Status FormatTimestampToString(absl::string_view format_str,
                                      int64_t timestamp, absl::TimeZone timezone,
                                      std::string* out) {
   return FormatTimestampToString(format_str, timestamp, timezone,
                                  /*expand_quarter=*/true, out);
 }
 
-zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
+absl::Status FormatTimestampToString(absl::string_view format_str,
                                      int64_t timestamp,
                                      absl::string_view timezone_string,
                                      std::string* out) {
@@ -2076,7 +2076,7 @@ zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
   return FormatTimestampToString(format_str, timestamp, timezone, out);
 }
 
-zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
+absl::Status FormatTimestampToString(absl::string_view format_str,
                                      absl::Time timestamp,
                                      absl::string_view timezone_string,
                                      bool expand_quarter, std::string* out) {
@@ -2087,7 +2087,7 @@ zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
                                          out);
 }
 
-zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
+absl::Status FormatTimestampToString(absl::string_view format_str,
                                      absl::Time timestamp,
                                      absl::TimeZone timezone,
                                      bool expand_quarter, std::string* out) {
@@ -2096,7 +2096,7 @@ zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
                                          out);
 }
 
-zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
+absl::Status FormatTimestampToString(absl::string_view format_str,
                                      absl::Time timestamp,
                                      absl::TimeZone timezone,
                                      std::string* out) {
@@ -2104,7 +2104,7 @@ zetasql_base::Status FormatTimestampToString(absl::string_view format_str,
                                  /*expand_quarter=*/true, out);
 }
 
-zetasql_base::Status FormatTimestampToString(absl::string_view format_string,
+absl::Status FormatTimestampToString(absl::string_view format_string,
                                      absl::Time timestamp,
                                      absl::string_view timezone_string,
                                      std::string* out) {
@@ -2112,7 +2112,7 @@ zetasql_base::Status FormatTimestampToString(absl::string_view format_string,
                                  /*expand_quarter=*/true, out);
 }
 
-zetasql_base::Status ConvertTimestampToString(absl::Time input, TimestampScale scale,
+absl::Status ConvertTimestampToString(absl::Time input, TimestampScale scale,
                                       absl::TimeZone timezone,
                                       std::string* output) {
   NarrowTimestampScaleIfPossible(input, &scale);
@@ -2121,7 +2121,7 @@ zetasql_base::Status ConvertTimestampToString(absl::Time input, TimestampScale s
                                          /*expand_quarter=*/true, output);
 }
 
-zetasql_base::Status ConvertTimestampToString(absl::Time input, TimestampScale scale,
+absl::Status ConvertTimestampToString(absl::Time input, TimestampScale scale,
                                       absl::string_view timezone_string,
                                       std::string* output) {
   absl::TimeZone timezone;
@@ -2129,7 +2129,7 @@ zetasql_base::Status ConvertTimestampToString(absl::Time input, TimestampScale s
   return ConvertTimestampToString(input, scale, timezone, output);
 }
 
-zetasql_base::Status MakeTimeZone(absl::string_view timezone_string,
+absl::Status MakeTimeZone(absl::string_view timezone_string,
                           absl::TimeZone* timezone) {
   // An empty time zone is an error.  There is no inherent default.
   if (timezone_string.empty()) {
@@ -2149,7 +2149,7 @@ zetasql_base::Status MakeTimeZone(absl::string_view timezone_string,
       return MakeEvalError() << "Invalid time zone: " << timezone_string;
     }
     *timezone = absl::FixedTimeZone(seconds_offset);
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // Otherwise, try to look the time zone up from the Abseil time library.
@@ -2158,10 +2158,10 @@ zetasql_base::Status MakeTimeZone(absl::string_view timezone_string,
   if (!absl::LoadTimeZone(std::string(timezone_string), timezone)) {
     return MakeEvalError() << "Invalid time zone: " << timezone_string;
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ConvertStringToDate(absl::string_view str, int32_t* date) {
+absl::Status ConvertStringToDate(absl::string_view str, int32_t* date) {
   int year = 0, month = 0, day = 0, idx = 0;
   if (!ParseStringToDateParts(str, &idx, &year, &month, &day) ||
       !IsValidDay(year, month, day)) {
@@ -2173,7 +2173,7 @@ zetasql_base::Status ConvertStringToDate(absl::string_view str, int32_t* date) {
   }
   *date = CivilDayToEpochDays(civil_day);
   DCHECK(IsValidDate(*date));  // Invariant if MakeDate() succeeds.
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 zetasql_base::StatusOr<int32_t> ConvertCivilDayToDate(absl::CivilDay civil_day) {
@@ -2184,14 +2184,14 @@ zetasql_base::StatusOr<int32_t> ConvertCivilDayToDate(absl::CivilDay civil_day) 
   return date;
 }
 
-zetasql_base::Status ConvertStringToTimestamp(absl::string_view str,
+absl::Status ConvertStringToTimestamp(absl::string_view str,
                                       absl::TimeZone default_timezone,
                                       TimestampScale scale, int64_t* timestamp) {
   return ConvertStringToTimestamp(str, default_timezone, scale, true,
                                   timestamp);
 }
 
-zetasql_base::Status ConvertStringToTimestamp(absl::string_view str,
+absl::Status ConvertStringToTimestamp(absl::string_view str,
                                       absl::TimeZone default_timezone,
                                       TimestampScale scale,
                                       bool allow_tz_in_str, int64_t* timestamp) {
@@ -2202,12 +2202,12 @@ zetasql_base::Status ConvertStringToTimestamp(absl::string_view str,
     return MakeEvalError() << MakeInvalidTimestampStrErrorMsg(str, scale);
   }
   if (IsValidTimestamp(*timestamp, scale)) {
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
   return MakeEvalError() << MakeInvalidTimestampStrErrorMsg(str, scale);
 }
 
-zetasql_base::Status ConvertStringToTimestamp(absl::string_view str,
+absl::Status ConvertStringToTimestamp(absl::string_view str,
                                       absl::string_view default_timezone_string,
                                       TimestampScale scale,
                                       bool allow_tz_in_str, int64_t* timestamp) {
@@ -2217,7 +2217,7 @@ zetasql_base::Status ConvertStringToTimestamp(absl::string_view str,
                                   allow_tz_in_str, timestamp);
 }
 
-zetasql_base::Status ConvertStringToTimestamp(absl::string_view str,
+absl::Status ConvertStringToTimestamp(absl::string_view str,
                                       absl::string_view default_timezone_string,
                                       TimestampScale scale, int64_t* timestamp) {
   absl::TimeZone timezone;
@@ -2225,7 +2225,7 @@ zetasql_base::Status ConvertStringToTimestamp(absl::string_view str,
   return ConvertStringToTimestamp(str, timezone, scale, timestamp);
 }
 
-zetasql_base::Status ConvertStringToTimestamp(absl::string_view str,
+absl::Status ConvertStringToTimestamp(absl::string_view str,
                                       absl::TimeZone default_timezone,
                                       TimestampScale scale,
                                       bool allow_tz_in_str,
@@ -2252,10 +2252,10 @@ zetasql_base::Status ConvertStringToTimestamp(absl::string_view str,
   if (!IsValidTime(*output)) {
     return MakeEvalError() << MakeInvalidTimestampStrErrorMsg(str, scale);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ConvertStringToTime(absl::string_view str, TimestampScale scale,
+absl::Status ConvertStringToTime(absl::string_view str, TimestampScale scale,
                                  TimeValue* output) {
   ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
       << "Only kMicroseconds and kNanoseconds are acceptable values for scale";
@@ -2282,10 +2282,10 @@ zetasql_base::Status ConvertStringToTime(absl::string_view str, TimestampScale s
     *output =
         TimeValue::FromHMSAndNanosNormalized(hour, minute, second, subsecond);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ConvertStringToDatetime(absl::string_view str,
+absl::Status ConvertStringToDatetime(absl::string_view str,
                                      TimestampScale scale,
                                      DatetimeValue* output) {
   ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
@@ -2323,38 +2323,38 @@ zetasql_base::Status ConvertStringToDatetime(absl::string_view str,
                                                           scale);
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ConstructDate(int year, int month, int day, int32_t* output) {
+absl::Status ConstructDate(int year, int month, int day, int32_t* output) {
   absl::CivilDay civil_day;
   if (MakeDate(year, month, day, &civil_day)) {
     *output = CivilDayToEpochDays(civil_day);
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
   return MakeEvalError() << "Input calculates to invalid date: "
                          << absl::StrFormat("%04d-%02d-%02d", year, month, day);
 }
 
-zetasql_base::Status ConstructTime(int hour, int minute, int second,
+absl::Status ConstructTime(int hour, int minute, int second,
                            TimeValue* output) {
   if (IsValidTimeOfDay(hour, minute, second)) {
     *output = TimeValue::FromHMSAndMicrosNormalized(hour, minute, second,
                                                     /*microsecond=*/0);
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
   return MakeEvalError() << "Input calculates to invalid time: "
                          << absl::StrFormat("%02d:%02d:%02d", hour, minute,
                                             second);
 }
 
-zetasql_base::Status ConstructDatetime(int year, int month, int day, int hour,
+absl::Status ConstructDatetime(int year, int month, int day, int hour,
                                int minute, int second, DatetimeValue* output) {
   if (IsValidDay(year, month, day) && IsValidTimeOfDay(hour, minute, second)) {
     *output = DatetimeValue::FromYMDHMSAndMicrosNormalized(
         year, month, day, hour, minute, second, /*microsecond=*/0);
     if (output->IsValid()) {
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
   }
   return MakeEvalError() << "Input calculates to invalid datetime: "
@@ -2363,7 +2363,7 @@ zetasql_base::Status ConstructDatetime(int year, int month, int day, int hour,
                                             second);
 }
 
-zetasql_base::Status ConstructDatetime(int32_t date, const TimeValue& time,
+absl::Status ConstructDatetime(int32_t date, const TimeValue& time,
                                DatetimeValue* output) {
   if (IsValidDate(date) && time.IsValid()) {
     absl::CivilDay day = EpochDaysToCivilDay(date);
@@ -2373,14 +2373,14 @@ zetasql_base::Status ConstructDatetime(int32_t date, const TimeValue& time,
         static_cast<int32_t>(day.year()), day.month(), day.day(), time.Hour(),
         time.Minute(), time.Second(), time.Nanoseconds());
     if (output->IsValid()) {
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
   }
   return MakeEvalError() << "Input calculates to invalid datetime: "
                          << DateErrorString(date) << " " << time.DebugString();
 }
 
-zetasql_base::Status ExtractFromTimestamp(DateTimestampPart part, int64_t timestamp,
+absl::Status ExtractFromTimestamp(DateTimestampPart part, int64_t timestamp,
                                   TimestampScale scale, absl::TimeZone timezone,
                                   int32_t* output) {
   if (!IsValidTimestamp(timestamp, scale)) {
@@ -2390,7 +2390,7 @@ zetasql_base::Status ExtractFromTimestamp(DateTimestampPart part, int64_t timest
                                       timezone, output);
 }
 
-zetasql_base::Status ExtractFromTimestamp(DateTimestampPart part, int64_t timestamp,
+absl::Status ExtractFromTimestamp(DateTimestampPart part, int64_t timestamp,
                                   TimestampScale scale,
                                   absl::string_view timezone_string,
                                   int32_t* output) {
@@ -2399,7 +2399,7 @@ zetasql_base::Status ExtractFromTimestamp(DateTimestampPart part, int64_t timest
   return ExtractFromTimestamp(part, timestamp, scale, timezone, output);
 }
 
-zetasql_base::Status ExtractFromTimestamp(DateTimestampPart part, absl::Time base_time,
+absl::Status ExtractFromTimestamp(DateTimestampPart part, absl::Time base_time,
                                   absl::TimeZone timezone, int32_t* output) {
   if (IsValidTime(base_time)) {
     return ExtractFromTimestampInternal(part, base_time, timezone, output);
@@ -2415,7 +2415,7 @@ zetasql_base::Status ExtractFromTimestamp(DateTimestampPart part, absl::Time bas
                          << absl::FormatTime(base_time, timezone);
 }
 
-zetasql_base::Status ExtractFromTimestamp(DateTimestampPart part, absl::Time base_time,
+absl::Status ExtractFromTimestamp(DateTimestampPart part, absl::Time base_time,
                                   absl::string_view timezone_string,
                                   int32_t* output) {
   absl::TimeZone timezone;
@@ -2423,7 +2423,7 @@ zetasql_base::Status ExtractFromTimestamp(DateTimestampPart part, absl::Time bas
   return ExtractFromTimestamp(part, base_time, timezone, output);
 }
 
-zetasql_base::Status ExtractFromDate(DateTimestampPart part, int32_t date,
+absl::Status ExtractFromDate(DateTimestampPart part, int32_t date,
                              int32_t* output) {
   if (!IsValidDate(date)) {
     return MakeEvalError() << "Invalid date value: " << date;
@@ -2491,10 +2491,10 @@ zetasql_base::Status ExtractFromDate(DateTimestampPart part, int32_t date,
       return MakeEvalError() << "Unexpected DateTimestampPart "
                              << DateTimestampPart_Name(part);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ExtractFromTime(DateTimestampPart part, const TimeValue& time,
+absl::Status ExtractFromTime(DateTimestampPart part, const TimeValue& time,
                              int32_t* output) {
   if (!time.IsValid()) {
     return MakeEvalError() << "Invalid time value: " << time.DebugString();
@@ -2541,10 +2541,10 @@ zetasql_base::Status ExtractFromTime(DateTimestampPart part, const TimeValue& ti
       return MakeEvalError() << "Unexpected DateTimestampPart "
                              << DateTimestampPart_Name(part);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ExtractFromDatetime(DateTimestampPart part,
+absl::Status ExtractFromDatetime(DateTimestampPart part,
                                  const DatetimeValue& datetime, int32_t* output) {
   ZETASQL_RET_CHECK(part != TIME)
       << "Use ExtractTimeFromDatetime() for extracting time from datetime";
@@ -2642,10 +2642,10 @@ zetasql_base::Status ExtractFromDatetime(DateTimestampPart part,
       return MakeEvalError() << "Unexpected DateTimestampPart "
                              << DateTimestampPart_Name(part);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ExtractTimeFromDatetime(const DatetimeValue& datetime,
+absl::Status ExtractTimeFromDatetime(const DatetimeValue& datetime,
                                      TimeValue* time) {
   if (!datetime.IsValid()) {
     return MakeEvalError() << "Invalid datetime value: "
@@ -2656,10 +2656,10 @@ zetasql_base::Status ExtractTimeFromDatetime(const DatetimeValue& datetime,
   // Check should never fail because the fields taken from a valid datetime
   // should always be valid for a time value.
   ZETASQL_RET_CHECK(time->IsValid());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ConvertDatetimeToTimestamp(const DatetimeValue& datetime,
+absl::Status ConvertDatetimeToTimestamp(const DatetimeValue& datetime,
                                         absl::TimeZone timezone,
                                         absl::Time* output) {
   if (datetime.IsValid()) {
@@ -2668,7 +2668,7 @@ zetasql_base::Status ConvertDatetimeToTimestamp(const DatetimeValue& datetime,
                            datetime.Second(), datetime.Nanoseconds(),
                            kNanoseconds, timezone, output) &&
         IsValidTime(*output)) {
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     return MakeEvalError() << "Cannot convert Datetime "
                            << datetime.DebugString() << " at timezone "
@@ -2677,7 +2677,7 @@ zetasql_base::Status ConvertDatetimeToTimestamp(const DatetimeValue& datetime,
   return MakeEvalError() << "Invalid datetime: " << datetime.DebugString();
 }
 
-zetasql_base::Status ConvertDatetimeToTimestamp(const DatetimeValue& datetime,
+absl::Status ConvertDatetimeToTimestamp(const DatetimeValue& datetime,
                                         absl::string_view timezone_string,
                                         absl::Time* output) {
   absl::TimeZone timezone;
@@ -2685,7 +2685,7 @@ zetasql_base::Status ConvertDatetimeToTimestamp(const DatetimeValue& datetime,
   return ConvertDatetimeToTimestamp(datetime, timezone, output);
 }
 
-zetasql_base::Status ConvertTimestampToDatetime(absl::Time base_time,
+absl::Status ConvertTimestampToDatetime(absl::Time base_time,
                                         absl::TimeZone timezone,
                                         DatetimeValue* output) {
   if (IsValidTime(base_time)) {
@@ -2697,7 +2697,7 @@ zetasql_base::Status ConvertTimestampToDatetime(absl::Time base_time,
         // cast is safe, guaranteed to be less than 1 billion.
         static_cast<int32_t>(info.subsecond / absl::Nanoseconds(1)));
     if (output->IsValid()) {
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     return MakeEvalError() << "Invalid Datetime " << output->DebugString()
                            << "extracted from timestamp "
@@ -2708,7 +2708,7 @@ zetasql_base::Status ConvertTimestampToDatetime(absl::Time base_time,
                          << TimestampErrorString(base_time, timezone);
 }
 
-zetasql_base::Status ConvertTimestampToDatetime(absl::Time base_time,
+absl::Status ConvertTimestampToDatetime(absl::Time base_time,
                                         absl::string_view timezone_string,
                                         DatetimeValue* output) {
   absl::TimeZone timezone;
@@ -2716,7 +2716,7 @@ zetasql_base::Status ConvertTimestampToDatetime(absl::Time base_time,
   return ConvertTimestampToDatetime(base_time, timezone, output);
 }
 
-zetasql_base::Status ConvertTimestampToTime(absl::Time base_time,
+absl::Status ConvertTimestampToTime(absl::Time base_time,
                                     absl::TimeZone timezone,
                                     TimestampScale scale, TimeValue* output) {
   ZETASQL_RET_CHECK(scale == kNanoseconds || scale == kMicroseconds);
@@ -2734,7 +2734,7 @@ zetasql_base::Status ConvertTimestampToTime(absl::Time base_time,
           static_cast<int32_t>(absl::ToInt64Microseconds(info.subsecond)));
     }
     if (output->IsValid()) {
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     return MakeEvalError() << "Invalid Time " << output->DebugString()
                            << "extracted from timestamp "
@@ -2745,7 +2745,7 @@ zetasql_base::Status ConvertTimestampToTime(absl::Time base_time,
                          << TimestampErrorString(base_time, timezone);
 }
 
-zetasql_base::Status ConvertTimestampToTime(absl::Time base_time,
+absl::Status ConvertTimestampToTime(absl::Time base_time,
                                     absl::string_view timezone_string,
                                     TimestampScale scale, TimeValue* output) {
   absl::TimeZone timezone;
@@ -2753,13 +2753,13 @@ zetasql_base::Status ConvertTimestampToTime(absl::Time base_time,
   return ConvertTimestampToTime(base_time, timezone, scale, output);
 }
 
-zetasql_base::Status ConvertTimestampToTime(absl::Time base_time,
+absl::Status ConvertTimestampToTime(absl::Time base_time,
                                     absl::TimeZone timezone,
                                     TimeValue* output) {
   return ConvertTimestampToTime(base_time, timezone, kNanoseconds, output);
 }
 
-zetasql_base::Status ConvertTimestampToTime(absl::Time base_time,
+absl::Status ConvertTimestampToTime(absl::Time base_time,
                                     absl::string_view timezone_string,
                                     TimeValue* output) {
   absl::TimeZone timezone;
@@ -2767,16 +2767,16 @@ zetasql_base::Status ConvertTimestampToTime(absl::Time base_time,
   return ConvertTimestampToTime(base_time, timezone, kNanoseconds, output);
 }
 
-zetasql_base::Status ConvertDateToTimestamp(int32_t date, absl::TimeZone timezone,
+absl::Status ConvertDateToTimestamp(int32_t date, absl::TimeZone timezone,
                                     absl::Time* output) {
   if (!IsValidDate(date)) {
     return MakeEvalError() << "Invalid date value: " << date;
   }
   *output = timezone.At(absl::CivilSecond(EpochDaysToCivilDay(date))).pre;
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ConvertDateToTimestamp(int32_t date,
+absl::Status ConvertDateToTimestamp(int32_t date,
                                     absl::string_view timezone_string,
                                     absl::Time* output) {
   absl::TimeZone timezone;
@@ -2784,7 +2784,7 @@ zetasql_base::Status ConvertDateToTimestamp(int32_t date,
   return ConvertDateToTimestamp(date, timezone, output);
 }
 
-zetasql_base::Status ConvertDateToTimestamp(int32_t date, TimestampScale scale,
+absl::Status ConvertDateToTimestamp(int32_t date, TimestampScale scale,
                                     absl::TimeZone timezone, int64_t* output) {
   absl::Time base_time;
   ZETASQL_RETURN_IF_ERROR(ConvertDateToTimestamp(date, timezone, &base_time));
@@ -2792,10 +2792,10 @@ zetasql_base::Status ConvertDateToTimestamp(int32_t date, TimestampScale scale,
     return MakeEvalError() << "Cannot convert date " << DateErrorString(date)
                            << " to timestamp";
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ConvertDateToTimestamp(int32_t date, TimestampScale scale,
+absl::Status ConvertDateToTimestamp(int32_t date, TimestampScale scale,
                                     absl::string_view timezone_string,
                                     int64_t* output) {
   absl::TimeZone timezone;
@@ -2803,7 +2803,7 @@ zetasql_base::Status ConvertDateToTimestamp(int32_t date, TimestampScale scale,
   return ConvertDateToTimestamp(date, scale, timezone, output);
 }
 
-zetasql_base::Status ConvertProto3TimestampToTimestamp(
+absl::Status ConvertProto3TimestampToTimestamp(
     const google::protobuf::Timestamp& input_timestamp,
     TimestampScale output_scale, int64_t* output) {
   absl::Time time;
@@ -2812,10 +2812,10 @@ zetasql_base::Status ConvertProto3TimestampToTimestamp(
     return MakeEvalError() << "Invalid Proto3 Timestamp input: "
                            << input_timestamp.DebugString();
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ConvertProto3TimestampToTimestamp(
+absl::Status ConvertProto3TimestampToTimestamp(
     const google::protobuf::Timestamp& input_timestamp, absl::Time* output) {
   auto result_or = zetasql_base::DecodeGoogleApiProto(input_timestamp);
   if (!result_or.ok()) {
@@ -2827,29 +2827,29 @@ zetasql_base::Status ConvertProto3TimestampToTimestamp(
   // This check is meant to give us protection in case the contract of
   // DecodeGoogleApiProto changes in the future.
   DCHECK(IsValidTime(*output));
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ConvertTimestampToProto3Timestamp(
+absl::Status ConvertTimestampToProto3Timestamp(
     int64_t input_timestamp, TimestampScale scale,
     google::protobuf::Timestamp* output) {
   return ConvertTimestampToProto3Timestamp(MakeTime(input_timestamp, scale),
                                            output);
 }
 
-zetasql_base::Status ConvertTimestampToProto3Timestamp(
+absl::Status ConvertTimestampToProto3Timestamp(
     absl::Time input_timestamp, google::protobuf::Timestamp* output) {
   // We don't need to explicity check the validity of <input_timestamp> as
   // EncodeGoogleApiProto enforces the same valid timestamp range as ZetaSQL.
   return zetasql_base::EncodeGoogleApiProto(input_timestamp, output);
 }
 
-zetasql_base::Status ConvertProto3DateToDate(const google::type::Date& input,
+absl::Status ConvertProto3DateToDate(const google::type::Date& input,
                                      int32_t* output) {
   return ConstructDate(input.year(), input.month(), input.day(), output);
 }
 
-zetasql_base::Status ConvertDateToProto3Date(int32_t input, google::type::Date* output) {
+absl::Status ConvertDateToProto3Date(int32_t input, google::type::Date* output) {
   if (!IsValidDate(input)) {
     return MakeEvalError() << "Input is outside of Proto3 Date range: "
                            << input;
@@ -2859,10 +2859,10 @@ zetasql_base::Status ConvertDateToProto3Date(int32_t input, google::type::Date* 
   output->set_year(static_cast<int32_t>(converted_date.year()));
   output->set_month(converted_date.month());
   output->set_day(converted_date.day());
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ConvertBetweenTimestamps(int64_t input_timestamp,
+absl::Status ConvertBetweenTimestamps(int64_t input_timestamp,
                                       TimestampScale input_scale,
                                       TimestampScale output_scale,
                                       int64_t* output) {
@@ -2873,7 +2873,7 @@ zetasql_base::Status ConvertBetweenTimestamps(int64_t input_timestamp,
                                           output_scale, output);
 }
 
-zetasql_base::Status AddDateOverflow(int32_t date, DateTimestampPart part, int32_t interval,
+absl::Status AddDateOverflow(int32_t date, DateTimestampPart part, int32_t interval,
                              int32_t* output, bool* had_overflow) {
   *had_overflow = false;
   if (!IsValidDate(date)) {
@@ -2884,13 +2884,13 @@ zetasql_base::Status AddDateOverflow(int32_t date, DateTimestampPart part, int32
   if (part == DAY) {
     if (!Add<int32_t>(date, interval, output, kNoError)) {
       *had_overflow = true;
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
   } else if (part == WEEK) {
     if (!Multiply<int32_t>(7, interval, &interval, kNoError) ||
         !Add<int32_t>(date, interval, output, kNoError)) {
       *had_overflow = true;
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
   } else if (part == YEAR || part == QUARTER || part == MONTH) {
     absl::CivilDay civil_day = EpochDaysToCivilDay(date);
@@ -2902,13 +2902,13 @@ zetasql_base::Status AddDateOverflow(int32_t date, DateTimestampPart part, int32
       case YEAR: {
         if (!Add<int32_t>(y, interval, &y, kNoError)) {
           *had_overflow = true;
-          return zetasql_base::OkStatus();
+          return absl::OkStatus();
         }
         AdjustYearMonthDay(&y, &month, &day);
         absl::CivilDay date_value;
         if (!MakeDate(y, month, day, &date_value)) {
           *had_overflow = true;
-          return zetasql_base::OkStatus();
+          return absl::OkStatus();
         }
         *output = CivilDayToEpochDays(date_value);
         break;
@@ -2916,21 +2916,21 @@ zetasql_base::Status AddDateOverflow(int32_t date, DateTimestampPart part, int32
       case QUARTER:
         if (!Multiply<int32_t>(3, interval, &interval, kNoError)) {
           *had_overflow = true;
-          return zetasql_base::OkStatus();
+          return absl::OkStatus();
         }
         ABSL_FALLTHROUGH_INTENDED;
       case MONTH: {
         int32_t m;
         if (!Add<int32_t>(month, interval, &m, kNoError)) {
           *had_overflow = true;
-          return zetasql_base::OkStatus();
+          return absl::OkStatus();
         }
 
         AdjustYearMonthDay(&y, &m, &day);
         absl::CivilDay date_value;
         if (!MakeDate(y, m, day, &date_value)) {
           *had_overflow = true;
-          return zetasql_base::OkStatus();
+          return absl::OkStatus();
         }
         *output = CivilDayToEpochDays(date_value);
         break;
@@ -2945,12 +2945,12 @@ zetasql_base::Status AddDateOverflow(int32_t date, DateTimestampPart part, int32
   }
   if (!IsValidDate(*output)) {
     *had_overflow = true;
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AddDate(int32_t date, DateTimestampPart part, int64_t interval,
+absl::Status AddDate(int32_t date, DateTimestampPart part, int64_t interval,
                      int32_t* output) {
   // The interval is an int64_t to match the ZetaSQL function signature.
   // Below we will do safe casting with it, so it must be in
@@ -2966,10 +2966,10 @@ zetasql_base::Status AddDate(int32_t date, DateTimestampPart part, int64_t inter
   if (had_overflow) {
     return MakeAddDateOverflowError(date, part, interval);
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SubDate(int32_t date, DateTimestampPart part, int64_t interval,
+absl::Status SubDate(int32_t date, DateTimestampPart part, int64_t interval,
                      int32_t* output) {
   // The negation of std::numeric_limits<int64_t>::lowest() is undefined, so
   // protect against it explicitly.
@@ -2979,7 +2979,7 @@ zetasql_base::Status SubDate(int32_t date, DateTimestampPart part, int64_t inter
   return AddDate(date, part, -interval, output);
 }
 
-zetasql_base::Status DiffDates(int32_t date1, int32_t date2, DateTimestampPart part,
+absl::Status DiffDates(int32_t date1, int32_t date2, DateTimestampPart part,
                        int32_t* output) {
   if (!IsValidDate(date1)) {
     return MakeEvalError() << "Invalid date value: " << date1;
@@ -3043,7 +3043,7 @@ zetasql_base::Status DiffDates(int32_t date1, int32_t date2, DateTimestampPart p
       return MakeEvalError() << "Unsupported DateTimestampPart "
                              << DateTimestampPart_Name(part);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Valid <part> for this function are only HOUR, MINUTE, SECOND, MILLISECOND,
@@ -3051,11 +3051,11 @@ zetasql_base::Status DiffDates(int32_t date1, int32_t date2, DateTimestampPart p
 // For all valid input, overflow could happen only when <part> is NANOSECOND.
 // When overflow happens, use the supplied <nano_overflow_error_maker> to make
 // an appropriate error message to pass out.
-static zetasql_base::Status DiffWithPartsSmallerThanDay(
+static absl::Status DiffWithPartsSmallerThanDay(
     const absl::CivilSecond civil_second_1, int64_t nanosecond_1,
     const absl::CivilSecond civil_second_2, int64_t nanosecond_2,
     DateTimestampPart part,
-    const std::function<zetasql_base::Status()>& nano_overflow_error_maker,
+    const std::function<absl::Status()>& nano_overflow_error_maker,
     int64_t* output) {
   if (part == HOUR) {
     *output = absl::CivilHour(civil_second_1) - absl::CivilHour(civil_second_2);
@@ -3084,7 +3084,7 @@ static zetasql_base::Status DiffWithPartsSmallerThanDay(
                std::numeric_limits<int64_t>::lowest() - nano_diff_2 <=
                    nano_diff_1)) {
             *output = nano_diff_1 + nano_diff_2;
-            return ::zetasql_base::OkStatus();
+            return absl::OkStatus();
           }
         }
         return nano_overflow_error_maker();
@@ -3106,10 +3106,10 @@ static zetasql_base::Status DiffWithPartsSmallerThanDay(
                          << DateTimestampPart_Name(part);
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status DiffDatetimes(const DatetimeValue& datetime1,
+absl::Status DiffDatetimes(const DatetimeValue& datetime1,
                            const DatetimeValue& datetime2,
                            DateTimestampPart part, int64_t* output) {
   if (!datetime1.IsValid()) {
@@ -3167,7 +3167,7 @@ zetasql_base::Status DiffDatetimes(const DatetimeValue& datetime1,
     case MICROSECOND:
     case NANOSECOND: {
       auto DatetimeDiffOverflowErrorMaker = [&datetime1, &datetime2,
-                                             part]() -> zetasql_base::Status {
+                                             part]() -> absl::Status {
         const std::string error_shared_prefix = absl::StrCat(
             "DATETIME_DIFF at ", DateTimestampPart_Name(part),
             " precision between datetime ", datetime1.DebugString(), " and ",
@@ -3196,16 +3196,16 @@ zetasql_base::Status DiffDatetimes(const DatetimeValue& datetime1,
                              << DateTimestampPart_Name(part)
                              << " for DATETIME_DIFF";
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // This internal wrapper is shared by both datetime_add and datetime_sub. The
 // extra function is used to generate appropriate error messages when
 // out-of-range error happens.
-static zetasql_base::Status AddDatetimeInternal(
+static absl::Status AddDatetimeInternal(
     const DatetimeValue& datetime, DateTimestampPart part, int64_t interval,
     DatetimeValue* output,
-    const std::function<zetasql_base::Status()>& overflow_error_maker) {
+    const std::function<absl::Status()>& overflow_error_maker) {
   if (!datetime.IsValid()) {
     return MakeEvalError() << "Invalid datetime value: "
                            << datetime.DebugString();
@@ -3241,10 +3241,10 @@ static zetasql_base::Status AddDatetimeInternal(
   }
 
   *output = result;
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AddDatetime(const DatetimeValue& datetime, DateTimestampPart part,
+absl::Status AddDatetime(const DatetimeValue& datetime, DateTimestampPart part,
                          int64_t interval, DatetimeValue* output) {
   return AddDatetimeInternal(
       datetime, part, interval, output,
@@ -3253,7 +3253,7 @@ zetasql_base::Status AddDatetime(const DatetimeValue& datetime, DateTimestampPar
       });
 }
 
-zetasql_base::Status SubDatetime(const DatetimeValue& datetime, DateTimestampPart part,
+absl::Status SubDatetime(const DatetimeValue& datetime, DateTimestampPart part,
                          int64_t interval, DatetimeValue* output) {
   auto error_maker = [datetime, part, interval]() {
     return MakeSubDatetimeOverflowError(datetime, part, interval);
@@ -3272,7 +3272,7 @@ zetasql_base::Status SubDatetime(const DatetimeValue& datetime, DateTimestampPar
   return AddDatetimeInternal(datetime, part, -interval, output, error_maker);
 }
 
-zetasql_base::Status AddTimestamp(int64_t timestamp, TimestampScale scale,
+absl::Status AddTimestamp(int64_t timestamp, TimestampScale scale,
                           absl::TimeZone timezone, DateTimestampPart part,
                           int64_t interval, int64_t* output) {
   if (!IsValidTimestamp(timestamp, scale)) {
@@ -3284,10 +3284,10 @@ zetasql_base::Status AddTimestamp(int64_t timestamp, TimestampScale scale,
     return MakeAddTimestampOverflowError(
         timestamp, part, interval, scale, timezone);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AddTimestamp(int64_t timestamp, TimestampScale scale,
+absl::Status AddTimestamp(int64_t timestamp, TimestampScale scale,
                           absl::string_view timezone_string,
                           DateTimestampPart part, int64_t interval,
                           int64_t* output) {
@@ -3296,7 +3296,7 @@ zetasql_base::Status AddTimestamp(int64_t timestamp, TimestampScale scale,
   return AddTimestamp(timestamp, scale, timezone, part, interval, output);
 }
 
-zetasql_base::Status AddTimestamp(absl::Time timestamp, absl::TimeZone timezone,
+absl::Status AddTimestamp(absl::Time timestamp, absl::TimeZone timezone,
                           DateTimestampPart part, int64_t interval,
                           absl::Time* output) {
   ZETASQL_RETURN_IF_ERROR(
@@ -3304,10 +3304,10 @@ zetasql_base::Status AddTimestamp(absl::Time timestamp, absl::TimeZone timezone,
   if (!IsValidTime(*output)) {
     return MakeAddTimestampOverflowError(timestamp, part, interval, timezone);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AddTimestamp(absl::Time timestamp,
+absl::Status AddTimestamp(absl::Time timestamp,
                           absl::string_view timezone_string,
                           DateTimestampPart part, int64_t interval,
                           absl::Time* output) {
@@ -3316,7 +3316,7 @@ zetasql_base::Status AddTimestamp(absl::Time timestamp,
   return AddTimestamp(timestamp, timezone, part, interval, output);
 }
 
-zetasql_base::Status SubTimestamp(int64_t timestamp, TimestampScale scale,
+absl::Status SubTimestamp(int64_t timestamp, TimestampScale scale,
                           absl::TimeZone timezone, DateTimestampPart part,
                           int64_t interval, int64_t* output) {
   if (!IsValidTimestamp(timestamp, scale)) {
@@ -3333,10 +3333,10 @@ zetasql_base::Status SubTimestamp(int64_t timestamp, TimestampScale scale,
     return MakeSubTimestampOverflowError(
         timestamp, part, interval, scale, timezone);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SubTimestamp(int64_t timestamp, TimestampScale scale,
+absl::Status SubTimestamp(int64_t timestamp, TimestampScale scale,
                           absl::string_view timezone_string,
                           DateTimestampPart part, int64_t interval,
                           int64_t* output) {
@@ -3345,7 +3345,7 @@ zetasql_base::Status SubTimestamp(int64_t timestamp, TimestampScale scale,
   return SubTimestamp(timestamp, scale, timezone, part, interval, output);
 }
 
-zetasql_base::Status SubTimestamp(absl::Time timestamp, absl::TimeZone timezone,
+absl::Status SubTimestamp(absl::Time timestamp, absl::TimeZone timezone,
                           DateTimestampPart part, int64_t interval,
                           absl::Time* output) {
   if (!IsValidTime(timestamp)) {
@@ -3356,10 +3356,10 @@ zetasql_base::Status SubTimestamp(absl::Time timestamp, absl::TimeZone timezone,
       !IsValidTime(*output)) {
     return MakeSubTimestampOverflowError(timestamp, part, interval, timezone);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status SubTimestamp(absl::Time timestamp,
+absl::Status SubTimestamp(absl::Time timestamp,
                           absl::string_view timezone_string,
                           DateTimestampPart part, int64_t interval,
                           absl::Time* output) {
@@ -3425,7 +3425,7 @@ static void AddOnField(int64_t interval, int64_t radix, int* field, int64_t* car
 // Note that if addition of the interval results in a TimeValue outside of the
 // [00:00:00, 24:00:00) range, the result will be wrapped around to stay within
 // 24 hours.
-static zetasql_base::Status AddTimeInternal(const TimeValue& time,
+static absl::Status AddTimeInternal(const TimeValue& time,
                                     DateTimestampPart part, int64_t interval,
                                     TimeValue* output) {
   if (!time.IsValid()) {
@@ -3489,15 +3489,15 @@ static zetasql_base::Status AddTimeInternal(const TimeValue& time,
   *output = TimeValue::FromHMSAndNanos(hour, minute, second, nanoseconds);
   // This check should never fail as all fields should be in range.
   DCHECK(output->IsValid()) << output->DebugString();
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AddTime(const TimeValue& time, DateTimestampPart part,
+absl::Status AddTime(const TimeValue& time, DateTimestampPart part,
                      int64_t interval, TimeValue* output) {
   return AddTimeInternal(time, part, interval, output);
 }
 
-zetasql_base::Status SubTime(const TimeValue& time, DateTimestampPart part,
+absl::Status SubTime(const TimeValue& time, DateTimestampPart part,
                      int64_t interval, TimeValue* output) {
   if (interval == std::numeric_limits<int64_t>::lowest()) {
     ZETASQL_RETURN_IF_ERROR(
@@ -3507,7 +3507,7 @@ zetasql_base::Status SubTime(const TimeValue& time, DateTimestampPart part,
   return AddTimeInternal(time, part, -interval, output);
 }
 
-zetasql_base::Status DiffTimes(const TimeValue& time1, const TimeValue& time2,
+absl::Status DiffTimes(const TimeValue& time1, const TimeValue& time2,
                        DateTimestampPart part, int64_t* output) {
   if (!time1.IsValid()) {
     return MakeEvalError() << "Invalid time value: " << time1.DebugString();
@@ -3530,7 +3530,7 @@ zetasql_base::Status DiffTimes(const TimeValue& time1, const TimeValue& time2,
       return DiffWithPartsSmallerThanDay(
           civil_time_1, time1.Nanoseconds(), civil_time_2, time2.Nanoseconds(),
           part,
-          []() -> zetasql_base::Status {
+          []() -> absl::Status {
             ZETASQL_RET_CHECK_FAIL() << "TIME_DIFF should never have overflow error";
           } /* nano_overflow_error_maker */,
           output);
@@ -3554,7 +3554,7 @@ zetasql_base::Status DiffTimes(const TimeValue& time1, const TimeValue& time2,
   }
 }
 
-zetasql_base::Status TruncateTime(const TimeValue& time, DateTimestampPart part,
+absl::Status TruncateTime(const TimeValue& time, DateTimestampPart part,
                           TimeValue* output) {
   if (!time.IsValid()) {
     return MakeEvalError() << "Invalid time value: " << time.DebugString();
@@ -3601,27 +3601,27 @@ zetasql_base::Status TruncateTime(const TimeValue& time, DateTimestampPart part,
                              << DateTimestampPart_Name(part)
                              << " for TIME_TRUNC";
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TruncateDate(int32_t date, DateTimestampPart part, int32_t* output) {
+absl::Status TruncateDate(int32_t date, DateTimestampPart part, int32_t* output) {
   return TruncateDateImpl(date, part, /*enforce_range=*/true, output);
 }
 
-zetasql_base::Status TimestampTrunc(int64_t timestamp, absl::TimeZone timezone,
+absl::Status TimestampTrunc(int64_t timestamp, absl::TimeZone timezone,
                             DateTimestampPart part, int64_t* output) {
   return TimestampTruncImpl(timestamp, kMicroseconds, NEW_TIMESTAMP_TYPE,
                             timezone, part, output);
 }
 
-zetasql_base::Status TimestampTrunc(int64_t timestamp, absl::string_view timezone_string,
+absl::Status TimestampTrunc(int64_t timestamp, absl::string_view timezone_string,
                             DateTimestampPart part, int64_t* output) {
   absl::TimeZone timezone;
   ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
   return TimestampTrunc(timestamp, timezone, part, output);
 }
 
-zetasql_base::Status TimestampTrunc(absl::Time timestamp, absl::TimeZone timezone,
+absl::Status TimestampTrunc(absl::Time timestamp, absl::TimeZone timezone,
                             DateTimestampPart part, absl::Time* output) {
   if (!IsValidTime(timestamp)) {
     return MakeEvalError() << "Invalid timestamp value: "
@@ -3654,10 +3654,10 @@ zetasql_base::Status TimestampTrunc(absl::Time timestamp, absl::TimeZone timezon
       ZETASQL_RET_CHECK_FAIL() << "Should not reach here for part="
                        << DateTimestampPart_Name(part);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TimestampTrunc(absl::Time timestamp,
+absl::Status TimestampTrunc(absl::Time timestamp,
                             absl::string_view timezone_string,
                             DateTimestampPart part, absl::Time* output) {
   absl::TimeZone timezone;
@@ -3665,14 +3665,14 @@ zetasql_base::Status TimestampTrunc(absl::Time timestamp,
   return TimestampTrunc(timestamp, timezone, part, output);
 }
 
-zetasql_base::Status TruncateTimestamp(int64_t timestamp, TimestampScale scale,
+absl::Status TruncateTimestamp(int64_t timestamp, TimestampScale scale,
                                absl::TimeZone timezone, DateTimestampPart part,
                                int64_t* output) {
   return TimestampTruncImpl(timestamp, scale, LEGACY_TIMESTAMP_TYPE,
                             timezone, part, output);
 }
 
-zetasql_base::Status TruncateTimestamp(int64_t timestamp, TimestampScale scale,
+absl::Status TruncateTimestamp(int64_t timestamp, TimestampScale scale,
                                absl::string_view timezone_string,
                                DateTimestampPart part, int64_t* output) {
   absl::TimeZone timezone;
@@ -3680,7 +3680,7 @@ zetasql_base::Status TruncateTimestamp(int64_t timestamp, TimestampScale scale,
   return TruncateTimestamp(timestamp, scale, timezone, part, output);
 }
 
-zetasql_base::Status TruncateDatetime(const DatetimeValue& datetime,
+absl::Status TruncateDatetime(const DatetimeValue& datetime,
                               DateTimestampPart part, DatetimeValue* output) {
   if (!datetime.IsValid()) {
     return MakeEvalError() << "Invalid datetime value: "
@@ -3740,7 +3740,7 @@ zetasql_base::Status TruncateDatetime(const DatetimeValue& datetime,
   }
 }
 
-zetasql_base::Status TimestampDiff(int64_t timestamp1, int64_t timestamp2,
+absl::Status TimestampDiff(int64_t timestamp1, int64_t timestamp2,
                            TimestampScale scale,
                            DateTimestampPart part, int64_t* output) {
   absl::Time base_time1 = MakeTime(timestamp1, scale);
@@ -3748,7 +3748,7 @@ zetasql_base::Status TimestampDiff(int64_t timestamp1, int64_t timestamp2,
   return TimestampDiff(base_time1, base_time2, part, output);
 }
 
-zetasql_base::Status TimestampDiff(absl::Time timestamp1, absl::Time timestamp2,
+absl::Status TimestampDiff(absl::Time timestamp1, absl::Time timestamp2,
                            DateTimestampPart part, int64_t* output) {
   absl::Duration duration = timestamp1 - timestamp2;
   absl::Duration rem;
@@ -3799,7 +3799,7 @@ zetasql_base::Status TimestampDiff(absl::Time timestamp1, absl::Time timestamp2,
                            << " precision between values of " << timestamp1
                            << " and " << timestamp2 << " causes overflow";
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 std::string TimestampScale_Name(TimestampScale scale) {
@@ -3821,7 +3821,7 @@ int DateTimestampPart_FromName(absl::string_view name) {
 // TODO These encode/decode interfaces will probably get generalized
 // some to support more field types and more encodings, particularly once
 // we start supporting NWP wrappers.
-zetasql_base::Status DecodeFormattedDate(int64_t input_formatted_date,
+absl::Status DecodeFormattedDate(int64_t input_formatted_date,
                                  FieldFormat::Format format, int32_t* output_date,
                                  bool* output_is_null) {
   // Check for int64_t values that don't fit in int32_t.
@@ -3860,16 +3860,16 @@ zetasql_base::Status DecodeFormattedDate(int64_t input_formatted_date,
       return MakeEvalError() << "Invalid date decode format: " << format;
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status EncodeFormattedDate(
+absl::Status EncodeFormattedDate(
     int32_t input_date, FieldFormat::Format format,
     int32_t* output_formatted_date) {
   switch (format) {
     case FieldFormat::DATE:
       *output_formatted_date = input_date;
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
 
     case FieldFormat::DATE_DECIMAL: {
       if (!IsValidDate(input_date)) {
@@ -3881,7 +3881,7 @@ zetasql_base::Status EncodeFormattedDate(
           // Cast to int32_t is safe; IsValidDate guarantees small numbers.
           static_cast<int32_t>(date.year()) * 100 * 100 + date.month() * 100 +
           date.day();
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
 
     case FieldFormat::DEFAULT_FORMAT:
@@ -3894,11 +3894,11 @@ int32_t CurrentDate(absl::TimeZone timezone) {
   return CivilDayToEpochDays(absl::ToCivilDay(absl::Now(), timezone));
 }
 
-zetasql_base::Status CurrentDate(absl::string_view timezone_string, int32_t* date) {
+absl::Status CurrentDate(absl::string_view timezone_string, int32_t* date) {
   absl::TimeZone timezone;
   ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
   *date = CurrentDate(timezone);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 int64_t CurrentTimestamp() { return ToUnixMicros(absl::Now()); }
@@ -3937,13 +3937,13 @@ namespace internal_functions {
 // Requires that the <expanded_format_string> is empty, and if %Z is present
 // then the <timezone> is normalized to an hours/minutes offset
 // (i.e., <timezone> does not include any 'seconds' offset).
-zetasql_base::Status ExpandPercentZQ(absl::string_view format_string,
+absl::Status ExpandPercentZQ(absl::string_view format_string,
                              absl::Time base_time, absl::TimeZone timezone,
                              bool expand_quarter,
                              std::string* expanded_format_string) {
   ZETASQL_RET_CHECK(expanded_format_string->empty());
   if (format_string.empty()) {
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
   expanded_format_string->reserve(format_string.size());
 
@@ -3999,7 +3999,7 @@ zetasql_base::Status ExpandPercentZQ(absl::string_view format_string,
       absl::StrAppend(expanded_format_string, format_string.substr(index, 2));
     }
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace internal_functions

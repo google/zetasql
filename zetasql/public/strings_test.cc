@@ -210,23 +210,23 @@ static void TestInvalidString(const std::string& str,
   std::string out, error_string;
   int error_offset;
   // Test with all combinations of NULL/non-NULL error_string and error_offset.
-  EXPECT_THAT(
-      ParseStringLiteral(str, &out, nullptr, nullptr),
-      StatusIs(zetasql_base::INVALID_ARGUMENT, HasSubstr(expected_error_substr)))
+  EXPECT_THAT(ParseStringLiteral(str, &out, nullptr, nullptr),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr(expected_error_substr)))
       << str;
-  EXPECT_THAT(
-      ParseStringLiteral(str, &out, &error_string, nullptr),
-      StatusIs(zetasql_base::INVALID_ARGUMENT, HasSubstr(expected_error_substr)))
+  EXPECT_THAT(ParseStringLiteral(str, &out, &error_string, nullptr),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr(expected_error_substr)))
       << str;
   EXPECT_SUBSTRING(expected_error_substr, error_string);
-  EXPECT_THAT(
-      ParseStringLiteral(str, &out, nullptr, &error_offset),
-      StatusIs(zetasql_base::INVALID_ARGUMENT, HasSubstr(expected_error_substr)))
+  EXPECT_THAT(ParseStringLiteral(str, &out, nullptr, &error_offset),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr(expected_error_substr)))
       << str;
   EXPECT_EQ(error_offset, expected_error_offset) << error_string;
-  EXPECT_THAT(
-      ParseStringLiteral(str, &out, &error_string, &error_offset),
-      StatusIs(zetasql_base::INVALID_ARGUMENT, HasSubstr(expected_error_substr)))
+  EXPECT_THAT(ParseStringLiteral(str, &out, &error_string, &error_offset),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr(expected_error_substr)))
       << str;
   EXPECT_EQ(error_offset, expected_error_offset) << error_string;
   EXPECT_SUBSTRING(expected_error_substr, error_string);
@@ -242,23 +242,23 @@ static void TestInvalidBytes(const std::string& str,
   std::string out, error_string;
   int error_offset;
   // Test with all combinations of NULL/non-NULL error_string and error_offset.
-  EXPECT_THAT(
-      ParseBytesLiteral(str, &out, nullptr, nullptr),
-      StatusIs(zetasql_base::INVALID_ARGUMENT, HasSubstr(expected_error_substr)))
+  EXPECT_THAT(ParseBytesLiteral(str, &out, nullptr, nullptr),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr(expected_error_substr)))
       << str;
-  EXPECT_THAT(
-      ParseBytesLiteral(str, &out, &error_string, nullptr),
-      StatusIs(zetasql_base::INVALID_ARGUMENT, HasSubstr(expected_error_substr)))
+  EXPECT_THAT(ParseBytesLiteral(str, &out, &error_string, nullptr),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr(expected_error_substr)))
       << str;
   EXPECT_SUBSTRING(expected_error_substr, error_string);
-  EXPECT_THAT(
-      ParseBytesLiteral(str, &out, nullptr, &error_offset),
-      StatusIs(zetasql_base::INVALID_ARGUMENT, HasSubstr(expected_error_substr)))
+  EXPECT_THAT(ParseBytesLiteral(str, &out, nullptr, &error_offset),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr(expected_error_substr)))
       << str;
   EXPECT_EQ(error_offset, expected_error_offset) << error_string;
-  EXPECT_THAT(
-      ParseBytesLiteral(str, &out, &error_string, &error_offset),
-      StatusIs(zetasql_base::INVALID_ARGUMENT, HasSubstr(expected_error_substr)))
+  EXPECT_THAT(ParseBytesLiteral(str, &out, &error_string, &error_offset),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr(expected_error_substr)))
       << str;
   EXPECT_EQ(error_offset, expected_error_offset) << error_string;
   EXPECT_SUBSTRING(expected_error_substr, error_string);
@@ -692,21 +692,21 @@ static void TestInvalidIdentifier(
   std::string error_string;
   int error_offset = 0;
   // Test with all combinations of NULL/non-NULL error_string and error_offset.
-  EXPECT_THAT(
-      ParseIdentifier(str, &out, nullptr, nullptr),
-      StatusIs(zetasql_base::INVALID_ARGUMENT, HasSubstr(expected_error_substr)))
+  EXPECT_THAT(ParseIdentifier(str, &out, nullptr, nullptr),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr(expected_error_substr)))
       << str;
-  EXPECT_THAT(
-      ParseIdentifier(str, &out, nullptr, &error_offset),
-      StatusIs(zetasql_base::INVALID_ARGUMENT, HasSubstr(expected_error_substr)))
+  EXPECT_THAT(ParseIdentifier(str, &out, nullptr, &error_offset),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr(expected_error_substr)))
       << str;
-  EXPECT_THAT(
-      ParseIdentifier(str, &out, &error_string, nullptr),
-      StatusIs(zetasql_base::INVALID_ARGUMENT, HasSubstr(expected_error_substr)))
+  EXPECT_THAT(ParseIdentifier(str, &out, &error_string, nullptr),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr(expected_error_substr)))
       << str;
-  EXPECT_THAT(
-      ParseIdentifier(str, &out, &error_string, &error_offset),
-      StatusIs(zetasql_base::INVALID_ARGUMENT, HasSubstr(expected_error_substr)))
+  EXPECT_THAT(ParseIdentifier(str, &out, &error_string, &error_offset),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr(expected_error_substr)))
       << str;
   EXPECT_EQ(error_offset, expected_error_offset) << error_string;
   EXPECT_SUBSTRING(expected_error_substr, error_string);
@@ -1000,7 +1000,7 @@ TEST(StringsTest, UTF8Unescape) {
     const std::string& e = bad[i];
     std::string out;
     EXPECT_THAT(UnescapeString(e, &out),
-                StatusIs(zetasql_base::INVALID_ARGUMENT,
+                StatusIs(absl::StatusCode::kInvalidArgument,
                          HasSubstr("Invalid escaped string")))
         << "original: '" << e << "'\nunescaped: '" << out << "'";
   }
@@ -1197,9 +1197,9 @@ TEST(StringsTest, ParseIdentifierPath) {
           << test.name << " ERROR: parsed expression mismatch";
     } else {
       // Failure.
-      EXPECT_THAT(ParseIdentifierPath(test.input, &path),
-                  StatusIs(zetasql_base::INVALID_ARGUMENT,
-                           HasSubstr(test.error)))
+      EXPECT_THAT(
+          ParseIdentifierPath(test.input, &path),
+          StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr(test.error)))
           << test.name << " ERROR: unexpected failure status";
 
       // Ensure that the output has not changed.

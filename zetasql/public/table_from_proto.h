@@ -57,7 +57,7 @@ class TableFromProto : public SimpleTable {
   // Initialize this Table's schema from <descriptor>.
   // Types will be created in <type_factory>.
   // Should be called exactly once as part of construction.
-  zetasql_base::Status Init(const google::protobuf::Descriptor* descriptor,
+  absl::Status Init(const google::protobuf::Descriptor* descriptor,
                     TypeFactory* type_factory,
                     const TableFromProtoOptions& options =
                         TableFromProtoOptions());

@@ -17,6 +17,7 @@
 #include "zetasql/local_service/local_service_jni.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <grpcpp/server.h>
 #include <grpcpp/server_builder.h>
 #include <grpcpp/server_posix.h>
@@ -46,7 +47,12 @@ static grpc::Server* GetServer() {
 
 static void ErrnoSocketException(JNIEnv* env) {
   char buf[128];
+#if __USE_GNU
   char* outstr = strerror_r(errno, buf, sizeof(buf));
+#else
+  strerror_r(errno, buf, sizeof(buf));
+  char* outstr = buf;
+#endif
 
   jclass e = env->FindClass("java/net/SocketException");
   if (e == nullptr) {
@@ -57,9 +63,22 @@ static void ErrnoSocketException(JNIEnv* env) {
 
 static int GetSocketFd(JNIEnv* env) {
   int sv[2];
-  if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0, sv) < 0) {
+  if (socketpair(AF_UNIX, SOCK_STREAM, 0, sv) < 0) {
     ErrnoSocketException(env);
     return -1;
+  }
+
+  for (int i = 0; i < 2; i++) {
+    int flags = fcntl(sv[i], F_GETFL);
+    if (flags == -1) {
+      ErrnoSocketException(env);
+      return -1;
+    }
+
+    if (fcntl(sv[i], F_SETFL, flags | O_NONBLOCK) < 0) {
+      ErrnoSocketException(env);
+      return -1;
+    }
   }
 
   // gRPC takes ownership of the first fd

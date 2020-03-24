@@ -587,7 +587,7 @@ class NameScope {
   //
   // WARNING - The caller must ensure that the previous_scope_'s names
   // remain valid for access in the new NameScope.
-  zetasql_base::Status CreateNameScopeGivenValidNamePaths(
+  absl::Status CreateNameScopeGivenValidNamePaths(
       const ValidFieldInfoMap& valid_field_info_map_in,
       std::unique_ptr<NameScope>* new_name_scope) const;
 
@@ -600,7 +600,7 @@ class NameScope {
   // cannot contain pseudocolumns, range variables, or value table
   // columns - it can only contain normal columns.  So this function
   // returns an error status if any non-normal columns are present.
-  zetasql_base::Status CopyNameScopeWithOverridingNames(
+  absl::Status CopyNameScopeWithOverridingNames(
       const std::shared_ptr<NameList>& namelist_with_overriding_names,
       std::unique_ptr<NameScope>* scope_with_new_names) const;
 
@@ -609,7 +609,7 @@ class NameScope {
   // NameScope.  The new NameScope has the same 'previous_scope_'
   // as this NameScope, so all previous scope names remain available for
   // lookup (if not overridden by local names).
-  zetasql_base::Status CopyNameScopeWithOverridingNameTargets(
+  absl::Status CopyNameScopeWithOverridingNameTargets(
       const IdStringHashMapCase<NameTarget>& overriding_name_targets,
       std::unique_ptr<NameScope>* scope_with_new_names) const;
 
@@ -658,7 +658,7 @@ class NameScope {
   // 'in_strict_mode' identifies whether unqualified names are valid
   // to access.  'clause_name' and 'is_post_distinct' are only used for
   // error messaging.
-  zetasql_base::Status LookupNamePath(const ASTPathExpression* path_expr,
+  absl::Status LookupNamePath(const ASTPathExpression* path_expr,
                               const char* clause_name, bool is_post_distinct,
                               bool in_strict_mode,
                               CorrelatedColumnsSetList* correlated_columns_sets,
@@ -763,7 +763,7 @@ class NameScope {
   // 'original_name_target', where the new NameTarget reflects whether
   // or not the name (and its fields) are valid to access based on
   // entries in 'valid_field_info_list_in'.
-  static zetasql_base::Status CreateNewRangeVariableTargetGivenValidNamePaths(
+  static absl::Status CreateNewRangeVariableTargetGivenValidNamePaths(
       const NameTarget& original_name_target,
       const ValidFieldInfoMap& valid_field_info_map_in,
       NameTarget* new_name_target);
@@ -781,7 +781,7 @@ class NameScope {
   // concatenation is only supported for 'valid_field_info_map_in' entries
   // that have empty name paths (that in effect is used to update the
   // target ResolvedColumn associated with the existing name path).
-  zetasql_base::Status CreateNewLocalNameTargetsGivenValidNamePaths(
+  absl::Status CreateNewLocalNameTargetsGivenValidNamePaths(
       const ValidFieldInfoMap& valid_field_info_map_in,
       IdStringHashMapCase<NameTarget>* new_name_targets) const;
 
@@ -802,7 +802,7 @@ class NameScope {
   // the 'value_table_column'.  For instance, if the 'value_table_column'
   // has valid path 'a.b.c', and this is invoked for field 'a', then
   // an invalid target is returned with valid path 'b.c'.
-  static zetasql_base::Status CreateGetFieldTargetFromInvalidValueTableColumn(
+  static absl::Status CreateGetFieldTargetFromInvalidValueTableColumn(
       const ValueTableColumn& value_table_column, IdString field_name,
       NameTarget* field_target);
 
@@ -936,7 +936,7 @@ class NameList {
   // Explicitness does not change any scoping behavior except for the final
   // check in strict mode that may raise an error. For more information, please
   // see the beginning of (broken link).
-  zetasql_base::Status AddColumn(IdString name, const ResolvedColumn& column,
+  absl::Status AddColumn(IdString name, const ResolvedColumn& column,
                          bool is_explicit);
 
   // Add a column that stores the value produced by a value table scan,
@@ -957,7 +957,7 @@ class NameList {
   //
   // Lookups for <name> will return the range variable, not the column.
   // The returned NameList will have is_value_table()=true.
-  zetasql_base::Status AddValueTableColumn(
+  absl::Status AddValueTableColumn(
       IdString name, const ResolvedColumn& column,
       const ASTNode* ast_location,
       const IdStringSetCase& excluded_field_names = {},
@@ -965,7 +965,7 @@ class NameList {
 
   // Add a pseudo-column.  Pseudo-columns are always implicit.
   // They can be looked up by name but don't show up in columns().
-  zetasql_base::Status AddPseudoColumn(IdString name,
+  absl::Status AddPseudoColumn(IdString name,
                                const ResolvedColumn& column,
                                const ASTNode* ast_location);
 
@@ -974,7 +974,7 @@ class NameList {
   // Adding a NameList to itself is not allowed and will fail.
   // Adding a value table NameList is not allowed and will fail.
   // Adding cycles of NameLists is also not allowed but will not be caught.
-  zetasql_base::Status AddRangeVariable(
+  absl::Status AddRangeVariable(
       IdString name,
       const std::shared_ptr<const NameList>& scan_columns,
       const ASTNode* ast_location);
@@ -983,16 +983,16 @@ class NameList {
   // Note that a range variable with the same name still takes precedence
   // over the ambiguous column.
   // This is intended for testing only.
-  zetasql_base::Status AddAmbiguousColumn_Test(IdString name);
+  absl::Status AddAmbiguousColumn_Test(IdString name);
 
   // Add all names from <other>.  Returns an error if there is collision
   // in range variable names.
-  zetasql_base::Status MergeFrom(const NameList& other, const ASTNode* ast_location);
+  absl::Status MergeFrom(const NameList& other, const ASTNode* ast_location);
 
   // Add all names from <other>, except <excluded_field_names> (if non-NULL).
   // Range variables with matching names are also excluded.
   // Returns an error if there is collision in range variable names.
-  zetasql_base::Status MergeFromExceptColumns(
+  absl::Status MergeFromExceptColumns(
       const NameList& other,
       const IdStringSetCase* excluded_field_names,  // May be NULL
       const ASTNode* ast_location);

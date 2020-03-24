@@ -605,10 +605,10 @@ enum StatementContext {
 }
 
 // Mode describing how errors should be constructed in the returned
-// util::Status.
+// absl::Status.
 enum ErrorMessageMode {
   // The error string does not contain a location.
-  // An ErrorLocation proto will be attached to the util::Status with
+  // An ErrorLocation proto will be attached to the absl::Status with
   // a location, when applicable.
   // See error_helpers.h for working with these payloads.
   // See error_location.proto for how line and column are defined.

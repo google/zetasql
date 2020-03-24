@@ -110,6 +110,13 @@ pom_file(
     ],
 )
 
+javadoc_library(
+    name = "types_javadoc",
+    srcs = TYPES_SRCS,
+    root_packages = ["com.google.zetasql"],
+    deps = [":types"],
+)
+
 CHANNEL_PROVIDER_SRCS = [
     "ClientChannelProvider.java",
 ]
@@ -123,24 +130,94 @@ java_library(
     ],
 )
 
-javadoc_library(
-    name = "types_javadoc",
-    srcs = TYPES_SRCS,
-    root_packages = ["com.google.zetasql"],
-    deps = [":types"],
-)
-
 JNI_CHANNEL_SRCS = [
     "JniChannelProvider.java",
 ]
 
 java_library(
+    name = "jni_channel_darwin",
+    resources = select({
+        "@bazel_tools//src/conditions:darwin": ["//zetasql/local_service:liblocal_service_jni.dylib"],
+        "//conditions:default": [],
+    }),
+    tags = ["maven_coordinates=com.google.zetasql:zetasql-jni-channel-darwin:${project.version}"],
+)
+
+jarjar_library(
+    name = "jni_channel_darwin_jar",
+    jars = [
+        ":jni_channel_darwin",
+    ],
+)
+
+jarjar_library(
+    name = "jni_channel_darwin_src",
+    jars = [
+        ":libjni_channel_darwin-src.jar",
+    ],
+)
+
+pom_file(
+    name = "jni_channel_darwin_pom",
+    artifact_id = "zetasql-jni-channel-darwin",
+    artifact_name = "JNI Channel for Darwin",
+    targets = [
+        ":jni_channel_darwin",
+    ],
+)
+
+javadoc_library(
+    name = "jni_channel_darwin_javadoc",
+    srcs = JNI_CHANNEL_SRCS,
+    root_packages = ["com.google.zetasql"],
+)
+
+java_library(
+    name = "jni_channel_linux",
+    resources = select({
+        "@bazel_tools//src/conditions:linux_x86_64": ["//zetasql/local_service:liblocal_service_jni.so"],
+        "//conditions:default": [],
+    }),
+    tags = ["maven_coordinates=com.google.zetasql:zetasql-jni-channel-linux:${project.version}"],
+)
+
+jarjar_library(
+    name = "jni_channel_linux_jar",
+    jars = [
+        ":jni_channel_linux",
+    ],
+)
+
+jarjar_library(
+    name = "jni_channel_linux_src",
+    jars = [
+        ":libjni_channel_linux-src.jar",
+    ],
+)
+
+pom_file(
+    name = "jni_channel_linux_pom",
+    artifact_id = "zetasql-jni-channel-linux",
+    artifact_name = "JNI Channel for Linux",
+    targets = [
+        ":jni_channel_linux",
+    ],
+)
+
+javadoc_library(
+    name = "jni_channel_linux_javadoc",
+    srcs = JNI_CHANNEL_SRCS,
+    root_packages = ["com.google.zetasql"],
+)
+
+java_library(
     name = "jni_channel",
     srcs = JNI_CHANNEL_SRCS,
-    resources = [
-        "//zetasql/local_service:liblocal_service_jni.so",
-    ],
     tags = ["maven_coordinates=com.google.zetasql:zetasql-jni-channel:${project.version}"],
+    runtime_deps = [
+        ":jni_channel_darwin",
+        ":jni_channel_linux",
+    ],
     deps = [
         ":channel_provider",
         "//zetasql/local_service:local_service_jni",

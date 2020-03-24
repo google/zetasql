@@ -28,7 +28,6 @@ namespace {
 
 using ::zetasql::testing::EqualsProto;
 using ::testing::HasSubstr;
-using zetasql_base::StatusCord;
 
 std::string StatusPayloadTypeUrl() {
   return GetTypeUrl<zetasql_test::TestStatusPayload>();
@@ -38,12 +37,12 @@ std::string StatusPayload2TypeUrl() {
   return GetTypeUrl<zetasql_test::TestStatusPayload2>();
 }
 
-StatusCord ToStatusCord(const zetasql_test::TestStatusPayload& p) {
-  return p.SerializeAsString();
+absl::Cord ToStatusCord(const zetasql_test::TestStatusPayload& p) {
+  return absl::Cord(p.SerializeAsString());
 }
 
-StatusCord ToStatusCord(const zetasql_test::TestStatusPayload2& p) {
-  return p.SerializeAsString();
+absl::Cord ToStatusCord(const zetasql_test::TestStatusPayload2& p) {
+  return absl::Cord(p.SerializeAsString());
 }
 
 }  // namespace

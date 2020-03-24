@@ -220,7 +220,7 @@ class ParseLocationTranslator {
       ParseLocationPoint point) const;
 
   // Gets the text for line number <line>.  If the line is invalid, returns
-  // a failed zetasql_base::Status.
+  // a failed absl::Status.
   zetasql_base::StatusOr<absl::string_view> GetLineText(int line) const;
 
   // Return <input> with tabs expanded to spaces, assuming 8-char tabs.

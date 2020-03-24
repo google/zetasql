@@ -75,7 +75,7 @@ const char kExceededReplaceOutputSize[] =
 // Verifies that the string length can be represented in a 32-bit signed int and
 // returns that value. Fitting in an int32_t is a requirement for icu methods.
 static bool CheckAndCastStrLength(absl::string_view str, int32_t* str_length32,
-                                  zetasql_base::Status* error) {
+                                  absl::Status* error) {
   if (str.length() > std::numeric_limits<int32_t>::max()) {
     return internal::UpdateError(
         error,
@@ -93,7 +93,7 @@ static int32_t ClampToInt32Max(int64_t i) {
 
 static bool GlobalStringReplace(absl::string_view s, absl::string_view oldsub,
                                 absl::string_view newsub, std::string* res,
-                                zetasql_base::Status* error) {
+                                absl::Status* error) {
   if (oldsub.empty()) {
     if (s.length() > kMaxOutputSize) {
       return internal::UpdateError(error, kExceededReplaceOutputSize);
@@ -129,7 +129,7 @@ static bool GlobalStringReplace(absl::string_view s, absl::string_view oldsub,
 // If the <normalize_mode> is not valid or there is any error in getting the
 // normalizer instance, returns a nullptr and sets the <error>.
 const icu::Normalizer2* GetNormalizerByMode(NormalizeMode normalize_mode,
-                                            zetasql_base::Status* error) {
+                                            absl::Status* error) {
   const icu::Normalizer2* normalizer = nullptr;
   icu::ErrorCode icu_errorcode;
   switch (normalize_mode) {
@@ -146,13 +146,13 @@ const icu::Normalizer2* GetNormalizerByMode(NormalizeMode normalize_mode,
       normalizer = icu::Normalizer2::getNFKDInstance(icu_errorcode);
       break;
     default:
-      error->Update(zetasql_base::Status(zetasql_base::StatusCode::kInvalidArgument,
+      error->Update(absl::Status(absl::StatusCode::kInvalidArgument,
                                  "A valid normalize mode is required."));
       return nullptr;
   }
   if (icu_errorcode.isFailure()) {
-    error->Update(zetasql_base::Status(
-        zetasql_base::StatusCode::kInternal,
+    error->Update(absl::Status(
+        absl::StatusCode::kInternal,
         absl::StrCat("Failed to get a normalizer instance with error: ",
                      icu_errorcode.errorName())));
     return nullptr;
@@ -162,7 +162,7 @@ const icu::Normalizer2* GetNormalizerByMode(NormalizeMode normalize_mode,
 
 }  // anonymous namespace
 
-bool Utf8Trimmer::Initialize(absl::string_view to_trim, zetasql_base::Status* error) {
+bool Utf8Trimmer::Initialize(absl::string_view to_trim, absl::Status* error) {
   int32_t str_length32;
   if (!CheckAndCastStrLength(to_trim, &str_length32, error)) {
     return false;
@@ -191,7 +191,7 @@ bool Utf8Trimmer::Initialize(absl::string_view to_trim, zetasql_base::Status* er
 // Note: UChar32 means "Unicode chararacter 32-bit", and is signed.
 static bool TrimLeftImpl(absl::string_view str,
                          const icu::UnicodeSet& unicode_set,
-                         absl::string_view* out, zetasql_base::Status* error) {
+                         absl::string_view* out, absl::Status* error) {
   int32_t str_length32;
   if (!CheckAndCastStrLength(str, &str_length32, error)) {
     return false;
@@ -205,7 +205,7 @@ static bool TrimLeftImpl(absl::string_view str,
 
 static bool TrimRightImpl(absl::string_view str,
                           const icu::UnicodeSet& unicode_set,
-                          absl::string_view* out, zetasql_base::Status* error) {
+                          absl::string_view* out, absl::Status* error) {
   int32_t str_length32;
   if (!CheckAndCastStrLength(str, &str_length32, error)) {
     return false;
@@ -217,7 +217,7 @@ static bool TrimRightImpl(absl::string_view str,
 }
 
 bool Utf8Trimmer::TrimLeft(absl::string_view str, absl::string_view* out,
-                           zetasql_base::Status* error) const {
+                           absl::Status* error) const {
   if (unicode_set_ == nullptr) {
     // Not initialized, no characters are trimmed. Return input.
     *out = str;
@@ -231,7 +231,7 @@ bool Utf8Trimmer::TrimLeft(absl::string_view str, absl::string_view* out,
 }
 
 bool Utf8Trimmer::TrimRight(absl::string_view str, absl::string_view* out,
-                            zetasql_base::Status* error) const {
+                            absl::Status* error) const {
   if (unicode_set_ == nullptr) {
     // Not initialized, no characters are trimmed. Return input.
     *out = str;
@@ -245,7 +245,7 @@ bool Utf8Trimmer::TrimRight(absl::string_view str, absl::string_view* out,
 }
 
 bool Utf8Trimmer::Trim(absl::string_view str, absl::string_view* out,
-                       zetasql_base::Status* error) const {
+                       absl::Status* error) const {
   absl::string_view intermediate;
   return TrimLeft(str, &intermediate, error) &&
          TrimRight(intermediate, out, error);
@@ -287,7 +287,7 @@ absl::string_view BytesTrimmer::Trim(absl::string_view str) {
 }
 
 bool StrposUtf8(absl::string_view str, absl::string_view substr, int64_t* out,
-                zetasql_base::Status* error) {
+                absl::Status* error) {
   absl::string_view::size_type pos = str.find(substr);
   if (pos == absl::string_view::npos) {
     *out = 0;
@@ -300,7 +300,7 @@ bool StrposUtf8(absl::string_view str, absl::string_view substr, int64_t* out,
 }
 
 bool StrposBytes(absl::string_view str, absl::string_view substr, int64_t* out,
-                 zetasql_base::Status* error) {
+                 absl::Status* error) {
   absl::string_view::size_type pos = str.find(substr);
   if (pos == absl::string_view::npos) {
     *out = 0;
@@ -310,7 +310,7 @@ bool StrposBytes(absl::string_view str, absl::string_view substr, int64_t* out,
   return true;
 }
 
-bool LengthUtf8(absl::string_view str, int64_t* out, zetasql_base::Status* error) {
+bool LengthUtf8(absl::string_view str, int64_t* out, absl::Status* error) {
   int32_t str_length32;
   if (!CheckAndCastStrLength(str, &str_length32, error)) {
     return false;
@@ -330,44 +330,44 @@ bool LengthUtf8(absl::string_view str, int64_t* out, zetasql_base::Status* error
   return true;
 }
 
-bool LengthBytes(absl::string_view str, int64_t* out, zetasql_base::Status* error) {
+bool LengthBytes(absl::string_view str, int64_t* out, absl::Status* error) {
   *out = str.length();
   return true;
 }
 
 bool StartsWithUtf8(absl::string_view str, absl::string_view substr, bool* out,
-                    zetasql_base::Status* error) {
+                    absl::Status* error) {
   *out = absl::StartsWith(str, substr);
   return true;
 }
 
 bool StartsWithBytes(absl::string_view str, absl::string_view substr, bool* out,
-                     zetasql_base::Status* error) {
+                     absl::Status* error) {
   *out = absl::StartsWith(str, substr);
   return true;
 }
 
 bool EndsWithUtf8(absl::string_view str, absl::string_view substr, bool* out,
-                  zetasql_base::Status* error) {
+                  absl::Status* error) {
   *out = absl::EndsWith(str, substr);
   return true;
 }
 
 bool EndsWithBytes(absl::string_view str, absl::string_view substr, bool* out,
-                   zetasql_base::Status* error) {
+                   absl::Status* error) {
   *out = absl::EndsWith(str, substr);
   return true;
 }
 
 bool TrimSpacesUtf8(absl::string_view str, absl::string_view* out,
-                    zetasql_base::Status* error) {
+                    absl::Status* error) {
   absl::string_view intermediate;
   return LeftTrimSpacesUtf8(str, &intermediate, error) &&
          RightTrimSpacesUtf8(intermediate, out, error);
 }
 
 bool LeftTrimSpacesUtf8(absl::string_view str, absl::string_view* out,
-                        zetasql_base::Status* error) {
+                        absl::Status* error) {
   icu::ErrorCode cannot_fail;
   const icu::UnicodeSet* whitespace_unicode_set = icu::UnicodeSet::fromUSet(
       u_getBinaryPropertySet(UCHAR_WHITE_SPACE, cannot_fail));
@@ -375,7 +375,7 @@ bool LeftTrimSpacesUtf8(absl::string_view str, absl::string_view* out,
 }
 
 bool RightTrimSpacesUtf8(absl::string_view str, absl::string_view* out,
-                         zetasql_base::Status* error) {
+                         absl::Status* error) {
   icu::ErrorCode cannot_fail;
   const icu::UnicodeSet* whitespace_unicode_set = icu::UnicodeSet::fromUSet(
       u_getBinaryPropertySet(UCHAR_WHITE_SPACE, cannot_fail));
@@ -383,28 +383,28 @@ bool RightTrimSpacesUtf8(absl::string_view str, absl::string_view* out,
 }
 
 bool TrimUtf8(absl::string_view str, absl::string_view chars,
-              absl::string_view* out, zetasql_base::Status* error) {
+              absl::string_view* out, absl::Status* error) {
   Utf8Trimmer trimmer;
   if (!trimmer.Initialize(chars, error)) return false;
   return trimmer.Trim(str, out, error);
 }
 
 bool LeftTrimUtf8(absl::string_view str, absl::string_view chars,
-                  absl::string_view* out, zetasql_base::Status* error) {
+                  absl::string_view* out, absl::Status* error) {
   Utf8Trimmer trimmer;
   if (!trimmer.Initialize(chars, error)) return false;
   return trimmer.TrimLeft(str, out, error);
 }
 
 bool RightTrimUtf8(absl::string_view str, absl::string_view chars,
-                   absl::string_view* out, zetasql_base::Status* error) {
+                   absl::string_view* out, absl::Status* error) {
   Utf8Trimmer trimmer;
   if (!trimmer.Initialize(chars, error)) return false;
   return trimmer.TrimRight(str, out, error);
 }
 
 bool TrimBytes(absl::string_view str, absl::string_view chars,
-               absl::string_view* out, zetasql_base::Status* error) {
+               absl::string_view* out, absl::Status* error) {
   BytesTrimmer trimmer;
   trimmer.Initialize(chars);
   *out = trimmer.TrimLeft(trimmer.TrimRight(str));
@@ -412,7 +412,7 @@ bool TrimBytes(absl::string_view str, absl::string_view chars,
 }
 
 bool LeftTrimBytes(absl::string_view str, absl::string_view chars,
-                   absl::string_view* out, zetasql_base::Status* error) {
+                   absl::string_view* out, absl::Status* error) {
   BytesTrimmer trimmer;
   trimmer.Initialize(chars);
   *out = trimmer.TrimLeft(str);
@@ -420,7 +420,7 @@ bool LeftTrimBytes(absl::string_view str, absl::string_view chars,
 }
 
 bool RightTrimBytes(absl::string_view str, absl::string_view chars,
-                    absl::string_view* out, zetasql_base::Status* error) {
+                    absl::string_view* out, absl::Status* error) {
   BytesTrimmer trimmer;
   trimmer.Initialize(chars);
   *out = trimmer.TrimRight(str);
@@ -428,7 +428,7 @@ bool RightTrimBytes(absl::string_view str, absl::string_view chars,
 }
 
 bool SubstrUtf8(absl::string_view str, int64_t pos, absl::string_view* out,
-                zetasql_base::Status* error) {
+                absl::Status* error) {
   return SubstrWithLengthUtf8(str, pos, std::numeric_limits<int64_t>::max(), out,
                               error);
 }
@@ -436,7 +436,7 @@ bool SubstrUtf8(absl::string_view str, int64_t pos, absl::string_view* out,
 // Move forward `num_code_points` in str, by updating `str_offset`.
 // Similar to U8_FWD_N, but will detect bad utf codepoints.
 static bool ForwardN(const char* str, int32_t str_length32, int64_t num_code_points,
-                     int32_t* str_offset, zetasql_base::Status* error) {
+                     int32_t* str_offset, absl::Status* error) {
   for (int64_t i = 0; i < num_code_points && *str_offset < str_length32; ++i) {
     UChar32 character;
     U8_NEXT(str, *str_offset, str_length32, character);
@@ -449,7 +449,7 @@ static bool ForwardN(const char* str, int32_t str_length32, int64_t num_code_poi
 
 // Similar to U8_BACK_N, but will detect bad utf codepoints.
 static bool BackN(const char* str, int64_t num_code_points, int32_t* str_offset,
-                  zetasql_base::Status* error) {
+                  absl::Status* error) {
   for (int64_t i = 0; i<num_code_points&& * str_offset> 0; ++i) {
     UChar32 character;
     U8_PREV(str, 0, *str_offset, character);
@@ -468,7 +468,7 @@ static bool BackN(const char* str, int64_t num_code_points, int32_t* str_offset,
 // This function handles SUBSTR(str, pos, length) where pos is negative.
 // In this case pos identifies a character counting from the end of the string.
 static bool SubstrSuffixUtf8(absl::string_view str, int64_t pos, int64_t length,
-                             absl::string_view* out, zetasql_base::Status* error) {
+                             absl::string_view* out, absl::Status* error) {
   DCHECK_LT(pos, 0);
   int32_t str_length32;
   if (!CheckAndCastStrLength(str, &str_length32, error)) {
@@ -521,7 +521,7 @@ static bool SubstrSuffixUtf8(absl::string_view str, int64_t pos, int64_t length,
 }
 
 bool SubstrWithLengthUtf8(absl::string_view str, int64_t pos, int64_t length,
-                          absl::string_view* out, zetasql_base::Status* error) {
+                          absl::string_view* out, absl::Status* error) {
   if (length < 0) {
     return internal::UpdateError(
         error, "Third argument in SUBSTR() cannot be negative");
@@ -578,13 +578,13 @@ bool SubstrWithLengthUtf8(absl::string_view str, int64_t pos, int64_t length,
 }
 
 bool SubstrBytes(absl::string_view str, int64_t pos, absl::string_view* out,
-                 zetasql_base::Status* error) {
+                 absl::Status* error) {
   return SubstrWithLengthBytes(str, pos, std::numeric_limits<int64_t>::max(), out,
                                error);
 }
 
 bool SubstrWithLengthBytes(absl::string_view str, int64_t pos, int64_t length,
-                           absl::string_view* out, zetasql_base::Status* error) {
+                           absl::string_view* out, absl::Status* error) {
   if (length < 0) {
     return internal::UpdateError(
         error, "Third argument in SUBSTR() cannot be negative");
@@ -609,7 +609,7 @@ bool SubstrWithLengthBytes(absl::string_view str, int64_t pos, int64_t length,
 }
 
 // UPPER(STRING) -> STRING
-bool UpperUtf8(absl::string_view str, std::string* out, zetasql_base::Status* error) {
+bool UpperUtf8(absl::string_view str, std::string* out, absl::Status* error) {
   int32_t str_length32;  // unused
   if (!CheckAndCastStrLength(str, &str_length32, error)) {
     return false;
@@ -623,7 +623,7 @@ bool UpperUtf8(absl::string_view str, std::string* out, zetasql_base::Status* er
                             icu_out, nullptr /* edits - unused */, status);
   if (status.isFailure()) {
     error->Update(
-        zetasql_base::Status(zetasql_base::StatusCode::kInternal,
+        absl::Status(absl::StatusCode::kInternal,
                      absl::StrCat("icu::CaseMap::utf8ToUpper error: %s",
                                   status.errorName())));
     status.reset();
@@ -633,7 +633,7 @@ bool UpperUtf8(absl::string_view str, std::string* out, zetasql_base::Status* er
 }
 
 // LOWER(STRING) -> STRING
-bool LowerUtf8(absl::string_view str, std::string* out, zetasql_base::Status* error) {
+bool LowerUtf8(absl::string_view str, std::string* out, absl::Status* error) {
   int32_t str_length32;  // unused
   if (!CheckAndCastStrLength(str, &str_length32, error)) {
     return false;
@@ -647,7 +647,7 @@ bool LowerUtf8(absl::string_view str, std::string* out, zetasql_base::Status* er
                             icu_out, nullptr /* edits - unused */, icu_status);
   if (icu_status.isFailure()) {
     error->Update(
-        zetasql_base::Status(zetasql_base::StatusCode::kInternal,
+        absl::Status(absl::StatusCode::kInternal,
                      absl::StrCat("icu::CaseMap::utf8ToUpper error: %s",
                                   icu_status.errorName())));
     icu_status.reset();
@@ -656,7 +656,7 @@ bool LowerUtf8(absl::string_view str, std::string* out, zetasql_base::Status* er
   return true;
 }
 
-bool UpperBytes(absl::string_view str, std::string* out, zetasql_base::Status* error) {
+bool UpperBytes(absl::string_view str, std::string* out, absl::Status* error) {
   out->resize(str.size());
   for (int i = 0; i < str.size(); ++i) {
     (*out)[i] = absl::ascii_toupper(str[i]);
@@ -664,7 +664,7 @@ bool UpperBytes(absl::string_view str, std::string* out, zetasql_base::Status* e
   return true;
 }
 
-bool LowerBytes(absl::string_view str, std::string* out, zetasql_base::Status* error) {
+bool LowerBytes(absl::string_view str, std::string* out, absl::Status* error) {
   out->resize(str.size());
   for (int i = 0; i < str.size(); ++i) {
     (*out)[i] = absl::ascii_tolower(str[i]);
@@ -675,7 +675,7 @@ bool LowerBytes(absl::string_view str, std::string* out, zetasql_base::Status* e
 // REPLACE(STRING, STRING, STRING) -> STRING
 bool ReplaceUtf8(absl::string_view str, absl::string_view oldsub,
                  absl::string_view newsub, std::string* out,
-                 zetasql_base::Status* error) {
+                 absl::Status* error) {
   out->clear();
   return GlobalStringReplace(str, oldsub, newsub, out, error);
 }
@@ -683,14 +683,14 @@ bool ReplaceUtf8(absl::string_view str, absl::string_view oldsub,
 // REPLACE(BYTES, BYTES, BYTES) -> BYTES
 bool ReplaceBytes(absl::string_view str, absl::string_view oldsub,
                   absl::string_view newsub, std::string* out,
-                  zetasql_base::Status* error) {
+                  absl::Status* error) {
   out->clear();
   return GlobalStringReplace(str, oldsub, newsub, out, error);
 }
 
 template <class Container>
 bool SplitUtf8Impl(absl::string_view str, absl::string_view delimiter,
-                   Container* out, zetasql_base::Status* error) {
+                   Container* out, absl::Status* error) {
   if (delimiter.empty()) {
     out->clear();
     if (str.empty()) {
@@ -731,17 +731,17 @@ bool SplitUtf8Impl(absl::string_view str, absl::string_view delimiter,
 }
 
 bool SplitUtf8(absl::string_view str, absl::string_view delimiter,
-               std::vector<std::string>* out, zetasql_base::Status* error) {
+               std::vector<std::string>* out, absl::Status* error) {
   return SplitUtf8Impl(str, delimiter, out, error);
 }
 
 bool SplitUtf8(absl::string_view str, absl::string_view delimiter,
-               std::vector<absl::string_view>* out, zetasql_base::Status* error) {
+               std::vector<absl::string_view>* out, absl::Status* error) {
   return SplitUtf8Impl(str, delimiter, out, error);
 }
 
 bool SplitBytes(absl::string_view str, absl::string_view delimiter,
-                std::vector<std::string>* out, zetasql_base::Status* error) {
+                std::vector<std::string>* out, absl::Status* error) {
   // Special case empty StringView, because absl::StrSplit behaves differently
   // on StringView() vs. StringView("", 0)
   if (ABSL_PREDICT_FALSE(str.empty())) {
@@ -751,7 +751,7 @@ bool SplitBytes(absl::string_view str, absl::string_view delimiter,
   return true;
 }
 bool SplitBytes(absl::string_view str, absl::string_view delimiter,
-                std::vector<absl::string_view>* out, zetasql_base::Status* error) {
+                std::vector<absl::string_view>* out, absl::Status* error) {
   // Special case empty StringView, because absl::StrSplit behaves differently
   // on StringView() vs. StringView("", 0)
   if (ABSL_PREDICT_FALSE(str.empty())) {
@@ -762,7 +762,7 @@ bool SplitBytes(absl::string_view str, absl::string_view delimiter,
 }
 
 bool SafeConvertBytes(absl::string_view str, std::string* out,
-                      zetasql_base::Status* error) {
+                      absl::Status* error) {
   // Note, this implementation is _nearly_ identical to CoerceToWellFormedUTF8
   // (from utf_util), but it replaces _every byte_ with "\uFFFD" instead of each
   // almost-Unicode sequence.
@@ -810,7 +810,7 @@ bool SafeConvertBytes(absl::string_view str, std::string* out,
 }
 
 bool Normalize(absl::string_view str, NormalizeMode mode, bool is_casefold,
-               std::string* out, zetasql_base::Status* error) {
+               std::string* out, absl::Status* error) {
   const icu::Normalizer2* normalizer = GetNormalizerByMode(mode, error);
   if (!error->ok()) {
     return false;
@@ -832,12 +832,12 @@ bool Normalize(absl::string_view str, NormalizeMode mode, bool is_casefold,
   return true;
 }
 
-bool ToBase64(absl::string_view str, std::string* out, zetasql_base::Status* error) {
+bool ToBase64(absl::string_view str, std::string* out, absl::Status* error) {
   absl::Base64Escape(str, out);
   return true;
 }
 
-bool FromBase64(absl::string_view str, std::string* out, zetasql_base::Status* error) {
+bool FromBase64(absl::string_view str, std::string* out, absl::Status* error) {
   if (!absl::Base64Unescape(str, out)) {
     return internal::UpdateError(error,
                                  "Failed to decode invalid base64 string");
@@ -845,12 +845,12 @@ bool FromBase64(absl::string_view str, std::string* out, zetasql_base::Status* e
   return true;
 }
 
-bool ToHex(absl::string_view str, std::string* out, zetasql_base::Status* error) {
+bool ToHex(absl::string_view str, std::string* out, absl::Status* error) {
   *out = absl::BytesToHexString(str);
   return true;
 }
 
-bool FromHex(absl::string_view str, std::string* out, zetasql_base::Status* error) {
+bool FromHex(absl::string_view str, std::string* out, absl::Status* error) {
   if (str.empty()) {
     out->clear();
     return true;
@@ -881,7 +881,7 @@ bool FromHex(absl::string_view str, std::string* out, zetasql_base::Status* erro
 }
 
 bool StringToCodePoints(absl::string_view str, std::vector<int64_t>* out,
-                        zetasql_base::Status* error) {
+                        absl::Status* error) {
   int32_t str_length32;
   if (!CheckAndCastStrLength(str, &str_length32, error)) {
     return false;
@@ -903,7 +903,7 @@ bool StringToCodePoints(absl::string_view str, std::vector<int64_t>* out,
 }
 
 bool BytesToCodePoints(absl::string_view str, std::vector<int64_t>* out,
-                       zetasql_base::Status* error) {
+                       absl::Status* error) {
   out->clear();
   for (char c : str) {
     // Represent ASCII values in the range [0, 255].
@@ -914,7 +914,7 @@ bool BytesToCodePoints(absl::string_view str, std::vector<int64_t>* out,
 }
 
 bool CodePointsToString(const std::vector<int64_t>& codepoints, std::string* out,
-                        zetasql_base::Status* error) {
+                        absl::Status* error) {
   out->clear();
   if (codepoints.empty()) {
     return true;
@@ -960,7 +960,7 @@ bool CodePointsToString(const std::vector<int64_t>& codepoints, std::string* out
 }
 
 bool CodePointsToBytes(const std::vector<int64_t>& codepoints, std::string* out,
-                       zetasql_base::Status* error) {
+                       absl::Status* error) {
   out->clear();
   for (int64_t codepoint : codepoints) {
     if (codepoint < 0 ||
@@ -978,7 +978,7 @@ namespace {
 
 // Helper function for all padding functions.
 bool VerifyPadInputs(absl::string_view input_str, absl::string_view pattern,
-                     int64_t output_size, zetasql_base::Status* error) {
+                     int64_t output_size, absl::Status* error) {
   if (output_size < 0) {
     return internal::UpdateError(
         error,
@@ -995,7 +995,7 @@ bool VerifyPadInputs(absl::string_view input_str, absl::string_view pattern,
 // Helper function for RightPadBytes and LeftPadBytes
 bool PadBytes(absl::string_view input_str, int64_t output_size_bytes,
               absl::string_view pattern, bool left_pad, std::string* out,
-              zetasql_base::Status* error) {
+              absl::Status* error) {
   if (!VerifyPadInputs(input_str, pattern, output_size_bytes, error)) {
     return false;
   }
@@ -1034,7 +1034,7 @@ bool PadBytes(absl::string_view input_str, int64_t output_size_bytes,
 // Helper function for RightPadUtf8 and LeftPadUtf8.
 bool PadUtf8(absl::string_view input_str, int64_t output_size_chars,
              absl::string_view pattern, bool left_pad, std::string* out,
-             zetasql_base::Status* error) {
+             absl::Status* error) {
   if (!VerifyPadInputs(input_str, pattern, output_size_chars, error)) {
     return false;
   }
@@ -1110,58 +1110,58 @@ bool PadUtf8(absl::string_view input_str, int64_t output_size_chars,
 
 bool LeftPadBytes(absl::string_view input_str, int64_t output_size_bytes,
                   absl::string_view pattern, std::string* out,
-                  zetasql_base::Status* error) {
+                  absl::Status* error) {
   return PadBytes(input_str, output_size_bytes, pattern, true /* left_pad */,
                   out, error);
 }
 
 bool LeftPadBytesDefault(absl::string_view input_str, int64_t output_size_bytes,
-                         std::string* out, zetasql_base::Status* error) {
+                         std::string* out, absl::Status* error) {
   return PadBytes(input_str, output_size_bytes, " ", true /* left_pad */, out,
                   error);
 }
 
 bool LeftPadUtf8(absl::string_view input_str, int64_t output_size_chars,
                  absl::string_view pattern, std::string* out,
-                 zetasql_base::Status* error) {
+                 absl::Status* error) {
   return PadUtf8(input_str, output_size_chars, pattern, true /* left_pad */,
                  out, error);
 }
 
 bool LeftPadUtf8Default(absl::string_view input_str, int64_t output_size_chars,
-                        std::string* out, zetasql_base::Status* error) {
+                        std::string* out, absl::Status* error) {
   return PadUtf8(input_str, output_size_chars, " ", true /* left_pad */, out,
                  error);
 }
 
 bool RightPadBytes(absl::string_view input_str, int64_t output_size_bytes,
                    absl::string_view pattern, std::string* out,
-                   zetasql_base::Status* error) {
+                   absl::Status* error) {
   return PadBytes(input_str, output_size_bytes, pattern, false /* left_pad */,
                   out, error);
 }
 
 bool RightPadBytesDefault(absl::string_view input_str, int64_t output_size_bytes,
-                          std::string* out, zetasql_base::Status* error) {
+                          std::string* out, absl::Status* error) {
   return PadBytes(input_str, output_size_bytes, " ", false /* left_pad */, out,
                   error);
 }
 
 bool RightPadUtf8(absl::string_view input_str, int64_t output_size_chars,
                   absl::string_view pattern, std::string* out,
-                  zetasql_base::Status* error) {
+                  absl::Status* error) {
   return PadUtf8(input_str, output_size_chars, pattern, false /* left_pad */,
                  out, error);
 }
 
 bool RightPadUtf8Default(absl::string_view input_str, int64_t output_size_chars,
-                         std::string* out, zetasql_base::Status* error) {
+                         std::string* out, absl::Status* error) {
   return PadUtf8(input_str, output_size_chars, " ", false /* left_pad */, out,
                  error);
 }
 
 bool Repeat(absl::string_view input_str, int64_t repeat_count, std::string* out,
-            zetasql_base::Status* error) {
+            absl::Status* error) {
   if (repeat_count < 0) {
     return internal::UpdateError(
         error, "Second argument (repeat count) for REPEAT cannot be negative");
@@ -1185,13 +1185,13 @@ bool Repeat(absl::string_view input_str, int64_t repeat_count, std::string* out,
 }
 
 bool ReverseBytes(absl::string_view input, std::string* out,
-                  zetasql_base::Status* error) {
+                  absl::Status* error) {
   out->assign(input.rbegin(), input.rend());
   return true;
 }
 
 bool ReverseUtf8(absl::string_view input, std::string* out,
-                 zetasql_base::Status* error) {
+                 absl::Status* error) {
   int32_t str_length32;
   if (!CheckAndCastStrLength(input, &str_length32, error)) {
     return false;

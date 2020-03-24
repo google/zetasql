@@ -53,7 +53,7 @@ namespace zetasql {
 //     KitchenSink: zetasql_test::KitchenSink
 //     Int32Array: ARRAY<INT32>
 //     TestStruct: STRUCT: {c: INT32, d: STRUCT {a: INT32, b: STRING} }
-zetasql_base::Status PopulateSampleTables(TypeFactory* type_factory,
+absl::Status PopulateSampleTables(TypeFactory* type_factory,
                                   SampleCatalog* catalog);
 
 }  // namespace zetasql

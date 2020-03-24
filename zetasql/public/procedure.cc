@@ -25,7 +25,7 @@
 namespace zetasql {
 
 // static
-zetasql_base::Status Procedure::Deserialize(
+absl::Status Procedure::Deserialize(
     const ProcedureProto& proto,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
     TypeFactory* factory,
@@ -40,10 +40,10 @@ zetasql_base::Status Procedure::Deserialize(
 
   *result = absl::make_unique<Procedure>(name_path, *signature);
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Procedure::Serialize(
+absl::Status Procedure::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     ProcedureProto* proto) const {
   for (const std::string& name : name_path()) {
@@ -53,7 +53,7 @@ zetasql_base::Status Procedure::Serialize(
   ZETASQL_RETURN_IF_ERROR(signature_.Serialize(
       file_descriptor_set_map, proto->mutable_signature()));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 std::string Procedure::GetSupportedSignatureUserFacingText(

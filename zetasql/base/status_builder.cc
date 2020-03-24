@@ -26,13 +26,14 @@
 
 namespace zetasql_base {
 
-static void CopyStatusPayloads(const Status& from, Status* to) {
-  from.ForEachPayload([to](absl::string_view type_url, StatusCord payload) {
-      to->SetPayload(type_url, payload);});
+static void CopyStatusPayloads(const absl::Status& from, absl::Status* to) {
+  from.ForEachPayload([to](absl::string_view type_url, absl::Cord payload) {
+    to->SetPayload(type_url, payload);
+  });
 }
 
-StatusBuilder& StatusBuilder::SetErrorCode(StatusCode code) {
-  Status tmp = Status(code, status_.message());
+StatusBuilder& StatusBuilder::SetErrorCode(absl::StatusCode code) {
+  absl::Status tmp = absl::Status(code, status_.message());
   CopyStatusPayloads(status_, &tmp);
   status_ = std::move(tmp);
   return *this;
@@ -48,8 +49,9 @@ StatusBuilder::Rep::Rep(const Rep& r)
   stream << r.stream.str();
 }
 
-Status StatusBuilder::JoinMessageToStatus(Status s, absl::string_view msg,
-                                          MessageJoinStyle style) {
+absl::Status StatusBuilder::JoinMessageToStatus(absl::Status s,
+                                                absl::string_view msg,
+                                                MessageJoinStyle style) {
   if (msg.empty()) return s;
 
   std::string new_msg;
@@ -62,12 +64,12 @@ Status StatusBuilder::JoinMessageToStatus(Status s, absl::string_view msg,
   } else {  // kAppend
     new_msg = absl::StrCat(s.message(), msg);
   }
-  Status tmp(s.code(), new_msg);
+  absl::Status tmp(s.code(), new_msg);
   CopyStatusPayloads(s, &tmp);
   return tmp;
 }
 
-void StatusBuilder::ConditionallyLog(const Status& result) const {
+void StatusBuilder::ConditionallyLog(const absl::Status& result) const {
   if (rep_->logging_mode == Rep::LoggingMode::kDisabled) return;
 
   absl::LogSeverity severity = rep_->log_severity;
@@ -81,9 +83,9 @@ void StatusBuilder::ConditionallyLog(const Status& result) const {
   }
 }
 
-Status StatusBuilder::CreateStatusAndConditionallyLog() && {
-  Status result = JoinMessageToStatus(std::move(status_), rep_->stream.str(),
-                                      rep_->message_join_style);
+absl::Status StatusBuilder::CreateStatusAndConditionallyLog() && {
+  absl::Status result = JoinMessageToStatus(
+      std::move(status_), rep_->stream.str(), rep_->message_join_style);
   ConditionallyLog(result);
 
   // We consumed the status above, we set it to some error just to prevent

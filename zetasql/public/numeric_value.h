@@ -182,16 +182,14 @@ class NumericValue final {
 
   // Serialization and deserialization methods for NUMERIC values that are
   // intended to be used to store them in protos. The encoding is variable in
-  // length with max size of 16 bytes.
-  // WARNING: currently, SerializeAsProtoBytes does not always produce the same
-  // result as SerializeAndAppendToProtoBytes. When the value is negative,
-  // SerializeAsProtoBytes might output one more byte than
-  // SerializeAndAppendToProtoBytes. The results of both methods can be
-  // deserialized with DeserializeFromProtoBytes.
-  // TODO: Make SerializeAsProtoBytes consistent with
-  // SerializeAndAppendToProtoBytes.
+  // length with max size of 16 bytes. SerializeAndAppendToProtoBytes is
+  // typically more efficient due to fewer memory allocations.
   void SerializeAndAppendToProtoBytes(std::string* bytes) const;
-  std::string SerializeAsProtoBytes() const;
+  std::string SerializeAsProtoBytes() const {
+    std::string result;
+    SerializeAndAppendToProtoBytes(&result);
+    return result;
+  }
   static zetasql_base::StatusOr<NumericValue> DeserializeFromProtoBytes(
       absl::string_view bytes);
 
@@ -531,6 +529,21 @@ class BigNumericValue final {
   }
   static zetasql_base::StatusOr<BigNumericValue> DeserializeFromProtoBytes(
       absl::string_view bytes);
+
+  // Aggregates multiple BIGNUMERIC values and produces sum and average of all
+  // values. This class handles a temporary overflow while adding values.
+  // OUT_OF_RANGE error is generated only when retrieving the sum and only if
+  // the final sum is outside of the valid BIGNUMERIC range.
+  class SumAggregator final {
+   public:
+    // Adds a BIGNUMERIC value to the input.
+    void Add(const BigNumericValue& value);
+    // Returns sum of all input values. Returns OUT_OF_RANGE error on overflow.
+    zetasql_base::StatusOr<BigNumericValue> GetSum() const;
+
+   private:
+    FixedInt<64, 5> sum_;
+  };
 
  private:
   explicit constexpr BigNumericValue(const FixedInt<64, 4>& value);
@@ -992,6 +1005,10 @@ inline zetasql_base::StatusOr<NumericValue> BigNumericValue::ToNumericValue() co
     }
   }
   return MakeEvalError() << "numeric out of range: " << ToString();
+}
+
+inline void BigNumericValue::SumAggregator::Add(const BigNumericValue& value) {
+  sum_ += FixedInt<64, 5>(value.value_);
 }
 
 template <typename H>

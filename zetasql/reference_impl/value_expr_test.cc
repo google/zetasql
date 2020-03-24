@@ -65,7 +65,7 @@
 #include <cstdint>
 #include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/optional.h"
@@ -124,7 +124,7 @@ std::vector<const TupleData*> EmptyParams() { return {}; }
     context = &empty_context;
   }
   TupleSlot slot;
-  ::zetasql_base::Status status;
+  absl::Status status;
   if (!expr.EvalSimple(params, context, &slot, &status)) {
     return status;
   }
@@ -276,10 +276,11 @@ TEST_P(NaryFunctionTemplateTest, NaryFunctionTest) {
       EXPECT_THAT(function_value, IsOkAndHolds(each.second.result));
     } else {
       EXPECT_FALSE(function_value.status().ok());
-      if (each.second.status.code() != zetasql_base::StatusCode::kUnknown) {
-        EXPECT_THAT(function_value,
-                    StatusIs(each.second.status.code(),
-                             HasSubstr(each.second.status.error_message())));
+      if (each.second.status.code() != absl::StatusCode::kUnknown) {
+        EXPECT_THAT(
+            function_value,
+            StatusIs(each.second.status.code(),
+                     HasSubstr(std::string(each.second.status.message()))));
       }
     }
   }
@@ -420,7 +421,7 @@ TEST_F(EvalTest, NewStructExpr) {
   value_size_options.max_value_byte_size = 1;
   EvaluationContext value_size_context(value_size_options);
   EXPECT_THAT(EvalExpr(*struct_op, EmptyParams(), &value_size_context),
-              StatusIs(zetasql_base::StatusCode::kOutOfRange,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Cannot construct struct Value larger than")));
 }
 
@@ -446,7 +447,7 @@ TEST_F(EvalTest, NewArrayExpr) {
 
   EvaluationContext context((EvaluationOptions()));
   TupleSlot slot;
-  ::zetasql_base::Status status;
+  absl::Status status;
   ASSERT_TRUE(array_op->EvalSimple(EmptyParams(), &context, &slot, &status))
       << status;
   EXPECT_EQ(expected_result, slot.value());
@@ -459,7 +460,7 @@ TEST_F(EvalTest, NewArrayExpr) {
   EXPECT_FALSE(
       array_op->EvalSimple(EmptyParams(), &value_size_context, &slot, &status));
   EXPECT_THAT(status,
-              StatusIs(zetasql_base::StatusCode::kOutOfRange,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Cannot construct array Value larger than")));
 }
 
@@ -477,7 +478,7 @@ TEST_F(EvalTest, FieldValueExpr) {
 
   EvaluationContext context((EvaluationOptions()));
   TupleSlot result;
-  ::zetasql_base::Status status;
+  absl::Status status;
   ASSERT_TRUE(field_op->EvalSimple(EmptyParams(), &context, &result, &status))
       << status;
   EXPECT_EQ(GetProtoValue(1), result.value());
@@ -593,7 +594,7 @@ TEST_F(EvalTest, LetExpr) {
   options.max_intermediate_byte_size = 1;
   EvaluationContext memory_context(options);
   EXPECT_THAT(EvalExpr(*let, {&params_data}, &memory_context),
-              StatusIs(zetasql_base::StatusCode::kResourceExhausted));
+              StatusIs(absl::StatusCode::kResourceExhausted));
 }
 
 TEST_F(EvalTest, ArrayAtOffsetNonDeterminism) {
@@ -795,7 +796,7 @@ TEST_F(EvalTest, SingleValueExpr) {
       element1->DebugString());
   EvaluationContext context((EvaluationOptions()));
   TupleSlot result;
-  ::zetasql_base::Status status;
+  absl::Status status;
   ASSERT_TRUE(element1->EvalSimple(EmptyParams(), &context, &result, &status))
       << status;
   EXPECT_EQ(result.value(), GetProtoValue(1));
@@ -815,7 +816,7 @@ TEST_F(EvalTest, SingleValueExpr) {
       "+-input: TestRelationalOp)",
       element2->DebugString());
   EXPECT_THAT(EvalExpr(*element2, EmptyParams()),
-              StatusIs(zetasql_base::OUT_OF_RANGE, "More than one element"));
+              StatusIs(absl::StatusCode::kOutOfRange, "More than one element"));
 }
 
 TEST_F(EvalTest, ExistsExpr) {
@@ -867,9 +868,9 @@ TEST_F(EvalTest, DerefExprDuplicateIds) {
   const TupleSchema schema2({v});
   const TupleSchema schema3({v});
 
-  EXPECT_THAT(
-      e->SetSchemasForEvaluation({&schema1, &schema2, &schema3}),
-      StatusIs(zetasql_base::INTERNAL, HasSubstr("Duplicate name detected: v")));
+  EXPECT_THAT(e->SetSchemasForEvaluation({&schema1, &schema2, &schema3}),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("Duplicate name detected: v")));
 }
 
 TEST_F(EvalTest, DerefExprNameNotFound) {
@@ -883,8 +884,9 @@ TEST_F(EvalTest, DerefExprNameNotFound) {
   const TupleSchema schema1({w, x});
   const TupleSchema schema2({y, z});
 
-  EXPECT_THAT(e->SetSchemasForEvaluation({&schema1, &schema2}),
-              StatusIs(zetasql_base::INTERNAL, HasSubstr("Missing name: v")));
+  EXPECT_THAT(
+      e->SetSchemasForEvaluation({&schema1, &schema2}),
+      StatusIs(absl::StatusCode::kInternal, HasSubstr("Missing name: v")));
 }
 
 TEST_F(EvalTest, RootExpr) {
@@ -903,7 +905,7 @@ TEST_F(EvalTest, RootExpr) {
       CreateTestTupleData({GetProtoValue(1)}, &params_shared_states);
   EvaluationContext context((EvaluationOptions()));
   TupleSlot result;
-  ::zetasql_base::Status status;
+  absl::Status status;
   ASSERT_TRUE(root_expr->EvalSimple({&params_data}, &context, &result, &status))
       << status;
   EXPECT_EQ(result.value(), GetProtoValue(1));
@@ -1012,7 +1014,7 @@ TEST_F(DMLValueExprEvalTest, DMLInsertValueExpr) {
 
   // Evaluate and check.
   TupleSlot result;
-  zetasql_base::Status status;
+  absl::Status status;
   // the case for return_all_rows_for_dml = true is covered by the reference
   // implementation compliance tests
   EvaluationOptions options{};
@@ -1117,7 +1119,7 @@ TEST_F(DMLValueExprEvalTest,
 
   // Evaluate and check.
   TupleSlot result;
-  zetasql_base::Status status;
+  absl::Status status;
   // the case for return_all_rows_for_dml = true is covered by the reference
   // implementation compliance tests
   EvaluationOptions options{};
@@ -1140,7 +1142,7 @@ TEST_F(DMLValueExprEvalTest,
   EXPECT_FALSE(expr->EvalSimple({}, &context, &result, &status));
   EXPECT_THAT(
       status,
-      StatusIs(zetasql_base::OUT_OF_RANGE,
+      StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("INSERT a NULL value into a primary key column")));
 }
 
@@ -1243,7 +1245,7 @@ TEST_F(DMLValueExprEvalTest, DMLDeleteValueExpr) {
 
   // Evaluate and check.
   TupleSlot result;
-  zetasql_base::Status status;
+  absl::Status status;
   // the case for return_all_rows_for_dml = true is covered by the reference
   // implementation compliance tests
   EvaluationOptions options{};
@@ -1406,7 +1408,7 @@ TEST_F(DMLValueExprEvalTest, DMLUpdateValueExpr) {
 
   // Evaluate and check.
   TupleSlot result;
-  zetasql_base::Status status;
+  absl::Status status;
   // the case for return_all_rows_for_dml = true is covered by the reference
   // implementation compliance tests
   EvaluationOptions options{};
@@ -1570,7 +1572,7 @@ TEST_F(DMLValueExprEvalTest,
 
   // Evaluate and check.
   TupleSlot result;
-  zetasql_base::Status status;
+  absl::Status status;
   // the case for return_all_rows_for_dml = true is covered by the reference
   // implementation compliance tests
   EvaluationOptions options{};
@@ -1591,7 +1593,7 @@ TEST_F(DMLValueExprEvalTest,
       language_options));
   ZETASQL_ASSERT_OK(expr->SetSchemasForEvaluation({}));
   EXPECT_FALSE(expr->EvalSimple({}, &context, &result, &status));
-  EXPECT_THAT(status, StatusIs(zetasql_base::OUT_OF_RANGE,
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kOutOfRange,
                                HasSubstr("modify a primary key column")));
 }
 
@@ -1732,7 +1734,7 @@ TEST_F(DMLValueExprEvalTest,
 
   // Evaluate and check.
   TupleSlot result;
-  zetasql_base::Status status;
+  absl::Status status;
   // the case for return_all_rows_for_dml = true is covered by the reference
   // implementation compliance tests
   EvaluationOptions options{};
@@ -1753,7 +1755,7 @@ TEST_F(DMLValueExprEvalTest,
       language_options));
   ZETASQL_ASSERT_OK(expr->SetSchemasForEvaluation({}));
   EXPECT_FALSE(expr->EvalSimple({}, &context, &result, &status));
-  EXPECT_THAT(status, StatusIs(zetasql_base::OUT_OF_RANGE,
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kOutOfRange,
                                HasSubstr("set a primary key column to NULL")));
 }
 
@@ -1861,7 +1863,7 @@ class ProtoEvalTest : public ::testing::Test {
   // the ProtoFieldExprs and appends the results to 'output_slots'. Tests that
   // GetProtoFieldExpr::Eval() only reads from the proto when it should. The
   // actual proto value is represented by a parameter.
-  zetasql_base::Status EvalGetProtoFieldExprs(
+  absl::Status EvalGetProtoFieldExprs(
       std::vector<std::pair<const ProtoFieldAccessInfo*, int>> infos,
       const std::vector<TupleSlot>& proto_slots, EvaluationContext* context,
       std::vector<zetasql_base::StatusOr<TupleSlot>>* output_slots) {
@@ -1886,7 +1888,7 @@ class ProtoEvalTest : public ::testing::Test {
         const GetProtoFieldExpr& expr = *exprs[expr_idx];
 
         TupleSlot output_slot;
-        ::zetasql_base::Status status;
+        absl::Status status;
         if (!expr.EvalSimple({&params}, context, &output_slot, &status)) {
           return status;
         }
@@ -1918,13 +1920,13 @@ class ProtoEvalTest : public ::testing::Test {
       }
     }
 
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // Creates a single ProtoFieldAccessInfo for 'infos', and for each
   // (ProtoFieldAccessInfo info, int count) pair, creates a ProtoFieldReader
   // wrapped by 'count' GetProtoFieldExprs.
-  zetasql_base::Status CreateGetProtoFieldExprs(
+  absl::Status CreateGetProtoFieldExprs(
       std::vector<std::pair<const ProtoFieldAccessInfo*, int>> infos,
       const VariableId& variable_id, const ProtoType* type,
       EvaluationContext* context, std::unique_ptr<ProtoFieldRegistry>* registry,
@@ -1964,10 +1966,10 @@ class ProtoEvalTest : public ::testing::Test {
       }
     }
 
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
-  zetasql_base::Status MakeProto(
+  absl::Status MakeProto(
       const std::vector<std::pair<std::string, Value>>& fields,
       google::protobuf::Message* out) {
     std::vector<MakeProtoFunction::FieldAndFormat> field_and_formats;
@@ -1998,7 +2000,7 @@ class ProtoEvalTest : public ::testing::Test {
       EXPECT_TRUE(ParsePartialFromCord(result.ToCord(), out))
           << result.FullDebugString();
     }
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   Value MakeProtoValue(const std::vector<std::pair<std::string, Value>>& fields,
@@ -2012,7 +2014,7 @@ class ProtoEvalTest : public ::testing::Test {
   std::string FormatProto(
       const std::vector<std::pair<std::string, Value>>& fields,
       google::protobuf::Message* out) {
-    zetasql_base::Status result = MakeProto(fields, out);
+    absl::Status result = MakeProto(fields, out);
     if (result.ok()) {
       return out->ShortDebugString();
     } else {
@@ -2871,11 +2873,11 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprDateTime) {
   // Out-of-bounds date value produces an error.
   p.set_date(types::kDateMax + 1);
   EXPECT_THAT(GetProtoField(&p, "date"),
-              StatusIs(zetasql_base::OUT_OF_RANGE,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Corrupted protocol buffer")));
   p.set_date(types::kDateMin - 1);
   EXPECT_THAT(GetProtoField(&p, "date"),
-              StatusIs(zetasql_base::OUT_OF_RANGE,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Corrupted protocol buffer")));
 
   EXPECT_EQ(Value::Date(0), GetProtoFieldOrDie(&p, "date64"));

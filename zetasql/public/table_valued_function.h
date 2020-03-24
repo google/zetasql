@@ -128,7 +128,7 @@ class TableValuedFunction {
   // only support one signature, so an error is returned if a signature
   // already exists.
   // TODO: Support more than one signature.
-  zetasql_base::Status AddSignature(const FunctionSignature& function_signature);
+  absl::Status AddSignature(const FunctionSignature& function_signature);
 
   // Returns the requested FunctionSignature.  The caller does not take
   // ownership of the returned FunctionSignature.  Returns NULL if the
@@ -162,14 +162,14 @@ class TableValuedFunction {
 
   // Serializes this table-valued function to a protocol buffer. Subclasses may
   // override this to add more information as needed.
-  virtual zetasql_base::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
+  virtual absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
                                  TableValuedFunctionProto* proto) const;
 
   // Deserializes a table-valued function from a protocol buffer.
   // The specific steps taken to perform the deserialization depend on the
   // 'type' field of 'proto'. An associated deserializer for this 'type' must
   // already exist by this time from a previous call to RegisterDeserializer.
-  static zetasql_base::Status Deserialize(
+  static absl::Status Deserialize(
       const TableValuedFunctionProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory, std::unique_ptr<TableValuedFunction>* result);
@@ -180,7 +180,7 @@ class TableValuedFunction {
   // than one deserializer for the same 'type' is registered, or if any other
   // error occurs. For an example, please see the REGISTER_MODULE_INITIALIZER in
   // table_valued_function.cc.
-  using TVFDeserializer = std::function<zetasql_base::Status(
+  using TVFDeserializer = std::function<absl::Status(
       const TableValuedFunctionProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory, std::unique_ptr<TableValuedFunction>* result)>;
@@ -234,7 +234,7 @@ class TableValuedFunction {
   // provides these items when each function is resolved, not when it is
   // declared. Therefore the engine may add new types, tables, or functions
   // in-between these two times and they will be available for lookup here.
-  virtual zetasql_base::Status Resolve(
+  virtual absl::Status Resolve(
       const AnalyzerOptions* analyzer_options,
       const std::vector<TVFInputArgumentType>& actual_arguments,
       const FunctionSignature& concrete_signature, Catalog* catalog,
@@ -356,7 +356,7 @@ class TVFRelation {
 
   // Serializes this relation to a proto and deserializes it back again. This is
   // useful when serializing the ZetaSQL catalog.
-  zetasql_base::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
+  absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
                          TVFRelationProto* proto) const;
   static zetasql_base::StatusOr<TVFRelation> Deserialize(
       const TVFRelationProto& proto,
@@ -653,16 +653,16 @@ class FixedOutputSchemaTVF : public TableValuedFunction {
 
   const TVFRelation& result_schema() const { return result_schema_; }
 
-  zetasql_base::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
+  absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
                          TableValuedFunctionProto* proto) const override;
 
-  static zetasql_base::Status Deserialize(
+  static absl::Status Deserialize(
       const TableValuedFunctionProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory, std::unique_ptr<TableValuedFunction>* result);
 
   // Returns the fixed output schema set in the constructor.
-  zetasql_base::Status Resolve(
+  absl::Status Resolve(
       const AnalyzerOptions* analyzer_options,
       const std::vector<TVFInputArgumentType>& actual_arguments,
       const FunctionSignature& concrete_signature, Catalog* catalog,
@@ -698,15 +698,15 @@ class ForwardInputSchemaToOutputSchemaTVF : public TableValuedFunction {
       const ForwardInputSchemaToOutputSchemaTVF&) = delete;
   ~ForwardInputSchemaToOutputSchemaTVF() override {}
 
-  zetasql_base::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
+  absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
                          TableValuedFunctionProto* proto) const override;
 
-  static zetasql_base::Status Deserialize(
+  static absl::Status Deserialize(
       const TableValuedFunctionProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory, std::unique_ptr<TableValuedFunction>* result);
 
-  zetasql_base::Status Resolve(
+  absl::Status Resolve(
       const AnalyzerOptions* analyzer_options,
       const std::vector<TVFInputArgumentType>& actual_arguments,
       const FunctionSignature& concrete_signature, Catalog* catalog,
@@ -715,7 +715,7 @@ class ForwardInputSchemaToOutputSchemaTVF : public TableValuedFunction {
 
  private:
   // Performs some quick sanity checks on the function signature.
-  zetasql_base::Status CheckIsValid() const;
+  absl::Status CheckIsValid() const;
 };
 
 }  // namespace zetasql

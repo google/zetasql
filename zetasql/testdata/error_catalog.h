@@ -21,7 +21,7 @@
 #include <string>
 
 #include "zetasql/public/catalog.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
 
@@ -39,29 +39,29 @@ class ErrorCatalog : public Catalog {
  public:
   // Static Create() function, which returns an error if 'code' is OK
   // (i.e., not an error code).
-  static zetasql_base::Status Create(zetasql_base::StatusCode code,
+  static absl::Status Create(absl::StatusCode code,
                              std::unique_ptr<ErrorCatalog>* error_catalog);
 
   std::string FullName() const override { return "catalog_with_errors"; }
 
   // Catalog interface implementations that always return an error.
-  zetasql_base::Status FindTable(const absl::Span<const std::string>& path,
+  absl::Status FindTable(const absl::Span<const std::string>& path,
                          const Table** table,
                          const FindOptions& options = FindOptions()) override;
-  zetasql_base::Status FindFunction(
+  absl::Status FindFunction(
       const absl::Span<const std::string>& path, const Function** function,
       const FindOptions& options = FindOptions()) override;
-  zetasql_base::Status FindTableValuedFunction(
+  absl::Status FindTableValuedFunction(
       const absl::Span<const std::string>& path,
       const TableValuedFunction** function,
       const FindOptions& options = FindOptions()) override;
-  zetasql_base::Status FindProcedure(
+  absl::Status FindProcedure(
       const absl::Span<const std::string>& path, const Procedure** procedure,
       const FindOptions& options = FindOptions()) override;
-  zetasql_base::Status FindType(const absl::Span<const std::string>& path,
+  absl::Status FindType(const absl::Span<const std::string>& path,
                         const Type** type,
                         const FindOptions& options = FindOptions()) override;
-  zetasql_base::Status FindConstantWithPathPrefix(
+  absl::Status FindConstantWithPathPrefix(
       const absl::Span<const std::string> path, int* num_names_consumed,
       const Constant** constant,
       const FindOptions& options = FindOptions()) override;
@@ -69,10 +69,10 @@ class ErrorCatalog : public Catalog {
  private:
   // Private constructor, forcing users to invoke the Create() method
   // which validates the error code.
-  explicit ErrorCatalog(zetasql_base::StatusCode code) : error_code_(code) {}
+  explicit ErrorCatalog(absl::StatusCode code) : error_code_(code) {}
 
   // The error code to use when building the return status.
-  zetasql_base::StatusCode error_code_;
+  absl::StatusCode error_code_;
 };
 
 }  // namespace zetasql

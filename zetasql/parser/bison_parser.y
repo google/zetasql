@@ -5712,7 +5712,7 @@ string_literal:
         std::string str;
         std::string error_string;
         int error_offset;
-        const zetasql_base::Status parse_status = zetasql::ParseStringLiteral(
+        const absl::Status parse_status = zetasql::ParseStringLiteral(
             input_text, &str, &error_string, &error_offset);
         if (!parse_status.ok()) {
           zetasql_bison_parser::location location = yyla.location;
@@ -5724,7 +5724,7 @@ string_literal:
           DLOG(FATAL) << "ParseStringLiteral did not return an error string";
           YYERROR_AND_ABORT_AT(location,
                                absl::StrCat("Syntax error: ",
-                                            parse_status.error_message()));
+                                            parse_status.message()));
         }
 
         auto* literal = MAKE_NODE(ASTStringLiteral, @1);
@@ -5743,7 +5743,7 @@ bytes_literal:
         std::string bytes;
         std::string error_string;
         int error_offset;
-        const zetasql_base::Status parse_status = zetasql::ParseBytesLiteral(
+        const absl::Status parse_status = zetasql::ParseBytesLiteral(
             input_text, &bytes, &error_string, &error_offset);
         if (!parse_status.ok()) {
           zetasql_bison_parser::location location = yyla.location;
@@ -5755,7 +5755,7 @@ bytes_literal:
           DLOG(FATAL) << "ParseBytesLiteral did not return an error string";
           YYERROR_AND_ABORT_AT(location,
                                absl::StrCat("Syntax error: ",
-                                            parse_status.error_message()));
+                                            parse_status.message()));
         }
 
         // The identifier is parsed *again* in the resolver. The output of the
@@ -5816,7 +5816,7 @@ identifier:
           std::string str;
           std::string error_string;
           int error_offset;
-          const zetasql_base::Status parse_status =
+          const absl::Status parse_status =
               zetasql::ParseGeneralizedIdentifier(
                   identifier_text, &str, &error_string, &error_offset);
           if (!parse_status.ok()) {
@@ -5830,7 +5830,7 @@ identifier:
             DLOG(FATAL) << "ParseIdentifier did not return an error string";
             YYERROR_AND_ABORT_AT(location,
                                  absl::StrCat("Syntax error: ",
-                                              parse_status.error_message()));
+                                              parse_status.message()));
           }
           $$ = parser->MakeIdentifier(@1, str);
         } else {

@@ -77,7 +77,7 @@ class SimpleErrorCollector
 // takes a <file_descriptor_set_max_size_bytes> which sets a maximum size
 // on the returned <file_descriptor_set>, and returns an error for an
 // out-of-memory condition (this is also checked via ThreadHasEnoughStack()).
-zetasql_base::Status PopulateFileDescriptorSet(
+absl::Status PopulateFileDescriptorSet(
     const google::protobuf::FileDescriptor* file_descr,
     absl::optional<int64_t> file_descriptor_set_max_size_bytes,
     google::protobuf::FileDescriptorSet* file_descriptor_set,
@@ -87,7 +87,7 @@ zetasql_base::Status PopulateFileDescriptorSet(
 // DescriptorPool.
 // Return an error status if the FileDescriptorSet is incomplete or contain
 // other error.
-zetasql_base::Status AddFileDescriptorSetToPool(
+absl::Status AddFileDescriptorSetToPool(
     const google::protobuf::FileDescriptorSet* file_descriptor_set,
     google::protobuf::DescriptorPool* pool);
 

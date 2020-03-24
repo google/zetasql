@@ -57,7 +57,7 @@ static bool IsInt64FieldType(FieldDescriptor::Type type) {
          type == FieldDescriptor::TYPE_SFIXED64;
 }
 
-zetasql_base::Status ProtoUtil::CheckIsSupportedFieldFormat(
+absl::Status ProtoUtil::CheckIsSupportedFieldFormat(
     FieldFormat::Format format,
     const google::protobuf::FieldDescriptor* field) {
   // NOTE: This should match ProtoType::ValidateTypeAnnotations.
@@ -65,13 +65,13 @@ zetasql_base::Status ProtoUtil::CheckIsSupportedFieldFormat(
     case FieldFormat::DEFAULT_FORMAT:
       // We allow reading anything with DEFAULT_FORMAT so we can use it to
       // read the raw proto values.
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
 
     case FieldFormat::DATE:
     case FieldFormat::DATE_DECIMAL:
       if (IsInt32FieldType(field->type()) ||
           IsInt64FieldType(field->type())) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
@@ -81,14 +81,14 @@ zetasql_base::Status ProtoUtil::CheckIsSupportedFieldFormat(
     case FieldFormat::TIMESTAMP_MILLIS:
     case FieldFormat::TIMESTAMP_NANOS:
       if (IsInt64FieldType(field->type())) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
     case FieldFormat::TIMESTAMP_MICROS:
       if (IsInt64FieldType(field->type()) ||
           field->type() == google::protobuf::FieldDescriptor::TYPE_UINT64) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
@@ -107,11 +107,11 @@ zetasql_base::Status ProtoUtil::CheckIsSupportedFieldFormat(
 
 // Takes a Value of TYPE_TIMESTAMP and produces an int64_t result adjusted
 // appropriately given the <format> (seconds, millis, micros, nanos).
-static zetasql_base::Status TimestampValueToAdjustedInt64(
+static absl::Status TimestampValueToAdjustedInt64(
     FieldFormat::Format format, const Value& timestamp,
     int64_t* adjusted_int64) {
   ZETASQL_RET_CHECK(timestamp.type()->IsTimestamp());
-  zetasql_base::Status status;
+  absl::Status status;
   const int64_t micros = timestamp.ToUnixMicros();
   switch (format) {
     case FieldFormat::TIMESTAMP_SECONDS:
@@ -140,7 +140,7 @@ static zetasql_base::Status TimestampValueToAdjustedInt64(
       return ::zetasql_base::OutOfRangeErrorBuilder()
              << "Invalid timestamp field format: " << format;
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 
@@ -148,7 +148,7 @@ static zetasql_base::Status TimestampValueToAdjustedInt64(
 #define PAIR(proto_type, zetasql_type) \
   ((static_cast<uint64_t>(proto_type) << 32) + zetasql_type)
 
-static zetasql_base::Status WriteScalarValue(
+static absl::Status WriteScalarValue(
     const google::protobuf::FieldDescriptor* field_descr, const Value& v,
     CodedOutputStream* dst) {
   // Compatibility of date/timestamp field types is managed by the analyzer,
@@ -270,12 +270,12 @@ static zetasql_base::Status WriteScalarValue(
              << "Cannot encode value " << v.DebugString()
              << " in protocol buffer field " << field_descr->DebugString();
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 #undef PAIR
 
-static zetasql_base::Status WriteValue(const google::protobuf::FieldDescriptor* field_descr,
+static absl::Status WriteValue(const google::protobuf::FieldDescriptor* field_descr,
                                FieldFormat::Format format, const Value& value,
                                CodedOutputStream* dst) {
   if (value.is_null() &&
@@ -309,7 +309,7 @@ static zetasql_base::Status WriteValue(const google::protobuf::FieldDescriptor* 
     // crashing the test.
     ZETASQL_RET_CHECK_EQ(value.type_kind(), TypeKind::TYPE_DATE);
     int32_t encoded_date;
-    const zetasql_base::Status status = functions::EncodeFormattedDate(
+    const absl::Status status = functions::EncodeFormattedDate(
         value.date_value(), format, &encoded_date);
     if (!status.ok()) {
       return ::zetasql_base::StatusBuilder(status.code())
@@ -355,13 +355,13 @@ static zetasql_base::Status WriteValue(const google::protobuf::FieldDescriptor* 
   return WriteScalarValue(field_descr, value, dst);
 }
 
-static zetasql_base::Status WriteTagAndValue(const google::protobuf::FieldDescriptor* field_descr,
+static absl::Status WriteTagAndValue(const google::protobuf::FieldDescriptor* field_descr,
                                      FieldFormat::Format format,
                                      const Value& value,
                                      CodedOutputStream* dst) {
   // Errors for NULL values are handled by WriteValue().
   if (value.is_null() && field_descr->is_optional()) {
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
   const int32_t proto_tag = field_descr->number();
   const FieldDescriptor::Type proto_type = field_descr->type();
@@ -377,10 +377,10 @@ static zetasql_base::Status WriteTagAndValue(const google::protobuf::FieldDescri
     dst->WriteVarint32(WireFormatLite::MakeTag(proto_tag, wire_type));
     ZETASQL_RETURN_IF_ERROR(WriteValue(field_descr, format, value, dst));
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ProtoUtil::WriteField(const FieldDescriptor* field_descr,
+absl::Status ProtoUtil::WriteField(const FieldDescriptor* field_descr,
                                    const FieldFormat::Format format,
                                    const Value& value, bool* nondeterministic,
                                    CodedOutputStream* dst) {
@@ -425,7 +425,7 @@ zetasql_base::Status ProtoUtil::WriteField(const FieldDescriptor* field_descr,
         }
       }
     }
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
   return WriteTagAndValue(field_descr, format, value, dst);
 }

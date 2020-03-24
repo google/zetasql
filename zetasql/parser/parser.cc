@@ -78,7 +78,7 @@ ParserOutput::ParserOutput(
 
 ParserOutput::~ParserOutput() {}
 
-zetasql_base::Status ParseStatement(absl::string_view statement_string,
+absl::Status ParseStatement(absl::string_view statement_string,
                             const ParserOptions& parser_options_in,
                             std::unique_ptr<ParserOutput>* output) {
   ParserOptions parser_options = parser_options_in;
@@ -91,7 +91,7 @@ zetasql_base::Status ParseStatement(absl::string_view statement_string,
   BisonParser parser;
   std::unique_ptr<ASTNode> ast_node;
   std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes;
-  zetasql_base::Status status = parser.Parse(
+  absl::Status status = parser.Parse(
       BisonParserMode::kStatement, /*filename=*/absl::string_view(),
       statement_string, /*start_byte_offset=*/0,
       parser_options.id_string_pool().get(), parser_options.arena().get(),
@@ -106,10 +106,10 @@ zetasql_base::Status ParseStatement(absl::string_view statement_string,
   *output = absl::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(statement));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ParseScript(absl::string_view script_string,
+absl::Status ParseScript(absl::string_view script_string,
                          const ParserOptions& parser_options_in,
                          ErrorMessageMode error_message_mode,
                          std::unique_ptr<ParserOutput>* output) {
@@ -119,7 +119,7 @@ zetasql_base::Status ParseScript(absl::string_view script_string,
   BisonParser parser;
   std::unique_ptr<ASTNode> ast_node;
   std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes;
-  zetasql_base::Status status = parser.Parse(
+  absl::Status status = parser.Parse(
       BisonParserMode::kScript, /*filename=*/absl::string_view(), script_string,
       /*start_byte_offset=*/0, parser_options.id_string_pool().get(),
       parser_options.arena().get(), parser_options.language_options(),
@@ -137,11 +137,11 @@ zetasql_base::Status ParseScript(absl::string_view script_string,
   *output = absl::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(script));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 namespace {
-zetasql_base::Status ParseNextStatementInternal(ParseResumeLocation* resume_location,
+absl::Status ParseNextStatementInternal(ParseResumeLocation* resume_location,
                                         const ParserOptions& parser_options_in,
                                         BisonParserMode mode,
                                         std::unique_ptr<ParserOutput>* output,
@@ -159,7 +159,7 @@ zetasql_base::Status ParseNextStatementInternal(ParseResumeLocation* resume_loca
 
   int next_statement_byte_offset = 0;
 
-  zetasql_base::Status status = parser.Parse(
+  absl::Status status = parser.Parse(
       mode, resume_location->filename(), resume_location->input(),
       resume_location->byte_position(), parser_options.id_string_pool().get(),
       parser_options.arena().get(), parser_options.language_options(),
@@ -184,11 +184,11 @@ zetasql_base::Status ParseNextStatementInternal(ParseResumeLocation* resume_loca
   *output = absl::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(statement));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 }  // namespace
 
-zetasql_base::Status ParseNextScriptStatement(ParseResumeLocation* resume_location,
+absl::Status ParseNextScriptStatement(ParseResumeLocation* resume_location,
                                       const ParserOptions& parser_options_in,
                                       std::unique_ptr<ParserOutput>* output,
                                       bool* at_end_of_input) {
@@ -197,7 +197,7 @@ zetasql_base::Status ParseNextScriptStatement(ParseResumeLocation* resume_locati
                                     output, at_end_of_input);
 }
 
-zetasql_base::Status ParseNextStatement(ParseResumeLocation* resume_location,
+absl::Status ParseNextStatement(ParseResumeLocation* resume_location,
                                 const ParserOptions& parser_options_in,
                                 std::unique_ptr<ParserOutput>* output,
                                 bool* at_end_of_input) {
@@ -206,7 +206,7 @@ zetasql_base::Status ParseNextStatement(ParseResumeLocation* resume_location,
                                     at_end_of_input);
 }
 
-zetasql_base::Status ParseType(absl::string_view type_string,
+absl::Status ParseType(absl::string_view type_string,
                        const ParserOptions& parser_options_in,
                        std::unique_ptr<ParserOutput>* output) {
   ParserOptions parser_options = parser_options_in;
@@ -215,7 +215,7 @@ zetasql_base::Status ParseType(absl::string_view type_string,
   parser::BisonParser parser;
   std::unique_ptr<ASTNode> ast_node;
   std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes;
-  zetasql_base::Status status = parser.Parse(
+  absl::Status status = parser.Parse(
       BisonParserMode::kType, /* filename = */ absl::string_view(), type_string,
       0 /* offset */, parser_options.id_string_pool().get(),
       parser_options.arena().get(), parser_options.language_options(),
@@ -230,10 +230,10 @@ zetasql_base::Status ParseType(absl::string_view type_string,
   *output = absl::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(type));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ParseExpression(absl::string_view expression_string,
+absl::Status ParseExpression(absl::string_view expression_string,
                              const ParserOptions& parser_options_in,
                              std::unique_ptr<ParserOutput>* output) {
   ParserOptions parser_options = parser_options_in;
@@ -242,7 +242,7 @@ zetasql_base::Status ParseExpression(absl::string_view expression_string,
   parser::BisonParser parser;
   std::unique_ptr<ASTNode> ast_node;
   std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes;
-  zetasql_base::Status status = parser.Parse(
+  absl::Status status = parser.Parse(
       BisonParserMode::kExpression, /* filename = */ absl::string_view(),
       expression_string, 0 /* offset */, parser_options.id_string_pool().get(),
       parser_options.arena().get(), parser_options.language_options(),
@@ -259,10 +259,10 @@ zetasql_base::Status ParseExpression(absl::string_view expression_string,
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes),
       std::move(expression));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ParseExpression(const ParseResumeLocation& resume_location,
+absl::Status ParseExpression(const ParseResumeLocation& resume_location,
                              const ParserOptions& parser_options_in,
                              std::unique_ptr<ParserOutput>* output) {
   ParserOptions parser_options = parser_options_in;
@@ -271,7 +271,7 @@ zetasql_base::Status ParseExpression(const ParseResumeLocation& resume_location,
   parser::BisonParser parser;
   std::unique_ptr<ASTNode> ast_node;
   std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes;
-  zetasql_base::Status status = parser.Parse(
+  absl::Status status = parser.Parse(
       BisonParserMode::kExpression, resume_location.filename(),
       resume_location.input(), resume_location.byte_position(),
       parser_options.id_string_pool().get(), parser_options.arena().get(),
@@ -287,7 +287,7 @@ zetasql_base::Status ParseExpression(const ParseResumeLocation& resume_location,
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes),
       std::move(expression));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 ASTNodeKind ParseStatementKind(absl::string_view input,
@@ -318,7 +318,7 @@ ASTNodeKind ParseNextStatementKind(const ParseResumeLocation& resume_location,
   return ast_statement_properties.node_kind;
 }
 
-zetasql_base::Status ParseNextStatementProperties(
+absl::Status ParseNextStatementProperties(
     const ParseResumeLocation& resume_location,
     const ParserOptions& parser_options,
     std::vector<std::unique_ptr<ASTNode>>* allocated_ast_nodes,
@@ -340,7 +340,7 @@ zetasql_base::Status ParseNextStatementProperties(
       /*output=*/nullptr, allocated_ast_nodes,
       ast_statement_properties, /*statement_end_byte_offset=*/nullptr)
           .IgnoreError();
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

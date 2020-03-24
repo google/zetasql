@@ -23,11 +23,11 @@
 
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/using_test_value.cc"  // NOLINT
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 
 namespace zetasql {
 namespace {
-constexpr zetasql_base::StatusCode OUT_OF_RANGE = zetasql_base::StatusCode::kOutOfRange;
+constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 }  // namespace
 
 std::vector<FunctionTestCall> GetFunctionTestsFormatStrings() {

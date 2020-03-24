@@ -282,7 +282,7 @@ bool SupportsExplicitCast(CastFunctionType type) {
 
 template <typename FromType, typename ToType>
 static zetasql_base::StatusOr<Value> NumericCast(const Value& value) {
-  zetasql_base::Status status;
+  absl::Status status;
   FromType in = value.Get<FromType>();
   ToType out;
   functions::Convert<FromType, ToType>(in, &out, &status);
@@ -295,7 +295,7 @@ static zetasql_base::StatusOr<Value> NumericCast(const Value& value) {
 
 template <typename FromType, typename ToType>
 static zetasql_base::StatusOr<Value> NumericValueCast(const FromType& in) {
-  zetasql_base::Status status;
+  absl::Status status;
   ToType out;
   functions::Convert<FromType, ToType>(in, &out, &status);
   if (status.ok()) {
@@ -305,7 +305,7 @@ static zetasql_base::StatusOr<Value> NumericValueCast(const FromType& in) {
   }
 }
 
-zetasql_base::Status CheckLegacyRanges(int64_t timestamp,
+absl::Status CheckLegacyRanges(int64_t timestamp,
                                functions::TimestampScale precision,
                                const std::string& from_type_name,
                                const std::string& from_type_value) {
@@ -334,7 +334,7 @@ zetasql_base::Status CheckLegacyRanges(int64_t timestamp,
                            << TimestampScale_Name(precision)
                            << " out of bounds";
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Conversion function from a numeric Value to a string Value that
@@ -349,7 +349,7 @@ static zetasql_base::StatusOr<Value> NumericToString(const Value& v) {
   if (v.is_null()) return Value::NullString();
   T value = v.Get<T>();
   std::string str;
-  zetasql_base::Status error;
+  absl::Status error;
   if (zetasql::functions::NumericToString<T>(value, &str, &error)) {
     return Value::String(str);
   } else {
@@ -369,7 +369,7 @@ static zetasql_base::StatusOr<Value> StringToNumeric(const Value& v) {
   if (v.is_null()) return Value::MakeNull<T>();
   std::string value = v.string_value();
   T out;
-  zetasql_base::Status error;
+  absl::Status error;
   if (zetasql::functions::StringToNumeric<T>(value, &out, &error)) {
     return Value::Make<T>(out);
   } else {
@@ -613,7 +613,7 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
       google::protobuf::DynamicMessageFactory msg_factory;
       std::unique_ptr<google::protobuf::Message> message(
           msg_factory.GetPrototype(to_type->AsProto()->descriptor())->New());
-      zetasql_base::Status error;
+      absl::Status error;
       functions::StringToProto(v.string_value(), message.get(), &error);
       ZETASQL_RETURN_IF_ERROR(error);
       // TODO: SerializeToCord returns false if not all required
@@ -782,7 +782,7 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
                                << v.type()->DebugString() << ": "
                                << display_bytes;
       }
-      zetasql_base::Status error;
+      absl::Status error;
       absl::Cord printed_msg;
       functions::ProtoToString(message.get(), &printed_msg, &error);
       ZETASQL_RETURN_IF_ERROR(error);

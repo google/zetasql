@@ -32,13 +32,13 @@ namespace functions {
 // pattern. 'type' must be either TYPE_STRING or TYPE_BYTES. In case of success
 // the result is saved in *regexp. Caller should use returned regexp with
 // RE2::FullMatch().
-ABSL_MUST_USE_RESULT zetasql_base::Status CreateLikeRegexp(
+ABSL_MUST_USE_RESULT absl::Status CreateLikeRegexp(
     absl::string_view pattern, TypeKind type, std::unique_ptr<RE2>* regexp);
 
 // Creates a regexp that can be used to compute LIKE function with a given
 // pattern. 'options' can be used to specify the options for compiling
 // the regexp. Caller should use returned regexp with RE2::FullMatch().
-ABSL_MUST_USE_RESULT zetasql_base::Status CreateLikeRegexpWithOptions(
+ABSL_MUST_USE_RESULT absl::Status CreateLikeRegexpWithOptions(
     absl::string_view pattern, const RE2::Options& options,
     std::unique_ptr<RE2>* regexp);
 

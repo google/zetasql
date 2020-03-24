@@ -69,41 +69,41 @@ class SimpleCatalog : public EnumerableCatalog {
 
   std::string FullName() const override { return name_; }
 
-  zetasql_base::Status GetTable(const std::string& name, const Table** table,
+  absl::Status GetTable(const std::string& name, const Table** table,
                         const FindOptions& options = FindOptions()) override
       ABSL_LOCKS_EXCLUDED(mutex_);
 
-  zetasql_base::Status GetModel(const std::string& name, const Model** model,
+  absl::Status GetModel(const std::string& name, const Model** model,
                         const FindOptions& options = FindOptions()) override
       ABSL_LOCKS_EXCLUDED(mutex_);
 
-  zetasql_base::Status GetConnection(const std::string& name,
+  absl::Status GetConnection(const std::string& name,
                              const Connection** connection,
                              const FindOptions& options) override
       ABSL_LOCKS_EXCLUDED(mutex_);
 
-  zetasql_base::Status GetFunction(const std::string& name, const Function** function,
+  absl::Status GetFunction(const std::string& name, const Function** function,
                            const FindOptions& options = FindOptions()) override
       ABSL_LOCKS_EXCLUDED(mutex_);
 
-  zetasql_base::Status GetTableValuedFunction(
+  absl::Status GetTableValuedFunction(
       const std::string& name, const TableValuedFunction** function,
       const FindOptions& options = FindOptions()) override
       ABSL_LOCKS_EXCLUDED(mutex_);
 
-  zetasql_base::Status GetProcedure(
+  absl::Status GetProcedure(
       const std::string& name, const Procedure** procedure,
       const FindOptions& options = FindOptions()) override;
 
-  zetasql_base::Status GetType(const std::string& name, const Type** type,
+  absl::Status GetType(const std::string& name, const Type** type,
                        const FindOptions& options = FindOptions()) override
       ABSL_LOCKS_EXCLUDED(mutex_);
 
-  zetasql_base::Status GetCatalog(const std::string& name, Catalog** catalog,
+  absl::Status GetCatalog(const std::string& name, Catalog** catalog,
                           const FindOptions& options = FindOptions()) override
       ABSL_LOCKS_EXCLUDED(mutex_);
 
-  zetasql_base::Status GetConstant(const std::string& name, const Constant** constant,
+  absl::Status GetConstant(const std::string& name, const Constant** constant,
                            const FindOptions& options = FindOptions()) override
       ABSL_LOCKS_EXCLUDED(mutex_);
 
@@ -303,7 +303,7 @@ class SimpleCatalog : public EnumerableCatalog {
   // type serialization, and all proto types in the catalog are treated as
   // references into these pools. The DescriptorPools must both outlive the
   // result SimpleCatalog.
-  static zetasql_base::Status Deserialize(
+  static absl::Status Deserialize(
       const SimpleCatalogProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       std::unique_ptr<SimpleCatalog>* result);
@@ -317,7 +317,7 @@ class SimpleCatalog : public EnumerableCatalog {
   // NOTE: recursion detection is done with seen catalogs pointers, which
   // may effectively detect multiple-step recursions, but also recognize
   // siblings pointing to the same catalog object as false positives.
-  zetasql_base::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
+  absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
                          SimpleCatalogProto* proto, bool ignore_builtin = true,
                          bool ignore_recursive = true) const
       ABSL_LOCKS_EXCLUDED(mutex_);
@@ -325,13 +325,13 @@ class SimpleCatalog : public EnumerableCatalog {
   // Return a TypeFactory owned by this SimpleCatalog.
   TypeFactory* type_factory() ABSL_LOCKS_EXCLUDED(mutex_);
 
-  zetasql_base::Status GetCatalogs(
+  absl::Status GetCatalogs(
       absl::flat_hash_set<const Catalog*>* output) const override;
-  zetasql_base::Status GetTables(
+  absl::Status GetTables(
       absl::flat_hash_set<const Table*>* output) const override;
-  zetasql_base::Status GetTypes(
+  absl::Status GetTypes(
       absl::flat_hash_set<const Type*>* output) const override;
-  zetasql_base::Status GetFunctions(
+  absl::Status GetFunctions(
       absl::flat_hash_set<const Function*>* output) const override;
 
   // Accessors for reading a copy of the object lists in this SimpleCatalog.
@@ -357,7 +357,7 @@ class SimpleCatalog : public EnumerableCatalog {
   std::vector<std::string> constant_names() const ABSL_LOCKS_EXCLUDED(mutex_);
 
  private:
-  zetasql_base::Status SerializeImpl(absl::flat_hash_set<const Catalog*>* seen_catalogs,
+  absl::Status SerializeImpl(absl::flat_hash_set<const Catalog*>* seen_catalogs,
                              FileDescriptorSetMap* file_descriptor_set_map,
                              SimpleCatalogProto* proto, bool ignore_builtin,
                              bool ignore_recursive) const
@@ -453,16 +453,20 @@ class SimpleTable : public Table {
  public:
   // Make a table with columns with the given names and types.
   // Crashes if there are duplicate column names.
+  //
+  // If serialization is to be supported, 'serialization_id' will be returned
+  // by calls to GetSerializationId(); it should be unique across all tables in
+  // the same catalog.
   typedef std::pair<std::string, const Type*> NameAndType;
   SimpleTable(const std::string& name, const std::vector<NameAndType>& columns,
-              const int64_t id = 0);
+              const int64_t serialization_id = 0);
 
   // Make a table with the given Columns.
   // Crashes if there are duplicate column names.
   // Takes ownership of elements of <columns> if <take_ownership> is true.
   SimpleTable(const std::string& name,
               const std::vector<const Column*>& columns,
-              bool take_ownership = false, const int64_t id = 0);
+              bool take_ownership = false, const int64_t serialization_id = 0);
 
   // Make a value table with row type <row_type>.
   // This constructor inserts a single column of type <row_type> into
@@ -500,10 +504,10 @@ class SimpleTable : public Table {
 
   // Setter for allow_anonymous_column_name_. If the existing condition
   // conflicts with the value to be set, the setting will fail.
-  zetasql_base::Status set_allow_anonymous_column_name(bool value) {
+  absl::Status set_allow_anonymous_column_name(bool value) {
     ZETASQL_RET_CHECK(value || !anonymous_column_seen_);
     allow_anonymous_column_name_ = value;
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   bool AllowDuplicateColumnNames() const {
@@ -512,20 +516,20 @@ class SimpleTable : public Table {
 
   // Setter for allow_duplicate_column_names_. If the existing condition
   // conflicts with the value to be set, the setting will fail.
-  zetasql_base::Status set_allow_duplicate_column_names(bool value) {
+  absl::Status set_allow_duplicate_column_names(bool value) {
     ZETASQL_RET_CHECK(value || duplicate_column_names_.empty());
     allow_duplicate_column_names_ = value;
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // Add a column. Returns an error if constraints allow_anonymous_column_name_
   // or allow_duplicate_column_names_ are violated.
   // If is_owned is set to true but an error is returned, the column will be
   // deleted inside this function.
-  zetasql_base::Status AddColumn(const Column* column, bool is_owned);
+  absl::Status AddColumn(const Column* column, bool is_owned);
 
   // Set primary key with give column ordinal indexes.
-  zetasql_base::Status SetPrimaryKey(std::vector<int> primary_key);
+  absl::Status SetPrimaryKey(std::vector<int> primary_key);
 
   int64_t GetSerializationId() const override { return id_; }
 
@@ -561,7 +565,7 @@ class SimpleTable : public Table {
   // DescriptorPools in order to reconstruct the Type. The map may be
   // non-empty and may be used across calls to this method in order to
   // serialize multiple types. The map may NOT be null.
-  zetasql_base::Status Serialize(
+  absl::Status Serialize(
       FileDescriptorSetMap* file_descriptor_set_map,
       SimpleTableProto* proto) const;
 
@@ -571,7 +575,7 @@ class SimpleTable : public Table {
   // columns, and all proto type are treated as references into these pools.
   // The TypeFactory and the DescriptorPools must both outlive the result
   // SimpleTable.
-  static zetasql_base::Status Deserialize(
+  static absl::Status Deserialize(
       const SimpleTableProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory,
@@ -591,7 +595,7 @@ class SimpleTable : public Table {
   // Furthermore, if the column's name is duplicated, it's recorded in
   // duplicate_column_names_ and the original column is removed from
   // columns_map_.
-  zetasql_base::Status InsertColumnToColumnMap(const Column* column);
+  absl::Status InsertColumnToColumnMap(const Column* column);
 
   const std::string name_;
   bool is_value_table_ = false;
@@ -611,7 +615,7 @@ class SimpleTable : public Table {
   std::unique_ptr<EvaluatorTableIteratorFactory>
       evaluator_table_iterator_factory_;
 
-  static zetasql_base::Status ValidateNonEmptyColumnName(
+  static absl::Status ValidateNonEmptyColumnName(
       const std::string& column_name);
 };
 
@@ -651,11 +655,11 @@ class SimpleModel : public Model {
   // Add an input.
   // If is_owned is set to true but an error is returned, the column will be
   // deleted inside this function.
-  zetasql_base::Status AddInput(const Column* column, bool is_owned);
+  absl::Status AddInput(const Column* column, bool is_owned);
   // Add an output.
   // If is_owned is set to true but an error is returned, the column will be
   // deleted inside this function.
-  zetasql_base::Status AddOutput(const Column* column, bool is_owned);
+  absl::Status AddOutput(const Column* column, bool is_owned);
 
   int64_t GetSerializationId() const override { return id_; }
 
@@ -716,7 +720,7 @@ class SimpleColumn : public Column {
   // DescriptorPools in order to reconstruct the Type. The map may be
   // non-empty and may be used across calls to this method in order to
   // serialize multiple types. The map may NOT be null.
-  zetasql_base::Status Serialize(
+  absl::Status Serialize(
       FileDescriptorSetMap* file_descriptor_set_map,
       SimpleColumnProto* proto)const;
 
@@ -726,7 +730,7 @@ class SimpleColumn : public Column {
   // and all proto types are treated as references into these pools.
   // The TypeFactory and the DescriptorPools must both outlive the result
   // SimpleColumn.
-  static zetasql_base::Status Deserialize(
+  static absl::Status Deserialize(
       const SimpleColumnProto& proto, const std::string& table_name,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory, std::unique_ptr<SimpleColumn>* result);
@@ -744,7 +748,7 @@ class SimpleConstant : public Constant {
  public:
   // Creates and returns a SimpleConstant, returning an error if <value> is
   // an invalid Value or the <name_path> is empty.
-  static zetasql_base::Status Create(const std::vector<std::string>& name_path,
+  static absl::Status Create(const std::vector<std::string>& name_path,
                              const Value& value,
                              std::unique_ptr<SimpleConstant>* simple_constant);
 
@@ -758,13 +762,13 @@ class SimpleConstant : public Constant {
   // Serializes this SimpleConstant to proto.
   //
   // See SimpleCatalog::Serialize() for details about <file_descriptor_set_map>.
-  zetasql_base::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
+  absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
                          SimpleConstantProto* simple_constant_proto) const;
 
   // Deserializes this SimpleConstant from proto.
   //
   // See SimpleCatalog::Deserialize() for details about <descriptor_pools>.
-  static zetasql_base::Status Deserialize(
+  static absl::Status Deserialize(
       const SimpleConstantProto& simple_constant_proto,
       const std::vector<const google::protobuf::DescriptorPool*>& descriptor_pools,
       TypeFactory* type_factory,

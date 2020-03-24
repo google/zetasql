@@ -18,6 +18,7 @@
 #define THIRD_PARTY_ZETASQL_ZETASQL_BASE_STATUS_PAYLOAD_H_
 
 #include "absl/base/attributes.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
@@ -36,7 +37,7 @@ std::string GetTypeUrl() {
 // the same type.
 template <class T>
 void AttachPayload(zetasql_base::Status* status, const T& payload) {
-  zetasql_base::StatusCord serialized = payload.SerializeAsString();
+  absl::Cord serialized = absl::Cord(payload.SerializeAsString());
   status->SetPayload(GetTypeUrl<T>(), serialized);
 }
 

@@ -105,7 +105,7 @@ class Algebrizer {
   // On output, <system_variables_map> is populated with a
   // name path=>variable id map for each system variable used in the
   // statement/expression.
-  static zetasql_base::Status AlgebrizeStatement(
+  static absl::Status AlgebrizeStatement(
       const LanguageOptions& language_options,
       const AlgebrizerOptions& algebrizer_options, TypeFactory* type_factory,
       const ResolvedStatement* ast_root, std::unique_ptr<ValueExpr>* output,
@@ -119,7 +119,7 @@ class Algebrizer {
   // 'output_column_names' with the user-visible names, and
   // 'output_column_variables' with the corresponding VariableIds for the
   // TupleIterator returned by 'output'.
-  static zetasql_base::Status AlgebrizeQueryStatementAsRelation(
+  static absl::Status AlgebrizeQueryStatementAsRelation(
       const LanguageOptions& language_options,
       const AlgebrizerOptions& algebrizer_options, TypeFactory* type_factory,
       const ResolvedQueryStmt* ast_root, ResolvedColumnList* output_column_list,
@@ -131,7 +131,7 @@ class Algebrizer {
 
   // Similar to AlgebrizeStatement(), but accepts any ResolvedExpr. 'output' is
   // only valid for as long as 'type_factory' is valid.
-  static zetasql_base::Status AlgebrizeExpression(
+  static absl::Status AlgebrizeExpression(
       const LanguageOptions& language_options,
       const AlgebrizerOptions& algebrizer_options, TypeFactory* type_factory,
       const ResolvedExpr* ast_root, std::unique_ptr<ValueExpr>* output,
@@ -286,7 +286,7 @@ class Algebrizer {
   };
 
   // Adds all the conjuncts in 'expr' to 'conjunct_infos'.
-  static zetasql_base::Status AddFilterConjunctsTo(
+  static absl::Status AddFilterConjunctsTo(
       const ResolvedExpr* expr,
       std::vector<std::unique_ptr<FilterConjunctInfo>>* conjunct_infos);
 
@@ -362,7 +362,7 @@ class Algebrizer {
 
   // If 'conjunct_info' can be represented using ColumnFilterArgs with the
   // columns in 'column_info_map', appends them to 'and_filters'.
-  zetasql_base::Status TryAlgebrizeFilterConjunctAsColumnFilterArgs(
+  absl::Status TryAlgebrizeFilterConjunctAsColumnFilterArgs(
       const TableScanColumnInfoMap& column_info_map,
       const FilterConjunctInfo& conjunct_info,
       std::vector<std::unique_ptr<ColumnFilterArg>>* and_filters);
@@ -412,7 +412,7 @@ class Algebrizer {
   // the referenced column.
   // 'column_to_id_map' maps for each order by column from its column id to its
   // initial VariableId before any change has been made in this function.
-  zetasql_base::Status AlgebrizeOrderByItems(
+  absl::Status AlgebrizeOrderByItems(
       bool drop_correlated_columns, bool create_new_ids,
       const std::vector<std::unique_ptr<const ResolvedOrderByItem>>&
           order_by_items,
@@ -423,7 +423,7 @@ class Algebrizer {
   // KeyArg with an ascending order.
   // 'column_to_id_map' collects the ids of the referenced columns and their
   // VariableIds.
-  zetasql_base::Status AlgebrizePartitionExpressions(
+  absl::Status AlgebrizePartitionExpressions(
       const ResolvedWindowPartitioning* partition_by,
       absl::flat_hash_map<int, VariableId>* column_to_id_map,
       std::vector<std::unique_ptr<KeyArg>>* partition_by_keys);
@@ -475,7 +475,7 @@ class Algebrizer {
   // 'resolved_table_scan' must be NULL. Also adds any placeholder columns
   // (i.e., ResolvedColumns that are defined in the subtree rooted at
   // 'ast_root') to 'column_to_variable_'.
-  zetasql_base::Status AlgebrizeDescendantsOfDMLStatement(
+  absl::Status AlgebrizeDescendantsOfDMLStatement(
       const ResolvedStatement* ast_root, ResolvedScanMap* resolved_scan_map,
       ResolvedExprMap* resolved_expr_map,
       const ResolvedTableScan** resolved_table_scan);
@@ -484,20 +484,20 @@ class Algebrizer {
   // 'update_item', which must be a DML statement. Also adds any placeholder
   // columns (i.e., ResolvedColumns that are defined in the subtree rooted at
   // 'ast_root') to 'column_to_variable_'.
-  zetasql_base::Status AlgebrizeDescendantsOfUpdateItem(
+  absl::Status AlgebrizeDescendantsOfUpdateItem(
       const ResolvedUpdateItem* update_item, ResolvedScanMap* resolved_scan_map,
       ResolvedExprMap* resolved_expr_map);
 
   // Adds the entry corresponding to 'resolved_scan' to 'resolved_scan_map'
   // (whose key is 'resolved_scan' and whose value is the algebrized scan). Note
   // that the map does not own the ResolvedScan nodes.
-  ::zetasql_base::Status PopulateResolvedScanMap(const ResolvedScan* resolved_scan,
+  absl::Status PopulateResolvedScanMap(const ResolvedScan* resolved_scan,
                                          ResolvedScanMap* resolved_scan_map);
 
   // Adds the entry corresponding to 'resolved_expr' to 'resolved_expr_map'
   // (whose key is 'resolved_expr' and whose value is the algebrized
   // expression). Note that the map does not own the ResolvedExpr nodes.
-  zetasql_base::Status PopulateResolvedExprMap(const ResolvedExpr* resolved_expr,
+  absl::Status PopulateResolvedExprMap(const ResolvedExpr* resolved_expr,
                                        ResolvedExprMap* resolved_expr_map);
 
   // Given a list of ResolvedComputedColumn and a column_id, return in
@@ -546,7 +546,7 @@ class Algebrizer {
   // If the presence of 'conjunct_info' above the join allows us to remove the
   // outer join from one or both sides of 'join_kind', updates 'join_kind'
   // accordingly.
-  static zetasql_base::Status NarrowJoinKindForFilterConjunct(
+  static absl::Status NarrowJoinKindForFilterConjunct(
       const FilterConjunctInfo& conjunct_info,
       const absl::flat_hash_set<ResolvedColumn>& left_output_columns,
       const absl::flat_hash_set<ResolvedColumn>& right_output_columns,
@@ -557,7 +557,7 @@ class Algebrizer {
   //    the join condition.
   // - 'push_down_to_left_input'/'push_down_to_right_input' if the push down can
   //    go to the left/right input.
-  zetasql_base::Status CanPushFilterConjunctIntoJoin(
+  absl::Status CanPushFilterConjunctIntoJoin(
       const FilterConjunctInfo& conjunct_info, JoinOp::JoinKind join_kind,
       const absl::flat_hash_set<ResolvedColumn>& left_output_columns,
       const absl::flat_hash_set<ResolvedColumn>& right_output_columns,
@@ -567,7 +567,7 @@ class Algebrizer {
   // Populates the output arguments based on whether/where the filter conjunct
   // can be pushed down, assuming it is currently in the join condition of an
   // inner join.
-  zetasql_base::Status CanPushFilterConjunctDownFromInnerJoinCondition(
+  absl::Status CanPushFilterConjunctDownFromInnerJoinCondition(
       const FilterConjunctInfo& conjunct_info,
       const absl::flat_hash_set<ResolvedColumn>& left_output_columns,
       const absl::flat_hash_set<ResolvedColumn>& right_output_columns,
@@ -579,7 +579,7 @@ class Algebrizer {
   // pointer because we mark any conjuncts added to 'hash_join_equality_exprs'
   // as redundant. The iteration is done in reverse order because
   // 'conjuncts_with_push_down' is interpreted as a stack.
-  zetasql_base::Status AlgebrizeJoinConditionForHashJoin(
+  absl::Status AlgebrizeJoinConditionForHashJoin(
       const absl::flat_hash_set<ResolvedColumn>& left_output_columns,
       const absl::flat_hash_set<ResolvedColumn>& right_output_columns,
       std::vector<FilterConjunctInfo*>* conjuncts_with_push_down,
@@ -596,7 +596,7 @@ class Algebrizer {
 
   // Creates a new variable for each column and returns a vector of arguments,
   // each assigning the new variable from a DerefExpr of the old variable.
-  ::zetasql_base::Status RemapJoinColumns(
+  absl::Status RemapJoinColumns(
       const ResolvedColumnList& columns,
       std::vector<std::unique_ptr<ExprArg>>* output);
 

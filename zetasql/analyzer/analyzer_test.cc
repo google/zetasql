@@ -399,7 +399,7 @@ TEST_F(AnalyzerOptionsTest, SetDdlPseudoColumns) {
           pseudo_columns->push_back(
               std::make_pair(option->name(), type_factory_.get_int64()));
         }
-        return zetasql_base::OkStatus();
+        return absl::OkStatus();
       });
   EXPECT_NE(nullptr, options_.ddl_pseudo_columns_callback());
 
@@ -649,7 +649,7 @@ TEST_F(AnalyzerOptionsTest, DeprecationWarnings) {
       options_.mutable_language()->set_error_on_deprecated_syntax(
           with_errors == 1);
 
-      zetasql_base::Status status;
+      absl::Status status;
       if (input_type == 0) {
         status = AnalyzeStatement(sql, options_, &catalog, &type_factory_,
                                   &output);
@@ -1095,7 +1095,7 @@ TEST(AnalyzerSupportedStatementsTest, SupportedStatementTest) {
     options.mutable_language()->SetSupportedStatementKinds(
         input.supported_statement_kinds);
     SampleCatalog catalog(options.language());
-    const zetasql_base::Status status = AnalyzeStatement(
+    const absl::Status status = AnalyzeStatement(
         input.statement, options, catalog.catalog(), &type_factory, &output);
     if (input.expect_success) {
       ZETASQL_EXPECT_OK(status);
@@ -1209,7 +1209,7 @@ TEST(AnalyzerSupportedFeaturesTest, SupportedFeaturesTest) {
         input.supported_features);
     LOG(INFO) << "Supported features: " << input.FeaturesToString();
     SampleCatalog catalog(options.language());
-    const zetasql_base::Status status = AnalyzeStatement(
+    const absl::Status status = AnalyzeStatement(
         input.statement, options, catalog.catalog(), &type_factory, &output);
     if (input.expect_success) {
       ZETASQL_EXPECT_OK(status)

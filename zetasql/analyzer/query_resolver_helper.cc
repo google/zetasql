@@ -221,20 +221,20 @@ void QueryResolutionInfo::AddAggregateComputedColumn(
   group_by_info_.aggregate_columns_to_compute.push_back(std::move(column));
 }
 
-zetasql_base::Status QueryResolutionInfo::SelectListColumnHasAnalytic(
+absl::Status QueryResolutionInfo::SelectListColumnHasAnalytic(
     const ResolvedColumn& column, bool* has_analytic) const {
   for (const std::unique_ptr<SelectColumnState>& select_column_state :
        select_column_state_list_->select_column_state_list()) {
     if (select_column_state->resolved_select_column == column) {
       *has_analytic = select_column_state->has_analytic;
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
   }
   ZETASQL_RET_CHECK_FAIL() << "SelectListColumnHasAnalytic <column> is not a SELECT "
                       "list resolved column";
 }
 
-zetasql_base::Status QueryResolutionInfo::GetAndRemoveSelectListColumnsWithoutAnalytic(
+absl::Status QueryResolutionInfo::GetAndRemoveSelectListColumnsWithoutAnalytic(
     std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
         select_columns_without_analytic_out) {
   // Split <select_list_columns_to_compute_> into those that contain analytic
@@ -262,7 +262,7 @@ zetasql_base::Status QueryResolutionInfo::GetAndRemoveSelectListColumnsWithoutAn
   *select_columns_without_analytic_out =
       std::move(select_columns_without_analytic);
   select_list_columns_to_compute_ = std::move(select_columns_with_analytic);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 bool QueryResolutionInfo::HasAnalytic() const {
@@ -274,7 +274,7 @@ void QueryResolutionInfo::ResetAnalyticResolver(Resolver* resolver) {
       resolver, analytic_resolver_->ReleaseNamedWindowInfoMap());
 }
 
-zetasql_base::Status QueryResolutionInfo::CheckComputedColumnListsAreEmpty() const {
+absl::Status QueryResolutionInfo::CheckComputedColumnListsAreEmpty() const {
   ZETASQL_RET_CHECK(select_list_columns_to_compute_before_aggregation_.empty());
   ZETASQL_RET_CHECK(select_list_columns_to_compute_.empty());
   ZETASQL_RET_CHECK(group_by_info_.group_by_columns_to_compute.empty());
@@ -282,7 +282,7 @@ zetasql_base::Status QueryResolutionInfo::CheckComputedColumnListsAreEmpty() con
   ZETASQL_RET_CHECK(group_by_info_.rollup_column_list.empty());
   ZETASQL_RET_CHECK(order_by_columns_to_compute_.empty());
   ZETASQL_RET_CHECK(!analytic_resolver_->HasWindowColumnsToCompute());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 void QueryResolutionInfo::ClearGroupByInfo() {

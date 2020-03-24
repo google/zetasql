@@ -41,7 +41,7 @@
 #include "gtest/gtest.h"
 #include <cstdint>
 #include "absl/memory/memory.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
@@ -458,7 +458,7 @@ static ::zetasql_base::StatusOr<Value> EvalAgg(const BuiltinAggregateFunction& a
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AggregateAccumulator> accumulator,
                    agg.CreateAccumulator(args, context));
   bool stop_accumulation;
-  ::zetasql_base::Status status;
+  absl::Status status;
   for (const Value& value : values) {
     if (!accumulator->Accumulate(value, &stop_accumulation, &status)) {
       return status;
@@ -516,7 +516,7 @@ TEST(EvalAggTest, SumNumericOverflow) {
   EXPECT_THAT(
       EvalAgg(fct, {Numeric(1), Numeric(NumericValue::MaxValue()), Numeric(1)},
               &context),
-      StatusIs(zetasql_base::StatusCode::kOutOfRange));
+      StatusIs(absl::StatusCode::kOutOfRange));
   EXPECT_TRUE(context.IsDeterministicOutput());
 }
 
@@ -654,7 +654,7 @@ TEST(OrderPreservationTest, GroupByAggregate) {
   // have kIgnoresOrder setting since the inputs to aggregates are unordered.
   EvaluationContext context((EvaluationOptions()));
   TupleSlot slot;
-  zetasql_base::Status status;
+  absl::Status status;
   ASSERT_TRUE(nest_op->EvalSimple(EmptyParams(), &context, &slot, &status))
       << status;
   const Value& reference = slot.value();
@@ -759,7 +759,7 @@ TEST(CreateIteratorTest, AggregateAll) {
                                          &context));
   ZETASQL_ASSERT_OK(context.CancelStatement());
   EXPECT_EQ(iter->Next(), nullptr);
-  EXPECT_THAT(iter->Status(), StatusIs(zetasql_base::CANCELLED, _));
+  EXPECT_THAT(iter->Status(), StatusIs(absl::StatusCode::kCancelled, _));
 
   // Check the scrambling works, although it is not very interesting because
   // there is only one output tuple.
@@ -783,7 +783,7 @@ TEST(CreateIteratorTest, AggregateAll) {
   EXPECT_THAT(
       aggregate_op->CreateIterator({&params_data},
                                    /*num_extra_slots=*/1, &memory_context),
-      StatusIs(zetasql_base::StatusCode::kResourceExhausted,
+      StatusIs(absl::StatusCode::kResourceExhausted,
                HasSubstr("Out of memory")));
 }
 
@@ -1062,10 +1062,10 @@ TEST(CreateIteratorTest, AggregateOrderBy) {
       iter, aggregate_op->CreateIterator(EmptyParams(), /*num_extra_slots=*/1,
                                          &context));
   ZETASQL_ASSERT_OK(context.CancelStatement());
-  zetasql_base::Status status;
+  absl::Status status;
   data = ReadFromTupleIteratorFull(iter.get(), &status);
   EXPECT_TRUE(data.empty());
-  EXPECT_THAT(status, StatusIs(zetasql_base::CANCELLED, _));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kCancelled, _));
 
   // Check that scrambling works.
   EvaluationContext scramble_context(GetScramblingEvaluationOptions());
@@ -1087,7 +1087,7 @@ TEST(CreateIteratorTest, AggregateOrderBy) {
   EXPECT_THAT(
       aggregate_op->CreateIterator(EmptyParams(),
                                    /*num_extra_slots=*/1, &memory_context),
-      StatusIs(zetasql_base::StatusCode::kResourceExhausted,
+      StatusIs(absl::StatusCode::kResourceExhausted,
                HasSubstr("Out of memory")));
 }
 
@@ -1306,10 +1306,10 @@ TEST(CreateIteratorTest, AggregateLimit) {
 
   // If the LIMIT is negative, aggregation will return an error.
   params_data = CreateTestTupleData({Int64(0), Int64(2), Int64(-100)});
-  EXPECT_THAT(
-      aggregate_op->CreateIterator({&params_data}, /*num_extra_slots=*/0,
-                                   &context),
-      StatusIs(zetasql_base::OUT_OF_RANGE, "Limit requires non-negative count"));
+  EXPECT_THAT(aggregate_op->CreateIterator({&params_data},
+                                           /*num_extra_slots=*/0, &context),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       "Limit requires non-negative count"));
 
   // A case without errors.
   params_data = CreateTestTupleData({Int64(0), Int64(2), Int64(100)});
@@ -1345,10 +1345,10 @@ TEST(CreateIteratorTest, AggregateLimit) {
       iter, aggregate_op->CreateIterator({&params_data}, /*num_extra_slots=*/1,
                                          &context));
   ZETASQL_ASSERT_OK(context.CancelStatement());
-  zetasql_base::Status status;
+  absl::Status status;
   data = ReadFromTupleIteratorFull(iter.get(), &status);
   EXPECT_TRUE(data.empty());
-  EXPECT_THAT(status, StatusIs(zetasql_base::CANCELLED, _));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kCancelled, _));
 
   // Check that scrambling works.
   EvaluationContext scramble_context(GetScramblingEvaluationOptions());
@@ -1370,7 +1370,7 @@ TEST(CreateIteratorTest, AggregateLimit) {
   EXPECT_THAT(
       aggregate_op->CreateIterator({&params_data},
                                    /*num_extra_slots=*/1, &memory_context),
-      StatusIs(zetasql_base::StatusCode::kResourceExhausted,
+      StatusIs(absl::StatusCode::kResourceExhausted,
                HasSubstr("Out of memory")));
 }
 
@@ -1473,10 +1473,10 @@ TEST(CreateIteratorTest, AggregateHaving) {
       iter, aggregate_op->CreateIterator(EmptyParams(), /*num_extra_slots=*/1,
                                          &context));
   ZETASQL_ASSERT_OK(context.CancelStatement());
-  zetasql_base::Status status;
+  absl::Status status;
   data = ReadFromTupleIteratorFull(iter.get(), &status);
   EXPECT_TRUE(data.empty());
-  EXPECT_THAT(status, StatusIs(zetasql_base::CANCELLED, _));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kCancelled, _));
 
   // Check that scrambling works.
   EvaluationContext scramble_context(GetScramblingEvaluationOptions());
@@ -1498,7 +1498,7 @@ TEST(CreateIteratorTest, AggregateHaving) {
   EXPECT_THAT(
       aggregate_op->CreateIterator(EmptyParams(),
                                    /*num_extra_slots=*/1, &memory_context),
-      StatusIs(zetasql_base::StatusCode::kResourceExhausted,
+      StatusIs(absl::StatusCode::kResourceExhausted,
                HasSubstr("Out of memory")));
 }
 

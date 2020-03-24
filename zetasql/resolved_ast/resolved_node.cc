@@ -40,12 +40,12 @@ namespace zetasql {
 
 // ResolvedNode::RestoreFrom is generated in resolved_node.cc.template.
 
-zetasql_base::Status ResolvedNode::Accept(ResolvedASTVisitor* visitor) const {
-  return ::zetasql_base::OkStatus();
+absl::Status ResolvedNode::Accept(ResolvedASTVisitor* visitor) const {
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ResolvedNode::ChildrenAccept(ResolvedASTVisitor* visitor) const {
-  return ::zetasql_base::OkStatus();
+absl::Status ResolvedNode::ChildrenAccept(ResolvedASTVisitor* visitor) const {
+  return absl::OkStatus();
 }
 
 void ResolvedNode::SetParseLocationRange(
@@ -149,8 +149,8 @@ std::string ResolvedNode::GetNameForDebugString() const {
   return node_kind_string();
 }
 
-zetasql_base::Status ResolvedNode::CheckFieldsAccessed() const {
-  return ::zetasql_base::OkStatus();
+absl::Status ResolvedNode::CheckFieldsAccessed() const {
+  return absl::OkStatus();
 }
 
 void ResolvedNode::ClearFieldsAccessed() const {
@@ -255,17 +255,17 @@ const int ResolvedNode::GetTreeDepth() const {
   return max_depth + 1;
 }
 
-zetasql_base::Status ResolvedNode::SaveTo(FileDescriptorSetMap* file_descriptor_set_map,
+absl::Status ResolvedNode::SaveTo(FileDescriptorSetMap* file_descriptor_set_map,
                                   ResolvedNodeProto* proto) const {
   const ParseLocationRange* parse_location_range =
       GetParseLocationRangeOrNULL();
   if (parse_location_range == nullptr) {
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
   // Serialize parse location range.
   ZETASQL_ASSIGN_OR_RETURN(*proto->mutable_parse_location_range(),
                    parse_location_range->ToProto());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Methods for classes in the generated code with customized DebugStrings.

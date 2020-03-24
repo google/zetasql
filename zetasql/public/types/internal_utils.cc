@@ -32,7 +32,7 @@ int64_t FileDescriptorSetMapTotalSize(
   return total_size;
 }
 
-zetasql_base::Status PopulateDistinctFileDescriptorSets(
+absl::Status PopulateDistinctFileDescriptorSets(
     const google::protobuf::FileDescriptor* file_descr,
     absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
     FileDescriptorSetMap* file_descriptor_set_map,
@@ -65,7 +65,7 @@ zetasql_base::Status PopulateDistinctFileDescriptorSets(
                                 &file_descriptor_entry->file_descriptor_set,
                                 &file_descriptor_entry->file_descriptors));
   *file_descriptor_set_index = file_descriptor_entry->descriptor_set_index;
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace internal

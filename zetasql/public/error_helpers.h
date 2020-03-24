@@ -55,17 +55,17 @@ std::string FormatErrorSource(const ErrorSource& error_source,
 // ERROR_MESSAGE_MODE_ONE_LINE), omitting the ErrorLocation and ErrorSource
 // information if they do not exist.
 // Otherwise, just return status.ToString().
-std::string FormatError(const zetasql_base::Status& status);
+std::string FormatError(const absl::Status& status);
 
 // Return true if <status> has a zetasql::ErrorLocation payload.
-bool HasErrorLocation(const zetasql_base::Status& status);
+bool HasErrorLocation(const absl::Status& status);
 
 // Copy a zetasql::ErrorLocation payload out of <status> into <*location>.
 // Return true if <status> had an ErrorLocation.
-bool GetErrorLocation(const zetasql_base::Status& status, ErrorLocation* location);
+bool GetErrorLocation(const absl::Status& status, ErrorLocation* location);
 
 // Mutate <*status> by removing any attached zetasql::ErrorLocation payload.
-void ClearErrorLocation(zetasql_base::Status* status);
+void ClearErrorLocation(absl::Status* status);
 
 // Returns a two-line string pointing at the error location in <input>.
 // The first line will be substring of up to <max_width> characters from the
@@ -99,16 +99,16 @@ std::string GetErrorStringWithCaret(absl::string_view input,
 //
 // Note: <status> must not include an InternalErrorLocation (which is only
 // used internally).
-zetasql_base::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
+absl::Status MaybeUpdateErrorFromPayload(ErrorMessageMode mode,
                                          absl::string_view input_text,
-                                         const zetasql_base::Status& status);
+                                         const absl::Status& status);
 
 // If <status> contains an (external) ErrorLocation payload, and if that
 // ErrorLocation does not have a filename, then updates the ErrorLocation
 // payload to set the <filename> and returns an updated Status with the
 // updated ErrorLocation.  Otherwise, just returns <status>.
-zetasql_base::Status UpdateErrorLocationPayloadWithFilenameIfNotPresent(
-    const zetasql_base::Status& status, const std::string& filename);
+absl::Status UpdateErrorLocationPayloadWithFilenameIfNotPresent(
+    const absl::Status& status, const std::string& filename);
 
 }  // namespace zetasql
 

@@ -208,7 +208,7 @@ TEST_F(ColumnToVariableMappingTest, Basic) {
 
   // 'column_1_' is not in the mapping.
   EXPECT_THAT(mapping.LookupVariableNameForColumn(&column_1_),
-              StatusIs(zetasql_base::NOT_FOUND, HasSubstr(kColumnName1)));
+              StatusIs(absl::StatusCode::kNotFound, HasSubstr(kColumnName1)));
 
   // Insert 'column_1_' into the mapping and verify that it's there.
   EXPECT_EQ(mapping.AssignNewVariableToColumn(&column_1_), variable_1_);
@@ -219,7 +219,7 @@ TEST_F(ColumnToVariableMappingTest, Basic) {
 
   // 'column_2_' is not in the mapping.
   EXPECT_THAT(mapping.LookupVariableNameForColumn(&column_2_),
-              StatusIs(zetasql_base::NOT_FOUND, HasSubstr(kColumnName2)));
+              StatusIs(absl::StatusCode::kNotFound, HasSubstr(kColumnName2)));
 
   // Insert 'column_2_' into the mapping and verify that both columns are there.
   EXPECT_EQ(mapping.AssignNewVariableToColumn(&column_2_), variable_2_);
@@ -259,9 +259,9 @@ TEST_F(ColumnToVariableMappingTest, SetMap) {
 
   EXPECT_EQ(expected_map, mapping.map());
   EXPECT_THAT(mapping.LookupVariableNameForColumn(&column_1_),
-              StatusIs(zetasql_base::NOT_FOUND));
+              StatusIs(absl::StatusCode::kNotFound));
   EXPECT_THAT(mapping.LookupVariableNameForColumn(&column_2_),
-              StatusIs(zetasql_base::NOT_FOUND));
+              StatusIs(absl::StatusCode::kNotFound));
 
   expected_map[column_1_] = variable_1_;
   expected_map[column_2_] = variable_2_;

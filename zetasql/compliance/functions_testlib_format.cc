@@ -50,7 +50,7 @@
 
 namespace zetasql {
 namespace {
-constexpr zetasql_base::StatusCode OUT_OF_RANGE = zetasql_base::StatusCode::kOutOfRange;
+constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 }  // namespace
 
 // These helper functions are defined in separate .cc files and compiled

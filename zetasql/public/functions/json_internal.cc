@@ -24,7 +24,7 @@
 
 #include "zetasql/base/logging.h"
 #include "absl/memory/memory.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/strip.h"
 #include "re2/re2.h"
@@ -64,9 +64,9 @@ static LazyRE2 kBeginRegex = {"\\$"};
 }  // namespace
 
 // Checks if the given JSON path is supported and valid.
-zetasql_base::Status IsValidJSONPath(absl::string_view text, bool sql_standard_mode) {
+absl::Status IsValidJSONPath(absl::string_view text, bool sql_standard_mode) {
   if (!RE2::Consume(&text, *kBeginRegex)) {
-    return zetasql_base::OutOfRangeError("JSONPath must start with '$'");
+    return absl::OutOfRangeError("JSONPath must start with '$'");
   }
 
   const RE2* esc_key_regex = kEscKeyRegex.get();
@@ -86,13 +86,13 @@ zetasql_base::Status IsValidJSONPath(absl::string_view text, bool sql_standard_m
     std::string token;
     bool is_unsupported = RE2::PartialMatch(text, *kUnSupportedLexer, &token);
     if (is_unsupported) {
-      return zetasql_base::OutOfRangeError(
+      return absl::OutOfRangeError(
           absl::StrCat("Unsupported operator in JSONPath: ", token));
     }
-    return zetasql_base::OutOfRangeError(
+    return absl::OutOfRangeError(
         absl::StrCat("Invalid token in JSONPath at: ", text));
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 void RemoveBackSlashFollowedByChar(std::string* token, char esc_chr) {

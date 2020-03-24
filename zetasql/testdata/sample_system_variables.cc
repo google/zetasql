@@ -26,7 +26,7 @@
 
 namespace zetasql {
 
-static zetasql_base::Status AddSystemVariable(const std::vector<std::string>& name_path,
+static absl::Status AddSystemVariable(const std::vector<std::string>& name_path,
                                       const Type* type,
                                       AnalyzerOptions* options) {
   if (!type->IsSupportedType(options->language_options())) {
@@ -35,7 +35,7 @@ static zetasql_base::Status AddSystemVariable(const std::vector<std::string>& na
     // system variables) from being blocked by failure to set them.
     LOG(INFO) << "Skipping system variable " << absl::StrJoin(name_path, ".")
         << " due to unsupported type: " << type->DebugString();
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
     LOG(INFO) << "Adding system variable " << absl::StrJoin(name_path, ".")
         << " of type: " << type->DebugString();

@@ -84,7 +84,7 @@ namespace zetasql {
 //
 //   1. Create a subclass of ResolvedASTDeepCopyVisitor.
 //   2. Override
-//      zetasql_base::Status VisitResolvedTableScan(const ResolvedTableScan *node);
+//      absl::Status VisitResolvedTableScan(const ResolvedTableScan *node);
 //   3. Instead of the default behavior of pushing a copy of the node onto the
 //      stack, push a modified copy, with the desired new table name.
 //
@@ -108,7 +108,7 @@ namespace zetasql {
 //
 //   Example:
 //
-//     zetasql_base::Status VisitResolvedTableScan(const ResolvedTableScan* node) {
+//     absl::Status VisitResolvedTableScan(const ResolvedTableScan* node) {
 //        const zetasql::Table* replacement_table = nullptr;
 //        ZETASQL_RETURN_IF_ERROR(
 //          catalog_->FindTable({replacement_table_name_}, &replacement_table));
@@ -120,7 +120,7 @@ namespace zetasql {
 //        ResolvedTableScan* scan = GetUnownedTopOfStack<ResolvedTableScan>();
 //        scan->set_table(replacement_table);
 //
-//        return ::zetasql_base::OkStatus();
+//        return absl::OkStatus();
 //      }
 //
 // METHOD 2: Construct a replacement node directly.
@@ -129,7 +129,7 @@ namespace zetasql {
 //   Calling node constructors directly means that this code will have to be
 //   updated when new fields are added to zetasql nodes.
 //
-//     zetasql_base::Status VisitResolvedTableScan(const ResolvedTableScan* node) {
+//     absl::Status VisitResolvedTableScan(const ResolvedTableScan* node) {
 //        const zetasql::Table* replacement_table = nullptr;
 //        ZETASQL_RETURN_IF_ERROR(
 //          catalog_->FindTable({replacement_table_name_}, &replacement_table));
@@ -138,7 +138,7 @@ namespace zetasql {
 //        PushNodeToStack(MakeResolvedTableScan(
 //            node->column_list(), replacement_table));
 //
-//        return ::zetasql_base::OkStatus();
+//        return absl::OkStatus();
 //      }
 //
 //   If the copied node has any child nodes, those child nodes will also
@@ -146,7 +146,7 @@ namespace zetasql {
 //   child node, or by using the default Copy method and then releasing and
 //   propagating each field individually, like this:
 //
-//     zetasql_base::Status VisitResolvedFilterScan(const ResolvedFilterScan* node) {
+//     absl::Status VisitResolvedFilterScan(const ResolvedFilterScan* node) {
 //       ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedFilterScan(node));
 //       auto filter_scan = ConsumeTopOfStack<ResolvedFilterScan>();
 //
@@ -155,7 +155,7 @@ namespace zetasql {
 //       PushNodeToStack(MakeResolvedFilterScan(
 //           output_columns, filter_scan->release_input_scan(),
 //           filter_scan->release_filter_expr()));
-//       return ::zetasql_base::OkStatus();
+//       return absl::OkStatus();
 //     }
 //
 // In both cases, we must ensure that all fields are deep-copied and that the
@@ -263,17 +263,17 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
   // The following CopyVisitResolvedX functions create a deep copy of node
   // and push it onto the stack to be consumed. Given node must be non-null.
 # for node in nodes if not node.is_abstract
-  zetasql_base::Status CopyVisit{{node.name}}(
+  absl::Status CopyVisit{{node.name}}(
       const {{node.name}}* node);
 
 # endfor
 
-  zetasql_base::Status DefaultVisit(const ResolvedNode* node) override;
+  absl::Status DefaultVisit(const ResolvedNode* node) override;
 
   // The individual visit methods for each of the node types. We will copy
   // and visit each of the nodes.
 # for node in nodes if not node.is_abstract
-  zetasql_base::Status Visit{{node.name}}(
+  absl::Status Visit{{node.name}}(
       const {{node.name}}* node) override;
 
 # endfor
@@ -282,7 +282,7 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
   // Copies the hint list from the original node to the copied node. This is
   // required, as hint_list is not a constructor arg, and the only way to
   // transfer ownership is to explicitly set it after constructing the copy.
-  template <typename ResolvedNodeType> zetasql_base::Status CopyHintList(
+  template <typename ResolvedNodeType> absl::Status CopyHintList(
       const ResolvedNodeType *from, ResolvedNodeType *to) {
     for (const std::unique_ptr<const zetasql::ResolvedOption>& hint :
         from->hint_list()) {
@@ -290,7 +290,7 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
                        ProcessNode(hint.get()));
       to->add_hint_list(std::move(copied_hint));
     }
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // The stack is used for making the recursive copying work:

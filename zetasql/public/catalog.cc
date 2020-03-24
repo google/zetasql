@@ -27,7 +27,7 @@ namespace zetasql {
 
 // TODO We may want to change the interfaces to just return a bool.
 // The resolver never uses the error message that gets returned from here.
-zetasql_base::Status Catalog::FindTable(const absl::Span<const std::string>& path,
+absl::Status Catalog::FindTable(const absl::Span<const std::string>& path,
                                 const Table** table,
                                 const FindOptions& options) {
   *table = nullptr;
@@ -50,11 +50,11 @@ zetasql_base::Status Catalog::FindTable(const absl::Span<const std::string>& pat
     if (*table == nullptr) {
       return TableNotFoundError(path);
     }
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 }
 
-zetasql_base::Status Catalog::FindModel(const absl::Span<const std::string>& path,
+absl::Status Catalog::FindModel(const absl::Span<const std::string>& path,
                                 const Model** model,
                                 const FindOptions& options) {
   *model = nullptr;
@@ -77,11 +77,11 @@ zetasql_base::Status Catalog::FindModel(const absl::Span<const std::string>& pat
     if (*model == nullptr) {
       return ModelNotFoundError(path);
     }
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 }
 
-zetasql_base::Status Catalog::FindConnection(const absl::Span<const std::string>& path,
+absl::Status Catalog::FindConnection(const absl::Span<const std::string>& path,
                                      const Connection** connection,
                                      const FindOptions& options) {
   *connection = nullptr;
@@ -104,11 +104,11 @@ zetasql_base::Status Catalog::FindConnection(const absl::Span<const std::string>
     if (*connection == nullptr) {
       return ConnectionNotFoundError(path);
     }
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 }
 
-zetasql_base::Status Catalog::FindFunction(const absl::Span<const std::string>& path,
+absl::Status Catalog::FindFunction(const absl::Span<const std::string>& path,
                                    const Function** function,
                                    const FindOptions& options) {
   *function = nullptr;
@@ -131,11 +131,11 @@ zetasql_base::Status Catalog::FindFunction(const absl::Span<const std::string>& 
     if (*function == nullptr) {
       return FunctionNotFoundError(path);
     }
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 }
 
-zetasql_base::Status Catalog::FindTableValuedFunction(
+absl::Status Catalog::FindTableValuedFunction(
     const absl::Span<const std::string>& path,
     const TableValuedFunction** function, const FindOptions& options) {
   *function = nullptr;
@@ -158,11 +158,11 @@ zetasql_base::Status Catalog::FindTableValuedFunction(
     if (*function == nullptr) {
       return TableValuedFunctionNotFoundError(path);
     }
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 }
 
-zetasql_base::Status Catalog::FindProcedure(const absl::Span<const std::string>& path,
+absl::Status Catalog::FindProcedure(const absl::Span<const std::string>& path,
                                     const Procedure** procedure,
                                     const FindOptions& options) {
   *procedure = nullptr;
@@ -184,11 +184,11 @@ zetasql_base::Status Catalog::FindProcedure(const absl::Span<const std::string>&
     if (*procedure == nullptr) {
       return ProcedureNotFoundError(path);
     }
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 }
 
-zetasql_base::Status Catalog::FindType(const absl::Span<const std::string>& path,
+absl::Status Catalog::FindType(const absl::Span<const std::string>& path,
                                const Type** type, const FindOptions& options) {
   *type = nullptr;
   if (path.empty()) {
@@ -207,7 +207,7 @@ zetasql_base::Status Catalog::FindType(const absl::Span<const std::string>& path
       if (!proto_name.empty()) {
         ZETASQL_RETURN_IF_ERROR(GetType(proto_name, type, options));
         if (*type != nullptr) {
-          return ::zetasql_base::OkStatus();
+          return absl::OkStatus();
         } else {
           return ::zetasql_base::NotFoundErrorBuilder()
                  << "Type not found: " << ToIdentifierLiteral(proto_name)
@@ -225,11 +225,11 @@ zetasql_base::Status Catalog::FindType(const absl::Span<const std::string>& path
     if (*type == nullptr) {
       return TypeNotFoundError(path);
     }
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 }
 
-zetasql_base::Status Catalog::FindConstant(const absl::Span<const std::string> path,
+absl::Status Catalog::FindConstant(const absl::Span<const std::string> path,
                                    const Constant** constant,
                                    const FindOptions& options) {
   int num_names_consumed = 0;
@@ -238,10 +238,10 @@ zetasql_base::Status Catalog::FindConstant(const absl::Span<const std::string> p
   if (num_names_consumed < path.size()) {
     return ConstantNotFoundError(path);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Catalog::FindConstantWithPathPrefix(
+absl::Status Catalog::FindConstantWithPathPrefix(
     const absl::Span<const std::string> path, int* num_names_consumed,
     const Constant** constant, const FindOptions& options) {
   // Return an error if <path> is empty.
@@ -253,7 +253,7 @@ zetasql_base::Status Catalog::FindConstantWithPathPrefix(
 
   // Find the longest prefix of <path> that can be resolved to either a constant
   // or a catalog.
-  zetasql_base::Status find_constant_with_path_prefix_status =
+  absl::Status find_constant_with_path_prefix_status =
       FindConstantWithPathPrefixImpl(path, num_names_consumed, constant,
                                      options);
 
@@ -261,12 +261,12 @@ zetasql_base::Status Catalog::FindConstantWithPathPrefix(
   // NOT_FOUND for the whole <path> in this catalog. Otherwise return the
   // resolved constant or whatever other error occurred.
   return find_constant_with_path_prefix_status.code() ==
-                 zetasql_base::StatusCode::kNotFound
+                 absl::StatusCode::kNotFound
              ? ConstantNotFoundError(path)
              : find_constant_with_path_prefix_status;
 }
 
-zetasql_base::Status Catalog::FindConstantWithPathPrefixImpl(
+absl::Status Catalog::FindConstantWithPathPrefixImpl(
     const absl::Span<const std::string> path, int* num_names_consumed,
     const Constant** constant, const FindOptions& options) {
   // Get the first step in <path>.
@@ -284,11 +284,11 @@ zetasql_base::Status Catalog::FindConstantWithPathPrefixImpl(
       // be a struct-typed constant (see below).
       const absl::Span<const std::string> path_suffix =
           path.subspan(1, path.size() - 1);
-      const zetasql_base::Status find_constant_with_path_prefix_status =
+      const absl::Status find_constant_with_path_prefix_status =
           next_resolved_catalog->FindConstantWithPathPrefix(
               path_suffix, num_names_consumed, constant, options);
       if (find_constant_with_path_prefix_status.code() !=
-          zetasql_base::StatusCode::kNotFound) {
+          absl::StatusCode::kNotFound) {
         *num_names_consumed += 1;
         return find_constant_with_path_prefix_status;
       }
@@ -300,7 +300,7 @@ zetasql_base::Status Catalog::FindConstantWithPathPrefixImpl(
   ZETASQL_RETURN_IF_ERROR(GetConstant(name, constant, options));
   if (*constant != nullptr) {
     *num_names_consumed += 1;
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // If no constant is found, reset <num_names_consumed> and return an error.
@@ -308,42 +308,42 @@ zetasql_base::Status Catalog::FindConstantWithPathPrefixImpl(
   return ConstantNotFoundError(path);
 }
 
-zetasql_base::Status Catalog::FindObject(absl::Span<const std::string> path,
+absl::Status Catalog::FindObject(absl::Span<const std::string> path,
                                  const Function** object,
                                  const FindOptions& options) {
   return FindFunction(path, object, options);
 }
-zetasql_base::Status Catalog::FindObject(absl::Span<const std::string> path,
+absl::Status Catalog::FindObject(absl::Span<const std::string> path,
                                  const TableValuedFunction** object,
                                  const FindOptions& options) {
   return FindTableValuedFunction(path, object, options);
 }
-zetasql_base::Status Catalog::FindObject(absl::Span<const std::string> path,
+absl::Status Catalog::FindObject(absl::Span<const std::string> path,
                                  const Table** object,
                                  const FindOptions& options) {
   return FindTable(path, object, options);
 }
-zetasql_base::Status Catalog::FindObject(const absl::Span<const std::string> path,
+absl::Status Catalog::FindObject(const absl::Span<const std::string> path,
                                  const Model** object,
                                  const FindOptions& options) {
   return FindModel(path, object, options);
 }
-zetasql_base::Status Catalog::FindObject(absl::Span<const std::string> path,
+absl::Status Catalog::FindObject(absl::Span<const std::string> path,
                                  const Connection** object,
                                  const FindOptions& options) {
   return FindConnection(path, object, options);
 }
-zetasql_base::Status Catalog::FindObject(absl::Span<const std::string> path,
+absl::Status Catalog::FindObject(absl::Span<const std::string> path,
                                  const Procedure** object,
                                  const FindOptions& options) {
   return FindProcedure(path, object, options);
 }
-zetasql_base::Status Catalog::FindObject(absl::Span<const std::string> path,
+absl::Status Catalog::FindObject(absl::Span<const std::string> path,
                                  const Type** object,
                                  const FindOptions& options) {
   return FindType(path, object, options);
 }
-zetasql_base::Status Catalog::FindObject(absl::Span<const std::string> path,
+absl::Status Catalog::FindObject(absl::Span<const std::string> path,
                                  const Constant** object,
                                  const FindOptions& options) {
   return FindConstant(path, object, options);
@@ -386,66 +386,66 @@ std::string Catalog::SuggestConstant(
   return "";
 }
 
-zetasql_base::Status Catalog::GetTable(const std::string& name, const Table** table,
+absl::Status Catalog::GetTable(const std::string& name, const Table** table,
                                const FindOptions& options) {
   *table = nullptr;
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Catalog::GetModel(const std::string& name, const Model** model,
+absl::Status Catalog::GetModel(const std::string& name, const Model** model,
                                const FindOptions& options) {
   *model = nullptr;
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Catalog::GetConnection(const std::string& name,
+absl::Status Catalog::GetConnection(const std::string& name,
                                     const Connection** connection,
                                     const FindOptions& options) {
   *connection = nullptr;
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Catalog::GetFunction(const std::string& name,
+absl::Status Catalog::GetFunction(const std::string& name,
                                   const Function** function,
                                   const FindOptions& options) {
   *function = nullptr;
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Catalog::GetTableValuedFunction(
+absl::Status Catalog::GetTableValuedFunction(
     const std::string& name, const TableValuedFunction** function,
     const FindOptions& options) {
   *function = nullptr;
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Catalog::GetProcedure(const std::string& name,
+absl::Status Catalog::GetProcedure(const std::string& name,
                                    const Procedure** procedure,
                                    const FindOptions& options) {
   *procedure = nullptr;
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Catalog::GetType(const std::string& name, const Type** type,
+absl::Status Catalog::GetType(const std::string& name, const Type** type,
                               const FindOptions& options) {
   *type = nullptr;
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Catalog::GetCatalog(const std::string& name, Catalog** catalog,
+absl::Status Catalog::GetCatalog(const std::string& name, Catalog** catalog,
                                  const FindOptions& options) {
   *catalog = nullptr;
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Catalog::GetConstant(const std::string& name,
+absl::Status Catalog::GetConstant(const std::string& name,
                                   const Constant** constant,
                                   const FindOptions& options) {
   *constant = nullptr;
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Catalog::GenericNotFoundError(
+absl::Status Catalog::GenericNotFoundError(
     const std::string& object_type, absl::Span<const std::string> path) const {
   const std::string& name = path.front();
   if (path.size() > 1) {
@@ -458,47 +458,47 @@ zetasql_base::Status Catalog::GenericNotFoundError(
          << " not found in catalog " << FullName();
 }
 
-zetasql_base::Status Catalog::TableNotFoundError(
+absl::Status Catalog::TableNotFoundError(
     absl::Span<const std::string> path) const {
   return GenericNotFoundError("Table", path);
 }
 
-zetasql_base::Status Catalog::ModelNotFoundError(
+absl::Status Catalog::ModelNotFoundError(
     absl::Span<const std::string> path) const {
   return GenericNotFoundError("Model", path);
 }
 
-zetasql_base::Status Catalog::ConnectionNotFoundError(
+absl::Status Catalog::ConnectionNotFoundError(
     absl::Span<const std::string> path) const {
   return GenericNotFoundError("Connection", path);
 }
 
-zetasql_base::Status Catalog::FunctionNotFoundError(
+absl::Status Catalog::FunctionNotFoundError(
     absl::Span<const std::string> path) const {
   return GenericNotFoundError("Function", path);
 }
 
-zetasql_base::Status Catalog::TableValuedFunctionNotFoundError(
+absl::Status Catalog::TableValuedFunctionNotFoundError(
     const absl::Span<const std::string> path) const {
   return GenericNotFoundError("Table function", path);
 }
 
-zetasql_base::Status Catalog::ProcedureNotFoundError(
+absl::Status Catalog::ProcedureNotFoundError(
     absl::Span<const std::string> path) const {
   return GenericNotFoundError("Procedure", path);
 }
 
-zetasql_base::Status Catalog::TypeNotFoundError(
+absl::Status Catalog::TypeNotFoundError(
     absl::Span<const std::string> path) const {
   return GenericNotFoundError("Type", path);
 }
 
-zetasql_base::Status Catalog::ConstantNotFoundError(
+absl::Status Catalog::ConstantNotFoundError(
     const absl::Span<const std::string> path) const {
   return GenericNotFoundError("Constant", path);
 }
 
-zetasql_base::Status Catalog::EmptyNamePathInternalError(
+absl::Status Catalog::EmptyNamePathInternalError(
     const std::string& object_type) const {
   return ::zetasql_base::InternalErrorBuilder()
          << "Invalid empty " << object_type << " name path";

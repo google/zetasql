@@ -37,7 +37,7 @@ namespace zetasql {
 // 1. This can only reformat SQL statements that can be parsed successfully.
 // Statements that cannot be parsed are returned unchanged.
 // 2. Comments are stripped in the formatted output.
-zetasql_base::Status FormatSql(const std::string& sql, std::string* formatted_sql);
+absl::Status FormatSql(const std::string& sql, std::string* formatted_sql);
 
 }  // namespace zetasql
 

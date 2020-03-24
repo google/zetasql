@@ -49,7 +49,7 @@ namespace zetasql {
 //   1. SupportsGrouping() is true for the type of the column
 //   2. Does not have NULL Values
 //   3. Does not have duplicate Values
-zetasql_base::Status ValidateFirstColumnPrimaryKey(
+absl::Status ValidateFirstColumnPrimaryKey(
     const std::string& table_name, const Value& array,
     const LanguageOptions& language_options);
 
@@ -112,7 +112,7 @@ class EvaluationContext {
   // Objects can register CancelCallbacks with RegisterCancelCallback() to be
   // notified when CancelStatement() is called. A CancelCallback must not block
   // for a long time.
-  using CancelCallback = std::function<zetasql_base::Status()>;
+  using CancelCallback = std::function<absl::Status()>;
 
   explicit EvaluationContext(const EvaluationOptions& options);
   EvaluationContext(const EvaluationContext&) = delete;
@@ -132,7 +132,7 @@ class EvaluationContext {
   }
 
   // Makes the given 'array' accessible under 'table_name'.
-  ::zetasql_base::Status AddTableAsArray(const std::string& table_name,
+  absl::Status AddTableAsArray(const std::string& table_name,
                                  bool is_value_table, Value array,
                                  const LanguageOptions& language_options);
 
@@ -252,12 +252,12 @@ class EvaluationContext {
   // and cancelling if they discover the statement has been cancelled. The
   // callbacks are just a way of notifying user code that the statement has been
   // cancelled if we are stuck in a user's EvaluatorTableIterator.
-  ::zetasql_base::Status CancelStatement() {
+  absl::Status CancelStatement() {
     cancelled_ = true;
     // Call all the callbacks, returning the first non-OK error code.
-    zetasql_base::Status ret = zetasql_base::OkStatus();
+    absl::Status ret = absl::OkStatus();
     for (const CancelCallback& cb : cancel_cbs_) {
-      zetasql_base::Status status = cb();
+      absl::Status status = cb();
       if (ret.ok() && !status.ok()) {
         ret = status;
       }
@@ -275,7 +275,7 @@ class EvaluationContext {
 
   // Returns an error if the statement has been aborted. This function is
   // expensive (it gets the current time).
-  ::zetasql_base::Status VerifyNotAborted() const;
+  absl::Status VerifyNotAborted() const;
 
   int num_proto_deserializations() const { return num_proto_deserializations_; }
 
@@ -373,7 +373,7 @@ class EvaluationContext {
 
 // Returns true if we should suppress 'error' (which must not be OK) in
 // 'error_mode'.
-bool ShouldSuppressError(const zetasql_base::Status& error,
+bool ShouldSuppressError(const absl::Status& error,
                          ResolvedFunctionCallBase::ErrorMode error_mode);
 
 }  // namespace zetasql

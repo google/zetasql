@@ -539,7 +539,7 @@ static std::string CEscapeInternal(absl::string_view src, bool utf8_safe,
   return dest;
 }
 
-zetasql_base::Status UnescapeString(absl::string_view str, std::string* out,
+absl::Status UnescapeString(absl::string_view str, std::string* out,
                             std::string* error_string, int* error_offset) {
   if (!CUnescapeInternal(str, "" /* closing_str */, false /* is_raw_literal */,
                          false /* is_bytes_literal */, out, error_string,
@@ -550,10 +550,10 @@ zetasql_base::Status UnescapeString(absl::string_view str, std::string* out,
            << (error_string == nullptr ? ""
                                        : absl::StrCat(", ", *error_string));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status UnescapeBytes(absl::string_view str, std::string* out,
+absl::Status UnescapeBytes(absl::string_view str, std::string* out,
                            std::string* error_string, int* error_offset) {
   if (!CUnescapeInternal(str, "" /* closing_str */, false /* is_raw_literal */,
                          true /* is_bytes_literal */, out, error_string,
@@ -564,7 +564,7 @@ zetasql_base::Status UnescapeBytes(absl::string_view str, std::string* out,
                                   ? ""
                                   : absl::StrCat(", ", *error_string));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 std::string EscapeString(absl::string_view str) {
@@ -632,7 +632,7 @@ static bool MayBeRawBytesLiteral(const absl::string_view str) {
           (str[2] == str[str.size() - 1]) && (str[2] == '\'' || str[2] == '"'));
 }
 
-zetasql_base::Status ParseStringLiteral(absl::string_view str, std::string* out,
+absl::Status ParseStringLiteral(absl::string_view str, std::string* out,
                                 std::string* error_string, int* error_offset) {
   if (error_offset) *error_offset = 0;
   CHECK_NE(str.data(), out->data())
@@ -670,10 +670,10 @@ zetasql_base::Status ParseStringLiteral(absl::string_view str, std::string* out,
            << "Invalid string literal: "
            << local_error_string;         //
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ParseBytesLiteral(absl::string_view str, std::string* out,
+absl::Status ParseBytesLiteral(absl::string_view str, std::string* out,
                                std::string* error_string, int* error_offset) {
   if (error_offset) *error_offset = 0;
   CHECK_NE(str.data(), out->data())
@@ -713,7 +713,7 @@ zetasql_base::Status ParseBytesLiteral(absl::string_view str, std::string* out,
     if (error_string) *error_string = local_error_string;
     return MakeSqlError() << "Invalid bytes literal: " << local_error_string;
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 std::string ToStringLiteral(absl::string_view str) {
@@ -769,7 +769,7 @@ static bool IsValidUnquotedIdentifier(absl::string_view str,
   return true;
 }
 
-static zetasql_base::Status ParseIdentifierImpl(absl::string_view str, std::string* out,
+static absl::Status ParseIdentifierImpl(absl::string_view str, std::string* out,
                                         std::string* error_string,
                                         int* error_offset,
                                         bool allow_reserved_keywords) {
@@ -808,16 +808,16 @@ static zetasql_base::Status ParseIdentifierImpl(absl::string_view str, std::stri
     out->assign(str.data(), str.size());
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ParseIdentifier(absl::string_view str, std::string* out,
+absl::Status ParseIdentifier(absl::string_view str, std::string* out,
                              std::string* error_string, int* error_offset) {
   return ParseIdentifierImpl(str, out, error_string, error_offset,
                              false /* allow_reserved_keywords */);
 }
 
-zetasql_base::Status ParseGeneralizedIdentifier(absl::string_view str, std::string* out,
+absl::Status ParseGeneralizedIdentifier(absl::string_view str, std::string* out,
                                         std::string* error_string,
                                         int* error_offset) {
   return ParseIdentifierImpl(str, out, error_string, error_offset,
@@ -903,7 +903,7 @@ static bool AdvanceToNextBackquote(absl::string_view::const_iterator end,
 //
 // Note: If `segment` is not backquoted and is not the first element of `out`,
 // it will be escaped/wrapped in backquotes before parsing.
-static zetasql_base::Status AddIdentifierPathSegment(absl::string_view segment,
+static absl::Status AddIdentifierPathSegment(absl::string_view segment,
                                              std::vector<std::string>* out) {
   ZETASQL_RET_CHECK(!segment.empty());
   std::string out_string;
@@ -925,10 +925,10 @@ static zetasql_base::Status AddIdentifierPathSegment(absl::string_view segment,
     }
   }
   out->push_back(out_string);
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ParseIdentifierPath(absl::string_view str,
+absl::Status ParseIdentifierPath(absl::string_view str,
                                  std::vector<std::string>* out) {
   if (str.empty()) return MakeSqlError() << "Path strings cannot be empty";
 
@@ -988,7 +988,7 @@ zetasql_base::Status ParseIdentifierPath(absl::string_view str,
   }
 
   *out = temp_out;
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 bool IsInternalAlias(const std::string& alias) {

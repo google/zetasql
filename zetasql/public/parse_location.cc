@@ -107,7 +107,7 @@ namespace {
 // Returns a generic::internal error if <*byte_offset> is out of bounds with
 // respect to <current_line>, or if the byte sequence starting at <*byte_offset>
 // is not valid UTF-8.
-zetasql_base::Status AdvanceOneChar(absl::string_view current_line,
+absl::Status AdvanceOneChar(absl::string_view current_line,
                             absl::optional<int> stop_byte_offset,
                             absl::optional<int> stop_column, int* column,
                             int* byte_offset) {
@@ -124,7 +124,7 @@ zetasql_base::Status AdvanceOneChar(absl::string_view current_line,
       *column = new_column;
       ++*byte_offset;
     }
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // Figure out the length of the current UTF-8 character.  Note that
@@ -150,7 +150,7 @@ zetasql_base::Status AdvanceOneChar(absl::string_view current_line,
     ++*column;
     *byte_offset = new_byte_offset;
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 zetasql_base::StatusOr<int> ColumnNumberFromLineLocalByteOffset(

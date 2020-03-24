@@ -136,7 +136,7 @@ VerifyFieldExtendsMessage(const ASTNode* ast_node,
 
 }  // namespace
 
-zetasql_base::Status Resolver::ResolveBuildProto(
+absl::Status Resolver::ResolveBuildProto(
     const ASTNode* ast_type_location, const ProtoType* proto_type,
     const ResolvedScan* input_scan, const std::string& argument_description,
     const std::string& query_description,
@@ -256,14 +256,14 @@ zetasql_base::Status Resolver::ResolveBuildProto(
 
     // Add coercion if necessary.
     if (!expr->type()->Equals(proto_field_type)) {
-      const zetasql_base::Status cast_status =
+      const absl::Status cast_status =
           function_resolver_->AddCastOrConvertLiteral(
               argument.ast_location, proto_field_type, input_scan,
               false /* set_has_explicit_type */,
               false /* return_null_on_error */, &expr);
       if (!cast_status.ok()) {
         // Propagate "Out of stack space" errors.
-        if (cast_status.code() == zetasql_base::StatusCode::kResourceExhausted) {
+        if (cast_status.code() == absl::StatusCode::kResourceExhausted) {
           return cast_status;
         }
         return MakeSqlErrorAt(argument.ast_location)
@@ -297,7 +297,7 @@ zetasql_base::Status Resolver::ResolveBuildProto(
       MakeResolvedMakeProto(proto_type, std::move(resolved_make_fields));
   MaybeRecordParseLocation(ast_type_location, resolved_make_proto.get());
   *output = std::move(resolved_make_proto);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // The extension name can be written in any of these forms.
@@ -444,9 +444,9 @@ zetasql_base::StatusOr<const google::protobuf::Descriptor*> Resolver::FindMessag
   }
 
   const Type* found_type = nullptr;
-  const zetasql_base::Status find_type_status = catalog_->FindType(
+  const absl::Status find_type_status = catalog_->FindType(
       type_name_path, &found_type, analyzer_options_.find_options());
-  if (find_type_status.code() == zetasql_base::StatusCode::kNotFound) {
+  if (find_type_status.code() == absl::StatusCode::kNotFound) {
     // We don't give an error if it wasn't found.  That will happen in
     // the caller so it has a chance to try generating a better error.
     return nullptr;
@@ -471,7 +471,7 @@ zetasql_base::StatusOr<const google::protobuf::Descriptor*> Resolver::FindMessag
   return found_type->AsProto()->descriptor();
 }
 
-zetasql_base::Status Resolver::MakeResolvedDateOrTimeLiteral(
+absl::Status Resolver::MakeResolvedDateOrTimeLiteral(
     const ASTExpression* ast_expr, const TypeKind type_kind,
     absl::string_view literal_string_value,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -490,7 +490,7 @@ zetasql_base::Status Resolver::MakeResolvedDateOrTimeLiteral(
         *resolved_expr_out =
             MakeResolvedLiteral(ast_expr, Value::Date(date),
                                 /*set_has_explicit_type=*/true);
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
     }
@@ -504,7 +504,7 @@ zetasql_base::Status Resolver::MakeResolvedDateOrTimeLiteral(
           *resolved_expr_out =
               MakeResolvedLiteral(ast_expr, Value::Timestamp(timestamp),
                                   /*set_has_explicit_type=*/true);
-          return ::zetasql_base::OkStatus();
+          return absl::OkStatus();
         }
       } else {
         int64_t timestamp;
@@ -515,7 +515,7 @@ zetasql_base::Status Resolver::MakeResolvedDateOrTimeLiteral(
           *resolved_expr_out = MakeResolvedLiteral(
               ast_expr, Value::TimestampFromUnixMicros(timestamp),
               /*set_has_explicit_type=*/true);
-          return ::zetasql_base::OkStatus();
+          return absl::OkStatus();
         }
       }
       break;
@@ -532,7 +532,7 @@ zetasql_base::Status Resolver::MakeResolvedDateOrTimeLiteral(
         *resolved_expr_out =
             MakeResolvedLiteral(ast_expr, Value::Time(time),
                                 /*set_has_explicit_type=*/true);
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
     }
@@ -549,7 +549,7 @@ zetasql_base::Status Resolver::MakeResolvedDateOrTimeLiteral(
         *resolved_expr_out =
             MakeResolvedLiteral(ast_expr, Value::Datetime(datetime),
                                 /*set_has_explicit_type=*/true);
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
     }
@@ -561,7 +561,7 @@ zetasql_base::Status Resolver::MakeResolvedDateOrTimeLiteral(
          << " literal";
 }
 
-zetasql_base::Status Resolver::ResolveScalarExpr(
+absl::Status Resolver::ResolveScalarExpr(
     const ASTExpression* ast_expr,
     const NameScope* name_scope,
     const char* clause_name,
@@ -570,7 +570,7 @@ zetasql_base::Status Resolver::ResolveScalarExpr(
   return ResolveExpr(ast_expr, &expr_resolution_info, resolved_expr_out);
 }
 
-zetasql_base::Status Resolver::ResolveExpr(
+absl::Status Resolver::ResolveExpr(
     const ASTExpression* ast_expr,
     ExprResolutionInfo* parent_expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -747,7 +747,7 @@ zetasql_base::Status Resolver::ResolveExpr(
   }
 }
 
-zetasql_base::Status Resolver::ResolveLiteralExpr(
+absl::Status Resolver::ResolveLiteralExpr(
     const ASTExpression* ast_expr,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   switch (ast_expr->node_kind()) {
@@ -781,7 +781,7 @@ zetasql_base::Status Resolver::ResolveLiteralExpr(
         }
       }
       *resolved_expr_out = MakeResolvedLiteral(ast_expr, value);
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
 
     case AST_STRING_LITERAL: {
@@ -789,14 +789,14 @@ zetasql_base::Status Resolver::ResolveLiteralExpr(
           ast_expr->GetAsOrDie<ASTStringLiteral>();
       *resolved_expr_out =
           MakeResolvedLiteral(ast_expr, Value::String(literal->string_value()));
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
 
     case AST_BYTES_LITERAL: {
       const ASTBytesLiteral* literal = ast_expr->GetAsOrDie<ASTBytesLiteral>();
       *resolved_expr_out =
           MakeResolvedLiteral(ast_expr, Value::Bytes(literal->bytes_value()));
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
 
     case AST_BOOLEAN_LITERAL: {
@@ -804,7 +804,7 @@ zetasql_base::Status Resolver::ResolveLiteralExpr(
           ast_expr->GetAsOrDie<ASTBooleanLiteral>();
       *resolved_expr_out =
           MakeResolvedLiteral(ast_expr, Value::Bool(literal->value()));
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
 
     case AST_FLOAT_LITERAL: {
@@ -820,7 +820,7 @@ zetasql_base::Status Resolver::ResolveLiteralExpr(
               ast_expr, types::DoubleType(), Value::Double(double_value),
               /*has_explicit_type=*/false, literal->image());
       *resolved_expr_out = std::move(resolved_literal);
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
 
     case AST_NUMERIC_LITERAL: {
@@ -842,7 +842,7 @@ zetasql_base::Status Resolver::ResolveLiteralExpr(
           MakeResolvedLiteral(ast_expr, types::NumericType(),
                               Value::Numeric(value_or_status.ValueOrDie()),
                               true /* set_has_explicit_type */);
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
 
     case AST_BIGNUMERIC_LITERAL: {
@@ -863,7 +863,7 @@ zetasql_base::Status Resolver::ResolveLiteralExpr(
           MakeResolvedLiteral(ast_expr, types::BigNumericType(),
                               Value::BigNumeric(value_or_status.ValueOrDie()),
                               true /* set_has_explicit_type */);
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
 
     case AST_NULL_LITERAL: {
@@ -871,7 +871,7 @@ zetasql_base::Status Resolver::ResolveLiteralExpr(
       // may make the NULL change type.
       *resolved_expr_out = MakeResolvedLiteral(
           ast_expr, Value::Null(type_factory_->get_int64()));
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
 
     case AST_DATE_OR_TIME_LITERAL: {
@@ -922,7 +922,7 @@ zetasql_base::Status Resolver::ResolveLiteralExpr(
 //    is updated to a ResolvedColumnRef for the post-grouping version of the
 //    column and returns OK.
 // 4) Otherwise an error is returned.
-zetasql_base::Status Resolver::ResolveColumnRefExprToPostGroupingColumn(
+absl::Status Resolver::ResolveColumnRefExprToPostGroupingColumn(
     const ASTExpression* path_expr, absl::string_view clause_name,
     QueryResolutionInfo* query_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_column_ref_expr) {
@@ -934,7 +934,7 @@ zetasql_base::Status Resolver::ResolveColumnRefExprToPostGroupingColumn(
       (*resolved_column_ref_expr)->GetAs<ResolvedColumnRef>();
 
   if (resolved_column_ref->is_correlated()) {
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   ResolvedColumn resolved_column = resolved_column_ref->column();
@@ -945,7 +945,7 @@ zetasql_base::Status Resolver::ResolveColumnRefExprToPostGroupingColumn(
       if (valid_name_path.name_path().empty()) {
         *resolved_column_ref_expr =
             MakeColumnRef(valid_name_path.target_column());
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
     }
   }
@@ -978,7 +978,7 @@ std::string GetUnrecognizedNameErrorWithCatalogSuggestion(
 }
 }  // namespace
 
-zetasql_base::Status Resolver::GetUnrecognizedNameError(
+absl::Status Resolver::GetUnrecognizedNameError(
     const ASTPathExpression* ast_path_expr, const NameScope* name_scope) {
   std::vector<std::string> identifiers = ast_path_expr->ToIdentifierVector();
   bool is_system_variable =
@@ -1032,7 +1032,7 @@ zetasql_base::Status Resolver::GetUnrecognizedNameError(
   }
 }
 
-zetasql_base::Status Resolver::ValidateColumnForAggregateOrAnalyticSupport(
+absl::Status Resolver::ValidateColumnForAggregateOrAnalyticSupport(
     const ResolvedColumn& resolved_column, IdString first_name,
     const ASTPathExpression* path_expr,
     ExprResolutionInfo* expr_resolution_info) const {
@@ -1061,10 +1061,10 @@ zetasql_base::Status Resolver::ValidateColumnForAggregateOrAnalyticSupport(
       }
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolvePathExpressionAsExpression(
+absl::Status Resolver::ResolvePathExpressionAsExpression(
     const ASTPathExpression* path_expr,
     ExprResolutionInfo* expr_resolution_info,
     ResolvedStatement::ObjectAccess access_flags,
@@ -1258,7 +1258,7 @@ zetasql_base::Status Resolver::ResolvePathExpressionAsExpression(
     // (4) We still haven't found a matching name. Try to resolve the longest
     // possible prefix of <path_expr> to a named constant.
     const Constant* constant = nullptr;
-    zetasql_base::Status find_constant_with_path_prefix_status =
+    absl::Status find_constant_with_path_prefix_status =
         catalog_->FindConstantWithPathPrefix(path_expr->ToIdentifierVector(),
                                              &num_names_consumed, &constant,
                                              analyzer_options_.find_options());
@@ -1266,7 +1266,7 @@ zetasql_base::Status Resolver::ResolvePathExpressionAsExpression(
     // Handle the case where a constant was found or some internal error
     // occurred. If no constant was found, <num_names_consumed> is set to 0.
     if (find_constant_with_path_prefix_status.code() !=
-        zetasql_base::StatusCode::kNotFound) {
+        absl::StatusCode::kNotFound) {
       // If an error occurred, return immediately.
       ZETASQL_RETURN_IF_ERROR(find_constant_with_path_prefix_status);
 
@@ -1325,10 +1325,10 @@ zetasql_base::Status Resolver::ResolvePathExpressionAsExpression(
   }
 
   *resolved_expr_out = std::move(resolved_expr);
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveParameterExpr(
+absl::Status Resolver::ResolveParameterExpr(
     const ASTParameterExpr* param_expr,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   if (analyzer_options().statement_context() == CONTEXT_MODULE) {
@@ -1382,7 +1382,7 @@ zetasql_base::Status Resolver::ResolveParameterExpr(
           untyped_undeclared_parameters_.emplace(
               param_expr->GetParseLocationRange().start(),
               lowercase_param_name);
-          return ::zetasql_base::OkStatus();
+          return absl::OkStatus();
         }
         return MakeSqlErrorAt(param_expr)
                << "Query parameter '" << param_name << "' not found";
@@ -1406,7 +1406,7 @@ zetasql_base::Status Resolver::ResolveParameterExpr(
           // Record the new location, no collisions are possible.
           untyped_undeclared_parameters_.emplace(
               param_expr->GetParseLocationRange().start(), position);
-          return ::zetasql_base::OkStatus();
+          return absl::OkStatus();
         }
         return MakeSqlErrorAt(param_expr)
                << "Query parameter number " << position << " is not defined ("
@@ -1423,10 +1423,10 @@ zetasql_base::Status Resolver::ResolveParameterExpr(
 
   *resolved_expr_out = MakeResolvedParameter(param_type, lowercase_param_name,
                                              position, false /* is_untyped */);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveDotIdentifier(
+absl::Status Resolver::ResolveDotIdentifier(
     const ASTDotIdentifier* dot_identifier,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -1438,7 +1438,7 @@ zetasql_base::Status Resolver::ResolveDotIdentifier(
                             resolved_expr_out);
 }
 
-zetasql_base::Status Resolver::MaybeResolveProtoFieldAccess(
+absl::Status Resolver::MaybeResolveProtoFieldAccess(
     const ASTIdentifier* identifier,
     const MaybeResolveProtoFieldOptions& options,
     std::unique_ptr<const ResolvedExpr> resolved_lhs,
@@ -1500,7 +1500,7 @@ zetasql_base::Status Resolver::MaybeResolveProtoFieldAccess(
     } else {
       // We return success with a NULL resolved_expr_out.
       ZETASQL_RET_CHECK(*resolved_expr_out == nullptr);
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
   }
 
@@ -1587,10 +1587,10 @@ zetasql_base::Status Resolver::MaybeResolveProtoFieldAccess(
       /*return_default_value_when_unset=*/false);
   MaybeRecordParseLocation(identifier, resolved_get_proto_field.get());
   *resolved_expr_out = std::move(resolved_get_proto_field);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::MaybeResolveStructFieldAccess(
+absl::Status Resolver::MaybeResolveStructFieldAccess(
     const ASTIdentifier* identifier, bool error_if_not_found,
     std::unique_ptr<const ResolvedExpr> resolved_lhs,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -1624,17 +1624,17 @@ zetasql_base::Status Resolver::MaybeResolveStructFieldAccess(
     } else {
       // We return success with a NULL resolved_expr_out.
       ZETASQL_RET_CHECK(*resolved_expr_out == nullptr);
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
   }
   DCHECK_EQ(field, &struct_type->field(found_idx));
 
   *resolved_expr_out = MakeResolvedGetStructField(
       field->type, std::move(resolved_lhs), found_idx);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveFieldAccess(
+absl::Status Resolver::ResolveFieldAccess(
     std::unique_ptr<const ResolvedExpr> resolved_lhs,
     const ASTIdentifier* identifier,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -1655,10 +1655,10 @@ zetasql_base::Status Resolver::ResolveFieldAccess(
   }
 
   ZETASQL_RET_CHECK(*resolved_expr_out != nullptr);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveExtensionFieldAccess(
+absl::Status Resolver::ResolveExtensionFieldAccess(
     std::unique_ptr<const ResolvedExpr> resolved_lhs,
     const ResolveExtensionFieldOptions& options,
     const ASTPathExpression* ast_path_expr,
@@ -1730,10 +1730,10 @@ zetasql_base::Status Resolver::ResolveExtensionFieldAccess(
 
   MaybeRecordParseLocation(ast_path_expr, resolved_get_proto_field.get());
   *resolved_expr_out = std::move(resolved_get_proto_field);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveDotGeneralizedField(
+absl::Status Resolver::ResolveDotGeneralizedField(
     const ASTDotGeneralizedField* dot_generalized_field,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -1757,7 +1757,7 @@ zetasql_base::Status Resolver::ResolveDotGeneralizedField(
   return field;
 }
 
-zetasql_base::Status Resolver::FindFieldDescriptors(
+absl::Status Resolver::FindFieldDescriptors(
     absl::Span<const ASTIdentifier* const> path_vector,
     const google::protobuf::Descriptor* root_descriptor,
     std::vector<const google::protobuf::FieldDescriptor*>* field_descriptors) {
@@ -1797,10 +1797,10 @@ zetasql_base::Status Resolver::FindFieldDescriptors(
     current_descriptor = field_descriptor->message_type();
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-static zetasql_base::Status MakeCannotAccessFieldError(
+static absl::Status MakeCannotAccessFieldError(
     const ASTNode* field_to_extract_location,
     const std::string& field_to_extract, const std::string& invalid_type_name,
     bool is_extension) {
@@ -1810,7 +1810,7 @@ static zetasql_base::Status MakeCannotAccessFieldError(
          << " on a value with type " << invalid_type_name;
 }
 
-static zetasql_base::Status GetLastSeenFieldTypeForReplaceFields(
+static absl::Status GetLastSeenFieldTypeForReplaceFields(
     const std::vector<std::pair<int, const StructType::StructField*>>&
         struct_path,
     const std::vector<const google::protobuf::FieldDescriptor*>& field_descriptors,
@@ -1819,14 +1819,14 @@ static zetasql_base::Status GetLastSeenFieldTypeForReplaceFields(
     // No proto fields have been extracted, therefore return the type of the
     // last struct field.
     *last_field_type = struct_path.back().second->type;
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
   ZETASQL_RETURN_IF_ERROR(type_factory->GetProtoFieldType(field_descriptors.back(),
                                                   last_field_type));
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::FindFieldsForReplaceFieldItem(
+absl::Status Resolver::FindFieldsForReplaceFieldItem(
     const ASTGeneralizedPathExpression* generalized_path, const Type* root_type,
     std::vector<std::pair<int, const StructType::StructField*>>* struct_path,
     std::vector<const google::protobuf::FieldDescriptor*>* field_descriptors) {
@@ -1931,7 +1931,7 @@ zetasql_base::Status Resolver::FindFieldsForReplaceFieldItem(
     }
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Builds the string representation of a field path using 'struct_path_prefix'
@@ -1946,7 +1946,7 @@ zetasql_base::Status Resolver::FindFieldsForReplaceFieldItem(
 // been modified to the corresponding path expression that accessed the OneOf
 // path. If 'proto_field_path_suffix' modifies a OneOf field that has not
 // already been modified, it will be added to 'oneof_path_to_full_path'.
-static zetasql_base::Status AddToFieldPathTrie(
+static absl::Status AddToFieldPathTrie(
     const ASTNode* path_location,
     const std::vector<std::pair<int, const StructType::StructField*>>&
         struct_path_prefix,
@@ -2028,10 +2028,10 @@ static zetasql_base::Status AddToFieldPathTrie(
   }
   field_path_trie->Insert(path_string.c_str(), path_location);
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::FindStructFieldPrefix(
+absl::Status Resolver::FindStructFieldPrefix(
     absl::Span<const ASTIdentifier* const> path_vector,
     const StructType* root_struct,
     std::vector<std::pair<int, const StructType::StructField*>>* struct_path) {
@@ -2061,12 +2061,12 @@ zetasql_base::Status Resolver::FindStructFieldPrefix(
     }
     struct_path->emplace_back(found_index, field);
     if (field->type->IsProto()) {
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     current_struct = field->type->AsStruct();
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 class SystemVariableConstant final : public Constant {
@@ -2115,7 +2115,7 @@ Catalog* Resolver::GetSystemVariablesCatalog() {
   return system_variables_catalog_.get();
 }
 
-zetasql_base::Status Resolver::ResolveSystemVariableExpression(
+absl::Status Resolver::ResolveSystemVariableExpression(
     const ASTSystemVariableExpr* ast_system_variable_expr,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -2126,13 +2126,13 @@ zetasql_base::Status Resolver::ResolveSystemVariableExpression(
 
   int num_names_consumed = 0;
   const Constant* constant = nullptr;
-  zetasql_base::Status find_constant_with_path_prefix_status =
+  absl::Status find_constant_with_path_prefix_status =
       system_variables_catalog->FindConstantWithPathPrefix(
           path_parts, &num_names_consumed, &constant,
           analyzer_options_.find_options());
 
   if (find_constant_with_path_prefix_status.code() ==
-      zetasql_base::StatusCode::kNotFound) {
+      absl::StatusCode::kNotFound) {
     return GetUnrecognizedNameError(ast_system_variable_expr->path(),
                                     expr_resolution_info != nullptr
                                         ? expr_resolution_info->name_scope
@@ -2159,10 +2159,10 @@ zetasql_base::Status Resolver::ResolveSystemVariableExpression(
         ast_system_variable_expr->path()->name(num_names_consumed),
         resolved_expr_out));
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveReplaceFieldsExpression(
+absl::Status Resolver::ResolveReplaceFieldsExpression(
     const ASTReplaceFieldsExpression* ast_replace_fields,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -2249,13 +2249,13 @@ zetasql_base::Status Resolver::ResolveReplaceFieldsExpression(
   const Type* field_type = expr_to_modify->type();
   *resolved_expr_out = MakeResolvedReplaceField(
       field_type, std::move(expr_to_modify), std::move(resolved_modify_items));
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Return an error if <expr> is a ResolvedFunctionCall and is getting an un-CAST
 // literal NULL as an argument.  <parser_op_sql> is used to make the error
 // message.
-static zetasql_base::Status ReturnErrorOnLiteralNullArg(
+static absl::Status ReturnErrorOnLiteralNullArg(
     const std::string& parser_op_sql,
     const std::vector<const ASTNode*>& arg_locations,
     const ResolvedExpr* expr) {
@@ -2270,10 +2270,10 @@ static zetasql_base::Status ReturnErrorOnLiteralNullArg(
       }
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveUnaryExpr(
+absl::Status Resolver::ResolveUnaryExpr(
     const ASTUnaryExpression* unary_expr,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -2292,7 +2292,7 @@ zetasql_base::Status Resolver::ResolveUnaryExpr(
                                        &int64_value, 16)) {
           *resolved_expr_out =
               MakeResolvedLiteral(unary_expr, Value::Int64(int64_value));
-          return ::zetasql_base::OkStatus();
+          return absl::OkStatus();
         } else {
           return MakeSqlErrorAt(unary_expr)
                  << "Invalid hex integer literal: -" << literal->image();
@@ -2302,7 +2302,7 @@ zetasql_base::Status Resolver::ResolveUnaryExpr(
                                      &int64_value, nullptr)) {
         *resolved_expr_out =
             MakeResolvedLiteral(unary_expr, Value::Int64(int64_value));
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       } else {
         return MakeSqlErrorAt(unary_expr)
                << "Invalid integer literal: -" << literal->image();
@@ -2319,7 +2319,7 @@ zetasql_base::Status Resolver::ResolveUnaryExpr(
                 unary_expr, types::DoubleType(), Value::Double(double_value),
                 /*has_explicit_type=*/false, negative_image);
         *resolved_expr_out = std::move(resolved_literal);
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       } else {
         return MakeSqlErrorAt(unary_expr)
                << "Invalid floating point literal: -" << literal->image();
@@ -2343,7 +2343,7 @@ zetasql_base::Status Resolver::ResolveUnaryExpr(
              << " must be numeric type but was "
              << (*resolved_expr_out)->type()->ShortTypeName(product_mode());
     }
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   ZETASQL_RETURN_IF_ERROR(ResolveFunctionCallByNameWithoutAggregatePropertyCheck(
@@ -2352,7 +2352,7 @@ zetasql_base::Status Resolver::ResolveUnaryExpr(
   ZETASQL_RETURN_IF_ERROR(ReturnErrorOnLiteralNullArg(unary_expr->GetSQLForOperator(),
                                               {unary_expr->operand()},
                                               resolved_expr_out->get()));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 static const std::string* const kInvalidOperatorTypeStr =
@@ -2378,7 +2378,7 @@ static const std::string& IsOperatorToFunctionName(const ASTExpression* expr) {
   return *kInvalidOperatorTypeStr;
 }
 
-zetasql_base::Status Resolver::ResolveBinaryExpr(
+absl::Status Resolver::ResolveBinaryExpr(
     const ASTBinaryExpression* binary_expr,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -2416,10 +2416,10 @@ zetasql_base::Status Resolver::ResolveBinaryExpr(
   }
 
   *resolved_expr_out = std::move(resolved_binary_expr);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveBitwiseShiftExpr(
+absl::Status Resolver::ResolveBitwiseShiftExpr(
     const ASTBitwiseShiftExpression* bitwise_shift_expr,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -2430,10 +2430,10 @@ zetasql_base::Status Resolver::ResolveBitwiseShiftExpr(
       bitwise_shift_expr, function_name,
       { bitwise_shift_expr->lhs(), bitwise_shift_expr->rhs() },
       *kEmptyArgumentOptionMap, expr_resolution_info, resolved_expr_out));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveInExpr(
+absl::Status Resolver::ResolveInExpr(
     const ASTInExpression* in_expr, ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
 
@@ -2466,10 +2466,10 @@ zetasql_base::Status Resolver::ResolveInExpr(
                        expr_resolution_info, resolved_expr_out);
   }
   *resolved_expr_out = std::move(resolved_in_expr);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveInSubquery(
+absl::Status Resolver::ResolveInSubquery(
     const ASTInExpression* in_subquery_expr,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -2613,10 +2613,10 @@ zetasql_base::Status Resolver::ResolveInSubquery(
   ZETASQL_RETURN_IF_ERROR(
       ResolveHintsForNode(in_subquery_expr->hint(), resolved_expr.get()));
   *resolved_expr_out = std::move(resolved_expr);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveBetweenExpr(
+absl::Status Resolver::ResolveBetweenExpr(
     const ASTBetweenExpression* between_expr,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -2635,10 +2635,10 @@ zetasql_base::Status Resolver::ResolveBetweenExpr(
   }
 
   *resolved_expr_out = std::move(resolved_between_expr);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveAndExpr(
+absl::Status Resolver::ResolveAndExpr(
     const ASTAndExpr* and_expr, ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   return ResolveFunctionCallByNameWithoutAggregatePropertyCheck(
@@ -2646,7 +2646,7 @@ zetasql_base::Status Resolver::ResolveAndExpr(
       *kEmptyArgumentOptionMap, expr_resolution_info, resolved_expr_out);
 }
 
-zetasql_base::Status Resolver::ResolveOrExpr(
+absl::Status Resolver::ResolveOrExpr(
     const ASTOrExpr* or_expr, ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   return ResolveFunctionCallByNameWithoutAggregatePropertyCheck(
@@ -2664,7 +2664,7 @@ void Resolver::FetchCorrelatedSubqueryParameters(
   }
 }
 
-zetasql_base::Status Resolver::ResolveExprSubquery(
+absl::Status Resolver::ResolveExprSubquery(
     const ASTExpressionSubquery* expr_subquery,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -2751,10 +2751,10 @@ zetasql_base::Status Resolver::ResolveExprSubquery(
   ZETASQL_RETURN_IF_ERROR(
       ResolveHintsForNode(expr_subquery->hint(), resolved_expr.get()));
   *resolved_expr_out = std::move(resolved_expr);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::MakeDatePartEnumResolvedLiteral(
+absl::Status Resolver::MakeDatePartEnumResolvedLiteral(
     functions::DateTimestampPart date_part,
     std::unique_ptr<const ResolvedExpr>* resolved_date_part) {
   const EnumType* date_part_type;
@@ -2765,10 +2765,10 @@ zetasql_base::Status Resolver::MakeDatePartEnumResolvedLiteral(
   // location.
   *resolved_date_part = MakeResolvedLiteralWithoutLocation(
       Value::Enum(date_part_type, date_part));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::MakeDatePartEnumResolvedLiteralFromNames(
+absl::Status Resolver::MakeDatePartEnumResolvedLiteralFromNames(
     IdString date_part_name, IdString date_part_arg_name,
     const ASTExpression* date_part_ast_location,
     const ASTExpression* date_part_arg_ast_location,
@@ -2845,7 +2845,7 @@ zetasql_base::Status Resolver::MakeDatePartEnumResolvedLiteralFromNames(
   return MakeDatePartEnumResolvedLiteral(local_date_part, resolved_date_part);
 }
 
-zetasql_base::Status Resolver::ResolveDatePartArgument(
+absl::Status Resolver::ResolveDatePartArgument(
     const ASTExpression* date_part_ast_location,
     std::unique_ptr<const ResolvedExpr>* resolved_date_part,
     functions::DateTimestampPart* date_part) {
@@ -2947,7 +2947,7 @@ std::string Resolver::ProtoExtractionTypeName(
   }
 }
 
-zetasql_base::Status Resolver::ResolveProtoExtractExpression(
+absl::Status Resolver::ResolveProtoExtractExpression(
     const ASTExpression* field_extraction_type_ast_location,
     std::unique_ptr<const ResolvedExpr> resolved_proto_input,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -3012,7 +3012,7 @@ zetasql_base::Status Resolver::ResolveProtoExtractExpression(
       std::move(resolved_proto_input), resolved_expr_out);
 }
 
-zetasql_base::Status Resolver::ResolveProtoExtractWithExtractTypeAndField(
+absl::Status Resolver::ResolveProtoExtractWithExtractTypeAndField(
     ProtoExtractionType field_extraction_type,
     const ASTPathExpression* field_path,
     std::unique_ptr<const ResolvedExpr> resolved_proto_input,
@@ -3061,7 +3061,7 @@ zetasql_base::Status Resolver::ResolveProtoExtractWithExtractTypeAndField(
   }
 }
 
-zetasql_base::Status Resolver::ResolveNormalizeModeArgument(
+absl::Status Resolver::ResolveNormalizeModeArgument(
     const ASTExpression* arg,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   // Resolve the normalize mode argument.  If it is a valid normalize mode,
@@ -3089,10 +3089,10 @@ zetasql_base::Status Resolver::ResolveNormalizeModeArgument(
                                            &normalize_mode_type));
   *resolved_expr_out = MakeResolvedLiteralWithoutLocation(
       Value::Enum(normalize_mode_type, normalize_mode));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveIntervalArgument(
+absl::Status Resolver::ResolveIntervalArgument(
     const ASTExpression* arg,
     ExprResolutionInfo* expr_resolution_info,
     std::vector<std::unique_ptr<const ResolvedExpr>>* resolved_arguments_out,
@@ -3143,7 +3143,7 @@ zetasql_base::Status Resolver::ResolveIntervalArgument(
                                           &resolved_argument));
   resolved_arguments_out->push_back(std::move(resolved_argument));
   ast_arguments_out->push_back(arg);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // This is used to make a map from function name to a SpecialFunctionFamily
@@ -3223,7 +3223,7 @@ static SpecialFunctionFamily GetSpecialFunctionFamily(
                               FAMILY_NONE);
 }
 
-zetasql_base::Status Resolver::GetFunctionNameAndArguments(
+absl::Status Resolver::GetFunctionNameAndArguments(
     const ASTFunctionCall* function_call,
     std::vector<std::string>* function_name_path,
     std::vector<const ASTExpression*>* function_arguments,
@@ -3294,7 +3294,7 @@ zetasql_base::Status Resolver::GetFunctionNameAndArguments(
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 static bool IsLetterO(char c) {
@@ -3313,7 +3313,7 @@ static bool IsOffsetOrOrdinalFunction(
   return false;
 }
 
-zetasql_base::Status Resolver::ResolveFunctionCall(
+absl::Status Resolver::ResolveFunctionCall(
     const ASTFunctionCall* ast_function,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -3332,7 +3332,7 @@ zetasql_base::Status Resolver::ResolveFunctionCall(
             ast_function);
     if (computed_aggregate_column != nullptr) {
       *resolved_expr_out = MakeColumnRef(computed_aggregate_column->column());
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     // If we do not find them in the map, then fall through
     // and resolve the aggregate function call normally.  This is required
@@ -3402,7 +3402,7 @@ zetasql_base::Status Resolver::ResolveFunctionCall(
       expr_resolution_info, resolved_expr_out);
 }
 
-zetasql_base::Status Resolver::ResolveAnalyticFunctionCall(
+absl::Status Resolver::ResolveAnalyticFunctionCall(
     const ASTAnalyticFunctionCall* analytic_function_call,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -3490,7 +3490,7 @@ bool Resolver::IsValidExplicitCast(
       to_type, true /* is_explicit */, &result);
 }
 
-static zetasql_base::Status CastResolutionError(const ASTNode* ast_location,
+static absl::Status CastResolutionError(const ASTNode* ast_location,
                                         const Type* from_type,
                                         const Type* to_type, ProductMode mode) {
   std::string error_prefix;
@@ -3505,7 +3505,7 @@ static zetasql_base::Status CastResolutionError(const ASTNode* ast_location,
                                       << " to " << to_type->ShortTypeName(mode);
 }
 
-zetasql_base::Status Resolver::ResolveExplicitCast(
+absl::Status Resolver::ResolveExplicitCast(
     const ASTCastExpression* cast, ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   const Type* resolved_cast_type;
@@ -3525,7 +3525,7 @@ zetasql_base::Status Resolver::ResolveExplicitCast(
       *resolved_expr_out = MakeResolvedLiteral(
           cast, resolved_cast_type, Value::Null(resolved_cast_type),
           true /* set_has_explicit_type */);
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     if (resolved_argument->GetAs<ResolvedLiteral>()->value().is_empty_array()) {
       if (resolved_cast_type->IsArray()) {
@@ -3533,7 +3533,7 @@ zetasql_base::Status Resolver::ResolveExplicitCast(
             cast, resolved_cast_type,
             Value::Array(resolved_cast_type->AsArray(), {} /* values */),
             true /* set_has_explicit_type */);
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       } else {
         return CastResolutionError(cast->expr(), resolved_argument->type(),
                                    resolved_cast_type, product_mode());
@@ -3565,7 +3565,7 @@ zetasql_base::Status Resolver::ResolveExplicitCast(
           cast->type(), const_cast<ResolvedExpr*>(resolved_argument.get()));
     }
     *resolved_expr_out = std::move(resolved_argument);
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   if (IsValidExplicitCast(resolved_argument, resolved_cast_type)) {
@@ -3591,13 +3591,13 @@ zetasql_base::Status Resolver::ResolveExplicitCast(
           cast->type(), const_cast<ResolvedExpr*>(resolved_argument.get()));
     }
     *resolved_expr_out = std::move(resolved_argument);
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
   return CastResolutionError(cast->expr(), resolved_argument->type(),
                              resolved_cast_type, product_mode());
 }
 
-zetasql_base::Status Resolver::ResolveCastWithResolvedArgument(
+absl::Status Resolver::ResolveCastWithResolvedArgument(
     const ASTNode* ast_location,
     const Type* to_type,
     bool return_null_on_error,
@@ -3609,13 +3609,13 @@ zetasql_base::Status Resolver::ResolveCastWithResolvedArgument(
       *resolved_argument = MakeResolvedCast(
           to_type, std::move(*resolved_argument), return_null_on_error);
     }
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
   return CastResolutionError(ast_location, (*resolved_argument)->type(),
                              to_type, product_mode());
 }
 
-zetasql_base::Status Resolver::ResolveArrayElement(
+absl::Status Resolver::ResolveArrayElement(
     const ASTArrayElement* array_element,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -3649,7 +3649,7 @@ const char Resolver::kArrayAtOrdinal[] = "$array_at_ordinal";
 const char Resolver::kSafeArrayAtOffset[] = "$safe_array_at_offset";
 const char Resolver::kSafeArrayAtOrdinal[] = "$safe_array_at_ordinal";
 
-zetasql_base::Status Resolver::ResolveArrayElementPosition(
+absl::Status Resolver::ResolveArrayElementPosition(
     const ResolvedExpr* resolved_array, const ASTExpression* ast_position,
     ExprResolutionInfo* expr_resolution_info, absl::string_view* function_name,
     const ASTExpression** unwrapped_ast_position_expr,
@@ -3718,10 +3718,10 @@ zetasql_base::Status Resolver::ResolveArrayElementPosition(
         resolved_expr_out));
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveCaseNoValueExpression(
+absl::Status Resolver::ResolveCaseNoValueExpression(
     const ASTCaseNoValueExpression* case_no_value,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -3750,7 +3750,7 @@ zetasql_base::Status Resolver::ResolveCaseNoValueExpression(
       expr_resolution_info, resolved_expr_out);
 }
 
-zetasql_base::Status Resolver::ResolveCaseValueExpression(
+absl::Status Resolver::ResolveCaseValueExpression(
     const ASTCaseValueExpression* case_value,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -3779,7 +3779,7 @@ zetasql_base::Status Resolver::ResolveCaseValueExpression(
       expr_resolution_info, resolved_expr_out);
 }
 
-zetasql_base::Status Resolver::ResolveExtractExpression(
+absl::Status Resolver::ResolveExtractExpression(
     const ASTExtractExpression* extract_expression,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -3807,7 +3807,7 @@ zetasql_base::Status Resolver::ResolveExtractExpression(
 
   functions::DateTimestampPart date_part;
   std::unique_ptr<const ResolvedExpr> resolved_date_part_argument;
-  zetasql_base::Status resolved_datepart_status = ResolveDatePartArgument(
+  absl::Status resolved_datepart_status = ResolveDatePartArgument(
       extract_expression->lhs_expr(), &resolved_date_part_argument, &date_part);
   if (!resolved_datepart_status.ok()) {
     // We prioritize invalid argument type error over invalid date part
@@ -3929,7 +3929,7 @@ zetasql_base::Status Resolver::ResolveExtractExpression(
       expr_resolution_info, resolved_expr_out);
 }
 
-zetasql_base::Status Resolver::ResolveNewConstructor(
+absl::Status Resolver::ResolveNewConstructor(
     const ASTNewConstructor* ast_new_constructor,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -3988,10 +3988,10 @@ zetasql_base::Status Resolver::ResolveNewConstructor(
       "Constructor",
       &arguments,
       resolved_expr_out));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveArrayConstructor(
+absl::Status Resolver::ResolveArrayConstructor(
     const ASTArrayConstructor* ast_array_constructor,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -4124,7 +4124,7 @@ zetasql_base::Status Resolver::ResolveArrayConstructor(
         /*named_arguments=*/{}, array_type, &resolved_function_call));
     *resolved_expr_out = std::move(resolved_function_call);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 void Resolver::TryCollapsingExpressionsAsLiterals(
@@ -4216,7 +4216,7 @@ void Resolver::TryCollapsingExpressionsAsLiterals(
   }
 }
 
-zetasql_base::Status Resolver::ResolveStructConstructorWithParens(
+absl::Status Resolver::ResolveStructConstructorWithParens(
     const ASTStructConstructorWithParens* ast_struct_constructor,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -4230,7 +4230,7 @@ zetasql_base::Status Resolver::ResolveStructConstructorWithParens(
       resolved_expr_out);
 }
 
-zetasql_base::Status Resolver::ResolveStructConstructorWithKeyword(
+absl::Status Resolver::ResolveStructConstructorWithKeyword(
     const ASTStructConstructorWithKeyword* ast_struct_constructor,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -4251,7 +4251,7 @@ zetasql_base::Status Resolver::ResolveStructConstructorWithKeyword(
       resolved_expr_out);
 }
 
-zetasql_base::Status Resolver::ResolveStructConstructorImpl(
+absl::Status Resolver::ResolveStructConstructorImpl(
     const ASTNode* ast_location, const ASTStructType* ast_struct_type,
     const absl::Span<const ASTExpression* const> ast_field_expressions,
     const absl::Span<const ASTAlias* const> ast_field_aliases,
@@ -4439,7 +4439,7 @@ zetasql_base::Status Resolver::ResolveStructConstructorImpl(
     *resolved_expr_out = MakeResolvedMakeStruct(
         struct_type, std::move(resolved_field_expressions));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 ResolvedNonScalarFunctionCallBase::NullHandlingModifier
@@ -4457,7 +4457,7 @@ Resolver::ResolveNullHandlingModifier(
   }
 }
 
-zetasql_base::Status Resolver::FinishResolvingAggregateFunction(
+absl::Status Resolver::FinishResolvingAggregateFunction(
     const ASTFunctionCall* ast_function_call,
     std::unique_ptr<ResolvedFunctionCall>* resolved_function_call,
     ExprResolutionInfo* expr_resolution_info,
@@ -4706,7 +4706,7 @@ zetasql_base::Status Resolver::FinishResolvingAggregateFunction(
           &owned_cycle_detector);
     }
 
-    const zetasql_base::Status resolve_status =
+    const absl::Status resolve_status =
         function_resolver_->ResolveTemplatedSQLFunctionCall(
             ast_function_call, *sql_function, analyzer_options, input_arguments,
             &function_call_info);
@@ -4780,19 +4780,19 @@ zetasql_base::Status Resolver::FinishResolvingAggregateFunction(
 
   *resolved_expr_out = MakeColumnRef(aggregate_column);
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveExpressionArgument(
+absl::Status Resolver::ResolveExpressionArgument(
     const ASTExpression* arg, ExprResolutionInfo* expr_resolution_info,
     std::vector<std::unique_ptr<const ResolvedExpr>>* resolved_arguments) {
   std::unique_ptr<const ResolvedExpr> resolved_arg;
   ZETASQL_RETURN_IF_ERROR(ResolveExpr(arg, expr_resolution_info, &resolved_arg));
   resolved_arguments->push_back(std::move(resolved_arg));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveExpressionArguments(
+absl::Status Resolver::ResolveExpressionArguments(
     ExprResolutionInfo* expr_resolution_info,
     const absl::Span<const ASTExpression* const> arguments,
     const std::map<int, SpecialArgumentType>& argument_option_map,
@@ -4839,10 +4839,10 @@ zetasql_base::Status Resolver::ResolveExpressionArguments(
     }
   }
   ZETASQL_RET_CHECK_EQ(ast_arguments_out->size(), resolved_arguments_out->size());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveFunctionCallWithResolvedArguments(
+absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
     const ASTNode* ast_location,
     const std::vector<const ASTNode*>& arg_locations,
     const std::vector<std::string>& function_name_path,
@@ -4860,7 +4860,7 @@ zetasql_base::Status Resolver::ResolveFunctionCallWithResolvedArguments(
       expr_resolution_info, resolved_expr_out);
 }
 
-zetasql_base::Status Resolver::ResolveFunctionCallWithResolvedArguments(
+absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
     const ASTNode* ast_location,
     const std::vector<const ASTNode*>& arg_locations,
     absl::string_view function_name,
@@ -4876,7 +4876,7 @@ zetasql_base::Status Resolver::ResolveFunctionCallWithResolvedArguments(
       expr_resolution_info, resolved_expr_out);
 }
 
-zetasql_base::Status Resolver::ResolveProtoDefaultIfNull(
+absl::Status Resolver::ResolveProtoDefaultIfNull(
     const ASTNode* ast_location, ExprResolutionInfo* expr_resolution_info,
     std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -4936,7 +4936,7 @@ zetasql_base::Status Resolver::ResolveProtoDefaultIfNull(
 
   *resolved_expr_out = std::move(resolved_argument);
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 static bool IsLetterP(char c) { return c == 'p' || c == 'P'; }
@@ -4952,7 +4952,7 @@ static bool IsProtoDefaultIfNull(
   return false;
 }
 
-zetasql_base::Status Resolver::ResolveFunctionCallWithResolvedArguments(
+absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
     const ASTNode* ast_location,
     const std::vector<const ASTNode*>& arg_locations, const Function* function,
     ResolvedFunctionCallBase::ErrorMode error_mode,
@@ -5045,10 +5045,10 @@ zetasql_base::Status Resolver::ResolveFunctionCallWithResolvedArguments(
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::LookupFunctionFromCatalog(
+absl::Status Resolver::LookupFunctionFromCatalog(
     const ASTNode* ast_location,
     const std::vector<std::string>& function_name_path,
     const Function** function,
@@ -5060,7 +5060,7 @@ zetasql_base::Status Resolver::LookupFunctionFromCatalog(
                                       function_name_path.size());
   bool is_stripped = false;
 
-  zetasql_base::Status find_status;
+  absl::Status find_status;
 
   // Look up the SAFE name first, to avoid tricky cases where a UDF could
   // be used to hide a builtin if the engine didn't block that.
@@ -5100,13 +5100,13 @@ zetasql_base::Status Resolver::LookupFunctionFromCatalog(
   }
 
   // We return UNIMPLEMENTED errors from the Catalog directly to the caller.
-  if (find_status.code() == zetasql_base::StatusCode::kUnimplemented ||
-      find_status.code() == zetasql_base::StatusCode::kPermissionDenied) {
+  if (find_status.code() == absl::StatusCode::kUnimplemented ||
+      find_status.code() == absl::StatusCode::kPermissionDenied) {
     return find_status;
   }
 
   if (!find_status.ok() &&
-      find_status.code() != zetasql_base::StatusCode::kNotFound) {
+      find_status.code() != absl::StatusCode::kNotFound) {
     // The FindFunction() call can return an invalid argument error, for
     // example, when looking up LazyResolutionFunctions (which are resolved
     // upon lookup).
@@ -5119,7 +5119,7 @@ zetasql_base::Status Resolver::LookupFunctionFromCatalog(
         ast_location, absl::StrCat("Invalid function ",
                                    IdentifierPathToString(stripped_name)),
         find_status, analyzer_options_.error_message_mode());
-  } else if (find_status.code() == zetasql_base::StatusCode::kNotFound ||
+  } else if (find_status.code() == absl::StatusCode::kNotFound ||
              !all_required_features_are_enabled) {
     std::string error_message;
     absl::StrAppend(&error_message, "Function not found: ",
@@ -5143,7 +5143,7 @@ zetasql_base::Status Resolver::LookupFunctionFromCatalog(
   return find_status;
 }
 
-zetasql_base::Status Resolver::ResolveFunctionCallByNameWithoutAggregatePropertyCheck(
+absl::Status Resolver::ResolveFunctionCallByNameWithoutAggregatePropertyCheck(
     const ASTNode* ast_location, const std::string& function_name,
     const absl::Span<const ASTExpression* const> arguments,
     const std::map<int, SpecialArgumentType>& argument_option_map,
@@ -5159,18 +5159,18 @@ zetasql_base::Status Resolver::ResolveFunctionCallByNameWithoutAggregateProperty
       expr_resolution_info, resolved_expr_out);
 }
 
-zetasql_base::Status Resolver::ResolveFunctionCallWithLiteralRetry(
+absl::Status Resolver::ResolveFunctionCallWithLiteralRetry(
     const ASTNode* ast_location, const std::string& function_name,
     const absl::Span<const ASTExpression* const> arguments,
     const std::map<int, SpecialArgumentType>& argument_option_map,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
 
-  const zetasql_base::Status status =
+  const absl::Status status =
       ResolveFunctionCallByNameWithoutAggregatePropertyCheck(
           ast_location, function_name, arguments, argument_option_map,
           expr_resolution_info, resolved_expr_out);
-  if (status.ok() || status.code() != zetasql_base::StatusCode::kInvalidArgument) {
+  if (status.ok() || status.code() != absl::StatusCode::kInvalidArgument) {
     return status;
   }
 
@@ -5197,7 +5197,7 @@ zetasql_base::Status Resolver::ResolveFunctionCallWithLiteralRetry(
   // After resolving the arguments, mark literal arguments as having an explicit
   // type.
   ZETASQL_RETURN_IF_ERROR(UpdateLiteralsToExplicit(arguments, &resolved_arguments));
-  const zetasql_base::Status new_status = ResolveFunctionCallWithResolvedArguments(
+  const absl::Status new_status = ResolveFunctionCallWithResolvedArguments(
       ast_location,
       ToLocations(absl::Span<const ASTExpression* const>(ast_arguments)),
       function, error_mode, std::move(resolved_arguments),
@@ -5206,10 +5206,10 @@ zetasql_base::Status Resolver::ResolveFunctionCallWithLiteralRetry(
     // Return the original error.
     return status;
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::UpdateLiteralsToExplicit(
+absl::Status Resolver::UpdateLiteralsToExplicit(
     const absl::Span<const ASTExpression* const> ast_arguments,
     std::vector<std::unique_ptr<const ResolvedExpr>>* resolved_expr_list) {
 
@@ -5229,10 +5229,10 @@ zetasql_base::Status Resolver::UpdateLiteralsToExplicit(
         /*set_has_explicit_type=*/true,
         /*return_null_on_error=*/false, &(*resolved_expr_list)[i]));
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveFunctionCallImpl(
+absl::Status Resolver::ResolveFunctionCallImpl(
     const ASTNode* ast_location, const Function* function,
     ResolvedFunctionCallBase::ErrorMode error_mode,
     const absl::Span<const ASTExpression* const> arguments,
@@ -5273,7 +5273,7 @@ IdString Resolver::GetColumnAliasForTopLevelExpression(
   return IdString();
 }
 
-zetasql_base::Status Resolver::CoerceExprToBool(
+absl::Status Resolver::CoerceExprToBool(
     const ASTExpression* ast_expression, const char* clause_name,
     std::unique_ptr<const ResolvedExpr>* resolved_expr) {
   return CoerceExprToType(ast_expression, type_factory_->get_bool(),
@@ -5281,7 +5281,7 @@ zetasql_base::Status Resolver::CoerceExprToBool(
                                clause_name, resolved_expr);
 }
 
-zetasql_base::Status Resolver::CoerceExprToType(
+absl::Status Resolver::CoerceExprToType(
     const ASTExpression* ast_expression, const Type* target_type,
     bool assignment_semantics, const char* clause_name,
     std::unique_ptr<const ResolvedExpr>* resolved_expr) {
@@ -5322,10 +5322,10 @@ zetasql_base::Status Resolver::CoerceExprToType(
                                                /*set_has_explicit_type=*/false,
                                                /*return_null_on_error=*/false,
                                                resolved_expr));
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Resolver::ResolveExecuteImmediateArgument(
+absl::Status Resolver::ResolveExecuteImmediateArgument(
     const ASTExecuteUsingArgument* argument, ExprResolutionInfo* expr_info,
     std::unique_ptr<const ResolvedExecuteImmediateArgument>* output) {
   const std::string alias =
@@ -5336,7 +5336,7 @@ zetasql_base::Status Resolver::ResolveExecuteImmediateArgument(
 
   *output = MakeResolvedExecuteImmediateArgument(alias, std::move(expression));
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

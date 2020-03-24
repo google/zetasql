@@ -27,10 +27,10 @@
 
 #include "absl/base/attributes.h"
 #include "absl/base/log_severity.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/logging.h"
 #include "zetasql/base/source_location.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_payload.h"
 #include "zetasql/base/statusor.h"
 
@@ -67,17 +67,17 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
  public:
   // Creates a `StatusBuilder` from an StatusCode.  If logging is enabled,
   // it will use `location` as the location from which the log message occurs.
-  StatusBuilder(StatusCode code, zetasql_base::SourceLocation location =
-                                     SourceLocation::current());
+  StatusBuilder(absl::StatusCode code, zetasql_base::SourceLocation location =
+                                           SourceLocation::current());
 
   // Creates a `StatusBuilder` based on an original status.  If logging is
   // enabled, it will use `location` as the location from which the log message
   // occurs.
   StatusBuilder(
-      const Status& original_status,
+      const absl::Status& original_status,
       zetasql_base::SourceLocation location = SourceLocation::current());
   StatusBuilder(
-      Status&& original_status,
+      absl::Status&& original_status,
       zetasql_base::SourceLocation location = SourceLocation::current());
 
   StatusBuilder(const StatusBuilder& sb);
@@ -137,7 +137,7 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
 
   // Sets the error code for the status that will be returned by this
   // StatusBuilder.  Returns `*this` to allow method chaining.
-  StatusBuilder& SetErrorCode(StatusCode code);
+  StatusBuilder& SetErrorCode(absl::StatusCode code);
 
   ///////////////////////////////// Adaptors /////////////////////////////////
   //
@@ -223,7 +223,7 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   bool ok() const;
 
   // Returns the code for the Status created by this builder.
-  StatusCode code() const;
+  absl::StatusCode code() const;
 
   // Returns true iff the status created by this builder will have the given
   // `code`.
@@ -240,7 +240,7 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   //   }
   //
   ABSL_DEPRECATED("Use code() == code instead")
-  ABSL_MUST_USE_RESULT bool Is(StatusCode code) const;
+  ABSL_MUST_USE_RESULT bool Is(absl::StatusCode code) const;
 
   // Implicit conversion to Status.
   //
@@ -272,12 +272,12 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
 
   // Creates a new status based on an old one by joining the message from the
   // original to an additional message.
-  static Status JoinMessageToStatus(Status s, absl::string_view msg,
-                                    MessageJoinStyle style);
+  static absl::Status JoinMessageToStatus(absl::Status s, absl::string_view msg,
+                                          MessageJoinStyle style);
 
   // Creates a Status from this builder and logs it if the builder has been
   // configured to log itself.
-  Status CreateStatusAndConditionallyLog() &&;
+  absl::Status CreateStatusAndConditionallyLog() &&;
 
   // Conditionally logs if the builder has been configured to log.  This method
   // is split from the above to isolate the portability issues around logging
@@ -320,7 +320,7 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   };
 
   // The status that the result will be based on.  Can be modified by Attach().
-  Status status_;
+  absl::Status status_;
 
   zetasql_base::SourceLocation location_;
 
@@ -364,15 +364,15 @@ StatusBuilder UnimplementedErrorBuilder(
 StatusBuilder UnknownErrorBuilder(
     zetasql_base::SourceLocation location = SourceLocation::current());
 
-inline StatusBuilder::StatusBuilder(StatusCode code,
+inline StatusBuilder::StatusBuilder(absl::StatusCode code,
                                     zetasql_base::SourceLocation location)
     : status_(code, ""), location_(location) {}
 
-inline StatusBuilder::StatusBuilder(const Status& original_status,
+inline StatusBuilder::StatusBuilder(const absl::Status& original_status,
                                     zetasql_base::SourceLocation location)
     : status_(original_status), location_(location) {}
 
-inline StatusBuilder::StatusBuilder(Status&& original_status,
+inline StatusBuilder::StatusBuilder(absl::Status&& original_status,
                                     zetasql_base::SourceLocation location)
     : status_(std::move(original_status)), location_(location) {}
 
@@ -436,6 +436,12 @@ inline StatusBuilder& StatusBuilder::EmitStackTrace() {
   return *this;
 }
 
+// Implicitly converts `builder` to `Status` and write it to `os`.
+inline std::ostream& operator<<(std::ostream& os,
+                                const StatusBuilder& builder) {
+  return os << static_cast<absl::Status>(builder);
+}
+
 template <typename T>
 StatusBuilder& StatusBuilder::operator<<(const T& value) {
   if (status_.ok()) return *this;
@@ -446,20 +452,18 @@ StatusBuilder& StatusBuilder::operator<<(const T& value) {
 
 inline bool StatusBuilder::ok() const { return status_.ok(); }
 
-inline StatusCode StatusBuilder::code() const {
-  return status_.code();
-}
+inline absl::StatusCode StatusBuilder::code() const { return status_.code(); }
 
-inline bool StatusBuilder::Is(StatusCode status_code) const {
+inline bool StatusBuilder::Is(absl::StatusCode status_code) const {
   return status_.code() == status_code;
 }
 
-inline StatusBuilder::operator Status() const& {
+inline StatusBuilder::operator absl::Status() const& {
   if (rep_ == nullptr) return status_;
   return StatusBuilder(*this).CreateStatusAndConditionallyLog();
 }
 
-inline StatusBuilder::operator Status() && {
+inline StatusBuilder::operator absl::Status() && {
   if (rep_ == nullptr) return std::move(status_);
   return std::move(*this).CreateStatusAndConditionallyLog();
 };

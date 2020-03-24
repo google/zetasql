@@ -307,7 +307,7 @@ static bool FindLongestMatchingPathIfAny(
   return found;
 }
 
-zetasql_base::Status NameScope::LookupNamePath(
+absl::Status NameScope::LookupNamePath(
     const ASTPathExpression* path_expr,
     const char* clause_name,
     bool is_post_distinct,
@@ -523,11 +523,11 @@ zetasql_base::Status NameScope::LookupNamePath(
             target_out->IsColumn() ||
             target_out->IsFieldOf());
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // static
-zetasql_base::Status NameScope::CreateGetFieldTargetFromInvalidValueTableColumn(
+absl::Status NameScope::CreateGetFieldTargetFromInvalidValueTableColumn(
     const ValueTableColumn& value_table_column, IdString field_name,
     NameTarget* field_target) {
   ZETASQL_RET_CHECK(!value_table_column.is_valid_to_access)
@@ -565,7 +565,7 @@ zetasql_base::Status NameScope::CreateGetFieldTargetFromInvalidValueTableColumn(
       }
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 Type::HasFieldResult NameScope::LookupFieldTargetLocalOnly(
@@ -705,7 +705,7 @@ void NameScope::ExcludeNameFromValueTableIfPresent(
   }
 }
 
-zetasql_base::Status NameScope::CopyNameScopeWithOverridingNames(
+absl::Status NameScope::CopyNameScopeWithOverridingNames(
     const std::shared_ptr<NameList>& namelist_with_overriding_names,
     std::unique_ptr<NameScope>* scope_with_new_names) const {
   // The namelist_with_overriding_names cannot currently include
@@ -740,10 +740,10 @@ zetasql_base::Status NameScope::CopyNameScopeWithOverridingNames(
     (*scope_with_new_names)->mutable_value_table_columns()->push_back(
         new_value_table);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status NameScope::CopyNameScopeWithOverridingNameTargets(
+absl::Status NameScope::CopyNameScopeWithOverridingNameTargets(
     const IdStringHashMapCase<NameTarget>& overriding_name_targets,
     std::unique_ptr<NameScope>* scope_with_new_names) const {
   // We will merge this NameScope's local names with the new NameTargets,
@@ -771,7 +771,7 @@ zetasql_base::Status NameScope::CopyNameScopeWithOverridingNameTargets(
     (*scope_with_new_names)->mutable_value_table_columns()->push_back(
         new_value_table);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Tries to find an entry in 'valid_field_info_map' whose 'source_column'
@@ -859,7 +859,7 @@ void NameScope::CreateNewValueTableColumnsGivenValidNamePaths(
 }
 
 // static
-zetasql_base::Status NameScope::CreateNewRangeVariableTargetGivenValidNamePaths(
+absl::Status NameScope::CreateNewRangeVariableTargetGivenValidNamePaths(
     const NameTarget& original_name_target,
     const ValidFieldInfoMap& valid_field_info_map_in,
     NameTarget* new_name_target) {
@@ -920,10 +920,10 @@ zetasql_base::Status NameScope::CreateNewRangeVariableTargetGivenValidNamePaths(
       new_name_target->AppendValidNamePathList(new_name_path_list);
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status NameScope::CreateNewLocalNameTargetsGivenValidNamePaths(
+absl::Status NameScope::CreateNewLocalNameTargetsGivenValidNamePaths(
     const ValidFieldInfoMap& valid_field_info_map_in,
     IdStringHashMapCase<NameTarget>* new_name_targets) const {
   // For each (name,target) in names(), create a new NameTarget for the
@@ -1063,10 +1063,10 @@ zetasql_base::Status NameScope::CreateNewLocalNameTargetsGivenValidNamePaths(
       ZETASQL_RET_CHECK_FAIL() << "Unexpected duplicate NameTarget for name: " << name;
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status NameScope::CreateNameScopeGivenValidNamePaths(
+absl::Status NameScope::CreateNameScopeGivenValidNamePaths(
     const ValidFieldInfoMap& valid_field_info_map_in,
     std::unique_ptr<NameScope>* new_name_scope) const {
   IdStringHashMapCase<NameTarget> new_name_targets;
@@ -1081,7 +1081,7 @@ zetasql_base::Status NameScope::CreateNameScopeGivenValidNamePaths(
       previous_scope_, new_name_targets,
       new_value_table_columns, correlated_columns_set_));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 void NameTarget::SetAccessError(const Kind original_kind,
@@ -1187,16 +1187,16 @@ NameList::NameList() {
 NameList::~NameList() {
 }
 
-zetasql_base::Status NameList::AddColumn(
+absl::Status NameList::AddColumn(
     IdString name, const ResolvedColumn& column, bool is_explicit) {
   columns_.emplace_back(name, column, is_explicit);
   if (!IsInternalAlias(name)) {
     name_scope_.AddColumn(name, column, is_explicit);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status NameList::AddValueTableColumn(
+absl::Status NameList::AddValueTableColumn(
     IdString name, const ResolvedColumn& column,
     const ASTNode* ast_location,
     const IdStringSetCase& excluded_field_names,
@@ -1260,10 +1260,10 @@ zetasql_base::Status NameList::AddValueTableColumn(
       {column, excluded_field_names,
        true /* is_valid_to_access */, {} /* valid_field_info_map */});
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status NameList::AddPseudoColumn(
+absl::Status NameList::AddPseudoColumn(
     IdString name, const ResolvedColumn& column,
     const ASTNode* ast_location) {
   DCHECK(ast_location != nullptr);
@@ -1272,7 +1272,7 @@ zetasql_base::Status NameList::AddPseudoColumn(
   if (!IsInternalAlias(name)) {
     name_scope_.AddColumn(name, column, false /* is_explicit */);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 bool NameList::HasRangeVariable(IdString name) const {
@@ -1284,7 +1284,7 @@ bool NameList::HasRangeVariable(IdString name) const {
 // a memory leak will happen.  Cycles should not happen, by construction, since
 // NameLists are usually built hierarchically as we go up the tree, and only
 // reference older NameLists.  If a problem shows up, we can update this.
-zetasql_base::Status NameList::AddRangeVariable(
+absl::Status NameList::AddRangeVariable(
     IdString name,
     const NameListPtr& scan_columns,
     const ASTNode* ast_location) {
@@ -1301,15 +1301,15 @@ zetasql_base::Status NameList::AddRangeVariable(
   // Range variables are stored inside the NameScope only.
   name_scope_.AddRangeVariable(name, scan_columns);
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status NameList::AddAmbiguousColumn_Test(IdString name) {
+absl::Status NameList::AddAmbiguousColumn_Test(IdString name) {
   ZETASQL_RETURN_IF_ERROR(AddColumn(name, {}, true /* is_explicit */));
   return AddColumn(name, {}, true /* is_explicit */);
 }
 
-zetasql_base::Status NameList::MergeFrom(const NameList& other,
+absl::Status NameList::MergeFrom(const NameList& other,
                                  const ASTNode* ast_location) {
   return MergeFromExceptColumns(other, nullptr /* excluded_field_names */,
                                 ast_location);
@@ -1329,7 +1329,7 @@ static void InsertFrom(const SET_TYPE& from, SET_TYPE* to) {
   }
 }
 
-zetasql_base::Status NameList::MergeFromExceptColumns(
+absl::Status NameList::MergeFromExceptColumns(
     const NameList& other,
     const IdStringSetCase* excluded_field_names,  // May be NULL
     const ASTNode* ast_location) {
@@ -1343,7 +1343,7 @@ zetasql_base::Status NameList::MergeFromExceptColumns(
     columns_ = other.columns_;
     name_scope_.CopyStateFrom(other.name_scope_);
 
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // Copy the columns vector, with exclusions.
@@ -1411,7 +1411,7 @@ zetasql_base::Status NameList::MergeFromExceptColumns(
     name_scope_.AddNameTarget(name, target);
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 std::vector<ResolvedColumn> NameList::GetResolvedColumns() const {

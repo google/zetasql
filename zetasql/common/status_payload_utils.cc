@@ -15,9 +15,11 @@
 //
 
 #include "zetasql/common/status_payload_utils.h"
+
 #include "google/protobuf/descriptor_database.h"
 #include "google/protobuf/message.h"
 #include "absl/memory/memory.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/strip.h"
 #include "zetasql/base/status.h"
@@ -36,13 +38,13 @@ bool HasPayload(const zetasql_base::Status& status) {
 int GetPayloadCount(const zetasql_base::Status& status) {
   // Status interface forces scan for counting.
   int count = 0;
-  status.ForEachPayload([&count](absl::string_view,
-                                 const zetasql_base::StatusCord&) { ++count; });
+  status.ForEachPayload(
+      [&count](absl::string_view, const absl::Cord&) { ++count; });
   return count;
 }
 
 std::string PayloadToString(absl::string_view type_url,
-                            const zetasql_base::StatusCord& payload) {
+                            const absl::Cord& payload) {
   absl::string_view descriptor_full_name = type_url;
   if (absl::ConsumePrefix(&descriptor_full_name,
                           zetasql_base::kZetaSqlTypeUrlPrefix)) {
@@ -54,7 +56,7 @@ std::string PayloadToString(absl::string_view type_url,
       google::protobuf::MessageFactory* factory =
           google::protobuf::MessageFactory::generated_factory();
       auto msg = absl::WrapUnique(factory->GetPrototype(desc)->New());
-      if (msg->ParseFromString(payload)) {
+      if (msg->ParseFromString(std::string(payload))) {
         return absl::StrCat("[", descriptor_full_name, "] { ",
                             msg->ShortDebugString(), " }");
       }
@@ -113,13 +115,12 @@ std::string PayloadToString(const zetasql_base::Status& status) {
   std::string ret;
   // Make our own version of absl::Join
   bool prepend_space = false;
-  status.ForEachPayload(
-      [&ret, &prepend_space](absl::string_view type_url,
-                             const zetasql_base::StatusCord& payload) {
-        absl::StrAppend(&ret, prepend_space ? " " : "",
-                        PayloadToString(type_url, payload));
-        prepend_space = true;
-      });
+  status.ForEachPayload([&ret, &prepend_space](absl::string_view type_url,
+                                               const absl::Cord& payload) {
+    absl::StrAppend(&ret, prepend_space ? " " : "",
+                    PayloadToString(type_url, payload));
+    prepend_space = true;
+  });
 
   return ret;
 }

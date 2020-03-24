@@ -55,7 +55,7 @@ class TypeToProtoConverter {
   // to represent a table.
   // For DEFAULT_TABLE_TYPE, <type> must be a StructType or ArrayType.
   // This is meant to be called only once.
-  zetasql_base::Status MakeFileDescriptorProto(const Type* type,
+  absl::Status MakeFileDescriptorProto(const Type* type,
                                        TableType table_type,
                                        google::protobuf::FileDescriptorProto* file);
 
@@ -79,7 +79,7 @@ class TypeToProtoConverter {
   std::map<const Type*, google::protobuf::DescriptorProto*> constructed_arrays_;
 
   // Add a field to <in_message>.
-  zetasql_base::Status MakeFieldDescriptor(const Type* field_type,
+  absl::Status MakeFieldDescriptor(const Type* field_type,
                                    const std::string& field_name,
                                    bool store_field_name_as_annotation,
                                    int field_number,
@@ -88,36 +88,36 @@ class TypeToProtoConverter {
 
   // Make a proto to represent <struct_type> in <in_message>, which is
   // assumed to be an empty message.
-  zetasql_base::Status MakeStructProto(const StructType* struct_type,
+  absl::Status MakeStructProto(const StructType* struct_type,
                                const std::string& name,
                                google::protobuf::DescriptorProto* struct_proto);
 
   // Make a proto to represent <array_type> in <in_message>, which is
   // assumed to be an empty message.
-  zetasql_base::Status MakeArrayProto(const ArrayType* array_type,
+  absl::Status MakeArrayProto(const ArrayType* array_type,
                               const std::string& name,
                               google::protobuf::DescriptorProto* array_proto);
 
   // Get the DescriptorProto for a struct, re-using a cached one if possible.
-  zetasql_base::Status GetDescriptorForStruct(
+  absl::Status GetDescriptorForStruct(
       const StructType* struct_type,
       const google::protobuf::DescriptorProto** descriptor_proto);
 
   // Get the wrapper DescriptorProto for storing a nullable object of
   // type <type>, re-using a cached one if possible.
   // Should not be used for ArrayTypes.
-  zetasql_base::Status GetWrapperDescriptorForType(
+  absl::Status GetWrapperDescriptorForType(
       const Type* type,
       const google::protobuf::DescriptorProto** descriptor_proto);
 
   // Get the DescriptorProto for a nullable array, re-using a cached one if
   // possible.
-  zetasql_base::Status GetDescriptorForArray(
+  absl::Status GetDescriptorForArray(
       const ArrayType* array_type,
       const google::protobuf::DescriptorProto** descriptor_proto);
 };
 
-zetasql_base::Status TypeToProtoConverter::MakeFieldDescriptor(
+absl::Status TypeToProtoConverter::MakeFieldDescriptor(
     const Type* field_type, const std::string& field_name,
     bool store_field_name_as_annotation, int field_number,
     google::protobuf::FieldDescriptorProto::Label label,
@@ -287,7 +287,7 @@ zetasql_base::Status TypeToProtoConverter::MakeFieldDescriptor(
         zetasql::format,
         zetasql_base::FindOrDie(options_.field_format_map, field_type->kind()));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Return true if this name can be used as a proto field name.
@@ -304,7 +304,7 @@ static bool IsValidFieldName(const absl::string_view name) {
   return true;
 }
 
-zetasql_base::Status TypeToProtoConverter::MakeStructProto(
+absl::Status TypeToProtoConverter::MakeStructProto(
     const StructType* struct_type, const std::string& name,
     google::protobuf::DescriptorProto* struct_proto) {
   ZETASQL_RET_CHECK_EQ(struct_proto->field_size(), 0);
@@ -330,10 +330,10 @@ zetasql_base::Status TypeToProtoConverter::MakeStructProto(
         struct_proto));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TypeToProtoConverter::MakeArrayProto(
+absl::Status TypeToProtoConverter::MakeArrayProto(
     const ArrayType* array_type, const std::string& name,
     google::protobuf::DescriptorProto* array_proto) {
   ZETASQL_RET_CHECK_EQ(array_proto->field_size(), 0);
@@ -364,10 +364,10 @@ zetasql_base::Status TypeToProtoConverter::MakeArrayProto(
         google::protobuf::FieldDescriptorProto::LABEL_REPEATED, array_proto));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TypeToProtoConverter::GetDescriptorForStruct(
+absl::Status TypeToProtoConverter::GetDescriptorForStruct(
     const StructType* struct_type,
     const google::protobuf::DescriptorProto** descriptor_proto) {
   google::protobuf::DescriptorProto* struct_proto = nullptr;
@@ -383,10 +383,10 @@ zetasql_base::Status TypeToProtoConverter::GetDescriptorForStruct(
     *cached_struct_proto = struct_proto;
   }
   *descriptor_proto = *cached_struct_proto;
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TypeToProtoConverter::GetWrapperDescriptorForType(
+absl::Status TypeToProtoConverter::GetWrapperDescriptorForType(
     const Type* type,
     const google::protobuf::DescriptorProto** descriptor_proto) {
   // ArrayTypes are not handled here.  We build different looking protos for
@@ -418,10 +418,10 @@ zetasql_base::Status TypeToProtoConverter::GetWrapperDescriptorForType(
   }
 
   *descriptor_proto = *cached_wrapper_proto;
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TypeToProtoConverter::GetDescriptorForArray(
+absl::Status TypeToProtoConverter::GetDescriptorForArray(
     const ArrayType* array_type,
     const google::protobuf::DescriptorProto** descriptor_proto) {
   google::protobuf::DescriptorProto* array_proto = nullptr;
@@ -439,10 +439,10 @@ zetasql_base::Status TypeToProtoConverter::GetDescriptorForArray(
     *cached_array_proto = array_proto;
   }
   *descriptor_proto = *cached_array_proto;
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TypeToProtoConverter::MakeFileDescriptorProto(
+absl::Status TypeToProtoConverter::MakeFileDescriptorProto(
     const Type* type, TableType table_type, google::protobuf::FileDescriptorProto* file) {
   file->Clear();
   // The output_field_descriptor_map makes the assumption that pointers from
@@ -526,10 +526,10 @@ zetasql_base::Status TypeToProtoConverter::MakeFileDescriptorProto(
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ConvertStructToProto(
+absl::Status ConvertStructToProto(
     const StructType* struct_type,
     google::protobuf::FileDescriptorProto* file,
     const ConvertTypeToProtoOptions& options) {
@@ -538,7 +538,7 @@ zetasql_base::Status ConvertStructToProto(
                                            file);
 }
 
-zetasql_base::Status ConvertArrayToProto(
+absl::Status ConvertArrayToProto(
     const ArrayType* array_type,
     google::protobuf::FileDescriptorProto* file,
     const ConvertTypeToProtoOptions& options) {
@@ -547,7 +547,7 @@ zetasql_base::Status ConvertArrayToProto(
                                            file);
 }
 
-zetasql_base::Status ConvertTableToProto(
+absl::Status ConvertTableToProto(
     const std::vector<std::pair<std::string, const Type*>>& columns,
     bool is_value_table, google::protobuf::FileDescriptorProto* file,
     const ConvertTypeToProtoOptions& options) {
@@ -568,7 +568,7 @@ zetasql_base::Status ConvertTableToProto(
   return ConvertTableToProto(row_type, is_value_table, file, options);
 }
 
-zetasql_base::Status ConvertTableToProto(
+absl::Status ConvertTableToProto(
     const Type* row_type,
     bool is_value_table,
     google::protobuf::FileDescriptorProto* file,
@@ -636,7 +636,7 @@ static google::protobuf::DescriptorProto* FindDescriptorProto(
   return nullptr;
 }
 
-zetasql_base::Status AddValueTableAnnotationForProto(
+absl::Status AddValueTableAnnotationForProto(
     const std::string& message_full_name, google::protobuf::FileDescriptorProto* file) {
   google::protobuf::DescriptorProto* message = FindDescriptorProto(file,
                                                          message_full_name);
@@ -645,7 +645,7 @@ zetasql_base::Status AddValueTableAnnotationForProto(
                           << " not found in FileDescriptorProto";
   }
   message->mutable_options()->SetExtension(zetasql::table_type, VALUE_TABLE);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

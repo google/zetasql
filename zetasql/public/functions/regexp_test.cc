@@ -50,7 +50,7 @@ TEST_P(RegexpTemplateTest, TestLib) {
   }
   RegExp re;
   bool ok;
-  zetasql_base::Status status;
+  absl::Status status;
   if (args[1].type_kind() == TYPE_STRING) {
     ok = re.InitializePatternUtf8(args[1].string_value(), &status);
   } else {
@@ -147,7 +147,7 @@ TEST(RegexpExtract, NullStringView) {
 
   for (const auto& pattern_and_input : patterns_and_inputs) {
     RegExp regexp;
-    zetasql_base::Status status;
+    absl::Status status;
     ASSERT_TRUE(regexp.InitializePatternUtf8(pattern_and_input.first, &status))
         << status;
     absl::string_view out;
@@ -163,7 +163,7 @@ TEST(RegexpExtract, NullStringView) {
 
 TEST(RegexpReplace, MemLimit) {
   RegExp re;
-  zetasql_base::Status error;
+  absl::Status error;
   ASSERT_TRUE(re.InitializePatternUtf8("A", &error));
 
   std::string in(64 * 1024, 'A');

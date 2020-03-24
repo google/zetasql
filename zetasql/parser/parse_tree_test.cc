@@ -31,7 +31,7 @@
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/source_location.h"
@@ -47,7 +47,7 @@ TEST(StatusWithInternalErrorLocation, ByteOffset) {
   const ParseLocationPoint point =
       ParseLocationPoint::FromByteOffset("filename_7", 7);
 
-  const zetasql_base::Status status = StatusWithInternalErrorLocation(
+  const absl::Status status = StatusWithInternalErrorLocation(
       ::zetasql_base::InternalErrorBuilder() << "Foo bar baz", point);
   const InternalErrorLocation location =
       internal::GetPayload<InternalErrorLocation>(status);
@@ -64,9 +64,9 @@ TEST(ConvertInternalErrorLocationToExternal, ByteOffset) {
   const ParseLocationPoint point =
       ParseLocationPoint::FromByteOffset("filename_23", 23);
 
-  const zetasql_base::Status status = StatusWithInternalErrorLocation(
+  const absl::Status status = StatusWithInternalErrorLocation(
       ::zetasql_base::InternalErrorBuilder() << "Foo bar baz", point);
-  const zetasql_base::Status status2 =
+  const absl::Status status2 =
       ConvertInternalErrorLocationToExternal(status, dummy_query);
   EXPECT_FALSE(internal::HasPayloadWithType<InternalErrorLocation>(status2));
   const ErrorLocation external_location =
@@ -87,20 +87,20 @@ TEST(ConvertInternalErrorLocationToExternal, Idempotent) {
   const ParseLocationPoint point =
       ParseLocationPoint::FromByteOffset("filename_22", 22);
 
-  const zetasql_base::Status status = StatusWithInternalErrorLocation(
+  const absl::Status status = StatusWithInternalErrorLocation(
       ::zetasql_base::InternalErrorBuilder() << "Foo bar baz", point);
-  const zetasql_base::Status status2 =
+  const absl::Status status2 =
       ConvertInternalErrorLocationToExternal(status, dummy_query);
-  const zetasql_base::Status status3 =
+  const absl::Status status3 =
       ConvertInternalErrorLocationToExternal(status2, dummy_query);
 
   EXPECT_EQ(status2, status3);
 }
 
 TEST(ConvertInternalErrorLocationToExternal, NoPayload) {
-  const zetasql_base::Status status = ::zetasql_base::InternalErrorBuilder() << "Foo bar baz";
+  const absl::Status status = ::zetasql_base::InternalErrorBuilder() << "Foo bar baz";
 
-  const zetasql_base::Status status2 =
+  const absl::Status status2 =
       ConvertInternalErrorLocationToExternal(status, "abc" /* dummy query */);
   EXPECT_FALSE(internal::HasPayload(status2));
 }
@@ -109,10 +109,10 @@ TEST(ConvertInternalErrorLocationToExternal, NoLocationWithExtraPayload) {
   zetasql_test::TestStatusPayload extra_extension;
   extra_extension.set_value("abc");
 
-  const zetasql_base::Status status =
+  const absl::Status status =
       ::zetasql_base::InternalErrorBuilder().Attach(extra_extension) << "Foo bar baz";
 
-  const zetasql_base::Status status2 =
+  const absl::Status status2 =
       ConvertInternalErrorLocationToExternal(status, "abc" /* dummy query */);
   EXPECT_FALSE(internal::HasPayloadWithType<InternalErrorLocation>(status2));
   EXPECT_FALSE(internal::HasPayloadWithType<ErrorLocation>(status2));
@@ -132,11 +132,11 @@ TEST(ConvertInternalErrorLocationToExternal, LocationWithExtraPayload) {
   const ParseLocationPoint point =
       ParseLocationPoint::FromByteOffset("filename_21", 21);
 
-  const zetasql_base::Status status = StatusWithInternalErrorLocation(
+  const absl::Status status = StatusWithInternalErrorLocation(
       ::zetasql_base::InternalErrorBuilder().Attach(extra_extension) << "Foo bar baz",
       point);
 
-  const zetasql_base::Status status2 =
+  const absl::Status status2 =
       ConvertInternalErrorLocationToExternal(status, dummy_query);
   EXPECT_FALSE(internal::HasPayloadWithType<InternalErrorLocation>(status2));
   EXPECT_TRUE(internal::HasPayloadWithType<ErrorLocation>(status2));
@@ -345,20 +345,20 @@ class TestVisitor : public NonRecursiveParseTreeVisitor {
 
   // Invoked while traversing a node, after traversing its children.
   // Returns OK to continue traversal or a failed status to abort.
-  virtual zetasql_base::Status OnDonePostVisit(const ASTNode* node) {
-    return zetasql_base::OkStatus();
+  virtual absl::Status OnDonePostVisit(const ASTNode* node) {
+    return absl::OkStatus();
   }
 
   zetasql_base::StatusOr<VisitResult> VisitChildren(const ASTNode* node,
                                             const std::string& label) {
     if (post_visit_) {
-      auto continuation = [node, this, label]() -> zetasql_base::Status {
+      auto continuation = [node, this, label]() -> absl::Status {
         ++post_visit_count_;
         absl::StrAppend(&log_, "postVisit(", label,
                         "): ", node->SingleNodeDebugString(), "\n");
 
         ZETASQL_RETURN_IF_ERROR(OnDonePostVisit(node));
-        return zetasql_base::OkStatus();
+        return absl::OkStatus();
       };
       return VisitResult::VisitChildren(node, continuation);
     } else {
@@ -414,11 +414,11 @@ class AbortInPostVisitTestVisitor : public TestVisitor {
       : TestVisitor(/*post_visit=*/true), abort_on_(abort_on) {}
 
  protected:
-  zetasql_base::Status OnDonePostVisit(const ASTNode* node) override {
+  absl::Status OnDonePostVisit(const ASTNode* node) override {
     if (node->node_kind() == abort_on_) {
       return zetasql_base::InternalError("Traverse aborted in PostVisit stage");
     }
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
  private:
@@ -512,7 +512,7 @@ TEST_P(AbortNonRecursiveVisitorPreVisitTest, PreVisit) {
   AbortInPreVisitTestVisitor visitor(
       /*post_visit=*/true,
       /*abort_on=*/AST_INT_LITERAL, GetParam());
-  zetasql_base::Status status =
+  absl::Status status =
       parser_output->statement()->TraverseNonRecursive(&visitor);
   ASSERT_EQ(status, GetParam().status());
   std::string expected_log = R"(
@@ -542,7 +542,7 @@ TEST(ParseTreeTest, NonRecursiveVisitors_AbortInPostVisit) {
   AbortInPostVisitTestVisitor visitor(/*abort_on=*/AST_INT_LITERAL);
   ASSERT_THAT(parser_output->statement()->TraverseNonRecursive(&visitor),
               ::zetasql_base::testing::StatusIs(
-                  zetasql_base::StatusCode::kInternal,
+                  absl::StatusCode::kInternal,
                   ::testing::Eq("Traverse aborted in PostVisit stage")));
   std::string expected_log = R"(
 preVisit(default): QueryStatement

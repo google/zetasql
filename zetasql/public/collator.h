@@ -34,7 +34,7 @@ namespace zetasql {
 // Usage:
 // ZetaSqlCollator* collator =
 //   ZetaSqlCollator::CreateFromCollationName("en_US:ci");
-// zetasql_base::Status error;
+// absl::Status error;
 // int64_t compare_result = collator->CompareUtf8(s1, s2, &error);
 class ZetaSqlCollator {
  public:
@@ -88,7 +88,7 @@ class ZetaSqlCollator {
   // Errors will never occur if <s1> and <s2> are valid UTF-8.
   virtual int64_t CompareUtf8(const absl::string_view s1,
                             const absl::string_view s2,
-                            zetasql_base::Status* error) const = 0;
+                            absl::Status* error) const = 0;
 
   // Returns true if this collator uses simple binary comparisons.
   // If true, engines can get equivalent behavior using binary comparison on

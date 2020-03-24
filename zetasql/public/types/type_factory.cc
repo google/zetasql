@@ -145,7 +145,7 @@ const Type* TypeFactory::MakeSimpleType(TypeKind kind) {
   return type;
 }
 
-zetasql_base::Status TypeFactory::MakeArrayType(
+absl::Status TypeFactory::MakeArrayType(
     const Type* element_type, const ArrayType** result) {
   *result = nullptr;
   AddDependency(element_type);
@@ -165,29 +165,29 @@ zetasql_base::Status TypeFactory::MakeArrayType(
       cached_result = TakeOwnershipLocked(new ArrayType(this, element_type));
     }
     *result = cached_result;
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 }
 
-zetasql_base::Status TypeFactory::MakeArrayType(
+absl::Status TypeFactory::MakeArrayType(
     const Type* element_type, const Type** result) {
   return MakeArrayType(element_type,
                        reinterpret_cast<const ArrayType**>(result));
 }
 
-zetasql_base::Status TypeFactory::MakeStructType(
+absl::Status TypeFactory::MakeStructType(
     absl::Span<const StructType::StructField> fields,
     const StructType** result) {
   std::vector<StructType::StructField> new_fields(fields.begin(), fields.end());
   return MakeStructTypeFromVector(std::move(new_fields), result);
 }
 
-zetasql_base::Status TypeFactory::MakeStructType(
+absl::Status TypeFactory::MakeStructType(
     absl::Span<const StructType::StructField> fields, const Type** result) {
   return MakeStructType(fields, reinterpret_cast<const StructType**>(result));
 }
 
-zetasql_base::Status TypeFactory::MakeStructTypeFromVector(
+absl::Status TypeFactory::MakeStructTypeFromVector(
     std::vector<StructType::StructField> fields, const StructType** result) {
   *result = nullptr;
   const int depth_limit = nesting_depth_limit();
@@ -206,16 +206,16 @@ zetasql_base::Status TypeFactory::MakeStructTypeFromVector(
   // increment it to take into account the struct itself.
   *result = TakeOwnership(
       new StructType(this, std::move(fields), max_nesting_depth + 1));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TypeFactory::MakeStructTypeFromVector(
+absl::Status TypeFactory::MakeStructTypeFromVector(
     std::vector<StructType::StructField> fields, const Type** result) {
   return MakeStructTypeFromVector(std::move(fields),
                                   reinterpret_cast<const StructType**>(result));
 }
 
-zetasql_base::Status TypeFactory::MakeProtoType(
+absl::Status TypeFactory::MakeProtoType(
     const google::protobuf::Descriptor* descriptor, const ProtoType** result) {
   absl::MutexLock lock(&mutex_);
   auto& cached_result = cached_proto_types_[descriptor];
@@ -223,15 +223,15 @@ zetasql_base::Status TypeFactory::MakeProtoType(
     cached_result = TakeOwnershipLocked(new ProtoType(this, descriptor));
   }
   *result = cached_result;
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TypeFactory::MakeProtoType(
+absl::Status TypeFactory::MakeProtoType(
     const google::protobuf::Descriptor* descriptor, const Type** result) {
   return MakeProtoType(descriptor, reinterpret_cast<const ProtoType**>(result));
 }
 
-zetasql_base::Status TypeFactory::MakeEnumType(
+absl::Status TypeFactory::MakeEnumType(
     const google::protobuf::EnumDescriptor* enum_descriptor, const EnumType** result) {
   absl::MutexLock lock(&mutex_);
   auto& cached_result = cached_enum_types_[enum_descriptor];
@@ -239,16 +239,16 @@ zetasql_base::Status TypeFactory::MakeEnumType(
     cached_result = TakeOwnershipLocked(new EnumType(this, enum_descriptor));
   }
   *result = cached_result;
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TypeFactory::MakeEnumType(
+absl::Status TypeFactory::MakeEnumType(
     const google::protobuf::EnumDescriptor* enum_descriptor, const Type** result) {
   return MakeEnumType(enum_descriptor,
                       reinterpret_cast<const EnumType**>(result));
 }
 
-zetasql_base::Status TypeFactory::MakeUnwrappedTypeFromProto(
+absl::Status TypeFactory::MakeUnwrappedTypeFromProto(
     const google::protobuf::Descriptor* message, bool use_obsolete_timestamp,
     const Type** result_type) {
   std::set<const google::protobuf::Descriptor*> ancestor_messages;
@@ -257,7 +257,7 @@ zetasql_base::Status TypeFactory::MakeUnwrappedTypeFromProto(
       result_type, &ancestor_messages);
 }
 
-zetasql_base::Status TypeFactory::UnwrapTypeIfAnnotatedProto(
+absl::Status TypeFactory::UnwrapTypeIfAnnotatedProto(
     const Type* input_type, bool use_obsolete_timestamp,
     const Type** result_type) {
   std::set<const google::protobuf::Descriptor*> ancestor_messages;
@@ -265,7 +265,7 @@ zetasql_base::Status TypeFactory::UnwrapTypeIfAnnotatedProto(
                                         result_type, &ancestor_messages);
 }
 
-zetasql_base::Status TypeFactory::UnwrapTypeIfAnnotatedProtoImpl(
+absl::Status TypeFactory::UnwrapTypeIfAnnotatedProtoImpl(
     const Type* input_type, bool use_obsolete_timestamp,
     const Type** result_type,
     std::set<const google::protobuf::Descriptor*>* ancestor_messages) {
@@ -282,18 +282,18 @@ zetasql_base::Status TypeFactory::UnwrapTypeIfAnnotatedProtoImpl(
       ZETASQL_RETURN_IF_ERROR(MakeArrayType(unwrapped_element_type, &array_type));
     }
     *result_type = array_type;
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   } else if (input_type->IsProto()) {
     return MakeUnwrappedTypeFromProtoImpl(input_type->AsProto()->descriptor(),
                                           input_type, use_obsolete_timestamp,
                                           result_type, ancestor_messages);
   } else {
     *result_type = input_type;
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 }
 
-zetasql_base::Status TypeFactory::MakeUnwrappedTypeFromProtoImpl(
+absl::Status TypeFactory::MakeUnwrappedTypeFromProtoImpl(
     const google::protobuf::Descriptor* message, const Type* existing_message_type,
     bool use_obsolete_timestamp, const Type** result_type,
     std::set<const google::protobuf::Descriptor*>* ancestor_messages) {
@@ -306,7 +306,7 @@ zetasql_base::Status TypeFactory::MakeUnwrappedTypeFromProtoImpl(
   // only ancestors of the current message being unwrapped.
   auto cleanup = ::zetasql_base::MakeCleanup(
       [message, ancestor_messages] { ancestor_messages->erase(message); });
-  zetasql_base::Status return_status;
+  absl::Status return_status;
   if (ProtoType::GetIsWrapperAnnotation(message)) {
     // If we have zetasql.is_wrapper, unwrap the proto and return the type
     // of the contained field.
@@ -357,14 +357,14 @@ zetasql_base::Status TypeFactory::MakeUnwrappedTypeFromProtoImpl(
     DCHECK_EQ(message->full_name(),
               existing_message_type->AsProto()->descriptor()->full_name());
     *result_type = existing_message_type;
-    return_status = ::zetasql_base::OkStatus();
+    return_status = absl::OkStatus();
   } else {
     return_status = MakeProtoType(message, result_type);
   }
   return return_status;
 }
 
-zetasql_base::Status TypeFactory::GetProtoFieldTypeWithKind(
+absl::Status TypeFactory::GetProtoFieldTypeWithKind(
     const google::protobuf::FieldDescriptor* field_descr, TypeKind kind,
     const Type** type) {
   if (Type::IsSimpleType(kind)) {
@@ -386,10 +386,10 @@ zetasql_base::Status TypeFactory::GetProtoFieldTypeWithKind(
     *type = array_type;
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TypeFactory::GetProtoFieldType(
+absl::Status TypeFactory::GetProtoFieldType(
     bool ignore_annotations, const google::protobuf::FieldDescriptor* field_descr,
     const Type** type) {
   TypeKind kind;
@@ -406,10 +406,10 @@ zetasql_base::Status TypeFactory::GetProtoFieldType(
         << (*type)->DebugString() << "\n"
         << field_descr->DebugString();
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TypeFactory::GetProtoFieldType(
+absl::Status TypeFactory::GetProtoFieldType(
     const google::protobuf::FieldDescriptor* field_descr, bool use_obsolete_timestamp,
     const Type** type) {
   TypeKind kind;
@@ -427,17 +427,17 @@ zetasql_base::Status TypeFactory::GetProtoFieldType(
         << (*type)->DebugString() << "\n" << field_descr->DebugString();
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TypeFactory::DeserializeFromProtoUsingExistingPool(
+absl::Status TypeFactory::DeserializeFromProtoUsingExistingPool(
     const TypeProto& type_proto,
     const google::protobuf::DescriptorPool* pool,
     const Type** type) {
   return DeserializeFromProtoUsingExistingPools(type_proto, {pool}, type);
 }
 
-zetasql_base::Status TypeFactory::DeserializeFromProtoUsingExistingPools(
+absl::Status TypeFactory::DeserializeFromProtoUsingExistingPools(
     const TypeProto& type_proto,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
     const Type** type) {
@@ -459,7 +459,7 @@ zetasql_base::Status TypeFactory::DeserializeFromProtoUsingExistingPools(
   }
   if (Type::IsSimpleType(type_proto.type_kind())) {
     *type = MakeSimpleType(type_proto.type_kind());
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
   switch (type_proto.type_kind()) {
     case TYPE_ARRAY: {
@@ -546,10 +546,10 @@ zetasql_base::Status TypeFactory::DeserializeFromProtoUsingExistingPools(
              << Type::TypeKindToString(type_proto.type_kind(), PRODUCT_INTERNAL)
              << " from TypeProto is not implemented.";
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TypeFactory::DeserializeFromSelfContainedProto(
+absl::Status TypeFactory::DeserializeFromSelfContainedProto(
       const TypeProto& type_proto,
       google::protobuf::DescriptorPool* pool,
       const Type** type) {
@@ -563,7 +563,7 @@ zetasql_base::Status TypeFactory::DeserializeFromSelfContainedProto(
                                                             type);
 }
 
-zetasql_base::Status TypeFactory::DeserializeFromSelfContainedProtoWithDistinctFiles(
+absl::Status TypeFactory::DeserializeFromSelfContainedProtoWithDistinctFiles(
       const TypeProto& type_proto,
       const std::vector<google::protobuf::DescriptorPool*>& pools,
       const Type** type) {

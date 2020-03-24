@@ -100,7 +100,7 @@ class EnumType : public Type {
     return true;
   }
 
-  zetasql_base::Status SerializeToProtoAndDistinctFileDescriptorsImpl(
+  absl::Status SerializeToProtoAndDistinctFileDescriptorsImpl(
       TypeProto* type_proto,
       absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
       FileDescriptorSetMap* file_descriptor_set_map) const override;

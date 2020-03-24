@@ -89,7 +89,7 @@ zetasql_base::StatusOr<std::unique_ptr<Catalog>> ConstructCatalog(
 
 // Prints the result of executing a query. Currently requires loading all the
 // results into memory to format pretty output.
-zetasql_base::Status PrintResults(std::unique_ptr<EvaluatorTableIterator> iter) {
+absl::Status PrintResults(std::unique_ptr<EvaluatorTableIterator> iter) {
   TypeFactory type_factory;
 
   std::vector<StructField> struct_fields;
@@ -132,11 +132,11 @@ zetasql_base::Status PrintResults(std::unique_ptr<EvaluatorTableIterator> iter) 
                                    /*is_value_table=*/false, column_names)
             << std::endl;
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Runs the tool.
-zetasql_base::Status Run(const std::string& sql) {
+absl::Status Run(const std::string& sql) {
   ZETASQL_ASSIGN_OR_RETURN(const ToolMode mode, GetToolMode());
   const google::protobuf::DescriptorPool &pool =
       *google::protobuf::DescriptorPool::generated_pool();
@@ -153,11 +153,11 @@ zetasql_base::Status Run(const std::string& sql) {
   switch (mode) {
     case ToolMode::kResolve:
       std::cout << query.resolved_query_stmt()->DebugString() << std::endl;
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     case ToolMode::kExplain: {
       ZETASQL_ASSIGN_OR_RETURN(const std::string explain, query.ExplainAfterPrepare());
       std::cout << explain << std::endl;
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     case ToolMode::kExecute: {
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<EvaluatorTableIterator> iter,
@@ -180,7 +180,7 @@ int main(int argc, char* argv[]) {
   const std::string sql = absl::StrJoin(remaining_args.begin() + 1,
   remaining_args.end(), " ");
 
-  const zetasql_base::Status status = zetasql::Run(sql);
+  const absl::Status status = zetasql::Run(sql);
   if (status.ok()) {
     return 0;
   } else {

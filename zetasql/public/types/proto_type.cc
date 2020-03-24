@@ -46,7 +46,7 @@ const google::protobuf::Descriptor* ProtoType::descriptor() const {
   return descriptor_;
 }
 
-zetasql_base::Status ProtoType::SerializeToProtoAndDistinctFileDescriptorsImpl(
+absl::Status ProtoType::SerializeToProtoAndDistinctFileDescriptorsImpl(
     TypeProto* type_proto,
     absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
     FileDescriptorSetMap* file_descriptor_set_map) const {
@@ -65,10 +65,10 @@ zetasql_base::Status ProtoType::SerializeToProtoAndDistinctFileDescriptorsImpl(
   if (set_index != 0) {
     proto_type_proto->set_file_descriptor_set_index(set_index);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ProtoType::GetFieldTypeByTagNumber(int number,
+absl::Status ProtoType::GetFieldTypeByTagNumber(int number,
                                                 TypeFactory* factory,
                                                 bool use_obsolete_timestamp,
                                                 const Type** type,
@@ -86,7 +86,7 @@ zetasql_base::Status ProtoType::GetFieldTypeByTagNumber(int number,
   return factory->GetProtoFieldType(field_descr, use_obsolete_timestamp, type);
 }
 
-zetasql_base::Status ProtoType::GetFieldTypeByName(const std::string& name,
+absl::Status ProtoType::GetFieldTypeByName(const std::string& name,
                                            TypeFactory* factory,
                                            bool use_obsolete_timestamp,
                                            const Type** type,
@@ -117,7 +117,7 @@ std::string ProtoType::TypeName(ProductMode mode_unused) const {
 }
 
 // static
-zetasql_base::Status ProtoType::GetTypeKindFromFieldDescriptor(
+absl::Status ProtoType::GetTypeKindFromFieldDescriptor(
     const google::protobuf::FieldDescriptor* field, bool ignore_format_annotations,
     bool use_obsolete_timestamp, TypeKind* kind) {
   const google::protobuf::FieldDescriptor::Type field_type = field->type();
@@ -278,10 +278,10 @@ zetasql_base::Status ProtoType::GetTypeKindFromFieldDescriptor(
     default:
       return MakeSqlError() << "Invalid protocol buffer Type: " << field_type;
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ProtoType::FieldDescriptorToTypeKind(
+absl::Status ProtoType::FieldDescriptorToTypeKind(
     bool ignore_annotations, const google::protobuf::FieldDescriptor* field,
     TypeKind* kind) {
   if (field->label() == google::protobuf::FieldDescriptor::LABEL_REPEATED) {
@@ -290,10 +290,10 @@ zetasql_base::Status ProtoType::FieldDescriptorToTypeKind(
     ZETASQL_RETURN_IF_ERROR(
         FieldDescriptorToTypeKindBase(ignore_annotations, field, kind));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ProtoType::FieldDescriptorToTypeKind(
+absl::Status ProtoType::FieldDescriptorToTypeKind(
     const google::protobuf::FieldDescriptor* field, bool use_obsolete_timestamp,
     TypeKind* kind) {
   if (field->label() == google::protobuf::FieldDescriptor::LABEL_REPEATED) {
@@ -302,7 +302,7 @@ zetasql_base::Status ProtoType::FieldDescriptorToTypeKind(
     ZETASQL_RETURN_IF_ERROR(
         FieldDescriptorToTypeKindBase(field, use_obsolete_timestamp, kind));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 const google::protobuf::FieldDescriptor* ProtoType::FindFieldByNameIgnoreCase(

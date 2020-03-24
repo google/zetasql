@@ -91,16 +91,16 @@ ValueExpr::~ValueExpr() {}
   return absl::WrapUnique(new TableAsArrayExpr(table_name, type));
 }
 
-::zetasql_base::Status TableAsArrayExpr::SetSchemasForEvaluation(
+absl::Status TableAsArrayExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> /* params_schemas */) {
   // Eval() ignores the parameters.
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 bool TableAsArrayExpr::Eval(absl::Span<const TupleData* const> /* params */,
                             EvaluationContext* context,
                             VirtualTupleSlot* result,
-                            ::zetasql_base::Status* status) const {
+                            absl::Status* status) const {
   const Value& array = context->GetTableAsArray(table_name());
   if (!array.is_valid()) {
     *status = zetasql_base::OutOfRangeErrorBuilder()
@@ -144,18 +144,18 @@ TableAsArrayExpr::TableAsArrayExpr(const std::string& table_name,
   return absl::WrapUnique(new NewStructExpr(type, std::move(args)));
 }
 
-::zetasql_base::Status NewStructExpr::SetSchemasForEvaluation(
+absl::Status NewStructExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   for (ExprArg* arg : mutable_field_list()) {
     ZETASQL_RETURN_IF_ERROR(
         arg->mutable_value_expr()->SetSchemasForEvaluation(params_schemas));
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 bool NewStructExpr::Eval(absl::Span<const TupleData* const> params,
                          EvaluationContext* context, VirtualTupleSlot* result,
-                         ::zetasql_base::Status* status) const {
+                         absl::Status* status) const {
   int64_t values_size = 0;
   std::vector<Value> values(field_list().size());
   for (int i = 0; i < field_list().size(); ++i) {
@@ -224,18 +224,18 @@ absl::Span<ExprArg* const> NewStructExpr::mutable_field_list() {
   return absl::WrapUnique(new NewArrayExpr(array_type, std::move(elements)));
 }
 
-::zetasql_base::Status NewArrayExpr::SetSchemasForEvaluation(
+absl::Status NewArrayExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   for (ExprArg* arg : mutable_elements()) {
     ZETASQL_RETURN_IF_ERROR(
         arg->mutable_value_expr()->SetSchemasForEvaluation(params_schemas));
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 bool NewArrayExpr::Eval(absl::Span<const TupleData* const> params,
                         EvaluationContext* context, VirtualTupleSlot* result,
-                        ::zetasql_base::Status* status) const {
+                        absl::Status* status) const {
   int64_t values_size = 0;
   std::vector<Value> values(elements().size());
   for (int i = 0; i < elements().size(); ++i) {
@@ -311,7 +311,7 @@ std::string ArrayNestExpr::DebugInternal(const std::string& indent,
                                             std::move(input), is_with_table));
 }
 
-::zetasql_base::Status ArrayNestExpr::SetSchemasForEvaluation(
+absl::Status ArrayNestExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   ZETASQL_RETURN_IF_ERROR(mutable_input()->SetSchemasForEvaluation(params_schemas));
   const std::unique_ptr<const TupleSchema> input_schema =
@@ -322,7 +322,7 @@ std::string ArrayNestExpr::DebugInternal(const std::string& indent,
 
 bool ArrayNestExpr::Eval(absl::Span<const TupleData* const> params,
                          EvaluationContext* context, VirtualTupleSlot* result,
-                         ::zetasql_base::Status* status) const {
+                         absl::Status* status) const {
   auto status_or_iter =
       input()->CreateIterator(params, /*num_extra_slots=*/0, context);
   if (!status_or_iter.ok()) {
@@ -438,7 +438,7 @@ RelationalOp* ArrayNestExpr::mutable_input() {
   return absl::WrapUnique(new DerefExpr(name, type));
 }
 
-::zetasql_base::Status DerefExpr::SetSchemasForEvaluation(
+absl::Status DerefExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   int first_schema_idx = -1;
   int first_slot = -1;
@@ -454,12 +454,12 @@ RelationalOp* ArrayNestExpr::mutable_input() {
   ZETASQL_RET_CHECK_GE(first_slot, 0) << "Missing name: " << name_;
   idx_in_params_ = first_schema_idx;
   slot_ = first_slot;
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 bool DerefExpr::Eval(absl::Span<const TupleData* const> params,
                      EvaluationContext* context, VirtualTupleSlot* result,
-                     ::zetasql_base::Status* /* status */) const {
+                     absl::Status* /* status */) const {
   DCHECK(idx_in_params_ >= 0 && slot_ >= 0)
       << "You forgot to call SetSchemasForEvaluation() " << name_;
   result->CopyFromSlot(params[idx_in_params_]->slot(slot_));
@@ -484,15 +484,15 @@ DerefExpr::DerefExpr(const VariableId& name, const Type* type)
   return absl::WrapUnique(new ConstExpr(value));
 }
 
-::zetasql_base::Status ConstExpr::SetSchemasForEvaluation(
+absl::Status ConstExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> /* params_schemas */) {
   // Eval() ignores the parameters.
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 bool ConstExpr::Eval(absl::Span<const TupleData* const> /* params */,
                      EvaluationContext* context, VirtualTupleSlot* result,
-                     ::zetasql_base::Status* /* status */) const {
+                     absl::Status* /* status */) const {
   result->CopyFromSlot(slot_);
   return true;
 }
@@ -533,14 +533,14 @@ static ::zetasql_base::StatusOr<int> GetFieldIndex(const StructType* type,
   return absl::WrapUnique(new FieldValueExpr(field_index, std::move(expr)));
 }
 
-::zetasql_base::Status FieldValueExpr::SetSchemasForEvaluation(
+absl::Status FieldValueExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   return mutable_input()->SetSchemasForEvaluation(params_schemas);
 }
 
 bool FieldValueExpr::Eval(absl::Span<const TupleData* const> params,
                           EvaluationContext* context, VirtualTupleSlot* result,
-                          ::zetasql_base::Status* status) const {
+                          absl::Status* status) const {
   TupleSlot struct_slot;
   if (!input()->EvalSimple(params, context, &struct_slot, status)) {
     return false;
@@ -582,7 +582,7 @@ ValueExpr* FieldValueExpr::mutable_input() {
 bool ProtoFieldReader::GetFieldValue(const TupleSlot& proto_slot,
                                      EvaluationContext* context,
                                      Value* field_value,
-                                     ::zetasql_base::Status* status) const {
+                                     absl::Status* status) const {
   context->set_last_get_field_value_call_read_fields_from_proto(this, false);
 
   const Value& proto_value = proto_slot.value();
@@ -636,7 +636,7 @@ bool ProtoFieldReader::GetFieldValue(const TupleSlot& proto_slot,
     value_list_owner = absl::make_unique<ProtoFieldValueList>();
     value_list = value_list_owner.get();
 
-    const ::zetasql_base::Status read_status = ReadProtoFields(
+    const absl::Status read_status = ReadProtoFields(
         field_infos, proto_value.ToCord(), value_list_owner.get());
     if (!read_status.ok()) {
       *status = read_status;
@@ -680,7 +680,7 @@ bool ProtoFieldReader::GetFieldValue(const TupleSlot& proto_slot,
       new GetProtoFieldExpr(std::move(proto_expr), field_reader));
 }
 
-::zetasql_base::Status GetProtoFieldExpr::SetSchemasForEvaluation(
+absl::Status GetProtoFieldExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   return mutable_proto_expr()->SetSchemasForEvaluation(params_schemas);
 }
@@ -688,7 +688,7 @@ bool ProtoFieldReader::GetFieldValue(const TupleSlot& proto_slot,
 bool GetProtoFieldExpr::Eval(absl::Span<const TupleData* const> params,
                              EvaluationContext* context,
                              VirtualTupleSlot* result,
-                             ::zetasql_base::Status* status) const {
+                             absl::Status* status) const {
   TupleSlot proto_slot;
   if (!proto_expr()->EvalSimple(params, context, &proto_slot, status)) {
     return false;
@@ -737,7 +737,7 @@ std::string GetProtoFieldExpr::DebugInternal(const std::string& indent,
       new SingleValueExpr(std::move(value), std::move(input)));
 }
 
-::zetasql_base::Status SingleValueExpr::SetSchemasForEvaluation(
+absl::Status SingleValueExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   ZETASQL_RETURN_IF_ERROR(mutable_input()->SetSchemasForEvaluation(params_schemas));
   const std::unique_ptr<const TupleSchema> input_schema =
@@ -748,7 +748,7 @@ std::string GetProtoFieldExpr::DebugInternal(const std::string& indent,
 
 bool SingleValueExpr::Eval(absl::Span<const TupleData* const> params,
                            EvaluationContext* context, VirtualTupleSlot* result,
-                           ::zetasql_base::Status* status) const {
+                           absl::Status* status) const {
   auto status_or_iter =
       input()->CreateIterator(params, /*num_extra_slots=*/0, context);
   if (!status_or_iter.ok()) {
@@ -821,14 +821,14 @@ ValueExpr* SingleValueExpr::mutable_value() {
   return absl::WrapUnique(new ExistsExpr(std::move(input)));
 }
 
-::zetasql_base::Status ExistsExpr::SetSchemasForEvaluation(
+absl::Status ExistsExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   return mutable_input()->SetSchemasForEvaluation(params_schemas);
 }
 
 bool ExistsExpr::Eval(absl::Span<const TupleData* const> params,
                       EvaluationContext* context, VirtualTupleSlot* result,
-                      ::zetasql_base::Status* status) const {
+                      absl::Status* status) const {
   auto status_or_iter =
       input()->CreateIterator(params, /*num_extra_slots=*/0, context);
   if (!status_or_iter.ok()) {
@@ -883,20 +883,20 @@ ScalarFunctionCallExpr::Create(
       std::move(function), std::move(exprs), error_mode));
 }
 
-::zetasql_base::Status ScalarFunctionCallExpr::SetSchemasForEvaluation(
+absl::Status ScalarFunctionCallExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   absl::Span<AlgebraArg* const> args = GetMutableArgs();
   for (AlgebraArg* arg : args) {
     ZETASQL_RETURN_IF_ERROR(
         arg->mutable_value_expr()->SetSchemasForEvaluation(params_schemas));
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 bool ScalarFunctionCallExpr::Eval(absl::Span<const TupleData* const> params,
                                   EvaluationContext* context,
                                   VirtualTupleSlot* result,
-                                  ::zetasql_base::Status* status) const {
+                                  absl::Status* status) const {
   const auto& args = GetArgs();
   std::vector<Value> call_args(args.size());
   for (int i = 0; i < args.size(); i++) {
@@ -909,7 +909,7 @@ bool ScalarFunctionCallExpr::Eval(absl::Span<const TupleData* const> params,
 
   if (!function_->Eval(call_args, context, result->mutable_value(), status)) {
     if (ShouldSuppressError(*status, error_mode_)) {
-      *status = ::zetasql_base::OkStatus();
+      *status = absl::OkStatus();
       result->SetValue(Value::Null(output_type()));
       return true;
     }
@@ -958,14 +958,14 @@ AggregateFunctionCallExpr::Create(
       new AggregateFunctionCallExpr(std::move(function), std::move(exprs)));
 }
 
-::zetasql_base::Status AggregateFunctionCallExpr::SetSchemasForEvaluation(
+absl::Status AggregateFunctionCallExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   absl::Span<AlgebraArg* const> args = GetMutableArgs();
   for (AlgebraArg* arg : args) {
     ZETASQL_RETURN_IF_ERROR(
         arg->mutable_value_expr()->SetSchemasForEvaluation(params_schemas));
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 std::string AggregateFunctionCallExpr::DebugInternal(const std::string& indent,
@@ -994,7 +994,7 @@ AggregateFunctionCallExpr::AggregateFunctionCallExpr(
 bool AggregateFunctionCallExpr::Eval(absl::Span<const TupleData* const> params,
                                      EvaluationContext* context,
                                      VirtualTupleSlot* result,
-                                     ::zetasql_base::Status* status) const {
+                                     absl::Status* status) const {
   *status = ::zetasql_base::InternalErrorBuilder()
             << "Use AggregateArg to evaluate an aggregate function";
   return false;
@@ -1015,7 +1015,7 @@ AnalyticFunctionCallExpr::Create(
       std::move(const_arguments)));
 }
 
-::zetasql_base::Status AnalyticFunctionCallExpr::SetSchemasForEvaluation(
+absl::Status AnalyticFunctionCallExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   for (ExprArg* arg : mutable_non_const_arguments()) {
     ZETASQL_RETURN_IF_ERROR(
@@ -1025,7 +1025,7 @@ AnalyticFunctionCallExpr::Create(
     ZETASQL_RETURN_IF_ERROR(
         arg->mutable_value_expr()->SetSchemasForEvaluation(params_schemas));
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 std::string AnalyticFunctionCallExpr::DebugInternal(const std::string& indent,
@@ -1084,7 +1084,7 @@ AnalyticFunctionCallExpr::AnalyticFunctionCallExpr(
 bool AnalyticFunctionCallExpr::Eval(absl::Span<const TupleData* const> params,
                                     EvaluationContext* context,
                                     VirtualTupleSlot* result,
-                                    ::zetasql_base::Status* status) const {
+                                    absl::Status* status) const {
   *status =
       ::zetasql_base::InternalErrorBuilder()
       << "Use NonAggregateAnalyticArg::Eval to evaluate an analytic function";
@@ -1103,7 +1103,7 @@ bool AnalyticFunctionCallExpr::Eval(absl::Span<const TupleData* const> params,
       std::move(condition), std::move(true_value), std::move(false_value)));
 }
 
-::zetasql_base::Status IfExpr::SetSchemasForEvaluation(
+absl::Status IfExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   ZETASQL_RETURN_IF_ERROR(mutable_join_expr()->SetSchemasForEvaluation(params_schemas));
   ZETASQL_RETURN_IF_ERROR(
@@ -1113,7 +1113,7 @@ bool AnalyticFunctionCallExpr::Eval(absl::Span<const TupleData* const> params,
 
 bool IfExpr::Eval(absl::Span<const TupleData* const> params,
                   EvaluationContext* context, VirtualTupleSlot* result,
-                  ::zetasql_base::Status* status) const {
+                  absl::Status* status) const {
   TupleSlot slot;
   if (!join_expr()->EvalSimple(params, context, &slot, status)) return false;
   if (slot.value() == Bool(true)) {
@@ -1174,7 +1174,7 @@ ValueExpr* IfExpr::mutable_false_value() {
   return absl::WrapUnique(new LetExpr(std::move(assign), std::move(body)));
 }
 
-::zetasql_base::Status LetExpr::SetSchemasForEvaluation(
+absl::Status LetExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   // Initialize 'schema_ptrs' with 'params_schemas', then extend 'schema_ptrs'
   // with new schemas owned by 'new_schemas'.
@@ -1201,7 +1201,7 @@ ValueExpr* IfExpr::mutable_false_value() {
 
 bool LetExpr::Eval(absl::Span<const TupleData* const> params,
                    EvaluationContext* context, VirtualTupleSlot* result,
-                   ::zetasql_base::Status* status) const {
+                   absl::Status* status) const {
   // Initialize 'data_ptrs' with 'params', then extend 'data_ptrs' with new
   // TupleDatas owned by 'new_datas'.  We use a TupleDeque in case one of the
   // parameters represents multiple rows (e.g., an array corresponding to a WITH
@@ -1324,14 +1324,14 @@ static ::zetasql_base::StatusOr<Value> EvalExpr(
     const ValueExpr& value_expr, absl::Span<const TupleData* const> params,
     EvaluationContext* context) {
   TupleSlot slot;
-  ::zetasql_base::Status status;
+  absl::Status status;
   if (!value_expr.EvalSimple(params, context, &slot, &status)) {
     return status;
   }
   return slot.value();
 }
 
-::zetasql_base::Status DMLValueExpr::VerifyNumRowsModified(
+absl::Status DMLValueExpr::VerifyNumRowsModified(
     const ResolvedAssertRowsModified* assert_rows_modified,
     absl::Span<const TupleData* const> params, int64_t actual_num_rows_modified,
     EvaluationContext* context, bool print_array_elements) const {
@@ -1357,7 +1357,7 @@ static ::zetasql_base::StatusOr<Value> EvalExpr(
     }
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 ::zetasql_base::StatusOr<std::vector<Value>>
@@ -1381,7 +1381,7 @@ DMLValueExpr::GetScannedTupleAsColumnValues(
   return t.data->slot(slot.value()).value();
 }
 
-::zetasql_base::Status DMLValueExpr::PopulatePrimaryKeyRowMap(
+absl::Status DMLValueExpr::PopulatePrimaryKeyRowMap(
     const std::vector<std::vector<Value>>& original_rows,
     absl::string_view duplicate_primary_key_error_prefix,
     EvaluationContext* context, PrimaryKeyRowMap* row_map,
@@ -1411,7 +1411,7 @@ DMLValueExpr::GetScannedTupleAsColumnValues(
     }
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 ::zetasql_base::StatusOr<Value> DMLValueExpr::GetPrimaryKeyOrRowNumber(
@@ -1499,7 +1499,7 @@ DMLValueExpr::GetPrimaryKeyColumnIndexes(EvaluationContext* context) const {
 
 // Evaluates 'op' on 'params', then populates 'schema' and 'datas' with the
 // corresponding TupleSchema and TupleDatas.
-static zetasql_base::Status EvalRelationalOp(
+static absl::Status EvalRelationalOp(
     const RelationalOp& op, absl::Span<const TupleData* const> params,
     EvaluationContext* context, std::unique_ptr<TupleSchema>* schema,
     std::vector<std::unique_ptr<TupleData>>* datas) {
@@ -1520,7 +1520,7 @@ static zetasql_base::Status EvalRelationalOp(
     }
     datas->push_back(absl::make_unique<TupleData>(*data));
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // -------------------------------------------------------
@@ -1542,7 +1542,7 @@ DMLDeleteValueExpr::Create(
       std::move(resolved_scan_map), std::move(resolved_expr_map)));
 }
 
-::zetasql_base::Status DMLDeleteValueExpr::SetSchemasForEvaluation(
+absl::Status DMLDeleteValueExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   if (stmt()->assert_rows_modified() != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(
@@ -1646,7 +1646,7 @@ DMLUpdateValueExpr::Create(
       std::move(resolved_scan_map), std::move(resolved_expr_map)));
 }
 
-::zetasql_base::Status DMLUpdateValueExpr::SetSchemasForEvaluation(
+absl::Status DMLUpdateValueExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   ZETASQL_ASSIGN_OR_RETURN(RelationalOp * table_scan,
                    LookupResolvedScan(stmt()->table_scan()));
@@ -1687,7 +1687,7 @@ DMLUpdateValueExpr::Create(
     ZETASQL_RETURN_IF_ERROR(rows->SetSchemasForEvaluation(params_schemas));
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 ::zetasql_base::StatusOr<Value> DMLUpdateValueExpr::Eval(
@@ -1930,7 +1930,7 @@ DMLUpdateValueExpr::DMLUpdateValueExpr(
                    std::move(resolved_scan_map), std::move(resolved_expr_map)) {
 }
 
-::zetasql_base::Status DMLUpdateValueExpr::SetSchemasForEvaluationOfUpdateItem(
+absl::Status DMLUpdateValueExpr::SetSchemasForEvaluationOfUpdateItem(
     const ResolvedUpdateItem* update_item,
     absl::Span<const TupleSchema* const> params_schemas) {
   for (const std::unique_ptr<const ResolvedUpdateArrayItem>& update_array_item :
@@ -1978,10 +1978,10 @@ DMLUpdateValueExpr::DMLUpdateValueExpr(
     }
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-::zetasql_base::Status DMLUpdateValueExpr::SetSchemasForEvaluationOfNestedDelete(
+absl::Status DMLUpdateValueExpr::SetSchemasForEvaluationOfNestedDelete(
     const ResolvedDeleteStmt* nested_delete,
     const ResolvedColumn& element_column,
     absl::Span<const TupleSchema* const> params_schemas) {
@@ -2012,10 +2012,10 @@ DMLUpdateValueExpr::DMLUpdateValueExpr(
     ZETASQL_RETURN_IF_ERROR(rows_expr->SetSchemasForEvaluation(params_schemas));
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-::zetasql_base::Status DMLUpdateValueExpr::SetSchemasForEvaluationOfNestedUpdate(
+absl::Status DMLUpdateValueExpr::SetSchemasForEvaluationOfNestedUpdate(
     const ResolvedUpdateStmt* nested_update,
     const ResolvedColumn& element_column,
     absl::Span<const TupleSchema* const> params_schemas) {
@@ -2052,10 +2052,10 @@ DMLUpdateValueExpr::DMLUpdateValueExpr(
     ZETASQL_RETURN_IF_ERROR(rows_expr->SetSchemasForEvaluation(params_schemas));
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-::zetasql_base::Status DMLUpdateValueExpr::SetSchemasForEvaluationOfNestedInsert(
+absl::Status DMLUpdateValueExpr::SetSchemasForEvaluationOfNestedInsert(
     const ResolvedInsertStmt* nested_insert,
     absl::Span<const TupleSchema* const> params_schemas) {
   if (nested_insert->query() != nullptr) {
@@ -2081,10 +2081,10 @@ DMLUpdateValueExpr::DMLUpdateValueExpr(
     ZETASQL_RETURN_IF_ERROR(rows_expr->SetSchemasForEvaluation(params_schemas));
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-::zetasql_base::Status DMLUpdateValueExpr::GetJoinedTupleDatas(
+absl::Status DMLUpdateValueExpr::GetJoinedTupleDatas(
     absl::Span<const TupleData* const> params, const TupleData* left_tuple,
     const std::vector<std::unique_ptr<TupleData>>* right_tuples,
     const ValueExpr* where_expr, EvaluationContext* context,
@@ -2098,7 +2098,7 @@ DMLUpdateValueExpr::DMLUpdateValueExpr(
     if (where_value == Bool(true)) {
       *joined_tuple_datas = ConcatSpans(params, {left_tuple});
     }
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   for (const std::unique_ptr<TupleData>& right_tuple : *right_tuples) {
@@ -2119,10 +2119,10 @@ DMLUpdateValueExpr::DMLUpdateValueExpr(
     }
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-::zetasql_base::Status DMLUpdateValueExpr::AddToUpdateMap(
+absl::Status DMLUpdateValueExpr::AddToUpdateMap(
     const ResolvedUpdateItem* update_item,
     absl::Span<const TupleData* const> tuples_for_row,
     EvaluationContext* context, ResolvedColumn* update_column,
@@ -2207,16 +2207,16 @@ DMLUpdateValueExpr::DMLUpdateValueExpr(
                                     &first_update_node));
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-::zetasql_base::Status DMLUpdateValueExpr::PopulateUpdatePathComponents(
+absl::Status DMLUpdateValueExpr::PopulateUpdatePathComponents(
     const ResolvedExpr* update_target, ResolvedColumn* column,
     std::vector<UpdatePathComponent>* components) const {
   switch (update_target->node_kind()) {
     case RESOLVED_COLUMN_REF:
       *column = update_target->GetAs<ResolvedColumnRef>()->column();
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     case RESOLVED_GET_STRUCT_FIELD: {
       const auto* get_struct_field =
           update_target->GetAs<ResolvedGetStructField>();
@@ -2224,7 +2224,7 @@ DMLUpdateValueExpr::DMLUpdateValueExpr(
                                                    column, components));
       components->emplace_back(/*is_struct_field_index=*/true,
                                get_struct_field->field_idx());
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     case RESOLVED_GET_PROTO_FIELD: {
       const auto* get_proto_field =
@@ -2232,7 +2232,7 @@ DMLUpdateValueExpr::DMLUpdateValueExpr(
       ZETASQL_RETURN_IF_ERROR(PopulateUpdatePathComponents(get_proto_field->expr(),
                                                    column, components));
       components->emplace_back(get_proto_field->field_descriptor());
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     default:
       ZETASQL_RET_CHECK_FAIL()
@@ -2241,14 +2241,14 @@ DMLUpdateValueExpr::DMLUpdateValueExpr(
   }
 }
 
-::zetasql_base::Status DMLUpdateValueExpr::AddToUpdateNode(
+absl::Status DMLUpdateValueExpr::AddToUpdateNode(
     std::vector<UpdatePathComponent>::const_iterator start_component,
     std::vector<UpdatePathComponent>::const_iterator end_component,
     const Value& leaf_value, UpdateNode* update_node) const {
   ZETASQL_RET_CHECK_EQ(update_node->is_leaf(), start_component == end_component);
   if (update_node->is_leaf()) {
     *update_node->mutable_leaf_value() = leaf_value;
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   UpdateNode::ChildMap* child_map = update_node->mutable_child_map();
@@ -2400,7 +2400,7 @@ DMLUpdateValueExpr::DMLUpdateValueExpr(
   return dml_output_row;
 }
 
-::zetasql_base::Status DMLUpdateValueExpr::ProcessNestedDelete(
+absl::Status DMLUpdateValueExpr::ProcessNestedDelete(
     const ResolvedDeleteStmt* nested_delete,
     absl::Span<const TupleData* const> tuples_for_row,
     const ResolvedColumn& element_column,
@@ -2452,7 +2452,7 @@ DMLUpdateValueExpr::DMLUpdateValueExpr(
                                /*print_array_elements=*/true);
 }
 
-::zetasql_base::Status DMLUpdateValueExpr::ProcessNestedUpdate(
+absl::Status DMLUpdateValueExpr::ProcessNestedUpdate(
     const ResolvedUpdateStmt* nested_update,
     absl::Span<const TupleData* const> tuples_for_row,
     const ResolvedColumn& element_column,
@@ -2535,7 +2535,7 @@ DMLUpdateValueExpr::DMLUpdateValueExpr(
                                /*print_array_elements=*/true);
 }
 
-::zetasql_base::Status DMLUpdateValueExpr::ProcessNestedInsert(
+absl::Status DMLUpdateValueExpr::ProcessNestedInsert(
     const ResolvedInsertStmt* nested_insert,
     absl::Span<const TupleData* const> tuples_for_row,
     const std::vector<Value>& original_elements, EvaluationContext* context,
@@ -2619,7 +2619,7 @@ DMLInsertValueExpr::Create(
       std::move(resolved_scan_map), std::move(resolved_expr_map)));
 }
 
-::zetasql_base::Status DMLInsertValueExpr::SetSchemasForEvaluation(
+absl::Status DMLInsertValueExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   if (stmt()->query() != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(RelationalOp * query, LookupResolvedScan(stmt()->query()));
@@ -2646,7 +2646,7 @@ DMLInsertValueExpr::Create(
     ZETASQL_RETURN_IF_ERROR(rows->SetSchemasForEvaluation(params_schemas));
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 ::zetasql_base::StatusOr<Value> DMLInsertValueExpr::Eval(
@@ -2713,7 +2713,7 @@ DMLInsertValueExpr::DMLInsertValueExpr(
                    std::move(resolved_scan_map), std::move(resolved_expr_map)) {
 }
 
-::zetasql_base::Status DMLInsertValueExpr::PopulateInsertColumnMap(
+absl::Status DMLInsertValueExpr::PopulateInsertColumnMap(
     InsertColumnMap* insert_column_map) const {
   const std::vector<ResolvedColumn>& insert_column_list =
       stmt()->insert_column_list();
@@ -2743,10 +2743,10 @@ DMLInsertValueExpr::DMLInsertValueExpr(
   ZETASQL_RET_CHECK_EQ(insert_column_list.size(), num_column_offsets_set);
   ZETASQL_RET_CHECK_EQ(insert_column_list.size(), insert_column_map->size());
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-::zetasql_base::Status DMLInsertValueExpr::PopulateRowsToInsert(
+absl::Status DMLInsertValueExpr::PopulateRowsToInsert(
     const InsertColumnMap& insert_column_map,
     absl::Span<const TupleData* const> params, EvaluationContext* context,
     std::vector<std::vector<Value>>* rows_to_insert) const {
@@ -2780,10 +2780,10 @@ DMLInsertValueExpr::DMLInsertValueExpr(
     rows_to_insert->push_back(row_to_insert);
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-::zetasql_base::Status DMLInsertValueExpr::PopulateColumnsToInsert(
+absl::Status DMLInsertValueExpr::PopulateColumnsToInsert(
     const InsertColumnMap& insert_column_map,
     absl::Span<const TupleData* const> params, EvaluationContext* context,
     std::vector<std::vector<Value>>* columns_to_insert) const {
@@ -2832,10 +2832,10 @@ DMLInsertValueExpr::DMLInsertValueExpr(
       columns_to_insert->push_back(columns_to_insert_for_row);
     }
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-::zetasql_base::Status DMLInsertValueExpr::PopulateRowsInOriginalTable(
+absl::Status DMLInsertValueExpr::PopulateRowsInOriginalTable(
     absl::Span<const TupleData* const> params, EvaluationContext* context,
     std::vector<std::vector<Value>>* original_rows) const {
   ZETASQL_ASSIGN_OR_RETURN(const RelationalOp* relational_op,
@@ -2857,7 +2857,7 @@ DMLInsertValueExpr::DMLInsertValueExpr(
     original_rows->push_back(column_values);
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 ::zetasql_base::StatusOr<int64_t> DMLInsertValueExpr::InsertRows(
@@ -2991,14 +2991,14 @@ DMLInsertValueExpr::DMLInsertValueExpr(
       new RootExpr(std::move(value_expr), std::move(root_data)));
 }
 
-::zetasql_base::Status RootExpr::SetSchemasForEvaluation(
+absl::Status RootExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   return mutable_value_expr()->SetSchemasForEvaluation(params_schemas);
 }
 
 bool RootExpr::Eval(absl::Span<const TupleData* const> params,
                     EvaluationContext* context, VirtualTupleSlot* result,
-                    ::zetasql_base::Status* status) const {
+                    absl::Status* status) const {
   return value_expr()->Eval(params, context, result, status);
 }
 

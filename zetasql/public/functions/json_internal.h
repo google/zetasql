@@ -31,7 +31,7 @@
 #include "zetasql/base/string_numbers.h"  
 #include "absl/base/attributes.h"
 #include "absl/memory/memory.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "re2/re2.h"
@@ -44,7 +44,7 @@ namespace json_internal {
 void RemoveBackSlashFollowedByChar(std::string* token, char esc_chr);
 
 // Checks if the given JSON path is supported and valid.
-zetasql_base::Status IsValidJSONPath(absl::string_view text, bool sql_standard_mode);
+absl::Status IsValidJSONPath(absl::string_view text, bool sql_standard_mode);
 
 // Bi-directed iterator over tokens in a valid JSON path, used by the extraction
 // algorithm. Functions in this class are inlined due to performance reasons.

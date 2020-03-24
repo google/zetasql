@@ -52,7 +52,7 @@
 //
 // For lack of a better place, this header also defines helpers for translating
 // between DeprecationWarningForFunctionBody protos and the corresponding
-// zetasql_base::Status objects (that are used, for example, inside the analyzer).
+// absl::Status objects (that are used, for example, inside the analyzer).
 
 #include <string>
 #include <vector>
@@ -85,7 +85,7 @@ namespace zetasql {
 // TODO: This function currently only supports Status with
 // ErrorLocation, not Status with InternalErrorLocation.  Extend this to
 // support a Status with InternalErrorLocation if/when we need it.
-ErrorSource MakeErrorSource(const zetasql_base::Status& status, const std::string& text,
+ErrorSource MakeErrorSource(const absl::Status& status, const std::string& text,
                             ErrorMessageMode mode);
 
 // Creates a StatusBuilder for ZetaSQL errors using the INVALID_ARGUMENT
@@ -108,8 +108,8 @@ inline ::zetasql_base::StatusBuilder MakeEvalError() {
 }
 
 // Same, but uses <error_location> as the error location.
-zetasql_base::Status StatusWithInternalErrorLocation(
-    const zetasql_base::Status& status, const ParseLocationPoint& error_location);
+absl::Status StatusWithInternalErrorLocation(
+    const absl::Status& status, const ParseLocationPoint& error_location);
 
 // If <status> is OK or if it does not have a InternalErrorLocation payload,
 // returns <status>. Otherwise, replaces the InternalErrorLocation payload by an
@@ -118,7 +118,7 @@ zetasql_base::Status StatusWithInternalErrorLocation(
 // versa. This function must be called on all errors before returning them to
 // the client. An InternalErrorLocation contained in 'status' must be valid for
 // 'query'. If it is not, then this function returns an internal error.
-zetasql_base::Status ConvertInternalErrorLocationToExternal(zetasql_base::Status status,
+absl::Status ConvertInternalErrorLocationToExternal(absl::Status status,
                                                     absl::string_view query);
 
 inline std::string ExtractingNotSupportedDatePart(
@@ -129,7 +129,7 @@ inline std::string ExtractingNotSupportedDatePart(
 
 // Returns ErrorSources from <status>, if present.
 const absl::optional<::google::protobuf::RepeatedPtrField<ErrorSource>> GetErrorSources(
-    const zetasql_base::Status& status);
+    const absl::Status& status);
 
 // Sets ErrorSources on <error_location_in> from <status>, including
 // a new ErrorSource built from <status> (using <input_text_for_status> to
@@ -140,7 +140,7 @@ const absl::optional<::google::protobuf::RepeatedPtrField<ErrorSource>> GetError
 // InternalErrorLocation.
 template <typename ErrorLocationType>
 ErrorLocationType SetErrorSourcesFromStatus(
-    const ErrorLocationType& error_location_in, const zetasql_base::Status& status,
+    const ErrorLocationType& error_location_in, const absl::Status& status,
     ErrorMessageMode mode, const std::string& input_text_for_status = "") {
   if (status.ok()) {
     // An OK status should not have any payload, so just return the
@@ -164,7 +164,7 @@ ErrorLocationType SetErrorSourcesFromStatus(
 // InternalErrorLocation.
 template <typename ErrorLocationType>
 ErrorLocationType SetErrorSourcesFromStatusWithoutOutermostError(
-    const ErrorLocationType& error_location_in, const zetasql_base::Status& status) {
+    const ErrorLocationType& error_location_in, const absl::Status& status) {
   if (status.ok()) {
     // An OK status should not have any payload, so just return the
     // error location.
@@ -183,8 +183,8 @@ ErrorLocationType SetErrorSourcesFromStatusWithoutOutermostError(
 std::string DeprecationWarningsToDebugString(
     const std::vector<FreestandingDeprecationWarning>& warnings);
 
-// Converts <warning> to a zetasql_base::Status.
-inline zetasql_base::Status DeprecationWarningToStatus(
+// Converts <warning> to a absl::Status.
+inline absl::Status DeprecationWarningToStatus(
     const FreestandingDeprecationWarning& warning) {
   return MakeSqlError()
              .Attach(warning.error_location())
@@ -198,11 +198,11 @@ inline zetasql_base::Status DeprecationWarningToStatus(
 // ErrorLocation (and cannot have an InternalErrorLocation or any other
 // payload).
 zetasql_base::StatusOr<FreestandingDeprecationWarning> StatusToDeprecationWarning(
-    const zetasql_base::Status& from_status, absl::string_view sql);
+    const absl::Status& from_status, absl::string_view sql);
 
 // Same as above, but for a vector of util::Statuses.
 zetasql_base::StatusOr<std::vector<FreestandingDeprecationWarning>>
-StatusesToDeprecationWarnings(const std::vector<zetasql_base::Status>& from_statuses,
+StatusesToDeprecationWarnings(const std::vector<absl::Status>& from_statuses,
                               absl::string_view sql);
 
 // This function potentially performs two actions:
@@ -224,12 +224,12 @@ StatusesToDeprecationWarnings(const std::vector<zetasql_base::Status>& from_stat
 // updates the Status error string to include the external ErrorLocation
 // info (line/offset), then clears the ErrorLocation payload from the
 // Status and returns that Status.
-inline zetasql_base::Status ConvertInternalErrorLocationAndAdjustErrorString(
+inline absl::Status ConvertInternalErrorLocationAndAdjustErrorString(
     ErrorMessageMode mode, absl::string_view input_string,
-    const zetasql_base::Status& status) {
+    const absl::Status& status) {
   if (status.ok()) return status;
 
-  const zetasql_base::Status new_status =
+  const absl::Status new_status =
       ConvertInternalErrorLocationToExternal(status, input_string);
   if (mode == ERROR_MESSAGE_WITH_PAYLOAD) {
     return new_status;
@@ -239,15 +239,15 @@ inline zetasql_base::Status ConvertInternalErrorLocationAndAdjustErrorString(
 }
 
 // Same as above, but for a vector of util::Statuses.
-inline std::vector<zetasql_base::Status>
+inline std::vector<absl::Status>
 ConvertInternalErrorLocationsAndAdjustErrorStrings(
     ErrorMessageMode mode, absl::string_view input_string,
-    const std::vector<zetasql_base::Status>& statuses) {
+    const std::vector<absl::Status>& statuses) {
   if (statuses.empty()) return statuses;
 
-  std::vector<zetasql_base::Status> new_statuses;
+  std::vector<absl::Status> new_statuses;
   new_statuses.reserve(statuses.size());
-  for (const zetasql_base::Status& status : statuses) {
+  for (const absl::Status& status : statuses) {
     new_statuses.push_back(ConvertInternalErrorLocationAndAdjustErrorString(
         mode, input_string, status));
   }

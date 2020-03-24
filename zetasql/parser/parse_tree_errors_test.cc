@@ -35,43 +35,43 @@ using zetasql_base::testing::StatusIs;
 
 namespace zetasql {
 
-static zetasql_base::Status NoError() { return ::zetasql_base::OkStatus(); }
+static absl::Status NoError() { return absl::OkStatus(); }
 
-static zetasql_base::Status ErrorWithoutLocation() {
+static absl::Status ErrorWithoutLocation() {
   return MakeSqlError() << "No location";
 }
 
-static zetasql_base::Status ErrorWithLocation() {
+static absl::Status ErrorWithLocation() {
   return MakeSqlErrorAtPoint(ParseLocationPoint::FromByteOffset(10))
       << "With location";
 }
 
-static zetasql_base::Status ErrorNonSQL() {
+static absl::Status ErrorNonSQL() {
   return ::zetasql_base::NotFoundErrorBuilder() << "Non-SQL error";
 }
 
-static zetasql_base::Status ReturnIfTest1() {
+static absl::Status ReturnIfTest1() {
   FakeASTNode ast_location;
   ast_location.InitFields();
   RETURN_SQL_ERROR_AT_IF_ERROR(&ast_location, NoError());
   RETURN_SQL_ERROR_AT_IF_ERROR(&ast_location, ErrorWithoutLocation());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-static zetasql_base::Status ReturnIfTest2() {
+static absl::Status ReturnIfTest2() {
   FakeASTNode ast_location;
   ast_location.InitFields();
   RETURN_SQL_ERROR_AT_IF_ERROR(&ast_location, NoError());
   RETURN_SQL_ERROR_AT_IF_ERROR(&ast_location, ErrorWithLocation());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-static zetasql_base::Status ReturnIfTest3() {
+static absl::Status ReturnIfTest3() {
   FakeASTNode ast_location;
   ast_location.InitFields();
   RETURN_SQL_ERROR_AT_IF_ERROR(&ast_location, NoError());
   RETURN_SQL_ERROR_AT_IF_ERROR(&ast_location, ErrorNonSQL());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 TEST(GetErrorLocationPoint, Basic) {

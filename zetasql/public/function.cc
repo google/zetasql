@@ -41,7 +41,7 @@ const FunctionEnums::WindowOrderSupport FunctionOptions::ORDER_UNSUPPORTED;
 const FunctionEnums::WindowOrderSupport FunctionOptions::ORDER_OPTIONAL;
 const FunctionEnums::WindowOrderSupport FunctionOptions::ORDER_REQUIRED;
 
-zetasql_base::Status FunctionOptions::Deserialize(
+absl::Status FunctionOptions::Deserialize(
     const FunctionOptionsProto& proto,
     std::unique_ptr<FunctionOptions>* result) {
   std::unique_ptr<FunctionOptions> options;
@@ -72,7 +72,7 @@ zetasql_base::Status FunctionOptions::Deserialize(
   options->set_uses_upper_case_sql_name(proto.uses_upper_case_sql_name());
 
   *result = std::move(options);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 void FunctionOptions::Serialize(FunctionOptionsProto* proto) const {
@@ -165,7 +165,7 @@ FunctionDeserializers() {
   return function_deserializers;
 }
 
-zetasql_base::Status Function::Deserialize(
+absl::Status Function::Deserialize(
     const FunctionProto& proto,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
     TypeFactory* factory,
@@ -199,10 +199,10 @@ zetasql_base::Status Function::Deserialize(
   *result = absl::make_unique<Function>(name_path, proto.group(), proto.mode(),
                                         function_signatures, *options);
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Function::Serialize(
+absl::Status Function::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     FunctionProto* proto, bool omit_signatures) const {
   for (const std::string& name : this->FunctionNamePath()) {
@@ -220,7 +220,7 @@ zetasql_base::Status Function::Serialize(
   proto->set_group(GetGroup());
   function_options().Serialize(proto->mutable_options());
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // static
@@ -300,7 +300,7 @@ void Function::AddSignature(const FunctionSignature& signature) {
   ZETASQL_CHECK_OK(signature.IsValidForFunction()) << signature.DebugString(FullName());
 }
 
-zetasql_base::Status Function::AddSignature(const TypeKind result_kind,
+absl::Status Function::AddSignature(const TypeKind result_kind,
                                     const std::vector<TypeKind>& input_kinds,
                                     void* context,
                                     TypeFactory* factory) {
@@ -324,7 +324,7 @@ zetasql_base::Status Function::AddSignature(const TypeKind result_kind,
   AddSignature(FunctionSignature(
       FunctionArgumentType(factory->MakeSimpleType(result_kind)),
       arguments, context));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 Function* Function::AddSignatureOrDie(
@@ -363,12 +363,12 @@ std::string Function::GetSQL(const std::vector<std::string>& inputs) const {
   return absl::StrCat(name, "(", absl::StrJoin(inputs, ", "), ")");
 }
 
-zetasql_base::Status Function::CheckArgumentConstraints(
+absl::Status Function::CheckArgumentConstraints(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options,
     const ArgumentConstraintsCallback& constraints_callback) {
   if (constraints_callback == nullptr) {
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
   return constraints_callback(arguments, language_options);
 }
@@ -462,14 +462,14 @@ FunctionEvaluatorFactory Function::GetFunctionEvaluatorFactory() const {
   return function_options_.function_evaluator_factory;
 }
 
-zetasql_base::Status Function::CheckWindowSupportOptions() const {
+absl::Status Function::CheckWindowSupportOptions() const {
   if (IsScalar() && SupportsOverClause()) {
     return MakeSqlError() << "Scalar functions cannot support OVER clause";
   }
   if (IsAnalytic() && !SupportsOverClause()) {
     return MakeSqlError() << "Analytic functions must support OVER clause";
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 bool Function::SupportsOverClause() const {

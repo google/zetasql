@@ -79,7 +79,7 @@ static std::string GenerateParameterName(
   return param_name;
 }
 
-zetasql_base::Status ReplaceLiteralsByParameters(
+absl::Status ReplaceLiteralsByParameters(
     const std::string& sql,
     const absl::node_hash_set<std::string>& option_names_to_ignore,
     const AnalyzerOptions& analyzer_options,
@@ -172,10 +172,10 @@ zetasql_base::Status ReplaceLiteralsByParameters(
     prefix_offset = last_offset;
   }
   absl::StrAppend(result_sql, sql.substr(prefix_offset));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ReplaceLiteralsByParameters(
+absl::Status ReplaceLiteralsByParameters(
     const std::string& sql, const AnalyzerOptions& analyzer_options,
     const AnalyzerOutput* analyzer_output, LiteralReplacementMap* literal_map,
     GeneratedParameterMap* generated_parameters, std::string* result_sql) {

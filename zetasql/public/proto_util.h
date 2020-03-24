@@ -41,16 +41,16 @@ namespace zetasql {
 // ProtoType::GetProtoFieldType (with <ignore_annotations> = false). For
 // required fields, returns an invalid default_value. For repeated fields,
 // returns an empty array for default_value.
-zetasql_base::Status GetProtoFieldDefaultV2(const google::protobuf::FieldDescriptor* field,
+absl::Status GetProtoFieldDefaultV2(const google::protobuf::FieldDescriptor* field,
                                     const Type* type, Value* default_value);
 // DEPRECATED: Callers should move to using GetProtoFieldDefaultV2. Note that
 // GetProtoFieldDefaultV2 does not respect the 'use_defaults' and
 // 'use_field_defaults' annotations for proto3 fields.
-zetasql_base::Status GetProtoFieldDefault(const google::protobuf::FieldDescriptor* field,
+absl::Status GetProtoFieldDefault(const google::protobuf::FieldDescriptor* field,
                                   const Type* type, Value* default_value);
 // DEPRECATED: Callers should move to GetProtoFieldDefaultV2.
 // <use_obsolete_timestamp> must be false.
-zetasql_base::Status GetProtoFieldDefault(const google::protobuf::FieldDescriptor* field,
+absl::Status GetProtoFieldDefault(const google::protobuf::FieldDescriptor* field,
                                   const Type* type, bool use_obsolete_timestamp,
                                   Value* default_value);
 
@@ -63,7 +63,7 @@ zetasql_base::Status GetProtoFieldDefault(const google::protobuf::FieldDescripto
 // For repeated fields, returns an empty array for <default_value> where the
 // array element type is the raw field type (i.e., the type of the field with
 // format annotations ignored).
-zetasql_base::Status GetProtoFieldDefaultRaw(const google::protobuf::FieldDescriptor* field,
+absl::Status GetProtoFieldDefaultRaw(const google::protobuf::FieldDescriptor* field,
                                      const Type* type, Value* default_value);
 
 // Get the Type and default value for a proto field in one step.
@@ -74,13 +74,13 @@ zetasql_base::Status GetProtoFieldDefaultRaw(const google::protobuf::FieldDescri
 // For required fields, returns an invalid default_value.
 // For repeated fields, returns an empty array for default_value.
 //
-zetasql_base::Status GetProtoFieldTypeAndDefault(const google::protobuf::FieldDescriptor* field,
+absl::Status GetProtoFieldTypeAndDefault(const google::protobuf::FieldDescriptor* field,
                                          TypeFactory* type_factory,
                                          const Type** type,
                                          Value* default_value = nullptr);
 // DEPRECATED: Callers should move to the form above. <use_obsolete_timestamp>
 // must be false.
-zetasql_base::Status GetProtoFieldTypeAndDefault(const google::protobuf::FieldDescriptor* field,
+absl::Status GetProtoFieldTypeAndDefault(const google::protobuf::FieldDescriptor* field,
                                          TypeFactory* type_factory,
                                          bool use_obsolete_timestamp,
                                          const Type** type,
@@ -94,7 +94,7 @@ zetasql_base::Status GetProtoFieldTypeAndDefault(const google::protobuf::FieldDe
 // in GetProtoFieldDefaultRaw) will be returned. For required fields, returns an
 // invalid <default_value>. For repeated fields, returns an empty array for
 // <default_value>.
-zetasql_base::Status GetProtoFieldTypeAndDefaultRaw(
+absl::Status GetProtoFieldTypeAndDefaultRaw(
     const google::protobuf::FieldDescriptor* field, TypeFactory* type_factory,
     const Type** type, Value* default_value = nullptr);
 
@@ -122,7 +122,7 @@ using ProtoFieldValueList = std::vector<zetasql_base::StatusOr<Value>>;
 // field descriptor can be used multiple times (e.g., to read a field with
 // different field formats or with/without the has bit). 'bytes' is a serialized
 // proto of the common google::protobuf::Descriptor.
-zetasql_base::Status ReadProtoFields(
+absl::Status ReadProtoFields(
     absl::Span<const ProtoFieldInfo* const> field_infos,
     const absl::Cord& bytes, ProtoFieldValueList* field_value_list);
 
@@ -135,12 +135,12 @@ zetasql_base::Status ReadProtoFields(
 // values.  'default_value' may be an uninitialized Value for a required field.
 // Internally uses ReadProtoFields if --read_proto_field_optimized_path is
 // false, otherwise uses an version optimized for reading a single field.
-zetasql_base::Status ReadProtoField(const google::protobuf::FieldDescriptor* field_descr,
+absl::Status ReadProtoField(const google::protobuf::FieldDescriptor* field_descr,
                             FieldFormat::Format format, const Type* type,
                             const Value& default_value, bool get_has_bit,
                             const absl::Cord& bytes, Value* output_value);
 // As above but `get_has_bit` is defaulted to false.
-zetasql_base::Status ReadProtoField(const google::protobuf::FieldDescriptor* field_descr,
+absl::Status ReadProtoField(const google::protobuf::FieldDescriptor* field_descr,
                             FieldFormat::Format format, const Type* type,
                             const Value& default_value, const absl::Cord& bytes,
                             Value* output_value);
@@ -151,7 +151,7 @@ zetasql_base::Status ReadProtoField(const google::protobuf::FieldDescriptor* fie
 // This may return an error if the proto bytes are corrupted.
 //
 // DEPRECATED: Use ReadProtoField instead.
-zetasql_base::Status ProtoHasField(
+absl::Status ProtoHasField(
     int32_t field_tag, const absl::Cord& bytes,
     bool* has_field);
 

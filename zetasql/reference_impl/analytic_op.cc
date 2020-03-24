@@ -89,7 +89,7 @@ WindowFrameBoundaryArg::Create(BoundaryType boundary_type,
       new WindowFrameBoundaryArg(boundary_type, std::move(expr)));
 }
 
-zetasql_base::Status WindowFrameBoundaryArg::SetSchemasForEvaluation(
+absl::Status WindowFrameBoundaryArg::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   if (boundary_offset_expr_ != nullptr) {
     ZETASQL_RETURN_IF_ERROR(
@@ -102,7 +102,7 @@ zetasql_base::Status WindowFrameBoundaryArg::SetSchemasForEvaluation(
         absl::make_unique<const TupleSchema>(schema->variables()));
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // These operators used by std::plus and std::minus functors to compute the
@@ -258,11 +258,11 @@ bool IsNaN(const Value& value) {
 
 }  // namespace
 
-zetasql_base::Status WindowFrameBoundaryArg::GetOffsetValue(
+absl::Status WindowFrameBoundaryArg::GetOffsetValue(
     absl::Span<const TupleData* const> params, EvaluationContext* context,
     Value* range_offset_value) const {
   TupleSlot slot;
-  ::zetasql_base::Status status;
+  absl::Status status;
   if (!boundary_offset_expr_->EvalSimple(params, context, &slot, &status)) {
     return status;
   }
@@ -299,10 +299,10 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetValue(
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status WindowFrameBoundaryArg::GetRowsBasedWindowBoundaries(
+absl::Status WindowFrameBoundaryArg::GetRowsBasedWindowBoundaries(
     bool is_end_boundary, int partition_size,
     absl::Span<const TupleData* const> params, EvaluationContext* context,
     std::vector<int>* window_boundaries) const {
@@ -310,17 +310,17 @@ zetasql_base::Status WindowFrameBoundaryArg::GetRowsBasedWindowBoundaries(
   switch (boundary_type_) {
     case kUnboundedPreceding: {
       window_boundaries->assign(partition_size, 0);
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     case kUnboundedFollowing: {
       window_boundaries->assign(partition_size, partition_size - 1);
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     case kCurrentRow: {
       for (int tuple_id = 0; tuple_id < partition_size; ++tuple_id) {
         window_boundaries->emplace_back(tuple_id);
       }
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     case kOffsetPreceding: {
       Value boundary_offset;
@@ -346,7 +346,7 @@ zetasql_base::Status WindowFrameBoundaryArg::GetRowsBasedWindowBoundaries(
            boundary_tuple_id < last_boundary_tuple_id; ++boundary_tuple_id) {
         window_boundaries->emplace_back(boundary_tuple_id);
       }
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     case kOffsetFollowing: {
       Value boundary_offset;
@@ -374,14 +374,14 @@ zetasql_base::Status WindowFrameBoundaryArg::GetRowsBasedWindowBoundaries(
                                   partition_size);
       }
 
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
   }
 }
 
 // Computes the key slot indexes corresponding to 'keys' in 'schema'. If
 // 'slots_for_values' is non-NULL, also complutes the value slot indexes.
-static zetasql_base::Status GetSlotsForKeysAndValues(
+static absl::Status GetSlotsForKeysAndValues(
     const TupleSchema& schema, absl::Span<const KeyArg* const> keys,
     std::vector<int>* slots_for_keys, std::vector<int>* slots_for_values) {
   slots_for_keys->reserve(keys.size());
@@ -404,17 +404,17 @@ static zetasql_base::Status GetSlotsForKeysAndValues(
     }
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status WindowFrameBoundaryArg::GetRangeBasedWindowBoundaries(
+absl::Status WindowFrameBoundaryArg::GetRangeBasedWindowBoundaries(
     bool is_end_boundary, const TupleSchema& schema,
     absl::Span<const TupleData* const> partition,
     absl::Span<const KeyArg* const> order_keys,
     absl::Span<const TupleData* const> params, EvaluationContext* context,
     std::vector<int>* window_boundaries) const {
   if (partition.empty()) {
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   ZETASQL_RET_CHECK(window_boundaries != nullptr);
@@ -460,12 +460,12 @@ zetasql_base::Status WindowFrameBoundaryArg::GetRangeBasedWindowBoundaries(
   switch (boundary_type_) {
     case kUnboundedPreceding: {
       window_boundaries->assign(tuples_with_params.size(), 0);
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     case kUnboundedFollowing: {
       window_boundaries->assign(tuples_with_params.size(),
                                 tuples_with_params.size() - 1);
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     case kCurrentRow: {
       ZETASQL_RET_CHECK(!order_key_slot_idxs.empty());
@@ -509,7 +509,7 @@ zetasql_base::Status WindowFrameBoundaryArg::GetRangeBasedWindowBoundaries(
         }
       }
 
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
     case kOffsetPreceding: {
       ZETASQL_RET_CHECK_EQ(order_keys.size(), 1);
@@ -572,7 +572,7 @@ struct WindowFrameBoundaryArg::GroupBoundary {
   int boundary;
 };
 
-zetasql_base::Status WindowFrameBoundaryArg::SetGroupBoundaries(
+absl::Status WindowFrameBoundaryArg::SetGroupBoundaries(
     absl::Span<const GroupBoundary> group_boundaries,
     std::vector<int>* window_boundaries) const {
   for (const GroupBoundary& group_boundary : group_boundaries) {
@@ -584,10 +584,10 @@ zetasql_base::Status WindowFrameBoundaryArg::SetGroupBoundaries(
       (*window_boundaries)[tuple_id] = group_boundary.boundary;
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesAsc(
+absl::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesAsc(
     bool is_end_boundary, const TupleSchema& schema,
     absl::Span<const TupleData* const> partition, int order_key_slot_idx,
     const Value& offset_value, KeyArg::NullOrder null_order,
@@ -736,7 +736,7 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesAs
       }
     }
 
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // Find the first tuple with a "safe" order key not less than
@@ -845,10 +845,10 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesAs
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesDesc(
+absl::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesDesc(
     bool is_end_boundary, const TupleSchema& schema,
     absl::Span<const TupleData* const> partition, int order_key_slot_idx,
     const Value& offset_value, KeyArg::NullOrder null_order,
@@ -994,7 +994,7 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesDe
       }
     }
 
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // Find the position of the first tuple with a "safe" order
@@ -1097,10 +1097,10 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetPrecedingRangeBoundariesDe
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesAsc(
+absl::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesAsc(
     bool is_end_boundary, const TupleSchema& schema,
     absl::Span<const TupleData* const> partition, const int order_key_slot_idx,
     const Value& offset_value, KeyArg::NullOrder null_order,
@@ -1247,7 +1247,7 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesAs
       }
     }
 
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // Find the position of the last tuple with a safe key.
@@ -1349,10 +1349,10 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesAs
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesDesc(
+absl::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesDesc(
     bool is_end_boundary, const TupleSchema& schema,
     absl::Span<const TupleData* const> partition, int order_key_slot_idx,
     const Value& offset_value, KeyArg::NullOrder null_order,
@@ -1499,7 +1499,7 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesDe
       }
     }
 
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // Find the position of the last tuple with a safe key not less than
@@ -1600,7 +1600,7 @@ zetasql_base::Status WindowFrameBoundaryArg::GetOffsetFollowingRangeBoundariesDe
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 void WindowFrameBoundaryArg::DivideAscendingPartition(
@@ -1725,14 +1725,14 @@ std::string WindowFrameArg::DebugInternal(const std::string& indent,
   return result;
 }
 
-zetasql_base::Status WindowFrameArg::SetSchemasForEvaluation(
+absl::Status WindowFrameArg::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   ZETASQL_RETURN_IF_ERROR(start_boundary_arg_->SetSchemasForEvaluation(params_schemas));
   ZETASQL_RETURN_IF_ERROR(end_boundary_arg_->SetSchemasForEvaluation(params_schemas));
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status WindowFrameArg::GetWindows(
+absl::Status WindowFrameArg::GetWindows(
     const TupleSchema& schema, absl::Span<const TupleData* const> partition,
     absl::Span<const KeyArg* const> order_keys,
     absl::Span<const TupleData* const> params, EvaluationContext* context,
@@ -1799,15 +1799,15 @@ zetasql_base::Status WindowFrameArg::GetWindows(
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status WindowFrameArg::IsStaticallyEmpty(
+absl::Status WindowFrameArg::IsStaticallyEmpty(
     absl::Span<const TupleData* const> params, int partition_size,
     EvaluationContext* context, bool* is_empty) const {
   if (window_frame_type_ != WindowFrameType::kRows) {
     *is_empty = false;
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   if (end_boundary_arg_->boundary_type() ==
@@ -1821,7 +1821,7 @@ zetasql_base::Status WindowFrameArg::IsStaticallyEmpty(
     ZETASQL_RET_CHECK(end_offset_value.type()->IsInt64());
     if (end_offset_value.int64_value() >= partition_size) {
       *is_empty = true;
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
 
     // The window frame ROWS BETWEEN <m> PRECEDING AND <n> PRECEDING with
@@ -1833,7 +1833,7 @@ zetasql_base::Status WindowFrameArg::IsStaticallyEmpty(
       ZETASQL_RETURN_IF_ERROR(start_boundary_arg_->GetOffsetValue(params, context,
                                                           &start_offset_value));
       *is_empty = start_offset_value.LessThan(end_offset_value);
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
   }
 
@@ -1847,7 +1847,7 @@ zetasql_base::Status WindowFrameArg::IsStaticallyEmpty(
     ZETASQL_RET_CHECK(start_offset_value.type()->IsInt64());
     if (start_offset_value.int64_value() >= partition_size) {
       *is_empty = true;
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
 
     // The window frame ROWS BETWEEN <m> FOLLOWING AND <n> FOLLOWING with
@@ -1859,19 +1859,19 @@ zetasql_base::Status WindowFrameArg::IsStaticallyEmpty(
       ZETASQL_RETURN_IF_ERROR(end_boundary_arg_->GetOffsetValue(params, context,
                                                         &end_offset_value));
       *is_empty = end_offset_value.LessThan(start_offset_value);
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     }
   }
 
   *is_empty = false;
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // -------------------------------------------------------
 // AggregateAnalyticArg
 // -------------------------------------------------------
 
-zetasql_base::Status AggregateAnalyticArg::SetSchemasForEvaluation(
+absl::Status AggregateAnalyticArg::SetSchemasForEvaluation(
     const TupleSchema& partition_schema,
     absl::Span<const TupleSchema* const> params_schemas) {
   ZETASQL_RET_CHECK(window_frame_ != nullptr);
@@ -1880,10 +1880,10 @@ zetasql_base::Status AggregateAnalyticArg::SetSchemasForEvaluation(
       aggregator_->SetSchemasForEvaluation(partition_schema, params_schemas));
   partition_schema_ =
       absl::make_unique<const TupleSchema>(partition_schema.variables());
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status AggregateAnalyticArg::Eval(
+absl::Status AggregateAnalyticArg::Eval(
     absl::Span<const TupleData* const> partition,
     absl::Span<const KeyArg* const> order_keys,
     absl::Span<const TupleData* const> params, EvaluationContext* context,
@@ -1912,7 +1912,7 @@ zetasql_base::Status AggregateAnalyticArg::Eval(
   if (!window_frame_is_deterministic) {
     context->SetNonDeterministicOutput();
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 std::string AggregateAnalyticArg::DebugInternal(const std::string& indent,
@@ -1943,7 +1943,7 @@ NonAggregateAnalyticArg::Create(
       std::move(function_call), error_mode));
 }
 
-zetasql_base::Status NonAggregateAnalyticArg::SetSchemasForEvaluation(
+absl::Status NonAggregateAnalyticArg::SetSchemasForEvaluation(
     const TupleSchema& partition_schema,
     absl::Span<const TupleSchema* const> params_schemas) {
   if (window_frame_ != nullptr) {
@@ -1959,10 +1959,10 @@ zetasql_base::Status NonAggregateAnalyticArg::SetSchemasForEvaluation(
   }
   partition_schema_ =
       absl::make_unique<const TupleSchema>(partition_schema.variables());
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status NonAggregateAnalyticArg::Eval(
+absl::Status NonAggregateAnalyticArg::Eval(
     absl::Span<const TupleData* const> partition,
     absl::Span<const KeyArg* const> order_keys,
     absl::Span<const TupleData* const> params, EvaluationContext* context,
@@ -1977,7 +1977,7 @@ zetasql_base::Status NonAggregateAnalyticArg::Eval(
     std::vector<Value>* argument_result = &arguments.back();
     for (const TupleData* tuple : partition) {
       TupleSlot slot;
-      ::zetasql_base::Status status;
+      absl::Status status;
       if (!non_const_argument->value_expr()->EvalSimple(
               ConcatSpans(params, {tuple}), context, &slot, &status)) {
         return status;
@@ -1989,7 +1989,7 @@ zetasql_base::Status NonAggregateAnalyticArg::Eval(
   // Evaluate constant argument expressions.
   for (const ExprArg* const_argument : function_call_->const_arguments()) {
     TupleSlot slot;
-    ::zetasql_base::Status status;
+    absl::Status status;
     if (!const_argument->value_expr()->EvalSimple(params, context, &slot,
                                                   &status)) {
       return status;
@@ -2081,7 +2081,7 @@ std::string AnalyticOp::GetIteratorDebugString(
   return op;
 }
 
-::zetasql_base::Status AnalyticOp::SetSchemasForEvaluation(
+absl::Status AnalyticOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   ZETASQL_RETURN_IF_ERROR(mutable_input()->SetSchemasForEvaluation(params_schemas));
   const std::unique_ptr<const TupleSchema> input_schema =
@@ -2107,7 +2107,7 @@ std::string AnalyticOp::GetIteratorDebugString(
         arg->SetSchemasForEvaluation(*input_schema, params_schemas));
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 namespace {
@@ -2145,7 +2145,7 @@ class AnalyticTupleIterator : public TupleIterator {
             absl::GetFlag(
                 FLAGS_zetasql_call_verify_not_aborted_rows_period) ==
         0) {
-      zetasql_base::Status status = context_->VerifyNotAborted();
+      absl::Status status = context_->VerifyNotAborted();
       if (!status.ok()) {
         status_ = status;
         return nullptr;
@@ -2226,7 +2226,7 @@ class AnalyticTupleIterator : public TupleIterator {
       }
     }
 
-    zetasql_base::Status status = PopulateAnalyticArgSlots();
+    absl::Status status = PopulateAnalyticArgSlots();
     if (!status.ok()) {
       status_ = status;
       return nullptr;
@@ -2237,7 +2237,7 @@ class AnalyticTupleIterator : public TupleIterator {
     return current_.get();
   }
 
-  zetasql_base::Status Status() const override { return status_; }
+  absl::Status Status() const override { return status_; }
 
   std::string DebugString() const override {
     return AnalyticOp::GetIteratorDebugString(input_iter_->DebugString());
@@ -2246,7 +2246,7 @@ class AnalyticTupleIterator : public TupleIterator {
  private:
   // For each AnalyticArg in 'analytic_args', populates the corresponding slot
   // in all the rows in 'current_partition_'.
-  zetasql_base::Status PopulateAnalyticArgSlots() {
+  absl::Status PopulateAnalyticArgSlots() {
     for (int arg_idx = 0; arg_idx < analytic_args_.size(); ++arg_idx) {
       const AnalyticArg* analytic_arg = analytic_args_[arg_idx];
 
@@ -2261,7 +2261,7 @@ class AnalyticTupleIterator : public TupleIterator {
       ZETASQL_RETURN_IF_ERROR(
           remaining_current_partition_.SetSlot(slot_idx, std::move(values)));
     }
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   const std::vector<const TupleData*> params_;
@@ -2283,7 +2283,7 @@ class AnalyticTupleIterator : public TupleIterator {
   // true.
   std::unique_ptr<TupleData> first_tuple_in_next_partition_;
   EvaluationContext* context_;
-  zetasql_base::Status status_;
+  absl::Status status_;
   int64_t num_next_calls_ = 0;
 };
 }  // namespace

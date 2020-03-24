@@ -61,13 +61,13 @@ class Procedure {
   // Returns the argument signature of this procedure;
   const FunctionSignature& signature() const { return signature_; }
 
-  static zetasql_base::Status Deserialize(
+  static absl::Status Deserialize(
       const ProcedureProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory,
       std::unique_ptr<Procedure>* result);
 
-  zetasql_base::Status Serialize(
+  absl::Status Serialize(
       FileDescriptorSetMap* file_descriptor_set_map,
       ProcedureProto* proto) const;
 

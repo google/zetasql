@@ -31,7 +31,7 @@ namespace zetasql {
 namespace functions {
 
 bool RegExp::InitializePatternUtf8(absl::string_view pattern,
-                                   zetasql_base::Status* error) {
+                                   absl::Status* error) {
   RE2::Options options;
   options.set_log_errors(false);
   options.set_utf8(true);
@@ -44,7 +44,7 @@ bool RegExp::InitializePatternUtf8(absl::string_view pattern,
 }
 
 bool RegExp::InitializePatternBytes(absl::string_view pattern,
-                                    zetasql_base::Status* error) {
+                                    absl::Status* error) {
   RE2::Options options;
   options.set_log_errors(false);
   options.set_utf8(false);
@@ -56,20 +56,20 @@ bool RegExp::InitializePatternBytes(absl::string_view pattern,
   return true;
 }
 
-bool RegExp::Contains(absl::string_view str, bool* out, zetasql_base::Status* error) {
+bool RegExp::Contains(absl::string_view str, bool* out, absl::Status* error) {
   DCHECK(re_);
   *out = re_->PartialMatch(str, *re_);
   return true;
 }
 
-bool RegExp::Match(absl::string_view str, bool* out, zetasql_base::Status* error) {
+bool RegExp::Match(absl::string_view str, bool* out, absl::Status* error) {
   DCHECK(re_);
   *out = re_->FullMatch(str, *re_);
   return true;
 }
 
 bool RegExp::Extract(absl::string_view str, absl::string_view* out,
-                     bool* is_null, zetasql_base::Status* error) {
+                     bool* is_null, absl::Status* error) {
   DCHECK(re_);
   if (str.data() == nullptr) {
     // Ensure that the output string never has a null data pointer if a match is
@@ -109,7 +109,7 @@ void RegExp::ExtractAllReset(const absl::string_view str) {
   last_match_ = false;
 }
 
-bool RegExp::ExtractAllNext(absl::string_view* out, zetasql_base::Status* error) {
+bool RegExp::ExtractAllNext(absl::string_view* out, absl::Status* error) {
   DCHECK(re_);
   if (re_->NumberOfCapturingGroups() > 1) {
     return internal::UpdateError(
@@ -159,7 +159,7 @@ bool RegExp::ExtractAllNext(absl::string_view* out, zetasql_base::Status* error)
 
       if (character < 0) {
         error->Update(
-            zetasql_base::Status(zetasql_base::StatusCode::kOutOfRange,
+            absl::Status(absl::StatusCode::kOutOfRange,
                          "Input argument to REGEXP_EXTRACT_ALL function "
                          "is not valid UTF8 string"));
         return false;
@@ -176,7 +176,7 @@ bool RegExp::ExtractAllNext(absl::string_view* out, zetasql_base::Status* error)
 }
 
 bool RegExp::Replace(absl::string_view str, absl::string_view newsub,
-                     std::string* out, zetasql_base::Status* error) {
+                     std::string* out, absl::Status* error) {
   // The following implementation is similar to RE2::GlobalReplace, with a few
   // important differences: (1) it works correctly with UTF-8 strings,
   // (2) it returns proper error message instead of logging it, and
@@ -186,8 +186,8 @@ bool RegExp::Replace(absl::string_view str, absl::string_view newsub,
 
   std::string error_string;
   if (!re_->CheckRewriteString(newsub, &error_string)) {
-    error->Update(zetasql_base::Status(
-        zetasql_base::StatusCode::kOutOfRange,
+    error->Update(absl::Status(
+        absl::StatusCode::kOutOfRange,
         absl::StrCat("Invalid REGEXP_REPLACE pattern: ", error_string)));
     return false;
   }
@@ -253,7 +253,7 @@ void RegExp::SetMaxOutSize(int32_t size) {
 
 bool RegExp::Rewrite(const absl::string_view rewrite,
                      const std::vector<absl::string_view>& groups,
-                     std::string* out, zetasql_base::Status* error) {
+                     std::string* out, absl::Status* error) {
   for (const char *s = rewrite.data(); s < rewrite.end(); ++s) {
     const char* start = s;
     while (s < rewrite.end() && *s != '\\') s++;
@@ -268,14 +268,14 @@ bool RegExp::Rewrite(const absl::string_view rewrite,
       } else if (c == '\\') {
         out->push_back('\\');
       } else {
-        error->Update(zetasql_base::Status(zetasql_base::StatusCode::kInternal,
+        error->Update(absl::Status(absl::StatusCode::kInternal,
                                    "Invalid REGEXP_REPLACE pattern"));
         return false;
       }
     }
 
     if (out->length() > max_out_size_) {
-      error->Update(zetasql_base::Status(zetasql_base::StatusCode::kOutOfRange,
+      error->Update(absl::Status(absl::StatusCode::kOutOfRange,
                                  "REGEXP_REPLACE: exceeded maximum output "
                                  "length"));
       return false;

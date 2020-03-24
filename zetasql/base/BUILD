@@ -142,7 +142,6 @@ cc_test(
 cc_library(
     name = "status",
     srcs = [
-        "status.cc",
         "status_builder.cc",
         "status_payload.cc",
         "statusor.cc",
@@ -160,14 +159,13 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":logging",
-        ":map_util",
         ":source_location",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/base:log_severity",
-        "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/meta:type_traits",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/types:optional",
+        "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/utility",
     ],
 )

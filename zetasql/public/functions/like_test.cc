@@ -112,7 +112,7 @@ TEST_P(LikeMatchTest, MatchTest) {
 
   SCOPED_TRACE(absl::Substitute("Matching pattern \"$0\" with string \"$1\"",
                                 params.pattern, params.input));
-  zetasql_base::Status status = CreateLikeRegexp(params.pattern, params.type, &re);
+  absl::Status status = CreateLikeRegexp(params.pattern, params.type, &re);
   ASSERT_TRUE(status.ok()) << status;
 
   ASSERT_EQ(params.expected_outcome, RE2::FullMatch(params.input, *re));
@@ -120,18 +120,18 @@ TEST_P(LikeMatchTest, MatchTest) {
 
 TEST(LikeTest, BadPatternUTF8) {
   std::unique_ptr<RE2> re;
-  zetasql_base::Status status = CreateLikeRegexp("\xC2", TYPE_STRING, &re);
+  absl::Status status = CreateLikeRegexp("\xC2", TYPE_STRING, &re);
   ASSERT_FALSE(status.ok());
   EXPECT_TRUE(re == nullptr);
-  EXPECT_EQ(zetasql_base::StatusCode::kOutOfRange, status.code());
+  EXPECT_EQ(absl::StatusCode::kOutOfRange, status.code());
 }
 
 TEST(LikeTest, BadPatternEscape) {
   std::unique_ptr<RE2> re;
-  zetasql_base::Status status = CreateLikeRegexp("\\", TYPE_STRING, &re);
+  absl::Status status = CreateLikeRegexp("\\", TYPE_STRING, &re);
   ASSERT_FALSE(status.ok());
   EXPECT_TRUE(re == nullptr);
-  EXPECT_EQ(zetasql_base::StatusCode::kOutOfRange, status.code());
+  EXPECT_EQ(absl::StatusCode::kOutOfRange, status.code());
 }
 
 }  // namespace functions

@@ -24,7 +24,7 @@
 #include "zetasql/scripting/script_segment.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/status_builder.h"
@@ -306,7 +306,7 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
       try_block = true;
     }
 
-    return VisitResult::VisitChildren(node, [=]() -> zetasql_base::Status {
+    return VisitResult::VisitChildren(node, [=]() -> absl::Status {
       if (try_block) {
         ZETASQL_RET_CHECK(node->parent()
                       ->GetAsOrDie<ASTBeginEndBlock>()
@@ -365,13 +365,13 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
           stmt_list_node_data->end_edges.begin(),
           std::move(pending_unreachable_incomplete_edges));
 
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     });
   }
 
   zetasql_base::StatusOr<VisitResult> visitASTScript(const ASTScript* node) override {
     graph_->end_node_ = absl::WrapUnique(new ControlFlowNode(nullptr, graph_));
-    return VisitResult::VisitChildren(node, [=]() -> zetasql_base::Status {
+    return VisitResult::VisitChildren(node, [=]() -> absl::Status {
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const NodeData> stmt_list_data,
                        TakeNodeData(node->statement_list_node()));
       if (stmt_list_data->empty()) {
@@ -382,13 +382,13 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
       }
       ZETASQL_RETURN_IF_ERROR(
           LinkEndNodes(stmt_list_data.get(), graph_->end_node_.get(), node));
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     });
   }
 
   zetasql_base::StatusOr<VisitResult> visitASTIfStatement(
       const ASTIfStatement* node) override {
-    return VisitResult::VisitChildren(node, [=]() -> zetasql_base::Status {
+    return VisitResult::VisitChildren(node, [=]() -> absl::Status {
       ZETASQL_ASSIGN_OR_RETURN(NodeData * if_stmt_node_data, CreateNodeData(node));
       ZETASQL_ASSIGN_OR_RETURN(ControlFlowNode * condition, AddGraphNode(node));
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<NodeData> then_list_data,
@@ -442,14 +442,14 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
         if_stmt_node_data->AddOpenEndEdge(
             prev_condition, ControlFlowEdge::Kind::kFalseCondition);
       }
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     });
   }
 
   zetasql_base::StatusOr<VisitResult> visitASTWhileStatement(
       const ASTWhileStatement* node) override {
     loop_data_.emplace_back();
-    return VisitResult::VisitChildren(node, [=]() -> zetasql_base::Status {
+    return VisitResult::VisitChildren(node, [=]() -> absl::Status {
       ControlFlowNode* loop_cfg_node = nullptr;
       ZETASQL_ASSIGN_OR_RETURN(loop_cfg_node, AddGraphNode(node));
       ZETASQL_ASSIGN_OR_RETURN(NodeData * while_stmt_node_data, CreateNodeData(node));
@@ -485,7 +485,7 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
                                   ControlFlowEdge::Kind::kNormal, node));
       }
       loop_data_.pop_back();
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     });
   }
 
@@ -495,7 +495,7 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
       exception_handler_block_data_map_[node] =
           absl::make_unique<BlockWithExceptionHandlerData>();
     }
-    return VisitResult::VisitChildren(node, [=]() -> zetasql_base::Status {
+    return VisitResult::VisitChildren(node, [=]() -> absl::Status {
       ZETASQL_ASSIGN_OR_RETURN(NodeData * node_data, CreateNodeData(node));
 
       // Create a node for entering the block.
@@ -547,7 +547,7 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
         }
         exception_handler_block_data_map_.erase(node);
       }
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     });
   }
 
@@ -640,16 +640,16 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
     return it->second.get();
   }
 
-  zetasql_base::Status LinkEndNodes(const NodeData* pred, ControlFlowNode* succ,
+  absl::Status LinkEndNodes(const NodeData* pred, ControlFlowNode* succ,
                             const ASTNode* exit_to) {
     CHECK(succ != nullptr);
     for (const auto& edge : pred->end_edges) {
       ZETASQL_RETURN_IF_ERROR(LinkNodes(edge.predecessor, succ, edge.kind, exit_to));
     }
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
-  zetasql_base::Status LinkNodes(ControlFlowNode* cfg_pred, ControlFlowNode* cfg_succ,
+  absl::Status LinkNodes(ControlFlowNode* cfg_pred, ControlFlowNode* cfg_succ,
                          ControlFlowEdge::Kind kind,
                          const ASTNode* exit_to = nullptr) {
     CHECK(cfg_pred != nullptr);
@@ -702,7 +702,7 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
     // Mark edge as predecessor of successor
     cfg_succ->predecessors_.emplace_back(edge);
 
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // Keeps track of temporary information about each AST node needed while

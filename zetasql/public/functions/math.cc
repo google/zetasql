@@ -106,7 +106,7 @@ static inline bool CastRounded(FromType in, ToType* out) {
 
 template <>
 bool RoundDecimal(double in, int64_t digits, double *out,
-                  zetasql_base::Status* error) {
+                  absl::Status* error) {
   digits = -digits;
   if (digits > kDoubleMaxExponent) {
     *out = 0.0;
@@ -153,7 +153,7 @@ bool RoundDecimal(double in, int64_t digits, double *out,
 
 template <>
 bool RoundDecimal(float in, int64_t digits, float *out,
-                  zetasql_base::Status* error) {
+                  absl::Status* error) {
   static_assert(std::numeric_limits<double>::max_exponent >=
                 std::numeric_limits<float>::max_exponent * 2 ,
                 "double's exponent must be wider than float's");
@@ -177,7 +177,7 @@ bool RoundDecimal(float in, int64_t digits, float *out,
 }
 template <>
 bool TruncDecimal(double in, int64_t digits, double *out,
-                  zetasql_base::Status* error) {
+                  absl::Status* error) {
   digits = -digits;
   if (digits > kDoubleMaxExponent) {
     *out = 0.0;
@@ -207,7 +207,7 @@ bool TruncDecimal(double in, int64_t digits, double *out,
 
 template <>
 bool TruncDecimal(float in, int64_t digits, float *out,
-                  zetasql_base::Status* error) {
+                  absl::Status* error) {
   static_assert(std::numeric_limits<double>::max_exponent >=
                 std::numeric_limits<float>::max_exponent * 2 ,
                 "double's exponent must be wider than float's");
@@ -228,7 +228,7 @@ bool TruncDecimal(float in, int64_t digits, float *out,
 }
 
 template <>
-bool Round(NumericValue in, NumericValue *out, zetasql_base::Status* error) {
+bool Round(NumericValue in, NumericValue *out, absl::Status* error) {
   auto status_or_numeric = in.Round(0);
   if (!status_or_numeric.ok()) {
     return internal::SetFloatingPointOverflow(
@@ -240,7 +240,7 @@ bool Round(NumericValue in, NumericValue *out, zetasql_base::Status* error) {
 
 template <>
 bool RoundDecimal(NumericValue in, int64_t digits, NumericValue *out,
-                  zetasql_base::Status* error) {
+                  absl::Status* error) {
   auto status_or_numeric = in.Round(digits);
   if (!status_or_numeric.ok()) {
     return internal::SetFloatingPointOverflow(
@@ -251,20 +251,20 @@ bool RoundDecimal(NumericValue in, int64_t digits, NumericValue *out,
 }
 
 template <>
-bool Trunc(NumericValue in, NumericValue *out, zetasql_base::Status* error) {
+bool Trunc(NumericValue in, NumericValue *out, absl::Status* error) {
   *out = in.Trunc(0);
   return true;
 }
 
 template <>
 bool TruncDecimal(NumericValue in, int64_t digits, NumericValue* out,
-                  zetasql_base::Status* error) {
+                  absl::Status* error) {
   *out = in.Trunc(digits);
   return true;
 }
 
 template <>
-bool Ceil(NumericValue in, NumericValue *out, zetasql_base::Status* error) {
+bool Ceil(NumericValue in, NumericValue *out, absl::Status* error) {
   auto status_or_numeric = in.Ceiling();
   if (!status_or_numeric.ok()) {
     return internal::SetFloatingPointOverflow(
@@ -275,7 +275,7 @@ bool Ceil(NumericValue in, NumericValue *out, zetasql_base::Status* error) {
 }
 
 template <>
-bool Floor(NumericValue in, NumericValue *out, zetasql_base::Status* error) {
+bool Floor(NumericValue in, NumericValue *out, absl::Status* error) {
   auto status_or_numeric = in.Floor();
   if (!status_or_numeric.ok()) {
     return internal::SetFloatingPointOverflow(
@@ -287,7 +287,7 @@ bool Floor(NumericValue in, NumericValue *out, zetasql_base::Status* error) {
 
 template <>
 bool Pow(NumericValue in1, NumericValue in2, NumericValue* out,
-         zetasql_base::Status* error) {
+         absl::Status* error) {
   auto status_or_numeric = in1.Power(in2);
   if (!status_or_numeric.ok()) {
     return internal::SetFloatingPointError(

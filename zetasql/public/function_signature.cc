@@ -57,7 +57,7 @@ bool FunctionSignatureOptions::CheckFunctionSignatureConstraints(
   return false;
 }
 
-zetasql_base::Status FunctionSignatureOptions::Deserialize(
+absl::Status FunctionSignatureOptions::Deserialize(
     const FunctionSignatureOptionsProto& proto,
     std::unique_ptr<FunctionSignatureOptions>* result) {
   *result = absl::make_unique<FunctionSignatureOptions>();
@@ -65,7 +65,7 @@ zetasql_base::Status FunctionSignatureOptions::Deserialize(
   (*result)->set_additional_deprecation_warnings(
       proto.additional_deprecation_warning());
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 
@@ -82,7 +82,7 @@ const FunctionEnums::ArgumentCardinality FunctionArgumentType::REQUIRED;
 const FunctionEnums::ArgumentCardinality FunctionArgumentType::REPEATED;
 const FunctionEnums::ArgumentCardinality FunctionArgumentType::OPTIONAL;
 
-zetasql_base::Status FunctionArgumentType::Deserialize(
+absl::Status FunctionArgumentType::Deserialize(
     const FunctionArgumentTypeProto& proto,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
     TypeFactory* factory,
@@ -150,10 +150,10 @@ zetasql_base::Status FunctionArgumentType::Deserialize(
     *result = absl::make_unique<FunctionArgumentType>(proto.kind(), options,
                                                       proto.num_occurrences());
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status FunctionArgumentType::Serialize(
+absl::Status FunctionArgumentType::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     FunctionArgumentTypeProto* proto) const {
   FunctionArgumentTypeOptionsProto* options_proto = proto->mutable_options();
@@ -218,7 +218,7 @@ zetasql_base::Status FunctionArgumentType::Serialize(
     ZETASQL_ASSIGN_OR_RETURN(*options_proto->mutable_argument_type_parse_location(),
                      parse_location_range.value().ToProto());
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 bool Function::is_operator() const {
@@ -379,7 +379,7 @@ bool FunctionArgumentType::IsConcrete() const {
   return true;
 }
 
-zetasql_base::Status FunctionArgumentType::IsValid() const {
+absl::Status FunctionArgumentType::IsValid() const {
   if (IsConcrete()) {
     switch (cardinality()) {
       case REPEATED:
@@ -405,7 +405,7 @@ zetasql_base::Status FunctionArgumentType::IsValid() const {
         break;
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 std::string FunctionArgumentType::UserFacingName(
@@ -537,7 +537,7 @@ FunctionSignature::FunctionSignature(const FunctionArgumentType& result_type,
   ComputeConcreteArgumentTypes();
 }
 
-zetasql_base::Status FunctionSignature::Deserialize(
+absl::Status FunctionSignature::Deserialize(
     const FunctionSignatureProto& proto,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
     TypeFactory* factory,
@@ -561,10 +561,10 @@ zetasql_base::Status FunctionSignature::Deserialize(
   *result = absl::make_unique<FunctionSignature>(*result_type, arguments,
                                                  proto.context_id(), *options);
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status FunctionSignature::Serialize(
+absl::Status FunctionSignature::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     FunctionSignatureProto* proto) const {
   options_.Serialize(proto->mutable_options());
@@ -578,7 +578,7 @@ zetasql_base::Status FunctionSignature::Serialize(
   }
 
   proto->set_context_id(context_id());
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 bool FunctionSignature::HasUnsupportedType(
@@ -769,7 +769,7 @@ bool FunctionArgumentType::TemplatedKindIsRelated(SignatureArgumentKind kind)
   return false;
 }
 
-zetasql_base::Status FunctionSignature::IsValid() const {
+absl::Status FunctionSignature::IsValid() const {
   if (result_type_.repeated() ||
       result_type_.optional()) {
     return MakeSqlError() << "Result type cannot be repeated or optional";
@@ -868,10 +868,10 @@ zetasql_base::Status FunctionSignature::IsValid() const {
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status FunctionSignature::IsValidForFunction() const {
+absl::Status FunctionSignature::IsValidForFunction() const {
   // Arguments and result values may not have relation types. These are special
   // types reserved only for table-valued functions.
   // TODO: Add all other constraints required to make a signature
@@ -886,10 +886,10 @@ zetasql_base::Status FunctionSignature::IsValidForFunction() const {
       << DebugString();
   ZETASQL_RET_CHECK(!result_type().IsVoid())
       << "Function must have a return type: " << DebugString();
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status FunctionSignature::IsValidForTableValuedFunction() const {
+absl::Status FunctionSignature::IsValidForTableValuedFunction() const {
   // Optional and repeated arguments before relation arguments are not
   // supported yet since ResolveTVF() currently requires that relation
   // arguments in the signature map positionally to the function call's
@@ -927,10 +927,10 @@ zetasql_base::Status FunctionSignature::IsValidForTableValuedFunction() const {
   ZETASQL_RET_CHECK(result_type().IsRelation())
       << "Table-valued functions must have relation return type: "
       << DebugString();
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status FunctionSignature::IsValidForProcedure() const {
+absl::Status FunctionSignature::IsValidForProcedure() const {
   for (const FunctionArgumentType& argument : arguments()) {
     ZETASQL_RET_CHECK(!argument.IsRelation())
         << "Relation arguments are only allowed in table-valued functions: "
@@ -939,7 +939,7 @@ zetasql_base::Status FunctionSignature::IsValidForProcedure() const {
   ZETASQL_RET_CHECK(!result_type().IsRelation())
       << "Relation return types are only allowed in table-valued functions: "
       << DebugString();
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 int FunctionSignature::FirstRepeatedArgumentIndex() const {

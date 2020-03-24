@@ -91,12 +91,12 @@ class TemplatedSQLFunction : public Function {
 
   Catalog* resolution_catalog() const { return resolution_catalog_; }
 
-  static zetasql_base::Status Deserialize(
+  static absl::Status Deserialize(
       const FunctionProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory, std::unique_ptr<Function>* result);
 
-  zetasql_base::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
+  absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
                          FunctionProto* proto,
                          bool omit_signatures) const override;
 

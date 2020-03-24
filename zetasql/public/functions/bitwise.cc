@@ -26,7 +26,7 @@ namespace zetasql {
 namespace functions {
 
 bool BitwiseNotBytes(absl::string_view in, std::string* out,
-                     zetasql_base::Status* error) {
+                     absl::Status* error) {
   out->resize(in.size());
   const char* in_data = in.data();
   for (char& c : *out) {
@@ -37,7 +37,7 @@ bool BitwiseNotBytes(absl::string_view in, std::string* out,
 }
 
 bool BitwiseLeftShiftBytes(absl::string_view in1, int64_t in2, std::string* out,
-                           zetasql_base::Status* error) {
+                           absl::Status* error) {
   if (ABSL_PREDICT_FALSE(in2 < 0)) {
     internal::UpdateError(error, "Bitwise shift by negative offset.");
     return false;
@@ -69,7 +69,7 @@ bool BitwiseLeftShiftBytes(absl::string_view in1, int64_t in2, std::string* out,
 }
 
 bool BitwiseRightShiftBytes(absl::string_view in1, int64_t in2, std::string* out,
-                            zetasql_base::Status* error) {
+                            absl::Status* error) {
   if (ABSL_PREDICT_FALSE(in2 < 0)) {
     internal::UpdateError(error, "Bitwise shift by negative offset.");
     return false;

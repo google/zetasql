@@ -66,7 +66,7 @@ bool IsConstantExpression(const ResolvedExpr* expr);
 // never considered equal.
 // This function is conservative, i.e. if some nodes or some properties are
 // not explicitly checked by it - expressions are considered not the same.
-// TODO: Make it return zetasql_base::Status for better error reporting.
+// TODO: Make it return absl::Status for better error reporting.
 bool IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
                                 const ResolvedExpr* expr2);
 
@@ -188,7 +188,7 @@ class SelectColumnStateList {
   // analytic function that is disallowed as per <expr_resolution_info>.
   // If the name is not found, sets <*select_column_state> to NULL and
   // returns OK.
-  zetasql_base::Status FindAndValidateSelectColumnStateByAlias(
+  absl::Status FindAndValidateSelectColumnStateByAlias(
       const char* clause_name, const ASTNode* ast_location, IdString alias,
       const ExprResolutionInfo* expr_resolution_info,
       const SelectColumnState** select_column_state) const;
@@ -197,12 +197,12 @@ class SelectColumnStateList {
   // the ordinal number is out of the valid range or the referenced column
   // contains an aggregate or analytic function that is disallowed as per
   // <expr_resolution_info>.
-  zetasql_base::Status FindAndValidateSelectColumnStateByOrdinal(
+  absl::Status FindAndValidateSelectColumnStateByOrdinal(
       const std::string& expr_description, const ASTNode* ast_location,
       const int64_t ordinal, const ExprResolutionInfo* expr_resolution_info,
       const SelectColumnState** select_column_state) const;
 
-  static zetasql_base::Status ValidateAggregateAndAnalyticSupport(
+  static absl::Status ValidateAggregateAndAnalyticSupport(
       const absl::string_view& column_description, const ASTNode* ast_location,
       const SelectColumnState* select_column_state,
       const ExprResolutionInfo* expr_resolution_info);

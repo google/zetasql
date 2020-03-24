@@ -71,20 +71,20 @@ class TypeFactory {
 
   // Make an array type.
   // Arrays of arrays are not supported and will fail with an error.
-  zetasql_base::Status MakeArrayType(const Type* element_type,
+  absl::Status MakeArrayType(const Type* element_type,
                              const ArrayType** result);
-  zetasql_base::Status MakeArrayType(const Type* element_type,
+  absl::Status MakeArrayType(const Type* element_type,
                              const Type** result);
 
   // Make a struct type.
   // The field names must be valid.
-  zetasql_base::Status MakeStructType(absl::Span<const StructType::StructField> fields,
+  absl::Status MakeStructType(absl::Span<const StructType::StructField> fields,
                               const StructType** result);
-  zetasql_base::Status MakeStructType(absl::Span<const StructType::StructField> fields,
+  absl::Status MakeStructType(absl::Span<const StructType::StructField> fields,
                               const Type** result);
-  zetasql_base::Status MakeStructTypeFromVector(
+  absl::Status MakeStructTypeFromVector(
       std::vector<StructType::StructField> fields, const StructType** result);
-  zetasql_base::Status MakeStructTypeFromVector(
+  absl::Status MakeStructTypeFromVector(
       std::vector<StructType::StructField> fields, const Type** result);
 
   // Make a proto type.
@@ -95,9 +95,9 @@ class TypeFactory {
   // which normally indicate the proto should be interpreted as
   // a different type.  Use MakeUnwrappedTypeFromProto instead
   // to get the unwrapped type.
-  zetasql_base::Status MakeProtoType(const google::protobuf::Descriptor* descriptor,
+  absl::Status MakeProtoType(const google::protobuf::Descriptor* descriptor,
                              const ProtoType** result);
-  zetasql_base::Status MakeProtoType(const google::protobuf::Descriptor* descriptor,
+  absl::Status MakeProtoType(const google::protobuf::Descriptor* descriptor,
                              const Type** result);
 
   // Make a zetasql type from a proto, honoring zetasql.is_struct and
@@ -106,35 +106,35 @@ class TypeFactory {
   // type, including structs and arrays, with nullability.
   // Such protos can be created with methods in convert_type_to_proto.h.
   // This method converts protos back to the represented zetasql type.
-  zetasql_base::Status MakeUnwrappedTypeFromProto(const google::protobuf::Descriptor* message,
+  absl::Status MakeUnwrappedTypeFromProto(const google::protobuf::Descriptor* message,
                                           const Type** result_type) {
     return MakeUnwrappedTypeFromProto(message, /*use_obsolete_timestamp=*/false,
                                       result_type);
   }
   // DEPRECATED: Callers should remove their dependencies on obsolete types and
   // move to the method above.
-  zetasql_base::Status MakeUnwrappedTypeFromProto(const google::protobuf::Descriptor* message,
+  absl::Status MakeUnwrappedTypeFromProto(const google::protobuf::Descriptor* message,
                                           bool use_obsolete_timestamp,
                                           const Type** result_type);
 
   // Like the method above, but starting from a zetasql::Type.
   // If the Type is not a proto, it will be returned unchanged.
-  zetasql_base::Status UnwrapTypeIfAnnotatedProto(const Type* input_type,
+  absl::Status UnwrapTypeIfAnnotatedProto(const Type* input_type,
                                           const Type** result_type) {
     return UnwrapTypeIfAnnotatedProto(
         input_type, /*use_obsolete_timestamp=*/false, result_type);
   }
   // DEPRECATED: Callers should remove their dependencies on obsolete types and
   // move to the method above.
-  zetasql_base::Status UnwrapTypeIfAnnotatedProto(const Type* input_type,
+  absl::Status UnwrapTypeIfAnnotatedProto(const Type* input_type,
                                           bool use_obsolete_timestamp,
                                           const Type** result_type);
 
   // Make an enum type from a protocol buffer EnumDescriptor.
   // The <enum_descriptor> must outlive this TypeFactory.
-  zetasql_base::Status MakeEnumType(const google::protobuf::EnumDescriptor* enum_descriptor,
+  absl::Status MakeEnumType(const google::protobuf::EnumDescriptor* enum_descriptor,
                             const EnumType** result);
-  zetasql_base::Status MakeEnumType(const google::protobuf::EnumDescriptor* enum_descriptor,
+  absl::Status MakeEnumType(const google::protobuf::EnumDescriptor* enum_descriptor,
                             const Type** result);
 
   // Get the Type for a proto field.
@@ -144,7 +144,7 @@ class TypeFactory {
   // and the returned type is that of which ZetaSQL sees before applying any
   // annotations or automatic conversions. This function always ignores (does
   // not unwrap) is_struct and is_wrapper annotations.
-  zetasql_base::Status GetProtoFieldType(bool ignore_annotations,
+  absl::Status GetProtoFieldType(bool ignore_annotations,
                                  const google::protobuf::FieldDescriptor* field_descr,
                                  const Type** type);
 
@@ -153,13 +153,13 @@ class TypeFactory {
   //
   // NOTE: There is a similar method GetProtoFieldTypeAndDefault in proto_util.h
   // that also extracts the default value.
-  zetasql_base::Status GetProtoFieldType(const google::protobuf::FieldDescriptor* field_descr,
+  absl::Status GetProtoFieldType(const google::protobuf::FieldDescriptor* field_descr,
                                  const Type** type) {
     return GetProtoFieldType(/*ignore_annotations=*/false, field_descr, type);
   }
   // DEPRECATED: Callers should remove their dependencies on obsolete types and
   // move to the method above.
-  zetasql_base::Status GetProtoFieldType(const google::protobuf::FieldDescriptor* field_descr,
+  absl::Status GetProtoFieldType(const google::protobuf::FieldDescriptor* field_descr,
                                  bool use_obsolete_timestamp,
                                  const Type** type);
 
@@ -170,7 +170,7 @@ class TypeFactory {
   // i.e. if type_proto.file_descriptor_set_size() > 1.  For serialized types
   // spanning multiple pools, see
   // DeserializeFromSelfContainedProtoWithDistinctFiles below.
-  zetasql_base::Status DeserializeFromSelfContainedProto(
+  absl::Status DeserializeFromSelfContainedProto(
       const TypeProto& type_proto,
       google::protobuf::DescriptorPool* pool,
       const Type** type);
@@ -179,7 +179,7 @@ class TypeFactory {
   // DescriptorPools.  The provided pools must match the number of
   // FileDescriptorSets stored in <type_proto>.  Each FileDescriptorSet from
   // <type_proto> is loaded into the DescriptorPool corresponding to its index.
-  zetasql_base::Status DeserializeFromSelfContainedProtoWithDistinctFiles(
+  absl::Status DeserializeFromSelfContainedProtoWithDistinctFiles(
       const TypeProto& type_proto,
       const std::vector<google::protobuf::DescriptorPool*>& pools,
       const Type** type);
@@ -188,7 +188,7 @@ class TypeFactory {
   // by <type_proto> must already have related descriptors in the <pool>.
   // The <pool> must outlive the TypeFactory.  May only be used with a
   // <type_proto> serialized via Type::SerializeToProtoAndFileDescriptors.
-  zetasql_base::Status DeserializeFromProtoUsingExistingPool(
+  absl::Status DeserializeFromProtoUsingExistingPool(
       const TypeProto& type_proto,
       const google::protobuf::DescriptorPool* pool,
       const Type** type);
@@ -199,7 +199,7 @@ class TypeFactory {
   // used with a <type_proto> serialized via
   // Type::SerializeToProtoAndFileDescriptors or
   // Type::SerializeToProtoAndDistinctFileDescriptors.
-  zetasql_base::Status DeserializeFromProtoUsingExistingPools(
+  absl::Status DeserializeFromProtoUsingExistingPools(
       const TypeProto& type_proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       const Type** type);
@@ -242,14 +242,14 @@ class TypeFactory {
   // repeated fields, <kind> must be the base TypeKind for the field (i.e., the
   // TypeKind of the field, ignoring repeatedness), which can be obtained by
   // FieldDescriptorToTypeKindBase().
-  zetasql_base::Status GetProtoFieldTypeWithKind(
+  absl::Status GetProtoFieldTypeWithKind(
       const google::protobuf::FieldDescriptor* field_descr, TypeKind kind,
       const Type** type);
 
   // Implementation of MakeUnwrappedTypeFromProto above that detects invalid use
   // of type annotations with recursive protos by storing all visited message
   // types in 'ancestor_messages'.
-  zetasql_base::Status MakeUnwrappedTypeFromProtoImpl(
+  absl::Status MakeUnwrappedTypeFromProtoImpl(
       const google::protobuf::Descriptor* message, const Type* existing_message_type,
       bool use_obsolete_timestamp, const Type** result_type,
       std::set<const google::protobuf::Descriptor*>* ancestor_messages);
@@ -257,7 +257,7 @@ class TypeFactory {
   // Implementation of UnwrapTypeIfAnnotatedProto above that detects invalid use
   // of type annotations with recursive protos by storing all visited message
   // types in 'ancestor_messages'.
-  zetasql_base::Status UnwrapTypeIfAnnotatedProtoImpl(
+  absl::Status UnwrapTypeIfAnnotatedProtoImpl(
       const Type* input_type, bool use_obsolete_timestamp,
       const Type** result_type,
       std::set<const google::protobuf::Descriptor*>* ancestor_messages);

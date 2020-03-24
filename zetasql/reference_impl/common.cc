@@ -25,7 +25,7 @@
 
 namespace zetasql {
 
-zetasql_base::Status ValidateTypeSupportsEqualityComparison(const Type* type) {
+absl::Status ValidateTypeSupportsEqualityComparison(const Type* type) {
   switch (type->kind()) {
     case TYPE_INT32:
     case TYPE_INT64:
@@ -46,7 +46,7 @@ zetasql_base::Status ValidateTypeSupportsEqualityComparison(const Type* type) {
     case TYPE_PROTO:
     case TYPE_STRUCT:
     case TYPE_ARRAY:
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     case TYPE_GEOGRAPHY:
     case TYPE_UNKNOWN:
     default:
@@ -55,7 +55,7 @@ zetasql_base::Status ValidateTypeSupportsEqualityComparison(const Type* type) {
   }
 }
 
-zetasql_base::Status ValidateTypeSupportsOrderComparison(const Type* type) {
+absl::Status ValidateTypeSupportsOrderComparison(const Type* type) {
   switch (type->kind()) {
     case TYPE_INT32:
     case TYPE_INT64:
@@ -73,12 +73,12 @@ zetasql_base::Status ValidateTypeSupportsOrderComparison(const Type* type) {
     case TYPE_TIME:
     case TYPE_DATETIME:
     case TYPE_ENUM:
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     case TYPE_ARRAY: {
       const ArrayType* array_type = type->AsArray();
       if (ValidateTypeSupportsOrderComparison(
               array_type->element_type()).ok()) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
     }
     ABSL_FALLTHROUGH_INTENDED;

@@ -500,7 +500,7 @@ message TestOptionalFields {
   optional Nested nested = 2;
 }
 
-// This is useful for specifically testing util::Status payloads.
+// This is useful for specifically testing absl::Status payloads.
 //
 message TestStatusPayload {
   optional string value = 1;

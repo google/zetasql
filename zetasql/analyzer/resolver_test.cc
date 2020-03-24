@@ -46,7 +46,7 @@ using zetasql_base::testing::StatusIs;
 class ResolverTest : public ::testing::Test {
  public:
   // Used by benchmarks, this wrapper is to access a private member in Resolver.
-  static zetasql_base::Status ResolveScalarExpr(
+  static absl::Status ResolveScalarExpr(
       Resolver* resolver,
       const ASTExpression* ast_expr,
       const NameScope* name_scope,
@@ -107,7 +107,7 @@ class ResolverTest : public ::testing::Test {
         << "round trip type: " << round_trip_type->DebugString();
   }
 
-  zetasql_base::Status ResolveExpr(
+  absl::Status ResolveExpr(
       const ASTExpression* expression,
       std::unique_ptr<const ResolvedExpr>* resolved_expression,
       bool aggregation_allowed = false) {
@@ -123,7 +123,7 @@ class ResolverTest : public ::testing::Test {
                                         resolved_expression);
   }
 
-  zetasql_base::Status FindFieldDescriptors(
+  absl::Status FindFieldDescriptors(
       absl::Span<const ASTIdentifier* const> path_vector,
       const google::protobuf::Descriptor* root_descriptor,
       std::vector<const google::protobuf::FieldDescriptor*>* field_descriptors) {
@@ -471,8 +471,8 @@ TEST_F(ResolverTest, ResolveTypeInvalidTypeNameTests) {
 
 TEST_F(ResolverTest, TestErrorCatalogNameTests) {
   std::unique_ptr<ErrorCatalog> error_catalog;
-  ZETASQL_ASSERT_OK(ErrorCatalog::Create(::zetasql_base::INVALID_ARGUMENT,
-                                 &error_catalog));
+  ZETASQL_ASSERT_OK(
+      ErrorCatalog::Create(absl::StatusCode::kInvalidArgument, &error_catalog));
   ResetResolver(error_catalog.get());
 
   // Name lookups into the error_catalog return an error (INVALID_ARGUMENT)
@@ -482,18 +482,18 @@ TEST_F(ResolverTest, TestErrorCatalogNameTests) {
   // Table
   const std::string query_with_table = "SELECT * FROM T";
   ZETASQL_ASSERT_OK(ParseStatement(query_with_table, ParserOptions(), &parser_output));
-  EXPECT_THAT(
-      resolver_->ResolveStatement(query_with_table, parser_output->statement(),
-                                  &resolved_ast),
-      StatusIs(::zetasql_base::INVALID_ARGUMENT, HasSubstr("FindTable error")));
+  EXPECT_THAT(resolver_->ResolveStatement(
+                  query_with_table, parser_output->statement(), &resolved_ast),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("FindTable error")));
 
   // Type
   const std::string query_with_type = "SELECT cast(1 as foo_type)";
   ZETASQL_ASSERT_OK(ParseStatement(query_with_type, ParserOptions(), &parser_output));
-  EXPECT_THAT(
-      resolver_->ResolveStatement(query_with_type, parser_output->statement(),
-                                  &resolved_ast),
-      StatusIs(::zetasql_base::INVALID_ARGUMENT, HasSubstr("FindType error")));
+  EXPECT_THAT(resolver_->ResolveStatement(
+                  query_with_type, parser_output->statement(), &resolved_ast),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("FindType error")));
 
   // Procedure
   const std::string query_with_procedure = "CALL foo()";
@@ -502,7 +502,7 @@ TEST_F(ResolverTest, TestErrorCatalogNameTests) {
   EXPECT_THAT(
       resolver_->ResolveStatement(query_with_procedure,
                                   parser_output->statement(), &resolved_ast),
-      StatusIs(::zetasql_base::INVALID_ARGUMENT,
+      StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr("FindProcedure error")));
 
   // Constant
@@ -512,7 +512,7 @@ TEST_F(ResolverTest, TestErrorCatalogNameTests) {
   EXPECT_THAT(
       resolver_->ResolveStatement(query_with_constant,
                                   parser_output->statement(), &resolved_ast),
-      StatusIs(::zetasql_base::INVALID_ARGUMENT,
+      StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr("FindConstant error")));
 
   // Function
@@ -522,7 +522,7 @@ TEST_F(ResolverTest, TestErrorCatalogNameTests) {
   EXPECT_THAT(
       resolver_->ResolveStatement(query_with_function,
                                   parser_output->statement(), &resolved_ast),
-      StatusIs(::zetasql_base::INVALID_ARGUMENT,
+      StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr("Invalid function foo")));
 
   // TableValuedFunction
@@ -530,7 +530,7 @@ TEST_F(ResolverTest, TestErrorCatalogNameTests) {
   ZETASQL_ASSERT_OK(ParseStatement(query_with_tvf, ParserOptions(), &parser_output));
   EXPECT_THAT(resolver_->ResolveStatement(
                   query_with_tvf, parser_output->statement(), &resolved_ast),
-              StatusIs(::zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Invalid table-valued function foo")));
 }
 

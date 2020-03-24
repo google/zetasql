@@ -327,9 +327,9 @@ void ASTNode::AddChildren(absl::Span<ASTNode* const> children) {
   }
 }
 
-zetasql_base::Status ASTNode::TraverseNonRecursiveHelper(
+absl::Status ASTNode::TraverseNonRecursiveHelper(
     const VisitResult& result, NonRecursiveParseTreeVisitor* visitor,
-    std::vector<std::function<zetasql_base::Status()>>* stack) {
+    std::vector<std::function<absl::Status()>>* stack) {
   // Push actions in the reverse order that they will execute in.
   if (result.continuation() != nullptr) {
     stack->push_back(result.continuation());
@@ -338,7 +338,7 @@ zetasql_base::Status ASTNode::TraverseNonRecursiveHelper(
     const ASTNode* node = result.node_for_child_visit();
     for (int i = node->num_children() - 1; i >= 0; --i) {
       const ASTNode* child = node->child(i);
-      stack->push_back([visitor, child, stack]() -> zetasql_base::Status {
+      stack->push_back([visitor, child, stack]() -> absl::Status {
         ZETASQL_ASSIGN_OR_RETURN(VisitResult child_result, child->Accept(visitor));
         return TraverseNonRecursiveHelper(child_result, visitor, stack);
       });
@@ -348,22 +348,22 @@ zetasql_base::Status ASTNode::TraverseNonRecursiveHelper(
     stack->clear();
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ASTNode::TraverseNonRecursive(
+absl::Status ASTNode::TraverseNonRecursive(
     NonRecursiveParseTreeVisitor* visitor) const {
-  std::vector<std::function<zetasql_base::Status()>> stack;
-  stack.push_back([this, &stack, visitor]() -> zetasql_base::Status {
+  std::vector<std::function<absl::Status()>> stack;
+  stack.push_back([this, &stack, visitor]() -> absl::Status {
     ZETASQL_ASSIGN_OR_RETURN(VisitResult root_result, Accept(visitor));
     return TraverseNonRecursiveHelper(root_result, visitor, &stack);
   });
   while (!stack.empty()) {
-    std::function<zetasql_base::Status()> task = stack.back();
+    std::function<absl::Status()> task = stack.back();
     stack.pop_back();
     ZETASQL_RETURN_IF_ERROR(task());
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 void ASTNode::Accept(ParseTreeVisitor* visitor, void* data) const {
@@ -585,13 +585,13 @@ std::string ASTOrderingExpression::SingleNodeDebugString() const {
                       descending() ? "(DESC)" : "(ASC)");
 }
 
-zetasql_base::Status
+absl::Status
 ASTGeneralizedPathExpression::VerifyIsPureGeneralizedPathExpression(
     const ASTExpression* path) {
   while (true) {
     switch (path->node_kind()) {
       case AST_PATH_EXPRESSION:
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       case AST_DOT_GENERALIZED_FIELD:
         path = path->GetAs<ASTDotGeneralizedField>()->expr();
         break;

@@ -27,11 +27,11 @@
 
 namespace zetasql_base {
 
-std::vector<std::pair<std::string, StatusCord>> GetEntries(
+std::vector<std::pair<std::string, absl::Cord>> GetEntries(
     const Status& status) {
-  std::vector<std::pair<std::string, StatusCord>> ret;
+  std::vector<std::pair<std::string, absl::Cord>> ret;
   status.ForEachPayload(
-      [&ret](absl::string_view type_url, const StatusCord& payload) {
+      [&ret](absl::string_view type_url, const absl::Cord& payload) {
         ret.emplace_back(std::string(type_url), payload);
       });
   return ret;
@@ -48,7 +48,7 @@ TEST(StatusPayload, EncodeSameAsAny) {
 
   Status status(StatusCode::kCancelled, "");
   AttachPayload(&status, payload);
-  std::vector<std::pair<std::string, StatusCord>> entries = GetEntries(status);
+  std::vector<std::pair<std::string, absl::Cord>> entries = GetEntries(status);
   ASSERT_EQ(entries.size(), 1);
   EXPECT_EQ(entries[0].first, any.type_url());
   EXPECT_EQ(entries[0].second, any.value());
@@ -60,12 +60,12 @@ TEST(StatusPayload, AttachPayload) {
   payload.set_message("message");
 
   AttachPayload(&status, payload);
-  std::vector<std::pair<std::string, StatusCord>> entries = GetEntries(status);
+  std::vector<std::pair<std::string, absl::Cord>> entries = GetEntries(status);
   ASSERT_EQ(entries.size(), 1);
 
   EXPECT_EQ(entries[0].first, "type.googleapis.com/zetasql_base.TestPayload");
   TestPayload actual_payload;
-  EXPECT_TRUE(actual_payload.ParseFromString(entries[0].second));
+  EXPECT_TRUE(actual_payload.ParseFromString(std::string(entries[0].second)));
   EXPECT_TRUE(
       google::protobuf::util::MessageDifferencer::Equals(actual_payload, payload));
 }
@@ -80,11 +80,11 @@ TEST(StatusPayload, AttachPayload_OverwriteSameType) {
   AttachPayload(&status, payload1);
   AttachPayload(&status, payload2);
 
-  std::vector<std::pair<std::string, StatusCord>> entries = GetEntries(status);
+  std::vector<std::pair<std::string, absl::Cord>> entries = GetEntries(status);
   ASSERT_EQ(entries.size(), 1);
 
   TestPayload actual_payload;
-  EXPECT_TRUE(actual_payload.ParseFromString(entries[0].second));
+  EXPECT_TRUE(actual_payload.ParseFromString(std::string(entries[0].second)));
 
   EXPECT_EQ(entries[0].first, "type.googleapis.com/zetasql_base.TestPayload");
   EXPECT_TRUE(

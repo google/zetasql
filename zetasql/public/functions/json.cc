@@ -24,7 +24,7 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/public/functions/json_internal.h"
 #include "absl/memory/memory.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/statusor.h"
 
@@ -50,7 +50,7 @@ zetasql_base::StatusOr<std::unique_ptr<JsonPathEvaluator>> JsonPathEvaluator::Cr
   return absl::WrapUnique(new JsonPathEvaluator(std::move(itr)));
 }
 
-zetasql_base::Status JsonPathEvaluator::Extract(absl::string_view json,
+absl::Status JsonPathEvaluator::Extract(absl::string_view json,
                                         std::string* value,
                                         bool* is_null) const {
   JSONPathExtractor parser(json, path_iterator_.get());
@@ -62,10 +62,10 @@ zetasql_base::Status JsonPathEvaluator::Extract(absl::string_view json,
                               "array/struct. Maximum nesting depth is "
                            << JSONPathExtractor::kMaxParsingDepth;
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status JsonPathEvaluator::ExtractScalar(absl::string_view json,
+absl::Status JsonPathEvaluator::ExtractScalar(absl::string_view json,
                                               std::string* value,
                                               bool* is_null) const {
   json_internal::JSONPathExtractScalar scalar_parser(json,
@@ -77,10 +77,10 @@ zetasql_base::Status JsonPathEvaluator::ExtractScalar(absl::string_view json,
                               "array/struct. Maximum nesting depth is "
                            << JSONPathExtractor::kMaxParsingDepth;
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status JsonPathEvaluator::ExtractArray(absl::string_view json,
+absl::Status JsonPathEvaluator::ExtractArray(absl::string_view json,
                                              std::vector<std::string>* value,
                                              bool* is_null) const {
   json_internal::JSONPathArrayExtractor array_parser(json,
@@ -93,7 +93,7 @@ zetasql_base::Status JsonPathEvaluator::ExtractArray(absl::string_view json,
                               "array/struct. Maximum nesting depth is "
                            << JSONPathExtractor::kMaxParsingDepth;
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace functions

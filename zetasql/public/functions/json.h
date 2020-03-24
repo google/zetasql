@@ -25,7 +25,7 @@
 
 #include "zetasql/base/string_numbers.h"  
 #include "absl/memory/memory.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/statusor.h"
 
@@ -85,7 +85,7 @@ class JsonPathEvaluator {
   // * json_path does not match anything.
   // * json_path uses an array index but the value is not an array, or the path
   //   uses a name but the value is not an object.
-  zetasql_base::Status Extract(absl::string_view json, std::string* value,
+  absl::Status Extract(absl::string_view json, std::string* value,
                        bool* is_null) const;
 
   // Similar to the above, but the 'json_path' provided in Create() must refer
@@ -102,7 +102,7 @@ class JsonPathEvaluator {
   // Error cases are the same as in JsonExtract.
   // Null cases are the same as in JsonExtract, except for the addition of:
   // * json_path does not correspond to a scalar value in json.
-  zetasql_base::Status ExtractScalar(absl::string_view json, std::string* value,
+  absl::Status ExtractScalar(absl::string_view json, std::string* value,
                              bool* is_null) const;
 
   // Extracts an array from 'json' according to the JSONPath string 'json_path'
@@ -125,7 +125,7 @@ class JsonPathEvaluator {
   // Error cases are the same as in JsonExtract function.
   // Null cases are the same as in JsonExtract, except for the addition of:
   // * json_path does not correspond to an array in json.
-  zetasql_base::Status ExtractArray(absl::string_view json,
+  absl::Status ExtractArray(absl::string_view json,
                             std::vector<std::string>* value,
                             bool* is_null) const;
 

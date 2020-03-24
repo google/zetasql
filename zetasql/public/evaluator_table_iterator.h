@@ -124,9 +124,9 @@ class EvaluatorTableIterator {
   //
   // 'filter_map' contains the ColumnFilters to apply. It is keyed on the index
   // of a column in the scan (not the Table).
-  virtual zetasql_base::Status SetColumnFilterMap(
+  virtual absl::Status SetColumnFilterMap(
       absl::flat_hash_map<int, std::unique_ptr<ColumnFilter>> filter_map) {
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // Indicates that the iterator should read from a snapshot of the table at the
@@ -135,8 +135,8 @@ class EvaluatorTableIterator {
   //
   // This function should return InvalidArgumentError if the table is unreadable
   // at 'read_time'.
-  virtual zetasql_base::Status SetReadTime(absl::Time read_time) {
-    return zetasql_base::UnimplementedError(
+  virtual absl::Status SetReadTime(absl::Time read_time) {
+    return absl::UnimplementedError(
         "EvaluatorTableIterator::SetReadTime() not implemented");
   }
 
@@ -153,7 +153,7 @@ class EvaluatorTableIterator {
 
   // Returns OK unless the last call to NextRow() returned false because of an
   // error (including cancellation).
-  virtual zetasql_base::Status Status() const = 0;
+  virtual absl::Status Status() const = 0;
 
   // Best-effort cancellation that can be called from any thread. This must not
   // block for a long time.  The implementation could set a cancel bit and then
@@ -161,7 +161,7 @@ class EvaluatorTableIterator {
   // Status does not necessarily indicate that the Cancel succeeded or failed,
   // but rather is just used for logging and can have
   // implementation-specific meaning.
-  virtual zetasql_base::Status Cancel() = 0;
+  virtual absl::Status Cancel() = 0;
 
   // Best-effort deadline support. This may not be called after the first call
   // to NextRow(). This must not block for a long time. The implementation could

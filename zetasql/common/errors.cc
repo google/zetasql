@@ -28,20 +28,20 @@
 namespace zetasql {
 
 // Returns true if <status> has a internalErrorLocation payload.
-static bool HasInternalErrorLocation(const zetasql_base::Status& status) {
+static bool HasInternalErrorLocation(const absl::Status& status) {
   return internal::HasPayloadWithType<InternalErrorLocation>(status);
 }
 
-zetasql_base::Status StatusWithInternalErrorLocation(
-    const zetasql_base::Status& status, const ParseLocationPoint& error_location) {
+absl::Status StatusWithInternalErrorLocation(
+    const absl::Status& status, const ParseLocationPoint& error_location) {
   if (status.ok()) return status;
 
-  zetasql_base::Status result = status;
+  absl::Status result = status;
   internal::AttachPayload(&result, error_location.ToInternalErrorLocation());
   return result;
 }
 
-ErrorSource MakeErrorSource(const zetasql_base::Status& status, const std::string& text,
+ErrorSource MakeErrorSource(const absl::Status& status, const std::string& text,
                             ErrorMessageMode mode) {
   DCHECK(!status.ok());
   // Sanity check that status does not have an InternalErrorLocation.
@@ -63,7 +63,7 @@ ErrorSource MakeErrorSource(const zetasql_base::Status& status, const std::strin
 
 // Returns ErrorSources from <status>, if present.
 const absl::optional<::google::protobuf::RepeatedPtrField<ErrorSource>> GetErrorSources(
-    const zetasql_base::Status& status) {
+    const absl::Status& status) {
   if (internal::HasPayloadWithType<ErrorLocation>(status)) {
     // Sanity check that an OK status does not have a payload.
     DCHECK(!status.ok());
@@ -81,7 +81,7 @@ std::string DeprecationWarningsToDebugString(
 }
 
 zetasql_base::StatusOr<FreestandingDeprecationWarning> StatusToDeprecationWarning(
-    const zetasql_base::Status& from_status, absl::string_view sql) {
+    const absl::Status& from_status, absl::string_view sql) {
   ZETASQL_RET_CHECK(zetasql_base::IsInvalidArgument(from_status))
       << "Deprecation statuses must have code INVALID_ARGUMENT";
 
@@ -114,10 +114,10 @@ zetasql_base::StatusOr<FreestandingDeprecationWarning> StatusToDeprecationWarnin
 }
 
 zetasql_base::StatusOr<std::vector<FreestandingDeprecationWarning>>
-StatusesToDeprecationWarnings(const std::vector<zetasql_base::Status>& from_statuses,
+StatusesToDeprecationWarnings(const std::vector<absl::Status>& from_statuses,
                               absl::string_view sql) {
   std::vector<FreestandingDeprecationWarning> warnings;
-  for (const zetasql_base::Status& from_status : from_statuses) {
+  for (const absl::Status& from_status : from_statuses) {
     ZETASQL_ASSIGN_OR_RETURN(const FreestandingDeprecationWarning warning,
                      StatusToDeprecationWarning(from_status, sql));
     warnings.emplace_back(warning);
@@ -126,7 +126,7 @@ StatusesToDeprecationWarnings(const std::vector<zetasql_base::Status>& from_stat
   return warnings;
 }
 
-zetasql_base::Status ConvertInternalErrorLocationToExternal(zetasql_base::Status status,
+absl::Status ConvertInternalErrorLocationToExternal(absl::Status status,
                                                     absl::string_view query) {
   if (!internal::HasPayloadWithType<InternalErrorLocation>(status)) {
     // Nothing to do.
@@ -157,7 +157,7 @@ zetasql_base::Status ConvertInternalErrorLocationToExternal(zetasql_base::Status
   *error_location.mutable_error_source() =
       internal_error_location.error_source();
 
-  zetasql_base::Status copy = status;
+  absl::Status copy = status;
   internal::ErasePayloadTyped<InternalErrorLocation>(&copy);
   internal::AttachPayload(&copy, error_location);
   return copy;

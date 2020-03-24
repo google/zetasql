@@ -24,7 +24,7 @@
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status.h"
@@ -65,7 +65,7 @@ ParseLocationPoint GetErrorLocationPoint(const ASTNode* ast_node,
   return {};
 }
 
-zetasql_base::Status StatusWithInternalErrorLocation(const zetasql_base::Status& status,
+absl::Status StatusWithInternalErrorLocation(const absl::Status& status,
                                              const ASTNode* ast_node,
                                              bool include_leftmost_child) {
   if (status.ok()) return status;
@@ -74,13 +74,13 @@ zetasql_base::Status StatusWithInternalErrorLocation(const zetasql_base::Status&
       status, GetErrorLocationPoint(ast_node, include_leftmost_child));
 }
 
-zetasql_base::Status MakeStatusWithErrorLocation(zetasql_base::StatusCode code,
+absl::Status MakeStatusWithErrorLocation(absl::StatusCode code,
                                          absl::string_view message,
                                          const std::string& filename,
                                          const std::string& query,
                                          const ASTNode* ast_node,
                                          bool include_leftmost_child) {
-  const zetasql_base::Status status =
+  const absl::Status status =
       zetasql_base::StatusBuilder(code).Attach(
           MakeInternalErrorLocation(ast_node, filename, include_leftmost_child))
       << message;
@@ -99,9 +99,9 @@ InternalErrorLocation MakeInternalErrorLocation(
   return internal_error_location;
 }
 
-zetasql_base::Status WrapNestedErrorStatus(const ASTNode* ast_location,
+absl::Status WrapNestedErrorStatus(const ASTNode* ast_location,
                                    const std::string& error_message,
-                                   const zetasql_base::Status& input_status,
+                                   const absl::Status& input_status,
                                    ErrorMessageMode error_source_mode) {
   zetasql_base::StatusBuilder error_status_builder =
       zetasql_base::IsInternal(input_status) ? zetasql_base::StatusBuilder(input_status)

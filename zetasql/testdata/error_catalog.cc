@@ -16,7 +16,7 @@
 
 #include "zetasql/testdata/error_catalog.h"
 
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
@@ -29,44 +29,44 @@ class Procedure;
 class TableValuedFunction;
 class Type;
 
-zetasql_base::Status ErrorCatalog::Create(
-    zetasql_base::StatusCode code, std::unique_ptr<ErrorCatalog>* error_catalog) {
-  ZETASQL_RET_CHECK_NE(zetasql_base::StatusCode::kOk, code);
+absl::Status ErrorCatalog::Create(
+    absl::StatusCode code, std::unique_ptr<ErrorCatalog>* error_catalog) {
+  ZETASQL_RET_CHECK_NE(absl::StatusCode::kOk, code);
   error_catalog->reset(new ErrorCatalog(code));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ErrorCatalog::FindTable(const absl::Span<const std::string>& path,
+absl::Status ErrorCatalog::FindTable(const absl::Span<const std::string>& path,
                                      const Table** table,
                                      const FindOptions& options) {
   return ::zetasql_base::StatusBuilder(error_code_) << "FindTable error";
 }
 
-zetasql_base::Status ErrorCatalog::FindFunction(
+absl::Status ErrorCatalog::FindFunction(
     const absl::Span<const std::string>& path, const Function** function,
     const FindOptions& options) {
   return ::zetasql_base::StatusBuilder(error_code_) << "FindFunction error";
 }
 
-zetasql_base::Status ErrorCatalog::FindTableValuedFunction(
+absl::Status ErrorCatalog::FindTableValuedFunction(
     const absl::Span<const std::string>& path,
     const TableValuedFunction** function, const FindOptions& options) {
   return ::zetasql_base::StatusBuilder(error_code_) << "FindTableValuedFunction error";
 }
 
-zetasql_base::Status ErrorCatalog::FindProcedure(
+absl::Status ErrorCatalog::FindProcedure(
     const absl::Span<const std::string>& path, const Procedure** procedure,
     const FindOptions& options) {
   return ::zetasql_base::StatusBuilder(error_code_) << "FindProcedure error";
 }
 
-zetasql_base::Status ErrorCatalog::FindType(const absl::Span<const std::string>& path,
+absl::Status ErrorCatalog::FindType(const absl::Span<const std::string>& path,
                                     const Type** type,
                                     const FindOptions& options) {
   return ::zetasql_base::StatusBuilder(error_code_) << "FindType error";
 }
 
-zetasql_base::Status ErrorCatalog::FindConstantWithPathPrefix(
+absl::Status ErrorCatalog::FindConstantWithPathPrefix(
     const absl::Span<const std::string> path, int* num_names_consumed,
     const Constant** constant, const FindOptions& options) {
   return ::zetasql_base::StatusBuilder(error_code_) << "FindConstant error";

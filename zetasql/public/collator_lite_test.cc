@@ -33,7 +33,7 @@ TEST(CreateFromCollationNameLite, DefaultImplSupportsUnicodeCs) {
       ZetaSqlCollator* collator,
       ZetaSqlCollator::CreateFromCollationNameLite("unicode:cs"));
 
-  zetasql_base::Status error;
+  absl::Status error;
   EXPECT_THAT(collator->CompareUtf8("a", "b", &error), Eq(-1));
   EXPECT_THAT(error, IsOk());
 
@@ -46,7 +46,7 @@ TEST(CreateFromCollationNameLite, DefaultImplDoesNotSupportEnUS) {
   internal::RegisterDefaultCollatorImpl();
 
   EXPECT_THAT(ZetaSqlCollator::CreateFromCollationNameLite("en_US:ci"),
-              StatusIs(zetasql_base::UNIMPLEMENTED));
+              StatusIs(absl::StatusCode::kUnimplemented));
 }
 
 TEST(CreateFromCollationNameLite, UsesRegisteredImpl) {
@@ -56,7 +56,7 @@ TEST(CreateFromCollationNameLite, UsesRegisteredImpl) {
   });
 
   EXPECT_THAT(ZetaSqlCollator::CreateFromCollationNameLite("foo"),
-              StatusIs(zetasql_base::INTERNAL, "expected error"));
+              StatusIs(absl::StatusCode::kInternal, "expected error"));
 }
 
 }  // namespace

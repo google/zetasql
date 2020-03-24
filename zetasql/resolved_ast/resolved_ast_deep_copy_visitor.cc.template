@@ -25,7 +25,7 @@ namespace zetasql {
 
 // Default visit for the AST. This will throw an error, because we want to
 // ensure that the entire AST is copied.
-zetasql_base::Status ResolvedASTDeepCopyVisitor::DefaultVisit(
+absl::Status ResolvedASTDeepCopyVisitor::DefaultVisit(
     const ResolvedNode* node) {
   return ::zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
          << "Unhandled node type in deep copy:\n"
@@ -36,7 +36,7 @@ zetasql_base::Status ResolvedASTDeepCopyVisitor::DefaultVisit(
 // return CopyVisitX, where X is the node kind. This will deep copy the tree
 // recursively.
 # for node in nodes if not node.is_abstract
-zetasql_base::Status ResolvedASTDeepCopyVisitor::Visit{{node.name}}(
+absl::Status ResolvedASTDeepCopyVisitor::Visit{{node.name}}(
     const {{node.name}}* node) {
   return CopyVisit{{node.name}}(node);
 }
@@ -46,7 +46,7 @@ zetasql_base::Status ResolvedASTDeepCopyVisitor::Visit{{node.name}}(
 {# Generate a CopyVisit for each node kind that exists. This will visit the #}
 {# node and create a deep copy of it. #}
 # for node in nodes if not node.is_abstract
-zetasql_base::Status
+absl::Status
 ResolvedASTDeepCopyVisitor::CopyVisit{{node.name}}(
     const {{node.name}}* node) {
 {# We need to make a deep copy of any fields that this node contains that are #}
@@ -119,7 +119,7 @@ ResolvedASTDeepCopyVisitor::CopyVisit{{node.name}}(
    # elif not field.is_constructor_arg
   // Unhandled non-constructor argument not copied to new node explicitly.
   static_assert(false, CopyField{{field.name}}Of{{node.name}}MustBeImplementedManually);
-  return zetasql_base::Status::CANCELLED;
+  return absl::Status::CANCELLED;
 
    # endif
  # endfor
@@ -134,7 +134,7 @@ ResolvedASTDeepCopyVisitor::CopyVisit{{node.name}}(
   // Add the non-abstract node to the stack.
   PushNodeToStack(std::move(copy));
  # endif
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 # endfor

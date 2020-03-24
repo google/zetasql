@@ -76,7 +76,7 @@ static bool IgnoresNullArguments(
   }
 }
 
-static zetasql_base::Status CheckHints(
+static absl::Status CheckHints(
     const std::vector<std::unique_ptr<const ResolvedOption>>& hint_list) {
   for (const auto& hint : hint_list) {
     // Ignore all hints meant for a specific different engine.
@@ -89,7 +89,7 @@ static zetasql_base::Status CheckHints(
            << "Unsupported hint: " << hint->qualifier()
            << (hint->qualifier().empty() ? "" : ".") << hint->name();
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 Algebrizer::Algebrizer(const LanguageOptions& language_options,
@@ -1172,7 +1172,7 @@ static zetasql_base::StatusOr<absl::flat_hash_set<ResolvedColumn>> GetReferenced
       return columns_;
     }
 
-    zetasql_base::Status VisitResolvedColumnRef(
+    absl::Status VisitResolvedColumnRef(
         const ResolvedColumnRef* node) override {
       columns_.insert(node->column());
       return DefaultVisit(node);
@@ -1401,11 +1401,11 @@ static bool Intersects(const absl::flat_hash_set<ResolvedColumn>& a,
   return false;
 }
 
-zetasql_base::Status Algebrizer::TryAlgebrizeFilterConjunctAsColumnFilterArgs(
+absl::Status Algebrizer::TryAlgebrizeFilterConjunctAsColumnFilterArgs(
     const TableScanColumnInfoMap& column_info_map,
     const FilterConjunctInfo& conjunct_info,
     std::vector<std::unique_ptr<ColumnFilterArg>>* and_filters) {
-  if (!conjunct_info.is_non_volatile) return zetasql_base::OkStatus();
+  if (!conjunct_info.is_non_volatile) return absl::OkStatus();
 
   absl::flat_hash_set<ResolvedColumn> table_columns;
   table_columns.reserve(column_info_map.size());
@@ -1438,19 +1438,19 @@ zetasql_base::Status Algebrizer::TryAlgebrizeFilterConjunctAsColumnFilterArgs(
       }
 
       if (left_hand_side->node_kind() != RESOLVED_COLUMN_REF) {
-        return zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       const ResolvedColumn& column =
           left_hand_side->GetAs<ResolvedColumnRef>()->column();
       const std::pair<VariableId, int>* variable_and_column_idx =
           zetasql_base::FindOrNull(column_info_map, column);
-      if (variable_and_column_idx == nullptr) return zetasql_base::OkStatus();
+      if (variable_and_column_idx == nullptr) return absl::OkStatus();
 
       // For example, we can't push down a filter of the form column1 = column2.
       // One side has to be independent of the table row.
       if (Intersects(conjunct_info.argument_columns[right_idx],
                      table_columns)) {
-        return zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
 
       if (conjunct_kind == FilterConjunctInfo::kEquals) {
@@ -1485,20 +1485,20 @@ zetasql_base::Status Algebrizer::TryAlgebrizeFilterConjunctAsColumnFilterArgs(
       ZETASQL_RET_CHECK_EQ(conjunct_info.arguments.size(), 3);
 
       if (conjunct_info.arguments[0]->node_kind() != RESOLVED_COLUMN_REF) {
-        return zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       const ResolvedColumn& column =
           conjunct_info.arguments[0]->GetAs<ResolvedColumnRef>()->column();
       const std::pair<VariableId, int>* variable_and_column_idx =
           zetasql_base::FindOrNull(column_info_map, column);
-      if (variable_and_column_idx == nullptr) return zetasql_base::OkStatus();
+      if (variable_and_column_idx == nullptr) return absl::OkStatus();
 
       if (Intersects(conjunct_info.argument_columns[1], table_columns)) {
-        return zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
 
       if (Intersects(conjunct_info.argument_columns[2], table_columns)) {
-        return zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
 
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> lower_bound,
@@ -1526,17 +1526,17 @@ zetasql_base::Status Algebrizer::TryAlgebrizeFilterConjunctAsColumnFilterArgs(
       ZETASQL_RET_CHECK(!conjunct_info.arguments.empty());
 
       if (conjunct_info.arguments[0]->node_kind() != RESOLVED_COLUMN_REF) {
-        return zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       const ResolvedColumn& column =
           conjunct_info.arguments[0]->GetAs<ResolvedColumnRef>()->column();
       const std::pair<VariableId, int>* variable_and_column_idx =
           zetasql_base::FindOrNull(column_info_map, column);
-      if (variable_and_column_idx == nullptr) return zetasql_base::OkStatus();
+      if (variable_and_column_idx == nullptr) return absl::OkStatus();
 
       for (int i = 1; i < conjunct_info.arguments.size(); ++i) {
         if (Intersects(conjunct_info.argument_columns[i], table_columns)) {
-          return zetasql_base::OkStatus();
+          return absl::OkStatus();
         }
       }
 
@@ -1568,7 +1568,7 @@ zetasql_base::Status Algebrizer::TryAlgebrizeFilterConjunctAsColumnFilterArgs(
       break;
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeWithScan(
@@ -1704,7 +1704,7 @@ Algebrizer::AlgebrizeLimitOffsetScan(const ResolvedLimitOffsetScan* scan) {
   }
 }
 
-zetasql_base::Status Algebrizer::AddFilterConjunctsTo(
+absl::Status Algebrizer::AddFilterConjunctsTo(
     const ResolvedExpr* expr,
     std::vector<std::unique_ptr<FilterConjunctInfo>>* conjunct_infos) {
   if (expr->node_kind() == RESOLVED_FUNCTION_CALL) {
@@ -1721,14 +1721,14 @@ zetasql_base::Status Algebrizer::AddFilterConjunctsTo(
              function_call->argument_list()) {
           ZETASQL_RETURN_IF_ERROR(AddFilterConjunctsTo(arg.get(), conjunct_infos));
         }
-        return zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
     }
   }
 
   ZETASQL_ASSIGN_OR_RETURN(auto conjunct_info, FilterConjunctInfo::Create(expr));
   conjunct_infos->push_back(std::move(conjunct_info));
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeJoinScan(
@@ -1954,14 +1954,14 @@ Algebrizer::AlgebrizeJoinScanInternal(
   return join_op;
 }
 
-zetasql_base::Status Algebrizer::NarrowJoinKindForFilterConjunct(
+absl::Status Algebrizer::NarrowJoinKindForFilterConjunct(
     const FilterConjunctInfo& conjunct_info,
     const absl::flat_hash_set<ResolvedColumn>& left_output_columns,
     const absl::flat_hash_set<ResolvedColumn>& right_output_columns,
     JoinOp::JoinKind* join_kind) {
   if (conjunct_info.kind == FilterConjunctInfo::kOther ||
       *join_kind == JoinOp::kInnerJoin || *join_kind == JoinOp::kCrossApply) {
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   bool has_left_column_arg = false;
@@ -2003,19 +2003,19 @@ zetasql_base::Status Algebrizer::NarrowJoinKindForFilterConjunct(
       if (has_right_column_arg) {
         *join_kind = JoinOp::kInnerJoin;
       }
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     case JoinOp::kOuterApply:
       // Same as left outer join.
       if (has_right_column_arg) {
         *join_kind = JoinOp::kCrossApply;
       }
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     case JoinOp::kRightOuterJoin:
       // Symmetric to left outer join.
       if (has_left_column_arg) {
         *join_kind = JoinOp::kInnerJoin;
       }
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     case JoinOp::kFullOuterJoin:
       // Analogous to the left/right outer join cases.
       if (has_left_column_arg && has_right_column_arg) {
@@ -2025,11 +2025,11 @@ zetasql_base::Status Algebrizer::NarrowJoinKindForFilterConjunct(
       } else if (has_right_column_arg) {
         *join_kind = JoinOp::kRightOuterJoin;
       }
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
   }
 }
 
-zetasql_base::Status Algebrizer::CanPushFilterConjunctIntoJoin(
+absl::Status Algebrizer::CanPushFilterConjunctIntoJoin(
     const FilterConjunctInfo& conjunct_info, JoinOp::JoinKind join_kind,
     const absl::flat_hash_set<ResolvedColumn>& left_output_columns,
     const absl::flat_hash_set<ResolvedColumn>& right_output_columns,
@@ -2039,7 +2039,7 @@ zetasql_base::Status Algebrizer::CanPushFilterConjunctIntoJoin(
   *push_down_to_left_input = false;
   *push_down_to_right_input = false;
 
-  if (!conjunct_info.is_non_volatile) return zetasql_base::OkStatus();
+  if (!conjunct_info.is_non_volatile) return absl::OkStatus();
 
   const bool references_left_column =
       Intersects(conjunct_info.referenced_columns, left_output_columns);
@@ -2055,27 +2055,27 @@ zetasql_base::Status Algebrizer::CanPushFilterConjunctIntoJoin(
           push_down_to_left_input, push_down_to_right_input));
       *push_down_to_join_condition =
           !*push_down_to_left_input && !*push_down_to_right_input;
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     case JoinOp::kLeftOuterJoin:
     case JoinOp::kOuterApply:
       // Conjuncts that don't reference the right can be pushed down.
       if (!references_right_column) {
         *push_down_to_left_input = true;
       }
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     case JoinOp::kRightOuterJoin:
       // Symmetric to left outer join.
       if (!references_left_column) {
         *push_down_to_right_input = true;
       }
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     case JoinOp::kFullOuterJoin:
       // Analogous to left/right outer join.
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
   }
 }
 
-zetasql_base::Status Algebrizer::CanPushFilterConjunctDownFromInnerJoinCondition(
+absl::Status Algebrizer::CanPushFilterConjunctDownFromInnerJoinCondition(
     const FilterConjunctInfo& conjunct_info,
     const absl::flat_hash_set<ResolvedColumn>& left_output_columns,
     const absl::flat_hash_set<ResolvedColumn>& right_output_columns,
@@ -2083,7 +2083,7 @@ zetasql_base::Status Algebrizer::CanPushFilterConjunctDownFromInnerJoinCondition
   *push_down_to_left_input = false;
   *push_down_to_right_input = false;
 
-  if (!conjunct_info.is_non_volatile) return zetasql_base::OkStatus();
+  if (!conjunct_info.is_non_volatile) return absl::OkStatus();
 
   const bool references_left_column =
       Intersects(conjunct_info.referenced_columns, left_output_columns);
@@ -2093,10 +2093,10 @@ zetasql_base::Status Algebrizer::CanPushFilterConjunctDownFromInnerJoinCondition
   *push_down_to_left_input = !references_right_column;
   *push_down_to_right_input = !references_left_column;
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Algebrizer::AlgebrizeJoinConditionForHashJoin(
+absl::Status Algebrizer::AlgebrizeJoinConditionForHashJoin(
     const absl::flat_hash_set<ResolvedColumn>& left_output_columns,
     const absl::flat_hash_set<ResolvedColumn>& right_output_columns,
     std::vector<FilterConjunctInfo*>* conjuncts_with_push_down,
@@ -2118,7 +2118,7 @@ zetasql_base::Status Algebrizer::AlgebrizeJoinConditionForHashJoin(
     }
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Returns true if 'a' is a subset of 'b'.
@@ -2179,7 +2179,7 @@ Algebrizer::TryAlgebrizeFilterConjunctAsHashJoinEqualityExprs(
 
   return true;
 }
-zetasql_base::Status Algebrizer::RemapJoinColumns(
+absl::Status Algebrizer::RemapJoinColumns(
     const ResolvedColumnList& columns,
     std::vector<std::unique_ptr<ExprArg>>* output) {
   absl::flat_hash_set<int> columns_seen;
@@ -2196,7 +2196,7 @@ zetasql_base::Status Algebrizer::RemapJoinColumns(
     output->push_back(
         absl::make_unique<ExprArg>(new_var, std::move(deref_expr)));
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeFilterScan(
@@ -2490,7 +2490,7 @@ Algebrizer::MaybeCreateSortForAnalyticOperator(
   return sort_op;
 }
 
-zetasql_base::Status Algebrizer::AlgebrizeOrderByItems(
+absl::Status Algebrizer::AlgebrizeOrderByItems(
     bool drop_correlated_columns, bool create_new_ids,
     const std::vector<std::unique_ptr<const ResolvedOrderByItem>>&
         order_by_items,
@@ -2557,10 +2557,10 @@ zetasql_base::Status Algebrizer::AlgebrizeOrderByItems(
     order_by_keys->back()->set_collation(std::move(sort_collation));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Algebrizer::AlgebrizePartitionExpressions(
+absl::Status Algebrizer::AlgebrizePartitionExpressions(
     const ResolvedWindowPartitioning* partition_by,
     absl::flat_hash_map<int, VariableId>* column_to_id_map,
     std::vector<std::unique_ptr<KeyArg>>* partition_by_keys) {
@@ -2589,7 +2589,7 @@ zetasql_base::Status Algebrizer::AlgebrizePartitionExpressions(
         key, std::move(deref_key), KeyArg::kAscending));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 zetasql_base::StatusOr<std::unique_ptr<AnalyticArg>>
@@ -3528,7 +3528,7 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeDMLState
   return WrapWithRootExpr(std::move(value_expr));
 }
 
-zetasql_base::Status Algebrizer::AlgebrizeDescendantsOfDMLStatement(
+absl::Status Algebrizer::AlgebrizeDescendantsOfDMLStatement(
     const ResolvedStatement* ast_root, ResolvedScanMap* resolved_scan_map,
     ResolvedExprMap* resolved_expr_map,
     const ResolvedTableScan** resolved_table_scan) {
@@ -3666,10 +3666,10 @@ zetasql_base::Status Algebrizer::AlgebrizeDescendantsOfDMLStatement(
     *resolved_table_scan = resolved_table_scan_or_null;
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Algebrizer::AlgebrizeDescendantsOfUpdateItem(
+absl::Status Algebrizer::AlgebrizeDescendantsOfUpdateItem(
     const ResolvedUpdateItem* update_item, ResolvedScanMap* resolved_scan_map,
     ResolvedExprMap* resolved_expr_map) {
   ZETASQL_RETURN_IF_ERROR(
@@ -3712,27 +3712,27 @@ zetasql_base::Status Algebrizer::AlgebrizeDescendantsOfUpdateItem(
         /*resolved_table_scan=*/nullptr));
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Algebrizer::PopulateResolvedScanMap(
+absl::Status Algebrizer::PopulateResolvedScanMap(
     const ResolvedScan* resolved_scan, ResolvedScanMap* resolved_scan_map) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> relational_op,
                    AlgebrizeScan(resolved_scan));
   const auto ret =
       resolved_scan_map->emplace(resolved_scan, std::move(relational_op));
   ZETASQL_RET_CHECK(ret.second);
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Algebrizer::PopulateResolvedExprMap(
+absl::Status Algebrizer::PopulateResolvedExprMap(
     const ResolvedExpr* resolved_expr, ResolvedExprMap* resolved_expr_map) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> value_expr,
                    AlgebrizeExpression(resolved_expr));
   const auto ret =
       resolved_expr_map->emplace(resolved_expr, std::move(value_expr));
   ZETASQL_RET_CHECK(ret.second);
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 zetasql_base::StatusOr<ProtoFieldRegistry*> Algebrizer::AddProtoFieldRegistry(
@@ -3780,16 +3780,16 @@ std::string Algebrizer::SharedProtoFieldPath::DebugString() const {
   return absl::StrCat(s, ".", absl::StrJoin(path_strs, "."));
 }
 
-static ::zetasql_base::Status VerifyParameters(const Parameters* parameters) {
+static absl::Status VerifyParameters(const Parameters* parameters) {
   if (parameters->is_named()) {
     ZETASQL_RET_CHECK(parameters->named_parameters().empty());
   } else {
     ZETASQL_RET_CHECK(parameters->positional_parameters().empty());
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Algebrizer::AlgebrizeStatement(
+absl::Status Algebrizer::AlgebrizeStatement(
     const LanguageOptions& language_options,
     const AlgebrizerOptions& algebrizer_options, TypeFactory* type_factory,
     const ResolvedStatement* ast_root, std::unique_ptr<ValueExpr>* output,
@@ -3849,10 +3849,10 @@ zetasql_base::Status Algebrizer::AlgebrizeStatement(
   }
 
   VLOG(2) << "Algebrized tree:\n" << output->get()->DebugString(true);
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Algebrizer::AlgebrizeQueryStatementAsRelation(
+absl::Status Algebrizer::AlgebrizeQueryStatementAsRelation(
     const LanguageOptions& language_options,
     const AlgebrizerOptions& algebrizer_options, TypeFactory* type_factory,
     const ResolvedQueryStmt* ast_root, ResolvedColumnList* output_column_list,
@@ -3869,10 +3869,10 @@ zetasql_base::Status Algebrizer::AlgebrizeQueryStatementAsRelation(
                    single_use_algebrizer.AlgebrizeQueryStatementAsRelation(
                        ast_root, output_column_list, output_column_names,
                        output_column_variables));
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status Algebrizer::AlgebrizeExpression(
+absl::Status Algebrizer::AlgebrizeExpression(
     const LanguageOptions& language_options,
     const AlgebrizerOptions& algebrizer_options, TypeFactory* type_factory,
     const ResolvedExpr* ast_root, std::unique_ptr<ValueExpr>* output,

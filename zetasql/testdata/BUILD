@@ -211,11 +211,11 @@ cc_library(
     hdrs = ["error_catalog.h"],
     copts = ["-Wno-sign-compare"],
     deps = [
-        "//zetasql/base",
         "//zetasql/base:ret_check",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/public:catalog",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/types:span",
     ],
 )

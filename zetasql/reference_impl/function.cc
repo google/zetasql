@@ -90,7 +90,7 @@ namespace {
 // Add() and Subtract() are helper methods with a uniform signature for all
 // numeric types. They do not handle NULLs.
 template <typename T>
-bool Add(const Value& src, Value* dst, zetasql_base::Status* status) {
+bool Add(const Value& src, Value* dst, absl::Status* status) {
   T out;
   if (functions::Add(src.Get<T>(), dst->Get<T>(), &out, status)) {
     *dst = Value::Make<T>(out);
@@ -100,7 +100,7 @@ bool Add(const Value& src, Value* dst, zetasql_base::Status* status) {
 }
 
 template <typename T>
-bool Subtract(const Value& src, Value* dst, zetasql_base::Status* status) {
+bool Subtract(const Value& src, Value* dst, absl::Status* status) {
   T out;
   if (functions::Subtract(src.Get<T>(), dst->Get<T>(), &out, status)) {
     *dst = Value::Make<T>(out);
@@ -145,13 +145,13 @@ bool IsNaN(const Value& src) {
 
 template <typename OutType, typename InType>
 struct UnaryExecutor {
-  typedef bool(*ptr)(InType, OutType*, zetasql_base::Status* error);
+  typedef bool(*ptr)(InType, OutType*, absl::Status* error);
 };
 
 template <typename OutType, typename InType = OutType>
 bool InvokeUnary(typename UnaryExecutor<OutType, InType>::ptr function,
                  absl::Span<const Value> args, Value* result,
-                 ::zetasql_base::Status* status) {
+                 absl::Status* status) {
   CHECK_EQ(1, args.size());
   OutType out;
   if (!function(args[0].template Get<InType>(), &out, status)) {
@@ -164,7 +164,7 @@ bool InvokeUnary(typename UnaryExecutor<OutType, InType>::ptr function,
 template <typename OutType, typename InType = OutType>
 bool SafeInvokeUnary(typename UnaryExecutor<OutType, InType>::ptr function,
                      absl::Span<const Value> args, Value* result,
-                     ::zetasql_base::Status* status) {
+                     absl::Status* status) {
   if (!InvokeUnary<OutType, InType>(function, args, result, status)) {
     *result = Value::MakeNull<OutType>();
   }
@@ -173,14 +173,14 @@ bool SafeInvokeUnary(typename UnaryExecutor<OutType, InType>::ptr function,
 
 template <typename OutType, typename InType1, typename InType2>
 struct BinaryExecutor {
-  typedef bool(*ptr)(InType1, InType2, OutType*, zetasql_base::Status* error);
+  typedef bool(*ptr)(InType1, InType2, OutType*, absl::Status* error);
 };
 
 template <typename OutType, typename InType1 = OutType,
           typename InType2 = OutType>
 bool InvokeBinary(
     typename BinaryExecutor<OutType, InType1, InType2>::ptr function,
-    absl::Span<const Value> args, Value* result, ::zetasql_base::Status* status) {
+    absl::Span<const Value> args, Value* result, absl::Status* status) {
   CHECK_EQ(2, args.size());
   OutType out;
   if (!function(args[0].template Get<InType1>(),
@@ -195,7 +195,7 @@ template <typename OutType, typename InType1 = OutType,
           typename InType2 = OutType>
 bool SafeInvokeBinary(
     typename BinaryExecutor<OutType, InType1, InType2>::ptr function,
-    absl::Span<const Value> args, Value* result, ::zetasql_base::Status* status) {
+    absl::Span<const Value> args, Value* result, absl::Status* status) {
   if (!InvokeBinary<OutType, InType1, InType2>(function, args, result,
                                                status)) {
     *result = Value::MakeNull<OutType>();
@@ -204,7 +204,7 @@ bool SafeInvokeBinary(
 }
 
 template <typename OutType, typename FunctionType, class... Args>
-bool InvokeString(FunctionType function, Value* result, ::zetasql_base::Status* status,
+bool InvokeString(FunctionType function, Value* result, absl::Status* status,
                   Args... args) {
   OutType out;
   if (!function(args..., &out, status)) {
@@ -215,7 +215,7 @@ bool InvokeString(FunctionType function, Value* result, ::zetasql_base::Status* 
 }
 
 template <typename OutType, typename FunctionType, class... Args>
-bool InvokeBytes(FunctionType function, Value* result, ::zetasql_base::Status* status,
+bool InvokeBytes(FunctionType function, Value* result, absl::Status* status,
                  Args... args) {
   OutType out;
   if (!function(args..., &out, status)) {
@@ -227,7 +227,7 @@ bool InvokeBytes(FunctionType function, Value* result, ::zetasql_base::Status* s
 
 template <typename OutType, typename FunctionType, class... Args>
 bool InvokeNullableString(FunctionType function, Value* result,
-                          ::zetasql_base::Status* status, Args... args) {
+                          absl::Status* status, Args... args) {
   OutType out;
   bool is_null = true;
   *status = function(args..., &out, &is_null);
@@ -238,7 +238,7 @@ bool InvokeNullableString(FunctionType function, Value* result,
 
 template <typename OutType, typename FunctionType, class... Args>
 bool InvokeNullableBytes(FunctionType function, Value* result,
-                         ::zetasql_base::Status* status, Args... args) {
+                         absl::Status* status, Args... args) {
   OutType out;
   bool is_null = true;
   *status = function(args..., &out, &is_null);
@@ -248,7 +248,7 @@ bool InvokeNullableBytes(FunctionType function, Value* result,
 }
 
 template <typename OutType, typename FunctionType, class... Args>
-bool Invoke(FunctionType function, Value* result, ::zetasql_base::Status* status,
+bool Invoke(FunctionType function, Value* result, absl::Status* status,
             Args... args) {
   OutType out;
   if (!function(args..., &out, status)) {
@@ -258,7 +258,7 @@ bool Invoke(FunctionType function, Value* result, ::zetasql_base::Status* status
   return true;
 }
 
-zetasql_base::Status MakeMaxArrayValueByteSizeExceededError(
+absl::Status MakeMaxArrayValueByteSizeExceededError(
     int64_t max_value_byte_size, const zetasql_base::SourceLocation& source_loc) {
   return zetasql_base::OutOfRangeErrorBuilder(source_loc)
          << "Arrays are limited to " << max_value_byte_size << " bytes";
@@ -266,11 +266,11 @@ zetasql_base::Status MakeMaxArrayValueByteSizeExceededError(
 
 // Generates an array from start to end inclusive with the specified step size.
 template <typename T, typename TStep, Value (*TMakeValue)(T)>
-zetasql_base::Status GenerateArrayHelper(T start, T end, TStep step,
+absl::Status GenerateArrayHelper(T start, T end, TStep step,
                                  EvaluationContext* context,
                                  std::vector<Value>* values) {
   std::vector<T> values_temp;
-  zetasql_base::Status status =
+  absl::Status status =
       functions::GenerateArray<T, TStep>(start, end, step, &values_temp);
   if (!status.ok()) {
     return status;
@@ -287,19 +287,19 @@ zetasql_base::Status GenerateArrayHelper(T start, T end, TStep step,
     values->push_back(tracked_value);
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Generates an array from start to end inclusive with the specified step size.
 template <typename T>
-zetasql_base::Status GenerateArray(T start, T end, T step, EvaluationContext* context,
+absl::Status GenerateArray(T start, T end, T step, EvaluationContext* context,
                            std::vector<Value>* values) {
   return GenerateArrayHelper<T, T, Value::Make<T>>(start, end, step, context,
                                                    values);
 }
 
 template <>
-zetasql_base::Status GenerateArray(NumericValue start, NumericValue end,
+absl::Status GenerateArray(NumericValue start, NumericValue end,
                            NumericValue step, EvaluationContext* context,
                            std::vector<Value>* values) {
   return GenerateArrayHelper<NumericValue, NumericValue, Value::Numeric>(
@@ -311,7 +311,7 @@ zetasql_base::Status GenerateArray(NumericValue start, NumericValue end,
 Value MakeDate(int64_t in) { return Value::Date(in); }
 Value MakeTimestamp(absl::Time in) { return Value::Timestamp(in); }
 
-zetasql_base::Status GenerateDateArray(int64_t start, int64_t end, int64_t step,
+absl::Status GenerateDateArray(int64_t start, int64_t end, int64_t step,
                                functions::DateTimestampPart step_unit,
                                EvaluationContext* context,
                                std::vector<Value>* values) {
@@ -323,7 +323,7 @@ zetasql_base::Status GenerateDateArray(int64_t start, int64_t end, int64_t step,
       start, end, increment, context, values);
 }
 
-zetasql_base::Status GenerateTimestampArray(absl::Time start, absl::Time end,
+absl::Status GenerateTimestampArray(absl::Time start, absl::Time end,
                                     int64_t step,
                                     functions::DateTimestampPart step_unit,
                                     EvaluationContext* context,
@@ -666,9 +666,9 @@ struct ValueTraits;
 // Traits for zetasql String
 template <>
 struct ValueTraits<TYPE_STRING> {
-  static zetasql_base::Status InitializePattern(const Value& pattern,
+  static absl::Status InitializePattern(const Value& pattern,
                                         functions::RegExp* regexp) {
-    zetasql_base::Status status;
+    absl::Status status;
     regexp->InitializePatternUtf8(FromValue(pattern), &status);
     return status;
   }
@@ -691,9 +691,9 @@ struct ValueTraits<TYPE_STRING> {
 // Traits for zetasql bytes
 template <>
 struct ValueTraits<TYPE_BYTES> {
-  static zetasql_base::Status InitializePattern(const Value& pattern,
+  static absl::Status InitializePattern(const Value& pattern,
                                         functions::RegExp* regexp) {
-    zetasql_base::Status status;
+    absl::Status status;
     regexp->InitializePatternBytes(FromValue(pattern), &status);
     return status;
   }
@@ -719,7 +719,7 @@ struct ValueTraits<TYPE_BYTES> {
 template <TypeKind type>
 static RegexpFunction::EvalFunction WrapOrInitRegexpFunction(
     RegexpFunction::EvalFunction func, const ConstExpr* pattern,
-    functions::RegExp* regexp, zetasql_base::Status* status) {
+    functions::RegExp* regexp, absl::Status* status) {
   if (pattern && !pattern->value().is_null()) {
     *status = ValueTraits<type>::InitializePattern(pattern->value(), regexp);
     return func;
@@ -736,7 +736,7 @@ static RegexpFunction::EvalFunction WrapOrInitRegexpFunction(
 template <TypeKind type>
 static zetasql_base::StatusOr<Value> Contains(absl::Span<const Value> x,
                                       functions::RegExp* regexp) {
-  zetasql_base::Status status;
+  absl::Status status;
   bool out;
   if (!regexp->Contains(ValueTraits<type>::FromValue(x[0]), &out, &status)) {
     return status;
@@ -748,7 +748,7 @@ static zetasql_base::StatusOr<Value> Contains(absl::Span<const Value> x,
 template <TypeKind type>
 static zetasql_base::StatusOr<Value> Match(absl::Span<const Value> x,
                                    functions::RegExp* regexp) {
-  zetasql_base::Status status;
+  absl::Status status;
   bool out;
   if (!regexp->Match(ValueTraits<type>::FromValue(x[0]), &out, &status)) {
     return status;
@@ -760,7 +760,7 @@ static zetasql_base::StatusOr<Value> Match(absl::Span<const Value> x,
 template <TypeKind type>
 static zetasql_base::StatusOr<Value> Extract(absl::Span<const Value> x,
                                      functions::RegExp* regexp) {
-  zetasql_base::Status status;
+  absl::Status status;
   absl::string_view out;
   bool is_null;
   std::string in_str = ValueTraits<type>::FromValue(x[0]);
@@ -778,7 +778,7 @@ static zetasql_base::StatusOr<Value> Extract(absl::Span<const Value> x,
 template <TypeKind type>
 static zetasql_base::StatusOr<Value> Replace(absl::Span<const Value> x,
                                      functions::RegExp* regexp) {
-  zetasql_base::Status status;
+  absl::Status status;
   std::string out;
   if (!regexp->Replace(ValueTraits<type>::FromValue(x[0]),
                        ValueTraits<type>::FromValue(x[2]), &out, &status)) {
@@ -791,7 +791,7 @@ static zetasql_base::StatusOr<Value> Replace(absl::Span<const Value> x,
 template <TypeKind type>
 static zetasql_base::StatusOr<Value> ExtractAll(absl::Span<const Value> x,
                                         functions::RegExp* regexp) {
-  zetasql_base::Status status;
+  absl::Status status;
   std::vector<Value> values;
   std::string in_str = ValueTraits<type>::FromValue(x[0]);
   absl::string_view in = in_str;
@@ -809,11 +809,11 @@ static zetasql_base::StatusOr<Value> ExtractAll(absl::Span<const Value> x,
   return ValueTraits<type>::ToArray(values);
 }
 
-zetasql_base::Status UpdateCovariance(
+absl::Status UpdateCovariance(
     double x, double y,
     double mean_x, double mean_y,
     double pair_count, double* covar) {
-  zetasql_base::Status error;
+  absl::Status error;
   double old_pair_count, delta_x, delta_y, tmp;
 
   // Stable one-pass covariance algorithm per
@@ -846,26 +846,26 @@ zetasql_base::Status UpdateCovariance(
     return error;
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status UpdateMeanAndVariance(
+absl::Status UpdateMeanAndVariance(
     double arg,
     double count,
     double* mean,
     double* variance) {
-  zetasql_base::Status error;
+  absl::Status error;
 
   if (!std::isfinite(*variance)) {
     // We've encountered nan and or +inf/-inf before, so there's
     // no need to update mean and variance any further as the result
     // will be nan for any stat.
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   if (!std::isfinite(arg)) {
     *variance = std::numeric_limits<double>::quiet_NaN();
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // Stable one-pass variance algorithm based on code in
@@ -904,10 +904,10 @@ zetasql_base::Status UpdateMeanAndVariance(
     return error;
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ConcatError(int64_t max_output_size, zetasql_base::SourceLocation src) {
+absl::Status ConcatError(int64_t max_output_size, zetasql_base::SourceLocation src) {
   return zetasql_base::OutOfRangeErrorBuilder(src)
          << absl::StrCat("Output of CONCAT exceeds max allowed output size of ",
                          max_output_size, " bytes");
@@ -1004,7 +1004,7 @@ zetasql_base::StatusOr<FunctionKind> BuiltinFunctionCatalog::GetKindByName(
   const FunctionKind* kind = zetasql_base::FindOrNull(
       GetFunctionMap().function_kind_by_name(), std::string(name));
   if (kind == nullptr) {
-    return zetasql_base::Status(zetasql_base::StatusCode::kInvalidArgument,
+    return absl::Status(absl::StatusCode::kInvalidArgument,
                         absl::StrCat("Unsupported built-in function: ", name));
   }
   return *kind;
@@ -1019,7 +1019,7 @@ std::string BuiltinScalarFunction::debug_name() const {
   return BuiltinFunctionCatalog::GetDebugNameByKind(kind());
 }
 
-static zetasql_base::Status ValidateInputTypesSupportEqualityComparison(
+static absl::Status ValidateInputTypesSupportEqualityComparison(
     FunctionKind kind, absl::Span<const Type* const> input_types) {
   for (auto type : input_types) {
     if (!ValidateTypeSupportsEqualityComparison(type).ok()) {
@@ -1028,10 +1028,10 @@ static zetasql_base::Status ValidateInputTypesSupportEqualityComparison(
              << " must support equality comparison: " << type->DebugString();
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-static zetasql_base::Status ValidateInputTypesSupportOrderComparison(
+static absl::Status ValidateInputTypesSupportOrderComparison(
     FunctionKind kind, absl::Span<const Type* const> input_types) {
   for (auto type : input_types) {
     if (!ValidateTypeSupportsOrderComparison(type).ok()) {
@@ -1040,10 +1040,10 @@ static zetasql_base::Status ValidateInputTypesSupportOrderComparison(
              << " must support order comparison: " << type->DebugString();
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-static zetasql_base::Status ValidateSupportedTypes(
+static absl::Status ValidateSupportedTypes(
     const LanguageOptions& language_options,
     absl::Span<const Type* const> input_types) {
   for (auto type : input_types) {
@@ -1053,7 +1053,7 @@ static zetasql_base::Status ValidateSupportedTypes(
              << type->TypeName(language_options.product_mode());
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 zetasql_base::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>>
@@ -1367,7 +1367,7 @@ BuiltinScalarFunction::CreateValidated(
 // and whether or not it is a constant expression.
 static RegexpFunction::EvalFunction CreateEvalFunction(
     const FunctionKind& kind, TypeKind input_kind, const ConstExpr* pattern,
-    functions::RegExp* regexp, zetasql_base::Status* status) {
+    functions::RegExp* regexp, absl::Status* status) {
   switch (FCT(kind, input_kind)) {
     case FCT(FunctionKind::kRegexpContains, TYPE_STRING): {
       return WrapOrInitRegexpFunction<TYPE_STRING>(&Contains<TYPE_STRING>,
@@ -1460,7 +1460,7 @@ BuiltinScalarFunction::CreateRegexpFunction(
           ? static_cast<const ConstExpr*>(arguments[1].get())
           : nullptr;
 
-  zetasql_base::Status status;
+  absl::Status status;
   RegexpFunction::EvalFunction eval_func =
       CreateEvalFunction(kind, input_kind, pattern, regexp.get(), &status);
   ZETASQL_RETURN_IF_ERROR(status);
@@ -1501,7 +1501,7 @@ static bool HasNaNs(absl::Span<const Value> args) {
 
 bool LeastFunction::Eval(absl::Span<const Value> args,
                          EvaluationContext* context, Value* result,
-                         ::zetasql_base::Status* status) const {
+                         absl::Status* status) const {
   DCHECK_GT(args.size(), 0);
   if (HasNulls(args)) {
     *result = Value::Null(output_type());
@@ -1522,7 +1522,7 @@ bool LeastFunction::Eval(absl::Span<const Value> args,
 
 bool GreatestFunction::Eval(absl::Span<const Value> args,
                             EvaluationContext* context, Value* result,
-                            ::zetasql_base::Status* status) const {
+                            absl::Status* status) const {
   DCHECK_GT(args.size(), 0);
   if (HasNulls(args)) {
     *result = Value::Null(output_type());
@@ -1547,7 +1547,7 @@ zetasql_base::StatusOr<Value> ToCodePointsFunction::Eval(
   if (args[0].is_null()) return Value::Null(output_type());
 
   std::vector<int64_t> codepoints;
-  zetasql_base::Status status;
+  absl::Status status;
   switch (args[0].type_kind()) {
     case TYPE_BYTES:
       if (!functions::BytesToCodePoints(args[0].bytes_value(), &codepoints,
@@ -1584,7 +1584,7 @@ zetasql_base::StatusOr<Value> CodePointsToFunction::Eval(
     codepoints.push_back(element.int64_value());
   }
   std::string out;
-  zetasql_base::Status status;
+  absl::Status status;
   switch (output_type()->kind()) {
     case TYPE_BYTES:
       if (!functions::CodePointsToBytes(codepoints, &out, &status)) {
@@ -1673,7 +1673,7 @@ zetasql_base::StatusOr<Value> GenerateArrayFunction::Eval(
 
 namespace {
 
-zetasql_base::Status CheckArrayElementInRangeBucket(absl::Span<const Value> elements,
+absl::Status CheckArrayElementInRangeBucket(absl::Span<const Value> elements,
                                             size_t idx) {
   const Value& value = elements[idx];
   if (value.is_null()) {
@@ -1698,7 +1698,7 @@ zetasql_base::Status CheckArrayElementInRangeBucket(absl::Span<const Value> elem
     }
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace
@@ -1730,7 +1730,7 @@ zetasql_base::StatusOr<Value> RangeBucketFunction::Eval(
 
 bool ArithmeticFunction::Eval(absl::Span<const Value> args,
                               EvaluationContext* context, Value* result,
-                              ::zetasql_base::Status* status) const {
+                              absl::Status* status) const {
   if (kind() == FunctionKind::kUnaryMinus ||
       kind() == FunctionKind::kSafeNegate) {
     DCHECK_EQ(1, args.size());
@@ -1923,7 +1923,7 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
 
 bool ComparisonFunction::Eval(absl::Span<const Value> args,
                               EvaluationContext* context, Value* result,
-                              ::zetasql_base::Status* status) const {
+                              absl::Status* status) const {
   DCHECK_EQ(2, args.size());
 
   const Value& x = args[0];
@@ -2058,7 +2058,7 @@ bool ComparisonFunction::Eval(absl::Span<const Value> args,
 
 bool ExistsFunction::Eval(absl::Span<const Value> args,
                           EvaluationContext* context, Value* result,
-                          ::zetasql_base::Status* status) const {
+                          absl::Status* status) const {
   DCHECK_EQ(1, args.size());
   *result = Value::Bool(!args[0].empty());
   return true;
@@ -2066,7 +2066,7 @@ bool ExistsFunction::Eval(absl::Span<const Value> args,
 
 bool ArrayConcatFunction::Eval(absl::Span<const Value> args,
                                EvaluationContext* context, Value* result,
-                               ::zetasql_base::Status* status) const {
+                               absl::Status* status) const {
   DCHECK_LE(1, args.size());
   if (HasNulls(args)) {
     Value tracked_value = Value::Null(output_type());
@@ -2109,7 +2109,7 @@ bool ArrayConcatFunction::Eval(absl::Span<const Value> args,
 
 bool ArrayLengthFunction::Eval(absl::Span<const Value> args,
                                EvaluationContext* context, Value* result,
-                               ::zetasql_base::Status* status) const {
+                               absl::Status* status) const {
   DCHECK_EQ(1, args.size());
   if (HasNulls(args)) {
     *result = Value::Null(output_type());
@@ -2121,7 +2121,7 @@ bool ArrayLengthFunction::Eval(absl::Span<const Value> args,
 
 bool ArrayElementFunction::Eval(absl::Span<const Value> args,
                                 EvaluationContext* context, Value* result,
-                                ::zetasql_base::Status* status) const {
+                                absl::Status* status) const {
   DCHECK_EQ(2, args.size());
   const Value& array = args[0];
   // If any of the arguments to the function is NULL, it should return NULL
@@ -2209,7 +2209,7 @@ zetasql_base::StatusOr<Value> ArrayReverseFunction::Eval(
 }
 
 bool IsFunction::Eval(absl::Span<const Value> args, EvaluationContext* context,
-                      Value* result, ::zetasql_base::Status* status) const {
+                      Value* result, absl::Status* status) const {
   DCHECK_EQ(1, args.size());
   const Value& val = args[0];
   switch (kind()) {
@@ -2251,7 +2251,7 @@ zetasql_base::StatusOr<Value> CastFunction::Eval(absl::Span<const Value> args,
 
 bool BitCastFunction::Eval(absl::Span<const Value> args,
                            EvaluationContext* context, Value* result,
-                           ::zetasql_base::Status* status) const {
+                           absl::Status* status) const {
   DCHECK_EQ(args.size(), 1);
   if (HasNulls(args)) {
     *result = Value::Null(output_type());
@@ -2286,7 +2286,7 @@ bool BitCastFunction::Eval(absl::Span<const Value> args,
 
 bool LogicalFunction::Eval(absl::Span<const Value> args,
                            EvaluationContext* context, Value* result,
-                           ::zetasql_base::Status* status) const {
+                           absl::Status* status) const {
   switch (FCT(kind(), args[0].type_kind())) {
     case FCT(FunctionKind::kAnd, TYPE_BOOL): {
       // Assume true and downgrade appropriately.
@@ -2370,10 +2370,10 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   // contains any arguments to the aggregation function other than the argument
   // being aggregated. For example, 'args' contains the delimiter for
   // kStringAgg.
-  ::zetasql_base::Status Reset() final;
+  absl::Status Reset() final;
 
   bool Accumulate(const Value& value, bool* stop_accumulation,
-                  ::zetasql_base::Status* status) override;
+                  absl::Status* status) override;
 
   ::zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override;
 
@@ -2433,10 +2433,10 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   Value min_max_out_array_;
 };
 
-zetasql_base::Status BuiltinAggregateAccumulator::Reset() {
+absl::Status BuiltinAggregateAccumulator::Reset() {
   accountant()->ReturnBytes(requested_bytes_);
   requested_bytes_ = sizeof(*this);
-  zetasql_base::Status status;
+  absl::Status status;
   if (!accountant()->RequestBytes(requested_bytes_, &status)) {
     requested_bytes_ = 0;
     return status;
@@ -2600,12 +2600,12 @@ zetasql_base::Status BuiltinAggregateAccumulator::Reset() {
       break;
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
                                              bool* stop_accumulation,
-                                             ::zetasql_base::Status* status) {
+                                             absl::Status* status) {
   *stop_accumulation = false;
 
   int64_t bytes_to_return = 0;
@@ -2994,7 +2994,7 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
 ::zetasql_base::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
     bool inputs_in_defined_order) {
   const Type* output_type = function_->output_type();
-  ::zetasql_base::Status error;
+  absl::Status error;
   switch (function_->kind()) {
     case FunctionKind::kArrayAgg:
       // ARRAY_AGG returns NULL over empty input.
@@ -3241,10 +3241,10 @@ class BinaryStatAccumulator : public AggregateAccumulator {
     context_->memory_accountant()->ReturnBytes(requested_bytes_);
   }
 
-  ::zetasql_base::Status Reset() final;
+  absl::Status Reset() final;
 
   bool Accumulate(const Value& value, bool* stop_accumulation,
-                  ::zetasql_base::Status* status) override;
+                  absl::Status* status) override;
 
   ::zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override;
 
@@ -3275,12 +3275,12 @@ class BinaryStatAccumulator : public AggregateAccumulator {
   NumericValue::CorrelationAggregator numeric_correlation_aggregator_;  // Corr
 };
 
-::zetasql_base::Status BinaryStatAccumulator::Reset() {
+absl::Status BinaryStatAccumulator::Reset() {
   context_->memory_accountant()->ReturnBytes(requested_bytes_);
 
   requested_bytes_ = sizeof(*this);
 
-  zetasql_base::Status status;
+  absl::Status status;
   if (!context_->memory_accountant()->RequestBytes(requested_bytes_, &status)) {
     return status;
   }
@@ -3303,12 +3303,12 @@ class BinaryStatAccumulator : public AggregateAccumulator {
       input_has_nan_or_inf_ = false;
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 bool BinaryStatAccumulator::Accumulate(const Value& value,
                                        bool* stop_accumulation,
-                                       ::zetasql_base::Status* status) {
+                                       absl::Status* status) {
   *stop_accumulation = false;
 
   if (value.type_kind() != TYPE_STRUCT || value.num_fields() != 2) {
@@ -3371,7 +3371,7 @@ bool BinaryStatAccumulator::Accumulate(const Value& value,
     return Value::Double(std::numeric_limits<double>::quiet_NaN());
   }
 
-  ::zetasql_base::Status error;
+  absl::Status error;
   double out_double = std::numeric_limits<double>::quiet_NaN();
   switch (FCT2(function_->kind(),
                input_type_->AsStruct()->field(0).type->kind(),
@@ -3438,7 +3438,7 @@ zetasql_base::StatusOr<Value> LikeFunction::Eval(absl::Span<const Value> args,
 
 bool BitwiseFunction::Eval(absl::Span<const Value> args,
                            EvaluationContext* context, Value* result,
-                           ::zetasql_base::Status* status) const {
+                           absl::Status* status) const {
   if (HasNulls(args)) {
     *result = Value::Null(output_type());
     return true;
@@ -3552,7 +3552,7 @@ bool BitwiseFunction::Eval(absl::Span<const Value> args,
 
 bool BitCountFunction::Eval(absl::Span<const Value> args,
                             EvaluationContext* context, Value* result,
-                            ::zetasql_base::Status* status) const {
+                            absl::Status* status) const {
   CHECK_EQ(1, args.size());
   if (HasNulls(args)) {
     *result = Value::Null(output_type());
@@ -3581,7 +3581,7 @@ bool BitCountFunction::Eval(absl::Span<const Value> args,
 
 bool MathFunction::Eval(absl::Span<const Value> args,
                         EvaluationContext* context, Value* result,
-                        ::zetasql_base::Status* status) const {
+                        absl::Status* status) const {
   if (HasNulls(args)) {
     *result = Value::Null(output_type());
     return true;
@@ -3771,7 +3771,7 @@ bool MathFunction::Eval(absl::Span<const Value> args,
 
 bool StringFunction::Eval(absl::Span<const Value> args,
                           EvaluationContext* context, Value* result,
-                          ::zetasql_base::Status* status) const {
+                          absl::Status* status) const {
   if (HasNulls(args)) {
     *result = Value::Null(output_type());
     return true;
@@ -3968,7 +3968,7 @@ zetasql_base::StatusOr<Value> RegexpFunction::Eval(absl::Span<const Value> args,
 zetasql_base::StatusOr<Value> SplitFunction::Eval(absl::Span<const Value> args,
                                           EvaluationContext* context) const {
   if (HasNulls(args)) return Value::Null(output_type());
-  zetasql_base::Status status;
+  absl::Status status;
   std::vector<std::string> parts;
   std::vector<Value> values;
   if (args[0].type()->kind() == TYPE_STRING) {
@@ -3983,7 +3983,7 @@ zetasql_base::StatusOr<Value> SplitFunction::Eval(absl::Span<const Value> args,
     }
     return Value::Array(types::StringArrayType(), values);
   } else {
-    zetasql_base::Status status;
+    absl::Status status;
     if (!functions::SplitBytes(args[0].bytes_value(), args[1].bytes_value(),
                                &parts, &status)) {
       return status;
@@ -4032,7 +4032,7 @@ zetasql_base::StatusOr<Value> CaseConverterFunction::Eval(
   if (HasNulls(args)) return Value::Null(output_type());
   functions::Utf8CaseFunction case_function;
   std::string result;
-  zetasql_base::Status error;
+  absl::Status error;
   switch (FCT(kind(), output_type()->kind())) {
     case FCT(FunctionKind::kUpper, TYPE_STRING):
       if (!case_function.Upper(args[0].string_value(), &result, &error)) {
@@ -5208,7 +5208,7 @@ std::string UserDefinedScalarFunction::debug_name() const {
 
 bool UserDefinedScalarFunction::Eval(absl::Span<const Value> args,
                                      EvaluationContext* context, Value* result,
-                                     ::zetasql_base::Status* status) const {
+                                     absl::Status* status) const {
   auto status_or_result = evaluator_(args);
   if (!status_or_result.ok()) {
     *status = status_or_result.status();
@@ -5232,7 +5232,7 @@ std::string BuiltinAnalyticFunction::debug_name() const {
   return BuiltinFunctionCatalog::GetDebugNameByKind(kind_);
 }
 
-zetasql_base::Status DenseRankFunction::Eval(
+absl::Status DenseRankFunction::Eval(
     const TupleSchema& schema, const absl::Span<const TupleData* const>& tuples,
     const absl::Span<const std::vector<Value>>& args,
     const absl::Span<const AnalyticWindow>& windows,
@@ -5244,7 +5244,7 @@ zetasql_base::Status DenseRankFunction::Eval(
   ZETASQL_RET_CHECK(comparator != nullptr);
 
   if (tuples.empty()) {
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   const TupleData* prev_tuple = tuples.front();
@@ -5260,10 +5260,10 @@ zetasql_base::Status DenseRankFunction::Eval(
     result->emplace_back(Value::Int64(dense_rank));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status RankFunction::Eval(
+absl::Status RankFunction::Eval(
     const TupleSchema& schema, const absl::Span<const TupleData* const>& tuples,
     const absl::Span<const std::vector<Value>>& args,
     const absl::Span<const AnalyticWindow>& windows,
@@ -5275,7 +5275,7 @@ zetasql_base::Status RankFunction::Eval(
   ZETASQL_RET_CHECK(comparator != nullptr);
 
   if (tuples.empty()) {
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   const TupleData* prev_tuple = tuples.front();
@@ -5295,10 +5295,10 @@ zetasql_base::Status RankFunction::Eval(
     result->emplace_back(Value::Int64(rank));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status RowNumberFunction::Eval(
+absl::Status RowNumberFunction::Eval(
     const TupleSchema& schema, const absl::Span<const TupleData* const>& tuples,
     const absl::Span<const std::vector<Value>>& args,
     const absl::Span<const AnalyticWindow>& windows,
@@ -5321,10 +5321,10 @@ zetasql_base::Status RowNumberFunction::Eval(
     context->SetNonDeterministicOutput();
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status PercentRankFunction::Eval(
+absl::Status PercentRankFunction::Eval(
     const TupleSchema& schema, const absl::Span<const TupleData* const>& tuples,
     const absl::Span<const std::vector<Value>>& args,
     const absl::Span<const AnalyticWindow>& windows,
@@ -5336,13 +5336,13 @@ zetasql_base::Status PercentRankFunction::Eval(
   ZETASQL_RET_CHECK(comparator != nullptr);
 
   if (tuples.empty()) {
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // Return 0 if there is only one tuple.
   if (tuples.size() == 1) {
     result->emplace_back(Value::Double(0));
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   RankFunction rank_function;
@@ -5355,10 +5355,10 @@ zetasql_base::Status PercentRankFunction::Eval(
         Value::Double((rank_value.int64_value() - 1) / num_tuples_minus_one);
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status CumeDistFunction::Eval(
+absl::Status CumeDistFunction::Eval(
     const TupleSchema& schema, const absl::Span<const TupleData* const>& tuples,
     const absl::Span<const std::vector<Value>>& args,
     const absl::Span<const AnalyticWindow>& windows,
@@ -5370,7 +5370,7 @@ zetasql_base::Status CumeDistFunction::Eval(
   ZETASQL_RET_CHECK(comparator != nullptr);
 
   if (tuples.empty()) {
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   int tuple_id = 0;
@@ -5395,7 +5395,7 @@ zetasql_base::Status CumeDistFunction::Eval(
         Value::Double(static_cast<double>(tuple_id) / tuples.size()));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Returns true if it finds a tuple in 'tuples' such that a) it is a peer with
@@ -5448,7 +5448,7 @@ bool NtileFunction::OrderingPeersAreNotEqual(
                               comparator, not_equal_to_key);
 }
 
-zetasql_base::Status NtileFunction::Eval(
+absl::Status NtileFunction::Eval(
     const TupleSchema& schema, const absl::Span<const TupleData* const>& tuples,
     const absl::Span<const std::vector<Value>>& args,
     const absl::Span<const AnalyticWindow>& windows,
@@ -5477,7 +5477,7 @@ zetasql_base::Status NtileFunction::Eval(
   }
 
   if (tuples.empty()) {
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   // If the bucket count argument value is larger than the number of tuples,
@@ -5531,7 +5531,7 @@ zetasql_base::Status NtileFunction::Eval(
     result->insert(result->end(), small_bucket_size, Value::Int64(bucket_id));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Returns true if there is a tuple in 'tuples' such that
@@ -5558,7 +5558,7 @@ static bool CurrentTupleHasPeerWithDifferentRespectedValues(
                               comparator, has_different_value);
 }
 
-zetasql_base::Status FirstValueFunction::Eval(
+absl::Status FirstValueFunction::Eval(
     const TupleSchema& schema, const absl::Span<const TupleData* const>& tuples,
     const absl::Span<const std::vector<Value>>& args,
     const absl::Span<const AnalyticWindow>& windows,
@@ -5604,10 +5604,10 @@ zetasql_base::Status FirstValueFunction::Eval(
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status LastValueFunction::Eval(
+absl::Status LastValueFunction::Eval(
     const TupleSchema& schema, const absl::Span<const TupleData* const>& tuples,
     const absl::Span<const std::vector<Value>>& args,
     const absl::Span<const AnalyticWindow>& windows,
@@ -5654,10 +5654,10 @@ zetasql_base::Status LastValueFunction::Eval(
     result->emplace_back(values[last_value_tuple_id]);
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status NthValueFunction::Eval(
+absl::Status NthValueFunction::Eval(
     const TupleSchema& schema, const absl::Span<const TupleData* const>& tuples,
     const absl::Span<const std::vector<Value>>& args,
     const absl::Span<const AnalyticWindow>& windows,
@@ -5722,7 +5722,7 @@ zetasql_base::Status NthValueFunction::Eval(
     }
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Returns the value at 'offset' in 'arg_values' if the offset is within
@@ -5831,7 +5831,7 @@ static void ComputeLeadLagValues(
   }
 }
 
-zetasql_base::Status LeadFunction::Eval(
+absl::Status LeadFunction::Eval(
     const TupleSchema& schema, const absl::Span<const TupleData* const>& tuples,
     const absl::Span<const std::vector<Value>>& args,
     const absl::Span<const AnalyticWindow>& windows,
@@ -5874,10 +5874,10 @@ zetasql_base::Status LeadFunction::Eval(
   ComputeLeadLagValues(schema, normalized_offset, tuples, values, default_value,
                        comparator, context, result);
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status LagFunction::Eval(const TupleSchema& schema,
+absl::Status LagFunction::Eval(const TupleSchema& schema,
                                const absl::Span<const TupleData* const>& tuples,
                                const absl::Span<const std::vector<Value>>& args,
                                const absl::Span<const AnalyticWindow>& windows,
@@ -5919,10 +5919,10 @@ zetasql_base::Status LagFunction::Eval(const TupleSchema& schema,
   ComputeLeadLagValues(schema, normalized_offset, tuples, values, default_value,
                        comparator, context, result);
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status PercentileContFunction::Eval(
+absl::Status PercentileContFunction::Eval(
     const TupleSchema& schema, const absl::Span<const TupleData* const>& tuples,
     const absl::Span<const std::vector<Value>>& args,
     const absl::Span<const AnalyticWindow>& windows,
@@ -5980,7 +5980,7 @@ zetasql_base::Status PercentileContFunction::Eval(
   result->resize(
       values_arg.size(),
       result_is_not_null ? Value::Double(result_value) : Value::NullDouble());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 template <typename T, typename V = T, typename ValueCreationFn = Value(*)(T)>
@@ -6009,7 +6009,7 @@ Value ComputePercentileDisc(
       Value::Null(type) : value_creation_fn(*itr);
 }
 
-zetasql_base::Status PercentileDiscFunction::Eval(
+absl::Status PercentileDiscFunction::Eval(
     const TupleSchema& schema, const absl::Span<const TupleData* const>& tuples,
     const absl::Span<const std::vector<Value>>& args,
     const absl::Span<const AnalyticWindow>& windows,
@@ -6139,7 +6139,7 @@ zetasql_base::Status PercentileDiscFunction::Eval(
              << "Unsupported argument type for percentile_disc.";
   }
   result->resize(values_arg.size(), output_value);
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

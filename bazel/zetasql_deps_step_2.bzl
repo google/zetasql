@@ -106,10 +106,10 @@ cc_proto_library(
         #
         http_archive(
             name = "com_google_absl",
-            # Commit from 2020-02-14
-            url = "https://github.com/abseil/abseil-cpp/archive/3c814105108680997d0821077694f663693b5382.tar.gz",
-            sha256 = "bc8e9f0fd36b78595306d616c316e65c346173cbefec3d8c121e4962957adc3d",
-            strip_prefix = "abseil-cpp-3c814105108680997d0821077694f663693b5382",
+            # Commit from 2020-03-03
+            url = "https://github.com/abseil/abseil-cpp/archive/b19ba96766db08b1f32605cb4424a0e7ea0c7584.tar.gz",
+            sha256 = "c7ff8decfbda0add222d44bdc27b47527ca4e76929291311474efe7354f663d3",
+            strip_prefix = "abseil-cpp-b19ba96766db08b1f32605cb4424a0e7ea0c7584",
         )
 
     # Abseil (Python)
@@ -663,14 +663,31 @@ java_library(
 
     # GoogleTest/GoogleMock framework. Used by most unit-tests.
     if not native.existing_rule("com_google_googletest"):
+        # How to update:
+        # Googletest generally just does daily (or even subdaily) releases along
+        # with occasional numbered releases.
+        #
+        #  https://github.com/google/googletest/commits/master
+        #  pick a recent release.
+        #  Hit the 'clipboard with a left arrow' icon to copy the commit hex
+        #    COMMIT=<paste commit hex>
+        #    PREFIX=googletest-
+        #    REPO=https://github.com/google/googletest/archive/
+        #    URL=${REPO}/${COMMIT}.tar.gz
+        #    wget $URL
+        #    SHA256=$(sha256sum ${COMMIT}.tar.gz | cut -f1 -d' ')
+        #    rm ${COMMIT}.tar.gz
+        #    echo \# Commit from $(date --iso-8601=date)
+        #    echo url = \"$URL\",
+        #    echo sha256 = \"$SHA256\",
+        #    echo strip_prefix = \"${PREFIX}${COMMIT}\",
+        #
         http_archive(
             name = "com_google_googletest",
-            # Commit on 2019-07-18
-            urls = [
-                "https://github.com/google/googletest/archive/b77e5c76252bac322bb82c5b444f050bd0d92451.tar.gz",
-            ],
-            sha256 = "b666893f592a7728331e10f36e991e5f6090998dc267e511899215c52835512d",
-            strip_prefix = "googletest-b77e5c76252bac322bb82c5b444f050bd0d92451",
+            # Commit from 2020-02-21
+            url = "https://github.com/google/googletest/archive//6f5fd0d7199b9a19faa9f499ecc266e6ae0329e7.tar.gz",
+            sha256 = "51e6c4b4449aab8f31e69d0ff89565f49a1f3628a42e24f214e8b02b3526e3bc",
+            strip_prefix = "googletest-6f5fd0d7199b9a19faa9f499ecc266e6ae0329e7",
         )
 
     # RE2 Regex Framework, mostly used in unit tests.

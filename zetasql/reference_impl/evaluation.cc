@@ -44,7 +44,7 @@ ABSL_FLAG(
 
 namespace zetasql {
 
-zetasql_base::Status ValidateFirstColumnPrimaryKey(
+absl::Status ValidateFirstColumnPrimaryKey(
     const std::string& table_name, const Value& array,
     const LanguageOptions& language_options) {
   ZETASQL_RET_CHECK(array.type()->IsArray());
@@ -77,7 +77,7 @@ zetasql_base::Status ValidateFirstColumnPrimaryKey(
     }
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 EvaluationContext::EvaluationContext(const EvaluationOptions& options)
@@ -85,7 +85,7 @@ EvaluationContext::EvaluationContext(const EvaluationOptions& options)
       memory_accountant_(options.max_intermediate_byte_size),
       deterministic_output_(true) {}
 
-::zetasql_base::Status EvaluationContext::AddTableAsArray(
+absl::Status EvaluationContext::AddTableAsArray(
     const std::string& table_name, bool is_value_table, Value array,
     const LanguageOptions& language_options) {
   ZETASQL_RET_CHECK(array.type()->IsArray());
@@ -101,10 +101,10 @@ EvaluationContext::EvaluationContext(const EvaluationOptions& options)
                                            std::move(elements));
   }
   ZETASQL_RET_CHECK(tables_.emplace(table_name, array).second) << table_name;
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status EvaluationContext::VerifyNotAborted() const {
+absl::Status EvaluationContext::VerifyNotAborted() const {
   if (cancelled_) {
     return zetasql_base::CancelledErrorBuilder() << "The statement has been cancelled";
   }
@@ -114,7 +114,7 @@ zetasql_base::Status EvaluationContext::VerifyNotAborted() const {
            << absl::FormatTime(statement_eval_deadline_, absl::UTCTimeZone())
            << ") was exceeded.";
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 void EvaluationContext::InitializeDefaultTimeZone() {
@@ -148,36 +148,36 @@ void EvaluationContext::InitializeCurrentTimestamp() {
 // For built-in functions, we expect to see only OUT_OF_RANGE.
 // We try to handle others here in a reasonable way in case users are
 // adding UDFs.
-static bool IsSafeModeConvertibleError(const zetasql_base::Status& status) {
-  switch (static_cast<::zetasql_base::StatusCode>(status.code())) {
+static bool IsSafeModeConvertibleError(const absl::Status& status) {
+  switch (status.code()) {
     // These are probably not input-based semantic errors.
-    case zetasql_base::OK:
-    case zetasql_base::CANCELLED:
-    case zetasql_base::UNKNOWN:
-    case zetasql_base::DEADLINE_EXCEEDED:
-    case zetasql_base::PERMISSION_DENIED:
-    case zetasql_base::UNAUTHENTICATED:
-    case zetasql_base::RESOURCE_EXHAUSTED:
-    case zetasql_base::ABORTED:
-    case zetasql_base::UNIMPLEMENTED:
-    case zetasql_base::INTERNAL:
-    case zetasql_base::UNAVAILABLE:
-    case zetasql_base::DATA_LOSS:
-    case zetasql_base::FAILED_PRECONDITION:
+    case absl::StatusCode::kOk:
+    case absl::StatusCode::kCancelled:
+    case absl::StatusCode::kUnknown:
+    case absl::StatusCode::kDeadlineExceeded:
+    case absl::StatusCode::kPermissionDenied:
+    case absl::StatusCode::kUnauthenticated:
+    case absl::StatusCode::kResourceExhausted:
+    case absl::StatusCode::kAborted:
+    case absl::StatusCode::kUnimplemented:
+    case absl::StatusCode::kInternal:
+    case absl::StatusCode::kUnavailable:
+    case absl::StatusCode::kDataLoss:
+    case absl::StatusCode::kFailedPrecondition:
     default:
       return false;
 
     // These are probably errors caused by bad input values, and errors
     // should be replaced with NULL in SAFE mode.
-    case zetasql_base::INVALID_ARGUMENT:
-    case zetasql_base::NOT_FOUND:
-    case zetasql_base::ALREADY_EXISTS:
-    case zetasql_base::OUT_OF_RANGE:
+    case absl::StatusCode::kInvalidArgument:
+    case absl::StatusCode::kNotFound:
+    case absl::StatusCode::kAlreadyExists:
+    case absl::StatusCode::kOutOfRange:
       return true;
   }
 }
 
-bool ShouldSuppressError(const zetasql_base::Status& error,
+bool ShouldSuppressError(const absl::Status& error,
                          ResolvedFunctionCallBase::ErrorMode error_mode) {
   DCHECK(!error.ok());
   return error_mode == ResolvedFunctionCallBase::SAFE_ERROR_MODE &&

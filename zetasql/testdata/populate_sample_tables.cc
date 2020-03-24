@@ -37,7 +37,7 @@ using zetasql::values::Int64;
 using zetasql::values::Proto;
 using zetasql::values::String;
 
-zetasql_base::Status PopulateSampleTables(TypeFactory* type_factory,
+absl::Status PopulateSampleTables(TypeFactory* type_factory,
                                   SampleCatalog* catalog) {
   // Table TwoIntegers
   catalog->GetTableOrDie("TwoIntegers")
@@ -113,6 +113,6 @@ zetasql_base::Status PopulateSampleTables(TypeFactory* type_factory,
                    type_factory),
             Value::Null(test_extra_pb_type->AsProto())}});
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 }  // namespace zetasql

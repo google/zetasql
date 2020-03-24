@@ -74,7 +74,7 @@ class VerifyMaxScriptingDepthVisitor : public NonRecursiveParseTreeVisitor {
       if (node->IsScriptStatement()) {
         --depth_;
       }
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     });
   }
 
@@ -104,7 +104,7 @@ class ValidateRaiseStatementsVisitor : public NonRecursiveParseTreeVisitor {
     ++exception_handler_nesting_level_;
     return VisitResult::VisitChildren(node, [this]() {
       --exception_handler_nesting_level_;
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     });
   }
 
@@ -198,16 +198,16 @@ class ValidateVariableDeclarationsVisitor
           }
         }
       }
-      return zetasql_base::OkStatus();
+      return absl::OkStatus();
     });
   }
 
-  zetasql_base::Status MakeVariableDeclarationError(const ASTNode* node,
+  absl::Status MakeVariableDeclarationError(const ASTNode* node,
                                             absl::string_view error_message) {
     return MakeSqlErrorAtNode(node, true) << error_message;
   }
 
-  zetasql_base::Status MakeVariableDeclarationError(
+  absl::Status MakeVariableDeclarationError(
       const ASTNode* node, const std::string& error_message,
       absl::string_view source_message,
       const ParseLocationPoint& source_location) {
@@ -350,7 +350,7 @@ ParsedScript::GetVariablesInScopeAtNode(const ASTNode* next_node) const {
   return variables;
 }
 
-zetasql_base::Status ParsedScript::GatherInformationAndRunChecksInternal() {
+absl::Status ParsedScript::GatherInformationAndRunChecksInternal() {
   // Check the maximum-depth constraint first, to ensure that other checks
   // do not cause a stack overflow in the case of a deeply nested script.
   VerifyMaxScriptingDepthVisitor max_depth_visitor;
@@ -378,10 +378,10 @@ zetasql_base::Status ParsedScript::GatherInformationAndRunChecksInternal() {
   ZETASQL_ASSIGN_OR_RETURN(control_flow_graph_,
                    ControlFlowGraph::Create(script(), script_text()));
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ParsedScript::GatherInformationAndRunChecks() {
+absl::Status ParsedScript::GatherInformationAndRunChecks() {
   return ConvertInternalErrorLocationAndAdjustErrorString(
       error_message_mode(), script_text(),
       GatherInformationAndRunChecksInternal());
@@ -434,7 +434,7 @@ zetasql_base::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::Create(
   return parsed_script;
 }
 
-zetasql_base::Status ParsedScript::PopulateQueryParameters() {
+absl::Status ParsedScript::PopulateQueryParameters() {
   std::vector<const ASTNode*> query_parameters;
   script()->GetDescendantSubtreesWithKinds({AST_PARAMETER_EXPR},
                                            &query_parameters);
@@ -464,7 +464,7 @@ zetasql_base::Status ParsedScript::PopulateQueryParameters() {
     positional_query_parameters_.insert({*itr, i});
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 std::pair<int64_t, int64_t> ParsedScript::GetPositionalParameters(
@@ -509,18 +509,18 @@ ParsedScript::StringSet ParsedScript::GetAllNamedParameters() const {
   return result;
 }
 
-zetasql_base::Status ParsedScript::CheckQueryParameters(
+absl::Status ParsedScript::CheckQueryParameters(
     const ParsedScript::QueryParameters& parameters) const {
   return ConvertInternalErrorLocationAndAdjustErrorString(
       error_message_mode(), script_text(),
       CheckQueryParametersInternal(parameters));
 }
 
-zetasql_base::Status ParsedScript::CheckQueryParametersInternal(
+absl::Status ParsedScript::CheckQueryParametersInternal(
     const ParsedScript::QueryParameters& parameters) const {
   // TODO: Remove this check once everywhere else uses parameters.
   if (!parameters.has_value()) {
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   int64_t num_positionals = positional_query_parameters_.size();
@@ -555,7 +555,7 @@ zetasql_base::Status ParsedScript::CheckQueryParametersInternal(
     }
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

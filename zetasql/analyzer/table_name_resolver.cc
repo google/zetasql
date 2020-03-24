@@ -71,58 +71,58 @@ class TableNameResolver {
   TableNameResolver(const TableNameResolver&) = delete;
   TableNameResolver& operator=(const TableNameResolver&) = delete;
 
-  zetasql_base::Status FindTableNamesAndTemporalReferences(
+  absl::Status FindTableNamesAndTemporalReferences(
       const ASTStatement& statement);
 
-  zetasql_base::Status FindTableNames(const ASTScript& script);
+  absl::Status FindTableNames(const ASTScript& script);
 
  private:
   typedef std::set<std::string> AliasSet;  // Always lowercase.
 
-  zetasql_base::Status FindInStatement(const ASTStatement* statement);
+  absl::Status FindInStatement(const ASTStatement* statement);
 
   // Consumes either an ASTScript, ASTStatementList, or ASTScriptStatement.
-  zetasql_base::Status FindInScriptNode(const ASTNode* node);
+  absl::Status FindInScriptNode(const ASTNode* node);
 
-  zetasql_base::Status FindInQueryStatement(const ASTQueryStatement* statement);
+  absl::Status FindInQueryStatement(const ASTQueryStatement* statement);
 
-  zetasql_base::Status FindInCreateViewStatement(
+  absl::Status FindInCreateViewStatement(
       const ASTCreateViewStatement* statement);
 
-  zetasql_base::Status FindInCreateMaterializedViewStatement(
+  absl::Status FindInCreateMaterializedViewStatement(
       const ASTCreateMaterializedViewStatement* statement);
 
-  zetasql_base::Status FindInCreateTableFunctionStatement(
+  absl::Status FindInCreateTableFunctionStatement(
       const ASTCreateTableFunctionStatement* statement);
 
-  zetasql_base::Status FindInExportDataStatement(
+  absl::Status FindInExportDataStatement(
       const ASTExportDataStatement* statement);
 
-  zetasql_base::Status FindInDeleteStatement(const ASTDeleteStatement* statement);
+  absl::Status FindInDeleteStatement(const ASTDeleteStatement* statement);
 
-  zetasql_base::Status FindInTruncateStatement(const ASTTruncateStatement* statement);
+  absl::Status FindInTruncateStatement(const ASTTruncateStatement* statement);
 
-  zetasql_base::Status FindInInsertStatement(const ASTInsertStatement* statement);
+  absl::Status FindInInsertStatement(const ASTInsertStatement* statement);
 
-  zetasql_base::Status FindInUpdateStatement(const ASTUpdateStatement* statement);
+  absl::Status FindInUpdateStatement(const ASTUpdateStatement* statement);
 
-  zetasql_base::Status FindInMergeStatement(const ASTMergeStatement* statement);
+  absl::Status FindInMergeStatement(const ASTMergeStatement* statement);
 
   // 'visible_aliases' includes things like the table name we are inserting
   // into or deleting from.  It does *not* include WITH table aliases or TVF
   // table-valued argument names (which are both tracked separately in
   // 'local_table_aliases_').
-  zetasql_base::Status FindInQuery(const ASTQuery* query,
+  absl::Status FindInQuery(const ASTQuery* query,
                            const AliasSet& visible_aliases);
 
-  zetasql_base::Status FindInQueryExpression(const ASTQueryExpression* query_expr,
+  absl::Status FindInQueryExpression(const ASTQueryExpression* query_expr,
                                      const ASTOrderBy* order_by,
                                      const AliasSet& visible_aliases);
 
-  zetasql_base::Status FindInSelect(const ASTSelect* select, const ASTOrderBy* order_by,
+  absl::Status FindInSelect(const ASTSelect* select, const ASTOrderBy* order_by,
                             const AliasSet& orig_visible_aliases);
 
-  zetasql_base::Status FindInSetOperation(const ASTSetOperation* set_operation,
+  absl::Status FindInSetOperation(const ASTSetOperation* set_operation,
                                   const AliasSet& visible_aliases);
 
   // When resolving the FROM clause, <external_visible_aliases> is the set
@@ -131,41 +131,41 @@ class TableNameResolver {
   // <local_visible_aliases> includes all names visible in
   // <external_visible_alaises> plus names earlier in the same FROM clause
   // that are visible.  See corresponding methods in resolver.cc.
-  zetasql_base::Status FindInTableExpression(const ASTTableExpression* table_expr,
+  absl::Status FindInTableExpression(const ASTTableExpression* table_expr,
                                      const AliasSet& external_visible_aliases,
                                      AliasSet* local_visible_aliases);
 
-  zetasql_base::Status FindInJoin(const ASTJoin* join,
+  absl::Status FindInJoin(const ASTJoin* join,
                           const AliasSet& external_visible_aliases,
                           AliasSet* local_visible_aliases);
 
-  zetasql_base::Status FindInParenthesizedJoin(
+  absl::Status FindInParenthesizedJoin(
       const ASTParenthesizedJoin* parenthesized_join,
       const AliasSet& external_visible_aliases,
       AliasSet* local_visible_aliases);
 
-  zetasql_base::Status FindInTVF(
+  absl::Status FindInTVF(
       const ASTTVF* tvf,
       const AliasSet& external_visible_aliases,
       AliasSet* local_visible_aliases);
 
-  zetasql_base::Status FindInTableSubquery(
+  absl::Status FindInTableSubquery(
       const ASTTableSubquery* table_subquery,
       const AliasSet& external_visible_aliases,
       AliasSet* local_visible_aliases);
 
-  zetasql_base::Status FindInTablePathExpression(
+  absl::Status FindInTablePathExpression(
       const ASTTablePathExpression* table_ref,
       AliasSet* visible_aliases);
 
   // Traverse all expressions attached as descendants of <root>.
   // Unlike other methods above, may be called with NULL.
-  zetasql_base::Status FindInExpressionsUnder(const ASTNode* root,
+  absl::Status FindInExpressionsUnder(const ASTNode* root,
                                       const AliasSet& visible_aliases);
 
   // Traverse all options_list node as descendants of <root>.
   // May be called with NULL.
-  zetasql_base::Status FindInOptionsListUnder(const ASTNode* root,
+  absl::Status FindInOptionsListUnder(const ASTNode* root,
                                       const AliasSet& visible_aliases);
 
   // Root level SQL statement we are extracting table names or temporal
@@ -198,7 +198,7 @@ class TableNameResolver {
   AliasSet local_table_aliases_;
 };
 
-zetasql_base::Status TableNameResolver::FindTableNamesAndTemporalReferences(
+absl::Status TableNameResolver::FindTableNamesAndTemporalReferences(
     const ASTStatement& statement) {
   table_names_->clear();
   if (table_resolution_time_info_map_ != nullptr) {
@@ -209,18 +209,18 @@ zetasql_base::Status TableNameResolver::FindTableNamesAndTemporalReferences(
   ZETASQL_RETURN_IF_ERROR(FindInStatement(&statement));
   // Sanity check - these should get popped.
   ZETASQL_RET_CHECK(local_table_aliases_.empty());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TableNameResolver::FindTableNames(const ASTScript& script) {
+absl::Status TableNameResolver::FindTableNames(const ASTScript& script) {
   table_names_->clear();
   ZETASQL_RETURN_IF_ERROR(FindInScriptNode(&script));
   // Sanity check - these should get popped.
   ZETASQL_RET_CHECK(local_table_aliases_.empty());
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TableNameResolver::FindInScriptNode(const ASTNode* node) {
+absl::Status TableNameResolver::FindInScriptNode(const ASTNode* node) {
   for (int i = 0; i < node->num_children(); ++i) {
     const ASTNode* child = node->child(i);
     if (child->IsExpression()) {
@@ -230,10 +230,10 @@ zetasql_base::Status TableNameResolver::FindInScriptNode(const ASTNode* node) {
     }
     ZETASQL_RETURN_IF_ERROR(FindInScriptNode(child));
   }
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
+absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
   // Find table name under OPTIONS (...) clause for any type of statement.
   ZETASQL_RETURN_IF_ERROR(FindInOptionsListUnder(statement, /*visible_aliases=*/{}));
   switch (statement->node_kind()) {
@@ -257,7 +257,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
     case AST_CREATE_DATABASE_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_CREATE_DATABASE_STMT)) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
@@ -268,7 +268,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
             static_cast<const ASTCreateIndexStatement*>(statement);
         zetasql_base::InsertIfNotPresent(
             table_names_, create_index->table_name()->ToIdentifierVector());
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
@@ -278,7 +278,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
       if (query == nullptr) {
         if (analyzer_options_->language().SupportsStatementKind(
                 RESOLVED_CREATE_TABLE_STMT)) {
-          return ::zetasql_base::OkStatus();
+          return absl::OkStatus();
         }
       } else {
         if (analyzer_options_->language().SupportsStatementKind(
@@ -294,7 +294,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
         const ASTQuery* query =
             statement->GetAs<ASTCreateModelStatement>()->query();
         if (query == nullptr) {
-          return ::zetasql_base::OkStatus();
+          return absl::OkStatus();
         }
         return FindInQuery(query, /*visible_aliases=*/{});
       }
@@ -317,7 +317,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
     case AST_CREATE_EXTERNAL_TABLE_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_CREATE_EXTERNAL_TABLE_STMT)) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
@@ -339,7 +339,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
         ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(
             static_cast<const ASTCreateConstantStatement*>(statement)->expr(),
             /*visible_aliases=*/{}));
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
@@ -350,7 +350,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
             static_cast<const ASTCreateFunctionStatement*>(statement)
                 ->sql_function_body(),
             /*visible_aliases=*/{}));
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
@@ -365,7 +365,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
     case AST_CREATE_PROCEDURE_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_CREATE_PROCEDURE_STMT)) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
@@ -380,14 +380,14 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
     case AST_CALL_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_CALL_STMT)) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
     case AST_DEFINE_TABLE_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_DEFINE_TABLE_STMT)) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
@@ -397,63 +397,63 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
         // Note that for a DESCRIBE TABLE statement, the table name is not
         // inserted into table_names_. Engines that need to know about a table
         // referenced by DESCRIBE TABLE should handle that themselves.
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
     case AST_SHOW_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_SHOW_STMT)) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
     case AST_BEGIN_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_BEGIN_STMT)) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
     case AST_SET_TRANSACTION_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_SET_TRANSACTION_STMT)) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
     case AST_COMMIT_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_COMMIT_STMT)) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
     case AST_ROLLBACK_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_ROLLBACK_STMT)) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
     case AST_START_BATCH_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_START_BATCH_STMT)) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
     case AST_RUN_BATCH_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_RUN_BATCH_STMT)) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
     case AST_ABORT_BATCH_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_ABORT_BATCH_STMT)) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
@@ -470,7 +470,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
         // Note that for a DROP TABLE statement, the table name is not
         // inserted into table_names_. Engines that need to know about a table
         // referenced by DROP TABLE should handle that themselves.
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
@@ -485,14 +485,14 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
     case AST_DROP_MATERIALIZED_VIEW_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
           RESOLVED_DROP_MATERIALIZED_VIEW_STMT)) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
     case AST_DROP_FUNCTION_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_DROP_FUNCTION_STMT)) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
@@ -504,7 +504,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
         // statement, the table name is not inserted into table_names_. Engines
         // that need to know about the target table should handle that
         // themselves.
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
@@ -514,7 +514,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
         // Note that for a RENAME TABLE statement, the table names are not
         // inserted into table_names_. Engines that need to know about a table
         // referenced by RENAME TABLE should handle that themselves.
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
@@ -545,7 +545,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
         // Note that for a GRANT statement, the table name is not inserted
         // into table_names_. Engines that need to know about a table
         // referenced by GRANT statement should handle that themselves.
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
 
@@ -555,7 +555,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
         // Note that for a REVOKE statement, the table name is not inserted
         // into table_names_. Engines that need to know about a table
         // referenced by REVOKE statement should handle that themselves.
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
     case AST_ALTER_ROW_ACCESS_POLICY_STATEMENT:
@@ -565,13 +565,13 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
             statement->GetAs<ASTAlterRowAccessPolicyStatement>();
         zetasql_base::InsertIfNotPresent(table_names_,
                                 stmt->path()->ToIdentifierVector());
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
     case AST_ALTER_DATABASE_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_ALTER_DATABASE_STMT)) {
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
     case AST_ALTER_TABLE_STATEMENT:
@@ -582,7 +582,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
         // Note that for a ALTER TABLE statement, the table name is not
         // inserted into table_names_. Engines that need to know about a table
         // referenced by ALTER TABLE should handle that themselves.
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
     case AST_ALTER_VIEW_STATEMENT:
@@ -591,7 +591,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
         // Note that for a ALTER VIEW statement, the table name is not
         // inserted into table_names_. Engines that need to know about a table
         // referenced by ALTER VIEW should handle that themselves.
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
     case AST_ALTER_MATERIALIZED_VIEW_STATEMENT:
@@ -601,7 +601,7 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
         // not inserted into table_names_. Engines that need to know about a
         // table referenced by ALTER MATERIALIZED VIEW should handle that
         // themselves.
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
     case AST_HINTED_STATEMENT:
@@ -611,14 +611,14 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_IMPORT_STMT)) {
         // There are no table names in an IMPORT statement.
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
     case AST_MODULE_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_MODULE_STMT)) {
         // There are no table names in a MODULE statement.
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       }
       break;
     case AST_ASSERT_STATEMENT:
@@ -659,25 +659,25 @@ zetasql_base::Status TableNameResolver::FindInStatement(const ASTStatement* stat
          << "Statement not supported: " << statement->GetNodeKindString();
 }
 
-zetasql_base::Status TableNameResolver::FindInQueryStatement(
+absl::Status TableNameResolver::FindInQueryStatement(
     const ASTQueryStatement* statement) {
   return FindInQuery(statement->query(), /*visible_aliases=*/{});
 }
 
-zetasql_base::Status TableNameResolver::FindInCreateViewStatement(
+absl::Status TableNameResolver::FindInCreateViewStatement(
     const ASTCreateViewStatement* statement) {
   return FindInQuery(statement->query(), /*visible_aliases=*/{});
 }
 
-zetasql_base::Status TableNameResolver::FindInCreateMaterializedViewStatement(
+absl::Status TableNameResolver::FindInCreateMaterializedViewStatement(
     const ASTCreateMaterializedViewStatement* statement) {
   return FindInQuery(statement->query(), /*visible_aliases=*/{});
 }
 
-zetasql_base::Status TableNameResolver::FindInCreateTableFunctionStatement(
+absl::Status TableNameResolver::FindInCreateTableFunctionStatement(
     const ASTCreateTableFunctionStatement* statement) {
   if (statement->query() == nullptr) {
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
   ZETASQL_RET_CHECK(local_table_aliases_.empty());
   for (const ASTFunctionParameter* const parameter
@@ -698,15 +698,15 @@ zetasql_base::Status TableNameResolver::FindInCreateTableFunctionStatement(
   }
   ZETASQL_RETURN_IF_ERROR(FindInQuery(statement->query(), /*visible_aliases=*/{}));
   local_table_aliases_.clear();
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TableNameResolver::FindInExportDataStatement(
+absl::Status TableNameResolver::FindInExportDataStatement(
     const ASTExportDataStatement* statement) {
   return FindInQuery(statement->query(), /*visible_aliases=*/{});
 }
 
-zetasql_base::Status TableNameResolver::FindInDeleteStatement(
+absl::Status TableNameResolver::FindInDeleteStatement(
     const ASTDeleteStatement* statement) {
   ZETASQL_ASSIGN_OR_RETURN(const ASTPathExpression* path_expr,
                    statement->GetTargetPathForNonNested());
@@ -721,10 +721,10 @@ zetasql_base::Status TableNameResolver::FindInDeleteStatement(
   zetasql_base::InsertIfNotPresent(&visible_aliases, absl::AsciiStrToLower(alias));
 
   ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(statement->where(), visible_aliases));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TableNameResolver::FindInTruncateStatement(
+absl::Status TableNameResolver::FindInTruncateStatement(
     const ASTTruncateStatement* statement) {
   AliasSet visible_aliases;
 
@@ -738,7 +738,7 @@ zetasql_base::Status TableNameResolver::FindInTruncateStatement(
   return FindInExpressionsUnder(statement->where(), visible_aliases);
 }
 
-zetasql_base::Status TableNameResolver::FindInInsertStatement(
+absl::Status TableNameResolver::FindInInsertStatement(
     const ASTInsertStatement* statement) {
   AliasSet visible_aliases;
 
@@ -756,10 +756,10 @@ zetasql_base::Status TableNameResolver::FindInInsertStatement(
   if (statement->query() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(FindInQuery(statement->query(), visible_aliases));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TableNameResolver::FindInUpdateStatement(
+absl::Status TableNameResolver::FindInUpdateStatement(
     const ASTUpdateStatement* statement) {
   AliasSet visible_aliases;
 
@@ -784,10 +784,10 @@ zetasql_base::Status TableNameResolver::FindInUpdateStatement(
   ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(statement->where(), visible_aliases));
   ZETASQL_RETURN_IF_ERROR(
       FindInExpressionsUnder(statement->update_item_list(), visible_aliases));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TableNameResolver::FindInMergeStatement(
+absl::Status TableNameResolver::FindInMergeStatement(
     const ASTMergeStatement* statement) {
   AliasSet visible_aliases;
 
@@ -805,10 +805,10 @@ zetasql_base::Status TableNameResolver::FindInMergeStatement(
   ZETASQL_RETURN_IF_ERROR(
       FindInExpressionsUnder(statement->when_clauses(), visible_aliases));
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TableNameResolver::FindInQuery(
+absl::Status TableNameResolver::FindInQuery(
     const ASTQuery* query,
     const AliasSet& visible_aliases) {
   AliasSet old_local_table_aliases;
@@ -832,10 +832,10 @@ zetasql_base::Status TableNameResolver::FindInQuery(
   if (query->with_clause() != nullptr) {
     local_table_aliases_ = old_local_table_aliases;
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TableNameResolver::FindInQueryExpression(
+absl::Status TableNameResolver::FindInQueryExpression(
     const ASTQueryExpression* query_expr,
     const ASTOrderBy* order_by,
     const AliasSet& visible_aliases) {
@@ -863,10 +863,10 @@ zetasql_base::Status TableNameResolver::FindInQueryExpression(
   if (query_expr->node_kind() != AST_SELECT) {
     ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(order_by, visible_aliases));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TableNameResolver::FindInSelect(
+absl::Status TableNameResolver::FindInSelect(
     const ASTSelect* select,
     const ASTOrderBy* order_by,
     const AliasSet& orig_visible_aliases) {
@@ -885,20 +885,20 @@ zetasql_base::Status TableNameResolver::FindInSelect(
   ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(select->group_by(), visible_aliases));
   ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(select->having(), visible_aliases));
   ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(order_by, visible_aliases));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TableNameResolver::FindInSetOperation(
+absl::Status TableNameResolver::FindInSetOperation(
     const ASTSetOperation* set_operation,
     const AliasSet& visible_aliases) {
   for (const ASTQueryExpression* input : set_operation->inputs()) {
     ZETASQL_RETURN_IF_ERROR(FindInQueryExpression(input, nullptr /* order_by */,
                                           visible_aliases));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TableNameResolver::FindInTableExpression(
+absl::Status TableNameResolver::FindInTableExpression(
     const ASTTableExpression* table_expr,
     const AliasSet& external_visible_aliases,
     AliasSet* local_visible_aliases) {
@@ -931,7 +931,7 @@ zetasql_base::Status TableNameResolver::FindInTableExpression(
   }
 }
 
-zetasql_base::Status TableNameResolver::FindInJoin(
+absl::Status TableNameResolver::FindInJoin(
     const ASTJoin* join,
     const AliasSet& external_visible_aliases,
     AliasSet* local_visible_aliases) {
@@ -941,10 +941,10 @@ zetasql_base::Status TableNameResolver::FindInJoin(
                                         local_visible_aliases));
   ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(join->on_clause(),
                                          *local_visible_aliases));
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TableNameResolver::FindInParenthesizedJoin(
+absl::Status TableNameResolver::FindInParenthesizedJoin(
     const ASTParenthesizedJoin* parenthesized_join,
     const AliasSet& external_visible_aliases, AliasSet* local_visible_aliases) {
   const ASTJoin* join = parenthesized_join->join();
@@ -956,10 +956,10 @@ zetasql_base::Status TableNameResolver::FindInParenthesizedJoin(
   for (const std::string& alias : *join_visible_aliases) {
     zetasql_base::InsertIfNotPresent(local_visible_aliases, alias);
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TableNameResolver::FindInTVF(
+absl::Status TableNameResolver::FindInTVF(
     const ASTTVF* tvf,
     const AliasSet& external_visible_aliases, AliasSet* local_visible_aliases) {
   // The 'tvf' here is the TVF parse node. Each TVF argument may be a scalar, a
@@ -1005,10 +1005,10 @@ zetasql_base::Status TableNameResolver::FindInTVF(
       }
     }
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TableNameResolver::FindInTableSubquery(
+absl::Status TableNameResolver::FindInTableSubquery(
     const ASTTableSubquery* table_subquery,
     const AliasSet& external_visible_aliases,
     AliasSet* local_visible_aliases) {
@@ -1021,10 +1021,10 @@ zetasql_base::Status TableNameResolver::FindInTableSubquery(
         local_visible_aliases,
         absl::AsciiStrToLower(table_subquery->alias()->GetAsString()));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TableNameResolver::FindInTablePathExpression(
+absl::Status TableNameResolver::FindInTablePathExpression(
     const ASTTablePathExpression* table_ref,
     AliasSet* visible_aliases) {
 
@@ -1095,13 +1095,13 @@ zetasql_base::Status TableNameResolver::FindInTablePathExpression(
     visible_aliases->insert(absl::AsciiStrToLower(alias));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TableNameResolver::FindInExpressionsUnder(
+absl::Status TableNameResolver::FindInExpressionsUnder(
     const ASTNode* root,
     const AliasSet& visible_aliases) {
-  if (root == nullptr) return ::zetasql_base::OkStatus();
+  if (root == nullptr) return absl::OkStatus();
 
   // The only thing that matters inside expressions are expression subqueries,
   // which can be either ASTExpressionSubquery or ASTIn, both of which have
@@ -1114,13 +1114,13 @@ zetasql_base::Status TableNameResolver::FindInExpressionsUnder(
                                 visible_aliases));
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status TableNameResolver::FindInOptionsListUnder(
+absl::Status TableNameResolver::FindInOptionsListUnder(
     const ASTNode* root,
     const AliasSet& visible_aliases) {
-  if (root == nullptr) return ::zetasql_base::OkStatus();
+  if (root == nullptr) return absl::OkStatus();
 
   std::vector<const ASTNode*> options_list_nodes;
   root->GetDescendantSubtreesWithKinds({AST_OPTIONS_LIST}, &options_list_nodes);
@@ -1128,11 +1128,11 @@ zetasql_base::Status TableNameResolver::FindInOptionsListUnder(
   for (const ASTNode* options_list : options_list_nodes) {
     ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(options_list, visible_aliases));
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 }  // namespace
 
-zetasql_base::Status FindTableNamesAndResolutionTime(
+absl::Status FindTableNamesAndResolutionTime(
     absl::string_view sql, const ASTStatement& statement,
     const AnalyzerOptions& analyzer_options, TypeFactory* type_factory,
     Catalog* catalog, TableNamesSet* table_names,
@@ -1142,7 +1142,7 @@ zetasql_base::Status FindTableNamesAndResolutionTime(
       .FindTableNamesAndTemporalReferences(statement);
 }
 
-zetasql_base::Status FindTableNamesInScript(absl::string_view sql,
+absl::Status FindTableNamesInScript(absl::string_view sql,
                                     const ASTScript& script,
                                     const AnalyzerOptions& analyzer_options,
                                     TableNamesSet* table_names) {

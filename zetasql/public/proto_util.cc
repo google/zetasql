@@ -64,7 +64,7 @@ namespace zetasql {
          << "Unable to decode default value for " << (field)->DebugString() \
          << "\n(value out of valid range)"
 
-static zetasql_base::Status GetProtoFieldDefaultImpl(
+static absl::Status GetProtoFieldDefaultImpl(
     const google::protobuf::FieldDescriptor* field, const Type* type,
     bool ignore_use_defaults_annotations, bool ignore_format_annotations,
     Value* default_value) {
@@ -79,25 +79,25 @@ static zetasql_base::Status GetProtoFieldDefaultImpl(
   if (field->is_required()) {
     // There is no default for a required field so don't return a valid value.
     *default_value = Value();
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   if (type->IsArray()) {
     // Missing repeated fields are treated as empty arrays.
     *default_value = Value::EmptyArray(type->AsArray());
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   if (field->type() == google::protobuf::FieldDescriptor::TYPE_MESSAGE ||
       field->type() == google::protobuf::FieldDescriptor::TYPE_GROUP) {
     *default_value = Value::Null(type);
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   const bool use_defaults = ProtoType::GetUseDefaultsExtension(field);
   if (!use_defaults && !ignore_use_defaults_annotations) {
     *default_value = Value::Null(type);
-    return ::zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   int64_t datetime_value;
@@ -168,7 +168,7 @@ static zetasql_base::Status GetProtoFieldDefaultImpl(
 
       int32_t decoded_date;
       bool is_null;
-      zetasql_base::Status status = functions::DecodeFormattedDate(
+      absl::Status status = functions::DecodeFormattedDate(
           datetime_value, format, &decoded_date, &is_null);
       if (!status.ok()) {
         return ::zetasql_base::StatusBuilder(status.code())
@@ -250,10 +250,10 @@ static zetasql_base::Status GetProtoFieldDefaultImpl(
       return ::zetasql_base::InvalidArgumentErrorBuilder()
              << "No default value for " << field->DebugString();
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status GetProtoFieldDefaultV2(const google::protobuf::FieldDescriptor* field,
+absl::Status GetProtoFieldDefaultV2(const google::protobuf::FieldDescriptor* field,
                                     const Type* type, Value* default_value) {
   const bool& ignore_use_defaults =
       field->containing_type()->file()->syntax() ==
@@ -263,13 +263,13 @@ zetasql_base::Status GetProtoFieldDefaultV2(const google::protobuf::FieldDescrip
                                   default_value);
 }
 
-zetasql_base::Status GetProtoFieldDefault(const google::protobuf::FieldDescriptor* field,
+absl::Status GetProtoFieldDefault(const google::protobuf::FieldDescriptor* field,
                                   const Type* type, Value* default_value) {
   return GetProtoFieldDefault(field, type, /*use_obsolete_timestamp=*/false,
                               default_value);
 }
 
-zetasql_base::Status GetProtoFieldDefault(const google::protobuf::FieldDescriptor* field,
+absl::Status GetProtoFieldDefault(const google::protobuf::FieldDescriptor* field,
                                   const Type* type, bool use_obsolete_timestamp,
                                   Value* default_value) {
   ZETASQL_RET_CHECK(!use_obsolete_timestamp);
@@ -279,7 +279,7 @@ zetasql_base::Status GetProtoFieldDefault(const google::protobuf::FieldDescripto
                                   default_value);
 }
 
-zetasql_base::Status GetProtoFieldDefaultRaw(const google::protobuf::FieldDescriptor* field,
+absl::Status GetProtoFieldDefaultRaw(const google::protobuf::FieldDescriptor* field,
                                      const Type* type, Value* default_value) {
   if (type->IsSimpleType() || type->IsArray()) {
     return GetProtoFieldDefaultImpl(field, type,
@@ -288,21 +288,21 @@ zetasql_base::Status GetProtoFieldDefaultRaw(const google::protobuf::FieldDescri
                                     default_value);
   }
   *default_value = values::Null(type);
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-static zetasql_base::Status GetProtoFieldTypeAndDefaultImpl(
+static absl::Status GetProtoFieldTypeAndDefaultImpl(
     const google::protobuf::FieldDescriptor* field, bool ignore_annotations,
     TypeFactory* type_factory, const Type** type, Value* default_value) {
-    ZETASQL_RETURN_IF_ERROR(
-        type_factory->GetProtoFieldType(ignore_annotations, field, type));
-    if (default_value != nullptr) {
-      if (ignore_annotations) {
-        ZETASQL_RETURN_IF_ERROR(GetProtoFieldDefaultRaw(field, *type, default_value));
-      } else {
-        ZETASQL_RETURN_IF_ERROR(GetProtoFieldDefault(field, *type, default_value));
-      }
+  ZETASQL_RETURN_IF_ERROR(
+      type_factory->GetProtoFieldType(ignore_annotations, field, type));
+  if (default_value != nullptr) {
+    if (ignore_annotations) {
+      ZETASQL_RETURN_IF_ERROR(GetProtoFieldDefaultRaw(field, *type, default_value));
+    } else {
+      ZETASQL_RETURN_IF_ERROR(GetProtoFieldDefault(field, *type, default_value));
     }
+  }
 
   DCHECK(default_value == nullptr ||
          !default_value->is_valid() ||
@@ -318,10 +318,10 @@ static zetasql_base::Status GetProtoFieldTypeAndDefaultImpl(
         << (*type)->DebugString() << "\n" << field->DebugString();
   }
 
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status GetProtoFieldTypeAndDefault(const google::protobuf::FieldDescriptor* field,
+absl::Status GetProtoFieldTypeAndDefault(const google::protobuf::FieldDescriptor* field,
                                          TypeFactory* type_factory,
                                          const Type** type,
                                          Value* default_value) {
@@ -330,7 +330,7 @@ zetasql_base::Status GetProtoFieldTypeAndDefault(const google::protobuf::FieldDe
                                      default_value);
 }
 
-zetasql_base::Status GetProtoFieldTypeAndDefault(const google::protobuf::FieldDescriptor* field,
+absl::Status GetProtoFieldTypeAndDefault(const google::protobuf::FieldDescriptor* field,
                                          TypeFactory* type_factory,
                                          bool use_obsolete_timestamp,
                                          const Type** type,
@@ -340,16 +340,16 @@ zetasql_base::Status GetProtoFieldTypeAndDefault(const google::protobuf::FieldDe
                                          type_factory, type, default_value);
 }
 
-zetasql_base::Status GetProtoFieldTypeAndDefaultRaw(
+absl::Status GetProtoFieldTypeAndDefaultRaw(
     const google::protobuf::FieldDescriptor* field, TypeFactory* type_factory,
     const Type** type, Value* default_value) {
   return GetProtoFieldTypeAndDefaultImpl(field, /*ignore_annotations=*/true,
                                          type_factory, type, default_value);
 }
 
-static zetasql_base::Status Int64ToAdjustedTimestampInt64(FieldFormat::Format format,
+static absl::Status Int64ToAdjustedTimestampInt64(FieldFormat::Format format,
                                                   int64_t s, int64_t* adjusted_s) {
-  zetasql_base::Status status;
+  absl::Status status;
   switch (format) {
     case FieldFormat::TIMESTAMP_SECONDS:
       if (!functions::Multiply<int64_t>(s, 1000000LL, adjusted_s, &status)) {
@@ -368,7 +368,7 @@ static zetasql_base::Status Int64ToAdjustedTimestampInt64(FieldFormat::Format fo
       return ::zetasql_base::OutOfRangeErrorBuilder()
              << "Invalid timestamp field format: " << format;
   }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 namespace {
@@ -647,7 +647,7 @@ static zetasql_base::StatusOr<Value> TranslateWireValue(
       ZETASQL_ASSIGN_OR_RETURN(const int64_t v, IntegerWireValueAsInt64(wire_value));
       int32_t decoded_date;
       bool is_null;
-      const zetasql_base::Status status =
+      const absl::Status status =
           functions::DecodeFormattedDate(v, format, &decoded_date, &is_null);
       if (ABSL_PREDICT_TRUE(status.ok())) {
         if (is_null) {
@@ -889,7 +889,7 @@ using ElementValueList = std::vector<std::vector<zetasql_base::StatusOr<Value>>>
 
 }  // namespace
 
-zetasql_base::Status ReadProtoFields(
+absl::Status ReadProtoFields(
     absl::Span<const ProtoFieldInfo* const> field_infos,
     const absl::Cord& bytes, ProtoFieldValueList* field_value_list) {
   const bool use_optimization =
@@ -900,7 +900,7 @@ zetasql_base::Status ReadProtoFields(
     ZETASQL_ASSIGN_OR_RETURN(zetasql_base::StatusOr<Value> value,
                      ReadSingularProtoField(*field_infos[0], bytes));
     field_value_list->push_back(std::move(value));
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   field_value_list->resize(field_infos.size());
@@ -1015,7 +1015,7 @@ zetasql_base::Status ReadProtoFields(
         }
       } else if (values.empty()) {
         if (ABSL_PREDICT_FALSE(info->descriptor->is_required())) {
-          new_value = zetasql_base::Status(zetasql_base::StatusCode::kOutOfRange,
+          new_value = absl::Status(absl::StatusCode::kOutOfRange,
                                    "Protocol buffer missing required field " +
                                        info->descriptor->full_name());
         } else {
@@ -1029,10 +1029,10 @@ zetasql_base::Status ReadProtoFields(
     }
   }
 
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ReadProtoField(const google::protobuf::FieldDescriptor* field_descr,
+absl::Status ReadProtoField(const google::protobuf::FieldDescriptor* field_descr,
                             FieldFormat::Format format, const Type* type,
                             const Value& default_value, bool get_has_bit,
                             const absl::Cord& bytes, Value* output_value) {
@@ -1049,10 +1049,10 @@ zetasql_base::Status ReadProtoField(const google::protobuf::FieldDescriptor* fie
   const zetasql_base::StatusOr<Value>& status_or_value = field_value_list[0];
   ZETASQL_RETURN_IF_ERROR(status_or_value.status());
   *output_value = status_or_value.ValueOrDie();
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
-zetasql_base::Status ReadProtoField(const google::protobuf::FieldDescriptor* field_descr,
+absl::Status ReadProtoField(const google::protobuf::FieldDescriptor* field_descr,
                             FieldFormat::Format format, const Type* type,
                             const Value& default_value, const absl::Cord& bytes,
                             Value* output_value) {
@@ -1060,7 +1060,7 @@ zetasql_base::Status ReadProtoField(const google::protobuf::FieldDescriptor* fie
                         output_value);
 }
 
-zetasql_base::Status ProtoHasField(
+absl::Status ProtoHasField(
     int32_t field_tag, const absl::Cord& bytes,
     bool* has_field) {
   *has_field = false;
@@ -1077,11 +1077,11 @@ zetasql_base::Status ProtoHasField(
         break;
       }
       if (!WireFormatLite::SkipField(&in, tag_and_type)) {
-        return zetasql_base::Status(zetasql_base::StatusCode::kOutOfRange,
+        return absl::Status(absl::StatusCode::kOutOfRange,
                             "Corrupted protocol buffer");
       }
     }
-  return ::zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

@@ -17,12 +17,12 @@
 // This file implements basic arithmetic operations with overflow checking.
 // The following functions are defined:
 //
-//   bool Add(T in1, T in2, T *out, zetasql_base::Status* error);
-//   bool Subtract(InType in1, InType in2, OutType *out, zetasql_base::Status* error);
-//   bool Multiply(T in1, T in2, T *out, zetasql_base::Status* error);
-//   bool Divide(T in1, T in2, T *out, zetasql_base::Status* error);
-//   bool Modulo(T in1, T in2, T *out, zetasql_base::Status* error);
-//   bool UnaryMinus(InType in, OutType *out, zetasql_base::Status* error);
+//   bool Add(T in1, T in2, T *out, absl::Status* error);
+//   bool Subtract(InType in1, InType in2, OutType *out, absl::Status* error);
+//   bool Multiply(T in1, T in2, T *out, absl::Status* error);
+//   bool Divide(T in1, T in2, T *out, absl::Status* error);
+//   bool Modulo(T in1, T in2, T *out, absl::Status* error);
+//   bool UnaryMinus(InType in, OutType *out, absl::Status* error);
 //
 // If overflow or any other error occurs, all functions return false and update
 // *error.
@@ -60,21 +60,21 @@ namespace zetasql {
 namespace functions {
 
 template <typename T>
-inline bool Add(T in1, T in2, T *out, zetasql_base::Status* error);
+inline bool Add(T in1, T in2, T *out, absl::Status* error);
 template <typename InType, typename OutType = InType>
-inline bool Subtract(InType in1, InType in2, OutType* out, zetasql_base::Status* error);
+inline bool Subtract(InType in1, InType in2, OutType* out, absl::Status* error);
 template <typename T>
-inline bool Multiply(T in1, T in2, T *out, zetasql_base::Status* error);
+inline bool Multiply(T in1, T in2, T *out, absl::Status* error);
 template <typename T>
-inline bool Divide(T in1, T in2, T *out, zetasql_base::Status* error);
+inline bool Divide(T in1, T in2, T *out, absl::Status* error);
 template <typename T>
-inline bool Modulo(T in1, T in2, T *out, zetasql_base::Status* error);
+inline bool Modulo(T in1, T in2, T *out, absl::Status* error);
 template <typename InType, typename OutType>
-inline bool UnaryMinus(InType in, OutType *out, zetasql_base::Status* error);
+inline bool UnaryMinus(InType in, OutType *out, absl::Status* error);
 
 // Division function for NUMERICs with integer semantics.
 inline bool IntegerDivide(NumericValue in1, NumericValue in2,
-                          NumericValue* out, zetasql_base::Status* error);
+                          NumericValue* out, absl::Status* error);
 
 // ----------------------- Internal parts -----------------------
 // These are implementation details. Do not use outside of this file.
@@ -83,7 +83,7 @@ namespace internal {
 
 template <typename T>
 inline bool CheckFloatOverflow(T in1, T in2, absl::string_view operator_symbol,
-                               T out, zetasql_base::Status* error) {
+                               T out, absl::Status* error) {
   if (ABSL_PREDICT_TRUE(std::isfinite(out))) {
     return true;
   } else if (!std::isfinite(in1) || !std::isfinite(in2)) {
@@ -121,24 +121,24 @@ inline To safe_cast(From in) {
 // ----------------------- Floating point -----------------------
 
 template <>
-inline bool Add(double in1, double in2, double *out, zetasql_base::Status* error) {
+inline bool Add(double in1, double in2, double *out, absl::Status* error) {
   *out = in1 + in2;
   return internal::CheckFloatOverflow(in1, in2, " + ", *out, error);
 }
 
 template <>
-inline bool Subtract(double in1, double in2, double *out, zetasql_base::Status* error) {
+inline bool Subtract(double in1, double in2, double *out, absl::Status* error) {
   *out = in1 - in2;
   return internal::CheckFloatOverflow(in1, in2, " - ", *out, error);
 }
 
 template <>
-inline bool Multiply(double in1, double in2, double *out, zetasql_base::Status* error) {
+inline bool Multiply(double in1, double in2, double *out, absl::Status* error) {
   *out = in1 * in2;
   return internal::CheckFloatOverflow(in1, in2, " * ", *out, error);
 }
 template <>
-inline bool Divide(double in1, double in2, double *out, zetasql_base::Status* error) {
+inline bool Divide(double in1, double in2, double *out, absl::Status* error) {
   *out = in1 / in2;
   if (ABSL_PREDICT_TRUE(std::isfinite(*out))) {
     return true;
@@ -153,31 +153,31 @@ inline bool Divide(double in1, double in2, double *out, zetasql_base::Status* er
   }
 }
 template <>
-inline bool UnaryMinus(double in, double *out, zetasql_base::Status* error) {
+inline bool UnaryMinus(double in, double *out, absl::Status* error) {
   *out = -in;
   return true;
 }
 
 template <>
-inline bool Add(float in1, float in2, float *out, zetasql_base::Status* error) {
+inline bool Add(float in1, float in2, float *out, absl::Status* error) {
   *out = in1 + in2;
   return internal::CheckFloatOverflow(in1, in2, " + ", *out, error);
 }
 
 template <>
-inline bool Subtract(float in1, float in2, float *out, zetasql_base::Status* error) {
+inline bool Subtract(float in1, float in2, float *out, absl::Status* error) {
   *out = in1 - in2;
   return internal::CheckFloatOverflow(in1, in2, " - ", *out, error);
 }
 
 template <>
-inline bool Multiply(float in1, float in2, float *out, zetasql_base::Status* error) {
+inline bool Multiply(float in1, float in2, float *out, absl::Status* error) {
   *out = in1 * in2;
   return internal::CheckFloatOverflow(in1, in2, " * ", *out, error);
 }
 
 template <>
-inline bool UnaryMinus(float in, float *out, zetasql_base::Status* error) {
+inline bool UnaryMinus(float in, float *out, absl::Status* error) {
   *out = -in;
   return true;
 }
@@ -201,7 +201,7 @@ static_assert(std::is_same<int32_t, int>::value, "int != int32_t?");
 // around that.
 template <>
 inline bool Add<uint64_t>(uint64_t in1, uint64_t in2, uint64_t *out,
-                        zetasql_base::Status* error) {
+                        absl::Status* error) {
   unsigned long long result;  // NOLINT(runtime/int)
   bool has_overflow = __builtin_uaddll_overflow(in1, in2, &result);
   *out = static_cast<uint64_t>(result);
@@ -215,7 +215,7 @@ inline bool Add<uint64_t>(uint64_t in1, uint64_t in2, uint64_t *out,
 
 template <>
 inline bool Multiply<uint64_t>(uint64_t in1, uint64_t in2, uint64_t* out,
-                             zetasql_base::Status* error) {
+                             absl::Status* error) {
   unsigned long long result;  // NOLINT(runtime/int)
   bool has_overflow = __builtin_umulll_overflow(in1, in2, &result);
   *out = static_cast<uint64_t>(result);
@@ -228,7 +228,7 @@ inline bool Multiply<uint64_t>(uint64_t in1, uint64_t in2, uint64_t* out,
 }
 
 template <>
-inline bool Add<int32_t>(int32_t in1, int32_t in2, int32_t* out, zetasql_base::Status* error) {
+inline bool Add<int32_t>(int32_t in1, int32_t in2, int32_t* out, absl::Status* error) {
   if (ABSL_PREDICT_FALSE(__builtin_sadd_overflow(in1, in2, out))) {
     return internal::UpdateError(
         error, internal::BinaryOverflowMessage(in1, in2, " + "));
@@ -238,7 +238,7 @@ inline bool Add<int32_t>(int32_t in1, int32_t in2, int32_t* out, zetasql_base::S
 }
 
 template <>
-inline bool Add<int64_t>(int64_t in1, int64_t in2, int64_t* out, zetasql_base::Status* error) {
+inline bool Add<int64_t>(int64_t in1, int64_t in2, int64_t* out, absl::Status* error) {
   long long result;  // NOLINT(runtime/int)
   bool has_overflow = __builtin_saddll_overflow(in1, in2, &result);
   *out = static_cast<int64_t>(result);
@@ -252,7 +252,7 @@ inline bool Add<int64_t>(int64_t in1, int64_t in2, int64_t* out, zetasql_base::S
 
 template <>
 inline bool Subtract<int64_t>(int64_t in1, int64_t in2, int64_t *out,
-                            zetasql_base::Status* error) {
+                            absl::Status* error) {
   long long result;  // NOLINT(runtime/int)
   bool has_overflow = __builtin_ssubll_overflow(in1, in2, &result);
   *out = static_cast<int64_t>(result);
@@ -266,7 +266,7 @@ inline bool Subtract<int64_t>(int64_t in1, int64_t in2, int64_t *out,
 
 template <>
 inline bool Multiply<int32_t>(int32_t in1, int32_t in2, int32_t* out,
-                            zetasql_base::Status* error) {
+                            absl::Status* error) {
   if (ABSL_PREDICT_FALSE(__builtin_smul_overflow(in1, in2, out))) {
     return internal::UpdateError(
         error, internal::BinaryOverflowMessage(in1, in2, " * "));
@@ -277,7 +277,7 @@ inline bool Multiply<int32_t>(int32_t in1, int32_t in2, int32_t* out,
 
 template <>
 inline bool Multiply<int64_t>(int64_t in1, int64_t in2, int64_t *out,
-                            zetasql_base::Status* error) {
+                            absl::Status* error) {
   long long result;  // NOLINT(runtime/int)
   bool has_overflow = __builtin_smulll_overflow(in1, in2, &result);
   *out = static_cast<int64_t>(result);
@@ -297,7 +297,7 @@ template <typename T>
 inline bool CheckSaturatedOverflow(T in1, T in2,
                                    absl::string_view operator_symbol,
                                    Saturated<T> result, T* out,
-                                   zetasql_base::Status* error) {
+                                   absl::Status* error) {
   *out = result.Value();
   if (ABSL_PREDICT_TRUE(result.IsValid())) {
     return true;
@@ -310,7 +310,7 @@ inline bool CheckSaturatedOverflow(T in1, T in2,
 }  // namespace arithmetics_internal
 
 template <typename T>
-bool Add(T in1, T in2, T* out, zetasql_base::Status* error) {
+bool Add(T in1, T in2, T* out, absl::Status* error) {
   arithmetics_internal::Saturated<T> result(internal::safe_cast<T>(in1));
   result.Add(internal::safe_cast<T>(in2));
   *out = result.Value();
@@ -320,7 +320,7 @@ bool Add(T in1, T in2, T* out, zetasql_base::Status* error) {
 
 template <>
 inline bool Subtract<int64_t>(int64_t in1, int64_t in2, int64_t* out,
-                            zetasql_base::Status* error) {
+                            absl::Status* error) {
   arithmetics_internal::Saturated<int64_t> result(
       internal::safe_cast<int64_t>(in1));
   result.Sub(internal::safe_cast<int64_t>(in2));
@@ -331,7 +331,7 @@ inline bool Subtract<int64_t>(int64_t in1, int64_t in2, int64_t* out,
 
 template <typename T>
 inline bool Multiply(T in1, T in2, T *out,
-                     zetasql_base::Status* error) {
+                     absl::Status* error) {
   arithmetics_internal::Saturated<T> result(internal::safe_cast<T>(in1));
   result.Mul(internal::safe_cast<T>(in2));
   *out = result.Value();
@@ -342,7 +342,7 @@ inline bool Multiply(T in1, T in2, T *out,
 #endif
 
 template <typename T>
-inline bool Modulo(T in1, T in2, T *out, zetasql_base::Status* error) {
+inline bool Modulo(T in1, T in2, T *out, absl::Status* error) {
   static_assert(std::is_same<uint64_t, T>::value ||
                 std::is_same<int64_t, T>::value,
               "Modulo only supports 64 bit integer");
@@ -363,7 +363,7 @@ static_assert(std::numeric_limits<int64_t>::min()
 
 template <>
 inline bool UnaryMinus<int32_t, int32_t>(int32_t in, int32_t* out,
-                                     zetasql_base::Status* error) {
+                                     absl::Status* error) {
   if (in == std::numeric_limits<int32_t>::min()) {
     return internal::UpdateError(error,
                                  internal::UnaryOverflowMessage(in, "-"));
@@ -374,7 +374,7 @@ inline bool UnaryMinus<int32_t, int32_t>(int32_t in, int32_t* out,
 
 template <>
 inline bool UnaryMinus<int64_t, int64_t>(int64_t in, int64_t* out,
-                                     zetasql_base::Status* error) {
+                                     absl::Status* error) {
   if (in == std::numeric_limits<int64_t>::min()) {
     return internal::UpdateError(error,
                                  internal::UnaryOverflowMessage(in, "-"));
@@ -385,7 +385,7 @@ inline bool UnaryMinus<int64_t, int64_t>(int64_t in, int64_t* out,
 
 template <>
 inline bool Subtract<uint64_t, int64_t>(uint64_t in1, uint64_t in2, int64_t *out,
-                                    zetasql_base::Status* error) {
+                                    absl::Status* error) {
   if (in1 >= in2) {
     uint64_t tmp = in1 - in2;
     if (!Convert<uint64_t, int64_t>(tmp, out, nullptr)) {
@@ -414,12 +414,12 @@ inline bool Subtract<uint64_t, int64_t>(uint64_t in1, uint64_t in2, int64_t *out
 // uses the correct new signature above.  Remove this once migrated.
 template <>
 inline bool Subtract<uint64_t, uint64_t>(uint64_t in1, uint64_t in2, uint64_t *out,
-                                     zetasql_base::Status* error) {
+                                     absl::Status* error) {
   return internal::UpdateError(error, "invalid UINT64 subtraction signature");
 }
 
 template <>
-inline bool Divide(uint64_t in1, uint64_t in2, uint64_t *out, zetasql_base::Status* error) {
+inline bool Divide(uint64_t in1, uint64_t in2, uint64_t *out, absl::Status* error) {
   if (ABSL_PREDICT_FALSE(in2 == 0)) {
     return internal::UpdateError(error,
                                  internal::DivisionByZeroMessage(in1, in2));
@@ -429,7 +429,7 @@ inline bool Divide(uint64_t in1, uint64_t in2, uint64_t *out, zetasql_base::Stat
 }
 
 template <>
-inline bool Divide(int64_t in1, int64_t in2, int64_t *out, zetasql_base::Status* error) {
+inline bool Divide(int64_t in1, int64_t in2, int64_t *out, absl::Status* error) {
   if (ABSL_PREDICT_FALSE(in2 == -1)) {
     return UnaryMinus(in1, out, error);
   }
@@ -445,7 +445,7 @@ inline bool Divide(int64_t in1, int64_t in2, int64_t *out, zetasql_base::Status*
 
 template <>
 inline bool Add(NumericValue in1, NumericValue in2, NumericValue* out,
-                zetasql_base::Status* error) {
+                absl::Status* error) {
   zetasql_base::StatusOr<NumericValue> numeric_status = in1.Add(in2);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
     *out = numeric_status.ValueOrDie();
@@ -459,7 +459,7 @@ inline bool Add(NumericValue in1, NumericValue in2, NumericValue* out,
 
 template <>
 inline bool Subtract(NumericValue in1, NumericValue in2, NumericValue* out,
-                     zetasql_base::Status* error) {
+                     absl::Status* error) {
   zetasql_base::StatusOr<NumericValue> numeric_status = in1.Subtract(in2);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
     *out = numeric_status.ValueOrDie();
@@ -473,7 +473,7 @@ inline bool Subtract(NumericValue in1, NumericValue in2, NumericValue* out,
 
 template <>
 inline bool Multiply(NumericValue in1, NumericValue in2, NumericValue* out,
-                     zetasql_base::Status* error) {
+                     absl::Status* error) {
   zetasql_base::StatusOr<NumericValue> numeric_status = in1.Multiply(in2);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
     *out = numeric_status.ValueOrDie();
@@ -487,7 +487,7 @@ inline bool Multiply(NumericValue in1, NumericValue in2, NumericValue* out,
 
 template <>
 inline bool Divide(NumericValue in1, NumericValue in2, NumericValue* out,
-                   zetasql_base::Status* error) {
+                   absl::Status* error) {
   zetasql_base::StatusOr<NumericValue> numeric_status = in1.Divide(in2);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
     *out = numeric_status.ValueOrDie();
@@ -501,14 +501,14 @@ inline bool Divide(NumericValue in1, NumericValue in2, NumericValue* out,
 
 template <>
 inline bool UnaryMinus(NumericValue in, NumericValue* out,
-                       zetasql_base::Status* error) {
+                       absl::Status* error) {
   *out = NumericValue::UnaryMinus(in);
   return true;
 }
 
 template <>
 inline bool Modulo(NumericValue in1, NumericValue in2,
-                   NumericValue *out, zetasql_base::Status* error) {
+                   NumericValue *out, absl::Status* error) {
   zetasql_base::StatusOr<NumericValue> numeric_status = in1.Mod(in2);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
     *out = numeric_status.ValueOrDie();
@@ -521,7 +521,7 @@ inline bool Modulo(NumericValue in1, NumericValue in2,
 }
 
 inline bool IntegerDivide(NumericValue in1, NumericValue in2,
-                          NumericValue* out, zetasql_base::Status* error) {
+                          NumericValue* out, absl::Status* error) {
   zetasql_base::StatusOr<NumericValue> numeric_status = in1.IntegerDivide(in2);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
     *out = numeric_status.ValueOrDie();
@@ -537,7 +537,7 @@ inline bool IntegerDivide(NumericValue in1, NumericValue in2,
 
 template <>
 inline bool Add(BigNumericValue in1, BigNumericValue in2, BigNumericValue* out,
-                zetasql_base::Status* error) {
+                absl::Status* error) {
   zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Add(in2);
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
     *out = bignumeric_status.ValueOrDie();
@@ -551,7 +551,7 @@ inline bool Add(BigNumericValue in1, BigNumericValue in2, BigNumericValue* out,
 
 template <>
 inline bool Subtract(BigNumericValue in1, BigNumericValue in2,
-                     BigNumericValue* out, zetasql_base::Status* error) {
+                     BigNumericValue* out, absl::Status* error) {
   zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Subtract(in2);
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
     *out = bignumeric_status.ValueOrDie();
@@ -565,7 +565,7 @@ inline bool Subtract(BigNumericValue in1, BigNumericValue in2,
 
 template <>
 inline bool Multiply(BigNumericValue in1, BigNumericValue in2,
-                     BigNumericValue* out, zetasql_base::Status* error) {
+                     BigNumericValue* out, absl::Status* error) {
   zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Multiply(in2);
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
     *out = bignumeric_status.ValueOrDie();
@@ -579,7 +579,7 @@ inline bool Multiply(BigNumericValue in1, BigNumericValue in2,
 
 template <>
 inline bool Divide(BigNumericValue in1, BigNumericValue in2,
-                   BigNumericValue* out, zetasql_base::Status* error) {
+                   BigNumericValue* out, absl::Status* error) {
   zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Divide(in2);
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
     *out = bignumeric_status.ValueOrDie();
@@ -593,7 +593,7 @@ inline bool Divide(BigNumericValue in1, BigNumericValue in2,
 
 template <>
 inline bool UnaryMinus(BigNumericValue in, BigNumericValue* out,
-                       zetasql_base::Status* error) {
+                       absl::Status* error) {
   zetasql_base::StatusOr<BigNumericValue> bignumeric_status =
       BigNumericValue::UnaryMinus(in);
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {

@@ -59,7 +59,7 @@ static void TestParseStringToTimestamp(const std::string& format,
   int64_t timestamp = std::numeric_limits<int64_t>::max();
   if (expected_result.empty()) {
     // An error is expected.
-    zetasql_base::Status status = ParseStringToTimestamp(
+    absl::Status status = ParseStringToTimestamp(
         format, timestamp_string, default_time_zone, &timestamp);
     std::string result_timestamp_string;
     if (status.ok()) {
@@ -121,11 +121,11 @@ static void TestParseTimestamp(const FunctionTestCall& test) {
   int64_t result_timestamp;
   absl::Time base_time_result;
 
-  zetasql_base::Status status = ParseStringToTimestamp(
+  absl::Status status = ParseStringToTimestamp(
       format_param.string_value(), timestamp_string_param.string_value(),
       timezone_param.string_value(), &result_timestamp);
 
-  zetasql_base::Status base_time_status = ParseStringToTimestamp(
+  absl::Status base_time_status = ParseStringToTimestamp(
       format_param.string_value(), timestamp_string_param.string_value(),
       timezone_param.string_value(), &base_time_result);
 
@@ -184,7 +184,7 @@ static void TestParseDate(const FunctionTestCall& test) {
   const Value& date_string_param = test.params.param(1);
   int32_t result_date;
 
-  zetasql_base::Status status = ParseStringToDate(
+  absl::Status status = ParseStringToDate(
       format_param.string_value(), date_string_param.string_value(),
       &result_date);
   std::string test_string = absl::Substitute(
@@ -205,13 +205,13 @@ static void TestParseDate(const FunctionTestCall& test) {
 // <actual_output_string_value> matches the expected <result>.
 static void ValidateResult(
     const QueryParamsWithResult::Result* result,
-    const zetasql_base::Status& actual_status,
+    const absl::Status& actual_status,
     const std::string& actual_output_string_value,
     const std::function<bool(const Value& expected_result,
                              const std::string& actual_string_value)>&
         result_validator) {
   CHECK(result != nullptr);
-  const zetasql_base::Status& expected_status = result->status;
+  const absl::Status& expected_status = result->status;
   const Value& expected_result = result->result;
 
   if (expected_status.ok()) {
@@ -232,10 +232,10 @@ static void TestCivilTimeFunction(
     const FunctionTestCall& testcase,
     const std::function<bool(const FunctionTestCall& testcase)>&
         should_skip_test_case,
-    const std::function<zetasql_base::Status(const FunctionTestCall& testcase,
+    const std::function<absl::Status(const FunctionTestCall& testcase,
                                      std::string* output_string_value)>&
         function_to_test_for_micro,
-    const std::function<zetasql_base::Status(const FunctionTestCall& testcase,
+    const std::function<absl::Status(const FunctionTestCall& testcase,
                                      std::string* output_string_value)>&
         function_to_test_for_nano,
     const std::function<bool(const Value& expected_result,
@@ -249,7 +249,7 @@ static void TestCivilTimeFunction(
   static const QueryParamsWithResult::FeatureSet civil_time_feature_set(
       {FEATURE_V_1_2_CIVIL_TIME});
   std::string actual_micro_string_value;
-  zetasql_base::Status actual_micro_status =
+  absl::Status actual_micro_status =
       function_to_test_for_micro(testcase, &actual_micro_string_value);
   const QueryParamsWithResult::Result* expected_micro_result =
       zetasql_base::FindOrNull(testcase.params.results(), civil_time_feature_set);
@@ -261,7 +261,7 @@ static void TestCivilTimeFunction(
       civil_time_and_nano_feature_set(
           {FEATURE_V_1_2_CIVIL_TIME, FEATURE_TIMESTAMP_NANOS});
   std::string actual_nano_string_value;
-  zetasql_base::Status actual_nano_status =
+  absl::Status actual_nano_status =
       function_to_test_for_nano(testcase, &actual_nano_string_value);
   const QueryParamsWithResult::Result* expected_nano_result = zetasql_base::FindOrNull(
       testcase.params.results(), civil_time_and_nano_feature_set);
@@ -282,13 +282,13 @@ static void TestParseTime(const FunctionTestCall& testcase) {
   };
   auto GetParseTimeFunc = [](TimestampScale scale) {
     return [scale](const FunctionTestCall& testcase,
-                   std::string* output_string) -> ::zetasql_base::Status {
+                   std::string* output_string) -> absl::Status {
       TimeValue time;
       ZETASQL_RETURN_IF_ERROR(ParseStringToTime(testcase.params.param(0).string_value(),
                                         testcase.params.param(1).string_value(),
                                         scale, &time));
       *output_string = time.DebugString();
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     };
   };
   auto ParseTimeResultValidator = [](const Value& expected_result,
@@ -314,13 +314,13 @@ static void TestParseDatetime(const FunctionTestCall& testcase) {
   };
   auto GetParseDatetimeFunc = [](TimestampScale scale) {
     return [scale](const FunctionTestCall& testcase,
-                   std::string* output_string) -> ::zetasql_base::Status {
+                   std::string* output_string) -> absl::Status {
       DatetimeValue datetime;
       ZETASQL_RETURN_IF_ERROR(ParseStringToDatetime(
           testcase.params.param(0).string_value(),
           testcase.params.param(1).string_value(), scale, &datetime));
       *output_string = datetime.DebugString();
-      return ::zetasql_base::OkStatus();
+      return absl::OkStatus();
     };
   };
   auto ParseDatetimeResultValidator = [](const Value& expected_result,
@@ -613,7 +613,7 @@ TEST(StringToTimestampTests, NonNullTerminatedStringViewTests) {
   EXPECT_THAT(
       ParseStringToDatetime(bad_format_string_14, bad_timestamp_string_14,
                             kMicroseconds, &datetime),
-      StatusIs(zetasql_base::OUT_OF_RANGE,
+      StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("Failed to parse input string")));
 }
 
@@ -692,13 +692,13 @@ TEST(StringToTimestampTests, EmptyStringViewTests) {
   for (const absl::string_view& format_string : format_strings) {
     EXPECT_THAT(ParseStringToTime(format_string, nonempty_timestamp_string,
                                   kMicroseconds, &time),
-                StatusIs(zetasql_base::OUT_OF_RANGE,
+                StatusIs(absl::StatusCode::kOutOfRange,
                          HasSubstr("Failed to parse input string")));
   }
   for (const absl::string_view& timestamp_string : timestamp_strings) {
     EXPECT_THAT(ParseStringToTime(nonempty_format_string, timestamp_string,
                                   kMicroseconds, &time),
-                StatusIs(zetasql_base::OUT_OF_RANGE,
+                StatusIs(absl::StatusCode::kOutOfRange,
                          HasSubstr("Failed to parse input string")));
   }
 }
@@ -746,7 +746,7 @@ TEST(StringToTimestampTests, LeadingAndTrailingWhitespaceTests) {
   for (const absl::string_view& time : times) {
     EXPECT_THAT(
         ParseStringToTime("  %", time, kMicroseconds, &time_value),
-        StatusIs(zetasql_base::OUT_OF_RANGE,
+        StatusIs(absl::StatusCode::kOutOfRange,
                  HasSubstr("Format string cannot end with a single '%'")));
   }
 
@@ -858,7 +858,7 @@ TEST(StringToTimestampTests,
   // Only %E0S to %E9S is supported (0-9 subseconds digits).
   TimeValue time_value;
   EXPECT_THAT(ParseStringToTime("%E10S", "1", kMicroseconds, &time_value),
-              StatusIs(zetasql_base::OUT_OF_RANGE,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Failed to parse input string")));
 }
 

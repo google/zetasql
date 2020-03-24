@@ -39,12 +39,12 @@ class ResolvedASTVisitor {
   //
   // The default implementation just visits the child nodes recursively.
   // Children of a node are visited in an undefined order.
-  virtual zetasql_base::Status DefaultVisit(const ResolvedNode* node) {
+  virtual absl::Status DefaultVisit(const ResolvedNode* node) {
     return node->ChildrenAccept(this);
   }
 
 # for node in nodes
-  virtual zetasql_base::Status Visit{{node.name}}(const {{node.name}}* node) {
+  virtual absl::Status Visit{{node.name}}(const {{node.name}}* node) {
     return DefaultVisit(node);
   }
 # endfor

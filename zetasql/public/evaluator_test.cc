@@ -113,12 +113,12 @@ TEST(EvaluatorTest, ColumnExpression) {
       {{"a", Int64(-1)}, {"b", Int64(6)}}).ValueOrDie());
   EXPECT_THAT(
       expr.Execute({{"a", Int64(-1)}, {"b", Double(6)}}),
-      StatusIs(zetasql_base::INVALID_ARGUMENT,
+      StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr("Expected column parameter 'b' to be of type INT64")));
   // If we call Execute more than once, we must pass in the exact same
   // set of columns.
   EXPECT_THAT(expr.Execute({{"a", Int64(-1)}}),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Incomplete column parameters")));
   EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
 }
@@ -126,10 +126,10 @@ TEST(EvaluatorTest, ColumnExpression) {
 TEST(EvaluatorTest, NoRecoveryFromError) {
   PreparedExpression expr("a * 2");
   EXPECT_THAT(expr.Execute({{"a", Value::String("foo")}}),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("No matching signature")));
   EXPECT_THAT(expr.Execute({{"a", Value::Int64(1)}}),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Invalid prepared expression")));
   EXPECT_DEATH(expr.output_type(), "Invalid prepared expression");
 }
@@ -162,7 +162,7 @@ TEST(EvaluatorTest, WithClauseSubquerySimple) {
   // the LanguageFeature to support WITH clause inside subqueries.
   PreparedExpression expr(query);
   EXPECT_THAT(expr.Execute({}),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("WITH is not supported on subqueries in this "
                                  "language version")));
 
@@ -201,7 +201,7 @@ TEST(EvaluatorTest, WithClauseSubquery_b119901615) {
 TEST(EvaluatorTest, QueryAsExpression) {
   PreparedExpression expr("SELECT 1 + a");
   EXPECT_THAT(expr.Execute({{"a", Int64(2)}}),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Unexpected keyword SELECT")));
 }
 
@@ -219,9 +219,9 @@ TEST(EvaluatorTest, ExpressionFromArray) {
   Value arr2 = StructArray({"x", "y"}, {{1ll, 3.0}, {200ll, 5.0}});
   EXPECT_EQ(NullDouble(), expr.Execute({{"arr", arr2}}).ValueOrDie());
   Value arr3 = StructArray({"x", "y"}, {{2ll, 3.0}, {2ll, 5.0}});
-  EXPECT_THAT(
-      expr.Execute({{"arr", arr3}}),
-      StatusIs(zetasql_base::OUT_OF_RANGE, HasSubstr("More than one element")));
+  EXPECT_THAT(expr.Execute({{"arr", arr3}}),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("More than one element")));
 }
 
 TEST(EvaluatorTest, ArrayExpressionOnHeap) {
@@ -406,7 +406,7 @@ TEST(EvaluatorTest, ExecuteAfterPrepare) {
                   {{"col", Value::Int64(5)}},
                   {{"param1", Value::Int64(1)}, {"param2", Value::Int64(2)}},
                   {{{"sysvar1"}, Value::Int64(10)}}),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Invalid prepared expression")));
   ZETASQL_ASSERT_OK(expr.Prepare(options));
   EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
@@ -431,12 +431,12 @@ TEST(EvaluatorTest, ExecuteAfterPrepare) {
   ZETASQL_ASSERT_OK(options2.AddQueryParameter("param2", types::Int64Type()));
   ZETASQL_ASSERT_OK(options2.AddExpressionColumn("col", types::StringType()));
   EXPECT_THAT(expr2.Prepare(options2),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("No matching signature for operator *")));
   EXPECT_THAT(expr2.ExecuteAfterPrepare(
                   {{"col", Value::Int64(5)}},
                   {{"param1", Value::Int64(1)}, {"param2", Value::Int64(2)}}),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Invalid prepared expression")));
 }
 
@@ -452,7 +452,7 @@ TEST(EvaluatorTest, ExecuteAfterPrepareWithPositionalParameters) {
   EXPECT_THAT(
       expr.ExecuteAfterPrepareWithPositionalParams(
           {{"col", Value::Int64(5)}}, {Value::Int64(1), Value::Int64(2)}),
-      StatusIs(zetasql_base::INVALID_ARGUMENT,
+      StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr("Invalid prepared expression")));
   ZETASQL_ASSERT_OK(expr.Prepare(options));
   EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
@@ -477,12 +477,12 @@ TEST(EvaluatorTest, ExecuteAfterPrepareWithPositionalParameters) {
   ZETASQL_ASSERT_OK(options2.AddPositionalQueryParameter(types::Int64Type()));
   ZETASQL_ASSERT_OK(options2.AddExpressionColumn("col", types::StringType()));
   EXPECT_THAT(expr2.Prepare(options2),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("No matching signature for operator *")));
   EXPECT_THAT(
       expr2.ExecuteAfterPrepareWithPositionalParams(
           {{"col", Value::Int64(5)}}, {Value::Int64(1), Value::Int64(2)}),
-      StatusIs(zetasql_base::INVALID_ARGUMENT,
+      StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr("Invalid prepared expression")));
 }
 
@@ -492,7 +492,7 @@ TEST(EvaluatorTest, PrepareFailOnAnalysis) {
   ZETASQL_ASSERT_OK(options.AddQueryParameter("param", types::Int64Type()));
   ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::StringType()));
   EXPECT_THAT(expr.Prepare(options),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("No matching signature")));
 }
 
@@ -518,12 +518,12 @@ TEST(EvaluatorTest, PrepareExecuteWrongQueryParameterType) {
   ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
   ZETASQL_ASSERT_OK(expr.Prepare(options));
   EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
-  zetasql_base::Status status = expr.Execute(
+  absl::Status status = expr.Execute(
       {{"col", Value::Int64(5)}}, {{"param", Value::String("foo")}}).status();
   EXPECT_THAT(
       status,
       StatusIs(
-          zetasql_base::INVALID_ARGUMENT,
+          absl::StatusCode::kInvalidArgument,
           HasSubstr("Expected query parameter 'param' to be of type INT64")));
 }
 
@@ -535,14 +535,14 @@ TEST(EvaluatorTest, PrepareExecuteWrongPositionalQueryParameterType) {
   ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
   ZETASQL_ASSERT_OK(expr.Prepare(options));
   EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
-  zetasql_base::Status status =
+  absl::Status status =
       expr.ExecuteWithPositionalParams({{"col", Value::Int64(5)}},
                                        {Value::String("foo")})
           .status();
   EXPECT_THAT(
       status,
       StatusIs(
-          zetasql_base::INVALID_ARGUMENT,
+          absl::StatusCode::kInvalidArgument,
           HasSubstr("Expected positional parameter 1 to be of type INT64")));
 }
 
@@ -553,13 +553,13 @@ TEST(EvaluatorTest, PrepareExecuteWrongSystemVariableType) {
   ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
   ZETASQL_ASSERT_OK(expr.Prepare(options));
   EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
-  zetasql_base::Status status = expr.Execute({{"col", Value::Int64(5)}}, {},
+  absl::Status status = expr.Execute({{"col", Value::Int64(5)}}, {},
                                      {{{"sysvar"}, Value::String("foo")}})
                             .status();
   EXPECT_THAT(
       status,
       StatusIs(
-          zetasql_base::INVALID_ARGUMENT,
+          absl::StatusCode::kInvalidArgument,
           HasSubstr("Expected system variable 'sysvar' to be of type INT64")));
 }
 
@@ -570,10 +570,10 @@ TEST(EvaluatorTest, PrepareExecuteSystemVariableMissingValue) {
   ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
   ZETASQL_ASSERT_OK(expr.Prepare(options));
   EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
-  zetasql_base::Status status = expr.Execute({{"col", Value::Int64(5)}}, {}).status();
+  absl::Status status = expr.Execute({{"col", Value::Int64(5)}}, {}).status();
   EXPECT_THAT(
       status,
-      StatusIs(zetasql_base::INVALID_ARGUMENT,
+      StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr("No value provided for system variable sysvar")));
 }
 
@@ -586,12 +586,12 @@ TEST(EvaluatorTest, PrepareExecuteSystemMissingInAnalyzerOptions) {
   ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
   ZETASQL_ASSERT_OK(expr.Prepare(options));
   EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
-  zetasql_base::Status status = expr.Execute({{"col", Value::Int64(5)}}, {},
+  absl::Status status = expr.Execute({{"col", Value::Int64(5)}}, {},
                                      {{{"sysvar1"}, Value::Int64(5)},
                                       {{"sysvar2"}, Value::Int64(6)}})
                             .status();
   EXPECT_THAT(status,
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Value provided for system variable sysvar2, "
                                  "which is not in the AnalyzerOptions")));
 }
@@ -607,7 +607,7 @@ TEST(EvaluatorTest, PrepareExecuteMismatchedPositionalQueryParameterCount) {
     EXPECT_THAT(
         expr.Prepare(options),
         StatusIs(
-            zetasql_base::INVALID_ARGUMENT,
+            absl::StatusCode::kInvalidArgument,
             HasSubstr("Query parameter number 2 is not defined (1 provided)")));
   }
 
@@ -629,7 +629,7 @@ TEST(EvaluatorTest, PrepareExecuteMismatchedPositionalQueryParameterCount) {
     EXPECT_THAT(
         expr.ExecuteWithPositionalParams({}, {Value::Int64(3)}).status(),
         StatusIs(
-            zetasql_base::INVALID_ARGUMENT,
+            absl::StatusCode::kInvalidArgument,
             HasSubstr("Query parameter number 2 is not defined (1 provided)")));
   }
 
@@ -730,12 +730,12 @@ TEST(EvaluatorTest, PrepareExecuteWrongColumnParameterType) {
   ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
   ZETASQL_ASSERT_OK(expr.Prepare(options));
   EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
-  zetasql_base::Status status = expr.Execute(
+  absl::Status status = expr.Execute(
       {{"col", Value::String("foo")}}, {{"param", Value::Int64(1)}}).status();
   EXPECT_THAT(
       status,
       StatusIs(
-          zetasql_base::INVALID_ARGUMENT,
+          absl::StatusCode::kInvalidArgument,
           HasSubstr("Expected column parameter 'col' to be of type INT64")));
 }
 
@@ -762,7 +762,7 @@ TEST(EvaluatorTest, PrepareTwice) {
   ZETASQL_ASSERT_OK(expr.Prepare(options));
   EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
   EXPECT_THAT(expr.Prepare(options),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Prepare called twice")));
 }
 
@@ -805,7 +805,7 @@ TEST(EvaluatorTest,
 TEST(EvaluatorTest, ExplainAfterPrepareWithoutPrepare) {
   PreparedExpression expr("@param + col");
   EXPECT_THAT(expr.ExplainAfterPrepare(),
-              StatusIs(zetasql_base::INTERNAL,
+              StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("Prepare must be called first")));
 }
 
@@ -874,7 +874,7 @@ TEST(EvaluatorTest, PrepareMismatchColumns) {
   // Set of columns involved in expression must be a subset of those
   // visible to Prepare().
   EXPECT_THAT(expr.Prepare(options),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Unrecognized name: col1")));
 }
 
@@ -917,7 +917,7 @@ TEST(EvaluatorTest, GetReferencedColumnsUsingCallback) {
         if (column_name == "col") {
           *column_type = types::Int64Type();
         }
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       });
   ZETASQL_ASSERT_OK(expr.Prepare(options));
 
@@ -937,7 +937,7 @@ TEST(EvaluatorTest, GetReferencedColumnsUsingCallbackInMixedCases) {
         if (column_name == "col") {
           *column_type = types::Int64Type();
         }
-        return ::zetasql_base::OkStatus();
+        return absl::OkStatus();
       });
   ZETASQL_ASSERT_OK(expr.Prepare(options));
 
@@ -1021,7 +1021,7 @@ TEST(EvaluatorTest, GetReferencedColumnsInLowerCase) {
 TEST(EvaluatorTest, GetReferencedColumnsWithoutPrepare) {
   PreparedExpression expr("@param + col");
   EXPECT_THAT(expr.GetReferencedColumns(),
-              StatusIs(zetasql_base::FAILED_PRECONDITION,
+              StatusIs(absl::StatusCode::kFailedPrecondition,
                        HasSubstr("Expression/Query has not been prepared")));
 }
 
@@ -1030,7 +1030,7 @@ TEST(EvaluatorTest, GetReferencedColumnsAfterPrepareFailure) {
   AnalyzerOptions options;  // Empty options
   EXPECT_FALSE(expr.Prepare(options).ok());
   EXPECT_THAT(expr.GetReferencedColumns(),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Invalid prepared expression/query")));
 }
 
@@ -1241,7 +1241,7 @@ TEST(EvaluatorTest, ForSystemTimeAsOfWithUnsupportedTable) {
   EXPECT_THAT(
       expr.Execute({}),
       StatusIs(
-          zetasql_base::UNIMPLEMENTED,
+          absl::StatusCode::kUnimplemented,
           HasSubstr("EvaluatorTableIterator::SetReadTime() not implemented")));
 }
 
@@ -1361,7 +1361,7 @@ TEST(EvaluatorTest, PreparedFromAST_ExecuteWithWrongColumn) {
   EXPECT_THAT(
       prepared.expression->ExecuteAfterPrepare(
           {{"wrong_value", values::Int32(1000)}}),
-      zetasql_base::testing::StatusIs(zetasql_base::INVALID_ARGUMENT,
+      zetasql_base::testing::StatusIs(absl::StatusCode::kInvalidArgument,
                                 "Incomplete column parameters int_value"));
 }
 
@@ -1398,7 +1398,7 @@ TEST(EvaluatorTest, PreparedFromAST_IllegalDeref) {
 
   PreparedExpression expression(col_ref.get(), EvaluatorOptions());
   EXPECT_THAT(expression.Prepare(AnalyzerOptions()),
-              zetasql_base::testing::StatusIs(zetasql_base::INTERNAL));
+              zetasql_base::testing::StatusIs(absl::StatusCode::kInternal));
 }
 
 TEST_F(UDFEvalTest, OkUDFEvaluator) {
@@ -1434,7 +1434,7 @@ TEST_F(UDFEvalTest, OkPolymorphicUDFEvaluator) {
           case TYPE_STRING: return evaluator_string;
           case TYPE_BOOL: return FunctionEvaluator();
           default:
-            return zetasql_base::Status(zetasql_base::StatusCode::kInternal,
+            return absl::Status(absl::StatusCode::kInternal,
                                 "Beg your pardon: " + signature.DebugString());
         }
       });
@@ -1449,20 +1449,20 @@ TEST_F(UDFEvalTest, OkPolymorphicUDFEvaluator) {
   EXPECT_EQ(Value::Int64(7), result);  // 7 = 1 + length("foo") * 2
 
   PreparedExpression expr_double("1 + myudf(1.5)");
-  zetasql_base::Status status = expr_double.Prepare(analyzer_options_, catalog());
-  EXPECT_THAT(status,
-              StatusIs(zetasql_base::INTERNAL, HasSubstr("Beg your pardon")));
+  absl::Status status = expr_double.Prepare(analyzer_options_, catalog());
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kInternal,
+                               HasSubstr("Beg your pardon")));
 
   PreparedExpression expr_bool("1 + myudf(false)");
   status = expr_bool.Prepare(analyzer_options_, catalog());
-  EXPECT_THAT(status,
-              StatusIs(zetasql_base::INTERNAL, HasSubstr("NULL evaluator")));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kInternal,
+                               HasSubstr("NULL evaluator")));
 }
 
 TEST_F(UDFEvalTest, UndefinedUDF) {
   PreparedExpression expr("1 + myudf(@param)");
-  zetasql_base::Status status = expr.Prepare(analyzer_options_);
-  EXPECT_THAT(status, StatusIs(zetasql_base::INVALID_ARGUMENT,
+  absl::Status status = expr.Prepare(analyzer_options_);
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kInvalidArgument,
                                HasSubstr("Function not found")));
 }
 
@@ -1471,8 +1471,8 @@ TEST_F(UDFEvalTest, NoUDFEvaluator) {
       "MyUdf", "udf", Function::SCALAR,
       {{types::Int64Type(), {types::StringType()}, kFunctionId}}));
   PreparedExpression expr("1 + myudf(@param)");
-  zetasql_base::Status status = expr.Prepare(analyzer_options_, catalog());
-  EXPECT_THAT(status, StatusIs(zetasql_base::INVALID_ARGUMENT,
+  absl::Status status = expr.Prepare(analyzer_options_, catalog());
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kInvalidArgument,
                                HasSubstr("has no evaluator")));
 }
 
@@ -1481,7 +1481,7 @@ TEST_F(UDFEvalTest, UDFEvaluatorRuntimeErrors) {
       [](const absl::Span<const Value>& args) -> zetasql_base::StatusOr<Value> {
         std::string arg = args[0].string_value();
         if (arg == "not found") {
-          return zetasql_base::Status(zetasql_base::StatusCode::kNotFound, "Wrong number");
+          return absl::Status(absl::StatusCode::kNotFound, "Wrong number");
         } else if (arg == "wrong return type") {
           // Returns Value::Int32 instead of Value::Int64.
           return Value::Int32(arg.size());
@@ -1503,21 +1503,21 @@ TEST_F(UDFEvalTest, UDFEvaluatorRuntimeErrors) {
   EXPECT_EQ(Value::Int64(4), result);
 
   // Runtime errors.
-  zetasql_base::Status status;
+  absl::Status status;
   status = expr.Execute(
       {}, {{"param", Value::String("not found")}}).status();
   EXPECT_THAT(status,
-              StatusIs(zetasql_base::NOT_FOUND, HasSubstr("Wrong number")));
+              StatusIs(absl::StatusCode::kNotFound, HasSubstr("Wrong number")));
 
   status = expr.Execute(
       {}, {{"param", Value::String("invalid")}}).status();
-  EXPECT_THAT(status, StatusIs(zetasql_base::INTERNAL,
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kInternal,
                                HasSubstr("Uninitialized value")));
 
   if (ZETASQL_DEBUG_MODE) {
     status = expr.Execute(
         {}, {{"param", Value::String("wrong return type")}}).status();
-    EXPECT_THAT(status, StatusIs(zetasql_base::INTERNAL,
+    EXPECT_THAT(status, StatusIs(absl::StatusCode::kInternal,
                                  HasSubstr("Expected value of type: INT64")));
   } else {
     EXPECT_DEATH(
@@ -1847,7 +1847,7 @@ TEST_F(PreparedModifyTest, IteratorStillLiveOnDestruction) {
 TEST_F(PreparedModifyTest, InvalidStatementKind) {
   PreparedModify modify("select * from test_table", EvaluatorOptions());
   EXPECT_THAT(modify.Prepare(analyzer_options(), catalog()),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("not correspond to a DML statement")));
 }
 
@@ -1888,7 +1888,7 @@ TEST_F(PreparedModifyTest, Parameter) {
 
   iter.reset();
   EXPECT_THAT(modify.Execute({{"p2", values::NullString()}}),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Incomplete query parameters p1")));
 }
 
@@ -1928,7 +1928,7 @@ TEST_F(PreparedModifyTest, PositionalParameter) {
 
   iter.reset();
   EXPECT_THAT(modify.ExecuteWithPositionalParams({Int64(100)}),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Incorrect number of positional parameters")));
 }
 
@@ -1969,7 +1969,7 @@ TEST_F(PreparedModifyTest, ExecuteAfterPrepareWithOrderedParamsWithParameter) {
 
   iter.reset();
   EXPECT_THAT(modify.Execute({{"p2", values::NullString()}}),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Incomplete query parameters p1")));
 }
 
@@ -2010,7 +2010,7 @@ TEST_F(PreparedModifyTest,
 
   iter.reset();
   EXPECT_THAT(modify.ExecuteWithPositionalParams({Int64(100)}),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Incorrect number of positional parameters")));
 }
 
@@ -2018,7 +2018,7 @@ TEST_F(PreparedModifyTest, ExplainAfterPrepareWithoutPrepare) {
   PreparedModify modify("insert test_table(int_val, str_val) values(0, null)",
                         EvaluatorOptions());
   EXPECT_THAT(modify.ExplainAfterPrepare(),
-              StatusIs(zetasql_base::INTERNAL,
+              StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("Prepare must be called first")));
 }
 
@@ -2065,7 +2065,7 @@ TEST(PreparedQuery, FromTableOnlySecondColumn) {
 
 TEST(PreparedQuery, FromTableFailure) {
   const std::string error = "Failed to read row from TestTable";
-  const zetasql_base::Status failure = zetasql_base::OutOfRangeErrorBuilder() << error;
+  const absl::Status failure = zetasql_base::OutOfRangeErrorBuilder() << error;
 
   EvaluatorTestTable test_table("TestTable", {{"a", types::Int64Type()}},
                                 {{Int64(10)}, {Int64(20)}, {Int64(30)}},
@@ -2087,7 +2087,7 @@ TEST(PreparedQuery, FromTableFailure) {
   ASSERT_TRUE(iter->NextRow());
   EXPECT_EQ(Int64(30), iter->GetValue(0));
   EXPECT_FALSE(iter->NextRow());
-  EXPECT_THAT(iter->Status(), StatusIs(zetasql_base::OUT_OF_RANGE, error));
+  EXPECT_THAT(iter->Status(), StatusIs(absl::StatusCode::kOutOfRange, error));
 }
 
 TEST(PreparedQuery, FromTableCancellation) {
@@ -2110,7 +2110,7 @@ TEST(PreparedQuery, FromTableCancellation) {
 
   ZETASQL_EXPECT_OK(iter->Cancel());
   EXPECT_FALSE(iter->NextRow());
-  EXPECT_THAT(iter->Status(), StatusIs(zetasql_base::CANCELLED, _));
+  EXPECT_THAT(iter->Status(), StatusIs(absl::StatusCode::kCancelled, _));
 }
 
 TEST(PreparedQuery, FromTableDeadlineExceeded) {
@@ -2121,7 +2121,7 @@ TEST(PreparedQuery, FromTableDeadlineExceeded) {
   EvaluatorTestTable test_table(
       "TestTable", {{"a", types::Int64Type()}},
       {{Int64(10)}, {Int64(20)}, {Int64(30)}},
-      /*end_status=*/zetasql_base::OkStatus(),
+      /*end_status=*/absl::OkStatus(),
       /*column_filter_idxs=*/{},
       /*cancel_cb=*/[]() {},
       /*set_deadline_cb=*/[](absl::Time /*deadline*/) {}, &clock);
@@ -2144,7 +2144,7 @@ TEST(PreparedQuery, FromTableDeadlineExceeded) {
 
   clock.AdvanceTime(absl::Seconds(15));
   EXPECT_FALSE(iter->NextRow());
-  EXPECT_THAT(iter->Status(), StatusIs(zetasql_base::StatusCode::kDeadlineExceeded, _));
+  EXPECT_THAT(iter->Status(), StatusIs(absl::StatusCode::kDeadlineExceeded, _));
 }
 
 TEST(PreparedQuery, OutputIsValueTable) {
@@ -2234,7 +2234,7 @@ TEST(PreparedQuery, Error) {
   PreparedQuery query("select 1 + 'abc'", EvaluatorOptions());
 
   EXPECT_THAT(query.Prepare(AnalyzerOptions()),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("No matching signature")));
 }
 
@@ -2264,7 +2264,7 @@ TEST(PreparedQuery, InvalidStatementKind) {
 
   PreparedQuery query("delete from TestTable where true", EvaluatorOptions());
   EXPECT_THAT(query.Prepare(analyzer_options, &catalog),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("not correspond to a query")));
 }
 
@@ -2304,7 +2304,7 @@ TEST(PreparedQuery, Parameter) {
 
   iter.reset();
   EXPECT_THAT(query.Execute({{"p2", values::NullString()}}),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Incomplete query parameters p1")));
 }
 
@@ -2343,7 +2343,7 @@ TEST(PreparedQuery, PositionalParameter) {
 
   iter.reset();
   EXPECT_THAT(query.ExecuteWithPositionalParams({Int64(100)}),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Incorrect number of positional parameters")));
 }
 
@@ -2382,7 +2382,7 @@ TEST(PreparedQuery, ExecuteAfterPrepareWithOrderedParamsWithParameter) {
   iter.reset();
   EXPECT_THAT(
       query.ExecuteAfterPrepareWithOrderedParams({values::NullString()}),
-      StatusIs(zetasql_base::INVALID_ARGUMENT,
+      StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr("Incorrect number of named parameters")));
 }
 
@@ -2422,14 +2422,14 @@ TEST(PreparedQuery,
 
   iter.reset();
   EXPECT_THAT(query.ExecuteAfterPrepareWithOrderedParams({Int64(100)}),
-              StatusIs(zetasql_base::INVALID_ARGUMENT,
+              StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("Incorrect number of positional parameters")));
 }
 
 TEST(PreparedQuery, ExplainAfterPrepareWithoutPrepare) {
   PreparedQuery query("select a, b from TestTable", EvaluatorOptions());
   EXPECT_THAT(query.ExplainAfterPrepare(),
-              StatusIs(zetasql_base::INTERNAL,
+              StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("Prepare must be called first")));
 }
 

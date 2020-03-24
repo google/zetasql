@@ -59,11 +59,11 @@ struct ValidWrapperConversions {
 
 
 // Converts a ZetaSQL TimeValue to a google::type::TimeOfDay.
-zetasql_base::Status ConvertTimeToProto3TimeOfDay(TimeValue input,
+absl::Status ConvertTimeToProto3TimeOfDay(TimeValue input,
                                           google::type::TimeOfDay* output);
 
 // Converts a google::type::TimeOfDay to a ZetaSQL TimeValue.
-zetasql_base::Status ConvertProto3TimeOfDayToTime(const google::type::TimeOfDay& input,
+absl::Status ConvertProto3TimeOfDayToTime(const google::type::TimeOfDay& input,
                                           TimestampScale scale,
                                           TimeValue* output);
 
@@ -73,16 +73,16 @@ zetasql_base::Status ConvertProto3TimeOfDayToTime(const google::type::TimeOfDay&
 // encoding. 'output' must have the same type as the 'value' field of the
 // wrapper message.
 template <typename Wrapper>
-zetasql_base::Status ConvertProto3WrapperToType(
+absl::Status ConvertProto3WrapperToType(
     const Wrapper& input,
     typename std::result_of<internal::ValidWrapperConversions(Wrapper)>::type*
         output) {
   *output = input.value();
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 template <>
-inline zetasql_base::Status ConvertProto3WrapperToType(
+inline absl::Status ConvertProto3WrapperToType(
     const google::protobuf::StringValue& input, std::string* output) {
   if (!IsWellFormedUTF8(input.value())) {
     return MakeEvalError()
@@ -90,7 +90,7 @@ inline zetasql_base::Status ConvertProto3WrapperToType(
            << input.DebugString();
   }
   *output = input.value();
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 // Converts a ZetaSQL type to a proto3 wrapper of a primitive type (defined
@@ -105,10 +105,10 @@ void ConvertTypeToProto3Wrapper(
 }
 
 template <>
-inline zetasql_base::Status ConvertProto3WrapperToType(
+inline absl::Status ConvertProto3WrapperToType(
     const google::protobuf::BytesValue& input, absl::Cord* output) {
   *output = absl::Cord(input.value());
-  return zetasql_base::OkStatus();
+  return absl::OkStatus();
 }
 
 template <>

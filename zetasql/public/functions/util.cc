@@ -30,15 +30,15 @@ constexpr char ArithmeticType<uint64_t>::kName[];
 constexpr char ArithmeticType<float>::kName[];
 constexpr char ArithmeticType<double>::kName[];
 
-bool UpdateError(zetasql_base::Status* status, absl::string_view msg) {
+bool UpdateError(absl::Status* status, absl::string_view msg) {
   if (status != nullptr && status->ok()) {
     // 'msg' could potentially contain invalid UTF-8 characters. As example
     // RegEx generates an error for invalid input, but the input could be
     // invalid UTF-8.
-    // zetasql_base::Status will generate a warning in DEBUG mode if the error
+    // absl::Status will generate a warning in DEBUG mode if the error
     // message is not UTF-8, so coerce it to be a valid UTF-8 string.
     std::string error = CoerceToWellFormedUTF8(msg);
-    *status = zetasql_base::Status(zetasql_base::StatusCode::kOutOfRange, error);
+    *status = absl::Status(absl::StatusCode::kOutOfRange, error);
   }
   return false;
 }

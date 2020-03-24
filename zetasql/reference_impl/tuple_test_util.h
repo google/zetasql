@@ -39,7 +39,7 @@ class TestTupleIterator : public TupleIterator {
 
   TestTupleIterator(absl::Span<const VariableId> variables,
                     absl::Span<const TupleData> values, bool preserves_order,
-                    const zetasql_base::Status& end_status)
+                    const absl::Status& end_status)
       : schema_(variables),
         end_status_(end_status),
         preserves_order_(preserves_order),
@@ -64,35 +64,35 @@ class TestTupleIterator : public TupleIterator {
     return &current;
   }
 
-  zetasql_base::Status Status() const override { return status_; }
+  absl::Status Status() const override { return status_; }
 
   bool PreservesOrder() const override { return preserves_order_; }
 
-  zetasql_base::Status DisableReordering() override {
+  absl::Status DisableReordering() override {
     if (!preserves_order_) {
       ZETASQL_RET_CHECK_EQ(index_, 0);
       std::reverse(values_.begin(), values_.end());
     }
     preserves_order_ = true;
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
 
   std::string DebugString() const override { return GetDebugString(); }
 
  private:
   const TupleSchema schema_;
-  const zetasql_base::Status end_status_;
+  const absl::Status end_status_;
   bool preserves_order_;
   std::vector<TupleData> values_;
   int index_ = 0;
   bool cancelled_ = false;
-  zetasql_base::Status status_;
+  absl::Status status_;
 };
 
 // Returns all the tuples in 'iter' and populates 'end_status' with the final
 // status.
 inline std::vector<TupleData> ReadFromTupleIteratorFull(
-    TupleIterator* iter, zetasql_base::Status* end_status) {
+    TupleIterator* iter, absl::Status* end_status) {
   std::vector<TupleData> tuples;
   while (true) {
     const TupleData* next = iter->Next();
@@ -108,7 +108,7 @@ inline std::vector<TupleData> ReadFromTupleIteratorFull(
 // error.
 inline zetasql_base::StatusOr<std::vector<TupleData>> ReadFromTupleIterator(
     TupleIterator* iter) {
-  zetasql_base::Status end_status;
+  absl::Status end_status;
   std::vector<TupleData> data = ReadFromTupleIteratorFull(iter, &end_status);
   ZETASQL_RETURN_IF_ERROR(end_status);
   return data;
