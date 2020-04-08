@@ -880,7 +880,7 @@ TEST_F(ResolverTest, TestResolveLiteralAsNumericTarget) {
             ->GetAs<ResolvedLiteral>()
             ->value()
             .Equals(values::Numeric(
-                NumericValue::FromStringStrict(numeric_string).ValueOrDie())));
+                NumericValue::FromStringStrict(numeric_string).value())));
   }
 
   {
@@ -895,7 +895,7 @@ TEST_F(ResolverTest, TestResolveLiteralAsNumericTarget) {
             ->GetAs<ResolvedLiteral>()
             ->value()
             .Equals(values::Numeric(
-                NumericValue::FromStringStrict(numeric_string).ValueOrDie())));
+                NumericValue::FromStringStrict(numeric_string).value())));
   }
 }
 

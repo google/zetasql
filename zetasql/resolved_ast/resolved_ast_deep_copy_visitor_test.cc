@@ -300,7 +300,7 @@ std::unique_ptr<ResolvedNode> ResolvedASTDeepCopyVisitorTest::TestDeepCopyAST(
   ZETASQL_EXPECT_OK(deep_copy);
 
   // Get the value from the StatusOr.
-  auto deep_copy_ast = std::move(deep_copy).ValueOrDie();
+  auto deep_copy_ast = std::move(deep_copy).value();
 
   // Verify that the debug string matches.
   EXPECT_EQ(original_debug_string, deep_copy_ast->DebugString());
@@ -329,7 +329,7 @@ std::unique_ptr<ResolvedNode> ResolvedASTDeepCopyVisitorTest::ApplyCopyVisitor(
   ZETASQL_EXPECT_OK(deep_copy);
 
   // Get the value from the StatusOr.
-  auto deep_copy_ast = std::move(deep_copy).ValueOrDie();
+  auto deep_copy_ast = std::move(deep_copy).value();
 
   // Return the copied tree.
   return deep_copy_ast;

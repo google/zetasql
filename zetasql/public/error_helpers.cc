@@ -277,8 +277,8 @@ static absl::Status UpdateErrorFromPayload(const absl::Status& status,
           absl::StrCat(status.message(), " ",
                        FormatErrorLocation(location, input_text, mode));
       // Update the message.  Leave everything else as is.
-      zetasql_base::Status new_status =
-          zetasql_base::Status(status.code(), new_message);
+      absl::Status new_status =
+          absl::Status(status.code(), new_message);
       // Copy payloads
       status.ForEachPayload([&new_status](
           absl::string_view type_url, const absl::Cord& payload) {

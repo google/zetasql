@@ -401,6 +401,121 @@ absl::Status ForwardInputSchemaToOutputSchemaTVF::CheckIsValid() const {
   return absl::OkStatus();
 }
 
+absl::Status ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF::Serialize(
+    FileDescriptorSetMap* file_descriptor_set_map,
+    TableValuedFunctionProto* proto) const {
+  proto->set_type(
+      FunctionEnums::
+          FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_WITH_APPENDED_COLUMNS);
+  if (!extra_columns_.empty()) {
+    TVFRelationProto relation_proto;
+    for (const TVFSchemaColumn& column : extra_columns_) {
+      TVFRelationColumnProto* column_proto_ptr = relation_proto.add_column();
+      ZETASQL_ASSIGN_OR_RETURN(TVFRelationColumnProto column_proto,
+                       column.ToProto(file_descriptor_set_map));
+      *column_proto_ptr = column_proto;
+    }
+    *proto->mutable_custom_context() = relation_proto.SerializeAsString();
+  }
+  return TableValuedFunction::Serialize(file_descriptor_set_map, proto);
+}
+
+absl::Status ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF::Resolve(
+    const AnalyzerOptions* analyzer_options,
+    const std::vector<TVFInputArgumentType>& actual_arguments,
+    const FunctionSignature& concrete_signature, Catalog* catalog,
+    TypeFactory* type_factory,
+    std::shared_ptr<TVFSignature>* output_tvf_signature) const {
+  // Check that we have one signature.
+  ZETASQL_RET_CHECK_EQ(signatures_.size(), 1) << DebugString();
+  ZETASQL_RET_CHECK(!signatures_[0].arguments().empty()) << DebugString();
+  // Check the first actual argument that is passed into the function call is a
+  // relation. This should already be verified by Resolver::ResolveTVFArg
+  // method.
+  ZETASQL_RET_CHECK(actual_arguments[0].is_relation()) << DebugString();
+
+  TVFSignatureOptions tvf_signature_options;
+  tvf_signature_options.additional_deprecation_warnings =
+      concrete_signature.AdditionalDeprecationWarnings();
+
+  std::vector<TVFSchemaColumn> output_schema(
+      actual_arguments[0].relation().columns());
+  output_schema.reserve(output_schema.size() + extra_columns_.size());
+  std::unordered_set<std::string> input_column_names;
+  input_column_names.reserve(output_schema.size());
+  for (const TVFSchemaColumn& input_column : output_schema) {
+    input_column_names.insert(input_column.name);
+  }
+  for (const TVFSchemaColumn& column : extra_columns_) {
+    // Check whether extra column name is duplicated with a column from input
+    // schema.
+    if (input_column_names.find(column.name) != input_column_names.end()) {
+      return absl::InvalidArgumentError(
+          "Column name is duplicated between extra column and input schema: " +
+          column.name);
+    }
+    output_schema.push_back(column);
+  }
+
+  // The returned schema includes the schema of the relation argument and extra
+  // columns as output schema.
+  output_tvf_signature->reset(new TVFSignature(
+      actual_arguments, TVFRelation(output_schema), tvf_signature_options));
+  return absl::OkStatus();
+}
+
+// static
+absl::Status ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF::Deserialize(
+    const TableValuedFunctionProto& proto,
+    const std::vector<const google::protobuf::DescriptorPool*>& pools,
+    TypeFactory* factory, std::unique_ptr<TableValuedFunction>* result) {
+  std::vector<std::string> path;
+  path.reserve(proto.name_path_size());
+  for (const std::string& name : proto.name_path()) {
+    path.push_back(name);
+  }
+  std::unique_ptr<FunctionSignature> signature;
+  ZETASQL_RETURN_IF_ERROR(FunctionSignature::Deserialize(proto.signature(), pools,
+                                                 factory, &signature));
+
+  std::vector<TVFSchemaColumn> extra_columns;
+  if (proto.has_custom_context()) {
+    TVFRelationProto relation_proto;
+    ZETASQL_RET_CHECK(relation_proto.ParseFromString(proto.custom_context()));
+    extra_columns.reserve(relation_proto.column_size());
+    for (const TVFRelationColumnProto& column_proto : relation_proto.column()) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          TVFSchemaColumn column,
+          TVFSchemaColumn::FromProto(column_proto, pools, factory));
+      extra_columns.push_back(column);
+    }
+  }
+
+  *result =
+      absl::make_unique<ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF>(
+          path, *signature, extra_columns);
+  return absl::OkStatus();
+}
+
+absl::Status ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF::
+    IsValidForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+        bool isTemplated,
+        const std::vector<TVFSchemaColumn>& extra_columns) const {
+  ZETASQL_RET_CHECK(isTemplated) << "Does not support non-templated argument type";
+
+  std::unordered_set<std::string> name_set;
+  for (const TVFSchemaColumn& column : extra_columns) {
+    ZETASQL_RET_CHECK(!column.name.empty())
+        << "invalid empty column name in extra columns";
+    ZETASQL_RET_CHECK(!column.is_pseudo_column)
+        << "extra columns cannot be pseudo column";
+    ZETASQL_RET_CHECK(zetasql_base::InsertIfNotPresent(&name_set, column.name))
+        << "extra columns have duplicated column names: " + column.name;
+  }
+
+  return absl::OkStatus();
+}
+
 namespace {
 static bool module_initialization_complete = []() {
   TableValuedFunction::RegisterDeserializer(
@@ -409,6 +524,10 @@ static bool module_initialization_complete = []() {
   TableValuedFunction::RegisterDeserializer(
       FunctionEnums::FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_TVF,
       ForwardInputSchemaToOutputSchemaTVF::Deserialize);
+  TableValuedFunction::RegisterDeserializer(
+      FunctionEnums::
+          FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_WITH_APPENDED_COLUMNS,
+      ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF::Deserialize);
   return true;
 } ();
 }  // namespace

@@ -840,7 +840,7 @@ absl::Status Resolver::ResolveLiteralExpr(
       }
       *resolved_expr_out =
           MakeResolvedLiteral(ast_expr, types::NumericType(),
-                              Value::Numeric(value_or_status.ValueOrDie()),
+                              Value::Numeric(value_or_status.value()),
                               true /* set_has_explicit_type */);
       return absl::OkStatus();
     }
@@ -1130,8 +1130,10 @@ absl::Status Resolver::ResolvePathExpressionAsExpression(
       case NameTarget::EXPLICIT_COLUMN:
       case NameTarget::IMPLICIT_COLUMN: {
         ResolvedColumn resolved_column = target.column();
-        resolved_expr = MakeColumnRefWithCorrelation(
+        auto resolved_column_ref = MakeColumnRefWithCorrelation(
             resolved_column, correlated_columns_sets, access_flags);
+        MaybeRecordParseLocation(path_expr, resolved_column_ref.get());
+        resolved_expr = std::move(resolved_column_ref);
         if (expr_resolution_info->query_resolution_info != nullptr &&
             !expr_resolution_info->is_post_distinct()) {
           // We resolved this to a column, which might be a SELECT list
@@ -3008,7 +3010,7 @@ absl::Status Resolver::ResolveProtoExtractExpression(
   }
 
   return ResolveProtoExtractWithExtractTypeAndField(
-      field_extraction_type_or.ValueOrDie(), field_path,
+      field_extraction_type_or.value(), field_path,
       std::move(resolved_proto_input), resolved_expr_out);
 }
 

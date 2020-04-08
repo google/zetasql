@@ -31,7 +31,7 @@ namespace zetasql {
 class InternalValue {
  public:
   using OrderPreservationKind = Value::OrderPreservationKind;
-  using ProtoRep = Value::ProtoRep;
+  using ProtoRep = internal::ProtoRep;
 
   static const OrderPreservationKind kPreservesOrder = Value::kPreservesOrder;
   static const OrderPreservationKind kIgnoresOrder = Value::kIgnoresOrder;

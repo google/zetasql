@@ -956,7 +956,7 @@ class PassThroughTupleIterator : public TupleIterator {
         iterator_factory_status_ = status_or_iter.status();
         return nullptr;
       }
-      iter_ = std::move(status_or_iter).ValueOrDie();
+      iter_ = std::move(status_or_iter).value();
     }
     return iter_->Next();
   }

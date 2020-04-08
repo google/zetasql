@@ -17,11 +17,17 @@
 
 package com.google.zetasql;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.zetasql.FunctionProtos.TVFRelationColumnProto;
+import com.google.zetasql.FunctionProtos.TVFRelationProto;
 import com.google.zetasql.FunctionProtos.TableValuedFunctionProto;
 import com.google.zetasql.ZetaSQLFunctions.FunctionEnums;
+import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.TableValuedFunctionType;
 import java.io.Serializable;
 
 /**
@@ -33,6 +39,7 @@ public abstract class TableValuedFunction implements Serializable {
 
   private final ImmutableList<String> namePath;
   private final FunctionSignature signature;
+  private final ImmutableList<TVFRelation.Column> columns;
 
   /**
    * Constructs a new TVF object with the given name and argument signature.
@@ -43,8 +50,16 @@ public abstract class TableValuedFunction implements Serializable {
    * signature should use ARG_TYPE_RELATION, and any relation will be accepted as an argument.
    */
   public TableValuedFunction(ImmutableList<String> namePath, FunctionSignature signature) {
+    this(namePath, signature, ImmutableList.of());
+  }
+
+  public TableValuedFunction(
+      ImmutableList<String> namePath,
+      FunctionSignature signature,
+      ImmutableList<TVFRelation.Column> columns) {
     this.namePath = namePath;
     this.signature = signature;
+    this.columns = columns;
   }
 
   /**
@@ -61,6 +76,9 @@ public abstract class TableValuedFunction implements Serializable {
         return ForwardInputSchemaToOutputSchemaTVF.deserialize(proto, pools, typeFactory);
       case TEMPLATED_SQL_TVF:
         return TemplatedSQLTVF.deserialize(proto, pools, typeFactory);
+      case FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_WITH_APPENDED_COLUMNS:
+        return ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF.deserialize(
+            proto, pools, typeFactory);
       default:
         StringBuilder builder = new StringBuilder();
         for (String name : proto.getNamePathList()) {
@@ -84,8 +102,18 @@ public abstract class TableValuedFunction implements Serializable {
     builder.setType(getType());
     switch (getType()) {
       case FIXED_OUTPUT_SCHEMA_TVF:
-        break;
       case FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_TVF:
+        break;
+      case FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_WITH_APPENDED_COLUMNS:
+        TVFRelationProto.Builder relationBuilder = TVFRelationProto.newBuilder();
+        for (TVFRelation.Column column : columns) {
+          relationBuilder.addColumn(
+              TVFRelationColumnProto.newBuilder()
+                  .setName(column.getName())
+                  .setType(column.getType().serialize())
+                  .build());
+        }
+        builder.setCustomContext(new String(relationBuilder.build().toByteArray(), UTF_8));
         break;
       case TEMPLATED_SQL_TVF:
         for (String name : ((TemplatedSQLTVF) this).argumentNames) {
@@ -255,6 +283,57 @@ public abstract class TableValuedFunction implements Serializable {
       return new TemplatedSQLTVF(
           namePath, signature, builder.build(),
           new ParseResumeLocation(proto.getParseResumeLocation()));
+    }
+  }
+
+  /**
+   * This represents a TVF that accepts a relation for its first argument. The TVF returns a
+   * relation with a schema that is constructed by copying the schema of input relation and
+   * appending extra columns to the schema.
+   */
+  public static class ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF
+      extends TableValuedFunction {
+    public ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+        ImmutableList<String> namePath,
+        FunctionSignature signature,
+        ImmutableList<TVFRelation.Column> columns) {
+      super(namePath, signature, columns);
+    }
+
+    public static ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF deserialize(
+        TableValuedFunctionProto proto,
+        ImmutableList<ZetaSQLDescriptorPool> pools,
+        TypeFactory typeFactory) {
+      Preconditions.checkArgument(
+          proto.getType()
+              == TableValuedFunctionType
+                  .FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_WITH_APPENDED_COLUMNS,
+          proto);
+      ImmutableList<String> namePath = ImmutableList.copyOf(proto.getNamePathList());
+      FunctionSignature signature = FunctionSignature.deserialize(proto.getSignature(), pools);
+      ImmutableList.Builder<TVFRelation.Column> builder = ImmutableList.builder();
+      if (proto.hasCustomContext()) {
+        try {
+          TVFRelationProto relationProto =
+              TVFRelationProto.parseFrom(proto.getCustomContextBytes());
+          for (TVFRelationColumnProto columnProto : relationProto.getColumnList()) {
+            Type type = typeFactory.deserialize(columnProto.getType(), pools);
+            builder.add(TVFRelation.Column.create(columnProto.getName(), type));
+          }
+        } catch (InvalidProtocolBufferException e) {
+          throw new IllegalArgumentException(
+              "Failed to deserialize TVFRelationProto from custom_context in "
+                  + proto.getNamePath(proto.getNamePathCount() - 1),
+              e);
+        }
+      }
+      return new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+          namePath, signature, builder.build());
+    }
+
+    @Override
+    TableValuedFunctionType getType() {
+      return TableValuedFunctionType.FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_WITH_APPENDED_COLUMNS;
     }
   }
 }

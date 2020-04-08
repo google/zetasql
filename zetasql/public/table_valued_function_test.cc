@@ -129,4 +129,107 @@ TEST(TVFTest,
   SerializeDeserializeAndCompare(column);
 }
 
+TEST(TVFTest, TestInvalidColumnNameForTVFWithExtraColumns) {
+  TypeFactory factory;
+  std::unique_ptr<TableValuedFunction> tvf;
+
+  EXPECT_DEATH(
+      tvf.reset(new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+          {"tvf_append_column_empty_name"},
+          FunctionSignature(ARG_TYPE_RELATION, {ARG_TYPE_RELATION}, -1),
+          {TVFSchemaColumn("", zetasql::types::Int64Type())})),
+      "invalid empty column name in extra columns");
+}
+
+TEST(TVFTest, TestDuplicateColumnNameForTVFWithExtraColumns) {
+  TypeFactory factory;
+  std::unique_ptr<TableValuedFunction> tvf;
+  TVFSchemaColumn int64_col =
+      TVFSchemaColumn("int64_col", zetasql::types::Int64Type());
+
+  EXPECT_DEATH(
+      tvf.reset(new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+          {"tvf_append_column_with_duplicated_names"},
+          FunctionSignature(ARG_TYPE_RELATION, {ARG_TYPE_RELATION}, -1),
+          {int64_col, int64_col})),
+      "extra columns have duplicated column names: int64_col");
+}
+
+TEST(TVFTest, TestInvalidNonTemplatedArgumentForTVFWithExtraColumns) {
+  TypeFactory factory;
+  std::unique_ptr<TableValuedFunction> tvf;
+  // Generate an output schema that returns an int64_t value table.
+  TVFRelation output_schema_int64_value_table =
+      TVFRelation::ValueTable(zetasql::types::Int64Type());
+  TVFSchemaColumn int64_col =
+      TVFSchemaColumn("int64_col", zetasql::types::Int64Type());
+  TVFRelation::ColumnList columns = {int64_col};
+  TVFRelation tvf_relation(columns);
+
+  EXPECT_DEATH(
+      tvf.reset(new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+          {"tvf_append_column_with_value_table"},
+          FunctionSignature(
+              FunctionArgumentType::RelationWithSchema(
+                  tvf_relation,
+                  /*extra_relation_input_columns_allowed=*/false),
+              {FunctionArgumentType::RelationWithSchema(
+                  output_schema_int64_value_table,
+                  /*extra_relation_input_columns_allowed=*/false)},
+              -1),
+          {int64_col})),
+      "Does not support non-templated argument type");
+}
+
+TEST(TVFTest, TestInvalidConcreteSignatureTVFWithExtraColumns) {
+  TypeFactory factory;
+  std::unique_ptr<TableValuedFunction> tvf;
+  TVFRelation::Column int64_col =
+      TVFSchemaColumn("int64_col", zetasql::types::Int64Type());
+  TVFRelation::ColumnList columns = {int64_col};
+  TVFRelation tvf_relation(columns);
+  FunctionArgumentType arg_type = FunctionArgumentType::RelationWithSchema(
+      tvf_relation, /*extra_relation_input_columns_allowed=*/false);
+
+  EXPECT_DEATH(
+      tvf.reset(new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+          {"tvf_append_column_input_table_has_concrete_signature"},
+          FunctionSignature(arg_type, {arg_type}, -1), {int64_col})),
+      "Does not support non-templated argument type");
+}
+
+TEST(TVFTest, TestPseudoColumnForTVFWithExtraColumns) {
+  TypeFactory factory;
+  std::unique_ptr<TableValuedFunction> tvf;
+  TVFSchemaColumn pseudo_column =
+      TVFSchemaColumn("pseudo_column", zetasql::types::Int64Type(), true);
+
+  EXPECT_DEATH(
+      tvf.reset(new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+          {"tvf_append_pseudo_column"},
+          FunctionSignature(ARG_TYPE_RELATION, {ARG_TYPE_RELATION}, -1),
+          {pseudo_column})),
+      "extra columns cannot be pseudo column");
+}
+
+TEST(TVFTest, TestInputTableWithPseudoColumnForTVFWithExtraColumns) {
+  TypeFactory factory;
+  std::unique_ptr<TableValuedFunction> tvf;
+  TVFRelation::Column int64_col =
+      TVFSchemaColumn("int64_col", zetasql::types::Int64Type());
+  TVFRelation::Column double_col =
+      TVFSchemaColumn("double_col", zetasql::types::DoubleType());
+  TVFRelation::Column pseudo_column =
+      TVFSchemaColumn("pseudo_column", zetasql::types::Int64Type(), true);
+  TVFRelation::ColumnList columns = {int64_col, pseudo_column};
+  TVFRelation tvf_relation(columns);
+  FunctionArgumentType arg_type = FunctionArgumentType::RelationWithSchema(
+      tvf_relation, /*extra_relation_input_columns_allowed=*/false);
+
+  EXPECT_DEATH(
+      tvf.reset(new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+          {"tvf_append_pseudo_column"},
+          FunctionSignature(ARG_TYPE_RELATION, {arg_type}, -1), {double_col})),
+      "Does not support non-templated argument type");
+}
 }  // namespace zetasql

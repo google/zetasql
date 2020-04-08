@@ -17,7 +17,7 @@
 #ifndef THIRD_PARTY_ZETASQL_ZETASQL_BASE_TESTING_STATUS_MATCHERS_H_
 #define THIRD_PARTY_ZETASQL_ZETASQL_BASE_TESTING_STATUS_MATCHERS_H_
 
-// Testing utilities for working with ::zetasql_base::Status and
+// Testing utilities for working with ::absl::Status and
 // ::zetasql_base::StatusOr.
 //
 //
@@ -77,7 +77,7 @@
 //     // The status code must be kAborted;
 //     // the error message can be anything.
 //     EXPECT_THAT(GetName(42),
-//                 StatusIs(zetasql_base::StatusCode::kAborted, _));
+//                 StatusIs(absl::StatusCode::kAborted, _));
 //     // The status code can be anything; the error message must match the
 //     // regex.
 //     EXPECT_THAT(GetName(43),
@@ -86,7 +86,7 @@
 //     // The status code should not be kAborted; the error message can be
 //     // anything with "client" in it.
 //     EXPECT_CALL(mock_env, HandleStatus(
-//         StatusIs(Ne(zetasql_base::StatusCode::kAborted),
+//         StatusIs(Ne(absl::StatusCode::kAborted),
 //                  HasSubstr("client"))));
 //
 //   ===============================
@@ -102,7 +102,7 @@
 //   IsOk()
 //   ===============
 //
-//   Matches a zetasql_base::Status or zetasql_base::StatusOr<T> value
+//   Matches a absl::Status or zetasql_base::StatusOr<T> value
 //   whose status value is StatusCode::kOK.
 //   Equivalent to 'StatusIs(StatusCode::kOK)'.
 //   Example:
@@ -132,12 +132,12 @@ namespace zetasql_base {
 namespace testing {
 namespace internal_status {
 
-inline const Status& GetStatus(const Status& status) {
+inline const absl::Status& GetStatus(const absl::Status& status) {
   return status;
 }
 
 template <typename T>
-inline const Status& GetStatus(
+inline const absl::Status& GetStatus(
     const ::zetasql_base::StatusOr<T>& status) {
   return status.status();
 }
@@ -222,7 +222,7 @@ class IsOkAndHoldsMatcher {
 class StatusIsMatcherCommonImpl {
  public:
   StatusIsMatcherCommonImpl(
-      ::testing::Matcher<StatusCode> code_matcher,
+      ::testing::Matcher<absl::StatusCode> code_matcher,
       ::testing::Matcher<const std::string&> message_matcher)
       : code_matcher_(std::move(code_matcher)),
         message_matcher_(std::move(message_matcher)) {}
@@ -231,11 +231,11 @@ class StatusIsMatcherCommonImpl {
 
   void DescribeNegationTo(std::ostream* os) const;
 
-  bool MatchAndExplain(const Status& status,
+  bool MatchAndExplain(const absl::Status& status,
                        ::testing::MatchResultListener* result_listener) const;
 
  private:
-  const ::testing::Matcher<StatusCode> code_matcher_;
+  const ::testing::Matcher<absl::StatusCode> code_matcher_;
   const ::testing::Matcher<const std::string&> message_matcher_;
 };
 
@@ -269,7 +269,7 @@ class MonoStatusIsMatcherImpl : public ::testing::MatcherInterface<T> {
 // Implements StatusIs() as a polymorphic matcher.
 class StatusIsMatcher {
  public:
-  StatusIsMatcher(::testing::Matcher<StatusCode> code_matcher,
+  StatusIsMatcher(::testing::Matcher<absl::StatusCode> code_matcher,
                   ::testing::Matcher<const std::string&> message_matcher)
       : common_impl_(std::move(code_matcher), std::move(message_matcher)) {}
 

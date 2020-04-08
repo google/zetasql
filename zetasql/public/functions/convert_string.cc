@@ -218,7 +218,7 @@ bool StringToNumeric(absl::string_view value, NumericValue* out,
                      absl::Status* error) {
   const auto numeric_status = NumericValue::FromString(value);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
-    *out = numeric_status.ValueOrDie();
+    *out = numeric_status.value();
     return true;
   }
   if (error != nullptr) {

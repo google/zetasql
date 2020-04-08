@@ -17,6 +17,8 @@
 #include "zetasql/public/types/array_type.h"
 
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/value_content.h"
+#include "zetasql/base/simple_reference_counted.h"
 
 namespace zetasql {
 
@@ -27,6 +29,23 @@ ArrayType::ArrayType(const TypeFactory* factory, const Type* element_type)
 }
 
 ArrayType::~ArrayType() {}
+
+bool ArrayType::IsSupportedType(const LanguageOptions& language_options) const {
+  return element_type()->IsSupportedType(language_options);
+}
+
+bool ArrayType::EqualsForSameKind(const Type* that, bool equivalent) const {
+  const ArrayType* other = that->AsArray();
+  DCHECK(other);
+  return EqualsImpl(this, other, equivalent);
+}
+
+void ArrayType::DebugStringImpl(bool details, TypeOrStringVector* stack,
+                                std::string* debug_string) const {
+  absl::StrAppend(debug_string, "ARRAY<");
+  stack->push_back(">");
+  stack->push_back(element_type());
+}
 
 bool ArrayType::SupportsOrdering(const LanguageOptions& language_options,
                                  std::string* type_description) const {
@@ -119,6 +138,26 @@ std::string ArrayType::TypeName(ProductMode mode) const {
 bool ArrayType::EqualsImpl(const ArrayType* const type1,
                            const ArrayType* const type2, bool equivalent) {
   return type1->element_type()->EqualsImpl(type2->element_type(), equivalent);
+}
+
+void ArrayType::InitializeValueContent(ValueContent* value) const {
+  // TODO: currently ArrayType cannot create a list of Values itself
+  // because "types" package doesn't depend on "value" (to avoid dependency
+  // cycle). In the future we will create a virtual list factory interface
+  // defined outside of "value", but which Value can provide to Array/Struct to
+  // use to construct lists.
+  LOG(FATAL) << "ConstructValue should never be called for ArrayType, since "
+                "its value content is created in Value class";
+}
+
+void ArrayType::CopyValueContent(const ValueContent& from,
+                                 ValueContent* to) const {
+  from.GetAs<zetasql_base::SimpleReferenceCounted*>()->Ref();
+  *to = from;
+}
+
+void ArrayType::ClearValueContent(const ValueContent& value) const {
+  value.GetAs<zetasql_base::SimpleReferenceCounted*>()->Unref();
 }
 
 }  // namespace zetasql

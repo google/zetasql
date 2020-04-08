@@ -416,7 +416,7 @@ class AbortInPostVisitTestVisitor : public TestVisitor {
  protected:
   absl::Status OnDonePostVisit(const ASTNode* node) override {
     if (node->node_kind() == abort_on_) {
-      return zetasql_base::InternalError("Traverse aborted in PostVisit stage");
+      return absl::InternalError("Traverse aborted in PostVisit stage");
     }
     return absl::OkStatus();
   }
@@ -500,7 +500,7 @@ class AbortNonRecursiveVisitorPreVisitTest
 
 INSTANTIATE_TEST_CASE_P(
     NonRecursivePreVisit, AbortNonRecursiveVisitorPreVisitTest,
-    ::testing::Values(zetasql_base::InternalError("Traverse aborted in PreVisit stage"),
+    ::testing::Values(absl::InternalError("Traverse aborted in PreVisit stage"),
                       VisitResult::Terminate()));
 
 TEST_P(AbortNonRecursiveVisitorPreVisitTest, PreVisit) {

@@ -17,11 +17,11 @@
 #ifndef THIRD_PARTY_ZETASQL_ZETASQL_BASE_STATUSOR_H_
 #define THIRD_PARTY_ZETASQL_ZETASQL_BASE_STATUSOR_H_
 
-// StatusOr<T> is the union of a Status object and a T
+// StatusOr<T> is the union of a absl::Status object and a T
 // object. StatusOr models the concept of an object that is either a
 // usable value, or an error Status explaining why such a value is
 // not present. To this end, StatusOr<T> does not allow its Status
-// value to be OkStatus().
+// value to be absl::OkStatus().
 //
 // The primary use-case for StatusOr<T> is as the return value of a
 // function which may fail.
@@ -57,8 +57,8 @@
 //  StatusOr<Foo> FooFactory::MakeFoo(int arg) {
 //    if (arg <= 0) {
 //      return
-//          ::zetasql_base::Status(::zetasql_base::StatusCode:kInvalidArgument,
-//                                 "Arg must be positive");
+//          absl::Status(absl::StatusCode:kInvalidArgument,
+//                       "Arg must be positive");
 //    }
 //    return Foo(arg);
 //  }
@@ -72,9 +72,9 @@
 #include "absl/base/attributes.h"
 #include "absl/base/macros.h"
 #include "absl/meta/type_traits.h"
+#include "absl/status/status.h"
 #include "absl/utility/utility.h"
 #include "zetasql/base/logging.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/statusor_internals.h"
 
 namespace zetasql_base {
@@ -219,8 +219,8 @@ class StatusOr : private statusor_internal::StatusOrData<T>,
   // REQUIRES: !status.ok(). This requirement is DCHECKed.
   // In optimized builds, passing OkStatus() here will have the effect
   // of passing INTERNAL as a fallback.
-  StatusOr(const Status& status);
-  StatusOr& operator=(const Status& status);
+  StatusOr(const absl::Status& status);
+  StatusOr& operator=(const absl::Status& status);
 
   // Similar to the `const T&` overload.
   //
@@ -228,8 +228,8 @@ class StatusOr : private statusor_internal::StatusOrData<T>,
   StatusOr(T&& value);
 
   // RValue versions of the operations declared above.
-  StatusOr(Status&& status);
-  StatusOr& operator=(Status&& status);
+  StatusOr(absl::Status&& status);
+  StatusOr& operator=(absl::Status&& status);
 
   // Constructs the inner value T in-place using the provided args, using the
   // T(args...) constructor.
@@ -274,8 +274,8 @@ class StatusOr : private statusor_internal::StatusOrData<T>,
 
   // Returns a reference to our status. If this contains a T, then
   // returns OkStatus().
-  const Status& status() const&;
-  Status status() &&;
+  const absl::Status& status() const&;
+  absl::Status status() &&;
 
   // Returns a reference to our current value, or CHECK-fails if !this->ok(). If
   // you have already checked the status using this->ok() or operator bool(),
@@ -355,17 +355,16 @@ class StatusOr : private statusor_internal::StatusOrData<T>,
 // Implementation details for StatusOr<T>
 
 template <typename T>
-StatusOr<T>::StatusOr()
-    : Base(Status(zetasql_base::StatusCode::kUnknown, "")) {}
+StatusOr<T>::StatusOr() : Base(absl::Status(absl::StatusCode::kUnknown, "")) {}
 
 template <typename T>
 StatusOr<T>::StatusOr(const T& value) : Base(value) {}
 
 template <typename T>
-StatusOr<T>::StatusOr(const Status& status) : Base(status) {}
+StatusOr<T>::StatusOr(const absl::Status& status) : Base(status) {}
 
 template <typename T>
-StatusOr<T>& StatusOr<T>::operator=(const Status& status) {
+StatusOr<T>& StatusOr<T>::operator=(const absl::Status& status) {
   this->Assign(status);
   return *this;
 }
@@ -374,10 +373,10 @@ template <typename T>
 StatusOr<T>::StatusOr(T&& value) : Base(std::move(value)) {}
 
 template <typename T>
-StatusOr<T>::StatusOr(Status&& status) : Base(std::move(status)) {}
+StatusOr<T>::StatusOr(absl::Status&& status) : Base(std::move(status)) {}
 
 template <typename T>
-StatusOr<T>& StatusOr<T>::operator=(Status&& status) {
+StatusOr<T>& StatusOr<T>::operator=(absl::Status&& status) {
   this->Assign(std::move(status));
   return *this;
 }
@@ -413,10 +412,12 @@ StatusOr<T>::StatusOr(absl::in_place_t, std::initializer_list<U> ilist,
     : Base(absl::in_place, ilist, std::forward<Args>(args)...) {}
 
 template <typename T>
-const Status& StatusOr<T>::status() const & { return this->status_; }
+const absl::Status& StatusOr<T>::status() const& {
+  return this->status_;
+}
 template <typename T>
-Status StatusOr<T>::status() && {
-  return ok() ? OkStatus() : std::move(this->status_);
+absl::Status StatusOr<T>::status() && {
+  return ok() ? absl::OkStatus() : std::move(this->status_);
 }
 
 template <typename T>

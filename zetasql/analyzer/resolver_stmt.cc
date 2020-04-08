@@ -817,7 +817,7 @@ absl::Status Resolver::ResolveColumnDefinition(
                                        column_name_list);
     if (status_or.ok()) {
       ZETASQL_RET_CHECK(id_to_column_def_map
-                    ->emplace(column_name, std::move(status_or.ValueOrDie()))
+                    ->emplace(column_name, std::move(status_or.value()))
                     .second)
           << column_name;
       return absl::OkStatus();

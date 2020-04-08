@@ -105,7 +105,7 @@ TEST(ResolvedColumnTest, RestoreFrom) {
   ResolvedNode::RestoreParams params(
       pools, nullptr, &type_factory, &id_string_pool);
 
-  auto c2 = ResolvedColumn::RestoreFrom(proto, params).ValueOrDie();
+  auto c2 = ResolvedColumn::RestoreFrom(proto, params).value();
   EXPECT_EQ(c1.DebugString(), c2.DebugString());
   EXPECT_EQ(c1.type(), c2.type());
 }

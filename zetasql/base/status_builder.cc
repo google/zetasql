@@ -90,79 +90,79 @@ absl::Status StatusBuilder::CreateStatusAndConditionallyLog() && {
 
   // We consumed the status above, we set it to some error just to prevent
   // people relying on it become OK or something.
-  status_ = UnknownError("");
+  status_ = absl::UnknownError("");
   rep_ = nullptr;
   return result;
 }
 
 StatusBuilder AbortedErrorBuilder(zetasql_base::SourceLocation location) {
-  return StatusBuilder(ABORTED, location);
+  return StatusBuilder(absl::StatusCode::kAborted, location);
 }
 
 StatusBuilder AlreadyExistsErrorBuilder(zetasql_base::SourceLocation location) {
-  return StatusBuilder(ALREADY_EXISTS, location);
+  return StatusBuilder(absl::StatusCode::kAlreadyExists, location);
 }
 
 StatusBuilder CancelledErrorBuilder(zetasql_base::SourceLocation location) {
-  return StatusBuilder(CANCELLED, location);
+  return StatusBuilder(absl::StatusCode::kCancelled, location);
 }
 
 StatusBuilder DataLossErrorBuilder(zetasql_base::SourceLocation location) {
-  return StatusBuilder(DATA_LOSS, location);
+  return StatusBuilder(absl::StatusCode::kDataLoss, location);
 }
 
 StatusBuilder DeadlineExceededErrorBuilder(
     zetasql_base::SourceLocation location) {
-  return StatusBuilder(DEADLINE_EXCEEDED, location);
+  return StatusBuilder(absl::StatusCode::kDeadlineExceeded, location);
 }
 
 StatusBuilder FailedPreconditionErrorBuilder(
     zetasql_base::SourceLocation location) {
-  return StatusBuilder(FAILED_PRECONDITION, location);
+  return StatusBuilder(absl::StatusCode::kFailedPrecondition, location);
 }
 
 StatusBuilder InternalErrorBuilder(zetasql_base::SourceLocation location) {
-  return StatusBuilder(INTERNAL, location);
+  return StatusBuilder(absl::StatusCode::kInternal, location);
 }
 
 StatusBuilder InvalidArgumentErrorBuilder(
     zetasql_base::SourceLocation location) {
-  return StatusBuilder(INVALID_ARGUMENT, location);
+  return StatusBuilder(absl::StatusCode::kInvalidArgument, location);
 }
 
 StatusBuilder NotFoundErrorBuilder(zetasql_base::SourceLocation location) {
-  return StatusBuilder(NOT_FOUND, location);
+  return StatusBuilder(absl::StatusCode::kNotFound, location);
 }
 
 StatusBuilder OutOfRangeErrorBuilder(zetasql_base::SourceLocation location) {
-  return StatusBuilder(OUT_OF_RANGE, location);
+  return StatusBuilder(absl::StatusCode::kOutOfRange, location);
 }
 
 StatusBuilder PermissionDeniedErrorBuilder(
     zetasql_base::SourceLocation location) {
-  return StatusBuilder(PERMISSION_DENIED, location);
+  return StatusBuilder(absl::StatusCode::kPermissionDenied, location);
 }
 
 StatusBuilder UnauthenticatedErrorBuilder(
     zetasql_base::SourceLocation location) {
-  return StatusBuilder(UNAUTHENTICATED, location);
+  return StatusBuilder(absl::StatusCode::kUnauthenticated, location);
 }
 
 StatusBuilder ResourceExhaustedErrorBuilder(
     zetasql_base::SourceLocation location) {
-  return StatusBuilder(RESOURCE_EXHAUSTED, location);
+  return StatusBuilder(absl::StatusCode::kResourceExhausted, location);
 }
 
 StatusBuilder UnavailableErrorBuilder(zetasql_base::SourceLocation location) {
-  return StatusBuilder(UNAVAILABLE, location);
+  return StatusBuilder(absl::StatusCode::kUnavailable, location);
 }
 
 StatusBuilder UnimplementedErrorBuilder(zetasql_base::SourceLocation location) {
-  return StatusBuilder(UNIMPLEMENTED, location);
+  return StatusBuilder(absl::StatusCode::kUnimplemented, location);
 }
 
 StatusBuilder UnknownErrorBuilder(zetasql_base::SourceLocation location) {
-  return StatusBuilder(UNKNOWN, location);
+  return StatusBuilder(absl::StatusCode::kUnknown, location);
 }
 
 }  // namespace zetasql_base

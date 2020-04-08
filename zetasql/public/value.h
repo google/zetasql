@@ -32,7 +32,9 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/value_representations.h"
 #include "zetasql/public/value.pb.h"
+#include "zetasql/public/value_content.h"
 #include "absl/base/attributes.h"
 #include <cstdint>
 #include "absl/strings/cord.h"
@@ -57,6 +59,14 @@ namespace zetasql {
 // arrays and compare arrays as multisets whenever their order is not fully
 // specified. Tracking order preservation is not required otherwise; in the
 // ZetaSQL data model, all arrays are totally ordered.
+//
+// Value's content is managed by corresponding Type through
+// InitializeValueContent, CopyValueContent and ClearValueContent functions.
+// Value calls these functions during value construction, copying and
+// destruction. ValueContent class is used as a container to transfer content
+// from Type to Value. Value's content can be up to 12 bytes in size.
+// First 8 bytes are accesible to any type, while remaining 4 can be used only
+// by simple types.
 //
 // Thread safety
 // -------------
@@ -418,11 +428,6 @@ class Value {
   friend class InternalValue;  // Defined in zetasql/common/internal_value.h.
   friend struct InternalComparer;  // Defined in value.cc.
   friend struct InternalHasher;    // Defined in value.cc
-  class GeographyRef;  // Defined in value_inl.h
-  class NumericRef;  // Defined in value_inl.h
-  class BigNumericRef;  // Defined in value_inl.h
-  class StringRef;  // Defined in value_inl.h
-  class ProtoRep;   // Defined in value_inl.h
   class TypedList;  // Defined in value_inl.h
 
   // Specifies whether an array value preserves or ignores order (public array
@@ -551,6 +556,20 @@ class Value {
 
   static std::string ComplexValueToDebugString(const Value* root, bool verbose);
 
+  // Type cannot create a list of Values because it cannot depend on
+  // "value" package. Thus for Array/Struct types that need list of values,
+  // we will create them from Value directly.
+  // TODO: This can be avoided when we create virtual value list
+  // interface which can be defined outside of "value", but Value provides its
+  // implementation which it feeds to Array/Struct.
+  bool DoesTypeUseValueList() const {
+    return type_kind_ == TYPE_ARRAY || type_kind_ == TYPE_STRUCT;
+  }
+
+  // Getter/setters for ValueContent.
+  ValueContent GetContent() const;
+  void SetContent(const ValueContent& content);
+
   // type_kind_ is either zetasql::TypeKind or -1 for invalid values.
   int16_t type_kind_ = kInvalidTypeKind;
   bool is_null_ = false;
@@ -578,13 +597,16 @@ class Value {
     int64_t timestamp_seconds_;  // Same as google.protobuf.Timestamp.seconds.
     int32_t bit_field_32_value_;   // Whole-second part of TimeValue.
     int64_t bit_field_64_value_;   // Whole-second part of DatetimeValue.
-    StringRef* string_ptr_;  // Reffed. Used for TYPE_STRING and TYPE_BYTES.
+    internal::StringRef*
+        string_ptr_;       // Reffed. Used for TYPE_STRING and TYPE_BYTES.
     TypedList* list_ptr_;  // Reffed. Used for arrays and structs.
     const EnumType* enum_type_;  // Not owned. Used for enums.
-    ProtoRep* proto_ptr_;        // Reffed. Used for protos.
-    GeographyRef* geography_ptr_;  // Owned. Used for geographies.
-    NumericRef* numeric_ptr_;  // Owned. Used for values of TYPE_NUMERIC.
-    BigNumericRef* bignumeric_ptr_;  // Owned. Used for values of TYPE_NUMERIC.
+    internal::ProtoRep* proto_ptr_;          // Reffed. Used for protos.
+    internal::GeographyRef* geography_ptr_;  // Owned. Used for geographies.
+    internal::NumericRef*
+        numeric_ptr_;  // Owned. Used for values of TYPE_NUMERIC.
+    internal::BigNumericRef*
+        bignumeric_ptr_;  // Owned. Used for values of TYPE_BIGNUMERIC.
   };
   // Intentionally copyable.
 };

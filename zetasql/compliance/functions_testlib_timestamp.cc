@@ -680,8 +680,8 @@ static void AddSwappedDiffTestCases(
     const auto& test_case = (*diff_test_cases)[i];
     auto MakeNegativeOutput = [](const zetasql_base::StatusOr<Value>& original_result) {
       zetasql_base::StatusOr<Value> negative_result;
-      if (original_result.ok() && !original_result.ValueOrDie().is_null()) {
-        int64_t result_value = original_result.ValueOrDie().int64_value();
+      if (original_result.ok() && !original_result.value().is_null()) {
+        int64_t result_value = original_result.value().int64_value();
         if (result_value == std::numeric_limits<int64_t>::lowest()) {
           negative_result = FunctionEvalError();
         } else {
@@ -1201,7 +1201,7 @@ std::vector<FunctionTestCall> GetFunctionTestsDatetimeTrunc() {
       auto BuildTestCaseOutput = [](int32_t date,
                                     const zetasql_base::StatusOr<Value>& time_output) {
         if (time_output.ok()) {
-          const Value& time_value = time_output.ValueOrDie();
+          const Value& time_value = time_output.value();
           if (time_value.is_null()) {
             return zetasql_base::StatusOr<Value>(NullDatetime());
           } else {

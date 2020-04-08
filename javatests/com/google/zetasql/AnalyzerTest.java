@@ -21,7 +21,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.zetasql.ZetaSQLFunctions.SignatureArgumentKind;
+import com.google.zetasql.ZetaSQLOptions.LanguageFeature;
 import com.google.zetasql.ZetaSQLType.TypeKind;
+import com.google.zetasql.TableValuedFunction.ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedExpr;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedStatement;
 import com.google.zetasqltest.TestSchemaProto.KitchenSinkPB;
@@ -240,5 +244,36 @@ public class AnalyzerTest {
     assertThat(aParseResumeLocation.getBytePosition()).isEqualTo(39);
     assertThat(Analyzer.analyzeNextStatement(aParseResumeLocation, options, catalog)).isNotNull();
     assertThat(aParseResumeLocation.getBytePosition()).isEqualTo(75);
+  }
+
+  @Test
+  public void testSelectColumnsFromForwardInputSchemaToOutputSchemaWithAppendedColumnTVF() {
+    FunctionArgumentType tableType =
+        new FunctionArgumentType(SignatureArgumentKind.ARG_TYPE_RELATION);
+    TableValuedFunction tvf =
+        new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+            ImmutableList.of("test_tvf"),
+            new FunctionSignature(tableType, ImmutableList.of(tableType), /* contextId= */ -1),
+            ImmutableList.of(
+                TVFRelation.Column.create(
+                    "append_col_1", TypeFactory.createSimpleType(TypeKind.TYPE_INT64)),
+                TVFRelation.Column.create(
+                    "append_col_2", TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP))));
+
+    SimpleCatalog catalog = new SimpleCatalog("catalog1");
+    catalog.addTableValuedFunction(tvf);
+    // Test if tvf is added to catalog.
+    assertThat(catalog.getTVFByName("test_tvf")).isEqualTo(tvf);
+    AnalyzerOptions analyzerOptions = new AnalyzerOptions();
+    analyzerOptions
+        .getLanguageOptions()
+        .setEnabledLanguageFeatures(
+            ImmutableSet.of(LanguageFeature.FEATURE_TABLE_VALUED_FUNCTIONS));
+    Analyzer analyzer = new Analyzer(analyzerOptions, catalog);
+    ResolvedStatement resolvedStatement =
+        analyzer.analyzeStatement(
+            "select append_col_1, append_col_2 from test_tvf((select cast (12 as int64)))");
+    // Test if select extra columns query is analyzed correctly.
+    assertThat(resolvedStatement).isNotNull();
   }
 }

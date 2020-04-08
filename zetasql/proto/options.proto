@@ -64,7 +64,7 @@ message AllowedHintsAndOptionsProto {
 }
 
 // Serialized form of AnalyzerOptions.
-// next id: 20
+// next id: 21
 message AnalyzerOptionsProto {
   message QueryParameterProto {
     optional string name = 1;
@@ -89,6 +89,7 @@ message AnalyzerOptionsProto {
   // In the form that can be parsed by C++ absl::LoadTimeZone().
   optional string default_timezone = 7;
   optional bool record_parse_locations = 8;
+  optional bool create_new_column_for_each_projected_output = 20;
   optional bool prune_unused_columns = 9;
   optional bool allow_undeclared_parameters = 10;
   optional ParameterMode parameter_mode = 13;

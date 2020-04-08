@@ -56,6 +56,7 @@ public class AnalyzerOptions implements Serializable {
   public AnalyzerOptions() {
     builder.setDefaultTimezone("America/Los_Angeles");
     builder.setRecordParseLocations(false);
+    builder.setCreateNewColumnForEachProjectedOutput(false);
     builder.setPruneUnusedColumns(false);
     builder.setAllowUndeclaredParameters(false);
     builder.setParameterMode(ParameterMode.PARAMETER_NAMED);
@@ -235,6 +236,14 @@ public class AnalyzerOptions implements Serializable {
     return builder.getRecordParseLocations();
   }
 
+  public void setCreateNewColumnForEachProjectedOutput(boolean value) {
+    builder.setCreateNewColumnForEachProjectedOutput(value);
+  }
+
+  public boolean getCreateNewColumnForEachProjectedOutput() {
+    return builder.getCreateNewColumnForEachProjectedOutput();
+  }
+
   public void setPruneUnusedColumns(boolean value) {
     builder.setPruneUnusedColumns(value);
   }
@@ -284,6 +293,8 @@ public class AnalyzerOptions implements Serializable {
     options.setStatementContext(proto.getStatementContext());
     options.setPruneUnusedColumns(proto.getPruneUnusedColumns());
     options.setRecordParseLocations(proto.getRecordParseLocations());
+    options.setCreateNewColumnForEachProjectedOutput(
+        proto.getCreateNewColumnForEachProjectedOutput());
     options.setAllowUndeclaredParameters(proto.getAllowUndeclaredParameters());
     options.setParameterMode(proto.getParameterMode());
     options.setPreserveColumnAliases(proto.getPreserveColumnAliases());

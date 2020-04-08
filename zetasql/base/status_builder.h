@@ -200,7 +200,7 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   //     int value;
   //     ZETASQL_RETURN_IF_ERROR(ReadCounterFile(filename, &value))
   //         .LogInfo()
-  //         .With([](const zetasql_base::Status& unused) { return 0; });
+  //         .With([](const absl::Status& unused) { return 0; });
   //     return value;
   //   }
 
@@ -249,8 +249,8 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   //
   // This override allows us to implement ZETASQL_RETURN_IF_ERROR with 2 move
   // operations in the common case.
-  operator Status() const&;  // NOLINT
-  operator Status() &&;
+  operator absl::Status() const&;  // NOLINT
+  operator absl::Status() &&;
 
   template <typename T>
   operator StatusOr<T>() const&;  // NOLINT
@@ -282,7 +282,7 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   // Conditionally logs if the builder has been configured to log.  This method
   // is split from the above to isolate the portability issues around logging
   // into a single place.
-  void ConditionallyLog(const Status& status) const;
+  void ConditionallyLog(const absl::Status& result) const;
 
   // Infrequently set builder options, instantiated lazily. This reduces
   // average construction/destruction time (e.g. the `stream` is fairly

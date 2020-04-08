@@ -18,23 +18,23 @@
 
 #include <ostream>
 
+#include "absl/status/status.h"
 #include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/logging.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql_base {
 
 namespace statusor_internal {
 
-void Helper::HandleInvalidStatusCtorArg(Status* status) {
+void Helper::HandleInvalidStatusCtorArg(absl::Status* status) {
   const char* kMessage =
       "An OK status is not a valid constructor argument to StatusOr<T>";
   LOG(DFATAL) << kMessage;
   // In optimized builds, we will fall back to absl::INTERNAL.
-  *status = InternalError(kMessage);
+  *status = absl::InternalError(kMessage);
 }
 
-void Helper::Crash(const Status& status) {
+void Helper::Crash(const absl::Status& status) {
   LOG(FATAL) << "Attempting to fetch value instead of handling error "
              << status;
   CHECK(false);

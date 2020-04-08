@@ -329,7 +329,7 @@ bool ArrayNestExpr::Eval(absl::Span<const TupleData* const> params,
     *status = status_or_iter.status();
     return false;
   }
-  std::unique_ptr<TupleIterator> iter = std::move(status_or_iter).ValueOrDie();
+  std::unique_ptr<TupleIterator> iter = std::move(status_or_iter).value();
 
   const bool iter_originally_preserved_order = iter->PreservesOrder();
   // We disable reordering when nesting a relation in an array for backwards
@@ -665,7 +665,7 @@ bool ProtoFieldReader::GetFieldValue(const TupleSlot& proto_slot,
     return false;
   }
 
-  *field_value = value.ValueOrDie();
+  *field_value = value.value();
   return true;
 }
 
@@ -755,7 +755,7 @@ bool SingleValueExpr::Eval(absl::Span<const TupleData* const> params,
     *status = status_or_iter.status();
     return false;
   }
-  std::unique_ptr<TupleIterator> iter = std::move(status_or_iter).ValueOrDie();
+  std::unique_ptr<TupleIterator> iter = std::move(status_or_iter).value();
 
   const TupleData* tuple = iter->Next();
   if (tuple == nullptr) {
@@ -835,7 +835,7 @@ bool ExistsExpr::Eval(absl::Span<const TupleData* const> params,
     *status = status_or_iter.status();
     return false;
   }
-  std::unique_ptr<TupleIterator> iter = std::move(status_or_iter).ValueOrDie();
+  std::unique_ptr<TupleIterator> iter = std::move(status_or_iter).value();
 
   const TupleData* tuple = iter->Next();
   if (tuple == nullptr) {

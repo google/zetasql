@@ -388,7 +388,7 @@ class SimpleBuiltinScalarFunction : public BuiltinScalarFunction {
       *status = status_or_value.status();
       return false;
     }
-    *result = std::move(status_or_value.ValueOrDie());
+    *result = std::move(status_or_value.value());
     return true;
   }
 };

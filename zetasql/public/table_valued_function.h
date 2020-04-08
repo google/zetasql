@@ -718,6 +718,59 @@ class ForwardInputSchemaToOutputSchemaTVF : public TableValuedFunction {
   absl::Status CheckIsValid() const;
 };
 
+// This represents a TVF that accepts a relation for its first (templated)
+// argument. The TVF returns a relation with a schema that is constructed by
+// copying the schema of input relation and appending <extra_columns_> to the
+// schema. The TVF may also accept additional arguments as defined by the
+// signature passed to the constructor.
+class ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF
+    : public TableValuedFunction {
+ public:
+  ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+      const std::vector<std::string>& function_name_path,
+      const FunctionSignature& signature,
+      const std::vector<TVFSchemaColumn>& extra_columns)
+      : TableValuedFunction(function_name_path, signature),
+        extra_columns_(extra_columns) {
+    ZETASQL_CHECK_OK(IsValidForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+        signature.IsTemplated(), extra_columns));
+  }
+
+  ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+      const ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF&) = delete;
+  ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF& operator=(
+      const ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF&) = delete;
+  ~ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF() override {}
+
+  absl::Status Resolve(
+      const AnalyzerOptions* analyzer_options,
+      const std::vector<TVFInputArgumentType>& actual_arguments,
+      const FunctionSignature& concrete_signature, Catalog* catalog,
+      TypeFactory* type_factory,
+      std::shared_ptr<TVFSignature>* output_tvf_signature) const override;
+
+  absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
+                         TableValuedFunctionProto* proto) const override;
+
+  static absl::Status Deserialize(
+      const TableValuedFunctionProto& proto,
+      const std::vector<const google::protobuf::DescriptorPool*>& pools,
+      TypeFactory* factory, std::unique_ptr<TableValuedFunction>* result);
+
+  // This method checks if <extra_columns> is valid. Specifically, it checks:
+  //   a. if extra column name is empty.
+  //   b. if extra column name is duplicated.
+  //   c. if input table is non-templated, which is invalid usage for this
+  //   tvf.
+  //   d. if extra column is pseudo column, which is invalid usage for this tvf.
+  absl::Status IsValidForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+      bool isTemplated,
+      const std::vector<TVFSchemaColumn>& extra_columns) const;
+
+ private:
+  const std::vector<TVFSchemaColumn> extra_columns_;
+};
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_PUBLIC_TABLE_VALUED_FUNCTION_H_

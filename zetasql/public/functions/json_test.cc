@@ -164,7 +164,7 @@ TEST(JsonTest, Compliance) {
           JsonPathEvaluator::Create(json_path, sql_standard_mode);
       if (evaluator_status.ok()) {
         const std::unique_ptr<JsonPathEvaluator>& evaluator =
-            evaluator_status.ValueOrDie();
+            evaluator_status.value();
         evaluator->enable_special_character_escaping();
         if (test.function_name == "json_extract" ||
             test.function_name == "json_query") {
@@ -1422,7 +1422,7 @@ TEST(JSONPathExtractor, ComplianceJSONExtract) {
     if (evaluator_status.ok()) {
       std::string output;
       const std::unique_ptr<ValidJSONPathIterator>& path_itr =
-          evaluator_status.ValueOrDie();
+          evaluator_status.value();
       if (test.function_name == "json_extract") {
         JSONPathExtractor parser(json, path_itr.get());
         parser.set_special_character_escaping(true);
@@ -1470,7 +1470,7 @@ TEST(JSONPathExtractor, ComplianceJSONExtractStandard) {
     if (evaluator_status.ok()) {
       std::string output;
       const std::unique_ptr<ValidJSONPathIterator>& path_itr =
-          evaluator_status.ValueOrDie();
+          evaluator_status.value();
       if (test.function_name == "json_query") {
         JSONPathExtractor parser(json, path_itr.get());
         parser.set_special_character_escaping(true);
@@ -1517,7 +1517,7 @@ TEST(JSONPathExtractor, ComplianceJSONExtractArray) {
         ValidJSONPathIterator::Create(json_path, /*sql_standard_mode=*/false);
     if (evaluator_status.ok()) {
       const std::unique_ptr<ValidJSONPathIterator>& path_itr =
-          evaluator_status.ValueOrDie();
+          evaluator_status.value();
       JSONPathArrayExtractor parser(json, path_itr.get());
       parser.set_special_character_escaping(true);
       parser.ExtractArray(&output, &is_null);

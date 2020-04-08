@@ -127,7 +127,7 @@ MATCHER_P(EqualsValue, expected_value, "") {
   if (!result.ok()) {
     return false;
   }
-  const Value& value = result.ValueOrDie();
+  const Value& value = result.value();
   std::string reason;
   if (!InternalValue::Equals(expected_value, value, kExactFloatMargin,
                              &reason)) {
@@ -144,7 +144,7 @@ MATCHER_P(AlmostEqualsValue, expected_value, "") {
   if (!result.ok()) {
     return false;
   }
-  const Value& value = result.ValueOrDie();
+  const Value& value = result.value();
   std::string reason;
   if (!InternalValue::Equals(expected_value, value, kDefaultFloatMargin,
                              &reason)) {

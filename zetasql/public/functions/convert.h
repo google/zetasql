@@ -395,7 +395,7 @@ inline bool Convert<float, NumericValue>(const float& in, NumericValue* out,
   const zetasql_base::StatusOr<NumericValue> numeric_value_status =
       NumericValue::FromDouble(in);
   if (ABSL_PREDICT_TRUE(numeric_value_status.ok())) {
-    *out = numeric_value_status.ValueOrDie();
+    *out = numeric_value_status.value();
     return true;
   }
   if (error != nullptr) {
@@ -504,7 +504,7 @@ inline bool Convert<double, NumericValue>(const double& in, NumericValue* out,
   const zetasql_base::StatusOr<NumericValue> numeric_value_status =
       NumericValue::FromDouble(in);
   if (ABSL_PREDICT_TRUE(numeric_value_status.ok())) {
-    *out = numeric_value_status.ValueOrDie();
+    *out = numeric_value_status.value();
     return true;
   }
   if (error != nullptr) {
@@ -535,7 +535,7 @@ template <> inline bool Convert<NumericValue, int32_t>(
     const NumericValue& in, int32_t* out, absl::Status* error) {
   const zetasql_base::StatusOr<int32_t> int32_status = in.To<int32_t>();
   if (ABSL_PREDICT_TRUE(int32_status.ok())) {
-    *out = int32_status.ValueOrDie();
+    *out = int32_status.value();
     return true;
   }
   if (error != nullptr) {
@@ -548,7 +548,7 @@ template <> inline bool Convert<NumericValue, int64_t>(
     const NumericValue& in, int64_t* out, absl::Status* error) {
   const zetasql_base::StatusOr<int64_t> int64_status = in.To<int64_t>();
   if (ABSL_PREDICT_TRUE(int64_status.ok())) {
-    *out = int64_status.ValueOrDie();
+    *out = int64_status.value();
     return true;
   }
   if (error != nullptr) {
@@ -561,7 +561,7 @@ template <> inline bool Convert<NumericValue, uint32_t>(
     const NumericValue& in, uint32_t* out, absl::Status* error) {
   const zetasql_base::StatusOr<uint32_t> uint32_status = in.To<uint32_t>();
   if (ABSL_PREDICT_TRUE(uint32_status.ok())) {
-    *out = uint32_status.ValueOrDie();
+    *out = uint32_status.value();
     return true;
   }
   if (error != nullptr) {
@@ -574,7 +574,7 @@ template <> inline bool Convert<NumericValue, uint64_t>(
     const NumericValue& in, uint64_t* out, absl::Status* error) {
   const zetasql_base::StatusOr<uint64_t> uint64_status = in.To<uint64_t>();
   if (ABSL_PREDICT_TRUE(uint64_status.ok())) {
-    *out = uint64_status.ValueOrDie();
+    *out = uint64_status.value();
     return true;
   }
   if (error != nullptr) {

@@ -76,7 +76,7 @@ int64_t TupleSlot::GetPhysicalByteSize() const {
           for (const zetasql_base::StatusOr<Value>& status_or_value : *values) {
             num_bytes += sizeof(status_or_value);
             if (status_or_value.ok()) {
-              num_bytes += status_or_value.ValueOrDie().physical_byte_size();
+              num_bytes += status_or_value.value().physical_byte_size();
             }
           }
         }

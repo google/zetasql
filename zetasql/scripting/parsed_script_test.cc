@@ -143,8 +143,7 @@ void CheckTestCase(const TestCase& test_case) {
 
   ParserOptions options;
   std::unique_ptr<ParsedScript> parsed =
-      ParsedScript::Create(script, options, ERROR_MESSAGE_WITH_PAYLOAD)
-          .ValueOrDie();
+      ParsedScript::Create(script, options, ERROR_MESSAGE_WITH_PAYLOAD).value();
   ZETASQL_EXPECT_OK(parsed->CheckQueryParameters(parameters));
 
   absl::Span<const ASTStatement* const> stmts =
@@ -178,7 +177,7 @@ void CheckTestInput(const TestInput& test_input) {
   std::unique_ptr<ParsedScript> parsed =
       ParsedScript::Create(test_input.sql(), options,
                            ERROR_MESSAGE_WITH_PAYLOAD)
-          .ValueOrDie();
+          .value();
   absl::Status status = parsed->CheckQueryParameters(parameters);
 
   if (test_input.error().empty()) {

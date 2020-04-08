@@ -795,7 +795,7 @@ bool Coercer::LiteralCoercesTo(const Value& literal_value, const Type* to_type,
         result->incr_non_matched_arguments();
         return false;
       }
-      *coerced_value = status_or_coerced_value.ValueOrDie();
+      *coerced_value = status_or_coerced_value.value();
     }
     // General Type coercion is allowed independent of literalness.
     result->incr_literals_coerced();
@@ -839,7 +839,7 @@ bool Coercer::LiteralCoercesTo(const Value& literal_value, const Type* to_type,
         result->incr_non_matched_arguments();
         return false;
       }
-      *coerced_value = status_or_coerced_value.ValueOrDie();
+      *coerced_value = status_or_coerced_value.value();
     }
     result->incr_literals_coerced();
     result->incr_literals_distance(GetLiteralCoercionCost(literal_value,

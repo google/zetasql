@@ -30,12 +30,12 @@ namespace internal {
 
 // Whether the given status has any payload at all. The payloads themselves
 // may be empty.
-bool HasPayload(const zetasql_base::Status& status) {
+bool HasPayload(const absl::Status& status) {
   return GetPayloadCount(status) > 0;
 }
 
 // Get the number of items within the payload.
-int GetPayloadCount(const zetasql_base::Status& status) {
+int GetPayloadCount(const absl::Status& status) {
   // Status interface forces scan for counting.
   int count = 0;
   status.ForEachPayload(
@@ -68,50 +68,50 @@ std::string PayloadToString(absl::string_view type_url,
 // StatusCodeToString does not guarantee any format, this guarantees
 // lower-case camel case (except OK, which is just "OK"). Invalid codes
 // will be printed as an integer.
-std::string LegacyStatusCodeToString(zetasql_base::StatusCode code) {
+std::string LegacyStatusCodeToString(absl::StatusCode code) {
   // TODO: Fix string rendering once there is a
   //                              free function we can clone.
   switch (code) {
-    case zetasql_base::StatusCode::kOk:
+    case absl::StatusCode::kOk:
       return "OK";
-    case zetasql_base::StatusCode::kCancelled:
+    case absl::StatusCode::kCancelled:
       return "generic::cancelled";
-    case zetasql_base::StatusCode::kUnknown:
+    case absl::StatusCode::kUnknown:
       return "generic::unknown";
-    case zetasql_base::StatusCode::kInvalidArgument:
+    case absl::StatusCode::kInvalidArgument:
       return "generic::invalid_argument";
-    case zetasql_base::StatusCode::kDeadlineExceeded:
+    case absl::StatusCode::kDeadlineExceeded:
       return "generic::deadline_exceeded";
-    case zetasql_base::StatusCode::kNotFound:
+    case absl::StatusCode::kNotFound:
       return "generic::not_found";
-    case zetasql_base::StatusCode::kAlreadyExists:
+    case absl::StatusCode::kAlreadyExists:
       return "generic::already_exists";
-    case zetasql_base::StatusCode::kPermissionDenied:
+    case absl::StatusCode::kPermissionDenied:
       return "generic::permission_denied";
-    case zetasql_base::StatusCode::kUnauthenticated:
+    case absl::StatusCode::kUnauthenticated:
       return "generic::unauthenticated";
-    case zetasql_base::StatusCode::kResourceExhausted:
+    case absl::StatusCode::kResourceExhausted:
       return "generic::resource_exhausted";
-    case zetasql_base::StatusCode::kFailedPrecondition:
+    case absl::StatusCode::kFailedPrecondition:
       return "generic::failed_precondition";
-    case zetasql_base::StatusCode::kAborted:
+    case absl::StatusCode::kAborted:
       return "generic::aborted";
-    case zetasql_base::StatusCode::kOutOfRange:
+    case absl::StatusCode::kOutOfRange:
       return "generic::out_of_range";
-    case zetasql_base::StatusCode::kUnimplemented:
+    case absl::StatusCode::kUnimplemented:
       return "generic::unimplemented";
-    case zetasql_base::StatusCode::kInternal:
+    case absl::StatusCode::kInternal:
       return "generic::internal";
-    case zetasql_base::StatusCode::kUnavailable:
+    case absl::StatusCode::kUnavailable:
       return "generic::unavailable";
-    case zetasql_base::StatusCode::kDataLoss:
+    case absl::StatusCode::kDataLoss:
       return "generic::data_loss";
     default:
       return absl::StrCat(code);
   }
 }
 
-std::string PayloadToString(const zetasql_base::Status& status) {
+std::string PayloadToString(const absl::Status& status) {
   std::string ret;
   // Make our own version of absl::Join
   bool prepend_space = false;
@@ -127,7 +127,7 @@ std::string PayloadToString(const zetasql_base::Status& status) {
 
 // Creates a human readable string from the status, including its payload.
 // Exact form is not defined.
-std::string StatusToString(const zetasql_base::Status& status) {
+std::string StatusToString(const absl::Status& status) {
   if (status.ok()) {
     return "OK";
   }

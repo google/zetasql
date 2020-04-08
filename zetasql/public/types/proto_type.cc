@@ -21,6 +21,9 @@
 #include "zetasql/public/strings.h"
 #include "zetasql/public/types/internal_utils.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/types/value_representations.h"
+#include "zetasql/public/value_content.h"
+#include "absl/strings/match.h"
 
 namespace zetasql {
 
@@ -31,6 +34,26 @@ ProtoType::ProtoType(const TypeFactory* factory,
 }
 
 ProtoType::~ProtoType() {
+}
+
+bool ProtoType::IsSupportedType(const LanguageOptions& language_options) const {
+  return language_options.SupportsProtoTypes();
+}
+
+bool ProtoType::EqualsForSameKind(const Type* that, bool equivalent) const {
+  const ProtoType* other = that->AsProto();
+  DCHECK(other);
+  return ProtoType::EqualsImpl(this, other, equivalent);
+}
+
+void ProtoType::DebugStringImpl(bool details, TypeOrStringVector* stack,
+                                std::string* debug_string) const {
+  absl::StrAppend(debug_string, "PROTO<", descriptor_->full_name());
+  if (details) {
+    absl::StrAppend(debug_string, ", file name: ", descriptor_->file()->name(),
+                    ", <", descriptor_->DebugString(), ">");
+  }
+  absl::StrAppend(debug_string, ">");
 }
 
 bool ProtoType::SupportsOrdering(const LanguageOptions& language_options,
@@ -387,6 +410,62 @@ const std::string& ProtoType::GetStructFieldName(
   return field->options().GetExtension(zetasql::struct_field_name);
 }
 
+namespace {
+
+// Helper function that finds a field or a named extension with the given name.
+// Possible return values are:
+//  HAS_FIELD if the field exists;
+//  HAS_NO_FIELD if neither exists.
+Type::HasFieldResult HasProtoFieldOrNamedExtension(
+    const google::protobuf::Descriptor* descriptor, const std::string& name,
+    int* field_id) {
+  const google::protobuf::FieldDescriptor* field =
+      ProtoType::FindFieldByNameIgnoreCase(descriptor, name);
+  if (field != nullptr) {
+    *field_id = field->number();
+    return Type::HAS_FIELD;
+  }
+
+  return Type::HAS_NO_FIELD;
+}
+
+}  // namespace
+
+Type::HasFieldResult ProtoType::HasFieldImpl(const std::string& name,
+                                             int* field_id,
+                                             bool include_pseudo_fields) const {
+  Type::HasFieldResult result = HAS_NO_FIELD;
+  constexpr int kNotFound = -1;
+  int found_idx = kNotFound;
+
+  if (include_pseudo_fields) {
+    // Consider virtual fields in addition to physical fields, which means
+    // there may be ambiguity between a built-in field and a virtual field.
+    result = HasProtoFieldOrNamedExtension(descriptor_, name, &found_idx);
+    if (absl::StartsWithIgnoreCase(name, "has_") &&
+        HasProtoFieldOrNamedExtension(descriptor_, name.substr(4),
+                                      &found_idx) != HAS_NO_FIELD) {
+      result =
+          (result != HAS_NO_FIELD) ? HAS_AMBIGUOUS_FIELD : HAS_PSEUDO_FIELD;
+    }
+  } else {
+    // Look for physical field only, so the result is always unambiguous.
+    const google::protobuf::FieldDescriptor* field =
+        ProtoType::FindFieldByNameIgnoreCase(descriptor_, name);
+    if (field != nullptr) {
+      found_idx = field->number();
+      result = Type::HAS_FIELD;
+    }
+  }
+
+  if (field_id != nullptr && found_idx != kNotFound) {
+    *field_id = found_idx;
+  }
+  return result;
+}
+
+bool ProtoType::HasAnyFields() const { return descriptor_->field_count() != 0; }
+
 bool ProtoType::EqualsImpl(const ProtoType* const type1,
                            const ProtoType* const type2, bool equivalent) {
   if (type1->descriptor() == type2->descriptor()) {
@@ -397,6 +476,25 @@ bool ProtoType::EqualsImpl(const ProtoType* const type1,
     return true;
   }
   return false;
+}
+
+void ProtoType::InitializeValueContent(ValueContent* value) const {
+  value->set(new internal::ProtoRep(this, absl::Cord()));
+}
+
+void ProtoType::CopyValueContent(const ValueContent& from,
+                                 ValueContent* to) const {
+  from.GetAs<internal::ProtoRep*>()->Ref();
+  *to = from;
+}
+
+void ProtoType::ClearValueContent(const ValueContent& value) const {
+  value.GetAs<internal::ProtoRep*>()->Unref();
+}
+
+uint64_t ProtoType::GetValueContentExternallyAllocatedByteSize(
+    const ValueContent& value) const {
+  return value.GetAs<internal::ProtoRep*>()->physical_byte_size();
 }
 
 }  // namespace zetasql

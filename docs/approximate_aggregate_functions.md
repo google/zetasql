@@ -9,7 +9,7 @@ see [Approximate Aggregation][link-to-approximate-aggregation].
 ### APPROX_COUNT_DISTINCT
 
 ```
-APPROX_COUNT_DISTINCT(expression [HAVING (MAX | MIN) expression2])
+APPROX_COUNT_DISTINCT(expression)
 ```
 
 **Description**
@@ -26,19 +26,6 @@ Any data type **except**:
 `ARRAY`
 `STRUCT`
 `PROTO`
-
-**Optional Clause**
-
-`HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics

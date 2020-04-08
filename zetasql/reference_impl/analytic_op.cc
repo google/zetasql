@@ -110,10 +110,17 @@ absl::Status WindowFrameBoundaryArg::SetSchemasForEvaluation(
 // before running the actual computations these operators are guaranteed to be
 // supplied with values that would always produce correct results.
 NumericValue operator+(NumericValue lh, NumericValue rh) {
-  return lh.Add(rh).ValueOrDie();
+  return lh.Add(rh).value();
 }
 NumericValue operator-(NumericValue lh, NumericValue rh) {
-  return lh.Subtract(rh).ValueOrDie();
+  return lh.Subtract(rh).value();
+}
+
+BigNumericValue operator+(BigNumericValue lh, BigNumericValue rh) {
+  return lh.Add(rh).value();
+}
+BigNumericValue operator-(BigNumericValue lh, BigNumericValue rh) {
+  return lh.Subtract(rh).value();
 }
 
 namespace {
@@ -138,6 +145,9 @@ Value DoOperation(const Value& left, const Value& right) {
     case TYPE_NUMERIC:
       return Value::Numeric(
           Functor<NumericValue>()(left.numeric_value(), right.numeric_value()));
+    case TYPE_BIGNUMERIC:
+      return Value::BigNumeric(Functor<BigNumericValue>()(
+          left.bignumeric_value(), right.bignumeric_value()));
     case TYPE_FLOAT:
       return Value::Float(
           Functor<float>()(left.float_value(), right.float_value()));
@@ -163,6 +173,8 @@ Value GetMaxValue(TypeKind type_kind) {
       return Value::Uint64(std::numeric_limits<uint64_t>::max());
     case TYPE_NUMERIC:
       return Value::Numeric(NumericValue::MaxValue());
+    case TYPE_BIGNUMERIC:
+      return Value::BigNumeric(BigNumericValue::MaxValue());
     case TYPE_FLOAT:
       return Value::Float(std::numeric_limits<float>::max());
     case TYPE_DOUBLE:
@@ -187,6 +199,8 @@ Value GetMinValue(TypeKind type_kind) {
       return Value::Uint64(std::numeric_limits<uint64_t>::lowest());
     case TYPE_NUMERIC:
       return Value::Numeric(NumericValue::MinValue());
+    case TYPE_BIGNUMERIC:
+      return Value::BigNumeric(BigNumericValue::MinValue());
     case TYPE_FLOAT:
       return Value::Float(std::numeric_limits<float>::lowest());
     case TYPE_DOUBLE:

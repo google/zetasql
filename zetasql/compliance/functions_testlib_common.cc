@@ -267,13 +267,13 @@ CivilTimeTestCase::CivilTimeTestCase(
       required_features(required_features) {
   this->output_type = nullptr;
   if (micros_output.status().ok()) {
-    this->output_type = micros_output.ValueOrDie().type();
+    this->output_type = micros_output.value().type();
   }
   if (nanos_output.status().ok()) {
     if (this->output_type != nullptr) {
-      CHECK(this->output_type->Equals(nanos_output.ValueOrDie().type()));
+      CHECK(this->output_type->Equals(nanos_output.value().type()));
     } else {
-      this->output_type = nanos_output.ValueOrDie().type();
+      this->output_type = nanos_output.value().type();
     }
   }
   if (output_type != nullptr) {
@@ -293,12 +293,12 @@ CivilTimeTestCase::CivilTimeTestCase(
     absl::StrAppend(
         &test_info, "\nmicros_output: ",
         (micros_output.status().ok()
-             ? micros_output.ValueOrDie().DebugString()
+             ? micros_output.value().DebugString()
              : zetasql::internal::StatusToString(micros_output.status())));
     absl::StrAppend(
         &test_info, "\nnanos_output: ",
         (nanos_output.status().ok()
-             ? nanos_output.ValueOrDie().DebugString()
+             ? nanos_output.value().DebugString()
              : zetasql::internal::StatusToString(nanos_output.status())));
     absl::StrAppend(&test_info, "\noutput_type: ",
                     (output_type == nullptr ? "nullptr" :
@@ -316,13 +316,12 @@ CivilTimeTestCase::CivilTimeTestCase(
 QueryParamsWithResult WrapResultForCivilTimeAndNanos(
     const CivilTimeTestCase& test_case) {
   using Result = QueryParamsWithResult::Result;
-  const Result micros_result =
-      test_case.micros_output.status().ok()
-          ? Result(test_case.micros_output.ValueOrDie())
-          : Result(Value::Null(test_case.output_type),
-                   test_case.micros_output.status());
+  const Result micros_result = test_case.micros_output.status().ok()
+                                   ? Result(test_case.micros_output.value())
+                                   : Result(Value::Null(test_case.output_type),
+                                            test_case.micros_output.status());
   const Result nanos_result = test_case.nanos_output.status().ok()
-                                  ? Result(test_case.nanos_output.ValueOrDie())
+                                  ? Result(test_case.nanos_output.value())
                                   : Result(Value::Null(test_case.output_type),
                                            test_case.nanos_output.status());
 
@@ -352,6 +351,17 @@ QueryParamsWithResult WrapResultForNumeric(
   QueryParamsWithResult::ResultMap result_map;
   result_map.emplace(numeric_feature_set, QueryParamsWithResult::Result(
                                               result.result, result.status));
+  return QueryParamsWithResult(params, result_map);
+}
+
+QueryParamsWithResult WrapResultForBigNumeric(
+    const std::vector<ValueConstructor>& params,
+    const QueryParamsWithResult::Result& result) {
+  QueryParamsWithResult::FeatureSet bignumeric_feature_set;
+  bignumeric_feature_set.insert(FEATURE_BIGNUMERIC_TYPE);
+  QueryParamsWithResult::ResultMap result_map;
+  result_map.emplace(bignumeric_feature_set, QueryParamsWithResult::Result(
+                                                 result.result, result.status));
   return QueryParamsWithResult(params, result_map);
 }
 

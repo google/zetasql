@@ -18,10 +18,13 @@
 
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/public/types/simple_type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value_content.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/map_util.h"
+#include "zetasql/base/simple_reference_counted.h"
 
 namespace zetasql {
 
@@ -109,73 +112,6 @@ static_assert(ABSL_ARRAYSIZE(kTypeKindInfo) == TypeKind_ARRAYSIZE,
 static_assert(TypeKind_MIN == -1 && TypeKind_MAX == TypeKind_ARRAYSIZE -1,
               "TypeKind must go from -1 to ARRAYSIZE -1");
 
-static const std::map<std::string, TypeKind>& SimpleTypeKindMap() {
-  static auto result = new std::map<std::string, TypeKind>{
-      {"int32", zetasql::TYPE_INT32},
-      {"uint32", zetasql::TYPE_UINT32},
-      {"int64", zetasql::TYPE_INT64},
-      {"uint64", zetasql::TYPE_UINT64},
-      {"bool", zetasql::TYPE_BOOL},
-      {"boolean", zetasql::TYPE_BOOL},
-      {"float", zetasql::TYPE_FLOAT},
-      {"float32", zetasql::TYPE_FLOAT},
-      {"float64", zetasql::TYPE_DOUBLE},
-      {"double", zetasql::TYPE_DOUBLE},
-      {"bytes", zetasql::TYPE_BYTES},
-      {"string", zetasql::TYPE_STRING},
-      {"date", zetasql::TYPE_DATE},
-      {"timestamp", zetasql::TYPE_TIMESTAMP},
-      {"time", zetasql::TYPE_TIME},
-      {"datetime", zetasql::TYPE_DATETIME},
-      {"geography", zetasql::TYPE_GEOGRAPHY},
-      {"numeric", zetasql::TYPE_NUMERIC},
-      {"bignumeric", zetasql::TYPE_BIGNUMERIC},
-  };
-  return *result;
-}
-
-// See (broken link) for approved list of externally visible
-// types.
-static const std::map<std::string, TypeKind>& ExternalModeSimpleTypeKindMap() {
-  static auto result = new std::map<std::string, TypeKind>{
-      {"int64", zetasql::TYPE_INT64},
-      {"bool", zetasql::TYPE_BOOL},
-      {"boolean", zetasql::TYPE_BOOL},
-      {"float64", zetasql::TYPE_DOUBLE},
-      {"bytes", zetasql::TYPE_BYTES},
-      {"string", zetasql::TYPE_STRING},
-      {"date", zetasql::TYPE_DATE},
-      {"timestamp", zetasql::TYPE_TIMESTAMP},
-      {"time", zetasql::TYPE_TIME},
-      {"datetime", zetasql::TYPE_DATETIME},
-      {"geography", zetasql::TYPE_GEOGRAPHY},
-      {"numeric", zetasql::TYPE_NUMERIC},
-      {"bignumeric", zetasql::TYPE_BIGNUMERIC},
-  };
-  return *result;
-}
-
-namespace {
-static const std::set<TypeKind> ExternalModeSimpleTypeKinds() {
-  std::set<TypeKind> external_mode_simple_type_kinds;
-  for (const auto& external_simple_type : ExternalModeSimpleTypeKindMap()) {
-    // Note that kExternalModeSimpleTypeKindMap has duplicate TypeKinds, so
-    // we use InsertIfNotPresent() here.
-    zetasql_base::InsertIfNotPresent(&external_mode_simple_type_kinds,
-                            external_simple_type.second);
-  }
-  return external_mode_simple_type_kinds;
-}
-
-}  // namespace
-
-static const std::set<TypeKind>& GetExternalModeSimpleTypeKinds() {
-  // We populate this set once and use it ever after.
-  static const std::set<TypeKind>* kExternalModeSimpleTypeKinds =
-      new std::set<TypeKind>(ExternalModeSimpleTypeKinds());
-  return *kExternalModeSimpleTypeKinds;
-}
-
 Type::Type(const TypeFactory* factory, TypeKind kind)
     : type_factory_(factory), kind_(kind) {
 }
@@ -191,93 +127,23 @@ bool Type::IsSimpleType(TypeKind kind) {
   return false;
 }
 
-bool Type::IsSupportedSimpleType(
-    const LanguageOptions& language_options) const {
-  DCHECK(IsSimpleType(kind()));
-  const ProductMode mode = language_options.product_mode();
-  // Note that the IsSimpleType() call above guarantees that 'kind' is in
-  // range.
-  if (mode == ProductMode::PRODUCT_EXTERNAL) {
-    if (!zetasql_base::ContainsKey(GetExternalModeSimpleTypeKinds(), kind())) {
-      return false;
-    }
-  }
-  if (IsFeatureV12CivilTimeType() &&
-      !language_options.LanguageFeatureEnabled(FEATURE_V_1_2_CIVIL_TIME)) {
-    return false;
-  }
-  if (kind() == TYPE_GEOGRAPHY &&
-      !language_options.LanguageFeatureEnabled(FEATURE_GEOGRAPHY)) {
-    return false;
-  }
-  if (kind() == TYPE_NUMERIC &&
-      !language_options.LanguageFeatureEnabled(FEATURE_NUMERIC_TYPE)) {
-    return false;
-  }
-  if (kind() == TYPE_BIGNUMERIC &&
-      !language_options.LanguageFeatureEnabled(FEATURE_BIGNUMERIC_TYPE)) {
-    return false;
-  }
-  return true;
-}
-
 bool Type::IsSupportedSimpleTypeKind(TypeKind kind,
                                      const LanguageOptions& language_options) {
   DCHECK(IsSimpleType(kind));
   const zetasql::Type* type = types::TypeFromSimpleTypeKind(kind);
-  return type->IsSupportedSimpleType(language_options);
-}
-
-bool Type::IsSupportedType(const LanguageOptions& language_options) const {
-  if (IsSimpleType()) {
-    return IsSupportedSimpleType(language_options);
-  }
-  switch (kind()) {
-    case TYPE_PROTO:
-      return language_options.SupportsProtoTypes();
-    case TYPE_ENUM: {
-      // Enums are generally unsupported in EXTERNAL mode, except for the
-      // DateTimestampPart enum that is used in many of the date/time
-      // related functions.
-      if (language_options.product_mode() == ProductMode::PRODUCT_EXTERNAL &&
-          !Equivalent(types::DatePartEnumType()) &&
-          !Equivalent(types::NormalizeModeEnumType())) {
-        return false;
-      }
-      return true;
-    }
-    case TYPE_STRUCT: {
-      // A Struct is supported if all of its fields are supported.
-      for (const StructField& field : AsStruct()->fields()) {
-        if (!field.type->IsSupportedType(language_options)) {
-          return false;
-        }
-      }
-      return true;
-    }
-    case TYPE_ARRAY:
-      return AsArray()->element_type()->IsSupportedType(language_options);
-    default:
-      LOG(FATAL) << "Unexpected type: " << DebugString();
-  }
+  return type->IsSupportedType(language_options);
 }
 
 bool Type::IsSimpleTypeName(const std::string& type_name, ProductMode mode) {
-  if (mode == PRODUCT_EXTERNAL) {
-    return zetasql_base::ContainsKey(ExternalModeSimpleTypeKindMap(),
-                            absl::AsciiStrToLower(type_name));
-  }
-  return zetasql_base::ContainsKey(SimpleTypeKindMap(),
-                          absl::AsciiStrToLower(type_name));
+  TypeKind ignored;
+  return SimpleType::GetSimpleTypeKindByName(type_name, mode, &ignored);
 }
 
 TypeKind Type::SimpleTypeNameToTypeKindOrDie(const std::string& type_name,
                                              ProductMode mode) {
-  if (mode == PRODUCT_EXTERNAL) {
-    return zetasql_base::FindOrDie(ExternalModeSimpleTypeKindMap(),
-                          absl::AsciiStrToLower(type_name));
-  }
-  return zetasql_base::FindOrDie(SimpleTypeKindMap(), absl::AsciiStrToLower(type_name));
+  TypeKind result;
+  CHECK(SimpleType::GetSimpleTypeKindByName(type_name, mode, &result));
+  return result;
 }
 
 std::string Type::TypeKindToString(TypeKind kind, ProductMode mode) {
@@ -423,7 +289,7 @@ std::string Type::ShortTypeName(ProductMode mode) const {
 std::string Type::DebugString(bool details) const {
   std::string debug_string;
 
-  std::vector<absl::variant<const Type*, std::string>> stack;
+  TypeOrStringVector stack;
   stack.push_back(this);
   while (!stack.empty()) {
     const auto stack_entry = stack.back();
@@ -432,130 +298,10 @@ std::string Type::DebugString(bool details) const {
       absl::StrAppend(&debug_string, absl::get<std::string>(stack_entry));
       continue;
     }
-    const Type* type = absl::get<const Type*>(stack_entry);
-    switch (type->kind()) {
-      case TypeKind::TYPE_ARRAY:
-        absl::StrAppend(&debug_string, "ARRAY<");
-        stack.push_back(">");
-        stack.push_back(type->AsArray()->element_type());
-        break;
-      case TypeKind::TYPE_STRUCT: {
-        const StructType* struct_type = type->AsStruct();
-        absl::StrAppend(&debug_string, "STRUCT<");
-        stack.push_back(">");
-        for (int i = struct_type->num_fields() - 1; i >= 0; --i) {
-          const StructField& field = struct_type->field(i);
-          stack.push_back(field.type);
-          std::string prefix = (i > 0) ? ", " : "";
-          if (!field.name.empty()) {
-            absl::StrAppend(&prefix, ToIdentifierLiteral(field.name), " ");
-          }
-          stack.push_back(prefix);
-        }
-        break;
-      }
-      case TypeKind::TYPE_PROTO: {
-        const google::protobuf::Descriptor* descriptor = type->AsProto()->descriptor();
-        absl::StrAppend(&debug_string, "PROTO<", descriptor->full_name());
-        if (details) {
-          absl::StrAppend(&debug_string,
-                          ", file name: ", descriptor->file()->name(), ", <",
-                          descriptor->DebugString(), ">");
-        }
-        absl::StrAppend(&debug_string, ">");
-      } break;
-      case TypeKind::TYPE_ENUM: {
-        const google::protobuf::EnumDescriptor* enum_descriptor =
-            type->AsEnum()->enum_descriptor();
-        absl::StrAppend(&debug_string, "ENUM<", enum_descriptor->full_name());
-        if (details) {
-          absl::StrAppend(&debug_string,
-                          ", file name: ", enum_descriptor->file()->name(),
-                          ", <", enum_descriptor->DebugString(), ">");
-        }
-        absl::StrAppend(&debug_string, ">");
-        break;
-      }
-      default:
-        CHECK(type->IsSimpleType());
-        absl::StrAppend(&debug_string,
-                        TypeKindToString(type->kind(), PRODUCT_INTERNAL));
-        break;
-    }
+    absl::get<const Type*>(stack_entry)
+        ->DebugStringImpl(details, &stack, &debug_string);
   }
   return debug_string;
-}
-
-namespace {
-
-// Helper function that finds a field or a named extension with the given name.
-// Possible return values are HAS_FIELD if the field exists, HAS_PSEUDO_FIELD
-// if the named extension exists, or HAS_NO_FIELD if neither exists.
-Type::HasFieldResult HasProtoFieldOrNamedExtension(
-    const google::protobuf::Descriptor* descriptor, const std::string& name,
-    int* field_id) {
-  const google::protobuf::FieldDescriptor* field =
-      ProtoType::FindFieldByNameIgnoreCase(descriptor, name);
-  if (field != nullptr) {
-    *field_id = field->number();
-    return Type::HAS_FIELD;
-  }
-
-  return Type::HAS_NO_FIELD;
-}
-
-}  // namespace
-
-Type::HasFieldResult Type::HasField(const std::string& name, int* field_id,
-                                    bool include_pseudo_fields) const {
-  Type::HasFieldResult result = HAS_NO_FIELD;
-  constexpr int kNotFound = -1;
-  int found_idx = kNotFound;
-  if (this->IsStruct()) {
-    bool is_ambiguous;
-    const StructType::StructField* field =
-        this->AsStruct()->FindField(name, &is_ambiguous, &found_idx);
-    if (is_ambiguous) {
-      result = HAS_AMBIGUOUS_FIELD;
-    } else if (field != nullptr) {
-      result = HAS_FIELD;
-    }
-  } else if (this->IsProto()) {
-    const google::protobuf::Descriptor* descriptor = this->AsProto()->descriptor();
-    if (include_pseudo_fields) {
-      // Consider virtual fields in addition to physical fields, which means
-      // there may be ambiguity between a built-in field and a virtual field.
-      result = HasProtoFieldOrNamedExtension(descriptor, name, &found_idx);
-      if (absl::StartsWithIgnoreCase(name, "has_") &&
-          HasProtoFieldOrNamedExtension(descriptor, name.substr(4),
-                                        &found_idx) != HAS_NO_FIELD) {
-        result =
-            (result != HAS_NO_FIELD) ? HAS_AMBIGUOUS_FIELD : HAS_PSEUDO_FIELD;
-      }
-    } else {
-      // Look for physical field only, so the result is always unambiguous.
-      const google::protobuf::FieldDescriptor* field =
-          ProtoType::FindFieldByNameIgnoreCase(descriptor, name);
-      if (field != nullptr) {
-        found_idx = field->number();
-        result = Type::HAS_FIELD;
-      }
-    }
-  }
-  if (field_id != nullptr && found_idx != kNotFound) {
-    *field_id = found_idx;
-  }
-  return result;
-}
-
-bool Type::HasAnyFields() const {
-  if (this->IsStruct()) {
-    return this->AsStruct()->num_fields() != 0;
-  } else if (this->IsProto()) {
-    return this->AsProto()->descriptor()->field_count() != 0;
-  } else {
-    return false;
-  }
 }
 
 bool Type::SupportsGrouping(const LanguageOptions& language_options,
@@ -580,14 +326,10 @@ bool Type::SupportsGrouping(const LanguageOptions& language_options,
 
 bool Type::SupportsGroupingImpl(const LanguageOptions& language_options,
                                 const Type** no_grouping_type) const {
-  const bool supports_grouping =
-      !this->IsGeography() &&
-      !(this->IsFloatingPoint() && language_options.LanguageFeatureEnabled(
-                                       FEATURE_DISALLOW_GROUP_BY_FLOAT));
   if (no_grouping_type != nullptr) {
-    *no_grouping_type = supports_grouping ? nullptr : this;
+    *no_grouping_type = this;
   }
-  return supports_grouping;
+  return false;
 }
 
 bool Type::SupportsPartitioning(const LanguageOptions& language_options,
@@ -660,28 +402,8 @@ bool Type::SupportsEquality(
   return this->SupportsEquality();
 }
 
-bool Type::EqualsNonSimpleTypes(const Type* that, bool equivalent) const {
-  switch (kind()) {
-    case TYPE_ARRAY:
-      return ArrayType::EqualsImpl(static_cast<const ArrayType*>(this),
-                                   static_cast<const ArrayType*>(that),
-                                   equivalent);
-    case TYPE_STRUCT:
-      return StructType::EqualsImpl(static_cast<const StructType*>(this),
-                                    static_cast<const StructType*>(that),
-                                    equivalent);
-    case TYPE_ENUM:
-      return EnumType::EqualsImpl(static_cast<const EnumType*>(this),
-                                  static_cast<const EnumType*>(that),
-                                  equivalent);
-    case TYPE_PROTO:
-      return ProtoType::EqualsImpl(static_cast<const ProtoType*>(this),
-                                   static_cast<const ProtoType*>(that),
-                                   equivalent);
-    default:
-      break;
-  }
-  return false;
+void Type::CopyValueContent(const ValueContent& from, ValueContent* to) const {
+  *to = from;
 }
 
 bool TypeEquals::operator()(const Type* const type1,

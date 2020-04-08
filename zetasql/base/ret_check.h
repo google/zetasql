@@ -19,7 +19,7 @@
 
 // Macros for non-fatal assertions.  The `ZETASQL_RET_CHECK` family of macros
 // mirrors the `CHECK` family from "base/logging.h", but instead of aborting the
-// process on failure, these return a zetasql_base::Status with code
+// process on failure, these return a absl::Status with code
 // `zetasql::StatusCode::kInternal` from the current method.
 //
 //   ZETASQL_RET_CHECK(ptr != nullptr);
@@ -29,8 +29,8 @@
 //   error";
 //
 // The ZETASQL_RET_CHECK* macros can only be used in functions that return
-// zetasql_base::Status or zetasql_base::StatusOr.  The generated
-// `zetasql_base::Status` will contain the string "ZETASQL_RET_CHECK failure".
+// absl::Status or zetasql_base::StatusOr.  The generated
+// `absl::Status` will contain the string "ZETASQL_RET_CHECK failure".
 //
 // On failure these routines will log a stack trace to `ERROR`.  The
 // `ZETASQL_RET_CHECK` macros end with a `zetasql_base::StatusBuilder` in their
@@ -40,6 +40,7 @@
 
 #include <string>
 
+#include "absl/status/status.h"
 #include "zetasql/base/logging.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status.h"
@@ -54,7 +55,8 @@ StatusBuilder RetCheckFailSlowPath(SourceLocation location);
 StatusBuilder RetCheckFailSlowPath(SourceLocation location,
                                    const char* condition);
 StatusBuilder RetCheckFailSlowPath(SourceLocation location,
-                                   const char* condition, const Status& s);
+                                   const char* condition,
+                                   const absl::Status& s);
 
 // Takes ownership of `condition`.  This API is a little quirky because it is
 // designed to make use of the `::Check_*Impl` methods that implement `CHECK_*`
@@ -62,10 +64,11 @@ StatusBuilder RetCheckFailSlowPath(SourceLocation location,
 StatusBuilder RetCheckFailSlowPath(SourceLocation location,
                                    std::string* condition);
 
-inline StatusBuilder RetCheckImpl(const Status& status, const char* condition,
+inline StatusBuilder RetCheckImpl(const absl::Status& status,
+                                  const char* condition,
                                   SourceLocation location) {
   if (ABSL_PREDICT_TRUE(status.ok()))
-    return StatusBuilder(OkStatus(), location);
+    return StatusBuilder(absl::OkStatus(), location);
   return RetCheckFailSlowPath(location, condition, status);
 }
 
@@ -80,7 +83,7 @@ inline StatusBuilder RetCheckImpl(const Status& status, const char* condition,
 #define ZETASQL_RET_CHECK_FAIL() \
   return ::zetasql_base::internal_ret_check::RetCheckFailSlowPath(ZETASQL_LOC)
 
-// Takes an expression returning zetasql_base::Status and asserts that the
+// Takes an expression returning absl::Status and asserts that the
 // status is `ok()`.  If not, it returns an internal error.
 //
 // This is similar to `ZETASQL_RETURN_IF_ERROR` in that it propagates errors.
@@ -89,7 +92,7 @@ inline StatusBuilder RetCheckImpl(const Status& status, const char* condition,
 // filename and line number, and logging a stack trace.
 //
 // This is appropriate to use to write an assertion that a function that returns
-// `zetasql_base::Status` cannot fail, particularly when the error code itself
+// `absl::Status` cannot fail, particularly when the error code itself
 // should not be surfaced.
 #define ZETASQL_RET_CHECK_OK(status)                                        \
   ZETASQL_RETURN_IF_ERROR(::zetasql_base::internal_ret_check::RetCheckImpl( \

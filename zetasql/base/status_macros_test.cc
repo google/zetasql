@@ -34,26 +34,25 @@ using ::testing::AllOf;
 using ::testing::HasSubstr;
 using ::testing::Eq;
 
-zetasql_base::Status ReturnOk() { return zetasql_base::OkStatus(); }
+absl::Status ReturnOk() { return absl::OkStatus(); }
 
 zetasql_base::StatusBuilder ReturnOkBuilder() {
-  return zetasql_base::StatusBuilder(zetasql_base::OkStatus(), ZETASQL_LOC);
+  return zetasql_base::StatusBuilder(absl::OkStatus(), ZETASQL_LOC);
 }
 
-zetasql_base::Status ReturnError(absl::string_view msg) {
-  return zetasql_base::Status(zetasql_base::StatusCode::kUnknown, msg);
+absl::Status ReturnError(absl::string_view msg) {
+  return absl::Status(absl::StatusCode::kUnknown, msg);
 }
 
 zetasql_base::StatusBuilder ReturnErrorBuilder(absl::string_view msg) {
   return zetasql_base::StatusBuilder(
-      zetasql_base::Status(zetasql_base::StatusCode::kUnknown, msg),
-      ZETASQL_LOC);
+      absl::Status(absl::StatusCode::kUnknown, msg), ZETASQL_LOC);
 }
 
 zetasql_base::StatusOr<int> ReturnStatusOrValue(int v) { return v; }
 
 zetasql_base::StatusOr<int> ReturnStatusOrError(absl::string_view msg) {
-  return zetasql_base::Status(zetasql_base::StatusCode::kUnknown, msg);
+  return absl::Status(absl::StatusCode::kUnknown, msg);
 }
 
 zetasql_base::StatusOr<std::unique_ptr<int>> ReturnStatusOrPtrValue(int v) {
@@ -61,7 +60,7 @@ zetasql_base::StatusOr<std::unique_ptr<int>> ReturnStatusOrPtrValue(int v) {
 }
 
 TEST(AssignOrReturn, Works) {
-  auto func = []() -> zetasql_base::Status {
+  auto func = []() -> absl::Status {
     ZETASQL_ASSIGN_OR_RETURN(int value1, ReturnStatusOrValue(1));
     EXPECT_EQ(1, value1);
     ZETASQL_ASSIGN_OR_RETURN(const int value2, ReturnStatusOrValue(2));
@@ -81,7 +80,7 @@ TEST(AssignOrReturn, WorksWithAppend) {
     ADD_FAILURE();
     return "FAILURE";
   };
-  auto func = [&]() -> zetasql_base::Status {
+  auto func = [&]() -> absl::Status {
     ABSL_ATTRIBUTE_UNUSED int value;
     ZETASQL_ASSIGN_OR_RETURN(value, ReturnStatusOrValue(1),
                              _ << fail_test_if_called());
@@ -102,7 +101,7 @@ TEST(AssignOrReturn, WorksWithAdaptorFunc) {
   auto adaptor = [](zetasql_base::StatusBuilder builder) {
     return builder << "EXPECTED B";
   };
-  auto func = [&]() -> zetasql_base::Status {
+  auto func = [&]() -> absl::Status {
     ABSL_ATTRIBUTE_UNUSED int value;
     ZETASQL_ASSIGN_OR_RETURN(value, ReturnStatusOrValue(1),
                              fail_test_if_called(_));
@@ -116,7 +115,7 @@ TEST(AssignOrReturn, WorksWithAdaptorFunc) {
 }
 
 TEST(AssignOrReturn, WorksWithAppendIncludingLocals) {
-  auto func = [&](const std::string& str) -> zetasql_base::Status {
+  auto func = [&](const std::string& str) -> absl::Status {
     ABSL_ATTRIBUTE_UNUSED int value;
     ZETASQL_ASSIGN_OR_RETURN(value, ReturnStatusOrError("EXPECTED A"),
                              _ << str);
@@ -128,7 +127,7 @@ TEST(AssignOrReturn, WorksWithAppendIncludingLocals) {
 }
 
 TEST(AssignOrReturn, WorksForExistingVariable) {
-  auto func = []() -> zetasql_base::Status {
+  auto func = []() -> absl::Status {
     int value = 1;
     ZETASQL_ASSIGN_OR_RETURN(value, ReturnStatusOrValue(2));
     EXPECT_EQ(2, value);
@@ -142,7 +141,7 @@ TEST(AssignOrReturn, WorksForExistingVariable) {
 }
 
 TEST(AssignOrReturn, UniquePtrWorks) {
-  auto func = []() -> zetasql_base::Status {
+  auto func = []() -> absl::Status {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<int> ptr,
                              ReturnStatusOrPtrValue(1));
     EXPECT_EQ(*ptr, 1);
@@ -153,7 +152,7 @@ TEST(AssignOrReturn, UniquePtrWorks) {
 }
 
 TEST(AssignOrReturn, UniquePtrWorksForExistingVariable) {
-  auto func = []() -> zetasql_base::Status {
+  auto func = []() -> absl::Status {
     std::unique_ptr<int> ptr;
     ZETASQL_ASSIGN_OR_RETURN(ptr, ReturnStatusOrPtrValue(1));
     EXPECT_EQ(*ptr, 1);
@@ -167,7 +166,7 @@ TEST(AssignOrReturn, UniquePtrWorksForExistingVariable) {
 }
 
 TEST(ReturnIfError, Works) {
-  auto func = []() -> zetasql_base::Status {
+  auto func = []() -> absl::Status {
     ZETASQL_RETURN_IF_ERROR(ReturnOk());
     ZETASQL_RETURN_IF_ERROR(ReturnOk());
     ZETASQL_RETURN_IF_ERROR(ReturnError("EXPECTED"));
@@ -178,7 +177,7 @@ TEST(ReturnIfError, Works) {
 }
 
 TEST(ReturnIfError, WorksWithBuilder) {
-  auto func = []() -> zetasql_base::Status {
+  auto func = []() -> absl::Status {
     ZETASQL_RETURN_IF_ERROR(ReturnOkBuilder());
     ZETASQL_RETURN_IF_ERROR(ReturnOkBuilder());
     ZETASQL_RETURN_IF_ERROR(ReturnErrorBuilder("EXPECTED"));
@@ -189,7 +188,7 @@ TEST(ReturnIfError, WorksWithBuilder) {
 }
 
 TEST(ReturnIfError, WorksWithLambda) {
-  auto func = []() -> zetasql_base::Status {
+  auto func = []() -> absl::Status {
     ZETASQL_RETURN_IF_ERROR([] { return ReturnOk(); }());
     ZETASQL_RETURN_IF_ERROR([] { return ReturnError("EXPECTED"); }());
     return ReturnError("ERROR");
@@ -203,10 +202,10 @@ TEST(ReturnIfError, WorksWithAppend) {
     ADD_FAILURE();
     return "FAILURE";
   };
-  auto func = [&]() -> zetasql_base::Status {
+  auto func = [&]() -> absl::Status {
     ZETASQL_RETURN_IF_ERROR(ReturnOk()) << fail_test_if_called();
     ZETASQL_RETURN_IF_ERROR(ReturnError("EXPECTED A")) << "EXPECTED B";
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   };
 
   EXPECT_THAT(func().message(),

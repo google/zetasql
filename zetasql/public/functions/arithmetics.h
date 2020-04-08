@@ -448,7 +448,7 @@ inline bool Add(NumericValue in1, NumericValue in2, NumericValue* out,
                 absl::Status* error) {
   zetasql_base::StatusOr<NumericValue> numeric_status = in1.Add(in2);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
-    *out = numeric_status.ValueOrDie();
+    *out = numeric_status.value();
     return true;
   }
   if (error != nullptr) {
@@ -462,7 +462,7 @@ inline bool Subtract(NumericValue in1, NumericValue in2, NumericValue* out,
                      absl::Status* error) {
   zetasql_base::StatusOr<NumericValue> numeric_status = in1.Subtract(in2);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
-    *out = numeric_status.ValueOrDie();
+    *out = numeric_status.value();
     return true;
   }
   if (error != nullptr) {
@@ -476,7 +476,7 @@ inline bool Multiply(NumericValue in1, NumericValue in2, NumericValue* out,
                      absl::Status* error) {
   zetasql_base::StatusOr<NumericValue> numeric_status = in1.Multiply(in2);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
-    *out = numeric_status.ValueOrDie();
+    *out = numeric_status.value();
     return true;
   }
   if (error != nullptr) {
@@ -490,7 +490,7 @@ inline bool Divide(NumericValue in1, NumericValue in2, NumericValue* out,
                    absl::Status* error) {
   zetasql_base::StatusOr<NumericValue> numeric_status = in1.Divide(in2);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
-    *out = numeric_status.ValueOrDie();
+    *out = numeric_status.value();
     return true;
   }
   if (error != nullptr) {
@@ -511,7 +511,7 @@ inline bool Modulo(NumericValue in1, NumericValue in2,
                    NumericValue *out, absl::Status* error) {
   zetasql_base::StatusOr<NumericValue> numeric_status = in1.Mod(in2);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
-    *out = numeric_status.ValueOrDie();
+    *out = numeric_status.value();
     return true;
   }
   if (error != nullptr) {
@@ -524,7 +524,7 @@ inline bool IntegerDivide(NumericValue in1, NumericValue in2,
                           NumericValue* out, absl::Status* error) {
   zetasql_base::StatusOr<NumericValue> numeric_status = in1.IntegerDivide(in2);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
-    *out = numeric_status.ValueOrDie();
+    *out = numeric_status.value();
     return true;
   }
   if (error != nullptr) {

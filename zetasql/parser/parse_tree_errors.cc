@@ -104,7 +104,7 @@ absl::Status WrapNestedErrorStatus(const ASTNode* ast_location,
                                    const absl::Status& input_status,
                                    ErrorMessageMode error_source_mode) {
   zetasql_base::StatusBuilder error_status_builder =
-      zetasql_base::IsInternal(input_status) ? zetasql_base::StatusBuilder(input_status)
+      absl::IsInternal(input_status) ? zetasql_base::StatusBuilder(input_status)
                                      : MakeSqlError();
   return error_status_builder.Attach(
              SetErrorSourcesFromStatus(MakeInternalErrorLocation(ast_location),

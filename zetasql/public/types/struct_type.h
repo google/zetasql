@@ -60,6 +60,9 @@ class StructType : public Type {
   const StructField* FindField(absl::string_view name, bool* is_ambiguous,
                                int* found_idx = nullptr) const;
 
+  // Check if structure has some fields.
+  bool HasAnyFields() const override;
+
   // Helper functions for determining Equals() or Equivalent() for struct
   // types. For structs, Equals() means that the fields have the same name
   // and Equals() types.  Struct Equivalent() means that the fields have
@@ -86,12 +89,19 @@ class StructType : public Type {
 
   int nesting_depth() const override { return nesting_depth_; }
 
+  bool IsSupportedType(const LanguageOptions& language_options) const override;
+
  protected:
   // Return estimated size of memory owned by this type. Owned memory includes
   // field names, but not the memory associated with field types (which are
   // owned by some TypeFactory).
   int64_t GetEstimatedOwnedMemoryBytesSize() const override
       ABSL_NO_THREAD_SAFETY_ANALYSIS;
+
+  void InitializeValueContent(ValueContent* value) const override;
+  void CopyValueContent(const ValueContent& from,
+                        ValueContent* to) const override;
+  void ClearValueContent(const ValueContent& value) const override;
 
  private:
   // Caller must enforce that <nesting_depth> is accurate. No verification is
@@ -116,6 +126,14 @@ class StructType : public Type {
       int field_limit,
       const std::function<std::string(const zetasql::Type*)>& field_debug_fn)
       const;
+
+  bool EqualsForSameKind(const Type* that, bool equivalent) const override;
+
+  void DebugStringImpl(bool details, TypeOrStringVector* stack,
+                       std::string* debug_string) const override;
+
+  HasFieldResult HasFieldImpl(const std::string& name, int* field_id,
+                              bool include_pseudo_fields) const override;
 
   const std::vector<StructField> fields_;
 

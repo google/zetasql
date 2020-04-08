@@ -39,8 +39,7 @@ TEST(ToPayload, Works) {
 //
 // Note: most code should not validate Status values this way.  Use
 // cs/testing/base/public/gmock_utils/status-matchers.h instead.
-static void CheckStatus(const zetasql_base::Status& s,
-                        const zetasql_base::StatusCode code,
+static void CheckStatus(const absl::Status& s, const absl::StatusCode code,
                         const std::string& message,
                         const std::string& payload_type,
                         const std::string& payload_msg) {
@@ -49,7 +48,7 @@ static void CheckStatus(const zetasql_base::Status& s,
   EXPECT_EQ(code, s.code());
   EXPECT_EQ(message, s.message());
 
-  if (code == StatusCode::kOk) {
+  if (code == absl::StatusCode::kOk) {
     EXPECT_TRUE(s.ok());
     EXPECT_EQ("OK", s.ToString());
   } else {
@@ -70,8 +69,8 @@ static void CheckStatus(const zetasql_base::Status& s,
   }
 }
 
-static void CheckStatus(const zetasql_base::Status& s,
-                        const zetasql_base::StatusCode error_code,
+static void CheckStatus(const absl::Status& s,
+                        const absl::StatusCode error_code,
                         const std::string& message) {
   return CheckStatus(s, error_code, message, "", "");
 }
@@ -79,99 +78,102 @@ static void CheckStatus(const zetasql_base::Status& s,
 }  // namespace
 
 TEST(Status, ConstructDefault) {
-  Status status;
-  CheckStatus(status, StatusCode::kOk, "");
+  absl::Status status;
+  CheckStatus(status, absl::StatusCode::kOk, "");
 }
 
-TEST(Status, OkStatus) { CheckStatus(OkStatus(), StatusCode::kOk, ""); }
+TEST(Status, OkStatus) {
+  CheckStatus(absl::OkStatus(), absl::StatusCode::kOk, "");
+}
 
 // Test that the many ways of passing an error code of zero always
 // produces an OK status.
 TEST(Status, ConstructWithOk) {
-  EXPECT_EQ(Status(), OkStatus());
+  EXPECT_EQ(absl::Status(), absl::OkStatus());
 
-  EXPECT_EQ(Status(StatusCode::kOk, "ignored"), OkStatus());
+  EXPECT_EQ(absl::Status(absl::StatusCode::kOk, "ignored"), absl::OkStatus());
 }
 
 // Test equivalence across the various ways of constructing a Status
 // with no message and no payload in the canonical space.  The current
 // implementation represents these values differently from others.
 TEST(Status, ConstructNoMessage) {
-  const Status cancelled(StatusCode::kCancelled, "");
-  CheckStatus(cancelled, StatusCode::kCancelled, "");
+  const absl::Status cancelled(absl::StatusCode::kCancelled, "");
+  CheckStatus(cancelled, absl::StatusCode::kCancelled, "");
 
-  EXPECT_EQ(cancelled, Status(StatusCode::kCancelled, ""));
+  EXPECT_EQ(cancelled, absl::Status(absl::StatusCode::kCancelled, ""));
 }
 
 // Test equivalence across the various ways of constructing a Status
 // with a message, no payload.
 TEST(Status, ConstructWithMessage) {
-  const Status cancelled(StatusCode::kCancelled, "message");
-  CheckStatus(cancelled, StatusCode::kCancelled, "message");
+  const absl::Status cancelled(absl::StatusCode::kCancelled, "message");
+  CheckStatus(cancelled, absl::StatusCode::kCancelled, "message");
 
-  EXPECT_NE(cancelled, Status(StatusCode::kCancelled, ""));
+  EXPECT_NE(cancelled, absl::Status(absl::StatusCode::kCancelled, ""));
 }
 
 TEST(Status, EqualsSame) {
-  const Status a = Status(StatusCode::kCancelled, "message");
-  const Status b = Status(StatusCode::kCancelled, "message");
+  const absl::Status a = absl::Status(absl::StatusCode::kCancelled, "message");
+  const absl::Status b = absl::Status(absl::StatusCode::kCancelled, "message");
   ASSERT_EQ(a, b);
 }
 
 TEST(Status, EqualsCopy) {
-  const Status a = Status(StatusCode::kCancelled, "message");
-  const Status b = a;
+  const absl::Status a = absl::Status(absl::StatusCode::kCancelled, "message");
+  const absl::Status b = a;
   ASSERT_EQ(a, b);
 }
 
 TEST(Status, EqualsDifferentCode) {
-  const Status a = Status(StatusCode::kCancelled, "message");
-  const Status b = Status(StatusCode::kInvalidArgument, "message");
+  const absl::Status a = absl::Status(absl::StatusCode::kCancelled, "message");
+  const absl::Status b =
+      absl::Status(absl::StatusCode::kInvalidArgument, "message");
   ASSERT_NE(a, b);
 }
 
 TEST(Status, EqualsDifferentMessage) {
-  const Status a = Status(StatusCode::kCancelled, "message");
-  const Status b = Status(StatusCode::kCancelled, "another");
+  const absl::Status a = absl::Status(absl::StatusCode::kCancelled, "message");
+  const absl::Status b = absl::Status(absl::StatusCode::kCancelled, "another");
   ASSERT_NE(a, b);
 }
 
 TEST(Status, SetToOkNoOp) {
-  Status a;
+  absl::Status a;
   a.SetPayload("type_a", ToPayload("msg"));
-  ASSERT_EQ(a, OkStatus());
+  ASSERT_EQ(a, absl::OkStatus());
 }
 
 TEST(Status, NotEqualsPayload) {
-  Status a = Status(StatusCode::kCancelled, "msg");
+  absl::Status a = absl::Status(absl::StatusCode::kCancelled, "msg");
   a.SetPayload("type_a", ToPayload(""));
 
-  Status b = Status(StatusCode::kCancelled, "msg");
+  absl::Status b = absl::Status(absl::StatusCode::kCancelled, "msg");
   ASSERT_NE(a, b);
 }
 
 TEST(Status, EqualsPayloadMismatch) {
-  Status a = Status(StatusCode::kCancelled, "msg");
+  absl::Status a = absl::Status(absl::StatusCode::kCancelled, "msg");
   a.SetPayload("type_a", ToPayload("foo"));
-  Status b = Status(StatusCode::kCancelled, "msg");
+  absl::Status b = absl::Status(absl::StatusCode::kCancelled, "msg");
   b.SetPayload("type_a", ToPayload("bar"));
 
   ASSERT_NE(a, b);
 }
 
 TEST(Status, EqualsPayloadMismatchType) {
-  Status a = Status(StatusCode::kCancelled, "msg");
+  absl::Status a = absl::Status(absl::StatusCode::kCancelled, "msg");
   a.SetPayload("type_a", ToPayload("foo"));
-  Status b = Status(StatusCode::kCancelled, "msg");
+  absl::Status b = absl::Status(absl::StatusCode::kCancelled, "msg");
   b.SetPayload("type_b", ToPayload("bar"));
 
   ASSERT_NE(a, b);
 }
 
 TEST(Status, SetOverwrites) {
-  Status a = Status(StatusCode::kCancelled, "msg");
+  absl::Status a = absl::Status(absl::StatusCode::kCancelled, "msg");
   a.SetPayload("type_a", ToPayload("foo"));
-  Status b = Status(StatusCode::kCancelled, "msg");
+  absl::Status b = absl::Status(absl::StatusCode::kCancelled, "msg");
   b.SetPayload("type_a", ToPayload("bar"));
   ASSERT_NE(a, b);
 
@@ -180,24 +182,25 @@ TEST(Status, SetOverwrites) {
 }
 
 TEST(Status, EraseOnEmptyIsNoOp) {
-  Status a = Status(StatusCode::kCancelled, "msg");
+  absl::Status a = absl::Status(absl::StatusCode::kCancelled, "msg");
   a.ErasePayload("type_a");
-  ASSERT_EQ(a, Status(StatusCode::kCancelled, "msg"));
+  ASSERT_EQ(a, absl::Status(absl::StatusCode::kCancelled, "msg"));
 }
 
 TEST(Status, EraseWorks) {
-  Status a = Status(StatusCode::kCancelled, "msg");
+  absl::Status a = absl::Status(absl::StatusCode::kCancelled, "msg");
   a.SetPayload("type_a", ToPayload("foo"));
   a.SetPayload("type_b", ToPayload("bar"));
   a.ErasePayload("type_a");
 
   EXPECT_FALSE(a.GetPayload("type_a").has_value());
-  Status expected = Status(StatusCode::kCancelled, "msg");
+  absl::Status expected = absl::Status(absl::StatusCode::kCancelled, "msg");
   expected.SetPayload("type_b", ToPayload("bar"));
   ASSERT_EQ(a, expected);
 }
 
-void VisitAndAssertEquals(const Status& status, absl::string_view find_type_url,
+void VisitAndAssertEquals(const absl::Status& status,
+                          absl::string_view find_type_url,
                           const absl::optional<absl::Cord>& expected) {
   bool already_seen = false;
   status.ForEachPayload([&already_seen, find_type_url, expected](
@@ -213,12 +216,12 @@ void VisitAndAssertEquals(const Status& status, absl::string_view find_type_url,
 }
 
 TEST(Status, ForEachPayloadEmptyPayload) {
-  Status a = Status(StatusCode::kCancelled, "msg");
+  absl::Status a = absl::Status(absl::StatusCode::kCancelled, "msg");
   VisitAndAssertEquals(a, "type_a", absl::nullopt);
 }
 
 TEST(Status, ForEachPayload_Multiple) {
-  Status a = Status(StatusCode::kCancelled, "msg");
+  absl::Status a = absl::Status(absl::StatusCode::kCancelled, "msg");
   a.SetPayload("type_a", ToPayload("bar"));
   a.SetPayload("type_b", ToPayload("foo"));
   VisitAndAssertEquals(a, "type_a", absl::Cord("bar"));

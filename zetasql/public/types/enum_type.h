@@ -70,10 +70,14 @@ class EnumType : public Type {
   ABSL_MUST_USE_RESULT bool FindNumber(const std::string& name,
                                        int* number) const;
 
+  bool IsSupportedType(const LanguageOptions& language_options) const override;
+
  protected:
   int64_t GetEstimatedOwnedMemoryBytesSize() const override {
     return sizeof(*this);
   }
+
+  void InitializeValueContent(ValueContent* value) const override;
 
  private:
   // Does not take ownership of <factory> or <enum_descr>.  The
@@ -104,6 +108,11 @@ class EnumType : public Type {
       TypeProto* type_proto,
       absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
       FileDescriptorSetMap* file_descriptor_set_map) const override;
+
+  bool EqualsForSameKind(const Type* that, bool equivalent) const override;
+
+  void DebugStringImpl(bool details, TypeOrStringVector* stack,
+                       std::string* debug_string) const override;
 
   const google::protobuf::EnumDescriptor* enum_descriptor_;  // Not owned.
 

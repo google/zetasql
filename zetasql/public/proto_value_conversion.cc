@@ -149,6 +149,7 @@ static absl::Status CheckFieldFormat(const Value& value,
     case TYPE_DATETIME:
     case TYPE_GEOGRAPHY:
     case TYPE_NUMERIC:
+    case TYPE_BIGNUMERIC:
       break;
 
     default:
@@ -441,6 +442,17 @@ absl::Status MergeValueToProtoField(const Value& value,
       }
       return absl::OkStatus();
     }
+    case TYPE_BIGNUMERIC: {
+      ZETASQL_RET_CHECK_EQ(field->type(), google::protobuf::FieldDescriptor::TYPE_BYTES);
+      const std::string serialized_value =
+          value.bignumeric_value().SerializeAsProtoBytes();
+      if (field->is_repeated()) {
+        reflection->AddString(proto_out, field, serialized_value);
+      } else {
+        reflection->SetString(proto_out, field, serialized_value);
+      }
+      return absl::OkStatus();
+    }
     default:
       ZETASQL_RET_CHECK_FAIL() << "Found Value with unsupported type: "
                        << value.FullDebugString();
@@ -495,7 +507,7 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
       ProtoType::GetFormatAnnotation(field);
   if (!type->IsDate() && !type->IsTimestamp() && !type->IsArray() &&
       !type->IsTime() && !type->IsDatetime() && !type->IsGeography() &&
-      type->kind() != TYPE_NUMERIC) {
+      !type->IsNumericType() && !type->IsBigNumericType()) {
     ZETASQL_RET_CHECK_EQ(FieldFormat::DEFAULT_FORMAT, field_format)
         << "Format " << FieldFormat::Format_Name(field_format)
         << " not supported for zetasql type " << type->DebugString();
@@ -752,7 +764,7 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
           << field->DebugString();
       ZETASQL_RET_CHECK(field_format == FieldFormat::DEFAULT_FORMAT ||
                 field_format == FieldFormat::DATETIME_MICROS)
-          << field_format;
+          << FieldFormat::Format_Name(field_format);
       const int64_t encoded_datetime =
           field->is_repeated()
               ? reflection->GetRepeatedInt64(proto, field, index)
@@ -772,7 +784,7 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
           << field->DebugString();
       ZETASQL_RET_CHECK(field_format == FieldFormat::DEFAULT_FORMAT ||
                 field_format == FieldFormat::TIME_MICROS)
-          << field_format;
+          << FieldFormat::Format_Name(field_format);
       const int64_t encoded_time =
           field->is_repeated()
               ? reflection->GetRepeatedInt64(proto, field, index)
@@ -797,6 +809,21 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
           NumericValue numeric_value,
           NumericValue::DeserializeFromProtoBytes(value));
       *value_out = Value::Numeric(numeric_value);
+      return absl::OkStatus();
+    }
+    case TypeKind::TYPE_BIGNUMERIC: {
+      ZETASQL_RET_CHECK_EQ(google::protobuf::FieldDescriptor::CPPTYPE_STRING, field->cpp_type())
+          << field->DebugString();
+      ZETASQL_RET_CHECK_EQ(FieldFormat::BIGNUMERIC, field_format)
+          << FieldFormat::Format_Name(field_format);
+      std::string value =
+          field->is_repeated() ?
+          reflection->GetRepeatedString(proto, field, index) :
+          reflection->GetString(proto, field);
+      ZETASQL_ASSIGN_OR_RETURN(
+          BigNumericValue bignumeric_value,
+          BigNumericValue::DeserializeFromProtoBytes(value));
+      *value_out = Value::BigNumeric(bignumeric_value);
       return absl::OkStatus();
     }
     default:

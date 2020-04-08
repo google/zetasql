@@ -952,10 +952,6 @@ zetasql_base::StatusOr<NumericValue> NumericValue::SumAggregator::GetAverage(
   return MakeEvalError() << "numeric overflow: AVG";
 }
 
-void NumericValue::SumAggregator::MergeWith(const SumAggregator& other) {
-  sum_ += other.sum_;
-}
-
 std::string NumericValue::SumAggregator::SerializeAsProtoBytes() const {
   std::string str;
   sum_.SerializeToBytes(&str);
@@ -1353,7 +1349,7 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::DeserializeFromProtoByt
   if (out.value_.DeserializeFromBytes(bytes)) {
     return out;
   }
-  return MakeEvalError() << "Invalid BigNumericValue encoding";
+  return MakeEvalError() << "Invalid BigNumeric encoding";
 }
 
 std::ostream& operator<<(std::ostream& out, const BigNumericValue& value) {
@@ -1367,6 +1363,40 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::SumAggregator::GetSum()
     return BigNumericValue(sum_trunc);
   }
   return MakeEvalError() << "BigNumeric overflow: SUM";
+}
+
+zetasql_base::StatusOr<BigNumericValue> BigNumericValue::SumAggregator::GetAverage(
+    uint64_t count) const {
+  if (count == 0) {
+    return MakeEvalError() << "division by zero: AVG";
+  }
+
+  FixedInt<64, 5> dividend = sum_;
+  dividend.DivAndRoundAwayFromZero(count);
+  if (ABSL_PREDICT_TRUE(dividend.number()[4] ==
+                        static_cast<uint64_t>(
+                            static_cast<int64_t>(dividend.number()[3]) >> 63))) {
+    FixedInt<64, 4> dividend_trunc(dividend);
+    return BigNumericValue(dividend_trunc);
+  }
+
+  return MakeEvalError() << "BigNumeric overflow: AVG";
+}
+
+std::string BigNumericValue::SumAggregator::SerializeAsProtoBytes() const {
+  std::string str;
+  sum_.SerializeToBytes(&str);
+  return str;
+}
+
+zetasql_base::StatusOr<BigNumericValue::SumAggregator>
+BigNumericValue::SumAggregator::DeserializeFromProtoBytes(
+    absl::string_view bytes) {
+  BigNumericValue::SumAggregator out;
+  if (out.sum_.DeserializeFromBytes(bytes)) {
+    return out;
+  }
+  return MakeEvalError() << "Invalid BigNumericValue::SumAggregator encoding";
 }
 
 }  // namespace zetasql

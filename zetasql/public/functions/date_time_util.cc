@@ -2822,7 +2822,7 @@ absl::Status ConvertProto3TimestampToTimestamp(
     return MakeEvalError() << "Invalid Proto3 Timestamp input: "
                            << input_timestamp.DebugString();
   }
-  *output = result_or.ValueOrDie();
+  *output = result_or.value();
   // DecodeGoogleApiProto enforces the same valid timestamp range as ZetaSQL.
   // This check is meant to give us protection in case the contract of
   // DecodeGoogleApiProto changes in the future.

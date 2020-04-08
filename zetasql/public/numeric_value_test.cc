@@ -845,6 +845,35 @@ void TestBinaryOp(Op& op, const Input1& input_wrapper1,
   }
 }
 
+template <typename NumericType, typename ValueWrapper, int kNumInputs>
+void TestSumAggregatorMergeWith(const ValueWrapper (&test_data)[kNumInputs]) {
+  using SumAggregator = typename NumericType::SumAggregator;
+  // aggregators[j][k] is the sum of the inputs with indexes in [j, k).
+  SumAggregator aggregators[kNumInputs + 1][kNumInputs + 1];
+  for (int i = 0; i < kNumInputs; ++i) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericType input, GetValue(test_data[i].input));
+    // Emit the i-th input to aggregators[j][k] iff j <= i < k.
+    for (int j = 0; j <= i; ++j) {
+      for (int k = i + 1; k <= kNumInputs; ++k) {
+        aggregators[j][k].Add(input);
+      }
+    }
+  }
+  for (int j = 0; j < kNumInputs; ++j) {
+    for (int k = j; k <= kNumInputs; ++k) {
+      for (int m = k; m <= kNumInputs; ++m) {
+        // Verify aggregators[j][k] + aggregators[k][m] = aggregators[j][m].
+        SumAggregator aggregator = aggregators[j][k];
+        aggregator.MergeWith(aggregators[k][m]);
+        EXPECT_EQ(aggregators[j][m], aggregator) << j << ", " << k << ", " << m;
+        aggregator = aggregators[k][m];
+        aggregator.MergeWith(aggregators[j][k]);
+        EXPECT_EQ(aggregators[j][m], aggregator) << j << ", " << k << ", " << m;
+      }
+    }
+  }
+}
+
 TEST_F(NumericValueTest, Add) {
   static constexpr NumericBinaryOpTestData<> kTestData[] = {
       // The result is too large to fit into int128.
@@ -1648,9 +1677,8 @@ TEST_F(NumericValueTest, Power_PowersOfTwo) {
   }
 }
 
-template <typename T>
-void AddValuesToAggregator(T* aggregator,
-                           const std::vector<NumericValue>& values) {
+template <typename T, typename V>
+void AddValuesToAggregator(T* aggregator, const std::vector<V>& values) {
   for (auto value : values) {
     aggregator->Add(value);
   }
@@ -1773,32 +1801,7 @@ TEST(NumericSumAggregatorTest, Avg) {
 }
 
 TEST(NumericSumAggregatorTest, MergeWith) {
-  constexpr int kNumInputs = ABSL_ARRAYSIZE(kSumAggregatorTestData);
-  // aggregators[j][k] is the sum of the inputs with indexes in [j, k).
-  NumericValue::SumAggregator aggregators[kNumInputs + 1][kNumInputs + 1];
-  for (int i = 0; i < kNumInputs; ++i) {
-    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue input,
-                         GetValue(kSumAggregatorTestData[i].input));
-    // Emit the i-th input to aggregators[j][k] iff j <= i < k.
-    for (int j = 0; j <= i; ++j) {
-      for (int k = i + 1; k <= kNumInputs; ++k) {
-        aggregators[j][k].Add(input);
-      }
-    }
-  }
-  for (int j = 0; j < kNumInputs; ++j) {
-    for (int k = j; k <= kNumInputs; ++k) {
-      for (int m = k; m <= kNumInputs; ++m) {
-        // Verify aggregators[j][k] + aggregators[k][m] = aggregators[j][m].
-        NumericValue::SumAggregator aggregator = aggregators[j][k];
-        aggregator.MergeWith(aggregators[k][m]);
-        EXPECT_EQ(aggregators[j][m], aggregator) << j << ", " << k << ", " << m;
-        aggregator = aggregators[k][m];
-        aggregator.MergeWith(aggregators[j][k]);
-        EXPECT_EQ(aggregators[j][m], aggregator) << j << ", " << k << ", " << m;
-      }
-    }
-  }
+  TestSumAggregatorMergeWith<NumericValue>(kSumAggregatorTestData);
 }
 
 TYPED_TEST(AggregatorSerializationByTypeTest, AggregatorSerialization) {
@@ -3573,9 +3576,13 @@ TEST_F(BigNumericValueTest, SerializeDeserializeProtoBytes) {
 }
 
 TEST_F(BigNumericValueTest, SerializeDeserializeInvalidProtoBytes) {
-  EXPECT_FALSE(BigNumericValue::DeserializeFromProtoBytes("").ok());
+  EXPECT_THAT(
+      BigNumericValue::DeserializeFromProtoBytes(""),
+      StatusIs(absl::StatusCode::kOutOfRange, "Invalid BigNumeric encoding"));
   std::string bad_string(sizeof(BigNumericValue) + 1, '\x1');
-  EXPECT_FALSE(BigNumericValue::DeserializeFromProtoBytes(bad_string).ok());
+  EXPECT_THAT(
+      BigNumericValue::DeserializeFromProtoBytes(bad_string),
+      StatusIs(absl::StatusCode::kOutOfRange, "Invalid BigNumeric encoding"));
 }
 
 TEST_F(BigNumericValueTest, ToInt32) {
@@ -3664,57 +3671,130 @@ TEST_F(BigNumericValueTest, NumericValueRoundTrip) {
   }
 }
 
+template <typename T>
+class BigNumericAggregatorSerializationByTypeTest : public BigNumericValueTest {
+ protected:
+  void TestSerializeAggregator(const std::vector<BigNumericValue>& values) {
+    T aggregator;
+    AddValuesToAggregator(&aggregator, values);
+
+    std::string bytes = aggregator.SerializeAsProtoBytes();
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T deserialized_aggregator,
+                         T::DeserializeFromProtoBytes(bytes));
+    EXPECT_EQ(aggregator, deserialized_aggregator);
+  }
+};
+
+using AllBigNumericAggregatorTypes =
+    ::testing::Types<BigNumericValue::SumAggregator>;
+
+TYPED_TEST_SUITE(BigNumericAggregatorSerializationByTypeTest,
+                 AllBigNumericAggregatorTypes);
+
 struct BigNumericSumAggregatorTestData {
+  int cumulative_count;  // defined only for easier verification of average
   BigNumericValueWrapper input;
   BigNumericValueWrapper expected_cumulative_sum;
+  BigNumericValueWrapper expected_cumulative_avg;
 };
 
 // Cases without the min value and overflow.
 static constexpr BigNumericSumAggregatorTestData
     kBigNumericSumAggregatorTestData[] = {
-        {1, 1},
-        {0, 1},
-        {-2, -1},
-        {"1e-38", "-0.99999999999999999999999999999999999999"},
-        {1, "1e-38"},
-        {"2e-38", "3e-38"},
-        {"-4e-38", "-1e-38"},
-        {"1e-38", 0},
-        {"-1e-38", "-1e-38"},
-        {-1, "-1.00000000000000000000000000000000000001"},
-        {"-17014118346046923173.1687303715884105728" /* -(2^127 / 1e19) */,
-         "-17014118346046923174.16873037158841057280000000000000000001"},
-        {"-17014118346046923173.1687303715884105728" /* -(2^127 / 1e19) */,
-         "-34028236692093846347.33746074317682114560000000000000000001"},
-        {"34028236692093846346.3374607431768211456" /* -(2^127 / 1e19) */,
-         "-1.00000000000000000000000000000000000001"},
-        {"10000000000000000000000000000000000000."
-           "00000000000000000000000000000000000001",
-         "9999999999999999999999999999999999999"},
+        {1, 1, 1, 1},
+        {2, 0, 1, "0.5"},
+        {3, -2, -1, "-0.33333333333333333333333333333333333333"},
+        {4, "1e-38", "-0.99999999999999999999999999999999999999", "-0.25"},
+        {5, "1.00000000000000000000000000000000000001", "2e-38",
+         0 /* rounded down from 4e-39 */},
+        {6, "1e-38", "3e-38", "1e-38" /* rounded up from 5e-39 */},
+        {7, "-4e-38", "-1e-38", 0 /* rounded down from -1.4285714285...e-39 */},
+        {8, "1e-38", 0, 0},
+        {9, "-1e-38", "-1e-38", 0 /* rounded down from -1.11111...e-39 */},
+        {10, -1, "-1.00000000000000000000000000000000000001", "-0.1"},
+        {11, "1e-38", "-1", "-0.09090909090909090909090909090909090909"
+         /* rounded down from -0.090909... with repeating digit 09 */},
+        {12, "-999999999999999998.999999999999999999",
+         "-999999999999999999.999999999999999999",
+         "-83333333333333333.33333333333333333325"},
+        {13, "-999999999999999999.999999999999999999",
+         "-1999999999999999999.999999999999999998",
+         "-153846153846153846.153846153846153846"},
+        {14, "1999999999999999998.999999999999999998", "-1",
+         "-0.07142857142857142857142857142857142857"
+         /* rounded down from actual value with repeating digits 714285 */},
+        {15, "10000000000000000000000000000000000000",
+         "9999999999999999999999999999999999999",
+         "666666666666666666666666666666666666.6"},
 };
 
 // Cases with the min value and overflow.
 static constexpr BigNumericSumAggregatorTestData
     kBigNumericSumAggregatorSpecialTestData[] = {
-        {kMaxBigNumericValueStr, kMaxBigNumericValueStr},
-        {0, kMaxBigNumericValueStr},
-        {"1e-38", kBigNumericOverflow},
-        {kMaxBigNumericValueStr /* actual sum = max * 2 + 1e-38*/,
-         kBigNumericOverflow},
-        {kMaxBigNumericValueStr /* actual sum = max * 3 + 1e-38*/,
-         kBigNumericOverflow},
-        {kMinBigNumericValueStr /* actual sum = max * 2*/, kBigNumericOverflow},
-        {kMinBigNumericValueStr,
+        {1, kMaxBigNumericValueStr, kMaxBigNumericValueStr,
+         kMaxBigNumericValueStr},
+        // Avg rounded up from 289480223093290488558927462521719769633.
+        // 174961664101410098643960019782824099835
+        {2, 0, kMaxBigNumericValueStr,
+         "289480223093290488558927462521719769633"
+         ".17496166410141009864396001978282409984"},
+        {3, "1e-38", kBigNumericOverflow,
+         "192986815395526992372618308347813179755."
+         "44997444273427339909597334652188273323"},
+        // Actual sum = max * 2 + 1e-38
+        // Avg rounded up from 289480223093290488558927462521719769633.
+        // 1749616641014100986439600197828240998375
+        {4, kMaxBigNumericValueStr, kBigNumericOverflow,
+         "289480223093290488558927462521719769633."
+         "174961664101410098643960019782824099838"},
+        // Actual sum = max * 3 + 1e-38
+        {5, kMaxBigNumericValueStr, kBigNumericOverflow,
+         "347376267711948586270712955026063723559."
+         "809953996921692118372752023739388919804"},
+        // Actual sum = max * 2
+        // Avg rounded down from 192986815395526992372618308347813179755.
+        // 449974442734273399095973346521882733223333... with repeating digit 3
+        {6, kMinBigNumericValueStr, kBigNumericOverflow,
+         "192986815395526992372618308347813179755."
+         "449974442734273399095973346521882733223"},
+        // Avg rounded up from 82708635169511568159693560720491362752.
+        // 33570333260040288532684571993794974280857142857142... with
+        // repeating digits 857142
+        {7, kMinBigNumericValueStr,
          "578960446186580977117854925043439539266."
-         "34992332820282019728792003956564819966"},
-        {kMinBigNumericValueStr, "-2e-38"},
-        {"1e-38", "-1e-38"},
-        {kMinBigNumericValueStr, kBigNumericOverflow},
-        {kMinBigNumericValueStr /* actual sum = min * 2 - 1e-38*/,
-         kBigNumericOverflow},
-        {kMaxBigNumericValueStr /* actual sum = min - 2e-38*/,
-         kBigNumericOverflow},
-        {"2e-38", kMinBigNumericValueStr},
+         "34992332820282019728792003956564819966",
+         "82708635169511568159693560720491362752."
+         "33570333260040288532684571993794974281"},
+        // Avg rounded down from 2.5e-39
+        {8, kMinBigNumericValueStr, "-2e-38", 0},
+        // Avg rounded down from 1.1111...e-39 with repeating digits 1
+        {9, "1e-38", "-1e-38", 0},
+        // Avg rounded up from -578960446186580977117854925043439539266.
+        // 34992332820282019728792003956564819969
+        {10, kMinBigNumericValueStr,
+         kBigNumericOverflow /* actual sum = min - 1e-38*/,
+         "-57896044618658097711785492504343953926."
+         "63499233282028201972879200395656481997"},
+        // Actual sum = min * 2 - 1e-38
+        // Avg rounded up from -105265535670287450385064531826079916230.
+        // 24544060512778549041598546173920876357909090909090... with
+        // repeating digits 90
+        {11, kMinBigNumericValueStr, kBigNumericOverflow,
+         "-105265535670287450385064531826079916230."
+         "2454406051277854904159854617392087635791"},
+        // Actual sum = min - 2e-38
+        // Avg rounded up from -48246703848881748093154577086953294938.
+        // 8624936106835683497739933366304706833083333333... with repeating
+        // digit 3
+        {12, kMaxBigNumericValueStr, kBigNumericOverflow,
+         "-48246703848881748093154577086953294938."
+         "86249361068356834977399333663047068331"},
+        // Avg rounded up from 44535418937429305932142686541803041482.
+        // 02691717909252463056060923381274216920615384615384... with
+        // repeating digits 615384
+        {13, "2e-38", kMinBigNumericValueStr,
+         "-44535418937429305932142686541803041482."
+         "02691717909252463056060923381274216921"},
 };
 
 TEST(BigNumericSumAggregatorTest, Sum) {
@@ -3745,6 +3825,82 @@ TEST(BigNumericSumAggregatorTest, Sum) {
        kBigNumericSumAggregatorSpecialTestData) {
     TestUnaryOp(overflow_sum_op, data.input, data.expected_cumulative_sum);
   }
+}
+
+TEST(BigNumericSumAggregatorTest, Avg) {
+  // Test repeated inputs with same value.
+  for (BigNumericStringTestData data : kBigNumericValueValidFromStringPairs) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue input,
+                         BigNumericValue().FromString(data.first));
+    BigNumericValue::SumAggregator aggregator;
+    for (uint64_t count = 1; count <= 1000; ++count) {
+      aggregator.Add(input);
+      ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue avg, aggregator.GetAverage(count));
+      EXPECT_EQ(input, avg);
+    }
+  }
+
+  // Test cumulative average with different inputs not involving min.
+  CumulativeAverageOp<BigNumericValue> avg_op;
+  EXPECT_THAT(avg_op.aggregator.GetAverage(0),
+              StatusIs(absl::StatusCode::kOutOfRange, "division by zero: AVG"));
+  CumulativeAverageOp<BigNumericValue> negated_avg_op;
+  for (const BigNumericSumAggregatorTestData& data :
+       kBigNumericSumAggregatorTestData) {
+    TestUnaryOp(avg_op, data.input, data.expected_cumulative_avg);
+    TestUnaryOp(negated_avg_op, -data.input, -data.expected_cumulative_avg);
+  }
+
+  // Test cumulative average with different inputs with min and sum overflow.
+  CumulativeAverageOp<BigNumericValue> special_avg_op;
+  for (const BigNumericSumAggregatorTestData& data :
+       kBigNumericSumAggregatorSpecialTestData) {
+    TestUnaryOp(special_avg_op, data.input, data.expected_cumulative_avg);
+  }
+}
+
+TEST(BigNumericSumAggregatorTest, MergeWith) {
+  TestSumAggregatorMergeWith<BigNumericValue>(kBigNumericSumAggregatorTestData);
+  TestSumAggregatorMergeWith<BigNumericValue>(
+      kBigNumericSumAggregatorSpecialTestData);
+}
+
+TYPED_TEST(BigNumericAggregatorSerializationByTypeTest,
+           AggregatorSerialization) {
+  this->TestSerializeAggregator({BigNumericValue()});
+  this->TestSerializeAggregator({BigNumericValue(1)});
+  this->TestSerializeAggregator({BigNumericValue(-1)});
+  this->TestSerializeAggregator(
+      {BigNumericValue::FromString("123.01").ValueOrDie()});
+  this->TestSerializeAggregator(
+      {BigNumericValue::FromString("-123.01").ValueOrDie()});
+  this->TestSerializeAggregator({BigNumericValue::MinValue()});
+  this->TestSerializeAggregator({BigNumericValue::MaxValue()});
+}
+
+TYPED_TEST(BigNumericAggregatorSerializationByTypeTest,
+           AggregatorLargeValueSerialization) {
+  std::vector<BigNumericValue> min_values;
+  std::vector<BigNumericValue> max_values;
+  for (int i = 0; i < 100; i++) {
+    min_values.push_back(BigNumericValue::MinValue());
+    max_values.push_back(BigNumericValue::MaxValue());
+    this->TestSerializeAggregator(min_values);
+    this->TestSerializeAggregator(max_values);
+  }
+}
+
+TYPED_TEST(BigNumericAggregatorSerializationByTypeTest,
+           AggregatorDeserializationFailures) {
+  EXPECT_THAT(TypeParam::DeserializeFromProtoBytes(""),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       testing::MatchesRegex(
+                           "Invalid BigNumericValue::SumAggregator encoding")));
+  std::string bad_string(sizeof(FixedInt<64, 5>) + 1, '\x1');
+  EXPECT_THAT(TypeParam::DeserializeFromProtoBytes(bad_string),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       testing::MatchesRegex(
+                           "Invalid BigNumericValue::SumAggregator encoding")));
 }
 }  // namespace
 }  // namespace zetasql

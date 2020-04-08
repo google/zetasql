@@ -117,7 +117,7 @@ class AlgebrizerTestBase : public ::testing::Test {
         TestAlgebrizeExpressionInternal(resolved_expr, column_to_variable_map);
     ZETASQL_EXPECT_OK(expr.status());
     if (expr.ok()) {
-      EXPECT_EQ(expected, expr.ValueOrDie()->DebugString(true));
+      EXPECT_EQ(expected, expr.value()->DebugString(true));
     }
   }
 
@@ -467,7 +467,7 @@ TEST_F(StatementAlgebrizerTest, SingleRowScan) {
       MakeResolvedSingleRowScan(zero_columns));
   // Algebrize the resolved AST and check the result.
   std::unique_ptr<const AlgebraNode> algebrized_scan(
-      algebrizer_->AlgebrizeScan(single_row_scan.get()).ValueOrDie());
+      algebrizer_->AlgebrizeScan(single_row_scan.get()).value());
   EXPECT_EQ("EnumerateOp(ConstExpr(1))", algebrized_scan->DebugString());
 }
 
@@ -477,7 +477,7 @@ TEST_F(StatementAlgebrizerTest, TableScanAsArrayType) {
       MakeResolvedTableScan(columns_, &table_, nullptr));
   // Algebrize the resolved AST and check the result.
   std::unique_ptr<const AlgebraNode> algebrized_scan(
-      algebrizer_->AlgebrizeScan(table_scan.get()).ValueOrDie());
+      algebrizer_->AlgebrizeScan(table_scan.get()).value());
   std::string expected = ScanTableAllTypesAsArrayExprString(0 /* indent */);
   EXPECT_EQ(expected, algebrized_scan->DebugString());
 }
@@ -965,7 +965,7 @@ TEST_P(AlgebrizerTestFunctions, Functions) {
   FunctionTest function_test = GetParam();
   zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> fct =
       algebrizer_->AlgebrizeExpression(function_test.function);
-  EXPECT_EQ(function_test.function_call, fct.ValueOrDie()->DebugString());
+  EXPECT_EQ(function_test.function_call, fct.value()->DebugString());
 }
 
 INSTANTIATE_TEST_SUITE_P(TestFunctions, AlgebrizerTestFunctions,
@@ -1095,7 +1095,7 @@ TEST_P(AlgebrizerTestFilters, Filters) {
                                             std::move(filter_expr));
   // Algebrize the resolved AST and check the result.
   std::unique_ptr<const AlgebraNode> algebrized_filter(
-      algebrizer_->AlgebrizeScan(filter_scan.get()).ValueOrDie());
+      algebrizer_->AlgebrizeScan(filter_scan.get()).value());
   std::string expected = absl::Substitute(
       "FilterOp(\n"
       "+-condition: $0,\n"
@@ -1180,7 +1180,7 @@ TEST_F(StatementAlgebrizerTest, CrossApply) {
       std::move(right_table_scan), nullptr /* condition */);
   // Algebrize the resolved AST and check the result.
   std::unique_ptr<const AlgebraNode> algebrized_cross_apply(
-      algebrizer_->AlgebrizeScan(join_scan.get()).ValueOrDie());
+      algebrizer_->AlgebrizeScan(join_scan.get()).value());
   std::string expected =
       "JoinOp\\(INNER\n"
       "..hash_join_equality_left_exprs: \\{\\},\n"
@@ -1308,7 +1308,7 @@ TEST_P(AlgebrizerTestJoins, InnerJoin) {
       std::move(right_table_scan), std::move(join_expr));
   // Algebrize the resolved AST and check the result.
   std::unique_ptr<const AlgebraNode> algebrized_join(
-      algebrizer_->AlgebrizeScan(join_scan.get()).ValueOrDie());
+      algebrizer_->AlgebrizeScan(join_scan.get()).value());
   std::string expected = absl::Substitute(
       "JoinOp\\(INNER\n"
       "..hash_join_equality_left_exprs: \\{\\},\n"
@@ -1405,7 +1405,7 @@ TEST_P(AlgebrizerTestJoins, CorrelatedInnerJoin) {
       std::move(filter_scan), std::move(join_expr));
   // Algebrize the resolved AST and check the result.
   std::unique_ptr<const AlgebraNode> algebrized_join(
-      algebrizer_->AlgebrizeScan(join_scan.get()).ValueOrDie());
+      algebrizer_->AlgebrizeScan(join_scan.get()).value());
   std::string expected = absl::Substitute(
       "JoinOp\\(INNER\n"
       "..hash_join_equality_left_exprs: \\{\\},\n"
@@ -1545,7 +1545,7 @@ TEST_P(AlgebrizerTestGroupingAggregation, GroupByCountStar) {
       {} /* rollup_column_list */);
   // Algebrize the resolved AST and check the result.
   std::unique_ptr<const AlgebraNode> algebrized_groupby_aggregation(
-      algebrizer_->AlgebrizeScan(aggregate_scan.get()).ValueOrDie());
+      algebrizer_->AlgebrizeScan(aggregate_scan.get()).value());
   std::string expected = absl::Substitute(
       "AggregateOp(\n"
       "+-keys: {$0},\n"
@@ -1593,7 +1593,7 @@ TEST_P(AlgebrizerTestGroupingAggregation, GroupByCountColumn) {
       {} /* rollup_column_list */);
   // Algebrize the resolved AST and check the result.
   std::unique_ptr<const AlgebraNode> algebrized_groupby_aggregation(
-      algebrizer_->AlgebrizeScan(aggregate_scan.get()).ValueOrDie());
+      algebrizer_->AlgebrizeScan(aggregate_scan.get()).value());
   std::string expected = absl::Substitute(
       "AggregateOp(\n"
       "+-keys: {$0},\n"
@@ -1644,7 +1644,7 @@ TEST_P(AlgebrizerTestGroupingAggregation, GroupByMax) {
       {} /* rollup_column_list */);
   // Algebrize the resolved AST and check the result.
   std::unique_ptr<const AlgebraNode> algebrized_groupby_aggregation(
-      algebrizer_->AlgebrizeScan(aggregate_scan.get()).ValueOrDie());
+      algebrizer_->AlgebrizeScan(aggregate_scan.get()).value());
   std::string expected = absl::Substitute(
       "AggregateOp(\n"
       "+-keys: {$0},\n"
@@ -1696,7 +1696,7 @@ TEST_P(AlgebrizerTestGroupingAggregation, GroupByMin) {
           {} /* rollup_column_list */);
   // Algebrize the resolved AST and check the result.
   std::unique_ptr<const AlgebraNode> algebrized_groupby_aggregation(
-      algebrizer_->AlgebrizeScan(aggregate_scan.get()).ValueOrDie());
+      algebrizer_->AlgebrizeScan(aggregate_scan.get()).value());
   std::string expected = absl::Substitute(
       "AggregateOp(\n"
       "+-keys: {$0},\n"
@@ -1744,7 +1744,7 @@ TEST_P(AlgebrizerTestGroupingAggregation, GroupBySum) {
           {} /* rollup_column_list */));
   // Algebrize the resolved AST and check the result.
   std::unique_ptr<const AlgebraNode> algebrized_groupby_aggregation(
-      algebrizer_->AlgebrizeScan(aggregate_scan.get()).ValueOrDie());
+      algebrizer_->AlgebrizeScan(aggregate_scan.get()).value());
   std::string expected = absl::Substitute(
       "AggregateOp(\n"
       "+-keys: {$0},\n"
@@ -1786,7 +1786,7 @@ TEST_P(AlgebrizerTestGroupingAggregation, GroupByAvg) {
           {} /* rollup_column_list */));
   // Algebrize the resolved AST and check the result.
   std::unique_ptr<const AlgebraNode> algebrized_groupby_aggregation(
-      algebrizer_->AlgebrizeScan(aggregate_scan.get()).ValueOrDie());
+      algebrizer_->AlgebrizeScan(aggregate_scan.get()).value());
   std::string expected = absl::Substitute(
       "AggregateOp(\n"
       "+-keys: {$0},\n"
@@ -1833,7 +1833,7 @@ TEST_P(AlgebrizerTestGroupingAggregation, GroupByAny) {
           {} /* rollup_column_list */));
   // Algebrize the resolved AST and check the result.
   std::unique_ptr<const AlgebraNode> algebrized_groupby_aggregation(
-      algebrizer_->AlgebrizeScan(aggregate_scan.get()).ValueOrDie());
+      algebrizer_->AlgebrizeScan(aggregate_scan.get()).value());
   std::string expected = absl::Substitute(
       "AggregateOp(\n"
       "+-keys: {$0},\n"

@@ -45,7 +45,7 @@ StatusBuilder RetCheckFailSlowPath(SourceLocation location,
 
 StatusBuilder RetCheckFailSlowPath(SourceLocation location,
                                    const char* condition,
-                                   const zetasql_base::Status& status) {
+                                   const absl::Status& status) {
   return RetCheckFailSlowPath(location)
          << condition << " returned " << status << " ";
 }

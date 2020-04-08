@@ -107,7 +107,7 @@ VariableId ColumnToVariableMapping::GetVariableNameFromColumn(
     const ResolvedColumn* column) {
   const zetasql_base::StatusOr<VariableId> status_or_id =
       LookupVariableNameForColumn(column);
-  if (status_or_id.ok()) return status_or_id.ValueOrDie();
+  if (status_or_id.ok()) return status_or_id.value();
   return AssignNewVariableToColumn(column);
 }
 

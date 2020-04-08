@@ -1530,7 +1530,14 @@ absl::Status SQLBuilder::VisitResolvedTVFScan(const ResolvedTVFScan* node) {
     if (relation.is_value_table()) {
       // If the input table is a value table, add SELECT AS VALUE to make sure
       // that the generated SQL for the scan is also a value table.
-      ZETASQL_RET_CHECK_EQ(1, scan->column_list_size());
+      // There can be pseudo columns added in the input value table.
+      ZETASQL_RET_CHECK_GE(relation.columns().size(), 1);
+      ZETASQL_RET_CHECK(!relation.columns().begin()->is_pseudo_column);
+      ZETASQL_RET_CHECK(std::all_of(relation.columns().begin() + 1,
+                            relation.columns().end(),
+                            [](const zetasql::TVFSchemaColumn& col) {
+                              return col.is_pseudo_column;
+                            }));
       ZETASQL_RET_CHECK_EQ(1, argument->argument_column_list_size());
       ZETASQL_RET_CHECK_EQ(scan->column_list(0).column_id(),
                    argument->argument_column_list(0).column_id());

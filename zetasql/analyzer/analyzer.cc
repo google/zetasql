@@ -406,6 +406,8 @@ absl::Status AnalyzerOptions::Deserialize(
   result->set_statement_context(proto.statement_context());
   result->set_error_message_mode(proto.error_message_mode());
   result->set_record_parse_locations(proto.record_parse_locations());
+  result->set_create_new_column_for_each_projected_output(
+      proto.create_new_column_for_each_projected_output());
   result->set_prune_unused_columns(proto.prune_unused_columns());
   result->set_allow_undeclared_parameters(proto.allow_undeclared_parameters());
   result->set_parameter_mode(proto.parameter_mode());
@@ -474,6 +476,8 @@ absl::Status AnalyzerOptions::Serialize(
   proto->set_statement_context(statement_context_);
   proto->set_error_message_mode(error_message_mode_);
   proto->set_record_parse_locations(record_parse_locations_);
+  proto->set_create_new_column_for_each_projected_output(
+      create_new_column_for_each_projected_output_);
   proto->set_prune_unused_columns(prune_unused_columns_);
   proto->set_allow_undeclared_parameters(allow_undeclared_parameters_);
   proto->set_parameter_mode(parameter_mode_);

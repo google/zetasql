@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/base/path.h"
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/dynamic_message.h"
@@ -65,6 +66,8 @@ using ::zetasql_base::testing::StatusIs;
 namespace {
 
 class ProtoValueConversionTest : public ::testing::Test {
+ public:
+
  protected:
   ProtoValueConversionTest()
       : descriptor_pool_(google::protobuf::DescriptorPool::generated_pool()),
@@ -86,6 +89,7 @@ class ProtoValueConversionTest : public ::testing::Test {
     language_options.EnableLanguageFeature(FEATURE_NUMERIC_TYPE);
     language_options.EnableLanguageFeature(FEATURE_GEOGRAPHY);
     language_options.EnableLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
+    language_options.EnableLanguageFeature(FEATURE_BIGNUMERIC_TYPE);
     ZETASQL_RETURN_IF_ERROR(AnalyzeExpression(
         expression_sql, AnalyzerOptions(language_options), &catalog_,
         &type_factory_, &output));
@@ -162,6 +166,13 @@ class ProtoValueConversionTest : public ::testing::Test {
     ZETASQL_RETURN_IF_ERROR(ConvertStructOrArrayValueToProtoMessage(
         value, &message_factory_, proto_out->get()));
     return absl::OkStatus();
+  }
+
+  std::unique_ptr<google::protobuf::Message> TestFileConversion(
+      const Value& value, const ConvertTypeToProtoOptions& options) {
+    std::unique_ptr<google::protobuf::Message> proto_out;
+    ZETASQL_EXPECT_OK(ValueToProto(value, options, &proto_out));
+    return proto_out;
   }
 
   TypeFactory type_factory_;
@@ -243,7 +254,11 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
       "STRUCT(STRUCT(64))",
       "STRUCT(CAST(NULL AS STRUCT<INT64>))",
       "STRUCT([1,2,3])",
+      "STRUCT(CAST(NULL AS NUMERIC))",
       "STRUCT(CAST(-2.000000001 AS NUMERIC))",
+      "STRUCT(CAST(NULL AS BIGNUMERIC))",
+      "STRUCT(CAST(-12345678901234567890123456789.1234567890123456789012345678 "
+      "AS BIGNUMERIC))",
       "STRUCT(CAST(NULL AS GEOGRAPHY))",
 
       // STRUCT containing a proto.
@@ -294,6 +309,8 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
       "[CAST('TYPE_ENUM' AS zetasql.TypeKind)]",
       "[STRUCT(64)]",
       "[CAST(-2.000000001 AS NUMERIC)]",
+      "[CAST(-12345678901234567890123456789.1234567890123456789012345678 AS "
+      "BIGNUMERIC)]",
       // ARRAYs containing ARRAYs would go here, but those aren't allowed
       // in ZetaSQL.  Instead, we do ARRAY<STRUCT<ARRAY>>.
       "[STRUCT([1,2,3])]",
@@ -337,6 +354,7 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
       "[CAST(NULL AS STRUCT<ARRAY<INT64>>)]",
       "[CAST(NULL AS zetasql.ProtoTypeProto)]",
       "[CAST(NULL AS NUMERIC)]",
+      "[CAST(NULL AS BIGNUMERIC)]",
       "[CAST(NULL AS GEOGRAPHY)]"
   };
 

@@ -100,17 +100,16 @@ class UDFEvalTest : public ::testing::Test {
 
 TEST(EvaluatorTest, SimpleExpression) {
   PreparedExpression expr("1 + 2");
-  EXPECT_EQ(Int64(3), expr.Execute().ValueOrDie());
-  EXPECT_EQ(Int64(3), expr.Execute().ValueOrDie());
+  EXPECT_EQ(Int64(3), expr.Execute().value());
+  EXPECT_EQ(Int64(3), expr.Execute().value());
   EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
 }
 
 TEST(EvaluatorTest, ColumnExpression) {
   PreparedExpression expr("a + b");
-  EXPECT_EQ(Int64(3), expr.Execute(
-      {{"a", Int64(1)}, {"b", Int64(2)}}).ValueOrDie());
-  EXPECT_EQ(Int64(5), expr.Execute(
-      {{"a", Int64(-1)}, {"b", Int64(6)}}).ValueOrDie());
+  EXPECT_EQ(Int64(3), expr.Execute({{"a", Int64(1)}, {"b", Int64(2)}}).value());
+  EXPECT_EQ(Int64(5),
+            expr.Execute({{"a", Int64(-1)}, {"b", Int64(6)}}).value());
   EXPECT_THAT(
       expr.Execute({{"a", Int64(-1)}, {"b", Double(6)}}),
       StatusIs(absl::StatusCode::kInvalidArgument,
@@ -136,23 +135,22 @@ TEST(EvaluatorTest, NoRecoveryFromError) {
 
 TEST(EvaluatorTest, BooleanExpression) {
   PreparedExpression expr("(a > 1 AND a < 5) OR b IS NOT NULL");
-  EXPECT_EQ(True(), expr.Execute(
-      {{"a", Int64(0)}, {"b", Int64(0)}}).ValueOrDie());
-  EXPECT_EQ(True(), expr.Execute(
-      {{"a", Int64(3)}, {"b", NullInt64()}}).ValueOrDie());
-  EXPECT_EQ(False(), expr.Execute(
-      {{"a", Int64(0)}, {"b", NullInt64()}}).ValueOrDie());
+  EXPECT_EQ(True(), expr.Execute({{"a", Int64(0)}, {"b", Int64(0)}}).value());
+  EXPECT_EQ(True(),
+            expr.Execute({{"a", Int64(3)}, {"b", NullInt64()}}).value());
+  EXPECT_EQ(False(),
+            expr.Execute({{"a", Int64(0)}, {"b", NullInt64()}}).value());
   EXPECT_TRUE(types::BoolType()->Equals(expr.output_type()));
 }
 
 TEST(EvaluatorTest, ExpressionWithSubquery) {
   PreparedExpression expr("1 + (SELECT a)");
-  EXPECT_EQ(Int64(3), expr.Execute({{"a", Int64(2)}}).ValueOrDie());
+  EXPECT_EQ(Int64(3), expr.Execute({{"a", Int64(2)}}).value());
 }
 
 TEST(EvaluatorTest, SubqueryExpression) {
   PreparedExpression expr("(SELECT 1 + a)");
-  EXPECT_EQ(Int64(3), expr.Execute({{"a", Int64(2)}}).ValueOrDie());
+  EXPECT_EQ(Int64(3), expr.Execute({{"a", Int64(2)}}).value());
 }
 
 TEST(EvaluatorTest, WithClauseSubquerySimple) {
@@ -207,17 +205,17 @@ TEST(EvaluatorTest, QueryAsExpression) {
 
 TEST(EvaluatorTest, QueryAsArray) {
   PreparedExpression query("ARRAY(SELECT a UNION ALL SELECT b)");
-  Value result = query.Execute(
-      {{"a", Double(3.0)}, {"b", Double(5.0)}}).ValueOrDie();
+  Value result =
+      query.Execute({{"a", Double(3.0)}, {"b", Double(5.0)}}).value();
   EXPECT_EQ(Array({3.0, 5.0}), result);
 }
 
 TEST(EvaluatorTest, ExpressionFromArray) {
   PreparedExpression expr("(SELECT t.y FROM UNNEST(arr) t WHERE t.x = 2)");
   Value arr1 = StructArray({"x", "y"}, {{1ll, 3.0}, {2ll, 5.0}});
-  EXPECT_EQ(Double(5.0), expr.Execute({{"arr", arr1}}).ValueOrDie());
+  EXPECT_EQ(Double(5.0), expr.Execute({{"arr", arr1}}).value());
   Value arr2 = StructArray({"x", "y"}, {{1ll, 3.0}, {200ll, 5.0}});
-  EXPECT_EQ(NullDouble(), expr.Execute({{"arr", arr2}}).ValueOrDie());
+  EXPECT_EQ(NullDouble(), expr.Execute({{"arr", arr2}}).value());
   Value arr3 = StructArray({"x", "y"}, {{2ll, 3.0}, {2ll, 5.0}});
   EXPECT_THAT(expr.Execute({{"arr", arr3}}),
               StatusIs(absl::StatusCode::kOutOfRange,
@@ -229,7 +227,7 @@ TEST(EvaluatorTest, ArrayExpressionOnHeap) {
       new PreparedExpression(
           "ARRAY(SELECT AS STRUCT 1,2 UNION ALL SELECT AS STRUCT 3,4)");
   EXPECT_EQ(StructArray({"", ""}, {{1ll, 2ll}, {3ll, 4ll}}),
-            expr->Execute().ValueOrDie());
+            expr->Execute().value());
   delete expr;
 }
 
@@ -240,8 +238,8 @@ TEST(EvaluatorTest, ExpressionWithSystemVariables) {
   system_variables[{"sysvar1"}] = Value::Int64(3);
   system_variables[{"sysvar2", "foo"}] = Value::Int64(8);
 
-  Value result = expr.Execute({{"col", Value::Int64(5)}}, {}, system_variables)
-                     .ValueOrDie();
+  Value result =
+      expr.Execute({{"col", Value::Int64(5)}}, {}, system_variables).value();
   EXPECT_EQ(Value::Int64(58), result);
 }
 
@@ -252,8 +250,8 @@ TEST(EvaluatorTest, ExpressionWithUnusedSystemVariables) {
   system_variables[{"row_count"}] = Value::Int64(3);
   system_variables[{"error", "message"}] = Value::Int64(8);
 
-  Value result = expr.Execute({{"col", Value::Int64(5)}}, {}, system_variables)
-                     .ValueOrDie();
+  Value result =
+      expr.Execute({{"col", Value::Int64(5)}}, {}, system_variables).value();
   EXPECT_EQ(Value::Int64(3), result);
 }
 
@@ -265,8 +263,8 @@ TEST(EvaluatorTest, ExpressionWithUnusedSystemVariables2) {
   system_variables[{"sysvar2", "foo"}] = Value::Int64(8);
   system_variables[{"sysvar_unused"}] = Value::Int64(22);
 
-  Value result = expr.Execute({{"col", Value::Int64(5)}}, {}, system_variables)
-                     .ValueOrDie();
+  Value result =
+      expr.Execute({{"col", Value::Int64(5)}}, {}, system_variables).value();
   EXPECT_EQ(Value::Int64(55), result);
 }
 
@@ -279,7 +277,7 @@ TEST(EvaluatorTest, ExpressionWithSystemVariablesAndQueryParameters) {
 
   Value result = expr.Execute({{"col", Value::Int64(5)}},
                               {{"param1", Value::Int64(1)}}, system_variables)
-                     .ValueOrDie();
+                     .value();
   EXPECT_EQ(Value::Int64(60), result);
 }
 
@@ -294,15 +292,16 @@ TEST(EvaluatorTest, ExpressionWithSystemVariablesAndPositionalQueryParameters) {
                          {{"col", Value::Int64(5)}},
                          std::vector<Value>{Value::Int64(1), Value::Int64(2)},
                          system_variables)
-                     .ValueOrDie();
+                     .value();
   EXPECT_EQ(Value::Int64(70), result);
 }
 
 TEST(EvaluatorTest, ExpressionWithQueryParameters) {
   PreparedExpression expr("(@param1 + @param2) * col");
-  Value result = expr.Execute(
-      {{"col", Value::Int64(5)}},
-      {{"param1", Value::Int64(1)}, {"param2", Value::Int64(2)}}).ValueOrDie();
+  Value result =
+      expr.Execute({{"col", Value::Int64(5)}},
+                   {{"param1", Value::Int64(1)}, {"param2", Value::Int64(2)}})
+          .value();
   EXPECT_EQ(Value::Int64(15), result);
 }
 
@@ -311,7 +310,7 @@ TEST(EvaluatorTest, ExpressionWithPositionalQueryParameters) {
   Value result = expr.ExecuteWithPositionalParams(
                          {{"col", Value::Int64(5)}},
                          std::vector<Value>{Value::Int64(1), Value::Int64(2)})
-                     .ValueOrDie();
+                     .value();
   EXPECT_EQ(Value::Int64(15), result);
 }
 
@@ -323,9 +322,10 @@ TEST(EvaluatorTest, Prepare) {
   ZETASQL_ASSERT_OK(options.AddExpressionColumn("col", types::Int64Type()));
   ZETASQL_ASSERT_OK(expr.Prepare(options));
   EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
-  Value result = expr.Execute(
-      {{"col", Value::Int64(5)}},
-      {{"param1", Value::Int64(1)}, {"param2", Value::Int64(2)}}).ValueOrDie();
+  Value result =
+      expr.Execute({{"col", Value::Int64(5)}},
+                   {{"param1", Value::Int64(1)}, {"param2", Value::Int64(2)}})
+          .value();
   EXPECT_EQ(Value::Int64(15), result);
 }
 
@@ -349,7 +349,7 @@ TEST(EvaluatorTest, PrepareWithSystemVariables) {
       expr.Execute({{"col", Value::Int64(5)}},
                    {{"param1", Value::Int64(1)}, {"param2", Value::Int64(2)}},
                    sysvar_values)
-          .ValueOrDie();
+          .value();
   EXPECT_EQ(Value::Int64(169), result);
 }
 
@@ -366,7 +366,7 @@ TEST(EvaluatorTest, PrepareWithPositionalParameters) {
   Value result =
       expr.ExecuteWithPositionalParams({{"col", Value::Int64(5)}},
                                        {Value::Int64(1), Value::Int64(2)})
-          .ValueOrDie();
+          .value();
   EXPECT_EQ(Value::Int64(15), result);
 }
 
@@ -389,7 +389,7 @@ TEST(EvaluatorTest, PrepareWithPositionalParametersAndSystemVariables) {
   Value result = expr.ExecuteWithPositionalParams(
                          {{"col", Value::Int64(5)}},
                          {Value::Int64(1), Value::Int64(2)}, sysvar_values)
-                     .ValueOrDie();
+                     .value();
   EXPECT_EQ(Value::Int64(37), result);
 }
 
@@ -420,7 +420,7 @@ TEST(EvaluatorTest, ExecuteAfterPrepare) {
                                            {{"param1", Value::Int64(1)},
                                             {"param2", Value::Int64(2)}},
                                            {{{"sysvar1"}, Value::Int64(10)}})
-                     .ValueOrDie();
+                     .value();
   EXPECT_EQ(Value::Int64(25), result);
 
   // Check that ExecuteAfterPrepare gives an error if Prepare has been called,
@@ -465,7 +465,7 @@ TEST(EvaluatorTest, ExecuteAfterPrepareWithPositionalParameters) {
       const_expr
           ->ExecuteAfterPrepareWithPositionalParams(
               {{"col", Value::Int64(5)}}, {Value::Int64(1), Value::Int64(2)})
-          .ValueOrDie();
+          .value();
   EXPECT_EQ(Value::Int64(15), result);
 
   // Check that ExecuteAfterPrepare gives an error if Prepare has been called,
@@ -507,7 +507,7 @@ TEST(EvaluatorTest, PrepareExecuteExtraQueryParameter) {
   Value result =
       expr.Execute({{"col", Value::Int64(5)}},
                    {{"param", Value::Int64(6)}, {"param2", Value::Int64(8)}})
-          .ValueOrDie();
+          .value();
   EXPECT_EQ(result, Value::Int64(11));
 }
 
@@ -829,7 +829,7 @@ TEST(EvaluatorTest, GetReferencedParametersAsProperSubset) {
 
   auto status_or_parameters = expr.GetReferencedParameters();
   ZETASQL_ASSERT_OK(status_or_parameters);
-  EXPECT_THAT(std::move(status_or_parameters).ValueOrDie(),
+  EXPECT_THAT(std::move(status_or_parameters).value(),
               UnorderedElementsAre("param1", "param2"));
 
   ZETASQL_ASSERT_OK(expr.Execute({}, {{"param1", values::Int64(1)},
@@ -861,7 +861,7 @@ TEST(EvaluatorTest, GetReferencedParametersWithMixedCases) {
 
   auto status_or_parameters = expr.GetReferencedParameters();
   ZETASQL_ASSERT_OK(status_or_parameters);
-  EXPECT_THAT(std::move(status_or_parameters).ValueOrDie(),
+  EXPECT_THAT(std::move(status_or_parameters).value(),
               UnorderedElementsAre("param"));
   ZETASQL_ASSERT_OK(expr.Execute({}, {{"PaRaM", values::Int64(1)}}));
 }
@@ -888,7 +888,7 @@ TEST(EvaluatorTest, GetReferencedColumnsAsProperSubset) {
 
   auto status_or_columns = expr.GetReferencedColumns();
   ZETASQL_ASSERT_OK(status_or_columns);
-  EXPECT_THAT(std::move(status_or_columns).ValueOrDie(),
+  EXPECT_THAT(std::move(status_or_columns).value(),
               UnorderedElementsAre("col0", "col1"));
 
   auto status_or_value = expr.Execute({{"col0", values::Int64(1)},
@@ -904,7 +904,7 @@ TEST(EvaluatorTest, GetReferencedColumnsInMixedCases) {
 
   auto status_or_columns = expr.GetReferencedColumns();
   ZETASQL_ASSERT_OK(status_or_columns);
-  EXPECT_THAT(std::move(status_or_columns).ValueOrDie(),
+  EXPECT_THAT(std::move(status_or_columns).value(),
               UnorderedElementsAre("col"));
   ZETASQL_ASSERT_OK(expr.Execute({{"CoL", values::Int64(1)}}));
 }
@@ -923,9 +923,9 @@ TEST(EvaluatorTest, GetReferencedColumnsUsingCallback) {
 
   auto status_or_columns = expr.GetReferencedColumns();
   ZETASQL_ASSERT_OK(status_or_columns);
-  EXPECT_THAT(std::move(status_or_columns).ValueOrDie(),
+  EXPECT_THAT(std::move(status_or_columns).value(),
               UnorderedElementsAre("col"));
-  Value result = expr.Execute({{"col", values::Int64(1)}}).ValueOrDie();
+  Value result = expr.Execute({{"col", values::Int64(1)}}).value();
   EXPECT_EQ(Value::Int64(1), result);
 }
 
@@ -943,9 +943,9 @@ TEST(EvaluatorTest, GetReferencedColumnsUsingCallbackInMixedCases) {
 
   auto status_or_columns = expr.GetReferencedColumns();
   ZETASQL_ASSERT_OK(status_or_columns);
-  EXPECT_THAT(std::move(status_or_columns).ValueOrDie(),
+  EXPECT_THAT(std::move(status_or_columns).value(),
               UnorderedElementsAre("col"));
-  Value result = expr.Execute({{"CoL", values::Int64(1)}}).ValueOrDie();
+  Value result = expr.Execute({{"CoL", values::Int64(1)}}).value();
   EXPECT_EQ(Value::Int64(1), result);
 }
 
@@ -954,7 +954,7 @@ TEST(EvaluatorTest, GetReferencedColumnsThatAreNotAdded) {
   ZETASQL_ASSERT_OK(expr.Execute({{"col0", Int64(1)}, {"col1", Int64(2)}}));
   auto status_or_columns = expr.GetReferencedColumns();
   ZETASQL_ASSERT_OK(status_or_columns);
-  EXPECT_THAT(std::move(status_or_columns).ValueOrDie(),
+  EXPECT_THAT(std::move(status_or_columns).value(),
               UnorderedElementsAre("col0", "col1"));
 }
 
@@ -966,7 +966,7 @@ TEST(EvaluatorTest, GetReferencedColumnsFromExpressionsWithoutColumn) {
 
   auto status_or_columns = expr.GetReferencedColumns();
   ZETASQL_ASSERT_OK(status_or_columns);
-  EXPECT_TRUE(std::move(status_or_columns).ValueOrDie().empty());
+  EXPECT_TRUE(std::move(status_or_columns).value().empty());
 }
 
 TEST(EvaluatorTest, GetReferencedInScopeColumns) {
@@ -982,7 +982,7 @@ TEST(EvaluatorTest, GetReferencedInScopeColumns) {
 
   auto status_or_columns = expr.GetReferencedColumns();
   ZETASQL_ASSERT_OK(status_or_columns);
-  EXPECT_THAT(std::move(status_or_columns).ValueOrDie(),
+  EXPECT_THAT(std::move(status_or_columns).value(),
               UnorderedElementsAre("col0"));
 }
 
@@ -1000,7 +1000,7 @@ TEST(EvaluatorTest, GetReferencedColumnsWithUnreferencedInScopeColumns) {
 
   auto status_or_columns = expr.GetReferencedColumns();
   ZETASQL_ASSERT_OK(status_or_columns);
-  EXPECT_THAT(std::move(status_or_columns).ValueOrDie(),
+  EXPECT_THAT(std::move(status_or_columns).value(),
               UnorderedElementsAre("col1"));
 }
 
@@ -1014,7 +1014,7 @@ TEST(EvaluatorTest, GetReferencedColumnsInLowerCase) {
 
   auto status_or_columns = expr.GetReferencedColumns();
   ZETASQL_ASSERT_OK(status_or_columns);
-  EXPECT_THAT(std::move(status_or_columns).ValueOrDie(),
+  EXPECT_THAT(std::move(status_or_columns).value(),
               UnorderedElementsAre("col0", "col1", "col2"));
 }
 
@@ -1041,7 +1041,7 @@ TEST(EvaluatorTest, GetReferencedColumnsFromConstantExpression) {
 
   auto status_or_columns = expr.GetReferencedColumns();
   ZETASQL_ASSERT_OK(status_or_columns);
-  EXPECT_TRUE(std::move(status_or_columns).ValueOrDie().empty());
+  EXPECT_TRUE(std::move(status_or_columns).value().empty());
 }
 
 TEST(EvaluatorTest, GetReferencedColumnsAfterExecute) {
@@ -1051,7 +1051,7 @@ TEST(EvaluatorTest, GetReferencedColumnsAfterExecute) {
 
   auto status_or_columns = expr.GetReferencedColumns();
   ZETASQL_ASSERT_OK(status_or_columns);
-  std::vector<std::string> columns = std::move(status_or_columns).ValueOrDie();
+  std::vector<std::string> columns = std::move(status_or_columns).value();
   EXPECT_THAT(columns, UnorderedElementsAre("col1", "col2"));
   // Execute again with the obtained subset.
   ParameterValueMap column_value_map;
@@ -1083,9 +1083,10 @@ TEST(EvaluatorTest, ExpressionValueColumn) {
     ZETASQL_ASSERT_OK(expr.Prepare(options));
     EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
 
-    Value result = expr.Execute(
-        {{"int_value", values::Int32(1000)},
-         {"value", values::Proto(proto_type, input_value)}}).ValueOrDie();
+    Value result =
+        expr.Execute({{"int_value", values::Int32(1000)},
+                      {"value", values::Proto(proto_type, input_value)}})
+            .value();
     EXPECT_EQ(Value::Int64(1015), result);
   }
 
@@ -1099,8 +1100,8 @@ TEST(EvaluatorTest, ExpressionValueColumn) {
     ZETASQL_ASSERT_OK(expr.Prepare(options));
     EXPECT_TRUE(types::Int64Type()->Equals(expr.output_type()));
 
-    Value result = expr.Execute(
-        {{"", values::Proto(proto_type, input_value)}}).ValueOrDie();
+    Value result =
+        expr.Execute({{"", values::Proto(proto_type, input_value)}}).value();
     EXPECT_EQ(Value::Int64(115), result);
   }
 
@@ -1109,9 +1110,9 @@ TEST(EvaluatorTest, ExpressionValueColumn) {
     PreparedExpression expr(
         "int64_key_1 + int64_key_2 + if(has_date, 0, 100) + int_value");
 
-    Value result = expr.Execute(
-        {{"", values::Proto(proto_type, input_value)},
-         {"int_value", values::Int32(1000)}}).ValueOrDie();
+    Value result = expr.Execute({{"", values::Proto(proto_type, input_value)},
+                                 {"int_value", values::Int32(1000)}})
+                       .value();
     EXPECT_EQ(Value::Int64(1115), result);
   }
 }
@@ -1128,7 +1129,7 @@ TEST(EvaluatorTest, ValueLifetime) {
   Value value;
   {
     PreparedExpression expr("(1,2)", &type_factory);
-    value = expr.Execute().ValueOrDie();
+    value = expr.Execute().value();
   }
   EXPECT_EQ("STRUCT<INT64, INT64>", value.type()->DebugString());
   EXPECT_EQ("{1, 2}", value.DebugString());
@@ -1164,7 +1165,7 @@ TEST(EvaluatorTest, CurrentTimestamp) {
   evaluator_options.clock = &clock;
 
   PreparedExpression expr("CURRENT_TIMESTAMP()", evaluator_options);
-  Value value = expr.Execute().ValueOrDie();
+  Value value = expr.Execute().value();
 
   EXPECT_EQ(test_time, value.ToTime());
 }
@@ -1181,7 +1182,7 @@ TEST(EvaluatorTest, CurrentDate) {
   evaluator_options.clock = &clock;
 
   PreparedExpression expr("CURRENT_DATE()", evaluator_options);
-  Value value = expr.Execute().ValueOrDie();
+  Value value = expr.Execute().value();
 
   int32_t expected;
   ZETASQL_ASSERT_OK(functions::ConstructDate(2016, 11, 22, &expected));
@@ -1198,7 +1199,7 @@ TEST(EvaluatorTest, CurrentDateTime) {
 
   PreparedExpression expr("CURRENT_DATETIME()", evaluator_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
-  Value value = expr.Execute().ValueOrDie();
+  Value value = expr.Execute().value();
 
   DatetimeValue expected;
   ZETASQL_ASSERT_OK(functions::ConstructDatetime(2016, 11, 22, 1, 2, 3, &expected));
@@ -1215,7 +1216,7 @@ TEST(EvaluatorTest, CurrentTime) {
 
   PreparedExpression expr("CURRENT_TIME()", evaluator_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
-  Value value = expr.Execute().ValueOrDie();
+  Value value = expr.Execute().value();
 
   TimeValue expected;
   ZETASQL_ASSERT_OK(functions::ConstructTime(1, 2, 3, &expected));
@@ -1334,7 +1335,7 @@ TEST(EvaluatorTest, PreparedFromAST_Execute) {
   PreparedExpressionFromAST prepared = ParseToASTAndPrepareOrDie(
       "int64_key_1 + int64_key_2 + int_value", options, &type_factory);
 
-  EXPECT_THAT(prepared.expression->GetReferencedColumns().ValueOrDie(),
+  EXPECT_THAT(prepared.expression->GetReferencedColumns().value(),
               UnorderedElementsAre("value", "int_value"));
   EXPECT_TRUE(types::Int64Type()->Equals(prepared.expression->output_type()))
       << prepared.expression->output_type()->DebugString();
@@ -1346,7 +1347,7 @@ TEST(EvaluatorTest, PreparedFromAST_Execute) {
                      ->ExecuteAfterPrepare(
                          {{"int_value", values::Int32(1000)},
                           {"value", values::Proto(proto_type, input_value)}})
-                     .ValueOrDie();
+                     .value();
   EXPECT_EQ(Value::Int64(1015), result);
 }
 
@@ -1373,7 +1374,7 @@ TEST(EvaluatorTest, PreparedFromAST_Parameters) {
   PreparedExpressionFromAST prepared =
       ParseToASTAndPrepareOrDie("@int_value + 2", options, &type_factory);
 
-  EXPECT_THAT(prepared.expression->GetReferencedParameters().ValueOrDie(),
+  EXPECT_THAT(prepared.expression->GetReferencedParameters().value(),
               UnorderedElementsAre("int_value"));
 }
 
@@ -1412,8 +1413,7 @@ TEST_F(UDFEvalTest, OkUDFEvaluator) {
       function_options_));
   PreparedExpression expr("1 + myudf(@param)");
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options_, catalog()));
-  Value result = expr.Execute(
-      {}, {{"param", Value::String("foo")}}).ValueOrDie();
+  Value result = expr.Execute({}, {{"param", Value::String("foo")}}).value();
   EXPECT_EQ(Value::Int64(4), result);
 }
 
@@ -1444,8 +1444,7 @@ TEST_F(UDFEvalTest, OkPolymorphicUDFEvaluator) {
       function_options_));
   PreparedExpression expr("1 + myudf(myudf(@param))");
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options_, catalog()));
-  Value result = expr.Execute(
-      {}, {{"param", Value::String("foo")}}).ValueOrDie();
+  Value result = expr.Execute({}, {{"param", Value::String("foo")}}).value();
   EXPECT_EQ(Value::Int64(7), result);  // 7 = 1 + length("foo") * 2
 
   PreparedExpression expr_double("1 + myudf(1.5)");
@@ -1498,8 +1497,7 @@ TEST_F(UDFEvalTest, UDFEvaluatorRuntimeErrors) {
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options_, catalog()));
 
   // Error-free call.
-  Value result = expr.Execute(
-      {}, {{"param", Value::String("foo")}}).ValueOrDie();
+  Value result = expr.Execute({}, {{"param", Value::String("foo")}}).value();
   EXPECT_EQ(Value::Int64(4), result);
 
   // Runtime errors.

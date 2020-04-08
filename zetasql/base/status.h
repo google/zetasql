@@ -19,68 +19,6 @@
 
 #include "absl/status/status.h"  
 
-namespace zetasql_base {
-using absl::OkStatus;
-using absl::Status;
-using absl::StatusCode;
-using absl::StatusCodeToString;
-
-// Handle both for now. This is meant to be _very short lived. Once internal
-// code can safely use the new naming, we will switch that that and drop this.
-constexpr StatusCode OK = StatusCode::kOk;
-constexpr StatusCode CANCELLED = StatusCode::kCancelled;
-constexpr StatusCode UNKNOWN = StatusCode::kUnknown;
-constexpr StatusCode INVALID_ARGUMENT = StatusCode::kInvalidArgument;
-constexpr StatusCode DEADLINE_EXCEEDED = StatusCode::kDeadlineExceeded;
-constexpr StatusCode NOT_FOUND = StatusCode::kNotFound;
-constexpr StatusCode ALREADY_EXISTS = StatusCode::kAlreadyExists;
-constexpr StatusCode PERMISSION_DENIED = StatusCode::kPermissionDenied;
-constexpr StatusCode UNAUTHENTICATED = StatusCode::kUnauthenticated;
-constexpr StatusCode RESOURCE_EXHAUSTED = StatusCode::kResourceExhausted;
-constexpr StatusCode FAILED_PRECONDITION = StatusCode::kFailedPrecondition;
-constexpr StatusCode ABORTED = StatusCode::kAborted;
-constexpr StatusCode OUT_OF_RANGE = StatusCode::kOutOfRange;
-constexpr StatusCode UNIMPLEMENTED = StatusCode::kUnimplemented;
-constexpr StatusCode INTERNAL = StatusCode::kInternal;
-constexpr StatusCode UNAVAILABLE = StatusCode::kUnavailable;
-constexpr StatusCode DATA_LOSS = StatusCode::kDataLoss;
-
-using absl::AbortedError;
-using absl::AlreadyExistsError;
-using absl::CancelledError;
-using absl::DataLossError;
-using absl::DeadlineExceededError;
-using absl::FailedPreconditionError;
-using absl::InternalError;
-using absl::InvalidArgumentError;
-using absl::NotFoundError;
-using absl::OutOfRangeError;
-using absl::PermissionDeniedError;
-using absl::ResourceExhaustedError;
-using absl::UnauthenticatedError;
-using absl::UnavailableError;
-using absl::UnimplementedError;
-using absl::UnknownError;
-
-using absl::IsAborted;
-using absl::IsAlreadyExists;
-using absl::IsCancelled;
-using absl::IsDataLoss;
-using absl::IsDeadlineExceeded;
-using absl::IsFailedPrecondition;
-using absl::IsInternal;
-using absl::IsInvalidArgument;
-using absl::IsNotFound;
-using absl::IsOutOfRange;
-using absl::IsPermissionDenied;
-using absl::IsResourceExhausted;
-using absl::IsUnauthenticated;
-using absl::IsUnavailable;
-using absl::IsUnimplemented;
-using absl::IsUnknown;
-
-}  // namespace zetasql_base
-
 // This is better than CHECK((val).ok()) because the embedded
 // error string gets printed by the CHECK_EQ.
 #define ZETASQL_CHECK_OK(val) CHECK_EQ(::absl::OkStatus(), (val))

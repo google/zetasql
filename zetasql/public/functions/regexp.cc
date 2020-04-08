@@ -34,7 +34,7 @@ bool RegExp::InitializePatternUtf8(absl::string_view pattern,
                                    absl::Status* error) {
   RE2::Options options;
   options.set_log_errors(false);
-  options.set_utf8(true);
+  options.set_encoding(RE2::Options::EncodingUTF8);
   re_ = absl::make_unique<RE2>(pattern, options);
   if (!re_->ok()) {
     return internal::UpdateError(
@@ -47,7 +47,7 @@ bool RegExp::InitializePatternBytes(absl::string_view pattern,
                                     absl::Status* error) {
   RE2::Options options;
   options.set_log_errors(false);
-  options.set_utf8(false);
+  options.set_encoding(RE2::Options::EncodingLatin1);
   re_ = absl::make_unique<RE2>(pattern, options);
   if (!re_->ok()) {
     return internal::UpdateError(
@@ -144,7 +144,7 @@ bool RegExp::ExtractAllNext(absl::string_view* out, absl::Status* error) {
   // string, so in this case we need to advance input by one character.
   if (groups[0].empty() &&
       extract_all_position_ < static_cast<int64_t>(extract_all_input_.size())) {
-    if (re_->options().utf8()) {
+    if (re_->options().encoding() == RE2::Options::EncodingUTF8) {
       constexpr int64_t kMaxUtf8Length = 4;
       int64_t length_after_position =
           extract_all_input_.size() - extract_all_position_;
@@ -227,7 +227,7 @@ bool RegExp::Replace(absl::string_view str, absl::string_view newsub,
       if (p < str.end()) {
         // Move p one character forward.
         int32_t len;
-        if (re_->options().utf8()) {
+        if (re_->options().encoding() == RE2::Options::EncodingUTF8) {
           int32_t char_len = 0;
           constexpr std::ptrdiff_t kMaxUtf8Length = 4;
           U8_FWD_1(p, char_len, std::min(kMaxUtf8Length, str.end() - p));

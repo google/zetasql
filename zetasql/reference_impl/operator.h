@@ -2732,7 +2732,7 @@ class DMLValueExpr : public ValueExpr {
       *status = status_or_result.status();
       return false;
     }
-    result->SetValue(std::move(status_or_result).ValueOrDie());
+    result->SetValue(std::move(status_or_result).value());
     return true;
   }
 

@@ -21,7 +21,7 @@
 
 namespace zetasql {
 
-// SimpleType includes all the non-parameterized types (all scalar types
+// SimpleType includes all the non-parameterized builtin types (all scalar types
 // except enum).
 class SimpleType : public Type {
  public:
@@ -33,6 +33,14 @@ class SimpleType : public Type {
 
   std::string TypeName(ProductMode mode) const override;
 
+  bool IsSupportedType(const LanguageOptions& language_options) const override;
+
+  // Check whether type with a given name exists and is simple. If yes, returns
+  // true and set 'result' argument to a type kind of the found simple type.
+  // Returns false otherwise.
+  static bool GetSimpleTypeKindByName(const std::string& type_name,
+                                      ProductMode mode, TypeKind* result);
+
  protected:
   ~SimpleType() override;
 
@@ -40,11 +48,28 @@ class SimpleType : public Type {
     return sizeof(*this);
   }
 
+  void InitializeValueContent(ValueContent* value) const override;
+  void CopyValueContent(const ValueContent& from,
+                        ValueContent* to) const override;
+  void ClearValueContent(const ValueContent& value) const override;
+  uint64_t GetValueContentExternallyAllocatedByteSize(
+      const ValueContent& value) const override;
+
  private:
+  bool SupportsGroupingImpl(const LanguageOptions& language_options,
+                            const Type** no_grouping_type) const override;
+
   absl::Status SerializeToProtoAndDistinctFileDescriptorsImpl(
       TypeProto* type_proto,
       absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
       FileDescriptorSetMap* file_descriptor_set_map) const override;
+
+  bool EqualsForSameKind(const Type* that, bool equivalent) const override {
+    return true;
+  }
+
+  void DebugStringImpl(bool details, TypeOrStringVector* stack,
+                       std::string* debug_string) const override;
 
   friend class TypeFactory;
 };

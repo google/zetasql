@@ -16,8 +16,11 @@
 
 #include "zetasql/public/types/enum_type.h"
 
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/types/internal_utils.h"
+#include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value_content.h"
 
 namespace zetasql {
 
@@ -28,6 +31,23 @@ EnumType::EnumType(const TypeFactory* factory,
 }
 
 EnumType::~EnumType() {
+}
+
+bool EnumType::EqualsForSameKind(const Type* that, bool equivalent) const {
+  const EnumType* other = that->AsEnum();
+  DCHECK(other);
+  return EnumType::EqualsImpl(this, other, equivalent);
+}
+
+void EnumType::DebugStringImpl(bool details, TypeOrStringVector* stack,
+                               std::string* debug_string) const {
+  absl::StrAppend(debug_string, "ENUM<", enum_descriptor_->full_name());
+  if (details) {
+    absl::StrAppend(debug_string,
+                    ", file name: ", enum_descriptor_->file()->name(), ", <",
+                    enum_descriptor_->DebugString(), ">");
+  }
+  absl::StrAppend(debug_string, ">");
 }
 
 const google::protobuf::EnumDescriptor* EnumType::enum_descriptor() const {
@@ -110,6 +130,22 @@ bool EnumType::EqualsImpl(const EnumType* const type1,
     return true;
   }
   return false;
+}
+
+bool EnumType::IsSupportedType(const LanguageOptions& language_options) const {
+  // Enums are generally unsupported in EXTERNAL mode, except for builtin enums
+  // such as the DateTimestampPart enum that is used in many of the date/time
+  // related functions.
+  if (language_options.product_mode() == ProductMode::PRODUCT_EXTERNAL &&
+      !Equivalent(types::DatePartEnumType()) &&
+      !Equivalent(types::NormalizeModeEnumType())) {
+    return false;
+  }
+  return true;
+}
+
+void EnumType::InitializeValueContent(ValueContent* value) const {
+  value->set(this);
 }
 
 }  // namespace zetasql

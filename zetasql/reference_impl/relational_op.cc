@@ -2417,7 +2417,7 @@ class JoinTupleIterator : public TupleIterator {
         status_ = status_or_joined.status();
         return nullptr;
       }
-      const bool joined = status_or_joined.ValueOrDie();
+      const bool joined = status_or_joined.value();
 
       if (!left_padding_right_tuples_ && next_right_tuple_idx_ >= 0 && joined) {
         left_tuple_joined_ = true;

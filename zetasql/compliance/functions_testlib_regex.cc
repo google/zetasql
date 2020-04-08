@@ -193,6 +193,9 @@ std::vector<FunctionTestCall> GetFunctionTestsRegexp() {
     {"regexp_replace", {"", "", "\\x"}, NullString(), OUT_OF_RANGE},
     {"regexp_replace", {"", "", "\\"}, NullString(), OUT_OF_RANGE},
     {"regexp_replace", {"", "", "\\1"}, NullString(), OUT_OF_RANGE},
+    {"regexp_replace", {"abc", "abc.*", "\\2@\\1"}, NullString(), OUT_OF_RANGE},
+    {"regexp_replace", {"abc", "(.*)b([^d]*)", "\\4@\\3"}, NullString(),
+          OUT_OF_RANGE},
 
     // The regex is invalid.
     {"regexp_replace", {"a", "AI!\x1b\r)V\r\x1c\x1eP3]|\x17\n9", "def"},

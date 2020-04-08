@@ -174,7 +174,7 @@ class AggregateAccumulatorAdaptor : public IntermediateAggregateAccumulator {
       }
       return error;
     }
-    return status_or_value.ValueOrDie();
+    return status_or_value.value();
   }
 
  private:
@@ -540,7 +540,7 @@ class HavingExtremalValueAccumulator : public IntermediateAggregateAccumulator {
         return false;
       }
       std::unique_ptr<AggregateAccumulator>& accumulator =
-          status_or_accumulator.ValueOrDie();
+          status_or_accumulator.value();
       *status = accumulator->Reset();
       if (!status->ok()) return false;
       bool dummy_stop_accumulation;
@@ -558,7 +558,7 @@ class HavingExtremalValueAccumulator : public IntermediateAggregateAccumulator {
         *status = status_or_value.status();
         return false;
       }
-      new_extremal_having_value = std::move(status_or_value).ValueOrDie();
+      new_extremal_having_value = std::move(status_or_value).value();
     }
 
     // We update 'extremal_having_value_' and reset the accumulation if
@@ -833,7 +833,7 @@ zetasql_base::StatusOr<Value> AggregateArg::EvalAgg(
     }
     return status_or_result.status();
   }
-  return status_or_result.ValueOrDie();
+  return status_or_result.value();
 }
 
 std::string AggregateArg::DebugInternal(const std::string& indent,

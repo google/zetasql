@@ -38,6 +38,8 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/type.pb.h"
+#include "zetasql/public/value_content.h"
 #include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/hash/hash.h"
@@ -51,6 +53,7 @@
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/time.h"
+#include "zetasql/base/simple_reference_counted.h"
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/time_proto_util.h"
 
@@ -98,75 +101,53 @@ std::ostream& operator<<(std::ostream& out, const Value& value) {
 Value::Value(const Type* type)
     : type_kind_(type->kind()), is_null_(true) {
   CHECK(type != nullptr);
-  switch (type_kind()) {
-    case TYPE_INT32:
-    case TYPE_INT64:
-    case TYPE_UINT32:
-    case TYPE_UINT64:
-    case TYPE_BOOL:
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_DATE:
-    case TYPE_TIMESTAMP:
-    case TYPE_TIME:
-    case TYPE_DATETIME:
-      break;
-    case TYPE_STRING:
-    case TYPE_BYTES:
-      string_ptr_ = new StringRef();
-      break;
-    case TYPE_GEOGRAPHY:
-      geography_ptr_ = new GeographyRef();
-      break;
-    case TYPE_NUMERIC:
-      numeric_ptr_ = new NumericRef();
-      break;
-    case TYPE_BIGNUMERIC:
-      bignumeric_ptr_ = new BigNumericRef();
-      break;
-    case TYPE_ENUM:
-      enum_type_ = type->AsEnum();
-      break;
-    case TYPE_ARRAY:
-    case TYPE_STRUCT:
-      list_ptr_ = new TypedList(type);
-      break;
-    case TYPE_PROTO:
-      proto_ptr_ = new ProtoRep(type->AsProto(), absl::Cord());
-      break;
-    case TYPE_UNKNOWN:
-    case __TypeKind__switch_must_have_a_default__:
-      // Handling this case is only allowed internally.
-      LOG(FATAL) << "Cannot construct value with type " << type_kind();
+
+  // If type relies on a list of values, Value has to create it by itself.
+  if (DoesTypeUseValueList()) {
+    list_ptr_ = new TypedList(type);
+    return;
   }
+
+  // TODO: we can avoid constructing value content for nulls, if we make
+  // sure we check for nulls before accessing content. Then, we can remove this
+  // logic.
+  ValueContent content = ValueContent::NullValue();
+  type->InitializeValueContent(&content);
+  SetContent(content);
 }
 
 void Value::CopyFrom(const Value& that) {
   // Self-copy check is done in the copy constructor. Here we just DCHECK that.
   DCHECK_NE(this, &that);
   memcpy(this, &that, sizeof(Value));
+  if (!is_valid()) {
+    return;
+  }
+
+  // TODO: we should use Type::CopyValueContent to copy resources
+  // associated with values for all types. However, it was observed
+  // that there are some ZetaSQL customer tests that release their TypeFactory
+  // objects before Values. This leads to crashes when we try to access type
+  // instance from CopyFrom. To prevent breakage of such scenarios before all of
+  // them get fixed, we rely on type kind to release content of types that could
+  // be allocated using custom type factory: enum, array, struct and proto. This
+  // special logic can be removed when we fix all external Value/Type factory
+  // dependency issues.
   switch (that.type_kind_) {
     case TYPE_STRUCT:
     case TYPE_ARRAY:
       list_ptr_->Ref();
-      break;
-    case TYPE_STRING:
-    case TYPE_BYTES:
-      string_ptr_->Ref();
-      break;
-    case TYPE_GEOGRAPHY:
-      geography_ptr_->Ref();
-      break;
-    case TYPE_NUMERIC:
-      numeric_ptr_->Ref();
-      break;
-    case TYPE_BIGNUMERIC:
-      bignumeric_ptr_->Ref();
-      break;
+      return;
     case TYPE_PROTO:
       proto_ptr_->Ref();
-      break;
+      return;
+    case TYPE_ENUM:
+      return;
   }
+
+  ValueContent copied_content = ValueContent::NullValue();
+  that.type()->CopyValueContent(that.GetContent(), &copied_content);
+  SetContent(copied_content);
 }
 
 Value::Value(TypeKind type_kind, int64_t value)
@@ -233,7 +214,7 @@ Value::Value(const EnumType* enum_type, absl::string_view name)
 
 Value::Value(const ProtoType* proto_type, absl::Cord value)
     : type_kind_(TYPE_PROTO),
-      proto_ptr_(new ProtoRep(proto_type, std::move(value))) {}
+      proto_ptr_(new internal::ProtoRep(proto_type, std::move(value))) {}
 
 #ifdef NDEBUG
 static constexpr bool kDebugMode = false;
@@ -282,34 +263,20 @@ Value Value::StructInternal(bool safe, const StructType* struct_type,
 const Type* Value::type() const {
   CHECK(is_valid()) << DebugString();
   switch (type_kind()) {
-    case TYPE_INT32: return Int32Type();
-    case TYPE_INT64: return Int64Type();
-    case TYPE_UINT32: return Uint32Type();
-    case TYPE_UINT64: return Uint64Type();
-    case TYPE_BOOL: return BoolType();
-    case TYPE_FLOAT: return FloatType();
-    case TYPE_DOUBLE: return DoubleType();
-    case TYPE_STRING: return StringType();
-    case TYPE_BYTES: return BytesType();
-    case TYPE_DATE: return DateType();
-    case TYPE_TIMESTAMP: return TimestampType();
-    case TYPE_TIME: return TimeType();
-    case TYPE_DATETIME: return DatetimeType();
-    case TYPE_GEOGRAPHY: return GeographyType();
-    case TYPE_NUMERIC: return NumericType();
-    case TYPE_BIGNUMERIC: return BigNumericType();
     case TYPE_ENUM: return enum_type_;
     case TYPE_ARRAY:
     case TYPE_STRUCT:
       return list_ptr_->type();
     case TYPE_PROTO:
       return proto_ptr_->type();
-    case TYPE_UNKNOWN:
-    case __TypeKind__switch_must_have_a_default__:
-      LOG(DFATAL) << "Invalid type: " << type_kind();
-      break;
+    default:
+      // Expect simple type here or failure
+      const Type* result = types::TypeFromSimpleTypeKind(type_kind());
+      if (!result) {
+        LOG(FATAL) << "Invalid type: " << type_kind();
+      }
+      return result;
   }
-  return nullptr;
 }
 
 const std::vector<Value>& Value::fields() const {
@@ -424,47 +391,15 @@ double Value::ToDouble() const {
 }
 
 uint64_t Value::physical_byte_size() const {
-  if (is_null()) {
-    return sizeof(Value);
-  }
   uint64_t physical_size = sizeof(Value);
-  switch (type_kind_) {
-    case TYPE_BOOL:
-    case TYPE_DATE:
-    case TYPE_DOUBLE:
-    case TYPE_FLOAT:
-    case TYPE_INT32:
-    case TYPE_UINT32:
-    case TYPE_UINT64:
-    case TYPE_INT64:
-    case TYPE_TIME:
-    case TYPE_DATETIME:
-    case TYPE_ENUM:
-    case TYPE_TIMESTAMP:
-      break;
-    case TYPE_NUMERIC:
-      physical_size += sizeof(NumericRef);
-      break;
-    case TYPE_BIGNUMERIC:
-      physical_size += sizeof(BigNumericRef);
-      break;
-    case TYPE_STRING:
-    case TYPE_BYTES:
-      physical_size += string_ptr_->physical_byte_size();
-      break;
-    case TYPE_ARRAY:
-    case TYPE_STRUCT:
-      physical_size += list_ptr_->physical_byte_size();
-      break;
-    case TYPE_PROTO:
-      physical_size += proto_ptr_->physical_byte_size();
-      break;
-    case TYPE_GEOGRAPHY:
-      physical_size += geography_ptr_->physical_byte_size();
-      break;
-    default:
-      LOG(FATAL) << "Cannot determine physical byte size: " << type_kind_;
+  if (is_null() || !is_valid()) {
+    return physical_size;
   }
+
+  physical_size +=
+      DoesTypeUseValueList()
+          ? list_ptr_->physical_byte_size()
+          : type()->GetValueContentExternallyAllocatedByteSize(GetContent());
   return physical_size;
 }
 
@@ -2256,7 +2191,7 @@ zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
             absl::StrCat("Invalid value for TIMESTAMP",
                          value_proto.timestamp_value().DebugString()));
       } else {
-        absl::Time t = time_or.ValueOrDie();
+        absl::Time t = time_or.value();
         if (!functions::IsValidTime(t)) {
           return absl::Status(absl::StatusCode::kOutOfRange,
                               absl::StrCat("Invalid value for TIMESTAMP: ",
@@ -2312,7 +2247,7 @@ zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
         auto status_or_value =
             Deserialize(element, type->AsArray()->element_type());
         ZETASQL_RETURN_IF_ERROR(status_or_value.status());
-        elements.push_back(status_or_value.ValueOrDie());
+        elements.push_back(status_or_value.value());
       }
       return Array(type->AsArray(), elements);
     }
@@ -2348,6 +2283,16 @@ zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
           absl::StatusCode::kInternal,
           absl::StrCat("Unsupported type ", type->DebugString()));
   }
+}
+
+ValueContent Value::GetContent() const {
+  return ValueContent(int64_value_, enum_value_, is_null_);
+}
+
+void Value::SetContent(const ValueContent& content) {
+  int64_value_ = content.content_;
+  enum_value_ = content.simple_type_extended_content_;
+  is_null_ = content.is_null_;
 }
 
 }  // namespace zetasql

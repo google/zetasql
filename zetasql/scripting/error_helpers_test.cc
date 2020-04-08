@@ -66,7 +66,7 @@ void TestConvertErrorWithSource(
       "SELECT outer_error_location, inner_error_location";
   absl::Status inner_status = ConvertInternalErrorLocationToExternal(
       StatusWithInternalErrorLocation(
-          zetasql_base::InternalError("Inner error"),
+          absl::InternalError("Inner error"),
           ParseLocationPoint::FromByteOffset(
               static_cast<int>(error_stmt_text.find("inner_error_location")))),
       error_stmt_text);

@@ -36,7 +36,7 @@ std::string GetTypeUrl() {
 // Attaches the given payload. This will overwrite any previous payload with
 // the same type.
 template <class T>
-void AttachPayload(zetasql_base::Status* status, const T& payload) {
+void AttachPayload(absl::Status* status, const T& payload) {
   absl::Cord serialized = absl::Cord(payload.SerializeAsString());
   status->SetPayload(GetTypeUrl<T>(), serialized);
 }

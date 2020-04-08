@@ -28,22 +28,25 @@ namespace {
 
 // Validation requirements documented at:
 // (broken link)
-Status Validate(const google::protobuf::Timestamp& t) {
+absl::Status Validate(const google::protobuf::Timestamp& t) {
   const auto sec = t.seconds();
   const auto ns = t.nanos();
   // sec must be [0001-01-01T00:00:00Z, 9999-12-31T23:59:59.999999999Z]
   if (sec < -62135596800 || sec > 253402300799) {
-    return Status(StatusCode::kInvalidArgument, absl::StrCat("seconds=", sec));
+    return absl::Status(absl::StatusCode::kInvalidArgument,
+                        absl::StrCat("seconds=", sec));
   }
   if (ns < 0 || ns > 999999999) {
-    return Status(StatusCode::kInvalidArgument, absl::StrCat("nanos=", ns));
+    return absl::Status(absl::StatusCode::kInvalidArgument,
+                        absl::StrCat("nanos=", ns));
   }
-  return OkStatus();
+  return absl::OkStatus();
 }
 
 }  // namespace
 
-Status EncodeGoogleApiProto(absl::Time t, google::protobuf::Timestamp* proto) {
+absl::Status EncodeGoogleApiProto(absl::Time t,
+                                  google::protobuf::Timestamp* proto) {
   const int64_t s = absl::ToUnixSeconds(t);
   proto->set_seconds(s);
   proto->set_nanos((t - absl::FromUnixSeconds(s)) / absl::Nanoseconds(1));
@@ -52,7 +55,7 @@ Status EncodeGoogleApiProto(absl::Time t, google::protobuf::Timestamp* proto) {
 
 StatusOr<absl::Time> DecodeGoogleApiProto(
     const google::protobuf::Timestamp& proto) {
-  Status status = Validate(proto);
+  absl::Status status = Validate(proto);
   if (!status.ok()) return status;
   return absl::FromUnixSeconds(proto.seconds()) +
          absl::Nanoseconds(proto.nanos());

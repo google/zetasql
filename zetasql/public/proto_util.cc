@@ -1007,7 +1007,7 @@ absl::Status ReadProtoFields(
             new_value = value.status();
             break;
           }
-          element_values.push_back(value.ValueOrDie());
+          element_values.push_back(value.value());
         }
 
         if (success) {
@@ -1048,7 +1048,7 @@ absl::Status ReadProtoField(const google::protobuf::FieldDescriptor* field_descr
   ZETASQL_RET_CHECK_EQ(field_value_list.size(), 1);
   const zetasql_base::StatusOr<Value>& status_or_value = field_value_list[0];
   ZETASQL_RETURN_IF_ERROR(status_or_value.status());
-  *output_value = status_or_value.ValueOrDie();
+  *output_value = status_or_value.value();
   return absl::OkStatus();
 }
 

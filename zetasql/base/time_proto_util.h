@@ -17,8 +17,8 @@
 #define UTIL_TIME_PROTOUTIL_H_
 
 #include "google/protobuf/timestamp.pb.h"
+#include "absl/status/status.h"
 #include "absl/time/time.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/statusor.h"
 
 namespace zetasql_base {
@@ -33,7 +33,8 @@ namespace zetasql_base {
 //
 // Note: absl::InfiniteFuture/absl::InfinitePast() cannot be encoded because
 // they are not representable in the protobuf.
-Status EncodeGoogleApiProto(absl::Time t, google::protobuf::Timestamp* proto);
+absl::Status EncodeGoogleApiProto(absl::Time t,
+                                  google::protobuf::Timestamp* proto);
 
 // Decodes the given protobuf and returns an absl::Time, or returns an error
 // status if the argument is invalid according to

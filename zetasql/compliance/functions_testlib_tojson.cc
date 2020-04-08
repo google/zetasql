@@ -562,34 +562,86 @@ $0
   // NUMERIC
   const std::vector<std::pair<NumericValue, Value>> numeric_test_cases = {
       {NumericValue(static_cast<int64_t>(0)), String("0")},
-      {NumericValue::FromDouble(3.14).ValueOrDie(), String("\"3.14\"")},
-      {NumericValue::FromStringStrict("555551.618033989").ValueOrDie(),
+      {NumericValue::FromDouble(3.14).value(), String("\"3.14\"")},
+      {NumericValue::FromStringStrict("555551.618033989").value(),
        String("\"555551.618033989\"")},
-      {NumericValue::FromStringStrict("0.000000001").ValueOrDie(),
+      {NumericValue::FromStringStrict("0.000000001").value(),
        String("\"0.000000001\"")},
-      {NumericValue::FromStringStrict("-0.000000001").ValueOrDie(),
+      {NumericValue::FromStringStrict("-0.000000001").value(),
        String("\"-0.000000001\"")},
-      {NumericValue::FromStringStrict("55555551.618033989").ValueOrDie(),
+      {NumericValue::FromStringStrict("55555551.618033989").value(),
        String("\"55555551.618033989\"")},
-      {NumericValue::FromStringStrict("1234567890.123456789").ValueOrDie(),
+      {NumericValue::FromStringStrict("1234567890.123456789").value(),
        String("\"1234567890.123456789\"")},
-      {NumericValue::FromStringStrict("1234567890.12345678").ValueOrDie(),
+      {NumericValue::FromStringStrict("1234567890.12345678").value(),
        String("\"1234567890.12345678\"")},
       {NumericValue(9007199254740992ll), String("9007199254740992")},
       {NumericValue(9007199254740993ll), String("\"9007199254740993\"")},
       {NumericValue(-9007199254740992ll), String("-9007199254740992")},
       {NumericValue(-9007199254740993ll), String("\"-9007199254740993\"")},
+      {NumericValue(2147483647), String("2147483647")},
+      {NumericValue(2147483648), String("2147483648")},
+      {NumericValue(-2147483648), String("-2147483648")},
+      {NumericValue(-2147483649), String("-2147483649")},
       {NumericValue::MaxValue(),
        String("\"99999999999999999999999999999.999999999\"")},
-      {NumericValue::FromStringStrict("99999999999999999999999999999")
-           .ValueOrDie(),
+      {NumericValue::FromStringStrict("99999999999999999999999999999").value(),
        String("\"99999999999999999999999999999\"")},
       {NumericValue::MinValue(),
        String("\"-99999999999999999999999999999.999999999\"")},
-      {NumericValue::FromStringStrict("-99999999999999999999999999999")
-           .ValueOrDie(),
+      {NumericValue::FromStringStrict("-99999999999999999999999999999").value(),
        String("\"-99999999999999999999999999999\"")},
   };
+  // BIGNUMERIC
+  const std::vector<std::pair<BigNumericValue, Value>> big_numeric_test_cases =
+      {
+          {BigNumericValue::MaxValue(),
+           String("\"578960446186580977117854925043439539266."
+                  "34992332820282019728792003956564819967\"")},
+          {BigNumericValue::MinValue(),
+           String("\"-578960446186580977117854925043439539266."
+                  "34992332820282019728792003956564819968\"")},
+          {BigNumericValue::FromStringStrict(
+               "99999999999999999999999999999.000000001")
+               .ValueOrDie(),
+           String("\"99999999999999999999999999999.000000001\"")},
+          {BigNumericValue::FromStringStrict(
+               "-99999999999999999999999999999.000000001")
+               .ValueOrDie(),
+           String("\"-99999999999999999999999999999.000000001\"")},
+          {BigNumericValue::FromStringStrict(
+               "10000000000000000000000000000000000000.1")
+               .ValueOrDie(),
+           String("\"10000000000000000000000000000000000000.1\"")},
+          {BigNumericValue::FromStringStrict(
+               "-10000000000000000000000000000000000000.1")
+               .ValueOrDie(),
+           String("\"-10000000000000000000000000000000000000.1\"")},
+          {BigNumericValue::FromStringStrict("1e38").ValueOrDie(),
+           String("\"100000000000000000000000000000000000000\"")},
+          {BigNumericValue::FromStringStrict("1e-38").ValueOrDie(),
+           String("\"0.00000000000000000000000000000000000001\"")},
+          {BigNumericValue::FromStringStrict(
+               "1.00000000000000000000000000000000000001")
+               .ValueOrDie(),
+           String("\"1.00000000000000000000000000000000000001\"")},
+          {BigNumericValue::FromStringStrict(
+               "-1.00000000000000000000000000000000000001")
+               .ValueOrDie(),
+           String("\"-1.00000000000000000000000000000000000001\"")},
+          {BigNumericValue::FromStringStrict(
+               "10000000000000000000000000000000000000."
+               "00000000000000000000000000000000000001")
+               .ValueOrDie(),
+           String("\"10000000000000000000000000000000000000."
+                  "00000000000000000000000000000000000001\"")},
+          {BigNumericValue::FromStringStrict(
+               "-10000000000000000000000000000000000000."
+               "00000000000000000000000000000000000001")
+               .ValueOrDie(),
+           String("\"-10000000000000000000000000000000000000."
+                  "00000000000000000000000000000000000001\"")},
+      };
 
   for (const auto& numeric_test_case : numeric_test_cases) {
     all_tests.emplace_back(
@@ -597,11 +649,28 @@ $0
         WrapResultForNumeric(
             {Value::Numeric(numeric_test_case.first)},
             QueryParamsWithResult::Result(numeric_test_case.second)));
+    // Reuse the numeric cases for bignumeric
+    all_tests.emplace_back(
+        "to_json_string",
+        WrapResultForBigNumeric(
+            {Value::BigNumeric(BigNumericValue(numeric_test_case.first))},
+            QueryParamsWithResult::Result(numeric_test_case.second)));
+  }
+  for (const auto& big_numeric_test_case : big_numeric_test_cases) {
+    all_tests.emplace_back(
+        "to_json_string",
+        WrapResultForBigNumeric(
+            {Value::BigNumeric(big_numeric_test_case.first)},
+            QueryParamsWithResult::Result(big_numeric_test_case.second)));
   }
   all_tests.emplace_back(
       "to_json_string",
       WrapResultForNumeric({Value::NullNumeric()},
                            QueryParamsWithResult::Result(String("null"))));
+  all_tests.emplace_back(
+      "to_json_string",
+      WrapResultForBigNumeric({Value::NullBigNumeric()},
+                              QueryParamsWithResult::Result(String("null"))));
   all_tests.emplace_back("to_json_string",
                          QueryParamsWithResult({Value::NullGeography()}, "null")
                              .WrapWithFeature(FEATURE_GEOGRAPHY));

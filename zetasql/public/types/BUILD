@@ -40,10 +40,12 @@ cc_library(
     ],
     copts = ["-Wno-sign-compare"],
     deps = [
+        ":value_representations",
         "//zetasql/base",
         "//zetasql/base:case",
         "//zetasql/base:cleanup",
         "//zetasql/base:map_util",
+        "//zetasql/base:refcount",
         "//zetasql/base:status",
         "//zetasql/common:errors",
         "//zetasql/common:proto_helper",
@@ -52,6 +54,7 @@ cc_library(
         "//zetasql/public:strings",
         "//zetasql/public:type_annotation_cc_proto",
         "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value_content",
         "//zetasql/public/functions:datetime_cc_proto",
         "//zetasql/public/functions:normalize_mode_cc_proto",
         "//zetasql/public/proto:type_annotation_cc_proto",
@@ -66,5 +69,17 @@ cc_library(
         "@com_google_absl//absl/types:span",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_library(
+    name = "value_representations",
+    hdrs = [
+        "value_representations.h",
+    ],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "//zetasql/base:refcount",
+        "//zetasql/public:numeric_value",
     ],
 )

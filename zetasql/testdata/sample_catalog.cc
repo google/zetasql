@@ -219,6 +219,7 @@ void SampleCatalog::LoadCatalogImpl(const LanguageOptions& language_options) {
   LoadTemplatedSQLUDFs();
   LoadTableValuedFunctions1();
   LoadTableValuedFunctions2();
+  LoadTVFWithExtraColumns();
   LoadDescriptorTableValuedFunctions();
   LoadConnectionTableValuedFunctions();
   LoadTableValuedFunctionsWithDeprecationWarnings();
@@ -325,7 +326,7 @@ class IgnoreReadTimeIterator : public EvaluatorTableIterator {
     return iterator_->SetColumnFilterMap(std::move(filter_map));
   }
   absl::Status SetReadTime(absl::Time read_time) override {
-    return zetasql_base::OkStatus();
+    return absl::OkStatus();
   }
   bool NextRow() override { return iterator_->NextRow(); }
   const Value& GetValue(int i) const override { return iterator_->GetValue(i); }
@@ -1887,7 +1888,7 @@ void SampleCatalog::LoadTableValuedFunctions2() {
                            /*is_pseudo_column_in=*/true),
            TVFSchemaColumn("PartitionName", types_->get_string(),
                            /*is_pseudo_column_in=*/true)})
-          .ValueOrDie();
+          .value();
 
   int64_t context_id = 0;
 
@@ -2454,6 +2455,57 @@ void SampleCatalog::LoadTableValuedFunctions2() {
        {named_required_format_arg, named_required_schema_relation_arg},
        /*context_id=*/-1},
       output_schema_two_types));
+}
+
+void SampleCatalog::LoadTVFWithExtraColumns() {
+  int64_t context_id = 0;
+
+  // Add a TVF with appended columns of valid ZetaSQL types.
+  catalog_->AddOwnedTableValuedFunction(
+      new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+          {"tvf_append_columns"},
+          FunctionSignature(ARG_TYPE_RELATION, {ARG_TYPE_RELATION},
+                            context_id++),
+          {TVFSchemaColumn("append_col_int64", zetasql::types::Int64Type()),
+           TVFSchemaColumn("append_col_int32", zetasql::types::Int32Type()),
+           TVFSchemaColumn("append_col_uint32", zetasql::types::Uint32Type()),
+           TVFSchemaColumn("append_col_uint64", zetasql::types::Uint64Type()),
+           TVFSchemaColumn("append_col_bytes", zetasql::types::BytesType()),
+           TVFSchemaColumn("append_col_bool", zetasql::types::BoolType()),
+           TVFSchemaColumn("append_col_float", zetasql::types::FloatType()),
+           TVFSchemaColumn("append_col_double", zetasql::types::DoubleType()),
+           TVFSchemaColumn("append_col_date", zetasql::types::DateType()),
+           TVFSchemaColumn("append_col_timestamp",
+                           zetasql::types::TimestampType()),
+           TVFSchemaColumn("append_col_numeric",
+                           zetasql::types::NumericType()),
+           TVFSchemaColumn("append_col_bignumeric",
+                           zetasql::types::BigNumericType()),
+           TVFSchemaColumn("append_col_string",
+                           zetasql::types::StringType())}));
+
+  // Add a TVF with an appended column that has empty name.
+  catalog_->AddOwnedTableValuedFunction(
+      new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+          {"tvf_append_no_column"},
+          FunctionSignature(ARG_TYPE_RELATION, {ARG_TYPE_RELATION},
+                            context_id++),
+          {}));
+
+  const auto named_required_any_relation_arg = zetasql::FunctionArgumentType(
+      ARG_TYPE_RELATION,
+      zetasql::FunctionArgumentTypeOptions().set_argument_name(
+          "any_relation_arg"));
+
+  // Add a TVF with one required named "any table" relation argument.
+  catalog_->AddOwnedTableValuedFunction(
+      new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
+          {"tvf_append_columns_any_relation_arg"},
+          FunctionSignature(ARG_TYPE_RELATION,
+                            {named_required_any_relation_arg},
+                            /*context_id=*/context_id++),
+          {TVFSchemaColumn("append_col_int32",
+                           zetasql::types::Int32Type())}));
 }
 
 void SampleCatalog::LoadDescriptorTableValuedFunctions() {

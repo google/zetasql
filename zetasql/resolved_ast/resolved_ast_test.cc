@@ -796,7 +796,7 @@ TEST(ResolvedAST, TableDeserialization) {
                                              &string_pool);
 
   auto ast =
-      std::move(ResolvedNode::RestoreFrom(proto, restore_params).ValueOrDie());
+      std::move(ResolvedNode::RestoreFrom(proto, restore_params).value());
   const auto* query = ast->GetAs<ResolvedQueryStmt>();
   const auto* project = query->query()->GetAs<ResolvedProjectScan>();
   const auto* table_scan = project->input_scan()->GetAs<ResolvedTableScan>();
@@ -860,7 +860,7 @@ TEST(ResolvedAST, FieldDescriptorDeserialization) {
                                              &string_pool);
 
   auto ast =
-      std::move(ResolvedNode::RestoreFrom(proto, restore_params).ValueOrDie());
+      std::move(ResolvedNode::RestoreFrom(proto, restore_params).value());
   const auto* query_stmt = ast->GetAs<ResolvedQueryStmt>();
   const auto* project = query_stmt->query()->GetAs<ResolvedProjectScan>();
   const auto* make_proto =
@@ -898,7 +898,7 @@ TEST(ResolvedAST, NestedCatalogSerialization) {
                                              &string_pool);
 
   auto ast =
-      std::move(ResolvedNode::RestoreFrom(proto, restore_params).ValueOrDie());
+      std::move(ResolvedNode::RestoreFrom(proto, restore_params).value());
   const auto* query_stmt = ast->GetAs<ResolvedQueryStmt>();
   const auto* table_scan = query_stmt->query()
                                ->GetAs<ResolvedProjectScan>()
@@ -967,7 +967,7 @@ TEST(ResolvedAST, ConstantDeserialization) {
                                              &string_pool);
 
   auto ast =
-      std::move(ResolvedNode::RestoreFrom(proto, restore_params).ValueOrDie());
+      std::move(ResolvedNode::RestoreFrom(proto, restore_params).value());
   const auto* const query = ast->GetAs<ResolvedQueryStmt>();
   const auto* const project = query->query()->GetAs<ResolvedProjectScan>();
   ASSERT_EQ(project->expr_list_size(), 1) << project->DebugString();

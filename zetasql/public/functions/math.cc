@@ -234,7 +234,7 @@ bool Round(NumericValue in, NumericValue *out, absl::Status* error) {
     return internal::SetFloatingPointOverflow(
         absl::StrCat("ROUND(", in.ToString(), ")"), error);
   }
-  *out = status_or_numeric.ValueOrDie();
+  *out = status_or_numeric.value();
   return true;
 }
 
@@ -246,7 +246,7 @@ bool RoundDecimal(NumericValue in, int64_t digits, NumericValue *out,
     return internal::SetFloatingPointOverflow(
         absl::StrCat("ROUND(", in.ToString(), ", ", digits, ")"), error);
   }
-  *out = status_or_numeric.ValueOrDie();
+  *out = status_or_numeric.value();
   return true;
 }
 
@@ -270,7 +270,7 @@ bool Ceil(NumericValue in, NumericValue *out, absl::Status* error) {
     return internal::SetFloatingPointOverflow(
         absl::StrCat("CEIL(", in.ToString(), ")"), error);
   }
-  *out = status_or_numeric.ValueOrDie();
+  *out = status_or_numeric.value();
   return true;
 }
 
@@ -281,7 +281,7 @@ bool Floor(NumericValue in, NumericValue *out, absl::Status* error) {
     return internal::SetFloatingPointOverflow(
         absl::StrCat("FLOOR(", in.ToString(), ")"), error);
   }
-  *out = status_or_numeric.ValueOrDie();
+  *out = status_or_numeric.value();
   return true;
 }
 
@@ -293,7 +293,7 @@ bool Pow(NumericValue in1, NumericValue in2, NumericValue* out,
     return internal::SetFloatingPointError(
         absl::StrCat("POW(", in1.ToString(), ", ", in2.ToString(), ")"), error);
   }
-  *out = status_or_numeric.ValueOrDie();
+  *out = status_or_numeric.value();
   return true;
 }
 

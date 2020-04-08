@@ -44,6 +44,17 @@ cc_library(
 )
 
 cc_library(
+    name = "value_content",
+    hdrs = [
+        "value_content.h",
+    ],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        "@com_google_absl//absl/base:core_headers",
+    ],
+)
+
+cc_library(
     name = "catalog",
     srcs = [
         "catalog.cc",
@@ -328,6 +339,7 @@ cc_library(
         ":type",
         ":type_cc_proto",
         ":value_cc_proto",
+        ":value_content",
         "//zetasql/base",
         "//zetasql/base:map_util",
         "//zetasql/base:refcount",
@@ -344,6 +356,7 @@ cc_library(
         "//zetasql/public/functions:convert_string",
         "//zetasql/public/functions:date_time_util",
         "//zetasql/public/proto:type_annotation_cc_proto",
+        "//zetasql/public/types:value_representations",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
@@ -381,6 +394,7 @@ cc_test(
         "//zetasql/common:internal_value",
         "//zetasql/common/testing:proto_matchers",
         "//zetasql/common/testing:testing_proto_util",
+        "//zetasql/public/types:value_representations",
         "//zetasql/testdata:test_schema_cc_proto",
         "//zetasql/testing:test_value",
         "@com_google_absl//absl/container:flat_hash_set",
@@ -696,6 +710,7 @@ cc_test(
         ":type_cc_proto",
         ":value",
         "//zetasql/base",
+        "//zetasql/base:path",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
         "//zetasql/common/testing:proto_matchers",
@@ -849,6 +864,22 @@ cc_library(
     name = "sql_function",
     srcs = ["sql_function.cc"],
     hdrs = ["sql_function.h"],
+    copts = ["-Wno-sign-compare"],
+    deps = [
+        ":error_helpers",
+        ":function",
+        ":parse_resume_location",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/resolved_ast",
+        "@com_google_absl//absl/types:optional",
+    ],
+)
+
+cc_library(
+    name = "non_sql_function",
+    srcs = ["non_sql_function.cc"],
+    hdrs = ["non_sql_function.h"],
     copts = ["-Wno-sign-compare"],
     deps = [
         ":error_helpers",

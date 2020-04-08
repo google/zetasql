@@ -19,6 +19,8 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/types/internal_utils.h"
+#include "zetasql/public/value_content.h"
+#include "zetasql/base/simple_reference_counted.h"
 
 namespace zetasql {
 
@@ -27,6 +29,38 @@ StructType::StructType(const TypeFactory* factory,
     : Type(factory, TYPE_STRUCT),
       fields_(std::move(fields)),
       nesting_depth_(nesting_depth) {}
+
+bool StructType::IsSupportedType(
+    const LanguageOptions& language_options) const {
+  // A Struct is supported if all of its fields are supported.
+  for (const StructField& field : AsStruct()->fields()) {
+    if (!field.type->IsSupportedType(language_options)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool StructType::EqualsForSameKind(const Type* that, bool equivalent) const {
+  const StructType* other = that->AsStruct();
+  DCHECK(other);
+  return StructType::EqualsImpl(this, other, equivalent);
+}
+
+void StructType::DebugStringImpl(bool details, TypeOrStringVector* stack,
+                                 std::string* debug_string) const {
+  absl::StrAppend(debug_string, "STRUCT<");
+  stack->push_back(">");
+  for (int i = num_fields() - 1; i >= 0; --i) {
+    const StructField& field = this->field(i);
+    stack->push_back(field.type);
+    std::string prefix = (i > 0) ? ", " : "";
+    if (!field.name.empty()) {
+      absl::StrAppend(&prefix, ToIdentifierLiteral(field.name), " ");
+    }
+    stack->push_back(prefix);
+  }
+}
 
 bool StructType::SupportsGroupingImpl(const LanguageOptions& language_options,
                                       const Type** no_grouping_type) const {
@@ -195,6 +229,23 @@ const StructType::StructField* StructType::FindField(
   }
 }
 
+Type::HasFieldResult StructType::HasFieldImpl(
+    const std::string& name, int* field_id, bool include_pseudo_fields) const {
+  bool is_ambiguous;
+  const StructField* field = FindField(name, &is_ambiguous, field_id);
+  if (is_ambiguous) {
+    return HAS_AMBIGUOUS_FIELD;
+  }
+
+  if (!field) {
+    return HAS_NO_FIELD;
+  }
+
+  return HAS_FIELD;
+}
+
+bool StructType::HasAnyFields() const { return num_fields() != 0; }
+
 int64_t GetEstimatedStructFieldOwnedMemoryBytesSize(const StructField& field) {
   static_assert(
       sizeof(field) ==
@@ -246,6 +297,26 @@ bool StructType::EqualsImpl(const StructType* const type1,
     }
   }
   return true;
+}
+
+void StructType::InitializeValueContent(ValueContent* value) const {
+  // TODO: currently StructType cannot create a list of Values itself
+  // because "types" package doesn't depend on "value" (to avoid dependency
+  // cycle). In the future we will create a virtual list factory interface
+  // defined outside of "value", but which Value can provide to Array/Struct to
+  // use to construct lists.
+  LOG(FATAL) << "ConstructValue should never be called for StructType, since "
+                "its value content is created in Value class";
+}
+
+void StructType::CopyValueContent(const ValueContent& from,
+                                  ValueContent* to) const {
+  from.GetAs<zetasql_base::SimpleReferenceCounted*>()->Ref();
+  *to = from;
+}
+
+void StructType::ClearValueContent(const ValueContent& value) const {
+  value.GetAs<zetasql_base::SimpleReferenceCounted*>()->Unref();
 }
 
 }  // namespace zetasql

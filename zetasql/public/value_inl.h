@@ -38,6 +38,7 @@
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/value_representations.h"
 #include "zetasql/public/value.h"  
 #include <cstdint>
 #include "absl/hash/hash.h"
@@ -76,105 +77,6 @@ class Value::TypedList : public zetasql_base::SimpleReferenceCounted {
   mutable absl::optional<uint64_t> physical_byte_size_;
 };
 
-// -------------------------------------------------------
-// ProtoRep
-// -------------------------------------------------------
-// Even though Cord is internally reference counted, ProtoRep is reference
-// counted so that the internal representation can keep track of state
-// associated with a ProtoRep (specifically, already deserialized fields).
-class Value::ProtoRep : public zetasql_base::SimpleReferenceCounted {
- public:
-  ProtoRep(const ProtoType* type, absl::Cord value)
-      : type_(type), value_(std::move(value)) {
-    CHECK(type != nullptr);
-    CHECK(type->descriptor() != nullptr);
-  }
-
-  ProtoRep(const ProtoRep&) = delete;
-  ProtoRep& operator=(const ProtoRep&) = delete;
-
-  const ProtoType* type() const { return type_; }
-  const absl::Cord& value() const { return value_; }
-  uint64_t physical_byte_size() const { return sizeof(ProtoRep) + value_.size(); }
-
- private:
-  const ProtoType* type_;
-  const absl::Cord value_;
-};
-
-class Value::GeographyRef final : public zetasql_base::SimpleReferenceCounted {
- public:
-  GeographyRef() {}
-  GeographyRef(const GeographyRef&) = delete;
-  GeographyRef& operator=(const GeographyRef&) = delete;
-
-  const uint64_t physical_byte_size() const {
-    return sizeof(GeographyRef);
-  }
-};
-
-// -------------------------------------------------------
-// NumericRef is ref count wrapper around NumericValue.
-// -------------------------------------------------------
-class Value::NumericRef : public zetasql_base::SimpleReferenceCounted {
- public:
-  NumericRef() {}
-  explicit NumericRef(const NumericValue& value)
-      : value_(value) {
-  }
-
-  NumericRef(const NumericRef&) = delete;
-  NumericRef& operator=(const NumericRef&) = delete;
-
-  const NumericValue& value() {
-    return value_;
-  }
-
- private:
-  NumericValue value_;
-};
-
-// -------------------------------------------------------------
-// BigNumericRef is ref count wrapper around BigNumericValue.
-// -------------------------------------------------------------
-class Value::BigNumericRef : public zetasql_base::SimpleReferenceCounted {
- public:
-  BigNumericRef() {}
-  explicit BigNumericRef(const BigNumericValue& value)
-      : value_(value) {
-  }
-
-  BigNumericRef(const BigNumericRef&) = delete;
-  BigNumericRef& operator=(const BigNumericRef&) = delete;
-
-  const BigNumericValue& value() {
-    return value_;
-  }
-
- private:
-  BigNumericValue value_;
-};
-
-// -------------------------------------------------------
-// StringRef is ref count wrapper around string.
-// -------------------------------------------------------
-class Value::StringRef : public zetasql_base::SimpleReferenceCounted {
- public:
-  StringRef() {}
-  explicit StringRef(std::string value) : value_(std::move(value)) {}
-
-  StringRef(const StringRef&) = delete;
-  StringRef& operator=(const StringRef&) = delete;
-
-  const std::string& value() const { return value_; }
-
-  uint64_t physical_byte_size() const {
-    return sizeof(StringRef) + value_.size() * sizeof(char);
-  }
-
- private:
-  const std::string value_;
-};
 
 // -------------------------------------------------------
 // Value
@@ -189,31 +91,30 @@ inline Value::Value(const Value& that) {
 }
 
 inline void Value::Clear() {
-  switch (type_kind_) {
-    case TYPE_STRING:
-    case TYPE_BYTES:
-      string_ptr_->Unref();
-      break;
-    case TYPE_ARRAY:
-    case TYPE_STRUCT:
-      // TODO This recursively deletes Values, so for deeply nested
-      // struct types, we can get a stack overflow.
-      list_ptr_->Unref();
-      break;
-    case TYPE_GEOGRAPHY:
-      geography_ptr_->Unref();
-      break;
-    case TYPE_NUMERIC:
-      numeric_ptr_->Unref();
-      break;
-    case TYPE_BIGNUMERIC:
-      bignumeric_ptr_->Unref();
-      break;
-    case TYPE_PROTO:
-      proto_ptr_->Unref();
-      break;
-    default:
-      break;
+  // TODO: we should use Type::ClearValueContent to release
+  // resources associated with values for all types. However, it was observed
+  // through the testing that there are some ZetaSQL customer functions that
+  // release their TypeFactory objects before Values. This leads to crashes
+  // when we try to access type instance from Value destructor. To prevent
+  // breakage of such scenarios before all of them get fixed, we rely on
+  // type kind to release content of types that could be allocated using custom
+  // type factory: enum, array, struct and proto. This special logic can be
+  // removed when we fix all external Value/Type factory dependency issues.
+  if (is_valid()) {
+    switch (type_kind_) {
+      case TYPE_ARRAY:
+      case TYPE_STRUCT:
+        list_ptr_->Unref();
+        break;
+      case TYPE_PROTO:
+        proto_ptr_->Unref();
+        break;
+      case TYPE_ENUM:
+        break;
+      default:
+        type()->ClearValueContent(GetContent());
+        break;
+    }
   }
   type_kind_ = kInvalidTypeKind;
 }
@@ -286,17 +187,18 @@ inline Value::Value(double value)
 
 inline Value::Value(TypeKind type_kind, std::string value)
     : type_kind_(static_cast<int16_t>(type_kind)),
-      string_ptr_(new StringRef(std::move(value))) {
+      string_ptr_(new internal::StringRef(std::move(value))) {
   CHECK(type_kind == TYPE_STRING ||
         type_kind == TYPE_BYTES);
 }
 
 inline Value::Value(const NumericValue& numeric)
-    : type_kind_(TYPE_NUMERIC), numeric_ptr_(new NumericRef(numeric)) {}
+    : type_kind_(TYPE_NUMERIC),
+      numeric_ptr_(new internal::NumericRef(numeric)) {}
 
 inline Value::Value(const BigNumericValue& bignumeric)
     : type_kind_(TYPE_BIGNUMERIC),
-      bignumeric_ptr_(new BigNumericRef(bignumeric)) {}
+      bignumeric_ptr_(new internal::BigNumericRef(bignumeric)) {}
 
 inline Value Value::Struct(const StructType* type,
                            absl::Span<const Value> values) {

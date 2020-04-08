@@ -22,6 +22,7 @@
 #include "google/protobuf/descriptor.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/source_location.h"
@@ -37,14 +38,14 @@ using ::testing::Eq;
 using ::testing::HasSubstr;
 using ::zetasql_base::testing::StatusIs;
 
-// Converts a StatusBuilder to a Status.
-Status ToStatus(const StatusBuilder& s) { return s; }
+// Converts a StatusBuilder to a absl::Status.
+absl::Status ToStatus(const StatusBuilder& s) { return s; }
 
-Status Cancelled() {
-  return Status(StatusCode::kCancelled, "");
+absl::Status Cancelled() {
+  return absl::Status(absl::StatusCode::kCancelled, "");
 }
 
-const StatusCode kZomg = StatusCode::kUnimplemented;
+const absl::StatusCode kZomg = absl::StatusCode::kUnimplemented;
 const SourceLocation kLoc = ZETASQL_LOC;
 
 // Converts a StatusBuilder to a StatusOr<T>.
@@ -62,21 +63,22 @@ TestPayload MakePayloadProto(const std::string& str) {
 
 // Makes a message set contains a payload proto, suitable for passing to the
 // constructor of `Status`.
-void SetTestPayload(const std::string& str, Status* s) {
+void SetTestPayload(const std::string& str, absl::Status* s) {
   TestPayload payload = MakePayloadProto(str);
   AttachPayload(s, payload);
 }
 
-Status StatusWithPayload(StatusCode code, const std::string& msg,
-                         const std::string& str) {
-  Status s(code, msg);
+absl::Status StatusWithPayload(absl::StatusCode code, const std::string& msg,
+                               const std::string& str) {
+  absl::Status s(code, msg);
   SetTestPayload(str, &s);
   return s;
 }
 
-Status StatusWithPayload(StatusCode code, const std::string& msg,
-                         const std::string& str1, const std::string& str2) {
-  Status s(code, msg);
+absl::Status StatusWithPayload(absl::StatusCode code, const std::string& msg,
+                               const std::string& str1,
+                               const std::string& str2) {
+  absl::Status s(code, msg);
   SetTestPayload(str1, &s);
   SetTestPayload(str2, &s);
   return s;
@@ -84,19 +86,19 @@ Status StatusWithPayload(StatusCode code, const std::string& msg,
 
 TEST(StatusBuilderTest, Ctors) {
   EXPECT_EQ(ToStatus(StatusBuilder(kZomg, ZETASQL_LOC) << "zomg"),
-            Status(kZomg, "zomg"));
+            absl::Status(kZomg, "zomg"));
 }
 
 TEST(StatusBuilderTest, Identity) {
   SourceLocation loc(ZETASQL_LOC);
 
-  const std::vector<Status> statuses = {
-      OkStatus(),
+  const std::vector<absl::Status> statuses = {
+      absl::OkStatus(),
       Cancelled(),
-      InvalidArgumentError("yup"),
+      absl::InvalidArgumentError("yup"),
   };
 
-  for (const Status& base : statuses) {
+  for (const absl::Status& base : statuses) {
     EXPECT_THAT(ToStatus(StatusBuilder(base, loc)), Eq(base));
     EXPECT_EQ(StatusBuilder(base, loc).ok(), base.ok());
     if (!base.ok()) {
@@ -110,7 +112,7 @@ TEST(StatusBuilderTest, SourceLocation) {
       SourceLocation::DoNotInvokeDirectly(0x42, "my_file");
 
   {
-    const StatusBuilder builder(OkStatus(), kLocation);
+    const StatusBuilder builder(absl::OkStatus(), kLocation);
     EXPECT_THAT(builder.source_location().file_name(),
                 Eq(kLocation.file_name()));
     EXPECT_THAT(builder.source_location().line(), Eq(kLocation.line()));
@@ -120,124 +122,130 @@ TEST(StatusBuilderTest, SourceLocation) {
 TEST(StatusBuilderTest, ErrorCode) {
   // OK
   {
-    const StatusBuilder builder(OkStatus(), kLoc);
+    const StatusBuilder builder(absl::OkStatus(), kLoc);
     EXPECT_TRUE(builder.ok());
-    EXPECT_THAT(builder.code(), Eq(OK));
+    EXPECT_THAT(builder.code(), Eq(absl::StatusCode::kOk));
     EXPECT_FALSE(builder.Is(kZomg));
   }
 
   // Non-OK canonical code
   {
-    const StatusBuilder builder(INVALID_ARGUMENT, kLoc);
+    const StatusBuilder builder(absl::StatusCode::kInvalidArgument, kLoc);
     EXPECT_FALSE(builder.ok());
-    EXPECT_THAT(builder.code(), Eq(INVALID_ARGUMENT));
+    EXPECT_THAT(builder.code(), Eq(absl::StatusCode::kInvalidArgument));
     EXPECT_FALSE(builder.Is(kZomg));
   }
 }
 
 TEST(StatusBuilderTest, OkIgnoresStuff) {
-  EXPECT_THAT(ToStatus(StatusBuilder(OkStatus(), kLoc) << "booyah"),
-              Eq(OkStatus()));
+  EXPECT_THAT(ToStatus(StatusBuilder(absl::OkStatus(), kLoc) << "booyah"),
+              Eq(absl::OkStatus()));
   EXPECT_THAT(
-      ToStatus(StatusBuilder(OkStatus(), kLoc)
-          .Attach(MakePayloadProto("omg"))
-               << "zombies"),
-      Eq(OkStatus()));
+      ToStatus(
+          StatusBuilder(absl::OkStatus(), kLoc).Attach(MakePayloadProto("omg"))
+          << "zombies"),
+      Eq(absl::OkStatus()));
 }
 
 TEST(StatusBuilderTest, Streaming) {
   EXPECT_THAT(ToStatus(StatusBuilder(Cancelled(), kLoc) << "booyah"),
-              Eq(CancelledError("booyah")));
-  EXPECT_THAT(ToStatus(StatusBuilder(AbortedError("hello"), kLoc) << "world"),
-              Eq(AbortedError("hello; world")));
+              Eq(absl::CancelledError("booyah")));
+  EXPECT_THAT(
+      ToStatus(StatusBuilder(absl::AbortedError("hello"), kLoc) << "world"),
+      Eq(absl::AbortedError("hello; world")));
 }
 
 TEST(StatusBuilderTest, Prepend) {
-  EXPECT_THAT(ToStatus(StatusBuilder(Cancelled(), kLoc).SetPrepend()
-                       << "booyah"),
-              Eq(CancelledError("booyah")));
   EXPECT_THAT(
-      ToStatus(StatusBuilder(AbortedError(" hello"), kLoc).SetPrepend()
-                       << "world"),
-              Eq(AbortedError("world hello")));
+      ToStatus(StatusBuilder(Cancelled(), kLoc).SetPrepend() << "booyah"),
+      Eq(absl::CancelledError("booyah")));
+  EXPECT_THAT(
+      ToStatus(StatusBuilder(absl::AbortedError(" hello"), kLoc).SetPrepend()
+               << "world"),
+      Eq(absl::AbortedError("world hello")));
 }
 
 TEST(StatusBuilderTest, Append) {
   EXPECT_THAT(
       ToStatus(StatusBuilder(Cancelled(), kLoc).SetAppend() << "booyah"),
-      Eq(CancelledError("booyah")));
-  EXPECT_THAT(ToStatus(StatusBuilder(AbortedError("hello"), kLoc).SetAppend()
-                       << " world"),
-              Eq(AbortedError("hello world")));
+      Eq(absl::CancelledError("booyah")));
+  EXPECT_THAT(
+      ToStatus(StatusBuilder(absl::AbortedError("hello"), kLoc).SetAppend()
+               << " world"),
+      Eq(absl::AbortedError("hello world")));
 }
 
 TEST(StatusBuilderTest, SetErrorCode) {
-  EXPECT_THAT(ToStatus(StatusBuilder(Cancelled(), kLoc)
-                           .Attach(MakePayloadProto("oops"))
-                           .SetErrorCode(FAILED_PRECONDITION)),
-              Eq(StatusWithPayload(FAILED_PRECONDITION, "", "oops")));
-  EXPECT_THAT(ToStatus(StatusBuilder(CancelledError("monkey"), kLoc)
-                           .SetErrorCode(FAILED_PRECONDITION)
-                       << "taco"),
-              Eq(Status(FAILED_PRECONDITION, "monkey; taco")));
+  EXPECT_THAT(
+      ToStatus(StatusBuilder(Cancelled(), kLoc)
+                   .Attach(MakePayloadProto("oops"))
+                   .SetErrorCode(absl::StatusCode::kFailedPrecondition)),
+      Eq(StatusWithPayload(absl::StatusCode::kFailedPrecondition, "", "oops")));
+  EXPECT_THAT(
+      ToStatus(StatusBuilder(absl::CancelledError("monkey"), kLoc)
+                   .SetErrorCode(absl::StatusCode::kFailedPrecondition)
+               << "taco"),
+      Eq(absl::Status(absl::StatusCode::kFailedPrecondition, "monkey; taco")));
 }
 
 TEST(StatusBuilderTest, Attach) {
-  EXPECT_THAT(ToStatus(StatusBuilder(Cancelled(), kLoc)
-                           .Attach(MakePayloadProto("oops"))),
-      Eq(StatusWithPayload(CANCELLED, "", "oops")));
-  EXPECT_THAT(ToStatus(StatusBuilder(Cancelled(), kLoc)
-                           .Attach(MakePayloadProto("boom"))
+  EXPECT_THAT(
+      ToStatus(
+          StatusBuilder(Cancelled(), kLoc).Attach(MakePayloadProto("oops"))),
+      Eq(StatusWithPayload(absl::StatusCode::kCancelled, "", "oops")));
+  EXPECT_THAT(
+      ToStatus(StatusBuilder(Cancelled(), kLoc).Attach(MakePayloadProto("boom"))
                << "stick"),
-      Eq(StatusWithPayload(CANCELLED, "stick", "boom")));
+      Eq(StatusWithPayload(absl::StatusCode::kCancelled, "stick", "boom")));
 }
 
 TEST(StatusBuilderTest, MultiAttach) {
-  EXPECT_THAT(ToStatus(StatusBuilder(Cancelled(), kLoc)
-                           .Attach(MakePayloadProto("msg1"))
-                           .Attach(MakePayloadProto("msg2"))),
-              Eq(StatusWithPayload(CANCELLED, "", "msg1", "msg2")));
-  EXPECT_THAT(ToStatus(StatusBuilder(Cancelled(), kLoc)
-                           .Attach(MakePayloadProto("boom"))
+  EXPECT_THAT(
+      ToStatus(StatusBuilder(Cancelled(), kLoc)
+                   .Attach(MakePayloadProto("msg1"))
+                   .Attach(MakePayloadProto("msg2"))),
+      Eq(StatusWithPayload(absl::StatusCode::kCancelled, "", "msg1", "msg2")));
+  EXPECT_THAT(
+      ToStatus(StatusBuilder(Cancelled(), kLoc).Attach(MakePayloadProto("boom"))
                << "stick"),
-      Eq(StatusWithPayload(CANCELLED, "stick", "boom")));
+      Eq(StatusWithPayload(absl::StatusCode::kCancelled, "stick", "boom")));
 }
 
 // This structure holds the details for testing a single canonical error code,
 // its creator, and its classifier.
 struct CanonicalErrorTest {
-  StatusCode code;
+  absl::StatusCode code;
   StatusBuilder (*creator)(SourceLocation);
 };
 
 constexpr CanonicalErrorTest kCanonicalErrorTests[]{
-    {ABORTED, AbortedErrorBuilder},
-    {ALREADY_EXISTS, AlreadyExistsErrorBuilder},
-    {CANCELLED, CancelledErrorBuilder},
-    {DATA_LOSS, DataLossErrorBuilder},
-    {DEADLINE_EXCEEDED, DeadlineExceededErrorBuilder},
-    {FAILED_PRECONDITION, FailedPreconditionErrorBuilder},
-    {INTERNAL, InternalErrorBuilder},
-    {INVALID_ARGUMENT, InvalidArgumentErrorBuilder},
-    {NOT_FOUND, NotFoundErrorBuilder},
-    {OUT_OF_RANGE, OutOfRangeErrorBuilder},
-    {PERMISSION_DENIED, PermissionDeniedErrorBuilder},
-    {UNAUTHENTICATED, UnauthenticatedErrorBuilder},
-    {RESOURCE_EXHAUSTED, ResourceExhaustedErrorBuilder},
-    {UNAVAILABLE, UnavailableErrorBuilder},
-    {UNIMPLEMENTED, UnimplementedErrorBuilder},
-    {UNKNOWN, UnknownErrorBuilder},
+    {absl::StatusCode::kAborted, AbortedErrorBuilder},
+    {absl::StatusCode::kAlreadyExists, AlreadyExistsErrorBuilder},
+    {absl::StatusCode::kCancelled, CancelledErrorBuilder},
+    {absl::StatusCode::kDataLoss, DataLossErrorBuilder},
+    {absl::StatusCode::kDeadlineExceeded, DeadlineExceededErrorBuilder},
+    {absl::StatusCode::kFailedPrecondition, FailedPreconditionErrorBuilder},
+    {absl::StatusCode::kInternal, InternalErrorBuilder},
+    {absl::StatusCode::kInvalidArgument, InvalidArgumentErrorBuilder},
+    {absl::StatusCode::kNotFound, NotFoundErrorBuilder},
+    {absl::StatusCode::kOutOfRange, OutOfRangeErrorBuilder},
+    {absl::StatusCode::kPermissionDenied, PermissionDeniedErrorBuilder},
+    {absl::StatusCode::kUnauthenticated, UnauthenticatedErrorBuilder},
+    {absl::StatusCode::kResourceExhausted, ResourceExhaustedErrorBuilder},
+    {absl::StatusCode::kUnavailable, UnavailableErrorBuilder},
+    {absl::StatusCode::kUnimplemented, UnimplementedErrorBuilder},
+    {absl::StatusCode::kUnknown, UnknownErrorBuilder},
 };
 
 TEST(CanonicalErrorsTest, CreateAndClassify) {
   for (const auto& test : kCanonicalErrorTests) {
-    SCOPED_TRACE(absl::StrCat("", StatusCodeToString(test.code)));
+    SCOPED_TRACE(absl::StrCat("", absl::StatusCodeToString(test.code)));
 
     // Ensure that the creator does, in fact, create status objects in the
     // canonical space, with the expected error code and message.
     std::string message =
         absl::StrCat("error code ", test.code, " test message");
-    Status status = test.creator(ZETASQL_LOC) << message;
+    absl::Status status = test.creator(ZETASQL_LOC) << message;
     EXPECT_EQ(test.code, status.code());
     EXPECT_EQ(message, status.message());
   }

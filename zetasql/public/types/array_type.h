@@ -51,17 +51,29 @@ class ArrayType : public Type {
     return element_type_->UsingFeatureV12CivilTimeType();
   }
 
+  bool IsSupportedType(const LanguageOptions& language_options) const override;
+
   int nesting_depth() const override {
     return element_type_->nesting_depth() + 1;
   }
 
  protected:
+  bool EqualsForSameKind(const Type* that, bool equivalent) const override;
+
+  void DebugStringImpl(bool details, TypeOrStringVector* stack,
+                       std::string* debug_string) const override;
+
   // Return estimated size of memory owned by this type. Array's owned memory
   // does not include its element type's memory (which is owned by some
   // TypeFactory).
   int64_t GetEstimatedOwnedMemoryBytesSize() const override {
     return sizeof(*this);
   }
+
+  void InitializeValueContent(ValueContent* value) const override;
+  void CopyValueContent(const ValueContent& from,
+                        ValueContent* to) const override;
+  void ClearValueContent(const ValueContent& value) const override;
 
  private:
   ArrayType(const TypeFactory* factory, const Type* element_type);

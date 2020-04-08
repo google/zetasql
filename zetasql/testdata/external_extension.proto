@@ -26,6 +26,6 @@ import "zetasql/testdata/test_schema.proto";
 
 message ExternalExtension {
   extend TestExtraPB {
-    optional string field = 10323131;
+    optional ExternalExtension field = 10323131;
   }
 }

@@ -123,7 +123,7 @@ std::unique_ptr<ScalarFunctionBody> CreateFunction(FunctionKind kind,
   language_options.EnableMaximumLanguageFeaturesForDevelopment();
   return BuiltinScalarFunction::CreateValidated(kind, language_options,
                                                 output_type, {})
-      .ValueOrDie();
+      .value();
 }
 
 // Test fixture for implementations of RelationalOp::CreateIterator.

@@ -139,15 +139,14 @@ std::ostream& operator<<(std::ostream& out,
   TypeFactory type_factory;
 
   std::vector<std::unique_ptr<ValueExpr>> args;
-  args.push_back(
-      DerefExpr::Create(VariableId("x"), t.argument_type()).ValueOrDie());
+  args.push_back(DerefExpr::Create(VariableId("x"), t.argument_type()).value());
 
   auto op = AggregateArg::Create(VariableId("agg"),
                                  absl::make_unique<BuiltinAggregateFunction>(
                                      t.kind, t.result.type(),
                                      /*num_input_fields=*/1, t.argument_type()),
                                  std::move(args), AggregateArg::kAll)
-                .ValueOrDie();
+                .value();
   std::vector<std::string> strs;
   for (const auto& a : t.values) {
     strs.push_back(a.DebugString(true));
@@ -362,81 +361,98 @@ OtherAggregateFunctionTemplates() {
   ZETASQL_CHECK_OK(test_values::static_type_factory()->MakeEnumType(
       zetasql_test::TestEnum_descriptor(), &enum_type));
   return {
-    // Any(<any type permitted>)
-    {FunctionKind::kAnyValue, {Bool(true), NullBool()}, Bool(true), kNonDet},
-    {FunctionKind::kAnyValue, {NullBool(), Bool(true)}, NullBool(), kNonDet},
-    {FunctionKind::kAnyValue, {NullBool()}, NullBool()},
-    {FunctionKind::kAnyValue, {Bool(true)}, Bool(true)},
-    {FunctionKind::kAnyValue, {Double(3.14), NullDouble()}, Double(3.14),
-                                  kNonDet},
-    {FunctionKind::kAnyValue, {NullDouble(), Double(3.14)}, NullDouble(),
-                                  kNonDet},
-    {FunctionKind::kAnyValue, {Int64(1), NullInt64()}, Int64(1), kNonDet},
-    {FunctionKind::kAnyValue, {NullInt64(), Int64(1)}, NullInt64(), kNonDet},
-    {FunctionKind::kAnyValue, {String("Hi"), NullString()}, String("Hi"),
-                                  kNonDet},
-    {FunctionKind::kAnyValue, {NullString(), String("Hi")}, NullString(),
-                                  kNonDet},
-    // Avg
-    {FunctionKind::kAvg, {Int64(1), Int64(2), NullInt64()}, Double(1.5)},
-    {FunctionKind::kAvg, {Uint64(1), Uint64(2), NullUint64()}, Double(1.5)},
-    {FunctionKind::kAvg, {Double(3.14), Double(2.72), NullDouble()},
-        Double(2.93)},
-    {FunctionKind::kAvg,
-        {Numeric(1), Numeric(5), NullNumeric(), Numeric(-14), Numeric(3)},
-        Numeric(NumericValue::FromString("-1.25").ValueOrDie())},
-    // Count
-    {FunctionKind::kCount, {Int64(1), Int64(2), Int64(3), Int64(4),
-        Int64(5), Int64(6), NullInt64(), Int64(7), Int64(8)}, Int64(8)},
-    {FunctionKind::kCount, {Bool(false), Bool(true)}, Int64(2)},
-    {FunctionKind::kCount, {Double(1.5), Double(2.5)}, Int64(2)},
-    {FunctionKind::kCount, {Int64(1), Int64(2)}, Int64(2)},
-    {FunctionKind::kCount, {Numeric(1), Numeric(-1)}, Int64(2)},
-    {FunctionKind::kCount, {String("a"), String("b"), String("")}, Int64(3)},
-    {FunctionKind::kCount, {Bool(false), NullBool()}, Int64(1)},
-    {FunctionKind::kCount, {NullDouble(), Double(2.5)}, Int64(1)},
-    {FunctionKind::kCount, {Int64(1), NullInt64()}, Int64(1)},
-    {FunctionKind::kCount, {Numeric(1), NullNumeric()}, Int64(1)},
-    {FunctionKind::kCount, {NullString(), String("b")}, Int64(1)},
-    {FunctionKind::kCount, {NullBool(), NullBool()}, Int64(0)},
-    {FunctionKind::kCount, {NullDouble(), NullDouble()}, Int64(0)},
-    {FunctionKind::kCount, {NullInt64(), NullInt64()}, Int64(0)},
-    {FunctionKind::kCount, {NullString(), NullString()}, Int64(0)},
-    {FunctionKind::kCount, {NullNumeric(), NullNumeric()}, Int64(0)},
-    {FunctionKind::kCount, {}, Int64(0)},
-    {FunctionKind::kCount, {Array({String("a")})}, Int64(1)},
+      // Any(<any type permitted>)
+      {FunctionKind::kAnyValue, {Bool(true), NullBool()}, Bool(true), kNonDet},
+      {FunctionKind::kAnyValue, {NullBool(), Bool(true)}, NullBool(), kNonDet},
+      {FunctionKind::kAnyValue, {NullBool()}, NullBool()},
+      {FunctionKind::kAnyValue, {Bool(true)}, Bool(true)},
+      {FunctionKind::kAnyValue,
+       {Double(3.14), NullDouble()},
+       Double(3.14),
+       kNonDet},
+      {FunctionKind::kAnyValue,
+       {NullDouble(), Double(3.14)},
+       NullDouble(),
+       kNonDet},
+      {FunctionKind::kAnyValue, {Int64(1), NullInt64()}, Int64(1), kNonDet},
+      {FunctionKind::kAnyValue, {NullInt64(), Int64(1)}, NullInt64(), kNonDet},
+      {FunctionKind::kAnyValue,
+       {String("Hi"), NullString()},
+       String("Hi"),
+       kNonDet},
+      {FunctionKind::kAnyValue,
+       {NullString(), String("Hi")},
+       NullString(),
+       kNonDet},
+      // Avg
+      {FunctionKind::kAvg, {Int64(1), Int64(2), NullInt64()}, Double(1.5)},
+      {FunctionKind::kAvg, {Uint64(1), Uint64(2), NullUint64()}, Double(1.5)},
+      {FunctionKind::kAvg,
+       {Double(3.14), Double(2.72), NullDouble()},
+       Double(2.93)},
+      {FunctionKind::kAvg,
+       {Numeric(1), Numeric(5), NullNumeric(), Numeric(-14), Numeric(3)},
+       Numeric(NumericValue::FromString("-1.25").value())},
+      // Count
+      {FunctionKind::kCount,
+       {Int64(1), Int64(2), Int64(3), Int64(4), Int64(5), Int64(6), NullInt64(),
+        Int64(7), Int64(8)},
+       Int64(8)},
+      {FunctionKind::kCount, {Bool(false), Bool(true)}, Int64(2)},
+      {FunctionKind::kCount, {Double(1.5), Double(2.5)}, Int64(2)},
+      {FunctionKind::kCount, {Int64(1), Int64(2)}, Int64(2)},
+      {FunctionKind::kCount, {Numeric(1), Numeric(-1)}, Int64(2)},
+      {FunctionKind::kCount, {String("a"), String("b"), String("")}, Int64(3)},
+      {FunctionKind::kCount, {Bool(false), NullBool()}, Int64(1)},
+      {FunctionKind::kCount, {NullDouble(), Double(2.5)}, Int64(1)},
+      {FunctionKind::kCount, {Int64(1), NullInt64()}, Int64(1)},
+      {FunctionKind::kCount, {Numeric(1), NullNumeric()}, Int64(1)},
+      {FunctionKind::kCount, {NullString(), String("b")}, Int64(1)},
+      {FunctionKind::kCount, {NullBool(), NullBool()}, Int64(0)},
+      {FunctionKind::kCount, {NullDouble(), NullDouble()}, Int64(0)},
+      {FunctionKind::kCount, {NullInt64(), NullInt64()}, Int64(0)},
+      {FunctionKind::kCount, {NullString(), NullString()}, Int64(0)},
+      {FunctionKind::kCount, {NullNumeric(), NullNumeric()}, Int64(0)},
+      {FunctionKind::kCount, {}, Int64(0)},
+      {FunctionKind::kCount, {Array({String("a")})}, Int64(1)},
 
-    // ArrayAgg(Int64)
-    {FunctionKind::kArrayAgg, {Int64(1), NullInt64()},
-          Array({Int64(1), NullInt64()})},
-    {FunctionKind::kArrayAgg, {}, Value::Null(Int64ArrayType())},
-    // Sum(Int64)
-    {FunctionKind::kSum, {Int64(1), Int64(2)}, Int64(3)},
-    {FunctionKind::kSum, {Int64(1), NullInt64()}, Int64(1)},
-    {FunctionKind::kSum, {NullInt64()}, NullInt64()},
-    {FunctionKind::kSum, {}, NullInt64()},
-    // Sum(Uint64)
-    {FunctionKind::kSum, {Uint64(1), Uint64(2)}, Uint64(3)},
-    {FunctionKind::kSum, {Uint64(1), NullUint64()}, Uint64(1)},
-    {FunctionKind::kSum, {NullUint64()}, NullUint64()},
-    {FunctionKind::kSum, {}, NullUint64()},
-    // Sum(NumericValue)
-    {FunctionKind::kSum, {Numeric(1), Numeric(2)}, Numeric(3)},
-    {FunctionKind::kSum, {Numeric(NumericValue::MinValue()),
-                          Numeric(NumericValue::MaxValue())}, Numeric(0)},
-    {FunctionKind::kSum, {Numeric(1), NullNumeric()}, Numeric(1)},
-    {FunctionKind::kSum, {NullNumeric()}, NullNumeric()},
-    {FunctionKind::kSum, {}, NullNumeric()},
-    // StringAgg(String)
-    {FunctionKind::kStringAgg, {String("1"), String("1")},
-        {String("1,1")}, kNonDet},
-    {FunctionKind::kStringAgg, {String("1"), NullString()}, {String("1")}},
-    {FunctionKind::kStringAgg, {String("1")}, {String("1")}},
-    // StringAgg(Bytes)
-    {FunctionKind::kStringAgg, {Bytes("1"), Bytes("1")},
-        {Bytes("1,1")}, kNonDet},
-    {FunctionKind::kStringAgg, {Bytes("1"), NullBytes()}, {Bytes("1")}},
-    {FunctionKind::kStringAgg, {Bytes("1")}, {Bytes("1")}},
+      // ArrayAgg(Int64)
+      {FunctionKind::kArrayAgg,
+       {Int64(1), NullInt64()},
+       Array({Int64(1), NullInt64()})},
+      {FunctionKind::kArrayAgg, {}, Value::Null(Int64ArrayType())},
+      // Sum(Int64)
+      {FunctionKind::kSum, {Int64(1), Int64(2)}, Int64(3)},
+      {FunctionKind::kSum, {Int64(1), NullInt64()}, Int64(1)},
+      {FunctionKind::kSum, {NullInt64()}, NullInt64()},
+      {FunctionKind::kSum, {}, NullInt64()},
+      // Sum(Uint64)
+      {FunctionKind::kSum, {Uint64(1), Uint64(2)}, Uint64(3)},
+      {FunctionKind::kSum, {Uint64(1), NullUint64()}, Uint64(1)},
+      {FunctionKind::kSum, {NullUint64()}, NullUint64()},
+      {FunctionKind::kSum, {}, NullUint64()},
+      // Sum(NumericValue)
+      {FunctionKind::kSum, {Numeric(1), Numeric(2)}, Numeric(3)},
+      {FunctionKind::kSum,
+       {Numeric(NumericValue::MinValue()), Numeric(NumericValue::MaxValue())},
+       Numeric(0)},
+      {FunctionKind::kSum, {Numeric(1), NullNumeric()}, Numeric(1)},
+      {FunctionKind::kSum, {NullNumeric()}, NullNumeric()},
+      {FunctionKind::kSum, {}, NullNumeric()},
+      // StringAgg(String)
+      {FunctionKind::kStringAgg,
+       {String("1"), String("1")},
+       {String("1,1")},
+       kNonDet},
+      {FunctionKind::kStringAgg, {String("1"), NullString()}, {String("1")}},
+      {FunctionKind::kStringAgg, {String("1")}, {String("1")}},
+      // StringAgg(Bytes)
+      {FunctionKind::kStringAgg,
+       {Bytes("1"), Bytes("1")},
+       {Bytes("1,1")},
+       kNonDet},
+      {FunctionKind::kStringAgg, {Bytes("1"), NullBytes()}, {Bytes("1")}},
+      {FunctionKind::kStringAgg, {Bytes("1")}, {Bytes("1")}},
   };
 }
 

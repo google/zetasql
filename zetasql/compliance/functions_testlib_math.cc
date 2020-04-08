@@ -85,9 +85,8 @@ std::vector<QueryParamsWithResult> GetFunctionTestsUnaryMinus() {
       // numeric
       QueryParamsWithResult({{Numeric(-1)}, Numeric(1)})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-      QueryParamsWithResult(
-          {{Numeric(NumericValue::FromDouble(3.14).ValueOrDie())},
-           Numeric(NumericValue::FromDouble(-3.14).ValueOrDie())})
+      QueryParamsWithResult({{Numeric(NumericValue::FromDouble(3.14).value())},
+                             Numeric(NumericValue::FromDouble(-3.14).value())})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult({{Numeric(NumericValue::MaxValue())},
                              Numeric(NumericValue::MinValue())})
@@ -168,14 +167,14 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedAdd() {
       QueryParamsWithResult({{Numeric(-3), Int64(5)}, Numeric(2)})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
-          {{Numeric(NumericValue::FromDouble(1.25).ValueOrDie()), Int64(3)},
-           Numeric(NumericValue::FromDouble(4.25).ValueOrDie())})
+          {{Numeric(NumericValue::FromDouble(1.25).value()), Int64(3)},
+           Numeric(NumericValue::FromDouble(4.25).value())})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
           {{Numeric(NumericValue::MaxValue()), Int64(-3)},
            Numeric(NumericValue::FromStringStrict(
                        "99999999999999999999999999996.999999999")
-                       .ValueOrDie())})
+                       .value())})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
           {{Numeric(NumericValue::MaxValue()), Double(-1.01)}, Double(1e+29)})
@@ -379,14 +378,14 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedSubtract() {
       QueryParamsWithResult({{Numeric(-3), Int64(5)}, Numeric(-8)})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
-          {{Numeric(NumericValue::FromDouble(1.25).ValueOrDie()), Int64(3)},
-           Numeric(NumericValue::FromDouble(-1.75).ValueOrDie())})
+          {{Numeric(NumericValue::FromDouble(1.25).value()), Int64(3)},
+           Numeric(NumericValue::FromDouble(-1.75).value())})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
           {{Numeric(NumericValue::MaxValue()), Int64(3)},
            Numeric(NumericValue::FromStringStrict(
                        "99999999999999999999999999996.999999999")
-                       .ValueOrDie())})
+                       .value())})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
           {{Numeric(NumericValue::MaxValue()), Double(1.01)}, Double(1e+29)})
@@ -598,8 +597,8 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedMultiply() {
       QueryParamsWithResult({{Numeric(-3), Int64(5)}, Numeric(-15)})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
-          {{Numeric(NumericValue::FromDouble(1.25).ValueOrDie()), Int64(3)},
-           Numeric(NumericValue::FromDouble(3.75).ValueOrDie())})
+          {{Numeric(NumericValue::FromDouble(1.25).value()), Int64(3)},
+           Numeric(NumericValue::FromDouble(3.75).value())})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult({{Numeric(NumericValue::MaxValue()), Int64(3)},
                              NullNumeric(),
@@ -699,12 +698,12 @@ std::vector<QueryParamsWithResult> GetFunctionTestsMultiply() {
       QueryParamsWithResult({{Numeric(-3), Numeric(3)}, Numeric(-9)})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
-          {{Numeric(NumericValue::FromDouble(3.33).ValueOrDie()), Numeric(-3)},
-           Numeric(NumericValue::FromDouble(-9.99).ValueOrDie())})
+          {{Numeric(NumericValue::FromDouble(3.33).value()), Numeric(-3)},
+           Numeric(NumericValue::FromDouble(-9.99).value())})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
-          {{Numeric(NumericValue::FromDouble(0.001).ValueOrDie()), Numeric(5)},
-           Numeric(NumericValue::FromDouble(0.005).ValueOrDie())})
+          {{Numeric(NumericValue::FromDouble(0.001).value()), Numeric(5)},
+           Numeric(NumericValue::FromDouble(0.005).value())})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult({{Numeric(NumericValue::MaxValue()),
                               Numeric(NumericValue::MinValue())},
@@ -804,57 +803,58 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedModulo() {
 
 std::vector<QueryParamsWithResult> GetFunctionTestsModulo() {
   return {
-    // int64
-    {{5ll, 3ll}, 2ll},
-    {{5ll, 5ll}, 0ll},
-    {{-5ll, 3ll}, -2ll},
-    {{5ll, -3ll}, 2ll},
-    {{-5ll, -3ll}, -2ll},
-    {{int64max, 1ll}, 0ll},
-    {{1ll, int64max}, 1ll},
-    {{int64max - 1, int64max}, int64max - 1},
+      // int64
+      {{5ll, 3ll}, 2ll},
+      {{5ll, 5ll}, 0ll},
+      {{-5ll, 3ll}, -2ll},
+      {{5ll, -3ll}, 2ll},
+      {{-5ll, -3ll}, -2ll},
+      {{int64max, 1ll}, 0ll},
+      {{1ll, int64max}, 1ll},
+      {{int64max - 1, int64max}, int64max - 1},
 
-    {{1ll, 0ll}, NullInt64(), OUT_OF_RANGE},
-    {{0ll, 0ll}, NullInt64(), OUT_OF_RANGE},
-    {{int64min, 0ll}, NullInt64(), OUT_OF_RANGE},
-    {{int64max, 0ll}, NullInt64(), OUT_OF_RANGE},
+      {{1ll, 0ll}, NullInt64(), OUT_OF_RANGE},
+      {{0ll, 0ll}, NullInt64(), OUT_OF_RANGE},
+      {{int64min, 0ll}, NullInt64(), OUT_OF_RANGE},
+      {{int64max, 0ll}, NullInt64(), OUT_OF_RANGE},
 
-    // uint64
-    {{5ull, 3ull}, 2ull},
-    {{5ull, 5ull}, 0ull},
-    {{uint64max, 1ull}, 0ull},
-    {{1ull, uint64max}, 1ull},
-    {{uint64max - 1u, uint64max}, uint64max - 1ull},
+      // uint64
+      {{5ull, 3ull}, 2ull},
+      {{5ull, 5ull}, 0ull},
+      {{uint64max, 1ull}, 0ull},
+      {{1ull, uint64max}, 1ull},
+      {{uint64max - 1u, uint64max}, uint64max - 1ull},
 
-    {{1ull, 0ull}, NullUint64(), OUT_OF_RANGE},
-    {{0ull, 0ull}, NullUint64(), OUT_OF_RANGE},
-    {{uint64max, 0ull}, NullUint64(), OUT_OF_RANGE},
+      {{1ull, 0ull}, NullUint64(), OUT_OF_RANGE},
+      {{0ull, 0ull}, NullUint64(), OUT_OF_RANGE},
+      {{uint64max, 0ull}, NullUint64(), OUT_OF_RANGE},
 
-    // numeric
-    QueryParamsWithResult({{Numeric(5), Numeric(2)}, Numeric(1)})
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({{Numeric(-5), Numeric(2)}, Numeric(-1)})
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult(
-        {{Numeric(NumericValue::FromString("3.33").ValueOrDie()), Numeric(-3)},
-         Numeric(NumericValue::FromString("0.33").ValueOrDie())})
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult(
-        {{Numeric(5), Numeric(NumericValue::FromString("0.001").ValueOrDie())},
-         Numeric(NumericValue())})
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({{Numeric(NumericValue::MaxValue()),
-                            Numeric(NumericValue::MinValue())},
-                           NumericValue()})
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult({{Numeric(NumericValue::MinValue()),
-                            Numeric(NumericValue::MinValue())},
-                           NumericValue()})
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult(
-        {{Numeric(NumericValue::MaxValue()), Numeric(NumericValue())},
-         NullNumeric(), OUT_OF_RANGE})
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      // numeric
+      QueryParamsWithResult({{Numeric(5), Numeric(2)}, Numeric(1)})
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({{Numeric(-5), Numeric(2)}, Numeric(-1)})
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{Numeric(NumericValue::FromString("3.33").value()), Numeric(-3)},
+           Numeric(NumericValue::FromString("0.33").value())})
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{Numeric(5), Numeric(NumericValue::FromString("0.001").value())},
+           Numeric(NumericValue())})
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({{Numeric(NumericValue::MaxValue()),
+                              Numeric(NumericValue::MinValue())},
+                             NumericValue()})
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({{Numeric(NumericValue::MinValue()),
+                              Numeric(NumericValue::MinValue())},
+                             NumericValue()})
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{Numeric(NumericValue::MaxValue()), Numeric(NumericValue())},
+           NullNumeric(),
+           OUT_OF_RANGE})
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
   };
 }
 
@@ -895,24 +895,22 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedDivide() {
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult({{NullNumeric(), Int64(5)}, NullNumeric()})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-      QueryParamsWithResult(
-          {{Numeric(-3), Int64(5)},
-           Numeric(NumericValue::FromDouble(-0.6).ValueOrDie())})
+      QueryParamsWithResult({{Numeric(-3), Int64(5)},
+                             Numeric(NumericValue::FromDouble(-0.6).value())})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
           {{Int64(int64max),
-            NumericValue::FromStringStrict("0.000000001").ValueOrDie()},
+            NumericValue::FromStringStrict("0.000000001").value()},
            Numeric(
                NumericValue::FromStringStrict("9223372036854775807000000000")
-                   .ValueOrDie())})
+                   .value())})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
           {{Numeric(-3), Int64(0)}, NullNumeric(), OUT_OF_RANGE})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
           {{Int64(5), Numeric(-3)},
-           Numeric(
-               NumericValue::FromStringStrict("-1.666666667").ValueOrDie())})
+           Numeric(NumericValue::FromStringStrict("-1.666666667").value())})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult({{Numeric(-3), Double(5)}, Double(-0.6)})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
@@ -988,12 +986,12 @@ std::vector<QueryParamsWithResult> GetFunctionTestsDivide() {
           {{Numeric(-3), Numeric(0)}, NullNumeric(), OUT_OF_RANGE})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
-          {{Numeric(NumericValue::FromDouble(3.33).ValueOrDie()), Numeric(-3)},
-           Numeric(NumericValue::FromDouble(-1.11).ValueOrDie())})
+          {{Numeric(NumericValue::FromDouble(3.33).value()), Numeric(-3)},
+           Numeric(NumericValue::FromDouble(-1.11).value())})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
-          {{Numeric(5), Numeric(NumericValue::FromDouble(0.001).ValueOrDie())},
-           Numeric(NumericValue::FromDouble(5000).ValueOrDie())})
+          {{Numeric(5), Numeric(NumericValue::FromDouble(0.001).value())},
+           Numeric(NumericValue::FromDouble(5000).value())})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult({{Numeric(NumericValue::MaxValue()),
                               Numeric(NumericValue::MinValue())},
@@ -1003,11 +1001,10 @@ std::vector<QueryParamsWithResult> GetFunctionTestsDivide() {
                               Numeric(NumericValue::MinValue())},
                              Numeric(1)})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-      QueryParamsWithResult(
-          {{Numeric(NumericValue::MaxValue()),
-            Numeric(NumericValue::FromDouble(0.001).ValueOrDie())},
-           NullNumeric(),
-           OUT_OF_RANGE})
+      QueryParamsWithResult({{Numeric(NumericValue::MaxValue()),
+                              Numeric(NumericValue::FromDouble(0.001).value())},
+                             NullNumeric(),
+                             OUT_OF_RANGE})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
 
       // bignumeric
@@ -1215,12 +1212,12 @@ std::vector<QueryParamsWithResult> GetFunctionTestsDiv() {
       QueryParamsWithResult({{Numeric(-3), Numeric(3)}, Numeric(-1)})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
-          {{Numeric(NumericValue::FromDouble(3.33).ValueOrDie()), Numeric(-3)},
-           Numeric(NumericValue::FromDouble(-1).ValueOrDie())})
+          {{Numeric(NumericValue::FromDouble(3.33).value()), Numeric(-3)},
+           Numeric(NumericValue::FromDouble(-1).value())})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
-          {{Numeric(5), Numeric(NumericValue::FromDouble(0.001).ValueOrDie())},
-           Numeric(NumericValue::FromDouble(5000).ValueOrDie())})
+          {{Numeric(5), Numeric(NumericValue::FromDouble(0.001).value())},
+           Numeric(NumericValue::FromDouble(5000).value())})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult({{Numeric(NumericValue::MaxValue()),
                               Numeric(NumericValue::MinValue())},
@@ -1230,11 +1227,10 @@ std::vector<QueryParamsWithResult> GetFunctionTestsDiv() {
                               Numeric(NumericValue::MinValue())},
                              Numeric(1)})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-      QueryParamsWithResult(
-          {{Numeric(NumericValue::MaxValue()),
-            Numeric(NumericValue::FromDouble(0.001).ValueOrDie())},
-           NullNumeric(),
-           OUT_OF_RANGE})
+      QueryParamsWithResult({{Numeric(NumericValue::MaxValue()),
+                              Numeric(NumericValue::FromDouble(0.001).value())},
+                             NullNumeric(),
+                             OUT_OF_RANGE})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
   };
 }
@@ -1504,35 +1500,39 @@ std::vector<FunctionTestCall> GetFunctionTestsMath() {
       {"sign", {NumericValue::MaxValue()}, NumericValue(1ll)},
       {"sign", {NumericValue::MinValue()}, NumericValue(-1ll)},
 
-      {"pow",   {NullNumeric(), NullNumeric()}, NullNumeric()},
-      {"pow",   {NullNumeric(), NumericValue(2LL)}, NullNumeric()},
-      {"pow",   {NumericValue(10LL), NullNumeric()}, NullNumeric()},
+      {"pow", {NullNumeric(), NullNumeric()}, NullNumeric()},
+      {"pow", {NullNumeric(), NumericValue(2LL)}, NullNumeric()},
+      {"pow", {NumericValue(10LL), NullNumeric()}, NullNumeric()},
       {"power", {NumericValue(), NumericValue(2LL)}, NumericValue()},
       {"power", {NumericValue(10LL), NumericValue()}, NumericValue(1LL)},
-      {"pow",   {NumericValue(2LL), NumericValue(2LL)}, NumericValue(4LL)},
-      {"power", {NumericValue(64LL),
-                 NumericValue::FromString("0.5").ValueOrDie()},
-                NumericValue(8LL)},
+      {"pow", {NumericValue(2LL), NumericValue(2LL)}, NumericValue(4LL)},
+      {"power",
+       {NumericValue(64LL), NumericValue::FromString("0.5").value()},
+       NumericValue(8LL)},
       {"power", {NumericValue(), NumericValue()}, NumericValue(1LL)},
-      {"pow",   {NumericValue(81LL),
-                 NumericValue::FromString("3.75").ValueOrDie()},
-                NumericValue(14348907LL)},
-      {"power", {NumericValue::MaxValue(),
-                 NumericValue::FromString("0.5").ValueOrDie()},
-                NumericValue::FromString("316227766016837.9375").ValueOrDie()},
+      {"pow",
+       {NumericValue(81LL), NumericValue::FromString("3.75").value()},
+       NumericValue(14348907LL)},
+      {"power",
+       {NumericValue::MaxValue(), NumericValue::FromString("0.5").value()},
+       NumericValue::FromString("316227766016837.9375").value()},
 
-      {"pow",   {NumericValue(-1LL), NumericValue(2LL)}, NumericValue(1LL)},
+      {"pow", {NumericValue(-1LL), NumericValue(2LL)}, NumericValue(1LL)},
       {"power", {NumericValue(-1LL), NumericValue(1LL)}, NumericValue(-1LL)},
-      {"pow",   {NumericValue(-1LL), NumericValue(-2LL)}, NumericValue(1LL)},
+      {"pow", {NumericValue(-1LL), NumericValue(-2LL)}, NumericValue(1LL)},
       {"power", {NumericValue(-1LL), NumericValue(-1LL)}, NumericValue(-1LL)},
-      {"pow",   {NumericValue(-1LL),
-                 NumericValue::FromString("0.5").ValueOrDie()},
-                NullNumeric(), OUT_OF_RANGE},
-      {"pow",   {NumericValue(),
-                 NumericValue::FromString("-0.1").ValueOrDie()},
-                NullNumeric(), OUT_OF_RANGE},
-      {"pow",   {NumericValue::MaxValue(), NumericValue(2LL)},
-                NullNumeric(), OUT_OF_RANGE},
+      {"pow",
+       {NumericValue(-1LL), NumericValue::FromString("0.5").value()},
+       NullNumeric(),
+       OUT_OF_RANGE},
+      {"pow",
+       {NumericValue(), NumericValue::FromString("-0.1").value()},
+       NullNumeric(),
+       OUT_OF_RANGE},
+      {"pow",
+       {NumericValue::MaxValue(), NumericValue(2LL)},
+       NullNumeric(),
+       OUT_OF_RANGE},
   };
 
   for (const auto& test_case : numeric_test_cases) {
@@ -1729,38 +1729,49 @@ std::vector<FunctionTestCall> GetFunctionTestsRounding() {
       {"round", {NullNumeric()}, NullNumeric()},
       {"round", {NumericValue()}, NumericValue()},
       {"round", {NumericValue(2LL)}, NumericValue(2LL)},
-      {"round", {NumericValue::FromString("2.3").ValueOrDie()},
-        NumericValue::FromString("2.0").ValueOrDie()},
-      {"round", {NumericValue::FromString("2.8").ValueOrDie()},
-        NumericValue::FromString("3.0").ValueOrDie()},
-      {"round", {NumericValue::FromString("2.5").ValueOrDie()},
-        NumericValue::FromString("3.0").ValueOrDie()},
-      {"round", {NumericValue::FromString("-2.3").ValueOrDie()},
-        NumericValue::FromString("-2.0").ValueOrDie()},
-      {"round", {NumericValue::FromString("-2.8").ValueOrDie()},
-        NumericValue::FromString("-3.0").ValueOrDie()},
-      {"round", {NumericValue::FromString("-2.5").ValueOrDie()},
-        NumericValue::FromString("-3.0").ValueOrDie()},
-      {"round", {NumericValue::FromString("1e-2").ValueOrDie()},
-        NumericValue()},
+      {"round",
+       {NumericValue::FromString("2.3").value()},
+       NumericValue::FromString("2.0").value()},
+      {"round",
+       {NumericValue::FromString("2.8").value()},
+       NumericValue::FromString("3.0").value()},
+      {"round",
+       {NumericValue::FromString("2.5").value()},
+       NumericValue::FromString("3.0").value()},
+      {"round",
+       {NumericValue::FromString("-2.3").value()},
+       NumericValue::FromString("-2.0").value()},
+      {"round",
+       {NumericValue::FromString("-2.8").value()},
+       NumericValue::FromString("-3.0").value()},
+      {"round",
+       {NumericValue::FromString("-2.5").value()},
+       NumericValue::FromString("-3.0").value()},
+      {"round", {NumericValue::FromString("1e-2").value()}, NumericValue()},
       {"round", {NumericValue::MaxValue()}, NullNumeric(), OUT_OF_RANGE},
       {"round", {NumericValue::MinValue()}, NullNumeric(), OUT_OF_RANGE},
 
       {"round", {NullNumeric(), NullInt64()}, NullNumeric()},
       {"round", {NullNumeric(), 0ll}, NullNumeric()},
       {"round", {NumericValue(), NullInt64()}, NullNumeric()},
-      {"round", {NumericValue::FromString("3.1415925").ValueOrDie(), 2ll},
-        NumericValue::FromString("3.14").ValueOrDie()},
-      {"round", {NumericValue::FromString("3.1415925").ValueOrDie(), 3ll},
-        NumericValue::FromString("3.142").ValueOrDie()},
-      {"round", {NumericValue::FromString("314159.25").ValueOrDie(), -3ll},
-        NumericValue::FromString("314000").ValueOrDie()},
-      {"round", {NumericValue::FromString("314159.25").ValueOrDie(), -2ll},
-        NumericValue::FromString("314200").ValueOrDie()},
-      {"round", {NumericValue::FromString("3.4028234").ValueOrDie(), -39ll},
-        NumericValue()},
-      {"round", {NumericValue::FromString("3.1415925").ValueOrDie(), 10ll},
-        NumericValue::FromString("3.1415925").ValueOrDie()},
+      {"round",
+       {NumericValue::FromString("3.1415925").value(), 2ll},
+       NumericValue::FromString("3.14").value()},
+      {"round",
+       {NumericValue::FromString("3.1415925").value(), 3ll},
+       NumericValue::FromString("3.142").value()},
+      {"round",
+       {NumericValue::FromString("314159.25").value(), -3ll},
+       NumericValue::FromString("314000").value()},
+      {"round",
+       {NumericValue::FromString("314159.25").value(), -2ll},
+       NumericValue::FromString("314200").value()},
+      {"round",
+       {NumericValue::FromString("3.4028234").value(), -39ll},
+       NumericValue()},
+      {"round",
+       {NumericValue::FromString("3.1415925").value(), 10ll},
+       NumericValue::FromString("3.1415925").value()},
       {"round", {NumericValue::MaxValue(), -1ll}, NullNumeric(), OUT_OF_RANGE},
       {"round", {NumericValue::MaxValue(), 0ll}, NullNumeric(), OUT_OF_RANGE},
       {"round", {NumericValue::MaxValue(), 1ll}, NullNumeric(), OUT_OF_RANGE},
@@ -1771,99 +1782,88 @@ std::vector<FunctionTestCall> GetFunctionTestsRounding() {
       {"trunc", {NullNumeric()}, NullNumeric()},
       {"trunc", {NumericValue()}, NumericValue()},
       {"trunc", {NumericValue(2ll)}, NumericValue(2ll)},
-      {"trunc", {NumericValue::FromString("2.3").ValueOrDie()},
-        NumericValue(2ll)},
-      {"trunc", {NumericValue::FromString("2.8").ValueOrDie()},
-        NumericValue(2ll)},
-      {"trunc", {NumericValue::FromString("2.5").ValueOrDie()},
-        NumericValue(2ll)},
-      {"trunc", {NumericValue::FromString("-2.3").ValueOrDie()},
-        NumericValue(-2ll)},
-      {"trunc", {NumericValue::FromString("-2.8").ValueOrDie()},
-        NumericValue(-2ll)},
-      {"trunc", {NumericValue::FromString("-2.5").ValueOrDie()},
-        NumericValue(-2ll)},
-      {"trunc", {NumericValue::FromString("0.001").ValueOrDie()},
-        NumericValue()},
-      {"trunc", {NumericValue::MaxValue()},
-        NumericValue::FromString(
-            "99999999999999999999999999999").ValueOrDie()},
-      {"trunc", {NumericValue::MinValue()},
-        NumericValue::FromString(
-            "-99999999999999999999999999999").ValueOrDie()},
+      {"trunc", {NumericValue::FromString("2.3").value()}, NumericValue(2ll)},
+      {"trunc", {NumericValue::FromString("2.8").value()}, NumericValue(2ll)},
+      {"trunc", {NumericValue::FromString("2.5").value()}, NumericValue(2ll)},
+      {"trunc", {NumericValue::FromString("-2.3").value()}, NumericValue(-2ll)},
+      {"trunc", {NumericValue::FromString("-2.8").value()}, NumericValue(-2ll)},
+      {"trunc", {NumericValue::FromString("-2.5").value()}, NumericValue(-2ll)},
+      {"trunc", {NumericValue::FromString("0.001").value()}, NumericValue()},
+      {"trunc",
+       {NumericValue::MaxValue()},
+       NumericValue::FromString("99999999999999999999999999999").value()},
+      {"trunc",
+       {NumericValue::MinValue()},
+       NumericValue::FromString("-99999999999999999999999999999").value()},
 
-      {"trunc", {NumericValue::FromString("3.1415925").ValueOrDie(), 2ll},
-        NumericValue::FromString("3.14").ValueOrDie()},
-      {"trunc", {NumericValue::FromString("3.1415925").ValueOrDie(), 3ll},
-        NumericValue::FromString("3.141").ValueOrDie()},
-      {"trunc", {NumericValue::FromString("314159.25").ValueOrDie(), -3ll},
-        NumericValue::FromString("314000").ValueOrDie()},
-      {"trunc", {NumericValue::FromString("314159.25").ValueOrDie(), -2ll},
-        NumericValue::FromString("314100").ValueOrDie()},
-      {"trunc", {NumericValue::FromString("3.4028234").ValueOrDie(), -39ll},
-        NumericValue()},
-      {"trunc", {NumericValue::FromString("0.0001").ValueOrDie(), 10ll},
-        NumericValue::FromString("0.0001").ValueOrDie()},
-      {"trunc", {NumericValue::MaxValue(), -1ll},
-        NumericValue::FromString(
-            "99999999999999999999999999990").ValueOrDie()},
-      {"trunc", {NumericValue::MaxValue(), 0ll},
-        NumericValue::FromString(
-            "99999999999999999999999999999").ValueOrDie()},
-      {"trunc", {NumericValue::MaxValue(), 1ll},
-        NumericValue::FromString(
-            "99999999999999999999999999999.9").ValueOrDie()},
-      {"trunc", {NumericValue::MinValue(), -1ll},
-        NumericValue::FromString(
-            "-99999999999999999999999999990").ValueOrDie()},
-      {"trunc", {NumericValue::MinValue(), 0ll},
-        NumericValue::FromString(
-            "-99999999999999999999999999999").ValueOrDie()},
-      {"trunc", {NumericValue::MinValue(), 1ll},
-        NumericValue::FromString(
-            "-99999999999999999999999999999.9").ValueOrDie()},
+      {"trunc",
+       {NumericValue::FromString("3.1415925").value(), 2ll},
+       NumericValue::FromString("3.14").value()},
+      {"trunc",
+       {NumericValue::FromString("3.1415925").value(), 3ll},
+       NumericValue::FromString("3.141").value()},
+      {"trunc",
+       {NumericValue::FromString("314159.25").value(), -3ll},
+       NumericValue::FromString("314000").value()},
+      {"trunc",
+       {NumericValue::FromString("314159.25").value(), -2ll},
+       NumericValue::FromString("314100").value()},
+      {"trunc",
+       {NumericValue::FromString("3.4028234").value(), -39ll},
+       NumericValue()},
+      {"trunc",
+       {NumericValue::FromString("0.0001").value(), 10ll},
+       NumericValue::FromString("0.0001").value()},
+      {"trunc",
+       {NumericValue::MaxValue(), -1ll},
+       NumericValue::FromString("99999999999999999999999999990").value()},
+      {"trunc",
+       {NumericValue::MaxValue(), 0ll},
+       NumericValue::FromString("99999999999999999999999999999").value()},
+      {"trunc",
+       {NumericValue::MaxValue(), 1ll},
+       NumericValue::FromString("99999999999999999999999999999.9").value()},
+      {"trunc",
+       {NumericValue::MinValue(), -1ll},
+       NumericValue::FromString("-99999999999999999999999999990").value()},
+      {"trunc",
+       {NumericValue::MinValue(), 0ll},
+       NumericValue::FromString("-99999999999999999999999999999").value()},
+      {"trunc",
+       {NumericValue::MinValue(), 1ll},
+       NumericValue::FromString("-99999999999999999999999999999.9").value()},
 
-      {"ceil",    {NullNumeric()}, NullNumeric()},
+      {"ceil", {NullNumeric()}, NullNumeric()},
       {"ceiling", {NumericValue()}, NumericValue()},
-      {"ceil",    {NumericValue(2LL)}, NumericValue(2LL)},
-      {"ceiling", {NumericValue::FromString("2.3").ValueOrDie()},
-        NumericValue(3LL)},
-      {"ceil",    {NumericValue::FromString("2.8").ValueOrDie()},
-        NumericValue(3LL)},
-      {"ceiling", {NumericValue::FromString("2.5").ValueOrDie()},
-        NumericValue(3LL)},
-      {"ceil",    {NumericValue::FromString("-2.3").ValueOrDie()},
-        NumericValue(-2LL)},
-      {"ceiling", {NumericValue::FromString("-2.8").ValueOrDie()},
-        NumericValue(-2LL)},
-      {"ceil",    {NumericValue::FromString("-2.5").ValueOrDie()},
-        NumericValue(-2LL)},
-      {"ceiling", {NumericValue::FromString("0.001").ValueOrDie()},
-        NumericValue(1LL)},
-      {"ceiling", {NumericValue::FromString("-0.001").ValueOrDie()},
-        NumericValue()},
+      {"ceil", {NumericValue(2LL)}, NumericValue(2LL)},
+      {"ceiling", {NumericValue::FromString("2.3").value()}, NumericValue(3LL)},
+      {"ceil", {NumericValue::FromString("2.8").value()}, NumericValue(3LL)},
+      {"ceiling", {NumericValue::FromString("2.5").value()}, NumericValue(3LL)},
+      {"ceil", {NumericValue::FromString("-2.3").value()}, NumericValue(-2LL)},
+      {"ceiling",
+       {NumericValue::FromString("-2.8").value()},
+       NumericValue(-2LL)},
+      {"ceil", {NumericValue::FromString("-2.5").value()}, NumericValue(-2LL)},
+      {"ceiling",
+       {NumericValue::FromString("0.001").value()},
+       NumericValue(1LL)},
+      {"ceiling", {NumericValue::FromString("-0.001").value()}, NumericValue()},
       {"ceil", {NumericValue::MaxValue()}, NullNumeric(), OUT_OF_RANGE},
       {"ceiling", {NumericValue::MaxValue()}, NullNumeric(), OUT_OF_RANGE},
 
       {"floor", {NullNumeric()}, NullNumeric()},
       {"floor", {NumericValue()}, NumericValue()},
       {"floor", {NumericValue(2LL)}, NumericValue(2LL)},
-      {"floor", {NumericValue::FromString("2.3").ValueOrDie()},
-        NumericValue(2LL)},
-      {"floor", {NumericValue::FromString("2.8").ValueOrDie()},
-        NumericValue(2LL)},
-      {"floor", {NumericValue::FromString("2.5").ValueOrDie()},
-        NumericValue(2LL)},
-      {"floor", {NumericValue::FromString("-2.3").ValueOrDie()},
-        NumericValue(-3LL)},
-      {"floor", {NumericValue::FromString("-2.8").ValueOrDie()},
-        NumericValue(-3LL)},
-      {"floor", {NumericValue::FromString("-2.5").ValueOrDie()},
-        NumericValue(-3LL)},
-      {"floor", {NumericValue::FromString("0.001").ValueOrDie()},
-        NumericValue()},
-      {"floor", {NumericValue::FromString("-0.001").ValueOrDie()},
-        NumericValue(-1LL)},
+      {"floor", {NumericValue::FromString("2.3").value()}, NumericValue(2LL)},
+      {"floor", {NumericValue::FromString("2.8").value()}, NumericValue(2LL)},
+      {"floor", {NumericValue::FromString("2.5").value()}, NumericValue(2LL)},
+      {"floor", {NumericValue::FromString("-2.3").value()}, NumericValue(-3LL)},
+      {"floor", {NumericValue::FromString("-2.8").value()}, NumericValue(-3LL)},
+      {"floor", {NumericValue::FromString("-2.5").value()}, NumericValue(-3LL)},
+      {"floor", {NumericValue::FromString("0.001").value()}, NumericValue()},
+      {"floor",
+       {NumericValue::FromString("-0.001").value()},
+       NumericValue(-1LL)},
   };
 
   for (const auto& test_case : numeric_tests) {

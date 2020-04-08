@@ -55,6 +55,8 @@ class ProtoType;
 class StructType;
 class Type;
 class TypeFactory;
+class ValueContent;
+class Value;
 
 typedef std::vector<Type*> TypeList;
 
@@ -155,10 +157,9 @@ class Type {
   bool IsSignedInteger() const { return IsInt32() || IsInt64(); }
   bool IsUnsignedInteger() const { return IsUint32() || IsUint64(); }
 
-  // Simple types are those that can be represented with just a TypeKind,
-  // with no parameters.
-  // This exists instead of IsScalarType because enums act more like scalars,
-  // but require parameters.
+  // Simple types are those builtin types that can be represented with just a
+  // TypeKind, with no parameters. This exists instead of IsScalarType because
+  // enums act more like scalars, but require parameters.
   bool IsSimpleType() const { return IsSimpleType(kind_); }
   // Return this Type cast to the given subclass, or nullptr if this type
   // is not of the requested type.
@@ -379,22 +380,26 @@ class Type {
                          // * has_X for field X
     HAS_AMBIGUOUS_FIELD  // Multiple fields with that name.
   };
+
   // If this method returns HAS_FIELD or HAS_PSEUDO_FIELD and <field_id> is
   // non-NULL, then <field_id> is set to the field index for STRUCTs and the
   // field tag number for PROTOs.
   // <include_pseudo_fields> specifies whether virtual fields should be
   // returned or used for ambiguity check.
   HasFieldResult HasField(const std::string& name, int* field_id = nullptr,
-                          bool include_pseudo_fields = true) const;
+                          bool include_pseudo_fields = true) const {
+    return HasFieldImpl(name, field_id, include_pseudo_fields);
+  }
 
   // Return true if this type has any fields.
   // Will return false for structs or protos with zero fields.
   // Any pseudo-fields are not counted. Always returns false for arrays.
-  bool HasAnyFields() const;
+  virtual bool HasAnyFields() const { return false; }
 
   // Returns true if this type is enabled given 'language_options'.
   // Checks for ProductMode, TimestampMode, and supported LanguageFeatures.
-  bool IsSupportedType(const LanguageOptions& language_options) const;
+  virtual bool IsSupportedType(
+      const LanguageOptions& language_options) const = 0;
 
   // Returns true if this type is enabled given 'language_options'.
   // Checks for ProductMode, TimestampMode, and supported LanguageFeatures.
@@ -451,12 +456,8 @@ class Type {
     if (kind() != other_type->kind()) {
       return false;
     }
-    if (IsSimpleType()) {
-      return true;
-    }
-    return EqualsNonSimpleTypes(other_type, equivalent);
+    return EqualsForSameKind(other_type, equivalent);
   }
-  bool EqualsNonSimpleTypes(const Type* that, bool equivalent) const;
 
   // Internal implementation for Serialize methods.  This will append
   // Type information to <type_proto>, so the caller should make sure
@@ -466,11 +467,58 @@ class Type {
       absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
       FileDescriptorSetMap* file_descriptor_set_map) const = 0;
 
-  // Return estimated size of memory owned by this type. Note: type can never
+  // Returns estimated size of memory owned by this type. Note: type can never
   // own another type, only reference (all types are owned by TypeFactory). So,
   // this function never calls GetEstimatedOwnedMemoryBytesSize for other types
   // (such as element types of arrays or field types of structs).
   virtual int64_t GetEstimatedOwnedMemoryBytesSize() const = 0;
+
+  // Functions below are used as an interface between zetasql::Value and Type
+  // to manage Values content life-cycle. Make Value a friend, so it can access
+  // them.
+  friend class Value;
+
+  // Initializes a value's content before it is used. This function is called
+  // from "Value::Value(const Type*)". It's expected that ValueContent is
+  // empty (all bytes are zeros) before this call.
+  // TODO: We need to consider removing "Value(const Type*)" together
+  // with this function: today that Value's constructor is used for creation of
+  // null, struct and array values. For null values we can just allocate nothing
+  // (also can save a space this way). For arrays and struct we can have a
+  // special factory function within corresponding Type subclasses.
+  virtual void InitializeValueContent(ValueContent* value) const {}
+
+  // Copies value's content to another value. Is called when one value is
+  // assigned to another. It's expected that content of destination is empty
+  // (doesn't contain any valid content that needs to be destructed): if
+  // operation is a replacement, it should have been cleaned with
+  // ClearValueContent before this call. Default implementation just copy
+  // ValueContent's memory.
+  virtual void CopyValueContent(const ValueContent& from,
+                                ValueContent* to) const;
+
+  // Releases value's content if it owns some memory allocation. This function
+  // is called from Value::Clear when value is replaced with another or freed.
+  // The value's content lifetime is managed by Value class, which also ensures
+  // that ClearValueContent is called only once for each constructed
+  // content. Note: this function must not be used outside of the Value
+  // destruction context.
+  virtual void ClearValueContent(const ValueContent& value) const {}
+
+  // Returns memory size allocated by value's content (outside of Value class
+  // memory itself).
+  virtual uint64_t GetValueContentExternallyAllocatedByteSize(
+      const ValueContent& value) const {
+    return 0;
+  }
+
+  // List of DebugStringImpl outputs. Used to serve as a stack in
+  // DebugStringImpl to protect from stack overflows.
+  // Note: SWIG will fail to process this file if we remove a white space
+  // between '>' at the TypeOrStringVector definition or use "using" instead of
+  // "typedef".
+  typedef std::vector<absl::variant<const Type*, std::string> >
+      TypeOrStringVector;
 
   const TypeFactory* type_factory_;  // Used for lifetime checking only.
   const TypeKind kind_;
@@ -488,11 +536,25 @@ class Type {
       const LanguageOptions& language_options,
       const Type** no_partitioning_type) const;
 
-  // Helper function invoked by IsSupportedType(), specifically for
-  // simple types.  Returns true if 'type' is enabled given
-  // 'language_options'.  Checks for ProductMode, TimestampMode, and
-  // supported LanguageFeatures.  Crashes if 'type' is not a simple type.
-  bool IsSupportedSimpleType(const LanguageOptions& language_options) const;
+  // Compares type instances belonging to the same type kind.
+  virtual bool EqualsForSameKind(const Type* that, bool equivalent) const = 0;
+
+  // Outputs elements describing type representation for debugging purposes.
+  // Type should append these textual elements to debug_string. However,
+  // if type references other types, to prevent possibility of stack overflow it
+  // needs to push them into the "stack" instead of calling DebugStringImpl
+  // directly. If some other textual information (e.g. brackets) need to be
+  // added to the output after the type that is pushed into the stack gets
+  // processed, this information can be pushed into the stack before this type.
+  // Stack elements will eventually be appended to debug_string.
+  virtual void DebugStringImpl(bool details, TypeOrStringVector* stack,
+                               std::string* debug_string) const = 0;
+
+  // Checks whether type has field of given name. Is called from HasField.
+  virtual HasFieldResult HasFieldImpl(const std::string& name, int* field_id,
+                                      bool include_pseudo_fields) const {
+    return HAS_NO_FIELD;
+  }
 
   friend class TypeFactory;
   friend class ArrayType;

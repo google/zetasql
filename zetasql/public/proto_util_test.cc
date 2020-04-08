@@ -275,7 +275,7 @@ TEST_P(ReadProtoFieldsTest, Message) {
                           proto_type, Value::Null(proto_type));
 
   ZETASQL_ASSERT_OK(result.status());
-  const Value& output_value = result.ValueOrDie();
+  const Value& output_value = result.value();
   ASSERT_EQ(output_value.type_kind(), TYPE_PROTO);
 
   KitchenSinkPB::Nested output_nested;
@@ -296,7 +296,7 @@ TEST_P(ReadProtoFieldsTest, Group) {
                           proto_type, Value::Null(proto_type));
 
   ZETASQL_ASSERT_OK(result.status());
-  const Value& output_value = result.ValueOrDie();
+  const Value& output_value = result.value();
   ASSERT_EQ(output_value.type_kind(), TYPE_PROTO);
 
   KitchenSinkPB::OptionalGroup output_group;

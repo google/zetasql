@@ -241,6 +241,11 @@ QueryParamsWithResult WrapResultForNumeric(
     const std::vector<ValueConstructor>& params,
     const QueryParamsWithResult::Result& result);
 
+// Wraps the result to require that FEATURE_BIGNUMERIC_TYPE is enabled.
+QueryParamsWithResult WrapResultForBigNumeric(
+    const std::vector<ValueConstructor>& params,
+    const QueryParamsWithResult::Result& result);
+
 // Forward declarations for functions related to legacy timestamp types.
 std::vector<std::vector<Value>> GetRowsOfLegacyTimestampValues();
 std::vector<ComparisonTest> GetLegacyTimestampComparisonTests();

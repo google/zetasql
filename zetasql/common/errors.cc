@@ -82,7 +82,7 @@ std::string DeprecationWarningsToDebugString(
 
 zetasql_base::StatusOr<FreestandingDeprecationWarning> StatusToDeprecationWarning(
     const absl::Status& from_status, absl::string_view sql) {
-  ZETASQL_RET_CHECK(zetasql_base::IsInvalidArgument(from_status))
+  ZETASQL_RET_CHECK(absl::IsInvalidArgument(from_status))
       << "Deprecation statuses must have code INVALID_ARGUMENT";
 
   FreestandingDeprecationWarning warning;

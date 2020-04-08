@@ -56,8 +56,8 @@ std::string DebugLocationText(const ASTNode* node,
   zetasql_base::StatusOr<std::pair<int, int>> line_and_column =
       translator.GetLineAndColumnAfterTabExpansion(pos);
   if (line_and_column.ok()) {
-    absl::StrAppend(&node_text, " [at ", line_and_column.ValueOrDie().first,
-                    ":", line_and_column.ValueOrDie().second, "]");
+    absl::StrAppend(&node_text, " [at ", line_and_column.value().first, ":",
+                    line_and_column.value().second, "]");
   }
   return node_text;
 }

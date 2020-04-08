@@ -961,7 +961,7 @@ TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
                      2 * sizeof(QueryParametersMap) - 1 * sizeof(std::string))
       << "The size of AnalyzerOptions class has changed, please also update "
       << "the proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(17, AnalyzerOptionsProto::descriptor()->field_count())
+  EXPECT_EQ(18, AnalyzerOptionsProto::descriptor()->field_count())
       << "The number of fields in AnalyzerOptionsProto has changed, please "
       << "also update the serialization code accordingly.";
 }

@@ -540,6 +540,22 @@ class BigNumericValue final {
     void Add(const BigNumericValue& value);
     // Returns sum of all input values. Returns OUT_OF_RANGE error on overflow.
     zetasql_base::StatusOr<BigNumericValue> GetSum() const;
+    // Returns sum of all input values divided by the specified divisor.
+    // Returns OUT_OF_RANGE error on overflow of the division result.
+    // Please note that the division result may be in the valid range even if
+    // the sum exceeds the range.
+    zetasql_base::StatusOr<BigNumericValue> GetAverage(uint64_t count) const;
+
+    // Merges the state with other SumAggregator instance's state.
+    void MergeWith(const SumAggregator& other);
+
+    std::string SerializeAsProtoBytes() const;
+    static zetasql_base::StatusOr<SumAggregator> DeserializeFromProtoBytes(
+        absl::string_view bytes);
+
+    bool operator==(const SumAggregator& other) const {
+      return sum_ == other.sum_;
+    }
 
    private:
     FixedInt<64, 5> sum_;
@@ -795,6 +811,10 @@ inline void NumericValue::SumAggregator::Add(NumericValue value) {
   sum_ += FixedInt<64, 3>(value.as_packed_int());
 }
 
+inline void NumericValue::SumAggregator::MergeWith(const SumAggregator& other) {
+  sum_ += other.sum_;
+}
+
 inline constexpr unsigned __int128 BigNumericValue::ScalingFactor() {
   return internal::k1e38;
 }
@@ -1009,6 +1029,11 @@ inline zetasql_base::StatusOr<NumericValue> BigNumericValue::ToNumericValue() co
 
 inline void BigNumericValue::SumAggregator::Add(const BigNumericValue& value) {
   sum_ += FixedInt<64, 5>(value.value_);
+}
+
+inline void BigNumericValue::SumAggregator::MergeWith(
+    const SumAggregator& other) {
+  sum_ += other.sum_;
 }
 
 template <typename H>

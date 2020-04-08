@@ -1653,7 +1653,7 @@ absl::Status FunctionResolver::ConvertLiteralToType(
   }
 
   auto replacement_literal = MakeResolvedLiteral(
-      target_type, coerced_literal_value.ValueOrDie(), set_has_explicit_type);
+      target_type, coerced_literal_value.value(), set_has_explicit_type);
   // The float literal cache entry (if there is one) is no longer valid after
   // replacement.
   resolver_->float_literal_images_.erase(argument_literal->float_literal_id());
@@ -1927,11 +1927,11 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
             resolver_->analyzer_options());
     ZETASQL_RETURN_IF_ERROR(StatusWithInternalErrorLocation(
         result_type.status(), ast_location, include_leftmost_child));
-    ZETASQL_RET_CHECK(result_type.ValueOrDie() != nullptr);
+    ZETASQL_RET_CHECK(result_type.value() != nullptr);
 
     std::unique_ptr<FunctionSignature> new_signature(
         new FunctionSignature(*result_signature));
-    new_signature->SetConcreteResultType(result_type.ValueOrDie());
+    new_signature->SetConcreteResultType(result_type.value());
 
     result_signature = std::move(new_signature);
     ZETASQL_RET_CHECK(result_signature->IsConcrete())

@@ -157,7 +157,7 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeFunction
     }
     auto status_or_evaluator = callback(function_call->signature());
     ZETASQL_RETURN_IF_ERROR(status_or_evaluator.status());
-    auto evaluator = status_or_evaluator.ValueOrDie();
+    auto evaluator = status_or_evaluator.value();
     if (evaluator == nullptr) {
       return ::zetasql_base::InternalErrorBuilder()
              << "NULL evaluator returned for user-defined function " << name;
@@ -209,7 +209,7 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeFunction
     if (!status_or_kind.ok()) {
       return status_or_kind.status();
     }
-    kind = status_or_kind.ValueOrDie();
+    kind = status_or_kind.value();
   }
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> function_call_expr,
                    BuiltinScalarFunction::CreateCall(
@@ -1715,8 +1715,7 @@ absl::Status Algebrizer::AddFilterConjunctsTo(
       const zetasql_base::StatusOr<FunctionKind> status_or_kind =
           BuiltinFunctionCatalog::GetKindByName(
               function->FullName(/*include_group=*/false));
-      if (status_or_kind.ok() &&
-          status_or_kind.ValueOrDie() == FunctionKind::kAnd) {
+      if (status_or_kind.ok() && status_or_kind.value() == FunctionKind::kAnd) {
         for (const std::unique_ptr<const ResolvedExpr>& arg :
              function_call->argument_list()) {
           ZETASQL_RETURN_IF_ERROR(AddFilterConjunctsTo(arg.get(), conjunct_infos));

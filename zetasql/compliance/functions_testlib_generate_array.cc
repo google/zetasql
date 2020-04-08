@@ -31,12 +31,12 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateArray() {
   const Value numeric_two = Value::Numeric(NumericValue(static_cast<int64_t>(2)));
   const Value numeric_three =
       Value::Numeric(NumericValue(static_cast<int64_t>(3)));
-  const Value numeric_pi = Value::Numeric(
-      NumericValue::FromStringStrict("3.141592654").ValueOrDie());
-  const Value numeric_pos_min = Value::Numeric(
-      NumericValue::FromStringStrict("0.000000001").ValueOrDie());
-  const Value numeric_negative_golden_ratio = Value::Numeric(
-      NumericValue::FromStringStrict("-1.618033988").ValueOrDie());
+  const Value numeric_pi =
+      Value::Numeric(NumericValue::FromStringStrict("3.141592654").value());
+  const Value numeric_pos_min =
+      Value::Numeric(NumericValue::FromStringStrict("0.000000001").value());
+  const Value numeric_negative_golden_ratio =
+      Value::Numeric(NumericValue::FromStringStrict("-1.618033988").value());
   const Value numeric_eleven =
       Value::Numeric(NumericValue(static_cast<int64_t>(11)));
   const Value numeric_max = Value::Numeric(NumericValue::MaxValue());
@@ -158,20 +158,20 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateArray() {
            {numeric_eleven, numeric_pi, numeric_negative_golden_ratio},
            NumericArray(
                {NumericValue(static_cast<int64_t>(11)),
-                NumericValue::FromStringStrict("9.381966012").ValueOrDie(),
-                NumericValue::FromStringStrict("7.763932024").ValueOrDie(),
-                NumericValue::FromStringStrict("6.145898036").ValueOrDie(),
-                NumericValue::FromStringStrict("4.527864048").ValueOrDie()}))
+                NumericValue::FromStringStrict("9.381966012").value(),
+                NumericValue::FromStringStrict("7.763932024").value(),
+                NumericValue::FromStringStrict("6.145898036").value(),
+                NumericValue::FromStringStrict("4.527864048").value()}))
            .WrapWithFeature(FEATURE_NUMERIC_TYPE)},
       {"generate_array",
        QueryParamsWithResult(
            {numeric_negative_golden_ratio, numeric_three, numeric_one},
            NumericArray(
                {numeric_negative_golden_ratio.numeric_value(),
-                NumericValue::FromStringStrict("-0.618033988").ValueOrDie(),
-                NumericValue::FromStringStrict("0.381966012").ValueOrDie(),
-                NumericValue::FromStringStrict("1.381966012").ValueOrDie(),
-                NumericValue::FromStringStrict("2.381966012").ValueOrDie()}))
+                NumericValue::FromStringStrict("-0.618033988").value(),
+                NumericValue::FromStringStrict("0.381966012").value(),
+                NumericValue::FromStringStrict("1.381966012").value(),
+                NumericValue::FromStringStrict("2.381966012").value()}))
            .WrapWithFeature(FEATURE_NUMERIC_TYPE)},
       {"generate_array",
        QueryParamsWithResult({numeric_zero, numeric_pos_min, numeric_pos_min},

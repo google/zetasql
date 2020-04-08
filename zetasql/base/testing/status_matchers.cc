@@ -37,7 +37,7 @@ void StatusIsMatcherCommonImpl::DescribeNegationTo(std::ostream* os) const {
 }
 
 bool StatusIsMatcherCommonImpl::MatchAndExplain(
-    const Status& status,
+    const absl::Status& status,
     ::testing::MatchResultListener* result_listener) const {
   ::testing::StringMatchResultListener inner_listener;
 
@@ -63,7 +63,7 @@ void AddFatalFailure(absl::string_view expression,
   GTEST_MESSAGE_AT_(
       builder.source_location().file_name(), builder.source_location().line(),
       ::absl::StrCat(expression,
-                     " returned error: ", Status(builder).ToString())
+                     " returned error: ", absl::Status(builder).ToString())
           .c_str(),
       ::testing::TestPartResult::kFatalFailure);
 }

@@ -228,6 +228,7 @@ cc_library(
         ":logging",
         ":source_location",
         ":status",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -410,6 +411,7 @@ cc_test(
         ":test_payload_cc_proto",
         "@com_google_googletest//:gtest_main",
         "//zetasql/base/testing:status_matchers",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf",
     ],
@@ -521,6 +523,7 @@ cc_library(
     deps = [
         ":status",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_protobuf//:protobuf",

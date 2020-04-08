@@ -74,7 +74,7 @@ absl::Status RepeatedParametersToMap(
   for (const auto& param : params) {
     auto result = DeserializeValue(param.value(), param.type(), pools, factory);
     ZETASQL_RETURN_IF_ERROR(result.status());
-    (*map)[param.name()] = result.ValueOrDie();
+    (*map)[param.name()] = result.value();
   }
 
   return absl::OkStatus();
@@ -414,7 +414,7 @@ absl::Status ZetaSqlLocalServiceImpl::EvaluateImpl(
   auto result = state->GetPreparedExpression()->Execute(columns, params);
   ZETASQL_RETURN_IF_ERROR(result.status());
 
-  const Value& value = result.ValueOrDie();
+  const Value& value = result.value();
   ZETASQL_RETURN_IF_ERROR(value.Serialize(response->mutable_value()));
   ZETASQL_RETURN_IF_ERROR(SerializeTypeUsingExistingPools(value.type(), const_pools,
                                                   response->mutable_type()));
@@ -599,11 +599,11 @@ absl::Status ZetaSqlLocalServiceImpl::BuildSql(const BuildSqlRequest& request,
   if (request.has_resolved_statement()) {
     ast = std::move(ResolvedStatement::RestoreFrom(request.resolved_statement(),
                                                    restore_params)
-                        .ValueOrDie());
+                        .value());
   } else if (request.has_resolved_expression()) {
     ast = std::move(
         ResolvedExpr::RestoreFrom(request.resolved_expression(), restore_params)
-            .ValueOrDie());
+            .value());
   } else {
     return absl::OkStatus();
   }

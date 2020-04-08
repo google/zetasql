@@ -163,6 +163,9 @@ class ProtoType : public Type {
   static const std::string& GetStructFieldName(
       const google::protobuf::FieldDescriptor* field);
 
+  // Check if structure has some fields.
+  bool HasAnyFields() const override;
+
   // Validate TypeAnnotations for a file, proto, or field.  Protos not
   // in <validated_descriptor_set> are added to the set and validated.
   // <validated_descriptor_set> may be a pointer to any set type that contains
@@ -194,10 +197,19 @@ class ProtoType : public Type {
     return ValidateTypeAnnotations(field, /*validated_descriptor_set=*/nullptr);
   }
 
+  bool IsSupportedType(const LanguageOptions& language_options) const override;
+
  protected:
   int64_t GetEstimatedOwnedMemoryBytesSize() const override {
     return sizeof(*this);
   }
+
+  void InitializeValueContent(ValueContent* value) const override;
+  void CopyValueContent(const ValueContent& from,
+                        ValueContent* to) const override;
+  void ClearValueContent(const ValueContent& value) const override;
+  uint64_t GetValueContentExternallyAllocatedByteSize(
+      const ValueContent& value) const override;
 
  private:
   // Returns true iff <validated_descriptor_set> is not null and already
@@ -249,6 +261,14 @@ class ProtoType : public Type {
       TypeProto* type_proto,
       absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
       FileDescriptorSetMap* file_descriptor_set_map) const override;
+
+  bool EqualsForSameKind(const Type* that, bool equivalent) const override;
+
+  void DebugStringImpl(bool details, TypeOrStringVector* stack,
+                       std::string* debug_string) const override;
+
+  HasFieldResult HasFieldImpl(const std::string& name, int* field_id,
+                              bool include_pseudo_fields) const override;
 
   const google::protobuf::Descriptor* descriptor_;  // Not owned.
 

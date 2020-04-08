@@ -30,10 +30,10 @@ namespace zetasql {
 namespace internal {
 
 // Whether the given status has any payload at all.
-bool HasPayload(const zetasql_base::Status& status);
+bool HasPayload(const absl::Status& status);
 
 // Gets the number payloads.
-int GetPayloadCount(const zetasql_base::Status& status);
+int GetPayloadCount(const absl::Status& status);
 
 template <class T>
 std::string GetTypeUrl() {
@@ -42,14 +42,14 @@ std::string GetTypeUrl() {
 
 // Whether the given status has exactly one payload of type T.
 template <class T>
-bool HasPayloadWithType(const zetasql_base::Status& status) {
+bool HasPayloadWithType(const absl::Status& status) {
   return status.GetPayload(zetasql_base::GetTypeUrl<T>()).has_value();
 }
 
 // Gets the payload of type T from the status proto. Results undefined if
 // the status does not contain a payload of the given type, but will not crash.
 template <class T>
-T GetPayload(const zetasql_base::Status& status) {
+T GetPayload(const absl::Status& status) {
   absl::optional<absl::Cord> payload = status.GetPayload(GetTypeUrl<T>());
   if (!payload.has_value()) {
     return T();
@@ -63,24 +63,24 @@ T GetPayload(const zetasql_base::Status& status) {
 
 // Mutates `status` by removing any attached payload of type T.
 template <class T>
-void ErasePayloadTyped(zetasql_base::Status* status) {
+void ErasePayloadTyped(absl::Status* status) {
   status->ErasePayload(GetTypeUrl<T>());
 }
 
 // Attaches the given payload. This will overwrite any previous payload with
 // the same type.
 template <class T>
-void AttachPayload(zetasql_base::Status* status, const T& payload) {
+void AttachPayload(absl::Status* status, const T& payload) {
   zetasql_base::AttachPayload<T>(status, payload);
 }
 
 // Creates a human readable string from the status payload (or empty if there
 // is no payload). Exact form is not defined.
-std::string PayloadToString(const zetasql_base::Status& status);
+std::string PayloadToString(const absl::Status& status);
 
 // Creates a human readable string from the status, including its payload.
 // Exact form is not defined.
-std::string StatusToString(const zetasql_base::Status& status);
+std::string StatusToString(const absl::Status& status);
 
 }  // namespace internal
 }  // namespace zetasql

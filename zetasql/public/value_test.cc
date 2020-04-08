@@ -55,6 +55,7 @@
 #include "absl/time/time.h"
 #include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/types/value_representations.h"
 #include "zetasql/base/statusor.h"
 
 namespace zetasql {
@@ -116,7 +117,7 @@ static Value TestGetSQL(const Value& value) {
       const zetasql_base::StatusOr<Value> result = expr.Execute();
       ZETASQL_EXPECT_OK(result.status()) << value.DebugString();
       if (result.ok()) {
-        const Value& new_value = result.ValueOrDie();
+        const Value& new_value = result.value();
         EXPECT_TRUE(value.Equals(new_value))
             << "Value: " << value.FullDebugString()
             << "\nSQL: " << sql
@@ -144,7 +145,7 @@ static Value TestGetSQL(const Value& value) {
         const zetasql_base::StatusOr<Value> result = expr.Execute();
         ZETASQL_EXPECT_OK(result.status()) << value.DebugString();
         if (result.ok()) {
-          const Value& new_value = result.ValueOrDie();
+          const Value& new_value = result.value();
           VLOG(1) << "New value: " << new_value.DebugString();
           if (value.type()->Equivalent(new_value.type())) {
             EXPECT_TRUE(value.Equals(new_value))
@@ -203,7 +204,7 @@ static Value TestGetSQL(const Value& value) {
         const zetasql_base::StatusOr<Value> result = expr.Execute();
         ZETASQL_EXPECT_OK(result.status()) << value.DebugString();
         if (result.ok()) {
-          const Value& new_value = result.ValueOrDie();
+          const Value& new_value = result.value();
           EXPECT_TRUE(value.Equals(new_value))
               << "Value: " << value.FullDebugString()
               << "\nSQL literal: " << sql
@@ -2295,7 +2296,7 @@ TEST_F(ValueTest, PhysicalByteSize) {
   EXPECT_EQ(sizeof(Value), Value::Float(1.0).physical_byte_size());
   EXPECT_EQ(sizeof(Value), int_value.physical_byte_size());
   EXPECT_EQ(sizeof(Value), Value::Int64(1).physical_byte_size());
-  EXPECT_EQ(48, Value::Numeric(NumericValue::FromDouble(1.0).ValueOrDie())
+  EXPECT_EQ(48, Value::Numeric(NumericValue::FromDouble(1.0).value())
                     .physical_byte_size());
   EXPECT_EQ(sizeof(Value),
             Value::Time(TimeValue::FromPacked64Micros(0xD38F1E240LL))
@@ -2313,9 +2314,9 @@ TEST_F(ValueTest, PhysicalByteSize) {
   EXPECT_EQ(empty_array_size + 3 * Value::Int64(1).physical_byte_size(),
             values::Int64Array({1, 2, 3}).physical_byte_size());
 
-  EXPECT_EQ(sizeof(Value) + sizeof(Value::StringRef),
+  EXPECT_EQ(sizeof(Value) + sizeof(internal::StringRef),
             Value::Bytes("").physical_byte_size());
-  EXPECT_EQ(sizeof(Value) + sizeof(Value::StringRef) + 3 * sizeof(char),
+  EXPECT_EQ(sizeof(Value) + sizeof(internal::StringRef) + 3 * sizeof(char),
             Value::Bytes("abc").physical_byte_size());
   // Strings should be consistent with bytes.
   EXPECT_EQ(Value::Bytes("").physical_byte_size(),
@@ -2338,8 +2339,8 @@ static void SerializeDeserialize(const Value& value) {
   ZETASQL_ASSERT_OK(value.Serialize(&value_proto)) << value.DebugString();
   auto status_or_value = Value::Deserialize(value_proto, value.type());
   ZETASQL_ASSERT_OK(status_or_value.status());
-  EXPECT_EQ(value, status_or_value.ValueOrDie())
-      << "\nSerialized value:\n" << value_proto.DebugString();
+  EXPECT_EQ(value, status_or_value.value()) << "\nSerialized value:\n"
+                                            << value_proto.DebugString();
 }
 
 // Roundtrips ValueProto through Value and back.
@@ -2351,7 +2352,7 @@ static void DeserializeSerialize(const std::string& value_proto_str,
   auto status_or_value = Value::Deserialize(value_proto, type);
   ZETASQL_ASSERT_OK(status_or_value.status()) << value_proto.DebugString();
   ValueProto roundtrip_value_proto;
-  ZETASQL_ASSERT_OK(status_or_value.ValueOrDie().Serialize(&roundtrip_value_proto))
+  ZETASQL_ASSERT_OK(status_or_value.value().Serialize(&roundtrip_value_proto))
       << value_proto.DebugString();
   EXPECT_THAT(value_proto, testing::EqualsProto(roundtrip_value_proto));
 }
@@ -2672,7 +2673,7 @@ TEST_F(ValueTest, Deserialize) {
                                              &value_proto));
   status_or_value = Value::Deserialize(value_proto, TimestampType());
   ZETASQL_EXPECT_OK(status_or_value.status());
-  EXPECT_EQ(5000000, status_or_value.ValueOrDie().ToUnixMicros());
+  EXPECT_EQ(5000000, status_or_value.value().ToUnixMicros());
 
   // Invalid values for DATE/TIMESTAMP
   ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(

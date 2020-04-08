@@ -360,7 +360,7 @@ GenerateWindowOrderingComparatorBySlot(absl::Span<const VariableId> vars,
                                        int slot_idx) {
   const VariableId var = vars[slot_idx];
   std::vector<const KeyArg*> order_keys{
-      new KeyArg(var, DerefExpr::Create(var, types::Int64Type()).ValueOrDie(),
+      new KeyArg(var, DerefExpr::Create(var, types::Int64Type()).value(),
                  KeyArg::kAscending)};
   zetasql_base::ElementDeleter order_keys_deleter(&order_keys);
 
@@ -368,7 +368,7 @@ GenerateWindowOrderingComparatorBySlot(absl::Span<const VariableId> vars,
   EvaluationContext context((EvaluationOptions()));
   std::unique_ptr<TupleComparator> comparator =
       TupleComparator::Create(order_keys, {slot_idx}, EmptyParams(), &context)
-          .ValueOrDie();
+          .value();
 
   return std::make_shared<WindowOrderingComparatorInfo>(std::move(comparator),
                                                         std::move(order_keys));
@@ -380,9 +380,9 @@ std::vector<AnalyticFunctionTestCase> GetNumberingFunctionTestCases() {
 
   // Generate a tuple comparator to compare tuples by x and y.
   std::vector<const KeyArg*> order_keys{
-      new KeyArg(x, DerefExpr::Create(x, types::Int64Type()).ValueOrDie(),
+      new KeyArg(x, DerefExpr::Create(x, types::Int64Type()).value(),
                  KeyArg::kAscending),
-      new KeyArg(y, DerefExpr::Create(y, types::DoubleType()).ValueOrDie(),
+      new KeyArg(y, DerefExpr::Create(y, types::DoubleType()).value(),
                  KeyArg::kDescending)};
   zetasql_base::ElementDeleter order_keys_deleter(&order_keys);
 
@@ -390,7 +390,7 @@ std::vector<AnalyticFunctionTestCase> GetNumberingFunctionTestCases() {
   std::unique_ptr<TupleComparator> comparator_by_x_y =
       TupleComparator::Create(order_keys, /*slots_for_keys=*/{0, 1},
                               EmptyParams(), &context)
-          .ValueOrDie();
+          .value();
   const std::shared_ptr<WindowOrderingComparatorInfo> comparator_info_by_x_y =
       std::make_shared<WindowOrderingComparatorInfo>(
           std::move(comparator_by_x_y), std::move(order_keys));
@@ -1663,7 +1663,7 @@ class AnalyticWindowTest
                  CreateWindowFrameBoundary(frame_param.end_boundary_type,
                                            frame_param.end_offset_value,
                                            TYPE_INT64 /* offset_type */))
-          .ValueOrDie();
+          .value();
     } else {
       CHECK_EQ(frame_param.window_frame_type, WindowFrameArg::kRange);
       return WindowFrameArg::Create(
@@ -1674,7 +1674,7 @@ class AnalyticWindowTest
                  CreateWindowFrameBoundary(frame_param.end_boundary_type,
                                            frame_param.end_offset_value,
                                            frame_param.offset_value_type))
-          .ValueOrDie();
+          .value();
     }
   }
 
@@ -1737,14 +1737,14 @@ class AnalyticWindowTest
   CreateUnboundedPrecedingBoundary() {
     return WindowFrameBoundaryArg::Create(
                WindowFrameBoundaryArg::kUnboundedPreceding, nullptr /* expr */)
-        .ValueOrDie();
+        .value();
   }
 
   static std::unique_ptr<WindowFrameBoundaryArg>
   CreateUnboundedFollowingBoundary() {
     return WindowFrameBoundaryArg::Create(
                WindowFrameBoundaryArg::kUnboundedFollowing, nullptr /* expr */)
-        .ValueOrDie();
+        .value();
   }
 
   static std::unique_ptr<WindowFrameBoundaryArg> CreateOffsetPrecedingBoundary(
@@ -1752,8 +1752,8 @@ class AnalyticWindowTest
     return WindowFrameBoundaryArg::Create(
                WindowFrameBoundaryArg::kOffsetPreceding,
                ConstExpr::Create(CreateValueFromInt(offset_type, offset))
-                   .ValueOrDie())
-        .ValueOrDie();
+                   .value())
+        .value();
   }
 
   static std::unique_ptr<WindowFrameBoundaryArg> CreateOffsetFollowingBoundary(
@@ -1761,14 +1761,14 @@ class AnalyticWindowTest
     return WindowFrameBoundaryArg::Create(
                WindowFrameBoundaryArg::kOffsetFollowing,
                ConstExpr::Create(CreateValueFromInt(offset_type, offset))
-                   .ValueOrDie())
-        .ValueOrDie();
+                   .value())
+        .value();
   }
 
   static std::unique_ptr<WindowFrameBoundaryArg> CreateCurrentRows() {
     return WindowFrameBoundaryArg::Create(WindowFrameBoundaryArg::kCurrentRow,
                                           nullptr /* expr */)
-        .ValueOrDie();
+        .value();
   }
 
   // Adjusts <window> by removing tuples with ids in <ids_to_remove>.
@@ -1805,6 +1805,10 @@ Value AnalyticWindowTest::CreateValueFromInt(TypeKind type_kind, int value) {
       return Float(static_cast<float>(value));
     case TYPE_DOUBLE:
       return Double(static_cast<double>(value));
+    case TYPE_NUMERIC:
+      return Numeric(NumericValue(static_cast<int64_t>(value)));
+    case TYPE_BIGNUMERIC:
+      return BigNumeric(BigNumericValue(static_cast<int64_t>(value)));
     default:
       LOG(FATAL) << TypeKind_Name(type_kind) << " not supported";
   }
@@ -1824,6 +1828,10 @@ Value AnalyticWindowTest::CreateNullValue(TypeKind type_kind) {
       return NullFloat();
     case TYPE_DOUBLE:
       return NullDouble();
+    case TYPE_NUMERIC:
+      return NullNumeric();
+    case TYPE_BIGNUMERIC:
+      return NullBigNumeric();
     default:
       LOG(FATAL) << TypeKind_Name(type_kind) << " not supported";
   }
@@ -1846,6 +1854,15 @@ Value AnalyticWindowTest::SubtractMaxValue(TypeKind type_kind,
       CHECK_GE(operand, 0);
       return Uint64(std::numeric_limits<uint64_t>::max() -
                     static_cast<uint64_t>(operand));
+    case TYPE_NUMERIC:
+      CHECK_GE(operand, 0);
+      return Numeric(
+          NumericValue::MaxValue().Subtract(NumericValue(operand)).value());
+    case TYPE_BIGNUMERIC:
+      CHECK_GE(operand, 0);
+      return BigNumeric(BigNumericValue::MaxValue()
+                            .Subtract(BigNumericValue(operand))
+                            .value());
     case TYPE_FLOAT:
       return Float(std::numeric_limits<float>::max() -
                    static_cast<float>(operand));
@@ -1937,6 +1954,14 @@ Value AnalyticWindowTest::AddMinValue(TypeKind type_kind,
       CHECK_GE(operand, 0);
       return Uint64(std::numeric_limits<uint64_t>::lowest() +
                     static_cast<uint32_t>(operand));
+    case TYPE_NUMERIC:
+      CHECK_GE(operand, 0);
+      return Numeric(
+          NumericValue::MinValue().Add(NumericValue(operand)).value());
+    case TYPE_BIGNUMERIC:
+      CHECK_GE(operand, 0);
+      return BigNumeric(
+          BigNumericValue::MinValue().Add(BigNumericValue(operand)).value());
     case TYPE_FLOAT:
       return Float(std::numeric_limits<float>::lowest() +
                    static_cast<float>(operand));
@@ -2497,6 +2522,8 @@ AnalyticWindowTest::GetRangeWindowTestsWithOptions(TypeKind type_kind,
     case TYPE_INT64:
     case TYPE_UINT32:
     case TYPE_UINT64:
+    case TYPE_NUMERIC:
+    case TYPE_BIGNUMERIC:
       if (inf_nan_bits != 0) {
         LOG(FATAL) << "Integer types do not have infinity and NaN values";
       }
@@ -2621,16 +2648,17 @@ AnalyticWindowTest::GetIntegerRangeWindowTests() {
   std::vector<int8_t> null_min_max_options(15);
   std::iota(null_min_max_options.begin(), null_min_max_options.end(), 1);
 
-  std::vector<TypeKind> integer_types{TYPE_INT32, TYPE_INT64, TYPE_UINT32,
-                                      TYPE_UINT64};
+  std::vector<TypeKind> integer_types{TYPE_INT32,   TYPE_INT64,
+                                      TYPE_UINT32,  TYPE_UINT64,
+                                      TYPE_NUMERIC, TYPE_BIGNUMERIC};
 
   std::vector<AnalyticWindowTestCase> test_cases;
   for (TypeKind integer_type : integer_types) {
     for (int8_t null_min_max_option : null_min_max_options) {
       // Disable tests for infinity and NaN as integers do not have them.
       const std::vector<AnalyticWindowTestCase> test_cases_asc =
-          GetRangeWindowTestsWithOptions(integer_type, true,
-                                         /* order_asc */ null_min_max_option,
+          GetRangeWindowTestsWithOptions(integer_type, true /* order_asc */,
+                                         null_min_max_option,
                                          0 /* inf_nan_mask */);
       test_cases.insert(test_cases.end(),
                         test_cases_asc.begin(),

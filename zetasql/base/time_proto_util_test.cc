@@ -199,8 +199,9 @@ TEST(ProtoUtilGoogleApi, TimeMaxIsOK) {
 TEST(ProtoUtilGoogleApi, TimeMaxIsMax) {
   const absl::Time time_max = MakeGoogleApiTimeMax();
   google::protobuf::Timestamp proto;
-  EXPECT_THAT(EncodeGoogleApiProto(time_max + absl::Nanoseconds(1), &proto),
-              zetasql_base::testing::StatusIs(StatusCode::kInvalidArgument));
+  EXPECT_THAT(
+      EncodeGoogleApiProto(time_max + absl::Nanoseconds(1), &proto),
+      zetasql_base::testing::StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(ProtoUtilGoogleApi, TimestampProtoMin) {
@@ -224,8 +225,9 @@ TEST(ProtoUtilGoogleApi, TimeMinIsOK) {
 TEST(ProtoUtilGoogleApi, TimeMinIsMin) {
   const absl::Time time_min = MakeGoogleApiTimeMin();
   google::protobuf::Timestamp proto;
-  EXPECT_THAT(EncodeGoogleApiProto(time_min - absl::Nanoseconds(1), &proto),
-              zetasql_base::testing::StatusIs(StatusCode::kInvalidArgument));
+  EXPECT_THAT(
+      EncodeGoogleApiProto(time_min - absl::Nanoseconds(1), &proto),
+      zetasql_base::testing::StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 }  // namespace zetasql_base

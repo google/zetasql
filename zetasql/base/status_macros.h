@@ -18,19 +18,20 @@
 #define THIRD_PARTY_ZETASQL_ZETASQL_BASE_STATUS_MACROS_H_
 
 // Helper macros and methods to return and propagate errors with
-// `zetasql_base::Status`.
+// `absl::Status`.
 
+#include "absl/status/status.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 
-// Evaluates an expression that produces a `zetasql_base::Status`. If the status
+// Evaluates an expression that produces a `absl::Status`. If the status
 // is not ok, returns it from the current function.
 //
 // For example:
-//   zetasql_base::Status MultiStepFunction() {
+//   absl::Status MultiStepFunction() {
 //     ZETASQL_RETURN_IF_ERROR(Function(args...));
 //     ZETASQL_RETURN_IF_ERROR(foo.Method(args...));
-//     return zetasql_base::OkStatus();
+//     return absl::OkStatus();
 //   }
 //
 // The macro ends with a `zetasql_base::StatusBuilder` which allows the returned
@@ -38,22 +39,22 @@
 // macro will not be evaluated unless there is an error.
 //
 // For example:
-//   zetasql_base::Status MultiStepFunction() {
+//   absl::Status MultiStepFunction() {
 //     ZETASQL_RETURN_IF_ERROR(Function(args...)) << "in MultiStepFunction";
 //     ZETASQL_RETURN_IF_ERROR(foo.Method(args...)).Log(base_logging::ERROR)
 //         << "while processing query: " << query.DebugString();
-//     return zetasql_base::OkStatus();
+//     return absl::OkStatus();
 //   }
 //
 //
 // If using this macro inside a lambda, you need to annotate the return type
 // to avoid confusion between a `zetasql_base::StatusBuilder` and a
-// `zetasql_base::Status` type. E.g.
+// `absl::Status` type. E.g.
 //
-//   []() -> ::zetasql_base::Status {
+//   []() -> ::absl::Status {
 //     ZETASQL_RETURN_IF_ERROR(Function(args...));
 //     ZETASQL_RETURN_IF_ERROR(foo.Method(args...));
-//     return zetasql_base::OkStatus();
+//     return absl::OkStatus();
 //   }
 #define ZETASQL_RETURN_IF_ERROR(expr)                               \
   ZETASQL_STATUS_MACROS_IMPL_ELSE_BLOCKER_                          \
@@ -167,10 +168,10 @@ namespace status_macro_internal {
 // that declares a variable.
 class StatusAdaptorForMacros {
  public:
-  StatusAdaptorForMacros(const Status& status, SourceLocation loc)
+  StatusAdaptorForMacros(const absl::Status& status, SourceLocation loc)
       : builder_(status, loc) {}
 
-  StatusAdaptorForMacros(Status&& status, SourceLocation loc)
+  StatusAdaptorForMacros(absl::Status&& status, SourceLocation loc)
       : builder_(std::move(status), loc) {}
 
   StatusAdaptorForMacros(const StatusBuilder& builder, SourceLocation loc)

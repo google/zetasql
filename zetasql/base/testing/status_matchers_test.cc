@@ -24,14 +24,14 @@
 
 namespace {
 
+using absl::OkStatus;
 using testing::_;
 using testing::Not;
-using zetasql_base::OkStatus;
 using zetasql_base::testing::IsOkAndHolds;
 using zetasql_base::testing::StatusIs;
 
-zetasql_base::Status AbortedStatus() {
-  return zetasql_base::Status(zetasql_base::StatusCode::kAborted, "aborted");
+absl::Status AbortedStatus() {
+  return absl::Status(absl::StatusCode::kAborted, "aborted");
 }
 
 zetasql_base::StatusOr<int> OkStatusOr(int n) { return n; }
@@ -55,45 +55,42 @@ TEST(StatusMatcher, IsOkAndHolds) {
 }
 
 TEST(StatusMatcher, StatusIs) {
-  EXPECT_THAT(AbortedStatus(),
-              StatusIs(zetasql_base::StatusCode::kAborted, "aborted"));
-  EXPECT_THAT(AbortedStatus(), StatusIs(zetasql_base::StatusCode::kAborted, _));
+  EXPECT_THAT(AbortedStatus(), StatusIs(absl::StatusCode::kAborted, "aborted"));
+  EXPECT_THAT(AbortedStatus(), StatusIs(absl::StatusCode::kAborted, _));
   EXPECT_THAT(AbortedStatus(), StatusIs(_, "aborted"));
   EXPECT_THAT(AbortedStatus(), StatusIs(_, _));
 
-  EXPECT_THAT(AbortedStatus(), StatusIs(zetasql_base::StatusCode::kAborted));
-  EXPECT_THAT(AbortedStatus(), StatusIs(Not(zetasql_base::StatusCode::kOk)));
+  EXPECT_THAT(AbortedStatus(), StatusIs(absl::StatusCode::kAborted));
+  EXPECT_THAT(AbortedStatus(), StatusIs(Not(absl::StatusCode::kOk)));
   EXPECT_THAT(AbortedStatus(), StatusIs(_));
 
   EXPECT_THAT(AbortedStatusOr(),
-              StatusIs(zetasql_base::StatusCode::kAborted, "aborted"));
-  EXPECT_THAT(AbortedStatusOr(),
-              StatusIs(zetasql_base::StatusCode::kAborted, _));
+              StatusIs(absl::StatusCode::kAborted, "aborted"));
+  EXPECT_THAT(AbortedStatusOr(), StatusIs(absl::StatusCode::kAborted, _));
   EXPECT_THAT(AbortedStatusOr(), StatusIs(_, "aborted"));
   EXPECT_THAT(AbortedStatusOr(), StatusIs(_, _));
 
-  EXPECT_THAT(AbortedStatusOr(), StatusIs(zetasql_base::StatusCode::kAborted));
-  EXPECT_THAT(AbortedStatusOr(), StatusIs(Not(zetasql_base::StatusCode::kOk)));
+  EXPECT_THAT(AbortedStatusOr(), StatusIs(absl::StatusCode::kAborted));
+  EXPECT_THAT(AbortedStatusOr(), StatusIs(Not(absl::StatusCode::kOk)));
   EXPECT_THAT(AbortedStatusOr(), StatusIs(_));
 
   // Weird usages, but should work.
-  EXPECT_THAT(OkStatusOr(15), StatusIs(zetasql_base::StatusCode::kOk, ""));
-  EXPECT_THAT(OkStatusOr(15), StatusIs(zetasql_base::StatusCode::kOk, _));
+  EXPECT_THAT(OkStatusOr(15), StatusIs(absl::StatusCode::kOk, ""));
+  EXPECT_THAT(OkStatusOr(15), StatusIs(absl::StatusCode::kOk, _));
   EXPECT_THAT(OkStatusOr(15), StatusIs(_, ""));
   EXPECT_THAT(OkStatusOr(15), StatusIs(_, _));
 
-  EXPECT_THAT(OkStatusOr(15), StatusIs(zetasql_base::StatusCode::kOk));
-  EXPECT_THAT(OkStatusOr(15),
-              StatusIs(Not(zetasql_base::StatusCode::kAborted), _));
+  EXPECT_THAT(OkStatusOr(15), StatusIs(absl::StatusCode::kOk));
+  EXPECT_THAT(OkStatusOr(15), StatusIs(Not(absl::StatusCode::kAborted), _));
   EXPECT_THAT(OkStatusOr(15), StatusIs(_));
 
-  EXPECT_THAT(OkStatus(), StatusIs(zetasql_base::StatusCode::kOk, ""));
-  EXPECT_THAT(OkStatus(), StatusIs(zetasql_base::StatusCode::kOk, _));
+  EXPECT_THAT(OkStatus(), StatusIs(absl::StatusCode::kOk, ""));
+  EXPECT_THAT(OkStatus(), StatusIs(absl::StatusCode::kOk, _));
   EXPECT_THAT(OkStatus(), StatusIs(_, ""));
   EXPECT_THAT(OkStatus(), StatusIs(_, _));
 
-  EXPECT_THAT(OkStatus(), StatusIs(zetasql_base::StatusCode::kOk));
-  EXPECT_THAT(OkStatus(), StatusIs(Not(zetasql_base::StatusCode::kAborted), _));
+  EXPECT_THAT(OkStatus(), StatusIs(absl::StatusCode::kOk));
+  EXPECT_THAT(OkStatus(), StatusIs(Not(absl::StatusCode::kAborted), _));
   EXPECT_THAT(OkStatus(), StatusIs(_));
 }
 

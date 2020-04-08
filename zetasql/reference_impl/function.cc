@@ -1073,7 +1073,7 @@ std::unique_ptr<BuiltinScalarFunction> BuiltinScalarFunction::CreateUnvalidated(
   auto result = CreateValidated(kind, LanguageOptions::MaximumFeatures(),
                                 output_type, {});
   ZETASQL_CHECK_OK(result.status());
-  return std::move(result.ValueOrDie());
+  return std::move(result.value());
 }
 
 zetasql_base::StatusOr<BuiltinScalarFunction*>
@@ -2415,6 +2415,7 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   __int128 out_int128_ = 0;            // Sum
   unsigned __int128 out_uint128_ = 0;  // Sum
   NumericValue out_numeric_;           // Min, Max
+  BigNumericValue out_bignumeric_;     // Min, Max
   NumericValue::SumAggregator numeric_aggregator_;  // Avg, Sum
   NumericValue::VarianceAggregator numeric_variance_aggregator_;  // Var, Stddev
   std::string out_string_ = "";                  // Max, Min, StringAgg
@@ -2521,6 +2522,9 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
     case FCT(FunctionKind::kMax, TYPE_NUMERIC):
       out_numeric_ = NumericValue::MinValue();
       break;
+    case FCT(FunctionKind::kMax, TYPE_BIGNUMERIC):
+      out_bignumeric_ = BigNumericValue::MinValue();
+      break;
     case FCT(FunctionKind::kMax, TYPE_DATETIME):
       out_datetime_ = DatetimeValue::FromYMDHMSAndNanos(1, 1, 1, 0, 0, 0, 0);
       break;
@@ -2552,6 +2556,9 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
       break;
     case FCT(FunctionKind::kMin, TYPE_NUMERIC):
       out_numeric_ = NumericValue::MaxValue();
+      break;
+    case FCT(FunctionKind::kMin, TYPE_BIGNUMERIC):
+      out_bignumeric_ = BigNumericValue::MaxValue();
       break;
     case FCT(FunctionKind::kMin, TYPE_DATETIME):
       out_datetime_ = DatetimeValue::FromYMDHMSAndNanos(9999, 12, 31, 23, 59,
@@ -2796,9 +2803,11 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       break;
     }
     case FCT(FunctionKind::kMax, TYPE_NUMERIC): {
-      out_numeric_ = value.numeric_value() > out_numeric_
-                         ? value.numeric_value()
-                         : out_numeric_;
+      out_numeric_ = std::max(value.numeric_value(), out_numeric_);
+      break;
+    }
+    case FCT(FunctionKind::kMax, TYPE_BIGNUMERIC): {
+      out_bignumeric_ = std::max(value.bignumeric_value(), out_bignumeric_);
       break;
     }
     case FCT(FunctionKind::kMax, TYPE_TIMESTAMP): {
@@ -2869,9 +2878,11 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       break;
     }
     case FCT(FunctionKind::kMin, TYPE_NUMERIC): {
-      out_numeric_ = value.numeric_value() < out_numeric_
-                         ? value.numeric_value()
-                         : out_numeric_;
+      out_numeric_ = std::min(value.numeric_value(), out_numeric_);
+      break;
+    }
+    case FCT(FunctionKind::kMin, TYPE_BIGNUMERIC): {
+      out_bignumeric_ = std::min(value.bignumeric_value(), out_bignumeric_);
       break;
     }
     case FCT(FunctionKind::kMin, TYPE_TIMESTAMP): {
@@ -3132,6 +3143,10 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
     case FCT(FunctionKind::kMax, TYPE_NUMERIC):
     case FCT(FunctionKind::kMin, TYPE_NUMERIC):
       return count_ > 0 ? Value::Numeric(out_numeric_) : Value::NullNumeric();
+    case FCT(FunctionKind::kMax, TYPE_BIGNUMERIC):
+    case FCT(FunctionKind::kMin, TYPE_BIGNUMERIC):
+      return count_ > 0 ? Value::BigNumeric(out_bignumeric_)
+                        : Value::NullBigNumeric();
     case FCT(FunctionKind::kMax, TYPE_STRING):
     case FCT(FunctionKind::kMin, TYPE_STRING):
       return count_ > 0 ? Value::String(out_string_) : Value::NullString();
@@ -5214,7 +5229,7 @@ bool UserDefinedScalarFunction::Eval(absl::Span<const Value> args,
     *status = status_or_result.status();
     return false;
   }
-  *result = std::move(status_or_result.ValueOrDie());
+  *result = std::move(status_or_result.value());
   // Type equality checking can be expensive. Do it in debug mode only.
   bool invalid = !result->is_valid() ||
                  (ZETASQL_DEBUG_MODE && !output_type()->Equals(result->type()));

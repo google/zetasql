@@ -121,13 +121,13 @@ TEST(StatusOr, TestMoveOnlyVector) {
   vec.resize(2);
   auto another_vec = std::move(vec);
   EXPECT_EQ(0, *another_vec[0].ValueOrDie());
-  EXPECT_EQ(UnknownError(""), another_vec[1].status());
+  EXPECT_EQ(absl::UnknownError(""), another_vec[1].status());
 }
 
 TEST(StatusOr, TestDefaultCtor) {
   StatusOr<int> thing;
   EXPECT_FALSE(thing.ok());
-  EXPECT_TRUE(thing.status().code() == UNKNOWN);
+  EXPECT_TRUE(thing.status().code() == absl::StatusCode::kUnknown);
 }
 
 TEST(StatusOrDeathTest, TestDefaultCtorValue) {
@@ -141,20 +141,20 @@ TEST(StatusOrDeathTest, TestDefaultCtorValue) {
 }
 
 TEST(StatusOr, TestStatusCtor) {
-  StatusOr<int> thing(CancelledError(""));
+  StatusOr<int> thing(absl::CancelledError(""));
   EXPECT_FALSE(thing.ok());
-  EXPECT_TRUE(thing.status().code() == CANCELLED);
+  EXPECT_TRUE(thing.status().code() == absl::StatusCode::kCancelled);
 }
 
 TEST(StatusOrDeathTest, TestStatusCtorStatusOk) {
   EXPECT_DEBUG_DEATH(
       {
         // This will DCHECK
-        StatusOr<int> thing(OkStatus());
-        // In optimized mode, we are actually going to get INTERNAL for
+        StatusOr<int> thing(absl::OkStatus());
+        // In optimized mode, we are actually going to get kInternal for
         // status here, rather than crashing, so check that.
         EXPECT_FALSE(thing.ok());
-        EXPECT_TRUE(thing.status().code() == INTERNAL);
+        EXPECT_TRUE(thing.status().code() == absl::StatusCode::kInternal);
       },
       "An OK status is not a valid constructor argument");
 }
@@ -175,9 +175,9 @@ TEST(StatusOr, TestCopyCtorStatusOk) {
 }
 
 TEST(StatusOr, TestCopyCtorStatusNotOk) {
-  StatusOr<int> original(CancelledError(""));
+  StatusOr<int> original(absl::CancelledError(""));
   StatusOr<int> copy(original);
-  EXPECT_TRUE(copy.status().code() == CANCELLED);
+  EXPECT_TRUE(copy.status().code() == absl::StatusCode::kCancelled);
 }
 
 TEST(StatusOr, TestCopyCtorNonAssignable) {
@@ -198,7 +198,7 @@ TEST(StatusOr, TestCopyCtorStatusOKConverting) {
 }
 
 TEST(StatusOr, TestCopyCtorStatusNotOkConverting) {
-  StatusOr<int> original(CancelledError(""));
+  StatusOr<int> original(absl::CancelledError(""));
   StatusOr<double> copy(original);
   EXPECT_EQ(copy.status(), original.status());
 }
@@ -242,7 +242,7 @@ TEST(StatusOr, TestAssignmentStatusOk) {
 TEST(StatusOr, TestAssignmentStatusNotOk) {
   // Copy assignment
   {
-    const Status expected = CancelledError("");
+    const absl::Status expected = absl::CancelledError("");
     StatusOr<int> source(expected);
 
     StatusOr<int> target;
@@ -257,7 +257,7 @@ TEST(StatusOr, TestAssignmentStatusNotOk) {
 
   // Move assignment
   {
-    const Status expected = CancelledError("");
+    const absl::Status expected = absl::CancelledError("");
     StatusOr<int> source(expected);
 
     StatusOr<int> target;
@@ -310,7 +310,7 @@ TEST(StatusOr, TestAssignmentStatusOKConverting) {
 TEST(StatusOr, TestAssignmentStatusNotOkConverting) {
   // Copy assignment
   {
-    const Status expected = CancelledError("");
+    const absl::Status expected = absl::CancelledError("");
     StatusOr<int> source(expected);
 
     StatusOr<double> target;
@@ -325,7 +325,7 @@ TEST(StatusOr, TestAssignmentStatusNotOkConverting) {
 
   // Move assignment
   {
-    const Status expected = CancelledError("");
+    const absl::Status expected = absl::CancelledError("");
     StatusOr<int> source(expected);
 
     StatusOr<double> target;
@@ -356,11 +356,11 @@ TEST(StatusOr, SelfAssignment) {
 
   // Copy-assignment, error status
   {
-    StatusOr<int> so = NotFoundError("taco");
+    StatusOr<int> so = absl::NotFoundError("taco");
     so = *&so;
 
     EXPECT_FALSE(so.ok());
-    EXPECT_THAT(so, StatusIs(NOT_FOUND, "taco"));
+    EXPECT_THAT(so, StatusIs(absl::StatusCode::kNotFound, "taco"));
   }
 
   // Move-assignment with copyable type, status OK
@@ -378,14 +378,14 @@ TEST(StatusOr, SelfAssignment) {
 
   // Move-assignment with copyable type, error status
   {
-    StatusOr<int> so = NotFoundError("taco");
+    StatusOr<int> so = absl::NotFoundError("taco");
 
     // Fool the compiler, which otherwise complains.
     auto& same = so;
     so = std::move(same);
 
     EXPECT_FALSE(so.ok());
-    EXPECT_THAT(so, StatusIs(NOT_FOUND, "taco"));
+    EXPECT_THAT(so, StatusIs(absl::StatusCode::kNotFound, "taco"));
   }
 
   // Move-assignment with non-copyable type, status OK
@@ -404,23 +404,23 @@ TEST(StatusOr, SelfAssignment) {
 
   // Move-assignment with non-copyable type, error status
   {
-    StatusOr<std::unique_ptr<int>> so = NotFoundError("taco");
+    StatusOr<std::unique_ptr<int>> so = absl::NotFoundError("taco");
 
     // Fool the compiler, which otherwise complains.
     auto& same = so;
     so = std::move(same);
 
     EXPECT_FALSE(so.ok());
-    EXPECT_THAT(so, StatusIs(NOT_FOUND, "taco"));
+    EXPECT_THAT(so, StatusIs(absl::StatusCode::kNotFound, "taco"));
   }
 }
 
 TEST(StatusOr, TestStatus) {
   StatusOr<int> good(4);
   EXPECT_TRUE(good.ok());
-  StatusOr<int> bad(CancelledError(""));
+  StatusOr<int> bad(absl::CancelledError(""));
   EXPECT_FALSE(bad.ok());
-  EXPECT_TRUE(bad.status().code() == CANCELLED);
+  EXPECT_TRUE(bad.status().code() == absl::StatusCode::kCancelled);
 }
 
 TEST(StatusOr, OperatorBoolSugarForOk) {
@@ -428,7 +428,7 @@ TEST(StatusOr, OperatorBoolSugarForOk) {
   EXPECT_TRUE(good);
   EXPECT_EQ(good.ok(), static_cast<bool>(good));
 
-  StatusOr<int> bad = CancelledError("");
+  StatusOr<int> bad = absl::CancelledError("");
   EXPECT_FALSE(bad);
   EXPECT_EQ(bad.ok(), static_cast<bool>(bad));
 }
@@ -494,10 +494,10 @@ TEST(StatusOr, OperatorArrow) {
 }
 
 TEST(StatusOr, RValueStatus) {
-  StatusOr<int> so(NotFoundError("taco"));
-  const Status s = std::move(so).status();
+  StatusOr<int> so(absl::NotFoundError("taco"));
+  const absl::Status s = std::move(so).status();
 
-  EXPECT_THAT(s, StatusIs(NOT_FOUND, "taco"));
+  EXPECT_THAT(s, StatusIs(absl::StatusCode::kNotFound, "taco"));
 
   // Check that !ok() still implies !status().ok(), even after moving out of the
   // object. See the note on the rvalue ref-qualified status method.
@@ -520,19 +520,19 @@ TEST(StatusOr, TestValueConst) {
 }
 
 TEST(StatusOr, TestPointerStatusCtor) {
-  StatusOr<int*> thing(CancelledError(""));
+  StatusOr<int*> thing(absl::CancelledError(""));
   EXPECT_FALSE(thing.ok());
-  EXPECT_TRUE(thing.status().code() == CANCELLED);
+  EXPECT_TRUE(thing.status().code() == absl::StatusCode::kCancelled);
 }
 
 TEST(StatusOrDeathTest, TestPointerStatusCtorStatusOk) {
   EXPECT_DEBUG_DEATH(
       {
-        StatusOr<int*> thing(OkStatus());
+        StatusOr<int*> thing(absl::OkStatus());
         // In optimized mode, we are actually going to get INTERNAL for
         // status here, rather than crashing, so check that.
         EXPECT_FALSE(thing.ok());
-        EXPECT_TRUE(thing.status().code() == INTERNAL);
+        EXPECT_TRUE(thing.status().code() == absl::StatusCode::kInternal);
       },
       "An OK status is not a valid constructor argument");
 }
@@ -576,9 +576,9 @@ TEST(StatusOr, TestPointerCopyCtorStatusOk) {
 }
 
 TEST(StatusOr, TestPointerCopyCtorStatusNotOk) {
-  StatusOr<int*> original(CancelledError(""));
+  StatusOr<int*> original(absl::CancelledError(""));
   StatusOr<int*> copy(original);
-  EXPECT_TRUE(copy.status().code() == CANCELLED);
+  EXPECT_TRUE(copy.status().code() == absl::StatusCode::kCancelled);
 }
 
 TEST(StatusOr, TestPointerCopyCtorStatusOKConverting) {
@@ -591,9 +591,9 @@ TEST(StatusOr, TestPointerCopyCtorStatusOKConverting) {
 }
 
 TEST(StatusOr, TestPointerCopyCtorStatusNotOkConverting) {
-  StatusOr<Derived*> original(CancelledError(""));
+  StatusOr<Derived*> original(absl::CancelledError(""));
   StatusOr<Base2*> copy(original);
-  EXPECT_TRUE(copy.status().code() == CANCELLED);
+  EXPECT_TRUE(copy.status().code() == absl::StatusCode::kCancelled);
 }
 
 TEST(StatusOr, TestPointerAssignmentStatusOk) {
@@ -606,10 +606,10 @@ TEST(StatusOr, TestPointerAssignmentStatusOk) {
 }
 
 TEST(StatusOr, TestPointerAssignmentStatusNotOk) {
-  StatusOr<int*> source(CancelledError(""));
+  StatusOr<int*> source(absl::CancelledError(""));
   StatusOr<int*> target;
   target = source;
-  EXPECT_TRUE(target.status().code() == CANCELLED);
+  EXPECT_TRUE(target.status().code() == absl::StatusCode::kCancelled);
 }
 
 TEST(StatusOr, TestPointerAssignmentStatusOKConverting) {
@@ -623,7 +623,7 @@ TEST(StatusOr, TestPointerAssignmentStatusOKConverting) {
 }
 
 TEST(StatusOr, TestPointerAssignmentStatusNotOkConverting) {
-  StatusOr<Derived*> source(CancelledError(""));
+  StatusOr<Derived*> source(absl::CancelledError(""));
   StatusOr<Base2*> target;
   target = source;
   EXPECT_EQ(target.status(), source.status());
@@ -633,8 +633,8 @@ TEST(StatusOr, TestPointerStatus) {
   const int kI = 0;
   StatusOr<const int*> good(&kI);
   EXPECT_TRUE(good.ok());
-  StatusOr<const int*> bad(CancelledError(""));
-  EXPECT_TRUE(bad.status().code() == CANCELLED);
+  StatusOr<const int*> bad(absl::CancelledError(""));
+  EXPECT_TRUE(bad.status().code() == absl::StatusCode::kCancelled);
 }
 
 TEST(StatusOr, TestPointerValue) {
@@ -690,13 +690,13 @@ TEST(StatusOr, MapToStatusOrUniquePtr) {
 }
 
 TEST(StatusOrDeathTest, TestPointerValueNotOk) {
-  StatusOr<int*> thing(CancelledError(""));
+  StatusOr<int*> thing(absl::CancelledError(""));
   EXPECT_DEATH(thing.ValueOrDie(),
                absl::StatusCodeToString(absl::StatusCode::kCancelled));
 }
 
 TEST(StatusOrDeathTest, TestPointerValueNotOkConst) {
-  const StatusOr<int*> thing(CancelledError(""));
+  const StatusOr<int*> thing(absl::CancelledError(""));
   EXPECT_DEATH(thing.ValueOrDie(),
                absl::StatusCodeToString(absl::StatusCode::kCancelled));
 }

@@ -442,8 +442,7 @@ TEST(ParseLocationRangeTest, DeserializationTest) {
 
   auto parse_location_range_or = ParseLocationRange::Create(proto);
   ZETASQL_ASSERT_OK(parse_location_range_or);
-  ParseLocationRange parse_location_range =
-      parse_location_range_or.ValueOrDie();
+  ParseLocationRange parse_location_range = parse_location_range_or.value();
 
   EXPECT_EQ(parse_location_range.start().filename(),
             parse_location_range.end().filename());
@@ -481,8 +480,7 @@ TEST(ParseLocationRangeTest, DeserializationWorksIfFilenameNotPresent) {
   auto parse_location_range_or = ParseLocationRange::Create(proto);
   ZETASQL_ASSERT_OK(parse_location_range_or.status());
 
-  ParseLocationRange parse_location_range =
-      parse_location_range_or.ValueOrDie();
+  ParseLocationRange parse_location_range = parse_location_range_or.value();
   EXPECT_TRUE(parse_location_range.start().filename().empty());
   EXPECT_TRUE(parse_location_range.end().filename().empty());
 

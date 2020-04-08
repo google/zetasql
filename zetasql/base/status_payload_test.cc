@@ -28,7 +28,7 @@
 namespace zetasql_base {
 
 std::vector<std::pair<std::string, absl::Cord>> GetEntries(
-    const Status& status) {
+    const absl::Status& status) {
   std::vector<std::pair<std::string, absl::Cord>> ret;
   status.ForEachPayload(
       [&ret](absl::string_view type_url, const absl::Cord& payload) {
@@ -46,7 +46,7 @@ TEST(StatusPayload, EncodeSameAsAny) {
   google::protobuf::Any any;
   any.PackFrom(payload);
 
-  Status status(StatusCode::kCancelled, "");
+  absl::Status status(absl::StatusCode::kCancelled, "");
   AttachPayload(&status, payload);
   std::vector<std::pair<std::string, absl::Cord>> entries = GetEntries(status);
   ASSERT_EQ(entries.size(), 1);
@@ -55,7 +55,7 @@ TEST(StatusPayload, EncodeSameAsAny) {
 }
 
 TEST(StatusPayload, AttachPayload) {
-  Status status = Status(StatusCode::kCancelled, "");
+  absl::Status status = absl::Status(absl::StatusCode::kCancelled, "");
   TestPayload payload;
   payload.set_message("message");
 
@@ -71,7 +71,7 @@ TEST(StatusPayload, AttachPayload) {
 }
 
 TEST(StatusPayload, AttachPayload_OverwriteSameType) {
-  Status status = Status(StatusCode::kCancelled, "");
+  absl::Status status = absl::Status(absl::StatusCode::kCancelled, "");
   TestPayload payload1;
   payload1.set_message("message1");
   TestPayload payload2;

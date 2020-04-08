@@ -457,6 +457,13 @@ class AnalyzerOptions {
     return record_parse_locations_;
   }
 
+  void set_create_new_column_for_each_projected_output(bool value) {
+    create_new_column_for_each_projected_output_ = value;
+  }
+  bool create_new_column_for_each_projected_output() const {
+    return create_new_column_for_each_projected_output_;
+  }
+
   // Controls whether undeclared parameters are allowed. Undeclared parameters
   // don't appear in query_parameters(). Their type will be assigned by the
   // analyzer in the output AST and returned in
@@ -608,6 +615,33 @@ class AnalyzerOptions {
 
   // If set to true, record parse locations in ResolvedNodes.
   bool record_parse_locations_ = false;
+
+  // If set to true, creates a new column for each output produced by each
+  // ResolvedProjectScan. This means that each entry in the column_list will
+  // always have a corresponding entry in the expr_list.
+  //
+  // Here is an example:
+  //
+  //  SELECT * FROM (SELECT a AS b FROM (SELECT 1 AS a));
+  //
+  //  option      scan      column_list        expr_list
+  // -------- ------------- ----------- -----------------------
+  //          SELECT 1 AS a    [a#1]      [a#1 := Literal(1)]
+  //   false  SELECT a AS b    [a#1]              []
+  //          SELECT *         [a#1]              []
+  // -------- ------------- ----------- -----------------------
+  //          SELECT 1 AS a    [a#1]      [a#1 := Literal(1)]
+  //   true   SELECT a AS b    [b#2]    [b#2 := ColumnRef(a#1)]
+  //          SELECT *         [b#3]    [b#3 := ColumnRef(b#2)]
+  // -------- ------------- ----------- -----------------------
+  //
+  // Setting this option to true results in a larger resolved AST, but has the
+  // benefit that it provides a place to store additional information about how
+  // the query was parsed. In combination with record_parse_locations, it
+  // allows keeping track of all places in the query where columns are
+  // referenced, which is useful to highlight long chains of dependencies
+  // through complex queries composed of deeply nested subqueries.
+  bool create_new_column_for_each_projected_output_ = false;
 
   bool allow_undeclared_parameters_ = false;
 

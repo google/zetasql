@@ -140,7 +140,7 @@ std::unique_ptr<ScalarFunctionBody> CreateFunction(FunctionKind kind,
   language_options.EnableMaximumLanguageFeaturesForDevelopment();
   return BuiltinScalarFunction::CreateValidated(kind, language_options,
                                                 output_type, {})
-      .ValueOrDie();
+      .value();
 }
 
 // -------------------------------------------------------
@@ -170,12 +170,12 @@ struct NaryFunctionTemplate {
 std::ostream& operator<<(std::ostream& out, const NaryFunctionTemplate& t) {
   std::vector<std::unique_ptr<ValueExpr>> arguments;
   for (int i = 0; i < t.params.num_params(); ++i) {
-    arguments.push_back(ConstExpr::Create(t.params.param(i)).ValueOrDie());
+    arguments.push_back(ConstExpr::Create(t.params.param(i)).value());
   }
   auto fct_op = ScalarFunctionCallExpr::Create(
                     CreateFunction(t.kind, t.params.GetResultType()),
                     std::move(arguments))
-                    .ValueOrDie();
+                    .value();
   out << fct_op->DebugString() << " == ";
   if (t.params.HasEmptyFeatureSetAndNothingElse()) {
     out << t.params.result().DebugString(/*verbose=*/true);
@@ -498,13 +498,13 @@ TEST_F(EvalTest, FieldValueExpr) {
 
 static std::unique_ptr<ValueExpr> DivByZeroErrorExpr() {
   std::vector<std::unique_ptr<ValueExpr>> div_args;
-  div_args.push_back(ConstExpr::Create(Int64(1)).ValueOrDie());
-  div_args.push_back(ConstExpr::Create(Int64(0)).ValueOrDie());
+  div_args.push_back(ConstExpr::Create(Int64(1)).value());
+  div_args.push_back(ConstExpr::Create(Int64(0)).value());
 
   return ScalarFunctionCallExpr::Create(
              CreateFunction(FunctionKind::kDiv, Int64Type()),
              std::move(div_args), DEFAULT_ERROR_MODE)
-      .ValueOrDie();
+      .value();
 }
 
 TEST_F(EvalTest, IfExpr) {
@@ -1775,14 +1775,14 @@ class ProtoEvalTest : public ::testing::Test {
   // Reads 'field_name' of 'msg' using a GetProtoFieldExpr. Crashes on error.
   Value GetProtoFieldOrDie(const google::protobuf::Message* msg,
                            const std::string& field_name) {
-    return GetProtoField(msg, field_name).ValueOrDie();
+    return GetProtoField(msg, field_name).value();
   }
 
   // Reads 'field_name' of 'proto_value' using a GetProtoFieldExpr. Crashes on
   // error.
   Value GetProtoFieldOrDie(const Value& proto_value,
                            const std::string& field_name) {
-    return GetProtoField(proto_value, field_name).ValueOrDie();
+    return GetProtoField(proto_value, field_name).value();
   }
 
   // Reads 'field_name' of 'msg' using a GetProtoFieldExpr.
@@ -1823,7 +1823,7 @@ class ProtoEvalTest : public ::testing::Test {
     EvaluationContext context((EvaluationOptions()));
     return EvalGetProtoFieldExpr(proto_slot, field_name, /*get_has_bit=*/true,
                                  &context)
-        .ValueOrDie()
+        .value()
         .value();
   }
 
