@@ -12,7 +12,7 @@ cd ./path/to/your/project && pre-commit install
 
 ```bash
 # To apply formatter to queries in a directory using Docker
-docker run -it --rm -v `pwd`:/home:Z matts966/zetasql-formatter:latest
+docker run -it --rm -v `pwd`:/home:Z matts966/zetasql-formatter:latest [directory]
 ```
 
 ```bash

@@ -1,4 +1,4 @@
-run:
+run: build
 	docker run -it --rm -v `pwd`:/home:Z matts966/zetasql-formatter:latest
 build:
 	DOCKER_BUILDKIT=1 docker build -t matts966/zetasql-formatter:latest -f ./docker/Dockerfile .
