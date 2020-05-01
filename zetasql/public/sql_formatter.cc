@@ -55,7 +55,11 @@ absl::Status FormatSql(const std::string& sql, std::string* formatted_sql) {
   options.stop_at_end_of_statement = true;
   options.include_comments = true;
 
+  bool last_token_is_comment = false;
+
   while (!at_end_of_input) {
+    last_token_is_comment = false;
+
     std::unique_ptr<ParserOutput> parser_output;
 
     const absl::Status status = ParseNextStatement(
@@ -72,7 +76,10 @@ absl::Status FormatSql(const std::string& sql, std::string* formatted_sql) {
       if (token_status.ok()) {
         std::deque<std::pair<std::string, ParseLocationPoint>> comments;
         for (const auto& parse_token : parse_tokens) {
+          if (parse_token.IsEndOfInput()) break;
+          last_token_is_comment = false;
           if (parse_token.IsComment()) {
+            last_token_is_comment = true;
             comments.push_back(std::make_pair(parse_token.GetSQL(), parse_token.GetLocationRange().start()));
           }
         }
@@ -138,7 +145,13 @@ absl::Status FormatSql(const std::string& sql, std::string* formatted_sql) {
     absl::StripAsciiWhitespace(&e);
   }
 
-  *formatted_sql = absl::StrCat(absl::StrJoin(formatted_statement, ";\n"), ";");
+  std::string suffix;
+  if (last_token_is_comment) {
+    suffix = "\n";
+  } else {
+    suffix = ";\n";
+  }
+  *formatted_sql = absl::StrCat(absl::StrJoin(formatted_statement, ";\n"), suffix);
   // Append comments finally because parser ignores comments and ; is not suitable
   // fot comments.
   std::vector<ParseToken> parse_tokens;
@@ -146,7 +159,7 @@ absl::Status FormatSql(const std::string& sql, std::string* formatted_sql) {
   if (token_status.ok()) {
     for (const auto& parse_token : parse_tokens) {
       if (parse_token.IsComment()) {
-        *formatted_sql = absl::StrCat(*formatted_sql, "\n", parse_token.GetSQL());
+        *formatted_sql = absl::StrCat(*formatted_sql, parse_token.GetSQL());
       }
     }
   }

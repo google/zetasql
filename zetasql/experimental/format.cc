@@ -40,8 +40,8 @@ int format(const std::filesystem::path& file_path) {
     const absl::Status status = zetasql::FormatSql(sql, &formatted);
     if (status.ok()) {
       std::ofstream out(file_path);
-      out << formatted << std::endl;
-      if (formatted != absl::StripSuffix(sql, "\n")) {
+      out << formatted;
+      if (formatted != sql) {
         std::cout << "successfully formatted " << file_path << "!" << std::endl;
         return 1;
       }
