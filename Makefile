@@ -7,9 +7,10 @@ build-formatter: build
 	docker run -it --rm -v `pwd`:/work/zetasql/ \
 		-v /var/run/docker.sock:/var/run/docker.sock \
 		bazel
-.PHONY: run build
+push: build
+	docker push matts966/zetasql-formatter:latest
 osx:
 	CC=g++ bazel build //zetasql/experimental:format
 	sudo cp ./bazel-bin/zetasql/experimental/format ./bin/osx/zetasql-formatter
 	sudo cp ./bin/osx/zetasql-formatter /usr/local/bin
-.PHONY: run build build-formatter osx
+.PHONY: run build build-formatter osx push
