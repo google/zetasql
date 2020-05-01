@@ -159,7 +159,7 @@ struct ParseTokenOptions {
   bool stop_at_end_of_statement = false;
 
   // Return the comments in the ParseToken vector or silently drop them.
-  bool include_comments = true;
+  bool include_comments = false;
 };
 
 // Gets a vector of ParseTokens starting from <resume_location>, and updates

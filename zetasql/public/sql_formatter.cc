@@ -49,10 +49,14 @@ absl::Status FormatSql(const std::string& sql, std::string* formatted_sql) {
   ParseResumeLocation location = ParseResumeLocation::FromStringView(sql);
   bool at_end_of_input = false;
   absl::Status return_status = absl::OkStatus();
+
+  ParseResumeLocation pre_location = location;
+  ParseTokenOptions options;
+  options.stop_at_end_of_statement = true;
+  options.include_comments = true;
+
   while (!at_end_of_input) {
     std::unique_ptr<ParserOutput> parser_output;
-
-    ParseResumeLocation pre_location = location;
 
     const absl::Status status = ParseNextStatement(
         &location, ParserOptions(), &parser_output, &at_end_of_input);
@@ -62,8 +66,6 @@ absl::Status FormatSql(const std::string& sql, std::string* formatted_sql) {
 
       // Fetch comments in the last location range.
       std::vector<ParseToken> parse_tokens;
-      ParseTokenOptions options;
-      options.stop_at_end_of_statement = true;
 
       const absl::Status token_status =
           GetParseTokens(options, &pre_location, &parse_tokens);
@@ -137,6 +139,17 @@ absl::Status FormatSql(const std::string& sql, std::string* formatted_sql) {
   }
 
   *formatted_sql = absl::StrCat(absl::StrJoin(formatted_statement, ";\n"), ";");
+  // Append comments finally because parser ignores comments and ; is not suitable
+  // fot comments.
+  std::vector<ParseToken> parse_tokens;
+  const absl::Status token_status = GetParseTokens(options, &pre_location, &parse_tokens);
+  if (token_status.ok()) {
+    for (const auto& parse_token : parse_tokens) {
+      if (parse_token.IsComment()) {
+        *formatted_sql = absl::StrCat(*formatted_sql, "\n", parse_token.GetSQL());
+      }
+    }
+  }
   return return_status;
 }
 
