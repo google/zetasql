@@ -5,3 +5,4 @@ repos:
         name: ZetaSQL Formatter
         files: \.(bq|sql)$
         language: docker_image
+        entry: matts966/zetasql-formatter:latest
