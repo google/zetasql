@@ -19,4 +19,4 @@ RUN --mount=type=cache,target=/root/.cache/bazel \
     --cxxopt="-fpermissive" --cxxopt="-std=gnu++17" ... && \
     find /root/.cache/bazel -name *_jar.jar -exec cp {} /root/.cache/ \;
 
-ENTRYPOINT [ "./docker/docker-entrypoint.sh" ]
+ENTRYPOINT [ "/bin/bash" ]

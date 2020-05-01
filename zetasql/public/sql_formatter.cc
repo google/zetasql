@@ -18,6 +18,7 @@
 
 #include <memory>
 #include <vector>
+#include <deque>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/parser/parse_tree.h"
@@ -51,13 +52,13 @@ absl::Status FormatSql(const std::string& sql, std::string* formatted_sql) {
   while (!at_end_of_input) {
     std::unique_ptr<ParserOutput> parser_output;
 
-    const ParseResumeLocation pre_location = location;
+    ParseResumeLocation pre_location = location;
 
     const absl::Status status = ParseNextStatement(
         &location, ParserOptions(), &parser_output, &at_end_of_input);
 
     if (status.ok()) {
-      std::string formatted = Unparse(parser_output->statement());
+      std::string formatted;
 
       // Fetch comments in the last location range.
       std::vector<ParseToken> parse_tokens;
@@ -66,25 +67,18 @@ absl::Status FormatSql(const std::string& sql, std::string* formatted_sql) {
 
       const absl::Status token_status =
           GetParseTokens(options, &pre_location, &parse_tokens);
-      // If GetParseTokens fails, just ignores comments.
-      if (!token_status.ok()) {
-        formatted_statement.push_back(formatted);
-        continue;
-      }
-
-      // Pop last element and append it to formatted statement
-      // if it is a comment.
-      const auto& last_token = parse_tokens.back();
-      parse_tokens.pop_back();
-      if (last_token.IsComment()) {
-        formatted += last_token.GetSQL();
-      }
-      for (const auto& parse_token : parse_tokens) {
-        if (parse_token.IsComment()) {
-          formatted_statement.push_back(parse_token.GetSQL());
+      if (token_status.ok()) {
+        std::deque<std::pair<std::string, ParseLocationPoint>> comments;
+        for (const auto& parse_token : parse_tokens) {
+          if (parse_token.IsComment()) {
+            comments.push_back(std::make_pair(parse_token.GetSQL(), parse_token.GetLocationRange().start()));
+          }
         }
+        formatted = UnparseWithComments(parser_output->statement(), comments);
+      } else {
+        // If GetParseTokens fails, just ignores comments.
+        formatted = Unparse(parser_output->statement());
       }
-
       formatted_statement.push_back(formatted);
     } else {
       const absl::Status out_status = MaybeUpdateErrorFromPayload(

@@ -172,7 +172,7 @@ absl::Status Run(const std::string& sql) {
 
 int main(int argc, char* argv[]) {
   const char kUsage[] =
-      "Usage: execute_query [--table_spec=<table_spec>] <sql>\n";
+      "Usage: format [path]\n";
   std::vector<char*> remaining_args = absl::ParseCommandLine(argc, argv);
   if (argc <= 1) {
     LOG(QFATAL) << kUsage;
