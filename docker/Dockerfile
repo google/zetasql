@@ -7,9 +7,9 @@ RUN --mount=type=cache,target=/var/cache/apt \
     apt-get install build-essential software-properties-common -y && \
     add-apt-repository ppa:ubuntu-toolchain-r/test -y && \
     apt-get update && \
-    apt-get install --no-install-recommends -y make gcc-8 g++-8 && \
-    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 800 \
-        --slave /usr/bin/g++ g++ /usr/bin/g++-8
+    apt-get install --no-install-recommends -y make gcc-9 g++-9 && \
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 900 \
+        --slave /usr/bin/g++ g++ /usr/bin/g++-9
 ENV CC /usr/bin/gcc
 COPY . /work/zetasql
 WORKDIR /work/zetasql
