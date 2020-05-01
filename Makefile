@@ -8,3 +8,8 @@ build-formatter: build
 		-v /var/run/docker.sock:/var/run/docker.sock \
 		bazel
 .PHONY: run build
+osx:
+	CC=g++ bazel build //zetasql/experimental:format
+	sudo cp ./bazel-bin/zetasql/experimental/format ./bin/osx/zetasql-formatter
+	sudo cp ./bin/osx/zetasql-formatter /usr/local/bin
+.PHONY: run build build-formatter osx
