@@ -1,0 +1,6 @@
+-   id: zetasql-formatter
+    name: ZetaSQL Formatter
+    description: Formatter for BigQuery and SpanSQL
+    args: .
+    language: docker_image
+    entry: matts966/zetasql-formatter:latest

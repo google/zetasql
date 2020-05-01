@@ -1,0 +1,7 @@
+repos:
+-   repo: local
+    hooks:
+    -   id: zetasql_formatter
+        name: ZetaSQL Formatter
+        files: \.(bq|sql)$
+        language: docker_image
