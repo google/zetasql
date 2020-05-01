@@ -1,0 +1,18 @@
+# Ignore everything
+**
+
+# Allow files and directories
+!../bazel/*
+!../java/**
+!../javatests/**
+!../tools/*
+!../zetasql/**
+!../.bazelrc
+!../.bazelversion
+!../BUILD
+!../WORKSPACE
+!../zetasql_grpc.bzl
+
+# Ignore unnecessary files inside allowed directories
+# This should go after the allowed directories
+**/.DS_Store

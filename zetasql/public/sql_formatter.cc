@@ -51,11 +51,41 @@ absl::Status FormatSql(const std::string& sql, std::string* formatted_sql) {
   while (!at_end_of_input) {
     std::unique_ptr<ParserOutput> parser_output;
 
+    const ParseResumeLocation pre_location = location;
+
     const absl::Status status = ParseNextStatement(
         &location, ParserOptions(), &parser_output, &at_end_of_input);
 
     if (status.ok()) {
-      formatted_statement.push_back(Unparse(parser_output->statement()));
+      std::string formatted = Unparse(parser_output->statement());
+
+      // Fetch comments in the last location range.
+      std::vector<ParseToken> parse_tokens;
+      ParseTokenOptions options;
+      options.stop_at_end_of_statement = true;
+
+      const absl::Status token_status =
+          GetParseTokens(options, &pre_location, &parse_tokens);
+      // If GetParseTokens fails, just ignores comments.
+      if (!token_status.ok()) {
+        formatted_statement.push_back(formatted);
+        continue;
+      }
+
+      // Pop last element and append it to formatted statement
+      // if it is a comment.
+      const auto& last_token = parse_tokens.back();
+      parse_tokens.pop_back();
+      if (last_token.IsComment()) {
+        formatted += last_token.GetSQL();
+      }
+      for (const auto& parse_token : parse_tokens) {
+        if (parse_token.IsComment()) {
+          formatted_statement.push_back(parse_token.GetSQL());
+        }
+      }
+
+      formatted_statement.push_back(formatted);
     } else {
       const absl::Status out_status = MaybeUpdateErrorFromPayload(
           ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET, sql, status);
@@ -72,6 +102,7 @@ absl::Status FormatSql(const std::string& sql, std::string* formatted_sql) {
       std::vector<ParseToken> parse_tokens;
       ParseTokenOptions options;
       options.stop_at_end_of_statement = true;
+
       const int statement_start = location.byte_position();
       const absl::Status token_status =
           GetParseTokens(options, &location, &parse_tokens);
