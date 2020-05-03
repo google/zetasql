@@ -1244,8 +1244,11 @@ void Unparser::visitASTTableSubquery(
 }
 
 void Unparser::visitASTJoin(const ASTJoin* node, void* data) {
-  PrintCommentsPassedBy(node, data);
   node->child(0)->Accept(this, data);
+
+  // Print comments after accepting child 0 because ASTJoin's
+  // position is after the child 0.
+  PrintCommentsPassedBy(node, data);
 
   if (node->join_type() == ASTJoin::COMMA) {
     print(",");
