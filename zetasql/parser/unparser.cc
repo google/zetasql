@@ -250,6 +250,9 @@ bool Unparser::PrintCommentsPassedBy(const ASTNode* node, void* data) {
         println(comment_string);
         newline = true;
       } else {
+        if (absl::EndsWith(comment_string, "\n")) {
+          newline = true;
+        }
         print(comment_string);
       }
       parse_tokens->pop_front();
