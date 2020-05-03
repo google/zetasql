@@ -17,8 +17,9 @@ RUN bazel build //zetasql/experimental:format && \
     cp ./bazel-bin/zetasql/experimental/format .
 
 
-FROM debian:bullseye-slim
+FROM gcr.io/distroless/cc
 COPY --from=builder /work/zetasql/bazel-bin/zetasql/experimental/format /usr/bin/format
+COPY --from=builder /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so.6
 WORKDIR /home
 ENTRYPOINT [ "format" ]
 CMD [ "." ]
