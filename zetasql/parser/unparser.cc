@@ -221,29 +221,34 @@ void Unparser::UnparseChildrenWithSeparator(const ASTNode* node, void* data,
                                             bool break_line) {
   for (int i = begin; i < end; i++) {
     if (i > begin) {
+      print(separator);
       if (break_line) {
-        println(separator);
-      } else {
-        print(separator);
+        if (!PrintCommentsPassedBy(node->child(i), data)) {
+          println();
+        }
       }
     }
     node->child(i)->Accept(this, data);
   }
 }
 
-void Unparser::PrintCommentsPassedBy(const ASTNode* node, void* data) {
+// PrintCommentsPassedBy prints comments if they are before the given node
+// and returns if newline is emitted.
+bool Unparser::PrintCommentsPassedBy(const ASTNode* node, void* data) {
   if (data == nullptr) {
-    return;
+    return false;
   }
   auto parse_tokens = static_cast<std::deque<std::pair<std::string, ParseLocationPoint>>*>(data);
   if (parse_tokens == nullptr) {
-    return;
+    return false;
   }
+  bool newline = false;
   for (int i = 0; i < parse_tokens->size(); i++) {
     if (parse_tokens->front().second < node->GetParseLocationRange().start()) {
       std::string comment_string = parse_tokens->front().first;
       if (IsSingleLineComment(comment_string) && !absl::EndsWith(comment_string, "\n")) {
         println(comment_string);
+        newline = true;
       } else {
         print(comment_string);
       }
@@ -252,6 +257,7 @@ void Unparser::PrintCommentsPassedBy(const ASTNode* node, void* data) {
       break;
     }
   }
+  return newline;
 }
 
 bool Unparser::IsSingleLineComment(const std::string& comment_string) {
