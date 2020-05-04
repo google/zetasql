@@ -576,7 +576,6 @@ class Unparser : public ParseTreeVisitor {
   void UnparseColumnSchema(const ASTColumnSchema* node, void* data);
   void VisitAlterStatementBase(const ASTAlterStatementBase* node, void* data);
   bool PrintCommentsPassedBy(const ASTNode* node, void* data);
-  bool IsSingleLineComment(const std::string&);
 
   Formatter formatter_;
 };

@@ -29,6 +29,7 @@
 #include "zetasql/public/parse_location.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/match.h"
+#include "absl/strings/strip.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {
@@ -233,7 +234,7 @@ void Unparser::UnparseChildrenWithSeparator(const ASTNode* node, void* data,
 }
 
 // PrintCommentsPassedBy prints comments if they are before the given node
-// and returns if newline is emitted.
+// and returns if comments are emitted.
 bool Unparser::PrintCommentsPassedBy(const ASTNode* node, void* data) {
   if (data == nullptr) {
     return false;
@@ -242,32 +243,21 @@ bool Unparser::PrintCommentsPassedBy(const ASTNode* node, void* data) {
   if (parse_tokens == nullptr) {
     return false;
   }
-  bool newline = false;
+  bool emitted = false;
   for (int i = 0; i < parse_tokens->size(); i++) {
     if (parse_tokens->front().second < node->GetParseLocationRange().start()) {
-      std::string comment_string = parse_tokens->front().first;
-      if (IsSingleLineComment(comment_string) && !absl::EndsWith(comment_string, "\n")) {
-        println(comment_string);
-        newline = true;
-      } else {
-        if (absl::EndsWith(comment_string, "\n")) {
-          newline = true;
-        }
-        print(comment_string);
-      }
+      absl::string_view comment_string(parse_tokens->front().first);
+      absl::ConsumeSuffix(&comment_string, "\r\n");
+      absl::ConsumeSuffix(&comment_string, "\r");
+      absl::ConsumeSuffix(&comment_string, "\n");
+      println(std::string(comment_string));
       parse_tokens->pop_front();
+      emitted = true;
     } else {
       break;
     }
   }
-  return newline;
-}
-
-bool Unparser::IsSingleLineComment(const std::string& comment_string) {
-  if (absl::EndsWith(comment_string, "*/")) {
-    return false;
-  }
-  return true;
+  return emitted;
 }
 
 // Visitor implementation.
