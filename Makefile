@@ -16,7 +16,5 @@ osx:
 	sudo cp ./bazel-bin/zetasql/experimental/format ./bin/osx/zetasql-formatter
 	sudo cp ./bin/osx/zetasql-formatter /usr/local/bin
 linux: build
-	docker run -it --rm -v `pwd`:/home:Z --entrypoint cp \
-		matts966/zetasql-formatter:latest \
-		/usr/bin/format /home/bin/linux/format
+	./docker/linux-copy-bin.sh
 .PHONY: run build build-formatter osx push
