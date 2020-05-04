@@ -1,3 +1,5 @@
+update: osx linux push
+	@echo "all artifacts are updated"
 run: build
 	docker run -it --rm -v `pwd`:/home:Z matts966/zetasql-formatter:latest
 build:
@@ -13,4 +15,8 @@ osx:
 	CC=g++ bazel build //zetasql/experimental:format
 	sudo cp ./bazel-bin/zetasql/experimental/format ./bin/osx/zetasql-formatter
 	sudo cp ./bin/osx/zetasql-formatter /usr/local/bin
+linux: build
+	docker run -it --rm -v `pwd`:/home:Z --entrypoint cp \
+		matts966/zetasql-formatter:latest \
+		/usr/bin/format /home/bin/linux/format
 .PHONY: run build build-formatter osx push
