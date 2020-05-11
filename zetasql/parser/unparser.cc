@@ -1333,10 +1333,10 @@ void Unparser::visitASTGroupBy(const ASTGroupBy* node, void* data) {
   if (node->hint() != nullptr) {
     node->hint()->Accept(this, data);
   }
-  print("BY");
+  println("BY");
   {
     Formatter::Indenter indenter(&formatter_);
-    UnparseVectorWithSeparator(node->grouping_items(), data, ",");
+    UnparseVectorWithSeparator(node->grouping_items(), data, ",\n");
   }
 }
 
@@ -1547,7 +1547,11 @@ void Unparser::visitASTStar(const ASTStar* node, void* data) {
 void Unparser::visitASTStarExceptList(const ASTStarExceptList* node,
                                       void* data) {
   PrintCommentsPassedBy(node, data);
-  UnparseChildrenWithSeparator(node, data, ",");
+  println();
+  {
+    Formatter::Indenter indenter(&formatter_);
+    UnparseChildrenWithSeparator(node, data, ",", true /* break_line */);
+  }
 }
 
 void Unparser::visitASTStarReplaceItem(const ASTStarReplaceItem* node,
@@ -1559,14 +1563,27 @@ void Unparser::visitASTStarReplaceItem(const ASTStarReplaceItem* node,
 void Unparser::visitASTStarModifiers(const ASTStarModifiers* node, void* data) {
   PrintCommentsPassedBy(node, data);
   if (node->except_list() != nullptr) {
-    print("EXCEPT (");
-    node->except_list()->Accept(this, data);
-    print(")");
+    println();
+    {
+      Formatter::Indenter indenter(&formatter_);
+      println("EXCEPT (");
+      node->except_list()->Accept(this, data);
+      println();
+      print(")");
+    }
   }
   if (!node->replace_items().empty()) {
-    print("REPLACE (");
-    UnparseVectorWithSeparator(node->replace_items(), data, ",");
-    print(")");
+    println();
+    {
+      Formatter::Indenter indenter(&formatter_);
+      println("REPLACE (");
+      {
+        Formatter::Indenter indenter(&formatter_);
+        UnparseVectorWithSeparator(node->replace_items(), data, ",");
+      }
+      println();
+      print(")");
+    }
   }
 }
 
