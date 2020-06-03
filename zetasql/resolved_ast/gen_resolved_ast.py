@@ -202,6 +202,8 @@ SCALAR_SUBQUERY_TYPE = EnumScalarType('SubqueryType', 'ResolvedSubqueryExpr')
 SCALAR_JOIN_TYPE = EnumScalarType('JoinType', 'ResolvedJoinScan')
 SCALAR_SET_OPERATION_TYPE = EnumScalarType('SetOperationType',
                                            'ResolvedSetOperationScan')
+SCALAR_RECURSIVE_SET_OPERATION_TYPE = EnumScalarType(
+    'RecursiveSetOperationType', 'ResolvedRecursiveScan')
 SCALAR_SAMPLE_UNIT = EnumScalarType('SampleUnit', 'ResolvedSampleScan')
 SCALAR_NULL_ORDER_MODE = EnumScalarType('NullOrderMode', 'ResolvedOrderByItem')
 SCALAR_CREATE_MODE = EnumScalarType('CreateMode', 'ResolvedCreateStatement')
@@ -346,6 +348,9 @@ def Field(name,
                      the field will be propagated to the containing scan.
   Returns:
     The newly created field.
+
+  Raises:
+    RuntimeError: If an error is detected in one or more arguments.
   """
   assert tag_id > 1, tag_id
   assert ignorable in (IGNORABLE, NOT_IGNORABLE, IGNORABLE_DEFAULT)
@@ -369,6 +374,8 @@ def Field(name,
   #                         indicate there should be no release() method.
   #   element_arg_type - for vectors, the element type for get/set methods
   #   element_storage_type - for vectors, the type inside the vector.
+  #   element_getter_return_type - for vectors, the return type for get/set
+  #                         methods returning a specific element.
   #   element_unwrapper - '.get()', if necessary, to unwrap unique_ptrs.
   #   is_move_only - setters must use std::move instead of assign/copy as
   #                  for anything wrapped in a unique_ptr/vector<unique_ptr>.
@@ -382,6 +389,7 @@ def Field(name,
     member_accessor = member_name
     element_arg_type = None
     element_storage_type = None
+    element_getter_return_type = None
     element_unwrapper = ''
     release_return_type = None
     is_enum = ctype.is_enum
@@ -396,6 +404,7 @@ def Field(name,
 
     if vector:
       element_arg_type = ctype.ctype
+      element_getter_return_type = getter_return_type
       element_storage_type = ctype.ctype
       member_type = 'std::vector<%s>' % ctype.ctype
       setter_arg_type = 'const %s&' % member_type
@@ -413,7 +422,8 @@ def Field(name,
     # Non-scalars should all be node types (possibly node vectors).
     assert 'const' not in ctype, ctype
     assert '*' not in ctype, ctype
-    assert ctype.startswith(NODE_NAME_PREFIX)
+    if not ctype.startswith(NODE_NAME_PREFIX):
+      raise RuntimeError('Invalid field type: %s' % (ctype,))
     is_node_type = True
     has_proto_setter = False
     element_pointer_type = 'const %s*' % ctype
@@ -427,6 +437,7 @@ def Field(name,
     is_move_only = True
     if vector:
       element_arg_type = element_pointer_type
+      element_getter_return_type = element_pointer_type
       member_type = 'std::vector<%s>' % element_storage_type
       maybe_ptr_setter_arg_type = (
           'const std::vector<%s>&' % element_pointer_type)
@@ -441,8 +452,13 @@ def Field(name,
       release_return_type = element_pointer_type
       element_arg_type = None
       element_storage_type = None
+      element_getter_return_type = None
       member_accessor = member_name + '.get()'
-      java_default = None
+      if is_constructor_arg:
+        java_default = None
+      else:
+        # TODO: remove when we add support for optional arguments.
+        java_default = 'null'
 
     # For node vector, we use std::move, which requires setters = member.
     setter_arg_type = member_type
@@ -492,6 +508,7 @@ def Field(name,
       'getter_return_type': getter_return_type,
       'release_return_type': release_return_type,
       'is_vector': vector,
+      'element_getter_return_type': element_getter_return_type,
       'element_arg_type': element_arg_type,
       'element_storage_type': element_storage_type,
       'element_unwrapper': element_unwrapper,
@@ -539,7 +556,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 144.
+          Next tag_id: 152.
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -1266,6 +1283,25 @@ def main(argv):
       fields=[Field('window_frame', 'ResolvedWindowFrame', tag_id=2)])
 
   gen.AddNode(
+      name='ResolvedExtendedCastInfo',
+      tag_id=151,
+      parent='ResolvedArgument',
+      use_custom_debug_string=True,
+      comment="""
+      Contains information about the cast provided by an engine through a
+      catalog's FindConversion function.
+              """,
+      fields=[
+          Field(
+              'function',
+              SCALAR_FUNCTION,
+              tag_id=2,
+              comment="""
+              Function that implements the cast.
+                      """)
+      ])
+
+  gen.AddNode(
       name='ResolvedCast',
       tag_id=11,
       parent='ResolvedExpr',
@@ -1288,6 +1324,17 @@ def main(argv):
               comment="""
               Whether to return NULL if the cast fails. This is set to true for
               SAFE_CAST.
+                      """),
+          Field(
+              'extended_cast',
+              'ResolvedExtendedCastInfo',
+              tag_id=4,
+              ignorable=IGNORABLE_DEFAULT,
+              is_constructor_arg=False,
+              comment="""
+              If at least one of conversion's types (source or destination) is
+              extended (TYPE_EXTENDED), this field must must be provided to
+              describe how this conversion should be executed.
                       """)
       ])
 
@@ -1449,6 +1496,48 @@ def main(argv):
               is true or the field is required.
                       """),
       ])
+
+  gen.AddNode(
+      name='ResolvedFlatten',
+      tag_id=149,
+      parent='ResolvedExpr',
+      comment="""
+      Constructs an initial input ARRAY<T> from expr. For each get_field_list
+      expr, we evaluate the expression once with each array input element and
+      use the output as a new array of inputs for the next get_field_list expr.
+      If the result of a single expr is an array, we add each element from that
+      array as input to the next step instead of adding the array itself.
+
+      The array elements are evaluated and kept in order. For example, if only
+      expr is an array, the result will be equivalent to that array having the
+      get_field_list evaluated on each array element retaining order.
+              """,
+      fields=[
+          Field('expr', 'ResolvedExpr', tag_id=2),
+          Field(
+              'get_field_list',
+              'ResolvedExpr',
+              vector=True,
+              tag_id=3,
+              comment="""
+              List of 'get' fields to evaluate in order (0 or more struct get
+              fields followed by 0 or more proto get fields) starting from expr.
+              Each get is evaluated N times where N is the number of array
+              elements from the previous get (or expr for the first expression)
+              generated.
+                      """),
+      ])
+
+  gen.AddNode(
+      name='ResolvedFlattenedArg',
+      tag_id=150,
+      parent='ResolvedExpr',
+      comment="""
+      Argument for a child of ResolvedFlatten. This is a placeholder to indicate
+      that it will be invoked once for each array element from ResolvedFlatten's
+      expr or previous get_field_list entry.
+              """,
+      fields=[])
 
   gen.AddNode(
       name='ResolvedReplaceFieldItem',
@@ -3132,7 +3221,8 @@ right.
       is_abstract=True,
       comment="""
       Common superclass for CREATE view/materialized view:
-        CREATE [TEMP|MATERIALIZED] VIEW <name> [OPTIONS (...)] AS SELECT ...
+        CREATE [TEMP|MATERIALIZED] [RECURSIVE] VIEW <name> [OPTIONS (...)]
+          AS SELECT ...
 
       <option_list> has engine-specific directives for options attached to
                     this view.
@@ -3142,7 +3232,9 @@ right.
       <query> is the query to run.
       <sql> is the view query text.
       <sql_security> is the declared security mode for the function. Values
-             include 'INVOKER', 'DEFINER'.
+         include 'INVOKER', 'DEFINER'.
+      <recursive> specifies whether or not the view is created with the
+        RECURSIVE keyword.
 
       Note that <query> and <sql> are both marked as IGNORABLE because
       an engine could look at either one (but might not look at both).
@@ -3180,7 +3272,15 @@ right.
               rows with named columns, it produces rows with a single unnamed
               value type.  output_column_list will have exactly one column, with
               an empty name. See (broken link).
-                      """)
+                      """),
+          Field(
+              'recursive',
+              SCALAR_BOOL,
+              tag_id=8,
+              ignorable=IGNORABLE,
+              comment="""
+                True if the view uses the RECURSIVE keyword. <query>
+                can be a ResolvedRecursiveScan only if this is true.""")
       ])
 
   gen.AddNode(
@@ -3496,17 +3596,82 @@ right.
       ])
 
   gen.AddNode(
+      name='ResolvedRecursiveRefScan',
+      tag_id=147,
+      parent='ResolvedScan',
+      comment="""
+      Scan the previous iteration of the recursive alias currently being
+      defined, from inside the recursive subquery which defines it. Such nodes
+      can exist only in the recursive term of a ResolvedRecursiveScan node.
+      The column_list produced here will match 1:1 with the column_list produced
+      by the referenced subquery and will be given a new unique name to each
+      column produced for this scan.
+              """,
+      fields=[])
+
+  gen.AddNode(
+      name='ResolvedRecursiveScan',
+      tag_id=148,
+      parent='ResolvedScan',
+      comment="""
+      A recursive query inside a WITH RECURSIVE or RECURSIVE VIEW. A
+      ResolvedRecursiveScan may appear in a resolved tree only as a top-level
+      input scan of a ResolvedWithEntry or ResolvedCreateViewBase.
+
+      Recursive queries must satisfy the form:
+          <non-recursive-query> UNION [ALL|DISTINCT] <recursive-query>
+
+      where self-references to table being defined are allowed only in the
+      <recursive-query> section.
+
+      <column_list> is a set of new ResolvedColumns created by this scan.
+      Each input ResolvedSetOperationItem has an <output_column_list> which
+      matches 1:1 with <column_list> and specifies how the input <scan>'s
+      columns map into the final <column_list>.
+
+      At runtime, a recursive scan is evaluated using an iterative process:
+
+      Step 1: Evaluate the non-recursive term. If UNION DISTINCT
+        is specified, discard duplicates.
+
+      Step 2:
+        Repeat until step 2 produces an empty result:
+          Evaluate the recursive term, binding the recursive table to the
+          new rows produced by previous step. If UNION DISTINCT is specified,
+          discard duplicate rows, as well as any rows which match any
+          previously-produced result.
+
+      Step 3:
+        The final content of the recursive table is the UNION ALL of all results
+        produced (step 1, plus all iterations of step 2).
+
+      ResolvedRecursiveScan only supports a recursive WITH entry which
+        directly references itself; ZetaSQL does not support mutual recursion
+        between multiple with-clause elements.
+
+      See (broken link) for details.
+      """,
+      fields=[
+          Field('op_type', SCALAR_RECURSIVE_SET_OPERATION_TYPE, tag_id=2),
+          Field('non_recursive_term', 'ResolvedSetOperationItem', tag_id=3),
+          Field('recursive_term', 'ResolvedSetOperationItem', tag_id=4),
+      ])
+
+  gen.AddNode(
       name='ResolvedWithScan',
       tag_id=51,
       parent='ResolvedScan',
       comment="""
       This represents a SQL WITH query (or subquery) like
-        WITH <with_query_name1> AS (<with_subquery1>),
+        WITH [RECURSIVE] <with_query_name1> AS (<with_subquery1>),
              <with_query_name2> AS (<with_subquery2>)
         <query>;
 
-      A <with_query_name> may be referenced (multiple times) inside a later
-      with_subquery, or in the final <query>.
+      WITH entries are sorted in dependency order so that an entry can only
+      reference entries earlier in <with_entry_list>, plus itself if the
+      RECURSIVE keyword is used. If the RECURSIVE keyword is not used, this will
+      be the same order as in the original query, since an entry which
+      references itself or any entry later in the list is not allowed.
 
       If a WITH subquery is referenced multiple times, the full query should
       behave as if the subquery runs only once and its result is reused.
@@ -3535,19 +3700,36 @@ right.
       unique, it is legal to collect all ResolvedWithEntries in the tree and
       treat them as if they were a single WITH clause at the outermost level.
 
+      In ZetaSQL 1.3 (language option FEATURE_V_1_3_WITH_RECURSIVE), WITH
+      RECURSIVE is supported, which allows any <with_subquery> to reference
+      any <with_query_name>, regardless of order, including WITH entries which
+      reference themself. Circular dependency chains of WITH entries are allowed
+      only for direct self-references, and only when the corresponding
+      <with_subquery> takes the form "<non-recursive-term> UNION [ALL|DISTINCT]
+      <recursive-term>", with all references to the current <with_query_name>
+      confined to the recursive term.
+
       The subqueries inside ResolvedWithEntries cannot be correlated.
 
       If a WITH subquery is defined but never referenced, it will still be
       resolved and still show up here.  Query engines may choose not to run it.
 
-      SQL-style WITH RECURSIVE is not currently supported.
               """,
       fields=[
           Field(
-              'with_entry_list', 'ResolvedWithEntry', tag_id=2,
+              'with_entry_list',
+              'ResolvedWithEntry',
+              tag_id=2,
               vector=True),
           Field(
-              'query', 'ResolvedScan', tag_id=3, propagate_order=True)
+              'query', 'ResolvedScan', tag_id=3, propagate_order=True),
+          Field(
+              'recursive',
+              SCALAR_BOOL,
+              tag_id=4,
+              ignorable=IGNORABLE,
+              comment="""
+                True if the WITH clause uses the recursive keyword.""")
       ])
 
   gen.AddNode(
@@ -4824,6 +5006,30 @@ right.
               """,
       fields=[
           Field('name', SCALAR_STRING, tag_id=2),
+          Field(
+              'table_scan',
+              'ResolvedTableScan',
+              tag_id=6,
+              ignorable=IGNORABLE),
+      ])
+
+  gen.AddNode(
+      name='ResolvedAlterAllRowAccessPoliciesStmt',
+      tag_id=145,
+      parent='ResolvedAlterObjectStmt',
+      comment="""
+      This statement:
+          ALTER ALL ROW ACCESS POLICIES ON <name_path> <alter_action_list>
+
+      <name_path> is a vector giving the identifier path in the table name.
+      <alter_action_list> is a vector of actions to be done to the object. It
+                          must have exactly one REVOKE FROM action with either
+                          a non-empty grantee list or 'all'.
+      <table_scan> is a TableScan for the target table, which is used during
+                   resolving and validation. Consumers can use either the table
+                   object inside it or base <name_path> to reference the table.
+              """,
+      fields=[
           Field(
               'table_scan',
               'ResolvedTableScan',

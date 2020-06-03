@@ -55,11 +55,11 @@ std::ostream& operator<<(std::ostream& out, const FloatMargin& float_margin);
 // averages, etc.
 class FloatMargin {
  public:
-  static const int kDefaultUlpBits = 4;
+  static constexpr int kDefaultUlpBits = 4;
 
   // Maximal number N of bits N-th last ULPs. 2^100 is 1.3e+30, so it still
   // comfortably fits into a float.
-  static const int kMaxUlpBits = 100;
+  static constexpr int kMaxUlpBits = 100;
 
   // Creates an error corresponding to the unit in the Nth-last place (N=1 means
   // last, N=2 means last but one, etc.). Numbers within 2^bits*Ulp(1.0) of zero

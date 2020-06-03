@@ -19,10 +19,9 @@
 #include <iostream>
 #include <unordered_map>
 
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
-#include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/logging.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql_base {
 

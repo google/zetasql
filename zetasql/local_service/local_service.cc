@@ -207,12 +207,19 @@ class PreparedExpressionState : public BaseSavedState {
   PreparedExpressionState(const PreparedExpressionState&) = delete;
   PreparedExpressionState& operator=(const PreparedExpressionState&) = delete;
 
-  absl::Status Init(const std::string& sql,
-                    const RepeatedPtrField<google::protobuf::FileDescriptorSet>& fdsets) {
+  absl::Status InitAndDeserializeOptions(
+      const std::string& sql,
+      const RepeatedPtrField<google::protobuf::FileDescriptorSet>& fdsets,
+      const AnalyzerOptionsProto& proto, AnalyzerOptions* options) {
     ZETASQL_RETURN_IF_ERROR(BaseSavedState::Init(fdsets));
 
     absl::MutexLock lock(&mutex_);
-    exp_ = absl::make_unique<PreparedExpression>(sql, &factory_);
+    ZETASQL_RETURN_IF_ERROR(AnalyzerOptions::Deserialize(
+        proto, const_pools_, &factory_, options));
+    zetasql::EvaluatorOptions evaluator_options;
+    evaluator_options.type_factory = &factory_;
+    evaluator_options.default_time_zone = options->default_time_zone();
+    exp_ = absl::make_unique<PreparedExpression>(sql, evaluator_options);
     initialized_ = true;
     return absl::OkStatus();
   }
@@ -313,11 +320,9 @@ ZetaSqlLocalServiceImpl::~ZetaSqlLocalServiceImpl() {}
 absl::Status ZetaSqlLocalServiceImpl::Prepare(const PrepareRequest& request,
                                                 PrepareResponse* response) {
   std::unique_ptr<PreparedExpressionState> state(new PreparedExpressionState());
-  ZETASQL_RETURN_IF_ERROR(state->Init(request.sql(), request.file_descriptor_set()));
-
   AnalyzerOptions options;
-  ZETASQL_RETURN_IF_ERROR(AnalyzerOptions::Deserialize(
-      request.options(), state->GetDescriptorPools(), state->GetTypeFactory(),
+  ZETASQL_RETURN_IF_ERROR(state->InitAndDeserializeOptions(
+      request.sql(), request.file_descriptor_set(), request.options(),
       &options));
 
   RegisteredCatalogState* catalog_state = nullptr;
@@ -383,7 +388,10 @@ absl::Status ZetaSqlLocalServiceImpl::Evaluate(const EvaluateRequest& request,
   } else {
     new_state = absl::make_unique<PreparedExpressionState>();
     state = new_state.get();
-    ZETASQL_RETURN_IF_ERROR(state->Init(request.sql(), request.file_descriptor_set()));
+    AnalyzerOptions options;
+    ZETASQL_RETURN_IF_ERROR(state->InitAndDeserializeOptions(
+        request.sql(), request.file_descriptor_set(), request.options(),
+        &options));
   }
 
   const absl::Status result = EvaluateImpl(request, state, response);
@@ -523,8 +531,8 @@ absl::Status ZetaSqlLocalServiceImpl::AnalyzeImpl(
            << "Unrecognized AnalyzeRequest target " << request.target_case();
   }
 
-  std::unique_ptr<const AnalyzerOutput> output;
   TypeFactory factory;
+  std::unique_ptr<const AnalyzerOutput> output;
 
   if (request.has_sql_statement()) {
     const std::string& sql = request.sql_statement();
@@ -620,10 +628,10 @@ absl::Status ZetaSqlLocalServiceImpl::ExtractTableNamesFromStatement(
   zetasql::TableNamesSet table_names;
   ZETASQL_RETURN_IF_ERROR(zetasql::ExtractTableNamesFromStatement(
       request.sql_statement(), zetasql::AnalyzerOptions{}, &table_names));
-  for (std::vector<std::string> table_name : table_names) {
+  for (const std::vector<std::string>& table_name : table_names) {
     ExtractTableNamesFromStatementResponse_TableName* table_name_field =
         response->add_table_name();
-    for (std::string name_segment : table_name) {
+    for (const std::string& name_segment : table_name) {
       table_name_field->add_table_name_segment(name_segment);
     }
   }

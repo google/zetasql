@@ -46,6 +46,8 @@
 namespace zetasql {
 
 using ::zetasql::testing::EqualsProto;
+using ::testing::Not;
+using ::zetasql_base::testing::IsOk;
 
 namespace local_service {
 

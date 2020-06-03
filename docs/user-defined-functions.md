@@ -20,11 +20,11 @@ following general syntax:
 
 <pre>
 CREATE [TEMPORARY | TEMP] [TABLE | AGGREGATE] FUNCTION
-  <span class="var">function_name</span> ([<span class="var">named_parameter</span>[, ...]])
+  <span class="var">function_name</span> ([<span class="var">function_parameter</span>[, ...]])
   [RETURNS { <span class="var">data_type</span> | TABLE&lt;<span class="var">argument_name data_type</span> [, ...]*&gt; }]
   { [LANGUAGE <span class="var">language</span> AS <span class="var">"""body"""</span>] | [AS (<span class="var">function_definition</span>)] };
 
-<span class="var">named_parameter</span>:
+<span class="var">function_parameter</span>:
   <span class="var">param_name param_type</span> [NOT AGGREGATE]
 </pre>
 
@@ -33,13 +33,13 @@ This syntax consists of the following components:
 +   **CREATE [TEMPORARY | TEMP]
     [TABLE | AGGREGATE] FUNCTION**.
     Creates a new function. A function can contain zero or more
-    `named_parameter`s. To make the function
+    `function_parameter`s. To make the function
     temporary, use the `TEMP` or `TEMPORARY` keyword. To
     make a [table-valued function][table-valued function], use the `TABLE`
     keyword. To make
     an [aggregate function][aggregate-udf-parameters], use the
     `AGGREGATE` keyword.
-*   **named_parameter**. Consists of a comma-separated `param_name` and
+*   **function_parameter**. Consists of a comma-separated `param_name` and
     `param_type` pair. The value of `param_type` is a ZetaSQL
     [data type][data-types].
     The value of `param_type` may also be `ANY TYPE` for a
@@ -74,7 +74,7 @@ This syntax consists of the following components:
 Create external UDFs using the following structure.
 
 ```sql
-CREATE [TEMPORARY | TEMP] FUNCTION function_name ([named_parameter[, ...]])
+CREATE [TEMPORARY | TEMP] FUNCTION function_name ([function_parameter[, ...]])
   [RETURNS data_type]
   [LANGUAGE language]
   AS external_code
@@ -423,11 +423,11 @@ FROM UNNEST(["Hannah", "Max", "Jakob"]) AS names;
 Create SQL UDFs using the following syntax:
 
 <pre>
-CREATE [TEMPORARY | TEMP] [AGGREGATE] FUNCTION <span class="var">function_name</span> ([<span class="var">named_parameter</span>[, ...]])
+CREATE [TEMPORARY | TEMP] [AGGREGATE] FUNCTION <span class="var">function_name</span> ([<span class="var">function_parameter</span>[, ...]])
   [RETURNS <span class="var">data_type</span>]
   AS (<span class="var">sql_expression</span>)
 
-<span class="var">named_parameter</span>:
+<span class="var">function_parameter</span>:
   <span class="var">param_name param_type</span> [NOT AGGREGATE]
 </pre>
 

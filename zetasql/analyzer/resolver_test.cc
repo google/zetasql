@@ -466,7 +466,7 @@ TEST_F(ResolverTest, ResolveTypeInvalidTypeNameTests) {
               StatusIs(_, HasSubstr("Type not found: CONCAT")));
 
   EXPECT_THAT(resolver_->ResolveTypeName("timestamp(0)", &type),
-              StatusIs(_, HasSubstr("Unexpected \"(\"")));
+              StatusIs(_, HasSubstr("Expected end of input but got \"(\"")));
 }
 
 TEST_F(ResolverTest, TestErrorCatalogNameTests) {
@@ -638,7 +638,7 @@ TEST_F(ResolverTest, TestResolveCastExpression) {
   ResolveFunctionFails("CAST(1 as BIGINT)", "Type not found: BIGINT");
   ResolveFunctionFails("CAST(1 as SMALLINT)", "Type not found: SMALLINT");
   ResolveFunctionFails("CAST(1 as real)", "Type not found: real");
-  ResolveFunctionFails("CAST(1 as DECIMAL)", "Type not found: DECIMAL");
+  ResolveFunctionFails("CAST(1 as NUMBER)", "Type not found: NUMBER");
   ResolveFunctionFails("CAST(b'0' as binary)", "Type not found: binary");
   ResolveFunctionFails("CAST(b'0' as BLOB)", "Type not found: BLOB");
   ResolveFunctionFails("CAST('foo' as CHAR)", "Type not found: CHAR");

@@ -66,6 +66,15 @@ ArrayGenTrait<NumericValue, NumericValue>::GenerateNextValue(
   return absl::OkStatus();
 }
 
+template <>
+inline absl::Status
+ArrayGenTrait<BigNumericValue, BigNumericValue>::GenerateNextValue(
+    BigNumericValue start, BigNumericValue cur, BigNumericValue step,
+    size_t num_elements, BigNumericValue* out) {
+  ZETASQL_ASSIGN_OR_RETURN(*out, cur.Add(step));
+  return absl::OkStatus();
+}
+
 struct DateIncrement {
   functions::DateTimestampPart unit;
   int64_t value;
@@ -136,6 +145,16 @@ template <>
 absl::Status inline CheckStartEndStep(NumericValue start, NumericValue end,
                                       NumericValue step_value) {
   if (step_value == NumericValue()) {
+    return ::zetasql_base::OutOfRangeErrorBuilder() << "Sequence step cannot be 0.";
+  }
+  return absl::OkStatus();
+}
+
+template <>
+absl::Status inline CheckStartEndStep(BigNumericValue start,
+                                      BigNumericValue end,
+                                      BigNumericValue step_value) {
+  if (step_value == BigNumericValue()) {
     return ::zetasql_base::OutOfRangeErrorBuilder() << "Sequence step cannot be 0.";
   }
   return absl::OkStatus();

@@ -21,8 +21,8 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/base/attributes.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/test_payload.pb.h"
 
 namespace zetasql_base {

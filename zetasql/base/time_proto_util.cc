@@ -17,9 +17,9 @@
 
 #include "google/protobuf/timestamp.pb.h"
 #include <cstdint>
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/statusor.h"
 
 namespace zetasql_base {

@@ -470,7 +470,7 @@ TEST_F(EvalTest, FieldValueExpr) {
                            {{"foo", GetProtoValue(1)}, {"bar", Int64(0)}})));
   const TupleSlot& slot = struct_expr->slot_test_only();
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto field_op,
-                       FieldValueExpr::Create("foo", std::move(struct_expr)));
+                       FieldValueExpr::Create(0, std::move(struct_expr)));
   EXPECT_EQ(
       "FieldValueExpr(0:foo, "
       "ConstExpr({foo:{int64_key_1: 1 int64_key_2: 10}, bar:0}))",
@@ -491,7 +491,7 @@ TEST_F(EvalTest, FieldValueExpr) {
       ConstExpr::Create(Value::Null(MakeStructType({{"foo", Int64Type()}}))));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto field_op_null,
-      FieldValueExpr::Create("foo", std::move(null_struct_expr)));
+      FieldValueExpr::Create(0, std::move(null_struct_expr)));
   EXPECT_THAT(EvalExpr(*field_op_null, EmptyParams()),
               IsOkAndHolds(NullInt64()));
 }
@@ -2034,7 +2034,7 @@ class ProtoEvalTest : public ::testing::Test {
 
 TEST_F(ProtoEvalTest, CreatePrimitiveProtoFields) {
   zetasql_test::KitchenSinkPB p;
-  // int32
+  // int32_t
   EXPECT_EQ("int32_val: -5", FormatProto("int32_val", Int32(-5), &p));
   EXPECT_EQ("", FormatProto("int32_val", NullInt32(), &p));
   EXPECT_THAT(FormatProto("int32_val", Uint32(0), &p),
@@ -2044,19 +2044,19 @@ TEST_F(ProtoEvalTest, CreatePrimitiveProtoFields) {
   EXPECT_THAT(FormatProto("int32_val",
                           Value::EmptyArray(types::Int32ArrayType()), &p),
               HasSubstr("out_of_range"));
-  // uint32
+  // uint32_t
   EXPECT_EQ("uint32_val: 5", FormatProto("uint32_val", Uint32(5), &p));
   EXPECT_EQ("", FormatProto("uint32_val", NullUint32(), &p));
   EXPECT_THAT(FormatProto("uint32_val", Int32(0), &p),
               HasSubstr("out_of_range"));
 
-  // int64
+  // int64_t
   EXPECT_EQ("int64_val: -5", FormatProto("int64_val", Int64(-5), &p));
   EXPECT_EQ("", FormatProto("int64_val", NullInt64(), &p));
   EXPECT_THAT(FormatProto("int64_val", Int32(0), &p),
               HasSubstr("out_of_range"));
 
-  // uint64
+  // uint64_t
   EXPECT_EQ("uint64_val: 5", FormatProto("uint64_val", Uint64(5), &p));
   EXPECT_EQ("", FormatProto("uint64_val", NullUint64(), &p));
   EXPECT_THAT(FormatProto("uint64_val", Int32(0), &p),

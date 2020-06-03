@@ -27,7 +27,14 @@ cc_library(
         "@bazel_tools//src/conditions:darwin": ["@local_jdk//:jni_md_header-darwin"],
         "@bazel_tools//src/conditions:linux_x86_64": ["@local_jdk//:jni_md_header-linux"],
     }),
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     includes = [
         "../../external/local_jdk/include",
     ] + select({

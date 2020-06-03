@@ -39,17 +39,18 @@ enum FunctionSignatureId {
   // in ranges:
   //
   // 0002-0999 Non-standard function calls   (NextId: 266)
-  // 1000-1099 String functions              (NextId: 1065)
+  // 1000-1099 String functions              (NextId: 1069)
   // 1100-1199 Control flow functions        (NextId: 1104)
   // 1200-1299 Time functions                (Fully used)
-  // 1300-1399 Math functions                (NextId: 1393)
-  // 1400-1499 Aggregate functions           (NextId: 1478)
+  // 1300-1399 Math functions                (Fully used)
+  // 1400-1499 Aggregate functions           (NextId: 1481)
   // 1500-1599 Analytic functions            (NextId: 1513)
-  // 1600-1699 Misc functions                (NextId: 1682)
+  // 1600-1699 Misc functions                (NextId: 1684)
   // 1700-1799 Net functions                 (NextId: 1716)
   // 1800-1899 More time functions           (NextId: 1833)
   // 1900-1999 Hashing/encryption functions  (NextId: 1924)
-  // 2000-2199 Geography functions           (NextId: 2063)
+  // 2000-2199 Geography functions           (NextId: 2065)
+  // 2300-2499 More math functions           (NextId: 2303)
 
   // enum value                       // Related function name
   // ----------                       // ---------------------
@@ -188,8 +189,8 @@ enum FunctionSignatureId {
   FN_CONCAT_BYTES = 1001;           // concat(repeated bytes) -> bytes
   FN_CONCAT_OP_STRING = 1063;       // concat(string, string) -> string
   FN_CONCAT_OP_BYTES = 1064;        // concat(bytes, bytes) -> bytes
-  FN_STRPOS_STRING = 1002;          // strpos(string, string) -> string
-  FN_STRPOS_BYTES = 1003;           // strpos(bytes, bytes) -> bytes
+  FN_STRPOS_STRING = 1002;          // strpos(string, string) -> int64
+  FN_STRPOS_BYTES = 1003;           // strpos(bytes, bytes) -> int64
   FN_LOWER_STRING = 1006;           // lower(string) -> string
   FN_LOWER_BYTES = 1007;            // lower(bytes) -> bytes
   FN_UPPER_STRING = 1008;           // upper(string) -> string
@@ -256,6 +257,10 @@ enum FunctionSignatureId {
   FN_LPAD_STRING = 1052;     // lpad(string, int64[, string]) -> string
   FN_RPAD_BYTES = 1053;      // rpad(bytes, int64[, bytes]) -> bytes
   FN_RPAD_STRING = 1054;     // rpad(string, int64[, string]) -> string
+  FN_LEFT_STRING = 1065;     // left(string, int64) -> string
+  FN_LEFT_BYTES = 1066;      // left(bytes, int64) -> bytes
+  FN_RIGHT_STRING = 1067;    // right(string, int64) -> string
+  FN_RIGHT_BYTES = 1068;     // right(bytes, int64) -> bytes
   FN_REPEAT_BYTES = 1055;    // repeat(bytes, int64) -> bytes
   FN_REPEAT_STRING = 1056;   // repeat(string, int64) -> string
   FN_REVERSE_STRING = 1057;  // reverse(string) -> string
@@ -351,46 +356,58 @@ enum FunctionSignatureId {
   FN_PARSE_TIMESTAMP = 1296;   // parse_timestamp
 
   // Math functions
-  FN_ABS_INT32 = 1300;     // abs
-  FN_ABS_INT64 = 1301;     // abs
-  FN_ABS_UINT32 = 1346;    // abs
-  FN_ABS_UINT64 = 1347;    // abs
-  FN_ABS_FLOAT = 1302;     // abs
-  FN_ABS_DOUBLE = 1303;    // abs
-  FN_ABS_NUMERIC = 1359;   // abs
-  FN_SIGN_INT32 = 1341;    // sign
-  FN_SIGN_INT64 = 1342;    // sign
-  FN_SIGN_UINT32 = 1356;   // sign
-  FN_SIGN_UINT64 = 1357;   // sign
-  FN_SIGN_FLOAT = 1343;    // sign
-  FN_SIGN_DOUBLE = 1344;   // sign
-  FN_SIGN_NUMERIC = 1360;  // sign
+  FN_ABS_INT32 = 1300;        // abs
+  FN_ABS_INT64 = 1301;        // abs
+  FN_ABS_UINT32 = 1346;       // abs
+  FN_ABS_UINT64 = 1347;       // abs
+  FN_ABS_FLOAT = 1302;        // abs
+  FN_ABS_DOUBLE = 1303;       // abs
+  FN_ABS_NUMERIC = 1359;      // abs
+  FN_ABS_BIGNUMERIC = 1395;   // abs
+  FN_SIGN_INT32 = 1341;       // sign
+  FN_SIGN_INT64 = 1342;       // sign
+  FN_SIGN_UINT32 = 1356;      // sign
+  FN_SIGN_UINT64 = 1357;      // sign
+  FN_SIGN_FLOAT = 1343;       // sign
+  FN_SIGN_DOUBLE = 1344;      // sign
+  FN_SIGN_NUMERIC = 1360;     // sign
+  FN_SIGN_BIGNUMERIC = 1396;  // sign
 
   FN_ROUND_DOUBLE = 1305;               // round(double) -> double
   FN_ROUND_FLOAT = 1306;                // round(float) -> float
   FN_ROUND_NUMERIC = 1363;              // round(numeric) -> numeric
+  FN_ROUND_BIGNUMERIC = 1397;           // round(bignumeric) -> bignumeric
   FN_ROUND_WITH_DIGITS_DOUBLE = 1307;   // round(double, int64) -> double
   FN_ROUND_WITH_DIGITS_FLOAT = 1308;    // round(float, int64) -> float
   FN_ROUND_WITH_DIGITS_NUMERIC = 1364;  // round(numeric, int64) -> numeric
-  FN_TRUNC_DOUBLE = 1309;               // trunc(double) -> double
-  FN_TRUNC_FLOAT = 1310;                // trunc(float) -> float
-  FN_TRUNC_NUMERIC = 1365;              // trunc(numeric) -> numeric
-  FN_TRUNC_WITH_DIGITS_DOUBLE = 1311;   // trunc(double, int64) -> double
-  FN_TRUNC_WITH_DIGITS_FLOAT = 1312;    // trunc(float, int64) -> float
+  FN_ROUND_WITH_DIGITS_BIGNUMERIC =
+      1398;                            // round(bignumeric, int64) -> bignumeric
+  FN_TRUNC_DOUBLE = 1309;              // trunc(double) -> double
+  FN_TRUNC_FLOAT = 1310;               // trunc(float) -> float
+  FN_TRUNC_NUMERIC = 1365;             // trunc(numeric) -> numeric
+  FN_TRUNC_BIGNUMERIC = 1399;          // trunc(bignumeric) -> bignumeric
+  FN_TRUNC_WITH_DIGITS_DOUBLE = 1311;  // trunc(double, int64) -> double
+  FN_TRUNC_WITH_DIGITS_FLOAT = 1312;   // trunc(float, int64) -> float
   FN_TRUNC_WITH_DIGITS_NUMERIC = 1366;  // trunc(numeric, int64) -> numeric
-  FN_CEIL_DOUBLE = 1313;                // ceil(double) -> double
-  FN_CEIL_FLOAT = 1314;                 // ceil(float) -> float
-  FN_CEIL_NUMERIC = 1368;               // ceil(numeric) -> numeric
-  FN_FLOOR_DOUBLE = 1315;               // floor(double) -> double
-  FN_FLOOR_FLOAT = 1316;                // floor(float) -> float
-  FN_FLOOR_NUMERIC = 1369;              // floor(numeric) -> numeric
+  FN_TRUNC_WITH_DIGITS_BIGNUMERIC =
+      2300;                    // trunc(bignumeric, int64) -> bignumeric
+  FN_CEIL_DOUBLE = 1313;       // ceil(double) -> double
+  FN_CEIL_FLOAT = 1314;        // ceil(float) -> float
+  FN_CEIL_NUMERIC = 1368;      // ceil(numeric) -> numeric
+  FN_CEIL_BIGNUMERIC = 1393;   // ceil(bignumeric) -> bignumeric
+  FN_FLOOR_DOUBLE = 1315;      // floor(double) -> double
+  FN_FLOOR_FLOAT = 1316;       // floor(float) -> float
+  FN_FLOOR_NUMERIC = 1369;     // floor(numeric) -> numeric
+  FN_FLOOR_BIGNUMERIC = 1394;  // floor(bignumeric) -> bignumeric
 
-  FN_MOD_INT64 = 1349;    // mod(int64, int64) -> int64
-  FN_MOD_UINT64 = 1351;   // mod(uint64, uint64) -> uint64
-  FN_MOD_NUMERIC = 1367;  // mod(numeric, numeric) -> numeric
-  FN_DIV_INT64 = 1353;    // div(int64, int64) -> int64
-  FN_DIV_UINT64 = 1355;   // div(uint64, uint64) -> uint64
-  FN_DIV_NUMERIC = 1362;  // div(numeric, numeric) -> numeric
+  FN_MOD_INT64 = 1349;       // mod(int64, int64) -> int64
+  FN_MOD_UINT64 = 1351;      // mod(uint64, uint64) -> uint64
+  FN_MOD_NUMERIC = 1367;     // mod(numeric, numeric) -> numeric
+  FN_MOD_BIGNUMERIC = 2301;  // mod(bignumeric, bignumeric) -> bignumeric
+  FN_DIV_INT64 = 1353;       // div(int64, int64) -> int64
+  FN_DIV_UINT64 = 1355;      // div(uint64, uint64) -> uint64
+  FN_DIV_NUMERIC = 1362;     // div(numeric, numeric) -> numeric
+  FN_DIV_BIGNUMERIC = 2302;  // div(bignumeric, bignumeric) -> bignumeric
 
   FN_IS_INF = 1317;                       // is_inf
   FN_IS_NAN = 1318;                       // is_nan
@@ -455,6 +472,7 @@ enum FunctionSignatureId {
   FN_AVG_UINT64 = 1403;               // avg
   FN_AVG_DOUBLE = 1404;               // avg
   FN_AVG_NUMERIC = 1468;              // avg
+  FN_AVG_BIGNUMERIC = 1479;           // avg
   FN_COUNT = 1405;                    // count
   FN_MAX = 1406;                      // max
   FN_MIN = 1407;                      // min
@@ -466,6 +484,7 @@ enum FunctionSignatureId {
   FN_SUM_UINT64 = 1411;               // sum
   FN_SUM_DOUBLE = 1412;               // sum
   FN_SUM_NUMERIC = 1467;              // sum
+  FN_SUM_BIGNUMERIC = 1478;           // sum
   FN_BIT_AND_INT32 = 1415;            // bit_and
   FN_BIT_AND_INT64 = 1416;            // bit_and
   FN_BIT_AND_UINT32 = 1417;           // bit_and
@@ -481,13 +500,14 @@ enum FunctionSignatureId {
   FN_LOGICAL_AND = 1427;              // logical_and
   FN_LOGICAL_OR = 1428;               // logical_or
   // Approximate aggregate functions.
-  FN_APPROX_COUNT_DISTINCT = 1429;   // approx_count_distinct
-  FN_APPROX_QUANTILES = 1430;        // approx_quantiles
-  FN_APPROX_TOP_COUNT = 1431;        // approx_top_count
-  FN_APPROX_TOP_SUM_INT64 = 1432;    // approx_top_sum
-  FN_APPROX_TOP_SUM_UINT64 = 1433;   // approx_top_sum
-  FN_APPROX_TOP_SUM_DOUBLE = 1434;   // approx_top_sum
-  FN_APPROX_TOP_SUM_NUMERIC = 1469;  // approx_top_sum
+  FN_APPROX_COUNT_DISTINCT = 1429;      // approx_count_distinct
+  FN_APPROX_QUANTILES = 1430;           // approx_quantiles
+  FN_APPROX_TOP_COUNT = 1431;           // approx_top_count
+  FN_APPROX_TOP_SUM_INT64 = 1432;       // approx_top_sum
+  FN_APPROX_TOP_SUM_UINT64 = 1433;      // approx_top_sum
+  FN_APPROX_TOP_SUM_DOUBLE = 1434;      // approx_top_sum
+  FN_APPROX_TOP_SUM_NUMERIC = 1469;     // approx_top_sum
+  FN_APPROX_TOP_SUM_BIGNUMERIC = 1480;  // approx_top_sum
 
   // Approximate count functions that expose the intermediate sketch.
   // These are all found in the "hll_count.*" namespace.
@@ -568,12 +588,13 @@ enum FunctionSignatureId {
 
   FN_SESSION_USER = 1612;  // session_user
 
-  FN_GENERATE_ARRAY_INT64 = 1613;      // generate_array(int64)
-  FN_GENERATE_ARRAY_UINT64 = 1614;     // generate_array(uint64)
-  FN_GENERATE_ARRAY_NUMERIC = 1625;    // generate_array(numeric)
-  FN_GENERATE_ARRAY_DOUBLE = 1615;     // generate_array(double)
-  FN_GENERATE_DATE_ARRAY = 1616;       // generate_date_array(date)
-  FN_GENERATE_TIMESTAMP_ARRAY = 1617;  // generate_timestamp_array(timestamp)
+  FN_GENERATE_ARRAY_INT64 = 1613;       // generate_array(int64)
+  FN_GENERATE_ARRAY_UINT64 = 1614;      // generate_array(uint64)
+  FN_GENERATE_ARRAY_NUMERIC = 1625;     // generate_array(numeric)
+  FN_GENERATE_ARRAY_BIGNUMERIC = 1683;  // generate_array(bignumeric)
+  FN_GENERATE_ARRAY_DOUBLE = 1615;      // generate_array(double)
+  FN_GENERATE_DATE_ARRAY = 1616;        // generate_date_array(date)
+  FN_GENERATE_TIMESTAMP_ARRAY = 1617;   // generate_timestamp_array(timestamp)
 
   FN_ARRAY_REVERSE = 1621;  // array_reverse(array) -> array
 
@@ -675,6 +696,10 @@ enum FunctionSignatureId {
   FN_PROTO_DEFAULT_IF_NULL =
       1678;  // proto_default_if_null(<non-message optional field access>)
 
+  FN_ENUM_VALUE_DESCRIPTOR_PROTO =
+      1682;  // enum_value_descriptor_proto(<enum expression>) ->
+             // google.protobuf.EnumValueDescriptorProto
+
   // Net functions. These are all found in the "net.*" namespace.
   FN_NET_FORMAT_IP = 1700;
   FN_NET_PARSE_IP = 1701;
@@ -764,6 +789,7 @@ enum FunctionSignatureId {
   FN_ST_IS_COLLECTION = 2031;
   FN_ST_DIMENSION = 2032;
   FN_ST_NUM_POINTS = 2033;
+  FN_ST_DUMP = 2064;
 
   // Measures
   FN_ST_LENGTH = 2040;

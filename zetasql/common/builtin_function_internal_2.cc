@@ -865,9 +865,12 @@ void GetAggregateFunctions(TypeFactory* type_factory,
   const Type* bytes_type = type_factory->get_bytes();
   const Type* bool_type = type_factory->get_bool();
   const Type* numeric_type = type_factory->get_numeric();
+  const Type* bignumeric_type = type_factory->get_bignumeric();
 
   FunctionSignatureOptions has_numeric_type_argument;
   has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
+  FunctionSignatureOptions has_bignumeric_type_argument;
+  has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
 
   const Function::Mode AGGREGATE = Function::AGGREGATE;
 
@@ -894,7 +897,11 @@ void GetAggregateFunctions(TypeFactory* type_factory,
                   {numeric_type,
                    {numeric_type},
                    FN_SUM_NUMERIC,
-                   has_numeric_type_argument}});
+                   has_numeric_type_argument},
+                  {bignumeric_type,
+                   {bignumeric_type},
+                   FN_SUM_BIGNUMERIC,
+                   has_bignumeric_type_argument}});
 
   InsertFunction(functions, options, "avg", AGGREGATE,
                  {{double_type, {int64_type}, FN_AVG_INT64},
@@ -903,7 +910,11 @@ void GetAggregateFunctions(TypeFactory* type_factory,
                   {numeric_type,
                    {numeric_type},
                    FN_AVG_NUMERIC,
-                   has_numeric_type_argument}});
+                   has_numeric_type_argument},
+                  {bignumeric_type,
+                   {bignumeric_type},
+                   FN_AVG_BIGNUMERIC,
+                   has_bignumeric_type_argument}});
 
   InsertFunction(functions, options, "bit_and", AGGREGATE,
                  {{int32_type, {int32_type}, FN_BIT_AND_INT32},
@@ -985,6 +996,7 @@ void GetApproxFunctions(TypeFactory* type_factory,
   const Type* uint64_type = type_factory->get_uint64();
   const Type* double_type = type_factory->get_double();
   const Type* numeric_type = type_factory->get_numeric();
+  const Type* bignumeric_type = type_factory->get_bignumeric();
 
   const Function::Mode AGGREGATE = Function::AGGREGATE;
 
@@ -1001,6 +1013,8 @@ void GetApproxFunctions(TypeFactory* type_factory,
 
   FunctionSignatureOptions has_numeric_type_argument;
   has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
+  FunctionSignatureOptions has_bignumeric_type_argument;
+  has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
 
   InsertFunction(functions, options, "approx_count_distinct", AGGREGATE,
                  {{int64_type,
@@ -1043,7 +1057,13 @@ void GetApproxFunctions(TypeFactory* type_factory,
                     numeric_type,
                     {int64_type, non_null_positive_non_agg}},
                    FN_APPROX_TOP_SUM_NUMERIC,
-                   has_numeric_type_argument}},
+                   has_numeric_type_argument},
+                  {ARG_TYPE_ANY_1,  // Return type will be overridden.
+                   {{ARG_TYPE_ANY_1, supports_grouping},
+                    bignumeric_type,
+                    {int64_type, non_null_positive_non_agg}},
+                   FN_APPROX_TOP_SUM_BIGNUMERIC,
+                   has_bignumeric_type_argument}},
                  FunctionOptions().set_compute_result_type_callback(
                      bind_front(&ComputeResultTypeForTopStruct, "sum")));
 }

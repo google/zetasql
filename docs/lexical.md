@@ -13,22 +13,26 @@ tab, newline) or comments.
 ## Identifiers
 
 Identifiers are names that are associated with columns, tables, and other
-database objects.
+database objects. They can be unquoted or quoted.
 
-+  Identifiers must begin with a letter or an underscore character.
-+  Subsequent characters can be letters, numbers, or underscores.
-+  Identifiers can be enclosed by backtick (`) characters to create
-   quoted identifiers.
-    +  Quoted identifiers can contain any character, such as spaces or symbols.
-    +  Quoted identifiers cannot be empty.
-    +  Quoted identifiers have the same escape sequences as
-       [string literals][string-literals].
-+  Both identifiers and quoted identifiers are case insensitive, with some
-   nuances. See [Case Sensitivity][case-sensitivity] for further details.
-+  [Reserved Keywords](#reserved_keywords) can only be used as quoted
-   identifiers.
-+  Table name identifiers have additional syntax to support dashes (-) when
-   referenced in`FROM` and `TABLE` clauses.
++  Identifiers can be used in path expressions that return a
+   `STRUCT`
+   or `PROTO`.
++  Some identifiers are case-sensitive and some are not.
+   For details, see [Case Sensitivity][case-sensitivity].
++  Unquoted identifiers must begin with a letter or an underscore character.
+   Subsequent characters can be letters, numbers, or underscores.
++  Quoted identifiers must be enclosed by backtick (`) characters.
+   +  Quoted identifiers can contain any character, such as spaces or symbols.
+   +  Quoted identifiers cannot be empty.
+   +  Quoted identifiers have the same escape sequences as
+      [string literals][string-literals].
+   +  A [reserved keyword](#reserved_keywords) must be a quoted identifier
+      if it is a standalone keyword or the first component of a path expression.
+      It may be unquoted as the second or later component of a
+      path expression.
++  Table name identifiers have additional syntax to support dashes (-)
+   when referenced in `FROM` and `TABLE` clauses.
 
 **Examples**
 
@@ -36,9 +40,24 @@ These are valid identifiers:
 
 ```
 Customers5
+`5Customers`
+dataField
 _dataField1
 ADGROUP
 `tableName~`
+`GROUP`
+```
+
+These path expressions contain valid identifiers:
+
+```
+foo.`GROUP`
+foo.GROUP
+foo().dataField
+(foo).dataField
+list[OFFSET(3)].dataField
+list[ORDINAL(3)].dataField
+@parameter.dataField
 ```
 
 These are invalid identifiers:
@@ -376,7 +395,7 @@ Syntax:
 TIME '[H]H:[M]M:[S]S[.DDDDDD]]'
 ```
 
-TIME literals contain the `TIME` keyword and a string literal that conforms to
+Time literals contain the `TIME` keyword and a string literal that conforms to
 the canonical time format, enclosed in single quotation marks.
 
 For example, the following time represents 12:30 p.m.:
@@ -385,28 +404,28 @@ For example, the following time represents 12:30 p.m.:
 TIME '12:30:00.45'
 ```
 
-### DATETIME Literals
+### Datetime Literals
 Syntax:
 
 ```sql
 DATETIME 'YYYY-[M]M-[D]D [[H]H:[M]M:[S]S[.DDDDDD]]'
 ```
 
-DATETIME literals contain the `DATETIME` keyword and a string literal that
-conforms to the canonical DATETIME format, enclosed in single quotation marks.
+Datetime literals contain the `DATETIME` keyword and a string literal that
+conforms to the canonical datetime format, enclosed in single quotation marks.
 
-For example, the following DATETIME represents 12:30 p.m. on September 27,
+For example, the following datetime represents 12:30 p.m. on September 27,
 2014:
 
 ```sql
 DATETIME '2014-09-27 12:30:00.45'
 ```
 
-DATETIME literals support a range between the years 1 and 9999, inclusive.
-DATETIMEs outside of this range are invalid.
+Datetime literals support a range between the years 1 and 9999, inclusive.
+Datetimes outside of this range are invalid.
 
-String literals with the canonical DATETIME format implicitly coerce to a
-DATETIME literal when used where a DATETIME expression is expected.
+String literals with the canonical datetime format implicitly coerce to a
+datetime literal when used where a datetime expression is expected.
 
 For example:
 
@@ -415,8 +434,18 @@ SELECT * FROM foo
 WHERE datetime_col = "2014-09-27 12:30:00.45"
 ```
 
-In this query, the string literal `"2014-09-27 12:30:00.45"` is coerced to a
-DATETIME literal.
+In the query above, the string literal `"2014-09-27 12:30:00.45"` is coerced to
+a datetime literal.
+
+A datetime literal can also include the optional character `T` or `t`. This
+is a flag for time and is used as a separator between the date and time. If
+you use this character, a space can't be included before or after it.
+These are valid:
+
+```sql
+DATETIME '2014-09-27T12:30:00.45'
+DATETIME '2014-09-27t12:30:00.45'
+```
 
 ### Timestamp literals
 
@@ -459,6 +488,22 @@ to a timestamp literal.
 ```sql
 SELECT * FROM foo
 WHERE timestamp_col = "2014-09-27 12:30:00.45 America/Los_Angeles"
+```
+
+A timestamp literal can include these optional characters:
+
++  `T` or `t`: A flag for time. Use as a separator between the date and time.
++  `Z` or `z`: A flag for the default timezone. This cannot be used with
+   `[timezone]`.
+
+If you use one of these characters, a space can't be included before or after it.
+These are valid:
+
+```sql
+TIMESTAMP '2017-01-18T12:34:56.123456Z'
+TIMESTAMP '2017-01-18t12:34:56.123456'
+TIMESTAMP '2017-01-18 12:34:56.123456z'
+TIMESTAMP '2017-01-18 12:34:56.123456Z'
 ```
 
 <a id=timezone></a>
@@ -732,46 +777,99 @@ SELECT name, release_date, FROM Books
 <a id=query_parameters></a>
 ## Query Parameters
 
+You can use query parameters to substitute arbitrary expressions.
+However, query parameters cannot be used to substitute identifiers,
+column names, table names, or other parts of the query itself.
+Query parameters are defined outside of the query statement.
+
+Client APIs allow the binding of parameter names to values; the query engine
+substitutes a bound value for a parameter at execution time.
+
+Query parameters cannot be used in the SQL body of these statements:
+`CREATE FUNCTION`, `CREATE TABLE FUNCTION`, `CREATE VIEW`, `CREATE MATERIALIZED VIEW`, and `CREATE PROCEDURE`.
+
+### Named Query Parameters
+
 Syntax:
 
 ```sql
-@param
+@parameter_name
 ```
 
-Query parameters are denoted using identifiers preceded by the @ character. You
-define the parameter outside of the query statement.
+A named query parameter is denoted using an identifier preceded by the
+`@` character. Named query parameters cannot
+be used alongside [positional query parameters][positional-query-parameters].
 
-You can use query parameters to substitute arbitrary expressions. However,
-query parameters cannot be used to substitute identifiers, column names, table
-names, or other parts of the query itself.
+**Example:**
 
-Client APIs allow the binding of parameter names to values; the client API
-substitutes the bound value for the parameter at execution time. Some client
-APIs allow queries with parameters that are not bound to specific values,
-but in those cases, you must define the parameter type at query analysis time.
-
-Example:
+This example returns all rows where `LastName` is equal to the value of the
+named query parameter `myparam`.
 
 ```sql
 SELECT * FROM Roster WHERE LastName = @myparam
 ```
 
-returns all rows where `LastName` is equal to the value of query parameter `myparam`.
+### Positional Query Parameters
+
+Positional query parameters are denoted using the `?` character.
+Positional parameters are evaluated by the order in which they are passed in.
+Positional query parameters cannot be used
+alongside [named query parameters][named-query-parameters].
+
+**Example:**
+
+This query returns all rows where `LastName` and `FirstName` are equal to the
+values passed into this query. The order in which these values are passed in
+matters. If the last name is passed in first, followed by the first name, the
+expected results will not be returned.
+
+```sql
+SELECT * FROM Roster WHERE FirstName = ? and LastName = ?
+```
 
 <a id=hints></a>
 ## Hints
 
-Syntax:
-
 ```sql
-@{ [engine_name.]hint_name = value, ... }
+@{ hint [, ...] }
+
+hint:
+  [engine_name.]hint_name = value
 ```
 
-Hint syntax requires the @ character followed by curly braces. The optional `engine_name.` prefix allows for multiple engines to define hints with the same `hint_name`.
+The purpose of a hint is to modify the execution strategy for a query
+without changing the result of the query. Hints generally do not affect query
+semantics, but may have performance implications.
 
-Query hints suggest different engine-specific execution
-strategies. Query hints generally do not affect query semantics, but may have
-performance implications. Different engines may support different hints.
+Hint syntax requires the `@` character followed by curly braces.
+You can create one hint or a group of hints. The optional `engine_name.`
+prefix allows for multiple engines to define hints with the same `hint_name`.
+This is important if you need to suggest different engine-specific
+execution strategies or different engines support different hints.
+
+You can assign [identifiers][lexical-identifiers] and
+[literals][lexical-literals] to hints.
+
++  Identifiers are useful for hints that are meant to act like enums.
+   You can use an identifier to avoid using a quoted string.
+   In the resolved AST, identifier hints are represented as string literals,
+   so `@{hint="abc"}` is the same as `@{hint=abc}`. Identifier hints can also
+   be used for hints that take a table name or column
+   name as a single identifier.
++  NULL literals are allowed and are inferred as integers.
+
+Hints are meant to apply only to the node they are attached to,
+and not to a larger scope.
+
+**Examples**
+
+In this example, a literal is assigned to a hint. This hint is only used
+with two database engines called `database_engine_a` and `database_engine_b`.
+The value for the hint is different for each database engine.
+
+```sql
+@{ database_engine_a.file_count=23, database_engine_b.file_count=10 }
+```
 
 ## Comments
 
@@ -856,10 +954,15 @@ WHERE book = "Ulysses";
 [tz-database]: http://www.iana.org/time-zones
 [tz-database-time-zones]: http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
+[lexical-identifiers]: #identifiers
+[lexical-literals]: #literals
 [case-sensitivity]: #case_sensitivity
 [time-zone]: #timezone
 [string-literals]: #string_and_bytes_literals
+[named-query-parameters]: #named_query_parameters
+[positional-query-parameters]: #positional_query_parameters
 [query-reference]: https://github.com/google/zetasql/blob/master/docs/query-syntax
+[lexical-udfs-reference]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions
 
 [functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-reference
 

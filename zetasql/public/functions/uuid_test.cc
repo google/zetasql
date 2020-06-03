@@ -49,11 +49,11 @@ TEST(UuidTest, SimpleStr) {
   // the first hex char of the 4th part should encode the variant
   // as 10xx (where xx is part of the encoded data).
   // For zero input, the variant character is thus: 1000 => '8'
-  ExpectUuid(0x0000000000000000ULL, 0x0000000000000000ULL,
+  ExpectUuid(uint64_t{0x0000000000000000}, uint64_t{0x0000000000000000},
              "00000000-0000-4000-8000-000000000000");
 
   // For ffff input, the variant character is thus: 1011 => 'b'
-  ExpectUuid(0xffffffffffffffffULL, 0xffffffffffffffffULL,
+  ExpectUuid(uint64_t{0xffffffffffffffffu}, uint64_t{0xffffffffffffffffu},
              "ffffffff-ffff-4fff-bfff-ffffffffffff");
 }
 

@@ -42,6 +42,7 @@
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"
@@ -221,7 +222,7 @@ static Value TestGetSQL(const Value& value) {
 
 class ValueTest : public ::testing::Test {
  public:
-  ValueTest() {}
+  ValueTest() : type_factory_(TypeFactoryOptions().IgnoreValueLifeCycle()) {}
   ValueTest(const ValueTest&) = delete;
   ValueTest& operator=(const ValueTest&) = delete;
   ~ValueTest() override {}
@@ -263,6 +264,9 @@ class ValueTest : public ::testing::Test {
     zetasql_test::TestExtraPB test_extra;
     return test_values::MakeProtoType(test_extra.GetDescriptor());
   }
+
+  void TestParameterizedValueAfterReleaseOfTypeFactory(
+      bool keep_type_alive_while_referenced_from_value);
 
  private:
   TypeFactory type_factory_;
@@ -425,9 +429,10 @@ TEST_F(ValueTest, StringDebugString) {
 
 TEST_F(ValueTest, SimpleRoundTrip) {
   EXPECT_EQ(-42, Value::Int32(-42).int32_value());
-  EXPECT_EQ(-1 * (42ll << 42), Value::Int64(-1 * (42ll << 42)).int64_value());
+  EXPECT_EQ(-1 * (int64_t{42} << 42),
+            Value::Int64(-1 * (int64_t{42} << 42)).int64_value());
   EXPECT_EQ(42u, Value::Uint32(42u).uint32_value());
-  EXPECT_EQ(42ull << 42, Value::Uint64(42ull << 42).uint64_value());
+  EXPECT_EQ(uint64_t{42} << 42, Value::Uint64(uint64_t{42} << 42).uint64_value());
   EXPECT_EQ(true, Value::Bool(true).bool_value());
   EXPECT_EQ(false, Value::Bool(false).bool_value());
   EXPECT_EQ(3.1415f, Value::Float(3.1415f).float_value());
@@ -569,7 +574,7 @@ TEST_F(ValueTest, BigNumeric) {
   // Test the assignment operator.
   {
     Value v1 = Value::BigNumeric(BigNumericValue(100LL));
-    Value v2 = zetasql::values::BigNumeric(100LL);
+    Value v2 = zetasql::values::BigNumeric(int64_t{100});
     Value v3 = Value::NullBigNumeric();
     v3 = v1;
     EXPECT_EQ(TYPE_BIGNUMERIC, v1.type()->kind());
@@ -771,9 +776,9 @@ TEST_F(ValueTest, InvalidValue) {
 
 TEST_F(ValueTest, ConstructorTyping) {
   EXPECT_TRUE(Int32Type()->Equals(Value::Int32(-42).type()));
-  EXPECT_TRUE(Int64Type()->Equals(Value::Int64(-1 * (42ll << 42)).type()));
+  EXPECT_TRUE(Int64Type()->Equals(Value::Int64(-1 * (int64_t{42} << 42)).type()));
   EXPECT_TRUE(Uint32Type()->Equals(Value::Uint32(42u).type()));
-  EXPECT_TRUE(Uint64Type()->Equals(Value::Uint64(42ull << 42).type()));
+  EXPECT_TRUE(Uint64Type()->Equals(Value::Uint64(uint64_t{42} << 42).type()));
   EXPECT_TRUE(BoolType()->Equals(Value::Bool(true).type()));
   EXPECT_TRUE(BoolType()->Equals(Value::Bool(false).type()));
   EXPECT_TRUE(FloatType()->Equals(Value::Float(3.1415f).type()));
@@ -793,10 +798,10 @@ TEST_F(ValueTest, CopyConstructor) {
   EXPECT_EQ(-42, v0.ToDouble());
   EXPECT_EQ(-42, v0.ToInt64());
 
-  Value v1 = TestGetSQL(Value::Int64(-1 * (42ll << 42)));
-  EXPECT_EQ(-1 * (42ll << 42), v1.int64_value());
-  EXPECT_EQ(-1 * (42ll << 42), v1.ToDouble());
-  EXPECT_EQ(-1 * (42ll << 42), v1.ToInt64());
+  Value v1 = TestGetSQL(Value::Int64(-1 * (int64_t{42} << 42)));
+  EXPECT_EQ(-1 * (int64_t{42} << 42), v1.int64_value());
+  EXPECT_EQ(-1 * (int64_t{42} << 42), v1.ToDouble());
+  EXPECT_EQ(-1 * (int64_t{42} << 42), v1.ToInt64());
 
   Value v2 = TestGetSQL(Value::Uint32(42u));
   EXPECT_EQ(42u, v2.uint32_value());
@@ -804,10 +809,10 @@ TEST_F(ValueTest, CopyConstructor) {
   EXPECT_EQ(42, v2.ToInt64());
   EXPECT_EQ(42u, v2.ToUint64());
 
-  Value v3 = TestGetSQL(Value::Uint64(42ull << 42));
-  EXPECT_EQ(42ull << 42, v3.uint64_value());
-  EXPECT_EQ(42ull << 42, v3.ToDouble());
-  EXPECT_EQ(42ull << 42, v3.ToUint64());
+  Value v3 = TestGetSQL(Value::Uint64(uint64_t{42} << 42));
+  EXPECT_EQ(uint64_t{42} << 42, v3.uint64_value());
+  EXPECT_EQ(uint64_t{42} << 42, v3.ToDouble());
+  EXPECT_EQ(uint64_t{42} << 42, v3.ToUint64());
 
   Value v4 = TestGetSQL(Value::Bool(true));
   EXPECT_EQ(true, v4.bool_value());
@@ -1627,6 +1632,8 @@ TEST_F(ValueTest, ArrayLessThan) {
 }
 
 TEST_F(ValueTest, Proto) {
+  TypeFactory type_factory;
+
   const ProtoType* proto_type = GetTestProtoType();
   zetasql_test::KitchenSinkPB k;
   absl::Cord bytes = SerializePartialToCord(k);
@@ -1783,7 +1790,6 @@ TEST_F(ValueTest, Proto) {
   EXPECT_FALSE(unset_value.Equals(set_value));
   TestHashEqual(set_value, unset_value);
 
-  TypeFactory type_factory;
   const ProtoType* proto3_type;
   ZETASQL_ASSERT_OK(type_factory.MakeProtoType(
       google::protobuf::Int32Value::descriptor(), &proto3_type));
@@ -2262,6 +2268,91 @@ TEST_F(ValueTest, ParseInteger) {
             TestParseInteger("0x10000000000000000"));
 }
 
+void ValueTest::TestParameterizedValueAfterReleaseOfTypeFactory(
+    bool keep_type_alive_while_referenced_from_value) {
+  SCOPED_TRACE(absl::StrCat("keep_type_alive_while_referenced_from_value=",
+                            keep_type_alive_while_referenced_from_value));
+
+  const internal::TypeStore* store = nullptr;
+  Value proto_value;
+  {
+    Value enum_value, struct_value, array_value;
+    {
+      TypeFactoryOptions options;
+      options.keep_alive_while_referenced_from_value =
+          keep_type_alive_while_referenced_from_value;
+      TypeFactory type_factory(options);
+      store = internal::TypeStoreHelper::GetTypeStore(&type_factory);
+
+      // Proto value
+      const ProtoType* proto_type;
+      ZETASQL_ASSERT_OK(type_factory.MakeProtoType(
+          zetasql_test::TestExtraPB::descriptor(), &proto_type));
+
+      zetasql_test::TestExtraPB proto_msg;
+      proto_msg.set_int32_val1(5);
+      absl::Cord bytes = absl::Cord(proto_msg.SerializeAsString());
+      proto_value = Value::Proto(proto_type, bytes);
+
+      // Enum value
+      const EnumType* enum_type;
+      const google::protobuf::EnumDescriptor* enum_descriptor =
+          zetasql_test::TestEnum_descriptor();
+      ZETASQL_ASSERT_OK(type_factory.MakeEnumType(enum_descriptor, &enum_type));
+      enum_value = values::Enum(enum_type, 1);
+
+      // Struct value
+      const StructType* struct_type;
+      ZETASQL_ASSERT_OK(type_factory.MakeStructType(
+          {{"f1", proto_type}, {"f2", enum_type}}, &struct_type));
+      struct_value = values::Struct(struct_type, {proto_value, enum_value});
+
+      // Array value
+      const ArrayType* array_type;
+      ZETASQL_ASSERT_OK(type_factory.MakeArrayType(struct_type, &array_type));
+      array_value = values::Array(array_type, {struct_value});
+
+#ifdef NDEBUG
+      if (!keep_type_alive_while_referenced_from_value) {
+        ASSERT_EQ(internal::TypeStoreHelper::Test_GetRefCount(store), 1);
+
+        // We don't keep track of references under release mode (NDEBUG) when
+        // keep_alive_while_referenced_from_value is disabled. Thus, just
+        // emulate an error message.
+        LOG(FATAL) << "Type factory is released while there are still some "
+                      "objects that reference it";
+      }
+#endif
+      // TypeFactory has been destroyed at this point.
+    }
+
+    // We expect 7 values currently exists: proto_value, enum_value,
+    // struct_value, array_value, 2 field values in struct_value and 1 element
+    // in array_value. Since TypeFactory is gone, we should have 7 references.
+    EXPECT_EQ(internal::TypeStoreHelper::Test_GetRefCount(store), 7);
+
+    EXPECT_EQ(proto_value.DebugString(), "{int32_val1: 5}");
+    EXPECT_EQ(enum_value.DebugString(), "TESTENUM1");
+    EXPECT_EQ(struct_value.DebugString(), "{f1:{int32_val1: 5}, f2:TESTENUM1}");
+    EXPECT_EQ(array_value.DebugString(),
+              "[{f1:{int32_val1: 5}, f2:TESTENUM1}]");
+  }
+
+  // Values enum_value, struct_value, array_value have been gone at this point
+  // and only proto_value still alive - thus we should have a single reference.
+  EXPECT_EQ(internal::TypeStoreHelper::Test_GetRefCount(store), 1);
+}
+
+TEST_F(ValueTest, ValueIsLifeAfterTypeFactoryRelease) {
+  EXPECT_DEATH(TestParameterizedValueAfterReleaseOfTypeFactory(
+                   /*keep_type_alive_while_referenced_from_value=*/false),
+               "Type factory is released while there are still some objects "
+               "that reference it");
+
+  TestParameterizedValueAfterReleaseOfTypeFactory(
+      /*keep_type_alive_while_referenced_from_value=*/true);
+}
+
 TEST_F(ValueTest, PhysicalByteSize) {
   // Coverage messes with the object sizes, so skip it.
   if (std::getenv("BAZEL_CC_COVERAGE_TOOL") != nullptr) return;
@@ -2299,7 +2390,7 @@ TEST_F(ValueTest, PhysicalByteSize) {
   EXPECT_EQ(48, Value::Numeric(NumericValue::FromDouble(1.0).value())
                     .physical_byte_size());
   EXPECT_EQ(sizeof(Value),
-            Value::Time(TimeValue::FromPacked64Micros(0xD38F1E240LL))
+            Value::Time(TimeValue::FromPacked64Micros(int64_t{0xD38F1E240}))
                 .physical_byte_size());
   EXPECT_EQ(sizeof(Value),
             Value::TimestampFromUnixMicros(1).physical_byte_size());

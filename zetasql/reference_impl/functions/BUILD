@@ -29,7 +29,14 @@ cc_library(
     name = "register_all",
     srcs = ["register_all.cc"],
     hdrs = ["register_all.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":hash",
         ":json",
@@ -42,7 +49,14 @@ cc_library(
     name = "hash",
     srcs = ["hash.cc"],
     hdrs = ["hash.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/base:statusor",
         "//zetasql/public:value",
@@ -55,7 +69,14 @@ cc_library(
     name = "json",
     srcs = ["json.cc"],
     hdrs = ["json.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/public/functions:json",
         "//zetasql/reference_impl:evaluation",
@@ -66,7 +87,14 @@ cc_library(
     name = "uuid",
     srcs = ["uuid.cc"],
     hdrs = ["uuid.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/public:value",
         "//zetasql/public/functions:uuid",

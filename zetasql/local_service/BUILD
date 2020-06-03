@@ -27,7 +27,14 @@ cc_library(
         "local_service.h",
         "state.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":local_service_cc_proto",
         "//zetasql/base",
@@ -68,7 +75,14 @@ cc_library(
 cc_test(
     name = "local_service_test",
     srcs = ["local_service_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     data = [
         "//zetasql/testdata:test_schema_proto",
     ],
@@ -132,7 +146,14 @@ cc_library(
     name = "local_service_grpc",
     srcs = ["local_service_grpc.cc"],
     hdrs = ["local_service_grpc.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":local_service",
         ":local_service_cc_grpc",
@@ -164,7 +185,14 @@ cc_library(
     name = "local_service_jni",
     srcs = ["local_service_jni.cc"],
     hdrs = ["local_service_jni.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     linkstatic = 1,
     deps = [
         ":local_service_grpc",

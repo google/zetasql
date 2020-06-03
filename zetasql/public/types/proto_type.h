@@ -210,6 +210,15 @@ class ProtoType : public Type {
   void ClearValueContent(const ValueContent& value) const override;
   uint64_t GetValueContentExternallyAllocatedByteSize(
       const ValueContent& value) const override;
+  absl::HashState HashTypeParameter(absl::HashState state) const override;
+  absl::HashState HashValueContent(const ValueContent& value,
+                                   absl::HashState state) const override;
+  bool ValueContentEqualsImpl(
+      const ValueContent& x, const ValueContent& y,
+      const ValueEqualityCheckOptions& options) const override;
+  std::string FormatValueContent(
+      const ValueContent& value,
+      const FormatValueContentOptions& options) const override;
 
  private:
   // Returns true iff <validated_descriptor_set> is not null and already
@@ -258,8 +267,7 @@ class ProtoType : public Type {
       bool use_obsolete_timestamp, TypeKind* kind);
 
   absl::Status SerializeToProtoAndDistinctFileDescriptorsImpl(
-      TypeProto* type_proto,
-      absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
+      const BuildFileDescriptorMapOptions& options, TypeProto* type_proto,
       FileDescriptorSetMap* file_descriptor_set_map) const override;
 
   bool EqualsForSameKind(const Type* that, bool equivalent) const override;

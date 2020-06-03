@@ -19,7 +19,6 @@
 #include <ostream>
 
 #include "absl/status/status.h"
-#include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/logging.h"
 
 namespace zetasql_base {

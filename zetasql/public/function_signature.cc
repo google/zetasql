@@ -479,8 +479,9 @@ std::string FunctionArgumentType::DebugString(bool verbose) const {
   if (verbose) {
     absl::StrAppend(&result, options_->OptionsDebugString());
   }
-  // TODO: If options_->has_argument_name(), include that name here.
-  // This will result in a lot of test diffs so may make sense to do separately.
+  if (options_->has_argument_name()) {
+    absl::StrAppend(&result, " ", options_->argument_name());
+  }
   return result;
 }
 

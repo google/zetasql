@@ -171,6 +171,11 @@ public final class FunctionArgumentType implements Serializable {
       }
     }
 
+    if (optionsBuilder.hasArgumentName()) {
+      builder.append(" ");
+      builder.append(optionsBuilder.getArgumentName());
+    }
+
     return builder.toString();
   }
 

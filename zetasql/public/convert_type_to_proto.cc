@@ -211,6 +211,8 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
           zetasql::format, FieldFormat::BIGNUMERIC);
       break;
     }
+    case TYPE_JSON:
+      return absl::UnimplementedError("JSON type is not fully implemented");
     case TYPE_ENUM: {
       const EnumType* enum_type = field_type->AsEnum();
       proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_ENUM);
@@ -274,6 +276,10 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
       proto_field->set_type_name(descriptor_proto->name());
       break;
     }
+    case TYPE_EXTENDED:
+      // TODO: fix by moving this logic into Type class.
+      return absl::UnimplementedError(
+          "Extended types are not fully implemented");
     case __TypeKind__switch_must_have_a_default__:
     case TYPE_UNKNOWN:
       break;  // Error generated below.

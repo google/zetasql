@@ -351,7 +351,7 @@ FROM items;
 
 ```
 
-### FORMAT {#format_string}
+### FORMAT {: #format_string }
 
 ZetaSQL supports a `FORMAT()` function for formatting strings. This
 function is similar to the C `printf` function. It produces a
@@ -367,44 +367,44 @@ arguments that matches the format specifiers. Here are some examples:
 </tr>
 <tr>
 <td>Simple integer</td>
-<td>format("%d", 10)</td>
+<td>FORMAT("%d", 10)</td>
 <td>10</td>
 </tr>
 <tr>
 <td>Integer with left blank padding</td>
-<td>format("|%10d|", 11)</td>
+<td>FORMAT("|%10d|", 11)</td>
 <td>|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;11|</td>
 </tr>
 <tr>
 <td>Integer with left zero padding</td>
-<td>format("+%010d+", 12)</td>
+<td>FORMAT("+%010d+", 12)</td>
 <td>+0000000012+</td>
 </tr>
 <tr>
 <td>Integer with commas</td>
-<td>format("%'d", 123456789)</td>
+<td>FORMAT("%'d", 123456789)</td>
 <td>123,456,789</td>
 </tr>
 <tr>
 <td>STRING</td>
-<td>format("-%s-", 'abcd efg')</td>
+<td>FORMAT("-%s-", 'abcd efg')</td>
 <td>-abcd efg-</td>
 </tr>
 <tr>
 <td>DOUBLE</td>
-<td>format("%f %E", 1.1, 2.2)</td>
+<td>FORMAT("%f %E", 1.1, 2.2)</td>
 <td>1.100000&nbsp;2.200000E+00</td>
 </tr>
 
 <tr>
 <td>DATE</td>
-<td>format("%t", date "2015-09-01")</td>
+<td>FORMAT("%t", date "2015-09-01")</td>
 <td>2015-09-01</td>
 </tr>
 
 <tr>
 <td>TIMESTAMP</td>
-<td>format("%t", timestamp "2015-09-01 12:34:56
+<td>FORMAT("%t", timestamp "2015-09-01 12:34:56
 America/Los_Angeles")</td>
 <td>2015&#8209;09&#8209;01&nbsp;19:34:56+00</td>
 </tr>
@@ -417,8 +417,8 @@ If custom formatting is necessary for a type, you must first format it using
 type-specific format functions, such as `FORMAT_DATE()` or `FORMAT_TIMESTAMP()`.
 For example:
 
-```
-FORMAT("date: %s!", FORMAT_DATE("%B %d, %Y", date '2015-01-02'));
+```sql
+SELECT FORMAT("date: %s!", FORMAT_DATE("%B %d, %Y", date '2015-01-02'));
 ```
 
 Returns
@@ -453,13 +453,13 @@ The `FORMAT()` function format specifier follows this prototype:
 ```
 
 The supported format specifiers are identified in the following table.
-Extensions from printf() are identified in <em>italics</em>.
+Deviations from printf() are identified in <em>italics</em>.
 
 <table>
  <tr>
     <td>Specifier</td>
     <td>Description</td>
-    <td>Examples</td>
+    <td width="200px">Examples</td>
     <td>Types</td>
  </tr>
  <tr>
@@ -506,19 +506,21 @@ Extensions from printf() are identified in <em>italics</em>.
  </tr>
  <tr>
     <td><code>f</code></td>
-    <td>Decimal floating point, lowercase</td>
-    <td>392.65<br/>
-    <code>inf</code><br/>
-    <code>NaN</code></td>
+    <td>Decimal notation, in [-](integer part).(fractional part) for finite
+        values, and in lowercase for non-finite values</td>
+    <td>392.650000<br/>
+    inf<br/>
+    nan</td>
     <td>
     <span> NUMERIC</span><br><span> FLOAT</span><br><span> DOUBLE</span>
     </td>
  </tr>
  <tr>
     <td><code>F</code></td>
-    <td>Decimal floating point, uppercase</td>
-    <td>392.65<br/>
-    <code>inf</code><br/>
+    <td>Decimal notation, in [-](integer part).(fractional part) for finite
+        values, and in uppercase for non-finite values</td>
+    <td>392.650000<br/>
+    INF<br/>
     NAN</td>
     <td>
     <span> NUMERIC</span><br><span> FLOAT</span><br><span> DOUBLE</span>
@@ -527,9 +529,9 @@ Extensions from printf() are identified in <em>italics</em>.
  <tr>
     <td><code>e</code></td>
     <td>Scientific notation (mantissa/exponent), lowercase</td>
-    <td>3.9265e+2<br/>
-    <code>inf</code><br/>
-    <code>NaN</code></td>
+    <td>3.926500e+02<br/>
+    inf<br/>
+    nan</td>
     <td>
     <span> NUMERIC</span><br><span> FLOAT</span><br><span> DOUBLE</span>
     </td>
@@ -537,8 +539,8 @@ Extensions from printf() are identified in <em>italics</em>.
  <tr>
     <td><code>E</code></td>
     <td>Scientific notation (mantissa/exponent), uppercase</td>
-    <td>3.9265E+2<br/>
-    <code>inf</code><br/>
+    <td>3.926500E+02<br/>
+    INF<br/>
     NAN</td>
     <td>
     <span> NUMERIC</span><br><span> FLOAT</span><br><span> DOUBLE</span>
@@ -546,20 +548,63 @@ Extensions from printf() are identified in <em>italics</em>.
  </tr>
  <tr>
     <td><code>g</code></td>
-    <td>Use the shortest representation, %e or %f</td>
-    <td>392.65</td>
+    <td>Either decimal notation or scientific notation, depending on the input
+        value's exponent and the specified precision. Lowercase.
+        See <a href="#g_and_g_behavior">%g and %G behavior</a> for details.</td>
+    <td>392.65<br/>
+      3.9265e+07<br/>
+    inf<br/>
+    nan</td>
     <td>
     <span> FLOAT</span><br><span> DOUBLE</span>
     </td>
  </tr>
  <tr>
     <td><code>G</code></td>
-    <td>Use the shortest representation, %E or %F</td>
-    <td>392.65</td>
+    <td>Either decimal notation or scientific notation, depending on the input
+        value's exponent and the specified precision. Uppercase.
+        See <a href="#g_and_g_behavior">%g and %G behavior</a> for details.</td>
+    <td>392.65<br/>
+      3.9265E+07<br/>
+    INF<br/>
+    NAN</td>
     <td>
     <span> FLOAT</span><br><span> DOUBLE</span>
     </td>
  </tr>
+
+ <tr>
+    <td><em><code>p</code></em></td>
+    <td><em>
+      <p>Produces a one-line printable string representing a protocol buffer.</p>
+      <p>This protocol buffer generates the example to the right:</p>
+<pre>
+message ReleaseDate {
+ required int32 year = 1 [default=2019];
+ required int32 month = 2 [default=10];
+}</pre>
+    </em></td>
+    <td><em>year: 2019 month: 10</em></td>
+    <td><em>ShortDebugString</em></td>
+ </tr>
+ <tr>
+    <td><em><code>P</code></em></td>
+    <td><em>
+      <p>Produces a multi-line printable string representing a protocol buffer.</p>
+      <p>This protocol buffer generates the example to the right:</p>
+<pre>
+message ReleaseDate {
+ required int32 year = 1 [default=2019];
+ required int32 month = 2 [default=10];
+}</pre>
+    </em></td>
+    <td><em>
+      year: 2019<br/>
+      month: 10
+      </em></td>
+    <td><em>DebugString</em></td>
+ </tr>
+
  <tr>
     <td><code>s</code></td>
     <td>String of characters</td>
@@ -569,8 +614,8 @@ Extensions from printf() are identified in <em>italics</em>.
  <tr>
     <td><em><code>t</code></em></td>
     <td><em>Returns a printable string representing the value. Often looks
-similar to casting the argument to STRING.</em> <em>See <a
-href="#t_and_t_behavior">%t section below</a>.</em></td>
+similar to casting the argument to STRING. See <a
+href="#t_and_t_behavior">%t and %T behavior</a>.</em></td>
     <td><em>sample</em><br/>
     <em>2014&#8209;01&#8209;01</em></td>
     <td><em>&lt;any&gt;</em></td>
@@ -578,8 +623,8 @@ href="#t_and_t_behavior">%t section below</a>.</em></td>
  <tr>
     <td><em><code>T</code></em></td>
     <td><em>Produces a string that is a valid ZetaSQL constant with a
-similar type to the value's type (maybe wider, or maybe string).</em> <em>See <a
-href="#t_and_t_behavior">%T section below</a>.</em></td>
+similar type to the value's type (maybe wider, or maybe string). See <a
+href="#t_and_t_behavior">%t and %T behavior</a>.</em></td>
     <td><em>'sample'</em><br/>
         <em>b'bytes&nbsp;sample'</em><br/>
         <em>1234</em><br/>
@@ -595,7 +640,7 @@ href="#t_and_t_behavior">%T section below</a>.</em></td>
  </tr>
 </table>
 
-<i><a id="oxX"></a><sup>*</sup>The specifiers o, x, and X raise an error if
+<i><a id="oxX"></a><sup>*</sup>The specifiers `%o`, `%x`, and `%X` raise an error if
 negative values are used.</i>
 
 The format specifier can optionally contain the sub-specifiers identified above
@@ -628,8 +673,17 @@ value</td>
 </tr>
  <tr>
     <td><code>#</code></td>
-    <td>Used with o, x or X specifiers. Precedes the value with 0, 0x or 0X
-respectively for values different than zero</td>
+    <td><ul>
+      <li>For `%o`, `%x`, and `%X`, this flag means to precede the
+          value with 0, 0x or 0X respectively for values different than zero.</li>
+      <li>For `%f`, `%F`, `%e`, and `%E`, this flag means to add the decimal
+          point even when there is no fractional part, unless the value
+          is non-finite.</li>
+      <li>For `%g` and `%G`, this flag means to add the decimal point even
+          when there is no fractional part unless the value is non-finite, and
+          never remove the trailing zeros after the decimal point.</li>
+      </ul>
+   </td>
  </tr>
  <tr>
     <td><code>0</code></td>
@@ -681,14 +735,20 @@ integer value argument preceding the argument that has to be formatted</td>
  </tr>
  <tr>
     <td><code>.</code>&lt;number&gt;</td>
-    <td>For integer specifiers (d, i, o, u, x, X): precision specifies the
-minimum number of digits to be written. If the value to be written is shorter
-than this number, the result is padded with trailing zeros. The value is not
-truncated even if the result is longer. A precision of 0 means that no character
-is written for the value 0.  For a, A, e, E, f and F specifiers: this is the
-number of digits to be printed after the decimal point (by default, this is
-6)</td>
-
+    <td>
+      <ul>
+      <li>For integer specifiers `%d`, `%i`, `%o`, `%u`, `%x`, and `%X`: precision specifies the
+          minimum number of digits to be written. If the value to be written is
+          shorter than this number, the result is padded with trailing zeros.
+          The value is not truncated even if the result is longer. A precision
+          of 0 means that no character is written for the value 0.</li>
+      <li>For specifiers `%a`, `%A`, `%e`, `%E`, `%f`, and `%F`: this is the number of digits to be
+          printed after the decimal point. The default value is 6.</li>
+      <li>For specifiers `%g` and `%G`: this is the number of significant digits to be
+          printed, before the removal of the trailing zeros after the decimal
+          point. The default value is 6.</li>
+      </ul>
+   </td>
 </tr>
  <tr>
     <td><code>.*</code></td>
@@ -698,18 +758,36 @@ formatted</td>
 </tr>
 </table>
 
+<a name="g_and_g_behavior"></a>
+#### %g and %G behavior
+The `%g` and `%G` format specifiers choose either the decimal notation (like
+the `%f` and `%F` specifiers) or the scientific notation (like the `%e` and `%E`
+specifiers), depending on the input value's exponent and the specified
+[precision](#precision).
+
+Let p stand for the specified [precision](#precision) (defaults to 6; 1 if the
+specified precision is less than 1). The input value is first converted to
+scientific notation with precision = (p - 1). If the resulting exponent part x
+is less than -4 or no less than p, the scientific notation with precision =
+(p - 1) is used; otherwise the decimal notation with precision = (p - 1 - x) is
+used.
+
+Unless [`#` flag](#flags) is present, the trailing zeros after the decimal point
+are removed, and the decimal point is also removed if there is no digit after
+it.
+
 <a name="t_and_t_behavior"></a>
 #### %t and %T behavior
 
-The `%t` and `%T` format specifiers are defined for all types.  The width,
-precision, and flags act as they do for `%s`: the `width` is the minimum width
-and the STRING will be padded to that size, and `precision` is the maximum width
+The `%t` and `%T` format specifiers are defined for all types.  The [width](#width),
+[precision](#precision), and [flags](#flags) act as they do for `%s`: the [width](#width) is the minimum width
+and the STRING will be padded to that size, and [precision](#precision) is the maximum width
 of content to show and the STRING will be truncated to that size, prior to
 padding to width.
 
-%t is always meant to be a readable form of the value.
+The `%t` specifier is always meant to be a readable form of the value.
 
-%T is always a valid SQL literal of a similar type, such as a wider numeric
+The `%T` specifier is always a valid SQL literal of a similar type, such as a wider numeric
 type.
 The literal will not include casts or a type name, except for the special case
 of non-finite floating point values.

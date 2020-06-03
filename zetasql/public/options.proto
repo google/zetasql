@@ -263,8 +263,8 @@ enum LanguageFeature {
   // Enables check constraint (see (broken link)).
   FEATURE_CHECK_CONSTRAINT = 29;
 
-  // Enables statement parameters in the GRANTEE list of GRANT, REVOKE, CREATE
-  // ROW POLICY, and ALTER ROW POLICY statements.
+  // Enables statement parameters and system variables in the GRANTEE list of
+  // GRANT, REVOKE, CREATE ROW POLICY, and ALTER ROW POLICY statements.
   // TODO: The behavior of this feature is intended to become
   // mandatory.  This is a temporary feature, that preserves existing
   // behavior prior to engine migrations.  Once all engines have migrated,
@@ -285,17 +285,20 @@ enum LanguageFeature {
 
   // Enables support for the old syntax for the DDL for ROW ACCESS POLICY,
   // previously called ROW POLICY.
-  // When this feature is enabled, using the old syntax will not throw errors
-  // for CREATE ROW [ACCESS] POLICY and DROP ALL ROW [ACCESS] POLICIES, but the
-  // new syntax can still be used.
-  // When it is not enabled, the new syntax must be used for CREATE
-  // ROW ACCESS POLICY and DROP ALL ROW ACCESS POLICIES.
-  // The new syntax is always required for ALTER ROW ACCESS POLICY and DROP ROW
-  // ACCESS POLICY: at the time of this writing, these statements are new/not in
-  // use.
-  // This is a temporary feature that preserves legacy engine behavior that
-  // will be deprecated, and the new syntax will become mandatory (b/135116351).
-  // For more details on syntax changes, see (broken link).
+  //
+  // When this feature is enabled, either the legacy or new syntax can be used
+  // for CREATE/DROP ROW [ACCESS] POLICY.  Note, however, that when using the
+  // new syntax the GRANT TO clause is required (the GRANT TO clause is optional
+  // when the feature is off).
+  //
+  // When it is not enabled, the new syntax must be used for CREATE ROW ACCESS
+  // POLICY and DROP ALL ROW ACCESS POLICIES. The new syntax is always required
+  // for ALTER ROW ACCESS POLICY and DROP ROW ACCESS POLICY: at the time of this
+  // writing, these statements are new/not in use.
+  //
+  // This is a temporary feature that preserves legacy engine behavior that will
+  // be deprecated, and the new syntax will become mandatory (b/135116351). For
+  // more details on syntax changes, see (broken link).
   FEATURE_ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX = 32;
 
   // Enables support for PARTITION BY with CREATE MATERIALIZED VIEW.
@@ -340,6 +343,13 @@ enum LanguageFeature {
   // BIGNUMERIC data type. (broken link)
   FEATURE_BIGNUMERIC_TYPE = 41
       [(language_feature_options).in_development = true];
+
+  // Extended types (TYPE_EXTENDED): (broken link).
+  FEATURE_EXTENDED_TYPES = 42
+      [(language_feature_options).in_development = true];
+
+  // JSON data type. (broken link)
+  FEATURE_JSON_TYPE = 43 [(language_feature_options).in_development = true];
 
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
@@ -528,6 +538,33 @@ enum LanguageFeature {
   // should match FN_CONCAT_BYTES signature).
   FEATURE_V_1_3_CONCAT_MIXED_TYPES = 13010
       [(language_feature_options).ideally_enabled = false];
+
+  // Enable WITH RECURSIVE ((broken link))
+  FEATURE_V_1_3_WITH_RECURSIVE = 13011
+      [(language_feature_options).in_development = true];
+
+  // Support maps in protocol buffers. ((broken link))
+  FEATURE_V_1_3_PROTO_MAPS = 13012
+      [(language_feature_options).in_development = true];
+
+  // Enables support for the ENUM_VALUE_DESCRIPTOR_PROTO() function, see
+  // (broken link)
+  FEATURE_V_1_3_ENUM_VALUE_DESCRIPTOR_PROTO = 13013;
+
+  // Allows DECIMAL as an alias of NUMERIC type, and BIGDECIMAL as an alias
+  // of BIGNUMERIC type. By itself, this feature does not enable NUMERIC type
+  // or BIGNUMERIC, which are controlled by FEATURE_NUMERIC_TYPE and
+  // FEATURE_BIGNUMERIC_TYPE.
+  FEATURE_V_1_3_DECIMAL_ALIAS = 13014;
+
+  // Support UNNEST and FLATTEN on paths through arrays.
+  // ((broken link))
+  FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS = 13015
+      [(language_feature_options).in_development = true];
+
+  // Allows consecutive ON/USING clauses for JOINs, such as
+  //    t1 JOIN t2 JOIN t3 ON cond1 USING (col2)
+  FEATURE_V_1_3_ALLOW_CONSECUTIVE_ON = 13016;
 
   // EXPERIMENTAL FEATURES
   // These are features supported in the code that are not currently part of

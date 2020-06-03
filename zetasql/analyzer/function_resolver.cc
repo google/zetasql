@@ -1807,10 +1807,23 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     ZETASQL_RET_CHECK(result_signature->IsConcrete());
   }
 
-  const auto BadArgErrorPrefix = [&result_signature, function](int idx) {
+  const auto BadArgErrorPrefix = [&result_signature, &named_arguments,
+                                  function](int idx) {
     if (function->GetBadArgumentErrorPrefixCallback() != nullptr) {
       return function->GetBadArgumentErrorPrefixCallback()(*result_signature,
                                                            idx);
+    }
+    const FunctionArgumentType& argument = result_signature->argument(idx);
+    if (argument.has_argument_name()) {
+      // Check whether function call was using named argument or positional
+      // argument, and if it was named - use the name in the error message.
+      for (const auto& named_arg : named_arguments) {
+        if (zetasql_base::CaseEqual(named_arg.first->name()->GetAsString(),
+                      argument.argument_name())) {
+          return absl::StrCat("Argument '", argument.argument_name(), "' to ",
+                              function->SQLName());
+        }
+      }
     }
     if (result_signature->NumConcreteArguments() == 1) {
       return absl::StrCat("The argument to ", function->SQLName());
@@ -1866,6 +1879,7 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
       switch (unwrapped_argument->node_kind()) {
         case RESOLVED_PARAMETER:
         case RESOLVED_LITERAL:
+        case RESOLVED_CONSTANT:
           break;
         case RESOLVED_ARGUMENT_REF:
           // A NOT_AGGREGATE argument is allowed (for is_not_aggregate mode),

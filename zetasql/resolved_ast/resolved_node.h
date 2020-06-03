@@ -178,6 +178,16 @@ class ResolvedNode {
   // Reset the field accessed markers in this node and its children.
   virtual void ClearFieldsAccessed() const;
 
+  // Set all fields as accessed in this node and its children.
+  //
+  // Engines can use this when this node has no semantic effect on the query.
+  // e.g. An unused WITH subquery or a never-taken IF branch.
+  //
+  // If this node is meaningful in the query, and some fields can be safely
+  // ignored, prefer to add no-op accesses to those fields explicitly.  This
+  // ensures that new fields added in the future are not accidentally ignored.
+  virtual void MarkFieldsAccessed() const;
+
   // Returns in 'child_nodes' all non-NULL ResolvedNodes that are children of
   // this node. The order of 'child_nodes' is deterministic, but callers should
   // not depend on how the roles (fields) correspond to locations, especially

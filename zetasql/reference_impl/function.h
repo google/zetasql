@@ -39,6 +39,7 @@
 #include "zetasql/reference_impl/tuple_comparator.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include <cstdint>
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "re2/re2.h"
@@ -177,6 +178,8 @@ enum class FunctionKind {
   kToProto,
   kMakeProto,
   kReplaceFields,
+  // Enum functions
+  kEnumValueDescriptorProto,
   // String functions
   kByteLength,
   kCharLength,
@@ -210,6 +213,8 @@ enum class FunctionKind {
   kUpper,
   kLpad,
   kRpad,
+  kLeft,
+  kRight,
   kRepeat,
   kReverse,
   // Date/Time functions
@@ -874,6 +879,13 @@ class FromProtoFunction : public SimpleBuiltinScalarFunction {
 };
 
 class ToProtoFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  zetasql_base::StatusOr<Value> Eval(const absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class EnumValueDescriptorProtoFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
   zetasql_base::StatusOr<Value> Eval(const absl::Span<const Value> args,

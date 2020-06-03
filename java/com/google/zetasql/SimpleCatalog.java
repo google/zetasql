@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.BoolValue;
 import com.google.protobuf.BytesValue;
+import com.google.protobuf.DescriptorProtos.EnumValueDescriptorProto;
 import com.google.protobuf.DoubleValue;
 import com.google.protobuf.FloatValue;
 import com.google.protobuf.Int32Value;
@@ -389,6 +390,7 @@ public class SimpleCatalog extends Catalog {
     ZetaSQLDescriptorPool.importIntoGeneratedPool(BoolValue.getDescriptor());
     ZetaSQLDescriptorPool.importIntoGeneratedPool(StringValue.getDescriptor());
     ZetaSQLDescriptorPool.importIntoGeneratedPool(BytesValue.getDescriptor());
+    ZetaSQLDescriptorPool.importIntoGeneratedPool(EnumValueDescriptorProto.getDescriptor());
     ImmutableList<ZetaSQLDescriptorPool> pools =
         ImmutableList.of(ZetaSQLDescriptorPool.getGeneratedPool());
     for (FunctionProto proto : response.getFunctionList()) {

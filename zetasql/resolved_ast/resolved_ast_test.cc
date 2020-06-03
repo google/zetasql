@@ -226,6 +226,15 @@ TEST(ResolvedAST, CheckFieldsAccessed) {
       "Unimplemented feature (ResolvedJoinScan::join_type not accessed "
       "and has non-default value)",
       node->CheckFieldsAccessed().message());
+
+  // Make sure MarkFieldsAccessed() works.
+  node = MakeJoin();
+  LOG(INFO) << AsTableScan(node->left_scan())->table()->FullName();
+  node->right_scan();
+  EXPECT_EQ("Unimplemented feature (ResolvedTableScan::table not accessed)",
+            node->CheckFieldsAccessed().message());
+  node->right_scan()->MarkFieldsAccessed();
+  ZETASQL_EXPECT_OK(node->CheckFieldsAccessed());
 }
 
 // Test CheckFieldsAccessed on a vector field.
@@ -287,6 +296,11 @@ TEST(ResolvedAST, CheckVectorFieldsAccessed) {
       EXPECT_FALSE(node->CheckFieldsAccessed().ok());
       static_cast<const ResolvedLiteral*>(node->expr_list(j)->expr())->value();
     }
+    ZETASQL_EXPECT_OK(node->CheckFieldsAccessed());
+
+    // Make sure MarkFieldsAccessed() on vector works.
+    node->ClearFieldsAccessed();
+    node->MarkFieldsAccessed();
     ZETASQL_EXPECT_OK(node->CheckFieldsAccessed());
   }
 }

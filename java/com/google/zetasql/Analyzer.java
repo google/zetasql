@@ -21,6 +21,8 @@ import com.google.zetasql.LocalService.AnalyzeRequest;
 import com.google.zetasql.LocalService.AnalyzeResponse;
 import com.google.zetasql.LocalService.BuildSqlRequest;
 import com.google.zetasql.LocalService.BuildSqlResponse;
+import com.google.zetasql.LocalService.ExtractTableNamesFromNextStatementRequest;
+import com.google.zetasql.LocalService.ExtractTableNamesFromNextStatementResponse;
 import com.google.zetasql.LocalService.ExtractTableNamesFromStatementRequest;
 import com.google.zetasql.LocalService.ExtractTableNamesFromStatementResponse;
 import com.google.zetasql.LocalService.RegisteredParseResumeLocationProto;
@@ -200,5 +202,45 @@ public class Analyzer implements Serializable {
     }
     return AnalyzerHelper.deserializeResolvedStatement(
         catalog, fileDescriptorSetsBuilder, response);
+  }
+
+  /**
+   * Extract the table names from the next statement in parseResumeLocation. This function is a
+   * one-off which does not require an analyzer instance.
+   *
+   * @return List of table names. Every table name is a list of string segments, to retain the
+   *     original naming structure.
+   */
+  public static List<List<String>> extractTableNamesFromNextStatement(
+      ParseResumeLocation parseResumeLocation, AnalyzerOptions options) {
+    ExtractTableNamesFromNextStatementResponse response;
+    synchronized (parseResumeLocation) {
+      if (parseResumeLocation.isRegistered()) {
+        throw new UnsupportedOperationException(
+            "extractTableNamesFromNextStatement does not support registered ParseResumeLocation.");
+      }
+
+      ExtractTableNamesFromNextStatementRequest request =
+          ExtractTableNamesFromNextStatementRequest.newBuilder()
+              .setParseResumeLocation(parseResumeLocation.serialize())
+              .setOptions(options.getLanguageOptions().serialize())
+              .build();
+
+      try {
+        response = Client.getStub().extractTableNamesFromNextStatement(request);
+      } catch (StatusRuntimeException e) {
+        throw new SqlException(e);
+      }
+
+      parseResumeLocation.setBytePosition(response.getResumeBytePosition());
+    }
+
+    ArrayList<List<String>> result = new ArrayList<>(response.getTableNameCount());
+    for (ExtractTableNamesFromNextStatementResponse.TableName name : response.getTableNameList()) {
+      ArrayList<String> nameList = new ArrayList<>(name.getTableNameSegmentCount());
+      nameList.addAll(name.getTableNameSegmentList());
+      result.add(nameList);
+    }
+    return result;
   }
 }

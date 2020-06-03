@@ -43,6 +43,7 @@ import com.google.zetasql.resolvedast.ResolvedNode.DebugStringField;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedCast;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedComputedColumn;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedConstant;
+import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedExtendedCastInfo;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedFunctionCallBase;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedMakeProtoField;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedOption;
@@ -339,11 +340,27 @@ class DebugStrings {
    if (node.getReturnNullOnError()) {
      fields.add(new DebugStringField("return_null_on_error", "TRUE"));
    }
+    if (node.getExtendedCast() != null) {
+      fields.add(new DebugStringField("extended_cast", node.getExtendedCast()));
+    }
   }
 
   static String getNameForDebugString(ResolvedCast node) {
    return "Cast(" + node.getExpr().getType().debugString() + " -> "
        + node.getType().debugString() + ")";
+  }
+
+  /** ResolvedExtendedCastInfo gets formatted as "ResolvedExtendedCastInfo(function=name)". */
+  static void collectDebugStringFields(
+      ResolvedExtendedCastInfo node, List<DebugStringField> fields) {
+    Preconditions.checkArgument(fields.size() <= 1);
+  }
+
+  static String getNameForDebugString(ResolvedExtendedCastInfo node) {
+    return node.nodeKindString()
+        + "(function="
+        + (node.getFunction() != null ? node.getFunction().toString() : "<unknown>")
+        + ")";
   }
 
   /**

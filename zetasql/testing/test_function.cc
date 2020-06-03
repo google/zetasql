@@ -23,6 +23,7 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_value.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"

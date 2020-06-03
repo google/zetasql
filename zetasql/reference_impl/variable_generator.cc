@@ -122,4 +122,15 @@ ColumnToVariableMapping::LookupVariableNameForColumn(
          << "Failed to find column: " << column->DebugString();
 }
 
+std::string ColumnToVariableMapping::DebugString() const {
+  std::string debug_string;
+  return absl::StrJoin(
+      column_to_variable_, ", ",
+      [](std::string* out, const std::pair<ResolvedColumn, VariableId>& pair) {
+        absl::StrAppend(out, pair.first.DebugString(), " => ",
+                        pair.second.ToString());
+      });
+  return debug_string;
+}
+
 }  // namespace zetasql

@@ -48,9 +48,11 @@ All data types.
 <tr>
 <td>Groupable</td>
 <td style="white-space:nowrap">Can generally appear in an expression following<br>
-  <code>GROUP BY</code>, <code>DISTINCT</code>, or <code>PARTITION BY</code>.<br>
+  <code>GROUP BY</code>,
+  <code>DISTINCT</code>, and <code>PARTITION BY</code>.<br>
   However, <code>PARTITION BY</code> expressions cannot include<br>
-  the floating point types <code>FLOAT</code> and <code>DOUBLE</code>.</td>
+  <a href="#floating_point_types">floating point types</a>.<br>
+</td>
 <td>All data types except for:<ul>
  <li>PROTO</li>
 </ul>
@@ -182,7 +184,7 @@ scale.</td>
 </tbody>
 </table>
 
-### Floating point types
+### Floating point types {: #floating_point_types }
 
 Floating point values are approximate numeric values with fractional components.
 
@@ -853,7 +855,7 @@ STRUCT<T>
 STRUCT types are declared using the angle brackets (`<` and `>`). The type of
 the elements of a STRUCT can be arbitrarily complex.
 
-**Examples*
+**Examples**
 
 <table>
 <thead>

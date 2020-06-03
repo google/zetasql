@@ -995,11 +995,20 @@ absl::Status AnalyzeExpressionFromParserAST(
     const ASTExpression& ast_expression, const AnalyzerOptions& options_in,
     absl::string_view sql, TypeFactory* type_factory, Catalog* catalog,
     std::unique_ptr<const AnalyzerOutput>* output) {
+  return AnalyzeExpressionFromParserASTForAssignmentToType(
+      ast_expression, options_in, sql, type_factory, catalog,
+      /*target_type=*/nullptr, output);
+}
+
+absl::Status AnalyzeExpressionFromParserASTForAssignmentToType(
+    const ASTExpression& ast_expression, const AnalyzerOptions& options_in,
+    absl::string_view sql, TypeFactory* type_factory, Catalog* catalog,
+    const Type* target_type, std::unique_ptr<const AnalyzerOutput>* output) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
   const absl::Status status = AnalyzeExpressionFromParserASTImpl(
-      ast_expression, /* parser_output = */ nullptr, sql, options, catalog,
-      type_factory, /*target_type=*/nullptr, output);
+      ast_expression, /*parser_output=*/nullptr, sql, options, catalog,
+      type_factory, target_type, output);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), sql, status);
 }

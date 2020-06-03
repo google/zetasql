@@ -68,6 +68,17 @@ namespace zetasql {
 // First 8 bytes are accesible to any type, while remaining 4 can be used only
 // by simple types.
 //
+// Caveat: since a Value contains a reference to a Type, referenced Type should
+// outlive the Value. While simple built-in types are static, lifetime of
+// parameterized types (e.g. proto, struct or enum) depends on a lifetime of the
+// TypeFactory that created them and it's user's responsibility to make sure
+// that a Value is released strictly before a Type that this Value references.
+// Please check comments for zetasql::TypeFactory and
+// zetasql::TypeFactoryOptions classes for the details on type's lifetime. The
+// same way, user is responsible for making sure that DescriptorPool that
+// provided proto descriptors for proto and enum types outlived Value belonging
+// to these types.
+//
 // Thread safety
 // -------------
 // Value has the same thread-safety properties as many other types like
@@ -93,8 +104,8 @@ class Value {
   // Returns the type of the value.
   const Type* type() const;
 
-  // Returns the type kind of the value. Same as type()->type_kind() but a bit
-  // more efficient.
+  // Returns the type kind of the value. Same as type()->type_kind() but in some
+  // cases can be a bit more efficient.
   TypeKind type_kind() const;
 
   // Returns the estimated size of the in-memory C++ representation of this
@@ -158,7 +169,7 @@ class Value {
   // REQUIRES: !is_null().
   // Use of this method for timestamp_ values is DEPRECATED.
   int64_t ToInt64() const;    // For bool, int_, uint32_t, date, enum
-  uint64_t ToUint64() const;  // For bool, uint32_t, uint64
+  uint64_t ToUint64() const;  // For bool, uint32_t, uint64_t
   // Use of this method for timestamp_ values is DEPRECATED.
   double ToDouble() const;  // For bool, int_, date, timestamp_, enum types.
   absl::Cord ToCord() const;  // For string, bytes, and protos
@@ -435,10 +446,20 @@ class Value {
   // boolean AND and OR.
   typedef bool OrderPreservationKind;
 
-  static const OrderPreservationKind kPreservesOrder = true;
-  static const OrderPreservationKind kIgnoresOrder = false;
+  static constexpr OrderPreservationKind kPreservesOrder = true;
+  static constexpr OrderPreservationKind kIgnoresOrder = false;
 
-  static const int kInvalidTypeKind = __TypeKind__switch_must_have_a_default__;
+  static constexpr int kInvalidTypeKind =
+      __TypeKind__switch_must_have_a_default__;
+
+  // Constructs an empty (content is set by Type::InitializeValueContent) or
+  // NULL value of the given 'type'. Argument order_kind is currently used only
+  // for arrays and should always be set to kPreservesOrder for all other types.
+  Value(const Type* type, bool is_null, OrderPreservationKind order_kind);
+
+  // Constructs a typed NULL of the given 'type'.
+  explicit Value(const Type* type)
+      : Value(type, /*is_null=*/true, kPreservesOrder) {}
 
   // Constructors for non-null atomic values.
   explicit Value(int32_t value);
@@ -452,9 +473,6 @@ class Value {
   Value(TypeKind type_kind, int64_t value);
   // REQUIRES: type_kind is string or bytes
   Value(TypeKind type_kind, std::string value);
-
-  // Constructs a typed NULL of the given 'type'.
-  explicit Value(const Type* type);
 
   // Constructs a timestamp value.
   explicit Value(absl::Time t);
@@ -563,27 +581,126 @@ class Value {
   // interface which can be defined outside of "value", but Value provides its
   // implementation which it feeds to Array/Struct.
   bool DoesTypeUseValueList() const {
-    return type_kind_ == TYPE_ARRAY || type_kind_ == TYPE_STRUCT;
+    return metadata_.type_kind() == TYPE_ARRAY ||
+           metadata_.type_kind() == TYPE_STRUCT;
   }
 
   // Getter/setters for ValueContent.
   ValueContent GetContent() const;
   void SetContent(const ValueContent& content);
 
-  // type_kind_ is either zetasql::TypeKind or -1 for invalid values.
-  int16_t type_kind_ = kInvalidTypeKind;
-  bool is_null_ = false;
-  // This bit is used internally by test code to represent unordered arrays;
-  // public arrays are always ordered.
-  bool order_kind_ = kPreservesOrder;
+  // Nanoseconds for TYPE_TIMESTAMP, TYPE_TIME and TYPE_DATETIME types
+  int32_t subsecond_nanos() const {
+    DCHECK(metadata_.can_store_value_extended_content());
+    DCHECK(metadata_.type_kind() == TypeKind::TYPE_TIMESTAMP ||
+           metadata_.type_kind() == TypeKind::TYPE_TIME ||
+           metadata_.type_kind() == TypeKind::TYPE_DATETIME);
+    return metadata_.value_extended_content();
+  }
 
-  // 32-bit part of the value.
-  union {
-    int32_t enum_value_ = 0;  // Used for enums.
-    // Used for google.protobuf.Timestamp.nanos and sub-second part of
-    // DatetimeValue and TimeValue.
-    int32_t subsecond_nanos_;
+  // Store a pointer to a Type and value flags in metadata. Requires: type must
+  // not be a simple built-in type.
+  void SetMetadataForNonSimpleType(const Type* type, bool is_null = false,
+                                   bool preserves_order = kPreservesOrder);
+
+  // Metadata is 8 bytes class which stores the following fields:
+  //  1. 2 bit flags:
+  //    1.1. is_null: specifies whether value is NULL
+  //    1.2. preserves_order: used by ZetaSQL internally for array testing
+  //  2. union (either one or another) of:
+  //    2.1. type (Type*): pointer to a Value's Type OR
+  //    2.2. struct with fields:
+  //    2.2.1. kind (16 bits TypeKind): kind of a built-in type
+  //    2.2.2. value_extended_content (int32_t): 4 bytes that simple built-in
+  //     types can use to store arbitrary Value related information in addition
+  //     to main 64-bit Value's part. This field is currently used to store
+  //     nanoseconds for TYPE_TIMESTAMP, TYPE_TIME, TYPE_DATETIME types and
+  //     value for ENUM type (pointer to enum is stored in 64-bit part).
+  //
+  // As can be seen, Metadata can store either TypeKind or pointer to a Type
+  // directly. In the first case, it also can store 32-bit Value's part called
+  // value_extended_content. We expect that in the future we will store TypeKind
+  // in metadata only for simple built-in types and will store a pointer for all
+  // parameterized types (like proto, struct, etc.). Currently though, we are
+  // using pointer only for engine-defined types, because there are still some
+  // customer scenarios where a Value is used after referenced Type gets
+  // released.
+  class Metadata {
+   public:
+    // Returns true if instance is valid: was initialized and references a valid
+    // Type.
+    bool is_valid() const;
+
+    // Returns a kind of Value's type.
+    TypeKind type_kind() const;
+
+    // Returns a pointer to Value's Type. Requires is_valid(). If TypeKind is
+    // stored in the Metadata, Type pointer is obtained from static TypeFactory.
+    const Type* type() const;
+
+    // Returns true, if instance stores pointer to a Type and false if type's
+    // kind.
+    bool has_type_pointer() const;
+
+    // Returns true, if instance has space for 32-bit value extended content. It
+    // can be the case only if we store TypeKind and thus has_type_pointer() ==
+    // false.
+    bool can_store_value_extended_content() const;
+
+    // True, if Value is null.
+    bool is_null() const;
+
+    // This bit is used internally by test code to represent unordered arrays;
+    // public arrays are always ordered.
+    bool preserves_order() const;
+
+    // 32-bit value that can be used by simple built-in types. Requires
+    // can_store_value_extended_content() == true.
+    int32_t value_extended_content() const;
+
+    Metadata(const Type* type, bool is_null, bool preserves_order);
+
+    Metadata(TypeKind kind, bool is_null, bool preserves_order,
+             int32_t value_extended_content);
+
+    // Metadata for non-null Value with preserves_order = kPreservesOrder and
+    // value_extended_content = 0.
+    explicit Metadata(TypeKind kind)
+        : Metadata(kind, /*is_null=*/false, kPreservesOrder,
+                   /*value_extended_content=*/0) {}
+
+    // Metadata for non-null Value with preserves_order = kPreservesOrder.
+    Metadata(TypeKind kind, int32_t value_extended_content)
+        : Metadata(kind, /*is_null=*/false, kPreservesOrder,
+                   value_extended_content) {}
+
+    Metadata(const Metadata& that) = default;
+    Metadata& operator=(const Metadata& that) = default;
+
+    static Metadata Invalid() {
+      return Metadata(static_cast<TypeKind>(kInvalidTypeKind));
+    }
+
+   private:
+    void SetFlags(bool is_null, bool preserves_order);
+
+    // We use different field layouts depending on system bitness.
+    template <const int byteness>
+    struct ContentLayout;
+
+    typedef ContentLayout<sizeof(Type*)> Content;
+
+    Content* content();
+    const Content* content() const;
+
+    // We use int64_t instead of Content here, so we don't need to expose
+    // ContentLayout definition into value.h header file.
+    int64_t data_{0};
   };
+
+  // 64-bit field, which stores Value's type, value's flags and 32-bit part of
+  // the value that is available for simple types only.
+  Metadata metadata_ = Metadata::Invalid();
 
   // 64-bit part of the value.
   union {
@@ -597,10 +714,10 @@ class Value {
     int64_t timestamp_seconds_;  // Same as google.protobuf.Timestamp.seconds.
     int32_t bit_field_32_value_;   // Whole-second part of TimeValue.
     int64_t bit_field_64_value_;   // Whole-second part of DatetimeValue.
+    int32_t enum_value_;           // Used for TYPE_ENUM.
     internal::StringRef*
         string_ptr_;       // Reffed. Used for TYPE_STRING and TYPE_BYTES.
     TypedList* list_ptr_;  // Reffed. Used for arrays and structs.
-    const EnumType* enum_type_;  // Not owned. Used for enums.
     internal::ProtoRep* proto_ptr_;          // Reffed. Used for protos.
     internal::GeographyRef* geography_ptr_;  // Owned. Used for geographies.
     internal::NumericRef*

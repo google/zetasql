@@ -18,10 +18,10 @@
 #define THIRD_PARTY_ZETASQL_ZETASQL_BASE_STATUS_PAYLOAD_H_
 
 #include "absl/base/attributes.h"
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql_base {
 

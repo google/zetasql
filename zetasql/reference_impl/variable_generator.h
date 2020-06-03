@@ -101,6 +101,8 @@ class ColumnToVariableMapping {
     column_to_variable_ = column_to_variable;
   }
 
+  std::string DebugString() const;
+
  private:
   std::unique_ptr<VariableGenerator> variable_gen_;
   Map column_to_variable_;

@@ -39,6 +39,7 @@
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value_content.h"
 #include <cstdint>
 #include "absl/base/optimization.h"
@@ -97,10 +98,23 @@ std::ostream& operator<<(std::ostream& out, const Value& value) {
   return out << value.FullDebugString();
 }
 
+void Value::SetMetadataForNonSimpleType(const Type* type, bool is_null,
+                                        bool preserves_order) {
+  DCHECK(!type->IsSimpleType());
+  metadata_ = Metadata(type, is_null, preserves_order);
+  internal::TypeStoreHelper::RefFromValue(type->type_store_);
+}
+
 // Null value constructor.
-Value::Value(const Type* type)
-    : type_kind_(type->kind()), is_null_(true) {
+Value::Value(const Type* type, bool is_null, OrderPreservationKind order_kind) {
   CHECK(type != nullptr);
+
+  if (type->IsSimpleType()) {
+    metadata_ = Metadata(type->kind(), is_null, order_kind,
+                         /*value_extended_content=*/0);
+  } else {
+    SetMetadataForNonSimpleType(type, is_null, order_kind);
+  }
 
   // If type relies on a list of values, Value has to create it by itself.
   if (DoesTypeUseValueList()) {
@@ -124,34 +138,20 @@ void Value::CopyFrom(const Value& that) {
     return;
   }
 
-  // TODO: we should use Type::CopyValueContent to copy resources
-  // associated with values for all types. However, it was observed
-  // that there are some ZetaSQL customer tests that release their TypeFactory
-  // objects before Values. This leads to crashes when we try to access type
-  // instance from CopyFrom. To prevent breakage of such scenarios before all of
-  // them get fixed, we rely on type kind to release content of types that could
-  // be allocated using custom type factory: enum, array, struct and proto. This
-  // special logic can be removed when we fix all external Value/Type factory
-  // dependency issues.
-  switch (that.type_kind_) {
-    case TYPE_STRUCT:
-    case TYPE_ARRAY:
-      list_ptr_->Ref();
-      return;
-    case TYPE_PROTO:
-      proto_ptr_->Ref();
-      return;
-    case TYPE_ENUM:
-      return;
-  }
-
   ValueContent copied_content = ValueContent::NullValue();
   that.type()->CopyValueContent(that.GetContent(), &copied_content);
   SetContent(copied_content);
+
+  if (metadata_.has_type_pointer()) {
+    internal::TypeStoreHelper::RefFromValue(metadata_.type()->type_store_);
+    // TODO: currently struct and array maintain a reference
+    // counter for their value. To improve performance of struct/array copying,
+    // instead of incrementing types reference counter on each Value copy, we
+    // can just do a single decrement when Value reference counter reaches zero.
+  }
 }
 
-Value::Value(TypeKind type_kind, int64_t value)
-    : type_kind_(type_kind) {
+Value::Value(TypeKind type_kind, int64_t value) : metadata_(type_kind) {
   switch (type_kind) {
     case TYPE_DATE:
       CHECK_LE(value, types::kDateMax);
@@ -163,58 +163,54 @@ Value::Value(TypeKind type_kind, int64_t value)
   }
 }
 
-Value::Value(absl::Time t) : type_kind_(TYPE_TIMESTAMP) {
+Value::Value(absl::Time t) {
   CHECK(functions::IsValidTime(t));
   timestamp_seconds_ = absl::ToUnixSeconds(t);
-  subsecond_nanos_ =
+  const int32_t subsecond_nanos =
       (t - absl::FromUnixSeconds(timestamp_seconds_)) / absl::Nanoseconds(1);
+  metadata_ = Metadata(TypeKind::TYPE_TIMESTAMP, subsecond_nanos);
 }
 
-Value::Value(TimeValue time) : type_kind_(TYPE_TIME) {
+Value::Value(TimeValue time)
+    : metadata_(TypeKind::TYPE_TIME, time.Nanoseconds()),
+      bit_field_32_value_(time.Packed32TimeSeconds()) {
   CHECK(time.IsValid());
-  subsecond_nanos_ = time.Nanoseconds();
-  bit_field_32_value_ = time.Packed32TimeSeconds();
 }
 
-Value::Value(DatetimeValue datetime) : type_kind_(TYPE_DATETIME) {
+Value::Value(DatetimeValue datetime)
+    : metadata_(TypeKind::TYPE_DATETIME, datetime.Nanoseconds()),
+      bit_field_64_value_(datetime.Packed64DatetimeSeconds()) {
   CHECK(datetime.IsValid());
-  subsecond_nanos_ = datetime.Nanoseconds();
-  bit_field_64_value_ = datetime.Packed64DatetimeSeconds();
 }
 
-Value::Value(const EnumType* enum_type, int64_t value)
-    : type_kind_(TYPE_ENUM) {
+Value::Value(const EnumType* enum_type, int64_t value) {
   const std::string* unused;
   if (value >= std::numeric_limits<int32_t>::min() &&
       value <= std::numeric_limits<int32_t>::max() &&
       enum_type->FindName(value, &unused)) {
     // As only int32_t range enum values are supported, value can safely be casted
     // to int32_t once verified under enum range.
+    SetMetadataForNonSimpleType(enum_type);
     enum_value_ = static_cast<int32_t>(value);
-    enum_type_ = enum_type;
   } else {
-    type_kind_ = kInvalidTypeKind;
-    enum_value_ = 0;
-    enum_type_ = nullptr;
+    metadata_ = Metadata::Invalid();
   }
 }
 
-Value::Value(const EnumType* enum_type, absl::string_view name)
-    : type_kind_(TYPE_ENUM) {
+Value::Value(const EnumType* enum_type, absl::string_view name) {
   int32_t number;
   if (enum_type->FindNumber(std::string(name), &number)) {
-    enum_value_ = number;
-    enum_type_ = enum_type;
+    SetMetadataForNonSimpleType(enum_type);
+    enum_value_ = static_cast<int32_t>(number);
   } else {
-    type_kind_ = kInvalidTypeKind;
-    enum_value_ = 0;
-    enum_type_ = nullptr;
+    metadata_ = Metadata::Invalid();
   }
 }
 
 Value::Value(const ProtoType* proto_type, absl::Cord value)
-    : type_kind_(TYPE_PROTO),
-      proto_ptr_(new internal::ProtoRep(proto_type, std::move(value))) {}
+    : proto_ptr_(new internal::ProtoRep(proto_type, std::move(value))) {
+  SetMetadataForNonSimpleType(proto_type);
+}
 
 #ifdef NDEBUG
 static constexpr bool kDebugMode = false;
@@ -225,9 +221,7 @@ static constexpr bool kDebugMode = true;
 Value Value::ArrayInternal(bool safe, const ArrayType* array_type,
                            OrderPreservationKind order_kind,
                            std::vector<Value>&& values) {
-  Value result(array_type);
-  result.is_null_ = false;
-  result.order_kind_ = order_kind;
+  Value result(array_type, /*is_null=*/false, order_kind);
   std::vector<Value>& value_list = result.list_ptr_->values();
   value_list = std::move(values);
   if (kDebugMode || safe) {
@@ -242,8 +236,7 @@ Value Value::ArrayInternal(bool safe, const ArrayType* array_type,
 
 Value Value::StructInternal(bool safe, const StructType* struct_type,
                             std::vector<Value>&& values) {
-  Value result(struct_type);
-  result.is_null_ = false;
+  Value result(struct_type, /*is_null=*/false, kPreservesOrder);
   std::vector<Value>& value_list = result.list_ptr_->values();
   value_list = std::move(values);
   if (kDebugMode || safe) {
@@ -262,31 +255,17 @@ Value Value::StructInternal(bool safe, const StructType* struct_type,
 
 const Type* Value::type() const {
   CHECK(is_valid()) << DebugString();
-  switch (type_kind()) {
-    case TYPE_ENUM: return enum_type_;
-    case TYPE_ARRAY:
-    case TYPE_STRUCT:
-      return list_ptr_->type();
-    case TYPE_PROTO:
-      return proto_ptr_->type();
-    default:
-      // Expect simple type here or failure
-      const Type* result = types::TypeFromSimpleTypeKind(type_kind());
-      if (!result) {
-        LOG(FATAL) << "Invalid type: " << type_kind();
-      }
-      return result;
-  }
+  return metadata_.type();
 }
 
 const std::vector<Value>& Value::fields() const {
-  CHECK_EQ(TYPE_STRUCT, type_kind_);
+  CHECK_EQ(TYPE_STRUCT, metadata_.type_kind());
   CHECK(!is_null()) << "Null value";
   return list_ptr_->values();
 }
 
 const std::vector<Value>& Value::elements() const {
-  CHECK_EQ(TYPE_ARRAY, type_kind_);
+  CHECK_EQ(TYPE_ARRAY, metadata_.type_kind());
   CHECK(!is_null()) << "Null value";
   return list_ptr_->values();
 }
@@ -313,18 +292,18 @@ Value Value::DatetimeFromPacked64Micros(int64_t v) {
 }
 
 const std::string& Value::enum_name() const {
-  CHECK_EQ(TYPE_ENUM, type_kind_) << "Not an enum value";
+  CHECK_EQ(TYPE_ENUM, metadata_.type_kind()) << "Not an enum value";
   CHECK(!is_null()) << "Null value";
   const std::string* enum_name = nullptr;
-  CHECK(type()->AsEnum()->FindName(enum_value_, &enum_name))
-      << "Value " << enum_value_ << " not in "
+  CHECK(type()->AsEnum()->FindName(enum_value(), &enum_name))
+      << "Value " << enum_value() << " not in "
       << type()->AsEnum()->enum_descriptor()->DebugString();
   return *enum_name;
 }
 
 int64_t Value::ToInt64() const {
   CHECK(!is_null()) << "Null value";
-  switch (type_kind_) {
+  switch (metadata_.type_kind()) {
     case TYPE_INT64: return int64_value_;
     case TYPE_INT32: return int32_value_;
     case TYPE_UINT32: return uint32_value_;
@@ -333,7 +312,7 @@ int64_t Value::ToInt64() const {
     case TYPE_TIMESTAMP:
       return ToUnixMicros();
     case TYPE_ENUM:
-      return enum_value_;
+      return enum_value();
     case TYPE_STRING:
     case TYPE_BYTES:
     case TYPE_ARRAY:
@@ -349,7 +328,7 @@ int64_t Value::ToInt64() const {
 
 uint64_t Value::ToUint64() const {
   CHECK(!is_null()) << "Null value";
-  switch (type_kind_) {
+  switch (metadata_.type_kind()) {
     case TYPE_UINT64: return uint64_value_;
     case TYPE_UINT32: return uint32_value_;
     case TYPE_BOOL: return bool_value_;
@@ -361,7 +340,7 @@ uint64_t Value::ToUint64() const {
 
 double Value::ToDouble() const {
   CHECK(!is_null()) << "Null value";
-  switch (type_kind_) {
+  switch (metadata_.type_kind()) {
     case TYPE_BOOL: return bool_value_;
     case TYPE_DATE: return int32_value_;
     case TYPE_DOUBLE: return double_value_;
@@ -376,7 +355,7 @@ double Value::ToDouble() const {
     case TYPE_BIGNUMERIC:
       return bignumeric_value().ToDouble();
     case TYPE_ENUM:
-      return enum_value_;
+      return enum_value();
     case TYPE_TIMESTAMP:
     case TYPE_STRING:
     case TYPE_BYTES:
@@ -405,7 +384,7 @@ uint64_t Value::physical_byte_size() const {
 
 absl::Cord Value::ToCord() const {
   CHECK(!is_null()) << "Null value";
-  switch (type_kind_) {
+  switch (metadata_.type_kind()) {
     case TYPE_STRING:
     case TYPE_BYTES:
       return absl::Cord(string_ptr_->value());
@@ -419,20 +398,20 @@ absl::Cord Value::ToCord() const {
 
 absl::Time Value::ToTime() const {
   CHECK(!is_null()) << "Null value";
-  CHECK_EQ(TYPE_TIMESTAMP, type_kind_) << "Not a timestamp value";
+  CHECK_EQ(TYPE_TIMESTAMP, metadata_.type_kind()) << "Not a timestamp value";
   return absl::FromUnixSeconds(timestamp_seconds_) +
-         absl::Nanoseconds(subsecond_nanos_);
+         absl::Nanoseconds(subsecond_nanos());
 }
 
 int64_t Value::ToUnixMicros() const { return absl::ToUnixMicros(ToTime()); }
 
 int64_t Value::ToPacked64TimeMicros() const {
   return (static_cast<int64_t>(bit_field_32_value_) << kMicrosShift) |
-         (subsecond_nanos_ / 1000);
+         (subsecond_nanos() / 1000);
 }
 
 int64_t Value::ToPacked64DatetimeMicros() const {
-  return (bit_field_64_value_ << kMicrosShift) | (subsecond_nanos_ / 1000);
+  return (bit_field_64_value_ << kMicrosShift) | (subsecond_nanos() / 1000);
 }
 
 absl::Status Value::ToUnixNanos(int64_t* nanos) const {
@@ -523,57 +502,22 @@ bool Value::EqualsInternal(const Value& x, const Value& y, bool allow_bags,
   if (!x.is_valid()) { return !y.is_valid(); }
   if (!y.is_valid()) { return false; }
 
-  if (x.type_kind() != y.type_kind()) return TypesDiffer(x, y, reason);
-  if ((x.type_kind() == TYPE_ENUM || x.type_kind() == TYPE_ARRAY ||
-       x.type_kind() == TYPE_PROTO) &&
-      !x.type()->Equivalent(y.type())) {
-    return TypesDiffer(x, y, reason);
-  }
+  if (!x.type()->Equivalent(y.type())) return TypesDiffer(x, y, reason);
+
   if (x.is_null() != y.is_null()) return false;
-  // TODO: We need to check TYPE_STRUCT values, that they have the same
-  // number and comparable types of fields. This requires modifying
-  // Value::num_fields() to not call Value::fields().
   if (x.is_null() && y.is_null()) return true;
 
   std::unique_ptr<DeepOrderKindSpec> owned_deep_order_spec;
   if (allow_bags && deep_order_spec == nullptr) {
     owned_deep_order_spec = absl::make_unique<DeepOrderKindSpec>();
     deep_order_spec = owned_deep_order_spec.get();
-    if (!x.type()->Equivalent(y.type())) {
-      return false;
-    }
+
     deep_order_spec->FillSpec(x);
     deep_order_spec->FillSpec(y);
   }
 
+  // TODO: move struct and array logic into Type subclasses.
   switch (x.type_kind()) {
-    case TYPE_INT32: return x.int32_value() == y.int32_value();
-    case TYPE_INT64: return x.int64_value() == y.int64_value();
-    case TYPE_UINT32: return x.uint32_value() == y.uint32_value();
-    case TYPE_UINT64: return x.uint64_value() == y.uint64_value();
-    case TYPE_BOOL: return x.bool_value() == y.bool_value();
-    case TYPE_FLOAT:
-      return float_margin.Equal(x.float_value(), y.float_value());
-    case TYPE_DOUBLE:
-      return float_margin.Equal(x.double_value(), y.double_value());
-    case TYPE_STRING: return x.string_value() == y.string_value();
-    case TYPE_BYTES: return x.bytes_value() == y.bytes_value();
-    case TYPE_DATE: return x.date_value() == y.date_value();
-    case TYPE_TIMESTAMP:
-      return x.timestamp_seconds_ == y.timestamp_seconds_ &&
-             x.subsecond_nanos_ == y.subsecond_nanos_;
-    case TYPE_TIME:
-      return x.bit_field_32_value_ == y.bit_field_32_value_ &&
-             x.subsecond_nanos_ == y.subsecond_nanos_;
-    case TYPE_DATETIME:
-      return x.bit_field_64_value_ == y.bit_field_64_value_ &&
-             x.subsecond_nanos_ == y.subsecond_nanos_;
-    case TYPE_NUMERIC:
-      return x.numeric_value() == y.numeric_value();
-    case TYPE_BIGNUMERIC:
-      return x.bignumeric_value() == y.bignumeric_value();
-    case TYPE_ENUM:
-      return x.enum_value() == y.enum_value();
     case TYPE_ARRAY: {
       if (x.num_elements() != y.num_elements()) {
         if (reason) {
@@ -625,49 +569,11 @@ bool Value::EqualsInternal(const Value& x, const Value& y, bool allow_bags,
         }
       }
       return true;
-    case TYPE_PROTO: {
-      // Shortcut fast case.
-      if (x.ToCord() == y.ToCord()) return true;
-
-      // We use the descriptor from x.  The implementation of Type equality
-      // currently means the descriptors must be identical.  If we relax that,
-      // it is possible this comparison would be assymetric, but only in
-      // unusual cases where a message field is unknown on one side but not
-      // the other, and doesn't compare identically as bytes.
-      google::protobuf::DynamicMessageFactory factory;
-      const google::protobuf::Message* prototype = factory.GetPrototype(
-          x.type()->AsProto()->descriptor());
-
-      std::unique_ptr<google::protobuf::Message> x_msg(prototype->New());
-      std::unique_ptr<google::protobuf::Message> y_msg(prototype->New());
-      if (!x_msg->ParsePartialFromString(std::string(x.ToCord())) ||
-          !y_msg->ParsePartialFromString(std::string(y.ToCord()))) {
-        return false;
-      }
-      // This does exact comparison of doubles.  It is possible to customize it
-      // using set_float_comparison(MessageDifferencer::APPROXIMATE), which
-      // makes it use zetasql_base::MathUtil::AlmostEqual, or to set up default
-      // FieldComparators for even more control of comparisons.
-      // TODO We could use one of those options if
-      // !float_margin.IsExactEquality().
-      // HashCode would need to be updated.
-      google::protobuf::util::MessageDifferencer differencer;
-      std::string differencer_reason;
-      if (reason != nullptr) {
-        differencer.ReportDifferencesToString(&differencer_reason);
-      }
-      const bool result = differencer.Compare(*x_msg, *y_msg);
-      if (!differencer_reason.empty()) {
-        absl::StrAppend(reason, differencer_reason);
-        // The newline will be added already.
-        DCHECK_EQ(differencer_reason[differencer_reason.size() - 1], '\n')
-            << differencer_reason;
-      }
-      return result;
+    default: {
+      Type::ValueEqualityCheckOptions options(y.type(), float_margin, reason);
+      return x.type()->ValueContentEquals(x.GetContent(), y.GetContent(),
+                                          options);
     }
-    case TYPE_UNKNOWN:
-    case __TypeKind__switch_must_have_a_default__:
-      LOG(FATAL) << "Unexpected expected internally only: " << x.type_kind();
   }
 }
 
@@ -969,7 +875,7 @@ size_t Value::HashCodeInternal(FloatMargin float_margin) const {
 }
 
 bool Value::LessThan(const Value& that) const {
-  if (type_kind_ == that.type_kind_) {
+  if (metadata_.type_kind() == that.metadata_.type_kind()) {
     // Note that because we don't check type for nulls, this means we may return
     // true when the type of 'this' and 'that' is different and one of them is
     // null. E.g. when comparing two enums, if 'this' is null and 'that' is not
@@ -1004,17 +910,20 @@ bool Value::LessThan(const Value& that) const {
       case TYPE_TIMESTAMP:
         return ToTime() < that.ToTime();
       case TYPE_TIME:
-        return bit_field_32_value_ < that.bit_field_32_value_||
+        return bit_field_32_value_ < that.bit_field_32_value_ ||
                (bit_field_32_value_ == that.bit_field_32_value_ &&
-                subsecond_nanos_ < that.subsecond_nanos_);
+                subsecond_nanos() < that.subsecond_nanos());
       case TYPE_DATETIME:
         return bit_field_64_value_ < that.bit_field_64_value_ ||
                (bit_field_64_value_ == that.bit_field_64_value_ &&
-                subsecond_nanos_ < that.subsecond_nanos_);
+                subsecond_nanos() < that.subsecond_nanos());
       case TYPE_NUMERIC:
         return numeric_value() < that.numeric_value();
       case TYPE_BIGNUMERIC:
         return bignumeric_value() < that.bignumeric_value();
+      case TYPE_JSON:
+        LOG(DFATAL) << "Cannot compare JSON values";
+        return false;
       case TYPE_ENUM: {
         // The behaviour is undefined when the enum types are not compatible.
         // Fails tests and log an error message in prod.
@@ -1045,6 +954,10 @@ bool Value::LessThan(const Value& that) const {
           if (that.element(i).LessThan(element(i))) return false;
         }
         return num_elements() < that.num_elements();
+      case TYPE_EXTENDED:
+        // TODO: fix by moving this logic into Type class.
+        LOG(FATAL) << "Extended types are not fully implemented";
+        break;
       case TYPE_GEOGRAPHY:
       case TYPE_PROTO:
       case TYPE_UNKNOWN:
@@ -1210,6 +1123,8 @@ static std::string CapitalizedNameForType(const Type* type) {
       return "Numeric";
     case TYPE_BIGNUMERIC:
       return "BigNumeric";
+    case TYPE_JSON:
+      return "Json";
     case TYPE_ENUM:
       return absl::StrCat("Enum<",
                           type->AsEnum()->enum_descriptor()->full_name(), ">");
@@ -1224,6 +1139,10 @@ static std::string CapitalizedNameForType(const Type* type) {
       CHECK(type->AsProto()->descriptor() != nullptr);
       return absl::StrCat("Proto<", type->AsProto()->descriptor()->full_name(),
                           ">");
+    case TYPE_EXTENDED:
+      // TODO: fix by moving this logic into Type class.
+      LOG(DFATAL) << "Extended types are not fully implemented";
+      return "ExtendedType";
     case TYPE_UNKNOWN:
     case __TypeKind__switch_must_have_a_default__:
       LOG(FATAL) << "Unexpected type kind expected internally only: "
@@ -1306,9 +1225,11 @@ std::string Value::ComplexValueToDebugString(const Value* root, bool verbose) {
 }
 
 std::string Value::DebugString(bool verbose) const {
-  if (type_kind_ == kInvalidTypeKind) { return "Uninitialized value"; }
+  if (metadata_.type_kind() == kInvalidTypeKind) {
+    return "Uninitialized value";
+  }
   if (!is_valid())
-    return absl::StrCat("Invalid value, type_kind: ", type_kind_);
+    return absl::StrCat("Invalid value, type_kind: ", metadata_.type_kind());
   // Note: This method previously had problems with large stack size because
   // of recursion for structs and arrays.  Using StrCat/StrAppend in particular
   // adds large stack size per argument for the AlphaNum object.
@@ -1318,67 +1239,32 @@ std::string Value::DebugString(bool verbose) const {
     s = "NULL";
   } else {
     switch (type_kind()) {
-      case TYPE_INT32:
-      case TYPE_INT64:
-      case TYPE_UINT32:
-      case TYPE_UINT64:
-      case TYPE_BOOL:
-      case TYPE_STRING:
-      case TYPE_BYTES:
-      case TYPE_DATE:
-      case TYPE_TIMESTAMP:
-      case TYPE_TIME:
-      case TYPE_DATETIME:
-      case TYPE_NUMERIC:
-      case TYPE_BIGNUMERIC:
-        s = GetSQLInternal<true, false>(PRODUCT_INTERNAL);
-        break;
-      case TYPE_FLOAT:
-        s = RoundTripFloatToString(float_value());
-        break;
-      case TYPE_DOUBLE:
-        // TODO I would like to change this so it returns "1.0" rather
-        // than "1", like GetSQL(), but that affects a lot of client code.
-        s = RoundTripDoubleToString(double_value());
-        break;
-      case TYPE_ENUM:
-        if (verbose) {
-          s = absl::StrCat(enum_name(), ":", enum_value());
-        } else {
-          s = enum_name();
-        }
-        break;
       case TYPE_ARRAY:
       case TYPE_STRUCT:
+        // TODO: move struct/array logic into Type subclasses.
         s = ComplexValueToDebugString(this, verbose);
         add_type_prefix = false;
         break;
-      case TYPE_PROTO: {
-        CHECK(type()->AsProto()->descriptor() != nullptr);
-        google::protobuf::DynamicMessageFactory message_factory;
-        std::unique_ptr<google::protobuf::Message> m(
-            this->ToMessage(&message_factory,
-                            /*return_null_on_error=*/true));
-        if (verbose) {
-          s = CapitalizedNameForType(type());
-        }
-        if (m == nullptr) {
-          s.append("{<unparseable>}");
-        } else {
-          absl::StrAppend(
-              &s, "{", verbose ? m->DebugString() : m->ShortDebugString(), "}");
-        }
-        add_type_prefix = false;
+      default: {
+        Type::FormatValueContentOptions options;
+        options.product_mode = ProductMode::PRODUCT_INTERNAL;
+        options.mode = Type::FormatValueContentOptions::Mode::kDebug;
+        options.verbose = verbose;
+
+        s = type()->FormatValueContent(GetContent(), options);
         break;
       }
-      case TYPE_UNKNOWN:
-      case __TypeKind__switch_must_have_a_default__:
-        LOG(FATAL) << "Unexpected type kind expected internally only: "
-                   << type_kind();
     }
   }
+
   if (add_type_prefix) {
-    s = absl::StrCat(CapitalizedNameForType(type()), "(", s, ")");
+    if (type_kind() == TYPE_PROTO && !is_null()) {
+      // Proto types wrap their values using curly brackets, so don't need
+      // to add additional parentheses.
+      return absl::StrCat(CapitalizedNameForType(type()), s);
+    }
+
+    return absl::StrCat(CapitalizedNameForType(type()), "(", s, ")");
   }
   return s;
 }
@@ -1389,15 +1275,6 @@ std::string Value::Format() const {
 }
 
 namespace {
-template <typename V>
-inline std::string AddCast(const V& value, const Type* type, ProductMode mode) {
-  return absl::StrCat("CAST(", value, " AS ", type->TypeName(mode), ")");
-}
-
-inline std::string AddTypePrefix(absl::string_view value, const Type* type,
-                                 ProductMode mode) {
-  return absl::StrCat(type->TypeName(mode), " ", ToStringLiteral(value));
-}
 
 std::string ComplexValueToString(
     const Value* root, ProductMode mode, bool as_literal,
@@ -1484,119 +1361,30 @@ std::string Value::GetSQLInternal(ProductMode mode) const {
   const Type* type = this->type();
 
   if (is_null()) {
-    return as_literal ? "NULL" : AddCast("NULL", type, mode);
+    return as_literal
+               ? "NULL"
+               : absl::StrCat("CAST(NULL AS ", type->TypeName(mode), ")");
   }
-  switch (type->kind()) {
-    case TYPE_BOOL:
-      return (bool_value() ? "true" : "false");
-    case TYPE_STRING:
-      return ToStringLiteral(string_value());
-    case TYPE_BYTES:
-      return ToBytesLiteral(bytes_value());
-    case TYPE_DATE: {
-      std::string s;
-      // Failure cannot actually happen in this context since date_value()
-      // is guaranteed to be valid.
-      ZETASQL_CHECK_OK(functions::ConvertDateToString(date_value(), &s));
-      return maybe_add_simple_type_prefix ? AddTypePrefix(s, type, mode) : s;
-    }
-    case TYPE_TIMESTAMP: {
-      std::string s;
-      // Failure cannot actually happen in this context since the value
-      // is guaranteed to be valid.
-      ZETASQL_CHECK_OK(functions::ConvertTimestampToString(
-          ToTime(), functions::kNanoseconds, "+0" /* timezone */, &s));
-      return maybe_add_simple_type_prefix ? AddTypePrefix(s, type, mode) : s;
-    }
-    case TYPE_TIME: {
-      std::string s = time_value().DebugString();
-      return maybe_add_simple_type_prefix ? AddTypePrefix(s, type, mode) : s;
-    }
-    case TYPE_DATETIME: {
-      std::string s = datetime_value().DebugString();
-      return maybe_add_simple_type_prefix ? AddTypePrefix(s, type, mode) : s;
-    }
-    case TYPE_INT32:
-      return as_literal ? absl::StrCat(int32_value())
-                        : AddCast(int32_value(), type, mode);
-    case TYPE_UINT32:
-      return as_literal ? absl::StrCat(uint32_value())
-                        : AddCast(uint32_value(), type, mode);
-    case TYPE_INT64:
-      return absl::StrCat(int64_value());
-    case TYPE_UINT64:
-      return as_literal ? absl::StrCat(uint64_value())
-                        : AddCast(uint64_value(), type, mode);
-    case TYPE_FLOAT:
-      // Floats and doubles like "inf" and "nan" need to be quoted.
-      if (!std::isfinite(float_value())) {
-        return AddCast(ToStringLiteral(RoundTripFloatToString(float_value())),
-                       type, mode);
-      } else {
-        std::string s = RoundTripFloatToString(float_value());
-        // Make sure that doubles always print with a . or an 'e' so they
-        // don't look like integers.
-        if (as_literal &&
-            s.find_first_not_of("-0123456789") == std::string::npos) {
-          s.append(".0");
-        }
-        return as_literal ? s : AddCast(s, type, mode);
-      }
-    case TYPE_DOUBLE:
-      if (!std::isfinite(double_value())) {
-        return AddCast(ToStringLiteral(RoundTripDoubleToString(double_value())),
-                       type, mode);
-      } else {
-        std::string s = RoundTripDoubleToString(double_value());
-        // Make sure that doubles always print with a . or an 'e' so they
-        // don't look like integers.
-        if (s.find_first_not_of("-0123456789") == std::string::npos) {
-          s.append(".0");
-        }
-        return s;
-      }
-    case TYPE_NUMERIC: {
-      std::string s = numeric_value().ToString();
-      return maybe_add_simple_type_prefix
-                 ? absl::StrCat("NUMERIC ", ToStringLiteral(s))
-                 : s;
-    }
-    case TYPE_BIGNUMERIC: {
-      std::string s = bignumeric_value().ToString();
-      return maybe_add_simple_type_prefix
-                 ? absl::StrCat("BIGNUMERIC ", ToStringLiteral(s))
-                 : s;
-    }
-    case TYPE_ENUM: {
-      std::string s = ToStringLiteral(enum_name());
-      return as_literal ? s : AddCast(s, type, mode);
-    }
-    case TYPE_PROTO:
-      if (!as_literal) {
-        return AddCast(ToBytesLiteral(std::string(ToCord())), type, mode);
-      } else {
-        google::protobuf::DynamicMessageFactory message_factory;
-        std::unique_ptr<google::protobuf::Message> message(
-            this->ToMessage(&message_factory));
-        absl::Status status;
-        absl::Cord out;
-        if (functions::ProtoToString(message.get(), &out, &status)) {
-          return ToStringLiteral(std::string(out));
-        } else {
-          // This branch is not expected, but try to return something.
-          return ToStringLiteral(message->ShortDebugString());
-        }
-      }
-    case TYPE_STRUCT:
-    case TYPE_ARRAY:
-      return ComplexValueToString(
-          this, mode, as_literal,
-          // For leaf nodes, it is fine to recursively call GetSQLInternal once.
-          &Value::GetSQLInternal<as_literal, maybe_add_simple_type_prefix>);
-    case TYPE_UNKNOWN:
-    case __TypeKind__switch_must_have_a_default__:
-      return "<Invalid value>";
+
+  if (type->kind() == TYPE_STRUCT || type->kind() == TYPE_ARRAY) {
+    // TODO: move struct/array logic into Type subclasses.
+    return ComplexValueToString(
+        this, mode, as_literal,
+        // For leaf nodes, it is fine to recursively call GetSQLInternal once.
+        &Value::GetSQLInternal<as_literal, maybe_add_simple_type_prefix>);
   }
+
+  Type::FormatValueContentOptions options;
+  options.product_mode = mode;
+  if (as_literal) {
+    options.mode = maybe_add_simple_type_prefix
+                       ? Type::FormatValueContentOptions::Mode::kSQLLiteral
+                       : Type::FormatValueContentOptions::Mode::kDebug;
+  } else {
+    options.mode = Type::FormatValueContentOptions::Mode::kSQLExpression;
+  }
+
+  return type->FormatValueContent(GetContent(), options);
 }
 
 std::string RepeatString(const std::string& text, int times) {
@@ -2033,6 +1821,8 @@ absl::Status Value::Serialize(ValueProto* value_proto) const {
       value_proto->set_bignumeric_value(
           bignumeric_value().SerializeAsProtoBytes());
       break;
+    case TYPE_JSON:
+      return absl::UnimplementedError("JSON type is not fully implemented");
     case TYPE_STRING:
       value_proto->set_string_value(string_value());
       break;
@@ -2156,6 +1946,9 @@ zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
                        BigNumericValue::DeserializeFromProtoBytes(
                            value_proto.bignumeric_value()));
       return BigNumeric(bignumeric_v);
+    }
+    case TYPE_JSON: {
+      return absl::UnimplementedError("JSON type is not fully implemented");
     }
     case TYPE_STRING:
       if (!value_proto.has_string_value()) {
@@ -2286,13 +2079,212 @@ zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
 }
 
 ValueContent Value::GetContent() const {
-  return ValueContent(int64_value_, enum_value_, is_null_);
+  return ValueContent(int64_value_,
+                      metadata_.can_store_value_extended_content()
+                          ? metadata_.value_extended_content()
+                          : 0,
+                      metadata_.is_null());
 }
 
 void Value::SetContent(const ValueContent& content) {
+  DCHECK(metadata_.is_valid());
+
   int64_value_ = content.content_;
-  enum_value_ = content.simple_type_extended_content_;
-  is_null_ = content.is_null_;
+  metadata_ = metadata_.has_type_pointer()
+                  ? Metadata(metadata_.type(), content.is_null(),
+                             metadata_.preserves_order())
+                  : Metadata(metadata_.type_kind(), content.is_null(),
+                             metadata_.preserves_order(),
+                             content.simple_type_extended_content_);
+}
+
+// ContentStorage<4> represents Metadata's field layout on 32-bit systems.
+// Layouts on 32 and 64 bit systems are different, because x64 pointer and two
+// boolean variables cannot reside in 8 bytes data structure and we need
+// to use pointer tagging (even though a pointer uses just 6 bytes, some
+// platforms checks that all bits in the remaining 2 bytes have the same value).
+// On 32-bit systems we have only 2-bits available for pointer tagging (which is
+// not enough for 3 flags that we keep), however (since pointer is only 4
+// bytes), we have enough space to store flags in the first 4 bytes of the
+// structure.
+template <>
+class Value::Metadata::ContentLayout<4> {
+ protected:
+  int16_t kind_;
+  uint16_t is_null_ : 1;
+  uint16_t preserves_order_ : 1;
+  uint16_t has_type_ : 1;
+
+  union {
+    const Type* type_;
+    int32_t value_extended_content_;
+  };
+
+ public:
+  int16_t kind() const { return kind_; }
+  void kind(int16_t val) { kind_ = val; }
+
+  const Type* type() const { return type_; }
+  void type(Type* type) {
+    type_ = type;
+    has_type_ = true;
+  }
+
+  int32_t value_extended_content() const { return value_extended_content_; }
+  void value_extended_content(int32_t val) { value_extended_content_ = val; }
+
+  bool is_null() const { return is_null_; }
+  void is_null(bool val) { is_null_ = val; }
+
+  bool preserves_order() const { return preserves_order_; }
+  void preserves_order(bool val) { preserves_order_ = val; }
+
+  bool has_type_pointer() const { return has_type_; }
+};
+
+// On 64-bit systems we need to use pointer tagging to distinguish between the
+// case when we store type pointer and type kind together with value. We expect
+// all Type pointers to be 8 bytes aligned (which should be the case if standard
+// allocation mechanism is used since std::malloc is required to return an
+// allocation that is suitably aligned for any scalar type). We use 3 lowest
+// bits to encode is_null, preserves_order and has_type. These bits must never
+// overlap with int32_t value_. Thus we use different structure layout depending
+// on system endianness.
+template <>
+class Value::Metadata::ContentLayout<8> {
+  static constexpr uint64_t kTagMask = static_cast<uint64_t>(7);
+  static constexpr uint64_t kTypeMask = ~static_cast<uint64_t>(kTagMask);
+  static constexpr uint64_t kHasTypeTag = 1;
+  static constexpr uint64_t kIsNullTag = 1 << 1;
+  static constexpr uint64_t kPreserverOrderTag = 1 << 2;
+
+ protected:
+  union {
+    uint64_t type_;
+
+    struct {
+#if defined(ABSL_IS_BIG_ENDIAN)
+      int32_t value_extended_content_;
+      int16_t kind_;
+      int16_t place_holder_;
+#elif defined(ABSL_IS_LITTLE_ENDIAN)
+      int16_t place_holder_;
+      int16_t kind_;
+      int32_t value_extended_content_;
+#else  // !ABSL_IS_BIG_ENDIAN and !ABSL_IS_LITTLE_ENDIAN
+      static_assert(false,
+                    "Platform is not supported: neither big nor little endian");
+#endif
+    };
+  };
+
+ public:
+  int16_t kind() const { return kind_; }
+
+  // Kind (if set) must be set before other fields.
+  void kind(int16_t val) { kind_ = val; }
+
+  const Type* type() const {
+    return reinterpret_cast<const Type*>(type_ & kTypeMask);
+  }
+
+  // Type (if set) must be set before other fields.
+  void type(const Type* type) {
+    const uint64_t type_ptr = reinterpret_cast<uint64_t>(type);
+    CHECK_EQ((type_ptr & kTagMask), 0);
+    type_ = type_ptr | kHasTypeTag;
+  }
+
+  static void SetTag(uint64_t* dst, uint64_t tag, bool value) {
+    if (value)
+      *dst |= tag;
+    else
+      *dst &= (~tag);
+  }
+
+  int32_t value_extended_content() const { return value_extended_content_; }
+  void value_extended_content(int32_t val) { value_extended_content_ = val; }
+
+  bool is_null() const { return type_ & kIsNullTag; }
+  void is_null(bool val) { SetTag(&type_, kIsNullTag, val); }
+
+  bool preserves_order() const { return type_ & kPreserverOrderTag; }
+  void preserves_order(bool val) { SetTag(&type_, kPreserverOrderTag, val); }
+
+  bool has_type_pointer() const { return type_ & kHasTypeTag; }
+  void has_type_pointer(bool val) { SetTag(&type_, kHasTypeTag, val); }
+};
+
+Value::Metadata::Content* Value::Metadata::content() {
+  static_assert(sizeof(Content) == sizeof(int64_t));
+  return reinterpret_cast<Content*>(&data_);
+}
+
+const Value::Metadata::Content* Value::Metadata::content() const {
+  return reinterpret_cast<const Content*>(&data_);
+}
+
+const Type* Value::Metadata::type() const {
+  if (content()->has_type_pointer()) return content()->type();
+  return types::TypeFromSimpleTypeKind(
+      static_cast<TypeKind>(content()->kind()));
+}
+
+TypeKind Value::Metadata::type_kind() const {
+  if (content()->has_type_pointer()) return content()->type()->kind();
+  return static_cast<TypeKind>(content()->kind());
+}
+
+bool Value::Metadata::is_null() const { return content()->is_null(); }
+
+bool Value::Metadata::preserves_order() const {
+  return content()->preserves_order();
+}
+
+bool Value::Metadata::has_type_pointer() const {
+  return content()->has_type_pointer();
+}
+
+bool Value::Metadata::can_store_value_extended_content() const {
+  return !has_type_pointer();
+}
+
+int32_t Value::Metadata::value_extended_content() const {
+  CHECK(can_store_value_extended_content());
+  return content()->value_extended_content();
+}
+
+bool Value::Metadata::is_valid() const {
+  if (content()->has_type_pointer()) return true;
+  return content()->kind() > 0;
+}
+
+void Value::Metadata::SetFlags(bool is_null, bool preserves_order) {
+  content()->is_null(is_null);
+  content()->preserves_order(preserves_order);
+
+  DCHECK(content()->is_null() == is_null);
+  DCHECK(content()->preserves_order() == preserves_order);
+}
+
+Value::Metadata::Metadata(const Type* type, bool is_null,
+                          bool preserves_order) {
+  content()->type(type);
+  SetFlags(is_null, preserves_order);
+
+  DCHECK(content()->has_type_pointer());
+  DCHECK(content()->type() == type);
+}
+
+Value::Metadata::Metadata(TypeKind kind, bool is_null, bool preserves_order,
+                          int32_t value_extended_content) {
+  content()->kind(kind);
+  content()->value_extended_content(value_extended_content);
+  SetFlags(is_null, preserves_order);
+
+  DCHECK(!content()->has_type_pointer());
+  DCHECK(content()->kind() == kind);
+  DCHECK(content()->value_extended_content() == value_extended_content);
 }
 
 }  // namespace zetasql

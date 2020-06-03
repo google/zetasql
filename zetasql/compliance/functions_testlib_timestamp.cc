@@ -128,10 +128,10 @@ std::vector<FunctionTestCall> GetFunctionTestsDateAdd() {
           "YEAR"),
       // This set of tests exercises each of the internal arithmetic overflow
       // checks in the shared AddDate function in zetasql/public/functions
-      date_add_error("2001-01-01", std::numeric_limits<int32_t>::max() + 1ll,
+      date_add_error("2001-01-01", std::numeric_limits<int32_t>::max() + int64_t{1},
                      "DAY"),
-      date_add_error("2001-01-01", std::numeric_limits<int32_t>::lowest() - 1ll,
-                     "DAY"),
+      date_add_error("2001-01-01",
+                     std::numeric_limits<int32_t>::lowest() - int64_t{1}, "DAY"),
       date_add_error("0001-01-01", std::numeric_limits<int32_t>::lowest(), "DAY"),
       date_add_error("0001-01-01", std::numeric_limits<int32_t>::lowest(),
                      "WEEK"),
@@ -6574,11 +6574,11 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampFromDate() {
       // in timestamp_with_default_time_zone{,_2}.test.
       {"timestamp",
        {{Date(kDateMin), String("-08:30")},
-        Timestamp(kTimestampMin + (510 * 60) * 1000ll * 1000ll)}},
+        Timestamp(kTimestampMin + (510 * 60) * int64_t{1000} * int64_t{1000})}},
       {"timestamp",
        {Date(kDateMax), String("+08:30")},
        Timestamp(kTimestampMax - kNaiveNumMicrosPerDay + 1 -
-                 (510 * 60) * 1000ll * 1000ll)},
+                 (510 * 60) * int64_t{1000} * int64_t{1000})},
       // Out of range
       {"timestamp",
        {Date(kDateMin), String("+1")},

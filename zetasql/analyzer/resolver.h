@@ -28,6 +28,7 @@
 #include "zetasql/base/atomic_sequence_num.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/analyzer/column_cycle_detector.h"
+#include "zetasql/analyzer/container_hash_equals.h"
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/parser/parse_tree.h"
@@ -192,6 +193,7 @@ class Resolver {
   // Resolve the Type from the <type_name>.
   absl::Status ResolveTypeName(const std::string& type_name, const Type** type);
 
+  // DEPRECATED: WILL BE REMOVED SOON
   // Attempt to coerce <scan>'s output types to those in <types> using
   // assignment coercion semantics.
   // If no coercion is needed, then <scan> and <output_name_list> are left
@@ -343,30 +345,27 @@ class Resolver {
   // True if we are analyzing check constraint expression.
   bool analyzing_check_constraint_expression_;
 
-  // Store list of WITH subquery names currently visible.
+  // Store list of named subqueries currently visible.
   // This is updated as we traverse the query to implement scoping of
   // WITH subquery names.
-  struct WithSubqueryInfo {
-    // Constructor.  Takes ownership of <prev_with_subquery_info_in>.
-    WithSubqueryInfo(
-        IdString unique_alias_in, const ResolvedColumnList& column_list_in,
-        const std::shared_ptr<const NameList>& name_list_in,
-        std::unique_ptr<WithSubqueryInfo> prev_with_subquery_info_in)
+  struct NamedSubquery {
+    NamedSubquery(IdString unique_alias_in,
+                  const ResolvedColumnList& column_list_in,
+                  const std::shared_ptr<const NameList>& name_list_in)
         : unique_alias(unique_alias_in),
           column_list(column_list_in),
-          name_list(name_list_in),
-          prev_with_subquery_info(std::move(prev_with_subquery_info_in)) {}
+          name_list(name_list_in) {}
 
-    WithSubqueryInfo(const WithSubqueryInfo&) = delete;
-    WithSubqueryInfo& operator=(const WithSubqueryInfo&) = delete;
+    NamedSubquery(const NamedSubquery&) = delete;
+    NamedSubquery& operator=(const NamedSubquery&) = delete;
 
-    // The globally uniquified alias for this WITH clause which we will use in
+    // The globally uniquified alias for this table alias which we will use in
     // the resolved AST.
     const IdString unique_alias;
 
-    // The columns produced by the WITH subquery.
+    // The columns produced by the table alias.
     // These will be matched 1:1 with newly created columns in future
-    // WithRefScans.
+    // WithRefScan/RecursiveRefScan nodes.
     ResolvedColumnList column_list;
 
     // The name_list for the columns produced by the WITH subquery.
@@ -375,14 +374,23 @@ class Resolver {
     // This also includes the is_value_table bit indicating if the WITH subquery
     // produced a value table.
     const std::shared_ptr<const NameList> name_list;
-
-    // This stores the WithSubqueryInfo for the same alias from an outer scope,
-    // which was hidden by this WITH clause.  When <this> goes out of scope,
-    // we'll put the outer entry back in its place.
-    std::unique_ptr<WithSubqueryInfo> prev_with_subquery_info;
   };
 
-  IdStringHashMapCase<std::unique_ptr<WithSubqueryInfo>> with_subquery_map_;
+  // Keeps track of all active named subqueries.
+  // Key: Subquery name. This is a vector to allow for multi-part recursive view
+  //        names, in addition to single-path WITH entry names.
+  // Value: Vector of active subqueries with that name, with the innermost
+  //        subquery last. This vector is never empty.
+  absl::flat_hash_map<
+      std::vector<IdString>, std::vector<std::unique_ptr<NamedSubquery>>,
+      ContainerHash<std::vector<IdString>, IdStringCaseHash>,
+      ContainerEquals<std::vector<IdString>, IdStringCaseEqualFunc>>
+      named_subquery_map_;
+
+  void AddNamedSubquery(const std::vector<IdString>& alias,
+                        std::unique_ptr<NamedSubquery> named_subquery);
+  bool IsPathExpressionStartingFromNamedSubquery(
+      const ASTPathExpression* path_expr);
 
   // Set of unique WITH aliases seen so far.  If there are duplicate WITH
   // aliases in the query (visible in different scopes), we'll give them
@@ -1062,6 +1070,10 @@ class Resolver {
       const ASTAlterRowAccessPolicyStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
+  absl::Status ResolveAlterAllRowAccessPoliciesStatement(
+      const ASTAlterAllRowAccessPoliciesStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
   absl::Status ResolveAlterActions(
       const ASTAlterStatementBase* ast_statement,
       absl::string_view alter_statement_kind,
@@ -1129,7 +1141,7 @@ class Resolver {
   // <is_outer_query> is true if this is the outermost query, and not any kind
   // of subquery.
   //
-  // Side-effect: Updates with_subquery_map_ to reflect WITH aliases currently
+  // Side-effect: Updates named_subquery_map_ to reflect WITH aliases currently
   // in scope so WITH references can be resolved inside <query>.
   absl::Status ResolveQuery(
       const ASTQuery* query,
@@ -1139,9 +1151,17 @@ class Resolver {
       std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* output_name_list);
 
+  // Resolves a WITH entry.
+  // <recursive> is true only when a WITH entry is actually recursive, as
+  // opposed to merely belonging to a WITH clause with the RECURSIVE keyword.
   zetasql_base::StatusOr<std::unique_ptr<const ResolvedWithEntry>> ResolveWithEntry(
-      const ASTWithClauseEntry* with_entry,
-      IdStringHashSetCase* local_with_aliases);
+      const ASTWithClauseEntry* with_entry, bool recursive);
+
+  // Called only for the query associated with an actually-recursive WITH
+  // entry. Verifies that the query is a UNION and returns the ASTSetOperation
+  // node representing that UNION.
+  zetasql_base::StatusOr<const ASTSetOperation*> GetRecursiveUnion(
+      IdString query_name, const ASTQuery* query);
 
   // Resolve an ASTQueryExpression.
   //
@@ -1609,6 +1629,63 @@ class Resolver {
       std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* output_name_list);
 
+  // Helper class used to implement ResolveSetOperation().
+  class SetOperationResolver {
+   public:
+    SetOperationResolver(const ASTSetOperation* set_operation,
+                         Resolver* resolver);
+
+    // Resolves the ASTSetOperation passed to the constructor, returning the
+    // ResolvedScan and NameList in the given output parameters.
+    // <scope> represents the name scope used to resolve each of the set items.
+    absl::Status Resolve(const NameScope* scope,
+                         std::unique_ptr<const ResolvedScan>* output,
+                         std::shared_ptr<const NameList>* output_name_list);
+
+   private:
+    // Represents the result of resolving one input to the set operation.
+    struct ResolvedInputResult {
+      std::unique_ptr<ResolvedSetOperationItem> node;
+      std::shared_ptr<const NameList> name_list;
+    };
+    // Resolves a single input into a ResolvedSetOperationItem.
+    // <scope> = name scope for resolution
+    // <query index> = child index within set_operation_->inputs() of the query
+    //   to resolve.
+    zetasql_base::StatusOr<ResolvedInputResult> ResolveInputQuery(
+        const NameScope* scope, int query_index) const;
+
+    // Builds a vector specifying the type of each column for each input scan.
+    // After calling:
+    //   ZETASQL_ASSIGN_OR_RETURN(column_type_lists, BuildColumnTypeLists(...));
+    //
+    // column_type_lists[column_idx][scan_idx] specifies the type for the given
+    // column index/input index combination.
+    zetasql_base::StatusOr<std::vector<std::vector<InputArgumentType>>>
+    BuildColumnTypeLists(
+        const std::vector<ResolvedInputResult>& resolved_inputs) const;
+
+    zetasql_base::StatusOr<ResolvedColumnList> BuildColumnLists(
+        const std::vector<std::vector<InputArgumentType>>& column_type_lists,
+        const NameList& first_item_name_list) const;
+
+    // Modifies <resolved_inputs>, adding a cast if necessary to convert each
+    // column to the respective final column type of the set operation.
+    absl::Status CreateWrapperScansWithCasts(
+        const ResolvedColumnList& column_list,
+        std::vector<std::unique_ptr<ResolvedSetOperationItem>>*
+            resolved_inputs);
+
+    // Builds the final name list for the resolution of the set operation.
+    zetasql_base::StatusOr<std::shared_ptr<const NameList>> BuildFinalNameList(
+        const NameList& first_item_name_list,
+        const ResolvedColumnList& final_column_list) const;
+
+    const ASTSetOperation* const set_operation_;
+    Resolver* const resolver_;
+    const IdString op_type_str_;
+  };
+
   absl::Status ResolveGroupByExprs(
       const ASTGroupBy* group_by,
       const NameScope* from_clause_scope,
@@ -1840,10 +1917,10 @@ class Resolver {
       std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* output_name_list);
 
-  // Resolve a identifier that is known to resolve to a WITH subquery.
-  absl::Status ResolveWithSubqueryRef(
-      const ASTIdentifier* with_table_name,
-      const ASTHint* hint,
+  // Resolve a identifier that is known to resolve to a named subquery
+  // (e.g. WITH entry or recursive view).
+  absl::Status ResolveNamedSubqueryRef(
+      const ASTPathExpression* table_path, const ASTHint* hint,
       std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* output_name_list);
 
@@ -2240,6 +2317,7 @@ class Resolver {
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
   absl::Status ResolveFieldAccess(
+      bool can_flatten,
       std::unique_ptr<const ResolvedExpr> resolved_lhs,
       const ASTIdentifier* identifier,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
@@ -2266,6 +2344,10 @@ class Resolver {
     // annotation is applied. If the extension to extract is not a primitive
     // type, the default value of the ResolvedGetProtoField will be NULL.
     bool ignore_format_annotations = false;
+
+    // If true, it's ok to resolve field access over arrays and flatten should
+    // be generated if this is required.
+    bool can_flatten = false;
   };
   absl::Status ResolveExtensionFieldAccess(
       std::unique_ptr<const ResolvedExpr> resolved_lhs,

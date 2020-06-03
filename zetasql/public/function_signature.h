@@ -335,9 +335,9 @@ class FunctionArgumentTypeOptions {
 class FunctionArgumentType {
  public:
   typedef FunctionEnums::ArgumentCardinality ArgumentCardinality;
-  static const ArgumentCardinality REQUIRED = FunctionEnums::REQUIRED;
-  static const ArgumentCardinality REPEATED = FunctionEnums::REPEATED;
-  static const ArgumentCardinality OPTIONAL = FunctionEnums::OPTIONAL;
+  static constexpr ArgumentCardinality REQUIRED = FunctionEnums::REQUIRED;
+  static constexpr ArgumentCardinality REPEATED = FunctionEnums::REPEATED;
+  static constexpr ArgumentCardinality OPTIONAL = FunctionEnums::OPTIONAL;
 
   // Construct a templated argument of <kind>, which must not be ARG_TYPE_FIXED.
   // The num_occurrences default value (-1) indicates a non-concrete argument.
@@ -440,6 +440,8 @@ class FunctionArgumentType {
   ArgumentCardinality cardinality() const { return options_->cardinality(); }
 
   bool must_be_constant() const { return options_->must_be_constant(); }
+  bool has_argument_name() const { return options_->has_argument_name(); }
+  const std::string& argument_name() const { return options_->argument_name(); }
 
   int num_occurrences() const { return num_occurrences_; }
   void IncrementNumOccurrences() { ++num_occurrences_; }

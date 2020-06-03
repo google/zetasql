@@ -112,7 +112,7 @@ std::vector<FunctionTestCall> GetFunctionTestsString() {
       256);
 
   std::vector<FunctionTestCall> results = {
-      // strpos(string, string) -> int64
+      // strpos(string, string) -> int64_t
       {"strpos", {NullString(), ""}, NullInt64()},
       {"strpos", {NullString(), "x"}, NullInt64()},
       {"strpos", {"", NullString()}, NullInt64()},
@@ -129,7 +129,7 @@ std::vector<FunctionTestCall> GetFunctionTestsString() {
       {"strpos", {"abca\0b\0c\0", "a\0b\0c"}, 4ll},
       {"strpos", {"zгдl", "дl"}, 3ll},
 
-      // strpos(bytes, bytes) -> int64
+      // strpos(bytes, bytes) -> int64_t
       {"strpos", {NullBytes(), Bytes("")}, NullInt64()},
       {"strpos", {NullBytes(), Bytes("x")}, NullInt64()},
       {"strpos", {NullBytes(), NullBytes()}, NullInt64()},
@@ -205,35 +205,35 @@ std::vector<FunctionTestCall> GetFunctionTestsString() {
       {"ends_with", {Bytes("ends_with"), Bytes("with")}, true},
       {"ends_with", {Bytes("ends_with"), Bytes("")}, true},
 
-      // length(string) -> int64
+      // length(string) -> int64_t
       {"length", {NullString()}, NullInt64()},
       {"length", {""}, 0ll},
       {"length", {"abcde"}, 5ll},
       {"length", {"абвгд"}, 5ll},
       {"length", {"\0\0"}, 2ll},
 
-      // length(bytes) -> int64
+      // length(bytes) -> int64_t
       {"length", {NullBytes()}, NullInt64()},
       {"length", {Bytes("")}, 0ll},
       {"length", {Bytes("abcde")}, 5ll},
       {"length", {Bytes("абвгд")}, 10ll},
       {"length", {Bytes("\0\0")}, 2ll},
 
-      // byte_length(string) -> int64
+      // byte_length(string) -> int64_t
       {"byte_length", {NullString()}, NullInt64()},
       {"byte_length", {""}, 0ll},
       {"byte_length", {"abcde"}, 5ll},
       {"byte_length", {"абвгд"}, 10ll},
       {"byte_length", {"\0\0"}, 2ll},
 
-      // byte_length(bytes) -> int64
+      // byte_length(bytes) -> int64_t
       {"byte_length", {NullBytes()}, NullInt64()},
       {"byte_length", {Bytes("")}, 0ll},
       {"byte_length", {Bytes("abcde")}, 5ll},
       {"byte_length", {Bytes("абвгд")}, 10ll},
       {"byte_length", {Bytes("\0\0")}, 2ll},
 
-      // char_length(string) -> int64
+      // char_length(string) -> int64_t
       {"char_length", {NullString()}, NullInt64()},
       {"character_length", {""}, 0ll},
       {"char_length", {"abcde"}, 5ll},
@@ -401,6 +401,94 @@ std::vector<FunctionTestCall> GetFunctionTestsString() {
       {"rtrim",
        {"a\ufffdb\ufffdxyz\ufffdb\ufffda", "ab\ufffd"},
        "a\ufffdb\ufffdxyz"},
+
+      // left(string, length) -> string
+      {"left", {NullString(), 1ll}, NullString()},
+      {"left", {NullString(), 0ll}, NullString()},
+      {"left", {NullString(), -1ll}, NullString()},
+      {"left", {NullString(), NullInt64()}, NullString()},
+      {"left", {"", 1ll}, ""},
+      {"left", {"", 0ll}, ""},
+      {"left", {"", -1ll}, NullString(), OUT_OF_RANGE},
+      {"left", {"", NullInt64()}, NullString()},
+      {"left", {"abc", 0ll}, ""},
+      {"left", {"abc", 1ll}, "a"},
+      {"left", {"abc", -1ll}, NullString(), OUT_OF_RANGE},
+      {"left", {"abc", NullInt64()}, NullString()},
+      {"left", {"abc", 2ll}, "ab"},
+      {"left", {"abc", 3ll}, "abc"},
+      {"left", {"abc", int64max}, "abc"},
+      {"left", {"abc", -5ll}, NullString(), OUT_OF_RANGE},
+      {"left", {"abc", int64min}, NullString(), OUT_OF_RANGE},
+      {"left", {"ЩФБШ", NullInt64()}, NullString()},
+      {"left", {"ЩФБШ", 0ll}, ""},
+      {"left", {"ЩФБШ", 2ll}, "ЩФ"},
+      {"left", {"ЩФБШ", 5ll}, "ЩФБШ"},
+      {"left", {"ЩФБШ", int64max}, "ЩФБШ"},
+
+      // left(bytes, length) -> bytes
+      {"left", {NullBytes(), 1ll}, NullBytes()},
+      {"left", {NullBytes(), 0ll}, NullBytes()},
+      {"left", {NullBytes(), -1ll}, NullBytes()},
+      {"left", {NullBytes(), NullInt64()}, NullBytes()},
+      {"left", {Bytes(""), 1ll}, Bytes("")},
+      {"left", {Bytes(""), 0ll}, Bytes("")},
+      {"left", {Bytes(""), -1ll}, NullBytes(), OUT_OF_RANGE},
+      {"left", {Bytes(""), NullInt64()}, NullBytes()},
+      {"left", {Bytes("abc"), 0ll}, Bytes("")},
+      {"left", {Bytes("abc"), 1ll}, Bytes("a")},
+      {"left", {Bytes("abc"), -1ll}, NullBytes(), OUT_OF_RANGE},
+      {"left", {Bytes("abc"), NullInt64()}, NullBytes()},
+      {"left", {Bytes("abc"), 2ll}, Bytes("ab")},
+      {"left", {Bytes("abc"), 3ll}, Bytes("abc")},
+      {"left", {Bytes("abc"), int64max}, Bytes("abc")},
+      {"left", {Bytes("abc"), -5ll}, NullBytes(), OUT_OF_RANGE},
+      {"left", {Bytes("abc"), int64min}, NullBytes(), OUT_OF_RANGE},
+      {"left", {Bytes("\xff\x80\xa0"), 2ll}, Bytes("\xff\x80")},
+
+      // right(string, length) -> string
+      {"right", {NullString(), 1ll}, NullString()},
+      {"right", {NullString(), 0ll}, NullString()},
+      {"right", {NullString(), -1ll}, NullString()},
+      {"right", {NullString(), NullInt64()}, NullString()},
+      {"right", {"", 1ll}, ""},
+      {"right", {"", 0ll}, ""},
+      {"right", {"", -1ll}, NullString(), OUT_OF_RANGE},
+      {"right", {"", NullInt64()}, NullString()},
+      {"right", {"abc", 0ll}, ""},
+      {"right", {"abc", 1ll}, "c"},
+      {"right", {"abc", -1ll}, NullString(), OUT_OF_RANGE},
+      {"right", {"abc", NullInt64()}, NullString()},
+      {"right", {"abc", 2ll}, "bc"},
+      {"right", {"abc", 3ll}, "abc"},
+      {"right", {"abc", int64max}, "abc"},
+      {"right", {"abc", -5ll}, NullString(), OUT_OF_RANGE},
+      {"right", {"abc", int64min}, NullString(), OUT_OF_RANGE},
+      {"right", {"ЩФБШ", NullInt64()}, NullString()},
+      {"right", {"ЩФБШ", 0ll}, ""},
+      {"right", {"ЩФБШ", 2ll}, "БШ"},
+      {"right", {"ЩФБШ", 5ll}, "ЩФБШ"},
+      {"right", {"ЩФБШ", int64max}, "ЩФБШ"},
+
+      // right(bytes, length) -> bytes
+      {"right", {NullBytes(), 1ll}, NullBytes()},
+      {"right", {NullBytes(), 0ll}, NullBytes()},
+      {"right", {NullBytes(), -1ll}, NullBytes()},
+      {"right", {NullBytes(), NullInt64()}, NullBytes()},
+      {"right", {Bytes(""), 1ll}, Bytes("")},
+      {"right", {Bytes(""), 0ll}, Bytes("")},
+      {"right", {Bytes(""), -1ll}, NullBytes(), OUT_OF_RANGE},
+      {"right", {Bytes(""), NullInt64()}, NullBytes()},
+      {"right", {Bytes("abc"), 0ll}, Bytes("")},
+      {"right", {Bytes("abc"), 1ll}, Bytes("c")},
+      {"right", {Bytes("abc"), -1ll}, NullBytes(), OUT_OF_RANGE},
+      {"right", {Bytes("abc"), NullInt64()}, NullBytes()},
+      {"right", {Bytes("abc"), 2ll}, Bytes("bc")},
+      {"right", {Bytes("abc"), 3ll}, Bytes("abc")},
+      {"right", {Bytes("abc"), int64max}, Bytes("abc")},
+      {"right", {Bytes("abc"), -5ll}, NullBytes(), OUT_OF_RANGE},
+      {"right", {Bytes("abc"), int64min}, NullBytes(), OUT_OF_RANGE},
+      {"right", {Bytes("\xff\x80\xa0"), 2ll}, Bytes("\x80\xa0")},
 
       // substr(string, pos) -> string
       {"substr", {NullString(), 0ll}, NullString()},

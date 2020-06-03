@@ -20,7 +20,14 @@ cc_library(
     name = "util",
     srcs = ["util.cc"],
     hdrs = ["util.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/base:status",
         "//zetasql/common:utf_util",
@@ -33,7 +40,14 @@ cc_test(
     name = "util_test",
     size = "small",
     srcs = ["util_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":util",
         "@com_google_googletest//:gtest_main",
@@ -45,7 +59,14 @@ cc_test(
 cc_library(
     name = "convert_internal",
     hdrs = ["convert_internal.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/base",
         "@com_google_absl//absl/base:core_headers",
@@ -56,7 +77,14 @@ cc_test(
     name = "convert_internal_test",
     size = "small",
     srcs = ["convert_internal_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":convert_internal",
         "@com_google_googletest//:gtest_main",
@@ -67,7 +95,14 @@ cc_library(
     name = "convert",
     srcs = ["convert.cc"],
     hdrs = ["convert.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":convert_internal",
         ":util",
@@ -84,7 +119,14 @@ cc_test(
     name = "convert_test",
     size = "small",
     srcs = ["convert_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":convert",
         "@com_google_googletest//:gtest_main",
@@ -101,7 +143,14 @@ cc_library(
     name = "convert_proto",
     srcs = ["convert_proto.cc"],
     hdrs = ["convert_proto.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/base:source_location",
         "//zetasql/base:status",
@@ -115,7 +164,14 @@ cc_test(
     name = "convert_proto_test",
     size = "small",
     srcs = ["convert_proto_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":convert_proto",
         "@com_google_googletest//:gtest_main",
@@ -128,7 +184,14 @@ cc_library(
     name = "convert_string",
     srcs = ["convert_string.cc"],
     hdrs = ["convert_string.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":util",
         "//zetasql/base:case",
@@ -146,7 +209,14 @@ cc_test(
     name = "convert_string_test",
     size = "small",
     srcs = ["convert_string_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":convert_string",
         "@com_google_googletest//:gtest_main",
@@ -162,7 +232,14 @@ cc_library(
     name = "like",
     srcs = ["like.cc"],
     hdrs = ["like.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/base",
         "//zetasql/base:status",
@@ -178,7 +255,14 @@ cc_test(
     name = "like_test",
     size = "small",
     srcs = ["like_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":like",
         "@com_google_googletest//:gtest_main",
@@ -191,7 +275,14 @@ cc_test(
 cc_library(
     name = "arithmetics_internal",
     hdrs = ["arithmetics_internal.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/base",
     ],
@@ -201,7 +292,14 @@ cc_test(
     name = "arithmetics_internal_test",
     size = "small",
     srcs = ["arithmetics_internal_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":arithmetics_internal",
         "@com_google_googletest//:gtest_main",
@@ -212,7 +310,14 @@ cc_test(
 cc_library(
     name = "arithmetics",
     hdrs = ["arithmetics.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":arithmetics_internal",
         ":convert",
@@ -229,7 +334,14 @@ cc_library(
     name = "bitwise",
     srcs = ["bitwise.cc"],
     hdrs = ["bitwise.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":util",
         "//zetasql/base",
@@ -245,7 +357,14 @@ cc_test(
     name = "bitwise_test",
     size = "small",
     srcs = ["bitwise_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":bitwise",
         "@com_google_googletest//:gtest_main",
@@ -261,7 +380,14 @@ cc_test(
 cc_library(
     name = "bitcast",
     hdrs = ["bitcast.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/base:status",
         "@com_google_absl//absl/base",
@@ -272,7 +398,14 @@ cc_test(
     name = "bitcast_test",
     size = "small",
     srcs = ["bitcast_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":bitcast",
         "@com_google_googletest//:gtest_main",
@@ -284,7 +417,14 @@ cc_test(
 cc_library(
     name = "comparison",
     hdrs = ["comparison.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "@com_google_absl//absl/base:core_headers",
     ],
@@ -294,7 +434,14 @@ cc_library(
     name = "date_time_util_internal",
     srcs = ["date_time_util_internal.cc"],
     hdrs = ["date_time_util_internal.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/base",
         "@com_google_absl//absl/time",
@@ -305,7 +452,14 @@ cc_test(
     name = "date_time_util_internal_test",
     size = "small",
     srcs = ["date_time_util_internal_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":date_time_util_internal",
         "@com_google_googletest//:gtest_main",
@@ -318,7 +472,14 @@ cc_library(
     name = "date_time_util",
     srcs = ["date_time_util.cc"],
     hdrs = ["date_time_util.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":arithmetics",
         ":date_time_util_internal",
@@ -331,8 +492,8 @@ cc_library(
         "//zetasql/base:time_proto_util",
         "//zetasql/common:errors",
         "//zetasql/public:civil_time",
-        "//zetasql/public:type",
         "//zetasql/public/proto:type_annotation_cc_proto",
+        "//zetasql/public/types:timestamp_util",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
@@ -347,7 +508,14 @@ cc_library(
     name = "parse_date_time",
     srcs = ["parse_date_time.cc"],
     hdrs = ["parse_date_time.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":date_time_util",
         ":datetime_cc_proto",
@@ -370,7 +538,14 @@ cc_test(
     name = "parse_date_time_test",
     size = "small",
     srcs = ["parse_date_time_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":date_time_util",
         ":parse_date_time",
@@ -395,7 +570,14 @@ cc_library(
     name = "math",
     srcs = ["math.cc"],
     hdrs = ["math.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":arithmetics",
         ":util",
@@ -412,7 +594,14 @@ cc_test(
     name = "math_test",
     size = "small",
     srcs = ["math_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":math",
         "@com_google_googletest//:gtest_main",
@@ -434,7 +623,14 @@ cc_library(
     name = "string",
     srcs = ["string.cc"],
     hdrs = ["string.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":normalize_mode_cc_proto",
         ":util",
@@ -455,7 +651,14 @@ cc_library(
     name = "uuid",
     srcs = ["uuid.cc"],
     hdrs = ["uuid.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/base:status",
         "@com_google_absl//absl/random",
@@ -467,7 +670,14 @@ cc_test(
     name = "uuid_test",
     size = "small",
     srcs = ["uuid_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":uuid",
         "@com_google_googletest//:gtest_main",
@@ -484,7 +694,14 @@ cc_library(
     name = "regexp",
     srcs = ["regexp.cc"],
     hdrs = ["regexp.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":util",
         "//zetasql/base",
@@ -501,7 +718,14 @@ cc_test(
     name = "regexp_test",
     size = "small",
     srcs = ["regexp_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":regexp",
         "@com_google_googletest//:gtest_main",
@@ -548,7 +772,14 @@ cc_library(
     name = "json_internal",
     srcs = ["json_internal.cc"],
     hdrs = ["json_internal.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/base",
         "//zetasql/base:status",
@@ -568,7 +799,14 @@ cc_library(
     name = "json",
     srcs = ["json.cc"],
     hdrs = ["json.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":json_internal",
         "//zetasql/base:status",
@@ -584,7 +822,14 @@ cc_library(
 cc_test(
     name = "json_test",
     srcs = ["json_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":json",
         ":json_internal",
@@ -606,7 +851,14 @@ cc_test(
 cc_library(
     name = "generate_array",
     hdrs = ["generate_array.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":arithmetics",
         ":date_time_util",
@@ -623,7 +875,14 @@ cc_library(
 cc_test(
     name = "generate_array_test",
     srcs = ["generate_array_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":generate_array",
         "@com_google_googletest//:gtest_main",
@@ -645,7 +904,14 @@ cc_library(
     name = "common_proto",
     srcs = ["common_proto.cc"],
     hdrs = ["common_proto.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":date_time_util",
         "//zetasql/base:status",
@@ -664,7 +930,14 @@ cc_library(
 cc_test(
     name = "common_proto_test",
     srcs = ["common_proto_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":common_proto",
         ":date_time_util",
@@ -684,7 +957,14 @@ cc_library(
     name = "hash",
     srcs = ["hash.cc"],
     hdrs = ["hash.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/base",
         "//zetasql/base:endian",
@@ -699,7 +979,14 @@ cc_library(
 cc_test(
     name = "hash_test",
     srcs = ["hash_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":hash",
         "@com_google_googletest//:gtest_main",
@@ -715,7 +1002,14 @@ cc_library(
     name = "percentile",
     srcs = ["percentile.cc"],
     hdrs = ["percentile.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/base",
         "//zetasql/base:mathutil",
@@ -730,7 +1024,14 @@ cc_test(
     name = "percentile_test",
     size = "small",
     srcs = ["percentile_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":percentile",
         "@com_google_googletest//:gtest_main",

@@ -133,14 +133,14 @@ static zetasql_base::StatusOr<const Type*> ComputeResultTypeCallbackForNullOfTyp
   ZETASQL_RET_CHECK(arguments[0].type()->IsString());
   const Value& value = *arguments[0].literal_value();
   ZETASQL_RET_CHECK(!value.is_null());
-  const std::string& type_name = absl::AsciiStrToUpper(value.string_value());
-  if (!Type::IsSimpleTypeName(type_name, language_options.product_mode())) {
+  const absl::string_view type_name = value.string_value();
+  const TypeKind type_kind =
+      Type::GetTypeKindIfSimple(type_name, language_options);
+  if (type_kind == TYPE_UNKNOWN) {
     return MakeSqlError() << "Type not implemented for NULL_OF_TYPE: "
-                          << ToStringLiteral(type_name);
+                          << ToStringLiteral(absl::AsciiStrToUpper(type_name));
   }
   // We could parse complex type names here too by calling the type analyzer.
-  const TypeKind type_kind = Type::SimpleTypeNameToTypeKindOrDie(
-      type_name, language_options.product_mode());
   return type_factory->MakeSimpleType(type_kind);
 }
 
@@ -232,6 +232,8 @@ void SampleCatalog::LoadTypes() {
   enum_TestEnum_ = GetEnumType(zetasql_test::TestEnum_descriptor());
   enum_AnotherTestEnum_ =
       GetEnumType(zetasql_test::AnotherTestEnum_descriptor());
+  enum_TestEnumWithAnnotations_ =
+      GetEnumType(zetasql_test::TestEnumWithAnnotations_descriptor());
   proto_KitchenSinkPB_ =
       GetProtoType(zetasql_test::KitchenSinkPB::descriptor());
   proto_MessageWithKitchenSinkPB_ =
@@ -702,6 +704,9 @@ void SampleCatalog::LoadProtoTables() {
   AddOwnedTable(new SimpleTable("Int32ValueTable", types_->get_int32()));
 
   AddOwnedTable(new SimpleTable("Int32ArrayValueTable", int32array_type_));
+
+  AddOwnedTable(
+      new SimpleTable("AnnotatedEnumTable", enum_TestEnumWithAnnotations_));
 }
 
 void SampleCatalog::LoadNestedCatalogs() {
@@ -1221,6 +1226,11 @@ void SampleCatalog::LoadFunctions() {
       types_->get_string(), zetasql::FunctionArgumentTypeOptions()
                                 .set_cardinality(FunctionArgumentType::OPTIONAL)
                                 .set_argument_name("date_string"));
+  const auto named_optional_const_format_arg = zetasql::FunctionArgumentType(
+      types_->get_string(), zetasql::FunctionArgumentTypeOptions()
+                                .set_cardinality(FunctionArgumentType::OPTIONAL)
+                                .set_must_be_constant()
+                                .set_argument_name("format_string"));
   const auto non_named_required_format_arg = zetasql::FunctionArgumentType(
           types_->get_string(),
           zetasql::FunctionArgumentTypeOptions());
@@ -1240,6 +1250,12 @@ void SampleCatalog::LoadFunctions() {
   function->AddSignature({types_->get_bool(),
                           {named_required_format_arg, named_required_date_arg},
                           /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+  function = new Function("fn_const_named_arg", "sample_functions", mode);
+  function->AddSignature(
+      {types_->get_bool(),
+       {named_optional_const_format_arg, named_optional_date_arg},
+       /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 
   // Add functions with two named optional/repeated arguments on one signature.
@@ -3319,6 +3335,11 @@ void SampleCatalog::LoadConstants() {
       std::vector<std::string>{"string_variable_bar"},
       Value::String("string_variable_bar_value"), &string_variable_bar));
   catalog_->AddOwnedConstant(std::move(string_variable_bar));
+
+  std::unique_ptr<SimpleConstant> int_variable_foo;
+  ZETASQL_CHECK_OK(SimpleConstant::Create(std::vector<std::string>{"int_variable_foo"},
+                                  Value::Int32(4), &int_variable_foo));
+  catalog_->AddOwnedConstant(std::move(int_variable_foo));
 }
 
 void SampleCatalog::LoadConnections() {

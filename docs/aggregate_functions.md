@@ -32,10 +32,12 @@ ANY_VALUE(expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
 
 **Description**
 
-Returns any value from the input or `NULL` if there are zero input rows.
- The value
-returned is non-deterministic, which means you might receive a different result
-each time you use this function.
+Returns `expression` for some row chosen from the group. Which row is chosen is
+nondeterministic, not random. Returns `NULL` when the input produces no
+rows. Returns `NULL` when `expression` is `NULL` for all rows in the group.
+
+`ANY_VALUE` behaves as if `RESPECT NULLS` is specified;
+Rows for which `expression` is `NULL` are considered and may be selected.
 
 **Supported Argument Types**
 
@@ -733,9 +735,8 @@ COUNTIF([DISTINCT] expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
 
 **Description**
 
-Returns the count of `TRUE` values for `expression`.
-Returns `0` if there are zero input rows or `expression` evaluates to `FALSE`
-for all rows.
+Returns the count of `TRUE` values for `expression`. Returns `0` if there are
+zero input rows, or if `expression` evaluates to `FALSE` or `NULL` for all rows.
 
 **Supported Argument Types**
 

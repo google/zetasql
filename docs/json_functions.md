@@ -25,7 +25,8 @@ Extracts JSON values or JSON scalar values as strings.
     ```
 +  `json_path_string_literal`: The [JSONpath][jsonpath-format] format.
    This identifies the value or values you want to obtain from the
-   JSON-formatted string.
+   JSON-formatted string. If `json_path_string_literal` returns a JSON `null`,
+   this is converted into a SQL `NULL`.
 
 In cases where a JSON key uses invalid JSONPath characters, you can escape
 those characters using single quotes and brackets.
@@ -75,12 +76,14 @@ SELECT JSON_EXTRACT(json_text, '$.class.students[1].name') AS second_student_nam
 FROM UNNEST([
   '{"class" : {"students" : [{"name" : "Jane"}]}}',
   '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name" : null}]}}',
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
 +-------------------+
 | second_student    |
 +-------------------+
+| NULL              |
 | NULL              |
 | NULL              |
 | "Jamie"           |
@@ -149,7 +152,8 @@ Extracts JSON values or JSON scalar values as strings.
   ```
 +  `json_path_string_literal`: The [JSONpath][jsonpath-format] format.
    This identifies the value or values you want to obtain from the
-   JSON-formatted string.
+   JSON-formatted string. If `json_path_string_literal` returns a JSON `null`,
+   this is converted into a SQL `NULL`.
 
 In cases where a JSON key uses invalid JSONPath characters,
 you can escape those characters using double quotes.
@@ -195,6 +199,7 @@ SELECT JSON_QUERY(json_text, '$.class.students[1].name') AS second_student_name
 FROM UNNEST([
   '{"class" : {"students" : [{"name" : "Jane"}]}}',
   '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name" : null}]}}',
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
@@ -203,7 +208,8 @@ FROM UNNEST([
 +-------------------+
 | NULL              |
 | NULL              |
-| {"first":"Jamie"} |
+| NULL              |
+| "Jamie"           |
 +-------------------+
 ```
 

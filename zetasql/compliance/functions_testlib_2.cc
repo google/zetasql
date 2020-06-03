@@ -243,7 +243,7 @@ static std::vector<ComparisonTest> GetArrayComparisonTests() {
 // comparisons (less than, etc.).  Therefore all tests should be defined
 // as EQUAL, UNORDERED (not equal), or NULL_VALUE.
 static std::vector<ComparisonTest> GetStructComparisonTests() {
-  const StructType* struct_type = SimpleStructType();  // a: string, b: int32
+  const StructType* struct_type = SimpleStructType();  // a: string, b: int32_t
   const Value struct0 = Value::Struct(struct_type, {String("foo"), Int32(0)});
   const Value struct1 = Value::Struct(struct_type, {String("bar"), Int32(1)});
   const Value struct_with_null2 =
@@ -411,7 +411,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {float_pos_inf, NullDouble(), NULL_VALUE},
       {NullDouble(), float_pos_inf, NULL_VALUE},
 
-      // int32
+      // int32_t
       {0, int32max, LESS},
       {int32min, int32max, LESS},
       {1, 1, EQUAL},
@@ -420,7 +420,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {-1, 1, LESS},
       {1, NullInt32(), NULL_VALUE},
 
-      // int64
+      // int64_t
       {0ll, int64max, LESS},
       {int64min, int64max, LESS},
       {1ll, 1ll, EQUAL},
@@ -429,7 +429,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {-1ll, 1ll, LESS},
       {1ll, NullInt64(), NULL_VALUE},
 
-      // uint32
+      // uint32_t
       {0u, uint32max, LESS},
       {0u, 1u, LESS},
       {0u, uint32max, LESS},
@@ -437,7 +437,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {0u, 2u, LESS},
       {1u, NullUint32(), NULL_VALUE},
 
-      // uint64
+      // uint64_t
       {0ull, uint64max, LESS},
       {0ull, 1ull, LESS},
       {0ull, uint64max, LESS},
@@ -445,7 +445,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {0ull, 2ull, LESS},
       {1ull, NullUint64(), NULL_VALUE},
 
-      // int64_t vs. uint64
+      // int64_t vs. uint64_t
       {0ll, 0ull, EQUAL},
       {int64max, Uint64(int64max), EQUAL},
       {0ll, Uint64(int64max), LESS},
@@ -466,7 +466,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {Numeric(-1), Numeric(-1), EQUAL},
       {Numeric(1), NullNumeric(), NULL_VALUE},
 
-      // numeric vs. int64
+      // numeric vs. int64_t
       {Int64(0), NumericValue::MaxValue(), LESS},
       {NumericValue::MinValue(), int64min, LESS},
       {Int64(1), Numeric(1), EQUAL},
@@ -475,7 +475,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {Int64(-1), Numeric(-1), EQUAL},
       {Int64(1), NullNumeric(), NULL_VALUE},
 
-      // numeric vs. uint64
+      // numeric vs. uint64_t
       {Uint64(0), NumericValue::MaxValue(), LESS},
       {NumericValue::MinValue(), uint64max, LESS},
       {Uint64(1), Numeric(1), EQUAL},
@@ -512,7 +512,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {BigNumeric(-1), BigNumeric(-1), EQUAL},
       {BigNumeric(1), NullBigNumeric(), NULL_VALUE},
 
-      // bignumeric vs. int64
+      // bignumeric vs. int64_t
       {Int64(0), BigNumeric(BigNumericValue::MaxValue()), LESS},
       {BigNumeric(BigNumericValue::MinValue()), int64min, LESS},
       {Int64(1), BigNumeric(1), EQUAL},
@@ -524,7 +524,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {Int64(-1), BigNumeric(-1), EQUAL},
       {Int64(1), NullBigNumeric(), NULL_VALUE},
 
-      // bignumeric vs. uint64
+      // bignumeric vs. uint64_t
       {Uint64(0), BigNumeric(BigNumericValue::MaxValue()), LESS},
       {BigNumeric(BigNumericValue::MinValue()), uint64max, LESS},
       {Uint64(1), BigNumeric(1), EQUAL},
@@ -1168,7 +1168,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsIn() {
 }
 
 std::vector<QueryParamsWithResult> GetFunctionTestsStructIn() {
-  const StructType* struct_type = SimpleStructType();  // a: string, b: int32
+  const StructType* struct_type = SimpleStructType();  // a: string, b: int32_t
   const Value struct0 = Value::Struct(struct_type, {String("foo"), Int32(0)});
   const Value struct1 = Value::Struct(struct_type, {String("bar"), Int32(1)});
   const Value struct2 = Value::Struct(struct_type, {String("baz"), Int32(2)});
@@ -1850,7 +1850,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsAtOffset() {
       Value::Array(Int64ArrayType(), {Int64(10), Int64(11)});
   const Value string_array =
       Value::Array(StringArrayType(), {String("foo"), String("bar")});
-  const StructType* struct_type = SimpleStructType();  // a: string, b: int32
+  const StructType* struct_type = SimpleStructType();  // a: string, b: int32_t
   const ArrayType* array_struct_type;
   ZETASQL_CHECK_OK(type_factory()->MakeArrayType(struct_type, &array_struct_type));
   const Value struct0 = Value::Struct(struct_type, {String("foo"), Int32(0)});
@@ -2052,7 +2052,7 @@ std::vector<FunctionTestCall> GetFunctionTestsArray() {
                    {NullBytes(), Bytes("a"), NullBytes(), Bytes("b")});
   const Value array_empty_bytes = Value::Array(BytesArrayType(), {Bytes("")});
 
-  const StructType* struct_type = SimpleStructType();  // a: string, b: int32
+  const StructType* struct_type = SimpleStructType();  // a: string, b: int32_t
   const Value struct0 = Value::Struct(struct_type, {String("foo"), Int32(0)});
   const Value struct1 = Value::Struct(struct_type, {String("bar"), Int32(1)});
   const Value struct2 = Value::Struct(struct_type, {String("baz"), Int32(2)});

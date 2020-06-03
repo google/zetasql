@@ -90,10 +90,9 @@ public class PreparedExpressionTest {
     try (PreparedExpression exp = new PreparedExpression("a+b")) {
       HashMap<String, Value> columns = new HashMap<>();
       HashMap<String, Value> parameters = new HashMap<>();
-      Value value = null;
       columns.put("a", Value.createInt64Value(40));
       columns.put("b", Value.createInt64Value(2));
-      value = exp.execute(columns, parameters);
+      Value value = exp.execute(columns, parameters);
       assertThat(value.getType().getKind()).isEqualTo(TypeKind.TYPE_INT64);
       assertThat(value.getInt64Value()).isEqualTo(42);
 
@@ -361,13 +360,33 @@ public class PreparedExpressionTest {
   }
 
   @Test
-  public void testPrepareDefaultTimezone() {
+  public void testPrepareDefaultTimezoneInCastOperator() {
     String expr = "cast(cast('2015-04-01' as timestamp) as string)";
     try (PreparedExpression exp = new PreparedExpression(expr)) {
       AnalyzerOptions options = new AnalyzerOptions();
       exp.prepare(options);
       Value value = exp.execute();
       assertThat(value.getStringValue()).isEqualTo("2015-04-01 00:00:00-07");
+    }
+
+    try (PreparedExpression exp = new PreparedExpression(expr)) {
+      AnalyzerOptions options = new AnalyzerOptions();
+      options.setDefaultTimezone("Asia/Shanghai");
+      exp.prepare(options);
+      Value value = exp.execute();
+      assertThat(value.getStringValue()).isEqualTo("2015-04-01 00:00:00+08");
+    }
+  }
+
+  @Test
+  public void testPrepareDefaultTimezoneInTimestampFunction() {
+    String expr = "cast(timestamp(date '2015-04-01') as string)";
+    try (PreparedExpression exp = new PreparedExpression(expr)) {
+      AnalyzerOptions options = new AnalyzerOptions();
+      options.setDefaultTimezone("UTC");
+      exp.prepare(options);
+      Value value = exp.execute();
+      assertThat(value.getStringValue()).isEqualTo("2015-04-01 00:00:00+00");
     }
 
     try (PreparedExpression exp = new PreparedExpression(expr)) {

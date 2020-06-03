@@ -72,9 +72,9 @@ inline bool Modulo(T in1, T in2, T *out, absl::Status* error);
 template <typename InType, typename OutType>
 inline bool UnaryMinus(InType in, OutType *out, absl::Status* error);
 
-// Division function for NUMERICs with integer semantics.
-inline bool IntegerDivide(NumericValue in1, NumericValue in2,
-                          NumericValue* out, absl::Status* error);
+// Division function for NUMERIC/BIGNUMERICs with integer semantics.
+template <typename T>
+inline bool DivideToIntegralValue(T in1, T in2, T* out, absl::Status* error);
 
 // ----------------------- Internal parts -----------------------
 // These are implementation details. Do not use outside of this file.
@@ -102,11 +102,10 @@ struct is_safe_to_cast {
   static_assert(std::numeric_limits<To>::is_integer &&
                 std::numeric_limits<From>::is_integer,
                 "is_safe_to_cast can only be used with integer types");
-  static const bool value =
-     (std::numeric_limits<To>::digits >=
-      std::numeric_limits<From>::digits) &&
-     (std::numeric_limits<To>::is_signed >=
-      std::numeric_limits<From>::is_signed);
+  static constexpr bool value =
+      (std::numeric_limits<To>::digits >= std::numeric_limits<From>::digits) &&
+      (std::numeric_limits<To>::is_signed >=
+       std::numeric_limits<From>::is_signed);
 };
 
 template <typename To, typename From>
@@ -502,7 +501,7 @@ inline bool Divide(NumericValue in1, NumericValue in2, NumericValue* out,
 template <>
 inline bool UnaryMinus(NumericValue in, NumericValue* out,
                        absl::Status* error) {
-  *out = NumericValue::UnaryMinus(in);
+  *out = in.Negate();
   return true;
 }
 
@@ -510,19 +509,6 @@ template <>
 inline bool Modulo(NumericValue in1, NumericValue in2,
                    NumericValue *out, absl::Status* error) {
   zetasql_base::StatusOr<NumericValue> numeric_status = in1.Mod(in2);
-  if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
-    *out = numeric_status.value();
-    return true;
-  }
-  if (error != nullptr) {
-    *error = numeric_status.status();
-  }
-  return false;
-}
-
-inline bool IntegerDivide(NumericValue in1, NumericValue in2,
-                          NumericValue* out, absl::Status* error) {
-  zetasql_base::StatusOr<NumericValue> numeric_status = in1.IntegerDivide(in2);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
     *out = numeric_status.value();
     return true;
@@ -594,8 +580,7 @@ inline bool Divide(BigNumericValue in1, BigNumericValue in2,
 template <>
 inline bool UnaryMinus(BigNumericValue in, BigNumericValue* out,
                        absl::Status* error) {
-  zetasql_base::StatusOr<BigNumericValue> bignumeric_status =
-      BigNumericValue::UnaryMinus(in);
+  zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in.Negate();
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
     *out = bignumeric_status.ValueOrDie();
     return true;
@@ -606,6 +591,33 @@ inline bool UnaryMinus(BigNumericValue in, BigNumericValue* out,
   return false;
 }
 
+template <>
+inline bool Modulo(BigNumericValue in1, BigNumericValue in2,
+                   BigNumericValue* out, absl::Status* error) {
+  zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Mod(in2);
+  if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
+    *out = bignumeric_status.value();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = bignumeric_status.status();
+  }
+  return false;
+}
+
+// ----------------------- NUMERIC/BIGNUMERIC -----------------------
+template <typename T>
+inline bool DivideToIntegralValue(T in1, T in2, T* out, absl::Status* error) {
+  zetasql_base::StatusOr<T> numeric_status = in1.DivideToIntegralValue(in2);
+  if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
+    *out = numeric_status.value();
+    return true;
+  }
+  if (error != nullptr) {
+    *error = numeric_status.status();
+  }
+  return false;
+}
 
 }  // namespace functions
 }  // namespace zetasql

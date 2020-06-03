@@ -18,6 +18,7 @@
 #define ZETASQL_ANALYZER_QUERY_RESOLVER_HELPER_H_
 
 #include <stddef.h>
+
 #include <map>
 #include <memory>
 #include <string>
@@ -25,13 +26,13 @@
 #include <utility>
 #include <vector>
 
-#include <cstdint>
-
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include <cstdint>
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -44,10 +45,28 @@ class SelectColumnStateList;
 // insertions.
 size_t FieldPathHash(const ResolvedExpr* expr);
 
-// Returns true if both <field_path1> and <field_path2> are generalized path
-// expressions and point to the same object.  Otherwise returns false.
+enum class FieldPathMatchingOption { kExpression, kFieldPath };
+
+// This function determines whether <field_path1> and <field_path2> are
+// generalized path expressions that point to the same field.
+//
+// If the FieldPathMatchingOption::kExpression option is specified, this
+// function returns true if <field_path1> and <field_path2> are interchangeable
+// generalized path expressions. This considers specialized field accesses
+// (currently, the only such case is PROTO_DEFAULT_IF_NULL) as well as ensures
+// the descriptors for any proto types involved come from the same descriptor
+// pool. This option guarantees <field_path1> and <field_path2> evaluate to the
+// same result.
+//
+// If the FieldPathMatchingOption::kFieldPath option is specified, this function
+// returns true if <field_path1> and <field_path2> read the same field. This
+// option does consider whether the has_bit of the field is being accessed by
+// both <field_path1> and <field_path2>. However, it does not consider any
+// specialized field accesses. Therefore, this option does not guarantee
+// <field_path1> and <field_path2> evaluate to the same result.
 bool IsSameFieldPath(const ResolvedExpr* field_path1,
-                     const ResolvedExpr* field_path2);
+                     const ResolvedExpr* field_path2,
+                     FieldPathMatchingOption match_option);
 
 // Field path hashing operator for containers.
 struct FieldPathHashOperator {
@@ -59,7 +78,14 @@ struct FieldPathHashOperator {
 // Field path equality operator for containers.
 struct FieldPathEqualsOperator {
   bool operator()(const ResolvedExpr* expr1, const ResolvedExpr* expr2) const {
-    return IsSameFieldPath(expr1, expr2);
+    return IsSameFieldPath(expr1, expr2, FieldPathMatchingOption::kFieldPath);
+  }
+};
+
+// Field path expression equality operator for containers.
+struct FieldPathExpressionEqualsOperator {
+  bool operator()(const ResolvedExpr* expr1, const ResolvedExpr* expr2) const {
+    return IsSameFieldPath(expr1, expr2, FieldPathMatchingOption::kExpression);
   }
 };
 
@@ -79,7 +105,7 @@ struct OrderByItemInfo {
         null_order(null_order) {}
 
   // This value is not valid as a 0-based select list index.
-  static const int64_t kInvalidSelectListIndex =
+  static constexpr int64_t kInvalidSelectListIndex =
       std::numeric_limits<int64_t>::max();
 
   const ASTNode* ast_location;
@@ -129,7 +155,7 @@ struct QueryGroupByAndAggregateInfo {
 
   // Map of group by expressions to entries within group_by_columns_to_compute.
   std::unordered_map<const ResolvedExpr*, const ResolvedComputedColumn*,
-                     FieldPathHashOperator, FieldPathEqualsOperator>
+                     FieldPathHashOperator, FieldPathExpressionEqualsOperator>
       group_by_expr_map;
 
   // Columns in the ROLLUP list, or an empty vector if the query does

@@ -118,13 +118,12 @@ bool ArrayType::SupportsPartitioningImpl(
 }
 
 absl::Status ArrayType::SerializeToProtoAndDistinctFileDescriptorsImpl(
-    TypeProto* type_proto,
-    absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
+    const BuildFileDescriptorSetMapOptions& options, TypeProto* type_proto,
     FileDescriptorSetMap* file_descriptor_set_map) const {
   type_proto->set_type_kind(kind_);
-  return element_type()->SerializeToProtoAndDistinctFileDescriptors(
-      type_proto->mutable_array_type()->mutable_element_type(),
-      file_descriptor_sets_max_size_bytes, file_descriptor_set_map);
+  return element_type()->SerializeToProtoAndDistinctFileDescriptorsImpl(
+      options, type_proto->mutable_array_type()->mutable_element_type(),
+      file_descriptor_set_map);
 }
 
 std::string ArrayType::ShortTypeName(ProductMode mode) const {
@@ -158,6 +157,32 @@ void ArrayType::CopyValueContent(const ValueContent& from,
 
 void ArrayType::ClearValueContent(const ValueContent& value) const {
   value.GetAs<zetasql_base::SimpleReferenceCounted*>()->Unref();
+}
+
+absl::HashState ArrayType::HashTypeParameter(absl::HashState state) const {
+  // Array types are equivalent if their element types are equivalent,
+  // so we hash the element type kind.
+  return element_type()->Hash(std::move(state));
+}
+
+absl::HashState ArrayType::HashValueContent(const ValueContent& value,
+                                            absl::HashState state) const {
+  LOG(FATAL) << "HashValueContent should never be called for ArrayType, since "
+                "its value content is created in Value class";
+}
+
+bool ArrayType::ValueContentEqualsImpl(
+    const ValueContent& x, const ValueContent& y,
+    const ValueEqualityCheckOptions& options) const {
+  LOG(FATAL) << "ValueContentEqualsImpl should never be called for ArrayType,"
+                "since its value content is compared in Value class";
+}
+
+std::string ArrayType::FormatValueContent(
+    const ValueContent& value, const FormatValueContentOptions& options) const {
+  LOG(FATAL)
+      << "FormatValueContent should never be called for ArrayType, since "
+         "its value content is maintained in the Value class";
 }
 
 }  // namespace zetasql

@@ -78,30 +78,24 @@ inline int FindMSBSetNonZero(uint64_t x) { return zetasql_base::Bits::FindMSBSet
 // For example, LeftPad<uint32_t, 4>(1, 2, 3) returns {1, 1, 2, 3}.
 // The number of arguments cannot exceed <size> + 1.
 template <typename Word, int size, typename... T>
-inline constexpr std::enable_if_t<sizeof...(T) == size, std::array<Word, size>>
-LeftPad(Word filler, T... v) {
-  return {v...};
-}
-
-template <typename Word, int size, typename... T>
-inline constexpr std::enable_if_t<(sizeof...(T) < size), std::array<Word, size>>
-LeftPad(Word filler, T... v) {
-  return LeftPad<Word, size>(filler, filler, v...);
+inline constexpr std::array<Word, size> LeftPad(Word filler, T... v) {
+  if constexpr (sizeof...(T) < size) {
+    return LeftPad<Word, size>(filler, filler, v...);
+  } else {
+    return {v...};
+  }
 }
 
 // Builds a std::array<Word, size> with right padding in compile-time.
 // For example, RightPad<uint32_t, 4>(1, 2, 3) returns {2, 3, 1, 1}.
 // The number of arguments cannot exceed <size> + 1.
 template <typename Word, int size, typename... T>
-inline constexpr std::enable_if_t<sizeof...(T) == size, std::array<Word, size>>
-RightPad(Word filler, T... v) {
-  return {v...};
-}
-
-template <typename Word, int size, typename... T>
-inline constexpr std::enable_if_t<(sizeof...(T) < size), std::array<Word, size>>
-RightPad(Word filler, T... v) {
-  return RightPad<Word, size>(filler, v..., filler);
+inline constexpr std::array<Word, size> RightPad(Word filler, T... v) {
+  if constexpr (sizeof...(T) < size) {
+    return RightPad<Word, size>(filler, v..., filler);
+  } else {
+    return {v...};
+  }
 }
 
 // Helper functions for converting between a bigger integer type and an array of
@@ -109,48 +103,40 @@ RightPad(Word filler, T... v) {
 // array sizes.
 // Requirements: n must be >= m and (n/m) must be a power of 2.
 template <int n, int m, int size>
-inline constexpr std::enable_if_t<n == m, std::array<Uint<m>, size>>
-UintToArray(Uint<n> src, Uint<m> extension) {
-  return RightPad<Uint<m>, size>(extension, src);
-}
-
-template <int n, int m, int size>
-inline constexpr std::enable_if_t<(n == m * 2), std::array<Uint<m>, size>>
-UintToArray(Uint<n> src, Uint<m> extension) {
-  return RightPad<Uint<m>, size>(extension, static_cast<Uint<m>>(src),
-                                 static_cast<Uint<m>>(src >> m));
-}
-
-template <int n, int m, int size>
-inline constexpr std::enable_if_t<(n == m * 4), std::array<Uint<m>, size>>
-UintToArray(Uint<n> src, Uint<m> extension) {
-  return RightPad<Uint<m>, size>(
-      extension, static_cast<Uint<m>>(src), static_cast<Uint<m>>(src >> m),
-      static_cast<Uint<m>>(src >> 2 * m), static_cast<Uint<m>>(src >> 3 * m));
+inline constexpr std::array<Uint<m>, size> UintToArray(Uint<n> src,
+                                                       Uint<m> extension) {
+  if constexpr (n == m) {
+    return RightPad<Uint<m>, size>(extension, src);
+  } else if constexpr (n == m * 2) {
+    return RightPad<Uint<m>, size>(extension, static_cast<Uint<m>>(src),
+                                   static_cast<Uint<m>>(src >> m));
+  } else if constexpr (n == m * 4) {
+    return RightPad<Uint<m>, size>(
+        extension, static_cast<Uint<m>>(src), static_cast<Uint<m>>(src >> m),
+        static_cast<Uint<m>>(src >> 2 * m), static_cast<Uint<m>>(src >> 3 * m));
+  }
 }
 
 template <int n, int m>
-inline std::enable_if_t<n == m> UintToArray(Uint<n> src, Uint<m> dest[]) {
-  *dest = src;
+inline void UintToArray(Uint<n> src, Uint<m> dest[]) {
+  if constexpr (n == m) {
+    *dest = src;
+  } else {
+    constexpr int k = n / 2;
+    UintToArray<k, m>(static_cast<Uint<k>>(src), dest);
+    UintToArray<k, m>(static_cast<Uint<k>>(src >> k), &dest[k / m]);
+  }
 }
 
 template <int n, int m>
-inline std::enable_if_t<n != m> UintToArray(Uint<n> src, Uint<m> dest[]) {
-  constexpr int k = n / 2;
-  UintToArray<k, m>(static_cast<Uint<k>>(src), dest);
-  UintToArray<k, m>(static_cast<Uint<k>>(src >> k), &dest[k / m]);
-}
-
-template <int n, int m>
-inline std::enable_if_t<n == m, Uint<n>> ArrayToUint(const Uint<m> src[]) {
-  return src[0];
-}
-
-template <int n, int m>
-inline std::enable_if_t<n != m, Uint<n>> ArrayToUint(const Uint<m> src[]) {
-  constexpr int k = n / 2;
-  return (static_cast<Uint<n>>(ArrayToUint<k, m>(&src[k / m])) << k) |
-         ArrayToUint<k, m>(src);
+inline Uint<n> ArrayToUint(const Uint<m> src[]) {
+  if constexpr (n == m) {
+    return src[0];
+  } else {
+    constexpr int k = n / 2;
+    return (static_cast<Uint<n>>(ArrayToUint<k, m>(&src[k / m])) << k) |
+           ArrayToUint<k, m>(src);
+  }
 }
 
 template <int k>
@@ -245,38 +231,34 @@ bool LessWithVariableSize(const Uint<k>* lhs, const Uint<k>* rhs, int size) {
 // When the size is a small compile-time constant, Less<k, size> is much more
 // efficient.
 template <int k, int size>
-inline std::enable_if_t<size == 0, bool> Less(const Uint<k>* lhs,
-                                              const Uint<k>* rhs) {
-  return false;
-}
-
-template <int k, int size>
-inline std::enable_if_t<size == 1, bool> Less(const Uint<k>* lhs,
-                                              const Uint<k>* rhs) {
-  return lhs[0] < rhs[0];
-}
-
-template <int k, int size>
-inline std::enable_if_t<size == 2, bool> Less(const Uint<k>* lhs,
-                                              const Uint<k>* rhs) {
-  return MakeDword<k>(lhs) < MakeDword<k>(rhs);
-}
-
-template <int k, int size>
-inline std::enable_if_t<(size > 2 && size <= 8), bool> Less(
-    const Uint<k>* lhs, const Uint<k>* rhs) {
-  auto lh_dword = MakeDword<k>(lhs + size - 2);
-  auto rh_dword = MakeDword<k>(rhs + size - 2);
-  if (lh_dword != rh_dword) {
-    return lh_dword < rh_dword;
+inline bool Less(const Uint<k>* lhs, const Uint<k>* rhs) {
+  if constexpr (size <= 0) {
+    return false;
+  } else if constexpr (size == 1) {
+    return lhs[0] < rhs[0];
+  } else if constexpr (size == 2) {
+    return MakeDword<k>(lhs) < MakeDword<k>(rhs);
+  } else if constexpr (size <= 8) {
+    auto lh_dword = MakeDword<k>(lhs + size - 2);
+    auto rh_dword = MakeDword<k>(rhs + size - 2);
+    if (lh_dword != rh_dword) {
+      return lh_dword < rh_dword;
+    }
+    return Less<k, size - 2>(lhs, rhs);
+  } else {
+    return LessWithVariableSize<k>(lhs, rhs, size);
   }
-  return Less<k, size - 2>(lhs, rhs);
 }
 
-template <int k, int size>
-inline std::enable_if_t<(size > 8), bool> Less(const Uint<k>* lhs,
-                                               const Uint<k>* rhs) {
-  return LessWithVariableSize<k>(lhs, rhs, size);
+// This version is not optimized for performance, but it can be
+// be used to build constexpr variables. Use it only with constexpr inputs.
+template <typename Word, size_t size>
+constexpr bool Less(const std::array<Word, size>& lhs,
+                    const std::array<Word, size>& rhs,
+                    ssize_t current_index = size - 1) {
+  return current_index >= 0 && (lhs[current_index] == rhs[current_index]
+                                    ? Less(lhs, rhs, current_index - 1)
+                                    : lhs[current_index] < rhs[current_index]);
 }
 
 template <typename Word, int size>
@@ -341,21 +323,6 @@ inline std::array<Uint<k1>, n1> Convert(const std::array<Uint<k2>, n2>& src,
 #endif
   Copy<std::min(k1, k2)>(src.data(), n2, res.data(), n1, extension);
   return res;
-}
-
-// Builds a std::array<Word, size> with left padding in compile-time.
-// For example, LeftPad<uint32_t, 4, 1>(2, 3) returns {1, 1, 2, 3}.
-// The number of arguments cannot exceed <size>.
-template <typename Word, int size, Word filler, typename... T>
-inline constexpr std::enable_if_t<sizeof...(T) == size, std::array<Word, size>>
-LeftPad(T... v) {
-  return {v...};
-}
-
-template <typename Word, int size, Word filler, typename... T>
-inline constexpr std::enable_if_t<(sizeof...(T) < size), std::array<Word, size>>
-LeftPad(T... v) {
-  return LeftPad<Word, size, filler>(filler, v...);
 }
 
 #ifdef __x86_64__
@@ -824,18 +791,37 @@ bool ParseFromBase10UnsignedString(absl::string_view str, Word* result) {
 void AppendSegmentsToString(const uint32_t segments[], int num_segments,
                             std::string* result);
 
+// The following functions are not optimized for performance, but they can be
+// be used to build constexpr variables. Use them only with constexpr inputs.
+
+// MulWord(src, multiplier, carry) returns an array representing
+// src * multipler + carry.
+template <typename Word, size_t size, typename... T>
+constexpr std::array<Word, size> MulWord(const std::array<Word, size>& src,
+                                         Word multiplier, Word carry, T... v) {
+  if constexpr (sizeof...(T) < size) {
+    static_assert(std::is_unsigned_v<Word>, "Only unsigned Word is supported");
+    constexpr int kNumBitsPerWord = sizeof(Word) * 8;
+    const auto product =
+        static_cast<Uint<kNumBitsPerWord * 2>>(src[sizeof...(T)]) * multiplier +
+        carry;
+    return MulWord(src, multiplier,
+                   static_cast<Word>(product >> kNumBitsPerWord), v...,
+                   static_cast<Word>(product));
+  } else {
+    return std::array<Word, size>{v...};
+  }
+}
+
 // PowersAsc<Word, first_value, base, size>() returns a std::array<Word, size>
 // {first_value, first_value * base, ..., first_value * pow(base, size - 1)}.
 template <typename Word, Word first_value, Word base, int size, typename... T>
-constexpr std::enable_if_t<(sizeof...(T) == size), std::array<Word, size>>
-PowersAsc(T... v) {
-  return std::array<Word, size>{v...};
-}
-
-template <typename Word, Word first_value, Word base, int size, typename... T>
-constexpr std::enable_if_t<(sizeof...(T) < size), std::array<Word, size>>
-PowersAsc(T... v) {
-  return PowersAsc<Word, first_value, base, size>(first_value, v * base...);
+constexpr std::array<Word, size> PowersAsc(T... v) {
+  if constexpr (sizeof...(T) < size) {
+    return PowersAsc<Word, first_value, base, size>(first_value, v * base...);
+  } else {
+    return std::array<Word, size>{v...};
+  }
 }
 
 }  // namespace fixed_int_internal

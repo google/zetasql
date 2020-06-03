@@ -25,6 +25,7 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 

@@ -26,6 +26,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
+#include "absl/types/optional.h"
 
 namespace zetasql {
 namespace internal {  //   For internal use only
@@ -145,10 +146,19 @@ int64_t GetExternallyAllocatedMemoryEstimate(
 // <file_descriptor_set_index> corresponding to file descriptor set to which
 // the dependencies were added.  Returns an error on out-of-memory.
 absl::Status PopulateDistinctFileDescriptorSets(
+    const BuildFileDescriptorMapOptions& options,
     const google::protobuf::FileDescriptor* file_descr,
-    absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
     FileDescriptorSetMap* file_descriptor_set_map,
     int* file_descriptor_set_index);
+
+// Generates a SQL cast expression that casts the literal represented by given
+// value (which can have any type V supported by absl::StrCat) to the given
+// ZetaSQL type.
+template <typename V>
+std::string GetCastExpressionString(const V& value, const Type* type,
+                                    ProductMode mode) {
+  return absl::StrCat("CAST(", value, " AS ", type->TypeName(mode), ")");
+}
 
 }  // namespace internal
 }  // namespace zetasql

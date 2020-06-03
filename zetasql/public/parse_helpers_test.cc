@@ -172,23 +172,29 @@ TEST(IsValidStatementSyntaxTest, BasicStatements) {
                              ERROR_MESSAGE_WITH_PAYLOAD);
   // The syntax error location is at the 'did', since 'oops' is interpreted
   // as a table name and 'I' is interpreted as the alias.
-  EXPECT_EQ(internal::StatusToString(status),
-            "generic::invalid_argument: Syntax error: Unexpected identifier "
-            "\"did\" [zetasql.ErrorLocation] { line: 1 column: 22 }");
+  EXPECT_EQ(
+      internal::StatusToString(status),
+      "generic::invalid_argument: Syntax error: Expected end of input but "
+      "got identifier "
+      "\"did\" [zetasql.ErrorLocation] { line: 1 column: 22 }");
 
   status = IsValidStatementSyntax("SELECT * FROM oops I did it again",
                                   ERROR_MESSAGE_ONE_LINE);
-  EXPECT_EQ(internal::StatusToString(status),
-            "generic::invalid_argument: Syntax error: Unexpected identifier "
-            "\"did\" [at 1:22]");
+  EXPECT_EQ(
+      internal::StatusToString(status),
+      "generic::invalid_argument: Syntax error: Expected end of input but "
+      "got identifier "
+      "\"did\" [at 1:22]");
 
   status = IsValidStatementSyntax("SELECT * FROM oops I did it again",
                                   ERROR_MESSAGE_MULTI_LINE_WITH_CARET);
-  EXPECT_EQ(internal::StatusToString(status),
-            "generic::invalid_argument: Syntax error: Unexpected identifier "
-            "\"did\" [at 1:22]\n"
-            "SELECT * FROM oops I did it again\n"
-            "                     ^");
+  EXPECT_EQ(
+      internal::StatusToString(status),
+      "generic::invalid_argument: Syntax error: Expected end of input but "
+      "got identifier "
+      "\"did\" [at 1:22]\n"
+      "SELECT * FROM oops I did it again\n"
+      "                     ^");
 }
 
 TEST(IsValidNextStatementSyntaxTest, BasicStatements) {

@@ -735,10 +735,9 @@ java_library(
     if not native.existing_rule("google_bazel_common"):
         http_archive(
             name = "google_bazel_common",
-            strip_prefix = "bazel-common-5bd8dc4fce8157f1e894ad0b51288ac8bfa7a150",
-            urls = ["https://github.com/google/bazel-common/archive/5bd8dc4fce8157f1e894ad0b51288ac8bfa7a150.zip"],
-            sha256 = "86051547ed1fdc699a5688918a5da1bce312750e7ee00a0714b780f6ce8bb6e4",
-            patches = ["@com_google_zetasql//bazel:common.patch"],
+            strip_prefix = "bazel-common-eb5c7e5d6d2c724fe410792c8be9f59130437e4a",
+            urls = ["https://github.com/google/bazel-common/archive/eb5c7e5d6d2c724fe410792c8be9f59130437e4a.zip"],
+            sha256 = "18f266d921db1daa2ee9837343938e37fa21e0a8b6a0e43a67eda4c30f62b812",
         )
 
     ##########################################################################
@@ -757,9 +756,9 @@ java_library(
     http_archive(
         name = "bison",
         build_file_content = all_content,
-        strip_prefix = "bison-3.2.4",
-        sha256 = "cb673e2298d34b5e46ba7df0641afa734da1457ce47de491863407a587eec79a",
-        urls = ["https://ftp.gnu.org/gnu/bison/bison-3.2.4.tar.gz"],
+        strip_prefix = "bison-3.6.2",
+        sha256 = "e28ed3aad934de2d1df68be209ac0b454f7b6d3c3d6d01126e5cd2cbadba089a",
+        urls = ["https://ftp.gnu.org/gnu/bison/bison-3.6.2.tar.gz"],
     )
 
     http_archive(

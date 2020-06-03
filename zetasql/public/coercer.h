@@ -122,20 +122,15 @@ class Coercer {
   // consider <struct_argument> types individually to see whether they can be
   // coerced to <to_type> field types implicitly/explicitly. Field names are
   // irrelevant. The <result> is updated to reflect success or failure.
-  // If <coerced_value> != nullptr and the input struct is a literal, then
-  // the coerced input struct value is returned in <coerced_value>.
   //
   // Note that <struct_argument> optionally contains a list of field
   // InputArgumentTypes.  This list is populated for literal or partially
   // literal struct values being coerced.  If this list is not present,
   // then <struct_argument> represents a non-literal and its field types
   // are considered as non-literal field types from the StructType.
-  //
-  // TODO: Remove <coerced_value> here.
   bool StructCoercesTo(const InputArgumentType& struct_argument,
                        const Type* to_type, bool is_explicit,
-                       SignatureMatchResult* result,
-                       Value* coerced_value = nullptr) const;
+                       SignatureMatchResult* result) const;
 
   // Returns whether <array_argument> can be coerced to <to_type> for either
   // explicit or implicit coercion. <from_argument> must be an array type. For
@@ -157,13 +152,8 @@ class Coercer {
   // Returns whether the literal Value can be coerced to <to_type> based
   // on implicit/explicit conversion rules.  The <result> is updated
   // appropriately to reflect success or failure as described for CoercesTo().
-  // If <coerced_value> is not NULL, then it is updated to provide the coerced
-  // value.
-  //
-  // TODO: Remove coerced_value here.
   bool LiteralCoercesTo(const Value& literal_value, const Type* to_type,
-                        bool is_explicit, SignatureMatchResult* result,
-                        Value* coerced_value = nullptr) const;
+                        bool is_explicit, SignatureMatchResult* result) const;
 
   // Returns the common struct super type of the <argument_set>.
   // When computing super type of struct types, we compute the super type for

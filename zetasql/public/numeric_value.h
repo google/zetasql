@@ -47,6 +47,8 @@ class NumericValue final {
   // Must use integral_constant to utilize the compiler optimization for integer
   // divisions with constant 32-bit divisors.
   static constexpr std::integral_constant<uint32_t, 1000000000> kScalingFactor{};
+  static constexpr int kMaxIntegerDigits = 29;
+  static constexpr int kMaxFractionalDigits = 9;
   // Default constructor, constructs a zero value.
   constexpr NumericValue();
 
@@ -105,7 +107,7 @@ class NumericValue final {
   // truncating the result to the whole integer. May return OUT_OF_RANGE if an
   // overflow or division by zero happens. This operation is the same as the SQL
   // DIV function.
-  zetasql_base::StatusOr<NumericValue> IntegerDivide(NumericValue rh) const;
+  zetasql_base::StatusOr<NumericValue> DivideToIntegralValue(NumericValue rh) const;
   // Returns a remainder of division of this numeric value by the given divisor.
   // Returns an OUT_OF_RANGE error if the divisor is zero.
   zetasql_base::StatusOr<NumericValue> Mod(NumericValue rh) const;
@@ -119,9 +121,9 @@ class NumericValue final {
   bool operator<=(NumericValue rh) const;
 
   // Math functions.
-  static NumericValue UnaryMinus(NumericValue value);
-  static NumericValue Abs(NumericValue value);
-  static NumericValue Sign(NumericValue value);
+  NumericValue Negate() const;
+  NumericValue Abs() const;
+  int Sign() const;
 
   // Raises this numeric value to the given power and returns the result.
   // Returns OUT_OF_RANGE error on overflow.
@@ -168,6 +170,65 @@ class NumericValue final {
   std::string ToString() const;
   void AppendToString(std::string* output) const;
 
+  struct FormatSpec {
+    // Minimum total output size. If the formatted string is shorter than this
+    // size, it will be padded with spaces or zeros, depending on zero_pad and
+    // left_justify.
+    uint32_t minimum_size = 0;
+    // For DEFAULT, E_NOTATION_LOWER_CASE and E_NOTATION_UPPER_CASE modes,
+    // this field means the number of digits after the decimal point (before
+    // remove_trailing_zeros_after_decimal_point is applied) to print.
+    // For GENERAL_FORMAT_LOWER_CASE and GENERAL_FORMAT_UPPER_CASE modes,
+    // this field means the max number of significant digits to keep (before
+    // remove_trailing_zeros_after_decimal_point is applied).
+    // For all modes, the value is rounded if it has more digits than specified.
+    uint32_t precision = 6;
+    // See https://en.cppreference.com/w/c/io/fprintf for the documentation
+    // of the modes.
+    enum Mode : char {
+      DEFAULT = 'f',                    // %f
+      E_NOTATION_LOWER_CASE = 'e',      // %e
+      E_NOTATION_UPPER_CASE = 'E',      // %E
+      GENERAL_FORMAT_LOWER_CASE = 'g',  // %g
+      GENERAL_FORMAT_UPPER_CASE = 'G',  // %G
+    };
+    Mode mode = DEFAULT;
+    // Enum for the bit flags representing how to print the numeric value
+    enum Flag : uint8_t {
+      NO_FLAGS = 0x0,
+      // If set, trailing zeros after the decimal point are removed.
+      REMOVE_TRAILING_ZEROS_AFTER_DECIMAL_POINT = 0x1,
+      // If set, print the decimal point even when there is no fractional
+      // digit.
+      ALWAYS_PRINT_DECIMAL_POINT = 0x2,
+      // If set, print '+' sign for non-negative values.
+      ALWAYS_PRINT_SIGN = 0x4,
+      // If set, print a space in place of sign for non-negative values.
+      // Ignored if ALWAYS_PRINT_SIGN is set.
+      SIGN_SPACE = 0x8,
+      // If set, pad the output with leading zeros after the sign to
+      // minimum_size. Else, pad the output with leading spaces before
+      // the sign to minimum_size. Ignored if LEFT_JUSTIFY is set.
+      ZERO_PAD = 0x10,
+      // If set, left-justify the output by appending padding after the numeric
+      // value. Else, output is right-justified.
+      LEFT_JUSTIFY = 0x20,
+      // If set, the integer portion of the numeric value is formatted using
+      // the ',' character (i.e. 23456789 is formatted as 23,456,789). Note that
+      // if zero_pad if true, the leading zeros padded are NOT formatted with
+      // the grouping character, even if use_grouping_char is true.
+      USE_GROUPING_CHAR = 0x40,
+    };
+    // Flags controlling how to print the numeric value
+    uint32_t format_flags = NO_FLAGS;
+  };
+
+  static_assert(sizeof(FormatSpec) <= 16, "Size of FormatSpec is too large");
+
+  // Formats the NUMERIC value and appends the result to 'output'.
+  // This method is much slower than AppendToString.
+  void FormatAndAppend(FormatSpec spec, std::string* output) const;
+
   // Returns the packed NUMERIC value.
   constexpr __int128 as_packed_int() const;
 
@@ -178,7 +239,8 @@ class NumericValue final {
   constexpr uint64_t low_bits() const;
 
   // Returns whether the NUMERIC value has a fractional part.
-  bool has_fractional_part() const;
+  // Faster than computing Round/Trunc/Ceiling/Floor and comparing to *this.
+  bool HasFractionalPart() const;
 
   // Serialization and deserialization methods for NUMERIC values that are
   // intended to be used to store them in protos. The encoding is variable in
@@ -199,8 +261,10 @@ class NumericValue final {
   // the final sum is outside of the valid NUMERIC range.
   class SumAggregator final {
    public:
-    // Adds a NUMERIC value to the input.
+    // Adds a NUMERIC value to the sum.
     void Add(NumericValue value);
+    // Subtracts a NUMERIC value from the sum.
+    void Subtract(NumericValue value);
     // Returns sum of all input values. Returns OUT_OF_RANGE error on overflow.
     zetasql_base::StatusOr<NumericValue> GetSum() const;
     // Returns sum of all input values divided by the specified divisor.
@@ -212,7 +276,14 @@ class NumericValue final {
     // Merges the state with other SumAggregator instance's state.
     void MergeWith(const SumAggregator& other);
 
-    std::string SerializeAsProtoBytes() const;
+    // SerializeAndAppendToProtoBytes is typically more efficient due to fewer
+    // memory allocations.
+    void SerializeAndAppendToProtoBytes(std::string* bytes) const;
+    std::string SerializeAsProtoBytes() const {
+      std::string result;
+      SerializeAndAppendToProtoBytes(&result);
+      return result;
+    }
     static zetasql_base::StatusOr<SumAggregator> DeserializeFromProtoBytes(
         absl::string_view bytes);
 
@@ -250,7 +321,14 @@ class NumericValue final {
     // Serialization and deserialization methods that are intended to be
     // used to store the state in protos.
     // sum_ is length prefixed and serialized, followed by sum_square_.
-    std::string SerializeAsProtoBytes() const;
+    // SerializeAndAppendToProtoBytes is typically more efficient due to fewer
+    // memory allocations.
+    void SerializeAndAppendToProtoBytes(std::string* bytes) const;
+    std::string SerializeAsProtoBytes() const {
+      std::string result;
+      SerializeAndAppendToProtoBytes(&result);
+      return result;
+    }
     static zetasql_base::StatusOr<VarianceAggregator> DeserializeFromProtoBytes(
         absl::string_view bytes);
 
@@ -289,7 +367,14 @@ class NumericValue final {
     // used to store the state in protos.
     // sum_product_ is length prefixed and serialized, sum_x_ is length prefixed
     // and serialized, followed by sum_y_.
-    std::string SerializeAsProtoBytes() const;
+    // SerializeAndAppendToProtoBytes is typically more efficient due to fewer
+    // memory allocations.
+    void SerializeAndAppendToProtoBytes(std::string* bytes) const;
+    std::string SerializeAsProtoBytes() const {
+      std::string result;
+      SerializeAndAppendToProtoBytes(&result);
+      return result;
+    }
     static zetasql_base::StatusOr<CovarianceAggregator> DeserializeFromProtoBytes(
         absl::string_view bytes);
 
@@ -325,7 +410,14 @@ class NumericValue final {
     // Each of cov_agg_'s members are length prefixed and serialized, followed
     // by sum_square_x_ length prefixed and serialized and then sum_square_y_
     // serialized.
-    std::string SerializeAsProtoBytes() const;
+    // SerializeAndAppendToProtoBytes is typically more efficient due to fewer
+    // memory allocations.
+    void SerializeAndAppendToProtoBytes(std::string* bytes) const;
+    std::string SerializeAsProtoBytes() const {
+      std::string result;
+      SerializeAndAppendToProtoBytes(&result);
+      return result;
+    }
     static zetasql_base::StatusOr<CorrelationAggregator> DeserializeFromProtoBytes(
         absl::string_view bytes);
 
@@ -357,14 +449,6 @@ class NumericValue final {
   static zetasql_base::StatusOr<NumericValue> FromFixedInt(
       const FixedInt<kNumBitsPerWord, kNumWords>& val);
 
-  // Rounds this NUMERIC value to the given number of decimal digits after the
-  // decimal point (or before the decimal point if 'digits' is negative).
-  // Halfway cases are rounded away from zero if 'round_away_from_zero' is set
-  // to true, towards zero otherwise. May return OUT_OF_RANGE error if rounding
-  // causes overflow.
-  zetasql_base::StatusOr<NumericValue> RoundInternal(
-      int64_t digits, bool round_away_from_zero) const;
-
   // Raises this numeric value to the given power and returns the result.
   // The caller should annotate the error with the inputs.
   zetasql_base::StatusOr<NumericValue> PowerInternal(NumericValue exp) const;
@@ -389,6 +473,8 @@ class NumericValue final {
 class BigNumericValue final {
  public:
   static constexpr unsigned __int128 ScalingFactor();
+  static constexpr int kMaxIntegerDigits = 39;
+  static constexpr int kMaxFractionalDigits = 38;
 
   // Default constructor, constructs a zero value.
   constexpr BigNumericValue();
@@ -444,7 +530,7 @@ class BigNumericValue final {
   // truncating the result to the whole integer. May return OUT_OF_RANGE if an
   // overflow or division by zero happens. This operation is the same as the SQL
   // DIV function.
-  zetasql_base::StatusOr<BigNumericValue> IntegerDivide(
+  zetasql_base::StatusOr<BigNumericValue> DivideToIntegralValue(
       const BigNumericValue& rh) const;
   // Returns a remainder of division of this numeric value by the given divisor.
   // Returns an OUT_OF_RANGE error if the divisor is zero.
@@ -459,10 +545,9 @@ class BigNumericValue final {
   bool operator<=(const BigNumericValue& rh) const;
 
   // Math functions.
-  static zetasql_base::StatusOr<BigNumericValue> UnaryMinus(
-      const BigNumericValue& value);
-  static zetasql_base::StatusOr<BigNumericValue> Abs(const BigNumericValue& value);
-  static BigNumericValue Sign(const BigNumericValue& value);
+  zetasql_base::StatusOr<BigNumericValue> Negate() const;
+  zetasql_base::StatusOr<BigNumericValue> Abs() const;
+  int Sign() const;
 
   // Raises this BigNumericValue to the given power and returns the result.
   // Returns OUT_OF_RANGE error on overflow.
@@ -489,7 +574,8 @@ class BigNumericValue final {
   zetasql_base::StatusOr<BigNumericValue> Floor() const;
 
   // Returns whether the BIGNUMERIC value has a fractional part.
-  bool has_fractional_part() const;
+  // Faster than computing Round/Trunc/Ceiling/Floor and comparing to *this.
+  bool HasFractionalPart() const;
 
   // Returns hash code for the BigNumericValue.
   size_t HashCode() const;
@@ -518,6 +604,11 @@ class BigNumericValue final {
   std::string ToString() const;
   void AppendToString(std::string* output) const;
 
+  using FormatSpec = NumericValue::FormatSpec;
+  // Formats the BigNumericValue and appends the result to 'output'.
+  // This method is much slower than AppendToString.
+  void FormatAndAppend(FormatSpec spec, std::string* output) const;
+
   // Returns the packed uint64_t array in little endian order.
   constexpr const std::array<uint64_t, 4>& ToPackedLittleEndianArray() const;
 
@@ -536,8 +627,10 @@ class BigNumericValue final {
   // the final sum is outside of the valid BIGNUMERIC range.
   class SumAggregator final {
    public:
-    // Adds a BIGNUMERIC value to the input.
+    // Adds a BIGNUMERIC value to the sum.
     void Add(const BigNumericValue& value);
+    // Subtracts a BIGNUMERIC value from the sum.
+    void Subtract(const BigNumericValue& value);
     // Returns sum of all input values. Returns OUT_OF_RANGE error on overflow.
     zetasql_base::StatusOr<BigNumericValue> GetSum() const;
     // Returns sum of all input values divided by the specified divisor.
@@ -549,7 +642,14 @@ class BigNumericValue final {
     // Merges the state with other SumAggregator instance's state.
     void MergeWith(const SumAggregator& other);
 
-    std::string SerializeAsProtoBytes() const;
+    // SerializeAndAppendToProtoBytes is typically more efficient due to fewer
+    // memory allocations.
+    void SerializeAndAppendToProtoBytes(std::string* bytes) const;
+    std::string SerializeAsProtoBytes() const {
+      std::string result;
+      SerializeAndAppendToProtoBytes(&result);
+      return result;
+    }
     static zetasql_base::StatusOr<SumAggregator> DeserializeFromProtoBytes(
         absl::string_view bytes);
 
@@ -569,9 +669,6 @@ class BigNumericValue final {
   template <int N>
   static FixedUint<64, N - 1> RemoveScalingFactor(FixedUint<64, N> value);
   static double RemoveScaleAndConvertToDouble(const FixedInt<64, 4>& value);
-
-  // Returns the scaled fractional digits.
-  __int128 GetFractionalPart() const;
 
   FixedInt<64, 4> value_;
 };
@@ -593,8 +690,10 @@ constexpr __int128 kNumericMax = k1e38 - 1;
 constexpr __int128 kNumericMin = -kNumericMax;
 constexpr uint32_t k5to9 = 1953125;
 constexpr uint32_t k5to10 = 9765625;
+constexpr uint32_t k5to11 = 48828125;
 constexpr uint32_t k5to12 = 244140625;
 constexpr uint32_t k5to13 = 1220703125;
+constexpr uint64_t k5to19 = 19073486328125UL;
 constexpr std::integral_constant<int32_t, internal::k1e9> kSignedScalingFactor{};
 
 }  // namespace internal
@@ -707,9 +806,9 @@ inline zetasql_base::StatusOr<NumericValue> NumericValue::Subtract(
                          << rh.ToString();
 }
 
-inline NumericValue NumericValue::UnaryMinus(NumericValue value) {
+inline NumericValue NumericValue::Negate() const {
   // The result is expected to be within the valid range.
-  return NumericValue(-value.as_packed_int());
+  return NumericValue(-as_packed_int());
 }
 
 inline bool NumericValue::operator==(NumericValue rh) const {
@@ -803,12 +902,16 @@ inline int32_t NumericValue::GetFractionalPart() const {
   return remainder;
 }
 
-inline bool NumericValue::has_fractional_part() const {
+inline bool NumericValue::HasFractionalPart() const {
   return GetFractionalPart() != 0;
 }
 
 inline void NumericValue::SumAggregator::Add(NumericValue value) {
   sum_ += FixedInt<64, 3>(value.as_packed_int());
+}
+
+inline void NumericValue::SumAggregator::Subtract(NumericValue value) {
+  sum_ -= FixedInt<64, 3>(value.as_packed_int());
 }
 
 inline void NumericValue::SumAggregator::MergeWith(const SumAggregator& other) {
@@ -923,26 +1026,25 @@ inline bool BigNumericValue::operator<=(const BigNumericValue& rh) const {
   return value_ <= rh.value_;
 }
 
-inline zetasql_base::StatusOr<BigNumericValue> BigNumericValue::UnaryMinus(
-    const BigNumericValue& value) {
-  FixedInt<64, 4> result = value.value_;
+inline zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Negate() const {
+  FixedInt<64, 4> result = value_;
   if (ABSL_PREDICT_TRUE(!result.NegateOverflow())) {
     return BigNumericValue(result);
   }
-  return MakeEvalError() << "BigNumeric overflow: -(" << value.ToString()
-                         << ")";
+  return MakeEvalError() << "BigNumeric overflow: -(" << ToString() << ")";
 }
 
-inline __int128 BigNumericValue::GetFractionalPart() const {
-  FixedInt<64, 4> remainder;
-  value_.DivMod(FixedInt<64, 4>(internal::k1e38), nullptr, &remainder);
-  return static_cast<__int128>(FixedInt<64, 2>(remainder));
+inline int BigNumericValue::Sign() const {
+  return value_.is_negative() ? -1 : (value_.is_zero() ? 0 : 1);
 }
 
-inline bool BigNumericValue::has_fractional_part() const {
-  // TODO: Optimize the implementation using 3 divisions like in
-  // ToNumericValue().
-  return GetFractionalPart() != 0;
+inline zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Abs() const {
+  FixedInt<64, 4> result = value_;
+  if (ABSL_PREDICT_TRUE(!result.is_negative()) ||
+      ABSL_PREDICT_TRUE(!result.NegateOverflow())) {
+    return BigNumericValue(result.number());
+  }
+  return MakeEvalError() << "BigNumeric overflow: ABS(" << ToString() << ")";
 }
 
 inline double BigNumericValue::ToDouble() const {
@@ -972,10 +1074,10 @@ BigNumericValue::RemoveScalingFactor(FixedUint<64, N> value) {
   // 5^38 > 2^64, so the highest uint64_t must be 0, even after adding 2^38.
   DCHECK_EQ(value.number()[N - 1], 0);
   FixedUint<64, N - 1> value_trunc(value);
-  if (value_trunc.number()[0] & (1ULL << 37)) {
-    value_trunc += (uint64_t{1} << 38);
+  if (value_trunc.number()[0] & (1ULL << (kMaxFractionalDigits - 1))) {
+    value_trunc += (uint64_t{1} << kMaxFractionalDigits);
   }
-  value_trunc >>= 38;
+  value_trunc >>= kMaxFractionalDigits;
   return value_trunc;
 }
 
@@ -1029,6 +1131,11 @@ inline zetasql_base::StatusOr<NumericValue> BigNumericValue::ToNumericValue() co
 
 inline void BigNumericValue::SumAggregator::Add(const BigNumericValue& value) {
   sum_ += FixedInt<64, 5>(value.value_);
+}
+
+inline void BigNumericValue::SumAggregator::Subtract(
+    const BigNumericValue& value) {
+  sum_ -= FixedInt<64, 5>(value.value_);
 }
 
 inline void BigNumericValue::SumAggregator::MergeWith(

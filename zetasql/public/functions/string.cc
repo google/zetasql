@@ -427,6 +427,42 @@ bool RightTrimBytes(absl::string_view str, absl::string_view chars,
   return true;
 }
 
+bool LeftUtf8(absl::string_view str, int64_t length,
+              absl::string_view* out, absl::Status* error) {
+  if (length < 0) {
+    return internal::UpdateError(
+        error, "Second argument in LEFT() cannot be negative");
+  }
+  return SubstrWithLengthUtf8(str, 0, length, out, error);
+}
+
+bool LeftBytes(absl::string_view str, int64_t length, absl::string_view* out,
+               absl::Status* error) {
+  if (length < 0) {
+    return internal::UpdateError(
+        error, "Second argument in LEFT() cannot be negative");
+  }
+  return SubstrWithLengthBytes(str, 0, length, out, error);
+}
+
+bool RightUtf8(absl::string_view str, int64_t length,
+              absl::string_view* out, absl::Status* error) {
+  if (length < 0) {
+    return internal::UpdateError(
+        error, "Second argument in RIGHT() cannot be negative");
+  }
+  return SubstrWithLengthUtf8(str, -length, length, out, error);
+}
+
+bool RightBytes(absl::string_view str, int64_t length, absl::string_view* out,
+               absl::Status* error) {
+  if (length < 0) {
+    return internal::UpdateError(
+        error, "Second argument in RIGHT() cannot be negative");
+  }
+  return SubstrWithLengthBytes(str, -length, length, out, error);
+}
+
 bool SubstrUtf8(absl::string_view str, int64_t pos, absl::string_view* out,
                 absl::Status* error) {
   return SubstrWithLengthUtf8(str, pos, std::numeric_limits<int64_t>::max(), out,

@@ -53,7 +53,7 @@ class Value;
 // ZetaSQL type corresponding to the proto type (e.g., TYPE_INT64 for
 // google::protobuf::FieldDescriptor::TYPE_INT64), or possibly an ARRAY of that type, if
 // 'field' is repeated.  Examples:
-// - 'field' = optional int64
+// - 'field' = optional int64_t
 //   'value' has TYPE_INT64
 // - 'field' = repeated int64_t and 'index' >= 0
 //   'value' has TYPE_INT64
@@ -90,9 +90,9 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
 // 'message_factory' is used to construct messages if the value type is PROTO.
 //
 // Examples of NULL behavior:
-// - 'field' = optional int64
+// - 'field' = optional int64_t
 //   - NULL 'value' has no effect.
-// - 'field' = repeated int64
+// - 'field' = repeated int64_t
 //   - NULL INT64 'value' causes a ZETASQL_RET_CHECK failure.
 //   - NULL ARRAY<INT64> 'value' has no effect.
 // - 'field' = optional FooMessage (non-wrapper)

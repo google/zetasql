@@ -16,6 +16,9 @@
 
 #include "zetasql/public/types/proto_type.h"
 
+#include "google/protobuf/dynamic_message.h"
+#include "google/protobuf/util/message_differencer.h"
+#include "zetasql/public/functions/convert_proto.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/proto/wire_format_annotation.pb.h"
 #include "zetasql/public/strings.h"
@@ -70,10 +73,9 @@ const google::protobuf::Descriptor* ProtoType::descriptor() const {
 }
 
 absl::Status ProtoType::SerializeToProtoAndDistinctFileDescriptorsImpl(
-    TypeProto* type_proto,
-    absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
+    const BuildFileDescriptorMapOptions& options, TypeProto* type_proto,
     FileDescriptorSetMap* file_descriptor_set_map) const {
-  type_proto->set_type_kind(kind_);
+  type_proto->set_type_kind(kind());
   ProtoTypeProto* proto_type_proto = type_proto->mutable_proto_type();
   proto_type_proto->set_proto_name(descriptor_->full_name());
   proto_type_proto->set_proto_file_name(descriptor_->file()->name());
@@ -83,8 +85,7 @@ absl::Status ProtoType::SerializeToProtoAndDistinctFileDescriptorsImpl(
   // dependencies.
   int set_index;
   ZETASQL_RETURN_IF_ERROR(internal::PopulateDistinctFileDescriptorSets(
-      descriptor_->file(), file_descriptor_sets_max_size_bytes,
-      file_descriptor_set_map, &set_index));
+      options, descriptor_->file(), file_descriptor_set_map, &set_index));
   if (set_index != 0) {
     proto_type_proto->set_file_descriptor_set_index(set_index);
   }
@@ -429,6 +430,15 @@ Type::HasFieldResult HasProtoFieldOrNamedExtension(
   return Type::HAS_NO_FIELD;
 }
 
+// Returns a reference to a container that stores a value of the proto type.
+internal::ProtoRep* GetValueRef(const ValueContent& value) {
+  return value.GetAs<internal::ProtoRep*>();
+}
+
+absl::Cord GetCordValue(const ValueContent& value) {
+  return GetValueRef(value)->value();
+}
+
 }  // namespace
 
 Type::HasFieldResult ProtoType::HasFieldImpl(const std::string& name,
@@ -484,17 +494,109 @@ void ProtoType::InitializeValueContent(ValueContent* value) const {
 
 void ProtoType::CopyValueContent(const ValueContent& from,
                                  ValueContent* to) const {
-  from.GetAs<internal::ProtoRep*>()->Ref();
+  GetValueRef(from)->Ref();
   *to = from;
 }
 
 void ProtoType::ClearValueContent(const ValueContent& value) const {
-  value.GetAs<internal::ProtoRep*>()->Unref();
+  GetValueRef(value)->Unref();
 }
 
 uint64_t ProtoType::GetValueContentExternallyAllocatedByteSize(
     const ValueContent& value) const {
-  return value.GetAs<internal::ProtoRep*>()->physical_byte_size();
+  return GetValueRef(value)->physical_byte_size();
+}
+
+absl::HashState ProtoType::HashTypeParameter(absl::HashState state) const {
+  // Proto types are equivalent if they have the same full name, so hash it.
+  return absl::HashState::combine(std::move(state), descriptor()->full_name());
+}
+
+absl::HashState ProtoType::HashValueContent(const ValueContent& value,
+                                            absl::HashState state) const {
+  // No efficient way to compute a hash on protobufs, so just let equals
+  // sort it out.
+  return absl::HashState::combine(std::move(state), 0);
+}
+
+bool ProtoType::ValueContentEqualsImpl(
+    const ValueContent& x, const ValueContent& y,
+    const ValueEqualityCheckOptions& options) const {
+  const absl::Cord& x_value = x.GetAs<internal::ProtoRep*>()->value();
+  const absl::Cord& y_value = y.GetAs<internal::ProtoRep*>()->value();
+
+  // Shortcut fast case. When byte buffers are equal do not parse the protos.
+  if (x_value == y_value) return true;
+
+  // We use the descriptor from x.  The implementation of Type equality
+  // currently means the descriptors must be identical.  If we relax that,
+  // it is possible this comparison would be asymmetric, but only in
+  // unusual cases where a message field is unknown on one side but not
+  // the other, and doesn't compare identically as bytes.
+  google::protobuf::DynamicMessageFactory factory;
+  const google::protobuf::Message* prototype = factory.GetPrototype(descriptor());
+
+  std::unique_ptr<google::protobuf::Message> x_msg = absl::WrapUnique(prototype->New());
+  std::unique_ptr<google::protobuf::Message> y_msg = absl::WrapUnique(prototype->New());
+  if (!x_msg->ParsePartialFromString(std::string(x_value)) ||
+      !y_msg->ParsePartialFromString(std::string(y_value))) {
+    return false;
+  }
+  // This does exact comparison of doubles.  It is possible to customize it
+  // using set_float_comparison(MessageDifferencer::APPROXIMATE), which
+  // makes it use zetasql_base::MathUtil::AlmostEqual, or to set up default
+  // FieldComparators for even more control of comparisons.
+  // TODO We could use one of those options if
+  // !float_margin.IsExactEquality().
+  // HashCode would need to be updated.
+  google::protobuf::util::MessageDifferencer differencer;
+  std::string differencer_reason;
+  if (options.reason != nullptr) {
+    differencer.ReportDifferencesToString(&differencer_reason);
+  }
+  const bool result = differencer.Compare(*x_msg, *y_msg);
+  if (!differencer_reason.empty()) {
+    absl::StrAppend(options.reason, differencer_reason);
+    // The newline will be added already.
+    DCHECK_EQ(differencer_reason[differencer_reason.size() - 1], '\n')
+        << differencer_reason;
+  }
+  return result;
+}
+
+std::string ProtoType::FormatValueContent(
+    const ValueContent& value, const FormatValueContentOptions& options) const {
+  if (!options.as_literal()) {
+    return internal::GetCastExpressionString(
+        ToBytesLiteral(std::string(GetCordValue(value))), this,
+        options.product_mode);
+  }
+
+  google::protobuf::DynamicMessageFactory message_factory;
+  std::unique_ptr<google::protobuf::Message> message(
+      message_factory.GetPrototype(descriptor())->New());
+  const bool success =
+  message->ParsePartialFromString(std::string(GetCordValue(value)));
+
+  if (options.mode == FormatValueContentOptions::Mode::kDebug) {
+    if (!success) {
+      return "{<unparseable>}";
+    }
+
+    return absl::StrCat(
+        "{",
+        options.verbose ? message->DebugString() : message->ShortDebugString(),
+        "}");
+  }
+
+  absl::Status status;
+  absl::Cord out;
+  if (functions::ProtoToString(message.get(), &out, &status)) {
+    return ToStringLiteral(std::string(out));
+  }
+
+  // This branch is not expected, but try to return something.
+  return ToStringLiteral(message->ShortDebugString());
 }
 
 }  // namespace zetasql

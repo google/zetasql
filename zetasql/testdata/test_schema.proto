@@ -20,11 +20,40 @@ syntax = "proto2";
 
 package zetasql_test;
 
+import "google/protobuf/descriptor.proto";
 import "zetasql/public/proto/type_annotation.proto";
 import "zetasql/public/proto/wire_format_annotation.proto";
 
 option java_package = "com.google.zetasqltest";
 option java_outer_classname = "TestSchemaProto";
+
+message EnumAnnotations {
+  extend google.protobuf.EnumValueOptions {
+    optional double double_enum_annotation = 254852985;
+  }
+  enum NestedEnum {
+    NESTEDENUM0 = 0;
+    NESTEDENUM_DOUBLE = 1 [(double_enum_annotation) = 987.654];
+  }
+  optional string nested_string_annotation = 1;
+  optional bool nested_bool_annotation = 2;
+  optional int64 nested_int64_annotation_default = 3 [default = 13];
+  optional NestedEnum nested_enum_annotation = 4;
+}
+
+extend google.protobuf.EnumValueOptions {
+  optional int64 int64_annotation = 254852976;
+  optional int64 int32_annotation = 254852977;
+  optional string string_annotation = 254852978;
+  optional string string_default_annotation = 254852979
+      [default = "enum_annotation"];
+  optional bool bool_annotation = 254852980;
+  optional EnumAnnotations nested_message_annotation = 254852981;
+  optional int32 date_annotation = 254852982 [(zetasql.format) = DATE];
+  optional int64 timestamp_annotation = 254852983
+      [(zetasql.format) = TIMESTAMP_MICROS];
+  optional TestEnum enum_annotation = 254852984;
+}
 
 enum TestEnum {
   TESTENUM0 = 0;
@@ -32,6 +61,19 @@ enum TestEnum {
   TESTENUM2 = 2;
   TESTENUM2147483647 = 2147483647;
   TESTENUMNEGATIVE = -1;
+}
+
+enum TestEnumWithAnnotations {
+  TESTENUM_NO_ANNOTATION = 1;
+  TESTENUM_STRING_ANNOTATED = 2 [(string_annotation) = "some_name"];
+  TESTENUM_INT64_ANNOTATED = 3 [(int64_annotation) = 123];
+  TESTENUM_MULTIPLE_ANNOTATION = 4
+      [(bool_annotation) = true, (int32_annotation) = 321];
+  ANOTHERTESTENUM_DATE_ANNOTATED = 5 [(date_annotation) = 10346];
+  ANOTHERTESTENUM_MESSAGE_ANNOTATED = 6 [(nested_message_annotation) = {
+    nested_string_annotation: "abc",
+    nested_bool_annotation: true
+  }];
 }
 
 enum AnotherTestEnum {
@@ -62,7 +104,7 @@ message RepeatedHolderPB {
   repeated TestExtraPB repeated_field = 1;
 }
 
-// Next ID to use: 107
+// Next ID to use: 108
 message KitchenSinkPB {
   required int64 int64_key_1 = 1;
   required int64 int64_key_2 = 2;
@@ -242,6 +284,8 @@ message KitchenSinkPB {
 
   optional TestExtraPB test_extra_pb = 79;
 
+  optional TestEnumWithAnnotations test_enum_annotated = 107;
+
   // This conflicts with a zetasql keyword, and will need to be escaped.
   // E.g., `where`.
   optional int64 where = 88;
@@ -273,6 +317,10 @@ message KitchenSinkPB {
   reserved 103;  // Used for testing unknown fields.
 
   extensions 1000 to 1008;
+}
+
+message MessageWithMapField {
+  map<string, int32> string_int32_map = 1;
 }
 
 message PackedRepeatablePB {

@@ -1173,6 +1173,30 @@ absl::Status CheckArgumentsSupportEquality(
   return absl::OkStatus();
 }
 
+zetasql_base::StatusOr<const Type*> GetOrMakeEnumValueDescriptorType(
+    Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle,
+    const std::vector<InputArgumentType>& arguments,
+    const AnalyzerOptions& analyzer_options) {
+  const Type* catalog_type = nullptr;
+  absl::Status status =
+      catalog->FindType({"proto2.EnumValueDescriptorProto"}, &catalog_type);
+
+  // In order for the catalog type to be used as the return type, its descriptor
+  // must be equivalent to google::protobuf::EnumValueDescriptorProto::descriptor(). We
+  // check for equivalence by comparing the full name of the descriptors (this
+  // mirrors the behavior of ProtoType::Equivalent()).
+  if (status.ok() &&
+      catalog_type->AsProto()->descriptor()->full_name() ==
+          google::protobuf::EnumValueDescriptorProto::descriptor()->full_name()) {
+    return catalog_type;
+  }
+
+  const ProtoType* default_return_type = nullptr;
+  ZETASQL_CHECK_OK(type_factory->MakeProtoType(
+      google::protobuf::EnumValueDescriptorProto::descriptor(), &default_return_type));
+  return default_return_type;
+}
+
 absl::Status CheckArgumentsSupportComparison(
     const std::string& comparison_name,
     const std::vector<InputArgumentType>& arguments,

@@ -19,7 +19,9 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -32,9 +34,11 @@
 #include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include <cstdint>
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/ret_check.h"
@@ -47,8 +51,8 @@ class AnalyzerOptions;
 class ResolvedExpr;
 class SignatureMatchResult;
 class TVFInputArgumentType;
-class TVFRelationProto;
 class TVFRelationColumnProto;
+class TVFRelationProto;
 class TVFSignature;
 class TableValuedFunctionProto;
 
@@ -330,7 +334,7 @@ class TVFRelation {
     ColumnList columns;
     columns.reserve(pseudo_columns.size() + 1);
     columns.emplace_back("", type);
-    for (Column column : pseudo_columns) {
+    for (const Column& column : pseudo_columns) {
       ZETASQL_RET_CHECK(column.is_pseudo_column);
       columns.push_back(column);
     }

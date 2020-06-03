@@ -19,6 +19,7 @@
 #include "zetasql/base/testing/status_matchers.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
 
 namespace zetasql {

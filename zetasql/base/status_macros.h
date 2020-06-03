@@ -21,7 +21,6 @@
 // `absl::Status`.
 
 #include "absl/status/status.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 
 // Evaluates an expression that produces a `absl::Status`. If the status

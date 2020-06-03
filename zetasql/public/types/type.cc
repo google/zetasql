@@ -57,7 +57,8 @@ struct TypeKindInfo {
 // None of the built-in type names/aliases should start with "[a-zA-Z]_",
 // which is reserved for user-defined objects.
 static const TypeKindInfo kTypeKindInfo[]{
-    /* name              cost, specificity,  simple }, */
+    // clang-format off
+    // name              cost, specificity,  simple },
     // 0-4
     {"UNKNOWN",             0,           0,   false },
     {"INT32",              12,          12,    true },
@@ -97,8 +98,15 @@ static const TypeKindInfo kTypeKindInfo[]{
     {"NUMERIC",            15,          15,    true },
 
     // 24
-    {"BIGNUMERIC",         16,          16,    true }
+    {"BIGNUMERIC",         16,          16,    true },
 
+    // 25
+    {"EXTENDED",           25,          25,   false },
+
+    // 26
+    {"JSON",               26,          26,    true }
+
+    // clang-format on
     // When a new entry is added here, update
     // TypeTest::VerifyCostAndSpecificity.
 };
@@ -113,8 +121,8 @@ static_assert(TypeKind_MIN == -1 && TypeKind_MAX == TypeKind_ARRAYSIZE -1,
               "TypeKind must go from -1 to ARRAYSIZE -1");
 
 Type::Type(const TypeFactory* factory, TypeKind kind)
-    : type_factory_(factory), kind_(kind) {
-}
+    : type_store_(internal::TypeStoreHelper::GetTypeStore(factory)),
+      kind_(kind) {}
 
 Type::~Type() {
 }
@@ -134,16 +142,16 @@ bool Type::IsSupportedSimpleTypeKind(TypeKind kind,
   return type->IsSupportedType(language_options);
 }
 
-bool Type::IsSimpleTypeName(const std::string& type_name, ProductMode mode) {
-  TypeKind ignored;
-  return SimpleType::GetSimpleTypeKindByName(type_name, mode, &ignored);
+TypeKind Type::GetTypeKindIfSimple(absl::string_view type_name,
+                                   ProductMode mode) {
+  return SimpleType::GetTypeKindIfSimple(type_name, mode);
 }
 
-TypeKind Type::SimpleTypeNameToTypeKindOrDie(const std::string& type_name,
-                                             ProductMode mode) {
-  TypeKind result;
-  CHECK(SimpleType::GetSimpleTypeKindByName(type_name, mode, &result));
-  return result;
+TypeKind Type::GetTypeKindIfSimple(absl::string_view type_name,
+                                   const LanguageOptions& language_options) {
+  return SimpleType::GetTypeKindIfSimple(
+      type_name, language_options.product_mode(),
+      &language_options.GetEnabledLanguageFeatures());
 }
 
 std::string Type::TypeKindToString(TypeKind kind, ProductMode mode) {
@@ -213,11 +221,15 @@ absl::Status Type::SerializeToProtoAndFileDescriptors(
     file_descriptor_entry->file_descriptors.swap(*file_descriptors);
     file_descriptor_set_map.emplace(pool, std::move(file_descriptor_entry));
   }
+  // Optimization: skip building the descriptor sets if they would not
+  // affect the output at all.
+  BuildFileDescriptorSetMapOptions options;
+  options.build_file_descriptor_sets =
+      file_descriptor_set != nullptr || file_descriptors != nullptr;
+
   // No limit on FileDescriptorSet size.
   ZETASQL_RETURN_IF_ERROR(SerializeToProtoAndDistinctFileDescriptorsImpl(
-      type_proto,
-      /*file_descriptor_sets_max_size_bytes=*/absl::optional<int64_t>(),
-      &file_descriptor_set_map));
+      options, type_proto, &file_descriptor_set_map));
   if (file_descriptor_set_map.size() > 1) {
     return MakeSqlError()
            << "Unable to serialize descriptors spanning multiple "
@@ -253,8 +265,11 @@ absl::Status Type::SerializeToProtoAndDistinctFileDescriptors(
     FileDescriptorSetMap* file_descriptor_set_map) const {
   ZETASQL_RET_CHECK(file_descriptor_set_map != nullptr);
   type_proto->Clear();
+  BuildFileDescriptorSetMapOptions options;
+  options.file_descriptor_sets_max_size_bytes =
+      file_descriptor_sets_max_size_bytes;
   return SerializeToProtoAndDistinctFileDescriptorsImpl(
-      type_proto, file_descriptor_sets_max_size_bytes, file_descriptor_set_map);
+      options, type_proto, file_descriptor_set_map);
 }
 
 absl::Status Type::SerializeToSelfContainedProto(
@@ -264,9 +279,7 @@ absl::Status Type::SerializeToSelfContainedProto(
   // No limit on FileDescriptorSet size.  TODO: Allow a limit to be
   // provided here as well.  Maybe this should just call the non-Impl version.
   ZETASQL_RETURN_IF_ERROR(SerializeToProtoAndDistinctFileDescriptorsImpl(
-      type_proto,
-      /*file_descriptor_sets_max_size_bytes=*/absl::optional<int64_t>(),
-      &file_descriptor_set_map));
+      {}, type_proto, &file_descriptor_set_map));
   // Determine the order of the FileDescriptorSets in the TypeProto.
   std::vector<google::protobuf::FileDescriptorSet*> file_descriptor_sets;
   file_descriptor_sets.resize(file_descriptor_set_map.size());
@@ -404,6 +417,26 @@ bool Type::SupportsEquality(
 
 void Type::CopyValueContent(const ValueContent& from, ValueContent* to) const {
   *to = from;
+}
+
+absl::HashState Type::Hash(absl::HashState state) const {
+  // Hash a type's kind.
+  state = absl::HashState::combine(std::move(state), kind());
+
+  // Hash a type's parameter.
+  return HashTypeParameter(std::move(state));
+}
+
+bool Type::ValueContentEquals(
+    const ValueContent& x, const ValueContent& y,
+    const Type::ValueEqualityCheckOptions& options) const {
+  DCHECK(options.other_value_type && Equivalent(options.other_value_type));
+
+  if (x.is_null() || y.is_null()) {
+    return x.is_null() == y.is_null();
+  }
+
+  return ValueContentEqualsImpl(x, y, options);
 }
 
 bool TypeEquals::operator()(const Type* const type1,

@@ -154,6 +154,7 @@ public class PreparedExpression implements AutoCloseable {
     }
 
     if (!prepared) {
+      request.setOptions(options.serialize(fileDescriptorSetsBuilder));
       for (FileDescriptorSet fileDescriptorSet : fileDescriptorSetsBuilder.build()) {
         request.addFileDescriptorSet(fileDescriptorSet);
       }

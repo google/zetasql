@@ -74,8 +74,8 @@ constexpr uint64_t kuint32max = ~static_cast<uint32_t>(0);
 constexpr int64_t kint32max = kuint32max >> 1;
 constexpr int64_t kint32min = ~kint32max;
 constexpr uint32_t k1e9 = 1000000000;
-constexpr uint64_t k1e15 = 1000000000000000ULL;
-constexpr uint128 k1e30 = uint128{k1e15} * k1e15;
+static constexpr std::array<uint128, 39> kPowersOf10 =
+    fixed_int_internal::PowersAsc<uint128, 1, 10, 39>();
 
 template <typename V>
 constexpr V max128();
@@ -111,15 +111,11 @@ inline uint128 SafeAbs(int128 x) {
 inline uint128 SafeAbs(uint128 x) { return x; }
 
 constexpr uint64_t kSorted64BitValues[] = {
-    0,
-    1,
-    1000,
-    kint32max,
-    (1ull << 31),
-    kuint32max,
-    (1ull << 32),
-    kint64max,
-    (1ull << 63),
+    0,          1,
+    999,        1000,
+    kint32max,  (1ull << 31),
+    kuint32max, (1ull << 32),
+    kint64max,  (1ull << 63),
     kuint64max,
 };
 
@@ -606,19 +602,32 @@ constexpr std::pair<int128, absl::string_view> kSignedValueStrings[] = {
 constexpr std::pair<uint128, absl::string_view> kUnsignedValueStrings[] = {
     {0, "0"},
     {1, "1"},
+    {9, "9"},
+    {10, "10"},
+    {11, "11"},
     {255, "255"},
     {256, "256"},
+    {999, "999"},
     {1000, "1000"},
     {32768, "32768"},
     {65536, "65536"},
     {16777216, "16777216"},
     {268435456, "268435456"},
+    {k1e9 - 1, "999999999"},
+    {k1e9, "1000000000"},
+    {k1e9 + 1, "1000000001"},
     {(1LL << 32) - 1, "4294967295"},
     {(1LL << 32), "4294967296"},
     {281474976710656, "281474976710656"},
     {(1ULL << 63) - 1, "9223372036854775807"},
     {(1ULL << 63), "9223372036854775808"},
+    {kPowersOf10[19] - 1, "9999999999999999999"},
+    {kPowersOf10[19], "10000000000000000000"},
+    {kPowersOf10[19] + 1, "10000000000000000001"},
     {kuint64max, "18446744073709551615"},
+    {kPowersOf10[38] - 1, "99999999999999999999999999999999999999"},
+    {kPowersOf10[38], "100000000000000000000000000000000000000"},
+    {kPowersOf10[38] + 1, "100000000000000000000000000000000000001"},
     {kuint128max, "340282366920938463463374607431768211455"},
 };
 
@@ -1320,12 +1329,26 @@ TYPED_TEST(FixedUintGoldenDataTest, ToString) {
     TypeParam value(pair.first);
     EXPECT_EQ(pair.second, value.ToString());
   }
+  for (size_t i = 1; i < kPowersOf10.size(); ++i) {
+    uint128 v = kPowersOf10[i];
+    EXPECT_EQ(absl::StrCat("1", std::string(i, '0')), TypeParam(v).ToString());
+    EXPECT_EQ(std::string(i, '9'), TypeParam(v - 1).ToString());
+  }
 }
 
 TYPED_TEST(FixedIntGoldenDataTest, ToString) {
   for (auto pair : kSignedValueStrings) {
     TypeParam value(pair.first);
     EXPECT_EQ(pair.second, value.ToString());
+  }
+  for (size_t i = 1; i < kPowersOf10.size(); ++i) {
+    int128 v = kPowersOf10[i];
+    EXPECT_EQ(absl::StrCat("1", std::string(i, '0')), TypeParam(v).ToString());
+    EXPECT_EQ(absl::StrCat("-1", std::string(i, '0')),
+              TypeParam(-v).ToString());
+    EXPECT_EQ(std::string(i, '9'), TypeParam(v - 1).ToString());
+    EXPECT_EQ(absl::StrCat("-", std::string(i, '9')),
+              TypeParam(1 - v).ToString());
   }
 }
 
@@ -1424,6 +1447,54 @@ TYPED_TEST(FixedIntGoldenDataTest, ParseFromStringSegments) {
   for (absl::string_view str : kSigned128BitValueInvalidStringSegments) {
     TypeParam value;
     EXPECT_FALSE(SplitAndParseStringSegments(str, &value));
+  }
+}
+
+TYPED_TEST(FixedUintGoldenDataTest, CountDecimalDigits) {
+  for (auto pair : kUnsignedValueStrings) {
+    TypeParam value(pair.first);
+    EXPECT_EQ(pair.second.size(), value.CountDecimalDigits()) << pair.second;
+  }
+  for (size_t i = 1; i < kPowersOf10.size(); ++i) {
+    uint128 v = kPowersOf10[i];
+    EXPECT_EQ(i, TypeParam(v / 2).CountDecimalDigits()) << i;
+    EXPECT_EQ(i, TypeParam(v - 1).CountDecimalDigits()) << i;
+    EXPECT_EQ(i + 1, TypeParam(v).CountDecimalDigits()) << i;
+    EXPECT_EQ(i + 1, TypeParam(v + 1).CountDecimalDigits()) << i;
+    EXPECT_EQ(i + 1, TypeParam(v * 2).CountDecimalDigits()) << i;
+  }
+}
+
+TYPED_TEST(FixedIntGoldenDataTest, CountDecimalDigits) {
+  for (auto pair : kSignedValueStrings) {
+    TypeParam value(pair.first);
+    EXPECT_EQ(pair.second.size() - (pair.second[0] == '-'),
+              value.CountDecimalDigits());
+  }
+  for (size_t i = 1; i < kPowersOf10.size(); ++i) {
+    int128 v = kPowersOf10[i];
+    EXPECT_EQ(i, TypeParam(v / 2).CountDecimalDigits()) << i;
+    EXPECT_EQ(i, TypeParam(-v / 2).CountDecimalDigits()) << i;
+    EXPECT_EQ(i, TypeParam(v - 1).CountDecimalDigits()) << i;
+    EXPECT_EQ(i, TypeParam(1 - v).CountDecimalDigits()) << i;
+    EXPECT_EQ(i + 1, TypeParam(v).CountDecimalDigits()) << i;
+    EXPECT_EQ(i + 1, TypeParam(-v).CountDecimalDigits()) << i;
+    EXPECT_EQ(i + 1, TypeParam(v + 1).CountDecimalDigits()) << i;
+    EXPECT_EQ(i + 1, TypeParam(-v - 1).CountDecimalDigits()) << i;
+  }
+}
+
+TYPED_TEST(FixedUintGoldenDataTest, PowersOf10) {
+  for (uint i = 0; i < kPowersOf10.size(); ++i) {
+    uint128 v = kPowersOf10[i];
+    EXPECT_EQ(TypeParam(v), TypeParam::PowerOf10(i)) << i;
+  }
+}
+
+TYPED_TEST(FixedIntGoldenDataTest, PowersOf10) {
+  for (uint i = 0; i < kPowersOf10.size(); ++i) {
+    int128 v = kPowersOf10[i];
+    EXPECT_EQ(TypeParam(v), TypeParam::PowerOf10(i)) << i;
   }
 }
 
@@ -1994,6 +2065,18 @@ TYPED_TEST(FixedIntGeneratedDataTest, StringRoundTrip) {
     EXPECT_EQ(expect, actual);
 
     TestParseFromTrivialStringSegments(str, expect);
+  }
+}
+
+TYPED_TEST(FixedIntGeneratedDataTest, CountDecimalDigits) {
+  using T = TypeParam;
+  for (V128<T> value : GetTestInputs()) {
+    std::ostringstream oss;
+    oss << value;
+    std::string expect_str = oss.str();
+    size_t expected = expect_str.size() - (expect_str[0] == '-');
+    size_t actual = T(value).CountDecimalDigits();
+    EXPECT_EQ(expected, actual) << expect_str;
   }
 }
 

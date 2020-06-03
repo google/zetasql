@@ -20,6 +20,7 @@
 
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/tuple_test_util.h"
+#include "absl/status/status.h"
 
 namespace zetasql {
 

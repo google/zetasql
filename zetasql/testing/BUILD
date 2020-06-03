@@ -24,7 +24,14 @@ cc_library(
         "test_value.h",
         "using_test_value.cc",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/base",
         "//zetasql/base:status",
@@ -46,7 +53,14 @@ cc_library(
     testonly = 1,
     srcs = ["test_function.cc"],
     hdrs = ["test_function.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":test_value",
         "//zetasql/base",
@@ -57,6 +71,7 @@ cc_library(
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
 )

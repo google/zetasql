@@ -57,6 +57,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
@@ -510,24 +511,6 @@ ConstExpr::ConstExpr(const Value& value) : ValueExpr(value.type()) {
 // FieldValueExpr
 // -------------------------------------------------------
 
-static ::zetasql_base::StatusOr<int> GetFieldIndex(const StructType* type,
-                                           absl::string_view field_name) {
-  for (int i = 0; i < type->num_fields(); i++) {
-    if (type->field(i).name == field_name) {
-      return i;
-    }
-  }
-  ZETASQL_RET_CHECK_FAIL() << "No field " << field_name << " in "
-                   << type->DebugString();
-}
-
-::zetasql_base::StatusOr<std::unique_ptr<FieldValueExpr>> FieldValueExpr::Create(
-    absl::string_view field_name, std::unique_ptr<ValueExpr> expr) {
-  ZETASQL_ASSIGN_OR_RETURN(const int field_index,
-                   GetFieldIndex(expr->output_type()->AsStruct(), field_name));
-  return Create(field_index, std::move(expr));
-}
-
 ::zetasql_base::StatusOr<std::unique_ptr<FieldValueExpr>> FieldValueExpr::Create(
     int field_index, std::unique_ptr<ValueExpr> expr) {
   return absl::WrapUnique(new FieldValueExpr(field_index, std::move(expr)));
@@ -562,9 +545,17 @@ std::string FieldValueExpr::DebugInternal(const std::string& indent,
 
 FieldValueExpr::FieldValueExpr(int field_index, std::unique_ptr<ValueExpr> expr)
     : ValueExpr(expr->output_type()->AsStruct()->field(field_index).type),
-      field_name_(expr->output_type()->AsStruct()->field(field_index).name),
       field_index_(field_index) {
   SetArg(kStruct, absl::make_unique<ExprArg>(std::move(expr)));
+}
+
+std::string FieldValueExpr::field_name() const {
+  return GetArg(kStruct)
+      ->value_expr()
+      ->output_type()
+      ->AsStruct()
+      ->field(field_index_)
+      .name;
 }
 
 const ValueExpr* FieldValueExpr::input() const {

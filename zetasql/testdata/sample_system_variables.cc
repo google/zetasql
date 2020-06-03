@@ -33,12 +33,12 @@ static absl::Status AddSystemVariable(const std::vector<std::string>& name_path,
     // Skip system variable whose type is not supported by the language.  This
     // is to prevent tests which use a reduced feature set (which don't test
     // system variables) from being blocked by failure to set them.
-    LOG(INFO) << "Skipping system variable " << absl::StrJoin(name_path, ".")
-        << " due to unsupported type: " << type->DebugString();
+    VLOG(1) << "Skipping system variable " << absl::StrJoin(name_path, ".")
+            << " due to unsupported type: " << type->DebugString();
     return absl::OkStatus();
   }
-    LOG(INFO) << "Adding system variable " << absl::StrJoin(name_path, ".")
-        << " of type: " << type->DebugString();
+  VLOG(1) << "Adding system variable " << absl::StrJoin(name_path, ".")
+          << " of type: " << type->DebugString();
   return options->AddSystemVariable(name_path, type);
 }
 

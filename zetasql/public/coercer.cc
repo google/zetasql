@@ -510,8 +510,7 @@ const Type* Coercer::GetCommonSuperTypeImpl(
         continue;
       } else if (argument.is_literal() &&
                  !LiteralCoercesTo(*argument.literal_value(), candidate_type,
-                                   false /* not explicit */, &result,
-                                   nullptr /* no coerced value */)) {
+                                   false /* not explicit */, &result)) {
         VLOG(6) << "Literal argument "
                 << argument.literal_value()->FullDebugString()
                 << " does not coerce to candidate type "
@@ -648,8 +647,7 @@ bool Coercer::TypeCoercesTo(const Type* from_type, const Type* to_type,
 
 bool Coercer::StructCoercesTo(const InputArgumentType& struct_argument,
                               const Type* to_type, bool is_explicit,
-                              SignatureMatchResult* result,
-                              Value* coerced_value) const {
+                              SignatureMatchResult* result) const {
   // Expected invariant.
   DCHECK(struct_argument.type()->IsStruct());
   const StructType* from_struct = struct_argument.type()->AsStruct();
@@ -675,9 +673,6 @@ bool Coercer::StructCoercesTo(const InputArgumentType& struct_argument,
     result->incr_literals_coerced();
     result->incr_literals_distance(
         GetLiteralCoercionCost(*struct_argument.literal_value(), to_type));
-    if (coerced_value != nullptr) {
-      *coerced_value = Value::Null(to_type);
-    }
     return true;
   }
 
@@ -687,10 +682,6 @@ bool Coercer::StructCoercesTo(const InputArgumentType& struct_argument,
       struct_argument.field_types();
   // We expect a non-NULL struct with matching number of fields.
   DCHECK(!struct_argument.is_literal_null());
-
-  // If <coerced_value> is nullptr then we do not do any struct
-  // literal specific analysis.
-  bool output_is_struct_literal = (coerced_value != nullptr);
 
   std::vector<Value> coerced_field_values;
   for (int idx = 0; idx < to_struct->num_fields(); ++idx) {
@@ -705,19 +696,11 @@ bool Coercer::StructCoercesTo(const InputArgumentType& struct_argument,
     if (!from_struct->field(idx).type->Equals(to_struct->field(idx).type)) {
       SignatureMatchResult local_result;
       if (struct_field_types[idx].is_literal()) {
-        Value field_value;
         if (!LiteralCoercesTo(*struct_field_types[idx].literal_value(),
-                              to_struct->field(idx).type,
-                              is_explicit, &local_result,
-                              (output_is_struct_literal ? &field_value :
-                               nullptr))) {
+                              to_struct->field(idx).type, is_explicit,
+                              &local_result)) {
           result->incr_non_matched_arguments();
           return false;
-        }
-        if (output_is_struct_literal) {
-          // Expected invariant.
-          DCHECK(field_value.is_valid());
-          coerced_field_values.push_back(field_value);
         }
       } else {
         // The struct field is not a literal.
@@ -727,16 +710,9 @@ bool Coercer::StructCoercesTo(const InputArgumentType& struct_argument,
           result->incr_non_matched_arguments();
           return false;
         }
-        output_is_struct_literal = false;
       }
       result->UpdateFromResult(local_result);
     }
-  }
-  if (output_is_struct_literal) {
-    // Expected invariants.
-    DCHECK(coerced_value != nullptr);
-    DCHECK_EQ(coerced_field_values.size(), to_struct->num_fields());
-    *coerced_value = Value::Struct(to_struct, coerced_field_values);
   }
   return true;
 }
@@ -780,23 +756,10 @@ bool Coercer::ArrayCoercesTo(const InputArgumentType& array_argument,
 
 bool Coercer::LiteralCoercesTo(const Value& literal_value, const Type* to_type,
                                bool is_explicit,
-                               SignatureMatchResult* result,
-                               Value* coerced_value) const {
-  if (coerced_value != nullptr) {
-    *coerced_value = Value();  // An invalid Value.
-  }
+                               SignatureMatchResult* result) const {
   SignatureMatchResult local_result;
   if (TypeCoercesTo(literal_value.type(), to_type, is_explicit,
                     &local_result)) {
-    if (coerced_value != nullptr) {
-      const zetasql_base::StatusOr<Value> status_or_coerced_value = CastValue(
-          literal_value, default_timezone_, language_options_, to_type);
-      if (!status_or_coerced_value.ok()) {
-        result->incr_non_matched_arguments();
-        return false;
-      }
-      *coerced_value = status_or_coerced_value.value();
-    }
     // General Type coercion is allowed independent of literalness.
     result->incr_literals_coerced();
     result->incr_literals_distance(local_result.non_literals_distance());
@@ -805,7 +768,7 @@ bool Coercer::LiteralCoercesTo(const Value& literal_value, const Type* to_type,
   if (literal_value.type()->IsStruct()) {
     // Structs are coerced on a field-by-field basis.
     return StructCoercesTo(InputArgumentType(literal_value), to_type,
-                           is_explicit, result, coerced_value);
+                           is_explicit, result);
   }
   if (!literal_value.type()->IsSimpleType()) {
     // Non-struct complex-typed literals (enum, proto, array) coerce exactly
@@ -832,15 +795,6 @@ bool Coercer::LiteralCoercesTo(const Value& literal_value, const Type* to_type,
     // representation is STRING and matching this to a function signature
     // seems like it should logically be considered as an exact match.  Same
     // for narrowing a DOUBLE to FLOAT, and INT64 to other INT types.
-    if (coerced_value != nullptr) {
-      const zetasql_base::StatusOr<Value> status_or_coerced_value = CastValue(
-          literal_value, default_timezone_, language_options_, to_type);
-      if (!status_or_coerced_value.ok()) {
-        result->incr_non_matched_arguments();
-        return false;
-      }
-      *coerced_value = status_or_coerced_value.value();
-    }
     result->incr_literals_coerced();
     result->incr_literals_distance(GetLiteralCoercionCost(literal_value,
                                                           to_type));

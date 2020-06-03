@@ -727,7 +727,8 @@ static bool AreFieldPathsOverlapping(const ResolvedExpr* field_path1,
                                  field_path1_depth - compare_depth);
   field_path2 = StripLastnFields(field_path2,
                                  field_path2_depth - compare_depth);
-  return IsSameFieldPath(field_path1, field_path2);
+  return IsSameFieldPath(field_path1, field_path2,
+                         FieldPathMatchingOption::kFieldPath);
 }
 
 absl::Status Resolver::ResolveUpdateItemList(
@@ -846,8 +847,8 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
           expr_resolution_info, update_target_infos));
       ZETASQL_RET_CHECK(!update_target_infos->empty());
       UpdateTargetInfo& info = update_target_infos->back();
-      return ResolveFieldAccess(std::move(info.target), dot_identifier->name(),
-                                &info.target);
+      return ResolveFieldAccess(/*can_flatten=*/false, std::move(info.target),
+                                dot_identifier->name(), &info.target);
     }
     case AST_ARRAY_ELEMENT: {
       const auto* array_element = path->GetAsOrDie<ASTArrayElement>();
@@ -1061,7 +1062,8 @@ absl::Status Resolver::ShouldMergeWithUpdateItem(
   const ASTGeneralizedPathExpression* target_path =
       GetTargetPath(ast_update_item);
   if (!IsSameFieldPath(update_target_infos.front().target.get(),
-                       update_item.resolved_update_item->target())) {
+                       update_item.resolved_update_item->target(),
+                       FieldPathMatchingOption::kFieldPath)) {
     if (AreFieldPathsOverlapping(update_target_infos.front().target.get(),
                                  update_item.resolved_update_item->target())) {
       return MakeSqlErrorAt(target_path)
@@ -1190,7 +1192,8 @@ absl::Status Resolver::MergeWithUpdateItem(
     ZETASQL_RET_CHECK(merged_update_item->resolved_update_item->target() != nullptr);
     ZETASQL_RET_CHECK(
         IsSameFieldPath(merged_update_item->resolved_update_item->target(),
-                        input_update_target_infos->front().target.get()))
+                        input_update_target_infos->front().target.get(),
+                        FieldPathMatchingOption::kFieldPath))
         << "Unexpectedly different field paths:\n"
         << merged_update_item->resolved_update_item->target()->DebugString()
         << " and " << input_update_target_infos->front().target->DebugString();

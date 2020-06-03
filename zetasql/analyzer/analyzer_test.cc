@@ -1427,8 +1427,9 @@ TEST(SQLBuilderTest, WithScanWithFilterScan) {
   auto with_ref_scan = MakeResolvedWithRefScan({query_column}, with_query_name);
   auto query = MakeResolvedProjectScan({query_column}, /*expr_list=*/{},
                                        std::move(with_ref_scan));
-  auto with_scan = MakeResolvedWithScan(
-      {scan_column}, std::move(with_entry_list), std::move(query));
+  auto with_scan =
+      MakeResolvedWithScan({scan_column}, std::move(with_entry_list),
+                           std::move(query), /*recursive=*/false);
 
   // Test that this scan is correctly supported in WITH clause.
   SQLBuilder sql_builder;
@@ -1481,8 +1482,9 @@ TEST(SQLBuilderTest, WithScanWithJoinScan) {
 
   auto query = MakeResolvedProjectScan({query_column}, /*expr_list=*/{},
                                        std::move(with_ref_scan));
-  auto with_scan = MakeResolvedWithScan(
-      {scan_column}, std::move(with_entry_list), std::move(query));
+  auto with_scan =
+      MakeResolvedWithScan({scan_column}, std::move(with_entry_list),
+                           std::move(query), /*recursive=*/false);
 
   // Test that this scan is correctly supported in WITH clause.
   SQLBuilder sql_builder;
@@ -1540,8 +1542,9 @@ TEST(SQLBuilderTest, WithScanWithArrayScan) {
       MakeResolvedWithRefScan({query_column}, with_query_name);
   auto query = MakeResolvedProjectScan({query_column}, /*expr_list=*/{},
                                        std::move(with_ref_scan));
-  auto with_scan = MakeResolvedWithScan(
-      {scan_column}, std::move(with_entry_list), std::move(query));
+  auto with_scan =
+      MakeResolvedWithScan({scan_column}, std::move(with_entry_list),
+                           std::move(query), /*recursive=*/false);
 
   // Test that this scan is correctly supported in WITH clause.
   SQLBuilder sql_builder;

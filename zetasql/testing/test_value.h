@@ -45,7 +45,7 @@ class ValueConstructor {
             typename std::enable_if<std::is_integral<Int32T>::value &&
                                     std::is_signed<Int32T>::value &&
                                     sizeof(Int32T) == 4>::type* = nullptr>
-  ValueConstructor(Int32T v)  // NOLINT(runtime/explicit)
+  ValueConstructor(Int32T v)  // NOLINT(google-explicit-constructor)
       : v_(Value::Int32(v)) {}
 
   // Very roundabout way of saying 'uint32_t' in a way that's portable.
@@ -53,7 +53,7 @@ class ValueConstructor {
             typename std::enable_if<std::is_integral<UInt32T>::value &&
                                     std::is_unsigned<UInt32T>::value &&
                                     sizeof(UInt32T) == 4>::type* = nullptr>
-  ValueConstructor(UInt32T v)  // NOLINT(runtime/explicit)
+  ValueConstructor(UInt32T v)  // NOLINT(google-explicit-constructor)
       : v_(Value::Uint32(v)) {}
 
   // Very roundabout way of saying 'int64_t' in a way that's portable.
@@ -61,7 +61,7 @@ class ValueConstructor {
             typename std::enable_if<std::is_integral<Int64T>::value &&
                                     std::is_signed<Int64T>::value &&
                                     sizeof(Int64T) == 8>::type* = nullptr>
-  ValueConstructor(Int64T v)  // NOLINT(runtime/explicit)
+  ValueConstructor(Int64T v)  // NOLINT(google-explicit-constructor)
       : v_(Value::Int64(v)) {}
 
   // Very roundabout way of saying 'uint64_t' in a way that's portable.
@@ -69,17 +69,19 @@ class ValueConstructor {
             typename std::enable_if<std::is_integral<UInt64T>::value &&
                                     std::is_unsigned<UInt64T>::value &&
                                     sizeof(UInt64T) == 8>::type* = nullptr>
-  ValueConstructor(UInt64T v)  // NOLINT(runtime/explicit)
+  ValueConstructor(UInt64T v)  // NOLINT(google-explicit-constructor)
       : v_(Value::Uint64(v)) {}
 
-  ValueConstructor(float v)  // NOLINT(runtime/explicit)
+  ValueConstructor(float v)  // NOLINT(google-explicit-constructor)
       : v_(Value::Float(v)) {}
-  ValueConstructor(double v)  // NOLINT(runtime/explicit)
+  ValueConstructor(double v)  // NOLINT(google-explicit-constructor)
       : v_(Value::Double(v)) {}
-  ValueConstructor(bool v)  // NOLINT(runtime/explicit)
+  ValueConstructor(bool v)  // NOLINT(google-explicit-constructor)
       : v_(Value::Bool(v)) {}
-  ValueConstructor(NumericValue v)  // NOLINT(runtime/explicit)
+  ValueConstructor(NumericValue v)  // NOLINT(google-explicit-constructor)
       : v_(Value::Numeric(v)) {}
+  ValueConstructor(BigNumericValue v)  // NOLINT(google-explicit-constructor)
+      : v_(Value::BigNumeric(v)) {}
   // Forward all other types to Value::String.
   // This is necessary for handling const char* and const char (str&)[N]
   // correctly, where str might contain '\0' in the middle.
@@ -90,9 +92,10 @@ class ValueConstructor {
   template <
       typename T,
       typename std::enable_if<!std::is_integral<T>::value>::type* = nullptr>
-  ValueConstructor(const T& string_type_value)  // NOLINT(runtime/explicit)
+  ValueConstructor(  // NOLINT(google-explicit-constructor)
+      const T& string_type_value)
       : v_(Value::String(string_type_value)) {}
-  ValueConstructor(const Value& v)  // NOLINT(runtime/explicit)
+  ValueConstructor(const Value& v)  // NOLINT(google-explicit-constructor)
       : v_(v) {}
 
   const Value& get() const { return v_; }

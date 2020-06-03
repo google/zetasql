@@ -226,7 +226,7 @@ Value NullableInt(const std::string& proto_str) {
 
 // Each returned row (vector) contains distinct values of a certain type.
 std::vector<std::vector<Value>> GetRowsOfValues() {
-  const StructType* struct_type = SimpleStructType();  // a: string, b: int32
+  const StructType* struct_type = SimpleStructType();  // a: string, b: int32_t
   const Value struct0 = Value::Struct(struct_type, {String("foo"), Int32(0)});
   const Value struct1 = Value::Struct(struct_type, {String("bar"), Int32(1)});
   const Value array0 = Value::Array(Int64ArrayType(), {Int64(0), Int64(1)});

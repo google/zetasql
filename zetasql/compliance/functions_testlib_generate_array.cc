@@ -16,6 +16,8 @@
 
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/compliance/functions_testlib_common.h"
+#include "zetasql/public/numeric_value.h"
+#include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/using_test_value.cc"
 
@@ -26,6 +28,7 @@ constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 
 std::vector<FunctionTestCall> GetFunctionTestsGenerateArray() {
   const Value empty_int64_array = Int64Array({});
+  // Numeric values
   const Value numeric_zero = Value::Numeric(NumericValue());
   const Value numeric_one = Value::Numeric(NumericValue(static_cast<int64_t>(1)));
   const Value numeric_two = Value::Numeric(NumericValue(static_cast<int64_t>(2)));
@@ -41,6 +44,29 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateArray() {
       Value::Numeric(NumericValue(static_cast<int64_t>(11)));
   const Value numeric_max = Value::Numeric(NumericValue::MaxValue());
   const Value numeric_min = Value::Numeric(NumericValue::MinValue());
+
+  // BigNumeric values
+  const Value bignumeric_zero = Value::BigNumeric(BigNumericValue());
+  const Value bignumeric_one = Value::BigNumeric(BigNumericValue(1));
+  const Value bignumeric_two = Value::BigNumeric(BigNumericValue(2));
+  const Value bignumeric_three = Value::BigNumeric(BigNumericValue(3));
+  const Value bignumeric_pi =
+      Value::BigNumeric(BigNumericValue::FromStringStrict(
+                            "3.14159265358979323846264338327950288419")
+                            .value());
+  const Value bignumeric_pos_min =
+      Value::BigNumeric(BigNumericValue::FromStringStrict("1e-38").value());
+  const Value bignumeric_negative_golden_ratio =
+      Value::BigNumeric(BigNumericValue::FromStringStrict(
+                            "-1.61803398874989484820458683436563811772")
+                            .value());
+  const Value bignumeric_eleven = Value::BigNumeric(BigNumericValue(11));
+  const Value bignumeric_almost_thirteen =
+      Value::BigNumeric(BigNumericValue(13)
+                            .Subtract(bignumeric_pos_min.bignumeric_value())
+                            .value());
+  const Value bignumeric_max = Value::BigNumeric(BigNumericValue::MaxValue());
+  const Value bignumeric_min = Value::BigNumeric(BigNumericValue::MinValue());
 
   std::vector<FunctionTestCall> all_tests = {
       // Null inputs.
@@ -68,6 +94,11 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateArray() {
        QueryParamsWithResult({numeric_zero, NullNumeric(), numeric_three},
                              Null(NumericArrayType()))
            .WrapWithFeature(FEATURE_NUMERIC_TYPE)},
+      {"generate_array",
+       QueryParamsWithResult(
+           {bignumeric_zero, NullBigNumeric(), bignumeric_three},
+           Null(BigNumericArrayType()))
+           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE)},
       // Empty generate_array.
       {"generate_array", {Int64(1), Int64(0)}, empty_int64_array},
       {"generate_array", {Int64(1), Int64(5), Int64(-1)}, empty_int64_array},
@@ -78,6 +109,11 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateArray() {
        QueryParamsWithResult({numeric_three, numeric_zero, numeric_three},
                              NumericArray({}))
            .WrapWithFeature(FEATURE_NUMERIC_TYPE)},
+      {"generate_array",
+       QueryParamsWithResult(
+           {bignumeric_three, bignumeric_zero, bignumeric_three},
+           BigNumericArray({}))
+           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE)},
       // Non-empty generate_array.
       {"generate_array", {Int64(2), Int64(2)}, Int64Array({2})},
       {"generate_array", {Uint64(2), Uint64(2)}, Uint64Array({2})},
@@ -189,6 +225,77 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateArray() {
                                                 numeric_negative_golden_ratio},
                                                Array({numeric_min}))
                              .WrapWithFeature(FEATURE_NUMERIC_TYPE)},
+      {"generate_array",
+       QueryParamsWithResult(
+           {bignumeric_zero, bignumeric_three, bignumeric_one},
+           Array({bignumeric_zero, bignumeric_one, bignumeric_two,
+                  bignumeric_three}))
+           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE)},
+      {"generate_array",
+       QueryParamsWithResult(
+           {bignumeric_one, bignumeric_almost_thirteen, bignumeric_three},
+           BigNumericArray({BigNumericValue(1), BigNumericValue(4),
+                            BigNumericValue(7), BigNumericValue(10)}))
+           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE)},
+      {"generate_array",
+       QueryParamsWithResult(
+           {bignumeric_eleven, bignumeric_one,
+            Value::BigNumeric(BigNumericValue(-4))},
+           BigNumericArray(
+               {BigNumericValue(11), BigNumericValue(7), BigNumericValue(3)}))
+           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE)},
+      {"generate_array",
+       QueryParamsWithResult(
+           {bignumeric_eleven, bignumeric_pi, bignumeric_negative_golden_ratio},
+           BigNumericArray({BigNumericValue(11),
+                            BigNumericValue::FromStringStrict(
+                                "9.38196601125010515179541316563436188228")
+                                .value(),
+                            BigNumericValue::FromStringStrict(
+                                "7.76393202250021030359082633126872376456")
+                                .value(),
+                            BigNumericValue::FromStringStrict(
+                                "6.14589803375031545538623949690308564684")
+                                .value(),
+                            BigNumericValue::FromStringStrict(
+                                "4.52786404500042060718165266253744752912")
+                                .value()}))
+           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE)},
+      {"generate_array",
+       QueryParamsWithResult(
+           {bignumeric_negative_golden_ratio, bignumeric_three, bignumeric_one},
+           BigNumericArray({bignumeric_negative_golden_ratio.bignumeric_value(),
+                            BigNumericValue::FromStringStrict(
+                                "-0.61803398874989484820458683436563811772")
+                                .value(),
+                            BigNumericValue::FromStringStrict(
+                                "0.38196601125010515179541316563436188228")
+                                .value(),
+                            BigNumericValue::FromStringStrict(
+                                "1.38196601125010515179541316563436188228")
+                                .value(),
+                            BigNumericValue::FromStringStrict(
+                                "2.38196601125010515179541316563436188228")
+                                .value()}))
+           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE)},
+      {"generate_array",
+       QueryParamsWithResult(
+           {bignumeric_zero, bignumeric_pos_min, bignumeric_pos_min},
+           Array({bignumeric_zero, bignumeric_pos_min}))
+           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE)},
+      {"generate_array",
+       QueryParamsWithResult({bignumeric_max, bignumeric_max, bignumeric_one},
+                             Array({bignumeric_max}))
+           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE)},
+      {"generate_array", QueryParamsWithResult({bignumeric_max, bignumeric_max,
+                                                bignumeric_pos_min},
+                                               Array({bignumeric_max}))
+                             .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE)},
+      {"generate_array",
+       QueryParamsWithResult(
+           {bignumeric_min, bignumeric_min, bignumeric_negative_golden_ratio},
+           Array({bignumeric_min}))
+           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE)},
       // Guarding against overflows.
       {"generate_array",
        {Int64(int64max - 2), Int64(int64max), Int64(5)},
@@ -277,6 +384,15 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateArray() {
        QueryParamsWithResult({numeric_min, numeric_max, numeric_one},
                              Null(NumericArrayType()), OUT_OF_RANGE)
            .WrapWithFeature(FEATURE_NUMERIC_TYPE)},  // Large NUMERIC range.
+      {"generate_array",
+       QueryParamsWithResult(
+           {bignumeric_zero, bignumeric_one, bignumeric_pos_min},
+           Null(BigNumericArrayType()), OUT_OF_RANGE)
+           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE)},  // BIGNUMERIC range.
+      {"generate_array",
+       QueryParamsWithResult({bignumeric_min, bignumeric_max, bignumeric_one},
+                             Null(BigNumericArrayType()), OUT_OF_RANGE)
+           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE)},  // BIGNUMERIC range.
   };
 
   return all_tests;

@@ -1400,7 +1400,40 @@ SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
 +--------------------------------------------------+
 ```
 
-## Building arrays of arrays
+## Zipping Arrays
+
+Given two arrays of equal size, you can merge them into a single array
+consisting of pairs of elements from input arrays, taken from their
+corresponding positions. This operation is sometimes called
+[zipping][convolution].
+
+You can zip arrays with `UNNEST` and `WITH OFFSET`. In this example, each
+value pair is stored as a `STRUCT` in an array.
+
+```sql
+WITH combinations AS (
+  SELECT
+    ['a', 'b'] AS letters,
+    [1, 2, 3] AS numbers
+)
+SELECT ARRAY_AGG(
+  STRUCT(letter, numbers[OFFSET(letters_offset)] AS number)
+) AS pairs
+FROM combinations, UNNEST(letters) AS letter WITH OFFSET AS letters_offset;
+
++------------------------------+
+| pairs                        |
++------------------------------+
+| [{ letter: "a", number: 1 }, |
+|  { letter: "b", number: 2 }] |
++------------------------------+
+```
+
+You can use input arrays of different lengths as long as the first array
+is equal to or less than the length of the second array. The zipped array
+will be the length of the shortest input array.
+
+## Building Arrays of Arrays
 
 ZetaSQL does not support building
 [arrays of arrays][array-data-type]
@@ -1481,6 +1514,7 @@ SELECT ARRAY(
 [array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types#array_type
 [unnest-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax#unnest
 [cross-join-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax#cross_join
+[convolution]: https://en.wikipedia.org/wiki/Convolution_(computer_science)
 
 [in-operators]: https://github.com/google/zetasql/blob/master/docs/operators#in_operators
 [expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries

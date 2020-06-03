@@ -62,7 +62,14 @@ cc_library(
         "statement_properties.h",
         "unparser.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     tags = ["nofixdeps"],  # generated and real files are interdependent
     deps = [
         ":bison_parser_generated_lib",
@@ -106,12 +113,14 @@ cc_library(
     srcs = [
         "bison_parser.bison.cc",
         "flex_tokenizer.flex.cc",
+        "join_proccessor.cc",
     ],
     hdrs = [
         "bison_parser.bison.h",
         "bison_parser.h",
         "bison_parser_mode.h",
         "flex_tokenizer.h",
+        "join_proccessor.h",
         "location.hh",
         "position.hh",
         "stack.hh",
@@ -128,7 +137,12 @@ cc_library(
     copts = [
         "-Wno-implicit-fallthrough",
         "-O2",
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
         "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
     ],
     tags = ["nofixdeps"],  # generated and real files are interdependent
     deps = [
@@ -167,7 +181,14 @@ cc_library(
         "parse_tree_visitor.h",
         "visit_result.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     tags = ["nofixdeps"],  # generated and real files are interdependent
     deps = [
         "//zetasql/base",
@@ -203,7 +224,14 @@ cc_test(
     name = "parse_tree_test",
     size = "small",
     srcs = ["parse_tree_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":parse_tree",
         ":parser",
@@ -226,7 +254,14 @@ cc_test(
     name = "parse_tree_errors_test",
     size = "small",
     srcs = ["parse_tree_errors_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":parse_tree",
         ":parser",
@@ -244,7 +279,14 @@ cc_test(
     name = "unparser_test",
     size = "small",
     srcs = ["unparser_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":parser",
         "@com_google_googletest//:gtest_main",
@@ -260,7 +302,14 @@ cc_library(
     hdrs = [
         "keywords.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":bison_keyword_token_codes_inc",
         "//zetasql/base",
@@ -274,7 +323,14 @@ cc_library(
 
 cc_library(
     name = "bison_keyword_token_codes_inc",
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     textual_hdrs = ["bison_keyword_token_codes.inc"],
 )
 
@@ -288,7 +344,14 @@ genrule(
 cc_test(
     name = "keywords_test",
     srcs = ["keywords_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     data = [
         "bison_parser.y",
         "flex_tokenizer.l",

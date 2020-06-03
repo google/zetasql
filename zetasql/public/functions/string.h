@@ -190,6 +190,19 @@ bool LeftTrimBytes(absl::string_view str, absl::string_view chars,
 bool RightTrimBytes(absl::string_view str, absl::string_view chars,
                     absl::string_view* out, absl::Status* error);
 
+// LEFT(STRING, INT64) -> STRING
+bool LeftUtf8(absl::string_view str, int64_t length, absl::string_view* out,
+              absl::Status* error);
+// LEFT(BYTES, INT64) -> BYTES
+bool LeftBytes(absl::string_view str, int64_t length, absl::string_view* out,
+               absl::Status* error);
+// RIGHT(STRING, INT64) -> STRING
+bool RightUtf8(absl::string_view str, int64_t length, absl::string_view* out,
+               absl::Status* error);
+// RIGHT(BYTES, INT64) -> BYTES
+bool RightBytes(absl::string_view str, int64_t length, absl::string_view* out,
+                absl::Status* error);
+
 // SUBSTR(STRING, INT64) -> STRING
 bool SubstrUtf8(absl::string_view str, int64_t pos, absl::string_view* out,
                 absl::Status* error);

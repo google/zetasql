@@ -421,12 +421,12 @@ class AnalyzerOptions {
     return arena_ != nullptr && id_string_pool_ != nullptr;
   }
 
-  static const ErrorMessageMode ERROR_MESSAGE_WITH_PAYLOAD =
-    zetasql::ERROR_MESSAGE_WITH_PAYLOAD;
-  static const ErrorMessageMode ERROR_MESSAGE_ONE_LINE =
-    zetasql::ERROR_MESSAGE_ONE_LINE;
-  static const ErrorMessageMode ERROR_MESSAGE_MULTI_LINE_WITH_CARET =
-    zetasql::ERROR_MESSAGE_MULTI_LINE_WITH_CARET;
+  static constexpr ErrorMessageMode ERROR_MESSAGE_WITH_PAYLOAD =
+      zetasql::ERROR_MESSAGE_WITH_PAYLOAD;
+  static constexpr ErrorMessageMode ERROR_MESSAGE_ONE_LINE =
+      zetasql::ERROR_MESSAGE_ONE_LINE;
+  static constexpr ErrorMessageMode ERROR_MESSAGE_MULTI_LINE_WITH_CARET =
+      zetasql::ERROR_MESSAGE_MULTI_LINE_WITH_CARET;
 
   void set_error_message_mode(ErrorMessageMode mode) {
     error_message_mode_ = mode;
@@ -527,6 +527,7 @@ class AnalyzerOptions {
   absl::Status AddSystemVariable(const std::vector<std::string>& name_path,
                                  const Type* type);
 
+  // DEPRECATED: WILL BE REMOVED SOON
   // If <types> is non empty, the result of analyzed SQL will be coerced to the
   // given types using assignment semantics, requiring that the passed in SQL:
   // * Is a query statement
@@ -858,7 +859,7 @@ absl::Status AnalyzeExpression(absl::string_view sql,
 // The conversion is performed using assignment semantics.
 // For details, see Coercer::AssignableTo() in
 // .../public/coercer.h.  If the conversion is not possible, an
-// error is issued, with a location attatched corresonding to the start of the
+// error is issued, with a location attached corresonding to the start of the
 // expression.
 //
 // If <target_type> is nullptr, behaves the same as AnalyzeExpression().
@@ -876,6 +877,25 @@ absl::Status AnalyzeExpressionFromParserAST(
     const ASTExpression& ast_expression, const AnalyzerOptions& options_in,
     absl::string_view sql, TypeFactory* type_factory, Catalog* catalog,
     std::unique_ptr<const AnalyzerOutput>* output);
+
+// Similar to the above, but coerces the expression to <target_type>.
+// The conversion is performed using assignment semantics.
+// For details, see Coercer::AssignableTo() in
+// .../public/coercer.h.  If the conversion is not possible, an
+// error is issued, with a location attached corresonding to the start of the
+// expression.
+//
+// If <target_type> is nullptr, behaves the same as
+// AnalyzeExpressionFromParserAST.
+// TODO: Take a ParserOutput instead of ASTExpression (similar to
+// AnalyzeExpressionFromParserAST()).
+// TODO: Deprecate this method and use AnalyzerOptions
+// target_column_types_ to trigger expression coercion to the target type
+// (similar to AnalyzeExpressionForAssignmentToType()).
+absl::Status AnalyzeExpressionFromParserASTForAssignmentToType(
+    const ASTExpression& ast_expression, const AnalyzerOptions& options_in,
+    absl::string_view sql, TypeFactory* type_factory, Catalog* catalog,
+    const Type* target_type, std::unique_ptr<const AnalyzerOutput>* output);
 
 // Parse and analyze a ZetaSQL type name.
 // The type may reference type names from <catalog>.

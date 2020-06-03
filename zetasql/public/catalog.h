@@ -22,7 +22,9 @@
 #include <string>
 #include <type_traits>
 #include <vector>
+
 #include "zetasql/public/evaluator_table_iterator.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include <cstdint>
 #include "absl/container/flat_hash_set.h"
@@ -41,6 +43,7 @@ namespace zetasql {
 
 class Column;
 class Connection;
+class Conversion;
 class Constant;
 class CycleDetector;
 class Function;
@@ -139,6 +142,45 @@ class Catalog {
     CycleDetector* cycle_detector_ = nullptr;
   };
 
+  // ConversionSourceExpressionKind represents the kind of expression that is
+  // casted. Currently ZetaSQL has special casting rules for literals and
+  // parameters and this enumeration helps to choose the appropriate rule.
+  enum class ConversionSourceExpressionKind {
+    kOther = 0,
+    kLiteral,
+    kParameter
+  };
+
+  // FindConversionOptions contains a set of options needed to find a conversion
+  // rule in a catalog. Used as an argument to FindConversion function.
+  class FindConversionOptions {
+   public:
+    FindConversionOptions(const FindOptions& find_options, bool is_explicit,
+                          ConversionSourceExpressionKind source_kind,
+                          ProductMode product_mode)
+        : find_options_(find_options),
+          is_explicit_(is_explicit),
+          source_kind_(source_kind),
+          product_mode_(product_mode) {}
+
+    FindConversionOptions(
+        bool is_explicit, ConversionSourceExpressionKind source_kind,
+        ProductMode product_mode = ProductMode::PRODUCT_INTERNAL)
+        : FindConversionOptions(FindOptions(/*cycle_detector=*/nullptr),
+                                is_explicit, source_kind, product_mode) {}
+
+    const FindOptions& find_options() const { return find_options_; }
+    bool is_explicit() const { return is_explicit_; }
+    ConversionSourceExpressionKind source_kind() const { return source_kind_; }
+    ProductMode product_mode() const { return product_mode_; }
+
+   private:
+    FindOptions find_options_;
+    bool is_explicit_;
+    ConversionSourceExpressionKind source_kind_;
+    ProductMode product_mode_;
+  };
+
   // The FindX methods look up an object of type X from this Catalog on <path>.
   //
   // If a Catalog implementation supports looking up an object by path, it
@@ -225,6 +267,22 @@ class Catalog {
   absl::Status FindConstant(const absl::Span<const std::string> path,
                             const Constant** constant,
                             const FindOptions& options = FindOptions());
+
+  // FindConversion looks up a Conversion between from_type and to_type with the
+  // given options.
+  //
+  // If a conversion is not found, kNotFound status is returned. Other errors
+  // indicate failures in the lookup mechanism and should make the user's
+  // request fail.
+  //
+  // Unlike other catalog's functions (which return a pointer to an object),
+  // conversion is returned by value, since a catalog may not be able to store
+  // all possible conversions (conversion is defined by two types and both of
+  // them can be parameterized extended types).
+  virtual absl::Status FindConversion(const Type* from_type,
+                                      const Type* to_type,
+                                      const FindConversionOptions& options,
+                                      Conversion* conversion);
 
   // Variant of FindConstant() that allows for trailing field references in
   // <path>.
@@ -372,6 +430,9 @@ class Catalog {
   absl::Status ProcedureNotFoundError(absl::Span<const std::string> path) const;
   absl::Status TypeNotFoundError(absl::Span<const std::string> path) const;
   absl::Status ConstantNotFoundError(absl::Span<const std::string> path) const;
+  absl::Status ConversionNotFoundError(
+      const Type* from, const Type* to,
+      const FindConversionOptions& options) const;
 
   // Templatized version of the previous functions.
   template <class ObjectType>
@@ -475,6 +536,12 @@ class EnumerableCatalog : public Catalog {
       absl::flat_hash_set<const Type*>* output) const = 0;
   virtual absl::Status GetFunctions(
       absl::flat_hash_set<const Function*>* output) const = 0;
+  virtual absl::Status GetConversions(
+      absl::flat_hash_set<const Conversion*>* output) const {
+    return absl::NotFoundError(
+        "Engine defined conversions are not supported in this "
+        "EnumerableCatalog");
+  }
 };
 
 // A table or table-like object visible in a ZetaSQL query.

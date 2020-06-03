@@ -156,6 +156,8 @@ absl::Status ResolvedNode::CheckFieldsAccessed() const {
 void ResolvedNode::ClearFieldsAccessed() const {
 }
 
+void ResolvedNode::MarkFieldsAccessed() const {}
+
 // NOTE: An equivalent method on ASTNodes exists in ../parser/parse_tree.cc.
 void ResolvedNode::GetDescendantsWithKinds(
     const std::set<ResolvedNodeKind>& node_kinds,
@@ -383,11 +385,28 @@ void ResolvedCast::CollectDebugStringFields(
   if (return_null_on_error_) {
     fields->emplace_back("return_null_on_error", "TRUE");
   }
+  if (extended_cast_ != nullptr) {
+    fields->emplace_back("extended_cast", extended_cast_.get());
+  }
 }
 
 std::string ResolvedCast::GetNameForDebugString() const {
   return absl::StrCat("Cast(", expr_->type()->DebugString(), " -> ",
                       type()->DebugString(), ")");
+}
+
+// ResolvedExtendedCastInfo gets formatted as
+//   ResolvedExtendedCastInfo(function=name).
+void ResolvedExtendedCastInfo::CollectDebugStringFields(
+    std::vector<DebugStringField>* fields) const {
+  SUPER::CollectDebugStringFields(fields);
+  DCHECK_LE(fields->size(), 1);  // function
+}
+
+std::string ResolvedExtendedCastInfo::GetNameForDebugString() const {
+  return absl::StrCat(
+      "ResolvedExtendedCastInfo(function",
+      function_ != nullptr ? function_->DebugString() : "<unknown>", ")");
 }
 
 // ResolvedMakeProtoField gets formatted as

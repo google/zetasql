@@ -20,6 +20,7 @@
 
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "absl/status/status.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status_macros.h"
 

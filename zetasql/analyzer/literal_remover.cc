@@ -32,6 +32,7 @@
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/container/node_hash_set.h"
+#include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"

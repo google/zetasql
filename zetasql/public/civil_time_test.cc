@@ -73,11 +73,11 @@ TEST(CivilTimeValuesTest, CorrectlyConstructingTime) {
   ASSERT_TRUE(time.IsValid());
   CheckTimeEqual(13, 14, 15, 123456000, time);
 
-  time = TimeValue::FromPacked64Nanos(0x34E3C001E240LL);
+  time = TimeValue::FromPacked64Nanos(int64_t{0x34E3C001E240});
   ASSERT_TRUE(time.IsValid());
   CheckTimeEqual(13, 14, 15, 123456, time);
 
-  time = TimeValue::FromPacked64Micros(0xD38F1E240LL);
+  time = TimeValue::FromPacked64Micros(int64_t{0xD38F1E240});
   ASSERT_TRUE(time.IsValid());
   CheckTimeEqual(13, 14, 15, 123456000, time);
 
