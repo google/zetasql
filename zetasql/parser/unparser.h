@@ -568,13 +568,10 @@ class Unparser : public ParseTreeVisitor {
       } else {
         print(separator);
         if (break_line) {
-          if (!PrintCommentsPassedBy(node->GetParseLocationRange().start(), data)) {
-            println();
-          }
+          println();
         }
       }
       node->Accept(this, data);
-      PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
     }
   }
 
