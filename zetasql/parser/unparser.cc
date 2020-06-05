@@ -224,18 +224,19 @@ void Unparser::UnparseChildrenWithSeparator(const ASTNode* node, void* data,
     if (i > begin) {
       print(separator);
       if (break_line) {
-        if (!PrintCommentsPassedBy(node->child(i), data)) {
+        if (!PrintCommentsPassedBy(node->child(i)->GetParseLocationRange().start(), data)) {
           println();
         }
       }
     }
     node->child(i)->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->child(end - 1)->GetParseLocationRange().end(), data);
 }
 
-// PrintCommentsPassedBy prints comments if they are before the given node
+// PrintCommentsPassedBy prints comments if they are before the given ParseLocationPoint
 // and returns if comments are emitted.
-bool Unparser::PrintCommentsPassedBy(const ASTNode* node, void* data) {
+bool Unparser::PrintCommentsPassedBy(const ParseLocationPoint point, void* data) {
   if (data == nullptr) {
     return false;
   }
@@ -244,14 +245,24 @@ bool Unparser::PrintCommentsPassedBy(const ASTNode* node, void* data) {
     return false;
   }
   bool emitted = false;
-  for (int i = 0; i < parse_tokens->size(); i++) {
-    if (parse_tokens->front().second < node->GetParseLocationRange().start()) {
-      absl::string_view comment_string(parse_tokens->front().first);
-      absl::ConsumeSuffix(&comment_string, "\r\n");
-      absl::ConsumeSuffix(&comment_string, "\r");
-      absl::ConsumeSuffix(&comment_string, "\n");
-      println(std::string(comment_string));
+  const int size = parse_tokens->size();
+  for (int i = 0; i < size; i++) {
+    if (parse_tokens->front().second < point) {
+      absl::string_view comment_string_view(parse_tokens->front().first);
+      absl::ConsumeSuffix(&comment_string_view, "\r\n");
+      absl::ConsumeSuffix(&comment_string_view, "\r");
+      absl::ConsumeSuffix(&comment_string_view, "\n");
+      std::string comment_string = std::string(comment_string_view);
       parse_tokens->pop_front();
+
+      // println if multi-line comments
+      if (!emitted && i + 1 < size) {
+        if (parse_tokens->front().second < point) {
+          FlushLine();
+        }
+      }
+
+      println(comment_string);
       emitted = true;
     } else {
       break;
@@ -264,26 +275,29 @@ bool Unparser::PrintCommentsPassedBy(const ASTNode* node, void* data) {
 
 void Unparser::visitASTHintedStatement(const ASTHintedStatement* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   visitASTChildren(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTExplainStatement(const ASTExplainStatement* node,
                                         void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("EXPLAIN");
   node->statement()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTQueryStatement(const ASTQueryStatement* node,
                                       void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   visitASTQuery(node->query(), data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTFunctionParameter(
     const ASTFunctionParameter* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print(ASTFunctionParameter::ProcedureParameterModeToString(
       node->procedure_parameter_mode()));
   if (node->name() != nullptr) {
@@ -304,11 +318,12 @@ void Unparser::visitASTFunctionParameter(
   if (node->is_not_aggregate()) {
     print("NOT AGGREGATE");
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTTemplatedParameterType(
     const ASTTemplatedParameterType* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   switch (node->kind()) {
     case ASTTemplatedParameterType::UNINITIALIZED:
       print("UNINITIALIZED");
@@ -332,11 +347,12 @@ void Unparser::visitASTTemplatedParameterType(
       print("ANY TABLE");
       break;
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTFunctionParameters(
     const ASTFunctionParameters* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("(");
   for (int i = 0; i < node->num_children(); ++i) {
     if (i > 0) {
@@ -345,23 +361,26 @@ void Unparser::visitASTFunctionParameters(
     node->child(i)->Accept(this, data);
   }
   print(")");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTFunctionDeclaration(
     const ASTFunctionDeclaration* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   node->name()->Accept(this, data);
   node->parameters()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTSqlFunctionBody(
     const ASTSqlFunctionBody* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   node->expression()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTTableClause(const ASTTableClause* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("TABLE ");
   if (node->table_path() != nullptr) {
     node->table_path()->Accept(this, data);
@@ -369,23 +388,26 @@ void Unparser::visitASTTableClause(const ASTTableClause* node, void* data) {
   if (node->tvf() != nullptr) {
     node->tvf()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTModelClause(const ASTModelClause* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("MODEL ");
   node->model_path()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTConnectionClause(const ASTConnectionClause* node,
                                         void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("CONNECTION ");
   node->connection_path()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTTVF(const ASTTVF* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   node->name()->Accept(this, data);
   print("(");
   UnparseVectorWithSeparator(node->argument_entries(), data, ",");
@@ -399,10 +421,11 @@ void Unparser::visitASTTVF(const ASTTVF* node, void* data) {
   if (node->sample() != nullptr) {
     node->sample()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTTVFArgument(const ASTTVFArgument* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->expr() != nullptr) {
     node->expr()->Accept(this, data);
   }
@@ -418,19 +441,22 @@ void Unparser::visitASTTVFArgument(const ASTTVFArgument* node, void* data) {
   if (node->descriptor() != nullptr) {
     node->descriptor()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTTVFSchema(const ASTTVFSchema* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("TABLE<");
   UnparseChildrenWithSeparator(node, data, ",");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   print(">");
 }
 
 void Unparser::visitASTTVFSchemaColumn(const ASTTVFSchemaColumn* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseChildrenWithSeparator(node, data, "");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 static std::string GetCreateStatementPrefix(
@@ -451,27 +477,29 @@ static std::string GetCreateStatementPrefix(
 
 void Unparser::visitASTCreateConstantStatement(
     const ASTCreateConstantStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print(GetCreateStatementPrefix(node, "CONSTANT"));
   node->name()->Accept(this, data);
   print("=");
   node->expr()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTCreateDatabaseStatement(
     const ASTCreateDatabaseStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("CREATE DATABASE");
   node->name()->Accept(this, data);
   if (node->options_list() != nullptr) {
     print("OPTIONS");
     node->options_list()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTCreateFunctionStatement(
     const ASTCreateFunctionStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   const std::string create_object_type =
       absl::StrCat((node->is_aggregate() ? "AGGREGATE " : ""), "FUNCTION");
   print(GetCreateStatementPrefix(node, create_object_type));
@@ -509,11 +537,12 @@ void Unparser::visitASTCreateFunctionStatement(
     Formatter::Indenter indenter(&formatter_);
     node->options_list()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTCreateTableFunctionStatement(
     const ASTCreateTableFunctionStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print(GetCreateStatementPrefix(node, "TABLE FUNCTION"));
   node->function_declaration()->Accept(this, data);
   println();
@@ -545,11 +574,12 @@ void Unparser::visitASTCreateTableFunctionStatement(
     }
     println();
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTCreateTableStatement(
     const ASTCreateTableStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print(GetCreateStatementPrefix(node, "TABLE"));
   node->name()->Accept(this, data);
   if (node->table_element_list() != nullptr) {
@@ -570,11 +600,12 @@ void Unparser::visitASTCreateTableStatement(
     println("AS");
     node->query()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTCreateModelStatement(const ASTCreateModelStatement* node,
                                             void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print(GetCreateStatementPrefix(node, "MODEL"));
   node->name()->Accept(this, data);
   if (node->transform_clause() != nullptr) {
@@ -589,15 +620,17 @@ void Unparser::visitASTCreateModelStatement(const ASTCreateModelStatement* node,
     println("AS");
     node->query()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTTableElementList(const ASTTableElementList* node,
                                         void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println("(");
   {
     Formatter::Indenter indenter(&formatter_);
     UnparseChildrenWithSeparator(node, data, ",", true /* break_line */);
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
   println();
   print(")");
@@ -605,55 +638,61 @@ void Unparser::visitASTTableElementList(const ASTTableElementList* node,
 
 void Unparser::visitASTNotNullColumnAttribute(
     const ASTNotNullColumnAttribute* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("NOT NULL");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTHiddenColumnAttribute(
     const ASTHiddenColumnAttribute* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("HIDDEN");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTPrimaryKeyColumnAttribute(
     const ASTPrimaryKeyColumnAttribute* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("PRIMARY KEY");
   if (!node->enforced()) {
     print("NOT ENFORCED");
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTForeignKeyColumnAttribute(
     const ASTForeignKeyColumnAttribute* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->constraint_name() != nullptr) {
     print("CONSTRAINT");
     node->constraint_name()->Accept(this, data);
   }
   node->reference()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTColumnAttributeList(
     const ASTColumnAttributeList* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseChildrenWithSeparator(node, data, "", /*break_line=*/false);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTColumnDefinition(const ASTColumnDefinition* node,
                                         void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->name() != nullptr) {
     node->name()->Accept(this, data);
   }
   if (node->schema() != nullptr) {
     node->schema()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTCreateViewStatement(
     const ASTCreateViewStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print(GetCreateStatementPrefix(node, "VIEW"));
   node->name()->Accept(this, data);
   if (node->sql_security() != ASTCreateStatement::SQL_SECURITY_UNSPECIFIED) {
@@ -665,11 +704,12 @@ void Unparser::visitASTCreateViewStatement(
   }
   println("AS");
   node->query()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTCreateMaterializedViewStatement(
     const ASTCreateMaterializedViewStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("CREATE");
 
   if (node->is_or_replace()) print("OR REPLACE");
@@ -698,11 +738,12 @@ void Unparser::visitASTCreateMaterializedViewStatement(
   }
   println("AS");
   node->query()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTCreateExternalTableStatement(
     const ASTCreateExternalTableStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print(GetCreateStatementPrefix(node, "EXTERNAL TABLE"));
   node->name()->Accept(this, data);
   if (node->table_element_list() != nullptr) {
@@ -721,10 +762,11 @@ void Unparser::visitASTCreateExternalTableStatement(
     print("OPTIONS");
     node->options_list()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTGrantToClause(const ASTGrantToClause* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->has_grant_keyword_and_parens()) {
     print("GRANT");
   }
@@ -736,22 +778,24 @@ void Unparser::visitASTGrantToClause(const ASTGrantToClause* node, void* data) {
   if (node->has_grant_keyword_and_parens()) {
     print(")");
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTFilterUsingClause(const ASTFilterUsingClause* node,
                                          void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->has_filter_keyword()) {
     print("FILTER");
   }
   print("USING (");
   node->predicate()->Accept(this, data);
   print(")");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTCreateRowAccessPolicyStatement(
     const ASTCreateRowAccessPolicyStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("CREATE");
   if (node->is_or_replace()) {
     print("OR REPLACE");
@@ -771,11 +815,12 @@ void Unparser::visitASTCreateRowAccessPolicyStatement(
     node->grant_to()->Accept(this, data);
   }
   node->filter_using()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTExportDataStatement(
     const ASTExportDataStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("EXPORT DATA");
   if (node->with_connection_clause() != nullptr) {
     print("WITH");
@@ -788,35 +833,39 @@ void Unparser::visitASTExportDataStatement(
   }
   println("AS");
   node->query()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTWithConnectionClause(const ASTWithConnectionClause* node,
                                             void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   node->connection_clause()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTCallStatement(
     const ASTCallStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("CALL");
   node->procedure_name()->Accept(this, data);
   print("(");
   UnparseVectorWithSeparator(node->arguments(), data, ",");
   print(")");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTDefineTableStatement(
     const ASTDefineTableStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("DEFINE TABLE");
   node->name()->Accept(this, data);
   node->options_list()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTDescribeStatement(const ASTDescribeStatement* node,
                                          void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("DESCRIBE");
   if (node->optional_identifier() != nullptr) {
     node->optional_identifier()->Accept(this, data);
@@ -826,29 +875,33 @@ void Unparser::visitASTDescribeStatement(const ASTDescribeStatement* node,
     print("FROM");
     node->optional_from_name()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTDescriptorColumn(const ASTDescriptorColumn* node,
                                         void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   node->name()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTDescriptorColumnList(const ASTDescriptorColumnList* node,
                                             void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseChildrenWithSeparator(node, data, ", ");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTDescriptor(const ASTDescriptor* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("DESCRIPTOR(");
   node->columns()->Accept(this, data);
   print(")");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTShowStatement(const ASTShowStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("SHOW");
   node->identifier()->Accept(this, data);
   if (node->optional_name() != nullptr) {
@@ -859,20 +912,22 @@ void Unparser::visitASTShowStatement(const ASTShowStatement* node, void* data) {
     print("LIKE");
     node->optional_like_string()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTBeginStatement(
     const ASTBeginStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("BEGIN TRANSACTION");
   if (node->mode_list() != nullptr) {
     node->mode_list()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTTransactionIsolationLevel(
     const ASTTransactionIsolationLevel* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->identifier1() != nullptr) {
     print("ISOLATION LEVEL");
     node->identifier1()->Accept(this, data);
@@ -880,11 +935,12 @@ void Unparser::visitASTTransactionIsolationLevel(
   if (node->identifier2() != nullptr) {
     node->identifier2()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTTransactionReadWriteMode(
     const ASTTransactionReadWriteMode* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   switch (node->mode()) {
     case ASTTransactionReadWriteMode::READ_ONLY:
       print("READ ONLY");
@@ -896,11 +952,12 @@ void Unparser::visitASTTransactionReadWriteMode(
       LOG(DFATAL) << "invalid read write mode";
       break;
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTTransactionModeList(const ASTTransactionModeList* node,
                                            void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   bool first = true;
   for (const ASTTransactionMode* mode : node->elements()) {
     if (!first) {
@@ -910,61 +967,69 @@ void Unparser::visitASTTransactionModeList(const ASTTransactionModeList* node,
     }
     mode->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTSetTransactionStatement(
     const ASTSetTransactionStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("SET TRANSACTION");
   node->mode_list()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTCommitStatement(const ASTCommitStatement* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("COMMIT");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTRollbackStatement(const ASTRollbackStatement* node,
                                          void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("ROLLBACK");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTStartBatchStatement(const ASTStartBatchStatement* node,
                                            void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("START BATCH");
   if (node->batch_type() != nullptr) {
     node->batch_type()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTRunBatchStatement(const ASTRunBatchStatement* node,
                                          void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("RUN BATCH");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTAbortBatchStatement(const ASTAbortBatchStatement* node,
                                            void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("ABORT BATCH");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTDropStatement(const ASTDropStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("DROP");
   print(SchemaObjectKindToName(node->schema_object_kind()));
   if (node->is_if_exists()) {
     print("IF EXISTS");
   }
   node->name()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTDropFunctionStatement(
     const ASTDropFunctionStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("DROP FUNCTION");
   if (node->is_if_exists()) {
     print("IF EXISTS");
@@ -973,11 +1038,12 @@ void Unparser::visitASTDropFunctionStatement(
   if (node->parameters() != nullptr) {
     node->parameters()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTDropRowAccessPolicyStatement(
     const ASTDropRowAccessPolicyStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("DROP ROW ACCESS POLICY");
   if (node->is_if_exists()) {
     print("IF EXISTS");
@@ -985,32 +1051,35 @@ void Unparser::visitASTDropRowAccessPolicyStatement(
   node->name()->Accept(this, data);
   print("ON");
   node->table_name()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTDropAllRowAccessPoliciesStatement(
     const ASTDropAllRowAccessPoliciesStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("DROP ALL ROW");
   if (node->has_access_keyword()) {
     print("ACCESS");
   }
   print("POLICIES ON");
   node->table_name()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTDropMaterializedViewStatement(
     const ASTDropMaterializedViewStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("DROP MATERIALIZED VIEW");
   if (node->is_if_exists()) {
     print("IF EXISTS");
   }
   node->name()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTRenameStatement(const ASTRenameStatement* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("RENAME");
   if (node->identifier() != nullptr) {
     node->identifier()->Accept(this, data);
@@ -1018,11 +1087,12 @@ void Unparser::visitASTRenameStatement(const ASTRenameStatement* node,
   node->old_name()->Accept(this, data);
   print("TO");
   node->new_name()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTImportStatement(const ASTImportStatement* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("IMPORT");
   if (node->import_kind() == ASTImportStatement::MODULE) {
     print("MODULE");
@@ -1048,22 +1118,24 @@ void Unparser::visitASTImportStatement(const ASTImportStatement* node,
     print("OPTIONS");
     node->options_list()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTModuleStatement(const ASTModuleStatement* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("MODULE");
   node->name()->Accept(this, data);
   if (node->options_list() != nullptr) {
     print("OPTIONS");
     node->options_list()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTWithClause(const ASTWithClause* node,
                                   void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->recursive()) {
     println("WITH RECURSIVE");
   } else {
@@ -1073,25 +1145,27 @@ void Unparser::visitASTWithClause(const ASTWithClause* node,
   {
     Formatter::Indenter indenter(&formatter_);
     UnparseChildrenWithSeparator(node, data, ",");
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
 }
 
 void Unparser::visitASTWithClauseEntry(const ASTWithClauseEntry* node,
                                        void *data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   node->alias()->Accept(this, data);
   println("AS (");
   {
     Formatter::Indenter indenter(&formatter_);
     visitASTQuery(node->query(), data);
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
   println();
   print(")");
 }
 
 void Unparser::visitASTQuery(const ASTQuery* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   PrintOpenParenIfNeeded(node);
   if (node->is_nested()) {
     println();
@@ -1099,17 +1173,19 @@ void Unparser::visitASTQuery(const ASTQuery* node, void* data) {
     {
       Formatter::Indenter indenter(&formatter_);
       visitASTChildren(node, data);
+      PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
     }
     println();
     print(")");
   } else {
     visitASTChildren(node, data);
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
   PrintCloseParenIfNeeded(node);
 }
 
 void Unparser::visitASTSetOperation(const ASTSetOperation* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   PrintOpenParenIfNeeded(node);
 
   int start = node->hint() == nullptr ? 0 : 1;
@@ -1129,11 +1205,12 @@ void Unparser::visitASTSetOperation(const ASTSetOperation* node, void* data) {
     }
     node->child(i)->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   PrintCloseParenIfNeeded(node);
 }
 
 void Unparser::visitASTSelect(const ASTSelect* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   PrintOpenParenIfNeeded(node);
   println();
   print("SELECT");
@@ -1152,12 +1229,14 @@ void Unparser::visitASTSelect(const ASTSelect* node, void* data) {
     }
   }
 
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
+
   println();
   PrintCloseParenIfNeeded(node);
 }
 
 void Unparser::visitASTSelectAs(const ASTSelectAs* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->as_mode() != ASTSelectAs::TYPE_NAME) {
     print(absl::StrCat(
         "AS ", node->as_mode() == ASTSelectAs::VALUE ? "VALUE" : "STRUCT"));
@@ -1165,88 +1244,101 @@ void Unparser::visitASTSelectAs(const ASTSelectAs* node, void* data) {
     print("AS");
   }
   visitASTChildren(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTSelectList(const ASTSelectList* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   {
     Formatter::Indenter indenter(&formatter_);
     UnparseChildrenWithSeparator(node, data, ",", true /* break_line */);
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
 }
 
 void Unparser::visitASTSelectColumn(const ASTSelectColumn* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   visitASTChildren(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTAlias(const ASTAlias* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print(absl::StrCat("AS ",
                      ToIdentifierLiteral(node->identifier()->GetAsIdString())));
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTIntoAlias(const ASTIntoAlias* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print(absl::StrCat("INTO ",
                      ToIdentifierLiteral(node->identifier()->GetAsIdString())));
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTFromClause(const ASTFromClause* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   println("FROM");
   {
     Formatter::Indenter indenter(&formatter_);
     visitASTChildren(node, data);
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
 }
 
 void Unparser::visitASTTransformClause(const ASTTransformClause* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println("(");
   visitASTChildren(node, data);
   println(")");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTWithOffset(const ASTWithOffset* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("WITH OFFSET");
   visitASTChildren(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTUnnestExpression(const ASTUnnestExpression* node,
                                         void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("UNNEST(");
   visitASTChildren(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   print(")");
 }
 
 void Unparser::visitASTUnnestExpressionWithOptAliasAndOffset(
     const ASTUnnestExpressionWithOptAliasAndOffset* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   visitASTChildren(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTTablePathExpression(
     const ASTTablePathExpression* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   visitASTChildren(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTForSystemTime(const ASTForSystemTime* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("FOR SYSTEM_TIME AS OF ");
   visitASTChildren(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTTableSubquery(
     const ASTTableSubquery* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   visitASTChildren(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTJoin(const ASTJoin* node, void* data) {
@@ -1254,7 +1346,7 @@ void Unparser::visitASTJoin(const ASTJoin* node, void* data) {
 
   // Print comments after accepting child 0 because ASTJoin's
   // position is after the child 0.
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
 
   if (node->join_type() == ASTJoin::COMMA) {
     print(",");
@@ -1274,11 +1366,12 @@ void Unparser::visitASTJoin(const ASTJoin* node, void* data) {
   for (int i = 1; i < node->num_children(); i++) {
     node->child(i)->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTParenthesizedJoin(const ASTParenthesizedJoin* node,
                                          void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   println("(");
   {
@@ -1291,15 +1384,17 @@ void Unparser::visitASTParenthesizedJoin(const ASTParenthesizedJoin* node,
   if (node->sample_clause() != nullptr) {
     node->sample_clause()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTOnClause(const ASTOnClause* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   print("ON");
   {
     Formatter::Indenter indenter(&formatter_);
     visitASTChildren(node, data);
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
 }
 
@@ -1312,35 +1407,38 @@ void Unparser::visitASTOnOrUsingClauseList(const ASTOnOrUsingClauseList* node,
 }
 
 void Unparser::visitASTUsingClause(const ASTUsingClause* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   print("USING(");
   {
     Formatter::Indenter indenter(&formatter_);
     UnparseChildrenWithSeparator(node, data, ",");
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
   print(")");
 }
 
 void Unparser::visitASTWhereClause(const ASTWhereClause* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   println("WHERE");
   {
     Formatter::Indenter indenter(&formatter_);
     visitASTChildren(node, data);
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
 }
 
 void Unparser::visitASTRollup(const ASTRollup* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("ROLLUP(");
   UnparseVectorWithSeparator(node->expressions(), data, ",");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   print(")");
 }
 
 void Unparser::visitASTGroupingItem(const ASTGroupingItem* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->expression() != nullptr) {
     DCHECK(node->rollup() == nullptr);
     node->expression()->Accept(this, data);
@@ -1348,10 +1446,11 @@ void Unparser::visitASTGroupingItem(const ASTGroupingItem* node, void* data) {
     DCHECK(node->rollup() != nullptr);
     node->rollup()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTGroupBy(const ASTGroupBy* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   print("GROUP");
   if (node->hint() != nullptr) {
@@ -1360,25 +1459,28 @@ void Unparser::visitASTGroupBy(const ASTGroupBy* node, void* data) {
   println("BY");
   {
     Formatter::Indenter indenter(&formatter_);
-    UnparseVectorWithSeparator(node->grouping_items(), data, ",\n");
+    UnparseVectorWithSeparator(node->grouping_items(), data, ",", true /* break_line */);
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
 }
 
 void Unparser::visitASTHaving(const ASTHaving* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   print("HAVING");
   visitASTChildren(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTCollate(const ASTCollate* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("COLLATE");
   visitASTChildren(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTOrderBy(const ASTOrderBy* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   print("ORDER");
   if (node->hint() != nullptr) {
@@ -1386,36 +1488,40 @@ void Unparser::visitASTOrderBy(const ASTOrderBy* node, void* data) {
   }
   print("BY");
   UnparseVectorWithSeparator(node->ordering_expressions(), data, ",");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTNullOrder(const ASTNullOrder* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->nulls_first()) {
     print("NULLS FIRST");
   } else {
     print("NULLS LAST");
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTOrderingExpression(const ASTOrderingExpression* node,
                                           void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   node->expression()->Accept(this, data);
   if (node->collate()) node->collate()->Accept(this, data);
   if (node->descending()) print("DESC");
   if (node->null_order()) node->null_order()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTLimitOffset(const ASTLimitOffset* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   print("LIMIT");
   UnparseChildrenWithSeparator(node, data, "OFFSET");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTHavingModifier(const ASTHavingModifier* node,
                                       void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   print("HAVING ");
   if (node->modifier_kind() == ASTHavingModifier::ModifierKind::MAX) {
@@ -1424,16 +1530,18 @@ void Unparser::visitASTHavingModifier(const ASTHavingModifier* node,
     print("MIN");
   }
   node->expr()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTIdentifier(const ASTIdentifier* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print(ToIdentifierLiteral(node->GetAsIdString()));
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTNewConstructorArg(const ASTNewConstructorArg* node,
                                          void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   node->expression()->Accept(this, data);
   if (node->optional_identifier() != nullptr) {
     print("AS ");
@@ -1444,30 +1552,33 @@ void Unparser::visitASTNewConstructorArg(const ASTNewConstructorArg* node,
     node->optional_path_expression()->Accept(this, data);
     print(")");
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTNewConstructor(const ASTNewConstructor* node,
                                       void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("NEW");
   node->type_name()->Accept(this, data);
   print("(");
   {
     Formatter::Indenter indenter(&formatter_);
     UnparseVectorWithSeparator(node->arguments(), data, ",");
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
   print(")");
 }
 
 void Unparser::visitASTInferredTypeColumnSchema(
     const ASTInferredTypeColumnSchema* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseColumnSchema(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTArrayConstructor(const ASTArrayConstructor* node,
                                         void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->type() != nullptr) {
     node->type()->Accept(this, data);
   } else {
@@ -1476,28 +1587,31 @@ void Unparser::visitASTArrayConstructor(const ASTArrayConstructor* node,
   print("[");
   UnparseVectorWithSeparator(node->elements(), data, ",");
   print("]");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTStructConstructorArg(const ASTStructConstructorArg* node,
                                             void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   visitASTChildren(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTStructConstructorWithParens(
     const ASTStructConstructorWithParens* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("(");
   {
     Formatter::Indenter indenter(&formatter_);
     UnparseVectorWithSeparator(node->field_expressions(), data, ",");
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
   print(")");
 }
 
 void Unparser::visitASTStructConstructorWithKeyword(
     const ASTStructConstructorWithKeyword* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->struct_type() != nullptr) {
     node->struct_type()->Accept(this, data);
   } else {
@@ -1507,85 +1621,98 @@ void Unparser::visitASTStructConstructorWithKeyword(
   {
     Formatter::Indenter indenter(&formatter_);
     UnparseVectorWithSeparator(node->fields(), data, ",");
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
   print(")");
 }
 
 void Unparser::visitASTIntLiteral(const ASTIntLiteral* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseLeafNode(node);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTNumericLiteral(
     const ASTNumericLiteral* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("NUMERIC");
   UnparseLeafNode(node);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTBigNumericLiteral(const ASTBigNumericLiteral* node,
                                          void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("BIGNUMERIC");
   UnparseLeafNode(node);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTFloatLiteral(const ASTFloatLiteral* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseLeafNode(node);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTStringLiteral(const ASTStringLiteral* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseLeafNode(node);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTBytesLiteral(const ASTBytesLiteral* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseLeafNode(node);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTBooleanLiteral(const ASTBooleanLiteral* node,
                                       void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseLeafNode(node);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTNullLiteral(const ASTNullLiteral* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseLeafNode(node);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTDateOrTimeLiteral(const ASTDateOrTimeLiteral* node,
                                          void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print(Type::TypeKindToString(node->type_kind(), PRODUCT_INTERNAL));
   UnparseChildrenWithSeparator(node, data, "");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTStar(const ASTStar* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseLeafNode(node);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTStarExceptList(const ASTStarExceptList* node,
                                       void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   {
     Formatter::Indenter indenter(&formatter_);
     UnparseChildrenWithSeparator(node, data, ",", true /* break_line */);
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
 }
 
 void Unparser::visitASTStarReplaceItem(const ASTStarReplaceItem* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseChildrenWithSeparator(node, data, "AS");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTStarModifiers(const ASTStarModifiers* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->except_list() != nullptr) {
     println();
     {
@@ -1609,120 +1736,134 @@ void Unparser::visitASTStarModifiers(const ASTStarModifiers* node, void* data) {
       print(")");
     }
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTStarWithModifiers(const ASTStarWithModifiers* node,
                                          void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("*");
   node->modifiers()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTPathExpression(const ASTPathExpression* node,
                                       void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   PrintOpenParenIfNeeded(node);
   UnparseChildrenWithSeparator(node, data, ".");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   PrintCloseParenIfNeeded(node);
 }
 
 void Unparser::visitASTParameterExpr(const ASTParameterExpr* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->name() == nullptr) {
     print("?");
   } else {
     print("@");
     visitASTChildren(node, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTSystemVariableExpr(const ASTSystemVariableExpr* node,
                                           void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   PrintOpenParenIfNeeded(node);
   print("@@");
   visitASTChildren(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   PrintCloseParenIfNeeded(node);
 }
 
 void Unparser::visitASTIntervalExpr(const ASTIntervalExpr* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("INTERVAL");
   UnparseChildrenWithSeparator(node, data, "");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTDotIdentifier(const ASTDotIdentifier* node,
                                      void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   PrintOpenParenIfNeeded(node);
   node->expr()->Accept(this, data);
   print(".");
   node->name()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   PrintCloseParenIfNeeded(node);
 }
 
 void Unparser::visitASTDotGeneralizedField(const ASTDotGeneralizedField* node,
                                            void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   PrintOpenParenIfNeeded(node);
   node->expr()->Accept(this, data);
   print(".(");
   node->path()->Accept(this, data);
   print(")");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   PrintCloseParenIfNeeded(node);
 }
 
 void Unparser::visitASTDotStar(const ASTDotStar* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   node->expr()->Accept(this, data);
   print(".*");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTDotStarWithModifiers(
     const ASTDotStarWithModifiers* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   node->expr()->Accept(this, data);
   print(".*");
   node->modifiers()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTOrExpr(const ASTOrExpr* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   PrintOpenParenIfNeeded(node);
   UnparseChildrenWithSeparator(node, data, "OR");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   PrintCloseParenIfNeeded(node);
 }
 
 void Unparser::visitASTAndExpr(const ASTAndExpr* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   PrintOpenParenIfNeeded(node);
   UnparseChildrenWithSeparator(node, data, "AND");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   PrintCloseParenIfNeeded(node);
 }
 
 void Unparser::visitASTUnaryExpression(const ASTUnaryExpression* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   // Nested unary expressions like "--1" would be printed as " - - 1"
   // by the formatter and not "-- 1", as the latter would be detected
   // as partial line comment by the parser.
   PrintOpenParenIfNeeded(node);
   print(node->GetSQLForOperator());
   node->operand()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   PrintCloseParenIfNeeded(node);
 }
 
 void Unparser::visitASTCastExpression(const ASTCastExpression* node,
                                       void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print(node->is_safe_cast() ? "SAFE_CAST(" : "CAST(");
   UnparseChildrenWithSeparator(node, data, "AS");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   print(")");
 }
 
 void Unparser::visitASTExtractExpression(const ASTExtractExpression* node,
                                          void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("EXTRACT(");
   node->lhs_expr()->Accept(this, data);
   print("FROM");
@@ -1731,12 +1872,13 @@ void Unparser::visitASTExtractExpression(const ASTExtractExpression* node,
     print("AT TIME ZONE");
     node->time_zone_expr()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   print(")");
 }
 
 void Unparser::visitASTCaseNoValueExpression(
     const ASTCaseNoValueExpression* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   print("CASE");
   int i;
@@ -1754,6 +1896,7 @@ void Unparser::visitASTCaseNoValueExpression(
       print("ELSE");
       node->child(i)->Accept(this, data);
     }
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
   println();
   print("END");
@@ -1761,7 +1904,7 @@ void Unparser::visitASTCaseNoValueExpression(
 
 void Unparser::visitASTCaseValueExpression(const ASTCaseValueExpression* node,
                                            void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("CASE");
   node->child(0)->Accept(this, data);
   int i;
@@ -1771,6 +1914,7 @@ void Unparser::visitASTCaseValueExpression(const ASTCaseValueExpression* node,
       println();
       print("WHEN");
       node->child(i)->Accept(this, data);
+      PrintCommentsPassedBy(node->child(i + 1)->GetParseLocationRange().start(), data);
       print("THEN");
       node->child(i + 1)->Accept(this, data);
     }
@@ -1779,6 +1923,7 @@ void Unparser::visitASTCaseValueExpression(const ASTCaseValueExpression* node,
       print("ELSE");
       node->child(i)->Accept(this, data);
     }
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
   println();
   print("END");
@@ -1786,22 +1931,24 @@ void Unparser::visitASTCaseValueExpression(const ASTCaseValueExpression* node,
 
 void Unparser::visitASTBinaryExpression(const ASTBinaryExpression* node,
                                         void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   PrintOpenParenIfNeeded(node);
   UnparseChildrenWithSeparator(node, data, node->GetSQLForOperator());
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   PrintCloseParenIfNeeded(node);
 }
 
 void Unparser::visitASTBitwiseShiftExpression(
     const ASTBitwiseShiftExpression* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   PrintOpenParenIfNeeded(node);
   UnparseChildrenWithSeparator(node, data, node->is_left_shift() ? "<<" : ">>");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   PrintCloseParenIfNeeded(node);
 }
 
 void Unparser::visitASTInExpression(const ASTInExpression* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   PrintOpenParenIfNeeded(node);
   node->lhs()->Accept(this, data);
   print(absl::StrCat(node->is_not() ? "NOT " : "", "IN"));
@@ -1822,31 +1969,34 @@ void Unparser::visitASTInExpression(const ASTInExpression* node, void* data) {
   if (node->unnest_expr() != nullptr) {
     node->unnest_expr()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   PrintCloseParenIfNeeded(node);
 }
 
 void Unparser::visitASTInList(const ASTInList* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("(");
   {
     Formatter::Indenter indenter(&formatter_);
     UnparseChildrenWithSeparator(node, data, ",");
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
   print(")");
 }
 
 void Unparser::visitASTBetweenExpression(const ASTBetweenExpression* node,
                                          void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   PrintOpenParenIfNeeded(node);
   node->child(0)->Accept(this, data);
   print(absl::StrCat(node->is_not() ? "NOT " : "", "BETWEEN"));
   UnparseChildrenWithSeparator(node, data, 1, node->num_children(), "AND");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   PrintCloseParenIfNeeded(node);
 }
 
 void Unparser::visitASTFunctionCall(const ASTFunctionCall* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   PrintOpenParenIfNeeded(node);
   node->function()->Accept(this, data);
   print("(");
@@ -1875,24 +2025,26 @@ void Unparser::visitASTFunctionCall(const ASTFunctionCall* node, void* data) {
     if (node->limit_offset() != nullptr) {
       node->limit_offset()->Accept(this, data);
     }
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
   print(")");
   PrintCloseParenIfNeeded(node);
 }
 
 void Unparser::visitASTArrayElement(const ASTArrayElement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   PrintOpenParenIfNeeded(node);
   node->array()->Accept(this, data);
   print("[");
   node->position()->Accept(this, data);
   print("]");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   PrintCloseParenIfNeeded(node);
 }
 
 void Unparser::visitASTExpressionSubquery(const ASTExpressionSubquery* node,
                                           void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print(ASTExpressionSubquery::ModifierToString(node->modifier()));
   if (node->hint() != nullptr) {
     node->hint()->Accept(this, data);
@@ -1901,12 +2053,13 @@ void Unparser::visitASTExpressionSubquery(const ASTExpressionSubquery* node,
   {
     Formatter::Indenter indenter(&formatter_);
     node->query()->Accept(this, data);
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
   print(")");
 }
 
 void Unparser::visitASTHint(const ASTHint* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->num_shards_hint() != nullptr) {
     print("@");
     node->num_shards_hint()->Accept(this, data);
@@ -1917,10 +2070,11 @@ void Unparser::visitASTHint(const ASTHint* node, void* data) {
     UnparseVectorWithSeparator(node->hint_entries(), data, ",");
     print("}");
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTHintEntry(const ASTHintEntry* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->qualifier() != nullptr) {
     node->qualifier()->Accept(this, data);
     print(".");
@@ -1928,75 +2082,85 @@ void Unparser::visitASTHintEntry(const ASTHintEntry* node, void* data) {
   node->name()->Accept(this, data);
   print("=");
   node->value()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTOptionsList(const ASTOptionsList* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("(");
   {
     Formatter::Indenter indenter(&formatter_);
     UnparseChildrenWithSeparator(node, data, ",");
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
   print(")");
 }
 
 void Unparser::visitASTOptionsEntry(const ASTOptionsEntry* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseChildrenWithSeparator(node, data, "=");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTSimpleType(const ASTSimpleType* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   visitASTChildren(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTArrayType(const ASTArrayType* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("ARRAY<");
   node->element_type()->Accept(this, data);
   print(">");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTStructType(const ASTStructType* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("STRUCT<");
   UnparseChildrenWithSeparator(node, data, ",");
   print(">");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTStructField(const ASTStructField* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseChildrenWithSeparator(node, data, "");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTSimpleColumnSchema(const ASTSimpleColumnSchema* node,
                                           void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   node->type_name()->Accept(this, data);
   UnparseColumnSchema(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTArrayColumnSchema(const ASTArrayColumnSchema* node,
                                          void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("ARRAY<");
   node->element_schema()->Accept(this, data);
   print(">");
   UnparseColumnSchema(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTStructColumnSchema(const ASTStructColumnSchema* node,
                                           void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("STRUCT<");
   UnparseVectorWithSeparator(node->struct_fields(), data, ",");
   print(">");
   UnparseColumnSchema(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTGeneratedColumnInfo(const ASTGeneratedColumnInfo* node,
                                            void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->is_on_write()) {
     print("GENERATED ON WRITE");
   }
@@ -2007,16 +2171,18 @@ void Unparser::visitASTGeneratedColumnInfo(const ASTGeneratedColumnInfo* node,
   if (node->is_stored()) {
     print("STORED");
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTStructColumnField(const ASTStructColumnField* node,
                                          void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseChildrenWithSeparator(node, data, "");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::UnparseColumnSchema(const ASTColumnSchema* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->generated_column_info() != nullptr) {
     node->generated_column_info()->Accept(this, data);
   }
@@ -2027,67 +2193,75 @@ void Unparser::UnparseColumnSchema(const ASTColumnSchema* node, void* data) {
     print("OPTIONS");
     Formatter::Indenter indenter(&formatter_);
     node->options_list()->Accept(this, data);
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTAnalyticFunctionCall(const ASTAnalyticFunctionCall* node,
                                             void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   PrintOpenParenIfNeeded(node);
   node->function()->Accept(this, data);
   print("OVER (");
   {
     Formatter::Indenter indenter(&formatter_);
     node->window_spec()->Accept(this, data);
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
   print(")");
   PrintCloseParenIfNeeded(node);
 }
 
 void Unparser::visitASTWindowClause(const ASTWindowClause* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   print("WINDOW");
   {
     Formatter::Indenter indenter(&formatter_);
     UnparseVectorWithSeparator(node->windows(), data, ",");
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
 }
 
 void Unparser::visitASTWindowDefinition(
     const ASTWindowDefinition* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   node->name()->Accept(this, data);
   print("AS (");
   node->window_spec()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   print(")");
 }
 
 void Unparser::visitASTWindowSpecification(
     const ASTWindowSpecification* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseChildrenWithSeparator(node, data, "");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTPartitionBy(const ASTPartitionBy* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("PARTITION");
   if (node->hint() != nullptr) {
     node->hint()->Accept(this, data);
   }
   print("BY");
   UnparseVectorWithSeparator(node->partitioning_expressions(), data, ",");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTClusterBy(const ASTClusterBy* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("CLUSTER BY");
   UnparseVectorWithSeparator(node->clustering_expressions(), data, ",");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTWindowFrame(const ASTWindowFrame* node,
                                    void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print(node->GetFrameUnitString());
   if (nullptr != node->end_expr()) {
     print("BETWEEN");
@@ -2097,11 +2271,12 @@ void Unparser::visitASTWindowFrame(const ASTWindowFrame* node,
     print("AND");
     node->end_expr()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTWindowFrameExpr(
     const ASTWindowFrameExpr* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   switch (node->boundary_type()) {
     case ASTWindowFrameExpr::UNBOUNDED_PRECEDING:
     case ASTWindowFrameExpr::CURRENT_ROW:
@@ -2117,36 +2292,40 @@ void Unparser::visitASTWindowFrameExpr(
       print("FOLLOWING");
       break;
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTDefaultLiteral(const ASTDefaultLiteral* node,
                                       void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("DEFAULT");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTAssertStatement(const ASTAssertStatement* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("ASSERT");
   node->expr()->Accept(this, data);
   if (node->description() != nullptr) {
     print("AS");
     node->description()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTAssertRowsModified(const ASTAssertRowsModified* node,
                                           void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   print("ASSERT_ROWS_MODIFIED");
   visitASTChildren(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTDeleteStatement(const ASTDeleteStatement* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   print("DELETE");
   // GetTargetPathForNested() is strictly more general than "ForNonNested()".
@@ -2163,48 +2342,55 @@ void Unparser::visitASTDeleteStatement(const ASTDeleteStatement* node,
     {
       Formatter::Indenter indenter(&formatter_);
       node->where()->Accept(this, data);
+      if (node->assert_rows_modified() == nullptr) {
+        PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
+      }
     }
   }
   if (node->assert_rows_modified() != nullptr) {
     node->assert_rows_modified()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTColumnList(const ASTColumnList* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("(");
   {
     Formatter::Indenter indenter(&formatter_);
     UnparseChildrenWithSeparator(node, data, ",");
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
   print(")");
 }
 
 void Unparser::visitASTInsertValuesRow(const ASTInsertValuesRow* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   print("(");
   {
     Formatter::Indenter indenter(&formatter_);
     UnparseChildrenWithSeparator(node, data, ",");
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
   print(")");
 }
 
 void Unparser::visitASTInsertValuesRowList(const ASTInsertValuesRowList* node,
                                            void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("VALUES");
   {
     Formatter::Indenter indenter(&formatter_);
     UnparseChildrenWithSeparator(node, data, ",");
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
 }
 
 void Unparser::visitASTInsertStatement(const ASTInsertStatement* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   print("INSERT");
   if (node->insert_mode() != ASTInsertStatement::DEFAULT_MODE) {
@@ -2232,16 +2418,18 @@ void Unparser::visitASTInsertStatement(const ASTInsertStatement* node,
   if (node->assert_rows_modified() != nullptr) {
     node->assert_rows_modified()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTUpdateSetValue(const ASTUpdateSetValue* node,
                                       void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseChildrenWithSeparator(node, data, "=");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTUpdateItem(const ASTUpdateItem* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   // If we don't have set_value, we have one of the statement types, which
   // require parentheses.
   if (node->set_value() == nullptr) {
@@ -2250,23 +2438,26 @@ void Unparser::visitASTUpdateItem(const ASTUpdateItem* node, void* data) {
     {
       Formatter::Indenter indenter(&formatter_);
       visitASTChildren(node, data);
+      PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
     }
     println();
     print(")");
   } else {
     visitASTChildren(node, data);
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
 }
 
 void Unparser::visitASTUpdateItemList(const ASTUpdateItemList* node,
                                       void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseChildrenWithSeparator(node, data, ",", true /* break_line */);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTUpdateStatement(const ASTUpdateStatement* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   print("UPDATE");
   // GetTargetPathForNested() is strictly more general than "ForNonNested()".
@@ -2297,11 +2488,12 @@ void Unparser::visitASTUpdateStatement(const ASTUpdateStatement* node,
   if (node->assert_rows_modified() != nullptr) {
     node->assert_rows_modified()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTTruncateStatement(const ASTTruncateStatement* node,
                                          void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   print("TRUNCATE TABLE");
 
@@ -2313,12 +2505,14 @@ void Unparser::visitASTTruncateStatement(const ASTTruncateStatement* node,
     {
       Formatter::Indenter indenter(&formatter_);
       node->where()->Accept(this, data);
+      PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
     }
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTMergeAction(const ASTMergeAction* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   switch (node->action_type()) {
     case ASTMergeAction::INSERT:
@@ -2353,11 +2547,12 @@ void Unparser::visitASTMergeAction(const ASTMergeAction* node, void* data) {
     case ASTMergeAction::NOT_SET:
       LOG(DFATAL) << "Merge clause action type is not set";
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTMergeWhenClause(const ASTMergeWhenClause* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   const ASTMergeAction* action = node->action();
   switch (node->match_type()) {
     case ASTMergeWhenClause::MATCHED:
@@ -2379,18 +2574,20 @@ void Unparser::visitASTMergeWhenClause(const ASTMergeWhenClause* node,
   print("THEN");
   Formatter::Indenter indenter(&formatter_);
   action->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTMergeWhenClauseList(const ASTMergeWhenClauseList* node,
                                            void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   UnparseChildrenWithSeparator(node, data, "", true /* break_line */);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTMergeStatement(const ASTMergeStatement* node,
                                       void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println();
   print("MERGE INTO");
   node->target_path()->Accept(this, data);
@@ -2404,10 +2601,11 @@ void Unparser::visitASTMergeStatement(const ASTMergeStatement* node,
   print("ON");
   node->merge_condition()->Accept(this, data);
   node->when_clauses()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTPrimaryKey(const ASTPrimaryKey* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("PRIMARY KEY");
   if (node->column_list() == nullptr) {
     print("()");
@@ -2421,34 +2619,39 @@ void Unparser::visitASTPrimaryKey(const ASTPrimaryKey* node, void* data) {
     print("OPTIONS");
     Formatter::Indenter indenter(&formatter_);
     node->options_list()->Accept(this, data);
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTPrivilege(const ASTPrivilege* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   node->privilege_action()->Accept(this, data);
   if (node->column_list() != nullptr) {
     node->column_list()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTPrivileges(const ASTPrivileges* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->is_all_privileges()) {
     print("ALL PRIVILEGES");
   } else {
     UnparseChildrenWithSeparator(node, data, ",");
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTGranteeList(const ASTGranteeList* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseChildrenWithSeparator(node, data, ",");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTGrantStatement(const ASTGrantStatement* node,
                                       void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("GRANT");
   node->privileges()->Accept(this, data);
   print("ON");
@@ -2458,11 +2661,12 @@ void Unparser::visitASTGrantStatement(const ASTGrantStatement* node,
   node->target_path()->Accept(this, data);
   print("TO");
   node->grantee_list()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTRevokeStatement(const ASTRevokeStatement* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("REVOKE");
   node->privileges()->Accept(this, data);
   print("ON");
@@ -2472,64 +2676,71 @@ void Unparser::visitASTRevokeStatement(const ASTRevokeStatement* node,
   node->target_path()->Accept(this, data);
   print("FROM");
   node->grantee_list()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTRepeatableClause(const ASTRepeatableClause* node,
                                         void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("REPEATABLE (");
   node->argument()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   print(")");
 }
 
 void Unparser::visitASTReplaceFieldsArg(const ASTReplaceFieldsArg* node,
                                         void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   node->expression()->Accept(this, data);
   print("AS ");
   node->path_expression()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTReplaceFieldsExpression(
     const ASTReplaceFieldsExpression* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("REPLACE_FIELDS(");
   node->expr()->Accept(this, data);
   print(", ");
   {
     Formatter::Indenter indenter(&formatter_);
     UnparseVectorWithSeparator(node->arguments(), data, ",");
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
   print(")");
 }
 
 void Unparser::visitASTSampleSize(const ASTSampleSize* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   node->size()->Accept(this, data);
   print(node->GetSQLForUnit());
   if (node->partition_by() != nullptr) {
     node->partition_by()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTSampleSuffix(const ASTSampleSuffix* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->weight() != nullptr) {
     node->weight()->Accept(this, data);
   }
   if (node->repeat() != nullptr) {
     node->repeat()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTWithWeight(const ASTWithWeight* node, void *data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("WITH WEIGHT");
   visitASTChildren(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTSampleClause(const ASTSampleClause* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("TABLESAMPLE");
   node->sample_method()->Accept(this, data);
   print("(");
@@ -2541,56 +2752,63 @@ void Unparser::visitASTSampleClause(const ASTSampleClause* node, void* data) {
   if (node->sample_suffix()) {
     node->sample_suffix()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::VisitAlterStatementBase(const ASTAlterStatementBase* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->is_if_exists()) {
     print("IF EXISTS");
   }
   node->path()->Accept(this, data);
   node->action_list()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTAlterMaterializedViewStatement(
     const ASTAlterMaterializedViewStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("ALTER MATERIALIZED VIEW");
   VisitAlterStatementBase(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTAlterDatabaseStatement(
     const ASTAlterDatabaseStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("ALTER DATABASE");
   VisitAlterStatementBase(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTAlterTableStatement(const ASTAlterTableStatement* node,
                                            void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("ALTER TABLE");
   VisitAlterStatementBase(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTAlterViewStatement(const ASTAlterViewStatement* node,
                                           void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("ALTER VIEW");
   VisitAlterStatementBase(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTSetOptionsAction(const ASTSetOptionsAction* node,
                                         void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("SET OPTIONS");
   node->options_list()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::VisitCheckConstraintSpec(const ASTCheckConstraint* node,
                                         void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("CHECK");
   print("(");
   node->expression()->Accept(this, data);
@@ -2603,11 +2821,12 @@ void Unparser::VisitCheckConstraintSpec(const ASTCheckConstraint* node,
     print("OPTIONS");
     node->options_list()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTAddConstraintAction(const ASTAddConstraintAction* node,
                                            void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("ADD");
   auto* constraint = node->constraint();
   if (constraint->constraint_name() != nullptr) {
@@ -2626,21 +2845,23 @@ void Unparser::visitASTAddConstraintAction(const ASTAddConstraintAction* node,
     LOG(FATAL) << "Unknown constraint node kind: "
                << ASTNode::NodeKindToString(node_kind);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTDropConstraintAction(const ASTDropConstraintAction* node,
                                             void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("DROP CONSTRAINT");
   if (node->is_if_exists()) {
     print("IF EXISTS");
   }
   node->constraint_name()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTAlterConstraintEnforcementAction(
     const ASTAlterConstraintEnforcementAction* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("ALTER CONSTRAINT");
   if (node->is_if_exists()) {
     print("IF EXISTS");
@@ -2650,11 +2871,12 @@ void Unparser::visitASTAlterConstraintEnforcementAction(
     print("NOT");
   }
   print("ENFORCED");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTAlterConstraintSetOptionsAction(
     const ASTAlterConstraintSetOptionsAction* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("ALTER CONSTRAINT");
   if (node->is_if_exists()) {
     print("IF EXISTS");
@@ -2662,11 +2884,12 @@ void Unparser::visitASTAlterConstraintSetOptionsAction(
   node->constraint_name()->Accept(this, data);
   print("SET OPTIONS");
   node->options_list()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTAddColumnAction(const ASTAddColumnAction* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("ADD COLUMN");
   if (node->is_if_not_exists()) {
     print("IF NOT EXISTS");
@@ -2679,47 +2902,52 @@ void Unparser::visitASTAddColumnAction(const ASTAddColumnAction* node,
     print("FILL USING");
     node->fill_expression()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTColumnPosition(const ASTColumnPosition* node,
                                       void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print(node->type() == ASTColumnPosition::PRECEDING ? "PRECEDING"
                                                      : "FOLLOWING");
   node->identifier()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTDropColumnAction(const ASTDropColumnAction* node,
                                         void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("DROP COLUMN");
   if (node->is_if_exists()) {
     print("IF EXISTS");
   }
   node->column_name()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTAlterColumnOptionsAction(
     const ASTAlterColumnOptionsAction* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("ALTER COLUMN");
   node->column_name()->Accept(this, data);
   print("SET OPTIONS");
   node->options_list()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTAlterColumnTypeAction(
     const ASTAlterColumnTypeAction* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("ALTER COLUMN");
   node->column_name()->Accept(this, data);
   print("SET DATA TYPE");
   node->schema()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTRevokeFromClause(const ASTRevokeFromClause* node,
                                         void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("REVOKE FROM ");
   if (node->is_revoke_from_all()) {
     print("ALL");
@@ -2728,25 +2956,28 @@ void Unparser::visitASTRevokeFromClause(const ASTRevokeFromClause* node,
     node->revoke_from_list()->Accept(this, data);
     print(")");
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTRenameToClause(const ASTRenameToClause* node,
                                       void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("RENAME TO");
   node->new_name()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTAlterActionList(const ASTAlterActionList* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   Formatter::Indenter indenter(&formatter_);
   UnparseChildrenWithSeparator(node, data, ",");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTAlterRowAccessPolicyStatement(
     const ASTAlterRowAccessPolicyStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("ALTER ROW ACCESS POLICY");
   if (node->is_if_exists()) {
     print("IF EXISTS");
@@ -2755,18 +2986,21 @@ void Unparser::visitASTAlterRowAccessPolicyStatement(
   print("ON");
   node->path()->Accept(this, data);
   node->action_list()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTAlterAllRowAccessPoliciesStatement(
     const ASTAlterAllRowAccessPoliciesStatement* node, void* data) {
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("ALTER ALL ROW ACCESS POLICIES ON");
   node->table_name_path()->Accept(this, data);
   node->alter_action()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTCreateIndexStatement(const ASTCreateIndexStatement* node,
                                             void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("CREATE");
   if (node->is_or_replace()) print("OR REPLACE");
   if (node->is_unique()) print("UNIQUE");
@@ -2793,38 +3027,42 @@ void Unparser::visitASTCreateIndexStatement(const ASTCreateIndexStatement* node,
     print("OPTIONS");
     node->options_list()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTStatementList(const ASTStatementList* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   for (const ASTStatement* statement : node->statement_list()) {
     statement->Accept(this, data);
     println(";");
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTElseifClause(const ASTElseifClause* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("ELSEIF");
   node->condition()->Accept(this, data);
   print("THEN");
   {
     Formatter::Indenter indenter(&formatter_);
     node->body()->Accept(this, data);
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
   println();
 }
 
 void Unparser::visitASTElseifClauseList(const ASTElseifClauseList* node,
                                         void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   for (const ASTElseifClause* else_if_clause : node->elseif_clauses()) {
     else_if_clause->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTIfStatement(const ASTIfStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("IF");
   node->condition()->Accept(this, data);
   println("THEN");
@@ -2836,17 +3074,20 @@ void Unparser::visitASTIfStatement(const ASTIfStatement* node, void* data) {
     node->elseif_clauses()->Accept(this, data);
   }
   if (node->else_list() != nullptr) {
+    PrintCommentsPassedBy(node->else_list()->GetParseLocationRange().start(), data);
     println();
     println("ELSE");
     Formatter::Indenter indenter(&formatter_);
     node->else_list()->Accept(this, data);
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   println();
   print("END IF");
 }
 
 void Unparser::visitASTBeginEndBlock(const ASTBeginEndBlock* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println("BEGIN");
   {
     Formatter::Indenter indenter(&formatter_);
@@ -2855,35 +3096,39 @@ void Unparser::visitASTBeginEndBlock(const ASTBeginEndBlock* node, void* data) {
   if (node->handler_list() != nullptr) {
     node->handler_list()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   println("END");
 }
 
 void Unparser::visitASTIndexItemList(const ASTIndexItemList* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("(");
   UnparseVectorWithSeparator(node->ordering_expressions(), data, ",");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   print(")");
 }
 
 void Unparser::visitASTIndexStoringExpressionList(
     const ASTIndexStoringExpressionList* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("STORING(");
   {
     Formatter::Indenter indenter(&formatter_);
     UnparseVectorWithSeparator(node->expressions(), data, ",");
+    PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   }
   print(")");
 }
 
 void Unparser::visitASTIndexUnnestExpressionList(
     const ASTIndexUnnestExpressionList* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseVectorWithSeparator(node->unnest_expressions(), data, "");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::VisitForeignKeySpec(const ASTForeignKey* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("FOREIGN KEY");
   node->column_list()->Accept(this, data);
   node->reference()->Accept(this, data);
@@ -2891,20 +3136,22 @@ void Unparser::VisitForeignKeySpec(const ASTForeignKey* node, void* data) {
     print("OPTIONS");
     node->options_list()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTForeignKey(const ASTForeignKey* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->constraint_name() != nullptr) {
     print("CONSTRAINT");
     node->constraint_name()->Accept(this, data);
   }
   VisitForeignKeySpec(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTForeignKeyReference(
     const ASTForeignKeyReference* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("REFERENCES");
   node->table_name()->Accept(this, data);
   node->column_list()->Accept(this, data);
@@ -2915,36 +3162,40 @@ void Unparser::visitASTForeignKeyReference(
     print("NOT");
   }
   print("ENFORCED");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTForeignKeyActions(
     const ASTForeignKeyActions* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("ON UPDATE");
   print(ASTForeignKeyActions::GetSQLForAction(node->update_action()));
   print("ON DELETE");
   print(ASTForeignKeyActions::GetSQLForAction(node->delete_action()));
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTCheckConstraint(const ASTCheckConstraint* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->constraint_name() != nullptr) {
     print("CONSTRAINT");
     node->constraint_name()->Accept(this, data);
   }
   VisitCheckConstraintSpec(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTIdentifierList(const ASTIdentifierList* node,
                                       void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseVectorWithSeparator(node->identifier_list(), data, ", ");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTVariableDeclaration(const ASTVariableDeclaration* node,
                                            void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("DECLARE");
   node->variable_list()->Accept(this, data);
   if (node->type() != nullptr) {
@@ -2954,38 +3205,42 @@ void Unparser::visitASTVariableDeclaration(const ASTVariableDeclaration* node,
     print("DEFAULT");
     node->default_value()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTSingleAssignment(const ASTSingleAssignment* node,
                                         void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("SET");
   node->variable()->Accept(this, data);
   print("=");
   node->expression()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTParameterAssignment(const ASTParameterAssignment* node,
                                            void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("SET");
   node->parameter()->Accept(this, data);
   print("=");
   node->expression()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTSystemVariableAssignment(
     const ASTSystemVariableAssignment* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("SET");
   node->system_variable()->Accept(this, data);
   print("=");
   node->expression()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTAssignmentFromStruct(const ASTAssignmentFromStruct* node,
                                   void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("SET");
   print("(");
   for (const ASTIdentifier* variable : node->variables()->identifier_list()) {
@@ -2997,11 +3252,12 @@ void Unparser::visitASTAssignmentFromStruct(const ASTAssignmentFromStruct* node,
   print(")");
   print("=");
   node->struct_expression()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTWhileStatement(const ASTWhileStatement* node,
                                       void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   if (node->condition() != nullptr) {
     print("WHILE");
     node->condition()->Accept(this, data);
@@ -3009,6 +3265,7 @@ void Unparser::visitASTWhileStatement(const ASTWhileStatement* node,
     {
       Formatter::Indenter indenter(&formatter_);
       node->body()->Accept(this, data);
+      PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
     }
     print("END");
     print("WHILE");
@@ -3017,6 +3274,7 @@ void Unparser::visitASTWhileStatement(const ASTWhileStatement* node,
     {
       Formatter::Indenter indenter(&formatter_);
       node->body()->Accept(this, data);
+      PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
     }
     print("END");
     print("LOOP");
@@ -3029,25 +3287,28 @@ void Unparser::visitASTScript(const ASTScript* node, void* data) {
 
 void Unparser::visitASTBreakStatement(const ASTBreakStatement* node,
                                       void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print(node->GetKeywordText());
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTContinueStatement(const ASTContinueStatement* node,
                                          void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print(node->GetKeywordText());
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTReturnStatement(const ASTReturnStatement* node,
                                        void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("RETURN");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTCreateProcedureStatement(
     const ASTCreateProcedureStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print(GetCreateStatementPrefix(node, "PROCEDURE"));
   node->name()->Accept(this, data);
   node->parameters()->Accept(this, data);
@@ -3059,51 +3320,58 @@ void Unparser::visitASTCreateProcedureStatement(
     println();
   }
   node->begin_end_block()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTNamedArgument(const ASTNamedArgument* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   node->name()->Accept(this, data);
   print(" => ");
   node->expr()->Accept(this, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTExceptionHandler(const ASTExceptionHandler* node,
                                         void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("WHEN ERROR THEN");
   Formatter::Indenter indenter(&formatter_);
   node->statement_list()->Accept(this, data);
   println();
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 void Unparser::visitASTExceptionHandlerList(const ASTExceptionHandlerList* node,
                                             void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   println("EXCEPTION");
   for (const ASTExceptionHandler* handler : node->exception_handler_list()) {
     handler->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 void Unparser::visitASTExecuteIntoClause(const ASTExecuteIntoClause* node,
                                          void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("INTO");
   UnparseChildrenWithSeparator(node, data, ", ");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 void Unparser::visitASTExecuteUsingArgument(const ASTExecuteUsingArgument* node,
                                             void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   visitASTChildren(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 void Unparser::visitASTExecuteUsingClause(const ASTExecuteUsingClause* node,
                                           void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("USING");
   UnparseChildrenWithSeparator(node, data, ", ");
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 void Unparser::visitASTExecuteImmediateStatement(
     const ASTExecuteImmediateStatement* node, void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("EXECUTE IMMEDIATE");
   node->sql()->Accept(this, data);
   if (node->into_clause() != nullptr) {
@@ -3112,16 +3380,18 @@ void Unparser::visitASTExecuteImmediateStatement(
   if (node->using_clause() != nullptr) {
     node->using_clause()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTRaiseStatement(const ASTRaiseStatement* node,
                                       void* data) {
-  PrintCommentsPassedBy(node, data);
+  PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   print("RAISE");
   if (node->message() != nullptr) {
     print("USING MESSAGE =");
     node->message()->Accept(this, data);
   }
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 }  // namespace parser

@@ -560,15 +560,21 @@ class Unparser : public ParseTreeVisitor {
   template <class NodeType>
   void UnparseVectorWithSeparator(
       absl::Span<const NodeType* const> node_vector, void* data,
-      const std::string& separator) {
+      const std::string& separator, const bool break_line = false) {
     bool first = true;
     for (const NodeType* node : node_vector) {
       if (first) {
         first = false;
       } else {
         print(separator);
+        if (break_line) {
+          if (!PrintCommentsPassedBy(node->GetParseLocationRange().start(), data)) {
+            println();
+          }
+        }
       }
       node->Accept(this, data);
+      PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
     }
   }
 
@@ -581,7 +587,7 @@ class Unparser : public ParseTreeVisitor {
   void UnparseLeafNode(const ASTLeaf* leaf_node);
   void UnparseColumnSchema(const ASTColumnSchema* node, void* data);
   void VisitAlterStatementBase(const ASTAlterStatementBase* node, void* data);
-  bool PrintCommentsPassedBy(const ASTNode* node, void* data);
+  bool PrintCommentsPassedBy(const ParseLocationPoint point, void* data);
 
   Formatter formatter_;
 };
