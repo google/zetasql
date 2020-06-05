@@ -224,14 +224,11 @@ void Unparser::UnparseChildrenWithSeparator(const ASTNode* node, void* data,
     if (i > begin) {
       print(separator);
       if (break_line) {
-        if (!PrintCommentsPassedBy(node->child(i)->GetParseLocationRange().start(), data)) {
-          println();
-        }
+        println();
       }
     }
     node->child(i)->Accept(this, data);
   }
-  PrintCommentsPassedBy(node->child(end - 1)->GetParseLocationRange().end(), data);
 }
 
 // PrintCommentsPassedBy prints comments if they are before the given ParseLocationPoint
