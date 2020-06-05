@@ -45,6 +45,12 @@ std::set<LanguageFeature> LanguageOptions::GetLanguageFeaturesForVersion(
       features.insert(FEATURE_V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY);
       features.insert(FEATURE_V_1_3_ALLOW_DASHES_IN_TABLE_NAME);
       features.insert(FEATURE_V_1_3_CONCAT_MIXED_TYPES);
+      features.insert(FEATURE_V_1_3_WITH_RECURSIVE);
+      features.insert(FEATURE_V_1_3_PROTO_MAPS);
+      features.insert(FEATURE_V_1_3_ENUM_VALUE_DESCRIPTOR_PROTO);
+      features.insert(FEATURE_V_1_3_DECIMAL_ALIAS);
+      features.insert(FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS);
+      features.insert(FEATURE_V_1_3_ALLOW_CONSECUTIVE_ON);
       ABSL_FALLTHROUGH_INTENDED;
     // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
     // supposed to be stable and frozen, except possibly for bug fixes.

@@ -35,7 +35,10 @@
 #include "google/type/timeofday.pb.h"
 #include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
+#include "google/protobuf/descriptor.pb.h"
+#include "google/protobuf/descriptor.h"
 #include "google/protobuf/dynamic_message.h"
+#include "google/protobuf/extension_set.h"
 #include "google/protobuf/message.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/internal_value.h"
@@ -81,6 +84,7 @@
 #include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
+#include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -131,6 +135,11 @@ bool IsNegativeOrNaN<double>(const Value& src) {
 template <>
 bool IsNegativeOrNaN<NumericValue>(const Value& src) {
   return !src.is_null() && src.numeric_value() < NumericValue();
+}
+
+template <>
+bool IsNegativeOrNaN<BigNumericValue>(const Value& src) {
+  return !src.is_null() && src.bignumeric_value() < BigNumericValue();
 }
 
 bool IsNaN(const Value& src) {
@@ -304,6 +313,15 @@ absl::Status GenerateArray(NumericValue start, NumericValue end,
                            std::vector<Value>* values) {
   return GenerateArrayHelper<NumericValue, NumericValue, Value::Numeric>(
       start, end, step, context, values);
+}
+
+template <>
+absl::Status GenerateArray(BigNumericValue start, BigNumericValue end,
+                           BigNumericValue step, EvaluationContext* context,
+                           std::vector<Value>* values) {
+  return GenerateArrayHelper<BigNumericValue, BigNumericValue,
+                             Value::BigNumeric>(start, end, step, context,
+                                                values);
 }
 
 // Define a a similar function to Value::Date(int32_t) for template matching
@@ -551,6 +569,8 @@ FunctionMap::FunctionMap() {
   RegisterFunction(FunctionKind::kUpper, "upper", "Upper");
   RegisterFunction(FunctionKind::kLpad, "lpad", "Lpad");
   RegisterFunction(FunctionKind::kRpad, "rpad", "Rpad");
+  RegisterFunction(FunctionKind::kLeft, "left", "Left");
+  RegisterFunction(FunctionKind::kRight, "right", "Right");
   RegisterFunction(FunctionKind::kRepeat, "repeat", "Repeat");
   RegisterFunction(FunctionKind::kReverse, "reverse", "Reverse");
   RegisterFunction(FunctionKind::kSafeConvertBytesToString,
@@ -625,6 +645,9 @@ FunctionMap::FunctionMap() {
                    "Parse_timestamp");
   RegisterFunction(FunctionKind::kFromProto, "from_proto", "From_proto");
   RegisterFunction(FunctionKind::kToProto, "to_proto", "To_proto");
+  RegisterFunction(FunctionKind::kEnumValueDescriptorProto,
+                   "enum_value_descriptor_proto",
+                   "Enum_value_descriptor_proto");
   RegisterFunction(FunctionKind::kDate, "date", "Date");
   RegisterFunction(FunctionKind::kTimestamp, "timestamp", "Timestamp");
   RegisterFunction(FunctionKind::kTime, "time", "Time");
@@ -1199,6 +1222,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kTrim:
     case FunctionKind::kLtrim:
     case FunctionKind::kRtrim:
+    case FunctionKind::kLeft:
+    case FunctionKind::kRight:
     case FunctionKind::kReplace:
     case FunctionKind::kStrpos:
     case FunctionKind::kSafeConvertBytesToString:
@@ -1320,6 +1345,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new FromProtoFunction(kind, output_type);
     case FunctionKind::kToProto:
       return new ToProtoFunction(kind, output_type);
+    case FunctionKind::kEnumValueDescriptorProto:
+      return new EnumValueDescriptorProtoFunction(kind, output_type);
     case FunctionKind::kParseDate:
       return new ParseDateFunction(kind, output_type);
     case FunctionKind::kParseDatetime:
@@ -1629,6 +1656,12 @@ zetasql_base::StatusOr<Value> GenerateArrayFunction::Eval(
                         has_step ? args[2].numeric_value() : NumericValue(1LL),
                         context, &range_values));
       break;
+    case TYPE_BIGNUMERIC:
+      ZETASQL_RETURN_IF_ERROR(GenerateArray(
+          args[0].bignumeric_value(), args[1].bignumeric_value(),
+          has_step ? args[2].bignumeric_value() : BigNumericValue(1), context,
+          &range_values));
+      break;
     case TYPE_DOUBLE:
       ZETASQL_RETURN_IF_ERROR(GenerateArray(
           args[0].double_value(), args[1].double_value(),
@@ -1807,8 +1840,13 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
       return InvokeBinary<uint64_t>(&functions::Divide<uint64_t>, args, result,
                                   status);
     case FCT(FunctionKind::kDiv, TYPE_NUMERIC):
-      return InvokeBinary<NumericValue>(&functions::IntegerDivide, args, result,
-                                        status);
+      return InvokeBinary<NumericValue>(
+          &functions::DivideToIntegralValue<NumericValue>, args, result,
+          status);
+    case FCT(FunctionKind::kDiv, TYPE_BIGNUMERIC):
+      return InvokeBinary<BigNumericValue>(
+          &functions::DivideToIntegralValue<BigNumericValue>, args, result,
+          status);
 
     case FCT(FunctionKind::kSafeAdd, TYPE_INT64):
       return SafeInvokeBinary<int64_t>(&functions::Add<int64_t>, args, result,
@@ -1877,6 +1915,9 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
     case FCT(FunctionKind::kMod, TYPE_NUMERIC):
       return InvokeBinary<NumericValue>(&functions::Modulo<NumericValue>, args,
                                         result, status);
+    case FCT(FunctionKind::kMod, TYPE_BIGNUMERIC):
+      return InvokeBinary<BigNumericValue>(&functions::Modulo<BigNumericValue>,
+                                           args, result, status);
 
     case FCT(FunctionKind::kUnaryMinus, TYPE_INT64):
       return InvokeUnary<int64_t>(&functions::UnaryMinus<int64_t, int64_t>, args,
@@ -2417,6 +2458,7 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   NumericValue out_numeric_;           // Min, Max
   BigNumericValue out_bignumeric_;     // Min, Max
   NumericValue::SumAggregator numeric_aggregator_;  // Avg, Sum
+  BigNumericValue::SumAggregator bignumeric_aggregator_;  // Avg, Sum
   NumericValue::VarianceAggregator numeric_variance_aggregator_;  // Var, Stddev
   std::string out_string_ = "";                  // Max, Min, StringAgg
   std::string delimiter_ = ",";                  // StringAgg
@@ -2581,6 +2623,9 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
     case FCT(FunctionKind::kAvg, TYPE_NUMERIC):
       numeric_aggregator_ = NumericValue::SumAggregator();
       break;
+    case FCT(FunctionKind::kAvg, TYPE_BIGNUMERIC):
+      bignumeric_aggregator_ = BigNumericValue::SumAggregator();
+      break;
 
     // Sum
     case FCT(FunctionKind::kSum, TYPE_DOUBLE):
@@ -2594,6 +2639,9 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
       break;
     case FCT(FunctionKind::kSum, TYPE_NUMERIC):
       numeric_aggregator_ = NumericValue::SumAggregator();
+      break;
+    case FCT(FunctionKind::kSum, TYPE_BIGNUMERIC):
+      bignumeric_aggregator_ = BigNumericValue::SumAggregator();
       break;
 
     case FCT(FunctionKind::kVarPop, TYPE_DOUBLE):
@@ -2671,6 +2719,12 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       // For Numeric type the sum is accumulated in numeric_aggregator, then
       // divided by count at the end.
       numeric_aggregator_.Add(value.numeric_value());
+      break;
+    }
+    case FCT(FunctionKind::kAvg, TYPE_BIGNUMERIC): {
+      // For BigNumeric type the sum is accumulated in bignumeric_aggregator,
+      // then divided by count at the end.
+      bignumeric_aggregator_.Add(value.bignumeric_value());
       break;
     }
     case FCT(FunctionKind::kVarPop, TYPE_DOUBLE):
@@ -2943,6 +2997,10 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       numeric_aggregator_.Add(value.numeric_value());
       break;
     }
+    case FCT(FunctionKind::kSum, TYPE_BIGNUMERIC): {
+      bignumeric_aggregator_.Add(value.bignumeric_value());
+      break;
+    }
     case FCT(FunctionKind::kStringAgg, TYPE_STRING): {
       if (count_ > 1) {
         additional_bytes_to_request = delimiter_.size();
@@ -3057,6 +3115,14 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       ZETASQL_ASSIGN_OR_RETURN(out_numeric_, numeric_aggregator_.GetAverage(count_));
       return Value::Numeric(out_numeric_);
     }
+    case FCT(FunctionKind::kAvg, TYPE_BIGNUMERIC): {
+      if (count_ == 0) {
+        return Value::NullBigNumeric();
+      }
+      ZETASQL_ASSIGN_OR_RETURN(out_bignumeric_,
+                       bignumeric_aggregator_.GetAverage(count_));
+      return Value::BigNumeric(out_bignumeric_);
+    }
     // Sum
     case FCT(FunctionKind::kSum, TYPE_DOUBLE): {
       if (count_ == 0) {
@@ -3094,6 +3160,13 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       }
       ZETASQL_ASSIGN_OR_RETURN(out_numeric_, numeric_aggregator_.GetSum());
       return Value::Numeric(out_numeric_);
+    }
+    case FCT(FunctionKind::kSum, TYPE_BIGNUMERIC): {
+      if (count_ == 0) {
+        return Value::NullBigNumeric();
+      }
+      ZETASQL_ASSIGN_OR_RETURN(out_bignumeric_, bignumeric_aggregator_.GetSum());
+      return Value::BigNumeric(out_bignumeric_);
     }
     case FCT(FunctionKind::kVarPop, TYPE_DOUBLE):
       return count_ > 0 ? Value::Double(variance_) : Value::NullDouble();
@@ -3617,6 +3690,9 @@ bool MathFunction::Eval(absl::Span<const Value> args,
     case FCT(FunctionKind::kAbs, TYPE_NUMERIC):
       return InvokeUnary<NumericValue>(&functions::Abs<NumericValue>, args,
                                        result, status);
+    case FCT(FunctionKind::kAbs, TYPE_BIGNUMERIC):
+      return InvokeUnary<BigNumericValue>(&functions::Abs<BigNumericValue>,
+                                          args, result, status);
 
     case FCT(FunctionKind::kSign, TYPE_INT32):
       return InvokeUnary<int32_t>(&functions::Sign<int32_t>, args, result, status);
@@ -3636,6 +3712,9 @@ bool MathFunction::Eval(absl::Span<const Value> args,
     case FCT(FunctionKind::kSign, TYPE_NUMERIC):
       return InvokeUnary<NumericValue>(&functions::Sign<NumericValue>, args,
                                        result, status);
+    case FCT(FunctionKind::kSign, TYPE_BIGNUMERIC):
+      return InvokeUnary<BigNumericValue>(&functions::Sign<BigNumericValue>,
+                                          args, result, status);
 
     case FCT(FunctionKind::kIsInf, TYPE_BOOL):
       return InvokeUnary<bool, double>(&functions::IsInf<double>, args, result,
@@ -3738,6 +3817,14 @@ bool MathFunction::Eval(absl::Span<const Value> args,
         return InvokeBinary<NumericValue, NumericValue, int64_t>(
             &functions::RoundDecimal<NumericValue>, args, result, status);
       }
+    case FCT(FunctionKind::kRound, TYPE_BIGNUMERIC):
+      if (args.size() == 1) {
+        return InvokeUnary<BigNumericValue>(&functions::Round<BigNumericValue>,
+                                            args, result, status);
+      } else {
+        return InvokeBinary<BigNumericValue, BigNumericValue, int64_t>(
+            &functions::RoundDecimal<BigNumericValue>, args, result, status);
+      }
     case FCT(FunctionKind::kTrunc, TYPE_DOUBLE):
       if (args.size() == 1) {
         return InvokeUnary<double>(&functions::Trunc<double>, args, result,
@@ -3762,6 +3849,14 @@ bool MathFunction::Eval(absl::Span<const Value> args,
         return InvokeBinary<NumericValue, NumericValue, int64_t>(
             &functions::TruncDecimal<NumericValue>, args, result, status);
       }
+    case FCT(FunctionKind::kTrunc, TYPE_BIGNUMERIC):
+      if (args.size() == 1) {
+        return InvokeUnary<BigNumericValue>(&functions::Trunc<BigNumericValue>,
+                                            args, result, status);
+      } else {
+        return InvokeBinary<BigNumericValue, BigNumericValue, int64_t>(
+            &functions::TruncDecimal<BigNumericValue>, args, result, status);
+      }
     case FCT(FunctionKind::kCeil, TYPE_DOUBLE):
       return InvokeUnary<double>(&functions::Ceil<double>, args, result,
                                  status);
@@ -3770,6 +3865,9 @@ bool MathFunction::Eval(absl::Span<const Value> args,
     case FCT(FunctionKind::kCeil, TYPE_NUMERIC):
       return InvokeUnary<NumericValue>(&functions::Ceil<NumericValue>, args,
                                        result, status);
+    case FCT(FunctionKind::kCeil, TYPE_BIGNUMERIC):
+      return InvokeUnary<BigNumericValue>(&functions::Ceil<BigNumericValue>,
+                                          args, result, status);
     case FCT(FunctionKind::kFloor, TYPE_DOUBLE):
       return InvokeUnary<double>(&functions::Floor<double>, args, result,
                                  status);
@@ -3778,6 +3876,9 @@ bool MathFunction::Eval(absl::Span<const Value> args,
     case FCT(FunctionKind::kFloor, TYPE_NUMERIC):
       return InvokeUnary<NumericValue>(&functions::Floor<NumericValue>, args,
                                        result, status);
+    case FCT(FunctionKind::kFloor, TYPE_BIGNUMERIC):
+      return InvokeUnary<BigNumericValue>(&functions::Floor<BigNumericValue>,
+                                          args, result, status);
   }
   *status = ::zetasql_base::UnimplementedErrorBuilder()
             << "Unsupported math function: " << debug_name();
@@ -3876,6 +3977,22 @@ bool StringFunction::Eval(absl::Span<const Value> args,
       return InvokeBytes<absl::string_view>(&functions::RightTrimBytes, result,
                                             status, args[0].bytes_value(),
                                             args[1].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kLeft, TYPE_STRING, 2):
+      return InvokeString<absl::string_view>(&functions::LeftUtf8, result,
+                                             status, args[0].string_value(),
+                                             args[1].int64_value());
+    case FCT_TYPE_ARITY(FunctionKind::kLeft, TYPE_BYTES, 2):
+      return InvokeBytes<absl::string_view>(&functions::LeftBytes, result,
+                                            status, args[0].bytes_value(),
+                                            args[1].int64_value());
+    case FCT_TYPE_ARITY(FunctionKind::kRight, TYPE_STRING, 2):
+      return InvokeString<absl::string_view>(&functions::RightUtf8, result,
+                                             status, args[0].string_value(),
+                                             args[1].int64_value());
+    case FCT_TYPE_ARITY(FunctionKind::kRight, TYPE_BYTES, 2):
+      return InvokeBytes<absl::string_view>(&functions::RightBytes, result,
+                                            status, args[0].bytes_value(),
+                                            args[1].int64_value());
     case FCT_TYPE_ARITY(FunctionKind::kReplace, TYPE_BYTES, 3):
       return InvokeBytes<std::string>(
           &functions::ReplaceBytes, result, status, args[0].bytes_value(),
@@ -4086,12 +4203,17 @@ zetasql_base::StatusOr<Value> MakeProtoFunction::Eval(
   {
     google::protobuf::io::StringOutputStream cord_output(&bytes_str);
 
+    ProtoUtil::WriteFieldOptions write_field_options{
+        .allow_null_map_keys =
+            !context->GetLanguageOptions().LanguageFeatureEnabled(
+                LanguageFeature::FEATURE_V_1_3_PROTO_MAPS)};
+
     google::protobuf::io::CodedOutputStream coded_output(&cord_output);
     for (int i = 0; i < args.size(); i++) {
       bool nondeterministic = false;
-      ZETASQL_RETURN_IF_ERROR(ProtoUtil::WriteField(fields_[i].first, fields_[i].second,
-                                            args[i], &nondeterministic,
-                                            &coded_output));
+      ZETASQL_RETURN_IF_ERROR(ProtoUtil::WriteField(
+          write_field_options, fields_[i].first, fields_[i].second, args[i],
+          &nondeterministic, &coded_output));
       if (nondeterministic) {
         context->SetNonDeterministicOutput();
       }
@@ -4117,6 +4239,13 @@ static zetasql_base::StatusOr<Value> ReplaceProtoFields(
   if (new_field_value.is_null() && path.back()->is_required()) {
     return MakeEvalError()
            << "REPLACE_FIELDS() cannot be used to clear required fields";
+  }
+  if (new_field_value.is_null() &&
+      path.back()->containing_type()->options().map_entry() &&
+      context->GetLanguageOptions().LanguageFeatureEnabled(
+          LanguageFeature::FEATURE_V_1_3_PROTO_MAPS)) {
+    return MakeEvalError() << "REPLACE_FIELDS() cannot be used to clear a "
+                              "field of a map entry";
   }
   google::protobuf::DynamicMessageFactory factory;
   auto mutable_root_message =
@@ -4965,6 +5094,28 @@ zetasql_base::StatusOr<Value> ToProtoFunction::Eval(const absl::Span<const Value
              << "Unsupported function: " << debug_name()
              << " for input: " << args[0];
   }
+}
+
+zetasql_base::StatusOr<Value> EnumValueDescriptorProtoFunction::Eval(
+    absl::Span<const Value> args, EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(args.size(), 1);
+  if (HasNulls(args)) return Value::Null(output_type());
+
+  const google::protobuf::EnumValueDescriptor* arg_value_desc =
+      args[0].type()->AsEnum()->enum_descriptor()->FindValueByNumber(
+          args[0].enum_value());
+  if (arg_value_desc == nullptr) {
+    return ::zetasql_base::OutOfRangeErrorBuilder()
+           << "Invalid enum value: " << args[0].enum_value()
+           << " for enum type: " << args[0].type()->DebugString();
+  }
+  ZETASQL_RET_CHECK_EQ(arg_value_desc->type(),
+               args[0].type()->AsEnum()->enum_descriptor());
+
+  google::protobuf::EnumValueDescriptorProto enum_value_desc_proto;
+  arg_value_desc->CopyTo(&enum_value_desc_proto);
+  return zetasql::values::Proto(output_type()->AsProto(),
+                                  enum_value_desc_proto);
 }
 
 zetasql_base::StatusOr<Value> CivilTimeTruncFunction::Eval(
@@ -6100,6 +6251,11 @@ absl::Status PercentileDiscFunction::Eval(
       output_value = ComputePercentileDisc<NumericValue>(
           percentile_evalutor, values_arg, type, &Value::numeric_value,
           &Value::Numeric, ignore_nulls_);
+      break;
+    case TYPE_BIGNUMERIC:
+      output_value = ComputePercentileDisc<BigNumericValue>(
+          percentile_evalutor, values_arg, type, &Value::bignumeric_value,
+          &Value::BigNumeric, ignore_nulls_);
       break;
     case TYPE_BYTES:
       output_value =

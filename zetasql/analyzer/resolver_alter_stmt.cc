@@ -28,6 +28,7 @@
 #include "zetasql/public/id_string.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"

@@ -40,7 +40,14 @@ cc_library(
     name = "type_helpers",
     srcs = ["type_helpers.cc"],
     hdrs = ["type_helpers.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
@@ -56,7 +63,14 @@ cc_test(
     name = "type_helpers_test",
     size = "small",
     srcs = ["type_helpers_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":type_helpers",
         "@com_google_googletest//:gtest_main",
@@ -77,6 +91,7 @@ cc_library(
         "functions_testlib_format_floating_point.cc",
         "functions_testlib_format_integral.cc",
         "functions_testlib_format_nulls.cc",
+        "functions_testlib_format_numeric.cc",
         "functions_testlib_format_strings.cc",
         "functions_testlib_generate_array.cc",
         "functions_testlib_json.cc",
@@ -95,7 +110,12 @@ cc_library(
     ],
     copts = [
         "$(STACK_FRAME_UNLIMITED)",
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
         "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
     ],
     deps = [
         "//zetasql/base",

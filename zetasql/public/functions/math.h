@@ -171,7 +171,18 @@ inline bool Abs(uint64_t in, uint64_t *out, absl::Status* error) {
 
 template <>
 inline bool Abs(NumericValue in, NumericValue *out, absl::Status* error) {
-  *out = NumericValue::Abs(in);
+  *out = in.Abs();
+  return true;
+}
+
+template <>
+inline bool Abs(BigNumericValue in, BigNumericValue* out, absl::Status* error) {
+  auto status_or_numeric = in.Abs();
+  if (!status_or_numeric.ok()) {
+    return internal::SetFloatingPointOverflow(
+        absl::StrCat("ABS(", in.ToString(), ")"), error);
+  }
+  *out = status_or_numeric.value();
   return true;
 }
 
@@ -189,7 +200,14 @@ inline bool Sign(T in, T *out, absl::Status* error) {
 
 template <>
 inline bool Sign(NumericValue in, NumericValue *out, absl::Status* error) {
-  *out = NumericValue::Sign(in);
+  *out = NumericValue(in.Sign());
+  return true;
+}
+
+template <>
+inline bool Sign(BigNumericValue in, BigNumericValue* out,
+                 absl::Status* error) {
+  *out = BigNumericValue(in.Sign());
   return true;
 }
 
@@ -411,6 +429,22 @@ template <> bool Floor(NumericValue in, NumericValue *out, absl::Status* error);
 template <> bool Pow(
     NumericValue in1, NumericValue in2, NumericValue* out,
     absl::Status* error);
+
+template <>
+bool Ceil(BigNumericValue in, BigNumericValue* out, absl::Status* error);
+template <>
+bool Floor(BigNumericValue in, BigNumericValue* out, absl::Status* error);
+
+template <>
+bool Round(BigNumericValue in, BigNumericValue* out, absl::Status* error);
+template <>
+bool RoundDecimal(BigNumericValue in, int64_t digits, BigNumericValue* out,
+                  absl::Status* error);
+template <>
+bool Trunc(BigNumericValue in, BigNumericValue* out, absl::Status* error);
+template <>
+bool TruncDecimal(BigNumericValue in, int64_t digits, BigNumericValue* out,
+                  absl::Status* error);
 
 }  // namespace functions
 }  // namespace zetasql

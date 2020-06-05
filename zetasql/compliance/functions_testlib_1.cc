@@ -56,70 +56,71 @@ constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 
 std::vector<FunctionTestCall> GetFunctionTestsBitCast() {
   return {
-    // Null -> Null
-    {"bit_cast_to_int32", {NullInt32()}, NullInt32()},
-    {"bit_cast_to_int32", {NullUint32()}, NullInt32()},
-    {"bit_cast_to_int64", {NullInt64()}, NullInt64()},
-    {"bit_cast_to_int64", {NullUint64()}, NullInt64()},
-    {"bit_cast_to_uint32", {NullUint32()}, NullUint32()},
-    {"bit_cast_to_uint32", {NullInt32()}, NullUint32()},
-    {"bit_cast_to_uint64", {NullUint64()}, NullUint64()},
-    {"bit_cast_to_uint64", {NullInt64()}, NullUint64()},
+      // Null -> Null
+      {"bit_cast_to_int32", {NullInt32()}, NullInt32()},
+      {"bit_cast_to_int32", {NullUint32()}, NullInt32()},
+      {"bit_cast_to_int64", {NullInt64()}, NullInt64()},
+      {"bit_cast_to_int64", {NullUint64()}, NullInt64()},
+      {"bit_cast_to_uint32", {NullUint32()}, NullUint32()},
+      {"bit_cast_to_uint32", {NullInt32()}, NullUint32()},
+      {"bit_cast_to_uint64", {NullUint64()}, NullUint64()},
+      {"bit_cast_to_uint64", {NullInt64()}, NullUint64()},
 
-    // INT32 -> INT32
-    {"bit_cast_to_int32", {Int32(0)}, Int32(0)},
-    {"bit_cast_to_int32", {Int32(int32max)}, Int32(int32max)},
-    {"bit_cast_to_int32", {Int32(int32min)}, Int32(int32min)},
-    {"bit_cast_to_int32", {Int32(3)}, Int32(3)},
-    {"bit_cast_to_int32", {Int32(-3)}, Int32(-3)},
+      // INT32 -> INT32
+      {"bit_cast_to_int32", {Int32(0)}, Int32(0)},
+      {"bit_cast_to_int32", {Int32(int32max)}, Int32(int32max)},
+      {"bit_cast_to_int32", {Int32(int32min)}, Int32(int32min)},
+      {"bit_cast_to_int32", {Int32(3)}, Int32(3)},
+      {"bit_cast_to_int32", {Int32(-3)}, Int32(-3)},
 
-    // UINT32 -> INT32
-    {"bit_cast_to_int32", {Uint32(0)}, Int32(0)},
-    {"bit_cast_to_int32", {Uint32(uint32max)}, Int32(-1)},
-    {"bit_cast_to_int32", {Uint32(3)}, Int32(3)},
-    {"bit_cast_to_int32", {Uint32(uint32max - 3)}, Int32(-4)},
-    {"bit_cast_to_int32", {Uint32(uint32max >> 1)}, Int32(int32max)},
+      // UINT32 -> INT32
+      {"bit_cast_to_int32", {Uint32(0)}, Int32(0)},
+      {"bit_cast_to_int32", {Uint32(uint32max)}, Int32(-1)},
+      {"bit_cast_to_int32", {Uint32(3)}, Int32(3)},
+      {"bit_cast_to_int32", {Uint32(uint32max - 3)}, Int32(-4)},
+      {"bit_cast_to_int32", {Uint32(uint32max >> 1)}, Int32(int32max)},
 
-    // INT64 -> INT64
-    {"bit_cast_to_int64", {Int64(0)}, Int64(0)},
-    {"bit_cast_to_int64", {Int64(int64max)}, Int64(int64max)},
-    {"bit_cast_to_int64", {Int64(int64min)}, Int64(int64min)},
-    {"bit_cast_to_int64", {Int64(3)}, Int64(3)},
-    {"bit_cast_to_int64", {Int64(-3)}, Int64(-3)},
+      // INT64 -> INT64
+      {"bit_cast_to_int64", {Int64(0)}, Int64(0)},
+      {"bit_cast_to_int64", {Int64(int64max)}, Int64(int64max)},
+      {"bit_cast_to_int64", {Int64(int64min)}, Int64(int64min)},
+      {"bit_cast_to_int64", {Int64(3)}, Int64(3)},
+      {"bit_cast_to_int64", {Int64(-3)}, Int64(-3)},
 
-    // UINT64 -> INT64
-    {"bit_cast_to_int64", {Uint64(0)}, Int64(0)},
-    {"bit_cast_to_int64", {Uint64(uint64max)}, Int64(-1)},
-    {"bit_cast_to_int64", {Uint64(3)}, Int64(3)},
-    {"bit_cast_to_int64", {Uint64(uint64max - 3)}, Int64(-4)},
-    {"bit_cast_to_int64", {Uint64(uint64max >> 1)}, Int64(int64max)},
+      // UINT64 -> INT64
+      {"bit_cast_to_int64", {Uint64(0)}, Int64(0)},
+      {"bit_cast_to_int64", {Uint64(uint64max)}, Int64(-1)},
+      {"bit_cast_to_int64", {Uint64(3)}, Int64(3)},
+      {"bit_cast_to_int64", {Uint64(uint64max - 3)}, Int64(-4)},
+      {"bit_cast_to_int64", {Uint64(uint64max >> 1)}, Int64(int64max)},
 
-    // UINT32 -> UINT32
-    {"bit_cast_to_uint32", {Uint32(0)}, Uint32(0)},
-    {"bit_cast_to_uint32", {Uint32(uint32max)}, Uint32(uint32max)},
-    {"bit_cast_to_uint32", {Uint32(3)}, Uint32(3)},
+      // UINT32 -> UINT32
+      {"bit_cast_to_uint32", {Uint32(0)}, Uint32(0)},
+      {"bit_cast_to_uint32", {Uint32(uint32max)}, Uint32(uint32max)},
+      {"bit_cast_to_uint32", {Uint32(3)}, Uint32(3)},
 
-    // INT32 -> UINT32
-    {"bit_cast_to_uint32", {Int32(0)}, Uint32(0)},
-    {"bit_cast_to_uint32", {Int32(int32max)}, Uint32(int32max)},
-    {"bit_cast_to_uint32", {Int32(3)}, Uint32(3)},
-    {"bit_cast_to_uint32", {Int32(-3)}, Uint32(-3)},
-    {"bit_cast_to_uint32", {Int32(int32min)}, Uint32(int32min)},
-    {"bit_cast_to_uint32", {Int32(int32min + 3)}, Uint32(2147483651)},
+      // INT32 -> UINT32
+      {"bit_cast_to_uint32", {Int32(0)}, Uint32(0)},
+      {"bit_cast_to_uint32", {Int32(int32max)}, Uint32(int32max)},
+      {"bit_cast_to_uint32", {Int32(3)}, Uint32(3)},
+      {"bit_cast_to_uint32", {Int32(-3)}, Uint32(-3)},
+      {"bit_cast_to_uint32", {Int32(int32min)}, Uint32(int32min)},
+      {"bit_cast_to_uint32", {Int32(int32min + 3)}, Uint32(2147483651)},
 
-    // UINT64 -> UINT64
-    {"bit_cast_to_uint64", {Uint64(0)}, Uint64(0)},
-    {"bit_cast_to_uint64", {Uint64(uint64max)}, Uint64(uint64max)},
-    {"bit_cast_to_uint64", {Uint64(3)}, Uint64(3)},
+      // UINT64 -> UINT64
+      {"bit_cast_to_uint64", {Uint64(0)}, Uint64(0)},
+      {"bit_cast_to_uint64", {Uint64(uint64max)}, Uint64(uint64max)},
+      {"bit_cast_to_uint64", {Uint64(3)}, Uint64(3)},
 
-    // INT64 -> UINT64
-    {"bit_cast_to_uint64", {Int64(0)}, Uint64(0)},
-    {"bit_cast_to_uint64", {Int64(int64max)}, Uint64(int64max)},
-    {"bit_cast_to_uint64", {Int64(3)}, Uint64(3)},
-    {"bit_cast_to_uint64", {Int64(-3)}, Uint64(-3)},
-    {"bit_cast_to_uint64", {Int64(int64min)}, Uint64(int64min)},
-    {"bit_cast_to_uint64", {Int64(int64min + 3)},
-     Uint64(9223372036854775811ULL)},
+      // INT64 -> UINT64
+      {"bit_cast_to_uint64", {Int64(0)}, Uint64(0)},
+      {"bit_cast_to_uint64", {Int64(int64max)}, Uint64(int64max)},
+      {"bit_cast_to_uint64", {Int64(3)}, Uint64(3)},
+      {"bit_cast_to_uint64", {Int64(-3)}, Uint64(-3)},
+      {"bit_cast_to_uint64", {Int64(int64min)}, Uint64(int64min)},
+      {"bit_cast_to_uint64",
+       {Int64(int64min + 3)},
+       Uint64(uint64_t{9223372036854775811u})},
   };
 }
 
@@ -141,6 +142,15 @@ std::vector<FunctionTestCall> GetFunctionTestsRangeBucket() {
   const Value numeric_one = Value::Numeric(NumericValue(static_cast<int64_t>(1)));
   const Value numeric_max = Value::Numeric(NumericValue::MaxValue());
   const Value numeric_min = Value::Numeric(NumericValue::MinValue());
+
+  const Value bignumeric_zero = Value::BigNumeric(BigNumericValue());
+  const Value bignumeric_one = Value::BigNumeric(BigNumericValue(1));
+  const Value bignumeric_just_over_one = Value::BigNumeric(
+      bignumeric_one.bignumeric_value()
+          .Add(BigNumericValue::FromStringStrict("1e-38").value())
+          .value());
+  const Value bignumeric_max = Value::BigNumeric(BigNumericValue::MaxValue());
+  const Value bignumeric_min = Value::BigNumeric(BigNumericValue::MinValue());
 
   std::vector<FunctionTestCall> all_tests = {
       // Null inputs.
@@ -283,6 +293,36 @@ std::vector<FunctionTestCall> GetFunctionTestsRangeBucket() {
                           {numeric_min, numeric_zero, numeric_max})},
            Int64(3))
            .WrapWithFeature(FEATURE_NUMERIC_TYPE)},
+      // BigNumeric.
+      {"range_bucket",
+       QueryParamsWithResult(
+           {bignumeric_min,
+            values::Array(BigNumericArrayType(),
+                          {bignumeric_min, bignumeric_zero, bignumeric_max})},
+           Int64(1))
+           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE)},
+      {"range_bucket",
+       QueryParamsWithResult(
+           {bignumeric_one,
+            values::Array(BigNumericArrayType(),
+                          {bignumeric_min, bignumeric_zero, bignumeric_max})},
+           Int64(2))
+           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE)},
+      {"range_bucket",
+       QueryParamsWithResult(
+           {bignumeric_max,
+            values::Array(BigNumericArrayType(),
+                          {bignumeric_min, bignumeric_zero, bignumeric_max})},
+           Int64(3))
+           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE)},
+      {"range_bucket",
+       QueryParamsWithResult(
+           {bignumeric_one,
+            values::Array(
+                BigNumericArrayType(),
+                {bignumeric_zero, bignumeric_just_over_one, bignumeric_max})},
+           Int64(1))
+           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE)},
       // Timestamp.
       {"range_bucket",
        {Timestamp(timestamp_min),

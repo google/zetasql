@@ -43,6 +43,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
@@ -1045,8 +1046,8 @@ class SortTupleIterator : public TupleIterator {
       if (!top_n_outputs->Insert(std::move(next_output), &status)) {
         return status;
       }
-      if (top_n_outputs->GetSize() >
-          limit_offset->limit + limit_offset->offset) {
+      if (top_n_outputs->GetSize() - limit_offset->limit >
+          limit_offset->offset) {
         top_n_outputs->PopBack();
       }
     } else {

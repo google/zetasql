@@ -21,6 +21,7 @@
 
 #include "gtest/gtest.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/container/node_hash_set.h"
 #include "absl/strings/ascii.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_join.h"

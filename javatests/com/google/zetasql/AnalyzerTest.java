@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.zetasql.ZetaSQLFunctions.SignatureArgumentKind;
 import com.google.zetasql.ZetaSQLOptions.LanguageFeature;
+import com.google.zetasql.ZetaSQLResolvedNodeKind.ResolvedNodeKind;
 import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.TableValuedFunction.ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedExpr;
@@ -102,7 +103,7 @@ public class AnalyzerTest {
 
     AnalyzerOptions options = new AnalyzerOptions();
     String sql = "select nullable_int from KitchenSinkPB;";
-      assertThat(Analyzer.analyzeStatement(sql, options, catalog)).isNotNull();
+    assertThat(Analyzer.analyzeStatement(sql, options, catalog)).isNotNull();
 
     // Try registering the catalog.
     catalog.register();
@@ -275,5 +276,29 @@ public class AnalyzerTest {
             "select append_col_1, append_col_2 from test_tvf((select cast (12 as int64)))");
     // Test if select extra columns query is analyzed correctly.
     assertThat(resolvedStatement).isNotNull();
+  }
+
+  @Test
+  public void testExtractTableNamesFromNextStatement() {
+    AnalyzerOptions analyzerOptions = new AnalyzerOptions();
+    analyzerOptions
+        .getLanguageOptions()
+        .setSupportedStatementKinds(
+            ImmutableSet.of(
+                ResolvedNodeKind.RESOLVED_QUERY_STMT,
+                ResolvedNodeKind.RESOLVED_CREATE_FUNCTION_STMT));
+
+    ParseResumeLocation aParseResumeLocation =
+        new ParseResumeLocation(
+            "CREATE FUNCTION plusOne(x INT64) AS (x + 1);select bar from bar_dataset.bar_table"
+                + " union all select * from baz_table;");
+
+    assertThat(Analyzer.extractTableNamesFromNextStatement(aParseResumeLocation, analyzerOptions))
+        .isEmpty();
+    assertThat(aParseResumeLocation.getBytePosition()).isEqualTo(44);
+    assertThat(Analyzer.extractTableNamesFromNextStatement(aParseResumeLocation, analyzerOptions))
+        .containsExactly(
+            ImmutableList.of("bar_dataset", "bar_table"), ImmutableList.of("baz_table"));
+    assertThat(aParseResumeLocation.getBytePosition()).isEqualTo(116);
   }
 }

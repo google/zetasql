@@ -113,6 +113,7 @@ class {{node.name}} {{node.class_final}} : public {{node.parent}} {
 # if node.fields
   absl::Status CheckFieldsAccessed() const {{node.override_or_final}};
   void ClearFieldsAccessed() const {{node.override_or_final}};
+  void MarkFieldsAccessed() const {{node.override_or_final}};
 
 # endif
   template <typename SUBTYPE>
@@ -168,7 +169,7 @@ class {{node.name}} {{node.class_final}} : public {{node.parent}} {
     if ({{field.member_name}}.empty()) accessed_ |= {{field.bitmap}};
     return static_cast<int>({{field.member_name}}.size());
   }
-  {{field.element_arg_type}} {{field.name}}(int i) const {
+  {{field.element_getter_return_type}} {{field.name}}(int i) const {
     accessed_ |= {{field.bitmap}};
     return {{field.member_name}}.at(i){{field.element_unwrapper}};
   }

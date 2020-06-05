@@ -1145,6 +1145,18 @@ void {{node.name}}::ClearFieldsAccessed() const {
   # endif
  # endfor
 }
+
+void {{node.name}}::MarkFieldsAccessed() const {
+  SUPER::MarkFieldsAccessed();
+  accessed_ = 0xFFFFFFFF;
+ # for field in node.fields
+  # if field.is_node_vector
+  for (const auto& it : {{field.member_name}}) it->MarkFieldsAccessed();
+  # elif field.is_node_ptr
+  if ({{field.member_name}} != nullptr) {{field.member_name}}->MarkFieldsAccessed();
+  # endif
+ # endfor
+}
 {{ blank_line }}
 # endif
 # endfor

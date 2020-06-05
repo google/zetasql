@@ -196,6 +196,11 @@ class TableNameResolver {
   // The set of local table aliases, including TVF table-valued argument
   // aliases and in-scope WITH aliases.
   AliasSet local_table_aliases_;
+
+  // When inside a CREATE RECURSIVE VIEW statement, the name of the view; such
+  // names should be treated similar to a WITH alias and not be considered an
+  // external reference. In all other cases, this field is an empty vector.
+  std::vector<std::string> recursive_view_name_;
 };
 
 absl::Status TableNameResolver::FindTableNamesAndTemporalReferences(
@@ -568,6 +573,16 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
         return absl::OkStatus();
       }
       break;
+    case AST_ALTER_ALL_ROW_ACCESS_POLICIES_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_ALTER_ALL_ROW_ACCESS_POLICIES_STMT)) {
+        const ASTAlterAllRowAccessPoliciesStatement* stmt =
+            statement->GetAs<ASTAlterAllRowAccessPoliciesStatement>();
+        zetasql_base::InsertIfNotPresent(table_names_,
+                                stmt->table_name_path()->ToIdentifierVector());
+        return absl::OkStatus();
+      }
+      break;
     case AST_ALTER_DATABASE_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_ALTER_DATABASE_STMT)) {
@@ -666,12 +681,22 @@ absl::Status TableNameResolver::FindInQueryStatement(
 
 absl::Status TableNameResolver::FindInCreateViewStatement(
     const ASTCreateViewStatement* statement) {
-  return FindInQuery(statement->query(), /*visible_aliases=*/{});
+  if (statement->recursive()) {
+    recursive_view_name_ = statement->name()->ToIdentifierVector();
+  }
+  ZETASQL_RETURN_IF_ERROR(FindInQuery(statement->query(), /*visible_aliases=*/{}));
+  recursive_view_name_.clear();
+  return absl::OkStatus();
 }
 
 absl::Status TableNameResolver::FindInCreateMaterializedViewStatement(
     const ASTCreateMaterializedViewStatement* statement) {
-  return FindInQuery(statement->query(), /*visible_aliases=*/{});
+  if (statement->recursive()) {
+    recursive_view_name_ = statement->name()->ToIdentifierVector();
+  }
+  ZETASQL_RETURN_IF_ERROR(FindInQuery(statement->query(), /*visible_aliases=*/{}));
+  recursive_view_name_.clear();
+  return absl::OkStatus();
 }
 
 absl::Status TableNameResolver::FindInCreateTableFunctionStatement(
@@ -816,11 +841,32 @@ absl::Status TableNameResolver::FindInQuery(
     // Record the set of local table aliases visible in the outer scope so we
     // can restore that after processing the local query.
     old_local_table_aliases = local_table_aliases_;
-    for (const ASTWithClauseEntry* with_entry : query->with_clause()->with()) {
-      ZETASQL_RETURN_IF_ERROR(FindInQuery(with_entry->query(), visible_aliases));
-      const std::string with_alias =
-          absl::AsciiStrToLower(with_entry->alias()->GetAsString());
-      zetasql_base::InsertIfNotPresent(&local_table_aliases_, with_alias);
+
+    if (query->with_clause()->recursive()) {
+      // In WITH RECURSIVE, any entry can access an alias defined in any other
+      // entry, regardless of declaration order.
+      for (const ASTWithClauseEntry* with_entry :
+           query->with_clause()->with()) {
+        const std::string with_alias =
+            absl::AsciiStrToLower(with_entry->alias()->GetAsString());
+        zetasql_base::InsertIfNotPresent(&local_table_aliases_, with_alias);
+      }
+      for (const ASTWithClauseEntry* with_entry :
+           query->with_clause()->with()) {
+        ZETASQL_RETURN_IF_ERROR(FindInQuery(with_entry->query(), visible_aliases));
+        const std::string with_alias =
+            absl::AsciiStrToLower(with_entry->alias()->GetAsString());
+      }
+    } else {
+      // In WITH without RECURSIVE, entries can only access with aliases defined
+      // in prior entries.
+      for (const ASTWithClauseEntry* with_entry :
+           query->with_clause()->with()) {
+        ZETASQL_RETURN_IF_ERROR(FindInQuery(with_entry->query(), visible_aliases));
+        const std::string with_alias =
+            absl::AsciiStrToLower(with_entry->alias()->GetAsString());
+        zetasql_base::InsertIfNotPresent(&local_table_aliases_, with_alias);
+      }
     }
   }
 
@@ -982,7 +1028,9 @@ absl::Status TableNameResolver::FindInTVF(
       // tables or table-typed arguments to the TVF.  Multi-path names
       // cannot be related to WITH clause tables or TVF arguments, so those
       // must be table references.
-      if (arg->table_clause()->table_path() != nullptr) {
+      if (arg->table_clause()->table_path() != nullptr &&
+          arg->table_clause()->table_path()->ToIdentifierVector() !=
+              recursive_view_name_) {
         if (arg->table_clause()->table_path()->num_names() > 1) {
           zetasql_base::InsertIfNotPresent(
               table_names_,
@@ -1051,9 +1099,10 @@ absl::Status TableNameResolver::FindInTablePathExpression(
     // to an actual table).
     const std::string first_identifier = absl::AsciiStrToLower(path[0]);
 
-    if (path.size() == 1
-            ? (!zetasql_base::ContainsKey(local_table_aliases_, first_identifier))
-            : (!zetasql_base::ContainsKey(*visible_aliases, first_identifier))) {
+    if ((path != recursive_view_name_) &&
+        (path.size() == 1
+             ? (!zetasql_base::ContainsKey(local_table_aliases_, first_identifier))
+             : (!zetasql_base::ContainsKey(*visible_aliases, first_identifier)))) {
       zetasql_base::InsertIfNotPresent(table_names_, path);
       if (table_resolution_time_info_map_ != nullptr) {
         // Lookup for or insert a set of temporal expressions for 'path'.

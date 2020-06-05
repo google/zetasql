@@ -226,6 +226,8 @@ static const CastHashMap* InitializeZetaSQLCasts() {
 
   ADD_TO_MAP(GEOGRAPHY,  GEOGRAPHY,  IMPLICIT);
 
+  ADD_TO_MAP(JSON,       JSON,       IMPLICIT);
+
   ADD_TO_MAP(ENUM,       STRING,     EXPLICIT);
 
   ADD_TO_MAP(ENUM,       INT32,      EXPLICIT);
@@ -869,6 +871,76 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
       return ::zetasql_base::UnimplementedErrorBuilder()
              << "Unimplemented cast from " << v.type()->DebugString() << " to "
              << to_type->DebugString();
+  }
+}
+
+Conversion::Conversion(const Type* from_type, const Type* to_type,
+                       const Function* function,
+                       const CastFunctionProperty& property)
+    : from_type_(from_type),
+      to_type_(to_type),
+      function_(function),
+      cast_function_property_(property) {
+  DCHECK(from_type);
+  DCHECK(to_type);
+  DCHECK(function);
+  DCHECK(!from_type->Equals(to_type));
+}
+
+FunctionSignature Conversion::GetFunctionSignature(const Type* from_type,
+                                                   const Type* to_type) {
+  return FunctionSignature({to_type}, {{from_type}}, /*context_ptr=*/nullptr);
+}
+
+zetasql_base::StatusOr<Value> Conversion::CastValue(const Value& from_value) const {
+  if (!is_valid()) {
+    return zetasql_base::FailedPreconditionErrorBuilder()
+           << "Attempt to cast a value using invalid conversion";
+  }
+
+  if (!from_type_->Equals(from_value.type())) {
+    return zetasql_base::InvalidArgumentErrorBuilder()
+           << "Type of casted value doesn't match the source type of "
+              "conversion";
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(auto evaluator, function_->GetFunctionEvaluatorFactory()(
+                                       function_signature()));
+  return evaluator({from_value});
+}
+
+bool Conversion::IsMatch(const Catalog::FindConversionOptions& options) const {
+  if (!is_valid()) {
+    return false;
+  }
+
+  // Conversion can be: 1) explicit 2) implicit 3) implicit for literals and
+  // explicit for other expressions 4) implicit for literals & parameters and
+  // explicit for other expressions. If conversion is implicit, it also always
+  // can be applied explicitly.
+
+  if (options.is_explicit()) {
+    return true;  // All types of conversions can be applied explicitly.
+  }
+
+  // We are looking for implicit conversion below and need to check whether it
+  // can be applied to all kinds of expression (unconditional) or only to some.
+
+  if (cast_function_property().is_implicit()) {
+    return true;  // Conversion is unconditionally implicit.
+  }
+
+  switch (options.source_kind()) {
+    case Catalog::ConversionSourceExpressionKind::kLiteral:
+      return cast_function_property().type ==
+                 CastFunctionType::EXPLICIT_OR_LITERAL ||
+             cast_function_property().type ==
+                 CastFunctionType::EXPLICIT_OR_LITERAL_OR_PARAMETER;
+    case Catalog::ConversionSourceExpressionKind::kParameter:
+      return cast_function_property().type ==
+             CastFunctionType::EXPLICIT_OR_LITERAL_OR_PARAMETER;
+    default:
+      return false;
   }
 }
 

@@ -194,6 +194,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedAlterDatabaseStmt* node) override;
   absl::Status VisitResolvedAlterRowAccessPolicyStmt(
       const ResolvedAlterRowAccessPolicyStmt* node) override;
+  absl::Status VisitResolvedAlterAllRowAccessPoliciesStmt(
+      const ResolvedAlterAllRowAccessPoliciesStmt* node) override;
   absl::Status VisitResolvedAlterTableSetOptionsStmt(
       const ResolvedAlterTableSetOptionsStmt* node) override;
   absl::Status VisitResolvedAlterTableStmt(
@@ -225,8 +227,11 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedAnalyticFunctionCall* node) override;
   absl::Status VisitResolvedGetProtoField(
       const ResolvedGetProtoField* node) override;
+  absl::Status VisitResolvedFlatten(const ResolvedFlatten* node) override;
   absl::Status VisitResolvedReplaceField(
       const ResolvedReplaceField* node) override;
+  absl::Status VisitResolvedFlattenedArg(
+      const ResolvedFlattenedArg* node) override;
   absl::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override;
   absl::Status VisitResolvedCast(const ResolvedCast* node) override;
   absl::Status VisitResolvedColumnHolder(
@@ -637,6 +642,23 @@ class SQLBuilder : public ResolvedASTVisitor {
 
   // True if we are unparsing the LHS of a SET statement.
   bool in_set_lhs_ = false;
+
+ private:
+  // Helper function to perform operation on value table's column for
+  // ResolvedTableScan.
+  virtual absl::Status AddValueTableAliasForVisitResolvedTableScan(
+      absl::string_view table_alias, const ResolvedColumn& column,
+      std::vector<std::pair<std::string, std::string>>* select_list);
+
+  // Converts a table name string to a ZetaSQL identifier literal.
+  // The output will be quoted (with backticks) and escaped if necessary.
+  virtual std::string TableNameToIdentifierLiteral(
+      absl::string_view table_name);
+
+  // Returns the name alias for a table in VisitResolvedTableScan and appends to
+  // the <from> string if necessary.
+  virtual std::string GetTableAliasForVisitResolvedTableScan(
+      const ResolvedTableScan& node, std::string* from);
 };
 
 }  // namespace zetasql

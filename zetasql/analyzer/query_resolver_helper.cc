@@ -32,6 +32,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/hash/hash.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
@@ -69,7 +70,8 @@ size_t FieldPathHash(const ResolvedExpr* expr) {
 }
 
 bool IsSameFieldPath(const ResolvedExpr* field_path1,
-                     const ResolvedExpr* field_path2) {
+                     const ResolvedExpr* field_path2,
+                     FieldPathMatchingOption match_option) {
   // Checking types is a useful optimization to allow returning early. However,
   // we can't rely on Type::Equals() because it considers two otherwise
   // identical proto descriptors from different descriptor pools to be
@@ -79,35 +81,60 @@ bool IsSameFieldPath(const ResolvedExpr* field_path1,
     return false;
   }
 
-  const ResolvedNodeKind node_kind = field_path1->node_kind();
-  if (node_kind == RESOLVED_GET_PROTO_FIELD) {
-    const ResolvedGetProtoField* proto_field1 =
-        field_path1->GetAs<ResolvedGetProtoField>();
-    const ResolvedGetProtoField* proto_field2 =
-        field_path2->GetAs<ResolvedGetProtoField>();
-    return (proto_field1->expr()->type()->kind() ==
-            proto_field2->expr()->type()->kind()) &&
-           proto_field1->field_descriptor()->number() ==
-               proto_field2->field_descriptor()->number() &&
-           proto_field1->default_value() == proto_field2->default_value() &&
-           proto_field1->get_has_bit() == proto_field2->get_has_bit() &&
-           proto_field1->format() == proto_field2->format() &&
-           IsSameFieldPath(proto_field1->expr(), proto_field2->expr());
-  } else if (node_kind == RESOLVED_GET_STRUCT_FIELD) {
-    const ResolvedGetStructField* struct_field1 =
-        field_path1->GetAs<ResolvedGetStructField>();
-    const ResolvedGetStructField* struct_field2 =
-        field_path2->GetAs<ResolvedGetStructField>();
-    return (struct_field1->expr()->type()->kind() ==
-            struct_field2->expr()->type()->kind()) &&
-           (struct_field1->field_idx() == struct_field2->field_idx()) &&
-           IsSameFieldPath(struct_field1->expr(), struct_field2->expr());
-  } else if (node_kind == RESOLVED_COLUMN_REF) {
-    // Ignore ResolvedColumnRef::is_correlated because it is IGNORABLE.
-    return field_path1->GetAs<ResolvedColumnRef>()->column() ==
-           field_path2->GetAs<ResolvedColumnRef>()->column();
-  } else {
-    return false;
+  switch (field_path1->node_kind()) {
+    case RESOLVED_GET_PROTO_FIELD: {
+      const ResolvedGetProtoField* proto_field1 =
+          field_path1->GetAs<ResolvedGetProtoField>();
+      const ResolvedGetProtoField* proto_field2 =
+          field_path2->GetAs<ResolvedGetProtoField>();
+
+      const bool field_paths_match =
+          (proto_field1->expr()->type()->kind() ==
+           proto_field2->expr()->type()->kind()) &&
+          proto_field1->field_descriptor()->number() ==
+              proto_field2->field_descriptor()->number() &&
+          proto_field1->default_value() == proto_field2->default_value() &&
+          proto_field1->get_has_bit() == proto_field2->get_has_bit() &&
+          proto_field1->format() == proto_field2->format() &&
+          IsSameFieldPath(proto_field1->expr(), proto_field2->expr(),
+                          match_option);
+      if (match_option == FieldPathMatchingOption::kFieldPath) {
+        return field_paths_match;
+      }
+      return field_paths_match &&
+             proto_field1->type()->Equals(proto_field2->type()) &&
+             proto_field1->expr()->type()->Equals(
+                 proto_field2->expr()->type()) &&
+             proto_field1->return_default_value_when_unset() ==
+                 proto_field2->return_default_value_when_unset();
+    }
+    case RESOLVED_GET_STRUCT_FIELD: {
+      const ResolvedGetStructField* struct_field1 =
+          field_path1->GetAs<ResolvedGetStructField>();
+      const ResolvedGetStructField* struct_field2 =
+          field_path2->GetAs<ResolvedGetStructField>();
+
+      const bool field_paths_match =
+          (struct_field1->expr()->type()->kind() ==
+           struct_field2->expr()->type()->kind()) &&
+          (struct_field1->field_idx() == struct_field2->field_idx()) &&
+          IsSameFieldPath(struct_field1->expr(), struct_field2->expr(),
+                          match_option);
+      if (match_option == FieldPathMatchingOption::kFieldPath) {
+        return field_paths_match;
+      }
+      return field_paths_match &&
+             struct_field1->type()->Equals(struct_field2->type());
+    }
+    case RESOLVED_COLUMN_REF: {
+      // Ignore ResolvedColumnRef::is_correlated because it is IGNORABLE and
+      // therefore semantically meaningless. If the ResolvedColumnRefs indicate
+      // the same ResolvedColumn, then the expressions must be equivalent.
+      return field_path1->GetAs<ResolvedColumnRef>()->column() ==
+             field_path2->GetAs<ResolvedColumnRef>()->column();
+    }
+    default:
+      return false;
   }
 }
 

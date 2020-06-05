@@ -29,6 +29,7 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include <cstdint>
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
@@ -276,6 +277,7 @@ struct ExprResolutionInfo {
   // Construct an ExprResolutionInfo that initializes itself from another
   // ExprResolutionInfo.
   // has_aggregation and has_analytic will be updated in parent on destruction.
+  // can_flatten does not propagate.
   // Does not take ownership of <parent>.
   explicit ExprResolutionInfo(ExprResolutionInfo* parent);
 
@@ -283,7 +285,7 @@ struct ExprResolutionInfo {
   // ExprResolutionInfo, overriding <name_scope>, <clause_name>, and
   // <allows_analytic>.
   // has_aggregation and has_analytic will be updated in parent on destruction.
-  // Does not take ownership of <parent>.
+  // Does not take ownership of <parent>. <can_flatten> does not propagate.
   ExprResolutionInfo(ExprResolutionInfo* parent, const NameScope* name_scope_in,
                      const char* clause_name_in, bool allows_analytic_in);
 
@@ -356,6 +358,11 @@ struct ExprResolutionInfo {
   // expression being resolved is an aggregate or an analytic function. This
   // field is set only when resolving SELECT columns.
   const IdString column_alias = IdString();
+
+  // True if this is a context where flattening of (nested) arrays can happen
+  // automatically. For example, in UNNEST we automatically flatten paths
+  // through arrays so that they are legal without an explicit FLATTEN.
+  bool can_flatten = false;
 };
 
 // Get an InputArgumentType for a ResolvedExpr, identifying whether or not it

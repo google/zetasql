@@ -66,7 +66,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsUnaryMinus() {
       {{Double(double_nan)}, Double(double_nan)},
       {{NullDouble()}, NullDouble()},
 
-      // int32
+      // int32_t
       {{Int32(-1)}, Int32(1)},
       {{Int32(int32min)}, NullInt32(), OUT_OF_RANGE},
       {{Int32(0)}, Int32(0)},
@@ -74,7 +74,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsUnaryMinus() {
       {{Int32(int32max)}, Int32(-int32max)},
       {{NullInt32()}, NullInt32()},
 
-      // int64
+      // int64_t
       {{Int64(-1)}, Int64(1)},
       {{Int64(int64min)}, NullInt64(), OUT_OF_RANGE},
       {{Int64(0)}, Int64(0)},
@@ -130,7 +130,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsUnaryMinus() {
 // TODO: Add test cases for coerced operations with BIGNUMERIC.
 std::vector<QueryParamsWithResult> GetFunctionTestsCoercedAdd() {
   return {
-      // int32
+      // int32_t
       {{2, 3}, 5ll},
       {{int32min / 2, int32min / 2}, Int64(int32min)},
       {{1, int32max}, int32max + 1ll},
@@ -140,14 +140,14 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedAdd() {
       {{int32min, -1}, int32min - 1ll},
       {{int32max, int32min}, Int64(-1)},
 
-      // uint32
+      // uint32_t
       {{2u, 3u}, 5ull},
       {{1u, uint32max}, uint32max + 1ull},
       {{uint32max, 1u}, uint32max + 1ull},
       {{uint32max, uint32max}, uint32max * 2ull},
       {{uint32max, 0u}, Uint64(uint32max)},
 
-      // int32_t and uint32
+      // int32_t and uint32_t
       {{1, 2u}, 3ll},
       {{2, 1u}, 3ll},
 
@@ -239,7 +239,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsAdd() {
       {{1.0, NullDouble()}, NullDouble()},
       {{NullDouble(), 2.0}, NullDouble()},
 
-      // int64
+      // int64_t
       {{2ll, 3ll}, 5ll},
       {{int64max / 2, int64max / 2}, (int64max / 2) * 2},
       {{int64min / 2, int64min / 2}, int64min},
@@ -251,7 +251,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsAdd() {
       {{int64min, -1ll}, NullInt64(), OUT_OF_RANGE},
       {{int64max, int64min}, -1ll},
 
-      // uint64
+      // uint64_t
       {{2ull, 3ull}, 5ull},
       {{uint64max / 2u, uint64max / 2u}, (uint64max / 2u) * 2},
       {{uint64max / 2u + 1u, uint64max / 2u + 1u}, NullUint64(), OUT_OF_RANGE},
@@ -337,7 +337,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedSubtract() {
   // operands.  TODO: Add tests for subtraction between
   // different types.
   return {
-      // int32
+      // int32_t
       {{5, 2}, 3ll},
       {{int32max / 2, -(int32max / 2)}, Int64((int32max / 2) * 2)},
       {{int32min / 2, -(int32min / 2)}, Int64(int32min)},
@@ -353,7 +353,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedSubtract() {
       {{int32min, int32min}, 0ll},
       {{int32max, int32min}, Int64(static_cast<int64_t>(int32max) - int32min)},
 
-      // uint32
+      // uint32_t
       {{5u, 3u}, 2ll},
       {{uint32max, uint32max}, 0ll},
       {{0u, 1u}, -1ll},
@@ -450,7 +450,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsSubtract() {
       {{1.0, NullDouble()}, NullDouble()},
       {{NullDouble(), 2.0}, NullDouble()},
 
-      // int64
+      // int64_t
       {{5ll, 2ll}, 3ll},
       {{int64max / 2, -(int64max / 2)}, (int64max / 2) * 2},
       {{int64min / 2, -(int64min / 2)}, int64min / 2 * 2},
@@ -464,7 +464,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsSubtract() {
       {{int64max, int64max}, 0ll},
       {{int64min, int64min}, 0ll},
 
-      // uint64
+      // uint64_t
       {{5ull, 3ull}, 2ll},
       {{uint64max, uint64max}, 0ll},
       {{uint64max, 0ull}, NullInt64(), OUT_OF_RANGE},
@@ -552,7 +552,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedMultiply() {
   // operands.  TODO: Add tests for multiplication between
   // different types.
   return {
-      // int32
+      // int32_t
       {{2, 2}, 4ll},
       {{3, -2}, -6ll},
       {{int32min / 2, 2}, Int64(int32min / 2 * 2)},
@@ -568,10 +568,10 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedMultiply() {
       {{int32max, int32max}, Int64(static_cast<int64_t>(int32max) * int32max)},
       {{int32min, int32min}, Int64(static_cast<int64_t>(int32min) * int32min)},
       {{int32min, int32max}, Int64(static_cast<int64_t>(int32min) * int32max)},
-      {{int32min / 2, -2}, Int64(int32max + 1ll)},
+      {{int32min / 2, -2}, Int64(int32max + int64_t{1})},
       {{int32min / 2, 2}, Int64(int32min)},
 
-      // uint32
+      // uint32_t
       {{2u, 2u}, 4ull},
       {{uint32max / 2u, 2u}, Uint64(uint32max / 2u * 2u)},
       {{uint32max, 0u}, 0ull},
@@ -579,7 +579,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedMultiply() {
       {{1u << 16, 1u << 15}, Uint64(1u << 31)},
       {{1u << 16, 1u << 16},
        Uint64(static_cast<uint64_t>(1u << 16) * (1u << 16))},
-      {{uint32max, 2u}, Uint64(uint32max * 2ull)},
+      {{uint32max, 2u}, Uint64(uint32max * uint64_t{2})},
       {{uint32max, uint32max},
        Uint64(static_cast<uint64_t>(uint32max) * uint32max)},
 
@@ -642,7 +642,8 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedMultiply() {
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
       QueryParamsWithResult(
           {{BigNumeric(BigNumericValue::MaxValue()), Int64(-3)},
-           NullBigNumeric(), OUT_OF_RANGE})
+           NullBigNumeric(),
+           OUT_OF_RANGE})
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
       QueryParamsWithResult(
           {{BigNumeric(BigNumericValue::MaxValue()), Double(2)},
@@ -653,7 +654,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedMultiply() {
 
 std::vector<QueryParamsWithResult> GetFunctionTestsMultiply() {
   return {
-      // int64
+      // int64_t
       {{2ll, 2ll}, 4ll},
       {{3ll, -2ll}, -6ll},
       {{int64min / 2, 2ll}, int64min},
@@ -673,7 +674,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsMultiply() {
       {{int64min / 2, -2ll}, NullInt64(), OUT_OF_RANGE},
       {{int64min / 2, 2ll}, int64min},
 
-      // uint64
+      // uint64_t
       {{2ull, 2ull}, 4ull},
       {{uint64max / 2ull, 2ull}, uint64max / 2ull * 2ull},
       {{uint64max, 0ull}, 0ull},
@@ -762,48 +763,46 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedModulo() {
   // operands.  TODO: Add tests for MOD between
   // different types.
   return {
-    // int32
-    {{5, 3}, 2ll},
-    {{5, 5}, 0ll},
-    {{-5, 3}, -2ll},
-    {{5, -3}, 2ll},
-    {{-5, -3}, -2ll},
-    {{int32max, 1}, 0ll},
-    {{1, int32max}, 1ll},
-    {{int32max - 1, int32max}, Int64(int32max - 1)},
+      // int32_t
+      {{5, 3}, 2ll},
+      {{5, 5}, 0ll},
+      {{-5, 3}, -2ll},
+      {{5, -3}, 2ll},
+      {{-5, -3}, -2ll},
+      {{int32max, 1}, 0ll},
+      {{1, int32max}, 1ll},
+      {{int32max - 1, int32max}, Int64(int32max - 1)},
 
-    {{1, 0}, NullInt64(), OUT_OF_RANGE},
-    {{0, 0}, NullInt64(), OUT_OF_RANGE},
-    {{int32max, 0}, NullInt64(), OUT_OF_RANGE},
-    {{int32min, 0}, NullInt64(), OUT_OF_RANGE},
+      {{1, 0}, NullInt64(), OUT_OF_RANGE},
+      {{0, 0}, NullInt64(), OUT_OF_RANGE},
+      {{int32max, 0}, NullInt64(), OUT_OF_RANGE},
+      {{int32min, 0}, NullInt64(), OUT_OF_RANGE},
 
-    // uint32
-    {{5u, 3u}, 2ull},
-    {{5u, 5u}, 0ull},
-    {{uint32max, 1u}, Uint64(0ull)},
-    {{1u, uint32max}, Uint64(1ull)},
-    {{uint32max - 1u, uint32max}, Uint64(uint32max - 1ull)},
+      // uint32_t
+      {{5u, 3u}, 2ull},
+      {{5u, 5u}, 0ull},
+      {{uint32max, 1u}, Uint64(uint64_t{0})},
+      {{1u, uint32max}, Uint64(uint64_t{1})},
+      {{uint32max - 1u, uint32max}, Uint64(uint32max - uint64_t{1})},
 
-    {{1u, 0u}, NullUint64(), OUT_OF_RANGE},
-    {{0u, 0u}, NullUint64(), OUT_OF_RANGE},
-    {{uint32max, 0u}, NullUint64(), OUT_OF_RANGE},
+      {{1u, 0u}, NullUint64(), OUT_OF_RANGE},
+      {{0u, 0u}, NullUint64(), OUT_OF_RANGE},
+      {{uint32max, 0u}, NullUint64(), OUT_OF_RANGE},
 
-    // numeric
-    QueryParamsWithResult(
-        {{Numeric(5), Int64(3)}, Numeric(2)})
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult(
-        {{Int64(5), Numeric(-3)}, Numeric(2)})
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-    QueryParamsWithResult(
-        {{Numeric(-3), Int64(0)}, NullNumeric(), OUT_OF_RANGE})
-        .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      // numeric
+      QueryParamsWithResult({{Numeric(5), Int64(3)}, Numeric(2)})
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult({{Int64(5), Numeric(-3)}, Numeric(2)})
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{Numeric(-3), Int64(0)}, NullNumeric(), OUT_OF_RANGE})
+          .WrapWithFeature(FEATURE_NUMERIC_TYPE),
   };
 }
 
 std::vector<QueryParamsWithResult> GetFunctionTestsModulo() {
   return {
-      // int64
+      // int64_t
       {{5ll, 3ll}, 2ll},
       {{5ll, 5ll}, 0ll},
       {{-5ll, 3ll}, -2ll},
@@ -818,7 +817,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsModulo() {
       {{int64min, 0ll}, NullInt64(), OUT_OF_RANGE},
       {{int64max, 0ll}, NullInt64(), OUT_OF_RANGE},
 
-      // uint64
+      // uint64_t
       {{5ull, 3ull}, 2ull},
       {{5ull, 5ull}, 0ull},
       {{uint64max, 1ull}, 0ull},
@@ -855,6 +854,49 @@ std::vector<QueryParamsWithResult> GetFunctionTestsModulo() {
            NullNumeric(),
            OUT_OF_RANGE})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+      // bignumeric
+      QueryParamsWithResult(
+          {{BigNumeric(-3), NullBigNumeric()}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{NullBigNumeric(), BigNumeric(5)}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(-3), BigNumeric(3)}, BigNumeric(BigNumericValue())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(-3), BigNumeric(0)}, NullBigNumeric(), OUT_OF_RANGE})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(5),
+            BigNumeric(
+                BigNumericValue::FromStringStrict("-1e-38").ValueOrDie())},
+           BigNumeric(BigNumericValue())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+
+      QueryParamsWithResult({{BigNumeric(5), BigNumeric(2)}, BigNumeric(1)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(-5), BigNumeric(2)}, BigNumeric(-1)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::FromStringStrict("3.33").value()),
+            BigNumeric(-3)},
+           BigNumeric(BigNumericValue::FromString("0.33").value())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(5),
+            BigNumeric(BigNumericValue::FromStringStrict("0.001").value())},
+           BigNumeric(BigNumericValue())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(BigNumericValue::MinValue()),
+                              BigNumeric(BigNumericValue::MinValue())},
+                             BigNumericValue()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(BigNumericValue::MaxValue()),
+                              BigNumeric(BigNumericValue())},
+                             NullBigNumeric(),
+                             OUT_OF_RANGE})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
   };
 }
 
@@ -863,16 +905,16 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedDivide() {
   // operands.  TODO: Add tests for division between
   // different types.
   return {
-      // int32
+      // int32_t
       {{6, 2}, 3.0},
 
-      // int64
+      // int64_t
       {{6ll, 2ll}, 3.0},
 
-      // uint32
+      // uint32_t
       {{6u, 2u}, 3.0},
 
-      // uint64
+      // uint64_t
       {{6ull, 2ull}, 3.0},
 
       // float
@@ -1117,7 +1159,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedDiv() {
   // operands.  TODO: Add tests for DIV between
   // different types.
   return {
-      // int32
+      // int32_t
       {{2, 3}, 0ll},
       {{5, 3}, 1ll},
       {{6, 3}, 2ll},
@@ -1141,23 +1183,22 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedDiv() {
       {{int32max, 0}, NullInt64(), OUT_OF_RANGE},
       {{int32min, 0}, NullInt64(), OUT_OF_RANGE},
 
-      // uint32
+      // uint32_t
       {{2u, 3u}, 0ull},
       {{5u, 3u}, 1ull},
       {{6u, 3u}, 2ull},
       {{5u, 5u}, 1ull},
       {{uint32max, 1u}, Uint64(uint32max)},
-      {{1u, uint32max}, Uint64(0ull)},
-      {{uint32max - 1u, uint32max}, Uint64(0ull)},
-      {{uint32max, uint32max - 1u}, Uint64(1ull)},
+      {{1u, uint32max}, Uint64(uint64_t{0})},
+      {{uint32max - 1u, uint32max}, Uint64(uint64_t{0})},
+      {{uint32max, uint32max - 1u}, Uint64(uint64_t{1})},
 
       {{1u, 0u}, NullUint64(), OUT_OF_RANGE},
       {{0u, 0u}, NullUint64(), OUT_OF_RANGE},
       {{uint32max, 0u}, NullUint64(), OUT_OF_RANGE},
 
       // numeric
-      QueryParamsWithResult(
-          {{Numeric(-3), Int64(5)}, Numeric(NumericValue())})
+      QueryParamsWithResult({{Numeric(-3), Int64(5)}, Numeric(NumericValue())})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
           {{Int64(5), Numeric(-3)}, Numeric(NumericValue(-1LL))})
@@ -1170,7 +1211,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedDiv() {
 
 std::vector<QueryParamsWithResult> GetFunctionTestsDiv() {
   return {
-      // int64
+      // int64_t
       {{2ll, 3ll}, 0ll},
       {{5ll, 3ll}, 1ll},
       {{6ll, 3ll}, 2ll},
@@ -1194,7 +1235,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsDiv() {
       {{int64max, 0ll}, NullInt64(), OUT_OF_RANGE},
       {{int64min, 0ll}, NullInt64(), OUT_OF_RANGE},
 
-      // uint64
+      // uint64_t
       {{2ull, 3ull}, 0ull},
       {{5ull, 3ull}, 1ull},
       {{7ull, 3ull}, 2ull},
@@ -1232,6 +1273,48 @@ std::vector<QueryParamsWithResult> GetFunctionTestsDiv() {
                              NullNumeric(),
                              OUT_OF_RANGE})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
+
+      // bignumeric
+      QueryParamsWithResult(
+          {{BigNumeric(-3), NullBigNumeric()}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{NullBigNumeric(), BigNumeric(5)}, NullBigNumeric()})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(-3), BigNumeric(3)}, BigNumeric(-1)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(-3), BigNumeric(0)}, NullBigNumeric(), OUT_OF_RANGE})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::FromStringStrict("3.33").ValueOrDie()),
+            BigNumeric(-3)},
+           BigNumeric(BigNumericValue::FromStringStrict("-1").ValueOrDie())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(5),
+            BigNumeric(
+                BigNumericValue::FromStringStrict("-1e-38").ValueOrDie())},
+           BigNumeric(BigNumericValue::FromStringStrict("-5e38").ValueOrDie())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(BigNumericValue::MaxValue()),
+                              BigNumeric(BigNumericValue::MaxValue())},
+                             BigNumeric(1)})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(BigNumericValue::MaxValue()),
+                              BigNumeric(BigNumericValue::MinValue())},
+                             BigNumeric(BigNumericValue())})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult({{BigNumeric(BigNumericValue::MinValue()),
+                              BigNumeric(BigNumericValue::MaxValue())},
+                             BigNumeric(BigNumericValue(-1))})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
+      QueryParamsWithResult(
+          {{BigNumeric(BigNumericValue::MaxValue()),
+            BigNumeric(BigNumericValue::FromStringStrict("-0.1").ValueOrDie())},
+           NullBigNumeric(),
+           OUT_OF_RANGE})
+          .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
   };
 }
 
@@ -1487,42 +1570,42 @@ std::vector<FunctionTestCall> GetFunctionTestsMath() {
   };
 
   std::vector<FunctionTestCall> numeric_test_cases = {
-      {"abs", {NumericValue(0ll)}, NumericValue(0ll)},
-      {"abs", {NumericValue(1ll)}, NumericValue(1ll)},
-      {"abs", {NumericValue(-1ll)}, NumericValue(1ll)},
+      {"abs", {NumericValue(0)}, NumericValue(0)},
+      {"abs", {NumericValue(1)}, NumericValue(1)},
+      {"abs", {NumericValue(-1)}, NumericValue(1)},
       {"abs", {NumericValue::MaxValue()}, NumericValue::MaxValue()},
       {"abs", {NumericValue::MinValue()}, NumericValue::MaxValue()},
 
       {"sign", {NullNumeric()}, NullNumeric()},
-      {"sign", {NumericValue(0ll)}, NumericValue(0ll)},
-      {"sign", {NumericValue(1ll)}, NumericValue(1ll)},
-      {"sign", {NumericValue(-1ll)}, NumericValue(-1ll)},
-      {"sign", {NumericValue::MaxValue()}, NumericValue(1ll)},
-      {"sign", {NumericValue::MinValue()}, NumericValue(-1ll)},
+      {"sign", {NumericValue(0)}, NumericValue(0)},
+      {"sign", {NumericValue(1)}, NumericValue(1)},
+      {"sign", {NumericValue(-1)}, NumericValue(-1)},
+      {"sign", {NumericValue::MaxValue()}, NumericValue(1)},
+      {"sign", {NumericValue::MinValue()}, NumericValue(-1)},
 
       {"pow", {NullNumeric(), NullNumeric()}, NullNumeric()},
-      {"pow", {NullNumeric(), NumericValue(2LL)}, NullNumeric()},
-      {"pow", {NumericValue(10LL), NullNumeric()}, NullNumeric()},
-      {"power", {NumericValue(), NumericValue(2LL)}, NumericValue()},
-      {"power", {NumericValue(10LL), NumericValue()}, NumericValue(1LL)},
-      {"pow", {NumericValue(2LL), NumericValue(2LL)}, NumericValue(4LL)},
+      {"pow", {NullNumeric(), NumericValue(2)}, NullNumeric()},
+      {"pow", {NumericValue(10), NullNumeric()}, NullNumeric()},
+      {"power", {NumericValue(), NumericValue(2)}, NumericValue()},
+      {"power", {NumericValue(10LL), NumericValue()}, NumericValue(1)},
+      {"pow", {NumericValue(2), NumericValue(2)}, NumericValue(4)},
       {"power",
-       {NumericValue(64LL), NumericValue::FromString("0.5").value()},
-       NumericValue(8LL)},
-      {"power", {NumericValue(), NumericValue()}, NumericValue(1LL)},
+       {NumericValue(64), NumericValue::FromString("0.5").value()},
+       NumericValue(8)},
+      {"power", {NumericValue(), NumericValue()}, NumericValue(1)},
       {"pow",
-       {NumericValue(81LL), NumericValue::FromString("3.75").value()},
-       NumericValue(14348907LL)},
+       {NumericValue(81), NumericValue::FromString("3.75").value()},
+       NumericValue(14348907)},
       {"power",
        {NumericValue::MaxValue(), NumericValue::FromString("0.5").value()},
        NumericValue::FromString("316227766016837.9375").value()},
 
-      {"pow", {NumericValue(-1LL), NumericValue(2LL)}, NumericValue(1LL)},
-      {"power", {NumericValue(-1LL), NumericValue(1LL)}, NumericValue(-1LL)},
-      {"pow", {NumericValue(-1LL), NumericValue(-2LL)}, NumericValue(1LL)},
-      {"power", {NumericValue(-1LL), NumericValue(-1LL)}, NumericValue(-1LL)},
+      {"pow", {NumericValue(-1), NumericValue(2)}, NumericValue(1)},
+      {"power", {NumericValue(-1), NumericValue(1)}, NumericValue(-1)},
+      {"pow", {NumericValue(-1), NumericValue(-2)}, NumericValue(1)},
+      {"power", {NumericValue(-1), NumericValue(-1)}, NumericValue(-1)},
       {"pow",
-       {NumericValue(-1LL), NumericValue::FromString("0.5").value()},
+       {NumericValue(-1), NumericValue::FromString("0.5").value()},
        NullNumeric(),
        OUT_OF_RANGE},
       {"pow",
@@ -1530,7 +1613,7 @@ std::vector<FunctionTestCall> GetFunctionTestsMath() {
        NullNumeric(),
        OUT_OF_RANGE},
       {"pow",
-       {NumericValue::MaxValue(), NumericValue(2LL)},
+       {NumericValue::MaxValue(), NumericValue(2)},
        NullNumeric(),
        OUT_OF_RANGE},
   };
@@ -1539,6 +1622,27 @@ std::vector<FunctionTestCall> GetFunctionTestsMath() {
     all_tests.emplace_back(FunctionTestCall(
         test_case.function_name,
         test_case.params.WrapWithFeature(FEATURE_NUMERIC_TYPE)));
+  }
+
+  std::vector<FunctionTestCall> bignumeric_test_cases = {
+      {"abs", {BigNumericValue(0)}, BigNumericValue(0)},
+      {"abs", {BigNumericValue(1)}, BigNumericValue(1)},
+      {"abs", {BigNumericValue(-1)}, BigNumericValue(1)},
+      {"abs", {BigNumericValue::MaxValue()}, BigNumericValue::MaxValue()},
+      {"abs", {BigNumericValue::MinValue()}, NullBigNumeric(), OUT_OF_RANGE},
+
+      {"sign", {BigNumericValue()}, BigNumericValue()},
+      {"sign", {BigNumericValue(0)}, BigNumericValue(0)},
+      {"sign", {BigNumericValue(1)}, BigNumericValue(1)},
+      {"sign", {BigNumericValue(-1)}, BigNumericValue(-1)},
+      {"sign", {BigNumericValue::MaxValue()}, BigNumericValue(1)},
+      {"sign", {BigNumericValue::MinValue()}, BigNumericValue(-1)},
+  };
+
+  for (const auto& test_case : bignumeric_test_cases) {
+    all_tests.emplace_back(FunctionTestCall(
+        test_case.function_name,
+        test_case.params.WrapWithFeature(FEATURE_BIGNUMERIC_TYPE)));
   }
 
   return all_tests;
@@ -1870,6 +1974,318 @@ std::vector<FunctionTestCall> GetFunctionTestsRounding() {
     all_tests.emplace_back(FunctionTestCall(
         test_case.function_name,
         test_case.params.WrapWithFeature(FEATURE_NUMERIC_TYPE)));
+  }
+
+  std::vector<FunctionTestCall> bignumeric_tests = {
+      {"round", {NullBigNumeric()}, NullBigNumeric()},
+      {"round", {BigNumericValue()}, BigNumericValue()},
+      {"round", {BigNumericValue(2)}, BigNumericValue(2)},
+      {"round",
+       {BigNumericValue::FromString("2.3").value()},
+       BigNumericValue::FromString("2.0").value()},
+      {"round",
+       {BigNumericValue::FromString("2.8").value()},
+       BigNumericValue::FromString("3.0").value()},
+      {"round",
+       {BigNumericValue::FromString("2.5").value()},
+       BigNumericValue::FromString("3.0").value()},
+      {"round",
+       {BigNumericValue::FromString("-2.3").value()},
+       BigNumericValue::FromString("-2.0").value()},
+      {"round",
+       {BigNumericValue::FromString("-2.8").value()},
+       BigNumericValue::FromString("-3.0").value()},
+      {"round",
+       {BigNumericValue::FromString("-2.5").value()},
+       BigNumericValue::FromString("-3.0").value()},
+      {"round",
+       {BigNumericValue::FromString("1e-2").value()},
+       BigNumericValue()},
+      {"round",
+       {BigNumericValue::MaxValue()},
+       BigNumericValue::FromString("578960446186580977117854925043439539266")
+           .value()},
+      {"round",
+       {BigNumericValue::MinValue()},
+       BigNumericValue::FromString("-578960446186580977117854925043439539266")
+           .value()},
+
+      {"round", {NullBigNumeric(), NullInt64()}, NullBigNumeric()},
+      {"round", {NullBigNumeric(), 0ll}, NullBigNumeric()},
+      {"round", {BigNumericValue(), NullInt64()}, NullBigNumeric()},
+      {"round",
+       {BigNumericValue::FromString("1.12345678901234567890123456789012345678")
+            .value(),
+        2ll},
+       BigNumericValue::FromString("1.12").value()},
+      {"round",
+       {BigNumericValue::FromString("1.12345678901234567890123456789012345678")
+            .value(),
+        3ll},
+       BigNumericValue::FromString("1.123").value()},
+      {"round",
+       {BigNumericValue::FromString("1.12345678901234567890123456789012345678")
+            .value(),
+        18ll},
+       BigNumericValue::FromString("1.123456789012345679").value()},
+      {"round",
+       {BigNumericValue::FromString("1.12345678901234567890123456789012345678")
+            .value(),
+        19ll},
+       BigNumericValue::FromString("1.1234567890123456789").value()},
+      {"round",
+       {BigNumericValue::FromString("1123456789.01234567890123456789012345678")
+            .value(),
+        -3ll},
+       BigNumericValue::FromString("1123457000").value()},
+      {"round",
+       {BigNumericValue::FromString("1123456789.01234567890123456789012345678")
+            .value(),
+        -2ll},
+       BigNumericValue::FromString("1123456800").value()},
+      {"round",
+       {BigNumericValue::FromString("1123456789.01234567890123456789012345678")
+            .value(),
+        -39ll},
+       BigNumericValue()},
+      {"round",
+       {BigNumericValue::FromString("1.12345678901234567890123456789012345678")
+            .value(),
+        40ll},
+       BigNumericValue::FromString("1.12345678901234567890123456789012345678")
+           .value()},
+      {"round",
+       {BigNumericValue::MaxValue(), -1ll},
+       NullBigNumeric(),
+       OUT_OF_RANGE},
+      {"round",
+       {BigNumericValue::MaxValue(), 0ll},
+       BigNumericValue::FromString("578960446186580977117854925043439539266")
+           .value()},
+      {"round",
+       {BigNumericValue::MaxValue(), 1ll},
+       BigNumericValue::FromString("578960446186580977117854925043439539266.3")
+           .value()},
+      {"round",
+       {BigNumericValue::MinValue(), -1ll},
+       NullBigNumeric(),
+       OUT_OF_RANGE},
+      {"round",
+       {BigNumericValue::MinValue(), 0ll},
+       BigNumericValue::FromString("-578960446186580977117854925043439539266")
+           .value()},
+      {"round",
+       {BigNumericValue::MinValue(), 1ll},
+       BigNumericValue::FromString("-578960446186580977117854925043439539266.3")
+           .value()},
+
+      {"trunc", {NullBigNumeric()}, NullBigNumeric()},
+      {"trunc", {BigNumericValue()}, BigNumericValue()},
+      {"trunc", {BigNumericValue(2)}, BigNumericValue(2)},
+      {"trunc",
+       {BigNumericValue::FromString("2.3").value()},
+       BigNumericValue(2)},
+      {"trunc",
+       {BigNumericValue::FromString("2.8").value()},
+       BigNumericValue(2)},
+      {"trunc",
+       {BigNumericValue::FromString("2.5").value()},
+       BigNumericValue(2)},
+      {"trunc",
+       {BigNumericValue::FromString("-2.3").value()},
+       BigNumericValue(-2)},
+      {"trunc",
+       {BigNumericValue::FromString("-2.8").value()},
+       BigNumericValue(-2)},
+      {"trunc",
+       {BigNumericValue::FromString("-2.5").value()},
+       BigNumericValue(-2)},
+      {"trunc",
+       {BigNumericValue::FromString("0.001").value()},
+       BigNumericValue()},
+      {"trunc",
+       {BigNumericValue::MaxValue()},
+       BigNumericValue::FromString("578960446186580977117854925043439539266")
+           .value()},
+      {"trunc",
+       {BigNumericValue::MinValue()},
+       BigNumericValue::FromString("-578960446186580977117854925043439539266")
+           .value()},
+
+      {"trunc",
+       {BigNumericValue::FromString("1.12345678901234567890123456789012345678")
+            .value(),
+        2ll},
+       BigNumericValue::FromString("1.12").value()},
+      {"trunc",
+       {BigNumericValue::FromString("1.12345678901234567890123456789012345678")
+            .value(),
+        3ll},
+       BigNumericValue::FromString("1.123").value()},
+      {"trunc",
+       {BigNumericValue::FromString("1.12345678901234567890123456789012345678")
+            .value(),
+        18ll},
+       BigNumericValue::FromString("1.123456789012345678").value()},
+      {"trunc",
+       {BigNumericValue::FromString("1.12345678901234567890123456789012345678")
+            .value(),
+        19ll},
+       BigNumericValue::FromString("1.1234567890123456789").value()},
+      {"trunc",
+       {BigNumericValue::FromString("1123456789.01234567890123456789012345678")
+            .value(),
+        -3ll},
+       BigNumericValue::FromString("1123456000").value()},
+      {"trunc",
+       {BigNumericValue::FromString("1123456789.01234567890123456789012345678")
+            .value(),
+        -2ll},
+       BigNumericValue::FromString("1123456700").value()},
+      {"trunc",
+       {BigNumericValue::FromString("1123456789.01234567890123456789012345678")
+            .value(),
+        -39ll},
+       BigNumericValue()},
+      {"trunc",
+       {BigNumericValue::FromString("1.12345678901234567890123456789012345678")
+            .value(),
+        40ll},
+       BigNumericValue::FromString("1.12345678901234567890123456789012345678")
+           .value()},
+      {"trunc",
+       {BigNumericValue::FromString("0.0001").value(), 10ll},
+       BigNumericValue::FromString("0.0001").value()},
+      {"trunc",
+       {BigNumericValue::MaxValue(), -1ll},
+       BigNumericValue::FromString("578960446186580977117854925043439539260")
+           .value()},
+      {"trunc",
+       {BigNumericValue::MaxValue(), 0ll},
+       BigNumericValue::FromString("578960446186580977117854925043439539266")
+           .value()},
+      {"trunc",
+       {BigNumericValue::MaxValue(), 1ll},
+       BigNumericValue::FromString("578960446186580977117854925043439539266.3")
+           .value()},
+      {"trunc",
+       {BigNumericValue::MinValue(), -1ll},
+       BigNumericValue::FromString("-578960446186580977117854925043439539260")
+           .value()},
+      {"trunc",
+       {BigNumericValue::MinValue(), 0ll},
+       BigNumericValue::FromString("-578960446186580977117854925043439539266")
+           .value()},
+      {"trunc",
+       {BigNumericValue::MinValue(), 1ll},
+       BigNumericValue::FromString("-578960446186580977117854925043439539266.3")
+           .value()},
+
+      {"ceil", {NullBigNumeric()}, NullBigNumeric()},
+      {"ceiling", {BigNumericValue()}, BigNumericValue()},
+      {"ceil", {BigNumericValue(2)}, BigNumericValue(2)},
+      {"ceiling",
+       {BigNumericValue::FromString("2.3").value()},
+       BigNumericValue(3)},
+      {"ceil",
+       {BigNumericValue::FromString("2.8").value()},
+       BigNumericValue(3)},
+      {"ceiling",
+       {BigNumericValue::FromString("2.5").value()},
+       BigNumericValue(3)},
+      {"ceil",
+       {BigNumericValue::FromString("-2.3").value()},
+       BigNumericValue(-2)},
+      {"ceiling",
+       {BigNumericValue::FromString("-2.8").value()},
+       BigNumericValue(-2)},
+      {"ceil",
+       {BigNumericValue::FromString("-2.5").value()},
+       BigNumericValue(-2)},
+      {"ceiling",
+       {BigNumericValue::FromString("0.001").value()},
+       BigNumericValue(1)},
+      {"ceiling",
+       {BigNumericValue::FromString("1e-38").value()},
+       BigNumericValue(1)},
+      {"ceiling",
+       {BigNumericValue::FromString("-0.001").value()},
+       BigNumericValue()},
+      {"ceiling",
+       {BigNumericValue::FromString("-1e-38").value()},
+       BigNumericValue()},
+      {"ceil",
+       {BigNumericValue::FromString("578960446186580977117854925043439539266.1")
+            .value()},
+       NullBigNumeric(),
+       OUT_OF_RANGE},
+      {"ceiling",
+       {BigNumericValue::FromString("578960446186580977117854925043439539266."
+                                    "00000000000000000000000000000000000001")
+            .value()},
+       NullBigNumeric(),
+       OUT_OF_RANGE},
+      {"ceil", {BigNumericValue::MaxValue()}, NullBigNumeric(), OUT_OF_RANGE},
+      {"ceiling",
+       {BigNumericValue::MaxValue()},
+       NullBigNumeric(),
+       OUT_OF_RANGE},
+
+      {"floor", {NullBigNumeric()}, NullBigNumeric()},
+      {"floor", {BigNumericValue()}, BigNumericValue()},
+      {"floor", {BigNumericValue(2)}, BigNumericValue(2)},
+      {"floor",
+       {BigNumericValue::FromString("2.3").value()},
+       BigNumericValue(2)},
+      {"floor",
+       {BigNumericValue::FromString("2.8").value()},
+       BigNumericValue(2)},
+      {"floor",
+       {BigNumericValue::FromString("2.5").value()},
+       BigNumericValue(2)},
+      {"floor",
+       {BigNumericValue::FromString("-2.3").value()},
+       BigNumericValue(-3)},
+      {"floor",
+       {BigNumericValue::FromString("-2.8").value()},
+       BigNumericValue(-3)},
+      {"floor",
+       {BigNumericValue::FromString("-2.5").value()},
+       BigNumericValue(-3)},
+      {"floor",
+       {BigNumericValue::FromString("0.001").value()},
+       BigNumericValue()},
+      {"floor",
+       {BigNumericValue::FromString("1e-38").value()},
+       BigNumericValue()},
+      {"floor",
+       {BigNumericValue::FromString("2e-38").value()},
+       BigNumericValue()},
+      {"floor",
+       {BigNumericValue::FromString("-0.001").value()},
+       BigNumericValue(-1)},
+      {"floor",
+       {BigNumericValue::FromString("-1e-38").value()},
+       BigNumericValue(-1)},
+      {"floor",
+       {BigNumericValue::FromString(
+            "-578960446186580977117854925043439539266.1")
+            .value()},
+       NullBigNumeric(),
+       OUT_OF_RANGE},
+      {"floor",
+       {BigNumericValue::FromString("-578960446186580977117854925043439539266."
+                                    "00000000000000000000000000000000000001")
+            .value()},
+       NullBigNumeric(),
+       OUT_OF_RANGE},
+      {"floor", {BigNumericValue::MinValue()}, NullBigNumeric(), OUT_OF_RANGE},
+  };
+
+  for (const auto& test_case : bignumeric_tests) {
+    all_tests.emplace_back(FunctionTestCall(
+        test_case.function_name,
+        test_case.params.WrapWithFeature(FEATURE_BIGNUMERIC_TYPE)));
   }
 
   return all_tests;

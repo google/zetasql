@@ -11,7 +11,7 @@ ZetaSQL.
 
 ## SQL Syntax
 
-<pre>
+<pre class="lang-sql prettyprint">
 <span class="var">query_statement</span>:
     <span class="var">query_expr</span>
 
@@ -28,7 +28,7 @@ ZetaSQL.
     [ <a href="#where_clause">WHERE</a> <span class="var">bool_expression</span> ]
     [ <a href="#group_by_clause">GROUP</a> BY { <span class="var">expression</span> [, ...] | ROLLUP ( <span class="var">expression</span> [, ...] ) } ]
     [ <a href="#having_clause">HAVING</a> <span class="var">bool_expression</span> ]
-    [ <a href="https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#window_clause">WINDOW</a> <span class="var">window_name</span> AS ( <span class="var">window_definition</span> ) [, ...] ]
+    [ <a href="#window_clause">WINDOW</a> <span class="var">named_window_expression</span> AS { <span class="var">named_window</span> | ( [ <span class="var">window_definition</span> ] ) } [, ...] ]
 
 <span class="var">set_op</span>:
     <a href="#union">UNION</a> { ALL | DISTINCT } | <a href="#intersect">INTERSECT</a> { ALL | DISTINCT } | <a href="#except">EXCEPT</a> { ALL | DISTINCT }
@@ -367,13 +367,6 @@ input value.
 
 See [Using Aliases][using-aliases] for information on syntax and visibility for
 `SELECT` list aliases.
-
-<a id=analytic_functions></a>
-## Analytic functions
-
-Analytic functions and the clauses related to them, including `OVER`, `PARTITION
-BY`, and `WINDOW`, are documented in
-[Analytic Function Concepts][analytic-concepts].
 
 ## FROM clause
 
@@ -1491,6 +1484,63 @@ FROM Locations
 ORDER BY Place COLLATE "unicode:ci"
 ```
 
+<a id="window_clause"></a>
+## WINDOW clause
+
+### Syntax
+
+<pre>
+WINDOW named_window_expression [, ...]
+
+named_window_expression:
+  named_window AS { named_window | ( [ window_specification ] ) }
+</pre>
+
+A `WINDOW` clause defines a list of named windows.
+A named window represents a group of rows in a table upon which to use an
+[analytic function][analytic-concepts]. A named window can be defined with
+a [window specification][query-window-specification] or reference another
+named window. If another named window is referenced, the definition of the
+referenced window must precede the referencing window.
+
+**Examples**
+
+These examples reference a table called [`Produce`][produce-table].
+They all return the same [result][named-window-example]. Note the different
+ways you can combine named windows and use them in an analytic function's
+`OVER` clause.
+
+```zetasql
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (item_window) AS most_popular
+FROM Produce
+WINDOW item_window AS (
+  PARTITION BY category
+  ORDER BY purchases
+  ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)
+```
+
+```zetasql
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (d) AS most_popular
+FROM Produce
+WINDOW
+  a AS (PARTITION BY category),
+  b AS (a ORDER BY purchases),
+  c AS (b ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING),
+  d AS (c)
+```
+
+```zetasql
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (c ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS most_popular
+FROM Produce
+WINDOW
+  a AS (PARTITION BY category),
+  b AS (a ORDER BY purchases),
+  c AS b
+```
+
 <a id="set_operators"></a>
 ## Set operators
 
@@ -1601,20 +1651,46 @@ LIMIT count [ OFFSET skip_rows ]
 ```
 
 `LIMIT` specifies a non-negative `count` of type INT64,
-and no more than `count` rows will be returned. `LIMIT` `0` returns 0 rows. If
-there is a set
-operation, `LIMIT` is applied after the
-set operation
-is evaluated.
+and no more than `count` rows will be returned. `LIMIT` `0` returns 0 rows.
 
-`OFFSET` specifies a non-negative `skip_rows` of type
-INT64, and only rows from
-that offset in the table will be considered.
+If there is a set operation, `LIMIT` is applied after the set operation is
+evaluated.
 
-These clauses accept only literal or parameter values.
+`OFFSET` specifies a non-negative number of rows to skip before applying
+`LIMIT`. `skip_rows` is of type INT64.
 
-The rows that are returned by `LIMIT` and `OFFSET` is unspecified unless these
+These clauses accept only literal or parameter values. The rows that are
+returned by `LIMIT` and `OFFSET` are unspecified unless these
 operators are used after `ORDER BY`.
+
+Examples:
+
+```sql
+SELECT *
+FROM UNNEST(ARRAY<STRING>['a', 'b', 'c', 'd', 'e']) AS letter
+ORDER BY letter ASC LIMIT 2
+
++---------+
+| letter  |
++---------+
+| a       |
+| b       |
++---------+
+```
+
+```sql
+SELECT *
+FROM UNNEST(ARRAY<STRING>['a', 'b', 'c', 'd', 'e']) AS letter
+ORDER BY letter ASC LIMIT 3 OFFSET 1
+
++---------+
+| letter  |
++---------+
+| b       |
+| c       |
+| d       |
++---------+
+```
 
 <a id="with_clause"></a>
 ## WITH clause
@@ -1865,28 +1941,16 @@ FROM Singers
 GROUP BY name;
 ```
 
-Ambiguity between a `FROM` clause column name and a `SELECT` list alias in
-`GROUP BY`:
-
-```
-SELECT UPPER(LastName) AS LastName
-FROM Singers
-GROUP BY LastName;
-```
-
-The query above is ambiguous and will produce an error because `LastName` in the
-`GROUP BY` clause could refer to the original column `LastName` in `Singers`, or
-it could refer to the alias `AS LastName`, whose value is `UPPER(LastName)`.
-
-The same rules for ambiguity apply to path expressions. Consider the following
-query where `table` has columns `x` and `y`, and column `z` is of type STRUCT
-and has fields `v`, `w`, and `x`.
+This query contains aliases that are ambiguous in the `SELECT` list and `FROM`
+clause because they share the same name. Assume `table` has columns `x`, `y`,
+and `z`. `z` is of type STRUCT and has fields
+`v`, `w`, and `x`.
 
 Example:
 
 ```
 SELECT x, z AS T
-FROM table T
+FROM table AS T
 GROUP BY T.x;
 ```
 
@@ -2625,10 +2689,13 @@ Results:
 [join-hints]: #join_hints
 [query-value-tables]: #value_tables
 [analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[query-window-specification]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_window_spec
+[named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_use_named_window
+[produce-table]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#produce-table
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays#flattening_arrays
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays
-[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data_type_properties
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data-type-properties
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 [in-operator]: https://github.com/google/zetasql/blob/master/docs/operators#in_operators
 [expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries

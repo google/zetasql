@@ -84,6 +84,20 @@ bool IsConstantExpression(const ResolvedExpr* expr) {
       return IsConstantExpression(
           expr->GetAs<ResolvedGetProtoField>()->expr());
 
+    case RESOLVED_FLATTEN:
+      for (const auto& arg : expr->GetAs<ResolvedFlatten>()->get_field_list()) {
+        if (!IsConstantExpression(arg.get())) return false;
+      }
+      return IsConstantExpression(expr->GetAs<ResolvedFlatten>()->expr());
+
+    case RESOLVED_FLATTENED_ARG:
+      // These represent the result of a previous resolved flatten expression or
+      // get. They may or may not be constant, but if they are not then they
+      // would fail IsConstantExpression for an earlier step in RESOLVED_FLATTEN
+      // above. If we said they were not constant then RESOLVED_FLATTEN would
+      // never be able to be constant even if expr and all get_field_list were.
+      return true;
+
     case RESOLVED_REPLACE_FIELD: {
       const ResolvedReplaceField* replace_field =
           expr->GetAs<ResolvedReplaceField>();

@@ -19,6 +19,7 @@
 
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/enum_type.h"
+#include "zetasql/public/types/extended_type.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/simple_type.h"
 #include "zetasql/public/types/struct_type.h"
@@ -27,8 +28,100 @@ ABSL_DECLARE_FLAG(int32_t, zetasql_type_factory_nesting_depth_limit);
 
 namespace zetasql {
 
+class ValueTest;
+
+struct TypeFactoryOptions {
+  // If this option is enabled, types allocated by a TypeFactory will not be
+  // deleted until all Value instances that belong to types created by this
+  // TypeFactory get released. Reference counting affects performance, since
+  // each Value's set or clear operation comes with atomic
+  // increment/decrement operation which could be expensive.
+  // If performance is an issue, this option can be disabled: however, in this
+  // case, the user needs to ensure that TypeFactory is released only after all
+  // Value instances that reference its types are released too. This condition
+  // is enforced in debug mode.
+  // Caveat: under both cases user is responsible for making sure that the
+  // DescriptorPool used to provide proto descriptors for proto and enum types
+  // stays alive during the whole lifetime of Value objects belonging to these
+  // types.
+  bool keep_alive_while_referenced_from_value = true;
+
+  // Disables keep_alive_while_referenced_from_value.
+  TypeFactoryOptions& IgnoreValueLifeCycle() {
+    keep_alive_while_referenced_from_value = false;
+    return *this;
+  }
+};
+
+namespace internal {  // For internal use only
+
+// Class is used by TypeFactory to store created types.
+// TODO: should we consider doing refcounting for Type obects
+// instead of refcounting for TypeStores? This requires to add a counter and a
+// flag per each non-simple type, but on the other hand, will allow us to have
+// more granular memory management and avoid checks for cycles between
+// TypeStores.
+// TODO: Should TypeStore have a DescriptorPool?
+class TypeStore {
+ public:
+#ifndef SWIG
+  TypeStore(const TypeStore&) = delete;
+  TypeStore& operator=(const TypeStore&) = delete;
+#endif
+
+ private:
+  friend class zetasql::TypeFactory;
+  friend class TypeStoreHelper;
+
+  explicit TypeStore(bool keep_alive_while_referenced_from_value);
+  ~TypeStore();
+
+  void Ref() const;
+  void Unref() const;
+
+  // Use our own ref counter because zetasql_base::SimpleReferenceCounted uses int32_t for its
+  // counter, which could be not enough to count references from all values.
+  // Ref count is 1 for type factory that creates it.
+  mutable std::atomic<int64_t> ref_count_{1};
+
+  const bool keep_alive_while_referenced_from_value_;
+
+  mutable absl::Mutex mutex_;
+
+  std::vector<const Type*> owned_types_ ABSL_GUARDED_BY(mutex_);
+
+  // Store links to and from TypeStores that this TypeStores depends on.
+  // This is used as a sanity check to catch incorrect destruction order.
+  mutable absl::flat_hash_set<const TypeStore*> depends_on_factories_
+      ABSL_GUARDED_BY(mutex_);
+  mutable absl::flat_hash_set<const TypeStore*> factories_depending_on_this_
+      ABSL_GUARDED_BY(mutex_);
+};
+
+// Helper class to work with TypeStore. These internal helpers are usable only
+// in the friend classes.
+class TypeStoreHelper {
+ private:
+  friend class zetasql::Value;
+  friend class zetasql::ValueTest;
+  friend class zetasql::Type;
+
+  static void RefFromValue(const TypeStore* store);
+  static void UnrefFromValue(const TypeStore* store);
+  static const TypeStore* GetTypeStore(const TypeFactory* factory);
+  static int64_t Test_GetRefCount(const TypeStore* store);
+};
+
+}  // namespace internal
+
 // A TypeFactory creates and owns Type objects.
-// Created Type objects live until the TypeFactory is destroyed.
+//
+// Created Type objects live until the TypeFactory is destroyed, with these
+// exceptions:
+//  * If keep_alive_while_referenced_from_value is true (the default), then
+//  created Types will live longer than the TypeFactory as long as they are
+//  referenced by Value objects.
+//
 // The TypeFactory may return the same Type object from multiple calls that
 // request equivalent types.
 //
@@ -39,7 +132,8 @@ namespace zetasql {
 // This class is thread-safe.
 class TypeFactory {
  public:
-  TypeFactory();
+  explicit TypeFactory(const TypeFactoryOptions& options);
+  TypeFactory() : TypeFactory(TypeFactoryOptions{}) {}
 #ifndef SWIG
   TypeFactory(const TypeFactory&) = delete;
   TypeFactory& operator=(const TypeFactory&) = delete;
@@ -63,6 +157,7 @@ class TypeFactory {
   const Type* get_geography();
   const Type* get_numeric();
   const Type* get_bignumeric();
+  const Type* get_json();
 
   // Return a Type object for a simple type.  This works for all
   // non-parameterized scalar types.  Enums, arrays, structs and protos must
@@ -210,33 +305,28 @@ class TypeFactory {
   // it cannot destruct. Use kint32max for no limit (the default).
   // The limit value must be >= 0. The default value of this field can be
   // overidden with FLAGS_zetasql_type_factory_nesting_depth_limit.
-  int nesting_depth_limit() const ABSL_LOCKS_EXCLUDED(mutex_);
-  void set_nesting_depth_limit(int value) ABSL_LOCKS_EXCLUDED(mutex_);
+  int nesting_depth_limit() const ABSL_LOCKS_EXCLUDED(store_->mutex_);
+  void set_nesting_depth_limit(int value) ABSL_LOCKS_EXCLUDED(store_->mutex_);
 
   // Estimate memory size allocated to store TypeFactory's data in bytes
   int64_t GetEstimatedOwnedMemoryBytesSize() const;
 
  private:
-  // Store links to and from TypeFactories that this TypeFactory depends on.
-  // This is used as a sanity check to catch incorrect destruction order.
-  mutable absl::flat_hash_set<const TypeFactory*> depends_on_factories_
-      ABSL_GUARDED_BY(mutex_);
-  mutable absl::flat_hash_set<const TypeFactory*> factories_depending_on_this_
-      ABSL_GUARDED_BY(mutex_);
-
   // Add <type> into <owned_types_>.  Templated so it can return the
   // specific subclass of Type.
   template <class TYPE>
-  const TYPE* TakeOwnership(const TYPE* type) ABSL_LOCKS_EXCLUDED(mutex_);
+  const TYPE* TakeOwnership(const TYPE* type)
+      ABSL_LOCKS_EXCLUDED(store_->mutex_);
   template <class TYPE>
   const TYPE* TakeOwnershipLocked(const TYPE* type)
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(store_->mutex_);
   template <class TYPE>
   const TYPE* TakeOwnershipLocked(const TYPE* type, int64_t type_owned_bytes_size)
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(store_->mutex_);
 
   // Mark that <other_type>'s factory must outlive <this>.
-  void AddDependency(const Type* other_type) ABSL_LOCKS_EXCLUDED(mutex_);
+  void AddDependency(const Type* other_type)
+      ABSL_LOCKS_EXCLUDED(store_->mutex_);
 
   // Get the Type for a proto field from its corresponding TypeKind. For
   // repeated fields, <kind> must be the base TypeKind for the field (i.e., the
@@ -262,19 +352,18 @@ class TypeFactory {
       const Type** result_type,
       std::set<const google::protobuf::Descriptor*>* ancestor_messages);
 
-  // TODO: Should TypeFactory have a DescriptorPool?
-  mutable absl::Mutex mutex_;
-  absl::flat_hash_map<const Type*, const ArrayType*> cached_array_types_
-      ABSL_GUARDED_BY(mutex_);
-  absl::flat_hash_map<const google::protobuf::Descriptor*, const ProtoType*>
-      cached_proto_types_ ABSL_GUARDED_BY(mutex_);
-  absl::flat_hash_map<const google::protobuf::EnumDescriptor*, const EnumType*>
-      cached_enum_types_ ABSL_GUARDED_BY(mutex_);
-  // TODO: Once all Type objects are cached, we can likely eliminate
-  // this and treat the maps above as owning the Type objects.
-  std::vector<const Type*> owned_types_ ABSL_GUARDED_BY(mutex_);
+  friend class internal::TypeStoreHelper;
 
-  int nesting_depth_limit_ ABSL_GUARDED_BY(mutex_);
+  absl::flat_hash_map<const Type*, const ArrayType*> cached_array_types_
+      ABSL_GUARDED_BY(store_->mutex_);
+  absl::flat_hash_map<const google::protobuf::Descriptor*, const ProtoType*>
+      cached_proto_types_ ABSL_GUARDED_BY(store_->mutex_);
+  absl::flat_hash_map<const google::protobuf::EnumDescriptor*, const EnumType*>
+      cached_enum_types_ ABSL_GUARDED_BY(store_->mutex_);
+
+  internal::TypeStore* store_;  // Stores created types.
+
+  int nesting_depth_limit_ ABSL_GUARDED_BY(store_->mutex_);
 
   // Stores estimation of how much memory was allocated by instances
   // of types owned by this TypeFactory (in bytes)
@@ -300,6 +389,7 @@ const Type* DatetimeType();
 const Type* GeographyType();
 const Type* NumericType();
 const Type* BigNumericType();
+const Type* JsonType();
 const StructType* EmptyStructType();
 
 // ArrayTypes
@@ -319,6 +409,7 @@ const ArrayType* TimeArrayType();
 const ArrayType* GeographyArrayType();
 const ArrayType* NumericArrayType();
 const ArrayType* BigNumericArrayType();
+const ArrayType* JsonArrayType();
 
 // Accessor for the ZetaSQL enum Type (functions::DateTimestampPart)
 // that represents date parts in function signatures.  Intended

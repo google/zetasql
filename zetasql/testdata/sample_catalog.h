@@ -25,6 +25,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
+#include "absl/container/node_hash_map.h"
 
 namespace zetasql {
 
@@ -117,6 +118,7 @@ class SampleCatalog {
 
   const EnumType* enum_TestEnum_;
   const EnumType* enum_AnotherTestEnum_;
+  const EnumType* enum_TestEnumWithAnnotations_;
   const ProtoType* proto_KitchenSinkPB_;
   const ProtoType* proto_MessageWithKitchenSinkPB_;
   const ProtoType* proto_CivilTimeTypesSinkPB_;
@@ -142,7 +144,7 @@ class SampleCatalog {
   std::unique_ptr<SimpleConstant> owned_constant_;
 
   // Pointers are owned by 'catalog_'.
-  std::unordered_map<std::string, SimpleTable*> tables_;
+  absl::node_hash_map<std::string, SimpleTable*> tables_;
 
   // Connections owned by this catalog.
   std::unordered_map<std::string, std::unique_ptr<SimpleConnection>>

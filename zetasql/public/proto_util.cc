@@ -352,12 +352,12 @@ static absl::Status Int64ToAdjustedTimestampInt64(FieldFormat::Format format,
   absl::Status status;
   switch (format) {
     case FieldFormat::TIMESTAMP_SECONDS:
-      if (!functions::Multiply<int64_t>(s, 1000000LL, adjusted_s, &status)) {
+      if (!functions::Multiply<int64_t>(s, int64_t{1000000}, adjusted_s, &status)) {
         return status;
       }
       break;
     case FieldFormat::TIMESTAMP_MILLIS:
-      if (!functions::Multiply<int64_t>(s, 1000LL, adjusted_s, &status)) {
+      if (!functions::Multiply<int64_t>(s, int64_t{1000}, adjusted_s, &status)) {
         return status;
       }
       break;

@@ -38,19 +38,16 @@
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/endian.h"
+#include "zetasql/base/stl_util.h"
 #include "zetasql/base/mathutil.h"
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
-namespace {
+using FormatFlag = NumericValue::FormatSpec::Flag;
 
-// Maximum number of decimal digits in the integer and the fractional part of a
-// NUMERIC value.
-constexpr int kMaxIntegerDigits = 29;
-constexpr int kMaxFractionalDigits = 9;
-constexpr int kBigNumericMaxFractionalDigits = 38;
+namespace {
 
 constexpr int kBitsPerByte = 8;
 constexpr int kBitsPerUint64 = 64;
@@ -58,6 +55,8 @@ constexpr int kBitsPerInt64 = 64;
 constexpr int kBitsPerInt128 = 128;
 constexpr int kBytesPerInt64 = kBitsPerInt64 / kBitsPerByte;
 constexpr int kBytesPerInt128 = kBitsPerInt128 / kBitsPerByte;
+constexpr uint8_t kGroupSize = 3;
+constexpr char kGroupChar = ',';
 
 inline absl::Status MakeInvalidNumericError(absl::string_view str) {
   return MakeEvalError() << "Invalid NUMERIC value: " << str;
@@ -110,13 +109,13 @@ double GetCovariance(const FixedInt<64, 3>& sum_x,
 }
 
 template <int n>
-void SerializeFixedInt(std::string* dest, const FixedInt<64, n>& num) {
+inline void SerializeFixedInt(std::string* dest, const FixedInt<64, n>& num) {
   num.SerializeToBytes(dest);
 }
 
 template <int n1, int... n>
-void SerializeFixedInt(std::string* dest, const FixedInt<64, n1>& num1,
-                       const FixedInt<64, n>&... num) {
+inline void SerializeFixedInt(std::string* dest, const FixedInt<64, n1>& num1,
+                              const FixedInt<64, n>&... num) {
   static_assert(sizeof(num1) < 128);
   size_t old_size = dest->size();
   dest->push_back('\0');  // add a place holder for size
@@ -146,12 +145,20 @@ bool DeserializeFixedInt(absl::string_view bytes, FixedInt<64, n1>* num1,
 // Helper method for appending a decimal value to a string. This function
 // assumes the value is not zero, and the FixedInt string has already been
 // appended to output. This function adds the decimal point and adjusts the
-// leading and trailing zeros. Examples:
-// (1, 9, "-123") -> "-0.000000123"
-// (1, 9, "-123456789") -> "-0.123456789"
-// (1, 9, "-1234567890") -> "-1.23456789"
-void AddDecimalPointAndAdjustZeros(size_t first_digit_index, size_t scale,
-                                   std::string* output) {
+// leading and trailing zeros.
+// Examples:
+// (1, 9, 0, false, "-123") -> "-0.000000123"
+// (1, 9, 0, false, "-123456789") -> "-0.123456789"
+// (1, 9, 0, false, "-1234567890") -> "-1.23456789"
+// (1, 9, 10, false, "-1234567890") -> "-1.2345678900"
+// (1, 9, 0, false, "-1000000000") -> "-1"
+// (1, 9, 0, true, "-1000000000") -> "-1."
+// Returns the index of the decimal point (if decimal point was added) or
+// output->size() otherwise.
+size_t AddDecimalPointAndAdjustZeros(size_t first_digit_index, size_t scale,
+                                     size_t min_num_fractional_digits,
+                                     bool always_add_decimal_point,
+                                     std::string* output) {
   size_t string_length = output->size();
   // Make a string_view that includes only the digits, so that find_last_not_of
   // does not search the substring before first_digit_index. This is for
@@ -160,45 +167,53 @@ void AddDecimalPointAndAdjustZeros(size_t first_digit_index, size_t scale,
   absl::string_view fixed_uint_str(*output);
   fixed_uint_str.remove_prefix(first_digit_index);
   size_t fixed_uint_length = fixed_uint_str.size();
-  size_t zeros_to_truncate = std::min(
-      fixed_uint_length - fixed_uint_str.find_last_not_of('0') - 1, scale);
-  output->resize(string_length - zeros_to_truncate);
+  size_t zeros_to_truncate = 0;
+  size_t num_fractional_digits = min_num_fractional_digits;
+  if (min_num_fractional_digits < scale) {
+    size_t num_trailing_zeros =
+        fixed_uint_length - fixed_uint_str.find_last_not_of('0') - 1;
+    zeros_to_truncate =
+        std::min(num_trailing_zeros, scale - min_num_fractional_digits);
+    output->resize(string_length - zeros_to_truncate);
+    num_fractional_digits = scale - zeros_to_truncate;
+  } else {
+    output->append(min_num_fractional_digits - scale, '0');
+  }
+
+  size_t decimal_point_index = output->size();
   if (fixed_uint_length < scale + 1) {
     // Add zeros and decimal point if smaller than 1.
     output->insert(first_digit_index, scale + 2 - fixed_uint_length, '0');
-    (*output)[first_digit_index + 1] = '.';
-  } else if (zeros_to_truncate < scale) {
-    output->insert(string_length - scale, 1, '.');
+    decimal_point_index = first_digit_index + 1;
+    (*output)[decimal_point_index] = '.';
+  } else if ((num_fractional_digits != 0) || always_add_decimal_point) {
+    decimal_point_index -= num_fractional_digits;
+    output->insert(output->begin() + decimal_point_index, '.');
   }
+  return decimal_point_index;
 }
 
 // PowersAsc<Word, first_value, base, size>() returns a std::array<Word, size>
 // {first_value, first_value * base, ..., first_value * pow(base, size - 1)}.
 template <typename Word, Word first_value, Word base, int size, typename... T>
-constexpr std::enable_if_t<(sizeof...(T) == size), std::array<Word, size>>
-PowersAsc(T... v) {
-  return std::array<Word, size>{v...};
+constexpr std::array<Word, size> PowersAsc(T... v) {
+  if constexpr (sizeof...(T) < size) {
+    return PowersAsc<Word, first_value, base, size>(first_value, v * base...);
+  } else {
+    return std::array<Word, size>{v...};
+  }
 }
 
-template <typename Word, Word first_value, Word base, int size, typename... T>
-constexpr std::enable_if_t<(sizeof...(T) < size), std::array<Word, size>>
-PowersAsc(T... v) {
-  return PowersAsc<Word, first_value, base, size>(first_value, v * base...);
-}
-
-// PowersAsc<Word, last_value, base, size>() returns a std::array<Word, size>
+// PowersDesc<Word, last_value, base, size>() returns a std::array<Word, size>
 // {last_value * pow(base, size - 1), last_value * pow(base, size - 2), ...,
 //  last_value}.
 template <typename Word, Word last_value, Word base, int size, typename... T>
-constexpr std::enable_if_t<(sizeof...(T) == size), std::array<Word, size>>
-PowersDesc(T... v) {
-  return std::array<Word, size>{v...};
-}
-
-template <typename Word, Word last_value, Word base, int size, typename... T>
-constexpr std::enable_if_t<(sizeof...(T) < size), std::array<Word, size>>
-PowersDesc(T... v) {
-  return PowersDesc<Word, last_value, base, size>(v * base..., last_value);
+constexpr std::array<Word, size> PowersDesc(T... v) {
+  if constexpr (sizeof...(T) < size) {
+    return PowersDesc<Word, last_value, base, size>(v * base..., last_value);
+  } else {
+    return std::array<Word, size>{v...};
+  }
 }
 
 struct ENotationParts {
@@ -384,6 +399,30 @@ double RemoveScaleAndConvertToDouble(__int128 value) {
   return value >= 0 ? result : -result;
 }
 
+FixedUint<64, 4> UnsignedFloor(FixedUint<64, 4> value) {
+  // Remove the decimal portion of the value by dividing by the
+  // ScalingFactor(10^38) then multiplying correspondingly.
+  // For efficiency, the division is split into 5^13, 5^13, 5^12 and 2^38,
+  // and the multiplcation into 2^38, 5^19, 5^19.
+  value /= std::integral_constant<uint32_t, internal::k5to13>();
+  value /= std::integral_constant<uint32_t, internal::k5to13>();
+  value /= std::integral_constant<uint32_t, internal::k5to12>();
+  // Since dividing then multiplying by 2^38 is the same as shifting right
+  // then left by 38, which just zeroes the low 38 bits we can do the equivalent
+  // by directly masking the lower 38 bits.
+  const std::array<uint64_t, 4>& a = value.number();
+  value = FixedUint<64, 4>(
+      std::array<uint64_t, 4>{a[0] & 0xFFFFFFC000000000, a[1], a[2], a[3]});
+  value *= internal::k5to19;
+  value *= internal::k5to19;
+  return value;
+}
+
+FixedUint<64, 4> UnsignedCeiling(FixedUint<64, 4> value) {
+  value += FixedUint<64, 4>(BigNumericValue::ScalingFactor() - 1);
+  return UnsignedFloor(value);
+}
+
 }  // namespace
 
 zetasql_base::StatusOr<NumericValue> NumericValue::FromStringStrict(
@@ -408,8 +447,8 @@ void NumericValue::AppendToString(std::string* output) const {
   FixedInt<64, 2> value(as_packed_int());
   value.AppendToString(output);
   size_t first_digit_index = old_size + value.is_negative();
-  AddDecimalPointAndAdjustZeros(first_digit_index, kMaxFractionalDigits,
-                                output);
+  AddDecimalPointAndAdjustZeros(first_digit_index, kMaxFractionalDigits, 0,
+                                false, output);
 }
 
 // Parses a textual representation of a NUMERIC value. Returns an error if the
@@ -554,15 +593,12 @@ zetasql_base::StatusOr<NumericValue> NumericValue::Multiply(NumericValue rh) con
                          << rh.ToString();
 }
 
-NumericValue NumericValue::Abs(NumericValue value) {
+NumericValue NumericValue::Abs() const {
   // The result is expected to be within the valid range.
-  return NumericValue(static_cast<__int128>(int128_abs(value.as_packed_int())));
+  return NumericValue(static_cast<__int128>(int128_abs(as_packed_int())));
 }
 
-NumericValue NumericValue::Sign(NumericValue value) {
-  return NumericValue(
-      static_cast<int64_t>(int128_sign(value.as_packed_int())));
-}
+int NumericValue::Sign() const { return int128_sign(as_packed_int()); }
 
 zetasql_base::StatusOr<NumericValue> NumericValue::Power(NumericValue exp) const {
   auto res_or_status = PowerInternal(exp);
@@ -762,76 +798,102 @@ zetasql_base::StatusOr<NumericValue> NumericValue::PowerInternal(
 
 namespace {
 
-template <int32_t divisor>
-inline void RoundConst32(bool round_away_from_zero, __int128* dividend) {
+template <uint32_t divisor, bool round_away_from_zero>
+inline unsigned __int128 RoundOrTruncConst32(unsigned __int128 dividend) {
   if (round_away_from_zero) {
-    *dividend += *dividend >= 0 ? divisor / 2 : divisor / -2;
+    dividend += divisor / 2;
   }
-  int32_t remainder;
+  uint32_t remainder;
   // This is much faster than "dividend % divisor".
-  FixedInt<64, 2>(*dividend).DivMod(std::integral_constant<int32_t, divisor>(),
+  FixedUint<64, 2>(dividend).DivMod(std::integral_constant<uint32_t, divisor>(),
                                     nullptr, &remainder);
-  *dividend -= remainder;
+  return dividend - remainder;
 }
-}  // namespace
 
-zetasql_base::StatusOr<NumericValue> NumericValue::RoundInternal(
-    int64_t digits, bool round_away_from_zero) const {
-  if (digits >= kMaxFractionalDigits) {
-    // Rounding beyond the max number of supported fractional digits has no
-    // effect.
-    return *this;
-  }
-
-  if (digits < -kMaxIntegerDigits) {
-    // Rounding (kMaxIntegerDigits + 1) digits away results in zero.
-    // Rounding kMaxIntegerDigits digits away might result in overflow instead
-    // of zero.
-    return NumericValue();
-  }
-
-  __int128 value = as_packed_int();
+// Rounds or truncates this NUMERIC value to the given number of decimal
+// digits after the decimal point (or before the decimal point if 'digits' is
+// negative), and returns the packed integer. If 'round_away_from_zero' is
+// true, then rounds the result away from zero, and the result might be out of
+// the range of valid NumericValue. If 'round_away_from_zero' is false, then
+// the extra digits are discarded and the result is always in the valid range.
+template <bool round_away_from_zero>
+unsigned __int128 RoundOrTrunc(unsigned __int128 value, int64_t digits) {
   switch (digits) {
     // Fast paths for some common values of the second argument.
     case 0:
-      RoundConst32<internal::k1e9>(round_away_from_zero, &value);
-      break;
+      return RoundOrTruncConst32<internal::k1e9, round_away_from_zero>(value);
     case 1:
-      RoundConst32<100000000>(round_away_from_zero, &value);
-      break;
+      return RoundOrTruncConst32<100000000, round_away_from_zero>(value);
     case 2:
-      RoundConst32<10000000>(round_away_from_zero, &value);
-      break;
+      return RoundOrTruncConst32<10000000, round_away_from_zero>(value);
     case 3:
-      RoundConst32<1000000>(round_away_from_zero, &value);
-      break;
+      return RoundOrTruncConst32<1000000, round_away_from_zero>(value);
+    case 4:  // Format("%e", x) for ABS(x) in [100.0, 1000.0)
+      return RoundOrTruncConst32<100000, round_away_from_zero>(value);
+    case 5:  // Format("%e", x) for ABS(x) in [10.0, 100.0)
+      return RoundOrTruncConst32<10000, round_away_from_zero>(value);
+    case 6:  // Format("%f", *) and Format("%e", x) for ABS(x) in [1.0, 10.0)
+      return RoundOrTruncConst32<1000, round_away_from_zero>(value);
     default: {
-      constexpr int kMaxDigits = kMaxFractionalDigits + kMaxIntegerDigits;
+      if (digits >= NumericValue::kMaxFractionalDigits) {
+        // Rounding beyond the max number of supported fractional digits has no
+        // effect.
+        return value;
+      }
+      if (digits < -NumericValue::kMaxIntegerDigits) {
+        // Rounding (kMaxIntegerDigits + 1) digits away results in zero.
+        // Rounding kMaxIntegerDigits digits away might result in overflow
+        // instead of zero.
+        return 0;
+      }
+      constexpr uint kMaxDigits =
+          NumericValue::kMaxFractionalDigits + NumericValue::kMaxIntegerDigits;
       static constexpr std::array<__int128, kMaxDigits> kTruncFactors =
           PowersDesc<__int128, 10, 10, kMaxDigits>();
-      __int128 trunc_factor = kTruncFactors[digits + kMaxIntegerDigits];
+      __int128 trunc_factor =
+          kTruncFactors[digits + NumericValue::kMaxIntegerDigits];
       if (round_away_from_zero) {
-        __int128 offset = trunc_factor >> 1;
         // The max result is < 1.5e38 < pow(2, 127); no need to check overflow.
-        value += (value < 0 ? -offset : offset);
+        value += (trunc_factor >> 1);
       }
       value -= value % trunc_factor;
+      return value;
     }
   }
-  auto res_status = NumericValue::FromPackedInt(value);
-  if (res_status.ok()) {
-    return res_status;
+}
+
+inline void RoundInternal(FixedUint<64, 2>* input, int64_t digits) {
+  *input = FixedUint<64, 2>(
+      RoundOrTrunc<true>(static_cast<unsigned __int128>(*input), digits));
+}
+}  // namespace
+
+zetasql_base::StatusOr<NumericValue> NumericValue::Round(int64_t digits) const {
+  __int128 value = as_packed_int();
+  if (value >= 0) {
+    value = RoundOrTrunc</*round_away_from_zero*/ true>(value, digits);
+    if (ABSL_PREDICT_TRUE(value <= internal::kNumericMax)) {
+      return NumericValue(value);
+    }
+  } else {
+    value = RoundOrTrunc</*round_away_from_zero*/ true>(-value, digits);
+    if (ABSL_PREDICT_TRUE(value <= internal::kNumericMax)) {
+      return NumericValue(-value);
+    }
   }
   return MakeEvalError() << "numeric overflow: ROUND(" << ToString() << ", "
                          << digits << ")";
 }
 
-zetasql_base::StatusOr<NumericValue> NumericValue::Round(int64_t digits) const {
-  return RoundInternal(digits, /*round_away_from_zero*/ true);
-}
-
 NumericValue NumericValue::Trunc(int64_t digits) const {
-  return RoundInternal(digits, /*round_away_from_zero*/ false).ValueOrDie();
+  __int128 value = as_packed_int();
+  if (value >= 0) {
+    // TRUNC never overflows.
+    return NumericValue(static_cast<__int128>(
+        RoundOrTrunc</*round_away_from_zero*/ false>(value, digits)));
+  }
+  return NumericValue(static_cast<__int128>(
+      -RoundOrTrunc</*round_away_from_zero*/ false>(-value, digits)));
 }
 
 zetasql_base::StatusOr<NumericValue> NumericValue::Ceiling() const {
@@ -886,7 +948,7 @@ zetasql_base::StatusOr<NumericValue> NumericValue::Divide(NumericValue rh) const
                          << rh.ToString();
 }
 
-zetasql_base::StatusOr<NumericValue> NumericValue::IntegerDivide(
+zetasql_base::StatusOr<NumericValue> NumericValue::DivideToIntegralValue(
     NumericValue rh) const {
   __int128 rh_value = rh.as_packed_int();
   if (ABSL_PREDICT_TRUE(rh_value != 0)) {
@@ -924,6 +986,333 @@ zetasql_base::StatusOr<NumericValue> NumericValue::DeserializeFromProtoBytes(
   return MakeEvalError() << "Invalid numeric encoding";
 }
 
+namespace {
+void AppendZero(size_t fractional_size, bool always_print_decimal_point,
+                std::string* output) {
+  output->push_back('0');
+  if (fractional_size > 0) {
+    size_t decimal_point_pos = output->size();
+    output->append(fractional_size + 1, '0');
+    (*output)[decimal_point_pos] = '.';
+  } else if (always_print_decimal_point) {
+    output->push_back('.');
+  }
+}
+
+void AppendExponent(int exponent, char e, std::string* output) {
+  size_t size = output->size();
+  zetasql_base::STLStringResizeUninitialized(output, size + 4);
+  char exponent_sign = '+';
+  if (exponent < 0) {
+    exponent_sign = '-';
+    exponent = -exponent;
+  }
+  DCHECK_LE(exponent, 99);
+  char* p = &(*output)[size];
+  p[0] = e;
+  p[1] = exponent_sign;
+  p[2] = exponent / 10 + '0';
+  p[3] = exponent % 10 + '0';
+}
+
+// Rounds to the Pow-th digit using 3 divisions of Factors,
+// whose product must equal 5^Pow, where Pow < 64.
+// If round_away_from_zero is false, the value is always rounded down.
+template <int Pow, int Factor1, int Factor2, int Factor3,
+          bool round_away_from_zero>
+inline void RoundInternalFixedFactors(FixedUint<64, 4>* value) {
+  *value /= std::integral_constant<uint32_t, Factor1>();
+  *value /= std::integral_constant<uint32_t, Factor2>();
+  *value /= std::integral_constant<uint32_t, Factor3>();
+  if (round_away_from_zero && value->number()[0] & (1ULL << (Pow - 1))) {
+    // Since the max value of value is 0x80... this
+    // addition cannot overflow.
+    *value += (uint64_t{1} << Pow);
+  }
+  // We need to divide by 2^Pow, but rather than do
+  // value >>= Pow, value <<= Pow we instead zero the appropriate bits
+  // using a mask with the high 64 - pow bits set and all others zeroed
+  constexpr uint64_t mask = ~((uint64_t{1} << Pow) - 1);
+  std::array<uint64_t, 4> array = value->number();
+  array[0] &= mask;
+  *value = FixedUint<64, 4>(array);
+  // Following these multiplications, the max value could be is
+  // pow(2, 255) + 5 * pow(10, 38) < pow(2, 256). The multiplications
+  // never overflow, though the highest bit in the result might be 1.
+  *value *= static_cast<uint64_t>(Factor1) * Factor2;
+  *value *= Factor3;
+}
+
+// Rounds or truncates this BIGNUMERIC value to the given number of decimal
+// digits after the decimal point (or before the decimal point if 'digits' is
+// negative), setting result if overflow does not occur.
+// If 'round_away_from_zero' is true, then the result rounds away from zero,
+// and might be out of the range of valid BigNumericValues.
+// If 'round_away_from_zero' is false, then the extra digits are discarded
+// and the result is always in the valid range.
+template <bool round_away_from_zero>
+bool RoundOrTrunc(FixedUint<64, 4>* abs_value, int64_t digits) {
+  switch (digits) {
+    // Fast paths for some common values of the second argument.
+    case 0:
+      RoundInternalFixedFactors<38, internal::k5to13, internal::k5to13,
+                                internal::k5to12, round_away_from_zero>(
+          abs_value);
+      break;
+    case 1:
+      RoundInternalFixedFactors<37, internal::k5to13, internal::k5to12,
+                                internal::k5to12, round_away_from_zero>(
+          abs_value);
+      break;
+    case 2:
+      RoundInternalFixedFactors<36, internal::k5to12, internal::k5to12,
+                                internal::k5to12, round_away_from_zero>(
+          abs_value);
+      break;
+    case 3:
+      RoundInternalFixedFactors<35, internal::k5to12, internal::k5to12,
+                                internal::k5to11, round_away_from_zero>(
+          abs_value);
+      break;
+    case 4:
+      RoundInternalFixedFactors<34, internal::k5to12, internal::k5to11,
+                                internal::k5to11, round_away_from_zero>(
+          abs_value);
+      break;
+    case 5:
+      RoundInternalFixedFactors<33, internal::k5to11, internal::k5to11,
+                                internal::k5to11, round_away_from_zero>(
+          abs_value);
+      break;
+    case 6:
+      RoundInternalFixedFactors<32, internal::k5to11, internal::k5to11,
+                                internal::k5to10, round_away_from_zero>(
+          abs_value);
+      break;
+    default: {
+      if (ABSL_PREDICT_FALSE(digits >= BigNumericValue::kMaxFractionalDigits)) {
+        // Rounding beyond the max number of supported fractional digits has no
+        // effect.
+        return true;
+      }
+
+      if (ABSL_PREDICT_FALSE(digits < -BigNumericValue::kMaxIntegerDigits)) {
+        // Rounding (kBigNumericMaxIntegerDigits + 1) digits away results in
+        // zero. Rounding kBigNumericMaxIntegerDigits digits away might result
+        // in overflow instead of zero.
+        *abs_value = FixedUint<64, 4>();
+        return true;
+      }
+
+      static constexpr std::array<unsigned __int128, 39> kPowers =
+          PowersAsc<unsigned __int128, 5, 5, 39>();
+      // Power of 10 to divide the abs_value by, this should correspond to
+      // 38 - digits when digits is positive and abs(digits) when negative
+      // since we do an initial division of 10^38.
+      uint64_t pow;
+      if (digits < 0) {
+        pow = -digits;
+        *abs_value /= std::integral_constant<uint32_t, internal::k5to13>();
+        *abs_value /= std::integral_constant<uint32_t, internal::k5to13>();
+        *abs_value /= std::integral_constant<uint32_t, internal::k5to12>();
+        *abs_value >>= 38;
+      } else {
+        pow = 38 - digits;
+      }
+
+      *abs_value /= FixedUint<64, 4>(kPowers[pow - 1]);
+      if (round_away_from_zero &&
+          abs_value->number()[0] & (1ULL << (pow - 1))) {
+        *abs_value += (uint64_t{1} << pow);
+      }
+      const uint64_t mask = ~((uint64_t{1} << pow) - 1);
+      std::array<uint64_t, 4> array = abs_value->number();
+      array[0] &= mask;
+      *abs_value = FixedUint<64, 4>(array);
+      *abs_value *= FixedUint<64, 4>(kPowers[pow - 1]);
+
+      if (digits < 0) {
+        *abs_value *= internal::k1e19;
+        *abs_value *= internal::k1e19;
+      }
+    }
+  }
+  return !round_away_from_zero || !FixedInt<64, 4>(*abs_value).is_negative();
+}
+
+inline bool RoundInternal(FixedUint<64, 4>* input, int64_t digits) {
+  return RoundOrTrunc<true>(input, digits);
+}
+
+// Helper function to add grouping chars to the integer portion of the numeric
+// string.
+static void AddGroupingChar(const size_t first_digit_index,
+                            const size_t end_of_integer_index,
+                            std::string* output) {
+  size_t grouping_char_count =
+      (end_of_integer_index - first_digit_index - 1) / kGroupSize;
+  // Resize output to account for 'soon-to-be-added' grouping chars
+  zetasql_base::STLStringResizeUninitialized(output,
+                                    output->size() + grouping_char_count);
+  // Step 1: Copy all the fractional digits and decimal point to the end of
+  // string.
+  size_t copy_to_index = output->size() - 1;
+  size_t copy_from_index = copy_to_index - grouping_char_count;
+  while (copy_from_index >= end_of_integer_index) {
+    output->at(copy_to_index--) = output->at(copy_from_index--);
+  }
+
+  // Step 2: Copy integer digits, adding grouping character as needed)
+  while (copy_from_index < copy_to_index) {
+    for (uint8_t curr_group_size = 0; curr_group_size < kGroupSize;
+         curr_group_size++) {
+      output->at(copy_to_index--) = output->at(copy_from_index--);
+    }
+    output->at(copy_to_index--) = kGroupChar;
+  }
+}
+
+template <int scale, int n>
+void Format(NumericValue::FormatSpec spec, const FixedInt<64, n>& input,
+            std::string* output) {
+  const size_t old_size = output->size();
+  FixedUint<64, n> abs = input.abs();
+  // Determine the sign.
+  if (input.is_negative()) {
+    output->push_back('-');
+  } else if (spec.format_flags & FormatFlag::ALWAYS_PRINT_SIGN) {
+    output->push_back('+');
+  } else if (spec.format_flags & FormatFlag::SIGN_SPACE) {
+    output->push_back(' ');
+  }
+  const size_t first_digit_index = output->size();
+
+  switch (spec.mode) {
+    case NumericValue::FormatSpec::DEFAULT: {
+      size_t fractional_size =
+          (spec.format_flags &
+           FormatFlag::REMOVE_TRAILING_ZEROS_AFTER_DECIMAL_POINT)
+              ? 0
+              : spec.precision;
+      // Round to the expected fractional size. If precision is 0, the
+      // string produced by ToString() will not have a decimal point.
+      RoundInternal(&abs, spec.precision);
+      if (abs.is_zero()) {
+        AppendZero(fractional_size,
+                   spec.format_flags & FormatFlag::ALWAYS_PRINT_DECIMAL_POINT,
+                   output);
+      } else {
+        abs.AppendToString(output);
+        size_t decimal_point_index = AddDecimalPointAndAdjustZeros(
+            first_digit_index, scale, fractional_size,
+            spec.format_flags & FormatFlag::ALWAYS_PRINT_DECIMAL_POINT, output);
+        if (spec.format_flags & FormatFlag::USE_GROUPING_CHAR) {
+          AddGroupingChar(first_digit_index, decimal_point_index, output);
+        }
+      }
+    } break;
+    case NumericValue::FormatSpec::E_NOTATION_LOWER_CASE:
+    case NumericValue::FormatSpec::E_NOTATION_UPPER_CASE: {
+      int exponent = 0;
+      size_t fractional_size =
+          (spec.format_flags &
+           FormatFlag::REMOVE_TRAILING_ZEROS_AFTER_DECIMAL_POINT)
+              ? 0
+              : spec.precision;
+      if (abs.is_zero()) {
+        AppendZero(fractional_size,
+                   spec.format_flags & FormatFlag::ALWAYS_PRINT_DECIMAL_POINT,
+                   output);
+      } else {
+        int num_digits = abs.CountDecimalDigits();
+        exponent = num_digits - 1 - scale;
+        RoundInternal(&abs, static_cast<int64_t>(spec.precision) - exponent);
+        const FixedUint<64, n>& next_power_of_10 =
+            FixedUint<64, n>::PowerOf10(num_digits);
+        // If abs is rounded up with one more digit, adjust exponent.
+        // Example: to compute FORMAT("%.0e", 9.5e-8), 95 is rounded to 100;
+        // "1e-7" should be returned instead of "10e-8".
+        exponent += (abs >= next_power_of_10);
+        abs.AppendToString(output);
+        AddDecimalPointAndAdjustZeros(
+            first_digit_index, scale + exponent, fractional_size,
+            spec.format_flags & FormatFlag::ALWAYS_PRINT_DECIMAL_POINT, output);
+      }
+      AppendExponent(exponent, spec.mode, output);
+    } break;
+    case NumericValue::FormatSpec::GENERAL_FORMAT_LOWER_CASE:
+    case NumericValue::FormatSpec::GENERAL_FORMAT_UPPER_CASE: {
+      int64_t adjusted_precision = std::max<uint>(spec.precision, 1);
+      int64_t fractional_size = adjusted_precision - 1;
+      if (abs.is_zero()) {
+        fractional_size =
+            spec.format_flags &
+                    FormatFlag::REMOVE_TRAILING_ZEROS_AFTER_DECIMAL_POINT
+                ? 0
+                : fractional_size;
+        AppendZero(fractional_size,
+                   spec.format_flags & FormatFlag::ALWAYS_PRINT_DECIMAL_POINT,
+                   output);
+      } else {
+        int num_digits = abs.CountDecimalDigits();
+        int exponent = num_digits - 1 - scale;
+        RoundInternal(&abs, fractional_size - exponent);
+        const FixedUint<64, n>& next_power_of_10 =
+            FixedUint<64, n>::PowerOf10(num_digits);
+        exponent += (abs >= next_power_of_10);
+        abs.AppendToString(output);
+        if (exponent >= -4 && exponent <= fractional_size) {
+          // Use f-style.
+          size_t end_integer_index = AddDecimalPointAndAdjustZeros(
+              first_digit_index, scale,
+              spec.format_flags &
+                      FormatFlag::REMOVE_TRAILING_ZEROS_AFTER_DECIMAL_POINT
+                  ? 0
+                  : fractional_size - exponent,
+              spec.format_flags & FormatFlag::ALWAYS_PRINT_DECIMAL_POINT,
+              output);
+          if (spec.format_flags & FormatFlag::USE_GROUPING_CHAR) {
+            AddGroupingChar(first_digit_index, end_integer_index, output);
+          }
+        } else {
+          // Use e-style.
+          AddDecimalPointAndAdjustZeros(
+              first_digit_index, scale + exponent,
+              spec.format_flags &
+                      FormatFlag::REMOVE_TRAILING_ZEROS_AFTER_DECIMAL_POINT
+                  ? 0
+                  : fractional_size,
+              spec.format_flags & FormatFlag::ALWAYS_PRINT_DECIMAL_POINT,
+              output);
+          char mode = spec.mode - ('G' - 'E');
+          AppendExponent(exponent, mode, output);
+        }
+      }
+    }
+  }
+
+  const size_t inserted_size = output->size() - old_size;
+  if (inserted_size < spec.minimum_size) {
+    size_t padding_size = spec.minimum_size - inserted_size;
+    // With space padding, the spaces come first. With zero-padding, the sign
+    // comes first. Left justification takes precedence over the zero padding
+    // flag.
+    if (spec.format_flags & FormatFlag::LEFT_JUSTIFY) {
+      output->append(padding_size, ' ');
+    } else if (spec.format_flags & FormatFlag::ZERO_PAD) {
+      output->insert(first_digit_index, padding_size, '0');
+    } else {
+      output->insert(old_size, padding_size, ' ');
+    }
+  }
+}
+
+}  // namespace
+
+void NumericValue::FormatAndAppend(FormatSpec spec, std::string* output) const {
+  Format<kMaxFractionalDigits>(spec, FixedInt<64, 2>(as_packed_int()), output);
+}
+
 std::ostream& operator<<(std::ostream& out, NumericValue value) {
   return out << value.ToString();
 }
@@ -952,10 +1341,9 @@ zetasql_base::StatusOr<NumericValue> NumericValue::SumAggregator::GetAverage(
   return MakeEvalError() << "numeric overflow: AVG";
 }
 
-std::string NumericValue::SumAggregator::SerializeAsProtoBytes() const {
-  std::string str;
-  sum_.SerializeToBytes(&str);
-  return str;
+void NumericValue::SumAggregator::SerializeAndAppendToProtoBytes(
+    std::string* bytes) const {
+  sum_.SerializeToBytes(bytes);
 }
 
 zetasql_base::StatusOr<NumericValue::SumAggregator>
@@ -1020,10 +1408,9 @@ void NumericValue::VarianceAggregator::MergeWith(
   sum_square_ += other.sum_square_;
 }
 
-std::string NumericValue::VarianceAggregator::SerializeAsProtoBytes() const {
-  std::string out;
-  SerializeFixedInt(&out, sum_, sum_square_);
-  return out;
+void NumericValue::VarianceAggregator::SerializeAndAppendToProtoBytes(
+    std::string* bytes) const {
+  SerializeFixedInt(bytes, sum_, sum_square_);
 }
 
 zetasql_base::StatusOr<NumericValue::VarianceAggregator>
@@ -1078,10 +1465,9 @@ void NumericValue::CovarianceAggregator::MergeWith(
   sum_product_ += other.sum_product_;
 }
 
-std::string NumericValue::CovarianceAggregator::SerializeAsProtoBytes() const {
-  std::string out;
-  SerializeFixedInt(&out, sum_product_, sum_x_, sum_y_);
-  return out;
+void NumericValue::CovarianceAggregator::SerializeAndAppendToProtoBytes(
+    std::string* bytes) const {
+  SerializeFixedInt(bytes, sum_product_, sum_x_, sum_y_);
 }
 
 zetasql_base::StatusOr<NumericValue::CovarianceAggregator>
@@ -1137,11 +1523,10 @@ void NumericValue::CorrelationAggregator::MergeWith(
   sum_square_y_ += other.sum_square_y_;
 }
 
-std::string NumericValue::CorrelationAggregator::SerializeAsProtoBytes() const {
-  std::string out;
-  SerializeFixedInt(&out, cov_agg_.sum_product_, cov_agg_.sum_x_,
+void NumericValue::CorrelationAggregator::SerializeAndAppendToProtoBytes(
+    std::string* bytes) const {
+  SerializeFixedInt(bytes, cov_agg_.sum_product_, cov_agg_.sum_x_,
                     cov_agg_.sum_y_, sum_square_x_, sum_square_y_);
-  return out;
 }
 
 zetasql_base::StatusOr<NumericValue::CorrelationAggregator>
@@ -1210,6 +1595,58 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Divide(
                          << rh.ToString();
 }
 
+zetasql_base::StatusOr<BigNumericValue> BigNumericValue::DivideToIntegralValue(
+    const BigNumericValue& rh) const {
+  if (ABSL_PREDICT_TRUE(!rh.value_.is_zero())) {
+    bool lh_negative = value_.is_negative();
+    bool rh_negative = rh.value_.is_negative();
+    FixedUint<64, 4> abs_result = value_.abs();
+    abs_result /= rh.value_.abs();
+    bool overflow =
+        abs_result.MultiplyOverflow(FixedUint<64, 4>(ScalingFactor()));
+
+    if (ABSL_PREDICT_TRUE(!overflow)) {
+      FixedInt<64, 4> result;
+      if (ABSL_PREDICT_TRUE(
+              result.SetSignAndAbs(lh_negative != rh_negative, abs_result))) {
+        return BigNumericValue(result);
+      }
+    }
+    return MakeEvalError() << "BigNumeric overflow: " << ToString() << " / "
+                           << rh.ToString();
+  }
+  return MakeEvalError() << "division by zero: " << ToString() << " / "
+                         << rh.ToString();
+}
+
+zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Mod(
+    const BigNumericValue& rh) const {
+  if (ABSL_PREDICT_TRUE(!rh.value_.is_zero())) {
+    FixedInt<64, 4> remainder = value_;
+    remainder %= rh.value_;
+    return BigNumericValue(remainder);
+  }
+  return MakeEvalError() << "division by zero: Mod(" << ToString() << ", "
+                         << rh.ToString() << ")";
+}
+
+bool BigNumericValue::HasFractionalPart() const {
+  FixedUint<64, 4> abs_value = value_.abs();
+  // Check whether abs_value is a multiple of pow(2, 38).
+  if ((abs_value.number()[0] & ((1ULL << 38) - 1)) != 0) return true;
+  // Check whether abs_value is a multiple of pow(5, 38).
+  uint32_t mod = 0;
+  abs_value.DivMod(std::integral_constant<uint32_t, internal::k5to13>(),
+                   &abs_value, &mod);
+  if (mod != 0) return true;
+  abs_value.DivMod(std::integral_constant<uint32_t, internal::k5to13>(),
+                   &abs_value, &mod);
+  if (mod != 0) return true;
+  abs_value.DivMod(std::integral_constant<uint32_t, internal::k5to12>(),
+                   &abs_value, &mod);
+  return (mod != 0);
+}
+
 double BigNumericValue::RemoveScaleAndConvertToDouble(
     const FixedInt<64, 4>& value) {
   bool is_negative = value.is_negative();
@@ -1272,6 +1709,54 @@ double BigNumericValue::RemoveScaleAndConvertToDouble(
   return is_negative ? -result : result;
 }
 
+zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Round(int64_t digits) const {
+  FixedUint<64, 4> abs_value = value_.abs();
+  if (ABSL_PREDICT_TRUE(RoundInternal(&abs_value, digits))) {
+    FixedInt<64, 4> result(abs_value);
+    return BigNumericValue(!value_.is_negative() ? result : -result);
+  }
+  return MakeEvalError() << "BigNumeric overflow: ROUND(" << ToString() << ", "
+                         << digits << ")";
+}
+
+BigNumericValue BigNumericValue::Trunc(int64_t digits) const {
+  FixedUint<64, 4> abs_value = value_.abs();
+  RoundOrTrunc</*round_away_from_zero*/ false>(&abs_value, digits);
+  FixedInt<64, 4> result(abs_value);
+  return BigNumericValue(!value_.is_negative() ? result : -result);
+}
+
+zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Floor() const {
+  if (!value_.is_negative()) {
+    FixedInt<64, 4> floor_value(UnsignedFloor(value_.abs()));
+    return BigNumericValue(floor_value);
+  }
+  // UnsignedCeiling cannot overflow, however it can return a FixedUint which
+  // is out of range as the same FixedInt. Because the constructor simply
+  // copies the underlying bits we can check the high bit, i.e. is_negative
+  FixedInt<64, 4> ceiling_value(UnsignedCeiling(value_.abs()));
+  if (ABSL_PREDICT_TRUE(!ceiling_value.is_negative())) {
+    return BigNumericValue(-ceiling_value);
+  }
+  return MakeEvalError() << "BigNumeric overflow: FLOOR(" << ToString() << ")";
+}
+
+zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Ceiling() const {
+  if (!value_.is_negative()) {
+    FixedInt<64, 4> ceiling_value(UnsignedCeiling(value_.abs()));
+    // UnsignedCeiling cannot overflow, however it can return a FixedUint which
+    // is out of range as the same FixedInt. Because the constructor simply
+    // copies the underlying bits we can check the high bit, i.e. is_negative
+    if (ABSL_PREDICT_TRUE(!ceiling_value.is_negative())) {
+      return BigNumericValue(ceiling_value);
+    }
+    return MakeEvalError()
+           << "BigNumeric overflow: CEIL(" << ToString() << ")";
+  }
+  FixedInt<64, 4> floor_value(UnsignedFloor(value_.abs()));
+  return BigNumericValue(-floor_value);
+}
+
 // Parses a textual representation of a BIGNUMERIC value. Returns an error if
 // the given string cannot be parsed as a number or if the textual numeric value
 // exceeds BIGNUMERIC range. If 'is_strict' is true then the function will
@@ -1285,8 +1770,8 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::FromStringInternal(
   FixedUint<64, 4> abs;
   BigNumericValue result;
   if (ABSL_PREDICT_TRUE(SplitENotationParts(str, &parts)) &&
-      ABSL_PREDICT_TRUE(ParseExponent(parts.exp_part,
-                                      kBigNumericMaxFractionalDigits, &exp)) &&
+      ABSL_PREDICT_TRUE(
+          ParseExponent(parts.exp_part, kMaxFractionalDigits, &exp)) &&
       ABSL_PREDICT_TRUE(ParseNumber(parts.int_part, parts.fract_part, exp,
                                     is_strict, &abs)) &&
       ABSL_PREDICT_TRUE(result.value_.SetSignAndAbs(parts.negative, abs))) {
@@ -1336,7 +1821,8 @@ void BigNumericValue::AppendToString(std::string* output) const {
   size_t old_size = output->size();
   value_.AppendToString(output);
   size_t first_digit_index = old_size + value_.is_negative();
-  AddDecimalPointAndAdjustZeros(first_digit_index, 38, output);
+  AddDecimalPointAndAdjustZeros(first_digit_index, kMaxFractionalDigits, 0,
+                                false, output);
 }
 
 void BigNumericValue::SerializeAndAppendToProtoBytes(std::string* bytes) const {
@@ -1350,6 +1836,11 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::DeserializeFromProtoByt
     return out;
   }
   return MakeEvalError() << "Invalid BigNumeric encoding";
+}
+
+void BigNumericValue::FormatAndAppend(FormatSpec spec,
+                                      std::string* output) const {
+  Format<kMaxFractionalDigits>(spec, value_, output);
 }
 
 std::ostream& operator<<(std::ostream& out, const BigNumericValue& value) {
@@ -1383,10 +1874,9 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::SumAggregator::GetAvera
   return MakeEvalError() << "BigNumeric overflow: AVG";
 }
 
-std::string BigNumericValue::SumAggregator::SerializeAsProtoBytes() const {
-  std::string str;
-  sum_.SerializeToBytes(&str);
-  return str;
+void BigNumericValue::SumAggregator::SerializeAndAppendToProtoBytes(
+    std::string* bytes) const {
+  sum_.SerializeToBytes(bytes);
 }
 
 zetasql_base::StatusOr<BigNumericValue::SumAggregator>

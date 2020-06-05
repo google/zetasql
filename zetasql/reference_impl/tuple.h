@@ -38,6 +38,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "zetasql/base/flat_set.h"
@@ -508,6 +509,16 @@ class TupleData {
   template <typename H>
   friend H AbslHashValue(H h, const TupleData& d) {
     return H::combine(std::move(h), d.slots_);
+  }
+
+  std::string DebugString() const {
+    return absl::StrCat(
+        "TupleData{",
+        absl::StrJoin(slots_, ", ",
+                      [](std::string* out, const TupleSlot& slot) {
+                        absl::StrAppend(out, slot.value().DebugString());
+                      }),
+        "}");
   }
 
  private:

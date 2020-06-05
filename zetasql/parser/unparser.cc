@@ -440,6 +440,10 @@ static std::string GetCreateStatementPrefix(
   if (node->is_private()) absl::StrAppend(&output, " PRIVATE");
   if (node->is_public()) absl::StrAppend(&output, " PUBLIC");
   if (node->is_temp()) absl::StrAppend(&output, " TEMP");
+  auto create_view = node->GetAsOrNull<ASTCreateViewStatementBase>();
+  if (create_view != nullptr && create_view->recursive()) {
+    absl::StrAppend(&output, " RECURSIVE");
+  }
   absl::StrAppend(&output, " ", create_object_type);
   if (node->is_if_not_exists()) absl::StrAppend(&output, " IF NOT EXISTS");
   return output;
@@ -666,11 +670,18 @@ void Unparser::visitASTCreateViewStatement(
 void Unparser::visitASTCreateMaterializedViewStatement(
     const ASTCreateMaterializedViewStatement* node, void* data) {
   PrintCommentsPassedBy(node, data);
-  std::string stmt("CREATE");
-  if (node->is_or_replace()) absl::StrAppend(&stmt, " OR REPLACE");
-  absl::StrAppend(&stmt, " MATERIALIZED VIEW");
-  if (node->is_if_not_exists()) absl::StrAppend(&stmt, " IF NOT EXISTS");
-  print(stmt);
+  print("CREATE");
+
+  if (node->is_or_replace()) print("OR REPLACE");
+  print("MATERIALIZED");
+  if (node->recursive()) {
+    print("RECURSIVE");
+  }
+  print("VIEW");
+  if (node->is_if_not_exists()) {
+    print("IF NOT EXISTS");
+  }
+
   node->name()->Accept(this, data);
   if (node->sql_security() != ASTCreateStatement::SQL_SECURITY_UNSPECIFIED) {
     print(node->GetSqlForSqlSecurity());
@@ -1053,7 +1064,12 @@ void Unparser::visitASTModuleStatement(const ASTModuleStatement* node,
 void Unparser::visitASTWithClause(const ASTWithClause* node,
                                   void* data) {
   PrintCommentsPassedBy(node, data);
-  println("WITH");
+  if (node->recursive()) {
+    println("WITH RECURSIVE");
+  } else {
+    println("WITH");
+  }
+
   {
     Formatter::Indenter indenter(&formatter_);
     UnparseChildrenWithSeparator(node, data, ",");
@@ -1284,6 +1300,14 @@ void Unparser::visitASTOnClause(const ASTOnClause* node, void* data) {
   {
     Formatter::Indenter indenter(&formatter_);
     visitASTChildren(node, data);
+  }
+}
+
+void Unparser::visitASTOnOrUsingClauseList(const ASTOnOrUsingClauseList* node,
+                                           void* data) {
+  for (const ASTNode* clause : node->on_or_using_clause_list()) {
+    clause->Accept(this, data);
+    println();
   }
 }
 
@@ -2731,6 +2755,13 @@ void Unparser::visitASTAlterRowAccessPolicyStatement(
   print("ON");
   node->path()->Accept(this, data);
   node->action_list()->Accept(this, data);
+}
+
+void Unparser::visitASTAlterAllRowAccessPoliciesStatement(
+    const ASTAlterAllRowAccessPoliciesStatement* node, void* data) {
+  print("ALTER ALL ROW ACCESS POLICIES ON");
+  node->table_name_path()->Accept(this, data);
+  node->alter_action()->Accept(this, data);
 }
 
 void Unparser::visitASTCreateIndexStatement(const ASTCreateIndexStatement* node,

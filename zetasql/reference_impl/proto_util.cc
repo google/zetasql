@@ -23,6 +23,7 @@
 #include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/wire_format_lite.h"
+#include "zetasql/common/errors.h"
 #include "zetasql/common/internal_value.h"
 #include "zetasql/public/functions/arithmetics.h"
 #include "zetasql/public/functions/date_time_util.h"
@@ -115,7 +116,7 @@ static absl::Status TimestampValueToAdjustedInt64(
   const int64_t micros = timestamp.ToUnixMicros();
   switch (format) {
     case FieldFormat::TIMESTAMP_SECONDS:
-      if (!functions::Divide<int64_t>(micros, 1000000LL, adjusted_int64,
+      if (!functions::Divide<int64_t>(micros, int64_t{1000000}, adjusted_int64,
                                     &status)) {
         return status;
       }
@@ -124,7 +125,8 @@ static absl::Status TimestampValueToAdjustedInt64(
       }
       break;
     case FieldFormat::TIMESTAMP_MILLIS:
-      if (!functions::Divide<int64_t>(micros, 1000LL, adjusted_int64, &status)) {
+      if (!functions::Divide<int64_t>(micros, int64_t{1000}, adjusted_int64,
+                                    &status)) {
         return status;
       }
       if (micros < 0 && micros % 1000LL != 0) {
@@ -380,11 +382,19 @@ static absl::Status WriteTagAndValue(const google::protobuf::FieldDescriptor* fi
   return absl::OkStatus();
 }
 
-absl::Status ProtoUtil::WriteField(const FieldDescriptor* field_descr,
+absl::Status ProtoUtil::WriteField(const WriteFieldOptions& options,
+                                   const FieldDescriptor* field_descr,
                                    const FieldFormat::Format format,
                                    const Value& value, bool* nondeterministic,
                                    CodedOutputStream* dst) {
   ZETASQL_RETURN_IF_ERROR(CheckIsSupportedFieldFormat(format, field_descr));
+
+  if (!options.allow_null_map_keys && value.is_null() &&
+      field_descr->containing_type()->options().map_entry()) {
+    return MakeEvalError()
+           << "Cannot write NULL to key or value of map field in "
+           << field_descr->containing_type()->name();
+  }
 
   if (field_descr->is_repeated() != value.type()->IsArray()) {
     return ::zetasql_base::OutOfRangeErrorBuilder()

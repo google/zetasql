@@ -253,6 +253,8 @@ class Unparser : public ParseTreeVisitor {
   void visitASTParenthesizedJoin(const ASTParenthesizedJoin* node,
                                  void* data) override;
   void visitASTOnClause(const ASTOnClause* node, void* data) override;
+  void visitASTOnOrUsingClauseList(const ASTOnOrUsingClauseList* node,
+      void *data) override;
   void visitASTUsingClause(const ASTUsingClause* node, void* data) override;
   void visitASTWhereClause(const ASTWhereClause* node, void* data) override;
   void visitASTRollup(const ASTRollup* node, void* data) override;
@@ -488,6 +490,9 @@ class Unparser : public ParseTreeVisitor {
   void visitASTAlterRowAccessPolicyStatement(
       const ASTAlterRowAccessPolicyStatement* node, void* data) override;
 
+  void visitASTAlterAllRowAccessPoliciesStatement(
+    const ASTAlterAllRowAccessPoliciesStatement* node, void* data) override;
+
   void visitASTForeignKey(const ASTForeignKey* node, void* data) override;
   void visitASTForeignKeyReference(
       const ASTForeignKeyReference* node, void* data) override;
@@ -567,11 +572,12 @@ class Unparser : public ParseTreeVisitor {
     }
   }
 
+  void PrintOpenParenIfNeeded(const ASTNode* node);
+  void PrintCloseParenIfNeeded(const ASTNode* node);
+
  private:
   void VisitCheckConstraintSpec(const ASTCheckConstraint* node, void* data);
   void VisitForeignKeySpec(const ASTForeignKey* node, void* data);
-  void PrintOpenParenIfNeeded(const ASTNode* node);
-  void PrintCloseParenIfNeeded(const ASTNode* node);
   void UnparseLeafNode(const ASTLeaf* leaf_node);
   void UnparseColumnSchema(const ASTColumnSchema* node, void* data);
   void VisitAlterStatementBase(const ASTAlterStatementBase* node, void* data);

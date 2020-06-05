@@ -1140,6 +1140,12 @@ class ASTWithClause final : public ASTNode {
     return with_;
   }
   const ASTWithClauseEntry* with(int idx) const { return with_[idx]; }
+  bool recursive() const { return recursive_; }
+  void set_recursive(bool recursive) { recursive_ = recursive; }
+
+  std::string SingleNodeDebugString() const override {
+    return recursive_ ? "WithClause (recursive)" : "WithClause";
+  }
 
  private:
   void InitFields() final {
@@ -1148,6 +1154,7 @@ class ASTWithClause final : public ASTNode {
   }
 
   absl::Span<const ASTWithClauseEntry* const> with_;
+  bool recursive_ = false;
 };
 
 class ASTWithClauseEntry final : public ASTNode {
@@ -1697,6 +1704,9 @@ class ASTTableSubquery final : public ASTTableExpression {
 };
 
 // Joins could introduce multiple scans and cannot have aliases.
+// It can also represent a JOIN with a list of consecutive ON/USING
+// clauses. Such a JOIN is only for internal use, and will never show up in the
+// final parse tree.
 class ASTJoin final : public ASTTableExpression {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_JOIN;
@@ -1730,6 +1740,19 @@ class ASTJoin final : public ASTTableExpression {
   const ASTOnClause* on_clause() const { return on_clause_; }
   const ASTUsingClause* using_clause() const { return using_clause_; }
 
+  // The follwing block is for internal use for handling consecutive ON/USING
+  // clauses. They are not used in the final AST.
+  int unmatched_join_count() const { return unmatched_join_count_;}
+  void set_unmatched_join_count(int count) { unmatched_join_count_ = count;}
+  bool transformation_needed() const { return transformation_needed_; }
+  void set_transformation_needed(bool transformation_needed)  {
+    transformation_needed_ = transformation_needed;
+  }
+  bool contains_comma_join() const { return contains_comma_join_; }
+  void set_contains_comma_join(bool contains_comma_join) {
+    contains_comma_join_ = contains_comma_join;
+  }
+
  private:
   void InitFields() final {
     FieldLoader fl(this);
@@ -1738,6 +1761,10 @@ class ASTJoin final : public ASTTableExpression {
     fl.AddRequired(&rhs_);
     fl.AddOptional(&on_clause_, AST_ON_CLAUSE);
     fl.AddOptional(&using_clause_, AST_USING_CLAUSE);
+
+    // If consecutive ON/USING clauses are encountered, then they are saved as
+    // clause_list_, and both on_clause_ and using_clause_ will be nullptr.
+    fl.AddOptional(&clause_list_, AST_ON_OR_USING_CLAUSE_LIST);
   }
 
   JoinType join_type_ = DEFAULT_JOIN_TYPE;
@@ -1748,6 +1775,21 @@ class ASTJoin final : public ASTTableExpression {
   const ASTTableExpression* rhs_ = nullptr;
   const ASTOnClause* on_clause_ = nullptr;
   const ASTUsingClause* using_clause_ = nullptr;
+  const ASTOnOrUsingClauseList* clause_list_ = nullptr;
+
+  // The number of qualified joins that do not have a matching ON/USING clause.
+  // See the comment in join_processor.cc for details.
+  int unmatched_join_count_ = 0;
+
+  // Indicates if this node needs to be transformed. See the comment
+  // in join_processor.cc for details.
+  // This is true if contains_clause_list_ is true, or if there is a JOIN with
+  // ON/USING clause list on the lhs side of the tree path.
+  bool transformation_needed_ = false;
+
+  // Indicates if this join contains a COMMA JOIN on the lhs side of the tree
+  // path.
+  bool contains_comma_join_ = false;
 };
 
 class ASTParenthesizedJoin final : public ASTTableExpression {
@@ -1813,6 +1855,30 @@ class ASTUsingClause final : public ASTNode {
   }
 
   absl::Span<const ASTIdentifier* const> keys_;
+};
+
+class ASTOnOrUsingClauseList final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_ON_OR_USING_CLAUSE_LIST;
+
+  ASTOnOrUsingClauseList(): ASTNode(kConcreteNodeKind) {}
+
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  absl::Span<const ASTNode* const> on_or_using_clause_list() const {
+    return on_or_using_clause_list_;
+  }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRestAsRepeated(&on_or_using_clause_list_);
+  }
+
+  // Each element in the list must be either ASTOnClause or ASTUsingClause.
+  absl::Span<const ASTNode* const> on_or_using_clause_list_;
 };
 
 class ASTWhereClause final : public ASTNode {
@@ -2585,6 +2651,10 @@ class ASTPathExpression final : public ASTGeneralizedPathExpression {
 
   // Return the vector of identifier strings (without quoting).
   std::vector<std::string> ToIdentifierVector() const;
+
+  // Similar to ToIdentifierVector(), but returns a vector of IdString's,
+  // avoiding the need to make copies.
+  std::vector<IdString> ToIdStringVector() const;
 
  private:
   void InitFields() final {
@@ -3826,6 +3896,9 @@ class ASTCreateStatement : public ASTStatement {
   bool is_if_not_exists() const { return is_if_not_exists_; }
   void set_is_if_not_exists(bool value) { is_if_not_exists_ = value; }
 
+ protected:
+  virtual void CollectModifiers(std::vector<std::string>* modifiers) const;
+
  private:
   Scope scope_ = DEFAULT_SCOPE;
   bool is_or_replace_ = false;
@@ -4648,24 +4721,27 @@ class ASTCreateViewStatementBase : public ASTCreateStatement {
   explicit ASTCreateViewStatementBase(const ASTNodeKind kind)
       : ASTCreateStatement(kind) {}
 
-  std::string SingleNodeDebugString() const override;
-
   std::string GetSqlForSqlSecurity() const;
 
   const ASTPathExpression* name() const { return name_; }
   const ASTOptionsList* options_list() const { return options_list_; }
   const ASTQuery* query() const { return query_; }
+  bool recursive() const { return recursive_; }
 
   SqlSecurity sql_security() const { return sql_security_; }
   void set_sql_security(SqlSecurity sql_security) {
     sql_security_ = sql_security;
   }
+  void set_recursive(bool recursive) { recursive_ = recursive; }
 
  protected:
+  void CollectModifiers(std::vector<std::string>* modifiers) const override;
+
   const ASTPathExpression* name_ = nullptr;
   SqlSecurity sql_security_;
   const ASTOptionsList* options_list_ = nullptr;
   const ASTQuery* query_ = nullptr;
+  bool recursive_ = false;
 };
 
 class ASTCreateViewStatement final : public ASTCreateViewStatementBase {
@@ -6892,6 +6968,33 @@ class ASTAlterRowAccessPolicyStatement final : public ASTAlterStatementBase {
   }
 
   const ASTIdentifier* name_ = nullptr;  // Required
+};
+
+class ASTAlterAllRowAccessPoliciesStatement final : public ASTStatement {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind =
+      AST_ALTER_ALL_ROW_ACCESS_POLICIES_STATEMENT;
+
+  ASTAlterAllRowAccessPoliciesStatement()
+      : ASTStatement(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTPathExpression* table_name_path() const { return table_name_path_; }
+  const ASTAlterAction* alter_action() const {
+    return alter_action_;
+  }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&table_name_path_);
+    fl.AddRequired(&alter_action_);
+  }
+
+  const ASTAlterAction* alter_action_ = nullptr;  // Required
+  const ASTPathExpression* table_name_path_ = nullptr;  // Required
 };
 
 class ASTForeignKeyActions final : public ASTNode {

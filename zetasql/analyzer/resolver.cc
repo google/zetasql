@@ -85,7 +85,7 @@ Resolver::~Resolver() {
 
 void Resolver::Reset(absl::string_view sql) {
   sql_ = sql;
-  with_subquery_map_.clear();
+  named_subquery_map_.clear();
   unique_with_alias_names_.clear();
   next_subquery_id_ = 1;
   next_unnest_id_ = 1;
@@ -340,6 +340,7 @@ absl::Status Resolver::ResolveQueryStatementWithFunctionArguments(
         specified_output_schema->is_value_table(), std::move(output_query));
   }
 
+  ZETASQL_RETURN_IF_ERROR(PruneColumnLists(resolved_statement.get()));
   *output_stmt = std::move(resolved_statement);
   return absl::OkStatus();
 }
@@ -596,16 +597,15 @@ absl::Status Resolver::ResolvePathExpressionAsType(
       path_expr->ToIdentifierVector();
 
   // Check for SimpleTypes.
-  if (identifier_path.size() == 1 &&
-      Type::IsSimpleTypeName(identifier_path[0], product_mode())) {
-    *resolved_type =
-        type_factory_->MakeSimpleType(Type::SimpleTypeNameToTypeKindOrDie(
-            identifier_path[0], product_mode()));
-    if (!(*resolved_type)->IsSupportedType(language())) {
-      return MakeSqlErrorAt(path_expr)
-             << "Type not found: " << path_expr->ToIdentifierPathString();
+  if (identifier_path.size() == 1) {
+    TypeKind type_kind =
+        Type::GetTypeKindIfSimple(identifier_path[0], language());
+    if (type_kind != TYPE_UNKNOWN) {
+      *resolved_type = type_factory_->MakeSimpleType(type_kind);
+      DCHECK((*resolved_type)->IsSupportedType(language()))
+          << identifier_path[0];
+      return absl::OkStatus();
     }
-    return absl::OkStatus();
   }
 
   std::string single_name;

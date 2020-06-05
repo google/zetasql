@@ -18,6 +18,7 @@
 #define ZETASQL_TESTING_TEST_FUNCTION_H_
 
 #include <stddef.h>
+
 #include <map>
 #include <set>
 #include <string>
@@ -29,6 +30,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 

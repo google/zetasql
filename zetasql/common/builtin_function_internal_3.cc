@@ -27,6 +27,7 @@
 #include "google/protobuf/wrappers.pb.h"
 #include "google/type/date.pb.h"
 #include "google/type/timeofday.pb.h"
+#include "google/protobuf/descriptor.h"
 #include "zetasql/common/builtin_function_internal.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/public/catalog.h"
@@ -36,6 +37,7 @@
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -163,6 +165,13 @@ void GetStringFunctions(TypeFactory* type_factory,
                   {bytes_type,
                    {bytes_type, int64_type, {bytes_type, OPTIONAL}},
                    FN_RPAD_BYTES}});
+
+  InsertFunction(functions, options, "left", SCALAR,
+                 {{string_type, {string_type, int64_type}, FN_LEFT_STRING},
+                  {bytes_type, {bytes_type, int64_type}, FN_LEFT_BYTES}});
+  InsertFunction(functions, options, "right", SCALAR,
+                 {{string_type, {string_type, int64_type}, FN_RIGHT_STRING},
+                  {bytes_type, {bytes_type, int64_type}, FN_RIGHT_BYTES}});
 
   InsertFunction(functions, options, "repeat", SCALAR,
                  {{string_type, {string_type, int64_type}, FN_REPEAT_STRING},
@@ -425,6 +434,7 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   const Type* uint32_type = type_factory->get_uint32();
   const Type* uint64_type = type_factory->get_uint64();
   const Type* numeric_type = type_factory->get_numeric();
+  const Type* bignumeric_type = type_factory->get_bignumeric();
   const Type* double_type = type_factory->get_double();
   const Type* date_type = type_factory->get_date();
   const Type* timestamp_type = type_factory->get_timestamp();
@@ -439,6 +449,7 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   const Type* int64_array_type = types::Int64ArrayType();
   const Type* uint64_array_type = types::Uint64ArrayType();
   const Type* numeric_array_type = types::NumericArrayType();
+  const Type* bignumeric_array_type = types::BigNumericArrayType();
   const Type* double_array_type = types::DoubleArrayType();
   const Type* date_array_type = types::DateArrayType();
   const Type* timestamp_array_type = types::TimestampArrayType();
@@ -643,6 +654,8 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
 
   FunctionSignatureOptions has_numeric_type_argument;
   has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
+  FunctionSignatureOptions has_bignumeric_type_argument;
+  has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
 
   // Usage: generate_array(begin_range, end_range, [step]).
   // Returns an array spanning the range [begin_range, end_range] with a step
@@ -656,20 +669,25 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   // - If any input is null, returns a null array.
   // Implementations may enforce a limit on the number of elements in an array.
   // In the reference implementation, for instance, the limit is 16000.
-  InsertFunction(functions, options, "generate_array", SCALAR,
-                 {{int64_array_type,
-                   {int64_type, int64_type, {int64_type, OPTIONAL}},
-                   FN_GENERATE_ARRAY_INT64},
-                  {uint64_array_type,
-                   {uint64_type, uint64_type, {uint64_type, OPTIONAL}},
-                   FN_GENERATE_ARRAY_UINT64},
-                  {numeric_array_type,
-                   {numeric_type, numeric_type, {numeric_type, OPTIONAL}},
-                   FN_GENERATE_ARRAY_NUMERIC,
-                   has_numeric_type_argument},
-                  {double_array_type,
-                   {double_type, double_type, {double_type, OPTIONAL}},
-                   FN_GENERATE_ARRAY_DOUBLE}});
+  InsertFunction(
+      functions, options, "generate_array", SCALAR,
+      {{int64_array_type,
+        {int64_type, int64_type, {int64_type, OPTIONAL}},
+        FN_GENERATE_ARRAY_INT64},
+       {uint64_array_type,
+        {uint64_type, uint64_type, {uint64_type, OPTIONAL}},
+        FN_GENERATE_ARRAY_UINT64},
+       {numeric_array_type,
+        {numeric_type, numeric_type, {numeric_type, OPTIONAL}},
+        FN_GENERATE_ARRAY_NUMERIC,
+        has_numeric_type_argument},
+       {bignumeric_array_type,
+        {bignumeric_type, bignumeric_type, {bignumeric_type, OPTIONAL}},
+        FN_GENERATE_ARRAY_BIGNUMERIC,
+        has_bignumeric_type_argument},
+       {double_array_type,
+        {double_type, double_type, {double_type, OPTIONAL}},
+        FN_GENERATE_ARRAY_DOUBLE}});
   InsertFunction(
       functions, options, "generate_date_array", SCALAR,
       {{date_array_type,
@@ -739,7 +757,7 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                    FN_TO_JSON_STRING}});
 
   // The signature is declared as
-  //   ERROR(string) -> int64
+  //   ERROR(string) -> int64_t
   // but this is special-cased in the resolver so that the result can be
   // coerced to anything, similar to untyped NULL.  This allows using this
   // in expressions like IF(<condition>, <value>, ERROR("message"))
@@ -767,6 +785,22 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
         functions, options, "proto_default_if_null", SCALAR,
         {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1}, FN_PROTO_DEFAULT_IF_NULL}},
         FunctionOptions().set_allow_external_usage(false));
+  }
+
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_ENUM_VALUE_DESCRIPTOR_PROTO)) {
+    const Type* enum_value_descriptor_proto_type = nullptr;
+    ZETASQL_CHECK_OK(type_factory->MakeProtoType(
+        google::protobuf::EnumValueDescriptorProto::descriptor(),
+        &enum_value_descriptor_proto_type));
+    // ENUM_VALUE_DESCRIPTOR_PROTO(ENUM): Returns the
+    // google::protobuf::EnumValueDescriptorProto corresponding to the input Enum value.
+    InsertFunction(functions, options, "enum_value_descriptor_proto", SCALAR,
+                   {{enum_value_descriptor_proto_type,
+                     {ARG_ENUM_ANY},
+                     FN_ENUM_VALUE_DESCRIPTOR_PROTO}},
+                   FunctionOptions().set_compute_result_type_callback(
+                       &GetOrMakeEnumValueDescriptorType));
   }
 }
 
@@ -803,7 +837,8 @@ void GetNumericFunctions(TypeFactory* type_factory,
                   {uint64_type, {uint64_type}, FN_ABS_UINT64},
                   {float_type, {float_type}, FN_ABS_FLOAT},
                   {double_type, {double_type}, FN_ABS_DOUBLE},
-                  {numeric_type, {numeric_type}, FN_ABS_NUMERIC}});
+                  {numeric_type, {numeric_type}, FN_ABS_NUMERIC},
+                  {bignumeric_type, {bignumeric_type}, FN_ABS_BIGNUMERIC}});
 
   InsertFunction(functions, options, "sign", SCALAR,
                  {{int32_type, {int32_type}, FN_SIGN_INT32},
@@ -815,7 +850,11 @@ void GetNumericFunctions(TypeFactory* type_factory,
                   {numeric_type,
                    {numeric_type},
                    FN_SIGN_NUMERIC,
-                   has_numeric_type_argument}});
+                   has_numeric_type_argument},
+                  {bignumeric_type,
+                   {bignumeric_type},
+                   FN_SIGN_BIGNUMERIC,
+                   has_bignumeric_type_argument}});
 
   InsertFunction(
       functions, options, "round", SCALAR,
@@ -825,12 +864,20 @@ void GetNumericFunctions(TypeFactory* type_factory,
         {numeric_type},
         FN_ROUND_NUMERIC,
         has_numeric_type_argument},
+       {bignumeric_type,
+        {bignumeric_type},
+        FN_ROUND_BIGNUMERIC,
+        has_bignumeric_type_argument},
        {float_type, {float_type, int64_type}, FN_ROUND_WITH_DIGITS_FLOAT},
        {double_type, {double_type, int64_type}, FN_ROUND_WITH_DIGITS_DOUBLE},
        {numeric_type,
         {numeric_type, int64_type},
         FN_ROUND_WITH_DIGITS_NUMERIC,
-        has_numeric_type_argument}});
+        has_numeric_type_argument},
+       {bignumeric_type,
+        {bignumeric_type, int64_type},
+        FN_ROUND_WITH_DIGITS_BIGNUMERIC,
+        has_bignumeric_type_argument}});
   InsertFunction(
       functions, options, "trunc", SCALAR,
       {{float_type, {float_type}, FN_TRUNC_FLOAT},
@@ -839,19 +886,31 @@ void GetNumericFunctions(TypeFactory* type_factory,
         {numeric_type},
         FN_TRUNC_NUMERIC,
         has_numeric_type_argument},
+       {bignumeric_type,
+        {bignumeric_type},
+        FN_TRUNC_BIGNUMERIC,
+        has_bignumeric_type_argument},
        {float_type, {float_type, int64_type}, FN_TRUNC_WITH_DIGITS_FLOAT},
        {double_type, {double_type, int64_type}, FN_TRUNC_WITH_DIGITS_DOUBLE},
        {numeric_type,
         {numeric_type, int64_type},
         FN_TRUNC_WITH_DIGITS_NUMERIC,
-        has_numeric_type_argument}});
+        has_numeric_type_argument},
+       {bignumeric_type,
+        {bignumeric_type, int64_type},
+        FN_TRUNC_WITH_DIGITS_BIGNUMERIC,
+        has_bignumeric_type_argument}});
   InsertFunction(functions, options, "ceil", SCALAR,
                  {{float_type, {float_type}, FN_CEIL_FLOAT},
                   {double_type, {double_type}, FN_CEIL_DOUBLE},
                   {numeric_type,
                    {numeric_type},
                    FN_CEIL_NUMERIC,
-                   has_numeric_type_argument}},
+                   has_numeric_type_argument},
+                  {bignumeric_type,
+                   {bignumeric_type},
+                   FN_CEIL_BIGNUMERIC,
+                   has_bignumeric_type_argument}},
                  FunctionOptions().set_alias_name("ceiling"));
   InsertFunction(functions, options, "floor", SCALAR,
                  {{float_type, {float_type}, FN_FLOOR_FLOAT},
@@ -859,7 +918,11 @@ void GetNumericFunctions(TypeFactory* type_factory,
                   {numeric_type,
                    {numeric_type},
                    FN_FLOOR_NUMERIC,
-                   has_numeric_type_argument}});
+                   has_numeric_type_argument},
+                  {bignumeric_type,
+                   {bignumeric_type},
+                   FN_FLOOR_BIGNUMERIC,
+                   has_bignumeric_type_argument}});
 
   InsertFunction(functions, options, "is_inf", SCALAR,
                  {{bool_type, {double_type}, FN_IS_INF}});
@@ -888,7 +951,11 @@ void GetNumericFunctions(TypeFactory* type_factory,
                   {numeric_type,
                    {numeric_type, numeric_type},
                    FN_MOD_NUMERIC,
-                   has_numeric_type_argument}});
+                   has_numeric_type_argument},
+                  {bignumeric_type,
+                   {bignumeric_type, bignumeric_type},
+                   FN_MOD_BIGNUMERIC,
+                   has_bignumeric_type_argument}});
 
   InsertFunction(functions, options, "div", SCALAR,
                  {{int64_type, {int64_type, int64_type}, FN_DIV_INT64},
@@ -896,7 +963,11 @@ void GetNumericFunctions(TypeFactory* type_factory,
                   {numeric_type,
                    {numeric_type, numeric_type},
                    FN_DIV_NUMERIC,
-                   has_numeric_type_argument}});
+                   has_numeric_type_argument},
+                  {bignumeric_type,
+                   {bignumeric_type, bignumeric_type},
+                   FN_DIV_BIGNUMERIC,
+                   has_bignumeric_type_argument}});
 
   // The SAFE versions of arithmetic operators (+, -, *, /, <unary minus>) have
   // the same signatures as the operators themselves.
@@ -1590,6 +1661,9 @@ void GetGeographyFunctions(TypeFactory* type_factory,
   InsertFunction(functions, options, "st_numpoints", SCALAR,
                  {{int64_type, {geography_type}, FN_ST_NUM_POINTS}},
                  geography_required.Copy().set_alias_name("st_npoints"));
+  InsertFunction(functions, options, "st_dump", SCALAR,
+                 {{geography_array_type, {geography_type}, FN_ST_DUMP}},
+                 geography_required);
 
   // Measures
   InsertFunction(

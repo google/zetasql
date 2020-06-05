@@ -75,7 +75,7 @@ enum TimestampScale {
 ABSL_MUST_USE_RESULT bool IsValidDate(int32_t date);
 
 // Checks that a timestamp value falls between 0001-01-01 and 9999-12-31 UTC
-// for timestamps with at most microseconds scale.  For nanoseconds, all int64
+// for timestamps with at most microseconds scale.  For nanoseconds, all int64_t
 // values are considered valid.
 ABSL_MUST_USE_RESULT bool IsValidTimestamp(int64_t timestamp,
                                            TimestampScale scale);
@@ -698,7 +698,7 @@ absl::Status TimestampDiff(absl::Time timestamp1, absl::Time timestamp2,
 // Adding a valid non-NANOS interval to an non-NANOS Timestamp value can only
 // guarantee there is no arithmetic int64_t overflow. But the result timestamp
 // may still be invalid (out of range).
-// Adding a NANOSECOND interval to a TIMESTAMP_NANOS value may cause int64
+// Adding a NANOSECOND interval to a TIMESTAMP_NANOS value may cause int64_t
 // arithmetic overflow and it will be reported as an error as well.
 //
 // Note - the timezone is irrelevant for the computations, and is only used

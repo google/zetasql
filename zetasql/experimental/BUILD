@@ -26,7 +26,14 @@ cc_library(
     testonly = 1,
     srcs = ["output_query_result.cc"],
     hdrs = ["output_query_result.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/compliance:type_helpers",
         "//zetasql/public:strings",
@@ -34,6 +41,7 @@ cc_library(
         "//zetasql/reference_impl:algebrizer",
         "//zetasql/reference_impl:evaluation",
         "//zetasql/resolved_ast",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -73,6 +81,7 @@ cc_binary(
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/flags:parse",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/types:optional",

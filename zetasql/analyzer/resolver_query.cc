@@ -33,6 +33,7 @@
 #include "zetasql/analyzer/function_resolver.h"
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
+#include "zetasql/analyzer/recursive_queries.h"
 #include "zetasql/analyzer/resolver.h"
 #include "zetasql/analyzer/resolver_common_inl.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
@@ -42,6 +43,7 @@
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
+#include "zetasql/parser/parse_tree_visitor.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/coercer.h"
@@ -140,6 +142,17 @@ absl::Status Resolver::ResolveQueryAfterWith(
   return absl::OkStatus();
 }
 
+void Resolver::AddNamedSubquery(const std::vector<IdString>& alias,
+                                std::unique_ptr<NamedSubquery> named_subquery) {
+  auto it = named_subquery_map_.find(alias);
+  if (it == named_subquery_map_.end()) {
+    named_subquery_map_[std::vector<IdString>{alias}] =
+        std::vector<std::unique_ptr<NamedSubquery>>{};
+    it = named_subquery_map_.find(alias);
+  }
+  it->second.push_back(std::move(named_subquery));
+}
+
 absl::Status Resolver::ResolveQuery(
     const ASTQuery* query,
     const NameScope* scope,
@@ -157,12 +170,43 @@ absl::Status Resolver::ResolveQuery(
              << "WITH is not supported on subqueries in this language version";
     }
 
-    IdStringHashSetCase local_with_aliases;
+    // Check for duplicate WITH aliases
+    IdStringHashSetCase alias_names;
     for (const ASTWithClauseEntry* with_entry : query->with_clause()->with()) {
-      auto with_entry_or_status =
-          ResolveWithEntry(with_entry, &local_with_aliases);
-      ZETASQL_RETURN_IF_ERROR(with_entry_or_status.status());
-      with_entries.push_back(std::move(with_entry_or_status).ValueOrDie());
+      if (!zetasql_base::InsertIfNotPresent(&alias_names,
+                                   with_entry->alias()->GetAsIdString())) {
+        return MakeSqlErrorAt(with_entry->alias())
+               << "Duplicate alias " << with_entry->alias()->GetAsString()
+               << " for WITH subquery";
+      }
+    }
+
+    if (query->with_clause()->recursive()) {
+      if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_WITH_RECURSIVE)) {
+        return MakeSqlErrorAt(query->with_clause())
+               << "RECURSIVE is not supported in the WITH clause";
+      }
+
+      ZETASQL_ASSIGN_OR_RETURN(WithEntrySortResult sort_result,
+                       SortWithEntries(query->with_clause()));
+
+      for (const ASTWithClauseEntry* with_entry : sort_result.sorted_entries) {
+        ZETASQL_ASSIGN_OR_RETURN(
+            std::unique_ptr<const ResolvedWithEntry> resolved_with_entry,
+            ResolveWithEntry(
+                with_entry,
+                sort_result.self_recursive_entries.contains(with_entry)));
+        with_entries.push_back(std::move(resolved_with_entry));
+      }
+    } else {
+      // Non-recursive WITH
+      for (const ASTWithClauseEntry* with_entry :
+           query->with_clause()->with()) {
+        ZETASQL_ASSIGN_OR_RETURN(
+            std::unique_ptr<const ResolvedWithEntry> resolved_with_entry,
+            ResolveWithEntry(with_entry, /*recursive=*/false));
+        with_entries.push_back(std::move(resolved_with_entry));
+      }
     }
   }
 
@@ -181,13 +225,11 @@ absl::Status Resolver::ResolveQuery(
   if (query->with_clause() != nullptr) {
     for (const ASTWithClauseEntry* with_entry : query->with_clause()->with()) {
       const IdString with_alias = with_entry->alias()->GetAsIdString();
-      std::unique_ptr<WithSubqueryInfo>& current_info =
-          with_subquery_map_[with_alias];
-      ZETASQL_RET_CHECK(current_info != nullptr);
-      if (current_info->prev_with_subquery_info != nullptr) {
-        current_info = std::move(current_info->prev_with_subquery_info);
-      } else {
-        ZETASQL_RET_CHECK_EQ(1, with_subquery_map_.erase(with_alias));
+      auto it = named_subquery_map_.find({with_alias});
+      ZETASQL_RET_CHECK(it != named_subquery_map_.end());
+      it->second.pop_back();
+      if (it->second.empty()) {
+        named_subquery_map_.erase(it);
       }
     }
   }
@@ -197,7 +239,8 @@ absl::Status Resolver::ResolveQuery(
   if (!with_entries.empty()) {
     const auto& tmp_column_list = (*output)->column_list();
     *output = MakeResolvedWithScan(tmp_column_list, std::move(with_entries),
-                                   std::move(*output));
+                                   std::move(*output),
+                                   query->with_clause()->recursive());
   }
 
   // Add parse location to the outermost ResolvedScan only. This is intended
@@ -212,23 +255,50 @@ absl::Status Resolver::ResolveQuery(
   return absl::OkStatus();
 }
 
+zetasql_base::StatusOr<const ASTSetOperation*> Resolver::GetRecursiveUnion(
+    IdString query_name, const ASTQuery* query) {
+  // Skip redundant parentheses around the UNION
+  while (query->query_expr()->node_kind() == AST_QUERY) {
+    // TODO: Make sure the ORDER BY/LIMIT on these intermediate
+    // queries is disallowed.
+    query = query->query_expr()->GetAsOrDie<ASTQuery>();
+  }
+
+  const ASTSetOperation* query_set_op =
+      query->query_expr()->GetAsOrNull<ASTSetOperation>();
+  if (query_set_op == nullptr ||
+      query_set_op->op_type() != ASTSetOperation::UNION) {
+    return MakeSqlErrorAt(query)
+           << "Recursive query '" << query_name.ToString()
+           << "' does not have the form <non-recursive-term> UNION "
+           << "[ALL|DISTINCT] <recursive-term>";
+  }
+  return query_set_op;
+}
+
 zetasql_base::StatusOr<std::unique_ptr<const ResolvedWithEntry>>
 Resolver::ResolveWithEntry(const ASTWithClauseEntry* with_entry,
-                           IdStringHashSetCase* local_with_aliases) {
+                           bool recursive) {
   const IdString with_alias = with_entry->alias()->GetAsIdString();
-
-  // We don't allow duplicates in the same WITH clause, but we will
-  // allow duplicating and hiding a WITH alias from an outer query.
-  if (!zetasql_base::InsertIfNotPresent(local_with_aliases, with_alias)) {
-    return MakeSqlErrorAt(with_entry->alias())
-           << "Duplicate alias " << with_alias << " for WITH subquery";
-  }
 
   // Generate a unique alias for this WITH subquery, if necessary.
   IdString unique_alias = with_alias;
   while (!zetasql_base::InsertIfNotPresent(&unique_with_alias_names_, unique_alias)) {
     unique_alias = MakeIdString(absl::StrCat(unique_alias.ToStringView(), "_",
                                              unique_with_alias_names_.size()));
+  }
+
+  if (recursive) {
+    ZETASQL_ASSIGN_OR_RETURN(const ASTSetOperation* recursive_union,
+                     GetRecursiveUnion(with_alias, with_entry->query()));
+    // TODO: Verify that the non-recursive UNION term is actually
+    // non-recursive.
+    // TODO: Resolve the UNION into a ResolvedRecursiveScan.
+    // TODO: Verify that the resolved scan satisfies the tree-shape
+    // rules described in (broken link) (e.g. no aggregates,
+    // analytics, etc.)
+    return MakeSqlErrorAt(recursive_union)
+           << "Recursive WITH entries are not implemented yet";
   }
 
   // We always pass empty_name_scope_ when resolving the subquery inside
@@ -239,13 +309,10 @@ Resolver::ResolveWithEntry(const ASTWithClauseEntry* with_entry,
   ZETASQL_RETURN_IF_ERROR(ResolveQuery(with_entry->query(), empty_name_scope_.get(),
                                with_alias, false /* is_outer_query */,
                                &resolved_subquery, &subquery_name_list));
-
-  std::unique_ptr<WithSubqueryInfo>& current_info =
-      with_subquery_map_[with_alias];
-
-  current_info = absl::make_unique<WithSubqueryInfo>(
-      unique_alias, resolved_subquery->column_list(), subquery_name_list,
-      std::move(current_info));
+  AddNamedSubquery(
+      {with_alias},
+      absl::make_unique<NamedSubquery>(
+          unique_alias, resolved_subquery->column_list(), subquery_name_list));
   std::unique_ptr<const ResolvedWithEntry> resolved_with_entry =
       MakeResolvedWithEntry(unique_alias.ToString(),
                             std::move(resolved_subquery));
@@ -628,7 +695,8 @@ void Resolver::AddColumnsForOrderByExprs(
         for (const std::unique_ptr<const ResolvedComputedColumn>&
                  computed_column : *computed_columns) {
           if (IsSameFieldPath(item_info.order_expression.get(),
-                              computed_column->expr())) {
+                              computed_column->expr(),
+                              FieldPathMatchingOption::kExpression)) {
             item_info.order_column = computed_column->column();
             item_info.order_expression.reset();  // not needed any more
             already_computed = true;
@@ -2639,7 +2707,8 @@ absl::Status Resolver::HandleGroupByExpression(
   for (const std::unique_ptr<const ResolvedComputedColumn>& computed_column :
        *query_resolution_info
             ->select_list_columns_to_compute_before_aggregation()) {
-    if (IsSameFieldPath(resolved_expr->get(), computed_column->expr())) {
+    if (IsSameFieldPath(resolved_expr->get(), computed_column->expr(),
+                        FieldPathMatchingOption::kExpression)) {
       *group_by_column = computed_column->column();
       found_precomputed_expression = true;
       break;
@@ -3290,63 +3359,112 @@ static absl::Status GetSetScanEnumType(
   return absl::OkStatus();
 }
 
-// Note that we allow set operations between value tables and regular
-// tables with exactly one column.  The output will be a value table if
-// the first subquery was a value table.
-absl::Status Resolver::ResolveSetOperation(
-    const ASTSetOperation* set_operation,
-    const NameScope* scope,
-    std::unique_ptr<const ResolvedScan>* output,
+static std::string FormatColumnCount(const NameList& name_list) {
+  return name_list.is_value_table()
+             ? std::string(" is value table with 1 column")
+             : absl::StrCat(" has ", name_list.num_columns(), " column",
+                            (name_list.num_columns() == 1 ? "" : "s"));
+}
+
+
+Resolver::SetOperationResolver::SetOperationResolver(
+    const ASTSetOperation* set_operation, Resolver* resolver)
+    : set_operation_(set_operation),
+      resolver_(resolver),
+      op_type_str_(resolver_->MakeIdString(
+          absl::StrCat("$", absl::AsciiStrToLower(ReplaceFirst(
+                                set_operation_->GetSQLForOperation(),
+                                /*oldsub=*/" ", /*newsub=*/"_"))))) {}
+
+absl::Status Resolver::SetOperationResolver::Resolve(
+    const NameScope* scope, std::unique_ptr<const ResolvedScan>* output,
     std::shared_ptr<const NameList>* output_name_list) {
-  ZETASQL_RET_CHECK_GE(set_operation->inputs().size(), 2);
+  ZETASQL_RET_CHECK_GE(set_operation_->inputs().size(), 2);
+  ResolvedSetOperationScan::SetOperationType op_type;
+  ZETASQL_RETURN_IF_ERROR(GetSetScanEnumType(set_operation_, &op_type));
 
-  std::vector<std::unique_ptr<ResolvedSetOperationItem>> resolved_inputs;
+  std::vector<ResolvedInputResult> resolved_inputs;
+  resolved_inputs.reserve(set_operation_->inputs().size());
+  for (int idx = 0; idx < set_operation_->inputs().size(); ++idx) {
+    ZETASQL_ASSIGN_OR_RETURN(resolved_inputs.emplace_back(),
+                     ResolveInputQuery(scope, idx));
+  }
 
-  // Input types present for each column: column_type_lists[col_idx][scan_idx].
   std::vector<std::vector<InputArgumentType>> column_type_lists;
-  // Column names from the first subquery.  Output result will use these names.
-  std::shared_ptr<const NameList> first_subquery_name_list;
+  ZETASQL_ASSIGN_OR_RETURN(column_type_lists, BuildColumnTypeLists(resolved_inputs));
+  ZETASQL_ASSIGN_OR_RETURN(
+      ResolvedColumnList final_column_list,
+      BuildColumnLists(column_type_lists, *resolved_inputs.front().name_list));
 
-  const IdString op_type_str = MakeIdString(
-      absl::StrCat("$", absl::AsciiStrToLower(ReplaceFirst(
-                            set_operation->GetSQLForOperation(),
-                            " " /* old_sub */, "_" /* new_sub */))));
+  std::vector<std::unique_ptr<ResolvedSetOperationItem>>
+      resolved_input_set_op_items;
+  resolved_input_set_op_items.reserve(resolved_inputs.size());
+  for (ResolvedInputResult& result : resolved_inputs) {
+    resolved_input_set_op_items.push_back(std::move(result.node));
+  }
 
+  ZETASQL_RETURN_IF_ERROR(CreateWrapperScansWithCasts(final_column_list,
+                                              &resolved_input_set_op_items));
+  auto set_op_scan = MakeResolvedSetOperationScan(
+      final_column_list, op_type, std::move(resolved_input_set_op_items));
+
+  // Resolve the ResolvedOption (Query Hint), if present.
+  if (set_operation_->hint() != nullptr) {
+    std::vector<std::unique_ptr<const ResolvedOption>> hint_list;
+    ZETASQL_RETURN_IF_ERROR(
+        resolver_->ResolveHintAndAppend(set_operation_->hint(), &hint_list));
+    set_op_scan->set_hint_list(std::move(hint_list));
+  }
+
+  *output = std::move(set_op_scan);
+  ZETASQL_ASSIGN_OR_RETURN(*output_name_list,
+                   BuildFinalNameList(*resolved_inputs.front().name_list,
+                                      final_column_list));
+  return absl::OkStatus();
+}
+
+zetasql_base::StatusOr<Resolver::SetOperationResolver::ResolvedInputResult>
+Resolver::SetOperationResolver::ResolveInputQuery(const NameScope* scope,
+                                                  int query_index) const {
+  ZETASQL_RET_CHECK_GE(query_index, 0);
+  ZETASQL_RET_CHECK_LT(query_index, set_operation_->inputs().size());
+  const IdString query_alias = resolver_->MakeIdString(
+      absl::StrCat(op_type_str_.ToStringView(), query_index + 1));
+
+  ResolvedInputResult result;
+  std::unique_ptr<const ResolvedScan> resolved_scan;
+  ZETASQL_RETURN_IF_ERROR(resolver_->ResolveQueryExpression(
+      set_operation_->inputs()[query_index], scope, query_alias, &resolved_scan,
+      &result.name_list));
+
+  result.node = MakeResolvedSetOperationItem(
+      std::move(resolved_scan), result.name_list->GetResolvedColumns());
+  return result;
+}
+
+zetasql_base::StatusOr<std::vector<std::vector<InputArgumentType>>>
+Resolver::SetOperationResolver::BuildColumnTypeLists(
+    const std::vector<ResolvedInputResult>& resolved_inputs) const {
+  std::vector<std::vector<InputArgumentType>> column_type_lists;
+  column_type_lists.resize(resolved_inputs.front().name_list->num_columns());
   // Resolve all the input scans, and collect <column_type_lists>.
-  for (int idx = 0; idx < set_operation->inputs().size(); ++idx) {
-    const ASTQueryExpression* query_expr = set_operation->inputs()[idx];
-    const IdString query_alias =
-        MakeIdString(absl::StrCat(op_type_str.ToStringView(), idx + 1));
+  for (int idx = 0; idx < resolved_inputs.size(); ++idx) {
+    const ResolvedScan* resolved_scan = resolved_inputs[idx].node->scan();
+    const NameList& curr_name_list = *resolved_inputs.at(idx).name_list;
 
-    std::unique_ptr<const ResolvedScan> resolved_scan;
-    std::shared_ptr<const NameList> name_list;
-    ZETASQL_RETURN_IF_ERROR(ResolveQueryExpression(
-        query_expr, scope, query_alias, &resolved_scan, &name_list));
-
-    if (idx == 0) {  // First query in the set operation.
-      first_subquery_name_list = name_list;
-      column_type_lists.resize(name_list->num_columns());
-    }
-
-    const auto& FormatColumnCount = [](const NameList& name_list) {
-      return name_list.is_value_table()
-                 ? std::string(" is value table with 1 column")
-                 : absl::StrCat(" has ", name_list.num_columns(), " column",
-                                (name_list.num_columns() == 1 ? "" : "s"));
-    };
-
-    if (name_list->num_columns() != column_type_lists.size()) {
-      return MakeSqlErrorAt(query_expr)
-             << "Queries in " << set_operation->GetSQLForOperation()
+    if (curr_name_list.num_columns() != column_type_lists.size()) {
+      return MakeSqlErrorAt(set_operation_->inputs()[idx])
+             << "Queries in " << set_operation_->GetSQLForOperation()
              << " have mismatched column count; query 1"
-             << FormatColumnCount(*first_subquery_name_list) << ", query "
-             << (idx + 1) << FormatColumnCount(*name_list);
+             << FormatColumnCount(*resolved_inputs.front().name_list)
+             << ", query " << (idx + 1)
+             << FormatColumnCount(curr_name_list);
     }
 
     // Construct an InputArgumentType for each column in the name_list,
     // including literal values when present.
-    for (int i = 0; i < name_list->num_columns(); ++i) {
-      const ResolvedColumn& column = name_list->column(i).column;
+    for (int i = 0; i < curr_name_list.num_columns(); ++i) {
+      const ResolvedColumn& column = curr_name_list.column(i).column;
 
       // If this column was computed, find the expr that computed it.
       // If the computed expr was a literal, include the literal value.
@@ -3361,30 +3479,26 @@ absl::Status Resolver::ResolveSetOperation(
         column_type_lists[i].emplace_back(InputArgumentType(column.type()));
       }
     }
-
-    // The output_column_list is created from the scan's NameList.
-    // The types may not match yet - we will add a ProjectScan and create new
-    // columns if needed later.
-    resolved_inputs.push_back(MakeResolvedSetOperationItem(
-        std::move(resolved_scan), name_list->GetResolvedColumns()));
   }
+  return column_type_lists;
+}
 
-  ResolvedSetOperationScan::SetOperationType op_type;
-  ZETASQL_RETURN_IF_ERROR(GetSetScanEnumType(set_operation, &op_type));
+zetasql_base::StatusOr<ResolvedColumnList>
+Resolver::SetOperationResolver::BuildColumnLists(
+    const std::vector<std::vector<InputArgumentType>>& column_type_lists,
+    const NameList& first_item_name_list) const {
+  ResolvedColumnList column_list;
 
   // Compute common supertypes and final column_list names for the set
   // operation.
-  ResolvedColumnList column_list;
-  std::shared_ptr<NameList> name_list(new NameList);
   for (int i = 0; i < column_type_lists.size(); ++i) {
-    const std::vector<InputArgumentType>& type_list = column_type_lists[i];
-    const ASTNode* ast_input_location = set_operation->inputs()[1];
+    const ASTNode* ast_input_location = set_operation_->inputs()[1];
 
     InputArgumentTypeSet type_set;
-    for (const InputArgumentType& type : type_list) {
+    for (const InputArgumentType& type : column_type_lists[i]) {
       type_set.Insert(type);
     }
-    const Type* supertype = coercer_.GetCommonSuperType(type_set);
+    const Type* supertype = resolver_->coercer_.GetCommonSuperType(type_set);
     if (supertype == nullptr) {
       // We location in set_operation points at the start of the first query,
       // because of how the grammar is expressed, I think.
@@ -3392,70 +3506,85 @@ absl::Status Resolver::ResolveSetOperation(
       // set operation keyword, at least.
       return MakeSqlErrorAt(ast_input_location)
              << "Column " << (i + 1) << " in "
-             << set_operation->GetSQLForOperation()
+             << set_operation_->GetSQLForOperation()
              << " has incompatible types: "
-             << InputArgumentType::ArgumentsToString(type_list);
+             << InputArgumentType::ArgumentsToString(column_type_lists[i]);
     }
 
     std::string no_grouping_type;
-    if (op_type != ResolvedSetOperationScan::UNION_ALL &&
-        !TypeSupportsGrouping(supertype, &no_grouping_type)) {
+    bool column_types_must_support_grouping =
+        set_operation_->op_type() != ASTSetOperation::UNION ||
+        set_operation_->distinct();
+    if (column_types_must_support_grouping &&
+        !resolver_->TypeSupportsGrouping(supertype, &no_grouping_type)) {
       return MakeSqlErrorAt(ast_input_location)
              << "Column " << (i + 1) << " in "
-             << set_operation->GetSQLForOperation()
+             << set_operation_->GetSQLForOperation()
              << " has type that does not support set operation comparisons: "
              << no_grouping_type;
     }
 
-    const NamedColumn& first_subquery_named_column =
-        first_subquery_name_list->column(i);
-    const IdString name = first_subquery_named_column.name;
-
-    column_list.push_back(ResolvedColumn(
-        AllocateColumnId(), op_type_str, name, supertype));
-
-    ZETASQL_RETURN_IF_ERROR(name_list->AddColumn(
-        name, column_list.back(), first_subquery_named_column.is_explicit));
-
-    // All columns in set operations must stay referenced because we rely on
-    // the input and output column_lists matching position-wise.
-    RecordColumnAccess(column_list.back());
-  }
-  if (first_subquery_name_list->is_value_table()) {
-    ZETASQL_RET_CHECK_EQ(name_list->num_columns(), 1);
-    name_list->set_is_value_table(true);
+    const IdString name = first_item_name_list.column(i).name;
+    column_list.push_back(ResolvedColumn(resolver_->AllocateColumnId(),
+                                         op_type_str_, name, supertype));
+    resolver_->RecordColumnAccess(column_list.back());
   }
 
-  // For each input scan, if any of the columns needs a cast, add a wrapper
-  // scan to do the casting.
-  ZETASQL_RET_CHECK_EQ(resolved_inputs.size(), set_operation->inputs().size());
-  for (int idx = 0; idx < resolved_inputs.size(); ++idx) {
-    ResolvedSetOperationItem* input = resolved_inputs[idx].get();
+  return column_list;
+}
+
+  // Modifies <resolved_inputs>, adding a cast if necessary to convert each
+  // column to the respective overall column type of the set operation.
+absl::Status Resolver::SetOperationResolver::CreateWrapperScansWithCasts(
+    const ResolvedColumnList& column_list,
+    std::vector<std::unique_ptr<ResolvedSetOperationItem>>* resolved_inputs) {
+  ZETASQL_RET_CHECK_EQ(resolved_inputs->size(), set_operation_->inputs().size());
+  for (int idx = 0; idx < resolved_inputs->size(); ++idx) {
+    ResolvedSetOperationItem* input = resolved_inputs->at(idx).get();
 
     std::unique_ptr<const ResolvedScan> resolved_scan = input->release_scan();
 
-    ZETASQL_RETURN_IF_ERROR(CreateWrapperScanWithCasts(
-        set_operation->inputs()[idx], column_list,
-        MakeIdString(
-            absl::StrCat(op_type_str.ToStringView(), idx + 1, "_cast")),
+    ZETASQL_RETURN_IF_ERROR(resolver_->CreateWrapperScanWithCasts(
+        set_operation_->inputs()[idx], column_list,
+        resolver_->MakeIdString(
+            absl::StrCat(op_type_str_.ToStringView(), idx + 1, "_cast")),
         &resolved_scan, input->mutable_output_column_list()));
 
     input->set_scan(std::move(resolved_scan));
   }
+  return absl::OkStatus();
+}
 
-  auto set_op_scan = MakeResolvedSetOperationScan(column_list, op_type,
-                                                  std::move(resolved_inputs));
-
-  // Resolve the ResolvedOption (Query Hint), if present.
-  if (set_operation->hint() != nullptr) {
-    std::vector<std::unique_ptr<const ResolvedOption>> hint_list;
-    ZETASQL_RETURN_IF_ERROR(ResolveHintAndAppend(set_operation->hint(), &hint_list));
-    set_op_scan->set_hint_list(std::move(hint_list));
+zetasql_base::StatusOr<std::shared_ptr<const NameList>>
+Resolver::SetOperationResolver::BuildFinalNameList(
+    const NameList& first_item_name_list,
+    const ResolvedColumnList& final_column_list) const {
+  std::shared_ptr<NameList> name_list(new NameList);
+  // The first subquery determines the name and explicit attribute of each
+  // column, as well as whether the result is a value table.
+  for (int i = 0; i < final_column_list.size(); ++i) {
+    const IdString name = first_item_name_list.column(i).name;
+    ZETASQL_RETURN_IF_ERROR(
+        name_list->AddColumn(name, final_column_list.at(i),
+                             first_item_name_list.column(i).is_explicit));
   }
 
-  *output = std::move(set_op_scan);
-  *output_name_list = name_list;
-  return absl::OkStatus();
+  if (first_item_name_list.is_value_table()) {
+    ZETASQL_RET_CHECK_EQ(name_list->num_columns(), 1);
+    name_list->set_is_value_table(true);
+  }
+  return name_list;
+}
+
+// Note that we allow set operations between value tables and regular
+// tables with exactly one column.  The output will be a value table if
+// the first subquery was a value table.
+absl::Status Resolver::ResolveSetOperation(
+    const ASTSetOperation* set_operation, const NameScope* scope,
+    std::unique_ptr<const ResolvedScan>* output,
+    std::shared_ptr<const NameList>* output_name_list) {
+  SetOperationResolver resolver(set_operation, this);
+  return resolver.Resolve(scope, output, output_name_list);
 }
 
 absl::Status Resolver::ValidateIntegerParameterOrLiteral(
@@ -3939,17 +4068,14 @@ absl::Status Resolver::ResolveTablePathExpression(
 
   std::shared_ptr<const NameList> name_list;
   std::unique_ptr<const ResolvedScan> this_scan;
-  if (path_expr->num_names() == 1 &&
-      zetasql_base::ContainsKey(with_subquery_map_,
-                       path_expr->first_name()->GetAsIdString())) {
+  if (named_subquery_map_.contains(path_expr->ToIdStringVector())) {
     if (for_system_time != nullptr) {
       return MakeSqlErrorAt(for_system_time) << "FOR SYSTEM_TIME AS OF cannot "
                                                 "be used with tables defined "
                                                 "in WITH clause";
     }
-    ZETASQL_RETURN_IF_ERROR(ResolveWithSubqueryRef(
-        table_ref->path_expr()->first_name(), table_ref->hint(), &this_scan,
-        &name_list));
+    ZETASQL_RETURN_IF_ERROR(ResolveNamedSubqueryRef(path_expr, table_ref->hint(),
+                                            &this_scan, &name_list));
 
     if (name_list->is_value_table()) {
       ZETASQL_RETURN_IF_ERROR(ConvertValueTableNameListToNameListWithValueTable(
@@ -4243,18 +4369,14 @@ absl::Status Resolver::ResolveTablesampleClause(
 // There's not much resolving left to do here.  We already know we have
 // an identifier that matches a WITH subquery alias, so we build the
 // ResolvedWithRefScan.
-absl::Status Resolver::ResolveWithSubqueryRef(
-    const ASTIdentifier* with_table_name,
-    const ASTHint* hint,
+absl::Status Resolver::ResolveNamedSubqueryRef(
+    const ASTPathExpression* table_path, const ASTHint* hint,
     std::unique_ptr<const ResolvedScan>* output,
     std::shared_ptr<const NameList>* output_name_list) {
-  ZETASQL_RET_CHECK(with_table_name != nullptr);
-
-  const std::unique_ptr<WithSubqueryInfo>* with_subquery_info_ptr =
-      zetasql_base::FindOrNull(with_subquery_map_,
-                      with_table_name->GetAsIdString());
-  ZETASQL_RET_CHECK(with_subquery_info_ptr != nullptr);
-  const WithSubqueryInfo& with_subquery_info = **with_subquery_info_ptr;
+  ZETASQL_RET_CHECK(table_path != nullptr);
+  auto it = named_subquery_map_.find(table_path->ToIdStringVector());
+  ZETASQL_RET_CHECK(it != named_subquery_map_.end() && !it->second.empty());
+  const NamedSubquery& named_subquery = *it->second.back();
 
   // For each new column produced in the WithRefScan, we want to name it
   // using the WITH alias, not the original column name.  e.g. In
@@ -4263,8 +4385,7 @@ absl::Status Resolver::ResolveWithSubqueryRef(
   // we want to call the new column Q.K, not Q.Key.  Since the column_list
   // may not map 1:1 with select-list column names, we need to build a map.
   std::map<ResolvedColumn, IdString> with_column_to_alias;
-  for (const NamedColumn& named_column :
-       with_subquery_info.name_list->columns()) {
+  for (const NamedColumn& named_column : named_subquery.name_list->columns()) {
     zetasql_base::InsertIfNotPresent(&with_column_to_alias, named_column.column,
                             named_column.name);
   }
@@ -4274,8 +4395,8 @@ absl::Status Resolver::ResolveWithSubqueryRef(
   // we get distinct column names for each scan.
   ResolvedColumnList column_list;
   std::map<ResolvedColumn, ResolvedColumn> old_column_to_new_column;
-  for (int i = 0; i < with_subquery_info.column_list.size(); ++i) {
-    const ResolvedColumn& column = with_subquery_info.column_list[i];
+  for (int i = 0; i < named_subquery.column_list.size(); ++i) {
+    const ResolvedColumn& column = named_subquery.column_list[i];
 
     // Get the alias for the column produced by the WITH reference,
     // using the first alias for that column in the WITH subquery.
@@ -4286,9 +4407,9 @@ absl::Status Resolver::ResolveWithSubqueryRef(
     ZETASQL_RET_CHECK(found != nullptr) << column.DebugString();
     new_column_alias = *found;
 
-    column_list.emplace_back(
-        ResolvedColumn(AllocateColumnId(), with_subquery_info.unique_alias,
-                       new_column_alias, column.type()));
+    column_list.emplace_back(ResolvedColumn(AllocateColumnId(),
+                                            named_subquery.unique_alias,
+                                            new_column_alias, column.type()));
     // Build mapping from WITH subquery column to the newly created column
     // for the WITH reference.
     old_column_to_new_column[column] = column_list.back();
@@ -4299,8 +4420,7 @@ absl::Status Resolver::ResolveWithSubqueryRef(
 
   // Make a new NameList pointing at the new ResolvedColumns.
   std::shared_ptr<NameList> name_list(new NameList);
-  for (const NamedColumn& named_column :
-           with_subquery_info.name_list->columns()) {
+  for (const NamedColumn& named_column : named_subquery.name_list->columns()) {
     const ResolvedColumn& old_column = named_column.column;
     ZETASQL_RET_CHECK(zetasql_base::ContainsKey(old_column_to_new_column, old_column));
     const ResolvedColumn& new_column =
@@ -4308,13 +4428,13 @@ absl::Status Resolver::ResolveWithSubqueryRef(
     ZETASQL_RETURN_IF_ERROR(name_list->AddColumn(
         named_column.name, new_column, named_column.is_explicit));
   }
-  if (with_subquery_info.name_list->is_value_table()) {
+  if (named_subquery.name_list->is_value_table()) {
     ZETASQL_RET_CHECK_EQ(name_list->num_columns(), 1);
     name_list->set_is_value_table(true);
   }
 
   std::unique_ptr<ResolvedWithRefScan> with_ref_scan = MakeResolvedWithRefScan(
-      column_list, with_subquery_info.unique_alias.ToString());
+      column_list, named_subquery.unique_alias.ToString());
   ZETASQL_RETURN_IF_ERROR(ResolveHintsForNode(hint, with_ref_scan.get()));
 
   *output = std::move(with_ref_scan);
@@ -4370,8 +4490,11 @@ absl::Status Resolver::ResolveColumnInUsing(
       // We have an implicit field access.  Make the ResolvedColumnRef for
       // the column and then resolve the field access on top.
       std::unique_ptr<const ResolvedExpr> resolved_get_field;
+      // We don't auto-flatten for USING. It could make for matches that look
+      // the same but come from different structure which would be weird.
+      bool can_flatten = false;
       ZETASQL_RETURN_IF_ERROR(ResolveFieldAccess(
-          MakeColumnRef(found_name.column_containing_field()),
+          can_flatten, MakeColumnRef(found_name.column_containing_field()),
           ast_identifier, &resolved_get_field));
 
       // Then create a new ResolvedColumn to store this result.
@@ -5320,13 +5443,11 @@ zetasql_base::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
       // WITH clause entry, one of the table arguments to the TVF, or a table
       // from the <catalog_>.
       const ASTPathExpression* table_path = ast_table_clause->table_path();
-      if (table_path->num_names() == 1 &&
-          zetasql_base::ContainsKey(with_subquery_map_,
-                           table_path->first_name()->GetAsIdString())) {
+      if (named_subquery_map_.contains(table_path->ToIdStringVector())) {
         std::unique_ptr<const ResolvedScan> scan;
         std::shared_ptr<const NameList> name_list;
-        ZETASQL_RETURN_IF_ERROR(ResolveWithSubqueryRef(
-            table_path->first_name(), /*hint=*/nullptr, &scan, &name_list));
+        ZETASQL_RETURN_IF_ERROR(ResolveNamedSubqueryRef(table_path, /*hint=*/nullptr,
+                                                &scan, &name_list));
         const auto column_list = scan->column_list();
         resolved_tvf_arg.SetScan(
             MakeResolvedProjectScan(column_list, {}, std::move(scan)),
@@ -5752,6 +5873,10 @@ absl::Status Resolver::ResolveArrayScan(
     }
 
     ExprResolutionInfo no_aggregation(scope, "FROM clause");
+    if (language().LanguageFeatureEnabled(
+            FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS)) {
+      no_aggregation.can_flatten = true;
+    }
 
     // Now we know we have an identifier path starting with a scan.
     // Resolve that with ResolvePathExpr to expand proto field accesses.
@@ -5770,8 +5895,13 @@ absl::Status Resolver::ResolveArrayScan(
     ZETASQL_RET_CHECK(table_ref->unnest_expr() != nullptr);
     const ASTUnnestExpression* unnest = table_ref->unnest_expr();
 
-    const absl::Status resolve_expr_status = ResolveScalarExpr(
-        unnest->expression(), scope, "UNNEST", &resolved_value_expr);
+    ExprResolutionInfo info(scope, "UNNEST");
+    if (language().LanguageFeatureEnabled(
+            FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS)) {
+      info.can_flatten = true;
+    }
+    const absl::Status resolve_expr_status = ResolveExpr(
+        unnest->expression(), &info, &resolved_value_expr);
 
     // If resolving the expression failed, and it looked like a valid table
     // name, then give a more helpful error message.
@@ -6103,6 +6233,19 @@ absl::Status Resolver::ResolveConnection(
   return absl::OkStatus();
 }
 
+bool Resolver::IsPathExpressionStartingFromNamedSubquery(
+    const ASTPathExpression* path_expr) {
+  std::vector<IdString> path;
+  path.reserve(path_expr->num_names() - 1);
+  for (int i = 0; i < path_expr->num_names() - 1; ++i) {
+    path.push_back(path_expr->names().at(i)->GetAsIdString());
+    if (named_subquery_map_.contains(path)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 absl::Status Resolver::ResolvePathExpressionAsTableScan(
     const ASTPathExpression* path_expr, IdString alias, bool has_explicit_alias,
     const ASTNode* alias_location, const ASTHint* hints,
@@ -6140,9 +6283,7 @@ absl::Status Resolver::ResolvePathExpressionAsTableScan(
           "as tables. Identifier ",
           ToIdentifierLiteral(path_expr->first_name()->GetAsIdString()),
           " is in scope but unqualified names cannot be resolved here.)");
-    } else if (path_expr->num_names() > 1 &&
-               zetasql_base::ContainsKey(with_subquery_map_,
-                                path_expr->first_name()->GetAsIdString())) {
+    } else if (IsPathExpressionStartingFromNamedSubquery(path_expr)) {
       absl::StrAppend(
           &error_message,
           "; Table name ", path_expr->ToIdentifierPathString(),

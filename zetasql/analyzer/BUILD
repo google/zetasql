@@ -18,6 +18,45 @@ package(
 )
 
 cc_library(
+    name = "container_hash_equals",
+    hdrs = ["container_hash_equals.h"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
+    deps = [
+        "@com_google_absl//absl/hash",
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_test(
+    name = "container_hash_equals_test",
+    srcs = ["container_hash_equals_test.cc"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
+    deps = [
+        ":container_hash_equals",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base:map_util",
+        "//zetasql/public:id_string",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
     name = "analyzer",
     srcs = [
         "analytic_function_resolver.cc",
@@ -28,6 +67,8 @@ cc_library(
         "literal_remover.cc",
         "name_scope.cc",
         "query_resolver_helper.cc",
+        "recursive_queries.cc",
+        "recursive_queries.h",
         "resolver.cc",
         "resolver_alter_stmt.cc",
         "resolver_common_inl.h",
@@ -48,8 +89,16 @@ cc_library(
         "table_name_resolver.h",
         "//zetasql/public:analyzer.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
+        ":container_hash_equals",
         "//zetasql/base",
         "//zetasql/base:cleanup",
         "//zetasql/base:general_trie",
@@ -59,6 +108,7 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/base:statusor",
         "//zetasql/base:string_numbers",
+        "//zetasql/base:varsetter",
         "//zetasql/common:errors",
         "//zetasql/common:status_payload_utils",
         "//zetasql/common:string_util",
@@ -109,6 +159,7 @@ cc_library(
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/hash",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
@@ -124,7 +175,14 @@ cc_test(
     name = "resolver_test",
     size = "small",
     srcs = ["resolver_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":analyzer",
         "@com_google_googletest//:gtest_main",
@@ -137,6 +195,7 @@ cc_test(
         "//zetasql/testdata:sample_catalog",
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -145,7 +204,14 @@ cc_test(
     name = "analyzer_test",
     size = "small",
     srcs = ["analyzer_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     data = [
         "//zetasql/testdata:external_extension.proto",
         "//zetasql/testdata:test_schema_proto",
@@ -174,6 +240,7 @@ cc_test(
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/container:node_hash_set",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf",
     ],

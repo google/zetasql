@@ -43,7 +43,6 @@
 #include "absl/status/status.h"
 #include "zetasql/base/logging.h"
 #include "zetasql/base/source_location.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 

@@ -64,34 +64,34 @@ static const auto DEFAULT_ERROR_MODE =
 class AlgebrizerTestBase : public ::testing::Test {
  public:
   // Argument to ResolvedColumnRef constructor to make it non-correlated.
-  static const bool kNonCorrelated = false;
+  static constexpr bool kNonCorrelated = false;
 
-  static const int kTotalColumns = 7;
+  static constexpr int kTotalColumns = 7;
   // Indexes into an array of columns of the table table_all_types.
-  static const int kInvalidColIdx = -1;
-  static const int kInt32ColIdx = 0;
-  static const int kUint32ColIdx = 1;
-  static const int kInt64ColIdx = 2;
-  static const int kUint64ColIdx = 3;
-  static const int kStringColIdx = 4;
-  static const int kBoolColIdx = 5;
-  static const int kDoubleColIdx = 6;
+  static constexpr int kInvalidColIdx = -1;
+  static constexpr int kInt32ColIdx = 0;
+  static constexpr int kUint32ColIdx = 1;
+  static constexpr int kInt64ColIdx = 2;
+  static constexpr int kUint64ColIdx = 3;
+  static constexpr int kStringColIdx = 4;
+  static constexpr int kBoolColIdx = 5;
+  static constexpr int kDoubleColIdx = 6;
   // Column ids for table table_all_types.
-  static const int kInt32ColId = kInt32ColIdx + 1;
-  static const int kUint32ColId = kUint32ColIdx + 1;
-  static const int kInt64ColId = kInt64ColIdx + 1;
-  static const int kUint64ColId = kUint64ColIdx + 1;
-  static const int kStringColId = kStringColIdx + 1;
-  static const int kBoolColId = kBoolColIdx + 1;
-  static const int kDoubleColId = kDoubleColIdx + 1;
+  static constexpr int kInt32ColId = kInt32ColIdx + 1;
+  static constexpr int kUint32ColId = kUint32ColIdx + 1;
+  static constexpr int kInt64ColId = kInt64ColIdx + 1;
+  static constexpr int kUint64ColId = kUint64ColIdx + 1;
+  static constexpr int kStringColId = kStringColIdx + 1;
+  static constexpr int kBoolColId = kBoolColIdx + 1;
+  static constexpr int kDoubleColId = kDoubleColIdx + 1;
   // Column ids for table table_all_types_2.
-  static const int kInt32ColId2 = kInt32ColId + kTotalColumns;
-  static const int kUint32ColId2 = kUint32ColId + kTotalColumns;
-  static const int kInt64ColId2 = kInt64ColId + kTotalColumns;
-  static const int kUint64ColId2 = kUint64ColId + kTotalColumns;
-  static const int kStringColId2 = kStringColId + kTotalColumns;
-  static const int kBoolColId2 = kBoolColId + kTotalColumns;
-  static const int kDoubleColId2 = kDoubleColId + kTotalColumns;
+  static constexpr int kInt32ColId2 = kInt32ColId + kTotalColumns;
+  static constexpr int kUint32ColId2 = kUint32ColId + kTotalColumns;
+  static constexpr int kInt64ColId2 = kInt64ColId + kTotalColumns;
+  static constexpr int kUint64ColId2 = kUint64ColId + kTotalColumns;
+  static constexpr int kStringColId2 = kStringColId + kTotalColumns;
+  static constexpr int kBoolColId2 = kBoolColId + kTotalColumns;
+  static constexpr int kDoubleColId2 = kDoubleColId + kTotalColumns;
 
   zetasql_base::StatusOr<std::unique_ptr<const ValueExpr>>
   TestAlgebrizeExpressionInternal(

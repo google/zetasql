@@ -33,8 +33,9 @@ class InternalValue {
   using OrderPreservationKind = Value::OrderPreservationKind;
   using ProtoRep = internal::ProtoRep;
 
-  static const OrderPreservationKind kPreservesOrder = Value::kPreservesOrder;
-  static const OrderPreservationKind kIgnoresOrder = Value::kIgnoresOrder;
+  static constexpr OrderPreservationKind kPreservesOrder =
+      Value::kPreservesOrder;
+  static constexpr OrderPreservationKind kIgnoresOrder = Value::kIgnoresOrder;
 
   // Access the private accessor for order_kind.
   static OrderPreservationKind order_kind(const Value& v) {

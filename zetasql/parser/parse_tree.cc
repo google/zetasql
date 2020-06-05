@@ -60,6 +60,8 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_ALTER_DATABASE_STATEMENT] = "AlterDatabaseStatement";
   map[AST_ALTER_MATERIALIZED_VIEW_STATEMENT] = "AlterMaterializedViewStatement";
   map[AST_ALTER_ROW_ACCESS_POLICY_STATEMENT] = "AlterRowAccessPolicyStatement";
+  map[AST_ALTER_ALL_ROW_ACCESS_POLICIES_STATEMENT] =
+      "AlterAllRowAccessPoliciesStatement";
   map[AST_ALTER_TABLE_STATEMENT] = "AlterTableStatement";
   map[AST_ALTER_VIEW_STATEMENT] = "AlterViewStatement";
   map[AST_ANALYTIC_FUNCTION_CALL] = "AnalyticFunctionCall";
@@ -197,6 +199,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_NULL_ORDER] = "NullOrder";
   map[AST_NUMERIC_LITERAL] = "NumericLiteral";
   map[AST_ON_CLAUSE] = "OnClause";
+  map[AST_ON_OR_USING_CLAUSE_LIST] = "OnOrUsingClauseList";
   map[AST_OPTIONS_ENTRY] = "OptionsEntry";
   map[AST_OPTIONS_LIST] = "OptionsList";
   map[AST_ORDER_BY] = "OrderBy";
@@ -752,6 +755,15 @@ std::vector<std::string> ASTPathExpression::ToIdentifierVector() const {
   return ret;
 }
 
+std::vector<IdString> ASTPathExpression::ToIdStringVector() const {
+  std::vector<IdString> ret;
+  ret.reserve(names_.size());
+  for (const ASTIdentifier* name : names_) {
+    ret.push_back(name->GetAsIdString());
+  }
+  return ret;
+}
+
 std::string ASTParameterExpr::SingleNodeDebugString() const {
   if (name() != nullptr) {
     return ASTNode::SingleNodeDebugString();
@@ -851,28 +863,33 @@ std::string ASTDateOrTimeLiteral::SingleNodeDebugString() const {
   return absl::StrCat("DateOrTimeLiteral(", TypeKind_Name(type_kind_), ")");
 }
 
-std::string ASTCreateStatement::SingleNodeDebugString() const {
-  std::vector<std::string> modifiers;
+void ASTCreateStatement::CollectModifiers(
+    std::vector<std::string>* modifiers) const {
   switch (scope_) {
     case ASTCreateStatement::PRIVATE:
-      modifiers.push_back("is_private");
+      modifiers->push_back("is_private");
       break;
     case ASTCreateStatement::PUBLIC:
-      modifiers.push_back("is_public");
+      modifiers->push_back("is_public");
       break;
     case ASTCreateStatement::TEMPORARY:
-      modifiers.push_back("is_temp");
+      modifiers->push_back("is_temp");
       break;
     case ASTCreateStatement::DEFAULT_SCOPE:
       break;
   }
 
   if (is_or_replace_) {
-    modifiers.push_back("is_or_replace");
+    modifiers->push_back("is_or_replace");
   }
   if (is_if_not_exists_) {
-    modifiers.push_back("is_if_not_exists");
+    modifiers->push_back("is_if_not_exists");
   }
+}
+
+std::string ASTCreateStatement::SingleNodeDebugString() const {
+  std::vector<std::string> modifiers;
+  CollectModifiers(&modifiers);
   if (modifiers.empty()) {
     return ASTNode::SingleNodeDebugString();
   } else {
@@ -986,13 +1003,15 @@ std::string ASTCreateFunctionStmtBase::GetSqlForDeterminismLevel() const {
   return SqlForDeterminismLevel(determinism_level());
 }
 
-std::string ASTCreateViewStatementBase::SingleNodeDebugString() const {
-  std::string security_str =
-      sql_security() != SQL_SECURITY_UNSPECIFIED
-          ? absl::StrCat("(", GetSqlForSqlSecurity(), ")")
-          : "";
-  return absl::StrCat(ASTCreateStatement::SingleNodeDebugString(),
-                      security_str);
+void ASTCreateViewStatementBase::CollectModifiers(
+    std::vector<std::string>* modifiers) const {
+  ASTCreateStatement::CollectModifiers(modifiers);
+  if (sql_security() != SQL_SECURITY_UNSPECIFIED) {
+    modifiers->push_back(GetSqlForSqlSecurity());
+  }
+  if (recursive_) {
+    modifiers->push_back("recursive");
+  }
 }
 
 std::string ASTCreateViewStatementBase::GetSqlForSqlSecurity() const {

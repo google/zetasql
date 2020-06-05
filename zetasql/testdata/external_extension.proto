@@ -22,10 +22,15 @@ syntax = "proto2";
 
 package zetasql_test;
 
+import "google/protobuf/descriptor.proto";
 import "zetasql/testdata/test_schema.proto";
 
 message ExternalExtension {
   extend TestExtraPB {
     optional ExternalExtension field = 10323131;
   }
+}
+
+extend google.protobuf.EnumValueOptions {
+  optional int32 external_top_level_ext = 254852986;
 }

@@ -241,6 +241,12 @@ absl::Status Catalog::FindConstant(const absl::Span<const std::string> path,
   return absl::OkStatus();
 }
 
+absl::Status Catalog::FindConversion(const Type* from_type, const Type* to_type,
+                                     const FindConversionOptions& options,
+                                     Conversion* conversion) {
+  return ConversionNotFoundError(from_type, to_type, options);
+}
+
 absl::Status Catalog::FindConstantWithPathPrefix(
     const absl::Span<const std::string> path, int* num_names_consumed,
     const Constant** constant, const FindOptions& options) {
@@ -496,6 +502,16 @@ absl::Status Catalog::TypeNotFoundError(
 absl::Status Catalog::ConstantNotFoundError(
     const absl::Span<const std::string> path) const {
   return GenericNotFoundError("Constant", path);
+}
+
+absl::Status Catalog::ConversionNotFoundError(
+    const Type* from, const Type* to,
+    const FindConversionOptions& options) const {
+  return zetasql_base::NotFoundErrorBuilder()
+         << (options.is_explicit() ? "Cast" : "Coercion") << " from type "
+         << from->TypeName(options.product_mode()) << " to type "
+         << to->TypeName(options.product_mode()) << " not found in catalog "
+         << FullName();
 }
 
 absl::Status Catalog::EmptyNamePathInternalError(

@@ -297,5 +297,63 @@ bool Pow(NumericValue in1, NumericValue in2, NumericValue* out,
   return true;
 }
 
+template <>
+bool Ceil(BigNumericValue in, BigNumericValue* out, absl::Status* error) {
+  auto status_or_numeric = in.Ceiling();
+  if (!status_or_numeric.ok()) {
+    return internal::SetFloatingPointOverflow(
+        absl::StrCat("CEIL(", in.ToString(), ")"), error);
+  }
+  *out = status_or_numeric.value();
+  return true;
+}
+
+template <>
+bool Floor(BigNumericValue in, BigNumericValue* out, absl::Status* error) {
+  auto status_or_numeric = in.Floor();
+  if (!status_or_numeric.ok()) {
+    return internal::SetFloatingPointOverflow(
+        absl::StrCat("FLOOR(", in.ToString(), ")"), error);
+  }
+  *out = status_or_numeric.value();
+  return true;
+}
+
+template <>
+bool Round(BigNumericValue in, BigNumericValue* out, absl::Status* error) {
+  auto status_or_numeric = in.Round(0);
+  if (!status_or_numeric.ok()) {
+    return internal::SetFloatingPointOverflow(
+        absl::StrCat("ROUND(", in.ToString(), ")"), error);
+  }
+  *out = status_or_numeric.value();
+  return true;
+}
+
+template <>
+bool RoundDecimal(BigNumericValue in, int64_t digits, BigNumericValue* out,
+                  absl::Status* error) {
+  auto status_or_numeric = in.Round(digits);
+  if (!status_or_numeric.ok()) {
+    return internal::SetFloatingPointOverflow(
+        absl::StrCat("ROUND(", in.ToString(), ", ", digits, ")"), error);
+  }
+  *out = status_or_numeric.value();
+  return true;
+}
+
+template <>
+bool Trunc(BigNumericValue in, BigNumericValue* out, absl::Status* error) {
+  *out = in.Trunc(0);
+  return true;
+}
+
+template <>
+bool TruncDecimal(BigNumericValue in, int64_t digits, BigNumericValue* out,
+                  absl::Status* error) {
+  *out = in.Trunc(digits);
+  return true;
+}
+
 }  // namespace functions
 }  // namespace zetasql

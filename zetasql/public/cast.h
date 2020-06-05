@@ -17,6 +17,8 @@
 #ifndef ZETASQL_PUBLIC_CAST_H_
 #define ZETASQL_PUBLIC_CAST_H_
 
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
@@ -28,6 +30,7 @@
 
 namespace zetasql {
 
+class Function;
 class LanguageOptions;
 
 // Identifies the conditions where casting/coercion from type <A> to type <B>
@@ -59,6 +62,9 @@ bool SupportsExplicitCast(CastFunctionType type);
 struct CastFunctionProperty {
   CastFunctionProperty(CastFunctionType cast_type, int coercion_cost)
       : type(cast_type), cost(coercion_cost) {}
+
+  bool is_implicit() const { return type == CastFunctionType::IMPLICIT; }
+
   CastFunctionType type;
   int cost;  // Cost to cast from one type to another.
 };
@@ -113,6 +119,79 @@ inline zetasql_base::StatusOr<Value> CastStatusOrValue(
     const LanguageOptions& language_options, const Type* to_type) {
   return CastValue(from_value, default_timezone, language_options, to_type);
 }
+
+// Conversion describes a cast or coercion provided to the ZetaSQL resolver by
+// a Catalog. This includes a conversion function that implements a conversion.
+// Function should be able to accept a FunctionSignature of the following form:
+// {Type=from_type, num_occurrences=1} => to_type.
+// Conversion can be either stored in a catalog or catalog can dynamically
+// construct it based on a mapping from two specific types.
+class Conversion {
+ public:
+  Conversion(const Type* from_type, const Type* to_type,
+             const Function* function, const CastFunctionProperty& property);
+
+  // Explicitly copyable and assignable.
+  Conversion(const Conversion& other) = default;
+  Conversion& operator=(const Conversion& other) = default;
+
+  // Returns true, if the object represents a valid conversion and false if it
+  // was created using Conversion::Invalid().
+  bool is_valid() const {
+    return from_type_ != nullptr && to_type_ != nullptr && function_ != nullptr;
+  }
+
+  const Type* from_type() const { return from_type_; }
+  const Type* to_type() const { return to_type_; }
+  const CastFunctionProperty& cast_function_property() const {
+    return cast_function_property_;
+  }
+
+  // Returns the function that implements this conversion.
+  const Function* function() const { return function_; }
+
+  // Returns the signature for this conversion. Calling the Function above's
+  // FunctionEvaluatorFactory with this signature should provide an appropriate
+  // evaluator.
+  FunctionSignature function_signature() const {
+    return GetFunctionSignature(from_type_, to_type_);
+  }
+
+  // Checks whether conversion matches options used by Catalog API to search
+  // for conversions.
+  bool IsMatch(const Catalog::FindConversionOptions& options) const;
+
+  // Casts the given Value using conversion function. Requires Value's type to
+  // be from_type. If conversion succeeds the type of returned value will be
+  // to_type.
+  zetasql_base::StatusOr<Value> CastValue(const Value& from_value) const;
+
+  // Creates a conversion that is marked as invalid. Conversion is typically
+  // passed by value and "Invalid" can be used to designate an uninitialized
+  // conversion.
+  static Conversion Invalid() { return Conversion(); }
+
+  // Returns a signature that can be used with conversion function to execute a
+  // conversion from "from_type" to "to_type". The form of the signature is:
+  // {Type=from_type, num_occurrences=1} => to_type.
+  static FunctionSignature GetFunctionSignature(const Type* from_type,
+                                                const Type* to_type);
+
+ private:
+  // Constructs an 'invalid' conversion.
+  Conversion()
+      : from_type_(nullptr),
+        to_type_(nullptr),
+        function_(nullptr),
+        cast_function_property_(CastFunctionType::EXPLICIT, 0) {}
+
+  const Type* from_type_;  // Source type of conversion.
+  const Type* to_type_;    // Destination type of conversion.
+
+  const Function* function_;  // Function that implements a conversion.
+
+  CastFunctionProperty cast_function_property_;
+};
 
 }  // namespace zetasql
 

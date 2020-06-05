@@ -163,6 +163,14 @@ absl::Status CheckDatetimeAddSubDiffArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
+// This function returns a ZetaSQL ProtoType for
+// google::protobuf::EnumValueDescriptorProto, which is either from the <catalog> (if this
+// ProtoType is present) or newly created in the <type_factory>.
+zetasql_base::StatusOr<const Type*> GetOrMakeEnumValueDescriptorType(
+    Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle,
+    const std::vector<InputArgumentType>& arguments,
+    const AnalyzerOptions& analyzer_options);
+
 absl::Status CheckTimestampAddTimestampSubArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,

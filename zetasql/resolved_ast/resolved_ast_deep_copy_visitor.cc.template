@@ -116,7 +116,7 @@ ResolvedASTDeepCopyVisitor::CopyVisit{{node.name}}(
   // arg.
   copy.get()->set_column_index_list(node->column_index_list());
 
-   # elif not field.is_constructor_arg
+   # elif not field.is_constructor_arg and not field.is_node_ptr
   // Unhandled non-constructor argument not copied to new node explicitly.
   static_assert(false, CopyField{{field.name}}Of{{node.name}}MustBeImplementedManually);
   return absl::Status::CANCELLED;

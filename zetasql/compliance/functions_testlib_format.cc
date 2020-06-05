@@ -59,6 +59,7 @@ extern std::vector<FunctionTestCall> GetFunctionTestsFormatFloatingPoint();
 extern std::vector<FunctionTestCall> GetFunctionTestsFormatIntegral();
 extern std::vector<FunctionTestCall> GetFunctionTestsFormatNulls();
 extern std::vector<FunctionTestCall> GetFunctionTestsFormatStrings();
+extern std::vector<FunctionTestCall> GetFunctionTestsFormatNumeric();
 
 static std::string Zeros(absl::string_view fmt, int zeros) {
   return absl::Substitute(fmt, std::string(zeros, '0'));
@@ -586,6 +587,12 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
                     std::make_move_iterator(string_test_cases.begin()),
                     std::make_move_iterator(string_test_cases.end()));
 
+  std::vector<FunctionTestCall> numeric_test_cases =
+      GetFunctionTestsFormatNumeric();
+  test_cases.insert(test_cases.end(),
+                    std::make_move_iterator(numeric_test_cases.begin()),
+                    std::make_move_iterator(numeric_test_cases.end()));
+
   const std::vector<CivilTimeTestCase> civil_time_test_cases({
       {{{"%t", datetime_micros}}, String("2016-04-26 15:23:27.123456")},
       {{{"%T", datetime_micros}},
@@ -615,27 +622,6 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
   });
   for (const auto& each : civil_time_test_cases) {
     test_cases.emplace_back("format", WrapResultForCivilTimeAndNanos(each));
-  }
-
-  // NUMERIC sanity tests; most coverage comes from format_test.cc.
-  const std::vector<QueryParamsWithResult> numeric_test_cases = {
-      {{"%f", Numeric(0)}, "0.000000"},
-      {{"%f", NumericFromDouble(-10.25)}, "-10.250000"},
-      {{"%F", Numeric(0)}, "0.000000"},
-      {{"%F", NumericFromDouble(-10.25)}, "-10.250000"},
-      {{"%e", Numeric(0)}, "0.000000e+00"},
-      {{"%e", NumericFromDouble(-10.25)}, "-1.025000e+01"},
-      {{"%E", Numeric(0)}, "0.000000E+00"},
-      {{"%E", NumericFromDouble(-10.25)}, "-1.025000E+01"},
-      {{"%t", Numeric(0)}, "0"},
-      {{"%T", Numeric(0)}, "NUMERIC \"0\""},
-      {{"%t", NumericFromDouble(-10.25)}, "-10.25"},
-      {{"%T", NumericFromDouble(-10.25)}, "NUMERIC \"-10.25\""},
-      {{"%T", NullNumeric()}, "NULL"},
-  };
-  for (const QueryParamsWithResult& test_case : numeric_test_cases) {
-    test_cases.emplace_back("format",
-                            test_case.WrapWithFeature(FEATURE_NUMERIC_TYPE));
   }
 
   return test_cases;

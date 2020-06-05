@@ -16,6 +16,7 @@
 
 #include "zetasql/public/collator.h"
 #include "absl/base/thread_annotations.h"
+#include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
 #include "zetasql/base/status_builder.h"
 

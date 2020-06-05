@@ -24,6 +24,11 @@
 
 namespace zetasql {
 
+// Gets an enumerator value from the given enumeration value content.
+static int32_t GetEnumValue(const ValueContent& value) {
+  return value.GetAs<int32_t>();
+}
+
 EnumType::EnumType(const TypeFactory* factory,
                    const google::protobuf::EnumDescriptor* enum_descr)
     : Type(factory, TYPE_ENUM), enum_descriptor_(enum_descr) {
@@ -55,10 +60,9 @@ const google::protobuf::EnumDescriptor* EnumType::enum_descriptor() const {
 }
 
 absl::Status EnumType::SerializeToProtoAndDistinctFileDescriptorsImpl(
-    TypeProto* type_proto,
-    absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
+    const BuildFileDescriptorSetMapOptions& options, TypeProto* type_proto,
     FileDescriptorSetMap* file_descriptor_set_map) const {
-  type_proto->set_type_kind(kind_);
+  type_proto->set_type_kind(kind());
   EnumTypeProto* enum_type_proto = type_proto->mutable_enum_type();
   enum_type_proto->set_enum_name(enum_descriptor_->full_name());
   enum_type_proto->set_enum_file_name(enum_descriptor_->file()->name());
@@ -67,8 +71,7 @@ absl::Status EnumType::SerializeToProtoAndDistinctFileDescriptorsImpl(
   // dependencies.
   int set_index;
   ZETASQL_RETURN_IF_ERROR(internal::PopulateDistinctFileDescriptorSets(
-      enum_descriptor_->file(), file_descriptor_sets_max_size_bytes,
-      file_descriptor_set_map, &set_index));
+      options, enum_descriptor_->file(), file_descriptor_set_map, &set_index));
   if (set_index != 0) {
     enum_type_proto->set_file_descriptor_set_index(set_index);
   }
@@ -146,6 +149,42 @@ bool EnumType::IsSupportedType(const LanguageOptions& language_options) const {
 
 void EnumType::InitializeValueContent(ValueContent* value) const {
   value->set(this);
+}
+
+absl::HashState EnumType::HashTypeParameter(absl::HashState state) const {
+  // Enum types are equivalent if they have the same full name, so hash it.
+  return absl::HashState::combine(std::move(state),
+                                  enum_descriptor()->full_name());
+}
+
+absl::HashState EnumType::HashValueContent(const ValueContent& value,
+                                           absl::HashState state) const {
+  return absl::HashState::combine(std::move(state), GetEnumValue(value));
+}
+
+bool EnumType::ValueContentEqualsImpl(
+    const ValueContent& x, const ValueContent& y,
+    const ValueEqualityCheckOptions& options) const {
+  return GetEnumValue(x) == GetEnumValue(y);
+}
+
+std::string EnumType::FormatValueContent(
+    const ValueContent& value, const FormatValueContentOptions& options) const {
+  const std::string* enum_name = nullptr;
+  int32_t enum_value = GetEnumValue(value);
+  CHECK(FindName(enum_value, &enum_name))
+      << "Value " << enum_value << " not in "
+      << enum_descriptor()->DebugString();
+
+  if (options.mode == FormatValueContentOptions::Mode::kDebug) {
+    return options.verbose ? absl::StrCat(*enum_name, ":", enum_value)
+                           : *enum_name;
+  }
+
+  std::string literal = ToStringLiteral(*enum_name);
+  return options.as_literal() ? literal
+                              : internal::GetCastExpressionString(
+                                    literal, this, options.product_mode);
 }
 
 }  // namespace zetasql

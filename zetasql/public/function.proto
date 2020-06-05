@@ -171,9 +171,14 @@ message FunctionEnums {
   // Unlike RAND(), two calls to ANY_VALUE(x) are allowed to be combined by an
   // optimizer so the result is shared.  Such functions are marked IMMUTABLE.
   enum Volatility {
-    IMMUTABLE = 0;  // Same answer always (for the same inputs).  e.g. 1+2
+    IMMUTABLE = 0;  // Same answer for the same inputs.  e.g. 1+2
                     // Optimizers can always reuse results for computing
                     // this function on the same input values.
+                    //
+                    // Note that functions like ANY_VALUE and ARRAY_AGG are
+                    // not fully deterministic since there are multiple legal
+                    // answers, but we still mark these as IMMUTABLE because
+                    // engines are allowed to reuse computed results.
 
     STABLE = 1;  // Same answer within same statement (for the same inputs).
                  // e.g. CURRENT_TIMESTAMP()

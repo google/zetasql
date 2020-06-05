@@ -211,7 +211,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
       {{String("TRUE")}, true},
       {{String("FALSE")}, false},
 
-      // string->int64
+      // string->int64_t
       {{NullString()}, NullInt64()},
       {{String("")}, NullInt64(), OUT_OF_RANGE},
       {{String("a")}, NullInt64(), OUT_OF_RANGE},
@@ -229,7 +229,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
       {{9223372036854775807ll}, String("9223372036854775807")},
       {{-9223372036854775807ll - 1}, String("-9223372036854775808")},
 
-      // string->uint64
+      // string->uint64_t
       {{NullString()}, NullUint64()},
       {{String("")}, NullUint64(), OUT_OF_RANGE},
       {{String("a")}, NullUint64(), OUT_OF_RANGE},
@@ -246,7 +246,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
       {{123ull}, String("123")},
       {{18446744073709551615ull}, String("18446744073709551615")},
 
-      // string->int32
+      // string->int32_t
       {{NullString()}, NullInt32()},
       {{String("")}, NullInt32(), OUT_OF_RANGE},
       {{String("a")}, NullInt32(), OUT_OF_RANGE},
@@ -264,7 +264,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
       {{2147483647}, String("2147483647")},
       {{-2147483647 - 1}, String("-2147483648")},
 
-      // string->uint32
+      // string->uint32_t
       {{NullString()}, NullUint32()},
       {{String("")}, NullUint32(), OUT_OF_RANGE},
       {{String("a")}, NullUint32(), OUT_OF_RANGE},

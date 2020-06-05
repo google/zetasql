@@ -48,6 +48,11 @@ inline NumericValue GetDummyValue<NumericValue>() {
   return NumericValue(0xDEADBEEFll);
 }
 
+template <>
+inline BigNumericValue GetDummyValue<BigNumericValue>() {
+  return BigNumericValue(0xDEADBEEFll);
+}
+
 template <typename T>
 void CompareResult(const QueryParamsWithResult& param,
                    const absl::Status& actual_status, T actual_value) {
@@ -96,6 +101,29 @@ void CompareResult<NumericValue>(
                     absl::StatusCode::kOutOfRange,
                     ::testing::HasSubstr(
                         param.param(0).Get<NumericValue>().ToString())));
+  }
+}
+
+template <>
+void CompareResult<BigNumericValue>(const QueryParamsWithResult& param,
+                                    const absl::Status& actual_status,
+                                    BigNumericValue actual_value) {
+  // This assumes that the value is stored under BIGNUMERIC feature set but
+  // this should work with the default feature set too.
+  const QueryParamsWithResult::Result& expected =
+      param.results().begin()->second;
+  if (expected.status.ok()) {
+    EXPECT_EQ(absl::OkStatus(), actual_status);
+    ASSERT_EQ(expected.result.type_kind(),
+              Value::MakeNull<BigNumericValue>().type_kind());
+    EXPECT_EQ(expected.result.Get<BigNumericValue>(), actual_value);
+  } else {
+    // Check for the first parameter in the error message.
+    EXPECT_THAT(actual_status,
+                ::zetasql_base::testing::StatusIs(
+                    absl::StatusCode::kOutOfRange,
+                    ::testing::HasSubstr(
+                        param.param(0).Get<BigNumericValue>().ToString())));
   }
 }
 
@@ -171,6 +199,8 @@ TEST_P(MathTemplateTest, Testlib) {
         return TestUnaryFunction(param.params, &Abs<double>);
       case TYPE_NUMERIC:
         return TestUnaryFunction(param.params, &Abs<NumericValue>);
+      case TYPE_BIGNUMERIC:
+        return TestUnaryFunction(param.params, &Abs<BigNumericValue>);
       default:
         FAIL() << "unrecognized type for " << function;
     }
@@ -190,6 +220,8 @@ TEST_P(MathTemplateTest, Testlib) {
         return TestUnaryFunction(param.params, &Sign<double>);
       case TYPE_NUMERIC:
         return TestUnaryFunction(param.params, &Sign<NumericValue>);
+      case TYPE_BIGNUMERIC:
+        return TestUnaryFunction(param.params, &Sign<BigNumericValue>);
       default:
         FAIL() << "unrecognized type for " << function;
     }
@@ -289,6 +321,13 @@ TEST_P(MathTemplateTest, Testlib) {
         } else {
           return TestBinaryFunction(param.params, &RoundDecimal<NumericValue>);
         }
+      case TYPE_BIGNUMERIC:
+        if (param.params.num_params() == 1) {
+          return TestUnaryFunction(param.params, &Round<BigNumericValue>);
+        } else {
+          return TestBinaryFunction(param.params,
+                                    &RoundDecimal<BigNumericValue>);
+        }
       default:
         FAIL() << "unrecognized type for " << function;
     }
@@ -312,6 +351,13 @@ TEST_P(MathTemplateTest, Testlib) {
         } else {
           return TestBinaryFunction(param.params, &TruncDecimal<NumericValue>);
         }
+      case TYPE_BIGNUMERIC:
+        if (param.params.num_params() == 1) {
+          return TestUnaryFunction(param.params, &Trunc<BigNumericValue>);
+        } else {
+          return TestBinaryFunction(param.params,
+                                    &TruncDecimal<BigNumericValue>);
+        }
       default:
         FAIL() << "unrecognized type for " << function;
     }
@@ -323,6 +369,8 @@ TEST_P(MathTemplateTest, Testlib) {
         return TestUnaryFunction(param.params, &Ceil<double>);
       case TYPE_NUMERIC:
         return TestUnaryFunction(param.params, &Ceil<NumericValue>);
+      case TYPE_BIGNUMERIC:
+        return TestUnaryFunction(param.params, &Ceil<BigNumericValue>);
       default:
         FAIL() << "unrecognized type for " << function;
     }
@@ -334,6 +382,8 @@ TEST_P(MathTemplateTest, Testlib) {
         return TestUnaryFunction(param.params, &Floor<double>);
       case TYPE_NUMERIC:
         return TestUnaryFunction(param.params, &Floor<NumericValue>);
+      case TYPE_BIGNUMERIC:
+        return TestUnaryFunction(param.params, &Floor<BigNumericValue>);
       default:
         FAIL() << "unrecognized type for " << function;
     }

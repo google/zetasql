@@ -64,6 +64,7 @@
 #include "absl/container/node_hash_map.h"
 #include "absl/hash/hash.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
@@ -1955,9 +1956,6 @@ class FieldValueExpr : public ValueExpr {
   FieldValueExpr& operator=(const FieldValueExpr&) = delete;
 
   static ::zetasql_base::StatusOr<std::unique_ptr<FieldValueExpr>> Create(
-      absl::string_view field_name, std::unique_ptr<ValueExpr> expr);
-
-  static ::zetasql_base::StatusOr<std::unique_ptr<FieldValueExpr>> Create(
       int field_index, std::unique_ptr<ValueExpr> expr);
 
   absl::Status SetSchemasForEvaluation(
@@ -1976,12 +1974,11 @@ class FieldValueExpr : public ValueExpr {
   FieldValueExpr(int field_index, std::unique_ptr<ValueExpr> expr);
 
   int field_index() const { return field_index_; }
-  std::string field_name() const { return field_name_; }
+  std::string field_name() const;
 
   const ValueExpr* input() const;
   ValueExpr* mutable_input();
 
-  std::string field_name_;
   int field_index_;
 };
 

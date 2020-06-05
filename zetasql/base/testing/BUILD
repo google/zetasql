@@ -23,11 +23,19 @@ cc_library(
     testonly = 1,
     srcs = ["status_matchers.cc"],
     hdrs = ["status_matchers.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "@com_google_googletest//:gtest",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -36,11 +44,19 @@ cc_test(
     name = "status_matchers_test",
     size = "small",
     srcs = ["status_matchers_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":status_matchers",
         "@com_google_googletest//:gtest_main",
         "@com_google_googletest//:gtest",
         "//zetasql/base:status",
+        "@com_google_absl//absl/status",
     ],
 )

@@ -21,6 +21,7 @@ cc_library(
     srcs = [
         "array_type.cc",
         "enum_type.cc",
+        "extended_type.cc",
         "internal_utils.cc",
         "internal_utils.h",
         "proto_type.cc",
@@ -32,13 +33,21 @@ cc_library(
     hdrs = [
         "array_type.h",
         "enum_type.h",
+        "extended_type.h",
         "proto_type.h",
         "simple_type.h",
         "struct_type.h",
         "type.h",
         "type_factory.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":value_representations",
         "//zetasql/base",
@@ -48,16 +57,22 @@ cc_library(
         "//zetasql/base:refcount",
         "//zetasql/base:status",
         "//zetasql/common:errors",
+        "//zetasql/common:float_margin",
         "//zetasql/common:proto_helper",
+        "//zetasql/common:string_util",
+        "//zetasql/public:civil_time",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:strings",
         "//zetasql/public:type_annotation_cc_proto",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value_content",
+        "//zetasql/public/functions:convert_proto",
+        "//zetasql/public/functions:date_time_util",
         "//zetasql/public/functions:datetime_cc_proto",
         "//zetasql/public/functions:normalize_mode_cc_proto",
         "//zetasql/public/proto:type_annotation_cc_proto",
+        "//zetasql/public/types:timestamp_util",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
@@ -65,7 +80,7 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
-        "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
@@ -77,9 +92,37 @@ cc_library(
     hdrs = [
         "value_representations.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/base:refcount",
         "//zetasql/public:numeric_value",
+    ],
+)
+
+cc_library(
+    name = "timestamp_util",
+    srcs = [
+        "timestamp_util.cc",
+    ],
+    hdrs = [
+        "timestamp_util.h",
+    ],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
+    deps = [
+        "@com_google_absl//absl/time",
     ],
 )

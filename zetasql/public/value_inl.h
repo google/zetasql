@@ -91,32 +91,14 @@ inline Value::Value(const Value& that) {
 }
 
 inline void Value::Clear() {
-  // TODO: we should use Type::ClearValueContent to release
-  // resources associated with values for all types. However, it was observed
-  // through the testing that there are some ZetaSQL customer functions that
-  // release their TypeFactory objects before Values. This leads to crashes
-  // when we try to access type instance from Value destructor. To prevent
-  // breakage of such scenarios before all of them get fixed, we rely on
-  // type kind to release content of types that could be allocated using custom
-  // type factory: enum, array, struct and proto. This special logic can be
-  // removed when we fix all external Value/Type factory dependency issues.
-  if (is_valid()) {
-    switch (type_kind_) {
-      case TYPE_ARRAY:
-      case TYPE_STRUCT:
-        list_ptr_->Unref();
-        break;
-      case TYPE_PROTO:
-        proto_ptr_->Unref();
-        break;
-      case TYPE_ENUM:
-        break;
-      default:
-        type()->ClearValueContent(GetContent());
-        break;
-    }
+  if (!is_valid()) return;
+
+  type()->ClearValueContent(GetContent());
+  if (metadata_.has_type_pointer()) {
+    internal::TypeStoreHelper::UnrefFromValue(metadata_.type()->type_store_);
   }
-  type_kind_ = kInvalidTypeKind;
+
+  metadata_ = Metadata::Invalid();
 }
 
 inline const Value& Value::operator=(const Value& that) {
@@ -137,7 +119,7 @@ inline const Value& Value::operator=(const Value& that) {
 inline Value::Value(Value&& that) noexcept {  // NOLINT(build/c++11)
   memcpy(this, &that, sizeof(Value));
   // Invalidate 'that' to disable its destructor.
-  that.type_kind_ = kInvalidTypeKind;
+  that.metadata_ = Metadata::Invalid();
 }
 
 // Self-move of an rvalue reference leaves 'that' and consequently 'this' in an
@@ -149,7 +131,7 @@ inline Value& Value::operator=(Value&& that) noexcept {  // NOLINT(build/c++11)
   Clear();
   memcpy(this, &that, sizeof(Value));
   // Invalidate 'that' to disable its destructor.
-  that.type_kind_ = kInvalidTypeKind;
+  that.metadata_ = Metadata::Invalid();
   return *this;
 }
 
@@ -158,46 +140,39 @@ inline Value& Value::operator=(Value&& that) noexcept {  // NOLINT(build/c++11)
 #endif
 
 inline Value::Value(int32_t value)
-    : type_kind_(TYPE_INT32), int32_value_(value) {
-}
+    : metadata_(TypeKind::TYPE_INT32), int32_value_(value) {}
 
 inline Value::Value(int64_t value)
-    : type_kind_(TYPE_INT64), int64_value_(value) {
-}
+    : metadata_(TypeKind::TYPE_INT64), int64_value_(value) {}
 
 inline Value::Value(uint32_t value)
-    : type_kind_(TYPE_UINT32), uint32_value_(value) {
-}
+    : metadata_(TypeKind::TYPE_UINT32), uint32_value_(value) {}
 
 inline Value::Value(uint64_t value)
-    : type_kind_(TYPE_UINT64), uint64_value_(value) {
-}
+    : metadata_(TypeKind::TYPE_UINT64), uint64_value_(value) {}
 
 inline Value::Value(bool value)
-    : type_kind_(TYPE_BOOL), bool_value_(value) {
-}
+    : metadata_(TypeKind::TYPE_BOOL), bool_value_(value) {}
 
 inline Value::Value(float value)
-    : type_kind_(TYPE_FLOAT), float_value_(value) {
-}
+    : metadata_(TypeKind::TYPE_FLOAT), float_value_(value) {}
 
 inline Value::Value(double value)
-    : type_kind_(TYPE_DOUBLE), double_value_(value) {
-}
+    : metadata_(TypeKind::TYPE_DOUBLE), double_value_(value) {}
 
 inline Value::Value(TypeKind type_kind, std::string value)
-    : type_kind_(static_cast<int16_t>(type_kind)),
+    : metadata_(type_kind),
       string_ptr_(new internal::StringRef(std::move(value))) {
   CHECK(type_kind == TYPE_STRING ||
         type_kind == TYPE_BYTES);
 }
 
 inline Value::Value(const NumericValue& numeric)
-    : type_kind_(TYPE_NUMERIC),
+    : metadata_(TypeKind::TYPE_NUMERIC),
       numeric_ptr_(new internal::NumericRef(numeric)) {}
 
 inline Value::Value(const BigNumericValue& bignumeric)
-    : type_kind_(TYPE_BIGNUMERIC),
+    : metadata_(TypeKind::TYPE_BIGNUMERIC),
       bignumeric_ptr_(new internal::BigNumericRef(bignumeric)) {}
 
 inline Value Value::Struct(const StructType* type,
@@ -334,12 +309,12 @@ inline Value::~Value() {
 
 inline TypeKind Value::type_kind() const {
   CHECK(is_valid()) << DebugString();
-  return static_cast<TypeKind>(type_kind_);
+  return metadata_.type_kind();
 }
 
 inline bool Value::is_null() const {
   CHECK(is_valid()) << DebugString();
-  return is_null_;
+  return metadata_.is_null();
 }
 
 inline bool Value::is_empty_array() const {
@@ -348,102 +323,102 @@ inline bool Value::is_empty_array() const {
 }
 
 inline bool Value::order_kind() const {
-  CHECK_EQ(TYPE_ARRAY, type_kind_);
-  return order_kind_;
+  CHECK_EQ(TYPE_ARRAY, metadata_.type_kind());
+  return metadata_.preserves_order();
 }
 
 inline bool Value::is_valid() const {
   static_assert(TYPE_UNKNOWN == 0 && kInvalidTypeKind == -1,
                 "Revisit implementation");
   // This check assumes that valid TypeKind values are positive.
-  return type_kind_ > 0;
+  return static_cast<int32_t>(metadata_.type_kind()) > 0;
 }
 
 inline int32_t Value::int32_value() const {
-  CHECK_EQ(TYPE_INT32, type_kind_) << "Not an int32_t value";
-  CHECK(!is_null_) << "Null value";
+  CHECK_EQ(TYPE_INT32, metadata_.type_kind()) << "Not an int32_t value";
+  CHECK(!metadata_.is_null()) << "Null value";
   return int32_value_;
 }
 
 inline int64_t Value::int64_value() const {
-  CHECK_EQ(TYPE_INT64, type_kind_) << "Not an int64_t value";
-  CHECK(!is_null_) << "Null value";
+  CHECK_EQ(TYPE_INT64, metadata_.type_kind()) << "Not an int64_t value";
+  CHECK(!metadata_.is_null()) << "Null value";
   return int64_value_;
 }
 
 inline uint32_t Value::uint32_value() const {
-  CHECK_EQ(TYPE_UINT32, type_kind_) << "Not a uint32_t value";
-  CHECK(!is_null_) << "Null value";
+  CHECK_EQ(TYPE_UINT32, metadata_.type_kind()) << "Not a uint32_t value";
+  CHECK(!metadata_.is_null()) << "Null value";
   return uint32_value_;
 }
 
 inline uint64_t Value::uint64_value() const {
-  CHECK_EQ(TYPE_UINT64, type_kind_) << "Not a uint64_t value";
-  CHECK(!is_null_) << "Null value";
+  CHECK_EQ(TYPE_UINT64, metadata_.type_kind()) << "Not a uint64_t value";
+  CHECK(!metadata_.is_null()) << "Null value";
   return uint64_value_;
 }
 
 inline bool Value::bool_value() const {
-  CHECK_EQ(TYPE_BOOL, type_kind_) << "Not a bool value";
-  CHECK(!is_null_) << "Null value";
+  CHECK_EQ(TYPE_BOOL, metadata_.type_kind()) << "Not a bool value";
+  CHECK(!metadata_.is_null()) << "Null value";
   return bool_value_;
 }
 
 inline float Value::float_value() const {
-  CHECK_EQ(TYPE_FLOAT, type_kind_) << "Not a float value";
-  CHECK(!is_null_) << "Null value";
+  CHECK_EQ(TYPE_FLOAT, metadata_.type_kind()) << "Not a float value";
+  CHECK(!metadata_.is_null()) << "Null value";
   return float_value_;
 }
 
 inline double Value::double_value() const {
-  CHECK_EQ(TYPE_DOUBLE, type_kind_) << "Not a double value";
-  CHECK(!is_null_) << "Null value";
+  CHECK_EQ(TYPE_DOUBLE, metadata_.type_kind()) << "Not a double value";
+  CHECK(!metadata_.is_null()) << "Null value";
   return double_value_;
 }
 
 inline const std::string& Value::string_value() const {
-  CHECK_EQ(TYPE_STRING, type_kind_) << "Not a string value";
-  CHECK(!is_null_) << "Null value";
+  CHECK_EQ(TYPE_STRING, metadata_.type_kind()) << "Not a string value";
+  CHECK(!metadata_.is_null()) << "Null value";
   return string_ptr_->value();
 }
 
 inline const std::string& Value::bytes_value() const {
-  CHECK_EQ(TYPE_BYTES, type_kind_) << "Not a bytes value";
-  CHECK(!is_null_) << "Null value";
+  CHECK_EQ(TYPE_BYTES, metadata_.type_kind()) << "Not a bytes value";
+  CHECK(!metadata_.is_null()) << "Null value";
   return string_ptr_->value();
 }
 
 inline int32_t Value::date_value() const {
-  CHECK_EQ(TYPE_DATE, type_kind_) << "Not a date value";
-  CHECK(!is_null_) << "Null value";
+  CHECK_EQ(TYPE_DATE, metadata_.type_kind()) << "Not a date value";
+  CHECK(!metadata_.is_null()) << "Null value";
   return int32_value_;
 }
 
 inline int32_t Value::enum_value() const {
-  CHECK_EQ(TYPE_ENUM, type_kind_) << "Not an enum value";
-  CHECK(!is_null_) << "Null value";
+  CHECK_EQ(TYPE_ENUM, metadata_.type_kind()) << "Not an enum value";
+  CHECK(!metadata_.is_null()) << "Null value";
   return enum_value_;
 }
 
 inline TimeValue Value::time_value() const {
-  return TimeValue::FromPacked32SecondsAndNanos(
-      bit_field_32_value_, subsecond_nanos_);
+  return TimeValue::FromPacked32SecondsAndNanos(bit_field_32_value_,
+                                                subsecond_nanos());
 }
 
 inline DatetimeValue Value::datetime_value() const {
-  return DatetimeValue::FromPacked64SecondsAndNanos(
-      bit_field_64_value_, subsecond_nanos_);
+  return DatetimeValue::FromPacked64SecondsAndNanos(bit_field_64_value_,
+                                                    subsecond_nanos());
 }
 
 inline const NumericValue& Value::numeric_value() const {
-  CHECK_EQ(TYPE_NUMERIC, type_kind_) << "Not a numeric type";
-  CHECK(!is_null_) << "Null value";
+  CHECK_EQ(TYPE_NUMERIC, metadata_.type_kind()) << "Not a numeric type";
+  CHECK(!metadata_.is_null()) << "Null value";
   return numeric_ptr_->value();
 }
 
 inline const BigNumericValue& Value::bignumeric_value() const {
-  CHECK_EQ(TYPE_BIGNUMERIC, type_kind_) << "Not a bignumeric type";
-  CHECK(!is_null_) << "Null value";
+  CHECK_EQ(TYPE_BIGNUMERIC, metadata_.type_kind()) << "Not a bignumeric type";
+  CHECK(!metadata_.is_null()) << "Null value";
   return bignumeric_ptr_->value();
 }
 
@@ -481,54 +456,24 @@ H AbslHashValue(H h, const Value& v) {
 
 template <typename H>
 H Value::HashValueInternal(H h) const {
-  // These codes are picked arbitrarily.
+  // This code is picked arbitrarily.
   static constexpr uint64_t kNullHashCode =      0xCBFD5377B126E80Dull;
-  static constexpr uint64_t kFloatNanHashCode =  0x739EF9A0B2C15522ull;
-  static constexpr uint64_t kDoubleNanHashCode = 0xA00397BC84F93AA7ull;
-  static constexpr uint64_t kGeographyHashCode = 0x98389DC9632631AEull;
 
-  // First, hash the type. Values are only equal if they have the
+  // If we use TypeKind instead of int16_t here,
+  // VerifyTypeImplementsAbslHashCorrectly finds collisions between NULL(INT)
+  // and NULL(ARRAY<INT>). As a result ValueTest.HashCode fails.
+  const int16_t type_kind = metadata_.type_kind();
+
+  // First, hash the type kind. Values are only equal if they have the
   // same/equivalent types, and we want to avoid hash collisions between values
   // of different types (e.g. INT32 0 vs. UINT32 0).
-  h = H::combine(std::move(h), type_kind_);
-  switch (type_kind_) {
-    case TYPE_ENUM:
-      // Enum types are equivalent if they have the same full name, so hash it.
-      h = H::combine(std::move(h),
-                     enum_type_->enum_descriptor()->full_name());
-      break;
-    case TYPE_ARRAY: {
-      // Array types are equivalent if their element types are equivalent,
-      // so we hash the element type kind.
-      const Type* element_type = list_ptr_->type()->AsArray()->element_type();
-      h = H::combine(std::move(h), element_type->kind());
+  h = H::combine(std::move(h), type_kind);
 
-      // If the array elements are enums or protos, we also hash the full name
-      // of the element types because they are used for equivalency of the
-      // element types.
-      switch (element_type->kind()) {
-        case TYPE_ENUM:
-          h = H::combine(
-              std::move(h),
-              element_type->AsEnum()->enum_descriptor()->full_name());
-          break;
-        case TYPE_PROTO:
-          h = H::combine(
-              std::move(h),
-              element_type->AsProto()->descriptor()->full_name());
-          break;
-        default:
-          break;
-      }
-      break;
-    }
-    case TYPE_PROTO:
-      // Proto types are equivalent if they have the same full name, so hash it.
-      h = H::combine(std::move(h),
-                     proto_ptr_->type()->descriptor()->full_name());
-      break;
-    default:
-      break;
+  // Second, hash type parameter (e.g. enum's name or array's element type).
+  // Struct's type parameter can be inferred from the list of its field values,
+  // thus from performance considerations we don't hash it separately.
+  if (is_valid() && type_kind != TYPE_STRUCT) {
+    type()->HashTypeParameter(absl::HashState::Create(&h));
   }
 
   if (!is_valid() || is_null()) {
@@ -536,55 +481,12 @@ H Value::HashValueInternal(H h) const {
     // invalid Values do not collide with hash codes for NULL values.
     return H::combine(std::move(h), kNullHashCode);
   }
-  switch (type_kind()) {
-    case TYPE_INT32: {
-      return H::combine(std::move(h), int32_value_);
-    }
-    case TYPE_INT64: {
-      return H::combine(std::move(h), int64_value_);
-    }
-    case TYPE_UINT32: {
-      return H::combine(std::move(h), uint32_value_);
-    }
-    case TYPE_UINT64: {
-      return H::combine(std::move(h), uint64_value_);
-    }
-    case TYPE_BOOL: {
-      return H::combine(std::move(h), bool_value_);
-    }
-    case TYPE_FLOAT: {
-      if (std::isnan(float_value_)) {
-        return H::combine(std::move(h), kFloatNanHashCode);
-      } else {
-        return H::combine(std::move(h), float_value_);
-      }
-    }
-    case TYPE_DOUBLE: {
-      if (std::isnan(double_value_)) {
-        return H::combine(std::move(h), kDoubleNanHashCode);
-      } else {
-        return H::combine(std::move(h), double_value_);
-      }
-    }
-    case TYPE_STRING:
-    case TYPE_BYTES: {
-      return H::combine(std::move(h), string_ptr_->value());
-    }
-    case TYPE_DATE: {
-      return H::combine(std::move(h), int32_value_);
-    }
-    case TYPE_TIMESTAMP: {
-      return H::combine(std::move(h), timestamp_seconds_, subsecond_nanos_);
-    }
-    case TYPE_TIME: {
-      return H::combine(std::move(h), bit_field_32_value_, subsecond_nanos_);
-    }
-    case TYPE_DATETIME: {
-      return H::combine(std::move(h), bit_field_64_value_, subsecond_nanos_);
-    }
-    case TYPE_ENUM: {
-      return H::combine(std::move(h), enum_value_);
-    }
+
+  // Third, hash the value itself.
+  // TODO: currently we still handle array and struct related logic
+  // in a Value class. This can be moved to a Type class, when we have
+  // Value-agnostic interface for a list of values.
+  switch (type_kind) {
     case TYPE_ARRAY: {
       // We must hash arrays as if unordered to support hash_map and hash_set of
       // values containing arrays with order_kind()=kIgnoresOrder.
@@ -601,27 +503,10 @@ H Value::HashValueInternal(H h) const {
       // combine is an ordered combine, which is what we want.
       return H::combine(std::move(h), fields());
     }
-    case TYPE_PROTO: {
-      // No efficient way to compute a hash on protobufs, so just let equals
-      // sort it out.
-      return H::combine(std::move(h), 0);
-    }
-    case TYPE_NUMERIC: {
-      return H::combine(std::move(h), numeric_value());
-    }
-    case TYPE_BIGNUMERIC: {
-      return H::combine(std::move(h), bignumeric_value());
-    }
-    case TYPE_GEOGRAPHY: {
-      // We have no good hasher for geography (??)
-      // so we just rely on a constant for hashing.
-      return H::combine(std::move(h), kGeographyHashCode);
-    }
-    case TYPE_UNKNOWN:
-    case __TypeKind__switch_must_have_a_default__:
-      LOG(DFATAL) << "Unexpected expected internally only: " << type_kind_;
+    default:
+      type()->HashValueContent(GetContent(), absl::HashState::Create(&h));
+      return h;
   }
-  return h;
 }
 
 template <>

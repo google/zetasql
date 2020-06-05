@@ -22,6 +22,7 @@
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/proto/wire_format_annotation.pb.h"
 #include "zetasql/public/types/internal_utils.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/base/cleanup.h"
 #include "absl/flags/flag.h"
 #include "zetasql/base/map_util.h"
@@ -34,15 +35,13 @@ ABSL_FLAG(int32_t, zetasql_type_factory_nesting_depth_limit,
 
 namespace zetasql {
 
-TypeFactory::TypeFactory()
-    : nesting_depth_limit_(
-          absl::GetFlag(FLAGS_zetasql_type_factory_nesting_depth_limit)),
-      estimated_memory_used_by_types_(0) {
-  VLOG(2) << "Created TypeFactory " << this
-          ;
-}
+namespace internal {
 
-TypeFactory::~TypeFactory() {
+TypeStore::TypeStore(bool keep_alive_while_referenced_from_value)
+    : keep_alive_while_referenced_from_value_(
+          keep_alive_while_referenced_from_value) {}
+
+TypeStore::~TypeStore() {
   // Need to delete these in a loop because the destructor is only visible
   // via friend declaration on Type.
   for (const Type* type : owned_types_) {
@@ -57,20 +56,100 @@ TypeFactory::~TypeFactory() {
                 << "Using --vmodule=type=2 may aid debugging.\n"
                 ;
     // Avoid crashing on the TypeFactory dependency reference itself.
-    for (const TypeFactory* other : factories_depending_on_this_) {
+    for (const TypeStore* other : factories_depending_on_this_) {
       absl::MutexLock l(&other->mutex_);
       other->depends_on_factories_.erase(this);
     }
   }
 
-  for (const TypeFactory* other : depends_on_factories_) {
-    absl::MutexLock l(&other->mutex_);
-    other->factories_depending_on_this_.erase(this);
+  for (const TypeStore* other : depends_on_factories_) {
+    bool need_to_unref = false;
+    {
+      absl::MutexLock l(&other->mutex_);
+      if (other->factories_depending_on_this_.erase(this) != 0) {
+        need_to_unref = other->keep_alive_while_referenced_from_value_;
+      }
+    }
+    if (need_to_unref) {
+      other->Unref();
+    }
   }
 }
 
+void TypeStore::Ref() const {
+  ref_count_.fetch_add(1, std::memory_order_relaxed);
+}
+
+void TypeStore::Unref() const {
+  if (ref_count_.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+    delete this;
+  }
+}
+
+void TypeStoreHelper::RefFromValue(const TypeStore* store) {
+  DCHECK(store);
+
+  // We still do TypeStore reference counting in debug mode regardless of
+  // whether keep_alive_while_referenced_from_value_ is true or not: this is
+  // done to check that no values that reference types from this TypeStore are
+  // alive when TypeFactore gets released. In release mode (NDEBUG), we do
+  // refcounting only if keep_alive_while_referenced_from_value_ is true.
+#ifdef NDEBUG
+  if (!store->keep_alive_while_referenced_from_value_) return;
+#endif
+
+  store->Ref();
+}
+
+void TypeStoreHelper::UnrefFromValue(const TypeStore* store) {
+  DCHECK(store);
+
+#ifdef NDEBUG
+  if (!store->keep_alive_while_referenced_from_value_) return;
+#endif
+
+  store->Unref();
+}
+
+const TypeStore* TypeStoreHelper::GetTypeStore(const TypeFactory* factory) {
+  DCHECK(factory);
+  return factory->store_;
+}
+
+int64_t TypeStoreHelper::Test_GetRefCount(const TypeStore* store) {
+  DCHECK(store);
+  return store->ref_count_.load(std::memory_order_seq_cst);
+}
+
+}  // namespace internal
+
+TypeFactory::TypeFactory(const TypeFactoryOptions& options)
+    : store_(new internal::TypeStore(
+          options.keep_alive_while_referenced_from_value)),
+      nesting_depth_limit_(
+          absl::GetFlag(FLAGS_zetasql_type_factory_nesting_depth_limit)),
+      estimated_memory_used_by_types_(0) {
+  VLOG(2) << "Created TypeFactory " << store_ << ":\n"
+          ;
+}
+
+TypeFactory::~TypeFactory() {
+#ifndef NDEBUG
+  // In debug mode, we check that there shouldn't be any values that reference
+  // types from this TypeFactory.
+  if (!store_->keep_alive_while_referenced_from_value_ &&
+      store_->ref_count_.load(std::memory_order_seq_cst) != 1) {
+    LOG(DFATAL)
+        << "Type factory is released while there are still some objects "
+           "that reference it";
+  }
+#endif
+
+  store_->Unref();
+}
+
 int TypeFactory::nesting_depth_limit() const {
-  absl::MutexLock l(&mutex_);
+  absl::MutexLock l(&store_->mutex_);
   return nesting_depth_limit_;
 }
 
@@ -78,7 +157,7 @@ void TypeFactory::set_nesting_depth_limit(int value) {
   // We don't want to have to check the depth for simple types, so a depth of
   // 0 must be allowed.
   DCHECK_GE(value, 0);
-  absl::MutexLock l(&mutex_);
+  absl::MutexLock l(&store_->mutex_);
   nesting_depth_limit_ = value;
 }
 
@@ -88,12 +167,14 @@ int64_t TypeFactory::GetEstimatedOwnedMemoryBytesSize() const {
   // threaded accesses during concurrent unit tests. Also, function
   // GetExternallyAllocatedMemoryEstimate doesn't declare thread safety (even
   // though current implementation is safe).
-  absl::MutexLock l(&mutex_);
-  return sizeof(*this) + estimated_memory_used_by_types_ +
-         internal::GetExternallyAllocatedMemoryEstimate(owned_types_) +
-         internal::GetExternallyAllocatedMemoryEstimate(depends_on_factories_) +
+  absl::MutexLock l(&store_->mutex_);
+  return sizeof(*this) + sizeof(internal::TypeStore) +
+         estimated_memory_used_by_types_ +
+         internal::GetExternallyAllocatedMemoryEstimate(store_->owned_types_) +
          internal::GetExternallyAllocatedMemoryEstimate(
-             factories_depending_on_this_) +
+             store_->depends_on_factories_) +
+         internal::GetExternallyAllocatedMemoryEstimate(
+             store_->factories_depending_on_this_) +
          internal::GetExternallyAllocatedMemoryEstimate(cached_array_types_) +
          internal::GetExternallyAllocatedMemoryEstimate(cached_proto_types_) +
          internal::GetExternallyAllocatedMemoryEstimate(cached_enum_types_);
@@ -102,7 +183,7 @@ int64_t TypeFactory::GetEstimatedOwnedMemoryBytesSize() const {
 template <class TYPE>
 const TYPE* TypeFactory::TakeOwnership(const TYPE* type) {
   const int64_t type_owned_bytes_size = type->GetEstimatedOwnedMemoryBytesSize();
-  absl::MutexLock l(&mutex_);
+  absl::MutexLock l(&store_->mutex_);
   return TakeOwnershipLocked(type, type_owned_bytes_size);
 }
 
@@ -114,9 +195,9 @@ const TYPE* TypeFactory::TakeOwnershipLocked(const TYPE* type) {
 template <class TYPE>
 const TYPE* TypeFactory::TakeOwnershipLocked(const TYPE* type,
                                              int64_t type_owned_bytes_size) {
-  DCHECK_EQ(type->type_factory_, this);
+  DCHECK_EQ(type->type_store_, store_);
   DCHECK_GT(type_owned_bytes_size, 0);
-  owned_types_.push_back(type);
+  store_->owned_types_.push_back(type);
   estimated_memory_used_by_types_ += type_owned_bytes_size;
   return type;
 }
@@ -137,6 +218,7 @@ const Type* TypeFactory::get_datetime() { return types::DatetimeType(); }
 const Type* TypeFactory::get_geography() { return types::GeographyType(); }
 const Type* TypeFactory::get_numeric() { return types::NumericType(); }
 const Type* TypeFactory::get_bignumeric() { return types::BigNumericType(); }
+const Type* TypeFactory::get_json() { return types::JsonType(); }
 
 const Type* TypeFactory::MakeSimpleType(TypeKind kind) {
   CHECK(Type::IsSimpleType(kind)) << kind;
@@ -159,7 +241,7 @@ absl::Status TypeFactory::MakeArrayType(
              << "Array type would exceed nesting depth limit of "
              << depth_limit;
     }
-    absl::MutexLock lock(&mutex_);
+    absl::MutexLock lock(&store_->mutex_);
     auto& cached_result = cached_array_types_[element_type];
     if (cached_result == nullptr) {
       cached_result = TakeOwnershipLocked(new ArrayType(this, element_type));
@@ -217,7 +299,7 @@ absl::Status TypeFactory::MakeStructTypeFromVector(
 
 absl::Status TypeFactory::MakeProtoType(
     const google::protobuf::Descriptor* descriptor, const ProtoType** result) {
-  absl::MutexLock lock(&mutex_);
+  absl::MutexLock lock(&store_->mutex_);
   auto& cached_result = cached_proto_types_[descriptor];
   if (cached_result == nullptr) {
     cached_result = TakeOwnershipLocked(new ProtoType(this, descriptor));
@@ -233,7 +315,7 @@ absl::Status TypeFactory::MakeProtoType(
 
 absl::Status TypeFactory::MakeEnumType(
     const google::protobuf::EnumDescriptor* enum_descriptor, const EnumType** result) {
-  absl::MutexLock lock(&mutex_);
+  absl::MutexLock lock(&store_->mutex_);
   auto& cached_result = cached_enum_types_[enum_descriptor];
   if (cached_result == nullptr) {
     cached_result = TakeOwnershipLocked(new EnumType(this, enum_descriptor));
@@ -690,6 +772,12 @@ static const Type* s_bignumeric_type() {
   return s_bignumeric_type;
 }
 
+static const Type* s_json_type() {
+  static const Type* s_json_type =
+      new SimpleType(s_type_factory(), TYPE_JSON);
+  return s_json_type;
+}
+
 static const EnumType* s_date_part_enum_type() {
   static const EnumType* s_date_part_enum_type = [] {
     const EnumType* enum_type;
@@ -821,16 +909,10 @@ static const ArrayType* s_bignumeric_array_type() {
   return s_bignumeric_array_type;
 }
 
-static const absl::Time* GetkBaseTimeMin() {
-  static const absl::Time* kBaseTimeMin =
-      new absl::Time(absl::FromUnixMicros(types::kTimestampMin));
-  return kBaseTimeMin;
-}
-
-static const absl::Time* GetkBaseTimeMax() {
-  static const absl::Time* kBaseTimeMax = new absl::Time(
-      absl::FromUnixMicros(types::kTimestampMax) + absl::Nanoseconds(999));
-  return kBaseTimeMax;
+static const ArrayType* s_json_array_type() {
+  static const ArrayType* s_json_array_type =
+      MakeArrayType(s_type_factory()->get_json());
+  return s_json_array_type;
 }
 
 }  // namespace
@@ -853,6 +935,7 @@ const Type* DatetimeType() { return s_datetime_type(); }
 const Type* GeographyType() { return s_geography_type(); }
 const Type* NumericType() { return s_numeric_type(); }
 const Type* BigNumericType() { return s_bignumeric_type(); }
+const Type* JsonType() { return s_json_type(); }
 const StructType* EmptyStructType() { return s_empty_struct_type(); }
 const EnumType* DatePartEnumType() { return s_date_part_enum_type(); }
 const EnumType* NormalizeModeEnumType() { return s_normalize_mode_enum_type(); }
@@ -879,6 +962,8 @@ const ArrayType* GeographyArrayType() { return s_geography_array_type(); }
 const ArrayType* NumericArrayType() { return s_numeric_array_type(); }
 
 const ArrayType* BigNumericArrayType() { return s_bignumeric_array_type(); }
+
+const ArrayType* JsonArrayType() { return s_json_array_type(); }
 
 const Type* TypeFromSimpleTypeKind(TypeKind type_kind) {
   switch (type_kind) {
@@ -914,6 +999,8 @@ const Type* TypeFromSimpleTypeKind(TypeKind type_kind) {
       return NumericType();
     case TYPE_BIGNUMERIC:
       return BigNumericType();
+    case TYPE_JSON:
+      return JsonType();
     default:
       VLOG(1) << "Could not build static Type from type: "
               << Type::TypeKindToString(type_kind, PRODUCT_INTERNAL);
@@ -955,6 +1042,8 @@ const ArrayType* ArrayTypeFromSimpleTypeKind(TypeKind type_kind) {
       return NumericArrayType();
     case TYPE_BIGNUMERIC:
       return BigNumericArrayType();
+    case TYPE_JSON:
+      return JsonArrayType();
     default:
       VLOG(1) << "Could not build static ArrayType from type: "
               << Type::TypeKindToString(type_kind, PRODUCT_INTERNAL);
@@ -962,41 +1051,42 @@ const ArrayType* ArrayTypeFromSimpleTypeKind(TypeKind type_kind) {
   }
 }
 
-absl::Time TimestampMinBaseTime() { return *GetkBaseTimeMin(); }
-
-absl::Time TimestampMaxBaseTime() { return *GetkBaseTimeMax(); }
-
 }  // namespace types
 
 void TypeFactory::AddDependency(const Type* other_type) {
-  const TypeFactory* other_factory = other_type->type_factory_;
+  const internal::TypeStore* other_store = other_type->type_store_;
 
   // Do not add a dependency if the other factory is the same as this factory or
   // is the static factory (since the static factory is never destroyed).
-  if (other_factory == this || other_factory == s_type_factory()) return;
+  if (other_store == store_ || other_store == s_type_factory()->store_) return;
 
   {
-    absl::MutexLock l(&mutex_);
-    if (!zetasql_base::InsertIfNotPresent(&depends_on_factories_, other_factory)) {
+    absl::MutexLock l(&store_->mutex_);
+    if (!zetasql_base::InsertIfNotPresent(&store_->depends_on_factories_, other_store)) {
       return;  // Already had it.
     }
     VLOG(2) << "Added dependency from TypeFactory " << this << " to "
-            << other_factory << " which owns the type "
+            << other_store << " which owns the type "
             << other_type->DebugString() << ":\n"
             ;
 
     // This detects trivial cycles between two TypeFactories.  It won't detect
     // longer cycles, so those won't give this error message, but the
     // destructor error will still fire because no destruction order is safe.
-    if (zetasql_base::ContainsKey(factories_depending_on_this_, other_factory)) {
+    if (zetasql_base::ContainsKey(store_->factories_depending_on_this_, other_store)) {
       LOG(DFATAL) << "Created cyclical dependency between TypeFactories, "
                      "which is not legal because there can be no safe "
                      "destruction order";
     }
   }
   {
-    absl::MutexLock l(&other_factory->mutex_);
-    zetasql_base::InsertIfNotPresent(&other_factory->factories_depending_on_this_, this);
+    absl::MutexLock l(&other_store->mutex_);
+    if (zetasql_base::InsertIfNotPresent(&other_store->factories_depending_on_this_,
+                                store_)) {
+      if (other_store->keep_alive_while_referenced_from_value_) {
+        other_store->Ref();
+      }
+    }
   }
 }
 

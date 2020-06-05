@@ -102,6 +102,17 @@ class StructType : public Type {
   void CopyValueContent(const ValueContent& from,
                         ValueContent* to) const override;
   void ClearValueContent(const ValueContent& value) const override;
+  absl::HashState HashTypeParameter(absl::HashState state) const override;
+  absl::HashState HashValueContent(const ValueContent& value,
+                                   absl::HashState state) const override;
+  bool ValueContentEqualsImpl(
+      const ValueContent& x, const ValueContent& y,
+      const ValueEqualityCheckOptions& options) const override;
+
+  // This function shouldn't be called until b/155192766 is fixed.
+  std::string FormatValueContent(
+      const ValueContent& value,
+      const FormatValueContentOptions& options) const override;
 
  private:
   // Caller must enforce that <nesting_depth> is accurate. No verification is
@@ -118,8 +129,7 @@ class StructType : public Type {
       const Type** no_partitioning_type) const override;
 
   absl::Status SerializeToProtoAndDistinctFileDescriptorsImpl(
-      TypeProto* type_proto,
-      absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
+      const BuildFileDescriptorMapOptions& options, TypeProto* type_proto,
       FileDescriptorSetMap* file_descriptor_set_map) const override;
 
   std::string TypeNameImpl(

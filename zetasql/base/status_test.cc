@@ -14,7 +14,8 @@
 // limitations under the License.
 //
 
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
+
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 

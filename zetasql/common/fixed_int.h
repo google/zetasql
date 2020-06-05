@@ -77,6 +77,9 @@
 //
 //        absl::Hash          None                        (FixedInt only)
 //
+//        PowerOf10           uint
+//    CountDecimalDigits      None
+//
 //      AppendToString        std::string*
 //   ParseFromStringStrict    absl::string_view
 //  ParseFromStringSegments   absl::string_view
@@ -471,6 +474,29 @@ class FixedUint final {
     return true;
   }
 
+  // Returns pow(10, exponent).
+  static const FixedUint& PowerOf10(uint exponent) {
+    static constexpr auto kPowersOf10 = GetPowersOf10();
+    DCHECK_LE(exponent, kPowersOf10.size());
+    return kPowersOf10[exponent];
+  }
+  // Equivalent to ToString().size(), but is much faster.
+  // Note, this method returns 1 when *this = 0.
+  uint CountDecimalDigits() const {
+    static constexpr auto kPowersOf10 = GetPowersOf10();
+    constexpr uint kStartingValue = 1;  // returns 1 even when *this = 0
+    static constexpr auto kMSBInfos =
+        GetMSBInfoArray(kPowersOf10, FixedUint(Word{1}), kStartingValue);
+    int msb_set = FindMSBSetNonZero();
+    const MSBInfo& t = kMSBInfos[msb_set];
+    uint num_digits = t.min_num_digits;
+    if (t.power_of_10_in_bucket != nullptr &&
+        *this >= *t.power_of_10_in_bucket) {
+      ++num_digits;
+    }
+    return num_digits;
+  }
+
   template <typename H>
   friend H AbslHashValue(H h,
                          const FixedUint<kNumBitsPerWord, kNumWords>& value) {
@@ -490,6 +516,70 @@ class FixedUint final {
   // if *this = 123 and str = "456", then *this will become 123456.
   // The caller must ensure str is not empty.
   bool ParseOrAppendDigits(absl::string_view str, bool append);
+
+  static constexpr auto GetPowersOf10() {
+    // Convert number of bits to max number of decimal digits.
+    constexpr double kLog10_2 = 0.3010299956639812;
+    constexpr size_t kMaxDigits = static_cast<size_t>(kNumBits * kLog10_2) + 1;
+    return PowersAsc<kMaxDigits>(FixedUint(Word{1}), 10);
+  }
+
+  // PowersAsc<size>(v, multipler) returns an array of arrays
+  // representing {v, v * multiplier, ..., v * pow(multiplier, size - 1)}.
+  template <size_t size, typename... T>
+  static constexpr std::array<FixedUint, size> PowersAsc(
+      const FixedUint& last_value, Word multiplier, const T&... v) {
+    if constexpr (sizeof...(T) < size) {
+      const FixedUint new_value(fixed_int_internal::MulWord(
+          last_value.number(), multiplier, Word{0}));
+      return PowersAsc<size>(new_value, multiplier, v..., last_value);
+    } else {
+      return std::array<FixedUint, size>{v...};
+    }
+  }
+
+  // Decimal info of an MSB (most-significant-bit) index.
+  // For example, in an array of MSBInfo, the first element means
+  // the decimal info for the values whose MSB index is 0 (i.e., 0 and 1),
+  // the second element means the decimal info for the values whose MSB index is
+  // 1 (i.e., values 2 and 3), the third element is for the values whose MSB
+  // index is 2 (i.e., values 4, 5, 6, 7), and so on. This array is designed for
+  // efficient lookup of number of decimal digits by value. The number of
+  // decimal digits of the value is either t.min_num_digits or t.min_num_digits
+  // + 1 where t is the corresponding MSBInfo.
+  struct MSBInfo {
+    uint min_num_digits;
+    // If not null, it means the value range covers a power of 10. If a value in
+    // the range is greater than or equal to this power of 10, then it has
+    // min_num_digits + 1 decimal digits; otherwise it has min_num_digits
+    // decimal digits.
+    const FixedUint* power_of_10_in_bucket;
+  };
+
+  template <size_t max_num_digits, typename... T>
+  static constexpr std::array<MSBInfo, kNumBits> GetMSBInfoArray(
+      const std::array<FixedUint, max_num_digits>& powers_of_10,
+      const FixedUint& power_of_2, uint current_num_digits, T... v) {
+    if constexpr (sizeof...(T) < kNumBits) {
+      const FixedUint next_power_of_2(
+          fixed_int_internal::MulWord<Word>(power_of_2.number(), 2, 0));
+      const bool threshold_in_current_range =
+          current_num_digits < max_num_digits &&
+          fixed_int_internal::Less(powers_of_10[current_num_digits].number(),
+                                   next_power_of_2.number());
+      const uint next_num_digits =
+          current_num_digits + threshold_in_current_range;
+      const MSBInfo current_elem = {current_num_digits,
+                                    threshold_in_current_range
+                                        ? &powers_of_10[current_num_digits]
+                                        : nullptr};
+      return GetMSBInfoArray(powers_of_10, next_power_of_2, next_num_digits,
+                             v..., current_elem);
+    } else {
+      return std::array<MSBInfo, kNumBits>{v...};
+    }
+  }
+
   // The number is stored in the little-endian order with the least significant
   // word being at the index 0.
   std::array<Word, kNumWords> number_;
@@ -1028,6 +1118,13 @@ class FixedInt final {
     return rep_.ParseFromStringSegments(first_segment, extra_segments) &&
            SetSignAndAbs(negate, rep_);
   }
+
+  static FixedInt PowerOf10(uint exponent) {
+    FixedInt result(FixedUint<kNumBitsPerWord, kNumWords>::PowerOf10(exponent));
+    DCHECK(!result.is_negative());
+    return result;
+  }
+  uint CountDecimalDigits() const { return abs().CountDecimalDigits(); }
 
   // Sets sign and absolute value. Returns false in case of overflow.
   bool SetSignAndAbs(bool negative,

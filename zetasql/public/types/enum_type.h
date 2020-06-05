@@ -78,6 +78,15 @@ class EnumType : public Type {
   }
 
   void InitializeValueContent(ValueContent* value) const override;
+  absl::HashState HashTypeParameter(absl::HashState state) const override;
+  absl::HashState HashValueContent(const ValueContent& value,
+                                   absl::HashState state) const override;
+  bool ValueContentEqualsImpl(
+      const ValueContent& x, const ValueContent& y,
+      const ValueEqualityCheckOptions& options) const override;
+  std::string FormatValueContent(
+      const ValueContent& value,
+      const FormatValueContentOptions& options) const override;
 
  private:
   // Does not take ownership of <factory> or <enum_descr>.  The
@@ -105,8 +114,7 @@ class EnumType : public Type {
   }
 
   absl::Status SerializeToProtoAndDistinctFileDescriptorsImpl(
-      TypeProto* type_proto,
-      absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
+      const BuildFileDescriptorSetMapOptions& options, TypeProto* type_proto,
       FileDescriptorSetMap* file_descriptor_set_map) const override;
 
   bool EqualsForSameKind(const Type* that, bool equivalent) const override;

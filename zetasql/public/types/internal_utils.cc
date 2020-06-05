@@ -19,6 +19,7 @@
 #include <limits>
 
 #include "zetasql/common/proto_helper.h"
+#include "zetasql/public/types/type.h"
 
 namespace zetasql {
 namespace internal {
@@ -33,8 +34,8 @@ int64_t FileDescriptorSetMapTotalSize(
 }
 
 absl::Status PopulateDistinctFileDescriptorSets(
+    const BuildFileDescriptorMapOptions& options,
     const google::protobuf::FileDescriptor* file_descr,
-    absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
     FileDescriptorSetMap* file_descriptor_set_map,
     int* file_descriptor_set_index) {
   ZETASQL_RET_CHECK(file_descr != nullptr);
@@ -53,17 +54,21 @@ absl::Status PopulateDistinctFileDescriptorSets(
             file_descriptor_set_map->size() - 1);
   }
   absl::optional<int64_t> this_file_descriptor_set_max_size;
-  if (file_descriptor_sets_max_size_bytes.has_value()) {
+  if (options.file_descriptor_sets_max_size_bytes.has_value()) {
     const int64_t map_total_size =
         FileDescriptorSetMapTotalSize(*file_descriptor_set_map);
     this_file_descriptor_set_max_size =
-        file_descriptor_sets_max_size_bytes.value() - map_total_size +
+        options.file_descriptor_sets_max_size_bytes.value() - map_total_size +
         file_descriptor_entry->file_descriptor_set.ByteSizeLong();
   }
-  ZETASQL_RETURN_IF_ERROR(
-      PopulateFileDescriptorSet(file_descr, this_file_descriptor_set_max_size,
-                                &file_descriptor_entry->file_descriptor_set,
-                                &file_descriptor_entry->file_descriptors));
+  if (options.build_file_descriptor_sets) {
+    ZETASQL_RETURN_IF_ERROR(
+        PopulateFileDescriptorSet(file_descr, this_file_descriptor_set_max_size,
+                                  &file_descriptor_entry->file_descriptor_set,
+                                  &file_descriptor_entry->file_descriptors));
+  } else {
+    file_descriptor_entry->file_descriptors.insert(file_descr);
+  }
   *file_descriptor_set_index = file_descriptor_entry->descriptor_set_index;
   return absl::OkStatus();
 }

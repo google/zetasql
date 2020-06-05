@@ -21,6 +21,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/public/value.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/map_util.h"

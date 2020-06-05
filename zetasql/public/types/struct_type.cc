@@ -127,24 +127,21 @@ bool StructType::UsingFeatureV12CivilTimeType() const {
 }
 
 absl::Status StructType::SerializeToProtoAndDistinctFileDescriptorsImpl(
-    TypeProto* type_proto,
-    absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
+    const BuildFileDescriptorMapOptions& options, TypeProto* type_proto,
     FileDescriptorSetMap* file_descriptor_set_map) const {
   // Note - we cannot type_proto->Clear(), because it might have a
   // FileDescriptorSet that we are trying to populate.
   type_proto->set_type_kind(kind_);
   StructTypeProto* struct_type_proto = type_proto->mutable_struct_type();
-  std::set<const google::protobuf::FileDescriptor*> local_file_descrs;
   for (const StructField& field : fields_) {
     StructFieldProto* struct_field_proto = struct_type_proto->add_field();
     struct_field_proto->set_field_name(field.name);
-    ZETASQL_RETURN_IF_ERROR(field.type->SerializeToProtoAndDistinctFileDescriptors(
-        struct_field_proto->mutable_field_type(),
-        file_descriptor_sets_max_size_bytes, file_descriptor_set_map));
+    ZETASQL_RETURN_IF_ERROR(field.type->SerializeToProtoAndDistinctFileDescriptorsImpl(
+        options, struct_field_proto->mutable_field_type(),
+        file_descriptor_set_map));
   }
   return absl::OkStatus();
 }
-
 
 // TODO DebugString and other recursive methods on struct types
 // may cause a stack overflow for deeply nested types.
@@ -317,6 +314,34 @@ void StructType::CopyValueContent(const ValueContent& from,
 
 void StructType::ClearValueContent(const ValueContent& value) const {
   value.GetAs<zetasql_base::SimpleReferenceCounted*>()->Unref();
+}
+
+absl::HashState StructType::HashTypeParameter(absl::HashState state) const {
+  for (const StructField& field : fields_) {
+    state = field.type->Hash(std::move(state));
+  }
+
+  return state;
+}
+
+absl::HashState StructType::HashValueContent(const ValueContent& value,
+                                             absl::HashState state) const {
+  LOG(FATAL) << "HashValueContent should never be called for StructType, since "
+                "its value content is created in Value class";
+}
+
+bool StructType::ValueContentEqualsImpl(
+    const ValueContent& x, const ValueContent& y,
+    const ValueEqualityCheckOptions& options) const {
+  LOG(FATAL) << "ValueContentEqualsImpl should never be called for StructType,"
+                "since its value content is compared in Value class";
+}
+
+std::string StructType::FormatValueContent(
+    const ValueContent& value, const FormatValueContentOptions& options) const {
+  LOG(FATAL)
+      << "FormatValueContent should never be called for StructType, since "
+         "its value content is maintained in the Value class";
 }
 
 }  // namespace zetasql

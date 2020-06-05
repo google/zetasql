@@ -680,7 +680,15 @@ Documentation is pending for this feature.
 
 Documentation is pending for this feature.
 
+## CREATE PROCEDURE
+
+Documentation is pending for this feature.
+
 ## CREATE ROW POLICY
+
+Documentation is pending for this feature.
+
+## CREATE TABLE FUNCTION
 
 Documentation is pending for this feature.
 

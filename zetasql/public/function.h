@@ -150,11 +150,11 @@ using FunctionEvaluatorFactory =
 //                    .set_get_sql_callback(callback))
 struct FunctionOptions {
   typedef FunctionEnums::WindowOrderSupport WindowOrderSupport;
-  static const WindowOrderSupport ORDER_UNSUPPORTED =
+  static constexpr WindowOrderSupport ORDER_UNSUPPORTED =
       FunctionEnums::ORDER_UNSUPPORTED;
-  static const WindowOrderSupport ORDER_OPTIONAL =
+  static constexpr WindowOrderSupport ORDER_OPTIONAL =
       FunctionEnums::ORDER_OPTIONAL;
-  static const WindowOrderSupport ORDER_REQUIRED =
+  static constexpr WindowOrderSupport ORDER_REQUIRED =
       FunctionEnums::ORDER_REQUIRED;
 
   FunctionOptions() {}
@@ -447,9 +447,9 @@ class Function {
   static const char kZetaSQLFunctionGroupName[];
 
   typedef FunctionEnums::Mode Mode;
-  static const Mode SCALAR = FunctionEnums::SCALAR;
-  static const Mode AGGREGATE = FunctionEnums::AGGREGATE;
-  static const Mode ANALYTIC = FunctionEnums::ANALYTIC;
+  static constexpr Mode SCALAR = FunctionEnums::SCALAR;
+  static constexpr Mode AGGREGATE = FunctionEnums::AGGREGATE;
+  static constexpr Mode ANALYTIC = FunctionEnums::ANALYTIC;
 
   // Functions in the root catalog can use one of the first two constructors.
   // Functions in a nested catalog should use the constructor with the

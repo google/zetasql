@@ -22,7 +22,14 @@ cc_library(
     name = "proto_matchers",
     testonly = 1,
     hdrs = ["proto_matchers.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "@com_google_googletest//:gtest_main",
         "//zetasql/base",
@@ -35,7 +42,14 @@ cc_library(
     name = "testing_proto_util",
     testonly = 1,
     hdrs = ["testing_proto_util.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "@com_google_absl//absl/strings:cord",
         "@com_google_protobuf//:protobuf",

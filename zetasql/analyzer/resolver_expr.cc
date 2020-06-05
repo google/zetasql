@@ -134,6 +134,28 @@ VerifyFieldExtendsMessage(const ASTNode* ast_node,
   return field_descriptor;
 }
 
+// If type is an array, returns the array type element. Otherwise returns type.
+const Type* ArrayElementTypeOrType(const Type* type) {
+  if (type->IsArray()) {
+    return type->AsArray()->element_type();
+  }
+  return type;
+}
+
+// Adds 'expr' to the get_field_list for the passed in flatten node.
+// Updates the flatten result type accordingly.
+absl::Status AddGetFieldToFlatten(std::unique_ptr<const ResolvedExpr> expr,
+                                  TypeFactory* type_factory,
+                                  ResolvedFlatten* flatten) {
+  const Type* type = expr->type();
+  if (!type->IsArray()) {
+    ZETASQL_RETURN_IF_ERROR(type_factory->MakeArrayType(expr->type(), &type));
+  }
+  flatten->set_type(type);
+  flatten->add_get_field_list(std::move(expr));
+  return absl::OkStatus();
+}
+
 }  // namespace
 
 absl::Status Resolver::ResolveBuildProto(
@@ -577,9 +599,9 @@ absl::Status Resolver::ResolveExpr(
   DCHECK(parent_expr_resolution_info != nullptr);
 
   // Use a separate ExprAggregationInfo for the child because we don't
-  // want it to observe <has_aggregation> or <has_analytic> from a sibling.
-  // <has_aggregation> and <has_analytic> need to flow up the tree only, and
-  // not across.
+  // want it to observe <has_aggregation>, <has_analytic>, or <can_flatten> from
+  // a sibling. <has_aggregation> and <has_analytic> need to flow up the tree
+  // only, and not across. <can_flatten> needs to be selectively propagated.
   std::unique_ptr<ExprResolutionInfo> expr_resolution_info(  // Save stack for
       new ExprResolutionInfo(parent_expr_resolution_info));  // nested exprs.
 
@@ -609,6 +631,8 @@ absl::Status Resolver::ResolveExpr(
              << "Dot-star is only supported in SELECT expression";
 
     case AST_PATH_EXPRESSION:
+      expr_resolution_info->can_flatten =
+          parent_expr_resolution_info->can_flatten;
       return ResolvePathExpressionAsExpression(
           ast_expr->GetAsOrDie<ASTPathExpression>(), expr_resolution_info.get(),
           ResolvedStatement::READ, resolved_expr_out);
@@ -618,11 +642,15 @@ absl::Status Resolver::ResolveExpr(
                                   resolved_expr_out);
 
     case AST_DOT_IDENTIFIER:
+      expr_resolution_info->can_flatten =
+          parent_expr_resolution_info->can_flatten;
       return ResolveDotIdentifier(ast_expr->GetAsOrDie<ASTDotIdentifier>(),
                                   expr_resolution_info.get(),
                                   resolved_expr_out);
 
     case AST_DOT_GENERALIZED_FIELD:
+      expr_resolution_info->can_flatten =
+          parent_expr_resolution_info->can_flatten;
       return ResolveDotGeneralizedField(
           ast_expr->GetAsOrDie<ASTDotGeneralizedField>(),
           expr_resolution_info.get(), resolved_expr_out);
@@ -1164,6 +1192,7 @@ absl::Status Resolver::ResolvePathExpressionAsExpression(
       }
       case NameTarget::FIELD_OF:
         ZETASQL_RETURN_IF_ERROR(ResolveFieldAccess(
+            expr_resolution_info->can_flatten,
             MakeColumnRefWithCorrelation(target.column_containing_field(),
                                          correlated_columns_sets, access_flags),
             ast_first_name, &resolved_expr));
@@ -1321,7 +1350,8 @@ absl::Status Resolver::ResolvePathExpressionAsExpression(
 
   // Resolve any further identifiers in <path_expr> as field accesses.
   for (; num_names_consumed < path_expr->num_names(); ++num_names_consumed) {
-    ZETASQL_RETURN_IF_ERROR(ResolveFieldAccess(std::move(resolved_expr),
+    ZETASQL_RETURN_IF_ERROR(ResolveFieldAccess(expr_resolution_info->can_flatten,
+                                       std::move(resolved_expr),
                                        path_expr->name(num_names_consumed),
                                        &resolved_expr));
   }
@@ -1436,7 +1466,8 @@ absl::Status Resolver::ResolveDotIdentifier(
   ZETASQL_RETURN_IF_ERROR(ResolveExpr(dot_identifier->expr(), expr_resolution_info,
                               &resolved_expr));
 
-  return ResolveFieldAccess(std::move(resolved_expr), dot_identifier->name(),
+  return ResolveFieldAccess(expr_resolution_info->can_flatten,
+                            std::move(resolved_expr), dot_identifier->name(),
                             resolved_expr_out);
 }
 
@@ -1637,10 +1668,24 @@ absl::Status Resolver::MaybeResolveStructFieldAccess(
 }
 
 absl::Status Resolver::ResolveFieldAccess(
+    bool can_flatten,
     std::unique_ptr<const ResolvedExpr> resolved_lhs,
     const ASTIdentifier* identifier,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   const Type* lhs_type = resolved_lhs->type();
+  std::unique_ptr<ResolvedFlatten> resolved_flatten;
+  if (lhs_type->IsArray() && can_flatten) {
+    lhs_type = ArrayElementTypeOrType(resolved_lhs->type());
+    if (resolved_lhs->Is<ResolvedFlatten>()) {
+      resolved_flatten.reset(const_cast<ResolvedFlatten*>(
+          resolved_lhs.release()->GetAs<ResolvedFlatten>()));
+    } else {
+      resolved_flatten =
+          MakeResolvedFlatten(/*type=*/nullptr, std::move(resolved_lhs), {});
+    }
+    resolved_lhs = MakeResolvedFlattenedArg(lhs_type);
+  }
+
   if (lhs_type->IsProto()) {
     ZETASQL_RETURN_IF_ERROR(MaybeResolveProtoFieldAccess(
         identifier, MaybeResolveProtoFieldOptions(), std::move(resolved_lhs),
@@ -1657,6 +1702,11 @@ absl::Status Resolver::ResolveFieldAccess(
   }
 
   ZETASQL_RET_CHECK(*resolved_expr_out != nullptr);
+  if (resolved_flatten != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(AddGetFieldToFlatten(
+        std::move(*resolved_expr_out), type_factory_, resolved_flatten.get()));
+    *resolved_expr_out = std::move(resolved_flatten);
+  }
   return absl::OkStatus();
 }
 
@@ -1665,6 +1715,19 @@ absl::Status Resolver::ResolveExtensionFieldAccess(
     const ResolveExtensionFieldOptions& options,
     const ASTPathExpression* ast_path_expr,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
+  std::unique_ptr<ResolvedFlatten> resolved_flatten;
+  if (resolved_lhs->type()->IsArray() && options.can_flatten) {
+    const Type* lhs_type = ArrayElementTypeOrType(resolved_lhs->type());
+    if (resolved_lhs->Is<ResolvedFlatten>()) {
+      resolved_flatten.reset(const_cast<ResolvedFlatten*>(
+          resolved_lhs.release()->GetAs<ResolvedFlatten>()));
+    } else {
+      resolved_flatten =
+          MakeResolvedFlatten(/*type=*/nullptr, std::move(resolved_lhs), {});
+    }
+    resolved_lhs = MakeResolvedFlattenedArg(lhs_type);
+  }
+
   if (!resolved_lhs->type()->IsProto()) {
     return MakeSqlErrorAt(ast_path_expr)
            << "Generalized field access is not supported on expressions of "
@@ -1681,7 +1744,7 @@ absl::Status Resolver::ResolveExtensionFieldAccess(
   const Type* field_type;
   Value default_value;
   if (options.get_has_bit) {
-    if (extension_field->is_repeated()) {
+    if (extension_field->is_repeated() || resolved_flatten != nullptr) {
       return MakeSqlErrorAt(ast_path_expr)
              << "Protocol buffer " << lhs_proto->full_name()
              << " extension field " << extension_field->name()
@@ -1732,6 +1795,11 @@ absl::Status Resolver::ResolveExtensionFieldAccess(
 
   MaybeRecordParseLocation(ast_path_expr, resolved_get_proto_field.get());
   *resolved_expr_out = std::move(resolved_get_proto_field);
+  if (resolved_flatten != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(AddGetFieldToFlatten(std::move(*resolved_expr_out),
+                    type_factory_, resolved_flatten.get()));
+    *resolved_expr_out = std::move(resolved_flatten);
+  }
   return absl::OkStatus();
 }
 
@@ -1743,12 +1811,13 @@ absl::Status Resolver::ResolveDotGeneralizedField(
   ZETASQL_RETURN_IF_ERROR(ResolveExpr(dot_generalized_field->expr(),
                               expr_resolution_info, &resolved_lhs));
 
+  ResolveExtensionFieldOptions options;
+  options.can_flatten = expr_resolution_info->can_flatten;
   // The only supported operation using generalized field access currently
   // is reading proto extensions.
-  const ASTPathExpression* ast_path_expr = dot_generalized_field->path();
-  return ResolveExtensionFieldAccess(std::move(resolved_lhs),
-                                     ResolveExtensionFieldOptions(),
-                                     ast_path_expr, resolved_expr_out);
+  return ResolveExtensionFieldAccess(std::move(resolved_lhs), options,
+                                     dot_generalized_field->path(),
+                                     resolved_expr_out);
 }
 
 ::zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*> Resolver::FindFieldDescriptor(
@@ -2157,6 +2226,7 @@ absl::Status Resolver::ResolveSystemVariableExpression(
   for (; num_names_consumed < ast_system_variable_expr->path()->num_names();
        ++num_names_consumed) {
     ZETASQL_RETURN_IF_ERROR(ResolveFieldAccess(
+        expr_resolution_info,
         std::move(*resolved_expr_out),
         ast_system_variable_expr->path()->name(num_names_consumed),
         resolved_expr_out));

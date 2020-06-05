@@ -58,6 +58,13 @@ message ResolvedSetOperationScanEnums {
   }
 }
 
+message ResolvedRecursiveScanEnums {
+  enum RecursiveSetOperationType {
+    UNION_ALL = 0;
+    UNION_DISTINCT = 1;
+  }
+}
+
 message ResolvedSampleScanEnums {
   enum SampleUnit {
     ROWS = 0;

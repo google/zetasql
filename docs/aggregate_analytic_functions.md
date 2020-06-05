@@ -49,7 +49,7 @@ SUM(DISTINCT x) OVER ()
 ```
 
 [analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[aggregate-analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#aggregate-analytic-functions
+[aggregate-analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#aggregate_analytic_function_concepts
 
 [analytic-functions-link-to-aggregate-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions
 

@@ -133,6 +133,16 @@ TEST(GenerateArrayTest, ComplianceTests) {
         }
         break;
       }
+      case TYPE_BIGNUMERIC: {
+        std::vector<BigNumericValue> output;
+        status = GenerateArray<BigNumericValue>(
+            params[0].bignumeric_value(), params[1].bignumeric_value(),
+            params[2].bignumeric_value(), &output);
+        if (status.ok()) {
+          result = values::BigNumericArray(output);
+        }
+        break;
+      }
       default:
         FAIL() << "Unexpected type kind: " << TypeKind_Name(input_type);
         break;

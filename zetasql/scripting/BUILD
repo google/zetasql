@@ -22,7 +22,14 @@ cc_library(
     name = "control_flow_graph",
     srcs = ["control_flow_graph.cc"],
     hdrs = ["control_flow_graph.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":script_segment",
         "//zetasql/base:status",
@@ -43,7 +50,14 @@ cc_library(
         "break_continue_context.h",
         "parsed_script.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":control_flow_graph",
         ":error_helpers",
@@ -66,7 +80,14 @@ cc_library(
 cc_test(
     name = "parsed_script_test",
     srcs = ["parsed_script_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":parsed_script",
         "@com_google_googletest//:gtest_main",
@@ -81,7 +102,14 @@ cc_library(
     name = "script_segment",
     srcs = ["script_segment.cc"],
     hdrs = ["script_segment.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/parser",
         "//zetasql/public:parse_location",
@@ -94,7 +122,14 @@ cc_library(
     name = "parse_helpers",
     srcs = ["parse_helpers.cc"],
     hdrs = ["parse_helpers.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":parsed_script",
         "//zetasql/base:status",
@@ -109,7 +144,14 @@ cc_library(
     name = "error_helpers",
     srcs = ["error_helpers.cc"],
     hdrs = ["error_helpers.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":script_exception_cc_proto",
         ":script_segment",
@@ -125,7 +167,14 @@ cc_library(
 cc_test(
     name = "error_helpers_test",
     srcs = ["error_helpers_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":error_helpers",
         ":script_segment",

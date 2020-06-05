@@ -152,6 +152,8 @@ ResolvedNodeKind GetStatementKind(ASTNodeKind node_kind) {
       return RESOLVED_ASSIGNMENT_STMT;
     case AST_EXECUTE_IMMEDIATE_STATEMENT:
       return RESOLVED_EXECUTE_IMMEDIATE_STMT;
+    case AST_ALTER_ALL_ROW_ACCESS_POLICIES_STATEMENT:
+      return RESOLVED_ALTER_ALL_ROW_ACCESS_POLICIES_STMT;
     default:
       break;
   }
@@ -213,6 +215,7 @@ absl::Status GetNextStatementProperties(
     case AST_QUERY_STATEMENT:
       statement_properties->statement_category = StatementProperties::SELECT;
       break;
+    case AST_ALTER_ALL_ROW_ACCESS_POLICIES_STATEMENT:
     case AST_ALTER_DATABASE_STATEMENT:
     case AST_ALTER_MATERIALIZED_VIEW_STATEMENT:
     case AST_ALTER_ROW_ACCESS_POLICY_STATEMENT:

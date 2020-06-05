@@ -988,7 +988,7 @@ space.</td>
     <td>%g</td>
     <td>The
     <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a> year
-    with century as a decimal number (00-99). Each ISO
+    without century as a decimal number (00-99). Each ISO
     year begins on the Monday before the first Thursday of the Gregorian
     calendar year. Note that %g and %y may produce different results near
     Gregorian year boundaries, where the Gregorian year and ISO year can

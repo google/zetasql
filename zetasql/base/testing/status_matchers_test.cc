@@ -18,7 +18,7 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/statusor.h"
 

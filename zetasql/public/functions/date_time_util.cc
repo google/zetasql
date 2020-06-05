@@ -27,7 +27,7 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/public/functions/arithmetics.h"
 #include "zetasql/public/functions/date_time_util_internal.h"
-#include "zetasql/public/type.h"
+#include "zetasql/public/types/timestamp_util.h"
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
@@ -920,7 +920,7 @@ static absl::Status AddDuration(absl::Time timestamp, int64_t interval,
   return absl::OkStatus();
 }
 
-// The differences between this function and AddTimestampInternal of int64
+// The differences between this function and AddTimestampInternal of int64_t
 // timestamp are the following:
 // Adding an interval of granularity smaller than a day will not cause
 // arithmetic overflow. But it returns error status if the <output>
@@ -2431,7 +2431,7 @@ absl::Status ExtractFromDate(DateTimestampPart part, int32_t date,
   absl::CivilDay day = EpochDaysToCivilDay(date);
   switch (part) {
     case YEAR:
-      // Year for valid dates fits into int32
+      // Year for valid dates fits into int32_t
       *output = static_cast<int32_t>(day.year());
       break;
     case QUARTER:
@@ -2444,7 +2444,7 @@ absl::Status ExtractFromDate(DateTimestampPart part, int32_t date,
       *output = day.day();
       break;
     case ISOYEAR:
-      // Year for valid dates fits into int32
+      // Year for valid dates fits into int32_t
       *output = static_cast<int32_t>(GetIsoYear(day));
       break;
     case WEEK:

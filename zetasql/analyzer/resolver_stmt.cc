@@ -439,6 +439,14 @@ absl::Status Resolver::ResolveStatement(
             statement->GetAsOrDie<ASTAlterRowAccessPolicyStatement>(), &stmt));
       }
       break;
+    case AST_ALTER_ALL_ROW_ACCESS_POLICIES_STATEMENT:
+      if (language().SupportsStatementKind(
+              RESOLVED_ALTER_ALL_ROW_ACCESS_POLICIES_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveAlterAllRowAccessPoliciesStatement(
+            statement->GetAsOrDie<ASTAlterAllRowAccessPoliciesStatement>(),
+            &stmt));
+      }
+      break;
     case AST_ALTER_TABLE_STATEMENT:
       if (language().SupportsStatementKind(
               RESOLVED_ALTER_TABLE_SET_OPTIONS_STMT) ||
@@ -551,7 +559,7 @@ absl::Status Resolver::ResolveQueryStatement(
       true /* is_outer_query */, &resolved_scan, output_name_list));
 
   // Sanity check: WITH aliases get unregistered as they go out of scope.
-  ZETASQL_RET_CHECK(with_subquery_map_.empty());
+  ZETASQL_RET_CHECK(named_subquery_map_.empty());
 
   // Generate the user-visible output_column_list.
   // TODO Generate better user-visible names for anonymous columns.
@@ -2196,6 +2204,14 @@ absl::Status Resolver::ResolveCreateViewStatementBaseProperties(
         column_definition_list,
     std::unique_ptr<const ResolvedScan>* query_scan, std::string* view_sql,
     bool* is_value_table) {
+  if (ast_statement->recursive()) {
+    if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_WITH_RECURSIVE)) {
+      return MakeSqlErrorAt(ast_statement)
+             << "Recursive views are not supported";
+    }
+    return MakeSqlErrorAt(ast_statement)
+           << "Recursive views not implemented yet";
+  }
   ZETASQL_RETURN_IF_ERROR(ResolveCreateStatementOptions(ast_statement, statement_type,
                                                 create_scope, create_mode));
 
@@ -2256,7 +2272,7 @@ absl::Status Resolver::ResolveCreateViewStatement(
   *output = MakeResolvedCreateViewStmt(
       table_name, create_scope, create_mode, std::move(resolved_options),
       std::move(output_column_list), std::move(query_scan), view_sql,
-      sql_security, is_value_table);
+      sql_security, is_value_table, /*recursive=*/false);
 
   return absl::OkStatus();
 }
@@ -2327,8 +2343,9 @@ absl::Status Resolver::ResolveCreateMaterializedViewStatement(
   *output = MakeResolvedCreateMaterializedViewStmt(
       table_name, create_scope, create_mode, std::move(resolved_options),
       std::move(output_column_list), std::move(query_scan), view_sql,
-      sql_security, is_value_table, std::move(column_definition_list),
-      std::move(partition_by_list), std::move(cluster_by_list));
+      sql_security, is_value_table, /*recursive=*/false,
+      std::move(column_definition_list), std::move(partition_by_list),
+      std::move(cluster_by_list));
 
   return absl::OkStatus();
 }
@@ -3442,7 +3459,8 @@ absl::Status Resolver::ResolveGranteeList(
   for (const ASTExpression* grantee : ast_grantee_list->grantee_list()) {
     if (language().LanguageFeatureEnabled(FEATURE_PARAMETERS_IN_GRANTEE_LIST)) {
       ZETASQL_RET_CHECK(grantee->node_kind() == AST_PARAMETER_EXPR ||
-                grantee->node_kind() == AST_STRING_LITERAL)
+                grantee->node_kind() == AST_STRING_LITERAL ||
+                grantee->node_kind() == AST_SYSTEM_VARIABLE_EXPR)
           << grantee->DebugString();
       std::unique_ptr<const ResolvedExpr> grantee_expr;
       const NameScope empty_name_scope;
@@ -3463,9 +3481,14 @@ absl::Status Resolver::ResolveGranteeList(
       if (grantee->node_kind() == AST_PARAMETER_EXPR) {
         return MakeSqlErrorAt(grantee)
             << "The GRANTEE list only supports string literals, not parameters";
+      } else if (grantee->node_kind() == AST_SYSTEM_VARIABLE_EXPR) {
+        return MakeSqlErrorAt(grantee)
+            << "The GRANTEE list only supports string literals, not system "
+            << "variables";
+      } else {
+        ZETASQL_RET_CHECK(grantee->node_kind() == AST_STRING_LITERAL)
+            << grantee->DebugString();
       }
-      ZETASQL_RET_CHECK(grantee->node_kind() == AST_STRING_LITERAL)
-          << grantee->DebugString();
       grantee_list->push_back(
           grantee->GetAsOrDie<ASTStringLiteral>()->string_value());
     }
@@ -3511,6 +3534,11 @@ absl::Status Resolver::ResolveCreateRowAccessPolicyStatement(
     if (!has_filter_keyword) {
       return MakeSqlErrorAt(ast_statement->filter_using())
              << "Expected keyword FILTER before USING";
+    }
+    if (ast_statement->name() == nullptr && !has_grant_clause) {
+      return MakeSqlErrorAt(ast_statement)
+             << "Omitting the GRANT TO clause is not supported for unnamed row "
+                "access policies";
     }
   } else {
     // In the old syntax, the "[GRANT] TO" clause is required.
@@ -3652,6 +3680,50 @@ absl::Status Resolver::ResolveAlterRowAccessPolicyStatement(
       ast_statement->path()->ToIdentifierVector(),
       std::move(resolved_alter_actions), ast_statement->is_if_exists(),
       ast_statement->name()->GetAsString(), std::move(resolved_table_scan));
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveAlterAllRowAccessPoliciesStatement(
+      const ASTAlterAllRowAccessPoliciesStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output) {
+  ZETASQL_RET_CHECK(ast_statement->table_name_path() != nullptr);
+  ZETASQL_RET_CHECK(ast_statement->alter_action() != nullptr);
+
+  if (ast_statement->alter_action()->node_kind() != AST_REVOKE_FROM_CLAUSE) {
+    return MakeSqlErrorAt(ast_statement->alter_action()) <<
+        "ALTER ALL ROW ACCESS POLICIES only supports REVOKE FROM";
+  }
+
+  const ASTPathExpression* table_path = ast_statement->table_name_path();
+  const IdString alias = GetAliasForExpression(table_path);
+
+  std::unique_ptr<const ResolvedTableScan> resolved_table_scan;
+  std::shared_ptr<const NameList> name_list;
+  ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
+      table_path, alias, /*has_explicit_alias=*/ false,
+      /*alias_location=*/ table_path, /*hints=*/ nullptr,
+      /*for_system_time=*/ nullptr, empty_name_scope_.get(),
+      &resolved_table_scan, &name_list));
+
+  const ASTRevokeFromClause* revoke_from_action =
+      ast_statement->alter_action()->GetAs<ASTRevokeFromClause>();
+  std::vector<std::string> revokee_list;
+  std::vector<std::unique_ptr<const ResolvedExpr>> revokee_expr_list;
+  if (!revoke_from_action->is_revoke_from_all()) {
+    ZETASQL_RETURN_IF_ERROR(ResolveGranteeList(revoke_from_action->revoke_from_list(),
+                                       &revokee_list, &revokee_expr_list));
+  }
+
+  std::vector<std::unique_ptr<const ResolvedAlterAction>>
+      resolved_alter_actions;
+  std::unique_ptr<const ResolvedAlterAction> revoke_action =
+      MakeResolvedRevokeFromAction(std::move(revokee_expr_list),
+                                   revoke_from_action->is_revoke_from_all());
+  resolved_alter_actions.push_back(std::move(revoke_action));
+
+  *output = MakeResolvedAlterAllRowAccessPoliciesStmt(
+      table_path->ToIdentifierVector(), std::move(resolved_alter_actions),
+      /*is_if_exists=*/false, std::move(resolved_table_scan));
   return absl::OkStatus();
 }
 

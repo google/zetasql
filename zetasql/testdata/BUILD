@@ -62,7 +62,10 @@ proto_library(
         "test_schema.proto",
     ],
     features = ["-proto_dynamic_mode_static_link"],
-    deps = ["//zetasql/public/proto:type_annotation_proto"],
+    deps = [
+        "//zetasql/public/proto:type_annotation_proto",
+        "@com_google_protobuf//:descriptor_proto",
+    ],
 )
 
 cc_proto_library(
@@ -153,7 +156,14 @@ cc_library(
     testonly = 1,
     srcs = ["sample_system_variables.cc"],
     hdrs = ["sample_system_variables.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":test_schema_cc_proto",
         "//zetasql/base:status",
@@ -168,7 +178,14 @@ cc_library(
     testonly = 1,
     srcs = ["sample_catalog.cc"],
     hdrs = ["sample_catalog.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":ambiguous_has_cc_proto",
         ":test_packageless_cc_proto",
@@ -197,6 +214,7 @@ cc_library(
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
@@ -209,7 +227,14 @@ cc_library(
     testonly = 1,
     srcs = ["error_catalog.cc"],
     hdrs = ["error_catalog.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/base:ret_check",
         "//zetasql/base:source_location",
@@ -225,7 +250,14 @@ cc_library(
     testonly = 1,
     srcs = ["populate_sample_tables.cc"],
     hdrs = ["populate_sample_tables.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":sample_catalog",
         ":test_schema_cc_proto",

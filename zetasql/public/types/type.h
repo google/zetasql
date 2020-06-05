@@ -28,9 +28,11 @@
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/float_margin.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/timestamp_util.h"
 #include "absl/base/attributes.h"
 #include <cstdint>
 #include "absl/base/macros.h"
@@ -41,7 +43,6 @@
 #include "zetasql/base/case.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
-#include "absl/time/time.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -50,13 +51,18 @@ namespace zetasql {
 
 class ArrayType;
 class EnumType;
+class ExtendedType;
 class LanguageOptions;
 class ProtoType;
 class StructType;
 class Type;
 class TypeFactory;
-class ValueContent;
 class Value;
+class ValueContent;
+
+namespace internal {
+class TypeStore;
+}  // namespace internal
 
 typedef std::vector<Type*> TypeList;
 
@@ -91,6 +97,7 @@ class Type {
   bool IsDatetime() const { return kind_ == TYPE_DATETIME; }
   bool IsNumericType() const { return kind_ == TYPE_NUMERIC; }
   bool IsBigNumericType() const { return kind_ == TYPE_BIGNUMERIC; }
+  bool IsJsonType() const { return kind_ == TYPE_JSON; }
 
   // DEPRECATED, use UsingFeatureV12CivilTimeType() instead.
   //
@@ -161,12 +168,19 @@ class Type {
   // TypeKind, with no parameters. This exists instead of IsScalarType because
   // enums act more like scalars, but require parameters.
   bool IsSimpleType() const { return IsSimpleType(kind_); }
+
+  // Extended types are defined outside of ZetaSQL codebase. They have
+  // TYPE_EXTENDED type kind and their classes inherit zetasql::ExtendedType
+  // class.
+  bool IsExtendedType() const { return kind_ == TYPE_EXTENDED; }
+
   // Return this Type cast to the given subclass, or nullptr if this type
   // is not of the requested type.
   virtual const ArrayType* AsArray() const { return nullptr; }
   virtual const StructType* AsStruct() const { return nullptr; }
   virtual const ProtoType* AsProto() const { return nullptr; }
   virtual const EnumType* AsEnum() const { return nullptr; }
+  virtual const ExtendedType* AsExtendedType() const { return nullptr; }
 
   // Returns true if the type supports grouping with respect to the
   // 'language_options'. E.g. struct type supports grouping if the
@@ -415,12 +429,30 @@ class Type {
                                           ProductMode mode);
 
   // Returns whether <type_name> identifies a simple Type.
-  static bool IsSimpleTypeName(const std::string& type_name, ProductMode mode);
+  // Assumes all language features are enabled.
+  ABSL_DEPRECATED("Use GetTypeKindIfSimple instead")
+  static bool IsSimpleTypeName(const std::string& type_name, ProductMode mode) {
+    return GetTypeKindIfSimple(type_name, mode) != TYPE_UNKNOWN;
+  }
 
   // Returns the matching TypeKind associated with <type_name>, or crashes
   // if the name does not identify a simple Type.
+  ABSL_DEPRECATED("Use GetTypeKindIfSimple instead")
   static TypeKind SimpleTypeNameToTypeKindOrDie(const std::string& type_name,
-                                                ProductMode mode);
+                                                ProductMode mode) {
+    TypeKind type_kind = GetTypeKindIfSimple(type_name, mode);
+    CHECK_NE(type_kind, TYPE_UNKNOWN);
+    return type_kind;
+  }
+
+  // Returns the type kind if 'type_name' is a simple type in 'mode', assuming
+  // all language features are enabled. Returns TYPE_UNKNOWN otherwise.
+  static TypeKind GetTypeKindIfSimple(absl::string_view type_name,
+                                      ProductMode mode);
+  // Returns the type kind if 'type_name' is a simple type given
+  // 'language_options', or TYPE_UNKNOWN otherwise.
+  static TypeKind GetTypeKindIfSimple(absl::string_view type_name,
+                                      const LanguageOptions& language_options);
 
   // Functions below this line are for internal use only.
 
@@ -444,6 +476,20 @@ class Type {
   // this type. For simple types this is 0.
   virtual int nesting_depth() const { return 0; }
 
+  // Controls for the building of the FileDescriptorSetMap.
+  struct BuildFileDescriptorSetMapOptions {
+    // If true, FileDescriptorSetMap is populated with the transitive dependency
+    // set of the required types and the FileDescriptorSets are built.
+    // Otherwise, FileDescriptorSetMap is populated only with the directly
+    // required FileDescriptors and the FileDescriptorSets are not initialized.
+    bool build_file_descriptor_sets = true;
+
+    // A limit for the size of the FileDescriptorSets. If the sum of the sizes
+    // passes this limit, the next attempt to add an element will cause an
+    // error.
+    absl::optional<int64_t> file_descriptor_sets_max_size_bytes = absl::nullopt;
+  };
+
  protected:
   // Types can only be created and destroyed by TypeFactory.
   Type(const TypeFactory* factory, TypeKind kind);
@@ -459,12 +505,22 @@ class Type {
     return EqualsForSameKind(other_type, equivalent);
   }
 
+  // Hashes the type. Hash is generated based on a type's kind and (if type is
+  // not built-in simple type) on a type's parameter.
+  absl::HashState Hash(absl::HashState state) const;
+
+  // Hashes the type's parameter of non-simple (parameterized) types. Simple
+  // built-in types should not update the hash state.
+  virtual absl::HashState HashTypeParameter(absl::HashState state) const = 0;
+
   // Internal implementation for Serialize methods.  This will append
   // Type information to <type_proto>, so the caller should make sure
   // that <type_proto> has been initialized properly before invoking.
+  // <options> controls whether FileDescriptors are deep-scanned and
+  // FileDescriptorSets are generated, and also whether there are any limits
+  // placed on the size of the FileDescriptorSets.
   virtual absl::Status SerializeToProtoAndDistinctFileDescriptorsImpl(
-      TypeProto* type_proto,
-      absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
+      const BuildFileDescriptorSetMapOptions& options, TypeProto* type_proto,
       FileDescriptorSetMap* file_descriptor_set_map) const = 0;
 
   // Returns estimated size of memory owned by this type. Note: type can never
@@ -505,12 +561,107 @@ class Type {
   // destruction context.
   virtual void ClearValueContent(const ValueContent& value) const {}
 
+  // Contains value equality check options that can be provided to
+  // ValueContentEquals function.
+  struct ValueEqualityCheckOptions {
+    ValueEqualityCheckOptions(const Type* other_value_type,
+                              FloatMargin float_margin, std::string* reason)
+        : other_value_type(other_value_type),
+          float_margin(float_margin),
+          reason(reason) {}
+
+    // The type of compared value. This type should always be equivalent to the
+    // type for which ValueContentEquals is called:
+    // this->Equivalent(options.other_value_type) == true.
+    const Type* other_value_type;
+
+    // Defines the maximum allowed absolute error when comparing floating point
+    // numbers (float and double).
+    FloatMargin float_margin = kExactFloatMargin;
+
+    // If 'reason' is not null, upon inequality it may be set to human-readable
+    // explanation of what parts of values differ.
+    std::string* reason = nullptr;
+  };
+
+  // Checks two values for equality. The first value belongs to the current
+  // type, while the second one belongs to an equivalent type
+  // (this->Equivalent(other_value_type) == true). The pointer to the value of
+  // the second type can be found in 'options'. If both values are nulls, they
+  // are considered equal.
+  // Note: this function doesn't perform SQL equality.
+  // This function should only be used from zetasql::Value class.
+  bool ValueContentEquals(const ValueContent& x, const ValueContent& y,
+                          const ValueEqualityCheckOptions& options) const;
+
+  // Checks for equality a content of two values. It should be expected that
+  // both values that are passed to this function are not-null, the first value
+  // belongs to the current type and the second to the type that is equivalent
+  // to the current type (pointer to the actual type can be found in
+  // ValueEqualityCheckOptions::other_value_type). This function should only be
+  // called from ValueContentEquals that enforces these assumptions.
+  virtual bool ValueContentEqualsImpl(
+      const ValueContent& x, const ValueContent& y,
+      const ValueEqualityCheckOptions& options) const = 0;
+
   // Returns memory size allocated by value's content (outside of Value class
   // memory itself).
   virtual uint64_t GetValueContentExternallyAllocatedByteSize(
       const ValueContent& value) const {
     return 0;
   }
+
+  // Hashes the content of the value. This function is called from
+  // Value::HashValueInternal. It's not required that generated hash depends on
+  // type's information (like, a kind or a parameter), and from performance
+  // considerations it should only be based on a value's content (if dependence
+  // on a type is important for a caller, caller can use Type's Hash function
+  // after HashValueContent).
+  virtual absl::HashState HashValueContent(const ValueContent& value,
+                                           absl::HashState state) const = 0;
+
+  // Formatting options that can be provided to FormatValueContent.
+  struct FormatValueContentOptions {
+    enum class Mode {
+      // Should generate a string value to use for debugging purposes.
+      // This mode is used by Value::DebugString: please check the comments to
+      // this function for more details.
+      kDebug = 0,
+
+      // Should generate a SQL literal that can be used as a literal to produce
+      // a value with the content compatible to the given ValueContent object.
+      // This mode is used by Value::GetSQLLiteral: please check the comments to
+      // this function for more details.
+      kSQLLiteral,
+
+      // Should generate a SQL expression that produces a value with the given
+      // content and belonging to the current type.
+      // This mode is used by Value::GetSQL: please check the comments to this
+      // function for more details.
+      kSQLExpression,
+    };
+
+    // The getters below are here mostly for historical reasons: originally
+    // internal zetasql::Value formatting functions were using these two flags
+    // to figure out which formatting mode is requested. New types should not
+    // use them, but should rely on the "mode" field directly.
+    bool as_literal() const { return mode != Mode::kSQLExpression; }
+    bool add_simple_type_prefix() const { return mode != Mode::kDebug; }
+
+    ProductMode product_mode = ProductMode::PRODUCT_EXTERNAL;
+    Mode mode = Mode::kDebug;
+    bool verbose = false;  // Used with debug mode only.
+  };
+
+  // Returns a string representation of the value content based on the given
+  // formatting options. Value content is required to be non-null. This function
+  // is called from Value::GetSQLInternal, which is used by Value::GetSQL,
+  // Value::GetSQLLiteral and Value::DebugString functions. Please check
+  // comments to these functions for the details of expected result
+  // representation.
+  virtual std::string FormatValueContent(
+      const ValueContent& value,
+      const FormatValueContentOptions& options) const = 0;
 
   // List of DebugStringImpl outputs. Used to serve as a stack in
   // DebugStringImpl to protect from stack overflows.
@@ -519,9 +670,6 @@ class Type {
   // "typedef".
   typedef std::vector<absl::variant<const Type*, std::string> >
       TypeOrStringVector;
-
-  const TypeFactory* type_factory_;  // Used for lifetime checking only.
-  const TypeKind kind_;
 
  private:
   // Recursive implementation of SupportsGrouping, which returns in
@@ -556,12 +704,20 @@ class Type {
     return HAS_NO_FIELD;
   }
 
+  // Make TypeFactory and TypeStore friend classes to provide an access to
+  // type_store_ field.
   friend class TypeFactory;
+  friend class internal::TypeStore;
+
   friend class ArrayType;
   friend class StructType;
+
+  const internal::TypeStore* type_store_;  // Used for lifetime checking only.
+  const TypeKind kind_;
 };
 
 typedef Type::FileDescriptorSetMap FileDescriptorSetMap;
+typedef Type::BuildFileDescriptorSetMapOptions BuildFileDescriptorMapOptions;
 
 #ifndef SWIG
 // Provides equality comparison operator for Types.  This primarily invokes
@@ -579,36 +735,6 @@ typedef std::pair<TypeKind, TypeKind> TypeKindPair;
 // provided TypeKind_IsValid(), as it also returns false for the dummy
 // __TypeKind__switch_must_have_a_default__ value.
 bool IsValidTypeKind(int kind);
-
-namespace types {
-// The valid date range is [ 0001-01-01, 9999-12-31 ].
-static const int64_t kDateMin = -719162;
-static const int64_t kDateMax = 2932896;
-
-// The valid timestamp range for timestamps is:
-//   [ 0001-01-01 00:00:00 UTC, 9999-12-31 23:59:59.999999 UTC ]
-static const int64_t kTimestampMin = -62135596800LL * 1000000;
-static const int64_t kTimestampMax = 253402300800LL * 1000000 - 1;
-
-// The valid timestamp range for absl::Time is:
-// [ 0001-01-01 00:00:00 UTC, 9999-12-31 23:59:59.999999999 UTC ]
-absl::Time TimestampMinBaseTime();
-absl::Time TimestampMaxBaseTime();
-
-// The valid legacy timestamp range is from the beginning of 1678-01-01 to the
-// end of 2261-12-31 UTC.  These are the years fully representable in nanos in
-// an int64_t.  The bounds were computed with an online date converter, and
-// verified with C library date formatting with TZ=UTC in unittest.
-// TODO: Deprecated TIMESTAMP_XXX types, to be removed.
-static const int64_t kTimestampNanosMin = -9214560000LL * 1000000000;
-static const int64_t kTimestampNanosMax = 9214646400LL * 1000000000 - 1;
-static const int64_t kTimestampMicrosMin = kTimestampNanosMin / 1000;
-static const int64_t kTimestampMillisMin = kTimestampNanosMin / 1000000;
-static const int64_t kTimestampSecondsMin = kTimestampNanosMin / 1000000000;
-static const int64_t kTimestampMicrosMax = kTimestampNanosMax / 1000;
-static const int64_t kTimestampMillisMax = kTimestampNanosMax / 1000000;
-static const int64_t kTimestampSecondsMax = kTimestampNanosMax / 1000000000;
-}  // namespace types
 
 }  // namespace zetasql
 

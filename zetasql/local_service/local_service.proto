@@ -173,6 +173,7 @@ message EvaluateRequest {
   // Set if the expression is already prepared, in which case sql and
   // file_descriptor_set will be ignored.
   optional int64 prepared_expression_id = 5;
+  optional AnalyzerOptionsProto options = 6;
 }
 
 message EvaluateResponse {

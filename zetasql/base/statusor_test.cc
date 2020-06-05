@@ -28,8 +28,8 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/testing/status_matchers.h"
 

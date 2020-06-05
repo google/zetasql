@@ -504,7 +504,7 @@ TEST_P(ReadProtoFieldsTest, Uint64Datetime) {
 }
 
 TEST_P(ReadProtoFieldsTest, LargeUint64Datetime) {
-  kitchen_sink_.set_uint64_val(1ULL << 60);
+  kitchen_sink_.set_uint64_val(uint64_t{1} << 60);
   EXPECT_THAT(
       ReadField("uint64_val", FieldFormat::DATETIME_MICROS,
                 types::DatetimeType(), values::NullDatetime()),

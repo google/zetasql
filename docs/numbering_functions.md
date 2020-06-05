@@ -98,5 +98,5 @@ non-deterministic.
 INT64
 
 [analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[numbering-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#numbering-functions
+[numbering-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#numbering_function_concepts
 

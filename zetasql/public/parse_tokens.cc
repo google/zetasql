@@ -252,19 +252,26 @@ absl::Status GetParseTokens(const ParseTokenOptions& options,
       mode, resume_location->filename(), resume_location->input(),
       resume_location->byte_position());
 
+  absl::Status status;
   ParseLocationRange location;
   while (true) {
     int bison_token;
-    ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationToExternal(
+    status = ConvertInternalErrorLocationToExternal(
         tokenizer->GetNextToken(&location /* input and output */, &bison_token),
-        resume_location->input()));
+        resume_location->input());
+    if (!status.ok()) {
+      break;
+    }
 
     std::string image(absl::ClippedSubstr(
         resume_location->input(), location.start().GetByteOffset(),
         location.end().GetByteOffset() - location.start().GetByteOffset()));
-    ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationToExternal(
+    status = ConvertInternalErrorLocationToExternal(
         ConvertBisonToken(bison_token, location, std::move(image), tokens),
-        resume_location->input()));
+        resume_location->input());
+    if (!status.ok()) {
+      break;
+    }
 
     if (options.max_tokens > 0 && tokens->size() >= options.max_tokens) {
       break;
@@ -278,6 +285,9 @@ absl::Status GetParseTokens(const ParseTokenOptions& options,
       break;
     }
   }
+  if (!status.ok() && tokens->empty()) {
+    return status;
+  }
   // Use the end of the last token returned by the tokenizer as the resume
   // location. We shorten the ";" token in ConvertBisonToken(), so we should
   // NOT use the token position directly from the tokenizer. Instead, we
@@ -286,7 +296,7 @@ absl::Status GetParseTokens(const ParseTokenOptions& options,
   ZETASQL_RET_CHECK(!tokens->empty());
   resume_location->set_byte_position(
       tokens->back().GetLocationRange().end().GetByteOffset());
-  return absl::OkStatus();
+  return status;
 }
 
 std::string ParseToken::GetKeyword() const {

@@ -40,7 +40,13 @@ class ProtoUtil {
   // places an array value with any order kind other than "kPreservesOrder" into
   // a repeated proto field 'nondeterministic' will be set to "true". Otherwise
   // 'nondeterministic' is unchanged.
-  static absl::Status WriteField(const google::protobuf::FieldDescriptor* field_descr,
+  struct WriteFieldOptions {
+    // If false, it is an error to provide a null Value for any proto map entry
+    // key or value.
+    bool allow_null_map_keys = true;
+  };
+  static absl::Status WriteField(const WriteFieldOptions& options,
+                                 const google::protobuf::FieldDescriptor* field_descr,
                                  FieldFormat::Format format, const Value& value,
                                  bool* nondeterministic,
                                  google::protobuf::io::CodedOutputStream* dst);

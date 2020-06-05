@@ -37,7 +37,14 @@ cc_library(
         "logging.h",
         "varsetter.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":arena",
         ":logging",
@@ -48,10 +55,32 @@ cc_library(
 )
 
 cc_library(
+    name = "varsetter",
+    hdrs = [
+        "varsetter.h",
+    ],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
+)
+
+cc_library(
     name = "logging",
     srcs = ["logging.cc"],
     hdrs = ["logging.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/base:log_severity",
@@ -65,7 +94,14 @@ cc_library(
         "arena.h",
         "arena_allocator.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":logging",
         "@com_google_absl//absl/base:core_headers",
@@ -76,7 +112,14 @@ cc_library(
 cc_test(
     name = "arena_test",
     srcs = ["arena_unittest.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":arena",
         ":logging",
@@ -90,7 +133,14 @@ cc_test(
     name = "arena_leakage_unittest",
     size = "small",
     srcs = ["arena_leakage_unittest.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":arena",
         "@com_google_googletest//:gtest_main",
@@ -100,14 +150,28 @@ cc_test(
 cc_library(
     name = "source_location",
     hdrs = ["source_location.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = ["@com_google_absl//absl/base:config"],
 )
 
 cc_test(
     name = "source_location_test",
     srcs = ["source_location_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":source_location",
         "@com_google_googletest//:gtest_main",
@@ -120,7 +184,14 @@ cc_library(
         "endian.h",
         "unaligned_access.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "@com_google_absl//absl/base:config",
         "@com_google_absl//absl/base:core_headers",
@@ -131,7 +202,14 @@ cc_library(
 cc_test(
     name = "endian_test",
     srcs = ["endian_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":endian",
         "@com_google_googletest//:gtest_main",
@@ -155,7 +233,14 @@ cc_library(
         "statusor.h",
         "statusor_internals.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         ":logging",
@@ -173,22 +258,37 @@ cc_library(
 cc_test(
     name = "status_test",
     srcs = ["status_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
-        ":status",
         "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/status",
     ],
 )
 
 cc_test(
     name = "status_payload_test",
     srcs = ["status_payload_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":status",
         ":test_payload_cc_proto",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
@@ -198,7 +298,14 @@ cc_test(
 cc_library(
     name = "enum_utils",
     hdrs = ["enum_utils.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "@com_google_protobuf//:cc_wkt_protos",
     ],
@@ -209,7 +316,14 @@ cc_test(
     srcs = [
         "enum_utils_test.cc",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":enum_utils",
         ":test_payload_cc_proto",
@@ -223,7 +337,14 @@ cc_library(
     hdrs = [
         "ret_check.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":logging",
         ":source_location",
@@ -235,12 +356,20 @@ cc_library(
 cc_test(
     name = "status_macros_test",
     srcs = ["status_macros_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":source_location",
         ":status",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -252,7 +381,14 @@ cc_library(
         "map_util.h",
         "no_destructor.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":logging",
         "@com_google_absl//absl/meta:type_traits",
@@ -265,7 +401,14 @@ cc_test(
         "map_util_test.h",
         "map_util_unittest.cc",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":logging",
         ":map_util",
@@ -279,7 +422,14 @@ cc_library(
     hdrs = [
         "stl_util.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
 )
 
 cc_test(
@@ -287,7 +437,14 @@ cc_test(
     srcs = [
         "stl_util_test.cc",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":stl_util",
         "@com_google_googletest//:gtest_main",
@@ -299,7 +456,14 @@ cc_test(
     name = "no_destructor_test",
     size = "small",
     srcs = ["no_destructor_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":logging",
         ":map_util",
@@ -310,7 +474,14 @@ cc_test(
 cc_test(
     name = "map_traits_test",
     srcs = ["map_traits_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":map_util",
         "@com_google_googletest//:gtest_main",
@@ -326,7 +497,14 @@ cc_library(
     hdrs = [
         "mathutil.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":bits",
         ":logging",
@@ -341,7 +519,14 @@ cc_test(
     srcs = [
         "mathutil_test.cc",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":logging",
         ":mathutil",
@@ -358,13 +543,27 @@ cc_library(
     hdrs = [
         "mathlimits.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
 )
 
 cc_test(
     name = "mathlimits_test",
     srcs = ["mathlimits_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":logging",
         ":mathlimits",
@@ -380,7 +579,14 @@ cc_library(
     hdrs = [
         "bits.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":endian",
         ":logging",
@@ -393,7 +599,14 @@ cc_library(
 cc_test(
     name = "bits_test",
     srcs = ["bits_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":bits",
         "@com_google_googletest//:gtest_main",
@@ -404,7 +617,14 @@ cc_test(
 cc_test(
     name = "status_builder_test",
     srcs = ["status_builder_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":source_location",
         ":status",
@@ -443,7 +663,14 @@ cc_test(
     name = "statusor_test",
     size = "small",
     srcs = ["statusor_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":source_location",
         ":status",
@@ -451,6 +678,7 @@ cc_test(
         "@com_google_googletest//:gtest",
         "//zetasql/base/testing:status_matchers",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -459,7 +687,14 @@ cc_library(
     name = "case",
     srcs = ["case.cc"],
     hdrs = ["case.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings",
@@ -469,7 +704,14 @@ cc_library(
 cc_test(
     name = "case_test",
     srcs = ["case_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":case",
         "@com_google_googletest//:gtest_main",
@@ -480,7 +722,14 @@ cc_library(
     name = "path",
     srcs = ["path.cc"],
     hdrs = ["path.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "@com_google_absl//absl/strings",
     ],
@@ -489,7 +738,14 @@ cc_library(
 cc_test(
     name = "path_test",
     srcs = ["path_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":path",
         "@com_google_googletest//:gtest_main",
@@ -499,7 +755,14 @@ cc_test(
 cc_library(
     name = "cleanup",
     hdrs = ["cleanup.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "@com_google_absl//absl/base:core_headers",
     ],
@@ -508,7 +771,14 @@ cc_library(
 cc_test(
     name = "cleanup_test",
     srcs = ["cleanup_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":cleanup",
         "@com_google_googletest//:gtest_main",
@@ -519,7 +789,14 @@ cc_library(
     name = "time_proto_util",
     srcs = ["time_proto_util.cc"],
     hdrs = ["time_proto_util.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":status",
         "@com_google_absl//absl/base:core_headers",
@@ -533,7 +810,14 @@ cc_library(
 cc_test(
     name = "time_proto_util_test",
     srcs = ["time_proto_util_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":time_proto_util",
         "@com_google_googletest//:gtest_main",
@@ -548,7 +832,14 @@ cc_library(
     name = "string_numbers",
     srcs = ["string_numbers.cc"],
     hdrs = ["string_numbers.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings",
@@ -558,7 +849,14 @@ cc_library(
 cc_test(
     name = "string_numbers_test",
     srcs = ["string_numbers_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":string_numbers",
         "@com_google_googletest//:gtest_main",
@@ -571,13 +869,27 @@ cc_library(
     hdrs = [
         "simple_reference_counted.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
 )
 
 cc_test(
     name = "simple_reference_counted_test",
     srcs = ["simple_reference_counted_test.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":refcount",
         "@com_google_googletest//:gtest_main",
@@ -589,7 +901,14 @@ cc_library(
     hdrs = [
         "general_trie.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/base",
         "@com_google_absl//absl/base:core_headers",
@@ -599,7 +918,14 @@ cc_library(
 cc_test(
     name = "general_trie_unittest",
     srcs = ["general_trie_unittest.cc"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":general_trie",
         "@com_google_googletest//:gtest_main",
@@ -611,7 +937,14 @@ cc_library(
     name = "flat_internal",
     srcs = ["flat_internal.cc"],
     hdrs = ["flat_internal.h"],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = ["@com_google_absl//absl/meta:type_traits"],
 )
 
@@ -620,7 +953,14 @@ cc_test(
     srcs = [
         "flat_internal_test.cc",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":flat_internal",
         "@com_google_googletest//:gtest_main",
@@ -632,7 +972,14 @@ cc_library(
     hdrs = [
         "flat_set.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":flat_internal",
         "@com_google_absl//absl/meta:type_traits",
@@ -644,7 +991,14 @@ cc_test(
     srcs = [
         "flat_set_test.cc",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":flat_set",
         ":stl_util",
@@ -667,7 +1021,14 @@ cc_library(
     hdrs = [
         "clock.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/base",
         "@com_google_absl//absl/base:core_headers",
@@ -681,7 +1042,14 @@ cc_test(
     srcs = [
         "clock_test.cc",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":clock",
         "@com_google_googletest//:gtest_main",
@@ -698,7 +1066,14 @@ cc_library(
     hdrs = [
         "exactfloat.h",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         "//zetasql/base",
         "@boringssl//:crypto",
@@ -712,7 +1087,14 @@ cc_test(
     srcs = [
         "exactfloat_test.cc",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     deps = [
         ":exactfloat",
         "@com_google_googletest//:gtest_main",
@@ -728,7 +1110,14 @@ cc_test(
     srcs = [
         "exactfloat_underflow_test.cc",
     ],
-    copts = ["-Wno-sign-compare"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
     shard_count = 4,
     deps = [
         ":exactfloat",

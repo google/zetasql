@@ -111,7 +111,7 @@ TEST(BitCast, Test) {
   TestBitCast<int64_t, uint64_t>(static_cast<int64_t>(int64min),
                              static_cast<uint64_t>(int64min));
   TestBitCast<int64_t, uint64_t>(static_cast<int64_t>(int64min + 3),
-                             static_cast<uint64_t>(9223372036854775811ULL));
+                             static_cast<uint64_t>(uint64_t{9223372036854775811u}));
 }
 
 }  // namespace functions

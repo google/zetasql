@@ -31,6 +31,8 @@ namespace zetasql {
 
 using ::testing::_;
 using ::testing::HasSubstr;
+using ::testing::Not;
+using ::zetasql_base::testing::IsOk;
 using ::zetasql_base::testing::IsOkAndHolds;
 using ::zetasql_base::testing::StatusIs;
 
@@ -226,6 +228,26 @@ TEST(GetNextTokensTest, LocationsWithCommentsForNonCommentTokens) {
   EXPECT_THAT(location_translator.GetLineAndColumnAfterTabExpansion(
                   parse_tokens[5].GetLocationRange().start()),
               IsOkAndHolds(std::make_pair(6, 1)));
+}
+
+TEST(GetNextTokensTest, ResumeLocationIsAdjustedOnError) {
+  ParseTokenOptions options;
+  std::vector<ParseToken> parse_tokens;
+
+  // Error in bison tokenizer.
+  ParseResumeLocation location = ParseResumeLocation::FromString("SELECT 'abc");
+  EXPECT_THAT(GetParseTokens(options, &location, &parse_tokens), Not(IsOk()));
+  EXPECT_EQ(location.byte_position(), 6);
+
+  // Error converting into ParseToken.
+  location = ParseResumeLocation::FromString("SELECT a, ``");
+  EXPECT_THAT(GetParseTokens(options, &location, &parse_tokens), Not(IsOk()));
+  EXPECT_EQ(location.byte_position(), 9);
+
+  // Error at the very first token.
+  location = ParseResumeLocation::FromString("  'abc");
+  EXPECT_THAT(GetParseTokens(options, &location, &parse_tokens), Not(IsOk()));
+  EXPECT_EQ(location.byte_position(), 0);
 }
 
 }  // namespace zetasql

@@ -26,11 +26,13 @@
 #include "zetasql/parser/location.hh"
 #include "zetasql/parser/bison_parser.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/join_proccessor.h"
 #include "zetasql/parser/statement_properties.h"
 #include "zetasql/public/strings.h"
 #include "absl/memory/memory.h"
 #include "zetasql/base/case.h"
-#include "absl/strings/str_split.h"
+#include "absl/strings/match.h"
+#include "absl/strings/str_join.h"
 
 #define YYINITDEPTH 50
 
@@ -71,13 +73,68 @@ enum class ImportType {
   kProto,
 };
 
+// This node is used for temporarily aggregating together components of dashed
+// identifiers ('a-b-1.c-2.d').  This node exists temporarily to hold
+// intermediate values, and will not be part of the final parse tree.
+class DashedIdentifierTmpNode final : public zetasql::ASTNode {
+ public:
+  static constexpr zetasql::ASTNodeKind kConcreteNodeKind =
+      zetasql::AST_FAKE;
+
+  DashedIdentifierTmpNode() : ASTNode(kConcreteNodeKind) {}
+  void Accept(zetasql::ParseTreeVisitor* visitor, void* data) const override {
+    LOG(FATAL) << "DashedIdentifierTmpNode does not support Accept";
+  }
+  zetasql_base::StatusOr<zetasql::VisitResult> Accept(
+      zetasql::NonRecursiveParseTreeVisitor* visitor) const override {
+    LOG(FATAL) << "DashedIdentifierTmpNode does not support Accept";
+  }
+  // This is used to represent an unquoted full identifier path that may contain
+  // dashes ('-'). This requires special handling because of the ambiguity
+  // in the lexer between an identifier and a number. For example:
+  // outer-table-1.subtable-2.inner-3
+  // The lexer takes this to be
+  // outer,-,table,-,1.,subtable,-,2.,inner,-,3
+  // For more information on this, see the 'dashed_identifier' rule.
+
+  // We represent this as a list of one or more 'PathParts' which are
+  // implicitly separated by a dot ('.'). Each may be composed of one or more
+  // 'DashParts' which are implicitly separated by a dash ('-').
+  // Thus, the example string above would be represented as the following:
+  // {{"outer", "table", "1"}, {"subtable", "2"}, {"inner", "3"}}
+
+  // In order to save memory, these all contain string_view entries (backed by
+  // the parser's copy of the input sql).
+  // This also uses inlined vectors, because we rarely expect more than a few
+  // entries at either level.
+  // Note, in the event the size is large, this will allocate directly to the
+  // heap, rather than into the arena.
+  using DashParts = absl::InlinedVector<absl::string_view, 2>;
+  using PathParts = absl::InlinedVector<DashParts, 2>;
+
+  void set_path_parts(PathParts path_parts) {
+    path_parts_ = std::move(path_parts);
+  }
+
+  PathParts&& release_path_parts() {
+    return std::move(path_parts_);
+  }
+  void InitFields() final {
+    {
+      FieldLoader fl(this);  // Triggers check that there were no children.
+    }
+  }
+
+ private:
+  PathParts path_parts_;
+};
+
 }
 
 %defines
 %skeleton "lalr1.cc"
-%define parser_class_name {BisonParserImpl}
-
 %define parse.error verbose
+%define api.parser.class {BisonParserImpl}
 
 // This uses a generated "position" and "location" class, where "location" is a
 // range of positions. "position" keeps track of the file name, line and column.
@@ -362,7 +419,12 @@ enum class ImportType {
   zetasql::ASTInsertStatement* insert_statement;
   zetasql::ASTNode* node;
   zetasql::ASTStatementList* statement_list;
+  DashedIdentifierTmpNode* dashed_identifier;
 }
+// YYEOF is a special token used to indicate the end of the input. It's alias
+// defaults to "end of file", but "end of input" is more appropriate for us.
+%token YYEOF 0 "end of input"
+
 // Literals and identifiers. String, bytes and identifiers are not unescaped by
 // the tokenizer. This is done in the parser so that we can give better error
 // messages, pinpointing specific error locations in the token. This is really
@@ -976,7 +1038,9 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> opt_language
 %type <node> opt_like_string_literal
 %type <node> opt_limit_offset_clause
-%type <node> opt_on_or_using_clause
+%type <node> opt_on_or_using_clause_list
+%type <node> on_or_using_clause_list
+%type <node> on_or_using_clause
 %type <expression> on_path_expression
 %type <node> opt_options_list
 %type <node> opt_order_by_clause
@@ -1011,7 +1075,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> partition_by_clause_prefix
 %type <node> partition_by_clause_prefix_no_hint
 %type <expression> path_expression
-%type <identifier> dashed_identifier
+%type <dashed_identifier> dashed_identifier
 %type <expression> dashed_path_expression
 %type <expression> maybe_dashed_path_expression
 %type <node> path_expression_or_string
@@ -1124,7 +1188,6 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> window_specification
 %type <node> with_clause
 %type <node> with_clause_entry
-%type <node> with_clause_prefix
 %type <node> with_clause_with_trailing_comma
 %type <node> opt_with_connection_clause
 %type <node> alter_action_list
@@ -1160,6 +1223,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <boolean> opt_natural
 %type <boolean> opt_not_aggregate
 %type <boolean> opt_or_replace
+%type <boolean> opt_recursive
 %type <boolean> opt_stored
 %type <boolean> opt_unique
 %type <node> primary_key_column_attribute
@@ -1528,6 +1592,11 @@ alter_statement:
             ASTAlterRowAccessPolicyStatement, @$, {$6, $8, $9});
         node->set_is_if_exists($5);
         $$ = node;
+      }
+    | "ALTER" "ALL" "ROW" "ACCESS" "POLICIES" "ON" path_expression
+      row_access_policy_alter_action
+      {
+        $$ = MAKE_NODE(ASTAlterAllRowAccessPoliciesStatement, @$, {$7, $8});
       }
     ;
 
@@ -2696,28 +2765,36 @@ tvf_schema:
       }
     ;
 
+opt_recursive: "RECURSIVE" { $$ = true; }
+  | /* Nothing */ { $$ = false; }
+  ;
+
 create_view_statement:
-    "CREATE" opt_or_replace opt_create_scope "VIEW" opt_if_not_exists
-    path_expression opt_sql_security_clause opt_options_list as_query
+    "CREATE" opt_or_replace opt_create_scope opt_recursive "VIEW"
+    opt_if_not_exists maybe_dashed_path_expression opt_sql_security_clause
+    opt_options_list as_query
       {
-        auto* create = MAKE_NODE(ASTCreateViewStatement, @$, {$6, $8, $9});
+        auto* create = MAKE_NODE(ASTCreateViewStatement, @$, {$7, $9, $10});
         create->set_is_or_replace($2);
         create->set_scope($3);
-        create->set_is_if_not_exists($5);
-        create->set_sql_security($7);
+        create->set_recursive($4);
+        create->set_is_if_not_exists($6);
+        create->set_sql_security($8);
         $$ = create;
       }
     |
-    "CREATE" opt_or_replace "MATERIALIZED" "VIEW" opt_if_not_exists
-    path_expression opt_sql_security_clause opt_partition_by_clause_no_hint
-    opt_cluster_by_clause_no_hint opt_options_list as_query
+    "CREATE" opt_or_replace "MATERIALIZED" opt_recursive "VIEW"
+    opt_if_not_exists maybe_dashed_path_expression opt_sql_security_clause
+    opt_partition_by_clause_no_hint opt_cluster_by_clause_no_hint
+    opt_options_list as_query
       {
         auto* create = MAKE_NODE(
-          ASTCreateMaterializedViewStatement, @$, {$6, $8, $9, $10, $11});
+          ASTCreateMaterializedViewStatement, @$, {$7, $9, $10, $11, $12});
         create->set_is_or_replace($2);
+        create->set_recursive($4);
         create->set_scope(zetasql::ASTCreateStatement::DEFAULT_SCOPE);
-        create->set_is_if_not_exists($5);
-        create->set_sql_security($7);
+        create->set_is_if_not_exists($6);
+        create->set_sql_security($8);
         $$ = create;
       }
     ;
@@ -3839,7 +3916,14 @@ table_primary:
     | table_path_expression
     | "(" join ")" opt_sample_clause
       {
-        $$ = MAKE_NODE(ASTParenthesizedJoin, @$, {$2, $4});
+        zetasql::parser::ErrorInfo error_info;
+        auto node = zetasql::parser::TransformJoinExpression(
+          $2, parser, &error_info);
+        if (node == nullptr) {
+          YYERROR_AND_ABORT_AT(error_info.location, error_info.message);
+        }
+
+        $$ = MAKE_NODE(ASTParenthesizedJoin, @$, {node, $4});
       }
     | table_subquery
     ;
@@ -3882,10 +3966,39 @@ using_clause:
       }
     ;
 
-opt_on_or_using_clause:
+opt_on_or_using_clause_list:
+    on_or_using_clause_list
+    | /* Nothing */
+      {
+        $$ = nullptr;
+      }
+    ;
+
+on_or_using_clause_list:
+    on_or_using_clause
+      {
+        $$ = MAKE_NODE(ASTOnOrUsingClauseList, @$, {$1});
+      }
+    | on_or_using_clause_list on_or_using_clause
+      {
+        if (parser->language_options() != nullptr &&
+            parser->language_options()->LanguageFeatureEnabled(
+               zetasql::FEATURE_V_1_3_ALLOW_CONSECUTIVE_ON)) {
+          $$ = WithEndLocation(WithExtraChildren($1, {$2}), @$);
+        } else {
+          YYERROR_AND_ABORT_AT(
+              @2,
+              absl::StrCat(
+                  "Syntax error: Expected end of input but got keyword ",
+                  ($2->node_kind() == zetasql::AST_ON_CLAUSE
+                       ? "ON" : "USING")));
+        }
+      }
+    ;
+
+on_or_using_clause:
     on_clause
     | using_clause
-    | /* Nothing */ { $$ = nullptr; }
 
 // Returns the join type id. Returns 0 to indicate "just a join".
 join_type:
@@ -3910,17 +4023,22 @@ join_input: join | table_primary ;
 // clause are directly covered in from_clause_contents. These rules are separate
 // because the FROM clause also allows comma joins, while parenthesized joins do
 // not.
+// Note that if there are consecutive ON/USING clauses, then this ASTJoin tree
+// must be processed by TransformJoinExpression in the rule table_primary before
+// the final AST is returned.
 join:
     join_input opt_natural join_type join_hint "JOIN" opt_hint table_primary
-    opt_on_or_using_clause
+    opt_on_or_using_clause_list
       {
-        auto* join = MAKE_NODE(ASTJoin,
-                               FirstNonEmptyLocation({@2, @3, @4, @5}), @$,
-                               {$1, $6, $7, $8});
-        join->set_natural($2);
-        join->set_join_type($3);
-        join->set_join_hint($4);
-        $$ = join;
+        zetasql::parser::ErrorInfo error_info;
+        auto node = zetasql::parser::JoinRuleAction(
+            FirstNonEmptyLocation({@2, @3, @4, @5}), @$,
+            $1, $2, $3, $4, $6, $7, $8, parser, &error_info);
+        if (node == nullptr) {
+          YYERROR_AND_ABORT_AT(error_info.location, error_info.message);
+        }
+
+        $$ = node;
       }
     ;
 
@@ -3928,12 +4046,17 @@ from_clause_contents:
     table_primary
     | from_clause_contents "," table_primary
       {
-        auto* comma_join = MAKE_NODE(ASTJoin, @2, @3, {$1, $3});
-        comma_join->set_join_type(zetasql::ASTJoin::COMMA);
-        $$ = comma_join;
+        zetasql::parser::ErrorInfo error_info;
+        auto node = zetasql::parser::CommaJoinRuleAction(
+            @2, @3, $1, $3, parser, &error_info);
+        if (node == nullptr) {
+          YYERROR_AND_ABORT_AT(error_info.location, error_info.message);
+        }
+
+        $$ = node;
       }
     | from_clause_contents opt_natural join_type join_hint "JOIN" opt_hint
-      table_primary opt_on_or_using_clause
+      table_primary opt_on_or_using_clause_list
       {
         // Give an error if we have a RIGHT or FULL JOIN following a comma
         // join since our left-to-right binding would violate the standard.
@@ -3964,13 +4087,17 @@ from_clause_contents:
             }
           }
         }
-        auto* join = MAKE_NODE(ASTJoin,
-                               FirstNonEmptyLocation({@2, @3, @4, @5}), @$,
-                               {$1, $6, $7, $8});
-        join->set_natural($2);
-        join->set_join_type($3);
-        join->set_join_hint($4);
-        $$ = join;
+
+        zetasql::parser::ErrorInfo error_info;
+        auto node = zetasql::parser::JoinRuleAction(
+            FirstNonEmptyLocation({@2, @3, @4, @5}), @$,
+            $1, $2, $3, $4, $6, $7, $8,
+            parser, &error_info);
+        if (node == nullptr) {
+          YYERROR_AND_ABORT_AT(error_info.location, error_info.message);
+        }
+
+        $$ = node;
       }
     | "@"
       {
@@ -3992,7 +4119,14 @@ from_clause_contents:
 opt_from_clause:
     "FROM" from_clause_contents
       {
-        $$ = MAKE_NODE(ASTFromClause, @$, {$2})
+        zetasql::parser::ErrorInfo error_info;
+        auto node = zetasql::parser::TransformJoinExpression(
+          $2, parser, &error_info);
+        if (node == nullptr) {
+          YYERROR_AND_ABORT_AT(error_info.location, error_info.message);
+        }
+
+        $$ = MAKE_NODE(ASTFromClause, @$, {node});
       }
     | /* Nothing */ { $$ = nullptr; }
     ;
@@ -4134,14 +4268,23 @@ with_clause_entry:
       }
     ;
 
-with_clause_prefix:
+with_clause:
     "WITH" with_clause_entry
       {
         $$ = MAKE_NODE(ASTWithClause, @$, {$2});
+        $$ = WithEndLocation($$, @$);
       }
-    | with_clause_prefix "," with_clause_entry
+    | "WITH" "RECURSIVE" with_clause_entry
       {
-        $$ = WithExtraChildren($1, {$3});
+        zetasql::ASTWithClause* with_clause =
+            MAKE_NODE(ASTWithClause, @$, {$3})
+        with_clause = WithEndLocation(with_clause, @$);
+        with_clause->set_recursive(true);
+        $$ = with_clause;
+      }
+    | with_clause "," with_clause_entry
+      {
+        $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
       }
     ;
 
@@ -4154,19 +4297,7 @@ opt_with_connection_clause:
     ;
 
 with_clause_with_trailing_comma:
-    with_clause_prefix ","
-      {
-        $$ = WithEndLocation($1, @$);
-      }
-    ;
-
-with_clause:
-    "WITH" "RECURSIVE"
-      {
-        YYERROR_AND_ABORT_AT(
-            @2, "Syntax error: RECURSIVE is not supported in the WITH clause");
-      }
-    | with_clause_prefix
+    with_clause ","
       {
         $$ = WithEndLocation($1, @$);
       }
@@ -4821,8 +4952,9 @@ dashed_identifier:
         if (id1[0] == '`' || id2[0] == '`') {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
         }
-        $$ = WithEndLocation(
-          parser->MakeIdentifier(@1, absl::StrCat(id1, "-", id2)), @3);
+        auto out = parser->CreateASTNode<DashedIdentifierTmpNode>(@1);
+        out->set_path_parts({{id1, id2}});
+        $$ = out;
       }
     | dashed_identifier "-" identifier
       {
@@ -4831,13 +4963,16 @@ dashed_identifier:
             @2.end.column != @3.begin.column) {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
         }
-        absl::string_view id1 = $1->GetAsIdString().ToStringView();
+        DashedIdentifierTmpNode::PathParts prev = $1->release_path_parts();
         absl::string_view id2 = parser->GetInputText(@3);
         if (id2[0] == '`') {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
         }
-        $$ = WithEndLocation(
-          parser->MakeIdentifier(@1, absl::StrCat(id1, "-", id2)), @3);
+        // Add an extra sub-part to the ending dashed identifier.
+        prev.back().push_back(id2);
+        auto out = parser->CreateASTNode<DashedIdentifierTmpNode>(@1);
+        out->set_path_parts(std::move(prev));
+        $$ = out;
       }
     | identifier "-" INTEGER_LITERAL
       {
@@ -4851,8 +4986,9 @@ dashed_identifier:
         if (id1[0] == '`') {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
         }
-        $$ = WithEndLocation(
-          parser->MakeIdentifier(@1, absl::StrCat(id1, "-", id2)), @3);
+        auto out = parser->CreateASTNode<DashedIdentifierTmpNode>(@1);
+        out->set_path_parts({{id1, id2}});
+        $$ = out;
       }
     | dashed_identifier "-" INTEGER_LITERAL
       {
@@ -4861,10 +4997,12 @@ dashed_identifier:
             @2.end.column != @3.begin.column) {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
         }
-        absl::string_view id1 = $1->GetAsIdString().ToStringView();
+        DashedIdentifierTmpNode::PathParts prev = $1->release_path_parts();
         absl::string_view id2 = parser->GetInputText(@3);
-        $$ = WithEndLocation(parser->MakeIdentifier(
-          @1, absl::StrCat(id1, "-", id2)), @3);
+        prev.back().push_back(id2);
+        auto out = parser->CreateASTNode<DashedIdentifierTmpNode>(@1);
+        out->set_path_parts(std::move(prev));
+        $$ = out;
       }
     | identifier '-' FLOATING_POINT_LITERAL identifier
       {
@@ -4879,14 +5017,13 @@ dashed_identifier:
         if (id1[0] == '`') {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
         }
+        auto out = parser->CreateASTNode<DashedIdentifierTmpNode>(@1);
         // Here (and below) we need to handle the case where dot is lex'ed as
-        // part of floating number as opposed to path delimiter. To be able to
-        // restore individual parts correctly, we temporarily inject "\001"
-        // which is invalid character in identifier, later we will split on it.
-        // Since we checked that identifiers are already not quoted with "`",
-        // we know that "\001" could not have been part of the text.
-        $$ = WithEndLocation(parser->MakeIdentifier(
-          @1, absl::StrCat(id1, "-", id2, "\001", id3)), @4);
+        // part of floating number as opposed to path delimiter. To parse it
+        // correctly, we push the components separately (as string_view).
+        // {{"a", "1"}, "b"}
+        out->set_path_parts({{id1, id2}, {id3}});
+        $$ = out;
       }
     | dashed_identifier '-' FLOATING_POINT_LITERAL identifier
       {
@@ -4895,31 +5032,48 @@ dashed_identifier:
             @2.end.column != @3.begin.column) {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
         }
-        absl::string_view id1 = $1->GetAsIdString().ToStringView();
-        absl::string_view id2 = parser->GetInputText(@3);
-        absl::string_view id3 = parser->GetInputText(@4);
-        $$ = WithEndLocation(parser->MakeIdentifier(
-          @1, absl::StrCat(id1, "-", id2, "\001", id3)), @4);
+        DashedIdentifierTmpNode::PathParts prev = $1->release_path_parts();
+        absl::string_view id1 = parser->GetInputText(@3);
+        absl::string_view id2 = parser->GetInputText(@4);
+        // This case is a continuation of an existing dashed_identifier `prev`,
+        // followed by what the lexer believes is a floating point literal.
+        // here: /*prev=*/={{"a", "b"}}
+        // we append "1" to complete the dashed components, followed
+        // by the identifier ("c") as {{"c"}}.
+        // Thus, we end up with {{"a", "b", "1"}, {"c"}}
+        prev.back().push_back(id1);
+        prev.push_back({id2});
+        auto out = parser->CreateASTNode<DashedIdentifierTmpNode>(@1);
+        out->set_path_parts(std::move(prev));
+        $$ = out;
       }
 
 dashed_path_expression:
     dashed_identifier
       {
-        // Handling the "a-1.b" case, where "1." was lexed as floating point
-        // literal, and we built "a-1.!b" path. Now go back and split on "\001"
-        // and restore "a-1" and "b" parts of the path.
-        absl::string_view id = $1->GetAsIdString().ToStringView();
-        std::vector<std::string> parts = absl::StrSplit(id, "\001");
-        if (absl::EndsWith(parts[0], ".")) {
-          parts[0] = parts[0].substr(0, parts[0].size() - 1);
+        // Dashed identifiers are represented by a temporary node, which
+        // aggregates the raw components (as string_view backed by the
+        // original query). The `dashed_identifier` rule will create raw parts
+        // which we then essentially concatenate back together.
+        DashedIdentifierTmpNode::PathParts raw_parts = $1->release_path_parts();
+        std::vector<zetasql::ASTNode*> parts;
+        for (int i = 0; i < raw_parts.size(); ++i) {
+          DashedIdentifierTmpNode::DashParts& raw_dash_parts = raw_parts[i];
+          if (raw_dash_parts.empty()) {
+            YYERROR_AND_ABORT_AT(@1,
+                "Internal error: Empty dashed identifier part");
+          }
+          for (int j =0; j< raw_dash_parts.size(); ++j) {
+            absl::string_view &dash_part = raw_dash_parts[j];
+            if (absl::EndsWith(dash_part, ".")) {
+              dash_part.remove_suffix(1);
+            }
+          }
+          parts.push_back(
+              parser->MakeIdentifier(@1, absl::StrJoin(raw_dash_parts, "-")));
         }
-        auto path = MAKE_NODE(
-          ASTPathExpression, @$, {parser->MakeIdentifier(@1, parts[0])});
-        for (int i = 1; i < parts.size(); i++) {
-          path = WithExtraChildren(
-            WithEndLocation(path, @1), {parser->MakeIdentifier(@1, parts[i])});
-        }
-        $$ = path;
+
+        $$ = MAKE_NODE(ASTPathExpression, @$, std::move(parts))
       }
     | dashed_path_expression "." identifier
       {
@@ -5282,6 +5436,14 @@ function_name_from_keyword:
         $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));
       }
     | "GROUPING"
+      {
+        $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));
+      }
+    | "LEFT"
+      {
+        $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));
+      }
+    | "RIGHT"
       {
         $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));
       }
@@ -7287,6 +7449,9 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTAlterTableStatement::kConcreteNodeKind; }
     | "ALTER" "ROW"
       { $$ = zetasql::ASTAlterRowAccessPolicyStatement::kConcreteNodeKind; }
+    | "ALTER" "ALL" "ROW" "ACCESS" "POLICIES"
+      { $$ =
+          zetasql::ASTAlterAllRowAccessPoliciesStatement::kConcreteNodeKind; }
     | "ALTER" "VIEW"
       { $$ = zetasql::ASTAlterViewStatement::kConcreteNodeKind; }
     | "ALTER" "MATERIALIZED" "VIEW"
@@ -7332,11 +7497,11 @@ next_statement_kind_without_hint:
       }
     | "CREATE" opt_or_replace "ROW" opt_access "POLICY"
       { $$ = zetasql::ASTCreateRowAccessPolicyStatement::kConcreteNodeKind; }
-    | "CREATE" next_statement_kind_create_modifiers "VIEW"
+    | "CREATE" next_statement_kind_create_modifiers opt_recursive "VIEW"
       {
         $$ = zetasql::ASTCreateViewStatement::kConcreteNodeKind;
       }
-    | "CREATE" opt_or_replace "MATERIALIZED" "VIEW"
+    | "CREATE" opt_or_replace "MATERIALIZED" opt_recursive "VIEW"
       { $$ = zetasql::ASTCreateMaterializedViewStatement::kConcreteNodeKind; }
     | "CALL"
       { $$ = zetasql::ASTCallStatement::kConcreteNodeKind; }

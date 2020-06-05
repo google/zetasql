@@ -26,22 +26,26 @@ tab, newline) or comments.
 ### Identifiers
 
 Identifiers are names that are associated with columns, tables, and other
-database objects.
+database objects. They can be unquoted or quoted.
 
-+  Identifiers must begin with a letter or an underscore character.
-+  Subsequent characters can be letters, numbers, or underscores.
-+  Identifiers can be enclosed by backtick (`) characters to create
-   quoted identifiers.
-    +  Quoted identifiers can contain any character, such as spaces or symbols.
-    +  Quoted identifiers cannot be empty.
-    +  Quoted identifiers have the same escape sequences as
-       [string literals][string-literals].
-+  Both identifiers and quoted identifiers are case insensitive, with some
-   nuances. See [Case Sensitivity][case-sensitivity] for further details.
-+  [Reserved Keywords](#reserved_keywords) can only be used as quoted
-   identifiers.
-+  Table name identifiers have additional syntax to support dashes (-) when
-   referenced in`FROM` and `TABLE` clauses.
++  Identifiers can be used in path expressions that return a
+   `STRUCT`
+   or `PROTO`.
++  Some identifiers are case-sensitive and some are not.
+   For details, see [Case Sensitivity][case-sensitivity].
++  Unquoted identifiers must begin with a letter or an underscore character.
+   Subsequent characters can be letters, numbers, or underscores.
++  Quoted identifiers must be enclosed by backtick (`) characters.
+   +  Quoted identifiers can contain any character, such as spaces or symbols.
+   +  Quoted identifiers cannot be empty.
+   +  Quoted identifiers have the same escape sequences as
+      [string literals][string-literals].
+   +  A [reserved keyword](#reserved_keywords) must be a quoted identifier
+      if it is a standalone keyword or the first component of a path expression.
+      It may be unquoted as the second or later component of a
+      path expression.
++  Table name identifiers have additional syntax to support dashes (-)
+   when referenced in `FROM` and `TABLE` clauses.
 
 **Examples**
 
@@ -49,9 +53,24 @@ These are valid identifiers:
 
 ```
 Customers5
+`5Customers`
+dataField
 _dataField1
 ADGROUP
 `tableName~`
+`GROUP`
+```
+
+These path expressions contain valid identifiers:
+
+```
+foo.`GROUP`
+foo.GROUP
+foo().dataField
+(foo).dataField
+list[OFFSET(3)].dataField
+list[ORDINAL(3)].dataField
+@parameter.dataField
 ```
 
 These are invalid identifiers:
@@ -389,7 +408,7 @@ Syntax:
 TIME '[H]H:[M]M:[S]S[.DDDDDD]]'
 ```
 
-TIME literals contain the `TIME` keyword and a string literal that conforms to
+Time literals contain the `TIME` keyword and a string literal that conforms to
 the canonical time format, enclosed in single quotation marks.
 
 For example, the following time represents 12:30 p.m.:
@@ -398,28 +417,28 @@ For example, the following time represents 12:30 p.m.:
 TIME '12:30:00.45'
 ```
 
-#### DATETIME Literals
+#### Datetime Literals
 Syntax:
 
 ```sql
 DATETIME 'YYYY-[M]M-[D]D [[H]H:[M]M:[S]S[.DDDDDD]]'
 ```
 
-DATETIME literals contain the `DATETIME` keyword and a string literal that
-conforms to the canonical DATETIME format, enclosed in single quotation marks.
+Datetime literals contain the `DATETIME` keyword and a string literal that
+conforms to the canonical datetime format, enclosed in single quotation marks.
 
-For example, the following DATETIME represents 12:30 p.m. on September 27,
+For example, the following datetime represents 12:30 p.m. on September 27,
 2014:
 
 ```sql
 DATETIME '2014-09-27 12:30:00.45'
 ```
 
-DATETIME literals support a range between the years 1 and 9999, inclusive.
-DATETIMEs outside of this range are invalid.
+Datetime literals support a range between the years 1 and 9999, inclusive.
+Datetimes outside of this range are invalid.
 
-String literals with the canonical DATETIME format implicitly coerce to a
-DATETIME literal when used where a DATETIME expression is expected.
+String literals with the canonical datetime format implicitly coerce to a
+datetime literal when used where a datetime expression is expected.
 
 For example:
 
@@ -428,8 +447,18 @@ SELECT * FROM foo
 WHERE datetime_col = "2014-09-27 12:30:00.45"
 ```
 
-In this query, the string literal `"2014-09-27 12:30:00.45"` is coerced to a
-DATETIME literal.
+In the query above, the string literal `"2014-09-27 12:30:00.45"` is coerced to
+a datetime literal.
+
+A datetime literal can also include the optional character `T` or `t`. This
+is a flag for time and is used as a separator between the date and time. If
+you use this character, a space can't be included before or after it.
+These are valid:
+
+```sql
+DATETIME '2014-09-27T12:30:00.45'
+DATETIME '2014-09-27t12:30:00.45'
+```
 
 #### Timestamp literals
 
@@ -472,6 +501,22 @@ to a timestamp literal.
 ```sql
 SELECT * FROM foo
 WHERE timestamp_col = "2014-09-27 12:30:00.45 America/Los_Angeles"
+```
+
+A timestamp literal can include these optional characters:
+
++  `T` or `t`: A flag for time. Use as a separator between the date and time.
++  `Z` or `z`: A flag for the default timezone. This cannot be used with
+   `[timezone]`.
+
+If you use one of these characters, a space can't be included before or after it.
+These are valid:
+
+```sql
+TIMESTAMP '2017-01-18T12:34:56.123456Z'
+TIMESTAMP '2017-01-18t12:34:56.123456'
+TIMESTAMP '2017-01-18 12:34:56.123456z'
+TIMESTAMP '2017-01-18 12:34:56.123456Z'
 ```
 
 <a id=timezone></a>
@@ -745,46 +790,99 @@ SELECT name, release_date, FROM Books
 <a id=query_parameters></a>
 ### Query Parameters
 
+You can use query parameters to substitute arbitrary expressions.
+However, query parameters cannot be used to substitute identifiers,
+column names, table names, or other parts of the query itself.
+Query parameters are defined outside of the query statement.
+
+Client APIs allow the binding of parameter names to values; the query engine
+substitutes a bound value for a parameter at execution time.
+
+Query parameters cannot be used in the SQL body of these statements:
+`CREATE FUNCTION`, `CREATE TABLE FUNCTION`, `CREATE VIEW`, `CREATE MATERIALIZED VIEW`, and `CREATE PROCEDURE`.
+
+#### Named Query Parameters
+
 Syntax:
 
 ```sql
-@param
+@parameter_name
 ```
 
-Query parameters are denoted using identifiers preceded by the @ character. You
-define the parameter outside of the query statement.
+A named query parameter is denoted using an identifier preceded by the
+`@` character. Named query parameters cannot
+be used alongside [positional query parameters][positional-query-parameters].
 
-You can use query parameters to substitute arbitrary expressions. However,
-query parameters cannot be used to substitute identifiers, column names, table
-names, or other parts of the query itself.
+**Example:**
 
-Client APIs allow the binding of parameter names to values; the client API
-substitutes the bound value for the parameter at execution time. Some client
-APIs allow queries with parameters that are not bound to specific values,
-but in those cases, you must define the parameter type at query analysis time.
-
-Example:
+This example returns all rows where `LastName` is equal to the value of the
+named query parameter `myparam`.
 
 ```sql
 SELECT * FROM Roster WHERE LastName = @myparam
 ```
 
-returns all rows where `LastName` is equal to the value of query parameter `myparam`.
+#### Positional Query Parameters
+
+Positional query parameters are denoted using the `?` character.
+Positional parameters are evaluated by the order in which they are passed in.
+Positional query parameters cannot be used
+alongside [named query parameters][named-query-parameters].
+
+**Example:**
+
+This query returns all rows where `LastName` and `FirstName` are equal to the
+values passed into this query. The order in which these values are passed in
+matters. If the last name is passed in first, followed by the first name, the
+expected results will not be returned.
+
+```sql
+SELECT * FROM Roster WHERE FirstName = ? and LastName = ?
+```
 
 <a id=hints></a>
 ### Hints
 
-Syntax:
-
 ```sql
-@{ [engine_name.]hint_name = value, ... }
+@{ hint [, ...] }
+
+hint:
+  [engine_name.]hint_name = value
 ```
 
-Hint syntax requires the @ character followed by curly braces. The optional `engine_name.` prefix allows for multiple engines to define hints with the same `hint_name`.
+The purpose of a hint is to modify the execution strategy for a query
+without changing the result of the query. Hints generally do not affect query
+semantics, but may have performance implications.
 
-Query hints suggest different engine-specific execution
-strategies. Query hints generally do not affect query semantics, but may have
-performance implications. Different engines may support different hints.
+Hint syntax requires the `@` character followed by curly braces.
+You can create one hint or a group of hints. The optional `engine_name.`
+prefix allows for multiple engines to define hints with the same `hint_name`.
+This is important if you need to suggest different engine-specific
+execution strategies or different engines support different hints.
+
+You can assign [identifiers][lexical-identifiers] and
+[literals][lexical-literals] to hints.
+
++  Identifiers are useful for hints that are meant to act like enums.
+   You can use an identifier to avoid using a quoted string.
+   In the resolved AST, identifier hints are represented as string literals,
+   so `@{hint="abc"}` is the same as `@{hint=abc}`. Identifier hints can also
+   be used for hints that take a table name or column
+   name as a single identifier.
++  NULL literals are allowed and are inferred as integers.
+
+Hints are meant to apply only to the node they are attached to,
+and not to a larger scope.
+
+**Examples**
+
+In this example, a literal is assigned to a hint. This hint is only used
+with two database engines called `database_engine_a` and `database_engine_b`.
+The value for the hint is different for each database engine.
+
+```sql
+@{ database_engine_a.file_count=23, database_engine_b.file_count=10 }
+```
 
 ### Comments
 
@@ -869,13 +967,19 @@ WHERE book = "Ulysses";
 [tz-database]: http://www.iana.org/time-zones
 [tz-database-time-zones]: http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
+[lexical-identifiers]: #identifiers
+[lexical-literals]: #literals
 [case-sensitivity]: #case_sensitivity
 [time-zone]: #timezone
 [string-literals]: #string_and_bytes_literals
+[named-query-parameters]: #named_query_parameters
+[positional-query-parameters]: #positional_query_parameters
 [query-reference]: https://github.com/google/zetasql/blob/master/docs/query-syntax
+[lexical-udfs-reference]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions
 
 [functions-reference]: #function-reference
 [query-reference]: #query-syntax
+[lexical-udfs-reference]: #user-defined-functions
 
 <!-- END CONTENT -->
 
@@ -2755,9 +2859,11 @@ All data types.
 <tr>
 <td>Groupable</td>
 <td style="white-space:nowrap">Can generally appear in an expression following<br>
-  <code>GROUP BY</code>, <code>DISTINCT</code>, or <code>PARTITION BY</code>.<br>
+  <code>GROUP BY</code>,
+  <code>DISTINCT</code>, and <code>PARTITION BY</code>.<br>
   However, <code>PARTITION BY</code> expressions cannot include<br>
-  the floating point types <code>FLOAT</code> and <code>DOUBLE</code>.</td>
+  <a href="#floating_point_types">floating point types</a>.<br>
+</td>
 <td>All data types except for:<ul>
  <li>PROTO</li>
 </ul>
@@ -2889,7 +2995,7 @@ scale.</td>
 </tbody>
 </table>
 
-#### Floating point types
+#### Floating point types {: #floating_point_types }
 
 Floating point values are approximate numeric values with fractional components.
 
@@ -3560,7 +3666,7 @@ STRUCT<T>
 STRUCT types are declared using the angle brackets (`<` and `>`). The type of
 the elements of a STRUCT can be arbitrarily complex.
 
-**Examples*
+**Examples**
 
 <table>
 <thead>
@@ -3832,7 +3938,7 @@ ZetaSQL.
 
 ### SQL Syntax
 
-<pre>
+<pre class="lang-sql prettyprint">
 <span class="var">query_statement</span>:
     <span class="var">query_expr</span>
 
@@ -3849,7 +3955,7 @@ ZetaSQL.
     [ <a href="#where_clause">WHERE</a> <span class="var">bool_expression</span> ]
     [ <a href="#group_by_clause">GROUP</a> BY { <span class="var">expression</span> [, ...] | ROLLUP ( <span class="var">expression</span> [, ...] ) } ]
     [ <a href="#having_clause">HAVING</a> <span class="var">bool_expression</span> ]
-    [ <a href="#window_clause">WINDOW</a> <span class="var">window_name</span> AS ( <span class="var">window_definition</span> ) [, ...] ]
+    [ <a href="#window_clause">WINDOW</a> <span class="var">named_window_expression</span> AS { <span class="var">named_window</span> | ( [ <span class="var">window_definition</span> ] ) } [, ...] ]
 
 <span class="var">set_op</span>:
     <a href="#union">UNION</a> { ALL | DISTINCT } | <a href="#intersect">INTERSECT</a> { ALL | DISTINCT } | <a href="#except">EXCEPT</a> { ALL | DISTINCT }
@@ -4188,13 +4294,6 @@ input value.
 
 See [Using Aliases][using-aliases] for information on syntax and visibility for
 `SELECT` list aliases.
-
-<a id=analytic_functions></a>
-### Analytic functions
-
-Analytic functions and the clauses related to them, including `OVER`, `PARTITION
-BY`, and `WINDOW`, are documented in
-[Analytic Function Concepts][analytic-concepts].
 
 ### FROM clause
 
@@ -5312,6 +5411,63 @@ FROM Locations
 ORDER BY Place COLLATE "unicode:ci"
 ```
 
+<a id="window_clause"></a>
+### WINDOW clause
+
+#### Syntax
+
+<pre>
+WINDOW named_window_expression [, ...]
+
+named_window_expression:
+  named_window AS { named_window | ( [ window_specification ] ) }
+</pre>
+
+A `WINDOW` clause defines a list of named windows.
+A named window represents a group of rows in a table upon which to use an
+[analytic function][analytic-concepts]. A named window can be defined with
+a [window specification][query-window-specification] or reference another
+named window. If another named window is referenced, the definition of the
+referenced window must precede the referencing window.
+
+**Examples**
+
+These examples reference a table called [`Produce`][produce-table].
+They all return the same [result][named-window-example]. Note the different
+ways you can combine named windows and use them in an analytic function's
+`OVER` clause.
+
+```zetasql
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (item_window) AS most_popular
+FROM Produce
+WINDOW item_window AS (
+  PARTITION BY category
+  ORDER BY purchases
+  ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)
+```
+
+```zetasql
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (d) AS most_popular
+FROM Produce
+WINDOW
+  a AS (PARTITION BY category),
+  b AS (a ORDER BY purchases),
+  c AS (b ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING),
+  d AS (c)
+```
+
+```zetasql
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (c ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS most_popular
+FROM Produce
+WINDOW
+  a AS (PARTITION BY category),
+  b AS (a ORDER BY purchases),
+  c AS b
+```
+
 <a id="set_operators"></a>
 ### Set operators
 
@@ -5422,20 +5578,46 @@ LIMIT count [ OFFSET skip_rows ]
 ```
 
 `LIMIT` specifies a non-negative `count` of type INT64,
-and no more than `count` rows will be returned. `LIMIT` `0` returns 0 rows. If
-there is a set
-operation, `LIMIT` is applied after the
-set operation
-is evaluated.
+and no more than `count` rows will be returned. `LIMIT` `0` returns 0 rows.
 
-`OFFSET` specifies a non-negative `skip_rows` of type
-INT64, and only rows from
-that offset in the table will be considered.
+If there is a set operation, `LIMIT` is applied after the set operation is
+evaluated.
 
-These clauses accept only literal or parameter values.
+`OFFSET` specifies a non-negative number of rows to skip before applying
+`LIMIT`. `skip_rows` is of type INT64.
 
-The rows that are returned by `LIMIT` and `OFFSET` is unspecified unless these
+These clauses accept only literal or parameter values. The rows that are
+returned by `LIMIT` and `OFFSET` are unspecified unless these
 operators are used after `ORDER BY`.
+
+Examples:
+
+```sql
+SELECT *
+FROM UNNEST(ARRAY<STRING>['a', 'b', 'c', 'd', 'e']) AS letter
+ORDER BY letter ASC LIMIT 2
+
++---------+
+| letter  |
++---------+
+| a       |
+| b       |
++---------+
+```
+
+```sql
+SELECT *
+FROM UNNEST(ARRAY<STRING>['a', 'b', 'c', 'd', 'e']) AS letter
+ORDER BY letter ASC LIMIT 3 OFFSET 1
+
++---------+
+| letter  |
++---------+
+| b       |
+| c       |
+| d       |
++---------+
+```
 
 <a id="with_clause"></a>
 ### WITH clause
@@ -5686,28 +5868,16 @@ FROM Singers
 GROUP BY name;
 ```
 
-Ambiguity between a `FROM` clause column name and a `SELECT` list alias in
-`GROUP BY`:
-
-```
-SELECT UPPER(LastName) AS LastName
-FROM Singers
-GROUP BY LastName;
-```
-
-The query above is ambiguous and will produce an error because `LastName` in the
-`GROUP BY` clause could refer to the original column `LastName` in `Singers`, or
-it could refer to the alias `AS LastName`, whose value is `UPPER(LastName)`.
-
-The same rules for ambiguity apply to path expressions. Consider the following
-query where `table` has columns `x` and `y`, and column `z` is of type STRUCT
-and has fields `v`, `w`, and `x`.
+This query contains aliases that are ambiguous in the `SELECT` list and `FROM`
+clause because they share the same name. Assume `table` has columns `x`, `y`,
+and `z`. `z` is of type STRUCT and has fields
+`v`, `w`, and `x`.
 
 Example:
 
 ```
 SELECT x, z AS T
-FROM table T
+FROM table AS T
 GROUP BY T.x;
 ```
 
@@ -6446,12 +6616,18 @@ Results:
 [join-hints]: #join_hints
 [query-value-tables]: #value_tables
 [analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[query-window-specification]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_window_spec
+[named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_use_named_window
+[produce-table]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#produce-table
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays#flattening_arrays
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays
-[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data_type_properties
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data-type-properties
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
 
 [analytic-concepts]: #analytic-functions-concepts
+[query-window-specification]: #def_window_spec
+[named-window-example]: #def_use_named_window
+[produce-table]: #produce-table
 [flattening-arrays]: #flattening-arrays
 [in-operator]: #in-operators
 [query-value-tables]: #value-tables
@@ -6468,803 +6644,431 @@ Results:
 
 <!-- BEGIN CONTENT -->
 
-This topic explains how analytic functions work in ZetaSQL. For a
-description of the different analytic functions that ZetaSQL
-supports, see the reference topics for
+An analytic function computes values over a group of rows and returns a
+single result for _each_ row. This is different from an aggregate function,
+which returns a single result for _an entire group_ of rows.
+
+It includes an `OVER` clause, which defines a window of rows
+around the row being evaluated.  For each row, the analytic function result
+is computed using the selected window of rows as input, possibly
+doing aggregation.
+
+With analytic functions you can compute moving averages, rank items, calculate
+cumulative sums, and perform other analyses.
+
+Analytic functions include the following categories:
 [navigation functions][navigation-functions-reference],
 [numbering functions][numbering-functions-reference], and
 [aggregate analytic functions][aggregate-analytic-functions-reference].
 
-In databases, an *analytic function* is a function that computes aggregate
-values over a group of rows. Unlike [aggregate functions][analytic-functions-link-to-aggregate-functions],
-which return a single aggregate value for a group of rows, analytic functions
-return a single value for each row by computing the function over a group
-of input rows.
-
-Analytic functions are a powerful mechanism for succinctly representing complex
-analytic operations, and they enable efficient evaluations that otherwise would
-involve expensive self-`JOIN`s or computation outside the SQL query.
-
-Analytic functions are also called "(analytic) window functions" in the SQL
-standard and some commercial databases. This is because an analytic function is
-evaluated over a group of rows, referred to as a `window` or `window frame`.
-In some other databases, they may be referred to as
-Online Analytical Processing (OLAP) functions.
-
-Simplified syntax:
-
-```
-analytic_function_name ( [ argument_list ] )
-  OVER (
-    [ PARTITION BY partition_expression_list ]
-    [ ORDER BY expression [{ ASC | DESC }] [, ...] ]
-    [ window_frame_clause ]
-  )
-```
-
-An analytic function requires an `OVER` clause, which defines the `window frame`
-that the analytic function is evaluated over. The `OVER` clause contains the
-following three optional clauses. ZetaSQL evaluates
-the sub-clauses of an `OVER` clause in the order in which they are written.
-
-  * A `PARTITION BY` clause divides the input rows into partitions, similar to
-    `GROUP BY` but without actually combining rows with the same key.
-  * An `ORDER BY` clause specifies the ordering within each partition.
-  * A `window_frame_clause` defines the `window frame` within the current
-    partition.
-
-The `OVER` clause can also be empty (`OVER()`) in which case the `window frame`
-includes all input rows.
-
-Analytic functions are evaluated after aggregation (GROUP BY and non-analytic
-aggregate functions).
-
-Example: Consider a company who wants to create a leaderboard for each
-department that shows a "seniority ranking" for each employee, i.e. showing
-which employees have been there the longest. The table `Employees` contains
-columns `Name`, `StartDate`, and `Department`.
-
-The following query calculates the rank of each employee within their
-department:
-
-```
-SELECT firstname, department, startdate,
-  RANK() OVER ( PARTITION BY department ORDER BY startdate ) AS rank
-FROM Employees;
-```
-
-The conceptual computing process is illustrated in Figure 1.
-
-![Markdown image] (images/analytic-function-illustration.png "Figure 1: Analytic Function Illustration")
-**Figure 1: Analytic Function Illustration**
-
-ZetaSQL evaluates the sub-clauses of an `OVER` clause in the order in
-which they appear:
-
-  1. `PARTITION BY`: The table is first split into two partitions by
-     `department`.
-  2. `ORDER BY`: The employee rows in each partition are ordered by `startdate`.
-  3. Framing: None. The window frame clause is disallowed for RANK(), as it is
-  for all [numbering functions][analytic-functions-link-to-numbering-functions].
-  4. `RANK()`: The seniority ranking is computed for each row over the
-  `window frame`.
-
 <a name="syntax"></a>
-#### Analytic Function Syntax
+### Analytic Function Syntax
 
-```
-analytic_function_name ( [ argument_list ] )
-  OVER { window_name | ( [ window_specification ] ) }
+<pre>
+analytic_function_name ( [ argument_list ] ) OVER over_clause
 
-window_specification:
-  [ window_name ]
-  [ PARTITION BY partition_expression_list ]
-  [ ORDER BY expression [{ ASC | DESC }] [, ...] ]
+<a href="#def_over_clause">over_clause</a>:
+  { named_window | ( [ window_specification ] ) }
+
+<a href="#def_window_spec">window_specification</a>:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
   [ window_frame_clause ]
 
+<a href="#def_window_frame">window_frame_clause</a>:
+  { rows_range } { <a href="#def_window_frame">frame_start</a> | <a href="#def_window_frame">frame_between</a> }
+
+<a href="#def_window_frame">rows_range</a>:
+  { ROWS | RANGE }
+</pre>
+
+Notation:
+
++ Square brackets "[ ]" indicate optional clauses.
++ Parentheses "( )" indicate literal parentheses.
++ The vertical bar "|" indicates a logical OR.
++ Curly braces "{ }" enclose a set of options.
++ A comma followed by an ellipsis within square brackets "[, ... ]" indicates that
+  the preceding item can repeat in a comma-separated list.
+
+**Description**
+
+An analytic function computes results over a group of rows.
+These functions can be used as analytic functions:
+[navigation functions][navigation-functions-reference],
+[numbering functions][numbering-functions-reference], and
+[aggregate analytic functions][aggregate-analytic-functions-reference]
+
++  `analytic_function_name`: The function that performs an analytic operation.
+   For example, the numbering function RANK() could be used here.
++  `argument_list`: Arguments that are specific to the analytic function.
+   Some functions have them, some do not.
++  `OVER`: Keyword required in the analytic function syntax preceding
+   the [`OVER` clause][over-clause-def].
+
+**Notes**
+
++  An analytic function can appear as a scalar expression operand in
+   two places in the query:
+   +  The `SELECT` list. If the analytic function appears in the `SELECT` list,
+      its argument list and `OVER` clause cannot refer to aliases introduced
+      in the same SELECT list.
+   +  The `ORDER BY` clause. If the analytic function appears in the `ORDER BY`
+      clause of the query, its argument list can refer to `SELECT`
+      list aliases.
++  An analytic function cannot refer to another analytic function in its
+   argument list or its `OVER` clause, even indirectly through an alias.
++  An analytic function is evaluated after aggregation. For example, the
+   `GROUP BY` clause and non-analytic aggregate functions are evaluated first.
+   Because aggregate functions are evaluated before analytic functions,
+   aggregate functions can be used as input operands to analytic functions.
+
+**Returns**
+
+A single result for each row in the input.
+
+#### Defining the `OVER` clause {: #def_over_clause }
+
+```zetasql
+analytic_function_name ( [ argument_list ] ) OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+```
+
+**Description**
+
+The `OVER` clause references a window that defines a group of rows in a table
+upon which to use an analytic function. You can provide a
+[`named_window`][named-windows] that is
+[defined in your query][analytic-functions-link-to-window], or you can
+define the [specifications for a new window][window-specs-def].
+
+**Notes**
+
+If neither a named window nor window specification is provided, all
+input rows are included in the window for every row.
+
+**Examples using the `OVER` clause**
+
+These queries use window specifications:
+
++  [Compute a grand total][analytic-functions-compute-grand-total]
++  [Compute a subtotal][analytic-functions-compute-subtotal]
++  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
++  [Compute a moving average][analytic-functions-compute-moving-avg]
++  [Compute the number of items within a range][analytic-functions-compute-item-range]
++  [Get the most popular item in each category][analytic-functions-get-popular-item]
++  [Get the last value in a range][analytic-functions-get-last-value-range]
++  [Compute rank][analytic-functions-compute-rank]
+
+These queries use a named window:
+
++  [Get the last value in a range][analytic-functions-get-last-value-range]
++  [Use a named window in a window frame clause][analytic-functions-use-named-window]
+
+#### Defining the window specification {: #def_window_spec }
+
+```zetasql
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC } ] [, ...] ]
+  [ window_frame_clause ]
+```
+
+**Description**
+
+Defines the specifications for the window.
+
++  [`named_window`][named-windows]: The name of an existing window that was
+   defined with a [`WINDOW` clause][analytic-functions-link-to-window].
+
+   Important: If you use a named window, special rules apply to
+   `PARTITION BY`, `ORDER BY`, and `window_frame_clause`. See them [here][named-window-rules].
++  `PARTITION BY`: Breaks up the input rows into separate partitions, over
+   which the analytic function is independently evaluated.
+   +  Multiple partition expressions are allowed in the `PARTITION BY` clause.
+   +  An expression cannot contain floating point types, non-groupable types,
+      constants, or analytic functions.
+   +  If this optional clause is not used, all rows in the input table
+      comprise a single partition.
++  `ORDER BY`: Defines how rows are ordered within a partition.
+   This clause is optional in most situations, but is required in some
+   cases for [navigation functions][navigation-functions-reference].
++  [`window_frame_clause`][window-frame-clause-def]: For aggregate analytic
+   functions, defines the window frame within the current partition.
+   The window frame determines what to include in the window.
+   If this clause is used, `ORDER BY` is required except for fully
+   unbounded windows.
+
+**Notes**
+
++  If neither the `ORDER BY` clause nor window frame clause are present,
+   the window frame includes all rows in that partition.
++  For aggregate analytic functions, if the `ORDER BY` clause is present but
+   the window frame clause is not, the following window frame clause is
+   used by default:
+
+   ```zetasql
+   RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+   ```
+
+   For example, the following queries are equivalent:
+
+   ```zetasql
+   SELECT book, LAST_VALUE(item)
+     OVER (ORDER BY year)
+   FROM Library
+   ```
+
+   ```zetasql
+   SELECT book, LAST_VALUE(item)
+     OVER (
+       ORDER BY year
+       RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+   FROM Library
+   ```
++  [Hints][analytic-functions-link-to-hints] are supported on the `PARTITION BY`
+   clause and the `ORDER BY` clause.
+
+<a id="named_window_rules"></a>
+**Rules for using a named window in the window specification**
+
+If you use a named window in your window specifications, these rules apply:
+
++  The specifications in the named window can be extended
+   with new specifications that you define in the window specification clause.
++  You can't have redundant definitions. If you have an `ORDER BY` clause
+   in the named window and the window specification clause, an
+   error is thrown.
++  The order of clauses matters. `PARTITION BY` must come first,
+   followed by `ORDER BY` and `window_frame_clause`. If you add a named window,
+   its window specifications are processed first.
+
+   ```zetasql
+   --this works:
+   SELECT item, purchases, LAST_VALUE(item)
+     OVER (item_window ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS most_popular
+   FROM Produce
+   WINDOW item_window AS (ORDER BY purchases)
+
+   --this does not work:
+   SELECT item, purchases, LAST_VALUE(item)
+     OVER (item_window ORDER BY purchases) AS most_popular
+   FROM Produce
+   WINDOW item_window AS (ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)
+   ```
++  A named window and `PARTITION BY` cannot appear together in the
+   window specification. If you need `PARTITION BY`, add it to the named window.
++  You cannot refer to a named window in an `ORDER BY` clause, an outer query,
+   or any subquery.
+
+**Examples using the window specification**
+
+These queries define partitions in an analytic function:
+
++  [Compute a subtotal][analytic-functions-compute-subtotal]
++  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
++  [Get the most popular item in each category][analytic-functions-get-popular-item]
++  [Get the last value in a range][analytic-functions-get-last-value-range]
++  [Compute rank][analytic-functions-compute-rank]
++  [Use a named window in a window frame clause][analytic-functions-use-named-window]
+
+These queries include a named window in a window specification:
+
++  [Get the last value in a range][analytic-functions-get-last-value-range]
++  [Use a named window in a window frame clause][analytic-functions-use-named-window]
+
+These queries define how rows are ordered in a partition:
+
++  [Compute a subtotal][analytic-functions-compute-subtotal]
++  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
++  [Compute a moving average][analytic-functions-compute-moving-avg]
++  [Compute the number of items within a range][analytic-functions-compute-item-range]
++  [Get the most popular item in each category][analytic-functions-get-popular-item]
++  [Get the last value in a range][analytic-functions-get-last-value-range]
++  [Compute rank][analytic-functions-compute-rank]
++  [Use a named window in a window frame clause][analytic-functions-use-named-window]
+
+#### Defining the window frame clause {: #def_window_frame }
+
+```zetasql
 window_frame_clause:
-{ ROWS | RANGE }
-{
-  { UNBOUNDED PRECEDING | numeric_expression PRECEDING | CURRENT ROW }
-  |
-  { BETWEEN window_frame_boundary_start AND window_frame_boundary_end }
-}
+  { rows_range } { frame_start | frame_between }
 
-window_frame_boundary_start:
-{ UNBOUNDED PRECEDING | numeric_expression { PRECEDING | FOLLOWING } | CURRENT ROW }
+rows_range:
+  { ROWS | RANGE }
 
-window_frame_boundary_end:
-{ UNBOUNDED FOLLOWING | numeric_expression { PRECEDING | FOLLOWING } | CURRENT ROW }
+frame_between:
+  {
+    BETWEEN  unbounded_preceding AND frame_end_a
+    | BETWEEN numeric_preceding AND frame_end_a
+    | BETWEEN current_row AND frame_end_b
+    | BETWEEN numeric_following AND frame_end_c
+
+frame_start:
+  { unbounded_preceding | numeric_preceding | [ current_row ] }
+
+frame_end_a:
+  { numeric_preceding | current_row | numeric_following | unbounded_following }
+
+frame_end_b:
+  { current_row | numeric_following | unbounded_following }
+
+frame_end_c:
+  { numeric_following | unbounded_following }
+
+unbounded_preceding:
+  UNBOUNDED PRECEDING
+
+numeric_preceding:
+  numeric_expression PRECEDING
+
+unbounded_following:
+  UNBOUNDED FOLLOWING
+
+numeric_following:
+  numeric_expression FOLLOWING
+
+current_row:
+  CURRENT ROW
 ```
 
-Analytic functions can appear as a scalar expression or a scalar expression
-operand in only two places in the query:
+The window frame clause defines the window frame around the current row within
+a partition, over which the analytic function is evaluated.
+Only aggregate analytic functions can use a window frame clause.
 
-+ **The `SELECT` list**. If the analytic function appears in the SELECT list,
-its `argument_list` cannot refer to aliases introduced in the same SELECT list.
-+ **The `ORDER BY` clause**. If the analytic function appears in the ORDER BY clause
-of the query, its `argument_list` can refer to SELECT list aliases.
++  `rows_range`: A clause that defines a window frame with physical rows
+   or a logical range.
+   +  `ROWS`: Computes the window frame based on physical offsets from the
+      current row. For example, you could include two rows before and after
+      the current row.
+   +  `RANGE`: Computes the window frame based on a logical range of rows
+      around the current row, based on the current row’s `ORDER BY` key value.
+      The provided range value is added or subtracted to the current row's
+      key value to define a starting or ending range boundary for the
+      window frame. In a range-based window frame, there must be exactly one
+      expression in the `ORDER BY` clause, and the expression must have a
+      numeric type.
 
-Additionally, an analytic function cannot refer to another analytic function in
-its `argument_list` or its `OVER` clause, even if indirectly through an
-alias.
+     Tip: If you want to use a range with a date, use `ORDER BY` with the
+     `UNIX_DATE()` function. If you want to use a range with a timestamp,
+     use the `UNIX_SECONDS()`, `UNIX_MILLIS()`, or `UNIX_MICROS()` function.
++  `frame_between`: Creates a window frame with a lower and upper boundary.
+    The first boundary represents the lower boundary. The second boundary
+    represents the upper boundary. Only certain boundary combinations can be
+    used, as show in the syntax above.
+    +  The following boundaries can be used to define the
+       beginning of the window frame.
+       +  `unbounded_preceding`: The window frame starts at the beginning of the
+          partition.
+       +  `numeric_preceding` or `numeric_following`: The start of the window
+          frame is relative to the
+          current row.
+       +  `current_row`: The window frame starts at the current row.
+    +  `frame_end_a ... frame_end_c`: Defines the end of the window frame.
+        + `numeric_preceding` or `numeric_following`: The end of the window
+          frame is relative to the current row.
+        + `current_row`: The window frame ends at the current row.
+        + `unbounded_following`: The window frame ends at the end of the
+          partition.
++  `frame_start`: Creates a window frame with a lower boundary.
+    The window frame ends at the current row.
+    +  `unbounded_preceding`: The window frame starts at the beginning of the
+        partition.
+    +  `numeric_preceding`: The start of the window frame is relative to the
+       current row.
+    +  `current_row`: The window frame starts at the current row.
++  `numeric_expression`: An expression that represents a numeric type.
+   The numeric expression must be a constant, non-negative integer
+   or parameter.
 
-Invalid:
+**Notes**
 
-```
-SELECT ROW_NUMBER() OVER () AS alias1
-FROM Singers
-ORDER BY ROW_NUMBER() OVER(PARTITION BY alias1)
-```
++  If a boundary extends beyond the beginning or end of a partition,
+   the window frame will only include rows from within that partition.
++  You cannot use a window frame clause with
+   [navigation functions][analytic-functions-link-to-navigation-functions] and
+   [numbering functions][analytic-functions-link-to-numbering-functions],
+   such as  `RANK()`.
 
-In the query above, the analytic function `alias1` resolves to an analytic
-function: `ROW_NUMBER() OVER()`.
+**Examples using the window frame clause**
 
-##### OVER Clause
+These queries compute values with `ROWS`:
 
-Syntax:
++  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
++  [Compute a moving average][analytic-functions-compute-moving-avg]
++  [Get the most popular item in each category][analytic-functions-get-popular-item]
++  [Get the last value in a range][analytic-functions-get-last-value-range]
++  [Use a named window in a window frame clause][analytic-functions-use-named-window]
 
-```
-OVER { window_name | ( [ window_specification ] ) }
+These queries compute values with `RANGE`:
+
++  [Compute the number of items within a range][analytic-functions-compute-item-range]
+
+These queries compute values with a partially or fully unbound window:
+
++  [Compute a grand total][analytic-functions-compute-grand-total]
++  [Compute a subtotal][analytic-functions-compute-subtotal]
++  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
++  [Get the most popular item in each category][analytic-functions-get-popular-item]
++  [Compute rank][analytic-functions-compute-rank]
+
+These queries compute values with numeric boundaries:
+
++  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
++  [Compute a moving average][analytic-functions-compute-moving-avg]
++  [Compute the number of items within a range][analytic-functions-compute-item-range]
++  [Get the last value in a range][analytic-functions-get-last-value-range]
++  [Use a named window in a window frame clause][analytic-functions-use-named-window]
+
+These queries compute values with the current row as a boundary:
+
++  [Compute a grand total][analytic-functions-compute-grand-total]
++  [Compute a subtotal][analytic-functions-compute-subtotal]
++  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
+
+#### Referencing a named window {: #ref_named_window }
+
+```zetasql
+SELECT query_expr,
+  analytic_function_name ( [ argument_list ] ) OVER over_clause
+FROM from_item
+WINDOW named_window_expression [, ...]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
 
 window_specification:
-  [ window_name ]
-  [ PARTITION BY partition_expression_list ]
-  [ ORDER BY sort_specification_list ]
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ ASC | DESC [, ...] ]
   [ window_frame_clause ]
+
+named_window_expression:
+  named_window AS { named_window | ( [ window_specification ] ) }
 ```
 
-The `OVER` clause has three possible components:
+A named window represents a group of rows in a table upon which to use an
+analytic function. A named window is defined in the
+[`WINDOW` clause][analytic-functions-link-to-window], and referenced in
+an analytic function's [`OVER` clause][over-clause-def].
+In an `OVER` clause, a named window can appear either by itself or embedded
+within a [window specification][window-specs-def].
 
-+ `PARTITION BY` clause
-+ `ORDER BY` clause
-+ A `window_frame_clause` or a `window_name`, which refers to a
-  `window_specification` defined in a `WINDOW` clause.
+**Examples**
 
-If the `OVER` clause is empty, `OVER()`, the analytic function is computed over
-a single partition which contains all input rows, meaning that it will produce
-the same result for each output row.
++  [Get the last value in a range][analytic-functions-get-last-value-range]
++  [Use a named window in a window frame clause][analytic-functions-use-named-window]
 
-##### PARTITION BY Clause
+### Navigation Function Concepts
 
-Syntax:
+[Navigation functions][navigation-functions-reference] generally compute some `value_expression` over a different row in the window frame from the
+current row. The `OVER` clause syntax varies across navigation functions.
 
-```
-PARTITION BY expression [, ... ]
-```
-
-The `PARTITION BY` clause breaks up the input rows into separate partitions,
-over which the analytic function is independently evaluated. Multiple
-`expressions` are allowed in the `PARTITION BY` clause.
-
-The data type of `expression` must be [groupable][datatype-properties]
-and support partitioning. This means the `expression` **cannot** be any of the
-following data types:
-
-+ Floating point
-+ Protocol buffer
-
-This list is almost identical to the list of data types that `GROUP BY` does not
-support, with the additional exclusion of floating point types (see "Groupable"
-in the Data Type Properties table at the top of
-[ZetaSQL Data Types][analytic-functions-link-to-data-types]).
-
-If no `PARTITION BY` clause is present, ZetaSQL treats the entire
-input as a single partition.
-
-##### ORDER BY Clause
-
-Syntax:
-
-```
-ORDER BY expression [ ASC | DESC ] [, ... ]
-```
-
-The `ORDER BY` clause defines an ordering within each partition. If no
-`ORDER BY` clause is present, row ordering within a partition is
-non-deterministic. Some analytic functions require `ORDER BY`; this is noted in
-the section for each family of analytic functions. Even if an `ORDER BY` clause
-is present, some functions are not sensitive to ordering within a `window frame`
-(e.g. `COUNT`).
-
-The `ORDER BY` clause within an `OVER` clause is consistent with the normal
-[`ORDER BY` clause][analytic-functions-link-to-order-by-clause] in that:
-
-+ There can be multiple `expressions`.
-+ `expression` must have a type that supports ordering.
-+ An optional `ASC`/`DESC` specification is allowed for each `expression`.
-+ NULL values order as the minimum possible value (first for `ASC`,
-  last for `DESC`)
-
-Data type support is identical to the normal
-[`ORDER BY` clause][analytic-functions-link-to-order-by-clause] in that the following types do **not** support ordering:
-
-+ Array
-+ Struct
-+ Protocol buffer
-
-If the `OVER` clause contains an `ORDER BY` clause but no `window_frame_clause`,
-then the `ORDER BY` implicitly defines `window_frame_clause` as:
-
-```
-RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-```
-
-If neither `window_frame_clause` nor the `ORDER BY` clause is present,
-the `window frame` defaults to the entire partition.
-
-##### Window Frame Clause
-
-Syntax:
-
-```
-{ ROWS | RANGE }
-{
-  { UNBOUNDED PRECEDING | numeric_expression PRECEDING | CURRENT ROW }
-  |
-  { BETWEEN window_frame_boundary_start AND window_frame_boundary_end }
-}
-
-window_frame_boundary_start:
-{ UNBOUNDED PRECEDING | numeric_expression { PRECEDING | FOLLOWING } | CURRENT ROW }
-
-window_frame_boundary_end:
-{ UNBOUNDED FOLLOWING | numeric_expression { PRECEDING | FOLLOWING } | CURRENT ROW }
-```
-`window_frame_clause` defines the `window frame`, around the current row within
-a partition, over which the analytic function is evaluated.
-`window_frame_clause` allows both physical window frames (defined by `ROWS`) and
-logical window frames (defined by `RANGE`). If the `OVER` clause contains an
-`ORDER BY` clause but no `window_frame_clause`, then the `ORDER BY` implicitly
-defines `window_frame_clause` as:
-
-```
-RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-```
-
-If neither `window_frame_clause` nor the `ORDER BY` clause is present,
-the `window frame` defaults to the entire partition.
-
-The `numeric_expression` can only be a constant or a query parameter, both
-of which must have a non-negative value. Otherwise, ZetaSQL
-provides an error.
-
-Examples of window frame clauses:
-
-```
-ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-```
-
-+ Includes the entire partition.
-+ Example use: Compute a grand total over the partition.
-
-```
-ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-```
-
-+ Includes all the rows in the partition before or including the current row.
-+ Example use: Compute a cumulative sum.
-
-```
-ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING
-```
-
-+ Includes all rows between two before and two after the current row.
-+ Example use: Compute a moving average.
-
-If `window_frame_spec` uses the `BETWEEN` clause:
-
-+ `window_frame_boundary_start` must specify a boundary that begins no later
-than that of the `window_frame_boundary_end`. This has the following
-consequences:
-    1.  If `window_frame_boundary_start` contains `CURRENT ROW`,
-       `window_frame_boundary_end` cannot contain `PRECEDING`.
-    2.  If `window_frame_boundary_start` contains `FOLLOWING`,
-       `window_frame_boundary_end` cannot contain `CURRENT ROW` or `PRECEDING`.
-+ `window_frame_boundary_start` has no default value.
-
-Otherwise, the specified window_frame_spec boundary represents the start of the window frame and the end of the window frame boundary defaults to 'CURRENT ROW'. Thus,
-
-```
-ROWS 10 PRECEDING
-```
-
-is equivalent to
-
-```
-ROWS BETWEEN 10 PRECEDING AND CURRENT ROW
-```
-
-###### ROWS
-
-`ROWS`-based window frames compute the `window frame` based on physical offsets
-from the current row. For example, the window frame below defines a window frame
-of size five (at most) around the current row.
-
-```
-ROWS BETWEEN 2 PRECEDING and 2 FOLLOWING
-```
-
-The `numeric_expression` in `window_frame_clause` is interpreted as a number of
-rows from the current row, and must be a constant, non-negative integer. It may
-also be a query parameter.
-
-If the `window frame` for a given row extends beyond the beginning or end of the
-partition, then the `window frame` will only include rows from within that
-partition.
-
-Example: Consider the following table with columns `z`, `x`, and `y`.
-
-<table>
-<thead>
-<tr>
-<th>z</th>
-<th>x</th>
-<th>y</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>5</td>
-<td>AA</td>
-</tr>
-<tr>
-<td>2</td>
-<td>2</td>
-<td>AA</td>
-</tr>
-<tr>
-<td>3</td>
-<td>11</td>
-<td>AB</td>
-</tr>
-<tr>
-<td>4</td>
-<td>2</td>
-<td>AA</td>
-</tr>
-<tr>
-<td>5</td>
-<td>8</td>
-<td>AC</td>
-</tr>
-<tr>
-<td>6</td>
-<td>10</td>
-<td>AB</td>
-</tr>
-<tr>
-<td>7</td>
-<td>1</td>
-<td>AB</td>
-</tr>
-</tbody>
-</table>
-
-Consider the following analytic function:
-
-```
-SUM(x) OVER (PARTITION BY y ORDER BY z ROWS BETWEEN 1 PRECEDING AND 1
-FOLLOWING)
-```
-
-The `PARTITION BY` clause splits the table into 3 partitions based on their `y`
-value, and the `ORDER BY` orders the rows within each partition by their `z`
-value.
-
-Partition 1 of 3:
-
-<table>
-<thead>
-<tr>
-<th>z</th>
-<th>x</th>
-<th>y</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>5</td>
-<td>AA</td>
-</tr>
-<tr>
-<td>2</td>
-<td>2</td>
-<td>AA</td>
-</tr>
-<tr>
-<td>4</td>
-<td>2</td>
-<td>AA</td>
-</tr>
-</tbody>
-</table>
-
-Partition 2 of 3:
-
-<table>
-<thead>
-<tr>
-<th>z</th>
-<th>x</th>
-<th>y</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>3</td>
-<td>11</td>
-<td>AB</td>
-</tr>
-<tr>
-<td>6</td>
-<td>10</td>
-<td>AB</td>
-</tr>
-<tr>
-<td>7</td>
-<td>1</td>
-<td>AB</td>
-</tr>
-</tbody>
-</table>
-
-Partition 3 of 3:
-
-<table>
-<thead>
-<tr>
-<th>z</th>
-<th>x</th>
-<th>y</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>5</td>
-<td>8</td>
-<td>AC</td>
-</tr>
-</tbody>
-</table>
-
-In the tables below, **bold** indicates the row currently being evaluated, and
-<font color="#D8CEF6">colored</font> cells indicates all the rows in the `window
-frame` for that row.
-
-+ For the first row in the y = AA partition, the `window frame` includes only 2
-rows since there is no preceding row, even though the `window_frame_spec`
-indicates a window size of 3. The result of the analytic function is 7 for the
-first row.
-
-<table>
-<thead>
-<tr>
-<th>z</th>
-<th>x</th>
-<th>y</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td bgcolor="#D8CEF6"><b>1</b></td>
-<td bgcolor="#D8CEF6"><b>5</b></td>
-<td bgcolor="#D8CEF6"><b>AA</b></td>
-</tr>
-<tr>
-<td bgcolor="#D8CEF6">2</td>
-<td bgcolor="#D8CEF6">2</td>
-<td bgcolor="#D8CEF6">AA</td>
-</tr>
-<tr>
-<td>4</td>
-<td>2</td>
-<td>AA</td>
-</tr>
-</tbody>
-</table>
-
-+ For the second row in the partition, the `window frame` includes all 3 rows.
-The result of the analytic function is 9 for the second row.
-
-<table>
-<thead>
-<tr>
-<th>z</th>
-<th>x</th>
-<th>y</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td bgcolor="#D8CEF6">1</td>
-<td bgcolor="#D8CEF6">5</td>
-<td bgcolor="#D8CEF6">AA</td>
-</tr>
-<tr>
-<td bgcolor="#D8CEF6"><b>2</b></td>
-<td bgcolor="#D8CEF6"><b>2</b></td>
-<td bgcolor="#D8CEF6"><b>AA</b></td>
-</tr>
-<tr>
-<td bgcolor="#D8CEF6">4</td>
-<td bgcolor="#D8CEF6">2</td>
-<td bgcolor="#D8CEF6">AA</td>
-</tr>
-</tbody>
-</table>
-
-+ For the last row in the partition, the `window frame` includes only 2 rows
-since there is no following row.  The result of the analytic function is 4 for
-the third row.
-
-<table>
-<thead>
-<tr>
-<th>z</th>
-<th>x</th>
-<th>y</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>5</td>
-<td>AA</td>
-</tr>
-<tr>
-<td bgcolor="#D8CEF6">2</td>
-<td bgcolor="#D8CEF6">2</td>
-<td bgcolor="#D8CEF6">AA</td>
-</tr>
-<tr>
-<td bgcolor="#D8CEF6"><b>4</b></td>
-<td bgcolor="#D8CEF6"><b>2</b></td>
-<td bgcolor="#D8CEF6"><b>AA</b></td>
-</tr>
-</tbody>
-</table>
-
-###### RANGE
-
-`RANGE`-based window frames compute the `window frame` based on a logical range
-of rows around the current row based on the current row's `ORDER BY` key value.
-The provided range value is added or subtracted to the current row's key value
-to define a starting or ending range boundary for the `window frame`.
-
-The `ORDER BY` clause must be specified unless the window is:
-
-```
-RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING.
-```
-
-`numeric_expression` in the `window_frame_clause` is interpreted as an offset
-from the current row's value of the `ORDER BY` key. `numeric_expression` must
-have numeric type. DATE and TIMESTAMP are not currently supported. In addition,
-the `numeric_expression` must be a constant, non-negative integer or a
-parameter.
-
-In a `RANGE`-based window frame, there can be at most one `expression` in the
-`ORDER BY` clause, and `expression` must have a numeric type.
-
-Example of a `RANGE`-based window frame where there is a single partition:
-
-```
-SELECT x, COUNT(*) OVER ( ORDER BY x
-  RANGE BETWEEN 2 PRECEDING AND 2 FOLLOWING ) AS count_x
-FROM T;
-```
-
-In the tables below, **bold** indicates the row currently being evaluated, and
-<font color="#D8CEF6">colored</font> cells indicates all the rows in the
-`window frame` for that row.
-
-+ For row 1, `x` = 5 and therefore `COUNT(*)` will only include rows where
-  3 &lt;=`x` &lt;= 7
-
-<table>
-<thead>
-<tr>
-<th>x</th>
-<th>count_x</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td bgcolor="#D8CEF6"><b>5</b></td>
-<td bgcolor="#D8CEF6"><b>1</b></td>
-</tr>
-<tr>
-<td>2</td>
-<td></td>
-</tr>
-<tr>
-<td>11</td>
-<td></td>
-</tr>
-<tr>
-<td>2</td>
-<td></td>
-</tr>
-<tr>
-<td>8</td>
-<td></td>
-</tr>
-<tr>
-<td>10</td>
-<td></td>
-</tr>
-<tr>
-<td>1</td>
-<td></td>
-</tr>
-</tbody>
-</table>
-
-+ For row 2, `x` = 2 and therefore `COUNT(*)` will only include rows where
-  0 &lt;= `x` &lt;= 4
-
-<table>
-<thead>
-<tr>
-<th>x</th>
-<th>count_x</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>5</td>
-<td>1</td>
-</tr>
-<tr>
-<td bgcolor="#D8CEF6"><b>2</b></td>
-<td bgcolor="#D8CEF6"><b>3</b></td>
-</tr>
-<tr>
-<td>11</td>
-<td></td>
-</tr>
-<tr>
-<td bgcolor="#D8CEF6">2</td>
-<td></td>
-</tr>
-<tr>
-<td>8</td>
-<td></td>
-</tr>
-<tr>
-<td>10</td>
-<td></td>
-</tr>
-<tr>
-<td bgcolor="#D8CEF6">1</td>
-<td></td>
-</tr>
-</tbody>
-</table>
-
-+ For row 3, `x` = 11 and therefore `COUNT(*)` will only include rows where
-  9 &lt;= `x` &lt;= 13
-
-<table>
-<thead>
-<tr>
-<th>x</th>
-<th>count_x</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>5</td>
-<td>1</td>
-</tr>
-<tr>
-<td>2</td>
-<td>3</td>
-</tr>
-<tr>
-<td bgcolor="#D8CEF6"><b>11</b></td>
-<td bgcolor="#D8CEF6"><b>2</b></td>
-</tr>
-<tr>
-<td>2</td>
-<td></td>
-</tr>
-<tr>
-<td>8</td>
-<td></td>
-</tr>
-<tr>
-<td bgcolor="#D8CEF6">10</td>
-<td></td>
-</tr>
-<tr>
-<td>1</td>
-<td></td>
-</tr>
-</tbody>
-</table>
-
-#### WINDOW Clause
-
-Syntax:
-
-```
-WINDOW window_definition [, ...]
-window_definition: window_name AS ( window_specification )
-```
-
-A `WINDOW` clause defines a list of named windows whose `window_name` can be
-referenced in analytic functions in the `SELECT` list. This is useful when you
-want to use the same `window_frame_clause` for multiple analytic functions.
-
-The `WINDOW` clause can appear only at the end of a `SELECT` clause, as shown
-in [Query Syntax][analytic-functions-link-to-sql-syntax].
-
-##### Named Windows
-
-Once you define a `WINDOW` clause, you can use the named windows in analytic
-functions, but only in the `SELECT` list; you cannot use named windows in the
-`ORDER BY` clause. Named windows can appear either by themselves or embedded
-within an `OVER` clause. Named windows can refer to `SELECT` list aliases.
-
-Examples:
-
-```
-SELECT SUM(x) OVER window_name FROM ...
-```
-
-```
-SELECT SUM(x) OVER (
-  window_name
-  PARTITION BY...
-  ORDER BY...
-  window_frame_clause)
-FROM ...
-```
-
-When embedded within an `OVER` clause, the `window_specification` associated
-with `window_name` must be compatible with the `PARTITION BY`, `ORDER BY`, and
-`window_frame_clause` that are in the same `OVER` clause.
-
- The following rules apply to named windows:
-
-+ You can refer to named windows only in the `SELECT` list; you cannot refer to
-them in an `ORDER BY` clause, an outer query, or any subquery.
-+ A window W1 (named or unnamed) may reference a named window NW2, with the
-following rules:
-    1. If W1 is a named window, then the referenced named window NW2 must precede
-       W1 in the same `WINDOW` clause.
-    2. W1 cannot contain a `PARTITION BY` clause
-    3. It cannot be true that both W1 and NW2 contain an `ORDER BY` clause
-    4. NW2 cannot contain a `window_frame_clause`.
-+ If a (named or unnamed) window W1 references a named window NW2, then the
-resulting window specification is defined using:
-    1. The `PARTITION BY` from NW2, if there is one.
-    2.  The `ORDER BY` from W1 or NW2, if either is specified; it is not possible
-    for them to both have an `ORDER BY` clause.
-    3. The `window_frame_clause` from W1, if there is one.
-
-#### Hints
-
-ZetaSQL supports
-[hints][analytic-functions-link-to-hints] on both the `PARTITION BY` clause (analogously to `GROUP BY`) and the
-`ORDER BY` clause (analogously to the normal `ORDER BY` clause) in an `OVER`
-clause.
-
-#### Navigation Functions
-
-This topic explains how analytic navigation functions work. For a description of
-the analytic navigation functions ZetaSQL supports, see the
-[function reference for navigation functions][navigation-functions-reference].
-
-Navigation functions generally compute some `value_expression` over a different
-row in the window frame from the current row. The `OVER` clause syntax varies
-across navigation functions.
-
-`OVER` clause requirements:
+Requirements for the `OVER` clause:
 
 +   `PARTITION BY`: Optional.
 +   `ORDER BY`:
@@ -7278,79 +7082,41 @@ across navigation functions.
 For all navigation functions, the result data type is the same type as
 `value_expression`.
 
-#### Numbering Functions
+### Numbering Function Concepts
 
-This topic explains how analytic numbering functions work. For an explanation of
-the analytic numbering functions ZetaSQL supports, see the
-[numbering functions reference][numbering-functions-reference].
-
-Numbering functions assign integer values to each row based on their position
-within the specified window.
+[Numbering functions][numbering-functions-reference] assign integer values to
+each row based on their position within the specified window.
 
 Example of `RANK()`, `DENSE_RANK()`, and `ROW_NUMBER()`:
 
-```
+```zetasql
+WITH Numbers AS
+ (SELECT 1 as x
+  UNION ALL SELECT 2
+  UNION ALL SELECT 2
+  UNION ALL SELECT 5
+  UNION ALL SELECT 8
+  UNION ALL SELECT 10
+  UNION ALL SELECT 10
+)
 SELECT x,
   RANK() OVER (ORDER BY x ASC) AS rank,
   DENSE_RANK() OVER (ORDER BY x ASC) AS dense_rank,
-  ROW_NUMBER() OVER (PARTITION BY x ORDER BY y) AS row_num
-FROM ...
-```
+  ROW_NUMBER() OVER (ORDER BY x) AS row_num
+FROM Numbers
 
-<table>
-<thead>
-<tr>
-<th>x</th>
-<th>rank</th>
-<th>dense_rank</th>
-<th>row_num</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>1</td>
-<td>1</td>
-<td>1</td>
-</tr>
-<tr>
-<td>2</td>
-<td>2</td>
-<td>2</td>
-<td>2</td>
-</tr>
-<tr>
-<td>2</td>
-<td>2</td>
-<td>2</td>
-<td>3</td>
-</tr>
-<tr>
-<td>5</td>
-<td>4</td>
-<td>3</td>
-<td>4</td>
-</tr>
-<tr>
-<td>8</td>
-<td>5</td>
-<td>4</td>
-<td>5</td>
-</tr>
-<tr>
-<td>10</td>
-<td>6</td>
-<td>5</td>
-<td>6</td>
-</tr>
-<tr>
-<td>10</td>
-<td>6</td>
-<td>5</td>
-<td>7</td>
-</tr>
-</tbody>
-</table>
++---------------------------------------------------+
+| x          | rank       | dense_rank | row_num    |
++---------------------------------------------------+
+| 1          | 1          | 1          | 1          |
+| 2          | 2          | 2          | 2          |
+| 2          | 2          | 2          | 3          |
+| 5          | 4          | 3          | 4          |
+| 8          | 5          | 4          | 5          |
+| 10         | 6          | 5          | 6          |
+| 10         | 6          | 5          | 7          |
++---------------------------------------------------+
+```
 
 * `RANK(): `For x=5, `rank` returns 4, since `RANK()` increments by the number
 of peers in the previous window ordering group.
@@ -7358,39 +7124,528 @@ of peers in the previous window ordering group.
 increments by 1, never skipping a value.
 * `ROW_NUMBER(): `For x=5, `row_num` returns 4.
 
-#### Aggregate Analytic Functions
+### Aggregate Analytic Function Concepts
 
-ZetaSQL supports certain
-[aggregate functions][analytic-functions-link-to-aggregate-functions]
-as analytic functions.
+An aggregate function is a function that performs a calculation on a
+set of values. Most aggregate functions can be used in an
+analytic function. These aggregate functions are called
+[aggregate analytic functions][aggregate-analytic-functions-reference].
 
-With these functions, the `OVER` clause is simply appended to the aggregate
-function call; the function call syntax remains otherwise unchanged. Like their
-aggregate function counterparts, these analytic functions perform aggregations,
-but specifically over the relevant window frame for each row. The result data
-types of these analytic functions are the same as their aggregate function
-counterparts.
+With aggregate analytic functions, the `OVER` clause is simply appended to the aggregate function call; the function call syntax remains otherwise unchanged.
+Like their aggregate function counterparts, these analytic functions perform aggregations, but specifically over the relevant window frame for each row.
+The result data types of these analytic functions are the same as their
+aggregate function counterparts.
 
-For a description of the aggregate analytic functions that ZetaSQL
-supports, see the [function reference for aggregate analytic functions][aggregate-analytic-functions-reference].
+### Analytic Function Examples
 
-[analytic-functions-link-to-numbering-functions]: #numbering-functions
-[analytic-functions-link-to-coercion]: #coercion
-[datatype-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data_type_properties
-[analytic-functions-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
-[analytic-functions-link-to-order-by-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax#order_by_clause
-[analytic-functions-link-to-sql-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax#sql_syntax
+In these examples, the ==highlighted item== is the current row. The **bolded
+items** are the rows that are included in the analysis.
+
+#### Common tables used in examples
+
+The following tables are used in the subsequent aggregate analytic
+query examples: [`Produce`][produce-table], [`Employees`][employees-table],
+and [`Farm`][farm-table].
+
+##### Produce Table
+
+Some examples reference a table called `Produce`:
+
+```zetasql
+WITH Produce AS
+ (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
+  UNION ALL SELECT 'orange', 2, 'fruit'
+  UNION ALL SELECT 'cabbage', 9, 'vegetable'
+  UNION ALL SELECT 'apple', 8, 'fruit'
+  UNION ALL SELECT 'leek', 2, 'vegetable'
+  UNION ALL SELECT 'lettuce', 10, 'vegetable')
+SELECT * FROM Produce
+
++-------------------------------------+
+| item      | category   | purchases  |
++-------------------------------------+
+| kale      | vegetable  | 23         |
+| orange    | fruit      | 2          |
+| cabbage   | vegetable  | 9          |
+| apple     | fruit      | 8          |
+| leek      | vegetable  | 2          |
+| lettuce   | vegetable  | 10         |
++-------------------------------------+
+```
+
+##### Employees Table
+
+Some examples reference a table called `Employees`:
+
+```zetasql
+WITH Employees AS
+ (SELECT 'Isabella' as name, 2 as department, DATE(1997, 09, 28) as start_date
+  UNION ALL SELECT 'Anthony', 1, DATE(1995, 11, 29)
+  UNION ALL SELECT 'Daniel', 2, DATE(2004, 06, 24)
+  UNION ALL SELECT 'Andrew', 1, DATE(1999, 01, 23)
+  UNION ALL SELECT 'Jacob', 1, DATE(1990, 07, 11)
+  UNION ALL SELECT 'Jose', 2, DATE(2013, 03, 17))
+SELECT * FROM Employees
+
++-------------------------------------+
+| name      | department | start_date |
++-------------------------------------+
+| Isabella  | 2          | 1997-09-28 |
+| Anthony   | 1          | 1995-11-29 |
+| Daniel    | 2          | 2004-06-24 |
+| Andrew    | 1          | 1999-01-23 |
+| Jacob     | 1          | 1990-07-11 |
+| Jose      | 2          | 2013-03-17 |
++-------------------------------------+
+```
+
+##### Farm Table
+
+Some examples reference a table called `Farm`:
+
+```zetasql
+WITH Farm AS
+ (SELECT 'cat' as animal, 23 as population, 'mammal' as category
+  UNION ALL SELECT 'duck', 3, 'bird'
+  UNION ALL SELECT 'dog', 2, 'mammal'
+  UNION ALL SELECT 'goose', 1, 'bird'
+  UNION ALL SELECT 'ox', 2, 'mammal'
+  UNION ALL SELECT 'goat', 2, 'mammal')
+SELECT * FROM Farm
+
++-------------------------------------+
+| animal    | category   | population |
++-------------------------------------+
+| cat       | mammal     | 23         |
+| duck      | bird       | 3          |
+| dog       | mammal     | 2          |
+| goose     | bird       | 1          |
+| ox        | mammal     | 2          |
+| goat      | mammal     | 2          |
++-------------------------------------+
+```
+
+#### Compute a grand total
+
+This computes a grand total for all items in the
+[`Produce`][produce-table] table.
+
++  (**==orange==**, **apple**, **leek**, **cabbage**, **lettuce**, **kale**) = 54 total purchases
++  (**orange**, **==apple==**, **leek**, **cabbage**, **lettuce**, **kale**) = 54 total purchases
++  (**orange**, **apple**, **==leek==**, **cabbage**, **lettuce**, **kale**) = 54 total purchases
++  (**orange**, **apple**, **leek**, **==cabbage==**, **lettuce**, **kale**) = 54 total purchases
++  (**orange**, **apple**, **leek**, **cabbage**, **==lettuce==**, **kale**) = 54 total purchases
++  (**orange**, **apple**, **leek**, **cabbage**, **lettuce**, **==kale==**) = 54 total purchases
+
+```zetasql
+SELECT item, purchases, category, SUM(purchases)
+  OVER () AS total_purchases
+FROM Produce
+
++-------------------------------------------------------+
+| item      | purchases  | category   | total_purchases |
++-------------------------------------------------------+
+| orange    | 2          | fruit      | 54              |
+| leek      | 2          | vegetable  | 54              |
+| apple     | 8          | fruit      | 54              |
+| cabbage   | 9          | vegetable  | 54              |
+| lettuce   | 10         | vegetable  | 54              |
+| kale      | 23         | vegetable  | 54              |
++-------------------------------------------------------+
+```
+
+#### Compute a subtotal
+
+This computes a subtotal for each category in the
+[`Produce`][produce-table] table.
+
++  fruit
+   +  (**==orange==**, **apple**) = 10 total purchases
+   +  (**orange**, **==apple==**) = 10 total purchases
++  vegetable
+   +  (**==leek==**, **cabbage**, **lettuce**, **kale**) = 44 total purchases
+   +  (**leek**, **==cabbage==**, **lettuce**, **kale**) = 44 total purchases
+   +  (**leek**, **cabbage**, **==lettuce==**, **kale**) = 44 total purchases
+   +  (**leek**, **cabbage**, **lettuce**, **==kale==**) = 44 total purchases
+
+```zetasql
+SELECT item, purchases, category, SUM(purchases)
+  OVER (
+    PARTITION BY category
+    ORDER BY purchases
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+  ) AS total_purchases
+FROM Produce
+
++-------------------------------------------------------+
+| item      | purchases  | category   | total_purchases |
++-------------------------------------------------------+
+| orange    | 2          | fruit      | 10              |
+| apple     | 8          | fruit      | 10              |
+| leek      | 2          | vegetable  | 44              |
+| cabbage   | 9          | vegetable  | 44              |
+| lettuce   | 10         | vegetable  | 44              |
+| kale      | 23         | vegetable  | 44              |
++-------------------------------------------------------+
+```
+
+#### Compute a cumulative sum
+
+This computes a cumulative sum for each category in the
+[`Produce`][produce-table] table. The sum is computed with respect to the
+order defined using the `ORDER BY` clause.
+
++  (**==orange==**, apple, leek, cabbage, lettuce, kale) = 2 total purchases
++  (**orange**, **==apple==**, leek, cabbage, lettuce, kale) = 10 total purchases
++  (**orange**, **apple**, **==leek==**, cabbage, lettuce, kale) = 2 total purchases
++  (**orange**, **apple**, **leek**, **==cabbage==**, lettuce, kale) = 11 total purchases
++  (**orange**, **apple**, **leek**, **cabbage**, **==lettuce==**, kale) = 21 total purchases
++  (**orange**, **apple**, **leek**, **cabbage**, **lettuce**, **==kale==**) = 44 total purchases
+
+```zetasql
+SELECT item, purchases, category, SUM(purchases)
+  OVER (
+    PARTITION BY category
+    ORDER BY purchases
+    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+  ) AS total_purchases
+FROM Produce
+
++-------------------------------------------------------+
+| item      | purchases  | category   | total_purchases |
++-------------------------------------------------------+
+| orange    | 2          | fruit      | 2               |
+| apple     | 8          | fruit      | 10              |
+| leek      | 2          | vegetable  | 2               |
+| cabbage   | 9          | vegetable  | 11              |
+| lettuce   | 10         | vegetable  | 21              |
+| kale      | 23         | vegetable  | 44              |
++-------------------------------------------------------+
+```
+
+This does the same thing as the example above. You don't have to add
+`CURRENT ROW` as a boundary unless you would like to for readability.
+
+```sql
+SELECT item, purchases, category, SUM(purchases)
+  OVER (
+    PARTITION BY category
+    ORDER BY purchases
+    ROWS UNBOUNDED PRECEDING
+  ) AS total_purchases
+FROM Produce
+```
+
+In this example, all items in the [`Produce`][produce-table] table are included
+in the partition. Only preceding rows are analyzed. The analysis starts two
+rows prior to the current row in the partition.
+
++  (==orange==, leek, apple, cabbage, lettuce, kale) = NULL
++  (orange, ==leek==, apple, cabbage, lettuce, kale) = NULL
++  (**orange**, leek, ==apple==, cabbage, lettuce, kale) = 2
++  (**orange**, **leek**, apple, ==cabbage==, lettuce, kale) = 4
++  (**orange**, **leek**, **apple**, cabbage, ==lettuce==, kale) = 12
++  (**orange**, **leek**, **apple**, **cabbage**, lettuce, ==kale==) = 21
+
+```zetasql
+SELECT item, purchases, category, SUM(purchases)
+  OVER (
+    ORDER BY purchases
+    ROWS BETWEEN UNBOUNDED PRECEDING AND 2 PRECEDING
+  ) AS total_purchases
+FROM Produce;
+
++-------------------------------------------------------+
+| item      | purchases  | category   | total_purchases |
++-------------------------------------------------------+
+| orange    | 2          | fruit      | NULL            |
+| leek      | 2          | vegetable  | NULL            |
+| apple     | 8          | fruit      | 2               |
+| cabbage   | 9          | vegetable  | 4               |
+| lettuce   | 10         | vegetable  | 12              |
+| kale      | 23         | vegetable  | 21              |
++-------------------------------------------------------+
+```
+
+#### Compute a moving average
+
+This computes a moving average in the [`Produce`][produce-table] table.
+The lower boundary is 1 row before the
+current row. The upper boundary is 1 row after the current row.
+
++  (**==orange==**, **leek**, apple, cabbage, lettuce, kale) = 2 average purchases
++  (**orange**, **==leek==**, **apple**, cabbage, lettuce, kale) = 4 average purchases
++  (orange, **leek**, **==apple==**, **cabbage**, lettuce, kale) = 6.3333 average purchases
++  (orange, leek, **apple**, **==cabbage==**, **lettuce**, kale) = 9 average purchases
++  (orange, leek, apple, **cabbage**, **==lettuce==**, **kale**) = 14 average purchases
++  (orange, leek, apple, cabbage, **lettuce**, **==kale==**) = 16.5 average purchases
+
+```zetasql
+SELECT item, purchases, category, AVG(purchases)
+  OVER (
+    ORDER BY purchases
+    ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+  ) AS avg_purchases
+FROM Produce
+
++-------------------------------------------------------+
+| item      | purchases  | category   | avg_purchases   |
++-------------------------------------------------------+
+| orange    | 2          | fruit      | 2               |
+| leek      | 2          | vegetable  | 4               |
+| apple     | 8          | fruit      | 6.33333         |
+| cabbage   | 9          | vegetable  | 9               |
+| lettuce   | 10         | vegetable  | 14              |
+| kale      | 23         | vegetable  | 16.5            |
++-------------------------------------------------------+
+```
+
+#### Compute the number of items within a range
+
+In this example, we get the number of animals that have a similar population
+count in the [`Farm`][farm-table] table.
+
++  (**==goose==**, **dog**, **ox**, **goat**, duck, cat) = 4 animals between population range 0-2.
++  (**goose**, **==dog==**, **ox**, **goat**, **duck**, cat) = 5 animals between population range 1-3.
++  (**goose**, **dog**, **==ox==**, **goat**, **duck**, cat) = 5 animals between population range 1-3.
++  (**goose**, **dog**, **ox**, **==goat==**, **duck**, cat) = 5 animals between population range 1-3.
++  (goose, **dog**, **ox**, **goat**, **==duck==**, cat) = 4 animals between population range 2-4.
++  (goose, dog, ox, goat, duck, **==cat==**) = 1 animal between population range 22-24.
+
+```zetasql
+SELECT animal, population, category, COUNT(*)
+  OVER (
+    ORDER BY population
+    RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING
+  ) AS similar_population
+FROM Farm;
+
++----------------------------------------------------------+
+| animal    | population | category   | similar_population |
++----------------------------------------------------------+
+| goose     | 1          | bird       | 4                  |
+| dog       | 2          | mammal     | 5                  |
+| ox        | 2          | mammal     | 5                  |
+| goat      | 2          | mammal     | 5                  |
+| duck      | 3          | bird       | 4                  |
+| cat       | 23         | mammal     | 1                  |
++----------------------------------------------------------+
+```
+
+#### Get the most popular item in each category
+
+This example gets the most popular item in each category. It defines how rows
+in a window should be partitioned and ordered in each partition. The
+[`Produce`][produce-table] table is referenced.
+
++  fruit
+   +  (**==orange==**, **apple**) = apple is most popular
+   +  (**orange**, **==apple==**) = apple is most popular
++  vegetable
+   +  (**==leek==**, **cabbage**, **lettuce**, **kale**) = kale is most popular
+   +  (**leek**, **==cabbage==**, **lettuce**, **kale**) = kale is most popular
+   +  (**leek**, **cabbage**, **==lettuce==**, **kale**) = kale is most popular
+   +  (**leek**, **cabbage**, **lettuce**, **==kale==**) = kale is most popular
+
+```zetasql
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (
+    PARTITION BY category
+    ORDER BY purchases
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+  ) AS most_popular
+FROM Produce
+
++----------------------------------------------------+
+| item      | purchases  | category   | most_popular |
++----------------------------------------------------+
+| orange    | 2          | fruit      | apple        |
+| apple     | 8          | fruit      | apple        |
+| leek      | 2          | vegetable  | kale         |
+| cabbage   | 9          | vegetable  | kale         |
+| lettuce   | 10         | vegetable  | kale         |
+| kale      | 23         | vegetable  | kale         |
++----------------------------------------------------+
+```
+
+#### Get the last value in a range
+
+In this example, we get the most popular item in a specific window frame, using
+the [`Produce`][produce-table] table. The window frame analyzes up to three
+rows at a time. Take a close look at the `most_popular` column for vegetables.
+Instead of getting the most popular item in a specific category, it gets the
+most popular item in a specific range in that category.
+
++  fruit
+   +  (**==orange==**, **apple**) = apple is most popular
+   +  (**orange**, **==apple==**) = apple is most popular
++  vegetable
+   +  (**==leek==**, **cabbage**, lettuce, kale) = leek is most popular
+   +  (**leek**, **==cabbage==**, **lettuce**, kale) = lettuce is most popular
+   +  (leek, **cabbage**, **==lettuce==**, **kale**) = kale is most popular
+   +  (leek, cabbage, **lettuce**, **==kale==**) = kale is most popular
+
+```zetasql
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (
+    PARTITION BY category
+    ORDER BY purchases
+    ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+  ) AS most_popular
+FROM Produce
+
++----------------------------------------------------+
+| item      | purchases  | category   | most_popular |
++----------------------------------------------------+
+| orange    | 2          | fruit      | apple        |
+| apple     | 8          | fruit      | apple        |
+| leek      | 2          | vegetable  | cabbage      |
+| cabbage   | 9          | vegetable  | lettuce      |
+| lettuce   | 10         | vegetable  | kale         |
+| kale      | 23         | vegetable  | kale         |
++----------------------------------------------------+
+```
+
+This example returns the same results as the one above, but it includes
+a named window called `item_window`. Some of the window specifications are
+defined directly in the `OVER` clause and some are defined in the named window.
+
+```zetasql
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (
+    item_window
+    ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+  ) AS most_popular
+FROM Produce
+WINDOW item_window AS (
+  PARTITION BY category
+  ORDER BY purchases)
+```
+
+#### Compute rank
+
+This example calculates the rank of each employee within their department,
+based on their start date. The window specification is defined directly
+in the `OVER` clause. The [`Employees`][employees-table] table is referenced.
+
++  department 1
+   +  (**==Jacob==**, **Anthony**, **Andrew**) = Assign rank 1 to Jacob
+   +  (**Jacob**, **==Anthony==**, **Andrew**) = Assign rank 2 to Anthony
+   +  (**Jacob**, **Anthony**, **==Andrew==**) = Assign rank 3 to Andrew
++  department 2
+   +  (**==Isabella==**, **Daniel**, **Jose**) = Assign rank 1 to Isabella
+   +  (**Isabella**, **==Daniel==**, **Jose**) = Assign rank 2 to Daniel
+   +  (**Isabella**, **Daniel**, **==Jose==**) = Assign rank 3 to Jose
+
+```zetasql
+SELECT name, department, start_date,
+  RANK() OVER (PARTITION BY department ORDER BY start_date) AS rank
+FROM Employees;
+
++--------------------------------------------+
+| name      | department | start_date | rank |
++--------------------------------------------+
+| Jacob     | 1          | 1990-07-11 | 1    |
+| Anthony   | 1          | 1995-11-29 | 2    |
+| Andrew    | 1          | 1999-01-23 | 3    |
+| Isabella  | 2          | 1997-09-28 | 1    |
+| Daniel    | 2          | 2004-06-24 | 2    |
+| Jose      | 2          | 2013-03-17 | 3    |
++--------------------------------------------+
+```
+
+#### Use a named window in a window frame clause {: #def_use_named_window }
+
+You can define some of your logic in a named window and some of it in a
+window frame clause. This logic is combined. Here is an example, using the
+[`Produce`][produce-table] table.
+
+```zetasql
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (item_window) AS most_popular
+FROM Produce
+WINDOW item_window AS (
+  PARTITION BY category
+  ORDER BY purchases
+  ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)
+
++-------------------------------------------------------+
+| item      | purchases  | category   | most_popular    |
++-------------------------------------------------------+
+| orange    | 2          | fruit      | apple           |
+| apple     | 8          | fruit      | apple           |
+| leek      | 2          | vegetable  | lettuce         |
+| cabbage   | 9          | vegetable  | kale            |
+| lettuce   | 10         | vegetable  | kale            |
+| kale      | 23         | vegetable  | kale            |
++-------------------------------------------------------+
+```
+
+You can also get the previous results with these examples:
+
+```zetasql
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (item_window) AS most_popular
+FROM Produce
+WINDOW
+  a AS (PARTITION BY category),
+  b AS (a ORDER BY purchases),
+  c AS (b ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING),
+  item_window AS (c)
+```
+
+```zetasql
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (item_window ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS most_popular
+FROM Produce
+WINDOW
+  a AS (PARTITION BY category),
+  b AS (a ORDER BY purchases),
+  item_window AS (b)
+```
+
+The following example produces an error because a window frame clause has been
+defined twice:
+
+```zetasql
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (
+    item_window
+    ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+    ) AS most_popular
+FROM Produce
+WINDOW item_window AS (
+  ORDER BY purchases
+  ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)
+```
+
+[named-window-rules]: #named_window_rules
+[over-clause-def]: #def_over_clause
+[window-specs-def]: #def_window_spec
+[window-frame-clause-def]: #def_window_frame
+[named-windows]: #ref_named_window
+[produce-table]: #produce_table
+[farm-table]: #farm_table
+[employees-table]: #employees_table
+[analytic-functions-link-to-numbering-functions]: #numbering_function_concepts
+[analytic-functions-link-to-navigation-functions]: #navigation_function_concepts
+[analytic-functions-compute-grand-total]: #compute_a_grand_total
+[analytic-functions-compute-subtotal]: #compute_a_subtotal
+[analytic-functions-compute-cumulative-sum]: #compute_a_cumulative_sum
+[analytic-functions-compute-moving-avg]: #compute_a_moving_average
+[analytic-functions-compute-item-range]: #compute_the_number_of_items_within_a_range
+[analytic-functions-get-popular-item]: #get_the_most_popular_item_in_each_category
+[analytic-functions-get-last-value-range]: #get_the_last_value_in_a_range
+[analytic-functions-compute-rank]: #compute_rank
+[analytic-functions-use-named-window]: #def_use_named_window
+[analytic-functions-link-to-window]: https://github.com/google/zetasql/blob/master/docs/query-syntax#window_clause
 [analytic-functions-link-to-hints]: https://github.com/google/zetasql/blob/master/docs/lexical#hints
 
-[navigation-functions-reference]: #navigation_functions
-[numbering-functions-reference]: #numbering_functions
-[aggregate-analytic-functions-reference]: #aggregate_analytic_functions
-[datatype-properties]: #data-type-properties
-[analytic-functions-link-to-data-types]: #data-types
-[analytic-functions-link-to-order-by-clause]: #order_by_clause
-[analytic-functions-link-to-sql-syntax]: #sql-syntax
+[analytic-functions-link-to-window]: #window-clause
 [analytic-functions-link-to-hints]: #hints
-[analytic-functions-link-to-aggregate-functions]: #aggregate-functions
+[navigation-functions-reference]: #navigation-functions
+[numbering-functions-reference]: #numbering-functions
+[aggregate-analytic-functions-reference]: #aggregate-analytic-functions
 
 <!-- END CONTENT -->
 
@@ -9658,7 +9913,40 @@ SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
 +--------------------------------------------------+
 ```
 
-### Building arrays of arrays
+### Zipping Arrays
+
+Given two arrays of equal size, you can merge them into a single array
+consisting of pairs of elements from input arrays, taken from their
+corresponding positions. This operation is sometimes called
+[zipping][convolution].
+
+You can zip arrays with `UNNEST` and `WITH OFFSET`. In this example, each
+value pair is stored as a `STRUCT` in an array.
+
+```sql
+WITH combinations AS (
+  SELECT
+    ['a', 'b'] AS letters,
+    [1, 2, 3] AS numbers
+)
+SELECT ARRAY_AGG(
+  STRUCT(letter, numbers[OFFSET(letters_offset)] AS number)
+) AS pairs
+FROM combinations, UNNEST(letters) AS letter WITH OFFSET AS letters_offset;
+
++------------------------------+
+| pairs                        |
++------------------------------+
+| [{ letter: "a", number: 1 }, |
+|  { letter: "b", number: 2 }] |
++------------------------------+
+```
+
+You can use input arrays of different lengths as long as the first array
+is equal to or less than the length of the second array. The zipped array
+will be the length of the shortest input array.
+
+### Building Arrays of Arrays
 
 ZetaSQL does not support building
 [arrays of arrays][array-data-type]
@@ -9739,6 +10027,7 @@ SELECT ARRAY(
 [array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types#array_type
 [unnest-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax#unnest
 [cross-join-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax#cross_join
+[convolution]: https://en.wikipedia.org/wiki/Convolution_(computer_science)
 
 [array-data-type]: #array-type
 [array-function]: #array
@@ -10218,11 +10507,11 @@ following general syntax:
 
 <pre>
 CREATE [TEMPORARY | TEMP] [TABLE | AGGREGATE] FUNCTION
-  <span class="var">function_name</span> ([<span class="var">named_parameter</span>[, ...]])
+  <span class="var">function_name</span> ([<span class="var">function_parameter</span>[, ...]])
   [RETURNS { <span class="var">data_type</span> | TABLE&lt;<span class="var">argument_name data_type</span> [, ...]*&gt; }]
   { [LANGUAGE <span class="var">language</span> AS <span class="var">"""body"""</span>] | [AS (<span class="var">function_definition</span>)] };
 
-<span class="var">named_parameter</span>:
+<span class="var">function_parameter</span>:
   <span class="var">param_name param_type</span> [NOT AGGREGATE]
 </pre>
 
@@ -10231,13 +10520,13 @@ This syntax consists of the following components:
 +   **CREATE [TEMPORARY | TEMP]
     [TABLE | AGGREGATE] FUNCTION**.
     Creates a new function. A function can contain zero or more
-    `named_parameter`s. To make the function
+    `function_parameter`s. To make the function
     temporary, use the `TEMP` or `TEMPORARY` keyword. To
     make a [table-valued function][table-valued function], use the `TABLE`
     keyword. To make
     an [aggregate function][aggregate-udf-parameters], use the
     `AGGREGATE` keyword.
-*   **named_parameter**. Consists of a comma-separated `param_name` and
+*   **function_parameter**. Consists of a comma-separated `param_name` and
     `param_type` pair. The value of `param_type` is a ZetaSQL
     [data type][data-types].
     The value of `param_type` may also be `ANY TYPE` for a
@@ -10272,7 +10561,7 @@ This syntax consists of the following components:
 Create external UDFs using the following structure.
 
 ```sql
-CREATE [TEMPORARY | TEMP] FUNCTION function_name ([named_parameter[, ...]])
+CREATE [TEMPORARY | TEMP] FUNCTION function_name ([function_parameter[, ...]])
   [RETURNS data_type]
   [LANGUAGE language]
   AS external_code
@@ -10621,11 +10910,11 @@ FROM UNNEST(["Hannah", "Max", "Jakob"]) AS names;
 Create SQL UDFs using the following syntax:
 
 <pre>
-CREATE [TEMPORARY | TEMP] [AGGREGATE] FUNCTION <span class="var">function_name</span> ([<span class="var">named_parameter</span>[, ...]])
+CREATE [TEMPORARY | TEMP] [AGGREGATE] FUNCTION <span class="var">function_name</span> ([<span class="var">function_parameter</span>[, ...]])
   [RETURNS <span class="var">data_type</span>]
   AS (<span class="var">sql_expression</span>)
 
-<span class="var">named_parameter</span>:
+<span class="var">function_parameter</span>:
   <span class="var">param_name param_type</span> [NOT AGGREGATE]
 </pre>
 
@@ -11068,10 +11357,12 @@ ANY_VALUE(expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
 
 **Description**
 
-Returns any value from the input or `NULL` if there are zero input rows.
- The value
-returned is non-deterministic, which means you might receive a different result
-each time you use this function.
+Returns `expression` for some row chosen from the group. Which row is chosen is
+nondeterministic, not random. Returns `NULL` when the input produces no
+rows. Returns `NULL` when `expression` is `NULL` for all rows in the group.
+
+`ANY_VALUE` behaves as if `RESPECT NULLS` is specified;
+Rows for which `expression` is `NULL` are considered and may be selected.
 
 **Supported Argument Types**
 
@@ -11793,9 +12084,8 @@ COUNTIF([DISTINCT] expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
 
 **Description**
 
-Returns the count of `TRUE` values for `expression`.
-Returns `0` if there are zero input rows or `expression` evaluates to `FALSE`
-for all rows.
+Returns the count of `TRUE` values for `expression`. Returns `0` if there are
+zero input rows, or if `expression` evaluates to `FALSE` or `NULL` for all rows.
 
 **Supported Argument Types**
 
@@ -12453,13 +12743,13 @@ SUM(DISTINCT x) OVER ()
 ```
 
 [analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[aggregate-analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#aggregate-analytic-functions
+[aggregate-analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#aggregate_analytic_function_concepts
 
 [analytic-functions-link-to-aggregate-functions]: #aggregate_functions
 
-[analytic-function-concepts]: #analytic_functions_concepts
-[aggregate-analytic-concepts]: #aggregate-analytic-functions
-[analytic-functions-link-to-aggregate-functions]: #aggregate_functions
+[analytic-function-concepts]: #analytic-function-concepts
+[aggregate-analytic-concepts]: #aggregate-analytic-function-concepts
+[analytic-functions-link-to-aggregate-functions]: #aggregate-functions
 
 ## Approximate Aggregate Functions
 
@@ -13795,10 +14085,10 @@ non-deterministic.
 INT64
 
 [analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[numbering-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#numbering-functions
+[numbering-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#numbering_function_concepts
 
-[analytic-function-concepts]: #analytic_functions_concepts
-[numbering-function-concepts]: #numbering-functions
+[analytic-function-concepts]: #analytic-function-concepts
+[numbering-function-concepts]: #numbering-function-concepts
 
 ## Bit Functions
 
@@ -15365,10 +15655,10 @@ FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 ```
 
 [analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[navigation-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#navigation-functions
+[navigation-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#navigation_function_concepts
 
-[analytic-function-concepts]: #analytic_functions_concepts
-[navigation-function-concepts]: #navigation-functions
+[analytic-function-concepts]: #analytic-function-concepts
+[navigation-function-concepts]: #navigation-function-concepts
 
 ## Hash functions
 
@@ -15897,7 +16187,7 @@ FROM items;
 
 ```
 
-#### FORMAT {#format_string}
+#### FORMAT {: #format_string }
 
 ZetaSQL supports a `FORMAT()` function for formatting strings. This
 function is similar to the C `printf` function. It produces a
@@ -15913,44 +16203,44 @@ arguments that matches the format specifiers. Here are some examples:
 </tr>
 <tr>
 <td>Simple integer</td>
-<td>format("%d", 10)</td>
+<td>FORMAT("%d", 10)</td>
 <td>10</td>
 </tr>
 <tr>
 <td>Integer with left blank padding</td>
-<td>format("|%10d|", 11)</td>
+<td>FORMAT("|%10d|", 11)</td>
 <td>|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;11|</td>
 </tr>
 <tr>
 <td>Integer with left zero padding</td>
-<td>format("+%010d+", 12)</td>
+<td>FORMAT("+%010d+", 12)</td>
 <td>+0000000012+</td>
 </tr>
 <tr>
 <td>Integer with commas</td>
-<td>format("%'d", 123456789)</td>
+<td>FORMAT("%'d", 123456789)</td>
 <td>123,456,789</td>
 </tr>
 <tr>
 <td>STRING</td>
-<td>format("-%s-", 'abcd efg')</td>
+<td>FORMAT("-%s-", 'abcd efg')</td>
 <td>-abcd efg-</td>
 </tr>
 <tr>
 <td>DOUBLE</td>
-<td>format("%f %E", 1.1, 2.2)</td>
+<td>FORMAT("%f %E", 1.1, 2.2)</td>
 <td>1.100000&nbsp;2.200000E+00</td>
 </tr>
 
 <tr>
 <td>DATE</td>
-<td>format("%t", date "2015-09-01")</td>
+<td>FORMAT("%t", date "2015-09-01")</td>
 <td>2015-09-01</td>
 </tr>
 
 <tr>
 <td>TIMESTAMP</td>
-<td>format("%t", timestamp "2015-09-01 12:34:56
+<td>FORMAT("%t", timestamp "2015-09-01 12:34:56
 America/Los_Angeles")</td>
 <td>2015&#8209;09&#8209;01&nbsp;19:34:56+00</td>
 </tr>
@@ -15963,8 +16253,8 @@ If custom formatting is necessary for a type, you must first format it using
 type-specific format functions, such as `FORMAT_DATE()` or `FORMAT_TIMESTAMP()`.
 For example:
 
-```
-FORMAT("date: %s!", FORMAT_DATE("%B %d, %Y", date '2015-01-02'));
+```sql
+SELECT FORMAT("date: %s!", FORMAT_DATE("%B %d, %Y", date '2015-01-02'));
 ```
 
 Returns
@@ -15999,13 +16289,13 @@ The `FORMAT()` function format specifier follows this prototype:
 ```
 
 The supported format specifiers are identified in the following table.
-Extensions from printf() are identified in <em>italics</em>.
+Deviations from printf() are identified in <em>italics</em>.
 
 <table>
  <tr>
     <td>Specifier</td>
     <td>Description</td>
-    <td>Examples</td>
+    <td width="200px">Examples</td>
     <td>Types</td>
  </tr>
  <tr>
@@ -16052,19 +16342,21 @@ Extensions from printf() are identified in <em>italics</em>.
  </tr>
  <tr>
     <td><code>f</code></td>
-    <td>Decimal floating point, lowercase</td>
-    <td>392.65<br/>
-    <code>inf</code><br/>
-    <code>NaN</code></td>
+    <td>Decimal notation, in [-](integer part).(fractional part) for finite
+        values, and in lowercase for non-finite values</td>
+    <td>392.650000<br/>
+    inf<br/>
+    nan</td>
     <td>
     <span> NUMERIC</span><br><span> FLOAT</span><br><span> DOUBLE</span>
     </td>
  </tr>
  <tr>
     <td><code>F</code></td>
-    <td>Decimal floating point, uppercase</td>
-    <td>392.65<br/>
-    <code>inf</code><br/>
+    <td>Decimal notation, in [-](integer part).(fractional part) for finite
+        values, and in uppercase for non-finite values</td>
+    <td>392.650000<br/>
+    INF<br/>
     NAN</td>
     <td>
     <span> NUMERIC</span><br><span> FLOAT</span><br><span> DOUBLE</span>
@@ -16073,9 +16365,9 @@ Extensions from printf() are identified in <em>italics</em>.
  <tr>
     <td><code>e</code></td>
     <td>Scientific notation (mantissa/exponent), lowercase</td>
-    <td>3.9265e+2<br/>
-    <code>inf</code><br/>
-    <code>NaN</code></td>
+    <td>3.926500e+02<br/>
+    inf<br/>
+    nan</td>
     <td>
     <span> NUMERIC</span><br><span> FLOAT</span><br><span> DOUBLE</span>
     </td>
@@ -16083,8 +16375,8 @@ Extensions from printf() are identified in <em>italics</em>.
  <tr>
     <td><code>E</code></td>
     <td>Scientific notation (mantissa/exponent), uppercase</td>
-    <td>3.9265E+2<br/>
-    <code>inf</code><br/>
+    <td>3.926500E+02<br/>
+    INF<br/>
     NAN</td>
     <td>
     <span> NUMERIC</span><br><span> FLOAT</span><br><span> DOUBLE</span>
@@ -16092,20 +16384,63 @@ Extensions from printf() are identified in <em>italics</em>.
  </tr>
  <tr>
     <td><code>g</code></td>
-    <td>Use the shortest representation, %e or %f</td>
-    <td>392.65</td>
+    <td>Either decimal notation or scientific notation, depending on the input
+        value's exponent and the specified precision. Lowercase.
+        See <a href="#g_and_g_behavior">%g and %G behavior</a> for details.</td>
+    <td>392.65<br/>
+      3.9265e+07<br/>
+    inf<br/>
+    nan</td>
     <td>
     <span> FLOAT</span><br><span> DOUBLE</span>
     </td>
  </tr>
  <tr>
     <td><code>G</code></td>
-    <td>Use the shortest representation, %E or %F</td>
-    <td>392.65</td>
+    <td>Either decimal notation or scientific notation, depending on the input
+        value's exponent and the specified precision. Uppercase.
+        See <a href="#g_and_g_behavior">%g and %G behavior</a> for details.</td>
+    <td>392.65<br/>
+      3.9265E+07<br/>
+    INF<br/>
+    NAN</td>
     <td>
     <span> FLOAT</span><br><span> DOUBLE</span>
     </td>
  </tr>
+
+ <tr>
+    <td><em><code>p</code></em></td>
+    <td><em>
+      <p>Produces a one-line printable string representing a protocol buffer.</p>
+      <p>This protocol buffer generates the example to the right:</p>
+<pre>
+message ReleaseDate {
+ required int32 year = 1 [default=2019];
+ required int32 month = 2 [default=10];
+}</pre>
+    </em></td>
+    <td><em>year: 2019 month: 10</em></td>
+    <td><em>ShortDebugString</em></td>
+ </tr>
+ <tr>
+    <td><em><code>P</code></em></td>
+    <td><em>
+      <p>Produces a multi-line printable string representing a protocol buffer.</p>
+      <p>This protocol buffer generates the example to the right:</p>
+<pre>
+message ReleaseDate {
+ required int32 year = 1 [default=2019];
+ required int32 month = 2 [default=10];
+}</pre>
+    </em></td>
+    <td><em>
+      year: 2019<br/>
+      month: 10
+      </em></td>
+    <td><em>DebugString</em></td>
+ </tr>
+
  <tr>
     <td><code>s</code></td>
     <td>String of characters</td>
@@ -16115,8 +16450,8 @@ Extensions from printf() are identified in <em>italics</em>.
  <tr>
     <td><em><code>t</code></em></td>
     <td><em>Returns a printable string representing the value. Often looks
-similar to casting the argument to STRING.</em> <em>See <a
-href="#t_and_t_behavior">%t section below</a>.</em></td>
+similar to casting the argument to STRING. See <a
+href="#t_and_t_behavior">%t and %T behavior</a>.</em></td>
     <td><em>sample</em><br/>
     <em>2014&#8209;01&#8209;01</em></td>
     <td><em>&lt;any&gt;</em></td>
@@ -16124,8 +16459,8 @@ href="#t_and_t_behavior">%t section below</a>.</em></td>
  <tr>
     <td><em><code>T</code></em></td>
     <td><em>Produces a string that is a valid ZetaSQL constant with a
-similar type to the value's type (maybe wider, or maybe string).</em> <em>See <a
-href="#t_and_t_behavior">%T section below</a>.</em></td>
+similar type to the value's type (maybe wider, or maybe string). See <a
+href="#t_and_t_behavior">%t and %T behavior</a>.</em></td>
     <td><em>'sample'</em><br/>
         <em>b'bytes&nbsp;sample'</em><br/>
         <em>1234</em><br/>
@@ -16141,7 +16476,7 @@ href="#t_and_t_behavior">%T section below</a>.</em></td>
  </tr>
 </table>
 
-<i><a id="oxX"></a><sup>*</sup>The specifiers o, x, and X raise an error if
+<i><a id="oxX"></a><sup>*</sup>The specifiers `%o`, `%x`, and `%X` raise an error if
 negative values are used.</i>
 
 The format specifier can optionally contain the sub-specifiers identified above
@@ -16174,8 +16509,17 @@ value</td>
 </tr>
  <tr>
     <td><code>#</code></td>
-    <td>Used with o, x or X specifiers. Precedes the value with 0, 0x or 0X
-respectively for values different than zero</td>
+    <td><ul>
+      <li>For `%o`, `%x`, and `%X`, this flag means to precede the
+          value with 0, 0x or 0X respectively for values different than zero.</li>
+      <li>For `%f`, `%F`, `%e`, and `%E`, this flag means to add the decimal
+          point even when there is no fractional part, unless the value
+          is non-finite.</li>
+      <li>For `%g` and `%G`, this flag means to add the decimal point even
+          when there is no fractional part unless the value is non-finite, and
+          never remove the trailing zeros after the decimal point.</li>
+      </ul>
+   </td>
  </tr>
  <tr>
     <td><code>0</code></td>
@@ -16227,14 +16571,20 @@ integer value argument preceding the argument that has to be formatted</td>
  </tr>
  <tr>
     <td><code>.</code>&lt;number&gt;</td>
-    <td>For integer specifiers (d, i, o, u, x, X): precision specifies the
-minimum number of digits to be written. If the value to be written is shorter
-than this number, the result is padded with trailing zeros. The value is not
-truncated even if the result is longer. A precision of 0 means that no character
-is written for the value 0.  For a, A, e, E, f and F specifiers: this is the
-number of digits to be printed after the decimal point (by default, this is
-6)</td>
-
+    <td>
+      <ul>
+      <li>For integer specifiers `%d`, `%i`, `%o`, `%u`, `%x`, and `%X`: precision specifies the
+          minimum number of digits to be written. If the value to be written is
+          shorter than this number, the result is padded with trailing zeros.
+          The value is not truncated even if the result is longer. A precision
+          of 0 means that no character is written for the value 0.</li>
+      <li>For specifiers `%a`, `%A`, `%e`, `%E`, `%f`, and `%F`: this is the number of digits to be
+          printed after the decimal point. The default value is 6.</li>
+      <li>For specifiers `%g` and `%G`: this is the number of significant digits to be
+          printed, before the removal of the trailing zeros after the decimal
+          point. The default value is 6.</li>
+      </ul>
+   </td>
 </tr>
  <tr>
     <td><code>.*</code></td>
@@ -16244,18 +16594,36 @@ formatted</td>
 </tr>
 </table>
 
+<a name="g_and_g_behavior"></a>
+##### %g and %G behavior
+The `%g` and `%G` format specifiers choose either the decimal notation (like
+the `%f` and `%F` specifiers) or the scientific notation (like the `%e` and `%E`
+specifiers), depending on the input value's exponent and the specified
+[precision](#precision).
+
+Let p stand for the specified [precision](#precision) (defaults to 6; 1 if the
+specified precision is less than 1). The input value is first converted to
+scientific notation with precision = (p - 1). If the resulting exponent part x
+is less than -4 or no less than p, the scientific notation with precision =
+(p - 1) is used; otherwise the decimal notation with precision = (p - 1 - x) is
+used.
+
+Unless [`#` flag](#flags) is present, the trailing zeros after the decimal point
+are removed, and the decimal point is also removed if there is no digit after
+it.
+
 <a name="t_and_t_behavior"></a>
 ##### %t and %T behavior
 
-The `%t` and `%T` format specifiers are defined for all types.  The width,
-precision, and flags act as they do for `%s`: the `width` is the minimum width
-and the STRING will be padded to that size, and `precision` is the maximum width
+The `%t` and `%T` format specifiers are defined for all types.  The [width](#width),
+[precision](#precision), and [flags](#flags) act as they do for `%s`: the [width](#width) is the minimum width
+and the STRING will be padded to that size, and [precision](#precision) is the maximum width
 of content to show and the STRING will be truncated to that size, prior to
 padding to width.
 
-%t is always meant to be a readable form of the value.
+The `%t` specifier is always meant to be a readable form of the value.
 
-%T is always a valid SQL literal of a similar type, such as a wider numeric
+The `%T` specifier is always a valid SQL literal of a similar type, such as a wider numeric
 type.
 The literal will not include casts or a type name, except for the special case
 of non-finite floating point values.
@@ -18011,7 +18379,8 @@ Extracts JSON values or JSON scalar values as strings.
     ```
 +  `json_path_string_literal`: The [JSONpath][jsonpath-format] format.
    This identifies the value or values you want to obtain from the
-   JSON-formatted string.
+   JSON-formatted string. If `json_path_string_literal` returns a JSON `null`,
+   this is converted into a SQL `NULL`.
 
 In cases where a JSON key uses invalid JSONPath characters, you can escape
 those characters using single quotes and brackets.
@@ -18061,12 +18430,14 @@ SELECT JSON_EXTRACT(json_text, '$.class.students[1].name') AS second_student_nam
 FROM UNNEST([
   '{"class" : {"students" : [{"name" : "Jane"}]}}',
   '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name" : null}]}}',
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
 +-------------------+
 | second_student    |
 +-------------------+
+| NULL              |
 | NULL              |
 | NULL              |
 | "Jamie"           |
@@ -18135,7 +18506,8 @@ Extracts JSON values or JSON scalar values as strings.
   ```
 +  `json_path_string_literal`: The [JSONpath][jsonpath-format] format.
    This identifies the value or values you want to obtain from the
-   JSON-formatted string.
+   JSON-formatted string. If `json_path_string_literal` returns a JSON `null`,
+   this is converted into a SQL `NULL`.
 
 In cases where a JSON key uses invalid JSONPath characters,
 you can escape those characters using double quotes.
@@ -18181,6 +18553,7 @@ SELECT JSON_QUERY(json_text, '$.class.students[1].name') AS second_student_name
 FROM UNNEST([
   '{"class" : {"students" : [{"name" : "Jane"}]}}',
   '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name" : null}]}}',
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
@@ -18189,7 +18562,8 @@ FROM UNNEST([
 +-------------------+
 | NULL              |
 | NULL              |
-| {"first":"Jamie"} |
+| NULL              |
+| "Jamie"           |
 +-------------------+
 ```
 
@@ -22339,7 +22713,7 @@ space.</td>
     <td>%g</td>
     <td>The
     <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a> year
-    with century as a decimal number (00-99). Each ISO
+    without century as a decimal number (00-99). Each ISO
     year begins on the Monday before the first Thursday of the Gregorian
     calendar year. Note that %g and %y may produce different results near
     Gregorian year boundaries, where the Gregorian year and ISO year can
@@ -24441,7 +24815,15 @@ Documentation is pending for this feature.
 
 Documentation is pending for this feature.
 
+### CREATE PROCEDURE
+
+Documentation is pending for this feature.
+
 ### CREATE ROW POLICY
+
+Documentation is pending for this feature.
+
+### CREATE TABLE FUNCTION
 
 Documentation is pending for this feature.
 

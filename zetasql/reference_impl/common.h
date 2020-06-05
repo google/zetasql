@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "zetasql/public/type.h"
+#include "absl/status/status.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
