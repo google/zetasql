@@ -24,19 +24,13 @@ jobs:
       - name: Checkout the repository
         uses: actions/checkout@master
 
-      - name: Extract tag name
-        id: tag
-        run: echo ::set-output name=tag::${GITHUB_REF##*/}
-
       - name: Zip binaries
         shell: bash
-        env:
-          TAG: ${{ steps.tag.outputs.tag }}
         run: |
           mv bin/linux/zetasql-formatter zetasql-formatter
-          zip zetasql-formatter_${TAG}_linux_x86_64.zip zetasql-formatter
+          zip zetasql-formatter_linux_x86_64.zip zetasql-formatter
           mv bin/osx/zetasql-formatter zetasql-formatter
-          zip zetasql-formatter_${TAG}_darwin_amd64.zip zetasql-formatter
+          zip zetasql-formatter_darwin_amd64.zip zetasql-formatter
 
       - name: Upload Linux Asset
         id: upload-linux-asset
@@ -45,8 +39,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: zetasql-formatter_${{ steps.tag.outputs.tag }}_linux_x86_64.zip
-          asset_name: zetasql-formatter_${{ steps.tag.outputs.tag }}_linux_x86_64.zip
+          asset_path: zetasql-formatter_linux_x86_64.zip
+          asset_name: zetasql-formatter_linux_x86_64.zip
           asset_content_type: application/zip
 
       - name: Upload OSX Asset
@@ -56,6 +50,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: zetasql-formatter_${{ steps.tag.outputs.tag }}_darwin_amd64.zip
-          asset_name: zetasql-formatter_${{ steps.tag.outputs.tag }}_darwin_amd64.zip
+          asset_path: zetasql-formatter_darwin_amd64.zip
+          asset_name: zetasql-formatter_darwin_amd64.zip
           asset_content_type: application/zip
