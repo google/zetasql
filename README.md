@@ -12,17 +12,19 @@ cd ./path/to/your/project && pre-commit install
 
 ```bash
 # To install for MacOSX
-cp ./bin/osx/zetasql-formatter /usr/local/bin/
+wget https://github.com/Matts966/zetasql-formatter/releases/download/latest/zetasql-formatter_darwin_amd64.zip && sudo unzip zetasql-formatter_darwin_amd64.zip -d /usr/local
 ```
 
 ```bash
 # To install for Linux
-cp ./bin/linux/zetasql-formatter /usr/local/bin/
+wget https://github.com/Matts966/zetasql-formatter/releases/download/latest/zetasql-formatter_linux_x86_64.zip && sudo unzip zetasql-formatter_linux_x86_64.zip -d /usr/local
 ```
 
 ```bash
+# To apply formatter
+zetasql-formatter [paths]
 # To apply formatter to queries in a directory using Docker
-docker run -it --rm -v `pwd`:/home:Z matts966/zetasql-formatter:latest [directory]
+docker run -it --rm -v `pwd`:/home:Z matts966/zetasql-formatter:latest [paths]
 ```
 
 ```bash
