@@ -12,13 +12,13 @@ cd ./path/to/your/project && pre-commit install
 
 ```bash
 # To install for MacOSX
-wget https://github.com/Matts966/zetasql-formatter/releases/download/latest/zetasql-formatter_darwin_amd64.zip \
+wget https://github.com/Matts966/zetasql-formatter/releases/latest/download/zetasql-formatter_darwin_amd64.zip \
   && sudo unzip zetasql-formatter_darwin_amd64.zip -d /usr/local
 ```
 
 ```bash
 # To install for Linux
-wget https://github.com/Matts966/zetasql-formatter/releases/download/latest/zetasql-formatter_linux_x86_64.zip \
+wget https://github.com/Matts966/zetasql-formatter/releases/latest/download/zetasql-formatter_linux_x86_64.zip \
   && sudo unzip zetasql-formatter_linux_x86_64.zip -d /usr/local
 ```
 
