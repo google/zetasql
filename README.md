@@ -25,7 +25,7 @@ wget https://github.com/Matts966/zetasql-formatter/releases/latest/download/zeta
 ```bash
 # To apply formatter
 zetasql-formatter [paths]
-# To apply formatter to queries in a directory using Docker
+# To apply formatter using Docker
 docker run -it --rm -v `pwd`:/home:Z matts966/zetasql-formatter:latest [paths]
 ```
 
