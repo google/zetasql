@@ -38,5 +38,4 @@ make build
 
 [Apache License 2.0](LICENSE)
 
-## Support Disclaimer
-This is not an officially supported Google product.
+## This tool is supported by [JDSC](https://jdsc.ai/)
