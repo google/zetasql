@@ -37,5 +37,3 @@ make build
 ## License
 
 [Apache License 2.0](LICENSE)
-
-## This tool is supported by [JDSC](https://jdsc.ai/)
