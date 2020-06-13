@@ -1,5 +1,9 @@
 ## ZetaSQL Formatter
 
+<p align="center">
+  <img src="./docs/changes.png">
+</p>
+
 This repository is forked from [google/zetasql](https://github.com/google/zetasql) and provides SQL formatter with preserved comments. This formatter can be applied to mainly BigQuery and SpanSQL.
 
 ```bash
