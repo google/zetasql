@@ -41,3 +41,7 @@ make build
 ## License
 
 [Apache License 2.0](LICENSE)
+
+## Sponsors
+
+The development of this formatter is sponsored by the Japan Data Science Consortium.
