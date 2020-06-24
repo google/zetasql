@@ -48,9 +48,3 @@ make build
 ## Sponsors
 
 The development of this formatter is sponsored by the Japan Data Science Consortium.
-
-
-```html
-<!-- for twitter card -->
-<meta name="twitter:card" content="summary_large_image" />
-```
