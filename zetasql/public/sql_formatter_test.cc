@@ -34,19 +34,19 @@ TEST(SqlFormatterTest, ValidSingleStatement) {
   // Without semicolon.
   ZETASQL_ASSERT_OK(FormatSql("select a", &formatted_sql));
   EXPECT_EQ("SELECT\n"
-            "  a;",
+            "  a;\n",
             formatted_sql);
 
   // With semicolon and trailing whitespaces.
   ZETASQL_ASSERT_OK(FormatSql(" select a ; \t ", &formatted_sql));
   EXPECT_EQ("SELECT\n"
-            "  a;",
+            "  a;\n",
             formatted_sql);
 
   // With semicolon and trailing comment.
   ZETASQL_ASSERT_OK(FormatSql(" select a ; # foo", &formatted_sql));
   EXPECT_EQ("SELECT\n"
-            "  a;",
+            "  a;\n# foo\n",
             formatted_sql);
 }
 
@@ -60,7 +60,7 @@ TEST(SqlFormatterTest, InvalidSingleStatement) {
                         &formatted_sql),
               StatusIs(_, HasSubstr("Syntax error: Expected end of input but "
                                     "got keyword HAVING [at 1:36]")));
-  EXPECT_EQ("select f1 as a from T having a > 5 having a > 5;",
+  EXPECT_EQ("select f1 as a from T having a > 5 having a > 5;\n",
             formatted_sql);
 
   // With semicolon as the last char.
@@ -68,7 +68,7 @@ TEST(SqlFormatterTest, InvalidSingleStatement) {
                         &formatted_sql),
               StatusIs(_, HasSubstr("Syntax error: Expected end of input but "
                                     "got keyword HAVING [at 1:36]")));
-  EXPECT_EQ("select f1 as a from T having a > 5 having a > 5;",
+  EXPECT_EQ("select f1 as a from T having a > 5 having a > 5;\n",
             formatted_sql);
 
   // With semicolon and trailing whitespaces.
@@ -76,7 +76,7 @@ TEST(SqlFormatterTest, InvalidSingleStatement) {
                         &formatted_sql),
               StatusIs(_, HasSubstr("Syntax error: Expected end of input but "
                                     "got keyword HAVING [at 1:36]")));
-  EXPECT_EQ("select f1 as a from T having a > 5 having a > 5;",
+  EXPECT_EQ("select f1 as a from T having a > 5 having a > 5;\n",
             formatted_sql);
 
   // With semicolon and trailing comment.
@@ -92,26 +92,26 @@ TEST(SqlFormatterTest, InvalidSingleStatement) {
                    "Syntax error: Unexpected end of statement [at 1:55]\n"
                    "select f1 as a from T having a > 5 having a > 5; # foo\n"
                    "                                                      ^")));
-  EXPECT_EQ("select f1 as a from T having a > 5 having a > 5;",
+  EXPECT_EQ("select f1 as a from T having a > 5 having a > 5;\n",
             formatted_sql);
 
   // Empty statement.
   EXPECT_THAT(
       FormatSql(";", &formatted_sql),
       StatusIs(_, HasSubstr("Syntax error: Unexpected \";\" [at 1:1]")));
-  EXPECT_EQ(";", formatted_sql);
+  EXPECT_EQ(";\n", formatted_sql);
 
   // Semicolon in string.
   EXPECT_THAT(FormatSql("select ' ; ' as a as b;", &formatted_sql),
               StatusIs(_, HasSubstr("Syntax error: Expected end of input but "
                                     "got keyword AS [at 1:19]")));
-  EXPECT_EQ("select ' ; ' as a as b;", formatted_sql);
+  EXPECT_EQ("select ' ; ' as a as b;\n", formatted_sql);
 
   EXPECT_THAT(
       FormatSql("select a group by 1 where a < 'xxx;yyy';", &formatted_sql),
       StatusIs(_, HasSubstr("Syntax error: Expected end of input but got "
                             "keyword WHERE [at 1:21]")));
-  EXPECT_EQ("select a group by 1 where a < 'xxx;yyy';", formatted_sql);
+  EXPECT_EQ("select a group by 1 where a < 'xxx;yyy';\n", formatted_sql);
 }
 
 TEST(SqlFormatterTest, ValidMultipleStatements) {
@@ -123,7 +123,7 @@ TEST(SqlFormatterTest, ValidMultipleStatements) {
             "SELECT\n"
             "  a\n"
             "FROM\n"
-            "  t1;",
+            "  t1;\n",
             formatted_sql);
 
   ZETASQL_ASSERT_OK(FormatSql("select 1;\n"
@@ -131,7 +131,7 @@ TEST(SqlFormatterTest, ValidMultipleStatements) {
   EXPECT_EQ("SELECT\n"
             "  1;\n"
             "SELECT\n"
-            "  2;",
+            "  2;\n",
             formatted_sql);
 }
 
@@ -161,7 +161,7 @@ TEST(SqlFormatterTest, InvalidMultipleStatements) {
             "DEFINE TABLE t1(a = 1, b = \"a\", c = 1.4, d = true);\n"
             "select sum(f1) as a from T having a > 5 having a > 5;\n"
             "SELECT\n"
-            "  1;",
+            "  1;\n",
             formatted_sql);
 
   // The second statement is an invalid empty statement.
@@ -170,7 +170,7 @@ TEST(SqlFormatterTest, InvalidMultipleStatements) {
       StatusIs(_, HasSubstr("Syntax error: Unexpected \";\" [at 1:12]")));
   EXPECT_EQ("SELECT\n"
             "  1;\n"
-            ";",
+            ";\n",
             formatted_sql);
 
   // The second statement contains invalid input character '$', which makes

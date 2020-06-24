@@ -1394,7 +1394,7 @@ TEST(SQLBuilderTest, Int32ParameterForLimit) {
   ZETASQL_ASSERT_OK(sql_builder.Process(*limit_offset_scan));
   std::string formatted_sql;
   ZETASQL_ASSERT_OK(FormatSql(sql_builder.sql(), &formatted_sql));
-  EXPECT_EQ("SELECT\n  1\nLIMIT CAST(2 AS INT32) OFFSET CAST(1 AS INT32);",
+  EXPECT_EQ("SELECT\n  1\nLIMIT CAST(2 AS INT32) OFFSET CAST(1 AS INT32);\n",
             formatted_sql);
 }
 
@@ -1440,7 +1440,7 @@ TEST(SQLBuilderTest, WithScanWithFilterScan) {
       "WITH\n  WithTable AS (\n"
       "    SELECT\n      T1.C AS a_1\n    FROM\n      T1\n"
       "    WHERE\n      true\n  )\n"
-      "SELECT\n  withrefscan_2.a_1 AS a_1\nFROM\n  WithTable AS withrefscan_2;",
+      "SELECT\n  withrefscan_2.a_1 AS a_1\nFROM\n  WithTable AS withrefscan_2;\n",
       formatted_sql);
 }
 
@@ -1500,7 +1500,7 @@ TEST(SQLBuilderTest, WithScanWithJoinScan) {
       "      (\n        SELECT\n          NULL\n        FROM\n"
       "          T2\n      ) AS t2_3\n"
       "  )\n"
-      "SELECT\n  withrefscan_4.a_1 AS a_1\nFROM\n  WithTable AS withrefscan_4;",
+      "SELECT\n  withrefscan_4.a_1 AS a_1\nFROM\n  WithTable AS withrefscan_4;\n",
       formatted_sql);
 }
 
@@ -1560,7 +1560,7 @@ TEST(SQLBuilderTest, WithScanWithArrayScan) {
       "      UNNEST(ARRAY(\n"
       "        SELECT\n          1\n      )) AS a_3\n"
       "  )\n"
-      "SELECT\n  withrefscan_4.a_1 AS a_1\nFROM\n  WithTable AS withrefscan_4;",
+      "SELECT\n  withrefscan_4.a_1 AS a_1\nFROM\n  WithTable AS withrefscan_4;\n",
       formatted_sql);
 }
 

@@ -1054,7 +1054,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, FormatSql) {
       "  some_table\n"
       "WHERE\n"
       "  something\n"
-      "LIMIT 10;",
+      "LIMIT 10;\n",
       response.sql());
 }
 
