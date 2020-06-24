@@ -2,6 +2,7 @@
 
 [![release](https://github.com/Matts966/zetasql-formatter/workflows/release/badge.svg?event=create)](https://github.com/Matts966/zetasql-formatter/actions?query=event%3Acreate+workflow%3Arelease+)
 [![test](https://github.com/Matts966/zetasql-formatter/workflows/test/badge.svg?branch=formatter)](https://github.com/Matts966/zetasql-formatter/actions?query=branch%3Aformatter+workflow%3Atest+)
+<meta name="twitter:card" content="summary_large_image" />
 
 <p align="center">
   <img src="./docs/changes.png">
