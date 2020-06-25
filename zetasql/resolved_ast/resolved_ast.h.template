@@ -91,7 +91,7 @@ class {{node.name}} {{node.class_final}} : public {{node.parent}} {
 
 # endif
 
-{# Free function for building, always return unique_ptr #}
+{# Make function for building, always return unique_ptr #}
 # if not node.is_abstract and ((node.inherited_fields + node.fields) | is_constructor_arg)
   friend std::unique_ptr<{{node.name}}> Make{{node.name}}(
  # for field in (node.inherited_fields + node.fields) | is_constructor_arg
@@ -313,6 +313,31 @@ inline std::unique_ptr<{{node.name}}> Make{{node.name}}(
 }
 # endif
 
+{# Free function for building containing only required arguments, always return unique_ptr #}
+# if not node.is_abstract and ((node.inherited_fields + node.fields) | is_optional_constructor_arg)
+inline std::unique_ptr<{{node.name}}> Make{{node.name}}(
+ {% for field in (node.inherited_fields + node.fields) | is_required_constructor_arg %}
+    {{field.scoped_setter_arg_type}} {{field.name}}
+  {%-if not loop.last%},{{ blank_line }}
+  {%-endif%}
+ {%- endfor %}) {
+  return Make{{node.name}}(
+ # for field in (node.inherited_fields + node.fields) | is_constructor_arg
+   # if field.is_optional_constructor_arg
+      /*{{field.name}}=*/{{ '{' }}{{field.cpp_default}}{{ '}' }}{%if not loop.last%},
+{%endif%}
+   # elif field.is_move_only
+      std::move({{field.name}}){%if not loop.last%},
+{%endif%}
+   # else
+      {{field.name}}{%if not loop.last%},
+{%endif%}
+   # endif
+ # endfor
+);
+}
+# endif
+
 # if node.has_node_vector_constructor_arg and not node.is_abstract
 {{ blank_line }}
 // Overloaded factory method for the construction of {{node.name}} with
@@ -396,42 +421,11 @@ inline std::unique_ptr<ResolvedLiteral> MakeResolvedLiteral(
 }
 
 inline std::unique_ptr<ResolvedLiteral> MakeResolvedLiteral(
-    const Type* type, const Value& value) {
-  // The float_literal_id is 0 for any ResolvedLiterals whose original images
-  // are not stored in the resolver's float literal cache.
-  return MakeResolvedLiteral(type, value, false /* has_explicit_type */,
-                             0 /* literal_id */);
-}
-
-inline std::unique_ptr<ResolvedLiteral> MakeResolvedLiteral(
     const Type* type, const Value& value, bool has_explicit_type) {
   // The float_literal_id is 0 for any ResolvedLiterals whose original images
   // are not stored in the resolver's float literal cache.
   return MakeResolvedLiteral(type, value, has_explicit_type,
-                             0 /* literal_id */);
-}
-
-inline std::unique_ptr<ResolvedParameter> MakeResolvedParameter(
-    const Type* type, const std::string& name) {
-  return MakeResolvedParameter(
-      type, name, 0 /*position*/, false /* is_untyped */);
-}
-
-// Helper constructor to create a new ResolvedFunctionCall with an
-// empty <function_call_info> field, for convenience.
-inline std::unique_ptr<ResolvedFunctionCall> MakeResolvedFunctionCall(
-    const Type* type,
-    const Function* function,
-    const FunctionSignature& signature,
-    std::vector<std::unique_ptr<const ResolvedExpr>> argument_list,
-    ResolvedFunctionCall::ErrorMode error_mode) {
-  return MakeResolvedFunctionCall(
-      type,
-      function,
-      signature,
-      std::move(argument_list),
-      error_mode,
-      std::make_shared<ResolvedFunctionCallInfo>() /* function_call_info */);
+                             /*literal_id=*/ 0);
 }
 
 // Helper constructor to create a new ResolvedFunctionCall with an
@@ -449,34 +443,6 @@ inline std::unique_ptr<ResolvedFunctionCall> MakeResolvedFunctionCall(
        std::make_move_iterator(argument_list.end())},
       error_mode,
       std::shared_ptr<ResolvedFunctionCallInfo>(new ResolvedFunctionCallInfo));
-}
-
-// Helper constructor to create a new ResolvedAggregateFunctionCall with an
-// empty <function_call_info> field, for convenience.
-inline std::unique_ptr<ResolvedAggregateFunctionCall>
-MakeResolvedAggregateFunctionCall(
-    const Type* type,
-    const Function* function,
-    const FunctionSignature& signature,
-    std::vector<std::unique_ptr<const ResolvedExpr>> argument_list,
-    ResolvedAggregateFunctionCall::ErrorMode error_mode,
-    bool distinct,
-    ResolvedAggregateFunctionCall::NullHandlingModifier null_handling_modifier,
-    std::unique_ptr<const ResolvedAggregateHavingModifier> having_modifier,
-    std::vector<std::unique_ptr<const ResolvedOrderByItem>> order_by_item_list,
-    std::unique_ptr<const ResolvedExpr> limit) {
-  return MakeResolvedAggregateFunctionCall(
-      type,
-      function,
-      signature,
-      std::move(argument_list),
-      error_mode,
-      distinct,
-      null_handling_modifier,
-      std::move(having_modifier),
-      std::move(order_by_item_list),
-      std::move(limit),
-      std::make_shared<ResolvedFunctionCallInfo>() /* function_call_info */);
 }
 
 // Helper constructor to create a new ResolvedAggregateFunctionCall with an
@@ -506,17 +472,6 @@ MakeResolvedAggregateFunctionCall(
       std::make_shared<ResolvedFunctionCallInfo>() /* function_call_info */);
 }
 
-inline std::unique_ptr<ResolvedTableScan> MakeResolvedTableScan(
-    const std::vector<ResolvedColumn>& column_list,
-    const Table* table,
-    std::unique_ptr<const ResolvedExpr> for_system_time_expr) {
-  return MakeResolvedTableScan(
-      column_list,
-      table,
-      std::move(for_system_time_expr),
-      "" /* alias */);
-}
-
 // Helper that initializes the output_column_list to match
 // input_scan's column_list.  This is helpful because it avoids the argument
 // evaluation order problem in
@@ -527,6 +482,19 @@ inline std::unique_ptr<ResolvedSetOperationItem> MakeResolvedSetOperationItem(
       input_scan->column_list();
   return
       MakeResolvedSetOperationItem(std::move(input_scan), output_column_list);
+}
+
+inline std::unique_ptr<ResolvedCast> MakeResolvedCast(
+    const Type* type, std::unique_ptr<const ResolvedExpr> expr,
+    bool return_null_on_error, const Function* extended_type_conversion) {
+  auto result = MakeResolvedCast(type, std::move(expr), return_null_on_error);
+
+  if(extended_type_conversion != nullptr) {
+    result->set_extended_cast(
+        MakeResolvedExtendedCastInfo(extended_type_conversion));
+  }
+
+  return result;
 }
 
 }  // namespace zetasql

@@ -74,6 +74,8 @@ public abstract class Type implements Serializable {
     "GEOGRAPHY",
     "NUMERIC",
     "BIGNUMERIC",
+    "EXTENDED",
+    "JSON",
   };
 
   /** Returns {@code true} if the given {@code date} value is within valid range. */
@@ -142,6 +144,10 @@ public abstract class Type implements Serializable {
 
   public boolean isBigNumeric() {
     return kind == TypeKind.TYPE_BIGNUMERIC;
+  }
+
+  public boolean isJson() {
+    return kind == TypeKind.TYPE_JSON;
   }
 
   public boolean isString() {

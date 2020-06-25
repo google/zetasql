@@ -169,7 +169,7 @@ calculates the first column using weeks that begin on Sunday, and it calculates
 the second column using weeks that begin on Monday.
 
 ```sql
-WITH table AS (SELECT DATETIME(TIMESTAMP '2017-11-05 00:00:00-8') AS datetime)
+WITH table AS (SELECT DATETIME(TIMESTAMP "2017-11-05 00:00:00+00", "UTC") AS datetime)
 SELECT
   datetime,
   EXTRACT(WEEK(SUNDAY) FROM datetime) AS week_sunday,
@@ -179,7 +179,7 @@ FROM table;
 +---------------------+-------------+---------------+
 | datetime            | week_sunday | week_monday   |
 +---------------------+-------------+---------------+
-| 2017-11-06 00:00:00 | 45          | 44            |
+| 2017-11-05 00:00:00 | 45          | 44            |
 +---------------------+-------------+---------------+
 ```
 
@@ -358,7 +358,7 @@ second `DATETIME` belongs to the ISO year 2015. The first Thursday of the 2015
 calendar year was 2015-01-01, so the ISO year 2015 begins on the preceding
 Monday, 2014-12-29.
 
-```
+```sql
 SELECT
   DATETIME_DIFF('2017-12-30 00:00:00',
     '2014-12-30 00:00:00', YEAR) AS year_diff,
@@ -379,7 +379,7 @@ part uses weeks that begin on Sunday. `DATETIME_DIFF` with the date part
 `WEEK(MONDAY)` returns 1. `DATETIME_DIFF` with the date part
 `ISOWEEK` also returns 1 because ISO weeks begin on Monday.
 
-```
+```sql
 SELECT
   DATETIME_DIFF('2017-12-18', '2017-12-17', WEEK) AS week_diff,
   DATETIME_DIFF('2017-12-18', '2017-12-17', WEEK(MONDAY)) AS week_weekday_diff,
@@ -454,7 +454,7 @@ preceding Monday.
 SELECT
  datetime AS original,
  DATETIME_TRUNC(datetime, WEEK(MONDAY)) AS truncated
-FROM (SELECT DATETIME(TIMESTAMP '2017-11-05 00:00:00') AS datetime);
+FROM (SELECT DATETIME(TIMESTAMP "2017-11-05 00:00:00+00", "UTC") AS datetime);
 
 +---------------------+---------------------+
 | original            | truncated           |
@@ -472,7 +472,7 @@ Gregorian calendar year. The first Thursday of the 2015 calendar year was
 Therefore the ISO year boundary preceding the `datetime_expression`
 2015-06-15 00:00:00 is 2014-12-29.
 
-```
+```sql
 SELECT
   DATETIME_TRUNC('2015-06-15 00:00:00', ISOYEAR) AS isoyear_boundary,
   EXTRACT(ISOYEAR FROM DATETIME '2015-06-15 00:00:00') AS isoyear_number;
@@ -573,6 +573,10 @@ of `%s`, `%C`, and `%y` in
 Note: This function supports [format elements][datetime-functions-link-to-supported-format-elements-for-datetime],
 but does not have full support for `%Q`, `%a`, `%A`, `%g`, `%G`, `%j`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
+**Return Data Type**
+
+DATETIME
+
 **Examples**
 
 The following example parses a `STRING` literal as a
@@ -580,11 +584,7 @@ The following example parses a `STRING` literal as a
 
 ```sql
 SELECT PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '1998-10-18 13:45:55') AS datetime;
-```
 
-The above query returns the following output:
-
-```
 +---------------------+
 | datetime            |
 +---------------------+
@@ -599,21 +599,13 @@ containing a date in a natural language format as a
 ```sql
 SELECT PARSE_DATETIME('%A, %B %e, %Y','Wednesday, December 19, 2018')
   AS datetime;
-```
 
-The above query returns the following output:
-
-```
 +---------------------+
 | datetime            |
 +---------------------+
 | 2018-12-19 00:00:00 |
 +---------------------+
 ```
-
-**Return Data Type**
-
-DATETIME
 
 ### Supported format elements for DATETIME
 

@@ -338,7 +338,7 @@ public final class ResolvedNodes {
     public static final class Builder extends {{node.parent}}.Builder {
     {% endif %}
       {% for field in (node.fields) %}
-      {% if field.is_constructor_arg %}
+      {% if field.is_constructor_arg and not field.is_optional_constructor_arg %}
       {# All is_constructor_arg are required, so we default to null and check that
          they are set in validate(). #}
       protected {{field.nullable_java_type}} {{field.name|lower_camel_case}} = null;
@@ -417,7 +417,7 @@ public final class ResolvedNodes {
       protected void validate() {
         super.validate();
         {% for field in (node.fields) %}
-        {% if field.is_constructor_arg %}
+        {% if field.is_constructor_arg and not field.is_optional_constructor_arg %}
         Preconditions.checkArgument(
             {{field.name|lower_camel_case}} != null, "{{field.name|lower_camel_case}} must be set");
         {% endif %}

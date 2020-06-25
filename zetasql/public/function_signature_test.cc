@@ -843,13 +843,16 @@ TEST(FunctionSignatureTests, TestIsTemplatedArgument) {
 
   // If a new enum value is added to SignatureArgumentKind then it *must*
   // be added to <templated_kinds> or <non_templated_kinds> as appropriate.
-  ASSERT_EQ(14, SignatureArgumentKind_ARRAYSIZE);
+  ASSERT_EQ(17, SignatureArgumentKind_ARRAYSIZE);
 
   std::set<SignatureArgumentKind> templated_kinds;
   templated_kinds.insert(ARG_TYPE_ANY_1);
   templated_kinds.insert(ARG_TYPE_ANY_2);
   templated_kinds.insert(ARG_ARRAY_TYPE_ANY_1);
   templated_kinds.insert(ARG_ARRAY_TYPE_ANY_2);
+  templated_kinds.insert(ARG_PROTO_MAP_ANY);
+  templated_kinds.insert(ARG_PROTO_MAP_KEY_ANY);
+  templated_kinds.insert(ARG_PROTO_MAP_VALUE_ANY);
   templated_kinds.insert(ARG_PROTO_ANY);
   templated_kinds.insert(ARG_STRUCT_ANY);
   templated_kinds.insert(ARG_ENUM_ANY);

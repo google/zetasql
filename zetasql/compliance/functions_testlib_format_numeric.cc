@@ -339,9 +339,12 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatNumeric() {
       {{"%10.*f", Int32(3), NumericFromString("1.5")}, "     1.500"},
       {{"%*.3f", Int32(10), NumericFromString("1.5")}, "     1.500"},
       {{"%*.*f", Int32(10), Int32(3), NumericFromString("1.5")}, "     1.500"},
+      // negative precision means 'ignore; use default of 6'
       {{"%*.*f", Int32(10), Int32(-10), NumericFromString("1.5")},
        "  1.500000"},
-      {{"%*.*f", Int32(-10), Int32(-2), NumericFromString("1.5")}, "1.500000"},
+      // negative width means 'left just; use positive width'
+      {{"%*.*f", Int32(-10), Int32(-2), NumericFromString("1.5")},
+       "1.500000  "},
 
       {{"%10.*e", Int32(3), NumericFromString("1.5")}, " 1.500e+00"},
       {{"%*.3E", Int32(10), NumericFromString("1.5")}, " 1.500E+00"},
@@ -389,10 +392,12 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatNumeric() {
       {{"%*.3f", Int32(10), BigNumericFromString("1.5")}, "     1.500"},
       {{"%*.*f", Int32(10), Int32(3), BigNumericFromString("1.5")},
        "     1.500"},
+      // negative precision means 'ignore; use default of 6'
       {{"%*.*f", Int32(10), Int32(-10), BigNumericFromString("1.5")},
        "  1.500000"},
+      // negative width means 'left just; use positive width'
       {{"%*.*f", Int32(-10), Int32(-2), BigNumericFromString("1.5")},
-       "1.500000"},
+       "1.500000  "},
 
       {{"%10.*e", Int32(3), BigNumericFromString("1.5")}, " 1.500e+00"},
       {{"%*.3E", Int32(10), BigNumericFromString("1.5")}, " 1.500E+00"},

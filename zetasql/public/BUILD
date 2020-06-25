@@ -313,6 +313,7 @@ cc_library(
         ":language_options",
         ":numeric_value",
         ":options_cc_proto",
+        ":proto_value_conversion",
         ":signature_match_result",
         ":strings",
         ":type",
@@ -334,6 +335,7 @@ cc_library(
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
@@ -462,6 +464,53 @@ cc_test(
 )
 
 cc_library(
+    name = "json_value",
+    srcs = ["json_value.cc"],
+    hdrs = [
+        "json_value.h",
+    ],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
+    deps = [
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/common:json_parser",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@json",
+    ],
+)
+
+cc_test(
+    name = "json_value_test",
+    srcs = ["json_value_test.cc"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
+    deps = [
+        ":json_value",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base:statusor",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
     name = "value",
     srcs = [
         "proto_util.cc",
@@ -482,6 +531,7 @@ cc_library(
     ],
     deps = [
         ":civil_time",
+        ":json_value",
         ":numeric_value",
         ":options_cc_proto",
         ":strings",
@@ -496,7 +546,6 @@ cc_library(
         "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/base:statusor",
-        "//zetasql/base:time_proto_util",
         "//zetasql/common:float_margin",
         "//zetasql/common:string_util",
         "//zetasql/public/functions:arithmetics",
@@ -514,6 +563,7 @@ cc_library(
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/hash",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:str_format",
@@ -1719,8 +1769,10 @@ cc_library(
         "//zetasql/resolved_ast:validator",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:span",
         "@com_google_absl//absl/types:variant",
     ],

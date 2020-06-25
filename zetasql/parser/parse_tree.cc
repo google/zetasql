@@ -141,6 +141,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_EXECUTE_USING_CLAUSE] = "ExecuteUsingClause";
   map[AST_EXPLAIN_STATEMENT] = "ExplainStatement";
   map[AST_EXPORT_DATA_STATEMENT] = "ExportDataStatement";
+  map[AST_EXPORT_MODEL_STATEMENT] = "ExportModelStatement";
   map[AST_EXPRESSION_SUBQUERY] = "ExpressionSubquery";
   map[AST_EXTRACT_EXPRESSION] = "ExtractExpression";
   map[AST_FILTER_USING_CLAUSE] = "FilterUsingClause";
@@ -184,6 +185,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_INTO_ALIAS] = "IntoAlias";
   map[AST_INT_LITERAL] = "IntLiteral";
   map[AST_JOIN] = "Join";
+  map[AST_JSON_LITERAL] = "JSONLiteral";
   map[AST_LIMIT_OFFSET] = "LimitOffset";
   map[AST_MERGE_ACTION] = "MergeAction";
   map[AST_MERGE_STATEMENT] = "MergeStatement";
@@ -297,6 +299,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_WITH_CONNECTION_CLAUSE] = "WithConnectionClause";
   map[AST_WITH_OFFSET] = "WithOffset";
   map[AST_WITH_WEIGHT] = "WithWeight";
+  map[AST_WITH_PARTITION_COLUMNS_CLAUSE] = "WithPartitionColumnsClause";
   for (int kind = kFirstASTNodeKind; kind <= kLastASTNodeKind;
        ++kind) {
     DCHECK(zetasql_base::ContainsKey(map, static_cast<ASTNodeKind>(kind)))

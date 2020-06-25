@@ -28,6 +28,10 @@ namespace zetasql {
 // the string. We can't use CEscape because it isn't entirely JSON compatible.
 void JsonEscapeString(absl::string_view raw, std::string* value_string);
 
+// Returns true iff JsonEscapeString(...) would have found any characters that
+// need escaping in the given raw input string.
+bool JsonStringNeedsEscaping(absl::string_view raw);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_COMMON_JSON_UTIL_H__

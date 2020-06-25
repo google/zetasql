@@ -43,6 +43,18 @@ bool UpdateError(absl::Status* status, absl::string_view msg) {
   return false;
 }
 
+absl::Status ValidatePositionAndOccurrence(int64_t position, int64_t occurrence) {
+  if (position < 1) {
+    return absl::Status(absl::StatusCode::kOutOfRange,
+                        "Position must be positive");
+  }
+  if (occurrence < 1) {
+    return absl::Status(absl::StatusCode::kOutOfRange,
+                        "Occurrence must be positive");
+  }
+  return absl::OkStatus();
+}
+
 template <typename T>
 std::string UnaryOverflowMessage(T in, absl::string_view operator_symbol) {
   return absl::StrCat(ArithmeticType<T>::kName, " overflow: ", operator_symbol,

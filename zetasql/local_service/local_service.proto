@@ -244,6 +244,11 @@ message BuildSqlResponse {
 
 message ExtractTableNamesFromStatementRequest {
   optional string sql_statement = 1;
+
+  // If language options are not provided, the parser would use a default
+  // LanguageOptions object. See ExtractTableNamesFromNextStatementRequest
+  // for further details.
+  optional LanguageOptionsProto options = 2;
 }
 
 message ExtractTableNamesFromStatementResponse {

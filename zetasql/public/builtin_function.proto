@@ -39,18 +39,19 @@ enum FunctionSignatureId {
   // in ranges:
   //
   // 0002-0999 Non-standard function calls   (NextId: 266)
-  // 1000-1099 String functions              (NextId: 1069)
+  // 1000-1099 String functions              (NextId: 1077)
   // 1100-1199 Control flow functions        (NextId: 1104)
   // 1200-1299 Time functions                (Fully used)
   // 1300-1399 Math functions                (Fully used)
-  // 1400-1499 Aggregate functions           (NextId: 1481)
+  // 1400-1499 Aggregate functions           (NextId: 1482)
   // 1500-1599 Analytic functions            (NextId: 1513)
   // 1600-1699 Misc functions                (NextId: 1684)
   // 1700-1799 Net functions                 (NextId: 1716)
   // 1800-1899 More time functions           (NextId: 1833)
   // 1900-1999 Hashing/encryption functions  (NextId: 1924)
-  // 2000-2199 Geography functions           (NextId: 2065)
-  // 2300-2499 More math functions           (NextId: 2303)
+  // 2000-2199 Geography functions           (NextId: 2066)
+  // 2300-2499 More math functions           (NextId: 2304)
+  // 2500-2599 Array functions               (NextId: 2501)
 
   // enum value                       // Related function name
   // ----------                       // ---------------------
@@ -161,21 +162,6 @@ enum FunctionSignatureId {
   FN_BIT_COUNT_UINT64 = 146;  // bit_count(uint64) -> int64
   FN_BIT_COUNT_BYTES = 247;   // bit_count(bytes) -> int64
 
-  // TODO: Need to assign these proper ids since they have
-  // standard function call syntax.
-  FN_ARRAY_LENGTH = 220;           // array_length(array) -> int64
-  FN_MAKE_ARRAY = 218;             // $make_array
-  FN_ARRAY_AT_OFFSET = 234;        // $array_at_offset
-  FN_ARRAY_AT_ORDINAL = 235;       // $array_at_ordinal
-  FN_SAFE_ARRAY_AT_OFFSET = 239;   // $safe_array_at_offset
-  FN_SAFE_ARRAY_AT_ORDINAL = 240;  // $safe_array_at_ordinal
-  FN_ARRAY_CONCAT = 236;           // array_concat(repeated array) -> array
-  FN_ARRAY_CONCAT_OP = 260;        // array_concat(array, array) -> array
-  // array_to_string(array, string[, string]) -> string
-  FN_ARRAY_TO_STRING = 237;
-  // array_to_string(array, bytes[, bytes]) -> bytes
-  FN_ARRAY_TO_BYTES = 238;
-
   FN_ERROR = 253;  // error(string) -> {unused result, coercible to any type}
 
   FN_COUNT_STAR = 57;  // $count_star
@@ -185,12 +171,16 @@ enum FunctionSignatureId {
   // separating them from true built-in functions declared above.
 
   // String functions
-  FN_CONCAT_STRING = 1000;          // concat(repeated string) -> string
-  FN_CONCAT_BYTES = 1001;           // concat(repeated bytes) -> bytes
-  FN_CONCAT_OP_STRING = 1063;       // concat(string, string) -> string
-  FN_CONCAT_OP_BYTES = 1064;        // concat(bytes, bytes) -> bytes
-  FN_STRPOS_STRING = 1002;          // strpos(string, string) -> int64
-  FN_STRPOS_BYTES = 1003;           // strpos(bytes, bytes) -> int64
+  FN_CONCAT_STRING = 1000;     // concat(repeated string) -> string
+  FN_CONCAT_BYTES = 1001;      // concat(repeated bytes) -> bytes
+  FN_CONCAT_OP_STRING = 1063;  // concat(string, string) -> string
+  FN_CONCAT_OP_BYTES = 1064;   // concat(bytes, bytes) -> bytes
+  FN_STRPOS_STRING = 1002;     // strpos(string, string) -> int64
+  FN_STRPOS_BYTES = 1003;      // strpos(bytes, bytes) -> int64
+  // instr(string, string[, int64[, int64]]) -> int64
+  FN_INSTR_STRING = 1070;
+  // instr(bytes, bytes[, int64[, int64]]) -> int64
+  FN_INSTR_BYTES = 1071;
   FN_LOWER_STRING = 1006;           // lower(string) -> string
   FN_LOWER_BYTES = 1007;            // lower(bytes) -> bytes
   FN_UPPER_STRING = 1008;           // upper(string) -> string
@@ -253,18 +243,24 @@ enum FunctionSignatureId {
   FN_CODE_POINTS_TO_STRING = 1049;
   // code_points_to_bytes(array<int64>) -> bytes
   FN_CODE_POINTS_TO_BYTES = 1050;
-  FN_LPAD_BYTES = 1051;      // lpad(bytes, int64[, bytes]) -> bytes
-  FN_LPAD_STRING = 1052;     // lpad(string, int64[, string]) -> string
-  FN_RPAD_BYTES = 1053;      // rpad(bytes, int64[, bytes]) -> bytes
-  FN_RPAD_STRING = 1054;     // rpad(string, int64[, string]) -> string
-  FN_LEFT_STRING = 1065;     // left(string, int64) -> string
-  FN_LEFT_BYTES = 1066;      // left(bytes, int64) -> bytes
-  FN_RIGHT_STRING = 1067;    // right(string, int64) -> string
-  FN_RIGHT_BYTES = 1068;     // right(bytes, int64) -> bytes
-  FN_REPEAT_BYTES = 1055;    // repeat(bytes, int64) -> bytes
-  FN_REPEAT_STRING = 1056;   // repeat(string, int64) -> string
-  FN_REVERSE_STRING = 1057;  // reverse(string) -> string
-  FN_REVERSE_BYTES = 1058;   // reverse(bytes) -> bytes
+  FN_LPAD_BYTES = 1051;        // lpad(bytes, int64[, bytes]) -> bytes
+  FN_LPAD_STRING = 1052;       // lpad(string, int64[, string]) -> string
+  FN_RPAD_BYTES = 1053;        // rpad(bytes, int64[, bytes]) -> bytes
+  FN_RPAD_STRING = 1054;       // rpad(string, int64[, string]) -> string
+  FN_LEFT_STRING = 1065;       // left(string, int64) -> string
+  FN_LEFT_BYTES = 1066;        // left(bytes, int64) -> bytes
+  FN_RIGHT_STRING = 1067;      // right(string, int64) -> string
+  FN_RIGHT_BYTES = 1068;       // right(bytes, int64) -> bytes
+  FN_REPEAT_BYTES = 1055;      // repeat(bytes, int64) -> bytes
+  FN_REPEAT_STRING = 1056;     // repeat(string, int64) -> string
+  FN_REVERSE_STRING = 1057;    // reverse(string) -> string
+  FN_REVERSE_BYTES = 1058;     // reverse(bytes) -> bytes
+  FN_SOUNDEX_STRING = 1069;    // soundex(string) -> string
+  FN_ASCII_STRING = 1072;      // ASCII(string) -> int64
+  FN_ASCII_BYTES = 1073;       // ASCII(bytes) -> int64
+  FN_TRANSLATE_STRING = 1074;  // translate(string, string, string) -> string
+  FN_TRANSLATE_BYTES = 1075;   // soundex(bytes, bytes, bytes) -> bytes
+  FN_INITCAP_STRING = 1076;    // initcap(string[, string]) -> string
 
   // Control flow functions
   FN_IF = 1100;  // if
@@ -441,10 +437,11 @@ enum FunctionSignatureId {
   FN_GREATEST = 1321;  // greatest
   FN_LEAST = 1322;     // least
 
-  FN_SQRT_DOUBLE = 1323;               // sqrt
-  FN_POW_DOUBLE = 1324;                // pow
-  FN_POW_NUMERIC = 1370;               // pow(numeric, numeric) -> numeric
-  FN_EXP_DOUBLE = 1325;                // exp
+  FN_SQRT_DOUBLE = 1323;     // sqrt
+  FN_POW_DOUBLE = 1324;      // pow
+  FN_POW_NUMERIC = 1370;     // pow(numeric, numeric) -> numeric
+  FN_POW_BIGNUMERIC = 2303;  // pow(bignumeric, bignumeric) -> bignumeric
+  FN_EXP_DOUBLE = 1325;      // exp
   FN_NATURAL_LOGARITHM_DOUBLE = 1326;  // ln and log
   FN_DECIMAL_LOGARITHM_DOUBLE = 1345;  // log10
   FN_LOGARITHM_DOUBLE = 1327;          // log
@@ -512,14 +509,15 @@ enum FunctionSignatureId {
   // Approximate count functions that expose the intermediate sketch.
   // These are all found in the "hll_count.*" namespace.
   //
-  FN_HLL_COUNT_MERGE = 1444;          // hll_count.merge(bytes)
-  FN_HLL_COUNT_EXTRACT = 1445;        // hll_count.extract(bytes), scalar
-  FN_HLL_COUNT_INIT_INT64 = 1446;     // hll_count.init(int64)
-  FN_HLL_COUNT_INIT_UINT64 = 1447;    // hll_count.init(uint64)
-  FN_HLL_COUNT_INIT_NUMERIC = 1470;   // hll_count.init(numeric)
-  FN_HLL_COUNT_INIT_STRING = 1448;    // hll_count.init(string)
-  FN_HLL_COUNT_INIT_BYTES = 1449;     // hll_count.init(bytes)
-  FN_HLL_COUNT_MERGE_PARTIAL = 1450;  // hll_count.merge_partial(bytes)
+  FN_HLL_COUNT_MERGE = 1444;            // hll_count.merge(bytes)
+  FN_HLL_COUNT_EXTRACT = 1445;          // hll_count.extract(bytes), scalar
+  FN_HLL_COUNT_INIT_INT64 = 1446;       // hll_count.init(int64)
+  FN_HLL_COUNT_INIT_UINT64 = 1447;      // hll_count.init(uint64)
+  FN_HLL_COUNT_INIT_NUMERIC = 1470;     // hll_count.init(numeric)
+  FN_HLL_COUNT_INIT_BIGNUMERIC = 1481;  // hll_count.init(bignumeric)
+  FN_HLL_COUNT_INIT_STRING = 1448;      // hll_count.init(string)
+  FN_HLL_COUNT_INIT_BYTES = 1449;       // hll_count.init(bytes)
+  FN_HLL_COUNT_MERGE_PARTIAL = 1450;    // hll_count.merge_partial(bytes)
 
   // Statistical aggregate functions.
   FN_CORR = 1435;                 // corr
@@ -560,19 +558,21 @@ enum FunctionSignatureId {
   FN_KLL_QUANTILES_EXTRACT_POINT_DOUBLE = 1466;  // scalar
 
   // Analytic functions.
-  FN_DENSE_RANK = 1500;       // dense_rank
-  FN_RANK = 1501;             // rank
-  FN_ROW_NUMBER = 1502;       // row_number
-  FN_PERCENT_RANK = 1503;     // percent_rank
-  FN_CUME_DIST = 1504;        // cume_dist
-  FN_NTILE = 1505;            // ntile
-  FN_LEAD = 1506;             // lead
-  FN_LAG = 1507;              // lag
-  FN_FIRST_VALUE = 1508;      // first_value
-  FN_LAST_VALUE = 1509;       // last_value
-  FN_NTH_VALUE = 1510;        // nth_value
-  FN_PERCENTILE_CONT = 1511;  // percentile_cont
-  FN_PERCENTILE_DISC = 1512;  // percentile_disc
+  FN_DENSE_RANK = 1500;               // dense_rank
+  FN_RANK = 1501;                     // rank
+  FN_ROW_NUMBER = 1502;               // row_number
+  FN_PERCENT_RANK = 1503;             // percent_rank
+  FN_CUME_DIST = 1504;                // cume_dist
+  FN_NTILE = 1505;                    // ntile
+  FN_LEAD = 1506;                     // lead
+  FN_LAG = 1507;                      // lag
+  FN_FIRST_VALUE = 1508;              // first_value
+  FN_LAST_VALUE = 1509;               // last_value
+  FN_NTH_VALUE = 1510;                // nth_value
+  FN_PERCENTILE_CONT = 1511;          // percentile_cont
+  FN_PERCENTILE_CONT_NUMERIC = 1513;  // percentile_cont
+  FN_PERCENTILE_DISC = 1512;          // percentile_disc
+  FN_PERCENTILE_DISC_NUMERIC = 1514;  // percentile_disc
 
   //
   // Misc functions.
@@ -771,6 +771,7 @@ enum FunctionSignatureId {
   FN_ST_SNAP_TO_GRID = 2016;
   FN_ST_CLOSEST_POINT = 2017;
   FN_ST_BOUNDARY = 2018;
+  FN_ST_CONVEXHULL = 2065;
 
   // Predicates
   FN_ST_EQUALS = 2020;
@@ -818,4 +819,20 @@ enum FunctionSignatureId {
   // Other geography functions
   FN_ST_X = 2070;
   FN_ST_Y = 2071;
+
+  // Array functions.
+  FN_FLATTEN = 2500;  // flatten(array path) -> array
+  // TODO: Move these to the array function section (2500-2599).
+  FN_ARRAY_AT_OFFSET = 234;   // $array_at_offset
+  FN_ARRAY_AT_ORDINAL = 235;  // $array_at_ordinal
+  FN_ARRAY_CONCAT = 236;      // array_concat(repeated array) -> array
+  FN_ARRAY_CONCAT_OP = 260;   // array_concat(array, array) -> array
+  FN_ARRAY_LENGTH = 220;      // array_length(array) -> int64
+  // array_to_string(array, bytes[, bytes]) -> bytes
+  FN_ARRAY_TO_BYTES = 238;
+  // array_to_string(array, string[, string]) -> string
+  FN_ARRAY_TO_STRING = 237;
+  FN_MAKE_ARRAY = 218;             // $make_array
+  FN_SAFE_ARRAY_AT_OFFSET = 239;   // $safe_array_at_offset
+  FN_SAFE_ARRAY_AT_ORDINAL = 240;  // $safe_array_at_ordinal
 }

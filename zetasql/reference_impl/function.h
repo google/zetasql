@@ -194,6 +194,7 @@ enum class FunctionKind {
   kFromBase64,
   kToHex,
   kFromHex,
+  kAscii,
   kToCodePoints,
   kCodePointsToString,
   kCodePointsToBytes,
@@ -208,6 +209,7 @@ enum class FunctionKind {
   kSplit,
   kStartsWith,
   kStrpos,
+  kInstr,
   kSubstr,
   kTrim,
   kUpper,
@@ -217,6 +219,9 @@ enum class FunctionKind {
   kRight,
   kRepeat,
   kReverse,
+  kSoundex,
+  kTranslate,
+  kInitCap,
   // Date/Time functions
   kDateAdd,
   kDateSub,
@@ -341,6 +346,12 @@ class BuiltinScalarFunction : public ScalarFunctionBody {
       const std::vector<std::unique_ptr<ValueExpr>> arguments,
       ResolvedFunctionCallBase::ErrorMode error_mode =
           ResolvedFunctionCallBase::DEFAULT_ERROR_MODE);
+
+  static zetasql_base::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>> CreateCast(
+      const LanguageOptions& language_options, const Type* output_type,
+      std::unique_ptr<ValueExpr> argument, bool return_null_on_error,
+      ResolvedFunctionCallBase::ErrorMode error_mode,
+      const Function* extended_type_conversion_function);
 
   // If 'arguments' is not empty, validates the types of the inputs. Currently
   // it checks whether the inputs support equality comparison where
@@ -563,9 +574,19 @@ class IsFunction : public BuiltinScalarFunction {
 
 class CastFunction : public SimpleBuiltinScalarFunction {
  public:
-  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  CastFunction(const Type* output_type,
+               const Function* extended_type_conversion_function)
+      : SimpleBuiltinScalarFunction(FunctionKind::kCast, output_type),
+        extended_type_conversion_function_(extended_type_conversion_function) {}
+  CastFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type),
+        extended_type_conversion_function_(nullptr) {}
+
   ::zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
                                EvaluationContext* context) const override;
+
+ private:
+  const Function* extended_type_conversion_function_;
 };
 
 

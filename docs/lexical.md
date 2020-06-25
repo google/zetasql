@@ -574,11 +574,13 @@ ZetaSQL follows these rules for case sensitivity:
 <td>No</td>
 <td>&nbsp;</td>
 </tr>
+
 <tr>
 <td>Function names</td>
 <td>No</td>
 <td>&nbsp;</td>
 </tr>
+
 <tr>
 <td>Table names</td>
 

@@ -58,7 +58,7 @@ class SimpleEvaluatorTableIterator : public EvaluatorTableIterator {
       const std::vector<const Column*>& columns,
       const std::vector<std::shared_ptr<const std::vector<Value>>>&
           column_major_values,
-      const absl::Status& end_status,
+      int64_t num_rows, const absl::Status& end_status,
       const absl::flat_hash_set<int>& filter_column_idxs,
       const std::function<void()>& cancel_cb,
       const std::function<void(absl::Time)>& set_deadline_cb,
@@ -69,8 +69,7 @@ class SimpleEvaluatorTableIterator : public EvaluatorTableIterator {
         cancel_cb_(cancel_cb),
         set_deadline_cb_(set_deadline_cb),
         column_major_values_(column_major_values),
-        num_rows_(
-            column_major_values_.empty() ? 0 : column_major_values_[0]->size()),
+        num_rows_(num_rows),
         clock_(clock) {
     CHECK_EQ(columns.size(), column_major_values_.size());
     for (const auto& values_for_column : column_major_values_) {

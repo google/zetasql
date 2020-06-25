@@ -1084,4 +1084,11 @@ absl::Status ProtoHasField(
   return absl::OkStatus();
 }
 
+bool IsProtoMap(const Type* type) {
+  if (!type->IsArray()) return false;
+  const Type* element = type->AsArray()->element_type();
+  if (!element->IsProto()) return false;
+  return element->AsProto()->descriptor()->options().map_entry();
+}
+
 }  // namespace zetasql

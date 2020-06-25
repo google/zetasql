@@ -69,12 +69,24 @@ class RegExp {
   bool Match(absl::string_view str, bool* out, absl::Status* error);
 
   // REGEXP_EXTRACT
+  // Extracts a match starting at `position` and looks for the specified
+  // `occurrence_index`.
+  // If `occurrence_index` is greater than the number of matches found returns
+  // true with *is_null set to true.
   // If a match was extracted, returns true with *is_null set to false.
   // If a match was not extracted, returns true with *is_null set to true.
   // If extraction failed for some other reason, returns false with a non-OK
   // status in *error.
-  bool Extract(absl::string_view str, absl::string_view* out, bool* is_null,
-               absl::Status* error);
+  // Note: Both `position` and `occurrence_index` are one-based indices rather
+  // than zero-based indices.
+  bool Extract(absl::string_view str, int64_t position, int64_t occurrence_index,
+               absl::string_view* out, bool* is_null, absl::Status* error);
+
+  inline bool Extract(absl::string_view str, absl::string_view* out,
+                      bool* is_null, absl::Status* error) {
+    return Extract(str, /*position=*/1, /*occurrence_index=*/1, out, is_null,
+                   error);
+  }
 
   // REGEXP_EXTRACT_ALL
   // This ZetaSQL function returns an array of strings or bytes.

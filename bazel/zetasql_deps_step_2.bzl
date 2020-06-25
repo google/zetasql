@@ -717,6 +717,21 @@ java_library(
 )""",
         )
 
+    # Json.
+    if not native.existing_rule("json"):
+        http_archive(
+            name = "json",
+            # JSON for Modern C++
+            url = "https://github.com/nlohmann/json/archive/v3.7.3.zip",
+            strip_prefix = "json-3.7.3",
+            sha256 = "e109cd4a9d1d463a62f0a81d7c6719ecd780a52fb80a22b901ed5b6fe43fb45b",
+            build_file_content = """cc_library(
+    name="json",
+    visibility=["//visibility:public"],
+    hdrs=["single_include/nlohmann/json.hpp"]
+)""",
+        )
+
     if not native.existing_rule("markupsafe"):
         http_archive(
             name = "markupsafe",
@@ -735,9 +750,9 @@ java_library(
     if not native.existing_rule("google_bazel_common"):
         http_archive(
             name = "google_bazel_common",
-            strip_prefix = "bazel-common-eb5c7e5d6d2c724fe410792c8be9f59130437e4a",
-            urls = ["https://github.com/google/bazel-common/archive/eb5c7e5d6d2c724fe410792c8be9f59130437e4a.zip"],
-            sha256 = "18f266d921db1daa2ee9837343938e37fa21e0a8b6a0e43a67eda4c30f62b812",
+            strip_prefix = "bazel-common-e768dbfea5bac239734b3f59b2a1d7464c6dbd26",
+            urls = ["https://github.com/google/bazel-common/archive/e768dbfea5bac239734b3f59b2a1d7464c6dbd26.zip"],
+            sha256 = "17f66ba76073a290add024a4ce7f5f92883832b7da85ffd7677e1f5de9a36153",
         )
 
     ##########################################################################

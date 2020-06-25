@@ -124,6 +124,26 @@ static const ArrayType* TestEnumArrayType_equivalent() {
   return array_type;
 }
 
+static const ProtoType* StringInt32MapEntryType() {
+  const ProtoType* ret;
+  ZETASQL_CHECK_OK(type_factory()->MakeProtoType(
+      zetasql_test::MessageWithMapField::descriptor()
+          ->FindFieldByName("string_int32_map")
+          ->message_type(),
+      &ret));
+  return ret;
+}
+
+static const ProtoType* Uint64StringMapEntryType() {
+  const ProtoType* ret;
+  ZETASQL_CHECK_OK(type_factory()->MakeProtoType(
+      zetasql_test::MessageWithMapField::descriptor()
+          ->FindFieldByName("uint64_string_map")
+          ->message_type(),
+      &ret));
+  return ret;
+}
+
 template <typename Type>
 static std::vector<Type> ConcatTests(
     const std::vector<std::vector<Type>>& test_vectors) {
@@ -1973,6 +1993,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumeric() {
 std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
   const Value struct_value =
       Value::Struct(SimpleStructType(), {String("aaa"), Int32(777)});
+
   const Value enum_value = Value::Enum(TestEnumType(), 1);
   const Value array_value = Value::EmptyArray(Int32ArrayType());
   const Value array_value2 =
@@ -2058,6 +2079,27 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
   const Value null_enum_array_value = Value::Null(TestEnumArrayType());
   const Value null_enum_array_value_equivalent =
       Value::Null(TestEnumArrayType_equivalent());
+
+  const google::protobuf::Descriptor* string_int32_descriptor =
+      StringInt32MapEntryType()->descriptor();
+  std::unique_ptr<google::protobuf::Message> string_int32_message(
+      google::protobuf::MessageFactory::generated_factory()
+          ->GetPrototype(string_int32_descriptor)
+          ->New());
+  CHECK(google::protobuf::TextFormat::ParseFromString("key: 'aaa' value: 777",
+                                            string_int32_message.get()));
+  const Value string_int32_map_entry = Value::Proto(
+      StringInt32MapEntryType(), SerializeToCord(*string_int32_message));
+
+  const StructType* string_string_struct;
+  ZETASQL_CHECK_OK(type_factory()->MakeStructType(
+      {{"", type_factory()->get_string()}, {"", type_factory()->get_string()}},
+      &string_string_struct));
+  // When casted, results in the same value as string_int32_map_entry.
+  const Value string_string_struct_value = Value::Struct(
+      string_string_struct, {Value::String("aaa"), Value::String("777")});
+
+  std::set<LanguageFeature> with_proto_maps = {FEATURE_V_1_3_PROTO_MAPS};
 
   return {
       {{NullInt64()}, null_enum},
@@ -2230,7 +2272,21 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
       // NullableInt has no required fields, so this should work.
       {{Bytes("")}, Proto(NullableIntProtoType(), absl::Cord(""))},
       {{Proto(NullableIntProtoType(), absl::Cord(""))}, Bytes("")},
-  };
+
+      {{struct_value},
+       Value::Null(string_int32_map_entry.type()),
+       absl::StatusCode::kInvalidArgument},
+
+      QueryParamsWithResult({struct_value}, string_int32_map_entry)
+          .WrapWithFeatureSet(with_proto_maps),
+      QueryParamsWithResult({string_string_struct_value},
+                            string_int32_map_entry)
+          .WrapWithFeatureSet(with_proto_maps),
+
+      // Struct with the wrong field types won't cast.
+      QueryParamsWithResult(
+          {struct_value}, Value::Null(Uint64StringMapEntryType()), OUT_OF_RANGE)
+          .WrapWithFeatureSet(with_proto_maps)};
 }
 
 std::vector<QueryParamsWithResult> GetFunctionTestsCast() {
@@ -2261,9 +2317,9 @@ std::vector<QueryParamsWithResult> GetFunctionTestsSafeCast() {
 
       // Reuses all the CAST tests for SAFE_CAST.
       // For tests with OUT_OF_RANGE errors, makes a test that expects NULL
-      // instead.
-      CHECK(status.ok() || status.code() == OUT_OF_RANGE)
-          << internal::StatusToString(status);
+      // instead. Errors other than OUT_OF_RANGE are expression errors that
+      // stay the same even inside a SAFE_CAST (for example, invalid cast
+      // types).
       const Result new_result = status.code() == OUT_OF_RANGE
                                     ? Result(Value::Null(test.GetResultType()))
                                     : result_struct;

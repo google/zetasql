@@ -25,16 +25,29 @@
 #include <type_traits>
 #include <vector>
 
+#include "zetasql/public/numeric_value.h"
 #include <cstdint>
 #include "absl/strings/string_view.h"
+#include "zetasql/base/status_macros.h"
 #include "zetasql/base/statusor.h"
 
 namespace zetasql {
+template <typename T>
+class PercentileHelper;
 
-class PercentileEvaluator {
+template <typename PercentileType>  // PercentileType = double or NumericValue
+class PercentileEvaluatorTmpl {
  public:
-  // percentile must be in [0, 1].
-  static zetasql_base::StatusOr<PercentileEvaluator> Create(double percentile);
+  // For PercentileType = double, Weight = long double.
+  // For PercentileType = NumericValue, Weight = NumericValue.
+  using Weight = typename PercentileHelper<PercentileType>::Weight;
+  // Returns an error if percentile is not in [0, 1].
+  static zetasql_base::StatusOr<PercentileEvaluatorTmpl> Create(
+      PercentileType percentile) {
+    ZETASQL_ASSIGN_OR_RETURN(PercentileHelper<PercentileType> helper,
+                     PercentileHelper<PercentileType>::Create(percentile));
+    return PercentileEvaluatorTmpl(helper);
+  }
 
   // Computes the integral part and the fractional part of
   // <max_index> * <percentile_>.
@@ -49,23 +62,31 @@ class PercentileEvaluator {
   //
   // This function handles <max_index> > std::numeric_limits<int32_t>::max().
   // (returned_index) is precise; <left_weight> and <right_weight> are as
-  // precise as long double supports.
+  // precise as the <Weight> type supports.
   //
   // The reason why not return only <right_weight> is that this function
-  // computes both weights in a way to minimize the error for both; always
-  // calculating <left_weight> as 1 - <right_weight> or vice versa could result
-  // in high relative error when one of them is close to 0. This is also why
-  // 'long double' is used rather than 'double'.
-  size_t ComputePercentileIndex(size_t max_index,
-                                long double* left_weight,
-                                long double* right_weight) const;
+  // computes both weights in a way to minimize the floating point error for
+  // both. Always calculating <left_weight> as 1 - <right_weight> or vice versa
+  // could result in high relative error when one of them is close to 0.
+  size_t ComputePercentileIndex(size_t max_index, Weight* left_weight,
+                                Weight* right_weight) const {
+    return helper_.ComputePercentileIndex(max_index, left_weight, right_weight);
+  }
+
+  static PercentileType ComputeLinearInterpolation(PercentileType left_value,
+                                                   Weight left_weight,
+                                                   PercentileType right_value,
+                                                   Weight right_weight) {
+    return PercentileHelper<PercentileType>::ComputeLinearInterpolation(
+        left_value, left_weight, right_value, right_weight);
+  }
 
   // Computes PERCENTILE_CONT(x, percentile) from values in
   // [nonnull_values_begin, nonnull_values_end) PLUS <num_nulls> nulls,
   // according to docs/document/d/1XECBsOd5pzMtnJBIMAS8jwiWa7RMPoPSayUBuC9Mm4g.
   //
-  // Itr must be random accessible, and it must be dereferenced to double or a
-  // type that can be implicitly cast to double.
+  // Itr must be random accessible, and it must be dereferenced to
+  // PercentileType or a type that can be implicitly cast to PercentileType.
   //
   // [nonnull_values_begin, nonnull_values_end) may contain NaNs but not NULLs.
   //
@@ -87,37 +108,36 @@ class PercentileEvaluator {
   // use PercentileHeap, which does not support n >
   // std::numeric_limits<int32_t>::max(), though.
   template <bool sorted, typename Itr>
-  bool ComputePercentileCont(
-      Itr nonnull_values_begin, Itr nonnull_values_end,
-      size_t num_nulls, double* result) const {
+  bool ComputePercentileCont(Itr nonnull_values_begin, Itr nonnull_values_end,
+                             size_t num_nulls, PercentileType* result) const {
     size_t num_nonnull_values = nonnull_values_end - nonnull_values_begin;
     if (num_nonnull_values == 0) {
       return false;
     }
-    long double left_weight = 0;
-    long double right_weight = 0;
+    Weight left_weight = Weight();
+    Weight right_weight = Weight();
     size_t index = ComputePercentileIndex(
         num_nonnull_values - 1 + num_nulls,
         &left_weight, &right_weight);
-    using Accessor = ElementAccessor<double, sorted>;
     if (index >= num_nulls) {
       // The percentile is within normal values.
       index -= num_nulls;
-      const size_t num_nans = Accessor::template PartitionNaNs<Itr>(
+      const size_t num_nans = PartitionNaNs<sorted, Itr, PercentileType>(
           nonnull_values_begin, nonnull_values_end);
-      *result = *Accessor::template GetNthElement<Itr>(
+      *result = *GetNthElement<sorted, Itr>(
           nonnull_values_begin, nonnull_values_end, index, num_nans);
-      if (right_weight > 0) {
-        const double right_value = *Accessor::template GetNthElement<Itr>(
-                nonnull_values_begin, nonnull_values_end, index + 1, num_nans);
-        *result = left_weight * (*result) + right_weight * right_value;
+      if (right_weight > Weight()) {
+        const PercentileType right_value = *GetNthElement<sorted, Itr>(
+            nonnull_values_begin, nonnull_values_end, index + 1, num_nans);
+        *result = ComputeLinearInterpolation((*result), left_weight,
+                                             right_value, right_weight);
       }
-    } else if (index == num_nulls - 1 && right_weight > 0) {
+    } else if (index == num_nulls - 1 && right_weight != Weight()) {
       // The percentile is between a null value and the minimum normal value.
-      const size_t num_nans = Accessor::template PartitionNaNs<Itr>(
+      const size_t num_nans = PartitionNaNs<sorted, Itr, PercentileType>(
           nonnull_values_begin, nonnull_values_end);
-      *result = *Accessor::template GetNthElement<Itr>(
-          nonnull_values_begin, nonnull_values_end, 0, num_nans);
+      *result = *GetNthElement<sorted, Itr>(nonnull_values_begin,
+                                            nonnull_values_end, 0, num_nans);
     } else {
       // The percentile is within null values.
       return false;
@@ -160,79 +180,111 @@ class PercentileEvaluator {
     if (num_nonnull_values == 0) {
       return nonnull_values_end;
     }
-    long double left_weight = 0;
-    long double right_weight = 0;
+    Weight left_weight = Weight();
+    Weight right_weight = Weight();
     size_t index = ComputePercentileIndex(num_nonnull_values + num_nulls,
                                           &left_weight, &right_weight);
-    if (index > 0 && right_weight == 0) {
+    if (index > 0 && right_weight == Weight()) {
       --index;
     }
     if (index >= num_nulls) {
       // The percentile is within normal values.
       index -= num_nulls;
-      using Accessor = ElementAccessor<T, sorted>;
-      const size_t num_nans = Accessor::template PartitionNaNs<Itr>(
+      const size_t num_nans = PartitionNaNs<sorted, Itr, T>(
           nonnull_values_begin, nonnull_values_end);
-      return Accessor::template GetNthElement<Itr>(
-          nonnull_values_begin, nonnull_values_end, index, num_nans);
+      return GetNthElement<sorted, Itr>(nonnull_values_begin,
+                                        nonnull_values_end, index, num_nans);
     }
     return nonnull_values_end;
   }
 
  private:
-  template <typename T, bool sorted>
-  struct ElementAccessor {
-    static constexpr bool kIsFloatingPoint = std::is_floating_point<T>::value;
-    static constexpr bool kNeedsPartition = !sorted && kIsFloatingPoint;
-
-    struct IsNaN {
-      bool operator()(T value) const {
-        return std::isnan(value);
-      }
-    };
-
-    template <typename Itr>
-    static size_t PartitionNaNs(
-        typename std::enable_if<kNeedsPartition, Itr>::type begin, Itr end) {
-      return std::partition(begin, end, IsNaN()) - begin;
+  struct IsNaN {
+    template <typename T>
+    bool operator()(T value) const {
+      return std::isnan(value);
     }
-    template <typename Itr>
-    static size_t PartitionNaNs(
-        typename std::enable_if<!kNeedsPartition, Itr>::type begin, Itr end) {
+  };
+
+  template <bool sorted, typename Itr, typename Value>
+  static size_t PartitionNaNs(Itr begin, Itr end) {
+    if constexpr (!sorted && std::is_floating_point_v<Value>) {
+      return std::partition(begin, end, IsNaN()) - begin;
+    } else {
       return 0;
     }
+  }
 
-    template <typename Itr>
-    static Itr GetNthElement(
-        typename std::enable_if<sorted, Itr>::type begin, Itr end,
-        size_t index, size_t num_nans) {
+  template <bool sorted, typename Itr>
+  static Itr GetNthElement(Itr begin, Itr end, size_t index, size_t num_nans) {
+    if constexpr (sorted) {
       return begin + index;
-    }
-
-    template <typename Itr>
-    static Itr GetNthElement(
-        typename std::enable_if<!sorted, Itr>::type begin, Itr end,
-        size_t index, size_t num_nans) {
+    } else {
       Itr itr = begin + index;
       if (index >= num_nans) {
         std::nth_element(begin + num_nans, itr, end);
       }
       return itr;
     }
-  };
+  }
+  explicit PercentileEvaluatorTmpl(
+      const PercentileHelper<PercentileType>& helper)
+      : helper_(helper) {}
 
-  PercentileEvaluator(double percentile, int64_t percentile_mantissa,
-                      int percentile_exponent)
-      : percentile_(percentile), percentile_mantissa_(percentile_mantissa),
-        percentile_exponent_(percentile_exponent),
-        num_fractional_bits_(-percentile_exponent) {
+  PercentileHelper<PercentileType> helper_;
+};
+
+template <>
+class PercentileHelper<double> {
+ public:
+  // Use long double to minimize floating point errors in
+  // ComputeLinearInterpolation.
+  using Weight = long double;
+  static zetasql_base::StatusOr<PercentileHelper> Create(double percentile);
+  PercentileHelper(const PercentileHelper& src) = default;
+  size_t ComputePercentileIndex(size_t max_index, long double* left_weight,
+                                long double* right_weight) const;
+  static double ComputeLinearInterpolation(double left_value,
+                                           long double left_weight,
+                                           double right_value,
+                                           long double right_weight) {
+    return left_value * left_weight + right_value * right_weight;
   }
 
+ private:
+  PercentileHelper(double percentile, int64_t percentile_mantissa,
+                   int percentile_exponent)
+      : percentile_(percentile),
+        percentile_mantissa_(percentile_mantissa),
+        percentile_exponent_(percentile_exponent),
+        num_fractional_bits_(-percentile_exponent) {}
   const double percentile_;
   const int64_t percentile_mantissa_;
   const int percentile_exponent_;
   const int num_fractional_bits_;
 };
+
+template <>
+class PercentileHelper<NumericValue> {
+ public:
+  using Weight = NumericValue;
+  static zetasql_base::StatusOr<PercentileHelper> Create(NumericValue percentile);
+  PercentileHelper(const PercentileHelper& src) = default;
+  size_t ComputePercentileIndex(size_t max_index, NumericValue* left_weight,
+                                NumericValue* right_weight) const;
+  static NumericValue ComputeLinearInterpolation(NumericValue left_value,
+                                                 NumericValue left_weight,
+                                                 NumericValue right_value,
+                                                 NumericValue right_weight);
+
+ private:
+  explicit PercentileHelper(uint32_t scaled_percentile)
+      : scaled_percentile_(scaled_percentile) {}
+  const uint32_t scaled_percentile_;
+};
+
+using PercentileEvaluator = PercentileEvaluatorTmpl<double>;
+using NumericPercentileEvaluator = PercentileEvaluatorTmpl<NumericValue>;
 
 }  // namespace zetasql
 

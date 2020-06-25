@@ -18,8 +18,12 @@
 #define ZETASQL_COMMON_UTF_UTIL_H_
 
 #include "absl/strings/string_view.h"
+#include "absl/types/optional.h"
 #include "unicode/utf8.h"
 
+// TODO: Refactor references and add common functions from
+// .../public/functions/string.cc. Specific functions are BackwardN, ForwardN,
+// and CheckAndCastStrLength.
 namespace zetasql {
 
 // Returns the length of `s` that is well formed UTF8. This will return
@@ -39,6 +43,17 @@ std::string CoerceToWellFormedUTF8(absl::string_view input);
 // If truncated, attempts to create a well formed unicode string, and append an
 // (ascii) ellipsis.  If max_bytes is < 3, no ellipsis is appended.
 std::string PrettyTruncateUTF8(absl::string_view input, int max_bytes);
+
+// Verifies that the string length can be represented in a 32-bit signed int and
+// returns that value. Fitting in an int32_t is a requirement for icu methods.
+ABSL_MUST_USE_RESULT bool CheckAndCastStrLength(absl::string_view str,
+                                                int32_t* str_length32);
+
+// Returns the offset needed to forward `str` by `num_code_points` or an empty
+// optional if an invalid UTF-8 codepoint is detected.
+// Similar to U8_FWD_N, but will detect bad utf codepoints.
+absl::optional<int32_t> ForwardN(absl::string_view str, int32_t str_length32,
+                               int64_t num_code_points);
 
 }  // namespace zetasql
 

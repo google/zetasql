@@ -1090,6 +1090,11 @@ class ValueExpr : public AlgebraNode {
   bool EvalSimple(absl::Span<const TupleData* const> params,
                   EvaluationContext* context, TupleSlot* result,
                   absl::Status* status) const {
+    const absl::Status abort_status = context->VerifyNotAborted();
+    if (!abort_status.ok()) {
+      *status = abort_status;
+      return false;
+    }
     VirtualTupleSlot virtual_slot(result);
     return Eval(params, context, &virtual_slot, status);
   }
@@ -2760,7 +2765,7 @@ class DMLValueExpr : public ValueExpr {
   // enforces that the primary key supports GROUP BY with the language options
   // that are in use.
   using PrimaryKeyRowMap =
-      std::unordered_map<Value, RowNumberAndValues, ValueHasher>;
+      absl::node_hash_map<Value, RowNumberAndValues, ValueHasher>;
 
   // 'primary_key_type' may be NULL if we are not using a primary key from the
   // Catalog, or if the Catalog specifies that the table has no primary key.

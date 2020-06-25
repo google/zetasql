@@ -155,6 +155,11 @@ absl::Status ProtoHasField(
     int32_t field_tag, const absl::Cord& bytes,
     bool* has_field);
 
+// Returns whether Type represents a protocol buffer map. A Type is a protocol
+// buffer map if it is an ARRAY<PROTO> where the array element type is a
+// protocol buffer map entry descriptor.
+bool IsProtoMap(const Type* type);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_PUBLIC_PROTO_UTIL_H_

@@ -21,9 +21,12 @@
 #include <algorithm>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/utf_util.h"
 #include "zetasql/public/functions/util.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/substitute.h"
+#include "absl/types/optional.h"
 #include "unicode/utf8.h"
 #include "zetasql/base/status.h"
 
@@ -68,39 +71,45 @@ bool RegExp::Match(absl::string_view str, bool* out, absl::Status* error) {
   return true;
 }
 
-bool RegExp::Extract(absl::string_view str, absl::string_view* out,
+bool RegExp::Extract(absl::string_view str, int64_t position,
+                     int64_t occurrence_index, absl::string_view* out,
                      bool* is_null, absl::Status* error) {
   DCHECK(re_);
+  *is_null = true;
+  *error = internal::ValidatePositionAndOccurrence(position, occurrence_index);
+  if (!error->ok()) {
+    return false;
+  }
+  int32_t str_length32 = 0;
+  if (!CheckAndCastStrLength(str, &str_length32)) {
+    return internal::UpdateError(
+        error,
+        absl::Substitute("Input string size too large $0", str.length()));
+  }
+  if (position > str_length32 && !(str.empty() && position == 1)) {
+    return true;
+  }
+  auto string_offset = ForwardN(str, str_length32, position - 1);
+  if (string_offset == absl::nullopt) {
+    return true;
+  }
+  str.remove_prefix(string_offset.value());
   if (str.data() == nullptr) {
     // Ensure that the output string never has a null data pointer if a match is
     // found.
     str = absl::string_view("", 0);
   }
-  *is_null = true;
-  if (re_->NumberOfCapturingGroups() == 0) {
-    // If there's no capturing subgroups return the entire matching substring.
-    if (re_->Match(str,
-                   0,           // startpos
-                   str.size(),  // endpos
-                   RE2::UNANCHORED, out,
-                   1) &&
-        out->data() != nullptr) {  // number of matches at out.
-      *is_null = false;
+  ExtractAllReset(str);
+
+  for (int64_t current_index = 0; current_index < occurrence_index;
+       ++current_index) {
+    if (!ExtractAllNext(out, error)) {
+      return error->ok();
     }
-    return true;
-  } else if (re_->NumberOfCapturingGroups() == 1) {
-    // If there's a single capturing group return substring matching that
-    // group.
-    if (RE2::PartialMatch(str, *re_, out) && out->data() != nullptr) {
-      *is_null = false;
-    }
-    return true;
-  } else {
-    return internal::UpdateError(
-        error,
-        "Regular expression passed to REGEXP_EXTRACT must not have more than 1 "
-        "capturing group");
+    if (!error->ok()) return false;
   }
+  if (out->data() != nullptr) *is_null = false;
+  return true;
 }
 
 void RegExp::ExtractAllReset(const absl::string_view str) {
@@ -112,9 +121,10 @@ void RegExp::ExtractAllReset(const absl::string_view str) {
 bool RegExp::ExtractAllNext(absl::string_view* out, absl::Status* error) {
   DCHECK(re_);
   if (re_->NumberOfCapturingGroups() > 1) {
-    return internal::UpdateError(
-        error, "Regular expression passed to REGEXP_EXTRACT_ALL must "
-               "not have more than 1 capturing group");
+    return internal::UpdateError(error,
+                                 "Regular expressions passed into extraction "
+                                 "functions must not have more "
+                                 "than 1 capturing group");
   }
   if (last_match_) {
     *out = absl::string_view(nullptr, 0);

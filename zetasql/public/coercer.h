@@ -46,14 +46,23 @@ int GetLiteralCoercionCost(const Value& literal_value, const Type* to_type);
 
 class Coercer {
  public:
-  // Does not take ownership of <type_factory>.  The <default_timezone> is
-  // used for coercions between dates/strings and timestamps.
+  // Does not take ownership of <catalog> or <type_factory>.
   // <*language_options> should outlive this Coercer.
+  // <catalog> is optional and used only if either source or destination type is
+  // extended.
+  Coercer(TypeFactory* type_factory, const LanguageOptions* language_options,
+          Catalog* catalog = nullptr)
+      : type_factory_(type_factory),
+        catalog_(catalog),
+        language_options_(*language_options) {}
+
+  // Deprecate the constructor below since default_timezone shouldn't impact the
+  // decision on whether cast/coercion is possible.
+  ABSL_DEPRECATED(
+      "use Coercer(type_factory, language_options, catalog) instead")
   Coercer(TypeFactory* type_factory, const absl::TimeZone default_timezone,
           const LanguageOptions* language_options)
-      : type_factory_(type_factory),
-        default_timezone_(default_timezone),
-        language_options_(*language_options) {}
+      : Coercer(type_factory, language_options) {}
 
   Coercer(const Coercer&) = delete;
   Coercer& operator=(const Coercer&) = delete;
@@ -89,8 +98,32 @@ class Coercer {
   // incremented and the <result> distance is updated to reflect how 'close'
   // the types were (same types have distance 0, lower distance indicates
   // closer types and a better match).
+  //
+  // Caveat: If a Catalog is not set for this Coercer and extended type is
+  // encountered this function will crash in debug mode (DCHECK) and return
+  // false in release mode. The same approach will be applied if Catalog's
+  // FindConversion function returns a Status different from Ok or NotFound
+  // (NotFound benignly means "conversion is not found" and thus CoercesTo just
+  // returns false when it gets such Status from a Catalog).
+  ABSL_DEPRECATED(
+      "use CoercesTo(from_argument, to_type, is_explicit, result, "
+      "extended_conversion) instead")
   bool CoercesTo(const InputArgumentType& from_argument, const Type* to_type,
                  bool is_explicit, SignatureMatchResult* result) const;
+
+  // Works similarly to the CoercesTo function above. The difference is that it
+  // returns an error Status if any internal error occurred (e.g. Catalog is not
+  // set when extended type is being resolved). If checked conversion contains
+  // extended type and this conversion is valid (based on a result of a call to
+  // Catalog::FindConversion), the Catalog's function for this conversion
+  // (Conversion::function()) is returned in extended_conversion argument.
+  //
+  // TODO: retire/deprecate all other *CoerceTo* methods in this
+  // class.
+  zetasql_base::StatusOr<bool> CoercesTo(const InputArgumentType& from_argument,
+                                 const Type* to_type, bool is_explicit,
+                                 SignatureMatchResult* result,
+                                 const Function** extended_conversion) const;
 
   // Allows everything that CoercesTo allows plus the following two rules:
   // * INT64 -> INT32
@@ -176,11 +209,12 @@ class Coercer {
   // nested structs).
   void StripFieldAliasesFromStructType(const Type** struct_type) const;
 
-  TypeFactory* type_factory_;  // Not owned.
+  class ContextBase;
+  class Context;
 
-  // Used for coercions between dates/strings and timestamps.  Not relevant
-  // for other coercions.
-  const absl::TimeZone default_timezone_;
+  TypeFactory* type_factory_;  // Not owned.
+  Catalog* catalog_;           // Not owned. Can be null.
+
   const LanguageOptions& language_options_;  // Not owned.
   friend class CoercerTest;
 };

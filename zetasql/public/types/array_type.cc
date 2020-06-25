@@ -139,16 +139,6 @@ bool ArrayType::EqualsImpl(const ArrayType* const type1,
   return type1->element_type()->EqualsImpl(type2->element_type(), equivalent);
 }
 
-void ArrayType::InitializeValueContent(ValueContent* value) const {
-  // TODO: currently ArrayType cannot create a list of Values itself
-  // because "types" package doesn't depend on "value" (to avoid dependency
-  // cycle). In the future we will create a virtual list factory interface
-  // defined outside of "value", but which Value can provide to Array/Struct to
-  // use to construct lists.
-  LOG(FATAL) << "ConstructValue should never be called for ArrayType, since "
-                "its value content is created in Value class";
-}
-
 void ArrayType::CopyValueContent(const ValueContent& from,
                                  ValueContent* to) const {
   from.GetAs<zetasql_base::SimpleReferenceCounted*>()->Ref();
@@ -167,14 +157,25 @@ absl::HashState ArrayType::HashTypeParameter(absl::HashState state) const {
 
 absl::HashState ArrayType::HashValueContent(const ValueContent& value,
                                             absl::HashState state) const {
+  // TODO: currently ArrayType cannot create a list of Values
+  // itself because "types" package doesn't depend on "value" (to avoid
+  // dependency cycle). In the future we will create a virtual list factory
+  // interface defined outside of "value", but which Value can provide to
+  // Array/Struct to use to construct lists.
   LOG(FATAL) << "HashValueContent should never be called for ArrayType, since "
                 "its value content is created in Value class";
 }
 
-bool ArrayType::ValueContentEqualsImpl(
+bool ArrayType::ValueContentEquals(
     const ValueContent& x, const ValueContent& y,
     const ValueEqualityCheckOptions& options) const {
-  LOG(FATAL) << "ValueContentEqualsImpl should never be called for ArrayType,"
+  LOG(FATAL) << "ValueContentEquals should never be called for ArrayType,"
+                "since its value content is compared in Value class";
+}
+
+bool ArrayType::ValueContentLess(const ValueContent& x, const ValueContent& y,
+                                 const Type* other_type) const {
+  LOG(FATAL) << "ValueContentLess should never be called for ArrayType,"
                 "since its value content is compared in Value class";
 }
 
@@ -183,6 +184,20 @@ std::string ArrayType::FormatValueContent(
   LOG(FATAL)
       << "FormatValueContent should never be called for ArrayType, since "
          "its value content is maintained in the Value class";
+}
+
+absl::Status ArrayType::SerializeValueContent(const ValueContent& value,
+                                              ValueProto* value_proto) const {
+  return absl::FailedPreconditionError(
+      "SerializeValueContent should never be called for ArrayType, since its "
+      "value content is maintained in the Value class");
+}
+
+absl::Status ArrayType::DeserializeValueContent(const ValueProto& value_proto,
+                                                ValueContent* value) const {
+  return absl::FailedPreconditionError(
+      "DeserializeValueContent should never be called for ArrayType, since its "
+      "value content is maintained in the Value class");
 }
 
 }  // namespace zetasql

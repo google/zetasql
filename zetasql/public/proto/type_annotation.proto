@@ -135,6 +135,11 @@ message FieldFormat {
     // Can be applied to bytes fields.
     BIGNUMERIC = 11;
 
+    // A ZetaSQL JSON value.
+    //
+    // Can be applied to bytes fields.
+    JSON = 12;
+
     // User code that switches on this enum must have a default case so
     // builds won't break if new enums get added.
     __FieldFormat_Type__switch_must_have_a_default__ = -1;

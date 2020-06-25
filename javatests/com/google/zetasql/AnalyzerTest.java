@@ -208,9 +208,27 @@ public class AnalyzerTest {
   @Test
   public void testExtractTableNamesFromStatement() {
     List<List<String>> tableNames =
-        Analyzer.extractTableNamesFromStatement("select count(1) from foo.bar");
+        Analyzer.extractTableNamesFromStatement("select count(1) from foo.bar",
+            new AnalyzerOptions());
 
     assertThat(tableNames).containsExactly(Arrays.asList("foo", "bar"));
+  }
+
+  @Test
+  public void testExtractTableNamesFromStatementWithAnalyzerOptions() {
+    AnalyzerOptions analyzerOptions = new AnalyzerOptions();
+    analyzerOptions
+        .getLanguageOptions()
+        .setSupportedStatementKinds(
+            ImmutableSet.of(
+                ResolvedNodeKind.RESOLVED_INSERT_STMT,
+                ResolvedNodeKind.RESOLVED_QUERY_STMT));
+
+    List<List<String>> tableNames =
+        Analyzer.extractTableNamesFromStatement(
+            "insert into baz select count(1) from foo.bar", analyzerOptions);
+
+    assertThat(tableNames).containsExactly(Arrays.asList("baz"), Arrays.asList("foo", "bar"));
   }
 
   @Test

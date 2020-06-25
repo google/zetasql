@@ -81,6 +81,8 @@ class Validator {
       const ResolvedCreateProcedureStmt* stmt);
   absl::Status ValidateResolvedExportDataStmt(
       const ResolvedExportDataStmt* stmt);
+  absl::Status ValidateResolvedExportModelStmt(
+      const ResolvedExportModelStmt* stmt);
   absl::Status ValidateResolvedCallStmt(const ResolvedCallStmt* stmt);
   absl::Status ValidateResolvedDefineTableStmt(
       const ResolvedDefineTableStmt* stmt);
@@ -305,7 +307,8 @@ class Validator {
           output_column_list,
       bool is_value_table);
   absl::Status ValidateResolvedCreateTableStmtBase(
-      const ResolvedCreateTableStmtBase* stmt);
+      const ResolvedCreateTableStmtBase* stmt,
+      std::set<ResolvedColumn>* visible_columns);
 
   absl::Status ValidateResolvedCast(
       const std::set<ResolvedColumn>& visible_columns,
@@ -399,6 +402,10 @@ class Validator {
 
   absl::Status ValidateResolvedRecursiveRefScan(
       const ResolvedRecursiveRefScan* scan) const;
+
+  absl::Status ValidateResolvedWithPartitionColumns(
+      const ResolvedWithPartitionColumns* with_partition_columns,
+      std::set<ResolvedColumn>* visible_columns);
 
   // Check that <expr> contains only ColumnRefs, GetProtoField and
   // GetStructField expressions. Sets 'ref' to point to the leaf

@@ -98,6 +98,20 @@ void GetStringFunctions(TypeFactory* type_factory,
                  {{int64_type, {string_type, string_type}, FN_STRPOS_STRING},
                   {int64_type, {bytes_type, bytes_type}, FN_STRPOS_BYTES}});
 
+  InsertFunction(functions, options, "instr", SCALAR,
+                 {{int64_type,
+                   {string_type,
+                    string_type,
+                    {int64_type, OPTIONAL},
+                    {int64_type, OPTIONAL}},
+                   FN_INSTR_STRING},
+                  {int64_type,
+                   {bytes_type,
+                    bytes_type,
+                    {int64_type, OPTIONAL},
+                    {int64_type, OPTIONAL}},
+                   FN_INSTR_BYTES}});
+
   InsertFunction(functions, options, "lower", SCALAR,
                  {{string_type, {string_type}, FN_LOWER_STRING},
                   {bytes_type, {bytes_type}, FN_LOWER_BYTES}});
@@ -239,15 +253,33 @@ void GetStringFunctions(TypeFactory* type_factory,
                  {{string_type, {int64_array_type}, FN_CODE_POINTS_TO_STRING}});
   InsertFunction(functions, options, "code_points_to_bytes", SCALAR,
                  {{bytes_type, {int64_array_type}, FN_CODE_POINTS_TO_BYTES}});
+  InsertFunction(functions, options, "soundex", SCALAR,
+                 {{string_type, {string_type}, FN_SOUNDEX_STRING}});
+  InsertFunction(functions, options, "ascii", SCALAR,
+                 {{int64_type, {string_type}, FN_ASCII_STRING},
+                  {int64_type, {bytes_type}, FN_ASCII_BYTES}});
+  InsertFunction(
+      functions, options, "translate", SCALAR,
+      {{string_type,
+        {string_type, string_type, string_type},
+        FN_TRANSLATE_STRING},
+       {bytes_type, {bytes_type, bytes_type, bytes_type}, FN_TRANSLATE_BYTES}});
+  InsertFunction(functions, options, "initcap", SCALAR,
+                 {{string_type,
+                   {string_type, {string_type, OPTIONAL}},
+                   FN_INITCAP_STRING}});
 }
 
 void GetRegexFunctions(TypeFactory* type_factory,
-
                        const ZetaSQLBuiltinFunctionOptions& options,
                        NameToFunctionMap* functions) {
   const Type* string_type = type_factory->get_string();
   const Type* bytes_type = type_factory->get_bytes();
   const Type* bool_type = type_factory->get_bool();
+  const Type* int64_type = type_factory->get_int64();
+
+  const FunctionArgumentType::ArgumentCardinality OPTIONAL =
+      FunctionArgumentType::OPTIONAL;
 
   const Function::Mode SCALAR = Function::SCALAR;
 
@@ -261,11 +293,25 @@ void GetRegexFunctions(TypeFactory* type_factory,
       {{bool_type, {string_type, string_type}, FN_REGEXP_CONTAINS_STRING},
        {bool_type, {bytes_type, bytes_type}, FN_REGEXP_CONTAINS_BYTES}});
 
+  FunctionArgumentTypeList regexp_extract_string_args = {string_type,
+                                                         string_type};
+  FunctionArgumentTypeList regexp_extract_bytes_args = {bytes_type, bytes_type};
+  FunctionOptions regexp_extract_options;
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_ALLOW_REGEXP_EXTRACT_OPTIONALS)) {
+    regexp_extract_string_args.insert(
+        regexp_extract_string_args.end(),
+        {{int64_type, OPTIONAL}, {int64_type, OPTIONAL}});
+    regexp_extract_bytes_args.insert(
+        regexp_extract_bytes_args.end(),
+        {{int64_type, OPTIONAL}, {int64_type, OPTIONAL}});
+    regexp_extract_options.set_alias_name("regexp_substr");
+  }
   InsertFunction(
       functions, options, "regexp_extract", SCALAR,
-      {{string_type, {string_type, string_type}, FN_REGEXP_EXTRACT_STRING},
-       {bytes_type, {bytes_type, bytes_type}, FN_REGEXP_EXTRACT_BYTES}});
-
+      {{string_type, regexp_extract_string_args, FN_REGEXP_EXTRACT_STRING},
+       {bytes_type, regexp_extract_bytes_args, FN_REGEXP_EXTRACT_BYTES}},
+      regexp_extract_options);
   InsertFunction(functions, options, "regexp_replace", SCALAR,
                  {{string_type,
                    {string_type, string_type, string_type},
@@ -485,6 +531,16 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   // ARRAY_LENGTH(expr1): returns the length of the array
   InsertFunction(functions, options, "array_length", SCALAR,
                  {{int64_type, {ARG_ARRAY_TYPE_ANY_1}, FN_ARRAY_LENGTH}});
+
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS)) {
+    // This function is only used during internal resolution and will never
+    // appear in a resolved AST. Instead a ResolvedFlatten node will be
+    // generated.
+    InsertFunction(
+        functions, options, "flatten", SCALAR,
+        {{ARG_ARRAY_TYPE_ANY_1, {ARG_ARRAY_TYPE_ANY_1}, FN_FLATTEN}});
+  }
 
   // array[OFFSET(i)] gets an array element by zero-based position.
   // array[ORDINAL(i)] gets an array element by one-based position.
@@ -1055,7 +1111,11 @@ void GetNumericFunctions(TypeFactory* type_factory,
                   {numeric_type,
                    {numeric_type, numeric_type},
                    FN_POW_NUMERIC,
-                   has_numeric_type_argument}},
+                   has_numeric_type_argument},
+                  {bignumeric_type,
+                   {bignumeric_type, bignumeric_type},
+                   FN_POW_BIGNUMERIC,
+                   has_bignumeric_type_argument}},
                  FunctionOptions().set_alias_name("power"));
   InsertFunction(functions, options, "exp", SCALAR,
                  {{double_type, {double_type}, FN_EXP_DOUBLE}});
@@ -1178,6 +1238,7 @@ void GetHllCountFunctions(TypeFactory* type_factory,
   const Type* uint64_type = type_factory->get_uint64();
   const Type* string_type = type_factory->get_string();
   const Type* numeric_type = type_factory->get_numeric();
+  const Type* bignumeric_type = type_factory->get_bignumeric();
 
   const Function::Mode AGGREGATE = Function::AGGREGATE;
   const Function::Mode SCALAR = Function::SCALAR;
@@ -1186,6 +1247,9 @@ void GetHllCountFunctions(TypeFactory* type_factory,
 
   FunctionSignatureOptions has_numeric_type_argument;
   has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
+
+  FunctionSignatureOptions has_bignumeric_type_argument;
+  has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
 
   // The second argument must be an integer literal between 10 and 24,
   // and cannot be NULL.
@@ -1211,6 +1275,10 @@ void GetHllCountFunctions(TypeFactory* type_factory,
                             {numeric_type, {int64_type, hll_init_arg}},
                             FN_HLL_COUNT_INIT_NUMERIC,
                             has_numeric_type_argument},
+                           {bytes_type,
+                            {bignumeric_type, {int64_type, hll_init_arg}},
+                            FN_HLL_COUNT_INIT_BIGNUMERIC,
+                            has_bignumeric_type_argument},
                            {bytes_type,
                             {string_type, {int64_type, hll_init_arg}},
                             FN_HLL_COUNT_INIT_STRING},
@@ -1605,6 +1673,9 @@ void GetGeographyFunctions(TypeFactory* type_factory,
   InsertFunction(functions, options, "st_boundary", SCALAR,
                  {{geography_type, {geography_type}, FN_ST_BOUNDARY}},
                  geography_required);
+  InsertFunction(functions, options, "st_convexhull", SCALAR,
+                 {{geography_type, {geography_type}, FN_ST_CONVEXHULL}},
+                 geography_required);
 
   // Predicates
   InsertFunction(functions, options, "st_equals", SCALAR,
@@ -1662,7 +1733,9 @@ void GetGeographyFunctions(TypeFactory* type_factory,
                  {{int64_type, {geography_type}, FN_ST_NUM_POINTS}},
                  geography_required.Copy().set_alias_name("st_npoints"));
   InsertFunction(functions, options, "st_dump", SCALAR,
-                 {{geography_array_type, {geography_type}, FN_ST_DUMP}},
+                 {{geography_array_type,
+                   {geography_type, {int64_type, OPTIONAL}},
+                   FN_ST_DUMP}},
                  geography_required);
 
   // Measures

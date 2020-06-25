@@ -202,7 +202,10 @@ class FunctionSerializationTests : public ::testing::Test {
       const FunctionArgumentType& argument1,
       const FunctionArgumentType& argument2) {
     EXPECT_EQ(argument1.kind_, argument2.kind_);
-    EXPECT_TRUE(argument1.type_->Equals(argument2.type_));
+    if (argument1.type_ != nullptr) {
+      ASSERT_TRUE(argument2.type_ != nullptr);
+      EXPECT_TRUE(argument1.type_->Equals(argument2.type_));
+    }
     EXPECT_EQ(argument1.cardinality(), argument2.cardinality());
     EXPECT_EQ(argument1.num_occurrences_, argument2.num_occurrences_);
     EXPECT_EQ(argument1.options().must_be_non_null(),

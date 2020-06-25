@@ -15,6 +15,7 @@
 //
 
 #include "zetasql/compliance/functions_testlib.h"
+#include "zetasql/compliance/functions_testlib_common.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/using_test_value.cc"
 #include "absl/status/status.h"
@@ -333,6 +334,165 @@ std::vector<FunctionTestCall> GetFunctionTestsRegexp() {
     {"regexp_extract_all", {Bytes(""), Bytes("(")},
         null_bytes_array, OUT_OF_RANGE},
   };
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsRegexp2(
+    bool include_feature_set) {
+  // regexp_substr is an alias of regexp_extract so the two are equivalent.
+  std::vector<FunctionTestCall> test_calls = {
+    // regexp_extract(string, string, int) -> string
+    {"regexp_substr", {"", "", 2ll}, NullString()},
+    {"regexp_extract", {"", "", 2ll}, NullString()},
+    {"regexp_substr", {"aaa", "aa", 2ll}, "aa"},
+    {"regexp_extract", {"aaa", "a", 4ll}, NullString()},
+    {"regexp_substr", {"-2020-jack-class1", "-[^.-]*", 2ll},
+       "-jack"},
+    {"regexp_extract", {"щцф", ".{2}", 2ll}, "цф"},
+    {"regexp_substr", {"aa", "a", int64max}, NullString()},
+    {"regexp_extract", {"aa", "a", -1ll}, NullString(), OUT_OF_RANGE},
+    {"regexp_substr", {"aa", "a", NullInt64()}, NullString()},
+    // Invalid utf-8 second byte.
+    {"regexp_extract", {"\x61\xa7\x65\x71", "a", 1ll}, "a"},
+    {"regexp_substr", {"\x61\xa7\x65\x71", "a", 2ll}, NullString()},
+    {"regexp_extract", {"\x61\xa7\x65\x71", "a", 2ll}, NullString()},
+    {"regexp_substr", {"\x61\xa7\x65\x71", "a", 3ll}, NullString()},
+    // Invalid regex.
+    {"regexp_extract", {"\x61\xa7\x65\x71", "\xa7", 1ll}, NullString(),
+       OUT_OF_RANGE},
+
+    // regexp_extract(string, string, int, int) -> string
+    {"regexp_extract", {"", NullString(), 2ll, 2ll}, NullString()},
+    {"regexp_substr", {NullString(), "", 2ll, 2ll}, NullString()},
+    {"regexp_extract", {NullString(), NullString(), 2ll, 2ll}, NullString()},
+    {"regexp_substr", {"", "", 1ll, 2ll}, NullString()},
+    {"regexp_extract", {"aaa", "a*", 2ll, 2ll}, NullString()},
+    {"regexp_substr", {"aaa", "aa", 2ll, 1ll}, "aa"},
+    {"regexp_extract", {"aaa", "aa", 1ll, 2ll}, NullString()},
+    {"regexp_substr", {"", "abc", 1ll, 2ll}, NullString()},
+    {"regexp_extract", {"abc", "abc", 2ll, 1ll}, NullString()},
+    {"regexp_substr", {"abc", "c", 3ll, 1ll}, "c"},
+    {"regexp_extract", {"abc", "c", 4ll, 1ll}, NullString()},
+    {"regexp_substr", {"abcabc", "abc", 4ll, 1ll}, "abc"},
+    {"regexp_extract", {"abcabcc", "abc", 1ll, 2ll}, "abc"},
+    {"regexp_substr", {"abcdefaazcddefg", "a.c.*f", 5ll, 1ll}, "azcddef"},
+    {"regexp_extract", {"abcabc", "a(b)c", 1ll, 2ll}, "b"},
+    {"regexp_substr", {"-2020-jack-class1", "-[^.-]*", 1ll, 1ll},
+       "-2020"},
+    {"regexp_extract", {"-2020-jack-class1", "-[^.-]*", 2ll, 1ll},
+       "-jack"},
+    {"regexp_substr", {"-2020-jack-class1", "-[^.-]*", 7ll, 3ll},
+       NullString()},
+    {"regexp_extract", {"щцф", ".{2}", 2ll, 1ll}, "цф"},
+    {"regexp_substr", {"щцф", ".{2}", 3ll, 1ll}, NullString()},
+    {"regexp_extract", {"щцфщфф", "щ(.).", 1ll, 2ll}, "ф"},
+    {"regexp_substr", {"", "()", 1ll, 2ll}, NullString()},
+    {"regexp_extract", {"aa", "a", 1ll, int64max}, NullString()},
+    {"regexp_substr", {"aa", "a", int64max, 1ll}, NullString()},
+    {"regexp_extract", {"abc", "abc", 1ll, 0ll},
+       NullString(), OUT_OF_RANGE},
+    {"regexp_substr", {"abc", "abc", 0ll, 1ll},
+       NullString(), OUT_OF_RANGE},
+    {"regexp_extract", {"abc", "((a))", 1ll, 1ll},
+       NullString(), OUT_OF_RANGE},
+    {"regexp_substr", {"abc", "(a)(b)", 2ll, 1ll},
+       NullString(), OUT_OF_RANGE},
+    {"regexp_extract", {"aa", "a", 1ll, -1ll},
+       NullString(), OUT_OF_RANGE},
+    {"regexp_substr", {"aa", "a", -1ll, -1ll},
+       NullString(), OUT_OF_RANGE},
+    {"regexp_extract", {"aa", "a", 1ll, NullInt64()}, NullString()},
+    {"regexp_substr", {"aa", "a", NullInt64(), NullInt64()}, NullString()},
+    // Invalid utf-8 second byte.
+    {"regexp_extract", {"\x61\xa7\x65\x71", "a", 1ll, 2ll}, NullString()},
+    {"regexp_extract", {"\x61\xa7\x65\x71", "a", 2ll, 2ll}, NullString()},
+
+    // regexp_extract(bytes, bytes, int) -> bytes
+    {"regexp_extract", {Bytes(""), Bytes(""), 2ll}, NullBytes()},
+    {"regexp_substr", {Bytes("aaa"), Bytes("aa"), 2ll}, Bytes("aa")},
+    {"regexp_extract", {Bytes("aaa"), Bytes("a"), 4ll}, NullBytes()},
+    {"regexp_substr", {Bytes("-2020-jack-class1"), Bytes("-[^.-]*"),
+       2ll}, Bytes("-jack")},
+    {"regexp_extract", {Bytes("щцф"), Bytes(".{2}"), 2ll}, Bytes("ц")},
+    {"regexp_substr", {Bytes("щцщф"), Bytes("щ(..)"), 2ll}, Bytes("ф")},
+    {"regexp_extract", {Bytes("aa"), Bytes("a"), int64max}, NullBytes()},
+    {"regexp_substr", {Bytes("aa"), Bytes("a"), -1ll},
+       NullBytes(), OUT_OF_RANGE},
+    // Invalid utf-8 second byte.
+    {"regexp_extract", {Bytes("\x61\xa7\x65\x71"), Bytes("a"), 1ll},
+       Bytes("a")},
+    {"regexp_substr", {Bytes("\x61\xa7\x65\x71"), Bytes("a"), 2ll},
+       NullBytes()},
+    {"regexp_extract", {Bytes("\x61\xa7\x65\x71"), Bytes("a"), 2ll},
+       NullBytes()},
+    {"regexp_substr", {Bytes("\x61\xa7\x65\x71"), Bytes("a"), 3ll},
+       NullBytes()},
+
+    // regexp_extract(bytes, bytes, int, int) -> bytes
+    {"regexp_extract", {Bytes(""), NullBytes(), 2ll, 2ll}, NullBytes()},
+    {"regexp_substr", {NullBytes(), Bytes(""), 2ll, 2ll}, NullBytes()},
+    {"regexp_extract", {NullBytes(), NullBytes(), 2ll, 2ll}, NullBytes()},
+    {"regexp_substr", {Bytes(""), Bytes(""), 1ll, 2ll}, NullBytes()},
+    {"regexp_extract", {Bytes(""), Bytes(""), 2ll, 1ll}, NullBytes()},
+    {"regexp_substr", {Bytes("aaa"), Bytes("a*"), 2ll, 2ll}, NullBytes()},
+    {"regexp_extract", {Bytes("aaa"), Bytes("aa"), 2ll, 1ll}, Bytes("aa")},
+    {"regexp_substr", {Bytes("aaa"), Bytes("aa"), 1ll, 2ll}, NullBytes()},
+    {"regexp_extract", {Bytes(""), Bytes("abc"), 1ll, 2ll}, NullBytes()},
+    {"regexp_substr", {Bytes("abc"), Bytes("abc"), 2ll, 1ll}, NullBytes()},
+    {"regexp_extract", {Bytes("abc"), Bytes("c"), 3ll, 1ll}, Bytes("c")},
+    {"regexp_substr", {Bytes("abc"), Bytes("c"), 4ll, 1ll}, NullBytes()},
+    {"regexp_extract", {Bytes("abcabc"), Bytes("abc"), 4ll, 1ll},
+       Bytes("abc")},
+    {"regexp_substr", {Bytes("abcabcc"), Bytes("abc"), 1ll, 2ll},
+       Bytes("abc")},
+    {"regexp_extract", {Bytes("abcdefaazcddefg"), Bytes("a.c.*f"), 5ll, 1ll},
+       Bytes("azcddef")},
+    {"regexp_substr", {Bytes("abcabc"), Bytes("a(b)c"), 1ll, 2ll},
+       Bytes("b")},
+    {"regexp_extract", {Bytes("-2020-jack-class1"), Bytes("-[^.-]*"),
+       1ll, 1ll}, Bytes("-2020")},
+    {"regexp_substr", {Bytes("-2020-jack-class1"), Bytes("-[^.-]*"),
+       2ll, 1ll}, Bytes("-jack")},
+    {"regexp_extract", {Bytes("-2020-jack-class1"), Bytes("-[^.-]*"),
+       7ll, 3ll}, NullBytes()},
+    {"regexp_substr", {Bytes("щцф"), Bytes(".{2}"), 1ll, 3ll}, Bytes("ф")},
+    {"regexp_extract", {Bytes("щцф"), Bytes(".{2}"), 2ll, 2ll}, Bytes("ф")},
+    {"regexp_substr", {Bytes("щцф"), Bytes(".{2}"), 3ll, 1ll}, Bytes("ф")},
+    {"regexp_extract", {Bytes("щцф"), Bytes(".{3}"), 1ll, 1ll},
+       Bytes("\xD1\x89\xD1")},
+    {"regexp_substr", {Bytes("щцф"), Bytes(".{3}"), 1ll, 2ll},
+       Bytes("\x86\xD1\x84")},
+    {"regexp_extract", {Bytes("щцф"), Bytes(".{3}"), 1ll, 3ll}, NullBytes()},
+    {"regexp_substr", {Bytes("щцф"), Bytes(".{2}"), 3ll, 2ll}, NullBytes()},
+    {"regexp_extract", {Bytes(""), Bytes("()"), 1ll, 2ll}, NullBytes()},
+    {"regexp_substr", {Bytes("aa"), Bytes("a"), 1ll, int64max}, NullBytes()},
+    {"regexp_extract", {Bytes("aa"), Bytes("a"), int64max, 1ll}, NullBytes()},
+    {"regexp_substr", {Bytes("abc"), Bytes("abc"), 1ll, 0ll},
+       NullBytes(), OUT_OF_RANGE},
+    {"regexp_extract", {Bytes("abc"), Bytes("abc"), 0ll, 1ll},
+       NullBytes(), OUT_OF_RANGE},
+    {"regexp_substr", {Bytes("abc"), Bytes("((a))"), 1ll, 1ll},
+       NullBytes(), OUT_OF_RANGE},
+    {"regexp_extract", {Bytes("abc"), Bytes("(a)(b)"), 2ll, 1ll},
+       NullBytes(), OUT_OF_RANGE},
+    {"regexp_substr", {Bytes("aa"), Bytes("a"), 1ll, -1ll},
+       NullBytes(), OUT_OF_RANGE},
+    {"regexp_extract", {Bytes("aa"), Bytes("a"), -1ll, -1ll},
+       NullBytes(), OUT_OF_RANGE},
+    // Invalid utf-8 second byte.
+    {"regexp_extract", {Bytes("\x61\xa7\x65\x71"), Bytes("a"), 1ll, 2ll},
+       NullBytes()},
+    {"regexp_substr", {Bytes("\x61\xa7\x65\x71"), Bytes("a"), 2ll, 2ll},
+       NullBytes()},
+  };
+
+  if (include_feature_set) {
+    for (auto& call : test_calls) {
+      call.params = call.params.WrapWithFeature(
+          FEATURE_V_1_3_ALLOW_REGEXP_EXTRACT_OPTIONALS);
+    }
+  }
+
+  return test_calls;
 }
 
 }  // namespace zetasql

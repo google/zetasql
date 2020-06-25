@@ -33,6 +33,12 @@ class ProtoType : public Type {
 
   const google::protobuf::Descriptor* descriptor() const;
 
+  // Returns the value of descriptor()->map_key().
+  const google::protobuf::FieldDescriptor* map_key() const;
+
+  // Returns the value of descriptor()->map_value().
+  const google::protobuf::FieldDescriptor* map_value() const;
+
   // Helper function to determine equality or equivalence for proto types.
   static bool EqualsImpl(const ProtoType* type1, const ProtoType* type2,
                          bool equivalent);
@@ -204,22 +210,6 @@ class ProtoType : public Type {
     return sizeof(*this);
   }
 
-  void InitializeValueContent(ValueContent* value) const override;
-  void CopyValueContent(const ValueContent& from,
-                        ValueContent* to) const override;
-  void ClearValueContent(const ValueContent& value) const override;
-  uint64_t GetValueContentExternallyAllocatedByteSize(
-      const ValueContent& value) const override;
-  absl::HashState HashTypeParameter(absl::HashState state) const override;
-  absl::HashState HashValueContent(const ValueContent& value,
-                                   absl::HashState state) const override;
-  bool ValueContentEqualsImpl(
-      const ValueContent& x, const ValueContent& y,
-      const ValueEqualityCheckOptions& options) const override;
-  std::string FormatValueContent(
-      const ValueContent& value,
-      const FormatValueContentOptions& options) const override;
-
  private:
   // Returns true iff <validated_descriptor_set> is not null and already
   // contains <descriptor>.  Otherwise returns false and, if
@@ -277,6 +267,27 @@ class ProtoType : public Type {
 
   HasFieldResult HasFieldImpl(const std::string& name, int* field_id,
                               bool include_pseudo_fields) const override;
+
+  void CopyValueContent(const ValueContent& from,
+                        ValueContent* to) const override;
+  void ClearValueContent(const ValueContent& value) const override;
+  uint64_t GetValueContentExternallyAllocatedByteSize(
+      const ValueContent& value) const override;
+  absl::HashState HashTypeParameter(absl::HashState state) const override;
+  absl::HashState HashValueContent(const ValueContent& value,
+                                   absl::HashState state) const override;
+  bool ValueContentEquals(
+      const ValueContent& x, const ValueContent& y,
+      const ValueEqualityCheckOptions& options) const override;
+  bool ValueContentLess(const ValueContent& x, const ValueContent& y,
+                        const Type* other_type) const override;
+  std::string FormatValueContent(
+      const ValueContent& value,
+      const FormatValueContentOptions& options) const override;
+  absl::Status SerializeValueContent(const ValueContent& value,
+                                     ValueProto* value_proto) const override;
+  absl::Status DeserializeValueContent(const ValueProto& value_proto,
+                                       ValueContent* value) const override;
 
   const google::protobuf::Descriptor* descriptor_;  // Not owned.
 
@@ -407,7 +418,8 @@ absl::Status ProtoType::ValidateTypeAnnotations(
         {
         if (field_format != FieldFormat::ST_GEOGRAPHY_ENCODED &&
             field_format != FieldFormat::NUMERIC &&
-            field_format != FieldFormat::BIGNUMERIC) {
+            field_format != FieldFormat::BIGNUMERIC &&
+            field_format != FieldFormat::JSON) {
           return MakeSqlError()
                  << "Proto " << field->containing_type()->full_name()
                  << " has invalid zetasql.format for BYTES field: "

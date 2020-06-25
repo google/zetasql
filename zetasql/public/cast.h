@@ -80,6 +80,10 @@ const CastHashMap& GetZetaSQLCasts();
 // Returns <from_value> casted to <to_type>. Returns an error if the types are
 // incompatible or the value cannot be cast successfully to <to_type>.
 //
+// If cast involves extended types, the Catalog that defines a conversion for
+// these extended types should be provided in <catalog>. CastValue will return
+// an error if it encounters an extended type while <catalog> argument is NULL.
+//
 // Successful casting depends on the input value, which fails if it violates
 // the range bounds of <to_type> (e.g. casting a large INT64 value to
 // INT32), the result value is invalid for the target domain (e.g. casting
@@ -112,7 +116,8 @@ const CastHashMap& GetZetaSQLCasts();
 zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
                                 absl::TimeZone default_timezone,
                                 const LanguageOptions& language_options,
-                                const Type* to_type);
+                                const Type* to_type,
+                                Catalog* catalog = nullptr);
 // DEPRECATED name for CastValue()
 inline zetasql_base::StatusOr<Value> CastStatusOrValue(
     const Value& from_value, absl::TimeZone default_timezone,
@@ -120,32 +125,42 @@ inline zetasql_base::StatusOr<Value> CastStatusOrValue(
   return CastValue(from_value, default_timezone, language_options, to_type);
 }
 
-// Conversion describes a cast or coercion provided to the ZetaSQL resolver by
-// a Catalog. This includes a conversion function that implements a conversion.
-// Function should be able to accept a FunctionSignature of the following form:
+namespace internal {  //   For internal use only
+
+// Same as CastValue except assumes that the caller has already checked that
+// casting between these types is valid.
+//
+// REQUIRES: The requested cast is valid according to Coercer.
+// REQUIRES: If cast involves extended types, their conversion function should
+// be provided in extended_conversion.
+zetasql_base::StatusOr<Value> CastValueWithoutTypeValidation(
+    const Value& from_value, absl::TimeZone default_timezone,
+    const LanguageOptions& language_options, const Type* to_type,
+    const Function* extended_conversion);
+
+}  // namespace internal
+
+// ConversionEvaluator stores information necessary to execute a conversion.
+// This includes a conversion function that implements a conversion.
+// Function must have a FunctionSignature of the following form:
 // {Type=from_type, num_occurrences=1} => to_type.
-// Conversion can be either stored in a catalog or catalog can dynamically
-// construct it based on a mapping from two specific types.
-class Conversion {
+class ConversionEvaluator {
  public:
-  Conversion(const Type* from_type, const Type* to_type,
-             const Function* function, const CastFunctionProperty& property);
+  // Creates a ConversionEvaluator. Returns error if any of provided arguments
+  // is NULL or <from_type> Equals() to <to_type>.
+  static zetasql_base::StatusOr<ConversionEvaluator> Create(const Type* from_type,
+                                                    const Type* to_type,
+                                                    const Function* function);
 
   // Explicitly copyable and assignable.
-  Conversion(const Conversion& other) = default;
-  Conversion& operator=(const Conversion& other) = default;
+  ConversionEvaluator(const ConversionEvaluator& other) = default;
+  ConversionEvaluator& operator=(const ConversionEvaluator& other) = default;
 
-  // Returns true, if the object represents a valid conversion and false if it
-  // was created using Conversion::Invalid().
-  bool is_valid() const {
-    return from_type_ != nullptr && to_type_ != nullptr && function_ != nullptr;
-  }
-
+  // Returns the source type of the conversion.
   const Type* from_type() const { return from_type_; }
+
+  // Returns the result type of the conversion.
   const Type* to_type() const { return to_type_; }
-  const CastFunctionProperty& cast_function_property() const {
-    return cast_function_property_;
-  }
 
   // Returns the function that implements this conversion.
   const Function* function() const { return function_; }
@@ -157,39 +172,109 @@ class Conversion {
     return GetFunctionSignature(from_type_, to_type_);
   }
 
+  // Converts the given Value using conversion function. Requires Value's type
+  // to be <from_type_>. If conversion succeeds, the type of returned value will
+  // be <to_type_>.
+  zetasql_base::StatusOr<Value> Eval(const Value& from_value) const;
+
+  // Returns a concrete signature that can be used with conversion function to
+  // execute a conversion from <from_type> to <to_type>. The form of the
+  // signature is: {Type=<from_type>, num_occurrences=1} => <to_type>.
+  static FunctionSignature GetFunctionSignature(const Type* from_type,
+                                                const Type* to_type);
+
+ private:
+  friend class Conversion;
+
+  // Constructs an ConversionEvaluator. Should be called only from Create.
+  ConversionEvaluator(const Type* from_type, const Type* to_type,
+                      const Function* function)
+      : from_type_(from_type), to_type_(to_type), function_(function) {}
+
+  // Constructs an 'invalid' conversion evaluator to use in invalid Conversion
+  // objects. Should be used only from Conversion class.
+  ConversionEvaluator()
+      : from_type_(nullptr), to_type_(nullptr), function_(nullptr) {}
+
+  // Returns true, if the object represents a valid conversion function and
+  // false if it was created using constructor above.
+  bool is_valid() const {
+    return from_type_ != nullptr && to_type_ != nullptr && function_ != nullptr;
+  }
+
+  const Type* from_type_;  // Source type of conversion.
+  const Type* to_type_;    // Destination (result) type of conversion.
+
+  const Function* function_;  // Function that implements a conversion.
+};
+
+// Conversion describes a cast or coercion provided to the ZetaSQL resolver by
+// a Catalog. Conversion can be either stored in a Catalog or a Catalog can
+// dynamically construct it based on a mapping between two specific types.
+class Conversion {
+ public:
+  // Creates a Conversion. Returns an error if provided arguments are invalid:
+  // e.g. any of arguments is NULL or <from_type> is equal to <to_type>.
+  static zetasql_base::StatusOr<Conversion> Create(
+      const Type* from_type, const Type* to_type, const Function* function,
+      const CastFunctionProperty& property);
+  static zetasql_base::StatusOr<Conversion> Create(
+      const ConversionEvaluator& evaluator,
+      const CastFunctionProperty& property);
+
+  // Explicitly copyable and assignable.
+  Conversion(const Conversion& other) = default;
+  Conversion& operator=(const Conversion& other) = default;
+
+  // Returns the evaluator capable of executing this conversion. Requires:
+  // is_valid().
+  const ConversionEvaluator& evaluator() const {
+    return validated().evaluator_;
+  }
+
+  // Returns the property of this conversion. Requires: is_valid().
+  const CastFunctionProperty& property() const {
+    return validated().cast_function_property_;
+  }
+
+  // Returns the source type of the conversion. Requires: is_valid().
+  const Type* from_type() const { return evaluator().from_type(); }
+
+  // Returns the destination type of the conversion. Requires: is_valid().
+  const Type* to_type() const { return evaluator().to_type(); }
+
+  // Returns the function that implements this conversion. Requires: is_valid().
+  const Function* function() const { return evaluator().function(); }
+
   // Checks whether conversion matches options used by Catalog API to search
   // for conversions.
   bool IsMatch(const Catalog::FindConversionOptions& options) const;
-
-  // Casts the given Value using conversion function. Requires Value's type to
-  // be from_type. If conversion succeeds the type of returned value will be
-  // to_type.
-  zetasql_base::StatusOr<Value> CastValue(const Value& from_value) const;
 
   // Creates a conversion that is marked as invalid. Conversion is typically
   // passed by value and "Invalid" can be used to designate an uninitialized
   // conversion.
   static Conversion Invalid() { return Conversion(); }
 
-  // Returns a signature that can be used with conversion function to execute a
-  // conversion from "from_type" to "to_type". The form of the signature is:
-  // {Type=from_type, num_occurrences=1} => to_type.
-  static FunctionSignature GetFunctionSignature(const Type* from_type,
-                                                const Type* to_type);
+  // Returns true, if the object represents a valid conversion and false if it
+  // was created using Conversion::Invalid().
+  bool is_valid() const { return evaluator_.is_valid(); }
 
  private:
+  Conversion(const ConversionEvaluator& evaluator,
+             const CastFunctionProperty& property)
+      : evaluator_(evaluator), cast_function_property_(property) {}
+
   // Constructs an 'invalid' conversion.
   Conversion()
-      : from_type_(nullptr),
-        to_type_(nullptr),
-        function_(nullptr),
-        cast_function_property_(CastFunctionType::EXPLICIT, 0) {}
+      : evaluator_(), cast_function_property_(CastFunctionType::EXPLICIT, 0) {}
 
-  const Type* from_type_;  // Source type of conversion.
-  const Type* to_type_;    // Destination type of conversion.
+  // Returns itself if this Conversion is valid. Crashes otherwise.
+  const Conversion& validated() const {
+    CHECK(is_valid()) << "Attempt to access properties of invalid Conversion";
+    return *this;
+  }
 
-  const Function* function_;  // Function that implements a conversion.
-
+  ConversionEvaluator evaluator_;
   CastFunctionProperty cast_function_property_;
 };
 

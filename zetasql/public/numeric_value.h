@@ -69,6 +69,8 @@ class NumericValue final {
   // OUT_OF_RANGE error if the given value is outside the range of valid
   // NUMERIC values.
   static zetasql_base::StatusOr<NumericValue> FromPackedInt(__int128 value);
+  // Returns value / kScalingFactor.
+  static constexpr NumericValue FromScaledValue(int64_t value);
 
   // Constructs a Numeric object from the high and low bits of the packed
   // integer representation. May return OUT_OF_RANGE error if the combined 128
@@ -552,6 +554,8 @@ class BigNumericValue final {
   // Raises this BigNumericValue to the given power and returns the result.
   // Returns OUT_OF_RANGE error on overflow.
   zetasql_base::StatusOr<BigNumericValue> Power(const BigNumericValue& exp) const;
+  zetasql_base::StatusOr<BigNumericValue> Exp() const;
+  zetasql_base::StatusOr<BigNumericValue> Ln() const;
 
   // Rounds this BigNumericValue to the given number of decimal digits after the
   // decimal point. 'digits' can be negative to cause rounding of the digits to
@@ -670,6 +674,11 @@ class BigNumericValue final {
   static FixedUint<64, N - 1> RemoveScalingFactor(FixedUint<64, N> value);
   static double RemoveScaleAndConvertToDouble(const FixedInt<64, 4>& value);
 
+  // Raises this bignumeric value to the given power and returns the result.
+  // The caller should annotate the error with the inputs.
+  zetasql_base::StatusOr<BigNumericValue> PowerInternal(
+      const BigNumericValue& exp) const;
+
   FixedInt<64, 4> value_;
 };
 
@@ -743,6 +752,10 @@ inline zetasql_base::StatusOr<NumericValue> NumericValue::FromPackedInt(
   }
 
   return ret;
+}
+
+inline constexpr NumericValue NumericValue::FromScaledValue(int64_t value) {
+  return NumericValue(static_cast<__int128>(value));
 }
 
 template <int kNumBitsPerWord, int kNumWords>

@@ -587,11 +587,13 @@ ZetaSQL follows these rules for case sensitivity:
 <td>No</td>
 <td>&nbsp;</td>
 </tr>
+
 <tr>
 <td>Function names</td>
 <td>No</td>
 <td>&nbsp;</td>
 </tr>
+
 <tr>
 <td>Table names</td>
 
@@ -2521,96 +2523,268 @@ regular functions are evaluated before calling the function. Short-circuiting in
 conditional expressions can be exploited for error handling or performance
 tuning.
 
-<table>
-<thead>
-<tr>
-<th>Syntax</th>
-<th>Input Data Types</th>
-<th>Result Data Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
+#### CASE expr
 
-<tr>
-  <td><pre>CASE expr
-  WHEN value THEN result
-  [WHEN ...]
-  [ELSE else_result]
-  END</pre></td>
-<td><code>expr</code> and <code>value</code>: Any type</td>
-<td><code>result</code> and <code>else_result</code>: Supertype of input
-types.</td>
-<td>Compares <code>expr</code> to value of each successive <code>WHEN</code>
-clause and returns the first result where this comparison returns true. The
-remaining <code>WHEN</code> clauses and <code>else_result</code> are not
-evaluated. If the
-<code>expr = value</code> comparison returns false or <code>NULL</code> for
-all <code>WHEN</code> clauses, returns
-<code>else_result</code> if present; if not present, returns <code>NULL</code>.
-<code>expr</code> and <code>value</code> expressions
-must be implicitly coercible to a common supertype; equality comparisons are
-done on coerced values. <code>result</code> and <code>else_result</code>
-expressions must be coercible to a common supertype.</td>
-</tr>
+```sql
+CASE expr
+  WHEN expr_to_match THEN result
+  [ ... ]
+  [ ELSE else_result ]
+END
+```
 
-<tr>
-  <td><pre>CASE
-  WHEN cond1 THEN result
-  [WHEN cond2...]
-  [ELSE else_result]
-  END</pre></td>
-<td><code>cond</code>: BOOL</td>
-<td><code>result</code> and <code>else_result</code>: Supertype of input
-types.</td>
-<td>Evaluates condition <code>cond</code> of each successive <code>WHEN</code>
-clause and returns the first result where the condition is true; any remaining
-<code>WHEN</code> clauses and <code>else_result</code> are not evaluated. If all
-conditions are false or <code>NULL</code>, returns
-<code>else_result</code> if present; if not present, returns
-<code>NULL</code>. <code>result</code> and <code>else_result</code>
-expressions must be implicitly coercible to a common supertype. </td>
-</tr>
+**Description**
 
-<tr>
-<td><a id="coalesce"></a>COALESCE(expr1, ..., exprN)</td>
-<td>Any type</td>
-<td>Supertype of input types</td>
-<td>Returns the value of the first non-null expression. The remaining
-expressions are not evaluated. All input expressions must be implicitly
-coercible to a common supertype.</td>
-</tr>
-<tr>
-<td><a id="if"></a>IF(cond, true_result, else_result)</td>
-<td><code>cond</code>: BOOL</td>
-<td><code>true_result</code> and <code>else_result</code>: Any type.</td>
-<td>If <code>cond</code> is true, returns <code>true_result</code>, else returns
-<code>else_result</code>. <code>else_result</code> is not evaluated if
-<code>cond</code> is true. <code>true_result</code> is not evaluated if
-<code>cond</code> is false or <code>NULL</code>. <code>true_result</code> and
-<code>else_result</code> must be coercible to a common supertype.</td>
-</tr>
-<tr>
-<td><a id="ifnull"></a>IFNULL(expr, null_result)</td>
-<td>Any type</td>
-<td>Any type or supertype of input types.</td>
-<td>If <code>expr</code> is <code>NULL</code>, return <code>null_result</code>. Otherwise,
-return <code>expr</code>. If <code>expr</code> is not <code>NULL</code>,
-<code>null_result</code> is not evaluated. <code>expr</code> and
-<code>null_result</code> must be implicitly coercible to a common
-supertype. Synonym for <code>COALESCE(expr, null_result)</code>.</td>
-</tr>
-<tr>
-<td><a id="nullif"></a>NULLIF(expression, expression_to_match)</td>
-<td>Any type T or subtype of T</td>
-<td>Any type T or subtype of T</td>
-<td>Returns <code>NULL</code> if <code>expression = expression_to_match</code>
-is true, otherwise returns <code>expression</code>. <code>expression</code> and
-<code>expression_to_match</code> must be implicitly coercible to a common
-supertype; equality comparison is done on coerced values.</td>
-</tr>
-</tbody>
-</table>
+Compares `expr` to `expr_to_match` of each successive `WHEN` clause and returns the
+first result where this comparison returns true. The remaining `WHEN` clauses
+and `else_result` are not evaluated. If the `expr = expr_to_match` comparison
+returns false or NULL for all `WHEN` clauses, returns `else_result` if present;
+if not present, returns NULL.
+
+`expr` and `expr_to_match` can be any type. They must be implicitly
+coercible to a common supertype; equality comparisons are done on
+coerced values. There may be multiple `result` types. `result` and
+`else_result` expressions must be coercible to a common supertype.
+
+**Return Data Type**
+
+Supertype of `result`[, ...] and `else_result`.
+
+**Example**
+
+```sql
+WITH Numbers AS
+ (SELECT 90 as A, 2 as B UNION ALL
+  SELECT 50, 8 UNION ALL
+  SELECT 60, 6 UNION ALL
+  SELECT 50, 10)
+SELECT A, B,
+  CASE A
+    WHEN 90 THEN 'red'
+    WHEN 50 THEN 'blue'
+    ELSE 'green'
+  END
+  AS result
+FROM Numbers
+
++------------------+
+| A  | B  | result |
++------------------+
+| 90 | 2  | red    |
+| 50 | 8  | blue   |
+| 60 | 6  | green  |
+| 50 | 10 | blue   |
++------------------+
+```
+
+#### CASE
+
+```sql
+CASE
+  WHEN condition THEN result
+  [ ... ]
+  [ ELSE else_result ]
+  END
+```
+
+**Description**
+
+Evaluates the condition of each successive `WHEN` clause and returns the
+first result where the condition is true; any remaining `WHEN` clauses
+and `else_result` are not evaluated. If all conditions are false or NULL,
+returns `else_result` if present; if not present, returns NULL.
+
+`condition` must be a boolean expression. There may be multiple `result` types.
+`result` and `else_result` expressions must be implicitly coercible to a
+common supertype.
+
+**Return Data Type**
+
+Supertype of `result`[, ...] and `else_result`.
+
+**Example**
+
+```sql
+WITH Numbers AS
+ (SELECT 90 as A, 2 as B UNION ALL
+  SELECT 50, 6 UNION ALL
+  SELECT 20, 10)
+SELECT A, B,
+  CASE
+    WHEN A > 60 THEN 'red'
+    WHEN A > 30 THEN 'blue'
+    ELSE 'green'
+  END
+  AS result
+FROM Numbers
+
++------------------+
+| A  | B  | result |
++------------------+
+| 90 | 2  | red    |
+| 50 | 6  | blue   |
+| 20 | 10 | green  |
++------------------+
+```
+
+#### COALESCE
+
+```sql
+COALESCE(expr[, ...])
+```
+
+**Description**
+
+Returns the value of the first non-null expression. The remaining
+expressions are not evaluated. An input expression can be any type.
+There may be multiple input expression types.
+All input expressions must be implicitly coercible to a common supertype.
+
+**Return Data Type**
+
+Supertype of `expr`[, ...].
+
+**Examples**
+
+```sql
+SELECT COALESCE('A', 'B', 'C') as result
+
++--------+
+| result |
++--------+
+| A      |
++--------+
+```
+
+```sql
+SELECT COALESCE(NULL, 'B', 'C') as result
+
++--------+
+| result |
++--------+
+| B      |
++--------+
+```
+
+#### IF
+
+```sql
+IF(expr, true_result, else_result)
+```
+
+**Description**
+
+If `expr` is true, returns `true_result`, else returns `else_result`.
+`else_result` is not evaluated if `expr` is true. `true_result` is not
+evaluated if `expr` is false or NULL.
+
+`expr` must be a boolean expression. `true_result` and `else_result`
+must be coercible to a common supertype.
+
+**Return Data Type**
+
+Supertype of `true_result` and `else_result`.
+
+**Example**
+
+```sql
+WITH Numbers AS
+ (SELECT 10 as A, 20 as B UNION ALL
+  SELECT 50, 30 UNION ALL
+  SELECT 60, 60)
+SELECT
+  A, B,
+  IF( A<B, 'true', 'false') as result
+FROM Numbers
+
++------------------+
+| A  | B  | result |
++------------------+
+| 10 | 20 | true   |
+| 50 | 30 | false  |
+| 60 | 60 | false  |
++------------------+
+```
+
+#### IFNULL
+
+```sql
+IFNULL(expr, null_result)
+```
+
+**Description**
+
+If `expr` is NULL, return `null_result`. Otherwise, return `expr`. If `expr`
+is not NULL, `null_result` is not evaluated.
+
+`expr` and `null_result` can be any type and must be implicitly coercible to
+a common supertype. Synonym for `COALESCE(expr, null_result)`.
+
+**Return Data Type**
+
+Supertype of `expr` or `null_result`.
+
+**Examples**
+
+```sql
+SELECT IFNULL(NULL, 0) as result
+
++--------+
+| result |
++--------+
+| 0      |
++--------+
+```
+
+```sql
+SELECT IFNULL(10, 0) as result
+
++--------+
+| result |
++--------+
+| 10     |
++--------+
+```
+
+#### NULLIF
+
+```sql
+NULLIF(expr, expr_to_match)
+```
+
+**Description**
+
+Returns NULL if `expr = expr_to_match` is true, otherwise
+returns `expr`.
+
+`expr` and `expr_to_match` must be implicitly coercible to a
+common supertype, and must be comparable.
+
+**Return Data Type**
+
+Supertype of `expr` and `expr_to_match`.
+
+**Example**
+
+```sql
+SELECT NULLIF(0, 0) as result
+
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+```
+
+```sql
+SELECT NULLIF(10, 0) as result
+
++--------+
+| result |
++--------+
+| 10     |
++--------+
+```
 
 ## Expression subqueries
 
@@ -2931,7 +3105,6 @@ Integers are numeric values that do not have fractional components.
 <thead>
 <tr>
 <th>Name</th>
-<th>Storage Size</th>
 <th>Range</th>
 </tr>
 </thead>
@@ -2939,25 +3112,21 @@ Integers are numeric values that do not have fractional components.
 
 <tr>
 <td><code>INT32</code></td>
-<td>4 bytes</td>
 <td>-2,147,483,648 to 2,147,483,647</td>
 </tr>
 
 <tr>
 <td><code>UINT32</code></td>
-<td>4 bytes</td>
 <td>0 to 4,294,967,295</td>
 </tr>
 
 <tr>
 <td><code>INT64</code></td>
-<td>8 bytes</td>
 <td>-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807</td>
 </tr>
 
 <tr>
 <td><code>UINT64</code></td>
-<td>8 bytes</td>
 <td>0 to 18,446,744,073,709,551,615</td>
 </tr>
 
@@ -2977,7 +3146,6 @@ calculations.
 <thead>
 <tr>
 <th>Name</th>
-<th>Storage Size</th>
 <th>Description</th>
 <th>Range</th>
 </tr>
@@ -2986,7 +3154,6 @@ calculations.
 
 <tr>
 <td><code>NUMERIC</code></td>
-<td>16 bytes</td>
 <td>Decimal values with 38 decimal digits of precision and 9 decimal digits of
 scale.</td>
 <td>-99999999999999999999999999999.999999999 to
@@ -3003,7 +3170,6 @@ Floating point values are approximate numeric values with fractional components.
 <thead>
 <tr>
 <th>Name</th>
-<th>Storage Size</th>
 <th>Description</th>
 </tr>
 </thead>
@@ -3011,13 +3177,11 @@ Floating point values are approximate numeric values with fractional components.
 
 <tr>
 <td><code>FLOAT</code></td>
-<td>4 bytes</td>
 <td>Single precision (approximate) decimal values.</td>
 </tr>
 
 <tr>
 <td><code>DOUBLE</code></td>
-<td>8 bytes</td>
 <td>Double precision (approximate) decimal values.</td>
 </tr>
 </tbody>
@@ -3999,6 +4163,101 @@ Notation:
 + A comma followed by an ellipsis within square brackets "[, ... ]" indicates that
   the preceding item can repeat in a comma-separated list.
 
+<a id=sample_tables></a>
+#### Sample tables
+
+The following tables are used to illustrate the behavior of different
+query clauses in this reference.
+
+##### Roster Table
+
+The `Roster` table includes a list of player names (`LastName`) and the
+unique ID assigned to their school (`SchoolID`). It looks like this:
+
+```sql
++-----------------------+
+| LastName   | SchoolID |
++-----------------------+
+| Adams      | 50       |
+| Buchanan   | 52       |
+| Coolidge   | 52       |
+| Davis      | 51       |
+| Eisenhower | 77       |
++-----------------------+
+```
+
+You can use this `WITH` clause to emulate a temporary table name for the
+examples in this reference:
+
+```sql
+WITH Roster AS
+ (SELECT 'Adams' as LastName, 50 as SchoolID UNION ALL
+  SELECT 'Buchanan', 52 UNION ALL
+  SELECT 'Coolidge', 52 UNION ALL
+  SELECT 'Davis', 51 UNION ALL
+  SELECT 'Eisenhower', 77)
+SELECT * FROM Roster
+```
+
+##### PlayerStats Table
+
+The `PlayerStats` table includes a list of player names (`LastName`) and the
+unique ID assigned to the opponent they played in a given game (`OpponentID`)
+and the number of points scored by the athlete in that game (`PointsScored`).
+
+```sql
++----------------------------------------+
+| LastName   | OpponentID | PointsScored |
++----------------------------------------+
+| Adams      | 51         | 3            |
+| Buchanan   | 77         | 0            |
+| Coolidge   | 77         | 1            |
+| Davis      | 52         | 4            |
+| Eisenhower | 50         | 13           |
++----------------------------------------+
+```
+
+You can use this `WITH` clause to emulate a temporary table name for the
+examples in this reference:
+
+```sql
+WITH PlayerStats AS
+ (SELECT 'Adams' as LastName, 51 as OpponentID, 3 as PointsScored UNION ALL
+  SELECT 'Buchanan', 77, 0 UNION ALL
+  SELECT 'Coolidge', 77, 1 UNION ALL
+  SELECT 'Adams', 52, 4 UNION ALL
+  SELECT 'Buchanan', 50, 13)
+SELECT * FROM PlayerStats
+```
+
+##### TeamMascot Table
+
+The `TeamMascot` table includes a list of unique school IDs (`SchoolID`) and the
+mascot for that school (`Mascot`).
+
+```sql
++---------------------+
+| SchoolID | Mascot   |
++---------------------+
+| 50       | Jaguars  |
+| 51       | Knights  |
+| 52       | Lakers   |
+| 53       | Mustangs |
++---------------------+
+```
+
+You can use this `WITH` clause to emulate a temporary table name for the
+examples in this reference:
+
+```sql
+WITH TeamMascot AS
+ (SELECT 50 as SchoolID, 'Jaguars' as Mascot UNION ALL
+  SELECT 51, 'Knights' UNION ALL
+  SELECT 52, 'Lakers' UNION ALL
+  SELECT 53, 'Mustangs')
+SELECT * FROM TeamMascot
+```
+
 ### SELECT list
 
 Syntax:
@@ -4232,8 +4491,8 @@ The query above produces STRUCT values of type `STRUCT<int64 x, int64, int64
 x>.` The first and third fields have the same name `x`, and the second field is
 anonymous.
 
-The example above produces the same result as this query using a struct
-constructor:
+The example above produces the same result as this `SELECT AS VALUE` query
+using a struct constructor:
 
 ```
 SELECT AS VALUE STRUCT(1 AS x, 2, 3 AS x)
@@ -4800,19 +5059,41 @@ The `USING` clause requires a `column_list` of one or more columns which
 occur in both input tables. It performs an equality comparison on that column,
 and the rows meet the join condition if the equality comparison returns TRUE.
 
-In most cases, a statement with the `USING` keyword is equivalent to using the
-`ON` keyword.  For example, the statement:
+For example, consider this statement which performs an `INNER JOIN` on the
+[`Roster`][roster-table] and [`TeamMascot`][teammascot-table] table:
 
+```sql
+SELECT * FROM Roster INNER JOIN TeamMascot
+USING (SchoolID);
+
++----------------------------------------+
+| SchoolID   | LastName   | Mascot       |
++----------------------------------------+
+| 50         | Adams      | Jaguars      |
+| 52         | Buchanan   | Lakers       |
+| 52         | Coolidge   | Lakers       |
+| 51         | Davis      | Knights      |
++----------------------------------------+
 ```
-SELECT FirstName
+
+This statement returns the rows from `Roster` and `TeamMascot` where
+`Roster.SchooldID` is the same as `TeamMascot.SchooldID`.  The results include
+a single `SchooldID` column.
+
+In most cases, a statement with the `USING` keyword is equivalent to using the
+`ON` keyword.  For example, the statement which performs an `INNER JOIN` on
+the [`Roster`][roster-table] and [`PlayerStats`][playerstats-table] table:
+
+```sql
+SELECT LastName
 FROM Roster INNER JOIN PlayerStats
 USING (LastName);
 ```
 
 is equivalent to:
 
-```
-SELECT FirstName
+```sql
+SELECT Roster.LastName
 FROM Roster INNER JOIN PlayerStats
 ON Roster.LastName = PlayerStats.LastName;
 ```
@@ -4820,7 +5101,7 @@ ON Roster.LastName = PlayerStats.LastName;
 The results from queries with `USING` do differ from queries that use `ON` when
 you use `SELECT *`. To illustrate this, consider the query:
 
-```
+```sql
 SELECT * FROM Roster INNER JOIN PlayerStats
 USING (LastName);
 ```
@@ -4831,7 +5112,7 @@ single `LastName` column.
 
 By contrast, consider the following query:
 
-```
+```sql
 SELECT * FROM Roster INNER JOIN PlayerStats
 ON Roster.LastName = PlayerStats.LastName;
 ```
@@ -5546,7 +5827,7 @@ them.
 
 The `INTERSECT` operator returns rows that are found in the result sets of both
 the left and right input queries. Unlike `EXCEPT`, the positioning of the input
-queries (to the left vs. right of the `INTERSECT` operator) does not matter.
+queries (to the left versus right of the `INTERSECT` operator) does not matter.
 
 <a id="except"></a>
 #### EXCEPT
@@ -5937,124 +6218,6 @@ following rules apply:
 
 <a id=appendix_a_examples_with_sample_data></a>
 ### Appendix A: examples with sample data
-
-<a id=sample_tables></a>
-#### Sample tables
-
-The following three tables contain sample data about athletes, their schools,
-and the points they score during the season. These tables will be used to
-illustrate the behavior of different query clauses.
-
-Table Roster:
-
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>SchoolID</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>50</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-</tr>
-</tbody>
-</table>
-
-The Roster table includes a list of player names (LastName) and the unique ID
-assigned to their school (SchoolID).
-
-Table PlayerStats:
-
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>OpponentID</th>
-<th>PointsScored</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>51</td>
-<td>3</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>77</td>
-<td>0</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>77</td>
-<td>1</td>
-</tr>
-<tr>
-<td>Adams</td>
-<td>52</td>
-<td>4</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>50</td>
-<td>13</td>
-</tr>
-</tbody>
-</table>
-
-The PlayerStats table includes a list of player names (LastName) and the unique
-ID assigned to the opponent they played in a given game (OpponentID) and the
-number of points scored by the athlete in that game (PointsScored).
-
-Table TeamMascot:
-
-<table>
-<thead>
-<tr>
-<th>SchoolId</th>
-<th>Mascot</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-</tbody>
-</table>
-
-The TeamMascot table includes a list of unique school IDs (SchoolID) and the
-mascot for that school (Mascot).
 
 <a id="join_types_examples"></a>
 #### JOIN types
@@ -6615,6 +6778,9 @@ Results:
 [union-syntax]: #union
 [join-hints]: #join_hints
 [query-value-tables]: #value_tables
+[roster-table]: #roster_table
+[playerstats-table]: #playerstats_table
+[teammascot-table]: #teammascot_table
 [analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [query-window-specification]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_window_spec
 [named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_use_named_window
@@ -7875,7 +8041,7 @@ default, protocol buffer fields do not return <code>NULL</code>.
 <code>optional int64 int = 1 [( zetasql.use_defaults ) = false];</code><br>
 When reading, if this field isn't set, a <code>NULL</code> value is returned.
 This example uses an annotation, which is described in
-<a href="#defaults_and_nulls">Defaults and <code>NULL</code>s</a>.
+<a href="#default_values_and_nulls">Defaults and <code>NULL</code>s</a>.
 </td>
 <td><code>INT64</code></td>
 </tr>
@@ -7902,8 +8068,7 @@ This example uses an annotation, which is described in
 </tbody>
 </table>
 
-<a name="defaults_and_nulls"></a>
-#### Default values and `NULL`s
+#### Default values and `NULL`s  {#default_values_and_nulls}
 
 Protocol buffer messages themselves do not have a default value &mdash; only the
 fields contained inside a protocol buffer have defaults. When a full protocol
@@ -8903,6 +9068,7 @@ You can also flatten `ARRAY` type fields of `STRUCT` values and repeated fields
 of `PROTO` values. ZetaSQL treats repeated `PROTO` fields as
 `ARRAY`s.
 
+<a id=query_structs_in_an_array></a>
 #### Querying STRUCT elements in an ARRAY
 
 The following example uses `UNNEST` with `CROSS JOIN` to flatten an `ARRAY` of
@@ -10493,11 +10659,11 @@ value does not have a field called `ROWNUM`.
 
 <!-- BEGIN CONTENT -->
 
-ZetaSQL supports
-user-defined functions (UDFs). A UDF enables you to create a function using
-another SQL expression or another programming
-language, such as JavaScript. These functions accept columns of input and perform actions,
-returning the result of those actions as a value.
+ZetaSQL
+supports user-defined functions (UDFs). A UDF enables you to create a function
+using another SQL expression or another programming
+language, such as JavaScript or Lua. These functions accept columns of input
+and perform actions, returning the result of those actions as a value.
 
 ###  General UDF and TVF  Syntax
 
@@ -10505,71 +10671,205 @@ User-defined functions and table-valued
 functions in ZetaSQL use the
 following general syntax:
 
-<pre>
-CREATE [TEMPORARY | TEMP] [TABLE | AGGREGATE] FUNCTION
-  <span class="var">function_name</span> ([<span class="var">function_parameter</span>[, ...]])
-  [RETURNS { <span class="var">data_type</span> | TABLE&lt;<span class="var">argument_name data_type</span> [, ...]*&gt; }]
-  { [LANGUAGE <span class="var">language</span> AS <span class="var">"""body"""</span>] | [AS (<span class="var">function_definition</span>)] };
++  [SQL UDF syntax][sql-udf-syntax]
++  [External UDF syntax][ext-udf-syntax]
++  [TVF syntax][tvf-syntax]
 
-<span class="var">function_parameter</span>:
-  <span class="var">param_name param_type</span> [NOT AGGREGATE]
-</pre>
+### SQL UDFs
+
+An SQL UDF lets you specify a SQL expression for the UDF.
+
+#### SQL UDF structure
+
+Create SQL UDFs using the following syntax:
+
+```sql
+CREATE
+  [ { TEMPORARY | TEMP } ] [ AGGREGATE ] FUNCTION
+  function_name ( [ function_parameter [ NOT AGGREGATE ] [, ...] ] )
+  [ RETURNS data_type ]
+  AS ( sql_expression )
+
+function_parameter:
+  parameter_name { data_type | ANY TYPE }
+```
 
 This syntax consists of the following components:
 
-+   **CREATE [TEMPORARY | TEMP]
-    [TABLE | AGGREGATE] FUNCTION**.
-    Creates a new function. A function can contain zero or more
-    `function_parameter`s. To make the function
-    temporary, use the `TEMP` or `TEMPORARY` keyword. To
-    make a [table-valued function][table-valued function], use the `TABLE`
-    keyword. To make
-    an [aggregate function][aggregate-udf-parameters], use the
-    `AGGREGATE` keyword.
-*   **function_parameter**. Consists of a comma-separated `param_name` and
-    `param_type` pair. The value of `param_type` is a ZetaSQL
-    [data type][data-types].
-    The value of `param_type` may also be `ANY TYPE` for a
-    SQL user-defined function or `ANY TABLE` for a table-valued function.
-+   **[RETURNS data_type]**. Specifies the data type
-    that the function returns. If the function is defined in SQL, then the
++   `CREATE ... FUNCTION`: Creates a new function.
+     A function can contain zero or more
+    `function_parameter`s.
++   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
+     exists for the lifetime of the session.
++   `AGGREGATE`: Indicates that this is an [aggregate function][aggregate-udf-parameters].
++   `function_parameter`: A parameter for the fuction. A parameter
+    includes a name and a data type. The value of `data_type`
+    is a ZetaSQL [data type][data-types] or may also be `ANY TYPE`.
++   `RETURNS data_type`: Specifies the data type
+    that the function returns. The
     `RETURNS` clause is optional and ZetaSQL infers the result type
-    of the function from the SQL function body. If the
-    function is defined in an external language, then the `RETURNS` clause is
-    required. See [Supported UDF data types][supported-external-udf-data-types]
-    for more information about allowed values for
-    `data_type`.
-+   **[RETURNS TABLE]**. Specifies the schema of the table that a table-valued
-    function returns as a comma-separated list of `argument_name` and `TYPE`
-    pairs. Can only appear after `CREATE TEMP TABLE FUNCTION`. If
-    `RETURNS TABLE` is absent, ZetaSQL infers the output schema from
-    the `AS SELECT...` statement in the function body.
-    
-*   **[LANGUAGE language AS """body"""]**. Specifies the external language
-    for the function and the code that defines the function.
-*   **AS (function_definition)**. Specifies the SQL code that defines the
-    function. For user-defined functions (UDFs),
-    `function_definition` is a SQL expression. For table-valued functions
-    (TVFs), `function_definition` is a SQL query.
-*   **[NOT AGGREGATE]**. Specifies that a parameter is not
+    of the function from the SQL function body.
++   `AS (sql_expression)`: Specifies the SQL code that defines the
+    function.
++   `NOT AGGREGATE`: Specifies that a parameter is not
     aggregate. Can only appear after `CREATE AGGREGATE FUNCTION`. A
-    non-aggregate parameter [can appear anywhere in the function
-    definition.][aggregate-udf-parameters]
+    non-aggregate parameter can appear anywhere in the
+    [function definition][aggregate-udf-parameters].
 
-### External UDF structure
+#### Aggregate UDF parameters
 
-Create external UDFs using the following structure.
+An aggregate UDF can include aggregate or non-aggregate parameters. Like other
+[aggregate functions][aggregate-fns-link], aggregate UDFs normally aggregate
+parameters across all rows in a [group][group-by-link]. However, you can specify
+a parameter as non-aggregate with the `NOT AGGREGATE` keyword. A non-aggregate
+parameter is a scalar parameter with a constant value for all rows in a group;
+for example, literals or grouping expressions are valid non-aggregate
+parameters. Inside the UDF definition, aggregate parameters can only appear as
+parameters to aggregate function calls. Non-aggregate parameters can appear
+anywhere in the UDF definition.
+
+#### Templated SQL UDF parameters
+
+A templated parameter can match more than one argument type at function call
+time. If a function signature includes a templated parameter, ZetaSQL
+allows function calls to pass one of several argument types to the function.
+
+SQL user-defined function signatures can contain the following templated
+parameter value:
+
++ `ANY TYPE`. The function will accept an argument of any type for this
+  parameter. If more than one parameter includes `ANY TYPE`,
+  a relationship is not enforced between these parameters
+  when the function is defined. However, if the type of argument passed into the
+  function at call time is incompatible with the function definition, this will
+  result in an error.
+
+#### SQL UDF examples
+
+The following example shows a UDF that employs a SQL function.
 
 ```sql
-CREATE [TEMPORARY | TEMP] FUNCTION function_name ([function_parameter[, ...]])
-  [RETURNS data_type]
-  [LANGUAGE language]
-  AS external_code
+CREATE TEMP FUNCTION addFourAndDivide(x INT64, y INT64) AS ((x + 4) / y);
+WITH numbers AS
+  (SELECT 1 as val UNION ALL
+   SELECT 3 as val UNION ALL
+   SELECT 4 as val UNION ALL
+   SELECT 5 as val)
+SELECT val, addFourAndDivide(val, 2) AS result
+FROM numbers;
+
++-----+--------+
+| val | result |
++-----+--------+
+| 1   | 2.5    |
+| 3   | 3.5    |
+| 4   | 4      |
+| 5   | 4.5    |
++-----+--------+
 ```
 
-### External UDF examples
+The following example shows an aggregate UDF that uses a non-aggregate
+parameter. Inside the function definition, the aggregate `SUM` method takes the
+aggregate parameter `dividend`, while the non-aggregate division operator
+( `/` ) takes the non-aggregate parameter `divisor`.
 
-The following example creates a UDF.
+```sql
+CREATE TEMP AGGREGATE FUNCTION scaled_sum(dividend DOUBLE, divisor DOUBLE NOT AGGREGATE)
+AS (SUM(dividend) / divisor);
+SELECT scaled_sum(col1, 2) AS scaled_sum
+FROM (SELECT 1 AS col1 UNION ALL
+      SELECT 3 AS col1 UNION ALL
+      SELECT 5 AS col1);
+
++------------+
+| scaled_sum |
++------------+
+| 4.5        |
++------------+
+```
+
+The following example shows a SQL UDF that uses a
+[templated parameter][templated-parameters]. The resulting function
+accepts arguments of various types.
+
+```sql
+CREATE TEMP FUNCTION addFourAndDivideAny(x ANY TYPE, y ANY TYPE) AS (
+  (x + 4) / y
+);
+SELECT addFourAndDivideAny(3, 4) AS integer_output,
+       addFourAndDivideAny(1.59, 3.14) AS floating_point_output;
+
++----------------+-----------------------+
+| integer_output | floating_point_output |
++----------------+-----------------------+
+| 1.75           | 1.7802547770700636    |
++----------------+-----------------------+
+```
+
+The following example shows a SQL UDF that uses a
+[templated parameter][templated-parameters] to return the last
+element of an array of any type.
+
+```sql
+CREATE TEMP FUNCTION lastArrayElement(arr ANY TYPE) AS (
+  arr[ORDINAL(ARRAY_LENGTH(arr))]
+);
+SELECT
+  names[OFFSET(0)] AS first_name,
+  lastArrayElement(names) AS last_name
+FROM (
+  SELECT ['Fred', 'McFeely', 'Rogers'] AS names UNION ALL
+  SELECT ['Marie', 'Skłodowska', 'Curie']
+);
+
++------------+-----------+
+| first_name | last_name |
++------------+-----------+
+| Fred       | Rogers    |
+| Marie      | Curie     |
++------------+-----------+
+```
+
+### External UDFs
+
+An external UDF lets you specify external code libraries for the UDF.
+
+#### External UDF structure
+
+Create external UDFs using the following syntax.
+
+```sql
+CREATE
+  [ { TEMPORARY | TEMP } ] FUNCTION
+  function_name ( [ function_parameter [, ...] ] )
+  RETURNS data_type
+  LANGUAGE language_name AS string_literal
+
+function_parameter:
+  parameter_name data_type
+```
+
+This syntax consists of the following components:
+
++   `CREATE ... FUNCTION`: Creates a new function.
+     A function can contain zero or more
+    `function_parameter`s.
++   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
+     exists for the lifetime of the session.
++   `function_parameter`: A parameter for the fuction. A parameter
+    includes a name and a data type. The value of `data_type`
+    is a ZetaSQL [data type][data-types].
++   `RETURNS data_type`: Specifies the data type
+    that the function returns. See [Supported UDF data types][supported-external-udf-data-types]
+    for more information about allowed values for `data_type`.
++   `LANGUAGE ... AS`: Specify the language and code to use.
+     `language_name` represents the name of the language, such
+     as `js` for JavaScript. `string_literal` represents the code that defines
+     the function body.
+
+#### External UDF examples
+
+The following example creates a persistent UDF.
 
 ```sql
 CREATE FUNCTION multiplyInputs(x DOUBLE, y DOUBLE)
@@ -10595,8 +10895,7 @@ FROM numbers;
 +-----+-----+--------------+
 ```
 
-You can make this function temporary by using the `TEMP` or `TEMPORARY`
-keyword.
+The following example creates a temporary UDF.
 
 ```sql
 CREATE TEMP FUNCTION multiplyInputs(x DOUBLE, y DOUBLE)
@@ -10690,7 +10989,7 @@ FROM numbers;
 +-----+-----+--------------+
 ```
 
- The following example sums the values of all
+The following example sums the values of all
 fields named "foo" in the given JSON string.
 
 ```sql
@@ -10732,134 +11031,20 @@ FROM Input AS t;
 +---------------------------------------------------------------------+---------+
 ```
 
-#### Supported external UDF languages
-
-External UDFs support code written in JavaScript, which you specify using `js`
-as the `LANGUAGE`. For example:
-
-```sql
-CREATE TEMP FUNCTION greeting(a STRING)
-RETURNS STRING
-LANGUAGE js AS """
-  return "Hello, " + a + "!";
-  """;
-SELECT greeting(name) as everyone
-FROM UNNEST(["Hannah", "Max", "Jakob"]) AS name;
-
-+----------------+
-| everyone       |
-+----------------+
-| Hello, Hannah! |
-| Hello, Max!    |
-| Hello, Jakob!  |
-+----------------+
-```
-
-See [SQL type encodings in JavaScript](#sql-type-encodings-in-javascript) for
-information on how ZetaSQL data types map to JavaScript types.
-
-#### Supported external UDF data types
-
-For external UDFs, ZetaSQL supports the following data types:
-
-<ul>
-<li>ARRAY</li><li>BOOL</li><li>BYTES</li><li>DATE</li><li>DOUBLE</li><li>FLOAT</li><li>INT32</li><li>NUMERIC</li><li>STRING</li><li>STRUCT</li><li>TIMESTAMP</li>
-</ul>
-
-#### SQL type encodings in JavaScript
-
-Some SQL types have a direct mapping to JavaScript types, but others do not.
-
-Because JavaScript does not support a 64-bit integer type,
-`INT64` is unsupported as an input type for JavaScript
-UDFs. Instead, use `DOUBLE` to represent integer
-values as a number, or `STRING` to represent integer
-values as a string.
-
-ZetaSQL does support `INT64` as a return type
-in JavaScript UDFs. In this case, the JavaScript function body can return either
-a JavaScript Number or a String. ZetaSQL then converts either of
-these types to `INT64`.
-
-ZetaSQL represents types in the following manner:
-
-<table>
-<tr>
-<th>ZetaSQL Data Type</th>
-<th>JavaScript Data Type</th>
-</tr>
-
-<tr>
-<td>ARRAY</td>
-<td>ARRAY</td>
-</tr>
-
-<tr>
-<td>BOOL</td>
-<td>BOOLEAN</td>
-</tr>
-
-<tr>
-<td>BYTES</td>
-<td>base64-encoded STRING</td>
-</tr>
-
-<tr>
-<td>DOUBLE</td>
-<td>NUMBER</td>
-</tr>
-
-<tr>
-<td>FLOAT</td>
-<td>NUMBER</td>
-</tr>
-
-<tr>
-<td>NUMERIC</td>
-<td>If a NUMERIC value can be represented exactly as an
-  <a href="https://en.wikipedia.org/wiki/Floating-point_arithmetic#IEEE_754:_floating_point_in_modern_computers">IEEE 754 floating-point</a>
-  value and has no fractional part, it is encoded as a Number. These values are
-  in the range [-2<sup>53</sup>, 2<sup>53</sup>]. Otherwise, it is encoded as a
-  String.</td>
-</tr>
-
-<tr>
-<td>INT32</td>
-<td>NUMBER</td>
-</tr>
-
-<tr>
-<td>STRING</td>
-<td>STRING</td>
-</tr>
-
-<tr>
-<td>STRUCT</td>
-<td>OBJECT where each STRUCT field is a named field</td>
-</tr>
-
-<tr>
-<td>TIMESTAMP</td>
-<td>DATE with a microsecond field containing the <code>microsecond</code>
-fraction of the timestamp</td>
-</tr>
-
-<tr>
-<td>DATE</td>
-<td>DATE</td>
-</tr>
-
-<tr>
-<td>UINT32</td>
-<td>NUMBER</td>
-</tr>
-
-</table>
-
 #### Quoting rules
 
-You must enclose external code in quotes. For simple, one line code snippets,
-you can use a standard quoted string:
+You must enclose external code in quotes. There are a few options:
+
++ `"..."`: For simple, one line code snippets that don't contain quotes or
+  escaping, you can use a standard quoted string.
++ `"""..."""`: If the snippet contains quotes or multiple lines, use
+  triple-quoted blocks.
++ `R"""..."""`: If the snippet contains escaping, prefix a triple-quoted
+  block with an `R` to indicate that this is a raw string that should ignore
+  escaping rules. If you are not sure which quoting style to use, this one
+  will provide the most consistent results.
+
+**Examples**
 
 ```sql
 CREATE TEMP FUNCTION plusOne(x DOUBLE)
@@ -10867,7 +11052,7 @@ RETURNS DOUBLE
 LANGUAGE js
 AS "return x+1;";
 SELECT val, plusOne(val) AS result
-FROM UNNEST([1, 2, 3, 4, 5]) AS val;
+FROM UNNEST([1, 2, 3]) AS val;
 
 +-----------+-----------+
 | val       | result    |
@@ -10875,13 +11060,8 @@ FROM UNNEST([1, 2, 3, 4, 5]) AS val;
 | 1         | 2         |
 | 2         | 3         |
 | 3         | 4         |
-| 4         | 5         |
-| 5         | 6         |
 +-----------+-----------+
 ```
-
-In cases where the snippet contains quotes, or consists of multiple lines, use
-triple-quoted blocks:
 
 ```sql
 CREATE TEMP FUNCTION customGreeting(a STRING)
@@ -10905,138 +11085,28 @@ FROM UNNEST(["Hannah", "Max", "Jakob"]) AS names;
 +-----------------------+
 ```
 
-### SQL UDF structure
-
-Create SQL UDFs using the following syntax:
-
-<pre>
-CREATE [TEMPORARY | TEMP] [AGGREGATE] FUNCTION <span class="var">function_name</span> ([<span class="var">function_parameter</span>[, ...]])
-  [RETURNS <span class="var">data_type</span>]
-  AS (<span class="var">sql_expression</span>)
-
-<span class="var">function_parameter</span>:
-  <span class="var">param_name param_type</span> [NOT AGGREGATE]
-</pre>
-
-#### Aggregate UDF parameters
-
-An aggregate UDF can take aggregate or non-aggregate parameters. Like other
-[aggregate functions][aggregate-fns-link], aggregate UDFs normally aggregate
-parameters across all rows in a [group][group-by-link]. However, you can specify
-a parameter as non-aggregate with the `NOT AGGREGATE` keyword. A non-aggregate
-parameter is a scalar argument with a constant value for all rows in a group;
-for example, literals or grouping expressions are valid non-aggregate
-parameters. Inside the UDF definition, aggregate parameters can only appear as
-arguments to aggregate function calls. Non-aggregate parameters can appear
-anywhere in the UDF definition.
-
-#### Templated SQL UDF parameters
-
-A templated parameter can match more than one argument type at function call
-time. If a function signature includes a templated parameter, ZetaSQL
-allows function calls to pass one of several argument types to the function.
-
-SQL user-defined function signatures can contain the following templated
-`param_type` value:
-
-+ `ANY TYPE`. The function will accept an input of any type for this argument.
-  If more than one parameter has the type `ANY TYPE`, ZetaSQL does
-  not enforce any relationship between these arguments at the time of function
-  creation. However, passing the function arguments of types that are
-  incompatible with the function definition will result in an error at call
-  time.
-
-### SQL UDF examples
-
-The following example shows a UDF that employs a SQL function.
-
 ```sql
-CREATE TEMP FUNCTION addFourAndDivide(x INT64, y INT64) AS ((x + 4) / y);
-WITH numbers AS
-  (SELECT 1 as val
-  UNION ALL
-  SELECT 3 as val
-  UNION ALL
-  SELECT 4 as val
-  UNION ALL
-  SELECT 5 as val)
-SELECT val, addFourAndDivide(val, 2) AS result
-FROM numbers;
+CREATE TEMP FUNCTION plusOne(x STRING)
+RETURNS STRING
+LANGUAGE js AS R"""
+var re = /[a-z]/g;
+return x.match(re);
+""";
+SELECT val, plusOne(val) AS result
+FROM UNNEST(["ab-c", "d_e", "!"]) AS val;
 
-+-----+--------+
-| val | result |
-+-----+--------+
-| 1   | 2.5    |
-| 3   | 3.5    |
-| 4   | 4      |
-| 5   | 4.5    |
-+-----+--------+
++---------+
+| result  |
++---------+
+| [a,b,c] |
+| [d,e]   |
+| NULL    |
++---------+
 ```
 
-The following example shows an aggregate UDF that uses a non-aggregate
-parameter. Inside the function definition, the aggregate `SUM` method takes the
-aggregate parameter `dividend`, while the non-aggregate division operator
-( `/` ) takes the non-aggregate parameter `divisor`.
+#### Supported external UDF types {: #supported-external-udf-data-types }
 
-```sql
-CREATE TEMP AGGREGATE FUNCTION scaled_sum(dividend DOUBLE, divisor DOUBLE NOT AGGREGATE)
-AS (SUM(dividend) / divisor);
-SELECT scaled_sum(col1, 2) AS scaled_sum
-FROM (SELECT 1 AS col1 UNION ALL
-      SELECT 3 AS col1 UNION ALL
-      SELECT 5 AS col1
-);
-
-+------------+
-| scaled_sum |
-+------------+
-| 4.5        |
-+------------+
-```
-
-The following example shows a SQL UDF that uses a
-[templated parameter][templated-parameters]. The resulting function
-accepts arguments of various types.
-
-```sql
-CREATE TEMP FUNCTION addFourAndDivideAny(x ANY TYPE, y ANY TYPE) AS (
-  (x + 4) / y
-);
-SELECT addFourAndDivideAny(3, 4) AS integer_output,
-       addFourAndDivideAny(1.59, 3.14) AS floating_point_output;
-
-+----------------+-----------------------+
-| integer_output | floating_point_output |
-+----------------+-----------------------+
-| 1.75           | 1.7802547770700636    |
-+----------------+-----------------------+
-```
-
-The following example shows a SQL UDF that uses a
-[templated parameter][templated-parameters] to return the last
-element of an array of any type.
-
-```sql
-CREATE TEMP FUNCTION lastArrayElement(arr ANY TYPE) AS (
-  arr[ORDINAL(ARRAY_LENGTH(arr))]
-);
-SELECT
-  names[OFFSET(0)] AS first_name,
-  lastArrayElement(names) AS last_name
-FROM (
-  SELECT ['Fred', 'McFeely', 'Rogers'] AS names UNION ALL
-  SELECT ['Marie', 'Skłodowska', 'Curie']
-);
-
-+------------+-----------+
-| first_name | last_name |
-+------------+-----------+
-| Fred       | Rogers    |
-| Marie      | Curie     |
-+------------+-----------+
-```
-
-### Table-valued functions {#tvfs}
+### TVFs {#tvfs}
 
 A *table-valued function* (TVF) is a function that returns an entire output
 table instead of a single scalar value, and appears in the FROM clause like a
@@ -11047,21 +11117,52 @@ table subquery.
 You create a TVF using the following structure.
 
 ```sql
-CREATE TEMPORARY | TEMP TABLE FUNCTION function_name
-  ([argument_name data_type][, ...]*)
-  [RETURNS TABLE<argument_name data_type [, ...]*>]
-  [[LANGUAGE language AS """body"""] | [AS SELECT...]];
+CREATE
+  { TEMPORARY | TEMP } TABLE FUNCTION
+  function_name ( [ function_parameter  [, ...] ] )
+  [ RETURNS TABLE < column_declaration [, ...] > ]
+  [ { AS query | LANGUAGE language_name AS string_literal } ]
+
+function_parameter:
+  parameter_name { data_type | ANY TABLE }
+
+column_declaration:
+  column_name data_type
 ```
+
++   `CREATE ... TABLE FUNCTION`: Creates a new
+    [table-valued function][table-valued function] function.
+    A function can contain zero or more
+    `function_parameter`s.
++   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
+     exists for the lifetime of the session.
++   `function_parameter`: A parameter for the fuction. A parameter
+    includes a name and a data type. The value of `data_type`
+    is a ZetaSQL [data type][data-types].
+    The value of `data_type` may also be `ANY TABLE`.
++   `RETURNS TABLE`: Specifies the schema of the table that a table-valued
+    function returns as a comma-separated list of `column_name` and `TYPE`
+    pairs. If `RETURNS TABLE` is absent, ZetaSQL infers the
+    output schema from the `AS query` statement in the function body.
++   `AS query`: If you want to create a SQL TVF, specifies the SQL query to run.
++   `LANGUAGE ... AS`: If you want to create an external TVF, specifies the
+    language and code to use.
+    `language_name` represents the name of the language, such
+    as `js` for JavaScript. `string_literal` represents the code that defines
+    the function body.
 
 #### Specifying TVF arguments {#tvf-arguments}
 
-An argument to a TVF can be of any supported ZetaSQL type or a table.
+When a TVF with parameters is called, arguments must be passed in for all
+parameters that do not have defaults. An argument can be of any supported
+ZetaSQL type or table, but must be coercible to the related
+function parameter's type.
 
 Specify a table argument the same way you specify the fields of a
 [STRUCT][data-types-struct].
 
 ```sql
-argument_name TABLE<column_name data_type , column_name data_type [, ...]*>
+parameter_name TABLE<column_name data_type [, ...]>
 ```
 
 The table argument can specify a [value table][datamodel-value-tables],
@@ -11070,7 +11171,7 @@ is a single column of a specific type. To specify a value table as an argument,
 include only the `data_type`, leaving out the `column_name`:
 
 ```sql
-argument_name TABLE<data_type>
+parameter_name TABLE<data_type>
 ```
 
 In many cases, the `data_type` of the single column in the value table is a
@@ -11084,7 +11185,7 @@ CREATE TEMP TABLE FUNCTION AggregatedMovieLogs(
 The function body can refer directly to fields within the proto.
 
 You have the option to specify the input table using the templated type `ANY
-TABLE` in place of `TABLE<column_name data_type [, ...]*>`. This option enables
+TABLE` in place of `TABLE<column_name data_type [, ...]>`. This option enables
 you to create a polymorphic TVF that accepts any table as input.
 
 **Example**
@@ -11122,9 +11223,9 @@ parameter][templated-parameters] values for `param_type`:
   incompatible with the function definition will result in an error at call
   time.
 + `ANY TABLE`. The function will accept an
-argument of any relation type for this argument. However, passing the function
-arguments of types that are incompatible with the function definition will
-result in an error at call time.
+  argument of any relation type for this argument. However, passing the function
+  arguments of types that are incompatible with the function definition will
+  result in an error at call time.
 
 **Examples**
 
@@ -11140,7 +11241,6 @@ CREATE TEMP TABLE FUNCTION MyFunction(
      SELECT *
      FROM third
      WHERE first > second;
-
 ```
 
 The following function accepts two integers and a table with any set of columns
@@ -11181,6 +11281,10 @@ FROM CustomerRangeWithCustomerType(100, 200, 'CUSTOMER_TYPE_ADVERTISER');
 [aggregate-udf-parameters]: #aggregate-udf-parameters
 [templated-parameters]: #templated-sql-udf-parameters
 [supported-external-udf-data-types]: #supported-external-udf-data-types
+[ext-udf-syntax]: #external-udf-structure
+[sql-udf-syntax]: #sql-udf-structure
+[tvf-syntax]: #tvf-structure
+[javascript-data-types]: #supported-javascript-udf-data-types
 [data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
 [data-types-struct]: https://github.com/google/zetasql/blob/master/docs/data-types#struct_type
 [datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#value-tables
@@ -11352,7 +11456,7 @@ supports.
 #### ANY_VALUE
 
 ```
-ANY_VALUE(expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+ANY_VALUE(expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -11375,17 +11479,10 @@ The clauses are applied *in the following order*:
 1.  `OVER`: Specifies a window. See
     [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -11426,7 +11523,7 @@ FROM UNNEST(["apple", "banana", "pear"]) as fruit;
 
 #### ARRAY_AGG
 ```
-ARRAY_AGG([DISTINCT] expression [{IGNORE|RESPECT} NULLS] [HAVING (MAX | MIN) expression2]
+ARRAY_AGG([DISTINCT] expression [{IGNORE|RESPECT} NULLS] [HAVING {MAX | MIN} expression2]
           [ORDER BY key [{ASC|DESC}] [, ... ]]  [LIMIT n])
 [OVER (...)]
 ```
@@ -11453,16 +11550,8 @@ The clauses are applied *in the following order*:
     specified or if neither is specified,
     the NULL values are included in the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 1.  `ORDER BY`: Specifies the order of the values.
     *   For each sort key, the default sort direction is `ASC`.
     *   NULLs: In the context of the `ORDER BY` clause, NULLs are the minimum
@@ -11480,6 +11569,7 @@ The clauses are applied *in the following order*:
     result.
     The limit `n` must be a constant INT64.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -11582,7 +11672,7 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 #### ARRAY_CONCAT_AGG
 
 ```
-ARRAY_CONCAT_AGG(expression [HAVING (MAX | MIN) expression2]  [ORDER BY key [{ASC|DESC}] [, ... ]]  [LIMIT n])
+ARRAY_CONCAT_AGG(expression [HAVING {MAX | MIN} expression2]  [ORDER BY key [{ASC|DESC}] [, ... ]]  [LIMIT n])
 ```
 
 **Description**
@@ -11601,15 +11691,8 @@ ARRAY
 The clauses are applied *in the following order*:
 
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 1.  `ORDER BY`: Specifies the order of the values.
     *   For each sort key, the default sort direction is `ASC`.
     *   NULLs: In the context of the `ORDER BY` clause, NULLs are the minimum
@@ -11628,6 +11711,7 @@ The clauses are applied *in the following order*:
     array is not counted.
     The limit `n` must be a constant INT64.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -11702,7 +11786,7 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x) LIMIT 2) AS array_concat_agg 
 
 #### AVG
 ```
-AVG([DISTINCT] expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+AVG([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -11725,17 +11809,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -11792,7 +11869,7 @@ FROM UNNEST([0, 2, NULL, 4, 4, 5]) AS x;
 
 #### BIT_AND
 ```
-BIT_AND([DISTINCT] expression [HAVING (MAX | MIN) expression2])
+BIT_AND([DISTINCT] expression [HAVING {MAX | MIN} expression2])
 ```
 
 **Description**
@@ -11813,16 +11890,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -11847,7 +11918,7 @@ SELECT BIT_AND(x) as bit_and FROM UNNEST([0xF001, 0x00A1]) as x;
 
 #### BIT_OR
 ```
-BIT_OR([DISTINCT] expression [HAVING (MAX | MIN) expression2])
+BIT_OR([DISTINCT] expression [HAVING {MAX | MIN} expression2])
 ```
 
 **Description**
@@ -11868,16 +11939,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -11902,7 +11967,7 @@ SELECT BIT_OR(x) as bit_or FROM UNNEST([0xF001, 0x00A1]) as x;
 
 #### BIT_XOR
 ```
-BIT_XOR([DISTINCT] expression [HAVING (MAX | MIN) expression2])
+BIT_XOR([DISTINCT] expression [HAVING {MAX | MIN} expression2])
 ```
 
 **Description**
@@ -11923,16 +11988,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -11984,7 +12043,7 @@ COUNT(*)  [OVER (...)]
 
 2.
 ```
-COUNT([DISTINCT] expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+COUNT([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -12006,17 +12065,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -12079,7 +12131,7 @@ FROM UNNEST([1, 4, NULL, 4, 5]) AS x;
 
 #### COUNTIF
 ```
-COUNTIF([DISTINCT] expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+COUNTIF([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -12100,17 +12152,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -12157,7 +12202,7 @@ FROM UNNEST([5, -2, 3, 6, -10, NULL, -7, 4, 0]) AS x;
 
 #### LOGICAL_AND
 ```
-LOGICAL_AND(expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+LOGICAL_AND(expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -12176,17 +12221,10 @@ The clauses are applied *in the following order*:
 1.  `OVER`: Specifies a window. See
     [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -12211,7 +12249,7 @@ SELECT LOGICAL_AND(x) AS logical_and FROM UNNEST([true, false, true]) AS x;
 
 #### LOGICAL_OR
 ```
-LOGICAL_OR(expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+LOGICAL_OR(expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -12230,17 +12268,10 @@ The clauses are applied *in the following order*:
 1.  `OVER`: Specifies a window. See
     [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -12265,7 +12296,7 @@ SELECT LOGICAL_OR(x) AS logical_or FROM UNNEST([true, false, true]) AS x;
 
 #### MAX
 ```
-MAX(expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+MAX(expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -12288,17 +12319,10 @@ The clauses are applied *in the following order*:
 1.  `OVER`: Specifies a window. See
     [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -12340,7 +12364,7 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 
 #### MIN
 ```
-MIN(expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+MIN(expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -12363,17 +12387,10 @@ The clauses are applied *in the following order*:
 1.  `OVER`: Specifies a window. See
     [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -12415,7 +12432,7 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 
 #### STRING_AGG
 ```
-STRING_AGG([DISTINCT] expression [, delimiter] [HAVING (MAX | MIN) expression2]  [ORDER BY key [{ASC|DESC}] [, ... ]]  [LIMIT n])
+STRING_AGG([DISTINCT] expression [, delimiter] [HAVING {MAX | MIN} expression2]  [ORDER BY key [{ASC|DESC}] [, ... ]]  [LIMIT n])
 [OVER (...)]
 ```
 
@@ -12441,16 +12458,8 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 1.  `ORDER BY`: Specifies the order of the values.
     *   For each sort key, the default sort direction is `ASC`.
     *   NULLs: In the context of the `ORDER BY` clause, NULLs are the minimum
@@ -12471,6 +12480,7 @@ The clauses are applied *in the following order*:
     as 1. A NULL string is not counted.
     The limit `n` must be a constant INT64.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -12569,7 +12579,7 @@ FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 
 #### SUM
 ```
-SUM([DISTINCT] expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+SUM([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -12592,17 +12602,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -12695,6 +12698,82 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 +---+-----+
 ```
 
+#### Common clauses
+
+##### HAVING MAX and HAVING MIN clause {: #max_min_clause }
+
+Most aggregate functions support two optional clauses called `HAVING MAX` and
+`HAVING MIN`, which restricts the set of rows that a function aggregates to
+rows that have a maximal or minimal value in a particular column. The syntax
+generally looks like this:
+
+```sql
+aggregate_function(expression1 [HAVING {MAX | MIN} expression2])
+```
+
++ `HAVING MAX`: Restricts the set of rows that the
+  function aggregates to those having a value for `expression2` equal to the
+  maximum value for `expression2` within the group. The  maximum value is
+  equal to the result of `MAX(expression2)`.
++ `HAVING MIN` Restricts the set of rows that the
+  function aggregates to those having a value for `expression2` equal to the
+  minimum value for `expression2` within the group. The minimum value is
+  equal to the result of `MIN(expression2)`.
+
+These clauses ignore `NULL` values when computing the maximum or minimum
+value unless `expression2` evaluates to `NULL` for all rows.
+
+ These clauses do not support the following
+data types:
+`ARRAY`
+`STRUCT`
+`PROTO`
+
+**Example**
+
+In this example, the average rainfall is returned for the most recent year,
+2001.
+
+```sql
+WITH Precipitation AS
+ (SELECT 2001 as year, 'spring' as season, 9 as inches UNION ALL
+  SELECT 2001, 'winter', 1 UNION ALL
+  SELECT 2000, 'fall', 3 UNION ALL
+  SELECT 2000, 'summer', 5 UNION ALL
+  SELECT 2000, 'spring', 7 UNION ALL
+  SELECT 2000, 'winter', 2)
+SELECT AVG(inches HAVING MAX year) as average FROM Precipitation
+
++---------+
+| average |
++---------+
+| 5       |
++---------+
+```
+
+First, the query gets the rows with the maximum value in the `year` column.
+There are two:
+
+```sql
++------+--------+--------+
+| year | season | inches |
++------+--------+--------+
+| 2001 | spring | 9      |
+| 2001 | winter | 1      |
++------+--------+--------+
+```
+
+Finally, the query averages the values in the `inches` column (9 and 1) with
+this result:
+
+```sql
++---------+
+| average |
++---------+
+| 5       |
++---------+
+```
+
 ## Aggregate Analytic Functions
 
 The following sections describe the aggregate analytic functions that
@@ -12778,6 +12857,7 @@ Any data type **except**:
 `STRUCT`
 `PROTO`
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -12804,7 +12884,7 @@ FROM UNNEST([0, 1, 1, 2, 3, 5]) as x;
 #### APPROX_QUANTILES
 
 ```
-APPROX_QUANTILES([DISTINCT] expression, number [{IGNORE|RESPECT} NULLS] [HAVING (MAX | MIN) expression2])
+APPROX_QUANTILES([DISTINCT] expression, number [{IGNORE|RESPECT} NULLS] [HAVING {MAX | MIN} expression2])
 ```
 
 **Description**
@@ -12835,16 +12915,10 @@ The clauses are applied *in the following order*:
     specified,
     the NULL values are included in the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -12919,7 +12993,7 @@ FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 #### APPROX_TOP_COUNT
 
 ```
-APPROX_TOP_COUNT(expression, number [HAVING (MAX | MIN) expression2])
+APPROX_TOP_COUNT(expression, number [HAVING {MAX | MIN} expression2])
 ```
 
 **Description**
@@ -12936,16 +13010,10 @@ specifies the number of elements returned.
 **Optional Clause**
 
 `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -12993,7 +13061,7 @@ FROM UNNEST([NULL, "pear", "pear", "pear", "apple", NULL]) as x;
 #### APPROX_TOP_SUM
 
 ```
-APPROX_TOP_SUM(expression, weight, number [HAVING (MAX | MIN) expression2])
+APPROX_TOP_SUM(expression, weight, number [HAVING {MAX | MIN} expression2])
 ```
 
 **Description**
@@ -13023,16 +13091,10 @@ If the `weight` input is negative or `NaN`, this function returns an error.
 **Optional Clause**
 
 `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -13413,6 +13475,7 @@ that allows you to retrieve values whose ranks are within
 + `input`: `INT64`
 + `precision`: `INT64`
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -13439,6 +13502,7 @@ Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
 + `input`: `UINT64`
 + `precision`: `INT64`
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -13469,6 +13533,7 @@ Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
 + `input`: `DOUBLE`
 + `precision`: `INT64`
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -13605,6 +13670,7 @@ median, and maximum values in the input sketches.
 Takes KLL16 sketches as `BYTES`, initialized on data
 of type `INT64`.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -13631,6 +13697,7 @@ Like [`KLL_QUANTILES.MERGE_INT64`](#kll-quantilesmerge-int64), but accepts
 Takes KLL16 sketches as `BYTES`, initialized on data
 of type `UINT64`.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -13661,6 +13728,7 @@ Like [`KLL_QUANTILES.MERGE_INT64`](#kll-quantilesmerge-int64), but accepts
 Takes KLL16 sketches as `BYTES`, initialized on data
 of type `DOUBLE`.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -13729,6 +13797,7 @@ percentile of the merged sketch.
   data of type `INT64`.
 + `phi` is a `DOUBLE` between 0 and 1.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -13756,6 +13825,7 @@ accepts `input` of type `UINT64`.
   data of type `UINT64`.
 + `phi` is a `DOUBLE` between 0 and 1.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -13787,6 +13857,7 @@ accepts `input` of type `DOUBLE`.
   data of type `DOUBLE`.
 + `phi` is a `DOUBLE` between 0 and 1.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -16089,6 +16160,8 @@ CONCAT(value1[, ...])
 Concatenates one or more values into a single result. All values must be
 `BYTES` or data types that can be cast to `STRING`.
 
+The function returns `NULL` if any input argument is `NULL`.
+
 Note: You can also use the
 [|| concatenation operator][string-link-to-operators] to concatenate
 values into a string.
@@ -16857,6 +16930,7 @@ WITH Input AS (
 )
 SELECT hex_str, FROM_HEX(hex_str) AS bytes_str
 FROM Input;
+
 +------------------+----------------------------------+
 | hex_str          | bytes_str                        |
 +------------------+----------------------------------+
@@ -18190,11 +18264,12 @@ WITH Input AS (
 )
 SELECT byte_str, TO_HEX(byte_str) AS hex_str
 FROM Input;
+
 +----------------------------------+------------------+
 | byte_string                      | hex_string       |
 +----------------------------------+------------------+
-| foobar                           | 666f6f626172     |
 | \x00\x01\x02\x03\xaa\xee\xef\xff | 00010203aaeeefff |
+| foobar                           | 666f6f626172     |
 +----------------------------------+------------------+
 ```
 
@@ -20569,7 +20644,7 @@ calculates the first column using weeks that begin on Sunday, and it calculates
 the second column using weeks that begin on Monday.
 
 ```sql
-WITH table AS (SELECT DATETIME(TIMESTAMP '2017-11-05 00:00:00-8') AS datetime)
+WITH table AS (SELECT DATETIME(TIMESTAMP "2017-11-05 00:00:00+00", "UTC") AS datetime)
 SELECT
   datetime,
   EXTRACT(WEEK(SUNDAY) FROM datetime) AS week_sunday,
@@ -20579,7 +20654,7 @@ FROM table;
 +---------------------+-------------+---------------+
 | datetime            | week_sunday | week_monday   |
 +---------------------+-------------+---------------+
-| 2017-11-06 00:00:00 | 45          | 44            |
+| 2017-11-05 00:00:00 | 45          | 44            |
 +---------------------+-------------+---------------+
 ```
 
@@ -20758,7 +20833,7 @@ second `DATETIME` belongs to the ISO year 2015. The first Thursday of the 2015
 calendar year was 2015-01-01, so the ISO year 2015 begins on the preceding
 Monday, 2014-12-29.
 
-```
+```sql
 SELECT
   DATETIME_DIFF('2017-12-30 00:00:00',
     '2014-12-30 00:00:00', YEAR) AS year_diff,
@@ -20779,7 +20854,7 @@ part uses weeks that begin on Sunday. `DATETIME_DIFF` with the date part
 `WEEK(MONDAY)` returns 1. `DATETIME_DIFF` with the date part
 `ISOWEEK` also returns 1 because ISO weeks begin on Monday.
 
-```
+```sql
 SELECT
   DATETIME_DIFF('2017-12-18', '2017-12-17', WEEK) AS week_diff,
   DATETIME_DIFF('2017-12-18', '2017-12-17', WEEK(MONDAY)) AS week_weekday_diff,
@@ -20854,7 +20929,7 @@ preceding Monday.
 SELECT
  datetime AS original,
  DATETIME_TRUNC(datetime, WEEK(MONDAY)) AS truncated
-FROM (SELECT DATETIME(TIMESTAMP '2017-11-05 00:00:00') AS datetime);
+FROM (SELECT DATETIME(TIMESTAMP "2017-11-05 00:00:00+00", "UTC") AS datetime);
 
 +---------------------+---------------------+
 | original            | truncated           |
@@ -20872,7 +20947,7 @@ Gregorian calendar year. The first Thursday of the 2015 calendar year was
 Therefore the ISO year boundary preceding the `datetime_expression`
 2015-06-15 00:00:00 is 2014-12-29.
 
-```
+```sql
 SELECT
   DATETIME_TRUNC('2015-06-15 00:00:00', ISOYEAR) AS isoyear_boundary,
   EXTRACT(ISOYEAR FROM DATETIME '2015-06-15 00:00:00') AS isoyear_number;
@@ -20973,6 +21048,10 @@ of `%s`, `%C`, and `%y` in
 Note: This function supports [format elements][datetime-functions-link-to-supported-format-elements-for-datetime],
 but does not have full support for `%Q`, `%a`, `%A`, `%g`, `%G`, `%j`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
+**Return Data Type**
+
+DATETIME
+
 **Examples**
 
 The following example parses a `STRING` literal as a
@@ -20980,11 +21059,7 @@ The following example parses a `STRING` literal as a
 
 ```sql
 SELECT PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '1998-10-18 13:45:55') AS datetime;
-```
 
-The above query returns the following output:
-
-```
 +---------------------+
 | datetime            |
 +---------------------+
@@ -20999,21 +21074,13 @@ containing a date in a natural language format as a
 ```sql
 SELECT PARSE_DATETIME('%A, %B %e, %Y','Wednesday, December 19, 2018')
   AS datetime;
-```
 
-The above query returns the following output:
-
-```
 +---------------------+
 | datetime            |
 +---------------------+
 | 2018-12-19 00:00:00 |
 +---------------------+
 ```
-
-**Return Data Type**
-
-DATETIME
 
 #### Supported format elements for DATETIME
 
@@ -21760,11 +21827,11 @@ TIMESTAMP
 ```sql
 SELECT CURRENT_TIMESTAMP() as now;
 
-+----------------------------------+
-| now                              |
-+----------------------------------+
-| 2016-05-16 18:12:47.145482639+00 |
-+----------------------------------+
++---------------------------------------------+
+| now                                         |
++---------------------------------------------+
+| 2020-06-02 17:00:53.110 America/Los_Angeles |
++---------------------------------------------+
 ```
 
 #### EXTRACT
@@ -21830,15 +21897,17 @@ In the following example, `EXTRACT` returns a value corresponding to the `DAY`
 time part.
 
 ```sql
-SELECT EXTRACT(DAY
-  FROM TIMESTAMP "2008-12-25 15:30:00" AT TIME ZONE "America/Los_Angeles")
-  AS the_day;
+WITH Input AS (SELECT TIMESTAMP("2008-12-25 05:30:00+00") AS timestamp_value)
+SELECT
+  EXTRACT(DAY FROM timestamp_value AT TIME ZONE "UTC") AS the_day_utc,
+  EXTRACT(DAY FROM timestamp_value AT TIME ZONE "America/Los_Angeles") AS the_day_california
+FROM Input
 
-+------------+
-| the_day    |
-+------------+
-| 25         |
-+------------+
++-------------+--------------------+
+| the_day_utc | the_day_california |
++-------------+--------------------+
+| 25          | 24                 |
++-------------+--------------------+
 ```
 
 In the following example, `EXTRACT` returns values corresponding to different
@@ -21846,51 +21915,53 @@ time parts from a column of timestamps.
 
 ```sql
 WITH Timestamps AS (
-  SELECT TIMESTAMP '2005-01-03 12:34:56' AS timestamp UNION ALL
-  SELECT TIMESTAMP '2007-12-31' UNION ALL
-  SELECT TIMESTAMP '2009-01-01' UNION ALL
-  SELECT TIMESTAMP '2009-12-31' UNION ALL
-  SELECT TIMESTAMP '2017-01-02' UNION ALL
-  SELECT TIMESTAMP '2017-05-26'
+  SELECT TIMESTAMP("2005-01-03 12:34:56+00") AS timestamp_value UNION ALL
+  SELECT TIMESTAMP("2007-12-31 12:00:00+00") UNION ALL
+  SELECT TIMESTAMP("2009-01-01 12:00:00+00") UNION ALL
+  SELECT TIMESTAMP("2009-12-31 12:00:00+00") UNION ALL
+  SELECT TIMESTAMP("2017-01-02 12:00:00+00") UNION ALL
+  SELECT TIMESTAMP("2017-05-26 12:00:00+00")
 )
 SELECT
-  timestamp,
-  EXTRACT(ISOYEAR FROM timestamp) AS isoyear,
-  EXTRACT(ISOWEEK FROM timestamp) AS isoweek,
-  EXTRACT(YEAR FROM timestamp) AS year,
-  EXTRACT(WEEK FROM timestamp) AS week
+  timestamp_value,
+  EXTRACT(ISOYEAR FROM timestamp_value) AS isoyear,
+  EXTRACT(ISOWEEK FROM timestamp_value) AS isoweek,
+  EXTRACT(YEAR FROM timestamp_value) AS year,
+  EXTRACT(WEEK FROM timestamp_value) AS week
 FROM Timestamps
-ORDER BY timestamp;
+ORDER BY timestamp_value;
 
-+------------------------+---------+---------+------+------+
-| timestamp              | isoyear | isoweek | year | week |
-+------------------------+---------+---------+------+------+
-| 2005-01-03 12:34:56+00 | 2005    | 1       | 2005 | 1    |
-| 2007-12-31 00:00:00+00 | 2008    | 1       | 2007 | 52   |
-| 2009-01-01 00:00:00+00 | 2009    | 1       | 2009 | 0    |
-| 2009-12-31 00:00:00+00 | 2009    | 53      | 2009 | 52   |
-| 2017-01-02 00:00:00+00 | 2017    | 1       | 2017 | 1    |
-| 2017-05-26 00:00:00+00 | 2017    | 21      | 2017 | 21   |
-+------------------------+---------+---------+------+------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+---------+---------+------+------+
+| timestamp_value                             | isoyear | isoweek | year | week |
++---------------------------------------------+---------+---------+------+------+
+| 2005-01-03 04:34:56.000 America/Los_Angeles | 2005    | 1       | 2005 | 1    |
+| 2007-12-31 04:00:00.000 America/Los_Angeles | 2008    | 1       | 2007 | 52   |
+| 2009-01-01 04:00:00.000 America/Los_Angeles | 2009    | 1       | 2009 | 0    |
+| 2009-12-31 04:00:00.000 America/Los_Angeles | 2009    | 53      | 2009 | 52   |
+| 2017-01-02 04:00:00.000 America/Los_Angeles | 2017    | 1       | 2017 | 1    |
+| 2017-05-26 05:00:00.000 America/Los_Angeles | 2017    | 21      | 2017 | 21   |
++---------------------------------------------+---------+---------+------+------+
 ```
 
-In the following example, `timestamp_expression` falls on a Sunday. `EXTRACT`
+In the following example, `timestamp_expression` falls on a Monday. `EXTRACT`
 calculates the first column using weeks that begin on Sunday, and it calculates
 the second column using weeks that begin on Monday.
 
 ```sql
-WITH table AS (SELECT TIMESTAMP('2017-11-05 00:00:00') AS timestamp)
+WITH table AS (SELECT TIMESTAMP("2017-11-06 00:00:00+00") AS timestamp_value)
 SELECT
-  timestamp,
-  EXTRACT(WEEK(SUNDAY) FROM timestamp) AS week_sunday,
-  EXTRACT(WEEK(MONDAY) FROM timestamp) AS week_monday
+  timestamp_value,
+  EXTRACT(WEEK(SUNDAY) FROM timestamp_value) AS week_sunday,
+  EXTRACT(WEEK(MONDAY) FROM timestamp_value) AS week_monday
 FROM table;
 
-+------------------------+-------------+---------------+
-| timestamp              | week_sunday | week_monday   |
-+------------------------+-------------+---------------+
-| 2017-11-05 00:00:00+00 | 45          | 44            |
-+------------------------+-------------+---------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+-------------+---------------+
+| timestamp_value                             | week_sunday | week_monday   |
++---------------------------------------------+-------------+---------------+
+| 2017-11-05 16:00:00.000 America/Los_Angeles | 45          | 44            |
++---------------------------------------------+-------------+---------------+
 ```
 
 #### STRING
@@ -21913,12 +21984,12 @@ on how to specify a time zone.
 **Example**
 
 ```sql
-SELECT STRING(TIMESTAMP "2008-12-25 15:30:00", "America/Los_Angeles") as string;
+SELECT STRING(TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS string;
 
 +-------------------------------+
 | string                        |
 +-------------------------------+
-| 2008-12-25 07:30:00-08        |
+| 2008-12-25 15:30:00+00        |
 +-------------------------------+
 ```
 
@@ -21956,80 +22027,59 @@ TIMESTAMP
 
 **Examples**
 
-In these examples, a time zone is specified.
-
 ```sql
-SELECT CAST(
-  TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles") AS STRING
-) AS timestamp_str;
+SELECT TIMESTAMP("2008-12-25 15:30:00+00") AS timestamp_str;
 
-+------------------------+
-| timestamp_str          |
-+------------------------+
-| 2008-12-25 23:30:00+00 |
-+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+
+| timestamp_str                               |
++---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles |
++---------------------------------------------+
 ```
 
 ```sql
-SELECT CAST(
-  TIMESTAMP("2008-12-25 15:30:00 America/Los_Angeles") AS STRING
-) AS timestamp_str_timezone;
+SELECT TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles") AS timestamp_str;
 
-+------------------------+
-| timestamp_str_timezone |
-+------------------------+
-| 2008-12-25 23:30:00+00 |
-+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+
+| timestamp_str                               |
++---------------------------------------------+
+| 2008-12-25 15:30:00.000 America/Los_Angeles |
++---------------------------------------------+
 ```
 
 ```sql
-SELECT CAST(
-  TIMESTAMP(DATETIME "2008-12-25 15:30:00", "America/Los_Angeles") AS STRING
-) AS timestamp_datetime;
+SELECT TIMESTAMP("2008-12-25 15:30:00 UTC") AS timestamp_str;
 
-+------------------------+
-| timestamp_datetime     |
-+------------------------+
-| 2008-12-25 23:30:00+00 |
-+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+
+| timestamp_str                               |
++---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles |
++---------------------------------------------+
 ```
 
 ```sql
-SELECT CAST(
-  TIMESTAMP(DATE "2008-12-25", "America/Los_Angeles") AS STRING
-) AS timestamp_date;
+SELECT TIMESTAMP(DATETIME "2008-12-25 15:30:00") AS timestamp_datetime;
 
-+------------------------+
-| timestamp_date         |
-+------------------------+
-| 2008-12-25 08:00:00+00 |
-+------------------------+
-```
-
-In these examples, assume that the default time zone is UTC.
-
-```sql
-SELECT CAST(
-  TIMESTAMP("2008-12-25 15:30:00") AS STRING
-) AS timestamp_str;
-
-+------------------------+
-| timestamp_str          |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+
+| timestamp_str                               |
++---------------------------------------------+
+| 2008-12-25 15:30:00.000 America/Los_Angeles |
++---------------------------------------------+
 ```
 
 ```sql
-SELECT CAST(
-  TIMESTAMP(DATE "2008-12-25") AS STRING
-) AS timestamp_date;
+SELECT TIMESTAMP(DATE "2008-12-25") AS timestamp_date;
 
-+------------------------+
-| timestamp_date         |
-+------------------------+
-| 2008-12-25 00:00:00+00 |
-+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+
+| timestamp_str                               |
++---------------------------------------------+
+| 2008-12-25 00:00:00.000 America/Los_Angeles |
++---------------------------------------------+
 ```
 
 #### TIMESTAMP_ADD
@@ -22063,14 +22113,15 @@ TIMESTAMP
 
 ```sql
 SELECT
-  TIMESTAMP "2008-12-25 15:30:00 UTC" as original,
-  TIMESTAMP_ADD(TIMESTAMP "2008-12-25 15:30:00 UTC", INTERVAL 10 MINUTE) AS later;
+  TIMESTAMP("2008-12-25 15:30:00+00") AS original,
+  TIMESTAMP_ADD(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE) AS later;
 
-+------------------------+------------------------+
-| original               | later                  |
-+------------------------+------------------------+
-| 2008-12-25 15:30:00+00 | 2008-12-25 15:40:00+00 |
-+------------------------+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+---------------------------------------------+
+| original                                    | later                                       |
++---------------------------------------------+---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles | 2008-12-25 07:40:00.000 America/Los_Angeles |
++---------------------------------------------+---------------------------------------------+
 ```
 
 #### TIMESTAMP_SUB
@@ -22104,14 +22155,15 @@ TIMESTAMP
 
 ```sql
 SELECT
-  TIMESTAMP "2008-12-25 15:30:00 UTC" as original,
-  TIMESTAMP_SUB(TIMESTAMP "2008-12-25 15:30:00 UTC", INTERVAL 10 MINUTE) AS earlier;
+  TIMESTAMP("2008-12-25 15:30:00+00") AS original,
+  TIMESTAMP_SUB(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE) AS earlier;
 
-+------------------------+------------------------+
-| original               | earlier                |
-+------------------------+------------------------+
-| 2008-12-25 15:30:00+00 | 2008-12-25 15:20:00+00 |
-+------------------------+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+---------------------------------------------+
+| original                                    | earlier                                     |
++---------------------------------------------+---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles | 2008-12-25 07:20:00.000 America/Los_Angeles |
++---------------------------------------------+---------------------------------------------+
 ```
 
 #### TIMESTAMP_DIFF
@@ -22155,16 +22207,16 @@ INT64
 
 ```sql
 SELECT
-  TIMESTAMP "2010-07-07 10:20:00 UTC" as later_timestamp,
-  TIMESTAMP "2008-12-25 15:30:00 UTC" as earlier_timestamp,
-  TIMESTAMP_DIFF(TIMESTAMP "2010-07-07 10:20:00 UTC",
-    TIMESTAMP "2008-12-25 15:30:00 UTC", HOUR) AS hours;
+  TIMESTAMP("2010-07-07 10:20:00+00") AS later_timestamp,
+  TIMESTAMP("2008-12-25 15:30:00+00") AS earlier_timestamp,
+  TIMESTAMP_DIFF(TIMESTAMP "2010-07-07 10:20:00+00", TIMESTAMP "2008-12-25 15:30:00+00", HOUR) AS hours;
 
-+------------------------+------------------------+-------+
-| later_timestamp        | earlier_timestamp      | hours |
-+------------------------+------------------------+-------+
-| 2010-07-07 10:20:00+00 | 2008-12-25 15:30:00+00 | 13410 |
-+------------------------+------------------------+-------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+---------------------------------------------+-------+
+| later_timestamp                             | earlier_timestamp                           | hours |
++---------------------------------------------+---------------------------------------------+-------+
+| 2010-07-07 03:20:00.000 America/Los_Angeles | 2008-12-25 07:30:00.000 America/Los_Angeles | 13410 |
++---------------------------------------------+---------------------------------------------+-------+
 ```
 
 In the following example, the first timestamp occurs before the second
@@ -22249,14 +22301,15 @@ TIMESTAMP
 
 ```sql
 SELECT
-  TIMESTAMP_TRUNC(TIMESTAMP '2008-12-25 15:30:00', DAY, 'UTC') as utc,
-  TIMESTAMP_TRUNC(TIMESTAMP '2008-12-25 15:30:00', DAY, 'America/Los_Angeles') as la;
+  TIMESTAMP_TRUNC(TIMESTAMP "2008-12-25 15:30:00+00", DAY, "UTC") AS utc,
+  TIMESTAMP_TRUNC(TIMESTAMP "2008-12-25 15:30:00+00", DAY, "America/Los_Angeles") AS la;
 
-+------------------------+------------------------+
-| utc                    | la                     |
-+------------------------+------------------------+
-| 2008-12-25 00:00:00+00 | 2008-12-25 08:00:00+00 |
-+------------------------+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+---------------------------------------------+
+| utc                                         | la                                          |
++---------------------------------------------+---------------------------------------------+
+| 2008-12-24 16:00:00.000 America/Los_Angeles | 2008-12-25 00:00:00.000 America/Los_Angeles |
++---------------------------------------------+---------------------------------------------+
 ```
 
 In the following example, `timestamp_expression` has a time zone offset of +12.
@@ -22271,16 +22324,17 @@ Monday.
 
 ```sql
 SELECT
-  timestamp,
-  TIMESTAMP_TRUNC(timestamp, WEEK(MONDAY)) AS utc_truncated,
-  TIMESTAMP_TRUNC(timestamp, WEEK(MONDAY), 'Pacific/Auckland') AS nzdt_truncated
-FROM (SELECT TIMESTAMP('2017-11-06 00:00:00+12') AS timestamp);
+  timestamp_value AS timestamp_value,
+  TIMESTAMP_TRUNC(timestamp_value, WEEK(MONDAY), "UTC") AS utc_truncated,
+  TIMESTAMP_TRUNC(timestamp_value, WEEK(MONDAY), "Pacific/Auckland") AS nzdt_truncated
+FROM (SELECT TIMESTAMP("2017-11-06 00:00:00+12") AS timestamp_value);
 
-+------------------------+------------------------+------------------------+
-| timestamp              | utc_truncated          | nzdt_truncated         |
-+------------------------+------------------------+------------------------+
-| 2017-11-05 12:00:00+00 | 2017-10-30 00:00:00+00 | 2017-11-05 11:00:00+00 |
-+------------------------+------------------------+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+---------------------------------------------+---------------------------------------------+
+| timestamp_value                             | utc_truncated                               | nzdt_truncated                              |
++---------------------------------------------+---------------------------------------------+---------------------------------------------+
+| 2017-11-05 04:00:00.000 America/Los_Angeles | 2017-10-29 17:00:00.000 America/Los_Angeles | 2017-11-05 03:00:00.000 America/Los_Angeles |
++---------------------------------------------+---------------------------------------------+---------------------------------------------+
 ```
 
 In the following example, the original `timestamp_expression` is in the
@@ -22293,14 +22347,15 @@ Therefore the ISO year boundary preceding the `timestamp_expression`
 
 ```sql
 SELECT
-  TIMESTAMP_TRUNC('2015-06-15 00:00:00+00', ISOYEAR) AS isoyear_boundary,
-  EXTRACT(ISOYEAR FROM TIMESTAMP '2015-06-15 00:00:00+00') AS isoyear_number;
+  TIMESTAMP_TRUNC("2015-06-15 00:00:00+00", ISOYEAR) AS isoyear_boundary,
+  EXTRACT(ISOYEAR FROM TIMESTAMP "2015-06-15 00:00:00+00") AS isoyear_number;
 
-+------------------------+----------------+
-| isoyear_boundary       | isoyear_number |
-+------------------------+----------------+
-| 2014-12-29 00:00:00+00 | 2015           |
-+------------------------+----------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+----------------+
+| isoyear_boundary                            | isoyear_number |
++---------------------------------------------+----------------+
+| 2014-12-29 00:00:00.000 America/Los_Angeles | 2015           |
++---------------------------------------------+----------------+
 ```
 
 #### FORMAT_TIMESTAMP
@@ -22323,19 +22378,17 @@ STRING
 **Example**
 
 ```sql
-SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2008-12-25 15:30:00", "America/Los_Angeles")
-  AS formatted;
+SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS formatted;
 
 +--------------------------+
 | formatted                |
 +--------------------------+
-| Thu Dec 25 07:30:00 2008 |
+| Thu Dec 25 15:30:00 2008 |
 +--------------------------+
 ```
 
 ```sql
-SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2008-12-25 15:30:00")
-  AS formatted;
+SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2008-12-25 15:30:00+00") AS formatted;
 
 +-------------+
 | formatted   |
@@ -22345,7 +22398,7 @@ SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2008-12-25 15:30:00")
 ```
 
 ```sql
-SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2008-12-25 15:30:00")
+SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2008-12-25 15:30:00+00")
   AS formatted;
 
 +-------------+
@@ -22394,13 +22447,14 @@ TIMESTAMP
 **Example**
 
 ```sql
-SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008", "America/Los_Angeles") as parsed;
+SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
 
-+------------------------+
-| parsed                 |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+
+| parsed                                      |
++---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles |
++---------------------------------------------+
 ```
 
 #### TIMESTAMP_SECONDS
@@ -22421,13 +22475,14 @@ TIMESTAMP
 **Example**
 
 ```sql
-SELECT TIMESTAMP_SECONDS(1230219000) as timestamp;
+SELECT TIMESTAMP_SECONDS(1230219000) AS timestamp_value;
 
-+------------------------+
-| timestamp              |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+
+| timestamp_value                             |
++---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles |
++---------------------------------------------+
 ```
 
 #### TIMESTAMP_MILLIS
@@ -22448,13 +22503,14 @@ TIMESTAMP
 **Example**
 
 ```sql
-SELECT TIMESTAMP_MILLIS(1230219000000) as timestamp;
+SELECT TIMESTAMP_MILLIS(1230219000000) AS timestamp_value;
 
-+------------------------+
-| timestamp              |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+
+| timestamp_value                             |
++---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles |
++---------------------------------------------+
 ```
 
 #### TIMESTAMP_MICROS
@@ -22475,13 +22531,14 @@ TIMESTAMP
 **Example**
 
 ```sql
-SELECT TIMESTAMP_MICROS(1230219000000000) as timestamp;
+SELECT TIMESTAMP_MICROS(1230219000000000) AS timestamp_value;
 
-+------------------------+
-| timestamp              |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+
+| timestamp_value                             |
++---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles |
++---------------------------------------------+
 ```
 
 #### UNIX_SECONDS
@@ -22502,7 +22559,7 @@ INT64
 **Example**
 
 ```sql
-SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00 UTC") as seconds;
+SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00+00") AS seconds;
 
 +------------+
 | seconds    |
@@ -22529,7 +22586,7 @@ INT64
 **Example**
 
 ```sql
-SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00 UTC") as millis;
+SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00+00") AS millis;
 
 +---------------+
 | millis        |
@@ -22556,7 +22613,7 @@ INT64
 **Example**
 
 ```sql
-SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00 UTC") as micros;
+SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00") AS micros;
 
 +------------------+
 | micros           |
@@ -22583,10 +22640,10 @@ TIMESTAMP
 **Example**
 
 ```sql
-SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) as timestamp;
+SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) AS timestamp_value;
 
 +------------------------+
-| timestamp              |
+| timestamp_value        |
 +------------------------+
 | 2008-12-25 15:30:00+00 |
 +------------------------+
@@ -22610,10 +22667,10 @@ TIMESTAMP
 **Example**
 
 ```sql
-SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) as timestamp;
+SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) AS timestamp_value;
 
 +------------------------+
-| timestamp              |
+| timestamp_value        |
 +------------------------+
 | 2008-12-25 15:30:00+00 |
 +------------------------+
@@ -22637,10 +22694,10 @@ TIMESTAMP
 **Example**
 
 ```sql
-SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) as timestamp;
+SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) AS timestamp_value;
 
 +------------------------+
-| timestamp              |
+| timestamp_value        |
 +------------------------+
 | 2008-12-25 15:30:00+00 |
 +------------------------+
@@ -24603,11 +24660,11 @@ The `CREATE VIEW` statement creates a view based on a specific query.
 
 **Optional Clauses**
 
-+   `OR REPLACE`: Replaces any table with the same name if it exists. Cannot
++   `OR REPLACE`: Replaces any view with the same name if it exists. Cannot
     appear with `IF NOT EXISTS`.
-+   `TEMP | TEMPORARY`: Creates a temporary table. The lifetime of the table is
++   `TEMP | TEMPORARY`: Creates a temporary view. The lifetime of the table is
     system-specific.
-+   `IF NOT EXISTS`: If any table exists with the same name, the `CREATE`
++   `IF NOT EXISTS`: If any view exists with the same name, the `CREATE`
     statement will have no effect. Cannot appear with `OR REPLACE`.
 
 ### CREATE EXTERNAL TABLE

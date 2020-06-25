@@ -140,13 +140,24 @@ class JSONPathExtractor : public zetasql::JSONParser {
         curr_depth_(),
         matching_token_(),
         result_json_(),
-        path_iterator_(*iter) {
+        path_iterator_(*iter),
+        escaping_needed_callback_(nullptr) {
     set_special_character_escaping(false);
     Init();
   }
 
   void set_special_character_escaping(bool escape_special_characters) {
     escape_special_characters_ = escape_special_characters;
+  }
+
+  // Sets the callback to be invoked when a string with special characters was
+  // parsed, but special character escaping was turned off.  The caller is
+  // responsible for ensuring that the lifetime of the callback object lasts as
+  // long as any parsing calls that may invoke it.  No callback will be made if
+  // this is set to nullptr or points to an empty target.
+  void set_escaping_needed_callback(
+      const std::function<void(absl::string_view)>* callback) {
+    escaping_needed_callback_ = callback;
   }
 
   bool Extract(std::string* result, bool* is_null) {
@@ -271,6 +282,11 @@ class JSONPathExtractor : public zetasql::JSONParser {
         JsonEscapeString(str, &s);
         absl::StrAppend(&result_json_, s);  // EscapeString adds quotes.
       } else {
+        if (escaping_needed_callback_ != nullptr &&
+            *escaping_needed_callback_ /* contains a callable target */ &&
+            JsonStringNeedsEscaping(str)) {
+          (*escaping_needed_callback_)(str);
+        }
         absl::StrAppend(&result_json_, "\"", str, "\"");
       }
     }
@@ -378,6 +394,9 @@ class JSONPathExtractor : public zetasql::JSONParser {
   unsigned int index_token_;
   // Whether to escape special JSON characters (e.g. newlines).
   bool escape_special_characters_;
+  // Callback to pass any strings that needed escaping when escaping special
+  // characters is turned off.  No callback needed if set to nullptr.
+  const std::function<void(absl::string_view)>* escaping_needed_callback_;
   // Whether parsing failed due to running out of stack space.
   bool stopped_due_to_stack_space_ = false;
   // Whether the JSONPath points to an array.

@@ -77,6 +77,31 @@ TEST(JsonTest, JsonExtract) {
   }
 }
 
+class MockEscapingNeededCallback {
+ public:
+  MOCK_METHOD(void, Call, (absl::string_view));
+};
+
+TEST(JsonTest, JsonEscapingNeededCallback) {
+  const std::string json = R"({"a": {"b": [ { "c" : "\t" } ] } })";
+  const std::string input = "$.a.b[0].c";
+  const std::string output = "\"\t\"";
+
+  SCOPED_TRACE(absl::Substitute("JSON_EXTRACT('$0', '$1')", json, input));
+  MockEscapingNeededCallback callback;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const std::unique_ptr<JsonPathEvaluator> evaluator,
+                       JsonPathEvaluator::Create(input,
+                                                 /*sql_standard_mode=*/false));
+  evaluator->set_escaping_needed_callback(
+      [&](absl::string_view str) { callback.Call(str); });
+  EXPECT_CALL(callback, Call("\t"));
+  std::string value;
+  bool is_null;
+  ZETASQL_ASSERT_OK(evaluator->Extract(json, &value, &is_null));
+  EXPECT_EQ(output, value);
+  EXPECT_FALSE(is_null);
+}
+
 TEST(JsonTest, JsonExtractScalar) {
   const std::string json = R"({"a": {"b": [ { "c" : "foo" } ] } })";
   const std::vector<std::pair<std::string, std::string>> inputs_and_outputs = {

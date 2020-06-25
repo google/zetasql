@@ -26,7 +26,9 @@
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/analyzer/resolver.h"
 #include "zetasql/common/status_payload_utils.h"
+#include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
+#include "zetasql/public/proto_util.h"
 #include <cstdint>
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
@@ -452,8 +454,8 @@ bool FunctionResolver::CheckArgumentTypesAndCollectTemplatedArguments(
         return false;
       }
     } else if (input_argument.is_untyped()) {
-      // Templated argument, input is an untyped NULL or empty array. We create
-      // an empty entry for them if one does not already exist.
+      // Templated argument, input is an untyped NULL, empty array or empty map.
+      // We create an empty entry for them if one does not already exist.
       const SignatureArgumentKind kind = signature_argument.kind();
       SignatureArgumentKindTypeSet& type_set = (*templated_argument_map)[kind];
       if (type_set.kind() != SignatureArgumentKindTypeSet::TYPED_ARGUMENTS &&
@@ -465,6 +467,19 @@ bool FunctionResolver::CheckArgumentTypesAndCollectTemplatedArguments(
         // Initializes to UNTYPED_NULL if not already set.
         (*templated_argument_map)[RelatedTemplatedKind(kind)];
       }
+      if (kind == ARG_PROTO_MAP_ANY) {
+        // As above, we must initialize the types for proto maps. We register
+        // both the key and value types.
+        (*templated_argument_map)[ARG_PROTO_MAP_KEY_ANY];
+        (*templated_argument_map)[ARG_PROTO_MAP_VALUE_ANY];
+      }
+      if (kind == ARG_PROTO_MAP_KEY_ANY || kind == ARG_PROTO_MAP_VALUE_ANY) {
+        // We should always see the map type if we see the key or the value.
+        // But they don't imply that we should see each other. For example,
+        // DELETE_KEY(map, key) would not include the value type in its
+        // signature's template types.
+        (*templated_argument_map)[ARG_PROTO_MAP_ANY];
+      }
     } else {
       // Templated argument, input is not null.
       SignatureArgumentKind signature_argument_kind = signature_argument.kind();
@@ -474,6 +489,11 @@ bool FunctionResolver::CheckArgumentTypesAndCollectTemplatedArguments(
       // coercible to arrays.
       if (IsArgKind_ARRAY_ANY_K(signature_argument_kind) &&
           !input_argument.type()->IsArray()) {
+        return false;
+      }
+
+      if (signature_argument_kind == ARG_PROTO_MAP_ANY &&
+          !IsProtoMap(input_argument.type())) {
         return false;
       }
 
@@ -493,27 +513,50 @@ bool FunctionResolver::CheckArgumentTypesAndCollectTemplatedArguments(
       (*templated_argument_map)[signature_argument_kind].InsertTypedArgument(
           input_argument);
 
+      auto MakeConcreteArgument = [&](const Type* type) {
+        if (input_argument.is_literal()) {
+          // Any value will do.
+          return InputArgumentType(Value::Null(type));
+        } else {
+          // Handles the non-literal and query parameter cases.
+          return InputArgumentType(type, input_argument.is_query_parameter());
+        }
+      };
+
       // If ARRAY_ANY_K is associated with type ARRAY<T> in
       // 'templated_argument_map', then we always bind ANY_K to T.
       if (IsArgKind_ARRAY_ANY_K(signature_argument_kind)) {
-        const Type* input_argument_element_type =
-            input_argument.type()->AsArray()->element_type();
-
-        InputArgumentType new_argument;
-        if (input_argument.is_literal()) {
-          // Any value will do.
-          new_argument =
-              InputArgumentType(Value::Null(input_argument_element_type));
-        } else {
-          // Handles the non-literal and query parameter cases.
-          new_argument = InputArgumentType(input_argument_element_type,
-                                           input_argument.is_query_parameter());
-        }
-
+        InputArgumentType new_argument = MakeConcreteArgument(
+            input_argument.type()->AsArray()->element_type());
         const SignatureArgumentKind related_kind =
             RelatedTemplatedKind(signature_argument_kind);
         (*templated_argument_map)[related_kind].InsertTypedArgument(
             new_argument);
+      }
+
+      if (signature_argument_kind == ARG_PROTO_MAP_ANY) {
+        // If this is a proto map argument, we can infer the templated types
+        // for the key and value.
+        const ProtoType* map_entry_type =
+            input_argument.type()->AsArray()->element_type()->AsProto();
+        const Type* key_type;
+        if (!type_factory_
+                 ->GetProtoFieldType(map_entry_type->map_key(),
+                                     &key_type)
+                 .ok()) {
+          return false;
+        }
+        const Type* value_type;
+        if (!type_factory_
+                 ->GetProtoFieldType(map_entry_type->map_value(),
+                                     &value_type)
+                 .ok()) {
+          return false;
+        }
+        (*templated_argument_map)[ARG_PROTO_MAP_KEY_ANY].InsertTypedArgument(
+            MakeConcreteArgument(key_type));
+        (*templated_argument_map)[ARG_PROTO_MAP_VALUE_ANY].InsertTypedArgument(
+            MakeConcreteArgument(value_type));
       }
     }
 
@@ -532,11 +575,17 @@ bool FunctionResolver::CheckArgumentTypesAndCollectTemplatedArguments(
 
   // If the result type is ARRAY_ANY_K and there is an entry for ANY_K, make
   // sure we have an entry for ARRAY_ANY_K, adding an untyped NULL if necessary.
+  // We do the same for PROTO_MAP_ANY if we see entries for the key or value.
   const SignatureArgumentKind result_kind = signature.result_type().kind();
   if (IsArgKind_ARRAY_ANY_K(result_kind) &&
       zetasql_base::ContainsKey(*templated_argument_map,
                        RelatedTemplatedKind(result_kind))) {
     // Creates an UNTYPED_NULL if no entry exists.
+    (*templated_argument_map)[result_kind];
+  }
+  if (result_kind == ARG_PROTO_MAP_ANY &&
+      (zetasql_base::ContainsKey(*templated_argument_map, ARG_PROTO_MAP_KEY_ANY) ||
+       zetasql_base::ContainsKey(*templated_argument_map, ARG_PROTO_MAP_VALUE_ANY))) {
     (*templated_argument_map)[result_kind];
   }
 
@@ -1091,7 +1140,9 @@ absl::Status FunctionResolver::ProcessNamedArguments(
         zetasql_base::FindOrNull(argument_names_to_indexes, signature_arg_name);
     // For positional arguments that appear before any named arguments appear,
     // simply retain their locations and argument types.
-    if (named_arguments.empty() || i < named_arguments[0].second) {
+    if ((named_arguments.empty() || i < named_arguments[0].second) &&
+        (arg_locations == nullptr || i < arg_locations->size() ||
+         signature_arg_name.empty())) {
       if (arg_locations != nullptr && i < arg_locations->size()) {
         new_arg_locations.push_back(arg_locations->at(i));
       }
@@ -1622,7 +1673,7 @@ absl::Status FunctionResolver::ConvertLiteralToType(
     // cast <argument_value> to <target_type>.
     coerced_literal_value =
         CastValue(*argument_value, resolver_->default_time_zone(),
-                  resolver_->language(), target_type);
+                  resolver_->language(), target_type, catalog_);
   }
 
   if (!coerced_literal_value.status().ok()) {
@@ -1804,7 +1855,8 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   ZETASQL_RET_CHECK(named_arguments_match_signature);
   ZETASQL_RET_CHECK(result_signature->HasConcreteArguments());
   if (!function->Is<TemplatedSQLFunction>()) {
-    ZETASQL_RET_CHECK(result_signature->IsConcrete());
+    ZETASQL_RET_CHECK(result_signature->IsConcrete())
+        << result_signature->DebugString();
   }
 
   const auto BadArgErrorPrefix = [&result_signature, &named_arguments,
@@ -2242,12 +2294,13 @@ absl::Status CheckRange(
     T value, const ASTNode* arg_location, int idx,
     const FunctionArgumentTypeOptions& options,
     const std::function<std::string(int)>& BadArgErrorPrefix) {
-  static_assert(std::is_same<T, int64_t>::value || std::is_same<T, double>::value,
-                "CheckRange supports only int64_t and double");
+  static_assert(std::is_same_v<T, int64_t> || std::is_same_v<T, double> ||
+                    std::is_same_v<T, NumericValue>,
+                "CheckRange supports only int64_t, double, and NumericValue");
   // Currently all ranges have integer bounds.
   if (options.has_min_value()) {
     const int64_t min_value = options.min_value();
-    if (!(value >= min_value)) {  // handles value = NaN
+    if (!(value >= T(min_value))) {  // handles value = NaN
       if (options.has_max_value()) {
         return MakeSqlErrorAt(arg_location)
                << BadArgErrorPrefix(idx) << " must be between "
@@ -2260,7 +2313,7 @@ absl::Status CheckRange(
   }
   if (options.has_max_value()) {
     const int64_t max_value = options.max_value();
-    if (!(value <= max_value)) {  // handles value = NaN
+    if (!(value <= T(max_value))) {  // handles value = NaN
       if (options.has_min_value()) {
         return MakeSqlErrorAt(arg_location)
                << BadArgErrorPrefix(idx) << " must be between "
@@ -2303,6 +2356,9 @@ absl::Status FunctionResolver::CheckArgumentValueConstraints(
       case TYPE_FLOAT:
         return CheckRange<double>(value.float_value(), arg_location, idx,
                                   options, BadArgErrorPrefix);
+      case TYPE_NUMERIC:
+        return CheckRange<NumericValue>(value.numeric_value(), arg_location,
+                                        idx, options, BadArgErrorPrefix);
       default:
         // For other types including UINT64, range check is not supported now.
         ZETASQL_RET_CHECK(!options.has_min_value());

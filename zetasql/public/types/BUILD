@@ -56,6 +56,7 @@ cc_library(
         "//zetasql/base:map_util",
         "//zetasql/base:refcount",
         "//zetasql/base:status",
+        "//zetasql/base:time_proto_util",
         "//zetasql/common:errors",
         "//zetasql/common:float_margin",
         "//zetasql/common:proto_helper",
@@ -66,6 +67,7 @@ cc_library(
         "//zetasql/public:strings",
         "//zetasql/public:type_annotation_cc_proto",
         "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value_cc_proto",
         "//zetasql/public:value_content",
         "//zetasql/public/functions:convert_proto",
         "//zetasql/public/functions:date_time_util",
@@ -102,7 +104,10 @@ cc_library(
     ],
     deps = [
         "//zetasql/base:refcount",
+        "//zetasql/public:json_value",
         "//zetasql/public:numeric_value",
+        "@com_google_absl//absl/types:optional",
+        "@com_google_absl//absl/types:variant",
     ],
 )
 

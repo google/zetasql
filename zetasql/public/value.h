@@ -28,10 +28,12 @@
 #include "google/protobuf/message.h"
 #include "zetasql/common/float_margin.h"
 #include "zetasql/public/civil_time.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/extended_type.h"
 #include "zetasql/public/types/value_representations.h"
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
@@ -60,13 +62,13 @@ namespace zetasql {
 // specified. Tracking order preservation is not required otherwise; in the
 // ZetaSQL data model, all arrays are totally ordered.
 //
-// Value's content is managed by corresponding Type through
-// InitializeValueContent, CopyValueContent and ClearValueContent functions.
-// Value calls these functions during value construction, copying and
-// destruction. ValueContent class is used as a container to transfer content
-// from Type to Value. Value's content can be up to 12 bytes in size.
-// First 8 bytes are accesible to any type, while remaining 4 can be used only
-// by simple types.
+// Value's content is managed by corresponding Type through CopyValueContent and
+// ClearValueContent functions. Value calls these functions during value copying
+// and destruction. ValueContent class is used as a container to transfer
+// content from Type to Value. A Value has a content if and only if this Value
+// is non-null. Value's content can be up to 12 bytes in size. First 8 bytes are
+// accessible to any type, while the remaining 4 can be used only by simple
+// types.
 //
 // Caveat: since a Value contains a reference to a Type, referenced Type should
 // outlive the Value. While simple built-in types are static, lifetime of
@@ -122,6 +124,9 @@ class Value {
   // default constructor).
   bool is_valid() const;
 
+  // Returns true if the Value is valid and non-null.
+  bool has_content() const;
+
   // Accessors for accessing the data within atomic typed Values.
   // REQUIRES: !is_null().
   int32_t int32_value() const;           // REQUIRES: int32_t type
@@ -159,6 +164,22 @@ class Value {
 
   // REQUIRES: bignumeric type
   const BigNumericValue& bignumeric_value() const;
+
+  // REQUIRES: json type
+  // Returns if the JSON value is validated.
+  bool is_validated_json() const;
+  // REQUIRES: json type
+  // REQUIRES: !is_validated_json()
+  // Returns the JSON value in the default (non-validating) mode.
+  const std::string& json_value_unparsed() const;
+  // REQUIRES: json type
+  // REQUIRES: is_validated_json()
+  // Returns the JSON value in the validating mode.
+  JSONValueConstRef json_value_validated() const;
+
+  // Returns the value content of extended type.
+  // REQUIRES: type_kind() == TYPE_EXTENDED
+  ValueContent extended_value() const;
 
   // Generic accessor for numeric PODs.
   // REQUIRES: T is one of int32_t, int64_t, uint32_t, uint64_t, bool, float, double.
@@ -339,6 +360,17 @@ class Value {
 
   static Value BigNumeric(BigNumericValue v);
 
+  // Creates a Value storing JSON document in as a plain string without doing
+  // any validation.
+  static Value UnvalidatedJsonString(std::string v);
+
+  // Creates a Value that stores parsed JSON document using representation
+  // optimized for member access operations.
+  static Value Json(JSONValue value);
+
+  // Creates a value of extended type with the given content.
+  static Value Extended(const ExtendedType* type, const ValueContent& value);
+
   // Generic factory for numeric PODs.
   // REQUIRES: T is one of int32_t, int64_t, uint32_t, uint64_t, bool, float, double.
   template <typename T> inline static Value Make(T value);
@@ -364,6 +396,7 @@ class Value {
   static Value NullGeography();
   static Value NullNumeric();
   static Value NullBigNumeric();
+  static Value NullJson();
 
   // Returns an empty but non-null Geography value.
   static Value EmptyGeography();
@@ -452,9 +485,9 @@ class Value {
   static constexpr int kInvalidTypeKind =
       __TypeKind__switch_must_have_a_default__;
 
-  // Constructs an empty (content is set by Type::InitializeValueContent) or
-  // NULL value of the given 'type'. Argument order_kind is currently used only
-  // for arrays and should always be set to kPreservesOrder for all other types.
+  // Constructs an empty (where content contains zeros) or NULL value of the
+  // given 'type'. Argument order_kind is currently used only for arrays and
+  // should always be set to kPreservesOrder for all other types.
   Value(const Type* type, bool is_null, OrderPreservationKind order_kind);
 
   // Constructs a typed NULL of the given 'type'.
@@ -487,12 +520,18 @@ class Value {
 
   explicit Value(const BigNumericValue& bignumeric);
 
+  // Takes ownership of 'json_ptr' without increasing its ref count.
+  explicit Value(internal::JSONRef* json_ptr);
+
   // Constructs an enum.
   Value(const EnumType* enum_type, int64_t value);
   Value(const EnumType* enum_type, absl::string_view name);
 
   // Constructs a proto.
   Value(const ProtoType* proto_type, absl::Cord value);
+
+  // Constructs a value of extended type.
+  Value(const ExtendedType* extended_type, const ValueContent& value);
 
   // Clears the contents of the value and makes it invalid. Must be called
   // exactly once prior to destruction or assignment.
@@ -585,8 +624,11 @@ class Value {
            metadata_.type_kind() == TYPE_STRUCT;
   }
 
-  // Getter/setters for ValueContent.
+  // Gets Value's content. Requires: has_content() == true.
   ValueContent GetContent() const;
+
+  // Sets the content of the Value and makes the Value non-null. Requires:
+  // is_valid() == true.
   void SetContent(const ValueContent& content);
 
   // Nanoseconds for TYPE_TIMESTAMP, TYPE_TIME and TYPE_DATETIME types
@@ -724,6 +766,8 @@ class Value {
         numeric_ptr_;  // Owned. Used for values of TYPE_NUMERIC.
     internal::BigNumericRef*
         bignumeric_ptr_;  // Owned. Used for values of TYPE_BIGNUMERIC.
+    internal::JSONRef*
+        json_ptr_;  // Owned. Used for values of TYPE_JSON.
   };
   // Intentionally copyable.
 };

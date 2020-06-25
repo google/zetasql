@@ -1161,6 +1161,7 @@ void GetAnalyticFunctions(TypeFactory* type_factory,
                           NameToFunctionMap* functions) {
   const Type* int64_type = type_factory->get_int64();
   const Type* double_type = type_factory->get_double();
+  const Type* numeric_type = type_factory->get_numeric();
   const Function::Mode ANALYTIC = Function::ANALYTIC;
 
   const FunctionArgumentType::ArgumentCardinality OPTIONAL =
@@ -1266,17 +1267,37 @@ void GetAnalyticFunctions(TypeFactory* type_factory,
                    FN_NTH_VALUE}},
                  required_order_allowed_frame_and_null_handling);
 
-  InsertFunction(
-      functions, options, "percentile_cont", ANALYTIC,
-      {{double_type,
-        {double_type, {double_type, non_null_non_agg_between_0_and_1}},
-        FN_PERCENTILE_CONT}},
-      disallowed_order_and_frame_allowed_null_handling);
+  std::vector<FunctionSignatureOnHeap> percentile_cont_signatures = {
+      {double_type,
+       {double_type, {double_type, non_null_non_agg_between_0_and_1}},
+       FN_PERCENTILE_CONT}};
+  std::vector<FunctionSignatureOnHeap> percentile_disc_signatures = {
+      {ARG_TYPE_ANY_1,
+       {{ARG_TYPE_ANY_1, comparable},
+        {double_type, non_null_non_agg_between_0_and_1}},
+       FN_PERCENTILE_DISC}};
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_NUMERIC_PERCENTILE_SIGNATURES)) {
+    percentile_cont_signatures.push_back(
+        {numeric_type,
+         {numeric_type, {numeric_type, non_null_non_agg_between_0_and_1}},
+         FN_PERCENTILE_CONT_NUMERIC,
+         FunctionSignatureOptions().set_constraints(
+             &AllArgumentsHaveNumericType)});
+    percentile_disc_signatures.push_back(
+        {ARG_TYPE_ANY_1,
+         {{ARG_TYPE_ANY_1, comparable},
+          {numeric_type, non_null_non_agg_between_0_and_1}},
+         FN_PERCENTILE_DISC_NUMERIC,
+         FunctionSignatureOptions().set_constraints(
+             &LastArgumentHasNumericType)});
+  }
+
+  InsertFunction(functions, options, "percentile_cont", ANALYTIC,
+                 percentile_cont_signatures,
+                 disallowed_order_and_frame_allowed_null_handling);
   InsertFunction(functions, options, "percentile_disc", ANALYTIC,
-                 {{ARG_TYPE_ANY_1,
-                   {{ARG_TYPE_ANY_1, comparable},
-                    {double_type, non_null_non_agg_between_0_and_1}},
-                   FN_PERCENTILE_DISC}},
+                 percentile_disc_signatures,
                  disallowed_order_and_frame_allowed_null_handling);
 }
 

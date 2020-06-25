@@ -144,9 +144,13 @@ public class Analyzer implements Serializable {
    * @return List of table names. Every table name is a list of string segments, to retain original
    *     naming structure.
    */
-  public static List<List<String>> extractTableNamesFromStatement(String sql) {
+  public static List<List<String>> extractTableNamesFromStatement(
+      String sql, AnalyzerOptions options) {
     ExtractTableNamesFromStatementRequest request =
-        ExtractTableNamesFromStatementRequest.newBuilder().setSqlStatement(sql).build();
+        ExtractTableNamesFromStatementRequest.newBuilder()
+            .setSqlStatement(sql)
+            .setOptions(options.getLanguageOptions().serialize())
+            .build();
 
     ExtractTableNamesFromStatementResponse response;
     try {
@@ -162,6 +166,10 @@ public class Analyzer implements Serializable {
       result.add(nameList);
     }
     return result;
+  }
+
+  public static List<List<String>> extractTableNamesFromStatement(String sql) {
+    return extractTableNamesFromStatement(sql, new AnalyzerOptions());
   }
 
   public ResolvedStatement analyzeNextStatement(ParseResumeLocation parseResumeLocation) {

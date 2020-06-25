@@ -1188,7 +1188,8 @@ void SimpleTable::SetContents(const std::vector<std::vector<Value>>& rows) {
     column_major_contents_[i] = column_values;
   }
 
-  auto factory = [this, rows](absl::Span<const int> column_idxs)
+  num_rows_ = rows.size();
+  auto factory = [this](absl::Span<const int> column_idxs)
       -> zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>> {
     std::vector<const Column*> columns;
     std::vector<std::shared_ptr<const std::vector<Value>>> column_values;
@@ -1199,7 +1200,7 @@ void SimpleTable::SetContents(const std::vector<std::vector<Value>>& rows) {
     }
     std::unique_ptr<EvaluatorTableIterator> iter(
         new SimpleEvaluatorTableIterator(
-            columns, column_values,
+            columns, column_values, num_rows_,
             /*end_status=*/absl::OkStatus(), /*filter_column_idxs=*/{},
             /*cancel_cb=*/[]() {},
             /*set_deadline_cb=*/[](absl::Time t) {}, zetasql_base::Clock::RealClock()));

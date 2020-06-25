@@ -77,6 +77,16 @@ struct AlgebrizerOptions {
   // latter case, the filter remains in its original location because
   // EvaluatorTableIterator does not have to honor the filter.
   bool push_down_filters = false;
+
+  // True to inline references to WITH entries which are referenced at most
+  // once. This causes rows in a WITH entry referenced only once to be evaluated
+  // only when necessary to determine the primary query result, while also
+  // avoiding the evaluation of WITH entries without any references altogether.
+  //
+  // If false, all WITH entry tables, whether referenced or not, will be
+  // evaluated up front, and the result stored in an in-memory array, which will
+  // then be dereferenced when the WITH entry is referenced.
+  bool inline_with_entries = false;
 };
 
 class Algebrizer {
@@ -797,10 +807,21 @@ class Algebrizer {
 
   // Maps named WITH subquery to an argument (variable, ValueExpr). Used to
   // algebrize WithRef scans referencing named subqueries.
+  //
+  // This map includes only WITH subqueries which are referenced two or more
+  // times (e.g. evaluated up front and stored in an array).
   absl::flat_hash_map<std::string, ExprArg*> with_map_;  // Not owned.
+
   // Vector of LetOp/LetExpr assignments we need to apply for WITH clauses in
   // the query.
   std::vector<std::unique_ptr<ExprArg>> with_subquery_let_assignments_;
+
+  // WITH entries whose definitions are to be inlined where they are referenced.
+  // Only WITH entries referenced exactly once are included in this map.
+  // Key = name, value = ResolvedScan of WITH entry subquery.
+  //
+  // Entries are removed from the map as AlgebrizeWithRefScan() consumes them.
+  absl::flat_hash_map<std::string, const ResolvedScan*> inlined_with_entries_;
 
   // Owns all the ProtoFieldRegistries created by the algebrizer.
   std::vector<std::unique_ptr<ProtoFieldRegistry>> proto_field_registries_;

@@ -334,6 +334,13 @@ public class Value implements Serializable {
     return proto.getProtoValue();
   }
 
+  /** Returns the JSON value as a string JSON document. */
+  public String getJsonValue() {
+    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_JSON);
+    Preconditions.checkState(!isNull);
+    return proto.getJsonValue().toStringUtf8();
+  }
+
   /** Returns the number of fields, if the type is struct. */
   public int getFieldCount() {
     Preconditions.checkState(getType().getKind() == TypeKind.TYPE_STRUCT);
@@ -512,6 +519,11 @@ public class Value implements Serializable {
           return other.numericValue.compareTo(numericValue) == 0;
         }
         return false;
+      case TYPE_JSON:
+        if (other.getType().equivalent(type)) {
+          return other.getJsonValue().equals(getJsonValue());
+        }
+        return false;
       default:
         throw new IllegalStateException("Shouldn't happen: compare with unsupported type " + type);
     }
@@ -581,6 +593,8 @@ public class Value implements Serializable {
       case TYPE_NUMERIC:
       case TYPE_BIGNUMERIC:
         return numericValue.toBigInteger().hashCode();
+      case TYPE_JSON:
+        return getJsonValue().hashCode();
       default:
         // Shouldn't happen, but it's a bad idea to throw from hashCode().
         return super.hashCode();
@@ -626,6 +640,7 @@ public class Value implements Serializable {
       case TYPE_DATETIME:
       case TYPE_NUMERIC:
       case TYPE_BIGNUMERIC:
+      case TYPE_JSON:
         return ZetaSQLStrings.convertSimpleValueToString(this, verbose);
       case TYPE_ENUM: {
         if (verbose) {
@@ -792,6 +807,9 @@ public class Value implements Serializable {
       String wktString = ZetaSQLStrings.convertSimpleValueToString(this, false /* verbose */);
       return String.format("ST_GeogFromText(%s)", ZetaSQLStrings.toStringLiteral(wktString));
     }
+    if (type.isJson()) {
+      return String.format("JSON %s", ZetaSQLStrings.toStringLiteral(s));
+    }
 
     if (type.isSimpleType()) {
       // Floats and doubles like "inf" and "nan" need to be quoted.
@@ -873,6 +891,9 @@ public class Value implements Serializable {
     }
     if (type.isBigNumeric()) {
       return String.format("BIGNUMERIC %s", ZetaSQLStrings.toStringLiteral(s));
+    }
+    if (type.isJson()) {
+      return String.format("JSON %s", ZetaSQLStrings.toStringLiteral(s));
     }
 
     if (type.isSimpleType()) {
@@ -1093,6 +1114,11 @@ public class Value implements Serializable {
                 MAX_BIGNUMERIC_VALUE,
                 MIN_BIGNUMERIC_VALUE,
                 "BIGNUMERIC"));
+      case TYPE_JSON:
+        if (!proto.hasJsonValue()) {
+          throw typeMismatchException(type, proto);
+        }
+        break;
       case TYPE_ENUM: {
         if (!proto.hasEnumValue()) {
           throw typeMismatchException(type, proto);
@@ -1162,6 +1188,7 @@ public class Value implements Serializable {
       case TYPE_TIME:
       case TYPE_NUMERIC:
       case TYPE_BIGNUMERIC:
+      case TYPE_JSON:
         return true;
       case TYPE_ARRAY:
         return isSupportedTypeKind(type.asArray().getElementType());
@@ -1408,5 +1435,16 @@ public class Value implements Serializable {
   /** Returns an empty array Value of given {@code type}. */
   public static Value createEmptyArrayValue(ArrayType type) {
     return createArrayValue(type, new ArrayList<Value>());
+  }
+
+  /** Returns a JSON Value from the given JSON document {@code document}. */
+  public static Value createJsonValue(String document) {
+    SimpleType jsonType = TypeFactory.createSimpleType(TypeKind.TYPE_JSON);
+    Preconditions.checkArgument(isSupportedTypeKind(jsonType));
+    Preconditions.checkNotNull(document);
+
+    ValueProto proto =
+        ValueProto.newBuilder().setJsonValue(ByteString.copyFromUtf8(document)).build();
+    return new Value(jsonType, proto);
   }
 }

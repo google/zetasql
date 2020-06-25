@@ -320,6 +320,66 @@ namespace parser {
 //   SELECT * FROM t1, t2 JOIN t3 ON cond1;
 //
 // continues to work.
+//
+// Error handling
+// ====================
+// There are two types of errors:
+// - there are more joins than join conditions, such as:
+//
+//     select * from a join b join c join d on cond1 on cond2;
+//
+//   where there are 3 joins, but only 2 join conditions.
+//
+// - there are more join conditions than joins, such as:
+//
+//     select * from a join b on cond1 on cond2;
+//
+//   where thare are 1 join, but 2 join conditions.
+//
+// See the comment on class JoinErrorTracker to see how the first case is
+// processed.
+//
+// Here we describe how the 2nd case is processed. The 2nd case is detected in
+// function JoinRuleAction(). However, an error is not always returned when this
+// problem is detected. The reason is backward compatibility. For example, this
+// query
+//
+//   select * from a CROSS JOIN b ON cond1;
+//
+// is invalid since ON clause cannot be used with CROSS JOIN. But the query
+// could be successfully parsed before consecutive ON/USING clauses support was
+// added. The error is detected by the analyzer instead. Thus, to maintain
+// backward compatibily, we do not generate errors in this case. We only
+// generate errors when consecutive ON/USING clauses are used. For example, for
+// this query
+//
+//   select * from a join b ON cond1 ON cond2;
+//
+// the error is detected AND generated since there are consecutive ON/USING
+// clauses.
+//
+// One complication that arises is that when the it is time to generate the
+// error, the problem could have already occurred. For example, for this query
+//
+//   select * from a CROSS JOIN b ON cond1 JOIN c ON cond2 ON cond3;
+//
+// When the parser is parsing the CROSS JOIN, the error that there is an extra
+// ON clause is detected, but is not returned, to maintain backward
+// compatibility. The parsing continues. When the parser is parsing the 2nd
+// JOIN, the error is detected again, and this time, since consecutive ON/USING
+// clauses are used, the parser should return the error, with error location at
+// node "ON cond1". To generate the error with the correct error location and
+// error message, what we do is:
+//
+// - when the error is first detected, if the error should not be returned, the
+//   error location and error message are saved as parse_error_ in the new
+//   ASTJoin node.
+//
+// - this parse_error_ is then propagated to the following ASJoin nodes.
+//
+// - when it is time to return the error, this parse_error_, which contains the
+//   correct error location and error message, is used to generate the parse
+//   error.
 
 struct ErrorInfo {
   zetasql_bison_parser::location location;

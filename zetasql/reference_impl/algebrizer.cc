@@ -17,6 +17,7 @@
 #include "zetasql/reference_impl/algebrizer.h"
 
 #include <functional>
+#include <stack>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -113,18 +114,20 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeCast(
     const ResolvedCast* cast) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> arg,
                    AlgebrizeExpression(cast->expr()));
-  ZETASQL_ASSIGN_OR_RETURN(
-      auto null_on_error_exp,
-      ConstExpr::Create(Value::Bool(cast->return_null_on_error())));
 
-  std::vector<std::unique_ptr<ValueExpr>> args;
-  args.push_back(std::move(arg));
-  args.push_back(std::move(null_on_error_exp));
+  // For extended conversions extended_cast will contain a conversion function
+  // that implements a conversion. Extended conversions in reference
+  // implementation are tested in public/types/extended_type_test.cc.
+  const Function* conversion_function = cast->extended_cast() != nullptr
+                                            ? cast->extended_cast()->function()
+                                            : nullptr;
 
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<ValueExpr> function_call,
-      BuiltinScalarFunction::CreateCall(FunctionKind::kCast, language_options_,
-                                        cast->type(), std::move(args)));
+      BuiltinScalarFunction::CreateCast(
+          language_options_, cast->type(), std::move(arg),
+          cast->return_null_on_error(),
+          ResolvedFunctionCallBase::DEFAULT_ERROR_MODE, conversion_function));
   return function_call;
 }
 
@@ -1572,6 +1575,66 @@ absl::Status Algebrizer::TryAlgebrizeFilterConjunctAsColumnFilterArgs(
   return absl::OkStatus();
 }
 
+// Computes the number of times a WITH entry is referenced.
+// Only references reachable from the main query count. For example, in this
+// query:
+//    WITH t1 AS (SELECT 1),
+//         t2 AS (SELECT * FROM t1),
+//         t3 AS (SELECT * FROM t2),
+//         t4 AS (SELECT * FROM t1)
+//    SELECT * FROM t4
+//
+//  t1 and t4 would have one reference, while t2 and t3 would have zero
+//  references.
+class FindWithEntryReferenceCountVisitor : public ResolvedASTVisitor {
+ public:
+  static zetasql_base::StatusOr<absl::flat_hash_map<std::string, int>> Run(
+      const ResolvedWithScan* scan) {
+    absl::flat_hash_map<std::string, int> result;
+    std::stack<const ResolvedNode*> stack;
+    absl::flat_hash_set<const ResolvedNode*> visited;
+    stack.push(scan->query());
+    while (!stack.empty()) {
+      if (visited.contains(stack.top())) {
+        stack.pop();
+        continue;
+      }
+      visited.insert(stack.top());
+      FindWithEntryReferenceCountVisitor visitor;
+      for (const auto& with_entry : scan->with_entry_list()) {
+        visitor.reference_count_[with_entry->with_query_name()] = 0;
+      }
+      ZETASQL_RETURN_IF_ERROR(stack.top()->Accept(&visitor));
+      stack.pop();
+
+      for (const auto& with_entry : scan->with_entry_list()) {
+        int ref_count = visitor.reference_count_[with_entry->with_query_name()];
+        if (ref_count >= 1 && !visited.contains(with_entry.get())) {
+          stack.push(with_entry.get());
+        }
+        result[with_entry->with_query_name()] += ref_count;
+      }
+    }
+    return result;
+  }
+
+  absl::Status DefaultVisit(const ResolvedNode* node) override {
+    return node->ChildrenAccept(this);
+  }
+
+  absl::Status VisitResolvedWithRefScan(
+      const ResolvedWithRefScan* scan) override {
+    auto it = reference_count_.find(scan->with_query_name());
+    if (it != reference_count_.end()) {
+      ++it->second;
+    }
+    return absl::OkStatus();
+  }
+
+ private:
+  absl::flat_hash_map<std::string, int> reference_count_;
+};
+
 zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeWithScan(
     const ResolvedWithScan* scan) {
   // Each named subquery is nested as an array, which is then unnested when
@@ -1580,7 +1643,35 @@ zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeWithS
   // reference those subqueries.
   // Save the old with_map_ with names that are visible in the outer scope.
   const absl::flat_hash_map<std::string, ExprArg*> old_with_map = with_map_;
+
+  // Compute how many times each WITH entry is referenced. Entries referenced
+  // exactly once can be inlined, while entries not referenced at all can be
+  // skipped altogether.
+  absl::optional<absl::flat_hash_map<std::string, int>> reference_count_by_name;
+  if (algebrizer_options_.inline_with_entries) {
+    ZETASQL_ASSIGN_OR_RETURN(reference_count_by_name,
+                     FindWithEntryReferenceCountVisitor::Run(scan));
+  }
+
   for (const auto& with_entry : scan->with_entry_list()) {
+    if (reference_count_by_name.has_value()) {
+      int ref_count =
+          reference_count_by_name.value().at(with_entry->with_query_name());
+
+      if (ref_count == 0) {
+        // This WITH entry is not referenced, directly or indirectly, in the
+        // main query, so we can just ignore it completely. Mark its fields as
+        // "accessed" to suppress the access checks.
+        with_entry->MarkFieldsAccessed();
+        continue;
+      }
+      if (ref_count == 1) {
+        // Skip for now; we'll inline the definition when it's used.
+        inlined_with_entries_[with_entry->with_query_name()] =
+            with_entry->with_subquery();
+        continue;
+      }
+    }
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> subquery,
                      AlgebrizeScan(with_entry->with_subquery()));
     ZETASQL_ASSIGN_OR_RETURN(
@@ -1605,9 +1696,53 @@ zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeWithS
 // Called only while AlgebrizeWithScan() sits in an earlier stack frame.
 zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeWithRefScan(
     const ResolvedWithRefScan* scan) {
-  const auto& it =
-      with_map_.find(scan->GetAs<ResolvedWithRefScan>()->with_query_name());
-  ZETASQL_RET_CHECK(it != with_map_.end());
+  const std::string& query_name =
+      scan->GetAs<ResolvedWithRefScan>()->with_query_name();
+  auto inlined_it = inlined_with_entries_.find(query_name);
+  if (inlined_it != inlined_with_entries_.end()) {
+    const ResolvedScan* with_subquery_scan = inlined_it->second;
+    // We have an inlined WITH entry. Algebrize it here and add the algebrized
+    // subquery directly.
+    //
+    // Note that, to maintain correct semantics where WITH subqueries are
+    // evaluated only once, it is not possible to get here unless
+    // the WITH entry is referenced exactly once. Remove the WITH entry from the
+    // map to help ensure that this is actually the case (and make the resultant
+    // ZETASQL_RET_CHECK() more diagnosable if it somehow isn't).
+    inlined_with_entries_.erase(inlined_it);
+
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> algebrized_with_subquery,
+                     AlgebrizeScan(with_subquery_scan));
+
+    // Map columns from that of subquery to that of <scan>.
+    std::vector<std::unique_ptr<ExprArg>> column_map;
+    ZETASQL_RET_CHECK_EQ(scan->column_list_size(),
+                 with_subquery_scan->column_list_size());
+    for (int i = 0; i < scan->column_list_size(); ++i) {
+      ZETASQL_ASSIGN_OR_RETURN(VariableId from_varid,
+                       column_to_variable_->LookupVariableNameForColumn(
+                           &with_subquery_scan->column_list(i)));
+      VariableId to_varid =
+          column_to_variable_->GetVariableNameFromColumn(&scan->column_list(i));
+      ZETASQL_RET_CHECK(scan->column_list(i).type()->Equals(
+          with_subquery_scan->column_list(i).type()));
+
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::unique_ptr<DerefExpr> deref,
+          DerefExpr::Create(from_varid, scan->column_list(i).type()));
+      column_map.push_back(
+          absl::make_unique<ExprArg>(to_varid, std::move(deref)));
+    }
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> compute_op,
+                     ComputeOp::Create(std::move(column_map),
+                                       std::move(algebrized_with_subquery)));
+    return compute_op;
+  }
+
+  // We are referencing a pre-computed array value storing the entire table.
+  const auto it = with_map_.find(query_name);
+  ZETASQL_RET_CHECK(it != with_map_.end())
+      << "Can't find query in with_map_: " << query_name;
   const ExprArg* arg = it->second;
   ZETASQL_ASSIGN_OR_RETURN(
       auto deref_arg,

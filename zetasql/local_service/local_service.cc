@@ -625,9 +625,14 @@ absl::Status ZetaSqlLocalServiceImpl::BuildSql(const BuildSqlRequest& request,
 absl::Status ZetaSqlLocalServiceImpl::ExtractTableNamesFromStatement(
     const ExtractTableNamesFromStatementRequest& request,
     ExtractTableNamesFromStatementResponse* response) {
+  LanguageOptions language_options = request.has_options()
+                                         ? LanguageOptions(request.options())
+                                         : LanguageOptions();
+
   zetasql::TableNamesSet table_names;
   ZETASQL_RETURN_IF_ERROR(zetasql::ExtractTableNamesFromStatement(
-      request.sql_statement(), zetasql::AnalyzerOptions{}, &table_names));
+      request.sql_statement(), zetasql::AnalyzerOptions(language_options),
+      &table_names));
   for (const std::vector<std::string>& table_name : table_names) {
     ExtractTableNamesFromStatementResponse_TableName* table_name_field =
         response->add_table_name();

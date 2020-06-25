@@ -423,8 +423,7 @@ absl::Status Validator::ValidateResolvedFlatten(
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
                                        flatten->expr()));
   ZETASQL_RET_CHECK(flatten->expr()->type()->IsArray());
-  const Type* scalar_type = scalar_type =
-      flatten->expr()->type()->AsArray()->element_type();
+  const Type* scalar_type = flatten->expr()->type()->AsArray()->element_type();
   ZETASQL_RET_CHECK(scalar_type->IsProto() || scalar_type->IsStruct());
 
   bool seen_proto = scalar_type->IsProto();
@@ -1614,6 +1613,10 @@ absl::Status Validator::ValidateResolvedStatement(
       status = ValidateResolvedExportDataStmt(
           statement->GetAs<ResolvedExportDataStmt>());
       break;
+    case RESOLVED_EXPORT_MODEL_STMT:
+      status = ValidateResolvedExportModelStmt(
+          statement->GetAs<ResolvedExportModelStmt>());
+      break;
     case RESOLVED_CALL_STMT:
       status = ValidateResolvedCallStmt(statement->GetAs<ResolvedCallStmt>());
       break;
@@ -1824,12 +1827,11 @@ absl::Status Validator::ValidateResolvedIndexStmt(
 }
 
 absl::Status Validator::ValidateResolvedCreateTableStmtBase(
-    const ResolvedCreateTableStmtBase* stmt) {
+    const ResolvedCreateTableStmtBase* stmt,
+    std::set<ResolvedColumn>* visible_columns) {
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
-  // Build the list of visible_columns.
-  std::set<ResolvedColumn> visible_columns;
   for (const auto& column_definition : stmt->column_definition_list()) {
-    if (!zetasql_base::InsertIfNotPresent(&visible_columns,
+    if (!zetasql_base::InsertIfNotPresent(visible_columns,
                                  column_definition->column())) {
       return ::zetasql_base::InternalErrorBuilder()
              << "Column already used: "
@@ -1845,11 +1847,11 @@ absl::Status Validator::ValidateResolvedCreateTableStmtBase(
     ZETASQL_RET_CHECK(column_definition->type() != nullptr);
     if (column_definition->generated_column_info() != nullptr) {
       ZETASQL_RETURN_IF_ERROR(ValidateResolvedGeneratedColumnInfo(
-          column_definition.get(), visible_columns));
+          column_definition.get(), *visible_columns));
     }
   }
   for (const auto& pseudo_column : stmt->pseudo_column_list()) {
-    if (!zetasql_base::InsertIfNotPresent(&visible_columns, pseudo_column)) {
+    if (!zetasql_base::InsertIfNotPresent(visible_columns, pseudo_column)) {
       return ::zetasql_base::InternalErrorBuilder()
              << "Column already used: " << pseudo_column.DebugString();
     }
@@ -1938,11 +1940,18 @@ absl::Status Validator::ValidateResolvedCreateTableStmtBase(
         << "CHECK constraint expects a boolean expression; got "
         << check_constraint->expression()->type()->ShortTypeName(
                language_options_.product_mode());
-    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns,
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(*visible_columns,
                                          /* visible_parameters= */ {},
                                          check_constraint->expression()));
   }
+  return absl::OkStatus();
+}
 
+absl::Status Validator::ValidateResolvedCreateTableStmt(
+    const ResolvedCreateTableStmt* stmt) {
+  // Build and store the list of visible_columns.
+  std::set<ResolvedColumn> visible_columns;
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedCreateTableStmtBase(stmt, &visible_columns));
   for (const auto& partition_by_expr : stmt->partition_by_list()) {
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
         visible_columns, {} /* visible_parameters */, partition_by_expr.get()));
@@ -1952,11 +1961,6 @@ absl::Status Validator::ValidateResolvedCreateTableStmtBase(
         visible_columns, {} /* visible_parameters */, cluster_by_expr.get()));
   }
   return absl::OkStatus();
-}
-
-absl::Status Validator::ValidateResolvedCreateTableStmt(
-    const ResolvedCreateTableStmt* stmt) {
-  return ValidateResolvedCreateTableStmtBase(stmt);
 }
 
 absl::Status Validator::ValidateResolvedGeneratedColumnInfo(
@@ -2014,7 +2018,17 @@ absl::Status Validator::ValidateResolvedCreateTableAsSelectStmt(
              << column_def_name << ")";
     }
   }
-  return ValidateResolvedCreateTableStmtBase(stmt);
+  std::set<ResolvedColumn> visible_columns;
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedCreateTableStmtBase(stmt, &visible_columns));
+  for (const auto& partition_by_expr : stmt->partition_by_list()) {
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
+        visible_columns, {} /* visible_parameters */, partition_by_expr.get()));
+  }
+  for (const auto& cluster_by_expr : stmt->cluster_by_list()) {
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
+        visible_columns, {} /* visible_parameters */, cluster_by_expr.get()));
+  }
+  return absl::OkStatus();
 }
 
 absl::Status Validator::ValidateResolvedCreateModelStmt(
@@ -2076,8 +2090,14 @@ absl::Status Validator::ValidateResolvedCreateViewStmt(
 
 absl::Status Validator::ValidateResolvedCreateMaterializedViewStmt(
     const ResolvedCreateMaterializedViewStmt* stmt) {
+  if (stmt->recursive()) {
+    ++nested_recursive_context_count_;
+  }
   ZETASQL_RETURN_IF_ERROR(
       ValidateResolvedScan(stmt->query(), {} /* visible_parameters */));
+  if (stmt->recursive()) {
+    --nested_recursive_context_count_;
+  }
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedOutputColumnList(stmt->query()->column_list(),
                                                    stmt->output_column_list(),
                                                    stmt->is_value_table()));
@@ -2085,9 +2105,38 @@ absl::Status Validator::ValidateResolvedCreateMaterializedViewStmt(
   return absl::OkStatus();
 }
 
+absl::Status Validator::ValidateResolvedWithPartitionColumns(
+    const ResolvedWithPartitionColumns* with_partition_columns,
+    std::set<ResolvedColumn>* visible_columns) {
+  if (with_partition_columns != nullptr) {
+    for (const auto& column_definition :
+         with_partition_columns->column_definition_list()) {
+      if (!zetasql_base::InsertIfNotPresent(visible_columns,
+                                   column_definition->column())) {
+        return ::zetasql_base::InternalErrorBuilder()
+               << "Column already used: "
+               << column_definition->column().DebugString();
+      }
+    }
+
+    for (const auto& column_definition :
+         with_partition_columns->column_definition_list()) {
+      // column annotation are not supported for column definition in
+      // with_partition_columns.
+      ZETASQL_RET_CHECK(column_definition->annotations() == nullptr);
+      ZETASQL_RET_CHECK(column_definition->type() != nullptr);
+    }
+  }
+  return absl::OkStatus();
+}
+
 absl::Status Validator::ValidateResolvedCreateExternalTableStmt(
     const ResolvedCreateExternalTableStmt* stmt) {
-  return ValidateResolvedCreateTableStmtBase(stmt);
+  // Build the visible_columns.
+  std::set<ResolvedColumn> visible_columns;
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedCreateTableStmtBase(stmt, &visible_columns));
+  return ValidateResolvedWithPartitionColumns(stmt->with_partition_columns(),
+                                              &visible_columns);
 }
 
 absl::Status Validator::ValidateResolvedCreateRowAccessPolicyStmt(
@@ -2260,6 +2309,12 @@ absl::Status Validator::ValidateResolvedExportDataStmt(
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedOutputColumnList(
       stmt->query()->column_list(), stmt->output_column_list(),
       stmt->is_value_table()));
+  ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
+  return absl::OkStatus();
+}
+
+absl::Status Validator::ValidateResolvedExportModelStmt(
+    const ResolvedExportModelStmt* stmt) {
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
   return absl::OkStatus();
 }

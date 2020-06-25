@@ -55,6 +55,7 @@ absl::Status JsonPathEvaluator::Extract(absl::string_view json,
                                         bool* is_null) const {
   JSONPathExtractor parser(json, path_iterator_.get());
   parser.set_special_character_escaping(escape_special_characters_);
+  parser.set_escaping_needed_callback(&escaping_needed_callback_);
   value->clear();
   parser.Extract(value, is_null);
   if (parser.StoppedDueToStackSpace()) {

@@ -348,26 +348,58 @@ class PreparedExpressionBase {
   // REQUIRES: Prepare() or Execute() has been called successfully.
   zetasql_base::StatusOr<int> GetPositionalParameterCount() const;
 
+  // Options struct for Execute() and ExecuteAfterPrepare() function calls.
+  struct ExpressionOptions {
+    // Columns for the expression. Represented as a map or unordered list.
+    //
+    // If using an in-scope expression column, <columns> should have an entry
+    // storing the Value for that column with its registered name (possibly
+    // ""). For the implicit Prepare case, an entry in <columns> with an empty
+    // name will be treated as an anonymous in-scope expression column.
+    ParameterValueMap columns;
+    // Allows for a more efficient evaluation by requiring for the <columns> and
+    // <parameters> values to be passed in a particular order. It is intended
+    // for users that want to repeatedly evaluate an expression with different
+    // values of (hardcoded) parameters. In that case, it is more efficient than
+    // the other forms of Execute(), whose implementations involve map
+    // operations on column and/or named query parameters. <columns> must be in
+    // the order returned by GetReferencedColumns. If positional parameters are
+    // used, they are passed in <parameters>. If named parameters are used, they
+    // are passed in <parameters> in the order returned by
+    // GetReferencedParameters.
+    // REQUIRES: To be called via ExecuteAfterPrepare().
+    ParameterValueList ordered_columns;
+
+    // Parameters for the expression. Represented as a map or unordered list.
+    ParameterValueMap parameters;
+    ParameterValueList ordered_parameters;
+
+    // Optional system variables for all variants of Execute.
+    SystemVariableValuesMap system_variables;
+
+    // Optional deadline for the expression evaluation. Deadline is checked
+    // every time a ValueExpr is evaluated (e.g: IF, ARRAY, LIKE).
+    absl::Time deadline = absl::InfiniteFuture();
+  };
+
   // Execute the expression.
   //
   // If Prepare has not been called, the first call to Execute will call
   // Prepare with implicitly constructed AnalyzerOptions using the
   // names and types from <columns> and <parameters>.
   //
-  // If using an in-scope expression column, <columns> should have an entry
-  // storing the Value for that column with its registered name (possibly "").
-  // For the implicit Prepare case, an entry in <columns> with an empty
-  // name will be treated as an anonymous in-scope expression column.
-  //
   // NOTE: The returned Value is only valid for the lifetime of this
   // PreparedExpression unless an external TypeFactory was passed to the
   // constructor.
+  zetasql_base::StatusOr<Value> Execute(const ExpressionOptions& options);
+
+  // Shorthand for calling Execute, filling the options using maps.
   zetasql_base::StatusOr<Value> Execute(
       const ParameterValueMap& columns = {},
       const ParameterValueMap& parameters = {},
       const SystemVariableValuesMap& system_variables = {});
 
-  // Same as above, but uses positional instead of named parameters.
+  // Shorthand for calling Execute, filling the options positionally.
   zetasql_base::StatusOr<Value> ExecuteWithPositionalParams(
       const ParameterValueMap& columns,
       const ParameterValueList& positional_parameters,
@@ -378,28 +410,25 @@ class PreparedExpressionBase {
   // about the arguments and return value.
   //
   // Thread safe. Multiple evaluations can proceed in parallel.
+  // REQUIRES: Prepare() has been called successfully.
+  zetasql_base::StatusOr<Value> ExecuteAfterPrepare(
+      const ExpressionOptions& options) const;
+
+  // Shorthand for calling ExecuteAfterPrepare, filling the options using maps.
   zetasql_base::StatusOr<Value> ExecuteAfterPrepare(
       const ParameterValueMap& columns = {},
       const ParameterValueMap& parameters = {},
       const SystemVariableValuesMap& system_variables = {}) const;
 
-  // Same as above, but uses positional instead of named parameters.
+  // Shorthand for calling ExecuteAfterPrepare, filling the options
+  // positionally.
   zetasql_base::StatusOr<Value> ExecuteAfterPrepareWithPositionalParams(
       const ParameterValueMap& columns,
       const ParameterValueList& positional_parameters,
       const SystemVariableValuesMap& system_variables = {}) const;
 
-  // More efficient form of Execute that requires column and parameter values to
-  // be passed in a particular order. It is intended for users that want to
-  // repeatedly evaluate an expression with different values of (hardcoded)
-  // parameters. In that case, it is more efficient than the other forms of
-  // Execute(), whose implementations involve map operations on column and/or
-  // named query parameters. <columns> must be in the order returned by
-  // GetReferencedColumns. If positional parameters are used, they are passed in
-  // <parameters>. If named parameters are used, they are passed in <parameters>
-  // in the order returned by GetReferencedParameters.
-  //
-  // REQUIRES: Prepare() has been called successfully.
+  // Shorthand for calling ExecuteAfterPrepare, filling the options
+  // positionally.
   zetasql_base::StatusOr<Value> ExecuteAfterPrepareWithOrderedParams(
       const ParameterValueList& columns, const ParameterValueList& parameters,
       const SystemVariableValuesMap& system_variables = {}) const;
@@ -480,6 +509,19 @@ class PreparedQueryBase {
   // REQUIRES: Prepare() or Execute() has been called successfully.
   zetasql_base::StatusOr<int> GetPositionalParameterCount() const;
 
+  // Options struct for Execute() and ExecuteAfterPrepareWithOrderedParams()
+  // function calls.
+  struct QueryOptions {
+    // Parameters for the expression. Represented as a map or unordered list.
+    ParameterValueMap parameters;
+    // Allows for a more efficient evaluation by requiring for the <parameters>
+    // to be passed in a particular order.
+    ParameterValueList ordered_parameters;
+
+    // Optional system variables for all variants of Execute.
+    SystemVariableValuesMap system_variables;
+  };
+
   // Execute the query. This object must outlive the return value.
   //
   // If Prepare() has not been called, the first call to Execute will call
@@ -489,23 +531,34 @@ class PreparedQueryBase {
   // This method is thread safe. Multiple executions can proceed in parallel,
   // each using a different iterator.
   zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>> Execute(
+      const QueryOptions& options);
+
+  // Shorthand for calling Execute, filling the options using maps.
+  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>> Execute(
       const ParameterValueMap& parameters = {},
       const SystemVariableValuesMap& system_variables = {});
 
-  // Same as above, but uses positional instead of named parameters.
+  // Shorthand for calling Execute, filling the options positionally.
   zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
   ExecuteWithPositionalParams(
       const ParameterValueList& positional_parameters,
       const SystemVariableValuesMap& system_variables = {});
 
-  // More efficient form of Execute that requires parameter values to be passed
-  // in a particular order. If positional parameters are used, they are passed
-  // in <parameters>. If named parameters are used, they are passed in
-  // <parameters> in the order returned by GetReferencedParameters.
+  // This is the same as Execute, but is a const method, and requires that
+  // Prepare has already been called. See the description of Execute for details
+  // about the arguments and return value.
   //
+  // If positional parameters are passed in, a more efficient form of Execute is
+  // invoked.
+  //
+  // Thread safe. Multiple evaluations can proceed in parallel.
   // REQUIRES: Prepare() has been called successfully.
-  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
-  ExecuteAfterPrepareWithOrderedParams(
+  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>> ExecuteAfterPrepare(
+      const QueryOptions& options) const;
+
+  // Shorthand for calling ExecuteAfterPrepare, filling the options
+  // positionally.
+  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>> ExecuteAfterPrepare(
       const ParameterValueList& parameters,
       const SystemVariableValuesMap& system_variables = {}) const;
 

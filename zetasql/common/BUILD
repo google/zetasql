@@ -149,6 +149,7 @@ cc_library(
     deps = [
         "//zetasql/base",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:optional",
         "@icu//:headers",
     ],
 )
@@ -168,6 +169,7 @@ cc_test(
     deps = [
         ":utf_util",
         "@com_google_googletest//:gtest_main",
+        "//zetasql/compliance:functions_testlib",
         "@com_google_absl//absl/strings",
     ],
 )

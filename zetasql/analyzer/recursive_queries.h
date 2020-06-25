@@ -47,6 +47,11 @@ struct WithEntrySortResult {
 zetasql_base::StatusOr<WithEntrySortResult> SortWithEntries(
     const ASTWithClause* with_clause);
 
+// Returns true if the given CREATE RECURSIVE VIEW statement is actually
+// recursive.
+zetasql_base::StatusOr<bool> IsViewSelfRecursive(
+    const ASTCreateViewStatementBase* stmt);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_ANALYZER_RECURSIVE_QUERIES_H_

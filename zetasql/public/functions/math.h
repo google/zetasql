@@ -446,6 +446,10 @@ template <>
 bool TruncDecimal(BigNumericValue in, int64_t digits, BigNumericValue* out,
                   absl::Status* error);
 
+template <>
+bool Pow(BigNumericValue in1, BigNumericValue in2, BigNumericValue* out,
+         absl::Status* error);
+
 }  // namespace functions
 }  // namespace zetasql
 

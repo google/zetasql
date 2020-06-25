@@ -22,20 +22,39 @@
 #include <string>
 #include <vector>
 
-#include "zetasql/base/logging.h"
 #include "zetasql/public/cast.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "absl/algorithm/container.h"
+#include "absl/status/status.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
+#include "zetasql/base/status_macros.h"
 #include "zetasql/base/statusor.h"
 
 namespace zetasql {
 namespace {
 using SuperTypesMap = absl::flat_hash_map<TypeKind, const std::set<TypeKind>>;
+
+bool IsExtendedCoercion(const Type* from_type, const Type* to_type) {
+  return from_type->IsExtendedType() || to_type->IsExtendedType();
+}
+
+bool StatusToBool(const zetasql_base::StatusOr<bool>& status) {
+  // This function is used by old CoercesTo functions that return bool to
+  // convert StatusOr<bool> values returned by new CoercesTo API. Old API
+  // functions should never be called for expressions that may involve extended
+  // types and for built-in types new API functions should never return an error
+  // status unless some invariant is broken. Thus, DCHECK status here to crash
+  // in debug mode to signal that some contract is violated.
+  ZETASQL_DCHECK_OK(status.status());
+  return status.value_or(false);
+}
+
 }  // namespace
 
 static const SuperTypesMap* InitializeSuperTypesMap() {
@@ -64,7 +83,8 @@ static const SuperTypesMap* InitializeSuperTypesMap() {
       {TYPE_DATETIME, {TYPE_DATETIME}},
       {TYPE_GEOGRAPHY, {TYPE_GEOGRAPHY}},
       {TYPE_NUMERIC, {TYPE_NUMERIC, TYPE_BIGNUMERIC, TYPE_DOUBLE}},
-      {TYPE_BIGNUMERIC, {TYPE_BIGNUMERIC, TYPE_DOUBLE}}};
+      {TYPE_BIGNUMERIC, {TYPE_BIGNUMERIC, TYPE_DOUBLE}},
+      {TYPE_JSON, {TYPE_JSON}}};
 
   for (const auto& entry : raw) {
     TypeKind type = entry.first;
@@ -535,9 +555,121 @@ const Type* Coercer::GetCommonSuperTypeImpl(
   return nullptr;  // No common supertype.
 }
 
-bool Coercer::CoercesTo(const InputArgumentType& from_argument,
-                        const Type* to_type, bool is_explicit,
-                        SignatureMatchResult* result) const {
+// ContextBase contains a basic set of properties needed for particular coercion
+// check request. The coercion check logic itself is implemented in Context
+// class, while ContextBase serves just to enforce several important invariants
+// by restricting direct access to context's fields.
+class Coercer::ContextBase {
+ public:
+  ContextBase(const Coercer& coercer, bool is_explicit)
+      : coercer_(coercer), is_explicit_(is_explicit) {}
+
+  ContextBase(const ContextBase& other) = delete;
+  ContextBase& operator=(const ContextBase& other) = delete;
+
+  Catalog* catalog() const { return coercer_.catalog_; }
+  TypeFactory& type_factory() { return *coercer_.type_factory_; }
+  const LanguageOptions& language_options() const {
+    return coercer_.language_options_;
+  }
+
+  // Returns true if explicit cast is checked. False if coercion.
+  bool is_explicit() const { return is_explicit_; }
+
+  // If we hit into extended type, this property returns a conversion function
+  // that Catalog returned in Conversion::function().
+  const Function* extended_conversion() const { return extended_conversion_; }
+
+  // Flag struct_coercion_mode is set to true when we hit into STRUCT type. In
+  // this mode, we need to check that a Catalog returns the same conversion
+  // function for all extended types.
+  bool struct_coercion_mode() const { return struct_coercion_mode_; }
+
+  // Saves the extended conversion function. Returns an error if function is
+  // already set.
+  absl::Status SetExtendedConversion(const Function* extended_conversion);
+
+  void EnableStructCoercionMode() { struct_coercion_mode_ = true; }
+
+ private:
+  const Coercer& coercer_;
+  const Function* extended_conversion_ = nullptr;
+  const bool is_explicit_;
+  bool struct_coercion_mode_ = false;
+};
+
+absl::Status Coercer::ContextBase::SetExtendedConversion(
+    const Function* extended_conversion) {
+  ZETASQL_RET_CHECK_NE(extended_conversion, nullptr);
+
+  if (extended_conversion_ != nullptr) {
+    ZETASQL_RET_CHECK(struct_coercion_mode_);
+
+    if (extended_conversion_ != extended_conversion) {
+      return zetasql_base::FailedPreconditionErrorBuilder()
+             << "Catalog returned two different conversion functions for "
+                "single cast";
+    }
+  }
+
+  extended_conversion_ = extended_conversion;
+  return absl::OkStatus();
+}
+
+// Context class implements Coercer logic for a particular coercion check
+// request.
+class Coercer::Context : public Coercer::ContextBase {
+ public:
+  using Coercer::ContextBase::ContextBase;
+
+  zetasql_base::StatusOr<bool> CoercesTo(const InputArgumentType& from_argument,
+                                 const Type* to_type,
+                                 SignatureMatchResult* result);
+
+  zetasql_base::StatusOr<bool> ExtendedTypeCoercesTo(
+      const Type* from_type, const Type* to_type,
+      Catalog::ConversionSourceExpressionKind source_kind,
+      SignatureMatchResult* result);
+
+  zetasql_base::StatusOr<bool> ExtendedTypeCoercesTo(const InputArgumentType& argument,
+                                             const Type* to_type,
+                                             SignatureMatchResult* result);
+
+  zetasql_base::StatusOr<bool> StructCoercesTo(const InputArgumentType& struct_argument,
+                                       const Type* to_type,
+                                       SignatureMatchResult* result);
+
+  zetasql_base::StatusOr<bool> ArrayCoercesTo(const InputArgumentType& array_argument,
+                                      const Type* to_type,
+                                      SignatureMatchResult* result);
+
+  zetasql_base::StatusOr<bool> ParameterCoercesTo(const Type* from_type,
+                                          const Type* to_type,
+                                          SignatureMatchResult* result);
+
+  zetasql_base::StatusOr<bool> LiteralCoercesTo(const Value& literal_value,
+                                        const Type* to_type,
+                                        SignatureMatchResult* result);
+
+  zetasql_base::StatusOr<bool> TypeCoercesTo(const Type* from_type, const Type* to_type,
+                                     SignatureMatchResult* result);
+
+  // Returns whether <from_struct> can be coerced to <to_type>. <to_type>
+  // must be a ProtoType whose descriptor is a map entry. <from_struct>
+  // must have two fields. The struct's first and second fields must cast or
+  // coerce (depending on is_explicit) to the key and value field types of the
+  // proto. The names of the struct fields are ignored.
+  //
+  // The result of this function is definitive for struct->proto coercion,
+  // so <result> is always updated.
+  zetasql_base::StatusOr<bool> StructCoercesToProtoMapEntry(
+      const StructType* from_struct, const ProtoType* to_type,
+      SignatureMatchResult* result);
+};
+
+zetasql_base::StatusOr<bool> Coercer::Context::CoercesTo(
+    const InputArgumentType& from_argument, const Type* to_type,
+    SignatureMatchResult* result) {
   if (from_argument.is_untyped()) {
     // This is an untyped NULL, so the cost of coercion is considered as 0
     // and <result> is left unchanged.
@@ -548,20 +680,18 @@ bool Coercer::CoercesTo(const InputArgumentType& from_argument,
     return true;
   }
   if (from_argument.type()->IsStruct()) {
-    return StructCoercesTo(from_argument, to_type, is_explicit, result);
+    return StructCoercesTo(from_argument, to_type, result);
   }
   if (from_argument.type()->IsArray()) {
-    return ArrayCoercesTo(from_argument, to_type, is_explicit, result);
+    return ArrayCoercesTo(from_argument, to_type, result);
   }
   if (from_argument.literal_value() != nullptr) {
-    return LiteralCoercesTo(*(from_argument.literal_value()), to_type,
-                            is_explicit, result);
+    return LiteralCoercesTo(*(from_argument.literal_value()), to_type, result);
   }
   if (from_argument.is_query_parameter()) {
-    return ParameterCoercesTo(from_argument.type(), to_type, is_explicit,
-                              result);
+    return ParameterCoercesTo(from_argument.type(), to_type, result);
   }
-  return TypeCoercesTo(from_argument.type(), to_type, is_explicit, result);
+  return TypeCoercesTo(from_argument.type(), to_type, result);
 }
 
 bool Coercer::AssignableTo(const InputArgumentType& from_argument,
@@ -577,25 +707,72 @@ bool Coercer::AssignableTo(const InputArgumentType& from_argument,
   return false;
 }
 
-bool Coercer::ParameterCoercesTo(const Type* from_type, const Type* to_type,
-                                 bool is_explicit,
-                                 SignatureMatchResult* result) const {
+zetasql_base::StatusOr<bool> Coercer::Context::ExtendedTypeCoercesTo(
+    const Type* from_type, const Type* to_type,
+    Catalog::ConversionSourceExpressionKind source_kind,
+    SignatureMatchResult* result) {
+  if (catalog() == nullptr) {
+    return zetasql_base::FailedPreconditionErrorBuilder()
+           << "Attempt to find a conversion rule for extended type without "
+              "providing a Catalog to Coercer";
+  }
+
+  Catalog::FindConversionOptions options(is_explicit(), source_kind,
+                                         struct_coercion_mode(),
+                                         language_options().product_mode());
+  Conversion conversion = Conversion::Invalid();
+  absl::Status find_status =
+      catalog()->FindConversion(from_type, to_type, options, &conversion);
+  if (!find_status.ok()) {
+    if (absl::IsNotFound(find_status)) {
+      // Benign error - conversion not found.
+      result->incr_non_matched_arguments();
+      return false;
+    }
+    return find_status;
+  }
+
+  ZETASQL_RETURN_IF_ERROR(SetExtendedConversion(conversion.function()));
+
+  switch (source_kind) {
+    case Catalog::ConversionSourceExpressionKind::kLiteral:
+    case Catalog::ConversionSourceExpressionKind::kParameter:
+      result->incr_literals_coerced();
+      result->incr_literals_distance(conversion.property().cost);
+      break;
+    case Catalog::ConversionSourceExpressionKind::kOther:
+      result->incr_non_literals_coerced();
+      result->incr_non_literals_distance(conversion.property().cost);
+      break;
+  }
+
+  return true;
+}
+
+zetasql_base::StatusOr<bool> Coercer::Context::ParameterCoercesTo(
+    const Type* from_type, const Type* to_type, SignatureMatchResult* result) {
+  if (IsExtendedCoercion(from_type, to_type)) {
+    return ExtendedTypeCoercesTo(
+        from_type, to_type, Catalog::ConversionSourceExpressionKind::kParameter,
+        result);
+  }
+
   if (from_type->IsStruct()) {
     return StructCoercesTo(
         InputArgumentType(from_type, true /* is_query_parameter */), to_type,
-        is_explicit, result);
+        result);
   }
   if (from_type->IsArray()) {
     return ArrayCoercesTo(
         InputArgumentType(from_type, /*is_query_parameter=*/true), to_type,
-        is_explicit, result);
+        result);
   }
 
   const CastFunctionProperty* property = zetasql_base::FindOrNull(
       GetZetaSQLCasts(), TypeKindPair(from_type->kind(), to_type->kind()));
   if (property != nullptr &&
       (SupportsParameterCoercion(property->type) ||
-       (is_explicit && SupportsExplicitCast(property->type))) &&
+       (is_explicit() && SupportsExplicitCast(property->type))) &&
       (from_type->IsSimpleType() || to_type->IsSimpleType() ||
        from_type->Equivalent(to_type))) {
     // Count these the same as literal coercion.  This is because
@@ -610,24 +787,32 @@ bool Coercer::ParameterCoercesTo(const Type* from_type, const Type* to_type,
   return false;
 }
 
-bool Coercer::TypeCoercesTo(const Type* from_type, const Type* to_type,
-                            bool is_explicit,
-                            SignatureMatchResult* result) const {
+zetasql_base::StatusOr<bool> Coercer::Context::TypeCoercesTo(
+    const Type* from_type, const Type* to_type, SignatureMatchResult* result) {
+  if (IsExtendedCoercion(from_type, to_type)) {
+    return ExtendedTypeCoercesTo(
+        from_type, to_type, Catalog::ConversionSourceExpressionKind::kOther,
+        result);
+  }
+
+  // Note: We have to check struct coercion before CastFunctionProperty, because
+  // STRUCT->PROTO is not a generically supported cast, but there is a special
+  // case for map entries.
+  if (from_type->IsStruct()) {
+    return StructCoercesTo(InputArgumentType(from_type), to_type, result);
+  }
+
   const CastFunctionProperty* property = zetasql_base::FindOrNull(
       GetZetaSQLCasts(), TypeKindPair(from_type->kind(), to_type->kind()));
   if (property == nullptr) {
     result->incr_non_matched_arguments();
     return false;
   }
-  if (from_type->IsStruct()) {
-    return StructCoercesTo(InputArgumentType(from_type), to_type, is_explicit,
-                           result);
-  }
+
   if (from_type->IsArray()) {
-    return ArrayCoercesTo(InputArgumentType(from_type), to_type, is_explicit,
-                          result);
+    return ArrayCoercesTo(InputArgumentType(from_type), to_type, result);
   }
-  if (!is_explicit && !SupportsImplicitCoercion(property->type)) {
+  if (!is_explicit() && !SupportsImplicitCoercion(property->type)) {
     result->incr_non_matched_arguments();
     return false;
   }
@@ -645,12 +830,21 @@ bool Coercer::TypeCoercesTo(const Type* from_type, const Type* to_type,
   return true;
 }
 
-bool Coercer::StructCoercesTo(const InputArgumentType& struct_argument,
-                              const Type* to_type, bool is_explicit,
-                              SignatureMatchResult* result) const {
+zetasql_base::StatusOr<bool> Coercer::Context::StructCoercesTo(
+    const InputArgumentType& struct_argument, const Type* to_type,
+    SignatureMatchResult* result) {
   // Expected invariant.
-  DCHECK(struct_argument.type()->IsStruct());
+  ZETASQL_RET_CHECK(struct_argument.type()->IsStruct());
+
+  EnableStructCoercionMode();
+
   const StructType* from_struct = struct_argument.type()->AsStruct();
+
+  if (to_type->IsProto()) {
+    return StructCoercesToProtoMapEntry(from_struct, to_type->AsProto(),
+                                        result);
+  }
+
   if (!to_type->IsStruct() ||
       from_struct->num_fields() != to_type->AsStruct()->num_fields()) {
     result->incr_non_matched_arguments();
@@ -662,9 +856,11 @@ bool Coercer::StructCoercesTo(const InputArgumentType& struct_argument,
     // We still must check the field types for coercibility.
     for (int idx = 0; idx < to_struct->num_fields(); ++idx) {
       SignatureMatchResult local_result;
-      if (!CoercesTo(InputArgumentType(from_struct->field(idx).type),
-                     to_struct->field(idx).type,
-                     is_explicit, &local_result)) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          bool coerced,
+          CoercesTo(InputArgumentType(from_struct->field(idx).type),
+                    to_struct->field(idx).type, &local_result));
+      if (!coerced) {
         result->incr_non_matched_arguments();
         return false;
       }
@@ -681,32 +877,35 @@ bool Coercer::StructCoercesTo(const InputArgumentType& struct_argument,
   const std::vector<InputArgumentType>& struct_field_types =
       struct_argument.field_types();
   // We expect a non-NULL struct with matching number of fields.
-  DCHECK(!struct_argument.is_literal_null());
+  ZETASQL_RET_CHECK(!struct_argument.is_literal_null());
 
   std::vector<Value> coerced_field_values;
   for (int idx = 0; idx < to_struct->num_fields(); ++idx) {
     // Test expected invariant that the field types in the struct and the
     // InputArgumentType field types are the same.
-    DCHECK(struct_field_types[idx].type()->Equals(
-             from_struct->field(idx).type))
-        << "struct_field_types[" << idx << "]: "
-        << struct_field_types[idx].type()->DebugString()
-        << "; from_struct->field(" << idx << ").type: "
-        << from_struct->field(idx).type->DebugString();
+    ZETASQL_RET_CHECK(
+        struct_field_types[idx].type()->Equals(from_struct->field(idx).type))
+        << "struct_field_types[" << idx
+        << "]: " << struct_field_types[idx].type()->DebugString()
+        << "; from_struct->field(" << idx
+        << ").type: " << from_struct->field(idx).type->DebugString();
     if (!from_struct->field(idx).type->Equals(to_struct->field(idx).type)) {
       SignatureMatchResult local_result;
       if (struct_field_types[idx].is_literal()) {
-        if (!LiteralCoercesTo(*struct_field_types[idx].literal_value(),
-                              to_struct->field(idx).type, is_explicit,
-                              &local_result)) {
+        ZETASQL_ASSIGN_OR_RETURN(
+            bool coerced,
+            LiteralCoercesTo(*struct_field_types[idx].literal_value(),
+                             to_struct->field(idx).type, &local_result));
+        if (!coerced) {
           result->incr_non_matched_arguments();
           return false;
         }
       } else {
         // The struct field is not a literal.
-        if (!CoercesTo(struct_field_types[idx],
-                       to_struct->field(idx).type,
-                       is_explicit, &local_result)) {
+        ZETASQL_ASSIGN_OR_RETURN(bool coerced,
+                         CoercesTo(struct_field_types[idx],
+                                   to_struct->field(idx).type, &local_result));
+        if (!coerced) {
           result->incr_non_matched_arguments();
           return false;
         }
@@ -717,14 +916,62 @@ bool Coercer::StructCoercesTo(const InputArgumentType& struct_argument,
   return true;
 }
 
-bool Coercer::ArrayCoercesTo(const InputArgumentType& array_argument,
-                             const Type* to_type, bool is_explicit,
-                             SignatureMatchResult* result) const {
-  DCHECK(array_argument.type()->IsArray());
+zetasql_base::StatusOr<bool> Coercer::Context::StructCoercesToProtoMapEntry(
+    const StructType* from_struct, const ProtoType* to_type,
+    SignatureMatchResult* result) {
+  const ProtoType* to_type_proto = to_type->AsProto();
+  if (from_struct->fields().size() != 2 || to_type_proto == nullptr ||
+      !to_type_proto->descriptor()->options().map_entry() ||
+      !language_options().LanguageFeatureEnabled(
+          LanguageFeature::FEATURE_V_1_3_PROTO_MAPS)) {
+    result->incr_non_matched_arguments();
+    return false;
+  }
+
+  const Type* key_type;
+  const Type* value_type;
+  bool ignore_annotations = false;
+  if (!type_factory()
+           .GetProtoFieldType(ignore_annotations, to_type_proto->map_key(),
+                              &key_type)
+           .ok() ||
+      !type_factory()
+           .GetProtoFieldType(ignore_annotations, to_type_proto->map_value(),
+                              &value_type)
+           .ok()) {
+    result->incr_non_matched_arguments();
+    return false;
+  }
+
+  SignatureMatchResult local_result;
+  InputArgumentType arg_type;
+  ZETASQL_ASSIGN_OR_RETURN(bool coerced,
+                   CoercesTo(InputArgumentType(from_struct->field(0).type),
+                             key_type, &local_result));
+  if (!coerced) {
+    result->incr_non_matched_arguments();
+    return false;
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(coerced,
+                   CoercesTo(InputArgumentType(from_struct->field(1).type),
+                             value_type, &local_result));
+  if (!coerced) {
+    result->incr_non_matched_arguments();
+    return false;
+  }
+  result->UpdateFromResult(local_result);
+  return true;
+}
+
+zetasql_base::StatusOr<bool> Coercer::Context::ArrayCoercesTo(
+    const InputArgumentType& array_argument, const Type* to_type,
+    SignatureMatchResult* result) {
+  ZETASQL_RET_CHECK(array_argument.type()->IsArray());
   const ArrayType* from_array = array_argument.type()->AsArray();
   if (from_array->Equivalent(to_type)) return true;
 
-  if (language_options_.LanguageFeatureEnabled(
+  if (language_options().LanguageFeatureEnabled(
           FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES) &&
       to_type->IsArray()) {
     const Type* from_element_type = from_array->element_type();
@@ -741,12 +988,16 @@ bool Coercer::ArrayCoercesTo(const InputArgumentType& array_argument,
         element_arg = InputArgumentType(from_element_type,
                                         /*is_query_parameter=*/true);
       }
-      return CoercesTo(element_arg, to_element_type, is_explicit, result);
+      return CoercesTo(element_arg, to_element_type, result);
     }
 
-    if (is_explicit) {
-      return TypeCoercesTo(from_element_type, to_element_type, is_explicit,
-                           result);
+    if (is_explicit() ||
+        // Per (broken link), ARRAY<STRUCT<K,V>> coerces implicitly
+        // to ARRAY<MapEntryProto> if STRUCT<K,V> coerces to MapEntryProto.
+        (to_element_type->IsProto() &&
+         to_element_type->AsProto()->descriptor()->options().map_entry() &&
+         language_options().LanguageFeatureEnabled(FEATURE_V_1_3_PROTO_MAPS))) {
+      return TypeCoercesTo(from_element_type, to_element_type, result);
     }
   }
 
@@ -754,12 +1005,19 @@ bool Coercer::ArrayCoercesTo(const InputArgumentType& array_argument,
   return false;
 }
 
-bool Coercer::LiteralCoercesTo(const Value& literal_value, const Type* to_type,
-                               bool is_explicit,
-                               SignatureMatchResult* result) const {
+zetasql_base::StatusOr<bool> Coercer::Context::LiteralCoercesTo(
+    const Value& literal_value, const Type* to_type,
+    SignatureMatchResult* result) {
+  if (IsExtendedCoercion(literal_value.type(), to_type)) {
+    return ExtendedTypeCoercesTo(
+        literal_value.type(), to_type,
+        Catalog::ConversionSourceExpressionKind::kLiteral, result);
+  }
+
   SignatureMatchResult local_result;
-  if (TypeCoercesTo(literal_value.type(), to_type, is_explicit,
-                    &local_result)) {
+  ZETASQL_ASSIGN_OR_RETURN(bool general_coercion_result,
+                   TypeCoercesTo(literal_value.type(), to_type, &local_result));
+  if (general_coercion_result) {
     // General Type coercion is allowed independent of literalness.
     result->incr_literals_coerced();
     result->incr_literals_distance(local_result.non_literals_distance());
@@ -767,8 +1025,7 @@ bool Coercer::LiteralCoercesTo(const Value& literal_value, const Type* to_type,
   }
   if (literal_value.type()->IsStruct()) {
     // Structs are coerced on a field-by-field basis.
-    return StructCoercesTo(InputArgumentType(literal_value), to_type,
-                           is_explicit, result);
+    return StructCoercesTo(InputArgumentType(literal_value), to_type, result);
   }
   if (!literal_value.type()->IsSimpleType()) {
     // Non-struct complex-typed literals (enum, proto, array) coerce exactly
@@ -786,9 +1043,8 @@ bool Coercer::LiteralCoercesTo(const Value& literal_value, const Type* to_type,
   CastFunctionType cast_type;
   const bool is_valid_cast = GetCastFunctionType(literal_value.type()->kind(),
                                                  to_type->kind(), &cast_type);
-  if (is_valid_cast &&
-      (SupportsLiteralCoercion(cast_type) ||
-       (is_explicit && SupportsExplicitCast(cast_type)))) {
+  if (is_valid_cast && (SupportsLiteralCoercion(cast_type) ||
+                        (is_explicit() && SupportsExplicitCast(cast_type)))) {
     // TODO: We may want to consider implicitly coercing a STRING
     // literal to DATE/TIMESTAMP to be an exact match (or distance 0) since we
     // don't produce DATE/TIMESTAMP literals in the parser.  The parsed
@@ -802,6 +1058,61 @@ bool Coercer::LiteralCoercesTo(const Value& literal_value, const Type* to_type,
   }
   result->incr_non_matched_arguments();
   return false;
+}
+
+bool Coercer::CoercesTo(const InputArgumentType& from_argument,
+                        const Type* to_type, bool is_explicit,
+                        SignatureMatchResult* result) const {
+  const Function* extended_types_conversion = nullptr;
+  return StatusToBool(CoercesTo(from_argument, to_type, is_explicit, result,
+                                &extended_types_conversion));
+}
+
+zetasql_base::StatusOr<bool> Coercer::CoercesTo(
+    const InputArgumentType& from_argument, const Type* to_type,
+    bool is_explicit, SignatureMatchResult* result,
+    const Function** extended_conversion) const {
+  Context context(*this, is_explicit);
+  auto status = context.CoercesTo(from_argument, to_type, result);
+  if (status.value_or(false)) {
+    *extended_conversion = context.extended_conversion();
+  }
+  return status;
+}
+
+bool Coercer::TypeCoercesTo(const Type* from_type, const Type* to_type,
+                            bool is_explicit,
+                            SignatureMatchResult* result) const {
+  return StatusToBool(
+      Context(*this, is_explicit).TypeCoercesTo(from_type, to_type, result));
+}
+
+bool Coercer::StructCoercesTo(const InputArgumentType& struct_argument,
+                              const Type* to_type, bool is_explicit,
+                              SignatureMatchResult* result) const {
+  return StatusToBool(Context(*this, is_explicit)
+                          .StructCoercesTo(struct_argument, to_type, result));
+}
+
+bool Coercer::ArrayCoercesTo(const InputArgumentType& array_argument,
+                             const Type* to_type, bool is_explicit,
+                             SignatureMatchResult* result) const {
+  return StatusToBool(Context(*this, is_explicit)
+                          .ArrayCoercesTo(array_argument, to_type, result));
+}
+
+bool Coercer::ParameterCoercesTo(const Type* from_type, const Type* to_type,
+                                 bool is_explicit,
+                                 SignatureMatchResult* result) const {
+  return StatusToBool(Context(*this, is_explicit)
+                          .ParameterCoercesTo(from_type, to_type, result));
+}
+
+bool Coercer::LiteralCoercesTo(const Value& literal_value, const Type* to_type,
+                               bool is_explicit,
+                               SignatureMatchResult* result) const {
+  return StatusToBool(Context(*this, is_explicit)
+                          .LiteralCoercesTo(literal_value, to_type, result));
 }
 
 }  // namespace zetasql

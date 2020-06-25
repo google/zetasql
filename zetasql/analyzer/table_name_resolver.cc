@@ -158,6 +158,8 @@ class TableNameResolver {
       const ASTTablePathExpression* table_ref,
       AliasSet* visible_aliases);
 
+  absl::Status FindInTableElements(const ASTTableElementList* elements);
+
   // Traverse all expressions attached as descendants of <root>.
   // Unlike other methods above, may be called with NULL.
   absl::Status FindInExpressionsUnder(const ASTNode* root,
@@ -278,8 +280,15 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
       break;
 
     case AST_CREATE_TABLE_STATEMENT: {
-      const ASTQuery* query =
-          statement->GetAs<ASTCreateTableStatement>()->query();
+      const ASTCreateTableStatement* stmt =
+          statement->GetAs<ASTCreateTableStatement>();
+
+      const ASTTableElementList* table_elements = stmt->table_element_list();
+      if (table_elements != nullptr) {
+        ZETASQL_RETURN_IF_ERROR(FindInTableElements(table_elements));
+      }
+
+      const ASTQuery* query = stmt->query();
       if (query == nullptr) {
         if (analyzer_options_->language().SupportsStatementKind(
                 RESOLVED_CREATE_TABLE_STMT)) {
@@ -322,6 +331,13 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
     case AST_CREATE_EXTERNAL_TABLE_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_CREATE_EXTERNAL_TABLE_STMT)) {
+        const ASTCreateExternalTableStatement* stmt =
+            statement->GetAs<ASTCreateExternalTableStatement>();
+
+        const ASTTableElementList* table_elements = stmt->table_element_list();
+        if (table_elements != nullptr) {
+          ZETASQL_RETURN_IF_ERROR(FindInTableElements(table_elements));
+        }
         return absl::OkStatus();
       }
       break;
@@ -379,6 +395,13 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
               RESOLVED_EXPORT_DATA_STMT)) {
         return FindInExportDataStatement(
             statement->GetAs<ASTExportDataStatement>());
+      }
+      break;
+
+    case AST_EXPORT_MODEL_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_EXPORT_MODEL_STMT)) {
+        return absl::OkStatus();
       }
       break;
 
@@ -1069,6 +1092,23 @@ absl::Status TableNameResolver::FindInTableSubquery(
         local_visible_aliases,
         absl::AsciiStrToLower(table_subquery->alias()->GetAsString()));
   }
+  return absl::OkStatus();
+}
+
+absl::Status TableNameResolver::FindInTableElements(
+    const ASTTableElementList* elements) {
+
+  std::vector<const ASTNode*> foreign_references;
+  elements->GetDescendantSubtreesWithKinds({AST_FOREIGN_KEY_REFERENCE},
+                                           &foreign_references);
+  for (const ASTNode* node : foreign_references) {
+    const ASTForeignKeyReference* reference =
+        node->GetAsOrDie<ASTForeignKeyReference>();
+    const std::vector<std::string> path =
+        reference->table_name()->ToIdentifierVector();
+    zetasql_base::InsertIfNotPresent(table_names_, path);
+  }
+
   return absl::OkStatus();
 }
 

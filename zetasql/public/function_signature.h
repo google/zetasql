@@ -475,8 +475,12 @@ class FunctionArgumentType {
   std::optional<int> GetDescriptorResolutionTableOffset() const {
     return options_->get_resolve_descriptor_names_table_offset();
   }
-  // Returns TRUE if kind_ is templated and it is related to the input kind
-  // (i.e., the kinds are the same, or one is an array of the other).
+
+  // Returns TRUE if kind() can be used to derive something about kind.
+  // For example, if kind() is ARG_ARRAY_TYPE_ANY_1, it can be used to derive
+  // information about ARG_TYPE_ANY_1, but not ARG_TYPE_ANY_2. Likewise, a
+  // proto map key can be used to derive information about the map itself, but
+  // not about the map value.
   bool TemplatedKindIsRelated(SignatureArgumentKind kind) const;
 
   bool AllowCoercionFrom(const zetasql::Type* actual_arg_type) const {

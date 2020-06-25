@@ -60,6 +60,8 @@ ResolvedNodeKind GetStatementKind(ASTNodeKind node_kind) {
       return RESOLVED_EXPLAIN_STMT;
     case AST_EXPORT_DATA_STATEMENT:
       return RESOLVED_EXPORT_DATA_STMT;
+    case AST_EXPORT_MODEL_STATEMENT:
+      return RESOLVED_EXPORT_MODEL_STMT;
     case AST_CALL_STATEMENT:
       return RESOLVED_CALL_STMT;
     case AST_CREATE_CONSTANT_STATEMENT:
@@ -258,6 +260,7 @@ absl::Status GetNextStatementProperties(
     case AST_EXECUTE_IMMEDIATE_STATEMENT:
     case AST_EXPLAIN_STATEMENT:
     case AST_EXPORT_DATA_STATEMENT:
+    case AST_EXPORT_MODEL_STATEMENT:
     case AST_GRANT_STATEMENT:
     case AST_IMPORT_STATEMENT:
     case AST_MODULE_STATEMENT:

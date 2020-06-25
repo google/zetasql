@@ -35,6 +35,7 @@
 #include "google/protobuf/message.h"
 #include "zetasql/common/float_margin.h"
 #include "zetasql/public/civil_time.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
@@ -93,7 +94,10 @@ inline Value::Value(const Value& that) {
 inline void Value::Clear() {
   if (!is_valid()) return;
 
-  type()->ClearValueContent(GetContent());
+  if (!is_null()) {
+    type()->ClearValueContent(GetContent());
+  }
+
   if (metadata_.has_type_pointer()) {
     internal::TypeStoreHelper::UnrefFromValue(metadata_.type()->type_store_);
   }
@@ -174,6 +178,11 @@ inline Value::Value(const NumericValue& numeric)
 inline Value::Value(const BigNumericValue& bignumeric)
     : metadata_(TypeKind::TYPE_BIGNUMERIC),
       bignumeric_ptr_(new internal::BigNumericRef(bignumeric)) {}
+
+inline Value::Value(internal::JSONRef* json_ptr)
+    : metadata_(TypeKind::TYPE_JSON), json_ptr_(json_ptr) {
+  CHECK(json_ptr != nullptr);
+}
 
 inline Value Value::Struct(const StructType* type,
                            absl::Span<const Value> values) {
@@ -256,6 +265,12 @@ inline Value Value::Numeric(NumericValue v) {
 inline Value Value::BigNumeric(BigNumericValue v) {
   return Value(v);
 }
+inline Value Value::UnvalidatedJsonString(std::string v) {
+  return Value(new internal::JSONRef(std::move(v)));
+}
+inline Value Value::Json(JSONValue v) {
+  return Value(new internal::JSONRef(std::move(v)));
+}
 inline Value Value::Enum(const EnumType* type, int64_t value) {
   return Value(type, value);
 }
@@ -264,6 +279,10 @@ inline Value Value::Enum(const EnumType* type, absl::string_view name) {
 }
 inline Value Value::Proto(const ProtoType* type, absl::Cord value) {
   return Value(type, std::move(value));
+}
+inline Value Value::Extended(const ExtendedType* type,
+                             const ValueContent& value) {
+  return Value(type, value);
 }
 
 inline Value Value::NullInt32() { return Value(types::Int32Type()); }
@@ -293,6 +312,9 @@ inline Value Value::NullNumeric() {
 }
 inline Value Value::NullBigNumeric() {
   return Value(types::BigNumericType());
+}
+inline Value Value::NullJson() {
+  return Value(types::JsonType());
 }
 inline Value Value::EmptyGeography() {
   CHECK(false);
@@ -332,6 +354,10 @@ inline bool Value::is_valid() const {
                 "Revisit implementation");
   // This check assumes that valid TypeKind values are positive.
   return static_cast<int32_t>(metadata_.type_kind()) > 0;
+}
+
+inline bool Value::has_content() const {
+  return is_valid() && !metadata_.is_null();
 }
 
 inline int32_t Value::int32_value() const {
@@ -420,6 +446,25 @@ inline const BigNumericValue& Value::bignumeric_value() const {
   CHECK_EQ(TYPE_BIGNUMERIC, metadata_.type_kind()) << "Not a bignumeric type";
   CHECK(!metadata_.is_null()) << "Null value";
   return bignumeric_ptr_->value();
+}
+
+inline bool Value::is_validated_json() const {
+  CHECK_EQ(TYPE_JSON, metadata_.type_kind()) << "Not a json type";
+  return json_ptr_->unparsed_string() == nullptr;
+}
+
+inline const std::string& Value::json_value_unparsed() const {
+  CHECK_EQ(TYPE_JSON, metadata_.type_kind()) << "Not a json type";
+  CHECK(!metadata_.is_null()) << "Null value";
+  CHECK(!is_validated_json()) << "Validated json value";
+  return *json_ptr_->unparsed_string();
+}
+
+inline JSONValueConstRef Value::json_value_validated() const {
+  CHECK_EQ(TYPE_JSON, metadata_.type_kind()) << "Not a json type";
+  CHECK(!metadata_.is_null()) << "Null value";
+  CHECK(is_validated_json()) << "Non validated json value";
+  return json_ptr_->document().value();
 }
 
 inline bool Value::empty() const {

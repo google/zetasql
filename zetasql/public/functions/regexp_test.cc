@@ -77,11 +77,19 @@ TEST_P(RegexpTemplateTest, TestLib) {
     if (ok) {
       EXPECT_EQ(param.params.result().bool_value(), out);
     }
-  } else if (function == "regexp_extract") {
+  } else if (function == "regexp_extract" || function == "regexp_substr") {
     absl::string_view out;
     bool is_null;
     std::string in = StringValue(args[0]);
-    ok = re.Extract(in, &out, &is_null, &status);
+    int64_t position = 1;
+    int64_t occurrence = 1;
+    if (args.size() >= 3) {
+      position = args[2].int64_value();
+      if (args.size() == 4) {
+        occurrence = args[3].int64_value();
+      }
+    }
+    ok = re.Extract(in, position, occurrence, &out, &is_null, &status);
     ASSERT_EQ(expected_ok, ok);
     ASSERT_EQ(param.params.status().code(), status.code());
     if (ok) {
@@ -131,6 +139,10 @@ TEST_P(RegexpTemplateTest, TestLib) {
     FAIL() << "Unrecognized regexp function: " << function;
   }
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    Regexp2, RegexpTemplateTest,
+    testing::ValuesIn(GetFunctionTestsRegexp2(/*include_feature_set=*/false)));
 
 INSTANTIATE_TEST_SUITE_P(Regexp, RegexpTemplateTest,
                          testing::ValuesIn(GetFunctionTestsRegexp()));

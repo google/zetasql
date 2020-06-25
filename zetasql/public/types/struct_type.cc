@@ -20,6 +20,7 @@
 #include "zetasql/public/strings.h"
 #include "zetasql/public/types/internal_utils.h"
 #include "zetasql/public/value_content.h"
+#include "absl/status/status.h"
 #include "zetasql/base/simple_reference_counted.h"
 
 namespace zetasql {
@@ -296,16 +297,6 @@ bool StructType::EqualsImpl(const StructType* const type1,
   return true;
 }
 
-void StructType::InitializeValueContent(ValueContent* value) const {
-  // TODO: currently StructType cannot create a list of Values itself
-  // because "types" package doesn't depend on "value" (to avoid dependency
-  // cycle). In the future we will create a virtual list factory interface
-  // defined outside of "value", but which Value can provide to Array/Struct to
-  // use to construct lists.
-  LOG(FATAL) << "ConstructValue should never be called for StructType, since "
-                "its value content is created in Value class";
-}
-
 void StructType::CopyValueContent(const ValueContent& from,
                                   ValueContent* to) const {
   from.GetAs<zetasql_base::SimpleReferenceCounted*>()->Ref();
@@ -326,14 +317,25 @@ absl::HashState StructType::HashTypeParameter(absl::HashState state) const {
 
 absl::HashState StructType::HashValueContent(const ValueContent& value,
                                              absl::HashState state) const {
+  // TODO: currently StructType cannot create a list of Values
+  // itself because "types" package doesn't depend on "value" (to avoid
+  // dependency cycle). In the future we will create a virtual list factory
+  // interface defined outside of "value", but which Value can provide to
+  // Array/Struct to use to construct lists.
   LOG(FATAL) << "HashValueContent should never be called for StructType, since "
                 "its value content is created in Value class";
 }
 
-bool StructType::ValueContentEqualsImpl(
+bool StructType::ValueContentEquals(
     const ValueContent& x, const ValueContent& y,
     const ValueEqualityCheckOptions& options) const {
-  LOG(FATAL) << "ValueContentEqualsImpl should never be called for StructType,"
+  LOG(FATAL) << "ValueContentEquals should never be called for StructType,"
+                "since its value content is compared in Value class";
+}
+
+bool StructType::ValueContentLess(const ValueContent& x, const ValueContent& y,
+                                  const Type* other_type) const {
+  LOG(FATAL) << "ValueContentLess should never be called for StructType,"
                 "since its value content is compared in Value class";
 }
 
@@ -342,6 +344,20 @@ std::string StructType::FormatValueContent(
   LOG(FATAL)
       << "FormatValueContent should never be called for StructType, since "
          "its value content is maintained in the Value class";
+}
+
+absl::Status StructType::SerializeValueContent(const ValueContent& value,
+                                               ValueProto* value_proto) const {
+  return absl::FailedPreconditionError(
+      "SerializeValueContent should never be called for StructType, since its "
+      "value content is maintained in the Value class");
+}
+
+absl::Status StructType::DeserializeValueContent(const ValueProto& value_proto,
+                                                 ValueContent* value) const {
+  return absl::FailedPreconditionError(
+      "DeserializeValueContent should never be called for StructType, since "
+      "its value content is maintained in the Value class");
 }
 
 }  // namespace zetasql

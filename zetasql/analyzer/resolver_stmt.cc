@@ -34,6 +34,7 @@
 #include "zetasql/analyzer/function_resolver.h"
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
+#include "zetasql/analyzer/recursive_queries.h"
 #include "zetasql/analyzer/resolver.h"
 // This includes common macro definitions to define in the resolver cc files.
 #include "zetasql/analyzer/resolver_common_inl.h"
@@ -69,6 +70,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
@@ -245,6 +247,13 @@ absl::Status Resolver::ResolveStatement(
       if (language().SupportsStatementKind(RESOLVED_EXPORT_DATA_STMT)) {
         ZETASQL_RETURN_IF_ERROR(ResolveExportDataStatement(
             statement->GetAsOrDie<ASTExportDataStatement>(), &stmt));
+      }
+      break;
+
+    case AST_EXPORT_MODEL_STATEMENT:
+      if (language().SupportsStatementKind(RESOLVED_EXPORT_MODEL_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveExportModelStatement(
+            statement->GetAsOrDie<ASTExportModelStatement>(), &stmt));
       }
       break;
 
@@ -1756,8 +1765,8 @@ absl::Status Resolver::ResolveCreateModelStatement(
   std::unique_ptr<const ResolvedScan> query_scan;
   std::vector<std::unique_ptr<const ResolvedOutputColumn>>
       query_output_column_list;
-  const IdString table_name_id_string =
-      MakeIdString(ast_statement->name()->ToIdentifierPathString());
+  const std::vector<IdString> table_name_id =
+      ast_statement->name()->ToIdStringVector();
   std::vector<std::unique_ptr<const ResolvedColumnDefinition>>
       transform_input_column_list;
   const ASTTransformClause* transform_clause =
@@ -1766,8 +1775,8 @@ absl::Status Resolver::ResolveCreateModelStatement(
       column_definition_list_ptr =
           transform_clause == nullptr ? nullptr : &transform_input_column_list;
   ZETASQL_RETURN_IF_ERROR(ResolveQueryAndOutputColumns(
-      query, /*object_type=*/"MODEL", table_name_id_string, kCreateAsId,
-      &query_scan, &is_value_table, &query_output_column_list,
+      query, /*object_type=*/"MODEL", /*recursive_view=*/false, table_name_id,
+      kCreateAsId, &query_scan, &is_value_table, &query_output_column_list,
       column_definition_list_ptr));
 
   // Resolve transform list.
@@ -1813,9 +1822,64 @@ absl::Status Resolver::ResolveCreateModelStatement(
   return absl::OkStatus();
 }
 
+absl::Status Resolver::ResolveWithPartitionColumns(
+    const ASTWithPartitionColumnsClause* with_partition_columns_clause,
+    const IdString table_name_id_string, ColumnIndexMap* column_indexes,
+    std::unique_ptr<const ResolvedWithPartitionColumns>*
+        resolved_with_partition_columns) {
+  std::vector<std::unique_ptr<const ResolvedColumnDefinition>>
+      with_partition_column_definition_list;
+  std::vector<const ASTColumnDefinition*> with_partition_column_definitions;
+  if (with_partition_columns_clause->table_element_list() != nullptr) {
+    for (const ASTTableElement* table_element :
+         with_partition_columns_clause->table_element_list()->elements()) {
+      switch (table_element->node_kind()) {
+        case AST_COLUMN_DEFINITION: {
+          const auto* column =
+              static_cast<const ASTColumnDefinition*>(table_element);
+          // Disallow annotations since constraints are not supported as part
+          // of with partition column clause.
+          if (column->schema()->attributes() != nullptr &&
+              !column->schema()->attributes()->values().empty()) {
+            return MakeSqlErrorAt(table_element)
+                   << "column annotations are unsupported in "
+                   << with_partition_columns_clause->table_element_list()
+                          ->GetNodeKindString();
+          }
+          with_partition_column_definitions.push_back(column);
+          break;
+        }
+        case AST_PRIMARY_KEY:
+        case AST_FOREIGN_KEY:
+        case AST_CHECK_CONSTRAINT:
+          // Constraints are not supported as part with partition column clause.
+          return MakeSqlErrorAt(table_element)
+                 << table_element->GetNodeKindString() << " is unsupported";
+          break;
+        default:
+          ZETASQL_RET_CHECK(false) << "Unsupported table element "
+                           << table_element->GetNodeKindString();
+      }
+    }
+  }
+  if (!with_partition_column_definitions.empty()) {
+    ZETASQL_RETURN_IF_ERROR(ResolveColumnDefinitionList(
+        table_name_id_string, with_partition_column_definitions,
+        &with_partition_column_definition_list, column_indexes));
+  }
+
+  if (with_partition_columns_clause != nullptr) {
+    *resolved_with_partition_columns = MakeResolvedWithPartitionColumns(
+        std::move(with_partition_column_definition_list));
+  }
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::ResolveCreateTableStmtBaseProperties(
     const ASTCreateTableStmtBase* ast_statement,
     const std::string& statement_type, const ASTQuery* query,
+    const ASTPartitionBy* partition_by, const ASTClusterBy* cluster_by,
+    const ASTWithPartitionColumnsClause* with_partition_columns_clause,
     const ResolveCreateTableStmtBasePropertiesArgs&
         resolved_properties_control_args,
     ResolveCreateTableStatementBaseProperties* statement_base_properties) {
@@ -1824,6 +1888,8 @@ absl::Status Resolver::ResolveCreateTableStmtBaseProperties(
   std::vector<const ASTColumnDefinition*> ast_column_definitions;
   const IdString table_name_id_string =
       MakeIdString(ast_statement->name()->ToIdentifierPathString());
+  std::vector<IdString> table_name_id =
+      ast_statement->name()->ToIdStringVector();
   bool has_primary_key = false;
   bool has_foreign_key = false;
   bool has_check_constraint = false;
@@ -1863,8 +1929,8 @@ absl::Status Resolver::ResolveCreateTableStmtBaseProperties(
     }
   }
 
+  ColumnIndexMap column_indexes;
   if (!ast_column_definitions.empty()) {
-    ColumnIndexMap column_indexes;
     ZETASQL_RETURN_IF_ERROR(ResolveColumnDefinitionList(
         table_name_id_string, ast_column_definitions,
         &statement_base_properties->column_definition_list, &column_indexes));
@@ -1885,13 +1951,19 @@ absl::Status Resolver::ResolveCreateTableStmtBaseProperties(
   // work without explicit column definitions in CTAS statement. To fix, the
   // output column list from SELECT clause need to be provided to resolve column
   // names in these constraints.
-  if (query != nullptr && ast_column_definitions.empty() && has_primary_key) {
+  if ((query != nullptr ||
+       ast_statement->node_kind() ==
+           ASTNodeKind::AST_CREATE_EXTERNAL_TABLE_STATEMENT) &&
+      ast_column_definitions.empty() && has_primary_key) {
     return MakeSqlErrorAt(ast_statement)
            << "Primary key definition is only allowed with explicit column "
               "definitions in "
            << statement_type;
   }
-  if (query != nullptr && ast_column_definitions.empty() && has_foreign_key) {
+  if ((query != nullptr ||
+       ast_statement->node_kind() ==
+           ASTNodeKind::AST_CREATE_EXTERNAL_TABLE_STATEMENT) &&
+      ast_column_definitions.empty() && has_foreign_key) {
     return MakeSqlErrorAt(ast_statement)
            << "Foreign key definition is only allowed with explicit column "
               "definitions in "
@@ -1920,7 +1992,7 @@ absl::Status Resolver::ResolveCreateTableStmtBaseProperties(
           &statement_base_properties->output_column_list));
     } else {
       ZETASQL_RETURN_IF_ERROR(ResolveQueryAndOutputColumns(
-          query, "TABLE", table_name_id_string, kCreateAsId,
+          query, "TABLE", /*recursive_view=*/false, table_name_id, kCreateAsId,
           &statement_base_properties->query_scan,
           &statement_base_properties->is_value_table,
           &statement_base_properties->output_column_list,
@@ -1931,16 +2003,16 @@ absl::Status Resolver::ResolveCreateTableStmtBaseProperties(
   statement_base_properties->table_name =
       ast_statement->name()->ToIdentifierVector();
 
-  if (ast_statement->partition_by() != nullptr ||
-      ast_statement->cluster_by() != nullptr || has_check_constraint) {
-    if (ast_statement->partition_by() != nullptr &&
+  if (partition_by != nullptr || cluster_by != nullptr ||
+      has_check_constraint) {
+    if (partition_by != nullptr &&
         !resolved_properties_control_args.partition_by_enabled) {
-      return MakeSqlErrorAt(ast_statement->partition_by())
+      return MakeSqlErrorAt(partition_by)
              << statement_type << " with PARTITION BY is unsupported";
     }
-    if (ast_statement->cluster_by() != nullptr &&
+    if (cluster_by != nullptr &&
         !resolved_properties_control_args.cluster_by_enabled) {
-      return MakeSqlErrorAt(ast_statement->cluster_by())
+      return MakeSqlErrorAt(cluster_by)
              << statement_type << " with CLUSTER BY is unsupported";
     }
 
@@ -1996,19 +2068,19 @@ absl::Status Resolver::ResolveCreateTableStmtBaseProperties(
     const NameScope name_scope(create_table_names);
     QueryResolutionInfo query_info(this);
 
-    if (ast_statement->partition_by() != nullptr) {
+    if (partition_by != nullptr) {
       // The parser should reject hints on PARTITION BY.
-      ZETASQL_RET_CHECK(ast_statement->partition_by()->hint() == nullptr);
+      ZETASQL_RET_CHECK(partition_by->hint() == nullptr);
       ZETASQL_RETURN_IF_ERROR(ResolveCreateTablePartitionByList(
-          ast_statement->partition_by()->partitioning_expressions(),
+          partition_by->partitioning_expressions(),
           PartitioningKind::PARTITION_BY, name_scope, &query_info,
           &statement_base_properties->partition_by_list));
     }
 
-    if (ast_statement->cluster_by() != nullptr) {
+    if (cluster_by != nullptr) {
       ZETASQL_RETURN_IF_ERROR(ResolveCreateTablePartitionByList(
-          ast_statement->cluster_by()->clustering_expressions(),
-          PartitioningKind::CLUSTER_BY, name_scope, &query_info,
+          cluster_by->clustering_expressions(), PartitioningKind::CLUSTER_BY,
+          name_scope, &query_info,
           &statement_base_properties->cluster_by_list));
     }
 
@@ -2017,6 +2089,24 @@ absl::Status Resolver::ResolveCreateTableStmtBaseProperties(
           table_element_list->elements(), name_scope, &constraint_names,
           &statement_base_properties->check_constraint_list));
     }
+  }
+
+  // In the end, resolve WithPartitionColumns so that all the columns resolved
+  // from the WithPartitionColumns are not available for resolving constraints.
+  // We still use same column_indexes as table element to identify duplicate
+  // column names.
+  if (with_partition_columns_clause != nullptr) {
+    if (ast_statement->node_kind() !=
+            ASTNodeKind::AST_CREATE_EXTERNAL_TABLE_STATEMENT ||
+        !language().LanguageFeatureEnabled(
+            FEATURE_CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS)) {
+      return MakeSqlErrorAt(with_partition_columns_clause)
+             << "WITH PARTITION COLUMNS clause is unsupported for "
+             << statement_type;
+    }
+    ZETASQL_RETURN_IF_ERROR(ResolveWithPartitionColumns(
+        with_partition_columns_clause, table_name_id_string, &column_indexes,
+        &statement_base_properties->with_partition_columns));
   }
   return absl::OkStatus();
 }
@@ -2037,8 +2127,10 @@ absl::Status Resolver::ResolveCreateTableStatement(
                               FEATURE_CREATE_TABLE_AS_SELECT_COLUMN_LIST)};
 
   ZETASQL_RETURN_IF_ERROR(ResolveCreateTableStmtBaseProperties(
-      ast_statement, statement_type, query, resolved_properties_control_args,
-      &statement_base_properties));
+      ast_statement, statement_type, query, ast_statement->partition_by(),
+      ast_statement->cluster_by(),
+      /* with_partition_columns_clause = */ nullptr,
+      resolved_properties_control_args, &statement_base_properties));
 
   if (query != nullptr) {
     *output = MakeResolvedCreateTableAsSelectStmt(
@@ -2051,9 +2143,9 @@ absl::Status Resolver::ResolveCreateTableStatement(
         std::move(statement_base_properties.primary_key),
         std::move(statement_base_properties.foreign_key_list),
         std::move(statement_base_properties.check_constraint_list),
+        statement_base_properties.is_value_table,
         std::move(statement_base_properties.partition_by_list),
         std::move(statement_base_properties.cluster_by_list),
-        statement_base_properties.is_value_table,
         std::move(statement_base_properties.output_column_list),
         std::move(statement_base_properties.query_scan));
   } else {
@@ -2067,9 +2159,9 @@ absl::Status Resolver::ResolveCreateTableStatement(
         std::move(statement_base_properties.primary_key),
         std::move(statement_base_properties.foreign_key_list),
         std::move(statement_base_properties.check_constraint_list),
+        statement_base_properties.is_value_table,
         std::move(statement_base_properties.partition_by_list),
-        std::move(statement_base_properties.cluster_by_list),
-        statement_base_properties.is_value_table);
+        std::move(statement_base_properties.cluster_by_list));
   }
 
   // Populate the location information for the table name referred in FROM
@@ -2080,22 +2172,35 @@ absl::Status Resolver::ResolveCreateTableStatement(
 }
 
 absl::Status Resolver::ResolveQueryAndOutputColumns(
-    const ASTQuery* query, absl::string_view object_type,
-    IdString table_name_id_string, IdString internal_table_name,
+    const ASTQuery* query, absl::string_view object_type, bool recursive_view,
+    const std::vector<IdString>& table_name, IdString internal_table_name,
     std::unique_ptr<const ResolvedScan>* query_scan, bool* is_value_table,
     std::vector<std::unique_ptr<const ResolvedOutputColumn>>*
         output_column_list,
     std::vector<std::unique_ptr<const ResolvedColumnDefinition>>*
         column_definition_list) {
   std::shared_ptr<const NameList> query_name_list;
-  ZETASQL_RETURN_IF_ERROR(
-      ResolveQuery(query, empty_name_scope_.get(),
-                   internal_table_name, true /* is_outer_query */,
-                   query_scan, &query_name_list));
+
+  if (recursive_view) {
+    ZETASQL_ASSIGN_OR_RETURN(const ASTSetOperation* recursive_union,
+                     GetRecursiveUnion(query));
+    SetOperationResolver setop_resolver(recursive_union, this);
+    ZETASQL_RETURN_IF_ERROR(setop_resolver.ResolveRecursive(
+        empty_name_scope_.get(), table_name, internal_table_name, query_scan,
+        &query_name_list));
+  } else {
+    ZETASQL_RETURN_IF_ERROR(ResolveQuery(query, empty_name_scope_.get(),
+                                 internal_table_name, true /* is_outer_query */,
+                                 query_scan, &query_name_list));
+  }
   *is_value_table = query_name_list->is_value_table();
 
   const int num_output_columns = query_name_list->num_columns();
   IdStringHashSetCase column_names;
+  const IdString table_name_id_string = MakeIdString(
+      absl::StrJoin(table_name, ".", [](std::string* out, IdString s) {
+        absl::StrAppend(out, ToIdentifierLiteral(s.ToStringView()));
+      }));
   for (int i = 0; i < num_output_columns; ++i) {
     const NamedColumn& named_column = query_name_list->column(i);
     if (!(*is_value_table)) {
@@ -2116,9 +2221,9 @@ absl::Status Resolver::ResolveQueryAndOutputColumns(
     output_column_list->push_back(
         MakeResolvedOutputColumn(column_name, named_column.column));
     if (column_definition_list != nullptr) {
-      ResolvedColumn defined_column(
-          AllocateColumnId(), table_name_id_string,
-          named_column.name, named_column.column.type());
+      ResolvedColumn defined_column(AllocateColumnId(), table_name_id_string,
+                                    named_column.name,
+                                    named_column.column.type());
       column_definition_list->push_back(MakeResolvedColumnDefinition(
           column_name, named_column.column.type(),
           /* annotations = */ nullptr, /* is_hidden = */ false, defined_column,
@@ -2203,21 +2308,24 @@ absl::Status Resolver::ResolveCreateViewStatementBaseProperties(
     std::vector<std::unique_ptr<const ResolvedColumnDefinition>>*
         column_definition_list,
     std::unique_ptr<const ResolvedScan>* query_scan, std::string* view_sql,
-    bool* is_value_table) {
+    bool* is_value_table,
+    bool* recursive) {
+  *recursive = ast_statement->recursive();
+  bool actually_recursive = false;
   if (ast_statement->recursive()) {
     if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_WITH_RECURSIVE)) {
       return MakeSqlErrorAt(ast_statement)
              << "Recursive views are not supported";
     }
-    return MakeSqlErrorAt(ast_statement)
-           << "Recursive views not implemented yet";
+
+    ZETASQL_ASSIGN_OR_RETURN(actually_recursive, IsViewSelfRecursive(ast_statement));
   }
   ZETASQL_RETURN_IF_ERROR(ResolveCreateStatementOptions(ast_statement, statement_type,
                                                 create_scope, create_mode));
 
   ZETASQL_RET_CHECK(ast_statement->name() != nullptr);
-  const IdString table_name_id_string =
-      MakeIdString(ast_statement->name()->ToIdentifierPathString());
+  const std::vector<IdString> table_name_id =
+      ast_statement->name()->ToIdStringVector();
   *table_name = ast_statement->name()->ToIdentifierVector();
 
   ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(ast_statement->options_list(),
@@ -2229,8 +2337,8 @@ absl::Status Resolver::ResolveCreateViewStatementBaseProperties(
         &disallowing_query_parameters_with_error_,
         "Query parameters cannot be used inside SQL view bodies");
     ZETASQL_RETURN_IF_ERROR(ResolveQueryAndOutputColumns(
-        ast_statement->query(), object_type, table_name_id_string, kViewId,
-        query_scan, is_value_table, output_column_list,
+        ast_statement->query(), object_type, actually_recursive, table_name_id,
+        kViewId, query_scan, is_value_table, output_column_list,
         column_definition_list));
   }
 
@@ -2261,18 +2369,19 @@ absl::Status Resolver::ResolveCreateViewStatement(
   std::vector<std::unique_ptr<const ResolvedOutputColumn>> output_column_list;
   std::string view_sql;
   bool is_value_table = false;
+  bool recursive = false;
 
   ZETASQL_RETURN_IF_ERROR(ResolveCreateViewStatementBaseProperties(
       ast_statement, /*statement_type=*/"CREATE VIEW", /*object_type=*/"VIEW",
       &table_name, &create_scope, &create_mode, &sql_security,
       &resolved_options, &output_column_list,
       /*column_definition_list=*/nullptr, &query_scan, &view_sql,
-      &is_value_table));
+      &is_value_table, &recursive));
 
   *output = MakeResolvedCreateViewStmt(
       table_name, create_scope, create_mode, std::move(resolved_options),
       std::move(output_column_list), std::move(query_scan), view_sql,
-      sql_security, is_value_table, /*recursive=*/false);
+      sql_security, is_value_table, recursive);
 
   return absl::OkStatus();
 }
@@ -2292,12 +2401,14 @@ absl::Status Resolver::ResolveCreateMaterializedViewStatement(
       column_definition_list;
   std::string view_sql;
   bool is_value_table = false;
+  bool recursive = false;
 
   ZETASQL_RETURN_IF_ERROR(ResolveCreateViewStatementBaseProperties(
       ast_statement, statement_type,
       /*object_type=*/"MATERIALIZED VIEW", &table_name, &create_scope,
       &create_mode, &sql_security, &resolved_options, &output_column_list,
-      &column_definition_list, &query_scan, &view_sql, &is_value_table));
+      &column_definition_list, &query_scan, &view_sql, &is_value_table,
+      &recursive));
 
   // Set up the name scope for the table columns, which may appear in
   // PARTITION BY and CLUSTER BY expressions.
@@ -2343,7 +2454,7 @@ absl::Status Resolver::ResolveCreateMaterializedViewStatement(
   *output = MakeResolvedCreateMaterializedViewStmt(
       table_name, create_scope, create_mode, std::move(resolved_options),
       std::move(output_column_list), std::move(query_scan), view_sql,
-      sql_security, is_value_table, /*recursive=*/false,
+      sql_security, is_value_table, recursive,
       std::move(column_definition_list), std::move(partition_by_list),
       std::move(cluster_by_list));
 
@@ -2373,6 +2484,8 @@ absl::Status Resolver::ResolveCreateExternalTableStatement(
 
   ZETASQL_RETURN_IF_ERROR(ResolveCreateTableStmtBaseProperties(
       ast_statement, statement_type, /* query = */ nullptr,
+      /* partition_by = */ nullptr, /* cluster_by = */ nullptr,
+      ast_statement->with_partition_columns_clause(),
       resolved_properties_control_args, &statement_base_properties));
 
   *output = MakeResolvedCreateExternalTableStmt(
@@ -2385,9 +2498,8 @@ absl::Status Resolver::ResolveCreateExternalTableStatement(
       std::move(statement_base_properties.primary_key),
       std::move(statement_base_properties.foreign_key_list),
       std::move(statement_base_properties.check_constraint_list),
-      std::move(statement_base_properties.partition_by_list),
-      std::move(statement_base_properties.cluster_by_list),
-      statement_base_properties.is_value_table);
+      statement_base_properties.is_value_table,
+      std::move(statement_base_properties.with_partition_columns));
 
   return absl::OkStatus();
 }
@@ -3760,6 +3872,30 @@ absl::Status Resolver::ResolveExportDataStatement(
       std::move(resolved_connection), std::move(resolved_options),
       std::move(output_column_list), query_name_list->is_value_table(),
       std::move(query_scan));
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveExportModelStatement(
+    const ASTExportModelStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  std::vector<std::string> model_name_path =
+      ast_statement->model_name_path()->ToIdentifierVector();
+
+  std::unique_ptr<const ResolvedConnection> resolved_connection;
+  if (ast_statement->with_connection_clause() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(ResolveConnection(ast_statement->with_connection_clause()
+                                          ->connection_clause()
+                                          ->connection_path(),
+                                      &resolved_connection));
+  }
+
+  std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
+  ZETASQL_RETURN_IF_ERROR(
+      ResolveOptionsList(ast_statement->options_list(), &resolved_options));
+
+  *output = MakeResolvedExportModelStmt(model_name_path,
+                                        std::move(resolved_connection),
+                                        std::move(resolved_options));
   return absl::OkStatus();
 }
 

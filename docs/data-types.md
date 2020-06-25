@@ -120,7 +120,6 @@ Integers are numeric values that do not have fractional components.
 <thead>
 <tr>
 <th>Name</th>
-<th>Storage Size</th>
 <th>Range</th>
 </tr>
 </thead>
@@ -128,25 +127,21 @@ Integers are numeric values that do not have fractional components.
 
 <tr>
 <td><code>INT32</code></td>
-<td>4 bytes</td>
 <td>-2,147,483,648 to 2,147,483,647</td>
 </tr>
 
 <tr>
 <td><code>UINT32</code></td>
-<td>4 bytes</td>
 <td>0 to 4,294,967,295</td>
 </tr>
 
 <tr>
 <td><code>INT64</code></td>
-<td>8 bytes</td>
 <td>-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807</td>
 </tr>
 
 <tr>
 <td><code>UINT64</code></td>
-<td>8 bytes</td>
 <td>0 to 18,446,744,073,709,551,615</td>
 </tr>
 
@@ -166,7 +161,6 @@ calculations.
 <thead>
 <tr>
 <th>Name</th>
-<th>Storage Size</th>
 <th>Description</th>
 <th>Range</th>
 </tr>
@@ -175,7 +169,6 @@ calculations.
 
 <tr>
 <td><code>NUMERIC</code></td>
-<td>16 bytes</td>
 <td>Decimal values with 38 decimal digits of precision and 9 decimal digits of
 scale.</td>
 <td>-99999999999999999999999999999.999999999 to
@@ -192,7 +185,6 @@ Floating point values are approximate numeric values with fractional components.
 <thead>
 <tr>
 <th>Name</th>
-<th>Storage Size</th>
 <th>Description</th>
 </tr>
 </thead>
@@ -200,13 +192,11 @@ Floating point values are approximate numeric values with fractional components.
 
 <tr>
 <td><code>FLOAT</code></td>
-<td>4 bytes</td>
 <td>Single precision (approximate) decimal values.</td>
 </tr>
 
 <tr>
 <td><code>DOUBLE</code></td>
-<td>8 bytes</td>
 <td>Double precision (approximate) decimal values.</td>
 </tr>
 </tbody>

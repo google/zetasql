@@ -45,6 +45,7 @@
 #include "absl/base/optimization.h"
 #include "absl/hash/hash.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
@@ -56,7 +57,6 @@
 #include "absl/time/time.h"
 #include "zetasql/base/simple_reference_counted.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/time_proto_util.h"
 
 using zetasql::types::BigNumericArrayType;
 using zetasql::types::BigNumericType;
@@ -115,19 +115,6 @@ Value::Value(const Type* type, bool is_null, OrderPreservationKind order_kind) {
   } else {
     SetMetadataForNonSimpleType(type, is_null, order_kind);
   }
-
-  // If type relies on a list of values, Value has to create it by itself.
-  if (DoesTypeUseValueList()) {
-    list_ptr_ = new TypedList(type);
-    return;
-  }
-
-  // TODO: we can avoid constructing value content for nulls, if we make
-  // sure we check for nulls before accessing content. Then, we can remove this
-  // logic.
-  ValueContent content = ValueContent::NullValue();
-  type->InitializeValueContent(&content);
-  SetContent(content);
 }
 
 void Value::CopyFrom(const Value& that) {
@@ -138,16 +125,18 @@ void Value::CopyFrom(const Value& that) {
     return;
   }
 
-  ValueContent copied_content = ValueContent::NullValue();
-  that.type()->CopyValueContent(that.GetContent(), &copied_content);
-  SetContent(copied_content);
-
   if (metadata_.has_type_pointer()) {
     internal::TypeStoreHelper::RefFromValue(metadata_.type()->type_store_);
     // TODO: currently struct and array maintain a reference
     // counter for their value. To improve performance of struct/array copying,
     // instead of incrementing types reference counter on each Value copy, we
     // can just do a single decrement when Value reference counter reaches zero.
+  }
+
+  if (!is_null()) {
+    ValueContent copied_content{};
+    that.type()->CopyValueContent(that.GetContent(), &copied_content);
+    SetContent(copied_content);
   }
 }
 
@@ -212,6 +201,12 @@ Value::Value(const ProtoType* proto_type, absl::Cord value)
   SetMetadataForNonSimpleType(proto_type);
 }
 
+Value::Value(const ExtendedType* extended_type, const ValueContent& value) {
+  DCHECK_EQ(value.simple_type_extended_content_, 0);
+  SetMetadataForNonSimpleType(extended_type);
+  SetContent(value);
+}
+
 #ifdef NDEBUG
 static constexpr bool kDebugMode = false;
 #else
@@ -222,6 +217,7 @@ Value Value::ArrayInternal(bool safe, const ArrayType* array_type,
                            OrderPreservationKind order_kind,
                            std::vector<Value>&& values) {
   Value result(array_type, /*is_null=*/false, order_kind);
+  result.list_ptr_ = new TypedList(array_type);
   std::vector<Value>& value_list = result.list_ptr_->values();
   value_list = std::move(values);
   if (kDebugMode || safe) {
@@ -237,6 +233,7 @@ Value Value::ArrayInternal(bool safe, const ArrayType* array_type,
 Value Value::StructInternal(bool safe, const StructType* struct_type,
                             std::vector<Value>&& values) {
   Value result(struct_type, /*is_null=*/false, kPreservesOrder);
+  result.list_ptr_ = new TypedList(struct_type);
   std::vector<Value>& value_list = result.list_ptr_->values();
   value_list = std::move(values);
   if (kDebugMode || safe) {
@@ -371,7 +368,7 @@ double Value::ToDouble() const {
 
 uint64_t Value::physical_byte_size() const {
   uint64_t physical_size = sizeof(Value);
-  if (is_null() || !is_valid()) {
+  if (!has_content()) {
     return physical_size;
   }
 
@@ -422,6 +419,11 @@ absl::Status Value::ToUnixNanos(int64_t* nanos) const {
                       absl::StrCat("Timestamp value in Unix epoch nanoseconds "
                                    "exceeds 64 bit: ",
                                    DebugString()));
+}
+
+ValueContent Value::extended_value() const {
+  CHECK_EQ(type_kind(), TYPE_EXTENDED);
+  return GetContent();
 }
 
 google::protobuf::Message* Value::ToMessage(
@@ -875,98 +877,42 @@ size_t Value::HashCodeInternal(FloatMargin float_margin) const {
 }
 
 bool Value::LessThan(const Value& that) const {
-  if (metadata_.type_kind() == that.metadata_.type_kind()) {
-    // Note that because we don't check type for nulls, this means we may return
-    // true when the type of 'this' and 'that' is different and one of them is
-    // null. E.g. when comparing two enums, if 'this' is null and 'that' is not
-    // null, we return true even though they may be incompatible.
-    if (is_null() && !that.is_null()) return true;
-    if (that.is_null()) return false;
-    switch (type_kind()) {
-      case TYPE_INT32: return int32_value() < that.int32_value();
-      case TYPE_INT64: return int64_value() < that.int64_value();
-      case TYPE_UINT32: return uint32_value() < that.uint32_value();
-      case TYPE_UINT64: return uint64_value() < that.uint64_value();
-      case TYPE_BOOL: return bool_value() < that.bool_value();
-      case TYPE_FLOAT:
-        if (std::isnan(float_value()) && !std::isnan(that.float_value())) {
-          return true;
-        }
-        if (std::isnan(that.float_value())) {
-          return false;
-        }
-        return float_value() < that.float_value();
-      case TYPE_DOUBLE:
-        if (std::isnan(double_value()) && !std::isnan(that.double_value())) {
-          return true;
-        }
-        if (std::isnan(that.double_value())) {
-          return false;
-        }
-        return double_value() < that.double_value();
-      case TYPE_STRING: return string_value() < that.string_value();
-      case TYPE_BYTES: return bytes_value() < that.bytes_value();
-      case TYPE_DATE: return date_value() < that.date_value();
-      case TYPE_TIMESTAMP:
-        return ToTime() < that.ToTime();
-      case TYPE_TIME:
-        return bit_field_32_value_ < that.bit_field_32_value_ ||
-               (bit_field_32_value_ == that.bit_field_32_value_ &&
-                subsecond_nanos() < that.subsecond_nanos());
-      case TYPE_DATETIME:
-        return bit_field_64_value_ < that.bit_field_64_value_ ||
-               (bit_field_64_value_ == that.bit_field_64_value_ &&
-                subsecond_nanos() < that.subsecond_nanos());
-      case TYPE_NUMERIC:
-        return numeric_value() < that.numeric_value();
-      case TYPE_BIGNUMERIC:
-        return bignumeric_value() < that.bignumeric_value();
-      case TYPE_JSON:
-        LOG(DFATAL) << "Cannot compare JSON values";
-        return false;
-      case TYPE_ENUM: {
-        // The behaviour is undefined when the enum types are not compatible.
-        // Fails tests and log an error message in prod.
-        if (!type()->Equivalent(that.type())) {
-          LOG(DFATAL) << "Cannot compare enum of type " << type()->DebugString()
-                      << " and " << that.type()->DebugString();
-        }
-        return enum_value() < that.enum_value();
-      }
-      case TYPE_STRUCT:
-        if (num_fields() != that.num_fields()) return false;
-        // Because we return true as soon as 'LessThan' returns true for a
-        // field (without checking types of all fields), we may return true for
-        // incompatible types. This behavior is OK for now because we consider
-        // LessThan for incompatible types is undefined.
-        for (int i = 0; i < num_fields(); i++) {
-          if (field(i).LessThan(that.field(i))) {
-            return true;
-          } else if (that.field(i).LessThan(field(i))) {
-            return false;
-          }
-        }
-        return false;
-      case TYPE_ARRAY:
-        for (int i = 0; i < std::min(num_elements(), that.num_elements());
-             ++i) {
-          if (element(i).LessThan(that.element(i))) return true;
-          if (that.element(i).LessThan(element(i))) return false;
-        }
-        return num_elements() < that.num_elements();
-      case TYPE_EXTENDED:
-        // TODO: fix by moving this logic into Type class.
-        LOG(FATAL) << "Extended types are not fully implemented";
-        break;
-      case TYPE_GEOGRAPHY:
-      case TYPE_PROTO:
-      case TYPE_UNKNOWN:
-      case __TypeKind__switch_must_have_a_default__:
-        LOG(FATAL) << "Cannot compare " << type()->DebugString()
-                   << " to " << that.type()->DebugString();
-    }
+  if (!type()->Equivalent(that.type())) {
+    return false;  // Behavior is undefined, so just return false.
   }
-  return false;
+
+  // Note that because we don't check type for nulls, this means we may return
+  // true when the type of 'this' and 'that' is different and one of them is
+  // null. E.g. when comparing two enums, if 'this' is null and 'that' is not
+  // null, we return true even though they may be incompatible.
+  if (is_null() && !that.is_null()) return true;
+  if (that.is_null()) return false;
+
+  switch (type_kind()) {
+    case TYPE_STRUCT:
+      if (num_fields() != that.num_fields()) return false;
+      // Because we return true as soon as 'LessThan' returns true for a
+      // field (without checking types of all fields), we may return true for
+      // incompatible types. This behavior is OK for now because we consider
+      // LessThan for incompatible types is undefined.
+      for (int i = 0; i < num_fields(); i++) {
+        if (field(i).LessThan(that.field(i))) {
+          return true;
+        } else if (that.field(i).LessThan(field(i))) {
+          return false;
+        }
+      }
+      return false;
+    case TYPE_ARRAY:
+      for (int i = 0; i < std::min(num_elements(), that.num_elements()); ++i) {
+        if (element(i).LessThan(that.element(i))) return true;
+        if (that.element(i).LessThan(element(i))) return false;
+      }
+      return num_elements() < that.num_elements();
+    default:
+      return type()->ValueContentLess(GetContent(), that.GetContent(),
+                                      that.type());
+  }
 }
 
 static bool TypesSupportSqlLessThan(const Type* type1, const Type* type2) {
@@ -1140,9 +1086,9 @@ static std::string CapitalizedNameForType(const Type* type) {
       return absl::StrCat("Proto<", type->AsProto()->descriptor()->full_name(),
                           ">");
     case TYPE_EXTENDED:
-      // TODO: fix by moving this logic into Type class.
-      LOG(DFATAL) << "Extended types are not fully implemented";
-      return "ExtendedType";
+      // TODO: move this logic into an appropriate function of
+      // Type's interface.
+      return type->ShortTypeName(ProductMode::PRODUCT_EXTERNAL);
     case TYPE_UNKNOWN:
     case __TypeKind__switch_must_have_a_default__:
       LOG(FATAL) << "Unexpected type kind expected internally only: "
@@ -1793,63 +1739,6 @@ absl::Status Value::Serialize(ValueProto* value_proto) const {
   }
 
   switch (type_kind()) {
-    case TYPE_INT32:
-      value_proto->set_int32_value(int32_value());
-      break;
-    case TYPE_INT64:
-      value_proto->set_int64_value(int64_value());
-      break;
-    case TYPE_UINT32:
-      value_proto->set_uint32_value(uint32_value());
-      break;
-    case TYPE_UINT64:
-      value_proto->set_uint64_value(uint64_value());
-      break;
-    case TYPE_BOOL:
-      value_proto->set_bool_value(bool_value());
-      break;
-    case TYPE_FLOAT:
-      value_proto->set_float_value(float_value());
-      break;
-    case TYPE_DOUBLE:
-      value_proto->set_double_value(double_value());
-      break;
-    case TYPE_NUMERIC:
-      value_proto->set_numeric_value(numeric_value().SerializeAsProtoBytes());
-      break;
-    case TYPE_BIGNUMERIC:
-      value_proto->set_bignumeric_value(
-          bignumeric_value().SerializeAsProtoBytes());
-      break;
-    case TYPE_JSON:
-      return absl::UnimplementedError("JSON type is not fully implemented");
-    case TYPE_STRING:
-      value_proto->set_string_value(string_value());
-      break;
-    case TYPE_BYTES:
-      value_proto->set_bytes_value(bytes_value());
-      break;
-    case TYPE_DATE:
-      value_proto->set_date_value(date_value());
-      break;
-    case TYPE_TIMESTAMP: {
-      ZETASQL_RETURN_IF_ERROR(zetasql_base::EncodeGoogleApiProto(
-          ToTime(), value_proto->mutable_timestamp_value()));
-      break;
-    }
-    case TYPE_DATETIME: {
-      auto* datetime_proto = value_proto->mutable_datetime_value();
-      datetime_proto->set_bit_field_datetime_seconds(
-          datetime_value().Packed64DatetimeSeconds());
-      datetime_proto->set_nanos(datetime_value().Nanoseconds());
-      break;
-    }
-    case TYPE_TIME:
-      value_proto->set_time_value(time_value().Packed64TimeNanos());
-      break;
-    case TYPE_ENUM:
-      value_proto->set_enum_value(enum_value());
-      break;
     case TYPE_ARRAY: {
       // Create array_value so the result array is not NULL even when there
       // are no elements.
@@ -1868,24 +1757,12 @@ absl::Status Value::Serialize(ValueProto* value_proto) const {
       }
       break;
     }
-    case TYPE_PROTO:
-      value_proto->set_proto_value(std::string(ToCord()));
+    default: {
+      ZETASQL_RETURN_IF_ERROR(type()->SerializeValueContent(GetContent(), value_proto));
       break;
-    default:
-      return absl::Status(
-          absl::StatusCode::kInternal,
-          absl::StrCat("Unsupported type ", type()->DebugString()));
+    }
   }
   return absl::OkStatus();
-}
-
-static absl::Status TypeMismatchError(const ValueProto& value_proto,
-                                      const Type* type) {
-  return absl::Status(
-      absl::StatusCode::kInternal,
-      absl::StrCat("Type mismatch: provided type ", type->DebugString(),
-                   " but proto <", value_proto.ShortDebugString(),
-                   "> doesn't have field of that type and is not null."));
 }
 
 zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
@@ -1894,146 +1771,9 @@ zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
     return Null(type);
   }
   switch (type->kind()) {
-    case TYPE_INT32:
-      if (!value_proto.has_int32_value()) {
-        return TypeMismatchError(value_proto, type);
-      }
-      return Int32(value_proto.int32_value());
-    case TYPE_INT64:
-      if (!value_proto.has_int64_value()) {
-        return TypeMismatchError(value_proto, type);
-      }
-      return Int64(value_proto.int64_value());
-    case TYPE_UINT32:
-      if (!value_proto.has_uint32_value()) {
-        return TypeMismatchError(value_proto, type);
-      }
-      return Uint32(value_proto.uint32_value());
-    case TYPE_UINT64:
-      if (!value_proto.has_uint64_value()) {
-        return TypeMismatchError(value_proto, type);
-      }
-      return Uint64(value_proto.uint64_value());
-    case TYPE_BOOL:
-      if (!value_proto.has_bool_value()) {
-        return TypeMismatchError(value_proto, type);
-      }
-      return Bool(value_proto.bool_value());
-    case TYPE_FLOAT:
-      if (!value_proto.has_float_value()) {
-        return TypeMismatchError(value_proto, type);
-      }
-      return Float(value_proto.float_value());
-    case TYPE_DOUBLE:
-      if (!value_proto.has_double_value()) {
-        return TypeMismatchError(value_proto, type);
-      }
-      return Double(value_proto.double_value());
-    case TYPE_NUMERIC: {
-      if (!value_proto.has_numeric_value()) {
-        return TypeMismatchError(value_proto, type);
-      }
-      ZETASQL_ASSIGN_OR_RETURN(NumericValue numeric_v,
-                       NumericValue::DeserializeFromProtoBytes(
-                           value_proto.numeric_value()));
-      return Numeric(numeric_v);
-    }
-    case TYPE_BIGNUMERIC: {
-      if (!value_proto.has_bignumeric_value()) {
-        return TypeMismatchError(value_proto, type);
-      }
-      ZETASQL_ASSIGN_OR_RETURN(BigNumericValue bignumeric_v,
-                       BigNumericValue::DeserializeFromProtoBytes(
-                           value_proto.bignumeric_value()));
-      return BigNumeric(bignumeric_v);
-    }
-    case TYPE_JSON: {
-      return absl::UnimplementedError("JSON type is not fully implemented");
-    }
-    case TYPE_STRING:
-      if (!value_proto.has_string_value()) {
-        return TypeMismatchError(value_proto, type);
-      }
-      return String(value_proto.string_value());
-    case TYPE_BYTES:
-      if (!value_proto.has_bytes_value()) {
-        return TypeMismatchError(value_proto, type);
-      }
-      return Bytes(value_proto.bytes_value());
-    case TYPE_DATE:
-      if (!value_proto.has_date_value()) {
-        return TypeMismatchError(value_proto, type);
-      }
-      if (!functions::IsValidDate(value_proto.date_value())) {
-        return absl::Status(
-            absl::StatusCode::kOutOfRange,
-            absl::StrCat("Invalid value for DATE: ", value_proto.date_value()));
-      }
-
-      return Date(value_proto.date_value());
-    case TYPE_TIMESTAMP: {
-      if (!value_proto.has_timestamp_value()) {
-        return TypeMismatchError(value_proto, type);
-      }
-
-      auto time_or =
-          zetasql_base::DecodeGoogleApiProto(value_proto.timestamp_value());
-      if (!time_or.ok()) {
-        return absl::Status(
-            absl::StatusCode::kOutOfRange,
-            absl::StrCat("Invalid value for TIMESTAMP",
-                         value_proto.timestamp_value().DebugString()));
-      } else {
-        absl::Time t = time_or.value();
-        if (!functions::IsValidTime(t)) {
-          return absl::Status(absl::StatusCode::kOutOfRange,
-                              absl::StrCat("Invalid value for TIMESTAMP: ",
-                                           absl::FormatTime(t)));
-        } else {
-          return Timestamp(t);
-        }
-      }
-    }
-    case TYPE_DATETIME: {
-      if (!value_proto.has_datetime_value()) {
-        return TypeMismatchError(value_proto, type);
-      }
-      DatetimeValue wrapper = DatetimeValue::FromPacked64SecondsAndNanos(
-          value_proto.datetime_value().bit_field_datetime_seconds(),
-          value_proto.datetime_value().nanos());
-      if (!wrapper.IsValid()) {
-        return absl::Status(absl::StatusCode::kOutOfRange,
-                            "Invalid value for DATETIME");
-      }
-      return Datetime(wrapper);
-    }
-    case TYPE_TIME: {
-      if (!value_proto.has_time_value()) {
-        return TypeMismatchError(value_proto, type);
-      }
-      TimeValue wrapper = TimeValue::FromPacked64Nanos(
-          value_proto.time_value());
-      if (!wrapper.IsValid()) {
-        return absl::Status(absl::StatusCode::kOutOfRange,
-                            "Invalid value for TIME");
-      }
-      return Time(wrapper);
-    }
-    case TYPE_ENUM:
-      if (!value_proto.has_enum_value()) {
-        return TypeMismatchError(value_proto, type);
-      }
-      if (type->AsEnum()->enum_descriptor()->FindValueByNumber(
-          value_proto.enum_value()) == nullptr) {
-        return absl::Status(
-            absl::StatusCode::kOutOfRange,
-            absl::StrCat("Invalid value for ", type->DebugString(), ": ",
-                         value_proto.enum_value()));
-      }
-      return Enum(type->AsEnum(), value_proto.enum_value());
     case TYPE_ARRAY: {
       if (!value_proto.has_array_value()) {
-        return TypeMismatchError(value_proto, type);
+        return type->TypeMismatchError(value_proto);
       }
       std::vector<Value> elements;
       for (const auto& element : value_proto.array_value().element()) {
@@ -2046,7 +1786,7 @@ zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
     }
     case TYPE_STRUCT: {
       if (!value_proto.has_struct_value()) {
-        return TypeMismatchError(value_proto, type);
+        return type->TypeMismatchError(value_proto);
       }
       const StructType* struct_type = type->AsStruct();
       if (value_proto.struct_value().field_size() !=
@@ -2066,24 +1806,22 @@ zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
       }
       return Struct(struct_type, fields);
     }
-    case TYPE_PROTO:
-      if (!value_proto.has_proto_value()) {
-        return TypeMismatchError(value_proto, type);
-      }
-      return Proto(type->AsProto(), absl::Cord(value_proto.proto_value()));
-    default:
-      return absl::Status(
-          absl::StatusCode::kInternal,
-          absl::StrCat("Unsupported type ", type->DebugString()));
+    default: {
+      ValueContent content;
+      ZETASQL_RETURN_IF_ERROR(type->DeserializeValueContent(value_proto, &content));
+
+      Value result(type);
+      result.SetContent(content);
+      return result;
+    }
   }
 }
 
 ValueContent Value::GetContent() const {
-  return ValueContent(int64_value_,
-                      metadata_.can_store_value_extended_content()
-                          ? metadata_.value_extended_content()
-                          : 0,
-                      metadata_.is_null());
+  DCHECK(has_content());
+  return ValueContent(int64_value_, metadata_.can_store_value_extended_content()
+                                        ? metadata_.value_extended_content()
+                                        : 0);
 }
 
 void Value::SetContent(const ValueContent& content) {
@@ -2091,9 +1829,9 @@ void Value::SetContent(const ValueContent& content) {
 
   int64_value_ = content.content_;
   metadata_ = metadata_.has_type_pointer()
-                  ? Metadata(metadata_.type(), content.is_null(),
+                  ? Metadata(metadata_.type(), /*is_null=*/false,
                              metadata_.preserves_order())
-                  : Metadata(metadata_.type_kind(), content.is_null(),
+                  : Metadata(metadata_.type_kind(), /*is_null=*/false,
                              metadata_.preserves_order(),
                              content.simple_type_extended_content_);
 }

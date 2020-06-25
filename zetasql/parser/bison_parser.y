@@ -720,6 +720,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_ASSERT "ASSERT"
 %token KW_BATCH "BATCH"
 %token KW_BEGIN "BEGIN"
+%token KW_BIGDECIMAL "BIGDECIMAL"
 %token KW_BIGNUMERIC "BIGNUMERIC"
 %token KW_BREAK "BREAK"
 %token KW_CALL "CALL"
@@ -727,6 +728,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_CHECK "CHECK"
 %token KW_CLUSTER "CLUSTER"
 %token KW_COLUMN "COLUMN"
+%token KW_COLUMNS "COLUMNS"
 %token KW_COMMIT "COMMIT"
 %token KW_CONNECTION "CONNECTION"
 %token KW_CONTINUE "CONTINUE"
@@ -736,6 +738,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_DATABASE "DATABASE"
 %token KW_DATE "DATE"
 %token KW_DATETIME "DATETIME"
+%token KW_DECIMAL "DECIMAL"
 %token KW_DECLARE "DECLARE"
 %token KW_DEFINER "DEFINER"
 %token KW_DELETE "DELETE"
@@ -767,6 +770,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_INVOKER "INVOKER"
 %token KW_ITERATE "ITERATE"
 %token KW_ISOLATION "ISOLATION"
+%token KW_JSON "JSON"
 %token KW_KEY "KEY"
 %token KW_LANGUAGE "LANGUAGE"
 %token KW_LAST "LAST"
@@ -911,6 +915,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> drop_statement
 %type <node> explain_statement
 %type <node> export_data_statement
+%type <node> export_model_statement
 %type <expression> expression
 %type <node> grant_to_clause
 %type <node> index_storing_expression_list_prefix
@@ -986,6 +991,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <expression> integer_literal
 %type <node> join
 %type <node> join_input
+%type <expression> json_literal
 %type <node> merge_action
 %type <node> merge_insert_value_list_or_source_row
 %type <node> merge_source
@@ -1271,6 +1277,8 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> descriptor_column_list
 %type <node> descriptor_column
 %type <node> descriptor_argument
+%type <node> with_partition_columns_clause
+%type <node> opt_with_partition_columns_clause
 
 %start start_mode
 %%
@@ -1390,6 +1398,7 @@ sql_statement_body:
     | execute_immediate
     | explain_statement
     | export_data_statement
+    | export_model_statement
     | grant_statement
     | rename_statement
     | revoke_statement
@@ -1536,8 +1545,14 @@ schema_object_kind:
       { $$ = zetasql::SchemaObjectKind::kConstant; }
     | "DATABASE"
       { $$ = zetasql::SchemaObjectKind::kDatabase; }
-    | "EXTERNAL" "TABLE"
-      { $$ = zetasql::SchemaObjectKind::kExternalTable; }
+    | "EXTERNAL" table_or_table_function {
+        if ($2 == TableOrTableFunctionKeywords::kTableAndFunctionKeywords) {
+            YYERROR_AND_ABORT_AT(@1,
+               "EXTERNAL TABLE FUNCTION is not supported");
+        } else {
+           $$ = zetasql::SchemaObjectKind::kExternalTable;
+        }
+      }
     | "FUNCTION"
       { $$ = zetasql::SchemaObjectKind::kFunction; }
     | "INDEX"
@@ -2137,20 +2152,34 @@ create_row_access_policy_statement:
       }
     ;
 
+with_partition_columns_clause:
+    "WITH" "PARTITION" "COLUMNS" opt_table_element_list
+      {
+        zetasql::ASTWithPartitionColumnsClause* with_partition_columns =
+            MAKE_NODE(ASTWithPartitionColumnsClause, @$, {$4});
+        $$ = with_partition_columns;
+      }
+      ;
+
+opt_with_partition_columns_clause:
+    with_partition_columns_clause
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
 create_external_table_statement:
     "CREATE" opt_or_replace opt_create_scope "EXTERNAL"
-    "TABLE" opt_if_not_exists path_expression
-    opt_table_element_list opt_partition_by_clause_no_hint
-    opt_cluster_by_clause_no_hint opt_options_list
+    "TABLE" opt_if_not_exists maybe_dashed_path_expression
+    opt_table_element_list opt_with_partition_columns_clause
+    opt_options_list
       {
-        if ($11 == nullptr) {
+        if ($10 == nullptr) {
           YYERROR_AND_ABORT_AT(
-              @11,
+              @10,
               "Syntax error: Expected keyword OPTIONS");
         }
         auto* create =
             MAKE_NODE(ASTCreateExternalTableStatement, @$,
-            {$7, $8, $9, $10, $11});
+            {$7, $8, $9, $10});
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_is_if_not_exists($6);
@@ -2855,6 +2884,13 @@ export_data_statement:
     "EXPORT" "DATA" opt_with_connection_clause opt_options_list "AS" query
       {
         $$ = MAKE_NODE(ASTExportDataStatement, @$, {$3, $4, $6});
+      }
+    ;
+
+export_model_statement:
+    "EXPORT" "MODEL" path_expression opt_with_connection_clause opt_options_list
+      {
+        $$ = MAKE_NODE(ASTExportModelStatement, @$, {$3, $4, $5});
       }
     ;
 
@@ -4562,6 +4598,7 @@ expression:
     | integer_literal
     | numeric_literal
     | bignumeric_literal
+    | json_literal
     | floating_point_literal
     | date_or_time_literal
     | parameter_expression
@@ -5941,8 +5978,13 @@ integer_literal:
       }
     ;
 
+numeric_literal_prefix:
+    "NUMERIC"
+    | "DECIMAL"
+    ;
+
 numeric_literal:
-    "NUMERIC" STRING_LITERAL
+    numeric_literal_prefix STRING_LITERAL
       {
         auto* literal = MAKE_NODE(ASTNumericLiteral, @$);
         literal->set_image(std::string(parser->GetInputText(@2)));
@@ -5950,10 +5992,24 @@ numeric_literal:
       }
     ;
 
+bignumeric_literal_prefix:
+    "BIGNUMERIC"
+    | "BIGDECIMAL"
+    ;
+
 bignumeric_literal:
-    "BIGNUMERIC" STRING_LITERAL
+    bignumeric_literal_prefix STRING_LITERAL
       {
         auto* literal = MAKE_NODE(ASTBigNumericLiteral, @$);
+        literal->set_image(std::string(parser->GetInputText(@2)));
+        $$ = literal;
+      }
+    ;
+
+json_literal:
+    "JSON" STRING_LITERAL
+      {
+        auto* literal = MAKE_NODE(ASTJSONLiteral, @$);
         literal->set_image(std::string(parser->GetInputText(@2)));
         $$ = literal;
       }
@@ -6140,6 +6196,7 @@ keyword_as_identifier:
     | "ASSERT"
     | "BATCH"
     | "BEGIN"
+    | "BIGDECIMAL"
     | "BIGNUMERIC"
     | "BREAK"
     | "CALL"
@@ -6147,6 +6204,7 @@ keyword_as_identifier:
     | "CHECK"
     | "CLUSTER"
     | "COLUMN"
+    | "COLUMNS"
     | "COMMIT"
     | "CONNECTION"
     | "CONSTANT"
@@ -6156,6 +6214,7 @@ keyword_as_identifier:
     | "DATABASE"
     | "DATE"
     | "DATETIME"
+    | "DECIMAL"
     | "DECLARE"
     | "DEFINER"
     | "DELETE"
@@ -6188,6 +6247,7 @@ keyword_as_identifier:
     | "INVOKER"
     | "ISOLATION"
     | "ITERATE"
+    | "JSON"
     | "KEY"
     | "LANGUAGE"
     | "LAST"
@@ -7392,6 +7452,8 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTExecuteImmediateStatement::kConcreteNodeKind; }
     | "EXPORT" "DATA"
       { $$ = zetasql::ASTExportDataStatement::kConcreteNodeKind; }
+    | "EXPORT" "MODEL"
+      { $$ = zetasql::ASTExportModelStatement::kConcreteNodeKind; }
     | "INSERT" { $$ = zetasql::ASTInsertStatement::kConcreteNodeKind; }
     | "UPDATE" { $$ = zetasql::ASTUpdateStatement::kConcreteNodeKind; }
     | "DELETE" { $$ = zetasql::ASTDeleteStatement::kConcreteNodeKind; }

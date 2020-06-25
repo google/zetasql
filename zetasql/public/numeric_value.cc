@@ -1757,6 +1757,416 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Ceiling() const {
   return BigNumericValue(-floor_value);
 }
 
+FixedUint<64, 6> ScalingFactorSquare() {
+  return FixedUint<64, 6>(
+      std::array<uint64_t, 6>{0ULL, 8607968719199866880ULL, 532749306367912313ULL,
+                            1593091911132452277ULL, 0ULL, 0ULL});
+}
+
+// This returns 2e(38*4)
+FixedUint<64, 6> ScalingFactorCube2x() {
+  return FixedUint<64, 6>(std::array<uint64_t, 6>{
+      0ULL, 11729625229486456832ULL, 14336268584500939449ULL,
+      4279658070426243742ULL, 7953680479781550502ULL, 936335270938439665ULL});
+}
+
+FixedUint<64, 8> ScalingFactorQuad() {
+  return FixedUint<64, 8>(std::array<uint64_t, 8>{
+      0ULL, 0ULL, 15252863918154973184ULL, 4477131725245556545ULL,
+      6853971483050138908ULL, 15193086134719162827ULL, 11744654113764246714ULL,
+      137582102682973977ULL});
+}
+
+template <typename InputType, typename OutputType>
+inline bool RemoveBigNumericDoubleScale(const InputType& input,
+                                        OutputType* output) {
+  InputType value(input);
+  value /= InputType(ScalingFactorSquare());
+  const InputType max_output(OutputType::max());
+  const InputType min_output(OutputType::min());
+  if (value <= max_output && value >= min_output) {
+    *output = OutputType(value);
+    return true;
+  }
+  return false;
+}
+
+inline bool BigNumericRemoveScaleAndRoundAwayFromZero(
+    const FixedUint<64, 6>& input, FixedInt<64, 4>* output,
+    bool is_negative = false) {
+  FixedUint<64, 6> value(input);
+  value.DivAndRoundAwayFromZero(
+      FixedUint<64, 6>(BigNumericValue::ScalingFactor()));
+  if (ABSL_PREDICT_FALSE(value.number()[4] != 0) ||
+      ABSL_PREDICT_FALSE(value.number()[5] != 0)) {
+    return false;
+  }
+  const FixedUint<64, 4> result_abs(value);
+  return output->SetSignAndAbs(is_negative, result_abs);
+}
+
+template <int size>
+inline bool BigNumericRemoveScaleAndRoundAwayFromZero(
+    const FixedInt<64, size>& input, FixedInt<64, size - 2>* output) {
+  FixedInt<64, size> value(input);
+  value.DivAndRoundAwayFromZero(FixedInt<64, size>(
+      static_cast<__int128>(BigNumericValue::ScalingFactor())));
+  const FixedInt<64, size> max_output(FixedInt<64, size - 2>::max());
+  const FixedInt<64, size> min_output(FixedInt<64, size - 2>::min());
+  if (value <= max_output && value >= min_output) {
+    *output = FixedInt<64, size - 2>(value);
+    return true;
+  }
+  return false;
+}
+
+template <template <int, int> typename T>
+inline bool BigNumericMultiplyAndRemoveDoubleScale(const T<64, 6>& lhs,
+                                                   const T<64, 6>& rhs,
+                                                   T<64, 6>* output) {
+  const T<64, 12> tmp_scaled_4x_result = ExtendAndMultiply(lhs, rhs);
+  if (std::is_same_v<T<64, 6>, FixedUint<64, 6>> &&
+      (ABSL_PREDICT_FALSE(tmp_scaled_4x_result.number()[11] != 0) ||
+       ABSL_PREDICT_FALSE(tmp_scaled_4x_result.number()[10] != 0))) {
+    return false;
+  }
+  if (std::is_same_v<T<64, 6>, FixedInt<64, 6>> &&
+      ((ABSL_PREDICT_FALSE(tmp_scaled_4x_result.number()[11] != 0) &&
+        ABSL_PREDICT_FALSE(tmp_scaled_4x_result.number()[11] !=
+                           18446744073709551615LLU)) ||
+       (ABSL_PREDICT_FALSE(tmp_scaled_4x_result.number()[10] != 0) &&
+        ABSL_PREDICT_FALSE(tmp_scaled_4x_result.number()[10] !=
+                           18446744073709551615LLU)))) {
+    return false;
+  }
+  T<64, 10> truncated_tmp_scaled_4x_result(tmp_scaled_4x_result);
+  if (RemoveBigNumericDoubleScale(truncated_tmp_scaled_4x_result, output)) {
+    return true;
+  }
+  return false;
+}
+
+bool DoubleScaledIntegralPower(FixedUint<64, 6>* double_scaled_value,
+                               FixedUint<64, 4> unscaled_exp) {
+  FixedUint<64, 6> double_scaled_result = ScalingFactorSquare();
+  FixedUint<64, 6> double_scaled_power(*double_scaled_value);
+  while (true) {
+    if ((unscaled_exp.number()[0] & 1) != 0) {
+      if (ABSL_PREDICT_FALSE(!BigNumericMultiplyAndRemoveDoubleScale(
+              double_scaled_result, double_scaled_power,
+              &double_scaled_result))) {
+        return false;
+      }
+    }
+    unscaled_exp >>= 1;
+    if (unscaled_exp.is_zero()) {
+      *double_scaled_value = double_scaled_result;
+      return true;
+    }
+    if (ABSL_PREDICT_FALSE(!BigNumericMultiplyAndRemoveDoubleScale(
+            double_scaled_power, double_scaled_power, &double_scaled_power))) {
+      return false;
+    }
+  }
+}
+
+bool DoubleScaledExp(const FixedInt<64, 6>& value, FixedInt<64, 6>* output) {
+  const FixedInt<64, 6> double_scaling_factor(ScalingFactorSquare());
+  if (value.is_zero()) {
+    *output = double_scaling_factor;
+    return true;
+  }
+  // For faster convergence, here we are calculating:
+  // e^x = e^(r*10^t) = (e^r)^(10^t), where r < 1 and t >= 0
+  FixedInt<64, 6> modified_value = value;
+  FixedUint<64, 4> extra_scale(static_cast<uint64_t>(1));
+  while (modified_value.abs() > double_scaling_factor.abs()) {
+    modified_value /= std::integral_constant<uint32_t, 10>();
+    extra_scale *= 10;
+  }
+  // e^r is calculating with Taylor Series:
+  // e^r = 1 + r + (r^2)/2! + (r^3)/3! + (r^4)/4! + ...
+  FixedInt<64, 6> result = double_scaling_factor;
+  int64_t n = 0;
+  FixedInt<64, 6> term = double_scaling_factor;
+  FixedInt<64, 6> result_prev;
+  while (result != result_prev) {
+    result_prev = result;
+    if (ABSL_PREDICT_FALSE(!BigNumericMultiplyAndRemoveDoubleScale(
+            term, modified_value, &term))) {
+      return false;
+    }
+    n++;
+    term.DivAndRoundAwayFromZero(n);
+    result += term;
+  }
+  FixedUint<64, 6> result_abs = result.abs();
+  if (extra_scale != FixedUint<64, 4>(static_cast<uint64_t>(1)) &&
+      (ABSL_PREDICT_FALSE(
+           !DoubleScaledIntegralPower(&result_abs, extra_scale)) ||
+       ABSL_PREDICT_FALSE(result_abs.number()[5] >
+                          std::numeric_limits<int64_t>::max()))) {
+    return false;
+  }
+  *output = FixedInt<64, 6>(result_abs);
+  return true;
+}
+
+bool LnWithHalley(const FixedInt<64, 6>& value,
+                  const FixedUint<64, 6>& unit_of_last_precision,
+                  FixedInt<64, 6>* output) {
+  FixedInt<64, 6> double_scaling_factor(ScalingFactorSquare());
+  if (value == double_scaling_factor) {
+    *output = FixedInt<64, 6>(0);
+    return true;
+  }
+  // The approximate value of Ln is calculated by Halley's method:
+  // y(n+1) = yn + 2 * ( x - exp(yn) )/( x + exp(yn) )
+  FixedInt<64, 6> result = value;
+  FixedInt<64, 6> result_prev;
+  // The Hally's method has cubic convergence, it is expected to converge within
+  // 6 iterations. Thus, to be safe we allow at most 12 iterations here.
+  for (int i = 0; i < 12; i++) {
+    result_prev = result;
+    FixedInt<64, 6> result_tmp = result;
+    if (ABSL_PREDICT_FALSE(!DoubleScaledExp(result_tmp, &result_tmp))) {
+      return false;
+    }
+    FixedInt<64, 10> result_minus_exp(value);
+    result_minus_exp -= FixedInt<64, 10>(result_tmp);
+    if (ABSL_PREDICT_FALSE(result_tmp.AddOverflow(value))) {
+      return false;
+    }
+    result_minus_exp *= FixedInt<64, 10>(double_scaling_factor);
+    result_minus_exp.DivAndRoundAwayFromZero(FixedInt<64, 10>(result_tmp));
+    result_minus_exp <<= 1;
+    result_tmp = FixedInt<64, 6>(result_minus_exp);
+    result += result_tmp;
+    if (result_tmp.abs() < unit_of_last_precision) {
+      break;
+    }
+  }
+  *output = result;
+  return true;
+}
+
+bool DoubleScaledLn(const FixedInt<64, 6>& value,
+                    const FixedUint<64, 6>& unit_of_last_precision,
+                    FixedInt<64, 6>* output) {
+  if (value == FixedInt<64, 6>(ScalingFactorSquare())) {
+    *output = FixedInt<64, 6>(0);
+    return true;
+  }
+  // For the algorithm to converge faster, here we calculate
+  // ln(a) = ln(v * 10^t) = ln(v) + t*ln(10), where 0.5 < v <= 5.
+  const FixedInt<64, 6> upper_threshold(std::array<uint64_t, 6>{
+      0ULL, 6146355448580231168ULL, 2663746531839561567ULL,
+      7965459555662261385ULL, 0ULL, 0ULL});
+  const FixedInt<64, 6> lower_threshold(std::array<uint64_t, 6>{
+      0ULL, 13527356396454709248ULL, 9489746690038731964ULL,
+      796545955566226138ULL, 0ULL, 0ULL});
+  int64_t count = 0;
+  FixedInt<64, 6> modified_value = value;
+  while (modified_value > upper_threshold) {
+    modified_value /= std::integral_constant<uint32_t, 10>();
+    count++;
+  }
+  while (modified_value < lower_threshold) {
+    modified_value *= int64_t{10};
+    count--;
+  }
+
+  FixedInt<64, 6> result;
+  if (ABSL_PREDICT_FALSE(
+          !LnWithHalley(modified_value, unit_of_last_precision, &result))) {
+    return false;
+  }
+  FixedInt<64, 8> ln10_3x(std::array<uint64_t, 8>{
+      7727922604041035566ULL, 12037702344568737696ULL, 9122678356804961424ULL,
+      15992193585353676859ULL, 2153215911448709277ULL, 1077995818453696029ULL,
+      0ULL, 0ULL});
+  ln10_3x *= count;
+  FixedInt<64, 6> ln10_x_count;
+  if (ABSL_PREDICT_FALSE(
+          !BigNumericRemoveScaleAndRoundAwayFromZero(ln10_3x, &ln10_x_count))) {
+    return false;
+  }
+  result += ln10_x_count;
+  *output = result;
+  return true;
+}
+
+bool FractionalPower(const FixedUint<64, 6>& value,
+                     const FixedInt<64, 4>& abs_fract_exp,
+                     FixedUint<64, 6>* output) {
+  // unit_of_last_precision will be used in LN iteration ending condition.
+  // 100 - which represent 1E-74 is chosen here to provide enough precision, and
+  // also provide a loose range to avoid precision lost in exp(yn) affecting the
+  // convergence.
+  FixedUint<64, 6> unit_of_last_precision(uint64_t{10});
+  FixedInt<64, 6> double_scaled_fract_exp(abs_fract_exp);
+  double_scaled_fract_exp *=
+      FixedInt<64, 6>(static_cast<__int128>(BigNumericValue::ScalingFactor()));
+  FixedInt<64, 6> result;
+  // Here pow(x,y) is calculated as x^y=exp(y*ln(x))
+  if (ABSL_PREDICT_FALSE(!DoubleScaledLn(FixedInt<64, 6>(value),
+                                         unit_of_last_precision, &result)) ||
+      ABSL_PREDICT_FALSE(!BigNumericMultiplyAndRemoveDoubleScale(
+          result, double_scaled_fract_exp, &result)) ||
+      ABSL_PREDICT_FALSE(!DoubleScaledExp(result, &result))) {
+    return false;
+  }
+  *output = result.abs();
+  return true;
+}
+
+zetasql_base::StatusOr<BigNumericValue> BigNumericValue::PowerInternal(
+    const BigNumericValue& exp) const {
+  if (exp == BigNumericValue()) {
+    return BigNumericValue(1);
+  }
+  if (exp == BigNumericValue(1)) {
+    return *this;
+  }
+
+  if (*this == BigNumericValue()) {
+    // An attempt to raise zero to a negative power results in division by zero.
+    if (exp.value_.is_negative()) {
+      return MakeEvalError() << "division by zero";
+    }
+    // Otherwise zero raised to any power is still zero.
+    return BigNumericValue();
+  }
+  FixedUint<64, 4> abs_integer_exp;
+  FixedUint<64, 4> abs_fract_exp;
+  FixedUint<64, 4>(exp.value_.abs())
+      .DivMod(FixedUint<64, 4>(ScalingFactor()), &abs_integer_exp,
+              &abs_fract_exp);
+  FixedInt<64, 4> fract_exp(abs_fract_exp);
+  if (exp.value_.is_negative()) {
+    fract_exp = -fract_exp;
+  }
+  bool result_is_negative = false;
+  if (value_.is_negative()) {
+    if (!abs_fract_exp.is_zero()) {
+      return MakeEvalError() << "Negative BIGNUMERIC value cannot be raised to "
+                                "a fractional power";
+    }
+    result_is_negative = (abs_integer_exp.number()[0] & 1) != 0;
+  }
+  FixedUint<64, 6> double_scaled_value(value_.abs());
+  double_scaled_value *= FixedUint<64, 6>(ScalingFactor());
+  FixedUint<64, 6> double_scaled_result;
+  if (!abs_integer_exp.is_zero()) {
+    double_scaled_result = double_scaled_value;
+    if (!exp.value_.is_negative()) {
+      if (!DoubleScaledIntegralPower(&double_scaled_result, abs_integer_exp)) {
+        return MakeEvalError() << "BigNumeric overflow";
+      }
+    } else {
+      // If the exponent is negative and abs_value is > 1, then we compute
+      // compute 1 / (abs_value ^ (-integer_exp)) for integer part.
+      if (!DoubleScaledIntegralPower(&double_scaled_result, abs_integer_exp)) {
+        return BigNumericValue();
+      }
+      FixedUint<64, 6> scaling_factor_cube_2x(ScalingFactorCube2x());
+      if (double_scaled_result > scaling_factor_cube_2x) {
+        return BigNumericValue();
+      }
+      if (double_scaled_result.is_zero()) {
+        return MakeEvalError() << "BigNumeric overflow";
+      }
+      FixedUint<64, 8> numerator(ScalingFactorQuad());  // 4 times scaled
+      numerator.DivAndRoundAwayFromZero(FixedUint<64, 8>(double_scaled_result));
+      if (ABSL_PREDICT_FALSE(numerator.number()[6] != 0) ||
+          ABSL_PREDICT_FALSE(numerator.number()[7] != 0)) {
+        return MakeEvalError() << "BigNumeric overflow";
+      }
+      double_scaled_result = FixedUint<64, 6>(numerator);
+    }
+    if (abs_fract_exp.number()[0] == 0 && abs_fract_exp.number()[1] == 0) {
+      FixedInt<64, 4> result;
+      if (ABSL_PREDICT_FALSE(!BigNumericRemoveScaleAndRoundAwayFromZero(
+              double_scaled_result, &result, result_is_negative))) {
+        return MakeEvalError() << "BigNumeric overflow";
+      }
+      return BigNumericValue(result);
+    }
+  }
+  FixedUint<64, 6> double_scaled_frac_result;
+  if (ABSL_PREDICT_FALSE(!FractionalPower(double_scaled_value, fract_exp,
+                                          &double_scaled_frac_result))) {
+    return zetasql_base::InternalErrorBuilder() << "Fractional Power should never "
+                                           "overflow with exponent less than 1";
+  }
+  if (abs_integer_exp.is_zero()) {
+    double_scaled_result = double_scaled_frac_result;
+  } else {
+    if (ABSL_PREDICT_FALSE(!BigNumericMultiplyAndRemoveDoubleScale(
+            double_scaled_frac_result, double_scaled_result,
+            &double_scaled_result))) {
+      return MakeEvalError() << "BigNumeric overflow";
+    }
+  }
+
+  FixedInt<64, 4> result;
+  if (ABSL_PREDICT_FALSE(!BigNumericRemoveScaleAndRoundAwayFromZero(
+          double_scaled_result, &result, result_is_negative))) {
+    return MakeEvalError() << "BigNumeric overflow";
+  }
+
+  return BigNumericValue(result);
+}
+
+zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Power(
+    const BigNumericValue& exp) const {
+  auto res_or_status = PowerInternal(exp);
+  if (res_or_status.ok()) {
+    return res_or_status;
+  }
+  return zetasql_base::StatusBuilder(res_or_status.status()).SetAppend()
+         << ": POW(" << ToString() << ", " << exp.ToString() << ")";
+}
+
+zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Exp() const {
+  FixedInt<64, 6> double_scaled_value(value_);
+  double_scaled_value *=
+      FixedInt<64, 6>(static_cast<__int128>(BigNumericValue::ScalingFactor()));
+  FixedInt<64, 4> result;
+  if (ABSL_PREDICT_FALSE(
+          !DoubleScaledExp(double_scaled_value, &double_scaled_value)) ||
+      ABSL_PREDICT_FALSE(!BigNumericRemoveScaleAndRoundAwayFromZero(
+          double_scaled_value, &result))) {
+    return MakeEvalError() << "BigNumeric overflow: EXP(" << ToString() << ")";
+  }
+  return BigNumericValue(result);
+}
+
+zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Ln() const {
+  if (value_.is_negative() || value_.is_zero()) {
+    return MakeEvalError() << "LN is undefined for zero or negative value: LN("
+                           << ToString() << ")";
+  }
+  FixedInt<64, 6> double_scaled_value(value_);
+  double_scaled_value *=
+      FixedInt<64, 6>(static_cast<__int128>(BigNumericValue::ScalingFactor()));
+  // unit_of_last_precision is set to 1e-39 here. In the implementation of Ln
+  // with Hallay's mothod, computation will stop when the delta of the iteration
+  // is less than unit_of_last_precision. Thus, 1e-39 is set up here to provide
+  // enough precision for BigNumericValue and avoid unnecessary computation.
+  const FixedUint<64, 6> unit_of_last_precision(std::array<uint64_t, 6>{
+      68739955140067328ULL, 542101086242752217ULL, 0ULL, 0ULL, 0ULL, 0ULL});
+  FixedInt<64, 4> result;
+  if (ABSL_PREDICT_FALSE(!DoubleScaledLn(
+          double_scaled_value, unit_of_last_precision, &double_scaled_value)) ||
+      ABSL_PREDICT_FALSE(!BigNumericRemoveScaleAndRoundAwayFromZero(
+          double_scaled_value, &result))) {
+    return zetasql_base::InternalErrorBuilder()
+           << "LN should never overflow: LN(" << ToString() << ")";
+  }
+  return BigNumericValue(result);
+}
+
 // Parses a textual representation of a BIGNUMERIC value. Returns an error if
 // the given string cannot be parsed as a number or if the textual numeric value
 // exceeds BIGNUMERIC range. If 'is_strict' is true then the function will

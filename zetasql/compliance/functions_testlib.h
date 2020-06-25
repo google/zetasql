@@ -177,8 +177,14 @@ std::vector<FunctionTestCall> GetFunctionTestsMath();
 std::vector<FunctionTestCall> GetFunctionTestsRounding();
 std::vector<FunctionTestCall> GetFunctionTestsTrigonometric();
 
+std::vector<FunctionTestCall> GetFunctionTestsAscii();
 std::vector<FunctionTestCall> GetFunctionTestsString();
+std::vector<FunctionTestCall> GetFunctionTestsInstr();
+std::vector<FunctionTestCall> GetFunctionTestsSoundex();
+std::vector<FunctionTestCall> GetFunctionTestsTranslate();
+std::vector<FunctionTestCall> GetFunctionTestsInitCap();
 std::vector<FunctionTestCall> GetFunctionTestsRegexp();
+std::vector<FunctionTestCall> GetFunctionTestsRegexp2(bool include_feature_set);
 std::vector<FunctionTestCall> GetFunctionTestsFormat();
 std::vector<FunctionTestCall> GetFunctionTestsArray();
 std::vector<FunctionTestCall> GetFunctionTestsNormalize();

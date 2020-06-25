@@ -275,6 +275,12 @@ std::string FunctionArgumentType::SignatureArgumentKindToString(
       return "<array<T1>>";
     case ARG_ARRAY_TYPE_ANY_2:
       return "<array<T2>>";
+    case ARG_PROTO_MAP_ANY:
+      return "<map<K, V>>";
+    case ARG_PROTO_MAP_KEY_ANY:
+      return "<K>";
+    case ARG_PROTO_MAP_VALUE_ANY:
+      return "<V>";
     case ARG_PROTO_ANY:
       return "<proto>";
     case ARG_STRUCT_ANY:
@@ -421,6 +427,10 @@ std::string FunctionArgumentType::UserFacingName(
         return "STRUCT";
       case ARG_ENUM_ANY:
         return "ENUM";
+      case ARG_PROTO_MAP_ANY:
+        return "PROTO_MAP";
+      case ARG_PROTO_MAP_KEY_ANY:
+      case ARG_PROTO_MAP_VALUE_ANY:
       case ARG_TYPE_ANY_1:
       case ARG_TYPE_ANY_2:
       case ARG_TYPE_ARBITRARY:
@@ -449,6 +459,9 @@ std::string FunctionArgumentType::UserFacingName(
 std::string FunctionArgumentType::UserFacingNameWithCardinality(
     ProductMode product_mode) const {
   std::string arg_type_string = UserFacingName(product_mode);
+  if (options().argument_name_is_mandatory()) {
+    arg_type_string = absl::StrCat(argument_name(), " => ", arg_type_string);
+  }
   if (optional()) {
     return absl::StrCat("[", arg_type_string, "]");
   } else if (repeated()) {
@@ -764,7 +777,11 @@ bool FunctionArgumentType::TemplatedKindIsRelated(SignatureArgumentKind kind)
   if ((kind_ == ARG_ARRAY_TYPE_ANY_1 && kind == ARG_TYPE_ANY_1) ||
       (kind_ == ARG_ARRAY_TYPE_ANY_2 && kind == ARG_TYPE_ANY_2) ||
       (kind == ARG_ARRAY_TYPE_ANY_1 && kind_ == ARG_TYPE_ANY_1) ||
-      (kind == ARG_ARRAY_TYPE_ANY_2 && kind_ == ARG_TYPE_ANY_2)) {
+      (kind == ARG_ARRAY_TYPE_ANY_2 && kind_ == ARG_TYPE_ANY_2) ||
+      (kind == ARG_PROTO_MAP_ANY && kind_ == ARG_PROTO_MAP_KEY_ANY) ||
+      (kind_ == ARG_PROTO_MAP_ANY && kind == ARG_PROTO_MAP_KEY_ANY) ||
+      (kind == ARG_PROTO_MAP_ANY && kind_ == ARG_PROTO_MAP_VALUE_ANY) ||
+      (kind_ == ARG_PROTO_MAP_ANY && kind == ARG_PROTO_MAP_VALUE_ANY)) {
     return true;
   }
   return false;

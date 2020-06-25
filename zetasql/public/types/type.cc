@@ -20,6 +20,7 @@
 #include "zetasql/public/strings.h"
 #include "zetasql/public/types/simple_type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_join.h"
@@ -368,7 +369,8 @@ bool Type::SupportsPartitioning(const LanguageOptions& language_options,
 
 bool Type::SupportsPartitioningImpl(const LanguageOptions& language_options,
                                     const Type** no_partitioning_type) const {
-  bool supports_partitioning = !this->IsGeography() && !this->IsFloatingPoint();
+  bool supports_partitioning =
+      !this->IsGeography() && !this->IsFloatingPoint() && !this->IsJson();
   if (no_partitioning_type != nullptr) {
     *no_partitioning_type = supports_partitioning ? nullptr : this;
   }
@@ -377,7 +379,7 @@ bool Type::SupportsPartitioningImpl(const LanguageOptions& language_options,
 
 bool Type::SupportsOrdering(const LanguageOptions& language_options,
                             std::string* type_description) const {
-  if (IsGeography()) {
+  if (IsGeography() || IsJson()) {
     if (type_description != nullptr) {
       *type_description = TypeKindToString(this->kind(),
                                            language_options.product_mode());
@@ -427,16 +429,12 @@ absl::HashState Type::Hash(absl::HashState state) const {
   return HashTypeParameter(std::move(state));
 }
 
-bool Type::ValueContentEquals(
-    const ValueContent& x, const ValueContent& y,
-    const Type::ValueEqualityCheckOptions& options) const {
-  DCHECK(options.other_value_type && Equivalent(options.other_value_type));
-
-  if (x.is_null() || y.is_null()) {
-    return x.is_null() == y.is_null();
-  }
-
-  return ValueContentEqualsImpl(x, y, options);
+absl::Status Type::TypeMismatchError(const ValueProto& value_proto) const {
+  return absl::Status(
+      absl::StatusCode::kInternal,
+      absl::StrCat("Type mismatch: provided type ", DebugString(),
+                   " but proto <", value_proto.ShortDebugString(),
+                   "> doesn't have field of that type and is not null"));
 }
 
 bool TypeEquals::operator()(const Type* const type1,

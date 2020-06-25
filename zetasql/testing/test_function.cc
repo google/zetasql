@@ -162,6 +162,12 @@ FunctionTestCall::FunctionTestCall(
     : function_name(function_name), params(arguments, result, code) {}
 
 FunctionTestCall::FunctionTestCall(
+    absl::string_view function_name,
+    const std::vector<ValueConstructor>& arguments,
+    const ValueConstructor& result, absl::Status status)
+    : function_name(function_name), params(arguments, result, status) {}
+
+FunctionTestCall::FunctionTestCall(
     absl::string_view function_name_in,
     const std::vector<ValueConstructor>& arguments_in,
     const QueryParamsWithResult::ResultMap& results_in)

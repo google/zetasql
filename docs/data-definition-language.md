@@ -468,11 +468,11 @@ The `CREATE VIEW` statement creates a view based on a specific query.
 
 **Optional Clauses**
 
-+   `OR REPLACE`: Replaces any table with the same name if it exists. Cannot
++   `OR REPLACE`: Replaces any view with the same name if it exists. Cannot
     appear with `IF NOT EXISTS`.
-+   `TEMP | TEMPORARY`: Creates a temporary table. The lifetime of the table is
++   `TEMP | TEMPORARY`: Creates a temporary view. The lifetime of the table is
     system-specific.
-+   `IF NOT EXISTS`: If any table exists with the same name, the `CREATE`
++   `IF NOT EXISTS`: If any view exists with the same name, the `CREATE`
     statement will have no effect. Cannot appear with `OR REPLACE`.
 
 ## CREATE EXTERNAL TABLE

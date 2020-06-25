@@ -443,6 +443,9 @@ void SampleCatalog::LoadTables() {
   AddOwnedTable(new SimpleTable(
       "BigNumericTypeTable", {{"bignumeric_col", types_->get_bignumeric()}}));
 
+  AddOwnedTable(
+      new SimpleTable("JSONTable", {{"json_col", types_->get_json()}}));
+
   AddOwnedTable(new SimpleTable(
       "TwoIntegers",
       {{"key", types_->get_int64()}, {"value", types_->get_int64()}}));
@@ -1218,6 +1221,13 @@ void SampleCatalog::LoadFunctions() {
           types_->get_string(), zetasql::FunctionArgumentTypeOptions()
                                     .set_argument_name("date_string")
                                     .set_argument_name_is_mandatory(true));
+  const auto named_optional_date_arg_error_if_positional =
+      zetasql::FunctionArgumentType(
+          types_->get_string(),
+          zetasql::FunctionArgumentTypeOptions()
+              .set_cardinality(FunctionArgumentType::OPTIONAL)
+              .set_argument_name("date_string")
+              .set_argument_name_is_mandatory(true));
   const auto named_optional_format_arg = zetasql::FunctionArgumentType(
       types_->get_string(), zetasql::FunctionArgumentTypeOptions()
                                 .set_cardinality(FunctionArgumentType::OPTIONAL)
@@ -1245,7 +1255,16 @@ void SampleCatalog::LoadFunctions() {
       types_->get_string(),
       zetasql::FunctionArgumentTypeOptions()
           .set_cardinality(FunctionArgumentType::OPTIONAL));
+  const auto named_optional_arg_named_not_null =
+      zetasql::FunctionArgumentType(
+          types_->get_string(),
+          zetasql::FunctionArgumentTypeOptions()
+              .set_cardinality(FunctionArgumentType::OPTIONAL)
+              .set_must_be_non_null()
+              .set_argument_name("arg")
+              .set_argument_name_is_mandatory(true));
   const auto mode = Function::SCALAR;
+
   function = new Function("fn_named_args", "sample_functions", mode);
   function->AddSignature({types_->get_bool(),
                           {named_required_format_arg, named_required_date_arg},
@@ -1321,6 +1340,55 @@ void SampleCatalog::LoadFunctions() {
                           {named_required_format_arg,
                            named_required_date_arg_error_if_positional},
                           /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function with two named arguments, one required and one optional,
+  // and neither may be specified positionally.
+  function = new Function("fn_named_optional_args_error_if_positional",
+                          "sample_functions", mode);
+  function->AddSignature({types_->get_bool(),
+                          {named_required_format_arg_error_if_positional,
+                           named_optional_date_arg_error_if_positional},
+                          /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function with two optional arguments, one regular and one named that
+  // cannot be specified positionally.
+  function =
+      new Function("fn_optional_named_optional_args", "sample_functions", mode);
+  function->AddSignature(
+      {types_->get_bool(),
+       {{types_->get_string(), FunctionArgumentType::OPTIONAL},
+        named_optional_date_arg_error_if_positional},
+       /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function with three optional arguments, one regular and two named,
+  // both cannot be specified positionally and first cannot be NULL.
+  function = new Function("fn_optional_named_optional_not_null_args",
+                          "sample_functions", mode);
+  function->AddSignature(
+      {types_->get_bool(),
+       {{types_->get_string(), FunctionArgumentType::OPTIONAL},
+        named_optional_arg_named_not_null,
+        named_optional_date_arg_error_if_positional},
+       /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function with two signatures, one using regular arguments and one
+  // using named arguments that cannot be specified positionally.
+  function = new Function("fn_regular_and_named_signatures",
+                          "sample_functions", mode);
+  function->AddSignature(
+      {types_->get_bool(),
+       {{types_->get_string(), FunctionArgumentType::REQUIRED},
+        {types_->get_string(), FunctionArgumentType::OPTIONAL}},
+       /*context_id=*/-1});
+  function->AddSignature(
+      {types_->get_bool(),
+       {{types_->get_string(), FunctionArgumentType::REQUIRED},
+        named_optional_date_arg_error_if_positional},
+       /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 }
 

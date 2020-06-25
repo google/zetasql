@@ -891,7 +891,7 @@ static bool AddAtLeastDaysToDatetime(
 
 static absl::Status AddDuration(absl::Time timestamp, int64_t interval,
                                 DateTimestampPart part, absl::TimeZone timezone,
-                                absl::Time* output) {
+                                absl::Time* output, bool* had_overflow) {
   switch (part) {
     case HOUR:
       *output = timestamp + absl::Hours(interval);
@@ -915,6 +915,7 @@ static absl::Status AddDuration(absl::Time timestamp, int64_t interval,
       break;
   }
   if (!IsValidTime(*output)) {
+    *had_overflow = true;
     return MakeAddTimestampOverflowError(timestamp, part, interval, timezone);
   }
   return absl::OkStatus();
@@ -928,22 +929,22 @@ static absl::Status AddDuration(absl::Time timestamp, int64_t interval,
 static absl::Status AddTimestampInternal(absl::Time timestamp,
                                          absl::TimeZone timezone,
                                          DateTimestampPart part, int64_t interval,
-                                         absl::Time* output) {
+                                         absl::Time* output,
+                                         bool* had_overflow) {
   ZETASQL_RETURN_IF_ERROR(CheckValidAddTimestampPart(part, false /* is_legacy */));
   if (part == DAY) {
     // For TIMESTAMP_ADD(), the DAY interval is equivalent to 24 HOURs.
     part = HOUR;
     int64_t new_interval;
     if (!Multiply<int64_t>(interval, 24, &new_interval, kNoError)) {
+      *had_overflow = true;
       return MakeEvalError() << "TIMESTAMP_ADD interval value  " << interval
                              << " at " << DateTimestampPart_Name(part)
                              << " precision causes overflow";
     }
     interval = new_interval;
   }
-  return AddDuration(timestamp, interval, part, timezone, output);
-
-  return absl::OkStatus();
+  return AddDuration(timestamp, interval, part, timezone, output, had_overflow);
 }
 
 static absl::Status AddTimestampNanos(int64_t nanos, absl::TimeZone timezone,
@@ -3220,8 +3221,9 @@ static absl::Status AddDatetimeInternal(
     datetime_in_utc += absl::Nanoseconds(datetime.Nanoseconds());
 
     absl::Time result_timestamp;
+    bool had_overflow_unused;
     if (!AddTimestampInternal(datetime_in_utc, absl::UTCTimeZone(), part,
-                              interval, &result_timestamp)
+                              interval, &result_timestamp, &had_overflow_unused)
              .ok()) {
       return overflow_error_maker();
     }
@@ -3299,8 +3301,9 @@ absl::Status AddTimestamp(int64_t timestamp, TimestampScale scale,
 absl::Status AddTimestamp(absl::Time timestamp, absl::TimeZone timezone,
                           DateTimestampPart part, int64_t interval,
                           absl::Time* output) {
-  ZETASQL_RETURN_IF_ERROR(
-      AddTimestampInternal(timestamp, timezone, part, interval, output));
+  bool had_overflow_unused;
+  ZETASQL_RETURN_IF_ERROR(AddTimestampInternal(timestamp, timezone, part, interval,
+                                       output, &had_overflow_unused));
   if (!IsValidTime(*output)) {
     return MakeAddTimestampOverflowError(timestamp, part, interval, timezone);
   }
@@ -3314,6 +3317,15 @@ absl::Status AddTimestamp(absl::Time timestamp,
   absl::TimeZone timezone;
   ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
   return AddTimestamp(timestamp, timezone, part, interval, output);
+}
+
+absl::Status AddTimestampOverflow(absl::Time timestamp, absl::TimeZone timezone,
+                                  DateTimestampPart part, int64_t interval,
+                                  absl::Time* output, bool* had_overflow) {
+  *had_overflow = false;
+  absl::Status status = AddTimestampInternal(timestamp, timezone, part,
+                                             interval, output, had_overflow);
+  return *had_overflow ? absl::OkStatus() : status;
 }
 
 absl::Status SubTimestamp(int64_t timestamp, TimestampScale scale,
@@ -3351,7 +3363,9 @@ absl::Status SubTimestamp(absl::Time timestamp, absl::TimeZone timezone,
   if (!IsValidTime(timestamp)) {
     return MakeEvalError() << "Invalid timestamp: " << timestamp;
   }
-  if (!AddTimestampInternal(timestamp, timezone, part, -interval, output)
+  bool had_overflow_unused;
+  if (!AddTimestampInternal(timestamp, timezone, part, -interval, output,
+                            &had_overflow_unused)
            .ok() ||
       !IsValidTime(*output)) {
     return MakeSubTimestampOverflowError(timestamp, part, interval, timezone);

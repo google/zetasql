@@ -74,7 +74,7 @@ class ColumnFilterTest : public ::testing::Test {
     }
 
     iter_ = absl::WrapUnique(new SimpleEvaluatorTableIterator(
-        columns, column_major_values_for_iter,
+        columns, column_major_values_for_iter, /*num_rows=*/4,
         /*end_status=*/absl::OkStatus(), filter_column_idxs,
         /*cancel_cb=*/[]() {}, /*set_deadline_cb=*/[](absl::Time) {},
         zetasql_base::Clock::RealClock()));

@@ -322,9 +322,18 @@ absl::Status CheckRangeBucketArguments(
 // input.
 bool HasFloatingPointArgument(const std::vector<InputArgumentType>& arguments);
 
-// Returns true if an arithmetic operation has a numeric type as its
-// input.
+// Returns true if at least one input argument has NUMERIC type.
 bool HasNumericTypeArgument(const std::vector<InputArgumentType>& arguments);
+
+// Returns true if all input arguments have NUMERIC type, including the case
+// without input arguments.
+bool AllArgumentsHaveNumericType(
+    const std::vector<InputArgumentType>& arguments);
+
+// Returns true if there are at least one input argument and the last argument
+// has numeric type.
+bool LastArgumentHasNumericType(
+    const std::vector<InputArgumentType>& arguments);
 
 // Returns true if an arithmetic operation has a bignumeric type as its
 // input.

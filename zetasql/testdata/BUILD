@@ -136,7 +136,6 @@ proto_library(
     srcs = [
         "ambiguous_has.proto",
     ],
-    deps = [],
 )
 
 cc_proto_library(

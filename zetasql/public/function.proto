@@ -51,6 +51,21 @@ enum SignatureArgumentKind {
   //   LAST(<array<T2>>) -> <T2>
   ARG_ARRAY_TYPE_ANY_2 = 4;
 
+  // Templated proto map type. This is an array of protos where the proto
+  // is a map entry. It has a key field and a value field. This kind allows
+  // inference of the key and value field types from the map field type, as
+  // in this expression:
+  //
+  // ARG_PROTO_MAP_ANY[KEY(ARG_PROTO_MAP_KEY_ANY)] ->
+  // ARG_PROTO_MAP_VALUE_ANY
+  ARG_PROTO_MAP_ANY = 14;
+
+  // The key type of a proto map that matches ARG_PROTO_MAP_ANY.
+  ARG_PROTO_MAP_KEY_ANY = 15;
+
+  // The value type of a proto map that matches ARG_PROTO_MAP_ANY.
+  ARG_PROTO_MAP_VALUE_ANY = 16;
+
   // Templated proto type. All arguments with this type must be the same type.
   // e.g.:
   //   DEBUGSTRING(<proto>) -> <string>

@@ -352,13 +352,27 @@ std::string Function::DebugString(bool verbose) const {
   return FullName();
 }
 
-std::string Function::GetSQL(const std::vector<std::string>& inputs) const {
+std::string Function::GetSQL(std::vector<std::string> inputs,
+                             const FunctionSignature* signature) const {
   if (GetSQLCallback() != nullptr) {
     return GetSQLCallback()(inputs);
   }
   std::string name = FullName(/*include_group=*/false);
   if (function_options_.uses_upper_case_sql_name) {
     absl::AsciiStrToUpper(&name);
+  }
+  if (signature != nullptr) {
+    // If the argument is mandatory-named, we have to use that name.
+    for (int i = 0; i < signature->arguments().size(); ++i) {
+      if (i >= inputs.size() || signature->argument(i).repeated()) {
+        break;
+      }
+      if (signature->argument(i).options().argument_name_is_mandatory()) {
+        DCHECK(!signature->argument(i).argument_name().empty());
+        inputs[i] = absl::StrCat(signature->argument(i).argument_name(), " => ",
+                                 inputs[i]);
+      }
+    }
   }
   return absl::StrCat(name, "(", absl::StrJoin(inputs, ", "), ")");
 }

@@ -31,6 +31,11 @@ void TestJsonEscapeString(absl::string_view input, absl::string_view expected) {
   std::string actual;
   JsonEscapeString(input, &actual);
   EXPECT_EQ(actual, expected) << "input=>>>" << input << "<<<";
+
+  std::string input_with_quotes("\"");
+  input_with_quotes.append(input);
+  input_with_quotes.push_back('"');
+  EXPECT_EQ(JsonStringNeedsEscaping(input), input_with_quotes != actual);
 }
 
 // Test that the input is simply wrapped in quotes: input->"input"

@@ -71,6 +71,29 @@ void InitExponents() {
     kDecimalExponentFloat[i] = pow(10.0, i + kFloatMinExponent);
 #endif
   }
+
+#ifdef __x86_64__
+  // For doubles on x86, the results from pow/exp10 cause issues for rounding
+  // whole numbers which is a pretty obvious wart. Instead compute with repeated
+  // multiplying/dividing by 10. Unfortunately, for floats doing this creates
+  // those issues so we use two different methods for the types.
+  //
+  // No solution will be fully correct with floating points here, but this
+  // prevents the obvious whole number warts.
+  long double exponent = 1;
+  kDecimalExponentDouble[-kDoubleMinExponent] = 1;
+  // Compute exponents above 1.
+  for (int i = 0; i < kDoubleMaxExponent; ++i) {
+    exponent *= 10;
+    kDecimalExponentDouble[1 + i - kDoubleMinExponent] = exponent;
+  }
+  exponent = 1;
+  // Compute exponents below 1.
+  for (int i = 0; i < -kDoubleMinExponent; ++i) {
+    exponent /= 10;
+    kDecimalExponentDouble[-kDoubleMinExponent - i - 1] = exponent;
+  }
+#endif  // __x86_64__
 }
 
 namespace {
@@ -227,27 +250,28 @@ bool TruncDecimal(float in, int64_t digits, float *out,
   return true;
 }
 
+namespace {
+template <typename T>
+inline bool SetNumericResultOrError(const zetasql_base::StatusOr<T>& status_or_numeric,
+                                    T* out, absl::Status* error) {
+  if (ABSL_PREDICT_TRUE(status_or_numeric.ok())) {
+    *out = status_or_numeric.value();
+    return true;
+  }
+  error->Update(status_or_numeric.status());
+  return false;
+}
+}  // namespace
+
 template <>
 bool Round(NumericValue in, NumericValue *out, absl::Status* error) {
-  auto status_or_numeric = in.Round(0);
-  if (!status_or_numeric.ok()) {
-    return internal::SetFloatingPointOverflow(
-        absl::StrCat("ROUND(", in.ToString(), ")"), error);
-  }
-  *out = status_or_numeric.value();
-  return true;
+  return SetNumericResultOrError(in.Round(0), out, error);
 }
 
 template <>
 bool RoundDecimal(NumericValue in, int64_t digits, NumericValue *out,
                   absl::Status* error) {
-  auto status_or_numeric = in.Round(digits);
-  if (!status_or_numeric.ok()) {
-    return internal::SetFloatingPointOverflow(
-        absl::StrCat("ROUND(", in.ToString(), ", ", digits, ")"), error);
-  }
-  *out = status_or_numeric.value();
-  return true;
+  return SetNumericResultOrError(in.Round(digits), out, error);
 }
 
 template <>
@@ -265,81 +289,39 @@ bool TruncDecimal(NumericValue in, int64_t digits, NumericValue* out,
 
 template <>
 bool Ceil(NumericValue in, NumericValue *out, absl::Status* error) {
-  auto status_or_numeric = in.Ceiling();
-  if (!status_or_numeric.ok()) {
-    return internal::SetFloatingPointOverflow(
-        absl::StrCat("CEIL(", in.ToString(), ")"), error);
-  }
-  *out = status_or_numeric.value();
-  return true;
+  return SetNumericResultOrError(in.Ceiling(), out, error);
 }
 
 template <>
 bool Floor(NumericValue in, NumericValue *out, absl::Status* error) {
-  auto status_or_numeric = in.Floor();
-  if (!status_or_numeric.ok()) {
-    return internal::SetFloatingPointOverflow(
-        absl::StrCat("FLOOR(", in.ToString(), ")"), error);
-  }
-  *out = status_or_numeric.value();
-  return true;
+  return SetNumericResultOrError(in.Floor(), out, error);
 }
 
 template <>
 bool Pow(NumericValue in1, NumericValue in2, NumericValue* out,
          absl::Status* error) {
-  auto status_or_numeric = in1.Power(in2);
-  if (!status_or_numeric.ok()) {
-    return internal::SetFloatingPointError(
-        absl::StrCat("POW(", in1.ToString(), ", ", in2.ToString(), ")"), error);
-  }
-  *out = status_or_numeric.value();
-  return true;
+  return SetNumericResultOrError(in1.Power(in2), out, error);
 }
 
 template <>
 bool Ceil(BigNumericValue in, BigNumericValue* out, absl::Status* error) {
-  auto status_or_numeric = in.Ceiling();
-  if (!status_or_numeric.ok()) {
-    return internal::SetFloatingPointOverflow(
-        absl::StrCat("CEIL(", in.ToString(), ")"), error);
-  }
-  *out = status_or_numeric.value();
-  return true;
+  return SetNumericResultOrError(in.Ceiling(), out, error);
 }
 
 template <>
 bool Floor(BigNumericValue in, BigNumericValue* out, absl::Status* error) {
-  auto status_or_numeric = in.Floor();
-  if (!status_or_numeric.ok()) {
-    return internal::SetFloatingPointOverflow(
-        absl::StrCat("FLOOR(", in.ToString(), ")"), error);
-  }
-  *out = status_or_numeric.value();
-  return true;
+  return SetNumericResultOrError(in.Floor(), out, error);
 }
 
 template <>
 bool Round(BigNumericValue in, BigNumericValue* out, absl::Status* error) {
-  auto status_or_numeric = in.Round(0);
-  if (!status_or_numeric.ok()) {
-    return internal::SetFloatingPointOverflow(
-        absl::StrCat("ROUND(", in.ToString(), ")"), error);
-  }
-  *out = status_or_numeric.value();
-  return true;
+  return SetNumericResultOrError(in.Round(0), out, error);
 }
 
 template <>
 bool RoundDecimal(BigNumericValue in, int64_t digits, BigNumericValue* out,
                   absl::Status* error) {
-  auto status_or_numeric = in.Round(digits);
-  if (!status_or_numeric.ok()) {
-    return internal::SetFloatingPointOverflow(
-        absl::StrCat("ROUND(", in.ToString(), ", ", digits, ")"), error);
-  }
-  *out = status_or_numeric.value();
-  return true;
+  return SetNumericResultOrError(in.Round(digits), out, error);
 }
 
 template <>
@@ -353,6 +335,12 @@ bool TruncDecimal(BigNumericValue in, int64_t digits, BigNumericValue* out,
                   absl::Status* error) {
   *out = in.Trunc(digits);
   return true;
+}
+
+template <>
+bool Pow(BigNumericValue in1, BigNumericValue in2, BigNumericValue* out,
+         absl::Status* error) {
+  return SetNumericResultOrError(in1.Power(in2), out, error);
 }
 
 }  // namespace functions

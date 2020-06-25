@@ -175,6 +175,20 @@ enum LanguageFeature {
   FEATURE_CREATE_TABLE_CLUSTER_BY = 15;
 
   // NUMERIC type support, see (broken link).
+  // Does not cover additional NUMERIC signatures of VARIANCE, STDDEV, COVAR,
+  // CORR, PERCENTILE_CONT or PERCENTILE_DISC that are required to get ZetaSQL
+  // compliant behavior. These function signatures are controlled by
+  // FEATURE_NUMERIC_VARIANCE_STDDEV_SIGNATURES,
+  // FEATURE_NUMERIC_COVAR_CORR_SIGNATURES, and
+  // FEATURE_NUMERIC_PERCENTILE_SIGNATURES.
+  // It is highly recommended to enable these function signatures when
+  // FEATURE_NUMERIC_TYPE is enabled. Otherwise, calling these functions with
+  // NUMERIC values would fallback to the DOUBLE signature, by implicitly
+  // casting the NUMERIC inputs to DOUBLE type; enabling the numeric signatures
+  // later would cause query behavior change for these functions (for
+  // PERCENTILE_CONT and PERCENTILE_DISC, the result type will also change).
+  // ZetaSQL will soon enable these function signatures by default, and
+  // disabling them would be considered non-compliant.
   FEATURE_NUMERIC_TYPE = 16;
 
   // Enables support for NOT NULL annotation in CREATE TABLE.
@@ -336,6 +350,9 @@ enum LanguageFeature {
   FEATURE_NUMERIC_VARIANCE_STDDEV_SIGNATURES = 39
       [(language_feature_options).in_development = true];
 
+  FEATURE_NUMERIC_PERCENTILE_SIGNATURES = 45
+      [(language_feature_options).in_development = true];
+
   // Enables using NOT ENFORCED in primary keys.
   // See (broken link).
   FEATURE_UNENFORCED_PRIMARY_KEYS = 40;
@@ -350,6 +367,23 @@ enum LanguageFeature {
 
   // JSON data type. (broken link)
   FEATURE_JSON_TYPE = 43 [(language_feature_options).in_development = true];
+
+  // If true, JSON values are not parsed and validated.
+  FEATURE_JSON_NO_VALIDATION = 44
+      [(language_feature_options).in_development = true];
+
+  // If true, JSON string documents will be parsed using the proto JSON parse
+  // rules that are more relaxed than the JSON RFC (for example allowing single
+  // quotes in the documents).
+  FEATURE_JSON_LEGACY_PARSE = 46
+      [(language_feature_options).in_development = true];
+
+  // Enables support for WITH PARTITION COLUMNS in CREATE EXTERNAL TABLE.
+  // Example:
+  // CREATE EXTERNAL TABLE t WITH PARTITION COLUMNS (x int64)
+  // More details: (broken link)
+  FEATURE_CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS = 47
+      [(language_feature_options).in_development = true];
 
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
@@ -565,6 +599,12 @@ enum LanguageFeature {
   // Allows consecutive ON/USING clauses for JOINs, such as
   //    t1 JOIN t2 JOIN t3 ON cond1 USING (col2)
   FEATURE_V_1_3_ALLOW_CONSECUTIVE_ON = 13016;
+
+  // Enables support for optional paramaters position and occurrence in
+  // REGEXP_EXTRACT. In addition, allows alias REGEXP_SUBSTR.
+  // ((broken link))
+  FEATURE_V_1_3_ALLOW_REGEXP_EXTRACT_OPTIONALS = 13017
+      [(language_feature_options).in_development = true];
 
   // EXPERIMENTAL FEATURES
   // These are features supported in the code that are not currently part of

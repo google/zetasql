@@ -79,6 +79,7 @@
 #include "zetasql/base/string_numbers.h"  
 #include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/ascii.h"
 #include "zetasql/base/case.h"
@@ -156,6 +157,18 @@ absl::Status AddGetFieldToFlatten(std::unique_ptr<const ResolvedExpr> expr,
   return absl::OkStatus();
 }
 
+std::string GetNodePrefixToken(absl::string_view sql,
+                               const ASTLeaf& leaf_node) {
+  const ParseLocationRange& parse_location_range =
+      leaf_node.GetParseLocationRange();
+  absl::string_view type_token = absl::StripAsciiWhitespace(
+      absl::ClippedSubstr(sql, parse_location_range.start().GetByteOffset(),
+                          parse_location_range.end().GetByteOffset() -
+                              parse_location_range.start().GetByteOffset() -
+                              leaf_node.image().size()));
+  return absl::AsciiStrToUpper(type_token);
+}
+
 }  // namespace
 
 absl::Status Resolver::ResolveBuildProto(
@@ -170,7 +183,7 @@ absl::Status Resolver::ResolveBuildProto(
   IdStringHashMapCase<const google::protobuf::FieldDescriptor*> fields_by_name;
 
   // Required fields we haven't found so far.
-  std::set<const google::protobuf::FieldDescriptor*> missing_required_fields;
+  absl::flat_hash_set<const google::protobuf::FieldDescriptor*> missing_required_fields;
 
   for (int i = 0; i < descriptor->field_count(); ++i) {
     const google::protobuf::FieldDescriptor* field = descriptor->field(i);
@@ -616,6 +629,7 @@ absl::Status Resolver::ResolveExpr(
     case AST_DATE_OR_TIME_LITERAL:
     case AST_NUMERIC_LITERAL:
     case AST_BIGNUMERIC_LITERAL:
+    case AST_JSON_LITERAL:
       return ResolveLiteralExpr(ast_expr, resolved_expr_out);
 
     case AST_STAR:
@@ -855,16 +869,18 @@ absl::Status Resolver::ResolveLiteralExpr(
       const ASTNumericLiteral* literal =
           ast_expr->GetAsOrDie<ASTNumericLiteral>();
       if (!language().LanguageFeatureEnabled(FEATURE_NUMERIC_TYPE)) {
+        std::string error_type_token = GetNodePrefixToken(sql_, *literal);
         return MakeSqlErrorAt(literal)
-               << "Numeric literals are not supported";
+               << error_type_token << " literals are not supported";
       }
       std::string unquoted_image;
       ZETASQL_RETURN_IF_ERROR(ParseStringLiteral(literal->image(), &unquoted_image));
       auto value_or_status = NumericValue::FromStringStrict(unquoted_image);
       if (!value_or_status.status().ok()) {
+        std::string error_type_token = GetNodePrefixToken(sql_, *literal);
         return MakeSqlErrorAt(literal)
-               << "Invalid numeric literal: "
-               << ToStringLiteral(unquoted_image);
+               << "Invalid " << error_type_token
+               << " literal: " << ToStringLiteral(unquoted_image);
       }
       *resolved_expr_out =
           MakeResolvedLiteral(ast_expr, types::NumericType(),
@@ -877,20 +893,51 @@ absl::Status Resolver::ResolveLiteralExpr(
       const ASTBigNumericLiteral* literal =
           ast_expr->GetAsOrDie<ASTBigNumericLiteral>();
       if (!language().LanguageFeatureEnabled(FEATURE_BIGNUMERIC_TYPE)) {
+        std::string error_type_token = GetNodePrefixToken(sql_, *literal);
         return MakeSqlErrorAt(literal)
-               << "BIGNUMERIC literals are not supported";
+               << error_type_token << " literals are not supported";
       }
       std::string unquoted_image;
       ZETASQL_RETURN_IF_ERROR(ParseStringLiteral(literal->image(), &unquoted_image));
       auto value_or_status = BigNumericValue::FromStringStrict(unquoted_image);
       if (!value_or_status.status().ok()) {
-        return MakeSqlErrorAt(literal) << "Invalid BIGNUMERIC literal: "
-                                       << ToStringLiteral(unquoted_image);
+        std::string error_type_token = GetNodePrefixToken(sql_, *literal);
+        return MakeSqlErrorAt(literal)
+               << "Invalid " << error_type_token
+               << " literal: " << ToStringLiteral(unquoted_image);
       }
       *resolved_expr_out =
           MakeResolvedLiteral(ast_expr, types::BigNumericType(),
                               Value::BigNumeric(value_or_status.ValueOrDie()),
                               true /* set_has_explicit_type */);
+      return absl::OkStatus();
+    }
+
+    case AST_JSON_LITERAL: {
+      const ASTJSONLiteral* literal = ast_expr->GetAsOrDie<ASTJSONLiteral>();
+      if (!language().LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
+        return MakeSqlErrorAt(literal) << "JSON literals are not supported";
+      }
+      std::string unquoted_image;
+      ZETASQL_RETURN_IF_ERROR(ParseStringLiteral(literal->image(), &unquoted_image));
+      if (language().LanguageFeatureEnabled(FEATURE_JSON_NO_VALIDATION)) {
+        *resolved_expr_out = MakeResolvedLiteral(
+            ast_expr, types::JsonType(),
+            Value::UnvalidatedJsonString(std::move(unquoted_image)),
+            /*has_explicit_type=*/true);
+      } else {
+        auto status_or_value = JSONValue::ParseJSONString(
+            unquoted_image,
+            language().LanguageFeatureEnabled(FEATURE_JSON_LEGACY_PARSE));
+        if (!status_or_value.ok()) {
+          return MakeSqlErrorAt(literal) << "Invalid JSON literal: "
+                                         << status_or_value.status().message();
+        }
+        *resolved_expr_out =
+            MakeResolvedLiteral(ast_expr, types::JsonType(),
+                                Value::Json(std::move(status_or_value.value())),
+                                /*has_explicit_type=*/true);
+      }
       return absl::OkStatus();
     }
 
@@ -3556,10 +3603,19 @@ absl::Status Resolver::ResolveAnalyticFunctionCall(
 bool Resolver::IsValidExplicitCast(
     const std::unique_ptr<const ResolvedExpr>& resolved_argument,
     const Type* to_type) {
+  const Function* unused_extended_type_conversion;
+  return CheckExplicitCast(resolved_argument.get(), to_type,
+                           &unused_extended_type_conversion)
+      .value_or(false);
+}
+
+zetasql_base::StatusOr<bool> Resolver::CheckExplicitCast(
+    const ResolvedExpr* resolved_argument, const Type* to_type,
+    const Function** extended_type_conversion) {
   SignatureMatchResult result;
-  return coercer_.CoercesTo(
-      GetInputArgumentTypeForExpr(resolved_argument.get()),
-      to_type, true /* is_explicit */, &result);
+  return coercer_.CoercesTo(GetInputArgumentTypeForExpr(resolved_argument),
+                            to_type, true /* is_explicit */, &result,
+                            extended_type_conversion);
 }
 
 static absl::Status CastResolutionError(const ASTNode* ast_location,
@@ -3675,16 +3731,24 @@ absl::Status Resolver::ResolveCastWithResolvedArgument(
     bool return_null_on_error,
     std::unique_ptr<const ResolvedExpr>* resolved_argument) {
 
-  if (IsValidExplicitCast(*resolved_argument, to_type)) {
-    if (!to_type->Equals((*resolved_argument)->type())) {
-      // Add EXPLICIT cast.
-      *resolved_argument = MakeResolvedCast(
-          to_type, std::move(*resolved_argument), return_null_on_error);
-    }
+  if (to_type->Equals((*resolved_argument)->type())) {
     return absl::OkStatus();
   }
-  return CastResolutionError(ast_location, (*resolved_argument)->type(),
-                             to_type, product_mode());
+
+  const Function* extended_conversion = nullptr;
+  ZETASQL_ASSIGN_OR_RETURN(bool cast_is_valid,
+                   CheckExplicitCast(resolved_argument->get(), to_type,
+                                     &extended_conversion));
+  if (!cast_is_valid) {
+    return CastResolutionError(ast_location, (*resolved_argument)->type(),
+                               to_type, product_mode());
+  }
+
+  // Add EXPLICIT cast.
+  *resolved_argument =
+      MakeResolvedCast(to_type, std::move(*resolved_argument),
+                       return_null_on_error, extended_conversion);
+  return absl::OkStatus();
 }
 
 absl::Status Resolver::ResolveArrayElement(
@@ -5011,9 +5075,11 @@ absl::Status Resolver::ResolveProtoDefaultIfNull(
   return absl::OkStatus();
 }
 
-static bool IsLetterP(char c) { return c == 'p' || c == 'P'; }
+namespace {
 
-static bool IsProtoDefaultIfNull(
+bool IsLetterP(char c) { return c == 'p' || c == 'P'; }
+
+bool IsProtoDefaultIfNull(
     const std::vector<std::string>& function_name_path) {
   // We try to avoid doing the zetasql_base::StringCaseEqual calls as much as possible.
   if (function_name_path.size() == 1 && !function_name_path[0].empty() &&
@@ -5023,6 +5089,14 @@ static bool IsProtoDefaultIfNull(
   }
   return false;
 }
+
+bool IsFlatten(const Function* function) {
+  return function->NumSignatures() == 1 &&
+         function->signatures()[0].context_id() == FN_FLATTEN &&
+         function->IsZetaSQLBuiltin();
+}
+
+}  // namespace
 
 absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
     const ASTNode* ast_location,
@@ -5112,6 +5186,10 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
       ZETASQL_RETURN_IF_ERROR(ResolveProtoDefaultIfNull(
           ast_location, expr_resolution_info,
           resolved_function_call->release_argument_list(), resolved_expr_out));
+    } else if (IsFlatten(function)) {
+      ZETASQL_RET_CHECK_EQ(1, resolved_function_call->argument_list_size());
+      *resolved_expr_out =
+          std::move(resolved_function_call->release_argument_list()[0]);
     } else {
       *resolved_expr_out = std::move(resolved_function_call);
     }
@@ -5321,12 +5399,19 @@ absl::Status Resolver::ResolveFunctionCallImpl(
     }
   }
 
+  // A "flatten" function allows the child to flatten.
+  const bool restore_can_flatten = expr_resolution_info->can_flatten;
+  if (IsFlatten(function)) {
+    expr_resolution_info->can_flatten = true;
+  }
+
   std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments;
   std::vector<const ASTExpression*> ast_arguments;
   ZETASQL_RETURN_IF_ERROR(
       ResolveExpressionArguments(expr_resolution_info, arguments,
                                  argument_option_map,
                                  &resolved_arguments, &ast_arguments));
+  expr_resolution_info->can_flatten = restore_can_flatten;
 
   return ResolveFunctionCallWithResolvedArguments(
       ast_location,
@@ -5360,8 +5445,7 @@ absl::Status Resolver::CoerceExprToType(
   InputArgumentType expr_arg_type =
       GetInputArgumentTypeForExpr(resolved_expr->get());
   SignatureMatchResult sig_match_result;
-  Coercer coercer(type_factory_, analyzer_options_.default_time_zone(),
-                  &language());
+  Coercer coercer(type_factory_, &language(), catalog_);
   bool success;
   if (assignment_semantics) {
     success = coercer.AssignableTo(expr_arg_type, target_type,

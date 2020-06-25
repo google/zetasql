@@ -95,4 +95,44 @@ void JsonEscapeString(absl::string_view raw, std::string* value_string) {
   value_string->push_back('"');
 }
 
+bool JsonStringNeedsEscaping(absl::string_view raw) {
+  const size_t length = raw.length();
+  for (size_t i = 0; i < length; ++i) {
+    const unsigned char c = raw[i];
+
+    if (c < 0x20) {
+      // Not printable
+      return true;
+    }
+
+    switch (c) {
+      case '\"':
+        return true;
+
+      case '\\':
+        return true;
+
+      // Escape U+2028 (LINE SEPARATOR) and U+2029 (PARAGRAPH SEPARATOR).
+      // Those characters are valid characters in a JSON string, but to put
+      // the characters in a JSON string we need escaping. Otherwise the JSON
+      // string will be something like:
+      //   var json = "foo[U+2028]
+      //   bar";
+      // It should be:
+      //   var json = "foo\u2028bar";
+      case 0xe2:
+        if ((i + 2 < length) && (raw[i + 1] == '\x80') &&
+            (raw[i + 2] == '\xa8' || raw[i + 2] == '\xa9')) {
+          return true;
+        }
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  return false;
+}
+
 }  // namespace zetasql

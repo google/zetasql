@@ -24,6 +24,7 @@ import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.ZetaSQLType.TypeProto;
 
 import java.util.ArrayList;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,7 +32,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 
 public class TypeTest {
-
+  // TODO: Refactor all type test funcions into one that iterates over all type
+  // combination.
   @Test
   public void testIsInt32() {
     TypeFactory factory = TypeFactory.nonUniqueNames();
@@ -60,6 +62,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isInt32()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isInt32()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isInt32()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isInt32()).isFalse();
   }
 
   @Test
@@ -90,6 +93,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isInt64()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isInt64()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isInt64()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isInt64()).isFalse();
   }
 
   @Test
@@ -119,6 +123,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isUint32()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isUint32()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isUint32()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isUint32()).isFalse();
   }
 
   @Test
@@ -148,6 +153,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isUint64()).isTrue();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isUint64()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isUint64()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isUint64()).isFalse();
   }
 
   @Test
@@ -177,6 +183,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isBool()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isBool()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isBool()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isBool()).isFalse();
   }
 
   @Test
@@ -207,6 +214,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isFloat()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isFloat()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isFloat()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isFloat()).isFalse();
   }
 
   @Test
@@ -237,6 +245,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isDouble()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isDouble()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isDouble()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isDouble()).isFalse();
   }
 
   @Test
@@ -267,6 +276,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isString()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isString()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isString()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isString()).isFalse();
   }
 
   @Test
@@ -297,6 +307,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isBytes()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isBytes()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isBytes()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isBytes()).isFalse();
   }
 
   @Test
@@ -327,6 +338,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isDate()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isDate()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isDate()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isDate()).isFalse();
   }
 
   @Test
@@ -357,6 +369,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isTimestamp()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isTimestamp()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isTimestamp()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isTimestamp()).isFalse();
   }
 
   @Test
@@ -386,7 +399,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isGeography()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isGeography()).isTrue();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isGeography()).isFalse();
-    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isGeography()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isGeography()).isFalse();
   }
 
   @Test
@@ -415,6 +428,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isEnum()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isEnum()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isEnum()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isEnum()).isFalse();
   }
 
   @Test
@@ -444,6 +458,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isArray()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isArray()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isArray()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isArray()).isFalse();
   }
 
   @Test
@@ -473,6 +488,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isStruct()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isStruct()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isStruct()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isStruct()).isFalse();
   }
 
   @Test
@@ -502,6 +518,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isProto()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isProto()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isProto()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isProto()).isFalse();
   }
 
   @Test
@@ -531,6 +548,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isStructOrProto()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isStructOrProto()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isStructOrProto()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isStructOrProto()).isFalse();
   }
 
   @Test
@@ -560,6 +578,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isFloatingPoint()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isFloatingPoint()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isFloatingPoint()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isFloatingPoint()).isFalse();
   }
 
   @Test
@@ -589,6 +608,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isNumerical()).isTrue();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isNumerical()).isTrue();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isNumerical()).isTrue();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isNumerical()).isFalse();
   }
 
   @Test
@@ -618,6 +638,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isInteger()).isTrue();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isInteger()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isInteger()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isInteger()).isFalse();
   }
 
   @Test
@@ -647,6 +668,7 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isSignedInteger()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isSignedInteger()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isSignedInteger()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isSignedInteger()).isFalse();
   }
 
   @Test
@@ -677,6 +699,39 @@ public class TypeTest {
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isUnsignedInteger()).isFalse();
     assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isUnsignedInteger())
         .isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isUnsignedInteger())
+        .isFalse();
+  }
+
+  @Test
+  public void testIsJson() {
+    TypeFactory factory = TypeFactory.nonUniqueNames();
+    List<StructType.StructField> fields1 = new ArrayList<>();
+    fields1.add(new StructType.StructField("", TypeFactory.createSimpleType(TypeKind.TYPE_STRING)));
+    fields1.add(new StructType.StructField("a", TypeFactory.createSimpleType(TypeKind.TYPE_INT32)));
+
+    assertThat(
+            TypeFactory.createArrayType(TypeFactory.createSimpleType(TypeKind.TYPE_INT32))
+                .isJson())
+        .isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BOOL).isJson()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BYTES).isJson()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_DATE).isJson()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_DOUBLE).isJson()).isFalse();
+    assertThat(factory.createEnumType(TypeKind.class).isJson()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_FLOAT).isJson()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_INT32).isJson()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_INT64).isJson()).isFalse();
+    assertThat(factory.createProtoType(TypeProto.class).isJson()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_STRING).isJson()).isFalse();
+    assertThat(TypeFactory.createStructType(fields1).isJson()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP).isJson()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT32).isJson()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_UINT64).isJson()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_GEOGRAPHY).isJson()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC).isJson()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC).isJson()).isFalse();
+    assertThat(TypeFactory.createSimpleType(TypeKind.TYPE_JSON).isJson()).isTrue();
   }
 
   @Test

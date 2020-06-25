@@ -226,7 +226,7 @@ default, protocol buffer fields do not return <code>NULL</code>.
 <code>optional int64 int = 1 [( zetasql.use_defaults ) = false];</code><br>
 When reading, if this field isn't set, a <code>NULL</code> value is returned.
 This example uses an annotation, which is described in
-<a href="#defaults_and_nulls">Defaults and <code>NULL</code>s</a>.
+<a href="#default_values_and_nulls">Defaults and <code>NULL</code>s</a>.
 </td>
 <td><code>INT64</code></td>
 </tr>
@@ -253,8 +253,7 @@ This example uses an annotation, which is described in
 </tbody>
 </table>
 
-<a name="defaults_and_nulls"></a>
-### Default values and `NULL`s
+### Default values and `NULL`s  {#default_values_and_nulls}
 
 Protocol buffer messages themselves do not have a default value &mdash; only the
 fields contained inside a protocol buffer have defaults. When a full protocol

@@ -40,7 +40,7 @@ class SimpleType;
 //  ZetaSQL type's classes hierarchy, simple types are represented by
 //  SimpleType class).
 // 3) This class should only be used inside Value and inside Type subclasses.
-// 4) ValueContent provides 8 bytes of value's content and is_null flag.
+// 4) ValueContent provides 8 bytes of value's content.
 // 5) For builtin simple types, an extra four bytes of storage is available in
 //  Value because the type is stored as an TypeKind enum rather than a Type*
 //  pointer.  This extra storage (in simple_type_extended_content_) is usable
@@ -56,6 +56,10 @@ class ValueContent {
   };
 
  public:
+  // Explicitly copyable and assignable.
+  constexpr ValueContent(const ValueContent& other) = default;
+  constexpr ValueContent& operator=(const ValueContent& other) = default;
+
   template <class T>
   static constexpr bool IsTypeSupported() {
     return std::is_trivially_copyable<T>::value &&
@@ -63,56 +67,56 @@ class ValueContent {
   }
 
   template <class T>
-  std::enable_if_t<IsTypeSupported<T>(), void> set(T value) {
+  constexpr std::enable_if_t<IsTypeSupported<T>(), void> set(T value) {
     content<T>()->value = value;
   }
 
   template <class T>
-  std::enable_if_t<IsTypeSupported<T>(), void> get(T* value) const {
+  constexpr std::enable_if_t<IsTypeSupported<T>(), void> get(T* value) const {
     *value = content<T>()->value;
   }
 
   template <class T>
-  std::enable_if_t<IsTypeSupported<T>(), T> GetAs() const {
+  constexpr std::enable_if_t<IsTypeSupported<T>(), T> GetAs() const {
     return content<T>()->value;
   }
 
-  bool is_null() const { return is_null_; }
+  // Creates a content that stores the given value.
+  template <class T>
+  constexpr static std::enable_if_t<IsTypeSupported<T>(), ValueContent> Create(
+      T value) {
+    ValueContent result(/*value=*/0, /*extended_value=*/0);
+    result.set(value);
+    return result;
+  }
 
  private:
   friend class SimpleType;
   friend class Value;
 
   template <typename T>
-  Storage<T>* content() {
+  constexpr Storage<T>* content() {
     static_assert(IsTypeSupported<T>());
     return reinterpret_cast<Storage<T>*>(&content_);
   }
 
   template <typename T>
-  const Storage<T>* content() const {
+  constexpr const Storage<T>* content() const {
     static_assert(IsTypeSupported<T>());
     return reinterpret_cast<const Storage<T>*>(&content_);
   }
 
-  static constexpr ValueContent NullValue() {
-    return ValueContent(/*value=*/0, /*extended_value=*/0, /*is_null=*/true);
-  }
-
-  constexpr ValueContent(int64_t value, int32_t extended_value, bool is_null)
-      : content_(value),
-        simple_type_extended_content_(extended_value),
-        is_null_(is_null) {}
+  constexpr explicit ValueContent(int64_t value = 0, int32_t extended_value = 0)
+      : content_(value), simple_type_extended_content_(extended_value) {}
 
   // Main content of the value that all types use
   int64_t content_;
 
   // Field below can be used only by simple types (SimpleType).
   int32_t simple_type_extended_content_;
-
-  // Whether value is null
-  bool is_null_;
 };
+
+static_assert(sizeof(ValueContent) <= 16);
 
 }  // namespace zetasql
 

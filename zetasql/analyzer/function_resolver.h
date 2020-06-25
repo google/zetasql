@@ -347,10 +347,16 @@ class FunctionResolver {
   // SignatureArgumentKind that appears in the signature (including the result
   // type) and <input_arguments>.  The corresponding value is the list of typed
   // arguments that occur for that SignatureArgumentKind. (The list may be empty
-  // in the case of untyped arguments.) There is also some special handling for
-  // ANY_K: if we see an argument (typed or untyped) for ARRAY_ANY_K, we act as
-  // if we also saw the corresponding array element argument for ANY_K, and add
-  // an entry to <templated_argument_map> even if ANY_K is not in the signature.
+  // in the case of untyped arguments.)
+  //
+  // There is also some special handling for ANY_K: if we see an argument (typed
+  // or untyped) for ARRAY_ANY_K, we act as if we also saw the corresponding
+  // array element argument for ANY_K, and add an entry to
+  // <templated_argument_map> even if ANY_K is not in the signature.
+  //
+  // Likewise for maps, if we see the map type, we also act as if we've seen
+  // the key and value types, and vice versa. Note that the key type does
+  // not imply we've seen the value type, nor does the value imply the key.
   bool CheckArgumentTypesAndCollectTemplatedArguments(
       const std::vector<InputArgumentType>& input_arguments,
       const FunctionSignature& signature,

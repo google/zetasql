@@ -201,7 +201,7 @@ struct QueryGroupByAndAggregateInfo {
 // the analysis of a single SELECT query block.  It stores information
 // related to SELECT list entries, grouping and aggregation, and analytic
 // functions.  Detailed descriptions for each field are included below.
-// See comments on ResolveSelect() in resolver.cc for discussion of
+// See comments on Resolver::ResolveSelect() for discussion of
 // the various phases of analysis and how QueryResolutionInfo is updated
 // and referenced during that process.
 class QueryResolutionInfo {

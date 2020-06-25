@@ -1704,6 +1704,17 @@ public class ValueTest {
   }
 
   @Test
+  public void testJSONValue() throws IOException {
+    Value jsonValue = Value.createJsonValue("123");
+
+    assertThat(jsonValue).isNotNull();
+    assertThat(jsonValue.isValid()).isTrue();
+    assertThat(jsonValue.getJsonValue())
+        .isEqualTo("123");
+    checkSerializeAndDeserialize(jsonValue);
+  }
+
+  @Test
   public void testCreateNullValue() {
     SimpleType int32 = TypeFactory.createSimpleType(TypeKind.TYPE_INT32);
     Value int32Null = Value.createNullValue(int32);
@@ -2016,7 +2027,7 @@ public class ValueTest {
             "The number of fields of ValueProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(ValueProto.getDescriptor().getFields())
-        .hasSize(21);
+        .hasSize(22);
     assertWithMessage(
             "The number of fields of ValueProto::Array has changed, "
                 + "please also update the serialization code accordingly.")

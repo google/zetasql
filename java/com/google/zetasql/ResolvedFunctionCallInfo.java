@@ -23,7 +23,7 @@ import java.util.List;
 
 /** TODO: Add implementation. */
 public class ResolvedFunctionCallInfo implements Serializable {
-  ResolvedFunctionCallInfo() { }
+  public ResolvedFunctionCallInfo() {}
 
   public static ResolvedFunctionCallInfo deserialize(
       ResolvedFunctionCallInfoProto proto, final List<ZetaSQLDescriptorPool> pools) {

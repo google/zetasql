@@ -95,9 +95,13 @@ extern template std::string DivisionByZeroMessage<double>(double in1,
 // Updates `status` with `msg` and force code to `OUT_OF_RANGE`.
 // Additionally, coerces msg to be valid UTF-8 by replacing any
 // ill-formed subsequences with the Unicode REPLACEMENT CHARACTER (U+FFFD).
-// Does nothing if `status` == `nullptr` or if `status->ok()` is true.
+// Does nothing if `status` == `nullptr` or `!status->ok()`
 // Returns false for all inputs (for convenience).
 bool UpdateError(absl::Status* status, absl::string_view msg);
+
+// Returns an ok status if `position` and `occurrence` are valid 1-based indices
+// else returns an error.
+absl::Status ValidatePositionAndOccurrence(int64_t position, int64_t occurrence);
 
 }  // namespace internal
 }  // namespace functions

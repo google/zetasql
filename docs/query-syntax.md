@@ -72,6 +72,101 @@ Notation:
 + A comma followed by an ellipsis within square brackets "[, ... ]" indicates that
   the preceding item can repeat in a comma-separated list.
 
+<a id=sample_tables></a>
+### Sample tables
+
+The following tables are used to illustrate the behavior of different
+query clauses in this reference.
+
+#### Roster Table
+
+The `Roster` table includes a list of player names (`LastName`) and the
+unique ID assigned to their school (`SchoolID`). It looks like this:
+
+```sql
++-----------------------+
+| LastName   | SchoolID |
++-----------------------+
+| Adams      | 50       |
+| Buchanan   | 52       |
+| Coolidge   | 52       |
+| Davis      | 51       |
+| Eisenhower | 77       |
++-----------------------+
+```
+
+You can use this `WITH` clause to emulate a temporary table name for the
+examples in this reference:
+
+```sql
+WITH Roster AS
+ (SELECT 'Adams' as LastName, 50 as SchoolID UNION ALL
+  SELECT 'Buchanan', 52 UNION ALL
+  SELECT 'Coolidge', 52 UNION ALL
+  SELECT 'Davis', 51 UNION ALL
+  SELECT 'Eisenhower', 77)
+SELECT * FROM Roster
+```
+
+#### PlayerStats Table
+
+The `PlayerStats` table includes a list of player names (`LastName`) and the
+unique ID assigned to the opponent they played in a given game (`OpponentID`)
+and the number of points scored by the athlete in that game (`PointsScored`).
+
+```sql
++----------------------------------------+
+| LastName   | OpponentID | PointsScored |
++----------------------------------------+
+| Adams      | 51         | 3            |
+| Buchanan   | 77         | 0            |
+| Coolidge   | 77         | 1            |
+| Davis      | 52         | 4            |
+| Eisenhower | 50         | 13           |
++----------------------------------------+
+```
+
+You can use this `WITH` clause to emulate a temporary table name for the
+examples in this reference:
+
+```sql
+WITH PlayerStats AS
+ (SELECT 'Adams' as LastName, 51 as OpponentID, 3 as PointsScored UNION ALL
+  SELECT 'Buchanan', 77, 0 UNION ALL
+  SELECT 'Coolidge', 77, 1 UNION ALL
+  SELECT 'Adams', 52, 4 UNION ALL
+  SELECT 'Buchanan', 50, 13)
+SELECT * FROM PlayerStats
+```
+
+#### TeamMascot Table
+
+The `TeamMascot` table includes a list of unique school IDs (`SchoolID`) and the
+mascot for that school (`Mascot`).
+
+```sql
++---------------------+
+| SchoolID | Mascot   |
++---------------------+
+| 50       | Jaguars  |
+| 51       | Knights  |
+| 52       | Lakers   |
+| 53       | Mustangs |
++---------------------+
+```
+
+You can use this `WITH` clause to emulate a temporary table name for the
+examples in this reference:
+
+```sql
+WITH TeamMascot AS
+ (SELECT 50 as SchoolID, 'Jaguars' as Mascot UNION ALL
+  SELECT 51, 'Knights' UNION ALL
+  SELECT 52, 'Lakers' UNION ALL
+  SELECT 53, 'Mustangs')
+SELECT * FROM TeamMascot
+```
+
 ## SELECT list
 
 Syntax:
@@ -305,8 +400,8 @@ The query above produces STRUCT values of type `STRUCT<int64 x, int64, int64
 x>.` The first and third fields have the same name `x`, and the second field is
 anonymous.
 
-The example above produces the same result as this query using a struct
-constructor:
+The example above produces the same result as this `SELECT AS VALUE` query
+using a struct constructor:
 
 ```
 SELECT AS VALUE STRUCT(1 AS x, 2, 3 AS x)
@@ -873,19 +968,41 @@ The `USING` clause requires a `column_list` of one or more columns which
 occur in both input tables. It performs an equality comparison on that column,
 and the rows meet the join condition if the equality comparison returns TRUE.
 
-In most cases, a statement with the `USING` keyword is equivalent to using the
-`ON` keyword.  For example, the statement:
+For example, consider this statement which performs an `INNER JOIN` on the
+[`Roster`][roster-table] and [`TeamMascot`][teammascot-table] table:
 
+```sql
+SELECT * FROM Roster INNER JOIN TeamMascot
+USING (SchoolID);
+
++----------------------------------------+
+| SchoolID   | LastName   | Mascot       |
++----------------------------------------+
+| 50         | Adams      | Jaguars      |
+| 52         | Buchanan   | Lakers       |
+| 52         | Coolidge   | Lakers       |
+| 51         | Davis      | Knights      |
++----------------------------------------+
 ```
-SELECT FirstName
+
+This statement returns the rows from `Roster` and `TeamMascot` where
+`Roster.SchooldID` is the same as `TeamMascot.SchooldID`.  The results include
+a single `SchooldID` column.
+
+In most cases, a statement with the `USING` keyword is equivalent to using the
+`ON` keyword.  For example, the statement which performs an `INNER JOIN` on
+the [`Roster`][roster-table] and [`PlayerStats`][playerstats-table] table:
+
+```sql
+SELECT LastName
 FROM Roster INNER JOIN PlayerStats
 USING (LastName);
 ```
 
 is equivalent to:
 
-```
-SELECT FirstName
+```sql
+SELECT Roster.LastName
 FROM Roster INNER JOIN PlayerStats
 ON Roster.LastName = PlayerStats.LastName;
 ```
@@ -893,7 +1010,7 @@ ON Roster.LastName = PlayerStats.LastName;
 The results from queries with `USING` do differ from queries that use `ON` when
 you use `SELECT *`. To illustrate this, consider the query:
 
-```
+```sql
 SELECT * FROM Roster INNER JOIN PlayerStats
 USING (LastName);
 ```
@@ -904,7 +1021,7 @@ single `LastName` column.
 
 By contrast, consider the following query:
 
-```
+```sql
 SELECT * FROM Roster INNER JOIN PlayerStats
 ON Roster.LastName = PlayerStats.LastName;
 ```
@@ -1619,7 +1736,7 @@ them.
 
 The `INTERSECT` operator returns rows that are found in the result sets of both
 the left and right input queries. Unlike `EXCEPT`, the positioning of the input
-queries (to the left vs. right of the `INTERSECT` operator) does not matter.
+queries (to the left versus right of the `INTERSECT` operator) does not matter.
 
 <a id="except"></a>
 ### EXCEPT
@@ -2010,124 +2127,6 @@ following rules apply:
 
 <a id=appendix_a_examples_with_sample_data></a>
 ## Appendix A: examples with sample data
-
-<a id=sample_tables></a>
-### Sample tables
-
-The following three tables contain sample data about athletes, their schools,
-and the points they score during the season. These tables will be used to
-illustrate the behavior of different query clauses.
-
-Table Roster:
-
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>SchoolID</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>50</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-</tr>
-</tbody>
-</table>
-
-The Roster table includes a list of player names (LastName) and the unique ID
-assigned to their school (SchoolID).
-
-Table PlayerStats:
-
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>OpponentID</th>
-<th>PointsScored</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>51</td>
-<td>3</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>77</td>
-<td>0</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>77</td>
-<td>1</td>
-</tr>
-<tr>
-<td>Adams</td>
-<td>52</td>
-<td>4</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>50</td>
-<td>13</td>
-</tr>
-</tbody>
-</table>
-
-The PlayerStats table includes a list of player names (LastName) and the unique
-ID assigned to the opponent they played in a given game (OpponentID) and the
-number of points scored by the athlete in that game (PointsScored).
-
-Table TeamMascot:
-
-<table>
-<thead>
-<tr>
-<th>SchoolId</th>
-<th>Mascot</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-</tbody>
-</table>
-
-The TeamMascot table includes a list of unique school IDs (SchoolID) and the
-mascot for that school (Mascot).
 
 <a id="join_types_examples"></a>
 ### JOIN types
@@ -2688,6 +2687,9 @@ Results:
 [union-syntax]: #union
 [join-hints]: #join_hints
 [query-value-tables]: #value_tables
+[roster-table]: #roster_table
+[playerstats-table]: #playerstats_table
+[teammascot-table]: #teammascot_table
 [analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [query-window-specification]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_window_spec
 [named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_use_named_window

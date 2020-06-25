@@ -63,6 +63,19 @@ T MakeRandomNumericValue() {
   return MakeRandomNumericValue<T>(&generator);
 }
 
+// Generate a random double value that can be losslessly converted to T.
+template <typename T>
+double MakeLosslessRandomDoubleValue(int max_integer_bits,
+                                     absl::BitGen* random) {
+  int max_mantissa_bits =
+      std::min(53, T::kMaxFractionalDigits + max_integer_bits);
+  int64_t mantissa = absl::Uniform<int64_t>(*random, 1 - (1LL << max_mantissa_bits),
+                                        (1LL << max_mantissa_bits));
+  int exponent_bits = absl::Uniform<int>(absl::IntervalClosedClosed, *random,
+                                         -T::kMaxFractionalDigits,
+                                         max_integer_bits - max_mantissa_bits);
+  return std::ldexp(mantissa, exponent_bits);
+}
 }  // namespace zetasql
 
 #endif  // ZETASQL_PUBLIC_NUMERIC_VALUE_TEST_UTILS_H_

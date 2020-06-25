@@ -253,6 +253,8 @@ CONCAT(value1[, ...])
 Concatenates one or more values into a single result. All values must be
 `BYTES` or data types that can be cast to `STRING`.
 
+The function returns `NULL` if any input argument is `NULL`.
+
 Note: You can also use the
 [|| concatenation operator][string-link-to-operators] to concatenate
 values into a string.
@@ -1021,6 +1023,7 @@ WITH Input AS (
 )
 SELECT hex_str, FROM_HEX(hex_str) AS bytes_str
 FROM Input;
+
 +------------------+----------------------------------+
 | hex_str          | bytes_str                        |
 +------------------+----------------------------------+
@@ -2354,11 +2357,12 @@ WITH Input AS (
 )
 SELECT byte_str, TO_HEX(byte_str) AS hex_str
 FROM Input;
+
 +----------------------------------+------------------+
 | byte_string                      | hex_string       |
 +----------------------------------+------------------+
-| foobar                           | 666f6f626172     |
 | \x00\x01\x02\x03\xaa\xee\xef\xff | 00010203aaeeefff |
+| foobar                           | 666f6f626172     |
 +----------------------------------+------------------+
 ```
 

@@ -623,6 +623,14 @@ void Unparser::visitASTCreateMaterializedViewStatement(
   node->query()->Accept(this, data);
 }
 
+void Unparser::visitASTWithPartitionColumnsClause(
+    const ASTWithPartitionColumnsClause* node, void* data) {
+  print("WITH PARTITION COLUMNS");
+  if (node->table_element_list() != nullptr) {
+    node->table_element_list()->Accept(this, data);
+  }
+}
+
 void Unparser::visitASTCreateExternalTableStatement(
     const ASTCreateExternalTableStatement* node, void* data) {
   print(GetCreateStatementPrefix(node, "EXTERNAL TABLE"));
@@ -631,13 +639,8 @@ void Unparser::visitASTCreateExternalTableStatement(
     println();
     node->table_element_list()->Accept(this, data);
   }
-  // skipping println() in partition_by, cluster_by clauses to keep it in sync
-  // with CREATE TABLE statement.
-  if (node->partition_by() != nullptr) {
-    node->partition_by()->Accept(this, data);
-  }
-  if (node->cluster_by() != nullptr) {
-    node->cluster_by()->Accept(this, data);
+  if (node->with_partition_columns_clause() != nullptr) {
+    node->with_partition_columns_clause()->Accept(this, data);
   }
   if (node->options_list() != nullptr) {
     print("OPTIONS");
@@ -706,6 +709,24 @@ void Unparser::visitASTExportDataStatement(
   }
   println("AS");
   node->query()->Accept(this, data);
+}
+
+void Unparser::visitASTExportModelStatement(const ASTExportModelStatement* node,
+                                            void* data) {
+  print("EXPORT MODEL");
+  if (node->model_name_path() != nullptr) {
+    node->model_name_path()->Accept(this, data);
+  }
+
+  if (node->with_connection_clause() != nullptr) {
+    print("WITH");
+    node->with_connection_clause()->Accept(this, data);
+  }
+
+  if (node->options_list() != nullptr) {
+    print("OPTIONS");
+    node->options_list()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTWithConnectionClause(const ASTWithConnectionClause* node,
@@ -1371,6 +1392,11 @@ void Unparser::visitASTNumericLiteral(
 void Unparser::visitASTBigNumericLiteral(const ASTBigNumericLiteral* node,
                                          void* data) {
   print("BIGNUMERIC");
+  UnparseLeafNode(node);
+}
+
+void Unparser::visitASTJSONLiteral(const ASTJSONLiteral* node, void* data) {
+  print("JSON");
   UnparseLeafNode(node);
 }
 

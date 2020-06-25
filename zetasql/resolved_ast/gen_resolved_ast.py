@@ -64,7 +64,8 @@ class ScalarType(object):
                has_proto_setter=False,
                is_enum=False,
                scoped_ctype=None,
-               java_default=None):
+               java_default=None,
+               cpp_default=None):
     """Create a ScalarType.
 
     Args:
@@ -90,9 +91,12 @@ class ScalarType(object):
           inner types.  Useful for locally declared enums that need to be
           referenced externally to that class.
           If not set, this defaults to using the same name as ctype.
-      java_default: Non-Constructor args require a default value. While java
-          field defaults match c++ (for PODS), it's best practice to
-          initialize them explicitly.
+      java_default: Non-Constructor args and optional constructor args require a
+          default value. While java field defaults match c++ (for PODS), it's
+          best practice to initialize them explicitly.
+      cpp_default: Non-Constructor args and optional constructor args require a
+          default value. This value could be set using this argument, otherwise
+          C++ default value is used.
     """
     self.ctype = ctype
     self.is_enum = is_enum
@@ -116,6 +120,10 @@ class ScalarType(object):
     else:
       self.scoped_ctype = scoped_ctype
     self.java_default = java_default
+    if cpp_default is None:
+      self.cpp_default = ''
+    else:
+      self.cpp_default = cpp_default
     assert ctype not in SCALAR_TYPES
     SCALAR_TYPES[ctype] = self
 
@@ -137,7 +145,9 @@ SCALAR_FUNCTION_CALL_INFO = ScalarType(
     'std::shared_ptr<ResolvedFunctionCallInfo>',
     'ResolvedFunctionCallInfoProto',
     passed_by_reference=True,
-    java_type='ResolvedFunctionCallInfo')
+    java_type='ResolvedFunctionCallInfo',
+    java_default='new ResolvedFunctionCallInfo()',
+    cpp_default='std::make_shared<ResolvedFunctionCallInfo>()')
 SCALAR_FIELD_DESCRIPTOR = ScalarType('const google::protobuf::FieldDescriptor*',
                                      'FieldDescriptorRefProto',
                                      'ZetaSQLFieldDescriptor')
@@ -155,7 +165,7 @@ SCALAR_STRING = ScalarType(
     java_type='String',
     passed_by_reference=True,
     has_proto_setter=True,
-    java_default='')
+    java_default='""')
 SCALAR_BOOL = ScalarType(
     'bool',
     java_type='boolean',
@@ -317,6 +327,7 @@ def Field(name,
           vector=False,
           ignorable=NOT_IGNORABLE,
           is_constructor_arg=True,
+          is_optional_constructor_arg=False,
           to_string_method=None,
           java_to_string_method=None,
           comment=None,
@@ -337,6 +348,10 @@ def Field(name,
     ignorable: one of the IGNORABLE enums above.
     is_constructor_arg: True if this field should be in the constructor's
                         argument list.
+    is_optional_constructor_arg: True if node class should have two
+                                 constructurs, and this field should be present
+                                 in one of them and absent in another. Requires:
+                                 is_constructor_arg=True.
     to_string_method: Override the default ToStringImpl method used to print
                       this object.
     java_to_string_method: Override the default to_string_method method used for
@@ -385,6 +400,7 @@ def Field(name,
     proto_type = ctype.proto_type
     has_proto_setter = ctype.has_proto_setter
     java_default = ctype.java_default
+    cpp_default = ctype.cpp_default
     nullable_java_type = ctype.java_reference_type
     member_accessor = member_name
     element_arg_type = None
@@ -432,9 +448,9 @@ def Field(name,
     proto_type = '%sProto' % ctype
     java_type = ctype
     nullable_java_type = ctype
-    java_default = None
     is_enum = False
     is_move_only = True
+    cpp_default = ''
     if vector:
       element_arg_type = element_pointer_type
       element_getter_return_type = element_pointer_type
@@ -454,10 +470,9 @@ def Field(name,
       element_storage_type = None
       element_getter_return_type = None
       member_accessor = member_name + '.get()'
-      if is_constructor_arg:
+      if is_constructor_arg and not is_optional_constructor_arg:
         java_default = None
       else:
-        # TODO: remove when we add support for optional arguments.
         java_default = 'null'
 
     # For node vector, we use std::move, which requires setters = member.
@@ -481,10 +496,18 @@ def Field(name,
   else:
     scoped_setter_arg_type = setter_arg_type
 
-  if (not is_constructor_arg) and java_default is None:
-    logging.fatal(
-        'Field %s must either be a constructor arg, or have a java_default. ctype:\n%s',
-        name, ctype)
+  if not is_constructor_arg:
+    if java_default is None:
+      raise RuntimeError(
+          'Field %s must either be a constructor arg, or have a java_default. ctype:\n%s'
+          % (
+              name,
+              ctype,
+          ))
+    if is_optional_constructor_arg:
+      raise RuntimeError(
+          'Field %s must be a constructor arg if it has is_optional_constructor_arg=True'
+          % (name,))
 
   return {
       'ctype': ctype,
@@ -492,6 +515,7 @@ def Field(name,
       'full_java_type': full_java_type,
       'nullable_java_type': nullable_java_type,
       'java_default': java_default,
+      'cpp_default': cpp_default,
       'tag_id': tag_id,
       'member_name': member_name,  # member variable name
       'name': name,  # name without trailing underscore
@@ -519,6 +543,7 @@ def Field(name,
       'is_not_ignorable': ignorable == NOT_IGNORABLE,
       'is_ignorable_default': ignorable == IGNORABLE_DEFAULT,
       'is_constructor_arg': is_constructor_arg,
+      'is_optional_constructor_arg': is_optional_constructor_arg,
       'to_string_method': to_string_method,
       'java_to_string_method': java_to_string_method,
       'propagate_order': propagate_order
@@ -556,7 +581,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 152.
+          Next tag_id: 153.
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -796,6 +821,26 @@ class TreeGenerator(object):
     def IsConstructorArg(field_list):
       return [field for field in field_list if field['is_constructor_arg']]
 
+    # This can be used to filter a list of fields to only those with
+    # <is_constructor_arg = true> and <is_optional_constructor_arg = false>.
+    # Used in templates like this:
+    #   for node.fields | is_required_constructor_arg
+    def IsRequiredConstructorArg(field_list):
+      return [
+          field for field in field_list if field['is_constructor_arg'] and
+          not field['is_optional_constructor_arg']
+      ]
+
+    # This can be used to filter a list of fields to only those with
+    # <is_constructor_arg = true> and <is_optional_constructor_arg = true>.
+    # Used in templates like this:
+    #   for node.fields | is_optional_constructor_arg
+    def IsOptionalConstructorArg(field_list):
+      return [
+          field for field in field_list if field['is_constructor_arg'] and
+          field['is_optional_constructor_arg']
+      ]
+
     def IsNodeVectorConstructorArg(field_list):
       return [
           field for field in field_list
@@ -803,6 +848,8 @@ class TreeGenerator(object):
       ]
 
     jinja_env.filters['is_constructor_arg'] = IsConstructorArg
+    jinja_env.filters['is_required_constructor_arg'] = IsRequiredConstructorArg
+    jinja_env.filters['is_optional_constructor_arg'] = IsOptionalConstructorArg
     jinja_env.filters[
         'is_node_vector_constructor_arg'] = IsNodeVectorConstructorArg
 
@@ -973,6 +1020,7 @@ def main(argv):
           Field(
               'has_explicit_type',
               SCALAR_BOOL,
+              is_optional_constructor_arg=True,
               tag_id=3,
               ignorable=IGNORABLE,
               comment="""
@@ -985,6 +1033,7 @@ def main(argv):
           Field(
               'float_literal_id',
               SCALAR_INT,
+              is_optional_constructor_arg=True,
               tag_id=4,
               ignorable=IGNORABLE,
               comment="""
@@ -1016,6 +1065,7 @@ def main(argv):
               'position',
               SCALAR_INT,
               tag_id=5,
+              is_optional_constructor_arg=True,
               ignorable=IGNORABLE_DEFAULT,
               comment="""
               If non-zero, the 1-based position of the positional parameter.
@@ -1027,6 +1077,7 @@ def main(argv):
               'is_untyped',
               SCALAR_BOOL,
               tag_id=3,
+              is_optional_constructor_arg=True,
               ignorable=IGNORABLE,
               comment="""
               If true, then the parameter has no specified type.
@@ -1160,6 +1211,7 @@ def main(argv):
           Field(
               'function_call_info',
               SCALAR_FUNCTION_CALL_INFO,
+              is_optional_constructor_arg=True,
               tag_id=2,
               ignorable=IGNORABLE,
               comment="""
@@ -1249,6 +1301,7 @@ def main(argv):
           Field(
               'function_call_info',
               SCALAR_FUNCTION_CALL_INFO,
+              is_optional_constructor_arg=True,
               tag_id=6,
               ignorable=IGNORABLE,
               comment="""
@@ -1265,8 +1318,8 @@ def main(argv):
               fully-resolved function body in context of the actual concrete
               types of the arguments provided to the function call.
                       """)
-      ],
-  )
+      ])
+
   gen.AddNode(
       name='ResolvedAnalyticFunctionCall',
       tag_id=10,
@@ -1330,7 +1383,7 @@ def main(argv):
               'ResolvedExtendedCastInfo',
               tag_id=4,
               ignorable=IGNORABLE_DEFAULT,
-              is_constructor_arg=False,
+              is_optional_constructor_arg=True,
               comment="""
               If at least one of conversion's types (source or destination) is
               extended (TYPE_EXTENDED), this field must must be provided to
@@ -1895,7 +1948,12 @@ value.
               is_constructor_arg=False,
               to_string_method='ToStringCommaSeparated',
               java_to_string_method='toStringCommaSeparatedForInt'),
-          Field('alias', SCALAR_STRING, tag_id=5, ignorable=IGNORABLE),
+          Field(
+              'alias',
+              SCALAR_STRING,
+              is_optional_constructor_arg=True,
+              tag_id=5,
+              ignorable=IGNORABLE),
       ])
 
   gen.AddNode(
@@ -3063,18 +3121,6 @@ right.
               vector=True,
               ignorable=IGNORABLE_DEFAULT),
           Field(
-              'partition_by_list',
-              'ResolvedExpr',
-              tag_id=5,
-              vector=True,
-              ignorable=IGNORABLE_DEFAULT),
-          Field(
-              'cluster_by_list',
-              'ResolvedExpr',
-              tag_id=6,
-              vector=True,
-              ignorable=IGNORABLE_DEFAULT),
-          Field(
               'is_value_table',
               SCALAR_BOOL,
               tag_id=8,
@@ -3091,8 +3137,20 @@ right.
         [PARTITION BY expr, ...] [CLUSTER BY expr, ...]
         [OPTIONS (...)]
               """,
-      fields=[]
-      )
+      fields=[
+          Field(
+              'partition_by_list',
+              'ResolvedExpr',
+              tag_id=5,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'cluster_by_list',
+              'ResolvedExpr',
+              tag_id=6,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+      ])
 
   gen.AddNode(
       name='ResolvedCreateTableAsSelectStmt',
@@ -3120,6 +3178,18 @@ right.
       <query> is the query to run.
               """,
       fields=[
+          Field(
+              'partition_by_list',
+              'ResolvedExpr',
+              tag_id=5,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'cluster_by_list',
+              'ResolvedExpr',
+              tag_id=6,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
           Field(
               'output_column_list',
               'ResolvedOutputColumn',
@@ -3294,15 +3364,62 @@ right.
       fields=[])
 
   gen.AddNode(
+      name='ResolvedWithPartitionColumns',
+      tag_id=153,
+      parent='ResolvedArgument',
+      comment="""
+      This statement:
+        WITH PARTITION COLUMNS [(column schema, ...)]
+              """,
+      fields=[
+          # Restrict With Partition Column clause to column definitions only
+          # even though parser allows constraints as well.
+          Field(
+              'column_definition_list',
+              'ResolvedColumnDefinition',
+              tag_id=2,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+      ])
+
+  gen.AddNode(
       name='ResolvedCreateExternalTableStmt',
       tag_id=42,
       parent='ResolvedCreateTableStmtBase',
       comment="""
       This statement:
         CREATE [TEMP] EXTERNAL TABLE <name> [(column type, ...)]
-        [PARTITION BY expr, ...] [CLUSTER BY expr, ...] OPTIONS (...)
+        [WITH PARTITION COLUMN [(column type, ...)]] OPTIONS (...)
             """,
-      fields=[])
+      fields=[
+          Field(
+              'with_partition_columns',
+              'ResolvedWithPartitionColumns',
+              tag_id=2,
+              ignorable=IGNORABLE_DEFAULT)
+      ])
+
+  gen.AddNode(
+      name='ResolvedExportModelStmt',
+      tag_id=152,
+      parent='ResolvedStatement',
+      comment="""
+      This statement:
+        EXPORT MODEL <model_name_path> [WITH CONNECTION <connection>]
+        <option_list>
+      which is used to export a model to a specific location.
+      <connection> is the connection that the model is written to.
+      <option_list> identifies user specified options to use when exporting the model.
+              """,
+      fields=[
+          Field('model_name_path', SCALAR_STRING, vector=True, tag_id=2),
+          Field(
+              'connection',
+              'ResolvedConnection',
+              tag_id=3,
+              ignorable=IGNORABLE_DEFAULT),
+          Field('option_list', 'ResolvedOption', vector=True, tag_id=4),
+      ])
 
   gen.AddNode(
       name='ResolvedExportDataStmt',

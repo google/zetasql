@@ -144,11 +144,20 @@ class JsonPathEvaluator {
     escape_special_characters_ = true;
   }
 
+  // Sets the callback to be invoked when a string with special characters was
+  // returned for JSON_EXTRACT, but special character escaping was turned off.
+  // No callback will be made if this is set to an empty target.
+  void set_escaping_needed_callback(
+      std::function<void(absl::string_view)> callback) {
+    escaping_needed_callback_ = std::move(callback);
+  }
+
  private:
   explicit JsonPathEvaluator(
       std::unique_ptr<json_internal::ValidJSONPathIterator> itr);
   const std::unique_ptr<json_internal::ValidJSONPathIterator> path_iterator_;
   bool escape_special_characters_ = false;
+  std::function<void(absl::string_view)> escaping_needed_callback_;
 };
 
 }  // namespace functions

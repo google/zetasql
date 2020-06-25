@@ -35,11 +35,11 @@ TIMESTAMP
 ```sql
 SELECT CURRENT_TIMESTAMP() as now;
 
-+----------------------------------+
-| now                              |
-+----------------------------------+
-| 2016-05-16 18:12:47.145482639+00 |
-+----------------------------------+
++---------------------------------------------+
+| now                                         |
++---------------------------------------------+
+| 2020-06-02 17:00:53.110 America/Los_Angeles |
++---------------------------------------------+
 ```
 
 ### EXTRACT
@@ -105,15 +105,17 @@ In the following example, `EXTRACT` returns a value corresponding to the `DAY`
 time part.
 
 ```sql
-SELECT EXTRACT(DAY
-  FROM TIMESTAMP "2008-12-25 15:30:00" AT TIME ZONE "America/Los_Angeles")
-  AS the_day;
+WITH Input AS (SELECT TIMESTAMP("2008-12-25 05:30:00+00") AS timestamp_value)
+SELECT
+  EXTRACT(DAY FROM timestamp_value AT TIME ZONE "UTC") AS the_day_utc,
+  EXTRACT(DAY FROM timestamp_value AT TIME ZONE "America/Los_Angeles") AS the_day_california
+FROM Input
 
-+------------+
-| the_day    |
-+------------+
-| 25         |
-+------------+
++-------------+--------------------+
+| the_day_utc | the_day_california |
++-------------+--------------------+
+| 25          | 24                 |
++-------------+--------------------+
 ```
 
 In the following example, `EXTRACT` returns values corresponding to different
@@ -121,51 +123,53 @@ time parts from a column of timestamps.
 
 ```sql
 WITH Timestamps AS (
-  SELECT TIMESTAMP '2005-01-03 12:34:56' AS timestamp UNION ALL
-  SELECT TIMESTAMP '2007-12-31' UNION ALL
-  SELECT TIMESTAMP '2009-01-01' UNION ALL
-  SELECT TIMESTAMP '2009-12-31' UNION ALL
-  SELECT TIMESTAMP '2017-01-02' UNION ALL
-  SELECT TIMESTAMP '2017-05-26'
+  SELECT TIMESTAMP("2005-01-03 12:34:56+00") AS timestamp_value UNION ALL
+  SELECT TIMESTAMP("2007-12-31 12:00:00+00") UNION ALL
+  SELECT TIMESTAMP("2009-01-01 12:00:00+00") UNION ALL
+  SELECT TIMESTAMP("2009-12-31 12:00:00+00") UNION ALL
+  SELECT TIMESTAMP("2017-01-02 12:00:00+00") UNION ALL
+  SELECT TIMESTAMP("2017-05-26 12:00:00+00")
 )
 SELECT
-  timestamp,
-  EXTRACT(ISOYEAR FROM timestamp) AS isoyear,
-  EXTRACT(ISOWEEK FROM timestamp) AS isoweek,
-  EXTRACT(YEAR FROM timestamp) AS year,
-  EXTRACT(WEEK FROM timestamp) AS week
+  timestamp_value,
+  EXTRACT(ISOYEAR FROM timestamp_value) AS isoyear,
+  EXTRACT(ISOWEEK FROM timestamp_value) AS isoweek,
+  EXTRACT(YEAR FROM timestamp_value) AS year,
+  EXTRACT(WEEK FROM timestamp_value) AS week
 FROM Timestamps
-ORDER BY timestamp;
+ORDER BY timestamp_value;
 
-+------------------------+---------+---------+------+------+
-| timestamp              | isoyear | isoweek | year | week |
-+------------------------+---------+---------+------+------+
-| 2005-01-03 12:34:56+00 | 2005    | 1       | 2005 | 1    |
-| 2007-12-31 00:00:00+00 | 2008    | 1       | 2007 | 52   |
-| 2009-01-01 00:00:00+00 | 2009    | 1       | 2009 | 0    |
-| 2009-12-31 00:00:00+00 | 2009    | 53      | 2009 | 52   |
-| 2017-01-02 00:00:00+00 | 2017    | 1       | 2017 | 1    |
-| 2017-05-26 00:00:00+00 | 2017    | 21      | 2017 | 21   |
-+------------------------+---------+---------+------+------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+---------+---------+------+------+
+| timestamp_value                             | isoyear | isoweek | year | week |
++---------------------------------------------+---------+---------+------+------+
+| 2005-01-03 04:34:56.000 America/Los_Angeles | 2005    | 1       | 2005 | 1    |
+| 2007-12-31 04:00:00.000 America/Los_Angeles | 2008    | 1       | 2007 | 52   |
+| 2009-01-01 04:00:00.000 America/Los_Angeles | 2009    | 1       | 2009 | 0    |
+| 2009-12-31 04:00:00.000 America/Los_Angeles | 2009    | 53      | 2009 | 52   |
+| 2017-01-02 04:00:00.000 America/Los_Angeles | 2017    | 1       | 2017 | 1    |
+| 2017-05-26 05:00:00.000 America/Los_Angeles | 2017    | 21      | 2017 | 21   |
++---------------------------------------------+---------+---------+------+------+
 ```
 
-In the following example, `timestamp_expression` falls on a Sunday. `EXTRACT`
+In the following example, `timestamp_expression` falls on a Monday. `EXTRACT`
 calculates the first column using weeks that begin on Sunday, and it calculates
 the second column using weeks that begin on Monday.
 
 ```sql
-WITH table AS (SELECT TIMESTAMP('2017-11-05 00:00:00') AS timestamp)
+WITH table AS (SELECT TIMESTAMP("2017-11-06 00:00:00+00") AS timestamp_value)
 SELECT
-  timestamp,
-  EXTRACT(WEEK(SUNDAY) FROM timestamp) AS week_sunday,
-  EXTRACT(WEEK(MONDAY) FROM timestamp) AS week_monday
+  timestamp_value,
+  EXTRACT(WEEK(SUNDAY) FROM timestamp_value) AS week_sunday,
+  EXTRACT(WEEK(MONDAY) FROM timestamp_value) AS week_monday
 FROM table;
 
-+------------------------+-------------+---------------+
-| timestamp              | week_sunday | week_monday   |
-+------------------------+-------------+---------------+
-| 2017-11-05 00:00:00+00 | 45          | 44            |
-+------------------------+-------------+---------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+-------------+---------------+
+| timestamp_value                             | week_sunday | week_monday   |
++---------------------------------------------+-------------+---------------+
+| 2017-11-05 16:00:00.000 America/Los_Angeles | 45          | 44            |
++---------------------------------------------+-------------+---------------+
 ```
 
 ### STRING
@@ -188,12 +192,12 @@ on how to specify a time zone.
 **Example**
 
 ```sql
-SELECT STRING(TIMESTAMP "2008-12-25 15:30:00", "America/Los_Angeles") as string;
+SELECT STRING(TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS string;
 
 +-------------------------------+
 | string                        |
 +-------------------------------+
-| 2008-12-25 07:30:00-08        |
+| 2008-12-25 15:30:00+00        |
 +-------------------------------+
 ```
 
@@ -231,80 +235,59 @@ TIMESTAMP
 
 **Examples**
 
-In these examples, a time zone is specified.
-
 ```sql
-SELECT CAST(
-  TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles") AS STRING
-) AS timestamp_str;
+SELECT TIMESTAMP("2008-12-25 15:30:00+00") AS timestamp_str;
 
-+------------------------+
-| timestamp_str          |
-+------------------------+
-| 2008-12-25 23:30:00+00 |
-+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+
+| timestamp_str                               |
++---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles |
++---------------------------------------------+
 ```
 
 ```sql
-SELECT CAST(
-  TIMESTAMP("2008-12-25 15:30:00 America/Los_Angeles") AS STRING
-) AS timestamp_str_timezone;
+SELECT TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles") AS timestamp_str;
 
-+------------------------+
-| timestamp_str_timezone |
-+------------------------+
-| 2008-12-25 23:30:00+00 |
-+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+
+| timestamp_str                               |
++---------------------------------------------+
+| 2008-12-25 15:30:00.000 America/Los_Angeles |
++---------------------------------------------+
 ```
 
 ```sql
-SELECT CAST(
-  TIMESTAMP(DATETIME "2008-12-25 15:30:00", "America/Los_Angeles") AS STRING
-) AS timestamp_datetime;
+SELECT TIMESTAMP("2008-12-25 15:30:00 UTC") AS timestamp_str;
 
-+------------------------+
-| timestamp_datetime     |
-+------------------------+
-| 2008-12-25 23:30:00+00 |
-+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+
+| timestamp_str                               |
++---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles |
++---------------------------------------------+
 ```
 
 ```sql
-SELECT CAST(
-  TIMESTAMP(DATE "2008-12-25", "America/Los_Angeles") AS STRING
-) AS timestamp_date;
+SELECT TIMESTAMP(DATETIME "2008-12-25 15:30:00") AS timestamp_datetime;
 
-+------------------------+
-| timestamp_date         |
-+------------------------+
-| 2008-12-25 08:00:00+00 |
-+------------------------+
-```
-
-In these examples, assume that the default time zone is UTC.
-
-```sql
-SELECT CAST(
-  TIMESTAMP("2008-12-25 15:30:00") AS STRING
-) AS timestamp_str;
-
-+------------------------+
-| timestamp_str          |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+
+| timestamp_str                               |
++---------------------------------------------+
+| 2008-12-25 15:30:00.000 America/Los_Angeles |
++---------------------------------------------+
 ```
 
 ```sql
-SELECT CAST(
-  TIMESTAMP(DATE "2008-12-25") AS STRING
-) AS timestamp_date;
+SELECT TIMESTAMP(DATE "2008-12-25") AS timestamp_date;
 
-+------------------------+
-| timestamp_date         |
-+------------------------+
-| 2008-12-25 00:00:00+00 |
-+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+
+| timestamp_str                               |
++---------------------------------------------+
+| 2008-12-25 00:00:00.000 America/Los_Angeles |
++---------------------------------------------+
 ```
 
 ### TIMESTAMP_ADD
@@ -338,14 +321,15 @@ TIMESTAMP
 
 ```sql
 SELECT
-  TIMESTAMP "2008-12-25 15:30:00 UTC" as original,
-  TIMESTAMP_ADD(TIMESTAMP "2008-12-25 15:30:00 UTC", INTERVAL 10 MINUTE) AS later;
+  TIMESTAMP("2008-12-25 15:30:00+00") AS original,
+  TIMESTAMP_ADD(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE) AS later;
 
-+------------------------+------------------------+
-| original               | later                  |
-+------------------------+------------------------+
-| 2008-12-25 15:30:00+00 | 2008-12-25 15:40:00+00 |
-+------------------------+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+---------------------------------------------+
+| original                                    | later                                       |
++---------------------------------------------+---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles | 2008-12-25 07:40:00.000 America/Los_Angeles |
++---------------------------------------------+---------------------------------------------+
 ```
 
 ### TIMESTAMP_SUB
@@ -379,14 +363,15 @@ TIMESTAMP
 
 ```sql
 SELECT
-  TIMESTAMP "2008-12-25 15:30:00 UTC" as original,
-  TIMESTAMP_SUB(TIMESTAMP "2008-12-25 15:30:00 UTC", INTERVAL 10 MINUTE) AS earlier;
+  TIMESTAMP("2008-12-25 15:30:00+00") AS original,
+  TIMESTAMP_SUB(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE) AS earlier;
 
-+------------------------+------------------------+
-| original               | earlier                |
-+------------------------+------------------------+
-| 2008-12-25 15:30:00+00 | 2008-12-25 15:20:00+00 |
-+------------------------+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+---------------------------------------------+
+| original                                    | earlier                                     |
++---------------------------------------------+---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles | 2008-12-25 07:20:00.000 America/Los_Angeles |
++---------------------------------------------+---------------------------------------------+
 ```
 
 ### TIMESTAMP_DIFF
@@ -430,16 +415,16 @@ INT64
 
 ```sql
 SELECT
-  TIMESTAMP "2010-07-07 10:20:00 UTC" as later_timestamp,
-  TIMESTAMP "2008-12-25 15:30:00 UTC" as earlier_timestamp,
-  TIMESTAMP_DIFF(TIMESTAMP "2010-07-07 10:20:00 UTC",
-    TIMESTAMP "2008-12-25 15:30:00 UTC", HOUR) AS hours;
+  TIMESTAMP("2010-07-07 10:20:00+00") AS later_timestamp,
+  TIMESTAMP("2008-12-25 15:30:00+00") AS earlier_timestamp,
+  TIMESTAMP_DIFF(TIMESTAMP "2010-07-07 10:20:00+00", TIMESTAMP "2008-12-25 15:30:00+00", HOUR) AS hours;
 
-+------------------------+------------------------+-------+
-| later_timestamp        | earlier_timestamp      | hours |
-+------------------------+------------------------+-------+
-| 2010-07-07 10:20:00+00 | 2008-12-25 15:30:00+00 | 13410 |
-+------------------------+------------------------+-------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+---------------------------------------------+-------+
+| later_timestamp                             | earlier_timestamp                           | hours |
++---------------------------------------------+---------------------------------------------+-------+
+| 2010-07-07 03:20:00.000 America/Los_Angeles | 2008-12-25 07:30:00.000 America/Los_Angeles | 13410 |
++---------------------------------------------+---------------------------------------------+-------+
 ```
 
 In the following example, the first timestamp occurs before the second
@@ -524,14 +509,15 @@ TIMESTAMP
 
 ```sql
 SELECT
-  TIMESTAMP_TRUNC(TIMESTAMP '2008-12-25 15:30:00', DAY, 'UTC') as utc,
-  TIMESTAMP_TRUNC(TIMESTAMP '2008-12-25 15:30:00', DAY, 'America/Los_Angeles') as la;
+  TIMESTAMP_TRUNC(TIMESTAMP "2008-12-25 15:30:00+00", DAY, "UTC") AS utc,
+  TIMESTAMP_TRUNC(TIMESTAMP "2008-12-25 15:30:00+00", DAY, "America/Los_Angeles") AS la;
 
-+------------------------+------------------------+
-| utc                    | la                     |
-+------------------------+------------------------+
-| 2008-12-25 00:00:00+00 | 2008-12-25 08:00:00+00 |
-+------------------------+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+---------------------------------------------+
+| utc                                         | la                                          |
++---------------------------------------------+---------------------------------------------+
+| 2008-12-24 16:00:00.000 America/Los_Angeles | 2008-12-25 00:00:00.000 America/Los_Angeles |
++---------------------------------------------+---------------------------------------------+
 ```
 
 In the following example, `timestamp_expression` has a time zone offset of +12.
@@ -546,16 +532,17 @@ Monday.
 
 ```sql
 SELECT
-  timestamp,
-  TIMESTAMP_TRUNC(timestamp, WEEK(MONDAY)) AS utc_truncated,
-  TIMESTAMP_TRUNC(timestamp, WEEK(MONDAY), 'Pacific/Auckland') AS nzdt_truncated
-FROM (SELECT TIMESTAMP('2017-11-06 00:00:00+12') AS timestamp);
+  timestamp_value AS timestamp_value,
+  TIMESTAMP_TRUNC(timestamp_value, WEEK(MONDAY), "UTC") AS utc_truncated,
+  TIMESTAMP_TRUNC(timestamp_value, WEEK(MONDAY), "Pacific/Auckland") AS nzdt_truncated
+FROM (SELECT TIMESTAMP("2017-11-06 00:00:00+12") AS timestamp_value);
 
-+------------------------+------------------------+------------------------+
-| timestamp              | utc_truncated          | nzdt_truncated         |
-+------------------------+------------------------+------------------------+
-| 2017-11-05 12:00:00+00 | 2017-10-30 00:00:00+00 | 2017-11-05 11:00:00+00 |
-+------------------------+------------------------+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+---------------------------------------------+---------------------------------------------+
+| timestamp_value                             | utc_truncated                               | nzdt_truncated                              |
++---------------------------------------------+---------------------------------------------+---------------------------------------------+
+| 2017-11-05 04:00:00.000 America/Los_Angeles | 2017-10-29 17:00:00.000 America/Los_Angeles | 2017-11-05 03:00:00.000 America/Los_Angeles |
++---------------------------------------------+---------------------------------------------+---------------------------------------------+
 ```
 
 In the following example, the original `timestamp_expression` is in the
@@ -568,14 +555,15 @@ Therefore the ISO year boundary preceding the `timestamp_expression`
 
 ```sql
 SELECT
-  TIMESTAMP_TRUNC('2015-06-15 00:00:00+00', ISOYEAR) AS isoyear_boundary,
-  EXTRACT(ISOYEAR FROM TIMESTAMP '2015-06-15 00:00:00+00') AS isoyear_number;
+  TIMESTAMP_TRUNC("2015-06-15 00:00:00+00", ISOYEAR) AS isoyear_boundary,
+  EXTRACT(ISOYEAR FROM TIMESTAMP "2015-06-15 00:00:00+00") AS isoyear_number;
 
-+------------------------+----------------+
-| isoyear_boundary       | isoyear_number |
-+------------------------+----------------+
-| 2014-12-29 00:00:00+00 | 2015           |
-+------------------------+----------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+----------------+
+| isoyear_boundary                            | isoyear_number |
++---------------------------------------------+----------------+
+| 2014-12-29 00:00:00.000 America/Los_Angeles | 2015           |
++---------------------------------------------+----------------+
 ```
 
 ### FORMAT_TIMESTAMP
@@ -598,19 +586,17 @@ STRING
 **Example**
 
 ```sql
-SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2008-12-25 15:30:00", "America/Los_Angeles")
-  AS formatted;
+SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS formatted;
 
 +--------------------------+
 | formatted                |
 +--------------------------+
-| Thu Dec 25 07:30:00 2008 |
+| Thu Dec 25 15:30:00 2008 |
 +--------------------------+
 ```
 
 ```sql
-SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2008-12-25 15:30:00")
-  AS formatted;
+SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2008-12-25 15:30:00+00") AS formatted;
 
 +-------------+
 | formatted   |
@@ -620,7 +606,7 @@ SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2008-12-25 15:30:00")
 ```
 
 ```sql
-SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2008-12-25 15:30:00")
+SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2008-12-25 15:30:00+00")
   AS formatted;
 
 +-------------+
@@ -669,13 +655,14 @@ TIMESTAMP
 **Example**
 
 ```sql
-SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008", "America/Los_Angeles") as parsed;
+SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
 
-+------------------------+
-| parsed                 |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+
+| parsed                                      |
++---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles |
++---------------------------------------------+
 ```
 
 ### TIMESTAMP_SECONDS
@@ -696,13 +683,14 @@ TIMESTAMP
 **Example**
 
 ```sql
-SELECT TIMESTAMP_SECONDS(1230219000) as timestamp;
+SELECT TIMESTAMP_SECONDS(1230219000) AS timestamp_value;
 
-+------------------------+
-| timestamp              |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+
+| timestamp_value                             |
++---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles |
++---------------------------------------------+
 ```
 
 ### TIMESTAMP_MILLIS
@@ -723,13 +711,14 @@ TIMESTAMP
 **Example**
 
 ```sql
-SELECT TIMESTAMP_MILLIS(1230219000000) as timestamp;
+SELECT TIMESTAMP_MILLIS(1230219000000) AS timestamp_value;
 
-+------------------------+
-| timestamp              |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+
+| timestamp_value                             |
++---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles |
++---------------------------------------------+
 ```
 
 ### TIMESTAMP_MICROS
@@ -750,13 +739,14 @@ TIMESTAMP
 **Example**
 
 ```sql
-SELECT TIMESTAMP_MICROS(1230219000000000) as timestamp;
+SELECT TIMESTAMP_MICROS(1230219000000000) AS timestamp_value;
 
-+------------------------+
-| timestamp              |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
+-- Results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+
+| timestamp_value                             |
++---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles |
++---------------------------------------------+
 ```
 
 ### UNIX_SECONDS
@@ -777,7 +767,7 @@ INT64
 **Example**
 
 ```sql
-SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00 UTC") as seconds;
+SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00+00") AS seconds;
 
 +------------+
 | seconds    |
@@ -804,7 +794,7 @@ INT64
 **Example**
 
 ```sql
-SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00 UTC") as millis;
+SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00+00") AS millis;
 
 +---------------+
 | millis        |
@@ -831,7 +821,7 @@ INT64
 **Example**
 
 ```sql
-SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00 UTC") as micros;
+SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00") AS micros;
 
 +------------------+
 | micros           |
@@ -858,10 +848,10 @@ TIMESTAMP
 **Example**
 
 ```sql
-SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) as timestamp;
+SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) AS timestamp_value;
 
 +------------------------+
-| timestamp              |
+| timestamp_value        |
 +------------------------+
 | 2008-12-25 15:30:00+00 |
 +------------------------+
@@ -885,10 +875,10 @@ TIMESTAMP
 **Example**
 
 ```sql
-SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) as timestamp;
+SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) AS timestamp_value;
 
 +------------------------+
-| timestamp              |
+| timestamp_value        |
 +------------------------+
 | 2008-12-25 15:30:00+00 |
 +------------------------+
@@ -912,10 +902,10 @@ TIMESTAMP
 **Example**
 
 ```sql
-SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) as timestamp;
+SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) AS timestamp_value;
 
 +------------------------+
-| timestamp              |
+| timestamp_value        |
 +------------------------+
 | 2008-12-25 15:30:00+00 |
 +------------------------+

@@ -589,6 +589,9 @@ class SimpleTable : public Table {
     return column_major_contents_;
   }
 
+  // Returns the number of rows set in the last call to SetContents().
+  int64_t num_rows() const { return num_rows_; }
+
  private:
   // Insert a column to columns_map_. Return error when
   // allow_anonymous_column_name_ or allow_duplicate_column_names_ are violated.
@@ -611,6 +614,7 @@ class SimpleTable : public Table {
 
   // We use shared_ptrs to handle calls to SetContets() while there are
   // iterators outstanding.
+  int64_t num_rows_ = 0;
   std::vector<std::shared_ptr<const std::vector<Value>>> column_major_contents_;
   std::unique_ptr<EvaluatorTableIteratorFactory>
       evaluator_table_iterator_factory_;

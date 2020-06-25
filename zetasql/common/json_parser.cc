@@ -96,7 +96,6 @@ constexpr absl::string_view kReplacementCharacter = "\uFFFD";
 //
 // Background reading:
 //   - http://www.unicode.org/reports/tr36/#UTF-8_Exploit
-//   - http://sites/intl-eng/design-guide/core-application
 bool JSONParser::ParseHexDigits(const int size, std::string* str) {
   if (p_.length() < size) {
     return false;

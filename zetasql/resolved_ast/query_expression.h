@@ -48,7 +48,8 @@ class QueryExpression {
   // clause in QueryExpression successfully. Otherwise return false with the
   // QueryExpression left unchanged.
   bool TrySetWithClause(
-      const std::vector<std::pair<std::string, std::string>>& with_list);
+      const std::vector<std::pair<std::string, std::string>>& with_list,
+      bool recursive);
   bool TrySetSelectClause(
       const std::vector<std::pair<std::string, std::string>>& select_list,
       const std::string& select_hints);
@@ -135,6 +136,7 @@ class QueryExpression {
   std::vector<
       std::pair<std::string /* with_alias */, std::string /* with_query */>>
       with_list_;
+  bool with_recursive_ = false;
   std::vector<std::pair<std::string /* select column */,
                         std::string /* select alias */>>
       select_list_;

@@ -25,7 +25,9 @@
 #include "zetasql/public/types/internal_utils.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/value_representations.h"
+#include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
+#include "absl/status/status.h"
 #include "absl/strings/match.h"
 
 namespace zetasql {
@@ -70,6 +72,20 @@ bool ProtoType::SupportsOrdering(const LanguageOptions& language_options,
 
 const google::protobuf::Descriptor* ProtoType::descriptor() const {
   return descriptor_;
+}
+
+const google::protobuf::FieldDescriptor* ProtoType::map_key() const {
+  // This is the same as Descriptor::map_key() in descriptor.h in the latest
+  // release. However, ZetaSQL is not currently importing the current protobuf
+  // release.
+  return descriptor()->FindFieldByNumber(1);
+}
+
+const google::protobuf::FieldDescriptor* ProtoType::map_value() const {
+  // This is the same as Descriptor::map_value() in descriptor.h in the latest
+  // release. However, ZetaSQL is not currently importing the current protobuf
+  // release.
+  return descriptor()->FindFieldByNumber(2);
 }
 
 absl::Status ProtoType::SerializeToProtoAndDistinctFileDescriptorsImpl(
@@ -262,6 +278,9 @@ absl::Status ProtoType::GetTypeKindFromFieldDescriptor(
           break;
         case FieldFormat::BIGNUMERIC:
           *kind = TYPE_BIGNUMERIC;
+          break;
+        case FieldFormat::JSON:
+          *kind = TYPE_JSON;
           break;
         default:
           // Should not reach this if ValidateTypeAnnotations() is working
@@ -488,10 +507,6 @@ bool ProtoType::EqualsImpl(const ProtoType* const type1,
   return false;
 }
 
-void ProtoType::InitializeValueContent(ValueContent* value) const {
-  value->set(new internal::ProtoRep(this, absl::Cord()));
-}
-
 void ProtoType::CopyValueContent(const ValueContent& from,
                                  ValueContent* to) const {
   GetValueRef(from)->Ref();
@@ -519,7 +534,7 @@ absl::HashState ProtoType::HashValueContent(const ValueContent& value,
   return absl::HashState::combine(std::move(state), 0);
 }
 
-bool ProtoType::ValueContentEqualsImpl(
+bool ProtoType::ValueContentEquals(
     const ValueContent& x, const ValueContent& y,
     const ValueEqualityCheckOptions& options) const {
   const absl::Cord& x_value = x.GetAs<internal::ProtoRep*>()->value();
@@ -564,6 +579,13 @@ bool ProtoType::ValueContentEqualsImpl(
   return result;
 }
 
+bool ProtoType::ValueContentLess(const ValueContent& x, const ValueContent& y,
+                                 const Type* other_type) const {
+  LOG(DFATAL) << "Cannot compare " << DebugString() << " to "
+              << other_type->DebugString();
+  return false;
+}
+
 std::string ProtoType::FormatValueContent(
     const ValueContent& value, const FormatValueContentOptions& options) const {
   if (!options.as_literal()) {
@@ -597,6 +619,24 @@ std::string ProtoType::FormatValueContent(
 
   // This branch is not expected, but try to return something.
   return ToStringLiteral(message->ShortDebugString());
+}
+
+absl::Status ProtoType::SerializeValueContent(const ValueContent& value,
+                                              ValueProto* value_proto) const {
+  value_proto->set_proto_value(std::string(GetCordValue(value)));
+
+  return absl::OkStatus();
+}
+
+absl::Status ProtoType::DeserializeValueContent(const ValueProto& value_proto,
+                                                ValueContent* value) const {
+  if (!value_proto.has_proto_value()) {
+    return TypeMismatchError(value_proto);
+  }
+  value->set(new internal::ProtoRep(this,
+  absl::Cord(value_proto.proto_value())));
+
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

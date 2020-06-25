@@ -167,12 +167,16 @@ class Unparser : public ParseTreeVisitor {
                                    void* data) override;
   void visitASTCreateMaterializedViewStatement(
       const ASTCreateMaterializedViewStatement* node, void* data) override;
+  void visitASTWithPartitionColumnsClause(
+      const ASTWithPartitionColumnsClause* node, void* data) override;
   void visitASTCreateExternalTableStatement(
       const ASTCreateExternalTableStatement* node, void* data) override;
   void visitASTCreateRowAccessPolicyStatement(
       const ASTCreateRowAccessPolicyStatement* node, void* data) override;
   void visitASTExportDataStatement(const ASTExportDataStatement* node,
                                    void* data) override;
+  void visitASTExportModelStatement(const ASTExportModelStatement* node,
+                                    void* data) override;
   void visitASTCallStatement(const ASTCallStatement* node,
                              void* data) override;
   void visitASTDefineTableStatement(const ASTDefineTableStatement* node,
@@ -293,6 +297,8 @@ class Unparser : public ParseTreeVisitor {
       const ASTNumericLiteral* node, void* data) override;
   void visitASTBigNumericLiteral(const ASTBigNumericLiteral* node,
                                  void* data) override;
+  void visitASTJSONLiteral(const ASTJSONLiteral* node,
+                           void* data) override;
   void visitASTFloatLiteral(const ASTFloatLiteral* node, void* data) override;
   void visitASTStringLiteral(const ASTStringLiteral* node, void* data) override;
   void visitASTBytesLiteral(const ASTBytesLiteral* node, void* data) override;

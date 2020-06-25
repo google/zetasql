@@ -70,22 +70,6 @@ class ArrayType : public Type {
     return sizeof(*this);
   }
 
-  void InitializeValueContent(ValueContent* value) const override;
-  void CopyValueContent(const ValueContent& from,
-                        ValueContent* to) const override;
-  void ClearValueContent(const ValueContent& value) const override;
-  absl::HashState HashTypeParameter(absl::HashState state) const override;
-  absl::HashState HashValueContent(const ValueContent& value,
-                                   absl::HashState state) const override;
-  bool ValueContentEqualsImpl(
-      const ValueContent& x, const ValueContent& y,
-      const ValueEqualityCheckOptions& options) const override;
-
-  // This function shouldn't be called until b/155192766 is fixed.
-  std::string FormatValueContent(
-      const ValueContent& value,
-      const FormatValueContentOptions& options) const override;
-
  private:
   ArrayType(const TypeFactory* factory, const Type* element_type);
   ~ArrayType() override;
@@ -100,6 +84,25 @@ class ArrayType : public Type {
   absl::Status SerializeToProtoAndDistinctFileDescriptorsImpl(
       const BuildFileDescriptorSetMapOptions& options, TypeProto* type_proto,
       FileDescriptorSetMap* file_descriptor_set_map) const override;
+
+  void CopyValueContent(const ValueContent& from,
+                        ValueContent* to) const override;
+  void ClearValueContent(const ValueContent& value) const override;
+  absl::HashState HashTypeParameter(absl::HashState state) const override;
+  absl::HashState HashValueContent(const ValueContent& value,
+                                   absl::HashState state) const override;
+  bool ValueContentEquals(
+      const ValueContent& x, const ValueContent& y,
+      const ValueEqualityCheckOptions& options) const override;
+  bool ValueContentLess(const ValueContent& x, const ValueContent& y,
+                        const Type* other_type) const override;
+  std::string FormatValueContent(
+      const ValueContent& value,
+      const FormatValueContentOptions& options) const override;
+  absl::Status SerializeValueContent(const ValueContent& value,
+                                     ValueProto* value_proto) const override;
+  absl::Status DeserializeValueContent(const ValueProto& value_proto,
+                                       ValueContent* value) const override;
 
   const Type* const element_type_;
 

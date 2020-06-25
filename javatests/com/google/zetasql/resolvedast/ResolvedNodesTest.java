@@ -104,11 +104,15 @@ public class ResolvedNodesTest {
   @Test
   public void testBuilderFailsOnUnsetValue() {
     try {
+      // FloatLiteralId and HasExplicitType are optional constructor arguments and can be omitted.
+      ResolvedLiteral.builder().setType(INT32_TYPE).setValue(Value.createInt32Value(5)).build();
+
+      // Value is required argument and must be set.
       ResolvedLiteral.builder()
           .setType(INT32_TYPE)
-          // .setFloatLiteralId(-1)  // "forget" to set this.
+          .setFloatLiteralId(0)
           .setHasExplicitType(true)
-          .setValue(Value.createInt32Value(5))
+          // .setValue(Value.createInt32Value(5))  // "forget" to set this.
           .build();
       fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {

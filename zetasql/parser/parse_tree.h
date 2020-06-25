@@ -1709,6 +1709,15 @@ class ASTTableSubquery final : public ASTTableExpression {
 // final parse tree.
 class ASTJoin final : public ASTTableExpression {
  public:
+  // Represents a parse error when parsing join expressions.
+  // See comments in file join_proccessor.h for more details.
+  struct ParseError {
+    // The node where the error occurs.
+    const ASTNode* error_node;
+
+    std::string message;
+  };
+
   static constexpr ASTNodeKind kConcreteNodeKind = AST_JOIN;
 
   ASTJoin() : ASTTableExpression(kConcreteNodeKind) {}
@@ -1753,6 +1762,13 @@ class ASTJoin final : public ASTTableExpression {
     contains_comma_join_ = contains_comma_join;
   }
 
+  const ParseError* parse_error() const {
+    return parse_error_.get();
+  }
+  void set_parse_error(std::unique_ptr<ParseError> parse_error) {
+    parse_error_ = std::move(parse_error);
+  }
+
  private:
   void InitFields() final {
     FieldLoader fl(this);
@@ -1790,6 +1806,8 @@ class ASTJoin final : public ASTTableExpression {
   // Indicates if this join contains a COMMA JOIN on the lhs side of the tree
   // path.
   bool contains_comma_join_ = false;
+
+  std::unique_ptr<ParseError> parse_error_ = nullptr;
 };
 
 class ASTParenthesizedJoin final : public ASTTableExpression {
@@ -3640,6 +3658,16 @@ class ASTBigNumericLiteral final : public ASTLeaf {
       NonRecursiveParseTreeVisitor* visitor) const override;
 };
 
+class ASTJSONLiteral final : public ASTLeaf {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_JSON_LITERAL;
+
+  ASTJSONLiteral() : ASTLeaf(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+};
+
 class ASTStringLiteral final : public ASTLeaf {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_STRING_LITERAL;
@@ -4451,28 +4479,11 @@ class ASTCreateTableStmtBase : public ASTCreateStatement {
   const ASTTableElementList* table_element_list() const {
     return table_element_list_;
   }
-  const ASTPartitionBy* partition_by() const { return partition_by_; }
-  const ASTClusterBy* cluster_by() const { return cluster_by_; }
   const ASTOptionsList* options_list() const { return options_list_; }
 
  protected:
-  void InitCreateTableStmtBaseProperties(FieldLoader* fl,
-                                         bool is_option_list_required) {
-    fl->AddRequired(&name_);
-    fl->AddOptional(&table_element_list_, AST_TABLE_ELEMENT_LIST);
-    fl->AddOptional(&partition_by_, AST_PARTITION_BY);
-    fl->AddOptional(&cluster_by_, AST_CLUSTER_BY);
-    if (is_option_list_required) {
-      fl->AddRequired(&options_list_);
-    } else {
-      fl->AddOptional(&options_list_, AST_OPTIONS_LIST);
-    }
-  }
-
   const ASTPathExpression* name_ = nullptr;
   const ASTTableElementList* table_element_list_ = nullptr;  // May be NULL.
-  const ASTPartitionBy* partition_by_ = nullptr;             // May be NULL.
-  const ASTClusterBy* cluster_by_ = nullptr;                 // May be NULL.
   const ASTOptionsList* options_list_ = nullptr;             // May be NULL.
 };
 
@@ -4485,16 +4496,23 @@ class ASTCreateTableStatement final : public ASTCreateTableStmtBase {
   zetasql_base::StatusOr<VisitResult> Accept(
       NonRecursiveParseTreeVisitor* visitor) const override;
 
+  const ASTPartitionBy* partition_by() const { return partition_by_; }
+  const ASTClusterBy* cluster_by() const { return cluster_by_; }
   const ASTQuery* query() const { return query_; }
 
  private:
   void InitFields() final {
     FieldLoader fl(this);
-    InitCreateTableStmtBaseProperties(&fl,
-                                      /* is_option_list_required= */ false);
+    fl.AddRequired(&name_);
+    fl.AddOptional(&table_element_list_, AST_TABLE_ELEMENT_LIST);
+    fl.AddOptional(&partition_by_, AST_PARTITION_BY);
+    fl.AddOptional(&cluster_by_, AST_CLUSTER_BY);
+    fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
     fl.AddOptional(&query_, AST_QUERY);
   }
 
+  const ASTPartitionBy* partition_by_ = nullptr;             // May be NULL.
+  const ASTClusterBy* cluster_by_ = nullptr;                 // May be NULL.
   const ASTQuery* query_ = nullptr;                          // May be NULL.
 };
 
@@ -4821,6 +4839,35 @@ class ASTExportDataStatement final : public ASTStatement {
   const ASTQuery* query_ = nullptr;
 };
 
+class ASTExportModelStatement final : public ASTStatement {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind =
+      AST_EXPORT_MODEL_STATEMENT;
+
+  ASTExportModelStatement() : ASTStatement(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTPathExpression* model_name_path() const { return model_name_path_; }
+  const ASTWithConnectionClause* with_connection_clause() const {
+    return with_connection_;
+  }
+  const ASTOptionsList* options_list() const { return options_list_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&model_name_path_);
+    fl.AddOptional(&with_connection_, AST_WITH_CONNECTION_CLAUSE);
+    fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
+  }
+
+  const ASTPathExpression* model_name_path_ = nullptr;
+  const ASTWithConnectionClause* with_connection_ = nullptr;  // May be NULL.
+  const ASTOptionsList* options_list_ = nullptr;              // May be NULL.
+};
+
 class ASTCallStatement final : public ASTStatement {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_CALL_STATEMENT;
@@ -4870,6 +4917,26 @@ class ASTDefineTableStatement final : public ASTStatement {
   const ASTOptionsList* options_list_ = nullptr;
 };
 
+class ASTWithPartitionColumnsClause final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind =
+      AST_WITH_PARTITION_COLUMNS_CLAUSE;
+  ASTWithPartitionColumnsClause() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+  const ASTTableElementList* table_element_list() const {
+    return table_element_list_;
+  }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddOptional(&table_element_list_, AST_TABLE_ELEMENT_LIST);
+  }
+  const ASTTableElementList* table_element_list_ = nullptr;  // May be NULL.
+};
+
 class ASTCreateExternalTableStatement final : public ASTCreateTableStmtBase {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind =
@@ -4880,11 +4947,22 @@ class ASTCreateExternalTableStatement final : public ASTCreateTableStmtBase {
   zetasql_base::StatusOr<VisitResult> Accept(
       NonRecursiveParseTreeVisitor* visitor) const override;
 
+  const ASTWithPartitionColumnsClause* with_partition_columns_clause() const {
+    return with_partition_columns_clause_;
+  }
+
  private:
   void InitFields() final {
     FieldLoader fl(this);
-    InitCreateTableStmtBaseProperties(&fl, /* is_option_list_required= */ true);
+    fl.AddRequired(&name_);
+    fl.AddOptional(&table_element_list_, AST_TABLE_ELEMENT_LIST);
+    fl.AddOptional(&with_partition_columns_clause_,
+                   AST_WITH_PARTITION_COLUMNS_CLAUSE);
+    fl.AddRequired(&options_list_);
   }
+
+  const ASTWithPartitionColumnsClause* with_partition_columns_clause_ =
+      nullptr;  // May be NULL.
 };
 
 class ASTType : public ASTNode {

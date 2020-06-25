@@ -152,6 +152,12 @@ static std::string ToStringImpl(ResolvedSetOperationScan::SetOperationType type)
   LOG(DFATAL) << "Invalid SetType: " << type;
   return absl::StrCat("INVALID_SET_TYPE(", type, ")");
 }
+static std::string ToStringImpl(ResolvedRecursiveScan::RecursiveSetOperationType type) {
+  std::string name = ResolvedRecursiveScanEnums::RecursiveSetOperationType_Name(type);
+  if (!name.empty()) return name;
+  LOG(DFATAL) << "Invalid RecursiveSetType: " << type;
+  return absl::StrCat("INVALID_SET_TYPE(", type, ")");
+}
 static std::string ToStringImpl(ResolvedCreateStatement::CreateScope scope) {
   std::string name = ResolvedCreateStatementEnums::CreateScope_Name(scope);
   if (!name.empty()) return name;

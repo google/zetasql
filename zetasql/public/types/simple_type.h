@@ -51,22 +51,6 @@ class SimpleType : public Type {
     return sizeof(*this);
   }
 
-  void InitializeValueContent(ValueContent* value) const override;
-  void CopyValueContent(const ValueContent& from,
-                        ValueContent* to) const override;
-  void ClearValueContent(const ValueContent& value) const override;
-  uint64_t GetValueContentExternallyAllocatedByteSize(
-      const ValueContent& value) const override;
-  absl::HashState HashTypeParameter(absl::HashState state) const override;
-  absl::HashState HashValueContent(const ValueContent& value,
-                                   absl::HashState state) const override;
-  bool ValueContentEqualsImpl(
-      const ValueContent& x, const ValueContent& y,
-      const ValueEqualityCheckOptions& options) const override;
-  std::string FormatValueContent(
-      const ValueContent& value,
-      const FormatValueContentOptions& options) const override;
-
  private:
   bool SupportsGroupingImpl(const LanguageOptions& language_options,
                             const Type** no_grouping_type) const override;
@@ -79,17 +63,42 @@ class SimpleType : public Type {
     return true;
   }
 
+  void CopyValueContent(const ValueContent& from,
+                        ValueContent* to) const override;
+  void ClearValueContent(const ValueContent& value) const override;
+  uint64_t GetValueContentExternallyAllocatedByteSize(
+      const ValueContent& value) const override;
+  absl::HashState HashTypeParameter(absl::HashState state) const override;
+  absl::HashState HashValueContent(const ValueContent& value,
+                                   absl::HashState state) const override;
+  bool ValueContentEquals(
+      const ValueContent& x, const ValueContent& y,
+      const ValueEqualityCheckOptions& options) const override;
+  bool ValueContentLess(const ValueContent& x, const ValueContent& y,
+                        const Type* other_type) const override;
+  std::string FormatValueContent(
+      const ValueContent& value,
+      const FormatValueContentOptions& options) const override;
+  absl::Status SerializeValueContent(const ValueContent& value,
+                                     ValueProto* value_proto) const override;
+  absl::Status DeserializeValueContent(const ValueProto& value_proto,
+                                       ValueContent* value) const override;
+
   void DebugStringImpl(bool details, TypeOrStringVector* stack,
                        std::string* debug_string) const override;
 
   // Used for TYPE_TIMESTAMP.
   static absl::Time GetTimestampValue(const ValueContent& value);
+  static absl::Status SetTimestampValue(absl::Time time, ValueContent* value);
 
   // Used for TYPE_TIME.
   static TimeValue GetTimeValue(const ValueContent& value);
+  static absl::Status SetTimeValue(TimeValue time, ValueContent* value);
 
   // Used for TYPE_DATETIME.
   static DatetimeValue GetDateTimeValue(const ValueContent& value);
+  static absl::Status SetDateTimeValue(DatetimeValue datetime,
+                                       ValueContent* value);
 
   friend class TypeFactory;
 };

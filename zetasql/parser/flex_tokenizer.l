@@ -374,6 +374,7 @@ between {
   yy_push_state(IN_BETWEEN);
   return BisonParserImpl::token::KW_BETWEEN;
 }
+bigdecimal { return BisonParserImpl::token::KW_BIGDECIMAL; }
 bignumeric { return BisonParserImpl::token::KW_BIGNUMERIC; }
 break { return BisonParserImpl::token::KW_BREAK; }
 by { return BisonParserImpl::token::KW_BY; }
@@ -385,6 +386,7 @@ check { return BisonParserImpl::token::KW_CHECK; }
 cluster { return BisonParserImpl::token::KW_CLUSTER; }
 collate { return BisonParserImpl::token::KW_COLLATE; }
 column { return BisonParserImpl::token::KW_COLUMN; }
+columns { return BisonParserImpl::token::KW_COLUMNS; }
 commit { return BisonParserImpl::token::KW_COMMIT; }
 connection { return BisonParserImpl::token::KW_CONNECTION; }
 constant { return BisonParserImpl::token::KW_CONSTANT; }
@@ -399,6 +401,7 @@ data { return BisonParserImpl::token::KW_DATA; }
 database { return BisonParserImpl::token::KW_DATABASE; }
 date { return BisonParserImpl::token::KW_DATE; }
 datetime { return BisonParserImpl::token::KW_DATETIME; }
+decimal { return BisonParserImpl::token::KW_DECIMAL; }
 declare { return BisonParserImpl::token::KW_DECLARE; }
 default { return BisonParserImpl::token::KW_DEFAULT; }
 define { return BisonParserImpl::token::KW_DEFINE; }
@@ -480,6 +483,7 @@ invoker { return BisonParserImpl::token::KW_INVOKER; }
 is { return BisonParserImpl::token::KW_IS; }
 isolation { return BisonParserImpl::token::KW_ISOLATION; }
 join { return BisonParserImpl::token::KW_JOIN; }
+json { return BisonParserImpl::token::KW_JSON; }
 key { return BisonParserImpl::token::KW_KEY; }
 language { return BisonParserImpl::token::KW_LANGUAGE; }
 last { return BisonParserImpl::token::KW_LAST; }

@@ -727,6 +727,12 @@ absl::Status AddTimestamp(absl::Time timestamp,
                           DateTimestampPart part, int64_t interval,
                           absl::Time* output);
 
+// Similar to AddTimestamp() above, but it doesn't return an error when overflow
+// occurs.
+absl::Status AddTimestampOverflow(absl::Time timestamp, absl::TimeZone timezone,
+                                  DateTimestampPart part, int64_t interval,
+                                  absl::Time* output, bool* had_overflow);
+
 // Same as above, but subtracts an interval from part of the given Timestamp
 // value. Prefer these over invoking AddTimestamp with a negated interval in
 // order to avoid overflow.
