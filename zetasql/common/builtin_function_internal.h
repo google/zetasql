@@ -106,6 +106,10 @@ std::string SafeArrayAtOffsetFunctionSQL(
 std::string SafeArrayAtOrdinalFunctionSQL(
     const std::vector<std::string>& inputs);
 
+std::string ProtoMapAtKeySQL(const std::vector<std::string>& inputs);
+
+std::string SafeProtoMapAtKeySQL(const std::vector<std::string>& inputs);
+
 std::string GenerateDateTimestampArrayFunctionSQL(
     const std::string& function_name, const std::vector<std::string>& inputs);
 
@@ -196,6 +200,10 @@ absl::Status CheckGenerateTimestampArrayArguments(
 
 absl::Status CheckJsonArguments(const std::vector<InputArgumentType>& arguments,
                                 const LanguageOptions& options);
+
+absl::Status CheckFormatPostResolutionArguments(
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options);
 
 absl::Status CheckIsSupportedKeyType(
     absl::string_view function_name,
@@ -325,18 +333,17 @@ bool HasFloatingPointArgument(const std::vector<InputArgumentType>& arguments);
 // Returns true if at least one input argument has NUMERIC type.
 bool HasNumericTypeArgument(const std::vector<InputArgumentType>& arguments);
 
-// Returns true if all input arguments have NUMERIC type, including the case
-// without input arguments.
-bool AllArgumentsHaveNumericType(
+// Returns true if all input arguments have NUMERIC or BIGNUMERIC type,
+// including the case without input arguments.
+bool AllArgumentsHaveNumericOrBigNumericType(
     const std::vector<InputArgumentType>& arguments);
 
-// Returns true if there are at least one input argument and the last argument
-// has numeric type.
-bool LastArgumentHasNumericType(
+// Returns true if there is at least one input argument and the last argument
+// has NUMERIC type or BIGNUMERIC type.
+bool LastArgumentHasNumericOrBigNumericType(
     const std::vector<InputArgumentType>& arguments);
 
-// Returns true if an arithmetic operation has a bignumeric type as its
-// input.
+// Returns true if at least one input argument has BIGNUMERIC type.
 bool HasBigNumericTypeArgument(const std::vector<InputArgumentType>& arguments);
 
 // Returns true if FN_CONCAT_STRING function can coerce argument of given type

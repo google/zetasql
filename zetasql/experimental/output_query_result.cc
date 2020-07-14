@@ -207,15 +207,17 @@ std::string GetEscapedString(const Value& value) {
 std::string ValueToOutputString(const Value& value, bool escape_strings) {
   if (value.is_null()) return "NULL";
   if (value.type()->IsStruct()) {
-    return absl::StrCat(
-        "{",
-        absl::StrJoin(value.fields(), ", ",
-                      [](std::string* out, const zetasql::Value& value) {
-                        absl::StrAppend(
-                            out, ValueToOutputString(value,
-                                                     /*escape_strings=*/true));
-                      }),
-        "}");
+    std::vector<std::string> field_results;
+    for (int i = 0; i < value.type()->AsStruct()->num_fields(); ++i) {
+      std::string field_result =
+          ValueToOutputString(value.field(i), /*escape_strings=*/true);
+      absl::string_view name = value.type()->AsStruct()->field(i).name;
+      if (!name.empty()) {
+        absl::StrAppend(&field_result, " ", name);
+      }
+      field_results.push_back(field_result);
+    }
+    return absl::StrCat("{", absl::StrJoin(field_results, ", "), "}");
   } else if (value.type()->IsArray()) {
     return absl::StrCat(
         "[",

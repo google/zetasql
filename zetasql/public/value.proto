@@ -83,7 +83,7 @@ message ValueProto {
     // BigNumericValue::SerializeAsProtoBytes().
     bytes bignumeric_value = 21;
     // Encoded json value.
-    bytes json_value = 22;
+    string json_value = 22;
     // User code that switches on this oneoff enum must have a default case so
     // builds won't break when new fields are added.
     bool __ValueProto__switch_must_have_a_default = 255;

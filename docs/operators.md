@@ -721,7 +721,7 @@ types are compared when they have fields that are `NULL` valued.
 </tr>
 <tr>
 <td><code>STRUCT(1,2)</code></td>
-<td><code>STRUCT(1, NULL)</code</td>
+<td><code>STRUCT(1, NULL)</code></td>
 <td><code>NULL</code></td>
 </tr>
 </tbody>

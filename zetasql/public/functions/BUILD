@@ -273,6 +273,99 @@ cc_test(
 )
 
 cc_library(
+    name = "string_format",
+    srcs = ["string_format.cc"],
+    hdrs = ["string_format.h"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
+    deps = [
+        ":convert_proto",
+        "//zetasql/base",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/common:utf_util",
+        "//zetasql/public:numeric_value",
+        "//zetasql/public:strings",
+        "//zetasql/public:type",
+        "//zetasql/public:value",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:span",
+        "@com_google_protobuf//:protobuf",
+        "@com_googlesource_code_re2//:re2",
+        "@icu//:common",
+    ],
+)
+
+cc_test(
+    name = "format_test",
+    size = "medium",
+    srcs = ["format_test.cc"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
+    shard_count = 6,
+    deps = [
+        ":string_format",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base",
+        "//zetasql/base:cleanup",
+        "//zetasql/base:map_util",
+        "//zetasql/base:statusor",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/compliance:functions_testlib",
+        "//zetasql/public:civil_time",
+        "//zetasql/testdata:test_schema_cc_proto",
+        "//zetasql/testing:test_function",
+        "//zetasql/testing:test_value",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/functional:bind_front",
+        "@com_google_absl//absl/random",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "string_format_test",
+    size = "small",
+    srcs = ["string_format_test.cc"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
+    deps = [
+        ":string_format",
+        "@com_google_googletest//:gtest_main",
+        "//zetasql/base",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/common/testing:testing_proto_util",
+        "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
     name = "arithmetics_internal",
     hdrs = ["arithmetics_internal.h"],
     copts = [
@@ -818,6 +911,7 @@ cc_library(
         "//zetasql/base:statusor",
         "//zetasql/base:string_numbers",
         "//zetasql/common:errors",
+        "//zetasql/public:json_value",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",

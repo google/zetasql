@@ -491,13 +491,10 @@ inputs:
 + `start_timestamp`: `TIMESTAMP`
 + `end_timestamp`: `TIMESTAMP`
 + `step_expression`: `INT64`
-+ Allowed `date_part` values are
-  
-  `MICROSECOND` or `NANOSECOND` (depends on what the SQL engine supports),
-  
-   `MILLISECOND`,
-  
-  `SECOND`, `MINUTE`, `HOUR`, or `DAY`.
++ Allowed `date_part` values are:
+  `NANOSECOND`
+  (if the SQL engine supports it),
+  `MICROSECOND`, `MILLISECOND`, `SECOND`, `MINUTE`, `HOUR`, or `DAY`.
 
 The `step_expression` parameter determines the increment used to generate
 timestamps.

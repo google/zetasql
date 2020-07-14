@@ -181,7 +181,7 @@ class JSONRef : public zetasql_base::SimpleReferenceCounted {
     if (absl::holds_alternative<std::string>(value_)) {
       return absl::get<std::string>(value_);
     } else {
-      return absl::get<JSONValue>(value_).GetConstRef().SerializeToString();
+      return absl::get<JSONValue>(value_).GetConstRef().ToString();
     }
   }
 

@@ -375,11 +375,23 @@ cc_test(
 )
 
 cc_library(
+    name = "no_destructor",
+    hdrs = ["no_destructor.h"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
+)
+
+cc_library(
     name = "map_util",
     hdrs = [
         "map_traits.h",
         "map_util.h",
-        "no_destructor.h",
     ],
     copts = [
         "-Wno-pessimizing-move",
@@ -391,6 +403,7 @@ cc_library(
     ],
     deps = [
         ":logging",
+        ":no_destructor",
         "@com_google_absl//absl/meta:type_traits",
     ],
 )
@@ -466,7 +479,7 @@ cc_test(
     ],
     deps = [
         ":logging",
-        ":map_util",
+        ":no_destructor",
         "@com_google_googletest//:gtest_main",
     ],
 )

@@ -3420,16 +3420,31 @@ static bool IsLetterO(char c) {
   return c == 'o' || c == 'O';
 }
 
-static bool IsOffsetOrOrdinalFunction(
-    const std::vector<std::string>& function_name_path) {
+// Returns function_name without a leading "SAFE_" prefix. If no safe prefix
+// is present, returns function_name.
+absl::string_view StripSafeCaseInsensitive(absl::string_view function_name) {
+  if ((function_name[0] == 's' || function_name[0] == 'S') &&
+      zetasql_base::CaseCompare(function_name.substr(0, 5), "SAFE_") == 0) {
+    return function_name.substr(5);
+  }
+  return function_name;
+}
+
+static bool IsSpecialArrayContextFunction(absl::string_view function_name) {
   // We try to avoid doing the zetasql_base::StringCaseEqual calls as much as possible.
-  if (function_name_path.size() == 1 &&
-      IsLetterO(function_name_path[0][0]) &&
-      (zetasql_base::StringCaseEqual(function_name_path[0], "OFFSET") ||
-       zetasql_base::StringCaseEqual(function_name_path[0], "ORDINAL"))) {
+  if (IsLetterO(function_name[0]) &&
+      (zetasql_base::CaseCompare(function_name, "OFFSET") == 0 ||
+       zetasql_base::CaseCompare(function_name, "ORDINAL") == 0)) {
     return true;
   }
   return false;
+}
+
+static bool IsSpecialMapContextFunction(absl::string_view function_name) {
+  // We try to avoid doing the zetasql_base::StringCaseEqual calls as much as possible.
+  char first_letter = function_name[0];
+  return (first_letter == 'k' || first_letter == 'K') &&
+         zetasql_base::CaseCompare(function_name, "KEY") == 0;
 }
 
 absl::Status Resolver::ResolveFunctionCall(
@@ -3464,14 +3479,25 @@ absl::Status Resolver::ResolveFunctionCall(
       ast_function, &function_name_path, &function_arguments,
       &argument_option_map, expr_resolution_info->query_resolution_info));
 
-  // Special case for "OFFSET" and "ORDINAL" functions, which are really just
-  // special wrappers allowed inside array element access syntax only.
-  if (IsOffsetOrOrdinalFunction(function_name_path)) {
-    return MakeSqlErrorAt(ast_function)
-           << absl::AsciiStrToUpper(function_name_path[0])
-           << " is not a function; It can only be used for "
-              "array element access using array["
-           << absl::AsciiStrToUpper(function_name_path[0]) << "(position)]";
+  // Special case for "OFFSET", "ORDINAL", and "KEY" functions, which are really
+  // just special wrappers allowed inside array element access syntax only.
+  if (function_name_path.size() == 1) {
+    const absl::string_view function_name = function_name_path[0];
+    const absl::string_view function_name_without_safe =
+        StripSafeCaseInsensitive(function_name);
+    const bool is_array_context_fn =
+        IsSpecialArrayContextFunction(function_name_without_safe);
+    const bool is_map_context_fn =
+        IsSpecialMapContextFunction(function_name_without_safe);
+    if (is_array_context_fn || is_map_context_fn) {
+      absl::string_view type = is_map_context_fn ? "map" : "array";
+      absl::string_view arg_name = is_map_context_fn ? "key" : "position";
+      return MakeSqlErrorAt(ast_function)
+             << absl::AsciiStrToUpper(function_name)
+             << " is not a function. It can only be used for " << type
+             << " element access using " << type << "["
+             << absl::AsciiStrToUpper(function_name) << "(" << arg_name << ")]";
+    }
   }
   const Function* function;
   ResolvedFunctionCallBase::ErrorMode error_mode;
@@ -3767,7 +3793,7 @@ absl::Status Resolver::ResolveArrayElement(
   absl::string_view function_name;
   const ASTExpression* unwrapped_ast_position_expr;
   std::unique_ptr<const ResolvedExpr> resolved_position;
-  ZETASQL_RETURN_IF_ERROR(ResolveArrayElementPosition(
+  ZETASQL_RETURN_IF_ERROR(ResolveArrayElementAccess(
       resolved_lhs, array_element->position(), expr_resolution_info,
       &function_name, &unwrapped_ast_position_expr, &resolved_position));
   args.push_back(std::move(resolved_position));
@@ -3782,10 +3808,12 @@ absl::Status Resolver::ResolveArrayElement(
 
 const char Resolver::kArrayAtOffset[] = "$array_at_offset";
 const char Resolver::kArrayAtOrdinal[] = "$array_at_ordinal";
+const char Resolver::kProtoMapAtKey[] = "$proto_map_at_key";
 const char Resolver::kSafeArrayAtOffset[] = "$safe_array_at_offset";
 const char Resolver::kSafeArrayAtOrdinal[] = "$safe_array_at_ordinal";
+const char Resolver::kSafeProtoMapAtKey[] = "$safe_proto_map_at_key";
 
-absl::Status Resolver::ResolveArrayElementPosition(
+absl::Status Resolver::ResolveArrayElementAccess(
     const ResolvedExpr* resolved_array, const ASTExpression* ast_position,
     ExprResolutionInfo* expr_resolution_info, absl::string_view* function_name,
     const ASTExpression** unwrapped_ast_position_expr,
@@ -3812,8 +3840,11 @@ absl::Status Resolver::ResolveArrayElementPosition(
           ast_function_call->function()->first_name()->GetAsIdString();
       static const IdStringHashMapCase<std::string>* name_to_function =
           new IdStringHashMapCase<std::string>{
+              {IdString::MakeGlobal("KEY"), kProtoMapAtKey},
               {IdString::MakeGlobal("OFFSET"), kArrayAtOffset},
               {IdString::MakeGlobal("ORDINAL"), kArrayAtOrdinal},
+              {IdString::MakeGlobal("SAFE_KEY"), kSafeProtoMapAtKey},
+
               {IdString::MakeGlobal("SAFE_OFFSET"), kSafeArrayAtOffset},
               {IdString::MakeGlobal("SAFE_ORDINAL"), kSafeArrayAtOrdinal}};
       const std::string* function_name_str =
@@ -3835,8 +3866,11 @@ absl::Status Resolver::ResolveArrayElementPosition(
   ZETASQL_RETURN_IF_ERROR(ResolveExpr(*unwrapped_ast_position_expr,
                               expr_resolution_info, resolved_expr_out));
 
+  const bool is_map_at =
+      *function_name == kProtoMapAtKey || *function_name == kSafeProtoMapAtKey;
+
   // Coerce to INT64 if necessary.
-  if ((*resolved_expr_out)->type()->kind() != TYPE_INT64) {
+  if (!is_map_at && (*resolved_expr_out)->type()->kind() != TYPE_INT64) {
     SignatureMatchResult result;
     const InputArgumentType input_argument_type =
         GetInputArgumentTypeForExpr(resolved_expr_out->get());
@@ -3850,6 +3884,42 @@ absl::Status Resolver::ResolveArrayElementPosition(
     }
     ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
         *unwrapped_ast_position_expr, types::Int64Type(), /*scan=*/nullptr,
+        /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
+        resolved_expr_out));
+  }
+
+  if (is_map_at) {
+    if (!IsProtoMap(resolved_array->type())) {
+      return MakeSqlErrorAt(ast_position)
+             << "Only proto maps can be accessed using KEY or SAFE_KEY; tried "
+             << "to use map accessor on "
+             << resolved_array->type()->ShortTypeName(product_mode());
+    }
+
+    const ProtoType* proto_type =
+        resolved_array->type()->AsArray()->element_type()->AsProto();
+
+    const Type* key_type;
+    ZETASQL_RETURN_IF_ERROR(
+        type_factory_->GetProtoFieldType(proto_type->map_key(), &key_type));
+    if (key_type->Equals((*resolved_expr_out)->type())) {
+      return absl::OkStatus();
+    }
+
+    // If the key type is not exactly the same as the argument, try coercing.
+    SignatureMatchResult result;
+    const InputArgumentType input_argument_type =
+        GetInputArgumentTypeForExpr(resolved_expr_out->get());
+    if (!coercer_.CoercesTo(input_argument_type, key_type,
+                            /*is_explicit=*/false, &result)) {
+      return MakeSqlErrorAt(*unwrapped_ast_position_expr)
+             << "Map key in [] must be coercible to type "
+             << key_type->ShortTypeName(product_mode()) << ", but has type "
+             << input_argument_type.UserFacingName(product_mode());
+    }
+
+    ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
+        *unwrapped_ast_position_expr, key_type, /*scan=*/nullptr,
         /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
         resolved_expr_out));
   }

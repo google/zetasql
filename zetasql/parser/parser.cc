@@ -31,6 +31,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/ret_check.h"

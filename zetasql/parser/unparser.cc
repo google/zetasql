@@ -506,6 +506,29 @@ void Unparser::visitASTCreateTableStatement(
   }
 }
 
+void Unparser::visitASTCreateEntityStatement(
+    const ASTCreateEntityStatement* node, void* data) {
+  print(GetCreateStatementPrefix(node, node->type()->GetAsString()));
+  node->name()->Accept(this, data);
+  if (node->options_list() != nullptr) {
+    println();
+    print("OPTIONS");
+    node->options_list()->Accept(this, data);
+  }
+  if (node->json_body() != nullptr) {
+    println();
+    print("AS JSON");
+    node->json_body()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTAlterEntityStatement(const ASTAlterEntityStatement* node,
+                                            void* data) {
+  print("ALTER ");
+  node->type()->Accept(this, data);
+  VisitAlterStatementBase(node, data);
+}
+
 void Unparser::visitASTCreateModelStatement(const ASTCreateModelStatement* node,
                                             void* data) {
   print(GetCreateStatementPrefix(node, "MODEL"));
@@ -882,6 +905,16 @@ void Unparser::visitASTDropStatement(const ASTDropStatement* node, void* data) {
   node->name()->Accept(this, data);
 }
 
+void Unparser::visitASTDropEntityStatement(const ASTDropEntityStatement* node,
+                                           void* data) {
+  print("DROP ");
+  node->entity_type()->Accept(this, data);
+  if (node->is_if_exists()) {
+    print("IF EXISTS");
+  }
+  node->name()->Accept(this, data);
+}
+
 void Unparser::visitASTDropFunctionStatement(
     const ASTDropFunctionStatement* node, void* data) {
   print("DROP FUNCTION");
@@ -1038,6 +1071,11 @@ void Unparser::visitASTSetOperation(const ASTSetOperation* node, void* data) {
     node->child(i)->Accept(this, data);
   }
   PrintCloseParenIfNeeded(node);
+}
+
+void Unparser::visitASTSetAsAction(const ASTSetAsAction* node, void* data) {
+  print("SET AS JSON");
+  node->body()->Accept(this, data);
 }
 
 void Unparser::visitASTSelect(const ASTSelect* node, void* data) {
@@ -2787,6 +2825,23 @@ void Unparser::visitASTNamedArgument(const ASTNamedArgument* node, void* data) {
   node->name()->Accept(this, data);
   print(" => ");
   node->expr()->Accept(this, data);
+}
+
+void Unparser::visitASTLambda(const ASTLambda* node, void* data) {
+  const ASTExpression* parameter_list = node->parameter_list();
+  // Check if the parameter list expression will print the parentheses.
+  const bool already_parenthesized =
+      parameter_list->parenthesized() ||
+      parameter_list->node_kind() == AST_STRUCT_CONSTRUCTOR_WITH_PARENS;
+  if (!already_parenthesized) {
+    print("(");
+  }
+  node->parameter_list()->Accept(this, data);
+  if (!already_parenthesized) {
+    print(")");
+  }
+  print("-> ");
+  node->body()->Accept(this, data);
 }
 
 void Unparser::visitASTExceptionHandler(const ASTExceptionHandler* node,

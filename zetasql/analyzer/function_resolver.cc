@@ -2294,9 +2294,6 @@ absl::Status CheckRange(
     T value, const ASTNode* arg_location, int idx,
     const FunctionArgumentTypeOptions& options,
     const std::function<std::string(int)>& BadArgErrorPrefix) {
-  static_assert(std::is_same_v<T, int64_t> || std::is_same_v<T, double> ||
-                    std::is_same_v<T, NumericValue>,
-                "CheckRange supports only int64_t, double, and NumericValue");
   // Currently all ranges have integer bounds.
   if (options.has_min_value()) {
     const int64_t min_value = options.min_value();
@@ -2359,6 +2356,10 @@ absl::Status FunctionResolver::CheckArgumentValueConstraints(
       case TYPE_NUMERIC:
         return CheckRange<NumericValue>(value.numeric_value(), arg_location,
                                         idx, options, BadArgErrorPrefix);
+      case TYPE_BIGNUMERIC:
+        return CheckRange<BigNumericValue>(value.bignumeric_value(),
+                                           arg_location, idx, options,
+                                           BadArgErrorPrefix);
       default:
         // For other types including UINT64, range check is not supported now.
         ZETASQL_RET_CHECK(!options.has_min_value());

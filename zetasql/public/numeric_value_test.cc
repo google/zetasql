@@ -559,10 +559,10 @@ zetasql_base::StatusOr<BigNumericValue> GetValue(const BigNumericValueWrapper& s
   return GetNumericValue<BigNumericValue>(src);
 }
 
-constexpr Error kBigNumericOverflow("BigNumeric overflow: ");
-constexpr Error kBigNumericOutOfRange("BigNumeric out of range: ");
+constexpr Error kBigNumericOverflow("BIGNUMERIC overflow: ");
+constexpr Error kBigNumericOutOfRange("BIGNUMERIC out of range: ");
 constexpr Error kBigNumericIllegalNonFinite(
-    "Illegal conversion of non-finite floating point number to BigNumeric: ");
+    "Illegal conversion of non-finite floating point number to BIGNUMERIC: ");
 
 template <typename Input = BigNumericValueWrapper,
           typename Output = BigNumericValueWrapper>
@@ -1661,6 +1661,154 @@ TEST_F(NumericValueTest, MultiplicationDivisionRoundTrip) {
       &random_);
 }
 
+template <typename T>
+double GetMaxErrorFromDoubleReference(double expected_value) {
+  static double kMinPositiveValue = T::FromScaledValue(1).ToDouble();
+  return std::max(kMinPositiveValue, std::scalbn(expected_value, -52));
+}
+
+TEST_F(NumericValueTest, Exp) {
+  static constexpr NumericUnaryOpTestData<> kTestData[] = {
+      {1, "2.718281828"},
+      {4, "54.598150033"},
+      {"-20.723265837", "1e-9"},
+      {"-1.2345", "0.290980216"},
+      {"-0.2", "0.818730753"},
+      {"1e-9", "1.000000001"},
+      {"0.000001234", "1.000001234"},
+      {"1.123456789", "3.07546709"},
+      {"12.123456789", "184140.952403667"},
+      {"30", "10686474581524.46214699"},
+      {"-23", "0"},
+      {"-21.416413018", "0"},
+      {"66.774967697", kNumericOverflow},
+      {"67", kNumericOverflow},
+      {kMinNumericValueStr, "0"},
+      {kMaxNumericValueStr, kNumericOverflow},
+  };
+
+  NumericExpOp op;
+  for (const NumericUnaryOpTestData<>& data : kTestData) {
+    TestUnaryOp(op, data.input, data.expected_output);
+  }
+}
+
+template <typename T>
+void TestExpWithRandomLosslessDoubleValue(uint max_integer_bits,
+                                          double max_valid_value_abs,
+                                          absl::BitGen* random) {
+  int trivial_case_count = 0;
+  for (int i = 0; i < 100000; ++i) {
+    double x;
+    do {
+      x = MakeLosslessRandomDoubleValue<T>(max_integer_bits, random);
+    } while (x > max_valid_value_abs || x < -max_valid_value_abs);
+    double approx_expected = std::exp(x);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue x_value,
+                         BigNumericValue::FromDouble(x));
+    auto result = x_value.Exp();
+    if (result.ok()) {
+      double expected_error =
+          GetMaxErrorFromDoubleReference<T>(approx_expected);
+      EXPECT_NEAR(result.ValueOrDie().ToDouble(), approx_expected,
+                  expected_error)
+          << "EXP(" << x_value.ToString() << ")";
+      if (result.ValueOrDie() == BigNumericValue()) {
+        trivial_case_count++;
+      }
+    } else {
+      EXPECT_GT(approx_expected, 5.78960446186580977e38)
+          << "EXP(" << x_value << "): expected " << approx_expected << "\ngot "
+          << result.status();
+      trivial_case_count++;
+    }
+  }
+  EXPECT_LT(trivial_case_count, 2000);
+}
+
+TEST_F(NumericValueTest, Exp_WithRandomLosslessDoubleValue) {
+  // LN(MaxNumericValue) is approximately equals to 66.775, so here we
+  // test value with maximum integer bit 7 for a value upper bound 128 to
+  // cover overflow cases.
+  TestExpWithRandomLosslessDoubleValue<NumericValue>(7, 66.8, &random_);
+}
+
+TEST_F(NumericValueTest, Ln) {
+  static constexpr Error kNegativeUndefinedError(
+      "LN is undefined for zero or negative value: ");
+  static constexpr NumericUnaryOpTestData<> kTestData[] = {
+      {"2.718281828", 1},
+      {"54.598150033", 4},
+      {"1e-9", "-20.723265837"},
+      {"0.000001234", "-13.605249632"},
+      {"0.123456789", "-2.091864071"},
+      {"1.123456789", "0.116410351"},
+      {"12345678901234567890123456789.123456789", "64.683103626"},
+      {kMaxNumericValueStr, "66.774967697"},
+      {-1, kNegativeUndefinedError},
+      {kMinNumericValueStr, kNegativeUndefinedError},
+      {0, kNegativeUndefinedError},
+  };
+
+  NumericLnOp op;
+  for (const NumericUnaryOpTestData<>& data : kTestData) {
+    TestUnaryOp(op, data.input, data.expected_output);
+  }
+}
+
+template <typename T>
+void TestLnWithRandomLosslessDoubleValue(uint max_integer_bits,
+                                         absl::BitGen* random) {
+  for (int i = 0; i < 10000; ++i) {
+    double x;
+    do {
+      x = std::abs(MakeLosslessRandomDoubleValue<T>(max_integer_bits, random));
+    } while (x == 0);
+    double approx_expected = std::log(x);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue x_value,
+                         BigNumericValue::FromDouble(x));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue result, x_value.Ln());
+    double expected_error = GetMaxErrorFromDoubleReference<T>(approx_expected);
+    EXPECT_NEAR(result.ToDouble(), approx_expected, expected_error)
+        << "LN(" << x_value.ToString() << ") = " << result.ToString()
+        << " double x: " << x;
+  }
+}
+
+TEST_F(NumericValueTest, Ln_WithRandomLosslessDoubleValue) {
+  TestLnWithRandomLosslessDoubleValue<BigNumericValue>(96, &random_);
+}
+
+template <typename T>
+void TestLnExpRoundTrip(const T& max_valid_exp_value, absl::BitGen* random) {
+  // Testing EXP(LN(x)) should be close to x.
+  for (int i = 0; i < 10000; ++i) {
+    T value = MakeRandomPositiveNumericValue<T>(random);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T result, value.Ln());
+    if (result > max_valid_exp_value) {
+      // Assign result to be max_valid_exp_value to avoid the out of range issue
+      // caused by round up in Ln.
+      result = max_valid_exp_value;
+    }
+    ZETASQL_ASSERT_OK_AND_ASSIGN(result, result.Exp());
+    // Due to precision limit, Ln will cause a precision loss at most
+    // MinPossibleValue of T, so that could cause precision loss of final result
+    // for at most x * EXP(MinPossibleValue), which approximately equals to x *
+    // MinPossibleValue.
+    T expect_error = T::FromScaledValue(1);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(expect_error, value.Multiply(expect_error));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T error, result.Subtract(value));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T error_abs, GetValue(error.Abs()));
+    EXPECT_LE(error_abs, expect_error);
+  }
+}
+
+TEST_F(NumericValueTest, LnExpRoundTrip) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue max_valid_exp_value,
+                       NumericValue::FromString("66.774967696"));
+  TestLnExpRoundTrip(max_valid_exp_value, &random_);
+}
+
 TEST_F(NumericValueTest, Power) {
   static constexpr Error kNegativeToFractionalError(
       "Negative NUMERIC value cannot be raised to a fractional power: ");
@@ -1687,6 +1835,7 @@ TEST_F(NumericValueTest, Power) {
       {"-1.00001", 10, "1.000100005"},
       {"1.5", 11, "86.497558594"},
       {"-1.5", 11, "-86.497558594"},
+      {"1.5", 140, "4495482048799565826089401.980417643"},
       {"1.001", 10000, "21916.681339078"},
       {"-1.001", 10000, "21916.681339078"},
 
@@ -1714,7 +1863,7 @@ TEST_F(NumericValueTest, Power) {
       {4, "2.5", 32},
       {4, "-2.5", "0.03125"},
       {"9e20", "0.5", "3e10"},
-      {kMaxNumericValueStr, "0.5", "316227766016837.9375"},
+      {kMaxNumericValueStr, "0.5", "316227766016837.933199889"},
       {"152415787806720022193399025", "0.5", "12345678912345"},
       {"1e10", "-0.5", "1e-5"},
       {"2e9", "-0.5", "0.000022361"},
@@ -1761,57 +1910,98 @@ TEST_F(NumericValueTest, Power) {
   for (const NumericBinaryOpTestData<>& data : kTestData) {
     TestBinaryOp(op, data.input1, data.input2, data.expected_output);
   }
-
-  // POW(1.5, 140): a case with inexact result
-  FixedInt<64, 4> expected_packed(int64_t{1000000000});
-  const int kExp = 140;
-  for (int i = 0; i < kExp; ++i) {
-    expected_packed *= uint64_t{3};
-  }
-  // Divide expected_packed by pow(2, 140);
-  // skip rounding (the resulting error is at most 1e-9).
-  expected_packed >>= kExp;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      NumericValue expected,
-      NumericValue::FromPackedInt(static_cast<__int128>(expected_packed)));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue actual_result,
-                       NumericValue::FromDouble(1.5));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(actual_result, actual_result.Power(NumericValue(kExp)));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue error, actual_result.Subtract(expected));
-  EXPECT_LT(error.Abs(), NumericValue(20));
 }
 
-TEST_F(NumericValueTest, Power_RandomCombinations) {
-  for (int i = 0; i < 100000; ++i) {
-    NumericValue x1 = MakeRandomNumeric().Abs();
-    NumericValue x2 = MakeRandomNumeric();
-    auto result = x1.Power(x2);
-    double approx_expected = std::pow(x1.ToDouble(), x2.ToDouble());
+template <typename T>
+void TestPowWithRandomLosslessDoubleValue(uint max_integer_bits,
+                                          absl::BitGen* random) {
+  int trivial_case_count = 0;
+  const double max_value = T::MaxValue().ToDouble();
+  for (int i = 0; i < 1000; ++i) {
+    double approx_expected =
+        MakeRandomPositiveNumericValue<T>(random).ToDouble();
+    double x = 0;
+    do {
+      x = std::abs(MakeLosslessRandomDoubleValue<T>(max_integer_bits, random));
+    } while (x == 0);
+    double approx_y = std::log(approx_expected) / std::log(x);
+    zetasql_base::MathUtil::DoubleParts y_parts = zetasql_base::MathUtil::Decompose(approx_y);
+    // Enforce exponent >= -T::kMaxFractionalDigits without increasing the bits
+    // in mantissa, so that mantissa * 2 ^ exponent can be losslessly
+    // represented by both double and T.
+    if (y_parts.exponent < -T::kMaxFractionalDigits) {
+      uint shift_bits = -T::kMaxFractionalDigits - y_parts.exponent;
+      // Use FixedInt to handle the cases with mantissa < 0 and those with
+      // shift_bits > 64.
+      FixedInt<64, 1> mantissa(y_parts.mantissa);
+      mantissa >>= shift_bits;
+      y_parts.mantissa = static_cast<int64_t>(mantissa.number()[0]);
+      y_parts.exponent = -T::kMaxFractionalDigits;
+    }
+    double y = std::ldexp(y_parts.mantissa, y_parts.exponent);
+    approx_expected = std::pow(x, y);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T x_value, T::FromDouble(x));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T y_value, T::FromDouble(y));
+    auto result = x_value.Power(y_value);
     if (result.ok()) {
+      double expected_error =
+          GetMaxErrorFromDoubleReference<T>(approx_expected);
       EXPECT_NEAR(result.ValueOrDie().ToDouble(), approx_expected,
-                  std::max(std::abs(approx_expected) * 1e-5, 1e-9))
-          << "POW(" << x1 << ", " << x2 << ")";
+                  expected_error)
+          << "POW(" << x_value.ToString() << ", " << y_value.ToString() << ")";
+      if (result.ValueOrDie() == T()) {
+        trivial_case_count++;
+      }
     } else {
-      EXPECT_TRUE(std::isnan(approx_expected) ||
-                  std::abs(approx_expected) > 9.9999e28)
-          << "POW(" << x1 << ", " << x2 << "): expected " << approx_expected
-          << "\ngot " << result.status();
+      EXPECT_TRUE(std::abs(approx_expected) > max_value)
+          << "POW(" << x_value << ", " << y_value << "): expected "
+          << approx_expected << "\ngot " << result.status();
+      trivial_case_count++;
     }
   }
+  EXPECT_LT(trivial_case_count, 50);
 }
 
-TEST_F(NumericValueTest, Power_PowersOfTwo) {
-  uint64_t oracle = 1;
-  for (int64_t exp = 0; exp < 63; ++exp, oracle <<= 1) {
-    EXPECT_THAT(NumericValue(2).Power(NumericValue(exp)),
-                IsOkAndHolds(NumericValue(oracle)));
-    NumericValue neg_oracle(oracle);
-    if ((exp % 2) != 0) {
-      neg_oracle = neg_oracle.Negate();
+TEST_F(NumericValueTest, Pow_WithRandomLosslessDoubleValue) {
+  TestPowWithRandomLosslessDoubleValue<NumericValue>(96, &random_);
+}
+
+template <typename T>
+void TestLnPowRoundTrip(const T& expect_relative_error_ratio,
+                        absl::BitGen* random) {
+  // Testing pow(y, ln(x) / ln(y)) should be close to x.
+  int trivial_case_count = 0;
+  for (int i = 0; i < 10000; ++i) {
+    T x_value = MakeRandomPositiveNumericValue<T>(random);
+    T y_value = MakeRandomPositiveNumericValue<T>(random);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T x_ln, x_value.Ln());
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T y_ln, y_value.Ln());
+    auto exponent_or_status = x_ln.Divide(y_ln);
+    if (!exponent_or_status.ok()) {
+      ++trivial_case_count;
+      continue;
     }
-    EXPECT_THAT(NumericValue(-2).Power(NumericValue(exp)),
-                IsOkAndHolds(neg_oracle));
+    T exponent = exponent_or_status.ValueOrDie();
+    auto result_or_status = y_value.Power(exponent);
+    if (result_or_status.status().code() == absl::StatusCode::kOutOfRange) {
+      // Round up in previous steps could cause out of range error.
+      ++trivial_case_count;
+      continue;
+    }
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T result, result_or_status);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T expect_error,
+                         x_value.Multiply(expect_relative_error_ratio));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T error, result.Subtract(x_value));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T error_abs, GetValue(error.Abs()));
+    EXPECT_LE(error_abs, expect_error);
   }
+  EXPECT_LT(trivial_case_count, 50);
+}
+
+TEST_F(NumericValueTest, LnPowRoundTrip) {
+  // 1e-3
+  NumericValue expect_error = NumericValue::FromScaledValue(100000);
+  TestLnPowRoundTrip(expect_error, &random_);
 }
 
 using FormatSpec = NumericValue::FormatSpec;
@@ -3111,11 +3301,6 @@ class BigNumericValueTest : public NumericValueTest {
   BigNumericValue MakeRandomBigNumeric() {
     return MakeRandomNumericValue<BigNumericValue>(&random_);
   }
-
-  double MakeLosslessRandomDoubleValue(int max_integer_bits = 128) {
-    return zetasql::MakeLosslessRandomDoubleValue<BigNumericValue>(
-        max_integer_bits, &random_);
-  }
 };
 
 constexpr absl::string_view kMinBigNumericValueStr =
@@ -3681,6 +3866,87 @@ TEST_F(BigNumericValueTest, Divide) {
   }
 }
 
+TEST_F(BigNumericValueTest, Exp) {
+  static constexpr BigNumericUnaryOpTestData<> kTestData[] = {
+      {1, "2.71828182845904523536028747135266249776"},
+      {4, "54.59815003314423907811026120286087840279073704"},
+      {"-87.49823353377373599268367527800583988884185657", "1e-38"},
+      {"-1.2345", "0.29098021610944063022937592691470534366"},
+      {"-0.2", "0.81873075307798185866993550861903942436"},
+      {"1e-38", "1.00000000000000000000000000000000000001"},
+      {"0.00000000000000000000123456789012345678",
+       "1.00000000000000000000123456789012345678"},
+      {"1.12345678901234567890123456789012345678",
+       "3.07546709031488470896944216141611590685"},
+      {"1.2345", "3.43665976117046318315183309106868322791"},
+      {"12.12345678901234567890123456789012345678",
+       "184140.95240594049518793644384330007811722404"},
+      {"70.45678",
+       "3971831050584175601252032799800."
+       "70334481656820226928188021413354803618"},
+      {"77.9",
+       "6784848274913494220240250206827303."
+       "45301438616356825349293562980103619621"},
+      {"-123", "0"},
+      {"89.26", kBigNumericOverflow},
+      {"91.17133256052693468518555164337158203125", kBigNumericOverflow},
+      {kMinBigNumericValueStr, "0"},
+      {kMaxBigNumericValueStr, kBigNumericOverflow},
+  };
+
+  NumericExpOp op;
+  for (const BigNumericUnaryOpTestData<>& data : kTestData) {
+    TestUnaryOp(op, data.input, data.expected_output);
+  }
+}
+
+TEST_F(BigNumericValueTest, Exp_WithRandomLosslessDoubleValue) {
+  // LN(MaxBigNumericValue) is approximately equals to 89.25, so here we
+  // test value with maximum integer bit 7 for a value upper bound 128 to
+  // cover overflow cases.
+  TestExpWithRandomLosslessDoubleValue<BigNumericValue>(7, 89.5, &random_);
+}
+
+TEST_F(BigNumericValueTest, Ln) {
+  static constexpr Error kNegativeUndefinedError(
+      "LN is undefined for zero or negative value: ");
+  static constexpr BigNumericUnaryOpTestData<> kTestData[] = {
+      {"2.718281828459045235360287471352662497757247094", 1},
+      {"54.59815003314423907811026120286087840279073704", 4},
+      {"1e-38", "-87.49823353377373599268367527800583988884"},
+      {"0.00000000000000000000123456789012345678",
+       "-48.14356593055930681062281890349302510108"},
+      {"0.12345678901234567890123456789012345678",
+       "-2.09186407067839312296298974419574032544"},
+      {"1.12345678901234567890123456789012345678",
+       "0.11641035085540028597889775880586929036"},
+      {"1.23456789", "0.2107210222156525610500017104882905489"},
+      {"12345678901234567890123456789012345678."
+       "12345678901234567890123456789012345678",
+       "85.40636946309534286972068553381009956342"},
+      {kMaxBigNumericValueStr, "89.25429750901231790871051569382918497041"},
+      {-1, kNegativeUndefinedError},
+      {kMinBigNumericValueStr, kNegativeUndefinedError},
+      {0, kNegativeUndefinedError},
+  };
+
+  NumericLnOp op;
+  for (const BigNumericUnaryOpTestData<>& data : kTestData) {
+    TestUnaryOp(op, data.input, data.expected_output);
+  }
+}
+
+TEST_F(BigNumericValueTest, Ln_WithRandomLosslessDoubleValue) {
+  TestLnWithRandomLosslessDoubleValue<BigNumericValue>(128, &random_);
+}
+
+TEST_F(BigNumericValueTest, LnExpRoundTrip) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      BigNumericValue max_valid_exp_value,
+      BigNumericValue::FromString("89.25429750901231790871051569382918497041"));
+  TestLnExpRoundTrip(max_valid_exp_value, &random_);
+}
+
 TEST_F(BigNumericValueTest, Power) {
   static constexpr Error kNegativeToFractionalError(
       "Negative BIGNUMERIC value cannot be raised to a fractional power: ");
@@ -3689,7 +3955,6 @@ TEST_F(BigNumericValueTest, Power) {
       {kMaxBigNumericValueStr, 0, 1},
       {kMinBigNumericValueStr, 0, 1},
       {0, 10, 0},
-      {"1e-38", 1, "1e-38"},
       {3, 1, 3},
       {-3, 1, -3},
       {3, 2, 9},
@@ -3698,30 +3963,72 @@ TEST_F(BigNumericValueTest, Power) {
       {-2, 15, -32768},
       {kMaxBigNumericValueStr, 1, kMaxBigNumericValueStr},
       {kMinBigNumericValueStr, 1, kMinBigNumericValueStr},
+      {"1e-38", 1, "1e-38"},
+      {"-1e-38", 1, "-1e-38"},
+      {"1e-19", 2, "1e-38"},
+      {"-1e-19", 2, "1e-38"},
+      {"1e-9", 4, "1e-36"},
+      {"-1e-9", 4, "1e-36"},
+      {"1e-7", 5, "1e-35"},
+      {"-1e-7", 5, "-1e-35"},
+      {"1e-5", 7, "1e-35"},
+      {"-1e-5", 7, "-1e-35"},
+      {"1e-4", 9, "1e-36"},
+      {"-1e-4", 9, "-1e-36"},
+      {"0.01", 18, "1e-36"},
+      {"-0.01", 18, "1e-36"},
+      {"0.01", 19, "1e-38"},
+      {"-0.01", 19, "-1e-38"},
       {"0.1", 2, "0.01"},
       {"0.1", 3, "0.001"},
       {"0.1", 4, "0.0001"},
       {"-0.1", 2, "0.01"},
       {"-0.1", 3, "-0.001"},
       {"-0.1", 4, "0.0001"},
+      {"-0.1", 37, "-1e-37"},
+      {"-0.1", 38, "1e-38"},
       {"1.00001", 10, "1.0001000045001200021000252002100012"},
       {"-1.00001", 10, "1.0001000045001200021000252002100012"},
       {"1.5", 11, "86.49755859375"},
       {"-1.5", 11, "-86.49755859375"},
+      {"1.5", 220,
+       "549638305763114488057221168491896929031"
+       ".59709044913294271498812453957094425637"},
       {"1.001", 10000, "21916.68133907842704378473867917442516044264"},
       {"-1.001", 10000, "21916.68133907842704378473867917442516044264"},
+      {"3.2", 38,
+       "15692754338466701909.58947355801916604025588861116008628224"},
+      {"10.24", 19,
+       "15692754338466701909.58947355801916604025588861116008628224"},
       {"1.12345678901234567890123456789012345678", 500,
-       "18975206307973218234625208."
-       "2822098051751045422557479717116721704157929799382952"},
+       "18975206307973218234625208"
+       ".2822098051751045422557479717116721704157929799382952"},
 
       // Negative exponent.
-      {"1e-38", -1, "1e38"},
       {5, -1, "0.2"},
       {-5, -1, "-0.2"},
       {1, -10, 1},
       {-1, -10, 1},
       {1, -11, 1},
       {-1, -11, -1},
+      {2, -22, "2.384185791015625e-7"},
+      {-2, -22, "2.384185791015625e-7"},
+      {"1e-38", -1, "1e38"},
+      {"-1e-38", -1, "-1e38"},
+      {"1e-19", -2, "1e38"},
+      {"-1e-19", -2, "1e38"},
+      {"1e-9", -4, "1e36"},
+      {"-1e-9", -4, "1e36"},
+      {"1e-7", -5, "1e35"},
+      {"-1e-7", -5, "-1e35"},
+      {"1e-5", -7, "1e35"},
+      {"-1e-5", -7, "-1e35"},
+      {"1e-4", -9, "1e36"},
+      {"-1e-4", -9, "-1e36"},
+      {"0.01", -18, "1e36"},
+      {"-0.01", -18, "1e36"},
+      {"0.01", -19, "1e38"},
+      {"-0.01", -19, "-1e38"},
       {"0.1", -1, 10},
       {"-0.1", -1, -10},
       {"0.1", -10, "1e10"},
@@ -3729,8 +4036,10 @@ TEST_F(BigNumericValueTest, Power) {
       {"0.1", -11, "1e11"},
       {"-0.1", -11, "-1e11"},
       {"0.1", -28, "1e28"},
-      {"2", -22, "2.384185791015625e-7"},
-      {"-2", -22, "2.384185791015625e-7"},
+      {"0.3125", -38,
+       "15692754338466701909.58947355801916604025588861116008628224"},
+      {"0.09765625", -19,
+       "15692754338466701909.58947355801916604025588861116008628224"},
 
       // Fractional exponent with exact result.
       {0, "0.5", 0},
@@ -3779,8 +4088,9 @@ TEST_F(BigNumericValueTest, Power) {
       {kMaxBigNumericValueStr, "0.5",
        "24061596916800451154.5033772477625056927114980741063148377"},
       {"123.456789", "12.3456789",
-       "66247931514706151179162891."
-       "219374273323081627744740027865335822713222813928912"},
+       "66247931514706151179162891"
+       ".219374273323081627744740027865335822713222813928912"},
+
       // Underflow.
       {kMaxBigNumericValueStr, -1, 0},
       {kMinBigNumericValueStr, -1, 0},
@@ -3805,8 +4115,8 @@ TEST_F(BigNumericValueTest, Power) {
        /* Actual value is approximately equal kMaxBigNumericValueStr+0.08*/},
       // TODO: improve pow precision to pass the following test.
       // {"1.0000000000000000000000000000000000006",
-      //  "148757162515020529847850859489715308328."
-      //  "34992332820282019728792003956564819967",
+      //  "148757162515020529847850859489715308328"
+      //  ".6449449111256868068668281536606165383",
       //  kBigNumericOverflow
       /* Actual value is approximately equal kMaxBigNumericValueStr+9.8e-37*/
       // },
@@ -3815,6 +4125,10 @@ TEST_F(BigNumericValueTest, Power) {
       {"0.567", "-157.30512975351341786893836610256977551362",
        kBigNumericOverflow
        /* Actual value is approximately equal kMaxBigNumericValueStr+2.59*/},
+      // Overflow after multiplication with fractional power.
+      {"3.4e19", "2.9", kBigNumericOverflow},
+      {"1.0000000000000000000000000000000000002", kMaxBigNumericValueStr,
+       kBigNumericOverflow},
 
       // DivisionByZero
       {0, -1, kDivisionByZero},
@@ -3837,241 +4151,16 @@ TEST_F(BigNumericValueTest, Power) {
   for (const BigNumericBinaryOpTestData<>& data : kTestData) {
     TestBinaryOp(op, data.input1, data.input2, data.expected_output);
   }
-
-  // POW(1.5, 220): a case with inexact result
-  FixedUint<64, 8> expected_packed(BigNumericValue::ScalingFactor());
-  const int kExp = 220;
-  for (int i = 0; i < kExp; ++i) {
-    expected_packed *= uint64_t{3};
-  }
-  // Divide expected_packed by pow(2, 220) and round.
-  FixedUint<64, 8> dividen(uint64_t{1});
-  dividen <<= kExp;
-  expected_packed.DivAndRoundAwayFromZero(dividen);
-  FixedUint<64, 4> expected_number(expected_packed);
-  BigNumericValue expected =
-      BigNumericValue::FromPackedLittleEndianArray(expected_number.number());
-  ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue actual_result,
-                       BigNumericValue::FromDouble(1.5));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(actual_result,
-                       actual_result.Power(BigNumericValue(kExp)));
-  EXPECT_EQ(expected, actual_result);
 }
 
 TEST_F(BigNumericValueTest, Pow_WithRandomLosslessDoubleValue) {
-  int trivial_case_count = 0;
-  for (int i = 0; i < 1000; ++i) {
-    double x = std::abs(MakeLosslessRandomDoubleValue());
-    // Ln of maximum of BigNumericValue is approximately equals to 89.25.
-    // Based on log(b,a) = ln(b)/ln(a), here we calculate max_y by dividing 89.3
-    // by ln(x) to cover overflow cases.
-    double max_y = 89.3 / std::log(x);
-    zetasql_base::MathUtil::DoubleParts max_y_parts = zetasql_base::MathUtil::Decompose(max_y);
-    int max_y_integer_bits =
-        max_y_parts.exponent + zetasql_base::Bits::FindMSBSetNonZero64(max_y_parts.mantissa);
-    double y = MakeLosslessRandomDoubleValue(max_y_integer_bits);
-    double approx_expected = std::pow(x, y);
-    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue x_value,
-                         BigNumericValue::FromDouble(x));
-    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue y_value,
-                         BigNumericValue::FromDouble(y));
-    auto result = x_value.Power(y_value);
-    if (result.ok()) {
-      zetasql_base::MathUtil::DoubleParts expected_parts =
-          zetasql_base::MathUtil::Decompose(approx_expected);
-      double expected_error =
-          std::max(1e-38, std::pow(2.0, expected_parts.exponent));
-      EXPECT_NEAR(result.ValueOrDie().ToDouble(), approx_expected,
-                  expected_error)
-          << "POW(" << x_value.ToString() << ", " << y_value.ToString() << ")";
-      if (result.ValueOrDie() == BigNumericValue()) {
-        trivial_case_count++;
-      }
-    } else {
-      EXPECT_TRUE(std::isnan(approx_expected) ||
-                  std::abs(approx_expected) >
-                      5.78960446186580955070694765308e38)
-          << "POW(" << x_value << ", " << y_value << "): expected "
-          << approx_expected << "\ngot " << result.status();
-      trivial_case_count++;
-    }
-  }
-  EXPECT_LT(trivial_case_count, 50);
+  TestPowWithRandomLosslessDoubleValue<BigNumericValue>(128, &random_);
 }
 
-TEST_F(BigNumericValueTest, Exp) {
-  static constexpr BigNumericUnaryOpTestData<> kTestData[] = {
-      {1, "2.71828182845904523536028747135266249776"},
-      {4, "54.59815003314423907811026120286087840279073704"},
-      {"-87.49823353377373599268367527800583988884185657", "1e-38"},
-      {"-1.2345", "0.29098021610944063022937592691470534366"},
-      {"-0.2", "0.81873075307798185866993550861903942436"},
-      {"1e-38", "1.00000000000000000000000000000000000001"},
-      {"0.00000000000000000000123456789012345678",
-       "1.00000000000000000000123456789012345678"},
-      {"1.12345678901234567890123456789012345678",
-       "3.07546709031488470896944216141611590685"},
-      {"1.2345", "3.43665976117046318315183309106868322791"},
-      {"12.12345678901234567890123456789012345678",
-       "184140.95240594049518793644384330007811722404"},
-      {"70.45678",
-       "3971831050584175601252032799800."
-       "70334481656820226928188021413354803618"},
-      {"77.9",
-       "6784848274913494220240250206827303."
-       "45301438616356825349293562980103619621"},
-      {"-123", "0"},
-      {"89.26", kBigNumericOverflow},
-      {"91.17133256052693468518555164337158203125", kBigNumericOverflow},
-      {kMinBigNumericValueStr, "0"},
-      {kMaxBigNumericValueStr, kBigNumericOverflow},
-  };
-
-  NumericExpOp op;
-  for (const BigNumericUnaryOpTestData<>& data : kTestData) {
-    TestUnaryOp(op, data.input, data.expected_output);
-  }
-}
-
-TEST_F(BigNumericValueTest, Exp_WithRandomLosslessDoubleValue) {
-  int trivial_case_count = 0;
-  for (int i = 0; i < 1000; ++i) {
-    // LN(MaxBigNumericValue) is approximately equals to 89.25, so here we
-    // generate value with maximum integer bit 7 for a value upper bound 128 to
-    // cover overflow cases.
-    double x = MakeLosslessRandomDoubleValue(7);
-    double approx_expected = std::exp(x);
-    zetasql_base::MathUtil::DoubleParts expected_parts = zetasql_base::MathUtil::Decompose(approx_expected);
-    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue x_value,
-                         BigNumericValue::FromDouble(x));
-    auto result = x_value.Exp();
-    if (result.ok()) {
-      double expected_error =
-          std::max(1e-38, std::pow(2.0, expected_parts.exponent));
-      EXPECT_NEAR(result.ValueOrDie().ToDouble(), approx_expected,
-                  expected_error)
-          << "EXP(" << x_value.ToString() << ")";
-      if (result.ValueOrDie() == BigNumericValue()) {
-        trivial_case_count++;
-      }
-    } else {
-      EXPECT_TRUE(std::isnan(approx_expected) ||
-                  std::abs(approx_expected) > 5.78960446186580977e38)
-          << "EXP(" << x_value << "): expected " << approx_expected << "\ngot "
-          << result.status();
-      trivial_case_count++;
-    }
-  }
-  EXPECT_LT(trivial_case_count, 350);
-}
-
-TEST_F(BigNumericValueTest, Ln) {
-  static constexpr Error kNegativeUndefinedError(
-      "LN is undefined for zero or negative value: ");
-  static constexpr BigNumericUnaryOpTestData<> kTestData[] = {
-      {"2.718281828459045235360287471352662497757247094", 1},
-      {"54.59815003314423907811026120286087840279073704", 4},
-      {"1e-38", "-87.49823353377373599268367527800583988884"},
-      {"0.00000000000000000000123456789012345678",
-       "-48.14356593055930681062281890349302510108"},
-      {"0.12345678901234567890123456789012345678",
-       "-2.09186407067839312296298974419574032544"},
-      {"1.12345678901234567890123456789012345678",
-       "0.11641035085540028597889775880586929036"},
-      {"1.23456789", "0.2107210222156525610500017104882905489"},
-      {"12345678901234567890123456789012345678."
-       "12345678901234567890123456789012345678",
-       "85.40636946309534286972068553381009956342"},
-      {kMaxBigNumericValueStr, "89.25429750901231790871051569382918497041"},
-      {-1, kNegativeUndefinedError},
-      {kMinBigNumericValueStr, kNegativeUndefinedError},
-      {0, kNegativeUndefinedError},
-  };
-
-  NumericLnOp op;
-  for (const BigNumericUnaryOpTestData<>& data : kTestData) {
-    TestUnaryOp(op, data.input, data.expected_output);
-  }
-}
-
-TEST_F(BigNumericValueTest, Ln_WithRandomLosslessDoubleValue) {
-  int trivial_case_count = 0;
-  for (int i = 0; i < 1000; ++i) {
-    double x = std::abs(MakeLosslessRandomDoubleValue());
-    double approx_expected = std::log(x);
-    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue x_value,
-                         BigNumericValue::FromDouble(x));
-    auto result = x_value.Ln();
-    zetasql_base::MathUtil::DoubleParts expected_parts = zetasql_base::MathUtil::Decompose(approx_expected);
-    if (result.ok()) {
-      double expected_error =
-          std::max(1e-38, std::pow(2.0, expected_parts.exponent));
-      EXPECT_NEAR(result.ValueOrDie().ToDouble(), approx_expected,
-                  expected_error)
-          << "LN(" << x_value.ToString()
-          << ") = " << result.ValueOrDie().ToString() << " double x: " << x;
-    } else {
-      EXPECT_TRUE(std::isnan(approx_expected) ||
-                  std::abs(approx_expected) > 5.78960446186580977e38)
-          << "LN(" << x_value << "): expected " << approx_expected << "\ngot "
-          << result.status();
-      trivial_case_count++;
-    }
-  }
-  EXPECT_LT(trivial_case_count, 50);
-}
-
-TEST_F(BigNumericValueTest, LnAndExpWithRandomValue) {
-  // Testing EXP(LN(x)) should be close to x.
-  for (int i = 0; i < 1000; ++i) {
-    BigNumericValue value = MakeRandomBigNumeric();
-    auto value_or_status = value.Abs();
-    if (!value_or_status.ok() || value.Sign() == 0) {
-      continue;
-    }
-    value = value_or_status.ValueOrDie();
-    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue result, value.Ln());
-    ZETASQL_ASSERT_OK_AND_ASSIGN(result, result.Exp());
-    // Due to precision limit, Ln will cause a precision loss at most 1e38,
-    // so that could cause precision loss of final result for at most
-    // x * EXP(1e-38), which approximately equals to x * 1e-38.
-    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue expect_error,
-                         BigNumericValue::FromString("1e-38"));
-    ZETASQL_ASSERT_OK_AND_ASSIGN(expect_error, value.Multiply(expect_error));
-    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue error, result.Subtract(value));
-    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue error_abs, error.Abs());
-    EXPECT_LE(error_abs, expect_error);
-  }
-}
-
-TEST_F(BigNumericValueTest, Pow_WithRandomValue) {
-  // Testing pow(y, ln(x) / ln(y)) should be close to x.
-  for (int i = 0; i < 1000; ++i) {
-    BigNumericValue x_value = MakeRandomBigNumeric();
-    BigNumericValue y_value = MakeRandomBigNumeric();
-    auto x_value_or_status = x_value.Abs();
-    auto y_value_or_status = y_value.Abs();
-    if (!x_value_or_status.ok() || !y_value_or_status.ok() ||
-        x_value.Sign() == 0 || y_value.Sign() == 0) {
-      continue;
-    }
-    x_value = x_value_or_status.ValueOrDie();
-    y_value = y_value_or_status.ValueOrDie();
-    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue x_ln, x_value.Ln());
-    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue y_ln, y_value.Ln());
-    auto exponent_or_status = x_ln.Divide(y_ln);
-    if (!exponent_or_status.ok()) {
-      continue;
-    }
-    BigNumericValue exponent = exponent_or_status.ValueOrDie();
-    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue result, y_value.Power(exponent));
-    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue expect_error,
-                         BigNumericValue::FromString("1e-29"));
-    ZETASQL_ASSERT_OK_AND_ASSIGN(expect_error, x_value.Multiply(expect_error));
-    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue error, result.Subtract(x_value));
-    ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue error_abs, error.Abs());
-    EXPECT_LE(error_abs, expect_error);
-  }
+TEST_F(BigNumericValueTest, LnPowRoundTrip) {
+  // 1e-32
+  BigNumericValue expect_error = BigNumericValue::FromScaledValue(1000000);
+  TestLnPowRoundTrip(expect_error, &random_);
 }
 
 TEST_F(BigNumericValueTest, MultiplicationDivisionRoundTrip) {
@@ -5013,7 +5102,7 @@ TEST_F(BigNumericValueTest, Negate) {
   }
   EXPECT_THAT(BigNumericValue::MinValue().Negate(),
               StatusIs(absl::StatusCode::kOutOfRange,
-                       absl::StrCat("BigNumeric overflow: -(",
+                       absl::StrCat("BIGNUMERIC overflow: -(",
                                     kMinBigNumericValueStr, ")")));
 }
 
@@ -5064,11 +5153,11 @@ TEST_F(BigNumericValueTest, Sign) {
 TEST_F(BigNumericValueTest, SerializeDeserializeInvalidProtoBytes) {
   EXPECT_THAT(
       BigNumericValue::DeserializeFromProtoBytes(""),
-      StatusIs(absl::StatusCode::kOutOfRange, "Invalid BigNumeric encoding"));
+      StatusIs(absl::StatusCode::kOutOfRange, "Invalid BIGNUMERIC encoding"));
   std::string bad_string(sizeof(BigNumericValue) + 1, '\x1');
   EXPECT_THAT(
       BigNumericValue::DeserializeFromProtoBytes(bad_string),
-      StatusIs(absl::StatusCode::kOutOfRange, "Invalid BigNumeric encoding"));
+      StatusIs(absl::StatusCode::kOutOfRange, "Invalid BIGNUMERIC encoding"));
 }
 
 TEST_F(BigNumericValueTest, ToInt32) {

@@ -1722,6 +1722,90 @@ class UnionAllOp : public RelationalOp {
   const int num_rel_;
 };
 
+// Executes a series of assignments, followed by a body in a loop.
+//
+// The recursion is initialized by creating new variables defined by each
+// variable in <initial_assign>. Then, RecursiveOp executes the body in a loop,
+// which continues until the body returns zero rows. After each run through the
+// body which returns at least one row, the assignments in <loop_assign> are
+// executed to advance the state for the next iteration.
+//
+// Variables are available in an expressions and in the body, once initialized.
+//
+// In pseudo-code, the behavior of iterating through a LoopOp is as follows:
+//
+// FOR EACH ExprArg a IN <initial_assign>:
+//   SET <a.variable()> = <a.value().Eval()>
+//
+// LOOP
+//   BOOL any_rows = false;
+//   FOR EACH TupleData row IN <body>:
+//     YIELD RETURN row;
+//     any_rows = true;
+//   IF (!any_rows):
+//     BREAK;
+//
+//   FOR EACH ExprArg a IN <loop_assign>:
+//     SET <a.variable()> = <a.value().Eval()>
+// END LOOP
+class LoopOp : public RelationalOp {
+ public:
+  static zetasql_base::StatusOr<std::unique_ptr<LoopOp>> Create(
+      std::vector<std::unique_ptr<ExprArg>> initial_assign,
+      std::unique_ptr<RelationalOp> body,
+      std::vector<std::unique_ptr<ExprArg>> loop_assign);
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  ::zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+      absl::Span<const TupleData* const> params, int num_extra_slots,
+      EvaluationContext* context) const override;
+
+  std::unique_ptr<TupleSchema> CreateOutputSchema() const override;
+
+  std::string IteratorDebugString() const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+  const RelationalOp* body() const;
+  int num_variables() const;
+  VariableId variable(int i) const;
+  const ValueExpr* initial_assign_expr(int i) const;
+
+  int num_loop_assign() const;
+  VariableId loop_assign_variable(int i) const;
+  const ValueExpr* loop_assign_expr(int i) const;
+
+  RelationalOp* mutable_body();
+  ValueExpr* mutable_initial_assign_expr(int i);
+  ValueExpr* mutable_loop_assign_expr(int i);
+
+  // Returns the index in <initial_assign_expr()> corresponding to the variable
+  // in <loop_assign_expr(i)>. Such an index must exist because LoopOp::Create()
+  // requires the variables used in <loop_assign_expr()> to be a subset of the
+  // variables used in <initial_assign_expr()>, as well as for the variables in
+  // <initial_assign_expr()> to be unique.
+  zetasql_base::StatusOr<int> GetVariableIndexFromLoopAssignIndex(int i) const;
+
+ private:
+  enum ArgKind { kInitialAssign, kBody, kLoopAssign };
+
+  LoopOp(std::vector<std::unique_ptr<ExprArg>> initial_assign,
+         std::unique_ptr<RelationalOp> body,
+         std::vector<std::unique_ptr<ExprArg>> loop_assign,
+         std::vector<int> loop_assign_indexes);
+
+  // For each value in loop_assign_expr(), stores the index in
+  // initial_assign_expr() of the corresponding variable being assigned to.
+  //
+  // Used to implement GetVariableIndexFromLoopAssignIndex() efficiently so that
+  // GetVariableIndexFromLoopAssignIndex(i) simply returns
+  // loop_assign_indexes_[i].
+  std::vector<int> loop_assign_indexes_;
+};
+
 // Augments the tuples from 'input' by 'map' slots computed for each tuple.
 // map[i + 1] may depend on variables produced by map[0]...map[i].
 class ComputeOp : public RelationalOp {
@@ -2114,6 +2198,46 @@ class GetProtoFieldExpr : public ValueExpr {
   ValueExpr* mutable_proto_expr();
 
   const ProtoFieldReader* field_reader_;
+};
+
+// Handles evaluating a flatten which merges the results over nested arrays.
+// See (broken link)
+class FlattenExpr : public ValueExpr {
+ public:
+  FlattenExpr(const FlattenExpr&) = delete;
+  FlattenExpr& operator=(const FlattenExpr&) = delete;
+
+  // Evaluated by starting with the expression, then walking through struct
+  // fields as provided, and then evaluating proto fields on the result.
+  //
+  // For each array point (which always includes expr), the next step is
+  // executed for each intermediate result.
+  static ::zetasql_base::StatusOr<std::unique_ptr<FlattenExpr>> Create(
+      const Type* output_type,
+      std::unique_ptr<ValueExpr> expr,
+      std::vector<int> struct_fields,
+      std::vector<const ProtoFieldReader*> proto_fields);
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  bool Eval(absl::Span<const TupleData* const> params,
+            EvaluationContext* context, VirtualTupleSlot* result,
+            absl::Status* status) const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  enum ArgKind { kExpr };
+
+  FlattenExpr(const Type* output_type,
+              std::unique_ptr<ValueExpr> expr,
+              std::vector<int> struct_fields,
+              std::vector<const ProtoFieldReader*> proto_fields);
+
+  std::vector<int> struct_fields_;
+  std::vector<const ProtoFieldReader*> proto_fields_;
 };
 
 // Nests 'element's of 'input' as an array. 'is_with_table' is true if this
@@ -3431,7 +3555,6 @@ class RootExpr : public ValueExpr {
 
   std::unique_ptr<RootData> root_data_;
 };
-
 }  // namespace zetasql
 
 #endif  // ZETASQL_REFERENCE_IMPL_OPERATOR_H_

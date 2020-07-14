@@ -881,6 +881,51 @@ of the two `from_item`s and discards all rows that do not meet the join
 condition. "Effectively" means that it is possible to implement an `INNER JOIN`
 without actually calculating the Cartesian product.
 
+```sql
+FROM A INNER JOIN B ON A.w = B.y
+
+Table A       Table B       Result
++-------+     +-------+     +---------------+
+| w | x |  *  | y | z |  =  | w | x | y | z |
++-------+     +-------+     +---------------+
+| 1 | a |     | 2 | d |     | 2 | b | 2 | d |
+| 2 | b |     | 3 | e |     | 3 | c | 3 | e |
+| 3 | c |     | 4 | f |     +---------------+
++-------+     +-------+
+```
+
+```sql
+FROM A INNER JOIN B USING (x)
+
+Table A       Table B       Result
++-------+     +-------+     +-----------+
+| x | y |  *  | x | z |  =  | x | y | z |
++-------+     +-------+     +-----------+
+| 1 | a |     | 2 | d |     | 2 | b | d |
+| 2 | b |     | 3 | e |     | 3 | c | e |
+| 3 | c |     | 4 | f |     +-----------+
++-------+     +-------+
+```
+
+**Example**
+
+This query performs an `INNER JOIN` on the [`Roster`][roster-table]
+and [`TeamMascot`][teammascot-table] tables.
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
+
++---------------------------+
+| LastName   | Mascot       |
++---------------------------+
+| Adams      | Jaguars      |
+| Buchanan   | Lakers       |
+| Coolidge   | Lakers       |
+| Davis      | Knights      |
++---------------------------+
+```
+
 ### CROSS JOIN
 
 `CROSS JOIN` returns the Cartesian product of the two `from_item`s. In other
@@ -889,45 +934,133 @@ second `from_item`. If there are *M* rows from the first and *N* rows from the
 second, the result is *M* * *N* rows. Note that if either `from_item` has zero
 rows, the result is zero rows.
 
-**Comma cross joins**
+```sql
+FROM A CROSS JOIN B
 
-`CROSS JOIN`s can be written explicitly (see directly above) or implicitly using
-a comma to separate the `from_item`s.
-
-Example of an implicit "comma cross join":
-
-```
-SELECT * FROM Roster, TeamMascot;
-```
-
-Here is the explicit cross join equivalent:
-
-```
-SELECT * FROM Roster CROSS JOIN TeamMascot;
+Table A       Table B       Result
++-------+     +-------+     +---------------+
+| w | x |  *  | y | z |  =  | w | x | y | z |
++-------+     +-------+     +---------------+
+| 1 | a |     | 2 | c |     | 1 | a | 2 | c |
+| 2 | b |     | 3 | d |     | 1 | a | 3 | d |
++-------+     +-------+     | 2 | b | 2 | c |
+                            | 2 | b | 3 | d |
+                            +---------------+
 ```
 
-You cannot write comma cross joins inside parentheses.
+`CROSS JOIN`s can be written explicitly like this:
 
-Invalid - comma cross join inside parentheses:
-
+```sql
+FROM a CROSS JOIN b
 ```
-SELECT * FROM t CROSS JOIN (Roster, TeamMascot);  // INVALID.
+
+Or implicitly as a comma cross join like this:
+
+```sql
+FROM a, b
+```
+
+You cannot write comma cross joins inside parentheses:
+
+```sql
+FROM a CROSS JOIN (b, c)  // INVALID
 ```
 
 See [Sequences of JOINs][sequences-of-joins] for details on how a comma cross
 join behaves in a sequence of JOINs.
+
+**Examples**
+
+This query performs an explicit `CROSS JOIN` on the [`Roster`][roster-table]
+and [`TeamMascot`][teammascot-table] tables.
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster CROSS JOIN TeamMascot;
+
++---------------------------+
+| LastName   | Mascot       |
++---------------------------+
+| Adams      | Jaguars      |
+| Adams      | Knights      |
+| Adams      | Lakers       |
+| Adams      | Mustangs     |
+| Buchanan   | Jaguars      |
+| Buchanan   | Knights      |
+| Buchanan   | Lakers       |
+| Buchanan   | Mustangs     |
+| ...                       |
++---------------------------+
+```
+
+This query performs a comma cross join that produces the same results as the
+explicit `CROSS JOIN` above:
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster, TeamMascot;
+```
 
 ### FULL [OUTER] JOIN
 
 A `FULL OUTER JOIN` (or simply `FULL JOIN`) returns all fields for all rows in
 both `from_item`s that meet the join condition.
 
-`FULL` indicates that <em>all rows</em> from both `from_item`s are
+`FULL` indicates that _all rows_ from both `from_item`s are
 returned, even if they do not meet the join condition.
 
 `OUTER` indicates that if a given row from one `from_item` does not
 join to any row in the other `from_item`, the row will return with NULLs
 for all columns from the other `from_item`.
+
+```sql
+FROM A FULL OUTER JOIN B ON A.w = B.y
+
+Table A       Table B       Result
++-------+     +-------+     +---------------------------+
+| w | x |  *  | y | z |  =  | w    | x    | y    | z    |
++-------+     +-------+     +---------------------------+
+| 1 | a |     | 2 | d |     | 1    | a    | NULL | NULL |
+| 2 | b |     | 3 | e |     | 2    | b    | 2    | d    |
+| 3 | c |     | 4 | f |     | 3    | c    | 3    | e    |
++-------+     +-------+     | NULL | NULL | 4    | f    |
+                            +---------------------------+
+```
+
+```sql
+FROM A FULL OUTER JOIN B USING (x)
+
+Table A       Table B       Result
++-------+     +-------+     +--------------------+
+| x | y |  *  | x | z |  =  | x    | y    | z    |
++-------+     +-------+     +--------------------+
+| 1 | a |     | 2 | d |     | 1    | a    | NULL |
+| 2 | b |     | 3 | e |     | 2    | b    | d    |
+| 3 | c |     | 4 | f |     | 3    | c    | e    |
++-------+     +-------+     | 4    | NULL | f    |
+                            +--------------------+
+```
+
+**Example**
+
+This query performs a `FULL JOIN` on the [`Roster`][roster-table]
+and [`TeamMascot`][teammascot-table] tables.
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster FULL JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
+
++---------------------------+
+| LastName   | Mascot       |
++---------------------------+
+| Adams      | Jaguars      |
+| Buchanan   | Lakers       |
+| Coolidge   | Lakers       |
+| Davis      | Knights      |
+| Eisenhower | NULL         |
+| NULL       | Mustangs     |
++---------------------------+
+```
 
 ### LEFT [OUTER] JOIN
 
@@ -936,16 +1069,108 @@ The result of a `LEFT OUTER JOIN` (or simply `LEFT JOIN`) for two
 `JOIN` clause, even if no rows in the right `from_item` satisfy the join
 predicate.
 
-`LEFT` indicates that all rows from the <em>left</em> `from_item` are
+`LEFT` indicates that all rows from the _left_ `from_item` are
 returned; if a given row from the left `from_item` does not join to any row
-in the <em>right</em> `from_item`, the row will return with NULLs for all
+in the _right_ `from_item`, the row will return with NULLs for all
 columns from the right `from_item`.  Rows from the right `from_item` that
 do not join to any row in the left `from_item` are discarded.
+
+```sql
+FROM A LEFT OUTER JOIN B ON A.w = B.y
+
+Table A       Table B       Result
++-------+     +-------+     +---------------------------+
+| w | x |  *  | y | z |  =  | w    | x    | y    | z    |
++-------+     +-------+     +---------------------------+
+| 1 | a |     | 2 | d |     | 1    | a    | NULL | NULL |
+| 2 | b |     | 3 | e |     | 2    | b    | 2    | d    |
+| 3 | c |     | 4 | f |     | 3    | c    | 3    | e    |
++-------+     +-------+     +---------------------------+
+```
+
+```sql
+FROM A LEFT OUTER JOIN B USING (x)
+
+Table A       Table B       Result
++-------+     +-------+     +--------------------+
+| x | y |  *  | x | z |  =  | x    | y    | z    |
++-------+     +-------+     +--------------------+
+| 1 | a |     | 2 | d |     | 1    | a    | NULL |
+| 2 | b |     | 3 | e |     | 2    | b    | d    |
+| 3 | c |     | 4 | f |     | 3    | c    | e    |
++-------+     +-------+     +--------------------+
+```
+
+**Example**
+
+This query performs a `LEFT JOIN` on the [`Roster`][roster-table]
+and [`TeamMascot`][teammascot-table] tables.
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster LEFT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
+
++---------------------------+
+| LastName   | Mascot       |
++---------------------------+
+| Adams      | Jaguars      |
+| Buchanan   | Lakers       |
+| Coolidge   | Lakers       |
+| Davis      | Knights      |
+| Eisenhower | NULL         |
++---------------------------+
+```
 
 ### RIGHT [OUTER] JOIN
 
 The result of a `RIGHT OUTER JOIN` (or simply `RIGHT JOIN`) is similar and
 symmetric to that of `LEFT OUTER JOIN`.
+
+```sql
+FROM A RIGHT OUTER JOIN B ON A.w = B.y
+
+Table A       Table B       Result
++-------+     +-------+     +---------------------------+
+| w | x |  *  | y | z |  =  | w    | x    | y    | z    |
++-------+     +-------+     +---------------------------+
+| 1 | a |     | 2 | d |     | 2    | b    | 2    | d    |
+| 2 | b |     | 3 | e |     | 3    | c    | 3    | e    |
+| 3 | c |     | 4 | f |     | NULL | NULL | 4    | f    |
++-------+     +-------+     +---------------------------+
+```
+
+```sql
+FROM A RIGHT OUTER JOIN B USING (x)
+
+Table A       Table B       Result
++-------+     +-------+     +--------------------+
+| x | y |  *  | x | z |  =  | x    | y    | z    |
++-------+     +-------+     +--------------------+
+| 1 | a |     | 2 | d |     | 2    | b    | d    |
+| 2 | b |     | 3 | e |     | 3    | c    | e    |
+| 3 | c |     | 4 | f |     | 4    | NULL | f    |
++-------+     +-------+     +--------------------+
+```
+
+**Example**
+
+This query performs a `RIGHT JOIN` on the [`Roster`][roster-table]
+and [`TeamMascot`][teammascot-table] tables.
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster RIGHT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
+
++---------------------------+
+| LastName   | Mascot       |
++---------------------------+
+| Adams      | Jaguars      |
+| Buchanan   | Lakers       |
+| Coolidge   | Lakers       |
+| Davis      | Knights      |
+| NULL       | Mustangs     |
++---------------------------+
+```
 
 <a id="on_clause"></a>
 ### ON clause
@@ -954,11 +1179,36 @@ The `ON` clause contains a `bool_expression`. A combined row (the result of
 joining two rows) meets the join condition if `bool_expression` returns
 TRUE.
 
-Example:
+```sql
+FROM A JOIN B ON A.x = B.x
 
+Table A   Table B   Result (A.x, B.x)
++---+     +---+     +-------+
+| x |  *  | x |  =  | x | x |
++---+     +---+     +-------+
+| 1 |     | 2 |     | 2 | 2 |
+| 2 |     | 3 |     | 3 | 3 |
+| 3 |     | 4 |     +-------+
++---+     +---+
 ```
-SELECT * FROM Roster INNER JOIN PlayerStats
-ON Roster.LastName = PlayerStats.LastName;
+
+**Example**
+
+This query performs an `INNER JOIN` on the
+[`Roster`][roster-table] and [`TeamMascot`][teammascot-table] table.
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
+
++---------------------------+
+| LastName   | Mascot       |
++---------------------------+
+| Adams      | Jaguars      |
+| Buchanan   | Lakers       |
+| Coolidge   | Lakers       |
+| Davis      | Knights      |
++---------------------------+
 ```
 
 <a id="using_clause"></a>
@@ -968,12 +1218,34 @@ The `USING` clause requires a `column_list` of one or more columns which
 occur in both input tables. It performs an equality comparison on that column,
 and the rows meet the join condition if the equality comparison returns TRUE.
 
-For example, consider this statement which performs an `INNER JOIN` on the
-[`Roster`][roster-table] and [`TeamMascot`][teammascot-table] table:
+```sql
+FROM A JOIN B USING (x)
+
+Table A   Table B   Result
++---+     +---+     +---+
+| x |  *  | x |  =  | x |
++---+     +---+     +---+
+| 1 |     | 2 |     | 2 |
+| 2 |     | 3 |     | 3 |
+| 3 |     | 4 |     +---+
++---+     +---+
+```
+
+**NOTE**: The `USING` keyword is not supported in
+strict
+mode.
+
+**Example**
+
+This query performs an `INNER JOIN` on the
+[`Roster`][roster-table] and [`TeamMascot`][teammascot-table] table.
+
+This statement returns the rows from `Roster` and `TeamMascot` where
+`Roster.SchooldID` is the same as `TeamMascot.SchooldID`.  The results include
+a single `SchooldID` column.
 
 ```sql
-SELECT * FROM Roster INNER JOIN TeamMascot
-USING (SchoolID);
+SELECT * FROM Roster INNER JOIN TeamMascot USING (SchoolID);
 
 +----------------------------------------+
 | SchoolID   | LastName   | Mascot       |
@@ -985,115 +1257,94 @@ USING (SchoolID);
 +----------------------------------------+
 ```
 
-This statement returns the rows from `Roster` and `TeamMascot` where
-`Roster.SchooldID` is the same as `TeamMascot.SchooldID`.  The results include
-a single `SchooldID` column.
+### ON and USING Equivalency
 
-In most cases, a statement with the `USING` keyword is equivalent to using the
-`ON` keyword.  For example, the statement which performs an `INNER JOIN` on
-the [`Roster`][roster-table] and [`PlayerStats`][playerstats-table] table:
+The `ON` and `USING` keywords are not equivalent, but they are similar.
+`ON` returns multiple columns, and `USING` returns one.
 
 ```sql
-SELECT LastName
-FROM Roster INNER JOIN PlayerStats
-USING (LastName);
+FROM A JOIN B ON A.x = B.x
+FROM A JOIN B USING (x)
+
+Table A   Table B   Result ON     Result USING
++---+     +---+     +-------+     +---+
+| x |  *  | x |  =  | x | x |     | x |
++---+     +---+     +-------+     +---+
+| 1 |     | 2 |     | 2 | 2 |     | 2 |
+| 2 |     | 3 |     | 3 | 3 |     | 3 |
+| 3 |     | 4 |     +-------+     +---+
++---+     +---+
 ```
 
-is equivalent to:
+Although `ON` and `USING` are not equivalent, they can return the same results
+if you specify the columns you want to return.
 
 ```sql
-SELECT Roster.LastName
-FROM Roster INNER JOIN PlayerStats
-ON Roster.LastName = PlayerStats.LastName;
+SELECT x FROM A JOIN B USING (x);
+SELECT A.x FROM A JOIN B ON A.x = B.x;
+
+Table A   Table B   Result
++---+     +---+     +---+
+| x |  *  | x |  =  | x |
++---+     +---+     +---+
+| 1 |     | 2 |     | 2 |
+| 2 |     | 3 |     | 3 |
+| 3 |     | 4 |     +---+
++---+     +---+
 ```
-
-The results from queries with `USING` do differ from queries that use `ON` when
-you use `SELECT *`. To illustrate this, consider the query:
-
-```sql
-SELECT * FROM Roster INNER JOIN PlayerStats
-USING (LastName);
-```
-
-This statement returns the rows from `Roster` and `PlayerStats` where
-`Roster.LastName` is the same as `PlayerStats.LastName`.  The results include a
-single `LastName` column.
-
-By contrast, consider the following query:
-
-```sql
-SELECT * FROM Roster INNER JOIN PlayerStats
-ON Roster.LastName = PlayerStats.LastName;
-```
-
-This statement returns the rows from `Roster` and `PlayerStats` where
-`Roster.LastName` is the same as `PlayerStats.LastName`.  The results include
-two `LastName` columns; one from `Roster` and one from `PlayerStats`.
-
-**NOTE**: The `USING` keyword is not supported in
-strict
-mode.
 
 <a id="sequences_of_joins"></a>
 ### Sequences of JOINs
 
-The `FROM` clause can contain multiple `JOIN` clauses in sequence.
+The `FROM` clause can contain multiple `JOIN` clauses in a sequence.
+`JOIN`s are bound from left to right. For example:
 
-Example:
+```sql
+FROM A JOIN B USING (x) JOIN C USING (x)
 
+-- A JOIN B USING (x)        = result_1
+-- result_1 JOIN C USING (x) = result_2
+-- result_2                  = return value
 ```
-SELECT * FROM a LEFT JOIN b ON TRUE LEFT JOIN c ON TRUE;
+
+You can also insert parentheses to group `JOIN`s:
+
+```sql
+FROM ( (A JOIN B USING (x)) JOIN C USING (x) )
+
+-- A JOIN B USING (x)        = result_1
+-- result_1 JOIN C USING (x) = result_2
+-- result_2                  = return value
 ```
 
-where `a`, `b`, and `c` are any `from_item`s. JOINs are bound from left to
-right, but you can insert parentheses to group them in a different order.
+With parentheses, you can group `JOIN`s so that they are bound in a different
+order:
 
-Consider the following queries: A (without parentheses) and B (with parentheses)
-are equivalent to each other but not to C. The `FULL JOIN` in **bold** binds
-first.
+```sql
+FROM ( A JOIN (B JOIN C USING (x)) USING (x) )
 
- A.
-
-<pre>
-SELECT * FROM Roster <b>FULL JOIN</b> TeamMascot USING (SchoolID)
-FULL JOIN PlayerStats USING (LastName);
-</pre>
-
-B.
-
-<pre>
-SELECT * FROM ( (Roster <b>FULL JOIN</b> TeamMascot USING (SchoolID))
-FULL JOIN PlayerStats USING (LastName));
-</pre>
-
-C.
-
-<pre>
-SELECT * FROM (Roster FULL JOIN (TeamMascot <b>FULL JOIN</b> PlayerStats USING
-(LastName)) USING (SchoolID)) ;
-</pre>
+-- B JOIN C USING (x)       = result_1
+-- A JOIN result_1          = result_2
+-- result_2                 = return value
+```
 
 When comma cross joins are present in a query with a sequence of JOINs, they
-group from left to right like other `JOIN` types.
+group from left to right like other `JOIN` types:
 
-Example:
+```sql
+FROM A JOIN B USING (x) JOIN C USING (x), D
 
-```
-SELECT * FROM a JOIN b ON TRUE, b JOIN c ON TRUE;
-```
-
-The query above is equivalent to
-
-```
-SELECT * FROM ((a JOIN b ON TRUE) CROSS JOIN b) JOIN c ON TRUE);
+-- A JOIN B USING (x)        = result_1
+-- result_1 JOIN C USING (x) = result_2
+-- result_2 CROSS JOIN D     = return value
 ```
 
-There cannot be a `RIGHT JOIN` or `FULL JOIN` after a comma join.
+There cannot be a `RIGHT JOIN` or `FULL JOIN` after a comma join:
 
-Invalid - `RIGHT JOIN` after a comma cross join:
-
-```
-SELECT * FROM Roster, TeamMascot RIGHT JOIN PlayerStats ON TRUE;  // INVALID.
+```sql
+FROM A, B RIGHT JOIN C ON TRUE // INVALID
+FROM A, B FULL JOIN C ON TRUE  // INVALID
+FROM A, B JOIN C ON TRUE       // VALID
 ```
 
 <a id="where_clause"></a>
@@ -1134,15 +1385,17 @@ equivalent expression using `CROSS JOIN` and `WHERE`.
 
 Example - this query:
 
-```
-SELECT * FROM Roster INNER JOIN TeamMascot
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster INNER JOIN TeamMascot
 ON Roster.SchoolID = TeamMascot.SchoolID;
 ```
 
 is equivalent to:
 
-```
-SELECT * FROM Roster CROSS JOIN TeamMascot
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster CROSS JOIN TeamMascot
 WHERE Roster.SchoolID = TeamMascot.SchoolID;
 ```
 
@@ -2128,365 +2381,9 @@ following rules apply:
 <a id=appendix_a_examples_with_sample_data></a>
 ## Appendix A: examples with sample data
 
-<a id="join_types_examples"></a>
-### JOIN types
-
-1) [INNER] JOIN
-
-Example:
-
-```
-SELECT * FROM Roster JOIN TeamMascot
-ON Roster.SchoolID = TeamMascot.SchoolID;
-```
-
-Results:
-
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>Roster.SchoolId</th>
-<th>TeamMascot.SchoolId</th>
-<th>Mascot</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-</tbody>
-</table>
-
-2) CROSS JOIN
-
-Example:
-
-```
-SELECT * FROM Roster CROSS JOIN TeamMascot;
-```
-
-Results:
-
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>Roster.SchoolId</th>
-<th>TeamMascot.SchoolId</th>
-<th>Mascot</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-</tbody>
-</table>
-
-3) FULL [OUTER] JOIN
-
-Example:
-
-```
-SELECT * FROM Roster FULL JOIN TeamMascot
-ON Roster.SchoolID = TeamMascot.SchoolID;
-```
-
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>Roster.SchoolId</th>
-<th>TeamMascot.SchoolId</th>
-<th>Mascot</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-<td>NULL</td>
-<td>NULL</td>
-</tr>
-<tr>
-<td>NULL</td>
-<td>NULL</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-</tbody>
-</table>
-
-4) LEFT [OUTER] JOIN
-
-Example:
-
-```
-SELECT * FROM Roster LEFT JOIN TeamMascot
-ON Roster.SchoolID = TeamMascot.SchoolID;
-```
-
-Results:
-
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>Roster.SchoolId</th>
-<th>TeamMascot.SchoolId</th>
-<th>Mascot</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-<td>NULL</td>
-<td>NULL</td>
-</tr>
-</tbody>
-</table>
-
-5) RIGHT [OUTER] JOIN
-
-Example:
-
-```
-SELECT * FROM Roster RIGHT JOIN TeamMascot
-ON Roster.SchoolID = TeamMascot.SchoolID;
-```
-
-Results:
-
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>Roster.SchoolId</th>
-<th>TeamMascot.SchoolId</th>
-<th>Mascot</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>NULL</td>
-<td>NULL</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-</tbody>
-</table>
+These examples include statements which perform queries on the
+[`Roster`][roster-table] and [`TeamMascot`][teammascot-table],
+and [`PlayerStats`][playerstats-table] tables.
 
 <a id=group_by_clause></a>
 ### GROUP BY clause

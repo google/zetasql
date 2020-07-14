@@ -106,10 +106,10 @@ cc_proto_library(
         #
         http_archive(
             name = "com_google_absl",
-            # Commit from 2020-03-03
-            url = "https://github.com/abseil/abseil-cpp/archive/b19ba96766db08b1f32605cb4424a0e7ea0c7584.tar.gz",
-            sha256 = "c7ff8decfbda0add222d44bdc27b47527ca4e76929291311474efe7354f663d3",
-            strip_prefix = "abseil-cpp-b19ba96766db08b1f32605cb4424a0e7ea0c7584",
+            # Commit from 2020-07-01
+            url = "https://github.com/abseil/abseil-cpp/archive/81f34df8347a73c617f244f49cb916238857dc34.tar.gz",
+            sha256 = "89b1c570dd59cebf5127ff96b9b46ae8a7fe352cab4f9198e20dc7749ab8aa16",
+            strip_prefix = "abseil-cpp-81f34df8347a73c617f244f49cb916238857dc34",
         )
 
     # Abseil (Python)

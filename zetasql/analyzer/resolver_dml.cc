@@ -904,7 +904,7 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
       absl::string_view function_name;
       const ASTExpression* unwrapped_ast_position_expr;
       // Verifies that 'info.target->type()' is an array.
-      ZETASQL_RETURN_IF_ERROR(ResolveArrayElementPosition(
+      ZETASQL_RETURN_IF_ERROR(ResolveArrayElementAccess(
           info.target.get(), array_element->position(), expr_resolution_info,
           &function_name, &unwrapped_ast_position_expr, &info.array_offset));
       if (function_name == kSafeArrayAtOffset) {

@@ -31,6 +31,7 @@
 #include "zetasql/public/strings.h"
 #include "absl/base/attributes.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -58,6 +59,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_ALTER_CONSTRAINT_SET_OPTIONS_ACTION] =
       "ASTAlterConstraintSetOptionsAction";
   map[AST_ALTER_DATABASE_STATEMENT] = "AlterDatabaseStatement";
+  map[AST_ALTER_ENTITY_STATEMENT] = "AlterEntityStatement";
   map[AST_ALTER_MATERIALIZED_VIEW_STATEMENT] = "AlterMaterializedViewStatement";
   map[AST_ALTER_ROW_ACCESS_POLICY_STATEMENT] = "AlterRowAccessPolicyStatement";
   map[AST_ALTER_ALL_ROW_ACCESS_POLICIES_STATEMENT] =
@@ -108,6 +110,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
       "CreateRowAccessPolicyStatement";
   map[AST_CREATE_TABLE_FUNCTION_STATEMENT] = "CreateTableFunctionStatement";
   map[AST_CREATE_TABLE_STATEMENT] = "CreateTableStatement";
+  map[AST_CREATE_ENTITY_STATEMENT] = "CreateEntityStatement";
   map[AST_CREATE_VIEW_STATEMENT] = "CreateViewStatement";
   map[AST_CREATE_MATERIALIZED_VIEW_STATEMENT] =
       "CreateMaterializedViewStatement";
@@ -127,6 +130,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
       "DropAllRowAccessPoliciesStatement";
   map[AST_DROP_COLUMN_ACTION] = "DropColumnAction";
   map[AST_DROP_CONSTRAINT_ACTION] = "DropConstraintAction";
+  map[AST_DROP_ENTITY_STATEMENT] = "DropEntityStatement";
   map[AST_DROP_FUNCTION_STATEMENT] = "DropFunctionStatement";
   map[AST_DROP_ROW_ACCESS_POLICY_STATEMENT] = "DropRowAccessPolicyStatement";
   map[AST_DROP_STATEMENT] = "DropStatement";
@@ -186,6 +190,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_INT_LITERAL] = "IntLiteral";
   map[AST_JOIN] = "Join";
   map[AST_JSON_LITERAL] = "JSONLiteral";
+  map[AST_LAMBDA] = "Lambda";
   map[AST_LIMIT_OFFSET] = "LimitOffset";
   map[AST_MERGE_ACTION] = "MergeAction";
   map[AST_MERGE_STATEMENT] = "MergeStatement";
@@ -240,6 +245,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_SELECT] = "Select";
   map[AST_SET_OPERATION] = "SetOperation";
   map[AST_SET_OPTIONS_ACTION] = "SetOptionsOperation";
+  map[AST_SET_AS_ACTION] = "SetAsOperation";
   map[AST_SET_TRANSACTION_STATEMENT] = "SetTransaction";
   map[AST_SINGLE_ASSIGNMENT] = "SingleAssignment";
   map[AST_SHOW_STATEMENT] = "ShowStatement";
@@ -708,6 +714,14 @@ std::string ASTDropStatement::SingleNodeDebugString() const {
   const std::string out =
       absl::StrCat(ASTNode::SingleNodeDebugString(), " ",
                    SchemaObjectKindToName(schema_object_kind()));
+  if (!is_if_exists()) {
+    return out;
+  }
+  return absl::StrCat(out, "(is_if_exists)");
+}
+
+std::string ASTDropEntityStatement::SingleNodeDebugString() const {
+  const std::string out = ASTNode::SingleNodeDebugString();
   if (!is_if_exists()) {
     return out;
   }
@@ -1269,6 +1283,10 @@ std::string ASTCheckConstraint::SingleNodeDebugString() const {
 
 std::string ASTSetOptionsAction::GetSQLForAlterAction() const {
   return "SET OPTIONS";
+}
+
+std::string ASTSetAsAction::GetSQLForAlterAction() const {
+  return "SET AS";
 }
 
 std::string ASTAddConstraintAction::SingleNodeDebugString() const {

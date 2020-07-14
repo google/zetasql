@@ -78,6 +78,7 @@ cc_library(
         "-Wno-unused-function",
     ],
     deps = [
+        "//zetasql/public:type_cc_proto",
         "//zetasql/public/functions:json",
         "//zetasql/reference_impl:evaluation",
     ],

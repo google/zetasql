@@ -798,9 +798,10 @@ Syntax:
 @parameter_name
 ```
 
-A named query parameter is denoted using an identifier preceded by the
-`@` character. Named query parameters cannot
-be used alongside [positional query parameters][positional-query-parameters].
+A named query parameter is denoted using an [identifier][lexical-identifiers]
+preceded by the `@` character. Named query
+parameters cannot be used alongside [positional query parameters][positional-
+query-parameters]. 
 
 **Example:**
 

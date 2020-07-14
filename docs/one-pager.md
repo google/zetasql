@@ -811,9 +811,10 @@ Syntax:
 @parameter_name
 ```
 
-A named query parameter is denoted using an identifier preceded by the
-`@` character. Named query parameters cannot
-be used alongside [positional query parameters][positional-query-parameters].
+A named query parameter is denoted using an [identifier][lexical-identifiers]
+preceded by the `@` character. Named query
+parameters cannot be used alongside [positional query parameters][positional-
+query-parameters]. 
 
 **Example:**
 
@@ -2345,7 +2346,7 @@ types are compared when they have fields that are `NULL` valued.
 </tr>
 <tr>
 <td><code>STRUCT(1,2)</code></td>
-<td><code>STRUCT(1, NULL)</code</td>
+<td><code>STRUCT(1, NULL)</code></td>
 <td><code>NULL</code></td>
 </tr>
 </tbody>
@@ -4972,6 +4973,51 @@ of the two `from_item`s and discards all rows that do not meet the join
 condition. "Effectively" means that it is possible to implement an `INNER JOIN`
 without actually calculating the Cartesian product.
 
+```sql
+FROM A INNER JOIN B ON A.w = B.y
+
+Table A       Table B       Result
++-------+     +-------+     +---------------+
+| w | x |  *  | y | z |  =  | w | x | y | z |
++-------+     +-------+     +---------------+
+| 1 | a |     | 2 | d |     | 2 | b | 2 | d |
+| 2 | b |     | 3 | e |     | 3 | c | 3 | e |
+| 3 | c |     | 4 | f |     +---------------+
++-------+     +-------+
+```
+
+```sql
+FROM A INNER JOIN B USING (x)
+
+Table A       Table B       Result
++-------+     +-------+     +-----------+
+| x | y |  *  | x | z |  =  | x | y | z |
++-------+     +-------+     +-----------+
+| 1 | a |     | 2 | d |     | 2 | b | d |
+| 2 | b |     | 3 | e |     | 3 | c | e |
+| 3 | c |     | 4 | f |     +-----------+
++-------+     +-------+
+```
+
+**Example**
+
+This query performs an `INNER JOIN` on the [`Roster`][roster-table]
+and [`TeamMascot`][teammascot-table] tables.
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
+
++---------------------------+
+| LastName   | Mascot       |
++---------------------------+
+| Adams      | Jaguars      |
+| Buchanan   | Lakers       |
+| Coolidge   | Lakers       |
+| Davis      | Knights      |
++---------------------------+
+```
+
 #### CROSS JOIN
 
 `CROSS JOIN` returns the Cartesian product of the two `from_item`s. In other
@@ -4980,45 +5026,133 @@ second `from_item`. If there are *M* rows from the first and *N* rows from the
 second, the result is *M* * *N* rows. Note that if either `from_item` has zero
 rows, the result is zero rows.
 
-**Comma cross joins**
+```sql
+FROM A CROSS JOIN B
 
-`CROSS JOIN`s can be written explicitly (see directly above) or implicitly using
-a comma to separate the `from_item`s.
-
-Example of an implicit "comma cross join":
-
-```
-SELECT * FROM Roster, TeamMascot;
-```
-
-Here is the explicit cross join equivalent:
-
-```
-SELECT * FROM Roster CROSS JOIN TeamMascot;
+Table A       Table B       Result
++-------+     +-------+     +---------------+
+| w | x |  *  | y | z |  =  | w | x | y | z |
++-------+     +-------+     +---------------+
+| 1 | a |     | 2 | c |     | 1 | a | 2 | c |
+| 2 | b |     | 3 | d |     | 1 | a | 3 | d |
++-------+     +-------+     | 2 | b | 2 | c |
+                            | 2 | b | 3 | d |
+                            +---------------+
 ```
 
-You cannot write comma cross joins inside parentheses.
+`CROSS JOIN`s can be written explicitly like this:
 
-Invalid - comma cross join inside parentheses:
-
+```sql
+FROM a CROSS JOIN b
 ```
-SELECT * FROM t CROSS JOIN (Roster, TeamMascot);  // INVALID.
+
+Or implicitly as a comma cross join like this:
+
+```sql
+FROM a, b
+```
+
+You cannot write comma cross joins inside parentheses:
+
+```sql
+FROM a CROSS JOIN (b, c)  // INVALID
 ```
 
 See [Sequences of JOINs][sequences-of-joins] for details on how a comma cross
 join behaves in a sequence of JOINs.
+
+**Examples**
+
+This query performs an explicit `CROSS JOIN` on the [`Roster`][roster-table]
+and [`TeamMascot`][teammascot-table] tables.
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster CROSS JOIN TeamMascot;
+
++---------------------------+
+| LastName   | Mascot       |
++---------------------------+
+| Adams      | Jaguars      |
+| Adams      | Knights      |
+| Adams      | Lakers       |
+| Adams      | Mustangs     |
+| Buchanan   | Jaguars      |
+| Buchanan   | Knights      |
+| Buchanan   | Lakers       |
+| Buchanan   | Mustangs     |
+| ...                       |
++---------------------------+
+```
+
+This query performs a comma cross join that produces the same results as the
+explicit `CROSS JOIN` above:
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster, TeamMascot;
+```
 
 #### FULL [OUTER] JOIN
 
 A `FULL OUTER JOIN` (or simply `FULL JOIN`) returns all fields for all rows in
 both `from_item`s that meet the join condition.
 
-`FULL` indicates that <em>all rows</em> from both `from_item`s are
+`FULL` indicates that _all rows_ from both `from_item`s are
 returned, even if they do not meet the join condition.
 
 `OUTER` indicates that if a given row from one `from_item` does not
 join to any row in the other `from_item`, the row will return with NULLs
 for all columns from the other `from_item`.
+
+```sql
+FROM A FULL OUTER JOIN B ON A.w = B.y
+
+Table A       Table B       Result
++-------+     +-------+     +---------------------------+
+| w | x |  *  | y | z |  =  | w    | x    | y    | z    |
++-------+     +-------+     +---------------------------+
+| 1 | a |     | 2 | d |     | 1    | a    | NULL | NULL |
+| 2 | b |     | 3 | e |     | 2    | b    | 2    | d    |
+| 3 | c |     | 4 | f |     | 3    | c    | 3    | e    |
++-------+     +-------+     | NULL | NULL | 4    | f    |
+                            +---------------------------+
+```
+
+```sql
+FROM A FULL OUTER JOIN B USING (x)
+
+Table A       Table B       Result
++-------+     +-------+     +--------------------+
+| x | y |  *  | x | z |  =  | x    | y    | z    |
++-------+     +-------+     +--------------------+
+| 1 | a |     | 2 | d |     | 1    | a    | NULL |
+| 2 | b |     | 3 | e |     | 2    | b    | d    |
+| 3 | c |     | 4 | f |     | 3    | c    | e    |
++-------+     +-------+     | 4    | NULL | f    |
+                            +--------------------+
+```
+
+**Example**
+
+This query performs a `FULL JOIN` on the [`Roster`][roster-table]
+and [`TeamMascot`][teammascot-table] tables.
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster FULL JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
+
++---------------------------+
+| LastName   | Mascot       |
++---------------------------+
+| Adams      | Jaguars      |
+| Buchanan   | Lakers       |
+| Coolidge   | Lakers       |
+| Davis      | Knights      |
+| Eisenhower | NULL         |
+| NULL       | Mustangs     |
++---------------------------+
+```
 
 #### LEFT [OUTER] JOIN
 
@@ -5027,16 +5161,108 @@ The result of a `LEFT OUTER JOIN` (or simply `LEFT JOIN`) for two
 `JOIN` clause, even if no rows in the right `from_item` satisfy the join
 predicate.
 
-`LEFT` indicates that all rows from the <em>left</em> `from_item` are
+`LEFT` indicates that all rows from the _left_ `from_item` are
 returned; if a given row from the left `from_item` does not join to any row
-in the <em>right</em> `from_item`, the row will return with NULLs for all
+in the _right_ `from_item`, the row will return with NULLs for all
 columns from the right `from_item`.  Rows from the right `from_item` that
 do not join to any row in the left `from_item` are discarded.
+
+```sql
+FROM A LEFT OUTER JOIN B ON A.w = B.y
+
+Table A       Table B       Result
++-------+     +-------+     +---------------------------+
+| w | x |  *  | y | z |  =  | w    | x    | y    | z    |
++-------+     +-------+     +---------------------------+
+| 1 | a |     | 2 | d |     | 1    | a    | NULL | NULL |
+| 2 | b |     | 3 | e |     | 2    | b    | 2    | d    |
+| 3 | c |     | 4 | f |     | 3    | c    | 3    | e    |
++-------+     +-------+     +---------------------------+
+```
+
+```sql
+FROM A LEFT OUTER JOIN B USING (x)
+
+Table A       Table B       Result
++-------+     +-------+     +--------------------+
+| x | y |  *  | x | z |  =  | x    | y    | z    |
++-------+     +-------+     +--------------------+
+| 1 | a |     | 2 | d |     | 1    | a    | NULL |
+| 2 | b |     | 3 | e |     | 2    | b    | d    |
+| 3 | c |     | 4 | f |     | 3    | c    | e    |
++-------+     +-------+     +--------------------+
+```
+
+**Example**
+
+This query performs a `LEFT JOIN` on the [`Roster`][roster-table]
+and [`TeamMascot`][teammascot-table] tables.
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster LEFT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
+
++---------------------------+
+| LastName   | Mascot       |
++---------------------------+
+| Adams      | Jaguars      |
+| Buchanan   | Lakers       |
+| Coolidge   | Lakers       |
+| Davis      | Knights      |
+| Eisenhower | NULL         |
++---------------------------+
+```
 
 #### RIGHT [OUTER] JOIN
 
 The result of a `RIGHT OUTER JOIN` (or simply `RIGHT JOIN`) is similar and
 symmetric to that of `LEFT OUTER JOIN`.
+
+```sql
+FROM A RIGHT OUTER JOIN B ON A.w = B.y
+
+Table A       Table B       Result
++-------+     +-------+     +---------------------------+
+| w | x |  *  | y | z |  =  | w    | x    | y    | z    |
++-------+     +-------+     +---------------------------+
+| 1 | a |     | 2 | d |     | 2    | b    | 2    | d    |
+| 2 | b |     | 3 | e |     | 3    | c    | 3    | e    |
+| 3 | c |     | 4 | f |     | NULL | NULL | 4    | f    |
++-------+     +-------+     +---------------------------+
+```
+
+```sql
+FROM A RIGHT OUTER JOIN B USING (x)
+
+Table A       Table B       Result
++-------+     +-------+     +--------------------+
+| x | y |  *  | x | z |  =  | x    | y    | z    |
++-------+     +-------+     +--------------------+
+| 1 | a |     | 2 | d |     | 2    | b    | d    |
+| 2 | b |     | 3 | e |     | 3    | c    | e    |
+| 3 | c |     | 4 | f |     | 4    | NULL | f    |
++-------+     +-------+     +--------------------+
+```
+
+**Example**
+
+This query performs a `RIGHT JOIN` on the [`Roster`][roster-table]
+and [`TeamMascot`][teammascot-table] tables.
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster RIGHT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
+
++---------------------------+
+| LastName   | Mascot       |
++---------------------------+
+| Adams      | Jaguars      |
+| Buchanan   | Lakers       |
+| Coolidge   | Lakers       |
+| Davis      | Knights      |
+| NULL       | Mustangs     |
++---------------------------+
+```
 
 <a id="on_clause"></a>
 #### ON clause
@@ -5045,11 +5271,36 @@ The `ON` clause contains a `bool_expression`. A combined row (the result of
 joining two rows) meets the join condition if `bool_expression` returns
 TRUE.
 
-Example:
+```sql
+FROM A JOIN B ON A.x = B.x
 
+Table A   Table B   Result (A.x, B.x)
++---+     +---+     +-------+
+| x |  *  | x |  =  | x | x |
++---+     +---+     +-------+
+| 1 |     | 2 |     | 2 | 2 |
+| 2 |     | 3 |     | 3 | 3 |
+| 3 |     | 4 |     +-------+
++---+     +---+
 ```
-SELECT * FROM Roster INNER JOIN PlayerStats
-ON Roster.LastName = PlayerStats.LastName;
+
+**Example**
+
+This query performs an `INNER JOIN` on the
+[`Roster`][roster-table] and [`TeamMascot`][teammascot-table] table.
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
+
++---------------------------+
+| LastName   | Mascot       |
++---------------------------+
+| Adams      | Jaguars      |
+| Buchanan   | Lakers       |
+| Coolidge   | Lakers       |
+| Davis      | Knights      |
++---------------------------+
 ```
 
 <a id="using_clause"></a>
@@ -5059,12 +5310,34 @@ The `USING` clause requires a `column_list` of one or more columns which
 occur in both input tables. It performs an equality comparison on that column,
 and the rows meet the join condition if the equality comparison returns TRUE.
 
-For example, consider this statement which performs an `INNER JOIN` on the
-[`Roster`][roster-table] and [`TeamMascot`][teammascot-table] table:
+```sql
+FROM A JOIN B USING (x)
+
+Table A   Table B   Result
++---+     +---+     +---+
+| x |  *  | x |  =  | x |
++---+     +---+     +---+
+| 1 |     | 2 |     | 2 |
+| 2 |     | 3 |     | 3 |
+| 3 |     | 4 |     +---+
++---+     +---+
+```
+
+**NOTE**: The `USING` keyword is not supported in
+strict
+mode.
+
+**Example**
+
+This query performs an `INNER JOIN` on the
+[`Roster`][roster-table] and [`TeamMascot`][teammascot-table] table.
+
+This statement returns the rows from `Roster` and `TeamMascot` where
+`Roster.SchooldID` is the same as `TeamMascot.SchooldID`.  The results include
+a single `SchooldID` column.
 
 ```sql
-SELECT * FROM Roster INNER JOIN TeamMascot
-USING (SchoolID);
+SELECT * FROM Roster INNER JOIN TeamMascot USING (SchoolID);
 
 +----------------------------------------+
 | SchoolID   | LastName   | Mascot       |
@@ -5076,115 +5349,94 @@ USING (SchoolID);
 +----------------------------------------+
 ```
 
-This statement returns the rows from `Roster` and `TeamMascot` where
-`Roster.SchooldID` is the same as `TeamMascot.SchooldID`.  The results include
-a single `SchooldID` column.
+#### ON and USING Equivalency
 
-In most cases, a statement with the `USING` keyword is equivalent to using the
-`ON` keyword.  For example, the statement which performs an `INNER JOIN` on
-the [`Roster`][roster-table] and [`PlayerStats`][playerstats-table] table:
+The `ON` and `USING` keywords are not equivalent, but they are similar.
+`ON` returns multiple columns, and `USING` returns one.
 
 ```sql
-SELECT LastName
-FROM Roster INNER JOIN PlayerStats
-USING (LastName);
+FROM A JOIN B ON A.x = B.x
+FROM A JOIN B USING (x)
+
+Table A   Table B   Result ON     Result USING
++---+     +---+     +-------+     +---+
+| x |  *  | x |  =  | x | x |     | x |
++---+     +---+     +-------+     +---+
+| 1 |     | 2 |     | 2 | 2 |     | 2 |
+| 2 |     | 3 |     | 3 | 3 |     | 3 |
+| 3 |     | 4 |     +-------+     +---+
++---+     +---+
 ```
 
-is equivalent to:
+Although `ON` and `USING` are not equivalent, they can return the same results
+if you specify the columns you want to return.
 
 ```sql
-SELECT Roster.LastName
-FROM Roster INNER JOIN PlayerStats
-ON Roster.LastName = PlayerStats.LastName;
+SELECT x FROM A JOIN B USING (x);
+SELECT A.x FROM A JOIN B ON A.x = B.x;
+
+Table A   Table B   Result
++---+     +---+     +---+
+| x |  *  | x |  =  | x |
++---+     +---+     +---+
+| 1 |     | 2 |     | 2 |
+| 2 |     | 3 |     | 3 |
+| 3 |     | 4 |     +---+
++---+     +---+
 ```
-
-The results from queries with `USING` do differ from queries that use `ON` when
-you use `SELECT *`. To illustrate this, consider the query:
-
-```sql
-SELECT * FROM Roster INNER JOIN PlayerStats
-USING (LastName);
-```
-
-This statement returns the rows from `Roster` and `PlayerStats` where
-`Roster.LastName` is the same as `PlayerStats.LastName`.  The results include a
-single `LastName` column.
-
-By contrast, consider the following query:
-
-```sql
-SELECT * FROM Roster INNER JOIN PlayerStats
-ON Roster.LastName = PlayerStats.LastName;
-```
-
-This statement returns the rows from `Roster` and `PlayerStats` where
-`Roster.LastName` is the same as `PlayerStats.LastName`.  The results include
-two `LastName` columns; one from `Roster` and one from `PlayerStats`.
-
-**NOTE**: The `USING` keyword is not supported in
-strict
-mode.
 
 <a id="sequences_of_joins"></a>
 #### Sequences of JOINs
 
-The `FROM` clause can contain multiple `JOIN` clauses in sequence.
+The `FROM` clause can contain multiple `JOIN` clauses in a sequence.
+`JOIN`s are bound from left to right. For example:
 
-Example:
+```sql
+FROM A JOIN B USING (x) JOIN C USING (x)
 
+-- A JOIN B USING (x)        = result_1
+-- result_1 JOIN C USING (x) = result_2
+-- result_2                  = return value
 ```
-SELECT * FROM a LEFT JOIN b ON TRUE LEFT JOIN c ON TRUE;
+
+You can also insert parentheses to group `JOIN`s:
+
+```sql
+FROM ( (A JOIN B USING (x)) JOIN C USING (x) )
+
+-- A JOIN B USING (x)        = result_1
+-- result_1 JOIN C USING (x) = result_2
+-- result_2                  = return value
 ```
 
-where `a`, `b`, and `c` are any `from_item`s. JOINs are bound from left to
-right, but you can insert parentheses to group them in a different order.
+With parentheses, you can group `JOIN`s so that they are bound in a different
+order:
 
-Consider the following queries: A (without parentheses) and B (with parentheses)
-are equivalent to each other but not to C. The `FULL JOIN` in **bold** binds
-first.
+```sql
+FROM ( A JOIN (B JOIN C USING (x)) USING (x) )
 
- A.
-
-<pre>
-SELECT * FROM Roster <b>FULL JOIN</b> TeamMascot USING (SchoolID)
-FULL JOIN PlayerStats USING (LastName);
-</pre>
-
-B.
-
-<pre>
-SELECT * FROM ( (Roster <b>FULL JOIN</b> TeamMascot USING (SchoolID))
-FULL JOIN PlayerStats USING (LastName));
-</pre>
-
-C.
-
-<pre>
-SELECT * FROM (Roster FULL JOIN (TeamMascot <b>FULL JOIN</b> PlayerStats USING
-(LastName)) USING (SchoolID)) ;
-</pre>
+-- B JOIN C USING (x)       = result_1
+-- A JOIN result_1          = result_2
+-- result_2                 = return value
+```
 
 When comma cross joins are present in a query with a sequence of JOINs, they
-group from left to right like other `JOIN` types.
+group from left to right like other `JOIN` types:
 
-Example:
+```sql
+FROM A JOIN B USING (x) JOIN C USING (x), D
 
-```
-SELECT * FROM a JOIN b ON TRUE, b JOIN c ON TRUE;
-```
-
-The query above is equivalent to
-
-```
-SELECT * FROM ((a JOIN b ON TRUE) CROSS JOIN b) JOIN c ON TRUE);
+-- A JOIN B USING (x)        = result_1
+-- result_1 JOIN C USING (x) = result_2
+-- result_2 CROSS JOIN D     = return value
 ```
 
-There cannot be a `RIGHT JOIN` or `FULL JOIN` after a comma join.
+There cannot be a `RIGHT JOIN` or `FULL JOIN` after a comma join:
 
-Invalid - `RIGHT JOIN` after a comma cross join:
-
-```
-SELECT * FROM Roster, TeamMascot RIGHT JOIN PlayerStats ON TRUE;  // INVALID.
+```sql
+FROM A, B RIGHT JOIN C ON TRUE // INVALID
+FROM A, B FULL JOIN C ON TRUE  // INVALID
+FROM A, B JOIN C ON TRUE       // VALID
 ```
 
 <a id="where_clause"></a>
@@ -5225,15 +5477,17 @@ equivalent expression using `CROSS JOIN` and `WHERE`.
 
 Example - this query:
 
-```
-SELECT * FROM Roster INNER JOIN TeamMascot
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster INNER JOIN TeamMascot
 ON Roster.SchoolID = TeamMascot.SchoolID;
 ```
 
 is equivalent to:
 
-```
-SELECT * FROM Roster CROSS JOIN TeamMascot
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster CROSS JOIN TeamMascot
 WHERE Roster.SchoolID = TeamMascot.SchoolID;
 ```
 
@@ -6219,365 +6473,9 @@ following rules apply:
 <a id=appendix_a_examples_with_sample_data></a>
 ### Appendix A: examples with sample data
 
-<a id="join_types_examples"></a>
-#### JOIN types
-
-1) [INNER] JOIN
-
-Example:
-
-```
-SELECT * FROM Roster JOIN TeamMascot
-ON Roster.SchoolID = TeamMascot.SchoolID;
-```
-
-Results:
-
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>Roster.SchoolId</th>
-<th>TeamMascot.SchoolId</th>
-<th>Mascot</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-</tbody>
-</table>
-
-2) CROSS JOIN
-
-Example:
-
-```
-SELECT * FROM Roster CROSS JOIN TeamMascot;
-```
-
-Results:
-
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>Roster.SchoolId</th>
-<th>TeamMascot.SchoolId</th>
-<th>Mascot</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-</tbody>
-</table>
-
-3) FULL [OUTER] JOIN
-
-Example:
-
-```
-SELECT * FROM Roster FULL JOIN TeamMascot
-ON Roster.SchoolID = TeamMascot.SchoolID;
-```
-
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>Roster.SchoolId</th>
-<th>TeamMascot.SchoolId</th>
-<th>Mascot</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-<td>NULL</td>
-<td>NULL</td>
-</tr>
-<tr>
-<td>NULL</td>
-<td>NULL</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-</tbody>
-</table>
-
-4) LEFT [OUTER] JOIN
-
-Example:
-
-```
-SELECT * FROM Roster LEFT JOIN TeamMascot
-ON Roster.SchoolID = TeamMascot.SchoolID;
-```
-
-Results:
-
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>Roster.SchoolId</th>
-<th>TeamMascot.SchoolId</th>
-<th>Mascot</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-<td>NULL</td>
-<td>NULL</td>
-</tr>
-</tbody>
-</table>
-
-5) RIGHT [OUTER] JOIN
-
-Example:
-
-```
-SELECT * FROM Roster RIGHT JOIN TeamMascot
-ON Roster.SchoolID = TeamMascot.SchoolID;
-```
-
-Results:
-
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>Roster.SchoolId</th>
-<th>TeamMascot.SchoolId</th>
-<th>Mascot</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>NULL</td>
-<td>NULL</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-</tbody>
-</table>
+These examples include statements which perform queries on the
+[`Roster`][roster-table] and [`TeamMascot`][teammascot-table],
+and [`PlayerStats`][playerstats-table] tables.
 
 <a id=group_by_clause></a>
 #### GROUP BY clause
@@ -7773,7 +7671,7 @@ WINDOW
 The following example produces an error because a window frame clause has been
 defined twice:
 
-```zetasql
+```zetasql {.bad}
 SELECT item, purchases, category, LAST_VALUE(item)
   OVER (
     item_window
@@ -10842,30 +10740,51 @@ Create external UDFs using the following syntax.
 CREATE
   [ { TEMPORARY | TEMP } ] FUNCTION
   function_name ( [ function_parameter [, ...] ] )
+  [ determinism_specifier ]
   RETURNS data_type
   LANGUAGE language_name AS string_literal
 
 function_parameter:
   parameter_name data_type
+
+determinism_specifier:
+  { IMMUTABLE | DETERMINISTIC | NOT DETERMINISTIC | VOLATILE | STABLE }
 ```
 
 This syntax consists of the following components:
 
-+   `CREATE ... FUNCTION`: Creates a new function.
-     A function can contain zero or more
-    `function_parameter`s.
++   `CREATE ... FUNCTION`: Creates a new function. A function can contain zero
+    or more `function_parameter`s.
 +   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
-     exists for the lifetime of the session.
-+   `function_parameter`: A parameter for the fuction. A parameter
-    includes a name and a data type. The value of `data_type`
-    is a ZetaSQL [data type][data-types].
-+   `RETURNS data_type`: Specifies the data type
-    that the function returns. See [Supported UDF data types][supported-external-udf-data-types]
-    for more information about allowed values for `data_type`.
-+   `LANGUAGE ... AS`: Specify the language and code to use.
-     `language_name` represents the name of the language, such
-     as `js` for JavaScript. `string_literal` represents the code that defines
-     the function body.
+    exists for the lifetime of the session.
++   `function_parameter`: A parameter for the fuction. A parameter includes a
+    name and a data type. The value of `data_type` is a ZetaSQL
+    [data type][data-types].
++   `determinism_specifier`: Determines if the results of the function can be
+    cached or not. Your choices are:
+    +   `IMMUTABLE` or `DETERMINISTIC`: The function always returns the same
+        result when passed the same arguments. The query result is potentially
+        cacheable. For example, if the function `add_one(i)` always returns `i +
+        1`, the function is deterministic.
+    +   `NOT DETERMINISTIC`: The function does not always return the same result
+        when passed the same arguments. The `VOLATILE` and `STABLE` keywords are
+        subcategories of `NOT DETERMINISTIC`.
+    +   `VOLATILE`: The function does not always return the same result when
+        passed the same arguments, even within the same run of a query
+        statement. For example if `add_random(i)` returns `i + rand()`, the
+        function is volatile, because every call to the function can return a
+        different result.
+    +   `STABLE`: Within one run of a query statement, the function will
+        consistently return the same result for the same argument values.
+        However, the result could change across two runs. For example, a
+        function that returns the current session user is stable, because the
+        value would not change within the same run.
++   `RETURNS data_type`: Specifies the data type that the function returns. See
+    [Supported UDF data types][supported-external-udf-data-types] for more
+    information about allowed values for `data_type`.
++   `LANGUAGE ... AS`: Specify the language and code to use. `language_name`
+    represents the name of the language, such as `js` for JavaScript.
+    `string_literal` represents the code that defines the function body.
 
 #### External UDF examples
 
@@ -11432,8 +11351,8 @@ using variable-size buffers to reduce memory use for large data sets.
 
 ## Aggregate functions
 
-An *aggregate function* is a function that performs a calculation on a set of
-values. `COUNT`, `MIN` and `MAX` are examples of aggregate functions.
+An *aggregate function* is a function that summarizes the rows of a group into a
+single value. `COUNT`, `MIN` and `MAX` are examples of aggregate functions.
 
 ```sql
 SELECT COUNT(*) as total_count, COUNT(fruit) as non_null_count,
@@ -11449,6 +11368,13 @@ FROM (SELECT NULL as fruit UNION ALL
 | 4           | 3              | apple | pear |
 +-------------+----------------+-------+------+
 ```
+
+When used in conjunction with a `GROUP BY` clause, the groups summarized
+typically have at least one row. When the associated `SELECT` has no `GROUP BY`
+clause or when certain aggregate function modifiers filter rows from the group
+to be summarized it is possible that the aggregate function needs to summarize
+an empty group. In this case, the `COUNT` and `COUNTIF` functions return `0`,
+while all other aggregate functions return `NULL`.
 
 The following sections describe the aggregate functions that ZetaSQL
 supports.
@@ -12624,6 +12550,8 @@ value.
 
 Returns `NULL` if the input contains only `NULL`s.
 
+Returns `NULL` if the input contains no rows.
+
 Returns `Inf` if the input contains `Inf`.
 
 Returns `-Inf` if the input contains `-Inf`.
@@ -12696,6 +12624,17 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 | 5 | 7   |
 | 2 | 7   |
 +---+-----+
+```
+
+```sql
+SELECT SUM(x) AS sum
+FROM UNNEST([]) AS x;
+
++------+
+| sum  |
++------+
+| NULL |
++------+
 ```
 
 #### Common clauses
@@ -19490,13 +19429,10 @@ inputs:
 + `start_timestamp`: `TIMESTAMP`
 + `end_timestamp`: `TIMESTAMP`
 + `step_expression`: `INT64`
-+ Allowed `date_part` values are
-  
-  `MICROSECOND` or `NANOSECOND` (depends on what the SQL engine supports),
-  
-   `MILLISECOND`,
-  
-  `SECOND`, `MINUTE`, `HOUR`, or `DAY`.
++ Allowed `date_part` values are:
+  `NANOSECOND`
+  (if the SQL engine supports it),
+  `MICROSECOND`, `MILLISECOND`, `SECOND`, `MINUTE`, `HOUR`, or `DAY`.
 
 The `step_expression` parameter determines the increment used to generate
 timestamps.
@@ -20554,6 +20490,8 @@ a supplied `datetime_expression`.
 
 Allowed `part` values are:
 
++ `NANOSECOND`
+  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -20669,6 +20607,8 @@ Adds `INT64_expr` units of `part` to the DATETIME object.
 
 `DATETIME_ADD` supports the following values for `part`:
 
++ `NANOSECOND`
+  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -20714,6 +20654,8 @@ Subtracts `INT64_expr` units of `part` from the DATETIME.
 
 `DATETIME_SUB` supports the following values for `part`:
 
++ `NANOSECOND`
+  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -20755,14 +20697,17 @@ DATETIME_DIFF(datetime_expression, datetime_expression, part)
 
 **Description**
 
-Returns the number of `part` boundaries between the two `datetime_expression`s.
-If the first `DATETIME` occurs before the second `DATETIME`, then the result is
-non-positive. Throws an error if the computation overflows the result type, such
-as if the difference in microseconds between the two `DATETIME` objects would
-overflow an `INT64` value.
+Returns the number of whole specified `part` intervals between two
+`DATETIME` objects. If the first `DATETIME` is earlier than the second one,
+the output is negative. Throws an error if the computation overflows the
+result type, such as if the difference in
+nanoseconds
+between the two `DATETIME` objects would overflow an `INT64` value.
 
 `DATETIME_DIFF` supports the following values for `part`:
 
++ `NANOSECOND`
+  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -20879,6 +20824,8 @@ Truncates a `DATETIME` object to the granularity of `part`.
 
 `DATETIME_TRUNC` supports the following values for `part`:
 
++ `NANOSECOND`
+  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -21450,6 +21397,8 @@ a supplied `time_expression`.
 
 Allowed `part` values are:
 
++ `NANOSECOND`
+  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -21489,6 +21438,8 @@ Adds `INT64_expr` units of `part` to the TIME object.
 
 `TIME_ADD` supports the following values for `part`:
 
++ `NANOSECOND`
+  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -21528,6 +21479,8 @@ Subtracts `INT64_expr` units of `part` from the TIME object.
 
 `TIME_SUB` supports the following values for `part`:
 
++ `NANOSECOND`
+  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -21564,12 +21517,16 @@ TIME_DIFF(time_expression, time_expression, part)
 **Description**
 
 Returns the number of whole specified `part` intervals between two
-TIME objects. Throws an error if the computation overflows the result type,
-such as if the difference in microseconds between the two time objects would
-overflow an INT64 value.
+`TIME` objects. If the first `TIME` is earlier than the second one,
+the output is negative. Throws an error if the computation overflows the
+result type, such as if the difference in
+nanoseconds
+between the two `TIME` objects would overflow an `INT64` value.
 
 `TIME_DIFF` supports the following values for `part`:
 
++ `NANOSECOND`
+  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -21607,6 +21564,8 @@ Truncates a TIME object to the granularity of `part`.
 
 `TIME_TRUNC` supports the following values for `part`:
 
++ `NANOSECOND`
+  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -21848,6 +21807,7 @@ a supplied `timestamp_expression`.
 Allowed `part` values are:
 
 + `NANOSECOND`
+  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -22095,15 +22055,14 @@ any time zone.
 
 `TIMESTAMP_ADD` supports the following values for `date_part`:
 
-<ul>
-<li><code>NANOSECOND</code></li>
-<li><code>MICROSECOND</code></li>
-<li><code>MILLISECOND</code></li>
-<li><code>SECOND</code></li>
-<li><code>MINUTE</code></li>
-<li><code>HOUR</code>. Equivalent to 60 <code>MINUTE</code>s.</li>
-<li><code>DAY</code>. Equivalent to 24 <code>HOUR</code>s.</li>
-</ul>
++ `NANOSECOND`
+  (if the SQL engine supports it)
++ `MICROSECOND`
++ `MILLISECOND`
++ `SECOND`
++ `MINUTE`
++ `HOUR`. Equivalent to 60 `MINUTE`s.
++ `DAY`. Equivalent to 24 `HOUR`s.
 
 **Return Data Types**
 
@@ -22137,15 +22096,14 @@ independent of any time zone.
 
 `TIMESTAMP_SUB` supports the following values for `date_part`:
 
-<ul>
-<li><code>NANOSECOND</code></li>
-<li><code>MICROSECOND</code></li>
-<li><code>MILLISECOND</code></li>
-<li><code>SECOND</code></li>
-<li><code>MINUTE</code></li>
-<li><code>HOUR</code>. Equivalent to 60 <code>MINUTE</code>s.</li>
-<li><code>DAY</code>. Equivalent to 24 <code>HOUR</code>s.</li>
-</ul>
++ `NANOSECOND`
+  (if the SQL engine supports it)
++ `MICROSECOND`
++ `MILLISECOND`
++ `SECOND`
++ `MINUTE`
++ `HOUR`. Equivalent to 60 `MINUTE`s.
++ `DAY`. Equivalent to 24 `HOUR`s.
 
 **Return Data Type**
 
@@ -22174,30 +22132,23 @@ TIMESTAMP_DIFF(timestamp_expression, timestamp_expression, date_part)
 
 **Description**
 
-<div>
-    <p>
-        Returns the number of whole specified <code>date_part</code> intervals
-        between two timestamps. The first <code>timestamp_expression</code>
-        represents the later date; if the first
-        <code>timestamp_expression</code> is earlier than the second
-        <code>timestamp_expression</code>, the output is negative.
-        Throws an error if the computation overflows the result type, such as
-        if the difference in nanoseconds between the two timestamps
-        would overflow an <code>INT64</code> value.
-    </p>
-</div>
+Returns the number of whole specified `date_part` intervals between two
+`TIMESTAMP` objects. If the first `TIMESTAMP` is earlier than the second one,
+the output is negative. Throws an error if the computation overflows the
+result type, such as if the difference in
+nanoseconds
+between the two `TIMESTAMP` objects would overflow an `INT64` value.
 
 `TIMESTAMP_DIFF` supports the following values for `date_part`:
 
-<ul>
-<li><code>NANOSECOND</code></li>
-<li><code>MICROSECOND</code></li>
-<li><code>MILLISECOND</code></li>
-<li><code>SECOND</code></li>
-<li><code>MINUTE</code></li>
-<li><code>HOUR</code>. Equivalent to 60 <code>MINUTE</code>s.</li>
-<li><code>DAY</code>. Equivalent to 24 <code>HOUR</code>s.</li>
-</ul>
++ `NANOSECOND`
+  (if the SQL engine supports it)
++ `MICROSECOND`
++ `MILLISECOND`
++ `SECOND`
++ `MINUTE`
++ `HOUR`. Equivalent to 60 `MINUTE`s.
++ `DAY`. Equivalent to 24 `HOUR`s.
 
 **Return Data Type**
 
@@ -22245,6 +22196,7 @@ Truncates a timestamp to the granularity of `date_part`.
 `TIMESTAMP_TRUNC` supports the following values for `date_part`:
 
 + `NANOSECOND`
+  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -25455,7 +25407,7 @@ example of a **Singers** table:
 <td>Alice</td>
 <td>Trentor</td>
 <td>1991-10-2</td>
-<td>"nationality: 'U.S.A.'</td>
+<td>"nationality: 'U.S.A.'"</td>
 <td>NULL</td>
 </tr>
 </tbody>

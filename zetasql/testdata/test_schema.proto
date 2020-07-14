@@ -326,7 +326,11 @@ message MessageWithMapField {
   map<string, int64> string_int64_map = 4;
   map<uint64, string> uint64_string_map = 5;
   map<string, double> string_double_map = 6;
-  map<uint32, KitchenSinkPB> uint32_kitchensink_map = 7;
+  // TODO: we can't have any proto here that has required
+  // fields, since it may report a successful parse without actually being
+  // correctly initialized. This leads to problems with RQGs where identity
+  // comparisons don't always report true.
+  map<uint32, TestOptionalFields> uint32_testoptionalfields_map = 7;
   map<bool, int32> bool_int32_map = 8;
 }
 

@@ -20,6 +20,7 @@
 #include <string.h>
 #include <sys/types.h>
 
+#include "zetasql/base/bits.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {

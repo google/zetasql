@@ -62,6 +62,7 @@ namespace {
 
 using ExpressionOptions =
     ::zetasql::PreparedExpressionBase::ExpressionOptions;
+using QueryOptions = ::zetasql::PreparedQueryBase::QueryOptions;
 
 // Represents either a map of named parameters or a list of positional
 // parameters.
@@ -675,9 +676,9 @@ absl::Status Evaluator::Execute(
     std::unique_ptr<EvaluatorTableIterator>* query_output_iterator) {
   {
     const ParameterValues parameters =
-        !options.parameters.empty()
-            ? ParameterValues(&options.parameters)
-            : ParameterValues(&options.ordered_parameters);
+        options.parameters.has_value()
+            ? ParameterValues(&options.parameters.value())
+            : ParameterValues(&options.ordered_parameters.value());
     absl::MutexLock l(&mutex_);
     // Call Prepare() implicitly if not done by the user.
     if (!is_prepared()) {
@@ -707,7 +708,7 @@ absl::Status Evaluator::Execute(
               analyzer_options_.AddPositionalQueryParameter(parameter.type()));
         }
       }
-      for (const auto& p : options.columns) {
+      for (const auto& p : options.columns.value()) {
         // If we a column with an empty name, we'll treat it as an
         // anonymous in-scope expression column.
         if (p.first.empty()) {
@@ -740,13 +741,13 @@ absl::Status Evaluator::ExecuteAfterPrepareLocked(
 
   ParameterValueList columns_list;
   ZETASQL_RETURN_IF_ERROR(
-      TranslateParameterValueMapToList(options.columns, algebrizer_column_map_,
+      TranslateParameterValueMapToList(*options.columns, algebrizer_column_map_,
                                        COLUMN_PARAMETER, &columns_list));
 
   const ParameterValues parameters =
-      !options.parameters.empty()
-          ? ParameterValues(&options.parameters)
-          : ParameterValues(&options.ordered_parameters);
+      options.parameters.has_value()
+          ? ParameterValues(&options.parameters.value())
+          : ParameterValues(&options.ordered_parameters.value());
   ParameterValueList parameters_list;
   if (parameters.is_named()) {
     ZETASQL_RETURN_IF_ERROR(TranslateParameterValueMapToList(
@@ -880,8 +881,8 @@ absl::Status Evaluator::ExecuteAfterPrepareWithOrderedParamsLocked(
            << "Invalid prepared expression/query";
   }
 
-  const ParameterValueList& columns = options.ordered_columns;
-  const ParameterValueList& parameters = options.ordered_parameters;
+  const ParameterValueList& columns = options.ordered_columns.value();
+  const ParameterValueList& parameters = options.ordered_parameters.value();
   const SystemVariableValuesMap& system_variables = options.system_variables;
   ZETASQL_RETURN_IF_ERROR(ValidateColumns(columns));
   ZETASQL_RETURN_IF_ERROR(ValidateParameters(parameters));
@@ -1150,18 +1151,45 @@ zetasql_base::StatusOr<int> PreparedExpressionBase::GetPositionalParameterCount(
 namespace {
 // Utility function for options struct validation.
 absl::Status ValidateExpressionOptions(const ExpressionOptions& options) {
-  ZETASQL_RET_CHECK(options.columns.empty() || options.ordered_columns.empty())
-      << "Both of the column fields cannot be set";
-  ZETASQL_RET_CHECK(options.parameters.empty() || options.ordered_parameters.empty())
-      << "Both of the parameter fields cannot be set";
+  ZETASQL_RET_CHECK(options.columns.has_value() ^ options.ordered_columns.has_value())
+      << "One of the columns fields has to be set, but not both";
+  ZETASQL_RET_CHECK(options.parameters.has_value() ^
+            options.ordered_parameters.has_value())
+      << "One of the parameter fields has to be set, but not both";
   return absl::OkStatus();
+}
+
+ExpressionOptions QueryOptionsToExpressionOptions(
+    const QueryOptions& query_options) {
+  ExpressionOptions expr_options;
+  if (query_options.parameters.has_value()) {
+    expr_options.parameters = query_options.parameters;
+  }
+  if (query_options.ordered_parameters.has_value()) {
+    expr_options.ordered_parameters = query_options.ordered_parameters;
+  }
+  expr_options.system_variables = query_options.system_variables;
+  return expr_options;
+}
+
+// If both the named and positional columns are empty, insert an empty named
+// columns map into the options struct. Does the same for the parameters.
+void GiveDefaultParameters(ExpressionOptions* options) {
+  if (!options->columns.has_value() && !options->ordered_columns.has_value()) {
+    options->columns = ParameterValueMap();
+  }
+  if (!options->parameters.has_value() &&
+      !options->ordered_parameters.has_value()) {
+    options->parameters = ParameterValueMap();
+  }
 }
 };  // namespace
 
 zetasql_base::StatusOr<Value> PreparedExpressionBase::Execute(
-    const ExpressionOptions& options) {
+    ExpressionOptions options) {
+  GiveDefaultParameters(&options);
   ZETASQL_RETURN_IF_ERROR(ValidateExpressionOptions(options));
-  ZETASQL_RET_CHECK(options.ordered_columns.empty())
+  ZETASQL_RET_CHECK(!options.ordered_columns.has_value())
       << "`ordered_columns` cannot be set for Execute(). Did you mean to call "
          "ExecuteAfterPrepare()?";
   Value output;
@@ -1192,15 +1220,18 @@ zetasql_base::StatusOr<Value> PreparedExpressionBase::ExecuteWithPositionalParam
 }
 
 zetasql_base::StatusOr<Value> PreparedExpressionBase::ExecuteAfterPrepare(
-    const ExpressionOptions& options) const {
+    ExpressionOptions options) const {
+  GiveDefaultParameters(&options);
   ZETASQL_RETURN_IF_ERROR(ValidateExpressionOptions(options));
   Value output;
   // Branch into the non-positional execute call if one of columns or parameters
   // is non-positional.
-  if (!options.columns.empty() || !options.parameters.empty()) {
+  if (options.columns.has_value()) {
     ZETASQL_RETURN_IF_ERROR(evaluator_->ExecuteAfterPrepare(
         options, &output, /*query_output_iterator=*/nullptr));
   } else {
+    ZETASQL_RET_CHECK(options.ordered_parameters.has_value())
+        << "Expected positional parameters since the columns are positional";
     ZETASQL_RETURN_IF_ERROR(evaluator_->ExecuteAfterPrepareWithOrderedParams(
         options, &output, /*query_output_iterator=*/nullptr));
   }
@@ -1283,13 +1314,10 @@ zetasql_base::StatusOr<int> PreparedQueryBase::GetPositionalParameterCount() con
 
 zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
 PreparedQueryBase::Execute(const QueryOptions& options) {
-  ZETASQL_RET_CHECK(options.parameters.empty() || options.ordered_parameters.empty())
-      << "Both of the parameter fields cannot be set";
   std::unique_ptr<EvaluatorTableIterator> output;
-  ExpressionOptions expr_options;
-  expr_options.parameters = options.parameters;
-  expr_options.ordered_parameters = options.ordered_parameters;
-  expr_options.system_variables = options.system_variables;
+  ExpressionOptions expr_options = QueryOptionsToExpressionOptions(options);
+  GiveDefaultParameters(&expr_options);
+  ZETASQL_RETURN_IF_ERROR(ValidateExpressionOptions(expr_options));
   ZETASQL_RETURN_IF_ERROR(evaluator_->Execute(expr_options,
                                       /*expression_output_value=*/nullptr,
                                       &output));
@@ -1318,15 +1346,17 @@ PreparedQueryBase::ExecuteWithPositionalParams(
 zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
 PreparedQueryBase::ExecuteAfterPrepare(const QueryOptions& options) const {
   std::unique_ptr<EvaluatorTableIterator> output;
-  ExpressionOptions expr_options;
-  expr_options.parameters = options.parameters;
-  expr_options.ordered_parameters = options.ordered_parameters;
-  expr_options.system_variables = options.system_variables;
-  if (!options.parameters.empty()) {
+  ExpressionOptions expr_options = QueryOptionsToExpressionOptions(options);
+  GiveDefaultParameters(&expr_options);
+  if (expr_options.parameters.has_value()) {
+    ZETASQL_RETURN_IF_ERROR(ValidateExpressionOptions(expr_options));
     ZETASQL_RETURN_IF_ERROR(evaluator_->ExecuteAfterPrepare(
         expr_options,
         /*expression_output_value=*/nullptr, &output));
   } else {
+    expr_options.columns.reset();
+    expr_options.ordered_columns = ParameterValueList();
+    ZETASQL_RETURN_IF_ERROR(ValidateExpressionOptions(expr_options));
     ZETASQL_RETURN_IF_ERROR(evaluator_->ExecuteAfterPrepareWithOrderedParams(
         expr_options,
         /*expression_output_value=*/nullptr, &output));
@@ -1407,6 +1437,7 @@ zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
 PreparedModifyBase::Execute(const ParameterValueMap& parameters,
                             const SystemVariableValuesMap& system_variables) {
   ExpressionOptions options;
+  options.columns = ParameterValueMap();
   options.parameters = parameters;
   options.system_variables = system_variables;
   Value value;
@@ -1420,6 +1451,7 @@ PreparedModifyBase::ExecuteWithPositionalParams(
     const ParameterValueList& positional_parameters,
     const SystemVariableValuesMap& system_variables) {
   ExpressionOptions options;
+  options.columns = ParameterValueMap();
   options.ordered_parameters = positional_parameters;
   options.system_variables = system_variables;
   Value value;
@@ -1433,6 +1465,7 @@ PreparedModifyBase::ExecuteAfterPrepareWithOrderedParams(
     const ParameterValueList& parameters,
     const SystemVariableValuesMap& system_variables) const {
   ExpressionOptions options;
+  options.ordered_columns = ParameterValueList();
   options.ordered_parameters = parameters;
   options.system_variables = system_variables;
   Value value;

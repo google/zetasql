@@ -719,6 +719,115 @@ std::string GetProtoFieldExpr::DebugInternal(const std::string& indent,
 }
 
 // -------------------------------------------------------
+// FlattenExpr
+// -------------------------------------------------------
+
+::zetasql_base::StatusOr<std::unique_ptr<FlattenExpr>> FlattenExpr::Create(
+    const Type* output_type,
+    std::unique_ptr<ValueExpr> expr,
+    std::vector<int> struct_fields,
+    std::vector<const ProtoFieldReader*> proto_fields) {
+  return absl::WrapUnique(new FlattenExpr(output_type, std::move(expr),
+                                          std::move(struct_fields),
+                                          std::move(proto_fields)));
+}
+
+absl::Status FlattenExpr::SetSchemasForEvaluation(
+    absl::Span<const TupleSchema* const> params_schemas) {
+  return GetMutableArg(kExpr)->mutable_value_expr()->SetSchemasForEvaluation(
+      params_schemas);
+}
+
+namespace {
+
+// Adds scalar values from 'input' to 'out'.
+// If 'input' is scalar, just adds it, otherwise appends values from the array.
+void AddValues(const Value& input, std::vector<Value>* out) {
+  if (input.type()->IsArray()) {
+    if (input.is_null()) return;
+    out->insert(out->end(), input.elements().begin(), input.elements().end());
+  } else {
+    out->push_back(input);
+  }
+}
+
+}  // namespace
+
+bool FlattenExpr::Eval(absl::Span<const TupleData* const> params,
+                       EvaluationContext* context, VirtualTupleSlot* result,
+                       absl::Status* status) const {
+  TupleSlot slot;
+  if (!GetArg(kExpr)->value_expr()->EvalSimple(params, context, &slot,
+                                               status)) {
+    return false;
+  }
+  std::vector<Value> values;
+  AddValues(slot.value(), &values);
+
+  for (int struct_index : struct_fields_) {
+    if (values.empty()) break;
+
+    std::vector<Value> next_values;
+    for (const Value& v : values) {
+      if (v.is_null()) continue;
+      AddValues(v.field(struct_index), &next_values);
+    }
+    next_values.swap(values);
+  }
+
+  for (const ProtoFieldReader* reader : proto_fields_) {
+    if (values.empty()) break;
+
+    std::vector<Value> next_values;
+    for (const Value& input_value : values) {
+      if (input_value.is_null()) continue;
+      slot.SetValue(input_value);
+      Value value;
+      if (!reader->GetFieldValue(slot, context, &value, status)) {
+        return false;
+      }
+      AddValues(value, &next_values);
+    }
+    next_values.swap(values);
+  }
+
+  if (values.empty()) {
+    result->SetValue(Value::Null(output_type()));
+  } else {
+    result->SetValue(Value::Array(output_type()->AsArray(), values));
+  }
+  return true;
+}
+
+std::string FlattenExpr::DebugInternal(const std::string& indent,
+                                       bool verbose) const {
+  std::string struct_accesses;
+  for (int index : struct_fields_) {
+    absl::StrAppend(&struct_accesses, "[", index, "]");
+  }
+  if (!struct_fields_.empty() && !proto_fields_.empty()) {
+    absl::StrAppend(&struct_accesses, ".");
+  }
+  std::vector<absl::string_view> proto_accesses;
+  for (const ProtoFieldReader* reader : proto_fields_) {
+    proto_accesses.push_back(
+        reader->access_info().field_info.descriptor->name());
+  }
+  return absl::StrCat("Flatten(", GetArg(kExpr)->DebugInternal(indent, verbose),
+                      struct_accesses, absl::StrJoin(proto_accesses, "."));
+}
+
+FlattenExpr::FlattenExpr(const Type* output_type,
+                         std::unique_ptr<ValueExpr> expr,
+                         std::vector<int> struct_fields,
+                         std::vector<const ProtoFieldReader*> proto_fields)
+    : ValueExpr(output_type),
+      struct_fields_(std::move(struct_fields)),
+      proto_fields_(std::move(proto_fields)) {
+  SetArg(kExpr, absl::make_unique<ExprArg>(std::move(expr)));
+}
+
+// -------------------------------------------------------
 // SingleValueExpr
 // -------------------------------------------------------
 

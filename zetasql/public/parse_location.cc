@@ -104,9 +104,11 @@ namespace {
 // partially advance either the byte offset or the column, up to the limit
 // provided.
 //
+// If the current byte offset points at an invalid utf-8 sequence, we advance
+// one column.
+//
 // Returns a generic::internal error if <*byte_offset> is out of bounds with
-// respect to <current_line>, or if the byte sequence starting at <*byte_offset>
-// is not valid UTF-8.
+// respect to <current_line>
 absl::Status AdvanceOneChar(absl::string_view current_line,
                             absl::optional<int> stop_byte_offset,
                             absl::optional<int> stop_column, int* column,
@@ -137,10 +139,11 @@ absl::Status AdvanceOneChar(absl::string_view current_line,
   UChar32 current_code_point;
   U8_NEXT(current_line.data(), new_byte_offset, current_line.length(),
           current_code_point);
-
-  ZETASQL_RET_CHECK_GE(current_code_point, 0)
-      << "Line contains invalid UTF-8 codepoint at offset " << *byte_offset
-      << ": " << current_line;
+  if (current_code_point < 0) {
+    // The line contains invalid utf-8, so just fall back to advancing a
+    // single byte.
+    new_byte_offset = *byte_offset + 1;
+  }
   if (stop_byte_offset.has_value() &&
       new_byte_offset > stop_byte_offset.value()) {
     // <*stop_byte_offset> represents a byte in the middle of the UTF-8

@@ -162,7 +162,7 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
 // AMBIGUOUS CASES
 // ===============
 //
-// AMBIGOUS CASE 1: EXPRESSION SUBQUERY
+// AMBIGUOUS CASE 1: EXPRESSION SUBQUERY
 // ------------------------------------
 // There is a known ambiguous case causing 2 shift/reduce conflicts:
 //
@@ -274,7 +274,7 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
 // query_maybe_expression is actually a subquery!
 //
 //
-// AMBIGOUS CASE 2: INSERT ... VALUES
+// AMBIGUOUS CASE 2: INSERT ... VALUES
 // ----------------------------------
 // The second known ambiguous case is INSERT ... VALUES. Since "values" can be
 // used as an identifier, in a query like "INSERT mytable values (...", "values"
@@ -476,6 +476,7 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
 %token KW_SHIFT_LEFT "<<"
 %token KW_SHIFT_RIGHT ">>"
 %token KW_NAMED_ARGUMENT_ASSIGNMENT "=>"
+%token KW_LAMBDA_ARROW "->"
 
 // These are not used in the grammar. They are here for parity with the JavaCC
 // tokenizer.
@@ -905,6 +906,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> create_model_statement
 %type <node> create_table_statement
 %type <node> create_view_statement
+%type <node> create_entity_statement
 %type <expression> date_or_time_literal
 %type <node> define_table_statement
 %type <node> delete_statement
@@ -917,6 +919,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> export_data_statement
 %type <node> export_model_statement
 %type <expression> expression
+%type <node> generic_entity_type
 %type <node> grant_to_clause
 %type <node> index_storing_expression_list_prefix
 %type <node> index_storing_expression_list
@@ -992,6 +995,8 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> join
 %type <node> join_input
 %type <expression> json_literal
+%type <expression> lambda_argument
+%type <node> lambda_parameter_list
 %type <node> merge_action
 %type <node> merge_insert_value_list_or_source_row
 %type <node> merge_source
@@ -1035,6 +1040,8 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> opt_function_parameters
 %type <node> opt_function_returns
 %type <node> opt_group_by_clause
+%type <node> generic_entity_body
+%type <node> opt_generic_entity_body
 %type <node> opt_having_clause
 %type <node> opt_having_modifier
 %type <node> opt_hint
@@ -1198,7 +1205,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> opt_with_connection_clause
 %type <node> alter_action_list
 %type <node> alter_action
-%type <node> named_argument
+%type <expression> named_argument
 %type <node> column_position
 %type <node> opt_column_position
 %type <expression> fill_using_expression
@@ -1393,6 +1400,7 @@ sql_statement_body:
     | create_table_function_statement
     | create_table_statement
     | create_view_statement
+    | create_entity_statement
     | define_table_statement
     | describe_statement
     | execute_immediate
@@ -1422,6 +1430,11 @@ alter_action:
     "SET" "OPTIONS" options_list
       {
         $$ = MAKE_NODE(ASTSetOptionsAction, @$, {$3});
+      }
+    | "SET" "AS" generic_entity_body[body]
+      // See (broken link)
+      {
+        $$ = MAKE_NODE(ASTSetAsAction, @$, {$body});
       }
     | "ADD" table_constraint_spec
       {
@@ -1599,6 +1612,13 @@ alter_statement:
         node->set_is_if_exists($3);
         node->AddChildren({$4, $5});
         $$ = WithLocation(node, @$);
+      }
+    | "ALTER" generic_entity_type opt_if_exists path_expression
+      alter_action_list
+      {
+        auto* node = MAKE_NODE(ASTAlterEntityStatement, @$, {$2, $4, $5});
+        node->set_is_if_exists($3);
+        $$ = node;
       }
     | "ALTER" "ROW" "ACCESS" "POLICY" opt_if_exists identifier "ON"
       path_expression row_access_policy_alter_action_list
@@ -2246,7 +2266,7 @@ create_table_function_statement:
     ;
 
 // This rule encounters a shift/reduce conflict with
-// 'create_table_function_statement' as noted in AMBIGOUS CASE 4 in the
+// 'create_table_function_statement' as noted in AMBIGUOUS CASE 4 in the
 // file-level comment. The syntax of this rule and
 // 'create_table_function_statement' must be kept the same until the "TABLE"
 // keyword, so that parser can choose between these two rules based on the
@@ -2263,6 +2283,51 @@ create_table_statement:
         create->set_scope($3);
         create->set_is_if_not_exists($5);
         $$ = create;
+      }
+    ;
+
+generic_entity_type:
+    IDENTIFIER
+      {
+        // It is by design that we don't want to support backtick quoted
+        // entity type. Backtick is kept as part of entity type name, and will
+        // be rejected by engine later.
+        $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));
+      }
+    ;
+
+// TODO: add string literal body after JSON type is implemented.
+generic_entity_body:
+    "JSON" string_literal
+      {
+        $$ = $string_literal;
+      }
+    ;
+
+opt_generic_entity_body:
+    "AS" generic_entity_body
+      {
+        $$ = $2;
+      }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
+create_entity_statement:
+    "CREATE" opt_or_replace generic_entity_type opt_if_not_exists
+    path_expression opt_options_list opt_generic_entity_body
+      {
+        auto* node = MAKE_NODE(
+            ASTCreateEntityStatement,
+            @$,
+            {
+              $generic_entity_type,
+              $path_expression,
+              $opt_options_list,
+              $opt_generic_entity_body
+            });
+        node->set_is_or_replace($opt_or_replace);
+        node->set_is_if_not_exists($opt_if_not_exists);
+        $$ = node;
       }
     ;
 
@@ -2332,7 +2397,7 @@ table_element_list_prefix:
 // Lastly, the third token of a table element definition is always a reserved
 // keyword (reserved_keyword_rule), a non-reserved keyword
 // (keyword_as_identifier), or the "." in a path expression. The third token is
-// never an IDENTIFIER. This enables the grammar to unambigously distinguish
+// never an IDENTIFIER. This enables the grammar to unambiguously distinguish
 // between named foreign key constraints and column definition attributes. The
 // only requirement is that the third component of all table element rules,
 // direct and indirect, is a keyword or symbol (i.e., a string literal, such as
@@ -4640,6 +4705,9 @@ expression:
     | parenthesized_expression
     | struct_constructor
     | expression_subquery
+      {
+        $$ = $1;
+      }
     | expression "[" expression "]" %prec PRIMARY_PRECEDENCE
       {
         $$ = MAKE_NODE(ASTArrayElement, @2, @4, {$1, $3});
@@ -5603,6 +5671,7 @@ function_call_argument:
         "parentheses to make it a scalar subquery expression");
       }
     | named_argument
+    | lambda_argument
     ;
 
 named_argument:
@@ -5610,6 +5679,43 @@ named_argument:
       {
         $$ = MAKE_NODE(ASTNamedArgument, @$, {$1, $3});
       }
+    ;
+
+lambda_argument:
+    lambda_parameter_list KW_LAMBDA_ARROW expression
+      {
+        $$ = MAKE_NODE(ASTLambda, @$, {$1, $3});
+      }
+    ;
+
+// Lambda parameter list could be:
+//  * one parameter without parenthesis, e.g. e.
+//  * one parameter with parenthesis, e.g. (e).
+//  * multiple parameter with parenthesis, e.g. (e, i).
+// All of the above could be parsed as expression. (e, i) is parsed as struct
+// constructor with parenthesis. We use expression rule to cover them all and to
+// avoid conflict.
+//
+// We cannot use an identifier_list rule as that results in conflict with
+// expression function argument. For ''(a, b) -> a + b', bison parser was not
+// able to decide what to do with the following working stack: ['(', ID('a')]
+// and seeing ID('b'), as bison parser won't look ahead to the '->' token.
+lambda_parameter_list:
+    expression
+      {
+        auto expr_kind = $1->node_kind();
+        if (expr_kind != zetasql::AST_STRUCT_CONSTRUCTOR_WITH_PARENS &&
+            expr_kind != zetasql::AST_PATH_EXPRESSION) {
+          YYERROR_AND_ABORT_AT(
+            @1,
+            "Syntax error: Expected lambda parameter list");
+        }
+        $$ = $1;
+      }
+    | "(" ")"
+    {
+      $$ = MAKE_NODE(ASTStructConstructorWithParens, @$);
+    }
     ;
 
 function_call_expression_with_args_prefix:
@@ -7070,6 +7176,12 @@ drop_statement:
         drop->set_is_if_exists($3);
         $$ = drop;
       }
+    | "DROP" generic_entity_type opt_if_exists path_expression
+      {
+        auto* drop = MAKE_NODE(ASTDropEntityStatement, @$, {$2, $4});
+        drop->set_is_if_exists($3);
+        $$ = drop;
+      }
     | "DROP" schema_object_kind opt_if_exists path_expression
       opt_function_parameters
       {
@@ -7469,6 +7581,8 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTDropRowAccessPolicyStatement::kConcreteNodeKind; }
     | "DROP" table_or_table_function
       { $$ = zetasql::ASTDropStatement::kConcreteNodeKind; }
+    | "DROP" generic_entity_type
+      { $$ = zetasql::ASTDropEntityStatement::kConcreteNodeKind; }
     | "DROP" schema_object_kind
       {
         switch ($2) {
@@ -7518,6 +7632,8 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTAlterViewStatement::kConcreteNodeKind; }
     | "ALTER" "MATERIALIZED" "VIEW"
       { $$ = zetasql::ASTAlterMaterializedViewStatement::kConcreteNodeKind; }
+    | "ALTER" generic_entity_type
+      { $$ = zetasql::ASTAlterEntityStatement::kConcreteNodeKind; }
     | "CREATE" "DATABASE"
       { $$ = zetasql::ASTCreateDatabaseStatement::kConcreteNodeKind; }
     | "CREATE" next_statement_kind_create_modifiers opt_aggregate
@@ -7536,6 +7652,8 @@ next_statement_kind_without_hint:
       }
     | "CREATE" opt_or_replace opt_unique "INDEX"
       { $$ = zetasql::ASTCreateIndexStatement::kConcreteNodeKind; }
+    | "CREATE" opt_or_replace generic_entity_type
+      { $$ = zetasql::ASTCreateEntityStatement::kConcreteNodeKind; }
     | "CREATE" next_statement_kind_create_modifiers
       next_statement_kind_table opt_if_not_exists
       maybe_dashed_path_expression opt_table_element_list

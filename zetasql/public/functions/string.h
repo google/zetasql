@@ -426,6 +426,15 @@ bool FirstCharOfStringToASCII(absl::string_view str, int64_t* out,
 bool FirstByteOfBytesToASCII(absl::string_view str, int64_t* out,
                               absl::Status* error);
 
+// Converts from the first Unicode char in a string to codepoint. Returns an
+// error if the first character of input is not a structurally valid UTF8 char.
+bool FirstCharToCodePoint(absl::string_view str, int64_t* out,
+                          absl::Status* error);
+
+// Converts from a codepoint to a UTF8 string. Returns an error if the input
+// is not a valid UTF8 codepoint.
+bool CodePointToString(int64_t codepoint, std::string* out, absl::Status* error);
+
 // Converts from a UTF8 string to codepoints. Returns an error if the input is
 // not a structurally valid UTF8 string.
 bool StringToCodePoints(absl::string_view str, std::vector<int64_t>* out,

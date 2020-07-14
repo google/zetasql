@@ -210,11 +210,14 @@ bool RegExp::Replace(absl::string_view str, absl::string_view newsub,
   // Points to the end of the previous match. This is necessary if the regular
   // expression can match both empty string and some non-empty string, so that
   // we don't replace an empty match immediately following non-empty match.
-  const char* lastend = nullptr;
-  for (const char* p = str.data(); p <= str.end(); ) {
+  // Initialized to str.begin() - 1 instead of nullptr, so that if str is
+  // string_view(nullptr, 0) and the pattern of this RegExp is also empty, the
+  // condition "match[0].begin() != lastend" below will still be true for once.
+  absl::string_view::iterator lastend = str.begin() + std::string_view::npos;
+  for (absl::string_view::iterator p = str.begin(); p <= str.end(); ) {
     // Find the first matching substring starting at p and store the
     // match and captured groups in vector 'match'.
-    if (!re_->Match(str, p - str.data(), str.size(),
+    if (!re_->Match(str, p - str.begin(), str.size(),
                     RE2::UNANCHORED, /* match any substring */
                     match.data(), match.size())) {
       out->append(p, str.end());

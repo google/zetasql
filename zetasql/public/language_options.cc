@@ -52,6 +52,8 @@ std::set<LanguageFeature> LanguageOptions::GetLanguageFeaturesForVersion(
       features.insert(FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS);
       features.insert(FEATURE_V_1_3_ALLOW_CONSECUTIVE_ON);
       features.insert(FEATURE_V_1_3_ALLOW_REGEXP_EXTRACT_OPTIONALS);
+      features.insert(FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS);
+      features.insert(FEATURE_V_1_3_DATE_ARITHMETICS);
       ABSL_FALLTHROUGH_INTENDED;
     // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
     // supposed to be stable and frozen, except possibly for bug fixes.

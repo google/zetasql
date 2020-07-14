@@ -164,6 +164,7 @@ enum class FunctionKind {
   kArrayAtOffset,
   kSafeArrayAtOrdinal,
   kSafeArrayAtOffset,
+  kArrayIsDistinct,
   kGenerateArray,
   kGenerateDateArray,
   kGenerateTimestampArray,
@@ -185,6 +186,7 @@ enum class FunctionKind {
   kCharLength,
   kConcat,
   kEndsWith,
+  kFormat,
   kLength,
   kLower,
   kLtrim,
@@ -195,6 +197,8 @@ enum class FunctionKind {
   kToHex,
   kFromHex,
   kAscii,
+  kUnicode,
+  kChr,
   kToCodePoints,
   kCodePointsToString,
   kCodePointsToBytes,
@@ -267,7 +271,7 @@ enum class FunctionKind {
   kSecondsFromTimestamp,
   kMillisFromTimestamp,
   kMicrosFromTimestamp,
-  kStringFromTimestamp,
+  kString,
   kParseDate,
   kParseDatetime,
   kParseTime,
@@ -565,6 +569,13 @@ class ArrayReverseFunction : public SimpleBuiltinScalarFunction {
                                EvaluationContext* context) const override;
 };
 
+class ArrayIsDistinctFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  ::zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+                               EvaluationContext* context) const override;
+};
+
 class IsFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
@@ -683,6 +694,14 @@ class ToCodePointsFunction : public SimpleBuiltinScalarFunction {
 class CodePointsToFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class FormatFunction : public SimpleBuiltinScalarFunction {
+ public:
+  explicit FormatFunction(const Type* output_type)
+      : SimpleBuiltinScalarFunction(FunctionKind::kFormat, output_type) {}
   zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
@@ -885,7 +904,7 @@ class IntFromTimestampFunction : public SimpleBuiltinScalarFunction {
                              EvaluationContext* context) const override;
 };
 
-class StringFromTimestampFunction : public SimpleBuiltinScalarFunction {
+class StringConversionFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
   zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,

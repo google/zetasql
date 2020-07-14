@@ -1220,6 +1220,21 @@ class Resolver {
       std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* output_name_list);
 
+  // If the query contains a WITH clause, resolves all WITH entries and returns
+  // them. Otherwise, just returns an empty vector.
+  zetasql_base::StatusOr<std::vector<std::unique_ptr<const ResolvedWithEntry>>>
+  ResolveWithClauseIfPresent(const ASTQuery* query, bool is_outer_query);
+
+  // Called immediately after resolving the main body of a query. If the query
+  // contained a WITH clause, removes the WITH entries from named_subquery_map_
+  // and wraps the query scan in a ResolvedWithScan node. Ownership of elements
+  // in <with_entries> is transferred to the new ResolvedWithScan node, which
+  // replaces <*output>.
+  absl::Status FinishResolveWithClauseIfPresent(
+      const ASTQuery* query,
+      std::vector<std::unique_ptr<const ResolvedWithEntry>> with_entries,
+      std::unique_ptr<const ResolvedScan>* output);
+
   // Resolve an ASTSelect.  Resolves everything within the scope of the related
   // query block, including the FROM, WHERE, GROUP BY, HAVING, and ORDER BY
   // clauses.  The ORDER BY is passed in separately because it binds outside
@@ -1686,6 +1701,14 @@ class Resolver {
     absl::Status VisitResolvedAggregateScan(
         const ResolvedAggregateScan* node) override;
 
+    absl::Status VisitResolvedLimitOffsetScan(
+        const ResolvedLimitOffsetScan* node) override;
+
+    absl::Status VisitResolvedAnalyticScan(
+        const ResolvedAnalyticScan* node) override;
+
+    absl::Status VisitResolvedJoinScan(const ResolvedJoinScan* node) override;
+
     absl::Status VisitResolvedSubqueryExpr(
         const ResolvedSubqueryExpr* node) override;
 
@@ -1695,7 +1718,27 @@ class Resolver {
     absl::Status VisitResolvedRecursiveScan(
         const ResolvedRecursiveScan* node) override;
 
+    absl::Status VisitResolvedSampleScan(
+        const ResolvedSampleScan* node) override;
+
+    absl::Status VisitResolvedOrderByScan(
+        const ResolvedOrderByScan* node) override;
+
     absl::Status VisitResolvedWithEntry(const ResolvedWithEntry* node) override;
+
+    // Returns either the address of right_operand_of_left_join_count_,
+    // left_operand_of_right_join_count_, or full_join_operand_count_,
+    // depending on the arguments, or nullptr if none of the above apply.
+    //
+    // Used to increment or decrement the appropriate join count field when
+    // starting and finishing the processing of an operand.
+    int* GetJoinCountField(const ResolvedJoinScan::JoinType join_type,
+                           bool left_operand);
+
+    // Adjusts the values of the appropriate join count field by <offset>,
+    // in response to entering or exiting a join operand.
+    void MaybeAdjustJoinCount(const ResolvedJoinScan::JoinType join_type,
+                         bool left_operand, int offset);
 
     const Resolver* resolver_;
 
@@ -1713,8 +1756,29 @@ class Resolver {
     // Number of aggregate scans we are inside of.
     int aggregate_scan_count_ = 0;
 
+    // Number of analytic scans we are inside of.
+    int analytic_scan_count_ = 0;
+
+    // Number of limit/offset scans we are inside of.
+    int limit_offset_scan_count_ = 0;
+
+    // Number of order by scans we are inside of.
+    int order_by_scan_count_ = 0;
+
+    // Number of sample sacns we are inside of.
+    int sample_scan_count_ = 0;
+
     // Number of subquery expressions we are inside of.
     int subquery_expr_count_ = 0;
+
+    // Number of times we are inside the right operand of a left join.
+    int right_operand_of_left_join_count_ = 0;
+
+    // Number of times we are inside the left operand of a right join.
+    int left_operand_of_right_join_count_ = 0;
+
+    // Number of times we are inside any operand of a full join.
+    int full_join_operand_count_ = 0;
 
     // True if we've already encountered a recursive reference to the current
     // query. Multiple recursive references to the same query are disallowed.
@@ -2583,15 +2647,18 @@ class Resolver {
   // Function names returned by ResolvedArrayPosition().
   static const char kArrayAtOffset[];
   static const char kArrayAtOrdinal[];
+  static const char kProtoMapAtKey[];
   static const char kSafeArrayAtOffset[];
   static const char kSafeArrayAtOrdinal[];
+  static const char kSafeProtoMapAtKey[];
 
   // Verifies that <resolved_array> is an array and that <ast_position> is an
   // appropriate array element function call (e.g., to OFFSET) and populates
   // <function_name> and <unwrapped_ast_position_expr> accordingly. Also
   // resolves <unwrapped_ast_position_expr> into <resolved_expr_out> and coerces
-  // it to INT64 if necessary.
-  absl::Status ResolveArrayElementPosition(
+  // it to the correct type if necessary. For most arrays, this will be an
+  // INT64, but for proto maps, it will be the key type of the map.
+  absl::Status ResolveArrayElementAccess(
       const ResolvedExpr* resolved_array, const ASTExpression* ast_position,
       ExprResolutionInfo* expr_resolution_info,
       absl::string_view* function_name,
@@ -3211,8 +3278,6 @@ class Resolver {
   // Struct to control the features to be resolved by
   // ResolveCreateTableStmtBaseProperties.
   struct ResolveCreateTableStmtBasePropertiesArgs {
-    const bool partition_by_enabled;
-    const bool cluster_by_enabled;
     const bool table_element_list_enabled;
   };
 

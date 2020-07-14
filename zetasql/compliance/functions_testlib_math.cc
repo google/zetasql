@@ -1599,7 +1599,7 @@ std::vector<FunctionTestCall> GetFunctionTestsMath() {
        NumericValue(14348907)},
       {"power",
        {NumericValue::MaxValue(), NumericValue::FromString("0.5").value()},
-       NumericValue::FromString("316227766016837.9375").value()},
+       NumericValue::FromString("316227766016837.933199889").value()},
 
       {"pow", {NumericValue(-1), NumericValue(2)}, NumericValue(1)},
       {"power", {NumericValue(-1), NumericValue(1)}, NumericValue(-1)},

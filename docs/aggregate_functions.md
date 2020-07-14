@@ -3,8 +3,8 @@
 
 # Aggregate functions
 
-An *aggregate function* is a function that performs a calculation on a set of
-values. `COUNT`, `MIN` and `MAX` are examples of aggregate functions.
+An *aggregate function* is a function that summarizes the rows of a group into a
+single value. `COUNT`, `MIN` and `MAX` are examples of aggregate functions.
 
 ```sql
 SELECT COUNT(*) as total_count, COUNT(fruit) as non_null_count,
@@ -20,6 +20,13 @@ FROM (SELECT NULL as fruit UNION ALL
 | 4           | 3              | apple | pear |
 +-------------+----------------+-------+------+
 ```
+
+When used in conjunction with a `GROUP BY` clause, the groups summarized
+typically have at least one row. When the associated `SELECT` has no `GROUP BY`
+clause or when certain aggregate function modifiers filter rows from the group
+to be summarized it is possible that the aggregate function needs to summarize
+an empty group. In this case, the `COUNT` and `COUNTIF` functions return `0`,
+while all other aggregate functions return `NULL`.
 
 The following sections describe the aggregate functions that ZetaSQL
 supports.
@@ -1150,6 +1157,8 @@ value.
 
 Returns `NULL` if the input contains only `NULL`s.
 
+Returns `NULL` if the input contains no rows.
+
 Returns `Inf` if the input contains `Inf`.
 
 Returns `-Inf` if the input contains `-Inf`.
@@ -1222,6 +1231,17 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 | 5 | 7   |
 | 2 | 7   |
 +---+-----+
+```
+
+```sql
+SELECT SUM(x) AS sum
+FROM UNNEST([]) AS x;
+
++------+
+| sum  |
++------+
+| NULL |
++------+
 ```
 
 ### Common clauses

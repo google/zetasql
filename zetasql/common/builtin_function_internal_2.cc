@@ -161,14 +161,21 @@ void GetDatetimeConversionFunctions(
   // date/timestamp.
   InsertFunction(functions, options, "date_from_unix_date", SCALAR,
                  {{date_type, {int64_type}, FN_DATE_FROM_UNIX_DATE}});
-  InsertFunction(functions, options, "date", SCALAR,
-                 {{date_type,
-                   {timestamp_type, {string_type, OPTIONAL}},
-                   FN_DATE_FROM_TIMESTAMP},
-                  {date_type, {datetime_type}, FN_DATE_FROM_DATETIME},
-                  {date_type,
-                   {int64_type, int64_type, int64_type},
-                   FN_DATE_FROM_YEAR_MONTH_DAY}});
+
+  std::vector<FunctionSignatureOnHeap> date_signatures{
+      {date_type,
+       {timestamp_type, {string_type, OPTIONAL}},
+       FN_DATE_FROM_TIMESTAMP},
+      {date_type, {datetime_type}, FN_DATE_FROM_DATETIME},
+      {date_type,
+       {int64_type, int64_type, int64_type},
+       FN_DATE_FROM_YEAR_MONTH_DAY}};
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS)) {
+    date_signatures.push_back({date_type, {date_type}, FN_DATE_FROM_DATE});
+    date_signatures.push_back({date_type, {string_type}, FN_DATE_FROM_STRING});
+  }
+  InsertFunction(functions, options, "date", SCALAR, date_signatures);
   InsertFunction(
       functions, options, "timestamp_from_unix_seconds", SCALAR,
       {{timestamp_type, {int64_type}, FN_TIMESTAMP_FROM_UNIX_SECONDS_INT64},
@@ -187,16 +194,22 @@ void GetDatetimeConversionFunctions(
        {timestamp_type,
         {timestamp_type},
         FN_TIMESTAMP_FROM_UNIX_MICROS_TIMESTAMP}});
-  InsertFunction(functions, options, "timestamp", SCALAR,
-                 {{timestamp_type,
-                   {string_type, {string_type, OPTIONAL}},
-                   FN_TIMESTAMP_FROM_STRING},
-                  {timestamp_type,
-                   {date_type, {string_type, OPTIONAL}},
-                   FN_TIMESTAMP_FROM_DATE},
-                  {timestamp_type,
-                   {datetime_type, {string_type, OPTIONAL}},
-                   FN_TIMESTAMP_FROM_DATETIME}});
+  std::vector<FunctionSignatureOnHeap> timestamp_signatures{
+      {timestamp_type,
+       {string_type, {string_type, OPTIONAL}},
+       FN_TIMESTAMP_FROM_STRING},
+      {timestamp_type,
+       {date_type, {string_type, OPTIONAL}},
+       FN_TIMESTAMP_FROM_DATE},
+      {timestamp_type,
+       {datetime_type, {string_type, OPTIONAL}},
+       FN_TIMESTAMP_FROM_DATETIME}};
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS)) {
+    timestamp_signatures.push_back(
+        {timestamp_type, {timestamp_type}, FN_TIMESTAMP_FROM_TIMESTAMP});
+  }
+  InsertFunction(functions, options, "timestamp", SCALAR, timestamp_signatures);
   InsertFunction(
       functions, options, "timestamp_seconds", SCALAR,
       {{timestamp_type, {int64_type}, FN_TIMESTAMP_FROM_INT64_SECONDS}});
@@ -241,58 +254,71 @@ void GetTimeAndDatetimeConstructionAndConversionFunctions(
   FunctionOptions time_and_datetime_function_options =
       FunctionOptions().add_required_language_feature(FEATURE_V_1_2_CIVIL_TIME);
 
-  InsertFunction(functions, options, "time", SCALAR,
-                 {
-                     {time_type,
-                      {
-                          int64_type,  // hour
-                          int64_type,  // minute
-                          int64_type,  // second
-                      },
-                      FN_TIME_FROM_HOUR_MINUTE_SECOND},
-                     {time_type,
-                      {
-                          timestamp_type,           // timestamp
-                          {string_type, OPTIONAL},  // timezone
-                      },
-                      FN_TIME_FROM_TIMESTAMP},
-                     {time_type,
-                      {
-                          datetime_type,  // datetime
-                      },
-                      FN_TIME_FROM_DATETIME},
-                 },
+  std::vector<FunctionSignatureOnHeap> time_signatures{
+      {time_type,
+       {
+           int64_type,  // hour
+           int64_type,  // minute
+           int64_type,  // second
+       },
+       FN_TIME_FROM_HOUR_MINUTE_SECOND},
+      {time_type,
+       {
+           timestamp_type,           // timestamp
+           {string_type, OPTIONAL},  // timezone
+       },
+       FN_TIME_FROM_TIMESTAMP},
+      {time_type,
+       {
+           datetime_type,  // datetime
+       },
+       FN_TIME_FROM_DATETIME},
+  };
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS)) {
+    time_signatures.push_back({time_type, {time_type}, FN_TIME_FROM_TIME});
+    time_signatures.push_back({time_type, {string_type}, FN_TIME_FROM_STRING});
+  }
+  InsertFunction(functions, options, "time", SCALAR, time_signatures,
                  time_and_datetime_function_options);
-  InsertFunction(functions, options, "datetime", SCALAR,
-                 {
-                     {datetime_type,
-                      {
-                          int64_type,  // year
-                          int64_type,  // month
-                          int64_type,  // day
-                          int64_type,  // hour
-                          int64_type,  // minute
-                          int64_type,  // second
-                      },
-                      FN_DATETIME_FROM_YEAR_MONTH_DAY_HOUR_MINUTE_SECOND},
-                     {datetime_type,
-                      {
-                          date_type,  // date
-                          time_type,  // time
-                      },
-                      FN_DATETIME_FROM_DATE_AND_TIME},
-                     {datetime_type,
-                      {
-                          timestamp_type,           // timestamp
-                          {string_type, OPTIONAL},  // timezone
-                      },
-                      FN_DATETIME_FROM_TIMESTAMP},
-                     {datetime_type,
-                      {
-                          date_type,  // date
-                      },
-                      FN_DATETIME_FROM_DATE},
-                 },
+
+  std::vector<FunctionSignatureOnHeap> datetime_signatures{
+      {datetime_type,
+       {
+           int64_type,  // year
+           int64_type,  // month
+           int64_type,  // day
+           int64_type,  // hour
+           int64_type,  // minute
+           int64_type,  // second
+       },
+       FN_DATETIME_FROM_YEAR_MONTH_DAY_HOUR_MINUTE_SECOND},
+      {datetime_type,
+       {
+           date_type,  // date
+           time_type,  // time
+       },
+       FN_DATETIME_FROM_DATE_AND_TIME},
+      {datetime_type,
+       {
+           timestamp_type,           // timestamp
+           {string_type, OPTIONAL},  // timezone
+       },
+       FN_DATETIME_FROM_TIMESTAMP},
+      {datetime_type,
+       {
+           date_type,  // date
+       },
+       FN_DATETIME_FROM_DATE},
+  };
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS)) {
+    datetime_signatures.push_back(
+        {datetime_type, {datetime_type}, FN_DATETIME_FROM_DATETIME});
+    datetime_signatures.push_back(
+        {datetime_type, {string_type}, FN_DATETIME_FROM_STRING});
+  }
+  InsertFunction(functions, options, "datetime", SCALAR, datetime_signatures,
                  time_and_datetime_function_options);
 }
 
@@ -639,6 +665,7 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
   const Type* double_type = type_factory->get_double();
   const Type* numeric_type = type_factory->get_numeric();
   const Type* bignumeric_type = type_factory->get_bignumeric();
+  const Type* date_type = type_factory->get_date();
 
   const Function::Mode SCALAR = Function::SCALAR;
 
@@ -656,47 +683,59 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
   // Note that these arithmetic operators (+, -, *, /, <unary minus>) have
   // related SAFE versions (SAFE_ADD, SAFE_SUBTRACT, etc.) that must have
   // the same signatures as these operators.
-  InsertFunction(
-      functions, options, "$add", SCALAR,
-      {{int64_type, {int64_type, int64_type}, FN_ADD_INT64},
-       {uint64_type, {uint64_type, uint64_type}, FN_ADD_UINT64},
-       {double_type,
-        {double_type, double_type},
-        FN_ADD_DOUBLE,
-        has_floating_point_argument},
-       {numeric_type,
-        {numeric_type, numeric_type},
-        FN_ADD_NUMERIC,
-        has_numeric_type_argument},
-       {bignumeric_type,
-        {bignumeric_type, bignumeric_type},
-        FN_ADD_BIGNUMERIC,
-        has_bignumeric_type_argument}},
-      FunctionOptions()
-          .set_supports_safe_error_mode(false)
-          .set_sql_name("+")
-          .set_get_sql_callback(bind_front(&InfixFunctionSQL, "+")));
+  std::vector<FunctionSignatureOnHeap> add_signatures{
+      {int64_type, {int64_type, int64_type}, FN_ADD_INT64},
+      {uint64_type, {uint64_type, uint64_type}, FN_ADD_UINT64},
+      {double_type,
+       {double_type, double_type},
+       FN_ADD_DOUBLE,
+       has_floating_point_argument},
+      {numeric_type,
+       {numeric_type, numeric_type},
+       FN_ADD_NUMERIC,
+       has_numeric_type_argument},
+      {bignumeric_type,
+       {bignumeric_type, bignumeric_type},
+       FN_ADD_BIGNUMERIC,
+       has_bignumeric_type_argument}};
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_DATE_ARITHMETICS)) {
+    add_signatures.push_back(
+        {date_type, {date_type, int64_type}, FN_ADD_DATE_INT64});
+    add_signatures.push_back(
+        {date_type, {int64_type, date_type}, FN_ADD_INT64_DATE});
+  }
+  InsertFunction(functions, options, "$add", SCALAR, add_signatures,
+                 FunctionOptions()
+                     .set_supports_safe_error_mode(false)
+                     .set_sql_name("+")
+                     .set_get_sql_callback(bind_front(&InfixFunctionSQL, "+")));
 
-  InsertFunction(
-      functions, options, "$subtract", SCALAR,
-      {{int64_type, {int64_type, int64_type}, FN_SUBTRACT_INT64},
-       {int64_type, {uint64_type, uint64_type}, FN_SUBTRACT_UINT64},
-       {numeric_type,
-        {numeric_type, numeric_type},
-        FN_SUBTRACT_NUMERIC,
-        has_numeric_type_argument},
-       {bignumeric_type,
-        {bignumeric_type, bignumeric_type},
-        FN_SUBTRACT_BIGNUMERIC,
-        has_bignumeric_type_argument},
-       {double_type,
-        {double_type, double_type},
-        FN_SUBTRACT_DOUBLE,
-        has_floating_point_argument}},
-      FunctionOptions()
-          .set_supports_safe_error_mode(false)
-          .set_sql_name("-")
-          .set_get_sql_callback(bind_front(&InfixFunctionSQL, "-")));
+  std::vector<FunctionSignatureOnHeap> subtract_signatures{
+      {int64_type, {int64_type, int64_type}, FN_SUBTRACT_INT64},
+      {int64_type, {uint64_type, uint64_type}, FN_SUBTRACT_UINT64},
+      {numeric_type,
+       {numeric_type, numeric_type},
+       FN_SUBTRACT_NUMERIC,
+       has_numeric_type_argument},
+      {bignumeric_type,
+       {bignumeric_type, bignumeric_type},
+       FN_SUBTRACT_BIGNUMERIC,
+       has_bignumeric_type_argument},
+      {double_type,
+       {double_type, double_type},
+       FN_SUBTRACT_DOUBLE,
+       has_floating_point_argument}};
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_DATE_ARITHMETICS)) {
+    subtract_signatures.push_back(
+        {date_type, {date_type, int64_type}, FN_SUBTRACT_DATE_INT64});
+  }
+  InsertFunction(functions, options, "$subtract", SCALAR, subtract_signatures,
+                 FunctionOptions()
+                     .set_supports_safe_error_mode(false)
+                     .set_sql_name("-")
+                     .set_get_sql_callback(bind_front(&InfixFunctionSQL, "-")));
 
   InsertFunction(
       functions, options, "$divide", SCALAR,
@@ -1162,6 +1201,7 @@ void GetAnalyticFunctions(TypeFactory* type_factory,
   const Type* int64_type = type_factory->get_int64();
   const Type* double_type = type_factory->get_double();
   const Type* numeric_type = type_factory->get_numeric();
+  const Type* bignumeric_type = type_factory->get_bignumeric();
   const Function::Mode ANALYTIC = Function::ANALYTIC;
 
   const FunctionArgumentType::ArgumentCardinality OPTIONAL =
@@ -1278,19 +1318,36 @@ void GetAnalyticFunctions(TypeFactory* type_factory,
        FN_PERCENTILE_DISC}};
   if (options.language_options.LanguageFeatureEnabled(
           FEATURE_NUMERIC_PERCENTILE_SIGNATURES)) {
+    FunctionSignatureOptions all_args_are_numeric_or_bignumeric;
+    all_args_are_numeric_or_bignumeric.set_constraints(
+        &AllArgumentsHaveNumericOrBigNumericType);
+    optional_non_null_non_agg.set_cardinality(OPTIONAL);
     percentile_cont_signatures.push_back(
         {numeric_type,
          {numeric_type, {numeric_type, non_null_non_agg_between_0_and_1}},
          FN_PERCENTILE_CONT_NUMERIC,
-         FunctionSignatureOptions().set_constraints(
-             &AllArgumentsHaveNumericType)});
+         all_args_are_numeric_or_bignumeric});
+    percentile_cont_signatures.push_back(
+        {bignumeric_type,
+         {bignumeric_type, {bignumeric_type, non_null_non_agg_between_0_and_1}},
+         FN_PERCENTILE_CONT_BIGNUMERIC,
+         all_args_are_numeric_or_bignumeric});
+
+    FunctionSignatureOptions last_arg_is_numeric_or_bignumeric;
+    last_arg_is_numeric_or_bignumeric.set_constraints(
+        &LastArgumentHasNumericOrBigNumericType);
     percentile_disc_signatures.push_back(
         {ARG_TYPE_ANY_1,
          {{ARG_TYPE_ANY_1, comparable},
           {numeric_type, non_null_non_agg_between_0_and_1}},
          FN_PERCENTILE_DISC_NUMERIC,
-         FunctionSignatureOptions().set_constraints(
-             &LastArgumentHasNumericType)});
+         last_arg_is_numeric_or_bignumeric});
+    percentile_disc_signatures.push_back(
+        {ARG_TYPE_ANY_1,
+         {{ARG_TYPE_ANY_1, comparable},
+          {bignumeric_type, non_null_non_agg_between_0_and_1}},
+         FN_PERCENTILE_DISC_BIGNUMERIC,
+         last_arg_is_numeric_or_bignumeric});
   }
 
   InsertFunction(functions, options, "percentile_cont", ANALYTIC,

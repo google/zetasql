@@ -45,42 +45,52 @@ constexpr absl::string_view kNumericMin =
     "-99999999999999999999999999999.999999999";
 constexpr absl::string_view kNumericMax =
     "99999999999999999999999999999.999999999";
+constexpr absl::string_view kBigNumericMin =
+    "-578960446186580977117854925043439539266"
+    ".34992332820282019728792003956564819968";
+constexpr absl::string_view kBigNumericMax =
+    "578960446186580977117854925043439539266"
+    ".34992332820282019728792003956564819967";
 
 template <typename PercentileType>
 struct PercentileIndexTestItem {
   PercentileType percentile;
   size_t max_index;
   size_t expected_index;
-  typename PercentileEvaluatorTmpl<PercentileType>::Weight expected_left_weight;
-  typename PercentileEvaluatorTmpl<PercentileType>::Weight
-      expected_right_weight;
+  typename PercentileEvaluator<PercentileType>::Weight expected_left_weight;
+  typename PercentileEvaluator<PercentileType>::Weight expected_right_weight;
 };
 
 inline std::string ToString(double value) {
   return RoundTripDoubleToString(value);
 }
 
-inline std::string ToString(NumericValue value) { return value.ToString(); }
+template <typename NumericType>
+inline std::string ToString(NumericType value) {
+  return value.ToString();
+}
 
-inline NumericValue operator+(NumericValue lhs, NumericValue rhs) {
+template <typename NumericType>
+inline NumericType operator+(NumericType lhs, NumericType rhs) {
   return lhs.Add(rhs).value();
 }
 
-inline NumericValue operator-(NumericValue lhs, NumericValue rhs) {
+template <typename NumericType>
+inline NumericType operator-(NumericType lhs, NumericType rhs) {
   return lhs.Subtract(rhs).value();
 }
 
 template <typename PercentileType>
 void TestComputePercentileIndex(
     const PercentileIndexTestItem<PercentileType>& item) {
-  using Weight = typename PercentileEvaluatorTmpl<PercentileType>::Weight;
+  using Weight = typename PercentileEvaluator<PercentileType>::Weight;
   SCOPED_TRACE(absl::StrCat(" percentile=", ToString(item.percentile),
                             " max_index=", item.max_index));
   Weight left_weight = Weight(-1);
   Weight right_weight = Weight(-1);
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      PercentileEvaluatorTmpl<PercentileType> percentile_evalutor,
-      PercentileEvaluatorTmpl<PercentileType>::Create(item.percentile));
+      PercentileEvaluator<PercentileType> percentile_evalutor,
+      PercentileEvaluator<PercentileType>::Create(item.percentile));
   EXPECT_EQ(item.expected_index,
             percentile_evalutor.ComputePercentileIndex(
                 item.max_index, &left_weight, &right_weight));
@@ -96,8 +106,8 @@ void TestComputePercentileIndex(
   // and we can't test the complement.
   if (PercentileType(1) - complement_percentile == item.percentile) {
     ZETASQL_ASSERT_OK_AND_ASSIGN(
-        PercentileEvaluatorTmpl<PercentileType> complement_percentile_evalutor,
-        PercentileEvaluatorTmpl<PercentileType>::Create(complement_percentile));
+        PercentileEvaluator<PercentileType> complement_percentile_evalutor,
+        PercentileEvaluator<PercentileType>::Create(complement_percentile));
     const size_t index = complement_percentile_evalutor.ComputePercentileIndex(
         item.max_index, &left_weight, &right_weight);
     if (item.expected_right_weight > Weight(0)) {
@@ -112,7 +122,7 @@ void TestComputePercentileIndex(
   }
 }
 
-TEST(PercentileTest, ComputePercentileIndex) {
+TEST(DoublePercentileTest, ComputePercentileIndex) {
   constexpr long double kTwoToMinus65 = 0.25 / kTwoTo63;
   constexpr long double kTwoToMinus64 = 0.5 / kTwoTo63;
   constexpr long double kTwoToMinus63 = 1.0 / kTwoTo63;
@@ -199,8 +209,8 @@ TEST(PercentileTest, ComputePercentileIndex) {
   static const size_t kUint64Maxes[] = {0,        1,         100, kTwoTo63 - 1,
                                         kTwoTo63, kUint64Max};
   for (double percentile : kSmallPercnetiles) {
-    ZETASQL_ASSERT_OK_AND_ASSIGN(PercentileEvaluator percentile_evalutor,
-                         PercentileEvaluator::Create(percentile));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(PercentileEvaluator<double> percentile_evalutor,
+                         PercentileEvaluator<double>::Create(percentile));
     for (size_t max_index : kUint64Maxes) {
       SCOPED_TRACE(
           absl::StrCat("percentile=", RoundTripDoubleToString(percentile),
@@ -217,7 +227,7 @@ TEST(PercentileTest, ComputePercentileIndex) {
   }
 }
 
-TEST(PercentileTest, InvalidPercentiles) {
+TEST(DoublePercentileTest, InvalidPercentiles) {
   static constexpr double kInvalidPercentiles[] = {
       kNaN,
       -kInf,
@@ -227,7 +237,7 @@ TEST(PercentileTest, InvalidPercentiles) {
       kDoubleMax,
       kInf};
   for (double percentile : kInvalidPercentiles) {
-    EXPECT_THAT(PercentileEvaluator::Create(percentile),
+    EXPECT_THAT(PercentileEvaluator<double>::Create(percentile),
                 zetasql_base::testing::StatusIs(absl::StatusCode::kInvalidArgument));
   }
 }
@@ -244,76 +254,106 @@ template <typename PercentileType>
 void TestComputeNumericPercentileIndex(
     absl::Span<const NumericPercentileIndexTestItem> items) {
   for (const NumericPercentileIndexTestItem& item : items) {
-    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue percentile,
-                         NumericValue::FromStringStrict(item.percentile_str));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(PercentileType percentile,
+                         PercentileType::FromStringStrict(item.percentile_str));
     ZETASQL_ASSERT_OK_AND_ASSIGN(
-        NumericValue expected_right_weight,
-        NumericValue::FromStringStrict(item.expected_right_weight_str));
-    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue expected_left_weight,
-                         NumericValue(1).Subtract(expected_right_weight));
+        PercentileType expected_right_weight,
+        PercentileType::FromStringStrict(item.expected_right_weight_str));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(PercentileType expected_left_weight,
+                         PercentileType(1).Subtract(expected_right_weight));
     TestComputePercentileIndex<PercentileType>(
         {percentile, item.max_index, item.expected_index, expected_left_weight,
          expected_right_weight});
   }
 }
 
+static constexpr NumericPercentileIndexTestItem
+    kNumericPercentileIndexCommonTestItems[] = {
+        // {percentile, max_index, expected_index, expected_right_weight}
+        {"1", 0, 0, "0"},
+        {"1", 1, 1, "0"},
+        {"1", 99, 99, "0"},
+        {"1", 100, 100, "0"},
+        {"1", kTwoTo63 - 1, kTwoTo63 - 1, "0"},
+        {"1", kTwoTo63, kTwoTo63, "0"},
+        {"1", kUint64Max - 1, kUint64Max - 1, "0"},
+        {"1", kUint64Max, kUint64Max, "0"},
+
+        {"1e-9", 0, 0, "0"},
+        {"1e-9", 1, 0, "1e-9"},
+        {"1e-9", 99, 0, "9.9e-8"},
+        {"1e-9", 100, 0, "1e-7"},
+        {"1e-9", 9223372036854775807ULL, 9223372036, "0.854775807"},
+        {"1e-9", 9223372036854775808ULL, 9223372036, "0.854775808"},
+        {"1e-9", 18446744073709551614ULL, 18446744073, "0.709551614"},
+        {"1e-9", 18446744073709551615ULL, 18446744073, "0.709551615"},
+
+        {"0.5", 0, 0, "0"},
+        {"0.5", 1, 0, "0.5"},
+        {"0.5", 99, 49, "0.5"},
+        {"0.5", 100, 50, "0"},
+        {"0.5", kTwoTo63 - 1, kTwoTo63 / 2 - 1, "0.5"},
+        {"0.5", kTwoTo63, kTwoTo63 / 2, "0"},
+        {"0.5", kUint64Max - 1, kTwoTo63 - 1, "0"},
+        {"0.5", kUint64Max, kTwoTo63 - 1, "0.5"},
+
+        {"0.25", 0, 0, "0"},
+        {"0.25", 1, 0, "0.25"},
+        {"0.25", 99, 24, "0.75"},
+        {"0.25", 100, 25, "0"},
+        {"0.25", kTwoTo63 - 1, kTwoTo63 / 4 - 1, "0.75"},
+        {"0.25", kTwoTo63, kTwoTo63 / 4, "0"},
+        {"0.25", kUint64Max - 1, kTwoTo62 - 1, "0.5"},
+        {"0.25", kUint64Max, kTwoTo62 - 1, "0.75"},
+};
+
 TEST(NumericPercentileTest, ComputePercentileIndex) {
-  static constexpr NumericPercentileIndexTestItem kTestItems[] = {
+  TestComputeNumericPercentileIndex<NumericValue>(
+      kNumericPercentileIndexCommonTestItems);
+}
+
+TEST(BigNumericPercentileTest, ComputePercentileIndex) {
+  TestComputeNumericPercentileIndex<BigNumericValue>(
+      kNumericPercentileIndexCommonTestItems);
+
+  // Not repeating the values covered in kNumericPercentileIndexCommonTestItems.
+  static constexpr NumericPercentileIndexTestItem kBigNumericTestItems[] = {
       // {percentile, max_index, expected_index, expected_right_weight}
-      {"1", 0, 0, "0"},
-      {"1", 1, 1, "0"},
-      {"1", 99, 99, "0"},
-      {"1", 100, 100, "0"},
-      {"1", kTwoTo63 - 1, kTwoTo63 - 1, "0"},
-      {"1", kTwoTo63, kTwoTo63, "0"},
-      {"1", kUint64Max - 1, kUint64Max - 1, "0"},
-      {"1", kUint64Max, kUint64Max, "0"},
-
-      {"1e-9", 0, 0, "0"},
-      {"1e-9", 1, 0, "1e-9"},
-      {"1e-9", 99, 0, "9.9e-8"},
-      {"1e-9", 100, 0, "1e-7"},
-      {"1e-9", 9223372036854775807ULL, 9223372036, "0.854775807"},
-      {"1e-9", 9223372036854775808ULL, 9223372036, "0.854775808"},
-      {"1e-9", 18446744073709551614ULL, 18446744073, "0.709551614"},
-      {"1e-9", 18446744073709551615ULL, 18446744073, "0.709551615"},
-
-      {"0.5", 0, 0, "0"},
-      {"0.5", 1, 0, "0.5"},
-      {"0.5", 99, 49, "0.5"},
-      {"0.5", 100, 50, "0"},
-      {"0.5", kTwoTo63 - 1, kTwoTo63 / 2 - 1, "0.5"},
-      {"0.5", kTwoTo63, kTwoTo63 / 2, "0"},
-      {"0.5", kUint64Max - 1, kTwoTo63 - 1, "0"},
-      {"0.5", kUint64Max, kTwoTo63 - 1, "0.5"},
-
-      {"0.25", 0, 0, "0"},
-      {"0.25", 1, 0, "0.25"},
-      {"0.25", 99, 24, "0.75"},
-      {"0.25", 100, 25, "0"},
-      {"0.25", kTwoTo63 - 1, kTwoTo63 / 4 - 1, "0.75"},
-      {"0.25", kTwoTo63, kTwoTo63 / 4, "0"},
-      {"0.25", kUint64Max - 1, kTwoTo62 - 1, "0.5"},
-      {"0.25", kUint64Max, kTwoTo62 - 1, "0.75"},
+      {"1e-38", 0, 0, "0"},
+      {"1e-38", 1, 0, "1e-38"},
+      {"1e-38", 99, 0, "9.9e-37"},
+      {"1e-38", 100, 0, "1e-36"},
+      {"1e-38", 9223372036854775807ULL, 0, "9.223372036854775807e-20"},
+      {"1e-38", 9223372036854775808ULL, 0, "9.223372036854775808e-20"},
+      {"1e-38", 18446744073709551614ULL, 0, "1.8446744073709551614e-19"},
+      {"1e-38", 18446744073709551615ULL, 0, "1.8446744073709551615e-19"},
   };
+  TestComputeNumericPercentileIndex<BigNumericValue>(kBigNumericTestItems);
+}
 
-  TestComputeNumericPercentileIndex<NumericValue>(kTestItems);
+template <typename PercentileType>
+void TestInvalidPercentile() {
+  static constexpr PercentileType kInvalidPercentiles[] = {
+      PercentileType::MinValue(),
+      PercentileType::FromScaledValue(-PercentileType::kScalingFactor),  // -1
+      PercentileType::FromScaledValue(-1),  // -1 / kScalingFactor
+      // 1 + 1 / kScalingFactor
+      PercentileType::FromScaledValue(PercentileType::kScalingFactor + 1),
+      PercentileType::FromScaledValue(PercentileType::kScalingFactor * 2),  // 2
+      PercentileType::MaxValue(),
+  };
+  for (PercentileType percentile : kInvalidPercentiles) {
+    EXPECT_THAT(PercentileEvaluator<PercentileType>::Create(percentile),
+                zetasql_base::testing::StatusIs(absl::StatusCode::kInvalidArgument));
+  }
 }
 
 TEST(NumericPercentileTest, InvalidPercentiles) {
-  static constexpr NumericValue kInvalidPercentiles[] = {
-      NumericValue::MinValue(),
-      NumericValue(-1),
-      NumericValue::FromScaledValue(-1),  // -1e-9
-      // 1 + 1e-9
-      NumericValue::FromScaledValue(NumericValue::kScalingFactor + 1),
-      NumericValue(2),
-      NumericValue::MaxValue(),
-  };
-  for (NumericValue percentile : kInvalidPercentiles) {
-    EXPECT_THAT(NumericPercentileEvaluator::Create(percentile),
-                zetasql_base::testing::StatusIs(absl::StatusCode::kInvalidArgument));
-  }
+  TestInvalidPercentile<NumericValue>();
+}
+
+TEST(BigNumericPercentileTest, InvalidPercentiles) {
+  TestInvalidPercentile<BigNumericValue>();
 }
 
 struct NumericLinearInterpolationTestItem {
@@ -324,16 +364,135 @@ struct NumericLinearInterpolationTestItem {
   absl::string_view expected_result;
 };
 
-TEST(NumericPercentileTest, ComputeLinearInterpolation) {
-  static constexpr NumericLinearInterpolationTestItem kTestItems[] = {
-      {"0", "0", "0", "0"},
-      {"0", "0", "1e-9", "0"},
-      {"0", "0", "0.499999999", "0"},
-      {"0", "0", "0.5", "0"},
-      {"0", "0", "0.500000001", "0"},
-      {"0", "0", "0.999999999", "0"},
-      {"0", "0", "1", "0"},
+static constexpr NumericLinearInterpolationTestItem
+    kNumericLinearInterpolationCommonTestItems[] = {
+        {"0", "0", "0", "0"},
+        {"0", "0", "1e-9", "0"},
+        {"0", "0", "0.499999999", "0"},
+        {"0", "0", "0.5", "0"},
+        {"0", "0", "0.500000001", "0"},
+        {"0", "0", "0.999999999", "0"},
+        {"0", "0", "1", "0"},
 
+        {"0", "1", "0", "0"},
+        {"0", "1", "1e-9", "1e-9"},
+        {"0", "1", "0.499999999", "0.499999999"},
+        {"0", "1", "0.5", "0.5"},
+        {"0", "1", "0.500000001", "0.500000001"},
+        {"0", "1", "0.999999999", "0.999999999"},
+        {"0", "1", "1", "1"},
+
+        {"0", "1e28", "0", "0"},
+        {"0", "1e28", "1e-9", "1e19"},
+        {"0", "1e28", "0.499999999", "4.99999999e27"},
+        {"0", "1e28", "0.5", "5e27"},
+        {"0", "1e28", "0.500000001", "5.00000001e27"},
+        {"0", "1e28", "0.999999999", "9.99999999e27"},
+        {"0", "1e28", "1", "1e28"},
+
+        {"1", "1", "0", "1"},
+        {"1", "1", "1e-9", "1"},
+        {"1", "1", "0.499999999", "1"},
+        {"1", "1", "0.5", "1"},
+        {"1", "1", "0.500000001", "1"},
+        {"1", "1", "0.999999999", "1"},
+        {"1", "1", "1", "1"},
+
+        {"1", "1e28", "0", "1"},
+        {"1", "1e28", "1e-9", "10000000000000000000.999999999"},
+        {"1", "1e28", "0.499999999", "4999999990000000000000000000.500000001"},
+        {"1", "1e28", "0.5", "5000000000000000000000000000.5"},
+        {"1", "1e28", "0.500000001", "5000000010000000000000000000.499999999"},
+        {"1", "1e28", "0.999999999", "9999999990000000000000000000.000000001"},
+        {"1", "1e28", "1", "1e28"},
+
+        {"1e28", "1e28", "0", "1e28"},
+        {"1e28", "1e28", "1e-9", "1e28"},
+        {"1e28", "1e28", "0.499999999", "1e28"},
+        {"1e28", "1e28", "0.5", "1e28"},
+        {"1e28", "1e28", "0.500000001", "1e28"},
+        {"1e28", "1e28", "0.999999999", "1e28"},
+        {"1e28", "1e28", "1", "1e28"},
+
+        // Opposite signs
+
+        {"-1", "1", "0", "-1"},
+        {"-1", "1", "1e-9", "-0.999999998"},
+        {"-1", "1", "0.499999999", "-2e-9"},
+        {"-1", "1", "0.5", "0"},
+        {"-1", "1", "0.500000001", "2e-9"},
+        {"-1", "1", "0.999999999", "0.999999998"},
+        {"-1", "1", "1", "1"},
+
+        {"-1", "1e28", "0", "-1"},
+        {"-1", "1e28", "1e-9", "9999999999999999999.000000001"},
+        {"-1", "1e28", "0.499999999", "4999999989999999999999999999.499999999"},
+        {"-1", "1e28", "0.5", "4999999999999999999999999999.5"},
+        {"-1", "1e28", "0.500000001", "5000000009999999999999999999.500000001"},
+        {"-1", "1e28", "0.999999999", "9999999989999999999999999999.999999999"},
+        {"-1", "1e28", "1", "1e28"},
+
+        {"-1e28", "1e28", "0", "-1e28"},
+        {"-1e28", "1e28", "1e-9", "-9.99999998e27"},
+        {"-1e28", "1e28", "0.499999999", "-2e19"},
+        {"-1e28", "1e28", "0.5", "0"},
+        {"-1e28", "1e28", "0.500000001", "2e19"},
+        {"-1e28", "1e28", "0.999999999", "9.99999998e27"},
+        {"-1e28", "1e28", "1", "1e28"},
+};
+
+template <typename NumericType>
+void TestNumericLinearInterpolation(
+    absl::Span<const NumericLinearInterpolationTestItem> items) {
+  for (const NumericLinearInterpolationTestItem& item : items) {
+    SCOPED_TRACE(absl::StrCat("left_value=", item.left_value,
+                              " right_value=", item.right_value,
+                              " right_weight=", item.right_weight));
+
+    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericType left_value,
+                         NumericType::FromStringStrict(item.left_value));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericType right_value,
+                         NumericType::FromStringStrict(item.right_value));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericType right_weight,
+                         NumericType::FromStringStrict(item.right_weight));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericType left_weight,
+                         NumericType(1).Subtract(right_weight));
+    NumericType result =
+        PercentileEvaluator<NumericType>::ComputeLinearInterpolation(
+            left_value, left_weight, right_value, right_weight);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericType expected_result,
+                         NumericType::FromStringStrict(item.expected_result));
+    EXPECT_EQ(expected_result, result);
+
+    // Swap left and right with weights. Result should not change.
+    result = PercentileEvaluator<NumericType>::ComputeLinearInterpolation(
+        right_value, right_weight, left_value, left_weight);
+    EXPECT_EQ(expected_result, result);
+
+    // Negate values. Result should be negated.
+    // Note: NumericValue::Negate() returns NumericValue, while
+    // BigNumericValue::Negate() returns StatusOr<BigNumericValue>.
+    auto negated_left_value = left_value.Negate();
+    auto negated_right_value = right_value.Negate();
+    if constexpr (std::is_same_v<decltype(negated_left_value), NumericType>) {
+      result = PercentileEvaluator<NumericType>::ComputeLinearInterpolation(
+          negated_left_value, left_weight, negated_right_value, right_weight);
+      EXPECT_EQ(expected_result.Negate(), result);
+    } else if (negated_left_value.ok() && negated_right_value.ok()) {
+      result = PercentileEvaluator<NumericType>::ComputeLinearInterpolation(
+          negated_left_value.value(), left_weight, negated_right_value.value(),
+          right_weight);
+      ZETASQL_ASSERT_OK_AND_ASSIGN(expected_result, expected_result.Negate());
+      EXPECT_EQ(expected_result, result);
+    }
+  }
+}
+
+TEST(NumericPercentileTest, ComputeLinearInterpolation) {
+  TestNumericLinearInterpolation<NumericValue>(
+      kNumericLinearInterpolationCommonTestItems);
+
+  static constexpr NumericLinearInterpolationTestItem kMoreTestItems[] = {
       {"0", "1e-9", "0", "0"},
       {"0", "1e-9", "1e-9", "0"},
       {"0", "1e-9", "0.499999999", "0"},
@@ -341,32 +500,6 @@ TEST(NumericPercentileTest, ComputeLinearInterpolation) {
       {"0", "1e-9", "0.500000001", "1e-9"},
       {"0", "1e-9", "0.999999999", "1e-9"},
       {"0", "1e-9", "1", "1e-9"},
-
-      {"0", "1", "0", "0"},
-      {"0", "1", "1e-9", "1e-9"},
-      {"0", "1", "0.499999999", "0.499999999"},
-      {"0", "1", "0.5", "0.5"},
-      {"0", "1", "0.500000001", "0.500000001"},
-      {"0", "1", "0.999999999", "0.999999999"},
-      {"0", "1", "1", "1"},
-
-      {"0", "1e28", "0", "0"},
-      {"0", "1e28", "1e-9", "1e19"},
-      {"0", "1e28", "0.499999999", "4.99999999e27"},
-      {"0", "1e28", "0.5", "5e27"},
-      {"0", "1e28", "0.500000001", "5.00000001e27"},
-      {"0", "1e28", "0.999999999", "9.99999999e27"},
-      {"0", "1e28", "1", "1e28"},
-
-      {"0", kNumericMax, "0", "0"},
-      {"0", kNumericMax, "1e-9", "1e20"},
-      {"0", kNumericMax, "0.499999999", "4.99999999e28"},
-      {"0", kNumericMax, "0.5", "5e28"},
-      {"0", kNumericMax, "0.500000001",
-       "50000000099999999999999999999.999999999"},
-      {"0", kNumericMax, "0.999999999",
-       "99999999899999999999999999999.999999999"},
-      {"0", kNumericMax, "1", kNumericMax},
 
       {"1e-9", "1e-9", "0", "1e-9"},
       {"1e-9", "1e-9", "1e-9", "1e-9"},
@@ -391,6 +524,16 @@ TEST(NumericPercentileTest, ComputeLinearInterpolation) {
       {"1e-9", "1e28", "0.999999999", "9.99999999e27"},
       {"1e-9", "1e28", "1", "1e28"},
 
+      {"0", kNumericMax, "0", "0"},
+      {"0", kNumericMax, "1e-9", "1e20"},
+      {"0", kNumericMax, "0.499999999", "4.99999999e28"},
+      {"0", kNumericMax, "0.5", "5e28"},
+      {"0", kNumericMax, "0.500000001",
+       "50000000099999999999999999999.999999999"},
+      {"0", kNumericMax, "0.999999999",
+       "99999999899999999999999999999.999999999"},
+      {"0", kNumericMax, "1", kNumericMax},
+
       {"1e-9", kNumericMax, "0", "1e-9"},
       {"1e-9", kNumericMax, "1e-9", "100000000000000000000.000000001"},
       {"1e-9", kNumericMax, "0.499999999", "4.99999999e28"},
@@ -399,22 +542,6 @@ TEST(NumericPercentileTest, ComputeLinearInterpolation) {
       {"1e-9", kNumericMax, "0.999999999",
        "99999999899999999999999999999.999999999"},
       {"1e-9", kNumericMax, "1", kNumericMax},
-
-      {"1", "1", "0", "1"},
-      {"1", "1", "1e-9", "1"},
-      {"1", "1", "0.499999999", "1"},
-      {"1", "1", "0.5", "1"},
-      {"1", "1", "0.500000001", "1"},
-      {"1", "1", "0.999999999", "1"},
-      {"1", "1", "1", "1"},
-
-      {"1", "1e28", "0", "1"},
-      {"1", "1e28", "1e-9", "10000000000000000000.999999999"},
-      {"1", "1e28", "0.499999999", "4999999990000000000000000000.500000001"},
-      {"1", "1e28", "0.5", "5000000000000000000000000000.5"},
-      {"1", "1e28", "0.500000001", "5000000010000000000000000000.499999999"},
-      {"1", "1e28", "0.999999999", "9999999990000000000000000000.000000001"},
-      {"1", "1e28", "1", "1e28"},
 
       {"1", kNumericMax, "0", "1"},
       {"1", kNumericMax, "1e-9", "100000000000000000000.999999999"},
@@ -425,15 +552,6 @@ TEST(NumericPercentileTest, ComputeLinearInterpolation) {
        "50000000100000000000000000000.499999998"},
       {"1", kNumericMax, "0.999999999", "9.99999999e28"},
       {"1", kNumericMax, "1", kNumericMax},
-
-      {"1e28", "1e28", "0", "1e28"},
-      {"1e28", "1e28", "1e-9", "1e28"},
-      {"1e28", "1e28", "0.499999999", "1e28"},
-      {"1e28", "1e28", "0.5", "1e28"},
-      {"1e28", "1e28", "0.500000001", "1e28"},
-      {"1e28", "1e28", "0.999999999", "1e28"},
-      {"1e28", "1e28", "1", "1e28"},
-
       {"1e28", kNumericMax, "0", "1e28"},
       {"1e28", kNumericMax, "1e-9", "1.000000009e28"},
       {"1e28", kNumericMax, "0.499999999", "5.499999991e28"},
@@ -489,22 +607,6 @@ TEST(NumericPercentileTest, ComputeLinearInterpolation) {
        "99999999899999999999999999999.999999999"},
       {"-1e-9", kNumericMax, "1", kNumericMax},
 
-      {"-1", "1", "0", "-1"},
-      {"-1", "1", "1e-9", "-0.999999998"},
-      {"-1", "1", "0.499999999", "-2e-9"},
-      {"-1", "1", "0.5", "0"},
-      {"-1", "1", "0.500000001", "2e-9"},
-      {"-1", "1", "0.999999999", "0.999999998"},
-      {"-1", "1", "1", "1"},
-
-      {"-1", "1e28", "0", "-1"},
-      {"-1", "1e28", "1e-9", "9999999999999999999.000000001"},
-      {"-1", "1e28", "0.499999999", "4999999989999999999999999999.499999999"},
-      {"-1", "1e28", "0.5", "4999999999999999999999999999.5"},
-      {"-1", "1e28", "0.500000001", "5000000009999999999999999999.500000001"},
-      {"-1", "1e28", "0.999999999", "9999999989999999999999999999.999999999"},
-      {"-1", "1e28", "1", "1e28"},
-
       {"-1", kNumericMax, "0", "-1"},
       {"-1", kNumericMax, "1e-9", "99999999999999999999.000000001"},
       {"-1", kNumericMax, "0.499999999",
@@ -514,14 +616,6 @@ TEST(NumericPercentileTest, ComputeLinearInterpolation) {
       {"-1", kNumericMax, "0.999999999",
        "99999999899999999999999999999.999999998"},
       {"-1", kNumericMax, "1", kNumericMax},
-
-      {"-1e28", "1e28", "0", "-1e28"},
-      {"-1e28", "1e28", "1e-9", "-9.99999998e27"},
-      {"-1e28", "1e28", "0.499999999", "-2e19"},
-      {"-1e28", "1e28", "0.5", "0"},
-      {"-1e28", "1e28", "0.500000001", "2e19"},
-      {"-1e28", "1e28", "0.999999999", "9.99999998e27"},
-      {"-1e28", "1e28", "1", "1e28"},
 
       {"-1e28", kNumericMax, "0", "-1e28"},
       {"-1e28", kNumericMax, "1e-9", "-9.99999989e27"},
@@ -543,33 +637,144 @@ TEST(NumericPercentileTest, ComputeLinearInterpolation) {
        "99999999799999999999999999999.999999999"},
       {kNumericMin, kNumericMax, "1", kNumericMax},
   };
+  TestNumericLinearInterpolation<NumericValue>(kMoreTestItems);
+}
 
-  for (const NumericLinearInterpolationTestItem& item : kTestItems) {
-    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue left_value,
-                         NumericValue::FromStringStrict(item.left_value));
-    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue right_value,
-                         NumericValue::FromStringStrict(item.right_value));
-    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue right_weight,
-                         NumericValue::FromStringStrict(item.right_weight));
-    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue left_weight,
-                         NumericValue(1).Subtract(right_weight));
-    NumericValue result =
-        NumericPercentileEvaluator::ComputeLinearInterpolation(
-            left_value, left_weight, right_value, right_weight);
-    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue expected_result,
-                         NumericValue::FromStringStrict(item.expected_result));
-    EXPECT_EQ(expected_result, result);
+TEST(BigNumericPercentileTest, ComputeLinearInterpolation) {
+  TestNumericLinearInterpolation<BigNumericValue>(
+      kNumericLinearInterpolationCommonTestItems);
 
-    // Swap left and right with weights. Result should not change.
-    result = NumericPercentileEvaluator::ComputeLinearInterpolation(
-        right_value, right_weight, left_value, left_weight);
-    EXPECT_EQ(expected_result, result);
+  static constexpr NumericLinearInterpolationTestItem kMoreTestItems[] = {
+      {"0", "1e-38", "0", "0"},
+      {"0", "1e-38", "1e-38", "0"},
+      {"0", "1e-38", "0.49999999999999999999999999999999999999", "0"},
+      {"0", "1e-38", "0.5", "1e-38"},
+      {"0", "1e-38", "0.50000000000000000000000000000000000001", "1e-38"},
+      {"0", "1e-38", "0.99999999999999999999999999999999999999", "1e-38"},
+      {"0", "1e-38", "1", "1e-38"},
 
-    // Negate values. Result should be negated.
-    result = NumericPercentileEvaluator::ComputeLinearInterpolation(
-        left_value.Negate(), left_weight, right_value.Negate(), right_weight);
-    EXPECT_EQ(expected_result.Negate(), result);
-  }
+      {"1e-38", "1e-38", "0", "1e-38"},
+      {"1e-38", "1e-38", "1e-38", "1e-38"},
+      {"1e-38", "1e-38", "0.49999999999999999999999999999999999999", "1e-38"},
+      {"1e-38", "1e-38", "0.5", "1e-38"},
+      {"1e-38", "1e-38", "0.99999999999999999999999999999999999999", "1e-38"},
+      {"1e-38", "1e-38", "1", "1e-38"},
+
+      {"1e-38", "1", "0", "1e-38"},
+      {"1e-38", "1", "1e-38", "2e-38"},
+      {"1e-38", "1", "0.49999999999999999999999999999999999999", "0.5"},
+      {"1e-38", "1", "0.5", "0.50000000000000000000000000000000000001"},
+      {"1e-38", "1", "0.50000000000000000000000000000000000001",
+       "0.50000000000000000000000000000000000001"},
+      {"1e-38", "1", "0.99999999999999999999999999999999999999",
+       "0.99999999999999999999999999999999999999"},
+      {"1e-38", "1", "1", "1"},
+
+      {"1e-38", "1e38", "0", "1e-38"},
+      {"1e-38", "1e38", "1e-38", "1.00000000000000000000000000000000000001"},
+      {"1e-38", "1e38", "0.49999999999999999999999999999999999999",
+       "49999999999999999999999999999999999999."
+       "00000000000000000000000000000000000001"},
+      {"1e-38", "1e38", "0.5",
+       "50000000000000000000000000000000000000."
+       "00000000000000000000000000000000000001"},
+      {"1e-38", "1e38", "0.50000000000000000000000000000000000001",
+       "50000000000000000000000000000000000001"},
+      {"1e-38", "1e38", "0.99999999999999999999999999999999999999",
+       "99999999999999999999999999999999999999"},
+      {"1e-38", "1e38", "1", "1e38"},
+
+      {"0", kBigNumericMax, "0", "0"},
+      {"0", kBigNumericMax, "1", kBigNumericMax},
+      {"1e-38", kBigNumericMax, "0", "1e-38"},
+      {"1e-38", kBigNumericMax, "1", kBigNumericMax},
+      {"1", kBigNumericMax, "0", "1"},
+      {"1", kBigNumericMax, "1", kBigNumericMax},
+      {"1e38", kBigNumericMax, "0", "1e38"},
+      {"1e38", kBigNumericMax, "1", kBigNumericMax},
+
+      {"0", kBigNumericMin, "0", "0"},
+      {"0", kBigNumericMin, "1", kBigNumericMin},
+      {"-1e-38", kBigNumericMin, "0", "-1e-38"},
+      {"-1e-38", kBigNumericMin, "1", kBigNumericMin},
+      {"-1", kBigNumericMin, "0", "-1"},
+      {"-1", kBigNumericMin, "1", kBigNumericMin},
+      {"-1e38", kBigNumericMin, "0", "-1e38"},
+      {"-1e38", kBigNumericMin, "1", kBigNumericMin},
+
+      {kBigNumericMax, kBigNumericMax, "0", kBigNumericMax},
+      {kBigNumericMax, kBigNumericMax, "1e-38", kBigNumericMax},
+      {kBigNumericMax, kBigNumericMax,
+       "0.49999999999999999999999999999999999999", kBigNumericMax},
+      {kBigNumericMax, kBigNumericMax, "0.5", kBigNumericMax},
+      {kBigNumericMax, kBigNumericMax,
+       "0.50000000000000000000000000000000000001", kBigNumericMax},
+      {kBigNumericMax, kBigNumericMax,
+       "0.99999999999999999999999999999999999999", kBigNumericMax},
+      {kBigNumericMax, kBigNumericMax, "1", kBigNumericMax},
+
+      {kBigNumericMin, kBigNumericMin, "0", kBigNumericMin},
+      {kBigNumericMin, kBigNumericMin, "1e-38", kBigNumericMin},
+      {kBigNumericMin, kBigNumericMin,
+       "0.49999999999999999999999999999999999999", kBigNumericMin},
+      {kBigNumericMin, kBigNumericMin, "0.5", kBigNumericMin},
+      {kBigNumericMin, kBigNumericMin,
+       "0.50000000000000000000000000000000000001", kBigNumericMin},
+      {kBigNumericMin, kBigNumericMin,
+       "0.99999999999999999999999999999999999999", kBigNumericMin},
+      {kBigNumericMin, kBigNumericMin, "1", kBigNumericMin},
+
+      // Opposite signs
+
+      {"-1e-38", "1e-38", "0", "-1e-38"},
+      {"-1e-38", "1e-38", "1e-38", "-1e-38"},
+      {"-1e-38", "1e-38", "0.49999999999999999999999999999999999999", "0"},
+      {"-1e-38", "1e-38", "0.5", "0"},
+      {"-1e-38", "1e-38", "0.99999999999999999999999999999999999999", "1e-38"},
+      {"-1e-38", "1e-38", "1", "1e-38"},
+
+      {"-1e-38", "1", "0", "-1e-38"},
+      {"-1e-38", "1", "1e-38", "0"},
+      {"-1e-38", "1", "0.49999999999999999999999999999999999999",
+       "0.49999999999999999999999999999999999998"},
+      {"-1e-38", "1", "0.5", "0.5"},
+      {"-1e-38", "1", "0.50000000000000000000000000000000000001",
+       "0.50000000000000000000000000000000000001"},
+      {"-1e-38", "1", "0.99999999999999999999999999999999999999",
+       "0.99999999999999999999999999999999999999"},
+      {"-1e-38", "1", "1", "1"},
+
+      {"-1e-38", "1e38", "0", "-1e-38"},
+      {"-1e-38", "1e38", "1e-38", "0.99999999999999999999999999999999999999"},
+      {"-1e-38", "1e38", "0.49999999999999999999999999999999999999",
+       "49999999999999999999999999999999999998."
+       "99999999999999999999999999999999999999"},
+      {"-1e-38", "1e38", "0.5", "5e37"},
+      {"-1e-38", "1e38", "0.50000000000000000000000000000000000001",
+       "50000000000000000000000000000000000001"},
+      {"-1e-38", "1e38", "0.99999999999999999999999999999999999999",
+       "99999999999999999999999999999999999999"},
+      {"-1e-38", "1e38", "1", "1e38"},
+
+      {"-1e-38", kBigNumericMax, "0", "-1e-38"},
+      {"-1e-38", kBigNumericMax, "1", kBigNumericMax},
+      {"-1", kBigNumericMax, "0", "-1"},
+      {"-1", kBigNumericMax, "1", kBigNumericMax},
+      {"-1e28", kBigNumericMax, "0", "-1e28"},
+      {"-1e28", kBigNumericMax, "1", kBigNumericMax},
+
+      {"1e-38", kBigNumericMin, "0", "1e-38"},
+      {"1e-38", kBigNumericMin, "1", kBigNumericMin},
+      {"1", kBigNumericMin, "0", "1"},
+      {"1", kBigNumericMin, "1", kBigNumericMin},
+      {"1e38", kBigNumericMin, "0", "1e38"},
+      {"1e38", kBigNumericMin, "1", kBigNumericMin},
+
+      {kBigNumericMin, kBigNumericMax, "0", kBigNumericMin},
+      {kBigNumericMin, kBigNumericMax, "0.5", "-1e-38"},
+      {kBigNumericMin, kBigNumericMax, "1", kBigNumericMax},
+  };
+  TestNumericLinearInterpolation<BigNumericValue>(kMoreTestItems);
 }
 
 template <typename PercentileType>
@@ -586,9 +791,8 @@ void VerifyPercentileCont(absl::string_view expected_result,
                           PercentileType percentile) {
   SCOPED_TRACE(absl::StrCat("percentile=", ToString(percentile),
                             " num_nulls=", num_nulls));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      PercentileEvaluatorTmpl<PercentileType> percentile_evalutor,
-      PercentileEvaluatorTmpl<PercentileType>::Create(percentile));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(PercentileEvaluator<PercentileType> percentile_evalutor,
+                       PercentileEvaluator<PercentileType>::Create(percentile));
   {
     PercentileType result = PercentileType(-1234);
     std::string actual_value = "NULL";
@@ -618,7 +822,7 @@ void VerifyPercentileCont(absl::string_view expected_result,
   }
 }
 
-TEST(PercentileTest, ComputePercentileCont) {
+TEST(DoublePercentileTest, ComputePercentileCont) {
   static const std::initializer_list<double> inf_values = {kInf, -kInf, -kInf,
                                                            kInf};
   static const std::initializer_list<double> values = {
@@ -737,13 +941,70 @@ TEST(PercentileTest, ComputePercentileCont) {
   }
 }
 
+struct NumericPercentileContTestItem {
+  absl::string_view expected_result;
+  std::initializer_list<absl::string_view> values;
+  size_t num_nulls;
+  absl::string_view percentile;
+};
+
+template <typename PercentileType>
+void TestNumericPercentileCont(
+    absl::Span<const NumericPercentileContTestItem> items) {
+  for (const NumericPercentileContTestItem& item : items) {
+    std::vector<PercentileType> values;
+    for (absl::string_view value_str : item.values) {
+      ZETASQL_ASSERT_OK_AND_ASSIGN(PercentileType value,
+                           PercentileType::FromStringStrict(value_str));
+      values.push_back(value);
+    }
+    ZETASQL_ASSERT_OK_AND_ASSIGN(PercentileType percentile,
+                         PercentileType::FromStringStrict(item.percentile));
+    VerifyPercentileCont(item.expected_result, values, item.num_nulls,
+                         percentile);
+  }
+}
+
+static const NumericPercentileContTestItem
+    kNumericPercentileContCommonTestItems[] = {
+        // Empty inputs.
+        {"NULL", {}, 0, "0"},
+        {"NULL", {}, 0, "0.5"},
+        {"NULL", {}, 0, "1"},
+
+        // Only nulls.
+        // Percentile at null.
+        {"NULL", {}, 1, "0"},
+        // Percentile between 2 nulls.
+        {"NULL", {}, 10, "0.5"},
+        // Percentile at null.
+        {"NULL", {}, kUint64Max, "1"},
+
+        // One normal input. Percentile at the input.
+        {"1", {"1"}, 0, "0"},
+        {"-1", {"-1"}, 0, "0.5"},
+        {"0", {"0"}, 0, "1"},
+
+        // [null, null, normal]
+        // Percentile at null.
+        {"NULL", {"0"}, 2, "0"},
+        // Percentile between 2 nulls.
+        {"NULL", {"100"}, 2, "0.25"},
+        // Percentile at null.
+        {"NULL", {"100"}, 2, "0.5"},
+        // Percentile between null and 100.
+        {"100", {"100"}, 2, "0.5000001"},
+        // Percentile at 100.
+        {"100", {"100"}, 2, "1"},
+};
+
 TEST(NumericPercentileTest, ComputePercentileCont) {
-  struct NumericPercentileContTestItem {
-    absl::string_view expected_result;
-    std::initializer_list<absl::string_view> values;
-    size_t num_nulls;
-    absl::string_view percentile;
-  };
+  TestNumericPercentileCont<NumericValue>(
+      kNumericPercentileContCommonTestItems);
+
+  static const std::initializer_list<absl::string_view> kMinAndMax = {
+      kNumericMin, kNumericMax};
+
   static const std::initializer_list<absl::string_view> values = {
       "0.999999999",
       "101.999999999",
@@ -758,35 +1019,15 @@ TEST(NumericPercentileTest, ComputePercentileCont) {
 
   // Args: expected_value, values, num_nulls, percentile
   static const NumericPercentileContTestItem kTestItems[] = {
-      // Empty inputs.
-      {"NULL", {}, 0, "0"},
-      {"NULL", {}, 0, "0.5"},
-      {"NULL", {}, 0, "1"},
-
-      // Only nulls.
-      // Percentile at null.
-      {"NULL", {}, 1, "0"},
-      // Percentile between 2 nulls.
-      {"NULL", {}, 10, "0.5"},
-      // Percentile at null.
-      {"NULL", {}, kUint64Max, "1"},
-
-      // One normal input. Percentile at the input.
-      {"1", {"1"}, 0, "0"},
-      {"-1", {"-1"}, 0, "0.5"},
-      {"0", {"0"}, 0, "1"},
-
-      // [null, null, normal]
-      // Percentile at null.
-      {"NULL", {"0"}, 2, "0"},
-      // Percentile between 2 nulls.
-      {"NULL", {"100"}, 2, "0.25"},
-      // Percentile at null.
-      {"NULL", {"100"}, 2, "0.5"},
-      // Percentile between null and 100.
-      {"100", {"100"}, 2, "0.5000001"},
-      // Percentile at 100.
-      {"100", {"100"}, 2, "1"},
+      {kNumericMin, kMinAndMax, 0, "0"},
+      {"-99999999799999999999999999999.999999999", kMinAndMax, 0, "1e-9"},
+      {"-59999999999999999999999999999.999999999", kMinAndMax, 0, "0.2"},
+      {"-200000000000000000000", kMinAndMax, 0, "0.499999999"},
+      {"0", kMinAndMax, 0, "0.5"},
+      {"200000000000000000000", kMinAndMax, 0, "0.500000001"},
+      {"40000000000000000000000000000", kMinAndMax, 0, "0.7"},
+      {"99999999799999999999999999999.999999999", kMinAndMax, 0, "0.999999999"},
+      {kNumericMax, kMinAndMax, 0, "1"},
 
       // Percentile at kNumericMin.
       {kNumericMin, values, 0, "0"},
@@ -826,18 +1067,89 @@ TEST(NumericPercentileTest, ComputePercentileCont) {
       {kNumericMax, values, 0, "1"},
   };
 
-  for (const NumericPercentileContTestItem& item : kTestItems) {
-    std::vector<NumericValue> values;
-    for (absl::string_view value_str : item.values) {
-      ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue value,
-                           NumericValue::FromStringStrict(value_str));
-      values.push_back(value);
-    }
-    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue percentile,
-                         NumericValue::FromStringStrict(item.percentile));
-    VerifyPercentileCont(item.expected_result, values, item.num_nulls,
-                         percentile);
-  }
+  TestNumericPercentileCont<NumericValue>(kTestItems);
+}
+
+TEST(BigNumericPercentileTest, ComputePercentileCont) {
+  TestNumericPercentileCont<BigNumericValue>(
+      kNumericPercentileContCommonTestItems);
+
+  static const std::initializer_list<absl::string_view> kMinAndMax = {
+      kBigNumericMin, kBigNumericMax};
+
+  constexpr absl::string_view kNegativeMax =
+      "-578960446186580977117854925043439539266"
+      ".34992332820282019728792003956564819967";
+
+  static const std::initializer_list<absl::string_view> values = {
+      "1.00000000000000000000000000000000000001",
+      "101.00000000000000000000000000000000000001",
+      "1e-38",
+      "-1",
+      kBigNumericMax,
+      "1.00000000000000000000000000000000000001",
+      "0",
+      kBigNumericMin,
+      kNegativeMax,
+  };
+
+  // Args: expected_value, values, num_nulls, percentile
+  static const NumericPercentileContTestItem kTestItems[] = {
+      {kBigNumericMin, kMinAndMax, 0, "0"},
+      {"-578960446186580977117854925043439539254"
+       ".77071440447120065493082153869685741435",
+       kMinAndMax, 0, "1e-38"},
+      {"-11.57920892373161954235709850086879078533", kMinAndMax, 0,
+       "0.49999999999999999999999999999999999999"},
+      {"-0.00000000000000000000000000000000000001", kMinAndMax, 0, "0.5"},
+      {"11.57920892373161954235709850086879078532", kMinAndMax, 0,
+       "0.50000000000000000000000000000000000001"},
+      {"578960446186580977117854925043439539254"
+       ".77071440447120065493082153869685741434",
+       kMinAndMax, 0, "0.99999999999999999999999999999999999999"},
+      {kBigNumericMax, kMinAndMax, 0, "1"},
+
+      // Percentile at kNumericMin.
+      {kBigNumericMin, values, 0, "0"},
+      // Percentile between kNumericMin and kNegativeMax.
+      {kBigNumericMin, values, 0, "1e-38"},
+      // Percentile at kNegativeMax.
+      {kNegativeMax, values, 0, "0.125"},
+      {"-1", values, 0, "0.25"},
+      // Percentile between -1 and 0.
+      {"-0.99999999999999999999999999999999999992", values, 0,
+       "0.25000000000000000000000000000000000001"},
+      // Percentile between -1 and 0.
+      {"-0.6", values, 0, "0.3"},
+      // Percentile between -1 and 0.
+      {"-0.00000000000000000000000000000000000008", values, 0,
+       "0.37499999999999999999999999999999999999"},
+      // Percentile at 0.
+      {"0", values, 0, "0.375"},
+      // Percentile between 0 and 1e-38.
+      {"0.00000000000000000000000000000000000001", values, 0, "0.4375"},
+      // Percentile at 1e-38.
+      {"0.00000000000000000000000000000000000001", values, 0, "0.5"},
+      // Percentile between 1e-38 and 1 + 1e-38
+      {"0.80000000000000000000000000000000000001", values, 0, "0.6"},
+      // Percentile at 1.00000000000000000000000000000000000001.
+      {"1.00000000000000000000000000000000000001", values, 0, "0.625"},
+      // Percentile between 1 + 1e-38 and 1 + 1e-38
+      {"1.00000000000000000000000000000000000001", values, 0, "0.7"},
+      // Percentile between 1 + 1e-38 and 101 + 1e-38
+      {"41.00000000000000000000000000000000000001", values, 0, "0.8"},
+      // Percentile between 101 + 1e-38 and
+      {"101.00000000000000000000000000000000000001", values, 0, "0.875"},
+      // Percentile between 101 + 1e-38 and
+      // kNumericMax.
+      {"115792089237316195423570985008687907934"
+       ".06998466564056403945758400791312963994",
+       values, 0, "0.9"},
+      // Percentile at kNumericMax.
+      {kBigNumericMax, values, 0, "1"},
+  };
+
+  TestNumericPercentileCont<BigNumericValue>(kTestItems);
 }
 
 constexpr size_t kNumValues = 8;
@@ -859,12 +1171,18 @@ struct PercentileDiscTest : public ::testing::Test {
     VerifyPercentileDisc<NumericValue>(expected_value_index, kSortedValues,
                                        kNumValues, kShuffledIndexes, num_nulls,
                                        percentile);
+    VerifyPercentileDisc<BigNumericValue>(expected_value_index, kSortedValues,
+                                          kNumValues, kShuffledIndexes,
+                                          num_nulls, percentile);
   }
   void VerifyAllNulls(size_t num_nulls, double percentile) {
     VerifyPercentileDisc<double>(0, nullptr, 0, nullptr, num_nulls, percentile);
     VerifyPercentileDisc<NumericValue>(0, nullptr, 0, nullptr, num_nulls,
                                        percentile);
+    VerifyPercentileDisc<BigNumericValue>(0, nullptr, 0, nullptr, num_nulls,
+                                          percentile);
   }
+
  private:
   static const T kSortedValues[kNumValues];
 };
@@ -925,9 +1243,8 @@ void PercentileDiscTest<T>::VerifyPercentileDisc(
   } else {
     ZETASQL_ASSERT_OK_AND_ASSIGN(p, PercentileType::FromDouble(percentile));
   }
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      PercentileEvaluatorTmpl<PercentileType> percentile_evalutor,
-      PercentileEvaluatorTmpl<PercentileType>::Create(p));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(PercentileEvaluator<PercentileType> percentile_evalutor,
+                       PercentileEvaluator<PercentileType>::Create(p));
   {
     const T* result =
         percentile_evalutor.template ComputePercentileDisc<T, true>(

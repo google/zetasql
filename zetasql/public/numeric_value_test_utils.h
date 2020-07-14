@@ -34,8 +34,11 @@ T MakeRandomNumericValue(absl::BitGen* random) {
     elem = absl::Uniform<uint64_t>(*random);
   }
   FixedInt<64, kNumWords> fixed_int(value);
-  uint32_t shift_bits = absl::Uniform<uint32_t>(*random, 0, kNumBits);
+  uint32_t num_non_trivial_bits = fixed_int.abs().FindMSBSetNonZero() + 1;
+  uint32_t shift_bits =
+      absl::Uniform<uint32_t>(*random, 0, num_non_trivial_bits + 1);
   fixed_int >>= shift_bits;
+  num_non_trivial_bits -= shift_bits;
   T result;
   if constexpr (std::is_same_v<T, NumericValue>) {
     __int128 v = std::max(
@@ -51,24 +54,33 @@ T MakeRandomNumericValue(absl::BitGen* random) {
   constexpr int scale = T::kMaxFractionalDigits;
   constexpr int precision = T::kMaxIntegerDigits + scale;
   int32_t digits_to_trunc = absl::Uniform<uint32_t>(
-      *random, 0, (kNumBits - shift_bits) * precision / kNumBits);
+      *random, 0, num_non_trivial_bits * precision / kNumBits);
   return result.Trunc(scale - digits_to_trunc);
 }
 
-// Generates a random vald numeric value using a static RNG.
-// Prefer using the other variant of this function.
 template <typename T>
-T MakeRandomNumericValue() {
-  thread_local absl::BitGen generator;
-  return MakeRandomNumericValue<T>(&generator);
+T MakeRandomNonZeroNumericValue(absl::BitGen* random) {
+  T result = MakeRandomNumericValue<T>(random);
+  if (result == T()) {
+    int64_t v = absl::Uniform<uint32_t>(*random);
+    return T::FromScaledValue(v + 1);
+  }
+  return result;
+}
+
+template <typename T>
+T MakeRandomPositiveNumericValue(absl::BitGen* random) {
+  zetasql_base::StatusOr<T> abs = MakeRandomNonZeroNumericValue<T>(random).Abs();
+  // Abs fails only when result = T::MinValue().
+  return abs.ok() ? abs.value() : T::MaxValue();
 }
 
 // Generate a random double value that can be losslessly converted to T.
 template <typename T>
-double MakeLosslessRandomDoubleValue(int max_integer_bits,
+double MakeLosslessRandomDoubleValue(uint max_integer_bits,
                                      absl::BitGen* random) {
-  int max_mantissa_bits =
-      std::min(53, T::kMaxFractionalDigits + max_integer_bits);
+  uint max_mantissa_bits =
+      std::min<uint>(53, T::kMaxFractionalDigits + max_integer_bits);
   int64_t mantissa = absl::Uniform<int64_t>(*random, 1 - (1LL << max_mantissa_bits),
                                         (1LL << max_mantissa_bits));
   int exponent_bits = absl::Uniform<int>(absl::IntervalClosedClosed, *random,

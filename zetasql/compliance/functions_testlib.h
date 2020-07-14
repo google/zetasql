@@ -178,6 +178,8 @@ std::vector<FunctionTestCall> GetFunctionTestsRounding();
 std::vector<FunctionTestCall> GetFunctionTestsTrigonometric();
 
 std::vector<FunctionTestCall> GetFunctionTestsAscii();
+std::vector<FunctionTestCall> GetFunctionTestsUnicode();
+std::vector<FunctionTestCall> GetFunctionTestsChr();
 std::vector<FunctionTestCall> GetFunctionTestsString();
 std::vector<FunctionTestCall> GetFunctionTestsInstr();
 std::vector<FunctionTestCall> GetFunctionTestsSoundex();
@@ -206,15 +208,21 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateTimestampArray();
 
 std::vector<FunctionTestCall> GetFunctionTestsRangeBucket();
 
-// Engines should prefer GetFunctionTestsJson() over
-// GetFunctionTestsJsonExtract(). The former contains the functions defined in
-// the SQL2016 standard.
+// Engines should prefer GetFunctionTest{String,Native}Json{Query,Value} over
+// GetFunctionTests{String,Native}JsonExtract{,Scalar}. The former group
+// contains the functions defined in the SQL2016 standard.
 //
 // TODO: Remove 'include_nano_timestamp' by always generating all
 // compliance tests, possibly with features set in QueryParamsWithResult. We
 // should avoid adding new bools.
-std::vector<FunctionTestCall> GetFunctionTestsJson();
-std::vector<FunctionTestCall> GetFunctionTestsJsonExtract();
+std::vector<FunctionTestCall> GetFunctionTestsStringJsonQuery();
+std::vector<FunctionTestCall> GetFunctionTestsStringJsonExtract();
+std::vector<FunctionTestCall> GetFunctionTestsStringJsonValue();
+std::vector<FunctionTestCall> GetFunctionTestsStringJsonExtractScalar();
+std::vector<FunctionTestCall> GetFunctionTestsNativeJsonQuery();
+std::vector<FunctionTestCall> GetFunctionTestsNativeJsonExtract();
+std::vector<FunctionTestCall> GetFunctionTestsNativeJsonValue();
+std::vector<FunctionTestCall> GetFunctionTestsNativeJsonExtractScalar();
 std::vector<FunctionTestCall> GetFunctionTestsJsonExtractArray();
 std::vector<FunctionTestCall> GetFunctionTestsJsonExtractArrayStandardSql();
 std::vector<FunctionTestCall> GetFunctionTestsToJsonString(

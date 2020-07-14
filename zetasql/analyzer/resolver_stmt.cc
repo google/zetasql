@@ -2005,17 +2005,6 @@ absl::Status Resolver::ResolveCreateTableStmtBaseProperties(
 
   if (partition_by != nullptr || cluster_by != nullptr ||
       has_check_constraint) {
-    if (partition_by != nullptr &&
-        !resolved_properties_control_args.partition_by_enabled) {
-      return MakeSqlErrorAt(partition_by)
-             << statement_type << " with PARTITION BY is unsupported";
-    }
-    if (cluster_by != nullptr &&
-        !resolved_properties_control_args.cluster_by_enabled) {
-      return MakeSqlErrorAt(cluster_by)
-             << statement_type << " with CLUSTER BY is unsupported";
-    }
-
     // Set up the name scope for the table columns, which may appear in
     // PARTITION BY and CLUSTER BY expressions, or CHECK constraint
     // expressions. The column definition list is populated even for CREATE
@@ -2119,12 +2108,21 @@ absl::Status Resolver::ResolveCreateTableStatement(
       query == nullptr ? "CREATE TABLE" : "CREATE TABLE AS SELECT";
   ResolveCreateTableStatementBaseProperties statement_base_properties;
   ResolveCreateTableStmtBasePropertiesArgs resolved_properties_control_args = {
-      language().LanguageFeatureEnabled(FEATURE_CREATE_TABLE_PARTITION_BY),
-      language().LanguageFeatureEnabled(FEATURE_CREATE_TABLE_CLUSTER_BY),
       // table_elements are enabled for "CREATE TABLE" statement or controlled
       // by language feature in case of "CREATE TABLE AS SELECT".
       query == nullptr || language().LanguageFeatureEnabled(
                               FEATURE_CREATE_TABLE_AS_SELECT_COLUMN_LIST)};
+
+  if (ast_statement->partition_by() != nullptr &&
+      !language().LanguageFeatureEnabled(FEATURE_CREATE_TABLE_PARTITION_BY)) {
+    return MakeSqlErrorAt(ast_statement->partition_by())
+           << statement_type << " with PARTITION BY is unsupported";
+  }
+  if (ast_statement->cluster_by() != nullptr &&
+      !language().LanguageFeatureEnabled(FEATURE_CREATE_TABLE_CLUSTER_BY)) {
+    return MakeSqlErrorAt(ast_statement->cluster_by())
+           << statement_type << " with CLUSTER BY is unsupported";
+  }
 
   ZETASQL_RETURN_IF_ERROR(ResolveCreateTableStmtBaseProperties(
       ast_statement, statement_type, query, ast_statement->partition_by(),
@@ -2475,10 +2473,6 @@ absl::Status Resolver::ResolveCreateExternalTableStatement(
   std::unique_ptr<const ResolvedScan> query_scan;
   std::vector<std::unique_ptr<const ResolvedOutputColumn>> output_column_list;
   ResolveCreateTableStmtBasePropertiesArgs resolved_properties_control_args = {
-      language().LanguageFeatureEnabled(
-          FEATURE_CREATE_EXTERNAL_TABLE_WITH_PARTITION_BY),
-      language().LanguageFeatureEnabled(
-          FEATURE_CREATE_EXTERNAL_TABLE_WITH_CLUSTER_BY),
       language().LanguageFeatureEnabled(
           FEATURE_CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST)};
 

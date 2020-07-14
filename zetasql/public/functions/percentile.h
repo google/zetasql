@@ -25,6 +25,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "zetasql/common/fixed_int.h"
 #include "zetasql/public/numeric_value.h"
 #include <cstdint>
 #include "absl/strings/string_view.h"
@@ -35,18 +36,19 @@ namespace zetasql {
 template <typename T>
 class PercentileHelper;
 
-template <typename PercentileType>  // PercentileType = double or NumericValue
-class PercentileEvaluatorTmpl {
+// PercentileType = double, NumericValue or BigNumericValue
+template <typename PercentileType>
+class PercentileEvaluator {
  public:
   // For PercentileType = double, Weight = long double.
   // For PercentileType = NumericValue, Weight = NumericValue.
+  // For PercentileType = BigNumericValue, Weight = BigNumericValue.
   using Weight = typename PercentileHelper<PercentileType>::Weight;
   // Returns an error if percentile is not in [0, 1].
-  static zetasql_base::StatusOr<PercentileEvaluatorTmpl> Create(
-      PercentileType percentile) {
+  static zetasql_base::StatusOr<PercentileEvaluator> Create(PercentileType percentile) {
     ZETASQL_ASSIGN_OR_RETURN(PercentileHelper<PercentileType> helper,
                      PercentileHelper<PercentileType>::Create(percentile));
-    return PercentileEvaluatorTmpl(helper);
+    return PercentileEvaluator(helper);
   }
 
   // Computes the integral part and the fractional part of
@@ -227,8 +229,7 @@ class PercentileEvaluatorTmpl {
       return itr;
     }
   }
-  explicit PercentileEvaluatorTmpl(
-      const PercentileHelper<PercentileType>& helper)
+  explicit PercentileEvaluator(const PercentileHelper<PercentileType>& helper)
       : helper_(helper) {}
 
   PercentileHelper<PercentileType> helper_;
@@ -283,8 +284,23 @@ class PercentileHelper<NumericValue> {
   const uint32_t scaled_percentile_;
 };
 
-using PercentileEvaluator = PercentileEvaluatorTmpl<double>;
-using NumericPercentileEvaluator = PercentileEvaluatorTmpl<NumericValue>;
+template <>
+class PercentileHelper<BigNumericValue> {
+ public:
+  using Weight = BigNumericValue;
+  static zetasql_base::StatusOr<PercentileHelper> Create(BigNumericValue percentile);
+  PercentileHelper(const PercentileHelper& src) = default;
+  size_t ComputePercentileIndex(size_t max_index, BigNumericValue* left_weight,
+                                BigNumericValue* right_weight) const;
+  static BigNumericValue ComputeLinearInterpolation(
+      const BigNumericValue& left_value, const BigNumericValue& left_weight,
+      const BigNumericValue& right_value, const BigNumericValue& right_weight);
+
+ private:
+  explicit PercentileHelper(FixedUint<64, 2> scaled_percentile)
+      : scaled_percentile_(scaled_percentile) {}
+  const FixedUint<64, 2> scaled_percentile_;
+};
 
 }  // namespace zetasql
 

@@ -56,6 +56,7 @@ a supplied `timestamp_expression`.
 Allowed `part` values are:
 
 + `NANOSECOND`
+  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -303,15 +304,14 @@ any time zone.
 
 `TIMESTAMP_ADD` supports the following values for `date_part`:
 
-<ul>
-<li><code>NANOSECOND</code></li>
-<li><code>MICROSECOND</code></li>
-<li><code>MILLISECOND</code></li>
-<li><code>SECOND</code></li>
-<li><code>MINUTE</code></li>
-<li><code>HOUR</code>. Equivalent to 60 <code>MINUTE</code>s.</li>
-<li><code>DAY</code>. Equivalent to 24 <code>HOUR</code>s.</li>
-</ul>
++ `NANOSECOND`
+  (if the SQL engine supports it)
++ `MICROSECOND`
++ `MILLISECOND`
++ `SECOND`
++ `MINUTE`
++ `HOUR`. Equivalent to 60 `MINUTE`s.
++ `DAY`. Equivalent to 24 `HOUR`s.
 
 **Return Data Types**
 
@@ -345,15 +345,14 @@ independent of any time zone.
 
 `TIMESTAMP_SUB` supports the following values for `date_part`:
 
-<ul>
-<li><code>NANOSECOND</code></li>
-<li><code>MICROSECOND</code></li>
-<li><code>MILLISECOND</code></li>
-<li><code>SECOND</code></li>
-<li><code>MINUTE</code></li>
-<li><code>HOUR</code>. Equivalent to 60 <code>MINUTE</code>s.</li>
-<li><code>DAY</code>. Equivalent to 24 <code>HOUR</code>s.</li>
-</ul>
++ `NANOSECOND`
+  (if the SQL engine supports it)
++ `MICROSECOND`
++ `MILLISECOND`
++ `SECOND`
++ `MINUTE`
++ `HOUR`. Equivalent to 60 `MINUTE`s.
++ `DAY`. Equivalent to 24 `HOUR`s.
 
 **Return Data Type**
 
@@ -382,30 +381,23 @@ TIMESTAMP_DIFF(timestamp_expression, timestamp_expression, date_part)
 
 **Description**
 
-<div>
-    <p>
-        Returns the number of whole specified <code>date_part</code> intervals
-        between two timestamps. The first <code>timestamp_expression</code>
-        represents the later date; if the first
-        <code>timestamp_expression</code> is earlier than the second
-        <code>timestamp_expression</code>, the output is negative.
-        Throws an error if the computation overflows the result type, such as
-        if the difference in nanoseconds between the two timestamps
-        would overflow an <code>INT64</code> value.
-    </p>
-</div>
+Returns the number of whole specified `date_part` intervals between two
+`TIMESTAMP` objects. If the first `TIMESTAMP` is earlier than the second one,
+the output is negative. Throws an error if the computation overflows the
+result type, such as if the difference in
+nanoseconds
+between the two `TIMESTAMP` objects would overflow an `INT64` value.
 
 `TIMESTAMP_DIFF` supports the following values for `date_part`:
 
-<ul>
-<li><code>NANOSECOND</code></li>
-<li><code>MICROSECOND</code></li>
-<li><code>MILLISECOND</code></li>
-<li><code>SECOND</code></li>
-<li><code>MINUTE</code></li>
-<li><code>HOUR</code>. Equivalent to 60 <code>MINUTE</code>s.</li>
-<li><code>DAY</code>. Equivalent to 24 <code>HOUR</code>s.</li>
-</ul>
++ `NANOSECOND`
+  (if the SQL engine supports it)
++ `MICROSECOND`
++ `MILLISECOND`
++ `SECOND`
++ `MINUTE`
++ `HOUR`. Equivalent to 60 `MINUTE`s.
++ `DAY`. Equivalent to 24 `HOUR`s.
 
 **Return Data Type**
 
@@ -453,6 +445,7 @@ Truncates a timestamp to the granularity of `date_part`.
 `TIMESTAMP_TRUNC` supports the following values for `date_part`:
 
 + `NANOSECOND`
+  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`

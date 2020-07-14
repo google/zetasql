@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdlib>
 #include <iterator>
 #include <limits>
@@ -1287,6 +1288,45 @@ bool FirstByteOfBytesToASCII(absl::string_view str, int64_t* out,
   }
   return true;
 }
+
+bool FirstCharToCodePoint(absl::string_view str, int64_t* out,
+                          absl::Status* error) {
+  int32_t str_length32;
+  if (!CheckAndCastStrLength(str, &str_length32, error)) {
+    return false;
+  }
+  if (str_length32 == 0) {
+    *out = 0;
+  } else {
+    UChar32 character;
+    size_t i = 0;
+    U8_NEXT(str.data(), i, str_length32, character);
+    if (character < 0) {
+      std::string hexFirstChar = absl::BytesToHexString(str.substr(0, i));
+      DCHECK_EQ(hexFirstChar.size() % 2, 0);
+      std::string bytesFirstChar;
+      size_t sizeOfFirstBytes = hexFirstChar.size() + hexFirstChar.size() / 2;
+      bytesFirstChar.reserve(sizeOfFirstBytes);
+      for (int i = 0; i < hexFirstChar.size(); i += 2) {
+        bytesFirstChar.push_back('\\');
+        bytesFirstChar.push_back('x');
+        bytesFirstChar.push_back(hexFirstChar[i]);
+        bytesFirstChar.push_back(hexFirstChar[i + 1]);
+      }
+      return internal::UpdateError(
+          error, absl::Substitute("First char of input is not a "
+                                  "structurally valid UTF-8 character: '$0'",
+                                  bytesFirstChar));
+    }
+    *out = character;
+  }
+  return true;
+}
+
+bool CodePointToString(int64_t codepoint, std::string* out, absl::Status* error) {
+  return CodePointsToString({codepoint}, out, error);
+}
+
 
 bool StringToCodePoints(absl::string_view str, std::vector<int64_t>* out,
                         absl::Status* error) {

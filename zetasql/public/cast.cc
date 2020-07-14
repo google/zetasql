@@ -208,7 +208,7 @@ const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(BYTES,      PROTO,      EXPLICIT_OR_LITERAL_OR_PARAMETER);
 
   ADD_TO_MAP(DATE,       DATE,       IMPLICIT);
-  ADD_TO_MAP(DATE,       DATETIME,   EXPLICIT);
+  ADD_TO_MAP(DATE,       DATETIME,   IMPLICIT);
   ADD_TO_MAP(DATE,       TIMESTAMP,  EXPLICIT);
   ADD_TO_MAP(DATE,       STRING,     EXPLICIT);
 
@@ -976,7 +976,7 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(const Value& from_value,
 
     case FCT(TYPE_JSON, TYPE_STRING): {
       if (v.is_validated_json()) {
-        return Value::String(v.json_value_validated().SerializeToString());
+        return Value::String(v.json_value_validated().ToString());
       } else {
         return Value::String(v.json_value_unparsed());
       }

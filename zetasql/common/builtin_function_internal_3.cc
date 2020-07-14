@@ -30,6 +30,7 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/common/builtin_function_internal.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/cycle_detector.h"
 #include "zetasql/public/function.h"
@@ -64,7 +65,10 @@ void GetStringFunctions(TypeFactory* type_factory,
   const Type* bytes_type = type_factory->get_bytes();
   const Type* int64_type = type_factory->get_int64();
   const Type* bool_type = type_factory->get_bool();
+  const Type* date_type = type_factory->get_date();
   const Type* timestamp_type = type_factory->get_timestamp();
+  const Type* time_type = type_factory->get_time();
+  const Type* datetime_type = type_factory->get_datetime();
   const Type* normalize_mode_type = types::NormalizeModeEnumType();
 
   const Function::Mode SCALAR = Function::SCALAR;
@@ -202,10 +206,30 @@ void GetStringFunctions(TypeFactory* type_factory,
         FN_REPLACE_STRING},
        {bytes_type, {bytes_type, bytes_type, bytes_type}, FN_REPLACE_BYTES}});
 
-  InsertFunction(functions, options, "string", SCALAR,
+  InsertFunction(functions, options, "format", SCALAR,
                  {{string_type,
-                   {timestamp_type, {string_type, OPTIONAL}},
-                   FN_STRING_FROM_TIMESTAMP}});
+                   {string_type, {ARG_TYPE_ARBITRARY, REPEATED}},
+                   FN_FORMAT_STRING}},
+                 FunctionOptions().set_post_resolution_argument_constraint(
+                     &CheckFormatPostResolutionArguments));
+
+  std::vector<FunctionSignatureOnHeap> string_signatures{
+      {string_type,
+       {timestamp_type, {string_type, OPTIONAL}},
+       FN_STRING_FROM_TIMESTAMP}};
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS)) {
+    string_signatures.push_back(
+        {string_type, {date_type}, FN_STRING_FROM_DATE});
+    if (options.language_options.LanguageFeatureEnabled(
+            FEATURE_V_1_2_CIVIL_TIME)) {
+      string_signatures.push_back(
+          {string_type, {time_type}, FN_STRING_FROM_TIME});
+      string_signatures.push_back(
+          {string_type, {datetime_type}, FN_STRING_FROM_DATETIME});
+    }
+  }
+  InsertFunction(functions, options, "string", SCALAR, string_signatures);
 
   const ArrayType* string_array_type = types::StringArrayType();
   const ArrayType* bytes_array_type = types::BytesArrayType();
@@ -258,6 +282,10 @@ void GetStringFunctions(TypeFactory* type_factory,
   InsertFunction(functions, options, "ascii", SCALAR,
                  {{int64_type, {string_type}, FN_ASCII_STRING},
                   {int64_type, {bytes_type}, FN_ASCII_BYTES}});
+  InsertFunction(functions, options, "unicode", SCALAR,
+                 {{int64_type, {string_type}, FN_UNICODE_STRING}});
+  InsertFunction(functions, options, "chr", SCALAR,
+                 {{string_type, {int64_type}, FN_CHR_STRING}});
   InsertFunction(
       functions, options, "translate", SCALAR,
       {{string_type,
@@ -499,6 +527,7 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   const Type* double_array_type = types::DoubleArrayType();
   const Type* date_array_type = types::DateArrayType();
   const Type* timestamp_array_type = types::TimestampArrayType();
+  const Type* json_type = types::JsonType();
 
   const Function::Mode SCALAR = Function::SCALAR;
 
@@ -582,6 +611,28 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                      .set_sql_name("array[safe_ordinal()]")
                      .set_get_sql_callback(&SafeArrayAtOrdinalFunctionSQL));
 
+  // array[KEY(key)] gets the array element corresponding to key if present, or
+  // an error if not present.
+  // array[SAFE_KEY(key)] gets the array element corresponding to a key if
+  // present, or else NULL.
+  // In both cases, if the array or the arg is NULL, the result is NULL.
+  InsertFunction(functions, options, "$proto_map_at_key", SCALAR,
+                 {{ARG_PROTO_MAP_VALUE_ANY,
+                   {ARG_PROTO_MAP_ANY, ARG_PROTO_MAP_KEY_ANY},
+                   FN_PROTO_MAP_AT_KEY}},
+                 FunctionOptions()
+                     .set_supports_safe_error_mode(false)
+                     .set_sql_name("array[key()]")
+                     .set_get_sql_callback(&ProtoMapAtKeySQL));
+  InsertFunction(functions, options, "$safe_proto_map_at_key", SCALAR,
+                 {{ARG_PROTO_MAP_VALUE_ANY,
+                   {ARG_PROTO_MAP_ANY, ARG_PROTO_MAP_KEY_ANY},
+                   FN_SAFE_PROTO_MAP_AT_KEY}},
+                 FunctionOptions()
+                     .set_supports_safe_error_mode(false)
+                     .set_sql_name("array[safe_key()]")
+                     .set_get_sql_callback(&SafeProtoMapAtKeySQL));
+
   // Usage: [...], ARRAY[...], ARRAY<T>[...]
   // * Array elements would be the list of expressions enclosed within [].
   // * T (if mentioned) would define the array element type. Otherwise the
@@ -643,6 +694,11 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   InsertFunction(
       functions, options, "array_reverse", SCALAR,
       {{ARG_ARRAY_TYPE_ANY_1, {ARG_ARRAY_TYPE_ANY_1}, FN_ARRAY_REVERSE}});
+
+  // ARRAY_IS_DISTINCT: returns true if the array has no duplicate entries.
+  InsertFunction(
+      functions, options, "array_is_distinct", SCALAR,
+      {{bool_type, {ARG_ARRAY_TYPE_ANY_1}, FN_ARRAY_IS_DISTINCT}});
 
   // RANGE_BUCKET: returns the bucket of the item in the array.
   InsertFunction(
@@ -782,24 +838,42 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   InsertFunction(functions, options, "generate_uuid", SCALAR,
                  {{string_type, {}, FN_GENERATE_UUID}}, function_is_volatile);
 
+  std::vector<FunctionSignatureOnHeap> json_extract_signatures = {
+      {string_type, {string_type, string_type}, FN_JSON_EXTRACT}};
+  std::vector<FunctionSignatureOnHeap> json_query_signatures = {
+      {string_type, {string_type, string_type}, FN_JSON_QUERY}};
+  std::vector<FunctionSignatureOnHeap> json_extract_scalar_signatures = {
+      {string_type, {string_type, string_type}, FN_JSON_EXTRACT_SCALAR}};
+  std::vector<FunctionSignatureOnHeap> json_value_signatures = {
+      {string_type, {string_type, string_type}, FN_JSON_VALUE}};
+  if (options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
+    json_extract_signatures.push_back(
+        {json_type, {json_type, string_type}, FN_JSON_EXTRACT_JSON});
+    json_query_signatures.push_back(
+        {json_type, {json_type, string_type}, FN_JSON_QUERY_JSON});
+    json_extract_scalar_signatures.push_back(
+        {string_type, {json_type, string_type}, FN_JSON_EXTRACT_SCALAR_JSON});
+    json_value_signatures.push_back(
+        {string_type, {json_type, string_type}, FN_JSON_VALUE_JSON});
+  }
+
   InsertFunction(functions, options, "json_extract", SCALAR,
-                 {{string_type, {string_type, string_type}, FN_JSON_EXTRACT}},
+                 json_extract_signatures,
                  FunctionOptions().set_pre_resolution_argument_constraint(
                      &CheckJsonArguments));
   InsertFunction(functions, options, "json_query", SCALAR,
-                 {{string_type, {string_type, string_type}, FN_JSON_QUERY}},
+                 json_query_signatures,
+                 FunctionOptions().set_pre_resolution_argument_constraint(
+                     &CheckJsonArguments));
+  InsertFunction(functions, options, "json_extract_scalar", SCALAR,
+                 json_extract_scalar_signatures,
+                 FunctionOptions().set_pre_resolution_argument_constraint(
+                     &CheckJsonArguments));
+  InsertFunction(functions, options, "json_value", SCALAR,
+                 json_value_signatures,
                  FunctionOptions().set_pre_resolution_argument_constraint(
                      &CheckJsonArguments));
 
-  InsertFunction(
-      functions, options, "json_extract_scalar", SCALAR,
-      {{string_type, {string_type, string_type}, FN_JSON_EXTRACT_SCALAR}},
-      FunctionOptions().set_pre_resolution_argument_constraint(
-          &CheckJsonArguments));
-  InsertFunction(functions, options, "json_value", SCALAR,
-                 {{string_type, {string_type, string_type}, FN_JSON_VALUE}},
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &CheckJsonArguments));
   InsertFunction(functions, options, "json_extract_array", SCALAR,
                  {{array_string_type,
                    {string_type, {string_type, OPTIONAL}},

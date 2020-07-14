@@ -654,6 +654,8 @@ inline Value BigNumeric(int64_t v) {
   return Value::BigNumeric(BigNumericValue(v));
 }
 
+inline Value Json(JSONValue v) { return Value::Json(std::move(v)); }
+
 inline Value Enum(const EnumType* enum_type, int32_t value) {
   return Value::Enum(enum_type, value);
 }
@@ -707,6 +709,7 @@ inline Value NullDatetime() { return Value::NullDatetime(); }
 inline Value NullGeography() { return Value::NullGeography(); }
 inline Value NullNumeric() { return Value::NullNumeric(); }
 inline Value NullBigNumeric() { return Value::NullBigNumeric(); }
+inline Value NullJson() { return Value::NullJson(); }
 inline Value Null(const Type* type) { return Value::Null(type); }
 
 inline Value Invalid() { return Value::Invalid(); }

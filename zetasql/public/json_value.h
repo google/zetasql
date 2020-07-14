@@ -20,6 +20,7 @@
 #include <stddef.h>
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -71,6 +72,15 @@ class JSONValue final {
   static zetasql_base::StatusOr<JSONValue> ParseJSONString(absl::string_view str,
                                                    bool legacy_mode = false);
 
+  // Decodes a binary representation of a JSON value produced by
+  // JSONValueConstRef::SerializeAndAppendToProtoBytes(). Returns an error if
+  // 'str' is not a valid binary representation.
+  static zetasql_base::StatusOr<JSONValue> DeserializeFromProtoBytes(
+      absl::string_view str);
+
+  // Returns a JSON value that is a deep copy of the given value.
+  static JSONValue CopyFrom(JSONValueConstRef value);
+
  private:
   struct Impl;
 
@@ -119,12 +129,21 @@ class JSONValueConstRef {
   // Requires IsBoolean() to be true. Otherwise, the call results in LOG(FATAL).
   bool GetBoolean() const;
 
+  // If the JSON value being referenced is an object, returns whether the 'key'
+  // references an existing member. If the JSON value is not an object, returns
+  // false.
+  bool HasMember(absl::string_view key) const;
   // If the JSON value being referenced is an object, returns the member
-  // corresponding to the given 'key'. If such 'key' does not exists, then
+  // corresponding to the given 'key'. If such 'key' does not exist, then
   // the call results in LOG(FATAL).
   //
   // Requires IsObject() to be true. Otherwise, the call results in LOG(FATAL).
   JSONValueConstRef GetMember(absl::string_view key) const;
+  // If the JSON value being referenced is an object, returns the member
+  // corresponding to the given 'key' if it exists. If such 'key' does not
+  // exist or if the JSON value is not an object, then returns absl::nullopt.
+  absl::optional<JSONValueConstRef> GetMemberIfExists(
+      absl::string_view key) const;
   // If the JSON value being referenced is an object, returns all the key/value
   // pairs corresponding to members of the object.
   //
@@ -149,10 +168,20 @@ class JSONValueConstRef {
   std::vector<JSONValueConstRef> GetArrayElements() const;
 
   // Serializes the JSON value into a string representation.
-  std::string SerializeToString() const;
+  std::string ToString() const;
+
+  // Encodes the JSON value into a binary representation using UBJSON format and
+  // append to 'output'. The binary representation can be decoded using
+  // JSONValue::DeserializeFromProtoBytes().
+  void SerializeAndAppendToProtoBytes(std::string* output) const;
 
   // Returns the number of bytes used to store the JSON value.
   uint64_t SpaceUsed() const;
+
+  // Returns true if the JSON value referenced by 'this' equals the one
+  // referenced by 'that'. This is only used in testing and is *not* the SQL
+  // equality.
+  bool NormalizedEquals(JSONValueConstRef that) const;
 
  protected:
   explicit JSONValueConstRef(const JSONValue::Impl* value_pointer);

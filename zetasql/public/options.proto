@@ -103,6 +103,7 @@ message LanguageFeatureOptions {
 // All optional features are off by default.  Some features have a negative
 // meaning, so turning them on will remove a feature or enable an error.
 enum LanguageFeature {
+  reserved 36, 37;
   // CROSS-VERSION FEATURES
   //
   // These are features that can be opted into independently from versioning.
@@ -326,19 +327,6 @@ enum LanguageFeature {
   // Enables support for column definition list in CREATE EXTERNAL TABLE.
   // Example: CREATE EXTERNAL TABLE t (x FLOAT64)
   FEATURE_CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST = 35;
-
-  // Enables support for PARTITION BY in CREATE EXTERNAL TABLE.
-  // Example: CREATE EXTERNAL TABLE t (x FLOAT64) PARTITION BY X OPTIONS()
-  // Make sure the feature FEATURE_CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST
-  // is enabled to support column lookup
-  FEATURE_CREATE_EXTERNAL_TABLE_WITH_PARTITION_BY = 36;
-
-  // Enables support for CLUSTER BY in CREATE EXTERNAL TABLE.
-  // Example:
-  // CREATE EXTERNAL TABLE t (x FLOAT64) PARTITION BY X CLUSTER BY X OPTIONS()
-  // Make sure the feature FEATURE_CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST
-  // is enabled to support column lookup.
-  FEATURE_CREATE_EXTERNAL_TABLE_WITH_CLUSTER_BY = 37;
 
   // Enables support for NUMERIC data type as input in the binary statistics
   // functions.
@@ -605,6 +593,14 @@ enum LanguageFeature {
   // ((broken link))
   FEATURE_V_1_3_ALLOW_REGEXP_EXTRACT_OPTIONALS = 13017
       [(language_feature_options).in_development = true];
+
+  // Additional signatures for DATE, TIMESTAMP, TIME, DATETIME and STRING
+  // constructor functions.
+  FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS = 13018;
+
+  // Enables DATE +/- INT64 arithmetics.
+  // ((broken link))
+  FEATURE_V_1_3_DATE_ARITHMETICS = 13019;
 
   // EXPERIMENTAL FEATURES
   // These are features supported in the code that are not currently part of

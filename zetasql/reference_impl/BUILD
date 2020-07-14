@@ -154,6 +154,7 @@ cc_library(
         "//zetasql/public/functions:percentile",
         "//zetasql/public/functions:regexp",
         "//zetasql/public/functions:string",
+        "//zetasql/public/functions:string_format",
         "//zetasql/public/proto:type_annotation_cc_proto",
         "//zetasql/resolved_ast",
         "//zetasql/resolved_ast:resolved_ast_enums_cc_proto",

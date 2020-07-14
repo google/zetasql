@@ -31,6 +31,7 @@
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/datetime.pb.h"
+#include "zetasql/public/functions/string_format.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
@@ -197,27 +198,31 @@ std::string ParenthesizedArrayFunctionSQL(const std::string& input) {
     return "(" + input + ")";
   }
 }
-std::string ArrayAtOffsetFunctionSQL(const std::vector<std::string>& inputs) {
+std::string ArrayAtFunctionSQL(absl::string_view inner_function_name,
+                               const std::vector<std::string>& inputs) {
   DCHECK_EQ(inputs.size(), 2);
-  return absl::StrCat(ParenthesizedArrayFunctionSQL(inputs[0]), "[OFFSET(",
-                      inputs[1], ")]");
+  return absl::StrCat(ParenthesizedArrayFunctionSQL(inputs[0]), "[",
+                      inner_function_name, "(", inputs[1], ")]");
+}
+std::string ArrayAtOffsetFunctionSQL(const std::vector<std::string>& inputs) {
+  return ArrayAtFunctionSQL("OFFSET", inputs);
 }
 std::string ArrayAtOrdinalFunctionSQL(const std::vector<std::string>& inputs) {
-  DCHECK_EQ(inputs.size(), 2);
-  return absl::StrCat(ParenthesizedArrayFunctionSQL(inputs[0]), "[ORDINAL(",
-                      inputs[1], ")]");
+  return ArrayAtFunctionSQL("ORDINAL", inputs);
 }
 std::string SafeArrayAtOffsetFunctionSQL(
     const std::vector<std::string>& inputs) {
-  DCHECK_EQ(inputs.size(), 2);
-  return absl::StrCat(ParenthesizedArrayFunctionSQL(inputs[0]), "[SAFE_OFFSET(",
-                      inputs[1], ")]");
+  return ArrayAtFunctionSQL("SAFE_OFFSET", inputs);
 }
 std::string SafeArrayAtOrdinalFunctionSQL(
     const std::vector<std::string>& inputs) {
-  DCHECK_EQ(inputs.size(), 2);
-  return absl::StrCat(ParenthesizedArrayFunctionSQL(inputs[0]),
-                      "[SAFE_ORDINAL(", inputs[1], ")]");
+  return ArrayAtFunctionSQL("SAFE_ORDINAL", inputs);
+}
+std::string ProtoMapAtKeySQL(const std::vector<std::string>& inputs) {
+  return ArrayAtFunctionSQL("KEY", inputs);
+}
+std::string SafeProtoMapAtKeySQL(const std::vector<std::string>& inputs) {
+  return ArrayAtFunctionSQL("SAFE_KEY", inputs);
 }
 std::string GenerateDateTimestampArrayFunctionSQL(
     const std::string& function_name, const std::vector<std::string>& inputs) {
@@ -449,6 +454,10 @@ absl::Status CheckExtractPreResolutionArguments(
   // The first argument to the EXTRACT function cannot be a string literal
   // since that causes overloading issues.  The argument can be either DATE,
   // TIMESTAMP, or TIMESTAMP_* and a string literal coerces to all.
+  if (arguments.empty()) {
+    return MakeSqlError()
+           << "EXTRACT's arguments cannot be empty.";
+  }
   if (ArgumentIsStringLiteral(arguments[0])) {
     return MakeSqlError()
            << "EXTRACT does not support literal STRING arguments";
@@ -794,6 +803,30 @@ absl::Status CheckJsonArguments(const std::vector<InputArgumentType>& arguments,
       !arguments[1].is_untyped() && !arguments[1].is_query_parameter()) {
     return MakeSqlError()
            << "JSONPath must be a string literal or query parameter";
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status CheckFormatPostResolutionArguments(
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  ZETASQL_RET_CHECK_GE(arguments.size(), 1);
+  ZETASQL_RET_CHECK(arguments[0].type()->IsString());
+
+  if (arguments[0].is_literal() && !arguments[0].is_literal_null()) {
+    const std::string& pattern = arguments[0].literal_value()->string_value();
+    std::vector<const Type*> value_types;
+    for (int i = 1; i < arguments.size(); ++i) {
+      value_types.push_back(arguments[i].type());
+    }
+        absl::Status status = functions::CheckStringFormatUtf8ArgumentTypes(
+        pattern, value_types, language_options.product_mode());
+    if (status.code() == absl::StatusCode::kOutOfRange) {
+      return MakeSqlError() << status.message();
+    } else {
+      return status;
+    }
   }
 
   return absl::OkStatus();
@@ -1391,27 +1424,29 @@ bool HasNumericTypeArgument(const std::vector<InputArgumentType>& arguments) {
   return false;
 }
 
-// Returns true if all input arguments have NUMERIC type, including the case
-// without input arguments.
-bool AllArgumentsHaveNumericType(
+// Returns true if all input arguments have NUMERIC or BIGNUMERIC type,
+// including the case without input arguments.
+bool AllArgumentsHaveNumericOrBigNumericType(
     const std::vector<InputArgumentType>& arguments) {
   for (const InputArgumentType& argument : arguments) {
-    if (argument.type()->kind() != TYPE_NUMERIC) {
+    if (argument.type()->kind() != TYPE_NUMERIC &&
+        argument.type()->kind() != TYPE_BIGNUMERIC) {
       return false;
     }
   }
   return true;
 }
 
-// Returns true if there are at least one input argument and the last argument
-// has numeric type.
-bool LastArgumentHasNumericType(
+// Returns true if there is at least one input argument and the last argument
+// has NUMERIC type or BIGNUMERIC type.
+bool LastArgumentHasNumericOrBigNumericType(
     const std::vector<InputArgumentType>& arguments) {
-  return !arguments.empty() && arguments.back().type()->kind() == TYPE_NUMERIC;
+  return !arguments.empty() &&
+         (arguments.back().type()->kind() == TYPE_NUMERIC ||
+          arguments.back().type()->kind() == TYPE_BIGNUMERIC);
 }
 
-// Returns true if an arithmetic operation has a bignumeric type as its
-// input.
+// Returns true if at least one input argument has BIGNUMERIC type.
 bool HasBigNumericTypeArgument(
     const std::vector<InputArgumentType>& arguments) {
   for (const InputArgumentType& argument : arguments) {

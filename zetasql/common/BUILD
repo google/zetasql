@@ -356,6 +356,7 @@ cc_library(
         "//zetasql/public:value",
         "//zetasql/public/functions:date_time_util",
         "//zetasql/public/functions:datetime_cc_proto",
+        "//zetasql/public/functions:string_format",
         "//zetasql/public/types",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",

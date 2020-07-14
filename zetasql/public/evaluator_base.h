@@ -350,13 +350,15 @@ class PreparedExpressionBase {
 
   // Options struct for Execute() and ExecuteAfterPrepare() function calls.
   struct ExpressionOptions {
+    ExpressionOptions() {}
     // Columns for the expression. Represented as a map or unordered list.
+    // At most one of these can be specified.
     //
     // If using an in-scope expression column, <columns> should have an entry
     // storing the Value for that column with its registered name (possibly
     // ""). For the implicit Prepare case, an entry in <columns> with an empty
     // name will be treated as an anonymous in-scope expression column.
-    ParameterValueMap columns;
+    absl::optional<ParameterValueMap> columns;
     // Allows for a more efficient evaluation by requiring for the <columns> and
     // <parameters> values to be passed in a particular order. It is intended
     // for users that want to repeatedly evaluate an expression with different
@@ -368,11 +370,12 @@ class PreparedExpressionBase {
     // are passed in <parameters> in the order returned by
     // GetReferencedParameters.
     // REQUIRES: To be called via ExecuteAfterPrepare().
-    ParameterValueList ordered_columns;
+    absl::optional<ParameterValueList> ordered_columns;
 
     // Parameters for the expression. Represented as a map or unordered list.
-    ParameterValueMap parameters;
-    ParameterValueList ordered_parameters;
+    // At most one of these can be specified.
+    absl::optional<ParameterValueMap> parameters;
+    absl::optional<ParameterValueList> ordered_parameters;
 
     // Optional system variables for all variants of Execute.
     SystemVariableValuesMap system_variables;
@@ -391,11 +394,12 @@ class PreparedExpressionBase {
   // NOTE: The returned Value is only valid for the lifetime of this
   // PreparedExpression unless an external TypeFactory was passed to the
   // constructor.
-  zetasql_base::StatusOr<Value> Execute(const ExpressionOptions& options);
+  zetasql_base::StatusOr<Value> Execute(
+      ExpressionOptions options = ExpressionOptions());
 
   // Shorthand for calling Execute, filling the options using maps.
   zetasql_base::StatusOr<Value> Execute(
-      const ParameterValueMap& columns = {},
+      const ParameterValueMap& columns,
       const ParameterValueMap& parameters = {},
       const SystemVariableValuesMap& system_variables = {});
 
@@ -412,11 +416,11 @@ class PreparedExpressionBase {
   // Thread safe. Multiple evaluations can proceed in parallel.
   // REQUIRES: Prepare() has been called successfully.
   zetasql_base::StatusOr<Value> ExecuteAfterPrepare(
-      const ExpressionOptions& options) const;
+      ExpressionOptions options = ExpressionOptions()) const;
 
   // Shorthand for calling ExecuteAfterPrepare, filling the options using maps.
   zetasql_base::StatusOr<Value> ExecuteAfterPrepare(
-      const ParameterValueMap& columns = {},
+      const ParameterValueMap& columns,
       const ParameterValueMap& parameters = {},
       const SystemVariableValuesMap& system_variables = {}) const;
 
@@ -513,10 +517,11 @@ class PreparedQueryBase {
   // function calls.
   struct QueryOptions {
     // Parameters for the expression. Represented as a map or unordered list.
-    ParameterValueMap parameters;
+    // At most one of these can be specified.
+    absl::optional<ParameterValueMap> parameters;
     // Allows for a more efficient evaluation by requiring for the <parameters>
     // to be passed in a particular order.
-    ParameterValueList ordered_parameters;
+    absl::optional<ParameterValueList> ordered_parameters;
 
     // Optional system variables for all variants of Execute.
     SystemVariableValuesMap system_variables;
@@ -531,11 +536,11 @@ class PreparedQueryBase {
   // This method is thread safe. Multiple executions can proceed in parallel,
   // each using a different iterator.
   zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>> Execute(
-      const QueryOptions& options);
+      const QueryOptions& options = QueryOptions());
 
   // Shorthand for calling Execute, filling the options using maps.
   zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>> Execute(
-      const ParameterValueMap& parameters = {},
+      const ParameterValueMap& parameters,
       const SystemVariableValuesMap& system_variables = {});
 
   // Shorthand for calling Execute, filling the options positionally.
@@ -554,7 +559,7 @@ class PreparedQueryBase {
   // Thread safe. Multiple evaluations can proceed in parallel.
   // REQUIRES: Prepare() has been called successfully.
   zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>> ExecuteAfterPrepare(
-      const QueryOptions& options) const;
+      const QueryOptions& options = QueryOptions()) const;
 
   // Shorthand for calling ExecuteAfterPrepare, filling the options
   // positionally.

@@ -338,7 +338,7 @@ public class Value implements Serializable {
   public String getJsonValue() {
     Preconditions.checkState(getType().getKind() == TypeKind.TYPE_JSON);
     Preconditions.checkState(!isNull);
-    return proto.getJsonValue().toStringUtf8();
+    return proto.getJsonValue();
   }
 
   /** Returns the number of fields, if the type is struct. */
@@ -1444,7 +1444,7 @@ public class Value implements Serializable {
     Preconditions.checkNotNull(document);
 
     ValueProto proto =
-        ValueProto.newBuilder().setJsonValue(ByteString.copyFromUtf8(document)).build();
+        ValueProto.newBuilder().setJsonValue(document).build();
     return new Value(jsonType, proto);
   }
 }

@@ -109,13 +109,13 @@ const std::vector<CharacterAndLineAndColumn> characters_and_line_column_pairs =
         {'\n', {5, 18}, 31},
         {'\r', {6, 1}, 32},  // \n\r does not count as a single newline.
         {'\xc2', {7, 1}, 33},
-        {'\n', {-1, -1}, 34},  // Error because of invalid utf-8
+        {'\n', {7, 2}, 34},  // Advance one because of invalid utf-8
         {'s', {8, 1}, 35},
         {'t', {8, 2}, 36},
         {'\xc2', {8, 3}, 37},
-        {'u', {-1, -1}, 38},   // Error because of invalid utf-8
-        {'\n', {-1, -1}, 39},  // Error because of invalid utf-8
-        {' ', {9, 1}, 40},     // This byte is NOT included in the output.
+        {'u', {8, 4}, 38},   // Advance one because of invalid utf-8
+        {'\n', {8, 5}, 39},  // Error because of invalid utf-8
+        {' ', {9, 1}, 40},   // This byte is NOT included in the output.
 };
 
 // Returns the concatenated characters from 'characters_and_line_column_pairs';
@@ -282,13 +282,12 @@ TEST(ParseLocationTranslator, InputTerminatesInMiddleOfUtf8Character) {
   // GetLineText() doesn't need input to be valid UTF-8 to work.
   EXPECT_THAT(translator.GetLineText(1), IsOkAndHolds("\xc2"));
 
-  // These should all result in errors, since we're referring to positions
-  // after the end of input.
   EXPECT_THAT(translator.GetLineAndColumnAfterTabExpansion(
                   ParseLocationPoint::FromByteOffset(1)),
-              StatusIs(absl::StatusCode::kInternal));
-  EXPECT_THAT(translator.GetByteOffsetFromLineAndColumn(1, 2),
-              StatusIs(absl::StatusCode::kInternal));
+              IsOkAndHolds(std::make_pair(1, 2)));
+  EXPECT_THAT(translator.GetByteOffsetFromLineAndColumn(1, 2), IsOkAndHolds(1));
+  // These should result in an error, since we're referring to a position
+  // after the end of input.
   EXPECT_THAT(translator.GetByteOffsetFromLineAndColumn(2, 1),
               StatusIs(absl::StatusCode::kInternal));
 }

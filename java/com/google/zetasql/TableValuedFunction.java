@@ -138,6 +138,10 @@ public abstract class TableValuedFunction implements Serializable {
     return namePath;
   }
 
+  public FunctionSignature getFunctionSignature() {
+    return signature;
+  }
+
   public String getFullName() {
     return getFullName(true);
   }

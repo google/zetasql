@@ -53,8 +53,13 @@ using ::testing::ElementsAreArray;
 using ::testing::HasSubstr;
 using ::zetasql_base::testing::StatusIs;
 
+MATCHER_P(JsonEq, expected, expected.ToString()) {
+  *result_listener << arg.ToString();
+  return arg.NormalizedEquals(expected);
+}
+
 // Note that the compliance tests below are more exhaustive.
-TEST(JsonTest, JsonExtract) {
+TEST(JsonTest, StringJsonExtract) {
   const std::string json = R"({"a": {"b": [ { "c" : "foo" } ] } })";
   const std::vector<std::pair<std::string, std::string>> inputs_and_outputs = {
       {"$", R"({"a":{"b":[{"c":"foo"}]}})"},
@@ -102,7 +107,36 @@ TEST(JsonTest, JsonEscapingNeededCallback) {
   EXPECT_FALSE(is_null);
 }
 
-TEST(JsonTest, JsonExtractScalar) {
+TEST(JsonTest, NativeJsonExtract) {
+  const JSONValue json =
+      JSONValue::ParseJSONString(R"({"a": {"b": [ { "c" : "foo" } ] } })")
+          .ValueOrDie();
+  JSONValueConstRef json_ref = json.GetConstRef();
+  const std::vector<std::pair<std::string, std::string>> inputs_and_outputs = {
+      {"$", R"({"a":{"b":[{"c":"foo"}]}})"},
+      {"$.a", R"({"b":[{"c":"foo"}]})"},
+      {"$.a.b", R"([{"c":"foo"}])"},
+      {"$.a.b[0]", R"({"c":"foo"})"},
+      {"$.a.b[0].c", R"("foo")"}};
+  for (const auto& [input, output] : inputs_and_outputs) {
+    SCOPED_TRACE(absl::Substitute("JSON_EXTRACT('$0', '$1')",
+                                  json_ref.ToString(), input));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        const std::unique_ptr<JsonPathEvaluator> evaluator,
+        JsonPathEvaluator::Create(input,
+                                  /*sql_standard_mode=*/false));
+
+    absl::optional<JSONValueConstRef> result = evaluator->Extract(json_ref);
+    EXPECT_TRUE(result.has_value());
+    if (result.has_value()) {
+      EXPECT_THAT(
+          result.value(),
+          JsonEq(JSONValue::ParseJSONString(output).value().GetConstRef()));
+    }
+  }
+}
+
+TEST(JsonTest, StringJsonExtractScalar) {
   const std::string json = R"({"a": {"b": [ { "c" : "foo" } ] } })";
   const std::vector<std::pair<std::string, std::string>> inputs_and_outputs = {
       {"$", ""},
@@ -129,6 +163,41 @@ TEST(JsonTest, JsonExtractScalar) {
   }
 }
 
+TEST(JsonTest, NativeJsonExtractScalar) {
+  const JSONValue json =
+      JSONValue::ParseJSONString(
+          R"({"a": {"b": [ { "c" : "foo" } ], "d": 1, "e": -5, )"
+          R"("f": true, "g": 4.2 } })")
+          .ValueOrDie();
+  JSONValueConstRef json_ref = json.GetConstRef();
+  const std::vector<std::pair<std::string, std::string>> inputs_and_outputs = {
+      {"$", ""},
+      {"$.a", ""},
+      {"$.a.d", "1"},
+      {"$.a.e", "-5"},
+      {"$.a.f", "true"},
+      {"$.a.g", "4.2"},
+      {"$.a.b", ""},
+      {"$.a.b[0]", ""},
+      {"$.a.b[0].c", "foo"}};
+  for (const auto& [input, output] : inputs_and_outputs) {
+    SCOPED_TRACE(absl::Substitute("JSON_EXTRACT_SCALAR('$0', '$1')",
+                                  json_ref.ToString(), input));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        const std::unique_ptr<JsonPathEvaluator> evaluator,
+        JsonPathEvaluator::Create(input,
+                                  /*sql_standard_mode=*/false));
+
+    absl::optional<std::string> result = evaluator->ExtractScalar(json_ref);
+    if (!output.empty()) {
+      ASSERT_TRUE(result.has_value());
+      EXPECT_EQ(output, result.value());
+    } else {
+      EXPECT_FALSE(result.has_value());
+    }
+  }
+}
+
 void ExpectExtractScalar(absl::string_view json, absl::string_view path,
                          absl::string_view expected) {
   SCOPED_TRACE(absl::Substitute("JSON_EXTRACT_SCALAR('$0', '$1')", json, path));
@@ -146,7 +215,7 @@ void ExpectExtractScalar(absl::string_view json, absl::string_view path,
   }
 }
 
-TEST(JsonTest, JsonExtractScalarBadBehavior) {
+TEST(JsonTest, StringJsonExtractScalarBadBehavior) {
   // This is almost certainly an unintentional bug in the implementation. The
   // root cause is that, in general, parsing stops once the scalar is found.
   // Thus what the parser sees is for example '"{"a": 0"<etc>'.  So all manner
@@ -159,17 +228,19 @@ TEST(JsonTest, JsonExtractScalarBadBehavior) {
   ExpectExtractScalar(R"({"a": 1ab\\unicorn\0{{{{{{)", "$.a", "1");
 }
 
-TEST(JsonTest, JsonExtractScalarExpectVeryLongIntegersPassthrough) {
+TEST(JsonTest, StringJsonExtractScalarExpectVeryLongIntegersPassthrough) {
   std::string long_integer_str(500, '1');
   CHECK_EQ(long_integer_str.size(), 500);
   ExpectExtractScalar(absl::StrFormat(R"({"a": %s})", long_integer_str), "$.a",
                       long_integer_str);
 }
 
-TEST(JsonTest, Compliance) {
+TEST(JsonTest, StringJsonCompliance) {
   std::vector<std::vector<FunctionTestCall>> all_tests = {
-      GetFunctionTestsJsonExtract(), GetFunctionTestsJson()};
-  for (std::vector<FunctionTestCall>& tests : all_tests) {
+      GetFunctionTestsStringJsonQuery(), GetFunctionTestsStringJsonExtract(),
+      GetFunctionTestsStringJsonValue(),
+      GetFunctionTestsStringJsonExtractScalar()};
+  for (const std::vector<FunctionTestCall>& tests : all_tests) {
     for (const FunctionTestCall& test : tests) {
       if (test.params.params()[0].is_null() ||
           test.params.params()[1].is_null()) {
@@ -207,6 +278,63 @@ TEST(JsonTest, Compliance) {
         if (!test.params.result().is_null() && !is_null) {
           EXPECT_EQ(test.params.result().string_value(), value);
         }
+      }
+    }
+  }
+}
+
+TEST(JsonTest, NativeJsonCompliance) {
+  std::vector<std::vector<FunctionTestCall>> all_tests = {
+      GetFunctionTestsNativeJsonQuery(), GetFunctionTestsNativeJsonExtract(),
+      GetFunctionTestsNativeJsonValue(),
+      GetFunctionTestsNativeJsonExtractScalar()};
+  for (const std::vector<FunctionTestCall>& tests : all_tests) {
+    for (const FunctionTestCall& test : tests) {
+      if (test.params.params()[0].is_null() ||
+          test.params.params()[1].is_null()) {
+        continue;
+      }
+      if (!test.params.param(0).is_validated_json()) {
+        // Unvalidated JSON will be tested in compliance testing, not in unit
+        // tests.
+        continue;
+      }
+      const JSONValueConstRef json =
+          test.params.param(0).json_value_validated();
+      const std::string json_path = test.params.param(1).string_value();
+      SCOPED_TRACE(absl::Substitute("$0('$1', '$2')", test.function_name,
+                                    json.ToString(), json_path));
+
+      absl::Status status;
+      bool sql_standard_mode = test.function_name == "json_query" ||
+                               test.function_name == "json_value";
+      auto evaluator_status =
+          JsonPathEvaluator::Create(json_path, sql_standard_mode);
+      if (evaluator_status.ok()) {
+        const std::unique_ptr<JsonPathEvaluator>& evaluator =
+            evaluator_status.value();
+        if (test.function_name == "json_extract" ||
+            test.function_name == "json_query") {
+          absl::optional<JSONValueConstRef> result_or =
+              evaluator->Extract(json);
+          EXPECT_EQ(test.params.result().is_null(), !result_or.has_value());
+          if (!test.params.result().is_null() && result_or.has_value()) {
+            EXPECT_THAT(result_or.value(),
+                        JsonEq(test.params.result().json_value_validated()));
+          }
+        } else {
+          absl::optional<std::string> result_or =
+              evaluator->ExtractScalar(json);
+          EXPECT_EQ(test.params.result().is_null(), !result_or.has_value());
+          if (!test.params.result().is_null() && result_or.has_value()) {
+            EXPECT_EQ(result_or.value(), test.params.result().string_value());
+          }
+        }
+      } else {
+        status = evaluator_status.status();
+      }
+      if (!status.ok() || !test.params.status().ok()) {
+        EXPECT_EQ(test.params.status().code(), status.code()) << status;
       }
     }
   }
@@ -1423,102 +1551,6 @@ TEST(ValidJSONPathIterator, InvalidEmptyJSONPathCreation) {
       ValidJSONPathIterator::Create(path, /*sql_standard_mode=*/true).status();
   EXPECT_THAT(status, StatusIs(absl::StatusCode::kOutOfRange,
                                HasSubstr("JSONPath must start with '$'")));
-}
-
-// Compliance Tests on JSON_EXTRACT
-TEST(JSONPathExtractor, ComplianceJSONExtract) {
-  const std::vector<FunctionTestCall> tests = GetFunctionTestsJsonExtract();
-  for (const FunctionTestCall& test : tests) {
-    if (test.params.params()[0].is_null() ||
-        test.params.params()[1].is_null()) {
-      continue;
-    }
-    const std::string json = test.params.param(0).string_value();
-    const std::string json_path = test.params.param(1).string_value();
-
-    EXPECT_TRUE(test.function_name == "json_extract" ||
-                test.function_name == "json_extract_scalar");
-
-    std::string value;
-    absl::Status status;
-    bool is_null = true;
-    auto evaluator_status =
-        ValidJSONPathIterator::Create(json_path, /*sql_standard_mode=*/false);
-    if (evaluator_status.ok()) {
-      std::string output;
-      const std::unique_ptr<ValidJSONPathIterator>& path_itr =
-          evaluator_status.value();
-      if (test.function_name == "json_extract") {
-        JSONPathExtractor parser(json, path_itr.get());
-        parser.set_special_character_escaping(true);
-        parser.Extract(&value, &is_null);
-      } else {
-        // json_extract_scalar
-        JSONPathExtractScalar scalar_parser(json, path_itr.get());
-        scalar_parser.set_special_character_escaping(true);
-        scalar_parser.Extract(&value, &is_null);
-      }
-    } else {
-      status = evaluator_status.status();
-    }
-
-    if (!status.ok() || !test.params.status().ok()) {
-      EXPECT_EQ(test.params.status().code(), status.code()) << status;
-    } else {
-      EXPECT_EQ(is_null, test.params.result().is_null());
-      if (!test.params.result().is_null()) {
-        EXPECT_EQ(value, test.params.result().string_value());
-      }
-    }
-  }
-}
-
-// Tests for JSON_QUERY and JSON_VALUE (Follows the SQL2016 standard)
-TEST(JSONPathExtractor, ComplianceJSONExtractStandard) {
-  const std::vector<FunctionTestCall> tests = GetFunctionTestsJson();
-  for (const FunctionTestCall& test : tests) {
-    if (test.params.params()[0].is_null() ||
-        test.params.params()[1].is_null()) {
-      continue;
-    }
-    const std::string json = test.params.param(0).string_value();
-    const std::string json_path = test.params.param(1).string_value();
-
-    EXPECT_TRUE(test.function_name == "json_query" ||
-                test.function_name == "json_value");
-
-    std::string value;
-    absl::Status status;
-    bool is_null = true;
-    auto evaluator_status =
-        ValidJSONPathIterator::Create(json_path, /*sql_standard_mode=*/true);
-    if (evaluator_status.ok()) {
-      std::string output;
-      const std::unique_ptr<ValidJSONPathIterator>& path_itr =
-          evaluator_status.value();
-      if (test.function_name == "json_query") {
-        JSONPathExtractor parser(json, path_itr.get());
-        parser.set_special_character_escaping(true);
-        parser.Extract(&value, &is_null);
-      } else {
-        // json_value
-        JSONPathExtractScalar scalar_parser(json, path_itr.get());
-        scalar_parser.set_special_character_escaping(true);
-        scalar_parser.Extract(&value, &is_null);
-      }
-    } else {
-      status = evaluator_status.status();
-    }
-
-    if (!status.ok() || !test.params.status().ok()) {
-      EXPECT_EQ(test.params.status().code(), status.code()) << status;
-    } else {
-      EXPECT_EQ(is_null, test.params.result().is_null());
-      if (!test.params.result().is_null()) {
-        EXPECT_EQ(value, test.params.result().string_value());
-      }
-    }
-  }
 }
 
 // Compliance Tests on JSON_EXTRACT_ARRAY

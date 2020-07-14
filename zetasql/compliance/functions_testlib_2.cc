@@ -31,6 +31,7 @@
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
@@ -2122,6 +2123,25 @@ std::vector<FunctionTestCall> GetFunctionTestsArray() {
       {"array_reverse",
        {Value::Array(array_struct_type, {struct0, struct1, struct2})},
        Value::Array(array_struct_type, {struct2, struct1, struct0})},
+
+      {"array_is_distinct", {Null(Int64ArrayType())}, NullBool()},
+      {"array_is_distinct", {Int64Array({1, 2, 3})}, True()},
+      {"array_is_distinct", {Int64Array({1, 1, 1})}, False()},
+      {"array_is_distinct", {Array({Int64(1), Int64(2), NullInt64()})}, True()},
+      {"array_is_distinct",
+       {Array({Int64(1), Int64(1), NullInt64()})},
+       False()},
+      {"array_is_distinct",
+       {Array({Int64(1), NullInt64(), NullInt64()})},
+       False()},
+      {"array_is_distinct", {StringArray({"foo", "foo"})}, False()},
+      {"array_is_distinct",
+       {Array({String(""), String("foo"), NullString()})},
+       True()},
+      {"array_is_distinct", {DoubleArray({0.0, 1.0})}, True()},
+      {"array_is_distinct", {DoubleArray({0.0, 0.0})}, False()},
+      {"array_is_distinct", {DoubleArray({0.0, double_nan})}, True()},
+      {"array_is_distinct", {DoubleArray({double_nan, double_nan})}, False()},
   };
   std::vector<FunctionTestCall> tests_array_concat = GetArrayConcatTests();
   results.insert(results.end(),

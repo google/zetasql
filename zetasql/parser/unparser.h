@@ -161,6 +161,10 @@ class Unparser : public ParseTreeVisitor {
                                     void* data) override;
   void visitASTCreateTableStatement(const ASTCreateTableStatement* node,
                                     void* data) override;
+  void visitASTCreateEntityStatement(const ASTCreateEntityStatement* node,
+                                     void* data) override;
+  void visitASTAlterEntityStatement(const ASTAlterEntityStatement* node,
+                                    void* data) override;
   void visitASTCreateTableFunctionStatement(
       const ASTCreateTableFunctionStatement* node, void* data) override;
   void visitASTCreateViewStatement(const ASTCreateViewStatement* node,
@@ -213,6 +217,8 @@ class Unparser : public ParseTreeVisitor {
   void visitASTDropColumnAction(const ASTDropColumnAction* node,
                                 void* data) override;
   void visitASTDropStatement(const ASTDropStatement* node, void* data) override;
+  void visitASTDropEntityStatement(const ASTDropEntityStatement* node,
+                                   void* data) override;
   void visitASTDropFunctionStatement(
       const ASTDropFunctionStatement* node, void* data) override;
   void visitASTDropRowAccessPolicyStatement(
@@ -272,6 +278,7 @@ class Unparser : public ParseTreeVisitor {
   void visitASTColumnPosition(const ASTColumnPosition* node,
                               void* data) override;
   void visitASTOrderBy(const ASTOrderBy* node, void* data) override;
+  void visitASTLambda(const ASTLambda* node, void* data) override;
   void visitASTLimitOffset(const ASTLimitOffset* node, void* data) override;
   void visitASTHavingModifier(const ASTHavingModifier* node,
                               void* data) override;
@@ -469,6 +476,7 @@ class Unparser : public ParseTreeVisitor {
                                   void* data) override;
   void visitASTSetOptionsAction(const ASTSetOptionsAction* node,
                                    void* data) override;
+  void visitASTSetAsAction(const ASTSetAsAction* node, void* data) override;
   void visitASTAddConstraintAction(const ASTAddConstraintAction* node,
                                    void* data) override;
   void visitASTDropConstraintAction(const ASTDropConstraintAction* node,

@@ -247,6 +247,8 @@ void SampleCatalog::LoadTypes() {
       GetProtoType(zetasql_test::Proto3KitchenSink::descriptor());
   proto_field_formats_proto_ =
       GetProtoType(zetasql_test::FieldFormatsProto::descriptor());
+  proto_MessageWithMapField_ =
+      GetProtoType(zetasql_test::MessageWithMapField::descriptor());
 
   // We want to pull AmbiguousHasPB from the descriptor pool where it was
   // modified, not the generated pool.
@@ -513,6 +515,10 @@ void SampleCatalog::LoadProtoTables() {
        new SimpleColumn("EnumTable", "RowId", types_->get_bytes(),
                         true /* is_pseudo_column */)},
       true /* take_ownership */));
+
+  AddOwnedTable(new SimpleTable(
+      "MapFieldTable", {{"key", types_->get_int32()},
+                        {"MessageWithMapField", proto_MessageWithMapField_}}));
 
   AddOwnedTable(new SimpleTable(
       "Proto3Table", {{"key", types_->get_int32()},

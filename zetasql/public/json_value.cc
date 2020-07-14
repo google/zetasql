@@ -23,6 +23,7 @@
 #include <stdint.h>
 
 #include <memory>
+#include <optional>
 #include <queue>
 #include <string>
 #include <utility>
@@ -97,13 +98,17 @@ class JSONValueBuilder {
   }
 
   absl::Status ParsedNumber(absl::string_view str) {
-    int64_t int64_value;
-    if (absl::SimpleAtoi(str, &int64_value)) {
-      return HandleValue(int64_value).status();
-    }
+    // To match the nlohmann json library behavior, first try to parse 'str' as
+    // unsigned int and only fallback to int if the value is signed integer.
+    // This is to make sure that is_number_unsigned() and is_number_integer()
+    // both return true for unsigned integers.
     uint64_t uint64_value;
     if (absl::SimpleAtoi(str, &uint64_value)) {
       return HandleValue(uint64_value).status();
+    }
+    int64_t int64_value;
+    if (absl::SimpleAtoi(str, &int64_value)) {
+      return HandleValue(int64_value).status();
     }
     double double_value;
     if (absl::SimpleAtod(str, &double_value)) {
@@ -308,9 +313,9 @@ struct JSONValue::Impl {
 
 StatusOr<JSONValue> JSONValue::ParseJSONString(absl::string_view str,
                                                bool legacy_mode) {
-  JSONValue JSON_value;
+  JSONValue json;
   if (legacy_mode) {
-    JSONValueLegacyParser parser(str, JSON_value.impl_->value);
+    JSONValueLegacyParser parser(str, json.impl_->value);
     if (!parser.Parse()) {
       if (parser.status().ok()) {
         return absl::InternalError(
@@ -320,12 +325,27 @@ StatusOr<JSONValue> JSONValue::ParseJSONString(absl::string_view str,
       }
     }
   } else {
-    JSONValueStandardParser parser(JSON_value.impl_->value);
+    JSONValueStandardParser parser(json.impl_->value);
     JSON::sax_parse(str, &parser);
     ZETASQL_RETURN_IF_ERROR(parser.status());
   }
 
-  return std::move(JSON_value);
+  return json;
+}
+
+StatusOr<JSONValue> JSONValue::DeserializeFromProtoBytes(
+    absl::string_view str) {
+  JSONValue json;
+  JSONValueStandardParser parser(json.impl_->value);
+  JSON::sax_parse(str, &parser, JSON::input_format_t::ubjson);
+  ZETASQL_RETURN_IF_ERROR(parser.status());
+  return json;
+}
+
+JSONValue JSONValue::CopyFrom(JSONValueConstRef value) {
+  JSONValue copy;
+  copy.impl_->value = value.impl_->value;
+  return copy;
 }
 
 JSONValue::JSONValue() : impl_(std::make_unique<Impl>()) {}
@@ -367,7 +387,10 @@ bool JSONValueConstRef::IsObject() const { return impl_->value.is_object(); }
 bool JSONValueConstRef::IsArray() const { return impl_->value.is_array(); }
 
 bool JSONValueConstRef::IsInt64() const {
-  return impl_->value.is_number_integer();
+  // is_number_integer() returns true for both signed and unsigned values. We
+  // need to make sure that the value fits int64_t if it is unsigned.
+  return impl_->value.is_number_integer() &&
+         (!impl_->value.is_number_unsigned() || impl_->value.get<int64_t>() >= 0);
 }
 
 bool JSONValueConstRef::IsUInt64() const {
@@ -394,9 +417,23 @@ std::string JSONValueConstRef::GetString() const {
 
 bool JSONValueConstRef::GetBoolean() const { return impl_->value.get<bool>(); }
 
+bool JSONValueConstRef::HasMember(absl::string_view key) const {
+  return impl_->value.find(key) != impl_->value.end();
+}
+
 JSONValueConstRef JSONValueConstRef::GetMember(absl::string_view key) const {
   return JSONValueConstRef(reinterpret_cast<const JSONValue::Impl*>(
       &impl_->value[std::string(key)]));
+}
+
+absl::optional<JSONValueConstRef> JSONValueConstRef::GetMemberIfExists(
+    absl::string_view key) const {
+  auto iter = impl_->value.find(key);
+  if (iter == impl_->value.end()) {
+    return absl::nullopt;
+  }
+  return JSONValueConstRef(
+      reinterpret_cast<const JSONValue::Impl*>(&iter.value()));
 }
 
 std::vector<std::pair<absl::string_view, JSONValueConstRef>>
@@ -427,9 +464,23 @@ std::vector<JSONValueConstRef> JSONValueConstRef::GetArrayElements() const {
   return elements;
 }
 
-std::string JSONValueConstRef::SerializeToString() const {
-  return impl_->value.dump();
+std::string JSONValueConstRef::ToString() const { return impl_->value.dump(); }
+
+void JSONValueConstRef::SerializeAndAppendToProtoBytes(
+    std::string* output) const {
+  JSON::to_ubjson(impl_->value, *output);
 }
+
+namespace {
+
+uint64_t EstimateStringSpaceUsed(const std::string& str) {
+  size_t size = str.capacity() + 1;
+  // Small strings are allocated inline in typical string implementations.
+  return size < sizeof(JSON::string_t) ? sizeof(JSON::string_t)
+                                       : size + sizeof(JSON::string_t);
+}
+
+}  // namespace
 
 uint64_t JSONValueConstRef::SpaceUsed() const {
   uint64_t space_used = sizeof(JSONValue);
@@ -445,7 +496,9 @@ uint64_t JSONValueConstRef::SpaceUsed() const {
     if (node->is_object()) {
       space_used += sizeof(JSON::object_t);
       for (auto& el : node->items()) {
-        space_used += el.key().size();
+        space_used += EstimateStringSpaceUsed(el.key());
+        // Estimate per-element memory usage of std::map using 4 pointers.
+        space_used += 4 * sizeof(void*);
         nodes.push(&el.value());
       }
     } else if (node->is_array()) {
@@ -454,11 +507,19 @@ uint64_t JSONValueConstRef::SpaceUsed() const {
         nodes.push(&element);
       }
     } else if (node->is_string()) {
-      space_used +=
-          node->get<std::string>().capacity() + sizeof(JSON::string_t);
+      space_used += EstimateStringSpaceUsed(node->get<std::string>());
     }
   }
   return space_used;
+}
+
+// This equality operation uses nlohmann's implementation.
+//
+// In this implementation, integers and floating points can be equal by
+// casting the integer into a floating point and comparing the numbers as
+// floating points. Signed and unsigned integers can also be equal.
+bool JSONValueConstRef::NormalizedEquals(JSONValueConstRef that) const {
+  return impl_->value == that.impl_->value;
 }
 
 JSONValueRef::JSONValueRef(JSONValue::Impl* impl)

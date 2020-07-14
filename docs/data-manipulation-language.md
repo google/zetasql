@@ -410,7 +410,7 @@ example of a **Singers** table:
 <td>Alice</td>
 <td>Trentor</td>
 <td>1991-10-2</td>
-<td>"nationality: 'U.S.A.'</td>
+<td>"nationality: 'U.S.A.'"</td>
 <td>NULL</td>
 </tr>
 </tbody>

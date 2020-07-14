@@ -79,6 +79,8 @@ a supplied `datetime_expression`.
 
 Allowed `part` values are:
 
++ `NANOSECOND`
+  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -194,6 +196,8 @@ Adds `INT64_expr` units of `part` to the DATETIME object.
 
 `DATETIME_ADD` supports the following values for `part`:
 
++ `NANOSECOND`
+  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -239,6 +243,8 @@ Subtracts `INT64_expr` units of `part` from the DATETIME.
 
 `DATETIME_SUB` supports the following values for `part`:
 
++ `NANOSECOND`
+  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -280,14 +286,17 @@ DATETIME_DIFF(datetime_expression, datetime_expression, part)
 
 **Description**
 
-Returns the number of `part` boundaries between the two `datetime_expression`s.
-If the first `DATETIME` occurs before the second `DATETIME`, then the result is
-non-positive. Throws an error if the computation overflows the result type, such
-as if the difference in microseconds between the two `DATETIME` objects would
-overflow an `INT64` value.
+Returns the number of whole specified `part` intervals between two
+`DATETIME` objects. If the first `DATETIME` is earlier than the second one,
+the output is negative. Throws an error if the computation overflows the
+result type, such as if the difference in
+nanoseconds
+between the two `DATETIME` objects would overflow an `INT64` value.
 
 `DATETIME_DIFF` supports the following values for `part`:
 
++ `NANOSECOND`
+  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -404,6 +413,8 @@ Truncates a `DATETIME` object to the granularity of `part`.
 
 `DATETIME_TRUNC` supports the following values for `part`:
 
++ `NANOSECOND`
+  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`

@@ -26,6 +26,7 @@
 #include <functional>
 #include <memory>
 #include <set>
+#include <stack>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -196,6 +197,9 @@ class Algebrizer {
 
   zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeGetProtoField(
       const ResolvedGetProtoField* get_proto_field);
+
+  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeFlatten(
+      const ResolvedFlatten* flatten);
 
   // Helper for AlgebrizeGetProtoField() for the case where we are getting a
   // proto field of an expression of the form
@@ -384,6 +388,12 @@ class Algebrizer {
   // been already sorted by those expressions.
   zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeAnalyticScan(
       const ResolvedAnalyticScan* analytic_scan);
+
+  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeRecursiveScan(
+      const ResolvedRecursiveScan* recursive_scan);
+
+  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeRecursiveRefScan(
+      const ResolvedRecursiveRefScan* recursive_ref_scan);
 
   // Returns an AnalyticOp for 'analytic_group'. A SortOp is also created under
   // the AnalyticOp if the partitioning or ordering expressions are not
@@ -873,6 +883,25 @@ class Algebrizer {
 
   // For generating unique column names.
   int next_column_;
+
+  // The top of the stack represents the variable id to use for the recursive
+  // variable in the current RecursiveScan node being algebrized.
+  std::stack<std::unique_ptr<ExprArg>> recursive_var_id_stack_;
+
+  // Maps each column in <input_columns>, produced by <input>, into the
+  // corresponding column in <output_columns>.
+  //
+  // The result is a ComputeOp node like the following:
+  //   ComputeOp
+  //     input: <input>
+  //     map:
+  //      <output_columns[0]>: DerefExpr(<input_columns[0]>)
+  //      <output_columns[1]>: DerefExpr(<input_columns[1]>)
+  //      ...
+  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> MapColumns(
+      std::unique_ptr<RelationalOp> input,
+      const ResolvedColumnList& input_columns,
+      const ResolvedColumnList& output_columns);
 };
 
 }  // namespace zetasql

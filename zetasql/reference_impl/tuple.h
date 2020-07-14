@@ -67,6 +67,8 @@ class TupleSchema {
 
   std::string DebugString() const;
 
+  void AddVariable(VariableId variable);
+
  private:
   using VariableStorage = std::vector<VariableId>;
   struct VariableIdComparator {

@@ -194,11 +194,11 @@ TEST(SimpleBuiltinFunctionTests, ExcludedBuiltinFunctionTests) {
   ZetaSQLBuiltinFunctionOptions options;
   GetZetaSQLFunctions(&type_factory, options, &all_functions);
 
-  // Remove CONCAT signatures.
+  // Remove all CONCAT signatures.
   options.exclude_function_ids.insert(FN_CONCAT_STRING);
   options.exclude_function_ids.insert(FN_CONCAT_BYTES);
 
-  // Remove the first and last signatures for MULTIPLY.
+  // Remove few signatures for MULTIPLY.
   options.exclude_function_ids.insert(FN_MULTIPLY_INT64);
   options.exclude_function_ids.insert(FN_MULTIPLY_DOUBLE);
   options.exclude_function_ids.insert(FN_MULTIPLY_NUMERIC);
@@ -208,10 +208,14 @@ TEST(SimpleBuiltinFunctionTests, ExcludedBuiltinFunctionTests) {
   options.exclude_function_ids.insert(FN_SUBTRACT_INT64);
   options.exclude_function_ids.insert(FN_SUBTRACT_UINT64);
   options.exclude_function_ids.insert(FN_SUBTRACT_NUMERIC);
+  options.exclude_function_ids.insert(FN_SUBTRACT_BIGNUMERIC);
+  options.exclude_function_ids.insert(FN_SUBTRACT_DATE_INT64);
 
-  // Remove the middle signature for ADD but not the first or last.
+  // Remove few signature for ADD but not all.
   options.exclude_function_ids.insert(FN_ADD_UINT64);
   options.exclude_function_ids.insert(FN_ADD_NUMERIC);
+  options.exclude_function_ids.insert(FN_ADD_DATE_INT64);
+  options.exclude_function_ids.insert(FN_ADD_INT64_DATE);
 
   // Get filtered functions.
   GetZetaSQLFunctions(&type_factory, options, &functions);

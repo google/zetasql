@@ -808,6 +808,9 @@ zone { return BisonParserImpl::token::KW_ZONE; }
 "=>"                      {
   return BisonParserImpl::token::KW_NAMED_ARGUMENT_ASSIGNMENT;
 }
+"->"                      {
+  return BisonParserImpl::token::KW_LAMBDA_ARROW;
+}
 "<"                       {
   if (prev_token_ == BisonParserImpl::token::KW_ARRAY ||
       prev_token_ == BisonParserImpl::token::KW_STRUCT) {

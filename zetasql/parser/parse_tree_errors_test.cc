@@ -24,6 +24,7 @@
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status_builder.h"
 

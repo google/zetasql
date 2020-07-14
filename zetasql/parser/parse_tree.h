@@ -903,6 +903,36 @@ class ASTDropStatement final : public ASTStatement {
   bool is_if_exists_ = false;
 };
 
+// Generic DROP statement (broken link).
+class ASTDropEntityStatement final : public ASTStatement {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_DROP_ENTITY_STATEMENT;
+
+  ASTDropEntityStatement() : ASTStatement(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  // This adds the "if exists" modifier to the node name.
+  std::string SingleNodeDebugString() const override;
+
+  const ASTPathExpression* name() const { return name_; }
+  const ASTIdentifier* entity_type() const { return entity_type_; }
+
+  bool is_if_exists() const { return is_if_exists_; }
+  void set_is_if_exists(bool value) { is_if_exists_ = value; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&entity_type_);
+    fl.AddRequired(&name_);
+  }
+  const ASTIdentifier* entity_type_ = nullptr;
+  const ASTPathExpression* name_ = nullptr;
+  bool is_if_exists_ = false;
+};
+
 // Represents a DROP FUNCTION statement.
 class ASTDropFunctionStatement final : public ASTStatement {
  public:
@@ -2953,6 +2983,33 @@ class ASTNamedArgument final : public ASTExpression {
   const ASTExpression* expr_ = nullptr;
 };
 
+// Function argument is required to be expression.
+class ASTLambda final : public ASTExpression {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_LAMBDA;
+
+  ASTLambda() : ASTExpression(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTExpression* parameter_list() const { return parameter_list_; }
+  const ASTExpression* body() const { return body_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&parameter_list_);
+    fl.AddRequired(&body_);
+  }
+
+  // Empty parameter list is represented as empty
+  // ASTStructConstructorWithParens.
+  const ASTExpression* parameter_list_ = nullptr;
+  // Required, never NULL.
+  const ASTExpression* body_ = nullptr;
+};
+
 class ASTAnalyticFunctionCall final : public ASTExpression {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind =
@@ -4514,6 +4571,36 @@ class ASTCreateTableStatement final : public ASTCreateTableStmtBase {
   const ASTPartitionBy* partition_by_ = nullptr;             // May be NULL.
   const ASTClusterBy* cluster_by_ = nullptr;                 // May be NULL.
   const ASTQuery* query_ = nullptr;                          // May be NULL.
+};
+
+class ASTCreateEntityStatement final : public ASTCreateStatement {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_CREATE_ENTITY_STATEMENT;
+
+  explicit ASTCreateEntityStatement() : ASTCreateStatement(kConcreteNodeKind) {}
+
+  const ASTIdentifier* type() const { return type_; }
+  const ASTPathExpression* name() const { return name_; }
+  const ASTStringLiteral* json_body() const { return json_body_; }
+  const ASTOptionsList* options_list() const { return options_list_; }
+
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+ protected:
+  void InitFields() override {
+    FieldLoader fl(this);
+    fl.AddRequired(&type_);
+    fl.AddRequired(&name_);
+    fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
+    fl.AddOptional(&json_body_, AST_STRING_LITERAL);
+  }
+
+  const ASTIdentifier* type_ = nullptr;
+  const ASTPathExpression* name_ = nullptr;
+  const ASTOptionsList* options_list_ = nullptr;
+  const ASTStringLiteral* json_body_ = nullptr;
 };
 
 class ASTTransformClause final : public ASTNode {
@@ -6562,6 +6649,29 @@ class ASTSetOptionsAction final : public ASTAlterAction {
   const ASTOptionsList* options_list_ = nullptr;
 };
 
+// ALTER action for "SET AS" clause
+class ASTSetAsAction final : public ASTAlterAction {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_SET_AS_ACTION;
+
+  ASTSetAsAction() : ASTAlterAction(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  std::string GetSQLForAlterAction() const override;
+
+  const ASTStringLiteral* body() const { return body_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&body_);
+  }
+
+  const ASTStringLiteral* body_ = nullptr;
+};
+
 // ALTER table action for "ADD CONSTRAINT" clause
 class ASTAddConstraintAction final : public ASTAlterAction {
  public:
@@ -7073,6 +7183,27 @@ class ASTAlterAllRowAccessPoliciesStatement final : public ASTStatement {
 
   const ASTAlterAction* alter_action_ = nullptr;  // Required
   const ASTPathExpression* table_name_path_ = nullptr;  // Required
+};
+
+class ASTAlterEntityStatement final : public ASTAlterStatementBase {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_ALTER_ENTITY_STATEMENT;
+
+  ASTAlterEntityStatement() : ASTAlterStatementBase(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTIdentifier* type() const { return type_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&type_);
+    InitPathAndAlterActions(&fl);
+  }
+
+  const ASTIdentifier* type_ = nullptr;
 };
 
 class ASTForeignKeyActions final : public ASTNode {

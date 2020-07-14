@@ -68,6 +68,12 @@ class SQLFunctionInterface : public Function {
       const std::vector<FunctionSignature>& function_signatures,
       const FunctionOptions& function_options)
       : Function(name, group, mode, function_signatures, function_options) {}
+  SQLFunctionInterface(
+      const std::vector<std::string>& name_path, const std::string& group,
+      Mode mode, const std::vector<FunctionSignature>& function_signatures,
+      const FunctionOptions& function_options)
+      : Function(name_path, group, mode, function_signatures,
+                 function_options) {}
   SQLFunctionInterface(const SQLFunctionInterface&) = delete;
   SQLFunctionInterface& operator=(const SQLFunctionInterface&) = delete;
   SQLFunctionInterface(SQLFunctionInterface&&) = delete;

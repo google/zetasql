@@ -189,30 +189,51 @@ Create external UDFs using the following syntax.
 CREATE
   [ { TEMPORARY | TEMP } ] FUNCTION
   function_name ( [ function_parameter [, ...] ] )
+  [ determinism_specifier ]
   RETURNS data_type
   LANGUAGE language_name AS string_literal
 
 function_parameter:
   parameter_name data_type
+
+determinism_specifier:
+  { IMMUTABLE | DETERMINISTIC | NOT DETERMINISTIC | VOLATILE | STABLE }
 ```
 
 This syntax consists of the following components:
 
-+   `CREATE ... FUNCTION`: Creates a new function.
-     A function can contain zero or more
-    `function_parameter`s.
++   `CREATE ... FUNCTION`: Creates a new function. A function can contain zero
+    or more `function_parameter`s.
 +   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
-     exists for the lifetime of the session.
-+   `function_parameter`: A parameter for the fuction. A parameter
-    includes a name and a data type. The value of `data_type`
-    is a ZetaSQL [data type][data-types].
-+   `RETURNS data_type`: Specifies the data type
-    that the function returns. See [Supported UDF data types][supported-external-udf-data-types]
-    for more information about allowed values for `data_type`.
-+   `LANGUAGE ... AS`: Specify the language and code to use.
-     `language_name` represents the name of the language, such
-     as `js` for JavaScript. `string_literal` represents the code that defines
-     the function body.
+    exists for the lifetime of the session.
++   `function_parameter`: A parameter for the fuction. A parameter includes a
+    name and a data type. The value of `data_type` is a ZetaSQL
+    [data type][data-types].
++   `determinism_specifier`: Determines if the results of the function can be
+    cached or not. Your choices are:
+    +   `IMMUTABLE` or `DETERMINISTIC`: The function always returns the same
+        result when passed the same arguments. The query result is potentially
+        cacheable. For example, if the function `add_one(i)` always returns `i +
+        1`, the function is deterministic.
+    +   `NOT DETERMINISTIC`: The function does not always return the same result
+        when passed the same arguments. The `VOLATILE` and `STABLE` keywords are
+        subcategories of `NOT DETERMINISTIC`.
+    +   `VOLATILE`: The function does not always return the same result when
+        passed the same arguments, even within the same run of a query
+        statement. For example if `add_random(i)` returns `i + rand()`, the
+        function is volatile, because every call to the function can return a
+        different result.
+    +   `STABLE`: Within one run of a query statement, the function will
+        consistently return the same result for the same argument values.
+        However, the result could change across two runs. For example, a
+        function that returns the current session user is stable, because the
+        value would not change within the same run.
++   `RETURNS data_type`: Specifies the data type that the function returns. See
+    [Supported UDF data types][supported-external-udf-data-types] for more
+    information about allowed values for `data_type`.
++   `LANGUAGE ... AS`: Specify the language and code to use. `language_name`
+    represents the name of the language, such as `js` for JavaScript.
+    `string_literal` represents the code that defines the function body.
 
 ### External UDF examples
 

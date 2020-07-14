@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 
+#include "zetasql/public/json_value.h"
 #include "zetasql/base/string_numbers.h"  
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
@@ -88,6 +89,13 @@ class JsonPathEvaluator {
   absl::Status Extract(absl::string_view json, std::string* value,
                        bool* is_null) const;
 
+  // Similar to the string version above, but for JSON types.
+  // Returns absl::nullopt to indicate that:
+  // * json_path does not match anything.
+  // * json_path uses an array index but the value is not an array, or the path
+  //   uses a name but the value is not an object.
+  absl::optional<JSONValueConstRef> Extract(JSONValueConstRef input) const;
+
   // Similar to the above, but the 'json_path' provided in Create() must refer
   // to a scalar value in 'json'.
   // For example:
@@ -104,6 +112,14 @@ class JsonPathEvaluator {
   // * json_path does not correspond to a scalar value in json.
   absl::Status ExtractScalar(absl::string_view json, std::string* value,
                              bool* is_null) const;
+
+  // Similar to the string version above, but for JSON types.
+  // Returns absl::nullopt to indicate that:
+  // * json_path does not match anything.
+  // * json_path uses an array index but the value is not an array, or the path
+  //   uses a name but the value is not an object.
+  // * json_path does not correspond to a scalar value in json.
+  absl::optional<std::string> ExtractScalar(JSONValueConstRef input) const;
 
   // Extracts an array from 'json' according to the JSONPath string 'json_path'
   // provided in Create(). The value in 'json' that 'json_path' refers to should

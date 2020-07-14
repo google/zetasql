@@ -127,6 +127,7 @@ class SampleCatalog {
   const ProtoType* proto3_KitchenSinkPB_;
   const ProtoType* proto_ambiguous_has_;
   const ProtoType* proto_field_formats_proto_;
+  const ProtoType* proto_MessageWithMapField_;
 
   const StructType* struct_type_;
   const StructType* nested_struct_type_;

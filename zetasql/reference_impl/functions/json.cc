@@ -17,15 +17,24 @@
 #include "zetasql/reference_impl/functions/json.h"
 
 #include "zetasql/public/functions/json.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/reference_impl/function.h"
 
 namespace zetasql {
 namespace {
 
+// Implementation of:
+// JSON_EXTRACT/JSON_QUERY(string, string) -> string
+// JSON_EXTRACT/JSON_QUERY(json, string) -> json
+// JSON_EXTRACT_SCALAR/JSON_VALUE(string, string) -> string
+// JSON_EXTRACT_SCALAR/JSON_VALUE(json, string) -> string
 class JsonFunction : public SimpleBuiltinScalarFunction {
  public:
-  explicit JsonFunction(FunctionKind kind)
-      : SimpleBuiltinScalarFunction(kind, types::StringType()) {}
+  JsonFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {
+    DCHECK(output_type == types::JsonType() ||
+           output_type == types::StringType());
+  }
   zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
@@ -39,6 +48,61 @@ class JsonExtractArrayFunction : public SimpleBuiltinScalarFunction {
                              EvaluationContext* context) const override;
 };
 
+// Helper function for the string version of JSON_QUERY, JSON_VALUE,
+// JSON_EXTRACT and JSON_EXTRACT_SCALAR.
+zetasql_base::StatusOr<Value> JsonExtractString(
+    const functions::JsonPathEvaluator& evaluator,
+    absl::string_view json, bool scalar) {
+  std::string output;
+  bool is_null;
+
+  if (scalar) {
+    ZETASQL_RETURN_IF_ERROR(evaluator.ExtractScalar(json, &output, &is_null));
+  } else {
+    ZETASQL_RETURN_IF_ERROR(evaluator.Extract(json, &output, &is_null));
+  }
+  if (!is_null) {
+    return Value::String(std::move(output));
+  }
+  return Value::NullString();
+}
+
+// Helper function for the JSON version of JSON_QUERY, JSON_VALUE,
+// JSON_EXTRACT and JSON_EXTRACT_SCALAR.
+zetasql_base::StatusOr<Value> JsonExtractJson(
+    const functions::JsonPathEvaluator& evaluator,
+    const Value& json, const Type* output_type, bool scalar,
+    bool json_legacy_parsing_mode) {
+  if (scalar) {
+    absl::optional<std::string> output_string_or;
+    if (json.is_validated_json()) {
+      output_string_or = evaluator.ExtractScalar(json.json_value_validated());
+    } else {
+      ZETASQL_ASSIGN_OR_RETURN(JSONValue input_json,
+                       JSONValue::ParseJSONString(json.json_value_unparsed(),
+                                                  json_legacy_parsing_mode));
+      output_string_or = evaluator.ExtractScalar(input_json.GetConstRef());
+    }
+    if (output_string_or.has_value()) {
+      return Value::String(std::move(output_string_or).value());
+    }
+  } else {
+    absl::optional<JSONValueConstRef> output_json_or;
+    if (json.is_validated_json()) {
+      output_json_or = evaluator.Extract(json.json_value_validated());
+    } else {
+      ZETASQL_ASSIGN_OR_RETURN(JSONValue input_json,
+                       JSONValue::ParseJSONString(json.json_value_unparsed(),
+                                                  json_legacy_parsing_mode));
+      output_json_or = evaluator.Extract(input_json.GetConstRef());
+    }
+    if (output_json_or.has_value()) {
+      return Value::Json(JSONValue::CopyFrom(output_json_or.value()));
+    }
+  }
+  return Value::Null(output_type);
+}
+
 zetasql_base::StatusOr<Value> JsonFunction::Eval(absl::Span<const Value> args,
                                          EvaluationContext* context) const {
   DCHECK_EQ(args.size(), 2);
@@ -51,24 +115,19 @@ zetasql_base::StatusOr<Value> JsonFunction::Eval(absl::Span<const Value> args,
                             kind() == FunctionKind::kJsonValue);
 
   ZETASQL_ASSIGN_OR_RETURN(
-      const std::unique_ptr<functions::JsonPathEvaluator> evaluator,
+      std::unique_ptr<functions::JsonPathEvaluator> evaluator,
       functions::JsonPathEvaluator::Create(
           /*json_path=*/args[1].string_value(), sql_standard_mode));
   evaluator->enable_special_character_escaping();
-  std::string output;
-  bool is_null = true;
-  if (kind() == FunctionKind::kJsonQuery ||
-      kind() == FunctionKind::kJsonExtract) {
-    ZETASQL_RETURN_IF_ERROR(
-        evaluator->Extract(args[0].string_value(), &output, &is_null));
-  } else {  // kJsonValue || kJsonExtractScalar
-    ZETASQL_RETURN_IF_ERROR(
-        evaluator->ExtractScalar(args[0].string_value(), &output, &is_null));
-  }
-  if (is_null) {
-    return Value::Null(output_type());
+  bool scalar = kind() == FunctionKind::kJsonValue ||
+                kind() == FunctionKind::kJsonExtractScalar;
+  if (args[0].type_kind() == TYPE_STRING) {
+    return JsonExtractString(*evaluator, args[0].string_value(),
+                             scalar);
   } else {
-    return Value::String(output);
+    return JsonExtractJson(*evaluator, args[0], output_type(), scalar,
+                           context->GetLanguageOptions().LanguageFeatureEnabled(
+                               FEATURE_JSON_LEGACY_PARSE));
   }
 }
 
@@ -105,7 +164,7 @@ void RegisterBuiltinJsonFunctions() {
       {FunctionKind::kJsonExtract, FunctionKind::kJsonExtractScalar,
        FunctionKind::kJsonQuery, FunctionKind::kJsonValue},
       [](FunctionKind kind, const Type* output_type) {
-        return new JsonFunction(kind);
+        return new JsonFunction(kind, output_type);
       });
   BuiltinFunctionRegistry::RegisterScalarFunction(
       {FunctionKind::kJsonExtractArray},

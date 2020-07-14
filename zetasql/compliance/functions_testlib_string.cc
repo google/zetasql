@@ -97,6 +97,100 @@ std::vector<FunctionTestCall> GetFunctionTestsAscii() {
   return results;
 }
 
+std::vector<FunctionTestCall> GetFunctionTestsUnicode() {
+  std::vector<FunctionTestCall> results = {
+    // unicode(string) -> int64_t
+    {"unicode", {NullString()}, NullInt64()},
+    {"unicode", {""}, 0ll},
+    {"unicode", {" A"}, 32ll},
+    {"unicode", {"a"}, 97ll},
+    {"unicode", {"abcd"}, 97ll},
+    {"unicode", {"nЖЩФ"}, 110ll},
+    {"unicode", {"\x41"}, 65ll},
+    {"unicode", {"?"}, 63ll},
+    {"unicode", {"\t"}, 9ll},
+    {"unicode", {"\uE000"}, 0xE000ll},
+    {"unicode", {"\uFFFF"}, 0xFFFFll},
+    {"unicode", {"\U0010FFFE"}, 0x10FFFEll},
+    {"unicode", {"\U0010FFFF"}, 0x10FFFFll},
+    {"unicode", {"жщф"}, 1078ll},
+  };
+  { // construct a string
+    std::string valid_codepoint_string;
+    valid_codepoint_string.push_back(0x11);
+    valid_codepoint_string.push_back('\xFF');
+    valid_codepoint_string.push_back('\xFF');
+
+    results.push_back({"unicode", {String(valid_codepoint_string)}, 17ll});
+  }
+  // Error cases.
+  // The C++ compiler rejects Unicode literals in strings that aren't valid
+  // codepoints, so we have to construct them "manually".
+  {
+    std::string invalid_codepoint_string;
+    // The first character is an invalid codepoint.
+    invalid_codepoint_string.push_back(0xD8);
+    // invalid_codepoint_string.push_back('\xFF');
+
+    results.push_back(
+        {"unicode", {String(invalid_codepoint_string)}, NullInt64(),
+         absl::OutOfRangeError("First char of input is not a structurally "
+                               "valid UTF-8 character: '\\xd8'")});
+  }
+  {
+    std::string invalid_codepoint_string;
+    // The first character is an invalid codepoint.
+    invalid_codepoint_string.push_back(0xDF);
+    invalid_codepoint_string.push_back('\xFF');
+
+    results.push_back(
+        {"unicode", {String(invalid_codepoint_string)}, NullInt64(),
+         absl::OutOfRangeError("First char of input is not a structurally "
+                               "valid UTF-8 character: '\\xdf'")});
+  }
+  {
+    std::string invalid_codepoint_string;
+    // Invalid three-byte codepoint (above the valid range).
+    invalid_codepoint_string.push_back(0xFF);
+    invalid_codepoint_string.push_back('\xFF');
+    invalid_codepoint_string.push_back('\xFF');
+    invalid_codepoint_string.push_back('\xFF');
+
+    results.push_back(
+        {"unicode", {String(invalid_codepoint_string)}, NullInt64(),
+         absl::OutOfRangeError("First char of input is not a structurally "
+                               "valid UTF-8 character: '\\xff'")});
+  }
+  return results;
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsChr() {
+  std::vector<FunctionTestCall> results = {
+    {"chr", {NullInt64()}, NullString()},
+    {"chr", {32ll}, String(" ")},
+    {"chr", {97ll}, String("a")},
+    {"chr", {66ll}, String("B")},
+    {"chr", {0ll}, String("\0")},
+    {"chr", {1ll}, String("\1")},
+    {"chr", {1078ll}, String("ж")},
+    {"chr", {1076ll}, String("д")},
+    {"chr", {0xD7FEll}, String("\uD7FE")},
+    {"chr", {0xE000ll}, String("\uE000")},
+    {"chr", {0x10FFFFll}, String("\U0010FFFF")},
+    {"chr", {-1ll}, NullString(),
+     absl::OutOfRangeError("Invalid codepoint -1")},
+    {"chr", {-100ll}, NullString(),
+     absl::OutOfRangeError("Invalid codepoint -100")},
+    {"chr", {0xD800ll}, NullString(),
+     absl::OutOfRangeError("Invalid codepoint 55296")},
+    {"chr", {0x11FFFFll}, NullString(),
+     absl::OutOfRangeError("Invalid codepoint 1179647")},
+    {"chr", {0x1000000000000ll}, NullString(),
+     absl::OutOfRangeError("Invalid codepoint 281474976710656")},
+  };
+  return results;
+}
+
 std::vector<FunctionTestCall> GetFunctionTestsString() {
   absl::string_view all_bytes_str(
       "\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12"

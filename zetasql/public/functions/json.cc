@@ -23,6 +23,7 @@
 
 #include "zetasql/common/errors.h"
 #include "zetasql/public/functions/json_internal.h"
+#include "zetasql/public/json_value.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "zetasql/base/status_macros.h"
@@ -66,6 +67,44 @@ absl::Status JsonPathEvaluator::Extract(absl::string_view json,
   return absl::OkStatus();
 }
 
+absl::optional<JSONValueConstRef> JsonPathEvaluator::Extract(
+    JSONValueConstRef input) const {
+  for (path_iterator_->Rewind(); !path_iterator_->End(); ++(*path_iterator_)) {
+    const ValidJSONPathIterator::Token& token = *(*path_iterator_);
+
+    if (token.empty()) {
+      // The JSONPath "$.a[1].b" will result in the following list of tokens:
+      // "", "a", "1", "b". The first token is always the empty token
+      // corresponding to the whole JSON document, and we don't need to do
+      // anything in that iteration. There shouldn't be any empty tokens after
+      // the first one as ValidJSONPathIterator would reject those invalid
+      // paths.
+      continue;
+    }
+
+    if (input.IsObject()) {
+      absl::optional<JSONValueConstRef> optional_member =
+          input.GetMemberIfExists(token);
+      if (!optional_member.has_value()) {
+        return absl::nullopt;
+      }
+      input = optional_member.value();
+    } else if (input.IsArray()) {
+      int64_t index;
+      if (!absl::SimpleAtoi(token, &index) || index < 0 ||
+          index >= input.GetArraySize()) {
+        return absl::nullopt;
+      }
+      input = input.GetArrayElement(index);
+    } else {
+      // The path is not present in the JSON object.
+      return absl::nullopt;
+    }
+  }
+
+  return input;
+}
+
 absl::Status JsonPathEvaluator::ExtractScalar(absl::string_view json,
                                               std::string* value,
                                               bool* is_null) const {
@@ -79,6 +118,23 @@ absl::Status JsonPathEvaluator::ExtractScalar(absl::string_view json,
                            << JSONPathExtractor::kMaxParsingDepth;
   }
   return absl::OkStatus();
+}
+
+absl::optional<std::string> JsonPathEvaluator::ExtractScalar(
+    JSONValueConstRef input) const {
+  absl::optional<JSONValueConstRef> optional_json = Extract(input);
+  if (!optional_json.has_value() || optional_json->IsNull() ||
+      optional_json->IsObject() || optional_json->IsArray()) {
+    return absl::nullopt;
+  }
+
+  if (optional_json->IsString()) {
+    // ToString() adds extra quotes and escapes special characters,
+    // which we don't want.
+    return optional_json->GetString();
+  }
+
+  return optional_json->ToString();
 }
 
 absl::Status JsonPathEvaluator::ExtractArray(absl::string_view json,

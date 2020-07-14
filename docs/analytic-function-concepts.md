@@ -968,7 +968,7 @@ WINDOW
 The following example produces an error because a window frame clause has been
 defined twice:
 
-```zetasql
+```zetasql {.bad}
 SELECT item, purchases, category, LAST_VALUE(item)
   OVER (
     item_window

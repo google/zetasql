@@ -2160,6 +2160,22 @@ absl::Status SQLBuilder::VisitResolvedAggregateScan(
   return absl::OkStatus();
 }
 
+static absl::optional<const ResolvedRecursiveScan*> MaybeGetRecursiveScan(
+    const ResolvedWithEntry* entry) {
+  const ResolvedScan* query = entry->with_subquery();
+  for (;;) {
+    switch (query->node_kind()) {
+      case RESOLVED_RECURSIVE_SCAN:
+        return query->GetAs<ResolvedRecursiveScan>();
+      case RESOLVED_WITH_SCAN:
+        query = query->GetAs<ResolvedWithScan>()->query();
+        break;
+      default:
+        return absl::nullopt;
+    }
+  }
+}
+
 absl::Status SQLBuilder::VisitResolvedWithScan(const ResolvedWithScan* node) {
   // Save state of the WITH alias map from the outer scope so we can restore it
   // after processing the local query.
@@ -2173,12 +2189,13 @@ absl::Status SQLBuilder::VisitResolvedWithScan(const ResolvedWithScan* node) {
     const ResolvedScan* scan = with_entry->with_subquery();
     zetasql_base::InsertOrDie(&with_query_name_to_scan_, name, scan);
     bool actually_recursive = false;
-    if (with_entry->with_subquery()->node_kind() == RESOLVED_RECURSIVE_SCAN) {
+    absl::optional<const ResolvedRecursiveScan*> recursive_scan =
+        MaybeGetRecursiveScan(with_entry.get());
+    if (recursive_scan.has_value()) {
       has_recursive_entries = true;
       actually_recursive = true;
       recursive_query_info_.push(
-          {ToIdentifierLiteral(name),
-           with_entry->with_subquery()->GetAs<ResolvedRecursiveScan>()});
+          {ToIdentifierLiteral(name), recursive_scan.value()});
     }
 
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result, ProcessNode(scan));

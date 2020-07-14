@@ -25,7 +25,7 @@
 
 namespace zetasql {
 template <typename T>
-inline absl::Status CheckPercetileArgument(T percentile) {
+inline absl::Status CheckPercentileArgument(T percentile) {
   if (!(percentile >= T(0) && percentile <= T(1))) {  // handles NaN
     return ::zetasql_base::InvalidArgumentErrorBuilder()
            << "Percentile argument must be in [0, 1]; got " << percentile;
@@ -91,7 +91,7 @@ size_t PercentileHelper<double>::ComputePercentileIndex(
 // static
 zetasql_base::StatusOr<PercentileHelper<double>> PercentileHelper<double>::Create(
     double percentile) {
-  ZETASQL_RETURN_IF_ERROR(CheckPercetileArgument(percentile));
+  ZETASQL_RETURN_IF_ERROR(CheckPercentileArgument(percentile));
   const zetasql_base::MathUtil::DoubleParts parts = zetasql_base::MathUtil::Decompose(percentile);
   ZETASQL_RET_CHECK_GE(parts.mantissa, 0);
   return PercentileHelper<double>(percentile, parts.mantissa, parts.exponent);
@@ -152,9 +152,71 @@ NumericValue PercentileHelper<NumericValue>::ComputeLinearInterpolation(
 // static
 zetasql_base::StatusOr<PercentileHelper<NumericValue>>
 PercentileHelper<NumericValue>::Create(NumericValue percentile) {
-  ZETASQL_RETURN_IF_ERROR(CheckPercetileArgument(percentile));
+  ZETASQL_RETURN_IF_ERROR(CheckPercentileArgument(percentile));
   return PercentileHelper<NumericValue>(
       static_cast<uint32_t>(percentile.low_bits()));
+}
+
+size_t PercentileHelper<BigNumericValue>::ComputePercentileIndex(
+    size_t max_index, BigNumericValue* left_weight,
+    BigNumericValue* right_weight) const {
+  FixedUint<64, 3> scaled_index = ExtendAndMultiply(
+      scaled_percentile_, FixedUint<64, 1>(static_cast<uint64_t>(max_index)));
+  FixedUint<64, 2> index =
+      BigNumericValue::RemoveScalingFactor</* round = */ false>(scaled_index);
+  DCHECK_EQ(index.number()[1], 0);
+  uint64_t result = index.number()[0];
+  FixedUint<64, 2> scaled_left_weight(BigNumericValue::kScalingFactor);
+  scaled_index -=
+      ExtendAndMultiply(scaled_left_weight, FixedUint<64, 1>(result));
+  DCHECK(scaled_index < (FixedUint<64, 3>(BigNumericValue::kScalingFactor)));
+  scaled_left_weight -= FixedUint<64, 2>(scaled_index);
+  *left_weight = BigNumericValue::FromPackedLittleEndianArray(
+      FixedUint<64, 4>(scaled_left_weight).number());
+  *right_weight = BigNumericValue::FromPackedLittleEndianArray(
+      FixedUint<64, 4>(scaled_index).number());
+  return result;
+}
+
+inline FixedInt<64, 6> MultiplyValueByWeight(const BigNumericValue& value,
+                                             const BigNumericValue& weight) {
+  DCHECK_GE(weight, BigNumericValue(0));
+  DCHECK_LE(weight, BigNumericValue(1));
+  FixedInt<64, 2> scaled_weight(
+      FixedInt<64, 4>(weight.ToPackedLittleEndianArray()));
+  return ExtendAndMultiply(FixedInt<64, 4>(value.ToPackedLittleEndianArray()),
+                           scaled_weight);
+}
+
+// static
+BigNumericValue PercentileHelper<BigNumericValue>::ComputeLinearInterpolation(
+    const BigNumericValue& left_value, const BigNumericValue& left_weight,
+    const BigNumericValue& right_value, const BigNumericValue& right_weight) {
+  DCHECK_EQ(left_weight.Add(right_weight).ValueOrDie(), BigNumericValue(1))
+      << "left_weight + right_weight must be 1";
+  FixedInt<64, 6> scaled_sum = MultiplyValueByWeight(left_value, left_weight);
+  bool overflow =
+      scaled_sum.AddOverflow(MultiplyValueByWeight(right_value, right_weight));
+  DCHECK(!overflow) << "Unexpected overflow: " << left_value << " * "
+                    << left_weight << " + " << right_value << " * "
+                    << right_weight;
+  FixedUint<64, 5> sum_abs =
+      BigNumericValue::RemoveScalingFactor</* round = */ true>(
+          scaled_sum.abs());
+  DCHECK_EQ(sum_abs.number()[4], 0);
+  FixedInt<64, 4> result(sum_abs);
+  if (scaled_sum.is_negative()) {
+    result = -result;
+  }
+  return BigNumericValue::FromPackedLittleEndianArray(result.number());
+}
+
+// static
+zetasql_base::StatusOr<PercentileHelper<BigNumericValue>>
+PercentileHelper<BigNumericValue>::Create(BigNumericValue percentile) {
+  ZETASQL_RETURN_IF_ERROR(CheckPercentileArgument(percentile));
+  return PercentileHelper<BigNumericValue>(FixedUint<64, 2>(
+      FixedUint<64, 4>(percentile.ToPackedLittleEndianArray())));
 }
 
 }  // namespace zetasql

@@ -45,32 +45,11 @@
 
 namespace zetasql {
 
+namespace {
 using FormatFlag = NumericValue::FormatSpec::Flag;
 
-namespace {
-
-constexpr int kBitsPerByte = 8;
-constexpr int kBitsPerUint64 = 64;
-constexpr int kBitsPerInt64 = 64;
-constexpr int kBitsPerInt128 = 128;
-constexpr int kBytesPerInt64 = kBitsPerInt64 / kBitsPerByte;
-constexpr int kBytesPerInt128 = kBitsPerInt128 / kBitsPerByte;
 constexpr uint8_t kGroupSize = 3;
 constexpr char kGroupChar = ',';
-
-inline absl::Status MakeInvalidNumericError(absl::string_view str) {
-  return MakeEvalError() << "Invalid NUMERIC value: " << str;
-}
-
-// Returns OK if the given character is a decimal ascii digit '0' to '9'.
-// Returns an INVALID_ARGUMENT otherwise.
-inline absl::Status ValidateAsciiDigit(char c, absl::string_view str) {
-  if (ABSL_PREDICT_FALSE(!absl::ascii_isdigit(c))) {
-    return MakeInvalidNumericError(str);
-  }
-
-  return absl::OkStatus();
-}
 
 // Returns -1, 0 or 1 if the given int128 number is negative, zero of positive
 // respectively.
@@ -419,8 +398,477 @@ FixedUint<64, 4> UnsignedFloor(FixedUint<64, 4> value) {
 }
 
 FixedUint<64, 4> UnsignedCeiling(FixedUint<64, 4> value) {
-  value += FixedUint<64, 4>(BigNumericValue::ScalingFactor() - 1);
+  value += FixedUint<64, 4>(BigNumericValue::kScalingFactor - 1);
   return UnsignedFloor(value);
+}
+
+template <int n>
+void ShiftRightAndRound(uint num_bits, FixedUint<64, n>* value) {
+  DCHECK_GT(num_bits, 0);
+  constexpr uint kNumBits = n * 64;
+  DCHECK_LT(num_bits, kNumBits);
+  uint bit_idx = num_bits - 1;
+  uint64_t round_up = (value->number()[bit_idx / 64] >> (bit_idx % 64)) & 1;
+  *value >>= num_bits;
+  *value += round_up;
+}
+
+// SignedBinaryFraction and UnsignedBinaryFraction represent a fraction
+// (x / pow(2, kFractionalBits)), where x is a FixedInt<64, kNumWords>
+// or FixedUint<64, kNumWords>. These 2 classes are designed for advanced
+// functions such as EXP and LN where there is 100% precise algorithm.
+// Binary scale is used to make the operators much faster than decimal scale.
+template <int kNumWords, int kFractionalBits>
+class SignedBinaryFraction;
+
+template <int kNumWords, int kFractionalBits>
+class UnsignedBinaryFraction {
+ public:
+  using SignedType = SignedBinaryFraction<kNumWords, kFractionalBits>;
+  static_assert(kNumWords * 64 > kFractionalBits);
+  UnsignedBinaryFraction() {}
+  explicit UnsignedBinaryFraction(uint64_t value) : value_(value) {
+    value_ <<= kFractionalBits;
+  }
+  // Constructs an instance representing value * 2 ^ scale_bits.
+  UnsignedBinaryFraction(uint64_t value, int scale_bits) : value_(value) {
+    DCHECK_GE(scale_bits, -kFractionalBits);
+    DCHECK_LE(kFractionalBits + scale_bits + 64, kNumWords * 64);
+    value_ <<= (kFractionalBits + scale_bits);
+  }
+  static UnsignedBinaryFraction FromScaledValue(
+      const FixedUint<64, kNumWords>& src) {
+    UnsignedBinaryFraction result;
+    result.value_ = src;
+    return result;
+  }
+  bool To(bool is_negative, NumericValue* output) const {
+    FixedUint<64, 2> result_abs;
+    if (ABSL_PREDICT_TRUE(MulDivByScale(
+            value_, FixedUint<64, 1>(NumericValue::kScalingFactor),
+            &result_abs))) {
+      unsigned __int128 v = static_cast<unsigned __int128>(result_abs);
+      if (ABSL_PREDICT_TRUE(v <= internal::kNumericMax)) {
+        __int128 packed = static_cast<__int128>(is_negative ? -v : v);
+        *output = NumericValue::FromPackedInt(packed).value();
+        return true;
+      }
+    }
+    return false;
+  }
+  bool To(bool is_negative, BigNumericValue* output) const {
+    FixedUint<64, 4> result_abs;
+    FixedInt<64, 4> result;
+    if (ABSL_PREDICT_TRUE(MulDivByScale(
+            value_, FixedUint<64, 2>(BigNumericValue::kScalingFactor),
+            &result_abs)) &&
+        ABSL_PREDICT_TRUE(result.SetSignAndAbs(is_negative, result_abs))) {
+      *output = BigNumericValue::FromPackedLittleEndianArray(result.number());
+      return true;
+    }
+    return false;
+  }
+
+  // Similar to operator *=, but returns true iff no overflow.
+  bool Multiply(const UnsignedBinaryFraction& rhs) {
+    return this->MulDivByScale(value_, rhs.value_, &value_);
+  }
+  bool Inverse();
+  template <int n>
+  bool IntegerPower(FixedUint<64, n> exponent,
+                    UnsignedBinaryFraction* output) const;
+  bool FractionalPower(const SignedType& exponent,
+                       UnsignedBinaryFraction* output) const;
+  bool Ln(const UnsignedBinaryFraction& unit_of_last_precision,
+          SignedType* output) const;
+
+ private:
+  friend SignedType;
+
+  // Sets *output to lhs * rhs / pow(2, kFractionalBits), and returns
+  // true iff there is no overflow.
+  template <int n, int m>
+  static bool MulDivByScale(const FixedUint<64, kNumWords>& lhs,
+                            const FixedUint<64, n>& rhs,
+                            FixedUint<64, m>* output);
+
+  FixedUint<64, kNumWords> value_;
+};
+
+template <int kNumWords, int kFractionalBits>
+template <int n, int m>
+bool UnsignedBinaryFraction<kNumWords, kFractionalBits>::MulDivByScale(
+    const FixedUint<64, kNumWords>& lhs, const FixedUint<64, n>& rhs,
+    FixedUint<64, m>* output) {
+  FixedUint<64, kNumWords + n> product = ExtendAndMultiply(lhs, rhs);
+  ShiftRightAndRound(kFractionalBits, &product);
+  for (int i = m; i < kNumWords + n - kFractionalBits / 64; ++i) {
+    if (ABSL_PREDICT_FALSE(product.number()[i] != 0)) {
+      return false;
+    }
+  }
+  *output = FixedUint<64, m>(product);
+  return true;
+}
+
+template <int kNumWords, int kFractionalBits>
+template <int n>
+bool UnsignedBinaryFraction<kNumWords, kFractionalBits>::IntegerPower(
+    FixedUint<64, n> exponent, UnsignedBinaryFraction* output) const {
+  UnsignedBinaryFraction power(*this);
+  *output = UnsignedBinaryFraction(1);
+  while (true) {
+    if ((exponent.number()[0] & 1) != 0 &&
+        ABSL_PREDICT_FALSE(!output->Multiply(power))) {
+      return false;
+    }
+    exponent >>= 1;
+    if (exponent.is_zero()) {
+      return true;
+    }
+    if (ABSL_PREDICT_FALSE(!power.Multiply(power))) {
+      return false;
+    }
+  }
+}
+
+template <int kNumWords, int kFractionalBits>
+class SignedBinaryFraction {
+ public:
+  using UnsignedType = UnsignedBinaryFraction<kNumWords, kFractionalBits>;
+  SignedBinaryFraction() {}
+  explicit SignedBinaryFraction(const NumericValue& src) {
+    FixedInt<64, 2> src_number(src.as_packed_int());
+    constexpr int n = 2 + (kFractionalBits + 63) / 64;
+    FixedUint<64, n> src_abs(src_number.abs());
+    src_abs <<= kFractionalBits;
+    src_abs.DivAndRoundAwayFromZero(NumericValue::kScalingFactor);
+    static_assert(kNumWords * 64 - kFractionalBits >= 98);
+    // max(src_abs) < 10^29 * 2^kFractionalBits
+    // < 2^(97 + kFractionalBits)
+    // <= 2^(kNumWords * 64 - 1)
+    value_ = FixedInt<64, kNumWords>(src_abs);
+    if (src_number.is_negative()) {
+      value_ = -value_;
+    }
+  }
+  explicit SignedBinaryFraction(const BigNumericValue& src) {
+    FixedInt<64, 4> src_number(src.ToPackedLittleEndianArray());
+    constexpr int n = 4 + (kFractionalBits + 63) / 64;
+    FixedUint<64, n> src_abs(src_number.abs());
+    src_abs <<= kFractionalBits;
+    FixedInt<64, n - 1> result_abs(
+        BigNumericValue::RemoveScalingFactor</* round = */ true>(src_abs));
+    static_assert(kNumWords * 64 - kFractionalBits >= 130);
+    // max(result_abs) = 2^(255 + kFractionalBits) / 10^38
+    // < 2^(255 + kFractionalBits) / 2^126 = 2^(129 + kFractionalBits)
+    // <= 2^(kNumWords * 64 - 1)
+    value_ = FixedInt<64, kNumWords>(result_abs);
+    if (src_number.is_negative()) {
+      value_ = -value_;
+    }
+  }
+  UnsignedType Abs() const {
+    return UnsignedType::FromScaledValue(value_.abs());
+  }
+  bool Exp(UnsignedType* output) const;
+  template <typename T>
+  bool To(T* output) const {
+    return Abs().To(value_.is_negative(), output);
+  }
+  bool Multiply(const SignedBinaryFraction& rhs) {
+    FixedUint<64, kNumWords> result_abs;
+    bool result_is_negative = value_.is_negative() != rhs.value_.is_negative();
+    return UnsignedType::MulDivByScale(value_.abs(), rhs.value_.abs(),
+                                       &result_abs) &&
+           value_.SetSignAndAbs(result_is_negative, result_abs);
+  }
+
+ private:
+  friend UnsignedType;
+
+  FixedInt<64, kNumWords> value_;
+};
+
+template <int kNumWords, int kFractionalBits>
+bool SignedBinaryFraction<kNumWords, kFractionalBits>::Exp(
+    UnsignedType* output) const {
+  *output = UnsignedType(1);
+  if (value_.is_zero()) {
+    return true;
+  }
+  // For faster convergence, here we are calculating:
+  // e^x = e^(r*2^t) = (e^r)^(2^t), where r < 1/8 and t >= 0
+  const bool r_is_negative = value_.is_negative();
+  UnsignedType r_abs = Abs();
+  uint msb_index = r_abs.value_.FindMSBSetNonZero();
+  uint t = 0;
+  if (msb_index > kFractionalBits - 4) {
+    t = msb_index - (kFractionalBits - 4);
+    ShiftRightAndRound(t, &r_abs.value_);
+  }
+  // e^r is calculating with Taylor Series:
+  // e^r = 1 + r + (r^2)/2! + (r^3)/3! + (r^4)/4! + ...
+  uint64_t n = 0;
+  UnsignedType term(1);
+  bool term_is_negative = false;
+  while (true) {
+    if (ABSL_PREDICT_FALSE(!term.Multiply(r_abs))) {
+      return false;
+    }
+    n++;
+    term.value_.DivAndRoundAwayFromZero(n);
+    if (term.value_.is_zero()) {
+      break;
+    }
+    term_is_negative ^= r_is_negative;
+    if (term_is_negative) {
+      output->value_ -= term.value_;
+    } else {
+      output->value_ += term.value_;
+    }
+  }
+
+  for (uint i = 0; i < t; ++i) {
+    if (ABSL_PREDICT_FALSE(!output->Multiply(*output))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Returns x * ln(2) * pow(2, scale_bits). scale_bits cannot exceed 320.
+FixedUint<64, 6> MultiplyByScaledLn2(uint64_t x, uint scale_bits) {
+  // kScaledLn2 = ROUND(ln(2) * pow(2, 320)).
+  static constexpr FixedUint<64, 5> kScaledLn2(std::array<uint64_t, 5>{
+      0xe7b876206debac98, 0x8a0d175b8baafa2b, 0x40f343267298b62d,
+      0xc9e3b39803f2f6af, 0xb17217f7d1cf79ab});
+  DCHECK_LE(scale_bits, 320);
+  FixedUint<64, 6> result = ExtendAndMultiply(kScaledLn2, FixedUint<64, 1>(x));
+  ShiftRightAndRound(320 - scale_bits, &result);
+  return result;
+}
+
+template <int kNumWords, int kFractionalBits>
+bool UnsignedBinaryFraction<kNumWords, kFractionalBits>::Ln(
+    const UnsignedBinaryFraction& unit_of_last_precision,
+    SignedType* output) const {
+  if (value_ == UnsignedBinaryFraction(1).value_) {
+    *output = SignedType();
+    return true;
+  }
+  // For the algorithm to converge faster, here we calculate
+  // ln(a) = ln(r * 2^t) = ln(r) + t*ln(2), where 1 <= r < 2.
+  FixedUint<64, kNumWords> r = value_;
+  uint msb_index = r.FindMSBSetNonZero();
+  int t = msb_index - kFractionalBits;
+  if (t < 0) {
+    r <<= (-t);
+  } else if (t > 0) {
+    ShiftRightAndRound(t, &r);
+  }
+
+  // The approximate value of Ln is calculated by Halley's method:
+  // y(n+1) = yn + 2 * ( r - exp(yn) )/( r + exp(yn) )
+  // When r ~= 1, ln(r) ~= r - 1, so initialize y0 = r - 1;
+  output->value_ = FixedInt<64, kNumWords>(r);
+  output->value_ -= (FixedInt<64, kNumWords>(1) <<= kFractionalBits);
+  // The Hally's method has cubic convergence, it is expected to converge within
+  // 6 iterations. Thus, to be safe we allow at most 12 iterations here.
+  // Because r < 2, exp(r) < 8, and the scaled value is far lower
+  // than the max value of UnsignedBinaryFraction. No need to check overflow in
+  // the operators in the loop.
+  for (int i = 0; i < 12; i++) {
+    UnsignedBinaryFraction exp_y;
+    if (ABSL_PREDICT_FALSE(!output->Exp(&exp_y))) {
+      return false;
+    }
+    if (r == exp_y.value_) {
+      break;
+    }
+    FixedInt<64, kNumWords> r_minus_exp_y(r);
+    r_minus_exp_y -= FixedInt<64, kNumWords>(exp_y.value_);
+    bool r_less_than_exp_y = r_minus_exp_y.is_negative();
+    FixedUint<64, kNumWords> r_minus_exp_y_abs_times_2 = r_minus_exp_y.abs();
+    r_minus_exp_y_abs_times_2 <<= 1;
+    FixedUint<64, kNumWords> r_plus_exp_y(r);
+    r_plus_exp_y += exp_y.value_;
+    constexpr int n = kNumWords + (kFractionalBits + 63) / 64;
+    FixedUint<64, n> ratio(r_minus_exp_y_abs_times_2);
+    ratio <<= kFractionalBits;
+    ratio.DivAndRoundAwayFromZero(FixedUint<64, n>(r_plus_exp_y));
+    FixedUint<64, kNumWords> delta_abs(ratio);
+    if (r_less_than_exp_y) {
+      output->value_ -= FixedInt<64, kNumWords>(delta_abs);
+    } else {
+      output->value_ += FixedInt<64, kNumWords>(delta_abs);
+    }
+    if (delta_abs < unit_of_last_precision.value_) {
+      break;
+    }
+  }
+
+  if (t != 0) {
+    FixedInt<64, kNumWords> offset_abs(
+        MultiplyByScaledLn2(std::abs(t), kFractionalBits));
+    if (t > 0) {
+      output->value_ += offset_abs;
+    } else {
+      output->value_ -= offset_abs;
+    }
+  }
+  return true;
+}
+
+template <int kNumWords, int kFractionalBits>
+bool UnsignedBinaryFraction<kNumWords, kFractionalBits>::FractionalPower(
+    const SignedType& exponent, UnsignedBinaryFraction* output) const {
+  // max_error_bits will be used in LN iteration ending condition.
+  // pow(2, 4 - kFractionalBits) is chosen here to provide enough
+  // precision, and also provide a loose range to avoid precision lost in
+  // exp(yn) affecting the convergence.
+  UnsignedBinaryFraction unit_of_last_precision(1, 4 - kFractionalBits);
+  SignedType ln;
+  // Here pow(x,y) is calculated as x^y=exp(y*ln(x))
+  return (ABSL_PREDICT_TRUE(Ln(unit_of_last_precision, &ln)) &&
+          ABSL_PREDICT_TRUE(ln.Multiply(exponent)) &&
+          ABSL_PREDICT_TRUE(ln.Exp(output)));
+}
+
+template <int kNumWords, int kFractionalBits>
+bool UnsignedBinaryFraction<kNumWords, kFractionalBits>::Inverse() {
+  if (value_.is_zero()) {
+    return false;
+  }
+  constexpr int n = std::max(kNumWords, kFractionalBits / 32 + 1);
+  FixedUint<64, n> result(uint64_t{1});
+  result <<= (kFractionalBits * 2);
+  result.DivAndRoundAwayFromZero(FixedUint<64, n>(value_));
+  for (int i = kNumWords; i < n; ++i) {
+    if (ABSL_PREDICT_FALSE(result.number()[i] != 0)) {
+      return false;
+    }
+  }
+  value_ = FixedUint<64, kNumWords>(result);
+  return true;
+}
+
+template <int kNumWords, int kMaxIntegerWords, int kBinaryFractionWords,
+          int kBinaryFractionalBits, typename T>
+zetasql_base::StatusOr<T> PowerInternal(const T& base, const T& exp) {
+  constexpr absl::string_view type_name =
+      std::is_same_v<T, BigNumericValue> ? "BIGNUMERIC" : "numeric";
+  // For the cases where POW(base, exy) is equivalent as multiplication or
+  // division of at most 2 T values, avoid conversion to
+  // SignedBinaryFraction.
+  if (exp == T(2)) {  // most common use case
+    auto status_or_result = base.Multiply(base);
+    if (ABSL_PREDICT_TRUE(status_or_result.ok())) {
+      return status_or_result;
+    }
+    return MakeEvalError() << type_name << " overflow";
+  }
+  if (exp == T()) {
+    return T(1);
+  }
+  if (exp == T(1)) {
+    return base;
+  }
+
+  if (base == T()) {
+    // An attempt to raise zero to a negative power results in division by zero.
+    if (exp.Sign() < 0) {
+      return MakeEvalError() << "division by zero";
+    }
+    // Otherwise zero raised to any power is still zero.
+    return T();
+  }
+  if (exp == T(-1)) {
+    return T(1).Divide(base);
+  }
+
+  FixedUint<64, kNumWords> extended_abs_integer_exp;
+  FixedUint<64, kNumWords> extended_abs_fract_exp;
+  FixedInt<64, kNumWords>(exp.ToPackedLittleEndianArray())
+      .abs()
+      .DivMod(FixedUint<64, kNumWords>(T::kScalingFactor),
+              &extended_abs_integer_exp, &extended_abs_fract_exp);
+  FixedUint<64, kMaxIntegerWords> abs_integer_exp(extended_abs_integer_exp);
+  __int128 scaled_fract_exp =
+      static_cast<unsigned __int128>(extended_abs_fract_exp);
+  if (exp.Sign() < 0) {
+    scaled_fract_exp = -scaled_fract_exp;
+  }
+  bool result_is_negative = false;
+  if (base.Sign() < 0) {
+    if (scaled_fract_exp != 0) {
+      return MakeEvalError() << "Negative " << absl::AsciiStrToUpper(type_name)
+                             << " value cannot be raised to a fractional power";
+    }
+    result_is_negative = (abs_integer_exp.number()[0] & 1) != 0;
+  }
+  using UnsignedFraction =
+      UnsignedBinaryFraction<kBinaryFractionWords, kBinaryFractionalBits>;
+  using SignedFraction =
+      SignedBinaryFraction<kBinaryFractionWords, kBinaryFractionalBits>;
+  UnsignedFraction base_binary_frac = SignedFraction(base).Abs();
+  UnsignedFraction result;
+  if (!abs_integer_exp.is_zero()) {
+    if (exp.Sign() >= 0) {
+      if (!base_binary_frac.IntegerPower(abs_integer_exp, &result)) {
+        return MakeEvalError() << type_name << " overflow";
+      }
+    } else {
+      FixedUint<64, kNumWords> value_abs =
+          FixedInt<64, kNumWords>(base.ToPackedLittleEndianArray()).abs();
+      if (value_abs > FixedUint<64, kNumWords>(T::kScalingFactor)) {
+        // If the exponent is negative and value_abs is > 1, then we compute
+        // 1 / (value_abs ^ (-integer_exp)) for integer part.
+        if (!base_binary_frac.IntegerPower(abs_integer_exp, &result)) {
+          return T();
+        }
+        if (!result.Inverse()) {
+          return zetasql_base::InternalErrorBuilder()
+                 << "Inverse of a value greater than 1 should not fail.";
+        }
+      } else {
+        // If the exponent is negative and value_abs is < 1, then we compute
+        // (1 / value_abs) ^ (-integer_exp).
+        // Instead of calling base.Inverse(), we combine the conversion to
+        // binary scale and the inversion for better precision.
+        FixedUint<64, kBinaryFractionWords> scaled_inverse(T::kScalingFactor);
+        scaled_inverse <<= kBinaryFractionalBits;
+        scaled_inverse.DivAndRoundAwayFromZero(
+            FixedUint<64, kBinaryFractionWords>(value_abs));
+        base_binary_frac = UnsignedFraction::FromScaledValue(scaled_inverse);
+        if (!base_binary_frac.IntegerPower(abs_integer_exp, &result)) {
+          return MakeEvalError() << type_name << " overflow";
+        }
+        scaled_fract_exp = -scaled_fract_exp;
+      }
+    }
+  }
+  if (scaled_fract_exp != 0) {
+    UnsignedFraction frac_result;
+    if (ABSL_PREDICT_FALSE(!base_binary_frac.FractionalPower(
+            SignedFraction(T::FromScaledValue(scaled_fract_exp)),
+            &frac_result))) {
+      return zetasql_base::InternalErrorBuilder()
+             << "Fractional Power should never "
+                "overflow with exponent less than 1";
+    }
+    if (abs_integer_exp.is_zero()) {
+      result = frac_result;
+    } else if (ABSL_PREDICT_FALSE(!result.Multiply(frac_result))) {
+      return MakeEvalError() << type_name << " overflow";
+    }
+  }
+
+  T output;
+  if (ABSL_PREDICT_TRUE(result.To(result_is_negative, &output))) {
+    return output;
+  }
+  return MakeEvalError() << type_name << " overflow";
 }
 
 }  // namespace
@@ -472,18 +920,18 @@ zetasql_base::StatusOr<NumericValue> NumericValue::FromStringInternal(
       return number_or_status;
     }
   }
-  return MakeInvalidNumericError(str);
+  return MakeEvalError() << "Invalid NUMERIC value: " << str;
 }
 
 double NumericValue::ToDouble() const {
   return RemoveScaleAndConvertToDouble(as_packed_int());
 }
 
-inline unsigned __int128 Scalemantissa(uint64_t mantissa, uint32_t scale) {
+inline unsigned __int128 ScaleMantissa(uint64_t mantissa, uint32_t scale) {
   return static_cast<unsigned __int128>(mantissa) * scale;
 }
 
-inline FixedUint<64, 4> Scalemantissa(uint64_t mantissa,
+inline FixedUint<64, 4> ScaleMantissa(uint64_t mantissa,
                                       unsigned __int128 scale) {
   return ExtendAndMultiply(FixedUint<64, 2>(mantissa), FixedUint<64, 2>(scale));
 }
@@ -514,7 +962,7 @@ bool ScaleAndRoundAwayFromZero(S scale, double value, T* result) {
   bool negative = parts.mantissa < 0;
   uint64_t abs_mantissa =
       negative ? -static_cast<uint64_t>(parts.mantissa) : parts.mantissa;
-  auto abs_result = Scalemantissa(abs_mantissa, scale);
+  auto abs_result = ScaleMantissa(abs_mantissa, scale);
   static_assert(sizeof(abs_result) == sizeof(T));
   if (parts.exponent < 0) {
     abs_result >>= -1 - parts.exponent;
@@ -601,7 +1049,7 @@ NumericValue NumericValue::Abs() const {
 int NumericValue::Sign() const { return int128_sign(as_packed_int()); }
 
 zetasql_base::StatusOr<NumericValue> NumericValue::Power(NumericValue exp) const {
-  auto res_or_status = PowerInternal(exp);
+  auto res_or_status = PowerInternal<2, 2, 3, 94>(*this, exp);
   if (res_or_status.ok()) {
     return res_or_status;
   }
@@ -609,191 +1057,37 @@ zetasql_base::StatusOr<NumericValue> NumericValue::Power(NumericValue exp) const
          << ": POW(" << ToString() << ", " << exp.ToString() << ")";
 }
 
-namespace {
-constexpr uint64_t kScalingFactorSquare =
-    static_cast<uint64_t>(NumericValue::kScalingFactor) *
-    static_cast<uint64_t>(NumericValue::kScalingFactor);
-constexpr unsigned __int128 kScalingFactorCube =
-    static_cast<unsigned __int128>(kScalingFactorSquare) *
-    NumericValue::kScalingFactor;
-
-// Divides input by kScalingFactor ^ 2 with rounding and store the result to
-// output. Returns false if the result cannot fit into FixedUint<64, 3>.
-template <int size>
-inline bool RemoveDoubleScale(FixedUint<64, size>* input,
-                              FixedUint<64, size - 1>* output) {
-  if (ABSL_PREDICT_TRUE(!input->AddOverflow(kScalingFactorSquare / 2)) &&
-      ABSL_PREDICT_TRUE(input->number()[size - 1] < kScalingFactorSquare)) {
-    *input /= NumericValue::kScalingFactor;
-    *input /= NumericValue::kScalingFactor;
-    *output = FixedUint<64, size - 1>(*input);
-    return true;
+zetasql_base::StatusOr<NumericValue> NumericValue::Exp() const {
+  SignedBinaryFraction<3, 94> base(*this);
+  UnsignedBinaryFraction<3, 94> exp;
+  NumericValue result;
+  if (ABSL_PREDICT_TRUE(base.Exp(&exp)) &&
+      ABSL_PREDICT_TRUE(exp.To(false, &result))) {
+    return result;
   }
-  return false;
+  return MakeEvalError() << "numeric overflow: EXP(" << ToString() << ")";
 }
 
-// Raises value to exp. *double_scaled_value (input and output) is scaled
-// by kScalingFactorSquare. Extra scaling is used for preserving
-// precision during computations.
-// Returns false if the result is too big (not necessarily an error).
-bool DoubleScaledPower(FixedUint<64, 3>* double_scaled_value,
-                       FixedUint<64, 2> unscaled_exp) {
-  FixedUint<64, 3> double_scaled_result(kScalingFactorSquare);
-  FixedUint<64, 3> double_scaled_power(*double_scaled_value);
-  unsigned __int128 exp = static_cast<unsigned __int128>(unscaled_exp);
-  while (true) {
-    if ((exp & 1) != 0) {
-      FixedUint<64, 6> tmp_scaled_4x =
-          ExtendAndMultiply(double_scaled_result, double_scaled_power);
-      if (ABSL_PREDICT_FALSE(tmp_scaled_4x.number()[4] != 0) ||
-          ABSL_PREDICT_FALSE(tmp_scaled_4x.number()[5] != 0)) {
-        return false;
-      }
-      FixedUint<64, 4> truncated_tmp_scaled_4x(tmp_scaled_4x);
-      if (ABSL_PREDICT_FALSE(!RemoveDoubleScale(&truncated_tmp_scaled_4x,
-                                                &double_scaled_result))) {
-        return false;
-      }
-    }
-    if (exp <= 1) {
-      *double_scaled_value = double_scaled_result;
-      return true;
-    }
-    if (ABSL_PREDICT_FALSE((double_scaled_power.number()[2] != 0))) {
-      return false;
-    }
-    FixedUint<64, 2> truncated_power(double_scaled_power);
-    FixedUint<64, 4> tmp_scaled_4x =
-        ExtendAndMultiply(truncated_power, truncated_power);
-    if (ABSL_PREDICT_FALSE(
-            !RemoveDoubleScale(&tmp_scaled_4x, &double_scaled_power))) {
-      return false;
-    }
-    exp >>= 1;
+zetasql_base::StatusOr<NumericValue> NumericValue::Ln() const {
+  if (as_packed_int() <= 0) {
+    return MakeEvalError() << "LN is undefined for zero or negative value: LN("
+                           << ToString() << ")";
   }
-}
-
-// *dest *= pow(abs_value / kScalingFactor, fract_exp / kScalingFactor) *
-// kScalingFactor
-absl::Status MultiplyByFractionalPower(unsigned __int128 abs_value,
-                                       int64_t fract_exp,
-                                       FixedUint<64, 3>* dest) {
-  // We handle the fractional part of the exponent by raising the original value
-  // to the fractional part of the exponent by converting them to doubles and
-  // using the standard library's pow() function.
-  // TODO Using std::pow() gives a result with reasonable precision
-  // (comparable to MS SQL and MySQL), but we can probably do better here.
-  // Explore a more accurate implementation in the future.
-  double fract_pow = std::pow(RemoveScaleAndConvertToDouble(abs_value),
-                              RemoveScaleAndConvertToDouble(fract_exp));
-  ZETASQL_ASSIGN_OR_RETURN(NumericValue fract_term,
-                   NumericValue::FromDouble(fract_pow));
-  FixedUint<64, 5> ret = ExtendAndMultiply(
-      *dest, FixedUint<64, 2>(
-                 static_cast<unsigned __int128>(fract_term.as_packed_int())));
-  if (ABSL_PREDICT_TRUE(ret.number()[3] == 0) &&
-      ABSL_PREDICT_TRUE(ret.number()[4] == 0)) {
-    *dest = FixedUint<64, 3>(ret);
-    return absl::OkStatus();
+  UnsignedBinaryFraction<3, 94> exp = SignedBinaryFraction<3, 94>(*this).Abs();
+  SignedBinaryFraction<3, 94> ln;
+  // unit_of_last_precision is set to pow(2, -34) ~= 5.8e-11 here. In the
+  // implementation of Ln with Halley's method, computation will stop when the
+  // delta of the iteration is less than unit_of_last_precision. Thus, 5.8e-11
+  // is set up here to provide enough precision for NumericValue and avoid
+  // unnecessary computation.
+  UnsignedBinaryFraction<3, 94> unit_of_last_precision(1, -34);
+  NumericValue result;
+  if (ABSL_PREDICT_TRUE(exp.Ln(unit_of_last_precision, &ln)) &&
+      ABSL_PREDICT_TRUE(ln.To(&result))) {
+    return result;
   }
-  return MakeEvalError() << "numeric overflow";
-}
-}  // namespace
-
-zetasql_base::StatusOr<NumericValue> NumericValue::PowerInternal(
-    NumericValue exp) const {
-  // Any value raised to a zero power is always one.
-  if (exp == NumericValue()) {
-    return NumericValue(1);
-  }
-
-  const bool exp_is_negative = exp.as_packed_int() < 0;
-  if (*this == NumericValue()) {
-    // An attempt to raise zero to a negative power results in division by zero.
-    if (exp_is_negative) {
-      return MakeEvalError() << "division by zero";
-    }
-    // Otherwise zero raised to any power is still zero.
-    return NumericValue();
-  }
-  FixedUint<64, 2> abs_integer_exp;
-  uint32_t abs_fract_exp;
-  FixedUint<64, 2>(int128_abs(exp.as_packed_int()))
-      .DivMod(kScalingFactor, &abs_integer_exp, &abs_fract_exp);
-  int64_t fract_exp = abs_fract_exp;
-  if (exp.as_packed_int() < 0) {
-    fract_exp = -fract_exp;
-  }
-
-  bool result_is_negative = false;
-  unsigned __int128 abs_value = int128_abs(as_packed_int());
-  if (as_packed_int() < 0) {
-    if (fract_exp != 0) {
-      return MakeEvalError()
-             << "Negative NUMERIC value cannot be raised to a fractional power";
-    }
-    result_is_negative = (abs_integer_exp.number()[0] & 1) != 0;
-  }
-
-  FixedUint<64, 3> double_scaled_value;
-  if (!exp_is_negative) {
-    double_scaled_value = FixedUint<64, 3>(abs_value);
-    double_scaled_value *= kScalingFactor;
-  } else {
-    // If the exponent is negative and abs_value is > 1, then we compute
-    // compute 1 / (abs_value ^ (-integer_exp)). Note, computing
-    // (1 / abs_value) ^ (-integer_exp) would lose precision in the division
-    // because the input of DoubleScaledPower can have only 9 digits after the
-    // decimal point.
-    if (abs_value > kScalingFactor) {
-      double_scaled_value = FixedUint<64, 3>(abs_value);
-      double_scaled_value *= kScalingFactor;
-      if (!DoubleScaledPower(&double_scaled_value, abs_integer_exp) ||
-          double_scaled_value > FixedUint<64, 3>(kScalingFactorCube * 2)) {
-        return NumericValue();
-      }
-      DCHECK(static_cast<unsigned __int128>(double_scaled_value) != 0);
-      if (fract_exp == 0) {
-        FixedUint<64, 3> numerator(kScalingFactorCube);  // triple-scaled
-        numerator.DivAndRoundAwayFromZero(double_scaled_value);
-        return NumericValue::FromFixedUint(numerator, result_is_negative);
-      }
-      FixedUint<64, 3> numerator(kScalingFactorSquare);
-      // Because fract_exp < 0, the upper bound of pow(abs_value, fract_exp)
-      // is pow(1e-9, -1) = 1e9 with scaled value = kScalingFactor ^ 2, which
-      // means MultiplyByFractionalPower should not overflow.
-      ZETASQL_RETURN_IF_ERROR(
-          MultiplyByFractionalPower(abs_value, fract_exp, &numerator));
-      // Now numerator is triple-scaled.
-      numerator.DivAndRoundAwayFromZero(double_scaled_value);
-      return NumericValue::FromFixedUint(numerator, result_is_negative);
-    }
-    // If the exponent is negative and abs_value is <= 1, then we compute
-    // (1 / abs_value) ^ (-abs_integer_exp).
-    double_scaled_value = FixedUint<64, 3>(kScalingFactorCube);
-    FixedUint<64, 3> denominator(abs_value);
-    double_scaled_value.DivAndRoundAwayFromZero(denominator);
-  }
-
-  if (!DoubleScaledPower(&double_scaled_value, abs_integer_exp)) {
-    return MakeEvalError() << "numeric overflow";
-  }
-
-  if (fract_exp == 0) {
-    // Divide double_scaled_value by kScalingFactor to make it single-scaled.
-    double_scaled_value.DivAndRoundAwayFromZero(kScalingFactor);
-    return NumericValue::FromFixedUint(double_scaled_value, result_is_negative);
-  }
-
-  ZETASQL_RETURN_IF_ERROR(
-      MultiplyByFractionalPower(abs_value, fract_exp, &double_scaled_value));
-  // After MultiplyByFractionalPower, tmp is triple-scaled. Divide it by
-  // kScalingFactor ^ 2 to make it single-scaled.
-  FixedUint<64, 2> ret;
-  if (ABSL_PREDICT_FALSE(!RemoveDoubleScale(&double_scaled_value, &ret))) {
-    return MakeEvalError() << "numeric overflow";
-  }
-  return NumericValue::FromFixedUint(ret, result_is_negative);
+  return zetasql_base::InternalErrorBuilder()
+         << "LN should never overflow: LN(" << ToString() << ")";
 }
 
 namespace {
@@ -1112,10 +1406,9 @@ bool RoundOrTrunc(FixedUint<64, 4>* abs_value, int64_t digits) {
       uint64_t pow;
       if (digits < 0) {
         pow = -digits;
-        *abs_value /= std::integral_constant<uint32_t, internal::k5to13>();
-        *abs_value /= std::integral_constant<uint32_t, internal::k5to13>();
-        *abs_value /= std::integral_constant<uint32_t, internal::k5to12>();
-        *abs_value >>= 38;
+        *abs_value = FixedUint<64, 4>(
+            BigNumericValue::RemoveScalingFactor</* round = */ false>(
+                *abs_value));
       } else {
         pow = 38 - digits;
       }
@@ -1554,8 +1847,8 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Multiply(
       ExtendAndMultiply(value_.abs(), rh.value_.abs());
   if (ABSL_PREDICT_TRUE(abs_result_64x8.number()[6] == 0) &&
       ABSL_PREDICT_TRUE(abs_result_64x8.number()[7] == 0)) {
-    FixedUint<64, 5> abs_result_64x5 =
-        RemoveScalingFactor(FixedUint<64, 6>(abs_result_64x8));
+    FixedUint<64, 5> abs_result_64x5 = RemoveScalingFactor</* round = */ true>(
+        FixedUint<64, 6>(abs_result_64x8));
     if (ABSL_PREDICT_TRUE(abs_result_64x5.number()[4] == 0)) {
       FixedInt<64, 4> result;
       FixedUint<64, 4> abs_result_64x4(abs_result_64x5);
@@ -1565,7 +1858,7 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Multiply(
       }
     }
   }
-  return MakeEvalError() << "BigNumeric overflow: " << ToString() << " * "
+  return MakeEvalError() << "BIGNUMERIC overflow: " << ToString() << " * "
                          << rh.ToString();
 }
 
@@ -1577,7 +1870,7 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Divide(
     FixedUint<64, 4> abs_value = value_.abs();
     FixedUint<64, 6> rh_abs_value(rh.value_.abs());
     FixedUint<64, 6> scaled_abs_value =
-        ExtendAndMultiply(abs_value, FixedUint<64, 2>(ScalingFactor()));
+        ExtendAndMultiply(abs_value, FixedUint<64, 2>(kScalingFactor));
     scaled_abs_value.DivAndRoundAwayFromZero(rh_abs_value);
     if (ABSL_PREDICT_TRUE(scaled_abs_value.number()[4] == 0 &&
                           scaled_abs_value.number()[5] == 0)) {
@@ -1588,7 +1881,7 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Divide(
         return BigNumericValue(result);
       }
     }
-    return MakeEvalError() << "BigNumeric overflow: " << ToString() << " / "
+    return MakeEvalError() << "BIGNUMERIC overflow: " << ToString() << " / "
                            << rh.ToString();
   }
   return MakeEvalError() << "division by zero: " << ToString() << " / "
@@ -1603,7 +1896,7 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::DivideToIntegralValue(
     FixedUint<64, 4> abs_result = value_.abs();
     abs_result /= rh.value_.abs();
     bool overflow =
-        abs_result.MultiplyOverflow(FixedUint<64, 4>(ScalingFactor()));
+        abs_result.MultiplyOverflow(FixedUint<64, 4>(kScalingFactor));
 
     if (ABSL_PREDICT_TRUE(!overflow)) {
       FixedInt<64, 4> result;
@@ -1612,7 +1905,7 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::DivideToIntegralValue(
         return BigNumericValue(result);
       }
     }
-    return MakeEvalError() << "BigNumeric overflow: " << ToString() << " / "
+    return MakeEvalError() << "BIGNUMERIC overflow: " << ToString() << " / "
                            << rh.ToString();
   }
   return MakeEvalError() << "division by zero: " << ToString() << " / "
@@ -1715,7 +2008,7 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Round(int64_t digits) c
     FixedInt<64, 4> result(abs_value);
     return BigNumericValue(!value_.is_negative() ? result : -result);
   }
-  return MakeEvalError() << "BigNumeric overflow: ROUND(" << ToString() << ", "
+  return MakeEvalError() << "BIGNUMERIC overflow: ROUND(" << ToString() << ", "
                          << digits << ")";
 }
 
@@ -1738,7 +2031,7 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Floor() const {
   if (ABSL_PREDICT_TRUE(!ceiling_value.is_negative())) {
     return BigNumericValue(-ceiling_value);
   }
-  return MakeEvalError() << "BigNumeric overflow: FLOOR(" << ToString() << ")";
+  return MakeEvalError() << "BIGNUMERIC overflow: FLOOR(" << ToString() << ")";
 }
 
 zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Ceiling() const {
@@ -1750,377 +2043,15 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Ceiling() const {
     if (ABSL_PREDICT_TRUE(!ceiling_value.is_negative())) {
       return BigNumericValue(ceiling_value);
     }
-    return MakeEvalError()
-           << "BigNumeric overflow: CEIL(" << ToString() << ")";
+    return MakeEvalError() << "BIGNUMERIC overflow: CEIL(" << ToString() << ")";
   }
   FixedInt<64, 4> floor_value(UnsignedFloor(value_.abs()));
   return BigNumericValue(-floor_value);
 }
 
-FixedUint<64, 6> ScalingFactorSquare() {
-  return FixedUint<64, 6>(
-      std::array<uint64_t, 6>{0ULL, 8607968719199866880ULL, 532749306367912313ULL,
-                            1593091911132452277ULL, 0ULL, 0ULL});
-}
-
-// This returns 2e(38*4)
-FixedUint<64, 6> ScalingFactorCube2x() {
-  return FixedUint<64, 6>(std::array<uint64_t, 6>{
-      0ULL, 11729625229486456832ULL, 14336268584500939449ULL,
-      4279658070426243742ULL, 7953680479781550502ULL, 936335270938439665ULL});
-}
-
-FixedUint<64, 8> ScalingFactorQuad() {
-  return FixedUint<64, 8>(std::array<uint64_t, 8>{
-      0ULL, 0ULL, 15252863918154973184ULL, 4477131725245556545ULL,
-      6853971483050138908ULL, 15193086134719162827ULL, 11744654113764246714ULL,
-      137582102682973977ULL});
-}
-
-template <typename InputType, typename OutputType>
-inline bool RemoveBigNumericDoubleScale(const InputType& input,
-                                        OutputType* output) {
-  InputType value(input);
-  value /= InputType(ScalingFactorSquare());
-  const InputType max_output(OutputType::max());
-  const InputType min_output(OutputType::min());
-  if (value <= max_output && value >= min_output) {
-    *output = OutputType(value);
-    return true;
-  }
-  return false;
-}
-
-inline bool BigNumericRemoveScaleAndRoundAwayFromZero(
-    const FixedUint<64, 6>& input, FixedInt<64, 4>* output,
-    bool is_negative = false) {
-  FixedUint<64, 6> value(input);
-  value.DivAndRoundAwayFromZero(
-      FixedUint<64, 6>(BigNumericValue::ScalingFactor()));
-  if (ABSL_PREDICT_FALSE(value.number()[4] != 0) ||
-      ABSL_PREDICT_FALSE(value.number()[5] != 0)) {
-    return false;
-  }
-  const FixedUint<64, 4> result_abs(value);
-  return output->SetSignAndAbs(is_negative, result_abs);
-}
-
-template <int size>
-inline bool BigNumericRemoveScaleAndRoundAwayFromZero(
-    const FixedInt<64, size>& input, FixedInt<64, size - 2>* output) {
-  FixedInt<64, size> value(input);
-  value.DivAndRoundAwayFromZero(FixedInt<64, size>(
-      static_cast<__int128>(BigNumericValue::ScalingFactor())));
-  const FixedInt<64, size> max_output(FixedInt<64, size - 2>::max());
-  const FixedInt<64, size> min_output(FixedInt<64, size - 2>::min());
-  if (value <= max_output && value >= min_output) {
-    *output = FixedInt<64, size - 2>(value);
-    return true;
-  }
-  return false;
-}
-
-template <template <int, int> typename T>
-inline bool BigNumericMultiplyAndRemoveDoubleScale(const T<64, 6>& lhs,
-                                                   const T<64, 6>& rhs,
-                                                   T<64, 6>* output) {
-  const T<64, 12> tmp_scaled_4x_result = ExtendAndMultiply(lhs, rhs);
-  if (std::is_same_v<T<64, 6>, FixedUint<64, 6>> &&
-      (ABSL_PREDICT_FALSE(tmp_scaled_4x_result.number()[11] != 0) ||
-       ABSL_PREDICT_FALSE(tmp_scaled_4x_result.number()[10] != 0))) {
-    return false;
-  }
-  if (std::is_same_v<T<64, 6>, FixedInt<64, 6>> &&
-      ((ABSL_PREDICT_FALSE(tmp_scaled_4x_result.number()[11] != 0) &&
-        ABSL_PREDICT_FALSE(tmp_scaled_4x_result.number()[11] !=
-                           18446744073709551615LLU)) ||
-       (ABSL_PREDICT_FALSE(tmp_scaled_4x_result.number()[10] != 0) &&
-        ABSL_PREDICT_FALSE(tmp_scaled_4x_result.number()[10] !=
-                           18446744073709551615LLU)))) {
-    return false;
-  }
-  T<64, 10> truncated_tmp_scaled_4x_result(tmp_scaled_4x_result);
-  if (RemoveBigNumericDoubleScale(truncated_tmp_scaled_4x_result, output)) {
-    return true;
-  }
-  return false;
-}
-
-bool DoubleScaledIntegralPower(FixedUint<64, 6>* double_scaled_value,
-                               FixedUint<64, 4> unscaled_exp) {
-  FixedUint<64, 6> double_scaled_result = ScalingFactorSquare();
-  FixedUint<64, 6> double_scaled_power(*double_scaled_value);
-  while (true) {
-    if ((unscaled_exp.number()[0] & 1) != 0) {
-      if (ABSL_PREDICT_FALSE(!BigNumericMultiplyAndRemoveDoubleScale(
-              double_scaled_result, double_scaled_power,
-              &double_scaled_result))) {
-        return false;
-      }
-    }
-    unscaled_exp >>= 1;
-    if (unscaled_exp.is_zero()) {
-      *double_scaled_value = double_scaled_result;
-      return true;
-    }
-    if (ABSL_PREDICT_FALSE(!BigNumericMultiplyAndRemoveDoubleScale(
-            double_scaled_power, double_scaled_power, &double_scaled_power))) {
-      return false;
-    }
-  }
-}
-
-bool DoubleScaledExp(const FixedInt<64, 6>& value, FixedInt<64, 6>* output) {
-  const FixedInt<64, 6> double_scaling_factor(ScalingFactorSquare());
-  if (value.is_zero()) {
-    *output = double_scaling_factor;
-    return true;
-  }
-  // For faster convergence, here we are calculating:
-  // e^x = e^(r*10^t) = (e^r)^(10^t), where r < 1 and t >= 0
-  FixedInt<64, 6> modified_value = value;
-  FixedUint<64, 4> extra_scale(static_cast<uint64_t>(1));
-  while (modified_value.abs() > double_scaling_factor.abs()) {
-    modified_value /= std::integral_constant<uint32_t, 10>();
-    extra_scale *= 10;
-  }
-  // e^r is calculating with Taylor Series:
-  // e^r = 1 + r + (r^2)/2! + (r^3)/3! + (r^4)/4! + ...
-  FixedInt<64, 6> result = double_scaling_factor;
-  int64_t n = 0;
-  FixedInt<64, 6> term = double_scaling_factor;
-  FixedInt<64, 6> result_prev;
-  while (result != result_prev) {
-    result_prev = result;
-    if (ABSL_PREDICT_FALSE(!BigNumericMultiplyAndRemoveDoubleScale(
-            term, modified_value, &term))) {
-      return false;
-    }
-    n++;
-    term.DivAndRoundAwayFromZero(n);
-    result += term;
-  }
-  FixedUint<64, 6> result_abs = result.abs();
-  if (extra_scale != FixedUint<64, 4>(static_cast<uint64_t>(1)) &&
-      (ABSL_PREDICT_FALSE(
-           !DoubleScaledIntegralPower(&result_abs, extra_scale)) ||
-       ABSL_PREDICT_FALSE(result_abs.number()[5] >
-                          std::numeric_limits<int64_t>::max()))) {
-    return false;
-  }
-  *output = FixedInt<64, 6>(result_abs);
-  return true;
-}
-
-bool LnWithHalley(const FixedInt<64, 6>& value,
-                  const FixedUint<64, 6>& unit_of_last_precision,
-                  FixedInt<64, 6>* output) {
-  FixedInt<64, 6> double_scaling_factor(ScalingFactorSquare());
-  if (value == double_scaling_factor) {
-    *output = FixedInt<64, 6>(0);
-    return true;
-  }
-  // The approximate value of Ln is calculated by Halley's method:
-  // y(n+1) = yn + 2 * ( x - exp(yn) )/( x + exp(yn) )
-  FixedInt<64, 6> result = value;
-  FixedInt<64, 6> result_prev;
-  // The Hally's method has cubic convergence, it is expected to converge within
-  // 6 iterations. Thus, to be safe we allow at most 12 iterations here.
-  for (int i = 0; i < 12; i++) {
-    result_prev = result;
-    FixedInt<64, 6> result_tmp = result;
-    if (ABSL_PREDICT_FALSE(!DoubleScaledExp(result_tmp, &result_tmp))) {
-      return false;
-    }
-    FixedInt<64, 10> result_minus_exp(value);
-    result_minus_exp -= FixedInt<64, 10>(result_tmp);
-    if (ABSL_PREDICT_FALSE(result_tmp.AddOverflow(value))) {
-      return false;
-    }
-    result_minus_exp *= FixedInt<64, 10>(double_scaling_factor);
-    result_minus_exp.DivAndRoundAwayFromZero(FixedInt<64, 10>(result_tmp));
-    result_minus_exp <<= 1;
-    result_tmp = FixedInt<64, 6>(result_minus_exp);
-    result += result_tmp;
-    if (result_tmp.abs() < unit_of_last_precision) {
-      break;
-    }
-  }
-  *output = result;
-  return true;
-}
-
-bool DoubleScaledLn(const FixedInt<64, 6>& value,
-                    const FixedUint<64, 6>& unit_of_last_precision,
-                    FixedInt<64, 6>* output) {
-  if (value == FixedInt<64, 6>(ScalingFactorSquare())) {
-    *output = FixedInt<64, 6>(0);
-    return true;
-  }
-  // For the algorithm to converge faster, here we calculate
-  // ln(a) = ln(v * 10^t) = ln(v) + t*ln(10), where 0.5 < v <= 5.
-  const FixedInt<64, 6> upper_threshold(std::array<uint64_t, 6>{
-      0ULL, 6146355448580231168ULL, 2663746531839561567ULL,
-      7965459555662261385ULL, 0ULL, 0ULL});
-  const FixedInt<64, 6> lower_threshold(std::array<uint64_t, 6>{
-      0ULL, 13527356396454709248ULL, 9489746690038731964ULL,
-      796545955566226138ULL, 0ULL, 0ULL});
-  int64_t count = 0;
-  FixedInt<64, 6> modified_value = value;
-  while (modified_value > upper_threshold) {
-    modified_value /= std::integral_constant<uint32_t, 10>();
-    count++;
-  }
-  while (modified_value < lower_threshold) {
-    modified_value *= int64_t{10};
-    count--;
-  }
-
-  FixedInt<64, 6> result;
-  if (ABSL_PREDICT_FALSE(
-          !LnWithHalley(modified_value, unit_of_last_precision, &result))) {
-    return false;
-  }
-  FixedInt<64, 8> ln10_3x(std::array<uint64_t, 8>{
-      7727922604041035566ULL, 12037702344568737696ULL, 9122678356804961424ULL,
-      15992193585353676859ULL, 2153215911448709277ULL, 1077995818453696029ULL,
-      0ULL, 0ULL});
-  ln10_3x *= count;
-  FixedInt<64, 6> ln10_x_count;
-  if (ABSL_PREDICT_FALSE(
-          !BigNumericRemoveScaleAndRoundAwayFromZero(ln10_3x, &ln10_x_count))) {
-    return false;
-  }
-  result += ln10_x_count;
-  *output = result;
-  return true;
-}
-
-bool FractionalPower(const FixedUint<64, 6>& value,
-                     const FixedInt<64, 4>& abs_fract_exp,
-                     FixedUint<64, 6>* output) {
-  // unit_of_last_precision will be used in LN iteration ending condition.
-  // 100 - which represent 1E-74 is chosen here to provide enough precision, and
-  // also provide a loose range to avoid precision lost in exp(yn) affecting the
-  // convergence.
-  FixedUint<64, 6> unit_of_last_precision(uint64_t{10});
-  FixedInt<64, 6> double_scaled_fract_exp(abs_fract_exp);
-  double_scaled_fract_exp *=
-      FixedInt<64, 6>(static_cast<__int128>(BigNumericValue::ScalingFactor()));
-  FixedInt<64, 6> result;
-  // Here pow(x,y) is calculated as x^y=exp(y*ln(x))
-  if (ABSL_PREDICT_FALSE(!DoubleScaledLn(FixedInt<64, 6>(value),
-                                         unit_of_last_precision, &result)) ||
-      ABSL_PREDICT_FALSE(!BigNumericMultiplyAndRemoveDoubleScale(
-          result, double_scaled_fract_exp, &result)) ||
-      ABSL_PREDICT_FALSE(!DoubleScaledExp(result, &result))) {
-    return false;
-  }
-  *output = result.abs();
-  return true;
-}
-
-zetasql_base::StatusOr<BigNumericValue> BigNumericValue::PowerInternal(
-    const BigNumericValue& exp) const {
-  if (exp == BigNumericValue()) {
-    return BigNumericValue(1);
-  }
-  if (exp == BigNumericValue(1)) {
-    return *this;
-  }
-
-  if (*this == BigNumericValue()) {
-    // An attempt to raise zero to a negative power results in division by zero.
-    if (exp.value_.is_negative()) {
-      return MakeEvalError() << "division by zero";
-    }
-    // Otherwise zero raised to any power is still zero.
-    return BigNumericValue();
-  }
-  FixedUint<64, 4> abs_integer_exp;
-  FixedUint<64, 4> abs_fract_exp;
-  FixedUint<64, 4>(exp.value_.abs())
-      .DivMod(FixedUint<64, 4>(ScalingFactor()), &abs_integer_exp,
-              &abs_fract_exp);
-  FixedInt<64, 4> fract_exp(abs_fract_exp);
-  if (exp.value_.is_negative()) {
-    fract_exp = -fract_exp;
-  }
-  bool result_is_negative = false;
-  if (value_.is_negative()) {
-    if (!abs_fract_exp.is_zero()) {
-      return MakeEvalError() << "Negative BIGNUMERIC value cannot be raised to "
-                                "a fractional power";
-    }
-    result_is_negative = (abs_integer_exp.number()[0] & 1) != 0;
-  }
-  FixedUint<64, 6> double_scaled_value(value_.abs());
-  double_scaled_value *= FixedUint<64, 6>(ScalingFactor());
-  FixedUint<64, 6> double_scaled_result;
-  if (!abs_integer_exp.is_zero()) {
-    double_scaled_result = double_scaled_value;
-    if (!exp.value_.is_negative()) {
-      if (!DoubleScaledIntegralPower(&double_scaled_result, abs_integer_exp)) {
-        return MakeEvalError() << "BigNumeric overflow";
-      }
-    } else {
-      // If the exponent is negative and abs_value is > 1, then we compute
-      // compute 1 / (abs_value ^ (-integer_exp)) for integer part.
-      if (!DoubleScaledIntegralPower(&double_scaled_result, abs_integer_exp)) {
-        return BigNumericValue();
-      }
-      FixedUint<64, 6> scaling_factor_cube_2x(ScalingFactorCube2x());
-      if (double_scaled_result > scaling_factor_cube_2x) {
-        return BigNumericValue();
-      }
-      if (double_scaled_result.is_zero()) {
-        return MakeEvalError() << "BigNumeric overflow";
-      }
-      FixedUint<64, 8> numerator(ScalingFactorQuad());  // 4 times scaled
-      numerator.DivAndRoundAwayFromZero(FixedUint<64, 8>(double_scaled_result));
-      if (ABSL_PREDICT_FALSE(numerator.number()[6] != 0) ||
-          ABSL_PREDICT_FALSE(numerator.number()[7] != 0)) {
-        return MakeEvalError() << "BigNumeric overflow";
-      }
-      double_scaled_result = FixedUint<64, 6>(numerator);
-    }
-    if (abs_fract_exp.number()[0] == 0 && abs_fract_exp.number()[1] == 0) {
-      FixedInt<64, 4> result;
-      if (ABSL_PREDICT_FALSE(!BigNumericRemoveScaleAndRoundAwayFromZero(
-              double_scaled_result, &result, result_is_negative))) {
-        return MakeEvalError() << "BigNumeric overflow";
-      }
-      return BigNumericValue(result);
-    }
-  }
-  FixedUint<64, 6> double_scaled_frac_result;
-  if (ABSL_PREDICT_FALSE(!FractionalPower(double_scaled_value, fract_exp,
-                                          &double_scaled_frac_result))) {
-    return zetasql_base::InternalErrorBuilder() << "Fractional Power should never "
-                                           "overflow with exponent less than 1";
-  }
-  if (abs_integer_exp.is_zero()) {
-    double_scaled_result = double_scaled_frac_result;
-  } else {
-    if (ABSL_PREDICT_FALSE(!BigNumericMultiplyAndRemoveDoubleScale(
-            double_scaled_frac_result, double_scaled_result,
-            &double_scaled_result))) {
-      return MakeEvalError() << "BigNumeric overflow";
-    }
-  }
-
-  FixedInt<64, 4> result;
-  if (ABSL_PREDICT_FALSE(!BigNumericRemoveScaleAndRoundAwayFromZero(
-          double_scaled_result, &result, result_is_negative))) {
-    return MakeEvalError() << "BigNumeric overflow";
-  }
-
-  return BigNumericValue(result);
-}
-
 zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Power(
     const BigNumericValue& exp) const {
-  auto res_or_status = PowerInternal(exp);
+  auto res_or_status = PowerInternal<4, 3, 6, 254>(*this, exp);
   if (res_or_status.ok()) {
     return res_or_status;
   }
@@ -2129,17 +2060,14 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Power(
 }
 
 zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Exp() const {
-  FixedInt<64, 6> double_scaled_value(value_);
-  double_scaled_value *=
-      FixedInt<64, 6>(static_cast<__int128>(BigNumericValue::ScalingFactor()));
-  FixedInt<64, 4> result;
-  if (ABSL_PREDICT_FALSE(
-          !DoubleScaledExp(double_scaled_value, &double_scaled_value)) ||
-      ABSL_PREDICT_FALSE(!BigNumericRemoveScaleAndRoundAwayFromZero(
-          double_scaled_value, &result))) {
-    return MakeEvalError() << "BigNumeric overflow: EXP(" << ToString() << ")";
+  SignedBinaryFraction<6, 254> base(*this);
+  UnsignedBinaryFraction<6, 254> exp;
+  BigNumericValue result;
+  if (ABSL_PREDICT_TRUE(base.Exp(&exp)) &&
+      ABSL_PREDICT_TRUE(exp.To(false, &result))) {
+    return result;
   }
-  return BigNumericValue(result);
+  return MakeEvalError() << "BIGNUMERIC overflow: EXP(" << ToString() << ")";
 }
 
 zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Ln() const {
@@ -2147,24 +2075,22 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Ln() const {
     return MakeEvalError() << "LN is undefined for zero or negative value: LN("
                            << ToString() << ")";
   }
-  FixedInt<64, 6> double_scaled_value(value_);
-  double_scaled_value *=
-      FixedInt<64, 6>(static_cast<__int128>(BigNumericValue::ScalingFactor()));
-  // unit_of_last_precision is set to 1e-39 here. In the implementation of Ln
-  // with Hallay's mothod, computation will stop when the delta of the iteration
-  // is less than unit_of_last_precision. Thus, 1e-39 is set up here to provide
-  // enough precision for BigNumericValue and avoid unnecessary computation.
-  const FixedUint<64, 6> unit_of_last_precision(std::array<uint64_t, 6>{
-      68739955140067328ULL, 542101086242752217ULL, 0ULL, 0ULL, 0ULL, 0ULL});
-  FixedInt<64, 4> result;
-  if (ABSL_PREDICT_FALSE(!DoubleScaledLn(
-          double_scaled_value, unit_of_last_precision, &double_scaled_value)) ||
-      ABSL_PREDICT_FALSE(!BigNumericRemoveScaleAndRoundAwayFromZero(
-          double_scaled_value, &result))) {
-    return zetasql_base::InternalErrorBuilder()
-           << "LN should never overflow: LN(" << ToString() << ")";
+  UnsignedBinaryFraction<6, 254> exp =
+      SignedBinaryFraction<6, 254>(*this).Abs();
+  SignedBinaryFraction<6, 254> ln;
+  // unit_of_last_precision is set to pow(2, -144) ~= 4.5e-44 here. In the
+  // implementation of Ln with Halley's mothod, computation will stop when the
+  // delta of the iteration is less than unit_of_last_precision. Thus, 4.5e-44
+  // is set up here to provide enough precision for BigNumericValue and avoid
+  // unnecessary computation.
+  UnsignedBinaryFraction<6, 254> unit_of_last_precision(1, -144);
+  BigNumericValue result;
+  if (ABSL_PREDICT_TRUE(exp.Ln(unit_of_last_precision, &ln)) &&
+      ABSL_PREDICT_TRUE(ln.To(&result))) {
+    return result;
   }
-  return BigNumericValue(result);
+  return zetasql_base::InternalErrorBuilder()
+         << "LN should never overflow: LN(" << ToString() << ")";
 }
 
 // Parses a textual representation of a BIGNUMERIC value. Returns an error if
@@ -2213,14 +2139,14 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::FromDouble(double value
       value = std::numeric_limits<double>::quiet_NaN();
     }
     return MakeEvalError() << "Illegal conversion of non-finite floating point "
-                              "number to BigNumeric: "
+                              "number to BIGNUMERIC: "
                            << value;
   }
   FixedInt<64, 4> result;
-  if (ScaleAndRoundAwayFromZero(ScalingFactor(), value, &result)) {
+  if (ScaleAndRoundAwayFromZero(kScalingFactor, value, &result)) {
     return BigNumericValue(result);
   }
-  return MakeEvalError() << "BigNumeric out of range: " << value;
+  return MakeEvalError() << "BIGNUMERIC out of range: " << value;
 }
 
 void BigNumericValue::AppendToString(std::string* output) const {
@@ -2245,7 +2171,7 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::DeserializeFromProtoByt
   if (out.value_.DeserializeFromBytes(bytes)) {
     return out;
   }
-  return MakeEvalError() << "Invalid BigNumeric encoding";
+  return MakeEvalError() << "Invalid BIGNUMERIC encoding";
 }
 
 void BigNumericValue::FormatAndAppend(FormatSpec spec,
@@ -2263,7 +2189,7 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::SumAggregator::GetSum()
     FixedInt<64, 4> sum_trunc(sum_);
     return BigNumericValue(sum_trunc);
   }
-  return MakeEvalError() << "BigNumeric overflow: SUM";
+  return MakeEvalError() << "BIGNUMERIC overflow: SUM";
 }
 
 zetasql_base::StatusOr<BigNumericValue> BigNumericValue::SumAggregator::GetAverage(
@@ -2281,7 +2207,7 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::SumAggregator::GetAvera
     return BigNumericValue(dividend_trunc);
   }
 
-  return MakeEvalError() << "BigNumeric overflow: AVG";
+  return MakeEvalError() << "BIGNUMERIC overflow: AVG";
 }
 
 void BigNumericValue::SumAggregator::SerializeAndAppendToProtoBytes(

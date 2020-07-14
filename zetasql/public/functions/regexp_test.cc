@@ -187,6 +187,28 @@ TEST(RegexpReplace, MemLimit) {
   EXPECT_FALSE(re.Replace(in, "BB", &out, &error));
 }
 
+TEST(RegexpReplace, NullStringView) {
+  // Tests for b/160737744.
+  absl::string_view null_string;
+  absl::string_view empty_string("", 0);
+  const std::vector<std::pair<absl::string_view, absl::string_view>>
+      patterns_and_inputs = {{null_string, null_string},
+                             {null_string, empty_string},
+                             {empty_string, null_string},
+                             {empty_string, empty_string}};
+
+  for (const auto& pattern_and_input : patterns_and_inputs) {
+    RegExp regexp;
+    absl::Status status;
+    ASSERT_TRUE(regexp.InitializePatternUtf8(pattern_and_input.first, &status))
+        << status;
+    std::string out;
+    ASSERT_TRUE(regexp.Replace(pattern_and_input.second, "foo", &out, &status))
+        << status;
+    EXPECT_EQ("foo", out);
+  }
+}
+
 }  // anonymous namespace
 }  // namespace functions
 }  // namespace zetasql

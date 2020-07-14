@@ -103,6 +103,7 @@ using zetasql::values::NullInt32;
 using zetasql::values::NullInt64;
 using zetasql::values::NullNumeric;  // NOLINT
 using zetasql::values::NullBigNumeric;  // NOLINT
+using zetasql::values::NullJson;  // NOLINT
 using zetasql::values::NullString;
 using zetasql::values::NullTime;
 using zetasql::values::NullTimestamp;
@@ -120,5 +121,6 @@ using zetasql::values::Uint32Array;
 using zetasql::values::Uint64Array;
 using zetasql::values::NumericArray;  // NOLINT
 using zetasql::values::BigNumericArray;  // NOLINT
+using zetasql::values::Json;  // NOLINT
 
 using zetasql::values::EmptyArray;

@@ -40,6 +40,12 @@ TupleSchema::TupleSchema(absl::Span<const VariableId> variables)
   }
 }
 
+void TupleSchema::AddVariable(VariableId variable) {
+  variables_.push_back(variable);
+  vars_to_idxs_.reserve(variables_.size());
+  vars_to_idxs_.insert(static_cast<int>(variables_.size() - 1));
+}
+
 absl::optional<int> TupleSchema::FindIndexForVariable(
     const VariableId& variable) const {
   auto iter = vars_to_idxs_.find(variable);

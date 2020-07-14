@@ -425,7 +425,9 @@ cc_test(
         ":numeric_value",
         ":numeric_value_test_utils",
         "@com_google_googletest//:gtest_main",
+        "//zetasql/base/testing:status_matchers",
         "@com_google_absl//absl/random",
+        "@com_google_absl//absl/strings:str_format",
     ],
 )
 

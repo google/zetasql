@@ -307,6 +307,60 @@ TEST(EvaluatorTest, WithClauseSubqueryWithLimitAndUnreferencedRef) {
   EXPECT_THAT(result, IsOkAndHolds(Array({2.0, 8.0 / 3, 4.0})));
 }
 
+TEST(EvaluatorTest, WithRecursiveTerminatesDueToLimit) {
+  // The recursive query, by itself, does not terminate, but the main query
+  // referencing it uses a LIMIT clause, which terminates the recursion when
+  // the LIMIT value is reached.
+  //
+  // As the behavior of LIMIT without ORDER BY is engine-dependent, this is not
+  // a compliance test. However, the reference implementation provides
+  // deterministic behavior to make the insertion of LIMIT useful for debugging
+  // recursive queries. Within the reference implementation we guarantee that:
+  // 1) Rows from each iteration come before rows from subsequent iterations
+  // 2) The recursion halts when the number of rows in the outer LIMIT clause
+  //      is reached (this guarantee only holds when the 'inlined_with_entries'
+  //      optimization is enabled, which is the case in the evaluator api).
+  const std::string query = R"(ARRAY(
+  WITH RECURSIVE
+    Fib AS (
+      SELECT 1 AS a, 1 AS b
+      UNION ALL
+      SELECT b, a + b FROM Fib
+  ) SELECT a FROM fib LIMIT 10
+  ))";
+  PreparedExpression expr(query);
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
+  language_options.EnableLanguageFeature(FEATURE_V_1_3_WITH_RECURSIVE);
+  AnalyzerOptions analyzer_options(language_options);
+  ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
+  const zetasql_base::StatusOr<Value> result = expr.Execute();
+  EXPECT_THAT(result,
+              IsOkAndHolds(Array({Int64(1), Int64(1), Int64(2), Int64(3),
+                                  Int64(5), Int64(8), Int64(13), Int64(21),
+                                  Int64(34), Int64(55)})));
+}
+
+TEST(EvaluatorTest, WithRecursiveNotTerminating) {
+  // A non-terminating recursive query should fail cleanly when the rows
+  // produced exceed memory limits.
+  const std::string query = R"(ARRAY(
+    WITH RECURSIVE
+      t AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM t)
+    SELECT * FROM t
+  ))";
+  PreparedExpression expr(query);
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
+  language_options.EnableLanguageFeature(FEATURE_V_1_3_WITH_RECURSIVE);
+  AnalyzerOptions analyzer_options(language_options);
+  ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
+  const zetasql_base::StatusOr<Value> result = expr.Execute();
+  EXPECT_THAT(
+      result,
+      StatusIs(_, HasSubstr("Cannot construct array Value larger than")));
+}
+
 TEST(EvaluatorTest, WithClauseSubquery_b119901615) {
   PreparedExpression expr(
       "(WITH a AS (SELECT true as b, 15 as c) SELECT IF(b, c, -1) FROM a)");
@@ -1379,6 +1433,35 @@ TEST(EvaluatorTest, DeadlineNotExceeded) {
   EXPECT_THAT(expr.Execute(options), IsOkAndHolds(Value::Int64(3)));
 }
 
+TEST(EvaluatorTest, NoColumnsGiven) {
+  PreparedExpression expr("1 + 2", EvaluatorOptions());
+  ZETASQL_ASSERT_OK(expr.Prepare(AnalyzerOptions()));
+  EXPECT_THAT(expr.Execute(), IsOkAndHolds(Value::Int64(3)));
+}
+
+TEST(EvaluatorTest, NamedAndPositionalColumnsGiven) {
+  PreparedExpression expr("1 + 2", EvaluatorOptions());
+  ZETASQL_ASSERT_OK(expr.Prepare(AnalyzerOptions()));
+  ExpressionOptions options;
+  options.columns = ParameterValueMap();
+  options.ordered_columns = ParameterValueList();
+  EXPECT_THAT(
+      expr.Execute(options),
+      StatusIs(
+          absl::StatusCode::kInternal,
+          HasSubstr("One of the columns fields has to be set, but not both")));
+}
+
+TEST(EvaluatorTest, ParameterizedWithNoParameterMap) {
+  auto expr_ptr = MakeResolvedParameter(StringType(), "string_parameter");
+
+  PreparedExpression expr(expr_ptr.get(), EvaluatorOptions());
+  EXPECT_THAT(
+      expr.Execute({}, {}),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Incomplete query parameters string_parameter")));
+}
+
 TEST(EvaluatorTest, ForSystemTimeAsOfWithUnsupportedTable) {
   AnalyzerOptions analyzer_options;
   analyzer_options.mutable_language()->EnableLanguageFeature(
@@ -1584,6 +1667,18 @@ TEST(EvaluatorTest, ExecuteAfterPrepareOnlyNamedParameters) {
 
   EXPECT_THAT(expr.ExecuteAfterPrepare(expr_options),
               IsOkAndHolds(Value::Int64(1)));
+}
+
+TEST(EvaluatorTest, ExecuteAfterPreparePositonalColumnsNamedParameters) {
+  PreparedExpression expr("1 + 2", EvaluatorOptions());
+  ZETASQL_ASSERT_OK(expr.Prepare(AnalyzerOptions()));
+  ExpressionOptions options;
+  options.ordered_columns = ParameterValueList();
+  options.parameters = ParameterValueMap();
+  EXPECT_THAT(expr.ExecuteAfterPrepare(options),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("Expected positional parameters since the "
+                                 "columns are positional")));
 }
 
 TEST_F(UDFEvalTest, OkUDFEvaluator) {
@@ -2181,8 +2276,9 @@ TEST_F(PreparedModifyTest,
   ZETASQL_EXPECT_OK(iter->Status());
 
   iter.reset();
+  // Calling the ExecuteAfterPrepare variant.
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      iter, modify.ExecuteWithPositionalParams(
+      iter, modify.ExecuteAfterPrepareWithOrderedParams(
                 {Int64(0), NullString(), NullDouble(), NullBytes()}));
   ASSERT_TRUE(iter->NextRow());
   EXPECT_EQ(iter->GetColumnValue(0), Int64(0));
@@ -2627,9 +2723,10 @@ TEST(PreparedQuery, ExecuteAfterPrepareOnlyNamedParams) {
               IsOkAndHolds(UnorderedElementsAre("p1")));
   EXPECT_THAT(query.GetPositionalParameterCount(), IsOkAndHolds(0));
 
+  QueryOptions options;
+  options.parameters = {{"p1", values::Int64(123)}};
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
-                       query.ExecuteAfterPrepare(QueryOptions{
-                           .parameters = {{"p1", values::Int64(123)}}}));
+                       query.ExecuteAfterPrepare(options));
   ASSERT_TRUE(iter->NextRow());
   EXPECT_EQ(Int64(123), iter->GetValue(0));
   EXPECT_FALSE(iter->NextRow());
@@ -2673,9 +2770,9 @@ TEST_F(PreparedQueryTest, TopNAccumulator) {
 
   ZETASQL_ASSERT_OK(query.Prepare(analyzer_options, &catalog));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
+
   ASSERT_EQ(iter->NumColumns(), 1);
   ASSERT_EQ(iter->GetColumnName(0), "agg");
 
@@ -2803,9 +2900,8 @@ TEST_F(PreparedQueryProtoTest, SelectProtoFromTable) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 1);
   ASSERT_EQ(iter->GetColumnName(0), "col");
 
@@ -2824,9 +2920,8 @@ TEST_F(PreparedQueryProtoTest, SelectFieldFromProto) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 1);
   ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
 
@@ -2845,9 +2940,8 @@ TEST_F(PreparedQueryProtoTest, SelectTwoFieldsFromProto) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
   ASSERT_EQ(iter->GetColumnName(1), "int64_key_2");
@@ -2874,9 +2968,8 @@ TEST_F(PreparedQueryProtoTest, SelectTwoFieldsFromProtoInTwoRows) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
   ASSERT_EQ(iter->GetColumnName(1), "int64_key_2");
@@ -2902,9 +2995,8 @@ TEST_F(PreparedQueryProtoTest, SelectSameFieldTwice) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
   ASSERT_EQ(iter->GetColumnName(1), "int64_key_1");
@@ -2926,9 +3018,8 @@ TEST_F(PreparedQueryProtoTest, SameFieldWithNoHasBitAndHasBit) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
   ASSERT_EQ(iter->GetColumnName(1), "has_int64_key_1");
@@ -2950,9 +3041,8 @@ TEST_F(PreparedQueryProtoTest, SameFieldWithHasBitAndNoHasBit) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "has_int64_key_1");
   ASSERT_EQ(iter->GetColumnName(1), "int64_key_1");
@@ -2974,9 +3064,8 @@ TEST_F(PreparedQueryProtoTest, SameProtoFieldWithNoHasBitAndHasBit) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "nested_value");
   ASSERT_EQ(iter->GetColumnName(1), "has_nested_value");
@@ -3009,9 +3098,8 @@ TEST_F(PreparedQueryProtoTest, SameProtoFieldWithHasBitAndNoHasBit) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "has_nested_value");
   ASSERT_EQ(iter->GetColumnName(1), "nested_value");
@@ -3047,9 +3135,8 @@ TEST_F(PreparedQueryProtoTest, SameFieldPathTwice) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "nested_int64");
   ASSERT_EQ(iter->GetColumnName(1), "nested_int64");
@@ -3074,9 +3161,8 @@ TEST_F(PreparedQueryProtoTest, TwoFieldPaths) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "nested_int64");
   ASSERT_EQ(iter->GetColumnName(1), "nested_repeated_int64");
@@ -3092,6 +3178,33 @@ TEST_F(PreparedQueryProtoTest, TwoFieldPaths) {
   EXPECT_EQ(GetNumProtoDeserializations(), 2);
 }
 
+TEST_F(PreparedQueryProtoTest, ArrayPath) {
+  PreparedQuery query(
+      "SELECT value FROM TestTable t, "
+      "UNNEST(t.col.nested_repeated_value.nested_int64) value",
+      EvaluatorOptions());
+  SetupContextCallback(&query);
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(
+      FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS);
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(language_options), catalog_.get()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
+  ASSERT_EQ(iter->NumColumns(), 1);
+  ASSERT_EQ(iter->GetColumnName(0), "value");
+
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Int64(20));
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetValue(0), Int64(30));
+  ASSERT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+
+  // Three deserializations: one for the column and one for each nested proto.
+  EXPECT_EQ(GetNumProtoDeserializations(), 3);
+}
+
 TEST_F(PreparedQueryProtoTest, FieldAndSubfield) {
   PreparedQuery query(
       "select col.nested_value, col.nested_value.nested_int64 from TestTable",
@@ -3099,9 +3212,8 @@ TEST_F(PreparedQueryProtoTest, FieldAndSubfield) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "nested_value");
   ASSERT_EQ(iter->GetColumnName(1), "nested_int64");
@@ -3134,9 +3246,8 @@ TEST_F(PreparedQueryProtoTest, SubfieldAndField) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "nested_int64");
   ASSERT_EQ(iter->GetColumnName(1), "nested_value");
@@ -3170,9 +3281,8 @@ TEST_F(PreparedQueryProtoTest, FieldAndSubSubField) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "rewrapped_nullable_int");
   ASSERT_EQ(iter->GetColumnName(1), "value");
@@ -3207,9 +3317,8 @@ TEST_F(PreparedQueryProtoTest, SubSubFieldAndField) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "value");
   ASSERT_EQ(iter->GetColumnName(1), "rewrapped_nullable_int");
@@ -3246,9 +3355,8 @@ TEST_F(PreparedQueryProtoTest, Complex) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 4);
   ASSERT_EQ(iter->GetColumnName(0), "nested_value");
   ASSERT_EQ(iter->GetColumnName(1), "nested_int64");
@@ -3288,9 +3396,8 @@ TEST_F(PreparedQueryProtoTest, WithRepeatedFieldOffsets) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "v1");
   ASSERT_EQ(iter->GetColumnName(1), "v2");
@@ -3326,9 +3433,8 @@ TEST_F(PreparedQueryProtoTest, WithRepeatedFieldOffsetsAndFieldAccesses) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "nested_int64");
   ASSERT_EQ(iter->GetColumnName(1), "nested_int64");
@@ -3356,9 +3462,8 @@ TEST_F(PreparedQueryProtoTest,
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "int64_val");
   ASSERT_EQ(iter->GetColumnName(1), "int64_val");
@@ -3385,9 +3490,8 @@ TEST_F(PreparedQueryProtoTest, Subquery) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
   ASSERT_EQ(iter->GetColumnName(1), "int64_key_2");
@@ -3410,9 +3514,8 @@ TEST_F(PreparedQueryProtoTest, ProtoFromStruct) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 1);
   ASSERT_EQ(iter->GetColumnName(0), "kitchen_sink");
 
@@ -3433,9 +3536,8 @@ TEST_F(PreparedQueryProtoTest, FieldFromProtoFromStruct) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 1);
   ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
 
@@ -3457,9 +3559,8 @@ TEST_F(PreparedQueryProtoTest, TwoFieldsFromProtoFromStruct) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
   ASSERT_EQ(iter->GetColumnName(1), "int64_key_2");
@@ -3483,9 +3584,8 @@ TEST_F(PreparedQueryProtoTest, SameFieldTwiceFromProtoFromStruct) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
   ASSERT_EQ(iter->GetColumnName(1), "int64_key_1");
@@ -3510,9 +3610,8 @@ TEST_F(PreparedQueryProtoTest,
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
   ASSERT_EQ(iter->GetColumnName(1), "has_int64_key_1");
@@ -3546,9 +3645,8 @@ TEST_F(PreparedQueryProtoTest, MixedProtoAndStructFieldPaths) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 15);
   ASSERT_EQ(iter->GetColumnName(0), "int64_key_1");
   ASSERT_EQ(iter->GetColumnName(1), "int64_key_2");
@@ -3629,9 +3727,8 @@ TEST_F(PreparedQueryProtoTest, ArbitraryProtoValuedExpression) {
   SetupContextCallback(&query);
   ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(), catalog_.get()));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<EvaluatorTableIterator> iter,
-      query.ExecuteAfterPrepare(QueryOptions{}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.ExecuteAfterPrepare());
   ASSERT_EQ(iter->NumColumns(), 2);
   ASSERT_EQ(iter->GetColumnName(0), "value");
   ASSERT_EQ(iter->GetColumnName(1), "value");

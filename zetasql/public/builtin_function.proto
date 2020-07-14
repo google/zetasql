@@ -38,20 +38,20 @@ enum FunctionSignatureId {
   // other special functions (CASE).  FunctionSignatureIds are assigned
   // in ranges:
   //
-  // 0002-0999 Non-standard function calls   (NextId: 266)
-  // 1000-1099 String functions              (NextId: 1077)
+  // 0002-0999 Non-standard function calls   (NextId: 269)
+  // 1000-1099 String functions              (NextId: 1079)
   // 1100-1199 Control flow functions        (NextId: 1104)
   // 1200-1299 Time functions                (Fully used)
   // 1300-1399 Math functions                (Fully used)
   // 1400-1499 Aggregate functions           (NextId: 1482)
   // 1500-1599 Analytic functions            (NextId: 1513)
-  // 1600-1699 Misc functions                (NextId: 1684)
+  // 1600-1699 Misc functions                (NextId: 1688)
   // 1700-1799 Net functions                 (NextId: 1716)
-  // 1800-1899 More time functions           (NextId: 1833)
+  // 1800-1899 More time functions           (NextId: 1843)
   // 1900-1999 Hashing/encryption functions  (NextId: 1924)
   // 2000-2199 Geography functions           (NextId: 2066)
   // 2300-2499 More math functions           (NextId: 2304)
-  // 2500-2599 Array functions               (NextId: 2501)
+  // 2500-2599 Array functions               (NextId: 2504)
 
   // enum value                       // Related function name
   // ----------                       // ---------------------
@@ -60,6 +60,8 @@ enum FunctionSignatureId {
   FN_ADD_UINT64 = 119;                     // $add
   FN_ADD_NUMERIC = 248;                    // $add
   FN_ADD_BIGNUMERIC = 261;                 // $add
+  FN_ADD_DATE_INT64 = 266;                 // $add
+  FN_ADD_INT64_DATE = 267;                 // $add
   FN_AND = 5;                              // $and
   FN_CASE_NO_VALUE = 6;                    // $case_no_value
   FN_CASE_WITH_VALUE = 7;                  // $case_with_value
@@ -110,6 +112,7 @@ enum FunctionSignatureId {
   FN_SUBTRACT_UINT64 = 117;                // $subtract
   FN_SUBTRACT_NUMERIC = 249;               // $subtract
   FN_SUBTRACT_BIGNUMERIC = 262;            // $subtract
+  FN_SUBTRACT_DATE_INT64 = 268;            // $subtract
 
   FN_UNARY_MINUS_INT32 = 83;        // $unary_minus
   FN_UNARY_MINUS_INT64 = 84;        // $unary_minus
@@ -218,8 +221,9 @@ enum FunctionSignatureId {
                                  // semantically identical to FN_LENGTH_BYTES
   FN_CHAR_LENGTH_STRING = 1036;  // char_length(string) -> int64
                                  // semantically identical to FN_LENGTH_STRING
-  FN_SPLIT_STRING = 1038;            // split(string, string) -> array of string
-  FN_SPLIT_BYTES = 1039;             // split(bytes, bytes) -> array of bytes
+  FN_FORMAT_STRING = 1037;       // format(string, ...) -> string
+  FN_SPLIT_STRING = 1038;        // split(string, string) -> array of string
+  FN_SPLIT_BYTES = 1039;         // split(bytes, bytes) -> array of bytes
   FN_REGEXP_CONTAINS_STRING = 1040;  // regexp_contains(string, string) -> bool
   FN_REGEXP_CONTAINS_BYTES = 1041;   // regexp_contains(bytes, bytes) -> bool
   // Converts bytes to string by replacing invalid UTF-8 characters with
@@ -261,6 +265,8 @@ enum FunctionSignatureId {
   FN_TRANSLATE_STRING = 1074;  // translate(string, string, string) -> string
   FN_TRANSLATE_BYTES = 1075;   // soundex(bytes, bytes, bytes) -> bytes
   FN_INITCAP_STRING = 1076;    // initcap(string[, string]) -> string
+  FN_UNICODE_STRING = 1077;    // unicode(string) -> int64
+  FN_CHR_STRING = 1078;        // chr(int64) -> string
 
   // Control flow functions
   FN_IF = 1100;  // if
@@ -308,19 +314,29 @@ enum FunctionSignatureId {
   FN_UNIX_MICROS_FROM_TIMESTAMP = 1270;
   FN_DATE_FROM_TIMESTAMP = 1271;  // date
   FN_DATE_FROM_DATETIME = 1826;   // date
+  FN_DATE_FROM_DATE = 1833;       // date
+  FN_DATE_FROM_STRING = 1837;     // date
   FN_DATE_FROM_YEAR_MONTH_DAY = 1297;  // date
   FN_TIMESTAMP_FROM_STRING = 1272;     // timestamp
   FN_TIMESTAMP_FROM_DATE = 1273;       // timestamp
   FN_TIMESTAMP_FROM_DATETIME = 1801;   // timestamp
+  FN_TIMESTAMP_FROM_TIMESTAMP = 1834;  // timestamp
   FN_TIME_FROM_HOUR_MINUTE_SECOND = 1298;                     // time
   FN_TIME_FROM_TIMESTAMP = 1802;                              // time
   FN_TIME_FROM_DATETIME = 1825;                               // time
+  FN_TIME_FROM_TIME = 1836;                                   // time
+  FN_TIME_FROM_STRING = 1838;                                 // time
   FN_DATETIME_FROM_DATE_AND_TIME = 1299;                      // datetime
   FN_DATETIME_FROM_YEAR_MONTH_DAY_HOUR_MINUTE_SECOND = 1800;  // datetime
   FN_DATETIME_FROM_TIMESTAMP = 1803;                          // datetime
   FN_DATETIME_FROM_DATE = 1824;                               // datetime
+  FN_DATETIME_FROM_DATETIME = 1835;                           // datetime
+  FN_DATETIME_FROM_STRING = 1839;                             // datetime
 
+  FN_STRING_FROM_DATE = 1840;       // string
   FN_STRING_FROM_TIMESTAMP = 1274;  // string
+  FN_STRING_FROM_DATETIME = 1841;   // string
+  FN_STRING_FROM_TIME = 1842;       // string
 
   // Signatures for extracting date parts, taking a date/timestamp
   // and the target date part as arguments.
@@ -558,21 +574,23 @@ enum FunctionSignatureId {
   FN_KLL_QUANTILES_EXTRACT_POINT_DOUBLE = 1466;  // scalar
 
   // Analytic functions.
-  FN_DENSE_RANK = 1500;               // dense_rank
-  FN_RANK = 1501;                     // rank
-  FN_ROW_NUMBER = 1502;               // row_number
-  FN_PERCENT_RANK = 1503;             // percent_rank
-  FN_CUME_DIST = 1504;                // cume_dist
-  FN_NTILE = 1505;                    // ntile
-  FN_LEAD = 1506;                     // lead
-  FN_LAG = 1507;                      // lag
-  FN_FIRST_VALUE = 1508;              // first_value
-  FN_LAST_VALUE = 1509;               // last_value
-  FN_NTH_VALUE = 1510;                // nth_value
-  FN_PERCENTILE_CONT = 1511;          // percentile_cont
-  FN_PERCENTILE_CONT_NUMERIC = 1513;  // percentile_cont
-  FN_PERCENTILE_DISC = 1512;          // percentile_disc
-  FN_PERCENTILE_DISC_NUMERIC = 1514;  // percentile_disc
+  FN_DENSE_RANK = 1500;                  // dense_rank
+  FN_RANK = 1501;                        // rank
+  FN_ROW_NUMBER = 1502;                  // row_number
+  FN_PERCENT_RANK = 1503;                // percent_rank
+  FN_CUME_DIST = 1504;                   // cume_dist
+  FN_NTILE = 1505;                       // ntile
+  FN_LEAD = 1506;                        // lead
+  FN_LAG = 1507;                         // lag
+  FN_FIRST_VALUE = 1508;                 // first_value
+  FN_LAST_VALUE = 1509;                  // last_value
+  FN_NTH_VALUE = 1510;                   // nth_value
+  FN_PERCENTILE_CONT = 1511;             // percentile_cont
+  FN_PERCENTILE_CONT_NUMERIC = 1513;     // percentile_cont
+  FN_PERCENTILE_CONT_BIGNUMERIC = 1515;  // percentile_cont
+  FN_PERCENTILE_DISC = 1512;             // percentile_disc
+  FN_PERCENTILE_DISC_NUMERIC = 1514;     // percentile_disc
+  FN_PERCENTILE_DISC_BIGNUMERIC = 1516;  // percentile_disc
 
   //
   // Misc functions.
@@ -603,14 +621,20 @@ enum FunctionSignatureId {
   FN_RAND = 1618;           // rand() -> double
   FN_GENERATE_UUID = 1679;  // generate_uuid() -> string
 
-  FN_JSON_EXTRACT = 1619;         // json_extract(string, string)
-  FN_JSON_EXTRACT_SCALAR = 1620;  // json_extract_scalar(string, string)
+  FN_JSON_EXTRACT = 1619;       // json_extract(string, string) -> string
+  FN_JSON_EXTRACT_JSON = 1684;  // json_extract(json, string) -> json
+  FN_JSON_EXTRACT_SCALAR =
+      1620;  // json_extract_scalar(string, string) -> string
+  FN_JSON_EXTRACT_SCALAR_JSON =
+      1685;  // json_extract_scalar(json, string) -> string
   FN_JSON_EXTRACT_ARRAY =
       1681;  // json_extract_array(string[, string]) -> array
 
-  FN_TO_JSON_STRING = 1622;  // to_json_string(any[, bool]) -> string
-  FN_JSON_QUERY = 1623;      // json_query(string, string)
-  FN_JSON_VALUE = 1624;      // json_value(string, string)
+  FN_TO_JSON_STRING = 1622;   // to_json_string(any[, bool]) -> string
+  FN_JSON_QUERY = 1623;       // json_query(string, string) -> string
+  FN_JSON_QUERY_JSON = 1686;  // json_query(json, string) -> json
+  FN_JSON_VALUE = 1624;       // json_value(string, string) -> string
+  FN_JSON_VALUE_JSON = 1687;  // json_value(json, string) -> string
   FN_FROM_PROTO_TIMESTAMP =
       1626;  // from_proto(google.protobuf.Timestamp) -> timestamp
   FN_FROM_PROTO_DATE = 1627;  // from_proto(google.type.Date) -> date
@@ -832,7 +856,10 @@ enum FunctionSignatureId {
   FN_ARRAY_TO_BYTES = 238;
   // array_to_string(array, string[, string]) -> string
   FN_ARRAY_TO_STRING = 237;
-  FN_MAKE_ARRAY = 218;             // $make_array
-  FN_SAFE_ARRAY_AT_OFFSET = 239;   // $safe_array_at_offset
-  FN_SAFE_ARRAY_AT_ORDINAL = 240;  // $safe_array_at_ordinal
+  FN_MAKE_ARRAY = 218;              // $make_array
+  FN_SAFE_ARRAY_AT_OFFSET = 239;    // $safe_array_at_offset
+  FN_SAFE_ARRAY_AT_ORDINAL = 240;   // $safe_array_at_ordinal
+  FN_ARRAY_IS_DISTINCT = 2501;      // array_is_distinct(array) -> bool
+  FN_PROTO_MAP_AT_KEY = 2502;       // $proto_map_at_key
+  FN_SAFE_PROTO_MAP_AT_KEY = 2503;  // $safe_proto_map_at_key
 }
