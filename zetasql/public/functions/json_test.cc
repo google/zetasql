@@ -294,13 +294,12 @@ TEST(JsonTest, NativeJsonCompliance) {
           test.params.params()[1].is_null()) {
         continue;
       }
-      if (!test.params.param(0).is_validated_json()) {
+      if (test.params.param(0).is_unparsed_json()) {
         // Unvalidated JSON will be tested in compliance testing, not in unit
         // tests.
         continue;
       }
-      const JSONValueConstRef json =
-          test.params.param(0).json_value_validated();
+      const JSONValueConstRef json = test.params.param(0).json_value();
       const std::string json_path = test.params.param(1).string_value();
       SCOPED_TRACE(absl::Substitute("$0('$1', '$2')", test.function_name,
                                     json.ToString(), json_path));
@@ -320,7 +319,7 @@ TEST(JsonTest, NativeJsonCompliance) {
           EXPECT_EQ(test.params.result().is_null(), !result_or.has_value());
           if (!test.params.result().is_null() && result_or.has_value()) {
             EXPECT_THAT(result_or.value(),
-                        JsonEq(test.params.result().json_value_validated()));
+                        JsonEq(test.params.result().json_value()));
           }
         } else {
           absl::optional<std::string> result_or =

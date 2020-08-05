@@ -44,7 +44,6 @@ import com.google.zetasql.TableValuedFunction.ForwardInputSchemaToOutputSchemaTV
 
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -116,7 +115,8 @@ public class SimpleCatalogTest {
     assertThat(catalog1.getCatalog("CataloG2")).isEqualTo(catalog2);
     assertThat(catalog1.getFunctionByFullName("ZetaSQL:test_function_name")).isEqualTo(function);
     try {
-      assertThat(catalog1.findProcedure(Arrays.asList("test_procedure_name"))).isEqualTo(procedure);
+      assertThat(catalog1.findProcedure(ImmutableList.of("test_procedure_name")))
+          .isEqualTo(procedure);
     } catch (NotFoundException e) {
       fail();
     }
@@ -240,7 +240,7 @@ public class SimpleCatalogTest {
               "another_test_function_name",
               Function.ZETASQL_FUNCTION_GROUP_NAME,
               Mode.SCALAR,
-              new ArrayList<FunctionSignature>(),
+              new ArrayList<>(),
               FunctionOptionsProto.newBuilder().setAliasName("test_FUNCTION_name").build()));
       fail();
     } catch (IllegalArgumentException expected) {
@@ -266,7 +266,8 @@ public class SimpleCatalogTest {
     // Tests for adding procedure
     catalog.addProcedure(procedure);
     try {
-      assertThat(catalog.findProcedure(Arrays.asList("test_procedure_name"))).isEqualTo(procedure);
+      assertThat(catalog.findProcedure(ImmutableList.of("test_procedure_name")))
+          .isEqualTo(procedure);
     } catch (NotFoundException e) {
       fail();
     }
@@ -456,7 +457,7 @@ public class SimpleCatalogTest {
     TypeFactory factory = TypeFactory.nonUniqueNames();
     SimpleType type = TypeFactory.createSimpleType(TypeKind.TYPE_BOOL);
     SimpleColumn column = new SimpleColumn("t1", "c1", type);
-    SimpleTable table = new SimpleTable("t1", ImmutableList.<SimpleColumn>of(column));
+    SimpleTable table = new SimpleTable("t1", ImmutableList.of(column));
     SimpleCatalog catalog = new SimpleCatalog("catalog1");
     SimpleCatalog catalog2 = new SimpleCatalog("catalog2", factory);
     Function function =
@@ -610,7 +611,7 @@ public class SimpleCatalogTest {
   public void testSerializeTableWithNameInCatalog() {
     SimpleType type = TypeFactory.createSimpleType(TypeKind.TYPE_BOOL);
     SimpleColumn column = new SimpleColumn("T1", "C1", type);
-    SimpleTable table = new SimpleTable("T1", ImmutableList.<SimpleColumn>of(column));
+    SimpleTable table = new SimpleTable("T1", ImmutableList.of(column));
     SimpleCatalog catalog = new SimpleCatalog("foo");
     catalog.addSimpleTable("bar", table);
     catalog.addSimpleTable(table);
@@ -635,7 +636,7 @@ public class SimpleCatalogTest {
   public void testRegisterAndUnregister() {
     SimpleType type = TypeFactory.createSimpleType(TypeKind.TYPE_BOOL);
     SimpleColumn column = new SimpleColumn("t1", "c1", type);
-    SimpleTable table = new SimpleTable("t1", ImmutableList.<SimpleColumn>of(column));
+    SimpleTable table = new SimpleTable("t1", ImmutableList.of(column));
     SimpleCatalog catalog = new SimpleCatalog("catalog1");
     catalog.addSimpleTable(table);
 
@@ -707,7 +708,7 @@ public class SimpleCatalogTest {
   public void testAddSimpleTableToRegisteredSimpleCatalog() {
     SimpleType type = TypeFactory.createSimpleType(TypeKind.TYPE_BOOL);
     SimpleColumn column = new SimpleColumn("t1", "c1", type);
-    SimpleTable table = new SimpleTable("t1", ImmutableList.<SimpleColumn>of(column));
+    SimpleTable table = new SimpleTable("t1", ImmutableList.of(column));
     SimpleCatalog catalog = new SimpleCatalog("catalog1");
     catalog.addSimpleTable(table);
 
@@ -741,9 +742,9 @@ public class SimpleCatalogTest {
       types.add(TypeFactory.createSimpleType(TypeKind.TYPE_DOUBLE));
 
       int i = 0;
-      List<SimpleColumn> columns = new ArrayList<SimpleColumn>();
+      List<SimpleColumn> columns = new ArrayList<>();
       for (Type aType : types) {
-        columns.add(new SimpleColumn("t3", "cc" + Integer.toString(++i), aType));
+        columns.add(new SimpleColumn("t3", "cc" + ++i, aType));
       }
       catalog.addSimpleTable(new SimpleTable("t3", columns));
 
@@ -759,7 +760,7 @@ public class SimpleCatalogTest {
       ZetaSQLDescriptorPool pool3 = getDescriptorPoolWithTypeProtoAndTypeKind();
       TypeFactory factory = TypeFactory.nonUniqueNames();
       List<Type> types = new ArrayList<>();
-      List<SimpleColumn> columns = new ArrayList<SimpleColumn>();
+      List<SimpleColumn> columns = new ArrayList<>();
       // same part with t3
       types.add(factory.createProtoType(pool1.findMessageTypeByName("zetasql.StructTypeProto")));
       types.add(factory.createProtoType(pool1.findMessageTypeByName("zetasql.EnumTypeProto")));
@@ -767,7 +768,7 @@ public class SimpleCatalogTest {
 
       int i = 0;
       for (Type aType : types) {
-        columns.add(new SimpleColumn("t4", "cc" + Integer.toString(++i), aType));
+        columns.add(new SimpleColumn("t4", "cc" + ++i, aType));
       }
 
       // different part with t3
@@ -840,8 +841,7 @@ public class SimpleCatalogTest {
             .setName("yams")
             .setBuiltinFunctionOptions(optionsProto)
             .build();
-    SimpleCatalog catalog =
-        SimpleCatalog.deserialize(catalogProto, ImmutableList.<ZetaSQLDescriptorPool>of());
+    SimpleCatalog catalog = SimpleCatalog.deserialize(catalogProto, ImmutableList.of());
     assertThat(catalog.getFunctionByFullName("ZetaSQL:$add")).isNotNull();
   }
 }

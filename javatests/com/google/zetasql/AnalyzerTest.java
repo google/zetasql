@@ -22,6 +22,7 @@ import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.Volatility;
 import com.google.zetasql.ZetaSQLFunctions.SignatureArgumentKind;
 import com.google.zetasql.ZetaSQLOptions.LanguageFeature;
 import com.google.zetasql.ZetaSQLResolvedNodeKind.ResolvedNodeKind;
@@ -277,7 +278,9 @@ public class AnalyzerTest {
                 TVFRelation.Column.create(
                     "append_col_1", TypeFactory.createSimpleType(TypeKind.TYPE_INT64)),
                 TVFRelation.Column.create(
-                    "append_col_2", TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP))));
+                    "append_col_2", TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP))),
+            "customContext",
+            Volatility.STABLE);
 
     SimpleCatalog catalog = new SimpleCatalog("catalog1");
     catalog.addTableValuedFunction(tvf);

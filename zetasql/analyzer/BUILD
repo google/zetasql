@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
 
 package(
     default_visibility = ["//:__subpackages__"],
@@ -47,12 +48,12 @@ cc_test(
     ],
     deps = [
         ":container_hash_equals",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:map_util",
         "//zetasql/public:id_string",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -185,7 +186,6 @@ cc_test(
     ],
     deps = [
         ":analyzer",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/parser",
@@ -197,6 +197,7 @@ cc_test(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -217,7 +218,6 @@ cc_test(
         "//zetasql/testdata:test_schema_proto",
     ],
     deps = [
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
         "//zetasql/base:map_util",
         "//zetasql/base:path",
@@ -242,6 +242,7 @@ cc_test(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:protobuf",
     ],
 )

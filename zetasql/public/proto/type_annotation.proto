@@ -135,9 +135,10 @@ message FieldFormat {
     // Can be applied to bytes fields.
     BIGNUMERIC = 11;
 
-    // A ZetaSQL JSON value.
+    // A ZetaSQL JSON value. These values are encoded as JSON strings
+    // according to the JSON RFC (RFC 7159)).
     //
-    // Can be applied to bytes fields.
+    // Can be applied to string fields.
     JSON = 12;
 
     // User code that switches on this enum must have a default case so

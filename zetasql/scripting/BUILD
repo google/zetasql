@@ -90,11 +90,11 @@ cc_test(
     ],
     deps = [
         ":parsed_script",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/parser",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:variant",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -178,7 +178,6 @@ cc_test(
     deps = [
         ":error_helpers",
         ":script_segment",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/common:errors",
@@ -188,6 +187,7 @@ cc_test(
         "//zetasql/public:error_helpers",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:parse_location",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 

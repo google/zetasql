@@ -37,10 +37,46 @@
 #include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
+#include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/statusor.h"
 
 namespace zetasql {
+
+namespace {
+
+// Helper function that returns true if an argument of <kind_> can have a
+// default value.
+// Currently, returns true for normal expression typed kinds, and false for
+// others (model, relation, descriptor, connection, void, etc).
+bool CanHaveDefaultValue(SignatureArgumentKind kind) {
+  switch (kind) {
+    case ARG_TYPE_FIXED:
+    case ARG_TYPE_ANY_1:
+    case ARG_TYPE_ANY_2:
+    case ARG_ARRAY_TYPE_ANY_1:
+    case ARG_ARRAY_TYPE_ANY_2:
+    case ARG_PROTO_MAP_ANY:
+    case ARG_PROTO_MAP_KEY_ANY:
+    case ARG_PROTO_MAP_VALUE_ANY:
+    case ARG_PROTO_ANY:
+    case ARG_STRUCT_ANY:
+    case ARG_ENUM_ANY:
+    case ARG_TYPE_ARBITRARY:
+      return true;
+    case ARG_TYPE_RELATION:
+    case ARG_TYPE_VOID:
+    case ARG_TYPE_MODEL:
+    case ARG_TYPE_CONNECTION:
+    case ARG_TYPE_DESCRIPTOR:
+      return false;
+    default:
+      DCHECK(false) << "Invalid signature argument kind: " << kind;
+      return false;
+  }
+}
+
+}  // namespace
 
 FunctionArgumentTypeOptions::FunctionArgumentTypeOptions(
     const TVFRelation& relation_input_schema,
@@ -82,68 +118,106 @@ const FunctionEnums::ArgumentCardinality FunctionArgumentType::REQUIRED;
 const FunctionEnums::ArgumentCardinality FunctionArgumentType::REPEATED;
 const FunctionEnums::ArgumentCardinality FunctionArgumentType::OPTIONAL;
 
+// static
+absl::Status FunctionArgumentTypeOptions::Deserialize(
+    const FunctionArgumentTypeOptionsProto& options_proto,
+    const std::vector<const google::protobuf::DescriptorPool*>& pools,
+    SignatureArgumentKind arg_kind, const Type* arg_type, TypeFactory* factory,
+    FunctionArgumentTypeOptions* options) {
+  options->set_cardinality(options_proto.cardinality());
+  options->set_must_be_constant(options_proto.must_be_constant());
+  options->set_must_be_non_null(options_proto.must_be_non_null());
+  options->set_is_not_aggregate(options_proto.is_not_aggregate());
+  options->set_must_support_equality(options_proto.must_support_equality());
+  options->set_must_support_ordering(options_proto.must_support_ordering());
+  if (options_proto.has_procedure_argument_mode()) {
+    options->set_procedure_argument_mode(
+        options_proto.procedure_argument_mode());
+  }
+  if (options_proto.has_min_value()) {
+    options->set_min_value(options_proto.min_value());
+  }
+  if (options_proto.has_max_value()) {
+    options->set_max_value(options_proto.max_value());
+  }
+  if (options_proto.has_extra_relation_input_columns_allowed()) {
+    options->set_extra_relation_input_columns_allowed(
+        options_proto.extra_relation_input_columns_allowed());
+  }
+  if (options_proto.has_relation_input_schema()) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        TVFRelation relation,
+        TVFRelation::Deserialize(options_proto.relation_input_schema(), pools,
+                                 factory));
+    *options = FunctionArgumentTypeOptions(
+        relation, options->extra_relation_input_columns_allowed());
+  }
+  if (options_proto.has_argument_name()) {
+    options->set_argument_name(options_proto.argument_name());
+  }
+  if (options_proto.has_argument_name_is_mandatory()) {
+    options->set_argument_name_is_mandatory(
+        options_proto.argument_name_is_mandatory());
+  }
+  ParseLocationRange location;
+  if (options_proto.has_argument_name_parse_location()) {
+    ZETASQL_ASSIGN_OR_RETURN(location,
+                     ParseLocationRange::Create(
+                         options_proto.argument_name_parse_location()));
+    options->set_argument_name_parse_location(location);
+  }
+  if (options_proto.has_argument_type_parse_location()) {
+    ZETASQL_ASSIGN_OR_RETURN(location,
+                     ParseLocationRange::Create(
+                         options_proto.argument_type_parse_location()));
+    options->set_argument_type_parse_location(location);
+  }
+  if (options_proto.has_descriptor_resolution_table_offset()) {
+    options->set_resolve_descriptor_names_table_offset(
+        options_proto.descriptor_resolution_table_offset());
+  }
+  if (options_proto.has_default_value()) {
+    if (!CanHaveDefaultValue(arg_kind)) {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << FunctionArgumentType::SignatureArgumentKindToString(arg_kind)
+             << " argument cannot have a default value";
+    }
+    const Type* default_value_type = arg_type;
+    // For templated arguments, we use
+    // `FunctionArgumentTypeOptionsProto.default_value_type` to help
+    // deserializing the default value, while for fixed type arguments, we use
+    // directly `type` which is from `FunctionArgumentTypeProto.type`. Only one
+    // of the two types will be set.
+    if (options_proto.has_default_value_type()) {
+      ZETASQL_RET_CHECK(arg_type == nullptr);
+      ZETASQL_RETURN_IF_ERROR(factory->DeserializeFromProtoUsingExistingPools(
+          options_proto.default_value_type(), pools, &default_value_type));
+    }
+    ZETASQL_RET_CHECK(default_value_type != nullptr);
+    ZETASQL_ASSIGN_OR_RETURN(Value value,
+                     Value::Deserialize(options_proto.default_value(),
+                                        default_value_type));
+    options->set_default(std::move(value));
+  }
+  return absl::OkStatus();
+}
+
+// static
 absl::Status FunctionArgumentType::Deserialize(
     const FunctionArgumentTypeProto& proto,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
-    TypeFactory* factory,
-    std::unique_ptr<FunctionArgumentType>* result) {
-  FunctionArgumentTypeOptions options;
-  options.set_cardinality(proto.options().cardinality());
-  options.set_must_be_constant(proto.options().must_be_constant());
-  options.set_must_be_non_null(proto.options().must_be_non_null());
-  options.set_is_not_aggregate(proto.options().is_not_aggregate());
-  options.set_must_support_equality(proto.options().must_support_equality());
-  options.set_must_support_ordering(proto.options().must_support_ordering());
-  if (proto.options().has_procedure_argument_mode()) {
-    options.set_procedure_argument_mode(
-        proto.options().procedure_argument_mode());
-  }
-  if (proto.options().has_min_value()) {
-    options.set_min_value(proto.options().min_value());
-  }
-  if (proto.options().has_max_value()) {
-    options.set_max_value(proto.options().max_value());
-  }
-  if (proto.options().has_extra_relation_input_columns_allowed()) {
-    options.set_extra_relation_input_columns_allowed(
-        proto.options().extra_relation_input_columns_allowed());
-  }
-  if (proto.options().has_relation_input_schema()) {
-    ZETASQL_ASSIGN_OR_RETURN(
-        TVFRelation relation,
-        TVFRelation::Deserialize(proto.options().relation_input_schema(), pools,
-                                 factory));
-    options = FunctionArgumentTypeOptions(
-        relation, options.extra_relation_input_columns_allowed());
-  }
-  if (proto.options().has_argument_name()) {
-    options.set_argument_name(proto.options().argument_name());
-  }
-  if (proto.options().has_argument_name_is_mandatory()) {
-    options.set_argument_name_is_mandatory(
-        proto.options().argument_name_is_mandatory());
-  }
-  ParseLocationRange location;
-  if (proto.options().has_argument_name_parse_location()) {
-    ZETASQL_ASSIGN_OR_RETURN(location,
-                     ParseLocationRange::Create(
-                         proto.options().argument_name_parse_location()));
-    options.set_argument_name_parse_location(location);
-  }
-  if (proto.options().has_argument_type_parse_location()) {
-    ZETASQL_ASSIGN_OR_RETURN(location,
-                     ParseLocationRange::Create(
-                         proto.options().argument_type_parse_location()));
-    options.set_argument_type_parse_location(location);
-  }
-  if (proto.options().has_descriptor_resolution_table_offset()) {
-    options.set_resolve_descriptor_names_table_offset(
-        proto.options().descriptor_resolution_table_offset());
-  }
+    TypeFactory* factory, std::unique_ptr<FunctionArgumentType>* result) {
+  const Type* type = nullptr;
   if (proto.kind() == ARG_TYPE_FIXED) {
-    const Type* type;
     ZETASQL_RETURN_IF_ERROR(factory->DeserializeFromProtoUsingExistingPools(
         proto.type(), pools, &type));
+  }
+
+  FunctionArgumentTypeOptions options;
+  ZETASQL_RETURN_IF_ERROR(FunctionArgumentTypeOptions::Deserialize(
+      proto.options(), pools, proto.kind(), type, factory, &options));
+
+  if (type != nullptr) {
     *result = absl::make_unique<FunctionArgumentType>(type, options,
                                                       proto.num_occurrences());
   } else {
@@ -153,71 +227,90 @@ absl::Status FunctionArgumentType::Deserialize(
   return absl::OkStatus();
 }
 
+absl::Status FunctionArgumentTypeOptions::Serialize(
+    const Type* arg_type, FunctionArgumentTypeOptionsProto* options_proto,
+    FileDescriptorSetMap* file_descriptor_set_map) const {
+  options_proto->set_cardinality(cardinality());
+  if (procedure_argument_mode() != FunctionEnums::NOT_SET) {
+    options_proto->set_procedure_argument_mode(procedure_argument_mode());
+  }
+  if (must_be_constant()) {
+    options_proto->set_must_be_constant(must_be_constant());
+  }
+  if (must_be_non_null()) {
+    options_proto->set_must_be_non_null(must_be_non_null());
+  }
+  if (is_not_aggregate()) {
+    options_proto->set_is_not_aggregate(is_not_aggregate());
+  }
+  if (must_support_equality()) {
+    options_proto->set_must_support_equality(must_support_equality());
+  }
+  if (must_support_ordering()) {
+    options_proto->set_must_support_ordering(must_support_ordering());
+  }
+  if (has_min_value()) {
+    options_proto->set_min_value(min_value());
+  }
+  if (has_max_value()) {
+    options_proto->set_max_value(max_value());
+  }
+  if (get_resolve_descriptor_names_table_offset().has_value()) {
+    options_proto->set_descriptor_resolution_table_offset(
+        get_resolve_descriptor_names_table_offset().value());
+  }
+  if (get_default().has_value()) {
+    const Value& default_value = get_default().value();
+    ZETASQL_RETURN_IF_ERROR(
+        default_value.Serialize(options_proto->mutable_default_value()));
+    if (arg_type == nullptr) {
+      ZETASQL_RETURN_IF_ERROR(
+          default_value.type()->SerializeToProtoAndDistinctFileDescriptors(
+              options_proto->mutable_default_value_type(),
+              file_descriptor_set_map));
+    }
+  }
+  options_proto->set_extra_relation_input_columns_allowed(
+      extra_relation_input_columns_allowed());
+  if (has_relation_input_schema()) {
+    ZETASQL_RETURN_IF_ERROR(relation_input_schema().Serialize(
+        file_descriptor_set_map,
+        options_proto->mutable_relation_input_schema()));
+  }
+  if (has_argument_name()) {
+    options_proto->set_argument_name(argument_name());
+  }
+  if (argument_name_is_mandatory()) {
+    options_proto->set_argument_name_is_mandatory(true);
+  }
+  absl::optional<ParseLocationRange> parse_location_range =
+      argument_name_parse_location();
+  if (parse_location_range.has_value()) {
+    ZETASQL_ASSIGN_OR_RETURN(*options_proto->mutable_argument_name_parse_location(),
+                     parse_location_range.value().ToProto());
+  }
+  parse_location_range = argument_type_parse_location();
+  if (parse_location_range.has_value()) {
+    ZETASQL_ASSIGN_OR_RETURN(*options_proto->mutable_argument_type_parse_location(),
+                     parse_location_range.value().ToProto());
+  }
+  return absl::OkStatus();
+}
+
 absl::Status FunctionArgumentType::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     FunctionArgumentTypeProto* proto) const {
-  FunctionArgumentTypeOptionsProto* options_proto = proto->mutable_options();
-  options_proto->set_cardinality(cardinality());
   proto->set_kind(kind());
   proto->set_num_occurrences(num_occurrences());
-  if (options().procedure_argument_mode() != FunctionEnums::NOT_SET) {
-    options_proto->set_procedure_argument_mode(
-        options().procedure_argument_mode());
-  }
-  if (options().must_be_constant()) {
-    options_proto->set_must_be_constant(options().must_be_constant());
-  }
-  if (options().must_be_non_null()) {
-    options_proto->set_must_be_non_null(options().must_be_non_null());
-  }
-  if (options().is_not_aggregate()) {
-    options_proto->set_is_not_aggregate(options().is_not_aggregate());
-  }
-  if (options().must_support_equality()) {
-    options_proto->set_must_support_equality(options().must_support_equality());
-  }
-  if (options().must_support_ordering()) {
-    options_proto->set_must_support_ordering(options().must_support_ordering());
-  }
-  if (options().has_min_value()) {
-    options_proto->set_min_value(options().min_value());
-  }
-  if (options().has_max_value()) {
-    options_proto->set_max_value(options().max_value());
-  }
-  if (options().get_resolve_descriptor_names_table_offset().has_value()) {
-    options_proto->set_descriptor_resolution_table_offset(
-        options().get_resolve_descriptor_names_table_offset().value());
-  }
 
   if (type() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(type()->SerializeToProtoAndDistinctFileDescriptors(
         proto->mutable_type(), file_descriptor_set_map));
   }
-  options_proto->set_extra_relation_input_columns_allowed(
-      options().extra_relation_input_columns_allowed());
-  if (options().has_relation_input_schema()) {
-    ZETASQL_RETURN_IF_ERROR(options().relation_input_schema().Serialize(
-        file_descriptor_set_map,
-        options_proto->mutable_relation_input_schema()));
-  }
-  if (options().has_argument_name()) {
-    options_proto->set_argument_name(options().argument_name());
-  }
-  if (options().argument_name_is_mandatory()) {
-    options_proto->set_argument_name_is_mandatory(true);
-  }
-  absl::optional<ParseLocationRange> parse_location_range =
-      options().argument_name_parse_location();
-  if (parse_location_range.has_value()) {
-    ZETASQL_ASSIGN_OR_RETURN(*options_proto->mutable_argument_name_parse_location(),
-                     parse_location_range.value().ToProto());
-  }
-  parse_location_range = options().argument_type_parse_location();
-  if (parse_location_range.has_value()) {
-    ZETASQL_ASSIGN_OR_RETURN(*options_proto->mutable_argument_type_parse_location(),
-                     parse_location_range.value().ToProto());
-  }
+
+  ZETASQL_RETURN_IF_ERROR(options().Serialize(type(), proto->mutable_options(),
+                                      file_descriptor_set_map));
+
   return absl::OkStatus();
 }
 
@@ -234,6 +327,10 @@ std::string FunctionArgumentTypeOptions::OptionsDebugString() const {
   std::vector<std::string> options;
   if (must_be_constant_) options.push_back("must_be_constant: true");
   if (must_be_non_null_) options.push_back("must_be_non_null: true");
+  if (default_.has_value()) {
+    options.push_back(
+        absl::StrCat("default_value: ", default_->ShortDebugString()));
+  }
   if (is_not_aggregate_) options.push_back("is_not_aggregate: true");
   if (procedure_argument_mode_ != FunctionEnums::NOT_SET) {
     options.push_back(absl::StrCat(
@@ -254,6 +351,10 @@ std::string FunctionArgumentTypeOptions::GetSQLDeclaration(
   // We emit a comment for those cases.
   if (must_be_constant_) options.push_back("/*must_be_constant*/");
   if (must_be_non_null_) options.push_back("/*must_be_non_null*/");
+  if (default_.has_value()) {
+    options.push_back("DEFAULT");
+    options.push_back(default_->GetSQLLiteral(product_mode));
+  }
   if (is_not_aggregate_) options.push_back("NOT AGGREGATE");
   if (options.empty()) {
     return "";
@@ -386,30 +487,63 @@ bool FunctionArgumentType::IsConcrete() const {
 }
 
 absl::Status FunctionArgumentType::IsValid() const {
-  if (IsConcrete()) {
-    switch (cardinality()) {
-      case REPEATED:
+  switch (cardinality()) {
+    case REPEATED:
+      if (IsConcrete()) {
         if (num_occurrences_ < 0) {
           return MakeSqlError()
                  << "REPEATED concrete argument has " << num_occurrences_
                  << " occurrences but must have at least 0: " << DebugString();
         }
-        break;
-      case OPTIONAL:
+      }
+      if (HasDefault()) {
+        return MakeSqlError()
+               << "Default value cannot be applied to a REPEATED argument: "
+               << DebugString();
+      }
+      break;
+    case OPTIONAL:
+      if (IsConcrete()) {
         if (num_occurrences_ < 0 || num_occurrences_ > 1) {
           return MakeSqlError()
                  << "OPTIONAL concrete argument has " << num_occurrences_
                  << " occurrences but must have 0 or 1: " << DebugString();
         }
-        break;
-      case REQUIRED:
+      }
+      if (HasDefault()) {
+        if (!CanHaveDefaultValue(kind())) {
+          // Relation/Model/Connection/Descriptor arguments cannot have
+          // default values.
+          return MakeSqlError()
+                 << SignatureArgumentKindToString(kind())
+                 << " argument cannot have a default value: " << DebugString();
+        }
+        if (!GetDefault().value().is_valid()) {
+          return MakeSqlError()
+                 << "Default value must be valid: " << DebugString();
+        }
+        // Verify type match for fixed-typed arguments.
+        if (type() != nullptr && !GetDefault().value().type()->Equals(type())) {
+          return MakeSqlError()
+                 << "Default value type does not match the argument type: "
+                 << DebugString();
+        }
+      }
+      break;
+    case REQUIRED:
+      if (IsConcrete()) {
         if (num_occurrences_ != 1) {
           return MakeSqlError()
                  << "REQUIRED concrete argument has " << num_occurrences_
                  << " occurrences but must have exactly 1: " << DebugString();
         }
-        break;
-    }
+      }
+      if (HasDefault()) {
+        return MakeSqlError()
+               << "Default value cannot be applied to a REQUIRED argument: "
+               << DebugString();
+      }
+      break;
   }
   return absl::OkStatus();
 }

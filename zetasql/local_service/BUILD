@@ -89,7 +89,6 @@ cc_test(
     tags = ["requires-net:loopback"],
     deps = [
         ":local_service",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
         "//zetasql/base:path",
         "//zetasql/base:status",
@@ -106,9 +105,34 @@ cc_test(
         "//zetasql/public:value",
         "//zetasql/public:value_cc_proto",
         "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_absl//absl/base",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_test(
+    name = "local_service_benchmark",
+    srcs = ["local_service_benchmark.cc"],
+    copts = [
+        "-Wno-pessimizing-move",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+    ],
+    deps = [
+        ":local_service",
+        ":local_service_cc_proto",
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/base/testing:status_matchers",
+        "@com_github_google_benchmark//:benchmark_main",
+        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/status",
     ],
 )
 

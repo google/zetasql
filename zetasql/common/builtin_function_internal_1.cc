@@ -411,6 +411,43 @@ absl::Status CheckDateTruncArguments(
   return absl::OkStatus();
 }
 
+absl::Status CheckLastDayArguments(
+    const std::string& function_name,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  if (arguments.size() < 2) {
+    // Let validation happen normally.  It will return an error later.
+    return absl::OkStatus();
+  }
+
+  // LAST_DAY only supports date parts WEEK, MONTH, QUARTER,
+  // YEAR.  If the second argument is a literal then check the date part.
+  if (arguments[1].type()->IsEnum() && arguments[1].is_literal()) {
+    switch (arguments[1].literal_value()->enum_value()) {
+      case functions::YEAR:
+      case functions::ISOYEAR:
+      case functions::QUARTER:
+      case functions::MONTH:
+      case functions::WEEK:
+      case functions::ISOWEEK:
+      case functions::WEEK_MONDAY:
+      case functions::WEEK_TUESDAY:
+      case functions::WEEK_WEDNESDAY:
+      case functions::WEEK_THURSDAY:
+      case functions::WEEK_FRIDAY:
+      case functions::WEEK_SATURDAY:
+        return absl::OkStatus();
+      default:
+        return MakeSqlError() << function_name << " does not support the "
+                              << DateTimestampPartToSQL(
+                                     arguments[1].literal_value()->enum_value())
+                              << " date part";
+    }
+  }
+  // Let validation of other arguments happen normally.
+  return absl::OkStatus();
+}
+
 absl::Status CheckTimeTruncArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
@@ -1325,6 +1362,30 @@ absl::Status CheckArrayConcatArguments(
   return absl::OkStatus();
 }
 
+absl::Status CheckArrayIsDistinctArguments(
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  if (arguments[0].is_null()) {
+    return absl::OkStatus();
+  }
+
+  const ArrayType* array_type = arguments[0].type()->AsArray();
+  ZETASQL_RET_CHECK_NE(array_type, nullptr)
+      << "ARRAY_IS_DISTINCT cannot be used on non-array type "
+      << arguments[0].type()->DebugString();
+
+  if (!array_type->element_type()->SupportsGrouping(language_options,
+                                                    nullptr)) {
+    return zetasql_base::InvalidArgumentErrorBuilder()
+           << "ARRAY_IS_DISTINCT cannot be used on argument of type "
+           << array_type->ShortTypeName(language_options.product_mode())
+           << " because the array's element type does not support "
+              "grouping";
+  }
+
+  return absl::OkStatus();
+}
+
 absl::Status CheckInArrayArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
@@ -1471,6 +1532,24 @@ zetasql_base::StatusOr<const Type*> ComputeResultTypeForTopStruct(
   const Type* element_type;
   ZETASQL_RETURN_IF_ERROR(type_factory->MakeStructType(
       {{"value", arguments[0].type()}, {field2_name, arguments[1].type()}},
+      &element_type));
+  const Type* result_type = nullptr;
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeArrayType(element_type, &result_type));
+  return result_type;
+}
+
+// Compute the result type for ST_NEAREST_NEIGHBORS.
+// The output type is
+//   ARRAY<
+//     STRUCT<`neighbor` <arguments[0].type>,
+//            `distance` Double> >
+zetasql_base::StatusOr<const Type*> ComputeResultTypeForNearestNeighborsStruct(
+    Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
+    const std::vector<InputArgumentType>& arguments,
+    const AnalyzerOptions& analyzer_options) {
+  const Type* element_type = nullptr;
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeStructType(
+      {{"neighbor", arguments[0].type()}, {"distance", types::DoubleType()}},
       &element_type));
   const Type* result_type = nullptr;
   ZETASQL_RETURN_IF_ERROR(type_factory->MakeArrayType(element_type, &result_type));

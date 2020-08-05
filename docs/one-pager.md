@@ -1404,6 +1404,21 @@ SELECT '-0x123' as hex_value, CAST('-0x123' as INT64) as hex_to_int;
 +-----------+------------+
 ```
 
+##### Casting time types
+
+ZetaSQL supports casting time types to/from strings as follows:
+
+```
+CAST(time_expression AS STRING)
+CAST(string_expression AS TIME)
+```
+
+Casting from a time type to a string is independent of time zone and is of the
+form `HH:MM:SS`.  When casting from string to time, the string must conform to
+the supported time literal format, and is independent of time zone. If the
+string expression is invalid or represents a time that is outside of the
+supported min/max range, then an error is produced.
+
 ##### Casting date types
 
 ZetaSQL supports casting date types to/from strings as follows:
@@ -1415,9 +1430,24 @@ CAST(string_expression AS DATE)
 
 Casting from a date type to a string is independent of time zone and is of the
 form `YYYY-MM-DD`.  When casting from string to date, the string must conform to
-the supported date literal format, and is independent of time zone. If the string
-expression is invalid or represents a date that is outside of the supported
-min/max range, then an error is produced.
+the supported date literal format, and is independent of time zone. If the
+string expression is invalid or represents a date that is outside of the
+supported min/max range, then an error is produced.
+
+##### Casting datetime types
+
+ZetaSQL supports casting datetime types to/from strings as follows:
+
+```
+CAST(datetime_expression AS STRING)
+CAST(string_expression AS DATETIME)
+```
+
+Casting from a datetime type to a string is independent of time zone and is of
+the form `YYYY-MM-DD HH:MM:SS`.  When casting from string to datetime, the
+string must conform to the supported datetime literal format, and is independent
+of time zone. If the string expression is invalid or represents a datetime that
+is outside of the supported min/max range, then an error is produced.
 
 ##### Casting timestamp types
 
@@ -1445,9 +1475,10 @@ An error is produced if the `string_expression` is invalid, has more than six
 subsecond digits (i.e. precision greater than microseconds), or represents a
 time outside of the supported timestamp range.
 
-##### Casting between date and timestamp types
+##### Casting between date, datetime and timestamp types {: #casting-date-time-timestamp }
 
-ZetaSQL supports casting between date and timestamp types as follows:
+ZetaSQL supports casting between date, datetime and timestamp types as shown in
+the [conversion rules table][conversion-rules-table].
 
 ```
 CAST(date_expression AS TIMESTAMP)
@@ -1458,6 +1489,14 @@ Casting from a date to a timestamp interprets `date_expression` as of midnight
 (start of the day) in the default time zone, which is implementation defined. Casting
 from a timestamp to date effectively truncates the timestamp as of the default
 time zone.
+
+```
+CAST(datetime_expression AS TIMESTAMP)
+CAST(timestamp_expression AS DATETIME)
+```
+
+Casting from a datetime to a timestamp interprets `datetime_expression` as of
+midnight (start of the day) in the default time zone, which is implementation defined.
 
 ##### Bit casting
 
@@ -1534,7 +1573,7 @@ be explicitly CAST to a specific ENUM type name.
 
 <tr>
 <td>STRING literal</td>
-<td><span> DATE</span><br /><span> ENUM</span><br /><span> PROTO</span><br /><span> TIMESTAMP</span><br /></td>
+<td><span> DATE</span><br /><span> DATETIME</span><br /><span> ENUM</span><br /><span> PROTO</span><br /><span> TIME</span><br /><span> TIMESTAMP</span><br /></td>
 <td>
 
 String literals will implicitly coerce to PROTO
@@ -1614,6 +1653,7 @@ ZetaSQL provides the following additional conversion functions:
 + [TIME functions][con-rules-link-to-time-functions]
 + [TIMESTAMP functions][con-rules-link-to-timestamp-functions]
 
+[conversion-rules-table]: #conversion_rules
 [con-rules-link-to-literal-coercion]: #literal_coercion
 [con-rules-link-to-parameter-coercion]: #parameter_coercion
 [con-rules-link-to-time-zones]: https://github.com/google/zetasql/blob/master/docs/data-types#time_zones
@@ -2182,37 +2222,86 @@ This operator throws an error if Y is negative.</td>
 
 #### Logical operators
 
-All logical operators allow only BOOL input.
+ZetaSQL supports the `AND`, `OR`, and  `NOT` logical operators.
+Logical operators allow only BOOL or `NULL` input
+and use [three-valued logic](https://en.wikipedia.org/wiki/Three-valued_logic)
+to produce a result. The result can be `TRUE`, `FALSE`, or `NULL`:
 
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Syntax</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Logical NOT</td>
-<td style="white-space:nowrap">NOT X</td>
-<td>Returns FALSE if input is TRUE. Returns TRUE if input is FALSE. Returns <code>NULL</code>
-otherwise.</td>
-</tr>
-<tr>
-<td>Logical AND</td>
-<td style="white-space:nowrap">X AND Y</td>
-<td>Returns FALSE if at least one input is FALSE. Returns TRUE if both X and Y
-are TRUE. Returns <code>NULL</code> otherwise.</td>
-</tr>
-<tr>
-<td>Logical OR</td>
-<td style="white-space:nowrap">X OR Y</td>
-<td>Returns FALSE if both X and Y are FALSE. Returns TRUE if at least one input
-is TRUE. Returns <code>NULL</code> otherwise.</td>
-</tr>
-</tbody>
-</table>
+| x       | y       | x AND y | x OR y |
+| ------- | ------- | ------- | ------ |
+| TRUE    | TRUE    | TRUE    | TRUE   |
+| TRUE    | FALSE   | FALSE   | TRUE   |
+| TRUE    | NULL    | NULL    | TRUE   |
+| FALSE   | TRUE    | FALSE   | TRUE   |
+| FALSE   | FALSE   | FALSE   | FALSE  |
+| FALSE   | NULL    | FALSE   | NULL   |
+| NULL    | TRUE    | NULL    | TRUE   |
+| NULL    | FALSE   | NULL    | NULL   |
+| NULL    | NULL    | NULL    | NULL   |
+
+| x       | NOT x   |
+| ------- | ------- |
+| TRUE    | FALSE   |
+| FALSE   | TRUE    |
+| NULL    | NULL    |
+
+**Examples**
+
+The examples in this section reference a table called `entry_table`:
+
+```sql
++-------+
+| entry |
++-------+
+| a     |
+| b     |
+| c     |
+| NULL  |
++-------+
+```
+
+```sql
+SELECT 'a' FROM entry_table WHERE entry = 'a'
+
+-- a => 'a' = 'a' => TRUE
+-- b => 'b' = 'a' => FALSE
+-- NULL => NULL = 'a' => NULL
+
++-------+
+| entry |
++-------+
+| a     |
++-------+
+```
+
+```sql
+SELECT entry FROM entry_table WHERE NOT (entry = 'a')
+
+-- a => NOT('a' = 'a') => NOT(TRUE) => FALSE
+-- b => NOT('b' = 'a') => NOT(FALSE) => TRUE
+-- NULL => NOT(NULL = 'a') => NOT(NULL) => NULL
+
++-------+
+| entry |
++-------+
+| b     |
+| c     |
++-------+
+```
+
+```sql
+SELECT entry FROM entry_table WHERE entry IS NULL
+
+-- a => 'a' IS NULL => FALSE
+-- b => 'b' IS NULL => FALSE
+-- NULL => NULL IS NULL => TRUE
+
++-------+
+| entry |
++-------+
+| NULL  |
++-------+
+```
 
 #### Comparison operators
 
@@ -3162,6 +3251,10 @@ scale.</td>
 </tr>
 </tbody>
 </table>
+
+#### DECIMAL type
+
+`DECIMAL` is an alias for `NUMERIC`.
 
 #### Floating point types {: #floating_point_types }
 
@@ -5022,9 +5115,11 @@ FROM Roster JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 
 `CROSS JOIN` returns the Cartesian product of the two `from_item`s. In other
 words, it combines each row from the first `from_item` with each row from the
-second `from_item`. If there are *M* rows from the first and *N* rows from the
-second, the result is *M* * *N* rows. Note that if either `from_item` has zero
-rows, the result is zero rows.
+second `from_item`.
+
+If the rows of the two `from_item`s are independent, then the result has *M* *
+*N* rows, given *M* rows in one `from_item` and *N* in the other. Note that this
+still holds for the case when either `from_item` has zero rows.
 
 ```sql
 FROM A CROSS JOIN B
@@ -5038,6 +5133,25 @@ Table A       Table B       Result
 +-------+     +-------+     | 2 | b | 2 | c |
                             | 2 | b | 3 | d |
                             +---------------+
+```
+
+You can use *correlated* `CROSS JOIN`s to
+[flatten `ARRAY` columns][flattening-arrays]. In this case, the rows of the
+second `from_item` vary for each row of the first `from_item`.
+
+```sql
+FROM A CROSS JOIN A.y
+
+Table A                    Result
++-------------------+      +-----------+
+| w | x | y         |  ->  | w | x | y |
++-------------------+      +-----------+
+| 1 | a | [P, Q]    |      | 1 | a | P |
+| 2 | b | [R, S, T] |      | 1 | a | Q |
++-------------------+      | 2 | b | R |
+                           | 2 | b | S |
+                           | 2 | b | T |
+                           +-----------+
 ```
 
 `CROSS JOIN`s can be written explicitly like this:
@@ -5054,7 +5168,7 @@ FROM a, b
 
 You cannot write comma cross joins inside parentheses:
 
-```sql
+```sql {.bad}
 FROM a CROSS JOIN (b, c)  // INVALID
 ```
 
@@ -5433,9 +5547,15 @@ FROM A JOIN B USING (x) JOIN C USING (x), D
 
 There cannot be a `RIGHT JOIN` or `FULL JOIN` after a comma join:
 
-```sql
+```sql {.bad}
 FROM A, B RIGHT JOIN C ON TRUE // INVALID
+```
+
+```sql {.bad}
 FROM A, B FULL JOIN C ON TRUE  // INVALID
+```
+
+```sql
 FROM A, B JOIN C ON TRUE       // VALID
 ```
 
@@ -6065,9 +6185,10 @@ query1 UNION ALL query2 UNION ALL query3
 
 Invalid:
 
-<pre>
-query1 UNION ALL query2 UNION DISTINCT query3<br>query1 UNION ALL query2 INTERSECT ALL query3;  // INVALID.
-</pre>
+``` {.bad}
+query1 UNION ALL query2 UNION DISTINCT query3
+query1 UNION ALL query2 INTERSECT ALL query3;  // INVALID.
+```
 
 <a id="union"></a>
 #### UNION
@@ -6282,7 +6403,7 @@ FROM Singers AS s, s.Concerts;
 
 Invalid:
 
-```
+``` {.bad}
 SELECT FirstName
 FROM s.Concerts, Singers AS s;  // INVALID.
 ```
@@ -6293,7 +6414,7 @@ other tables in the same `FROM` clause.
 
 Invalid:
 
-```
+``` {.bad}
 SELECT FirstName
 FROM Singers AS s, (SELECT (2020 - ReleaseDate) FROM s)  // INVALID.
 ```
@@ -6323,7 +6444,7 @@ ORDER BY s.LastName
 
 Invalid &mdash; `ORDER BY` does not use the table alias:
 
-```
+``` {.bad}
 SELECT * FROM Singers as s, Songs as s2
 ORDER BY Singers.LastName;  // INVALID.
 ```
@@ -9432,17 +9553,17 @@ FROM table;
 To query the individual values of a repeated field, reference the field name
 using dot notation to return an `ARRAY`, and
 [flatten the `ARRAY` using `UNNEST`][flattening-arrays]. Use `CROSS JOIN` to
-apply the `UNNEST` operator to each row and join the flattened `ARRAY`
-to the duplicated value of any non-repeated fields or columns.
+apply the `UNNEST` operator to each row and join the flattened `ARRAY` to the
+duplicated value of any non-repeated fields or columns in that row.
 
 **Example**
 
 The following example queries the table from the previous example and returns
 the values of the repeated field as an `ARRAY`. The `UNNEST` operator flattens
-the `ARRAY` that represents the repeated field `song`. `CROSS JOIN` applies
-the `UNNEST` operator to each row and joins the output of `UNNEST` to the
-duplicated value of the column `band_name` and the non-repeated field
-`album_name`.
+the `ARRAY` that represents the repeated field `song`. `CROSS JOIN` applies the
+`UNNEST` operator to each row and joins the output of `UNNEST` to the duplicated
+value of the column `band_name` and the non-repeated field `album_name` within
+that row.
 
 ```sql
 WITH table AS (
@@ -10740,8 +10861,8 @@ Create external UDFs using the following syntax.
 CREATE
   [ { TEMPORARY | TEMP } ] FUNCTION
   function_name ( [ function_parameter [, ...] ] )
-  [ determinism_specifier ]
   RETURNS data_type
+  [ determinism_specifier ]
   LANGUAGE language_name AS string_literal
 
 function_parameter:
@@ -11215,134 +11336,6 @@ FROM CustomerRangeWithCustomerType(100, 200, 'CUSTOMER_TYPE_ADVERTISER');
 [datamodel-value-tables]: #value-tables
 [aggregate-fns-link]: #aggregate-functions
 [group-by-link]: #group-by-clause
-
-<!-- END CONTENT -->
-
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
-
-## Approximate Aggregation
-
-<!-- BEGIN CONTENT -->
-
-This topic explains the concepts behind approximate
-aggregation in ZetaSQL.
-
-### What is approximate aggregation?
-
-Approximate aggregation is the estimation of aggregate function
-outputs, such as cardinality and quantiles. Approximate
-aggregation requires less memory than normal aggregation functions like
-`COUNT(DISTINCT ...)`, but also introduces statistical uncertainty. This makes it
-appropriate for large data streams for which linear memory usage is impractical,
-as well as for data that is already approximate. Where exact results are
-necessary, use exact [aggregate functions][exact-aggregate-fns]. This topic
-describes the concepts behind approximate aggregation in ZetaSQL.
-
-### Fixed-precision approximate aggregation
-
-ZetaSQL supports
-[aggregate functions with fixed precision][link-to-APPROX_] for estimating
-cardinality and quantiles. These functions work directly on the input data,
-rather than an intermediate estimation of the data. These functions do not allow
-users to specify the precision for the estimation.
-
-### Storing estimated aggregate values as sketches
-
-ZetaSQL supports
-[HyperLogLog++ cardinality estimation functions][hll-functions] for estimating
-the number of distinct values in a large dataset.
-ZetaSQL supports [KLL16 quantile estimation functions][kll-functions]
-for estimating quantile values in a large dataset.
-
-These functions operate on sketches that compress an arbitrary set into a
-fixed-memory representation. ZetaSQL stores these sketches as
-`BYTES`. You can merge the sketches to produce a new sketch that represents the
-union of the input sketches, before you extract a final numeric estimate from
-the sketch.
-
-For example, consider the following table, which contains ice-cream flavors and
-the number of people who claimed to enjoy that flavor:
-
-Flavor            | People
-------------------|--------
-Vanilla           | 3945
-Chocolate         | 1728
-Strawberry        | 2051
-
-If this table is the result of aggregation, then it may not be possible to use
-the table to calculate cardinality. If you wanted to know the number of unique
-respondents, you couldn't use `SUM` to aggregate the `People` column, because
-some respondents may have responded positively to more than one flavor. On the
-other hand, performing an aggregate function over the underlying raw
-data can consume large amounts of time and memory.
-
-One solution is to store an approximate aggregate or **sketch** of the raw
-data. A sketch is a summary of the raw data. Sketches require less memory than
-the raw data, and you can extract an estimate, such as the estimated number of
-unique users, from the sketch.
-
-#### Specifying approximation precision
-
-ZetaSQL's sketch-based approximate aggregation functions
-allow you to specify the precision of the sketch when you create it. The
-precision of the sketch affects the accuracy of the estimate you can extract
-from the sketch. Higher precision requires additional memory to process the
-sketches or store them on disk, and reduces the relative error of any estimate
-you extract from the sketch. Once you have created the sketch, you can only
-merge it with other sketches of the same precision.
-
-#### Merging sketches
-
-You can merge two or more sketches to produce a new sketch which represents an
-estimate of the union of the data underlying the different sketches. The merge
-function, such as `HLL_COUNT.MERGE`,
-returns the estimate as a number, whereas the partial merge
-function, such as
-`HLL_COUNT.MERGE_PARTIAL`, returns the new sketch in `BYTES`.
-A partial merge is useful if you want to reduce a table that already contains
-sketches, but do not yet want to extract an estimate. For example, use this
-function if you want to create a sketch that you will merge with another sketch
-later.
-
-#### Extracting estimates from sketches
-
-Once you have stored a sketch or merged two or more sketches into a new sketch,
-you can use the extract function, such as
-`HLL_COUNT.EXTRACT`, to return an estimate of the underlying data,
-such as the estimated number of unique users, as a number.
-
-### Algorithms
-
- This section describes the
-approximate aggregate algorithms that ZetaSQL supports.
-
-#### HyperLogLog++
-
-The [HyperLogLog++][HyperLogLogPlusPlus-paper] algorithm is an improvement on
-the [HyperLogLog][hll-link-to-hyperloglog-wikipedia] algorithm for estimating
-distinct values in a data set. In ZetaSQL, the
-[HyperLogLog++ cardinality estimation functions][hll-functions] use this
-algorithm. The HyperLogLog++ algorithm improves on the HyperLogLog algorithm by
-using bias correction to reduce error for an important range of cardinalities.
-
-#### KLL16
-
-The [KLL16][link-to-kll-paper] algorithm is an algorithm for estimating
-quantile values in a data set. In ZetaSQL, the
-[KLL16 quantile estimation functions][kll-functions] use this
-algorithm. The KLL16 algorithm improves on the [MP80 algorithm][mp80] by
-using variable-size buffers to reduce memory use for large data sets.
-
-[link-to-kll-paper]: https://arxiv.org/pdf/1603.05346v2.pdf
-[mp80]: https://polylogblog.files.wordpress.com/2009/08/80munro-median.pdf
-[HyperLogLogPlusPlus-paper]: https://research.google.com/pubs/pub40671.html
-[hll-link-to-hyperloglog-wikipedia]: https://en.wikipedia.org/wiki/HyperLogLog
-
-[hll-link-to-approx-count-distinct]: #approx_count_distinct
-[link-to-APPROX_]: #approximate-aggregate-functions
-[hll-functions]: #hyperloglog-functions
-[exact-aggregate-fns]: #aggregate-functions
-[kll-functions]: #kll16-quantile-functions
 
 <!-- END CONTENT -->
 
@@ -12772,8 +12765,20 @@ SUM(DISTINCT x) OVER ()
 ## Approximate Aggregate Functions
 
 Approximate aggregate functions are scalable in terms of memory usage and time,
-but produce approximate results instead of exact results. For more background,
-see [Approximate Aggregation][link-to-approximate-aggregation].
+but produce approximate results instead of exact results. These functions
+typically require less memory than [exact aggregation functions][aggregate-functions-reference]
+like `COUNT(DISTINCT ...)`, but also introduce statistical uncertainty.
+This makes approximate aggregation appropriate for large data streams for
+which linear memory usage is impractical, as well as for data that is
+already approximate.
+
+The approximate aggregate functions in this section work directly on the
+input data, rather than an intermediate estimation of the data. These functions
+_do not allow_ users to specify the precision for the estimation with
+sketches. If you would like specify precision with sketches, see:
+
++  [HyperLogLog++ functions][hll-functions] to estimate cardinality.
++  [KLL16 functions][kll-functions] to estimate quantile values.
 
 #### APPROX_COUNT_DISTINCT
 
@@ -13107,15 +13112,30 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 +----------------------------+
 ```
 
-[link-to-approximate-aggregation]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation
+[hll-functions]: functions-and-operators.md#hyperloglog_functions
+[kll-functions]: functions-and-operators.md#kll16-quantile_functions
+[aggregate-functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#aggregate_functions
 
-[link-to-approximate-aggregation]: #approximate-aggregation
+[hll-functions]: #hyperloglog-functions
+[kll-functions]: #kll16-quantile-functions
+[aggregate-functions-reference]: #aggregate-functions
 
 ## HyperLogLog++ Functions
 
-ZetaSQL supports the following approximate aggregate functions using
-the HyperLogLog++ algorithm. For an explanation of how approximate aggregate
-functions work, see [Approximate Aggregation][approximate-aggregation-concept].
+The [HyperLogLog++ algorithm (HLL++)][hll-algorithm] estimates
+[cardinality][cardinality] from [sketches][hll-sketches]. If you do not want
+to work with sketches and do not need customized precision, consider
+using [approximate aggregate functions with system-defined precision][approx-functions-reference].
+
+HLL++ functions are approximate aggregate functions.
+Approximate aggregation typically requires less
+memory than [exact aggregation functions][aggregate-functions-reference],
+like `COUNT(DISTINCT)`, but also introduces statistical uncertainty.
+This makes HLL++ functions appropriate for large data streams for
+which linear memory usage is impractical, as well as for data that is
+already approximate.
+
+ZetaSQL supports the following HLL++ functions:
 
 #### HLL_COUNT.INIT
 ```
@@ -13125,7 +13145,7 @@ HLL_COUNT.INIT(input [, precision])
 **Description**
 
 An aggregate function that takes one or more `input` values and aggregates them
-into a [HyperLogLog++][hll-link-to-hyperloglog-wikipedia] sketch. Each sketch
+into a [HLL++][hll-link-to-research-whitepaper] sketch. Each sketch
 is represented using the `BYTES` data type. You can then merge sketches using
 `HLL_COUNT.MERGE` or `HLL_COUNT.MERGE_PARTIAL`. If no merging is needed,
 you can extract the final count of distinct values from the sketch using
@@ -13191,7 +13211,7 @@ HLL_COUNT.MERGE(sketch)
 **Description**
 
 An aggregate function that returns the cardinality of several
-[HyperLogLog++][hll-link-to-research-whitepaper] set sketches by computing their union.
+[HLL++][hll-link-to-research-whitepaper] set sketches by computing their union.
 
 Each `sketch` must have the same precision and be initialized on the same type.
 Attempts to merge sketches with different precisions or for different types
@@ -13235,7 +13255,7 @@ HLL_COUNT.MERGE_PARTIAL(sketch)
 **Description**
 
 An aggregate function that takes one or more
-[HyperLogLog++][hll-link-to-research-whitepaper] `sketch`
+[HLL++][hll-link-to-research-whitepaper] `sketch`
 inputs and merges them into a new sketch.
 
 This function returns NULL if there is no input or all inputs are NULL.
@@ -13274,7 +13294,7 @@ HLL_COUNT.EXTRACT(sketch)
 **Description**
 
 A scalar function that extracts an cardinality estimate of a single
-[HyperLogLog++][hll-link-to-research-whitepaper] sketch.
+[HLL++][hll-link-to-research-whitepaper] sketch.
 
 If `sketch` is NULL, this function returns a cardinality estimate of `0`.
 
@@ -13315,51 +13335,64 @@ FROM (
 +------------+---------+-----------------+
 ```
 
+### About the HLL++ algorithm {: #about-hll-alg }
+
+The [HLL++ algorithm][hll-link-to-research-whitepaper]
+improves on the [HLL][hll-link-to-hyperloglog-wikipedia]
+algorithm by more accurately estimating very small and large cardinalities.
+The HLL++ algorithm includes a 64-bit hash function, sparse
+representation to reduce memory requirements for small cardinality estimates,
+and empirical bias correction for small cardinality estimates.
+
+### About sketches {: #sketches-hll }
+
+A sketch is a summary of a large data stream. You can extract statistics
+from a sketch to estimate particular statistics of the original data, or
+merge sketches to summarize multiple data streams. A sketch has these features:
+
++ It compresses raw data into a fixed-memory representation.
++ It's asymptotically smaller than the input.
++ It's the serialized form of an in-memory, sublinear data structure.
++ It typically requires less memory than the input used to create it.
+
+Sketches allow integration with other systems. For example, it is possible to
+build sketches in external applications, like [Cloud Dataflow][dataflow], or
+[Apache Spark][spark] and consume them in ZetaSQL or
+vice versa. Sketches also allow building intermediate aggregations for
+non-additive functions like `COUNT(DISTINCT)`.
+
+[spark]: https://spark.apache.org
+[dataflow]: https://cloud.google.com/dataflow
+
+[cardinality]: https://en.wikipedia.org/wiki/Cardinality
 [hll-link-to-hyperloglog-wikipedia]: https://en.wikipedia.org/wiki/HyperLogLog
 [hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
 [hll-link-to-approx-count-distinct]: #approx_count_distinct
-[approximate-aggregation-concept]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation
+[hll-sketches]: #sketches-hll
+[hll-algorithm]: #about-hll-alg
 
-[approximate-aggregation-concept]: #approximate-aggregation
+[approx-functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#approximate_aggregate_functions
+[aggregate-functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#aggregate_functions
+
+[approx-functions-reference]: #approximate_aggregate_functions
+[aggregate-functions-reference]: #aggregate_functions
 
 ## KLL16 Quantile Functions
 
-ZetaSQL supports the following functions for estimating quantiles
-with approximate aggregate quantile sketches using the [KLL16 algorithm][link-to-kll-paper].
-For an explanation of how approximate aggregate functions work, see
-[Approximate Aggregation][approximate-aggregation-concept].
+The [KLL16 algorithm][kll-algorithm] estimates
+[quantiles][kll-quantiles] from [sketches][kll-sketches]. If you do not want
+to work with sketches and do not need customized precision, consider
+using [approximate aggregate functions with system-defined precision][approx-functions-reference].
 
-Quantiles can be defined in two ways. First, for a positive integer *q*,
-*q-quantiles* are a set of values that partition an input set into *q* subsets
-of nearly equal size; that is, there are *q*-1 of the *q*-quantiles. Some of
-these have specific names: the single 2-quantile is the median; the 4-quantiles
-are quartiles, the 100-quantiles are percentiles, etc.
+KLL16 functions are approximate aggregate functions.
+Approximate aggregation typically requires less
+memory than [exact aggregation functions][aggregate-functions-reference]
+like `APPROX_QUANTILES`, but also introduces statistical uncertainty.
+This makes approximate aggregation appropriate for large data streams for
+which linear memory usage is impractical, as well as for data that is
+already approximate.
 
-To extract a set of *q*-quantiles, use the following functions, where *q* is the
-`number` argument:
-
-+ `KLL_QUANTILES.MERGE_INT64`
-+ `KLL_QUANTILES.MERGE_UINT64`
-+ `KLL_QUANTILES.MERGE_DOUBLE`
-+ `KLL_QUANTILES.EXTRACT_INT64`
-+ `KLL_QUANTILES.EXTRACT_UINT64`
-+ `KLL_QUANTILES.EXTRACT_DOUBLE`
-
-Alternatively, quantiles can be defined as individual *Φ-quantiles*, where Φ is
-a real number with 0 <= Φ <= 1. The Φ-quantile *x* is an element of the input
-such that a Φ fraction of the input is less than or equal to *x*, and a (1-Φ)
-fraction is greater than or equal to *x*. In this notation, the median is the
-0.5-quantile, and the 95th percentile is the 0.95-quantile.
-
-To extract individual Φ-quantiles, use the following functions, where Φ is the
-`phi` argument:
-
-+ `KLL_QUANTILES.MERGE_POINT_INT64`
-+ `KLL_QUANTILES.MERGE_POINT_UINT64`
-+ `KLL_QUANTILES.MERGE_POINT_DOUBLE`
-+ `KLL_QUANTILES.EXTRACT_POINT_INT64`
-+ `KLL_QUANTILES.EXTRACT_POINT_UINT64`
-+ `KLL_QUANTILES.EXTRACT_POINT_DOUBLE`
+ZetaSQL supports the following KLL16 functions:
 
 #### KLL_QUANTILES.INIT_INT64
 
@@ -13990,12 +14023,79 @@ but accepts sketches initialized on data of type of type
 
 `DOUBLE`
 
-[link-to-kll-paper]: https://arxiv.org/pdf/1603.05346v2.pdf
-[approximate-aggregation-concept]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation#storing-estimated-aggregate-values-as-sketches
-[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types#comparison_operator_examples
+### About Quantiles {: #about-kll-quantiles }
 
-[approximate-aggregation-concept]: #storing-estimated-aggregate-values-as-sketches
+[Quantiles][quantiles] can be defined in two ways. First, for a positive integer *q*,
+*q-quantiles* are a set of values that partition an input set into *q* subsets
+of nearly equal size; that is, there are *q*-1 of the *q*-quantiles. Some of
+these have specific names: the single 2-quantile is the median; the 4-quantiles
+are quartiles, the 100-quantiles are percentiles, etc.
+
+To extract a set of *q*-quantiles, use the following functions, where *q* is the
+`number` argument:
+
++ `KLL_QUANTILES.MERGE_INT64`
++ `KLL_QUANTILES.MERGE_UINT64`
++ `KLL_QUANTILES.MERGE_DOUBLE`
++ `KLL_QUANTILES.EXTRACT_INT64`
++ `KLL_QUANTILES.EXTRACT_UINT64`
++ `KLL_QUANTILES.EXTRACT_DOUBLE`
+
+Alternatively, quantiles can be defined as individual *Φ-quantiles*, where Φ is
+a real number with 0 <= Φ <= 1. The Φ-quantile *x* is an element of the input
+such that a Φ fraction of the input is less than or equal to *x*, and a (1-Φ)
+fraction is greater than or equal to *x*. In this notation, the median is the
+0.5-quantile, and the 95th percentile is the 0.95-quantile.
+
+To extract individual Φ-quantiles, use the following functions, where Φ is the
+`phi` argument:
+
++ `KLL_QUANTILES.MERGE_POINT_INT64`
++ `KLL_QUANTILES.MERGE_POINT_UINT64`
++ `KLL_QUANTILES.MERGE_POINT_DOUBLE`
++ `KLL_QUANTILES.EXTRACT_POINT_INT64`
++ `KLL_QUANTILES.EXTRACT_POINT_UINT64`
++ `KLL_QUANTILES.EXTRACT_POINT_DOUBLE`
+
+### About the KLL algorithm {: #about-kll-alg }
+
+The [KLL16 algorithm][link-to-kll-paper] improves on the [MP80 algorithm][mp80]
+by using variable-size buffers to reduce memory use for large data sets.
+
+### About Sketches {: #sketches-kll }
+
+A sketch is a summary of a large data stream. You can extract statistics
+from a sketch to estimate particular statistics of the original data, or
+merge sketches to summarize multiple data streams. A sketch has these features:
+
++ It compresses raw data into a fixed-memory representation.
++ It's asymptotically smaller than the input.
++ It's the serialized form of an in-memory, sublinear data structure.
++ It typically requires less memory than the input used to create it.
+
+Sketches allow integration with other systems. For example, it is possible to
+build sketches in external applications, like [Cloud Dataflow][dataflow], or
+[Apache Spark][spark] and consume them in ZetaSQL or
+vice versa. Sketches also allow building intermediate aggregations for
+non-additive functions like `COUNT(DISTINCT)`.
+
+[spark]: https://spark.apache.org
+[dataflow]: https://cloud.google.com/dataflow
+
+[quantiles]: https://en.wikipedia.org/wiki/Quantile
+[link-to-kll-paper]: https://arxiv.org/pdf/1603.05346v2.pdf
+[mp80]: https://polylogblog.files.wordpress.com/2009/08/80munro-median.pdf
+[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types#comparison_operator_examples
+[kll-sketches]: #sketches-kll
+[kll-algorithm]: #about-kll-alg
+[kll-quantiles]: #about-kll-quantiles
+
+[approx-functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#approximate_aggregate_functions
+[aggregate-functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#aggregate_functions
+
 [sort-order]: #comparison-operator-examples
+[approx-functions-reference]: #approximate_aggregate_functions
+[aggregate-functions-reference]: #aggregate_functions
 
 ## Numbering Functions
 
@@ -19694,7 +19794,7 @@ ZetaSQL supports the following `DATE` functions.
 
 #### CURRENT_DATE
 
-```
+```sql
 CURRENT_DATE([time_zone])
 ```
 
@@ -19728,7 +19828,7 @@ SELECT CURRENT_DATE() as the_date;
 
 #### EXTRACT
 
-```
+```sql
 EXTRACT(part FROM date_expression)
 ```
 
@@ -19766,7 +19866,7 @@ INT64
 **Examples**
 
 In the following example, `EXTRACT` returns a value corresponding to the `DAY`
-time part.
+date part.
 
 ```sql
 SELECT EXTRACT(DAY FROM DATE '2013-12-25') as the_day;
@@ -19779,7 +19879,7 @@ SELECT EXTRACT(DAY FROM DATE '2013-12-25') as the_day;
 ```
 
 In the following example, `EXTRACT` returns values corresponding to different
-time parts from a column of dates near the end of the year.
+date parts from a column of dates near the end of the year.
 
 ```sql
 SELECT
@@ -19833,7 +19933,8 @@ SELECT
 ```
 
 #### DATE
-```
+
+```sql
 1. DATE(year, month, day)
 2. DATE(timestamp_expression[, timezone])
 3. DATE(datetime_expression)
@@ -19841,7 +19942,8 @@ SELECT
 
 **Description**
 
-1. Constructs a DATE from INT64 values representing the year, month, and day.
+1. Constructs a DATE from INT64 values representing
+   the year, month, and day.
 2. Extracts the DATE from a TIMESTAMP expression. It supports an
    optional parameter to [specify a timezone][date-functions-link-to-timezone-definitions]. If no
    timezone is specified, the default timezone, which is implementation defined, is used.
@@ -19868,8 +19970,9 @@ SELECT
 ```
 
 #### DATE_ADD
-```
-DATE_ADD(date_expression, INTERVAL INT64_expr date_part)
+
+```sql
+DATE_ADD(date_expression, INTERVAL int64_expression date_part)
 ```
 
 **Description**
@@ -19906,8 +20009,9 @@ SELECT DATE_ADD(DATE "2008-12-25", INTERVAL 5 DAY) as five_days_later;
 ```
 
 #### DATE_SUB
-```
-DATE_SUB(date_expression, INTERVAL INT64_expr date_part)
+
+```sql
+DATE_SUB(date_expression, INTERVAL int64_expression date_part)
 ```
 
 **Description**
@@ -19944,15 +20048,17 @@ SELECT DATE_SUB(DATE "2008-12-25", INTERVAL 5 DAY) as five_days_ago;
 ```
 
 #### DATE_DIFF
-```
-DATE_DIFF(date_expression, date_expression, date_part)
+
+```sql
+DATE_DIFF(date_expression_a, date_expression_b, date_part)
 ```
 
 **Description**
 
-Returns the number of `date_part` boundaries between the two `date_expression`s.
-If the first date occurs before the second date, then the result is
-non-positive.
+Returns the number of whole specified `date_part` intervals between two `DATE` objects
+(`date_expression_a` - `date_expression_b`).
+If the first `DATE` is earlier than the second one,
+the output is negative.
 
 `DATE_DIFF` supports the following `date_part` values:
 
@@ -19985,7 +20091,6 @@ SELECT DATE_DIFF(DATE '2010-07-07', DATE '2008-12-25', DAY) as days_diff;
 +-----------+
 | 559       |
 +-----------+
-
 ```
 
 ```sql
@@ -20013,7 +20118,7 @@ with the date part `ISOYEAR` returns 2 because the second date belongs to the
 ISO year 2015. The first Thursday of the 2015 calendar year was 2015-01-01, so
 the ISO year 2015 begins on the preceding Monday, 2014-12-29.
 
-```
+```sql
 SELECT
   DATE_DIFF('2017-12-30', '2014-12-30', YEAR) AS year_diff,
   DATE_DIFF('2017-12-30', '2014-12-30', ISOYEAR) AS isoyear_diff;
@@ -20027,12 +20132,12 @@ SELECT
 
 The following example shows the result of `DATE_DIFF` for two days in
 succession. The first date falls on a Monday and the second date falls on a
-Sunday. `DATE_DIFF` with the date part `WEEK` returns 0 because this time part
+Sunday. `DATE_DIFF` with the date part `WEEK` returns 0 because this date part
 uses weeks that begin on Sunday. `DATE_DIFF` with the date part `WEEK(MONDAY)`
 returns 1. `DATE_DIFF` with the date part `ISOWEEK` also returns 1 because
 ISO weeks begin on Monday.
 
-```
+```sql
 SELECT
   DATE_DIFF('2017-12-18', '2017-12-17', WEEK) AS week_diff,
   DATE_DIFF('2017-12-18', '2017-12-17', WEEK(MONDAY)) AS week_weekday_diff,
@@ -20046,7 +20151,8 @@ SELECT
 ```
 
 #### DATE_TRUNC
-```
+
+```sql
 DATE_TRUNC(date_expression, date_part)
 ```
 
@@ -20081,7 +20187,7 @@ DATE
 
 **Examples**
 
-```
+```sql
 SELECT DATE_TRUNC(DATE '2008-12-25', MONTH) as month;
 
 +------------+
@@ -20095,7 +20201,7 @@ In the following example, the original date falls on a Sunday. Because
 the `date_part` is `WEEK(MONDAY)`, `DATE_TRUNC` returns the `DATE` for the
 preceding Monday.
 
-```
+```sql
 SELECT date AS original, DATE_TRUNC(date, WEEK(MONDAY)) AS truncated
 FROM (SELECT DATE('2017-11-05') AS date);
 
@@ -20114,7 +20220,7 @@ Gregorian calendar year. The first Thursday of the 2015 calendar year was
 Therefore the ISO year boundary preceding the `date_expression` 2015-06-15 is
 2014-12-29.
 
-```
+```sql
 SELECT
   DATE_TRUNC('2015-06-15', ISOYEAR) AS isoyear_boundary,
   EXTRACT(ISOYEAR FROM DATE '2015-06-15') AS isoyear_number;
@@ -20127,13 +20233,14 @@ SELECT
 ```
 
 #### DATE_FROM_UNIX_DATE
-```
-DATE_FROM_UNIX_DATE(INT64_expression)
+
+```sql
+DATE_FROM_UNIX_DATE(int64_expression)
 ```
 
 **Description**
 
-Interprets `INT64_expression` as the number of days since 1970-01-01.
+Interprets `int64_expression` as the number of days since 1970-01-01.
 
 **Return Data Type**
 
@@ -20152,7 +20259,8 @@ SELECT DATE_FROM_UNIX_DATE(14238) as date_from_epoch;
 ```
 
 #### FORMAT_DATE
-```
+
+```sql
 FORMAT_DATE(format_string, date_expr)
 ```
 
@@ -20200,7 +20308,8 @@ SELECT FORMAT_DATE("%b %Y", DATE "2008-12-25") AS formatted;
 ```
 
 #### PARSE_DATE
-```
+
+```sql
 PARSE_DATE(format_string, date_string)
 ```
 
@@ -20242,7 +20351,8 @@ SELECT PARSE_DATE("%x", "12/25/08") as parsed;
 ```
 
 #### UNIX_DATE
-```
+
+```sql
 UNIX_DATE(date_expression)
 ```
 
@@ -20416,7 +20526,8 @@ space.</td>
 ZetaSQL supports the following `DATETIME` functions.
 
 #### CURRENT_DATETIME
-```
+
+```sql
 CURRENT_DATETIME([timezone])
 ```
 
@@ -20425,8 +20536,8 @@ CURRENT_DATETIME([timezone])
 Returns the current time as a DATETIME object.
 
 This function supports an optional `timezone` parameter.
-See [Timezone definitions][datetime-link-to-timezone-definitions] for information on how to
-specify a time zone.
+See [Timezone definitions][datetime-link-to-timezone-definitions] for
+information on how to specify a time zone.
 
 **Return Data Type**
 
@@ -20445,17 +20556,18 @@ SELECT CURRENT_DATETIME() as now;
 ```
 
 #### DATETIME
-```
+
+```sql
 1. DATETIME(year, month, day, hour, minute, second)
-2. DATETIME(date_expression, time_expression)
+2. DATETIME(date_expression[, time_expression])
 3. DATETIME(timestamp_expression [, timezone])
 ```
 
 **Description**
 
-1. Constructs a DATETIME object using INT64 values representing the year, month,
-   day, hour, minute, and second.
-2. Constructs a DATETIME object using a DATE object and a TIME object.
+1. Constructs a DATETIME object using INT64 values
+   representing the year, month, day, hour, minute, and second.
+2. Constructs a DATETIME object using a DATE object and an optional TIME object.
 3. Constructs a DATETIME object using a TIMESTAMP object. It supports an
    optional parameter to [specify a timezone][datetime-link-to-timezone-definitions]. If no
    timezone is specified, the default timezone, which is implementation defined, is used.
@@ -20479,14 +20591,15 @@ SELECT
 ```
 
 #### EXTRACT
-```
+
+```sql
 EXTRACT(part FROM datetime_expression)
 ```
 
 **Description**
 
-Returns an `INT64` value that corresponds to the specified `part` from
-a supplied `datetime_expression`.
+Returns a value that corresponds to the
+specified `part` from a supplied `datetime_expression`.
 
 Allowed `part` values are:
 
@@ -20597,13 +20710,14 @@ FROM table;
 ```
 
 #### DATETIME_ADD
-```
-DATETIME_ADD(datetime_expression, INTERVAL INT64_expr part)
+
+```sql
+DATETIME_ADD(datetime_expression, INTERVAL int64_expression part)
 ```
 
 **Description**
 
-Adds `INT64_expr` units of `part` to the DATETIME object.
+Adds `int64_expression` units of `part` to the DATETIME object.
 
 `DATETIME_ADD` supports the following values for `part`:
 
@@ -20644,13 +20758,14 @@ SELECT
 ```
 
 #### DATETIME_SUB
-```
-DATETIME_SUB(datetime_expression, INTERVAL INT64_expr part)
+
+```sql
+DATETIME_SUB(datetime_expression, INTERVAL int64_expression part)
 ```
 
 **Description**
 
-Subtracts `INT64_expr` units of `part` from the DATETIME.
+Subtracts `int64_expression` units of `part` from the DATETIME.
 
 `DATETIME_SUB` supports the following values for `part`:
 
@@ -20691,18 +20806,21 @@ SELECT
 ```
 
 #### DATETIME_DIFF
-```
-DATETIME_DIFF(datetime_expression, datetime_expression, part)
+
+```sql
+DATETIME_DIFF(datetime_expression_a, datetime_expression_b, part)
 ```
 
 **Description**
 
 Returns the number of whole specified `part` intervals between two
-`DATETIME` objects. If the first `DATETIME` is earlier than the second one,
+`DATETIME` objects (`datetime_expression_a` - `datetime_expression_b`).
+If the first `DATETIME` is earlier than the second one,
 the output is negative. Throws an error if the computation overflows the
 result type, such as if the difference in
 nanoseconds
-between the two `DATETIME` objects would overflow an `INT64` value.
+between the two `DATETIME` objects would overflow an
+`INT64` value.
 
 `DATETIME_DIFF` supports the following values for `part`:
 
@@ -20746,7 +20864,6 @@ SELECT
 +----------------------------+------------------------+------------------------+
 | 2010-07-07 10:20:00        | 2008-12-25 15:30:00    | 559                    |
 +----------------------------+------------------------+------------------------+
-
 ```
 
 ```sql
@@ -20761,7 +20878,6 @@ SELECT
 +-----------+------------+
 | 1         | 1          |
 +-----------+------------+
-
 ```
 
 The example above shows the result of `DATETIME_DIFF` for two `DATETIME`s that
@@ -20814,7 +20930,7 @@ SELECT
 
 #### DATETIME_TRUNC
 
-```
+```sql
 DATETIME_TRUNC(datetime_expression, part)
 ```
 
@@ -20883,7 +20999,6 @@ FROM (SELECT DATETIME(TIMESTAMP "2017-11-05 00:00:00+00", "UTC") AS datetime);
 +---------------------+---------------------+
 | 2017-11-05 00:00:00 | 2017-10-30 00:00:00 |
 +---------------------+---------------------+
-
 ```
 
 In the following example, the original `datetime_expression` is in the Gregorian
@@ -20908,7 +21023,7 @@ SELECT
 
 #### FORMAT_DATETIME
 
-```
+```sql
 FORMAT_DATETIME(format_string, datetime_expression)
 ```
 
@@ -20962,7 +21077,7 @@ SELECT
 
 #### PARSE_DATETIME
 
-```
+```sql
 PARSE_DATETIME(format_string, string)
 ```
 **Description**
@@ -21316,13 +21431,18 @@ Error: x must be positive but is -1
 ZetaSQL supports the following `TIME` functions.
 
 #### CURRENT_TIME
-```
-CURRENT_TIME()
+
+```sql
+CURRENT_TIME([timezone])
 ```
 
 **Description**
 
 Returns the current time as a TIME object.
+
+This function supports an optional `timezone` parameter.
+See [Timezone definitions][time-link-to-timezone-definitions] for information
+on how to specify a time zone.
 
 **Return Data Type**
 
@@ -21341,7 +21461,8 @@ SELECT CURRENT_TIME() as now;
 ```
 
 #### TIME
-```
+
+```sql
 1. TIME(hour, minute, second)
 2. TIME(timestamp, [timezone])
 3. TIME(datetime)
@@ -21349,8 +21470,8 @@ SELECT CURRENT_TIME() as now;
 
 **Description**
 
-1. Constructs a `TIME` object using `INT64` values representing the hour,
-   minute, and second.
+1. Constructs a `TIME` object using `INT64`
+   values representing the hour, minute, and second.
 2. Constructs a `TIME` object using a `TIMESTAMP` object. It supports an
    optional
    parameter to [specify a timezone][time-link-to-timezone-definitions]. If no
@@ -21386,13 +21507,14 @@ SELECT
 ```
 
 #### EXTRACT
-```
+
+```sql
 EXTRACT(part FROM time_expression)
 ```
 
 **Description**
 
-Returns an `INT64` value that corresponds to the specified `part` from
+Returns a value that corresponds to the specified `part` from
 a supplied `time_expression`.
 
 Allowed `part` values are:
@@ -21428,13 +21550,14 @@ SELECT EXTRACT(HOUR FROM TIME "15:30:00") as hour;
 ```
 
 #### TIME_ADD
-```
-TIME_ADD(time_expression, INTERVAL INT64_expr part)
+
+```sql
+TIME_ADD(time_expression, INTERVAL int64_expression part)
 ```
 
 **Description**
 
-Adds `INT64_expr` units of `part` to the TIME object.
+Adds `int64_expression` units of `part` to the TIME object.
 
 `TIME_ADD` supports the following values for `part`:
 
@@ -21469,13 +21592,14 @@ SELECT
 ```
 
 #### TIME_SUB
-```
-TIME_SUB(time_expression, INTERVAL INT_expr part)
+
+```sql
+TIME_SUB(time_expression, INTERVAL int64_expression part)
 ```
 
 **Description**
 
-Subtracts `INT64_expr` units of `part` from the TIME object.
+Subtracts `int64_expression` units of `part` from the TIME object.
 
 `TIME_SUB` supports the following values for `part`:
 
@@ -21510,18 +21634,20 @@ SELECT
 ```
 
 #### TIME_DIFF
-```
-TIME_DIFF(time_expression, time_expression, part)
+
+```sql
+TIME_DIFF(time_expression_a, time_expression_b, part)
 ```
 
 **Description**
 
 Returns the number of whole specified `part` intervals between two
-`TIME` objects. If the first `TIME` is earlier than the second one,
-the output is negative. Throws an error if the computation overflows the
-result type, such as if the difference in
+`TIME` objects (`time_expression_a` - `time_expression_b`). If the first
+`TIME` is earlier than the second one, the output is negative. Throws an error
+if the computation overflows the result type, such as if the difference in
 nanoseconds
-between the two `TIME` objects would overflow an `INT64` value.
+between the two `TIME` objects would overflow an
+`INT64` value.
 
 `TIME_DIFF` supports the following values for `part`:
 
@@ -21554,7 +21680,7 @@ SELECT
 
 #### TIME_TRUNC
 
-```
+```sql
 TIME_TRUNC(time_expression, part)
 ```
 
@@ -21592,7 +21718,7 @@ SELECT
 
 #### FORMAT_TIME
 
-```
+```sql
 FORMAT_TIME(format_string, time_object)
 ```
 
@@ -21619,7 +21745,7 @@ SELECT FORMAT_TIME("%R", TIME "15:30:00") as formatted_time;
 
 #### PARSE_TIME
 
-```
+```sql
 PARSE_TIME(format_string, string)
 ```
 
@@ -21801,7 +21927,7 @@ EXTRACT(part FROM timestamp_expression [AT TIME ZONE tz_spec])
 
 **Description**
 
-Returns an `INT64` value that corresponds to the specified `part` from
+Returns a value that corresponds to the specified `part` from
 a supplied `timestamp_expression`.
 
 Allowed `part` values are:
@@ -21845,11 +21971,11 @@ information on how to specify a time zone.
 
 **Return Data Type**
 
-Generally
-`INT64`
-. Returns
-`DATE` if `part` is
-`DATE`.
+INT64, except when:
+
++ `part` is `DATE`, returns a `DATE` object.
++ `part` is `DATETIME`, returns a `DATETIME` object.
++ `part` is `TIME`, returns a `TIME` object.
 
 **Examples**
 
@@ -21956,11 +22082,9 @@ SELECT STRING(TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS string;
 #### TIMESTAMP
 
 ```sql
-TIMESTAMP(
-  string_expression[, timezone] |
-  date_expression[, timezone] |
-  datetime_expression[, timezone]
-)
+TIMESTAMP(string_expression[, timezone])
+TIMESTAMP(date_expression[, timezone])
+TIMESTAMP(datetime_expression[, timezone])
 ```
 
 **Description**
@@ -22127,13 +22251,13 @@ SELECT
 #### TIMESTAMP_DIFF
 
 ```sql
-TIMESTAMP_DIFF(timestamp_expression, timestamp_expression, date_part)
+TIMESTAMP_DIFF(timestamp_expression_a, timestamp_expression_b, date_part)
 ```
 
 **Description**
 
 Returns the number of whole specified `date_part` intervals between two
-`TIMESTAMP` objects. If the first `TIMESTAMP` is earlier than the second one,
+`TIMESTAMP` objects (`timestamp_expression_a` - `timestamp_expression_b`). If the first `TIMESTAMP` is earlier than the second one,
 the output is negative. Throws an error if the computation overflows the
 result type, such as if the difference in
 nanoseconds
@@ -22180,6 +22304,19 @@ SELECT TIMESTAMP_DIFF(TIMESTAMP "2018-08-14", TIMESTAMP "2018-10-14", DAY);
 | negative_diff |
 +---------------+
 | -61           |
++---------------+
+```
+
+In this example, the result is 0 because only the number of whole specified
+`HOUR` intervals are included.
+
+```sql
+SELECT TIMESTAMP_DIFF("2001-02-01 01:00:00", "2001-02-01 00:00:01", HOUR)
+
++---------------+
+| negative_diff |
++---------------+
+| 0             |
 +---------------+
 ```
 
@@ -22892,18 +23029,18 @@ or time zone offset from UTC (for example, -08).
 
 If you choose to use a time zone offset, use this format:
 
-```
+```sql
 (+|-)H[H][:M[M]]
 ```
 
 The following timestamps are equivalent because the time zone offset
 for `America/Los_Angeles` is `-08` for the specified date and time.
 
-```
+```sql
 SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00 America/Los_Angeles") as millis;
 ```
 
-```
+```sql
 SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00-08:00") as millis;
 ```
 

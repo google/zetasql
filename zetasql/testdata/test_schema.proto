@@ -807,8 +807,8 @@ message FieldFormatsProto {
   optional bytes b_bignumeric = 916 [(zetasql.format) = BIGNUMERIC];
   repeated bytes repeated_b_bignumeric = 917 [(zetasql.format) = BIGNUMERIC];
 
-  optional bytes b_json = 918 [(zetasql.format) = JSON];
-  repeated bytes repeated_b_json = 919 [(zetasql.format) = JSON];
+  optional string json = 918 [(zetasql.format) = JSON];
+  repeated string repeated_json = 919 [(zetasql.format) = JSON];
 
   extensions 1000;
 }

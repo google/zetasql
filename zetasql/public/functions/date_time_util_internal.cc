@@ -48,6 +48,16 @@ absl::CivilDay GetFirstDayOfIsoYear(absl::CivilDay day) {
   return absl::PrevWeekday(first_thursay, absl::Weekday::monday);
 }
 
+absl::CivilDay GetLastDayOfIsoYear(absl::CivilDay day) {
+  absl::civil_year_t iso_year = GetIsoYear(day);
+  // Find the last Thursday.
+  absl::CivilDay last_day(iso_year, 12, 31);
+  absl::CivilDay last_thursday =
+      PrevWeekdayOrToday(last_day, absl::Weekday::thursday);
+  // The last day of the iso year is the next sunday.
+  return absl::NextWeekday(last_thursday, absl::Weekday::sunday);
+}
+
 int GetIsoWeek(absl::CivilDay day) {
   absl::CivilDay monday_of_week =
       PrevWeekdayOrToday(day, absl::Weekday::monday);

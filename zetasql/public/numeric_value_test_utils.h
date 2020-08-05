@@ -26,7 +26,8 @@ namespace zetasql {
 // and scales when enough numbers are generated. Do not assume the result to
 // follow any specific distribution.
 template <typename T>
-T MakeRandomNumericValue(absl::BitGen* random) {
+T MakeRandomNumericValue(absl::BitGen* random,
+                         int* num_truncated_digits = nullptr) {
   constexpr int kNumWords = sizeof(T) / sizeof(uint64_t);
   constexpr int kNumBits = sizeof(T) * 8;
   std::array<uint64_t, kNumWords> value;
@@ -53,8 +54,14 @@ T MakeRandomNumericValue(absl::BitGen* random) {
   }
   constexpr int scale = T::kMaxFractionalDigits;
   constexpr int precision = T::kMaxIntegerDigits + scale;
-  int32_t digits_to_trunc = absl::Uniform<uint32_t>(
-      *random, 0, num_non_trivial_bits * precision / kNumBits);
+  int num_approx_digits = num_non_trivial_bits * precision / kNumBits;
+  int digits_to_trunc =
+      num_approx_digits == 0
+          ? 0
+          : absl::Uniform<uint>(*random, 0, num_approx_digits);
+  if (num_truncated_digits != nullptr) {
+    *num_truncated_digits = digits_to_trunc;
+  }
   return result.Trunc(scale - digits_to_trunc);
 }
 

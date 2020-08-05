@@ -172,6 +172,11 @@ bool StringFormatEvaluator::ValueAsString(const Value& value, int64_t var_index)
         return false;
       }
       break;
+    case TYPE_JSON:
+      if (!PrintJson(value, /*single_line=*/true, var_index)) {
+        return false;
+      }
+      break;
     default:
       status_.Update(zetasql_base::InternalErrorBuilder()
                      << "No support for type while: "
@@ -388,6 +393,16 @@ bool StringFormatEvaluator::ValueLiteralSetter(const FormatPart& part,
   if (value_var->is_null()) {
     *arg = absl::FormatArg("NULL");
     return true;
+  }
+  // GetSQLLiteral() for JSON value can return an invalid JSON SQL literal
+  // if the original JSON value is invalid.
+  if (value_var->type_kind() == TYPE_JSON && value_var->is_unparsed_json()) {
+    zetasql_base::StatusOr<JSONValue> json =
+        JSONValue::ParseJSONString(value_var->json_value_unparsed());
+    if (!json.ok()) {
+      status_ = ValueError(part.var_index, json.status().message());
+      return false;
+    }
   }
   string_buffer_ = value_var->GetSQLLiteral(ProductMode::PRODUCT_EXTERNAL);
   fmt_string_.view = string_buffer_;
@@ -680,6 +695,50 @@ bool StringFormatEvaluator::PrintProtoSetter(const FormatPart& part,
   return true;
 }
 
+bool StringFormatEvaluator::PrintJson(const Value& value, bool single_line,
+                                      int64_t var_index) {
+  if (value.is_null()) {
+    return false;
+  }
+
+  std::string out;
+  if (value.is_validated_json()) {
+    JSONValueConstRef json_ref = value.json_value();
+    out = single_line ? json_ref.ToString() : json_ref.Format();
+  } else {
+    zetasql_base::StatusOr<JSONValue> json =
+        JSONValue::ParseJSONString(value.json_value_unparsed());
+    if (!json.ok()) {
+      status_ = ValueError(var_index, json.status().message());
+      return false;
+    }
+    out = single_line ? json->GetConstRef().ToString()
+                      : json->GetConstRef().Format();
+  }
+
+  if (!IsWellFormedUTF8(out)) {
+    status_ = ValueError(var_index, "JSON value contains invalid UTF-8");
+    return false;
+  }
+
+  cord_buffer_.Append(absl::Cord(out));
+  return true;
+}
+
+template <bool single_line>
+bool StringFormatEvaluator::PrintJsonSetter(const FormatPart& part,
+                                            absl::FormatArg* arg) {
+  const Value& value = values_[part.var_index];
+  cord_buffer_.Clear();
+  if (!PrintJson(value, single_line, part.var_index)) {
+    return false;
+  }
+  absl::CopyCordToString(cord_buffer_, &string_buffer_);
+  fmt_string_.view = string_buffer_;
+  *arg = absl::FormatArg(fmt_string_);
+  return true;
+}
+
 FormatPart::SetterFn StringFormatEvaluator::MakeValueAsStringSetter(
     int64_t index) {
   const Type* t = arg_types_[index];
@@ -703,6 +762,7 @@ FormatPart::SetterFn StringFormatEvaluator::MakeValueAsStringSetter(
     case TYPE_DATETIME:
     case TYPE_BIGNUMERIC:
     case TYPE_NUMERIC:
+    case TYPE_JSON:
       return &StringFormatEvaluator::ValueAsStringSetter;
     default:
       break;
@@ -738,6 +798,7 @@ FormatPart::SetterFn StringFormatEvaluator::MakeValueLiteralSetter(
     case TYPE_DATETIME:
     case TYPE_BIGNUMERIC:
     case TYPE_NUMERIC:
+    case TYPE_JSON:
       return &StringFormatEvaluator::ValueLiteralSetter;
 
     default:
@@ -934,13 +995,25 @@ bool StringFormatEvaluator::ProcessPattern() {
           break;
         case 'p':
         case 'P':
-          TypeCheckProtoArg(next_arg);
-          if (spec_char == 'p') {
-            part.set_arg = &StringFormatEvaluator::PrintProtoSetter<
-                /*single_line=*/true, /*print_null=*/false, /*quote=*/false>;
+          TypeCheckProtoOrJsonArg(next_arg);
+          if (arg_types_[next_arg]->kind() == TYPE_PROTO) {
+            if (spec_char == 'p') {
+              part.set_arg = &StringFormatEvaluator::PrintProtoSetter<
+                  /*single_line=*/true, /*print_null=*/false,
+                  /*quote=*/false>;
+            } else {
+              part.set_arg = &StringFormatEvaluator::PrintProtoSetter<
+                  /*single_line=*/false, /*print_null=*/false, /*quote=*/false>;
+            }
           } else {
-            part.set_arg = &StringFormatEvaluator::PrintProtoSetter<
-                /*single_line=*/false, /*print_null=*/false, /*quote=*/false>;
+            // This is a JSON.
+            if (spec_char == 'p') {
+              part.set_arg = &StringFormatEvaluator::PrintJsonSetter<
+                  /*single_line=*/true>;
+            } else {
+              part.set_arg = &StringFormatEvaluator::PrintJsonSetter<
+                  /*single_line=*/false>;
+            }
           }
           spec_char = 's';  // Pass it as a string to absl::StrFormat
           break;
@@ -1071,13 +1144,14 @@ bool StringFormatEvaluator::TypeCheckStringArg(int64_t arg_index) {
   return true;
 }
 
-bool StringFormatEvaluator::TypeCheckProtoArg(int64_t arg_index) {
+bool StringFormatEvaluator::TypeCheckProtoOrJsonArg(int64_t arg_index) {
   DCHECK(arg_index < arg_types_.size());
   const Type* t = arg_types_[arg_index];
-  if (!t->IsProto()) {
-    status_.Update(TypeError(arg_index, "PROTO", arg_types_[arg_index]));
+  if (!t->IsProto() && !t->IsJson()) {
+    status_.Update(
+        TypeError(arg_index, "PROTO or JSON", arg_types_[arg_index]));
     return false;
-  } else if (type_resolver_ == nullptr) {
+  } else if (t->IsProto() && type_resolver_ == nullptr) {
     status_.Update(zetasql_base::InternalErrorBuilder()
                    << "%p specified for " << arg_index
                    << " but type_resolver_ is not set");

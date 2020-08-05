@@ -4314,6 +4314,12 @@ zetasql_base::StatusOr<std::string> SQLBuilder::GetAlterActionSQL(
         alter_action_sql.push_back(absl::StrCat(
             "RENAME TO ", ToIdentifierLiteral(rename_to_action->new_name())));
       } break;
+      case RESOLVED_SET_AS_ACTION: {
+        auto* set_as_action = alter_action->GetAs<ResolvedSetAsAction>();
+        alter_action_sql.push_back(
+            absl::StrCat("SET AS JSON ",
+                         ToStringLiteral(set_as_action->entity_body_json())));
+      } break;
       default:
         ZETASQL_RET_CHECK_FAIL() << "Unexpected AlterAction: "
                          << alter_action->DebugString();
@@ -4791,6 +4797,30 @@ absl::Status SQLBuilder::VisitResolvedRecursiveRefScan(
   ZETASQL_RET_CHECK(query_expression->TrySetFromClause(from));
   PushSQLForQueryExpression(node, query_expression.release());
   return absl::OkStatus();
+}
+
+absl::Status SQLBuilder::VisitResolvedCreateEntityStmt(
+    const ResolvedCreateEntityStmt* node) {
+  std::string sql;
+  ZETASQL_RETURN_IF_ERROR(GetCreateStatementPrefix(node, node->entity_type(), &sql));
+  if (node->option_list_size() > 0) {
+    ZETASQL_ASSIGN_OR_RETURN(const std::string options_string,
+                     GetHintListString(node->option_list()));
+    absl::StrAppend(&sql, " OPTIONS(", options_string, ") ");
+  }
+
+  if (!node->entity_body_json().empty()) {
+    absl::StrAppend(&sql, "AS JSON ",
+                    ToStringLiteral(node->entity_body_json()));
+  }
+
+  PushQueryFragment(node, sql);
+  return absl::OkStatus();
+}
+
+absl::Status SQLBuilder::VisitResolvedAlterEntityStmt(
+    const ResolvedAlterEntityStmt* node) {
+  return GetResolvedAlterObjectStmtSQL(node, node->entity_type());
 }
 
 }  // namespace zetasql

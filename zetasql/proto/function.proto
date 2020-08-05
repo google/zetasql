@@ -28,6 +28,7 @@ import "zetasql/public/options.proto";
 import "zetasql/public/parse_location_range.proto";
 import "zetasql/public/parse_resume_location.proto";
 import "zetasql/public/type.proto";
+import "zetasql/public/value.proto";
 import "zetasql/resolved_ast/serialization.proto";
 
 // Wire format of Function related messages, these shouldn't be exposed to end
@@ -79,6 +80,12 @@ message FunctionArgumentTypeOptionsProto {
   optional FunctionEnums.ProcedureArgumentMode procedure_argument_mode = 14;
   optional bool argument_name_is_mandatory = 15 [default = false];
   optional int32 descriptor_resolution_table_offset = 16 [default = -1];
+  optional ValueProto default_value = 17;
+  // Type of `default_value`. Only serialized for templated arguments. For fixed
+  // type arguments, deserialization of `default_value` relies on the
+  // `FunctionArgumentTypeProto.type` instead.  Only one of `default_value_type`
+  // or `FunctionArgumentTypeProto.type` will ever be set.
+  optional TypeProto default_value_type = 18;
 }
 
 message FunctionArgumentTypeProto {

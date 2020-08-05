@@ -144,6 +144,7 @@ std::vector<FunctionTestCall> GetFunctionTestsDateTrunc();
 std::vector<FunctionTestCall> GetFunctionTestsDatetimeAddSub();
 std::vector<FunctionTestCall> GetFunctionTestsDatetimeDiff();
 std::vector<FunctionTestCall> GetFunctionTestsDatetimeTrunc();
+std::vector<FunctionTestCall> GetFunctionTestsLastDay();
 std::vector<FunctionTestCall> GetFunctionTestsTimeAddSub();
 std::vector<FunctionTestCall> GetFunctionTestsTimeDiff();
 std::vector<FunctionTestCall> GetFunctionTestsTimeTrunc();
@@ -181,6 +182,7 @@ std::vector<FunctionTestCall> GetFunctionTestsAscii();
 std::vector<FunctionTestCall> GetFunctionTestsUnicode();
 std::vector<FunctionTestCall> GetFunctionTestsChr();
 std::vector<FunctionTestCall> GetFunctionTestsString();
+std::vector<FunctionTestCall> GetFunctionTestsSubstring();
 std::vector<FunctionTestCall> GetFunctionTestsInstr();
 std::vector<FunctionTestCall> GetFunctionTestsSoundex();
 std::vector<FunctionTestCall> GetFunctionTestsTranslate();
@@ -227,6 +229,7 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonExtractArray();
 std::vector<FunctionTestCall> GetFunctionTestsJsonExtractArrayStandardSql();
 std::vector<FunctionTestCall> GetFunctionTestsToJsonString(
     bool include_nano_timestamp);
+std::vector<QueryParamsWithResult> GetFunctionTestsJsonIsNull();
 
 std::vector<FunctionTestCall> GetFunctionTestsHash();
 std::vector<FunctionTestCall> GetFunctionTestsFarmFingerprint();

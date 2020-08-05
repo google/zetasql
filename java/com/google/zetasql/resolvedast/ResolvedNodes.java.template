@@ -33,6 +33,7 @@ import com.google.zetasql.ConstantRefProto;
 import com.google.zetasql.FieldDescriptorRefProto;
 import com.google.zetasql.FileDescriptorSetsBuilder;
 import com.google.zetasql.Function;
+import com.google.zetasql.FunctionProtos.TVFArgumentProto;
 import com.google.zetasql.OneofDescriptorRefProto;
 import com.google.zetasql.ResolvedFunctionCallInfo;
 import com.google.zetasql.FunctionProtos.ResolvedFunctionCallInfoProto;
@@ -119,23 +120,20 @@ public final class ResolvedNodes {
     return fieldDescriptorRef.build();
   }
 
-  // TODO: Handle serialization of ResolvedFunctionCallInfos.
   static ResolvedFunctionCallInfoProto serialize(
       ResolvedFunctionCallInfo functionCallContext,
       FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     return ResolvedFunctionCallInfoProto.getDefaultInstance();
   }
 
-  // TODO: Handle serialization of TVFSignatures.
   static TVFSignatureProto serialize(
       TVFSignature tvfSignature, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
-    return TVFSignatureProto.getDefaultInstance();
+    return tvfSignature.serialize();
   }
 
-  // TODO: Handle serialization of TVFs.
   static TableValuedFunctionRefProto serialize(
       TableValuedFunction tvf, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
-    return TableValuedFunctionRefProto.getDefaultInstance();
+    return TableValuedFunctionRefProto.newBuilder().setName(tvf.getName()).build();
   }
 
   static ModelRefProto serialize(Model model, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {

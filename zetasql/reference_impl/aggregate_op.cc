@@ -1050,20 +1050,6 @@ class AggregateTupleIterator : public TupleIterator {
   int64_t num_next_calls_ = 0;
 };
 
-// Wraps a const TupleData* but hashes as the underlying TupleData.
-struct TupleDataPtr {
-  explicit TupleDataPtr(const TupleData* data_in) : data(data_in) {}
-
-  const TupleData* data = nullptr;
-
-  bool operator==(const TupleDataPtr& t) const { return *data == *t.data; }
-
-  template <typename H>
-  friend H AbslHashValue(H h, const TupleDataPtr& t) {
-    return H::combine(std::move(h), *t.data);
-  }
-};
-
 // The bool is true if we should stop accumulation for the corresponding
 // accumulator.
 using AccumulatorList =

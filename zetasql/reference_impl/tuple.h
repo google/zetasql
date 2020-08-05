@@ -42,6 +42,7 @@
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "zetasql/base/flat_set.h"
+#include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
@@ -528,6 +529,20 @@ class TupleData {
   // Allow copy/assign/move.
 };
 
+// Wraps a const TupleData* but hashes as the underlying TupleData.
+struct TupleDataPtr {
+  explicit TupleDataPtr(const TupleData* data_in) : data(data_in) {}
+
+  const TupleData* data = nullptr;
+
+  bool operator==(const TupleDataPtr& t) const { return *data == *t.data; }
+
+  template <typename H>
+  friend H AbslHashValue(H h, const TupleDataPtr& t) {
+    return H::combine(std::move(h), *t.data);
+  }
+};
+
 struct Tuple {
  public:
   Tuple(const TupleSchema* schema_in, const TupleData* data_in)
@@ -788,6 +803,147 @@ class TupleDataOrderedQueue {
   // We use multimap because it is a sorted container that allows duplicates
   // and allows us to associate a payload for each item.
   std::multimap<const TupleData*, ValueEntry, Comparator> entries_;
+};
+
+// Represents a memory reservation on an accountant bytes already allocated by
+// the caller.
+// Frees the bytes in the destructor.
+class MemoryReservation {
+ public:
+  // Constructs an empty MemoryReservation
+  explicit MemoryReservation(MemoryAccountant* accountant)
+      : accountant_(accountant), num_bytes_(0) {}
+
+  // A memory reservation is moveable, but not copyable. Moving it transfers
+  // ownership; copying id disallowed altogether to avoid double-free.
+  MemoryReservation(const MemoryReservation&) = delete;
+  MemoryReservation operator=(const MemoryReservation&) = delete;
+  MemoryReservation(MemoryReservation&& reservation)
+      : accountant_(reservation.accountant_),
+        num_bytes_(reservation.num_bytes_) {
+    // Prevent double free when original memory reservation is destroyed.
+    // Also, avoid potential crash if the accountant is destroyed before the
+    // original reservation.
+    reservation.num_bytes_ = 0;
+    reservation.accountant_ = nullptr;
+  }
+
+  // The destructor frees allocated bytes back to the memory accountant.
+  ~MemoryReservation() {
+    if (accountant_ != nullptr) {
+      accountant_->ReturnBytes(num_bytes_);
+    }
+  }
+
+  // Allocates <num_bytes> and updates the reservation accordingly.
+  ABSL_MUST_USE_RESULT bool Increase(int64_t num_bytes, absl::Status* status) {
+    bool success = accountant_->RequestBytes(num_bytes, status);
+    if (success) {
+      num_bytes_ += num_bytes;
+    }
+    return success;
+  }
+
+ private:
+  MemoryAccountant* accountant_;
+  int64_t num_bytes_;
+};
+
+// Helper class to keep track of a distinct set of TupleData's.
+//
+// Keeps track of all memory usage, using a MemoryAccountant, and will fail
+// insert operations if the accountant does not have enough memory available.
+// Used memory is freed back to the accountant in the destructor.
+class DistinctRowSet {
+ public:
+  explicit DistinctRowSet(MemoryAccountant* accountant)
+      : memory_reservation_(accountant) {}
+  DistinctRowSet(const DistinctRowSet&) = delete;
+  DistinctRowSet& operator=(const DistinctRowSet&) = delete;
+
+  // Inserts a row into the row set, taking ownership of the given row.
+  // - If successful, returns true.
+  // - If the row duplicates any existing row in the row set, returns false
+  // - If an error occurs (for example, if inserting the row would exceed
+  //     memory limits), returns false and sets *status to a non-OK status
+  //     describing the error.
+  bool InsertRowIfNotPresent(std::unique_ptr<TupleData> row,
+                             absl::Status* status) {
+    if (!zetasql_base::InsertIfNotPresent(&rows_set_, TupleDataPtr(row.get()))) {
+      // Duplicate; not inserted
+      return false;
+    }
+    if (!memory_reservation_.Increase(row->GetPhysicalByteSize(), status)) {
+      return false;
+    }
+    rows_.push_back(std::move(row));
+    return true;
+  }
+
+ private:
+  std::vector<std::unique_ptr<TupleData>> rows_;
+  absl::flat_hash_set<TupleDataPtr> rows_set_;
+  MemoryReservation memory_reservation_;
+};
+
+// Class for building an array value, tracking memory usage against a memory
+// accountant.
+class ArrayBuilder {
+ public:
+  // Represents a value, along with a memory reservation for it.
+  struct TrackedValue {
+    // A value
+    Value value;
+
+    // Memory reservation which owns the memory used by <value>.
+    MemoryReservation reservation;
+  };
+
+  explicit ArrayBuilder(MemoryAccountant* accountant)
+      : reservation_(accountant) {}
+
+  bool IsEmpty() const { return values_.empty(); }
+  size_t GetSize() const { return values_.size(); }
+
+  // Moves the given value to the end of the array being built. Returns
+  // false and sets *status to ResourceExhausted if the memory accountant does
+  // not have space to hold the value.
+  //
+  // Note: The caller is responsible for ensuring that all values pushed are of
+  // the same type. This is not verified here for performance reasons.
+  ABSL_MUST_USE_RESULT bool PushBackUnsafe(Value&& value,
+                                           absl::Status* status) {
+    if (!reservation_.Increase(value.physical_byte_size(), status)) {
+      return false;
+    }
+    values_.push_back(std::move(value));
+    return true;
+  }
+
+  // Creates an array value representing the values previously passed to
+  // PushBack(), returning a MemoryReservation to track freeing the value back
+  // to the memory accountant.
+  //
+  // The size of returned memory reservation is the sum of the element sizes,
+  // which is slightly less than the size of the returned array value. This
+  // saves a couple of unnecessary allocate/free operations and the difference
+  // is expected to be negligible.
+  //
+  // All values passed to PushBack() are expected to match type->element_type(),
+  // however, for performance reasons, this is not verified at runtime.
+  //
+  // After return, the TrackedArrayBuilder is left in an invalid state, and
+  // no more methods should be called on the object.
+  ABSL_MUST_USE_RESULT TrackedValue Build(
+      const ArrayType* type, InternalValue::OrderPreservationKind order_kind) {
+    return TrackedValue{
+        InternalValue::ArrayNotChecked(type, order_kind, std::move(values_)),
+        std::move(reservation_)};
+  }
+
+ private:
+  MemoryReservation reservation_;
+  std::vector<Value> values_;
 };
 
 // Represents a hash set of values with memory tracked by a MemoryAccountant.

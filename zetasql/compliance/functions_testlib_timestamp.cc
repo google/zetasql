@@ -322,6 +322,166 @@ static QueryParamsWithResult::FeatureSet GetFeatureSetForDateTimestampPart(
       static_cast<DateTimestampPart>(date_part));
 }
 
+std::vector<FunctionTestCall> GetFunctionTestsLastDay() {
+  const EnumType* part_type = types::DatePartEnumType();
+  auto last_day_date = [part_type](std::string date, std::string part,
+                                  std::string result) {
+    const Value part_value = Enum(part_type, part);
+    return FunctionTestCall(
+        "last_day", {DateFromStr(date), part_value}, DateFromStr(result));
+  };
+
+  auto last_day_date_error = [part_type](std::string date, std::string part) {
+    const Value part_value = Enum(part_type, part);
+    return FunctionTestCall(
+        "last_day", {DateFromStr(date), part_value}, NullDate(), OUT_OF_RANGE);
+  };
+
+  auto last_day_datetime = [part_type](Value datetime, std::string part,
+                                std::string result) {
+    const Value part_value = Enum(part_type, part);
+    return FunctionTestCall("last_day", {datetime, part_value},
+                            DateFromStr(result));
+  };
+
+  auto last_day_datetime_error = [part_type](Value datetime, std::string part) {
+    const Value part_value = Enum(part_type, part);
+    return FunctionTestCall("last_day", {datetime, part_value}, NullDate(),
+                            OUT_OF_RANGE);
+  };
+
+  return {
+      // NULL handling. Don't try to create a NULL DatePart, though, because the
+      // resolver won't let us do that.
+      {"last_day", {NullDate(), Enum(part_type, "YEAR")}, NullDate()},
+      {"last_day", {NullDate(), Enum(part_type, "MONTH")}, NullDate()},
+      {"last_day", {NullDate(), Enum(part_type, "ISOYEAR")}, NullDate()},
+      {"last_day", {NullDate(), Enum(part_type, "QUARTER")}, NullDate()},
+      {"last_day", {NullDate(), Enum(part_type, "WEEK")}, NullDate()},
+      {"last_day", {NullDate(), Enum(part_type, "WEEK_THURSDAY")}, NullDate()},
+      // Non-NULL arguments.
+      // YEAR
+      last_day_date("2001-01-01", "YEAR", "2001-12-31"),
+      last_day_date("1900-12-31", "YEAR", "1900-12-31"),
+      last_day_date("0001-01-01", "YEAR", "0001-12-31"),
+      last_day_date("9999-11-01", "YEAR", "9999-12-31"),
+      last_day_datetime(DatetimeMicros(9999, 11, 1, 12, 34, 56, 789123),
+                       "YEAR", "9999-12-31"),
+      last_day_datetime(DatetimeMicros(1, 1, 1, 1, 3, 5, 789),
+                       "YEAR", "0001-12-31"),
+      // ISOYEAR
+      // ISO years always start on Monday and end on Sunday
+      // January 1 of a year is sometimes in week 52 or 53 of the previous year.
+      // Similarly, December 31 is sometimes in week 1 of the following year.
+      // 2001-01-01 is Monday, 2001-12-30 is a Sunday
+      last_day_date("2001-01-01", "ISOYEAR", "2001-12-30"),
+      // 1900-12-31 is a Monday, 1901-12-29 is a Sunday
+      last_day_date("1900-12-31", "ISOYEAR", "1901-12-29"),
+      last_day_date("1900-12-30", "ISOYEAR", "1900-12-30"),
+      // 1-1-1 is a Saturday, 1-1-2 is a Sunday
+      last_day_date("0001-01-03", "ISOYEAR", "0001-12-30"),
+      last_day_datetime(DatetimeMicros(1, 1, 3, 12, 34, 56, 789123),
+                       "ISOYEAR", "0001-12-30"),
+      last_day_datetime(DatetimeMicros(1900, 12, 31, 12, 34, 56, 789123),
+                       "ISOYEAR", "1901-12-29"),
+      // 9999-12-31 is Friday, so the last day of isoyear 9999 will overflow
+      last_day_date_error("9999-11-01", "ISOYEAR"),
+      last_day_datetime_error(DatetimeMicros(9999, 11, 1, 12, 34, 56, 789123),
+                             "ISOYEAR"),
+      // QUARTER
+      last_day_date("9999-11-01", "QUARTER", "9999-12-31"),
+      last_day_date("2001-10-01", "QUARTER", "2001-12-31"),
+      last_day_date("1900-07-31", "QUARTER", "1900-09-30"),
+      last_day_date("2001-01-01", "QUARTER", "2001-03-31"),
+      last_day_date("1900-09-30", "QUARTER", "1900-09-30"),
+      last_day_date("1900-05-31", "QUARTER", "1900-06-30"),
+      last_day_datetime(DatetimeMicros(1900, 7, 31, 12, 34, 56, 789123),
+                       "QUARTER", "1900-09-30"),
+      last_day_datetime(DatetimeMicros(1900, 10, 31, 12, 34, 56, 789123),
+                       "QUARTER", "1900-12-31"),
+      // MONTH
+      last_day_date("2020-02-29", "MONTH", "2020-02-29"),
+      last_day_date("2000-02-01", "MONTH", "2000-02-29"),
+      last_day_date("1900-02-01", "MONTH", "1900-02-28"),
+      last_day_date("1800-02-01", "MONTH", "1800-02-28"),
+      last_day_date("1700-02-01", "MONTH", "1700-02-28"),
+      last_day_date("1600-02-01", "MONTH", "1600-02-29"),
+      last_day_date("2001-12-31", "MONTH", "2001-12-31"),
+      last_day_date("2001-12-30", "MONTH", "2001-12-31"),
+      last_day_date("2001-12-01", "MONTH", "2001-12-31"),
+      last_day_date("1900-12-30", "MONTH", "1900-12-31"),
+      last_day_date("2020-01-30", "MONTH", "2020-01-31"),
+      last_day_date("2020-02-10", "MONTH", "2020-02-29"),
+      last_day_date("2019-02-01", "MONTH", "2019-02-28"),
+      last_day_date("2020-03-10", "MONTH", "2020-03-31"),
+      last_day_date("2020-04-10", "MONTH", "2020-04-30"),
+      last_day_date("2020-05-10", "MONTH", "2020-05-31"),
+      last_day_date("2020-06-10", "MONTH", "2020-06-30"),
+      last_day_date("2020-07-10", "MONTH", "2020-07-31"),
+      last_day_date("2020-08-10", "MONTH", "2020-08-31"),
+      last_day_date("2020-09-10", "MONTH", "2020-09-30"),
+      last_day_date("2020-10-10", "MONTH", "2020-10-31"),
+      last_day_date("2020-11-10", "MONTH", "2020-11-30"),
+      last_day_date("2020-12-10", "MONTH", "2020-12-31"),
+      last_day_date("9999-12-01", "MONTH", "9999-12-31"),
+      last_day_date("9999-12-31", "MONTH", "9999-12-31"),
+      last_day_datetime(DatetimeMicros(1900, 12, 30, 12, 34, 56, 789123),
+                       "MONTH", "1900-12-31"),
+      last_day_datetime(DatetimeMicros(2020, 2, 10, 12, 34, 56, 789123),
+                       "MONTH", "2020-02-29"),
+      last_day_datetime(DatetimeMicros(2019, 2, 10, 12, 34, 56, 789123),
+                       "MONTH", "2019-02-28"),
+      // WEEK
+      // 2001-12-30 is a Sunday
+      last_day_date("2001-12-30", "WEEK", "2002-01-05"),
+      last_day_date("2001-12-30", "ISOWEEK", "2001-12-30"),
+      last_day_date("2001-12-30", "WEEK_MONDAY", "2001-12-30"),
+      last_day_date("2001-12-30", "WEEK_TUESDAY", "2001-12-31"),
+      last_day_date("2001-12-30", "WEEK_WEDNESDAY", "2002-01-01"),
+      last_day_date("2001-12-30", "WEEK_THURSDAY", "2002-01-02"),
+      last_day_date("2001-12-30", "WEEK_FRIDAY", "2002-01-03"),
+      last_day_date("2001-12-30", "WEEK_SATURDAY", "2002-01-04"),
+      last_day_datetime(DatetimeMicros(2001, 12, 30, 12, 34, 56, 789123),
+                       "WEEK", "2002-01-05"),
+      // 2001-12-31 is a Monday
+      last_day_date("2001-12-31", "WEEK", "2002-01-05"),
+      last_day_date("2001-12-31", "ISOWEEK", "2002-01-06"),
+      last_day_date("2001-12-31", "WEEK_MONDAY", "2002-01-06"),
+      last_day_date("2001-12-31", "WEEK_TUESDAY", "2001-12-31"),
+      last_day_date("2001-12-31", "WEEK_WEDNESDAY", "2002-01-01"),
+      last_day_date("2001-12-31", "WEEK_THURSDAY", "2002-01-02"),
+      last_day_date("2001-12-31", "WEEK_FRIDAY", "2002-01-03"),
+      last_day_date("2001-12-31", "WEEK_SATURDAY", "2002-01-04"),
+      last_day_datetime(DatetimeMicros(2001, 12, 31, 12, 34, 56, 789123),
+                       "ISOWEEK", "2002-01-06"),
+      // 1970-1-1 is Thursday
+      last_day_date("1970-01-01", "WEEK", "1970-01-03"),
+      last_day_date("1970-01-01", "ISOWEEK", "1970-01-04"),
+      last_day_date("1970-01-01", "WEEK_MONDAY", "1970-01-04"),
+      last_day_date("1970-01-01", "WEEK_TUESDAY", "1970-01-05"),
+      last_day_date("1970-01-01", "WEEK_WEDNESDAY", "1970-01-06"),
+      last_day_date("1970-01-01", "WEEK_THURSDAY", "1970-01-07"),
+      last_day_date("1970-01-01", "WEEK_FRIDAY", "1970-01-01"),
+      last_day_date("1970-01-01", "WEEK_SATURDAY", "1970-01-02"),
+      last_day_datetime(DatetimeMicros(1970, 1, 1, 12, 34, 56, 789123),
+                       "WEEK_SATURDAY", "1970-01-02"),
+      // 9999-12-28 is a Tuesday
+      last_day_date_error("9999-12-28", "WEEK"),
+      last_day_date_error("9999-12-28", "ISOWEEK"),
+      last_day_date_error("9999-12-28", "WEEK_MONDAY"),
+      last_day_date_error("9999-12-28", "WEEK_TUESDAY"),
+      last_day_date("9999-12-28", "WEEK_WEDNESDAY", "9999-12-28"),
+      last_day_date("9999-12-28", "WEEK_THURSDAY", "9999-12-29"),
+      last_day_date("9999-12-28", "WEEK_FRIDAY", "9999-12-30"),
+      last_day_date("9999-12-28", "WEEK_SATURDAY", "9999-12-31"),
+      last_day_date_error("9999-12-28", "DATE"),
+      last_day_date_error("9999-12-28", "HOUR"),
+      last_day_date_error("9999-12-28", "SECOND"),
+      last_day_datetime_error(DatetimeMicros(1970, 1, 1, 12, 34, 56, 789123),
+                             "HOUR")
+      };
+}
+
 std::vector<FunctionTestCall> GetFunctionTestsDateTrunc() {
   const EnumType* part_type = types::DatePartEnumType();
   auto date_trunc = [part_type](std::string date, std::string part,

@@ -6,7 +6,7 @@ ZetaSQL supports the following `DATE` functions.
 
 ### CURRENT_DATE
 
-```
+```sql
 CURRENT_DATE([time_zone])
 ```
 
@@ -40,7 +40,7 @@ SELECT CURRENT_DATE() as the_date;
 
 ### EXTRACT
 
-```
+```sql
 EXTRACT(part FROM date_expression)
 ```
 
@@ -78,7 +78,7 @@ INT64
 **Examples**
 
 In the following example, `EXTRACT` returns a value corresponding to the `DAY`
-time part.
+date part.
 
 ```sql
 SELECT EXTRACT(DAY FROM DATE '2013-12-25') as the_day;
@@ -91,7 +91,7 @@ SELECT EXTRACT(DAY FROM DATE '2013-12-25') as the_day;
 ```
 
 In the following example, `EXTRACT` returns values corresponding to different
-time parts from a column of dates near the end of the year.
+date parts from a column of dates near the end of the year.
 
 ```sql
 SELECT
@@ -145,7 +145,8 @@ SELECT
 ```
 
 ### DATE
-```
+
+```sql
 1. DATE(year, month, day)
 2. DATE(timestamp_expression[, timezone])
 3. DATE(datetime_expression)
@@ -153,7 +154,8 @@ SELECT
 
 **Description**
 
-1. Constructs a DATE from INT64 values representing the year, month, and day.
+1. Constructs a DATE from INT64 values representing
+   the year, month, and day.
 2. Extracts the DATE from a TIMESTAMP expression. It supports an
    optional parameter to [specify a timezone][date-functions-link-to-timezone-definitions]. If no
    timezone is specified, the default timezone, which is implementation defined, is used.
@@ -180,8 +182,9 @@ SELECT
 ```
 
 ### DATE_ADD
-```
-DATE_ADD(date_expression, INTERVAL INT64_expr date_part)
+
+```sql
+DATE_ADD(date_expression, INTERVAL int64_expression date_part)
 ```
 
 **Description**
@@ -218,8 +221,9 @@ SELECT DATE_ADD(DATE "2008-12-25", INTERVAL 5 DAY) as five_days_later;
 ```
 
 ### DATE_SUB
-```
-DATE_SUB(date_expression, INTERVAL INT64_expr date_part)
+
+```sql
+DATE_SUB(date_expression, INTERVAL int64_expression date_part)
 ```
 
 **Description**
@@ -256,15 +260,17 @@ SELECT DATE_SUB(DATE "2008-12-25", INTERVAL 5 DAY) as five_days_ago;
 ```
 
 ### DATE_DIFF
-```
-DATE_DIFF(date_expression, date_expression, date_part)
+
+```sql
+DATE_DIFF(date_expression_a, date_expression_b, date_part)
 ```
 
 **Description**
 
-Returns the number of `date_part` boundaries between the two `date_expression`s.
-If the first date occurs before the second date, then the result is
-non-positive.
+Returns the number of whole specified `date_part` intervals between two `DATE` objects
+(`date_expression_a` - `date_expression_b`).
+If the first `DATE` is earlier than the second one,
+the output is negative.
 
 `DATE_DIFF` supports the following `date_part` values:
 
@@ -297,7 +303,6 @@ SELECT DATE_DIFF(DATE '2010-07-07', DATE '2008-12-25', DAY) as days_diff;
 +-----------+
 | 559       |
 +-----------+
-
 ```
 
 ```sql
@@ -325,7 +330,7 @@ with the date part `ISOYEAR` returns 2 because the second date belongs to the
 ISO year 2015. The first Thursday of the 2015 calendar year was 2015-01-01, so
 the ISO year 2015 begins on the preceding Monday, 2014-12-29.
 
-```
+```sql
 SELECT
   DATE_DIFF('2017-12-30', '2014-12-30', YEAR) AS year_diff,
   DATE_DIFF('2017-12-30', '2014-12-30', ISOYEAR) AS isoyear_diff;
@@ -339,12 +344,12 @@ SELECT
 
 The following example shows the result of `DATE_DIFF` for two days in
 succession. The first date falls on a Monday and the second date falls on a
-Sunday. `DATE_DIFF` with the date part `WEEK` returns 0 because this time part
+Sunday. `DATE_DIFF` with the date part `WEEK` returns 0 because this date part
 uses weeks that begin on Sunday. `DATE_DIFF` with the date part `WEEK(MONDAY)`
 returns 1. `DATE_DIFF` with the date part `ISOWEEK` also returns 1 because
 ISO weeks begin on Monday.
 
-```
+```sql
 SELECT
   DATE_DIFF('2017-12-18', '2017-12-17', WEEK) AS week_diff,
   DATE_DIFF('2017-12-18', '2017-12-17', WEEK(MONDAY)) AS week_weekday_diff,
@@ -358,7 +363,8 @@ SELECT
 ```
 
 ### DATE_TRUNC
-```
+
+```sql
 DATE_TRUNC(date_expression, date_part)
 ```
 
@@ -393,7 +399,7 @@ DATE
 
 **Examples**
 
-```
+```sql
 SELECT DATE_TRUNC(DATE '2008-12-25', MONTH) as month;
 
 +------------+
@@ -407,7 +413,7 @@ In the following example, the original date falls on a Sunday. Because
 the `date_part` is `WEEK(MONDAY)`, `DATE_TRUNC` returns the `DATE` for the
 preceding Monday.
 
-```
+```sql
 SELECT date AS original, DATE_TRUNC(date, WEEK(MONDAY)) AS truncated
 FROM (SELECT DATE('2017-11-05') AS date);
 
@@ -426,7 +432,7 @@ Gregorian calendar year. The first Thursday of the 2015 calendar year was
 Therefore the ISO year boundary preceding the `date_expression` 2015-06-15 is
 2014-12-29.
 
-```
+```sql
 SELECT
   DATE_TRUNC('2015-06-15', ISOYEAR) AS isoyear_boundary,
   EXTRACT(ISOYEAR FROM DATE '2015-06-15') AS isoyear_number;
@@ -439,13 +445,14 @@ SELECT
 ```
 
 ### DATE_FROM_UNIX_DATE
-```
-DATE_FROM_UNIX_DATE(INT64_expression)
+
+```sql
+DATE_FROM_UNIX_DATE(int64_expression)
 ```
 
 **Description**
 
-Interprets `INT64_expression` as the number of days since 1970-01-01.
+Interprets `int64_expression` as the number of days since 1970-01-01.
 
 **Return Data Type**
 
@@ -464,7 +471,8 @@ SELECT DATE_FROM_UNIX_DATE(14238) as date_from_epoch;
 ```
 
 ### FORMAT_DATE
-```
+
+```sql
 FORMAT_DATE(format_string, date_expr)
 ```
 
@@ -512,7 +520,8 @@ SELECT FORMAT_DATE("%b %Y", DATE "2008-12-25") AS formatted;
 ```
 
 ### PARSE_DATE
-```
+
+```sql
 PARSE_DATE(format_string, date_string)
 ```
 
@@ -554,7 +563,8 @@ SELECT PARSE_DATE("%x", "12/25/08") as parsed;
 ```
 
 ### UNIX_DATE
-```
+
+```sql
 UNIX_DATE(date_expression)
 ```
 

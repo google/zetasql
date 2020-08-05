@@ -89,14 +89,19 @@ void TestMakeRandomCoverage(T (*generator)(absl::BitGen*),
   EXPECT_GE(num_covered, 9 * kNumPossibleCombinations / 10);
 }
 
+template <typename T>
+T MakeRandomNumericValueWrapper(absl::BitGen* random) {
+  return MakeRandomNumericValue<T>(random, nullptr);
+}
+
 TEST(NumericTest, MakeRandomNumericValue_Coverage) {
-  TestMakeRandomCoverage(&MakeRandomNumericValue<NumericValue>,
+  TestMakeRandomCoverage(&MakeRandomNumericValueWrapper<NumericValue>,
                          /* expect_zero_values = */ true,
                          /* expect_negative_values = */ true);
 }
 
 TEST(BigNumericTest, MakeRandomNumericValue_Coverage) {
-  TestMakeRandomCoverage(&MakeRandomNumericValue<BigNumericValue>,
+  TestMakeRandomCoverage(&MakeRandomNumericValueWrapper<BigNumericValue>,
                          /* expect_zero_values = */ true,
                          /* expect_negative_values = */ true);
 }

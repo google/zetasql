@@ -25,7 +25,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "zetasql/common/fixed_int.h"
+#include "zetasql/common/multiprecision_int.h"
 #include "zetasql/public/numeric_value.h"
 #include <cstdint>
 #include "absl/strings/string_view.h"

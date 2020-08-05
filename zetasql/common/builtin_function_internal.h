@@ -144,6 +144,11 @@ absl::Status CheckDateTruncArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
+absl::Status CheckLastDayArguments(
+    const std::string& function_name,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options);
+
 absl::Status CheckTimeTruncArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
@@ -318,6 +323,10 @@ absl::Status CheckArrayConcatArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
+absl::Status CheckArrayIsDistinctArguments(
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options);
+
 absl::Status CheckInArrayArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
@@ -358,6 +367,16 @@ bool CanStringConcatCoerceFrom(const zetasql::Type* arg_type);
 zetasql_base::StatusOr<const Type*> ComputeResultTypeForTopStruct(
     const std::string& field2_name, Catalog* catalog, TypeFactory* type_factory,
     CycleDetector* cycle_detector,
+    const std::vector<InputArgumentType>& arguments,
+    const AnalyzerOptions& analyzer_options);
+
+// Compute the result type for ST_NEAREST_NEIGHBORS.
+// The output type is
+//   ARRAY<
+//     STRUCT<`neighbor` <arguments[0].type>,
+//            `distance` Double> >
+zetasql_base::StatusOr<const Type*> ComputeResultTypeForNearestNeighborsStruct(
+    Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
     const std::vector<InputArgumentType>& arguments,
     const AnalyzerOptions& analyzer_options);
 
@@ -411,7 +430,7 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
                                 const ZetaSQLBuiltinFunctionOptions& options,
                                 NameToFunctionMap* functions);
 
-void GetDatetimeDiffTruncFunctions(
+void GetDatetimeDiffTruncLastFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions);
 

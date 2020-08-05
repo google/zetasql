@@ -50,9 +50,9 @@ cc_test(
     ],
     deps = [
         ":util",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -129,13 +129,13 @@ cc_test(
     ],
     deps = [
         ":convert",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/public:numeric_value",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -174,9 +174,9 @@ cc_test(
     ],
     deps = [
         ":convert_proto",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -219,12 +219,12 @@ cc_test(
     ],
     deps = [
         ":convert_string",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -265,9 +265,9 @@ cc_test(
     ],
     deps = [
         ":like",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:status",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
         "@com_googlesource_code_re2//:re2",
     ],
 )
@@ -324,7 +324,6 @@ cc_test(
     shard_count = 6,
     deps = [
         ":string_format",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
         "//zetasql/base:cleanup",
         "//zetasql/base:map_util",
@@ -339,6 +338,7 @@ cc_test(
         "@com_google_absl//absl/functional:bind_front",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -356,12 +356,12 @@ cc_test(
     ],
     deps = [
         ":string_format",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/common/testing:testing_proto_util",
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -395,8 +395,8 @@ cc_test(
     ],
     deps = [
         ":arithmetics_internal",
-        "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -460,13 +460,13 @@ cc_test(
     ],
     deps = [
         ":bitwise",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
         "//zetasql/base:status",
         "//zetasql/compliance:functions_testlib",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/testing:test_function",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -501,9 +501,9 @@ cc_test(
     ],
     deps = [
         ":bitcast",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:status",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -555,9 +555,9 @@ cc_test(
     ],
     deps = [
         ":date_time_util_internal",
-        "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -642,8 +642,6 @@ cc_test(
     deps = [
         ":date_time_util",
         ":parse_date_time",
-        "@com_google_googletest//:gtest",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
         "//zetasql/base:map_util",
         "//zetasql/base:status",
@@ -656,6 +654,8 @@ cc_test(
         "//zetasql/testing:test_function",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -697,7 +697,6 @@ cc_test(
     ],
     deps = [
         ":math",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
@@ -709,6 +708,7 @@ cc_test(
         "//zetasql/public:value",
         "//zetasql/testing:test_function",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -776,13 +776,13 @@ cc_test(
     ],
     deps = [
         ":uuid",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
         "//zetasql/base:status",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/random:mock_distributions",
         "@com_google_absl//absl/random:mocking_bit_gen",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -826,13 +826,13 @@ cc_test(
     ],
     deps = [
         ":regexp",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:status",
         "//zetasql/compliance:functions_testlib",
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/testing:test_function",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -932,7 +932,6 @@ cc_test(
     deps = [
         ":json",
         ":json_internal",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
         "//zetasql/base:status",
         "//zetasql/base:statusor",
@@ -944,6 +943,7 @@ cc_test(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -984,7 +984,6 @@ cc_test(
     ],
     deps = [
         ":generate_array",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/common:float_margin",
@@ -996,6 +995,7 @@ cc_test(
         "//zetasql/testing:test_function",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -1040,13 +1040,13 @@ cc_test(
     deps = [
         ":common_proto",
         ":date_time_util",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/public:civil_time",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
+        "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_googleapis_googleapis//:timeofday_cc_proto",
     ],
@@ -1088,12 +1088,12 @@ cc_test(
     ],
     deps = [
         ":hash",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/compliance:functions_testlib",
         "//zetasql/public:type",
         "//zetasql/public:value",
         "//zetasql/testing:test_function",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -1115,7 +1115,7 @@ cc_library(
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/base:statusor",
-        "//zetasql/common:fixed_int",
+        "//zetasql/common:multiprecision_int",
         "//zetasql/public:numeric_value",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings",
@@ -1136,10 +1136,10 @@ cc_test(
     ],
     deps = [
         ":percentile",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/common:string_util",
         "//zetasql/public:numeric_value",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )

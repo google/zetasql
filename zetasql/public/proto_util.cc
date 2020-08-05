@@ -246,6 +246,10 @@ static absl::Status GetProtoFieldDefaultImpl(
       *default_value = Value::Datetime(datetime);
       break;
     }
+    case TYPE_JSON: {
+      *default_value = Value::Json(JSONValue());
+      break;
+    }
     default:
       return ::zetasql_base::InvalidArgumentErrorBuilder()
              << "No default value for " << field->DebugString();

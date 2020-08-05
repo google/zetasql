@@ -789,6 +789,11 @@ Evaluator::MakeUpdateIterator(const Value& value,
              << statement->node_kind_string();
   }
 
+  if (table->IsValueTable()) {
+    return zetasql_base::InvalidArgumentErrorBuilder()
+           << "PreparedModify api does not support modifying value tables";
+  }
+
   ZETASQL_RET_CHECK(value.type()->IsStruct());
   ZETASQL_RET_CHECK_EQ(value.num_fields(), 2);
   ZETASQL_RET_CHECK(value.field(1).type()->IsArray());

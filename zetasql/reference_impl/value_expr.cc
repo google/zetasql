@@ -344,21 +344,13 @@ bool ArrayNestExpr::Eval(absl::Span<const TupleData* const> params,
   // For WITH tables, the array represents multiple rows, so we must track the
   // memory usage with a MemoryAccountant. For non-WITH tables, we simply ensure
   // that the array is not too large.
-  MemoryAccountant* accountant = nullptr;
-  if (is_with_table_) {
-    accountant = context->memory_accountant();
+  std::unique_ptr<MemoryAccountant> local_accountant;
+  if (!is_with_table_) {
+    local_accountant = absl::make_unique<MemoryAccountant>(
+        context->options().max_value_byte_size);
   }
-  std::vector<Value> output;
-  std::function<void()> return_bytes = [accountant, &output]() {
-    if (accountant != nullptr) {
-      for (const Value& value : output) {
-        accountant->ReturnBytes(value.physical_byte_size());
-      }
-    }
-  };
-  // If we fail early, return the accumulated bytes.
-  auto cleanup = zetasql_base::MakeCleanup(return_bytes);
-  int64_t output_byte_size = 0;  // Valid if 'is_with_table_' is false.
+  ArrayBuilder builder(is_with_table_ ? context->memory_accountant()
+                                      : local_accountant.get());
   while (true) {
     const TupleData* tuple = iter->Next();
     if (tuple == nullptr) {
@@ -372,36 +364,25 @@ bool ArrayNestExpr::Eval(absl::Span<const TupleData* const> params,
                                status)) {
       return false;
     }
-    Value& value = *slot.mutable_value();
 
-    // Check for memory usage. See the comment for 'accountant' above.
-    if (accountant == nullptr) {
-      output_byte_size += value.physical_byte_size();
-      if (output_byte_size > context->options().max_value_byte_size) {
+    if (!builder.PushBackUnsafe(std::move(*slot.mutable_value()), status)) {
+      if (!is_with_table_) {
         *status = zetasql_base::OutOfRangeErrorBuilder()
                   << "Cannot construct array Value larger than "
                   << context->options().max_value_byte_size << " bytes";
-        return false;
       }
-    } else {
-      if (!accountant->RequestBytes(value.physical_byte_size(), status)) {
-        return false;
-      }
+      return false;
     }
-
-    output.push_back(std::move(value));
   }
+  *result->mutable_value() =
+      builder.Build(output_type()->AsArray(), iter_originally_preserved_order)
+          .value;
 
-  // Free the memory. Ideally we would not do this here and instead do it when
-  // the TupleIterator that stores the WITH table is deleted. But we have no way
-  // to easily hold a MemoryAccountant reservation after this method returns. So
-  // as a hack, we free the memory here and re-reserve it in the LetOp/LetExpr
-  // that ends up holding the WITH table.
-  return_bytes();
-  result->SetValue(InternalValue::ArrayNotChecked(
-      output_type()->AsArray(), iter_originally_preserved_order,
-      std::move(output)));  // Invalidates 'output' (and therefore 'cleanup').
-  output.clear();           // Nothing for 'cleanup' to do.
+  // For WITH tables, we allow the memory reservation to be freed here, when
+  // the TrackedValue returned by builder.Build() goes out of scope. The memory
+  // will be re-reserved inside LetExpr/LetOp. This is a hack to work around
+  // not having a mechanism to plumb memory reservations through the various
+  // layers between here and the enclosing LetExpr/LetOp code.
   return true;
 }
 
@@ -608,7 +589,7 @@ bool ProtoFieldReader::GetFieldValue(const TupleSlot& proto_slot,
       *proto_slot.mutable_shared_proto_state();
   const std::unique_ptr<ProtoFieldValueList>* existing_value_list =
       shared_state->has_value()
-          ? FindOrNull(shared_state->value(), value_map_key)
+          ? zetasql_base::FindOrNull(shared_state->value(), value_map_key)
           : nullptr;
   const ProtoFieldValueList* value_list =
       existing_value_list == nullptr ? nullptr : existing_value_list->get();
@@ -1875,7 +1856,7 @@ absl::Status DMLUpdateValueExpr::SetSchemasForEvaluation(
 }
 
 ::zetasql_base::StatusOr<Value> DMLUpdateValueExpr::UpdateNode::GetNewValue(
-    const Value& original_value) const {
+    const Value& original_value, EvaluationContext* context) const {
   if (is_leaf()) return leaf_value();
 
   switch (original_value.type_kind()) {
@@ -1898,14 +1879,15 @@ absl::Status DMLUpdateValueExpr::SetSchemasForEvaluation(
             << UpdatePathComponent::GetKindString(component.kind());
         const int64_t field_idx = component.struct_field_index();
 
-        ZETASQL_ASSIGN_OR_RETURN(const Value field_value,
-                         update_node.GetNewValue(new_fields[field_idx]));
+        ZETASQL_ASSIGN_OR_RETURN(
+            const Value field_value,
+            update_node.GetNewValue(new_fields[field_idx], context));
         new_fields[field_idx] = field_value;
       }
       return Value::Struct(original_value.type()->AsStruct(), new_fields);
     }
     case TYPE_PROTO:
-      return GetNewProtoValue(original_value);
+      return GetNewProtoValue(original_value, context);
     case TYPE_ARRAY: {
       if (original_value.is_null()) {
         return zetasql_base::OutOfRangeErrorBuilder()
@@ -1933,8 +1915,9 @@ absl::Status DMLUpdateValueExpr::SetSchemasForEvaluation(
                  << " of size " << new_elements.size();
         }
 
-        ZETASQL_ASSIGN_OR_RETURN(const Value element_value,
-                         update_node.GetNewValue(new_elements[offset]));
+        ZETASQL_ASSIGN_OR_RETURN(
+            const Value element_value,
+            update_node.GetNewValue(new_elements[offset], context));
         new_elements[offset] = element_value;
       }
       return Value::Array(original_value.type()->AsArray(), new_elements);
@@ -1947,7 +1930,7 @@ absl::Status DMLUpdateValueExpr::SetSchemasForEvaluation(
 }
 
 ::zetasql_base::StatusOr<Value> DMLUpdateValueExpr::UpdateNode::GetNewProtoValue(
-    const Value& original_value) const {
+    const Value& original_value, EvaluationContext* context) const {
   ZETASQL_RET_CHECK_EQ(original_value.type_kind(), TYPE_PROTO);
 
   if (original_value.is_null()) {
@@ -1986,7 +1969,7 @@ absl::Status DMLUpdateValueExpr::SetSchemasForEvaluation(
 
     // Compute the new value of the field.
     ZETASQL_ASSIGN_OR_RETURN(const Value new_field_value,
-                     update_node.GetNewValue(original_field_value));
+                     update_node.GetNewValue(original_field_value, context));
 
     // Overwrite the value of the field in 'new_message'.
     if (field_descriptor->is_required() && new_field_value.is_null()) {
@@ -2003,6 +1986,18 @@ absl::Status DMLUpdateValueExpr::SetSchemasForEvaluation(
                  << "Cannot store a NULL element in repeated proto field "
                  << field_descriptor->full_name();
         }
+      }
+      // There is a bug with verification of Proto repeated fields which are
+      // set to unordered values (via new_field_value). Verification assumes
+      // that the repeated field value is ordered leading to false negatives. If
+      // new_field_value contains an unordered array value for a repeated field,
+      // result from ZetaSQL reference driver is marked non-determinstic and
+      // is ignored.
+      // TODO : Fix the ordering issue in Proto repeated field,
+      // after which below safeguard can be removed.
+      if (InternalValue::GetOrderKind(new_field_value) !=
+          InternalValue::kPreservesOrder) {
+        context->SetNonDeterministicOutput();
       }
     }
     new_message->GetReflection()->ClearField(new_message.get(),
@@ -2476,8 +2471,9 @@ absl::Status DMLUpdateValueExpr::AddToUpdateNode(
       // 'column' was not modified by the statement.
       dml_output_row.push_back(original_value);
     } else {
-      ZETASQL_ASSIGN_OR_RETURN(const Value new_value,
-                       (*update_node_or_null)->GetNewValue(original_value));
+      ZETASQL_ASSIGN_OR_RETURN(
+          const Value new_value,
+          (*update_node_or_null)->GetNewValue(original_value, context));
       if (key_index_set.contains(i)) {
         // Attempting to modify a primary key column.
         const LanguageOptions& language_options = context->GetLanguageOptions();
@@ -2614,7 +2610,7 @@ absl::Status DMLUpdateValueExpr::ProcessNestedUpdate(
         const UpdateNode& update_node = *update_map_entry.second;
 
         ZETASQL_ASSIGN_OR_RETURN(const Value new_value,
-                         update_node.GetNewValue(original_value));
+                         update_node.GetNewValue(original_value, context));
         updated_element.set_new_value(new_value);
 
         ++num_values_modified;

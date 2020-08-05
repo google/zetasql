@@ -29,7 +29,6 @@ TYPES_SRCS = [
     "CivilTimeEncoder.java",
     "EnumType.java",
     "FileDescriptorSetsBuilder.java",
-    "FunctionArgumentType.java",
     "ZetaSQLDescriptorPool.java",
     "ZetaSQLStrings.java",
     "ProtoType.java",
@@ -37,6 +36,7 @@ TYPES_SRCS = [
     "StructType.java",
     "Type.java",
     "TypeFactory.java",
+    "TVFRelation.java",
     "Value.java",
 ]
 
@@ -46,11 +46,11 @@ java_library(
     tags = ["maven_coordinates=com.google.zetasql:zetasql-types:${project.version}"],
     deps = [
         "//zetasql/proto:function_java_proto",
-        "//zetasql/public:function_java_proto",
         "//zetasql/public:options_java_proto",
         "//zetasql/public:type_proto_java_proto",
         "//zetasql/public:value_java_proto",
         "//zetasql/public/proto:type_annotation_java_proto",
+        "@com_google_auto_value",
         "@com_google_code_findbugs_jsr305//jar",
         "@com_google_errorprone_error_prone_annotations//jar",  # buildcleaner: keep
         "@com_google_guava_guava//jar",
@@ -275,6 +275,7 @@ CLIENT_SRCS = [
     "Connection.java",
     "Constant.java",
     "Function.java",
+    "FunctionArgumentType.java",
     "FunctionSignature.java",
     "ZetaSQLBuiltinFunctionOptions.java",
     "LanguageOptions.java",
@@ -292,7 +293,6 @@ CLIENT_SRCS = [
     "SimpleTable.java",
     "SqlException.java",
     "SqlFormatter.java",
-    "TVFRelation.java",
     "TVFSignature.java",
     "Table.java",
     "TableValuedFunction.java",
@@ -310,6 +310,8 @@ java_library(
         "//zetasql/proto:options_java_proto",
         "//zetasql/proto:simple_catalog_java_proto",
         "//zetasql/public:builtin_function_java_proto",
+        "//zetasql/public:deprecation_warning_java_proto",
+        "//zetasql/public:error_location_java_proto",
         "//zetasql/public:function_java_proto",
         "//zetasql/public:options_java_proto",
         "//zetasql/public:parse_location_range_java_proto",
@@ -320,6 +322,7 @@ java_library(
         "//zetasql/public/functions:datetime_java_proto",
         "//zetasql/public/functions:normalize_mode_java_proto",
         "//zetasql/resolved_ast:resolved_node_kind_java_proto",  # buildcleaner: keep
+        "//zetasql/resolved_ast:serialization_java_proto",
         "@com_google_api_grpc_proto_google_common_protos//jar",
         "@com_google_auto_value",
         "@com_google_code_findbugs_jsr305//jar",

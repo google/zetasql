@@ -123,9 +123,9 @@ cc_test(
     deps = [
         ":arena",
         ":logging",
-        "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/container:node_hash_set",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -212,8 +212,8 @@ cc_test(
     ],
     deps = [
         ":endian",
-        "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/base:config",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -267,8 +267,8 @@ cc_test(
         "-Wno-unused-function",
     ],
     deps = [
-        "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -286,10 +286,10 @@ cc_test(
     deps = [
         ":status",
         ":test_payload_cc_proto",
-        "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
     ],
@@ -367,10 +367,10 @@ cc_test(
     deps = [
         ":source_location",
         ":status",
-        "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -425,8 +425,8 @@ cc_test(
     deps = [
         ":logging",
         ":map_util",
-        "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/container:node_hash_map",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -460,8 +460,8 @@ cc_test(
     ],
     deps = [
         ":stl_util",
-        "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -497,8 +497,8 @@ cc_test(
     ],
     deps = [
         ":map_util",
-        "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/container:node_hash_map",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -543,8 +543,8 @@ cc_test(
     deps = [
         ":logging",
         ":mathutil",
-        "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/base",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -581,8 +581,8 @@ cc_test(
         ":logging",
         ":mathlimits",
         ":mathutil",
-        "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -622,8 +622,8 @@ cc_test(
     ],
     deps = [
         ":bits",
-        "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/numeric:int128",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -642,10 +642,10 @@ cc_test(
         ":source_location",
         ":status",
         ":test_payload_cc_proto",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base/testing:status_matchers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -687,12 +687,12 @@ cc_test(
     deps = [
         ":source_location",
         ":status",
-        "@com_google_googletest//:gtest_main",
-        "@com_google_googletest//:gtest",
         "//zetasql/base/testing:status_matchers",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_googletest//:gtest",
     ],
 )
 
@@ -833,10 +833,10 @@ cc_test(
     ],
     deps = [
         ":time_proto_util",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base/testing:status_matchers",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -872,8 +872,8 @@ cc_test(
     ],
     deps = [
         ":string_numbers",
-        "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -941,8 +941,8 @@ cc_test(
     ],
     deps = [
         ":general_trie",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -1015,7 +1015,6 @@ cc_test(
     deps = [
         ":flat_set",
         ":stl_util",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/hash:hash_testing",
@@ -1023,6 +1022,7 @@ cc_test(
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:span",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -1065,9 +1065,9 @@ cc_test(
     ],
     deps = [
         ":clock",
-        "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -1110,10 +1110,10 @@ cc_test(
     ],
     deps = [
         ":exactfloat",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -1134,9 +1134,9 @@ cc_test(
     shard_count = 4,
     deps = [
         ":exactfloat",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_googletest//:gtest_main",
     ],
 )

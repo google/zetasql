@@ -1755,6 +1755,14 @@ absl::Status Validator::ValidateResolvedStatement(
       status = ValidateResolvedExecuteImmediateStmt(
           statement->GetAs<ResolvedExecuteImmediateStmt>());
       break;
+    case RESOLVED_CREATE_ENTITY_STMT:
+      status = ValidateResolvedCreateEntityStmt(
+          statement->GetAs<ResolvedCreateEntityStmt>());
+      break;
+    case RESOLVED_ALTER_ENTITY_STMT:
+      status = ValidateResolvedAlterEntityStmt(
+          statement->GetAs<ResolvedAlterEntityStmt>());
+      break;
     default:
       ZETASQL_RET_CHECK_FAIL() << "Cannot validate statement of type "
                        << statement->node_kind_string();
@@ -2299,6 +2307,19 @@ absl::Status Validator::ValidateResolvedCreateProcedureStmt(
   ZETASQL_RETURN_IF_ERROR(CheckFunctionArgumentType(stmt->signature().arguments(),
                                             "CREATE PROCEDURE"));
 
+  return absl::OkStatus();
+}
+
+absl::Status Validator::ValidateResolvedCreateEntityStmt(
+    const ResolvedCreateEntityStmt* stmt) {
+  ZETASQL_RET_CHECK(!stmt->entity_type().empty());
+  ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
+  return absl::OkStatus();
+}
+
+absl::Status Validator::ValidateResolvedAlterEntityStmt(
+    const ResolvedAlterEntityStmt* stmt) {
+  ZETASQL_RET_CHECK(!stmt->entity_type().empty());
   return absl::OkStatus();
 }
 

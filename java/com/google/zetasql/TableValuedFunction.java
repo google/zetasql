@@ -28,7 +28,9 @@ import com.google.zetasql.FunctionProtos.TVFRelationProto;
 import com.google.zetasql.FunctionProtos.TableValuedFunctionProto;
 import com.google.zetasql.ZetaSQLFunctions.FunctionEnums;
 import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.TableValuedFunctionType;
+import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.Volatility;
 import java.io.Serializable;
+import javax.annotation.Nullable;
 
 /**
  * This interface describes a table-valued function (TVF) available in a query engine.
@@ -40,31 +42,32 @@ public abstract class TableValuedFunction implements Serializable {
   private final ImmutableList<String> namePath;
   private final FunctionSignature signature;
   private final ImmutableList<TVFRelation.Column> columns;
+  @Nullable private final String customContext;
+  @Nullable private final Volatility volatility;
 
   /**
    * Constructs a new TVF object with the given name and argument signature.
    *
    * <p>Each TVF may accept value or relation arguments. The signature specifies whether each
    * argument should be a value or a relation. For a value argument, the signature may specify a
-   * concrete Type or a (possibly templated) SignatureArgumentKind. For relation arguments, the
-   * signature should use ARG_TYPE_RELATION, and any relation will be accepted as an argument.
+   * concrete {@code Type} or a (possibly templated) {@code SignatureArgumentKind}. For relation
+   * arguments, the signature should use {@code ARG_TYPE_RELATION}, and any relation will be
+   * accepted as an argument.
    */
-  public TableValuedFunction(ImmutableList<String> namePath, FunctionSignature signature) {
-    this(namePath, signature, ImmutableList.of());
-  }
-
-  public TableValuedFunction(
+  protected TableValuedFunction(
       ImmutableList<String> namePath,
       FunctionSignature signature,
-      ImmutableList<TVFRelation.Column> columns) {
+      ImmutableList<TVFRelation.Column> columns,
+      @Nullable String customContext,
+      @Nullable Volatility volatility) {
     this.namePath = namePath;
     this.signature = signature;
     this.columns = columns;
+    this.customContext = customContext;
+    this.volatility = volatility;
   }
 
-  /**
-   * Deserializes a table-valued function from a protocol buffer.
-   */
+  /** Deserializes a table-valued function from a protocol buffer. */
   public static TableValuedFunction deserialize(
       TableValuedFunctionProto proto,
       ImmutableList<ZetaSQLDescriptorPool> pools,
@@ -80,13 +83,9 @@ public abstract class TableValuedFunction implements Serializable {
         return ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF.deserialize(
             proto, pools, typeFactory);
       default:
-        StringBuilder builder = new StringBuilder();
-        for (String name : proto.getNamePathList()) {
-          builder.append(name);
-        }
         throw new IllegalArgumentException(
             "Serialization is not implemented yet for table-valued function: "
-            + builder.toString());
+                + String.join(".", proto.getNamePathList()));
     }
   }
 
@@ -100,6 +99,12 @@ public abstract class TableValuedFunction implements Serializable {
             .addAllNamePath(namePath)
             .setSignature(signature.serialize(fileDescriptorSetsBuilder));
     builder.setType(getType());
+    if (getCustomContext() != null) {
+      builder.setCustomContext(getCustomContext());
+    }
+    if (getVolatility() != null) {
+      builder.setVolatility(getVolatility());
+    }
     switch (getType()) {
       case FIXED_OUTPUT_SCHEMA_TVF:
       case FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_TVF:
@@ -150,9 +155,23 @@ public abstract class TableValuedFunction implements Serializable {
     return Joiner.on('.').join(namePath);
   }
 
+  @Nullable
+  public String getCustomContext() {
+    return customContext;
+  }
+
+  @Nullable
+  public Volatility getVolatility() {
+    return volatility;
+  }
+
   @Override
-  public String toString() {
-    return "TableValuedFunction";
+  public final String toString() {
+    return toDebugString(true);
+  }
+
+  public String toDebugString(boolean verbose) {
+    return getName() + "(" + getFunctionSignature().debugString("", verbose) + ")";
   }
 
   public boolean isDefaultValue() {
@@ -164,8 +183,10 @@ public abstract class TableValuedFunction implements Serializable {
     private final TVFRelation outputSchema;
 
     public FixedOutputSchemaTVF(
-        ImmutableList<String> namePath, FunctionSignature signature, TVFRelation outputSchema) {
-      super(namePath, signature);
+        ImmutableList<String> namePath,
+        FunctionSignature signature,
+        TVFRelation outputSchema) {
+      super(namePath, signature, ImmutableList.of(), null, null);
       this.outputSchema = outputSchema;
     }
 
@@ -178,9 +199,7 @@ public abstract class TableValuedFunction implements Serializable {
       return FunctionEnums.TableValuedFunctionType.FIXED_OUTPUT_SCHEMA_TVF;
     }
 
-    /**
-     * Deserializes this table-valued function from a protocol buffer.
-     */
+    /** Deserializes this table-valued function from a protocol buffer. */
     public static FixedOutputSchemaTVF deserialize(
         TableValuedFunctionProto proto,
         ImmutableList<ZetaSQLDescriptorPool> pools,
@@ -210,7 +229,15 @@ public abstract class TableValuedFunction implements Serializable {
 
     public ForwardInputSchemaToOutputSchemaTVF(
         ImmutableList<String> namePath, FunctionSignature signature) {
-      super(namePath, signature);
+      super(namePath, signature, ImmutableList.of(), null, null);
+    }
+
+    public ForwardInputSchemaToOutputSchemaTVF(
+        ImmutableList<String> namePath,
+        FunctionSignature signature,
+        @Nullable String customContext,
+        @Nullable Volatility volatility) {
+      super(namePath, signature, ImmutableList.of(), customContext, volatility);
     }
 
     @Override
@@ -218,40 +245,43 @@ public abstract class TableValuedFunction implements Serializable {
       return FunctionEnums.TableValuedFunctionType.FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_TVF;
     }
 
-    /**
-     * Deserializes this table-valued function from a protocol buffer.
-     */
+    /** Deserializes this table-valued function from a protocol buffer. */
     public static ForwardInputSchemaToOutputSchemaTVF deserialize(
         TableValuedFunctionProto proto,
         ImmutableList<ZetaSQLDescriptorPool> pools,
         TypeFactory typeFactory) {
-      Preconditions.checkArgument(proto.getType()
+      Preconditions.checkArgument(
+          proto.getType()
               == FunctionEnums.TableValuedFunctionType.FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_TVF,
           proto);
+      String customContext = proto.hasCustomContext() ? proto.getCustomContext() : null;
+      Volatility volatility = proto.hasVolatility() ? proto.getVolatility() : null;
       ImmutableList<String> namePath = ImmutableList.copyOf(proto.getNamePathList());
       FunctionSignature signature = FunctionSignature.deserialize(proto.getSignature(), pools);
-      return new ForwardInputSchemaToOutputSchemaTVF(namePath, signature);
+      return new ForwardInputSchemaToOutputSchemaTVF(
+          namePath, signature, customContext, volatility);
     }
   }
 
   /**
    * This represents a templated function with a SQL body.
    *
-   * <p>The purpose of this class is to help support statements of the form
-   * "CREATE FUNCTION <name>(<arguments>) AS <query>", where the <arguments>
-   * may have templated types like "ANY TYPE". In this case, ZetaSQL cannot
-   * resolve the function expression right away and must defer this work until
-   * later when the function is called with concrete argument types.
-   * A TVF that always returns a relation with the same fixed output schema.
+   * <p>The purpose of this class is to help support statements of the form "{@code CREATE FUNCTION
+   * <name>(<arguments>) AS <query>}", where the <arguments> may have templated types like "{@code
+   * ANY TYPE}". In this case, ZetaSQL cannot resolve the function expression right away and must
+   * defer this work until later when the function is called with concrete argument types. A TVF
+   * that always returns a relation with the same fixed output schema.
    */
   public static class TemplatedSQLTVF extends TableValuedFunction {
     private final ImmutableList<String> argumentNames;
     private final ParseResumeLocation parseResumeLocation;
 
     public TemplatedSQLTVF(
-        ImmutableList<String> namePath, FunctionSignature signature,
-        ImmutableList<String> argumentNames, ParseResumeLocation parseResumeLocation) {
-      super(namePath, signature);
+        ImmutableList<String> namePath,
+        FunctionSignature signature,
+        ImmutableList<String> argumentNames,
+        ParseResumeLocation parseResumeLocation) {
+      super(namePath, signature, ImmutableList.of(), null, null);
       this.argumentNames = argumentNames;
       this.parseResumeLocation = parseResumeLocation;
     }
@@ -259,9 +289,11 @@ public abstract class TableValuedFunction implements Serializable {
     public ImmutableList<String> getArgumentNames() {
       return argumentNames;
     }
+
     public String getSqlBody() {
-      return this.parseResumeLocation.getInput().substring(
-          this.parseResumeLocation.getBytePosition());
+      return this.parseResumeLocation
+          .getInput()
+          .substring(this.parseResumeLocation.getBytePosition());
     }
 
     @Override
@@ -269,9 +301,7 @@ public abstract class TableValuedFunction implements Serializable {
       return FunctionEnums.TableValuedFunctionType.TEMPLATED_SQL_TVF;
     }
 
-    /**
-     * Deserializes this table-valued function from a protocol buffer.
-     */
+    /** Deserializes this table-valued function from a protocol buffer. */
     public static TemplatedSQLTVF deserialize(
         TableValuedFunctionProto proto,
         ImmutableList<ZetaSQLDescriptorPool> pools,
@@ -280,13 +310,9 @@ public abstract class TableValuedFunction implements Serializable {
           proto.getType() == FunctionEnums.TableValuedFunctionType.TEMPLATED_SQL_TVF, proto);
       ImmutableList<String> namePath = ImmutableList.copyOf(proto.getNamePathList());
       FunctionSignature signature = FunctionSignature.deserialize(proto.getSignature(), pools);
-      ImmutableList.Builder<String> builder = new ImmutableList.Builder<String>();
-      for (String name : proto.getArgumentNameList()) {
-        builder.add(name);
-      }
+      ImmutableList<String> args = ImmutableList.copyOf(proto.getArgumentNameList());
       return new TemplatedSQLTVF(
-          namePath, signature, builder.build(),
-          new ParseResumeLocation(proto.getParseResumeLocation()));
+          namePath, signature, args, new ParseResumeLocation(proto.getParseResumeLocation()));
     }
   }
 
@@ -300,8 +326,10 @@ public abstract class TableValuedFunction implements Serializable {
     public ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
         ImmutableList<String> namePath,
         FunctionSignature signature,
-        ImmutableList<TVFRelation.Column> columns) {
-      super(namePath, signature, columns);
+        ImmutableList<TVFRelation.Column> columns,
+        String customContext,
+        Volatility volatility) {
+      super(namePath, signature, columns, customContext, volatility);
     }
 
     public static ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF deserialize(
@@ -322,7 +350,9 @@ public abstract class TableValuedFunction implements Serializable {
               TVFRelationProto.parseFrom(proto.getCustomContextBytes());
           for (TVFRelationColumnProto columnProto : relationProto.getColumnList()) {
             Type type = typeFactory.deserialize(columnProto.getType(), pools);
-            builder.add(TVFRelation.Column.create(columnProto.getName(), type));
+            builder.add(
+                TVFRelation.Column.create(
+                    columnProto.getName(), type, columnProto.getIsPseudoColumn()));
           }
         } catch (InvalidProtocolBufferException e) {
           throw new IllegalArgumentException(
@@ -331,8 +361,10 @@ public abstract class TableValuedFunction implements Serializable {
               e);
         }
       }
+      String customContext = proto.hasCustomContext() ? proto.getCustomContext() : null;
+      Volatility volatility = proto.getVolatility();
       return new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
-          namePath, signature, builder.build());
+          namePath, signature, builder.build(), customContext, volatility);
     }
 
     @Override

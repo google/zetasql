@@ -856,17 +856,17 @@ FROM table;
 To query the individual values of a repeated field, reference the field name
 using dot notation to return an `ARRAY`, and
 [flatten the `ARRAY` using `UNNEST`][flattening-arrays]. Use `CROSS JOIN` to
-apply the `UNNEST` operator to each row and join the flattened `ARRAY`
-to the duplicated value of any non-repeated fields or columns.
+apply the `UNNEST` operator to each row and join the flattened `ARRAY` to the
+duplicated value of any non-repeated fields or columns in that row.
 
 **Example**
 
 The following example queries the table from the previous example and returns
 the values of the repeated field as an `ARRAY`. The `UNNEST` operator flattens
-the `ARRAY` that represents the repeated field `song`. `CROSS JOIN` applies
-the `UNNEST` operator to each row and joins the output of `UNNEST` to the
-duplicated value of the column `band_name` and the non-repeated field
-`album_name`.
+the `ARRAY` that represents the repeated field `song`. `CROSS JOIN` applies the
+`UNNEST` operator to each row and joins the output of `UNNEST` to the duplicated
+value of the column `band_name` and the non-repeated field `album_name` within
+that row.
 
 ```sql
 WITH table AS (

@@ -52,10 +52,10 @@ cc_test(
     ],
     deps = [
         ":status_payload_utils",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:status",
         "//zetasql/common/testing:proto_matchers",
         "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -106,7 +106,6 @@ cc_test(
     deps = [
         ":errors",
         ":status_payload_utils",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
@@ -114,6 +113,7 @@ cc_test(
         "//zetasql/public:error_helpers",
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -168,9 +168,9 @@ cc_test(
     ],
     deps = [
         ":utf_util",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/compliance:functions_testlib",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -217,11 +217,11 @@ cc_test(
     ],
     deps = [
         ":proto_helper",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:path",
         "//zetasql/base/testing:status_matchers",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
     ],
@@ -249,11 +249,11 @@ cc_library(
 )
 
 cc_library(
-    name = "fixed_int",
-    srcs = ["fixed_int_internal.cc"],
+    name = "multiprecision_int",
+    srcs = ["multiprecision_int_impl.cc"],
     hdrs = [
-        "fixed_int.h",
-        "fixed_int_internal.h",
+        "multiprecision_int.h",
+        "multiprecision_int_impl.h",
     ],
     copts = [
         "-Wno-pessimizing-move",
@@ -274,8 +274,8 @@ cc_library(
 )
 
 cc_test(
-    name = "fixed_int_test",
-    srcs = ["fixed_int_test.cc"],
+    name = "multiprecision_int_test",
+    srcs = ["multiprecision_int_test.cc"],
     copts = [
         "-Wno-pessimizing-move",
         "-Wno-return-type",
@@ -285,8 +285,7 @@ cc_test(
         "-Wno-unused-function",
     ],
     deps = [
-        ":fixed_int",
-        "@com_google_googletest//:gtest_main",
+        ":multiprecision_int",
         "//zetasql/base:mathutil",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/hash",
@@ -295,6 +294,7 @@ cc_test(
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -410,7 +410,6 @@ cc_test(
     ],
     deps = [
         ":simple_evaluator_table_iterator",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:clock",
         "//zetasql/base:status",
         "//zetasql/base:statusor",
@@ -418,6 +417,7 @@ cc_test(
         "//zetasql/public:simple_catalog",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -483,12 +483,12 @@ cc_test(
     ],
     deps = [
         ":json_parser",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -523,8 +523,8 @@ cc_test(
     ],
     deps = [
         ":json_util",
-        "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 

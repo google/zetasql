@@ -17,51 +17,48 @@
 
 package com.google.zetasql;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
-import com.google.protobuf.TextFormat;
+import com.google.common.collect.ImmutableList;
 import com.google.zetasql.FunctionProtos.FunctionArgumentTypeOptionsProto;
 import com.google.zetasql.FunctionProtos.FunctionArgumentTypeProto;
+import com.google.zetasql.ZetaSQLFunctions.FunctionEnums;
 import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.ArgumentCardinality;
+import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.ProcedureArgumentMode;
 import com.google.zetasql.ZetaSQLFunctions.SignatureArgumentKind;
-import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
 
 /**
- * A type for an argument or result value in a function signature.  Types
- * can be fixed or templated.  Arguments can be marked as repeated (denoting
- * it can occur zero or more times in a function invocation) or optional.
- * Result types cannot be marked as repeated or optional.  A
- * FunctionArgumentType is concrete if it is not templated and
- * numOccurrences indicates how many times the argument appears in a
- * concrete FunctionSignature.  FunctionArgumentTypeOptions can be used to
- * apply additional constraints on legal values for the argument.
+ * A type for an argument or result value in a function signature. Types can be fixed or templated.
+ * Arguments can be marked as repeated (denoting it can occur zero or more times in a function
+ * invocation) or optional. Result types cannot be marked as repeated or optional. A
+ * FunctionArgumentType is concrete if it is not templated and numOccurrences indicates how many
+ * times the argument appears in a concrete FunctionSignature. FunctionArgumentTypeOptions can be
+ * used to apply additional constraints on legal values for the argument.
  */
 public final class FunctionArgumentType implements Serializable {
-
   private final SignatureArgumentKind kind;
   private final Type type;
   private final int numOccurrences;
-
-  private transient FunctionArgumentTypeOptionsProto.Builder optionsBuilder =
-      FunctionArgumentTypeOptionsProto.newBuilder();
+  private final FunctionArgumentTypeOptions options;
 
   public FunctionArgumentType(
-      SignatureArgumentKind kind, FunctionArgumentTypeOptionsProto options, int numOccurrences) {
+      SignatureArgumentKind kind, FunctionArgumentTypeOptions options, int numOccurrences) {
     Preconditions.checkArgument(kind != SignatureArgumentKind.ARG_TYPE_FIXED);
     this.kind = kind;
     this.type = null;
     this.numOccurrences = numOccurrences;
-    this.optionsBuilder.mergeFrom(options);
+    this.options = options;
   }
 
-  public FunctionArgumentType(Type type, FunctionArgumentTypeOptionsProto options,
-                              int numOccurrences) {
+  public FunctionArgumentType(Type type, FunctionArgumentTypeOptions options, int numOccurrences) {
     this.kind = SignatureArgumentKind.ARG_TYPE_FIXED;
     this.type = type;
     this.numOccurrences = numOccurrences;
-    this.optionsBuilder.mergeFrom(options);
+    this.options = options;
   }
 
   public FunctionArgumentType(
@@ -70,15 +67,14 @@ public final class FunctionArgumentType implements Serializable {
     this.kind = kind;
     this.type = null;
     this.numOccurrences = numOccurrences;
-    this.optionsBuilder.setCardinality(cardinality);
+    this.options = FunctionArgumentTypeOptions.builder().setCardinality(cardinality).build();
   }
 
-  public FunctionArgumentType(
-      Type type, ArgumentCardinality cardinality, int numOccurrences) {
+  public FunctionArgumentType(Type type, ArgumentCardinality cardinality, int numOccurrences) {
     this.kind = SignatureArgumentKind.ARG_TYPE_FIXED;
     this.type = type;
     this.numOccurrences = numOccurrences;
-    this.optionsBuilder.setCardinality(cardinality);
+    this.options = FunctionArgumentTypeOptions.builder().setCardinality(cardinality).build();
   }
 
   public FunctionArgumentType(Type type, ArgumentCardinality cardinality) {
@@ -102,7 +98,7 @@ public final class FunctionArgumentType implements Serializable {
   }
 
   public ArgumentCardinality getCardinality() {
-    return optionsBuilder.getCardinality();
+    return options.getCardinality();
   }
 
   public boolean isRepeated() {
@@ -117,9 +113,7 @@ public final class FunctionArgumentType implements Serializable {
     return getCardinality() == ArgumentCardinality.OPTIONAL;
   }
 
-  /**
-   * Returns Type of the argument when it's fixed, or null if it's templated.
-   */
+  /** Returns Type of the argument when it's fixed, or null if it's templated. */
   @Nullable
   public Type getType() {
     return type;
@@ -131,22 +125,19 @@ public final class FunctionArgumentType implements Serializable {
 
   public String debugString(boolean verbose) {
     StringBuilder builder = new StringBuilder();
-    if (isRepeated()) {
-      builder.append("repeated");
-    } else if (isOptional()) {
-      builder.append("optional");
+    builder.append(isRepeated() ? "repeated" : isOptional() ? "optional" : "");
+    if (isConcrete() && !isRequired()) {
+      builder.append("(").append(numOccurrences).append(")");
     }
-
     if (!isRequired()) {
-      if (isConcrete()) {
-        builder.append("(" + numOccurrences + ") ");
-      } else {
-        builder.append(" ");
-      }
+      builder.append(" ");
     }
 
     if (type != null) {
       builder.append(type.debugString());
+    } else if (kind == SignatureArgumentKind.ARG_TYPE_RELATION
+        && options.getRelationInputSchema() != null) {
+      builder.append(options.getRelationInputSchema());
     } else if (kind == SignatureArgumentKind.ARG_TYPE_ARBITRARY) {
       builder.append("ANY TYPE");
     } else {
@@ -154,29 +145,18 @@ public final class FunctionArgumentType implements Serializable {
     }
 
     if (verbose) {
-      // We want to include the equivalent of the shortDebugString of the proto, but with the
-      // cardinality, extra_relation_input_columns_allowed, and argument_name fields excluded.
-      FunctionArgumentTypeOptionsProto.Builder tempBuilder =
-          FunctionArgumentTypeOptionsProto.newBuilder(optionsBuilder.build());
-      tempBuilder.clearCardinality();
-      tempBuilder.clearExtraRelationInputColumnsAllowed();
-      tempBuilder.clearArgumentName();
-      tempBuilder.clearArgumentNameIsMandatory();
-
-      String options = TextFormat.shortDebugString(tempBuilder);
-      if (!options.isEmpty()) {
-        builder.append(" {");
-        builder.append(options);
-        builder.append("}");
-      }
+      builder.append(options.toDebugString());
     }
 
-    if (optionsBuilder.hasArgumentName()) {
-      builder.append(" ");
-      builder.append(optionsBuilder.getArgumentName());
+    if (options.getArgumentName() != null) {
+      builder.append(" ").append(options.getArgumentName());
     }
 
     return builder.toString();
+  }
+
+  public FunctionArgumentTypeOptions getOptions() {
+    return options;
   }
 
   public String debugString() {
@@ -190,24 +170,38 @@ public final class FunctionArgumentType implements Serializable {
 
   private static String signatureArgumentKindToString(SignatureArgumentKind kind) {
     switch (kind) {
+      case ARG_TYPE_FIXED:
+        return "FIXED";
+      case ARG_TYPE_ANY_1:
+        return "<T1>";
+      case ARG_TYPE_ANY_2:
+        return "<T2>";
       case ARG_ARRAY_TYPE_ANY_1:
         return "<array<T1>>";
       case ARG_ARRAY_TYPE_ANY_2:
         return "<array<T2>>";
       case ARG_ENUM_ANY:
         return "<enum>";
+      case ARG_PROTO_MAP_ANY:
+        return "<map<K, V>>";
+      case ARG_PROTO_MAP_KEY_ANY:
+        return "<K>";
+      case ARG_PROTO_MAP_VALUE_ANY:
+        return "<V>";
       case ARG_PROTO_ANY:
         return "<proto>";
       case ARG_STRUCT_ANY:
         return "<struct>";
-      case ARG_TYPE_ANY_1:
-        return "<T1>";
-      case ARG_TYPE_ANY_2:
-        return "<T2>";
+      case ARG_TYPE_RELATION:
+        return "ANY TABLE";
+      case ARG_TYPE_CONNECTION:
+        return "ANY CONNECTION";
+      case ARG_TYPE_DESCRIPTOR:
+        return "ANY DESCRIPTOR";
+      case ARG_TYPE_MODEL:
+        return "ANY MODEL";
       case ARG_TYPE_ARBITRARY:
         return "<arbitrary>";
-      case ARG_TYPE_FIXED:
-        return "FIXED";
       case ARG_TYPE_VOID:
         return "<void>";
       case __SignatureArgumentKind__switch_must_have_a_default__:
@@ -219,8 +213,13 @@ public final class FunctionArgumentType implements Serializable {
   public FunctionArgumentTypeProto serialize(FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     FunctionArgumentTypeProto.Builder builder = FunctionArgumentTypeProto.newBuilder();
     builder.setKind(kind);
-    builder.setNumOccurrences(numOccurrences);
-    builder.setOptions(optionsBuilder);
+    if (numOccurrences != 0) {
+      builder.setNumOccurrences(numOccurrences);
+    }
+    FunctionArgumentTypeOptionsProto optionsProto = options.serialize();
+    if (!optionsProto.equals(FunctionArgumentTypeOptionsProto.getDefaultInstance())) {
+      builder.setOptions(optionsProto);
+    }
     if (type != null) {
       type.serialize(builder.getTypeBuilder(), fileDescriptorSetsBuilder);
     }
@@ -228,27 +227,250 @@ public final class FunctionArgumentType implements Serializable {
   }
 
   public static FunctionArgumentType deserialize(
-      FunctionArgumentTypeProto proto, List<ZetaSQLDescriptorPool> pools) {
+      FunctionArgumentTypeProto proto, ImmutableList<ZetaSQLDescriptorPool> pools) {
     SignatureArgumentKind kind = proto.getKind();
     TypeFactory factory = TypeFactory.nonUniqueNames();
 
     if (kind == SignatureArgumentKind.ARG_TYPE_FIXED) {
       return new FunctionArgumentType(
-          factory.deserialize(proto.getType(), pools), proto.getOptions(),
-                              proto.getNumOccurrences());
+          factory.deserialize(proto.getType(), pools),
+          FunctionArgumentTypeOptions.deserialize(proto.getOptions(), pools, factory),
+          proto.getNumOccurrences());
     } else {
-      return new FunctionArgumentType(kind, proto.getOptions(), proto.getNumOccurrences());
+      return new FunctionArgumentType(
+          kind,
+          FunctionArgumentTypeOptions.deserialize(proto.getOptions(), pools, factory),
+          proto.getNumOccurrences());
     }
   }
 
-  private void writeObject(java.io.ObjectOutputStream out) throws IOException {
-    out.defaultWriteObject();
-    out.writeObject(optionsBuilder.build());
-  }
+  /** Optional parameters associated with a function argument type. */
+  @AutoValue
+  public abstract static class FunctionArgumentTypeOptions implements Serializable {
+    @Nullable
+    public abstract ArgumentCardinality getCardinality();
 
-  private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
-    in.defaultReadObject();
-    FunctionArgumentTypeOptionsProto options = (FunctionArgumentTypeOptionsProto) in.readObject();
-    optionsBuilder = options.toBuilder();
+    @Nullable
+    public abstract Boolean getMustBeConstant();
+
+    @Nullable
+    public abstract Boolean getMustBeNonNull();
+
+    @Nullable
+    public abstract Boolean getIsNotAggregate();
+
+    @Nullable
+    public abstract Boolean getMustSupportEquality();
+
+    @Nullable
+    public abstract Boolean getMustSupportOrdering();
+
+    @Nullable
+    public abstract Long getMinValue();
+
+    @Nullable
+    public abstract Long getMaxValue();
+
+    @Nullable
+    public abstract Boolean getExtraRelationInputColumnsAllowed();
+
+    @Nullable
+    public abstract TVFRelation getRelationInputSchema();
+
+    @Nullable
+    public abstract String getArgumentName();
+
+    @Nullable
+    public abstract ParseLocationRange getArgumentNameParseLocation();
+
+    @Nullable
+    public abstract ParseLocationRange getArgumentTypeParseLocation();
+
+    @Nullable
+    public abstract FunctionEnums.ProcedureArgumentMode getProcedureArgumentMode();
+
+    @Nullable
+    public abstract Boolean getArgumentNameIsMandatory();
+
+    @Nullable
+    public abstract Integer getDescriptorResolutionTableOffset();
+
+    public FunctionArgumentTypeOptionsProto serialize() {
+      FunctionArgumentTypeOptionsProto.Builder builder =
+          FunctionArgumentTypeOptionsProto.newBuilder();
+      if (getCardinality() != null) {
+        builder.setCardinality(getCardinality());
+      }
+      if (getMustBeConstant() != null) {
+        builder.setMustBeConstant(getMustBeConstant());
+      }
+      if (getMustBeNonNull() != null) {
+        builder.setMustBeNonNull(getMustBeNonNull());
+      }
+      if (getIsNotAggregate() != null) {
+        builder.setIsNotAggregate(getIsNotAggregate());
+      }
+      if (getMustSupportEquality() != null) {
+        builder.setMustSupportEquality(getMustSupportEquality());
+      }
+      if (getMustSupportOrdering() != null) {
+        builder.setMustSupportOrdering(getMustSupportOrdering());
+      }
+      if (getMinValue() != null) {
+        builder.setMinValue(getMinValue());
+      }
+      if (getMaxValue() != null) {
+        builder.setMaxValue(getMaxValue());
+      }
+      if (getExtraRelationInputColumnsAllowed() != null) {
+        builder.setExtraRelationInputColumnsAllowed(getExtraRelationInputColumnsAllowed());
+      }
+      if (getRelationInputSchema() != null) {
+        builder.setRelationInputSchema(getRelationInputSchema().serialize());
+      }
+      if (getArgumentName() != null) {
+        builder.setArgumentName(getArgumentName());
+      }
+      if (getArgumentNameParseLocation() != null) {
+        builder.setArgumentNameParseLocation(getArgumentNameParseLocation().serialize());
+      }
+      if (getArgumentTypeParseLocation() != null) {
+        builder.setArgumentTypeParseLocation(getArgumentTypeParseLocation().serialize());
+      }
+      if (getProcedureArgumentMode() != null) {
+        builder.setProcedureArgumentMode(getProcedureArgumentMode());
+      }
+      if (getArgumentNameIsMandatory() != null) {
+        builder.setArgumentNameIsMandatory(getArgumentNameIsMandatory());
+      }
+      if (getDescriptorResolutionTableOffset() != null) {
+        builder.setDescriptorResolutionTableOffset(getDescriptorResolutionTableOffset());
+      }
+      return builder.build();
+    }
+
+    public static FunctionArgumentTypeOptions deserialize(
+        FunctionArgumentTypeOptionsProto proto,
+        ImmutableList<ZetaSQLDescriptorPool> pools,
+        TypeFactory typeFactory) {
+      Builder builder = builder();
+      if (proto.hasCardinality()) {
+        builder.setCardinality(proto.getCardinality());
+      }
+      if (proto.hasMustBeConstant()) {
+        builder.setMustBeConstant(proto.getMustBeConstant());
+      }
+      if (proto.hasMustBeNonNull()) {
+        builder.setMustBeNonNull(proto.getMustBeNonNull());
+      }
+      if (proto.hasIsNotAggregate()) {
+        builder.setIsNotAggregate(proto.getIsNotAggregate());
+      }
+      if (proto.hasMustSupportEquality()) {
+        builder.setMustSupportEquality(proto.getMustSupportEquality());
+      }
+      if (proto.hasMustSupportOrdering()) {
+        builder.setMustSupportOrdering(proto.getMustSupportOrdering());
+      }
+      if (proto.hasMinValue()) {
+        builder.setMinValue(proto.getMinValue());
+      }
+      if (proto.hasMaxValue()) {
+        builder.setMaxValue(proto.getMaxValue());
+      }
+      if (proto.hasExtraRelationInputColumnsAllowed()) {
+        builder.setExtraRelationInputColumnsAllowed(proto.getExtraRelationInputColumnsAllowed());
+      }
+      if (proto.hasRelationInputSchema()) {
+        builder.setRelationInputSchema(
+            TVFRelation.deserialize(proto.getRelationInputSchema(), pools, typeFactory));
+      }
+      if (proto.hasArgumentName()) {
+        builder.setArgumentName(proto.getArgumentName());
+      }
+      if (proto.hasArgumentNameParseLocation()) {
+        builder.setArgumentNameParseLocation(
+            ParseLocationRange.deserialize(proto.getArgumentNameParseLocation()));
+      }
+      if (proto.hasArgumentTypeParseLocation()) {
+        builder.setArgumentTypeParseLocation(
+            ParseLocationRange.deserialize(proto.getArgumentTypeParseLocation()));
+      }
+      if (proto.hasProcedureArgumentMode()) {
+        builder.setProcedureArgumentMode(proto.getProcedureArgumentMode());
+      }
+      if (proto.hasArgumentNameParseLocation()) {
+        builder.setArgumentNameIsMandatory(proto.getArgumentNameIsMandatory());
+      }
+      if (proto.hasDescriptorResolutionTableOffset()) {
+        builder.setDescriptorResolutionTableOffset(proto.getDescriptorResolutionTableOffset());
+      }
+      return builder.build();
+    }
+
+    public static Builder builder() {
+      return new AutoValue_FunctionArgumentType_FunctionArgumentTypeOptions.Builder();
+    }
+
+    public String toDebugString() {
+      List<String> options = new ArrayList<>();
+      if (getMustBeConstant() != null) {
+        options.add("must_be_constant: true");
+      }
+      if (getMustBeNonNull() != null) {
+        options.add("must_be_non_null: true");
+      }
+      if (getIsNotAggregate() != null) {
+        options.add("is_not_aggregate: true");
+      }
+      if (getProcedureArgumentMode() != null
+          && getProcedureArgumentMode() != ProcedureArgumentMode.NOT_SET) {
+        options.add("procedure_argument_mode: " + getProcedureArgumentMode().name());
+      }
+
+      if (options.isEmpty()) {
+        return "";
+      }
+      return " {" + String.join(", ", options) + "}";
+    }
+
+    /** Builder for FunctionArgumentTypeOptions. */
+    @AutoValue.Builder
+    public abstract static class Builder {
+      public abstract Builder setCardinality(ArgumentCardinality cardinality);
+
+      public abstract Builder setMustBeConstant(Boolean constant);
+
+      public abstract Builder setMustBeNonNull(Boolean notNull);
+
+      public abstract Builder setIsNotAggregate(Boolean notAggregate);
+
+      public abstract Builder setMustSupportEquality(Boolean mustSupportEquality);
+
+      public abstract Builder setMustSupportOrdering(Boolean mustSupportOrdering);
+
+      public abstract Builder setMinValue(Long minValue);
+
+      public abstract Builder setMaxValue(Long maxValue);
+
+      public abstract Builder setExtraRelationInputColumnsAllowed(Boolean extraColumnsAllowed);
+
+      public abstract Builder setRelationInputSchema(TVFRelation inputSchema);
+
+      public abstract Builder setArgumentName(String name);
+
+      public abstract Builder setArgumentNameParseLocation(ParseLocationRange nameLocation);
+
+      public abstract Builder setArgumentTypeParseLocation(ParseLocationRange typeLocation);
+
+      public abstract Builder setProcedureArgumentMode(
+          FunctionEnums.ProcedureArgumentMode procedureArgumentMode);
+
+      public abstract Builder setArgumentNameIsMandatory(Boolean isMandatory);
+
+      public abstract Builder setDescriptorResolutionTableOffset(Integer offset);
+
+      public abstract FunctionArgumentTypeOptions build();
+    }
   }
 }

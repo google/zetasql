@@ -460,6 +460,7 @@ function { return BisonParserImpl::token::KW_FUNCTION; }
 generated { return BisonParserImpl::token::KW_GENERATED; }
 grant { return BisonParserImpl::token::KW_GRANT; }
 group { return BisonParserImpl::token::KW_GROUP; }
+group_rows { return BisonParserImpl::token::KW_GROUP_ROWS; }
 grouping { return BisonParserImpl::token::KW_GROUPING; }
 groups { return BisonParserImpl::token::KW_GROUPS; }
 hash { return BisonParserImpl::token::KW_HASH; }
@@ -568,6 +569,7 @@ row { return BisonParserImpl::token::KW_ROW; }
 rows { return BisonParserImpl::token::KW_ROWS; }
 run { return BisonParserImpl::token::KW_RUN; }
 safe_cast { return BisonParserImpl::token::KW_SAFE_CAST; }
+schema { return BisonParserImpl::token::KW_SCHEMA; }
 security { return BisonParserImpl::token::KW_SECURITY; }
 select { return BisonParserImpl::token::KW_SELECT; }
 set { return BisonParserImpl::token::KW_SET; }

@@ -27,6 +27,7 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/public/functions/arithmetics.h"
 #include "zetasql/public/functions/date_time_util_internal.h"
+#include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/types/timestamp_util.h"
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
@@ -1382,6 +1383,80 @@ static absl::Status TruncateDateImpl(
                            << " resulted in an out of range date value: "
                            << *output;
   }
+  return absl::OkStatus();
+}
+
+absl::Status LastDayOfDate(int32_t date, DateTimestampPart part, int32_t* output) {
+  if (!IsValidDate(date)) {
+    return MakeEvalError() << "Invalid date value: " << date;
+  }
+  absl::CivilDay civil_day = EpochDaysToCivilDay(date);
+  // For YEAR, MONTH, QUARTER, last_day is implemented by first calling AddDate
+  // to add 1 to the part of the date, then truncate the date in the part,
+  // finally subtract 1 day
+  // However, AddDate may overflow for some input dates that can return a valid
+  // last_day result, so those cases are handled first.
+  if (civil_day.year() == 9999) {
+    if (part == YEAR || (part == MONTH && civil_day.month() == 12) ||
+        (part == QUARTER && civil_day.month() >= 10 && civil_day.month() <= 12))
+      {
+      *output = CivilDayToEpochDays(absl::CivilDay(9999, 12, 31));
+      return absl::OkStatus();
+    }
+  }
+  switch (part) {
+    case YEAR:
+    case MONTH:
+    case QUARTER: {
+      ZETASQL_RETURN_IF_ERROR(AddDate(date, part, 1, &date));
+      ZETASQL_RETURN_IF_ERROR(
+          TruncateDateImpl(date, part, /*enforce_range=*/false, &date));
+      ZETASQL_RETURN_IF_ERROR(SubDate(date, DAY, 1, output));
+      break;
+    }
+    case ISOYEAR: {
+      // last day of ISOYEAR could out of range if the input is 9999,
+      // the last day of ISOYEAR 9999 is 10000-01-02
+      *output = CivilDayToEpochDays(
+          date_time_util_internal::GetLastDayOfIsoYear(civil_day));
+      break;
+    }
+    case WEEK:
+    case ISOWEEK:
+    case WEEK_MONDAY:
+    case WEEK_TUESDAY:
+    case WEEK_WEDNESDAY:
+    case WEEK_THURSDAY:
+    case WEEK_FRIDAY:
+    case WEEK_SATURDAY: {
+      ZETASQL_ASSIGN_OR_RETURN(const absl::Weekday first_day_of_week,
+                       GetFirstWeekDayOfWeek(part));
+      *output = CivilDayToEpochDays(
+          PrevWeekdayOrToday(civil_day, first_day_of_week)) + 6;
+      break;
+      }
+    default:
+      return MakeEvalError() << "Unsupported DateTimestampPart "
+                             << DateTimestampPart_Name(part);
+  }
+  // ISO_YEAR, WEEK and WEEK(<WEEKDAY>) as part can result in a date that is out
+  // of bounds (i.e., after 9999-12-31), so we check the last day
+  // result here. The other date parts do not have the potential to underflow,
+  // but we validate the result anyway as a sanity check.
+  if (!IsValidDate(*output)) {
+    return MakeEvalError() << "Last day of date " << DateErrorString(date)
+                           << " to " << DateTimestampPartToSQL(part)
+                           << " resulted in an out of range date value: "
+                           << *output;
+  }
+  return absl::OkStatus();
+}
+
+absl::Status LastDayOfDatetime(const DatetimeValue& datetime,
+                               DateTimestampPart part, int32_t* output) {
+  int32_t date;
+  ZETASQL_RETURN_IF_ERROR(ExtractFromDatetime(DATE, datetime, &date));
+  ZETASQL_RETURN_IF_ERROR(LastDayOfDate(date, part, output));
   return absl::OkStatus();
 }
 

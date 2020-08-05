@@ -23,6 +23,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/analyzer/resolver.h"
+#include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/id_string.h"
@@ -112,6 +113,17 @@ absl::Status Resolver::ResolveAlterActions(
               action->GetAsOrDie<ASTDropColumnAction>(), &new_columns,
               &column_to_drop, &resolved_action));
         }
+        alter_actions->push_back(std::move(resolved_action));
+      } break;
+      case AST_SET_AS_ACTION: {
+        if (ast_statement->node_kind() != AST_ALTER_ENTITY_STATEMENT) {
+          return MakeSqlErrorAt(action)
+                 << "ALTER " << alter_statement_kind << " does not support "
+                 << action->GetSQLForAlterAction();
+        }
+        std::unique_ptr<const ResolvedAlterAction> resolved_action =
+            MakeResolvedSetAsAction(
+                action->GetAsOrDie<ASTSetAsAction>()->body()->string_value());
         alter_actions->push_back(std::move(resolved_action));
       } break;
       default:
@@ -287,6 +299,22 @@ absl::Status Resolver::ResolveDropColumnAction(
   *alter_action = MakeResolvedDropColumnAction(action->is_if_exists(),
                                                column_name.ToString(),
                                                std::move(column_reference));
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveAlterEntityStatement(
+    const ASTAlterEntityStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  bool has_only_set_options_action = true;
+  std::vector<std::unique_ptr<const ResolvedAlterAction>>
+      resolved_alter_actions;
+  ZETASQL_RETURN_IF_ERROR(ResolveAlterActions(
+      ast_statement, ast_statement->type()->GetAsString(), output,
+      &has_only_set_options_action, &resolved_alter_actions));
+  *output = MakeResolvedAlterEntityStmt(
+      ast_statement->path()->ToIdentifierVector(),
+      std::move(resolved_alter_actions), ast_statement->is_if_exists(),
+      ast_statement->type()->GetAsString());
   return absl::OkStatus();
 }
 

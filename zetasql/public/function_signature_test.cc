@@ -21,10 +21,12 @@
 #include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/proto/function.pb.h"
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/memory/memory.h"
@@ -32,6 +34,7 @@
 
 namespace zetasql {
 
+using testing::HasSubstr;
 using testing::IsNull;
 using testing::NotNull;
 using zetasql_base::testing::StatusIs;
@@ -128,6 +131,144 @@ TEST(FunctionSignatureTests, FunctionArgumentTypeTests) {
   ASSERT_THAT(enum_any_type.type(), IsNull());
   ASSERT_EQ(ARG_ENUM_ANY, enum_any_type.kind());
   ASSERT_FALSE(enum_any_type.repeated());
+}
+
+void TestDefaultValueAfterSerialization(const FunctionArgumentType& arg_type) {
+  FileDescriptorSetMap fdset_map;
+  FunctionArgumentTypeProto proto;
+  ZETASQL_EXPECT_OK(arg_type.Serialize(&fdset_map, &proto));
+  TypeFactory factory;
+  std::vector<const google::protobuf::DescriptorPool*> pools(fdset_map.size());
+  for (const auto& pair : fdset_map) {
+    pools[pair.second->descriptor_set_index] = pair.first;
+  }
+
+  std::unique_ptr<FunctionArgumentType> dummy_type;
+  ZETASQL_EXPECT_OK(
+      FunctionArgumentType::Deserialize(proto, pools, &factory, &dummy_type));
+  EXPECT_TRUE(
+      dummy_type->GetDefault().value().Equals(arg_type.GetDefault().value()));
+}
+
+TEST(FunctionSignatureTests, FunctionArgumentTypeWithDefaultValues) {
+  TypeFactory factory;
+  FunctionArgumentTypeOptions invalid_required_arg_type_option =
+      FunctionArgumentTypeOptions(FunctionEnums::REQUIRED)
+          .set_default(values::String("abc"));
+  FunctionArgumentTypeOptions valid_optional_arg_type_option =
+      FunctionArgumentTypeOptions(FunctionEnums::OPTIONAL)
+          .set_default(values::Int32(10086));
+  FunctionArgumentTypeOptions valid_optional_arg_type_option_null =
+      FunctionArgumentTypeOptions(FunctionEnums::OPTIONAL)
+          .set_default(values::NullInt32());
+  FunctionArgumentTypeOptions invalid_repeated_arg_type_option =
+      FunctionArgumentTypeOptions(FunctionEnums::REPEATED)
+          .set_default(values::Double(3.14));
+
+  FunctionArgumentType required_fixed_type_string(
+      factory.get_string(), invalid_required_arg_type_option,
+      /*num_occurrences=*/1);
+  EXPECT_THAT(
+      required_fixed_type_string.IsValid(),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Default value cannot be applied to a REQUIRED argument")));
+
+  FunctionArgumentType repeated_fixed_type_double(
+      factory.get_double(), invalid_repeated_arg_type_option,
+      /*num_occurrences=*/1);
+  EXPECT_THAT(
+      repeated_fixed_type_double.IsValid(),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Default value cannot be applied to a REPEATED argument")));
+
+  FunctionArgumentType optional_fixed_type_bytes(factory.get_bytes(),
+                                                 valid_optional_arg_type_option,
+                                                 /*num_occurrences=*/1);
+  EXPECT_THAT(
+      optional_fixed_type_bytes.IsValid(),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Default value type does not match the argument type")));
+
+  FunctionArgumentType optional_fixed_type_int64(factory.get_int64(),
+                                                 valid_optional_arg_type_option,
+                                                 /*num_occurrences=*/1);
+  EXPECT_THAT(
+      optional_fixed_type_int64.IsValid(),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Default value type does not match the argument type")));
+
+  FunctionArgumentType bad_optional_fixed_type_int64(
+      factory.get_int64(), valid_optional_arg_type_option_null,
+      /*num_occurrences=*/1);
+  EXPECT_THAT(
+      bad_optional_fixed_type_int64.IsValid(),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("Default value type does not match the argument type")));
+
+  FunctionArgumentType optional_fixed_type_int32(factory.get_int32(),
+                                                 valid_optional_arg_type_option,
+                                                 /*num_occurrences=*/1);
+  EXPECT_TRUE(optional_fixed_type_int32.GetDefault().value().Equals(
+      values::Int32(10086)));
+  ZETASQL_EXPECT_OK(optional_fixed_type_int32.IsValid());
+  TestDefaultValueAfterSerialization(optional_fixed_type_int32);
+
+  FunctionArgumentType optional_fixed_type_int32_null(
+      factory.get_int32(), valid_optional_arg_type_option_null,
+      /*num_occurrences=*/1);
+  EXPECT_TRUE(optional_fixed_type_int32_null.GetDefault().value().Equals(
+      values::NullInt32()));
+  ZETASQL_EXPECT_OK(optional_fixed_type_int32_null.IsValid());
+  TestDefaultValueAfterSerialization(optional_fixed_type_int32_null);
+
+  FunctionArgumentType templated_type_non_null(ARG_TYPE_ANY_1,
+                                               valid_optional_arg_type_option);
+  EXPECT_TRUE(templated_type_non_null.GetDefault().value().Equals(
+      values::Int32(10086)));
+  ZETASQL_EXPECT_OK(templated_type_non_null.IsValid());
+  TestDefaultValueAfterSerialization(templated_type_non_null);
+
+  FunctionArgumentType templated_type_null(ARG_TYPE_ANY_1,
+                                           valid_optional_arg_type_option_null);
+  EXPECT_TRUE(
+      templated_type_null.GetDefault().value().Equals(values::NullInt32()));
+  ZETASQL_EXPECT_OK(templated_type_null.IsValid());
+  TestDefaultValueAfterSerialization(templated_type_null);
+
+  FunctionArgumentType relation_type(ARG_TYPE_RELATION,
+                                     valid_optional_arg_type_option_null);
+  EXPECT_THAT(
+      relation_type.IsValid(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("ANY TABLE argument cannot have a default value")));
+
+  FunctionArgumentType model_type(ARG_TYPE_MODEL,
+                                  valid_optional_arg_type_option_null);
+  EXPECT_THAT(
+      model_type.IsValid(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("ANY MODEL argument cannot have a default value")));
+
+  FunctionArgumentType connection_type(ARG_TYPE_CONNECTION,
+                                       valid_optional_arg_type_option_null);
+  EXPECT_THAT(
+      connection_type.IsValid(),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("ANY CONNECTION argument cannot have a default value")));
+
+  FunctionArgumentType descriptor_type(ARG_TYPE_DESCRIPTOR,
+                                       valid_optional_arg_type_option_null);
+  EXPECT_THAT(
+      descriptor_type.IsValid(),
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr("ANY DESCRIPTOR argument cannot have a default value")));
 }
 
 // The following helpers generate ZetaSQL function signatures for testing.

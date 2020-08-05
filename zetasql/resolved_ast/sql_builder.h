@@ -38,6 +38,7 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include <cstdint>
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
@@ -310,6 +311,10 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedWindowFrame* node) override;
   absl::Status VisitResolvedWindowFrameExpr(
       const ResolvedWindowFrameExpr* node) override;
+  absl::Status VisitResolvedCreateEntityStmt(
+      const ResolvedCreateEntityStmt* node) override;
+  absl::Status VisitResolvedAlterEntityStmt(
+      const ResolvedAlterEntityStmt* node) override;
 
   absl::Status DefaultVisit(const ResolvedNode* node) override;
 
@@ -583,10 +588,10 @@ class SQLBuilder : public ResolvedASTVisitor {
   std::map<int /* column_id */, std::string> computed_column_alias_;
 
   // Stores the unique scan_aliases assigned for the corresponding scan nodes.
-  std::map<const ResolvedScan*, std::string> scan_alias_map_;
+  absl::flat_hash_map<const ResolvedScan*, std::string> scan_alias_map_;
 
   // Stores the unique aliases assigned to tables.
-  std::map<const Table*, std::string> table_alias_map_;
+  absl::flat_hash_map<const Table*, std::string> table_alias_map_;
 
   // Expected position of the next unparsed positional query parameter. Used for
   // validation only.

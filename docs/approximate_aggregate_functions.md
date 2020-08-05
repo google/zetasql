@@ -3,8 +3,20 @@
 # Approximate Aggregate Functions
 
 Approximate aggregate functions are scalable in terms of memory usage and time,
-but produce approximate results instead of exact results. For more background,
-see [Approximate Aggregation][link-to-approximate-aggregation].
+but produce approximate results instead of exact results. These functions
+typically require less memory than [exact aggregation functions][aggregate-functions-reference]
+like `COUNT(DISTINCT ...)`, but also introduce statistical uncertainty.
+This makes approximate aggregation appropriate for large data streams for
+which linear memory usage is impractical, as well as for data that is
+already approximate.
+
+The approximate aggregate functions in this section work directly on the
+input data, rather than an intermediate estimation of the data. These functions
+_do not allow_ users to specify the precision for the estimation with
+sketches. If you would like specify precision with sketches, see:
+
++  [HyperLogLog++ functions][hll-functions] to estimate cardinality.
++  [KLL16 functions][kll-functions] to estimate quantile values.
 
 ### APPROX_COUNT_DISTINCT
 
@@ -326,5 +338,7 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 +----------------------------+
 ```
 
-[link-to-approximate-aggregation]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation
+[hll-functions]: https://github.com/google/zetasql/blob/master/docs/hll_functions
+[kll-functions]: https://github.com/google/zetasql/blob/master/docs/kll_functions
+[aggregate-functions-reference]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions
 

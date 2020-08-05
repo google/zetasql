@@ -591,6 +591,55 @@ TEST(JSONValueTest, SerializeArrayValueToString) {
             ref.ToString());
 }
 
+TEST(JSONValueTest, Format) {
+  // String value.
+  EXPECT_EQ(
+      JSONValue::ParseJSONString(R"("value")").value().GetConstRef().Format(),
+      R"("value")");
+
+  // Integer value.
+  EXPECT_EQ(JSONValue::ParseJSONString("123").value().GetConstRef().Format(),
+            "123");
+
+  // Object value.
+  EXPECT_EQ(
+      JSONValue::ParseJSONString(R"({"key_int": 123, "key_str": "value"})")
+          .value()
+          .GetConstRef()
+          .Format(),
+      R"({
+  "key_int": 123,
+  "key_str": "value"
+})");
+
+  // Array value.
+  EXPECT_EQ(JSONValue::ParseJSONString(R"([true, null, 123])")
+                .value()
+                .GetConstRef()
+                .Format(),
+            R"([
+  true,
+  null,
+  123
+])");
+
+  // Nested value.
+  EXPECT_EQ(JSONValue::ParseJSONString(R"({"key_arr": [true, null, 123], )"
+                                       R"("key_int": 321, "key_str": "value"})")
+                .value()
+                .GetConstRef()
+                .Format(),
+            R"({
+  "key_arr": [
+    true,
+    null,
+    123
+  ],
+  "key_int": 321,
+  "key_str": "value"
+})");
+}
+
 TEST(JSONValueTest, ProtoBytesSerialization) {
   std::string test_json_strs[] = {"1", "null", "\"str\"", "[true, null, 5.0]",
                                   kJSONStr};

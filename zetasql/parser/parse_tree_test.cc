@@ -279,6 +279,8 @@ TEST(ParseTreeTest, GetDescendantsWithKinds) {
                                             &found_nodes);
   EXPECT_EQ("QueryStatement:1", CountNodeKinds(found_nodes));
   EXPECT_EQ(AST_QUERY_STATEMENT, statement->node_kind());
+  EXPECT_TRUE(statement->Is<ASTQueryStatement>());
+  EXPECT_FALSE(statement->Is<ASTCreateTableStatement>());
   statement->GetDescendantsWithKinds({AST_QUERY_STATEMENT}, &found_nodes);
   EXPECT_EQ("QueryStatement:1", CountNodeKinds(found_nodes));
 

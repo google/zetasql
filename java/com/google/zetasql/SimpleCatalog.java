@@ -201,8 +201,6 @@ public class SimpleCatalog extends Catalog {
       builder.addCustomTvf(tvf.getValue().serialize(fileDescriptorSetsBuilder));
     }
 
-    // TODO: Handle serialization of ResolvedFunctionCallInfo.
-    // TODO: Handle serialization of TVFSignatures.
     for (Entry<String, Constant> constant : constants.entrySet()) {
       builder.addConstant(constant.getValue().serialize(fileDescriptorSetsBuilder));
     }
@@ -659,9 +657,6 @@ public class SimpleCatalog extends Catalog {
     for (SimpleCatalogProto catalogProto : proto.getCatalogList()) {
       catalog.addSimpleCatalog(SimpleCatalog.deserialize(catalogProto, pools));
     }
-
-    // TODO: Handle deserialization of ResolvedFunctionCallInfo.
-    // TODO: Handle deserialization of TVFSignatures.
 
     for (SimpleConstantProto constantProto : proto.getConstantList()) {
       catalog.addConstant(Constant.deserialize(constantProto, pools, catalog.getTypeFactory()));

@@ -90,6 +90,7 @@ class ProtoValueConversionTest : public ::testing::Test {
     language_options.EnableLanguageFeature(FEATURE_GEOGRAPHY);
     language_options.EnableLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
     language_options.EnableLanguageFeature(FEATURE_BIGNUMERIC_TYPE);
+    language_options.EnableLanguageFeature(FEATURE_JSON_TYPE);
     ZETASQL_RETURN_IF_ERROR(AnalyzeExpression(
         expression_sql, AnalyzerOptions(language_options), &catalog_,
         &type_factory_, &output));
@@ -260,6 +261,8 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
       "STRUCT(CAST(-12345678901234567890123456789.1234567890123456789012345678 "
       "AS BIGNUMERIC))",
       "STRUCT(CAST(NULL AS GEOGRAPHY))",
+      "STRUCT(CAST('123' AS JSON))",
+      "STRUCT(CAST(NULL AS JSON))",
 
       // STRUCT containing a proto.
       R"(
@@ -311,6 +314,7 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
       "[CAST(-2.000000001 AS NUMERIC)]",
       "[CAST(-12345678901234567890123456789.1234567890123456789012345678 AS "
       "BIGNUMERIC)]",
+      "[CAST('123' AS JSON)]",
       // ARRAYs containing ARRAYs would go here, but those aren't allowed
       // in ZetaSQL.  Instead, we do ARRAY<STRUCT<ARRAY>>.
       "[STRUCT([1,2,3])]",
@@ -355,7 +359,8 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
       "[CAST(NULL AS zetasql.ProtoTypeProto)]",
       "[CAST(NULL AS NUMERIC)]",
       "[CAST(NULL AS BIGNUMERIC)]",
-      "[CAST(NULL AS GEOGRAPHY)]"
+      "[CAST(NULL AS GEOGRAPHY)]",
+      "[CAST(NULL AS JSON)]"
   };
 
   for (bool array_wrappers : {true, false}) {

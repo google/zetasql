@@ -688,6 +688,18 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
         return FindInExpressionsUnder(stmt->sql(), /*visible_aliases=*/{});
       }
       break;
+    case AST_CREATE_ENTITY_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_CREATE_ENTITY_STMT)) {
+        return absl::OkStatus();
+      }
+      break;
+    case AST_ALTER_ENTITY_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_ALTER_ENTITY_STMT)) {
+        return absl::OkStatus();
+      }
+      break;
     default:
       break;
   }

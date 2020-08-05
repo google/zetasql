@@ -23,6 +23,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/proto/function.pb.h"
 #include "zetasql/public/builtin_function.h"
 #include "zetasql/public/deprecation_warning.pb.h"
@@ -30,9 +31,11 @@
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/public/parse_location_range.pb.h"
 #include "zetasql/public/sql_function.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -427,6 +430,234 @@ TEST_F(FunctionSerializationTests,
   EXPECT_EQ(result->argument(0).options().argument_name(), "arg_int32");
   ASSERT_TRUE(result->argument(1).options().has_argument_name());
   EXPECT_EQ(result->argument(1).options().argument_name(), "arg_int64");
+}
+
+// Test serialization and deserialization of the optional arguments with default
+// values.
+TEST_F(FunctionSerializationTests,
+       CheckSignatureSerializationAndDeserializationWithDefaultValues) {
+  TypeFactory type_factory;
+  const ProtoType* proto_type = nullptr;
+  ZETASQL_ASSERT_OK(type_factory.MakeProtoType(ParseLocationRangeProto::descriptor(),
+                                       &proto_type));
+  const ArrayType* array_double_type = nullptr;
+  ZETASQL_ASSERT_OK(
+      type_factory.MakeArrayType(types::DoubleType(), &array_double_type));
+  const ArrayType* array_proto_type = nullptr;
+  ZETASQL_ASSERT_OK(type_factory.MakeArrayType(proto_type, &array_proto_type));
+  ParseLocationRangeProto proto_value;
+  proto_value.set_filename("abc.sql");
+  proto_value.set_start(734);
+  proto_value.set_end(10086);
+
+  FunctionSignature simple_signature(
+      /*result_type=*/zetasql::types::Int64Type(),
+      /*arguments=*/
+      {
+          {types::StringType(), FunctionArgumentTypeOptions()
+                                    .set_argument_name("arg_string")
+                                    .set_cardinality(FunctionEnums::OPTIONAL)},
+          {types::Int64Type(),
+           FunctionArgumentTypeOptions()
+               .set_argument_name("arg_int64")
+               .set_cardinality(FunctionEnums::OPTIONAL)
+               .set_default(values::Int64(-123456778987654321))},
+          {array_double_type,
+           FunctionArgumentTypeOptions()
+               .set_argument_name("arg_double_arr")
+               .set_cardinality(FunctionEnums::OPTIONAL)
+               .set_default(values::EmptyArray(array_double_type))},
+          {proto_type,
+           FunctionArgumentTypeOptions()
+               .set_argument_name("arg_proto")
+               .set_cardinality(FunctionEnums::OPTIONAL)
+               .set_default(values::Proto(proto_type, proto_value))},
+          {array_proto_type,
+           FunctionArgumentTypeOptions()
+               .set_argument_name("arg_proto_arr")
+               .set_cardinality(FunctionEnums::OPTIONAL)
+               .set_default(
+                   values::Array(array_proto_type,
+                                 {values::Proto(proto_type, proto_value),
+                                  values::Proto(proto_type, proto_value)}))},
+          {proto_type, FunctionArgumentTypeOptions()
+                           .set_argument_name("arg_proto_null")
+                           .set_cardinality(FunctionEnums::OPTIONAL)
+                           .set_default(values::Null(proto_type))},
+          {array_proto_type,
+           FunctionArgumentTypeOptions()
+               .set_argument_name("arg_proto_arr_null")
+               .set_cardinality(FunctionEnums::OPTIONAL)
+               .set_default(values::Null(array_proto_type))},
+          {types::BytesType(), FunctionArgumentTypeOptions()
+                                   .set_argument_name("arg_bytes_null")
+                                   .set_cardinality(FunctionEnums::OPTIONAL)
+                                   .set_default(values::NullBytes())},
+      },
+      /*context_id=*/-1);
+  FileDescriptorSetMap file_descriptor_set_map;
+  FunctionSignatureProto signature_proto;
+  ZETASQL_ASSERT_OK(
+      simple_signature.Serialize(&file_descriptor_set_map, &signature_proto));
+  std::vector<const google::protobuf::DescriptorPool*> pools(
+      file_descriptor_set_map.size());
+  for (const auto& pair : file_descriptor_set_map) {
+    pools[pair.second->descriptor_set_index] = pair.first;
+  }
+
+  // Another factory for deserialization.
+  TypeFactory factory;
+  std::unique_ptr<FunctionSignature> result;
+  ZETASQL_ASSERT_OK(FunctionSignature::Deserialize(signature_proto, pools, &factory,
+                                           &result));
+  ExpectEqualsIgnoringCallbacks(simple_signature, *result);
+
+  ASSERT_EQ(result->arguments().size(), 8);
+
+  ASSERT_TRUE(result->argument(0).options().has_argument_name());
+  EXPECT_EQ(result->argument(0).options().argument_name(), "arg_string");
+  EXPECT_FALSE(result->argument(0).GetDefault().has_value());
+
+  ASSERT_TRUE(result->argument(1).options().has_argument_name());
+  EXPECT_EQ(result->argument(1).options().argument_name(), "arg_int64");
+  EXPECT_EQ(-123456778987654321,
+            result->argument(1).GetDefault().value().int64_value());
+
+  ASSERT_TRUE(result->argument(2).options().has_argument_name());
+  EXPECT_EQ(result->argument(2).options().argument_name(), "arg_double_arr");
+  EXPECT_TRUE(result->argument(2).GetDefault().value().empty());
+
+  ASSERT_TRUE(result->argument(3).options().has_argument_name());
+  EXPECT_EQ(result->argument(3).options().argument_name(), "arg_proto");
+  EXPECT_EQ(SerializeToCord(proto_value),
+            result->argument(3).GetDefault().value().ToCord());
+
+  ASSERT_TRUE(result->argument(4).options().has_argument_name());
+  EXPECT_EQ(result->argument(4).options().argument_name(), "arg_proto_arr");
+  EXPECT_EQ(2, result->argument(4).GetDefault().value().num_elements());
+  for (int i = 0; i < 2; ++i) {
+    EXPECT_EQ(SerializeToCord(proto_value),
+              result->argument(4).GetDefault().value().elements()[i].ToCord());
+  }
+
+  ASSERT_TRUE(result->argument(5).options().has_argument_name());
+  EXPECT_EQ(result->argument(5).options().argument_name(), "arg_proto_null");
+  EXPECT_TRUE(result->argument(5).GetDefault().value().is_null());
+
+  ASSERT_TRUE(result->argument(6).options().has_argument_name());
+  EXPECT_EQ(result->argument(6).options().argument_name(),
+            "arg_proto_arr_null");
+  EXPECT_TRUE(result->argument(6).GetDefault().value().is_null());
+  EXPECT_TRUE(result->argument(6).GetDefault().value().type()->Equals(
+      array_proto_type));
+
+  ASSERT_TRUE(result->argument(7).options().has_argument_name());
+  EXPECT_EQ(result->argument(7).options().argument_name(), "arg_bytes_null");
+  EXPECT_TRUE(result->argument(7).GetDefault().value().is_null());
+  EXPECT_TRUE(result->argument(7).GetDefault().value().type()->IsBytes());
+}
+
+TEST_F(FunctionSerializationTests,
+       CheckSignatureSerializationAndDeserializationWithTemplatedDefaultValue) {
+  TypeFactory type_factory;
+  const ProtoType* proto_type = nullptr;
+  ZETASQL_ASSERT_OK(type_factory.MakeProtoType(ParseLocationRangeProto::descriptor(),
+                                       &proto_type));
+  const ArrayType* array_double_type = nullptr;
+  ZETASQL_ASSERT_OK(
+      type_factory.MakeArrayType(types::DoubleType(), &array_double_type));
+  const ArrayType* array_proto_type = nullptr;
+  ZETASQL_ASSERT_OK(type_factory.MakeArrayType(proto_type, &array_proto_type));
+  ParseLocationRangeProto proto_value;
+  proto_value.set_filename("abc.sql");
+  proto_value.set_start(734);
+  proto_value.set_end(10086);
+
+  FunctionSignature templated_signature(
+      /*result_type=*/zetasql::types::Int64Type(),
+      /*arguments=*/
+      {{ARG_TYPE_ANY_1, FunctionArgumentTypeOptions()
+                            .set_argument_name("arg_any")
+                            .set_cardinality(FunctionEnums::OPTIONAL)
+                            .set_default(values::NullInt64())},
+       {ARG_TYPE_ANY_2,
+        FunctionArgumentTypeOptions()
+            .set_argument_name("arg_double_arr")
+            .set_cardinality(FunctionEnums::OPTIONAL)
+            .set_default(values::EmptyArray(array_double_type))},
+       {ARG_PROTO_ANY,
+        FunctionArgumentTypeOptions()
+            .set_argument_name("arg_proto")
+            .set_cardinality(FunctionEnums::OPTIONAL)
+            .set_default(values::Proto(proto_type, proto_value))},
+       {ARG_ARRAY_TYPE_ANY_1,
+        FunctionArgumentTypeOptions()
+            .set_argument_name("arg_proto_arr")
+            .set_cardinality(FunctionEnums::OPTIONAL)
+            .set_default(values::Array(
+                array_proto_type, {values::Proto(proto_type, proto_value),
+                                   values::Proto(proto_type, proto_value)}))},
+       {ARG_TYPE_ARBITRARY, FunctionArgumentTypeOptions()
+                                .set_argument_name("arg_proto_null")
+                                .set_cardinality(FunctionEnums::OPTIONAL)
+                                .set_default(values::Null(proto_type))},
+       {ARG_ARRAY_TYPE_ANY_2,
+        FunctionArgumentTypeOptions()
+            .set_argument_name("arg_proto_arr_null")
+            .set_cardinality(FunctionEnums::OPTIONAL)
+            .set_default(values::Null(array_proto_type))}},
+      /*context_id=*/-1);
+
+  FileDescriptorSetMap file_descriptor_set_map;
+  FunctionSignatureProto signature_proto;
+  ZETASQL_ASSERT_OK(templated_signature.Serialize(&file_descriptor_set_map,
+                                          &signature_proto));
+
+  std::vector<const google::protobuf::DescriptorPool*> pools(
+      file_descriptor_set_map.size());
+  for (const auto& pair : file_descriptor_set_map) {
+    pools[pair.second->descriptor_set_index] = pair.first;
+  }
+
+  TypeFactory factory;
+  std::unique_ptr<FunctionSignature> result;
+  ZETASQL_ASSERT_OK(FunctionSignature::Deserialize(signature_proto, pools, &factory,
+                                           &result));
+  ExpectEqualsIgnoringCallbacks(templated_signature, *result);
+
+  ASSERT_EQ(result->arguments().size(), 6);
+
+  ASSERT_TRUE(result->argument(0).options().has_argument_name());
+  EXPECT_EQ(result->argument(0).options().argument_name(), "arg_any");
+  EXPECT_TRUE(result->argument(0).GetDefault().value().is_null());
+
+  ASSERT_TRUE(result->argument(1).options().has_argument_name());
+  EXPECT_EQ(result->argument(1).options().argument_name(), "arg_double_arr");
+  EXPECT_TRUE(result->argument(1).GetDefault().value().empty());
+
+  ASSERT_TRUE(result->argument(2).options().has_argument_name());
+  EXPECT_EQ(result->argument(2).options().argument_name(), "arg_proto");
+  EXPECT_EQ(SerializeToCord(proto_value),
+            result->argument(2).GetDefault().value().ToCord());
+
+  ASSERT_TRUE(result->argument(3).options().has_argument_name());
+  EXPECT_EQ(result->argument(3).options().argument_name(), "arg_proto_arr");
+  EXPECT_EQ(2, result->argument(3).GetDefault().value().num_elements());
+  for (int i = 0; i < 2; ++i) {
+    EXPECT_EQ(SerializeToCord(proto_value),
+              result->argument(3).GetDefault().value().elements()[i].ToCord());
+  }
+
+  ASSERT_TRUE(result->argument(4).options().has_argument_name());
+  EXPECT_EQ(result->argument(4).options().argument_name(), "arg_proto_null");
+  EXPECT_TRUE(result->argument(4).GetDefault().value().is_null());
+
+  ASSERT_TRUE(result->argument(5).options().has_argument_name());
+  EXPECT_EQ(result->argument(5).options().argument_name(),
+            "arg_proto_arr_null");
+  EXPECT_TRUE(result->argument(5).GetDefault().value().is_null());
+  EXPECT_TRUE(result->argument(5).GetDefault().value().type()->Equals(
+      array_proto_type));
 }
 
 // Test serialization and deserialization of the optional argument name and type

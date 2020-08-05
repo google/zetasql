@@ -25,7 +25,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
-#include "zetasql/common/fixed_int.h"
+#include "zetasql/common/multiprecision_int.h"
 #include "absl/base/attributes.h"
 #include <cstdint>
 #include "absl/base/optimization.h"
@@ -76,6 +76,19 @@ class NumericValue final {
   static zetasql_base::StatusOr<NumericValue> FromPackedInt(__int128 value);
   // Returns value / kScalingFactor.
   static constexpr NumericValue FromScaledValue(int64_t value);
+
+  // Returns a value representing little_endian_value / pow(10, scale), where
+  // little_endian_value represents an integer in serialized binary format
+  // in little endian byte order, using 2's complement encoding for negative
+  // values (the last byte's highest bit determines the sign). For example, if
+  // little_endian_value = '\x00\xff' and scale = 5, then the result is
+  // -256 / pow(10, 5). When the result has more than 9 digits in the
+  // fractional part, the result will be rounded half away from zero if
+  // allow_rounding is true, or an error will be returned if allow_rounding is
+  // false. This method is not optimized for performance, and is much slower
+  // than FromScaledValue(int64_t), FromPackedInt and FromHighAndLowBits.
+  static zetasql_base::StatusOr<NumericValue> FromScaledValue(
+      absl::string_view little_endian_value, int scale, bool allow_rounding);
 
   // Constructs a Numeric object from the high and low bits of the packed
   // integer representation. May return OUT_OF_RANGE error if the combined 128
@@ -139,7 +152,17 @@ class NumericValue final {
   // Returns OUT_OF_RANGE error on overflow.
   zetasql_base::StatusOr<NumericValue> Exp() const;
   // Return natural logarithm of this numeric value.
+  // Returns OUT_OF_RANGE error on non-positive value.
   zetasql_base::StatusOr<NumericValue> Ln() const;
+  // Return base 10 logarithm of this numeric value.
+  // Returns OUT_OF_RANGE error on non-positive value.
+  zetasql_base::StatusOr<NumericValue> Log10() const;
+  // Return logarithm of this numeric value on base.
+  // Returns OUT_OF_RANGE error on non-positive value.
+  zetasql_base::StatusOr<NumericValue> Log(NumericValue base) const;
+  // Return square root of this numeric value.
+  // Returns OUT_OF_RANGE error on negative value.
+  zetasql_base::StatusOr<NumericValue> Sqrt() const;
 
   // Rounds this NUMERIC value to the given number of decimal digits after the
   // decimal point. 'digits' can be negative to cause rounding of the digits to
@@ -513,6 +536,19 @@ class BigNumericValue final {
   // Returns value / kScalingFactor.
   static constexpr BigNumericValue FromScaledValue(__int128 value);
 
+  // Returns a value representing little_endian_value / pow(10, scale), where
+  // little_endian_value represents an integer in serialized binary format
+  // in little endian byte order, using 2's complement encoding for negative
+  // values (the last byte's highest bit determines the sign). For example, if
+  // little_endian_value = '\x00\xff' and scale = 5, then the result is
+  // -256 / pow(10, 5). When the result has more than 38 digits in the
+  // fractional part, the result will be rounded half away from zero if
+  // allow_rounding is true, or an error will be returned if allow_rounding is
+  // false. This method is not optimized for performance, and is much slower
+  // than FromScaledValue(__int128) and FromPackedLittleEndianArray.
+  static zetasql_base::StatusOr<BigNumericValue> FromScaledValue(
+      absl::string_view little_endian_value, int scale, bool allow_rounding);
+
   // Parses a textual representation of a BigNumericValue. Returns an error if
   // the given string cannot be parsed as a number or if the textual numeric
   // value exceeds BIGNUMERIC precision. This method will also return an error
@@ -572,7 +608,17 @@ class BigNumericValue final {
   // Returns OUT_OF_RANGE error on overflow.
   zetasql_base::StatusOr<BigNumericValue> Exp() const;
   // Return natural logarithm of this BigNumericValue.
+  // Returns OUT_OF_RANGE error on non-positive value.
   zetasql_base::StatusOr<BigNumericValue> Ln() const;
+  // Return base 10 logarithm of this BigNumericValue.
+  // Returns OUT_OF_RANGE error on non-positive value.
+  zetasql_base::StatusOr<BigNumericValue> Log10() const;
+  // Return logarithm of this BigNumericValue on base.
+  // Returns OUT_OF_RANGE error on non-positive value or overflow.
+  zetasql_base::StatusOr<BigNumericValue> Log(const BigNumericValue& base) const;
+  // Return square root of this BigNumericValue.
+  // Returns OUT_OF_RANGE error on negative value.
+  zetasql_base::StatusOr<BigNumericValue> Sqrt() const;
 
   // Rounds this BigNumericValue to the given number of decimal digits after the
   // decimal point. 'digits' can be negative to cause rounding of the digits to
@@ -680,6 +726,144 @@ class BigNumericValue final {
 
    private:
     FixedInt<64, 5> sum_;
+  };
+
+  // Aggregates the input of multiple BIGNUMERIC values and provides functions
+  // for the population/sample variance/standard deviation of the values in
+  // double data type.
+  class VarianceAggregator {
+   public:
+    // Adds a BIGNUMERIC value to the input.
+    void Add(BigNumericValue value);
+    // Removes a previously added BIGNUMERIC value from the input.
+    // This method is provided for implementing analytic functions with
+    // sliding windows. If the value has not been added to the input, or if it
+    // has already been removed, then the result of this method is undefined.
+    void Subtract(BigNumericValue value);
+    // Returns the population variance, or absl::nullopt if count is 0.
+    absl::optional<double> GetPopulationVariance(uint64_t count) const;
+    // Returns the sampling variance, or absl::nullopt if count < 2.
+    absl::optional<double> GetSamplingVariance(uint64_t count) const;
+    // Returns the population standard deviation, or absl::nullopt if count is
+    // 0.
+    absl::optional<double> GetPopulationStdDev(uint64_t count) const;
+    // Returns the sampling standard deviation, or absl::nullopt if count < 2.
+    absl::optional<double> GetSamplingStdDev(uint64_t count) const;
+    // Merges the state with other VarianceAggregator instance's state.
+    void MergeWith(const VarianceAggregator& other);
+    // Serialization and deserialization methods that are intended to be
+    // used to store the state in protos.
+    // sum_ is length prefixed and serialized, followed by sum_square_.
+    // SerializeAndAppendToProtoBytes is typically more efficient due to fewer
+    // memory allocations.
+    void SerializeAndAppendToProtoBytes(std::string* bytes) const;
+    std::string SerializeAsProtoBytes() const {
+      std::string result;
+      SerializeAndAppendToProtoBytes(&result);
+      return result;
+    }
+    static zetasql_base::StatusOr<VarianceAggregator> DeserializeFromProtoBytes(
+        absl::string_view bytes);
+
+    bool operator==(const VarianceAggregator& other) const {
+      return sum_ == other.sum_ && sum_square_ == other.sum_square_;
+    }
+
+   private:
+    FixedInt<64, 5> sum_;
+    FixedInt<64, 9> sum_square_;
+  };
+
+  class CorrelationAggregator;
+
+  // Aggregates the input of multiple pairs of BIGNUMERIC values and provides
+  // functions for the population/sample covariance of the pairs in double data
+  // type.
+  class CovarianceAggregator {
+   public:
+    // Adds a pair of BIGNUMERIC values to the input.
+    void Add(BigNumericValue x, BigNumericValue y);
+    // Removes a previously added pair of NUMERIC values from the input.
+    // This method is provided for implementing analytic functions with
+    // sliding windows. If the pair has not been added to the input, or if it
+    // has already been removed, then the result of this method is undefined.
+    void Subtract(BigNumericValue x, BigNumericValue y);
+    // Returns the population covariance of non-null pairs from input, or
+    // absl::nullopt if count is 0.
+    absl::optional<double> GetPopulationCovariance(uint64_t count) const;
+    // Returns the sample covariance of non-null pairs from input, or
+    // absl::nullopt if count < 2.
+    absl::optional<double> GetSamplingCovariance(uint64_t count) const;
+    // Merges the state with other CovarianceAggregator instance's state.
+    void MergeWith(const CovarianceAggregator& other);
+    // Serialization and deserialization methods that are intended to be
+    // used to store the state in protos.
+    // sum_product_ is length prefixed and serialized, sum_x_ is length prefixed
+    // and serialized, followed by sum_y_.
+    // SerializeAndAppendToProtoBytes is typically more efficient due to fewer
+    // memory allocations.
+    void SerializeAndAppendToProtoBytes(std::string* bytes) const;
+    std::string SerializeAsProtoBytes() const {
+      std::string result;
+      SerializeAndAppendToProtoBytes(&result);
+      return result;
+    }
+    static zetasql_base::StatusOr<CovarianceAggregator> DeserializeFromProtoBytes(
+        absl::string_view bytes);
+
+    bool operator==(const CovarianceAggregator& other) const {
+      return sum_product_ == other.sum_product_ && sum_x_ == other.sum_x_ &&
+             sum_y_ == other.sum_y_;
+    }
+
+   private:
+    friend class CorrelationAggregator;
+    FixedInt<64, 9> sum_product_;
+    FixedInt<64, 5> sum_x_;
+    FixedInt<64, 5> sum_y_;
+  };
+
+  // Aggregates the input of multiple pairs of BIGNUMERIC values and provides
+  // functions for the correlation of the pairs in double data type.
+  class CorrelationAggregator {
+   public:
+    // Adds a pair of BIGNUMERIC values to the input.
+    void Add(BigNumericValue x, BigNumericValue y);
+    // Removes a previously added pair of BIGNUMERIC values from the input.
+    // This method is provided for implementing analytic functions with
+    // sliding windows. If the pair has not been added to the input, or if it
+    // has already been removed, then the result of this method is undefined.
+    void Subtract(BigNumericValue x, BigNumericValue y);
+    // Returns the correlation coefficient for non-null pairs from input.
+    absl::optional<double> GetCorrelation(uint64_t count) const;
+    // Merges the state with other CorrelationAggregator instance's state.
+    void MergeWith(const CorrelationAggregator& other);
+    // Serialization and deserialization methods that are intended to be
+    // used to store the state in protos.
+    // Each of cov_agg_'s members are length prefixed and serialized, followed
+    // by sum_square_x_ length prefixed and serialized and then sum_square_y_
+    // serialized.
+    // SerializeAndAppendToProtoBytes is typically more efficient due to fewer
+    // memory allocations.
+    void SerializeAndAppendToProtoBytes(std::string* bytes) const;
+    std::string SerializeAsProtoBytes() const {
+      std::string result;
+      SerializeAndAppendToProtoBytes(&result);
+      return result;
+    }
+    static zetasql_base::StatusOr<CorrelationAggregator> DeserializeFromProtoBytes(
+        absl::string_view bytes);
+
+    bool operator==(const CorrelationAggregator& other) const {
+      return cov_agg_ == other.cov_agg_ &&
+             sum_square_x_ == other.sum_square_x_ &&
+             sum_square_y_ == other.sum_square_y_;
+    }
+
+   private:
+    CovarianceAggregator cov_agg_;
+    FixedInt<64, 9> sum_square_x_;
+    FixedInt<64, 9> sum_square_y_;
   };
 
   // Returns ROUND(value / 10^38) or TRUNC(value / 10^38), depending on <round>.

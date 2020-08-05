@@ -279,9 +279,6 @@ absl::Status ProtoType::GetTypeKindFromFieldDescriptor(
         case FieldFormat::BIGNUMERIC:
           *kind = TYPE_BIGNUMERIC;
           break;
-        case FieldFormat::JSON:
-          *kind = TYPE_JSON;
-          break;
         default:
           // Should not reach this if ValidateTypeAnnotations() is working
           // properly.
@@ -304,9 +301,24 @@ absl::Status ProtoType::GetTypeKindFromFieldDescriptor(
     case google::protobuf::FieldDescriptor::TYPE_ENUM:
       *kind = TYPE_ENUM;
       break;
-    case google::protobuf::FieldDescriptor::TYPE_STRING:
-      *kind = TYPE_STRING;
+    case google::protobuf::FieldDescriptor::TYPE_STRING: {
+      switch (format) {
+        case FieldFormat::DEFAULT_FORMAT:
+          *kind = TYPE_STRING;
+          break;
+        case FieldFormat::JSON:
+          *kind = TYPE_JSON;
+          break;
+        default:
+          // Should not reach this if ValidateTypeAnnotations() is working
+          // properly.
+          return MakeSqlError()
+                 << "Proto " << field->containing_type()->full_name()
+                 << " has invalid zetasql.format for STRING field: "
+                 << field->DebugString();
+      }
       break;
+  }
     case google::protobuf::FieldDescriptor::TYPE_MESSAGE:
       if (ignore_format_annotations) {
         *kind = TYPE_PROTO;

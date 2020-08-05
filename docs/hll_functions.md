@@ -2,9 +2,20 @@
 
 # HyperLogLog++ Functions
 
-ZetaSQL supports the following approximate aggregate functions using
-the HyperLogLog++ algorithm. For an explanation of how approximate aggregate
-functions work, see [Approximate Aggregation][approximate-aggregation-concept].
+The [HyperLogLog++ algorithm (HLL++)][hll-algorithm] estimates
+[cardinality][cardinality] from [sketches][hll-sketches]. If you do not want
+to work with sketches and do not need customized precision, consider
+using [approximate aggregate functions with system-defined precision][approx-functions-reference].
+
+HLL++ functions are approximate aggregate functions.
+Approximate aggregation typically requires less
+memory than [exact aggregation functions][aggregate-functions-reference],
+like `COUNT(DISTINCT)`, but also introduces statistical uncertainty.
+This makes HLL++ functions appropriate for large data streams for
+which linear memory usage is impractical, as well as for data that is
+already approximate.
+
+ZetaSQL supports the following HLL++ functions:
 
 ### HLL_COUNT.INIT
 ```
@@ -14,7 +25,7 @@ HLL_COUNT.INIT(input [, precision])
 **Description**
 
 An aggregate function that takes one or more `input` values and aggregates them
-into a [HyperLogLog++][hll-link-to-hyperloglog-wikipedia] sketch. Each sketch
+into a [HLL++][hll-link-to-research-whitepaper] sketch. Each sketch
 is represented using the `BYTES` data type. You can then merge sketches using
 `HLL_COUNT.MERGE` or `HLL_COUNT.MERGE_PARTIAL`. If no merging is needed,
 you can extract the final count of distinct values from the sketch using
@@ -80,7 +91,7 @@ HLL_COUNT.MERGE(sketch)
 **Description**
 
 An aggregate function that returns the cardinality of several
-[HyperLogLog++][hll-link-to-research-whitepaper] set sketches by computing their union.
+[HLL++][hll-link-to-research-whitepaper] set sketches by computing their union.
 
 Each `sketch` must have the same precision and be initialized on the same type.
 Attempts to merge sketches with different precisions or for different types
@@ -124,7 +135,7 @@ HLL_COUNT.MERGE_PARTIAL(sketch)
 **Description**
 
 An aggregate function that takes one or more
-[HyperLogLog++][hll-link-to-research-whitepaper] `sketch`
+[HLL++][hll-link-to-research-whitepaper] `sketch`
 inputs and merges them into a new sketch.
 
 This function returns NULL if there is no input or all inputs are NULL.
@@ -163,7 +174,7 @@ HLL_COUNT.EXTRACT(sketch)
 **Description**
 
 A scalar function that extracts an cardinality estimate of a single
-[HyperLogLog++][hll-link-to-research-whitepaper] sketch.
+[HLL++][hll-link-to-research-whitepaper] sketch.
 
 If `sketch` is NULL, this function returns a cardinality estimate of `0`.
 
@@ -204,8 +215,42 @@ FROM (
 +------------+---------+-----------------+
 ```
 
+## About the HLL++ algorithm {: #about-hll-alg }
+
+The [HLL++ algorithm][hll-link-to-research-whitepaper]
+improves on the [HLL][hll-link-to-hyperloglog-wikipedia]
+algorithm by more accurately estimating very small and large cardinalities.
+The HLL++ algorithm includes a 64-bit hash function, sparse
+representation to reduce memory requirements for small cardinality estimates,
+and empirical bias correction for small cardinality estimates.
+
+## About sketches {: #sketches-hll }
+
+A sketch is a summary of a large data stream. You can extract statistics
+from a sketch to estimate particular statistics of the original data, or
+merge sketches to summarize multiple data streams. A sketch has these features:
+
++ It compresses raw data into a fixed-memory representation.
++ It's asymptotically smaller than the input.
++ It's the serialized form of an in-memory, sublinear data structure.
++ It typically requires less memory than the input used to create it.
+
+Sketches allow integration with other systems. For example, it is possible to
+build sketches in external applications, like [Cloud Dataflow][dataflow], or
+[Apache Spark][spark] and consume them in ZetaSQL or
+vice versa. Sketches also allow building intermediate aggregations for
+non-additive functions like `COUNT(DISTINCT)`.
+
+[spark]: https://spark.apache.org
+[dataflow]: https://cloud.google.com/dataflow
+
+[cardinality]: https://en.wikipedia.org/wiki/Cardinality
 [hll-link-to-hyperloglog-wikipedia]: https://en.wikipedia.org/wiki/HyperLogLog
 [hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
 [hll-link-to-approx-count-distinct]: #approx_count_distinct
-[approximate-aggregation-concept]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation
+[hll-sketches]: #sketches-hll
+[hll-algorithm]: #about-hll-alg
+
+[approx-functions-reference]: https://github.com/google/zetasql/blob/master/docs/approximate_aggregate_functions
+[aggregate-functions-reference]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions
 

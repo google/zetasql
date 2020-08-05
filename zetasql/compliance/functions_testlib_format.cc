@@ -227,6 +227,69 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
       R"(repeated_string_val: \"foo\\\"bar\" )"
       R"(repeated_string_val: \"foo\\\\bar\"")";
 
+  const std::string kJsonValueString =
+      R"({
+          "array_val": [
+            null,
+            3,
+            "world"
+          ],
+          "bool_val": true,
+          "int64_val_1": 1,
+          "int64_val_2": 2,
+          "json_val": {
+            "bool_val": false,
+            "string_value": "hello"
+          },
+          "string_val": "foo"
+        })";
+  const Value json_value =
+      Json(JSONValue::ParseJSONString(kJsonValueString).value());
+  // Clean up the string to make it the same as FORMAT %p output.
+  std::string json_value_str(kJsonValueString);
+  // Remove all spaces.
+  RE2::GlobalReplace(&json_value_str, " *", "");
+  // Remove all newlines.
+  RE2::GlobalReplace(&json_value_str, "\n", "");
+
+  // Clean up the string to make it the same as FORMAT %P output.
+  std::string json_value_multiline_str(kJsonValueString);
+  // Remove leading 8 spaces (but no more!).
+  RE2::GlobalReplace(&json_value_multiline_str, "[ ]{8}", "");
+
+  const Value json_null = Value::Null(types::JsonType());
+
+  // Tests for different escaping characters and embedded quotes.
+  const std::string kEscapeCharsJsonValueString =
+      R"({"int64_val'_1":1,)"
+      R"("string_val_1":"foo'bar",)"
+      R"("string_val_2":"foo''bar",)"
+      R"("string_val_3":"foo`bar",)"
+      R"("string_val_4":"foo``bar",)"
+      R"("string_val_5":"foo\"bar",)"
+      R"("string_val_6":"foo\\bar"})";
+  const Value escape_chars_json_value =
+      Json(JSONValue::ParseJSONString(kEscapeCharsJsonValueString).value());
+  const std::string escape_chars_json_str = kEscapeCharsJsonValueString;
+  const std::string escape_chars_json_str_multiline =
+      R"({
+  "int64_val'_1": 1,
+  "string_val_1": "foo'bar",
+  "string_val_2": "foo''bar",
+  "string_val_3": "foo`bar",
+  "string_val_4": "foo``bar",
+  "string_val_5": "foo\"bar",
+  "string_val_6": "foo\\bar"
+})";
+  const std::string escape_chars_json_sql_literal =
+      R"(JSON "{\"int64_val'_1\":1,)"
+      R"(\"string_val_1\":\"foo'bar\",)"
+      R"(\"string_val_2\":\"foo''bar\",)"
+      R"(\"string_val_3\":\"foo`bar\",)"
+      R"(\"string_val_4\":\"foo``bar\",)"
+      R"(\"string_val_5\":\"foo\\\"bar\",)"
+      R"(\"string_val_6\":\"foo\\\\bar\"}")";
+
   const Value date = DateFromStr("2001-05-21");
   const Value date_null = Value::Null(types::DateType());
   const Value timestamp = TimestampFromStr("2001-05-21 13:51:36");
@@ -289,6 +352,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
       {"format", {"%d", Bytes("ab")}, NullString(), OUT_OF_RANGE},
       {"format", {"%d", enum_value}, NullString(), OUT_OF_RANGE},
       {"format", {"%d", proto_value}, NullString(), OUT_OF_RANGE},
+      {"format", {"%d", json_value}, NullString(), OUT_OF_RANGE},
 
       {"format", {"%i", Int32(5)}, "5"},
       {"format", {"%i", Int64(5)}, "5"},
@@ -300,6 +364,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
       {"format", {"%i", Bytes("ab")}, NullString(), OUT_OF_RANGE},
       {"format", {"%i", enum_value}, NullString(), OUT_OF_RANGE},
       {"format", {"%i", proto_value}, NullString(), OUT_OF_RANGE},
+      {"format", {"%i", json_value}, NullString(), OUT_OF_RANGE},
 
       {"format", {"%u", Int32(5)}, NullString(), OUT_OF_RANGE},
       {"format", {"%u", Int64(5)}, NullString(), OUT_OF_RANGE},
@@ -311,6 +376,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
       {"format", {"%u", Bytes("ab")}, NullString(), OUT_OF_RANGE},
       {"format", {"%u", enum_value}, NullString(), OUT_OF_RANGE},
       {"format", {"%i", proto_value}, NullString(), OUT_OF_RANGE},
+      {"format", {"%i", json_value}, NullString(), OUT_OF_RANGE},
 
       {"format", {"%x", Int32(30)}, "1e"},
       {"format", {"%x", Int64(30)}, "1e"},
@@ -327,6 +393,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
       {"format", {"%x", Bytes("ab")}, NullString(), OUT_OF_RANGE},
       {"format", {"%x", enum_value}, NullString(), OUT_OF_RANGE},
       {"format", {"%x", proto_value}, NullString(), OUT_OF_RANGE},
+      {"format", {"%x", json_value}, NullString(), OUT_OF_RANGE},
 
       {"format", {"%o", Int32(30)}, "36"},
       {"format", {"%o", Int64(30)}, "36"},
@@ -343,6 +410,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
       {"format", {"%o", Bytes("ab")}, NullString(), OUT_OF_RANGE},
       {"format", {"%o", enum_value}, NullString(), OUT_OF_RANGE},
       {"format", {"%o", proto_value}, NullString(), OUT_OF_RANGE},
+      {"format", {"%o", json_value}, NullString(), OUT_OF_RANGE},
 
       {"format", {"%f", Int32(5)}, NullString(), OUT_OF_RANGE},
       {"format", {"%f", Int64(5)}, NullString(), OUT_OF_RANGE},
@@ -354,6 +422,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
       {"format", {"%f", Bytes("ab")}, NullString(), OUT_OF_RANGE},
       {"format", {"%f", enum_value}, NullString(), OUT_OF_RANGE},
       {"format", {"%f", proto_value}, NullString(), OUT_OF_RANGE},
+      {"format", {"%f", json_value}, NullString(), OUT_OF_RANGE},
 
       {"format", {"%g", Int32(5)}, NullString(), OUT_OF_RANGE},
       {"format", {"%g", Int64(5)}, NullString(), OUT_OF_RANGE},
@@ -365,6 +434,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
       {"format", {"%g", Bytes("ab")}, NullString(), OUT_OF_RANGE},
       {"format", {"%g", enum_value}, NullString(), OUT_OF_RANGE},
       {"format", {"%g", proto_value}, NullString(), OUT_OF_RANGE},
+      {"format", {"%g", json_value}, NullString(), OUT_OF_RANGE},
 
       {"format", {"%e", Int32(5)}, NullString(), OUT_OF_RANGE},
       {"format", {"%e", Int64(5)}, NullString(), OUT_OF_RANGE},
@@ -376,6 +446,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
       {"format", {"%e", Bytes("ab")}, NullString(), OUT_OF_RANGE},
       {"format", {"%e", enum_value}, NullString(), OUT_OF_RANGE},
       {"format", {"%e", proto_value}, NullString(), OUT_OF_RANGE},
+      {"format", {"%e", json_value}, NullString(), OUT_OF_RANGE},
 
       {"format", {"%p", Int32(5)}, NullString(), OUT_OF_RANGE},
       {"format", {"%p", Int64(5)}, NullString(), OUT_OF_RANGE},
@@ -387,6 +458,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
       {"format", {"%p", Bytes("ab")}, NullString(), OUT_OF_RANGE},
       {"format", {"%p", enum_value}, NullString(), OUT_OF_RANGE},
       {"format", {"%p", proto_value}, proto_value_str},
+      {"format", {"%p", json_value}, json_value_str},
 
       {"format", {"%P", Int32(5)}, NullString(), OUT_OF_RANGE},
       {"format", {"%P", Int64(5)}, NullString(), OUT_OF_RANGE},
@@ -398,6 +470,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
       {"format", {"%P", Bytes("ab")}, NullString(), OUT_OF_RANGE},
       {"format", {"%P", enum_value}, NullString(), OUT_OF_RANGE},
       {"format", {"%P", proto_value}, proto_value_multiline_str},
+      {"format", {"%P", json_value}, json_value_multiline_str},
 
       {"format", {"%s", Int32(5)}, NullString(), OUT_OF_RANGE},
       {"format", {"%s", Int64(5)}, NullString(), OUT_OF_RANGE},
@@ -508,6 +581,27 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
        {"%P", escape_chars_proto_value},
        escape_chars_proto_str_multiline},
 
+      // Jsons
+      {"format", {"%t", json_value}, json_value_str},
+      {"format",
+       {"%T", json_value},
+       absl::StrCat("JSON '", json_value_str, "'")},
+      {"format", {"%p", json_value}, json_value_str},
+      {"format", {"%P", json_value}, json_value_multiline_str},
+      {"format", {"%t", json_null}, "NULL"},
+      {"format", {"%T", json_null}, "NULL"},
+      {"format", {"%p", json_null}, NullString()},
+      {"format", {"%P", json_null}, NullString()},
+      // Formatting protos with strings containing escape characters
+      {"format", {"%t", escape_chars_json_value}, escape_chars_json_str},
+      {"format",
+       {"%T", escape_chars_json_value},
+       escape_chars_json_sql_literal},
+      {"format", {"%p", escape_chars_json_value}, escape_chars_json_str},
+      {"format",
+       {"%P", escape_chars_json_value},
+       escape_chars_json_str_multiline},
+
       // Simple types with %t and %T.
       {"format", {"%t", Int64(15)}, "15"},
       {"format", {"%t", Int32(15)}, "15"},
@@ -551,6 +645,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
       {"format", {"%s", timestamp}, NullString(), OUT_OF_RANGE},
       {"format", {"%s", enum_value}, NullString(), OUT_OF_RANGE},
       {"format", {"%s", proto_value}, NullString(), OUT_OF_RANGE},
+      {"format", {"%s", json_value}, NullString(), OUT_OF_RANGE},
       {"format", {"%s", array_value}, NullString(), OUT_OF_RANGE},
       {"format", {"%s", struct2}, NullString(), OUT_OF_RANGE},
       {"format", {"%s", Value::Bytes("abc")}, NullString(), OUT_OF_RANGE},
@@ -559,6 +654,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
       {"format", {"%d", timestamp}, NullString(), OUT_OF_RANGE},
       {"format", {"%d", enum_value}, NullString(), OUT_OF_RANGE},
       {"format", {"%d", proto_value}, NullString(), OUT_OF_RANGE},
+      {"format", {"%d", json_value}, NullString(), OUT_OF_RANGE},
       {"format", {"%d", array_value}, NullString(), OUT_OF_RANGE},
       {"format", {"%d", struct2}, NullString(), OUT_OF_RANGE},
       {"format", {"%d", Value::Bytes("abc")}, NullString(), OUT_OF_RANGE},

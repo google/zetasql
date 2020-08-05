@@ -41,6 +41,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
+#include "zetasql/base/status_builder.h"
 #include "zetasql/base/statusor.h"
 
 // This header file has definitions for the AST classes.
@@ -146,6 +147,12 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
       }
     }
     return -1;
+  }
+
+  // Returns whether or not this node is a specific node type.
+  template <typename NodeType>
+  bool Is() const {
+    return node_kind_ == NodeType::kConcreteNodeKind;
   }
 
   // Return this node cast as a NodeType.
@@ -3020,7 +3027,16 @@ class ASTAnalyticFunctionCall final : public ASTExpression {
   zetasql_base::StatusOr<VisitResult> Accept(
       NonRecursiveParseTreeVisitor* visitor) const override;
 
-  const ASTFunctionCall* function() const { return function_; }
+  // Exactly one of function() or function_with_group_rows() will be non-null.
+  //
+  // In the normal case, function() is non-null.
+  //
+  // The function_with_group_rows() case can only happen if
+  // FEATURE_V_1_3_WITH_GROUP_ROWS is enabled and one function call has both
+  // WITH GROUP_ROWS and an OVER clause.
+  const ASTFunctionCall* function() const;
+  const ASTFunctionCallWithGroupRows* function_with_group_rows() const;
+
   const ASTWindowSpecification* window_spec() const {
     return window_spec_;
   }
@@ -3028,14 +3044,42 @@ class ASTAnalyticFunctionCall final : public ASTExpression {
  private:
   void InitFields() final {
     FieldLoader fl(this);
-    fl.AddRequired(&function_);
+    fl.AddRequired(&expression_);
     fl.AddRequired(&window_spec_);
+  }
+
+  // Required, never NULL.
+  // The expression is has to be either an ASTFunctionCall or an
+  // ASTFunctionCallWithGroupRows.
+  const ASTExpression* expression_ = nullptr;
+  // Required, never NULL.
+  const ASTWindowSpecification* window_spec_ = nullptr;
+};
+
+class ASTFunctionCallWithGroupRows final : public ASTExpression {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind =
+      AST_FUNCTION_CALL_WITH_GROUP_ROWS;
+
+  ASTFunctionCallWithGroupRows() : ASTExpression(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTFunctionCall* function() const { return function_; }
+  const ASTQuery* subquery() const { return subquery_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&function_);
+    fl.AddRequired(&subquery_);
   }
 
   // Required, never NULL.
   const ASTFunctionCall* function_ = nullptr;
   // Required, never NULL.
-  const ASTWindowSpecification* window_spec_ = nullptr;
+  const ASTQuery* subquery_ = nullptr;
 };
 
 class ASTPartitionBy final : public ASTNode {
@@ -4488,6 +4532,31 @@ class ASTCreateProcedureStatement final : public ASTCreateStatement {
   const ASTFunctionParameters* parameters_ = nullptr;
   const ASTOptionsList* options_list_ = nullptr;
   const ASTBeginEndBlock* begin_end_block_ = nullptr;
+};
+
+// This represents a CREATE SCHEMA statement, i.e.,
+// CREATE SCHEMA <name> [OPTIONS (name=value, ...)];
+class ASTCreateSchemaStatement final : public ASTCreateStatement {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_CREATE_SCHEMA_STATEMENT;
+
+  ASTCreateSchemaStatement() : ASTCreateStatement(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTPathExpression* name() const { return name_; }
+  const ASTOptionsList* options_list() const { return options_list_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&name_);
+    fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
+  }
+
+  const ASTPathExpression* name_ = nullptr;
+  const ASTOptionsList* options_list_ = nullptr;
 };
 
 // This represents a table-valued function declaration statement in ZetaSQL,

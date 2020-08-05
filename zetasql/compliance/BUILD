@@ -73,9 +73,9 @@ cc_test(
     ],
     deps = [
         ":type_helpers",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/testing:test_value",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 

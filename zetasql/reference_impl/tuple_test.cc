@@ -18,6 +18,8 @@
 
 #include "google/protobuf/descriptor.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/tuple_test_util.h"
 #include "zetasql/testdata/test_schema.pb.h"
@@ -32,7 +34,6 @@ namespace {
 
 using testing::ElementsAre;
 using testing::HasSubstr;
-using testing::UnorderedElementsAre;
 
 using zetasql_base::testing::StatusIs;
 
@@ -551,6 +552,179 @@ TEST(ValueHashSet, DestructorTest) {
     }
   }
   EXPECT_EQ(accountant.remaining_bytes(), 1000);
+}
+
+TEST(MemoryReservation, Basic) {
+  MemoryAccountant accountant(/*total_num_bytes=*/1000);
+  MemoryReservation res(&accountant);
+  absl::Status status;
+  ASSERT_TRUE(res.Increase(400, &status));
+  EXPECT_THAT(600, accountant.remaining_bytes());
+
+  ASSERT_TRUE(res.Increase(400, &status));
+  EXPECT_THAT(200, accountant.remaining_bytes());
+
+  ASSERT_FALSE(res.Increase(400, &status));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kResourceExhausted));
+  EXPECT_THAT(200, accountant.remaining_bytes());
+}
+
+TEST(MemoryReservation, Destructor) {
+  MemoryAccountant accountant(/*total_num_bytes=*/1000);
+
+  {
+    MemoryReservation res(&accountant);
+    absl::Status status;
+    ASSERT_TRUE(res.Increase(400, &status));
+    EXPECT_THAT(600, accountant.remaining_bytes());
+  }
+  EXPECT_THAT(1000, accountant.remaining_bytes());
+}
+
+TEST(MemoryReservation, Move) {
+  MemoryAccountant accountant(/*total_num_bytes=*/1000);
+
+  {
+    MemoryReservation res(&accountant);
+    absl::Status status;
+    ASSERT_TRUE(res.Increase(400, &status));
+    ASSERT_THAT(600, accountant.remaining_bytes());
+
+    // Moving the reservation doesn't change the state of the accountant
+    MemoryReservation res2(std::move(res));
+    ASSERT_THAT(600, accountant.remaining_bytes());
+  }
+  // After destructors for both 'res' and 'res2', the memory should be released
+  // only once.
+  EXPECT_THAT(1000, accountant.remaining_bytes());
+}
+
+TEST(MemoryReservation, AccountantDestroyedAfterMove) {
+  absl::Status status;
+  auto accountant =
+      absl::make_unique<MemoryAccountant>(/*total_num_bytes=*/1000);
+  auto res1 = absl::make_unique<MemoryReservation>(accountant.get());
+  ASSERT_TRUE(res1->Increase(400, &status));
+  auto res2 = absl::make_unique<MemoryReservation>(std::move(*res1));
+
+  // Make sure that 'res1' being destroyed after the accountant is ok, since it
+  // has been moved to 'res2'.
+  res2.reset();
+  accountant.reset();
+  res1.reset();
+}
+
+TEST(ArrayBuilder, Basic) {
+  MemoryAccountant accountant(/*total_num_bytes=*/1000);
+  ArrayBuilder builder(&accountant);
+
+  absl::Status status;
+  int64_t int64_value_size = Value::Int64(0).physical_byte_size();
+  for (int i = 1; i <= 5; ++i) {
+    EXPECT_TRUE(builder.PushBackUnsafe(Value::Int64(i), &status));
+    ZETASQL_EXPECT_OK(status);
+    EXPECT_EQ(1000 - i * int64_value_size, accountant.remaining_bytes());
+    EXPECT_FALSE(builder.IsEmpty());
+    EXPECT_EQ(i, builder.GetSize());
+  }
+
+  {
+    ArrayBuilder::TrackedValue arr =
+        builder.Build(types::Int64ArrayType(), InternalValue::kPreservesOrder);
+    EXPECT_EQ(Int64Array({1, 2, 3, 4, 5}), arr.value);
+    EXPECT_EQ(1000 - 5 * int64_value_size, accountant.remaining_bytes());
+    EXPECT_EQ(InternalValue::kPreservesOrder,
+              InternalValue::order_kind(arr.value));
+  }
+  EXPECT_EQ(1000, accountant.remaining_bytes());
+}
+
+TEST(ArrayBuilder, NoPreserveOrder) {
+  MemoryAccountant accountant(/*total_num_bytes=*/1000);
+  ArrayBuilder builder(&accountant);
+
+  absl::Status status;
+  int64_t int64_value_size = Value::Int64(0).physical_byte_size();
+  for (int i = 1; i <= 5; ++i) {
+    EXPECT_TRUE(builder.PushBackUnsafe(Value::Int64(i), &status));
+    ZETASQL_EXPECT_OK(status);
+    EXPECT_EQ(1000 - i * int64_value_size, accountant.remaining_bytes());
+    EXPECT_FALSE(builder.IsEmpty());
+    EXPECT_EQ(i, builder.GetSize());
+  }
+
+  {
+    ArrayBuilder::TrackedValue arr =
+        builder.Build(types::Int64ArrayType(), InternalValue::kIgnoresOrder);
+    EXPECT_EQ(Int64Array({1, 2, 3, 4, 5}), arr.value);
+    EXPECT_EQ(1000 - 5 * int64_value_size, accountant.remaining_bytes());
+    EXPECT_EQ(InternalValue::kIgnoresOrder,
+              InternalValue::order_kind(arr.value));
+  }
+  EXPECT_EQ(1000, accountant.remaining_bytes());
+}
+
+TEST(ArrayBuilder, PushBackFails) {
+  int64_t int64_value_size = Value::Int64(0).physical_byte_size();
+  MemoryAccountant accountant(int64_value_size * 2);
+  ArrayBuilder builder(&accountant);
+
+  absl::Status status;
+  EXPECT_TRUE(builder.PushBackUnsafe(Value::Int64(1), &status));
+  EXPECT_TRUE(builder.PushBackUnsafe(Value::Int64(2), &status));
+  EXPECT_FALSE(builder.PushBackUnsafe(Value::Int64(3), &status));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kResourceExhausted));
+
+  // Make sure builder state did not change on failed push-back
+  EXPECT_EQ(2, builder.GetSize());
+
+  // Make sure memory accountant is left in expected state upon failure
+  EXPECT_EQ(0, accountant.remaining_bytes());
+}
+
+TEST(ArrayBuilder, VariableSizedElements) {
+  // This test uses STRING instead of INT64 to make sure that there are no
+  // incorrect assumptions about array elements being the same size.
+  MemoryAccountant accountant(/*total_num_bytes=*/150);
+  ArrayBuilder builder(&accountant);
+  absl::Status status;
+  EXPECT_TRUE(builder.PushBackUnsafe(Value::NullString(), &status));
+  EXPECT_TRUE(builder.PushBackUnsafe(Value::String("short string"), &status));
+  EXPECT_FALSE(builder.PushBackUnsafe(
+      Value::String(
+          "This is a very very very very very very very very very very very "
+          "very very very very very very very very long long long long long "
+          "long long long long long long long long long string"),
+      &status));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kResourceExhausted));
+}
+
+TEST(ArrayBuilder, Destructor) {
+  MemoryAccountant accountant(/*total_num_bytes=*/1000);
+  {
+    ArrayBuilder builder(&accountant);
+
+    absl::Status status;
+    for (int i = 1; i <= 5; ++i) {
+      EXPECT_TRUE(builder.PushBackUnsafe(Value::Int64(i), &status));
+    }
+  }
+
+  // Make sure that used memory is returned to the accountant in the destructor
+  EXPECT_EQ(1000, accountant.remaining_bytes());
+}
+
+TEST(ArrayBuilder, MoveAndCopyValues) {
+  // Make sure that moving values actually moves them, rather than copying them
+  MemoryAccountant accountant(1000);
+  ArrayBuilder builder(&accountant);
+  Value value10 = Value::Int64(10);
+  absl::Status status;
+  ASSERT_TRUE(builder.PushBackUnsafe(std::move(value10), &status));
+  ArrayBuilder::TrackedValue value =
+      builder.Build(Int64ArrayType(), InternalValue::kPreservesOrder);
+  EXPECT_FALSE(value10.is_valid()) << "Should have been moved";
+  EXPECT_EQ(Int64Array({10}), value.value);
 }
 
 TEST(ReorderingTupleIterator, BasicTest) {

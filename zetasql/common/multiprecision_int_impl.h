@@ -14,11 +14,11 @@
 // limitations under the License.
 //
 
-// Implementation for FixedInt and FixedUint.
-// Do NOT include this file directly. Include fixed_int.h instead.
+// Implementation utils for multiprecision_int.h.
+// Do NOT include this file directly. Include multiprecision_int.h instead.
 
-#ifndef ZETASQL_COMMON_FIXED_INT_INTERNAL_H_
-#define ZETASQL_COMMON_FIXED_INT_INTERNAL_H_
+#ifndef ZETASQL_COMMON_MULTIPRECISION_INT_IMPL_H_
+#define ZETASQL_COMMON_MULTIPRECISION_INT_IMPL_H_
 #include <string.h>
 #include <sys/types.h>
 
@@ -31,11 +31,12 @@
 #include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/bits.h"
 #include "zetasql/base/endian.h"
 
 namespace zetasql {
-namespace fixed_int_internal {
+namespace multiprecision_int_impl {
 
 template <int num_bits>  // num_bits must be 32, 64, or 128
 struct IntTraits;
@@ -707,14 +708,18 @@ inline constexpr std::make_unsigned_t<V> SafeAbs(V x) {
 }
 
 // Serializes number and append to *result.
-template <bool is_signed, typename Word, size_t kNumWords>
-void Serialize(const std::array<Word, kNumWords>& number, char extension,
-               std::string* result) {
-#ifdef ABSL_IS_LITTLE_ENDIAN
-  const char* src = reinterpret_cast<const char*>(number.data());
-#else
-  std::array<Word, kNumWords> little_endian_number = number;
-  for (Word& word : little_endian_number) {
+template <bool is_signed, typename Word>
+void SerializeNoOptimization(absl::Span<const Word> number,
+                             std::string* bytes) {
+  DCHECK(!number.empty());
+  const char extension =
+      is_signed && static_cast<std::make_signed_t<Word>>(number.back()) < 0
+          ? '\xff'
+          : '\x0';
+  const size_t old_size = bytes->size();
+  bytes->resize(old_size + sizeof(Word) * number.size());
+  char* dest = bytes->data() + old_size;
+  for (Word word : number) {
     static_assert(sizeof(Word) == sizeof(uint32_t) ||
                   sizeof(Word) == sizeof(uint64_t));
     if (sizeof(Word) == sizeof(uint32_t)) {
@@ -722,51 +727,21 @@ void Serialize(const std::array<Word, kNumWords>& number, char extension,
     } else {
       word = zetasql_base::LittleEndian::FromHost64(word);
     }
+    memcpy(dest, &word, sizeof(Word));
+    dest += sizeof(Word);
   }
-  const char* src = reinterpret_cast<const char*>(little_endian_number.data());
-#endif
-  const char* last_byte = src + sizeof(number) - 1;
+  dest = bytes->data() + old_size;
+  char* last_byte = bytes->data() + bytes->size() - 1;
   // Skip last extension characters if they are redundant.
-  while (last_byte > src && *last_byte == extension) {
+  while (last_byte > dest && *last_byte == extension) {
     --last_byte;
   }
   // If signed and the last byte has a different sign bit than the extension,
   // add one extension byte to preserve the sign bit.
-  if (is_signed && last_byte < src + sizeof(number) &&
-      ((*last_byte ^ extension) & '\x80') != 0) {
+  if (is_signed && ((*last_byte ^ extension) & '\x80') != 0) {
     ++last_byte;
   }
-  result->append(src, last_byte - src + 1);
-}
-
-// Deserialize from minimum number of bytes needed to represent the number.
-// Similarly to Serialize, if is_signed is true then a high 0x80 bit
-// will result in padding with 0xff rather than 0x00
-template <bool is_signed, typename Word, size_t kNumWords>
-bool Deserialize(absl::string_view bytes, std::array<Word, kNumWords>* out) {
-  // We allow one extra byte in case of the 0x80 high byte case, see
-  // comments on Serialize for details
-  if (ABSL_PREDICT_FALSE(bytes.empty() || bytes.size() > sizeof(*out))) {
-    return false;
-  }
-  // Most callers already initialize *out to zero and the compiler is likely
-  // to optimize fill(0) away.
-  out->fill(0);
-  if (is_signed && (bytes.back() & '\x80')) {
-    out->fill(~Word{0});
-  }
-  memcpy(out->data(), bytes.data(), bytes.size());
-  // The compiler is expected to remove this loop if the host is little endian.
-  for (Word& word : *out) {
-    static_assert(sizeof(Word) == sizeof(uint32_t) ||
-                  sizeof(Word) == sizeof(uint64_t));
-    if (sizeof(Word) == sizeof(uint32_t)) {
-      word = zetasql_base::LittleEndian::ToHost32(word);
-    } else {
-      word = zetasql_base::LittleEndian::ToHost64(word);
-    }
-  }
-  return true;
+  bytes->resize(old_size + last_byte - dest + 1);
 }
 
 // Parse an unsigned string with digits only into result. This function returns
@@ -824,7 +799,7 @@ constexpr std::array<Word, size> PowersAsc(T... v) {
   }
 }
 
-}  // namespace fixed_int_internal
+}  // namespace multiprecision_int_impl
 }  // namespace zetasql
 
-#endif  // ZETASQL_COMMON_FIXED_INT_INTERNAL_H_
+#endif  // ZETASQL_COMMON_MULTIPRECISION_INT_IMPL_H_

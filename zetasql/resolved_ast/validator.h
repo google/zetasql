@@ -79,6 +79,10 @@ class Validator {
       const ResolvedCreateTableFunctionStmt* stmt);
   absl::Status ValidateResolvedCreateProcedureStmt(
       const ResolvedCreateProcedureStmt* stmt);
+  absl::Status ValidateResolvedCreateEntityStmt(
+      const ResolvedCreateEntityStmt* stmt);
+  absl::Status ValidateResolvedAlterEntityStmt(
+      const ResolvedAlterEntityStmt* stmt);
   absl::Status ValidateResolvedExportDataStmt(
       const ResolvedExportDataStmt* stmt);
   absl::Status ValidateResolvedExportModelStmt(

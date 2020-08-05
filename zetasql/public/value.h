@@ -165,17 +165,32 @@ class Value {
   // REQUIRES: bignumeric type
   const BigNumericValue& bignumeric_value() const;
 
-  // REQUIRES: json type
-  // Returns if the JSON value is validated.
+  // Checks whether the value belongs to the JSON type, non-NULL and is in
+  // validated representation. JSON values can be in one of the two
+  // representations:
+  //  1) Validated: JSON is parsed, validated and transformed into an efficient
+  //    (for field read/updates) in-memory representation (field tree) that can
+  //    be accessed through json_value() method. ZetaSQL Analyzer uses this
+  //    representation by default to represent JSON values (e.g. literals).
+  //  2) Unparsed: string that was not validated and thus potentially can be
+  //    an invalid JSON. ZetaSQL Analyzer uses this representation when
+  //    LanguageFeature FEATURE_JSON_NO_VALIDATION is enabled.
   bool is_validated_json() const;
+  // Returns true if the value belongs to the JSON type, non-null and is in
+  // unparsed representation. See comments to is_validated_json() for more
+  // details.
+  bool is_unparsed_json() const;
   // REQUIRES: json type
-  // REQUIRES: !is_validated_json()
-  // Returns the JSON value in the default (non-validating) mode.
+  // REQUIRES: is_unparsed_json()
+  // Returns the JSON representation in the unparsed mode.
   const std::string& json_value_unparsed() const;
   // REQUIRES: json type
   // REQUIRES: is_validated_json()
-  // Returns the JSON value in the validating mode.
-  JSONValueConstRef json_value_validated() const;
+  // Returns the JSON value in the validated mode.
+  JSONValueConstRef json_value() const;
+  // REQUIRES: json type
+  // Returns the string representing stored JSON value.
+  std::string json_string() const;
 
   // Returns the value content of extended type.
   // REQUIRES: type_kind() == TYPE_EXTENDED
@@ -373,11 +388,71 @@ class Value {
 
   // Generic factory for numeric PODs.
   // REQUIRES: T is one of int32_t, int64_t, uint32_t, uint64_t, bool, float, double.
-  template <typename T> inline static Value Make(T value);
+  template <typename T>
+  inline static Value Make(T value) {
+    if constexpr (std::is_same_v<T, NumericValue>) {
+      return Value::Numeric(value);
+    } else if constexpr (std::is_same_v<T, BigNumericValue>) {
+      return Value::BigNumeric(value);
+    } else if constexpr (std::is_same_v<T, bool>) {
+      return Value::Bool(value);
+    } else if constexpr (std::is_same_v<T, float>) {
+      return Value::Float(value);
+    } else if constexpr (std::is_same_v<T, double>) {
+      return Value::Double(value);
+    } else {
+      constexpr int kNumBits = sizeof(T) * CHAR_BIT;
+      if constexpr (std::is_signed_v<T>) {
+        if constexpr (kNumBits == 32) {
+          return Value::Int32(value);
+        } else if constexpr (kNumBits == 64) {
+          return Value::Int64(value);
+        }
+      } else if constexpr (std::is_unsigned_v<T>) {
+        if constexpr (kNumBits == 32) {
+          return Value::Uint32(value);
+        } else if constexpr (kNumBits == 64) {
+          return Value::Uint64(value);
+        }
+      } else {
+        static_assert(std::is_void_v<T>, "Unsupported type.");
+      }
+    }
+  }
 
   // Generic factory for null values.
   // REQUIRES: T is one of int32_t, int64_t, uint32_t, uint64_t, bool, float, double.
-  template <typename T> inline static Value MakeNull();
+  template <typename T>
+  inline static Value MakeNull() {
+    if constexpr (std::is_same_v<T, NumericValue>) {
+      return Value::NullNumeric();
+    } else if constexpr (std::is_same_v<T, BigNumericValue>) {
+      return Value::NullBigNumeric();
+    } else if constexpr (std::is_same_v<T, bool>) {
+      return Value::NullBool();
+    } else if constexpr (std::is_same_v<T, float>) {
+      return Value::NullFloat();
+    } else if constexpr (std::is_same_v<T, double>) {
+      return Value::NullDouble();
+    } else {
+      constexpr int kNumBits = sizeof(T) * CHAR_BIT;
+      if constexpr (std::is_signed_v<T>) {
+        if constexpr (kNumBits == 32) {
+          return Value::NullInt32();
+        } else if constexpr (kNumBits == 64) {
+          return Value::NullInt64();
+        }
+      } else if constexpr (std::is_unsigned_v<T>) {
+        if constexpr (kNumBits == 32) {
+          return Value::NullUint32();
+        } else if constexpr (kNumBits == 64) {
+          return Value::NullUint64();
+        }
+      } else {
+        static_assert(std::is_void_v<T>, "Unsupported type.");
+      }
+    }
+  }
 
   // Factory methods to create atomic null values.
   static Value NullInt32();

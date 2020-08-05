@@ -528,6 +528,18 @@ class Algebrizer {
           expr_list,
       int column_id, const ResolvedExpr** definition);
 
+  // Returns a RelationalOp representing a filtered view of <input>, excluding
+  // any rows which are duplicates, either with respect to <input> itself, or
+  // any prior evaluation of a node created from FilterDuplicates() using the
+  // same <row_set_id> value.
+  //
+  // <column_list> denotes the columns of each row returned by <input>. Two
+  // rows are considered to be duplicates only if all of the columns in
+  // <column_list> hold identical values.
+  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> FilterDuplicates(
+      std::unique_ptr<RelationalOp> input,
+      const ResolvedColumnList& column_list, VariableId row_set_id);
+
   // Cap the algebra for a relation in a struct with a ArrayNestExpr.
   zetasql_base::StatusOr<std::unique_ptr<ArrayNestExpr>> NestRelationInStruct(
       const ResolvedColumnList& output_columns,

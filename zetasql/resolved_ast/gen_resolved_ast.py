@@ -4887,6 +4887,25 @@ right.
       ])
 
   gen.AddNode(
+      name='ResolvedSetAsAction',
+      tag_id=156,
+      parent='ResolvedAlterAction',
+      comment="""
+      SET AS action for generic ALTER <entity_type> statement.
+
+      <entity_body_json> is a JSON literal to be interpreted by engine.
+              """,
+      fields=[
+          # TODO: convert type into JSON literal type when it is
+          # ready.
+          Field(
+              'entity_body_json',
+              SCALAR_STRING,
+              tag_id=2,
+              ignorable=IGNORABLE_DEFAULT),
+      ])
+
+  gen.AddNode(
       name='ResolvedAlterTableSetOptionsStmt',
       tag_id=71,
       parent='ResolvedStatement',
@@ -5980,6 +5999,61 @@ ResolvedArgumentRef(y)
               tag_id=3,
               comment='Value to assign into the target.  This will always be '
               'the same type as the target.')
+      ])
+
+  gen.AddNode(
+      name='ResolvedCreateEntityStmt',
+      tag_id=154,
+      parent='ResolvedCreateStatement',
+      comment="""
+      (broken link)
+      This statement:
+      CREATE [OR REPLACE] <entity_type> [IF NOT EXISTS] <path_expression>
+      [OPTIONS <option_list>]
+      [AS <entity_body_json>];
+
+      <entity_type> engine-specific entity type to be created.
+      <entity_body_json> is a JSON literal to be interpreted by engine.
+      <option_list> has engine-specific directives for how to
+                    create this entity.
+              """,
+      fields=[
+          Field(
+              'entity_type',
+              SCALAR_STRING,
+              tag_id=2,
+              ignorable=NOT_IGNORABLE),
+          Field(
+              'entity_body_json',
+              SCALAR_STRING,
+              tag_id=3,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'option_list',
+              'ResolvedOption',
+              tag_id=4,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT)
+      ])
+
+  gen.AddNode(
+      name='ResolvedAlterEntityStmt',
+      tag_id=155,
+      parent='ResolvedAlterObjectStmt',
+      comment="""
+      (broken link)
+      This statement:
+      ALTER <entity_type> [IF EXISTS]  <path_expression>
+      <generic_alter_action>, ...
+
+      <entity_type> engine-specific entity type to be altered.
+              """,
+      fields=[
+          Field(
+              'entity_type',
+              SCALAR_STRING,
+              tag_id=2,
+              ignorable=NOT_IGNORABLE),
       ])
 
   gen.Generate(input_file_paths, output_file_paths)

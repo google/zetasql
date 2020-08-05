@@ -28,35 +28,40 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * FunctionSignature identifies the argument Types and other properties
- * per overload of a Function.  A FunctionSignature is concrete if it
- * identifies the exact number and fixed Types of its arguments and results.
- * A FunctionSignature can be abstract, specifying templated types and
- * identifying arguments as repeated or optional.  Optional arguments must
- * appear at the end of the argument list.
+ * FunctionSignature identifies the argument Types and other properties per overload of a Function.
+ * A FunctionSignature is concrete if it identifies the exact number and fixed Types of its
+ * arguments and results. A FunctionSignature can be abstract, specifying templated types and
+ * identifying arguments as repeated or optional. Optional arguments must appear at the end of the
+ * argument list.
  *
- * <p>If multiple arguments are repeated, they must be consecutive and are
- * treated as if they repeat together.  To illustrate, consider the expression:
- *      'CASE WHEN {@code <bool_expr_1>} THEN {@code <expr_1>}
- *       WHEN {@code <bool_expr_2>} THEN {@code <expr_2>}
- *       ...
- *       ELSE {@code <expr_n>} END'.
+ * <p>If multiple arguments are repeated, they must be consecutive and are treated as if they repeat
+ * together. To illustrate, consider the expression:
+ *
+ * <pre>{@code
+ * 'CASE WHEN <bool_expr_1> THEN <expr_1>
+ *  WHEN <bool_expr_2> THEN <expr_2>
+ *  ...
+ *  ELSE <expr_n> END'.
+ * }</pre>
  *
  * <p>This expression has the following signature {@code <arguments>}:
- *   arg1: {@code <bool>} repeated - WHEN
- *   arg2: {@code <any_type_1>} repeated - THEN
- *   arg3: {@code <any_type_1>} optional - ELSE
- *   result: {@code <any_type_1>}
  *
- * <p>The WHEN and THEN arguments (arg1 and arg2) repeat together and must
- * occur at least once, and the ELSE is optional.  The THEN, ELSE, and
- * RESULT types can be any type, but must be the same type.
+ * <pre>{@code
+ * arg1: <bool> repeated - WHEN
+ * arg2: <any_type_1> repeated - THEN
+ * arg3: <any_type_1> optional - ELSE
+ * result: <any_type_1>
+ * }</pre>
  *
- * <p>In order to avoid potential ambiguity, the number of optional arguments
- * must be less than the number of repeated arguments.
+ * <p>The {@code WHEN} and {@code THEN} arguments (arg1 and arg2) repeat together and must occur at
+ * least once, and the {@code ELSE} is optional. The {@code THEN}, {@code ELSE}, and {@code RESULT}
+ * types can be any type, but must be the same type.
  *
- * <p>The FunctionSignature also includes {@code <options>} for specifying
- * additional signature matching requirements, if any.
+ * <p>In order to avoid potential ambiguity, the number of optional arguments must be less than the
+ * number of repeated arguments.
+ *
+ * <p>The FunctionSignature also includes {@code <options>} for specifying additional signature
+ * matching requirements, if any. * matching requirements, if any.
  */
 public final class FunctionSignature implements Serializable {
 
@@ -73,7 +78,9 @@ public final class FunctionSignature implements Serializable {
   }
 
   public FunctionSignature(
-      FunctionArgumentType resultType, List<FunctionArgumentType> arguments, long contextId,
+      FunctionArgumentType resultType,
+      List<FunctionArgumentType> arguments,
+      long contextId,
       FunctionSignatureOptionsProto options) {
     this.arguments = ImmutableList.copyOf(arguments);
     this.resultType = resultType;
@@ -100,10 +107,11 @@ public final class FunctionSignature implements Serializable {
     for (FunctionArgumentTypeProto argument : proto.getArgumentList()) {
       arguments.add(FunctionArgumentType.deserialize(argument, pools));
     }
-    FunctionSignature signature = new FunctionSignature(
+    return new FunctionSignature(
         FunctionArgumentType.deserialize(proto.getReturnType(), pools),
-        arguments, proto.getContextId(), proto.getOptions());
-    return signature;
+        arguments,
+        proto.getContextId(),
+        proto.getOptions());
   }
 
   private List<FunctionArgumentType> computeConcreteArgumentTypes() {
@@ -163,12 +171,13 @@ public final class FunctionSignature implements Serializable {
     return result;
   }
 
-
   public ImmutableList<FunctionArgumentType> getFunctionArgumentList() {
     return arguments;
   }
 
   /**
+   * Returns the number of concrete arguments.
+   *
    * @throws IllegalStateException if the signature is not concrete.
    */
   public int getConcreteArgumentsCount() {
@@ -212,19 +221,12 @@ public final class FunctionSignature implements Serializable {
 
   public String debugString(String functionName, boolean verbose) {
     StringBuilder result = new StringBuilder(functionName);
-    result.append('(');
-    if (verbose) {
-      boolean first = true;
-      for (FunctionArgumentType argument : arguments) {
-        if (!first) {
-          result.append(", ");
-        }
-        first = false;
-
-        result.append(argument.debugString(verbose));
-      }
-    } else {
-      Joiner.on(", ").appendTo(result, arguments);
+    result.append("(");
+    String sep = "";
+    for (FunctionArgumentType argument : arguments) {
+      result.append(sep);
+      sep = ", ";
+      result.append(argument.debugString(verbose));
     }
     result.append(") -> ").append(resultType.debugString(verbose));
 

@@ -32,11 +32,11 @@ cc_library(
         "-Wno-unused-function",
     ],
     deps = [
-        "@com_google_googletest//:gtest",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest",
     ],
 )
 
@@ -54,9 +54,9 @@ cc_test(
     ],
     deps = [
         ":status_matchers",
-        "@com_google_googletest//:gtest_main",
-        "@com_google_googletest//:gtest",
         "//zetasql/base:status",
         "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_googletest//:gtest",
     ],
 )

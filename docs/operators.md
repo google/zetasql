@@ -557,37 +557,86 @@ This operator throws an error if Y is negative.</td>
 
 ### Logical operators
 
-All logical operators allow only BOOL input.
+ZetaSQL supports the `AND`, `OR`, and  `NOT` logical operators.
+Logical operators allow only BOOL or `NULL` input
+and use [three-valued logic](https://en.wikipedia.org/wiki/Three-valued_logic)
+to produce a result. The result can be `TRUE`, `FALSE`, or `NULL`:
 
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Syntax</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Logical NOT</td>
-<td style="white-space:nowrap">NOT X</td>
-<td>Returns FALSE if input is TRUE. Returns TRUE if input is FALSE. Returns <code>NULL</code>
-otherwise.</td>
-</tr>
-<tr>
-<td>Logical AND</td>
-<td style="white-space:nowrap">X AND Y</td>
-<td>Returns FALSE if at least one input is FALSE. Returns TRUE if both X and Y
-are TRUE. Returns <code>NULL</code> otherwise.</td>
-</tr>
-<tr>
-<td>Logical OR</td>
-<td style="white-space:nowrap">X OR Y</td>
-<td>Returns FALSE if both X and Y are FALSE. Returns TRUE if at least one input
-is TRUE. Returns <code>NULL</code> otherwise.</td>
-</tr>
-</tbody>
-</table>
+| x       | y       | x AND y | x OR y |
+| ------- | ------- | ------- | ------ |
+| TRUE    | TRUE    | TRUE    | TRUE   |
+| TRUE    | FALSE   | FALSE   | TRUE   |
+| TRUE    | NULL    | NULL    | TRUE   |
+| FALSE   | TRUE    | FALSE   | TRUE   |
+| FALSE   | FALSE   | FALSE   | FALSE  |
+| FALSE   | NULL    | FALSE   | NULL   |
+| NULL    | TRUE    | NULL    | TRUE   |
+| NULL    | FALSE   | NULL    | NULL   |
+| NULL    | NULL    | NULL    | NULL   |
+
+| x       | NOT x   |
+| ------- | ------- |
+| TRUE    | FALSE   |
+| FALSE   | TRUE    |
+| NULL    | NULL    |
+
+**Examples**
+
+The examples in this section reference a table called `entry_table`:
+
+```sql
++-------+
+| entry |
++-------+
+| a     |
+| b     |
+| c     |
+| NULL  |
++-------+
+```
+
+```sql
+SELECT 'a' FROM entry_table WHERE entry = 'a'
+
+-- a => 'a' = 'a' => TRUE
+-- b => 'b' = 'a' => FALSE
+-- NULL => NULL = 'a' => NULL
+
++-------+
+| entry |
++-------+
+| a     |
++-------+
+```
+
+```sql
+SELECT entry FROM entry_table WHERE NOT (entry = 'a')
+
+-- a => NOT('a' = 'a') => NOT(TRUE) => FALSE
+-- b => NOT('b' = 'a') => NOT(FALSE) => TRUE
+-- NULL => NOT(NULL = 'a') => NOT(NULL) => NULL
+
++-------+
+| entry |
++-------+
+| b     |
+| c     |
++-------+
+```
+
+```sql
+SELECT entry FROM entry_table WHERE entry IS NULL
+
+-- a => 'a' IS NULL => FALSE
+-- b => 'b' IS NULL => FALSE
+-- NULL => NULL IS NULL => TRUE
+
++-------+
+| entry |
++-------+
+| NULL  |
++-------+
+```
 
 ### Comparison operators
 

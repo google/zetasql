@@ -167,8 +167,13 @@ class JSONValueConstRef {
   // Requires IsArray() to be true. Otherwise, the call results in LOG(FATAL).
   std::vector<JSONValueConstRef> GetArrayElements() const;
 
-  // Serializes the JSON value into a string representation.
+  // Serializes the JSON value into a compact string representation.
+  // Note: For a human-friendly representation, please use Format().
   std::string ToString() const;
+
+  // Serializes the JSON value into a multiline, human-friendly formatted string
+  // representation.
+  std::string Format() const;
 
   // Encodes the JSON value into a binary representation using UBJSON format and
   // append to 'output'. The binary representation can be decoded using

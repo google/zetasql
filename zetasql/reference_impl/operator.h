@@ -82,6 +82,7 @@ class AggregateFunctionCallExpr;
 class AlgebraNode;
 class AnalyticFunctionBody;
 class AnalyticFunctionCallExpr;
+class CppValueArg;
 class ExprArg;
 class KeyArg;
 class RelationalArg;
@@ -100,6 +101,9 @@ class AlgebraArg {
   AlgebraArg(const AlgebraArg&) = delete;
   AlgebraArg& operator=(const AlgebraArg&) = delete;
   virtual ~AlgebraArg();
+
+  // Downcasts the argument to CppValueArg or nullptr.
+  virtual const CppValueArg* AsCppValueArg() const { return nullptr; }
 
   // Downcasts the argument to ExprArg or nullptr.
   virtual const ExprArg* AsExprArg() const { return nullptr; }
@@ -152,6 +156,61 @@ class AlgebraArg {
   const VariableId variable_;          // unused if empty
   std::unique_ptr<AlgebraNode> node_;  // may be NULL
   int kind_ = -1;
+};
+
+// Concrete implementation of CppValueBase; uses templates to store a value of
+// an arbitrary C++ type.
+template <typename T>
+class CppValue : public CppValueBase {
+ public:
+  template <class... Args>
+  explicit CppValue(Args&&... args) : value_(args...) {}
+
+  T& value() { return value_; }
+
+  // Returns a pointer to the underlying value, given a CppValueBase pointer,
+  // assumed to be a CppValue implementation. Returns nullptr if the input
+  // pointer is null.
+  // Typical usage:
+  //   T& value = CppValue<T>::Get(evaluation_context->GetCppValue(var_id));
+  static T* Get(CppValueBase* value) {
+    if (value == nullptr) {
+      return nullptr;
+    }
+
+    // In debug builds, add an extra sanity check that the value is of the
+    // correct type.
+    DCHECK(dynamic_cast<CppValue<T>*>(value) == value);
+
+    return &(static_cast<CppValue<T>*>(value)->value_);
+  }
+
+ private:
+  T value_;
+};
+
+// Represents a variable associated with a C++ value, rather than a
+// zetasql::Value
+class CppValueArg : public AlgebraArg {
+ public:
+  // Represents a variable holding a C++ value, along with a debug string
+  // describing the value (the actual value is later via CreateValue()).
+  CppValueArg(const VariableId variable,
+              const absl::string_view value_debug_string);
+  CppValueArg(const CppValueArg&) = delete;
+  CppValueArg& operator=(const CppValueArg&) = delete;
+
+  const CppValueArg* AsCppValueArg() const override { return this; }
+
+  // Creates a C++ value to represent the variable passed to the constructor.
+  virtual std::unique_ptr<CppValueBase> CreateValue(
+      EvaluationContext* context) const = 0;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  std::string value_debug_string_;
 };
 
 // Concrete base class for arguments that have some Type, likely represented by
@@ -1253,6 +1312,7 @@ class LetOp : public RelationalOp {
 
   static ::zetasql_base::StatusOr<std::unique_ptr<LetOp>> Create(
       std::vector<std::unique_ptr<ExprArg>> assign,
+      std::vector<std::unique_ptr<CppValueArg>> cpp_assign,
       std::unique_ptr<RelationalOp> body);
 
   absl::Status SetSchemasForEvaluation(
@@ -1271,13 +1331,17 @@ class LetOp : public RelationalOp {
                             bool verbose) const override;
 
  private:
-  enum ArgKind { kAssign, kBody };
+  enum ArgKind { kAssign, kCppAssign, kBody };
 
   LetOp(std::vector<std::unique_ptr<ExprArg>> assign,
+        std::vector<std::unique_ptr<CppValueArg>> cpp_assign,
         std::unique_ptr<RelationalOp> body);
 
   absl::Span<const ExprArg* const> assign() const;
   absl::Span<ExprArg* const> mutable_assign();
+
+  absl::Span<const CppValueArg* const> cpp_assign() const;
+  absl::Span<CppValueArg* const> mutable_cpp_assign();
 
   const RelationalOp* body() const;
   RelationalOp* mutable_body();
@@ -1670,6 +1734,63 @@ class ArrayScanOp : public RelationalOp {
 
   const ValueExpr* array_expr() const;
   ValueExpr* mutable_array_expr();
+};
+
+// Evaluates a set of keys for each row produced by an input iterator.
+// Emits a tuple for each key-set which is unique across all DistinctOp
+// evaluations made using the same DistinctScope.
+class DistinctOp : public RelationalOp {
+ public:
+  // <input>: Input operation, whose rows to enumerate
+  // <keys>: Evaluated for each row produced by <input>. Duplicate rows (as
+  //   defined by all keys evaluating to the same value) are discarded.
+  //   The output schema consists of one TupleSlot per key.
+  // <row_set>: VariableId used to denote the internal hash set used to compare
+  //   rows when checking for duplicates. Rows which duplicate any DistinctOps
+  //   previously evaluated, created with the same <scope> value are excluded,
+  //   even if the row has not been seen before in this operator.
+  //
+  //   Every DistinctOp should be used in conjunction with a LetOp which
+  //   initializes the <row_set> variable to a C++ Value. The corresponding
+  //   CppValueArg should be obtained from calling MakeCppValueArgForScope().
+  static zetasql_base::StatusOr<std::unique_ptr<DistinctOp>> Create(
+      std::unique_ptr<RelationalOp> input,
+      std::vector<std::unique_ptr<KeyArg>> keys, VariableId row_set);
+
+  DistinctOp(const DistinctOp&) = delete;
+  DistinctOp& operator=(const DistinctOp&) = delete;
+
+  // Returns a factory suitable for creating the underlying C++ value to assign
+  // to <var>.
+  static std::unique_ptr<CppValueArg> MakeCppValueArgForRowSet(VariableId var);
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  ::zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+      absl::Span<const TupleData* const> params, int num_extra_slots,
+      EvaluationContext* context) const override;
+
+  // Returns the schema consisting of the variables for the keys, followed by
+  // the variables for the aggregators.
+  std::unique_ptr<TupleSchema> CreateOutputSchema() const override;
+
+  std::string IteratorDebugString() const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+  const RelationalOp* input() const;
+  RelationalOp* mutable_input();
+  absl::Span<const KeyArg* const> keys() const;
+  absl::Span<KeyArg* const> mutable_keys();
+  VariableId row_set_id() const;
+
+ private:
+  enum ArgKind { kInput, kKeys, kRowSetId };
+  explicit DistinctOp(std::unique_ptr<RelationalOp> input,
+                      std::vector<std::unique_ptr<KeyArg>> keys,
+                      VariableId row_set_id);
 };
 
 // Returns the union of N relations in 'inputs'. Each output tuple is
@@ -3160,12 +3281,14 @@ class DMLUpdateValueExpr : public DMLValueExpr {
 
     // Returns the new value obtained by modifying 'original_value' according to
     // the update information represented by this object.
-    ::zetasql_base::StatusOr<Value> GetNewValue(const Value& original_value) const;
+    ::zetasql_base::StatusOr<Value> GetNewValue(const Value& original_value,
+                                        EvaluationContext* context) const;
 
    private:
     // Same as GetNewValue(), but specifically for an UpdateNode that represents
     // a proto.
-    ::zetasql_base::StatusOr<Value> GetNewProtoValue(const Value& original_value) const;
+    ::zetasql_base::StatusOr<Value> GetNewProtoValue(const Value& original_value,
+                                             EvaluationContext* context) const;
 
     absl::variant<Value, ChildMap> contents_;
   };

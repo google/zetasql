@@ -212,7 +212,7 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
       break;
     }
     case TYPE_JSON: {
-      proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_BYTES);
+      proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_STRING);
       proto_field->mutable_options()->SetExtension(
           zetasql::format, FieldFormat::JSON);
       break;

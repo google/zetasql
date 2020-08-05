@@ -5,13 +5,18 @@
 ZetaSQL supports the following `TIME` functions.
 
 ### CURRENT_TIME
-```
-CURRENT_TIME()
+
+```sql
+CURRENT_TIME([timezone])
 ```
 
 **Description**
 
 Returns the current time as a TIME object.
+
+This function supports an optional `timezone` parameter.
+See [Timezone definitions][time-link-to-timezone-definitions] for information
+on how to specify a time zone.
 
 **Return Data Type**
 
@@ -30,7 +35,8 @@ SELECT CURRENT_TIME() as now;
 ```
 
 ### TIME
-```
+
+```sql
 1. TIME(hour, minute, second)
 2. TIME(timestamp, [timezone])
 3. TIME(datetime)
@@ -38,8 +44,8 @@ SELECT CURRENT_TIME() as now;
 
 **Description**
 
-1. Constructs a `TIME` object using `INT64` values representing the hour,
-   minute, and second.
+1. Constructs a `TIME` object using `INT64`
+   values representing the hour, minute, and second.
 2. Constructs a `TIME` object using a `TIMESTAMP` object. It supports an
    optional
    parameter to [specify a timezone][time-link-to-timezone-definitions]. If no
@@ -75,13 +81,14 @@ SELECT
 ```
 
 ### EXTRACT
-```
+
+```sql
 EXTRACT(part FROM time_expression)
 ```
 
 **Description**
 
-Returns an `INT64` value that corresponds to the specified `part` from
+Returns a value that corresponds to the specified `part` from
 a supplied `time_expression`.
 
 Allowed `part` values are:
@@ -117,13 +124,14 @@ SELECT EXTRACT(HOUR FROM TIME "15:30:00") as hour;
 ```
 
 ### TIME_ADD
-```
-TIME_ADD(time_expression, INTERVAL INT64_expr part)
+
+```sql
+TIME_ADD(time_expression, INTERVAL int64_expression part)
 ```
 
 **Description**
 
-Adds `INT64_expr` units of `part` to the TIME object.
+Adds `int64_expression` units of `part` to the TIME object.
 
 `TIME_ADD` supports the following values for `part`:
 
@@ -158,13 +166,14 @@ SELECT
 ```
 
 ### TIME_SUB
-```
-TIME_SUB(time_expression, INTERVAL INT_expr part)
+
+```sql
+TIME_SUB(time_expression, INTERVAL int64_expression part)
 ```
 
 **Description**
 
-Subtracts `INT64_expr` units of `part` from the TIME object.
+Subtracts `int64_expression` units of `part` from the TIME object.
 
 `TIME_SUB` supports the following values for `part`:
 
@@ -199,18 +208,20 @@ SELECT
 ```
 
 ### TIME_DIFF
-```
-TIME_DIFF(time_expression, time_expression, part)
+
+```sql
+TIME_DIFF(time_expression_a, time_expression_b, part)
 ```
 
 **Description**
 
 Returns the number of whole specified `part` intervals between two
-`TIME` objects. If the first `TIME` is earlier than the second one,
-the output is negative. Throws an error if the computation overflows the
-result type, such as if the difference in
+`TIME` objects (`time_expression_a` - `time_expression_b`). If the first
+`TIME` is earlier than the second one, the output is negative. Throws an error
+if the computation overflows the result type, such as if the difference in
 nanoseconds
-between the two `TIME` objects would overflow an `INT64` value.
+between the two `TIME` objects would overflow an
+`INT64` value.
 
 `TIME_DIFF` supports the following values for `part`:
 
@@ -243,7 +254,7 @@ SELECT
 
 ### TIME_TRUNC
 
-```
+```sql
 TIME_TRUNC(time_expression, part)
 ```
 
@@ -281,7 +292,7 @@ SELECT
 
 ### FORMAT_TIME
 
-```
+```sql
 FORMAT_TIME(format_string, time_object)
 ```
 
@@ -308,7 +319,7 @@ SELECT FORMAT_TIME("%R", TIME "15:30:00") as formatted_time;
 
 ### PARSE_TIME
 
-```
+```sql
 PARSE_TIME(format_string, string)
 ```
 

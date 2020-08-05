@@ -466,6 +466,10 @@ std::vector<JSONValueConstRef> JSONValueConstRef::GetArrayElements() const {
 
 std::string JSONValueConstRef::ToString() const { return impl_->value.dump(); }
 
+std::string JSONValueConstRef::Format() const {
+  return impl_->value.dump(/*indent=*/2);
+}
+
 void JSONValueConstRef::SerializeAndAppendToProtoBytes(
     std::string* output) const {
   JSON::to_ubjson(impl_->value, *output);

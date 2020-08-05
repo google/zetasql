@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <functional>
 #include <limits>
 #include <map>
@@ -67,6 +68,8 @@
 #include "zetasql/public/proto_value_conversion.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/common.h"
 #include "zetasql/reference_impl/evaluation.h"
@@ -453,6 +456,7 @@ FunctionMap::FunctionMap() {
   RegisterFunction(FunctionKind::kDateTrunc, "date_trunc", "Date_trunc");
   RegisterFunction(FunctionKind::kDatetimeTrunc, "datetime_trunc",
                    "Datetime_trunc");
+  RegisterFunction(FunctionKind::kLastDay, "last_day", "Last_day");
   RegisterFunction(FunctionKind::kDateDiff, "date_diff", "Date_diff");
   RegisterFunction(FunctionKind::kDivide, "$divide", "Divide");
   RegisterFunction(FunctionKind::kSafeDivide, "safe_divide", "SafeDivide");
@@ -1357,6 +1361,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new CivilTimeTruncFunction(kind, output_type);
     case FunctionKind::kDateTrunc:
       return new DateTruncFunction(kind, output_type);
+    case FunctionKind::kLastDay:
+      return new LastDayFunction(kind, output_type);
     case FunctionKind::kTimestampTrunc:
       return new TimestampTruncFunction(kind, output_type);
     case FunctionKind::kExtractFrom:
@@ -2382,14 +2388,12 @@ zetasql_base::StatusOr<Value> ArrayIsDistinctFunction::Eval(
       << "ARRAY_IS_DISTINCT cannot be used on non-array type "
       << array.type()->DebugString();
 
-  if (!array_type->element_type()->SupportsGrouping(
-          context->GetLanguageOptions(), nullptr)) {
-    return ::zetasql_base::InvalidArgumentErrorBuilder()
-           << "ARRAY_IS_DISTINCT cannot be used on argument of type "
-           << array.type()->ShortTypeName(
-                  context->GetLanguageOptions().product_mode())
-           << " because the array's element type does not support grouping";
-  }
+  ZETASQL_RET_CHECK(array_type->element_type()->SupportsGrouping(
+      context->GetLanguageOptions(), nullptr))
+      << "ARRAY_IS_DISTINCT cannot be used on argument of type "
+      << array.type()->ShortTypeName(
+             context->GetLanguageOptions().product_mode())
+      << " because the array's element type does not support grouping";
 
   MaybeSetNonDeterministicArrayOutput(array, context);
 
@@ -2618,6 +2622,8 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   NumericValue::SumAggregator numeric_aggregator_;  // Avg, Sum
   BigNumericValue::SumAggregator bignumeric_aggregator_;  // Avg, Sum
   NumericValue::VarianceAggregator numeric_variance_aggregator_;  // Var, Stddev
+  BigNumericValue::VarianceAggregator
+      bignumeric_variance_aggregator_;           // Var, Stddev
   std::string out_string_ = "";                  // Max, Min, StringAgg
   std::string delimiter_ = ",";                  // StringAgg
   // OrAgg, AndAgg, LogicalOr, LogicalAnd.
@@ -2811,6 +2817,10 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
     case FCT(FunctionKind::kVarSamp, TYPE_NUMERIC):
       numeric_variance_aggregator_ = NumericValue::VarianceAggregator();
       break;
+    case FCT(FunctionKind::kVarPop, TYPE_BIGNUMERIC):
+    case FCT(FunctionKind::kVarSamp, TYPE_BIGNUMERIC):
+      bignumeric_variance_aggregator_ = BigNumericValue::VarianceAggregator();
+      break;
   }
 
   return absl::OkStatus();
@@ -2896,6 +2906,12 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
     case FCT(FunctionKind::kVarPop, TYPE_NUMERIC):
     case FCT(FunctionKind::kVarSamp, TYPE_NUMERIC): {
       numeric_variance_aggregator_.Add(value.numeric_value());
+      break;
+    }
+    // Variance and Stddev for BigNumericValue
+    case FCT(FunctionKind::kVarPop, TYPE_BIGNUMERIC):
+    case FCT(FunctionKind::kVarSamp, TYPE_BIGNUMERIC): {
+      bignumeric_variance_aggregator_.Add(value.bignumeric_value());
       break;
     }
     // Bitwise aggregates.
@@ -3348,6 +3364,15 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       return CreateValueFromOptional(
           numeric_variance_aggregator_.GetSamplingVariance(count_));
     }
+    // Variance and Stddev for BigNumericValue
+    case FCT(FunctionKind::kVarPop, TYPE_BIGNUMERIC): {
+      return CreateValueFromOptional(
+          bignumeric_variance_aggregator_.GetPopulationVariance(count_));
+    }
+    case FCT(FunctionKind::kVarSamp, TYPE_BIGNUMERIC): {
+      return CreateValueFromOptional(
+          bignumeric_variance_aggregator_.GetSamplingVariance(count_));
+    }
 
     // Max, Min
     case FCT(FunctionKind::kMax, TYPE_BOOL):
@@ -3519,6 +3544,10 @@ class BinaryStatAccumulator : public AggregateAccumulator {
   bool input_has_nan_or_inf_ = false;
   NumericValue::CovarianceAggregator numeric_covariance_aggregator_;  // Covar
   NumericValue::CorrelationAggregator numeric_correlation_aggregator_;  // Corr
+  BigNumericValue::CovarianceAggregator
+      bignumeric_covariance_aggregator_;  // Covar
+  BigNumericValue::CorrelationAggregator
+      bignumeric_correlation_aggregator_;  // Corr
 };
 
 absl::Status BinaryStatAccumulator::Reset() {
@@ -3537,6 +3566,11 @@ absl::Status BinaryStatAccumulator::Reset() {
     case FCT2(FunctionKind::kCovarPop, TYPE_NUMERIC, TYPE_NUMERIC):
     case FCT2(FunctionKind::kCovarSamp, TYPE_NUMERIC, TYPE_NUMERIC):
       numeric_covariance_aggregator_ = NumericValue::CovarianceAggregator();
+      break;
+    case FCT2(FunctionKind::kCovarPop, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
+    case FCT2(FunctionKind::kCovarSamp, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
+      bignumeric_covariance_aggregator_ =
+          BigNumericValue::CovarianceAggregator();
       break;
     case FCT2(FunctionKind::kCovarPop, TYPE_DOUBLE, TYPE_DOUBLE):
     case FCT2(FunctionKind::kCovarSamp, TYPE_DOUBLE, TYPE_DOUBLE):
@@ -3580,6 +3614,11 @@ bool BinaryStatAccumulator::Accumulate(const Value& value,
     case FCT2(FunctionKind::kCovarSamp, TYPE_NUMERIC, TYPE_NUMERIC):
       numeric_covariance_aggregator_.Add(arg_x.numeric_value(),
                                          arg_y.numeric_value());
+      break;
+    case FCT2(FunctionKind::kCovarPop, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
+    case FCT2(FunctionKind::kCovarSamp, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
+      bignumeric_covariance_aggregator_.Add(arg_x.bignumeric_value(),
+                                            arg_y.bignumeric_value());
       break;
     case FCT2(FunctionKind::kCovarPop, TYPE_DOUBLE, TYPE_DOUBLE):
     case FCT2(FunctionKind::kCovarSamp, TYPE_DOUBLE, TYPE_DOUBLE):
@@ -3628,6 +3667,13 @@ bool BinaryStatAccumulator::Accumulate(const Value& value,
     case FCT2(FunctionKind::kCovarSamp, TYPE_NUMERIC, TYPE_NUMERIC):
       return CreateValueFromOptional(
           numeric_covariance_aggregator_.GetSamplingCovariance(pair_count_));
+    case FCT2(FunctionKind::kCovarPop, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
+      return CreateValueFromOptional(
+          bignumeric_covariance_aggregator_.GetPopulationCovariance(
+              pair_count_));
+    case FCT2(FunctionKind::kCovarSamp, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
+      return CreateValueFromOptional(
+          bignumeric_covariance_aggregator_.GetSamplingCovariance(pair_count_));
     case FCT2(FunctionKind::kCovarPop, TYPE_DOUBLE, TYPE_DOUBLE):
       out_double = covar_;
       break;
@@ -3891,6 +3937,12 @@ bool MathFunction::Eval(absl::Span<const Value> args,
     case FCT(FunctionKind::kSqrt, TYPE_DOUBLE):
       return InvokeUnary<double>(&functions::Sqrt<double>, args, result,
                                  status);
+    case FCT(FunctionKind::kSqrt, TYPE_NUMERIC):
+      return InvokeUnary<NumericValue>(&functions::Sqrt<NumericValue>, args,
+                                       result, status);
+    case FCT(FunctionKind::kSqrt, TYPE_BIGNUMERIC):
+      return InvokeUnary<BigNumericValue>(&functions::Sqrt<BigNumericValue>,
+                                          args, result, status);
     case FCT(FunctionKind::kPow, TYPE_DOUBLE):
       return InvokeBinary<double>(&functions::Pow<double>, args, result,
                                   status);
@@ -3902,12 +3954,30 @@ bool MathFunction::Eval(absl::Span<const Value> args,
                                            args, result, status);
     case FCT(FunctionKind::kExp, TYPE_DOUBLE):
       return InvokeUnary<double>(&functions::Exp<double>, args, result, status);
+    case FCT(FunctionKind::kExp, TYPE_NUMERIC):
+      return InvokeUnary<NumericValue>(&functions::Exp<NumericValue>, args,
+                                       result, status);
+    case FCT(FunctionKind::kExp, TYPE_BIGNUMERIC):
+      return InvokeUnary<BigNumericValue>(&functions::Exp<BigNumericValue>,
+                                          args, result, status);
     case FCT(FunctionKind::kNaturalLogarithm, TYPE_DOUBLE):
       return InvokeUnary<double>(&functions::NaturalLogarithm<double>, args,
                                  result, status);
+    case FCT(FunctionKind::kNaturalLogarithm, TYPE_NUMERIC):
+      return InvokeUnary<NumericValue>(
+          &functions::NaturalLogarithm<NumericValue>, args, result, status);
+    case FCT(FunctionKind::kNaturalLogarithm, TYPE_BIGNUMERIC):
+      return InvokeUnary<BigNumericValue>(
+          &functions::NaturalLogarithm<BigNumericValue>, args, result, status);
     case FCT(FunctionKind::kDecimalLogarithm, TYPE_DOUBLE):
       return InvokeUnary<double>(&functions::DecimalLogarithm<double>, args,
                                  result, status);
+    case FCT(FunctionKind::kDecimalLogarithm, TYPE_NUMERIC):
+      return InvokeUnary<NumericValue>(
+          &functions::DecimalLogarithm<NumericValue>, args, result, status);
+    case FCT(FunctionKind::kDecimalLogarithm, TYPE_BIGNUMERIC):
+      return InvokeUnary<BigNumericValue>(
+          &functions::DecimalLogarithm<BigNumericValue>, args, result, status);
     case FCT(FunctionKind::kLogarithm, TYPE_DOUBLE):
       if (args.size() == 1) {
         return InvokeUnary<double>(&functions::NaturalLogarithm<double>, args,
@@ -3915,6 +3985,23 @@ bool MathFunction::Eval(absl::Span<const Value> args,
       } else {
         return InvokeBinary<double>(&functions::Logarithm<double>, args, result,
                                     status);
+      }
+    case FCT(FunctionKind::kLogarithm, TYPE_NUMERIC):
+      if (args.size() == 1) {
+        return InvokeUnary<NumericValue>(
+            &functions::NaturalLogarithm<NumericValue>, args, result, status);
+      } else {
+        return InvokeBinary<NumericValue>(&functions::Logarithm<NumericValue>,
+                                          args, result, status);
+      }
+    case FCT(FunctionKind::kLogarithm, TYPE_BIGNUMERIC):
+      if (args.size() == 1) {
+        return InvokeUnary<BigNumericValue>(
+            &functions::NaturalLogarithm<BigNumericValue>, args, result,
+            status);
+      } else {
+        return InvokeBinary<BigNumericValue>(
+            &functions::Logarithm<BigNumericValue>, args, result, status);
       }
 
     case FCT(FunctionKind::kCos, TYPE_DOUBLE):
@@ -5071,6 +5158,34 @@ zetasql_base::StatusOr<Value> DateTruncFunction::Eval(
       static_cast<functions::DateTimestampPart>(args[1].enum_value());
   int32_t date;
   ZETASQL_RETURN_IF_ERROR(functions::TruncateDate(args[0].date_value(), part, &date));
+  return values::Date(date);
+}
+
+zetasql_base::StatusOr<Value> LastDayFunction::Eval(
+    absl::Span<const Value> args, EvaluationContext* context) const {
+  // The signature arguments are (<date> or <datetime>, <datepart> optional).
+  ZETASQL_RET_CHECK_LE(args.size(), 2);
+  ZETASQL_RET_CHECK_GE(args.size(), 1);
+  if (args[0].is_null()) {
+    return Value::Null(output_type());
+  }
+  functions::DateTimestampPart part;
+  if (args.size() == 2) {
+    if (args[1].is_null()) {
+      return Value::Null(output_type());
+    }
+    part = static_cast<functions::DateTimestampPart>(args[1].enum_value());
+  } else {
+    part = functions::DateTimestampPart::MONTH;
+  }
+  int32_t date;
+  if (args[0].type_kind() == TYPE_DATE) {
+    ZETASQL_RETURN_IF_ERROR(
+        functions::LastDayOfDate(args[0].date_value(), part, &date));
+  } else {
+    ZETASQL_RETURN_IF_ERROR(
+        functions::LastDayOfDatetime(args[0].datetime_value(), part, &date));
+  }
   return values::Date(date);
 }
 

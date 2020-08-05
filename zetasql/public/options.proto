@@ -176,11 +176,9 @@ enum LanguageFeature {
   FEATURE_CREATE_TABLE_CLUSTER_BY = 15;
 
   // NUMERIC type support, see (broken link).
-  // Does not cover additional NUMERIC signatures of VARIANCE, STDDEV, COVAR,
-  // CORR, PERCENTILE_CONT or PERCENTILE_DISC that are required to get ZetaSQL
+  // Does not cover additional NUMERIC signatures of PERCENTILE_CONT or
+  // PERCENTILE_DISC that are required to get ZetaSQL
   // compliant behavior. These function signatures are controlled by
-  // FEATURE_NUMERIC_VARIANCE_STDDEV_SIGNATURES,
-  // FEATURE_NUMERIC_COVAR_CORR_SIGNATURES, and
   // FEATURE_NUMERIC_PERCENTILE_SIGNATURES.
   // It is highly recommended to enable these function signatures when
   // FEATURE_NUMERIC_TYPE is enabled. Otherwise, calling these functions with
@@ -328,15 +326,9 @@ enum LanguageFeature {
   // Example: CREATE EXTERNAL TABLE t (x FLOAT64)
   FEATURE_CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST = 35;
 
-  // Enables support for NUMERIC data type as input in the binary statistics
-  // functions.
-  FEATURE_NUMERIC_COVAR_CORR_SIGNATURES = 38
-      [(language_feature_options).in_development = true];
-
-  // Enables support for NUMERIC data type as input in the unary statistics
-  // functions.
-  FEATURE_NUMERIC_VARIANCE_STDDEV_SIGNATURES = 39
-      [(language_feature_options).in_development = true];
+  // These 2 feature options are ignored.
+  FEATURE_NUMERIC_COVAR_CORR_SIGNATURES = 38 [deprecated = true];
+  FEATURE_NUMERIC_VARIANCE_STDDEV_SIGNATURES = 39 [deprecated = true];
 
   FEATURE_NUMERIC_PERCENTILE_SIGNATURES = 45
       [(language_feature_options).in_development = true];
@@ -371,6 +363,11 @@ enum LanguageFeature {
   // CREATE EXTERNAL TABLE t WITH PARTITION COLUMNS (x int64)
   // More details: (broken link)
   FEATURE_CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS = 47
+      [(language_feature_options).in_development = true];
+
+  // If set, it disables the NUMERIC signatures for EXP, LN, LOG, LOG10 and
+  // SQRT.
+  FEATURE_NO_ADVANCED_NUMERIC_MATH_SIGNATURES = 48
       [(language_feature_options).in_development = true];
 
   // -> Add more cross-version features here.
@@ -601,6 +598,12 @@ enum LanguageFeature {
   // Enables DATE +/- INT64 arithmetics.
   // ((broken link))
   FEATURE_V_1_3_DATE_ARITHMETICS = 13019;
+
+  // Enable support for additional string functions.
+  FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS = 13020;
+
+  // Enable support for aggregate functions with WITH GROUP_ROWS syntax.
+  FEATURE_V_1_3_WITH_GROUP_ROWS = 13021;
 
   // EXPERIMENTAL FEATURES
   // These are features supported in the code that are not currently part of

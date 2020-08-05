@@ -27,7 +27,7 @@
 #include <utility>
 #include <vector>
 
-#include "zetasql/common/fixed_int.h"
+#include "zetasql/common/multiprecision_int.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/numeric_value_test_utils.h"
 #include "gmock/gmock.h"
@@ -38,6 +38,7 @@
 #include "absl/hash/hash_testing.h"
 #include "absl/numeric/int128.h"
 #include "absl/random/random.h"
+#include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
@@ -61,6 +62,8 @@ std::ostream& operator<<(std::ostream& o, __int128 x) {
 namespace zetasql {
 
 namespace {
+constexpr int kintmax = std::numeric_limits<int>::max();
+constexpr int kintmin = std::numeric_limits<int>::min();
 constexpr uint32_t kuint32max = std::numeric_limits<uint32_t>::max();
 
 using ::testing::Matcher;
@@ -86,61 +89,61 @@ constexpr uint128 kuint128max = ~static_cast<uint128>(0);
 constexpr __int128 kint128max = kuint128max >> 1;
 constexpr __int128 kint128min = ~kint128max;
 
+void VerifyVariance(absl::optional<double> expect_var,
+                    absl::optional<double> actual_var) {
+  ASSERT_EQ(expect_var.has_value(), actual_var.has_value());
+  if (expect_var.has_value()) {
+    EXPECT_DOUBLE_EQ(expect_var.value(), actual_var.value());
+  }
+}
+
+void VerifyStandardDeviation(absl::optional<double> expect_var,
+                             absl::optional<double> actual_stddev) {
+  ASSERT_EQ(expect_var.has_value(), actual_stddev.has_value());
+  if (expect_var.has_value()) {
+    EXPECT_DOUBLE_EQ(std::sqrt(expect_var.value()), actual_stddev.value());
+  }
+}
+
+template <typename T>
+void VerifyVarianceAggregator(const T& agg,
+                              absl::optional<double> expect_var_pop,
+                              absl::optional<double> expect_var_samp,
+                              uint64_t count) {
+  VerifyVariance(expect_var_pop, agg.GetPopulationVariance(count));
+  VerifyStandardDeviation(expect_var_pop, agg.GetPopulationStdDev(count));
+  VerifyVariance(expect_var_samp, agg.GetSamplingVariance(count));
+  VerifyStandardDeviation(expect_var_samp, agg.GetSamplingStdDev(count));
+}
+
+template <typename T>
+void VerifyCovariance(const T& agg, absl::optional<double> expect_covar_pop,
+                      absl::optional<double> expect_covar_samp, uint64_t count) {
+  VerifyVariance(expect_covar_pop, agg.GetPopulationCovariance(count));
+  VerifyVariance(expect_covar_samp, agg.GetSamplingCovariance(count));
+}
+
+template <typename T>
+void VerifyCorrelation(const T& agg, absl::optional<double> expect,
+                       uint64_t count) {
+  absl::optional<double> actual(agg.GetCorrelation(count));
+  ASSERT_EQ(expect.has_value(), actual.has_value());
+  if (expect.has_value()) {
+    EXPECT_EQ(std::isnan(expect.value()), std::isnan(actual.value()));
+    if (!std::isnan(expect.value())) {
+      EXPECT_DOUBLE_EQ(expect.value(), actual.value());
+    }
+  }
+}
+
 class NumericValueTest : public testing::Test {
  protected:
   NumericValue MakeRandomNumeric() {
     return MakeRandomNumericValue<NumericValue>(&random_);
   }
 
-  void VerifyVariance(absl::optional<double> expect_var,
-                      absl::optional<double> actual_var) {
-    ASSERT_EQ(expect_var.has_value(), actual_var.has_value());
-    if (expect_var.has_value()) {
-      EXPECT_DOUBLE_EQ(expect_var.value(), actual_var.value());
-    }
-  }
-
-  void VerifyStandardDeviation(absl::optional<double> expect_var,
-                               absl::optional<double> actual_stddev) {
-    ASSERT_EQ(expect_var.has_value(), actual_stddev.has_value());
-    if (expect_var.has_value()) {
-      EXPECT_DOUBLE_EQ(std::sqrt(expect_var.value()), actual_stddev.value());
-    }
-  }
-
-  void VerifyVarianceAggregator(const NumericValue::VarianceAggregator& agg,
-                                absl::optional<double> expect_var_pop,
-                                absl::optional<double> expect_var_samp,
-                                uint64_t count) {
-    VerifyVariance(expect_var_pop, agg.GetPopulationVariance(count));
-    VerifyStandardDeviation(expect_var_pop, agg.GetPopulationStdDev(count));
-    VerifyVariance(expect_var_samp, agg.GetSamplingVariance(count));
-    VerifyStandardDeviation(expect_var_samp, agg.GetSamplingStdDev(count));
-  }
-
-  void VerifyCovariance(const NumericValue::CovarianceAggregator& agg,
-                        absl::optional<double> expect_covar_pop,
-                        absl::optional<double> expect_covar_samp,
-                        uint64_t count) {
-    VerifyVariance(expect_covar_pop, agg.GetPopulationCovariance(count));
-    VerifyVariance(expect_covar_samp, agg.GetSamplingCovariance(count));
-  }
-
-  void VerifyCorrelation(const NumericValue::CorrelationAggregator& agg,
-                         absl::optional<double> expect, uint64_t count) {
-    absl::optional<double> actual(agg.GetCorrelation(count));
-    ASSERT_EQ(expect.has_value(), actual.has_value());
-    if (expect.has_value()) {
-      EXPECT_EQ(std::isnan(expect.value()), std::isnan(actual.value()));
-      if (!std::isnan(expect.value())) {
-        EXPECT_DOUBLE_EQ(expect.value(), actual.value());
-      }
-    }
-  }
-
   absl::BitGen random_;
 };
-
 
 static constexpr __int128 kNumericValidPackedValues[] = {
     0,
@@ -478,6 +481,10 @@ constexpr Error kNumericOutOfRange("numeric out of range: ");
 constexpr Error kDivisionByZero("division by zero: ");
 constexpr Error kNumericIllegalNonFinite(
     "Illegal conversion of non-finite floating point number to numeric: ");
+constexpr Error kNumericFromScaledValueOutOfRange(
+    "Value is out of range after scaling to NUMERIC type");
+constexpr Error kNumericFromScaledValueRoundingNotAllowed(
+    "Value will lose precision after scaling down to NUMERIC type");
 
 // A lite version of StatusOr that allows instantiation with constexpr.
 template <typename T>
@@ -508,18 +515,17 @@ zetasql_base::StatusOr<T> GetNumericValue(const NumericValueWrapper& src) {
   return value;
 }
 
-NumericValueWrapper operator-(const NumericValueWrapper& src) {
-  NumericValueWrapper result = src;
-  result.negate = !result.negate;
-  return result;
-}
-
 // Defines a different type so that GetValue(BigNumericValueWrapper) returns
 // BigNumericValue.
 struct BigNumericValueWrapper : NumericValueWrapper {
   using NumericValueWrapper::NumericValueWrapper;
 };
 
+NumericValueWrapper operator-(const NumericValueWrapper& src) {
+  NumericValueWrapper result = src;
+  result.negate = !result.negate;
+  return result;
+}
 BigNumericValueWrapper operator-(const BigNumericValueWrapper& src) {
   BigNumericValueWrapper result = src;
   result.negate = !result.negate;
@@ -559,10 +565,21 @@ zetasql_base::StatusOr<BigNumericValue> GetValue(const BigNumericValueWrapper& s
   return GetNumericValue<BigNumericValue>(src);
 }
 
+zetasql_base::StatusOr<std::pair<BigNumericValue, BigNumericValue>> GetValue(
+    const std::pair<BigNumericValueWrapper, BigNumericValueWrapper>& src) {
+  ZETASQL_ASSIGN_OR_RETURN(BigNumericValue first, GetValue(src.first));
+  ZETASQL_ASSIGN_OR_RETURN(BigNumericValue second, GetValue(src.second));
+  return std::make_pair(first, second);
+}
+
 constexpr Error kBigNumericOverflow("BIGNUMERIC overflow: ");
 constexpr Error kBigNumericOutOfRange("BIGNUMERIC out of range: ");
 constexpr Error kBigNumericIllegalNonFinite(
     "Illegal conversion of non-finite floating point number to BIGNUMERIC: ");
+constexpr Error kBigNumericFromScaledValueOutOfRange(
+    "Value is out of range after scaling to BIGNUMERIC type");
+constexpr Error kBigNumericFromScaledValueRoundingNotAllowed(
+    "Value will lose precision after scaling down to BIGNUMERIC type");
 
 template <typename Input = BigNumericValueWrapper,
           typename Output = BigNumericValueWrapper>
@@ -737,7 +754,7 @@ struct NumericModOp {
   zetasql_base::StatusOr<T> operator()(const T& x, const T& y) const {
     return x.Mod(y);
   }
-  static constexpr absl::string_view kExpressionFormat = "Mod($0, $1)";
+  static constexpr absl::string_view kExpressionFormat = "MOD($0, $1)";
 };
 
 struct NumericDivideToIntegralValueOp {
@@ -745,7 +762,7 @@ struct NumericDivideToIntegralValueOp {
   inline zetasql_base::StatusOr<T> operator()(const T& x, const T& y) const {
     return x.DivideToIntegralValue(y);
   }
-  static constexpr absl::string_view kExpressionFormat = "$0 / $1";
+  static constexpr absl::string_view kExpressionFormat = "DIV($0, $1)";
 };
 
 struct NumericPowerOp {
@@ -770,6 +787,30 @@ struct NumericLnOp {
     return x.Ln();
   }
   static constexpr absl::string_view kExpressionFormat = "LN($0)";
+};
+
+struct NumericLog10Op {
+  template <class T>
+  inline zetasql_base::StatusOr<T> operator()(const T& x) const {
+    return x.Log10();
+  }
+  static constexpr absl::string_view kExpressionFormat = "LOG10($0)";
+};
+
+struct NumericLogOp {
+  template <class T>
+  inline zetasql_base::StatusOr<T> operator()(const T& x, const T& y) const {
+    return x.Log(y);
+  }
+  static constexpr absl::string_view kExpressionFormat = "LOG($0, $1)";
+};
+
+struct NumericSqrtOp {
+  template <class T>
+  inline zetasql_base::StatusOr<T> operator()(const T& x) const {
+    return x.Sqrt();
+  }
+  static constexpr absl::string_view kExpressionFormat = "SQRT($0)";
 };
 
 struct NumericTruncOp {
@@ -1071,6 +1112,119 @@ void TestAggregatorMergeWith(const ValueWrapper (&test_data)[kNumInputs]) {
         EXPECT_EQ(aggregators[j][m], aggregator) << j << ", " << k << ", " << m;
       }
     }
+  }
+}
+
+template <typename T>
+void TestFromScaledValue(absl::string_view bytes, int scale,
+                         bool allow_rounding,
+                         const zetasql_base::StatusOr<T>& expected_output) {
+  auto status_or_result = T::FromScaledValue(bytes, scale, allow_rounding);
+  if (expected_output.ok()) {
+    EXPECT_THAT(status_or_result, IsOkAndHolds(expected_output.value()))
+        << absl::Substitute(
+               "input value: \"$0\", scale: $1, allow_rounding: $2",
+               absl::BytesToHexString(bytes), scale, allow_rounding);
+  } else {
+    EXPECT_THAT(
+        status_or_result.status(),
+        StatusIs(absl::StatusCode::kOutOfRange,
+                 absl::StrCat(expected_output.status().message(),
+                              absl::Substitute("; input length: $0; scale: $1",
+                                               bytes.size(), scale))));
+  }
+}
+
+template <typename ValueWrapper>
+void TestFromScaledValue(absl::string_view input, int scale,
+                         bool allow_rounding,
+                         const ValueWrapper& expected_output) {
+  auto status_or_expected_output = GetValue(expected_output);
+  if (input.empty()) {
+    TestFromScaledValue(input, scale, allow_rounding,
+                        status_or_expected_output);
+    return;
+  }
+  FixedInt<64, 8> input_value;
+  ASSERT_TRUE(input_value.ParseFromStringStrict(input)) << input;
+  bool negated_expected_value_overflows = false;
+  if constexpr (std::is_same_v<ValueWrapper, BigNumericValueWrapper>) {
+    negated_expected_value_overflows =
+        status_or_expected_output.ok() &&
+        status_or_expected_output.value() == BigNumericValue::MinValue();
+  }
+  for (bool negated : {false, true}) {
+    SCOPED_TRACE(absl::StrCat("input: ", input, " negated: ", negated));
+    if (negated) {
+      input_value = -input_value;
+      if (negated_expected_value_overflows) {
+        status_or_expected_output =
+            GetValue(ValueWrapper(kBigNumericFromScaledValueOutOfRange));
+      } else {
+        status_or_expected_output = GetValue(-expected_output);
+      }
+    }
+    std::string bytes;
+    input_value.SerializeToBytes(&bytes);
+    TestFromScaledValue(bytes, scale, allow_rounding,
+                        status_or_expected_output);
+
+    for (int extra_scale : {1, 2, 5, 9, 38, 76, 100}) {
+      if (static_cast<int64_t>(extra_scale) + scale > kintmax) break;
+      FixedInt<64, 8> extra_scaled_value = input_value;
+      if (extra_scaled_value.MultiplyOverflow(
+              FixedInt<64, 8>::PowerOf10(extra_scale))) {
+        break;
+      }
+      SCOPED_TRACE(absl::StrCat("extra_scale: ", extra_scale));
+      bytes.clear();
+      extra_scaled_value.SerializeToBytes(&bytes);
+      // Append some redundant bytes that do not affect the result.
+      bytes.append(bytes.size(), input_value.is_negative() ? '\xff' : '\x00');
+      TestFromScaledValue(bytes, scale + extra_scale, allow_rounding,
+                          status_or_expected_output);
+    }
+  }
+}
+
+template <typename T, int kNumWords>
+void TestFromScaledValueRoundTrip(absl::BitGen* random) {
+  // Only valid cases are being tested here. Since we want to do round trip,
+  // rounding should not happen when scaling down.
+  for (int i = 0; i < 100000; ++i) {
+    int num_truncated_digits = 0;
+    T original = MakeRandomNumericValue<T>(random, &num_truncated_digits);
+    FixedInt<64, kNumWords> scaled_int(original.ToPackedLittleEndianArray());
+
+    int extra_scale = absl::Uniform<int>(
+        *random, 0, T::kMaxIntegerDigits + T::kMaxFractionalDigits);
+    FixedInt<64, kNumWords* 2> extended_int = ExtendAndMultiply(
+        scaled_int, FixedInt<64, kNumWords>::PowerOf10(extra_scale));
+    std::string bytes;
+    extended_int.SerializeToBytes(&bytes);
+    EXPECT_THAT(
+        T::FromScaledValue(bytes, T::kMaxFractionalDigits + extra_scale, false),
+        IsOkAndHolds(original));
+    EXPECT_THAT(
+        T::FromScaledValue(bytes, T::kMaxFractionalDigits + extra_scale, true),
+        IsOkAndHolds(original));
+
+    // scaled_int must be a multiple of pow(10, num_truncated_digits).
+    int scale_reduction =
+        absl::Uniform<int>(*random, 0, num_truncated_digits + 1);
+    FixedInt<64, kNumWords> quotient;
+    FixedInt<64, kNumWords> remainder;
+    scaled_int.DivMod(FixedInt<64, kNumWords>::PowerOf10(scale_reduction),
+                      &quotient, &remainder);
+    ASSERT_EQ((FixedInt<64, kNumWords>()), remainder);
+    bytes.clear();
+    quotient.SerializeToBytes(&bytes);
+    EXPECT_THAT(T::FromScaledValue(
+                    bytes, T::kMaxFractionalDigits - scale_reduction, false),
+                IsOkAndHolds(original));
+    EXPECT_THAT(T::FromScaledValue(
+                    bytes, T::kMaxFractionalDigits - scale_reduction, true),
+                IsOkAndHolds(original));
   }
 }
 
@@ -1545,6 +1699,95 @@ TEST_F(NumericValueTest, RoundTripFromUint64) {
   TestRoundTripFromInteger<NumericValue, uint64_t>(&random_);
 }
 
+TEST_F(NumericValueTest, FromScaledValue) {
+  struct FromScaledValueTestData {
+    absl::string_view input_value;
+    int scale;
+    NumericValueWrapper expected_output;
+  };
+  constexpr absl::string_view kScaledMaxNumericValueStr =
+      "99999999999999999999999999999999999999";
+  static constexpr FromScaledValueTestData kTestDataNoRoundingRequired[] = {
+      {"", kintmin, 0},
+      {"", -29, 0},
+      {"", 0, 0},
+      {"", 29, 0},
+      {"", kintmax, 0},
+      {"0", kintmin, 0},
+      {"0", -29, 0},
+      {"0", 0, 0},
+      {"0", 29, 0},
+      {"0", kintmax, 0},
+      {"1", kintmin, kNumericFromScaledValueOutOfRange},
+      {"1", kintmin / 2, kNumericFromScaledValueOutOfRange},
+      {"1", kintmin + 20, kNumericFromScaledValueOutOfRange},
+      {"1", -29, kNumericFromScaledValueOutOfRange},
+      {"1", -28, "1e28"},
+      {"1", -1, 10},
+      {"1", 0, 1},
+      {"9", -28, "9e28"},
+      {"10", -28, kNumericFromScaledValueOutOfRange},
+      {"72", 0, 72},
+      {"9999999999999999999999999999", -1, "99999999999999999999999999990"},
+      {"10000000000000000000000000000", -1, kNumericFromScaledValueOutOfRange},
+      // 1e28
+      {"10000000000000000000000000000", 27, 10},
+      {"100000000000000000000000000000", 29, 1},
+      {"100000000000000000000000000000000000000"
+       "00000000000000000000000000000000000000",
+       76, 1},
+      {"100000000000000000000000000000000000000"
+       "00000000000000000000000000000000000000",
+       85, "1e-9"},
+      {"9999999999999999999999999999999999999", 8,
+       "99999999999999999999999999999.99999999"},
+      {"10000000000000000000000000000000000000", 8,
+       kNumericFromScaledValueOutOfRange},
+      {kScaledMaxNumericValueStr, 9, kMaxNumericValueStr},
+      {kScaledMaxNumericValueStr, 8, kNumericFromScaledValueOutOfRange},
+      {kScaledMaxNumericValueStr, kintmin, kNumericFromScaledValueOutOfRange},
+  };
+  for (const auto& data : kTestDataNoRoundingRequired) {
+    TestFromScaledValue(data.input_value, data.scale, false,
+                        data.expected_output);
+    TestFromScaledValue(data.input_value, data.scale, true,
+                        data.expected_output);
+  }
+
+  static constexpr FromScaledValueTestData kTestDataWithRounding[] = {
+      {"1", 10, 0},
+      {"449999999999999999999999999999999999999", 47, "4e-9"},
+      {"450000000000000000000000000000000000000", 47, "5e-9"},
+
+      {kScaledMaxNumericValueStr, 38, 1},
+      {kScaledMaxNumericValueStr, 40, "0.01"},
+      {kScaledMaxNumericValueStr, 47, "1e-9"},
+      {kScaledMaxNumericValueStr, 48, 0},
+      {kScaledMaxNumericValueStr, kintmax, 0},
+
+      {"999999999999999999999999999999999999994", 10, kMaxNumericValueStr},
+      {"999999999999999999999999999999999999995", 10,
+       kNumericFromScaledValueOutOfRange},  // overflow after rounding
+      {"999999999999999999999999999999999999994"
+       "999999999999999999999999999999999999999",
+       49, kMaxNumericValueStr},
+      {"999999999999999999999999999999999999995"
+       "000000000000000000000000000000000000000",
+       49, kNumericFromScaledValueOutOfRange},
+  };
+  for (const auto& data : kTestDataWithRounding) {
+    TestFromScaledValue(
+        data.input_value, data.scale, false,
+        NumericValueWrapper(kNumericFromScaledValueRoundingNotAllowed));
+    TestFromScaledValue(data.input_value, data.scale, true,
+                        data.expected_output);
+  }
+}
+
+TEST_F(NumericValueTest, FromScaledValueRoundTrip) {
+  TestFromScaledValueRoundTrip<NumericValue, 2>(&random_);
+}
+
 TEST_F(NumericValueTest, FromDouble) {
   static constexpr NumericUnaryOpTestData<double, NumericValueWrapper>
       kTestData[] = {
@@ -1776,7 +2019,7 @@ void TestLnWithRandomLosslessDoubleValue(uint max_integer_bits,
 }
 
 TEST_F(NumericValueTest, Ln_WithRandomLosslessDoubleValue) {
-  TestLnWithRandomLosslessDoubleValue<BigNumericValue>(96, &random_);
+  TestLnWithRandomLosslessDoubleValue<NumericValue>(96, &random_);
 }
 
 template <typename T>
@@ -1807,6 +2050,206 @@ TEST_F(NumericValueTest, LnExpRoundTrip) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue max_valid_exp_value,
                        NumericValue::FromString("66.774967696"));
   TestLnExpRoundTrip(max_valid_exp_value, &random_);
+}
+
+TEST_F(NumericValueTest, Log10) {
+  static constexpr Error kNonPositiveUndefinedError(
+      "LOG10 is undefined for zero or negative value: ");
+  static constexpr NumericUnaryOpTestData<> kTestData[] = {
+      {10, 1},
+      {10000, 4},
+      {"0.1", -1},
+      {"1e-9", -9},
+      {"1e28", 28},
+      {"0.000001234", "-5.90868484"},
+      {"0.123456789", "-0.908485023"},
+      {"1.123456789", "0.050556373"},
+      {"12345678901234567890123456789.123456789", "28.091514977"},
+      {kMaxNumericValueStr, 29},
+      {-1, kNonPositiveUndefinedError},
+      {"-1e-9", kNonPositiveUndefinedError},
+      {kMinNumericValueStr, kNonPositiveUndefinedError},
+      {0, kNonPositiveUndefinedError},
+  };
+
+  NumericLog10Op op;
+  for (const NumericUnaryOpTestData<>& data : kTestData) {
+    TestUnaryOp(op, data.input, data.expected_output);
+  }
+}
+
+template <typename T>
+void TestLog10PowRoundTripIntegerResult(int integer_digits,
+                                        int fractional_digits,
+                                        absl::BitGen* random) {
+  for (int i = -fractional_digits; i <= integer_digits; ++i) {
+    T expected_result(i);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T x_value, T(10).Power(expected_result));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T result, x_value.Log10());
+    EXPECT_EQ(expected_result, result) << "LOG10(" << x_value.ToString() << ")";
+  }
+}
+
+TEST_F(NumericValueTest, Log10_PowRoundTrip_IntegerResult) {
+  TestLog10PowRoundTripIntegerResult<NumericValue>(28, -9, &random_);
+}
+
+template <typename T>
+void TestLog10PowRoundTripRandomResult(absl::BitGen* random) {
+  // Testing POW(10,LOG10(x)) should be close to x.
+  int trivial_case_count = 0;
+  // With y=LOG10(x), expected error of POW(10,LOG10(x)) is approximatly
+  // 10^(y+e)-10^y = x*(10^e), e is expected error of LOG10(x), which is less
+  // that the smallest fractional unit of T.
+  T expected_relative_error_ratio = T::FromScaledValue(1);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(expected_relative_error_ratio,
+                       T(10).Power(expected_relative_error_ratio));
+  for (int i = 0; i < 10000; ++i) {
+    T x_value = MakeRandomPositiveNumericValue<T>(random);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T log10, x_value.Log10());
+    auto result_or_status = T(10).Power(log10);
+    if (result_or_status.status().code() == absl::StatusCode::kOutOfRange) {
+      // Round up in previous steps could cause out of range error.
+      ++trivial_case_count;
+      continue;
+    }
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T result, result_or_status);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T expect_error,
+                         x_value.Multiply(expected_relative_error_ratio));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T error, result.Subtract(x_value));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T error_abs, GetValue(error.Abs()));
+    EXPECT_LE(error_abs, expect_error);
+  }
+  EXPECT_LT(trivial_case_count, 50);
+}
+
+TEST_F(NumericValueTest, Log10_PowRoundTrip_RandomResult) {
+  TestLog10PowRoundTripRandomResult<NumericValue>(&random_);
+}
+
+TEST_F(NumericValueTest, Log) {
+  static constexpr Error kNonPositiveUndefinedError(
+      "LOG is undefined for zero or negative value, or when base equals 1: ");
+  static constexpr NumericBinaryOpTestData<> kTestData[] = {
+      {9, 3, 2},
+      {"0.25", 2, -2},
+      {32768, 2, 15},
+      {"0.01", "0.1", 2},
+      {"0.001", "0.1", 3},
+      {"0.0001", "0.1", 4},
+      {"86.497558594", "1.5", 11},
+      {"4495482048799565826089401.980417643", "1.5", 140},
+      {"21916.681339078", "1.001", 10000},
+      {2, 4, "0.5"},
+      {"0.5", 4, "-0.5"},
+      {8, 4, "1.5"},
+      {"0.125", 4, "-1.5"},
+      {32, 4, "2.5"},
+      {"0.03125", 4, "-2.5"},
+      {"3e10", "9e20", "0.5"},
+      {"12345678912345", "152415787806720022193399025", "0.5"},
+      {"1e-5", "1e10", "-0.5"},
+      {"1.000100005", "1.00001", "10.000049983"},
+      {100, "1.000000001", "4605170188.290676461"},
+      {100, "0.999999999", "-4605170183.685506275"},
+      {"0.000000238", "2", "-22.002535091"},
+      {kMaxNumericValueStr, kMaxNumericValueStr, 1},
+      // Actual value approx. 66774967730.214808679
+      {kMaxNumericValueStr, "1.000000001", "66774967730.214808682"},
+      // Actual value approx. -66774967663.439840983
+      {kMaxNumericValueStr, "0.999999999", "-66774967663.439840994"},
+      {"1.000000001", 8, 0 /* Actual value approx. 4.8e-10*/},
+      {"1.000000001", 7, "1e-9" /* Actual value approx. 5.14e-10*/},
+      {10, "-1e-9", kNonPositiveUndefinedError},
+      {10, 0, kNonPositiveUndefinedError},
+      {10, 1, kNonPositiveUndefinedError},
+      {10, kMinNumericValueStr, kNonPositiveUndefinedError},
+      {"-1e-9", 10, kNonPositiveUndefinedError},
+      {0, 10, kNonPositiveUndefinedError},
+      {kMinNumericValueStr, 10, kNonPositiveUndefinedError},
+  };
+
+  NumericLogOp op;
+  for (const NumericBinaryOpTestData<>& data : kTestData) {
+    TestBinaryOp(op, data.input1, data.input2, data.expected_output);
+  }
+}
+
+template <typename T>
+void TestLogWithRandomLosslessDoubleValue(uint max_integer_bits,
+                                          double expected_relative_error_ratio,
+                                          absl::BitGen* random) {
+  int trivial_case_count = 0;
+  const double max_value = T::MaxValue().ToDouble();
+  for (int i = 0; i < 1000; ++i) {
+    double x = 0;
+    do {
+      x = std::abs(MakeLosslessRandomDoubleValue<T>(max_integer_bits, random));
+    } while (x == 0);
+    double y = 0;
+    do {
+      y = std::abs(MakeLosslessRandomDoubleValue<T>(max_integer_bits, random));
+    } while (y == 0);
+    double approx_expected = std::log(x) / std::log(y);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T x_value, T::FromDouble(x));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T y_value, T::FromDouble(y));
+    auto result = x_value.Log(y_value);
+    if (result.ok()) {
+      double expected_error =
+          std::max(T::FromScaledValue(1).ToDouble(),
+                   approx_expected * expected_relative_error_ratio);
+      EXPECT_NEAR(result.ValueOrDie().ToDouble(), approx_expected,
+                  expected_error)
+          << "LOG(" << x_value.ToString() << ", " << y_value.ToString() << ")";
+    } else {
+      EXPECT_TRUE(std::abs(approx_expected) > max_value)
+          << "LOG(" << x_value << ", " << y_value << "): expected "
+          << approx_expected << "\ngot " << result.status();
+      trivial_case_count++;
+    }
+  }
+  EXPECT_LT(trivial_case_count, 50);
+}
+
+TEST_F(NumericValueTest, Log_WithRandomLosslessDoubleValue) {
+  TestLogWithRandomLosslessDoubleValue<NumericValue>(96, 0, &random_);
+}
+
+template <typename T>
+void TestLogPowRoundTrip(T expected_relative_error_ratio,
+                         absl::BitGen* random) {
+  // Testing POW(y,LOG(x,y)) should be close to x.
+  int trivial_case_count = 0;
+  for (int i = 0; i < 10000; ++i) {
+    T x_value = MakeRandomPositiveNumericValue<T>(random);
+    T y_value = MakeRandomPositiveNumericValue<T>(random);
+    auto log_or_status = x_value.Log(y_value);
+    if (log_or_status.status().code() == absl::StatusCode::kOutOfRange) {
+      ++trivial_case_count;
+      continue;
+    }
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T log, log_or_status);
+    auto result_or_status = y_value.Power(log);
+    if (result_or_status.status().code() == absl::StatusCode::kOutOfRange) {
+      ++trivial_case_count;
+      continue;
+    }
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T result, result_or_status);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T expect_error,
+                         x_value.Multiply(expected_relative_error_ratio));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T error, result.Subtract(x_value));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T error_abs, GetValue(error.Abs()));
+    EXPECT_LE(error_abs, expect_error)
+        << "LOG(" << x_value.ToString() << ", " << y_value.ToString() << ")";
+  }
+  EXPECT_LT(trivial_case_count, 50);
+}
+
+TEST_F(NumericValueTest, LogPowRoundTrip) {
+  // 1e-7
+  NumericValue expected_relative_error_ratio =
+      NumericValue::FromScaledValue(100);
+  TestLogPowRoundTrip<NumericValue>(expected_relative_error_ratio, &random_);
 }
 
 TEST_F(NumericValueTest, Power) {
@@ -1966,42 +2409,93 @@ TEST_F(NumericValueTest, Pow_WithRandomLosslessDoubleValue) {
   TestPowWithRandomLosslessDoubleValue<NumericValue>(96, &random_);
 }
 
-template <typename T>
-void TestLnPowRoundTrip(const T& expect_relative_error_ratio,
-                        absl::BitGen* random) {
-  // Testing pow(y, ln(x) / ln(y)) should be close to x.
-  int trivial_case_count = 0;
-  for (int i = 0; i < 10000; ++i) {
-    T x_value = MakeRandomPositiveNumericValue<T>(random);
-    T y_value = MakeRandomPositiveNumericValue<T>(random);
-    ZETASQL_ASSERT_OK_AND_ASSIGN(T x_ln, x_value.Ln());
-    ZETASQL_ASSERT_OK_AND_ASSIGN(T y_ln, y_value.Ln());
-    auto exponent_or_status = x_ln.Divide(y_ln);
-    if (!exponent_or_status.ok()) {
-      ++trivial_case_count;
-      continue;
-    }
-    T exponent = exponent_or_status.ValueOrDie();
-    auto result_or_status = y_value.Power(exponent);
-    if (result_or_status.status().code() == absl::StatusCode::kOutOfRange) {
-      // Round up in previous steps could cause out of range error.
-      ++trivial_case_count;
-      continue;
-    }
-    ZETASQL_ASSERT_OK_AND_ASSIGN(T result, result_or_status);
-    ZETASQL_ASSERT_OK_AND_ASSIGN(T expect_error,
-                         x_value.Multiply(expect_relative_error_ratio));
-    ZETASQL_ASSERT_OK_AND_ASSIGN(T error, result.Subtract(x_value));
-    ZETASQL_ASSERT_OK_AND_ASSIGN(T error_abs, GetValue(error.Abs()));
-    EXPECT_LE(error_abs, expect_error);
+TEST_F(NumericValueTest, Sqrt) {
+  static constexpr Error kNegativeUndefinedError(
+      "SQRT is undefined for negative value: ");
+  static constexpr NumericUnaryOpTestData<> kTestData[] = {
+      {0, 0},
+      {1, 1},
+      {4, 2},
+      {"0.04", "0.2"},
+      {"1e-8", "1e-4"},
+      {"0.000001234", "0.001110856"},
+      {"0.123456789", "0.351364183"},
+      {"1.123456789", "1.059932445"},
+      {"12345678901234567890123456789.123456789", "111111110611111.109936111"},
+      {"9e28", "3e14"},
+      {kMaxNumericValueStr, "316227766016837.933199889"},
+      {"-1e-9", kNegativeUndefinedError},
+      {-1, kNegativeUndefinedError},
+      {kMinNumericValueStr, kNegativeUndefinedError},
+  };
+
+  NumericSqrtOp op;
+  for (const NumericUnaryOpTestData<>& data : kTestData) {
+    TestUnaryOp(op, data.input, data.expected_output);
   }
-  EXPECT_LT(trivial_case_count, 50);
 }
 
-TEST_F(NumericValueTest, LnPowRoundTrip) {
-  // 1e-3
-  NumericValue expect_error = NumericValue::FromScaledValue(100000);
-  TestLnPowRoundTrip(expect_error, &random_);
+template <typename T>
+void TestSqrtWithRandomIntegerValue(uint64_t max_integer_value,
+                                    absl::BitGen* random) {
+  for (int i = 0; i < 10000; ++i) {
+    uint64_t x_sqrt = absl::Uniform<uint64_t>(absl::IntervalClosedClosed, *random,
+                                          0, max_integer_value);
+    T expected_result(x_sqrt);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T x_value, expected_result.Multiply(expected_result));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T result, x_value.Sqrt());
+    EXPECT_EQ(expected_result, result)
+        << "SQRT(" << x_value.ToString() << ")";
+  }
+}
+
+TEST_F(NumericValueTest, Sqrt_WithRandomIntegerValue) {
+  TestSqrtWithRandomIntegerValue<NumericValue>(316227766016837ULL, &random_);
+}
+
+template <typename T>
+void TestSqrtWithRandomLosslessDoubleValue(uint max_integer_bits,
+                                           absl::BitGen* random) {
+  for (int i = 0; i < 10000; ++i) {
+    double x;
+    do {
+      x = std::abs(MakeLosslessRandomDoubleValue<T>(max_integer_bits, random));
+    } while (x == 0);
+    double approx_expected = std::sqrt(x);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T x_value, T::FromDouble(x));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T result, x_value.Sqrt());
+    double expected_error = GetMaxErrorFromDoubleReference<T>(approx_expected);
+    EXPECT_NEAR(result.ToDouble(), approx_expected, expected_error)
+        << "SQRT(" << x_value.ToString() << ") = " << result.ToString()
+        << " double x: " << x;
+  }
+}
+
+TEST_F(NumericValueTest, Sqrt_WithRandomLosslessDoubleValue) {
+  TestSqrtWithRandomLosslessDoubleValue<NumericValue>(96, &random_);
+}
+
+template <typename T>
+void TestSqrtPowRoundTrip(absl::BitGen* random) {
+  // Testing POW(SQRT(x), 2) should be close to x.
+  for (int i = 0; i < 10000; ++i) {
+    T x_value = MakeRandomPositiveNumericValue<T>(random);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T x_sqrt, x_value.Sqrt());
+    auto result_or_status = x_sqrt.Power(T(2));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T result, result_or_status);
+    T expected_relative_error_ratio = T::FromScaledValue(2);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T expect_error,
+                         x_sqrt.Multiply(expected_relative_error_ratio));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T error, result.Subtract(x_value));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T error_abs, GetValue(error.Abs()));
+    EXPECT_LE(error_abs, expect_error)
+        << "POW(SQRT(" << x_value.ToString() << ", 2) = " << result.ToString()
+        << " expected x: " << x_value.ToString();
+  }
+}
+
+TEST_F(NumericValueTest, SqrtPowRoundTrip) {
+  TestSqrtPowRoundTrip<NumericValue>(&random_);
 }
 
 using FormatSpec = NumericValue::FormatSpec;
@@ -2789,19 +3283,20 @@ TEST_F(NumericValueTest, VarianceAggregator) {
   }
 }
 
-TEST_F(NumericValueTest, VarianceAggregatorManyValues) {
+template <typename NumericType>
+void TestVarianceAggregatorManyValues() {
   const int64_t kInputCount = 10000;
 
-  NumericValue::VarianceAggregator agg1;
-  NumericValue::VarianceAggregator agg2;
-  NumericValue::VarianceAggregator agg3;
-  NumericValue::VarianceAggregator agg4;
+  typename NumericType::VarianceAggregator agg1;
+  typename NumericType::VarianceAggregator agg2;
+  typename NumericType::VarianceAggregator agg3;
+  typename NumericType::VarianceAggregator agg4;
 
   for (int64_t i = 1; i <= kInputCount; i++) {
-    agg1.Add(NumericValue(i));
-    agg2.Add(NumericValue(-i));
-    agg3.Add(NumericValue(i % 2 ? i : -i));
-    agg4.Add(NumericValue(kInputCount));
+    agg1.Add(NumericType(i));
+    agg2.Add(NumericType(-i));
+    agg3.Add(NumericType(i % 2 ? i : -i));
+    agg4.Add(NumericType(kInputCount));
   }
 
   double expect_pvar1 = 8333333.25;
@@ -2818,6 +3313,10 @@ TEST_F(NumericValueTest, VarianceAggregatorManyValues) {
   VerifyVarianceAggregator(agg4, expect_pvar4, expect_svar4, kInputCount);
 }
 
+TEST_F(NumericValueTest, VarianceAggregatorManyValues) {
+  TestVarianceAggregatorManyValues<NumericValue>();
+}
+
 TEST_F(NumericValueTest, VarianceAggregatorMergeWith) {
   TestAggregatorMergeWith<NumericValue::VarianceAggregator>(
       kNumericUnaryAggregatorTestInputs);
@@ -2832,22 +3331,24 @@ std::optional<double> operator-(std::optional<double> x) {
   return x.has_value() ? -x.value() : x;
 }
 
-template <typename Aggregator>
+template <typename Aggregator, typename Wrapper>
 struct BinaryAggregators {
-  void Add(const std::pair<NumericValueWrapper, NumericValueWrapper>& input) {
-    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue first_value, GetValue(input.first));
-    ZETASQL_ASSERT_OK_AND_ASSIGN(NumericValue second_value, GetValue(input.second));
+  void Add(const std::pair<Wrapper, Wrapper>& input) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto first_value, GetValue(input.first));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto second_value, GetValue(input.second));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto negated_first_value, GetValue(-input.first));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto negated_second_value, GetValue(-input.second));
     // Interpret input.negate as subtraction.
     if (input.first.negate) {
-      // Negate value to get the original value before negation.
-      agg.Subtract(first_value.Negate(), second_value.Negate());
+      // Negate value to get the original value before subtraction.
+      agg.Subtract(negated_first_value, negated_second_value);
       neg_agg.Subtract(first_value, second_value);
-      partial_neg_agg.Subtract(first_value.Negate(), second_value);
+      partial_neg_agg.Subtract(negated_first_value, second_value);
       --count;
     } else {
       agg.Add(first_value, second_value);
-      neg_agg.Add(first_value.Negate(), second_value.Negate());
-      partial_neg_agg.Add(first_value, second_value.Negate());
+      neg_agg.Add(negated_first_value, negated_second_value);
+      partial_neg_agg.Add(first_value, negated_second_value);
       ++count;
     }
   }
@@ -2891,7 +3392,8 @@ TEST_F(NumericValueTest, CovarianceAggregator) {
   };
 
   for (const CovarianceTestData& test_data : kTestData) {
-    BinaryAggregators<NumericValue::CovarianceAggregator> aggregators;
+    BinaryAggregators<NumericValue::CovarianceAggregator, NumericValueWrapper>
+        aggregators;
     for (const std::pair<W, W>& input : test_data.inputs) {
       aggregators.Add(input);
     }
@@ -2961,7 +3463,8 @@ TEST_F(NumericValueTest, CorrelationAggregator) {
        0.98994949366116658},  // sqrt(0.98)
   };
   for (const CorrelationTestData& test_data : kTestData) {
-    BinaryAggregators<NumericValue::CorrelationAggregator> aggregators;
+    BinaryAggregators<NumericValue::CorrelationAggregator, NumericValueWrapper>
+        aggregators;
     for (const std::pair<W, W>& input : test_data.inputs) {
       aggregators.Add(input);
     }
@@ -3229,6 +3732,8 @@ TEST_F(NumericValueTest, Mod) {
       {5, "2.3", "0.4"},
       {5, "0.3", "0.2"},
       {"5.2", 2, "1.2"},
+      {1, 0, kDivisionByZero},
+      {"1e-9", 0, kDivisionByZero},
   };
 
   NumericModOp op;
@@ -3238,10 +3743,6 @@ TEST_F(NumericValueTest, Mod) {
     TestBinaryOp(op, data.input1, -data.input2, data.expected_output);
     TestBinaryOp(op, -data.input1, -data.input2, -data.expected_output);
   }
-
-  EXPECT_THAT(
-      NumericValue(1).Mod(NumericValue()),
-      StatusIs(absl::StatusCode::kOutOfRange, "division by zero: 1 / 0"));
 }
 
 TEST_F(NumericValueTest, OperatorsTest) {
@@ -3947,6 +4448,110 @@ TEST_F(BigNumericValueTest, LnExpRoundTrip) {
   TestLnExpRoundTrip(max_valid_exp_value, &random_);
 }
 
+TEST_F(BigNumericValueTest, Log10) {
+  static constexpr Error kNonPositiveUndefinedError(
+      "LOG10 is undefined for zero or negative value: ");
+  static constexpr BigNumericUnaryOpTestData<> kTestData[] = {
+      {10, 1},
+      {10000, 4},
+      {"0.1", -1},
+      {"1e38", 38},
+      {"1e-38", -38},
+      {"0.00000000000000000000123456789012345678",
+       "-20.90848502278730010745951946815347839602"},
+      {"0.12345678901234567890123456789012345678",
+       "-0.90848502278730010428916972176567882566"},
+      {"1.12345678901234567890123456789012345678",
+       "0.05055637301292183541410644614259954919"},
+      {"12345678901234567890123456789012345678."
+       "12345678901234567890123456789012345678",
+       "37.09151497721269989571083027823432117434"},
+      {kMaxBigNumericValueStr, "38.76264889431520477950341815474572182589"},
+      {-1, kNonPositiveUndefinedError},
+      {"-1e-38", kNonPositiveUndefinedError},
+      {kMinBigNumericValueStr, kNonPositiveUndefinedError},
+      {0, kNonPositiveUndefinedError},
+  };
+
+  NumericLog10Op op;
+  for (const BigNumericUnaryOpTestData<>& data : kTestData) {
+    TestUnaryOp(op, data.input, data.expected_output);
+  }
+}
+
+TEST_F(BigNumericValueTest, Log10_PowRoundTrip_IntegerResult) {
+  TestLog10PowRoundTripIntegerResult<BigNumericValue>(38, -38, &random_);
+}
+
+TEST_F(BigNumericValueTest, Log10_PowRoundTrip_RandomResult) {
+  TestLog10PowRoundTripRandomResult<BigNumericValue>(&random_);
+}
+
+TEST_F(BigNumericValueTest, Log) {
+  static constexpr Error kNonPositiveUndefinedError(
+      "LOG is undefined for zero or negative value, or when base equals 1: ");
+  static constexpr BigNumericBinaryOpTestData<> kTestData[] = {
+      {9, 3, 2},
+      {"0.25", 2, -2},
+      {32768, 2, 15},
+      {"0.01", "0.1", 2},
+      {"0.001", "0.1", 3},
+      {"86.49755859375", "1.5", 11},
+      {"4495482048799565826089401.98041764319429608512799023715885650255",
+       "1.5", 140},
+      {"21916.68133907842704378473867917442516044264", "1.001", 10000},
+      {2, 4, "0.5"},
+      {"0.5", 4, "-0.5"},
+      {8, 4, "1.5"},
+      {"0.125", 4, "-1.5"},
+      {32, 4, "2.5"},
+      {"0.03125", 4, "-2.5"},
+      {"2e19", "4e38", "0.5"},
+      {"12345678912345", "152415787806720022193399025", "0.5"},
+      {"1e-19", "1e38", "-0.5"},
+      {"1.0001000045001200021000252002100012", "1.00001",
+       "9.99999999999999999999999999999999955004"},
+      {"1.00000000000000000000000000000000000001",
+       "1.00000000000000000000000000000000000001", 1},
+      {"0.99999999999999999999999999999999999999",
+       "0.99999999999999999999999999999999999999", 1},
+      {kMaxBigNumericValueStr, kMaxBigNumericValueStr, 1},
+      {"1e38", "1.00000000000000000000000000000000000015", kBigNumericOverflow},
+      {"1e38", "0.99999999999999999999999999999999999985", kBigNumericOverflow},
+      {kMaxBigNumericValueStr, "1.00000000000000000000000000000000000001",
+       kBigNumericOverflow},
+      {kMaxBigNumericValueStr, "0.99999999999999999999999999999999999999",
+       kBigNumericOverflow},
+      {"1.00000000000000000000000000000000000001", 8,
+       0 /* Actual value approx. 4.8e-39*/},
+      {"1.00000000000000000000000000000000000001", 7,
+       "1e-38" /* Actual value approx. 5.14e-39*/},
+      {10, "-1e-38", kNonPositiveUndefinedError},
+      {10, 0, kNonPositiveUndefinedError},
+      {10, 1, kNonPositiveUndefinedError},
+      {10, kMinBigNumericValueStr, kNonPositiveUndefinedError},
+      {"-1e-38", 10, kNonPositiveUndefinedError},
+      {0, 10, kNonPositiveUndefinedError},
+      {kMinBigNumericValueStr, 10, kNonPositiveUndefinedError},
+  };
+
+  NumericLogOp op;
+  for (const BigNumericBinaryOpTestData<>& data : kTestData) {
+    TestBinaryOp(op, data.input1, data.input2, data.expected_output);
+  }
+}
+
+TEST_F(BigNumericValueTest, Log_WithRandomLosslessDoubleValue) {
+  TestLogWithRandomLosslessDoubleValue<BigNumericValue>(128, 1e-15, &random_);
+}
+
+TEST_F(BigNumericValueTest, LogPowRoundTrip) {
+  // 1e-36
+  BigNumericValue expected_relative_error_ratio =
+      BigNumericValue::FromScaledValue(100);
+  TestLogPowRoundTrip<BigNumericValue>(expected_relative_error_ratio, &random_);
+}
+
 TEST_F(BigNumericValueTest, Power) {
   static constexpr Error kNegativeToFractionalError(
       "Negative BIGNUMERIC value cannot be raised to a fractional power: ");
@@ -4157,10 +4762,50 @@ TEST_F(BigNumericValueTest, Pow_WithRandomLosslessDoubleValue) {
   TestPowWithRandomLosslessDoubleValue<BigNumericValue>(128, &random_);
 }
 
-TEST_F(BigNumericValueTest, LnPowRoundTrip) {
-  // 1e-32
-  BigNumericValue expect_error = BigNumericValue::FromScaledValue(1000000);
-  TestLnPowRoundTrip(expect_error, &random_);
+TEST_F(BigNumericValueTest, Sqrt) {
+  static constexpr Error kNegativeUndefinedError(
+      "SQRT is undefined for negative value: ");
+  static constexpr BigNumericUnaryOpTestData<> kTestData[] = {
+      {0, 0},
+      {1, 1},
+      {4, 2},
+      {"0.04", "0.2"},
+      {"1e-38", "1e-19"},
+      {"0.00000000000000000000123456789012345678",
+       "0.00000000003513641828820144240286429591"},
+      {"0.12345678901234567890123456789012345678",
+       "0.3513641828820144253111222381699882939"},
+      {"1.12345678901234567890123456789012345678",
+       "1.05993244549468608051549938620585216415"},
+      {"12345678901234567890123456789012345678."
+       "12345678901234567890123456789012345678",
+       "3513641828820144253.11122238169988293906416115847891558041"},
+      {"4e38", "2e19"},
+      {"5.76e38", "2.4e19"},
+      {kMaxBigNumericValueStr,
+       "24061596916800451154.5033772477625056927114980741063148377"},
+      {"-1e-38", kNegativeUndefinedError},
+      {-1, kNegativeUndefinedError},
+      {kMinBigNumericValueStr, kNegativeUndefinedError},
+  };
+
+  NumericSqrtOp op;
+  for (const BigNumericUnaryOpTestData<>& data : kTestData) {
+    TestUnaryOp(op, data.input, data.expected_output);
+  }
+}
+
+TEST_F(BigNumericValueTest, Sqrt_WithRandomIntegerValue) {
+  TestSqrtWithRandomIntegerValue<BigNumericValue>(18446744073709551615ULL,
+                                               &random_);
+}
+
+TEST_F(BigNumericValueTest, Sqrt_WithRandomLosslessDoubleValue) {
+  TestSqrtWithRandomLosslessDoubleValue<BigNumericValue>(128, &random_);
+}
+
+TEST_F(BigNumericValueTest, SqrtPowRoundTrip) {
+  TestSqrtPowRoundTrip<BigNumericValue>(&random_);
 }
 
 TEST_F(BigNumericValueTest, MultiplicationDivisionRoundTrip) {
@@ -4240,7 +4885,10 @@ TEST_F(BigNumericValueTest, Mod) {
       {1, 0, kDivisionByZero},
       {1, kMaxBigNumericValueStr, 1},
       {"1e-38", kMaxBigNumericValueStr, "1e-38"},
-      {0, kMaxBigNumericValueStr, 0}};
+      {0, kMaxBigNumericValueStr, 0},
+      {1, 0, kDivisionByZero},
+      {"1e-38", 0, kDivisionByZero},
+  };
 
   static constexpr BigNumericBinaryOpTestData<> kSpecialTestData[] = {
       {kMinBigNumericValueStr, -1, "-0.34992332820282019728792003956564819968"},
@@ -4252,7 +4900,8 @@ TEST_F(BigNumericValueTest, Mod) {
       {kMaxBigNumericValueStr, kMinBigNumericValueStr, kMaxBigNumericValueStr},
       {1, kMinBigNumericValueStr, 1},
       {"1e-38", kMinBigNumericValueStr, "1e-38"},
-      {0, kMinBigNumericValueStr, 0}};
+      {0, kMinBigNumericValueStr, 0},
+  };
 
   NumericModOp op;
   for (const BigNumericBinaryOpTestData<>& data : kTestData) {
@@ -5243,6 +5892,154 @@ TEST_F(BigNumericValueTest, NumericValueRoundTrip) {
   }
 }
 
+TEST_F(BigNumericValueTest, FromScaledValue) {
+  struct FromScaledValueTestData {
+    absl::string_view input_value;
+    int scale;
+    BigNumericValueWrapper expected_output;
+  };
+  constexpr absl::string_view kScaledMinBigNumericValueStr =
+      "-578960446186580977117854925043439539266"
+      "34992332820282019728792003956564819968";
+  constexpr absl::string_view kScaledMaxBigNumericValueStr =
+      "578960446186580977117854925043439539266"
+      "34992332820282019728792003956564819967";
+  static constexpr FromScaledValueTestData kTestDataNoRoundingRequired[] = {
+      {"", kintmin, 0},
+      {"", -39, 0},
+      {"", 0, 0},
+      {"", 39, 0},
+      {"", kintmax, 0},
+      {"0", kintmin, 0},
+      {"0", -39, 0},
+      {"0", 0, 0},
+      {"0", 39, 0},
+      {"0", kintmax, 0},
+      {"1", kintmin, kBigNumericFromScaledValueOutOfRange},
+      {"1", kintmin / 2, kBigNumericFromScaledValueOutOfRange},
+      {"1", kintmin + 20, kBigNumericFromScaledValueOutOfRange},
+      {"1", -39, kBigNumericFromScaledValueOutOfRange},
+      {"1", -38, "1e38"},
+      {"1", -1, 10},
+      {"1", 0, 1},
+      {"5", -38, "5e38"},
+      {"6", -38, kBigNumericFromScaledValueOutOfRange},
+      {"72", 0, 72},
+      {"57896044618658097711785492504343953926", -1,
+       "5.7896044618658097711785492504343953926e38"},
+      {"57896044618658097711785492504343953927", -1,
+       kBigNumericFromScaledValueOutOfRange},
+      // 1e38
+      {"100000000000000000000000000000000000000", 37, 10},
+      {"1000000000000000000000000000000000000000", 39, 1},
+      {"100000000000000000000000000000000000000"
+       "00000000000000000000000000000000000000",
+       76, 1},
+      {"100000000000000000000000000000000000000"
+       "00000000000000000000000000000000000000",
+       114, "1e-38"},
+      // The maximum positive/minimum negative value not causing overflow when
+      // scale is 37. In the kMaxBigNumericValueStr, move the decimal digit back
+      // by 1 digit, and truncate by the last digit.
+      {"57896044618658097711785492504343953926"
+       "63499233282028201972879200395656481996",
+       37,
+       "578960446186580977117854925043439539266."
+       "34992332820282019728792003956564819960"},
+      // The maximum positive/minimum negative value causing overflow when scale
+      // is 37. In the kMaxBigNumericValueStr, move the decimal digit back by 1
+      // digit, truncate by the last digit, and then increment the last digit by
+      // one.
+      {"57896044618658097711785492504343953926"
+       "63499233282028201972879200395656481997",
+       37, kBigNumericFromScaledValueOutOfRange},
+      {kScaledMaxBigNumericValueStr, 38, kMaxBigNumericValueStr},
+      {kScaledMaxBigNumericValueStr, 37, kBigNumericFromScaledValueOutOfRange},
+      {kScaledMaxBigNumericValueStr, kintmin,
+       kBigNumericFromScaledValueOutOfRange},
+      {kScaledMinBigNumericValueStr, 38, kMinBigNumericValueStr},
+      {kScaledMinBigNumericValueStr, 37, kBigNumericFromScaledValueOutOfRange},
+      {kScaledMinBigNumericValueStr, kintmin,
+       kBigNumericFromScaledValueOutOfRange},
+  };
+  for (const auto& data : kTestDataNoRoundingRequired) {
+    TestFromScaledValue(data.input_value, data.scale, false,
+                        data.expected_output);
+    TestFromScaledValue(data.input_value, data.scale, true,
+                        data.expected_output);
+  }
+
+  static constexpr FromScaledValueTestData kTestDataWithRounding[] = {
+      {"1", 39, 0},
+      {"449999999999999999999999999999999999999", 76, "4e-38"},
+      {"450000000000000000000000000000000000000", 76, "5e-38"},
+
+      {kScaledMaxBigNumericValueStr, 77,
+       "0.57896044618658097711785492504343953927"},
+      {kScaledMaxBigNumericValueStr, 110, "5.7896e-34"},
+      {kScaledMaxBigNumericValueStr, 114, "6e-38"},
+      {kScaledMaxBigNumericValueStr, 115, "1e-38"},
+      {kScaledMaxBigNumericValueStr, 116, 0},
+      {kScaledMaxBigNumericValueStr, kintmax, 0},
+
+      {kScaledMinBigNumericValueStr, 77,
+       "-0.57896044618658097711785492504343953927"},
+      {kScaledMinBigNumericValueStr, 110, "-5.7896e-34"},
+      {kScaledMinBigNumericValueStr, 114, "-6e-38"},
+      {kScaledMinBigNumericValueStr, 115, "-1e-38"},
+      {kScaledMinBigNumericValueStr, 116, 0},
+      {kScaledMinBigNumericValueStr, kintmax, 0},
+
+      {"578960446186580977117854925043439539266"
+       "349923328202820197287920039565648199674",
+       39, kMaxBigNumericValueStr},
+      {"-578960446186580977117854925043439539266"
+       "349923328202820197287920039565648199675",
+       39, kMinBigNumericValueStr},
+      {"-578960446186580977117854925043439539266"
+       "349923328202820197287920039565648199684",
+       39, kMinBigNumericValueStr},
+      {"578960446186580977117854925043439539266"
+       "349923328202820197287920039565648199685",
+       39, kBigNumericFromScaledValueOutOfRange},  // overflow after rounding
+      {"578960446186580977117854925043439539266"
+       "349923328202820197287920039565648199674"
+       "999999999999999999999999999999999999999",
+       78, kMaxBigNumericValueStr},
+      {"-578960446186580977117854925043439539266"
+       "349923328202820197287920039565648199675"
+       "000000000000000000000000000000000000000",
+       78, kMinBigNumericValueStr},
+      {"-578960446186580977117854925043439539266"
+       "349923328202820197287920039565648199684"
+       "999999999999999999999999999999999999999",
+       78, kMinBigNumericValueStr},
+      {"578960446186580977117854925043439539266"
+       "349923328202820197287920039565648199685"
+       "000000000000000000000000000000000000000",
+       78, kBigNumericFromScaledValueOutOfRange},
+      {"115792089237316195423570985008687907853"
+       "269984665640564039457584007913129639935",
+       39,
+       "115792089237316195423570985008687907853"
+       ".26998466564056403945758400791312963994"},
+      {"115792089237316195423570985008687907853"
+       "2699846656405640394575840079131296399355",
+       39, kBigNumericFromScaledValueOutOfRange},
+  };
+  for (const auto& data : kTestDataWithRounding) {
+    TestFromScaledValue(
+        data.input_value, data.scale, false,
+        BigNumericValueWrapper(kBigNumericFromScaledValueRoundingNotAllowed));
+    TestFromScaledValue(data.input_value, data.scale, true,
+                        data.expected_output);
+  }
+}
+
+TEST_F(BigNumericValueTest, FromScaledValueRoundTrip) {
+  TestFromScaledValueRoundTrip<BigNumericValue, 4>(&random_);
+}
+
 struct BigNumericSumAggregatorTestData {
   int cumulative_count;  // defined only for easier verification of average
   BigNumericValueWrapper input;
@@ -5468,6 +6265,207 @@ TEST(BigNumericSumAggregatorTest, MergeWith) {
 TEST(BigNumericSumAggregatorTest, Serialization) {
   TestAggregatorSerialization<BigNumericValue::SumAggregator>(
       kBigNumericUnaryAggregatorTestInputs);
+}
+
+TEST_F(BigNumericValueTest, VarianceAggregator) {
+  using W = BigNumericValueWrapper;
+  struct VarianceTestData {
+    std::initializer_list<W> inputs;
+    absl::optional<double> expect_var_pop;
+    absl::optional<double> expect_var_samp;
+  };
+
+  constexpr W kMax(kMaxBigNumericValueStr);
+  const VarianceTestData kTestData[] = {
+      {{}, absl::nullopt, absl::nullopt},
+      {{0}, 0.0, absl::nullopt},
+      {{kMax}, 0.0, absl::nullopt},
+      {{0, "1e-9"}, 2.5e-19, 5e-19},
+      {{0, "1e-19"}, 2.5e-39, 5e-39},
+      {{0, "1e-38"}, 2.5e-77, 5e-77},
+      {{kMax, kMax}, 0.0, 0.0},
+      {{2, 2, -3, 2, 2}, 4, 5},
+      {{1, -1, 1, 1, 0}, 0.64, 0.8},
+      {{2, 4, 2, 5, -3, 2, 2, -W(5), -W(4)}, 4, 5},  // subtract 5 and 4
+      {{1, -100, -1, 200, 1, -W(-100), 1, -W(200), 0}, 0.64, 0.8},
+      {{kMax, -W(kMax)}, absl::nullopt, absl::nullopt},
+  };
+
+  for (const VarianceTestData& test_data : kTestData) {
+    BigNumericValue::VarianceAggregator agg;
+    BigNumericValue::VarianceAggregator neg_agg;
+    uint64_t count = 0;
+    for (const W& input : test_data.inputs) {
+      ZETASQL_ASSERT_OK_AND_ASSIGN(BigNumericValue value, GetValue(input));
+      // Interpret input.negate as subtraction.
+      if (input.negate) {
+        // Negate value to get the original value before negation.
+        agg.Subtract(value.Negate().value());
+        neg_agg.Subtract(value);
+        --count;
+      } else {
+        agg.Add(value);
+        neg_agg.Add(value.Negate().value());
+        ++count;
+      }
+    }
+    VerifyVarianceAggregator(agg, test_data.expect_var_pop,
+                             test_data.expect_var_samp, count);
+    VerifyVarianceAggregator(neg_agg, test_data.expect_var_pop,
+                             test_data.expect_var_samp, count);
+  }
+}
+
+TEST_F(BigNumericValueTest, VarianceAggregatorManyValues) {
+  TestVarianceAggregatorManyValues<BigNumericValue>();
+}
+
+TEST_F(BigNumericValueTest, VarianceAggregatorMergeWith) {
+  TestAggregatorMergeWith<BigNumericValue::VarianceAggregator>(
+      kBigNumericUnaryAggregatorTestInputs);
+}
+
+TEST_F(BigNumericValueTest, VarianceAggregatorSerialization) {
+  TestAggregatorSerialization<BigNumericValue::VarianceAggregator>(
+      kBigNumericUnaryAggregatorTestInputs);
+}
+
+TEST_F(BigNumericValueTest, CovarianceAggregator) {
+  using W = BigNumericValueWrapper;
+  struct CovarianceTestData {
+    std::initializer_list<std::pair<W, W>> inputs;
+    absl::optional<double> expect_var_pop;
+    absl::optional<double> expect_var_samp;
+  };
+
+  constexpr W kMax(kMaxBigNumericValueStr);
+  const CovarianceTestData kTestData[] = {
+      {{}, absl::nullopt, absl::nullopt},
+      {{{1, 1}}, 0, absl::nullopt},
+      {{{kMax, kMax}}, 0, absl::nullopt},
+      {{{0, "1e-9"}, {"1e-9", 0}}, -2.5e-19, -5e-19},
+      {{{0, "1e-19"}, {"1e-19", 0}}, -2.5e-39, -5e-39},
+      {{{0, "1e-38"}, {"1e-38", 0}}, -2.5e-77, -5e-77},
+      {{{kMax, kMax}, {kMax, kMax}}, 0, 0},
+      {{{kMax, kMax}, {kMax, kMax}}, 0, 0},
+      {{{"1.2", 5}, {"-2.4", 15}, {"3.6", -20}, {"4.8", 30}, {6, 35}},
+       16.08,
+       20.1},
+      {{{100, 3}, {200, 7}, {300, 11}, {400, 13}, {600, 17}}, 816, 1020},
+      {{{"1.2", 5},
+        {"-2.4", 15},
+        {17, "-3.5"},
+        {"3.6", -20},
+        {"2.4", -8},
+        {"4.8", 30},
+        {-W("2.4"), -W(-8)},
+        {6, 35},
+        {-W(17), -W("-3.5")}},
+       16.08,
+       20.1},
+  };
+
+  for (const CovarianceTestData& test_data : kTestData) {
+    BinaryAggregators<BigNumericValue::CovarianceAggregator,
+                      BigNumericValueWrapper>
+        aggregators;
+    for (const std::pair<W, W>& input : test_data.inputs) {
+      aggregators.Add(input);
+    }
+    VerifyCovariance(aggregators.agg, test_data.expect_var_pop,
+                     test_data.expect_var_samp, aggregators.count);
+    VerifyCovariance(aggregators.neg_agg, test_data.expect_var_pop,
+                     test_data.expect_var_samp, aggregators.count);
+    VerifyCovariance(aggregators.partial_neg_agg, -test_data.expect_var_pop,
+                     -test_data.expect_var_samp, aggregators.count);
+  }
+}
+
+static constexpr std::pair<BigNumericValueWrapper, BigNumericValueWrapper>
+    kBigNumericBinaryAggregatorTestInputs[] = {
+        {0, 8},
+        {1, 7},
+        {-1, 2},
+        {kMaxBigNumericValueStr, "-53.8"},
+        {"-123.01", kMaxBigNumericValueStr},
+        {kMinBigNumericValueStr, kMinBigNumericValueStr},
+        {kMinBigNumericValueStr, kMinBigNumericValueStr},
+        {kMinBigNumericValueStr, kMaxBigNumericValueStr},
+        {kMaxBigNumericValueStr, "32.999999999"},
+        {kMaxBigNumericValueStr, kMaxBigNumericValueStr},
+        {kMaxBigNumericValueStr, kMaxBigNumericValueStr},
+        {"56.999999999", kMaxBigNumericValueStr}};
+
+TEST_F(BigNumericValueTest, CovarianceAggregatorMergeWith) {
+  TestAggregatorMergeWith<BigNumericValue::CovarianceAggregator>(
+      kBigNumericBinaryAggregatorTestInputs);
+}
+
+TEST_F(BigNumericValueTest, CovarianceAggregatorSerialization) {
+  TestAggregatorSerialization<BigNumericValue::CovarianceAggregator>(
+      kBigNumericBinaryAggregatorTestInputs);
+}
+
+TEST_F(BigNumericValueTest, CorrelationAggregator) {
+  using W = BigNumericValueWrapper;
+  struct CorrelationTestData {
+    std::initializer_list<std::pair<W, W>> inputs;
+    absl::optional<double> expect_corr;
+  };
+
+  constexpr W kMax(kMaxBigNumericValueStr);
+  const CorrelationTestData kTestData[] = {
+      {{}, absl::nullopt},
+      {{{1, 1}}, absl::nullopt},
+      {{{kMax, kMax}}, absl::nullopt},
+      {{{1, 1}, {1, 1}}, std::numeric_limits<double>::quiet_NaN()},
+      {{{1, 1}, {-1, -1}}, 1},
+      {{{"0", "1e9"}, {"1e9", "0"}}, -1},
+      {{{"0", "1e19"}, {"1e19", "0"}}, -1},
+      {{{"0", "1e38"}, {"1e38", "0"}}, -1},
+      {{{"1", "2"}, {"1e19", "2e19"}}, 1},
+      {{{"1", "2"}, {"1e38", "2e38"}}, 1},
+      {{{"1", "1e19"}, {"2", "2e19"}}, 1},
+      {{{"1", "1e38"}, {"2", "2e38"}}, 1},
+      {{{1, 5}, {"1.5", 15}, {2, 20}, {"2.5", 25}, {3, 35}},
+       0.98994949366116658},  // sqrt(0.98)
+      {{{1, 3}, {2, 3}, {3, 3}, {4, 3}, {5, 3}},
+       std::numeric_limits<double>::quiet_NaN()},
+      {{{8, -2},
+        {1, 5},
+        {3, 35},
+        {"1.5", 15},
+        {2, 20},
+        {"2.5", 25},
+        {-W(8), -W(-2)},
+        {-W(3), -W(35)},
+        {3, 35}},
+       0.98994949366116658},  // sqrt(0.98)
+  };
+  for (const CorrelationTestData& test_data : kTestData) {
+    BinaryAggregators<BigNumericValue::CorrelationAggregator,
+                      BigNumericValueWrapper>
+        aggregators;
+    for (const std::pair<W, W>& input : test_data.inputs) {
+      aggregators.Add(input);
+    }
+    VerifyCorrelation(aggregators.agg, test_data.expect_corr,
+                      aggregators.count);
+    VerifyCorrelation(aggregators.neg_agg, test_data.expect_corr,
+                      aggregators.count);
+    VerifyCorrelation(aggregators.partial_neg_agg, -test_data.expect_corr,
+                      aggregators.count);
+  }
+}
+
+TEST_F(BigNumericValueTest, CorrelationAggregatorMergeWith) {
+  TestAggregatorMergeWith<BigNumericValue::CorrelationAggregator>(
+      kBigNumericBinaryAggregatorTestInputs);
+}
+
+TEST_F(BigNumericValueTest, CorrelationAggregatorSerialization) {
+  TestAggregatorSerialization<BigNumericValue::CorrelationAggregator>(
+      kBigNumericBinaryAggregatorTestInputs);
 }
 }  // namespace
 }  // namespace zetasql

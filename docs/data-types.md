@@ -177,6 +177,10 @@ scale.</td>
 </tbody>
 </table>
 
+### DECIMAL type
+
+`DECIMAL` is an alias for `NUMERIC`.
+
 ### Floating point types {: #floating_point_types }
 
 Floating point values are approximate numeric values with fractional components.

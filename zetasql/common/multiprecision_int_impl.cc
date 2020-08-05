@@ -14,10 +14,10 @@
 // limitations under the License.
 //
 
-#include "zetasql/common/fixed_int_internal.h"
+#include "zetasql/common/multiprecision_int_impl.h"
 
 namespace zetasql {
-namespace fixed_int_internal {
+namespace multiprecision_int_impl {
 
 inline int Print9Digits(uint32_t digits, bool skip_leading_zeros,
                         char output[9]) {
@@ -51,5 +51,5 @@ void AppendSegmentsToString(const uint32_t segments[], int num_segments,
   result->resize(new_size - (9 - num_digits_in_first_segment));
 }
 
-}  // namespace fixed_int_internal
+}  // namespace multiprecision_int_impl
 }  // namespace zetasql

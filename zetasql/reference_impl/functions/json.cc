@@ -76,7 +76,7 @@ zetasql_base::StatusOr<Value> JsonExtractJson(
   if (scalar) {
     absl::optional<std::string> output_string_or;
     if (json.is_validated_json()) {
-      output_string_or = evaluator.ExtractScalar(json.json_value_validated());
+      output_string_or = evaluator.ExtractScalar(json.json_value());
     } else {
       ZETASQL_ASSIGN_OR_RETURN(JSONValue input_json,
                        JSONValue::ParseJSONString(json.json_value_unparsed(),
@@ -89,7 +89,7 @@ zetasql_base::StatusOr<Value> JsonExtractJson(
   } else {
     absl::optional<JSONValueConstRef> output_json_or;
     if (json.is_validated_json()) {
-      output_json_or = evaluator.Extract(json.json_value_validated());
+      output_json_or = evaluator.Extract(json.json_value());
     } else {
       ZETASQL_ASSIGN_OR_RETURN(JSONValue input_json,
                        JSONValue::ParseJSONString(json.json_value_unparsed(),

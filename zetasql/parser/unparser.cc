@@ -17,6 +17,7 @@
 #include "zetasql/parser/unparser.h"
 
 #include <ctype.h>
+
 #include <set>
 #include <utility>
 
@@ -122,10 +123,10 @@ void Formatter::FormatLine(absl::string_view s) {
 bool Formatter::LastTokenIsSeparator() {
   // These are keywords emitted in uppercase in Unparser, so don't need to make
   // them case insensitive.
-  static const std::set<std::string> kWordSperarator = {"AND", "OR", "ON",
-                                                        "IN"};
-  static const std::set<char> kNonWordSperarator = {
-      ',', '<', '>', '-', '+', '=', '*', '/', '%' };
+  static const std::set<std::string>& kWordSperarator =
+      *new std::set<std::string>({"AND", "OR", "ON", "IN"});
+  static const std::set<char>& kNonWordSperarator =
+      *new std::set<char>({',', '<', '>', '-', '+', '=', '*', '/', '%'});
   if (buffer_.empty()) return false;
   // When last token is not a word.
   if (!isalnum(buffer_.back())) {
@@ -443,6 +444,17 @@ void Unparser::visitASTCreateFunctionStatement(
   if (node->options_list() != nullptr) {
     println("OPTIONS");
     Formatter::Indenter indenter(&formatter_);
+    node->options_list()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTCreateSchemaStatement(
+    const ASTCreateSchemaStatement* node, void* data) {
+  print(GetCreateStatementPrefix(node, "SCHEMA"));
+  node->name()->Accept(this, data);
+  if (node->options_list() != nullptr) {
+    println();
+    print("OPTIONS");
     node->options_list()->Accept(this, data);
   }
 }
@@ -1876,11 +1888,28 @@ void Unparser::UnparseColumnSchema(const ASTColumnSchema* node, void* data) {
 void Unparser::visitASTAnalyticFunctionCall(const ASTAnalyticFunctionCall* node,
                                             void* data) {
   PrintOpenParenIfNeeded(node);
-  node->function()->Accept(this, data);
+  if (node->function() != nullptr) {
+    node->function()->Accept(this, data);
+  } else {
+    node->function_with_group_rows()->Accept(this, data);
+  }
   print("OVER (");
   {
     Formatter::Indenter indenter(&formatter_);
     node->window_spec()->Accept(this, data);
+  }
+  print(")");
+  PrintCloseParenIfNeeded(node);
+}
+
+void Unparser::visitASTFunctionCallWithGroupRows(
+    const ASTFunctionCallWithGroupRows* node, void* data) {
+  PrintOpenParenIfNeeded(node);
+  node->function()->Accept(this, data);
+  print("WITH GROUP_ROWS (");
+  {
+    Formatter::Indenter indenter(&formatter_);
+    node->subquery()->Accept(this, data);
   }
   print(")");
   PrintCloseParenIfNeeded(node);

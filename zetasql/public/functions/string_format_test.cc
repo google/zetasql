@@ -154,5 +154,14 @@ TEST(StringFormatTest, TestBadUtf8Values) {
   TestBadValue("%T", bad_proto_value);
 }
 
+TEST(StringFormatTest, TestBadJsonValue) {
+  Value bad_json = Value::UnvalidatedJsonString(R"({"a": 12)");
+
+  TestBadValue("%t", bad_json);
+  TestBadValue("%T", bad_json);
+  TestBadValue("%p", bad_json);
+  TestBadValue("%P", bad_json);
+}
+
 }  // namespace functions
 }  // namespace zetasql

@@ -35,6 +35,8 @@ java_library(
         "//zetasql/proto:options_java_proto",
         "//zetasql/proto:simple_catalog_java_proto",
         "//zetasql/public:builtin_function_java_proto",
+        "//zetasql/public:deprecation_warning_java_proto",
+        "//zetasql/public:error_location_java_proto",
         "//zetasql/public:function_java_proto",
         "//zetasql/public:options_java_proto",
         "//zetasql/public:parse_resume_location_java_proto",

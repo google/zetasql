@@ -930,9 +930,11 @@ FROM Roster JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 
 `CROSS JOIN` returns the Cartesian product of the two `from_item`s. In other
 words, it combines each row from the first `from_item` with each row from the
-second `from_item`. If there are *M* rows from the first and *N* rows from the
-second, the result is *M* * *N* rows. Note that if either `from_item` has zero
-rows, the result is zero rows.
+second `from_item`.
+
+If the rows of the two `from_item`s are independent, then the result has *M* *
+*N* rows, given *M* rows in one `from_item` and *N* in the other. Note that this
+still holds for the case when either `from_item` has zero rows.
 
 ```sql
 FROM A CROSS JOIN B
@@ -946,6 +948,25 @@ Table A       Table B       Result
 +-------+     +-------+     | 2 | b | 2 | c |
                             | 2 | b | 3 | d |
                             +---------------+
+```
+
+You can use *correlated* `CROSS JOIN`s to
+[flatten `ARRAY` columns][flattening-arrays]. In this case, the rows of the
+second `from_item` vary for each row of the first `from_item`.
+
+```sql
+FROM A CROSS JOIN A.y
+
+Table A                    Result
++-------------------+      +-----------+
+| w | x | y         |  ->  | w | x | y |
++-------------------+      +-----------+
+| 1 | a | [P, Q]    |      | 1 | a | P |
+| 2 | b | [R, S, T] |      | 1 | a | Q |
++-------------------+      | 2 | b | R |
+                           | 2 | b | S |
+                           | 2 | b | T |
+                           +-----------+
 ```
 
 `CROSS JOIN`s can be written explicitly like this:
@@ -962,7 +983,7 @@ FROM a, b
 
 You cannot write comma cross joins inside parentheses:
 
-```sql
+```sql {.bad}
 FROM a CROSS JOIN (b, c)  // INVALID
 ```
 
@@ -1341,9 +1362,15 @@ FROM A JOIN B USING (x) JOIN C USING (x), D
 
 There cannot be a `RIGHT JOIN` or `FULL JOIN` after a comma join:
 
-```sql
+```sql {.bad}
 FROM A, B RIGHT JOIN C ON TRUE // INVALID
+```
+
+```sql {.bad}
 FROM A, B FULL JOIN C ON TRUE  // INVALID
+```
+
+```sql
 FROM A, B JOIN C ON TRUE       // VALID
 ```
 
@@ -1973,9 +2000,10 @@ query1 UNION ALL query2 UNION ALL query3
 
 Invalid:
 
-<pre>
-query1 UNION ALL query2 UNION DISTINCT query3<br>query1 UNION ALL query2 INTERSECT ALL query3;  // INVALID.
-</pre>
+``` {.bad}
+query1 UNION ALL query2 UNION DISTINCT query3
+query1 UNION ALL query2 INTERSECT ALL query3;  // INVALID.
+```
 
 <a id="union"></a>
 ### UNION
@@ -2190,7 +2218,7 @@ FROM Singers AS s, s.Concerts;
 
 Invalid:
 
-```
+``` {.bad}
 SELECT FirstName
 FROM s.Concerts, Singers AS s;  // INVALID.
 ```
@@ -2201,7 +2229,7 @@ other tables in the same `FROM` clause.
 
 Invalid:
 
-```
+``` {.bad}
 SELECT FirstName
 FROM Singers AS s, (SELECT (2020 - ReleaseDate) FROM s)  // INVALID.
 ```
@@ -2231,7 +2259,7 @@ ORDER BY s.LastName
 
 Invalid &mdash; `ORDER BY` does not use the table alias:
 
-```
+``` {.bad}
 SELECT * FROM Singers as s, Songs as s2
 ORDER BY Singers.LastName;  // INVALID.
 ```

@@ -189,7 +189,7 @@ TEST_P(FormatFunctionTests, Test) {
       "Got 4",
       TestFormat("%d%s", {Int64(0), String(""), Int64(0)}));
 
-  // To Few
+  // Too Few
   EXPECT_EQ(
       "ERROR: Too few arguments to FORMAT for pattern \"abc%d\"; Expected 2; "
       "Got 1",
@@ -534,6 +534,11 @@ TEST_P(FormatFunctionTests, Test) {
   proto_pb.add_str_value("bar");
   const Value proto_value = values::Proto(proto_type, proto_pb);
 
+  const Value json_value = values::Json(
+      JSONValue::ParseJSONString(
+          R"({"foo":[1, null, "bar"], "foo2": "hello", "foo3": true})")
+          .value());
+
   EXPECT_EQ("(abc, 123)", TestFormat("%t", {struct_value}));
   EXPECT_EQ("[1, 2, 3]", TestFormat("%t", {array_value}));
   EXPECT_EQ("(\"abc\", 123)", TestFormat("%T", {struct_value}));
@@ -550,6 +555,36 @@ str_value: "foo"
 str_value: "bar"
 )",
             TestFormat("%P", {proto_value}));
+
+  EXPECT_EQ("{\"foo\":[1,null,\"bar\"],\"foo2\":\"hello\",\"foo3\":true}",
+            TestFormat("%t", {json_value}));
+  EXPECT_EQ(
+      "JSON '{\"foo\":[1,null,\"bar\"],\"foo2\":\"hello\",\"foo3\":true}'",
+      TestFormat("%T", {json_value}));
+  EXPECT_EQ("{\"foo\":[1,null,\"bar\"],\"foo2\":\"hello\",\"foo3\":true}",
+            TestFormat("%p", {json_value}));
+  EXPECT_EQ(
+      R"({
+  "foo": [
+    1,
+    null,
+    "bar"
+  ],
+  "foo2": "hello",
+  "foo3": true
+})",
+      TestFormat("%P", {json_value}));
+
+  const Value bad_json_value = Value::UnvalidatedJsonString(R"({"a": 12)");
+
+  EXPECT_THAT(TestFormat("%t", {bad_json_value}),
+              ::testing::HasSubstr("syntax error while parsing object"));
+  EXPECT_THAT(TestFormat("%T", {bad_json_value}),
+              ::testing::HasSubstr("syntax error while parsing object"));
+  EXPECT_THAT(TestFormat("%p", {bad_json_value}),
+              ::testing::HasSubstr("syntax error while parsing object"));
+  EXPECT_THAT(TestFormat("%P", {bad_json_value}),
+              ::testing::HasSubstr("syntax error while parsing object"));
 
   const StructType* struct_of_arrays_type;
   ZETASQL_ASSERT_OK(type_factory.MakeStructType({{"a1", array_type}, {"", array_type}},
@@ -574,6 +609,22 @@ str_value: "bar"
       "('int32_val1: 123 str_value: \"foo\" str_value: \"bar\"', 'int32_val1: "
       "123 str_value: \"foo\" str_value: \"bar\"')",
       TestFormat("%T", {struct_of_proto_value}));
+
+  const StructType* struct_of_json_type;
+  ZETASQL_ASSERT_OK(type_factory.MakeStructType(
+      {{"p1", types::JsonType()}, {"", types::JsonType()}},
+      &struct_of_json_type));
+  Value struct_of_json_value =
+      values::Struct(struct_of_json_type, {json_value, json_value});
+
+  EXPECT_EQ(
+      "({\"foo\":[1,null,\"bar\"],\"foo2\":\"hello\",\"foo3\":true}, "
+      "{\"foo\":[1,null,\"bar\"],\"foo2\":\"hello\",\"foo3\":true})",
+      TestFormat("%t", {struct_of_json_value}));
+  EXPECT_EQ(
+      "(JSON '{\"foo\":[1,null,\"bar\"],\"foo2\":\"hello\",\"foo3\":true}', "
+      "JSON '{\"foo\":[1,null,\"bar\"],\"foo2\":\"hello\",\"foo3\":true}')",
+      TestFormat("%T", {struct_of_json_value}));
 
   const StructType* struct_of_struct_type;
   ZETASQL_ASSERT_OK(type_factory.MakeStructType(
@@ -606,6 +657,17 @@ str_value: "bar"
       "['int32_val1: 123 str_value: \"foo\" str_value: \"bar\"', 'int32_val1: "
       "123 str_value: \"foo\" str_value: \"bar\"']",
       TestFormat("%T", {array_of_proto_value}));
+
+  Value array_of_json_value =
+      values::Array(types::JsonArrayType(), {json_value, json_value});
+  EXPECT_EQ(
+      "[{\"foo\":[1,null,\"bar\"],\"foo2\":\"hello\",\"foo3\":true}, "
+      "{\"foo\":[1,null,\"bar\"],\"foo2\":\"hello\",\"foo3\":true}]",
+      TestFormat("%t", {array_of_json_value}));
+  EXPECT_EQ(
+      "[JSON '{\"foo\":[1,null,\"bar\"],\"foo2\":\"hello\",\"foo3\":true}', "
+      "JSON '{\"foo\":[1,null,\"bar\"],\"foo2\":\"hello\",\"foo3\":true}']",
+      TestFormat("%T", {array_of_json_value}));
 
   const ArrayType* array_of_struct_type;
   ZETASQL_ASSERT_OK(type_factory.MakeArrayType(struct_type, &array_of_struct_type));

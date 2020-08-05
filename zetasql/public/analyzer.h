@@ -859,7 +859,7 @@ absl::Status AnalyzeExpression(absl::string_view sql,
 // The conversion is performed using assignment semantics.
 // For details, see Coercer::AssignableTo() in
 // .../public/coercer.h.  If the conversion is not possible, an
-// error is issued, with a location attached corresonding to the start of the
+// error is issued, with a location attached corresponding to the start of the
 // expression.
 //
 // If <target_type> is nullptr, behaves the same as AnalyzeExpression().
@@ -882,7 +882,7 @@ absl::Status AnalyzeExpressionFromParserAST(
 // The conversion is performed using assignment semantics.
 // For details, see Coercer::AssignableTo() in
 // .../public/coercer.h.  If the conversion is not possible, an
-// error is issued, with a location attached corresonding to the start of the
+// error is issued, with a location attached corresponding to the start of the
 // expression.
 //
 // If <target_type> is nullptr, behaves the same as

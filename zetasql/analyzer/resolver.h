@@ -3016,6 +3016,16 @@ class Resolver {
       const ASTExecuteImmediateStatement* ast_statement,
       std::unique_ptr<const ResolvedStatement>* output);
 
+  // Resolves a generic CREATE <entity_type> statement.
+  absl::Status ResolveCreateEntityStatement(
+      const ASTCreateEntityStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
+  // Resolves a generic ALTER <entity_type> statement.
+  absl::Status ResolveAlterEntityStatement(
+      const ASTAlterEntityStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
  public:
   absl::Status ResolveFunctionCallWithResolvedArguments(
       const ASTNode* ast_location,

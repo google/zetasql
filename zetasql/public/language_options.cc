@@ -54,6 +54,8 @@ std::set<LanguageFeature> LanguageOptions::GetLanguageFeaturesForVersion(
       features.insert(FEATURE_V_1_3_ALLOW_REGEXP_EXTRACT_OPTIONALS);
       features.insert(FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS);
       features.insert(FEATURE_V_1_3_DATE_ARITHMETICS);
+      features.insert(FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS);
+      features.insert(FEATURE_V_1_3_WITH_GROUP_ROWS);
       ABSL_FALLTHROUGH_INTENDED;
     // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
     // supposed to be stable and frozen, except possibly for bug fixes.
@@ -129,6 +131,13 @@ LanguageOptions::LanguageOptions(const LanguageOptionsProto& proto)
       enabled_language_features_.insert(proto.enabled_language_features(i));
     }
   }
+  if (proto.supported_generic_entity_types_size() > 0) {
+    supported_generic_entity_types_.clear();
+    for (int i = 0; i <  proto.supported_generic_entity_types_size(); ++i) {
+      supported_generic_entity_types_.insert(
+          proto.supported_generic_entity_types(i));
+    }
+  }
 }
 
 void LanguageOptions::Serialize(LanguageOptionsProto* proto) const {
@@ -141,6 +150,9 @@ void LanguageOptions::Serialize(LanguageOptionsProto* proto) const {
   }
   for (LanguageFeature feature : enabled_language_features_) {
     proto->add_enabled_language_features(feature);
+  }
+  for (const std::string& entity_type : supported_generic_entity_types_) {
+    proto->add_supported_generic_entity_types(entity_type);
   }
 }
 

@@ -5,7 +5,8 @@
 ZetaSQL supports the following `DATETIME` functions.
 
 ### CURRENT_DATETIME
-```
+
+```sql
 CURRENT_DATETIME([timezone])
 ```
 
@@ -14,8 +15,8 @@ CURRENT_DATETIME([timezone])
 Returns the current time as a DATETIME object.
 
 This function supports an optional `timezone` parameter.
-See [Timezone definitions][datetime-link-to-timezone-definitions] for information on how to
-specify a time zone.
+See [Timezone definitions][datetime-link-to-timezone-definitions] for
+information on how to specify a time zone.
 
 **Return Data Type**
 
@@ -34,17 +35,18 @@ SELECT CURRENT_DATETIME() as now;
 ```
 
 ### DATETIME
-```
+
+```sql
 1. DATETIME(year, month, day, hour, minute, second)
-2. DATETIME(date_expression, time_expression)
+2. DATETIME(date_expression[, time_expression])
 3. DATETIME(timestamp_expression [, timezone])
 ```
 
 **Description**
 
-1. Constructs a DATETIME object using INT64 values representing the year, month,
-   day, hour, minute, and second.
-2. Constructs a DATETIME object using a DATE object and a TIME object.
+1. Constructs a DATETIME object using INT64 values
+   representing the year, month, day, hour, minute, and second.
+2. Constructs a DATETIME object using a DATE object and an optional TIME object.
 3. Constructs a DATETIME object using a TIMESTAMP object. It supports an
    optional parameter to [specify a timezone][datetime-link-to-timezone-definitions]. If no
    timezone is specified, the default timezone, which is implementation defined, is used.
@@ -68,14 +70,15 @@ SELECT
 ```
 
 ### EXTRACT
-```
+
+```sql
 EXTRACT(part FROM datetime_expression)
 ```
 
 **Description**
 
-Returns an `INT64` value that corresponds to the specified `part` from
-a supplied `datetime_expression`.
+Returns a value that corresponds to the
+specified `part` from a supplied `datetime_expression`.
 
 Allowed `part` values are:
 
@@ -186,13 +189,14 @@ FROM table;
 ```
 
 ### DATETIME_ADD
-```
-DATETIME_ADD(datetime_expression, INTERVAL INT64_expr part)
+
+```sql
+DATETIME_ADD(datetime_expression, INTERVAL int64_expression part)
 ```
 
 **Description**
 
-Adds `INT64_expr` units of `part` to the DATETIME object.
+Adds `int64_expression` units of `part` to the DATETIME object.
 
 `DATETIME_ADD` supports the following values for `part`:
 
@@ -233,13 +237,14 @@ SELECT
 ```
 
 ### DATETIME_SUB
-```
-DATETIME_SUB(datetime_expression, INTERVAL INT64_expr part)
+
+```sql
+DATETIME_SUB(datetime_expression, INTERVAL int64_expression part)
 ```
 
 **Description**
 
-Subtracts `INT64_expr` units of `part` from the DATETIME.
+Subtracts `int64_expression` units of `part` from the DATETIME.
 
 `DATETIME_SUB` supports the following values for `part`:
 
@@ -280,18 +285,21 @@ SELECT
 ```
 
 ### DATETIME_DIFF
-```
-DATETIME_DIFF(datetime_expression, datetime_expression, part)
+
+```sql
+DATETIME_DIFF(datetime_expression_a, datetime_expression_b, part)
 ```
 
 **Description**
 
 Returns the number of whole specified `part` intervals between two
-`DATETIME` objects. If the first `DATETIME` is earlier than the second one,
+`DATETIME` objects (`datetime_expression_a` - `datetime_expression_b`).
+If the first `DATETIME` is earlier than the second one,
 the output is negative. Throws an error if the computation overflows the
 result type, such as if the difference in
 nanoseconds
-between the two `DATETIME` objects would overflow an `INT64` value.
+between the two `DATETIME` objects would overflow an
+`INT64` value.
 
 `DATETIME_DIFF` supports the following values for `part`:
 
@@ -335,7 +343,6 @@ SELECT
 +----------------------------+------------------------+------------------------+
 | 2010-07-07 10:20:00        | 2008-12-25 15:30:00    | 559                    |
 +----------------------------+------------------------+------------------------+
-
 ```
 
 ```sql
@@ -350,7 +357,6 @@ SELECT
 +-----------+------------+
 | 1         | 1          |
 +-----------+------------+
-
 ```
 
 The example above shows the result of `DATETIME_DIFF` for two `DATETIME`s that
@@ -403,7 +409,7 @@ SELECT
 
 ### DATETIME_TRUNC
 
-```
+```sql
 DATETIME_TRUNC(datetime_expression, part)
 ```
 
@@ -472,7 +478,6 @@ FROM (SELECT DATETIME(TIMESTAMP "2017-11-05 00:00:00+00", "UTC") AS datetime);
 +---------------------+---------------------+
 | 2017-11-05 00:00:00 | 2017-10-30 00:00:00 |
 +---------------------+---------------------+
-
 ```
 
 In the following example, the original `datetime_expression` is in the Gregorian
@@ -497,7 +502,7 @@ SELECT
 
 ### FORMAT_DATETIME
 
-```
+```sql
 FORMAT_DATETIME(format_string, datetime_expression)
 ```
 
@@ -551,7 +556,7 @@ SELECT
 
 ### PARSE_DATETIME
 
-```
+```sql
 PARSE_DATETIME(format_string, string)
 ```
 **Description**

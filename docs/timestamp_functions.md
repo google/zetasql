@@ -50,7 +50,7 @@ EXTRACT(part FROM timestamp_expression [AT TIME ZONE tz_spec])
 
 **Description**
 
-Returns an `INT64` value that corresponds to the specified `part` from
+Returns a value that corresponds to the specified `part` from
 a supplied `timestamp_expression`.
 
 Allowed `part` values are:
@@ -94,11 +94,11 @@ information on how to specify a time zone.
 
 **Return Data Type**
 
-Generally
-`INT64`
-. Returns
-`DATE` if `part` is
-`DATE`.
+INT64, except when:
+
++ `part` is `DATE`, returns a `DATE` object.
++ `part` is `DATETIME`, returns a `DATETIME` object.
++ `part` is `TIME`, returns a `TIME` object.
 
 **Examples**
 
@@ -205,11 +205,9 @@ SELECT STRING(TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS string;
 ### TIMESTAMP
 
 ```sql
-TIMESTAMP(
-  string_expression[, timezone] |
-  date_expression[, timezone] |
-  datetime_expression[, timezone]
-)
+TIMESTAMP(string_expression[, timezone])
+TIMESTAMP(date_expression[, timezone])
+TIMESTAMP(datetime_expression[, timezone])
 ```
 
 **Description**
@@ -376,13 +374,13 @@ SELECT
 ### TIMESTAMP_DIFF
 
 ```sql
-TIMESTAMP_DIFF(timestamp_expression, timestamp_expression, date_part)
+TIMESTAMP_DIFF(timestamp_expression_a, timestamp_expression_b, date_part)
 ```
 
 **Description**
 
 Returns the number of whole specified `date_part` intervals between two
-`TIMESTAMP` objects. If the first `TIMESTAMP` is earlier than the second one,
+`TIMESTAMP` objects (`timestamp_expression_a` - `timestamp_expression_b`). If the first `TIMESTAMP` is earlier than the second one,
 the output is negative. Throws an error if the computation overflows the
 result type, such as if the difference in
 nanoseconds
@@ -429,6 +427,19 @@ SELECT TIMESTAMP_DIFF(TIMESTAMP "2018-08-14", TIMESTAMP "2018-10-14", DAY);
 | negative_diff |
 +---------------+
 | -61           |
++---------------+
+```
+
+In this example, the result is 0 because only the number of whole specified
+`HOUR` intervals are included.
+
+```sql
+SELECT TIMESTAMP_DIFF("2001-02-01 01:00:00", "2001-02-01 00:00:01", HOUR)
+
++---------------+
+| negative_diff |
++---------------+
+| 0             |
 +---------------+
 ```
 
@@ -1141,18 +1152,18 @@ or time zone offset from UTC (for example, -08).
 
 If you choose to use a time zone offset, use this format:
 
-```
+```sql
 (+|-)H[H][:M[M]]
 ```
 
 The following timestamps are equivalent because the time zone offset
 for `America/Los_Angeles` is `-08` for the specified date and time.
 
-```
+```sql
 SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00 America/Los_Angeles") as millis;
 ```
 
-```
+```sql
 SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00-08:00") as millis;
 ```
 

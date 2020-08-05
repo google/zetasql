@@ -253,7 +253,16 @@ TEST_P(MathTemplateTest, Testlib) {
         FAIL() << "unrecognized type for " << function;
     }
   } else if (function == "sqrt") {
-    return TestUnaryFunction(param.params, &Sqrt<double>);
+    switch (param.params.param(0).type_kind()) {
+      case TYPE_DOUBLE:
+        return TestUnaryFunction(param.params, &Sqrt<double>);
+      case TYPE_NUMERIC:
+        return TestUnaryFunction(param.params, &Sqrt<NumericValue>);
+      case TYPE_BIGNUMERIC:
+        return TestUnaryFunction(param.params, &Sqrt<BigNumericValue>);
+      default:
+        FAIL() << "unrecognized type for " << function;
+    }
   } else if (function == "pow" || function == "power") {
     switch (param.params.param(0).type_kind()) {
       case TYPE_DOUBLE:
@@ -266,17 +275,66 @@ TEST_P(MathTemplateTest, Testlib) {
         FAIL() << "unrecognized type for " << function;
     }
   } else if (function == "exp") {
-    return TestUnaryFunction(param.params, &Exp<double>);
+    switch (param.params.param(0).type_kind()) {
+      case TYPE_DOUBLE:
+        return TestUnaryFunction(param.params, &Exp<double>);
+      case TYPE_NUMERIC:
+        return TestUnaryFunction(param.params, &Exp<NumericValue>);
+      case TYPE_BIGNUMERIC:
+        return TestUnaryFunction(param.params, &Exp<BigNumericValue>);
+      default:
+        FAIL() << "unrecognized type for " << function;
+    }
   } else if (function == "ln") {
-    return TestUnaryFunction(param.params, &NaturalLogarithm<double>);
+    switch (param.params.param(0).type_kind()) {
+      case TYPE_DOUBLE:
+        return TestUnaryFunction(param.params, &NaturalLogarithm<double>);
+      case TYPE_NUMERIC:
+        return TestUnaryFunction(param.params, &NaturalLogarithm<NumericValue>);
+      case TYPE_BIGNUMERIC:
+        return TestUnaryFunction(param.params,
+                                 &NaturalLogarithm<BigNumericValue>);
+      default:
+        FAIL() << "unrecognized type for " << function;
+    }
   } else if (function == "log") {
     if (param.params.num_params() == 1) {
-      return TestUnaryFunction(param.params, &NaturalLogarithm<double>);
+      switch (param.params.param(0).type_kind()) {
+        case TYPE_DOUBLE:
+          return TestUnaryFunction(param.params, &NaturalLogarithm<double>);
+        case TYPE_NUMERIC:
+          return TestUnaryFunction(param.params,
+                                   &NaturalLogarithm<NumericValue>);
+        case TYPE_BIGNUMERIC:
+          return TestUnaryFunction(param.params,
+                                   &NaturalLogarithm<BigNumericValue>);
+        default:
+          FAIL() << "unrecognized type for " << function;
+      }
     } else {
-      return TestBinaryFunction(param.params, &Logarithm<double>);
+      switch (param.params.param(0).type_kind()) {
+        case TYPE_DOUBLE:
+          return TestBinaryFunction(param.params, &Logarithm<double>);
+        case TYPE_NUMERIC:
+          return TestBinaryFunction(param.params, &Logarithm<NumericValue>);
+        case TYPE_BIGNUMERIC:
+          return TestBinaryFunction(param.params, &Logarithm<BigNumericValue>);
+        default:
+          FAIL() << "unrecognized type for " << function;
+      }
     }
   } else if (function == "log10") {
-    return TestUnaryFunction(param.params, &DecimalLogarithm<double>);
+    switch (param.params.param(0).type_kind()) {
+      case TYPE_DOUBLE:
+        return TestUnaryFunction(param.params, &DecimalLogarithm<double>);
+      case TYPE_NUMERIC:
+        return TestUnaryFunction(param.params, &DecimalLogarithm<NumericValue>);
+      case TYPE_BIGNUMERIC:
+        return TestUnaryFunction(param.params,
+                                 &DecimalLogarithm<BigNumericValue>);
+      default:
+        FAIL() << "unrecognized type for " << function;
+    }
   } else if (function == "cos") {
     return TestUnaryFunction(param.params, &Cos<double>);
   } else if (function == "acos") {

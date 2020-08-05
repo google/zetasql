@@ -19,7 +19,7 @@
 #include <limits>
 
 #include "zetasql/base/logging.h"
-#include "zetasql/common/fixed_int.h"
+#include "zetasql/common/multiprecision_int.h"
 #include "zetasql/base/mathutil.h"
 #include "zetasql/base/ret_check.h"
 

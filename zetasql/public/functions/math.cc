@@ -298,9 +298,35 @@ bool Floor(NumericValue in, NumericValue *out, absl::Status* error) {
 }
 
 template <>
+bool Sqrt(NumericValue in, NumericValue *out, absl::Status* error) {
+  return SetNumericResultOrError(in.Sqrt(), out, error);
+}
+
+template <>
 bool Pow(NumericValue in1, NumericValue in2, NumericValue* out,
          absl::Status* error) {
   return SetNumericResultOrError(in1.Power(in2), out, error);
+}
+
+template <>
+bool Exp(NumericValue in, NumericValue* out, absl::Status* error) {
+  return SetNumericResultOrError(in.Exp(), out, error);
+}
+
+template <>
+bool NaturalLogarithm(NumericValue in, NumericValue* out, absl::Status* error) {
+  return SetNumericResultOrError(in.Ln(), out, error);
+}
+
+template <>
+bool DecimalLogarithm(NumericValue in, NumericValue* out, absl::Status* error) {
+  return SetNumericResultOrError(in.Log10(), out, error);
+}
+
+template <>
+bool Logarithm(NumericValue in1, NumericValue in2, NumericValue* out,
+               absl::Status* error) {
+  return SetNumericResultOrError(in1.Log(in2), out, error);
 }
 
 template <>
@@ -338,9 +364,37 @@ bool TruncDecimal(BigNumericValue in, int64_t digits, BigNumericValue* out,
 }
 
 template <>
+bool Sqrt(BigNumericValue in, BigNumericValue *out, absl::Status* error) {
+  return SetNumericResultOrError(in.Sqrt(), out, error);
+}
+
+template <>
 bool Pow(BigNumericValue in1, BigNumericValue in2, BigNumericValue* out,
          absl::Status* error) {
   return SetNumericResultOrError(in1.Power(in2), out, error);
+}
+
+template <>
+bool Exp(BigNumericValue in, BigNumericValue* out, absl::Status* error) {
+  return SetNumericResultOrError(in.Exp(), out, error);
+}
+
+template <>
+bool NaturalLogarithm(BigNumericValue in, BigNumericValue* out,
+                      absl::Status* error) {
+  return SetNumericResultOrError(in.Ln(), out, error);
+}
+
+template <>
+bool DecimalLogarithm(BigNumericValue in, BigNumericValue* out,
+                      absl::Status* error) {
+  return SetNumericResultOrError(in.Log10(), out, error);
+}
+
+template <>
+bool Logarithm(BigNumericValue in1, BigNumericValue in2, BigNumericValue* out,
+               absl::Status* error) {
+  return SetNumericResultOrError(in1.Log(in2), out, error);
 }
 
 }  // namespace functions

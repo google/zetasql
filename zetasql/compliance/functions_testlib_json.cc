@@ -17,6 +17,7 @@
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/compliance/functions_testlib_common.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/using_test_value.cc"
 #include "absl/strings/substitute.h"
@@ -580,6 +581,16 @@ std::vector<FunctionTestCall> GetFunctionTestsNativeJsonValue() {
 std::vector<FunctionTestCall> GetFunctionTestsNativeJsonExtractScalar() {
   return GetNativeJsonTests(/*sql_standard_mode=*/false,
                             /*scalar_test_cases=*/true);
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsJsonIsNull() {
+  std::vector<QueryParamsWithResult> v = {
+      {{NullJson()}, True()},
+      {{Json(JSONValue(1.1))}, False()},
+      {{Json(JSONValue(std::string{"null"}))}, False()},
+      {{Value::Null(types::JsonArrayType())}, True()},
+  };
+  return v;
 }
 
 }  // namespace zetasql

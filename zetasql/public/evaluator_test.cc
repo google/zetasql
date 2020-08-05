@@ -40,6 +40,7 @@
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -320,45 +321,75 @@ TEST(EvaluatorTest, WithRecursiveTerminatesDueToLimit) {
   // 2) The recursion halts when the number of rows in the outer LIMIT clause
   //      is reached (this guarantee only holds when the 'inlined_with_entries'
   //      optimization is enabled, which is the case in the evaluator api).
-  const std::string query = R"(ARRAY(
-  WITH RECURSIVE
-    Fib AS (
-      SELECT 1 AS a, 1 AS b
-      UNION ALL
-      SELECT b, a + b FROM Fib
-  ) SELECT a FROM fib LIMIT 10
-  ))";
-  PreparedExpression expr(query);
-  LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
-  language_options.EnableLanguageFeature(FEATURE_V_1_3_WITH_RECURSIVE);
-  AnalyzerOptions analyzer_options(language_options);
-  ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
-  const zetasql_base::StatusOr<Value> result = expr.Execute();
-  EXPECT_THAT(result,
-              IsOkAndHolds(Array({Int64(1), Int64(1), Int64(2), Int64(3),
-                                  Int64(5), Int64(8), Int64(13), Int64(21),
-                                  Int64(34), Int64(55)})));
+  for (const char* mode : {"ALL", "DISTINCT"}) {
+    SCOPED_TRACE(absl::StrCat("UNION ", mode));
+    const std::string query = absl::StrFormat(R"(ARRAY(
+    WITH RECURSIVE
+      Fib AS (
+        SELECT 1 AS a, 1 AS b
+        UNION %s
+        SELECT b, a + b FROM Fib
+    ) SELECT a FROM fib LIMIT 10
+    ))",
+                                              mode);
+    PreparedExpression expr(query);
+    LanguageOptions language_options;
+    language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
+    language_options.EnableLanguageFeature(FEATURE_V_1_3_WITH_RECURSIVE);
+    AnalyzerOptions analyzer_options(language_options);
+    ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
+    const zetasql_base::StatusOr<Value> result = expr.Execute();
+    EXPECT_THAT(result,
+                IsOkAndHolds(Array({Int64(1), Int64(1), Int64(2), Int64(3),
+                                    Int64(5), Int64(8), Int64(13), Int64(21),
+                                    Int64(34), Int64(55)})));
+  }
 }
 
 TEST(EvaluatorTest, WithRecursiveNotTerminating) {
   // A non-terminating recursive query should fail cleanly when the rows
   // produced exceed memory limits.
+  for (const char* mode : {"ALL", "DISTINCT"}) {
+    SCOPED_TRACE(absl::StrCat("UNION ", mode));
+    const std::string query = absl::StrFormat(R"(ARRAY(
+      WITH RECURSIVE
+        t AS (SELECT 1 AS n UNION %s SELECT n + 1 FROM t)
+      SELECT * FROM t
+    ))",
+                                              mode);
+    PreparedExpression expr(query);
+    LanguageOptions language_options;
+    language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
+    language_options.EnableLanguageFeature(FEATURE_V_1_3_WITH_RECURSIVE);
+    AnalyzerOptions analyzer_options(language_options);
+    ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
+    const zetasql_base::StatusOr<Value> result = expr.Execute();
+    EXPECT_THAT(
+        result,
+        StatusIs(_, HasSubstr("Cannot construct array Value larger than")));
+  }
+}
+
+TEST(EvaluatorTest, WithRecursiveMemoryExhaustedByHashSet) {
+  // This query does not produce any rows. But, the internal hash set of
+  // accumulated rows (which is needed to filter duplicates) keeps growing.
+  // Make sure that the query is properly aborted when the internal hash set
+  // causes the EvaluatorOptions' memory limit to be exceeded.
   const std::string query = R"(ARRAY(
     WITH RECURSIVE
-      t AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM t)
-    SELECT * FROM t
+      t AS (SELECT 1 AS n UNION DISTINCT SELECT n + 1 FROM t)
+    SELECT * FROM t WHERE n < 0
   ))";
-  PreparedExpression expr(query);
+  EvaluatorOptions options;
+  options.max_intermediate_byte_size = 1000;
+  PreparedExpression expr(query, options);
   LanguageOptions language_options;
   language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
   language_options.EnableLanguageFeature(FEATURE_V_1_3_WITH_RECURSIVE);
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
   const zetasql_base::StatusOr<Value> result = expr.Execute();
-  EXPECT_THAT(
-      result,
-      StatusIs(_, HasSubstr("Cannot construct array Value larger than")));
+  EXPECT_THAT(result, StatusIs(_, HasSubstr("Out of memory: requested")));
 }
 
 TEST(EvaluatorTest, WithClauseSubquery_b119901615) {
@@ -2007,15 +2038,8 @@ class PreparedModifyTest : public ::testing::Test {
  public:
   void SetUp() override {
     catalog_.AddZetaSQLFunctions();
-    auto test_table = absl::make_unique<SimpleTable>(
-        "test_table",
-        std::vector<SimpleTable::NameAndType>{
-            {"int_val", types::Int64Type()}, {"str_val", types::StringType()}});
-    test_table->SetContents({{Int64(1), String("one")},
-                            {Int64(2), String("two")},
-                            {Int64(4), String("four")}});
-    ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0}));
-    catalog_.AddOwnedTable(std::move(test_table));
+    AddNonValueTable();
+    AddValueTableInt64RowType();
 
     analyzer_options_.mutable_language()->SetSupportsAllStatementKinds();
   }
@@ -2023,9 +2047,37 @@ class PreparedModifyTest : public ::testing::Test {
   Catalog* catalog() { return &catalog_; }
   const AnalyzerOptions& analyzer_options() { return analyzer_options_; }
 
- private:
+ protected:
+  void AddNonValueTable() {
+    auto test_table = absl::make_unique<SimpleTable>(
+        kTestTable,
+        std::vector<SimpleTable::NameAndType>{
+            {"int_val", types::Int64Type()}, {"str_val", types::StringType()}});
+    test_table->SetContents({{Int64(1), String("one")},
+                            {Int64(2), String("two")},
+                            {Int64(4), String("four")}});
+    ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0}));
+    catalog_.AddOwnedTable(std::move(test_table));
+  }
+
+  void AddValueTableInt64RowType() {
+    auto test_value_table = absl::make_unique<SimpleTable>(
+        kTestValueTable,
+        std::vector<SimpleTable::NameAndType>{{"int_val", types::Int64Type()}});
+    test_value_table->SetContents({{Int64(1)}, {Int64(2)}, {Int64(4)}});
+    ZETASQL_ASSERT_OK(test_value_table->SetPrimaryKey({0}));
+    test_value_table->set_is_value_table(true);
+    catalog_.AddOwnedTable(std::move(test_value_table));
+  }
+
   SimpleCatalog catalog_{"test_catalog"};
   AnalyzerOptions analyzer_options_;
+
+  // Table names
+  static constexpr char kTestTable[] = "test_table";
+  static constexpr char kTestValueTable[] = "test_value_table";
+
+  const StructType* test_value_table_struct_row_type_;
 };
 
 TEST_F(PreparedModifyTest, ExecutesInsert) {
@@ -2049,6 +2101,17 @@ TEST_F(PreparedModifyTest, ExecutesInsert) {
 
   EXPECT_FALSE(iter->NextRow());
   ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST_F(PreparedModifyTest, ExecutesInsertToValueTable) {
+  PreparedModify modify("insert test_value_table(int_val) values(3)",
+                        EvaluatorOptions());
+  ZETASQL_ASSERT_OK(modify.Prepare(analyzer_options(), catalog()));
+  ASSERT_EQ(modify.resolved_statement()->node_kind(), RESOLVED_INSERT_STMT);
+  ASSERT_THAT(
+      modify.Execute(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               "PreparedModify api does not support modifying value tables"));
 }
 
 TEST_F(PreparedModifyTest, ExecutesDelete) {
@@ -2079,6 +2142,30 @@ TEST_F(PreparedModifyTest, ExecutesDelete) {
 
   EXPECT_FALSE(iter->NextRow());
   ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST_F(PreparedModifyTest, ExecutesDeleteFromValueTable) {
+  PreparedModify modify(
+      "delete test_value_table where test_value_table in (2, 4)",
+      EvaluatorOptions());
+  ZETASQL_ASSERT_OK(modify.Prepare(analyzer_options(), catalog()));
+  ASSERT_EQ(modify.resolved_statement()->node_kind(), RESOLVED_DELETE_STMT);
+  ASSERT_THAT(
+      modify.Execute(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               "PreparedModify api does not support modifying value tables"));
+}
+
+TEST_F(PreparedModifyTest, ExecutesUpdateOnValueTable) {
+  PreparedModify modify(
+      "update test_value_table set test_value_table = 2 WHERE TRUE",
+      EvaluatorOptions());
+  ZETASQL_ASSERT_OK(modify.Prepare(analyzer_options(), catalog()));
+  ASSERT_EQ(modify.resolved_statement()->node_kind(), RESOLVED_UPDATE_STMT);
+  ASSERT_THAT(
+      modify.Execute(),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               "PreparedModify api does not support modifying value tables"));
 }
 
 TEST_F(PreparedModifyTest, ExecutesUpdate) {

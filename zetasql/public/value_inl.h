@@ -449,22 +449,38 @@ inline const BigNumericValue& Value::bignumeric_value() const {
 }
 
 inline bool Value::is_validated_json() const {
-  CHECK_EQ(TYPE_JSON, metadata_.type_kind()) << "Not a json type";
-  return json_ptr_->unparsed_string() == nullptr;
+  return metadata_.type_kind() == TYPE_JSON && !metadata_.is_null() &&
+         json_ptr_->unparsed_string() == nullptr;
+}
+
+inline bool Value::is_unparsed_json() const {
+  return metadata_.type_kind() == TYPE_JSON && !metadata_.is_null() &&
+         json_ptr_->unparsed_string() != nullptr;
 }
 
 inline const std::string& Value::json_value_unparsed() const {
   CHECK_EQ(TYPE_JSON, metadata_.type_kind()) << "Not a json type";
   CHECK(!metadata_.is_null()) << "Null value";
-  CHECK(!is_validated_json()) << "Validated json value";
+  CHECK(is_unparsed_json()) << "Not an unparsed json value";
   return *json_ptr_->unparsed_string();
 }
 
-inline JSONValueConstRef Value::json_value_validated() const {
+inline JSONValueConstRef Value::json_value() const {
   CHECK_EQ(TYPE_JSON, metadata_.type_kind()) << "Not a json type";
   CHECK(!metadata_.is_null()) << "Null value";
-  CHECK(is_validated_json()) << "Non validated json value";
+  CHECK(is_validated_json()) << "Non a validated json value";
   return json_ptr_->document().value();
+}
+
+inline std::string Value::json_string() const {
+  CHECK_EQ(TYPE_JSON, metadata_.type_kind()) << "Not a json type";
+  CHECK(!metadata_.is_null()) << "Null value";
+
+  if (json_ptr_->unparsed_string() == nullptr) {
+    return json_ptr_->document().value().ToString();
+  }
+
+  return *json_ptr_->unparsed_string();
 }
 
 inline bool Value::empty() const {
@@ -552,50 +568,6 @@ H Value::HashValueInternal(H h) const {
       type()->HashValueContent(GetContent(), absl::HashState::Create(&h));
       return h;
   }
-}
-
-template <>
-inline Value Value::Make<int32_t>(int32_t value) { return Value::Int32(value); }
-template <>
-inline Value Value::Make<int64_t>(int64_t value) { return Value::Int64(value); }
-template <>
-inline Value Value::Make<uint32_t>(uint32_t value) { return Value::Uint32(value); }
-template <>
-inline Value Value::Make<uint64_t>(uint64_t value) { return Value::Uint64(value); }
-template <>
-inline Value Value::Make<bool>(bool value) { return Value::Bool(value); }
-template <>
-inline Value Value::Make<float>(float value) { return Value::Float(value); }
-template <>
-inline Value Value::Make<double>(double value) { return Value::Double(value); }
-template <>
-inline Value Value::Make<NumericValue>(NumericValue value) {
-  return Value::Numeric(value);
-}
-template <>
-inline Value Value::Make<BigNumericValue>(BigNumericValue value) {
-  return Value::BigNumeric(value);
-}
-
-template <>
-inline Value Value::MakeNull<int32_t>() { return Value::NullInt32(); }
-template <>
-inline Value Value::MakeNull<int64_t>() { return Value::NullInt64(); }
-template <>
-inline Value Value::MakeNull<uint32_t>() { return Value::NullUint32(); }
-template <>
-inline Value Value::MakeNull<uint64_t>() { return Value::NullUint64(); }
-template <>
-inline Value Value::MakeNull<bool>() { return Value::NullBool(); }
-template <>
-inline Value Value::MakeNull<float>() { return Value::NullFloat(); }
-template <>
-inline Value Value::MakeNull<double>() { return Value::NullDouble(); }
-template <>
-inline Value Value::MakeNull<NumericValue>() { return Value::NullNumeric(); }
-template <>
-inline Value Value::MakeNull<BigNumericValue>() {
-  return Value::NullBigNumeric();
 }
 
 template <> inline int32_t Value::Get<int32_t>() const { return int32_value(); }

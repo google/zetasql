@@ -19,7 +19,11 @@ package com.google.zetasql;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.zetasql.CivilTimeEncoder.decodePacked64TimeNanos;
+import static com.google.zetasql.CivilTimeEncoder.decodePacked64TimeNanosAsJavaTime;
 import static com.google.zetasql.CivilTimeEncoder.decodePacked96DatetimeNanos;
+import static com.google.zetasql.CivilTimeEncoder.decodePacked96DatetimeNanosAsJavaTime;
+import static com.google.zetasql.CivilTimeEncoder.encodePacked64TimeNanos;
+import static com.google.zetasql.CivilTimeEncoder.encodePacked96DatetimeNanos;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -46,6 +50,10 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -283,6 +291,13 @@ public class Value implements Serializable {
     return proto.getDateValue();
   }
 
+  /** Returns the int value representing the date if the type is date. */
+  public LocalDate getLocalDateValue() {
+    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_DATE);
+    Preconditions.checkState(!isNull);
+    return LocalDate.ofEpochDay(proto.getDateValue());
+  }
+
   /** Returns the long value encoding the time if the type is time. */
   @SuppressWarnings("GoodTime") // should return a java.time.LocalTime (?)
   public long getTimeValue() {
@@ -291,11 +306,25 @@ public class Value implements Serializable {
     return proto.getTimeValue();
   }
 
+  /** Returns the long value encoding the time if the type is time. */
+  public LocalTime getLocalTimeValue() {
+    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_TIME);
+    Preconditions.checkState(!isNull);
+    return decodePacked64TimeNanosAsJavaTime(proto.getTimeValue());
+  }
+
   /** Returns the Datetime value encoding the datetime if the type is datetime. */
   public Datetime getDatetimeValue() {
     Preconditions.checkState(getType().getKind() == TypeKind.TYPE_DATETIME);
     Preconditions.checkState(!isNull);
     return proto.getDatetimeValue();
+  }
+
+  /** Returns the Datetime value encoding the datetime if the type is datetime. */
+  public LocalDateTime getLocalDateTimeValue() {
+    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_DATETIME);
+    Preconditions.checkState(!isNull);
+    return decodePacked96DatetimeNanosAsJavaTime(proto.getDatetimeValue());
   }
 
   /** Returns the number value if the type is enum. */
@@ -1328,6 +1357,13 @@ public class Value implements Serializable {
     return new Value(TypeFactory.createSimpleType(TypeKind.TYPE_DATE), proto);
   }
 
+  /** Returns a date Value with given parameter. */
+  public static Value createDateValue(LocalDate v) {
+    Preconditions.checkArgument(Type.isValidDate(Math.toIntExact(v.toEpochDay())));
+    ValueProto proto = ValueProto.newBuilder().setDateValue((int) v.toEpochDay()).build();
+    return new Value(TypeFactory.createSimpleType(TypeKind.TYPE_DATE), proto);
+  }
+
   /**
    * Returns a time Value with given parameter.
    *
@@ -1338,6 +1374,12 @@ public class Value implements Serializable {
   public static Value createTimeValue(long bitFieldTimeNanos) {
     decodePacked64TimeNanos(bitFieldTimeNanos);
     ValueProto proto = ValueProto.newBuilder().setTimeValue(bitFieldTimeNanos).build();
+    return new Value(TypeFactory.createSimpleType(TypeKind.TYPE_TIME), proto);
+  }
+
+  /** Returns a time Value with given parameter. */
+  public static Value createTimeValue(LocalTime t) {
+    ValueProto proto = ValueProto.newBuilder().setTimeValue(encodePacked64TimeNanos(t)).build();
     return new Value(TypeFactory.createSimpleType(TypeKind.TYPE_TIME), proto);
   }
 
@@ -1357,6 +1399,13 @@ public class Value implements Serializable {
             .build();
     decodePacked96DatetimeNanos(datetime);
     ValueProto proto = ValueProto.newBuilder().setDatetimeValue(datetime).build();
+    return new Value(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME), proto);
+  }
+
+  /** Returns a datetime Value with given parameter. */
+  public static Value createDatetimeValue(LocalDateTime v) {
+    ValueProto proto =
+        ValueProto.newBuilder().setDatetimeValue(encodePacked96DatetimeNanos(v)).build();
     return new Value(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME), proto);
   }
 

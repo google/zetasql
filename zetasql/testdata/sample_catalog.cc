@@ -431,7 +431,8 @@ void SampleCatalog::LoadTables() {
        // Real types resume here.
        {"timestamp", types_->get_timestamp()},
        {"numeric", types_->get_numeric()},
-       {"bignumeric", types_->get_bignumeric()}}));
+       {"bignumeric", types_->get_bignumeric()},
+       {"json", types_->get_json()}}));
 
   AddOwnedTable(
       new SimpleTable("GeographyTable", {{"key", types_->get_int64()},
@@ -2571,6 +2572,8 @@ void SampleCatalog::LoadTVFWithExtraColumns() {
                            zetasql::types::NumericType()),
            TVFSchemaColumn("append_col_bignumeric",
                            zetasql::types::BigNumericType()),
+           TVFSchemaColumn("append_col_json",
+                           zetasql::types::JsonType()),
            TVFSchemaColumn("append_col_string",
                            zetasql::types::StringType())}));
 

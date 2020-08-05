@@ -106,6 +106,12 @@ struct EvaluationOptions {
 
 class ProtoFieldReader;
 
+// Base class for C++ values which can be associated with a variable.
+class CppValueBase {
+ public:
+  virtual ~CppValueBase() {}
+};
+
 // Contains state about the evaluation in progress.
 class EvaluationContext {
  public:
@@ -312,6 +318,35 @@ class EvaluationContext {
     }
   }
 
+  // Retrieves the C++ value associated with the given VariableId, or nullptr
+  // if not value with the given VariableId exists.
+  //
+  // The returned pointer is owned by the EvaluationContext and destroyed when
+  // the same variable is passed to ClearCppValue() or
+  // SetCppValueIfNotPresent().
+  //
+  // Ideally, these values would be passed to ValueExpr::Eval() and
+  // RelationalOp::CreateIterator(), alongside the TupleData's. However, the
+  // refactoring required to alter the signatures of these two methods was too
+  // much, so we store VariableId's C++ values instead, using the TupleData's
+  // only for Tuple values.
+  CppValueBase* GetCppValue(VariableId variable) const {
+    auto it = cpp_values_.find(variable);
+    return it == cpp_values_.end() ? nullptr : it->second.get();
+  }
+
+  // Sets the C++ value associated with the given variable ID, taking ownership
+  // of the provided object. Returns true if successful, false if the given
+  // VariableId already has a value.
+  ABSL_MUST_USE_RESULT bool SetCppValueIfNotPresent(
+      VariableId variable, std::unique_ptr<CppValueBase> value) {
+    return cpp_values_.insert(std::make_pair(variable, std::move(value)))
+        .second;
+  }
+
+  // Deletes the C++ value associated with the given variable Id.
+  void ClearCppValue(VariableId variable) { cpp_values_.erase(variable); }
+
  private:
   void LazilyInitializeDefaultTimeZone() {
     if (!default_timezone_.has_value()) {
@@ -369,6 +404,9 @@ class EvaluationContext {
 
   // Records whether a TopNAccumulator was used. Only for unit tests.
   bool used_top_n_accumulator_ = false;
+
+  // Current C++ values associated with variables.
+  absl::flat_hash_map<VariableId, std::unique_ptr<CppValueBase>> cpp_values_;
 };
 
 // Returns true if we should suppress 'error' (which must not be OK) in

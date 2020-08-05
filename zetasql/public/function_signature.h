@@ -23,10 +23,12 @@
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"
+#include "zetasql/proto/function.pb.h"
 #include "zetasql/public/deprecation_warning.pb.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/value.h"
 #include <cstdint>
 #include "absl/types/optional.h"
 #include "zetasql/base/status.h"
@@ -188,6 +190,16 @@ class FunctionArgumentTypeOptions {
     return allow_coercion_from_;
   }
 
+  static absl::Status Deserialize(
+      const FunctionArgumentTypeOptionsProto& options_proto,
+      const std::vector<const google::protobuf::DescriptorPool*>& pools,
+      SignatureArgumentKind arg_kind, const Type* arg_type,
+      TypeFactory* factory, FunctionArgumentTypeOptions* options);
+
+  absl::Status Serialize(const Type* arg_type,
+                         FunctionArgumentTypeOptionsProto* options_proto,
+                         FileDescriptorSetMap* file_descriptor_set_map) const;
+
   // Return a string describing the options (not including cardinality).
   // If no options are set, this returns an empty string.
   // Otherwise, includes a leading space.
@@ -222,6 +234,32 @@ class FunctionArgumentTypeOptions {
   // Gets the ParseLocationRange of the argument type.
   absl::optional<ParseLocationRange> argument_type_parse_location() const {
     return argument_type_parse_location_;
+  }
+
+  // Sets the default value of this argument. Only optional arguments can
+  // (optionally) have default values.
+  // Restrictions on the default values:
+  // - For fixed-typed arguments, the type of <default_value> must be Equals to
+  //   the type of the argument.
+  // - Non-expression-typed templated arguments (e.g., tables, connections,
+  //   models, etc.) cannot have default values.
+  //
+  // Note that (in the near future), an optional argument that has a default
+  // value and is omitted in a function call will be resolved as if the default
+  // value is specified.
+  //
+  // Also note that the type of <default_value> must outlive this object as well
+  // as all the FunctionSignature instances created using this object.
+  FunctionArgumentTypeOptions& set_default(Value default_value) {
+    DCHECK(default_value.is_valid()) << "Default value must be valid";
+    default_ = std::move(default_value);
+    return *this;
+  }
+
+  // Gets the default value of this argument. Cannot use <default> here because
+  // it is a C++ reserved word.
+  const absl::optional<Value>& get_default() const {
+    return default_;
   }
 
  private:
@@ -317,6 +355,9 @@ class FunctionArgumentTypeOptions {
   // from the table argument in the same tvf call at the specified argument
   // offset. The value must be the offset of an argument with table type.
   std::optional<int> descriptor_resolution_table_offset_;
+
+  // Optional value that holds the default value of the argument, if applicable.
+  absl::optional<Value> default_;
 
   // Copyable
 };
@@ -488,6 +529,17 @@ class FunctionArgumentType {
       return false;
     }
     return options_->allow_coercion_from()(actual_arg_type);
+  }
+
+  // Returns TRUE if the argument has a default value provided in the argument
+  // option.
+  bool HasDefault() const {
+    return options_->get_default().has_value();
+  }
+  // Returns default value provided in the argument option, or absl::nullopt if
+  // the argument does not have a default value.
+  const absl::optional<Value>& GetDefault() const {
+    return options_->get_default();
   }
 
   // Returns argument type name to be used in error messages.

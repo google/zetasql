@@ -231,6 +231,7 @@ enum class FunctionKind {
   kDateSub,
   kDateDiff,
   kDateTrunc,
+  kLastDay,
   kDatetimeAdd,
   kDatetimeSub,
   kDatetimeDiff,
@@ -975,6 +976,13 @@ class CivilTimeTruncFunction : public SimpleBuiltinScalarFunction {
 };
 
 class DateTruncFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class LastDayFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
   zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,

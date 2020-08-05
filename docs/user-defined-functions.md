@@ -189,8 +189,8 @@ Create external UDFs using the following syntax.
 CREATE
   [ { TEMPORARY | TEMP } ] FUNCTION
   function_name ( [ function_parameter [, ...] ] )
-  [ determinism_specifier ]
   RETURNS data_type
+  [ determinism_specifier ]
   LANGUAGE language_name AS string_literal
 
 function_parameter:

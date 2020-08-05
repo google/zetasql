@@ -603,8 +603,16 @@ TEST_F(ValueTest, JSON) {
   constexpr char kStringValue[] = "value";
   constexpr int64_t kIntValue = 1;
 
-  EXPECT_TRUE(Value::NullJson().is_null());
-  EXPECT_EQ(TYPE_JSON, Value::NullJson().type_kind());
+  {
+    Value null_json = Value::NullJson();
+    EXPECT_TRUE(null_json.is_null());
+    EXPECT_EQ(null_json.type_kind(), TYPE_JSON);
+    EXPECT_FALSE(null_json.is_unparsed_json());
+    EXPECT_FALSE(null_json.is_validated_json());
+    EXPECT_DEATH(null_json.json_value(), "Null value");
+    EXPECT_DEATH(null_json.json_string(), "Null value");
+    EXPECT_DEATH(null_json.json_value_unparsed(), "Null value");
+  }
 
   // Verify that there are no memory leaks for validated JSON.
   {
@@ -612,10 +620,14 @@ TEST_F(ValueTest, JSON) {
     EXPECT_EQ(TYPE_JSON, v1.type()->kind());
     EXPECT_FALSE(v1.is_null());
     EXPECT_TRUE(v1.is_validated_json());
+
     Value v2(v1);
     EXPECT_EQ(TYPE_JSON, v2.type()->kind());
     EXPECT_FALSE(v2.is_null());
     EXPECT_TRUE(v2.is_validated_json());
+    EXPECT_FALSE(v2.is_unparsed_json());
+    EXPECT_EQ(v2.json_string(), absl::StrCat(kIntValue));
+    EXPECT_DEATH(v2.json_value_unparsed(), "Not an unparsed json value");
   }
 
   // Verify that there are no memory leaks for unvalidated JSON.
@@ -628,7 +640,10 @@ TEST_F(ValueTest, JSON) {
     EXPECT_EQ(TYPE_JSON, v2.type()->kind());
     EXPECT_FALSE(v2.is_null());
     ASSERT_FALSE(v2.is_validated_json());
+    ASSERT_TRUE(v2.is_unparsed_json());
     EXPECT_EQ(kStringValue, v2.json_value_unparsed());
+    EXPECT_EQ(kStringValue, v2.json_string());
+    EXPECT_DEATH(v2.json_value(), "Non a validated json value");
   }
 
   // Test the assignment operator for validated JSON.
@@ -639,8 +654,8 @@ TEST_F(ValueTest, JSON) {
     EXPECT_EQ(TYPE_JSON, v1.type()->kind());
     EXPECT_EQ(TYPE_JSON, v2.type()->kind());
     EXPECT_FALSE(v2.is_null());
-    EXPECT_EQ(kIntValue, v1.json_value_validated().GetInt64());
-    EXPECT_EQ(kIntValue, v2.json_value_validated().GetInt64());
+    EXPECT_EQ(kIntValue, v1.json_value().GetInt64());
+    EXPECT_EQ(kIntValue, v2.json_value().GetInt64());
   }
 
   // Test the assignment operator for unvalidated JSON.
@@ -652,8 +667,10 @@ TEST_F(ValueTest, JSON) {
     EXPECT_EQ(TYPE_JSON, v2.type()->kind());
     EXPECT_FALSE(v2.is_null());
     ASSERT_FALSE(v2.is_validated_json());
+    ASSERT_TRUE(v2.is_unparsed_json());
     EXPECT_EQ(kStringValue, v1.json_value_unparsed());
     EXPECT_EQ(kStringValue, v2.json_value_unparsed());
+    EXPECT_EQ(kStringValue, v2.json_string());
   }
 
   {
@@ -661,8 +678,9 @@ TEST_F(ValueTest, JSON) {
     EXPECT_EQ("JSON", value.type()->DebugString());
     EXPECT_FALSE(value.is_null());
     ASSERT_TRUE(value.is_validated_json());
-    ASSERT_TRUE(value.json_value_validated().IsInt64());
-    EXPECT_EQ(kIntValue, value.json_value_validated().GetInt64());
+    ASSERT_TRUE(value.json_value().IsInt64());
+    EXPECT_EQ(kIntValue, value.json_value().GetInt64());
+    EXPECT_EQ(absl::StrCat(kIntValue), value.json_string());
   }
 }
 
@@ -1886,7 +1904,7 @@ TEST_F(ValueTest, ClassAndProtoSize) {
   EXPECT_EQ(16, sizeof(Value))
       << "The size of Value class has changed, please also update the proto "
       << "and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(22, ValueProto::descriptor()->field_count())
+  EXPECT_EQ(23, ValueProto::descriptor()->field_count())
       << "The number of fields in ValueProto has changed, please also update "
       << "the serialization code accordingly.";
   EXPECT_EQ(1, ValueProto::Array::descriptor()->field_count())

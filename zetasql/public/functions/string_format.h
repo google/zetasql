@@ -204,6 +204,8 @@ class StringFormatEvaluator {
   bool PrintProto(const Value& value, bool single_line, bool print_null,
                   bool quote, int64_t var_index);
 
+  bool PrintJson(const Value& value, bool single_line, int64_t var_index);
+
   // Process and typecheck a new formatting pattern. If a pattern error is
   // discovered, an error is set in the error resolver and this function returns
   // false. Otherwise, format_parts_ and raw_parts_ are populated and this
@@ -268,6 +270,11 @@ class StringFormatEvaluator {
   template <bool single_line, bool print_null, bool quote>
   bool PrintProtoSetter(const FormatPart& part, absl::FormatArg* arg);
 
+  // A setter function for specifiers %p and %P: printing json text
+  // represenations.
+  template <bool single_line>
+  bool PrintJsonSetter(const FormatPart& part, absl::FormatArg* arg);
+
   // Set the right template instantiation of 'ValueAsStringSetter' for 'index'.
   // These setters are specifically for the "%t" specifier which formats the
   // value like the CAST(value AS STRING) SQL operation.
@@ -301,7 +308,7 @@ class StringFormatEvaluator {
   bool TypeCheckDoubleArg(int64_t arg_index);
   bool TypeCheckDoubleOrNumericArg(int64_t arg_index);
   bool TypeCheckStringArg(int64_t arg_index);
-  bool TypeCheckProtoArg(int64_t arg_index);
+  bool TypeCheckProtoOrJsonArg(int64_t arg_index);
 };
 
 }  // namespace string_format_internal

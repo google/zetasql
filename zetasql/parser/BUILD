@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
 
 load("//bazel:bison.bzl", "genyacc")
 load("//bazel:flex.bzl", "genlex")
@@ -236,7 +237,6 @@ cc_test(
     deps = [
         ":parse_tree",
         ":parser",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
@@ -248,6 +248,7 @@ cc_test(
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -266,7 +267,6 @@ cc_test(
     deps = [
         ":parse_tree",
         ":parser",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
@@ -274,6 +274,7 @@ cc_test(
         "//zetasql/common/testing:proto_matchers",
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -291,8 +292,8 @@ cc_test(
     ],
     deps = [
         ":parser",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base/testing:status_matchers",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -360,10 +361,10 @@ cc_test(
     ],
     deps = [
         ":keywords",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
         "//zetasql/base:path",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
         "@com_googlesource_code_re2//:re2",
     ],
 )

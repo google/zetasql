@@ -70,6 +70,7 @@ proto_library(
         "//zetasql/public:parse_location_range_proto",
         "//zetasql/public:parse_resume_location_proto",
         "//zetasql/public:type_proto",
+        "//zetasql/public:value_proto",
         "//zetasql/resolved_ast:serialization_proto",
     ],
 )

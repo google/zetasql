@@ -283,7 +283,6 @@ bool Pow(T in1, T in2, T* out, absl::Status* error) {
   return internal::CheckFloatingPointError("POW", in1, in2, *out, error);
 }
 
-
 template <typename T>
 bool Exp(T in, T* out, absl::Status* error) {
   *out = std::exp(in);
@@ -295,6 +294,7 @@ bool NaturalLogarithm(T in, T* out, absl::Status* error) {
   *out = std::log(in);
   return internal::CheckFloatingPointError("LN", in, *out, error);
 }
+
 template <typename T>
 bool DecimalLogarithm(T in, T* out, absl::Status* error) {
   *out = std::log10(in);
@@ -426,9 +426,20 @@ bool TruncDecimal(NumericValue in, int64_t digits, NumericValue* out,
 template <> bool Ceil(NumericValue in, NumericValue *out, absl::Status* error);
 template <> bool Floor(NumericValue in, NumericValue *out, absl::Status* error);
 
+template <>
+bool Sqrt(NumericValue in, NumericValue* out, absl::Status* error);
 template <> bool Pow(
     NumericValue in1, NumericValue in2, NumericValue* out,
     absl::Status* error);
+template <>
+bool Exp(NumericValue in, NumericValue* out, absl::Status* error);
+template <>
+bool NaturalLogarithm(NumericValue in, NumericValue* out, absl::Status* error);
+template <>
+bool DecimalLogarithm(NumericValue in, NumericValue* out, absl::Status* error);
+template <>
+bool Logarithm(NumericValue in1, NumericValue in2, NumericValue* out,
+               absl::Status* error);
 
 template <>
 bool Ceil(BigNumericValue in, BigNumericValue* out, absl::Status* error);
@@ -447,8 +458,21 @@ bool TruncDecimal(BigNumericValue in, int64_t digits, BigNumericValue* out,
                   absl::Status* error);
 
 template <>
+bool Sqrt(BigNumericValue in, BigNumericValue* out, absl::Status* error);
+template <>
 bool Pow(BigNumericValue in1, BigNumericValue in2, BigNumericValue* out,
          absl::Status* error);
+template <>
+bool Exp(BigNumericValue in, BigNumericValue* out, absl::Status* error);
+template <>
+bool NaturalLogarithm(BigNumericValue in, BigNumericValue* out,
+                      absl::Status* error);
+template <>
+bool DecimalLogarithm(BigNumericValue in, BigNumericValue* out,
+                      absl::Status* error);
+template <>
+bool Logarithm(BigNumericValue in1, BigNumericValue in2, BigNumericValue* out,
+               absl::Status* error);
 
 }  // namespace functions
 }  // namespace zetasql

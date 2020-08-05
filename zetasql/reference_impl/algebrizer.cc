@@ -65,7 +65,8 @@ static bool IgnoresNullArguments(
     const ResolvedNonScalarFunctionCallBase* aggregate_function) {
   static const std::unordered_set<std::string>* const
       kFunctionsNotIgnoreNullSet = new std::unordered_set<std::string>(
-          {"array_agg", "any_value", "approx_top_count", "approx_top_sum"});
+          {"array_agg", "any_value", "approx_top_count", "approx_top_sum",
+           "st_nearest_neighbors"});
 
   switch (aggregate_function->null_handling_modifier()) {
     case ResolvedNonScalarFunctionCallBase::DEFAULT_NULL_HANDLING:
@@ -3625,7 +3626,7 @@ Algebrizer::AlgebrizeQueryStatementAsRelation(
   if (!with_subquery_let_assignments_.empty()) {
     ZETASQL_ASSIGN_OR_RETURN(relation,
                      LetOp::Create(std::move(with_subquery_let_assignments_),
-                                   std::move(relation)));
+                                   /*cpp_assign=*/{}, std::move(relation)));
   }
   // Sanity check - WITH map should be cleared as WITH clauses go out of scope.
   ZETASQL_RET_CHECK(with_map_.empty());
@@ -4072,14 +4073,26 @@ absl::Status Algebrizer::AlgebrizeExpression(
   return ast_root->CheckFieldsAccessed();
 }
 
+zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::FilterDuplicates(
+    std::unique_ptr<RelationalOp> input, const ResolvedColumnList& column_list,
+    VariableId row_set_id) {
+  std::vector<std::unique_ptr<KeyArg>> key_args;
+
+  for (const ResolvedColumn& col : column_list) {
+    VariableId column_var =
+        column_to_variable_->GetVariableNameFromColumn(&col);
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> key_deref,
+                     DerefExpr::Create(column_var, col.type()));
+    key_args.push_back(
+        absl::make_unique<KeyArg>(column_var, std::move(key_deref)));
+  }
+
+  return DistinctOp::Create(std::move(input), std::move(key_args), row_set_id);
+}
+
 zetasql_base::StatusOr<std::unique_ptr<RelationalOp>>
 Algebrizer::AlgebrizeRecursiveScan(
     const ResolvedRecursiveScan* recursive_scan) {
-  if (recursive_scan->op_type() != ResolvedRecursiveScanEnums::UNION_ALL) {
-    return absl::UnimplementedError(
-        "UNION DISTINCT for WITH RECURSIVE is not implemented yet");
-  }
-
   // Algebrize non-recursive term first.
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> non_recursive_term,
                    AlgebrizeScan(recursive_scan->non_recursive_term()->scan()));
@@ -4109,7 +4122,22 @@ Algebrizer::AlgebrizeRecursiveScan(
                  recursive_scan->recursive_term()->output_column_list(),
                  recursive_scan->column_list()));
 
-  // Now, put everything together in a LoopOp.
+  // Under UNION DISTINCT, wrap the recursive and non-recursive terms with a
+  // DistinctOp to make the rows they emit unique, not only among themselves,
+  // but also between each other.
+  VariableId distinct_id;
+  if (recursive_scan->op_type() == ResolvedRecursiveScanEnums::UNION_DISTINCT) {
+    distinct_id = variable_gen_->GetNewVariableName("distinct_row_set");
+    ZETASQL_ASSIGN_OR_RETURN(
+        non_recursive_term,
+        FilterDuplicates(std::move(non_recursive_term),
+                         recursive_scan->column_list(), distinct_id));
+    ZETASQL_ASSIGN_OR_RETURN(
+        recursive_term,
+        FilterDuplicates(std::move(recursive_term),
+                         recursive_scan->column_list(), distinct_id));
+  }
+
   std::vector<std::unique_ptr<ExprArg>> initial_assign;
   std::unique_ptr<RelationalOp> body;
   std::vector<std::unique_ptr<ExprArg>> loop_assign;
@@ -4134,8 +4162,24 @@ Algebrizer::AlgebrizeRecursiveScan(
   loop_assign.emplace_back(
       absl::make_unique<ExprArg>(recursive_var, std::move(loop_assign_expr)));
 
-  return LoopOp::Create(std::move(initial_assign), std::move(body),
-                        std::move(loop_assign));
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<LoopOp> loop_op,
+                   LoopOp::Create(std::move(initial_assign), std::move(body),
+                                  std::move(loop_assign)));
+
+  if (recursive_scan->op_type() == ResolvedRecursiveScanEnums::UNION_DISTINCT) {
+    // Wrap the LoopOp with a LetOp to associate <distinct_id> with a C++
+    // DistinctRowSet object, used to track duplicates. This prevents the
+    // recursive term from emitting rows from a prior iteration or from the
+    // non-recursive term.
+    std::vector<std::unique_ptr<CppValueArg>> cpp_assign;
+    cpp_assign.push_back(DistinctOp::MakeCppValueArgForRowSet(distinct_id));
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<LetOp> let_op,
+                     LetOp::Create(/*assign=*/{}, std::move(cpp_assign),
+                                   std::move(loop_op)));
+    return std::move(let_op);  // workaround for gcc bug
+  } else {
+    return std::move(loop_op);  // workaround for gcc bug.
+  }
 }
 
 zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::MapColumns(

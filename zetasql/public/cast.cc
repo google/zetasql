@@ -975,11 +975,7 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(const Value& from_value,
       return NumericToString<BigNumericValue>(v);
 
     case FCT(TYPE_JSON, TYPE_STRING): {
-      if (v.is_validated_json()) {
-        return Value::String(v.json_value_validated().ToString());
-      } else {
-        return Value::String(v.json_value_unparsed());
-      }
+      return Value::String(v.json_string());
     }
 
     // TODO: implement missing casts.

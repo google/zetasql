@@ -418,6 +418,21 @@ SELECT '-0x123' as hex_value, CAST('-0x123' as INT64) as hex_to_int;
 +-----------+------------+
 ```
 
+#### Casting time types
+
+ZetaSQL supports casting time types to/from strings as follows:
+
+```
+CAST(time_expression AS STRING)
+CAST(string_expression AS TIME)
+```
+
+Casting from a time type to a string is independent of time zone and is of the
+form `HH:MM:SS`.  When casting from string to time, the string must conform to
+the supported time literal format, and is independent of time zone. If the
+string expression is invalid or represents a time that is outside of the
+supported min/max range, then an error is produced.
+
 #### Casting date types
 
 ZetaSQL supports casting date types to/from strings as follows:
@@ -429,9 +444,24 @@ CAST(string_expression AS DATE)
 
 Casting from a date type to a string is independent of time zone and is of the
 form `YYYY-MM-DD`.  When casting from string to date, the string must conform to
-the supported date literal format, and is independent of time zone. If the string
-expression is invalid or represents a date that is outside of the supported
-min/max range, then an error is produced.
+the supported date literal format, and is independent of time zone. If the
+string expression is invalid or represents a date that is outside of the
+supported min/max range, then an error is produced.
+
+#### Casting datetime types
+
+ZetaSQL supports casting datetime types to/from strings as follows:
+
+```
+CAST(datetime_expression AS STRING)
+CAST(string_expression AS DATETIME)
+```
+
+Casting from a datetime type to a string is independent of time zone and is of
+the form `YYYY-MM-DD HH:MM:SS`.  When casting from string to datetime, the
+string must conform to the supported datetime literal format, and is independent
+of time zone. If the string expression is invalid or represents a datetime that
+is outside of the supported min/max range, then an error is produced.
 
 #### Casting timestamp types
 
@@ -459,9 +489,10 @@ An error is produced if the `string_expression` is invalid, has more than six
 subsecond digits (i.e. precision greater than microseconds), or represents a
 time outside of the supported timestamp range.
 
-#### Casting between date and timestamp types
+#### Casting between date, datetime and timestamp types {: #casting-date-time-timestamp }
 
-ZetaSQL supports casting between date and timestamp types as follows:
+ZetaSQL supports casting between date, datetime and timestamp types as shown in
+the [conversion rules table][conversion-rules-table].
 
 ```
 CAST(date_expression AS TIMESTAMP)
@@ -472,6 +503,14 @@ Casting from a date to a timestamp interprets `date_expression` as of midnight
 (start of the day) in the default time zone, which is implementation defined. Casting
 from a timestamp to date effectively truncates the timestamp as of the default
 time zone.
+
+```
+CAST(datetime_expression AS TIMESTAMP)
+CAST(timestamp_expression AS DATETIME)
+```
+
+Casting from a datetime to a timestamp interprets `datetime_expression` as of
+midnight (start of the day) in the default time zone, which is implementation defined.
 
 #### Bit casting
 
@@ -548,7 +587,7 @@ be explicitly CAST to a specific ENUM type name.
 
 <tr>
 <td>STRING literal</td>
-<td><span> DATE</span><br /><span> ENUM</span><br /><span> PROTO</span><br /><span> TIMESTAMP</span><br /></td>
+<td><span> DATE</span><br /><span> DATETIME</span><br /><span> ENUM</span><br /><span> PROTO</span><br /><span> TIME</span><br /><span> TIMESTAMP</span><br /></td>
 <td>
 
 String literals will implicitly coerce to PROTO
@@ -628,6 +667,7 @@ ZetaSQL provides the following additional conversion functions:
 + [TIME functions][con-rules-link-to-time-functions]
 + [TIMESTAMP functions][con-rules-link-to-timestamp-functions]
 
+[conversion-rules-table]: #conversion_rules
 [con-rules-link-to-literal-coercion]: #literal_coercion
 [con-rules-link-to-parameter-coercion]: #parameter_coercion
 [con-rules-link-to-time-zones]: https://github.com/google/zetasql/blob/master/docs/data-types#time_zones

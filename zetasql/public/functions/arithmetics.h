@@ -349,6 +349,13 @@ inline bool Modulo(T in1, T in2, T *out, absl::Status* error) {
     return internal::UpdateError(
         error, absl::StrCat("division by zero: MOD(", in1, ", ", in2, ")"));
   }
+  if constexpr (std::is_same_v<int64_t, T>) {
+    if (ABSL_PREDICT_FALSE(in2 == -1)) {
+      // Workaround for -9223372035808 % -1 triggering floating point exception.
+      *out = 0;
+      return true;
+    }
+  }
   *out = in1 % in2;
   return true;
 }

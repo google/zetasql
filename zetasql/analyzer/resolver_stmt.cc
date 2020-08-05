@@ -243,6 +243,20 @@ absl::Status Resolver::ResolveStatement(
       }
       break;
 
+    case AST_CREATE_ENTITY_STATEMENT:
+      if (language().SupportsStatementKind(RESOLVED_CREATE_ENTITY_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveCreateEntityStatement(
+            statement->GetAsOrDie<ASTCreateEntityStatement>(), &stmt));
+      }
+      break;
+
+    case AST_ALTER_ENTITY_STATEMENT:
+      if (language().SupportsStatementKind(RESOLVED_ALTER_ENTITY_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveAlterEntityStatement(
+            statement->GetAsOrDie<ASTAlterEntityStatement>(), &stmt));
+      }
+      break;
+
     case AST_EXPORT_DATA_STATEMENT:
       if (language().SupportsStatementKind(RESOLVED_EXPORT_DATA_STMT)) {
         ZETASQL_RETURN_IF_ERROR(ResolveExportDataStatement(
@@ -4560,6 +4574,31 @@ absl::Status Resolver::ResolveExecuteImmediateStatement(
 
   *output = MakeResolvedExecuteImmediateStmt(std::move(sql), into_identifiers,
                                              std::move(using_arguments));
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveCreateEntityStatement(
+    const ASTCreateEntityStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  ResolvedCreateStatement::CreateScope create_scope;
+  ResolvedCreateStatement::CreateMode create_mode;
+  ZETASQL_RETURN_IF_ERROR(ResolveCreateStatementOptions(
+      ast_statement,
+      /*statement_type=*/
+      absl::StrCat("CREATE ", ast_statement->type()->GetAsString()),
+      &create_scope, &create_mode));
+
+  std::vector<std::unique_ptr<const ResolvedOption>> options;
+  ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(ast_statement->options_list(), &options));
+  std::string entity_body_json;
+  if (ast_statement->json_body() != nullptr) {
+    entity_body_json = ast_statement->json_body()->string_value();
+  }
+  auto resolved_stmt = MakeResolvedCreateEntityStmt(
+      ast_statement->name()->ToIdentifierVector(), create_scope, create_mode,
+      ast_statement->type()->GetAsString(), entity_body_json,
+      std::move(options));
+  *output = std::move(resolved_stmt);
   return absl::OkStatus();
 }
 

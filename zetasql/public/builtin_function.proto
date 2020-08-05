@@ -43,14 +43,14 @@ enum FunctionSignatureId {
   // 1100-1199 Control flow functions        (NextId: 1104)
   // 1200-1299 Time functions                (Fully used)
   // 1300-1399 Math functions                (Fully used)
-  // 1400-1499 Aggregate functions           (NextId: 1482)
+  // 1400-1499 Aggregate functions           (NextId: 1489)
   // 1500-1599 Analytic functions            (NextId: 1513)
   // 1600-1699 Misc functions                (NextId: 1688)
   // 1700-1799 Net functions                 (NextId: 1716)
-  // 1800-1899 More time functions           (NextId: 1843)
+  // 1800-1899 More time functions           (NextId: 1845)
   // 1900-1999 Hashing/encryption functions  (NextId: 1924)
-  // 2000-2199 Geography functions           (NextId: 2066)
-  // 2300-2499 More math functions           (NextId: 2304)
+  // 2000-2199 Geography functions           (NextId: 2068)
+  // 2300-2499 More math functions           (NextId: 2314)
   // 2500-2599 Array functions               (NextId: 2504)
 
   // enum value                       // Related function name
@@ -367,6 +367,9 @@ enum FunctionSignatureId {
   FN_PARSE_TIME = 1823;        // parse_time
   FN_PARSE_TIMESTAMP = 1296;   // parse_timestamp
 
+  FN_LAST_DAY_DATE = 1843;      // last_day date
+  FN_LAST_DAY_DATETIME = 1844;  // last_day datetime
+
   // Math functions
   FN_ABS_INT32 = 1300;        // abs
   FN_ABS_INT64 = 1301;        // abs
@@ -453,14 +456,26 @@ enum FunctionSignatureId {
   FN_GREATEST = 1321;  // greatest
   FN_LEAST = 1322;     // least
 
-  FN_SQRT_DOUBLE = 1323;     // sqrt
-  FN_POW_DOUBLE = 1324;      // pow
-  FN_POW_NUMERIC = 1370;     // pow(numeric, numeric) -> numeric
-  FN_POW_BIGNUMERIC = 2303;  // pow(bignumeric, bignumeric) -> bignumeric
-  FN_EXP_DOUBLE = 1325;      // exp
+  FN_SQRT_DOUBLE = 1323;      // sqrt
+  FN_SQRT_NUMERIC = 2308;     // sqrt(numeric) -> numeric
+  FN_SQRT_BIGNUMERIC = 2309;  // sqrt(bignumeric) -> bignumeric
+  FN_POW_DOUBLE = 1324;       // pow
+  FN_POW_NUMERIC = 1370;      // pow(numeric, numeric) -> numeric
+  FN_POW_BIGNUMERIC = 2303;   // pow(bignumeric, bignumeric) -> bignumeric
+  FN_EXP_DOUBLE = 1325;       // exp
+  FN_EXP_NUMERIC = 2304;      // exp(numeric) -> numeric
+  FN_EXP_BIGNUMERIC = 2305;   // exp(bignumeric) -> bignumeric
   FN_NATURAL_LOGARITHM_DOUBLE = 1326;  // ln and log
-  FN_DECIMAL_LOGARITHM_DOUBLE = 1345;  // log10
-  FN_LOGARITHM_DOUBLE = 1327;          // log
+  // ln(numeric) -> numeric and log(numeric) -> numeric
+  FN_NATURAL_LOGARITHM_NUMERIC = 2306;
+  // ln(bignumeric) -> bignumeric and log(bignumeric) -> bignumeric
+  FN_NATURAL_LOGARITHM_BIGNUMERIC = 2307;
+  FN_DECIMAL_LOGARITHM_DOUBLE = 1345;      // log10
+  FN_DECIMAL_LOGARITHM_NUMERIC = 2310;     // log10(numeric) -> numeric
+  FN_DECIMAL_LOGARITHM_BIGNUMERIC = 2311;  // log10(bignumeric) -> bignumeric
+  FN_LOGARITHM_DOUBLE = 1327;              // log
+  FN_LOGARITHM_NUMERIC = 2312;             // log(numeric, numeric) -> numeric
+  FN_LOGARITHM_BIGNUMERIC = 2313;  // log(bignumeric, bignumeric) -> bignumeric
 
   FN_COS_DOUBLE = 1328;    // cos
   FN_COSH_DOUBLE = 1329;   // cosh
@@ -536,20 +551,27 @@ enum FunctionSignatureId {
   FN_HLL_COUNT_MERGE_PARTIAL = 1450;    // hll_count.merge_partial(bytes)
 
   // Statistical aggregate functions.
-  FN_CORR = 1435;                 // corr
-  FN_CORR_NUMERIC = 1471;         // corr
-  FN_COVAR_POP = 1436;            // covar_pop
-  FN_COVAR_POP_NUMERIC = 1472;    // covar_pop
-  FN_COVAR_SAMP = 1437;           // covar_samp
-  FN_COVAR_SAMP_NUMERIC = 1473;   // covar_samp
-  FN_STDDEV_POP = 1438;           // stddev_pop
-  FN_STDDEV_POP_NUMERIC = 1474;   // stddev_pop
-  FN_STDDEV_SAMP = 1439;          // stddev_samp
-  FN_STDDEV_SAMP_NUMERIC = 1475;  // stddev_samp
-  FN_VAR_POP = 1440;              // var_pop
-  FN_VAR_POP_NUMERIC = 1476;      // var_pop
-  FN_VAR_SAMP = 1441;             // var_samp
-  FN_VAR_SAMP_NUMERIC = 1477;     // var_samp
+  FN_CORR = 1435;                    // corr
+  FN_CORR_NUMERIC = 1471;            // corr
+  FN_CORR_BIGNUMERIC = 1488;         // corr
+  FN_COVAR_POP = 1436;               // covar_pop
+  FN_COVAR_POP_NUMERIC = 1472;       // covar_pop
+  FN_COVAR_POP_BIGNUMERIC = 1486;    // covar_pop
+  FN_COVAR_SAMP = 1437;              // covar_samp
+  FN_COVAR_SAMP_NUMERIC = 1473;      // covar_samp
+  FN_COVAR_SAMP_BIGNUMERIC = 1487;   // covar_samp
+  FN_STDDEV_POP = 1438;              // stddev_pop
+  FN_STDDEV_POP_NUMERIC = 1474;      // stddev_pop
+  FN_STDDEV_POP_BIGNUMERIC = 1482;   // stddev_pop
+  FN_STDDEV_SAMP = 1439;             // stddev_samp
+  FN_STDDEV_SAMP_NUMERIC = 1475;     // stddev_samp
+  FN_STDDEV_SAMP_BIGNUMERIC = 1483;  // stddev_samp
+  FN_VAR_POP = 1440;                 // var_pop
+  FN_VAR_POP_NUMERIC = 1476;         // var_pop
+  FN_VAR_POP_BIGNUMERIC = 1484;      // var_pop
+  FN_VAR_SAMP = 1441;                // var_samp
+  FN_VAR_SAMP_NUMERIC = 1477;        // var_samp
+  FN_VAR_SAMP_BIGNUMERIC = 1485;     // var_samp
 
   FN_COUNTIF = 1443;  // countif
 
@@ -839,10 +861,13 @@ enum FunctionSignatureId {
   FN_ST_UNION_AGG = 2061;
   FN_ST_ACCUM = 2062;
   FN_ST_CENTROID_AGG = 2063;
+  FN_ST_NEAREST_NEIGHBORS = 2067;
 
   // Other geography functions
   FN_ST_X = 2070;
   FN_ST_Y = 2071;
+
+  FN_ST_CLUSTERDBSCAN = 2066;
 
   // Array functions.
   FN_FLATTEN = 2500;  // flatten(array path) -> array

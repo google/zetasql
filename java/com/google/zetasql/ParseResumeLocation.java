@@ -22,6 +22,7 @@ import com.google.zetasql.ZetaSQLParser.ParseResumeLocationProto;
 import com.google.zetasql.LocalService.RegisterResponse;
 import com.google.zetasql.LocalService.UnregisterRequest;
 import io.grpc.StatusRuntimeException;
+import java.io.Serializable;
 import java.util.Objects;
 import java.util.logging.Logger;
 
@@ -30,7 +31,7 @@ import java.util.logging.Logger;
  * token in repeated calls to operations that parse multiple items from one input string. Each
  * successive call updates this location object so the next call knows where to start.
  */
-public class ParseResumeLocation {
+public class ParseResumeLocation implements Serializable {
   private static final Logger logger = Logger.getLogger(ParseResumeLocation.class.getName());
 
   private String filename;

@@ -67,6 +67,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_ALTER_TABLE_STATEMENT] = "AlterTableStatement";
   map[AST_ALTER_VIEW_STATEMENT] = "AlterViewStatement";
   map[AST_ANALYTIC_FUNCTION_CALL] = "AnalyticFunctionCall";
+  map[AST_FUNCTION_CALL_WITH_GROUP_ROWS] = "ASTFunctionCallWithGroupRows";
   map[AST_AND_EXPR] = "AndExpr";
   map[AST_ARRAY_COLUMN_SCHEMA] = "ArrayColumnSchema";
   map[AST_ARRAY_CONSTRUCTOR] = "ArrayConstructor";
@@ -108,6 +109,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_CREATE_MODEL_STATEMENT] = "CreateModelStatement";
   map[AST_CREATE_ROW_ACCESS_POLICY_STATEMENT] =
       "CreateRowAccessPolicyStatement";
+  map[AST_CREATE_SCHEMA_STATEMENT] = "CreateSchemaStatement";
   map[AST_CREATE_TABLE_FUNCTION_STATEMENT] = "CreateTableFunctionStatement";
   map[AST_CREATE_TABLE_STATEMENT] = "CreateTableStatement";
   map[AST_CREATE_ENTITY_STATEMENT] = "CreateEntityStatement";
@@ -842,6 +844,28 @@ std::string ASTWindowFrameExpr::BoundaryTypeToString(BoundaryType type) {
 
 std::string ASTWindowFrameExpr::GetBoundaryTypeString() const {
   return BoundaryTypeToString(boundary_type_);
+}
+
+const ASTFunctionCall* ASTAnalyticFunctionCall::function() const {
+  if (expression_ == nullptr) {
+    return nullptr;
+  }
+  if (expression_->node_kind() == ASTNodeKind::AST_FUNCTION_CALL) {
+    return static_cast<const ASTFunctionCall*>(expression_);
+  }
+  return nullptr;
+}
+
+const ASTFunctionCallWithGroupRows*
+ASTAnalyticFunctionCall::function_with_group_rows() const {
+  if (expression_ == nullptr) {
+    return nullptr;
+  }
+  if (expression_->node_kind() ==
+      ASTNodeKind::AST_FUNCTION_CALL_WITH_GROUP_ROWS) {
+    return static_cast<const ASTFunctionCallWithGroupRows*>(expression_);
+  }
+  return nullptr;
 }
 
 std::string ASTExpressionSubquery::ModifierToString(Modifier modifier) {
