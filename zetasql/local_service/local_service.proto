@@ -25,6 +25,7 @@ import "zetasql/proto/options.proto";
 import "zetasql/proto/simple_catalog.proto";
 import "zetasql/public/options.proto";
 import "zetasql/public/parse_resume_location.proto";
+import "zetasql/public/parse_tokens.proto";
 import "zetasql/public/simple_table.proto";
 import "zetasql/public/type.proto";
 import "zetasql/public/value.proto";
@@ -138,6 +139,10 @@ service ZetaSqlLocalService {
   // Gets ZetaSQL lanauge options.
   rpc GetLanguageOptions(LanguageOptionsRequest)
       returns (LanguageOptionsProto) {
+  }
+
+  // Tokenize an input query (enclosed in ParseResumeLocation) and return its parse tokens.
+  rpc GetParseTokens(GetParseTokensRequest) returns (GetParseTokensResponse) {
   }
 }
 
@@ -329,4 +334,13 @@ message AddSimpleTableRequest {
 message LanguageOptionsRequest {
   optional bool maximum_features = 1;
   optional LanguageVersion language_version = 2;
+}
+
+message GetParseTokensRequest {
+  optional ParseTokenOptionsProto options = 1;
+  optional ParseResumeLocationProto resume_location = 2;
+}
+
+message GetParseTokensResponse {
+  repeated ParseTokenProto tokens = 1;
 }
