@@ -25,6 +25,7 @@
 #include "zetasql/public/value.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
+#include "zetasql/public/parse_tokens.pb.h"
 
 namespace zetasql {
 
@@ -119,6 +120,32 @@ class ParseToken {
   // Returns the location of the token in the input.
   ParseLocationRange GetLocationRange() const { return location_range_; }
 
+  // Convert the token into its proto.
+  zetasql_base::StatusOr<ParseTokenProto> ToProto() const {
+      ParseTokenProto token_proto;
+
+      // Create a location range proto from the field location_range_. Transform the proto into heap and
+      // uses a pointer to manage it. Then assign the pointer to the token proto, which will release the
+      // assigned location range proto when the token proto is about to be released.
+      auto status_or_location_range_proto = location_range_.ToProto();
+      if (!status_or_location_range_proto.ok()) {
+          return status_or_location_range_proto.status();
+      }
+      auto range_proto = new ParseLocationRangeProto(status_or_location_range_proto.value());
+      token_proto.set_allocated_parse_location_range(range_proto);
+
+      // New a value proto in heap, assign the fields of the value_ field to the proto,
+      // and transfer the ownership of the value proto to the token proto.
+      auto value_proto = new ValueProto();
+      if (value_.is_valid()) {
+          ZETASQL_RETURN_IF_ERROR(value_.Serialize(value_proto));
+          token_proto.set_allocated_value(value_proto);
+      }
+      token_proto.set_image(image_);
+      token_proto.set_kind(serialize_kind(kind_));
+      return token_proto;
+    }
+
   // The declarations below are intended for internal use.
 
   enum Kind {
@@ -146,6 +173,26 @@ class ParseToken {
   ParseLocationRange location_range_;
   Value value_;
 
+  // Convert a Token Kind into its proto form. It is used by the ToProto method that converts
+  // a token to its proto.
+  static ParseTokenProto_Kind serialize_kind(const ParseToken::Kind kind) {
+      using zetasql::ParseToken;
+      switch (kind) {
+          case ParseToken::Kind::KEYWORD:
+              return ParseTokenProto_Kind::ParseTokenProto_Kind_KEYWORD;
+          case ParseToken::IDENTIFIER:
+              return ParseTokenProto_Kind::ParseTokenProto_Kind_IDENTIFIER;
+          case ParseToken::IDENTIFIER_OR_KEYWORD:
+              return ParseTokenProto_Kind::ParseTokenProto_Kind_IDENTIFIER_OR_KEYWORD;
+          case ParseToken::VALUE:
+              return ParseTokenProto_Kind::ParseTokenProto_Kind_VALUE;
+          case ParseToken::COMMENT:
+              return ParseTokenProto_Kind::ParseTokenProto_Kind_COMMENT;
+          case ParseToken::END_OF_INPUT:
+              return ParseTokenProto_Kind::ParseTokenProto_Kind_END_OF_INPUT;
+      }
+  }
+
   // Copyable
 };
 
@@ -160,6 +207,24 @@ struct ParseTokenOptions {
 
   // Return the comments in the ParseToken vector or silently drop them.
   bool include_comments = false;
+
+    // Convert the token options into its proto.
+    ParseTokenOptionsProto ToProto() const {
+        ParseTokenOptionsProto options_proto;
+        options_proto.set_max_tokens(max_tokens);
+        options_proto.set_stop_at_end_of_statement(stop_at_end_of_statement);
+        options_proto.set_include_comments(include_comments);
+        return options_proto;
+    }
+
+    // Create a ParseTokenOption object from its proto.
+    static ParseTokenOptions FromProto(const ParseTokenOptionsProto& proto) {
+        ParseTokenOptions options;
+        options.max_tokens = proto.max_tokens();
+        options.stop_at_end_of_statement = proto.stop_at_end_of_statement();
+        options.include_comments = proto.include_comments();
+        return options;
+    }
 };
 
 // Gets a vector of ParseTokens starting from <resume_location>, and updates
