@@ -808,22 +808,24 @@ absl::Status ZetaSqlLocalServiceImpl::GetLanguageOptions(
   return absl::OkStatus();
 }
 
-absl::Status ZetaSqlLocalServiceImpl::GetParseTokens(const GetParseTokensRequest &request, GetParseTokensResponse *response) {
-    auto options = ParseTokenOptions::FromProto(request.options());
-    auto resume_location = ParseResumeLocation::FromProto(request.resume_location());
-    std::vector<ParseToken> tokens;
-    ZETASQL_RETURN_IF_ERROR(::zetasql::GetParseTokens(options, &resume_location, &tokens));
+absl::Status ZetaSqlLocalServiceImpl::GetParseTokens(
+    const GetParseTokensRequest &request, GetParseTokensResponse *response) {
 
-    for (auto& token : tokens) {
-        auto status_or_token_proto = token.ToProto();
-        // Return error if a token cannot be converted to a token proto.
-        if (!status_or_token_proto.ok()) {
-            return status_or_token_proto.status();
-        }
-        response->add_tokens()->CopyFrom(status_or_token_proto.value());
+  auto options = ParseTokenOptions::FromProto(request.options());
+  auto resume_location = ParseResumeLocation::FromProto(request.resume_location());
+  std::vector<ParseToken> tokens;
+  ZETASQL_RETURN_IF_ERROR(::zetasql::GetParseTokens(options, &resume_location, &tokens));
+
+  for (auto& token : tokens) {
+    auto status_or_token_proto = token.ToProto();
+    // Return error if a token cannot be converted to a token proto.
+    if (!status_or_token_proto.ok()) {
+      return status_or_token_proto.status();
     }
+    response->add_tokens()->CopyFrom(status_or_token_proto.value());
+  }
 
-    return absl::OkStatus();
+  return absl::OkStatus();
 }
 
 size_t ZetaSqlLocalServiceImpl::NumSavedPreparedExpression() const {

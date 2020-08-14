@@ -97,9 +97,9 @@ class ZetaSqlLocalServiceGrpcImpl
                                   const LanguageOptionsRequest* req,
                                   LanguageOptionsProto* resp) override;
 
-    grpc::Status GetParseTokens(grpc::ServerContext *context,
-            const GetParseTokensRequest* req,
-            GetParseTokensResponse* resp) override;
+  grpc::Status GetParseTokens(grpc::ServerContext *context,
+                              const GetParseTokensRequest* req,
+                              GetParseTokensResponse* resp) override;
 
 private:
   ZetaSqlLocalServiceImpl service_;
