@@ -122,28 +122,34 @@ class ParseToken {
 
   // Convert the token into its proto.
   zetasql_base::StatusOr<ParseTokenProto> ToProto() const {
-      ParseTokenProto token_proto;
+    ParseTokenProto token_proto;
 
-      // Create a location range proto from the field location_range_. Transform the proto into heap and
-      // uses a pointer to manage it. Then assign the pointer to the token proto, which will release the
-      // assigned location range proto when the token proto is about to be released.
-      auto status_or_location_range_proto = location_range_.ToProto();
-      if (!status_or_location_range_proto.ok()) {
-          return status_or_location_range_proto.status();
-      }
-      auto range_proto = new ParseLocationRangeProto(status_or_location_range_proto.value());
-      token_proto.set_allocated_parse_location_range(range_proto);
+    // Create a location range proto from the field location_range_. Transform the proto into heap and
+    // uses a pointer to manage it. Then assign the pointer to the token proto, which will release the
+    // assigned location range proto when the token proto is about to be released.
+    auto status_or_location_range_proto = location_range_.ToProto();
+    if (!status_or_location_range_proto.ok()) {
+        return status_or_location_range_proto.status();
+    }
+    auto range_proto = new ParseLocationRangeProto(status_or_location_range_proto.value());
+    token_proto.set_allocated_parse_location_range(range_proto);
 
-      // New a value proto in heap, assign the fields of the value_ field to the proto,
-      // and transfer the ownership of the value proto to the token proto.
+    // New a value proto in heap and immediately assign it to the token proto, so that
+    // the token proto can manage the memory of the value proto.
+    // Besides assigning the value proto, a type proto is created and assigned, because
+    // it is required to identify the type of value when the proto is deserialized.
+    if (value_.is_valid()) {
+      auto type_proto = new TypeProto();
+      token_proto.set_allocated_type(type_proto);
+      ZETASQL_RETURN_IF_ERROR(value_.type()->SerializeToSelfContainedProto(type_proto));
+
       auto value_proto = new ValueProto();
-      if (value_.is_valid()) {
-          ZETASQL_RETURN_IF_ERROR(value_.Serialize(value_proto));
-          token_proto.set_allocated_value(value_proto);
-      }
-      token_proto.set_image(image_);
-      token_proto.set_kind(serialize_kind(kind_));
-      return token_proto;
+      token_proto.set_allocated_value(value_proto);
+      ZETASQL_RETURN_IF_ERROR(value_.Serialize(value_proto));
+    }
+    token_proto.set_image(image_);
+    token_proto.set_kind(serialize_kind(kind_));
+    return token_proto;
     }
 
   // The declarations below are intended for internal use.

@@ -784,12 +784,18 @@ proto_library(
     srcs = ["parse_tokens.proto"],
     deps = [
         ":parse_location_range_proto",
+        ":type_proto",
         ":value_proto",
     ],
 )
 
 cc_proto_library(
     name = "parse_tokens_cc_proto",
+    deps = [":parse_tokens_proto"],
+)
+
+java_proto_library(
+    name = "parse_tokens_java_proto",
     deps = [":parse_tokens_proto"],
 )
 
@@ -1636,9 +1642,9 @@ cc_library(
         "//zetasql/parser",
         "//zetasql/parser:bison_parser_generated_lib",
         "//zetasql/parser:keywords",
+        "//zetasql/public:parse_tokens_cc_proto",
         "//zetasql/public/functions:convert_string",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
-        "//zetasql/public:parse_tokens_cc_proto",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",

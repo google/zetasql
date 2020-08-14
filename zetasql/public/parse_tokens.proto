@@ -20,6 +20,7 @@ package zetasql;
 
 import "zetasql/public/parse_location_range.proto";
 import "zetasql/public/value.proto";
+import "zetasql/public/type.proto";
 
 option java_package = "com.google.zetasql";
 option java_outer_classname = "ZetaSqlParseTokenProtos";
@@ -43,6 +44,8 @@ message ParseTokenProto {
   optional zetasql.ParseLocationRangeProto parse_location_range = 3;
   // The value of a token. This field is filled when Kind is VALUE.
   optional zetasql.ValueProto value = 4;
+  // The type of the value. It is needed to deserialize the value proto back to value.
+  optional zetasql.TypeProto type = 5;
 }
 
 message ParseTokenOptionsProto {
