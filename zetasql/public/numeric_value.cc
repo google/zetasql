@@ -34,6 +34,7 @@
 #include "absl/base/optimization.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
@@ -2844,6 +2845,36 @@ BigNumericValue::CorrelationAggregator::DeserializeFromProtoBytes(
   }
   return MakeEvalError()
          << "Invalid BigNumericValue::CorrelationAggregator encoding";
+}
+
+std::ostream& operator<<(std::ostream& out, const VarNumericValue& value) {
+  return out << value.ToString();
+}
+
+VarNumericValue VarNumericValue::FromScaledValue(
+    absl::string_view little_endian_value, uint scale) {
+  VarNumericValue result;
+  result.scale_ = scale;
+  if (!little_endian_value.empty()) {
+    result.value_.resize((little_endian_value.size() + sizeof(uint32_t) - 1) /
+                         sizeof(uint32_t));
+    VarIntRef<32> var_int_ref(result.value_);
+    bool success = var_int_ref.DeserializeFromBytes(little_endian_value);
+    DCHECK(success);
+  }
+  return result;
+}
+
+void VarNumericValue::AppendToString(std::string* output) const {
+  DCHECK(output != nullptr);
+  size_t first_digit_index = output->size();
+  ConstVarIntRef<32>(value_).AppendToString(output);
+  if (output->size() == first_digit_index + 1 &&
+      output->at(first_digit_index) == '0') {
+    return;
+  }
+  first_digit_index += output->at(first_digit_index) == '-';
+  AddDecimalPointAndAdjustZeros(first_digit_index, scale_, 0, false, output);
 }
 
 }  // namespace zetasql

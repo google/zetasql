@@ -26,6 +26,7 @@
 #include "zetasql/public/json_value.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/statusor.h"
 

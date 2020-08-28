@@ -176,18 +176,6 @@ enum LanguageFeature {
   FEATURE_CREATE_TABLE_CLUSTER_BY = 15;
 
   // NUMERIC type support, see (broken link).
-  // Does not cover additional NUMERIC signatures of PERCENTILE_CONT or
-  // PERCENTILE_DISC that are required to get ZetaSQL
-  // compliant behavior. These function signatures are controlled by
-  // FEATURE_NUMERIC_PERCENTILE_SIGNATURES.
-  // It is highly recommended to enable these function signatures when
-  // FEATURE_NUMERIC_TYPE is enabled. Otherwise, calling these functions with
-  // NUMERIC values would fallback to the DOUBLE signature, by implicitly
-  // casting the NUMERIC inputs to DOUBLE type; enabling the numeric signatures
-  // later would cause query behavior change for these functions (for
-  // PERCENTILE_CONT and PERCENTILE_DISC, the result type will also change).
-  // ZetaSQL will soon enable these function signatures by default, and
-  // disabling them would be considered non-compliant.
   FEATURE_NUMERIC_TYPE = 16;
 
   // Enables support for NOT NULL annotation in CREATE TABLE.
@@ -326,12 +314,10 @@ enum LanguageFeature {
   // Example: CREATE EXTERNAL TABLE t (x FLOAT64)
   FEATURE_CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST = 35;
 
-  // These 2 feature options are ignored.
+  // These 3 feature options are ignored.
   FEATURE_NUMERIC_COVAR_CORR_SIGNATURES = 38 [deprecated = true];
   FEATURE_NUMERIC_VARIANCE_STDDEV_SIGNATURES = 39 [deprecated = true];
-
-  FEATURE_NUMERIC_PERCENTILE_SIGNATURES = 45
-      [(language_feature_options).in_development = true];
+  FEATURE_NUMERIC_PERCENTILE_SIGNATURES = 45 [deprecated = true];
 
   // Enables using NOT ENFORCED in primary keys.
   // See (broken link).

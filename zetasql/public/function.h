@@ -32,6 +32,7 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "absl/base/attributes.h"
+#include "zetasql/base/statusor.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"

@@ -27,6 +27,7 @@
 #include "zetasql/base/string_numbers.h"  
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/statusor.h"
 
@@ -153,8 +154,8 @@ class JsonPathEvaluator {
   // This implementation follows the proto3 JSON spec ((broken link),
   // (broken link)), where special characters include the
   // following:
-  //    * Quotation mark, "
-  //    * Reverse solidus, \
+  //    * Quotation mark, '"'
+  //    * Reverse solidus, '\'
   //    * Control characters (U+0000 through U+001F).
   void enable_special_character_escaping() {
     escape_special_characters_ = true;

@@ -109,6 +109,75 @@ class RegExp {
   void ExtractAllReset(const absl::string_view str);
   bool ExtractAllNext(absl::string_view* out, absl::Status* error);
 
+  enum PositionUnit {
+    kBytes,
+    kUtf8Chars,
+  };
+
+  enum ReturnPosition {
+    // Returns the position of the start of the match
+    kStartOfMatch,
+
+    // Returns the position of the character immediately following the
+    // match, or, if the match is at the end of the input string, 1 +
+    // length(input_string).
+    kEndOfMatch,
+  };
+
+  // InstrParams, parameters of Instr()
+  struct InstrParams {
+    // input_str can be a STRING or BYTES
+    absl::string_view input_str;
+
+    // position_unit can be kBytes or kUtf8Chars, which is the unit of input
+    // position and output position.
+    PositionUnit position_unit = kUtf8Chars;
+
+    // Start position of the input str, one-based. It's in either characters
+    // or bytes, depending on position_unit
+    int64_t position = 1;
+
+    // *out will be set to the position of the match at this index,
+    // or 0 if this index exceeds the number of matches of the regular
+    // expression against 'input_str'. One-based.
+    int64_t occurrence_index = 1;
+
+    // return_position can be kStartOfMatch or kEndOfMatch
+    ReturnPosition return_position = kStartOfMatch;
+
+    // The returned position, one based. In either characters or bytes,
+    // depending on the position_unit. Users are required to set it.
+    // Out will be set to 0 in case of error.
+    int64_t* out = nullptr;
+  };
+
+  // REGEXP_INSTR
+  // Returns the position (one-based) of the specified occurrence of the
+  // regexp_value pattern starting at 'position' in str.
+  // If position is greater than str length, 0 is returned.
+  // If occurrence is greater than the number of matches found, 0 is returned.
+  // If either position or occurrence is NULL, return true with NULL result
+  //
+  // If the regular expression regexp_value contains a capturing group, the
+  // function returns the position of the substring matched by that capturing
+  // group based on occurrence (default to 1). If the expression does not
+  // contain a capturing group, the function returns the position for the
+  // entire matching substring.
+  //
+  // If no match is found, or no match is found for the given position or
+  // occurrence if specified, 0 is returned.
+  // If the regex expression is empty, 0 will be returned.
+  //
+  // Return false with a non-ok status in error if :
+  //   Either position or occurrence from input is not a positive integer.
+  //   return_position_after_match is neither 0 nor 1.
+  //   The regular expression is invalid
+  //   The regular expression has more than one capturing group
+  // Examples:
+  // REGEX_INSTR("-2020-jack-class1", "-[^.-]*", 2, 1, 0) -> 6
+  // REGEX_INSTR("-2020-jack-class1", "-[^.-]*", 2, 1, 1) -> 11
+  bool Instr(const InstrParams& options, absl::Status* error);
+
   // REGEXP_REPLACE
   // Replaces all matching substrings in str with newsub and returns result
   // to *out.
@@ -150,6 +219,8 @@ class RegExp {
   // Position of the next byte inside extract_all_input_ that will be matched by
   // ExtractAllNext().
   int extract_all_position_;
+  // Position of the next byte after last match of capture group
+  int capture_group_position_;
   // Keeps track whether match was the last one. It is needed to prevent
   // infinite loop when input is empty and regexp matches empty string.
   bool last_match_;

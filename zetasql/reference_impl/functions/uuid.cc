@@ -19,6 +19,7 @@
 #include "zetasql/public/functions/uuid.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/function.h"
+#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 namespace {

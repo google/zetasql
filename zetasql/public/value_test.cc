@@ -52,6 +52,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/hash/hash.h"
 #include "absl/hash/hash_testing.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
@@ -1904,7 +1905,7 @@ TEST_F(ValueTest, ClassAndProtoSize) {
   EXPECT_EQ(16, sizeof(Value))
       << "The size of Value class has changed, please also update the proto "
       << "and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(23, ValueProto::descriptor()->field_count())
+  EXPECT_EQ(22, ValueProto::descriptor()->field_count())
       << "The number of fields in ValueProto has changed, please also update "
       << "the serialization code accordingly.";
   EXPECT_EQ(1, ValueProto::Array::descriptor()->field_count())

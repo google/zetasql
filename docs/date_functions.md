@@ -480,7 +480,7 @@ FORMAT_DATE(format_string, date_expr)
 
 Formats the `date_expr` according to the specified `format_string`.
 
-See [Supported Format Elements For DATE][date-functions-link-to-supported-format-elements-for-date]
+See [Supported Format Elements For DATE][date-format-elements]
 for a list of format elements that this function supports.
 
 **Return Data Type**
@@ -527,8 +527,32 @@ PARSE_DATE(format_string, date_string)
 
 **Description**
 
-Uses a `format_string` and a string representation of a date to return a DATE
-object.
+Converts a [string representation of date][date-format] to a
+`DATE` object.
+
+`format_string` contains the [format elements][date-format-elements]
+that define how `date_string` is formatted. Each element in
+`date_string` must have a corresponding element in `format_string`. The
+location of each element in `format_string` must match the location of
+each element in `date_string`.
+
+```sql
+-- This works because elements on both sides match.
+SELECT PARSE_DATE("%A %b %e %Y", "Thursday Dec 25 2008")
+
+-- This doesn't work because the year element is in different locations.
+SELECT PARSE_DATE("%Y %A %b %e", "Thursday Dec 25 2008")
+
+-- This doesn't work because one of the year elements is missing.
+SELECT PARSE_DATE("%A %b %e", "Thursday Dec 25 2008")
+
+-- This works because %F can find all matching elements in date_string.
+SELECT PARSE_DATE("%F", "2000-12-30")
+```
+
+The format string fully supports most format elements except for
+`%Q`, `%a`, `%A`, `%g`,
+`%G`, `%j`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 When using `PARSE_DATE`, keep the following in mind:
 
@@ -542,9 +566,6 @@ allowed -- even if they are not in the format string.
 + *Format precedence.* When two (or more) format elements have overlapping
 information (for example both `%F` and `%Y` affect the year), the last one
 generally overrides any earlier ones.
-
-Note: This function supports [format elements][date-functions-link-to-supported-format-elements-for-date],
-but does not have full support for `%Q`, `%a`, `%A`, `%g`, `%G`, `%j`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 **Return Data Type**
 
@@ -727,7 +748,8 @@ space.</td>
 
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
 [ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
-[date-functions-link-to-supported-format-elements-for-date]: #supported_format_elements_for_date
+[date-format]: #format_date
+[date-format-elements]: #supported_format_elements_for_date
 
 [date-functions-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions#timezone_definitions
 

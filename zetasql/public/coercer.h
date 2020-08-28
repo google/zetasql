@@ -43,6 +43,7 @@ namespace zetasql {
 // depends on their types as per Type::GetTypeCoercionCost().
 int GetLiteralCoercionCost(const Value& literal_value, const Type* to_type);
 
+class ExtendedCompositeCastEvaluator;
 
 class Coercer {
  public:
@@ -120,10 +121,10 @@ class Coercer {
   //
   // TODO: retire/deprecate all other *CoerceTo* methods in this
   // class.
-  zetasql_base::StatusOr<bool> CoercesTo(const InputArgumentType& from_argument,
-                                 const Type* to_type, bool is_explicit,
-                                 SignatureMatchResult* result,
-                                 const Function** extended_conversion) const;
+  zetasql_base::StatusOr<bool> CoercesTo(
+      const InputArgumentType& from_argument, const Type* to_type,
+      bool is_explicit, SignatureMatchResult* result,
+      ExtendedCompositeCastEvaluator* extended_conversion_evaluator) const;
 
   // Allows everything that CoercesTo allows plus the following two rules:
   // * INT64 -> INT32

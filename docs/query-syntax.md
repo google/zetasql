@@ -63,7 +63,7 @@ ZetaSQL.
     { PERCENT | ROWS }
 </pre>
 
-Notation:
+**Notation rules**
 
 + Square brackets "[ ]" indicate optional clauses.
 + Parentheses "( )" indicate literal parentheses.
@@ -72,8 +72,7 @@ Notation:
 + A comma followed by an ellipsis within square brackets "[, ... ]" indicates that
   the preceding item can repeat in a comma-separated list.
 
-<a id=sample_tables></a>
-### Sample tables
+### Sample tables {: #sample_tables }
 
 The following tables are used to illustrate the behavior of different
 query clauses in this reference.
@@ -372,7 +371,7 @@ when querying a regular table.
 
 In contexts where a query with exactly one column is expected, a value table
 query can be used instead.  For example, scalar subqueries and array subqueries
-(see [Subqueries][subqueries]) normally require a single-column query, but in
+(see [Subqueries][subquery-concepts]) normally require a single-column query, but in
 ZetaSQL, they also allow using a value table query.
 
 A query will produce a value table if it uses `SELECT AS`, using one of the
@@ -418,7 +417,7 @@ FROM
 
 `SELECT AS STRUCT` can be used in a scalar or array subquery to produce a single
 STRUCT type grouping multiple values together. Scalar
-and array subqueries (see [Subqueries][subqueries]) are normally not allowed to
+and array subqueries (see [Subqueries][subquery-concepts]) are normally not allowed to
 return multiple columns.
 
 #### SELECT AS VALUE
@@ -498,7 +497,7 @@ See <a href="#join_types">JOIN Types</a> below.
 
 #### select
 
-<code>( select ) [ [ AS ] alias ]</code> is a table <a href="#subqueries">subquery</a>.
+<code>( select ) [ [ AS ] alias ]</code> is a [table subquery][table-subquery-concepts].
 
 #### field_path
 
@@ -711,44 +710,6 @@ for the duration of the query, unless you qualify the table name, e.g.
 
 </p>
 
-<a id="subqueries"></a>
-### Subqueries
-
-A subquery is a query that appears inside another statement, and is written
-inside parentheses. These are also referred to as "sub-SELECTs" or
-"nested SELECTs". The full `SELECT` syntax is valid in
-subqueries.
-
-There are two types of subquery:
-
-+  [Expression Subqueries][expression-subqueries],
-   which you can use in a query wherever expressions are valid. Expression
-   subqueries return a single value.
-+  Table subqueries, which you can use only in a `FROM` clause. The outer
-query treats the result of the subquery as a table.
-
-Note that there must be parentheses around both types of subqueries.
-
-Example:
-
-```
-SELECT AVG ( PointsScored )
-FROM
-( SELECT PointsScored
-  FROM Stats
-  WHERE SchoolID = 77 )
-```
-
-Optionally, a table subquery can have an alias.
-
-Example:
-
-```
-SELECT r.LastName
-FROM
-( SELECT * FROM Roster) AS r;
-```
-
 ### TABLESAMPLE operator
 
 You can use the `TABLESAMPLE` operator to select a random sample of a data
@@ -846,8 +807,7 @@ WHERE S.ServerId="test" AND R.ThreadId = S.ThreadId;
 See [Using Aliases][using-aliases] for information on syntax and visibility for
 `FROM` clause aliases.
 
-<a id="join_types"></a>
-## JOIN types
+## JOIN types {: #join_types }
 
 ### Syntax
 
@@ -888,10 +848,12 @@ Table A       Table B       Result
 +-------+     +-------+     +---------------+
 | w | x |  *  | y | z |  =  | w | x | y | z |
 +-------+     +-------+     +---------------+
-| 1 | a |     | 2 | d |     | 2 | b | 2 | d |
-| 2 | b |     | 3 | e |     | 3 | c | 3 | e |
-| 3 | c |     | 4 | f |     +---------------+
-+-------+     +-------+
+| 1 | a |     | 2 | k |     | 2 | b | 2 | k |
+| 2 | b |     | 3 | m |     | 3 | c | 3 | m |
+| 3 | c |     | 3 | n |     | 3 | c | 3 | n |
+| 3 | d |     | 4 | p |     | 3 | d | 3 | m |
++-------+     +-------+     | 3 | d | 3 | n |
+                            +---------------+
 ```
 
 ```sql
@@ -901,10 +863,12 @@ Table A       Table B       Result
 +-------+     +-------+     +-----------+
 | x | y |  *  | x | z |  =  | x | y | z |
 +-------+     +-------+     +-----------+
-| 1 | a |     | 2 | d |     | 2 | b | d |
-| 2 | b |     | 3 | e |     | 3 | c | e |
-| 3 | c |     | 4 | f |     +-----------+
-+-------+     +-------+
+| 1 | a |     | 2 | k |     | 2 | b | k |
+| 2 | b |     | 3 | m |     | 3 | c | m |
+| 3 | c |     | 3 | n |     | 3 | c | n |
+| 3 | d |     | 4 | p |     | 3 | d | m |
++-------+     +-------+     | 3 | d | n |
+                            +-----------+
 ```
 
 **Example**
@@ -1041,10 +1005,13 @@ Table A       Table B       Result
 +-------+     +-------+     +---------------------------+
 | w | x |  *  | y | z |  =  | w    | x    | y    | z    |
 +-------+     +-------+     +---------------------------+
-| 1 | a |     | 2 | d |     | 1    | a    | NULL | NULL |
-| 2 | b |     | 3 | e |     | 2    | b    | 2    | d    |
-| 3 | c |     | 4 | f |     | 3    | c    | 3    | e    |
-+-------+     +-------+     | NULL | NULL | 4    | f    |
+| 1 | a |     | 2 | k |     | 1    | a    | NULL | NULL |
+| 2 | b |     | 3 | m |     | 2    | b    | 2    | k    |
+| 3 | c |     | 3 | n |     | 3    | c    | 3    | m    |
+| 3 | d |     | 4 | p |     | 3    | c    | 3    | n    |
++-------+     +-------+     | 3    | d    | 3    | m    |
+                            | 3    | d    | 3    | n    |
+                            | NULL | NULL | 4    | p    |
                             +---------------------------+
 ```
 
@@ -1055,10 +1022,13 @@ Table A       Table B       Result
 +-------+     +-------+     +--------------------+
 | x | y |  *  | x | z |  =  | x    | y    | z    |
 +-------+     +-------+     +--------------------+
-| 1 | a |     | 2 | d |     | 1    | a    | NULL |
-| 2 | b |     | 3 | e |     | 2    | b    | d    |
-| 3 | c |     | 4 | f |     | 3    | c    | e    |
-+-------+     +-------+     | 4    | NULL | f    |
+| 1 | a |     | 2 | k |     | 1    | a    | NULL |
+| 2 | b |     | 3 | m |     | 2    | b    | k    |
+| 3 | c |     | 3 | n |     | 3    | c    | m    |
+| 3 | d |     | 4 | p |     | 3    | c    | n    |
++-------+     +-------+     | 3    | d    | m    |
+                            | 3    | d    | n    |
+                            | 4    | NULL | p    |
                             +--------------------+
 ```
 
@@ -1103,10 +1073,13 @@ Table A       Table B       Result
 +-------+     +-------+     +---------------------------+
 | w | x |  *  | y | z |  =  | w    | x    | y    | z    |
 +-------+     +-------+     +---------------------------+
-| 1 | a |     | 2 | d |     | 1    | a    | NULL | NULL |
-| 2 | b |     | 3 | e |     | 2    | b    | 2    | d    |
-| 3 | c |     | 4 | f |     | 3    | c    | 3    | e    |
-+-------+     +-------+     +---------------------------+
+| 1 | a |     | 2 | k |     | 1    | a    | NULL | NULL |
+| 2 | b |     | 3 | m |     | 2    | b    | 2    | k    |
+| 3 | c |     | 3 | n |     | 3    | c    | 3    | m    |
+| 3 | d |     | 4 | p |     | 3    | c    | 3    | n    |
++-------+     +-------+     | 3    | d    | 3    | m    |
+                            | 3    | d    | 3    | n    |
+                            +---------------------------+
 ```
 
 ```sql
@@ -1116,10 +1089,13 @@ Table A       Table B       Result
 +-------+     +-------+     +--------------------+
 | x | y |  *  | x | z |  =  | x    | y    | z    |
 +-------+     +-------+     +--------------------+
-| 1 | a |     | 2 | d |     | 1    | a    | NULL |
-| 2 | b |     | 3 | e |     | 2    | b    | d    |
-| 3 | c |     | 4 | f |     | 3    | c    | e    |
-+-------+     +-------+     +--------------------+
+| 1 | a |     | 2 | k |     | 1    | a    | NULL |
+| 2 | b |     | 3 | m |     | 2    | b    | k    |
+| 3 | c |     | 3 | n |     | 3    | c    | m    |
+| 3 | d |     | 4 | p |     | 3    | c    | n    |
++-------+     +-------+     | 3    | d    | m    |
+                            | 3    | d    | n    |
+                            +--------------------+
 ```
 
 **Example**
@@ -1154,10 +1130,13 @@ Table A       Table B       Result
 +-------+     +-------+     +---------------------------+
 | w | x |  *  | y | z |  =  | w    | x    | y    | z    |
 +-------+     +-------+     +---------------------------+
-| 1 | a |     | 2 | d |     | 2    | b    | 2    | d    |
-| 2 | b |     | 3 | e |     | 3    | c    | 3    | e    |
-| 3 | c |     | 4 | f |     | NULL | NULL | 4    | f    |
-+-------+     +-------+     +---------------------------+
+| 1 | a |     | 2 | k |     | 2    | b    | 2    | k    |
+| 2 | b |     | 3 | m |     | 3    | c    | 3    | m    |
+| 3 | c |     | 3 | n |     | 3    | c    | 3    | n    |
+| 3 | d |     | 4 | p |     | 3    | d    | 3    | m    |
++-------+     +-------+     | 3    | d    | 3    | n    |
+                            | NULL | NULL | 4    | p    |
+                            +---------------------------+
 ```
 
 ```sql
@@ -1167,10 +1146,13 @@ Table A       Table B       Result
 +-------+     +-------+     +--------------------+
 | x | y |  *  | x | z |  =  | x    | y    | z    |
 +-------+     +-------+     +--------------------+
-| 1 | a |     | 2 | d |     | 2    | b    | d    |
-| 2 | b |     | 3 | e |     | 3    | c    | e    |
-| 3 | c |     | 4 | f |     | 4    | NULL | f    |
-+-------+     +-------+     +--------------------+
+| 1 | a |     | 2 | k |     | 2    | b    | k    |
+| 2 | b |     | 3 | m |     | 3    | c    | m    |
+| 3 | c |     | 3 | n |     | 3    | c    | n    |
+| 3 | d |     | 4 | p |     | 3    | d    | m    |
++-------+     +-------+     | 3    | d    | n    |
+                            | 4    | NULL | p    |
+                            +--------------------+
 ```
 
 **Example**
@@ -1193,8 +1175,7 @@ FROM Roster RIGHT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 +---------------------------+
 ```
 
-<a id="on_clause"></a>
-### ON clause
+### ON clause {: #on_clause }
 
 The `ON` clause contains a `bool_expression`. A combined row (the result of
 joining two rows) meets the join condition if `bool_expression` returns
@@ -1232,8 +1213,7 @@ FROM Roster JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 +---------------------------+
 ```
 
-<a id="using_clause"></a>
-### USING clause
+### USING clause {: #using_clause }
 
 The `USING` clause requires a `column_list` of one or more columns which
 occur in both input tables. It performs an equality comparison on that column,
@@ -1314,8 +1294,7 @@ Table A   Table B   Result
 +---+     +---+
 ```
 
-<a id="sequences_of_joins"></a>
-### Sequences of JOINs
+### Sequences of JOINs {: #sequences_of_joins }
 
 The `FROM` clause can contain multiple `JOIN` clauses in a sequence.
 `JOIN`s are bound from left to right. For example:
@@ -1374,8 +1353,7 @@ FROM A, B FULL JOIN C ON TRUE  // INVALID
 FROM A, B JOIN C ON TRUE       // VALID
 ```
 
-<a id="where_clause"></a>
-## WHERE clause
+## WHERE clause {: #where_clause }
 
 ### Syntax
 
@@ -1426,8 +1404,7 @@ FROM Roster CROSS JOIN TeamMascot
 WHERE Roster.SchoolID = TeamMascot.SchoolID;
 ```
 
-<a id="group_by_clause"></a>
-## GROUP BY clause
+## GROUP BY clause {: #group_by_clause }
 
 ### Syntax
 
@@ -1593,8 +1570,7 @@ grand total:
 +------+------+-------+
 ```
 
-<a id="having_clause"></a>
-## HAVING clause
+## HAVING clause {: #having_clause }
 
 ### Syntax
 
@@ -1639,8 +1615,7 @@ GROUP BY LastName
 HAVING ps > 0;
 ```
 
-<a id="mandatory_aggregation"></a>
-### Mandatory aggregation
+### Mandatory aggregation {: #mandatory_aggregation }
 
 Aggregation does not have to be present in the `HAVING` clause itself, but
 aggregation must be present in at least one of the following forms:
@@ -1677,8 +1652,7 @@ GROUP BY LastName
 HAVING SUM(PointsScored) > 15;
 ```
 
-<a id="order_by_clause"></a>
-## ORDER BY clause
+## ORDER BY clause {: #order_by_clause }
 
 ### Syntax
 
@@ -1881,8 +1855,7 @@ FROM Locations
 ORDER BY Place COLLATE "unicode:ci"
 ```
 
-<a id="window_clause"></a>
-## WINDOW clause
+## WINDOW clause {: #window_clause }
 
 ### Syntax
 
@@ -1938,8 +1911,7 @@ WINDOW
   c AS b
 ```
 
-<a id="set_operators"></a>
-## Set operators
+## Set operators {: #set_operators }
 
 ### Syntax
 
@@ -2005,22 +1977,19 @@ query1 UNION ALL query2 UNION DISTINCT query3
 query1 UNION ALL query2 INTERSECT ALL query3;  // INVALID.
 ```
 
-<a id="union"></a>
-### UNION
+### UNION {: #union }
 
 The `UNION` operator combines the result sets of two or more input queries by
 pairing columns from the result set of each query and vertically concatenating
 them.
 
-<a id="intersect"></a>
-### INTERSECT
+### INTERSECT {: #intersect }
 
 The `INTERSECT` operator returns rows that are found in the result sets of both
 the left and right input queries. Unlike `EXCEPT`, the positioning of the input
 queries (to the left versus right of the `INTERSECT` operator) does not matter.
 
-<a id="except"></a>
-### EXCEPT
+### EXCEPT {: #except }
 
 The `EXCEPT` operator returns rows from the left input query that are
 not present in the right input query.
@@ -2039,8 +2008,7 @@ EXCEPT DISTINCT SELECT 1;
 +--------+
 ```
 
-<a id="limit-clause_and_offset_clause"></a>
-## LIMIT clause and OFFSET clause
+## LIMIT clause and OFFSET clause {: #limit-clause_and_offset_clause }
 
 ### Syntax
 
@@ -2090,13 +2058,12 @@ ORDER BY letter ASC LIMIT 3 OFFSET 1
 +---------+
 ```
 
-<a id="with_clause"></a>
-## WITH clause
+## WITH clause {: #with_clause }
 
-The `WITH` clause binds the results of one or more named subqueries to temporary
-table names.  Each introduced table name is visible in subsequent `SELECT`
-expressions within the same query expression. This includes the following kinds
-of `SELECT` expressions:
+The `WITH` clause binds the results of one or more named
+[subqueries][subquery-concepts] to temporary table names.  Each introduced
+table name is visible in subsequent `SELECT` expressions within the same
+query expression. This includes the following kinds of `SELECT` expressions:
 
 + Any `SELECT` expressions in subsequent `WITH` bindings
 + Top level `SELECT` expressions in the query expression on both sides of a set
@@ -2105,7 +2072,7 @@ of `SELECT` expressions:
 
 Example:
 
-```
+```sql
 WITH subQ1 AS (SELECT SchoolID FROM Roster),
      subQ2 AS (SELECT OpponentID FROM PlayerStats)
 SELECT * FROM subQ1
@@ -2113,13 +2080,9 @@ UNION ALL
 SELECT * FROM subQ2;
 ```
 
-Another useful role of the `WITH` clause is to break up more complex queries
-into a `WITH` `SELECT` statement and `WITH` clauses, where the less desirable
-alternative is writing nested table subqueries. If a `WITH` clause contains
-multiple subqueries, the subquery names cannot repeat.
-
-ZetaSQL supports `WITH` clauses in subqueries, such as table
-subqueries, expression subqueries, and so on.
+You can use `WITH` to break up more complex queries into a `WITH` `SELECT`
+statement and `WITH` clauses, where the less desirable alternative is writing
+nested table subqueries. For example:
 
 ```
 WITH q1 AS (my_query)
@@ -2127,6 +2090,9 @@ SELECT *
 FROM
   (WITH q2 AS (SELECT * FROM q1) SELECT * FROM q2)
 ```
+
+Note: If a `WITH` clause contains multiple subqueries, the subquery names cannot
+repeat.
 
 The following are scoping rules for `WITH` clauses:
 
@@ -2155,10 +2121,9 @@ FROM
     SELECT * FROM q1)  # q1 resolves to the third inner WITH subquery.
 ```
 
-NOTE: ZetaSQL does not support `WITH RECURSIVE`.
+`WITH RECURSIVE` is not supported.
 
-<a name="using_aliases"></a>
-## Using Aliases
+## Using Aliases {: #using_aliases }
 
 An alias is a temporary name given to a table, column, or expression present in
 a query. You can introduce explicit aliases in the `SELECT` list or `FROM`
@@ -2166,8 +2131,7 @@ clause, or ZetaSQL will infer an implicit alias for some expressions.
 Expressions with neither an explicit nor implicit alias are anonymous and the
 query cannot reference them by name.
 
-<a id=explicit_alias_syntax></a>
-### Explicit alias syntax
+### Explicit alias syntax {: #explicit_alias_syntax }
 
 You can introduce explicit aliases in either the `FROM` clause or the `SELECT`
 list.
@@ -2193,15 +2157,13 @@ SELECT s.FirstName AS name, LOWER(s.FirstName) AS lname
 FROM Singers s;
 ```
 
-<a id=alias_visibility></a>
-### Explicit alias visibility
+### Explicit alias visibility {: #alias_visibility }
 
 After you introduce an explicit alias in a query, there are restrictions on
 where else in the query you can reference that alias. These restrictions on
 alias visibility are the result of ZetaSQL's name scoping rules.
 
-<a id=from_clause_aliases></a>
-#### FROM clause aliases
+#### FROM clause aliases {: #from_clause_aliases }
 
 ZetaSQL processes aliases in a `FROM` clause from left to right,
 and aliases are visible only to subsequent path expressions in a `FROM`
@@ -2264,8 +2226,7 @@ SELECT * FROM Singers as s, Songs as s2
 ORDER BY Singers.LastName;  // INVALID.
 ```
 
-<a id=select-list_aliases></a>
-#### SELECT list aliases
+#### SELECT list aliases {: #select-list_aliases }
 
 Aliases in the `SELECT` list are **visible only** to the following clauses:
 
@@ -2281,8 +2242,7 @@ FROM Singers
 ORDER BY last;
 ```
 
-<a id=aliases_clauses></a>
-### Explicit aliases in GROUP BY, ORDER BY, and HAVING clauses
+### Explicit aliases in GROUP BY, ORDER BY, and HAVING clauses {: #aliases_clauses }
 
 These three clauses, `GROUP BY`, `ORDER BY`, and `HAVING`, can refer to only the
 following values:
@@ -2314,8 +2274,7 @@ GROUP BY sid
 ORDER BY s2id DESC;
 ```
 
-<a id=ambiguous_aliases></a>
-### Ambiguous aliases
+### Ambiguous aliases {: #ambiguous_aliases }
 
 ZetaSQL provides an error if a name is ambiguous, meaning it can
 resolve to more than one unique object.
@@ -2370,8 +2329,7 @@ GROUP BY BirthYear;
 The alias `BirthYear` is not ambiguous because it resolves to the same
 underlying column, `Singers.BirthYear`.
 
-<a id=implicit_aliases></a>
-### Implicit aliases
+### Implicit aliases {: #implicit_aliases }
 
 In the `SELECT` list, if there is an expression that does not have an explicit
 alias, ZetaSQL assigns an implicit alias according to the following
@@ -2406,15 +2364,87 @@ following rules apply:
 <li><code>FROM UNNEST(x)</code> does not have an implicit alias.</li>
 </ul>
 
-<a id=appendix_a_examples_with_sample_data></a>
-## Appendix A: examples with sample data
+### Range variables {: #range_variables }
+
+In ZetaSQL, a range variable is a table expression alias in the
+`FROM` clause. Sometimes a range variable is known as a `table alias`. A
+range variable lets you reference rows being scanned from a table expression.
+A table expression represents an item in the `FROM` clause that returns a table.
+Common items that this expression can represent include [tables][query-tables],
+[value tables][query-value-tables], [subqueries][subquery-concepts],
+[table value functions (TVFs)][tvf-concepts], [joins][query-joins], and
+[parenthesized joins][query-joins].
+
+In general, a range variable provides a reference to the rows of a table
+expression. A range variable can be used to qualify a column reference and
+unambiguously identify the related table, for example `range_variable.column_1`.
+
+When referencing a range variable on its own without a specified column suffix,
+the result of a table expression is the row type of the related table.
+Value tables have explicit row types, so for range variables related
+to value tables, the result type is the value table's row type. Other tables
+do not have explicit row types, and for those tables, the range variable
+type is a dynamically defined `STRUCT` that includes all of the
+columns in the table.
+
+**Examples**
+
+In these examples, the `WITH` clause is used to emulate a temporary table
+called `Grid`. This table has columns `x` and `y`. A range variable called
+`Coordinate` refers to the current row as the table is scanned. `Coordinate`
+can be used to access the entire row or columns in the row.
+
+The following example selects column `x` from range variable `Coordinate`,
+which in effect selects column `x` from table `Grid`.
+
+```sql
+WITH Grid AS (SELECT 1 x, 2 y)
+SELECT Coordinate.x FROM Grid AS Coordinate;
+
++---+
+| x |
++---+
+| 1 |
++---+
+```
+
+The following example selects all columns from range variable `Coordinate`,
+which in effect selects all columns from table `Grid`.
+
+```sql
+WITH Grid AS (SELECT 1 x, 2 y)
+SELECT Coordinate.* FROM Grid AS Coordinate;
+
++---+---+
+| x | y |
++---+---+
+| 1 | 2 |
++---+---+
+```
+
+The following example selects the range variable `Coordinate`, which is a
+reference to rows in table `Grid`.  Since `Grid` is not a value table,
+the result type of `Coordinate` is a `STRUCT` that contains all the columns
+from `Grid`.
+
+```sql
+WITH Grid AS (SELECT 1 x, 2 y)
+SELECT Coordinate FROM Grid AS Coordinate;
+
++--------------+
+| Coordinate   |
++--------------+
+| {x: 1, y: 2} |
++--------------+
+```
+
+## Appendix A: examples with sample data {: #appendix_a_examples_with_sample_data }
 
 These examples include statements which perform queries on the
 [`Roster`][roster-table] and [`TeamMascot`][teammascot-table],
 and [`PlayerStats`][playerstats-table] tables.
 
-<a id=group_by_clause></a>
-### GROUP BY clause
+### GROUP BY clause {: #group_by_clause }
 
 Example:
 
@@ -2447,12 +2477,9 @@ GROUP BY LastName;
 </tbody>
 </table>
 
-<a id=set_operators></a>
-### Set operators
+### Set operators {: #set_operators }
 
-<a id=union></a>
-
-#### UNION
+#### UNION {: #union }
 
 The `UNION` operator combines the result sets of two or more `SELECT` statements
 by pairing columns from the result set of each `SELECT` statement and vertically
@@ -2517,8 +2544,7 @@ Results:
 </tbody>
 </table>
 
-<a id=intersect></a>
-#### INTERSECT
+#### INTERSECT {: #intersect }
 
 This query returns the last names that are present in both Roster and
 PlayerStats.
@@ -2552,8 +2578,7 @@ Results:
 </tbody>
 </table>
 
-<a id=except></a>
-#### EXCEPT
+#### EXCEPT {: #except }
 
 The query below returns last names in Roster that are **not** present in
 PlayerStats.
@@ -2605,7 +2630,6 @@ Results:
 [tr35-collation-settings]: http://www.unicode.org/reports/tr35/tr35-collation.html#Setting_Options
 
 [implicit-aliases]: #implicit_aliases
-[subqueries]: #subqueries
 [using-aliases]: #using_aliases
 [sequences-of-joins]: #sequences_of_joins
 [set-operators]: #set_operators
@@ -2615,14 +2639,20 @@ Results:
 [roster-table]: #roster_table
 [playerstats-table]: #playerstats_table
 [teammascot-table]: #teammascot_table
+[query-joins]: #join-types
 [analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [query-window-specification]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_window_spec
 [named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_use_named_window
 [produce-table]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#produce-table
+[tvf-concepts]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays#flattening_arrays
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data-type-properties
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries
+[table-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries#table_subquery_concepts
+[expression-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries#expression_subquery_concepts
+[query-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#standard-sql-tables
 
 [in-operator]: https://github.com/google/zetasql/blob/master/docs/operators#in_operators
 [expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries

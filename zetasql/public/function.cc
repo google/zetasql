@@ -424,7 +424,9 @@ const std::string Function::GetSupportedSignaturesUserFacingText(
     // Ignore deprecated signatures, and signatures that include
     // unsupported data types.
     if (signature.IsDeprecated() ||
-        signature.HasUnsupportedType(language_options)) {
+        signature.HasUnsupportedType(language_options) ||
+        !signature.options().check_all_required_features_are_enabled(
+            language_options.GetEnabledLanguageFeatures())) {
       continue;
     }
     if (!supported_signatures.empty()) {

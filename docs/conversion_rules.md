@@ -657,8 +657,7 @@ ZetaSQL supports the following parameter coercions:
 If the parameter value cannot be coerced successfully to the target type, an
 error is provided.
 
-<a id="additional_date_and_timestamp_conversion_functions"></a>
-### Additional conversion functions
+### Additional conversion functions {: #additional_date_and_timestamp_conversion_functions }
 
 ZetaSQL provides the following additional conversion functions:
 

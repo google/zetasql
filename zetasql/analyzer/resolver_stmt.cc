@@ -71,6 +71,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/ascii.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
@@ -365,6 +366,13 @@ absl::Status Resolver::ResolveStatement(
       }
       break;
 
+    case AST_DROP_ENTITY_STATEMENT:
+      if (language().SupportsStatementKind(RESOLVED_DROP_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveDropEntityStatement(
+            statement->GetAsOrDie<ASTDropEntityStatement>(), &stmt));
+      }
+      break;
+
     case AST_DROP_FUNCTION_STATEMENT:
       if (language().SupportsStatementKind(RESOLVED_DROP_FUNCTION_STMT)) {
         ZETASQL_RETURN_IF_ERROR(ResolveDropFunctionStatement(
@@ -523,6 +531,12 @@ absl::Status Resolver::ResolveStatement(
       if (language().SupportsStatementKind(RESOLVED_CREATE_DATABASE_STMT)) {
         ZETASQL_RETURN_IF_ERROR(ResolveCreateDatabaseStatement(
             statement->GetAsOrDie<ASTCreateDatabaseStatement>(), &stmt));
+      }
+      break;
+    case AST_CREATE_SCHEMA_STATEMENT:
+      if (language().SupportsStatementKind(RESOLVED_CREATE_SCHEMA_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveCreateSchemaStatement(
+            statement->GetAsOrDie<ASTCreateSchemaStatement>(), &stmt));
       }
       break;
     case AST_ASSERT_STATEMENT:
@@ -1498,6 +1512,22 @@ absl::Status Resolver::ResolveCreateDatabaseStatement(
       ast_statement->name()->ToIdentifierVector();
   *output = MakeResolvedCreateDatabaseStmt(database_name,
                                            std::move(resolved_options));
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveCreateSchemaStatement(
+    const ASTCreateSchemaStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  ResolvedCreateStatement::CreateScope create_scope;
+  ResolvedCreateStatement::CreateMode create_mode;
+  ZETASQL_RETURN_IF_ERROR(ResolveCreateStatementOptions(ast_statement, "CREATE SCHEMA",
+                                                &create_scope, &create_mode));
+  std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
+  ZETASQL_RETURN_IF_ERROR(
+      ResolveOptionsList(ast_statement->options_list(), &resolved_options));
+  *output = MakeResolvedCreateSchemaStmt(
+      ast_statement->name()->ToIdentifierVector(), create_scope, create_mode,
+      std::move(resolved_options));
   return absl::OkStatus();
 }
 
@@ -3778,8 +3808,9 @@ absl::Status Resolver::ResolveAlterRowAccessPolicyStatement(
         }
         auto* rename_to = action->GetAs<ASTRenameToClause>();
         ZETASQL_RET_CHECK(rename_to->new_name());
-        alter_action =
-            MakeResolvedRenameToAction(rename_to->new_name()->GetAsString());
+        ZETASQL_RET_CHECK(rename_to->new_name()->num_names() == 1);
+        alter_action = MakeResolvedRenameToAction(
+            rename_to->new_name()->ToIdentifierVector());
       } break;
       default:
         return MakeSqlErrorAt(action)
@@ -4156,6 +4187,16 @@ absl::Status Resolver::ResolveDropStatement(
   *output = MakeResolvedDropStmt(
       std::string(SchemaObjectKindToName(ast_statement->schema_object_kind())),
       ast_statement->is_if_exists(), name);
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveDropEntityStatement(
+    const ASTDropEntityStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  const std::vector<std::string> name =
+      ast_statement->name()->ToIdentifierVector();
+  *output = MakeResolvedDropStmt(ast_statement->entity_type()->GetAsString(),
+                                 ast_statement->is_if_exists(), name);
   return absl::OkStatus();
 }
 

@@ -19,6 +19,7 @@
 #include "zetasql/public/functions/json.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/reference_impl/function.h"
+#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 namespace {
@@ -51,8 +52,8 @@ class JsonExtractArrayFunction : public SimpleBuiltinScalarFunction {
 // Helper function for the string version of JSON_QUERY, JSON_VALUE,
 // JSON_EXTRACT and JSON_EXTRACT_SCALAR.
 zetasql_base::StatusOr<Value> JsonExtractString(
-    const functions::JsonPathEvaluator& evaluator,
-    absl::string_view json, bool scalar) {
+    const functions::JsonPathEvaluator& evaluator, absl::string_view json,
+    bool scalar) {
   std::string output;
   bool is_null;
 
@@ -70,9 +71,8 @@ zetasql_base::StatusOr<Value> JsonExtractString(
 // Helper function for the JSON version of JSON_QUERY, JSON_VALUE,
 // JSON_EXTRACT and JSON_EXTRACT_SCALAR.
 zetasql_base::StatusOr<Value> JsonExtractJson(
-    const functions::JsonPathEvaluator& evaluator,
-    const Value& json, const Type* output_type, bool scalar,
-    bool json_legacy_parsing_mode) {
+    const functions::JsonPathEvaluator& evaluator, const Value& json,
+    const Type* output_type, bool scalar, bool json_legacy_parsing_mode) {
   if (scalar) {
     absl::optional<std::string> output_string_or;
     if (json.is_validated_json()) {

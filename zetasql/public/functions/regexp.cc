@@ -22,6 +22,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/utf_util.h"
+#include "zetasql/public/functions/string.h"
 #include "zetasql/public/functions/util.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
@@ -29,6 +30,7 @@
 #include "absl/types/optional.h"
 #include "unicode/utf8.h"
 #include "zetasql/base/status.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace functions {
@@ -149,6 +151,8 @@ bool RegExp::ExtractAllNext(absl::string_view* out, absl::Status* error) {
     // If there's a single capturing group return substring matching that
     // group.
     *out = groups[1];
+    capture_group_position_ = static_cast<int>(
+        groups[1].end() - extract_all_input_.begin());
   }
   // RE2 library produces empty groups[0] when regular expression matches empty
   // string, so in this case we need to advance input by one character.
@@ -181,6 +185,79 @@ bool RegExp::ExtractAllNext(absl::string_view* out, absl::Status* error) {
   // No more input - next call to ExtractAllNext will return false.
   if (extract_all_position_ >= static_cast<int64_t>(extract_all_input_.size())) {
     last_match_ = true;
+  }
+  return true;
+}
+
+bool RegExp::Instr(const InstrParams& options, absl::Status* error) {
+  DCHECK(re_ != nullptr);
+  DCHECK(error != nullptr);
+  DCHECK(options.out != nullptr);
+  absl::string_view str = options.input_str;
+  *options.out = 0;
+  *error = internal::ValidatePositionAndOccurrence(options.position,
+                                                   options.occurrence_index);
+  if (!error->ok()) {
+    return false;  // position or occurrence_index <= 0
+  }
+  int32_t str_length32 = 0;
+  if (!CheckAndCastStrLength(str, &str_length32)) {
+    return internal::UpdateError(
+        error,
+        absl::Substitute("Input string size too large $0", str.length()));
+  }
+  if (options.position > str_length32 || re_->pattern().empty()) {
+    return true;
+  }
+  int64_t offset = 0;
+  if (options.position_unit == kUtf8Chars) {
+    auto string_offset = ForwardN(str, str_length32, options.position - 1);
+    if (string_offset == absl::nullopt) {
+      return true;  // input str is an invalid utf-8 string
+    }
+    offset = string_offset.value();
+  } else {
+    offset = options.position - 1;
+  }
+  str.remove_prefix(offset);
+  ExtractAllReset(str);
+  absl::string_view next_match;
+  for (int64_t current_index = 0; current_index < options.occurrence_index;
+    ++current_index) {
+    if (!ExtractAllNext(&next_match, error)) {
+      return error->ok();
+    }
+    if (!error->ok()) return false;
+  }
+  if (next_match.data() == nullptr) {
+    return true;
+  }
+  int32_t visited_bytes = 0;
+  if (re_->NumberOfCapturingGroups() == 0) {
+    // extract_all_position_ and capture_group_position_ are the indices based
+    // on bytes
+    visited_bytes = extract_all_position_;
+  } else {
+    visited_bytes = capture_group_position_;
+  }
+  if (options.return_position == kStartOfMatch) {
+    visited_bytes -= next_match.length();
+  }
+  if (options.position_unit == kUtf8Chars) {
+    // visited_bytes is the length of bytes before the position will be returned
+    // We need to convert byte length to character length if the input is a
+    // utf-8 string, for example, щ is one character but takes 2 bytes
+    absl::string_view prev_str;
+    if (!LeftBytes(str, visited_bytes, &prev_str, error)) {
+      return false;
+    }
+    int64_t utf8_size = 0;
+    if (!LengthUtf8(prev_str, &utf8_size, error)) {
+      return false;
+    }
+    *options.out = utf8_size + options.position;
+  } else {
+    *options.out = visited_bytes + options.position;
   }
   return true;
 }

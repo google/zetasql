@@ -24,9 +24,11 @@
 #include "zetasql/proto/function.pb.h"
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/memory/memory.h"
@@ -1107,6 +1109,19 @@ TEST(FunctionSignatureTests, TestIsDescriptorTableOffsetArgumentValid) {
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid().ok());
   }
+}
+
+TEST(FunctionSignatureTests, FunctionSignatureOptionTests) {
+  FunctionSignature signature{
+      types::Int64Type(),
+      {types::StringType()},
+      /* context_id = */ -1,
+      FunctionSignatureOptions().add_required_language_feature(
+          FEATURE_EXTENDED_TYPES)};
+  EXPECT_TRUE(signature.options().check_all_required_features_are_enabled(
+      {FEATURE_EXTENDED_TYPES, FEATURE_V_1_2_CIVIL_TIME}));
+  EXPECT_FALSE(signature.options().check_all_required_features_are_enabled(
+      {FEATURE_NUMERIC_TYPE, FEATURE_V_1_2_CIVIL_TIME}));
 }
 
 }  // namespace zetasql

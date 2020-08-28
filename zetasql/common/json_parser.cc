@@ -355,7 +355,7 @@ bool JSONParser::ParseObject() {
 
     // Consume the colon
     SkipWhitespace();
-    if (*p_.data() != ':')
+    if (p_.empty() || *p_.data() != ':')
       return ReportFailure("Expected : between key:value pair");
     AdvanceOneByte();
 

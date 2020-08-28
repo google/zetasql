@@ -44,6 +44,7 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/sql_builder.h"
 #include "absl/base/thread_annotations.h"
+#include "zetasql/base/statusor.h"
 #include "absl/synchronization/mutex.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
@@ -210,15 +211,15 @@ class PreparedExpressionState : public BaseSavedState {
   absl::Status InitAndDeserializeOptions(
       const std::string& sql,
       const RepeatedPtrField<google::protobuf::FileDescriptorSet>& fdsets,
-      const AnalyzerOptionsProto& proto, AnalyzerOptions* options) {
+      const AnalyzerOptionsProto& proto) {
     ZETASQL_RETURN_IF_ERROR(BaseSavedState::Init(fdsets));
 
     absl::MutexLock lock(&mutex_);
-    ZETASQL_RETURN_IF_ERROR(AnalyzerOptions::Deserialize(
-        proto, const_pools_, &factory_, options));
+    ZETASQL_RETURN_IF_ERROR(AnalyzerOptions::Deserialize(proto, const_pools_, &factory_,
+                                                 &options_));
     zetasql::EvaluatorOptions evaluator_options;
     evaluator_options.type_factory = &factory_;
-    evaluator_options.default_time_zone = options->default_time_zone();
+    evaluator_options.default_time_zone = options_.default_time_zone();
     exp_ = absl::make_unique<PreparedExpression>(sql, evaluator_options);
     initialized_ = true;
     return absl::OkStatus();
@@ -231,8 +232,16 @@ class PreparedExpressionState : public BaseSavedState {
     return exp_.get();
   }
 
+  const AnalyzerOptions& GetAnalyzerOptions() {
+    absl::MutexLock lock(&mutex_);
+    CHECK(initialized_);
+
+    return options_;
+  }
+
  private:
   std::unique_ptr<PreparedExpression> exp_ ABSL_GUARDED_BY(mutex_);
+  AnalyzerOptions options_ ABSL_GUARDED_BY(mutex_);
 };
 
 class PreparedExpressionPool : public SharedStatePool<PreparedExpressionState> {
@@ -320,10 +329,8 @@ ZetaSqlLocalServiceImpl::~ZetaSqlLocalServiceImpl() {}
 absl::Status ZetaSqlLocalServiceImpl::Prepare(const PrepareRequest& request,
                                                 PrepareResponse* response) {
   std::unique_ptr<PreparedExpressionState> state(new PreparedExpressionState());
-  AnalyzerOptions options;
   ZETASQL_RETURN_IF_ERROR(state->InitAndDeserializeOptions(
-      request.sql(), request.file_descriptor_set(), request.options(),
-      &options));
+      request.sql(), request.file_descriptor_set(), request.options()));
 
   RegisteredCatalogState* catalog_state = nullptr;
   // Needed to hold the new state because shared_ptr doesn't support release().
@@ -345,9 +352,9 @@ absl::Status ZetaSqlLocalServiceImpl::Prepare(const PrepareRequest& request,
   }
 
   PreparedExpression* exp = state->GetPreparedExpression();
-  ZETASQL_RETURN_IF_ERROR(exp->Prepare(options, catalog_state != nullptr
-                                            ? catalog_state->GetCatalog()
-                                            : nullptr));
+  ZETASQL_RETURN_IF_ERROR(exp->Prepare(
+      state->GetAnalyzerOptions(),
+      catalog_state != nullptr ? catalog_state->GetCatalog() : nullptr));
 
   ZETASQL_RETURN_IF_ERROR(SerializeTypeUsingExistingPools(
       exp->output_type(), state->GetDescriptorPools(),
@@ -388,10 +395,8 @@ absl::Status ZetaSqlLocalServiceImpl::Evaluate(const EvaluateRequest& request,
   } else {
     new_state = absl::make_unique<PreparedExpressionState>();
     state = new_state.get();
-    AnalyzerOptions options;
     ZETASQL_RETURN_IF_ERROR(state->InitAndDeserializeOptions(
-        request.sql(), request.file_descriptor_set(), request.options(),
-        &options));
+        request.sql(), request.file_descriptor_set(), request.options()));
   }
 
   const absl::Status result = EvaluateImpl(request, state, response);
@@ -630,9 +635,15 @@ absl::Status ZetaSqlLocalServiceImpl::ExtractTableNamesFromStatement(
                                          : LanguageOptions();
 
   zetasql::TableNamesSet table_names;
-  ZETASQL_RETURN_IF_ERROR(zetasql::ExtractTableNamesFromStatement(
-      request.sql_statement(), zetasql::AnalyzerOptions(language_options),
-      &table_names));
+  if (request.allow_script()) {
+    ZETASQL_RETURN_IF_ERROR(zetasql::ExtractTableNamesFromScript(
+        request.sql_statement(), zetasql::AnalyzerOptions(language_options),
+        &table_names));
+  } else {
+    ZETASQL_RETURN_IF_ERROR(zetasql::ExtractTableNamesFromStatement(
+        request.sql_statement(), zetasql::AnalyzerOptions(language_options),
+        &table_names));
+  }
   for (const std::vector<std::string>& table_name : table_names) {
     ExtractTableNamesFromStatementResponse_TableName* table_name_field =
         response->add_table_name();

@@ -23,6 +23,7 @@
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/scripting/script_exception.pb.h"
 #include "zetasql/scripting/script_segment.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_payload.h"

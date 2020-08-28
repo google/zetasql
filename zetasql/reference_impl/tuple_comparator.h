@@ -22,6 +22,7 @@
 
 #include "zetasql/common/internal_value.h"
 #include "zetasql/public/collator.h"
+#include "zetasql/base/statusor.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
 

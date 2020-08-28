@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
 licenses(["notice"])  # Apache v2.0
 
 package(
@@ -23,3 +25,8 @@ package(
 exports_files([
     "pom-template.xml",
 ])
+
+bzl_library(
+    name = "maven_bzl",
+    srcs = ["maven.bzl"],
+)

@@ -20,6 +20,7 @@
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/error_location.pb.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/ret_check.h"

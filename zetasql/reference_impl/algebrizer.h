@@ -45,6 +45,7 @@
 #include "gtest/gtest_prod.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/optional.h"
 #include "absl/types/variant.h"
@@ -552,7 +553,7 @@ class Algebrizer {
       std::unique_ptr<RelationalOp> relation, bool is_with_table);
 
   // Creates a scan operator iterating over 'table_expr'.
-  ::zetasql_base::StatusOr<std::unique_ptr<ArrayScanOp>> CreateScanOfTableAsArray(
+  zetasql_base::StatusOr<std::unique_ptr<ArrayScanOp>> CreateScanOfTableAsArray(
       const ResolvedScan* scan, bool is_value_table,
       std::unique_ptr<ValueExpr> table_expr);
 

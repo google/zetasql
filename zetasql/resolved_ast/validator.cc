@@ -1565,6 +1565,10 @@ absl::Status Validator::ValidateResolvedStatement(
       status = ValidateResolvedIndexStmt(
           statement->GetAs<ResolvedCreateIndexStmt>());
       break;
+    case RESOLVED_CREATE_SCHEMA_STMT:
+      status = ValidateResolvedCreateSchemaStmt(
+          statement->GetAs<ResolvedCreateSchemaStmt>());
+      break;
     case RESOLVED_CREATE_TABLE_STMT:
       status = ValidateResolvedCreateTableStmt(
           statement->GetAs<ResolvedCreateTableStmt>());
@@ -1831,6 +1835,12 @@ absl::Status Validator::ValidateResolvedIndexStmt(
                                            /*visible_parameters=*/{},
                                            stmt->storing_expression_list()));
 
+  return absl::OkStatus();
+}
+
+absl::Status Validator::ValidateResolvedCreateSchemaStmt(
+    const ResolvedCreateSchemaStmt* stmt) {
+  ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
   return absl::OkStatus();
 }
 
@@ -3421,7 +3431,7 @@ absl::Status Validator::ValidateResolvedAlterAction(
       }
     } break;
     case RESOLVED_RENAME_TO_ACTION:
-      ZETASQL_RET_CHECK(!action->GetAs<ResolvedRenameToAction>()->new_name().empty());
+      ZETASQL_RET_CHECK(!action->GetAs<ResolvedRenameToAction>()->new_path().empty());
       break;
     default:
       return ::zetasql_base::InternalErrorBuilder()

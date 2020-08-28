@@ -35,6 +35,7 @@
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
 #include <cstdint>
+#include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"

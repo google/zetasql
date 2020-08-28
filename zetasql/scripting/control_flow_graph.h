@@ -22,6 +22,7 @@
 #include "zetasql/parser/parse_tree.h"
 #include "absl/container/flat_hash_map.h"
 #include "zetasql/base/statusor.h"
+#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 

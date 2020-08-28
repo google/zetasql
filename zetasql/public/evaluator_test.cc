@@ -56,6 +56,7 @@
 #include <cstdint>
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"

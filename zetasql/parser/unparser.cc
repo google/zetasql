@@ -2857,15 +2857,15 @@ void Unparser::visitASTNamedArgument(const ASTNamedArgument* node, void* data) {
 }
 
 void Unparser::visitASTLambda(const ASTLambda* node, void* data) {
-  const ASTExpression* parameter_list = node->parameter_list();
+  const ASTExpression* argument_list = node->argument_list();
   // Check if the parameter list expression will print the parentheses.
   const bool already_parenthesized =
-      parameter_list->parenthesized() ||
-      parameter_list->node_kind() == AST_STRUCT_CONSTRUCTOR_WITH_PARENS;
+      argument_list->parenthesized() ||
+      argument_list->node_kind() == AST_STRUCT_CONSTRUCTOR_WITH_PARENS;
   if (!already_parenthesized) {
     print("(");
   }
-  node->parameter_list()->Accept(this, data);
+  node->argument_list()->Accept(this, data);
   if (!already_parenthesized) {
     print(")");
   }

@@ -156,12 +156,13 @@ cc_library(
     srcs = ["sample_system_variables.cc"],
     hdrs = ["sample_system_variables.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":test_schema_cc_proto",
@@ -178,12 +179,13 @@ cc_library(
     srcs = ["sample_catalog.cc"],
     hdrs = ["sample_catalog.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":ambiguous_has_cc_proto",
@@ -227,12 +229,13 @@ cc_library(
     srcs = ["error_catalog.cc"],
     hdrs = ["error_catalog.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         "//zetasql/base:ret_check",
@@ -250,12 +253,13 @@ cc_library(
     srcs = ["populate_sample_tables.cc"],
     hdrs = ["populate_sample_tables.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":sample_catalog",

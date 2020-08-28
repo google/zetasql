@@ -83,10 +83,12 @@ class ZetaSqlLocalServiceImpl {
   absl::Status BuildSql(const BuildSqlRequest& request,
                         BuildSqlResponse* response);
 
+  // Note, this also can handle scripts.
   absl::Status ExtractTableNamesFromStatement(
       const ExtractTableNamesFromStatementRequest& request,
       ExtractTableNamesFromStatementResponse* response);
 
+  // Note, this does not handle scripts.
   absl::Status ExtractTableNamesFromNextStatement(
       const ExtractTableNamesFromNextStatementRequest& request,
       ExtractTableNamesFromNextStatementResponse* response);

@@ -21,6 +21,7 @@
 #include <string>
 
 #include <cstdint>
+#include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"

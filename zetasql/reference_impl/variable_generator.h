@@ -28,6 +28,7 @@
 #include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/container/flat_hash_map.h"
+#include "zetasql/base/statusor.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/statusor.h"
 
@@ -93,7 +94,7 @@ class ColumnToVariableMapping {
   VariableId GetVariableNameFromColumn(const ResolvedColumn* column);
 
   // Same as above, but returns NOT_FOUND if the column is missing.
-  ::zetasql_base::StatusOr<VariableId> LookupVariableNameForColumn(
+  zetasql_base::StatusOr<VariableId> LookupVariableNameForColumn(
       const ResolvedColumn* column) const;
 
   const Map& map() const { return column_to_variable_; }

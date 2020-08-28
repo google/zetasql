@@ -22,6 +22,7 @@
 #include "zetasql/parser/parse_tree_visitor.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/map_util.h"
 

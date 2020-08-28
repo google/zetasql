@@ -310,6 +310,10 @@ class Validator {
       const std::vector<std::unique_ptr<const ResolvedOutputColumn>>&
           output_column_list,
       bool is_value_table);
+
+  absl::Status ValidateResolvedCreateSchemaStmt(
+      const ResolvedCreateSchemaStmt* stmt);
+
   absl::Status ValidateResolvedCreateTableStmtBase(
       const ResolvedCreateTableStmtBase* stmt,
       std::set<ResolvedColumn>* visible_columns);

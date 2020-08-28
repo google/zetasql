@@ -61,6 +61,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/ascii.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
@@ -2834,6 +2835,19 @@ zetasql_base::StatusOr<std::string> SQLBuilder::ProcessCreateTableStmtBase(
   return sql;
 }
 
+absl::Status SQLBuilder::VisitResolvedCreateSchemaStmt(
+    const ResolvedCreateSchemaStmt* node) {
+  std::string sql;
+  ZETASQL_RETURN_IF_ERROR(GetCreateStatementPrefix(node, "SCHEMA", &sql));
+  if (node->option_list_size() > 0) {
+    ZETASQL_ASSIGN_OR_RETURN(const std::string options_string,
+                     GetHintListString(node->option_list()));
+    absl::StrAppend(&sql, " OPTIONS(", options_string, ")");
+  }
+  PushQueryFragment(node, sql);
+  return absl::OkStatus();
+}
+
 absl::Status SQLBuilder::VisitResolvedCreateTableStmt(
     const ResolvedCreateTableStmt* node) {
   ZETASQL_ASSIGN_OR_RETURN(
@@ -4311,8 +4325,9 @@ zetasql_base::StatusOr<std::string> SQLBuilder::GetAlterActionSQL(
       } break;
       case RESOLVED_RENAME_TO_ACTION: {
         auto* rename_to_action = alter_action->GetAs<ResolvedRenameToAction>();
-        alter_action_sql.push_back(absl::StrCat(
-            "RENAME TO ", ToIdentifierLiteral(rename_to_action->new_name())));
+        alter_action_sql.push_back(
+            absl::StrCat("RENAME TO ",
+                         IdentifierPathToString(rename_to_action->new_path())));
       } break;
       case RESOLVED_SET_AS_ACTION: {
         auto* set_as_action = alter_action->GetAs<ResolvedSetAsAction>();

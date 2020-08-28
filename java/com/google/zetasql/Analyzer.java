@@ -146,10 +146,21 @@ public class Analyzer implements Serializable {
    */
   public static List<List<String>> extractTableNamesFromStatement(
       String sql, AnalyzerOptions options) {
+    return extractTableNamesFromStatementInternal(sql, options, /*allowScript=*/ false);
+  }
+
+  public static List<List<String>> extractTableNamesFromScript(
+      String sql, AnalyzerOptions options) {
+    return extractTableNamesFromStatementInternal(sql, options, /*allowScript=*/ true);
+  }
+
+  private static List<List<String>> extractTableNamesFromStatementInternal(
+      String sql, AnalyzerOptions options, boolean allowScript) {
     ExtractTableNamesFromStatementRequest request =
         ExtractTableNamesFromStatementRequest.newBuilder()
             .setSqlStatement(sql)
             .setOptions(options.getLanguageOptions().serialize())
+            .setAllowScript(allowScript)
             .build();
 
     ExtractTableNamesFromStatementResponse response;

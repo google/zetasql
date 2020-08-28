@@ -1347,6 +1347,10 @@ TYPED_TEST(FixedUintGoldenDataTest, ToString) {
   for (auto pair : kUnsignedValueStrings) {
     TypeParam value(pair.first);
     EXPECT_EQ(pair.second, value.ToString());
+    if constexpr (sizeof(typename TypeParam::Word) == sizeof(uint32_t)) {
+      auto number = value.number();
+      EXPECT_EQ(pair.second, VarUintRef<32>(number).ToString());
+    }
   }
   for (size_t i = 1; i < kPowersOf10.size(); ++i) {
     uint128 v = kPowersOf10[i];
@@ -1359,6 +1363,10 @@ TYPED_TEST(FixedIntGoldenDataTest, ToString) {
   for (auto pair : kSignedValueStrings) {
     TypeParam value(pair.first);
     EXPECT_EQ(pair.second, value.ToString());
+    if constexpr (sizeof(typename TypeParam::Word) == sizeof(uint32_t)) {
+      auto number = value.number();
+      EXPECT_EQ(pair.second, VarIntRef<32>(number).ToString());
+    }
   }
   for (size_t i = 1; i < kPowersOf10.size(); ++i) {
     int128 v = kPowersOf10[i];
@@ -2084,8 +2092,16 @@ TYPED_TEST(FixedIntGeneratedDataTest, ToString) {
     std::ostringstream oss;
     oss << value;
     std::string expect = oss.str();
-    std::string actual = T(value).ToString();
+    T v(value);
+    std::string actual = v.ToString();
     EXPECT_EQ(expect, actual);
+
+    if constexpr (sizeof(typename T::Word) == sizeof(uint32_t)) {
+      auto number = v.number();
+      actual = VarIntBase<std::is_signed_v<typename T::Word>, uint32_t>(number)
+                   .ToString();
+      EXPECT_EQ(expect, actual);
+    }
   }
 }
 

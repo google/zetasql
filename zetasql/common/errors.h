@@ -65,6 +65,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "absl/base/optimization.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
@@ -200,7 +201,7 @@ inline absl::Status DeprecationWarningToStatus(
 zetasql_base::StatusOr<FreestandingDeprecationWarning> StatusToDeprecationWarning(
     const absl::Status& from_status, absl::string_view sql);
 
-// Same as above, but for a vector of util::Statuses.
+// Same as above, but for a vector of absl::Statuses.
 zetasql_base::StatusOr<std::vector<FreestandingDeprecationWarning>>
 StatusesToDeprecationWarnings(const std::vector<absl::Status>& from_statuses,
                               absl::string_view sql);
@@ -238,7 +239,7 @@ inline absl::Status ConvertInternalErrorLocationAndAdjustErrorString(
   return MaybeUpdateErrorFromPayload(mode, input_string, new_status);
 }
 
-// Same as above, but for a vector of util::Statuses.
+// Same as above, but for a vector of absl::Statuses.
 inline std::vector<absl::Status>
 ConvertInternalErrorLocationsAndAdjustErrorStrings(
     ErrorMessageMode mode, absl::string_view input_string,

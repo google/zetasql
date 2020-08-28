@@ -158,6 +158,9 @@
 
 namespace zetasql {
 
+// Don't use this class directly. Use VarUintRef, ConstVarUintRef, VarIntRef,
+// or ConstVarIntRef instead. Note that the methods of theses classes are not
+// optimized for performance. Prefer FixedInt or FixedUint.
 template <bool is_signed, typename UnsignedWord>
 class VarIntBase {
  public:
@@ -170,6 +173,14 @@ class VarIntBase {
 
   void SerializeToBytes(std::string* bytes) const;
   bool DeserializeFromBytes(absl::string_view bytes);
+
+  // Defined only for UnsignedWord = uint32_t.
+  void AppendToString(std::string* result) const;
+  std::string ToString() const {
+    std::string result;
+    AppendToString(&result);
+    return result;
+  }
 
  protected:
   absl::Span<UnsignedWord> number_;
@@ -1024,9 +1035,9 @@ class FixedInt final {
               int32_t* remainder) const {
     bool neg = is_negative();
     bool divisor_negative = divisor < 0;
-    const FixedInt& divident_abs = ABSL_PREDICT_TRUE(!neg) ? *this : -(*this);
+    const FixedInt& dividend_abs = ABSL_PREDICT_TRUE(!neg) ? *this : -(*this);
     uint32_t r = multiprecision_int_impl::ShortDivModConstant<kNumWords>(
-        divident_abs.rep_.number_, SafeAbs(x),
+        dividend_abs.rep_.number_, SafeAbs(x),
         quotient != nullptr ? &quotient->rep_.number_ : nullptr);
     if (ABSL_PREDICT_FALSE(neg != divisor_negative) && quotient != nullptr) {
       *quotient = -(*quotient);
@@ -1038,10 +1049,10 @@ class FixedInt final {
   void DivMod(Word x, FixedInt* quotient, Word* remainder) const {
     bool neg = is_negative();
     bool divisor_negative = x < 0;
-    const FixedInt& divident_abs = ABSL_PREDICT_TRUE(!neg) ? *this : -(*this);
+    const FixedInt& dividend_abs = ABSL_PREDICT_TRUE(!neg) ? *this : -(*this);
     UnsignedWord r =
         multiprecision_int_impl::ShortDivMod<UnsignedWord, kNumWords>(
-            divident_abs.rep_.number_, SafeAbs(x),
+            dividend_abs.rep_.number_, SafeAbs(x),
             quotient != nullptr ? &quotient->rep_.number_ : nullptr);
     if (ABSL_PREDICT_FALSE(neg != divisor_negative) && quotient != nullptr) {
       *quotient = -(*quotient);
@@ -1054,11 +1065,11 @@ class FixedInt final {
               FixedInt* remainder) const {
     bool neg = is_negative();
     bool divisor_negative = divisor.is_negative();
-    const FixedInt& divident_abs = ABSL_PREDICT_TRUE(!neg) ? *this : -(*this);
+    const FixedInt& dividend_abs = ABSL_PREDICT_TRUE(!neg) ? *this : -(*this);
     const FixedInt& divisor_abs =
         ABSL_PREDICT_TRUE(!divisor_negative) ? divisor : -divisor;
     multiprecision_int_impl::DivMod<kNumWords>(
-        divident_abs.rep_.number_, divisor_abs.rep_.number_,
+        dividend_abs.rep_.number_, divisor_abs.rep_.number_,
         quotient != nullptr ? &quotient->rep_.number_ : nullptr,
         remainder != nullptr ? &remainder->rep_.number_ : nullptr);
     if (ABSL_PREDICT_FALSE(neg != divisor_negative) && quotient != nullptr &&
@@ -1223,31 +1234,31 @@ class FixedInt final {
  private:
   struct DivOp {
     template <typename T>
-    void operator()(FixedInt& divident, const T& divisor) const {
-      divident.rep_ /= divisor;
+    void operator()(FixedInt& dividend, const T& divisor) const {
+      dividend.rep_ /= divisor;
     }
   };
   struct DivRoundOp {
     template <typename T>
-    void operator()(FixedInt& divident, const T& divisor) const {
+    void operator()(FixedInt& dividend, const T& divisor) const {
       // Highest value of rep_ is 0x8000...; the addition never overflows.
-      divident.rep_ += (divisor >> 1);
-      divident.rep_ /= divisor;
+      dividend.rep_ += (divisor >> 1);
+      dividend.rep_ /= divisor;
     }
     void operator()(
-        FixedInt& divident,
+        FixedInt& dividend,
         const FixedUint<kNumBitsPerWord, kNumWords>& divisor) const {
       FixedUint<kNumBitsPerWord, kNumWords> tmp = divisor;
       tmp >>= 1;
       // Highest value of rep_ is 0x8000...; the addition never overflows.
-      divident.rep_ += tmp;
-      divident.rep_ /= divisor;
+      dividend.rep_ += tmp;
+      dividend.rep_ /= divisor;
     }
   };
   struct ModOp {
     template <typename T>
-    void operator()(FixedInt& divident, const T& divisor) const {
-      divident.rep_ %= divisor;
+    void operator()(FixedInt& dividend, const T& divisor) const {
+      dividend.rep_ %= divisor;
     }
   };
 
@@ -1490,6 +1501,47 @@ uint32_t VarUintRef<kNumBitsPerWord>::DivMod(uint32_t divisor) {
                                            &remainder);
   }
   return remainder;
+}
+
+template <bool is_signed, typename UnsignedWord>
+void VarIntBase<is_signed, UnsignedWord>::AppendToString(
+    std::string* result) const {
+  DCHECK(result != nullptr);
+  if (number_.empty()) {
+    result->push_back('0');
+    return;
+  }
+  static_assert(sizeof(UnsignedWord) == sizeof(uint32_t));
+  std::vector<uint32_t> dividend(data(), data() + size());
+  if (is_signed && (dividend.back() & (1U << 31)) != 0) {
+    VarIntRef<32>(dividend).Negate();
+    result->push_back('-');
+  }
+
+  while (dividend.back() == 0) {
+    dividend.pop_back();
+    if (dividend.empty()) {
+      result->push_back('0');
+      return;
+    }
+  }
+
+  size_t num_bits = 32 * dividend.size();
+  // The number of segments needed = ceil(num_bits * log(2) / log(1000000000))
+  // = ceil(num_bits / 29.897352854) <= ceil(num_bits / 29).
+  std::vector<uint32_t> segments((num_bits + 28) / 29);
+  size_t num_segments = 0;
+  do {
+    VarUintRef<32> ref(dividend);
+    segments[num_segments] =
+        ref.DivMod(std::integral_constant<uint32_t, 1000000000>());
+    ++num_segments;
+    if (dividend.back() == 0) {
+      dividend.pop_back();
+    }
+  } while (!dividend.empty());
+  multiprecision_int_impl::AppendSegmentsToString(segments.data(), num_segments,
+                                                  result);
 }
 
 }  // namespace zetasql

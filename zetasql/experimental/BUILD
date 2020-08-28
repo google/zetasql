@@ -27,14 +27,16 @@ cc_library(
     srcs = ["output_query_result.cc"],
     hdrs = ["output_query_result.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
+        "//zetasql/base:statusor",
         "//zetasql/compliance:type_helpers",
         "//zetasql/public:strings",
         "//zetasql/public:value",

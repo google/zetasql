@@ -20,6 +20,7 @@
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/scripting/parsed_script.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/statusor.h"
 

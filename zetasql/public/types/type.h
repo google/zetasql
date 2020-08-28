@@ -272,6 +272,13 @@ class Type {
     return EqualsImpl(other_type, true /* equivalent */);
   }
 
+  // Hashes a Type using absl::Hash library.
+  template <typename H>
+  friend H AbslHashValue(H state, const Type& value) {
+    value.Hash(absl::HashState::Create(&state));
+    return std::move(state);
+  }
+
   // Serialize the Type to a fully self-contained protocol buffer into
   // <type_proto>.  Note that the related FileDescriptorSet is serialized into
   // <type_proto>.  Supports Types depending on descriptors from different

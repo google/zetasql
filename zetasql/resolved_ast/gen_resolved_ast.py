@@ -581,7 +581,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 153.
+          Next tag_id: 159.
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -1336,21 +1336,46 @@ def main(argv):
       fields=[Field('window_frame', 'ResolvedWindowFrame', tag_id=2)])
 
   gen.AddNode(
-      name='ResolvedExtendedCastInfo',
+      name='ResolvedExtendedCastElement',
       tag_id=151,
       parent='ResolvedArgument',
       use_custom_debug_string=True,
       comment="""
-      Contains information about the cast provided by an engine through a
-      catalog's FindConversion function.
+      Describes a leaf extended cast of ResolvedExtendedCast. See the comment
+      for element_list field of ResolvedExtendedCast for more details.
               """,
       fields=[
           Field(
+              'from_type', SCALAR_TYPE, tag_id=2, ignorable=IGNORABLE),
+          Field('to_type', SCALAR_TYPE, tag_id=3, ignorable=IGNORABLE),
+          Field(
               'function',
               SCALAR_FUNCTION,
+              tag_id=4,
+              ignorable=IGNORABLE)
+      ])
+
+  gen.AddNode(
+      name='ResolvedExtendedCast',
+      tag_id=158,
+      parent='ResolvedArgument',
+      comment="""
+      Describes overall cast operation between two values where at least one
+      value's type is or contains an extended type (e.g. on a struct field).
+              """,
+      fields=[
+          Field(
+              'element_list',
+              'ResolvedExtendedCastElement',
+              vector=True,
               tag_id=2,
               comment="""
-              Function that implements the cast.
+              Stores the list of leaf extended casts required as elements of
+              this cast.  Each element is a cast where at least one of the input
+              or output is an extended type. For structs or arrays, the elements
+              will be casts for the field or element types. For structs, there
+              can be multiple cast elements (one for each distinct pair of field
+              types). For non-struct types, there will be just a single element.
                       """)
       ])
 
@@ -1380,14 +1405,14 @@ def main(argv):
                       """),
           Field(
               'extended_cast',
-              'ResolvedExtendedCastInfo',
+              'ResolvedExtendedCast',
               tag_id=4,
-              ignorable=IGNORABLE_DEFAULT,
+              ignorable=IGNORABLE,
               is_optional_constructor_arg=True,
               comment="""
-              If at least one of conversion's types (source or destination) is
-              extended (TYPE_EXTENDED), this field must must be provided to
-              describe how this conversion should be executed.
+              If at least one of types involved in this cast is or contains an
+              extended (TYPE_EXTENDED) type, this field contains information
+              necessary to execute this cast.
                       """)
       ])
 
@@ -3050,6 +3075,26 @@ right.
               tag_id=8,
               vector=True,
               ignorable=IGNORABLE_DEFAULT),
+      ])
+
+  gen.AddNode(
+      name='ResolvedCreateSchemaStmt',
+      tag_id=157,
+      parent='ResolvedCreateStatement',
+      comment="""
+      This statement:
+      CREATE [OR REPLACE] SCHEMA [IF NOT EXISTS] <name>
+      [OPTIONS (name=value, ...)];
+
+      <option_list> engine-specific options.
+              """,
+      fields=[
+          Field(
+              'option_list',
+              'ResolvedOption',
+              tag_id=2,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT)
       ])
 
   gen.AddNode(
@@ -5116,12 +5161,18 @@ right.
       parent='ResolvedAlterAction',
       comment="""
       RENAME TO action for ALTER ROW ACCESS POLICY statement
+              and ALTER TABLE statement
 
-      <new_name> is the new name of the row access policy.
+      <new_path> is the new name of the row access policy,
+              or the new path of the table.
               """,
       fields=[
           Field(
-              'new_name', SCALAR_STRING, ignorable=NOT_IGNORABLE, tag_id=2),
+              'new_path',
+              SCALAR_STRING,
+              vector=True,
+              ignorable=NOT_IGNORABLE,
+              tag_id=2),
       ])
 
   gen.AddNode(

@@ -66,6 +66,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/optional.h"
@@ -116,9 +117,9 @@ std::vector<const TupleSchema*> EmptyParamsSchemas() { return {}; }
 std::vector<const TupleData*> EmptyParams() { return {}; }
 
 // For convenience.
-::zetasql_base::StatusOr<Value> EvalExpr(const ValueExpr& expr,
-                                 absl::Span<const TupleData* const> params,
-                                 EvaluationContext* context = nullptr) {
+zetasql_base::StatusOr<Value> EvalExpr(const ValueExpr& expr,
+                               absl::Span<const TupleData* const> params,
+                               EvaluationContext* context = nullptr) {
   EvaluationContext empty_context((EvaluationOptions()));
   if (context == nullptr) {
     context = &empty_context;
@@ -1786,16 +1787,16 @@ class ProtoEvalTest : public ::testing::Test {
   }
 
   // Reads 'field_name' of 'msg' using a GetProtoFieldExpr.
-  ::zetasql_base::StatusOr<Value> GetProtoField(const google::protobuf::Message* msg,
-                                        const std::string& field_name) {
+  zetasql_base::StatusOr<Value> GetProtoField(const google::protobuf::Message* msg,
+                                      const std::string& field_name) {
     const ProtoType* proto_type = MakeProtoType(msg);
     return GetProtoField(Value::Proto(proto_type, SerializePartialToCord(*msg)),
                          field_name);
   }
 
   // Reads 'field_name' of 'proto_value' using a GetProtoFieldExpr.
-  ::zetasql_base::StatusOr<Value> GetProtoField(const Value& proto_value,
-                                        const std::string& field_name) {
+  zetasql_base::StatusOr<Value> GetProtoField(const Value& proto_value,
+                                      const std::string& field_name) {
     TupleSlot proto_slot;
     proto_slot.SetValue(proto_value);
     EvaluationContext context((EvaluationOptions()));
@@ -1830,9 +1831,10 @@ class ProtoEvalTest : public ::testing::Test {
   // Creates a GetProtoFieldExpr that either accesses or checks the presence of
   // 'field_name'. Invokes it on 'proto_slot' by passing 'proto_slot' in
   // parameter 'p'.
-  ::zetasql_base::StatusOr<TupleSlot> EvalGetProtoFieldExpr(
-      const TupleSlot& proto_slot, const std::string& field_name,
-      bool get_has_bit, EvaluationContext* context) {
+  zetasql_base::StatusOr<TupleSlot> EvalGetProtoFieldExpr(const TupleSlot& proto_slot,
+                                                  const std::string& field_name,
+                                                  bool get_has_bit,
+                                                  EvaluationContext* context) {
     const google::protobuf::FieldDescriptor* field_descr =
         proto_slot.value().type()->AsProto()->descriptor()->FindFieldByName(
             field_name);

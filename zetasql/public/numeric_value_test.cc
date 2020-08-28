@@ -38,6 +38,7 @@
 #include "absl/hash/hash_testing.h"
 #include "absl/numeric/int128.h"
 #include "absl/random/random.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
@@ -6466,6 +6467,113 @@ TEST_F(BigNumericValueTest, CorrelationAggregatorMergeWith) {
 TEST_F(BigNumericValueTest, CorrelationAggregatorSerialization) {
   TestAggregatorSerialization<BigNumericValue::CorrelationAggregator>(
       kBigNumericBinaryAggregatorTestInputs);
+}
+
+TEST(VarNumericValueTest, ToString) {
+  struct TestData {
+    absl::string_view input;
+    uint scale;
+    absl::string_view expected_output;
+  };
+  static constexpr TestData kTestData[] = {
+      {"", 0, "0"},
+      {"", 1, "0"},
+      {"", kuint32max, "0"},
+      {"0", 0, "0"},
+      {"0", 1, "0"},
+      {"0", kuint32max, "0"},
+      {"1", 0, "1"},
+      {"1", 1, "0.1"},
+      {"1", 58, "0.0000000000000000000000000000000000000000000000000000000001"},
+      {"10", 0, "10"},
+      {"10", 1, "1"},
+      {"10", 2, "0.1"},
+      {"10", 58, "0.000000000000000000000000000000000000000000000000000000001"},
+      {"12", 0, "12"},
+      {"12", 1, "1.2"},
+      {"12", 2, "0.12"},
+      {"12", 57, "0.000000000000000000000000000000000000000000000000000000012"},
+      {"9999999999999999999999999999", 0, "9999999999999999999999999999"},
+      {"9999999999999999999999999999", 1, "999999999999999999999999999.9"},
+      {"9999999999999999999999999999", 27, "9.999999999999999999999999999"},
+      {"9999999999999999999999999999", 28, "0.9999999999999999999999999999"},
+      {"9999999999999999999999999999", 29, "0.09999999999999999999999999999"},
+      {"9999999999999999999999999999", 54,
+       "0.000000000000000000000000009999999999999999999999999999"},
+      {"100000000000000000000000000000", 0, "100000000000000000000000000000"},
+      {"100000000000000000000000000000", 28, "10"},
+      {"100000000000000000000000000000", 29, "1"},
+      {"100000000000000000000000000000", 30, "0.1"},
+      {"100000000000000000000000000000", 58, "0.00000000000000000000000000001"},
+  };
+  for (const TestData& data : kTestData) {
+    std::string output = "ExistingValue";
+    if (data.input.empty()) {
+      VarNumericValue value =
+          VarNumericValue::FromScaledValue(data.input, data.scale);
+      EXPECT_EQ(data.expected_output, value.ToString());
+      value.AppendToString(&output);
+      EXPECT_EQ(absl::StrCat("ExistingValue", data.expected_output), output);
+      continue;
+    }
+    FixedInt<64, 8> input_value;
+    ASSERT_TRUE(input_value.ParseFromStringStrict(data.input)) << data.input;
+    std::string expected_output = std::string(data.expected_output);
+    for (bool negated : {false, true}) {
+      SCOPED_TRACE(absl::StrCat("input: ", data.input, " negated: ", negated));
+      if (negated) {
+        input_value = -input_value;
+        if (expected_output != "0") {
+          expected_output.insert(expected_output.begin(), 1, '-');
+        }
+      }
+      std::string bytes;
+      input_value.SerializeToBytes(&bytes);
+      VarNumericValue value =
+          VarNumericValue::FromScaledValue(bytes, data.scale);
+      EXPECT_EQ(expected_output, value.ToString());
+      output = "ExistingValue";
+      value.AppendToString(&output);
+      EXPECT_EQ(absl::StrCat("ExistingValue", expected_output), output);
+
+      for (uint32_t extra_scale : {1, 2, 5, 9, 38, 76, 100}) {
+        if (static_cast<int64_t>(extra_scale) + data.scale > kuint32max) break;
+        FixedInt<64, 8> extra_scaled_value = input_value;
+        if (extra_scaled_value.MultiplyOverflow(
+                FixedInt<64, 8>::PowerOf10(extra_scale))) {
+          break;
+        }
+        SCOPED_TRACE(absl::StrCat("extra_scale: ", extra_scale));
+        bytes.clear();
+        extra_scaled_value.SerializeToBytes(&bytes);
+        // Append some redundant bytes that do not affect the result.
+        bytes.append(bytes.size(), input_value.is_negative() ? '\xff' : '\x00');
+        value =
+            VarNumericValue::FromScaledValue(bytes, data.scale + extra_scale);
+        EXPECT_EQ(expected_output, value.ToString());
+        output = "ExistingValue";
+        value.AppendToString(&output);
+        EXPECT_EQ(absl::StrCat("ExistingValue", expected_output), output);
+      }
+    }
+  }
+}
+
+template <typename T>
+void TestVarNumericValueTestToStringWithRandomNumericValues() {
+  absl::BitGen random;
+  for (int i = 0; i < 10000; ++i) {
+    T value = MakeRandomNumericValue<T>(&random);
+    std::string bytes = value.SerializeAsProtoBytes();
+    VarNumericValue var_value =
+        VarNumericValue::FromScaledValue(bytes, T::kMaxFractionalDigits);
+    EXPECT_EQ(value.ToString(), var_value.ToString());
+  }
+}
+
+TEST(VarNumericValueTest, ToString_RandomData) {
+  TestVarNumericValueTestToStringWithRandomNumericValues<NumericValue>();
+  TestVarNumericValueTestToStringWithRandomNumericValues<BigNumericValue>();
 }
 }  // namespace
 }  // namespace zetasql

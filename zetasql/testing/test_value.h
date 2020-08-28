@@ -31,6 +31,7 @@
 #include "zetasql/public/value.h"
 #include "gmock/gmock.h"
 #include <cstdint>
+#include "zetasql/base/statusor.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/statusor.h"

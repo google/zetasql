@@ -42,6 +42,7 @@
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
@@ -1941,7 +1942,7 @@ std::string AggregateAnalyticArg::DebugInternal(const std::string& indent,
 // NonAggregateAnalyticArg
 // -------------------------------------------------------
 
-::zetasql_base::StatusOr<std::unique_ptr<NonAggregateAnalyticArg>>
+zetasql_base::StatusOr<std::unique_ptr<NonAggregateAnalyticArg>>
 NonAggregateAnalyticArg::Create(
     const VariableId& variable_id, std::unique_ptr<WindowFrameArg> window_frame,
     std::unique_ptr<const AnalyticFunctionBody> function,
@@ -2084,7 +2085,7 @@ std::string AnalyticOp::GetIteratorDebugString(
   return absl::StrCat("AnalyticTupleIterator(", input_iter_debug_string, ")");
 }
 
-::zetasql_base::StatusOr<std::unique_ptr<AnalyticOp>> AnalyticOp::Create(
+zetasql_base::StatusOr<std::unique_ptr<AnalyticOp>> AnalyticOp::Create(
     std::vector<std::unique_ptr<KeyArg>> partition_keys,
     std::vector<std::unique_ptr<KeyArg>> order_keys,
     std::vector<std::unique_ptr<AnalyticArg>> analytic_args,
@@ -2303,7 +2304,7 @@ class AnalyticTupleIterator : public TupleIterator {
 };
 }  // namespace
 
-::zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> AnalyticOp::CreateIterator(
+zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> AnalyticOp::CreateIterator(
     absl::Span<const TupleData* const> params, int num_extra_slots,
     EvaluationContext* context) const {
   ZETASQL_ASSIGN_OR_RETURN(

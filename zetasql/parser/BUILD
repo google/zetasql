@@ -30,7 +30,7 @@ genrule(
         "parse_tree_accept_methods.inc",
     ],
     cmd = "$(location :gen_extra_files_tool) $(SRCS) $(OUTS)",
-    tools = [":gen_extra_files_tool"],
+    exec_tools = [":gen_extra_files_tool"],
 )
 
 py_binary(
@@ -64,12 +64,13 @@ cc_library(
         "unparser.h",
     ],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     tags = ["nofixdeps"],  # generated and real files are interdependent
     deps = [
@@ -136,14 +137,15 @@ cc_library(
     # fail in fastbuild with default 64KB stack sizes, or to start failing
     # when the parser is extended further.
     copts = [
+        "-Wno-char-subscripts",
         "-Wno-implicit-fallthrough",
         "-O2",
-        "-Wno-pessimizing-move",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     tags = ["nofixdeps"],  # generated and real files are interdependent
     deps = [
@@ -184,12 +186,13 @@ cc_library(
         "visit_result.h",
     ],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     tags = ["nofixdeps"],  # generated and real files are interdependent
     deps = [
@@ -227,18 +230,20 @@ cc_test(
     size = "small",
     srcs = ["parse_tree_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":parse_tree",
         ":parser",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
+        "//zetasql/base:statusor",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/common:errors",
         "//zetasql/common:status_payload_utils",
@@ -257,12 +262,13 @@ cc_test(
     size = "small",
     srcs = ["parse_tree_errors_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":parse_tree",
@@ -283,12 +289,13 @@ cc_test(
     size = "small",
     srcs = ["unparser_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":parser",
@@ -306,12 +313,13 @@ cc_library(
         "keywords.h",
     ],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":bison_keyword_token_codes_inc",
@@ -327,12 +335,13 @@ cc_library(
 cc_library(
     name = "bison_keyword_token_codes_inc",
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     textual_hdrs = ["bison_keyword_token_codes.inc"],
 )
@@ -348,12 +357,13 @@ cc_test(
     name = "keywords_test",
     srcs = ["keywords_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     data = [
         "bison_parser.y",

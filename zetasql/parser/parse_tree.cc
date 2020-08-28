@@ -32,6 +32,7 @@
 #include "absl/base/attributes.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -1067,7 +1068,7 @@ std::string ASTCreateTableFunctionStatement::SingleNodeDebugString() const {
 // non-nested DML statement). In that case, returns 'target_path' as an
 // ASTPathExpression. Otherwise returns an error based on
 // 'statement_type'.
-static ::zetasql_base::StatusOr<const ASTPathExpression*>
+static zetasql_base::StatusOr<const ASTPathExpression*>
 GetTargetPathForNonNestedDMLStatement(
     absl::string_view statement_type,
     const ASTGeneralizedPathExpression* target_path) {

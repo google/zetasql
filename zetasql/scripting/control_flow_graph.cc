@@ -25,6 +25,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/status_builder.h"

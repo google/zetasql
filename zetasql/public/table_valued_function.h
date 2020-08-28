@@ -39,6 +39,7 @@
 #include "zetasql/public/value.h"
 #include <cstdint>
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/ret_check.h"
@@ -465,7 +466,7 @@ class TVFInputArgumentType {
   bool is_descriptor() const {
     return kind_ == TVFInputArgumentTypeKind::DESCRIPTOR;
   }
-  ::zetasql_base::StatusOr<InputArgumentType> GetScalarArgType() const {
+  zetasql_base::StatusOr<InputArgumentType> GetScalarArgType() const {
     ZETASQL_RET_CHECK(kind_ == TVFInputArgumentTypeKind::SCALAR);
     if (scalar_arg_value_ != nullptr) {
       return InputArgumentType(*scalar_arg_value_);

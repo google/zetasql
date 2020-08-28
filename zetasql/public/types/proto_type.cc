@@ -27,6 +27,7 @@
 #include "zetasql/public/types/value_representations.h"
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 
@@ -393,6 +394,55 @@ FieldFormat::Format ProtoType::GetFormatAnnotationImpl(
   } else {
     return FieldFormat::DEFAULT_FORMAT;
   }
+}
+
+// Forward declaration, see below for documentation.
+static bool HasSubfieldWithFormatHelper(
+    const google::protobuf::FieldDescriptor* field, FieldFormat::Format format,
+    absl::flat_hash_set<const google::protobuf::Descriptor*>* visited_descriptors);
+
+// This is a helper for HasSubfieldWithFormat() that keeps track the
+// visited descriptors to avoid crashing in recursive protos messages.
+static bool HasSubfieldWithFormatHelper(
+    const google::protobuf::Descriptor* descriptor, FieldFormat::Format format,
+    absl::flat_hash_set<const google::protobuf::Descriptor*>* visited_descriptors) {
+  if (!visited_descriptors->insert(descriptor).second) {
+    return false;
+  }
+  for (int i = 0; i < descriptor->field_count(); ++i) {
+    if (HasSubfieldWithFormatHelper(descriptor->field(i), format,
+                                    visited_descriptors))
+      return true;
+  }
+  return false;
+}
+
+// This is a helper for HasSubfieldWithFormat() that keeps track the
+// visited descriptors to avoid crashing in recursive protos messages.
+static bool HasSubfieldWithFormatHelper(
+    const google::protobuf::FieldDescriptor* field, FieldFormat::Format format,
+    absl::flat_hash_set<const google::protobuf::Descriptor*>* visited_descriptors) {
+  if (ProtoType::GetFormatAnnotation(field) == format) {
+    return true;
+  }
+  if (field->message_type() != nullptr &&
+      HasSubfieldWithFormatHelper(field->message_type(), format,
+                                  visited_descriptors)) {
+    return true;
+  }
+  return false;
+}
+
+bool ProtoType::HasSubfieldWithFormat(const google::protobuf::Descriptor* descriptor,
+                                      FieldFormat::Format format) {
+  absl::flat_hash_set<const google::protobuf::Descriptor*> visited_descriptors;
+  return HasSubfieldWithFormatHelper(descriptor, format, &visited_descriptors);
+}
+
+bool ProtoType::HasSubfieldWithFormat(const google::protobuf::FieldDescriptor* field,
+                                      FieldFormat::Format format) {
+  absl::flat_hash_set<const google::protobuf::Descriptor*> visited_descriptors;
+  return HasSubfieldWithFormatHelper(field, format, &visited_descriptors);
 }
 
 FieldFormat::Format ProtoType::GetFormatAnnotation(

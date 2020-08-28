@@ -41,6 +41,7 @@ constexpr uint32_t k1e9 = 1000 * 1000 * 1000;
 constexpr uint64_t k1e19 = static_cast<uint64_t>(k1e9) * k1e9 * 10;
 constexpr __int128 k1e38 = static_cast<__int128>(k1e19) * k1e19;
 }  // namespace internal
+
 // This class represents values of the ZetaSQL NUMERIC type. Such values are
 // decimal numbers with maximum total precision of 38 decimal digits and fixed
 // scale of 9 decimal digits.
@@ -81,7 +82,7 @@ class NumericValue final {
   // little_endian_value represents an integer in serialized binary format
   // in little endian byte order, using 2's complement encoding for negative
   // values (the last byte's highest bit determines the sign). For example, if
-  // little_endian_value = '\x00\xff' and scale = 5, then the result is
+  // little_endian_value = "\x00\xff" and scale = 5, then the result is
   // -256 / pow(10, 5). When the result has more than 9 digits in the
   // fractional part, the result will be rounded half away from zero if
   // allow_rounding is true, or an error will be returned if allow_rounding is
@@ -199,9 +200,9 @@ class NumericValue final {
   double ToDouble() const;
 
   // Converts the NUMERIC value into a string. String representation of NUMERICs
-  // follow regular rules of textual numeric values representation. For example,
-  // "1.34", "123", "0.23". AppendToString is typically more efficient due to
-  // fewer memory allocations.
+  // follows regular rules of textual numeric values representation. For
+  // example, "1.34", "123", "0.23". AppendToString is typically more efficient
+  // due to fewer memory allocations.
   std::string ToString() const;
   void AppendToString(std::string* output) const;
 
@@ -540,7 +541,7 @@ class BigNumericValue final {
   // little_endian_value represents an integer in serialized binary format
   // in little endian byte order, using 2's complement encoding for negative
   // values (the last byte's highest bit determines the sign). For example, if
-  // little_endian_value = '\x00\xff' and scale = 5, then the result is
+  // little_endian_value = "\x00\xff" and scale = 5, then the result is
   // -256 / pow(10, 5). When the result has more than 38 digits in the
   // fractional part, the result will be rounded half away from zero if
   // allow_rounding is true, or an error will be returned if allow_rounding is
@@ -665,9 +666,9 @@ class BigNumericValue final {
   double ToDouble() const;
 
   // Converts the BigNumericValue into a string. String representation of
-  // NUMERICs follow regular rules of textual numeric values representation. For
-  // example, "1.34", "123", "0.23". AppendToString is typically more efficient
-  // due to fewer memory allocations.
+  // BigNumericValue follows regular rules of textual numeric values
+  // representation. For example, "1.34", "123", "0.23". AppendToString is
+  // typically more efficient due to fewer memory allocations.
   std::string ToString() const;
   void AppendToString(std::string* output) const;
 
@@ -880,11 +881,49 @@ class BigNumericValue final {
   FixedInt<64, 4> value_;
 };
 
+// Supports variable length and variable scale.
+// This class has very limited functionalities, and its performance is much
+// worse than NumericValue and BigNumericValue.
+class VarNumericValue {
+ public:
+  VarNumericValue() {}
+  // Returns a value representing little_endian_value / pow(10, scale), where
+  // little_endian_value represents an integer in serialized binary format
+  // in little endian byte order, using 2's complement encoding for negative
+  // values (the last byte's highest bit determines the sign). For example, if
+  // little_endian_value = "\x00\xff" and scale = 5, then the result is
+  // -256 / pow(10, 5).
+  static VarNumericValue FromScaledValue(absl::string_view little_endian_value,
+                                         uint scale);
+
+  // Converts the VarNumericValue into a string. String representation of
+  // VarNumericValue follows regular rules of textual numeric values
+  // representation. For example, "1.34", "123", "0.23". AppendToString is
+  // typically more efficient due to fewer memory allocations.
+  std::string ToString() const {
+    std::string output;
+    AppendToString(&output);
+    return output;
+  }
+  void AppendToString(std::string* output) const;
+
+ private:
+  // NOTE: uint32_t is not the best for operations other than division in terms
+  // of performance. When more methods are supported, this should change to
+  // std::vector<uint64_t>. For this reason, FromPackedLittleEndianArray is not
+  // defined yet.
+  std::vector<uint32_t> value_;
+  uint scale_ = 0;
+};
+
 // Allow NUMERIC values to be logged.
 std::ostream& operator<<(std::ostream& out, NumericValue value);
 
 // Allow BIGNUMERIC values to be logged.
 std::ostream& operator<<(std::ostream& out, const BigNumericValue& value);
+
+// Allow VarNumericValue values to be logged.
+std::ostream& operator<<(std::ostream& out, const VarNumericValue& value);
 
 // ---------------- Below are implementation details. -------------------
 

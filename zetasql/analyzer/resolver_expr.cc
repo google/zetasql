@@ -46,6 +46,7 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/cast.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/coercer.h"
@@ -81,6 +82,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/ascii.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/match.h"
@@ -115,10 +117,9 @@ namespace {
 
 // Verifies that 'field_descriptor' is an extension corresponding to the same
 // message as descriptor, and then returns 'field_descriptor'.
-::zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*>
-VerifyFieldExtendsMessage(const ASTNode* ast_node,
-                          const google::protobuf::FieldDescriptor* field_descriptor,
-                          const google::protobuf::Descriptor* descriptor) {
+zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*> VerifyFieldExtendsMessage(
+    const ASTNode* ast_node, const google::protobuf::FieldDescriptor* field_descriptor,
+    const google::protobuf::Descriptor* descriptor) {
   const google::protobuf::Descriptor* containing_type_descriptor =
       field_descriptor->containing_type();
   // Verify by full_name rather than by pointer equality to allow for extensions
@@ -167,6 +168,28 @@ std::string GetNodePrefixToken(absl::string_view sql,
                               parse_location_range.start().GetByteOffset() -
                               leaf_node.image().size()));
   return absl::AsciiStrToUpper(type_token);
+}
+
+inline std::unique_ptr<ResolvedCast> MakeResolvedCast(
+    const Type* type, std::unique_ptr<const ResolvedExpr> expr,
+    bool return_null_on_error,
+    const ExtendedCompositeCastEvaluator& extended_conversion_evaluator) {
+  auto result = MakeResolvedCast(type, std::move(expr), return_null_on_error);
+
+  if (extended_conversion_evaluator.is_valid()) {
+    std::vector<std::unique_ptr<const ResolvedExtendedCastElement>>
+        conversion_list;
+    for (const ConversionEvaluator& evaluator :
+         extended_conversion_evaluator.evaluators()) {
+      conversion_list.push_back(MakeResolvedExtendedCastElement(
+          evaluator.from_type(), evaluator.to_type(), evaluator.function()));
+    }
+
+    result->set_extended_cast(
+        MakeResolvedExtendedCast(std::move(conversion_list)));
+  }
+
+  return result;
 }
 
 }  // namespace
@@ -366,7 +389,7 @@ absl::Status Resolver::ResolveBuildProto(
 // proto we are reading from. This lets some cases work where the proto does not
 // exist or has an unexpected name in the catalog, like a global_proto_db
 // qualified name.
-::zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*>
+zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*>
 Resolver::FindExtensionFieldDescriptor(const ASTPathExpression* ast_path_expr,
                                        const google::protobuf::Descriptor* descriptor) {
   // First try to find the extension in the DescriptorPool of the relevant proto
@@ -1536,6 +1559,14 @@ absl::Status Resolver::MaybeResolveProtoFieldAccess(
   if (options.get_has_bit_override) {
     get_has_bit = *options.get_has_bit_override;
   } else if (absl::StartsWithIgnoreCase(dot_name, "has_")) {
+    if (lhs_proto->options().map_entry()) {
+      return MakeSqlErrorAt(identifier)
+             << lhs_proto->full_name() << " is a synthetic map entry proto. "
+             << dot_name
+             << " is not allowed for map entries because all map entry fields "
+                "are considered to be present by definition";
+    }
+
     const std::string dot_name_without_has = dot_name.substr(4);
     ZETASQL_ASSIGN_OR_RETURN(
         const google::protobuf::FieldDescriptor* has_field,
@@ -1867,7 +1898,7 @@ absl::Status Resolver::ResolveDotGeneralizedField(
                                      resolved_expr_out);
 }
 
-::zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*> Resolver::FindFieldDescriptor(
+zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*> Resolver::FindFieldDescriptor(
     const ASTNode* ast_name_location, const google::protobuf::Descriptor* descriptor,
     absl::string_view name) {
   const google::protobuf::FieldDescriptor* field =
@@ -3630,19 +3661,20 @@ absl::Status Resolver::ResolveAnalyticFunctionCall(
 bool Resolver::IsValidExplicitCast(
     const std::unique_ptr<const ResolvedExpr>& resolved_argument,
     const Type* to_type) {
-  const Function* unused_extended_type_conversion;
+  ExtendedCompositeCastEvaluator unused_extended_conversion_evaluator =
+      ExtendedCompositeCastEvaluator::Invalid();
   return CheckExplicitCast(resolved_argument.get(), to_type,
-                           &unused_extended_type_conversion)
+                           &unused_extended_conversion_evaluator)
       .value_or(false);
 }
 
 zetasql_base::StatusOr<bool> Resolver::CheckExplicitCast(
     const ResolvedExpr* resolved_argument, const Type* to_type,
-    const Function** extended_type_conversion) {
+    ExtendedCompositeCastEvaluator* extended_conversion_evaluator) {
   SignatureMatchResult result;
   return coercer_.CoercesTo(GetInputArgumentTypeForExpr(resolved_argument),
-                            to_type, true /* is_explicit */, &result,
-                            extended_type_conversion);
+                            to_type, /*is_explicit=*/true, &result,
+                            extended_conversion_evaluator);
 }
 
 static absl::Status CastResolutionError(const ASTNode* ast_location,
@@ -3762,10 +3794,11 @@ absl::Status Resolver::ResolveCastWithResolvedArgument(
     return absl::OkStatus();
   }
 
-  const Function* extended_conversion = nullptr;
+  ExtendedCompositeCastEvaluator extended_conversion_evaluator =
+      ExtendedCompositeCastEvaluator::Invalid();
   ZETASQL_ASSIGN_OR_RETURN(bool cast_is_valid,
                    CheckExplicitCast(resolved_argument->get(), to_type,
-                                     &extended_conversion));
+                                     &extended_conversion_evaluator));
   if (!cast_is_valid) {
     return CastResolutionError(ast_location, (*resolved_argument)->type(),
                                to_type, product_mode());
@@ -3774,7 +3807,7 @@ absl::Status Resolver::ResolveCastWithResolvedArgument(
   // Add EXPLICIT cast.
   *resolved_argument =
       MakeResolvedCast(to_type, std::move(*resolved_argument),
-                       return_null_on_error, extended_conversion);
+                       return_null_on_error, extended_conversion_evaluator);
   return absl::OkStatus();
 }
 

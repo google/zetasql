@@ -21,6 +21,7 @@
 
 #include "absl/base/macros.h"
 #include "zetasql/base/statusor.h"
+#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 namespace functions {
@@ -130,14 +131,15 @@ static inline bool CastRounded(FromType in, ToType* out) {
 template <>
 bool RoundDecimal(double in, int64_t digits, double *out,
                   absl::Status* error) {
-  digits = -digits;
-  if (digits > kDoubleMaxExponent) {
+  if (digits < -kDoubleMaxExponent) {
     *out = 0.0;
     return true;
-  } else if (digits < kDoubleMinExponent) {
+  }
+  if (digits > -kDoubleMinExponent) {
     *out = in;
     return true;
   }
+  digits = -digits;
   const long double exp = kDecimalExponentDouble[digits - kDoubleMinExponent];
 
   long double x = in / exp;
@@ -180,14 +182,15 @@ bool RoundDecimal(float in, int64_t digits, float *out,
   static_assert(std::numeric_limits<double>::max_exponent >=
                 std::numeric_limits<float>::max_exponent * 2 ,
                 "double's exponent must be wider than float's");
-  digits = -digits;
-  if (digits > kFloatMaxExponent) {
+  if (digits < -kFloatMaxExponent) {
     *out = 0.0;
     return true;
-  } else if (digits < kFloatMinExponent) {
+  }
+  if (digits > -kFloatMinExponent) {
     *out = in;
     return true;
   }
+  digits = -digits;
   double exp = kDecimalExponentFloat[digits - kFloatMinExponent];
   // round(in / exp) * exp will never overflow due to the static_assert above.
   // Converting the result from double to float may overflow.
@@ -201,14 +204,15 @@ bool RoundDecimal(float in, int64_t digits, float *out,
 template <>
 bool TruncDecimal(double in, int64_t digits, double *out,
                   absl::Status* error) {
-  digits = -digits;
-  if (digits > kDoubleMaxExponent) {
+  if (digits < -kDoubleMaxExponent) {
     *out = 0.0;
     return true;
-  } else if (digits < kDoubleMinExponent) {
+  }
+  if (digits > -kDoubleMinExponent) {
     *out = in;
     return true;
   }
+  digits = -digits;
   const long double exp = kDecimalExponentDouble[digits - kDoubleMinExponent];
 
   long double x = in / exp;
@@ -234,14 +238,15 @@ bool TruncDecimal(float in, int64_t digits, float *out,
   static_assert(std::numeric_limits<double>::max_exponent >=
                 std::numeric_limits<float>::max_exponent * 2 ,
                 "double's exponent must be wider than float's");
-  digits = -digits;
-  if (digits > kFloatMaxExponent) {
+  if (digits < -kFloatMaxExponent) {
     *out = 0.0;
     return true;
-  } else if (digits < kFloatMinExponent) {
+  }
+  if (digits > -kFloatMinExponent) {
     *out = in;
     return true;
   }
+  digits = -digits;
   double exp = kDecimalExponentFloat[digits - kFloatMinExponent];
   *out = trunc(in / exp) * exp;
   // trunc(in / exp) * exp will never overflow due to the static_assert above.

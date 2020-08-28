@@ -78,6 +78,7 @@
 #include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/memory/memory.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -565,6 +566,8 @@ FunctionMap::FunctionMap() {
                    "RegexpExtract");
   RegisterFunction(FunctionKind::kRegexpExtractAll, "regexp_extract_all",
                    "RegexpExtract");
+  RegisterFunction(FunctionKind::kRegexpInstr, "regexp_instr",
+                   "RegexpInstr");
   RegisterFunction(FunctionKind::kRegexpReplace, "regexp_replace",
                    "RegexpReplace");
   RegisterFunction(FunctionKind::kReplace, "replace", "Replace");
@@ -819,6 +822,51 @@ static zetasql_base::StatusOr<Value> Extract(absl::Span<const Value> x,
   } else {
     return ValueTraits<type>::ToValue(out);
   }
+}
+
+// Helper function for regexp_instr.
+template <TypeKind type>
+static zetasql_base::StatusOr<Value> Instr(absl::Span<const Value> x,
+                                     functions::RegExp* regexp) {
+  ZETASQL_RET_CHECK_LE(x.size(), 5);
+  ZETASQL_RET_CHECK_GE(x.size(), 2);
+  absl::Status status;
+  functions::RegExp::InstrParams options;
+  for (const Value& arg : x) {
+    if (arg.is_null()) {
+      return Value::NullInt64();
+    }
+  }
+  if (type == TYPE_STRING) {
+    options.input_str = x[0].string_value();
+    options.position_unit = functions::RegExp::kUtf8Chars;
+  } else {
+    options.input_str = x[0].bytes_value();
+    options.position_unit = functions::RegExp::kBytes;
+  }
+
+  if (x.size() >= 3) {
+    options.position = x[2].int64_value();
+    if (x.size() >= 4) {
+      options.occurrence_index = x[3].int64_value();
+      if (x.size() == 5) {
+        if (x[4].int64_value() == 1) {
+          options.return_position = functions::RegExp::kEndOfMatch;
+        } else if (x[4].int64_value() == 0) {
+          options.return_position = functions::RegExp::kStartOfMatch;
+        } else {
+          return absl::Status(absl::StatusCode::kOutOfRange,
+                              "Invalid return_position_after_match.");
+        }
+      }
+    }
+  }
+  int64_t out;
+  options.out = &out;
+  if (!regexp->Instr(options, &status)) {
+    return status;
+  }
+  return Value::Int64(out);
 }
 
 // Helper function for regexp_replace.
@@ -1108,7 +1156,7 @@ BuiltinScalarFunction::CreateCast(
     const LanguageOptions& language_options, const Type* output_type,
     std::unique_ptr<ValueExpr> argument, bool return_null_on_error,
     ResolvedFunctionCallBase::ErrorMode error_mode,
-    const Function* extended_type_conversion_function) {
+    std::unique_ptr<ExtendedCompositeCastEvaluator> extended_cast_evaluator) {
   ZETASQL_ASSIGN_OR_RETURN(auto null_on_error_exp,
                    ConstExpr::Create(Value::Bool(return_null_on_error)));
 
@@ -1121,7 +1169,7 @@ BuiltinScalarFunction::CreateCast(
 
   return ScalarFunctionCallExpr::Create(
       absl::make_unique<CastFunction>(output_type,
-                                      extended_type_conversion_function),
+                                      std::move(extended_cast_evaluator)),
       std::move(args), error_mode);
 }
 
@@ -1302,6 +1350,7 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kRegexpMatch:
     case FunctionKind::kRegexpExtract:
     case FunctionKind::kRegexpExtractAll:
+    case FunctionKind::kRegexpInstr:
     case FunctionKind::kRegexpReplace: {
       ZETASQL_ASSIGN_OR_RETURN(auto fct,
                        CreateRegexpFunction(kind, output_type, arguments));
@@ -1477,6 +1526,14 @@ static RegexpFunction::EvalFunction CreateEvalFunction(
     }
     case FCT(FunctionKind::kRegexpExtract, TYPE_BYTES): {
       return WrapOrInitRegexpFunction<TYPE_BYTES>(&Extract<TYPE_BYTES>, pattern,
+                                                  regexp, status);
+    }
+    case FCT(FunctionKind::kRegexpInstr, TYPE_STRING): {
+      return WrapOrInitRegexpFunction<TYPE_STRING>(&Instr<TYPE_STRING>,
+                                                   pattern, regexp, status);
+    }
+    case FCT(FunctionKind::kRegexpInstr, TYPE_BYTES): {
+      return WrapOrInitRegexpFunction<TYPE_BYTES>(&Instr<TYPE_BYTES>, pattern,
                                                   regexp, status);
     }
     case FCT(FunctionKind::kRegexpExtractAll, TYPE_STRING): {
@@ -2438,7 +2495,7 @@ zetasql_base::StatusOr<Value> CastFunction::Eval(absl::Span<const Value> args,
 
   zetasql_base::StatusOr<Value> status_or = internal::CastValueWithoutTypeValidation(
       v, context->GetDefaultTimeZone(), context->GetLanguageOptions(),
-      output_type(), extended_type_conversion_function_);
+      output_type(), extended_cast_evaluator_.get());
   if (!status_or.ok() && return_null_on_error) {
     // TODO: check that failure is not due to absence of
     // extended_type_function. In this case we still probably wants to fail the
@@ -2552,7 +2609,7 @@ namespace {
 // Accumulator implementation for BuiltinAggregateFunction.
 class BuiltinAggregateAccumulator : public AggregateAccumulator {
  public:
-  static ::zetasql_base::StatusOr<std::unique_ptr<BuiltinAggregateAccumulator>> Create(
+  static zetasql_base::StatusOr<std::unique_ptr<BuiltinAggregateAccumulator>> Create(
       const BuiltinAggregateFunction* function, const Type* input_type,
       absl::Span<const Value> args, EvaluationContext* context) {
     auto accumulator = absl::WrapUnique(
@@ -2578,7 +2635,7 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   bool Accumulate(const Value& value, bool* stop_accumulation,
                   absl::Status* status) override;
 
-  ::zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override;
+  zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override;
 
  private:
 
@@ -2591,7 +2648,7 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
         args_(args.begin(), args.end()),
         context_(context) {}
 
-  ::zetasql_base::StatusOr<Value> GetFinalResultInternal(bool inputs_in_defined_order);
+  zetasql_base::StatusOr<Value> GetFinalResultInternal(bool inputs_in_defined_order);
 
   MemoryAccountant* accountant() { return context_->memory_accountant(); }
 
@@ -3222,7 +3279,7 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
   return true;
 }
 
-::zetasql_base::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResult(
+zetasql_base::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResult(
     bool inputs_in_defined_order) {
   ZETASQL_ASSIGN_OR_RETURN(const Value result,
                    GetFinalResultInternal(inputs_in_defined_order));
@@ -3234,7 +3291,7 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
   return result;
 }
 
-::zetasql_base::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
+zetasql_base::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
     bool inputs_in_defined_order) {
   const Type* output_type = function_->output_type();
   absl::Status error;
@@ -3485,7 +3542,7 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
 
 }  // namespace
 
-::zetasql_base::StatusOr<std::unique_ptr<AggregateAccumulator>>
+zetasql_base::StatusOr<std::unique_ptr<AggregateAccumulator>>
 BuiltinAggregateFunction::CreateAccumulator(absl::Span<const Value> args,
                                             EvaluationContext* context) const {
   return BuiltinAggregateAccumulator::Create(this, input_type(), args, context);
@@ -3517,7 +3574,7 @@ class BinaryStatAccumulator : public AggregateAccumulator {
   bool Accumulate(const Value& value, bool* stop_accumulation,
                   absl::Status* status) override;
 
-  ::zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override;
+  zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override;
 
  private:
   BinaryStatAccumulator(const BinaryStatFunction* function,
@@ -3646,7 +3703,7 @@ bool BinaryStatAccumulator::Accumulate(const Value& value,
   return status->ok();
 }
 
-::zetasql_base::StatusOr<Value> BinaryStatAccumulator::GetFinalResult(
+zetasql_base::StatusOr<Value> BinaryStatAccumulator::GetFinalResult(
     bool /* inputs_in_defined_order */) {
   if (pair_count_ < min_required_pair_count_) {
     return Value::Null(function_->output_type());
@@ -3698,7 +3755,7 @@ bool BinaryStatAccumulator::Accumulate(const Value& value,
 
 }  // namespace
 
-::zetasql_base::StatusOr<std::unique_ptr<AggregateAccumulator>>
+zetasql_base::StatusOr<std::unique_ptr<AggregateAccumulator>>
 BinaryStatFunction::CreateAccumulator(absl::Span<const Value> args,
                                       EvaluationContext* context) const {
   return BinaryStatAccumulator::Create(this, input_type(), context);
@@ -5161,8 +5218,8 @@ zetasql_base::StatusOr<Value> DateTruncFunction::Eval(
   return values::Date(date);
 }
 
-zetasql_base::StatusOr<Value> LastDayFunction::Eval(
-    absl::Span<const Value> args, EvaluationContext* context) const {
+zetasql_base::StatusOr<Value> LastDayFunction::Eval(absl::Span<const Value> args,
+                                            EvaluationContext* context) const {
   // The signature arguments are (<date> or <datetime>, <datepart> optional).
   ZETASQL_RET_CHECK_LE(args.size(), 2);
   ZETASQL_RET_CHECK_GE(args.size(), 1);

@@ -40,6 +40,7 @@
 #include <cstdint>
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/statusor.h"
@@ -125,6 +126,8 @@ class SQLBuilder : public ResolvedASTVisitor {
     const ResolvedCreateIndexStmt* node) override;
   absl::Status VisitResolvedCreateModelStmt(
       const ResolvedCreateModelStmt* node) override;
+  absl::Status VisitResolvedCreateSchemaStmt(
+      const ResolvedCreateSchemaStmt* node) override;
   absl::Status VisitResolvedCreateTableStmt(
       const ResolvedCreateTableStmt* node) override;
   absl::Status VisitResolvedCreateTableAsSelectStmt(

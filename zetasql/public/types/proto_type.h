@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_TYPES_PROTO_TYPE_H_
 #define ZETASQL_PUBLIC_TYPES_PROTO_TYPE_H_
 
+#include "google/protobuf/descriptor.h"
 #include "zetasql/public/types/type.h"
 
 namespace zetasql {
@@ -151,6 +152,14 @@ class ProtoType : public Type {
   static bool HasFormatAnnotation(const google::protobuf::FieldDescriptor* field);
   static FieldFormat::Format GetFormatAnnotation(
       const google::protobuf::FieldDescriptor* field);
+
+  // Returns true if <field>/<descriptor> or any of its descendent fields have
+  // <format> as a ZetaSQL annotation as returned by
+  // GetFormatAnnotation(). Otherwise, returns false.
+  static bool HasSubfieldWithFormat(const google::protobuf::Descriptor* descriptor,
+                                    FieldFormat::Format format);
+  static bool HasSubfieldWithFormat(const google::protobuf::FieldDescriptor* field,
+                                    FieldFormat::Format format);
 
   // Returns true if default value for <field> should be used.
   // Returns false if SQL NULL should be used instead.

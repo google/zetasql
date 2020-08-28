@@ -103,12 +103,13 @@ cc_library(
         "resolved_node_kind.h",
     ],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -150,12 +151,13 @@ cc_library(
         "make_node_vector.h",
     ],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -169,12 +171,13 @@ cc_library(
     srcs = ["validator.cc"],
     hdrs = ["validator.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -217,12 +220,13 @@ cc_library(
         "sql_builder.h",
     ],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -262,12 +266,13 @@ cc_test(
     size = "small",
     srcs = ["resolved_ast_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":make_node_vector",
@@ -296,12 +301,13 @@ cc_test(
     size = "small",
     srcs = ["make_node_vector_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":make_node_vector",
@@ -316,12 +322,13 @@ cc_test(
     size = "small",
     srcs = ["resolved_ast_deep_copy_visitor_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":make_node_vector",
@@ -349,12 +356,13 @@ cc_test(
     size = "small",
     srcs = ["resolved_ast_helper_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":make_node_vector",
@@ -378,12 +386,13 @@ cc_test(
     size = "small",
     srcs = ["resolved_column_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":resolved_ast",
@@ -463,4 +472,22 @@ cc_proto_library(
 java_proto_library(
     name = "serialization_java_proto",
     deps = [":serialization_proto"],
+)
+
+cc_library(
+    name = "rewrite_utils",
+    srcs = ["rewrite_utils.cc"],
+    hdrs = ["rewrite_utils.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":resolved_ast",
+    ],
 )

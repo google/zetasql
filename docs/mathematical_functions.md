@@ -277,9 +277,7 @@ computes the logarithm of X to base Y. Generates an error in these cases:
 
 The behavior of `LOG(X, Y)` is further illustrated in the table below.
 
-<a name="special_log"></a>
-
-#### Special cases for `LOG(X, Y)`
+#### Special cases for `LOG(X, Y)` {: #special_log }
 
 <table>
 <thead>
@@ -426,9 +424,7 @@ Modulo function: returns the remainder of the division of X by Y. Returned
 value has the same sign as X. An error is generated if Y is 0. See the table
 below for possible result types.
 
-<a name="result_div_mod"></a>
-
-#### Result types for `DIV(X, Y)` and `MOD(X, Y)`
+#### Result types for `DIV(X, Y)` and `MOD(X, Y)` {: #result_div_mod }
 
 <table>
 <thead>
@@ -437,9 +433,7 @@ below for possible result types.
 <tbody><tr><td>INT32</td><td>INT64</td><td>INT64</td><td>INT64</td><td>ERROR</td></tr><tr><td>INT64</td><td>INT64</td><td>INT64</td><td>INT64</td><td>ERROR</td></tr><tr><td>UINT32</td><td>INT64</td><td>INT64</td><td>UINT64</td><td>UINT64</td></tr><tr><td>UINT64</td><td>ERROR</td><td>ERROR</td><td>UINT64</td><td>UINT64</td></tr></tbody>
 </table>
 
-<a name="rounding_functions"></a>
-
-### ROUND
+### ROUND {: #rounding_functions }
 
 ```
 ROUND(X [, N])
@@ -583,9 +577,7 @@ Example behavior of ZetaSQL rounding functions:
 </tbody>
 </table>
 
-<a name="trigonometric_and_hyperbolic_functions"></a>
-
-### COS
+### COS {: #trigonometric_and_hyperbolic_functions }
 
 ```
 COS(X)
@@ -729,8 +721,7 @@ the two arguments to determine the quadrant. The return value is in the range
 [-&pi;,&pi;]. The behavior of this function is further illustrated in
 <a href="#special_atan2">the table below</a>.
 
-<a name="special_atan2"></a>
-#### Special cases for `ATAN2()`
+#### Special cases for `ATAN2()` {: #special_atan2 }
 
 <table>
 <thead>
@@ -784,8 +775,7 @@ the two arguments to determine the quadrant. The return value is in the range
 </tbody>
 </table>
 
-<a name="special_trig_hyperbolic"></a>
-#### Special cases for trigonometric and hyperbolic rounding functions
+#### Special cases for trigonometric and hyperbolic rounding functions {: #special_trig_hyperbolic }
 
 <table>
 <thead>

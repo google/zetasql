@@ -484,19 +484,6 @@ inline std::unique_ptr<ResolvedSetOperationItem> MakeResolvedSetOperationItem(
       MakeResolvedSetOperationItem(std::move(input_scan), output_column_list);
 }
 
-inline std::unique_ptr<ResolvedCast> MakeResolvedCast(
-    const Type* type, std::unique_ptr<const ResolvedExpr> expr,
-    bool return_null_on_error, const Function* extended_type_conversion) {
-  auto result = MakeResolvedCast(type, std::move(expr), return_null_on_error);
-
-  if(extended_type_conversion != nullptr) {
-    result->set_extended_cast(
-        MakeResolvedExtendedCastInfo(extended_type_conversion));
-  }
-
-  return result;
-}
-
 }  // namespace zetasql
 
 #endif  // ZETASQL_RESOLVED_AST_RESOLVED_AST_H_

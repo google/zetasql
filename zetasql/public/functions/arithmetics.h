@@ -47,6 +47,7 @@
 #include "zetasql/public/numeric_value.h"
 #include <cstdint>
 #include "absl/base/optimization.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
@@ -138,12 +139,13 @@ inline bool Multiply(double in1, double in2, double *out, absl::Status* error) {
 }
 template <>
 inline bool Divide(double in1, double in2, double *out, absl::Status* error) {
+  if (ABSL_PREDICT_FALSE(in2 == 0)) {
+    return internal::UpdateError(error,
+                                 internal::DivisionByZeroMessage(in1, in2));
+  }
   *out = in1 / in2;
   if (ABSL_PREDICT_TRUE(std::isfinite(*out))) {
     return true;
-  } else if (in2 == 0) {
-    return internal::UpdateError(error,
-                                 internal::DivisionByZeroMessage(in1, in2));
   } else if (!std::isfinite(in1) || !std::isfinite(in2)) {
     return true;
   } else {

@@ -30,6 +30,7 @@
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
+#include "zetasql/base/statusor.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/statusor.h"

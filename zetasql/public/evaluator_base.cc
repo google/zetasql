@@ -44,6 +44,7 @@
 #include "zetasql/resolved_ast/validator.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"

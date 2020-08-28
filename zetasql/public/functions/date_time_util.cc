@@ -30,6 +30,7 @@
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/types/timestamp_util.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
@@ -1130,7 +1131,9 @@ static absl::Status FormatTimestampToStringInternal(
   if (truncate_tz) {
     // If ":00" appears at the end, remove it.  This is consistent with
     // Postgres.
-    *output = std::string(absl::StripSuffix(*output, ":00"));
+    if (absl::EndsWith(*output, ":00")) {
+      output->erase(output->size() - 3);
+    }
   }
   return absl::OkStatus();
 }
@@ -1151,7 +1154,7 @@ static absl::Status ConvertTimestampToStringInternal(
 
 // Returns the absl::Weekday corresponding to 'part', which must be one of the
 // WEEK values.
-static ::zetasql_base::StatusOr<absl::Weekday> GetFirstWeekDayOfWeek(
+static zetasql_base::StatusOr<absl::Weekday> GetFirstWeekDayOfWeek(
     DateTimestampPart part) {
   switch (part) {
     case WEEK:

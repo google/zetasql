@@ -28,6 +28,7 @@
 #include "zetasql/reference_impl/tuple.h"
 #include <cstdint>
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"

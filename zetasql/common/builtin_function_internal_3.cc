@@ -116,7 +116,8 @@ void GetStringFunctions(TypeFactory* type_factory,
 
   InsertFunction(functions, options, "byte_length", SCALAR,
                  {{int64_type, {string_type}, FN_BYTE_LENGTH_STRING},
-                  {int64_type, {bytes_type}, FN_BYTE_LENGTH_BYTES}});
+                  {int64_type, {bytes_type}, FN_BYTE_LENGTH_BYTES}},
+                 FunctionOptions().set_alias_name("octet_length"));
 
   InsertFunction(functions, options, "char_length", SCALAR,
                  {{int64_type, {string_type}, FN_CHAR_LENGTH_STRING}},
@@ -131,19 +132,13 @@ void GetStringFunctions(TypeFactory* type_factory,
                  {{bool_type, {string_type, string_type}, FN_ENDS_WITH_STRING},
                   {bool_type, {bytes_type, bytes_type}, FN_ENDS_WITH_BYTES}});
 
-  FunctionOptions substr_options;
-  if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS)) {
-    substr_options.set_alias_name("substring");
-  }
   InsertFunction(functions, options, "substr", SCALAR,
                  {{string_type,
                    {string_type, int64_type, {int64_type, OPTIONAL}},
                    FN_SUBSTR_STRING},
                   {bytes_type,
                    {bytes_type, int64_type, {int64_type, OPTIONAL}},
-                   FN_SUBSTR_BYTES}},
-                 substr_options);
+                   FN_SUBSTR_BYTES}});
 
   InsertFunction(
       functions, options, "trim", SCALAR,
@@ -205,21 +200,27 @@ void GetStringFunctions(TypeFactory* type_factory,
                  FunctionOptions().set_post_resolution_argument_constraint(
                      &CheckFormatPostResolutionArguments));
 
+  FunctionSignatureOptions date_time_constructor_options =
+      FunctionSignatureOptions().add_required_language_feature(
+          FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS);
   std::vector<FunctionSignatureOnHeap> string_signatures{
       {string_type,
        {timestamp_type, {string_type, OPTIONAL}},
        FN_STRING_FROM_TIMESTAMP}};
+  string_signatures.push_back({string_type,
+                               {date_type},
+                               FN_STRING_FROM_DATE,
+                               date_time_constructor_options});
   if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS)) {
-    string_signatures.push_back(
-        {string_type, {date_type}, FN_STRING_FROM_DATE});
-    if (options.language_options.LanguageFeatureEnabled(
-            FEATURE_V_1_2_CIVIL_TIME)) {
-      string_signatures.push_back(
-          {string_type, {time_type}, FN_STRING_FROM_TIME});
-      string_signatures.push_back(
-          {string_type, {datetime_type}, FN_STRING_FROM_DATETIME});
-    }
+          FEATURE_V_1_2_CIVIL_TIME)) {
+    string_signatures.push_back({string_type,
+                                 {time_type},
+                                 FN_STRING_FROM_TIME,
+                                 date_time_constructor_options});
+    string_signatures.push_back({string_type,
+                                 {datetime_type},
+                                 FN_STRING_FROM_DATETIME,
+                                 date_time_constructor_options});
   }
   InsertFunction(functions, options, "string", SCALAR, string_signatures);
 
@@ -350,6 +351,17 @@ void GetRegexFunctions(TypeFactory* type_factory,
       {{string_type, regexp_extract_string_args, FN_REGEXP_EXTRACT_STRING},
        {bytes_type, regexp_extract_bytes_args, FN_REGEXP_EXTRACT_BYTES}},
       regexp_extract_options);
+
+  InsertFunction(
+      functions, options, "regexp_instr", SCALAR,
+      {{int64_type, {string_type, string_type,
+                     {int64_type, OPTIONAL}, {int64_type, OPTIONAL},
+                     {int64_type, OPTIONAL}}, FN_REGEXP_INSTR_STRING},
+       {int64_type, {bytes_type, bytes_type,
+                     {int64_type, OPTIONAL}, {int64_type, OPTIONAL},
+                     {int64_type, OPTIONAL}}, FN_REGEXP_INSTR_BYTES}}
+      );
+
   InsertFunction(functions, options, "regexp_replace", SCALAR,
                  {{string_type,
                    {string_type, string_type, string_type},

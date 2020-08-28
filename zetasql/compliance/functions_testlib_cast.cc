@@ -38,6 +38,7 @@
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"
 #include <cstdint>
+#include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/time/civil_time.h"
 #include "zetasql/base/map_util.h"

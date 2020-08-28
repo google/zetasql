@@ -27,6 +27,7 @@
 #include "zetasql/scripting/error_helpers.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
+#include "zetasql/base/statusor.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/canonical_errors.h"

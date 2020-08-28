@@ -26,6 +26,7 @@
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"  
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"

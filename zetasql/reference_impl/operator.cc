@@ -71,11 +71,12 @@ std::string AlgebraArg::DebugInternal(const std::string& indent,
   std::string result;
   if (has_variable()) {
     absl::StrAppend(&result, "$", variable().ToString());
-    if (verbose) {
-      absl::StrAppend(&result, "[",
-                      node()->AsValueExpr()->output_type()->DebugString(), "]");
-    }
     if (has_node()) {
+      if (verbose) {
+        absl::StrAppend(&result, "[",
+                        node()->AsValueExpr()->output_type()->DebugString(),
+                        "]");
+      }
       absl::StrAppend(&result, " := ");
     }
   }

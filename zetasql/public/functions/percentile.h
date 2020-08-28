@@ -28,6 +28,7 @@
 #include "zetasql/common/multiprecision_int.h"
 #include "zetasql/public/numeric_value.h"
 #include <cstdint>
+#include "zetasql/base/statusor.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/statusor.h"

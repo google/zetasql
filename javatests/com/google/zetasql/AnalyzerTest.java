@@ -216,6 +216,24 @@ public class AnalyzerTest {
   }
 
   @Test
+  public void testExtractTableNamesFromScriptGivenStatement() {
+    List<List<String>> tableNames =
+        Analyzer.extractTableNamesFromScript("select count(1) from foo.bar", new AnalyzerOptions());
+
+    assertThat(tableNames).containsExactly(Arrays.asList("foo", "bar"));
+  }
+
+  @Test
+  public void testExtractTableNamesFromScript() {
+    List<List<String>> tableNames =
+        Analyzer.extractTableNamesFromScript(
+            "select count(1) from foo.bar; select count(1) from x.y.z", new AnalyzerOptions());
+
+    assertThat(tableNames)
+        .containsExactly(Arrays.asList("foo", "bar"), Arrays.asList("x", "y", "z"));
+  }
+
+  @Test
   public void testExtractTableNamesFromStatementWithAnalyzerOptions() {
     AnalyzerOptions analyzerOptions = new AnalyzerOptions();
     analyzerOptions

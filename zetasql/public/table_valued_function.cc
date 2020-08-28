@@ -23,6 +23,7 @@
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/signature_match_result.h"
 #include "absl/memory/memory.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/ret_check.h"

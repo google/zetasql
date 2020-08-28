@@ -5,7 +5,8 @@
 ZetaSQL supports the following `TIMESTAMP` functions.
 
 NOTE: These functions return a runtime error if overflow occurs; result
-values are bounded by the defined date and timestamp min/max values.
+values are bounded by the defined [date][data-types-link-to-date_type]
+and [timestamp][data-types-link-to-timestamp_type] min/max values.
 
 ### CURRENT_TIMESTAMP
 
@@ -45,13 +46,16 @@ SELECT CURRENT_TIMESTAMP() as now;
 ### EXTRACT
 
 ```sql
-EXTRACT(part FROM timestamp_expression [AT TIME ZONE tz_spec])
+EXTRACT(part FROM timestamp_expression [AT TIME ZONE timezone])
 ```
 
 **Description**
 
 Returns a value that corresponds to the specified `part` from
-a supplied `timestamp_expression`.
+a supplied `timestamp_expression`. This function supports an optional
+`timezone` parameter. See
+[Time zone definitions][timestamp-link-to-timezone-definitions] for information
+on how to specify a time zone.
 
 Allowed `part` values are:
 
@@ -88,9 +92,6 @@ Allowed `part` values are:
 
 Returned values truncate lower order time periods. For example, when extracting
 seconds, `EXTRACT` truncates the millisecond and microsecond values.
-
-See [Timezone definitions][timestamp-link-to-timezone-definitions] for
-information on how to specify a time zone.
 
 **Return Data Type**
 
@@ -183,7 +184,7 @@ STRING(timestamp_expression[, timezone])
 
 Converts a `timestamp_expression` to a STRING data type. Supports an optional
 parameter to specify a time zone. See
-[Timezone definitions][timestamp-link-to-timezone-definitions] for information
+[Time zone definitions][timestamp-link-to-timezone-definitions] for information
 on how to specify a time zone.
 
 **Return Data Type**
@@ -446,7 +447,7 @@ SELECT TIMESTAMP_DIFF("2001-02-01 01:00:00", "2001-02-01 00:00:01", HOUR)
 ### TIMESTAMP_TRUNC
 
 ```sql
-TIMESTAMP_TRUNC(timestamp_expression, date_part[, time_zone])
+TIMESTAMP_TRUNC(timestamp_expression, date_part[, timezone])
 ```
 
 **Description**
@@ -481,7 +482,7 @@ Truncates a timestamp to the granularity of `date_part`.
     first week whose Thursday belongs to the corresponding Gregorian calendar
     year.
 
-`TIMESTAMP_TRUNC` function supports an optional `time_zone` parameter. This
+`TIMESTAMP_TRUNC` function supports an optional `timezone` parameter. This
 parameter applies to the following `date_parts`:
 
 + `MINUTE`
@@ -489,9 +490,11 @@ parameter applies to the following `date_parts`:
 + `DAY`
 + `WEEK`
 + `WEEK(<WEEKDAY>)`
++ `ISOWEEK`
 + `MONTH`
 + `QUARTER`
 + `YEAR`
++ `ISOYEAR`
 
 Use this parameter if you want to use a time zone other than the
 default time zone, which is implementation defined, as part of the
@@ -529,7 +532,7 @@ The first column shows the `timestamp_expression` in UTC time. The second
 column shows the output of `TIMESTAMP_TRUNC` using weeks that start on Monday.
 Because the `timestamp_expression` falls on a Sunday in UTC, `TIMESTAMP_TRUNC`
 truncates it to the preceding Monday. The third column shows the same function
-with the optional [Timezone definition][timestamp-link-to-timezone-definitions]
+with the optional [Time zone definition][timestamp-link-to-timezone-definitions]
 argument 'Pacific/Auckland'. Here the function truncates the
 `timestamp_expression` using New Zealand Daylight Time, where it falls on a
 Monday.
@@ -573,14 +576,14 @@ SELECT
 ### FORMAT_TIMESTAMP
 
 ```sql
-FORMAT_TIMESTAMP(format_string, timestamp[, time_zone])
+FORMAT_TIMESTAMP(format_string, timestamp[, timezone])
 ```
 
 **Description**
 
 Formats a timestamp according to the specified `format_string`.
 
-See [Supported Format Elements For TIMESTAMP][timestamp-link-to-supported-format-elements-for-time-for-timestamp]
+See [Supported Format Elements For TIMESTAMP][timestamp-format-elements]
 for a list of format elements that this function supports.
 
 **Return Data Type**
@@ -623,13 +626,38 @@ SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2008-12-25 15:30:00+00")
 ### PARSE_TIMESTAMP
 
 ```sql
-PARSE_TIMESTAMP(format_string, string[, time_zone])
+PARSE_TIMESTAMP(format_string, timestamp_string[, timezone])
 ```
 
 **Description**
 
-Uses a `format_string` and a string representation of a timestamp to return a
-TIMESTAMP object.
+Converts a [string representation of a timestamp][timestamp-format] to a
+`TIMESTAMP` object.
+
+`format_string` contains the [format elements][timestamp-format-elements]
+that define how `timestamp_string` is formatted. Each element in
+`timestamp_string` must have a corresponding element in `format_string`. The
+location of each element in `format_string` must match the location of
+each element in `timestamp_string`.
+
+```sql
+-- This works because elements on both sides match.
+SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")
+
+-- This doesn't work because the year element is in different locations.
+SELECT PARSE_TIMESTAMP("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")
+
+-- This doesn't work because one of the year elements is missing.
+SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")
+
+-- This works because %c can find all matching elements in timestamp_string.
+SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008")
+```
+
+The format string fully
+supports most format elements, except for
+`%Q`, `%a`, `%A`, `%g`,
+`%G`, `%j`, `%P`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 When using `PARSE_TIMESTAMP`, keep the following in mind:
 
@@ -643,14 +671,11 @@ case insensitive.
 + **Whitespace.** One or more consecutive white spaces in the format string
 matches zero or more consecutive white spaces in the timestamp string. In
 addition, leading and trailing white spaces in the timestamp string are always
-allowed -- even if they are not in the format string.
+allowed, even if they are not in the format string.
 + **Format precedence.** When two (or more) format elements have overlapping
 information (for example both `%F` and `%Y` affect the year), the last one
 generally overrides any earlier ones, with some exceptions (see the descriptions
 of `%s`, `%C`, and `%y`).
-
-Note: This function supports [format elements][timestamp-link-to-supported-format-elements-for-time-for-timestamp],
-but does not have full support for `%Q`, `%a`, `%A`, `%g`, `%G`, `%j`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 **Return Data Type**
 
@@ -1143,7 +1168,7 @@ year.</td>
  </tr>
 </table>
 
-### Timezone definitions
+### Time zone definitions {: #timezone_definitions }
 
 Certain date and timestamp functions allow you to override the default time zone
 and specify a different one. You can specify a time zone by either supplying
@@ -1172,5 +1197,8 @@ SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00-08:00") as millis;
 [timezone-by-name]: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
-[timestamp-link-to-supported-format-elements-for-time-for-timestamp]: #supported_format_elements_for_timestamp
+[timestamp-format]: #format_timestamp
+[timestamp-format-elements]: #supported_format_elements_for_timestamp
+[data-types-link-to-date_type]: https://github.com/google/zetasql/blob/master/docs/data-types#date_type
+[data-types-link-to-timestamp_type]: https://github.com/google/zetasql/blob/master/docs/data-types#timestamp_type
 

@@ -17,6 +17,7 @@
 #include "zetasql/scripting/error_helpers.h"
 
 #include "zetasql/common/status_payload_utils.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/status_builder.h"
 
 namespace zetasql {

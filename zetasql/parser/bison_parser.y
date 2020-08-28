@@ -1497,6 +1497,10 @@ alter_action:
       {
         $$ = MAKE_NODE(ASTAlterColumnOptionsAction, @$, {$3, $6});
       }
+    | "RENAME" "TO" path_expression
+      {
+        $$ = MAKE_NODE(ASTRenameToClause, @$, {$3});
+      }
     ;
 
 alter_action_list:
@@ -1532,7 +1536,9 @@ row_access_policy_alter_action:
       }
     | "RENAME" "TO" identifier
       {
-        $$ = MAKE_NODE(ASTRenameToClause, @$, {$3});
+        zetasql::ASTPathExpression* id =
+            MAKE_NODE(ASTPathExpression, @3, {$3});
+        $$ = MAKE_NODE(ASTRenameToClause, @$, {id});
       }
     ;
 
@@ -2168,8 +2174,11 @@ create_row_access_policy_statement:
         opt_identifier "ON" path_expression
         opt_create_row_access_policy_grant_to_clause filter_using_clause
       {
+        zetasql::ASTPathExpression* opt_path_expression =
+            $7 == nullptr ? nullptr : MAKE_NODE(ASTPathExpression, @7, {$7});
         zetasql::ASTCreateRowAccessPolicyStatement* create =
-            MAKE_NODE(ASTCreateRowAccessPolicyStatement, @$, {$7, $9, $10, $11});
+            MAKE_NODE(ASTCreateRowAccessPolicyStatement, @$,
+                      {$9, $10, $11, opt_path_expression});
         create->set_is_or_replace($2);
         create->set_is_if_not_exists($6);
         create->set_has_access_keyword($4);
@@ -5719,7 +5728,7 @@ lambda_parameter_list:
             expr_kind != zetasql::AST_PATH_EXPRESSION) {
           YYERROR_AND_ABORT_AT(
             @1,
-            "Syntax error: Expected lambda parameter list");
+            "Syntax error: Expecting lambda argument list");
         }
         $$ = $1;
       }
@@ -7194,11 +7203,14 @@ on_path_expression:
     ;
 
 drop_statement:
-    "DROP" "ROW" "ACCESS" "POLICY" opt_if_exists identifier on_path_expression
+    "DROP" "ROW" "ACCESS" "POLICY" opt_if_exists identifier
+    on_path_expression
       {
+        zetasql::ASTPathExpression* path_expression =
+            $7 == nullptr ? nullptr : MAKE_NODE(ASTPathExpression, @6, {$6});
         // This is a DROP ROW ACCESS POLICY statement.
-        auto* drop_row_access_policy =
-            MAKE_NODE(ASTDropRowAccessPolicyStatement, @$, {$6, $7});
+        auto* drop_row_access_policy = MAKE_NODE(
+            ASTDropRowAccessPolicyStatement, @$, {path_expression, $7});
         drop_row_access_policy->set_is_if_exists($5);
         $$ = drop_row_access_policy;
       }

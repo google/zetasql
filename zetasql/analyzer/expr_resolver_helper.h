@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "zetasql/analyzer/name_scope.h"
+#include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/type.h"
@@ -30,6 +31,7 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include <cstdint>
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
@@ -495,6 +497,16 @@ class ResolvedTVFArg {
   std::unique_ptr<const ResolvedDescriptor> descriptor_;
   std::shared_ptr<const NameList> name_list_;
 };
+
+// Checks if the lambda argument list ASTNode is a list of identifiers.
+//
+// See lambda_parameter_list rule in bison_parser.y about why we cannot simply
+// use a list of identifiers.
+absl::Status CheckLambdaArgument(const ASTLambda* ast_lambda);
+
+// Returns the list of lambda argument names.
+zetasql_base::StatusOr<std::vector<IdString>> ExtractLambdaArgumentNames(
+    const ASTLambda* ast_lambda);
 
 }  // namespace zetasql
 

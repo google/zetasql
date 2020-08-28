@@ -21,6 +21,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/base/statusor.h"
+#include "zetasql/base/statusor.h"
 
 #ifndef ZETASQL_COMPLIANCE_TYPE_HELPERS_H_
 #define ZETASQL_COMPLIANCE_TYPE_HELPERS_H_

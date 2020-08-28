@@ -26,6 +26,7 @@
 #include <cstdint>
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/declare.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/statusor.h"

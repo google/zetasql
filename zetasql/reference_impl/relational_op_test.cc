@@ -51,6 +51,7 @@
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
@@ -948,7 +949,7 @@ class TestCppValuesOp : public RelationalOp {
     return absl::OkStatus();
   }
 
-  ::zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const override {
     std::vector<TupleData> tuple_data;
@@ -4294,8 +4295,7 @@ TEST_F(CreateIteratorTest, RootOp) {
 
 // Builds a join between two relations with 'tuple_count' tuples each with
 // matching values and a relation1_tuple < relation2_tuple join condition.
-::zetasql_base::StatusOr<std::unique_ptr<JoinOp>> BuildTimeoutTestJoin(
-    int tuple_count) {
+zetasql_base::StatusOr<std::unique_ptr<JoinOp>> BuildTimeoutTestJoin(int tuple_count) {
   VariableId x("x"), y("y"), yp("y'");
 
   std::vector<TupleData> input1_tuples;

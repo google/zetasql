@@ -12,7 +12,7 @@ CURRENT_DATETIME([timezone])
 
 **Description**
 
-Returns the current time as a DATETIME object.
+Returns the current time as a `DATETIME` object.
 
 This function supports an optional `timezone` parameter.
 See [Timezone definitions][datetime-link-to-timezone-definitions] for
@@ -20,7 +20,7 @@ information on how to specify a time zone.
 
 **Return Data Type**
 
-DATETIME
+`DATETIME`
 
 **Example**
 
@@ -44,16 +44,16 @@ SELECT CURRENT_DATETIME() as now;
 
 **Description**
 
-1. Constructs a DATETIME object using INT64 values
+1. Constructs a `DATETIME` object using INT64 values
    representing the year, month, day, hour, minute, and second.
-2. Constructs a DATETIME object using a DATE object and an optional TIME object.
-3. Constructs a DATETIME object using a TIMESTAMP object. It supports an
+2. Constructs a `DATETIME` object using a DATE object and an optional TIME object.
+3. Constructs a `DATETIME` object using a TIMESTAMP object. It supports an
    optional parameter to [specify a timezone][datetime-link-to-timezone-definitions]. If no
    timezone is specified, the default timezone, which is implementation defined, is used.
 
 **Return Data Type**
 
-DATETIME
+`DATETIME`
 
 **Example**
 
@@ -117,7 +117,7 @@ seconds, `EXTRACT` truncates the millisecond and microsecond values.
 
 **Return Data Type**
 
-INT64, except in the following cases:
+`INT64`, except in the following cases:
 
 + If `part` is `DATE`, returns a `DATE` object.
 + If `part` is `TIME`, returns a `TIME` object.
@@ -157,6 +157,7 @@ SELECT
   EXTRACT(WEEK FROM datetime) AS week
 FROM Datetimes
 ORDER BY datetime;
+
 +---------------------+---------+---------+------+------+
 | datetime            | isoyear | isoweek | year | week |
 +---------------------+---------+---------+------+------+
@@ -196,7 +197,7 @@ DATETIME_ADD(datetime_expression, INTERVAL int64_expression part)
 
 **Description**
 
-Adds `int64_expression` units of `part` to the DATETIME object.
+Adds `int64_expression` units of `part` to the `DATETIME` object.
 
 `DATETIME_ADD` supports the following values for `part`:
 
@@ -220,7 +221,7 @@ the new month.
 
 **Return Data Type**
 
-DATETIME
+`DATETIME`
 
 **Example**
 
@@ -244,7 +245,7 @@ DATETIME_SUB(datetime_expression, INTERVAL int64_expression part)
 
 **Description**
 
-Subtracts `int64_expression` units of `part` from the DATETIME.
+Subtracts `int64_expression` units of `part` from the `DATETIME`.
 
 `DATETIME_SUB` supports the following values for `part`:
 
@@ -261,14 +262,14 @@ Subtracts `int64_expression` units of `part` from the DATETIME.
 + `QUARTER`
 + `YEAR`
 
-Special handling is required for MONTH, QUARTER, and YEAR parts when the
+Special handling is required for `MONTH`, `QUARTER`, and `YEAR` parts when the
 date is at (or near) the last day of the month. If the resulting month has fewer
-days than the original DATETIME's day, then the result day is the last day of
+days than the original `DATETIME`'s day, then the result day is the last day of
 the new month.
 
 **Return Data Type**
 
-DATETIME
+`DATETIME`
 
 **Example**
 
@@ -327,7 +328,7 @@ between the two `DATETIME` objects would overflow an
 
 **Return Data Type**
 
-INT64
+`INT64`
 
 **Example**
 
@@ -447,7 +448,7 @@ Truncates a `DATETIME` object to the granularity of `part`.
 
 **Return Data Type**
 
-DATETIME
+`DATETIME`
 
 **Examples**
 
@@ -508,13 +509,13 @@ FORMAT_DATETIME(format_string, datetime_expression)
 
 **Description**
 
-Formats a DATETIME object according to the specified `format_string`. See
-[Supported Format Elements For DATETIME][datetime-functions-link-to-supported-format-elements-for-datetime]
+Formats a `DATETIME` object according to the specified `format_string`. See
+[Supported Format Elements For DATETIME][datetime-format-elements]
 for a list of format elements that this function supports.
 
 **Return Data Type**
 
-STRING
+`STRING`
 
 **Examples**
 
@@ -557,15 +558,36 @@ SELECT
 ### PARSE_DATETIME
 
 ```sql
-PARSE_DATETIME(format_string, string)
+PARSE_DATETIME(format_string, datetime_string)
 ```
 **Description**
 
-Uses a `format_string` and a `STRING` representation
-of a `DATETIME` to return a
-`DATETIME`. See
-[Supported Format Elements For DATETIME][datetime-functions-link-to-supported-format-elements-for-datetime]
-for a list of format elements that this function supports.
+Converts a [string representation of a datetime][datetime-format] to a
+`DATETIME` object.
+
+`format_string` contains the [format elements][datetime-format-elements]
+that define how `datetime_string` is formatted. Each element in
+`datetime_string` must have a corresponding element in `format_string`. The
+location of each element in `format_string` must match the location of
+each element in `datetime_string`.
+
+```sql
+-- This works because elements on both sides match.
+SELECT PARSE_DATETIME("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")
+
+-- This doesn't work because the year element is in different locations.
+SELECT PARSE_DATETIME("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")
+
+-- This doesn't work because one of the year elements is missing.
+SELECT PARSE_DATETIME("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")
+
+-- This works because %c can find all matching elements in datetime_string.
+SELECT PARSE_DATETIME("%c", "Thu Dec 25 07:30:00 2008")
+```
+
+The format string fully supports most format elements, except for
+`%Q`, `%a`, `%A`,
+`%g`, `%G`, `%j`, `%P`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 `PARSE_DATETIME` parses `string` according to the following rules:
 
@@ -578,24 +600,21 @@ are case insensitive.
 matches zero or more consecutive white spaces in the
 `DATETIME` string. Leading and trailing
 white spaces in the `DATETIME` string are always
-allowed&mdash;even if they are not in the format string.
+allowed, even if they are not in the format string.
 + **Format precedence.** When two or more format elements have overlapping
 information, the last one generally overrides any earlier ones, with some
 exceptions. For example, both `%F` and `%Y` affect the year, so the earlier
 element overrides the later. See the descriptions
 of `%s`, `%C`, and `%y` in
-[Supported Format Elements For DATETIME][datetime-functions-link-to-supported-format-elements-for-datetime].
-
-Note: This function supports [format elements][datetime-functions-link-to-supported-format-elements-for-datetime],
-but does not have full support for `%Q`, `%a`, `%A`, `%g`, `%G`, `%j`, `%u`, `%U`, `%V`, `%w`, and `%W`.
+[Supported Format Elements For DATETIME][datetime-format-elements].
 
 **Return Data Type**
 
-DATETIME
+`DATETIME`
 
 **Examples**
 
-The following example parses a `STRING` literal as a
+The following examples parse a `STRING` literal as a
 `DATETIME`.
 
 ```sql
@@ -605,6 +624,16 @@ SELECT PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '1998-10-18 13:45:55') AS datetime;
 | datetime            |
 +---------------------+
 | 1998-10-18 13:45:55 |
++---------------------+
+```
+
+```sql
+SELECT PARSE_DATETIME('%m/%d/%Y %I:%M:%S %p', '8/30/2018 2:23:38 PM') AS datetime
+
++---------------------+
+| datetime            |
++---------------------+
+| 2018-08-30 14:23:38 |
 +---------------------+
 ```
 
@@ -625,7 +654,7 @@ SELECT PARSE_DATETIME('%A, %B %e, %Y','Wednesday, December 19, 2018')
 
 ### Supported format elements for DATETIME
 
-Unless otherwise noted, DATETIME functions that use format strings support the
+Unless otherwise noted, `DATETIME` functions that use format strings support the
 following elements:
 
 <table>
@@ -836,7 +865,8 @@ year.</td>
 
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
 [ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
-[datetime-functions-link-to-supported-format-elements-for-datetime]: #supported_format_elements_for_datetime
+[datetime-format]: #format_datetime
+[datetime-format-elements]: #supported_format_elements_for_datetime
 
 [datetime-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions#timezone_definitions
 

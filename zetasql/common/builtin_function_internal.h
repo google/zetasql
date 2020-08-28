@@ -29,6 +29,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/type.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 

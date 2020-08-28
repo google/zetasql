@@ -521,6 +521,25 @@ TEST_F(ZetaSqlLocalServiceImplTest, ExtractTableNamesFromStatement) {
   EXPECT_THAT(response, EqualsProto(expectedResponse));
 }
 
+TEST_F(ZetaSqlLocalServiceImplTest, ExtractTableNamesFromScript) {
+  ExtractTableNamesFromStatementRequest request;
+  request.set_sql_statement(
+      "select count(1) from foo.bar; select count(1) from x.y.z");
+  request.set_allow_script(true);
+  ExtractTableNamesFromStatementResponse response;
+  ZETASQL_ASSERT_OK(ExtractTableNamesFromStatement(request, &response));
+  ExtractTableNamesFromStatementResponse expectedResponse;
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(
+      R"pb(table_name { table_name_segment: "foo" table_name_segment: "bar" }
+           table_name {
+             table_name_segment: "x"
+             table_name_segment: "y"
+             table_name_segment: "z"
+           })pb",
+      &expectedResponse));
+  EXPECT_THAT(response, EqualsProto(expectedResponse));
+}
+
 TEST_F(ZetaSqlLocalServiceImplTest, ExtractTableNamesFromFirstStatement) {
   ExtractTableNamesFromNextStatementRequest request;
   ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(

@@ -49,6 +49,7 @@ absl::Status Resolver::ResolveAlterActions(
 
   IdStringSetCase new_columns, column_to_drop;
   const Table* altered_table = nullptr;
+  bool existing_rename_to_action = false;
   // We keep status, but don't fail unless we have ADD/DROP.
   absl::Status table_status = FindTable(ast_statement->path(), &altered_table);
 
@@ -126,6 +127,28 @@ absl::Status Resolver::ResolveAlterActions(
                 action->GetAsOrDie<ASTSetAsAction>()->body()->string_value());
         alter_actions->push_back(std::move(resolved_action));
       } break;
+      case AST_RENAME_TO_CLAUSE: {
+        if (ast_statement->node_kind() != AST_ALTER_TABLE_STATEMENT) {
+          // only rename table is supported
+          return MakeSqlErrorAt(action)
+                 << "ALTER " << alter_statement_kind << " does not support "
+                 << action->GetSQLForAlterAction();
+        }
+        if (!ast_statement->is_if_exists()) {
+          ZETASQL_RETURN_IF_ERROR(table_status);
+        }
+        if (existing_rename_to_action) {
+          return MakeSqlErrorAt(action)
+              << "Multiple RENAME TO actions are not supported";
+        }
+        existing_rename_to_action = true;
+        auto* rename_to = action->GetAsOrDie<ASTRenameToClause>();
+        std::unique_ptr<const ResolvedAlterAction> resolved_action =
+            MakeResolvedRenameToAction(
+                rename_to->new_name()->ToIdentifierVector());
+        alter_actions->push_back(std::move(resolved_action));
+        break;
+      }
       default:
         return MakeSqlErrorAt(action)
                << "ALTER " << alter_statement_kind << " doesn't support "

@@ -22,6 +22,7 @@
 
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"

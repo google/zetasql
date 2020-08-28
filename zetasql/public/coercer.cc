@@ -30,9 +30,11 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "absl/algorithm/container.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
+#include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/statusor.h"
 
@@ -575,43 +577,38 @@ class Coercer::ContextBase {
   // Returns true if explicit cast is checked. False if coercion.
   bool is_explicit() const { return is_explicit_; }
 
+  using ConversionEvaluatorOperations =
+      ConversionTypePairOperations<ConversionEvaluator>;
+  using ConversionEvaluatorSet =
+      absl::flat_hash_set<ConversionEvaluator,
+                          ConversionEvaluatorOperations::Hash,
+                          ConversionEvaluatorOperations::Eq>;
+
   // If we hit into extended type, this property returns a conversion function
   // that Catalog returned in Conversion::function().
-  const Function* extended_conversion() const { return extended_conversion_; }
+  const ConversionEvaluatorSet& extended_conversion_evaluators() const& {
+    return extended_conversion_evaluators_;
+  }
 
-  // Flag struct_coercion_mode is set to true when we hit into STRUCT type. In
-  // this mode, we need to check that a Catalog returns the same conversion
-  // function for all extended types.
-  bool struct_coercion_mode() const { return struct_coercion_mode_; }
+  ConversionEvaluatorSet&& extended_conversion_evaluators() && {
+    return std::move(extended_conversion_evaluators_);
+  }
 
   // Saves the extended conversion function. Returns an error if function is
   // already set.
-  absl::Status SetExtendedConversion(const Function* extended_conversion);
-
-  void EnableStructCoercionMode() { struct_coercion_mode_ = true; }
+  absl::Status AddExtendedConversion(const Conversion& extended_conversion);
 
  private:
   const Coercer& coercer_;
-  const Function* extended_conversion_ = nullptr;
+  ConversionEvaluatorSet extended_conversion_evaluators_;
   const bool is_explicit_;
-  bool struct_coercion_mode_ = false;
 };
 
-absl::Status Coercer::ContextBase::SetExtendedConversion(
-    const Function* extended_conversion) {
-  ZETASQL_RET_CHECK_NE(extended_conversion, nullptr);
+absl::Status Coercer::ContextBase::AddExtendedConversion(
+    const Conversion& extended_conversion) {
+  ZETASQL_RET_CHECK(extended_conversion.is_valid());
 
-  if (extended_conversion_ != nullptr) {
-    ZETASQL_RET_CHECK(struct_coercion_mode_);
-
-    if (extended_conversion_ != extended_conversion) {
-      return zetasql_base::FailedPreconditionErrorBuilder()
-             << "Catalog returned two different conversion functions for "
-                "single cast";
-    }
-  }
-
-  extended_conversion_ = extended_conversion;
+  extended_conversion_evaluators_.insert(extended_conversion.evaluator());
   return absl::OkStatus();
 }
 
@@ -717,7 +714,6 @@ zetasql_base::StatusOr<bool> Coercer::Context::ExtendedTypeCoercesTo(
   }
 
   Catalog::FindConversionOptions options(is_explicit(), source_kind,
-                                         struct_coercion_mode(),
                                          language_options().product_mode());
   Conversion conversion = Conversion::Invalid();
   absl::Status find_status =
@@ -731,7 +727,7 @@ zetasql_base::StatusOr<bool> Coercer::Context::ExtendedTypeCoercesTo(
     return find_status;
   }
 
-  ZETASQL_RETURN_IF_ERROR(SetExtendedConversion(conversion.function()));
+  ZETASQL_RETURN_IF_ERROR(AddExtendedConversion(conversion));
 
   switch (source_kind) {
     case Catalog::ConversionSourceExpressionKind::kLiteral:
@@ -834,8 +830,6 @@ zetasql_base::StatusOr<bool> Coercer::Context::StructCoercesTo(
     SignatureMatchResult* result) {
   // Expected invariant.
   ZETASQL_RET_CHECK(struct_argument.type()->IsStruct());
-
-  EnableStructCoercionMode();
 
   const StructType* from_struct = struct_argument.type()->AsStruct();
 
@@ -1062,19 +1056,28 @@ zetasql_base::StatusOr<bool> Coercer::Context::LiteralCoercesTo(
 bool Coercer::CoercesTo(const InputArgumentType& from_argument,
                         const Type* to_type, bool is_explicit,
                         SignatureMatchResult* result) const {
-  const Function* extended_types_conversion = nullptr;
+  ExtendedCompositeCastEvaluator extended_conversion_evaluator =
+      ExtendedCompositeCastEvaluator::Invalid();
   return StatusToBool(CoercesTo(from_argument, to_type, is_explicit, result,
-                                &extended_types_conversion));
+                                &extended_conversion_evaluator));
 }
 
 zetasql_base::StatusOr<bool> Coercer::CoercesTo(
     const InputArgumentType& from_argument, const Type* to_type,
     bool is_explicit, SignatureMatchResult* result,
-    const Function** extended_conversion) const {
+    ExtendedCompositeCastEvaluator* extended_conversion_evaluator) const {
   Context context(*this, is_explicit);
   auto status = context.CoercesTo(from_argument, to_type, result);
   if (status.value_or(false)) {
-    *extended_conversion = context.extended_conversion();
+    if (!context.extended_conversion_evaluators().empty()) {
+      std::vector<ConversionEvaluator> evaluators;
+      evaluators.reserve(context.extended_conversion_evaluators().size());
+      evaluators.insert(evaluators.begin(),
+                        context.extended_conversion_evaluators().begin(),
+                        context.extended_conversion_evaluators().end());
+      *extended_conversion_evaluator =
+          ExtendedCompositeCastEvaluator(std::move(evaluators));
+    }
   }
   return status;
 }

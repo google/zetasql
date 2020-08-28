@@ -22,7 +22,9 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
+#include "zetasql/base/statusor.h"
 #include "absl/time/time.h"
+#include "zetasql/base/status_builder.h"
 #include "zetasql/base/statusor.h"
 
 // The full specification for ZetaSQL casting and coercion is at:
@@ -125,6 +127,8 @@ inline zetasql_base::StatusOr<Value> CastStatusOrValue(
   return CastValue(from_value, default_timezone, language_options, to_type);
 }
 
+class ExtendedCompositeCastEvaluator;
+
 namespace internal {  //   For internal use only
 
 // Same as CastValue except assumes that the caller has already checked that
@@ -136,7 +140,7 @@ namespace internal {  //   For internal use only
 zetasql_base::StatusOr<Value> CastValueWithoutTypeValidation(
     const Value& from_value, absl::TimeZone default_timezone,
     const LanguageOptions& language_options, const Type* to_type,
-    const Function* extended_conversion);
+    const ExtendedCompositeCastEvaluator* extended_conversion_evaluator);
 
 }  // namespace internal
 
@@ -276,6 +280,114 @@ class Conversion {
 
   ConversionEvaluator evaluator_;
   CastFunctionProperty cast_function_property_;
+};
+
+// ExtendedCompositeCastEvaluator is a list of conversion evaluators. To execute
+// a conversion, ExtendedCompositeCastEvaluator finds a matching conversion in
+// the list by checking the source and destination types for equality.
+class ExtendedCompositeCastEvaluator {
+ public:
+  // Explicitly copyable and moveable.
+  ExtendedCompositeCastEvaluator(const ExtendedCompositeCastEvaluator&) =
+      default;
+  ExtendedCompositeCastEvaluator& operator=(
+      const ExtendedCompositeCastEvaluator&) = default;
+  ExtendedCompositeCastEvaluator(ExtendedCompositeCastEvaluator&&) = default;
+  ExtendedCompositeCastEvaluator& operator=(ExtendedCompositeCastEvaluator&&) =
+      default;
+
+  explicit ExtendedCompositeCastEvaluator(
+      std::vector<ConversionEvaluator> evaluators)
+      : evaluators_(std::move(evaluators)) {}
+
+  static ExtendedCompositeCastEvaluator Invalid() {
+    return ExtendedCompositeCastEvaluator();
+  }
+
+  bool is_valid() const { return !evaluators_.empty(); }
+
+  zetasql_base::StatusOr<Value> Eval(const Value& from_value,
+                             const Type* to_type) const;
+
+  const std::vector<ConversionEvaluator>& evaluators() const {
+    return evaluators_;
+  }
+
+ private:
+  ExtendedCompositeCastEvaluator() {}
+
+  std::vector<ConversionEvaluator> evaluators_;
+};
+
+// Represents pair of Type objects used in conversion. Supports hashing and
+// equality. The latter is done based on Type::Equals.
+class ConversionTypePair {
+ public:
+  ConversionTypePair(const Type* from_type, const Type* to_type)
+      : from_type_(from_type), to_type_(to_type) {
+    DCHECK(to_type);
+    DCHECK(from_type);
+  }
+
+  // Explicitly copyable and assignable.
+  ConversionTypePair(const ConversionTypePair& other) = default;
+  ConversionTypePair& operator=(const ConversionTypePair& other) = default;
+
+  const Type* from_type() const { return from_type_; }
+  const Type* to_type() const { return to_type_; }
+
+  // TODO: Add tests for type pair hashing.
+  template <typename H>
+  friend H AbslHashValue(H h, const ConversionTypePair& pair) {
+    return H::combine(std::move(h), *pair.from_type(), *pair.to_type());
+  }
+
+  bool operator==(const ConversionTypePair& other) const {
+    return from_type()->Equals(other.from_type()) &&
+           to_type()->Equals(other.to_type());
+  }
+
+  bool operator!=(const ConversionTypePair& other) const {
+    return !(*this == other);
+  }
+
+ private:
+  const Type* from_type_;
+  const Type* to_type_;
+};
+
+// Helper class that serves to enable usage of Conversion and
+// ConversionEvaluator classes as an elements of absl::flat_hash_set or
+// absl::flat_hash_map. The elements are treated as equal if corresponding
+// conversion type pairs match: a.from_type()->Equals(b.from_type()) &&
+// a.to_type()->Equals(b.to_type()).
+//
+// Usage example:
+//  absl::flat_hash_set<
+//                ConversionEvaluator,
+//                ConversionTypePairOperations<ConversionEvaluator>::Hash,
+//                ConversionTypePairOperations<ConversionEvaluator>::Eq> set;
+template <typename ConversionT>
+struct ConversionTypePairOperations {
+ public:
+  struct Hash {
+    size_t operator()(const ConversionT& conversion) const {
+      return absl::Hash<ConversionTypePair>()(
+          GetConversionTypePair(conversion));
+    }
+  };
+
+  struct Eq {
+    bool operator()(const ConversionT& lhs, const ConversionT& rhs) const {
+      return GetConversionTypePair(lhs) == GetConversionTypePair(rhs);
+    }
+  };
+
+ private:
+  static ConversionTypePair GetConversionTypePair(
+      const ConversionT& conversion) {
+    return ConversionTypePair(conversion.from_type(), conversion.to_type());
+  }
 };
 
 }  // namespace zetasql

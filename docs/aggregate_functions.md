@@ -120,10 +120,9 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `IGNORE NULLS` or `RESPECT NULLS`: If `IGNORE NULLS` is
-    specified,
-    the NULL values are excluded from the result. If `RESPECT NULLS` is
-    specified or if neither is specified,
-    the NULL values are included in the result.
+    specified, the `NULL` values are excluded from the result. If
+    `RESPECT NULLS` or if neither is specified, the `NULL` values are included
+    in the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
@@ -852,10 +851,7 @@ Returns `NaN` if the input contains a `NaN`.
 
 **Supported Argument Types**
 
-Any data type except:
-`ARRAY`
-`STRUCT`
-`PROTO`
+Any data type except: `ARRAY` `STRUCT` `PROTO`
 
 **Optional Clauses**
 
@@ -917,10 +913,7 @@ Returns `NaN` if the input contains a `NaN`.
 
 **Supported Argument Types**
 
-Any data type except:
-`ARRAY`
-`STRUCT`
-`PROTO`
+Any data type except: `ARRAY` `STRUCT` `PROTO`
 
 **Optional Clauses**
 

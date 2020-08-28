@@ -32,7 +32,7 @@ inline int Print9Digits(uint32_t digits, bool skip_leading_zeros,
   return 9;
 }
 
-void AppendSegmentsToString(const uint32_t segments[], int num_segments,
+void AppendSegmentsToString(const uint32_t segments[], size_t num_segments,
                             std::string* result) {
   if (num_segments == 0) {
     result->push_back('0');
@@ -42,11 +42,13 @@ void AppendSegmentsToString(const uint32_t segments[], int num_segments,
   size_t new_size = old_size + num_segments * 9;
   result->resize(new_size);
   char* output = result->data() + old_size;
-  int num_digits_in_first_segment = Print9Digits(
-      segments[num_segments - 1], /* skip_leading_zeros */ true, output);
+  const uint32_t* segment = &segments[num_segments - 1];
+  int num_digits_in_first_segment =
+      Print9Digits(*segment, /* skip_leading_zeros */ true, output);
   output += num_digits_in_first_segment;
-  for (int i = num_segments - 2; i >= 0; --i) {
-    output += Print9Digits(segments[i], /* skip_leading_zeros */ false, output);
+  while (segment != segments) {
+    --segment;
+    output += Print9Digits(*segment, /* skip_leading_zeros */ false, output);
   }
   result->resize(new_size - (9 - num_digits_in_first_segment));
 }

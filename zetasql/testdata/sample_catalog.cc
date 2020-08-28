@@ -46,6 +46,7 @@
 #include "zetasql/testdata/test_proto3.pb.h"
 #include <cstdint>
 #include "absl/memory/memory.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
@@ -449,15 +450,19 @@ void SampleCatalog::LoadTables() {
   AddOwnedTable(
       new SimpleTable("JSONTable", {{"json_col", types_->get_json()}}));
 
-  AddOwnedTable(new SimpleTable(
+  SimpleTable* two_integers = new SimpleTable(
       "TwoIntegers",
-      {{"key", types_->get_int64()}, {"value", types_->get_int64()}}));
+      {{"key", types_->get_int64()}, {"value", types_->get_int64()}});
+  ZETASQL_CHECK_OK(two_integers->SetPrimaryKey({0}));
+  AddOwnedTable(two_integers);
 
-  AddOwnedTable(
+  SimpleTable* four_integers =
       new SimpleTable("FourIntegers", {{"key1", types_->get_int64()},
                                        {"value1", types_->get_int64()},
                                        {"key2", types_->get_int64()},
-                                       {"value2", types_->get_int64()}}));
+                                       {"value2", types_->get_int64()}});
+  ZETASQL_CHECK_OK(four_integers->SetPrimaryKey({0, 2}));
+  AddOwnedTable(four_integers);
 
   // Tables with no columns are legal.
   AddOwnedTable(new SimpleTable("NoColumns"));
@@ -586,13 +591,15 @@ void SampleCatalog::LoadProtoTables() {
       },
       true /* take_ownership */));
 
-  AddOwnedTable(
+  SimpleTable* complex_types =
       new SimpleTable("ComplexTypes", {{"key", types_->get_int32()},
                                        {"TestEnum", enum_TestEnum_},
                                        {"KitchenSink", proto_KitchenSinkPB_},
                                        {"Int32Array", int32array_type_},
                                        {"TestStruct", nested_struct_type_},
-                                       {"TestProto", proto_TestExtraPB_}}));
+                                       {"TestProto", proto_TestExtraPB_}});
+  ZETASQL_CHECK_OK(complex_types->SetPrimaryKey({0}));
+  AddOwnedTable(complex_types);
 
   AddOwnedTable(new SimpleTable(
       "MoreComplexTypes",
@@ -654,6 +661,7 @@ void SampleCatalog::LoadProtoTables() {
                                       types_->get_int64())},
                     /*take_ownership=*/true));
   int64_value_table->set_is_value_table(true);
+  ZETASQL_CHECK_OK(int64_value_table->SetPrimaryKey({0}));
 
   AddOwnedTable(new SimpleTable(
       "ArrayTypes",

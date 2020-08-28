@@ -164,8 +164,7 @@ quickly. You can specify that sort order is ascending or descending. A unique
 or primary key index defines an indexed column that is subject to the uniqueness
 constraint.
 
-<a name="pseudo-columns"></a>
-## Pseudo-columns
+## Pseudo-columns {: #pseudo-columns }
 
 ZetaSQL tables support pseudo-columns. Pseudo-columns contain data elements
 that you can query like regular columns, but are not considered real columns in

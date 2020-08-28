@@ -35,6 +35,7 @@
 #include <cstdint>  
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"

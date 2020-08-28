@@ -19,6 +19,7 @@
 #include <memory>
 
 #include "zetasql/resolved_ast/serialization.pb.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/status_macros.h"
 

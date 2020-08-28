@@ -35,6 +35,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/flags/flag.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"

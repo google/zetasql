@@ -592,7 +592,7 @@ int LongDiv(std::array<uint32_t, size + 1>* dividend,
   // Art of Computer Programming" Vol.2 for details.
   //
   // We perform normalization by finding how far we need to shift to make the
-  // most significant bit of the divisor 1. And then we shift both the divident
+  // most significant bit of the divisor 1. And then we shift both the dividend
   // and the divisor thus preserving the result of the division.
   int non_zero_bit_idx = FindMSBSetNonZero((*divisor)[n - 1]);
   int shift_amount = 32 - non_zero_bit_idx - 1;
@@ -607,7 +607,7 @@ int LongDiv(std::array<uint32_t, size + 1>* dividend,
   for (int i = m - n; i >= 0; --i, --dividend_data) {
     // Make the guess of the quotient digit. The guess we take here is:
     //
-    //   qhat = min((divident[m] * b + divident[m-1]) / divisor[n], b-1)
+    //   qhat = min((dividend[m] * b + dividend[m-1]) / divisor[n], b-1)
     //
     // where b is the radix, which in our case is 2^32. In "The Art
     // of Computer Programming" Vol.2 Knuth proves that given the normalization
@@ -763,7 +763,7 @@ bool ParseFromBase10UnsignedString(absl::string_view str, Word* result) {
 
 // Appends 9-digit segments to result in decimal format. Each segment must be
 // <= 999999999. They must be in little endian order.
-void AppendSegmentsToString(const uint32_t segments[], int num_segments,
+void AppendSegmentsToString(const uint32_t segments[], size_t num_segments,
                             std::string* result);
 
 // The following functions are not optimized for performance, but they can be

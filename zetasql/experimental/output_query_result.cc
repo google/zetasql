@@ -18,13 +18,14 @@
 
 #include "zetasql/compliance/type_helpers.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_split.h"
 
 namespace zetasql {
 
 namespace {
 
-::zetasql_base::StatusOr<const Table*> GetTableForDMLStatement(
+zetasql_base::StatusOr<const Table*> GetTableForDMLStatement(
     const ResolvedStatement* resolved_stmt) {
   const ResolvedTableScan* scan = nullptr;
   switch (resolved_stmt->node_kind()) {

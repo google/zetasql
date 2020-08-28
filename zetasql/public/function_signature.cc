@@ -100,6 +100,9 @@ absl::Status FunctionSignatureOptions::Deserialize(
   (*result)->set_is_deprecated(proto.is_deprecated());
   (*result)->set_additional_deprecation_warnings(
       proto.additional_deprecation_warning());
+  for (const int each : proto.required_language_feature()) {
+    (*result)->add_required_language_feature(LanguageFeature(each));
+  }
 
   return absl::OkStatus();
 }
@@ -111,6 +114,9 @@ void FunctionSignatureOptions::Serialize(
   for (const FreestandingDeprecationWarning& warning :
        additional_deprecation_warnings()) {
     *proto->add_additional_deprecation_warning() = warning;
+  }
+  for (const LanguageFeature each : required_language_features_) {
+    proto->add_required_language_feature(each);
   }
 }
 

@@ -178,6 +178,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/memory/memory.h"
+#include "zetasql/base/statusor.h"
 #include "absl/synchronization/mutex.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/statusor.h"

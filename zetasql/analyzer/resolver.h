@@ -55,6 +55,7 @@
 #include "absl/base/attributes.h"
 #include "absl/base/macros.h"
 #include "absl/container/flat_hash_map.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
@@ -851,6 +852,11 @@ class Resolver {
       const ASTCreateDatabaseStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
+  // Resolve a CREATE SCHEMA statement.
+  absl::Status ResolveCreateSchemaStatement(
+      const ASTCreateSchemaStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
   // Resolves a CREATE VIEW statement
   absl::Status ResolveCreateViewStatement(
       const ASTCreateViewStatement* ast_statement,
@@ -1624,7 +1630,7 @@ class Resolver {
   // Returns the FieldDescriptor corresponding to a top level field with the
   // given <name>. The field is looked up  with respect to <descriptor>. Returns
   // nullptr if no matching field was found.
-  ::zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*> FindFieldDescriptor(
+  zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*> FindFieldDescriptor(
       const ASTNode* ast_name_location, const google::protobuf::Descriptor* descriptor,
       absl::string_view name);
 
@@ -1724,6 +1730,9 @@ class Resolver {
     absl::Status VisitResolvedOrderByScan(
         const ResolvedOrderByScan* node) override;
 
+    absl::Status VisitResolvedTVFArgument(
+        const ResolvedTVFArgument* node) override;
+
     absl::Status VisitResolvedWithEntry(const ResolvedWithEntry* node) override;
 
     // Returns either the address of right_operand_of_left_join_count_,
@@ -1779,6 +1788,9 @@ class Resolver {
 
     // Number of times we are inside any operand of a full join.
     int full_join_operand_count_ = 0;
+
+    // Number of TVF arguments we are inside of.
+    int tvf_argument_count_ = 0;
 
     // True if we've already encountered a recursive reference to the current
     // query. Multiple recursive references to the same query are disallowed.
@@ -2622,7 +2634,7 @@ class Resolver {
   // <extended_type_conversion> argument.
   zetasql_base::StatusOr<bool> CheckExplicitCast(
       const ResolvedExpr* resolved_argument, const Type* to_type,
-      const Function** extended_type_conversion);
+      ExtendedCompositeCastEvaluator* extended_conversion_evaluator);
 
   absl::Status ResolveExplicitCast(
       const ASTCastExpression* cast, ExprResolutionInfo* expr_resolution_info,
@@ -3024,6 +3036,11 @@ class Resolver {
   // Resolves a generic ALTER <entity_type> statement.
   absl::Status ResolveAlterEntityStatement(
       const ASTAlterEntityStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
+  // Resolves a generic DROP <entity_type> statement.
+  absl::Status ResolveDropEntityStatement(
+      const ASTDropEntityStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
  public:

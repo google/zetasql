@@ -31,6 +31,7 @@
 #include "zetasql/resolved_ast/resolved_ast.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/statusor.h"
 

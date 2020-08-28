@@ -20,6 +20,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/multiprecision_int.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/mathutil.h"
 #include "zetasql/base/ret_check.h"
 

@@ -8,9 +8,9 @@
 In ZetaSQL, an array is an ordered list consisting of zero or more
 values of the same data type. You can construct arrays of simple data types,
 such as `INT64`, and complex data types, such as `STRUCT`s. The current
-exception to this is the
-[`ARRAY`][array-data-type] data
-type: arrays of arrays are not supported.
+exception to this is the [`ARRAY`][array-data-type] data type: arrays of arrays
+are not supported. Arrays can include
+`NULL` values.
 
 With ZetaSQL, you can construct array literals,
  build arrays from subqueries using the
@@ -390,8 +390,7 @@ You can also flatten `ARRAY` type fields of `STRUCT` values and repeated fields
 of `PROTO` values. ZetaSQL treats repeated `PROTO` fields as
 `ARRAY`s.
 
-<a id=query_structs_in_an_array></a>
-### Querying STRUCT elements in an ARRAY
+### Querying STRUCT elements in an ARRAY {: #query_structs_in_an_array }
 
 The following example uses `UNNEST` with `CROSS JOIN` to flatten an `ARRAY` of
 `STRUCT`s.
@@ -740,7 +739,7 @@ FROM
 +------+-------------------------+
 ```
 
-Note that flattening arrays with a `CROSS JOIN` excludes rows that have empty
+Flattening arrays with a `CROSS JOIN` excludes rows that have empty
 or NULL arrays. If you want to include these rows, use a `LEFT JOIN`.
 
 ```sql

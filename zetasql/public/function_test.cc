@@ -247,6 +247,9 @@ class FunctionSerializationTests : public ::testing::Test {
       EXPECT_THAT(options1.additional_deprecation_warnings()[i],
                   EqualsProto(options2.additional_deprecation_warnings()[i]));
     }
+
+    EXPECT_EQ(options1.required_language_features_,
+              options2.required_language_features_);
   }
 
   static void ExpectEqualsIgnoringCallbacks(
@@ -430,6 +433,20 @@ TEST_F(FunctionSerializationTests,
   EXPECT_EQ(result->argument(0).options().argument_name(), "arg_int32");
   ASSERT_TRUE(result->argument(1).options().has_argument_name());
   EXPECT_EQ(result->argument(1).options().argument_name(), "arg_int64");
+}
+
+TEST_F(FunctionSerializationTests, SignatureRequiredLanguageFeaturesTest) {
+  FunctionSignatureOptions options;
+  options.add_required_language_feature(FEATURE_V_1_2_CIVIL_TIME);
+
+  FunctionSignatureOptionsProto proto;
+  options.Serialize(&proto);
+  EXPECT_EQ(1, proto.required_language_feature_size());
+  EXPECT_EQ(FEATURE_V_1_2_CIVIL_TIME, proto.required_language_feature(0));
+
+  std::unique_ptr<FunctionSignatureOptions> deserialize_result;
+  ZETASQL_EXPECT_OK(FunctionSignatureOptions::Deserialize(proto, &deserialize_result));
+  ExpectEqualsIgnoringCallbacks(options, *deserialize_result);
 }
 
 // Test serialization and deserialization of the optional arguments with default

@@ -31,6 +31,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "zetasql/testing/using_test_value.cc"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"

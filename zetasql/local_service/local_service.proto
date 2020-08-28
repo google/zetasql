@@ -249,6 +249,9 @@ message ExtractTableNamesFromStatementRequest {
   // LanguageOptions object. See ExtractTableNamesFromNextStatementRequest
   // for further details.
   optional LanguageOptionsProto options = 2;
+
+  // sql_statement is interpreted as a script rather than a single statement.
+  optional bool allow_script = 3;
 }
 
 message ExtractTableNamesFromStatementResponse {

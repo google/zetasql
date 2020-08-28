@@ -395,17 +395,18 @@ std::string ResolvedCast::GetNameForDebugString() const {
                       type()->DebugString(), ")");
 }
 
-// ResolvedExtendedCastInfo gets formatted as
-//   ResolvedExtendedCastInfo(function=name).
-void ResolvedExtendedCastInfo::CollectDebugStringFields(
+// ResolvedExtendedCastElement gets formatted as
+//   ResolvedExtendedCastElement(function=name).
+void ResolvedExtendedCastElement::CollectDebugStringFields(
     std::vector<DebugStringField>* fields) const {
   SUPER::CollectDebugStringFields(fields);
   DCHECK_LE(fields->size(), 1);  // function
 }
 
-std::string ResolvedExtendedCastInfo::GetNameForDebugString() const {
+std::string ResolvedExtendedCastElement::GetNameForDebugString() const {
   return absl::StrCat(
-      "ResolvedExtendedCastInfo(function",
+      "ResolvedExtendedCastElement(", from_type_->DebugString(), " -> ",
+      to_type_->DebugString(), ", function",
       function_ != nullptr ? function_->DebugString() : "<unknown>", ")");
 }
 

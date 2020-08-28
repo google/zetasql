@@ -27,6 +27,7 @@
 #include "absl/base/attributes.h"
 #include <cstdint>
 #include "absl/base/macros.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/civil_time.h"
 #include "absl/time/time.h"

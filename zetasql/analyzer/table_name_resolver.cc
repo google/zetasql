@@ -279,6 +279,13 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
       }
       break;
 
+    case AST_CREATE_SCHEMA_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_CREATE_SCHEMA_STMT)) {
+        return absl::OkStatus();
+      }
+      break;
+
     case AST_CREATE_TABLE_STATEMENT: {
       const ASTCreateTableStatement* stmt =
           statement->GetAs<ASTCreateTableStatement>();
@@ -493,6 +500,7 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
       break;
 
     case AST_DROP_STATEMENT:
+    case AST_DROP_ENTITY_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_DROP_STMT)) {
         // Note that for a DROP TABLE statement, the table name is not

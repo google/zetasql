@@ -39,7 +39,7 @@ enum FunctionSignatureId {
   // in ranges:
   //
   // 0002-0999 Non-standard function calls   (NextId: 269)
-  // 1000-1099 String functions              (NextId: 1079)
+  // 1000-1099 String functions              (NextId: 1081)
   // 1100-1199 Control flow functions        (NextId: 1104)
   // 1200-1299 Time functions                (Fully used)
   // 1300-1399 Math functions                (Fully used)
@@ -267,6 +267,10 @@ enum FunctionSignatureId {
   FN_INITCAP_STRING = 1076;    // initcap(string[, string]) -> string
   FN_UNICODE_STRING = 1077;    // unicode(string) -> int64
   FN_CHR_STRING = 1078;        // chr(int64) -> string
+  FN_REGEXP_INSTR_STRING =
+      1079;  // regex_instr(string, string[, int64[, int64[, int64]]])
+  FN_REGEXP_INSTR_BYTES =
+      1080;  // regex_instr(bytes, bytes[, int64[, int64[, int64]]])
 
   // Control flow functions
   FN_IF = 1100;  // if

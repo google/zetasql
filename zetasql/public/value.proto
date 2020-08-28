@@ -82,13 +82,16 @@ message ValueProto {
     // Encoded bignumeric value. For the encoding format see documentation for
     // BigNumericValue::SerializeAsProtoBytes().
     bytes bignumeric_value = 21;
-    // Encoded json value.
+    // Tag 22 was used for json value as bytes, now obsolete.
+    // Json value represented as a string document.
     string json_value = 23;
     // User code that switches on this oneoff enum must have a default case so
     // builds won't break when new fields are added.
     bool __ValueProto__switch_must_have_a_default = 255;
   }
 
-  // Deprecated type fot json value.
-  optional bytes deprecated_json_value = 22;
+  // Obsolete int64 type for micros timestamps values.
+  reserved 11;
+  // Obsolete bytes type for json value.
+  reserved 22;
 }

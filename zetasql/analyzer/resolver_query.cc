@@ -70,6 +70,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
@@ -1300,7 +1301,8 @@ absl::Status Resolver::ResolveModelTransformSelectList(
         query_info.select_column_state_list()->GetSelectColumnState(i);
     if (IsInternalAlias(select_column_state->alias)) {
       return MakeSqlErrorAt(select_column_state->ast_expr)
-             << "Anonymous columns are disallowed in TRANSFORM clause";
+             << "Anonymous columns are disallowed in TRANSFORM clause. Please "
+                "provide a column name";
     }
     if (select_column_state->has_aggregation) {
       return MakeSqlErrorAt(select_column_state->ast_expr)
@@ -3483,6 +3485,14 @@ absl::Status Resolver::ValidateRecursiveTermVisitor::VisitResolvedAggregateScan(
   return absl::OkStatus();
 }
 
+absl::Status Resolver::ValidateRecursiveTermVisitor::VisitResolvedTVFArgument(
+    const ResolvedTVFArgument* node) {
+  ++tvf_argument_count_;
+  ZETASQL_RETURN_IF_ERROR(node->ChildrenAccept(this));
+  --tvf_argument_count_;
+  return absl::OkStatus();
+}
+
 absl::Status
 Resolver::ValidateRecursiveTermVisitor::VisitResolvedLimitOffsetScan(
     const ResolvedLimitOffsetScan* node) {
@@ -3666,6 +3676,12 @@ Resolver::ValidateRecursiveTermVisitor::VisitResolvedRecursiveRefScan(
     return MakeSqlErrorAt(info.path)
            << "A query containing a recursive reference may not be used as an "
               "operand of a FULL OUTER JOIN";
+  }
+
+  if (tvf_argument_count_ > 0) {
+    return MakeSqlErrorAt(info.path)
+           << "A query containing a recursive reference may not be used as an "
+              "argument to a table-valued function";
   }
 
   return absl::OkStatus();

@@ -27,6 +27,7 @@
 #include "absl/base/macros.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/declare.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/statusor.h"

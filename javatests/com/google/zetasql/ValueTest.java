@@ -2049,7 +2049,7 @@ public class ValueTest {
             "The number of fields of ValueProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(ValueProto.getDescriptor().getFields())
-        .hasSize(23);
+        .hasSize(22);
     assertWithMessage(
             "The number of fields of ValueProto::Array has changed, "
                 + "please also update the serialization code accordingly.")

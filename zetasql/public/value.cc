@@ -46,6 +46,7 @@
 #include "absl/hash/hash.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"

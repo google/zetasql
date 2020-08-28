@@ -28,6 +28,7 @@
 #include "zetasql/public/type.h"
 #include <cstdint>
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/statusor.h"
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/source_location.h"
@@ -157,28 +158,23 @@ class Catalog {
    public:
     FindConversionOptions(const FindOptions& find_options, bool is_explicit,
                           ConversionSourceExpressionKind source_kind,
-                          bool generic_function_needed,
                           ProductMode product_mode)
         : find_options_(find_options),
           is_explicit_(is_explicit),
           source_kind_(source_kind),
-          generic_function_needed_(generic_function_needed),
           product_mode_(product_mode) {}
 
     FindConversionOptions(
         bool is_explicit, ConversionSourceExpressionKind source_kind,
-        bool generic_function_needed = true,
         ProductMode product_mode = ProductMode::PRODUCT_INTERNAL)
         : FindConversionOptions(FindOptions(/*cycle_detector=*/nullptr),
-                                is_explicit, source_kind,
-                                generic_function_needed, product_mode) {}
+                                is_explicit, source_kind, product_mode) {}
 
     const FindOptions& find_options() const { return find_options_; }
 
     bool is_explicit() const { return is_explicit_; }
     ConversionSourceExpressionKind source_kind() const { return source_kind_; }
     ProductMode product_mode() const { return product_mode_; }
-    bool generic_function_needed() const { return generic_function_needed_; }
 
    private:
     FindOptions find_options_;
@@ -188,30 +184,6 @@ class Catalog {
 
     // The kind of converted expression, e.g. literal or parameter.
     ConversionSourceExpressionKind source_kind_;
-
-    // When generic_function_needed is set to true, the Function returned with a
-    // Conversion should be generic - it should be able to provide an evaluator
-    // for all conversion type pairs that a Catalog exposes. Otherwise, it's
-    // enough for Conversion's Function to be able to only provide an evaluator
-    // for the type pair requested in the current FindConversion call.
-    //
-    // This flag is used during resolution of casts involving STRUCT types:
-    // since STRUCT may contain several fields having extended types and only a
-    // single Function can be attached to a produced ResolvedCast node, this
-    // single function should be able to execute casts for all of those STRUCT
-    // fields.
-    //
-    // Caveat: a catalog should always return the same Function if this flag is
-    // set, otherwise STRUCT conversion may fail if Coercer gets different
-    // functions for two different fields of the same STRUCT.
-    //
-    // In general, it's possible for a Catalog to maintain just a single generic
-    // conversion function to use with all supported conversions regardless of
-    // generic_function_needed flag. However, from performance considerations,
-    // it can be reasonable to define a separate Function (for each particular
-    // conversion) having an evaluator factory optimized (using some shortcut)
-    // for its own conversion type pair.
-    bool generic_function_needed_;
 
     ProductMode product_mode_;
   };

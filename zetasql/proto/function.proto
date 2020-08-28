@@ -100,6 +100,7 @@ message FunctionSignatureOptionsProto {
   // optional uint64 timestamp_modes = 1;  bitset<TimestampMode>
   optional bool is_deprecated = 2 [default = false];
   repeated FreestandingDeprecationWarning additional_deprecation_warning = 3;
+  repeated LanguageFeature required_language_feature = 4;
 }
 
 message FunctionSignatureProto {

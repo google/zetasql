@@ -38,6 +38,7 @@
 #include "zetasql/resolved_ast/validator.h"
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"

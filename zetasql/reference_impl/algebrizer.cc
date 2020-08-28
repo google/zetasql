@@ -17,6 +17,7 @@
 #include "zetasql/reference_impl/algebrizer.h"
 
 #include <functional>
+#include <memory>
 #include <stack>
 #include <string>
 #include <unordered_set>
@@ -28,6 +29,7 @@
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/compliance/type_helpers.h"
 #include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/cast.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/id_string.h"
@@ -46,6 +48,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
@@ -59,9 +62,11 @@ using zetasql::types::Int64Type;
 
 namespace zetasql {
 
+namespace {
+
 // Returns true if the given aggregate function should ignore NULL values in
 // the input arguments.
-static bool IgnoresNullArguments(
+bool IgnoresNullArguments(
     const ResolvedNonScalarFunctionCallBase* aggregate_function) {
   static const std::unordered_set<std::string>* const
       kFunctionsNotIgnoreNullSet = new std::unordered_set<std::string>(
@@ -79,7 +84,7 @@ static bool IgnoresNullArguments(
   }
 }
 
-static absl::Status CheckHints(
+absl::Status CheckHints(
     const std::vector<std::unique_ptr<const ResolvedOption>>& hint_list) {
   for (const auto& hint : hint_list) {
     // Ignore all hints meant for a specific different engine.
@@ -94,6 +99,28 @@ static absl::Status CheckHints(
   }
   return absl::OkStatus();
 }
+
+std::unique_ptr<ExtendedCompositeCastEvaluator>
+GetExtendedCastEvaluatorFromResolvedCast(const ResolvedCast* cast) {
+  if (cast->extended_cast() != nullptr) {
+    std::vector<ConversionEvaluator> evaluators;
+    for (const auto& extended_conversion :
+         cast->extended_cast()->element_list()) {
+      evaluators.push_back(
+          ConversionEvaluator::Create(extended_conversion->from_type(),
+                                      extended_conversion->to_type(),
+                                      extended_conversion->function())
+              .ValueOrDie());
+    }
+
+    return absl::make_unique<ExtendedCompositeCastEvaluator>(
+        std::move(evaluators));
+  }
+
+  return {};
+}
+
+}  // namespace
 
 Algebrizer::Algebrizer(const LanguageOptions& language_options,
                        const AlgebrizerOptions& algebrizer_options,
@@ -119,16 +146,14 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeCast(
   // For extended conversions extended_cast will contain a conversion function
   // that implements a conversion. Extended conversions in reference
   // implementation are tested in public/types/extended_type_test.cc.
-  const Function* conversion_function = cast->extended_cast() != nullptr
-                                            ? cast->extended_cast()->function()
-                                            : nullptr;
-
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<ValueExpr> function_call,
-      BuiltinScalarFunction::CreateCast(
-          language_options_, cast->type(), std::move(arg),
-          cast->return_null_on_error(),
-          ResolvedFunctionCallBase::DEFAULT_ERROR_MODE, conversion_function));
+  std::unique_ptr<ExtendedCompositeCastEvaluator> extended_evaluator =
+      GetExtendedCastEvaluatorFromResolvedCast(cast);
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> function_call,
+                   BuiltinScalarFunction::CreateCast(
+                       language_options_, cast->type(), std::move(arg),
+                       cast->return_null_on_error(),
+                       ResolvedFunctionCallBase::DEFAULT_ERROR_MODE,
+                       std::move(extended_evaluator)));
   return function_call;
 }
 
@@ -483,8 +508,7 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeBetween(
   return let_expr;
 }
 
-zetasql_base::StatusOr<std::unique_ptr<AggregateArg>>
-Algebrizer::AlgebrizeAggregateFn(
+zetasql_base::StatusOr<std::unique_ptr<AggregateArg>> Algebrizer::AlgebrizeAggregateFn(
     const VariableId& variable,
     const ResolvedExpr* expr) {
   ZETASQL_RET_CHECK(expr->node_kind() == RESOLVED_AGGREGATE_FUNCTION_CALL ||
@@ -1339,7 +1363,7 @@ Algebrizer::AlgebrizeSingleRowScan() {
   return std::unique_ptr<RelationalOp>(std::move(enum_op));
 }
 
-::zetasql_base::StatusOr<std::unique_ptr<ArrayScanOp>>
+zetasql_base::StatusOr<std::unique_ptr<ArrayScanOp>>
 Algebrizer::CreateScanOfTableAsArray(const ResolvedScan* scan,
                                      bool is_value_table,
                                      std::unique_ptr<ValueExpr> table_expr) {
@@ -2437,8 +2461,7 @@ Algebrizer::ApplyAlgebrizedFilterConjuncts(
   return rel_op;
 }
 
-zetasql_base::StatusOr<std::unique_ptr<AggregateOp>>
-Algebrizer::AlgebrizeAggregateScan(
+zetasql_base::StatusOr<std::unique_ptr<AggregateOp>> Algebrizer::AlgebrizeAggregateScan(
     const ResolvedAggregateScan* aggregate_scan) {
   // Algebrize the relational input of the aggregate.
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> input,

@@ -147,6 +147,62 @@ INSTANTIATE_TEST_SUITE_P(
 INSTANTIATE_TEST_SUITE_P(Regexp, RegexpTemplateTest,
                          testing::ValuesIn(GetFunctionTestsRegexp()));
 
+typedef testing::TestWithParam<FunctionTestCall> RegexpInstrTest;
+TEST_P(RegexpInstrTest, TestLib) {
+  const FunctionTestCall& param = GetParam();
+  const std::vector<Value>& args = param.params.params();
+  bool expected_ok = param.params.status().ok();
+  for (const Value& arg : args) {
+    // Ignore tests with null arguments.
+    if (arg.is_null()) return;
+  }
+  RegExp re;
+  bool ok;
+  absl::Status status;
+  RegExp::InstrParams options;
+  if (args[1].type_kind() == TYPE_STRING) {
+    ok = re.InitializePatternUtf8(args[1].string_value(), &status);
+    options.input_str = args[0].string_value();
+    options.position_unit = RegExp::kUtf8Chars;
+  } else {
+    ok = re.InitializePatternBytes(args[1].bytes_value(), &status);
+    options.input_str = args[0].bytes_value();
+    options.position_unit = RegExp::kBytes;
+  }
+  if (!ok) {
+    ASSERT_FALSE(expected_ok);
+    ASSERT_EQ(param.params.status().code(), status.code());
+    return;
+  }
+
+  if (args.size() >= 3) {
+    options.position = args[2].int64_value();
+    if (args.size() >= 4) {
+      options.occurrence_index = args[3].int64_value();
+      if (args.size() == 5) {
+        if (args[4].int64_value() == 1) {
+          options.return_position = RegExp::kEndOfMatch;
+        } else if (args[4].int64_value() == 0) {
+          options.return_position = RegExp::kStartOfMatch;
+        } else {
+          return;
+        }
+      }
+    }
+  }
+  int64_t out;
+  options.out = &out;
+  ok = re.Instr(options, &status);
+  ASSERT_EQ(expected_ok, ok);
+  ASSERT_EQ(param.params.status().code(), status.code());
+  if (ok) {
+    EXPECT_EQ(param.params.result().int64_value(), out);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(RegexpInstrTests, RegexpInstrTest,
+                         testing::ValuesIn(GetFunctionTestsRegexpInstr()));
+
 TEST(RegexpExtract, NullStringView) {
   // Tests for b/25378427.
   absl::string_view null_string;

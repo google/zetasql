@@ -32,6 +32,7 @@
 // Floating point numbers are rounded when converted to integers.
 
 #include <math.h>  // for round and roundf
+
 #include <cmath>
 #include <limits>
 #include <type_traits>
@@ -42,6 +43,7 @@
 #include "zetasql/public/numeric_value.h"
 #include <cstdint>
 #include "absl/base/optimization.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/statusor.h"

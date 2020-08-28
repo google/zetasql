@@ -18,6 +18,7 @@
 
 #include <map>
 
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
@@ -111,8 +112,7 @@ VariableId ColumnToVariableMapping::GetVariableNameFromColumn(
   return AssignNewVariableToColumn(column);
 }
 
-::zetasql_base::StatusOr<VariableId>
-ColumnToVariableMapping::LookupVariableNameForColumn(
+zetasql_base::StatusOr<VariableId> ColumnToVariableMapping::LookupVariableNameForColumn(
     const ResolvedColumn* column) const {
   Map::const_iterator it = column_to_variable_.find(*column);
   if (it != column_to_variable_.end()) {

@@ -31,6 +31,7 @@
 #include "zetasql/public/value.h"
 #include <cstdint>
 #include "absl/types/optional.h"
+#include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -649,6 +650,24 @@ class FunctionSignatureOptions {
     return *this;
   }
 
+  // Add a LanguageFeature that must be enabled for this function to be enabled.
+  // This is used only on built-in functions, and determines whether they will
+  // be loaded in GetZetaSQLFunctions.
+  FunctionSignatureOptions& add_required_language_feature(
+      LanguageFeature feature) {
+    zetasql_base::InsertIfNotPresent(&required_language_features_, feature);
+    return *this;
+  }
+
+  // Returns whether or not all language features required by a function are
+  // enabled.
+  ABSL_MUST_USE_RESULT bool check_all_required_features_are_enabled(
+      const std::set<LanguageFeature>& enabled_features) const {
+    return std::includes(enabled_features.begin(), enabled_features.end(),
+                         required_language_features_.begin(),
+                         required_language_features_.end());
+  }
+
   // Checks constraint satisfaction on the FunctionSignature.  If constraints
   // are not met then the signature is ignored during analysis.  Evaluates
   // the constraint callback if populated, and if the signature is sensitive
@@ -673,6 +692,10 @@ class FunctionSignatureOptions {
   bool is_deprecated_ = false;
   // Stores any deprecation warnings associated with the body of a SQL function.
   std::vector<FreestandingDeprecationWarning> additional_deprecation_warnings_;
+
+  // A set of LanguageFeatures that need to be enabled for the signature to be
+  // loaded in GetZetaSQLFunctions.
+  std::set<LanguageFeature> required_language_features_;
 
   // Copyable.
 };
@@ -853,6 +876,8 @@ class FunctionSignature {
   void SetIsDeprecated(bool value) {
     options_.set_is_deprecated(value);
   }
+
+  const FunctionSignatureOptions& options() const { return options_; }
 
   const std::vector<FreestandingDeprecationWarning>&
   AdditionalDeprecationWarnings() const {

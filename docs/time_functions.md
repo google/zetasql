@@ -12,7 +12,7 @@ CURRENT_TIME([timezone])
 
 **Description**
 
-Returns the current time as a TIME object.
+Returns the current time as a `TIME` object.
 
 This function supports an optional `timezone` parameter.
 See [Timezone definitions][time-link-to-timezone-definitions] for information
@@ -20,7 +20,7 @@ on how to specify a time zone.
 
 **Return Data Type**
 
-TIME
+`TIME`
 
 **Example**
 
@@ -55,7 +55,7 @@ SELECT CURRENT_TIME() as now;
 
 **Return Data Type**
 
-TIME
+`TIME`
 
 **Example**
 
@@ -63,6 +63,7 @@ TIME
 SELECT
   TIME(15, 30, 00) as time_hms,
   TIME(TIMESTAMP "2008-12-25 15:30:00+08", "America/Los_Angeles") as time_tstz;
+
 +----------+-----------+
 | time_hms | time_tstz |
 +----------+-----------+
@@ -71,8 +72,8 @@ SELECT
 ```
 
 ```sql
-SELECT
-  TIME(DATETIME "2008-12-25 15:30:00.000000") AS time_dt;
+SELECT TIME(DATETIME "2008-12-25 15:30:00.000000") AS time_dt;
+
 +----------+
 | time_dt  |
 +----------+
@@ -106,7 +107,7 @@ seconds, `EXTRACT` truncates the millisecond and microsecond values.
 
 **Return Data Type**
 
-INT64
+`INT64`
 
 **Example**
 
@@ -131,7 +132,7 @@ TIME_ADD(time_expression, INTERVAL int64_expression part)
 
 **Description**
 
-Adds `int64_expression` units of `part` to the TIME object.
+Adds `int64_expression` units of `part` to the `TIME` object.
 
 `TIME_ADD` supports the following values for `part`:
 
@@ -149,7 +150,7 @@ value is `00:30:00`.
 
 **Return Data Types**
 
-TIME
+`TIME`
 
 **Example**
 
@@ -173,7 +174,7 @@ TIME_SUB(time_expression, INTERVAL int64_expression part)
 
 **Description**
 
-Subtracts `int64_expression` units of `part` from the TIME object.
+Subtracts `int64_expression` units of `part` from the `TIME` object.
 
 `TIME_SUB` supports the following values for `part`:
 
@@ -191,7 +192,7 @@ returned value is `23:30:00`.
 
 **Return Data Type**
 
-TIME
+`TIME`
 
 **Example**
 
@@ -235,7 +236,7 @@ between the two `TIME` objects would overflow an
 
 **Return Data Type**
 
-INT64
+`INT64`
 
 **Example**
 
@@ -260,7 +261,7 @@ TIME_TRUNC(time_expression, part)
 
 **Description**
 
-Truncates a TIME object to the granularity of `part`.
+Truncates a `TIME` object to the granularity of `part`.
 
 `TIME_TRUNC` supports the following values for `part`:
 
@@ -274,7 +275,7 @@ Truncates a TIME object to the granularity of `part`.
 
 **Return Data Type**
 
-TIME
+`TIME`
 
 **Example**
 
@@ -297,13 +298,13 @@ FORMAT_TIME(format_string, time_object)
 ```
 
 **Description**
-Formats a TIME object according to the specified `format_string`. See
-[Supported Format Elements For TIME][time-link-to-supported-format-elements-for-time]
+Formats a `TIME` object according to the specified `format_string`. See
+[Supported Format Elements For TIME][time-format-elements]
 for a list of format elements that this function supports.
 
 **Return Data Type**
 
-STRING
+`STRING`
 
 **Example**
 
@@ -320,14 +321,35 @@ SELECT FORMAT_TIME("%R", TIME "15:30:00") as formatted_time;
 ### PARSE_TIME
 
 ```sql
-PARSE_TIME(format_string, string)
+PARSE_TIME(format_string, time_string)
 ```
 
 **Description**
 
-Uses a `format_string` and a string to return a TIME object. See
-[Supported Format Elements For TIME][time-link-to-supported-format-elements-for-time]
-for a list of format elements that this function supports.
+Converts a [string representation of time][time-format] to a
+`TIME` object.
+
+`format_string` contains the [format elements][time-format-elements]
+that define how `time_string` is formatted. Each element in
+`time_string` must have a corresponding element in `format_string`. The
+location of each element in `format_string` must match the location of
+each element in `time_string`.
+
+```sql
+-- This works because elements on both sides match.
+SELECT PARSE_TIME("%I:%M:%S", "07:30:00")
+
+-- This doesn't work because the seconds element is in different locations.
+SELECT PARSE_TIME("%S:%I:%M", "07:30:00")
+
+-- This doesn't work because one of the seconds elements is missing.
+SELECT PARSE_TIME("%I:%M", "07:30:00")
+
+-- This works because %T can find all matching elements in time_string.
+SELECT PARSE_TIME("%T", "07:30:00")
+```
+
+The format string fully supports most format elements except for `%P`.
 
 When using `PARSE_TIME`, keep the following in mind:
 
@@ -335,15 +357,15 @@ When using `PARSE_TIME`, keep the following in mind:
 `00:00:00.0`. For instance, if `seconds` is unspecified then it
 defaults to `00`, and so on.
 + **Whitespace.** One or more consecutive white spaces in the format string
-matches zero or more consecutive white spaces in the TIME string. In
-addition, leading and trailing white spaces in the TIME string are always
-allowed&mdash;even if they are not in the format string.
+matches zero or more consecutive white spaces in the `TIME` string. In
+addition, leading and trailing white spaces in the `TIME` string are always
+allowed, even if they are not in the format string.
 + **Format precedence.** When two (or more) format elements have overlapping
 information, the last one generally overrides any earlier ones.
 
 **Return Data Type**
 
-TIME
+`TIME`
 
 **Example**
 
@@ -357,9 +379,19 @@ SELECT PARSE_TIME("%H", "15") as parsed_time;
 +-------------+
 ```
 
+```sql
+SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 PM') AS parsed_time
+
++-------------+
+| parsed_time |
++-------------+
+| 14:23:38    |
++-------------+
+```
+
 ### Supported format elements for TIME
 
-Unless otherwise noted, TIME functions that use format strings support the
+Unless otherwise noted, `TIME` functions that use format strings support the
 following elements:
 
 <table>
@@ -445,7 +477,9 @@ by a space.</td>
  </tr>
 </table>
 
-[time-link-to-supported-format-elements-for-time]: #supported_format_elements_for_time
+[time-format]: #format_time
+[time-format-elements]: #supported_format_elements_for_time
+[time-to-string]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#casting-time-types
 
 [time-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions#timezone_definitions
 

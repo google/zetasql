@@ -32,6 +32,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/source_location.h"
@@ -177,6 +178,38 @@ TEST(ParseTreeTest, NodeKindCategories_IfStatement) {
   EXPECT_FALSE(statement->IsExpression());
   EXPECT_FALSE(statement->IsQueryExpression());
   EXPECT_FALSE(statement->IsTableExpression());
+}
+
+TEST(ParseTreeTest, NodeKindCategories_DdlStatement_IsCreateStatement) {
+  const std::string sql = "create table t as select 1 x";
+
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(ParseScript(sql, ParserOptions(), ERROR_MESSAGE_WITH_PAYLOAD,
+                        &parser_output));
+  auto statement_list = parser_output->script()->statement_list();
+  ASSERT_EQ(statement_list.size(), 1);
+  const ASTDdlStatement* statement =
+      statement_list[0]->GetAs<ASTDdlStatement>();
+
+  EXPECT_TRUE(statement->IsDdlStatement());
+  EXPECT_TRUE(statement->IsCreateStatement());
+  EXPECT_FALSE(statement->IsAlterStatement());
+}
+
+TEST(ParseTreeTest, NodeKindCategories_DdlStatement_IsAlterStatement) {
+  const std::string sql = "alter table t set options()";
+
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(ParseScript(sql, ParserOptions(), ERROR_MESSAGE_WITH_PAYLOAD,
+                        &parser_output));
+  auto statement_list = parser_output->script()->statement_list();
+  ASSERT_EQ(statement_list.size(), 1);
+  const ASTDdlStatement* statement =
+      statement_list[0]->GetAs<ASTDdlStatement>();
+
+  EXPECT_TRUE(statement->IsDdlStatement());
+  EXPECT_TRUE(statement->IsAlterStatement());
+  EXPECT_FALSE(statement->IsCreateStatement());
 }
 
 TEST(ParseTreeTest, NodeKindCategories_LoopStatement) {
@@ -340,8 +373,8 @@ class TestVisitor : public NonRecursiveParseTreeVisitor {
   // Returns a custom VisitResult to return after pre-visit, or
   // this->VisitChildren() to proceed to visiting children and optionally
   // perform post-visit.
-  virtual zetasql_base::StatusOr<VisitResult> OnDonePreVisit(
-      const ASTNode* node, const std::string& label) {
+  virtual zetasql_base::StatusOr<VisitResult> OnDonePreVisit(const ASTNode* node,
+                                                     const std::string& label) {
     return VisitChildren(node, label);
   }
 

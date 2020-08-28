@@ -44,6 +44,7 @@
 #include "zetasql/public/type.pb.h"
 #include <cstdint>
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_split.h"
 #include "absl/time/time.h"
@@ -1005,7 +1006,7 @@ class CastContextWithValidation : public CastContext {
 
     Catalog::FindConversionOptions options(
         /*is_explicit=*/true, Catalog::ConversionSourceExpressionKind::kLiteral,
-        /*generic_function_needed=*/false, language_options().product_mode());
+        language_options().product_mode());
     Conversion conversion = Conversion::Invalid();
     ZETASQL_RETURN_IF_ERROR(catalog_->FindConversion(from_value.type(), to_type,
                                              options, &conversion));
@@ -1034,24 +1035,21 @@ class CastContextWithValidation : public CastContext {
 // CastValueWithoutTypeValidation.
 class CastContextWithoutValidation : public CastContext {
  public:
-  CastContextWithoutValidation(absl::TimeZone default_timezone,
-                               const LanguageOptions& language_options,
-                               const Function* extended_type_conversion)
+  CastContextWithoutValidation(
+      absl::TimeZone default_timezone, const LanguageOptions& language_options,
+      const ExtendedCompositeCastEvaluator* extended_cast_evaluator)
       : CastContext(default_timezone, language_options),
-        extended_type_conversion_(extended_type_conversion) {}
+        extended_cast_evaluator_(extended_cast_evaluator) {}
 
   zetasql_base::StatusOr<Value> CastWithExtendedType(
       const Value& from_value, const Type* to_type) const override {
-    if (extended_type_conversion_ == nullptr) {
+    if (extended_cast_evaluator_ == nullptr) {
       return zetasql_base::FailedPreconditionErrorBuilder()
              << "Attempt to cast a Value of extened type without providing an "
                 "extended conversion function";
     }
 
-    ZETASQL_ASSIGN_OR_RETURN(ConversionEvaluator evaluator,
-                     ConversionEvaluator::Create(from_value.type(), to_type,
-                                                 extended_type_conversion_));
-    return evaluator.Eval(from_value);
+    return extended_cast_evaluator_->Eval(from_value, to_type);
   }
 
   absl::Status ValidateCoercion(const Value& from_value,
@@ -1060,7 +1058,7 @@ class CastContextWithoutValidation : public CastContext {
   }
 
  private:
-  const Function* extended_type_conversion_;
+  const ExtendedCompositeCastEvaluator* extended_cast_evaluator_;
 };
 
 }  // namespace
@@ -1078,9 +1076,9 @@ namespace internal {
 zetasql_base::StatusOr<Value> CastValueWithoutTypeValidation(
     const Value& from_value, absl::TimeZone default_timezone,
     const LanguageOptions& language_options, const Type* to_type,
-    const Function* extended_conversion) {
+    const ExtendedCompositeCastEvaluator* extended_cast_evaluator) {
   return CastContextWithoutValidation(default_timezone, language_options,
-                                      extended_conversion)
+                                      extended_cast_evaluator)
       .CastValue(from_value, to_type);
 }
 
@@ -1167,6 +1165,21 @@ bool Conversion::IsMatch(const Catalog::FindConversionOptions& options) const {
     default:
       return false;
   }
+}
+
+zetasql_base::StatusOr<Value> ExtendedCompositeCastEvaluator::Eval(
+    const Value& from_value, const Type* to_type) const {
+  for (const ConversionEvaluator& evaluator : evaluators_) {
+    if (evaluator.from_type()->Equals(from_value.type()) &&
+        evaluator.to_type()->Equals(to_type)) {
+      return evaluator.Eval(from_value);
+    }
+  }
+
+  return zetasql_base::InvalidArgumentErrorBuilder()
+         << "Conversion from type " << from_value.type()->DebugString()
+         << " to type " << to_type->DebugString()
+         << " is not found in ExtendedCompositeCastEvaluator";
 }
 
 }  // namespace zetasql

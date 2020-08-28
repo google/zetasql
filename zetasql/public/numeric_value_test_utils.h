@@ -19,6 +19,7 @@
 
 #include "zetasql/public/numeric_value.h"
 #include "absl/random/random.h"
+#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
