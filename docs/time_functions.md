@@ -408,10 +408,6 @@ following elements:
     <td>The hour (12-hour clock) as a decimal number (01-12).</td>
  </tr>
  <tr>
-    <td>%j</td>
-    <td>The day of the year as a decimal number (001-366).</td>
- </tr>
- <tr>
     <td>%k</td>
     <td>The hour (24-hour clock) as a decimal number (0-23); single digits are
     preceded

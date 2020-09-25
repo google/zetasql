@@ -1,9 +1,8 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-# Data Types
+# Data types
 
-<!-- BEGIN CONTENT -->
 ZetaSQL supports simple data types such as integers, as well as more
 complex types such as ARRAY,
 PROTO, and STRUCT. This page provides an overview of each data type,
@@ -1104,6 +1103,4 @@ workarounds:
 
 [geography-functions]: https://github.com/google/zetasql/blob/master/docs/geography_functions
 [mathematical-functions]: https://github.com/google/zetasql/blob/master/docs/mathematical_functions
-
-<!-- END CONTENT -->
 

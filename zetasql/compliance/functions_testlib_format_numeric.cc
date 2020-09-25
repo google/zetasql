@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,13 +26,12 @@
 namespace zetasql {
 
 static zetasql::Value NumericFromString(absl::string_view numeric_str) {
-  return Value::Numeric(
-      NumericValue::FromStringStrict(numeric_str).ValueOrDie());
+  return Value::Numeric(NumericValue::FromStringStrict(numeric_str).value());
 }
 
 static zetasql::Value BigNumericFromString(absl::string_view numeric_str) {
   return Value::BigNumeric(
-      (BigNumericValue::FromStringStrict(numeric_str).ValueOrDie()));
+      (BigNumericValue::FromStringStrict(numeric_str).value()));
 }
 
 std::vector<FunctionTestCall> GetFunctionTestsFormatNumeric() {

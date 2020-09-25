@@ -1,15 +1,13 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-# Query Syntax
-
-<!-- BEGIN CONTENT -->
+# Query syntax
 
 Query statements scan one or more tables or expressions and return the computed
 result rows. This topic describes the syntax for SQL queries in
 ZetaSQL.
 
-## SQL Syntax
+## SQL syntax
 
 <pre class="lang-sql prettyprint">
 <span class="var">query_statement</span>:
@@ -77,7 +75,7 @@ ZetaSQL.
 The following tables are used to illustrate the behavior of different
 query clauses in this reference.
 
-#### Roster Table
+#### Roster table
 
 The `Roster` table includes a list of player names (`LastName`) and the
 unique ID assigned to their school (`SchoolID`). It looks like this:
@@ -107,7 +105,7 @@ WITH Roster AS
 SELECT * FROM Roster
 ```
 
-#### PlayerStats Table
+#### PlayerStats table
 
 The `PlayerStats` table includes a list of player names (`LastName`) and the
 unique ID assigned to the opponent they played in a given game (`OpponentID`)
@@ -138,7 +136,7 @@ WITH PlayerStats AS
 SELECT * FROM PlayerStats
 ```
 
-#### TeamMascot Table
+#### TeamMascot table
 
 The `TeamMascot` table includes a list of unique school IDs (`SchoolID`) and the
 mascot for that school (`Mascot`).
@@ -712,52 +710,81 @@ for the duration of the query, unless you qualify the table name, e.g.
 
 ### TABLESAMPLE operator
 
+```sql
+tablesample_type:
+    TABLESAMPLE sample_method (sample_size percent_or_rows [ partition_by ])
+    [ REPEATABLE(repeat_argument) ]
+    [ WITH WEIGHT [AS alias] ]
+
+sample_method:
+    { BERNOULLI | SYSTEM | RESERVOIR }
+
+sample_size:
+    numeric_value_expression
+
+percent_or_rows:
+    { PERCENT | ROWS }
+
+partition_by:
+    PARTITION BY partition_expression [, ...]
+```
+
+**Description**
+
 You can use the `TABLESAMPLE` operator to select a random sample of a data
 set. This operator is useful when working with tables that have large amounts of
 data and precise answers are not required.
 
-Syntax:
++  `sample_method`: When using the `TABLESAMPLE` operator, you must specify the
+   sampling algorithm to use:
+   + `BERNOULLI`: Each row is independently selected with the probability
+     given in the `percent` clause. As a result, you get approximately
+     `N * percent/100` rows.
+   + `SYSTEM`: Produces a sample using an
+     unspecified engine-dependent method, which may be more efficient but less
+     probabilistically random than other methods.  For example, it could choose
+     random disk blocks and return data from those blocks.
+   + `RESERVOIR`: Takes as parameter an actual sample size
+     K (expressed as a number of rows). If the input is smaller than K, it
+     outputs the entire input relation. If the input is larger than K,
+     reservoir sampling outputs a sample of size exactly K, where any sample of
+     size K is equally likely.
++  `sample_size`: The size of the sample.
++  `percent_or_rows`: The `TABLESAMPLE` operator requires that you choose either
+   `ROWS` or `PERCENT`. If you choose `PERCENT`, the value must be between
+   0 and 100. If you choose `ROWS`, the value must be greater than or equal
+   to 0.
++  `partition_by`: Optional. Perform [stratefied sampling][stratefied-sampling]
+   for each distinct group identified by the `PARTITION BY` clause. That is,
+   if the number of rows in a particular group is less than the specified row
+   count, all rows in that group are assigned to the sample. Otherwise, it
+   randomly selects the specified number of rows for each group, where for a
+   particular group, every sample of that size is equally
+   likely.
++  `REPEATABLE`: Optional. When it is used, repeated
+   executions of the sampling operation return a result table with identical
+   rows for a given repeat argument, as long as the underlying data does
+   not change. `repeat_argument` represents a sampling seed
+   and must be a positive value of type `INT64`.
++  `WITH WEIGHT`: Optional. Retrieves [scaling weight][scaling-weight]. If
+   specified, the `TableSample` operator outputs one extra column of type
+   `DOUBLE` that is greater than or equal 1.0 to represent the actual scaling
+   weight. If an alias is not provided, the default name _weight_ is used.
+   +  In Bernoulli sampling, the weight is `1 / provided sampling probability`.
+      For example, `TABLESAMPLE BERNOULLI (1 percent)` will expose the weight
+      of `1 / 0.01`.
+   +  In System sampling, the weight is approximated or computed exactly in
+      some engine-defined way, as long as its type and value range is
+      specified.
+   +  In non-stratified fixed row count sampling,
+      (RESERVOIR without the PARTITION BY clause), the weight is equal to the
+      total number of input rows divided by the count of sampled rows.
+   +  In stratified sampling,
+      (RESERVOIR with the PARTITION BY clause), the weight for rows from a
+      particular group is equal to the group cardinality divided by the count
+      of sampled rows for that group.
 
-<pre>
-<span class="var">tablesample_type</span>:
-    <a href="#tablesample_operator">TABLESAMPLE</a> <span class="var">sample_method</span> (<span class="var">sample_size</span> <span class="var">percent_or_rows</span>)
-    [ REPEATABLE(repeat_argument) ]
-
-<span class="var">sample_method</span>:
-    { BERNOULLI | SYSTEM | RESERVOIR }
-
-<span class="var">sample_size</span>:
-    <span class="var">numeric_value_expression</span>
-
-<span class="var">percent_or_rows</span>:
-    { PERCENT | ROWS }
-</pre>
-
-When using the `TABLESAMPLE` operator, you must specify the sampling algorithm
-to use:
-
-+ `BERNOULLI` - each row is independently selected
-with the probability given in the `percent` clause. As a result, you get
-approximately `N * percent/100` rows.
-+ `SYSTEM` - produces a sample using an
-unspecified engine-dependent method, which may be more efficient but less
-probabilistically random than other methods.  For example, it could choose
-random disk blocks and return data from those blocks.
-+ `RESERVOIR` - takes as parameter an actual sample size
-K (expressed as a number of rows). If the input is smaller than K, it outputs
-the entire input relation. If the input is larger than K, reservoir sampling
-outputs a sample of size exactly K, where any sample of size K is equally
-likely.
-
-The `TABLESAMPLE` operator requires that you select either `ROWS` or `PERCENT`.
-If you select `PERCENT`, the value must be between 0 and 100. If you select
-`ROWS`, the value must be greater than or equal to 0.
-
-The `REPEATABLE` clause is optional. When it is used, repeated executions of
-the sampling operation return a result table with identical rows for a
-given repeat argument, as long as the underlying data does
-not change. `repeat_argument` represents a sampling seed
-and must be a positive value of type `INT64`.
+**Examples**
 
 The following examples illustrate the use of the `TABLESAMPLE` operator.
 
@@ -775,14 +802,14 @@ SELECT MessageId
 FROM Messages TABLESAMPLE BERNOULLI (0.1 PERCENT);
 ```
 
-Using `TABLESAMPLE` with a repeat argument:
+Use `TABLESAMPLE` with a repeat argument:
 
 ```sql
 SELECT MessageId
 FROM Messages TABLESAMPLE RESERVOIR (100 ROWS) REPEATABLE(10);
 ```
 
-Using `TABLESAMPLE` with a subquery:
+Use `TABLESAMPLE` with a subquery:
 
 ```sql
 SELECT Subject FROM
@@ -791,7 +818,7 @@ TABLESAMPLE BERNOULLI(50 PERCENT)
 WHERE MessageId > 3;
 ```
 
-Using a `TABLESAMPLE` operation with a join to another table.
+Use a `TABLESAMPLE` operation with a join to another table.
 
 ```sql
 SELECT S.Subject
@@ -801,6 +828,120 @@ TABLESAMPLE RESERVOIR(5 ROWS),
 Threads AS S
 WHERE S.ServerId="test" AND R.ThreadId = S.ThreadId;
 ```
+
+Group results by country, using stratefied sampling:
+
+```sql
+SELECT country, SUM(click_cost) FROM ClickEvents
+ TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY country)
+ GROUP BY country;
+```
+
+Add scaling weight to stratefied sampling:
+
+```sql
+SELECT country, SUM(click_cost * sampling_weight) FROM ClickEvents
+ TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY country)
+ WITH WEIGHT AS sampling_weight
+ GROUP BY country;
+```
+
+This is equivelant to the previous example. Note that you don't have to use
+an alias after `WITH WEIGHT`. If you don't, the default alias `weight` is used.
+
+```sql
+SELECT country, SUM(click_cost * weight) FROM ClickEvents
+ TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY country)
+ WITH WEIGHT
+ GROUP BY country;
+```
+
+#### Stratefied sampling {: #stratefied_sampling }
+
+If you want better quality generated samples for under-represented groups,
+you can use stratefied sampling. Stratefied sampling helps you
+avoid samples with missing groups. To allow stratified sampling per
+distinct group, use `PARTITION BY` with `RESERVOIR` in the `TABLESAMPLE` clause.
+
+Stratified sampling performs `RESERVOIR` sampling for each distinct group
+identified by the `PARTITION BY` clause. If the number of rows in a particular
+group is less than the specified row count, all rows in that group are assigned
+to the sample. Otherwise, it randomly selects the specified number of rows for
+each group, where for a particular group, every sample of that size is equally
+likely.
+
+**Example**
+
+Let’s consider a table named `ClickEvents` representing a stream of
+click events, each of which has two fields: `country` and `click_cost`.
+`country` represents the country from which the click was originated
+and `click_cost` represents how much the click costs. In this example,
+100 rows are randomly selected for each country.
+
+```sql
+SELECT click_cost, country FROM ClickEvents
+TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY country)
+```
+
+#### Scaling weight {: #scaling_weight }
+
+With scaling weight, you can perform fast and reasonable population estimates
+from generated samples or estimate the aggregate results from samples. You can
+capture scaling weight for a tablesample with the `WITH WEIGHT` clause.
+
+Scaling weight represents the reciprocal of the actual, observed sampling
+rate for a tablesample, making it easier to estimate aggregate results for
+samples. The exposition of scaling weight generally applies to all variations
+of `TABLESAMPLE`, including stratified Reservoir, non-stratified Reservoir,
+Bernoulli, and System.
+
+Let’s consider a table named `ClickEvents` representing a stream of
+click events, each of which has two fields: `country` and `click_cost`.
+`country` represents the country from which the click was originated
+and `click_cost` represents how much the click costs. To calculate the
+total click cost per country, you can use the following query:
+
+```sql
+SELECT country, SUM(click_cost)
+FROM ClickEvents
+GROUP BY country;
+```
+
+You can leverage the existing uniform sampling with fixed probability, using
+Bernoulli sampling and run this query to estimate the result of the previous
+query:
+
+```sql
+SELECT country, SUM(click_cost * weight)
+FROM ClickEvents TABLESAMPLE BERNOULLI (1 PERCENT)
+WITH WEIGHT
+GROUP BY country;
+```
+
+You can break the second query into two steps:
+
+1. Materialize a sample for reuse.
+1. Perform aggregate estimates of the materialized sample.
+
+Instead of aggregating the entire table, you use a 1% uniform sample to
+aggregate a fraction of the original table and to compute the total click cost.
+Because only 1% of the rows flow into the aggregation operator, you need to
+scale the aggregate with a certain weight. Specifically, we multiply the
+aggregate with 100, the reciprocal of the provided sampling probability, for
+each group. And because we use uniform sampling, the scaling weight for each
+group is effectively equal to the scaling weight for each row of the table,
+which is 100.
+
+Even though this sample provides a statistically accurate representation
+of the original table, it might miss an entire group of rows, such as countries
+in the running example, with small cardinality. For example, suppose that
+the `ClickEvents` table contains 10000 rows, with 9990 rows of value `US`
+and 10 rows of value `VN`. The number of distinct countries in this example
+is two. With 1% uniform sampling, it is statistically probable that all the
+sampled rows are from the `US` and none of them are from the `VN` partition.
+As a result, the output of the second query does not contain the `SUM` estimate
+for the group `VN`. We refer to this as the _missing-group problem_, which
+can be solved with [stratefied sampling][stratefied-sampling].
 
 ### Aliases
 
@@ -1258,7 +1399,7 @@ SELECT * FROM Roster INNER JOIN TeamMascot USING (SchoolID);
 +----------------------------------------+
 ```
 
-### ON and USING Equivalency
+### ON and USING equivalency
 
 The `ON` and `USING` keywords are not equivalent, but they are similar.
 `ON` returns multiple columns, and `USING` returns one.
@@ -2123,7 +2264,7 @@ FROM
 
 `WITH RECURSIVE` is not supported.
 
-## Using Aliases {: #using_aliases }
+## Using aliases {: #using_aliases }
 
 An alias is a temporary name given to a table, column, or expression present in
 a query. You can introduce explicit aliases in the `SELECT` list or `FROM`
@@ -2639,6 +2780,8 @@ Results:
 [roster-table]: #roster_table
 [playerstats-table]: #playerstats_table
 [teammascot-table]: #teammascot_table
+[stratefied-sampling]: #stratefied_sampling
+[scaling-weight]: #scaling_weight
 [query-joins]: #join-types
 [analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [query-window-specification]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_window_spec
@@ -2656,6 +2799,4 @@ Results:
 
 [in-operator]: https://github.com/google/zetasql/blob/master/docs/operators#in_operators
 [expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries
-
-<!-- END CONTENT -->
 

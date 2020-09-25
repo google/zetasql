@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -101,7 +101,6 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -304,8 +303,9 @@ absl::Status Resolver::ResolveBuildProto(
     const Type* proto_field_type;
     RETURN_SQL_ERROR_AT_IF_ERROR(
         argument.ast_location,
-        GetProtoFieldTypeAndDefault(field, type_factory_,
-                                    &proto_field_type, &default_value));
+        GetProtoFieldTypeAndDefault(
+            ProtoFieldDefaultOptions::FromFieldAndLanguage(field, language()),
+            field, type_factory_, &proto_field_type, &default_value));
     if (!proto_field_type->IsSupportedType(language())) {
       return MakeSqlErrorAt(argument.ast_location)
              << "Proto field " << field->full_name() << " has unsupported type "
@@ -789,6 +789,8 @@ absl::Status Resolver::ResolveExpr(
       // while resolving the argument list, and only in the locations where they
       // are expected. All other cases end up here.
       return MakeSqlErrorAt(ast_expr) << "Unexpected INTERVAL expression";
+    case AST_FILTER_FIELDS_EXPRESSION:
+      return MakeSqlErrorAt(ast_expr) << "FILTER_FIELDS() is not supported";
     case AST_REPLACE_FIELDS_EXPRESSION:
       return ResolveReplaceFieldsExpression(
           ast_expr->GetAsOrDie<ASTReplaceFieldsExpression>(),
@@ -804,6 +806,10 @@ absl::Status Resolver::ResolveExpr(
       // signature matching appropriately.
       return ResolveExpr(ast_expr->GetAsOrDie<ASTNamedArgument>()->expr(),
                          expr_resolution_info.get(), resolved_expr_out);
+    case AST_COLLATE_EXPRESSION:
+      return ResolveCollateExpression(
+          ast_expr->GetAsOrDie<ASTCollateExpression>(),
+          expr_resolution_info.get(), resolved_expr_out);
     default:
       return MakeSqlErrorAt(ast_expr)
              << "Unhandled select-list expression for node kind "
@@ -923,7 +929,7 @@ absl::Status Resolver::ResolveLiteralExpr(
       std::string unquoted_image;
       ZETASQL_RETURN_IF_ERROR(ParseStringLiteral(literal->image(), &unquoted_image));
       auto value_or_status = BigNumericValue::FromStringStrict(unquoted_image);
-      if (!value_or_status.status().ok()) {
+      if (!value_or_status.ok()) {
         std::string error_type_token = GetNodePrefixToken(sql_, *literal);
         return MakeSqlErrorAt(literal)
                << "Invalid " << error_type_token
@@ -931,7 +937,7 @@ absl::Status Resolver::ResolveLiteralExpr(
       }
       *resolved_expr_out =
           MakeResolvedLiteral(ast_expr, types::BigNumericType(),
-                              Value::BigNumeric(value_or_status.ValueOrDie()),
+                              Value::BigNumeric(*value_or_status),
                               true /* set_has_explicit_type */);
       return absl::OkStatus();
     }
@@ -1647,13 +1653,23 @@ absl::Status Resolver::MaybeResolveProtoFieldAccess(
     // we are checking for existence of the proto field, not checking if
     // we get a NULL after unwrapping.
     field_type = type_factory_->get_bool();
-  } else if (options.ignore_format_annotations) {
-    // This is a RAW extraction so we must get the field and default value
-    // without taking into account the annotations on the field.
+  } else {
+    auto default_options =
+        ProtoFieldDefaultOptions::FromFieldAndLanguage(field, language());
+    if (options.ignore_format_annotations) {
+      // ignore_format_annotations in the options implies a RAW() fetch.
+      // RAW() fetches ignore any annotations on the fields and give you back
+      // whatever you would have gotten without those annotations. This applies
+      // to both type annotations and default annotations.
+      default_options.ignore_format_annotations = true;
+      default_options.ignore_use_default_annotations = true;
+    }
     RETURN_SQL_ERROR_AT_IF_ERROR(
-        identifier, GetProtoFieldTypeAndDefaultRaw(
-                        field, type_factory_, &field_type, &default_value));
-    if (field_type->IsBytes()) {
+        identifier,
+        GetProtoFieldTypeAndDefault(default_options, field, type_factory_,
+                                    &field_type, &default_value));
+
+    if (options.ignore_format_annotations && field_type->IsBytes()) {
       const Type* type_with_annotations;
       ZETASQL_RETURN_IF_ERROR(
           type_factory_->GetProtoFieldType(field, &type_with_annotations));
@@ -1662,21 +1678,8 @@ absl::Status Resolver::MaybeResolveProtoFieldAccess(
                << "RAW() extractions of Geography fields are unsupported";
       }
     }
-  } else {
-    // This is a normal field extraction.
-    RETURN_SQL_ERROR_AT_IF_ERROR(
-        identifier, type_factory_->GetProtoFieldType(field, &field_type));
-    if (lhs_proto->file()->syntax() == google::protobuf::FileDescriptor::SYNTAX_PROTO3 &&
-        language().LanguageFeatureEnabled(
-            FEATURE_V_1_3_IGNORE_PROTO3_USE_DEFAULTS)) {
-      RETURN_SQL_ERROR_AT_IF_ERROR(
-          identifier,
-          GetProtoFieldDefaultV2(field, field_type, &default_value));
-    } else {
-      RETURN_SQL_ERROR_AT_IF_ERROR(
-          identifier, GetProtoFieldDefault(field, field_type, &default_value));
-    }
   }
+
   // ZetaSQL supports has_X() for fields that have unsupported type
   // annotations, but accessing the field value would produce an error.
   if (!get_has_bit &&
@@ -1760,6 +1763,7 @@ absl::Status Resolver::ResolveFieldAccess(
     } else {
       resolved_flatten =
           MakeResolvedFlatten(/*type=*/nullptr, std::move(resolved_lhs), {});
+      analyzer_output_properties_.has_flatten = true;
     }
     resolved_lhs = MakeResolvedFlattenedArg(lhs_type);
   }
@@ -1802,6 +1806,7 @@ absl::Status Resolver::ResolveExtensionFieldAccess(
     } else {
       resolved_flatten =
           MakeResolvedFlatten(/*type=*/nullptr, std::move(resolved_lhs), {});
+      analyzer_output_properties_.has_flatten = true;
     }
     resolved_lhs = MakeResolvedFlattenedArg(lhs_type);
   }
@@ -1832,14 +1837,23 @@ absl::Status Resolver::ResolveExtensionFieldAccess(
     }
 
     field_type = type_factory_->get_bool();
-  } else if (options.ignore_format_annotations) {
-    // This is a RAW extraction so we must get the field and default value
-    // without taking into account the annotations on the field.
+  } else {
+    auto default_options = ProtoFieldDefaultOptions::FromFieldAndLanguage(
+        extension_field, language());
+    if (options.ignore_format_annotations) {
+      // ignore_format_annotations in the options implies a RAW() fetch.
+      // RAW() fetches ignore any annotations on the fields and give you back
+      // whatever you would have gotten without those annotations. This applies
+      // to both type annotations and default annotations.
+      default_options.ignore_format_annotations = true;
+      default_options.ignore_use_default_annotations = true;
+    }
     RETURN_SQL_ERROR_AT_IF_ERROR(
-        ast_path_expr,
-        GetProtoFieldTypeAndDefaultRaw(extension_field, type_factory_,
-                                       &field_type, &default_value));
-    if (field_type->IsBytes()) {
+        ast_path_expr, GetProtoFieldTypeAndDefault(
+                           default_options, extension_field, type_factory_,
+                           &field_type, &default_value));
+
+    if (options.ignore_format_annotations && field_type->IsBytes()) {
       const Type* type_with_annotations;
       ZETASQL_RETURN_IF_ERROR(type_factory_->GetProtoFieldType(extension_field,
                                                        &type_with_annotations));
@@ -1848,12 +1862,8 @@ absl::Status Resolver::ResolveExtensionFieldAccess(
                << "RAW() extractions of Geography fields are unsupported";
       }
     }
-  } else {
-    RETURN_SQL_ERROR_AT_IF_ERROR(
-        ast_path_expr,
-        GetProtoFieldTypeAndDefault(extension_field, type_factory_, &field_type,
-                                    &default_value));
   }
+
   if ((field_type->UsingFeatureV12CivilTimeType() &&
        !language().LanguageFeatureEnabled(FEATURE_V_1_2_CIVIL_TIME)) ||
       (field_type->IsNumericType()  &&
@@ -2687,7 +2697,8 @@ absl::Status Resolver::ResolveInSubquery(
     type_set.Insert(GetInputArgumentTypeForExpr(resolved_in_expr.get()));
     // The output column from the subquery column is non-literal, non-parameter.
     type_set.Insert(InputArgumentType(in_subquery_type));
-    const Type* supertype = coercer_.GetCommonSuperType(type_set);
+    const Type* supertype = nullptr;
+    ZETASQL_RETURN_IF_ERROR(coercer_.GetCommonSuperType(type_set, &supertype));
     const Type* in_expr_cast_type = nullptr;
     const Type* in_subquery_cast_type = nullptr;
     if (supertype != nullptr) {
@@ -4283,7 +4294,9 @@ absl::Status Resolver::ResolveArrayConstructor(
       ZETASQL_RETURN_IF_ERROR(type_factory_->MakeArrayType(
           type_factory_->get_int64(), &array_type));
     } else {
-      const Type* super_type = coercer_.GetCommonSuperType(element_type_set);
+      const Type* super_type = nullptr;
+      ZETASQL_RETURN_IF_ERROR(
+          coercer_.GetCommonSuperType(element_type_set, &super_type));
       if (super_type == nullptr) {
         // We need a special case for a literal array with a mix of INT64 and
         // UINT64 arguments.  Normally, there is no supertype.  But given that
@@ -5117,7 +5130,7 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
 }
 
 absl::Status Resolver::ResolveProtoDefaultIfNull(
-    const ASTNode* ast_location, ExprResolutionInfo* expr_resolution_info,
+    const ASTNode* ast_location,
     std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   ZETASQL_RET_CHECK_EQ(resolved_arguments.size(), 1);
@@ -5288,8 +5301,8 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
                << "The PROTO_DEFAULT_IF_NULL function is not supported";
       }
       ZETASQL_RETURN_IF_ERROR(ResolveProtoDefaultIfNull(
-          ast_location, expr_resolution_info,
-          resolved_function_call->release_argument_list(), resolved_expr_out));
+          ast_location, resolved_function_call->release_argument_list(),
+          resolved_expr_out));
     } else if (IsFlatten(function)) {
       ZETASQL_RET_CHECK_EQ(1, resolved_function_call->argument_list_size());
       *resolved_expr_out =
@@ -5597,6 +5610,15 @@ absl::Status Resolver::ResolveExecuteImmediateArgument(
   *output = MakeResolvedExecuteImmediateArgument(alias, std::move(expression));
 
   return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveCollateExpression(
+    const ASTCollateExpression* ast_collate_expr,
+    ExprResolutionInfo* expr_resolution_info,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
+  ZETASQL_RET_CHECK(ast_collate_expr != nullptr);
+  // TODO: implement collate expression in analyzer.
+  return MakeSqlErrorAt(ast_collate_expr) << "COLLATE is not supported";
 }
 
 }  // namespace zetasql

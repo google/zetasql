@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -163,7 +163,7 @@ message EvaluateRequest {
   message Parameter {
     optional string name = 1;
     optional ValueProto value = 2;
-    optional TypeProto type = 3;
+    reserved 3;
   }
 
   repeated Parameter columns = 2;

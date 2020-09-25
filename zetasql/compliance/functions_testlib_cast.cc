@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,7 +44,6 @@
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/stl_util.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -398,8 +397,8 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
           {String("123456789.12345678")},
-          Value::Numeric(NumericValue::FromStringStrict("123456789.12345678")
-                             .ValueOrDie()))
+          Value::Numeric(
+              NumericValue::FromStringStrict("123456789.12345678").value()))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
 
       // string->bignumeric
@@ -420,8 +419,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
       QueryParamsWithResult(
           {String("1e38")},
-          Value::BigNumeric(
-              BigNumericValue::FromStringStrict("1e38").ValueOrDie()))
+          Value::BigNumeric(BigNumericValue::FromStringStrict("1e38").value()))
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
       QueryParamsWithResult(
           {String("578960446186580977117854925043439539266."
@@ -429,7 +427,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
           Value::BigNumeric(BigNumericValue::FromStringStrict(
                                 "578960446186580977117854925043439539266."
                                 "34992332820282019728792003956564819967")
-                                .ValueOrDie()))
+                                .value()))
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
       QueryParamsWithResult(
           {String("-578960446186580977117854925043439539266."
@@ -437,7 +435,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
           Value::BigNumeric(BigNumericValue::FromStringStrict(
                                 "-578960446186580977117854925043439539266."
                                 "34992332820282019728792003956564819968")
-                                .ValueOrDie()))
+                                .value()))
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
 
       // numeric->string
@@ -454,8 +452,8 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
           String("-9223372036854775807"))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
-          {Value::Numeric(NumericValue::FromStringStrict("123456789.12345678")
-                              .ValueOrDie())},
+          {Value::Numeric(
+              NumericValue::FromStringStrict("123456789.12345678").value())},
           String("123456789.12345678"))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
 
@@ -476,7 +474,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
           {Value::BigNumeric(BigNumericValue::FromStringStrict(
                                  "578960446186580977117854925043439539266."
                                  "34992332820282019728792003956564819967")
-                                 .ValueOrDie())},
+                                 .value())},
           String("578960446186580977117854925043439539266."
                  "34992332820282019728792003956564819967"))
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
@@ -484,7 +482,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
           {Value::BigNumeric(BigNumericValue::FromStringStrict(
                                  "-578960446186580977117854925043439539266."
                                  "34992332820282019728792003956564819968")
-                                 .ValueOrDie())},
+                                 .value())},
           String("-578960446186580977117854925043439539266."
                  "34992332820282019728792003956564819968"))
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
@@ -1538,13 +1536,13 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastFloat() {
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
       QueryParamsWithResult(
           {Float(std::numeric_limits<float>::min())},
-          Value::BigNumeric(BigNumericValue::FromString("1e-38").ValueOrDie()))
+          Value::BigNumeric(BigNumericValue::FromString("1e-38").value()))
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
       QueryParamsWithResult(
           {Float(std::numeric_limits<float>::max())},
           Value::BigNumeric(BigNumericValue::FromString(
                                 "340282346638528859811704183484516925440")
-                                .ValueOrDie()))
+                                .value()))
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
       QueryParamsWithResult({Float(std::numeric_limits<float>::quiet_NaN())},
                             NullBigNumeric(), OUT_OF_RANGE)
@@ -1614,7 +1612,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastDouble() {
       QueryParamsWithResult({Double(NumericValue::MaxValue().ToDouble())},
                             Value::Numeric(NumericValue::FromDouble(
                                                99999999999999991433150857216.0)
-                                               .ValueOrDie()))
+                                               .value()))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult({Double(std::numeric_limits<double>::max())},
                             NullNumeric(), OUT_OF_RANGE)
@@ -1668,7 +1666,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastDouble() {
           {Double(BigNumericValue::MaxValue().ToDouble())},
           Value::BigNumeric(BigNumericValue::FromString(
                                 "578960446186580955070694765308237840384")
-                                .ValueOrDie()))
+                                .value()))
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
       QueryParamsWithResult({Double(std::numeric_limits<double>::max())},
                             NullBigNumeric(), OUT_OF_RANGE)
@@ -1690,13 +1688,11 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericValue() {
       FEATURE_NUMERIC_TYPE, FEATURE_BIGNUMERIC_TYPE};
   return {
       // NUMERIC -> Other numeric types
-      QueryParamsWithResult(
-          {Value::Numeric(NumericValue(int32max))},
-          Int32(int32max))
+      QueryParamsWithResult({Value::Numeric(NumericValue(int32max))},
+                            Int32(int32max))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-      QueryParamsWithResult(
-          {Value::Numeric(NumericValue(int32min))},
-          Int32(int32min))
+      QueryParamsWithResult({Value::Numeric(NumericValue(int32min))},
+                            Int32(int32min))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult({Value::Numeric(NumericValue(int64max))},
                             Int64(int64max))
@@ -1704,9 +1700,8 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericValue() {
       QueryParamsWithResult({Value::Numeric(NumericValue(int64min))},
                             Int64(int64min))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-      QueryParamsWithResult(
-          {Value::Numeric(NumericValue(uint32max))},
-          Uint32(uint32max))
+      QueryParamsWithResult({Value::Numeric(NumericValue(uint32max))},
+                            Uint32(uint32max))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult({Value::Numeric(NumericValue())}, Uint32(0))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
@@ -1748,17 +1743,16 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericValue() {
           Value::BigNumeric(BigNumericValue(NumericValue::MinValue())))
           .WrapWithFeatureSet(kNumericFeatureSet),
       QueryParamsWithResult(
-          {Value::Numeric(NumericValue::FromDouble(3.14159).ValueOrDie())},
+          {Value::Numeric(NumericValue::FromDouble(3.14159).value())},
           Float(3.14159f))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-      QueryParamsWithResult(
-          {Value::Numeric(NumericValue(3))}, Float(3))
+      QueryParamsWithResult({Value::Numeric(NumericValue(3))}, Float(3))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult({Value::Numeric(NumericValue())}, Float(0))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
           {Value::Numeric(
-              NumericValue::FromStringStrict("0.000000001").ValueOrDie())},
+              NumericValue::FromStringStrict("0.000000001").value())},
           Float(1e-09f))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult({Value::Numeric(NumericValue::MaxValue())},
@@ -1769,17 +1763,15 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericValue() {
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
           {Double(3.14159)},
-          Value::Numeric(NumericValue::FromDouble(3.14159).ValueOrDie()))
+          Value::Numeric(NumericValue::FromDouble(3.14159).value()))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-      QueryParamsWithResult(
-          {Value::Numeric(NumericValue(3))}, Double(3))
+      QueryParamsWithResult({Value::Numeric(NumericValue(3))}, Double(3))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-      QueryParamsWithResult({Value::Numeric(NumericValue())},
-                            Double(0))
+      QueryParamsWithResult({Value::Numeric(NumericValue())}, Double(0))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult(
           {Value::Numeric(
-              NumericValue::FromStringStrict("0.000000001").ValueOrDie())},
+              NumericValue::FromStringStrict("0.000000001").value())},
           Double(1e-09))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult({Value::Numeric(NumericValue::MaxValue())},
@@ -1855,26 +1847,24 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericValue() {
       QueryParamsWithResult({Value::BigNumeric(BigNumericValue(3))}, Float(3))
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
       QueryParamsWithResult(
-          {Value::BigNumeric(
-              BigNumericValue::FromDouble(3.14159).ValueOrDie())},
+          {Value::BigNumeric(BigNumericValue::FromDouble(3.14159).value())},
           Float(3.14159f))
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
       QueryParamsWithResult(
-          {Value::BigNumeric(
-              BigNumericValue::FromDouble(3.9999997).ValueOrDie())},
+          {Value::BigNumeric(BigNumericValue::FromDouble(3.9999997).value())},
           Float(3.9999998f))
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
       // 2^127 * (2 - 2^(-24) - 2^(-53)) - 1
       QueryParamsWithResult(
           {Value::BigNumeric(BigNumericValue::FromStringStrict(
                                  "-340282356779733642748073463979561713663")
-                                 .ValueOrDie())},
+                                 .value())},
           Float(std::numeric_limits<float>::lowest()))
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
       QueryParamsWithResult(
           {Value::BigNumeric(BigNumericValue::FromStringStrict(
                                  "340282356779733642748073463979561713663")
-                                 .ValueOrDie())},
+                                 .value())},
           Float(std::numeric_limits<float>::max()))
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
       QueryParamsWithResult({Value::BigNumeric(BigNumericValue::MaxValue())},
@@ -1888,13 +1878,12 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericValue() {
       QueryParamsWithResult({Value::BigNumeric(BigNumericValue(3))}, Double(3))
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
       QueryParamsWithResult(
-          {Value::BigNumeric(
-              BigNumericValue::FromDouble(3.14159).ValueOrDie())},
+          {Value::BigNumeric(BigNumericValue::FromDouble(3.14159).value())},
           Double(3.14159))
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
       QueryParamsWithResult(
           {Value::BigNumeric(
-              BigNumericValue::FromDouble(3.9999999999999997).ValueOrDie())},
+              BigNumericValue::FromDouble(3.9999999999999997).value())},
           Double(3.9999999999999995))
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
       QueryParamsWithResult({Value::BigNumeric(BigNumericValue::MaxValue())},

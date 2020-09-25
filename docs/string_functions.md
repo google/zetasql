@@ -14,6 +14,34 @@ returned positions refer to character positions.
 All string comparisons are done byte-by-byte, without regard to Unicode
 canonical equivalence.
 
+### ASCII
+
+```sql
+ASCII(value)
+```
+
+**Description**
+
+Returns the ASCII code for the first character or byte in `value`. Returns
+`0` if `value` is empty or the ASCII code is `0` for the first character
+or byte.
+
+**Return type**
+
+`INT64`
+
+**Examples**
+
+```sql
+SELECT ASCII('abcd') as A, ASCII('a') as B, ASCII('') as C, ASCII(NULL) as D;
+
++-------+-------+-------+-------+
+| A     | B     | C     | D     |
++-------+-------+-------+-------+
+| 97    | 97    | 0     | NULL  |
++-------+-------+-------+-------+
+```
+
 ### BYTE_LENGTH
 
 ```sql
@@ -113,6 +141,49 @@ FROM example;
 +------------+---------------------+
 ```
 
+### CHR
+
+```sql
+CHR(value)
+```
+
+**Description**
+
+Takes a Unicode [code point][string-link-to-code-points-wikipedia] and returns
+the character that matches the code point. Each valid code point should fall
+within the range of [0, 0xD7FF] and [0xE000, 0x10FFFF]. Returns an empty string
+if the code point is `0`. If an invalid Unicode code point is specified, an
+error is returned.
+
+To work with an array of Unicode code points, see
+[`CODE_POINTS_TO_STRING`][string-link-to-codepoints-to-string]
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+SELECT CHR(65) AS A, CHR(255) AS B, CHR(513) AS C, CHR(1024)  AS D;
+
++-------+-------+-------+-------+
+| A     | B     | C     | D     |
++-------+-------+-------+-------+
+| A     | ÿ     | ȁ     | Ѐ     |
++-------+-------+-------+-------+
+```
+
+```sql
+SELECT CHR(97) AS A, CHR(0xF9B5) AS B, CHR(0) AS C, CHR(NULL) AS D;
+
++-------+-------+-------+-------+
+| A     | B     | C     | D     |
++-------+-------+-------+-------+
+| a     | 例    |       | NULL  |
++-------+-------+-------+-------+
+```
+
 ### CODE_POINTS_TO_BYTES
 
 ```sql
@@ -139,11 +210,11 @@ The following is a basic example using `CODE_POINTS_TO_BYTES`.
 ```sql
 SELECT CODE_POINTS_TO_BYTES([65, 98, 67, 100]) AS bytes;
 
-+-------+
-| bytes |
-+-------+
-| AbCd  |
-+-------+
++----------+
+| bytes    |
++----------+
+| AbCd     |
++----------+
 ```
 
 The following example uses a rotate-by-13 places (ROT13) algorithm to encode a
@@ -166,11 +237,11 @@ SELECT CODE_POINTS_TO_BYTES(ARRAY_AGG(
   ) ORDER BY OFFSET)) AS encoded_string
 FROM UNNEST(TO_CODE_POINTS(b'Test String!')) code WITH OFFSET;
 
-+----------------+
-| encoded_string |
-+----------------+
-| Grfg Fgevat!   |
-+----------------+
++------------------+
+| encoded_string   |
++------------------+
+| Grfg Fgevat!     |
++------------------+
 ```
 
 ### CODE_POINTS_TO_STRING
@@ -183,7 +254,8 @@ CODE_POINTS_TO_STRING(value)
 
 Takes an array of Unicode [code points][string-link-to-code-points-wikipedia]
 (`ARRAY` of `INT64`) and
-returns a `STRING`.
+returns a `STRING`. If a code point is 0, does not return a character for it
+in the `STRING`.
 
 To convert from a string to an array of code points, see
 [TO_CODE_POINTS][string-link-to-code-points].
@@ -192,9 +264,9 @@ To convert from a string to an array of code points, see
 
 `STRING`
 
-**Example**
+**Examples**
 
-The following is a basic example using `CODE_POINTS_TO_STRING`.
+The following are basic examples using `CODE_POINTS_TO_STRING`.
 
 ```sql
 SELECT CODE_POINTS_TO_STRING([65, 255, 513, 1024]) AS string;
@@ -203,6 +275,26 @@ SELECT CODE_POINTS_TO_STRING([65, 255, 513, 1024]) AS string;
 | string |
 +--------+
 | AÿȁЀ   |
++--------+
+```
+
+```sql
+SELECT CODE_POINTS_TO_STRING([97, 0, 0xF9B5]) AS string;
+
++--------+
+| string |
++--------+
+| a例    |
++--------+
+```
+
+```sql
+SELECT CODE_POINTS_TO_STRING([65, 255, NULL, 1024]) AS string;
+
++--------+
+| string |
++--------+
+| NULL   |
 +--------+
 ```
 
@@ -1658,6 +1750,14 @@ FROM Strings;
 +---+----+-------+-------+------+------+
 ```
 
+### OCTET_LENGTH
+
+```sql
+OCTET_LENGTH(value)
+```
+
+Alias for [`BYTE_LENGTH`](#byte-length).
+
 ### REGEXP_CONTAINS
 
 ```sql
@@ -1843,6 +1943,124 @@ FROM code_markdown;
 +----------------------------+
 ```
 
+### REGEXP_INSTR
+
+```sql
+REGEXP_INSTR(source_value, regexp [, position[, occurrence, [occurrence_position]]])
+```
+
+**Description**
+
+Returns the lowest 1-based index of a regular expression, `regexp`, in
+`source_value`. Returns `0` when no match is found or the regular expression
+is empty. Returns an error if the regular expression is invalid or has more than
+one capturing group. `source_value` and `regexp` must be the same type, either
+`STRING` or `BYTES`.
+
+If `position` is specified, the search starts at this position in
+`source_value`, otherwise it starts at the beginning of `source_value`. If
+`position` is negative, the function searches backwards from the end of
+`source_value`, with -1 indicating the last character. `position` cannot be 0.
+
+If `occurrence` is specified, the search returns the position of a specific
+instance of `regexp` in `source_value`, otherwise it returns the index of
+the first occurrence. If `occurrence` is greater than the number of matches
+found, 0 is returned. For `occurrence` > 1, the function searches for
+overlapping occurrences, in other words, the function searches for additional
+occurrences beginning with the second character in the previous occurrence.
+`occurrence` cannot be 0 or negative.
+
+You can optionally use `occurrence_position` to specify where a position
+in relation to an `occurrence` starts. Your choices are:
++  `0`: Returns the beginning position of the occurrence.
++  `1`: Returns the first position following the end of the occurrence. If the
+   end of the occurrence is also the end of the input, one off the
+   end of the occurrence is returned. For example, length of a string + 1.
+
+**Return type**
+
+`INT64`
+
+**Examples**
+
+```sql
+WITH example AS (
+  SELECT 'ab@gmail.com' AS source_value, '@[^.]*' AS regexp UNION ALL
+  SELECT 'ab@mail.com', '@[^.]*' UNION ALL
+  SELECT 'abc@gmail.com', '@[^.]*' UNION ALL
+  SELECT 'abc.com', '@[^.]*')
+SELECT source_value, regexp, REGEXP_INSTR(source_value, regexp) AS instr
+FROM example;
+
++---------------+--------+-------+
+| source_value  | regexp | instr |
++---------------+--------+-------+
+| ab@gmail.com  | @[^.]* | 3     |
+| ab@mail.com   | @[^.]* | 3     |
+| abc@gmail.com | @[^.]* | 4     |
+| abc.com       | @[^.]* | 0     |
++---------------+--------+-------+
+```
+
+```sql
+WITH example AS (
+  SELECT 'a@gmail.com b@gmail.com' AS source_value, '@[^.]*' AS regexp, 1 AS position UNION ALL
+  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 2 UNION ALL
+  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 3 UNION ALL
+  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 4)
+SELECT
+  source_value, regexp, position,
+  REGEXP_INSTR(source_value, regexp, position) AS instr
+FROM example;
+
++-------------------------+--------+----------+-------+
+| source_value            | regexp | position | instr |
++-------------------------+--------+----------+-------+
+| a@gmail.com b@gmail.com | @[^.]* | 1        | 2     |
+| a@gmail.com b@gmail.com | @[^.]* | 2        | 2     |
+| a@gmail.com b@gmail.com | @[^.]* | 3        | 14    |
+| a@gmail.com b@gmail.com | @[^.]* | 4        | 14    |
++-------------------------+--------+----------+-------+
+```
+
+```sql
+WITH example AS (
+  SELECT 'a@gmail.com b@gmail.com c@gmail.com' AS source_value,
+         '@[^.]*' AS regexp, 1 AS position, 1 AS occurrence UNION ALL
+  SELECT 'a@gmail.com b@gmail.com c@gmail.com', '@[^.]*', 1, 2 UNION ALL
+  SELECT 'a@gmail.com b@gmail.com c@gmail.com', '@[^.]*', 1, 3)
+SELECT
+  source_value, regexp, position, occurrence,
+  REGEXP_INSTR(source_value, regexp, position, occurrence) AS instr
+FROM example;
+
++-------------------------------------+--------+----------+------------+-------+
+| source_value                        | regexp | position | occurrence | instr |
++-------------------------------------+--------+----------+------------+-------+
+| a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 1          | 2     |
+| a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 2          | 14    |
+| a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 3          | 26    |
++-------------------------------------+--------+----------+------------+-------+
+```
+
+```sql
+WITH example AS (
+  SELECT 'a@gmail.com' AS source_value, '@[^.]*' AS regexp,
+         1 AS position, 1 AS occurrence, 0 AS o_position UNION ALL
+  SELECT 'a@gmail.com', '@[^.]*', 1, 1, 1)
+SELECT
+  source_value, regexp, position, occurrence, o_position,
+  REGEXP_INSTR(source_value, regexp, position, occurrence, o_position) AS instr
+FROM example;
+
++--------------+--------+----------+------------+------------+-------+
+| source_value | regexp | position | occurrence | o_position | instr |
++--------------+--------+----------+------------+------------+-------+
+| a@gmail.com  | @[^.]* | 1        | 1          | 0          | 2     |
+| a@gmail.com  | @[^.]* | 1        | 1          | 1          | 8     |
++--------------+--------+----------+------------+------------+-------+
+```
+
 ### REGEXP_MATCH
 
 <p class="caution"><strong>Deprecated.</strong> Use <a href="#regexp_contains">REGEXP_CONTAINS</a>.</p>
@@ -1996,7 +2214,7 @@ The `repetitions` parameter specifies the number of times to repeat
 `original_value`. Returns `NULL` if either `original_value` or `repetitions`
 are `NULL`.
 
-This function return an error if the `repetitions` value is negative.
+This function returns an error if the `repetitions` value is negative.
 
 **Return type**
 
@@ -2592,6 +2810,14 @@ FROM items;
 +---------+
 ```
 
+### SUBSTRING
+
+```sql
+SUBSTRING(value, position[, length])
+```
+
+Alias for [`SUBSTR`](#substr).
+
 ### TO_BASE32
 
 ```sql
@@ -2890,6 +3116,34 @@ FROM items;
 +---------+
 ```
 
+### UNICODE
+
+```sql
+UNICODE(value)
+```
+
+**Description**
+
+Returns the Unicode [code point][string-code-point] for the first character in
+`value`. Returns `0` if `value` is empty, or if the resulting Unicode code
+point is `0`.
+
+**Return type**
+
+`INT64`
+
+**Examples**
+
+```sql
+SELECT UNICODE('âbcd') as A, UNICODE('â') as B, UNICODE('') as C, UNICODE(NULL) as D;
+
++-------+-------+-------+-------+
+| A     | B     | C     | D     |
++-------+-------+-------+-------+
+| 226   | 226   | 0     | NULL  |
++-------+-------+-------+-------+
+```
+
 ### UPPER
 
 ```sql
@@ -2943,6 +3197,7 @@ FROM items;
 [string-link-to-case-folding-wikipedia]: https://en.wikipedia.org/wiki/Letter_case#Case_folding
 [string-link-to-soundex-wikipedia]: https://en.wikipedia.org/wiki/Soundex
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
+[string-code-point]: https://en.wikipedia.org/wiki/Code_point
 [string-link-to-strpos]: #strpos
 [string-link-to-char-length]: #char_length
 [string-link-to-code-points]: #to_code_points

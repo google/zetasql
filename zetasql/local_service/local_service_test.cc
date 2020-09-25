@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -236,10 +236,12 @@ TEST_F(ZetaSqlLocalServiceImplTest, Evaluate) {
   const ProtoType* proto_type;
   ZETASQL_ASSERT_OK(factory.MakeProtoType(zetasql_test::KitchenSinkPB::descriptor(),
                                   &proto_type));
-  auto* column = request.add_columns();
-  column->set_name("c");
+  auto* column_type = request.mutable_options()->add_expression_columns();
+  column_type->set_name("C");
   ZETASQL_ASSERT_OK(proto_type->SerializeToProtoAndDistinctFileDescriptors(
-      column->mutable_type(), &file_descriptor_set_map));
+      column_type->mutable_type(), &file_descriptor_set_map));
+  auto* column = request.add_columns();
+  column->set_name("C");
   zetasql_test::KitchenSinkPB pb;
   pb.set_int32_val(1);
   pb.set_int64_key_1(2);
@@ -253,10 +255,12 @@ TEST_F(ZetaSqlLocalServiceImplTest, Evaluate) {
   const EnumType* enum_type;
   ZETASQL_ASSERT_OK(factory.MakeEnumType(
       pool_->FindEnumTypeByName("zetasql_test.TestEnum"), &enum_type));
+  auto* param_type = request.mutable_options()->add_query_parameters();
+  param_type->set_name("e");
+  ZETASQL_ASSERT_OK(enum_type->SerializeToProtoAndDistinctFileDescriptors(
+      param_type->mutable_type(), &file_descriptor_set_map));
   auto* param = request.add_params();
   param->set_name("e");
-  ZETASQL_ASSERT_OK(enum_type->SerializeToProtoAndDistinctFileDescriptors(
-      param->mutable_type(), &file_descriptor_set_map));
   Value enum_value = values::Enum(enum_type, 1);
   ValueProto enum_pb;
   ZETASQL_ASSERT_OK(enum_value.Serialize(&enum_pb));
@@ -275,7 +279,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, Evaluate) {
   }
 
   // Use the column and param in the expression.
-  request.set_sql("IF(c.int32_val=1, @e, null)");
+  request.set_sql("IF(C.int32_val=1, @e, null)");
 
   EvaluateResponse response;
   ZETASQL_ASSERT_OK(Evaluate(request, &response));
@@ -337,8 +341,6 @@ TEST_F(ZetaSqlLocalServiceImplTest, EvaluatePrepared) {
 
   auto* evaluate_column = evaluate_request.add_columns();
   evaluate_column->set_name("c");
-  ZETASQL_ASSERT_OK(proto_type->SerializeToProtoAndDistinctFileDescriptors(
-      evaluate_column->mutable_type(), &file_descriptor_set_map));
   zetasql_test::KitchenSinkPB pb;
   pb.set_int32_val(1);
   pb.set_int64_key_1(2);
@@ -351,8 +353,6 @@ TEST_F(ZetaSqlLocalServiceImplTest, EvaluatePrepared) {
   // And add an enum-type param.
   auto* evaluate_param = evaluate_request.add_params();
   evaluate_param->set_name("e");
-  ZETASQL_ASSERT_OK(enum_type->SerializeToProtoAndDistinctFileDescriptors(
-      evaluate_param->mutable_type(), &file_descriptor_set_map));
   Value enum_value = values::Enum(enum_type, 1);
   ValueProto enum_pb;
   ZETASQL_ASSERT_OK(enum_value.Serialize(&enum_pb));
@@ -390,7 +390,6 @@ TEST_F(ZetaSqlLocalServiceImplTest, EvaluateFailuresNoRegister) {
   request.set_sql("foo + @bar");
   auto* param = request.add_params();
   param->set_name("bar");
-  param->mutable_type()->set_type_kind(TYPE_INT64);
   param->mutable_value()->set_int64_value(1);
 
   ASSERT_FALSE(Evaluate(request, &response).ok());
@@ -398,7 +397,6 @@ TEST_F(ZetaSqlLocalServiceImplTest, EvaluateFailuresNoRegister) {
 
   auto* column = request.add_columns();
   column->set_name("foo");
-  column->mutable_type()->set_type_kind(TYPE_STRING);
   column->mutable_value()->set_string_value("");
 
   ASSERT_FALSE(Evaluate(request, &response).ok());

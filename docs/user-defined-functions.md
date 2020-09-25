@@ -2,9 +2,7 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-# User-Defined Functions
-
-<!-- BEGIN CONTENT -->
+# User-defined functions
 
 ZetaSQL
 supports user-defined functions (UDFs). A UDF enables you to create a function
@@ -12,7 +10,7 @@ using another SQL expression or another programming
 language, such as JavaScript or Lua. These functions accept columns of input
 and perform actions, returning the result of those actions as a value.
 
-##  General UDF and TVF  Syntax
+##  General UDF and TVF  syntax
 
 User-defined functions and table-valued
 functions in ZetaSQL use the
@@ -579,7 +577,7 @@ CREATE TEMP TABLE FUNCTION CustomerRangeWithCustomerType(
     WHERE Info.type = customer_type;
 ```
 
-#### Templated SQL TVF Parameters
+#### Templated SQL TVF parameters
 
 SQL table-valued function signatures can contain the following [templated
 parameter][templated-parameters] values for `param_type`:
@@ -658,6 +656,4 @@ FROM CustomerRangeWithCustomerType(100, 200, 'CUSTOMER_TYPE_ADVERTISER');
 [datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#value-tables
 [group-by-link]: https://github.com/google/zetasql/blob/master/docs/query-syntax#group_by_clause
 [aggregate-fns-link]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions
-
-<!-- END CONTENT -->
 

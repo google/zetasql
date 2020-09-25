@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -73,7 +73,6 @@
 #include "zetasql/base/stl_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -2215,7 +2214,7 @@ class ProtoFieldReader {
   // ProtoFieldValueList in 'proto_slot', reads all of them. If
   // EvaluationOptions::store_proto_field_value_maps is true, also stores
   // them in 'proto_slot'. On failure, returns false and populates
-  // 'status'. (This method does not return ::zetasql_base::StatusOr<Value> for
+  // 'status'. (This method does not return zetasql_base::StatusOr<Value> for
   // performance reasons.)
   bool GetFieldValue(const TupleSlot& proto_slot, EvaluationContext* context,
                      Value* field_value, absl::Status* status) const;
@@ -2594,7 +2593,7 @@ class ScalarFunctionBody : public FunctionBody {
 
   // Evaluates the function using 'args'. On success, populates 'result' and
   // returns true. On failure, populates 'status' and returns false. We avoid
-  // returning ::zetasql_base::StatusOr<Value> for performance reasons.
+  // returning zetasql_base::StatusOr<Value> for performance reasons.
   virtual bool Eval(absl::Span<const Value> args, EvaluationContext* context,
                     Value* result, absl::Status* status) const = 0;
 };

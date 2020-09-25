@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -476,13 +476,13 @@ const std::vector<FunctionTestCall> GetNativeJsonTests(
       Json(JSONValue::ParseJSONString(R"({"x":11111111111111111111, )"
                                       R"("z":123456789012345678901234567890, )"
                                       R"("a":true, "s":"foo"})")
-               .ValueOrDie());
+               .value());
 
   std::vector<FunctionTestCall> tests = GetJsonTestsCommon(
       sql_standard_mode, scalar_test_cases,
       [](absl::optional<absl::string_view> input) {
         if (input.has_value())
-          return Json(JSONValue::ParseJSONString(input.value()).ValueOrDie());
+          return Json(JSONValue::ParseJSONString(input.value()).value());
         return NullJson();
       });
 
@@ -500,7 +500,7 @@ const std::vector<FunctionTestCall> GetNativeJsonTests(
     tests.push_back({value_fn_name,
                      {Json(JSONValue::ParseJSONString(
                                R"({"a": "foo\t\\t\\\t\n\\nbar \"baz\\"})")
-                               .ValueOrDie()),
+                               .value()),
                       String("$.a")},
                      String("foo\t\\t\\\t\n\\nbar \"baz\\")});
   } else {
@@ -512,7 +512,7 @@ const std::vector<FunctionTestCall> GetNativeJsonTests(
          {Json(JSONValue::ParseJSONString(
                    R"({"a":{"b":[{"c" : "foo", "d": 1.23, "f":null }], )"
                    R"("e": true}})")
-                   .ValueOrDie()),
+                   .value()),
           String("$.a.b[0].f")},
          Json(std::move(null_json_value))});
     // Malformed JSON.
@@ -526,16 +526,16 @@ const std::vector<FunctionTestCall> GetNativeJsonTests(
          Json(JSONValue::ParseJSONString(
                   R"({"x":11111111111111111111,)"
                   R"("z":123456789012345678901234567890,"a":true,"s":"foo"})")
-                  .ValueOrDie())});
+                  .value())});
     // Characters should be escaped in JSON_EXTRACT.
     tests.push_back(
         {query_fn_name,
          {Json(JSONValue::ParseJSONString(
                    R"({"a": "foo\t\\t\\\t\n\\nbar \"baz\\"})")
-                   .ValueOrDie()),
+                   .value()),
           String("$.a")},
          Json(JSONValue::ParseJSONString(R"("foo\t\\t\\\t\n\\nbar \"baz\\")")
-                  .ValueOrDie())});
+                  .value())});
   }
 
   return tests;

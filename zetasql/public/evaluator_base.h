@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,12 +44,12 @@
 // Examples:
 //
 //   PreparedExpression expr("1 + 2");
-//   Value result = expr.Execute().ValueOrDie();  // Value::Int64(3)
+//   Value result = expr.Execute().value();  // Value::Int64(3)
 //
 //   PreparedExpression expr("(@param1 + @param2) * col");
 //   Value result = expr.Execute(
 //     {{"col", Value::Int64(5)}},
-//     {{"param1", Value::Int64(1)}, {"param2", Value::Int64(2)}}).ValueOrDie();
+//     {{"param1", Value::Int64(1)}, {"param2", Value::Int64(2)}}).value();
 //   // result = Value::Int64(15)
 //
 // The above expression could also be set up as follows:
@@ -63,7 +63,7 @@
 //   CHECK(types::Int64Type()->Equals(expr.output_type()));
 //   Value result = expr.Execute(
 //     {{"col", Value::Int64(5)}},
-//     {{"param1", Value::Int64(1)}, {"param2", Value::Int64(2)}}).ValueOrDie();
+//     {{"param1", Value::Int64(1)}, {"param2", Value::Int64(2)}}).value();
 //
 // An in-scope expression column can be used as follows:
 //
@@ -78,7 +78,7 @@
 //   ZETASQL_CHECK_OK(expr.Prepare(options));
 //
 //   Value result = expr.Execute(
-//     {{"value", values::Proto(proto_type, my_proto_value)}}).ValueOrDie();
+//     {{"value", values::Proto(proto_type, my_proto_value)}}).value();
 //
 // User-defined functions can be used in expressions as follows:
 //
@@ -102,7 +102,7 @@
 //
 //   PreparedExpression expr("1 + mystrlen('foo')");
 //   ZETASQL_CHECK_OK(expr.Prepare(options, &catalog));
-//   Value result = expr.Execute().ValueOrDie();  // returns 4
+//   Value result = expr.Execute().value();  // returns 4
 //
 // For more examples, see zetasql/common/evaluator_test.cc
 //
@@ -137,7 +137,7 @@
 //   PreparedQuery query("select * from <table>");
 //   ZETASQL_CHECK_OK(query.Prepare(AnalyzerOptions(), &catalog));
 //   std::unique_ptr<EvaluatorTableIterator> result =
-//     query.Execute().ValueOrDie();
+//     query.Execute().value();
 //   ... Iterate over 'result' ...
 //
 // Once a query is successfully prepared, the output schema can be retrieved
@@ -160,7 +160,7 @@
 //   PreparedModify statement("delete from <table> where true");
 //   ZETASQL_CHECK_OK(statement.Prepare(AnalyzerOptions(), &catalog));
 //   std::unique_ptr<EvaluatorTableModifyIterator> result =
-//     statement.Execute().ValueOrDie();
+//     statement.Execute().value();
 //   ... Iterate over `result` (which lists deleted rows) ...
 
 #include <map>
@@ -181,7 +181,6 @@
 #include "zetasql/base/statusor.h"
 #include "absl/synchronization/mutex.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
 #include "zetasql/base/clock.h"
 
 namespace zetasql {
@@ -318,7 +317,7 @@ class PreparedExpressionBase {
   //   ZETASQL_CHECK_OK(expr.Prepare(options, &catalog));
   //   ...
   //   const std::vector<string> columns =
-  //              expr.GetReferencedColumns().ConsumeValueOrDie();
+  //              expr.GetReferencedColumns().value();
   //   ParameterValueMap col_map;
   //   for (const string& col : columns) {
   //     col_map[col] = datastore.GetValueForColumn(col);

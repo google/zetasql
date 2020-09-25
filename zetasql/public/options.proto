@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -103,7 +103,7 @@ message LanguageFeatureOptions {
 // All optional features are off by default.  Some features have a negative
 // meaning, so turning them on will remove a feature or enable an error.
 enum LanguageFeature {
-  reserved 36, 37;
+  reserved 36 to 39, 45;
   // CROSS-VERSION FEATURES
   //
   // These are features that can be opted into independently from versioning.
@@ -313,11 +313,6 @@ enum LanguageFeature {
   // Enables support for column definition list in CREATE EXTERNAL TABLE.
   // Example: CREATE EXTERNAL TABLE t (x FLOAT64)
   FEATURE_CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST = 35;
-
-  // These 3 feature options are ignored.
-  FEATURE_NUMERIC_COVAR_CORR_SIGNATURES = 38 [deprecated = true];
-  FEATURE_NUMERIC_VARIANCE_STDDEV_SIGNATURES = 39 [deprecated = true];
-  FEATURE_NUMERIC_PERCENTILE_SIGNATURES = 45 [deprecated = true];
 
   // Enables using NOT ENFORCED in primary keys.
   // See (broken link).
@@ -590,6 +585,14 @@ enum LanguageFeature {
 
   // Enable support for aggregate functions with WITH GROUP_ROWS syntax.
   FEATURE_V_1_3_WITH_GROUP_ROWS = 13021;
+
+  // Additional signatures for [DATE|DATETIME|TIMESTAMP]_[ADD|SUB|DIFF|TRUNC]
+  // functions. ((broken link)).
+  FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES = 13022;
+
+  // Additional signatures for ST_GeogFromText/FromGeoJson/From* functions.
+  // ((broken link)).
+  FEATURE_V_1_3_EXTENDED_GEOGRAPHY_PARSERS = 13023;
 
   // EXPERIMENTAL FEATURES
   // These are features supported in the code that are not currently part of

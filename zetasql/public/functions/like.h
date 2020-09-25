@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 
 #include "zetasql/public/type.pb.h"
 #include "absl/base/attributes.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/string_view.h"
 #include "re2/re2.h"
 #include "zetasql/base/status.h"
@@ -28,19 +29,26 @@
 namespace zetasql {
 namespace functions {
 
-// Creates a regexp that can be used to compute LIKE function with a given
-// pattern. 'type' must be either TYPE_STRING or TYPE_BYTES. In case of success
-// the result is saved in *regexp. Caller should use returned regexp with
-// RE2::FullMatch().
-ABSL_MUST_USE_RESULT absl::Status CreateLikeRegexp(
-    absl::string_view pattern, TypeKind type, std::unique_ptr<RE2>* regexp);
+// Returns true if <c> is a potentially meaningful regexp character.
+bool IsRegexSpecialChar(char c);
+
+// Generates regexp pattern from the pattern of LIKE function <pattern>.
+zetasql_base::StatusOr<std::string> GetRePatternFromLikePattern(
+    absl::string_view pattern);
 
 // Creates a regexp that can be used to compute LIKE function with a given
-// pattern. 'options' can be used to specify the options for compiling
+// pattern. <type> must be either TYPE_STRING or TYPE_BYTES. In case of success
+// the result is saved in *regexp. Caller should use returned regexp with
+// RE2::FullMatch().
+absl::Status CreateLikeRegexp(absl::string_view pattern, TypeKind type,
+                              std::unique_ptr<RE2>* regexp);
+
+// Creates a regexp that can be used to compute LIKE function with a given
+// pattern. <options> can be used to specify the options for compiling
 // the regexp. Caller should use returned regexp with RE2::FullMatch().
-ABSL_MUST_USE_RESULT absl::Status CreateLikeRegexpWithOptions(
-    absl::string_view pattern, const RE2::Options& options,
-    std::unique_ptr<RE2>* regexp);
+absl::Status CreateLikeRegexpWithOptions(absl::string_view pattern,
+                                         const RE2::Options& options,
+                                         std::unique_ptr<RE2>* regexp);
 
 }  // namespace functions
 }  // namespace zetasql

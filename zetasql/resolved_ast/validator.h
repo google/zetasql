@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -409,7 +409,7 @@ class Validator {
       const std::set<ResolvedColumn>& visible_parameters);
 
   absl::Status ValidateResolvedRecursiveRefScan(
-      const ResolvedRecursiveRefScan* scan) const;
+      const ResolvedRecursiveRefScan* scan);
 
   absl::Status ValidateResolvedWithPartitionColumns(
       const ResolvedWithPartitionColumns* with_partition_columns,
@@ -429,6 +429,16 @@ class Validator {
   // Set using scoped VarSetters.
   typedef absl::flat_hash_set<ResolvedArgumentDefEnums::ArgumentKind>
       ArgumentKindSet;
+
+  struct RecursiveScanInfo {
+    explicit RecursiveScanInfo(const ResolvedRecursiveScan* scan) {
+      this->scan = scan;
+    }
+
+    const ResolvedRecursiveScan* scan;
+    bool saw_recursive_ref = false;
+  };
+
   ArgumentKindSet allowed_argument_kinds_;
 
   // This points to the current CREATE TABLE FUNCTION statement being validated,
@@ -443,10 +453,10 @@ class Validator {
   // A ResolvedRecursiveScan node is legal only if this value is > 0.
   int nested_recursive_context_count_ = 0;
 
-  // The number of nested recursive terms of a ResolvedRecursiveScan we are
-  // currently in. A ResolvedRecursiveRefScan node is legal only if this value
-  // is > 0.
-  int nested_recursive_term_count_ = 0;
+  // A stack of ResolvedRecursiveScans we are currently inside the recursive
+  // term of. Used to ensure that each ResolvedRecursiveRefScan matches up
+  // with a ResolvedRecursiveScan.
+  std::vector<RecursiveScanInfo> nested_recursive_scans_;
 };
 
 }  // namespace zetasql

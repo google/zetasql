@@ -1,5 +1,5 @@
 #
-# Copyright 2019 ZetaSQL Authors
+# Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ load("//javatests/com/google/zetasql:junit_test_suites.bzl", "junit_test_suites"
 # Tests for ZetaSQL public Java API.
 package(
     default_testonly = 1,
-    default_visibility = ["//:__subpackages__"],
+    default_visibility = ["//zetasql/base:zetasql_implementation"],
 )
 
 java_library(

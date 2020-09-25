@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -193,7 +193,7 @@ inline FixedInt<64, 6> MultiplyValueByWeight(const BigNumericValue& value,
 BigNumericValue PercentileHelper<BigNumericValue>::ComputeLinearInterpolation(
     const BigNumericValue& left_value, const BigNumericValue& left_weight,
     const BigNumericValue& right_value, const BigNumericValue& right_weight) {
-  DCHECK_EQ(left_weight.Add(right_weight).ValueOrDie(), BigNumericValue(1))
+  DCHECK_EQ(left_weight.Add(right_weight).value(), BigNumericValue(1))
       << "left_weight + right_weight must be 1";
   FixedInt<64, 6> scaled_sum = MultiplyValueByWeight(left_value, left_weight);
   bool overflow =

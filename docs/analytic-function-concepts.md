@@ -1,9 +1,7 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-# Analytic Functions Concepts
-
-<!-- BEGIN CONTENT -->
+# Analytic functions concepts
 
 An analytic function computes values over a group of rows and returns a
 single result for _each_ row. This is different from an aggregate function,
@@ -524,7 +522,7 @@ The following tables are used in the subsequent aggregate analytic
 query examples: [`Produce`][produce-table], [`Employees`][employees-table],
 and [`Farm`][farm-table].
 
-#### Produce Table
+#### Produce table
 
 Some examples reference a table called `Produce`:
 
@@ -1023,6 +1021,4 @@ WINDOW item_window AS (
 [navigation-functions-reference]: https://github.com/google/zetasql/blob/master/docs/navigation_functions
 [numbering-functions-reference]: https://github.com/google/zetasql/blob/master/docs/numbering_functions
 [aggregate-analytic-functions-reference]: https://github.com/google/zetasql/blob/master/docs/aggregate_analytic_functions
-
-<!-- END CONTENT -->
 

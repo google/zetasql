@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 ZetaSQL Authors
+ * Copyright 2019 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ import java.nio.channels.SocketChannel;
 @AutoService(ClientChannelProvider.class)
 public class JniChannelProvider implements ClientChannelProvider {
   private static final InetSocketAddress ADDRESS = new InetSocketAddress(0);
-  private static Channel channel = null;
+  private static NioEventLoopGroup eventLoop = null;
 
   private static String getLibraryPath() {
     String path = System.getProperty("zetasql.local_service.path");
@@ -131,26 +131,24 @@ public class JniChannelProvider implements ClientChannelProvider {
     }
   }
 
-  private synchronized Channel getChannelInternal() {
-    if (channel == null) {
+  private synchronized NioEventLoopGroup getEventLoop() {
+    if (eventLoop == null) {
       // The daemon flag tells the JVM to clean up on shutdown.
       DefaultThreadFactory threadFactory =
           new DefaultThreadFactory(/* poolType= */ "zetasqlJniChannel", /* daemon= */ true);
-      NioEventLoopGroup eventLoopGroup =
-          new NioEventLoopGroup(/* nThreads= */ 0, /* threadFactory= */ threadFactory);
-      channel =
-          NettyChannelBuilder.forAddress(ADDRESS)
-              .channelType(SocketPairChannel.class)
-              .eventLoopGroup(eventLoopGroup)
-              .usePlaintext()
-              .build();
+      eventLoop = new NioEventLoopGroup(/* nThreads= */ 0, /* threadFactory= */ threadFactory);
     }
-    return channel;
+    return eventLoop;
   }
 
-  /** Returns the channel that can be used to call RPC of the ZetaSQL server. */
+  /** Create a new channel that can be used to call RPC of the ZetaSQL server. */
   @Override
-  public Channel getChannel() {
-    return getChannelInternal();
+  public Channel newChannel() {
+    return NettyChannelBuilder.forAddress(ADDRESS)
+        .channelType(SocketPairChannel.class)
+        .eventLoopGroup(getEventLoop())
+        // Disables encryption, not needed because the socketpair is in memory.
+        .usePlaintext()
+        .build();
   }
 }

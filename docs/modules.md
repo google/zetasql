@@ -3,8 +3,6 @@
 
 # Modules
 
-<!-- BEGIN CONTENT -->
-
 ## What are modules?
 
 Modules are a set of ZetaSQL DDL statements that do not have
@@ -40,11 +38,10 @@ Modules support the following statements:
 + `CREATE ( PUBLIC | PRIVATE ) [ TABLE ] FUNCTION`
 + `CREATE ( PUBLIC | PRIVATE ) CONSTANT`
 
-Modules do not support statements that return results, run queries, or have side
-effects.  For example, the following statements are not supported inside of
-modules:
+Modules do not support statements that return results or have side effects.  For
+example, the following statements are not supported inside of modules:
 
-+ `SELECT` queries
++ `SELECT` statements
 + `UPDATE` statements
 
 ### Declaring a module
@@ -80,7 +77,7 @@ The `IMPORT` statement should not include the `.sqlm` file extension.
 
 Modules can contain `CREATE` statements to create objects within the module.
 
-#### Specifying Public vs. Private Objects
+#### Specifying public vs. private objects
 
 All `CREATE` statements must indicate if the created object is available outside
 of the module in the importing session (public), or only available internally
@@ -294,6 +291,4 @@ CREATE PUBLIC FUNCTION foo(d int) AS (baz.bar(d));
 
 [user-defined-functions]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions
 [table-valued-functions]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions#tvfs
-
-<!-- END CONTENT -->
 

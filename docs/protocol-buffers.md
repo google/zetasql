@@ -2,9 +2,7 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-# Protocol Buffers
-
-<!-- BEGIN CONTENT -->
+# Protocol buffers
 
 Protocol buffers are a flexible, efficient mechanism for serializing structured
 data. They are easy to create, small in size, and efficient to send over RPCs.
@@ -160,7 +158,7 @@ to a query like this:
 SELECT AS VALUE NEW ProtoType(field1, field2, field3 AS (path.to.extension), ...)
 ```
 
-## Casting Protocol Buffers
+## Casting protocol buffers
 
 You can cast `PROTO` to or from `BYTES` or `STRING`.
 
@@ -843,6 +841,4 @@ FROM
 
 [link_to_safe_cast]: https://github.com/google/zetasql/blob/master/docs/conversion_rules#safe_casting
 [proto-extract]: https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions#proto_extract
-
-<!-- END CONTENT -->
 

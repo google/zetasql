@@ -28,9 +28,10 @@ SIGN(X)
 
 **Description**
 
-Returns -1, 0, or +1 for negative, zero and positive arguments respectively.
-For floating point arguments, this function does not distinguish between
-positive and negative zero. Returns `NaN` for a `NaN` argument.
+Returns -1, 0, or +1 for negative, zero and positive arguments respectively. For
+floating point arguments, this function does not distinguish between positive
+and negative zero.   Returns`NaN`for a`NaN`
+argument.
 
 ### IS_INF
 
@@ -40,8 +41,9 @@ IS_INF(X)
 
 **Description**
 
-Returns `TRUE` if the value is positive or negative infinity. Returns
-`NULL` for `NULL` inputs.
+Returns `TRUE` if the value is positive or negative infinity.
+
+Returns `NULL` for `NULL` inputs.
 
 ### IS_NAN
 
@@ -51,7 +53,9 @@ IS_NAN(X)
 
 **Description**
 
-Returns `TRUE` if the value is a `NaN` value. Returns `NULL` for `NULL` inputs.
+Returns `TRUE` if the value is a `NaN` value.
+
+Returns `NULL` for` NULL` inputs.
 
 ### IEEE_DIVIDE
 
@@ -69,10 +73,10 @@ this function does not generate errors for division by zero or overflow.</p>
 
 Special cases:
 
-+ If the result overflows, returns `+/-inf`.
-+ If Y=0 and X=0, returns `NaN`.
-+ If Y=0 and X!=0, returns `+/-inf`.
-+ If X = `+/-inf` and Y = `+/-inf`, returns `NaN`.
++   If the result overflows, returns `+/-inf`.
++   If Y=0 and X=0, returns `NaN`.
++   If Y=0 and X!=0, returns `+/-inf`.
++   If X = `+/-inf` and Y = `+/-inf`, returns `NaN`.
 
 The behavior of `IEEE_DIVIDE` is further illustrated in the table below.
 
@@ -136,8 +140,9 @@ SQRT(X)
 
 **Description**
 
-Computes the square root of X. Generates an error if X is less than 0. Returns
-`+inf` if X is `+inf`.
+Computes the square root of X. Generates an error if X is less than 0.
+
+Returns `+inf` if X is `+inf`.
 
 ### POW
 
@@ -151,7 +156,7 @@ Returns the value of X raised to the power of Y. If the result underflows and is
 not representable, then the function returns a  value of zero. Returns an error
 if one of the following is true:
 
-+ X is a finite value less than 0 and Y is a noninteger
++ X is a finite value less than 0 and Y is a non-integer
 + X is 0 and Y is a finite value less than 0
 
 The behavior of `POW()` is further illustrated in the table below.
@@ -329,9 +334,9 @@ GREATEST(X1,...,XN)
 
 **Description**
 
-Returns <code>NULL</code> if any of the inputs is <code>NULL</code>. Otherwise, returns <code>NaN</code> if any of
-the inputs is <code>NaN</code>. Otherwise, returns the largest value among X1,...,XN
-according to the &lt; comparison.
+Returns <code>NULL</code> if any of the inputs is <code>NULL</code>. Otherwise,
+returns <code>NaN</code> if any of the inputs is <code>NaN</code>. Otherwise,
+returns the largest value among X1,...,XN according to the &lt; comparison.
 
 ### LEAST
 
@@ -354,8 +359,9 @@ DIV(X, Y)
 **Description**
 
 Returns the result of integer division of X by Y. Division by zero returns
-an error. Division by -1 may overflow. See the table below for possible result
-types.
+an error. Division by -1 may overflow.   See
+[Result types for `DIV(X, Y)` and `MOD(X, Y)`][mod-div-results] for possible
+result types.
 
 ### SAFE_DIVIDE
 
@@ -421,16 +427,17 @@ MOD(X, Y)
 **Description**
 
 Modulo function: returns the remainder of the division of X by Y. Returned
-value has the same sign as X. An error is generated if Y is 0. See the table
-below for possible result types.
+value has the same sign as X. An error is generated if Y is 0. See
+[Result types for `DIV(X, Y)` and `MOD(X, Y)`][mod-div-results] for possible
+result types.
 
-#### Result types for `DIV(X, Y)` and `MOD(X, Y)` {: #result_div_mod }
+#### Result types for `DIV(X, Y)` and `MOD(X, Y)` {: #mod_div_results }
 
 <table>
 <thead>
-<tr><th>&nbsp;</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th></tr>
+<tr><th>&nbsp;</th><th>DOUBLE</th><th>INT32</th><th>INT64</th><th>NUMERIC</th><th>UINT32</th><th>UINT64</th></tr>
 </thead>
-<tbody><tr><td>INT32</td><td>INT64</td><td>INT64</td><td>INT64</td><td>ERROR</td></tr><tr><td>INT64</td><td>INT64</td><td>INT64</td><td>INT64</td><td>ERROR</td></tr><tr><td>UINT32</td><td>INT64</td><td>INT64</td><td>UINT64</td><td>UINT64</td></tr><tr><td>UINT64</td><td>ERROR</td><td>ERROR</td><td>UINT64</td><td>UINT64</td></tr></tbody>
+<tbody><tr><td>DOUBLE</td><td>DOUBLE</td><td>ERROR</td><td>ERROR</td><td>DOUBLE</td><td>UINT64</td><td>UINT64</td></tr><tr><td>INT32</td><td>DOUBLE</td><td>INT64</td><td>INT64</td><td>NUMERIC</td><td>INT64</td><td>ERROR</td></tr><tr><td>INT64</td><td>DOUBLE</td><td>INT64</td><td>INT64</td><td>NUMERIC</td><td>INT64</td><td>ERROR</td></tr><tr><td>NUMERIC</td><td>DOUBLE</td><td>ERROR</td><td>NUMERIC</td><td>NUMERIC</td><td>UINT64</td><td>UINT64</td></tr><tr><td>UINT32</td><td>DOUBLE</td><td>INT64</td><td>INT64</td><td>NUMERIC</td><td>UINT64</td><td>UINT64</td></tr><tr><td>UINT64</td><td>DOUBLE</td><td>ERROR</td><td>ERROR</td><td>NUMERIC</td><td>UINT64</td><td>UINT64</td></tr></tbody>
 </table>
 
 ### ROUND {: #rounding_functions }
@@ -718,8 +725,10 @@ ATAN2(Y, X)
 
 Calculates the principal value of the inverse tangent of Y/X using the signs of
 the two arguments to determine the quadrant. The return value is in the range
-[-&pi;,&pi;]. The behavior of this function is further illustrated in
-<a href="#special_atan2">the table below</a>.
+[-&pi;,&pi;].
+
+The behavior of this function is further illustrated in <a
+href="#special_atan2">the table below</a>.
 
 #### Special cases for `ATAN2()` {: #special_atan2 }
 
@@ -844,5 +853,6 @@ the two arguments to determine the quadrant. The return value is in the range
 </tbody>
 </table>
 
+[mod-div-results]: #mod_div_results
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data_type_properties
 

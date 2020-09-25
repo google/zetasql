@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -103,9 +103,12 @@ TEST(SimpleFunctionTests, FunctionMethodTests) {
   signature = fn.GetSignature(2);
   EXPECT_THAT(signature, IsNull());
 
+  int num_signatures;
   EXPECT_EQ("TEST_FUNCTION_NAME", fn.SQLName());
   EXPECT_EQ("TEST_FUNCTION_NAME(BYTES); TEST_FUNCTION_NAME(INT32)",
-            fn.GetSupportedSignaturesUserFacingText(LanguageOptions()));
+            fn.GetSupportedSignaturesUserFacingText(LanguageOptions(),
+                                                    &num_signatures));
+  EXPECT_EQ(2, num_signatures);
 
   Function fn2("test_Function_NAME", Function::kZetaSQLFunctionGroupName,
                Function::SCALAR,
@@ -113,7 +116,9 @@ TEST(SimpleFunctionTests, FunctionMethodTests) {
   fn2.AddSignatureOrDie(TYPE_STRING, {TYPE_BYTES}, nullptr, &type_factory);
   EXPECT_EQ("test_Function_NAME", fn2.SQLName());
   EXPECT_EQ("test_Function_NAME(BYTES)",
-            fn2.GetSupportedSignaturesUserFacingText(LanguageOptions()));
+            fn2.GetSupportedSignaturesUserFacingText(LanguageOptions(),
+                                                     &num_signatures));
+  EXPECT_EQ(1, num_signatures);
 
   std::vector<FunctionSignature> no_signatures;
   fn.ResetSignatures(no_signatures);
@@ -250,6 +255,7 @@ class FunctionSerializationTests : public ::testing::Test {
 
     EXPECT_EQ(options1.required_language_features_,
               options2.required_language_features_);
+    EXPECT_EQ(options1.is_aliased_signature(), options2.is_aliased_signature());
   }
 
   static void ExpectEqualsIgnoringCallbacks(
@@ -438,6 +444,7 @@ TEST_F(FunctionSerializationTests,
 TEST_F(FunctionSerializationTests, SignatureRequiredLanguageFeaturesTest) {
   FunctionSignatureOptions options;
   options.add_required_language_feature(FEATURE_V_1_2_CIVIL_TIME);
+  options.set_is_aliased_signature(true);
 
   FunctionSignatureOptionsProto proto;
   options.Serialize(&proto);

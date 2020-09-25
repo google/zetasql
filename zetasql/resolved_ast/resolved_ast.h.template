@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -124,6 +124,10 @@ class {{node.name}} {{node.class_final}} : public {{node.parent}} {
   template <typename SUBTYPE>
   const SUBTYPE* GetAs() const {
     return static_cast<const SUBTYPE*>(this);
+  }
+  template <typename SUBTYPE>
+  SUBTYPE* GetAs() {
+    return static_cast<SUBTYPE*>(this);
   }
 
   using SUPER::SaveTo;
@@ -482,6 +486,29 @@ inline std::unique_ptr<ResolvedSetOperationItem> MakeResolvedSetOperationItem(
       input_scan->column_list();
   return
       MakeResolvedSetOperationItem(std::move(input_scan), output_column_list);
+}
+
+// This is here for backward compatibility because we renamed
+// ResolvedTVFArgument to ResolvedFunctionArgument.
+using ResolvedTVFArgument = ResolvedFunctionArgument;
+
+// This is here for backward compatibility because we renamed
+// ResolvedTVFArgument to ResolvedFunctionArgument.
+ABSL_DEPRECATED("use MakeResolvedFunctionArgument")
+inline std::unique_ptr<ResolvedTVFArgument> MakeResolvedTVFArgument(
+    std::unique_ptr<const ResolvedExpr> expr,
+    std::unique_ptr<const ResolvedScan> scan,
+    std::unique_ptr<const ResolvedModel> model,
+    std::unique_ptr<const ResolvedConnection> connection,
+    std::unique_ptr<const ResolvedDescriptor> descriptor_arg,
+    const std::vector<ResolvedColumn>& argument_column_list) {
+  return MakeResolvedFunctionArgument(
+        std::move(expr),
+        std::move(scan),
+        std::move(model),
+        std::move(connection),
+        std::move(descriptor_arg),
+        argument_column_list);
 }
 
 }  // namespace zetasql

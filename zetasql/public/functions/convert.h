@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,7 +46,6 @@
 #include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 namespace functions {
@@ -413,7 +412,7 @@ inline bool Convert<float, BigNumericValue>(const float& in,
   const zetasql_base::StatusOr<BigNumericValue> bignumeric_value_status =
       BigNumericValue::FromDouble(in);
   if (ABSL_PREDICT_TRUE(bignumeric_value_status.ok())) {
-    *out = bignumeric_value_status.ValueOrDie();
+    *out = *bignumeric_value_status;
     return true;
   }
   if (error != nullptr) {
@@ -522,7 +521,7 @@ inline bool Convert<double, BigNumericValue>(const double& in,
   const zetasql_base::StatusOr<BigNumericValue> bignumeric_value_status =
       BigNumericValue::FromDouble(in);
   if (ABSL_PREDICT_TRUE(bignumeric_value_status.ok())) {
-    *out = bignumeric_value_status.ValueOrDie();
+    *out = *bignumeric_value_status;
     return true;
   }
   if (error != nullptr) {
@@ -619,7 +618,7 @@ template <> inline bool Convert<BigNumericValue, int32_t>(
     const BigNumericValue& in, int32_t* out, absl::Status* error) {
   const zetasql_base::StatusOr<int32_t> int32_status = in.To<int32_t>();
   if (ABSL_PREDICT_TRUE(int32_status.ok())) {
-    *out = int32_status.ValueOrDie();
+    *out = *int32_status;
     return true;
   }
   if (error != nullptr) {
@@ -632,7 +631,7 @@ template <> inline bool Convert<BigNumericValue, int64_t>(
     const BigNumericValue& in, int64_t* out, absl::Status* error) {
   const zetasql_base::StatusOr<int64_t> int64_status = in.To<int64_t>();
   if (ABSL_PREDICT_TRUE(int64_status.ok())) {
-    *out = int64_status.ValueOrDie();
+    *out = *int64_status;
     return true;
   }
   if (error != nullptr) {
@@ -645,7 +644,7 @@ template <> inline bool Convert<BigNumericValue, uint32_t>(
     const BigNumericValue& in, uint32_t* out, absl::Status* error) {
   const zetasql_base::StatusOr<uint32_t> uint32_status = in.To<uint32_t>();
   if (ABSL_PREDICT_TRUE(uint32_status.ok())) {
-    *out = uint32_status.ValueOrDie();
+    *out = *uint32_status;
     return true;
   }
   if (error != nullptr) {
@@ -658,7 +657,7 @@ template <> inline bool Convert<BigNumericValue, uint64_t>(
     const BigNumericValue& in, uint64_t* out, absl::Status* error) {
   const zetasql_base::StatusOr<uint64_t> uint64_status = in.To<uint64_t>();
   if (ABSL_PREDICT_TRUE(uint64_status.ok())) {
-    *out = uint64_status.ValueOrDie();
+    *out = *uint64_status;
     return true;
   }
   if (error != nullptr) {
@@ -693,7 +692,7 @@ inline bool Convert<BigNumericValue, NumericValue>(const BigNumericValue& in,
                                                    absl::Status* error) {
   const zetasql_base::StatusOr<NumericValue> numeric_value_status = in.ToNumericValue();
   if (ABSL_PREDICT_TRUE(numeric_value_status.ok())) {
-    *out = numeric_value_status.ValueOrDie();
+    *out = *numeric_value_status;
     return true;
   }
   if (error != nullptr) {

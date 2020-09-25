@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ enum TestProto3Enum {
   ENUM2 = 2;
 }
 
-// Next_id: 67
+// Next_id: 68
 message Proto3KitchenSink {
   int32 int32_val = 1;
   uint32 uint32_val = 2;
@@ -127,6 +127,8 @@ message Proto3KitchenSink {
 
   Proto3AnnotatedStruct test_struct = 52;
 
+  Proto3SmallMessageWithNoUseDefaults small_message_no_use_defaults = 67;
+
   // Proto2 message
   EmptyMessage empty_message = 53;
 
@@ -156,4 +158,10 @@ message Proto3AnnotatedStruct {
   bytes f4 = 4
       [(zetasql.struct_field_name) = "", (zetasql.use_defaults) = true];
   repeated int64 f5 = 5 [(zetasql.struct_field_name) = "value"];
+}
+
+message Proto3SmallMessageWithNoUseDefaults {
+  option (zetasql.use_field_defaults) = false;
+
+  string s1 = 1;
 }

@@ -1,7 +1,7 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-# Statistical Aggregate Functions
+# Statistical aggregate functions
 
 ZetaSQL supports the following statistical aggregate functions.
 

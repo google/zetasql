@@ -194,5 +194,5 @@ a,b,c.</td>
 </tbody>
 </table>
 
-[exp-sub-link-to-subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax#subqueries
+[exp-sub-link-to-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md
 

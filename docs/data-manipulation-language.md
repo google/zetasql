@@ -1,9 +1,7 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-# Data Manipulation Reference
-
-<!-- BEGIN CONTENT -->
+# Data manipulation language
 
 ZetaSQL supports the following statements for manipulating data:
 
@@ -152,8 +150,8 @@ INSERT [[OR] IGNORE | REPLACE | UPDATE] [INTO] target_name
  (column_1 [, ..., column_n ] )
  input <br>[ASSERT_ROWS_MODIFIED m]<br/>
 input ::=
- VALUES (expr_1 [, ..., expr_n ] )
-        [, ..., (expr_k_1 [, ..., expr_k_n ] ) ]
+ VALUES (column_1 [, ..., column_n ] )
+        [, ..., (column_k_1 [, ..., column_k_n ] ) ]
 | SELECT_QUERY<br/>
 expr ::= value_expression | DEFAULT
 </pre>
@@ -482,7 +480,7 @@ VALUES (5, "Zak", "Sterling", "inactive");
 Existing row for Zak Sterling updated. His status is now `inactive`. All other
 values, such as `BirthDate`, remain unchanged.
 
-## DELETE Statement
+## DELETE statement
 
 Use the `DELETE` statement when you want to delete rows from a table.
 
@@ -950,6 +948,4 @@ SET
 
 [coercion]: https://github.com/google/zetasql/blob/master/docs/conversion_rules#coercion
 [functions-and-operators]: https://github.com/google/zetasql/blob/master/docs/functions-reference
-
-<!-- END CONTENT -->
 

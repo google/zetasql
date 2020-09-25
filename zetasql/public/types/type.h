@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -66,6 +66,7 @@ class TypeStore;
 }  // namespace internal
 
 typedef std::vector<Type*> TypeList;
+typedef absl::Span<const Type* const> TypeListView;
 
 // In-memory representation of a ZetaSQL type.
 // See (broken link) for more information on the type system.
@@ -437,6 +438,10 @@ class Type {
   static std::string TypeKindListToString(const std::vector<TypeKind>& kinds,
                                           ProductMode mode);
 
+  // Returns comma-separated list of names of given <types>. Type name is
+  // generated using Type::ShortTypeName(<mode>).
+  static std::string TypeListToString(TypeListView types, ProductMode mode);
+
   // Returns the type kind if 'type_name' is a simple type in 'mode', assuming
   // all language features are enabled. Returns TYPE_UNKNOWN otherwise.
   // 'type_name' is case-insensitive.
@@ -453,12 +458,14 @@ class Type {
   // Returns an integer identifying relative specificity, where lower values
   // mean more specific.  Specificity details are defined in:
   //   (broken link)
-  // TODO: Update document location to reflect the final
-  // cast/coercion/supertype document when it is available.
   static int KindSpecificity(TypeKind kind);
 
   // Compares whether one TypeKind specificity is less than another.
+  // REQUIRES: kind1 != TYPE_EXTENDED && kind2 != TYPE_EXTENDED.
   static bool KindSpecificityLess(TypeKind kind1, TypeKind kind2);
+  // Compares whether one built-in Type specificity is less than another.
+  // REQUIRES: !t1->IsExtended() && !t2->IsExtended().
+  static bool TypeSpecificityLess(const Type* t1, const Type* t2);
 
   // Returns an integer identifying the relative cost of coercing from one type
   // to another.  Always returns a non-negative result.  When considering
@@ -719,13 +726,31 @@ typedef Type::FileDescriptorSetMap FileDescriptorSetMap;
 typedef Type::BuildFileDescriptorSetMapOptions BuildFileDescriptorMapOptions;
 
 #ifndef SWIG
-// Provides equality comparison operator for Types.  This primarily invokes
+// Provides equality comparison operator for Types. This primarily invokes
 // Type::Equals().
-struct TypeEquals {
+class TypeEquals {
  public:
-  bool operator()(const Type* const type1,
-                  const Type* const type2) const;
+  bool operator()(const Type* type1, const Type* type2) const;
 };
+
+// Provides equivalence comparison operator for Types. Uses Type::Equivalent().
+class TypeEquivalent {
+ public:
+  bool operator()(const Type* type1, const Type* type2) const;
+};
+
+// Provides hashing operator for Types.
+class TypeHash {
+ public:
+  size_t operator()(const Type* type) const;
+};
+
+template <class Hash = TypeHash, class Eq = TypeEquals>
+using TypeFlatHashSet = absl::flat_hash_set<const Type*, Hash, Eq>;
+
+template <class ValueT, class Hash = TypeHash, class Eq = TypeEquals>
+using TypeFlatHashMap = absl::flat_hash_map<const Type*, ValueT, Hash, Eq>;
+
 #endif  // SWIG
 
 typedef std::pair<TypeKind, TypeKind> TypeKindPair;

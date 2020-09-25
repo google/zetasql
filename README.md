@@ -9,6 +9,8 @@ ZetaSQL language and may give errors if specific features are not supported. For
 example, engine A may not support any updates and engine B may not support
 analytic functions.
 
+[ZetaSQL Language Guide](docs/reference.md)
+
 ## Status of Project and Roadmap
 
 This codebase is being open sourced in multiple phases:
@@ -18,14 +20,15 @@ This codebase is being open sourced in multiple phases:
 2. Reference Implementation **In Progress**
    - Base capability **Complete**
    - Function library **In Progress**
-3. Compliance Tests
+3. Compliance Tests **In Progress**
    - includes framework for validating compliance of arbitrary engines
 4. Misc tooling
+   - Improved Formatter **In Progress**
 
 Multiplatform support is planned for the following platforms:
 
  - Linux (Ubuntu 1804 is our reference platform, but others may work).
- - MacOS (versions TDB)
+ - MacOS (Experimental)
  - Windows (version TDB)
 
 Until all this code is released, we cannot provide any guarantees of API

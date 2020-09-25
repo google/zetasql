@@ -1,5 +1,5 @@
 #
-# Copyright 2019 ZetaSQL Authors
+# Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-package(default_visibility = ["//:__subpackages__"])
+package(default_visibility = ["//zetasql/base:zetasql_implementation"])
 
-exports_files(["reference_impl.blacklist"])
+exports_files(["reference_impl_known_errors.textproto"])
 
 # Tested by value_expr_test.
 cc_library(
@@ -324,6 +324,57 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "reference_driver",
+    testonly = 1,
+    srcs = ["reference_driver.cc"],
+    hdrs = ["reference_driver.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":algebrizer",
+        ":common",
+        ":evaluation",
+        ":parameters",
+        "//zetasql/base",
+        "//zetasql/base:path",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:source_location",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/common:evaluator_registration_utils",
+        "//zetasql/compliance:test_driver",
+        "//zetasql/compliance:test_util",
+        "//zetasql/compliance:type_helpers",
+        "//zetasql/public:analyzer",
+        "//zetasql/public:language_options",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/public:type",
+        "//zetasql/public:value",
+        "//zetasql/public/functions:date_time_util",
+        "//zetasql/reference_impl/functions:register_all",
+        "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
+        "//zetasql/testing:test_value",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
 cc_test(
     name = "tuple_test",
     size = "small",
@@ -341,6 +392,8 @@ cc_test(
         ":evaluation",
         ":tuple_test_util",
         "//zetasql/base/testing:status_matchers",
+        "//zetasql/public:value",
+        "//zetasql/public/types",
         "//zetasql/testdata:test_schema_cc_proto",
         "//zetasql/testing:test_value",
         "@com_google_absl//absl/status",

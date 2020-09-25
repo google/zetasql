@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@
 #include "zetasql/testing/using_test_value.cc"
 #include <cstdint>
 #include "absl/memory/memory.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
@@ -47,7 +48,6 @@
 #include "absl/time/time.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 namespace {
@@ -2309,6 +2309,17 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampAdd() {
   };
 }
 
+std::vector<FunctionTestCall> GetFunctionTestsTimestampAddAndAliases() {
+  std::vector<FunctionTestCall> result;
+  for (const FunctionTestCall& test : GetFunctionTestsTimestampAdd()) {
+    result.push_back(test);
+    result.push_back(FunctionTestCall(
+        "date_add", test.params.WrapWithFeature(
+                        FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)));
+  }
+  return result;
+}
+
 std::vector<FunctionTestCall> GetFunctionTestsTimestampSub() {
   // Reuse all of the TIMESTAMP_ADD tests but change the function name and
   // invert the interval value.
@@ -2333,9 +2344,21 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampSub() {
   return sub_tests;
 }
 
+std::vector<FunctionTestCall> GetFunctionTestsTimestampSubAndAliases() {
+  std::vector<FunctionTestCall> result;
+  for (const FunctionTestCall& test : GetFunctionTestsTimestampSub()) {
+    result.push_back(test);
+    result.push_back(FunctionTestCall(
+        "date_sub", test.params.WrapWithFeature(
+                        FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)));
+  }
+  return result;
+}
+
 std::vector<FunctionTestCall> GetFunctionTestsTimestampAddSub() {
   return ConcatTests<FunctionTestCall>({
-      GetFunctionTestsTimestampAdd(), GetFunctionTestsTimestampSub(),
+      GetFunctionTestsTimestampAddAndAliases(),
+      GetFunctionTestsTimestampSubAndAliases(),
   });
 }
 
@@ -2506,7 +2529,7 @@ static std::vector<FunctionTestCall> GetFunctionTestsDateDiff() {
   return tests;
 }
 
-std::vector<FunctionTestCall> GetFunctionTestsTimestampDiff() {
+std::vector<FunctionTestCall> GetFunctionTestsTimestampDiffInternal() {
   const EnumType* part_enum;
   const google::protobuf::EnumDescriptor* enum_descriptor =
       functions::DateTimestampPart_descriptor();
@@ -2683,6 +2706,17 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampDiff() {
   return v;
 }
 
+std::vector<FunctionTestCall> GetFunctionTestsTimestampDiff() {
+  std::vector<FunctionTestCall> result;
+  for (const FunctionTestCall& test : GetFunctionTestsTimestampDiffInternal()) {
+    result.push_back(test);
+    result.push_back(FunctionTestCall(
+        "date_diff", test.params.WrapWithFeature(
+                         FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)));
+  }
+  return result;
+}
+
 static Value GetDatePartValue(DateTimestampPart part) {
   return Enum(types::DatePartEnumType(), part);
 }
@@ -2733,7 +2767,7 @@ FunctionTestCall TimestampTruncErrorTest(const std::string& timestamp_string,
           code};
 }
 
-std::vector<FunctionTestCall> GetFunctionTestsTimestampTrunc() {
+std::vector<FunctionTestCall> GetFunctionTestsTimestampTruncInternal() {
   const EnumType* part_enum;
   const google::protobuf::EnumDescriptor* enum_descriptor =
       functions::DateTimestampPart_descriptor();
@@ -3372,6 +3406,20 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampTrunc() {
        Timestamp(1234567)},
   };
   return v;
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsTimestampTrunc() {
+  std::vector<FunctionTestCall> result;
+  for (const FunctionTestCall& test :
+       GetFunctionTestsTimestampTruncInternal()) {
+    result.push_back(test);
+    if (test.params.HasEmptyFeatureSetAndNothingElse()) {
+      result.push_back(FunctionTestCall(
+          "date_trunc", test.params.WrapWithFeature(
+                            FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)));
+    }
+  }
+  return result;
 }
 
 // Adapted from TEST(ExtractTimestamp, DateTest) in date_time_util_test.cc.
@@ -4027,6 +4075,10 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatDateTimestamp() {
                      {String(test.format_string), Timestamp(test.timestamp),
                        String(test.timezone)},
                      String(test.expected_result)});
+
+    tests.push_back(FunctionTestCall(
+        "format_date", tests.back().params.WrapWithFeature(
+                           FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)));
   }
 
   for (const FormatDateTest& test : GetFormatDateTests()) {

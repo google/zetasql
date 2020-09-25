@@ -5,6 +5,7 @@
 ZetaSQL supports the following security functions.
 
 ### SESSION_USER
+
 ```
 SESSION_USER()
 ```

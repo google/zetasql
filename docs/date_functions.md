@@ -519,6 +519,98 @@ SELECT FORMAT_DATE("%b %Y", DATE "2008-12-25") AS formatted;
 +-------------+
 ```
 
+### LAST_DAY
+
+```sql
+LAST_DAY(date_expression[, date_part])
+```
+
+**Description**
+
+Returns the last day from a date expression. This is commonly used to return
+the last day of the month.
+
+You can optionally specify the date part for which the last day is returned.
+If this parameter is not used, the default value is `MONTH`.
+`LAST_DAY` supports the following values for `date_part`:
+
++  `YEAR`
++  `QUARTER`
++  `MONTH`
++  `WEEK`. Equivalent to 7 `DAY`s.
++  `WEEK(<WEEKDAY>)`. `<WEEKDAY>` represents the starting day of the week.
+   Valid values are `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`,
+   `FRIDAY`, and `SATURDAY`.
++  `ISOWEEK`. Uses [ISO 8601][ISO-8601-week] week boundaries. ISO weeks begin
+   on Monday.
++  `ISOYEAR`. Uses the [ISO 8601][ISO-8601] week-numbering year boundary.
+   The ISO year boundary is the Monday of the first week whose Thursday belongs
+   to the corresponding Gregorian calendar year.
+
+**Return Data Type**
+
+`DATE`
+
+**Example**
+
+These both return the last day of the month:
+
+```sql
+SELECT LAST_DAY(DATE '2008-11-25', MONTH) AS last_day
+
++------------+
+| last_day   |
++------------+
+| 2008-11-30 |
++------------+
+```
+
+```sql
+SELECT LAST_DAY(DATE '2008-11-25') AS last_day
+
++------------+
+| last_day   |
++------------+
+| 2008-11-30 |
++------------+
+```
+
+This returns the last day of the year:
+
+```sql
+SELECT LAST_DAY(DATE '2008-11-25', YEAR) AS last_day
+
++------------+
+| last_day   |
++------------+
+| 2008-12-31 |
++------------+
+```
+
+This returns the last day of the week for a week that starts on a Sunday:
+
+```sql
+SELECT LAST_DAY(DATE '2008-11-10', WEEK(SUNDAY)) AS last_day
+
++------------+
+| last_day   |
++------------+
+| 2008-11-05 |
++------------+
+```
+
+This returns the last day of the week for a week that starts on a Monday:
+
+```sql
+SELECT LAST_DAY(DATE '2008-11-10', WEEK(MONDAY)) AS last_day
+
++------------+
+| last_day   |
++------------+
+| 2008-11-06 |
++------------+
+```
+
 ### PARSE_DATE
 
 ```sql
@@ -609,7 +701,7 @@ SELECT UNIX_DATE(DATE "2008-12-25") as days_from_epoch;
 +-----------------+
 ```
 
-### Supported Format Elements for DATE
+### Supported format elements for DATE
 
 Unless otherwise noted, DATE functions that use format strings support the
 following elements:

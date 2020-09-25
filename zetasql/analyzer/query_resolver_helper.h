@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -154,6 +154,11 @@ struct QueryGroupByAndAggregateInfo {
       group_by_columns_to_compute;
 
   // Map of group by expressions to entries within group_by_columns_to_compute.
+  // TODO: FieldPathExpressionEqualsOperator is not 100% compatible
+  // with the behavior expected by hash maps: some expressions cannot be found
+  // in the map right after the insertion. We need either to use a different
+  // comparison function, or make sure that the map is used only for the
+  // supported expression types.
   std::unordered_map<const ResolvedExpr*, const ResolvedComputedColumn*,
                      FieldPathHashOperator, FieldPathExpressionEqualsOperator>
       group_by_expr_map;

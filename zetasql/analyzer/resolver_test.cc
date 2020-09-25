@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -68,6 +68,8 @@ class ResolverTest : public ::testing::Test {
     InitializeQueryParameters();
     analyzer_options_.mutable_language()->SetSupportsAllStatementKinds();
     analyzer_options_.mutable_language()->EnableMaximumLanguageFeatures();
+    analyzer_options_.mutable_language()->EnableLanguageFeature(
+        FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS);
     analyzer_options_.CreateDefaultArenasIfNotSet();
     sample_catalog_ = absl::make_unique<SampleCatalog>(
         analyzer_options_.language(), &type_factory_);
@@ -925,6 +927,45 @@ TEST_F(ResolverTest, TestExpectedErrorMessage) {
                            expected_error_substr);
   TestResolverErrorMessage("b'abc' IN UNNEST(['abc', 'abd'])",
                            expected_error_substr);
+}
+
+TEST_F(ResolverTest, TestHasFlatten) {
+  std::unique_ptr<ParserOutput> parser_output;
+  std::unique_ptr<const ResolvedStatement> resolved_statement;
+  std::unique_ptr<const ResolvedExpr> resolved_expr;
+  std::string sql;
+
+  // Test a statement without flattening
+  sql = "SELECT * FROM KeyValue";
+  ResetResolver(sample_catalog_->catalog());
+  ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
+  ZETASQL_EXPECT_OK(resolver_->ResolveStatement(sql, parser_output->statement(),
+                                        &resolved_statement));
+  EXPECT_FALSE(resolver_->analyzer_output_properties().has_flatten);
+
+  // Test a statement with flattening
+  sql = "select value FROM ArrayTypes t, unnest(t.ProtoArray.int32_val1) value";
+  ResetResolver(sample_catalog_->catalog());
+  ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
+  ZETASQL_EXPECT_OK(resolver_->ResolveStatement(sql, parser_output->statement(),
+                                        &resolved_statement));
+  EXPECT_TRUE(resolver_->analyzer_output_properties().has_flatten);
+
+  // Test an expression without flattening
+  sql = "CONCAT('a', 'b')";
+  ResetResolver(sample_catalog_->catalog());
+  ZETASQL_ASSERT_OK(ParseExpression(sql, ParserOptions(), &parser_output));
+  ZETASQL_EXPECT_OK(ResolveExpr(parser_output->expression(), &resolved_expr));
+  EXPECT_FALSE(resolver_->analyzer_output_properties().has_flatten);
+
+  // Test an expression with flattening
+  sql = "FLATTEN(CAST('' AS zetasql_test.RecursivePB)."
+        "repeated_recursive_pb.int64_val)";
+  ResetResolver(sample_catalog_->catalog());
+  ZETASQL_ASSERT_OK(ParseExpression(sql, ParserOptions(), &parser_output));
+  ZETASQL_EXPECT_OK(ResolveExpr(parser_output->expression(), &resolved_expr,
+                        /*aggregation_allowed=*/true));
+  EXPECT_TRUE(resolver_->analyzer_output_properties().has_flatten);
 }
 
 }  // namespace zetasql

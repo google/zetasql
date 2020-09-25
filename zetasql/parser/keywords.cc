@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -125,6 +125,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"false", KW_FALSE, KeywordInfo::kReserved},
     {"fetch", KW_FETCH, KeywordInfo::kReserved},
     {"filter", KW_FILTER},
+    {"filter_fields", KW_FILTER_FIELDS},
     {"fill", KW_FILL},
     {"first", KW_FIRST},
     {"following", KW_FOLLOWING, KeywordInfo::kReserved},

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,7 +29,9 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
+#include "absl/base/attributes.h"
 #include <cstdint>
+#include "absl/memory/memory.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
@@ -38,6 +40,7 @@ namespace zetasql {
 
 class FunctionArgumentType;
 class FunctionArgumentTypeProto;
+class FunctionSignature;
 class FunctionSignatureOptionsProto;
 class FunctionSignatureProto;
 class InputArgumentType;
@@ -376,6 +379,7 @@ class FunctionArgumentTypeOptions {
 // apply additional constraints on legal values for the argument.
 class FunctionArgumentType {
  public:
+  class ArgumentTypeLambda;
   typedef FunctionEnums::ArgumentCardinality ArgumentCardinality;
   static constexpr ArgumentCardinality REQUIRED = FunctionEnums::REQUIRED;
   static constexpr ArgumentCardinality REPEATED = FunctionEnums::REPEATED;
@@ -433,6 +437,13 @@ class FunctionArgumentType {
     return FunctionArgumentType(ARG_TYPE_DESCRIPTOR, option);
   }
 
+  // Construct a lambda argument type with lambda_argument_types and
+  // lambda_body_type. This argument will accept lambdas with the specified
+  // argument types and body type.
+  static FunctionArgumentType Lambda(
+      FunctionArgumentTypeList lambda_argument_types,
+      FunctionArgumentType lambda_body_type);
+
   // Construct a relation argument type for a table-valued function.
   //
   // This argument accepts an input relation with the names of columns in
@@ -489,24 +500,29 @@ class FunctionArgumentType {
   void IncrementNumOccurrences() { ++num_occurrences_; }
   void set_num_occurrences(int num) { num_occurrences_ = num; }
 
-  // Returns NULL if kind_ is not ARG_TYPE_FIXED.
+  // Returns NULL if kind_ is not ARG_TYPE_FIXED or ARG_TYPE_LAMBDA. If kind_ is
+  // ARG_TYPE_LAMBDA, returns the type of lambda body type, which could be NULL
+  // if the body type is templated.
   const Type* type() const { return type_; }
 
   SignatureArgumentKind kind() const { return kind_; }
+
+  // Returns information about a lambda typed function argument.
+  const ArgumentTypeLambda& lambda() const {
+    DCHECK(IsLambda());
+    return *lambda_;
+  }
 
   // Returns TRUE if kind_ is ARG_TYPE_FIXED or ARG_TYPE_RELATION and the number
   // of occurrences is greater than -1.
   bool IsConcrete() const;
 
-  bool IsTemplated() const {
-    // It is templated if it is not a fixed scalar, it is not a fixed relation,
-    // and it is not a void argument.
-    return kind_ != ARG_TYPE_FIXED && !IsFixedRelation() && !IsVoid();
-  }
+  bool IsTemplated() const;
 
   bool IsRelation() const { return kind_ == ARG_TYPE_RELATION; }
   bool IsModel() const { return kind_ == ARG_TYPE_MODEL; }
   bool IsConnection() const { return kind_ == ARG_TYPE_CONNECTION; }
+  bool IsLambda() const { return kind_ == ARG_TYPE_LAMBDA; }
   bool IsFixedRelation() const {
     return kind_ == ARG_TYPE_RELATION &&
         options_->has_relation_input_schema();
@@ -575,16 +591,14 @@ class FunctionArgumentType {
       std::shared_ptr<const FunctionArgumentTypeOptions> options,
       int num_occurrences);
 
+  // Checks that 'arg_type' could be used as lambda argument type and body type.
+  static absl::Status CheckLambdaArgType(const FunctionArgumentType& arg_type);
+
   // Returns shared options objects used in most common cases.
   static std::shared_ptr<const FunctionArgumentTypeOptions> SimpleOptions(
       ArgumentCardinality cardinality = FunctionEnums::REQUIRED);
 
   SignatureArgumentKind kind_;
-  const Type* type_;
-
-  // This holds the argument type options. It is a shared pointer to reduce
-  // stack frame sizes when the function signatures are kept on the stack.
-  std::shared_ptr<const FunctionArgumentTypeOptions> options_;
 
   // Indicates how many times a concrete argument occurred in a concrete
   // function signature.  REQUIRED concrete arguments must occur exactly 1
@@ -592,19 +606,60 @@ class FunctionArgumentType {
   // more times.  For non-concrete arguments it is -1.
   int num_occurrences_;
 
+  const Type* type_;
+
+  // This holds the argument type options. It is a shared pointer to reduce
+  // stack frame sizes when the function signatures are kept on the stack.
+  std::shared_ptr<const FunctionArgumentTypeOptions> options_;
+
+  // This holds lambda type specifications.
+  // It is a shared pointer to
+  //   * reduce stack frame sizes when the function signatures are on the stack
+  //   * avoid having a manual copy constructor required by unique_ptr.
+  //   * avoid compiler error of ArgumentTypeLambda recursively uses
+  //   FunctionArgumentType.
+  std::shared_ptr<ArgumentTypeLambda> lambda_;
+
   friend class FunctionSerializationTests;
   // Copyable.
 };
 
-// Returns whether the concrete argument list is valid for a matched
+// Contains type information for ARG_TYPE_LAMBDA, which represents the lambda
+// type of a function argument. A lambda has a list of arguments and a body.
+// Both the lambda arguments and body could be templated or nontemplated.
+// Putting them together to minimize stack usage of FunctionArgumentType.
+class FunctionArgumentType::ArgumentTypeLambda {
+ public:
+  ArgumentTypeLambda(FunctionArgumentTypeList lambda_argument_types,
+                     FunctionArgumentType lambda_body_type)
+      : argument_types_(std::move(lambda_argument_types)),
+        body_type_(lambda_body_type) {}
+
+  const FunctionArgumentTypeList& argument_types() const {
+    return argument_types_;
+  }
+  const FunctionArgumentType& body_type() const { return body_type_; }
+
+ private:
+  // A list of types for lambda arguments.
+  FunctionArgumentTypeList argument_types_;
+  // Type of the lambda body.
+  FunctionArgumentType body_type_;
+};
+
+// Returns whether the concrete argument list is valid for a matched concrete
 // FunctionSignature.
-using FunctionSignatureArgumentConstraintsCallback =
-    std::function<bool(const std::vector<InputArgumentType>&)>;
+// It is guaranteed that the passed in signature is concrete and the input
+// argument types match 1:1 with the concrete arguments in the signature.
+using FunctionSignatureArgumentConstraintsCallback = std::function<bool(
+    const FunctionSignature&, const std::vector<InputArgumentType>&)>;
 
 class FunctionSignatureOptions {
  public:
   FunctionSignatureOptions() {}
 
+  // Setter/getter for a callback to check if a concrete argument list is valid
+  // for a matched concrete signature.
   FunctionSignatureOptions& set_constraints(
       FunctionSignatureArgumentConstraintsCallback argument_constraints) {
     constraints_ = argument_constraints;
@@ -668,11 +723,21 @@ class FunctionSignatureOptions {
                          required_language_features_.end());
   }
 
-  // Checks constraint satisfaction on the FunctionSignature.  If constraints
-  // are not met then the signature is ignored during analysis.  Evaluates
-  // the constraint callback if populated, and if the signature is sensitive
-  // to the TimestampMode then checks that as well.
-  bool CheckFunctionSignatureConstraints(
+  // Setter/getter for whether function name for this signature is aliased
+  // (non primary).
+  FunctionSignatureOptions& set_is_aliased_signature(bool value) {
+    is_aliased_signature_ = value;
+    return *this;
+  }
+  bool is_aliased_signature() const { return is_aliased_signature_; }
+
+  // Checks constraint satisfaction on the <concrete_signature> (that must be
+  // concrete).
+  // If constraints are not met then the signature is ignored during analysis.
+  // Evaluates the constraint callback if populated, and if the signature is
+  // sensitive to the TimestampMode then checks that as well.
+  zetasql_base::StatusOr<bool> CheckFunctionSignatureConstraints(
+      const FunctionSignature& concrete_signature,
       const std::vector<InputArgumentType>& arguments) const;
 
   static absl::Status Deserialize(
@@ -696,6 +761,13 @@ class FunctionSignatureOptions {
   // A set of LanguageFeatures that need to be enabled for the signature to be
   // loaded in GetZetaSQLFunctions.
   std::set<LanguageFeature> required_language_features_;
+
+  // When true, the signature uses the same signature (context) id as another
+  // signature with different function name, and this signature's function name
+  // is an alias. This flag is useful when trying to resolve signature id to
+  // function name - there could be multiple function names for same id, but
+  // the one with is_aliased_signature = false should be picked as primary.
+  bool is_aliased_signature_ = false;
 
   // Copyable.
 };
@@ -847,8 +919,8 @@ class FunctionSignature {
   int NumOptionalArguments() const { return num_optional_arguments_; }
 
   // Returns whether or not the constraints are satisfied.
-  // If <constraints_callback> is NULL, returns true.
-  bool CheckArgumentConstraints(
+  // If <options_.constraints_> is NULL, returns true.
+  zetasql_base::StatusOr<bool> CheckArgumentConstraints(
       const std::vector<InputArgumentType>& arguments) const;
 
   // If verbose is true, include FunctionOptions modifiers.
@@ -875,6 +947,11 @@ class FunctionSignature {
 
   void SetIsDeprecated(bool value) {
     options_.set_is_deprecated(value);
+  }
+
+  void SetArgumentConstraintsCallback(
+      FunctionSignatureArgumentConstraintsCallback callback) {
+    options_.set_constraints(std::move(callback));
   }
 
   const FunctionSignatureOptions& options() const { return options_; }

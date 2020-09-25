@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -120,7 +120,8 @@ int Resolver::AllocateColumnId() {
   // Should be impossible for this to happen unless sharing across huge
   // numbers of queries.  If it does, column_ids will wrap around as int32s.
   DCHECK_LE(id, std::numeric_limits<int32_t>::max());
-  return static_cast<int>(id);
+  max_column_id_ = static_cast<int>(id);
+  return max_column_id_;
 }
 
 IdString Resolver::AllocateSubqueryName() {
@@ -1079,9 +1080,10 @@ void Resolver::FindColumnIndex(const Table* table, const std::string& name,
   }
 }
 
-bool Resolver::SupportsEquality(const Type* type1, const Type* type2) {
-  DCHECK(type1 != nullptr);
-  DCHECK(type2 != nullptr);
+zetasql_base::StatusOr<bool> Resolver::SupportsEquality(const Type* type1,
+                                                const Type* type2) {
+  ZETASQL_RET_CHECK_NE(type1, nullptr);
+  ZETASQL_RET_CHECK_NE(type2, nullptr);
 
   // Quick check for a common case.
   if (type1->Equals(type2)) {
@@ -1104,7 +1106,8 @@ bool Resolver::SupportsEquality(const Type* type1, const Type* type2) {
   InputArgumentTypeSet arg_set;
   arg_set.Insert(arg1);
   arg_set.Insert(arg2);
-  const Type* supertype = coercer_.GetCommonSuperType(arg_set);
+  const Type* supertype = nullptr;
+  ZETASQL_RETURN_IF_ERROR(coercer_.GetCommonSuperType(arg_set, &supertype));
   return supertype != nullptr
       && supertype->SupportsEquality(analyzer_options_.language_options());
 }

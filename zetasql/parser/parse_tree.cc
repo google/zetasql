@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -93,6 +93,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_CHECK_CONSTRAINT] = "CheckConstraint";
   map[AST_CLUSTER_BY] = "ClusterBy";
   map[AST_COLLATE] = "Collate";
+  map[AST_COLLATE_EXPRESSION] = "CollateExpression";
   map[AST_COLUMN_DEFINITION] = "ColumnDefinition";
   map[AST_COLUMN_ATTRIBUTE_LIST] = "ColumnAttributeList";
   map[AST_COLUMN_LIST] = "ColumnList";
@@ -151,6 +152,8 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_EXPORT_MODEL_STATEMENT] = "ExportModelStatement";
   map[AST_EXPRESSION_SUBQUERY] = "ExpressionSubquery";
   map[AST_EXTRACT_EXPRESSION] = "ExtractExpression";
+  map[AST_FILTER_FIELDS_ARG] = "FilterFieldsArg";
+  map[AST_FILTER_FIELDS_EXPRESSION] = "FilterFieldsExpression";
   map[AST_FILTER_USING_CLAUSE] = "FilterUsingClause";
   map[AST_FLOAT_LITERAL] = "FloatLiteral";
   map[AST_FOREIGN_KEY] = "ForeignKey";
@@ -714,13 +717,32 @@ std::string ASTCastExpression::SingleNodeDebugString() const {
 }
 
 std::string ASTDropStatement::SingleNodeDebugString() const {
-  const std::string out =
-      absl::StrCat(ASTNode::SingleNodeDebugString(), " ",
-                   SchemaObjectKindToName(schema_object_kind()));
-  if (!is_if_exists()) {
-    return out;
+  std::string out = absl::StrCat(ASTNode::SingleNodeDebugString(), " ",
+                                 SchemaObjectKindToName(schema_object_kind()));
+  std::vector<std::string> params;
+  if (is_if_exists()) {
+    params.push_back("is_if_exists");
   }
-  return absl::StrCat(out, "(is_if_exists)");
+  if (drop_mode() != ASTDropStatement::DropMode::DROP_MODE_UNSPECIFIED) {
+    params.push_back(
+        absl::StrCat("drop_mode=", GetSQLForDropMode(drop_mode())));
+  }
+  if (!params.empty()) {
+    absl::StrAppend(&out, "(", absl::StrJoin(params, ", "), ")");
+  }
+  return out;
+}
+
+// static
+std::string ASTDropStatement::GetSQLForDropMode(DropMode drop_mode) {
+  switch (drop_mode) {
+    case DropMode::DROP_MODE_UNSPECIFIED:
+      return "";
+    case DropMode::RESTRICT:
+      return "RESTRICT";
+    case DropMode::CASCADE:
+      return "CASCADE";
+  }
 }
 
 std::string ASTDropEntityStatement::SingleNodeDebugString() const {
@@ -1385,6 +1407,22 @@ std::string ASTGrantToClause::GetSQLForAlterAction() const {
   return "GRANT TO";
 }
 
+std::string ASTFilterFieldsArg::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(), "(",
+                      GetSQLForOperator(), ")");
+}
+
+std::string ASTFilterFieldsArg::GetSQLForOperator() const {
+  switch (filter_type_) {
+    case NOT_SET:
+      return "<UNKNOWN>";
+    case INCLUDE:
+      return "+";
+    case EXCLUDE:
+      return "-";
+  }
+}
+
 std::string ASTFilterUsingClause::GetSQLForAlterAction() const {
   return "FILTER USING";
 }
@@ -1434,6 +1472,8 @@ absl::string_view SchemaObjectKindToName(SchemaObjectKind schema_object_kind) {
       return "MODEL";
     case SchemaObjectKind::kProcedure:
       return "PROCEDURE";
+    case SchemaObjectKind::kSchema:
+      return "SCHEMA";
     case SchemaObjectKind::kTable:
       return "TABLE";
     case SchemaObjectKind::kTableFunction:

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -125,11 +125,6 @@ std::string ExtractDateOrTimeFunctionSQL(
 
 bool ArgumentIsStringLiteral(const InputArgumentType& argument);
 
-absl::Status CheckDateDiffArguments(
-    const std::string& function_name,
-    const std::vector<InputArgumentType>& arguments,
-    const LanguageOptions& language_options);
-
 absl::Status CheckBitwiseOperatorArgumentsHaveSameType(
     const std::string& operator_string,
     const std::vector<InputArgumentType>& arguments,
@@ -140,17 +135,12 @@ absl::Status CheckBitwiseOperatorFirstArgumentIsIntegerOrBytes(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-absl::Status CheckDateTruncArguments(
+absl::Status CheckDateDatetimeTimeTimestampTruncArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
 absl::Status CheckLastDayArguments(
-    const std::string& function_name,
-    const std::vector<InputArgumentType>& arguments,
-    const LanguageOptions& language_options);
-
-absl::Status CheckTimeTruncArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
@@ -163,7 +153,12 @@ absl::Status CheckExtractPostResolutionArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-absl::Status CheckDateAddDateSubArguments(
+absl::Status CheckDateDatetimeTimestampAddSubArguments(
+    const std::string& function_name,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options);
+
+absl::Status CheckDateDatetimeTimeTimestampDiffArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
@@ -181,17 +176,7 @@ zetasql_base::StatusOr<const Type*> GetOrMakeEnumValueDescriptorType(
     const std::vector<InputArgumentType>& arguments,
     const AnalyzerOptions& analyzer_options);
 
-absl::Status CheckTimestampAddTimestampSubArguments(
-    const std::string& function_name,
-    const std::vector<InputArgumentType>& arguments,
-    const LanguageOptions& language_options);
-
-absl::Status CheckTimestampDiffArguments(
-    const std::string& function_name,
-    const std::vector<InputArgumentType>& arguments,
-    const LanguageOptions& language_options);
-
-absl::Status CheckTimestampTruncArguments(
+absl::Status CheckTimeAddSubArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
@@ -338,23 +323,29 @@ absl::Status CheckRangeBucketArguments(
 
 // Returns true if an arithmetic operation has a floating point type as its
 // input.
-bool HasFloatingPointArgument(const std::vector<InputArgumentType>& arguments);
+bool HasFloatingPointArgument(const FunctionSignature& matched_signature,
+                              const std::vector<InputArgumentType>& arguments);
 
 // Returns true if at least one input argument has NUMERIC type.
-bool HasNumericTypeArgument(const std::vector<InputArgumentType>& arguments);
+bool HasNumericTypeArgument(const FunctionSignature& matched_signature,
+                            const std::vector<InputArgumentType>& arguments);
 
 // Returns true if all input arguments have NUMERIC or BIGNUMERIC type,
 // including the case without input arguments.
 bool AllArgumentsHaveNumericOrBigNumericType(
+    const FunctionSignature& matched_signature,
     const std::vector<InputArgumentType>& arguments);
 
 // Returns true if there is at least one input argument and the last argument
 // has NUMERIC type or BIGNUMERIC type.
 bool LastArgumentHasNumericOrBigNumericType(
+    const FunctionSignature& matched_signature,
     const std::vector<InputArgumentType>& arguments);
 
 // Returns true if at least one input argument has BIGNUMERIC type.
-bool HasBigNumericTypeArgument(const std::vector<InputArgumentType>& arguments);
+bool HasBigNumericTypeArgument(
+    const FunctionSignature& matched_signature,
+    const std::vector<InputArgumentType>& arguments);
 
 // Returns true if FN_CONCAT_STRING function can coerce argument of given type
 // to STRING.

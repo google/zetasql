@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/value.h"
 #include "absl/time/time.h"
 
@@ -88,6 +89,10 @@ class Coercer {
   //    argument only.
   //  - For equivalent proto types (e.g. different versions of the same proto),
   //    we consider the first non-NULL proto argument as the supertype.
+  absl::Status GetCommonSuperType(const InputArgumentTypeSet& argument_set,
+                                  const Type** common_supertype) const;
+
+  ABSL_DEPRECATED("use GetCommonSuperType(argument_set, super_type)")
   const Type* GetCommonSuperType(
       const InputArgumentTypeSet& argument_set) const;
 
@@ -142,8 +147,9 @@ class Coercer {
   // common supertype candidates, or whether they are treated like
   // literals and are checked to see if they coerce to the candidate
   // supertypes.
-  const Type* GetCommonSuperTypeImpl(const InputArgumentTypeSet& argument_set,
-                                     bool treat_parameters_as_literals) const;
+  zetasql_base::StatusOr<const Type*> GetCommonSuperTypeImpl(
+      const InputArgumentTypeSet& argument_set,
+      bool treat_parameters_as_literals) const;
 
   // Returns whether <from_type> can be coerced to <to_type>, for
   // either explicit or implicit coercion.  Does not consider if <from_type>
@@ -196,13 +202,13 @@ class Coercer {
   //
   // Returns NULL if there is no common supertype for all the argument types,
   // or if any of the arguments is a non-struct type.
-  const StructType* GetCommonStructSuperType(
+  zetasql_base::StatusOr<const StructType*> GetCommonStructSuperType(
       const InputArgumentTypeSet& argument_set) const;
 
   // Returns the common super type of <arguments>. Returns NULL if there is no
   // common supertype for all the argument types, or if any of the arguments is
   // a non-array type.
-  const ArrayType* GetCommonArraySuperType(
+  zetasql_base::StatusOr<const ArrayType*> GetCommonArraySuperType(
       const InputArgumentTypeSet& argument_set,
       bool treat_query_parameters_as_literals) const;
 
@@ -219,6 +225,30 @@ class Coercer {
   const LanguageOptions& language_options_;  // Not owned.
   friend class CoercerTest;
 };
+
+// Returns a list of supertypes (doesn't include itself) of the given <type>
+// (built-in or extended). The returned list is sorted according to the order in
+// which these types should be considered in a common supertype calculation
+// algorithm. If <type> is extended, the <catalog> should point to the Catalog
+// that exposes this <type>.
+//
+// This function accepts only leaf (not compound, like STRUCT or ARRAY) built-in
+// types.
+//
+// REQUIRES: !type->IsExtended() || catalog != nullptr.
+// REQUIRES: !type->IsStruct && !type->IsArray().
+zetasql_base::StatusOr<TypeListView> GetCandidateSuperTypes(const Type* type,
+                                                    Catalog* catalog = nullptr);
+
+// Checks that there is a global preference order of supertypes and this order
+// is respected for all <types> and their supertypes. Please see the comment to
+// Catalog::GetSuperTypes for the details of supertype global preference order
+// properties. To ensure correctness, <types> should include both built-in
+// simple types and extended types.
+// TODO: reference to the documentation describing the preference
+// order of simple built-in types when it's available.
+absl::Status CheckSuperTypePreferenceGlobalOrder(TypeListView types,
+                                                 Catalog* catalog = nullptr);
 
 }  // namespace zetasql
 

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -54,7 +54,6 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -1404,6 +1403,56 @@ void SampleCatalog::LoadFunctions() {
        {{types_->get_string(), FunctionArgumentType::REQUIRED},
         named_optional_date_arg_error_if_positional},
        /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function with an argument constraint that verifies the concrete
+  // arguments in signature matches the input argument list, and rejects
+  // any NULL arguments.
+  auto sanity_check_nonnull_arg_constraints =
+      [](const FunctionSignature& signature,
+         const std::vector<InputArgumentType>& arguments) {
+        CHECK(signature.IsConcrete());
+        CHECK_EQ(signature.NumConcreteArguments(), arguments.size());
+        for (int i = 0; i < arguments.size(); ++i) {
+          CHECK(
+              arguments[i].type()->Equals(signature.ConcreteArgumentType(i)));
+          if (arguments[i].is_null()) {
+            return false;
+          }
+        }
+        return true;
+      };
+  function = new Function("fn_named_opt_args_nonnull_constraints",
+                          "sample_functions", mode);
+  FunctionSignature signature_with_constraints{
+      types_->get_bool(),
+      {{types_->get_string(),
+        FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+            .set_argument_name("o1_string")},
+       {types_->get_int64(),
+        FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+            .set_argument_name("o2_int64")},
+       {types_->get_double(),
+        FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+            .set_argument_name("o3_double")}},
+      /*context_id=*/-1,
+      FunctionSignatureOptions().set_constraints(
+          sanity_check_nonnull_arg_constraints)};
+  function->AddSignature(signature_with_constraints);
+  catalog_->AddOwnedFunction(function);
+
+  // Similar as the previous function, but the arguments are unnamed.
+  function = new Function("fn_unnamed_opt_args_nonnull_constraints",
+                          "sample_functions", mode);
+  FunctionSignature signature_with_unnamed_args_constraints{
+      types_->get_bool(),
+      {{types_->get_string(), FunctionArgumentType::OPTIONAL},
+       {types_->get_int64(), FunctionArgumentType::OPTIONAL},
+       {types_->get_double(), FunctionArgumentType::OPTIONAL}},
+      /*context_id=*/-1,
+      FunctionSignatureOptions().set_constraints(
+          sanity_check_nonnull_arg_constraints)};
+  function->AddSignature(signature_with_unnamed_args_constraints);
   catalog_->AddOwnedFunction(function);
 }
 

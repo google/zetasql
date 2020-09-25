@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@
 
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_column.h"
-#include "zetasql/base/statusor.h"
 #include "zetasql/base/statusor.h"
 
 #ifndef ZETASQL_COMPLIANCE_TYPE_HELPERS_H_

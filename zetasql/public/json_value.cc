@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,7 +42,6 @@
 #include "absl/strings/substitute.h"
 #include "single_include/nlohmann/json.hpp"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -269,6 +268,12 @@ class JSONValueStandardParser : public JSONValueParserBase {
 
   bool string(std::string& val) {
     return MaybeUpdateStatus(value_builder_.ParsedString(val));
+  }
+
+  bool binary(std::vector<std::uint8_t>& val) {
+    // TODO: Implement the binary value type.
+    return MaybeUpdateStatus(absl::UnimplementedError(
+        "Binary JSON subtypes have not been implemented"));
   }
 
   bool start_object(std::size_t /*unused*/) {

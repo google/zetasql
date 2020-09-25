@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -464,6 +464,10 @@ class Unparser : public ParseTreeVisitor {
                                 void* data) override;
   void visitASTReplaceFieldsExpression(const ASTReplaceFieldsExpression* node,
                                        void* data) override;
+  void visitASTFilterFieldsArg(const ASTFilterFieldsArg* node,
+                               void* data) override;
+  void visitASTFilterFieldsExpression(const ASTFilterFieldsExpression* node,
+                                      void* data) override;
   void visitASTSampleSize(const ASTSampleSize* node, void* data) override;
   void visitASTSampleSuffix(const ASTSampleSuffix* node, void* data) override;
   void visitASTWithWeight(const ASTWithWeight* node, void *data) override;
@@ -564,6 +568,8 @@ class Unparser : public ParseTreeVisitor {
       const ASTExecuteImmediateStatement* node, void* data) override;
   void visitASTRaiseStatement(const ASTRaiseStatement* node,
                               void* data) override;
+  void visitASTCollateExpression(const ASTCollateExpression* node,
+                                 void* data) override;
 
  protected:
   // Set break_line to true if you want to print each child on a separate line.

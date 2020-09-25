@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,7 +43,6 @@
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
-#include "zetasql/base/statusor.h"
 
 // This header file has definitions for the AST classes.
 //
@@ -88,6 +87,7 @@ enum class SchemaObjectKind {
   kMaterializedView,
   kModel,
   kProcedure,
+  kSchema,
   kTable,
   kTableFunction,
   kView,
@@ -915,6 +915,11 @@ class ASTDropStatement final : public ASTDdlStatement {
   bool is_if_exists() const { return is_if_exists_; }
   void set_is_if_exists(bool value) { is_if_exists_ = value; }
 
+  enum class DropMode { DROP_MODE_UNSPECIFIED, RESTRICT, CASCADE };
+  const DropMode drop_mode() const { return drop_mode_; }
+  void set_drop_mode(DropMode drop_mode) { drop_mode_ = drop_mode; }
+  static std::string GetSQLForDropMode(DropMode drop_mode);
+
  private:
   void InitFields() final {
     FieldLoader fl(this);
@@ -924,6 +929,7 @@ class ASTDropStatement final : public ASTDdlStatement {
   SchemaObjectKind schema_object_kind_ =
       SchemaObjectKind::kInvalidSchemaObjectKind;
   bool is_if_exists_ = false;
+  DropMode drop_mode_ = DropMode::DROP_MODE_UNSPECIFIED;
 };
 
 // Generic DROP statement (broken link).
@@ -2670,6 +2676,29 @@ class ASTExtractExpression final : public ASTExpression {
   const ASTExpression* lhs_expr_ = nullptr;
   const ASTExpression* rhs_expr_ = nullptr;
   const ASTExpression* time_zone_expr_ = nullptr;
+};
+
+class ASTCollateExpression final : public ASTExpression {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_COLLATE_EXPRESSION;
+
+  ASTCollateExpression() : ASTExpression(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTExpression* expr() const { return expr_; }
+  const ASTStringLiteral* collation_spec() const { return collation_spec_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&expr_);
+    fl.AddRequired(&collation_spec_);
+  }
+
+  const ASTExpression* expr_ = nullptr;
+  const ASTStringLiteral* collation_spec_ = nullptr;
 };
 
 // This is used for dotted identifier paths only, not dotting into
@@ -6581,6 +6610,65 @@ class ASTRepeatableClause final : public ASTNode {
   }
 
   const ASTExpression* argument_ = nullptr;  // Required
+};
+
+class ASTFilterFieldsArg final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_FILTER_FIELDS_ARG;
+
+  ASTFilterFieldsArg() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+  std::string SingleNodeDebugString() const override;
+  std::string GetSQLForOperator() const;
+
+  enum FilterType {
+    NOT_SET,
+    INCLUDE,
+    EXCLUDE,
+  };
+
+  FilterType filter_type() const { return filter_type_; }
+  void set_filter_type(FilterType filter_type) { filter_type_ = filter_type; }
+  const ASTGeneralizedPathExpression* path_expression() const {
+    return path_expression_;
+  }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&path_expression_);
+  }
+
+  FilterType filter_type_ = NOT_SET;
+  const ASTGeneralizedPathExpression* path_expression_ = nullptr;
+};
+
+class ASTFilterFieldsExpression final : public ASTExpression {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_FILTER_FIELDS_EXPRESSION;
+
+  ASTFilterFieldsExpression() : ASTExpression(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTExpression* expr() const { return expr_; }
+
+  const absl::Span<const ASTFilterFieldsArg* const>& arguments() const {
+    return arguments_;
+  }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&expr_);
+    fl.AddRestAsRepeated(&arguments_);
+  }
+
+  const ASTExpression* expr_ = nullptr;  // Required
+  absl::Span<const ASTFilterFieldsArg* const> arguments_;
 };
 
 class ASTReplaceFieldsArg final : public ASTNode {

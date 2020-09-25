@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -415,11 +415,14 @@ const std::string Function::GetNoMatchingFunctionSignatureErrorMessage(
 // take templated args like ANY, the error messages aren't very good.  Fix
 // this.
 const std::string Function::GetSupportedSignaturesUserFacingText(
-    const LanguageOptions& language_options) const {
+    const LanguageOptions& language_options, int* num_signatures) const {
+  // Make a good guess
+  *num_signatures = NumSignatures();
   if (GetSupportedSignaturesCallback() != nullptr) {
     return GetSupportedSignaturesCallback()(language_options, *this);
   }
   std::string supported_signatures;
+  *num_signatures = 0;
   for (const FunctionSignature& signature : signatures()) {
     // Ignore deprecated signatures, and signatures that include
     // unsupported data types.
@@ -437,6 +440,7 @@ const std::string Function::GetSupportedSignaturesUserFacingText(
       argument_texts.push_back(argument.UserFacingNameWithCardinality(
           language_options.product_mode()));
     }
+    (*num_signatures)++;
     absl::StrAppend(&supported_signatures, GetSQL(argument_texts));
   }
   return supported_signatures;

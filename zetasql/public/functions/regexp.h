@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -68,9 +68,14 @@ class RegExp {
   // REGEXP_MATCH (full match)
   bool Match(absl::string_view str, bool* out, absl::Status* error);
 
+  enum PositionUnit {
+    kBytes,
+    kUtf8Chars,
+  };
+
   // REGEXP_EXTRACT
-  // Extracts a match starting at `position` and looks for the specified
-  // `occurrence_index`.
+  // Extracts a match from `str` of type `position_unit` starting at `position`
+  // and looks for the specified `occurrence_index`.
   // If `occurrence_index` is greater than the number of matches found returns
   // true with *is_null set to true.
   // If a match was extracted, returns true with *is_null set to false.
@@ -79,13 +84,16 @@ class RegExp {
   // status in *error.
   // Note: Both `position` and `occurrence_index` are one-based indices rather
   // than zero-based indices.
-  bool Extract(absl::string_view str, int64_t position, int64_t occurrence_index,
-               absl::string_view* out, bool* is_null, absl::Status* error);
+  bool Extract(absl::string_view str, PositionUnit position_unit,
+               int64_t position, int64_t occurrence_index, absl::string_view* out,
+               bool* is_null, absl::Status* error);
 
   inline bool Extract(absl::string_view str, absl::string_view* out,
                       bool* is_null, absl::Status* error) {
-    return Extract(str, /*position=*/1, /*occurrence_index=*/1, out, is_null,
-                   error);
+    // Position unit doesn't matter here since both the `position` and
+    // `occurrence_index` are 1 so we set a no-op value.
+    return Extract(str, /*position_unit=*/PositionUnit::kBytes, /*position=*/1,
+                   /*occurrence_index=*/1, out, is_null, error);
   }
 
   // REGEXP_EXTRACT_ALL
@@ -108,11 +116,6 @@ class RegExp {
   // left unchanged.
   void ExtractAllReset(const absl::string_view str);
   bool ExtractAllNext(absl::string_view* out, absl::Status* error);
-
-  enum PositionUnit {
-    kBytes,
-    kUtf8Chars,
-  };
 
   enum ReturnPosition {
     // Returns the position of the start of the match

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -63,7 +63,6 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -924,13 +923,7 @@ bool FunctionResolver::SignatureMatches(
       *result_type,
       GetConcreteArguments(input_arguments, signature, repetitions, optionals,
                            resolved_templated_arguments),
-      signature.context_id());
-  if (signature.IsDeprecated()) {
-    (*result_signature)->SetIsDeprecated(true);
-  }
-  (*result_signature)
-      ->SetAdditionalDeprecationWarnings(
-          signature.AdditionalDeprecationWarnings());
+      signature.context_id(), signature.options());
 
   // We have a matching concrete signature, so update <signature_match_result>
   // for all arguments as compared to this signature.
@@ -1356,7 +1349,11 @@ FunctionResolver::FindMatchingSignature(
     if (SignatureMatches(input_arguments, signature,
                          function->ArgumentsAreCoercible(), &result_signature,
                          &signature_match_result)) {
-      if (!signature.CheckArgumentConstraints(input_arguments)) {
+      ZETASQL_RET_CHECK(result_signature != nullptr);
+      ZETASQL_ASSIGN_OR_RETURN(
+          const bool argument_constraints_satisfied,
+          result_signature->CheckArgumentConstraints(input_arguments));
+      if (!argument_constraints_satisfied) {
         // If this signature has argument constraints and they are not
         // satisfied then ignore the signature.
         continue;
@@ -1638,7 +1635,7 @@ absl::Status FunctionResolver::ConvertLiteralToType(
         Value::Array(target_type->AsArray(), {} /* values */);
   } else if (argument_value->type()->IsStruct()) {
     // TODO: Make this clearer by factoring it out to a helper function
-    // that returns a zetasql_base::StatusOr<Value>, making 'success' unnecessary and
+    // that returns an zetasql_base::StatusOr<Value>, making 'success' unnecessary and
     // allowing for a more detailed error message (like for string -> proto
     // conversion below).
     bool success = true;
@@ -1830,8 +1827,10 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
 
   if (nullptr == result_signature) {
     ProductMode product_mode = resolver_->language().product_mode();
+    int num_signatures = 0;
     const std::string supported_signatures =
-        function->GetSupportedSignaturesUserFacingText(resolver_->language());
+        function->GetSupportedSignaturesUserFacingText(resolver_->language(),
+                                                       &num_signatures);
     if (!supported_signatures.empty()) {
       return MakeSqlErrorAtNode(ast_location, include_leftmost_child)
              << function->GetNoMatchingFunctionSignatureErrorMessage(
@@ -1839,8 +1838,7 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
              << ". Supported signature"
              // When there are multiple signatures, say "signatures", otherwise
              // say "signature".
-             << (function->signatures().size() > 1 ? "s" : "") << ": "
-             << supported_signatures;
+             << (num_signatures > 1 ? "s" : "") << ": " << supported_signatures;
     } else {
       if (function->GetSupportedSignaturesCallback() == nullptr) {
         // If we do not have any supported signatures and there is

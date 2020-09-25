@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -63,7 +63,6 @@
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -232,6 +231,13 @@ class Resolver {
     return analyzer_options_.language();
   }
 
+  const AnalyzerOutputProperties& analyzer_output_properties() const {
+    return analyzer_output_properties_;
+  }
+
+  // Returns the highest column id that has been allocated.
+  int max_column_id() const { return max_column_id_; }
+
   // Clear state so this can be used to resolve a second statement whose text
   // is contained in <sql>.
   void Reset(absl::string_view sql);
@@ -304,6 +310,7 @@ class Resolver {
   // Next unique column_id to allocate.  Pointer may come from AnalyzerOptions.
   zetasql_base::SequenceNumber* next_column_id_sequence_ = nullptr;  // Not owned.
   std::unique_ptr<zetasql_base::SequenceNumber> owned_column_id_sequence_;
+  int max_column_id_ = 0;
 
   // Next unique subquery ID to allocate. Used for display only.
   int next_subquery_id_;
@@ -346,6 +353,8 @@ class Resolver {
 
   // True if we are analyzing check constraint expression.
   bool analyzing_check_constraint_expression_;
+
+  AnalyzerOutputProperties analyzer_output_properties_;
 
   // Store list of named subqueries currently visible.
   // This is updated as we traverse the query to implement scoping of
@@ -1730,8 +1739,8 @@ class Resolver {
     absl::Status VisitResolvedOrderByScan(
         const ResolvedOrderByScan* node) override;
 
-    absl::Status VisitResolvedTVFArgument(
-        const ResolvedTVFArgument* node) override;
+    absl::Status VisitResolvedFunctionArgument(
+        const ResolvedFunctionArgument* node) override;
 
     absl::Status VisitResolvedWithEntry(const ResolvedWithEntry* node) override;
 
@@ -2511,7 +2520,7 @@ class Resolver {
   // zetasql.use_defaults=false. Element in <resolved_arguments> is
   // transferred to <resolved_expr_out>.
   absl::Status ResolveProtoDefaultIfNull(
-      const ASTNode* ast_location, ExprResolutionInfo* expr_resolution_info,
+      const ASTNode* ast_location,
       std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
@@ -2701,6 +2710,11 @@ class Resolver {
     const ASTExtractExpression* extract_expression,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+
+  absl::Status ResolveCollateExpression(
+      const ASTCollateExpression* ast_collate_expr,
+      ExprResolutionInfo* expr_resolution_info,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
   absl::Status ResolveNewConstructor(
       const ASTNewConstructor* ast_new_constructor,
@@ -3267,7 +3281,7 @@ class Resolver {
 
   // Returns true if two values of the given types can be tested for equality
   // either directly or by coercing the values to a common supertype.
-  bool SupportsEquality(const Type* type1, const Type* type2);
+  zetasql_base::StatusOr<bool> SupportsEquality(const Type* type1, const Type* type2);
 
   // Returns the column alias from <expr_resolution_info> if <ast_expr> matches
   // the top level expression in <expr_resolution_info>. Returns an empty

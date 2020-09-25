@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,7 +36,6 @@
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
 
 // ZetaSQL's Catalog interface class allows an implementing query engine
 // to define the functions available in the engine.  The caller initially
@@ -622,8 +621,9 @@ class Function {
   // message) listing supported function signatures. For example:
   // "DATE_DIFF(DATE, DATE, DATE_TIME_PART)"
   // "INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE"
+  // In num_signatures returns number of signatures used to build a string.
   const std::string GetSupportedSignaturesUserFacingText(
-      const LanguageOptions& language_options) const;
+      const LanguageOptions& language_options, int* num_signatures) const;
 
   const BadArgumentErrorPrefixCallback&
   GetBadArgumentErrorPrefixCallback() const;

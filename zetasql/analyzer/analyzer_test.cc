@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -210,7 +210,7 @@ TEST_F(AnalyzerOptionsTest, ParserASTOwnershipTests) {
       &parser_output, options_, sql, catalog(), &type_factory_,
       &analyzer_output_unowned_parser_output));
   // <parser_output> retains ownership.
-  EXPECT_NE(nullptr, parser_output);
+  ASSERT_NE(nullptr, parser_output);
 
   // Analyze statement from ParserOutput and take ownership of <parser_output>.
   std::unique_ptr<const AnalyzerOutput> analyzer_output_owned_parser_output;
@@ -1215,6 +1215,7 @@ TEST(AnalyzerSupportedFeaturesTest, SupportedFeaturesTest) {
       ZETASQL_EXPECT_OK(status)
           << "Query: " << input.statement
           << "\nSupported features: " << input.FeaturesToString();
+      EXPECT_GT(output->max_column_id(), 0);
     } else {
       EXPECT_THAT(status, StatusIs(_, HasSubstr(input.expected_error_string)))
           << "Query: " << input.statement
@@ -1562,6 +1563,34 @@ TEST(SQLBuilderTest, WithScanWithArrayScan) {
       "  )\n"
       "SELECT\n  withrefscan_4.a_1 AS a_1\nFROM\n  WithTable AS withrefscan_4;",
       formatted_sql);
+}
+
+TEST(AnalyzerTest, AnalyzeStatementsOfScript) {
+  SampleCatalog catalog;
+  std::string script = "SELECT * FROM KeyValue;\nSELECT garbage;";
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(ParseScript(script, ParserOptions(), ERROR_MESSAGE_ONE_LINE,
+                        &parser_output));
+  ASSERT_EQ(parser_output->script()->statement_list().size(), 2);
+
+  AnalyzerOptions analyzer_options;
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+
+  // Analyze first statement in script - this should succeed.
+  ZETASQL_ASSERT_OK(AnalyzeStatementFromParserAST(
+      *parser_output->script()->statement_list()[0], analyzer_options, script,
+      catalog.catalog(), catalog.type_factory(), &analyzer_output));
+  ASSERT_EQ(analyzer_output->resolved_statement()->node_kind(),
+            RESOLVED_QUERY_STMT);
+
+  // Analyze second statement in script - this should fail, and the error
+  // message should be relative to the entire script, not just the particular
+  // statement being analyzed.
+  absl::Status status = AnalyzeStatementFromParserAST(
+      *parser_output->script()->statement_list()[1], analyzer_options, script,
+      catalog.catalog(), catalog.type_factory(), &analyzer_output);
+  ASSERT_THAT(status, StatusIs(absl::StatusCode::kInvalidArgument,
+                               "Unrecognized name: garbage [at 2:8]"));
 }
 
 }  // namespace zetasql

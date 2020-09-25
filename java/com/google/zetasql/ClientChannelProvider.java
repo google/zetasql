@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 ZetaSQL Authors
+ * Copyright 2019 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,13 +23,13 @@ import java.util.ServiceLoader;
 /** Provides a interface for accessing the client channel. */
 public interface ClientChannelProvider {
 
-  /** Returns the channel to ZetaSQL server. */
-  Channel getChannel();
+  /** Returns a new channel to ZetaSQL server. */
+  Channel newChannel();
 
-  /** Returns the channel to ZetaSQL server from a Service implementation. */
+  /** Returns a new channel to ZetaSQL server from a Service implementation. */
   static Channel loadChannel() {
     for (ClientChannelProvider provider : ServiceLoader.load(ClientChannelProvider.class)) {
-      return provider.getChannel();
+      return provider.newChannel();
     }
     throw new IllegalStateException("No ZetaSQL ClientChannelProvider loaded.");
   }

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -56,6 +56,8 @@ std::set<LanguageFeature> LanguageOptions::GetLanguageFeaturesForVersion(
       features.insert(FEATURE_V_1_3_DATE_ARITHMETICS);
       features.insert(FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS);
       features.insert(FEATURE_V_1_3_WITH_GROUP_ROWS);
+      features.insert(FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES);
+      features.insert(FEATURE_V_1_3_EXTENDED_GEOGRAPHY_PARSERS);
       ABSL_FALLTHROUGH_INTENDED;
     // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
     // supposed to be stable and frozen, except possibly for bug fixes.

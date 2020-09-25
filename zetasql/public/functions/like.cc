@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,18 +16,19 @@
 
 #include "zetasql/public/functions/like.h"
 
-#include <stddef.h>
+#include <cstddef>
 #include <string>
 
 #include "zetasql/base/logging.h"
 #include "absl/memory/memory.h"
 #include "re2/re2.h"
 #include "zetasql/base/status.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace functions {
 
-static bool IsRegexSpecialChar(char c) {
+bool IsRegexSpecialChar(char c) {
   switch (c) {
     case '\\':
     case '.':
@@ -49,9 +50,8 @@ static bool IsRegexSpecialChar(char c) {
   }
 }
 
-absl::Status CreateLikeRegexpWithOptions(absl::string_view pattern,
-                                         const RE2::Options& options,
-                                         std::unique_ptr<RE2>* regexp) {
+zetasql_base::StatusOr<std::string> GetRePatternFromLikePattern(
+    absl::string_view pattern) {
   std::string re_pattern;
   size_t size = pattern.size();
   for (size_t i = 0; i < size; ++i) {
@@ -86,7 +86,14 @@ absl::Status CreateLikeRegexpWithOptions(absl::string_view pattern,
         re_pattern.push_back(c);
     }
   }
+  return re_pattern;
+}
 
+absl::Status CreateLikeRegexpWithOptions(absl::string_view pattern,
+                                         const RE2::Options& options,
+                                         std::unique_ptr<RE2>* regexp) {
+  ZETASQL_ASSIGN_OR_RETURN(const std::string re_pattern,
+                   GetRePatternFromLikePattern(pattern));
   *regexp = absl::make_unique<RE2>(re_pattern, options);
   if (!(*regexp)->ok()) {
     absl::Status error(absl::StatusCode::kOutOfRange, (*regexp)->error());

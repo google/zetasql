@@ -2,8 +2,6 @@
 
 # Utility statements
 
-<!-- BEGIN CONTENT -->
-
 ZetaSQL specifies the syntax for utility statements, such as
 `DESCRIBE`.
 
@@ -67,6 +65,4 @@ This statement uses the following variables:
   match.
 
 [explain-statement]: #explain
-
-<!-- END CONTENT -->
 

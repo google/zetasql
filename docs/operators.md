@@ -657,7 +657,8 @@ STRUCTs support only 4 comparison operators: equal
 
 The following rules apply when comparing these data types:
 
-+  Floating point: All comparisons with NaN return FALSE,
++  Floating point:
+   All comparisons with NaN return FALSE,
    except for `!=` and `<>`, which return TRUE.
 +  BOOL: FALSE is less than TRUE.
 +  STRING: Strings are

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -354,6 +354,19 @@ absl::Status Catalog::FindObject(absl::Span<const std::string> path,
                                  const Constant** object,
                                  const FindOptions& options) {
   return FindConstant(path, object, options);
+}
+
+zetasql_base::StatusOr<TypeListView> Catalog::GetExtendedTypeSuperTypes(
+    const Type* type) {
+  ZETASQL_RET_CHECK_NE(type, nullptr);
+  ZETASQL_RET_CHECK(type->IsExtendedType());
+
+  // By default, Catalogs do not support extended types so we return NOT_FOUND
+  // here.  Catalogs that support extended types must override this method in
+  // order to find the <type> and return the relevant supertypes.
+  return ::zetasql_base::NotFoundErrorBuilder()
+         << "Type " << type->DebugString() << " not found in catalog "
+         << FullName();
 }
 
 std::string Catalog::ConvertPathToProtoName(

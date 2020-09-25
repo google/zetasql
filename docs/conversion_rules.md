@@ -13,8 +13,8 @@ functions that have their own function
 
 The table below summarizes all possible `CAST` and coercion possibilities for
 ZetaSQL data types. "Coercion To" applies to all *expressions* of a
-given data type (e.g. a column)
-, but literals
+given data type, (for example, a
+column), but literals
 and parameters can also be coerced. See [Literal Coercion][con-rules-link-to-literal-coercion] and
 [Parameter Coercion][con-rules-link-to-parameter-coercion] for details.
 

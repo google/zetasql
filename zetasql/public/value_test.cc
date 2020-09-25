@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -59,7 +59,6 @@
 #include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/types/value_representations.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -3037,7 +3036,7 @@ namespace {
     values->push_back(Value::Numeric(NumericValue(0)));
     // Some finite positive number
     values->push_back(
-        Value::Numeric(NumericValue::FromStringStrict("123.4").ValueOrDie()));
+        Value::Numeric(NumericValue::FromStringStrict("123.4").value()));
     // Highest finite positive number
     values->push_back(Value::Numeric(NumericValue::MaxValue()));
   }
@@ -3055,8 +3054,8 @@ namespace {
     // Zero
     values->push_back(Value::BigNumeric(BigNumericValue(0)));
     // Some finite positive number
-    values->push_back(Value::BigNumeric(
-        BigNumericValue::FromStringStrict("123.4").ValueOrDie()));
+    values->push_back(
+        Value::BigNumeric(BigNumericValue::FromStringStrict("123.4").value()));
     // Highest finite positive number
     values->push_back(Value::BigNumeric(BigNumericValue::MaxValue()));
   }

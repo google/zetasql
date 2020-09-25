@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@
 #include "zetasql/base/statusor.h"
 #include "absl/time/time.h"
 #include "zetasql/base/status_builder.h"
-#include "zetasql/base/statusor.h"
 
 // The full specification for ZetaSQL casting and coercion is at:
 //   (broken link)

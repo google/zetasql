@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,8 +31,8 @@
 #include "absl/functional/bind_front.h"
 #include "absl/random/random.h"
 #include "absl/strings/str_cat.h"
-#include "zetasql/base/map_util.h"
 #include "zetasql/base/statusor.h"
+#include "zetasql/base/map_util.h"
 
 ABSL_DECLARE_FLAG(int32_t, zetasql_format_max_output_width);
 

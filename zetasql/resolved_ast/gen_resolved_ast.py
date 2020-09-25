@@ -1,5 +1,5 @@
 #
-# Copyright 2019 ZetaSQL Authors
+# Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -2761,10 +2761,10 @@ right.
       The function signature may also include relation arguments, and any such
       relation argument may specify a required schema. If such a required schema
       is present, then in the resolved AST, the ResolvedScan for each relational
-      ResolvedTVFArgument is guaranteed to have the same number of columns as
-      the required schema, and the provided columns match position-wise with the
-      required columns. Each provided column has the same name and type as the
-      corresponding required column.
+      ResolvedFunctionArgument is guaranteed to have the same number of columns
+      as the required schema, and the provided columns match position-wise with
+      the required columns. Each provided column has the same name and type as
+      the corresponding required column.
 
       <column_list> is a set of new ResolvedColumns created by this scan.
       These output columns match positionally with the columns in the output
@@ -2787,31 +2787,38 @@ right.
           Field('tvf', TABLE_VALUED_FUNCTION, tag_id=2),
           Field('signature', TVF_SIGNATURE, tag_id=3),
           Field(
-              'argument_list', 'ResolvedTVFArgument', tag_id=5,
+              'argument_list',
+              'ResolvedFunctionArgument',
+              tag_id=5,
               vector=True),
           Field('alias', SCALAR_STRING, tag_id=6, ignorable=IGNORABLE)
       ])
 
   gen.AddNode(
-      name='ResolvedTVFArgument',
+      name='ResolvedFunctionArgument',
       tag_id=82,
       parent='ResolvedArgument',
       comment="""
-      This represents an argument to a table-valued function (TVF). The argument
-      can be semantically scalar, relational, represent a model, a connection or
-      a descriptor. Only one of the five fields will be set.
+      This represents a generic argument to a function. The argument can be
+      semantically an expression, relation, model, connection or descriptor.
+      Only one of the five fields will be set.
 
-      <expr> The expression representing a scalar TVF argument.
-      <scan> The scan representing a relational TVF argument.
-      <model> The model representing an ML model TVF argument.
-      <connection> The connection representing a connection object TVF argument.
-      <descriptor_arg> The descriptor representing a descriptor object TVF
-      argument.
+      <expr> represents a scalar function argument.
+      <scan> represents a table-typed argument.
+      <model> represents a ML model function argument.
+      <connection> represents a connection object function argument.
+      <descriptor_arg> represents a descriptor object function argument.
 
-      <argument_column_list> maps columns from <scan> into specific columns
-      of the TVF argument's input schema, matching those columns positionally.
-      i.e. <scan>'s column_list may have fewer columns or out-of-order columns,
-      and this vector maps those columns into specific TVF input columns.
+      This node could be used in multiple places:
+      * ResolvedTVFScan supports all of these.
+      * ResolvedFunctionCall supports only <expr>.
+      * ResolvedCallStmt supports only <expr>.
+
+      If the argument has type <scan>, <argument_column_list> maps columns from
+      <scan> into specific columns of the argument's input schema, matching
+      those columns positionally. i.e. <scan>'s column_list may have fewer
+      columns or out-of-order columns, and this vector maps those columns into
+      specific input columns.
               """,
       fields=[
           Field(

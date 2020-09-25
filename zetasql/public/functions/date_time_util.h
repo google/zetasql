@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,7 +32,6 @@
 #include "absl/time/civil_time.h"
 #include "absl/time/time.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
 
 // ZetaSQL dates are represented as an int32_t value, indicating the offset
 // in days from the epoch 1970-01-01.  ZetaSQL dates are not timezone aware,

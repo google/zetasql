@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 ZetaSQL Authors
+ * Copyright 2019 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -450,6 +450,7 @@ false { return BisonParserImpl::token::KW_FALSE; }
 fetch { return BisonParserImpl::token::KW_FETCH; }
 fill { return BisonParserImpl::token::KW_FILL; }
 filter { return BisonParserImpl::token::KW_FILTER; }
+filter_fields { return BisonParserImpl::token::KW_FILTER_FIELDS; }
 first { return BisonParserImpl::token::KW_FIRST; }
 following { return BisonParserImpl::token::KW_FOLLOWING; }
 for { return BisonParserImpl::token::KW_FOR; }

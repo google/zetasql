@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,7 +51,6 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
 
 #ifndef __has_builtin
 #define __has_builtin(x) 0
@@ -535,7 +534,7 @@ inline bool Add(BigNumericValue in1, BigNumericValue in2, BigNumericValue* out,
                 absl::Status* error) {
   zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Add(in2);
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
-    *out = bignumeric_status.ValueOrDie();
+    *out = *bignumeric_status;
     return true;
   }
   if (error != nullptr) {
@@ -549,7 +548,7 @@ inline bool Subtract(BigNumericValue in1, BigNumericValue in2,
                      BigNumericValue* out, absl::Status* error) {
   zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Subtract(in2);
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
-    *out = bignumeric_status.ValueOrDie();
+    *out = *bignumeric_status;
     return true;
   }
   if (error != nullptr) {
@@ -563,7 +562,7 @@ inline bool Multiply(BigNumericValue in1, BigNumericValue in2,
                      BigNumericValue* out, absl::Status* error) {
   zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Multiply(in2);
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
-    *out = bignumeric_status.ValueOrDie();
+    *out = *bignumeric_status;
     return true;
   }
   if (error != nullptr) {
@@ -577,7 +576,7 @@ inline bool Divide(BigNumericValue in1, BigNumericValue in2,
                    BigNumericValue* out, absl::Status* error) {
   zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Divide(in2);
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
-    *out = bignumeric_status.ValueOrDie();
+    *out = *bignumeric_status;
     return true;
   }
   if (error != nullptr) {
@@ -591,7 +590,7 @@ inline bool UnaryMinus(BigNumericValue in, BigNumericValue* out,
                        absl::Status* error) {
   zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in.Negate();
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
-    *out = bignumeric_status.ValueOrDie();
+    *out = *bignumeric_status;
     return true;
   }
   if (error != nullptr) {

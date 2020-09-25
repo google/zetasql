@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/common/builtin_function_internal.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/cycle_detector.h"
 #include "zetasql/public/function.h"
@@ -37,6 +38,7 @@
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -45,7 +47,6 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -147,7 +148,8 @@ void GetDatetimeExtractFunctions(TypeFactory* type_factory,
 
 namespace {
 
-bool NoStringLiterals(const std::vector<InputArgumentType>& arguments) {
+bool NoStringLiterals(const FunctionSignature& matched_signature,
+                      const std::vector<InputArgumentType>& arguments) {
   for (const InputArgumentType& argument : arguments) {
     if (argument.is_literal() && argument.type()->IsString()) {
       return false;
@@ -407,22 +409,30 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
   require_civil_time_types.add_required_language_feature(
       FEATURE_V_1_2_CIVIL_TIME);
 
-  // Common signature for both DATE_ADD and DATE_SUB
-#define DATE_ADDSUB_SIGNATURE(timestamp_type, function_id) \
-  timestamp_type, \
-  {timestamp_type, int64_type, datepart_type, {string_type, OPTIONAL}}, \
-  function_id
+  FunctionSignatureOptions extended_datetime_signatures =
+      FunctionSignatureOptions()
+          .add_required_language_feature(
+              FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)
+          .set_is_aliased_signature(true);
 
   InsertFunction(
       functions, options, "date_add", SCALAR,
       {
           {date_type, {date_type, int64_type, datepart_type}, FN_DATE_ADD_DATE},
+          {datetime_type,
+           {datetime_type, int64_type, datepart_type},
+           FN_DATETIME_ADD,
+           extended_datetime_signatures},
+          {timestamp_type,
+           {timestamp_type, int64_type, datepart_type},
+           FN_TIMESTAMP_ADD,
+           extended_datetime_signatures},
       },
       FunctionOptions()
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForDateOrTimeAddOrSubFunction)
-          .set_pre_resolution_argument_constraint(
-              bind_front(&CheckDateAddDateSubArguments, "DATE_ADD"))
+          .set_pre_resolution_argument_constraint(bind_front(
+              &CheckDateDatetimeTimestampAddSubArguments, "DATE_ADD"))
           .set_get_sql_callback(
               bind_front(&DateAddOrSubFunctionSQL, "DATE_ADD")));
 
@@ -432,12 +442,16 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
           {datetime_type,
            {datetime_type, int64_type, datepart_type},
            FN_DATETIME_ADD},
+          {timestamp_type,
+           {timestamp_type, int64_type, datepart_type},
+           FN_TIMESTAMP_ADD,
+           extended_datetime_signatures},
       },
       require_civil_time_types.Copy()
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForDateOrTimeAddOrSubFunction)
-          .set_pre_resolution_argument_constraint(
-              bind_front(&CheckDatetimeAddSubDiffArguments, "DATETIME_ADD"))
+          .set_pre_resolution_argument_constraint(bind_front(
+              &CheckDateDatetimeTimestampAddSubArguments, "DATETIME_ADD"))
           .set_get_sql_callback(
               bind_front(&DateAddOrSubFunctionSQL, "DATETIME_ADD")));
 
@@ -449,22 +463,27 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
       require_civil_time_types.Copy()
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForDateOrTimeAddOrSubFunction)
-          // time_add is sharing the same argument constraint as timestamp_add
           .set_pre_resolution_argument_constraint(
-              bind_front(&CheckTimestampAddTimestampSubArguments, "TIME_ADD"))
+              bind_front(&CheckTimeAddSubArguments, "TIME_ADD"))
           .set_get_sql_callback(
               bind_front(&DateAddOrSubFunctionSQL, "TIME_ADD")));
 
   InsertFunction(
       functions, options, "timestamp_add", SCALAR,
-      {{timestamp_type,
-        {timestamp_type, int64_type, datepart_type},
-        FN_TIMESTAMP_ADD}},
+      {
+          {timestamp_type,
+           {timestamp_type, int64_type, datepart_type},
+           FN_TIMESTAMP_ADD},
+          {datetime_type,
+           {datetime_type, int64_type, datepart_type},
+           FN_DATETIME_ADD,
+           extended_datetime_signatures},
+      },
       FunctionOptions()
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForDateOrTimeAddOrSubFunction)
           .set_pre_resolution_argument_constraint(bind_front(
-              &CheckTimestampAddTimestampSubArguments, "TIMESTAMP_ADD"))
+              &CheckDateDatetimeTimestampAddSubArguments, "TIMESTAMP_ADD"))
           .set_get_sql_callback(
               bind_front(&DateAddOrSubFunctionSQL, "TIMESTAMP_ADD")));
 
@@ -472,12 +491,20 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
       functions, options, "date_sub", SCALAR,
       {
           {date_type, {date_type, int64_type, datepart_type}, FN_DATE_SUB_DATE},
+          {datetime_type,
+           {datetime_type, int64_type, datepart_type},
+           FN_DATETIME_SUB,
+           extended_datetime_signatures},
+          {timestamp_type,
+           {timestamp_type, int64_type, datepart_type},
+           FN_TIMESTAMP_SUB,
+           extended_datetime_signatures},
       },
       FunctionOptions()
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForDateOrTimeAddOrSubFunction)
-          .set_pre_resolution_argument_constraint(
-              bind_front(&CheckDateAddDateSubArguments, "DATE_SUB"))
+          .set_pre_resolution_argument_constraint(bind_front(
+              &CheckDateDatetimeTimestampAddSubArguments, "DATE_SUB"))
           .set_get_sql_callback(
               bind_front(&DateAddOrSubFunctionSQL, "DATE_SUB")));
 
@@ -487,12 +514,16 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
           {datetime_type,
            {datetime_type, int64_type, datepart_type},
            FN_DATETIME_SUB},
+          {timestamp_type,
+           {timestamp_type, int64_type, datepart_type},
+           FN_TIMESTAMP_SUB,
+           extended_datetime_signatures},
       },
       require_civil_time_types.Copy()
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForDateOrTimeAddOrSubFunction)
-          .set_pre_resolution_argument_constraint(
-              bind_front(&CheckDatetimeAddSubDiffArguments, "DATETIME_SUB"))
+          .set_pre_resolution_argument_constraint(bind_front(
+              &CheckDateDatetimeTimestampAddSubArguments, "DATETIME_SUB"))
           .set_get_sql_callback(
               bind_front(&DateAddOrSubFunctionSQL, "DATETIME_SUB")));
 
@@ -504,9 +535,8 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
       require_civil_time_types.Copy()
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForDateOrTimeAddOrSubFunction)
-          // time_sub is sharing the same argument constraint as timestamp_sub
           .set_pre_resolution_argument_constraint(
-              bind_front(&CheckTimestampAddTimestampSubArguments, "TIME_SUB"))
+              bind_front(&CheckTimeAddSubArguments, "TIME_SUB"))
           .set_get_sql_callback(
               bind_front(&DateAddOrSubFunctionSQL, "TIME_SUB")));
 
@@ -516,12 +546,16 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
           {timestamp_type,
            {timestamp_type, int64_type, datepart_type},
            FN_TIMESTAMP_SUB},
+          {datetime_type,
+           {datetime_type, int64_type, datepart_type},
+           FN_DATETIME_SUB,
+           extended_datetime_signatures},
       },
       FunctionOptions()
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForDateOrTimeAddOrSubFunction)
           .set_pre_resolution_argument_constraint(bind_front(
-              &CheckTimestampAddTimestampSubArguments, "TIMESTAMP_SUB"))
+              &CheckDateDatetimeTimestampAddSubArguments, "TIMESTAMP_SUB"))
           .set_get_sql_callback(
               bind_front(&DateAddOrSubFunctionSQL, "TIMESTAMP_SUB")));
 }
@@ -547,13 +581,27 @@ void GetDatetimeDiffTruncLastFunctions(
 
   const Type* diff_type = int64_type;
 
+  FunctionSignatureOptions extended_datetime_signatures =
+      FunctionSignatureOptions()
+          .add_required_language_feature(
+              FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)
+          .set_is_aliased_signature(true);
+
   InsertFunction(
       functions, options, "date_diff", SCALAR,
       {
           {diff_type, {date_type, date_type, datepart_type}, FN_DATE_DIFF_DATE},
+          {diff_type,
+           {datetime_type, datetime_type, datepart_type},
+           FN_DATETIME_DIFF,
+           extended_datetime_signatures},
+          {diff_type,
+           {timestamp_type, timestamp_type, datepart_type},
+           FN_TIMESTAMP_DIFF,
+           extended_datetime_signatures},
       },
-      FunctionOptions().set_pre_resolution_argument_constraint(
-          bind_front(&CheckDateDiffArguments, "DATE_DIFF")));
+      FunctionOptions().set_pre_resolution_argument_constraint(bind_front(
+          &CheckDateDatetimeTimeTimestampDiffArguments, "DATE_DIFF")));
 
   InsertFunction(
       functions, options, "datetime_diff", SCALAR,
@@ -561,60 +609,87 @@ void GetDatetimeDiffTruncLastFunctions(
           {int64_type,
            {datetime_type, datetime_type, datepart_type},
            FN_DATETIME_DIFF},
+          {int64_type,
+           {timestamp_type, timestamp_type, datepart_type},
+           FN_TIMESTAMP_DIFF,
+           extended_datetime_signatures},
       },
-      require_civil_time_types.Copy().set_pre_resolution_argument_constraint(
-          bind_front(&CheckDatetimeAddSubDiffArguments, "DATETIME_DIFF")));
+      require_civil_time_types.Copy().set_post_resolution_argument_constraint(
+          bind_front(&CheckDateDatetimeTimeTimestampDiffArguments,
+                     "DATETIME_DIFF")));
 
   InsertFunction(
       functions, options, "time_diff", SCALAR,
       {
           {int64_type, {time_type, time_type, datepart_type}, FN_TIME_DIFF},
       },
-      require_civil_time_types
-          .Copy()
-          // time_diff is sharing the same argument constraint as timestamp_diff
-          .set_pre_resolution_argument_constraint(
-              bind_front(&CheckTimestampDiffArguments, "TIME_DIFF")));
+      require_civil_time_types.Copy().set_pre_resolution_argument_constraint(
+          bind_front(&CheckDateDatetimeTimeTimestampDiffArguments,
+                     "TIME_DIFF")));
 
   InsertFunction(
       functions, options, "timestamp_diff", SCALAR,
-      {{int64_type,
-        {timestamp_type, timestamp_type, datepart_type},
-        FN_TIMESTAMP_DIFF}},
-      FunctionOptions().set_pre_resolution_argument_constraint(
-          bind_front(&CheckTimestampDiffArguments, "TIMESTAMP_DIFF")));
+      {
+          {int64_type,
+           {timestamp_type, timestamp_type, datepart_type},
+           FN_TIMESTAMP_DIFF},
+          {int64_type,
+           {datetime_type, datetime_type, datepart_type},
+           FN_DATETIME_DIFF,
+           extended_datetime_signatures},
+      },
+      FunctionOptions().set_post_resolution_argument_constraint(bind_front(
+          &CheckDateDatetimeTimeTimestampDiffArguments, "TIMESTAMP_DIFF")));
 
   InsertFunction(
       functions, options, "date_trunc", SCALAR,
       {
           {date_type, {date_type, datepart_type}, FN_DATE_TRUNC_DATE},
+          {datetime_type,
+           {datetime_type, datepart_type},
+           FN_DATETIME_TRUNC,
+           extended_datetime_signatures},
+          {timestamp_type,
+           {timestamp_type, datepart_type, {string_type, OPTIONAL}},
+           FN_TIMESTAMP_TRUNC,
+           extended_datetime_signatures},
       },
-      FunctionOptions().set_pre_resolution_argument_constraint(
-          bind_front(&CheckDateTruncArguments, "DATE_TRUNC")));
+      FunctionOptions().set_pre_resolution_argument_constraint(bind_front(
+          &CheckDateDatetimeTimeTimestampTruncArguments, "DATE_TRUNC")));
 
   InsertFunction(
       functions, options, "datetime_trunc", SCALAR,
-      {{datetime_type, {datetime_type, datepart_type}, FN_DATETIME_TRUNC}},
-      require_civil_time_types
-          .Copy()
-          // datetime_trunc is sharing the same argument constraint as
-          // timestamp_trunc
-          .set_pre_resolution_argument_constraint(
-              bind_front(&CheckTimestampTruncArguments, "DATETIME_TRUNC")));
+      {
+          {datetime_type, {datetime_type, datepart_type}, FN_DATETIME_TRUNC},
+          {timestamp_type,
+           {timestamp_type, datepart_type, {string_type, OPTIONAL}},
+           FN_TIMESTAMP_TRUNC,
+           extended_datetime_signatures},
+      },
+      require_civil_time_types.Copy().set_pre_resolution_argument_constraint(
+          bind_front(&CheckDateDatetimeTimeTimestampTruncArguments,
+                     "DATETIME_TRUNC")));
 
   InsertFunction(
       functions, options, "time_trunc", SCALAR,
       {{time_type, {time_type, datepart_type}, FN_TIME_TRUNC}},
       require_civil_time_types.Copy().set_pre_resolution_argument_constraint(
-          bind_front(&CheckTimeTruncArguments, "TIME_TRUNC")));
+          bind_front(&CheckDateDatetimeTimeTimestampTruncArguments,
+                     "TIME_TRUNC")));
 
   InsertFunction(
       functions, options, "timestamp_trunc", SCALAR,
-      {{timestamp_type,
-        {timestamp_type, datepart_type, {string_type, OPTIONAL}},
-        FN_TIMESTAMP_TRUNC}},
-      FunctionOptions().set_pre_resolution_argument_constraint(
-          bind_front(&CheckTimestampTruncArguments, "TIMESTAMP_TRUNC")));
+      {
+          {timestamp_type,
+           {timestamp_type, datepart_type, {string_type, OPTIONAL}},
+           FN_TIMESTAMP_TRUNC},
+          {datetime_type,
+           {datetime_type, datepart_type},
+           FN_DATETIME_TRUNC,
+           extended_datetime_signatures},
+      },
+      FunctionOptions().set_pre_resolution_argument_constraint(bind_front(
+          &CheckDateDatetimeTimeTimestampTruncArguments, "TIMESTAMP_TRUNC")));
 
   if (options.language_options.LanguageFeatureEnabled(
            FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS) &&
@@ -650,19 +725,43 @@ void GetDatetimeFormatFunctions(TypeFactory* type_factory,
   require_civil_time_types.add_required_language_feature(
       FEATURE_V_1_2_CIVIL_TIME);
 
+  FunctionSignatureOptions extended_datetime_signatures =
+      FunctionSignatureOptions()
+          .add_required_language_feature(
+              FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)
+          .set_is_aliased_signature(true);
+
   InsertFunction(functions, options, "format_date", SCALAR,
-                 {{string_type, {string_type, date_type}, FN_FORMAT_DATE}});
+                 {{string_type, {string_type, date_type}, FN_FORMAT_DATE},
+                  {string_type,
+                   {string_type, datetime_type},
+                   FN_FORMAT_DATETIME,
+                   extended_datetime_signatures},
+                  {string_type,
+                   {string_type, timestamp_type, {string_type, OPTIONAL}},
+                   FN_FORMAT_TIMESTAMP,
+                   extended_datetime_signatures}});
   InsertFunction(
       functions, options, "format_datetime", SCALAR,
-      {{string_type, {string_type, datetime_type}, FN_FORMAT_DATETIME}},
+      {{string_type, {string_type, datetime_type}, FN_FORMAT_DATETIME},
+       {string_type,
+        {string_type, timestamp_type, {string_type, OPTIONAL}},
+        FN_FORMAT_TIMESTAMP,
+        extended_datetime_signatures}},
       require_civil_time_types.Copy());
   InsertFunction(functions, options, "format_time", SCALAR,
                  {{string_type, {string_type, time_type}, FN_FORMAT_TIME}},
                  require_civil_time_types.Copy());
   InsertFunction(functions, options, "format_timestamp", SCALAR,
-                 {{string_type,
-                   {string_type, timestamp_type, {string_type, OPTIONAL}},
-                   FN_FORMAT_TIMESTAMP}});
+                 {
+                     {string_type,
+                      {string_type, timestamp_type, {string_type, OPTIONAL}},
+                      FN_FORMAT_TIMESTAMP},
+                     {string_type,
+                      {string_type, datetime_type},
+                      FN_FORMAT_DATETIME,
+                      extended_datetime_signatures},
+                 });
 
   InsertFunction(functions, options, "parse_date", SCALAR,
                  {{date_type, {string_type, string_type},

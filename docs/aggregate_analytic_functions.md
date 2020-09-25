@@ -1,7 +1,7 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-# Aggregate Analytic Functions
+# Aggregate analytic functions
 
 The following sections describe the aggregate analytic functions that
 ZetaSQL supports. For an explanation of how analytic functions work,

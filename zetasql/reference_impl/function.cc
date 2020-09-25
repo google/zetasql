@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -383,13 +383,17 @@ class FunctionMap {
   }
 
  private:
-  void RegisterFunction(FunctionKind kind, const std::string& name,
-                        const std::string& debug_name) {
+  // We use string_view here to reduce stack frame usage in debug mode for
+  // FunctionMap::FunctionMap.  We are not concerned about the performance
+  // implications here since it is called once per process invocation.
+  void RegisterFunction(FunctionKind kind, absl::string_view name,
+                        absl::string_view debug_name) {
     CHECK(zetasql_base::InsertIfNotPresent(&function_debug_name_by_kind_, kind,
-                                  debug_name))
+                                  std::string(debug_name)))
         << "Duplicate function debug_name: " << debug_name;
     if (!name.empty()) {
-      CHECK(zetasql_base::InsertIfNotPresent(&function_kind_by_name_, name, kind))
+      CHECK(zetasql_base::InsertIfNotPresent(&function_kind_by_name_, std::string(name),
+                                    kind))
           << "Duplicate function name: " << name;
     }
   }
@@ -400,297 +404,309 @@ class FunctionMap {
 
 FunctionMap::FunctionMap() {
   static const std::string kPrivate = "";  // for private functions
-  RegisterFunction(FunctionKind::kAdd, "$add", "Add");
-  RegisterFunction(FunctionKind::kSafeAdd, "safe_add", "SafeAdd");
-  RegisterFunction(FunctionKind::kAnd, "$and", "And");
-  RegisterFunction(FunctionKind::kAndAgg, kPrivate, "AndAgg");
-  RegisterFunction(FunctionKind::kAnyValue, "any_value", "AnyValue");
-  RegisterFunction(FunctionKind::kArrayAgg, "array_agg", "ArrayAgg");
-  RegisterFunction(FunctionKind::kArrayConcat, "array_concat", "ArrayConcat");
-  RegisterFunction(FunctionKind::kArrayConcatAgg, "array_concat_agg",
-                   "ArrayConcatAgg");
-  RegisterFunction(FunctionKind::kArrayLength, "array_length", "ArrayLength");
-  RegisterFunction(FunctionKind::kArrayToString, "array_to_string",
-                   "ArrayToString");
-  RegisterFunction(FunctionKind::kArrayReverse, "array_reverse",
-                   "ArrayReverse");
-  RegisterFunction(FunctionKind::kArrayAtOffset, "$array_at_offset",
-                   "ArrayAtOffset");
-  RegisterFunction(FunctionKind::kArrayAtOrdinal, "$array_at_ordinal",
-                   "ArrayAtOrdinal");
-  RegisterFunction(FunctionKind::kSafeArrayAtOffset, "$safe_array_at_offset",
-                   "SafeArrayAtOffset");
-  RegisterFunction(FunctionKind::kSafeArrayAtOrdinal, "$safe_array_at_ordinal",
-                   "SafeArrayAtOrdinal");
-  RegisterFunction(FunctionKind::kArrayIsDistinct, "array_is_distinct",
-                   "ArrayIsDistinct");
-  RegisterFunction(FunctionKind::kAvg, "avg", "Avg");
-  RegisterFunction(FunctionKind::kBitwiseAnd, "$bitwise_and", "BitwiseAnd");
-  RegisterFunction(FunctionKind::kBitwiseLeftShift, "$bitwise_left_shift",
-                   "BitwiseLeftShift");
-  RegisterFunction(FunctionKind::kBitwiseNot, "$bitwise_not", "BitwiseNot");
-  RegisterFunction(FunctionKind::kBitwiseOr, "$bitwise_or", "BitwiseOr");
-  RegisterFunction(FunctionKind::kBitwiseRightShift, "$bitwise_right_shift",
-                   "BitwiseRightShift");
-  RegisterFunction(FunctionKind::kBitwiseXor, "$bitwise_xor", "BitwiseXor");
-  RegisterFunction(FunctionKind::kBitAnd, "bit_and", "BitAnd");
-  RegisterFunction(FunctionKind::kBitOr, "bit_or", "BitOr");
-  RegisterFunction(FunctionKind::kBitXor, "bit_xor", "BitXor");
-  RegisterFunction(FunctionKind::kBitCount, "bit_count", "BitCount");
-  RegisterFunction(FunctionKind::kCast, "cast", "Cast");
-  RegisterFunction(FunctionKind::kBitCastToInt32, "bit_cast_to_int32",
-                   "BitCastToInt32");
-  RegisterFunction(FunctionKind::kBitCastToInt64, "bit_cast_to_int64",
-                   "BitCastToInt64");
-  RegisterFunction(FunctionKind::kBitCastToUint32, "bit_cast_to_uint32",
-                   "BitCastToUint32");
-  RegisterFunction(FunctionKind::kBitCastToUint64, "bit_cast_to_uint64",
-                   "BitCastToUint64");
-  RegisterFunction(FunctionKind::kCount, "count", "Count");
-  RegisterFunction(FunctionKind::kCountIf, "countif", "CountIf");
-  RegisterFunction(FunctionKind::kDateAdd, "date_add", "Date_add");
-  RegisterFunction(FunctionKind::kDateSub, "date_sub", "Date_sub");
-  RegisterFunction(FunctionKind::kDatetimeAdd, "datetime_add", "Datetime_add");
-  RegisterFunction(FunctionKind::kDatetimeSub, "datetime_sub", "Datetime_sub");
-  RegisterFunction(FunctionKind::kDatetimeDiff, "datetime_diff",
-                   "Datetime_diff");
-  RegisterFunction(FunctionKind::kDateTrunc, "date_trunc", "Date_trunc");
-  RegisterFunction(FunctionKind::kDatetimeTrunc, "datetime_trunc",
-                   "Datetime_trunc");
-  RegisterFunction(FunctionKind::kLastDay, "last_day", "Last_day");
-  RegisterFunction(FunctionKind::kDateDiff, "date_diff", "Date_diff");
-  RegisterFunction(FunctionKind::kDivide, "$divide", "Divide");
-  RegisterFunction(FunctionKind::kSafeDivide, "safe_divide", "SafeDivide");
-  RegisterFunction(FunctionKind::kDiv, "div", "Div");
-  RegisterFunction(FunctionKind::kEqual, "$equal", "Equal");
-  RegisterFunction(FunctionKind::kExists, "exists", "Exists");
-  RegisterFunction(FunctionKind::kGenerateArray, "generate_array",
-                   "GenerateArray");
-  RegisterFunction(FunctionKind::kGenerateDateArray, "generate_date_array",
-                   "GenerateDateArray");
-  RegisterFunction(FunctionKind::kGenerateTimestampArray,
-                   "generate_timestamp_array", "GenerateTimestampArray");
-  RegisterFunction(FunctionKind::kRangeBucket, "range_bucket", "RangeBucket");
-  RegisterFunction(FunctionKind::kJsonExtract, "json_extract", "JsonExtract");
-  RegisterFunction(FunctionKind::kJsonExtractScalar, "json_extract_scalar",
-                   "JsonExtractScalar");
-  RegisterFunction(FunctionKind::kJsonExtractArray, "json_extract_array",
-                   "JsonExtractArray");
-  RegisterFunction(FunctionKind::kJsonQuery, "json_query", "JsonQuery");
-  RegisterFunction(FunctionKind::kJsonValue, "json_value", "JsonValue");
-  RegisterFunction(FunctionKind::kGreatest, "greatest", "Greatest");
-  RegisterFunction(FunctionKind::kIsNull, "$is_null", "IsNull");
-  RegisterFunction(FunctionKind::kIsTrue, "$is_true", "IsTrue");
-  RegisterFunction(FunctionKind::kIsFalse, "$is_false", "IsFalse");
-  RegisterFunction(FunctionKind::kLeast, "least", "Least");
-  RegisterFunction(FunctionKind::kLess, "$less", "Less");
-  RegisterFunction(FunctionKind::kLessOrEqual, "$less_or_equal", "LessOrEqual");
-  RegisterFunction(FunctionKind::kLike, "$like", "Like");
-  RegisterFunction(FunctionKind::kLogicalAnd, "logical_and", "LogicalAnd");
-  RegisterFunction(FunctionKind::kLogicalOr, "logical_or", "LogicalOr");
-  RegisterFunction(FunctionKind::kMakeProto, "make_proto", "MakeProto");
-  RegisterFunction(FunctionKind::kMax, "max", "Max");
-  RegisterFunction(FunctionKind::kMin, "min", "Min");
-  RegisterFunction(FunctionKind::kMod, "mod", "Mod");
-  RegisterFunction(FunctionKind::kMultiply, "$multiply", "Multiply");
-  RegisterFunction(FunctionKind::kSafeMultiply, "safe_multiply",
-                   "SafeMultiply");
-  RegisterFunction(FunctionKind::kNot, "$not", "Not");
-  RegisterFunction(FunctionKind::kOr, "$or", "Or");
-  RegisterFunction(FunctionKind::kOrAgg, kPrivate, "OrAgg");
-  RegisterFunction(FunctionKind::kStringAgg, "string_agg", "StringAgg");
-  RegisterFunction(FunctionKind::kSubtract, "$subtract", "Subtract");
-  RegisterFunction(FunctionKind::kSafeSubtract, "safe_subtract",
-                   "SafeSubtract");
-  RegisterFunction(FunctionKind::kSum, "sum", "Sum");
-  RegisterFunction(FunctionKind::kTimeAdd, "time_add", "Time_add");
-  RegisterFunction(FunctionKind::kTimeSub, "time_sub", "Time_sub");
-  RegisterFunction(FunctionKind::kTimeDiff, "time_diff", "Time_diff");
-  RegisterFunction(FunctionKind::kTimeTrunc, "time_trunc", "Time_trunc");
-  RegisterFunction(FunctionKind::kTimestampDiff, "timestamp_diff",
-                   "Timestamp_diff");
-  RegisterFunction(FunctionKind::kTimestampAdd, "timestamp_add",
-                   "Timestamp_add");
-  RegisterFunction(FunctionKind::kTimestampSub, "timestamp_sub",
-                   "Timestamp_sub");
-  RegisterFunction(FunctionKind::kTimestampTrunc, "timestamp_trunc",
-                   "Timestamp_trunc");
-  RegisterFunction(FunctionKind::kUnaryMinus, "$unary_minus", "UnaryMinus");
-  RegisterFunction(FunctionKind::kSafeNegate, "safe_negate", "SafeNegate");
-  RegisterFunction(FunctionKind::kAbs, "abs", "Abs");
-  RegisterFunction(FunctionKind::kSign, "sign", "Sign");
-  RegisterFunction(FunctionKind::kRound, "round", "Round");
-  RegisterFunction(FunctionKind::kTrunc, "trunc", "Trunc");
-  RegisterFunction(FunctionKind::kCeil, "ceil", "Ceil");
-  RegisterFunction(FunctionKind::kFloor, "floor", "Floor");
-  RegisterFunction(FunctionKind::kIsNan, "is_nan", "IsNan");
-  RegisterFunction(FunctionKind::kIsInf, "is_inf", "IsInf");
-  RegisterFunction(FunctionKind::kIeeeDivide, "ieee_divide", "IeeeDivide");
-  RegisterFunction(FunctionKind::kSqrt, "sqrt", "Sqrt");
-  RegisterFunction(FunctionKind::kPow, "pow", "Pow");
-  RegisterFunction(FunctionKind::kExp, "exp", "Exp");
-  RegisterFunction(FunctionKind::kNaturalLogarithm, "ln", "NaturalLogarithm");
-  RegisterFunction(FunctionKind::kDecimalLogarithm, "log10",
-                   "DecimalLogarithm");
-  RegisterFunction(FunctionKind::kLogarithm, "log", "Logarithm");
-  RegisterFunction(FunctionKind::kCos, "cos", "Cos");
-  RegisterFunction(FunctionKind::kCosh, "cosh", "Cosh");
-  RegisterFunction(FunctionKind::kAcos, "acos", "Acos");
-  RegisterFunction(FunctionKind::kAcosh, "acosh", "Acosh");
-  RegisterFunction(FunctionKind::kSin, "sin", "Sin");
-  RegisterFunction(FunctionKind::kSinh, "sinh", "Sinh");
-  RegisterFunction(FunctionKind::kAsin, "asin", "Asin");
-  RegisterFunction(FunctionKind::kAsinh, "asinh", "Asinh");
-  RegisterFunction(FunctionKind::kTan, "tan", "Tan");
-  RegisterFunction(FunctionKind::kTanh, "tanh", "Tanh");
-  RegisterFunction(FunctionKind::kAtan, "atan", "Atan");
-  RegisterFunction(FunctionKind::kAtanh, "atanh", "Atanh");
-  RegisterFunction(FunctionKind::kAtan2, "atan2", "Atan2");
-  RegisterFunction(FunctionKind::kCorr, "corr", "Corr");
-  RegisterFunction(FunctionKind::kCovarPop, "covar_pop", "Covar_pop");
-  RegisterFunction(FunctionKind::kCovarSamp, "covar_samp", "Covar_samp");
-  RegisterFunction(FunctionKind::kVarPop, "var_pop", "Var_pop");
-  RegisterFunction(FunctionKind::kVarSamp, "var_samp", "Var_samp");
-  RegisterFunction(FunctionKind::kByteLength, "byte_length", "ByteLength");
-  RegisterFunction(FunctionKind::kCharLength, "char_length", "CharLength");
-  RegisterFunction(FunctionKind::kConcat, "concat", "Concat");
-  RegisterFunction(FunctionKind::kEndsWith, "ends_with", "EndsWith");
-  RegisterFunction(FunctionKind::kFormat, "format", "Format");
-  RegisterFunction(FunctionKind::kLength, "length", "Length");
-  RegisterFunction(FunctionKind::kLower, "lower", "Lower");
-  RegisterFunction(FunctionKind::kLtrim, "ltrim", "Ltrim");
-  RegisterFunction(FunctionKind::kRegexpMatch, "regexp_match", "RegexpMatch");
-  RegisterFunction(FunctionKind::kRegexpContains, "regexp_contains",
-                   "RegexpContains");
-  RegisterFunction(FunctionKind::kRegexpExtract, "regexp_extract",
-                   "RegexpExtract");
-  RegisterFunction(FunctionKind::kRegexpExtractAll, "regexp_extract_all",
-                   "RegexpExtract");
-  RegisterFunction(FunctionKind::kRegexpInstr, "regexp_instr",
-                   "RegexpInstr");
-  RegisterFunction(FunctionKind::kRegexpReplace, "regexp_replace",
-                   "RegexpReplace");
-  RegisterFunction(FunctionKind::kReplace, "replace", "Replace");
-  RegisterFunction(FunctionKind::kRtrim, "rtrim", "Rtrim");
-  RegisterFunction(FunctionKind::kSplit, "split", "Split");
-  RegisterFunction(FunctionKind::kStartsWith, "starts_with", "StartsWith");
-  RegisterFunction(FunctionKind::kStrpos, "strpos", "Strpos");
-  RegisterFunction(FunctionKind::kInstr, "instr", "Instr");
-  RegisterFunction(FunctionKind::kSubstr, "substr", "Substr");
-  RegisterFunction(FunctionKind::kTrim, "trim", "Trim");
-  RegisterFunction(FunctionKind::kUpper, "upper", "Upper");
-  RegisterFunction(FunctionKind::kLpad, "lpad", "Lpad");
-  RegisterFunction(FunctionKind::kRpad, "rpad", "Rpad");
-  RegisterFunction(FunctionKind::kLeft, "left", "Left");
-  RegisterFunction(FunctionKind::kRight, "right", "Right");
-  RegisterFunction(FunctionKind::kRepeat, "repeat", "Repeat");
-  RegisterFunction(FunctionKind::kReverse, "reverse", "Reverse");
-  RegisterFunction(FunctionKind::kSafeConvertBytesToString,
-                   "safe_convert_bytes_to_string", "SafeConvertBytesToString");
-  RegisterFunction(FunctionKind::kNormalize,
-                   "normalize", "Normalize");
-  RegisterFunction(FunctionKind::kNormalizeAndCasefold,
-                   "normalize_and_casefold", "NormalizeAndCasefold");
-  RegisterFunction(FunctionKind::kToBase64, "to_base64", "ToBase64");
-  RegisterFunction(FunctionKind::kFromBase64, "from_base64", "FromBase64");
-  RegisterFunction(FunctionKind::kToHex, "to_hex", "ToHex");
-  RegisterFunction(FunctionKind::kFromHex, "from_hex", "FromHex");
-  RegisterFunction(FunctionKind::kAscii, "ascii", "Ascii");
-  RegisterFunction(FunctionKind::kUnicode, "unicode", "Unicode");
-  RegisterFunction(FunctionKind::kChr, "chr", "Chr");
-  RegisterFunction(FunctionKind::kToCodePoints, "to_code_points",
-                   "ToCodePoints");
-  RegisterFunction(FunctionKind::kCodePointsToString, "code_points_to_string",
-                   "CodePointsToString");
-  RegisterFunction(FunctionKind::kCodePointsToBytes, "code_points_to_bytes",
-                   "CodePointsToBytes");
-  RegisterFunction(FunctionKind::kSoundex, "soundex", "Soundex");
-  RegisterFunction(FunctionKind::kTranslate, "translate", "Translate");
-  RegisterFunction(FunctionKind::kInitCap, "initcap", "InitCap");
-  RegisterFunction(FunctionKind::kCurrentDate, "current_date", "Current_date");
-  RegisterFunction(FunctionKind::kCurrentDatetime, "current_datetime",
-                   "Current_datetime");
-  RegisterFunction(FunctionKind::kCurrentTime, "current_time", "Current_time");
-  RegisterFunction(FunctionKind::kCurrentTimestamp, "current_timestamp",
-                   "Current_timestamp");
-  RegisterFunction(FunctionKind::kDateFromUnixDate, "date_from_unix_date",
-                   "Date_from_unix_date");
-  RegisterFunction(FunctionKind::kUnixDate, "unix_date", "Unix_date");
-  RegisterFunction(FunctionKind::kExtractFrom, "$extract", "Extract");
-  RegisterFunction(FunctionKind::kExtractDateFrom, "$extract_date",
-                   "Extract");
-  RegisterFunction(FunctionKind::kExtractTimeFrom, "$extract_time",
-                   "Extract");
-  RegisterFunction(FunctionKind::kExtractDatetimeFrom, "$extract_datetime",
-                   "Extract");
-  RegisterFunction(FunctionKind::kFormatDate, "format_date",
-                   "Format_date");
-  RegisterFunction(FunctionKind::kFormatDatetime, "format_datetime",
-                   "Format_datetime");
-  RegisterFunction(FunctionKind::kFormatTime, "format_time", "Format_time");
-  RegisterFunction(FunctionKind::kFormatTimestamp, "format_timestamp",
-                   "Format_timestamp");
-  RegisterFunction(FunctionKind::kTimestampSeconds, "timestamp_seconds",
-                   "Timestamp_seconds");
-  RegisterFunction(FunctionKind::kTimestampMillis, "timestamp_millis",
-                   "Timestamp_millis");
-  RegisterFunction(FunctionKind::kTimestampMicros, "timestamp_micros",
-                   "Timestamp_micros");
-  RegisterFunction(FunctionKind::kTimestampFromUnixSeconds,
-                   "timestamp_from_unix_seconds",
-                   "Timestamp_from_unix_seconds");
-  RegisterFunction(FunctionKind::kTimestampFromUnixMillis,
-                   "timestamp_from_unix_millis",
-                   "Timestamp_from_unix_millis");
-  RegisterFunction(FunctionKind::kTimestampFromUnixMicros,
-                   "timestamp_from_unix_micros",
-                   "Timestamp_from_unix_micros");
-  RegisterFunction(FunctionKind::kSecondsFromTimestamp, "unix_seconds",
-                   "Unix_seconds");
-  RegisterFunction(FunctionKind::kMillisFromTimestamp, "unix_millis",
-                   "Unix_millis");
-  RegisterFunction(FunctionKind::kMicrosFromTimestamp, "unix_micros",
-                   "Unix_micros");
-  RegisterFunction(FunctionKind::kString, "string", "String");
-  RegisterFunction(FunctionKind::kParseDate, "parse_date",
-                   "Parse_date");
-  RegisterFunction(FunctionKind::kParseDatetime, "parse_datetime",
-                   "Parse_datetime");
-  RegisterFunction(FunctionKind::kParseTime, "parse_time",
-                   "Parse_time");
-  RegisterFunction(FunctionKind::kParseTimestamp, "parse_timestamp",
-                   "Parse_timestamp");
-  RegisterFunction(FunctionKind::kFromProto, "from_proto", "From_proto");
-  RegisterFunction(FunctionKind::kToProto, "to_proto", "To_proto");
-  RegisterFunction(FunctionKind::kEnumValueDescriptorProto,
-                   "enum_value_descriptor_proto",
-                   "Enum_value_descriptor_proto");
-  RegisterFunction(FunctionKind::kDate, "date", "Date");
-  RegisterFunction(FunctionKind::kTimestamp, "timestamp", "Timestamp");
-  RegisterFunction(FunctionKind::kTime, "time", "Time");
-  RegisterFunction(FunctionKind::kDatetime, "datetime", "Datetime");
-  RegisterFunction(FunctionKind::kDenseRank, "dense_rank", "Dense_rank");
-  RegisterFunction(FunctionKind::kRank, "rank", "Rank");
-  RegisterFunction(FunctionKind::kRowNumber, "row_number", "Row_number");
-  RegisterFunction(FunctionKind::kPercentRank, "percent_rank", "Percent_rank");
-  RegisterFunction(FunctionKind::kCumeDist, "cume_dist", "Cume_dist");
-  RegisterFunction(FunctionKind::kNtile, "ntile", "Ntile");
-  RegisterFunction(FunctionKind::kFirstValue, "first_value", "First_value");
-  RegisterFunction(FunctionKind::kLastValue, "last_value", "Last_value");
-  RegisterFunction(FunctionKind::kNthValue, "nth_value", "Nth_value");
-  RegisterFunction(FunctionKind::kLead, "lead", "Lead");
-  RegisterFunction(FunctionKind::kLag, "lag", "Lag");
-  RegisterFunction(FunctionKind::kPercentileCont, "percentile_cont",
-                   "Percentile_cont");
-  RegisterFunction(FunctionKind::kRand, "rand", "Rand");
-  RegisterFunction(FunctionKind::kGenerateUuid, "generate_uuid",
-                   "Generate_Uuid");
-  RegisterFunction(FunctionKind::kMd5, "md5", "Md5");
-  RegisterFunction(FunctionKind::kSha1, "sha1", "Sha1");
-  RegisterFunction(FunctionKind::kSha256, "sha256", "Sha256");
-  RegisterFunction(FunctionKind::kSha512, "sha512", "Sha512");
-  RegisterFunction(FunctionKind::kFarmFingerprint, "farm_fingerprint",
-                   "FarmFingerprint");
+  // We break registration into multiple lambdas to reduce stack frame size
+  // in debug builds.
+  [this]() {
+    RegisterFunction(FunctionKind::kAdd, "$add", "Add");
+    RegisterFunction(FunctionKind::kSafeAdd, "safe_add", "SafeAdd");
+    RegisterFunction(FunctionKind::kAnd, "$and", "And");
+    RegisterFunction(FunctionKind::kAndAgg, kPrivate, "AndAgg");
+    RegisterFunction(FunctionKind::kAnyValue, "any_value", "AnyValue");
+    RegisterFunction(FunctionKind::kArrayAgg, "array_agg", "ArrayAgg");
+    RegisterFunction(FunctionKind::kArrayConcat, "array_concat", "ArrayConcat");
+    RegisterFunction(FunctionKind::kArrayConcatAgg, "array_concat_agg",
+                     "ArrayConcatAgg");
+    RegisterFunction(FunctionKind::kArrayLength, "array_length", "ArrayLength");
+    RegisterFunction(FunctionKind::kArrayToString, "array_to_string",
+                     "ArrayToString");
+    RegisterFunction(FunctionKind::kArrayReverse, "array_reverse",
+                     "ArrayReverse");
+    RegisterFunction(FunctionKind::kArrayAtOffset, "$array_at_offset",
+                     "ArrayAtOffset");
+    RegisterFunction(FunctionKind::kArrayAtOrdinal, "$array_at_ordinal",
+                     "ArrayAtOrdinal");
+    RegisterFunction(FunctionKind::kSafeArrayAtOffset, "$safe_array_at_offset",
+                     "SafeArrayAtOffset");
+    RegisterFunction(FunctionKind::kSafeArrayAtOrdinal,
+                     "$safe_array_at_ordinal", "SafeArrayAtOrdinal");
+    RegisterFunction(FunctionKind::kArrayIsDistinct, "array_is_distinct",
+                     "ArrayIsDistinct");
+    RegisterFunction(FunctionKind::kAvg, "avg", "Avg");
+    RegisterFunction(FunctionKind::kBitwiseAnd, "$bitwise_and", "BitwiseAnd");
+    RegisterFunction(FunctionKind::kBitwiseLeftShift, "$bitwise_left_shift",
+                     "BitwiseLeftShift");
+    RegisterFunction(FunctionKind::kBitwiseNot, "$bitwise_not", "BitwiseNot");
+    RegisterFunction(FunctionKind::kBitwiseOr, "$bitwise_or", "BitwiseOr");
+    RegisterFunction(FunctionKind::kBitwiseRightShift, "$bitwise_right_shift",
+                     "BitwiseRightShift");
+    RegisterFunction(FunctionKind::kBitwiseXor, "$bitwise_xor", "BitwiseXor");
+    RegisterFunction(FunctionKind::kBitAnd, "bit_and", "BitAnd");
+    RegisterFunction(FunctionKind::kBitOr, "bit_or", "BitOr");
+    RegisterFunction(FunctionKind::kBitXor, "bit_xor", "BitXor");
+    RegisterFunction(FunctionKind::kBitCount, "bit_count", "BitCount");
+    RegisterFunction(FunctionKind::kCast, "cast", "Cast");
+    RegisterFunction(FunctionKind::kBitCastToInt32, "bit_cast_to_int32",
+                     "BitCastToInt32");
+    RegisterFunction(FunctionKind::kBitCastToInt64, "bit_cast_to_int64",
+                     "BitCastToInt64");
+    RegisterFunction(FunctionKind::kBitCastToUint32, "bit_cast_to_uint32",
+                     "BitCastToUint32");
+    RegisterFunction(FunctionKind::kBitCastToUint64, "bit_cast_to_uint64",
+                     "BitCastToUint64");
+    RegisterFunction(FunctionKind::kCount, "count", "Count");
+    RegisterFunction(FunctionKind::kCountIf, "countif", "CountIf");
+    RegisterFunction(FunctionKind::kDateAdd, "date_add", "Date_add");
+    RegisterFunction(FunctionKind::kDateSub, "date_sub", "Date_sub");
+    RegisterFunction(FunctionKind::kDatetimeAdd, "datetime_add",
+                     "Datetime_add");
+    RegisterFunction(FunctionKind::kDatetimeSub, "datetime_sub",
+                     "Datetime_sub");
+    RegisterFunction(FunctionKind::kDatetimeDiff, "datetime_diff",
+                     "Datetime_diff");
+    RegisterFunction(FunctionKind::kDateTrunc, "date_trunc", "Date_trunc");
+    RegisterFunction(FunctionKind::kDatetimeTrunc, "datetime_trunc",
+                     "Datetime_trunc");
+    RegisterFunction(FunctionKind::kLastDay, "last_day", "Last_day");
+    RegisterFunction(FunctionKind::kDateDiff, "date_diff", "Date_diff");
+    RegisterFunction(FunctionKind::kDivide, "$divide", "Divide");
+    RegisterFunction(FunctionKind::kSafeDivide, "safe_divide", "SafeDivide");
+    RegisterFunction(FunctionKind::kDiv, "div", "Div");
+    RegisterFunction(FunctionKind::kEqual, "$equal", "Equal");
+    RegisterFunction(FunctionKind::kExists, "exists", "Exists");
+    RegisterFunction(FunctionKind::kGenerateArray, "generate_array",
+                     "GenerateArray");
+    RegisterFunction(FunctionKind::kGenerateDateArray, "generate_date_array",
+                     "GenerateDateArray");
+    RegisterFunction(FunctionKind::kGenerateTimestampArray,
+                     "generate_timestamp_array", "GenerateTimestampArray");
+    RegisterFunction(FunctionKind::kRangeBucket, "range_bucket", "RangeBucket");
+    RegisterFunction(FunctionKind::kJsonExtract, "json_extract", "JsonExtract");
+    RegisterFunction(FunctionKind::kJsonExtractScalar, "json_extract_scalar",
+                     "JsonExtractScalar");
+    RegisterFunction(FunctionKind::kJsonExtractArray, "json_extract_array",
+                     "JsonExtractArray");
+    RegisterFunction(FunctionKind::kJsonQuery, "json_query", "JsonQuery");
+    RegisterFunction(FunctionKind::kJsonValue, "json_value", "JsonValue");
+    RegisterFunction(FunctionKind::kGreatest, "greatest", "Greatest");
+  }();
+  [this]() {
+    RegisterFunction(FunctionKind::kIsNull, "$is_null", "IsNull");
+    RegisterFunction(FunctionKind::kIsTrue, "$is_true", "IsTrue");
+    RegisterFunction(FunctionKind::kIsFalse, "$is_false", "IsFalse");
+    RegisterFunction(FunctionKind::kLeast, "least", "Least");
+    RegisterFunction(FunctionKind::kLess, "$less", "Less");
+    RegisterFunction(FunctionKind::kLessOrEqual, "$less_or_equal",
+                     "LessOrEqual");
+    RegisterFunction(FunctionKind::kLike, "$like", "Like");
+    RegisterFunction(FunctionKind::kLogicalAnd, "logical_and", "LogicalAnd");
+    RegisterFunction(FunctionKind::kLogicalOr, "logical_or", "LogicalOr");
+    RegisterFunction(FunctionKind::kMakeProto, "make_proto", "MakeProto");
+    RegisterFunction(FunctionKind::kMax, "max", "Max");
+    RegisterFunction(FunctionKind::kMin, "min", "Min");
+    RegisterFunction(FunctionKind::kMod, "mod", "Mod");
+    RegisterFunction(FunctionKind::kMultiply, "$multiply", "Multiply");
+    RegisterFunction(FunctionKind::kSafeMultiply, "safe_multiply",
+                     "SafeMultiply");
+    RegisterFunction(FunctionKind::kNot, "$not", "Not");
+    RegisterFunction(FunctionKind::kOr, "$or", "Or");
+    RegisterFunction(FunctionKind::kOrAgg, kPrivate, "OrAgg");
+    RegisterFunction(FunctionKind::kStringAgg, "string_agg", "StringAgg");
+    RegisterFunction(FunctionKind::kSubtract, "$subtract", "Subtract");
+    RegisterFunction(FunctionKind::kSafeSubtract, "safe_subtract",
+                     "SafeSubtract");
+    RegisterFunction(FunctionKind::kSum, "sum", "Sum");
+    RegisterFunction(FunctionKind::kTimeAdd, "time_add", "Time_add");
+    RegisterFunction(FunctionKind::kTimeSub, "time_sub", "Time_sub");
+    RegisterFunction(FunctionKind::kTimeDiff, "time_diff", "Time_diff");
+    RegisterFunction(FunctionKind::kTimeTrunc, "time_trunc", "Time_trunc");
+    RegisterFunction(FunctionKind::kTimestampDiff, "timestamp_diff",
+                     "Timestamp_diff");
+    RegisterFunction(FunctionKind::kTimestampAdd, "timestamp_add",
+                     "Timestamp_add");
+    RegisterFunction(FunctionKind::kTimestampSub, "timestamp_sub",
+                     "Timestamp_sub");
+    RegisterFunction(FunctionKind::kTimestampTrunc, "timestamp_trunc",
+                     "Timestamp_trunc");
+    RegisterFunction(FunctionKind::kUnaryMinus, "$unary_minus", "UnaryMinus");
+    RegisterFunction(FunctionKind::kSafeNegate, "safe_negate", "SafeNegate");
+    RegisterFunction(FunctionKind::kAbs, "abs", "Abs");
+    RegisterFunction(FunctionKind::kSign, "sign", "Sign");
+    RegisterFunction(FunctionKind::kRound, "round", "Round");
+    RegisterFunction(FunctionKind::kTrunc, "trunc", "Trunc");
+    RegisterFunction(FunctionKind::kCeil, "ceil", "Ceil");
+    RegisterFunction(FunctionKind::kFloor, "floor", "Floor");
+    RegisterFunction(FunctionKind::kIsNan, "is_nan", "IsNan");
+    RegisterFunction(FunctionKind::kIsInf, "is_inf", "IsInf");
+    RegisterFunction(FunctionKind::kIeeeDivide, "ieee_divide", "IeeeDivide");
+    RegisterFunction(FunctionKind::kSqrt, "sqrt", "Sqrt");
+    RegisterFunction(FunctionKind::kPow, "pow", "Pow");
+    RegisterFunction(FunctionKind::kExp, "exp", "Exp");
+    RegisterFunction(FunctionKind::kNaturalLogarithm, "ln", "NaturalLogarithm");
+    RegisterFunction(FunctionKind::kDecimalLogarithm, "log10",
+                     "DecimalLogarithm");
+    RegisterFunction(FunctionKind::kLogarithm, "log", "Logarithm");
+    RegisterFunction(FunctionKind::kCos, "cos", "Cos");
+    RegisterFunction(FunctionKind::kCosh, "cosh", "Cosh");
+    RegisterFunction(FunctionKind::kAcos, "acos", "Acos");
+    RegisterFunction(FunctionKind::kAcosh, "acosh", "Acosh");
+    RegisterFunction(FunctionKind::kSin, "sin", "Sin");
+    RegisterFunction(FunctionKind::kSinh, "sinh", "Sinh");
+    RegisterFunction(FunctionKind::kAsin, "asin", "Asin");
+    RegisterFunction(FunctionKind::kAsinh, "asinh", "Asinh");
+    RegisterFunction(FunctionKind::kTan, "tan", "Tan");
+    RegisterFunction(FunctionKind::kTanh, "tanh", "Tanh");
+    RegisterFunction(FunctionKind::kAtan, "atan", "Atan");
+    RegisterFunction(FunctionKind::kAtanh, "atanh", "Atanh");
+    RegisterFunction(FunctionKind::kAtan2, "atan2", "Atan2");
+    RegisterFunction(FunctionKind::kCorr, "corr", "Corr");
+    RegisterFunction(FunctionKind::kCovarPop, "covar_pop", "Covar_pop");
+    RegisterFunction(FunctionKind::kCovarSamp, "covar_samp", "Covar_samp");
+    RegisterFunction(FunctionKind::kVarPop, "var_pop", "Var_pop");
+    RegisterFunction(FunctionKind::kVarSamp, "var_samp", "Var_samp");
+  }();
+  [this]() {
+    RegisterFunction(FunctionKind::kByteLength, "byte_length", "ByteLength");
+    RegisterFunction(FunctionKind::kCharLength, "char_length", "CharLength");
+    RegisterFunction(FunctionKind::kConcat, "concat", "Concat");
+    RegisterFunction(FunctionKind::kEndsWith, "ends_with", "EndsWith");
+    RegisterFunction(FunctionKind::kFormat, "format", "Format");
+    RegisterFunction(FunctionKind::kLength, "length", "Length");
+    RegisterFunction(FunctionKind::kLower, "lower", "Lower");
+    RegisterFunction(FunctionKind::kLtrim, "ltrim", "Ltrim");
+    RegisterFunction(FunctionKind::kRegexpMatch, "regexp_match", "RegexpMatch");
+    RegisterFunction(FunctionKind::kRegexpContains, "regexp_contains",
+                     "RegexpContains");
+    RegisterFunction(FunctionKind::kRegexpExtract, "regexp_extract",
+                     "RegexpExtract");
+    RegisterFunction(FunctionKind::kRegexpExtractAll, "regexp_extract_all",
+                     "RegexpExtract");
+    RegisterFunction(FunctionKind::kRegexpInstr, "regexp_instr", "RegexpInstr");
+    RegisterFunction(FunctionKind::kRegexpReplace, "regexp_replace",
+                     "RegexpReplace");
+    RegisterFunction(FunctionKind::kReplace, "replace", "Replace");
+    RegisterFunction(FunctionKind::kRtrim, "rtrim", "Rtrim");
+    RegisterFunction(FunctionKind::kSplit, "split", "Split");
+    RegisterFunction(FunctionKind::kStartsWith, "starts_with", "StartsWith");
+    RegisterFunction(FunctionKind::kStrpos, "strpos", "Strpos");
+    RegisterFunction(FunctionKind::kInstr, "instr", "Instr");
+    RegisterFunction(FunctionKind::kSubstr, "substr", "Substr");
+    RegisterFunction(FunctionKind::kTrim, "trim", "Trim");
+    RegisterFunction(FunctionKind::kUpper, "upper", "Upper");
+    RegisterFunction(FunctionKind::kLpad, "lpad", "Lpad");
+    RegisterFunction(FunctionKind::kRpad, "rpad", "Rpad");
+    RegisterFunction(FunctionKind::kLeft, "left", "Left");
+    RegisterFunction(FunctionKind::kRight, "right", "Right");
+    RegisterFunction(FunctionKind::kRepeat, "repeat", "Repeat");
+    RegisterFunction(FunctionKind::kReverse, "reverse", "Reverse");
+    RegisterFunction(FunctionKind::kSafeConvertBytesToString,
+                     "safe_convert_bytes_to_string",
+                     "SafeConvertBytesToString");
+    RegisterFunction(FunctionKind::kNormalize, "normalize", "Normalize");
+    RegisterFunction(FunctionKind::kNormalizeAndCasefold,
+                     "normalize_and_casefold", "NormalizeAndCasefold");
+    RegisterFunction(FunctionKind::kToBase64, "to_base64", "ToBase64");
+    RegisterFunction(FunctionKind::kFromBase64, "from_base64", "FromBase64");
+    RegisterFunction(FunctionKind::kToHex, "to_hex", "ToHex");
+    RegisterFunction(FunctionKind::kFromHex, "from_hex", "FromHex");
+    RegisterFunction(FunctionKind::kAscii, "ascii", "Ascii");
+    RegisterFunction(FunctionKind::kUnicode, "unicode", "Unicode");
+    RegisterFunction(FunctionKind::kChr, "chr", "Chr");
+    RegisterFunction(FunctionKind::kToCodePoints, "to_code_points",
+                     "ToCodePoints");
+    RegisterFunction(FunctionKind::kCodePointsToString, "code_points_to_string",
+                     "CodePointsToString");
+    RegisterFunction(FunctionKind::kCodePointsToBytes, "code_points_to_bytes",
+                     "CodePointsToBytes");
+    RegisterFunction(FunctionKind::kSoundex, "soundex", "Soundex");
+    RegisterFunction(FunctionKind::kTranslate, "translate", "Translate");
+    RegisterFunction(FunctionKind::kInitCap, "initcap", "InitCap");
+    RegisterFunction(FunctionKind::kCurrentDate, "current_date",
+                     "Current_date");
+    RegisterFunction(FunctionKind::kCurrentDatetime, "current_datetime",
+                     "Current_datetime");
+    RegisterFunction(FunctionKind::kCurrentTime, "current_time",
+                     "Current_time");
+    RegisterFunction(FunctionKind::kCurrentTimestamp, "current_timestamp",
+                     "Current_timestamp");
+    RegisterFunction(FunctionKind::kDateFromUnixDate, "date_from_unix_date",
+                     "Date_from_unix_date");
+    RegisterFunction(FunctionKind::kUnixDate, "unix_date", "Unix_date");
+    RegisterFunction(FunctionKind::kExtractFrom, "$extract", "Extract");
+    RegisterFunction(FunctionKind::kExtractDateFrom, "$extract_date",
+                     "Extract");
+    RegisterFunction(FunctionKind::kExtractTimeFrom, "$extract_time",
+                     "Extract");
+    RegisterFunction(FunctionKind::kExtractDatetimeFrom, "$extract_datetime",
+                     "Extract");
+    RegisterFunction(FunctionKind::kFormatDate, "format_date", "Format_date");
+    RegisterFunction(FunctionKind::kFormatDatetime, "format_datetime",
+                     "Format_datetime");
+    RegisterFunction(FunctionKind::kFormatTime, "format_time", "Format_time");
+    RegisterFunction(FunctionKind::kFormatTimestamp, "format_timestamp",
+                     "Format_timestamp");
+    RegisterFunction(FunctionKind::kTimestampSeconds, "timestamp_seconds",
+                     "Timestamp_seconds");
+    RegisterFunction(FunctionKind::kTimestampMillis, "timestamp_millis",
+                     "Timestamp_millis");
+    RegisterFunction(FunctionKind::kTimestampMicros, "timestamp_micros",
+                     "Timestamp_micros");
+    RegisterFunction(FunctionKind::kTimestampFromUnixSeconds,
+                     "timestamp_from_unix_seconds",
+                     "Timestamp_from_unix_seconds");
+    RegisterFunction(FunctionKind::kTimestampFromUnixMillis,
+                     "timestamp_from_unix_millis",
+                     "Timestamp_from_unix_millis");
+    RegisterFunction(FunctionKind::kTimestampFromUnixMicros,
+                     "timestamp_from_unix_micros",
+                     "Timestamp_from_unix_micros");
+    RegisterFunction(FunctionKind::kSecondsFromTimestamp, "unix_seconds",
+                     "Unix_seconds");
+    RegisterFunction(FunctionKind::kMillisFromTimestamp, "unix_millis",
+                     "Unix_millis");
+    RegisterFunction(FunctionKind::kMicrosFromTimestamp, "unix_micros",
+                     "Unix_micros");
+    RegisterFunction(FunctionKind::kString, "string", "String");
+    RegisterFunction(FunctionKind::kParseDate, "parse_date", "Parse_date");
+    RegisterFunction(FunctionKind::kParseDatetime, "parse_datetime",
+                     "Parse_datetime");
+    RegisterFunction(FunctionKind::kParseTime, "parse_time", "Parse_time");
+    RegisterFunction(FunctionKind::kParseTimestamp, "parse_timestamp",
+                     "Parse_timestamp");
+    RegisterFunction(FunctionKind::kFromProto, "from_proto", "From_proto");
+    RegisterFunction(FunctionKind::kToProto, "to_proto", "To_proto");
+    RegisterFunction(FunctionKind::kEnumValueDescriptorProto,
+                     "enum_value_descriptor_proto",
+                     "Enum_value_descriptor_proto");
+    RegisterFunction(FunctionKind::kDate, "date", "Date");
+    RegisterFunction(FunctionKind::kTimestamp, "timestamp", "Timestamp");
+    RegisterFunction(FunctionKind::kTime, "time", "Time");
+    RegisterFunction(FunctionKind::kDatetime, "datetime", "Datetime");
+  }();
+  [this]() {
+    RegisterFunction(FunctionKind::kDenseRank, "dense_rank", "Dense_rank");
+    RegisterFunction(FunctionKind::kRank, "rank", "Rank");
+    RegisterFunction(FunctionKind::kRowNumber, "row_number", "Row_number");
+    RegisterFunction(FunctionKind::kPercentRank, "percent_rank",
+                     "Percent_rank");
+    RegisterFunction(FunctionKind::kCumeDist, "cume_dist", "Cume_dist");
+    RegisterFunction(FunctionKind::kNtile, "ntile", "Ntile");
+    RegisterFunction(FunctionKind::kFirstValue, "first_value", "First_value");
+    RegisterFunction(FunctionKind::kLastValue, "last_value", "Last_value");
+    RegisterFunction(FunctionKind::kNthValue, "nth_value", "Nth_value");
+    RegisterFunction(FunctionKind::kLead, "lead", "Lead");
+    RegisterFunction(FunctionKind::kLag, "lag", "Lag");
+    RegisterFunction(FunctionKind::kPercentileCont, "percentile_cont",
+                     "Percentile_cont");
+    RegisterFunction(FunctionKind::kRand, "rand", "Rand");
+    RegisterFunction(FunctionKind::kGenerateUuid, "generate_uuid",
+                     "Generate_Uuid");
+    RegisterFunction(FunctionKind::kMd5, "md5", "Md5");
+    RegisterFunction(FunctionKind::kSha1, "sha1", "Sha1");
+    RegisterFunction(FunctionKind::kSha256, "sha256", "Sha256");
+    RegisterFunction(FunctionKind::kSha512, "sha512", "Sha512");
+    RegisterFunction(FunctionKind::kFarmFingerprint, "farm_fingerprint",
+                     "FarmFingerprint");
+  }();
 }
 
 const FunctionMap& GetFunctionMap() {
@@ -813,9 +829,16 @@ static zetasql_base::StatusOr<Value> Extract(absl::Span<const Value> x,
   absl::string_view out;
   bool is_null;
   std::string in_str = ValueTraits<type>::FromValue(x[0]);
-  if (!regexp->Extract(in_str, position, occurrence_index, &out, &is_null,
-                       &status)) {
-    return status;
+  if (type == TYPE_STRING) {
+    if (!regexp->Extract(in_str, zetasql::functions::RegExp::kUtf8Chars,
+                         position, occurrence_index, &out, &is_null, &status)) {
+      return status;
+    }
+  } else {
+    if (!regexp->Extract(in_str, zetasql::functions::RegExp::kBytes, position,
+                         occurrence_index, &out, &is_null, &status)) {
+      return status;
+    }
   }
   if (is_null) {
     return ValueTraits<type>::NullValue();
@@ -827,7 +850,7 @@ static zetasql_base::StatusOr<Value> Extract(absl::Span<const Value> x,
 // Helper function for regexp_instr.
 template <TypeKind type>
 static zetasql_base::StatusOr<Value> Instr(absl::Span<const Value> x,
-                                     functions::RegExp* regexp) {
+                                   functions::RegExp* regexp) {
   ZETASQL_RET_CHECK_LE(x.size(), 5);
   ZETASQL_RET_CHECK_GE(x.size(), 2);
   absl::Status status;
@@ -1407,13 +1430,11 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new DateTimeDiffFunction(kind, output_type);
     case FunctionKind::kDatetimeTrunc:
     case FunctionKind::kTimeTrunc:
-      return new CivilTimeTruncFunction(kind, output_type);
     case FunctionKind::kDateTrunc:
-      return new DateTruncFunction(kind, output_type);
+    case FunctionKind::kTimestampTrunc:
+      return new DateTimeTruncFunction(kind, output_type);
     case FunctionKind::kLastDay:
       return new LastDayFunction(kind, output_type);
-    case FunctionKind::kTimestampTrunc:
-      return new TimestampTruncFunction(kind, output_type);
     case FunctionKind::kExtractFrom:
       return new ExtractFromFunction(kind, output_type);
     case FunctionKind::kExtractDateFrom:
@@ -1423,13 +1444,11 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kExtractDatetimeFrom:
       return new ExtractDatetimeFromFunction(kind, output_type);
     case FunctionKind::kFormatDate:
-      return new FormatDateFunction(kind, output_type);
     case FunctionKind::kFormatDatetime:
-      return new FormatDatetimeFunction(kind, output_type);
+    case FunctionKind::kFormatTimestamp:
+      return new FormatDateDatetimeTimestampFunction(kind, output_type);
     case FunctionKind::kFormatTime:
       return new FormatTimeFunction(kind, output_type);
-    case FunctionKind::kFormatTimestamp:
-      return new FormatTimestampFunction(kind, output_type);
     case FunctionKind::kTimestamp:
       return new TimestampConversionFunction(kind, output_type);
     case FunctionKind::kDate:
@@ -4771,25 +4790,38 @@ zetasql_base::StatusOr<Value> DateTimeUnaryFunction::Eval(
          << "Unsupported function: " << debug_name();
 }
 
-zetasql_base::StatusOr<Value> FormatDateFunction::Eval(
+zetasql_base::StatusOr<Value> FormatDateDatetimeTimestampFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
-  DCHECK_EQ(args.size(), 2);
+  DCHECK_GE(args.size(), 2);
+  DCHECK_LE(args.size(), 3);
   if (HasNulls(args)) return Value::Null(output_type());
   std::string result_string;
-  ZETASQL_RETURN_IF_ERROR(functions::FormatDateToString(
-      args[0].string_value(), args[1].date_value(),
-      &result_string));
-  return Value::String(result_string);
-}
-
-zetasql_base::StatusOr<Value> FormatDatetimeFunction::Eval(
-    absl::Span<const Value> args, EvaluationContext* context) const {
-  DCHECK_EQ(args.size(), 2);
-  if (HasNulls(args)) return Value::Null(output_type());
-  std::string result_string;
-  ZETASQL_RETURN_IF_ERROR(functions::FormatDatetimeToString(
-      args[0].string_value(), args[1].datetime_value(),
-      &result_string));
+  switch (args[1].type_kind()) {
+    case TYPE_DATE:
+      ZETASQL_RETURN_IF_ERROR(functions::FormatDateToString(
+          args[0].string_value(), args[1].date_value(), &result_string));
+      break;
+    case TYPE_DATETIME:
+      ZETASQL_RETURN_IF_ERROR(functions::FormatDatetimeToString(
+          args[0].string_value(), args[1].datetime_value(), &result_string));
+      break;
+    case TYPE_TIMESTAMP: {
+      if (args.size() == 2) {
+        ZETASQL_RETURN_IF_ERROR(functions::FormatTimestampToString(
+            args[0].string_value(), args[1].ToUnixMicros(),
+            context->GetDefaultTimeZone(), &result_string));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(functions::FormatTimestampToString(
+            args[0].string_value(), args[1].ToUnixMicros(),
+            args[2].string_value(), &result_string));
+      }
+      break;
+    }
+    default:
+      return ::zetasql_base::UnimplementedErrorBuilder()
+             << "Unsupported type " << args[1].type()->DebugString()
+             << " in function " << debug_name();
+  }
   return Value::String(result_string);
 }
 
@@ -4801,25 +4833,6 @@ zetasql_base::StatusOr<Value> FormatTimeFunction::Eval(
   ZETASQL_RETURN_IF_ERROR(functions::FormatTimeToString(
       args[0].string_value(), args[1].time_value(),
       &result_string));
-  return Value::String(result_string);
-}
-
-zetasql_base::StatusOr<Value> FormatTimestampFunction::Eval(
-    absl::Span<const Value> args, EvaluationContext* context) const {
-  if (args[0].is_null() || args[1].is_null() ||
-      (args.size() == 3 && args[2].is_null())) {
-    return Value::Null(output_type());
-  }
-  std::string result_string;
-  if (args.size() == 2) {
-    ZETASQL_RETURN_IF_ERROR(functions::FormatTimestampToString(
-        args[0].string_value(), args[1].ToUnixMicros(),
-        context->GetDefaultTimeZone(), &result_string));
-  } else {
-    ZETASQL_RETURN_IF_ERROR(functions::FormatTimestampToString(
-        args[0].string_value(), args[1].ToUnixMicros(), args[2].string_value(),
-        &result_string));
-  }
   return Value::String(result_string);
 }
 
@@ -5204,18 +5217,53 @@ zetasql_base::StatusOr<Value> ParseTimestampFunction::Eval(
   }
 }
 
-zetasql_base::StatusOr<Value> DateTruncFunction::Eval(
+zetasql_base::StatusOr<Value> DateTimeTruncFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
-  // The signature arguments are (<date>, <datepart>).
-  ZETASQL_RET_CHECK_EQ(args.size(), 2);
-  if (args[0].is_null() || args[1].is_null()) {
+  // The signature arguments are (<expr>, <datepart>).
+  ZETASQL_RET_CHECK(args.size() == 2 || args.size() == 3);
+  if (args[0].is_null() || args[1].is_null() ||
+      (args.size() == 3 && args[2].is_null())) {
     return Value::Null(output_type());
   }
   functions::DateTimestampPart part =
       static_cast<functions::DateTimestampPart>(args[1].enum_value());
-  int32_t date;
-  ZETASQL_RETURN_IF_ERROR(functions::TruncateDate(args[0].date_value(), part, &date));
-  return values::Date(date);
+  switch (args[0].type_kind()) {
+    case TYPE_DATE: {
+      int32_t date;
+      ZETASQL_RETURN_IF_ERROR(
+          functions::TruncateDate(args[0].date_value(), part, &date));
+      return values::Date(date);
+    }
+    case TYPE_TIMESTAMP: {
+      int64_t int64_timestamp;
+      if (args.size() == 2) {
+        ZETASQL_RETURN_IF_ERROR(functions::TimestampTrunc(args[0].ToUnixMicros(),
+                                                  context->GetDefaultTimeZone(),
+                                                  part, &int64_timestamp));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(functions::TimestampTrunc(args[0].ToUnixMicros(),
+                                                  args[2].string_value(), part,
+                                                  &int64_timestamp));
+      }
+      return Value::TimestampFromUnixMicros(int64_timestamp);
+    }
+    case TYPE_DATETIME: {
+      DatetimeValue datetime;
+      ZETASQL_RETURN_IF_ERROR(functions::TruncateDatetime(args[0].datetime_value(),
+                                                  part, &datetime));
+      return Value::Datetime(datetime);
+    }
+    case TYPE_TIME: {
+      TimeValue time;
+      ZETASQL_RETURN_IF_ERROR(
+          functions::TruncateTime(args[0].time_value(), part, &time));
+      return Value::Time(time);
+    }
+    default:
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Unsupported type " << args[0].type()->DebugString()
+             << " for datetime TRUNC function";
+  }
 }
 
 zetasql_base::StatusOr<Value> LastDayFunction::Eval(absl::Span<const Value> args,
@@ -5244,29 +5292,6 @@ zetasql_base::StatusOr<Value> LastDayFunction::Eval(absl::Span<const Value> args
         functions::LastDayOfDatetime(args[0].datetime_value(), part, &date));
   }
   return values::Date(date);
-}
-
-zetasql_base::StatusOr<Value> TimestampTruncFunction::Eval(
-    absl::Span<const Value> args, EvaluationContext* context) const {
-  // The signature arguments are (<timestamp>, <datepart> [, <timezone>]).
-  ZETASQL_RET_CHECK(args.size() == 2 || args.size() == 3);
-  if (args[0].is_null() || args[1].is_null() ||
-      (args.size() == 3 && args[2].is_null())) {
-    return Value::Null(output_type());
-  }
-  functions::DateTimestampPart part =
-      static_cast<functions::DateTimestampPart>(args[1].enum_value());
-  int64_t int64_timestamp;
-  if (args.size() == 2) {
-    ZETASQL_RETURN_IF_ERROR(functions::TimestampTrunc(args[0].ToUnixMicros(),
-                                              context->GetDefaultTimeZone(),
-                                              part, &int64_timestamp));
-  } else {
-    ZETASQL_RETURN_IF_ERROR(functions::TimestampTrunc(args[0].ToUnixMicros(),
-                                              args[2].string_value(), part,
-                                              &int64_timestamp));
-  }
-  return Value::TimestampFromUnixMicros(int64_timestamp);
 }
 
 zetasql_base::StatusOr<Value> FromProtoFunction::Eval(
@@ -5542,34 +5567,6 @@ zetasql_base::StatusOr<Value> EnumValueDescriptorProtoFunction::Eval(
                                   enum_value_desc_proto);
 }
 
-zetasql_base::StatusOr<Value> CivilTimeTruncFunction::Eval(
-    absl::Span<const Value> args, EvaluationContext* context) const {
-  // The signature arguments are ([<datetime>|<time>], <datepart>)
-  ZETASQL_RET_CHECK(args.size() == 2);
-  if (args[0].is_null() || args[1].is_null()) {
-    return Value::Null(output_type());
-  }
-  functions::DateTimestampPart part =
-      static_cast<functions::DateTimestampPart>(args[1].enum_value());
-  switch (kind()) {
-    case FunctionKind::kDatetimeTrunc: {
-      DatetimeValue datetime;
-      ZETASQL_RETURN_IF_ERROR(functions::TruncateDatetime(args[0].datetime_value(),
-                                                  part, &datetime));
-      return Value::Datetime(datetime);
-    }
-    case FunctionKind::kTimeTrunc: {
-      TimeValue time;
-      ZETASQL_RETURN_IF_ERROR(
-          functions::TruncateTime(args[0].time_value(), part, &time));
-      return Value::Time(time);
-    }
-    default:
-      return ::zetasql_base::UnimplementedErrorBuilder()
-             << "Unsupported function: " << debug_name();
-  }
-}
-
 zetasql_base::StatusOr<Value> DateTimeDiffFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
   if (args[0].is_null() || args[1].is_null()) {
@@ -5588,18 +5585,24 @@ zetasql_base::StatusOr<Value> DateTimeDiffFunction::Eval(
       ZETASQL_RETURN_IF_ERROR(functions::SubDate(args[0].date_value(), part,
                                          args[1].int64_value(), &value32));
       return Value::Date(value32);
+    case FCT(FunctionKind::kDateAdd, TYPE_DATETIME):
+    case FCT(FunctionKind::kTimestampAdd, TYPE_DATETIME):
     case FCT(FunctionKind::kDatetimeAdd, TYPE_DATETIME): {
       DatetimeValue datetime;
       ZETASQL_RETURN_IF_ERROR(functions::AddDatetime(args[0].datetime_value(), part,
                                          args[1].int64_value(), &datetime));
       return Value::Datetime(datetime);
     }
+    case FCT(FunctionKind::kDateSub, TYPE_DATETIME):
+    case FCT(FunctionKind::kTimestampSub, TYPE_DATETIME):
     case FCT(FunctionKind::kDatetimeSub, TYPE_DATETIME): {
       DatetimeValue datetime;
       ZETASQL_RETURN_IF_ERROR(functions::SubDatetime(args[0].datetime_value(), part,
                                          args[1].int64_value(), &datetime));
       return Value::Datetime(datetime);
     }
+    case FCT(FunctionKind::kDateDiff, TYPE_DATETIME):
+    case FCT(FunctionKind::kTimestampDiff, TYPE_DATETIME):
     case FCT(FunctionKind::kDatetimeDiff, TYPE_DATETIME):
       ZETASQL_RETURN_IF_ERROR(functions::DiffDatetimes(
           args[0].datetime_value(), args[1].datetime_value(), part, &value64));
@@ -5609,6 +5612,8 @@ zetasql_base::StatusOr<Value> DateTimeDiffFunction::Eval(
           args[0].date_value(), args[1].date_value(), part, &value32));
       return output_type()->IsInt64() ? Value::Int64(value32)
                                       : Value::Int32(value32);
+    case FCT(FunctionKind::kDateDiff, TYPE_TIMESTAMP):
+    case FCT(FunctionKind::kDatetimeDiff, TYPE_TIMESTAMP):
     case FCT(FunctionKind::kTimestampDiff, TYPE_TIMESTAMP):
       ZETASQL_RETURN_IF_ERROR(functions::TimestampDiff(
           args[0].ToUnixMicros(), args[1].ToUnixMicros(),
@@ -5630,6 +5635,8 @@ zetasql_base::StatusOr<Value> DateTimeDiffFunction::Eval(
       ZETASQL_RETURN_IF_ERROR(functions::DiffTimes(
           args[0].time_value(), args[1].time_value(), part, &value64));
       return Value::Int64(value64);
+    case FCT(FunctionKind::kDateAdd, TYPE_TIMESTAMP):
+    case FCT(FunctionKind::kDatetimeAdd, TYPE_TIMESTAMP):
     case FCT(FunctionKind::kTimestampAdd, TYPE_TIMESTAMP): {
       // We can hardcode the time zone to the default because it is only
       // used for error messaging.
@@ -5639,6 +5646,8 @@ zetasql_base::StatusOr<Value> DateTimeDiffFunction::Eval(
           &value64));
       return Value::TimestampFromUnixMicros(value64);
     }
+    case FCT(FunctionKind::kDateSub, TYPE_TIMESTAMP):
+    case FCT(FunctionKind::kDatetimeSub, TYPE_TIMESTAMP):
     case FCT(FunctionKind::kTimestampSub, TYPE_TIMESTAMP): {
       // We can hardcode the time zone to the default because it is only
       // used for error messaging.

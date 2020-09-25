@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -68,6 +68,7 @@ enum ASTNodeKind {
   AST_CHECK_CONSTRAINT,
   AST_CLUSTER_BY,
   AST_COLLATE,
+  AST_COLLATE_EXPRESSION,
   AST_COLUMN_ATTRIBUTE_LIST,
   AST_COLUMN_DEFINITION,
   AST_COLUMN_LIST,
@@ -122,6 +123,8 @@ enum ASTNodeKind {
   AST_EXPORT_MODEL_STATEMENT,
   AST_EXPRESSION_SUBQUERY,
   AST_EXTRACT_EXPRESSION,
+  AST_FILTER_FIELDS_ARG,
+  AST_FILTER_FIELDS_EXPRESSION,
   AST_FILTER_USING_CLAUSE,
   AST_FLOAT_LITERAL,
   AST_FOREIGN_KEY,

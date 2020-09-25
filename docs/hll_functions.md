@@ -1,6 +1,6 @@
 
 
-# HyperLogLog++ Functions
+# HyperLogLog++ functions
 
 The [HyperLogLog++ algorithm (HLL++)][hll-algorithm] estimates
 [cardinality][cardinality] from [sketches][hll-sketches]. If you do not want
@@ -173,7 +173,7 @@ HLL_COUNT.EXTRACT(sketch)
 
 **Description**
 
-A scalar function that extracts an cardinality estimate of a single
+A scalar function that extracts a cardinality estimate of a single
 [HLL++][hll-link-to-research-whitepaper] sketch.
 
 If `sketch` is NULL, this function returns a cardinality estimate of `0`.

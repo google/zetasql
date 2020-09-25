@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,7 +46,6 @@
 #include "absl/types/span.h"
 #include "re2/re2.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -396,7 +395,7 @@ class BuiltinScalarFunction : public ScalarFunctionBody {
 };
 
 // Alternate form of BuiltinScalarFunction that is easier to implement for
-// functions that are slow enough that return ::zetasql_base::StatusOr<Value> from
+// functions that are slow enough that return zetasql_base::StatusOr<Value> from
 // Eval() doesn't really matter.
 class SimpleBuiltinScalarFunction : public BuiltinScalarFunction {
  public:
@@ -865,14 +864,7 @@ class DateTimeUnaryFunction : public SimpleBuiltinScalarFunction {
                              EvaluationContext* context) const override;
 };
 
-class FormatDateFunction : public SimpleBuiltinScalarFunction {
- public:
-  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
-                             EvaluationContext* context) const override;
-};
-
-class FormatDatetimeFunction : public SimpleBuiltinScalarFunction {
+class FormatDateDatetimeTimestampFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
   zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
@@ -880,13 +872,6 @@ class FormatDatetimeFunction : public SimpleBuiltinScalarFunction {
 };
 
 class FormatTimeFunction : public SimpleBuiltinScalarFunction {
- public:
-  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
-                             EvaluationContext* context) const override;
-};
-
-class FormatTimestampFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
   zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
@@ -970,14 +955,7 @@ class DateTimeDiffFunction : public SimpleBuiltinScalarFunction {
                              EvaluationContext* context) const override;
 };
 
-class CivilTimeTruncFunction : public SimpleBuiltinScalarFunction {
- public:
-  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
-                             EvaluationContext* context) const override;
-};
-
-class DateTruncFunction : public SimpleBuiltinScalarFunction {
+class DateTimeTruncFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
   zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
@@ -985,13 +963,6 @@ class DateTruncFunction : public SimpleBuiltinScalarFunction {
 };
 
 class LastDayFunction : public SimpleBuiltinScalarFunction {
- public:
-  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
-                             EvaluationContext* context) const override;
-};
-
-class TimestampTruncFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
   zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,

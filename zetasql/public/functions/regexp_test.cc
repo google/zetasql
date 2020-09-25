@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,10 +51,13 @@ TEST_P(RegexpTemplateTest, TestLib) {
   RegExp re;
   bool ok;
   absl::Status status;
+  RegExp::PositionUnit position_unit;
   if (args[1].type_kind() == TYPE_STRING) {
     ok = re.InitializePatternUtf8(args[1].string_value(), &status);
+    position_unit = RegExp::kUtf8Chars;
   } else {
     ok = re.InitializePatternBytes(args[1].bytes_value(), &status);
+    position_unit = RegExp::kBytes;
   }
   if (!ok) {
     ASSERT_FALSE(expected_ok);
@@ -89,7 +92,8 @@ TEST_P(RegexpTemplateTest, TestLib) {
         occurrence = args[3].int64_value();
       }
     }
-    ok = re.Extract(in, position, occurrence, &out, &is_null, &status);
+    ok = re.Extract(in, position_unit, position, occurrence, &out, &is_null,
+                    &status);
     ASSERT_EQ(expected_ok, ok);
     ASSERT_EQ(param.params.status().code(), status.code());
     if (ok) {

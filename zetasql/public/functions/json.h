@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 namespace functions {
@@ -176,6 +175,22 @@ class JsonPathEvaluator {
   bool escape_special_characters_ = false;
   std::function<void(absl::string_view)> escaping_needed_callback_;
 };
+
+// Converts a non SQL standard JSONPath (JSONPaths used by
+// JSON_EXTRACT for example) into a SQL standard JSONPath (used by JSON_QUERY
+// for example).
+// Examples:
+// $['a.b'] is converted to $."a.b"
+// $['an "array" field'][3] to $."an \"array\" field".3
+//
+// See (broken link) for more info.
+zetasql_base::StatusOr<std::string> ConvertJSONPathToSqlStandardMode(
+    absl::string_view json_path);
+
+// Merges JSONPaths into a SQL standard JSONPath. Each JSONPath input can be in
+// either SQL standard mode.
+zetasql_base::StatusOr<std::string> MergeJSONPathsIntoSqlStandardMode(
+    absl::Span<const std::string> json_paths);
 
 }  // namespace functions
 }  // namespace zetasql

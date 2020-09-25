@@ -1,5 +1,5 @@
 #
-# Copyright 2019 ZetaSQL Authors
+# Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 load("//zetasql/resolved_ast:build_rules.bzl", "gen_resolved_ast_files")
 
-package(default_visibility = ["//:__subpackages__"])
+package(default_visibility = ["//zetasql/base:zetasql_implementation"])
 
 py_binary(
     name = "gen_resolved_ast",
@@ -489,5 +489,26 @@ cc_library(
     ],
     deps = [
         ":resolved_ast",
+        "//zetasql/base",
+    ],
+)
+
+cc_test(
+    name = "rewrite_utils_test",
+    size = "small",
+    srcs = ["rewrite_utils_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":rewrite_utils",
+        "//zetasql/public/types",
+        "@com_google_googletest//:gtest_main",
     ],
 )

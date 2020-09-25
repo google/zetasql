@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -2602,17 +2602,28 @@ absl::Status Validator::ValidateResolvedRecursiveScan(
   ZETASQL_RET_CHECK(scan->recursive_term() != nullptr);
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedSetOperationItem(
       scan->non_recursive_term(), scan->column_list(), visible_parameters));
-  ++nested_recursive_term_count_;
+  nested_recursive_scans_.push_back(RecursiveScanInfo(scan));
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedSetOperationItem(
       scan->recursive_term(), scan->column_list(), visible_parameters));
-  --nested_recursive_term_count_;
+  ZETASQL_RET_CHECK_EQ(nested_recursive_scans_.back().scan, scan);
+  ZETASQL_RET_CHECK(nested_recursive_scans_.back().saw_recursive_ref)
+      << "Recursive scan generated without a recursive reference in the "
+         "recursive term:\n"
+      << scan->DebugString();
+  nested_recursive_scans_.pop_back();
   return absl::OkStatus();
 }
 
 absl::Status Validator::ValidateResolvedRecursiveRefScan(
-    const ResolvedRecursiveRefScan* scan) const {
-  ZETASQL_RET_CHECK_GE(nested_recursive_term_count_, 1)
+    const ResolvedRecursiveRefScan* scan) {
+  ZETASQL_RET_CHECK(!nested_recursive_scans_.empty())
       << "ResolvedRecursiveRefScan() detected outside a recursive UNION term";
+  ZETASQL_RET_CHECK(!nested_recursive_scans_.back().saw_recursive_ref)
+      << "Recursive scan contains multiple recursive refrences in its "
+         "recursive term:\n"
+      << nested_recursive_scans_.back().scan->DebugString();
+  nested_recursive_scans_.back().saw_recursive_ref = true;
+
   return absl::OkStatus();
 }
 

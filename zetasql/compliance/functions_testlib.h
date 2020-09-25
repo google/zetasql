@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -183,7 +183,9 @@ std::vector<FunctionTestCall> GetFunctionTestsUnicode();
 std::vector<FunctionTestCall> GetFunctionTestsChr();
 std::vector<FunctionTestCall> GetFunctionTestsOctetLength();
 std::vector<FunctionTestCall> GetFunctionTestsString();
-std::vector<FunctionTestCall> GetFunctionTestsInstr();
+std::vector<FunctionTestCall> GetFunctionTestsInstr1();
+std::vector<FunctionTestCall> GetFunctionTestsInstr2();
+std::vector<FunctionTestCall> GetFunctionTestsInstr3();
 std::vector<FunctionTestCall> GetFunctionTestsSoundex();
 std::vector<FunctionTestCall> GetFunctionTestsTranslate();
 std::vector<FunctionTestCall> GetFunctionTestsInitCap();

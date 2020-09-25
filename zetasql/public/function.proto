@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -120,6 +120,12 @@ enum SignatureArgumentKind {
   // For more information, please see TVFDescriptorArgument in
   // table_valued_function.h.
   ARG_TYPE_DESCRIPTOR = 13;
+
+  // Lambda type. This is only valid for lambda function arguments. This
+  // specifies a lambda with a list of argument types and a body type.
+  // For more information, please see ArgumentTypeLambda in
+  // function_signature.h.
+  ARG_TYPE_LAMBDA = 17;
 
   __SignatureArgumentKind__switch_must_have_a_default__ = -1;
 }

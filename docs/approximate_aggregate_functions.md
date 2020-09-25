@@ -1,6 +1,6 @@
 
 
-# Approximate Aggregate Functions
+# Approximate aggregate functions
 
 Approximate aggregate functions are scalable in terms of memory usage and time,
 but produce approximate results instead of exact results. These functions

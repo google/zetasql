@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,11 +37,11 @@
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/node_hash_set.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -673,12 +673,9 @@ class AnalyzerOptions {
   // Copyable
 };
 
-class AnalyzerOutputProperties {
- public:
-  AnalyzerOutputProperties() {}
- private:
-
-  // Copyable
+struct AnalyzerOutputProperties {
+  // True if a ResolvedFlatten AST node was generated in the analyzer output.
+  bool has_flatten = false;
 };
 
 class AnalyzerOutput {
@@ -691,7 +688,8 @@ class AnalyzerOutput {
       std::unique_ptr<ParserOutput> parser_output,
       const std::vector<absl::Status>& deprecation_warnings,
       const QueryParametersMap& undeclared_parameters,
-      const std::vector<const Type*>& undeclared_positional_parameters);
+      const std::vector<const Type*>& undeclared_positional_parameters,
+      int max_column_id);
   AnalyzerOutput(
       std::shared_ptr<IdStringPool> id_string_pool,
       std::shared_ptr<zetasql_base::UnsafeArena> arena,
@@ -700,7 +698,8 @@ class AnalyzerOutput {
       std::unique_ptr<ParserOutput> parser_output,
       const std::vector<absl::Status>& deprecation_warnings,
       const QueryParametersMap& undeclared_parameters,
-      const std::vector<const Type*>& undeclared_positional_parameters);
+      const std::vector<const Type*>& undeclared_positional_parameters,
+      int max_column_id);
   AnalyzerOutput(const AnalyzerOutput&) = delete;
   AnalyzerOutput& operator=(const AnalyzerOutput&) = delete;
   ~AnalyzerOutput();
@@ -760,6 +759,10 @@ class AnalyzerOutput {
     return analyzer_output_properties_;
   }
 
+  // Returns the maximum column id that has been allocated.
+  // Column ids above this number are unused.
+  int max_column_id() const { return max_column_id_; }
+
  private:
   // This IdStringPool and arena must be kept alive for the Resolved trees below
   // to be valid.
@@ -781,6 +784,7 @@ class AnalyzerOutput {
 
   QueryParametersMap undeclared_parameters_;
   std::vector<const Type*> undeclared_positional_parameters_;
+  int max_column_id_;
 };
 
 // Analyze a ZetaSQL statement.
@@ -836,6 +840,20 @@ absl::Status AnalyzeStatementFromParserOutputUnowned(
     std::unique_ptr<ParserOutput>* statement_parser_output,
     const AnalyzerOptions& options, absl::string_view sql, Catalog* catalog,
     TypeFactory* type_factory, std::unique_ptr<const AnalyzerOutput>* output);
+
+// Similar to the previous function, but uses a pre-existing ASTStatement,
+// without a ParserOutput.
+//
+// If 'statement' belongs to a script, 'sql' should represent the entire
+// script used to generate the AST to which 'statement' belongs to; any errors
+// returned will use line/column numbers relative to the script.
+absl::Status AnalyzeStatementFromParserAST(
+    const ASTStatement& statement, const AnalyzerOptions& options,
+    absl::string_view sql, Catalog* catalog, TypeFactory* type_factory,
+    std::unique_ptr<const AnalyzerOutput>* output);
+
+// Similar to the previous function, but does *not* change ownership of
+// <statement_parser_output>.
 
 // Analyze a ZetaSQL expression.  The expression may include query
 // parameters, subqueries, and any other valid expression syntax.

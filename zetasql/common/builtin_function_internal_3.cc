@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -50,7 +51,6 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -1938,18 +1938,40 @@ void GetGeographyFunctions(TypeFactory* type_factory,
       {{geography_type, {string_type}, FN_ST_GEOG_POINT_FROM_GEOHASH}},
       geography_required);
 
-  // TODO: when named parameters are available, make second
-  // parameter a mandatory named argument `oriented`.
+  auto const_with_mandatory_name = [](const std::string& name) {
+    return FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+        .set_must_be_constant()
+        .set_argument_name_is_mandatory(true)
+        .set_argument_name(name);
+  };
+
+  // Extended signatures for ST_GeogFromText/FromGeoJson/etc.
+  FunctionSignatureOptions extended_parser_signatures =
+      FunctionSignatureOptions().add_required_language_feature(
+          FEATURE_V_1_3_EXTENDED_GEOGRAPHY_PARSERS);
+
   InsertFunction(functions, options, "st_geogfromtext", SCALAR,
                  {{geography_type,
                    {string_type, {bool_type, optional_const_arg_options}},
-                   FN_ST_GEOG_FROM_TEXT}},
+                   FN_ST_GEOG_FROM_TEXT},
+                  {geography_type,
+                   {string_type,
+                    {bool_type, const_with_mandatory_name("oriented")},
+                    {bool_type, const_with_mandatory_name("planar")},
+                    {bool_type, const_with_mandatory_name("make_valid")}},
+                   FN_ST_GEOG_FROM_TEXT_EXT,
+                   extended_parser_signatures}},
                  geography_required);
   InsertFunction(functions, options, "st_geogfromkml", SCALAR,
                  {{geography_type, {string_type}, FN_ST_GEOG_FROM_KML}},
                  geography_required);
   InsertFunction(functions, options, "st_geogfromgeojson", SCALAR,
-                 {{geography_type, {string_type}, FN_ST_GEOG_FROM_GEO_JSON}},
+                 {{geography_type, {string_type}, FN_ST_GEOG_FROM_GEO_JSON},
+                  {geography_type,
+                   {string_type,
+                    {bool_type, const_with_mandatory_name("make_valid")}},
+                   FN_ST_GEOG_FROM_GEO_JSON_EXT,
+                   extended_parser_signatures}},
                  geography_required);
   InsertFunction(functions, options, "st_geogfromwkb", SCALAR,
                  {{geography_type, {bytes_type}, FN_ST_GEOG_FROM_WKB}},

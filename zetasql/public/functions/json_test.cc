@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,11 +39,11 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/substitute.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 namespace functions {
@@ -51,6 +51,7 @@ namespace {
 
 using ::testing::ElementsAreArray;
 using ::testing::HasSubstr;
+using ::zetasql_base::testing::IsOkAndHolds;
 using ::zetasql_base::testing::StatusIs;
 
 MATCHER_P(JsonEq, expected, expected.ToString()) {
@@ -110,7 +111,7 @@ TEST(JsonTest, JsonEscapingNeededCallback) {
 TEST(JsonTest, NativeJsonExtract) {
   const JSONValue json =
       JSONValue::ParseJSONString(R"({"a": {"b": [ { "c" : "foo" } ] } })")
-          .ValueOrDie();
+          .value();
   JSONValueConstRef json_ref = json.GetConstRef();
   const std::vector<std::pair<std::string, std::string>> inputs_and_outputs = {
       {"$", R"({"a":{"b":[{"c":"foo"}]}})"},
@@ -168,7 +169,7 @@ TEST(JsonTest, NativeJsonExtractScalar) {
       JSONValue::ParseJSONString(
           R"({"a": {"b": [ { "c" : "foo" } ], "d": 1, "e": -5, )"
           R"("f": true, "g": 4.2 } })")
-          .ValueOrDie();
+          .value();
   JSONValueConstRef json_ref = json.GetConstRef();
   const std::vector<std::pair<std::string, std::string>> inputs_and_outputs = {
       {"$", ""},
@@ -378,6 +379,96 @@ TEST(JsonPathTest, JsonPathEndedWithDotStandardMode) {
                                           /*sql_standard_mode=*/true),
                 StatusIs(absl::StatusCode::kOutOfRange,
                          HasSubstr("Invalid token in JSONPath at:")));
+  }
+}
+
+TEST(JsonTest, ConvertJSONPathToSqlStandardMode) {
+  const std::string kInvalidJSONPath = "Invalid JSONPath input";
+
+  std::vector<std::pair<std::string, std::string>> json_paths = {
+      {"$", "$"},
+      {"$.a", "$.a"},
+      {"$[a]", "$.a"},
+      {"$['a']", "$.a"},
+      {"$[10]", "$.10"},
+      {"$.a_b", "$.a_b"},
+      {"$.a:b", "$.a:b"},
+      {"$.a  \tb", "$.a  \tb"},
+      {"$.a['b.c'].d[0].e", R"($.a."b.c".d.0.e)"},
+      {"$['b.c'][d].e['f.g'][3]", R"($."b.c".d.e."f.g".3)"},
+      // In non-standard mode, it is allowed for JSONPath to have a trailing "."
+      {"$.", "$"},
+      {"$.a.", "$.a"},
+      {"$.a['b,c'].", R"($.a."b,c")"},
+      // Special characters
+      {R"($['a\''])", R"($."a'")"},
+      {R"($['a,b'])", R"($."a,b")"},
+      {R"($['a]'])", R"($."a]")"},
+      {R"($['a[\'b\']'])", R"($."a['b']")"},
+      {R"($['a"'])", R"($."a\"")"},
+      {R"($['\\'])", R"($."\\")"},
+      {R"($['a"\''].b['$#9"[\'s""]'])", R"($."a\"'".b."$#9\"['s\"\"]")"},
+      // Invalid non-standard JSONPath.
+      {R"($."a.b")", kInvalidJSONPath},
+      // TODO: Single backslashes are not supported in JSONPath.
+      {R"($['\'])", kInvalidJSONPath},
+  };
+
+  for (const auto& [non_standard_json_path, standard_json_path] : json_paths) {
+    SCOPED_TRACE(absl::Substitute("ConvertJSONPathToSqlStandardMode($0)",
+                                  non_standard_json_path));
+    if (json_internal::IsValidJSONPath(non_standard_json_path,
+                                       /*sql_standard_mode=*/false)
+            .ok()) {
+      EXPECT_THAT(ConvertJSONPathToSqlStandardMode(non_standard_json_path),
+                  IsOkAndHolds(standard_json_path));
+      ZETASQL_EXPECT_OK(json_internal::IsValidJSONPath(standard_json_path,
+                                               /*sql_standard_mode=*/true));
+    } else {
+      EXPECT_THAT(ConvertJSONPathToSqlStandardMode(non_standard_json_path),
+                  StatusIs(absl::StatusCode::kOutOfRange));
+      EXPECT_EQ(standard_json_path, kInvalidJSONPath);
+    }
+  }
+}
+
+TEST(JsonTest, MergeJSONPathsIntoSqlStandardMode) {
+  const std::string kInvalidJSONPath = "Invalid JSONPath input";
+
+  std::vector<std::pair<std::vector<std::string>, std::string>>
+      json_paths_test_cases = {
+          {{"$"}, "$"},
+          {{"$.a"}, "$.a"},
+          {{"$['a']"}, "$.a"},
+          {{"$['a']", "$.b"}, "$.a.b"},
+          {{"$['a']", "$.b", R"($.c[1]."d.e")"}, R"($.a.b.c[1]."d.e")"},
+          {{"$['a']", "$.b", "$.c[1]['d.e']"}, R"($.a.b.c.1."d.e")"},
+          {{R"($['a\''])", R"($.b['c[\'d\']'])"}, R"($."a'".b."c['d']")"},
+          // In non-standard mode, it is allowed for JSONPath to have a trailing
+          // "."
+          {{"$.", "$"}, "$"},
+          {{"$.a.", "$[0]", "$['b,c']."}, R"($.a[0]."b,c")"},
+          {{R"($."a\b")", "$.", "$", "$.a['b,c']."}, R"($."a\b".a."b,c")"},
+          // Invalid inputs
+          {{}, kInvalidJSONPath},
+          {{"$", ".a"}, kInvalidJSONPath},
+          {{"$", "$.a'"}, kInvalidJSONPath},
+          // Standard mode cannot have a trailing "."
+          {{R"($."a,b".)", "$.d"}, kInvalidJSONPath},
+      };
+
+  for (const auto& [json_paths, merged_json_path] : json_paths_test_cases) {
+    SCOPED_TRACE(absl::Substitute("MergeJSONPathsIntoSqlStandardMode($0)",
+                                  absl::StrJoin(json_paths, ", ")));
+    if (merged_json_path == kInvalidJSONPath) {
+      EXPECT_THAT(MergeJSONPathsIntoSqlStandardMode(json_paths),
+                  StatusIs(absl::StatusCode::kOutOfRange));
+    } else {
+      EXPECT_THAT(MergeJSONPathsIntoSqlStandardMode(json_paths),
+                  IsOkAndHolds(merged_json_path));
+      ZETASQL_EXPECT_OK(json_internal::IsValidJSONPath(merged_json_path,
+                                               /*sql_standard_mode=*/true));
+    }
   }
 }
 

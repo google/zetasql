@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,7 +49,6 @@
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 namespace local_service {
@@ -58,24 +57,16 @@ using google::protobuf::RepeatedPtrField;
 
 namespace {
 
-zetasql_base::StatusOr<Value> DeserializeValue(
-    const ValueProto& value_proto, const TypeProto& type_proto,
-    const std::vector<const google::protobuf::DescriptorPool*>& pools,
-    TypeFactory* factory) {
-  const Type* type;
-  ZETASQL_RETURN_IF_ERROR(factory->DeserializeFromProtoUsingExistingPools(
-      type_proto, pools, &type));
-  return Value::Deserialize(value_proto, type);
-}
-
 absl::Status RepeatedParametersToMap(
     const RepeatedPtrField<EvaluateRequest::Parameter>& params,
-    const std::vector<const google::protobuf::DescriptorPool*>& pools,
-    TypeFactory* factory, ParameterValueMap* map) {
+    const QueryParametersMap& types, ParameterValueMap* map) {
   for (const auto& param : params) {
-    auto result = DeserializeValue(param.value(), param.type(), pools, factory);
+    std::string name = absl::AsciiStrToLower(param.name());
+    const Type* type = zetasql_base::FindPtrOrNull(types, name);
+    ZETASQL_RET_CHECK(type != nullptr) << "Type not found for '" << name << "'";
+    auto result = Value::Deserialize(param.value(), type);
     ZETASQL_RETURN_IF_ERROR(result.status());
-    (*map)[param.name()] = result.value();
+    (*map)[name] = result.value();
   }
 
   return absl::OkStatus();
@@ -416,13 +407,13 @@ absl::Status ZetaSqlLocalServiceImpl::EvaluateImpl(
     const EvaluateRequest& request, PreparedExpressionState* state,
     EvaluateResponse* response) {
   const auto& const_pools = state->GetDescriptorPools();
-  TypeFactory* factory = state->GetTypeFactory();
+  const AnalyzerOptions& analyzer_options = state->GetAnalyzerOptions();
 
   ParameterValueMap columns, params;
-  ZETASQL_RETURN_IF_ERROR(RepeatedParametersToMap(request.columns(), const_pools,
-                                          factory, &columns));
-  ZETASQL_RETURN_IF_ERROR(
-      RepeatedParametersToMap(request.params(), const_pools, factory, &params));
+  ZETASQL_RETURN_IF_ERROR(RepeatedParametersToMap(
+      request.columns(), analyzer_options.expression_columns(), &columns));
+  ZETASQL_RETURN_IF_ERROR(RepeatedParametersToMap(
+      request.params(), analyzer_options.query_parameters(), &params));
 
   auto result = state->GetPreparedExpression()->Execute(columns, params);
   ZETASQL_RETURN_IF_ERROR(result.status());

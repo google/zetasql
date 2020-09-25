@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -851,8 +851,10 @@ enum FunctionSignatureId {
 
   // Parsers/formatters
   FN_ST_GEOG_FROM_TEXT = 2050;
+  FN_ST_GEOG_FROM_TEXT_EXT = 2060;
   FN_ST_GEOG_FROM_KML = 2051;
   FN_ST_GEOG_FROM_GEO_JSON = 2052;
+  FN_ST_GEOG_FROM_GEO_JSON_EXT = 2068;
   FN_ST_GEOG_FROM_WKB = 2056;
   FN_ST_AS_TEXT = 2053;
   FN_ST_AS_KML = 2054;

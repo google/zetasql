@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -88,12 +88,19 @@ message FunctionArgumentTypeOptionsProto {
   optional TypeProto default_value_type = 18;
 }
 
+message ArgumentTypeLambdaProto {
+  repeated FunctionArgumentTypeProto argument = 5;
+  optional FunctionArgumentTypeProto body = 6;
+}
+
 message FunctionArgumentTypeProto {
   optional SignatureArgumentKind kind = 1;
   optional TypeProto type = 2;
   optional int32 num_occurrences = 4;
 
   optional FunctionArgumentTypeOptionsProto options = 3;
+
+  optional ArgumentTypeLambdaProto lambda = 5;
 }
 
 message FunctionSignatureOptionsProto {
@@ -101,6 +108,7 @@ message FunctionSignatureOptionsProto {
   optional bool is_deprecated = 2 [default = false];
   repeated FreestandingDeprecationWarning additional_deprecation_warning = 3;
   repeated LanguageFeature required_language_feature = 4;
+  optional bool is_aliased_signature = 5 [default = false];
 }
 
 message FunctionSignatureProto {

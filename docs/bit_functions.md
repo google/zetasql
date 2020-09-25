@@ -1,6 +1,6 @@
 
 
-# Bit Functions
+# Bit functions
 
 ZetaSQL supports the following bit functions.
 

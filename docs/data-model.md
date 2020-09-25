@@ -2,14 +2,12 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-# ZetaSQL Data Model
-
-<!-- BEGIN CONTENT -->
+# Data model
 
 The following sections provide an overview of the ZetaSQL data
 model.
 
-## Standard SQL Tables
+## Standard SQL tables
 
 ZetaSQL data is stored in tables. Each table consists of an ordered
 list of columns and a number of rows. Each column has a name used to identify it
@@ -436,6 +434,4 @@ value does not have a field called `ROWNUM`.
 [data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
 [data-manipulation-language]: https://github.com/google/zetasql/blob/master/docs/data-manipulation-language
 [query-syntax-value-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax#value_tables
-
-<!-- END CONTENT -->
 

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,8 +16,10 @@
 
 #include "zetasql/public/function_signature.h"
 
+#include <memory>
 #include <set>
 
+#include "google/protobuf/util/message_differencer.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/proto/function.pb.h"
 #include "zetasql/public/function.h"
@@ -28,10 +30,13 @@
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/substitute.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/canonical_errors.h"
@@ -39,7 +44,6 @@
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -85,12 +89,17 @@ FunctionArgumentTypeOptions::FunctionArgumentTypeOptions(
       extra_relation_input_columns_allowed_(
           extra_relation_input_columns_allowed) {}
 
-bool FunctionSignatureOptions::CheckFunctionSignatureConstraints(
+zetasql_base::StatusOr<bool>
+FunctionSignatureOptions::CheckFunctionSignatureConstraints(
+    const FunctionSignature& concrete_signature,
     const std::vector<InputArgumentType>& arguments) const {
-  if (constraints_ == nullptr || constraints_(arguments)) {
+  if (constraints_ == nullptr) {
     return true;
   }
-  return false;
+  ZETASQL_RET_CHECK(concrete_signature.IsConcrete())
+      << "FunctionSignatureArgumentConstraintsCallback must be called with a "
+         "concrete signature";
+  return constraints_(concrete_signature, arguments);
 }
 
 absl::Status FunctionSignatureOptions::Deserialize(
@@ -103,10 +112,10 @@ absl::Status FunctionSignatureOptions::Deserialize(
   for (const int each : proto.required_language_feature()) {
     (*result)->add_required_language_feature(LanguageFeature(each));
   }
+  (*result)->set_is_aliased_signature(proto.is_aliased_signature());
 
   return absl::OkStatus();
 }
-
 
 void FunctionSignatureOptions::Serialize(
     FunctionSignatureOptionsProto* proto) const {
@@ -117,6 +126,9 @@ void FunctionSignatureOptions::Serialize(
   }
   for (const LanguageFeature each : required_language_features_) {
     proto->add_required_language_feature(each);
+  }
+  if (is_aliased_signature()) {
+    proto->set_is_aliased_signature(true);
   }
 }
 
@@ -224,8 +236,24 @@ absl::Status FunctionArgumentType::Deserialize(
       proto.options(), pools, proto.kind(), type, factory, &options));
 
   if (type != nullptr) {
+    // <type> can not be nullptr when proto.kind() == ARG_TYPE_FIXED
     *result = absl::make_unique<FunctionArgumentType>(type, options,
                                                       proto.num_occurrences());
+  } else if (proto.kind() == ARG_TYPE_LAMBDA) {
+    *result = absl::make_unique<FunctionArgumentType>(ARG_TYPE_LAMBDA);
+    std::vector<FunctionArgumentType> lambda_argument_types;
+    for (const FunctionArgumentTypeProto& arg_proto :
+         proto.lambda().argument()) {
+      std::unique_ptr<FunctionArgumentType> arg_type;
+      ZETASQL_RETURN_IF_ERROR(FunctionArgumentType::Deserialize(arg_proto, pools,
+                                                        factory, &arg_type));
+      lambda_argument_types.push_back(*arg_type);
+    }
+    std::unique_ptr<FunctionArgumentType> lambda_body_type;
+    ZETASQL_RETURN_IF_ERROR(FunctionArgumentType::Deserialize(
+        proto.lambda().body(), pools, factory, &lambda_body_type));
+    (**result) = FunctionArgumentType::Lambda(std::move(lambda_argument_types),
+                                              std::move(*lambda_body_type));
   } else {
     *result = absl::make_unique<FunctionArgumentType>(proto.kind(), options,
                                                       proto.num_occurrences());
@@ -317,7 +345,29 @@ absl::Status FunctionArgumentType::Serialize(
   ZETASQL_RETURN_IF_ERROR(options().Serialize(type(), proto->mutable_options(),
                                       file_descriptor_set_map));
 
+  if (IsLambda()) {
+    for (const FunctionArgumentType& arg_type : lambda().argument_types()) {
+      ZETASQL_RETURN_IF_ERROR(arg_type.Serialize(
+          file_descriptor_set_map, proto->mutable_lambda()->add_argument()));
+    }
+    ZETASQL_RETURN_IF_ERROR(lambda().body_type().Serialize(
+        file_descriptor_set_map, proto->mutable_lambda()->mutable_body()));
+  }
+
   return absl::OkStatus();
+}
+
+FunctionArgumentType FunctionArgumentType::Lambda(
+    std::vector<FunctionArgumentType> lambda_argument_types,
+    FunctionArgumentType lambda_body_type) {
+  // For now, we don't have the use cases of non REQUIRED values.
+  FunctionArgumentType arg_type = FunctionArgumentType(ARG_TYPE_LAMBDA);
+  arg_type.lambda_ = std::make_shared<ArgumentTypeLambda>(
+      std::move(lambda_argument_types), std::move(lambda_body_type));
+  arg_type.num_occurrences_ = 1;
+  // Type may be null or non null for both signature and resolved signature.
+  arg_type.type_ = arg_type.lambda().body_type().type();
+  return arg_type;
 }
 
 bool Function::is_operator() const {
@@ -406,6 +456,8 @@ std::string FunctionArgumentType::SignatureArgumentKindToString(
       return "<arbitrary>";
     case ARG_TYPE_VOID:
       return "<void>";
+    case ARG_TYPE_LAMBDA:
+      return "ANY LAMBDA";
     case __SignatureArgumentKind__switch_must_have_a_default__:
       break;  // Handling this case is only allowed internally.
   }
@@ -437,9 +489,9 @@ FunctionArgumentType::FunctionArgumentType(
     std::shared_ptr<const FunctionArgumentTypeOptions> options,
     int num_occurrences)
     : kind_(kind),
+      num_occurrences_(num_occurrences),
       type_(type),
-      options_(options),
-      num_occurrences_(num_occurrences) {
+      options_(options) {
   DCHECK_EQ(kind == ARG_TYPE_FIXED, type != nullptr);
 }
 
@@ -483,13 +535,73 @@ FunctionArgumentType::FunctionArgumentType(const Type* type,
 
 bool FunctionArgumentType::IsConcrete() const {
   if (kind_ != ARG_TYPE_FIXED && kind_ != ARG_TYPE_RELATION &&
-      kind_ != ARG_TYPE_MODEL && kind_ != ARG_TYPE_CONNECTION) {
+      kind_ != ARG_TYPE_MODEL && kind_ != ARG_TYPE_CONNECTION &&
+      kind_ != ARG_TYPE_LAMBDA) {
     return false;
   }
   if (num_occurrences_ < 0) {
     return false;
   }
+
+  // Lambda is concrete if all args and body are concrete.
+  if (kind_ == ARG_TYPE_LAMBDA) {
+    for (const auto& arg : lambda().argument_types()) {
+      if (!arg.IsConcrete()) {
+        return false;
+      }
+    }
+    return lambda().body_type().IsConcrete();
+  }
   return true;
+}
+
+bool FunctionArgumentType::IsTemplated() const {
+  // It is templated if it is not a fixed scalar, it is not a fixed relation,
+  // and it is not a void argument. It is also templated if it is a lambda that
+  // has a templated argument or body.
+  if (kind_ == ARG_TYPE_LAMBDA) {
+    for (const FunctionArgumentType& arg_type : lambda().argument_types()) {
+      if (arg_type.IsTemplated()) {
+        return true;
+      }
+    }
+    return lambda().body_type().IsTemplated();
+  }
+  return kind_ != ARG_TYPE_FIXED && !IsFixedRelation() && !IsVoid();
+}
+
+// Intentionally restrictive for known use cases. Could be expanded in the
+// future.
+static bool IsLambdaAllowedArgType(const FunctionArgumentType& arg_type) {
+  const SignatureArgumentKind kind = arg_type.kind();
+  return kind == ARG_TYPE_FIXED || kind == ARG_TYPE_ANY_1 ||
+         kind == ARG_TYPE_ANY_2 || kind == ARG_ARRAY_TYPE_ANY_1 ||
+         kind == ARG_ARRAY_TYPE_ANY_2;
+}
+
+absl::Status FunctionArgumentType::CheckLambdaArgType(
+    const FunctionArgumentType& arg_type) {
+  ZETASQL_RET_CHECK(IsLambdaAllowedArgType(arg_type))
+      << "arg_type type not supported by lambda: "
+      << arg_type.DebugString(/*verbose=*/true);
+
+  // Make sure the argument type options are just simple REQUIRED options.
+  zetasql::Type::FileDescriptorSetMap arg_fdset_map;
+  FunctionArgumentTypeOptionsProto arg_options_proto;
+  ZETASQL_RETURN_IF_ERROR(arg_type.options().Serialize(
+      /*arg_type=*/nullptr, &arg_options_proto, &arg_fdset_map));
+  ZETASQL_RET_CHECK(arg_fdset_map.empty());
+
+  FunctionArgumentTypeOptionsProto simple_options_proto;
+  zetasql::Type::FileDescriptorSetMap simple_arg_fdset_map;
+  ZETASQL_RETURN_IF_ERROR(SimpleOptions(REQUIRED)->Serialize(
+      nullptr, &simple_options_proto, &simple_arg_fdset_map));
+  ZETASQL_RET_CHECK(simple_arg_fdset_map.empty());
+
+  ZETASQL_RET_CHECK(google::protobuf::util::MessageDifferencer::Equals(arg_options_proto,
+                                                     simple_options_proto))
+      << "Only REQUIRED simple options are supported by lambda";
+  return absl::OkStatus();
 }
 
 absl::Status FunctionArgumentType::IsValid() const {
@@ -551,6 +663,14 @@ absl::Status FunctionArgumentType::IsValid() const {
       }
       break;
   }
+
+  if (IsLambda()) {
+    ZETASQL_RET_CHECK_EQ(cardinality(), REQUIRED);
+    for (const auto& arg_type : lambda().argument_types()) {
+      ZETASQL_RETURN_IF_ERROR(CheckLambdaArgType(arg_type));
+    }
+    ZETASQL_RETURN_IF_ERROR(CheckLambdaArgType(lambda().body_type()));
+  }
   return absl::OkStatus();
 }
 
@@ -585,6 +705,8 @@ std::string FunctionArgumentType::UserFacingName(
         return "DESCRIPTOR";
       case ARG_TYPE_VOID:
         return "VOID";
+      case ARG_TYPE_LAMBDA:
+        return "LAMBDA";
       case ARG_TYPE_FIXED:
       default:
         // We really should have had type() != nullptr in this case.
@@ -620,7 +742,15 @@ std::string FunctionArgumentType::DebugString(bool verbose) const {
                               : "");
   std::string result =
       absl::StrCat(cardinality, occurrences, required() ? "" : " ");
-  if (type_ != nullptr) {
+  if (IsLambda()) {
+    std::string args = absl::StrJoin(
+        lambda().argument_types(), ", ",
+        [verbose](std::string* out, const FunctionArgumentType& arg) {
+          out->append(arg.DebugString(verbose));
+        });
+    absl::SubstituteAndAppend(&result, "LAMBDA($0)->$1", args,
+                              lambda().body_type().DebugString());
+  } else if (type_ != nullptr) {
     absl::StrAppend(&result, type_->DebugString());
   } else if (IsRelation() && options_->has_relation_input_schema()) {
     result = options_->relation_input_schema().DebugString();
@@ -644,6 +774,16 @@ std::string FunctionArgumentType::GetSQLDeclaration(
   std::string cardinality(repeated() ? "/*repeated*/"
                                      : optional() ? "/*optional*/" : "");
   std::string result = absl::StrCat(cardinality, required() ? "" : " ");
+  if (IsLambda()) {
+    std::string args = absl::StrJoin(
+        lambda().argument_types(), ", ",
+        [product_mode](std::string* out, const FunctionArgumentType& arg) {
+          out->append(arg.GetSQLDeclaration(product_mode));
+        });
+    return absl::Substitute(
+        "LAMBDA(($0)->$1)", args,
+        lambda().body_type().GetSQLDeclaration(product_mode));
+  }
   // TODO: Consider using UserFacingName() here.
   if (type_ != nullptr) {
     absl::StrAppend(&result, type_->TypeName(product_mode));
@@ -762,6 +902,7 @@ void FunctionSignature::ComputeConcreteArgumentTypes() {
   int first_repeated_idx = -1;
   int last_repeated_idx = -1;
   int num_concrete_args = 0;
+
   for (int idx = 0; idx < arguments_.size(); ++idx) {
     const FunctionArgumentType& arg = arguments_[idx];
     if (arg.repeated()) {
@@ -841,9 +982,9 @@ bool FunctionSignature::ComputeIsConcrete() const {
   }
 }
 
-bool FunctionSignature::CheckArgumentConstraints(
+zetasql_base::StatusOr<bool> FunctionSignature::CheckArgumentConstraints(
     const std::vector<InputArgumentType>& arguments) const {
-  return options_.CheckFunctionSignatureConstraints(arguments);
+  return options_.CheckFunctionSignatureConstraints(*this, arguments);
 }
 
 std::string FunctionSignature::DebugString(const std::string& function_name,
@@ -914,6 +1055,19 @@ bool FunctionArgumentType::TemplatedKindIsRelated(SignatureArgumentKind kind)
   if (kind_ == kind) {
     return true;
   }
+
+  if (IsLambda()) {
+    for (const FunctionArgumentType& arg_type : lambda().argument_types()) {
+      if (arg_type.TemplatedKindIsRelated(kind)) {
+        return true;
+      }
+    }
+    if (lambda().body_type().TemplatedKindIsRelated(kind)) {
+      return true;
+    }
+    return false;
+  }
+
   if ((kind_ == ARG_ARRAY_TYPE_ANY_1 && kind == ARG_TYPE_ANY_1) ||
       (kind_ == ARG_ARRAY_TYPE_ANY_2 && kind == ARG_TYPE_ANY_2) ||
       (kind == ARG_ARRAY_TYPE_ANY_1 && kind_ == ARG_TYPE_ANY_1) ||
@@ -955,16 +1109,18 @@ absl::Status FunctionSignature::IsValid() const {
              << DebugString();
     }
   }
+
   // Optional arguments must be at the end of the argument list, and repeated
   // arguments must be consecutive.  Arguments must themselves be valid.
   bool saw_optional = false;
   bool after_repeated_block = false;
   bool in_repeated_block = false;
-  for (const FunctionArgumentType& arg : arguments_) {
+  for (int arg_index = 0; arg_index < arguments().size(); arg_index++) {
+    const auto& arg = arguments()[arg_index];
     ZETASQL_RETURN_IF_ERROR(arg.IsValid());
     if (arg.IsVoid()) {
-      return MakeSqlError() << "Arguments cannot have type VOID: "
-                            << DebugString();
+      return MakeSqlError()
+             << "Arguments cannot have type VOID: " << DebugString();
     }
     if (arg.optional()) {
       saw_optional = true;
@@ -982,6 +1138,36 @@ absl::Status FunctionSignature::IsValid() const {
     } else if (in_repeated_block) {
       after_repeated_block = true;
       in_repeated_block = false;
+    }
+
+    if (arg.IsLambda()) {
+      // We require an argument of lambda type is related to a previous
+      // argument. For example, the following function signature is not allowed:
+      //   Func(LAMBDA(T1->BOOL), ARRAY(T1))
+      // The concern is the above function requires two pass for readers and the
+      // resolver of a function call to understand the call. All of the known
+      // functions meets this requirement. Could be relaxed if the need arises.
+      for (const auto& lambda_arg_type : arg.lambda().argument_types()) {
+        bool has_tempalted_args = false;
+        bool is_related_to_previous_function_arg = false;
+        for (int j = 0; j < arg_index; j++) {
+          if (!lambda_arg_type.IsTemplated()) {
+            continue;
+          }
+          has_tempalted_args = true;
+          if (lambda_arg_type.TemplatedKindIsRelated(arguments()[j].kind())) {
+            is_related_to_previous_function_arg = true;
+            break;
+          }
+        }
+        if (has_tempalted_args && !is_related_to_previous_function_arg) {
+          return MakeSqlError()
+                 << "Templated argument of lambda argument type must match an "
+                    "argument type before the lambda argument. Function "
+                    "signature: "
+                 << DebugString();
+        }
+      }
     }
   }
   const int first_repeated = FirstRepeatedArgumentIndex();

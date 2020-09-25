@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,35 +16,27 @@
 
 #include "zetasql/resolved_ast/rewrite_utils.h"
 
+#include "zetasql/resolved_ast/resolved_ast_visitor.h"
+
 namespace zetasql {
 
-ResolvedColumn ColIdAllocator::MakeCol(const std::string& table_name,
-                                       const std::string& col_name,
-                                       const Type* type) {
-  return ResolvedColumn(++max_col_id_, table_name, col_name, type);
-}
-
-absl::Status ColIdCounter::DefaultVisit(const ResolvedNode* node) {
-  if (node->IsScan()) {
-    const ResolvedScan* scan = node->GetAs<ResolvedScan>();
-    for (const ResolvedColumn& col : scan->column_list()) {
-      VisitColumn(col);
+ResolvedColumn ColumnFactory::MakeCol(const std::string& table_name,
+                                      const std::string& col_name,
+                                      const Type* type) {
+  if (sequence_ == nullptr) {
+    ++max_col_id_;
+  } else {
+    while (true) {
+      // Allocate from the sequence, but make sure it's higher than the max we
+      // should start from.
+      int next_col_id = static_cast<int>(sequence_->GetNext());
+      if (next_col_id > max_col_id_) {
+        max_col_id_ = next_col_id;
+        break;
+      }
     }
   }
-  return ResolvedASTVisitor::DefaultVisit(node);
-}
-
-absl::Status ColIdCounter::VisitResolvedComputedColumn(
-    const ResolvedComputedColumn* node) {
-  VisitColumn(node->column());
-  return ResolvedASTVisitor::DefaultVisit(node);
-}
-
-void ColIdCounter::VisitColumn(const ResolvedColumn& col) {
-  if (col.column_id() > max_col_id_) {
-    VLOG(1) << "Saw new max col id " << col.column_id();
-    max_col_id_ = col.column_id();
-  }
+  return ResolvedColumn(max_col_id_, table_name, col_name, type);
 }
 
 }  // namespace zetasql

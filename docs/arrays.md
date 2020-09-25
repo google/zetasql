@@ -1,9 +1,7 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-# Working with Arrays
-
-<!-- BEGIN CONTENT -->
+# Working with arrays
 
 In ZetaSQL, an array is an ordered list consisting of zero or more
 values of the same data type. You can construct arrays of simple data types,
@@ -134,7 +132,7 @@ SELECT
 +--------------------------------------------------------------------------+
 ```
 
-## Casting Arrays
+## Casting arrays
 
 You can use [`CAST`][casting]
 to cast arrays from one element type to another. The element types of the input
@@ -155,7 +153,7 @@ FROM (SELECT ARRAY<INT32>[1, 2, 3] AS int_array);
 +--------------+
 ```
 
-## Accessing Array Elements
+## Accessing array elements
 
 Consider the following table, `sequences`:
 
@@ -226,7 +224,7 @@ FROM sequences;
 +---------------+----------+-----------+
 ```
 
-## Finding Lengths
+## Finding lengths
 
 The `ARRAY_LENGTH()` function returns the length of an array.
 
@@ -381,7 +379,7 @@ FROM sequences, sequences.some_numbers AS flattened_numbers;
 +------+-------------------+
 ```
 
-## Querying Nested and Repeated Fields
+## Querying nested and repeated fields
 
 If a table contains an `ARRAY` of `STRUCT`s or `PROTO`s, you can
 [flatten the `ARRAY`][flattening-arrays] to query the fields of the `STRUCT` or
@@ -531,7 +529,7 @@ FROM
 +------+---------------+
 ```
 
-### Querying PROTO elements in an ARRAY
+### Querying PROTO elements in an array
 
 To query the fields of `PROTO` elements in an `ARRAY`, use `UNNEST` and
 `CROSS JOIN`.
@@ -900,7 +898,7 @@ CROSS JOIN UNNEST(album.song) AS song_name;
 
 ```
 
-## Creating Arrays From Subqueries
+## Creating arrays from subqueries
 
 A common task when working with arrays is turning a subquery result into an
 array. In ZetaSQL, you can accomplish this using the
@@ -953,7 +951,7 @@ The query itself contains a subquery. This subquery selects each row in the
 array as a set of rows. Next, it multiplies each value by two, and then
 recombines the rows back into an array using the `ARRAY()` operator.
 
-## Filtering Arrays
+## Filtering arrays
 The following example uses a `WHERE` clause in the `ARRAY()` operator's subquery
 to filter the returned rows.
 
@@ -1078,7 +1076,7 @@ FROM sequences;
 Notice again that the third row contains an empty array, because the array in
 the corresponding original row (`[5, 10]`) did not contain `2`.
 
-## Scanning Arrays
+## Scanning arrays
 
 To check if an array contains a specific value, use the [`IN`][in-operators]
 operator with [`UNNEST`][unnest-query]. To
@@ -1189,7 +1187,7 @@ WHERE EXISTS (SELECT 1
 +---------------+
 ```
 
-## Arrays and Aggregation
+## Arrays and aggregation
 
 With ZetaSQL, you can aggregate values into an array using
 `ARRAY_AGG()`.
@@ -1335,7 +1333,7 @@ FROM aggregate_example;
 non-deterministic, since the order in which the function concatenates values is
 not guaranteed.
 
-## Converting Arrays to Strings
+## Converting arrays to strings
 
 The `ARRAY_TO_STRING()` function allows you to convert an `ARRAY<STRING>` to a
 single `STRING` value or an `ARRAY<BYTES>` to a single `BYTES` value where the
@@ -1385,7 +1383,7 @@ FROM (SELECT ["a", NULL, "b", NULL, "c", NULL] AS arr);
 +------------------+--------------+---------+
 ```
 
-## Combining Arrays
+## Combining arrays
 
 In some cases, you might want to combine multiple arrays into a single array.
 You can accomplish this using the `ARRAY_CONCAT()` function.
@@ -1400,7 +1398,7 @@ SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
 +--------------------------------------------------+
 ```
 
-## Zipping Arrays
+## Zipping arrays
 
 Given two arrays of equal size, you can merge them into a single array
 consisting of pairs of elements from input arrays, taken from their
@@ -1433,7 +1431,7 @@ You can use input arrays of different lengths as long as the first array
 is equal to or less than the length of the second array. The zipped array
 will be the length of the shortest input array.
 
-## Building Arrays of Arrays
+## Building arrays of arrays
 
 ZetaSQL does not support building
 [arrays of arrays][array-data-type]
@@ -1524,6 +1522,4 @@ SELECT ARRAY(
 [generate-array-function]: https://github.com/google/zetasql/blob/master/docs/array_functions#generate_array
 [generate-date-array]: https://github.com/google/zetasql/blob/master/docs/array_functions#generate_date_array
 [offset-and-ordinal]: https://github.com/google/zetasql/blob/master/docs/array_functions#offset_and_ordinal
-
-<!-- END CONTENT -->
 

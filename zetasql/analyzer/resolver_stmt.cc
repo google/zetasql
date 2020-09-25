@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -84,7 +84,6 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -1371,7 +1370,9 @@ absl::Status Resolver::ResolveForeignKeyReference(
         column_definitions[*referencing_column_offset]->type();
     const Type* referenced_type =
         referenced_table->GetColumn(referenced_column_offset)->GetType();
-    if (!SupportsEquality(referencing_type, referenced_type)) {
+    ZETASQL_ASSIGN_OR_RETURN(const bool supports_equality,
+                     SupportsEquality(referencing_type, referenced_type));
+    if (!supports_equality) {
       if (!referencing_type->SupportsEquality(
           analyzer_options_.language_options())) {
         return MakeSqlErrorAt(ast_referencing_column_identifier)

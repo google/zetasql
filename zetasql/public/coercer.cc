@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,28 +19,33 @@
 #include <algorithm>
 #include <memory>
 #include <set>
+#include <stack>
 #include <string>
 #include <vector>
 
 #include "zetasql/public/cast.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/input_argument_type.h"
+#include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 namespace {
-using SuperTypesMap = absl::flat_hash_map<TypeKind, const std::set<TypeKind>>;
+using SuperTypesMap = absl::flat_hash_map<TypeKind, std::vector<const Type*>>;
 
 bool IsExtendedCoercion(const Type* from_type, const Type* to_type) {
   return from_type->IsExtendedType() || to_type->IsExtendedType();
@@ -57,65 +62,392 @@ bool StatusToBool(const zetasql_base::StatusOr<bool>& status) {
   return status.value_or(false);
 }
 
+constexpr int GetNullLiteralCoercionCost() {
+  // The cost of coercing NULL to any type is 1.
+  // TODO: Seems like this should be 0.  Try it and see what
+  // breaks/changes.
+  return 1;
+}
+
+SuperTypesMap* CreateBuiltinSuperTypesMap() {
+  auto* map = new SuperTypesMap;
+
+  for (const auto [cast_pair, cast_function_property] : GetZetaSQLCasts()) {
+    const auto [src_type_kind, dst_type_kind] = cast_pair;
+
+    if (src_type_kind == dst_type_kind) {
+      continue;
+    }
+
+    if (!cast_function_property.is_implicit()) {
+      continue;
+    }
+
+    if (!Type::IsSimpleType(src_type_kind) ||
+        !Type::IsSimpleType(dst_type_kind)) {
+      continue;
+    }
+
+    std::vector<const Type*>& supertypes = (*map)[src_type_kind];
+    const Type* dst_type = types::TypeFromSimpleTypeKind(dst_type_kind);
+    CHECK_NE(dst_type, nullptr);
+
+    supertypes.push_back(dst_type);
+  }
+
+  for (auto& [type_kind, type_vector] : *map) {
+    std::sort(type_vector.begin(), type_vector.end(),
+              Type::TypeSpecificityLess);  // Most specific first.
+  }
+
+  return map;
+}
+
+const SuperTypesMap& GetBuiltinSuperTypesMap() {
+  static SuperTypesMap* built_in_supertypes_map = CreateBuiltinSuperTypesMap();
+  return *built_in_supertypes_map;
+}
+
+zetasql_base::StatusOr<TypeListView> GetSuperTypesOfBuiltinType(const Type* type) {
+  ZETASQL_RET_CHECK_NE(type, nullptr);
+  ZETASQL_RET_CHECK_NE(type->kind(), TypeKind::TYPE_EXTENDED);
+
+  const SuperTypesMap& map = GetBuiltinSuperTypesMap();
+  auto it = map.find(type->kind());
+  if (it == map.end()) {
+    return TypeListView();
+  }
+
+  return TypeListView(it->second);
+}
+
+// Helper class that stores Type and its supertypes.
+class TypeSuperTypes {
+ public:
+  TypeSuperTypes(const Type* type, TypeListView supertypes)
+      : type_(type), supertypes_(supertypes) {}
+
+  // Checks whether <type> Equals (type->Equals(other) == true) to any type
+  // stored in this class. This includes any Type from supertypes() and Type
+  // returned by type().
+  bool Contains(const Type* type) const {
+    if (TypeEquals(type, type_)) {
+      return true;
+    }
+
+    for (const Type* t : supertypes_) {
+      if (TypeEquals(type, t)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  const Type* type() const { return type_; }
+  TypeListView supertypes() const { return supertypes_; }
+
+  std::vector<const Type*> ToVector() const {
+    std::vector<const Type*> result;
+    result.reserve(supertypes_.size() + 1);
+    AddAllTypesToVector(&result);
+    return result;
+  }
+
+  void AddAllTypesToVector(std::vector<const Type*>* vector) const {
+    vector->push_back(type_);
+    vector->insert(vector->end(), supertypes_.begin(), supertypes_.end());
+  }
+
+ private:
+  static bool TypeEquals(const Type* t1, const Type* t2) {
+    return t1->Equivalent(t2);
+  }
+
+  const Type* type_;
+  TypeListView supertypes_;
+};
+
+// Helper class that checks that global preference order between supertypes is
+// maintained. Please see Catalog::GetExtendedTypeSuperTypes for more details on
+// global preference order. To check that global order is respected for all
+// types we use a topological sort:
+//  1) Create a graph of supertype preference relations between all participated
+//    types. E.g. if GetExtendedTypeSuperTypes(A)=[B,C] and
+//    GetExtendedTypeSuperTypes(C)=[D], the graph will look like: A->B->C->D.
+//  2) Run depth first search for each node of that graph and return failure if
+//    cycle is found.
+class TypeGlobalOrderChecker {
+ public:
+  static absl::Status Check(TypeListView types, Catalog* catalog = nullptr) {
+    TypeGlobalOrderChecker checker;
+    for (const Type* type : types) {
+      ZETASQL_RETURN_IF_ERROR(checker.AddType(type, catalog));
+    }
+
+    return checker.Check();
+  }
+
+  static absl::Status Check(const std::vector<TypeSuperTypes>& supertypes_list,
+                            Catalog* catalog = nullptr) {
+    std::vector<const Type*> types;
+    for (const TypeSuperTypes& supertypes : supertypes_list) {
+      supertypes.AddAllTypesToVector(&types);
+    }
+
+    return Check(types, catalog);
+  }
+
+ private:
+  enum class NodeState { kNone = 0, kVisited, kProcessed };
+
+  struct Node {
+    TypeFlatHashSet<> children;
+    NodeState state;
+  };
+
+  Node& GetNode(const Type* type) {
+    std::unique_ptr<Node>& node = graph_[type];
+    CHECK(node);
+
+    return *node;
+  }
+
+  absl::Status AddDependency(const Type* t1, const Type* t2) {
+    ZETASQL_RET_CHECK_NE(t1, nullptr);
+    ZETASQL_RET_CHECK_NE(t2, nullptr);
+    ZETASQL_RET_CHECK(!t1->Equals(t2));
+
+    GetNode(t1).children.insert(t2);
+
+    return absl::OkStatus();
+  }
+
+  absl::Status AddType(const Type* type, Catalog* catalog) {
+    ZETASQL_RET_CHECK_NE(type, nullptr);
+
+    std::unique_ptr<Node>& node = graph_[type];
+    if (node != nullptr) {
+      return absl::OkStatus();
+    }
+
+    node = absl::make_unique<Node>();
+
+    ZETASQL_ASSIGN_OR_RETURN(TypeListView supertypes,
+                     GetCandidateSuperTypes(type, catalog));
+    for (const Type* child : supertypes) {
+      ZETASQL_RETURN_IF_ERROR(AddType(child, catalog));
+    }
+
+    for (int i = 0; i < supertypes.size(); i++) {
+      const Type* src = i == 0 ? type : supertypes[i - 1];
+      const Type* dst = supertypes[i];
+      ZETASQL_RETURN_IF_ERROR(AddDependency(src, dst));
+    }
+
+    return absl::OkStatus();
+  }
+
+  absl::Status Check() {
+    std::stack<std::pair<const Type*, bool>> stack;
+
+    for (const auto& kvp : graph_) {
+      stack.emplace(kvp.first, false);
+    }
+
+    while (!stack.empty()) {
+      auto& [current_type, children_processed] = stack.top();
+      auto& current_node = graph_[current_type];
+      ZETASQL_RET_CHECK(current_node);
+
+      if (!children_processed) {
+        if (current_node->state == NodeState::kVisited) {
+          // Cycle in the graph.
+          return zetasql_base::FailedPreconditionErrorBuilder()
+                 << "Violation of global supertype preference order for type: "
+                 << current_type->DebugString();
+        }
+
+        if (current_node->state == NodeState::kProcessed) {
+          stack.pop();
+          continue;
+        }
+
+        ZETASQL_RET_CHECK(current_node->state == NodeState::kNone);
+        current_node->state = NodeState::kVisited;
+        children_processed = true;
+
+        if (!current_node->children.empty()) {
+          for (const Type* child : current_node->children) {
+            stack.emplace(child, false);
+          }
+
+          continue;
+        }
+        // If there are no children - just fell through to kProcessed state.
+      }
+
+      ZETASQL_RET_CHECK(current_node->state == NodeState::kVisited);
+      current_node->state = NodeState::kProcessed;
+      stack.pop();
+    }
+
+    return absl::OkStatus();
+  }
+
+  TypeFlatHashMap<std::unique_ptr<Node>> graph_;
+};
+
+absl::Status CheckSupertypesGlobalOrderForCoercer(
+    const std::vector<TypeSuperTypes>& supertypes_list, Catalog* catalog) {
+  if (!std::any_of(
+          supertypes_list.begin(), supertypes_list.end(),
+          [](const auto& st) { return st.type()->IsExtendedType(); })) {
+    // We check global order of built-in types in unit test. Thus, if we don't
+    // have any extended types to check, we can safely return ok.
+    return absl::OkStatus();
+  }
+
+  return TypeGlobalOrderChecker::Check(supertypes_list);
+}
+
 }  // namespace
 
-static const SuperTypesMap* InitializeSuperTypesMap() {
-  SuperTypesMap* val = new SuperTypesMap;
-  // Initialize supertypes map.
-  std::vector<std::pair<TypeKind, std::vector<TypeKind>>> raw = {
-      {TYPE_BOOL, {TYPE_BOOL}},
-      {TYPE_INT32,
-       {TYPE_INT32, TYPE_INT64, TYPE_NUMERIC, TYPE_BIGNUMERIC, TYPE_DOUBLE}},
-      {TYPE_INT64, {TYPE_INT64, TYPE_NUMERIC, TYPE_BIGNUMERIC, TYPE_DOUBLE}},
-      {TYPE_UINT32,
-       {TYPE_INT64, TYPE_UINT32, TYPE_UINT64, TYPE_NUMERIC, TYPE_BIGNUMERIC,
-        TYPE_DOUBLE}},
-      {TYPE_UINT64, {TYPE_UINT64, TYPE_NUMERIC, TYPE_BIGNUMERIC, TYPE_DOUBLE}},
-      {TYPE_FLOAT, {TYPE_FLOAT, TYPE_DOUBLE}},
-      {TYPE_DOUBLE, {TYPE_DOUBLE}},
-      {TYPE_STRING, {TYPE_STRING}},
-      {TYPE_BYTES, {TYPE_BYTES}},
-      {TYPE_ENUM, {TYPE_ENUM}},
-      {TYPE_PROTO, {TYPE_PROTO}},
-      {TYPE_ARRAY, {TYPE_ARRAY}},
-      {TYPE_DATE, {TYPE_DATE, TYPE_DATETIME}},
-      {TYPE_TIME, {TYPE_TIME}},
-      {TYPE_DATETIME, {TYPE_DATETIME}},
-      {TYPE_TIMESTAMP, {TYPE_TIMESTAMP}},
-      {TYPE_GEOGRAPHY, {TYPE_GEOGRAPHY}},
-      {TYPE_NUMERIC, {TYPE_NUMERIC, TYPE_BIGNUMERIC, TYPE_DOUBLE}},
-      {TYPE_BIGNUMERIC, {TYPE_BIGNUMERIC, TYPE_DOUBLE}},
-      {TYPE_JSON, {TYPE_JSON}}};
+zetasql_base::StatusOr<TypeListView> GetCandidateSuperTypes(const Type* type,
+                                                    Catalog* catalog) {
+  ZETASQL_RET_CHECK_NE(type, nullptr);
+  ZETASQL_RET_CHECK(!type->IsStruct());
+  ZETASQL_RET_CHECK(!type->IsArray());
 
-  for (const auto& entry : raw) {
-    TypeKind type = entry.first;
-    std::set<TypeKind> supertypes;
-    for (const auto& supertype : entry.second) {
-      CHECK(supertypes.emplace(supertype).second)
-          << "Duplicate supertype entry " << TypeKind_Name(supertype)
-          << " while processing " << TypeKind_Name(type);
+  if (type->IsExtendedType()) {
+    if (catalog == nullptr) {
+      return zetasql_base::FailedPreconditionErrorBuilder()
+             << "Attempt to find a conversion rule for extended type "
+             << type->DebugString() << " without providing a Catalog";
     }
-    CHECK(zetasql_base::ContainsKey(supertypes, type))
-        << "Missing self in list of supertypes for " << TypeKind_Name(type);
-    CHECK(val->emplace(type, std::move(supertypes)).second)
-        << "Duplicate entry " << TypeKind_Name(type);
+
+    return catalog->GetExtendedTypeSuperTypes(type);
   }
-  return val;
+
+  return GetSuperTypesOfBuiltinType(type);
 }
 
-// Map from a TypeKind to a set of TypeKinds that are its supertypes.
-// Every TypeKind is a supertype of itself.
-static const SuperTypesMap& supertypes() {
-  static const SuperTypesMap* supertypes = InitializeSuperTypesMap();
-  return *supertypes;
+// ContextBase contains a basic set of properties needed for particular coercion
+// check request. The coercion check logic itself is implemented in Context
+// class, while ContextBase serves just to enforce several important invariants
+// by restricting direct access to context's fields.
+class Coercer::ContextBase {
+ public:
+  ContextBase(const Coercer& coercer, bool is_explicit)
+      : coercer_(coercer), is_explicit_(is_explicit) {}
+
+  ContextBase(const ContextBase& other) = delete;
+  ContextBase& operator=(const ContextBase& other) = delete;
+
+  Catalog* catalog() const { return coercer_.catalog_; }
+  TypeFactory& type_factory() { return *coercer_.type_factory_; }
+  const LanguageOptions& language_options() const {
+    return coercer_.language_options_;
+  }
+
+  // Returns true if explicit cast is checked. False if implicit coercion.
+  bool is_explicit() const { return is_explicit_; }
+
+  using ConversionEvaluatorOperations =
+      ConversionTypePairOperations<ConversionEvaluator>;
+  using ConversionEvaluatorSet =
+      absl::flat_hash_set<ConversionEvaluator,
+                          ConversionEvaluatorOperations::Hash,
+                          ConversionEvaluatorOperations::Eq>;
+
+  // If during a coercion process we meet some extended Type (can be source or
+  // destination Type of the coercion), this property returns a conversion
+  // function that Catalog provides in Conversion::function().
+  const ConversionEvaluatorSet& extended_conversion_evaluators() const& {
+    return extended_conversion_evaluators_;
+  }
+
+  ConversionEvaluatorSet&& extended_conversion_evaluators() && {
+    return std::move(extended_conversion_evaluators_);
+  }
+
+  // Saves the extended conversion function. Returns an error if function is
+  // already set.
+  absl::Status AddExtendedConversion(const Conversion& extended_conversion);
+
+ private:
+  const Coercer& coercer_;
+  ConversionEvaluatorSet extended_conversion_evaluators_;
+  const bool is_explicit_;
+};
+
+absl::Status Coercer::ContextBase::AddExtendedConversion(
+    const Conversion& extended_conversion) {
+  ZETASQL_RET_CHECK(extended_conversion.is_valid());
+
+  extended_conversion_evaluators_.insert(extended_conversion.evaluator());
+  return absl::OkStatus();
 }
+
+absl::Status CheckSuperTypePreferenceGlobalOrder(TypeListView types,
+                                                 Catalog* catalog) {
+  return TypeGlobalOrderChecker::Check(types, catalog);
+}
+
+// Context class implements Coercer logic for a particular coercion check
+// request.
+class Coercer::Context : public Coercer::ContextBase {
+ public:
+  using Coercer::ContextBase::ContextBase;
+
+  zetasql_base::StatusOr<bool> CoercesTo(const InputArgumentType& from_argument,
+                                 const Type* to_type,
+                                 SignatureMatchResult* result);
+
+  zetasql_base::StatusOr<bool> ExtendedTypeCoercesTo(
+      const Type* from_type, const Type* to_type,
+      Catalog::ConversionSourceExpressionKind source_kind,
+      SignatureMatchResult* result);
+
+  zetasql_base::StatusOr<bool> ExtendedTypeCoercesTo(const InputArgumentType& argument,
+                                             const Type* to_type,
+                                             SignatureMatchResult* result);
+
+  zetasql_base::StatusOr<bool> StructCoercesTo(const InputArgumentType& struct_argument,
+                                       const Type* to_type,
+                                       SignatureMatchResult* result);
+
+  zetasql_base::StatusOr<bool> ArrayCoercesTo(const InputArgumentType& array_argument,
+                                      const Type* to_type,
+                                      SignatureMatchResult* result);
+
+  zetasql_base::StatusOr<bool> ParameterCoercesTo(const Type* from_type,
+                                          const Type* to_type,
+                                          SignatureMatchResult* result);
+
+  zetasql_base::StatusOr<bool> LiteralCoercesTo(const Value& literal_value,
+                                        const Type* to_type,
+                                        SignatureMatchResult* result);
+
+  zetasql_base::StatusOr<bool> TypeCoercesTo(const Type* from_type, const Type* to_type,
+                                     SignatureMatchResult* result);
+
+  // Returns whether <from_struct> can be coerced to <to_type>. <to_type>
+  // must be a ProtoType whose descriptor is a map entry. <from_struct>
+  // must have two fields. The struct's first and second fields must cast or
+  // coerce (depending on is_explicit()) to the key and value field types of the
+  // proto. The names of the struct fields are ignored.
+  //
+  // The result of this function is definitive for struct->proto coercion,
+  // so <result> is always updated.
+  zetasql_base::StatusOr<bool> StructCoercesToProtoMapEntry(
+      const StructType* from_struct, const ProtoType* to_type,
+      SignatureMatchResult* result);
+};
 
 int GetLiteralCoercionCost(const Value& literal_value, const Type* to_type) {
   if (literal_value.is_null()) {
-    // The cost of coercing NULL to any type is 1.
-    // TODO: Seems like this should be 0.  Try it and see what
-    // breaks/changes.
-    return 1;
+    return GetNullLiteralCoercionCost();
   }
   return Type::GetTypeCoercionCost(to_type->kind(),
                                    literal_value.type()->kind());
@@ -153,11 +485,11 @@ void Coercer::StripFieldAliasesFromStructType(const Type** struct_type) const {
   ZETASQL_CHECK_OK(type_factory_->MakeStructType(struct_field_types, struct_type));
 }
 
-const StructType* Coercer::GetCommonStructSuperType(
+zetasql_base::StatusOr<const StructType*> Coercer::GetCommonStructSuperType(
     const InputArgumentTypeSet& argument_set) const {
-  DCHECK(!argument_set.arguments().empty());
+  ZETASQL_RET_CHECK(!argument_set.arguments().empty());
   const InputArgumentType* dominant_argument = argument_set.dominant_argument();
-  DCHECK(dominant_argument != nullptr);
+  ZETASQL_RET_CHECK_NE(dominant_argument, nullptr);
 
   const Type* common_type = dominant_argument->type();
   for (const InputArgumentType& argument : argument_set.arguments()) {
@@ -174,11 +506,11 @@ const StructType* Coercer::GetCommonStructSuperType(
   }
   // If all types are equal, return that type.
   if (common_type != nullptr) {
-    DCHECK(common_type->IsStruct());
+    ZETASQL_RET_CHECK(common_type->IsStruct());
     return common_type->AsStruct();
   }
 
-  DCHECK(dominant_argument->type()->IsStruct());
+  ZETASQL_RET_CHECK(dominant_argument->type()->IsStruct());
   const StructType* dominant_struct = dominant_argument->type()->AsStruct();
   const int num_struct_fields = dominant_struct->num_fields();
   std::vector<InputArgumentTypeSet> struct_field_argument_sets(
@@ -187,7 +519,7 @@ const StructType* Coercer::GetCommonStructSuperType(
   // We insert the fields arguments from dominant_argument first as we
   // need to ensure that we always use field aliases from the
   // dominant_argument only, even for nested structs.
-  DCHECK_EQ(dominant_argument->field_types_size(), num_struct_fields)
+  ZETASQL_RET_CHECK_EQ(dominant_argument->field_types_size(), num_struct_fields)
       << "Dominant argument: " << dominant_argument->DebugString()
       << "Argument set: " << argument_set.ToString(true /* verbose */);
 
@@ -205,8 +537,8 @@ const StructType* Coercer::GetCommonStructSuperType(
     // this dominant argument does not have field names.  If we did not
     // allow untyped NULLs to be dominant in the field argument sets,
     // then the field names from the third argument would leak through.
-    struct_field_argument_sets[i].Insert(
-        dominant_argument->field_type(i), true /* set_dominant */);
+    struct_field_argument_sets[i].Insert(dominant_argument->field_type(i),
+                                         /*set_dominant=*/true);
   }
 
   for (const InputArgumentType& argument_type : argument_set.arguments()) {
@@ -226,8 +558,8 @@ const StructType* Coercer::GetCommonStructSuperType(
 
   std::vector<StructType::StructField> supertyped_field_types;
   for (int i = 0; i < num_struct_fields; ++i) {
-    const Type* common_field_type = GetCommonSuperType(
-        struct_field_argument_sets[i]);
+    const Type* common_field_type =
+        GetCommonSuperType(struct_field_argument_sets[i]);
     if (common_field_type == nullptr) {
       return nullptr;
     } else {
@@ -247,12 +579,12 @@ const StructType* Coercer::GetCommonStructSuperType(
   }
 
   const StructType* supertyped_struct_type = nullptr;
-  ZETASQL_CHECK_OK(type_factory_->MakeStructType(supertyped_field_types,
-                                         &supertyped_struct_type));
+  ZETASQL_RETURN_IF_ERROR(type_factory_->MakeStructType(supertyped_field_types,
+                                                &supertyped_struct_type));
   return supertyped_struct_type;
 }
 
-const ArrayType* Coercer::GetCommonArraySuperType(
+zetasql_base::StatusOr<const ArrayType*> Coercer::GetCommonArraySuperType(
     const InputArgumentTypeSet& argument_set,
     bool treat_query_parameters_as_literals) const {
   // First build an InputArgumentTypeSet corresponding to the element types in
@@ -279,16 +611,22 @@ const ArrayType* Coercer::GetCommonArraySuperType(
   }
 
   // Next, compute the supertype for the elements.
-  const Type* element_supertype = GetCommonSuperTypeImpl(
-      element_argument_set, treat_query_parameters_as_literals);
+  ZETASQL_ASSIGN_OR_RETURN(const Type* element_supertype,
+                   GetCommonSuperTypeImpl(element_argument_set,
+                                          treat_query_parameters_as_literals));
   if (element_supertype == nullptr) return nullptr;
 
   // Finally, attempt to coerce the individual arrays to the new array type.
   const ArrayType* new_array_type;
-  ZETASQL_CHECK_OK(type_factory_->MakeArrayType(element_supertype, &new_array_type));
+  ZETASQL_RETURN_IF_ERROR(
+      type_factory_->MakeArrayType(element_supertype, &new_array_type));
   for (const InputArgumentType& argument : argument_set.arguments()) {
     SignatureMatchResult result;
-    if (!CoercesTo(argument, new_array_type, /*is_explicit=*/false, &result)) {
+    auto unused_cast_evaluator = ExtendedCompositeCastEvaluator::Invalid();
+    ZETASQL_ASSIGN_OR_RETURN(bool coerced,
+                     CoercesTo(argument, new_array_type, /*is_explicit=*/false,
+                               &result, &unused_cast_evaluator));
+    if (!coerced) {
       return nullptr;
     }
   }
@@ -298,27 +636,43 @@ const ArrayType* Coercer::GetCommonArraySuperType(
 
 const Type* Coercer::GetCommonSuperType(
     const InputArgumentTypeSet& argument_set) const {
-  const Type* common_supertype = GetCommonSuperTypeImpl(
-      argument_set, false /* treat_parameters_as_literals */);
-  if (common_supertype != nullptr) {
-    return common_supertype;
+  const Type* common_supertype{};
+  absl::Status status = GetCommonSuperType(argument_set, &common_supertype);
+
+  ZETASQL_DCHECK_OK(status);
+  return status.ok() ? common_supertype : nullptr;
+}
+
+absl::Status Coercer::GetCommonSuperType(
+    const InputArgumentTypeSet& argument_set,
+    const Type** common_supertype) const {
+  ZETASQL_RET_CHECK_NE(common_supertype, nullptr);
+
+  ZETASQL_ASSIGN_OR_RETURN(*common_supertype,
+                   GetCommonSuperTypeImpl(
+                       argument_set, /*treat_parameters_as_literals=*/false));
+
+  if (*common_supertype == nullptr) {
+    ZETASQL_ASSIGN_OR_RETURN(*common_supertype,
+                     GetCommonSuperTypeImpl(
+                         argument_set, /*treat_parameters_as_literals=*/true));
   }
-  return GetCommonSuperTypeImpl(argument_set,
-                                true /* treat_parameters_as_literals */);
+
+  return absl::OkStatus();
 }
 
 // TODO: Add some unit tests for untyped empty array to coercer_test
 // and coercer_supertypes_test.
-const Type* Coercer::GetCommonSuperTypeImpl(
+zetasql_base::StatusOr<const Type*> Coercer::GetCommonSuperTypeImpl(
     const InputArgumentTypeSet& argument_set,
     bool treat_parameters_as_literals) const {
   if (argument_set.empty()) {
     return nullptr;
   }
-  const InputArgumentType* dominant_argument =
-      argument_set.dominant_argument();
+  const InputArgumentType* dominant_argument = argument_set.dominant_argument();
   if (dominant_argument != nullptr) {
-    DCHECK(absl::c_linear_search(argument_set.arguments(), *dominant_argument));
+    ZETASQL_RET_CHECK(
+        absl::c_linear_search(argument_set.arguments(), *dominant_argument));
   }
 
   for (const InputArgumentType& argument : argument_set.arguments()) {
@@ -368,32 +722,29 @@ const Type* Coercer::GetCommonSuperTypeImpl(
       // There are untyped empty arrays and possibly untyped NULLs.
       // In this case, return the default ARRAY<INT64> type.
       const ArrayType* array_type = nullptr;
-      if (type_factory_->MakeArrayType(type_factory_->get_int64(),
-                                       &array_type).ok()) {
-        return array_type;
-      } else {
-        return nullptr;
-      }
+      ZETASQL_RETURN_IF_ERROR(type_factory_->MakeArrayType(type_factory_->get_int64(),
+                                                   &array_type));
+      return array_type;
     }
   }
 
-  DCHECK(dominant_argument != nullptr);
+  ZETASQL_RET_CHECK_NE(dominant_argument, nullptr);
   const Type* common_type = dominant_argument->type();
   for (int i = 0; i < typed_arguments.size(); ++i) {
     const Type* type = typed_arguments[i]->type();
-    if (nullptr != common_type && !common_type->Equals(type)) {
+    if (common_type != nullptr && !common_type->Equals(type)) {
       common_type = nullptr;
     }
   }
 
   // If all types are equal, then return the dominant type.
-  if (nullptr != common_type) {
+  if (common_type != nullptr) {
     return common_type;
   }
 
   // For each non-literal argument, get the set of its supertypes.  Also,
   // get the set of literal argument types.
-  std::vector<const std::set<TypeKind>*> non_literal_candidate_supertypes;
+  std::vector<TypeSuperTypes> non_literal_candidate_supertypes;
   InputArgumentTypeSet literal_types;
   // Always add the dominant type (as a non-literal) to literal_types
   // so its type will be treated as the first type.
@@ -413,83 +764,93 @@ const Type* Coercer::GetCommonSuperTypeImpl(
       literal_types.Insert(InputArgumentType(it.type()));
       continue;
     }
-    const std::set<TypeKind>* type_kinds =
-        zetasql_base::FindOrNull(supertypes(), it.type()->kind());
-    DCHECK(type_kinds != nullptr);
-    non_literal_candidate_supertypes.push_back(type_kinds);
+
+    ZETASQL_ASSIGN_OR_RETURN(TypeListView supertypes,
+                     GetCandidateSuperTypes(it.type(), catalog_));
+    non_literal_candidate_supertypes.emplace_back(it.type(), supertypes);
   }
 
   VLOG(6) << "non_literal_candidate_supertypes.size(): "
           << non_literal_candidate_supertypes.size();
 
   if (non_literal_candidate_supertypes.empty()) {
-    DCHECK(!literal_types.empty());
+    ZETASQL_RET_CHECK(!literal_types.empty());
     // We did not have any non-literal arguments but we did have literal
     // arguments.  The <literal_types> list contains related
     // arguments that are neither literals nor parameters and we perform
     // supertype analysis over them instead.  Since these arguments are
     // not literals or parameters, recursion will not happen more than
     // once and <treat_parameters_as_literals> is irrelevant.
-    return GetCommonSuperTypeImpl(literal_types,
-                                  treat_parameters_as_literals);
+    return GetCommonSuperTypeImpl(literal_types, treat_parameters_as_literals);
   }
 
-  // Find the most specific TypeKind (i.e., lowest Type::KindSpecificity())
-  // that appears in all sets.  We do this by sorting the TypeKinds in the
-  // first set by type specificity from most to least specific, then iterate
-  // through the sorted TypeKinds and return the first one that appears in
-  // all the sets.
-  std::vector<TypeKind> initial_candidates;
-  for (const TypeKind& kind : *non_literal_candidate_supertypes[0]) {
-    initial_candidates.push_back(kind);
-  }
-  std::sort(initial_candidates.begin(), initial_candidates.end(),
-            Type::KindSpecificityLess);  // Most specific first.
+  // Check that global order of supertypes is maintained. This is a DCHECK
+  // rather than a ZETASQL_RET_CHECK because the checking can be expensive for many
+  // types/supertypes, and it should be sufficient to catch Type declaration
+  // problems in non-production.
+  ZETASQL_DCHECK_OK(CheckSupertypesGlobalOrderForCoercer(
+      non_literal_candidate_supertypes, catalog_));
 
-  std::vector<TypeKind>
-      common_supertype_kinds;  // Most specific to least specific.
-  for (const TypeKind& kind : initial_candidates) {
-    bool found_in_all = true;
-    for (const std::set<TypeKind>* supertypes :
-         non_literal_candidate_supertypes) {
-      if (!zetasql_base::ContainsKey(*supertypes, kind)) {
-        found_in_all = false;
-        break;
+  // Find the most specific Type (i.e., lowest Type::TypeSpecificity())
+  // that appears in all sets (note: sets are already sorted by specificity). We
+  // do this by iterating through the sorted Types and returning the first one
+  // that appears in all the sets.
+  std::vector<const Type*>
+      common_supertypes;  // Most specific to least specific.
+  const TypeSuperTypes& initial_candidates =
+      non_literal_candidate_supertypes[0];
+  if (non_literal_candidate_supertypes.size() == 1) {
+    common_supertypes = initial_candidates.ToVector();
+  } else {
+    for (int i = 0; i <= initial_candidates.supertypes().size(); i++) {
+      // We should firstly check the type itself and only after that all its
+      // supertypes in the specificity order.
+      const Type* type = (i == 0) ? initial_candidates.type()
+                                  : initial_candidates.supertypes()[i - 1];
+      bool found_in_all = true;
+      for (int j = 1; j < non_literal_candidate_supertypes.size(); j++) {
+        const TypeSuperTypes& supertypes = non_literal_candidate_supertypes[j];
+        if (!supertypes.Contains(type)) {
+          found_in_all = false;
+          break;
+        }
+      }
+      if (found_in_all) {
+        common_supertypes.push_back(type);
       }
     }
-    if (found_in_all) {
-      common_supertype_kinds.push_back(kind);
-    }
   }
-  if (common_supertype_kinds.empty()) {
+  if (common_supertypes.empty()) {
     VLOG(6) << "No common supertype found, return NULL";
     return nullptr;
   }
 
   VLOG(6) << "common_supertype_kinds: "
-          << Type::TypeKindListToString(common_supertype_kinds,
-                                        PRODUCT_INTERNAL);
+          << Type::TypeListToString(common_supertypes,
+                                    language_options_.product_mode());
 
   // Iterate through the common kinds, from most specific to least specific.
   // For each candidate type, see if all the literals can implicitly coerce.
   // If so, this is the common supertype.  If not, check the next candidate
   // type.
-  for (const TypeKind& most_specific_kind : common_supertype_kinds) {
+  for (const Type* most_specific_type : common_supertypes) {
     // Even though signed and unsigned integers have double as a common
     // supertype, double is not an allowed supertype of combinations of
     // signed/unsigned integers unless a floating point numeric (non-literal
     // or literal) is also present in the arguments.
     // Similarly, NUMERIC and BIGNUMERIC are not allowed as a supertype unless
     // an argument of the type is present.
-    if ((most_specific_kind == TYPE_DOUBLE && !has_floating_point_input) ||
-        (most_specific_kind == TYPE_NUMERIC && !has_numeric_input) ||
-        (most_specific_kind == TYPE_BIGNUMERIC && !has_bignumeric_input)) {
+    if ((most_specific_type->kind() == TYPE_DOUBLE &&
+         !has_floating_point_input) ||
+        (most_specific_type->kind() == TYPE_NUMERIC && !has_numeric_input) ||
+        (most_specific_type->kind() == TYPE_BIGNUMERIC &&
+         !has_bignumeric_input)) {
       continue;
     }
 
     const Type* candidate_type = nullptr;
-    if (Type::IsSimpleType(most_specific_kind)) {
-      candidate_type = type_factory_->MakeSimpleType(most_specific_kind);
+    if (most_specific_type->IsSimpleType()) {
+      candidate_type = most_specific_type;
     } else {
       // For non-simple types to have a supertype, all non-literals must have
       // the same kind, which should match the kind of the dominant argument.
@@ -497,19 +858,20 @@ const Type* Coercer::GetCommonSuperTypeImpl(
       // and we want to pick the dominant argument type as the supertype.
       candidate_type = dominant_argument->type();
       if (candidate_type == nullptr ||
-          candidate_type->kind() != most_specific_kind) {
+          candidate_type->kind() != most_specific_type->kind()) {
         continue;
       }
       // Check that all other non-literal args are equivalent to the dominant
       // argument.  Otherwise, coercion would not be allowed.
       bool all_equivalent = true;
       for (const auto& arg : typed_arguments) {
-        if (!(arg->is_literal() || (treat_parameters_as_literals &&
-                                    arg->is_query_parameter())) &&
+        if (!(arg->is_literal() ||
+              (treat_parameters_as_literals && arg->is_query_parameter())) &&
             !arg->type()->Equivalent(candidate_type)) {
           VLOG(6) << "Argument " << arg->DebugString()
                   << " does not have equivalent type to "
-                  << candidate_type->DebugString();;
+                  << candidate_type->DebugString();
+
           all_equivalent = false;
           break;
         }
@@ -518,7 +880,7 @@ const Type* Coercer::GetCommonSuperTypeImpl(
         continue;
       }
     }
-    DCHECK(nullptr != candidate_type);
+    ZETASQL_RET_CHECK_NE(candidate_type, nullptr);
     VLOG(6) << "candidate type: " << candidate_type->DebugString();
 
     // We have a candidate.  Check parameters and literals to see if they
@@ -529,24 +891,35 @@ const Type* Coercer::GetCommonSuperTypeImpl(
       if (argument.is_untyped()) {
         // Untyped nulls coerce to any type.
         continue;
-      } else if (argument.is_literal() &&
-                 !LiteralCoercesTo(*argument.literal_value(), candidate_type,
-                                   false /* not explicit */, &result)) {
-        VLOG(6) << "Literal argument "
-                << argument.literal_value()->FullDebugString()
-                << " does not coerce to candidate type "
-                << candidate_type->DebugString();
-        parameters_and_literals_can_coerce = false;
-        break;
-      } else if (treat_parameters_as_literals &&
-                 argument.is_query_parameter() &&
-                 !ParameterCoercesTo(argument.type(), candidate_type,
-                                     false /* not explicit */, &result)) {
-        VLOG(6) << "Parameter argument " << argument.DebugString()
-                << " does not coerce to candidate type "
-                << candidate_type->DebugString();
-        parameters_and_literals_can_coerce = false;
-        break;
+      }
+
+      if (argument.is_literal()) {
+        ZETASQL_ASSIGN_OR_RETURN(bool coerced,
+                         Context(*this, /*is_explicit=*/false)
+                             .LiteralCoercesTo(*argument.literal_value(),
+                                               candidate_type, &result));
+        if (!coerced) {
+          VLOG(6) << "Literal argument "
+                  << argument.literal_value()->FullDebugString()
+                  << " does not coerce to candidate type "
+                  << candidate_type->DebugString();
+          parameters_and_literals_can_coerce = false;
+          break;
+        }
+      }
+
+      if (treat_parameters_as_literals && argument.is_query_parameter()) {
+        ZETASQL_ASSIGN_OR_RETURN(
+            bool coerced,
+            Context(*this, /*is_explicit=*/false)
+                .ParameterCoercesTo(argument.type(), candidate_type, &result));
+        if (!coerced) {
+          VLOG(6) << "Parameter argument " << argument.DebugString()
+                  << " does not coerce to candidate type "
+                  << candidate_type->DebugString();
+          parameters_and_literals_can_coerce = false;
+          break;
+        }
       }
     }
     if (parameters_and_literals_can_coerce) {
@@ -555,113 +928,6 @@ const Type* Coercer::GetCommonSuperTypeImpl(
   }
   return nullptr;  // No common supertype.
 }
-
-// ContextBase contains a basic set of properties needed for particular coercion
-// check request. The coercion check logic itself is implemented in Context
-// class, while ContextBase serves just to enforce several important invariants
-// by restricting direct access to context's fields.
-class Coercer::ContextBase {
- public:
-  ContextBase(const Coercer& coercer, bool is_explicit)
-      : coercer_(coercer), is_explicit_(is_explicit) {}
-
-  ContextBase(const ContextBase& other) = delete;
-  ContextBase& operator=(const ContextBase& other) = delete;
-
-  Catalog* catalog() const { return coercer_.catalog_; }
-  TypeFactory& type_factory() { return *coercer_.type_factory_; }
-  const LanguageOptions& language_options() const {
-    return coercer_.language_options_;
-  }
-
-  // Returns true if explicit cast is checked. False if coercion.
-  bool is_explicit() const { return is_explicit_; }
-
-  using ConversionEvaluatorOperations =
-      ConversionTypePairOperations<ConversionEvaluator>;
-  using ConversionEvaluatorSet =
-      absl::flat_hash_set<ConversionEvaluator,
-                          ConversionEvaluatorOperations::Hash,
-                          ConversionEvaluatorOperations::Eq>;
-
-  // If we hit into extended type, this property returns a conversion function
-  // that Catalog returned in Conversion::function().
-  const ConversionEvaluatorSet& extended_conversion_evaluators() const& {
-    return extended_conversion_evaluators_;
-  }
-
-  ConversionEvaluatorSet&& extended_conversion_evaluators() && {
-    return std::move(extended_conversion_evaluators_);
-  }
-
-  // Saves the extended conversion function. Returns an error if function is
-  // already set.
-  absl::Status AddExtendedConversion(const Conversion& extended_conversion);
-
- private:
-  const Coercer& coercer_;
-  ConversionEvaluatorSet extended_conversion_evaluators_;
-  const bool is_explicit_;
-};
-
-absl::Status Coercer::ContextBase::AddExtendedConversion(
-    const Conversion& extended_conversion) {
-  ZETASQL_RET_CHECK(extended_conversion.is_valid());
-
-  extended_conversion_evaluators_.insert(extended_conversion.evaluator());
-  return absl::OkStatus();
-}
-
-// Context class implements Coercer logic for a particular coercion check
-// request.
-class Coercer::Context : public Coercer::ContextBase {
- public:
-  using Coercer::ContextBase::ContextBase;
-
-  zetasql_base::StatusOr<bool> CoercesTo(const InputArgumentType& from_argument,
-                                 const Type* to_type,
-                                 SignatureMatchResult* result);
-
-  zetasql_base::StatusOr<bool> ExtendedTypeCoercesTo(
-      const Type* from_type, const Type* to_type,
-      Catalog::ConversionSourceExpressionKind source_kind,
-      SignatureMatchResult* result);
-
-  zetasql_base::StatusOr<bool> ExtendedTypeCoercesTo(const InputArgumentType& argument,
-                                             const Type* to_type,
-                                             SignatureMatchResult* result);
-
-  zetasql_base::StatusOr<bool> StructCoercesTo(const InputArgumentType& struct_argument,
-                                       const Type* to_type,
-                                       SignatureMatchResult* result);
-
-  zetasql_base::StatusOr<bool> ArrayCoercesTo(const InputArgumentType& array_argument,
-                                      const Type* to_type,
-                                      SignatureMatchResult* result);
-
-  zetasql_base::StatusOr<bool> ParameterCoercesTo(const Type* from_type,
-                                          const Type* to_type,
-                                          SignatureMatchResult* result);
-
-  zetasql_base::StatusOr<bool> LiteralCoercesTo(const Value& literal_value,
-                                        const Type* to_type,
-                                        SignatureMatchResult* result);
-
-  zetasql_base::StatusOr<bool> TypeCoercesTo(const Type* from_type, const Type* to_type,
-                                     SignatureMatchResult* result);
-
-  // Returns whether <from_struct> can be coerced to <to_type>. <to_type>
-  // must be a ProtoType whose descriptor is a map entry. <from_struct>
-  // must have two fields. The struct's first and second fields must cast or
-  // coerce (depending on is_explicit) to the key and value field types of the
-  // proto. The names of the struct fields are ignored.
-  //
-  // The result of this function is definitive for struct->proto coercion,
-  // so <result> is always updated.
-  zetasql_base::StatusOr<bool> StructCoercesToProtoMapEntry(
-      const StructType* from_struct, const ProtoType* to_type,
-      SignatureMatchResult* result);
-};
 
 zetasql_base::StatusOr<bool> Coercer::Context::CoercesTo(
     const InputArgumentType& from_argument, const Type* to_type,
@@ -860,8 +1126,7 @@ zetasql_base::StatusOr<bool> Coercer::Context::StructCoercesTo(
     }
     // Coercion distance of NULL to any type is 1.
     result->incr_literals_coerced();
-    result->incr_literals_distance(
-        GetLiteralCoercionCost(*struct_argument.literal_value(), to_type));
+    result->incr_literals_distance(GetNullLiteralCoercionCost());
     return true;
   }
 

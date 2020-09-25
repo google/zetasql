@@ -1,5 +1,5 @@
 #
-# Copyright 2019 ZetaSQL Authors
+# Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -658,6 +658,7 @@ cc_test(
     deps = [
         ":analyzer",
         ":evaluator",
+        ":json_value",
         ":language_options",
         ":numeric_value",
         ":simple_catalog",
@@ -1395,8 +1396,9 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
+        "//zetasql/base:status",
         "//zetasql/base:statusor",
-        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
     ],

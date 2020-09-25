@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -374,7 +374,8 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
 //   1: CREATE TABLE GENERATED
 //   1: CREATE EXTERNAL TABLE FUNCTION
 //   1: DESCRIPTOR
-%expect 17
+//   1: FILTER FIELDS
+%expect 18
 
 %union {
   bool boolean;
@@ -401,6 +402,7 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
   ImportType import_type;
   zetasql::ASTCreateStatement::Scope create_scope;
   zetasql::ASTCreateStatement::SqlSecurity sql_security;
+  zetasql::ASTDropStatement::DropMode drop_mode;
   zetasql::ASTForeignKeyReference::Match foreign_key_match;
   zetasql::ASTForeignKeyActions::Action foreign_key_action;
   zetasql::ASTFunctionParameter::ProcedureParameterMode parameter_mode;
@@ -579,6 +581,7 @@ static bool IsUnparenthesizedNotExpression(zetasql::ASTNode* node) {
 
 using zetasql::ASTInsertStatement;
 using zetasql::ASTCreateFunctionStmtBase;
+using zetasql::ASTDropStatement;
 
 }
 
@@ -755,6 +758,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_EXPORT "EXPORT"
 %token KW_EXTERNAL "EXTERNAL"
 %token KW_FILTER "FILTER"
+%token KW_FILTER_FIELDS "FILTER_FIELDS"
 %token KW_FILL "FILL"
 %token KW_FIRST "FIRST"
 %token KW_FOREIGN "FOREIGN"
@@ -894,6 +898,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> column_schema_inner
 %type <node> commit_statement
 %type <node> connection_clause
+%type <expression> collate_expression
 %type <node> create_constant_statement
 %type <node> create_database_statement
 %type <node> create_function_statement
@@ -930,6 +935,10 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <expression> extract_expression
 %type <expression> extract_expression_base
 %type <node> field_schema
+%type <node> filter_fields_arg
+%type <expression> filter_fields_expression
+%type <expression> filter_fields_path_expression
+%type <expression> filter_fields_prefix
 %type <node> filter_using_clause
 %type <expression> floating_point_literal
 %type <node> foreign_key_column_attribute
@@ -1036,6 +1045,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <create_scope> opt_create_scope
 %type <node> opt_at_system_time
 %type <node> opt_description
+%type <drop_mode> opt_drop_mode
 %type <node> opt_else
 %type <node> opt_foreign_key_actions
 %type <node> opt_from_clause
@@ -1587,6 +1597,8 @@ schema_object_kind:
       { $$ = zetasql::SchemaObjectKind::kModel; }
     | "PROCEDURE"
       { $$ = zetasql::SchemaObjectKind::kProcedure; }
+    | "SCHEMA"
+      { $$ = zetasql::SchemaObjectKind::kSchema; }
     | "VIEW"
       { $$ = zetasql::SchemaObjectKind::kView; }
     ;
@@ -4695,7 +4707,9 @@ expression:
     | cast_expression
     | extract_expression
     | replace_fields_expression
+    | filter_fields_expression
     | function_call_expression_with_clauses
+    | collate_expression
     | identifier
       {
         // The path expression is extended by the "." identifier rule below.
@@ -5515,6 +5529,13 @@ extract_expression_base:
       }
     ;
 
+collate_expression:
+    "COLLATE" "(" expression "," string_literal ")"
+      {
+        $$ = MAKE_NODE(ASTCollateExpression, @$, {$3, $5});
+      }
+    ;
+
 extract_expression:
     extract_expression_base ")"
       {
@@ -5550,6 +5571,49 @@ replace_fields_prefix:
 
 replace_fields_expression:
     replace_fields_prefix ")"
+      {
+        $$ = WithEndLocation($1, @$);
+      }
+    ;
+
+filter_fields_path_expression:
+    generalized_extension_path { $$ = $1; }
+    | generalized_path_expression { $$ = $1; }
+    ;
+
+
+filter_fields_arg:
+    "+" filter_fields_path_expression
+      {
+        auto* expression =
+            MAKE_NODE(ASTFilterFieldsArg, @$, {$2});
+        expression->set_filter_type(
+          zetasql::ASTFilterFieldsArg::FilterType::INCLUDE);
+        $$ = expression;
+      }
+    | "-" filter_fields_path_expression
+      {
+        auto* expression =
+            MAKE_NODE(ASTFilterFieldsArg, @$, {$2});
+        expression->set_filter_type(
+          zetasql::ASTFilterFieldsArg::FilterType::EXCLUDE);
+        $$ = expression;
+      }
+    ;
+
+filter_fields_prefix:
+    "FILTER_FIELDS" "(" expression "," filter_fields_arg
+      {
+        $$ = MAKE_NODE(ASTFilterFieldsExpression, @$, {$3, $5});
+      }
+    | filter_fields_prefix "," filter_fields_arg
+      {
+        $$ = WithExtraChildren($1, {$3});
+      }
+    ;
+
+filter_fields_expression:
+    filter_fields_prefix ")"
       {
         $$ = WithEndLocation($1, @$);
       }
@@ -6385,6 +6449,7 @@ keyword_as_identifier:
     | "EXPORT"
     | "EXTERNAL"
     | "FILTER"
+    | "FILTER_FIELDS"
     | "FILL"
     | "FIRST"
     | "FOREIGN"
@@ -7202,6 +7267,13 @@ on_path_expression:
       }
     ;
 
+opt_drop_mode:
+    "RESTRICT" { $$ = zetasql::ASTDropStatement::DropMode::RESTRICT; }
+    | "CASCADE" { $$ = zetasql::ASTDropStatement::DropMode::CASCADE; }
+    | /* Nothing */
+    { $$ = zetasql::ASTDropStatement::DropMode::DROP_MODE_UNSPECIFIED; }
+    ;
+
 drop_statement:
     "DROP" "ROW" "ACCESS" "POLICY" opt_if_exists identifier
     on_path_expression
@@ -7236,7 +7308,7 @@ drop_statement:
         $$ = drop;
       }
     | "DROP" schema_object_kind opt_if_exists path_expression
-      opt_function_parameters
+      opt_function_parameters opt_drop_mode
       {
         // This is a DROP <object_type> <object_name> statement.
         if ($2 == zetasql::SchemaObjectKind::kAggregateFunction) {
@@ -7246,6 +7318,16 @@ drop_statement:
           YYERROR_AND_ABORT_AT(@2,
                                "DROP AGGREGATE FUNCTION is not "
                                "supported, use DROP FUNCTION");
+        }
+        if ($2 != zetasql::SchemaObjectKind::kSchema) {
+          if ($6 != ASTDropStatement::DropMode::DROP_MODE_UNSPECIFIED) {
+            YYERROR_AND_ABORT_AT(
+              @6, absl::StrCat(
+              "Syntax error: '",
+              zetasql::ASTDropStatement::GetSQLForDropMode($6),
+              "' is not supported for DROP ",
+              zetasql::SchemaObjectKindToName($2)));
+            }
         }
         if ($2 == zetasql::SchemaObjectKind::kFunction) {
             // If no function parameters are given, then all overloads of the
@@ -7268,14 +7350,10 @@ drop_statement:
             drop_materialized_view->set_is_if_exists($3);
             $$ = drop_materialized_view;
           } else {
-            if ($5 != nullptr) {
-              YYERROR_AND_ABORT_AT(@5,
-                                   "Syntax error: Parameters are only "
-                                   "supported for DROP FUNCTION");
-            }
             auto* drop = MAKE_NODE(ASTDropStatement, @$, {$4});
             drop->set_schema_object_kind($2);
             drop->set_is_if_exists($3);
+            drop->set_drop_mode($6);
             $$ = drop;
           }
         }

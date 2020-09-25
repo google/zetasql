@@ -1,5 +1,5 @@
 #
-# Copyright 2018 ZetaSQL Authors
+# Copyright 2018 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,14 +17,15 @@
 licenses(["notice"])  # Apache v2.0
 
 package(
-    default_visibility = ["//:__subpackages__"],
+    default_visibility = [":zetasql_implementation"],
 )
 
 package_group(
-    name = "open_source_only",
+    name = "zetasql_implementation",
     packages = [
+        "//java/...",
+        "//javatests/...",
         "//zetasql/...",
-        "//zetasql/common",
     ],
 )
 
@@ -968,7 +969,7 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
-        "//zetasql/base",
+        ":base",
         "@com_google_absl//absl/base:core_headers",
     ],
 )
@@ -986,8 +987,8 @@ cc_test(
         "-Wnonnull-compare",
     ],
     deps = [
+        ":base",
         ":general_trie",
-        "//zetasql/base",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -1063,9 +1064,9 @@ cc_test(
         "-Wnonnull-compare",
     ],
     deps = [
+        ":base",
         ":flat_set",
         ":stl_util",
-        "//zetasql/base",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/hash:hash_testing",
         "@com_google_absl//absl/memory",
@@ -1094,7 +1095,7 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
-        "//zetasql/base",
+        ":base",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
@@ -1141,7 +1142,7 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
-        "//zetasql/base",
+        ":base",
         "@boringssl//:crypto",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:fixed_array",
@@ -1163,8 +1164,8 @@ cc_test(
         "-Wnonnull-compare",
     ],
     deps = [
+        ":base",
         ":exactfloat",
-        "//zetasql/base",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_googletest//:gtest_main",
@@ -1188,10 +1189,69 @@ cc_test(
     ],
     shard_count = 4,
     deps = [
+        ":base",
         ":exactfloat",
-        "//zetasql/base",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "file_util",
+    hdrs = ["file_util.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":file_util_oss",
+    ],
+)
+
+cc_library(
+    name = "file_util_oss",
+    hdrs = ["file_util_oss.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":logging",
+        ":path",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "file_util_oss_test",
+    srcs = ["file_util_oss_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    data = ["file_util_oss_test.input_file"],
+    deps = [
+        ":file_util_oss",
+        "//zetasql/base/testing:status_matchers",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
     ],
 )

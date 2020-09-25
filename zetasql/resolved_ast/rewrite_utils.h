@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
 
 #include <string>
 
+#include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include "zetasql/resolved_ast/resolved_ast_visitor.h"
 
 namespace zetasql {
 
@@ -28,15 +28,21 @@ namespace zetasql {
 // column id on each call. This prevents column id collisions.
 //
 // Not thread safe.
-class ColIdAllocator {
+class ColumnFactory {
  public:
-  // Allocates columns starting above the max seen column id.
-  explicit ColIdAllocator(int max_col_id) : max_col_id_(max_col_id) {}
+  // Creates columns using column ids starting above the max seen column id.
+  //
+  // If 'sequence' is provided, it's used to do the allocations. IDs from the
+  // sequence that are not above 'max_col_id' are discarded.
+  explicit ColumnFactory(int max_col_id,
+                         zetasql_base::SequenceNumber* sequence = nullptr)
+      : max_col_id_(max_col_id), sequence_(sequence) {}
 
-  // Disable copy assignment, pass around mutable references to the same
-  // allocator instead.
-  ColIdAllocator(const ColIdAllocator&) = delete;
-  ColIdAllocator& operator=(const ColIdAllocator&) = delete;
+  ColumnFactory(const ColumnFactory&) = delete;
+  ColumnFactory& operator=(const ColumnFactory&) = delete;
+
+  // Returns the maximum column id that has been allocated.
+  int max_column_id() const { return max_col_id_; }
 
   // Creates a new column, incrementing the counter for next use.
   ResolvedColumn MakeCol(const std::string& table_name,
@@ -44,27 +50,7 @@ class ColIdAllocator {
 
  private:
   int max_col_id_;
-};
-
-// Visitor which finds the largest column id used in the scans of an AST.
-//
-// This allows allocating columns starting after that column id to avoid
-// conflicts.
-class ColIdCounter : public ResolvedASTVisitor {
- public:
-  // Returns the maximum column id that has been seen.
-  // Will return -1 until the visitor visits an AST.
-  int max_col_id() { return max_col_id_; }
-
- private:
-  absl::Status DefaultVisit(const ResolvedNode* node) override;
-  absl::Status VisitResolvedComputedColumn(
-      const ResolvedComputedColumn* node) override;
-
-  // Visits the given column, updating max_col_id_ if a higher one is seen.
-  void VisitColumn(const ResolvedColumn& col);
-
-  int max_col_id_ = -1;
+  zetasql_base::SequenceNumber* sequence_;
 };
 
 }  // namespace zetasql

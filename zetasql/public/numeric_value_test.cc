@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -52,7 +52,6 @@
 #include "zetasql/base/endian.h"
 #include "zetasql/base/mathutil.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace std {
 std::ostream& operator<<(std::ostream& o, __int128 x) {
@@ -1954,10 +1953,9 @@ void TestExpWithRandomLosslessDoubleValue(uint max_integer_bits,
     if (result.ok()) {
       double expected_error =
           GetMaxErrorFromDoubleReference<T>(approx_expected);
-      EXPECT_NEAR(result.ValueOrDie().ToDouble(), approx_expected,
-                  expected_error)
+      EXPECT_NEAR(result.value().ToDouble(), approx_expected, expected_error)
           << "EXP(" << x_value.ToString() << ")";
-      if (result.ValueOrDie() == BigNumericValue()) {
+      if (result.value() == BigNumericValue()) {
         trivial_case_count++;
       }
     } else {
@@ -2199,8 +2197,7 @@ void TestLogWithRandomLosslessDoubleValue(uint max_integer_bits,
       double expected_error =
           std::max(T::FromScaledValue(1).ToDouble(),
                    approx_expected * expected_relative_error_ratio);
-      EXPECT_NEAR(result.ValueOrDie().ToDouble(), approx_expected,
-                  expected_error)
+      EXPECT_NEAR(result.value().ToDouble(), approx_expected, expected_error)
           << "LOG(" << x_value.ToString() << ", " << y_value.ToString() << ")";
     } else {
       EXPECT_TRUE(std::abs(approx_expected) > max_value)
@@ -2390,10 +2387,9 @@ void TestPowWithRandomLosslessDoubleValue(uint max_integer_bits,
     if (result.ok()) {
       double expected_error =
           GetMaxErrorFromDoubleReference<T>(approx_expected);
-      EXPECT_NEAR(result.ValueOrDie().ToDouble(), approx_expected,
-                  expected_error)
+      EXPECT_NEAR(result.value().ToDouble(), approx_expected, expected_error)
           << "POW(" << x_value.ToString() << ", " << y_value.ToString() << ")";
-      if (result.ValueOrDie() == T()) {
+      if (result.value() == T()) {
         trivial_case_count++;
       }
     } else {

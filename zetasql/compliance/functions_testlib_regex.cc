@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -412,8 +412,11 @@ std::vector<FunctionTestCall> GetFunctionTestsRegexp2(
     {"regexp_extract", {Bytes("aaa"), Bytes("a"), 4ll}, NullBytes()},
     {"regexp_substr", {Bytes("-2020-jack-class1"), Bytes("-[^.-]*"),
        2ll}, Bytes("-jack")},
-    {"regexp_extract", {Bytes("щцф"), Bytes(".{2}"), 2ll}, Bytes("ц")},
+    {"regexp_extract", {Bytes("щ"), Bytes("."), 2ll}, Bytes("\x89")},
+    {"regexp_extract", {Bytes("щцф"), Bytes(".{2}"), 2ll}, Bytes("\x89\xd1")},
+    {"regexp_extract", {Bytes("щцф"), Bytes(".{2}"), 3ll}, Bytes("ц")},
     {"regexp_substr", {Bytes("щцщф"), Bytes("щ(..)"), 2ll}, Bytes("ф")},
+    {"regexp_extract", {Bytes("щ"), Bytes("."), 3ll}, NullBytes()},
     {"regexp_extract", {Bytes("aa"), Bytes("a"), int64max}, NullBytes()},
     {"regexp_substr", {Bytes("aa"), Bytes("a"), -1ll},
        NullBytes(), OUT_OF_RANGE},
@@ -455,14 +458,18 @@ std::vector<FunctionTestCall> GetFunctionTestsRegexp2(
     {"regexp_extract", {Bytes("-2020-jack-class1"), Bytes("-[^.-]*"),
        7ll, 3ll}, NullBytes()},
     {"regexp_substr", {Bytes("щцф"), Bytes(".{2}"), 1ll, 3ll}, Bytes("ф")},
-    {"regexp_extract", {Bytes("щцф"), Bytes(".{2}"), 2ll, 2ll}, Bytes("ф")},
-    {"regexp_substr", {Bytes("щцф"), Bytes(".{2}"), 3ll, 1ll}, Bytes("ф")},
+    {"regexp_extract", {Bytes("щцф"), Bytes(".{3}"), 2ll, 1ll},
+       Bytes("\x89\xd1\x86")},
+    {"regexp_extract", {Bytes("щцфц"), Bytes(".{2}"), 3ll, 2ll},
+       Bytes("\xd1\x84")},
+    {"regexp_substr", {Bytes("щцф"), Bytes(".{2}"), 3ll, 1ll},
+       Bytes("\xd1\x86")},
     {"regexp_extract", {Bytes("щцф"), Bytes(".{3}"), 1ll, 1ll},
        Bytes("\xD1\x89\xD1")},
     {"regexp_substr", {Bytes("щцф"), Bytes(".{3}"), 1ll, 2ll},
        Bytes("\x86\xD1\x84")},
     {"regexp_extract", {Bytes("щцф"), Bytes(".{3}"), 1ll, 3ll}, NullBytes()},
-    {"regexp_substr", {Bytes("щцф"), Bytes(".{2}"), 3ll, 2ll}, NullBytes()},
+    {"regexp_substr", {Bytes("щцф"), Bytes(".{2}"), 6ll, 2ll}, NullBytes()},
     {"regexp_extract", {Bytes(""), Bytes("()"), 1ll, 2ll}, NullBytes()},
     {"regexp_substr", {Bytes("aa"), Bytes("a"), 1ll, int64max}, NullBytes()},
     {"regexp_extract", {Bytes("aa"), Bytes("a"), int64max, 1ll}, NullBytes()},

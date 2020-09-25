@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -2482,8 +2482,9 @@ absl::Status Resolver::AddColumnFieldsToSelectList(
       Value default_value;
       RETURN_SQL_ERROR_AT_IF_ERROR(
           ast_expression,
-          GetProtoFieldTypeAndDefault(field, type_factory_,
-                                      &field_type, &default_value));
+          GetProtoFieldTypeAndDefault(
+              ProtoFieldDefaultOptions::FromFieldAndLanguage(field, language()),
+              field, type_factory_, &field_type, &default_value));
       // TODO: This really should be check for
       // !field_type->IsSupportedType(language())
       // but that breaks existing tests :(
@@ -3485,8 +3486,9 @@ absl::Status Resolver::ValidateRecursiveTermVisitor::VisitResolvedAggregateScan(
   return absl::OkStatus();
 }
 
-absl::Status Resolver::ValidateRecursiveTermVisitor::VisitResolvedTVFArgument(
-    const ResolvedTVFArgument* node) {
+absl::Status
+Resolver::ValidateRecursiveTermVisitor::VisitResolvedFunctionArgument(
+    const ResolvedFunctionArgument* node) {
   ++tvf_argument_count_;
   ZETASQL_RETURN_IF_ERROR(node->ChildrenAccept(this));
   --tvf_argument_count_;
@@ -3923,7 +3925,9 @@ Resolver::SetOperationResolver::BuildColumnLists(
     for (const InputArgumentType& type : column_type_lists[i]) {
       type_set.Insert(type);
     }
-    const Type* supertype = resolver_->coercer_.GetCommonSuperType(type_set);
+    const Type* supertype = nullptr;
+    ZETASQL_RETURN_IF_ERROR(
+        resolver_->coercer_.GetCommonSuperType(type_set, &supertype));
     if (supertype == nullptr) {
       // We location in set_operation points at the start of the first query,
       // because of how the grammar is expressed, I think.
@@ -5767,7 +5771,7 @@ zetasql_base::StatusOr<int> Resolver::MatchTVFSignature(
         tvf_catalog_entry, &named_arguments, i,
         descriptor_arg_present ? &tvf_table_scope_map : nullptr);
     ZETASQL_RETURN_IF_ERROR(tvf_arg_or_status.status());
-    resolved_tvf_args->push_back(std::move(tvf_arg_or_status).ValueOrDie());
+    resolved_tvf_args->push_back(std::move(tvf_arg_or_status).value());
   }
 
   // We perform a second resolution pass for descriptors whose columns must be
@@ -5832,7 +5836,7 @@ zetasql_base::StatusOr<int> Resolver::MatchTVFSignature(
   for (int i = 0; i < num_tvf_args; ++i) {
     auto input_arg_type_or_status = GetTVFArgType(resolved_tvf_args->at(i));
     ZETASQL_RETURN_IF_ERROR(input_arg_type_or_status.status());
-    input_arg_types.push_back(std::move(input_arg_type_or_status).ValueOrDie());
+    input_arg_types.push_back(std::move(input_arg_type_or_status).value());
   }
   if (!function_resolver.SignatureMatches(input_arg_types, function_signature,
                                           true /* allow_argument_coercion */,

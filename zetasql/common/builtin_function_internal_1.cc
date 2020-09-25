@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -47,7 +47,6 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -281,7 +280,7 @@ bool ArgumentIsStringLiteral(const InputArgumentType& argument) {
   return false;
 }
 
-absl::Status CheckDateDiffArguments(
+absl::Status CheckDateDatetimeTimeTimestampDiffArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
@@ -290,9 +289,6 @@ absl::Status CheckDateDiffArguments(
     return absl::OkStatus();
   }
 
-  // DATE_DIFF for Date only supports date parts DAY, WEEK*, MONTH, QUARTER,
-  // YEAR, ISOYEAR, ISOWEEK.  If the third argument is a literal then check the
-  // date part.
   // TODO: Add a test where the date part is an enum via a normal
   // function call, but not the expected enum type.
   // The argument should be non-NULL because of
@@ -313,14 +309,39 @@ absl::Status CheckDateDiffArguments(
       case functions::WEEK_FRIDAY:
       case functions::WEEK_SATURDAY:
       case functions::ISOWEEK:
+        if (!arguments[0].type()->IsTimestamp() &&
+            !arguments[0].type()->IsTime()) {
+          return absl::OkStatus();
+        }
+        break;
       case functions::DAY:
-        return absl::OkStatus();
+        if (!arguments[0].type()->IsTime()) {
+          return absl::OkStatus();
+        }
+        break;
+      case functions::HOUR:
+      case functions::MINUTE:
+      case functions::SECOND:
+      case functions::MILLISECOND:
+      case functions::MICROSECOND:
+        // DATE doesn't support time parts
+        if (!arguments[0].type()->IsDate()) {
+          return absl::OkStatus();
+        }
+        break;
+      case functions::NANOSECOND:
+        if (!arguments[0].type()->IsDate() &&
+            language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
+          return absl::OkStatus();
+        }
+        break;
       default:
-        return MakeSqlError() << function_name << " does not support the "
-                              << DateTimestampPartToSQL(
-                                     arguments[2].literal_value()->enum_value())
-                              << " date part";
+        break;
     }
+    return MakeSqlError() << function_name << " does not support the "
+                          << DateTimestampPartToSQL(
+                                 arguments[2].literal_value()->enum_value())
+                          << " date part";
   }
   // Let validation of other arguments happen normally.
   return absl::OkStatus();
@@ -374,7 +395,7 @@ absl::Status CheckBitwiseOperatorFirstArgumentIsIntegerOrBytes(
   return absl::OkStatus();
 }
 
-absl::Status CheckDateTruncArguments(
+absl::Status CheckDateDatetimeTimeTimestampTruncArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
@@ -383,9 +404,8 @@ absl::Status CheckDateTruncArguments(
     return absl::OkStatus();
   }
 
-  // DATE_TRUNC for Date only supports date parts DAY, WEEK, MONTH, QUARTER,
-  // YEAR.  If the second argument is a literal then check the date part.
-  if (arguments[1].type()->IsEnum() && arguments[1].is_literal()) {
+  if (arguments[1].type()->IsEnum() && arguments[1].is_literal() &&
+      !arguments[1].is_null()) {
     switch (arguments[1].literal_value()->enum_value()) {
       case functions::YEAR:
       case functions::ISOYEAR:
@@ -400,14 +420,34 @@ absl::Status CheckDateTruncArguments(
       case functions::WEEK_FRIDAY:
       case functions::WEEK_SATURDAY:
       case functions::DAY:
-        return absl::OkStatus();
+        if (!arguments[0].type()->IsTime()) {
+          return absl::OkStatus();
+        }
+        break;
+      case functions::HOUR:
+      case functions::MINUTE:
+      case functions::SECOND:
+      case functions::MILLISECOND:
+      case functions::MICROSECOND:
+        if (!arguments[0].type()->IsDate()) {
+          return absl::OkStatus();
+        }
+        break;
+      case functions::NANOSECOND:
+        if (!arguments[0].type()->IsDate() &&
+            language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
+          return absl::OkStatus();
+        }
+        break;
       default:
-        return MakeSqlError() << function_name << " does not support the "
-                              << DateTimestampPartToSQL(
-                                     arguments[1].literal_value()->enum_value())
-                              << " date part";
+        break;
     }
+    return MakeSqlError() << function_name << " does not support the "
+                          << DateTimestampPartToSQL(
+                                 arguments[1].literal_value()->enum_value())
+                          << " date part";
   }
+
   // Let validation of other arguments happen normally.
   return absl::OkStatus();
 }
@@ -444,43 +484,6 @@ absl::Status CheckLastDayArguments(
                                      arguments[1].literal_value()->enum_value())
                               << " date part";
     }
-  }
-  // Let validation of other arguments happen normally.
-  return absl::OkStatus();
-}
-
-absl::Status CheckTimeTruncArguments(
-    const std::string& function_name,
-    const std::vector<InputArgumentType>& arguments,
-    const LanguageOptions& language_options) {
-  if (arguments.size() < 2) {
-    // Let validation happen normally.  It will return an error later.
-    return absl::OkStatus();
-  }
-
-  // TIME_TRUNC for Time only supports date parts HOUR, MINUTE, SECOND,
-  // MILLISECOND, MICROSECOND and NANOSECOD.
-  // If the second argument is a literal then check the date part.
-  if (arguments[1].type()->IsEnum() && arguments[1].is_literal()) {
-    switch (arguments[1].literal_value()->enum_value()) {
-      case functions::HOUR:
-      case functions::MINUTE:
-      case functions::SECOND:
-      case functions::MILLISECOND:
-      case functions::MICROSECOND:
-        return absl::OkStatus();
-      case functions::NANOSECOND:
-        if (language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
-          return absl::OkStatus();
-        }
-        break;
-      default:
-        break;
-    }
-    return MakeSqlError() << function_name << " does not support the "
-                          << DateTimestampPartToSQL(
-                                 arguments[1].literal_value()->enum_value())
-                          << " date part";
   }
   // Let validation of other arguments happen normally.
   return absl::OkStatus();
@@ -543,38 +546,62 @@ absl::Status CheckExtractPostResolutionArguments(
   return absl::OkStatus();
 }
 
-absl::Status CheckDateAddDateSubArguments(
+absl::Status CheckDateDatetimeTimestampAddSubArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
   if (arguments.size() != 3) {
-    // Let validation happen normally.  It will return an error later.
+    // Let validation happen normally. It will return an error later.
     return absl::OkStatus();
   }
 
   // For Date, the only supported date parts are DAY, WEEK, MONTH, QUARTER,
   // YEAR.  For Timestamp, additional parts are supported.  If the third
   // parameter is a literal string then check the date part.
-  if (arguments[2].type()->IsEnum() && arguments[2].is_literal()) {
-    switch (arguments[2].literal_value()->enum_value()) {
-      case functions::YEAR:
-      case functions::QUARTER:
-      case functions::MONTH:
-      case functions::WEEK:
-      case functions::DAY:
-        return absl::OkStatus();
-      default:
-        return MakeSqlError() << function_name << " does not support the "
-                              << DateTimestampPartToSQL(
-                                     arguments[2].literal_value()->enum_value())
-                              << " date part";
-    }
+  if (!arguments[2].type()->IsEnum() || !arguments[2].is_literal()) {
+    // Let validation happen normally. It will return an error later.
+    return absl::OkStatus();
   }
-  // Let validation of other arguments happen normally.
-  return absl::OkStatus();
+
+  switch (arguments[2].literal_value()->enum_value()) {
+    case functions::YEAR:
+    case functions::QUARTER:
+    case functions::MONTH:
+    case functions::WEEK:
+      // Only TIMESTAMP_ADD doesn't support these dateparts
+      if (!arguments[0].type()->IsTimestamp()) {
+        return absl::OkStatus();
+      }
+      break;
+    case functions::DAY:
+      // All functions support DAY
+      return absl::OkStatus();
+    case functions::HOUR:
+    case functions::MINUTE:
+    case functions::SECOND:
+    case functions::MILLISECOND:
+    case functions::MICROSECOND:
+      // Only DATE_ADD doesn't support these dateparts
+      if (!arguments[0].type()->IsDate()) {
+        return absl::OkStatus();
+      }
+      break;
+    case functions::NANOSECOND:
+      if (!arguments[0].type()->IsDate() &&
+          language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
+        return absl::OkStatus();
+      }
+      break;
+    default:
+      break;
+  }
+  return MakeSqlError() << function_name << " does not support the "
+                        << DateTimestampPartToSQL(
+                               arguments[2].literal_value()->enum_value())
+                        << " date part";
 }
 
-absl::Status CheckDatetimeAddSubDiffArguments(
+absl::Status CheckTimeAddSubArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
@@ -585,65 +612,6 @@ absl::Status CheckDatetimeAddSubDiffArguments(
 
   if (arguments[2].type()->IsEnum() && arguments[2].is_literal()) {
     switch (arguments[2].literal_value()->enum_value()) {
-      case functions::YEAR:
-      case functions::QUARTER:
-      case functions::MONTH:
-      case functions::WEEK:
-      case functions::DAY:
-      case functions::HOUR:
-      case functions::MINUTE:
-      case functions::SECOND:
-      case functions::MILLISECOND:
-      case functions::MICROSECOND:
-        return absl::OkStatus();
-      case functions::ISOYEAR:
-      case functions::ISOWEEK:
-      case functions::WEEK_MONDAY:
-      case functions::WEEK_TUESDAY:
-      case functions::WEEK_WEDNESDAY:
-      case functions::WEEK_THURSDAY:
-      case functions::WEEK_FRIDAY:
-      case functions::WEEK_SATURDAY:
-        if (function_name == "DATETIME_DIFF") {
-          // Only DATETIME_DIFF supports ISOYEAR, ISOWEEK, and WEEK_*, not
-          // DATETIME_ADD or DATETIME_SUB.
-          return absl::OkStatus();
-        }
-        break;
-      case functions::NANOSECOND:
-        if (language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
-          return absl::OkStatus();
-        }
-        break;
-      default:
-        break;
-    }
-    return MakeSqlError() << function_name << " does not support the "
-                          << DateTimestampPartToSQL(
-                                 arguments[2].literal_value()->enum_value())
-                          << " date part";
-  }
-  // Let validation of other arguments happen normally.
-  return absl::OkStatus();
-}
-
-absl::Status CheckTimestampAddTimestampSubArguments(
-    const std::string& function_name,
-    const std::vector<InputArgumentType>& arguments,
-    const LanguageOptions& language_options) {
-  if (arguments.size() != 3) {
-    // Let validation happen normally.  It will return an error later.
-    return absl::OkStatus();
-  }
-
-  if (arguments[2].type()->IsEnum() && arguments[2].is_literal()) {
-    switch (arguments[2].literal_value()->enum_value()) {
-      case functions::DAY:
-        if (zetasql_base::StringCaseEqual(function_name, "timestamp_add") ||
-            zetasql_base::StringCaseEqual(function_name, "timestamp_sub")) {
-          return absl::OkStatus();
-        }
-        break;
       case functions::HOUR:
       case functions::MINUTE:
       case functions::SECOND:
@@ -662,96 +630,6 @@ absl::Status CheckTimestampAddTimestampSubArguments(
     return MakeSqlError() << function_name << " does not support the "
                           << DateTimestampPartToSQL(
                                  arguments[2].literal_value()->enum_value())
-                          << " date part";
-  }
-  // Let validation of other arguments happen normally.
-  return absl::OkStatus();
-}
-
-absl::Status CheckTimestampDiffArguments(
-    const std::string& function_name,
-    const std::vector<InputArgumentType>& arguments,
-    const LanguageOptions& language_options) {
-  if (arguments.size() != 3) {
-    // Let validation happen normally.  It will return an error later.
-    return absl::OkStatus();
-  }
-
-  // TIMESTAMP_DIFF for TIMESTAMP only supports date parts at DAY or
-  // finer granularity.
-  if (arguments[2].type()->IsEnum() && arguments[2].is_literal()) {
-    switch (arguments[2].literal_value()->enum_value()) {
-      case functions::DAY:
-        if (zetasql_base::StringCaseEqual(function_name, "timestamp_diff")) {
-          return absl::OkStatus();
-        }
-        break;
-      case functions::HOUR:
-      case functions::MINUTE:
-      case functions::SECOND:
-      case functions::MILLISECOND:
-      case functions::MICROSECOND:
-        return absl::OkStatus();
-      case functions::NANOSECOND: {
-        if (language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
-          return absl::OkStatus();
-        }
-        break;
-      }
-      default:
-        // Other parts are unsupported.
-        break;
-    }
-    return MakeSqlError() << function_name << " does not support the "
-                          << DateTimestampPartToSQL(
-                                 arguments[2].literal_value()->enum_value())
-                          << " date part";
-  }
-  // Let validation of other arguments happen normally.
-  return absl::OkStatus();
-}
-
-absl::Status CheckTimestampTruncArguments(
-    const std::string& function_name,
-    const std::vector<InputArgumentType>& arguments,
-    const LanguageOptions& language_options) {
-  if (arguments.size() != 2) {
-    // Let validation happen normally.  It will return an error later.
-    return absl::OkStatus();
-  }
-  if (arguments[1].type()->IsEnum() && arguments[1].is_literal()) {
-    switch (arguments[1].literal_value()->enum_value()) {
-      case functions::YEAR:
-      case functions::ISOYEAR:
-      case functions::QUARTER:
-      case functions::MONTH:
-      case functions::WEEK:
-      case functions::ISOWEEK:
-      case functions::WEEK_MONDAY:
-      case functions::WEEK_TUESDAY:
-      case functions::WEEK_WEDNESDAY:
-      case functions::WEEK_THURSDAY:
-      case functions::WEEK_FRIDAY:
-      case functions::WEEK_SATURDAY:
-      case functions::DAY:
-      case functions::HOUR:
-      case functions::MINUTE:
-      case functions::SECOND:
-      case functions::MILLISECOND:
-      case functions::MICROSECOND:
-        return absl::OkStatus();
-      case functions::NANOSECOND: {
-        if (language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
-          return absl::OkStatus();
-        }
-        break;
-      }
-      default:
-        break;
-    }
-    return MakeSqlError() << function_name << " does not support the "
-                          << DateTimestampPartToSQL(
-                                 arguments[1].literal_value()->enum_value())
                           << " date part";
   }
   // Let validation of other arguments happen normally.
@@ -1467,7 +1345,8 @@ bool CanStringConcatCoerceFrom(const zetasql::Type* arg_type) {
 
 // Returns true if an arithmetic operation has a floating point type as its
 // input.
-bool HasFloatingPointArgument(const std::vector<InputArgumentType>& arguments) {
+bool HasFloatingPointArgument(const FunctionSignature& matched_signature,
+                              const std::vector<InputArgumentType>& arguments) {
   for (const InputArgumentType& argument : arguments) {
     if (argument.type()->IsFloatingPoint()) {
       return true;
@@ -1477,7 +1356,8 @@ bool HasFloatingPointArgument(const std::vector<InputArgumentType>& arguments) {
 }
 
 // Returns true if at least one input argument has NUMERIC type.
-bool HasNumericTypeArgument(const std::vector<InputArgumentType>& arguments) {
+bool HasNumericTypeArgument(const FunctionSignature& matched_signature,
+                            const std::vector<InputArgumentType>& arguments) {
   for (const InputArgumentType& argument : arguments) {
     if (argument.type()->kind() == TYPE_NUMERIC) {
       return true;
@@ -1489,6 +1369,7 @@ bool HasNumericTypeArgument(const std::vector<InputArgumentType>& arguments) {
 // Returns true if all input arguments have NUMERIC or BIGNUMERIC type,
 // including the case without input arguments.
 bool AllArgumentsHaveNumericOrBigNumericType(
+    const FunctionSignature& matched_signature,
     const std::vector<InputArgumentType>& arguments) {
   for (const InputArgumentType& argument : arguments) {
     if (argument.type()->kind() != TYPE_NUMERIC &&
@@ -1502,6 +1383,7 @@ bool AllArgumentsHaveNumericOrBigNumericType(
 // Returns true if there is at least one input argument and the last argument
 // has NUMERIC type or BIGNUMERIC type.
 bool LastArgumentHasNumericOrBigNumericType(
+    const FunctionSignature& matched_signature,
     const std::vector<InputArgumentType>& arguments) {
   return !arguments.empty() &&
          (arguments.back().type()->kind() == TYPE_NUMERIC ||
@@ -1510,6 +1392,7 @@ bool LastArgumentHasNumericOrBigNumericType(
 
 // Returns true if at least one input argument has BIGNUMERIC type.
 bool HasBigNumericTypeArgument(
+    const FunctionSignature& matched_signature,
     const std::vector<InputArgumentType>& arguments) {
   for (const InputArgumentType& argument : arguments) {
     if (argument.type()->kind() == TYPE_BIGNUMERIC) {

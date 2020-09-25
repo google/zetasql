@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 ZetaSQL Authors
+ * Copyright 2019 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ package com.google.zetasql;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.zetasql.FunctionProtos.ArgumentTypeLambdaProto;
 import com.google.zetasql.FunctionProtos.FunctionArgumentTypeOptionsProto;
 import com.google.zetasql.FunctionProtos.FunctionArgumentTypeProto;
 import com.google.zetasql.ZetaSQLFunctions.FunctionEnums;
@@ -40,10 +41,17 @@ import javax.annotation.Nullable;
  * used to apply additional constraints on legal values for the argument.
  */
 public final class FunctionArgumentType implements Serializable {
+
+  private static class LambdaArgument {
+    List<FunctionArgumentType> argumentTypes;
+    FunctionArgumentType bodyType;
+  }
+
   private final SignatureArgumentKind kind;
   private final Type type;
   private final int numOccurrences;
   private final FunctionArgumentTypeOptions options;
+  private final LambdaArgument lambda;
 
   public FunctionArgumentType(
       SignatureArgumentKind kind, FunctionArgumentTypeOptions options, int numOccurrences) {
@@ -52,6 +60,7 @@ public final class FunctionArgumentType implements Serializable {
     this.type = null;
     this.numOccurrences = numOccurrences;
     this.options = options;
+    this.lambda = null;
   }
 
   public FunctionArgumentType(Type type, FunctionArgumentTypeOptions options, int numOccurrences) {
@@ -59,6 +68,7 @@ public final class FunctionArgumentType implements Serializable {
     this.type = type;
     this.numOccurrences = numOccurrences;
     this.options = options;
+    this.lambda = null;
   }
 
   public FunctionArgumentType(
@@ -68,6 +78,7 @@ public final class FunctionArgumentType implements Serializable {
     this.type = null;
     this.numOccurrences = numOccurrences;
     this.options = FunctionArgumentTypeOptions.builder().setCardinality(cardinality).build();
+    this.lambda = null;
   }
 
   public FunctionArgumentType(Type type, ArgumentCardinality cardinality, int numOccurrences) {
@@ -75,6 +86,22 @@ public final class FunctionArgumentType implements Serializable {
     this.type = type;
     this.numOccurrences = numOccurrences;
     this.options = FunctionArgumentTypeOptions.builder().setCardinality(cardinality).build();
+    this.lambda = null;
+  }
+
+  public FunctionArgumentType(
+      List<FunctionArgumentType> lambdaArgumentTypes, FunctionArgumentType lambdaBodyType) {
+    Preconditions.checkNotNull(lambdaArgumentTypes);
+    Preconditions.checkNotNull(lambdaBodyType);
+    this.kind = SignatureArgumentKind.ARG_TYPE_LAMBDA;
+    this.type = lambdaBodyType.getType();
+    this.numOccurrences = lambdaBodyType.getNumOccurrences();
+    this.options =
+        FunctionArgumentTypeOptions.builder().setCardinality(ArgumentCardinality.REQUIRED).build();
+    LambdaArgument lambda = new LambdaArgument();
+    lambda.argumentTypes = lambdaArgumentTypes;
+    lambda.bodyType = lambdaBodyType;
+    this.lambda = lambda;
   }
 
   public FunctionArgumentType(Type type, ArgumentCardinality cardinality) {
@@ -163,6 +190,11 @@ public final class FunctionArgumentType implements Serializable {
     return debugString(false);
   }
 
+  public TVFRelation getRelation() {
+    Preconditions.checkArgument(kind == SignatureArgumentKind.ARG_TYPE_RELATION);
+    return options.getRelationInputSchema();
+  }
+
   @Override
   public String toString() {
     return debugString(false);
@@ -204,6 +236,8 @@ public final class FunctionArgumentType implements Serializable {
         return "<arbitrary>";
       case ARG_TYPE_VOID:
         return "<void>";
+      case ARG_TYPE_LAMBDA:
+        return "LAMBDA";
       case __SignatureArgumentKind__switch_must_have_a_default__:
       default:
         return "UNKNOWN_ARG_KIND";
@@ -211,8 +245,8 @@ public final class FunctionArgumentType implements Serializable {
   }
 
   public FunctionArgumentTypeProto serialize(FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
-    FunctionArgumentTypeProto.Builder builder = FunctionArgumentTypeProto.newBuilder();
-    builder.setKind(kind);
+    FunctionArgumentTypeProto.Builder builder =
+        FunctionArgumentTypeProto.newBuilder().setKind(kind);
     if (numOccurrences != 0) {
       builder.setNumOccurrences(numOccurrences);
     }
@@ -222,6 +256,15 @@ public final class FunctionArgumentType implements Serializable {
     }
     if (type != null) {
       type.serialize(builder.getTypeBuilder(), fileDescriptorSetsBuilder);
+    }
+
+    if (kind == SignatureArgumentKind.ARG_TYPE_LAMBDA) {
+      ArgumentTypeLambdaProto.Builder lambdaBuilder = ArgumentTypeLambdaProto.newBuilder();
+      for (FunctionArgumentType arg : lambda.argumentTypes) {
+        lambdaBuilder.addArgument(arg.serialize(fileDescriptorSetsBuilder));
+      }
+      lambdaBuilder.setBody(lambda.bodyType.serialize(fileDescriptorSetsBuilder));
+      builder.setLambda(lambdaBuilder.build());
     }
     return builder.build();
   }
@@ -236,6 +279,14 @@ public final class FunctionArgumentType implements Serializable {
           factory.deserialize(proto.getType(), pools),
           FunctionArgumentTypeOptions.deserialize(proto.getOptions(), pools, factory),
           proto.getNumOccurrences());
+    } else if (kind == SignatureArgumentKind.ARG_TYPE_FIXED) {
+      List<FunctionArgumentType> argumentTypes = new ArrayList<>();
+      for (FunctionArgumentTypeProto argType : proto.getLambda().getArgumentList()) {
+        argumentTypes.add(deserialize(argType, pools));
+      }
+      FunctionArgumentType bodyType = deserialize(proto.getLambda().getBody(), pools);
+      return new FunctionArgumentType(argumentTypes, bodyType);
+
     } else {
       return new FunctionArgumentType(
           kind,

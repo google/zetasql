@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,10 +30,10 @@
 #include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/base/port.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/status_builder.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 namespace internal {
@@ -194,7 +194,8 @@ class NumericValue final {
   // will be rounded to a whole integer with a half away from zero rounding
   // semantics. This method will return OUT_OF_RANGE error if an overflow occurs
   // during conversion.
-  template<class T> zetasql_base::StatusOr<T> To() const;
+  template <class T>
+  zetasql_base::StatusOr<T> To() const;
 
   // Converts the NUMERIC value to a floating point number.
   double ToDouble() const;
@@ -480,8 +481,8 @@ class NumericValue final {
   NumericValue(uint64_t high_bits, uint64_t low_bits);
   explicit constexpr NumericValue(__int128 value);
 
-  static zetasql_base::StatusOr<NumericValue> FromStringInternal(
-      absl::string_view str, bool is_strict);
+  static zetasql_base::StatusOr<NumericValue> FromStringInternal(absl::string_view str,
+                                                         bool is_strict);
 
   template <int kNumBitsPerWord, int kNumWords>
   static zetasql_base::StatusOr<NumericValue> FromFixedUint(

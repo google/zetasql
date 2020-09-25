@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -73,9 +73,10 @@ bool RegExp::Match(absl::string_view str, bool* out, absl::Status* error) {
   return true;
 }
 
-bool RegExp::Extract(absl::string_view str, int64_t position,
-                     int64_t occurrence_index, absl::string_view* out,
-                     bool* is_null, absl::Status* error) {
+bool RegExp::Extract(absl::string_view str, PositionUnit position_unit,
+                     int64_t position, int64_t occurrence_index,
+                     absl::string_view* out, bool* is_null,
+                     absl::Status* error) {
   DCHECK(re_);
   *is_null = true;
   *error = internal::ValidatePositionAndOccurrence(position, occurrence_index);
@@ -91,11 +92,17 @@ bool RegExp::Extract(absl::string_view str, int64_t position,
   if (position > str_length32 && !(str.empty() && position == 1)) {
     return true;
   }
-  auto string_offset = ForwardN(str, str_length32, position - 1);
-  if (string_offset == absl::nullopt) {
-    return true;
+  int64_t offset = 0;
+  if (position_unit == kUtf8Chars) {
+    auto string_offset = ForwardN(str, str_length32, position - 1);
+    if (string_offset == absl::nullopt) {
+      return true;
+    }
+    offset = string_offset.value();
+  } else {
+    offset = position - 1;
   }
-  str.remove_prefix(string_offset.value());
+  str.remove_prefix(offset);
   if (str.data() == nullptr) {
     // Ensure that the output string never has a null data pointer if a match is
     // found.

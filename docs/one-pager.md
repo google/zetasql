@@ -4,8 +4,6 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
 <!-- Product Overview -->
 
 <!-- Quickstarts -->
@@ -14,9 +12,8 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-## Lexical Structure and Syntax
+## Lexical structure and syntax
 
-<!-- BEGIN CONTENT -->
 A ZetaSQL statement comprises a series of tokens. Tokens include
 *identifiers*, *quoted identifiers*, *literals*, *keywords*, *operators*, and
 *special characters*. You can separate tokens with whitespace (for example, space, backspace,
@@ -101,7 +98,7 @@ SELECT * FROM `data-customers-287`.mydatabase.mytable
 A literal represents a constant value of a built-in data type. Some, but not
 all, data types can be expressed as literals.
 
-#### String and Bytes Literals {: #string_and_bytes_literals }
+#### String and bytes literals {: #string_and_bytes_literals }
 
 Both string and bytes literals must be *quoted*, either with single (`'`) or
 double (`"`) quotation marks, or *triple-quoted* with groups of three single
@@ -241,7 +238,7 @@ Any sequence not in this table produces an error.
 </tbody>
 </table>
 
-#### Integer Literals {: #integer_literals }
+#### Integer literals {: #integer_literals }
 
 Integer literals are either a sequence of decimal digits (0–9) or a hexadecimal
 value that is prefixed with "`0x`" or "`0X`". Integers can be prefixed by "`+`"
@@ -262,7 +259,7 @@ if casting does not result in truncation. For example, if the integer 55 of type
 literal value 77 is coerced into type `INT32` because
 `77` can be represented by the `INT32` type.
 
-#### NUMERIC Literals
+#### NUMERIC literals
 
 You can construct NUMERIC literals using the
 `NUMERIC` keyword followed by a floating point value in quotes.
@@ -278,7 +275,7 @@ SELECT NUMERIC '1.23456e05';
 SELECT NUMERIC '-9.876e-3';
 ```
 
-#### Floating Point Literals {: #floating_point_literals }
+#### Floating point literals {: #floating_point_literals }
 
 Syntax options:
 
@@ -313,7 +310,7 @@ can be explicitly cast to float:
  + "inf" or "+inf"
  + "-inf"
 
-#### Array Literals {: #array_literals }
+#### Array literals {: #array_literals }
 
 Array literals are comma-separated lists of elements
 enclosed in square brackets. The `ARRAY` keyword is optional, and an explicit
@@ -335,7 +332,7 @@ ARRAY<int64>[]
 []
 ```
 
-#### Struct Literals
+#### Struct literals
 
 Syntax:
 
@@ -367,7 +364,7 @@ matching the types of the input expressions.
 </tbody>
 </table>
 
-#### Date Literals
+#### Date literals
 
 Syntax:
 
@@ -395,7 +392,7 @@ the string literal `"2014-09-27"` will be coerced to a date literal.
 
  
 
-#### Time Literals
+#### Time literals
 Syntax:
 
 ```sql
@@ -411,7 +408,7 @@ For example, the following time represents 12:30 p.m.:
 TIME '12:30:00.45'
 ```
 
-#### Datetime Literals
+#### Datetime literals
 Syntax:
 
 ```sql
@@ -556,11 +553,11 @@ TIMESTAMP '2014-09-27 12:30:00 America/Los_Angeles'
 TIMESTAMP '2014-09-27 12:30:00 America/Argentina/Buenos_Aires'
 ```
 
-#### Enum Literals {: #enum_literals }
+#### Enum literals {: #enum_literals }
 
 There is no syntax for enum literals, but integer or string literals will coerce to enum type when necessary, or can be explicitly CAST to a specific enum type name. See "Literal Coercion" in [Expressions, Functions, and Operators][functions-reference].
 
-### Case Sensitivity {: #case_sensitivity }
+### Case sensitivity {: #case_sensitivity }
 
 ZetaSQL follows these rules for case sensitivity:
 
@@ -637,7 +634,7 @@ ZetaSQL follows these rules for case sensitivity:
 </tbody>
 </table>
 
-### Reserved Keywords {: #reserved_keywords }
+### Reserved keywords {: #reserved_keywords }
 
 Keywords are a group of tokens that have special meaning in the ZetaSQL
 language, and  have the following characteristics:
@@ -757,7 +754,7 @@ WITHIN<br />
 </tbody>
 </table>
 
-### Terminating Semicolons {: #terminating_semicolons }
+### Terminating semicolons {: #terminating_semicolons }
 
 You can optionally use a terminating semicolon (`;`) when you submit a query
 string statement through an Application Programming Interface (API).
@@ -766,7 +763,7 @@ In a request containing multiple statements, you must separate statements with
 semicolons, but the semicolon is generally optional after the final statement.
 Some interactive tools require statements to have a terminating semicolon.
 
-### Trailing Commas {: #trailing_commas }
+### Trailing commas {: #trailing_commas }
 
 You can optionally use a trailing comma (`,`) at the end of a list in a `SELECT`
 statement.
@@ -777,7 +774,7 @@ statement.
 SELECT name, release_date, FROM Books
 ```
 
-### Query Parameters {: #query_parameters }
+### Query parameters {: #query_parameters }
 
 You can use query parameters to substitute arbitrary expressions.
 However, query parameters cannot be used to substitute identifiers,
@@ -790,7 +787,7 @@ substitutes a bound value for a parameter at execution time.
 Query parameters cannot be used in the SQL body of these statements:
 `CREATE FUNCTION`, `CREATE TABLE FUNCTION`, `CREATE VIEW`, `CREATE MATERIALIZED VIEW`, and `CREATE PROCEDURE`.
 
-#### Named Query Parameters
+#### Named query parameters
 
 Syntax:
 
@@ -812,7 +809,7 @@ named query parameter `myparam`.
 SELECT * FROM Roster WHERE LastName = @myparam
 ```
 
-#### Positional Query Parameters
+#### Positional query parameters
 
 Positional query parameters are denoted using the `?` character.
 Positional parameters are evaluated by the order in which they are passed in.
@@ -969,8 +966,6 @@ WHERE book = "Ulysses";
 [query-reference]: #query-syntax
 [lexical-udfs-reference]: #user-defined-functions
 
-<!-- END CONTENT -->
-
 ## Conversion rules
 
 "Conversion" includes, but is not limited to, casting and coercion.
@@ -984,8 +979,8 @@ functions that have their own function
 
 The table below summarizes all possible `CAST` and coercion possibilities for
 ZetaSQL data types. "Coercion To" applies to all *expressions* of a
-given data type (e.g. a column)
-, but literals
+given data type, (for example, a
+column), but literals
 and parameters can also be coerced. See [Literal Coercion][con-rules-link-to-literal-coercion] and
 [Parameter Coercion][con-rules-link-to-parameter-coercion] for details.
 
@@ -2306,7 +2301,8 @@ STRUCTs support only 4 comparison operators: equal
 
 The following rules apply when comparing these data types:
 
-+  Floating point: All comparisons with NaN return FALSE,
++  Floating point:
+   All comparisons with NaN return FALSE,
    except for `!=` and `<>`, which return TRUE.
 +  BOOL: FALSE is less than TRUE.
 +  STRING: Strings are
@@ -3054,15 +3050,14 @@ a,b,c.</td>
 </tbody>
 </table>
 
-[exp-sub-link-to-subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax#subqueries
+[exp-sub-link-to-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md
 
 [exp-sub-link-to-subqueries]: #subqueries
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-## Data Types
+## Data types
 
-<!-- BEGIN CONTENT -->
 ZetaSQL supports simple data types such as integers, as well as more
 complex types such as ARRAY,
 PROTO, and STRUCT. This page provides an overview of each data type,
@@ -4166,19 +4161,15 @@ workarounds:
 [geography-functions]: #geography-functions
 [mathematical-functions]: #mathematical-functions
 
-<!-- END CONTENT -->
-
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-## Query Syntax
-
-<!-- BEGIN CONTENT -->
+## Query syntax
 
 Query statements scan one or more tables or expressions and return the computed
 result rows. This topic describes the syntax for SQL queries in
 ZetaSQL.
 
-### SQL Syntax
+### SQL syntax
 
 <pre class="lang-sql prettyprint">
 <span class="var">query_statement</span>:
@@ -4246,7 +4237,7 @@ ZetaSQL.
 The following tables are used to illustrate the behavior of different
 query clauses in this reference.
 
-##### Roster Table
+##### Roster table
 
 The `Roster` table includes a list of player names (`LastName`) and the
 unique ID assigned to their school (`SchoolID`). It looks like this:
@@ -4276,7 +4267,7 @@ WITH Roster AS
 SELECT * FROM Roster
 ```
 
-##### PlayerStats Table
+##### PlayerStats table
 
 The `PlayerStats` table includes a list of player names (`LastName`) and the
 unique ID assigned to the opponent they played in a given game (`OpponentID`)
@@ -4307,7 +4298,7 @@ WITH PlayerStats AS
 SELECT * FROM PlayerStats
 ```
 
-##### TeamMascot Table
+##### TeamMascot table
 
 The `TeamMascot` table includes a list of unique school IDs (`SchoolID`) and the
 mascot for that school (`Mascot`).
@@ -4881,52 +4872,81 @@ for the duration of the query, unless you qualify the table name, e.g.
 
 #### TABLESAMPLE operator
 
+```sql
+tablesample_type:
+    TABLESAMPLE sample_method (sample_size percent_or_rows [ partition_by ])
+    [ REPEATABLE(repeat_argument) ]
+    [ WITH WEIGHT [AS alias] ]
+
+sample_method:
+    { BERNOULLI | SYSTEM | RESERVOIR }
+
+sample_size:
+    numeric_value_expression
+
+percent_or_rows:
+    { PERCENT | ROWS }
+
+partition_by:
+    PARTITION BY partition_expression [, ...]
+```
+
+**Description**
+
 You can use the `TABLESAMPLE` operator to select a random sample of a data
 set. This operator is useful when working with tables that have large amounts of
 data and precise answers are not required.
 
-Syntax:
++  `sample_method`: When using the `TABLESAMPLE` operator, you must specify the
+   sampling algorithm to use:
+   + `BERNOULLI`: Each row is independently selected with the probability
+     given in the `percent` clause. As a result, you get approximately
+     `N * percent/100` rows.
+   + `SYSTEM`: Produces a sample using an
+     unspecified engine-dependent method, which may be more efficient but less
+     probabilistically random than other methods.  For example, it could choose
+     random disk blocks and return data from those blocks.
+   + `RESERVOIR`: Takes as parameter an actual sample size
+     K (expressed as a number of rows). If the input is smaller than K, it
+     outputs the entire input relation. If the input is larger than K,
+     reservoir sampling outputs a sample of size exactly K, where any sample of
+     size K is equally likely.
++  `sample_size`: The size of the sample.
++  `percent_or_rows`: The `TABLESAMPLE` operator requires that you choose either
+   `ROWS` or `PERCENT`. If you choose `PERCENT`, the value must be between
+   0 and 100. If you choose `ROWS`, the value must be greater than or equal
+   to 0.
++  `partition_by`: Optional. Perform [stratefied sampling][stratefied-sampling]
+   for each distinct group identified by the `PARTITION BY` clause. That is,
+   if the number of rows in a particular group is less than the specified row
+   count, all rows in that group are assigned to the sample. Otherwise, it
+   randomly selects the specified number of rows for each group, where for a
+   particular group, every sample of that size is equally
+   likely.
++  `REPEATABLE`: Optional. When it is used, repeated
+   executions of the sampling operation return a result table with identical
+   rows for a given repeat argument, as long as the underlying data does
+   not change. `repeat_argument` represents a sampling seed
+   and must be a positive value of type `INT64`.
++  `WITH WEIGHT`: Optional. Retrieves [scaling weight][scaling-weight]. If
+   specified, the `TableSample` operator outputs one extra column of type
+   `DOUBLE` that is greater than or equal 1.0 to represent the actual scaling
+   weight. If an alias is not provided, the default name _weight_ is used.
+   +  In Bernoulli sampling, the weight is `1 / provided sampling probability`.
+      For example, `TABLESAMPLE BERNOULLI (1 percent)` will expose the weight
+      of `1 / 0.01`.
+   +  In System sampling, the weight is approximated or computed exactly in
+      some engine-defined way, as long as its type and value range is
+      specified.
+   +  In non-stratified fixed row count sampling,
+      (RESERVOIR without the PARTITION BY clause), the weight is equal to the
+      total number of input rows divided by the count of sampled rows.
+   +  In stratified sampling,
+      (RESERVOIR with the PARTITION BY clause), the weight for rows from a
+      particular group is equal to the group cardinality divided by the count
+      of sampled rows for that group.
 
-<pre>
-<span class="var">tablesample_type</span>:
-    <a href="#tablesample_operator">TABLESAMPLE</a> <span class="var">sample_method</span> (<span class="var">sample_size</span> <span class="var">percent_or_rows</span>)
-    [ REPEATABLE(repeat_argument) ]
-
-<span class="var">sample_method</span>:
-    { BERNOULLI | SYSTEM | RESERVOIR }
-
-<span class="var">sample_size</span>:
-    <span class="var">numeric_value_expression</span>
-
-<span class="var">percent_or_rows</span>:
-    { PERCENT | ROWS }
-</pre>
-
-When using the `TABLESAMPLE` operator, you must specify the sampling algorithm
-to use:
-
-+ `BERNOULLI` - each row is independently selected
-with the probability given in the `percent` clause. As a result, you get
-approximately `N * percent/100` rows.
-+ `SYSTEM` - produces a sample using an
-unspecified engine-dependent method, which may be more efficient but less
-probabilistically random than other methods.  For example, it could choose
-random disk blocks and return data from those blocks.
-+ `RESERVOIR` - takes as parameter an actual sample size
-K (expressed as a number of rows). If the input is smaller than K, it outputs
-the entire input relation. If the input is larger than K, reservoir sampling
-outputs a sample of size exactly K, where any sample of size K is equally
-likely.
-
-The `TABLESAMPLE` operator requires that you select either `ROWS` or `PERCENT`.
-If you select `PERCENT`, the value must be between 0 and 100. If you select
-`ROWS`, the value must be greater than or equal to 0.
-
-The `REPEATABLE` clause is optional. When it is used, repeated executions of
-the sampling operation return a result table with identical rows for a
-given repeat argument, as long as the underlying data does
-not change. `repeat_argument` represents a sampling seed
-and must be a positive value of type `INT64`.
+**Examples**
 
 The following examples illustrate the use of the `TABLESAMPLE` operator.
 
@@ -4944,14 +4964,14 @@ SELECT MessageId
 FROM Messages TABLESAMPLE BERNOULLI (0.1 PERCENT);
 ```
 
-Using `TABLESAMPLE` with a repeat argument:
+Use `TABLESAMPLE` with a repeat argument:
 
 ```sql
 SELECT MessageId
 FROM Messages TABLESAMPLE RESERVOIR (100 ROWS) REPEATABLE(10);
 ```
 
-Using `TABLESAMPLE` with a subquery:
+Use `TABLESAMPLE` with a subquery:
 
 ```sql
 SELECT Subject FROM
@@ -4960,7 +4980,7 @@ TABLESAMPLE BERNOULLI(50 PERCENT)
 WHERE MessageId > 3;
 ```
 
-Using a `TABLESAMPLE` operation with a join to another table.
+Use a `TABLESAMPLE` operation with a join to another table.
 
 ```sql
 SELECT S.Subject
@@ -4970,6 +4990,120 @@ TABLESAMPLE RESERVOIR(5 ROWS),
 Threads AS S
 WHERE S.ServerId="test" AND R.ThreadId = S.ThreadId;
 ```
+
+Group results by country, using stratefied sampling:
+
+```sql
+SELECT country, SUM(click_cost) FROM ClickEvents
+ TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY country)
+ GROUP BY country;
+```
+
+Add scaling weight to stratefied sampling:
+
+```sql
+SELECT country, SUM(click_cost * sampling_weight) FROM ClickEvents
+ TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY country)
+ WITH WEIGHT AS sampling_weight
+ GROUP BY country;
+```
+
+This is equivelant to the previous example. Note that you don't have to use
+an alias after `WITH WEIGHT`. If you don't, the default alias `weight` is used.
+
+```sql
+SELECT country, SUM(click_cost * weight) FROM ClickEvents
+ TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY country)
+ WITH WEIGHT
+ GROUP BY country;
+```
+
+##### Stratefied sampling {: #stratefied_sampling }
+
+If you want better quality generated samples for under-represented groups,
+you can use stratefied sampling. Stratefied sampling helps you
+avoid samples with missing groups. To allow stratified sampling per
+distinct group, use `PARTITION BY` with `RESERVOIR` in the `TABLESAMPLE` clause.
+
+Stratified sampling performs `RESERVOIR` sampling for each distinct group
+identified by the `PARTITION BY` clause. If the number of rows in a particular
+group is less than the specified row count, all rows in that group are assigned
+to the sample. Otherwise, it randomly selects the specified number of rows for
+each group, where for a particular group, every sample of that size is equally
+likely.
+
+**Example**
+
+Let’s consider a table named `ClickEvents` representing a stream of
+click events, each of which has two fields: `country` and `click_cost`.
+`country` represents the country from which the click was originated
+and `click_cost` represents how much the click costs. In this example,
+100 rows are randomly selected for each country.
+
+```sql
+SELECT click_cost, country FROM ClickEvents
+TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY country)
+```
+
+##### Scaling weight {: #scaling_weight }
+
+With scaling weight, you can perform fast and reasonable population estimates
+from generated samples or estimate the aggregate results from samples. You can
+capture scaling weight for a tablesample with the `WITH WEIGHT` clause.
+
+Scaling weight represents the reciprocal of the actual, observed sampling
+rate for a tablesample, making it easier to estimate aggregate results for
+samples. The exposition of scaling weight generally applies to all variations
+of `TABLESAMPLE`, including stratified Reservoir, non-stratified Reservoir,
+Bernoulli, and System.
+
+Let’s consider a table named `ClickEvents` representing a stream of
+click events, each of which has two fields: `country` and `click_cost`.
+`country` represents the country from which the click was originated
+and `click_cost` represents how much the click costs. To calculate the
+total click cost per country, you can use the following query:
+
+```sql
+SELECT country, SUM(click_cost)
+FROM ClickEvents
+GROUP BY country;
+```
+
+You can leverage the existing uniform sampling with fixed probability, using
+Bernoulli sampling and run this query to estimate the result of the previous
+query:
+
+```sql
+SELECT country, SUM(click_cost * weight)
+FROM ClickEvents TABLESAMPLE BERNOULLI (1 PERCENT)
+WITH WEIGHT
+GROUP BY country;
+```
+
+You can break the second query into two steps:
+
+1. Materialize a sample for reuse.
+1. Perform aggregate estimates of the materialized sample.
+
+Instead of aggregating the entire table, you use a 1% uniform sample to
+aggregate a fraction of the original table and to compute the total click cost.
+Because only 1% of the rows flow into the aggregation operator, you need to
+scale the aggregate with a certain weight. Specifically, we multiply the
+aggregate with 100, the reciprocal of the provided sampling probability, for
+each group. And because we use uniform sampling, the scaling weight for each
+group is effectively equal to the scaling weight for each row of the table,
+which is 100.
+
+Even though this sample provides a statistically accurate representation
+of the original table, it might miss an entire group of rows, such as countries
+in the running example, with small cardinality. For example, suppose that
+the `ClickEvents` table contains 10000 rows, with 9990 rows of value `US`
+and 10 rows of value `VN`. The number of distinct countries in this example
+is two. With 1% uniform sampling, it is statistically probable that all the
+sampled rows are from the `US` and none of them are from the `VN` partition.
+As a result, the output of the second query does not contain the `SUM` estimate
+for the group `VN`. We refer to this as the _missing-group problem_, which
+can be solved with [stratefied sampling][stratefied-sampling].
 
 #### Aliases
 
@@ -5427,7 +5561,7 @@ SELECT * FROM Roster INNER JOIN TeamMascot USING (SchoolID);
 +----------------------------------------+
 ```
 
-#### ON and USING Equivalency
+#### ON and USING equivalency
 
 The `ON` and `USING` keywords are not equivalent, but they are similar.
 `ON` returns multiple columns, and `USING` returns one.
@@ -6292,7 +6426,7 @@ FROM
 
 `WITH RECURSIVE` is not supported.
 
-### Using Aliases {: #using_aliases }
+### Using aliases {: #using_aliases }
 
 An alias is a temporary name given to a table, column, or expression present in
 a query. You can introduce explicit aliases in the `SELECT` list or `FROM`
@@ -6808,6 +6942,8 @@ Results:
 [roster-table]: #roster_table
 [playerstats-table]: #playerstats_table
 [teammascot-table]: #teammascot_table
+[stratefied-sampling]: #stratefied_sampling
+[scaling-weight]: #scaling_weight
 [query-joins]: #join-types
 [analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [query-window-specification]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_window_spec
@@ -6840,13 +6976,9 @@ Results:
 [expression-subquery-concepts]: #expression_subquery_concepts
 [query-tables]: #standard-sql-tables
 
-<!-- END CONTENT -->
-
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
 ## Subqueries
-
-<!-- BEGIN CONTENT -->
 
 ### About subqueries
 
@@ -7241,13 +7373,9 @@ SELECT * FROM (
 [array-function]: #array
 [aggregate-functions]: #aggregate_functions
 
-<!-- END CONTENT -->
-
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-## Analytic Functions Concepts
-
-<!-- BEGIN CONTENT -->
+## Analytic functions concepts
 
 An analytic function computes values over a group of rows and returns a
 single result for _each_ row. This is different from an aggregate function,
@@ -7768,7 +7896,7 @@ The following tables are used in the subsequent aggregate analytic
 query examples: [`Produce`][produce-table], [`Employees`][employees-table],
 and [`Farm`][farm-table].
 
-##### Produce Table
+##### Produce table
 
 Some examples reference a table called `Produce`:
 
@@ -8270,13 +8398,9 @@ WINDOW item_window AS (
 [numbering-functions-reference]: #numbering-functions
 [aggregate-analytic-functions-reference]: #aggregate-analytic-functions
 
-<!-- END CONTENT -->
-
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-## Protocol Buffers
-
-<!-- BEGIN CONTENT -->
+## Protocol buffers
 
 Protocol buffers are a flexible, efficient mechanism for serializing structured
 data. They are easy to create, small in size, and efficient to send over RPCs.
@@ -8432,7 +8556,7 @@ to a query like this:
 SELECT AS VALUE NEW ProtoType(field1, field2, field3 AS (path.to.extension), ...)
 ```
 
-### Casting Protocol Buffers
+### Casting protocol buffers
 
 You can cast `PROTO` to or from `BYTES` or `STRING`.
 
@@ -9120,13 +9244,9 @@ FROM
 [link_to_safe_cast]: #safe_casting
 [proto-extract]: #proto_extract
 
-<!-- END CONTENT -->
-
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-## Working with Arrays
-
-<!-- BEGIN CONTENT -->
+## Working with arrays
 
 In ZetaSQL, an array is an ordered list consisting of zero or more
 values of the same data type. You can construct arrays of simple data types,
@@ -9257,7 +9377,7 @@ SELECT
 +--------------------------------------------------------------------------+
 ```
 
-### Casting Arrays
+### Casting arrays
 
 You can use [`CAST`][casting]
 to cast arrays from one element type to another. The element types of the input
@@ -9278,7 +9398,7 @@ FROM (SELECT ARRAY<INT32>[1, 2, 3] AS int_array);
 +--------------+
 ```
 
-### Accessing Array Elements
+### Accessing array elements
 
 Consider the following table, `sequences`:
 
@@ -9349,7 +9469,7 @@ FROM sequences;
 +---------------+----------+-----------+
 ```
 
-### Finding Lengths
+### Finding lengths
 
 The `ARRAY_LENGTH()` function returns the length of an array.
 
@@ -9504,7 +9624,7 @@ FROM sequences, sequences.some_numbers AS flattened_numbers;
 +------+-------------------+
 ```
 
-### Querying Nested and Repeated Fields
+### Querying nested and repeated fields
 
 If a table contains an `ARRAY` of `STRUCT`s or `PROTO`s, you can
 [flatten the `ARRAY`][flattening-arrays] to query the fields of the `STRUCT` or
@@ -9654,7 +9774,7 @@ FROM
 +------+---------------+
 ```
 
-#### Querying PROTO elements in an ARRAY
+#### Querying PROTO elements in an array
 
 To query the fields of `PROTO` elements in an `ARRAY`, use `UNNEST` and
 `CROSS JOIN`.
@@ -10023,7 +10143,7 @@ CROSS JOIN UNNEST(album.song) AS song_name;
 
 ```
 
-### Creating Arrays From Subqueries
+### Creating arrays from subqueries
 
 A common task when working with arrays is turning a subquery result into an
 array. In ZetaSQL, you can accomplish this using the
@@ -10076,7 +10196,7 @@ The query itself contains a subquery. This subquery selects each row in the
 array as a set of rows. Next, it multiplies each value by two, and then
 recombines the rows back into an array using the `ARRAY()` operator.
 
-### Filtering Arrays
+### Filtering arrays
 The following example uses a `WHERE` clause in the `ARRAY()` operator's subquery
 to filter the returned rows.
 
@@ -10201,7 +10321,7 @@ FROM sequences;
 Notice again that the third row contains an empty array, because the array in
 the corresponding original row (`[5, 10]`) did not contain `2`.
 
-### Scanning Arrays
+### Scanning arrays
 
 To check if an array contains a specific value, use the [`IN`][in-operators]
 operator with [`UNNEST`][unnest-query]. To
@@ -10312,7 +10432,7 @@ WHERE EXISTS (SELECT 1
 +---------------+
 ```
 
-### Arrays and Aggregation
+### Arrays and aggregation
 
 With ZetaSQL, you can aggregate values into an array using
 `ARRAY_AGG()`.
@@ -10458,7 +10578,7 @@ FROM aggregate_example;
 non-deterministic, since the order in which the function concatenates values is
 not guaranteed.
 
-### Converting Arrays to Strings
+### Converting arrays to strings
 
 The `ARRAY_TO_STRING()` function allows you to convert an `ARRAY<STRING>` to a
 single `STRING` value or an `ARRAY<BYTES>` to a single `BYTES` value where the
@@ -10508,7 +10628,7 @@ FROM (SELECT ["a", NULL, "b", NULL, "c", NULL] AS arr);
 +------------------+--------------+---------+
 ```
 
-### Combining Arrays
+### Combining arrays
 
 In some cases, you might want to combine multiple arrays into a single array.
 You can accomplish this using the `ARRAY_CONCAT()` function.
@@ -10523,7 +10643,7 @@ SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
 +--------------------------------------------------+
 ```
 
-### Zipping Arrays
+### Zipping arrays
 
 Given two arrays of equal size, you can merge them into a single array
 consisting of pairs of elements from input arrays, taken from their
@@ -10556,7 +10676,7 @@ You can use input arrays of different lengths as long as the first array
 is equal to or less than the length of the second array. The zipped array
 will be the length of the shortest input array.
 
-### Building Arrays of Arrays
+### Building arrays of arrays
 
 ZetaSQL does not support building
 [arrays of arrays][array-data-type]
@@ -10651,18 +10771,14 @@ SELECT ARRAY(
 [in-operators]: #in_operators
 [expression-subqueries]: #expression_subqueries
 
-<!-- END CONTENT -->
-
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-## ZetaSQL Data Model
-
-<!-- BEGIN CONTENT -->
+## Data model
 
 The following sections provide an overview of the ZetaSQL data
 model.
 
-### Standard SQL Tables
+### Standard SQL tables
 
 ZetaSQL data is stored in tables. Each table consists of an ordered
 list of columns and a number of rows. Each column has a name used to identify it
@@ -11094,13 +11210,9 @@ value does not have a field called `ROWNUM`.
 [data-manipulation-language]: #data-manipulation-reference
 [query-syntax-value-tables]: #value-tables
 
-<!-- END CONTENT -->
-
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-## User-Defined Functions
-
-<!-- BEGIN CONTENT -->
+## User-defined functions
 
 ZetaSQL
 supports user-defined functions (UDFs). A UDF enables you to create a function
@@ -11108,7 +11220,7 @@ using another SQL expression or another programming
 language, such as JavaScript or Lua. These functions accept columns of input
 and perform actions, returning the result of those actions as a value.
 
-###  General UDF and TVF  Syntax
+###  General UDF and TVF  syntax
 
 User-defined functions and table-valued
 functions in ZetaSQL use the
@@ -11675,7 +11787,7 @@ CREATE TEMP TABLE FUNCTION CustomerRangeWithCustomerType(
     WHERE Info.type = customer_type;
 ```
 
-##### Templated SQL TVF Parameters
+##### Templated SQL TVF parameters
 
 SQL table-valued function signatures can contain the following [templated
 parameter][templated-parameters] values for `param_type`:
@@ -11760,8 +11872,6 @@ FROM CustomerRangeWithCustomerType(100, 200, 'CUSTOMER_TYPE_ADVERTISER');
 [datamodel-value-tables]: #value-tables
 [aggregate-fns-link]: #aggregate-functions
 [group-by-link]: #group-by-clause
-
-<!-- END CONTENT -->
 
 <!-- Functions -->
 ## Function Reference
@@ -13123,7 +13233,7 @@ this result:
 +---------+
 ```
 
-## Aggregate Analytic Functions
+## Aggregate analytic functions
 
 The following sections describe the aggregate analytic functions that
 ZetaSQL supports. For an explanation of how analytic functions work,
@@ -13179,7 +13289,7 @@ SUM(DISTINCT x) OVER ()
 [aggregate-analytic-concepts]: #aggregate-analytic-function-concepts
 [analytic-functions-link-to-aggregate-functions]: #aggregate-functions
 
-## Approximate Aggregate Functions
+## Approximate aggregate functions
 
 Approximate aggregate functions are scalable in terms of memory usage and time,
 but produce approximate results instead of exact results. These functions
@@ -13536,7 +13646,7 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 [kll-functions]: #kll16-quantile-functions
 [aggregate-functions-reference]: #aggregate-functions
 
-## HyperLogLog++ Functions
+## HyperLogLog++ functions
 
 The [HyperLogLog++ algorithm (HLL++)][hll-algorithm] estimates
 [cardinality][cardinality] from [sketches][hll-sketches]. If you do not want
@@ -13709,7 +13819,7 @@ HLL_COUNT.EXTRACT(sketch)
 
 **Description**
 
-A scalar function that extracts an cardinality estimate of a single
+A scalar function that extracts a cardinality estimate of a single
 [HLL++][hll-link-to-research-whitepaper] sketch.
 
 If `sketch` is NULL, this function returns a cardinality estimate of `0`.
@@ -13793,7 +13903,7 @@ non-additive functions like `COUNT(DISTINCT)`.
 [approx-functions-reference]: #approximate_aggregate_functions
 [aggregate-functions-reference]: #aggregate_functions
 
-## KLL16 Quantile Functions
+## KLL16 quantile functions
 
 The [KLL16 algorithm][kll-algorithm] estimates
 [quantiles][kll-quantiles] from [sketches][kll-sketches]. If you do not want
@@ -14439,7 +14549,7 @@ but accepts sketches initialized on data of type of type
 
 `DOUBLE`
 
-#### About Quantiles {: #about-kll-quantiles }
+#### About quantiles {: #about-kll-quantiles }
 
 [Quantiles][quantiles] can be defined in two ways. First, for a positive integer *q*,
 *q-quantiles* are a set of values that partition an input set into *q* subsets
@@ -14478,7 +14588,7 @@ To extract individual Φ-quantiles, use the following functions, where Φ is the
 The [KLL16 algorithm][link-to-kll-paper] improves on the [MP80 algorithm][mp80]
 by using variable-size buffers to reduce memory use for large data sets.
 
-#### About Sketches {: #sketches-kll }
+#### About sketches {: #sketches-kll }
 
 A sketch is a summary of a large data stream. You can extract statistics
 from a sketch to estimate particular statistics of the original data, or
@@ -14513,7 +14623,7 @@ non-additive functions like `COUNT(DISTINCT)`.
 [approx-functions-reference]: #approximate_aggregate_functions
 [aggregate-functions-reference]: #aggregate_functions
 
-## Numbering Functions
+## Numbering functions
 
 The following sections describe the numbering functions that ZetaSQL
 supports. Numbering functions are a subset of analytic functions. For an
@@ -14616,7 +14726,7 @@ INT64
 [analytic-function-concepts]: #analytic-function-concepts
 [numbering-function-concepts]: #numbering-function-concepts
 
-## Bit Functions
+## Bit functions
 
 ZetaSQL supports the following bit functions.
 
@@ -14690,9 +14800,10 @@ SIGN(X)
 
 **Description**
 
-Returns -1, 0, or +1 for negative, zero and positive arguments respectively.
-For floating point arguments, this function does not distinguish between
-positive and negative zero. Returns `NaN` for a `NaN` argument.
+Returns -1, 0, or +1 for negative, zero and positive arguments respectively. For
+floating point arguments, this function does not distinguish between positive
+and negative zero.   Returns`NaN`for a`NaN`
+argument.
 
 #### IS_INF
 
@@ -14702,8 +14813,9 @@ IS_INF(X)
 
 **Description**
 
-Returns `TRUE` if the value is positive or negative infinity. Returns
-`NULL` for `NULL` inputs.
+Returns `TRUE` if the value is positive or negative infinity.
+
+Returns `NULL` for `NULL` inputs.
 
 #### IS_NAN
 
@@ -14713,7 +14825,9 @@ IS_NAN(X)
 
 **Description**
 
-Returns `TRUE` if the value is a `NaN` value. Returns `NULL` for `NULL` inputs.
+Returns `TRUE` if the value is a `NaN` value.
+
+Returns `NULL` for` NULL` inputs.
 
 #### IEEE_DIVIDE
 
@@ -14731,10 +14845,10 @@ this function does not generate errors for division by zero or overflow.</p>
 
 Special cases:
 
-+ If the result overflows, returns `+/-inf`.
-+ If Y=0 and X=0, returns `NaN`.
-+ If Y=0 and X!=0, returns `+/-inf`.
-+ If X = `+/-inf` and Y = `+/-inf`, returns `NaN`.
++   If the result overflows, returns `+/-inf`.
++   If Y=0 and X=0, returns `NaN`.
++   If Y=0 and X!=0, returns `+/-inf`.
++   If X = `+/-inf` and Y = `+/-inf`, returns `NaN`.
 
 The behavior of `IEEE_DIVIDE` is further illustrated in the table below.
 
@@ -14798,8 +14912,9 @@ SQRT(X)
 
 **Description**
 
-Computes the square root of X. Generates an error if X is less than 0. Returns
-`+inf` if X is `+inf`.
+Computes the square root of X. Generates an error if X is less than 0.
+
+Returns `+inf` if X is `+inf`.
 
 #### POW
 
@@ -14813,7 +14928,7 @@ Returns the value of X raised to the power of Y. If the result underflows and is
 not representable, then the function returns a  value of zero. Returns an error
 if one of the following is true:
 
-+ X is a finite value less than 0 and Y is a noninteger
++ X is a finite value less than 0 and Y is a non-integer
 + X is 0 and Y is a finite value less than 0
 
 The behavior of `POW()` is further illustrated in the table below.
@@ -14991,9 +15106,9 @@ GREATEST(X1,...,XN)
 
 **Description**
 
-Returns <code>NULL</code> if any of the inputs is <code>NULL</code>. Otherwise, returns <code>NaN</code> if any of
-the inputs is <code>NaN</code>. Otherwise, returns the largest value among X1,...,XN
-according to the &lt; comparison.
+Returns <code>NULL</code> if any of the inputs is <code>NULL</code>. Otherwise,
+returns <code>NaN</code> if any of the inputs is <code>NaN</code>. Otherwise,
+returns the largest value among X1,...,XN according to the &lt; comparison.
 
 #### LEAST
 
@@ -15016,8 +15131,9 @@ DIV(X, Y)
 **Description**
 
 Returns the result of integer division of X by Y. Division by zero returns
-an error. Division by -1 may overflow. See the table below for possible result
-types.
+an error. Division by -1 may overflow.   See
+[Result types for `DIV(X, Y)` and `MOD(X, Y)`][mod-div-results] for possible
+result types.
 
 #### SAFE_DIVIDE
 
@@ -15083,16 +15199,17 @@ MOD(X, Y)
 **Description**
 
 Modulo function: returns the remainder of the division of X by Y. Returned
-value has the same sign as X. An error is generated if Y is 0. See the table
-below for possible result types.
+value has the same sign as X. An error is generated if Y is 0. See
+[Result types for `DIV(X, Y)` and `MOD(X, Y)`][mod-div-results] for possible
+result types.
 
-##### Result types for `DIV(X, Y)` and `MOD(X, Y)` {: #result_div_mod }
+##### Result types for `DIV(X, Y)` and `MOD(X, Y)` {: #mod_div_results }
 
 <table>
 <thead>
-<tr><th>&nbsp;</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th></tr>
+<tr><th>&nbsp;</th><th>DOUBLE</th><th>INT32</th><th>INT64</th><th>NUMERIC</th><th>UINT32</th><th>UINT64</th></tr>
 </thead>
-<tbody><tr><td>INT32</td><td>INT64</td><td>INT64</td><td>INT64</td><td>ERROR</td></tr><tr><td>INT64</td><td>INT64</td><td>INT64</td><td>INT64</td><td>ERROR</td></tr><tr><td>UINT32</td><td>INT64</td><td>INT64</td><td>UINT64</td><td>UINT64</td></tr><tr><td>UINT64</td><td>ERROR</td><td>ERROR</td><td>UINT64</td><td>UINT64</td></tr></tbody>
+<tbody><tr><td>DOUBLE</td><td>DOUBLE</td><td>ERROR</td><td>ERROR</td><td>DOUBLE</td><td>UINT64</td><td>UINT64</td></tr><tr><td>INT32</td><td>DOUBLE</td><td>INT64</td><td>INT64</td><td>NUMERIC</td><td>INT64</td><td>ERROR</td></tr><tr><td>INT64</td><td>DOUBLE</td><td>INT64</td><td>INT64</td><td>NUMERIC</td><td>INT64</td><td>ERROR</td></tr><tr><td>NUMERIC</td><td>DOUBLE</td><td>ERROR</td><td>NUMERIC</td><td>NUMERIC</td><td>UINT64</td><td>UINT64</td></tr><tr><td>UINT32</td><td>DOUBLE</td><td>INT64</td><td>INT64</td><td>NUMERIC</td><td>UINT64</td><td>UINT64</td></tr><tr><td>UINT64</td><td>DOUBLE</td><td>ERROR</td><td>ERROR</td><td>NUMERIC</td><td>UINT64</td><td>UINT64</td></tr></tbody>
 </table>
 
 #### ROUND {: #rounding_functions }
@@ -15380,8 +15497,10 @@ ATAN2(Y, X)
 
 Calculates the principal value of the inverse tangent of Y/X using the signs of
 the two arguments to determine the quadrant. The return value is in the range
-[-&pi;,&pi;]. The behavior of this function is further illustrated in
-<a href="#special_atan2">the table below</a>.
+[-&pi;,&pi;].
+
+The behavior of this function is further illustrated in <a
+href="#special_atan2">the table below</a>.
 
 ##### Special cases for `ATAN2()` {: #special_atan2 }
 
@@ -15506,11 +15625,12 @@ the two arguments to determine the quadrant. The return value is in the range
 </tbody>
 </table>
 
+[mod-div-results]: #mod_div_results
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data_type_properties
 
 [data-type-properties]: #data-type-properties
 
-## Navigation Functions
+## Navigation functions
 
 The following sections describe the navigation functions that ZetaSQL
 supports. Navigation functions are a subset of analytic functions. For an
@@ -16366,6 +16486,34 @@ returned positions refer to character positions.
 All string comparisons are done byte-by-byte, without regard to Unicode
 canonical equivalence.
 
+#### ASCII
+
+```sql
+ASCII(value)
+```
+
+**Description**
+
+Returns the ASCII code for the first character or byte in `value`. Returns
+`0` if `value` is empty or the ASCII code is `0` for the first character
+or byte.
+
+**Return type**
+
+`INT64`
+
+**Examples**
+
+```sql
+SELECT ASCII('abcd') as A, ASCII('a') as B, ASCII('') as C, ASCII(NULL) as D;
+
++-------+-------+-------+-------+
+| A     | B     | C     | D     |
++-------+-------+-------+-------+
+| 97    | 97    | 0     | NULL  |
++-------+-------+-------+-------+
+```
+
 #### BYTE_LENGTH
 
 ```sql
@@ -16465,6 +16613,49 @@ FROM example;
 +------------+---------------------+
 ```
 
+#### CHR
+
+```sql
+CHR(value)
+```
+
+**Description**
+
+Takes a Unicode [code point][string-link-to-code-points-wikipedia] and returns
+the character that matches the code point. Each valid code point should fall
+within the range of [0, 0xD7FF] and [0xE000, 0x10FFFF]. Returns an empty string
+if the code point is `0`. If an invalid Unicode code point is specified, an
+error is returned.
+
+To work with an array of Unicode code points, see
+[`CODE_POINTS_TO_STRING`][string-link-to-codepoints-to-string]
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+SELECT CHR(65) AS A, CHR(255) AS B, CHR(513) AS C, CHR(1024)  AS D;
+
++-------+-------+-------+-------+
+| A     | B     | C     | D     |
++-------+-------+-------+-------+
+| A     | ÿ     | ȁ     | Ѐ     |
++-------+-------+-------+-------+
+```
+
+```sql
+SELECT CHR(97) AS A, CHR(0xF9B5) AS B, CHR(0) AS C, CHR(NULL) AS D;
+
++-------+-------+-------+-------+
+| A     | B     | C     | D     |
++-------+-------+-------+-------+
+| a     | 例    |       | NULL  |
++-------+-------+-------+-------+
+```
+
 #### CODE_POINTS_TO_BYTES
 
 ```sql
@@ -16491,11 +16682,11 @@ The following is a basic example using `CODE_POINTS_TO_BYTES`.
 ```sql
 SELECT CODE_POINTS_TO_BYTES([65, 98, 67, 100]) AS bytes;
 
-+-------+
-| bytes |
-+-------+
-| AbCd  |
-+-------+
++----------+
+| bytes    |
++----------+
+| AbCd     |
++----------+
 ```
 
 The following example uses a rotate-by-13 places (ROT13) algorithm to encode a
@@ -16518,11 +16709,11 @@ SELECT CODE_POINTS_TO_BYTES(ARRAY_AGG(
   ) ORDER BY OFFSET)) AS encoded_string
 FROM UNNEST(TO_CODE_POINTS(b'Test String!')) code WITH OFFSET;
 
-+----------------+
-| encoded_string |
-+----------------+
-| Grfg Fgevat!   |
-+----------------+
++------------------+
+| encoded_string   |
++------------------+
+| Grfg Fgevat!     |
++------------------+
 ```
 
 #### CODE_POINTS_TO_STRING
@@ -16535,7 +16726,8 @@ CODE_POINTS_TO_STRING(value)
 
 Takes an array of Unicode [code points][string-link-to-code-points-wikipedia]
 (`ARRAY` of `INT64`) and
-returns a `STRING`.
+returns a `STRING`. If a code point is 0, does not return a character for it
+in the `STRING`.
 
 To convert from a string to an array of code points, see
 [TO_CODE_POINTS][string-link-to-code-points].
@@ -16544,9 +16736,9 @@ To convert from a string to an array of code points, see
 
 `STRING`
 
-**Example**
+**Examples**
 
-The following is a basic example using `CODE_POINTS_TO_STRING`.
+The following are basic examples using `CODE_POINTS_TO_STRING`.
 
 ```sql
 SELECT CODE_POINTS_TO_STRING([65, 255, 513, 1024]) AS string;
@@ -16555,6 +16747,26 @@ SELECT CODE_POINTS_TO_STRING([65, 255, 513, 1024]) AS string;
 | string |
 +--------+
 | AÿȁЀ   |
++--------+
+```
+
+```sql
+SELECT CODE_POINTS_TO_STRING([97, 0, 0xF9B5]) AS string;
+
++--------+
+| string |
++--------+
+| a例    |
++--------+
+```
+
+```sql
+SELECT CODE_POINTS_TO_STRING([65, 255, NULL, 1024]) AS string;
+
++--------+
+| string |
++--------+
+| NULL   |
 +--------+
 ```
 
@@ -18010,6 +18222,14 @@ FROM Strings;
 +---+----+-------+-------+------+------+
 ```
 
+#### OCTET_LENGTH
+
+```sql
+OCTET_LENGTH(value)
+```
+
+Alias for [`BYTE_LENGTH`](#byte-length).
+
 #### REGEXP_CONTAINS
 
 ```sql
@@ -18195,6 +18415,124 @@ FROM code_markdown;
 +----------------------------+
 ```
 
+#### REGEXP_INSTR
+
+```sql
+REGEXP_INSTR(source_value, regexp [, position[, occurrence, [occurrence_position]]])
+```
+
+**Description**
+
+Returns the lowest 1-based index of a regular expression, `regexp`, in
+`source_value`. Returns `0` when no match is found or the regular expression
+is empty. Returns an error if the regular expression is invalid or has more than
+one capturing group. `source_value` and `regexp` must be the same type, either
+`STRING` or `BYTES`.
+
+If `position` is specified, the search starts at this position in
+`source_value`, otherwise it starts at the beginning of `source_value`. If
+`position` is negative, the function searches backwards from the end of
+`source_value`, with -1 indicating the last character. `position` cannot be 0.
+
+If `occurrence` is specified, the search returns the position of a specific
+instance of `regexp` in `source_value`, otherwise it returns the index of
+the first occurrence. If `occurrence` is greater than the number of matches
+found, 0 is returned. For `occurrence` > 1, the function searches for
+overlapping occurrences, in other words, the function searches for additional
+occurrences beginning with the second character in the previous occurrence.
+`occurrence` cannot be 0 or negative.
+
+You can optionally use `occurrence_position` to specify where a position
+in relation to an `occurrence` starts. Your choices are:
++  `0`: Returns the beginning position of the occurrence.
++  `1`: Returns the first position following the end of the occurrence. If the
+   end of the occurrence is also the end of the input, one off the
+   end of the occurrence is returned. For example, length of a string + 1.
+
+**Return type**
+
+`INT64`
+
+**Examples**
+
+```sql
+WITH example AS (
+  SELECT 'ab@gmail.com' AS source_value, '@[^.]*' AS regexp UNION ALL
+  SELECT 'ab@mail.com', '@[^.]*' UNION ALL
+  SELECT 'abc@gmail.com', '@[^.]*' UNION ALL
+  SELECT 'abc.com', '@[^.]*')
+SELECT source_value, regexp, REGEXP_INSTR(source_value, regexp) AS instr
+FROM example;
+
++---------------+--------+-------+
+| source_value  | regexp | instr |
++---------------+--------+-------+
+| ab@gmail.com  | @[^.]* | 3     |
+| ab@mail.com   | @[^.]* | 3     |
+| abc@gmail.com | @[^.]* | 4     |
+| abc.com       | @[^.]* | 0     |
++---------------+--------+-------+
+```
+
+```sql
+WITH example AS (
+  SELECT 'a@gmail.com b@gmail.com' AS source_value, '@[^.]*' AS regexp, 1 AS position UNION ALL
+  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 2 UNION ALL
+  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 3 UNION ALL
+  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 4)
+SELECT
+  source_value, regexp, position,
+  REGEXP_INSTR(source_value, regexp, position) AS instr
+FROM example;
+
++-------------------------+--------+----------+-------+
+| source_value            | regexp | position | instr |
++-------------------------+--------+----------+-------+
+| a@gmail.com b@gmail.com | @[^.]* | 1        | 2     |
+| a@gmail.com b@gmail.com | @[^.]* | 2        | 2     |
+| a@gmail.com b@gmail.com | @[^.]* | 3        | 14    |
+| a@gmail.com b@gmail.com | @[^.]* | 4        | 14    |
++-------------------------+--------+----------+-------+
+```
+
+```sql
+WITH example AS (
+  SELECT 'a@gmail.com b@gmail.com c@gmail.com' AS source_value,
+         '@[^.]*' AS regexp, 1 AS position, 1 AS occurrence UNION ALL
+  SELECT 'a@gmail.com b@gmail.com c@gmail.com', '@[^.]*', 1, 2 UNION ALL
+  SELECT 'a@gmail.com b@gmail.com c@gmail.com', '@[^.]*', 1, 3)
+SELECT
+  source_value, regexp, position, occurrence,
+  REGEXP_INSTR(source_value, regexp, position, occurrence) AS instr
+FROM example;
+
++-------------------------------------+--------+----------+------------+-------+
+| source_value                        | regexp | position | occurrence | instr |
++-------------------------------------+--------+----------+------------+-------+
+| a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 1          | 2     |
+| a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 2          | 14    |
+| a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 3          | 26    |
++-------------------------------------+--------+----------+------------+-------+
+```
+
+```sql
+WITH example AS (
+  SELECT 'a@gmail.com' AS source_value, '@[^.]*' AS regexp,
+         1 AS position, 1 AS occurrence, 0 AS o_position UNION ALL
+  SELECT 'a@gmail.com', '@[^.]*', 1, 1, 1)
+SELECT
+  source_value, regexp, position, occurrence, o_position,
+  REGEXP_INSTR(source_value, regexp, position, occurrence, o_position) AS instr
+FROM example;
+
++--------------+--------+----------+------------+------------+-------+
+| source_value | regexp | position | occurrence | o_position | instr |
++--------------+--------+----------+------------+------------+-------+
+| a@gmail.com  | @[^.]* | 1        | 1          | 0          | 2     |
+| a@gmail.com  | @[^.]* | 1        | 1          | 1          | 8     |
++--------------+--------+----------+------------+------------+-------+
+```
+
 #### REGEXP_MATCH
 
 <p class="caution"><strong>Deprecated.</strong> Use <a href="#regexp_contains">REGEXP_CONTAINS</a>.</p>
@@ -18348,7 +18686,7 @@ The `repetitions` parameter specifies the number of times to repeat
 `original_value`. Returns `NULL` if either `original_value` or `repetitions`
 are `NULL`.
 
-This function return an error if the `repetitions` value is negative.
+This function returns an error if the `repetitions` value is negative.
 
 **Return type**
 
@@ -18944,6 +19282,14 @@ FROM items;
 +---------+
 ```
 
+#### SUBSTRING
+
+```sql
+SUBSTRING(value, position[, length])
+```
+
+Alias for [`SUBSTR`](#substr).
+
 #### TO_BASE32
 
 ```sql
@@ -19242,6 +19588,34 @@ FROM items;
 +---------+
 ```
 
+#### UNICODE
+
+```sql
+UNICODE(value)
+```
+
+**Description**
+
+Returns the Unicode [code point][string-code-point] for the first character in
+`value`. Returns `0` if `value` is empty, or if the resulting Unicode code
+point is `0`.
+
+**Return type**
+
+`INT64`
+
+**Examples**
+
+```sql
+SELECT UNICODE('âbcd') as A, UNICODE('â') as B, UNICODE('') as C, UNICODE(NULL) as D;
+
++-------+-------+-------+-------+
+| A     | B     | C     | D     |
++-------+-------+-------+-------+
+| 226   | 226   | 0     | NULL  |
++-------+-------+-------+-------+
+```
+
 #### UPPER
 
 ```sql
@@ -19295,6 +19669,7 @@ FROM items;
 [string-link-to-case-folding-wikipedia]: https://en.wikipedia.org/wiki/Letter_case#Case_folding
 [string-link-to-soundex-wikipedia]: https://en.wikipedia.org/wiki/Soundex
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
+[string-code-point]: https://en.wikipedia.org/wiki/Code_point
 [string-link-to-strpos]: #strpos
 [string-link-to-char-length]: #char_length
 [string-link-to-code-points]: #to_code_points
@@ -20094,6 +20469,7 @@ FROM items;
 ```
 
 #### GENERATE_ARRAY
+
 ```sql
 GENERATE_ARRAY(start_expression, end_expression[, step_expression])
 ```
@@ -21198,6 +21574,98 @@ SELECT FORMAT_DATE("%b %Y", DATE "2008-12-25") AS formatted;
 +-------------+
 ```
 
+#### LAST_DAY
+
+```sql
+LAST_DAY(date_expression[, date_part])
+```
+
+**Description**
+
+Returns the last day from a date expression. This is commonly used to return
+the last day of the month.
+
+You can optionally specify the date part for which the last day is returned.
+If this parameter is not used, the default value is `MONTH`.
+`LAST_DAY` supports the following values for `date_part`:
+
++  `YEAR`
++  `QUARTER`
++  `MONTH`
++  `WEEK`. Equivalent to 7 `DAY`s.
++  `WEEK(<WEEKDAY>)`. `<WEEKDAY>` represents the starting day of the week.
+   Valid values are `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`,
+   `FRIDAY`, and `SATURDAY`.
++  `ISOWEEK`. Uses [ISO 8601][ISO-8601-week] week boundaries. ISO weeks begin
+   on Monday.
++  `ISOYEAR`. Uses the [ISO 8601][ISO-8601] week-numbering year boundary.
+   The ISO year boundary is the Monday of the first week whose Thursday belongs
+   to the corresponding Gregorian calendar year.
+
+**Return Data Type**
+
+`DATE`
+
+**Example**
+
+These both return the last day of the month:
+
+```sql
+SELECT LAST_DAY(DATE '2008-11-25', MONTH) AS last_day
+
++------------+
+| last_day   |
++------------+
+| 2008-11-30 |
++------------+
+```
+
+```sql
+SELECT LAST_DAY(DATE '2008-11-25') AS last_day
+
++------------+
+| last_day   |
++------------+
+| 2008-11-30 |
++------------+
+```
+
+This returns the last day of the year:
+
+```sql
+SELECT LAST_DAY(DATE '2008-11-25', YEAR) AS last_day
+
++------------+
+| last_day   |
++------------+
+| 2008-12-31 |
++------------+
+```
+
+This returns the last day of the week for a week that starts on a Sunday:
+
+```sql
+SELECT LAST_DAY(DATE '2008-11-10', WEEK(SUNDAY)) AS last_day
+
++------------+
+| last_day   |
++------------+
+| 2008-11-05 |
++------------+
+```
+
+This returns the last day of the week for a week that starts on a Monday:
+
+```sql
+SELECT LAST_DAY(DATE '2008-11-10', WEEK(MONDAY)) AS last_day
+
++------------+
+| last_day   |
++------------+
+| 2008-11-06 |
++------------+
+```
+
 #### PARSE_DATE
 
 ```sql
@@ -21288,7 +21756,7 @@ SELECT UNIX_DATE(DATE "2008-12-25") as days_from_epoch;
 +-----------------+
 ```
 
-#### Supported Format Elements for DATE
+#### Supported format elements for DATE
 
 Unless otherwise noted, DATE functions that use format strings support the
 following elements:
@@ -21434,7 +21902,7 @@ space.</td>
 
 [date-functions-link-to-timezone-definitions]: #timezone_definitions
 
-## DateTime functions
+## Datetime functions
 
 ZetaSQL supports the following `DATETIME` functions.
 
@@ -21989,6 +22457,98 @@ SELECT
 +-------------+
 ```
 
+#### LAST_DAY
+
+```sql
+LAST_DAY(datetime_expression[, date_part])
+```
+
+**Description**
+
+Returns the last day from a datetime expression that contains the date.
+This is commonly used to return the last day of the month.
+
+You can optionally specify the date part for which the last day is returned.
+If this parameter is not used, the default value is `MONTH`.
+`LAST_DAY` supports the following values for `date_part`:
+
++  `YEAR`
++  `QUARTER`
++  `MONTH`
++  `WEEK`. Equivalent to 7 `DAY`s.
++  `WEEK(<WEEKDAY>)`. `<WEEKDAY>` represents the starting day of the week.
+   Valid values are `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`,
+   `FRIDAY`, and `SATURDAY`.
++  `ISOWEEK`. Uses [ISO 8601][ISO-8601-week] week boundaries. ISO weeks begin
+   on Monday.
++  `ISOYEAR`. Uses the [ISO 8601][ISO-8601] week-numbering year boundary.
+   The ISO year boundary is the Monday of the first week whose Thursday belongs
+   to the corresponding Gregorian calendar year.
+
+**Return Data Type**
+
+`DATE`
+
+**Example**
+
+These both return the last day of the month:
+
+```sql
+SELECT LAST_DAY(DATETIME '2008-11-25', MONTH) AS last_day
+
++------------+
+| last_day   |
++------------+
+| 2008-11-30 |
++------------+
+```
+
+```sql
+SELECT LAST_DAY(DATETIME '2008-11-25') AS last_day
+
++------------+
+| last_day   |
++------------+
+| 2008-11-30 |
++------------+
+```
+
+This returns the last day of the year:
+
+```sql
+SELECT LAST_DAY(DATETIME '2008-11-25 15:30:00', YEAR) AS last_day
+
++------------+
+| last_day   |
++------------+
+| 2008-12-31 |
++------------+
+```
+
+This returns the last day of the week for a week that starts on a Sunday:
+
+```sql
+SELECT LAST_DAY(DATETIME '2008-11-10 15:30:00', WEEK(SUNDAY)) AS last_day
+
++------------+
+| last_day   |
++------------+
+| 2008-11-05 |
++------------+
+```
+
+This returns the last day of the week for a week that starts on a Monday:
+
+```sql
+SELECT LAST_DAY(DATETIME '2008-11-10 15:30:00', WEEK(MONDAY)) AS last_day
+
++------------+
+| last_day   |
++------------+
+| 2008-11-06 |
++------------+
+```
+
 #### PARSE_DATETIME
 
 ```sql
@@ -22013,7 +22573,7 @@ SELECT PARSE_DATETIME("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")
 SELECT PARSE_DATETIME("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")
 
 -- This doesn't work because one of the year elements is missing.
-SELECT PARSE_DATETIME("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")
+SELECT PARSE_DATETIME("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")
 
 -- This works because %c can find all matching elements in datetime_string.
 SELECT PARSE_DATETIME("%c", "Thu Dec 25 07:30:00 2008")
@@ -22775,10 +23335,6 @@ following elements:
  <tr>
     <td>%I</td>
     <td>The hour (12-hour clock) as a decimal number (01-12).</td>
- </tr>
- <tr>
-    <td>%j</td>
-    <td>The day of the year as a decimal number (001-366).</td>
  </tr>
  <tr>
     <td>%k</td>
@@ -24623,6 +25179,7 @@ SELECT EXTRACT(HAS(publish_date) FROM new Book()) as has_release_date;
 ZetaSQL supports the following security functions.
 
 #### SESSION_USER
+
 ```
 SESSION_USER()
 ```
@@ -24876,7 +25433,7 @@ stored in the least significant bit of the integer, regardless of host or client
 architecture. For example, `1` means `0.0.0.1`, and `0x1FF` means `0.0.1.255`.
 
 This function checks that either all the most significant 32 bits are 0, or all
-the most significant 33 bits are 1 (sign-extended from a 32 bit integer).
+the most significant 33 bits are 1 (sign-extended from a 32-bit integer).
 In other words, the input should be in the range `[-0x80000000, 0xFFFFFFFF]`;
 otherwise, this function throws an error.
 
@@ -24943,6 +25500,7 @@ UNNEST([b"\x00\x00\x00\x00", b"\x00\xab\xcd\xef", b"\xff\xff\xff\xff"]) AS x;
 | b"\xff\xff\xff\xff" | 0xFFFFFFFF    |
 
 #### NET.FORMAT_IP (DEPRECATED)
+
 ```
 NET.FORMAT_IP(integer)
 ```
@@ -24958,6 +25516,7 @@ except that this function does not allow negative input values.
 STRING
 
 #### NET.PARSE_IP (DEPRECATED)
+
 ```
 NET.PARSE_IP(addr_str)
 ```
@@ -24974,6 +25533,7 @@ if any, while `NET.IP_FROM_STRING` treats `'\x00'` as invalid.
 INT64
 
 #### NET.FORMAT_PACKED_IP (DEPRECATED)
+
 ```
 NET.FORMAT_PACKED_IP(bytes_value)
 ```
@@ -24987,6 +25547,7 @@ This function is deprecated. It is the same as [`NET.IP_TO_STRING`][net-link-to-
 STRING
 
 #### NET.PARSE_PACKED_IP (DEPRECATED)
+
 ```
 NET.PARSE_PACKED_IP(addr_str)
 ```
@@ -25003,6 +25564,7 @@ treats `'\x00'` as invalid.
 BYTES
 
 #### NET.IP_IN_NET
+
 ```
 NET.IP_IN_NET(address, subnet)
 ```
@@ -25029,6 +25591,7 @@ considered invalid, an `OUT_OF_RANGE` error occurs.
 BOOL
 
 #### NET.MAKE_NET
+
 ```
 NET.MAKE_NET(address, prefix_length)
 ```
@@ -25069,6 +25632,7 @@ considered invalid, an `OUT_OF_RANGE` error occurs.
 STRING
 
 #### NET.HOST
+
 ```
 NET.HOST(url)
 ```
@@ -25122,6 +25686,7 @@ FROM (
 | "mailto:?to=&subject=&body="                                        | URI rather than URL--unsupported                                              | "mailto"           | NULL    | NULL           |
 
 #### NET.PUBLIC_SUFFIX
+
 ```
 NET.PUBLIC_SUFFIX(url)
 ```
@@ -25197,6 +25762,7 @@ FROM (
 | "mailto:?to=&subject=&body="                                       | URI rather than URL--unsupported                                              | "mailto"           | NULL    | NULL           |
 
 #### NET.REG_DOMAIN
+
 ```
 NET.REG_DOMAIN(url)
 ```
@@ -25290,11 +25856,9 @@ FROM (
 <!-- Statements -->
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-## Data Definition Language statements
+## Data definition language
 
-<!-- BEGIN CONTENT -->
-
-ZetaSQL specifies the syntax for Data Definition Language (DDL)
+ZetaSQL specifies the syntax for data definition language (DDL)
 statements.
 
 Where possible, this topic provides a link to the product-specific documentation
@@ -25432,7 +25996,7 @@ CREATE TABLE books (
 CLUSTER BY last_name, first_name;
 ```
 
-#### Defining Columns
+#### Defining columns
 
 <pre>
 <span class="var">column_definition:</span>
@@ -25528,7 +26092,7 @@ CREATE TABLE books (
 )
 ```
 
-#### Defining Table Constraints
+#### Defining table constraints
 
 <pre>
 <span class="var">constraint_definition:</span>
@@ -25617,7 +26181,7 @@ CREATE TABLE page_count_average (
 );
 ```
 
-#### Defining Foreign References
+#### Defining foreign references
 
 <pre>
 <span class="var">foreign_reference:</span>
@@ -26140,13 +26704,9 @@ CREATE TABLE books (title STRING, name STRING, PRIMARY KEY (title, name));
 
 [hints]: #hints
 
-<!-- END CONTENT -->
-
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-## Data Manipulation Reference
-
-<!-- BEGIN CONTENT -->
+## Data manipulation language
 
 ZetaSQL supports the following statements for manipulating data:
 
@@ -26295,8 +26855,8 @@ INSERT [[OR] IGNORE | REPLACE | UPDATE] [INTO] target_name
  (column_1 [, ..., column_n ] )
  input <br>[ASSERT_ROWS_MODIFIED m]<br/>
 input ::=
- VALUES (expr_1 [, ..., expr_n ] )
-        [, ..., (expr_k_1 [, ..., expr_k_n ] ) ]
+ VALUES (column_1 [, ..., column_n ] )
+        [, ..., (column_k_1 [, ..., column_k_n ] ) ]
 | SELECT_QUERY<br/>
 expr ::= value_expression | DEFAULT
 </pre>
@@ -26625,7 +27185,7 @@ VALUES (5, "Zak", "Sterling", "inactive");
 Existing row for Zak Sterling updated. His status is now `inactive`. All other
 values, such as `BirthDate`, remain unchanged.
 
-### DELETE Statement
+### DELETE statement
 
 Use the `DELETE` statement when you want to delete rows from a table.
 
@@ -27094,7 +27654,52 @@ SET
 [coercion]: #coercion
 [functions-and-operators]: #function_reference
 
-<!-- END CONTENT -->
+<!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- END CONTENT -->
+### ASSERT
+```
+ASSERT expression [AS description]
+```
+
+**Description**
+
+Evaluates `expression`.
+
+If `expression` evaluates to `TRUE`, the statement returns successfully
+without any result.
+
+If `expression` evaluates to `FALSE` or `NULL`, the statement generates an
+error. If `AS description` is present, `description` will appear in the error
+message.
+
+`expression` must evaluates to a ` BOOL`.
+
+`description` must be a `STRING` literal.
+
+**Examples**
+
+The following example asserts that the data source contains over five rows. The
+statement succeeds.
+
+```sql
+ASSERT
+(SELECT COUNT(*) FROM UNNEST([1, 2, 3, 4, 5, 6])) > 5
+AS 'Table must contain more than 5 rows.';
+```
+
+The following example asserts that the source table contains a particular value.
+
+```sql
+ASSERT EXISTS(
+  SELECT X
+  FROM UNNEST([7877, 7879, 7883, 7901, 7907]) X
+  WHERE X = 7919
+) AS 'Column X must contain the value 7919';
+```
+
+The above statement generates this error:
+
+```
+Assertion failed: Column X must contain the value 7919
+```
 

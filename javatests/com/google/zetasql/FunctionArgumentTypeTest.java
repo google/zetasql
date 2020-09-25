@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 ZetaSQL Authors
+ * Copyright 2019 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -256,11 +256,11 @@ public class FunctionArgumentTypeTest {
             "The number of fields of FunctionArgumentTypeProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(FunctionArgumentTypeProto.getDescriptor().getFields())
-        .hasSize(4);
+        .hasSize(5);
     assertWithMessage(
             "The number of fields in FunctionArgumentType class has changed, "
                 + "please also update the proto and serialization code accordingly.")
         .that(TestUtil.getNonStaticFieldCount(FunctionArgumentType.class))
-        .isEqualTo(4);
+        .isEqualTo(5);
   }
 }

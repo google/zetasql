@@ -211,6 +211,7 @@ FROM items;
 ```
 
 ### GENERATE_ARRAY
+
 ```sql
 GENERATE_ARRAY(start_expression, end_expression[, step_expression])
 ```

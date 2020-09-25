@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -915,6 +915,7 @@ void Unparser::visitASTDropStatement(const ASTDropStatement* node, void* data) {
     print("IF EXISTS");
   }
   node->name()->Accept(this, data);
+  print(node->GetSQLForDropMode(node->drop_mode()));
 }
 
 void Unparser::visitASTDropEntityStatement(const ASTDropEntityStatement* node,
@@ -1610,6 +1611,15 @@ void Unparser::visitASTExtractExpression(const ASTExtractExpression* node,
     print("AT TIME ZONE");
     node->time_zone_expr()->Accept(this, data);
   }
+  print(")");
+}
+
+void Unparser::visitASTCollateExpression(const ASTCollateExpression* node,
+                                         void* data) {
+  print("COLLATE(");
+  node->expr()->Accept(this, data);
+  print(", ");
+  node->collation_spec()->Accept(this, data);
   print(")");
 }
 
@@ -2332,6 +2342,26 @@ void Unparser::visitASTReplaceFieldsArg(const ASTReplaceFieldsArg* node,
 void Unparser::visitASTReplaceFieldsExpression(
     const ASTReplaceFieldsExpression* node, void* data) {
   print("REPLACE_FIELDS(");
+  node->expr()->Accept(this, data);
+  print(", ");
+  {
+    Formatter::Indenter indenter(&formatter_);
+    UnparseVectorWithSeparator(node->arguments(), data, ",");
+  }
+  print(")");
+}
+
+void Unparser::visitASTFilterFieldsArg(const ASTFilterFieldsArg* node,
+                                       void* data) {
+  std::string path_expression = Unparse(node->path_expression());
+  DCHECK_EQ(path_expression.back(), '\n');
+  path_expression.pop_back();
+  print(absl::StrCat(node->GetSQLForOperator(), path_expression));
+}
+
+void Unparser::visitASTFilterFieldsExpression(
+    const ASTFilterFieldsExpression* node, void* data) {
+  print("FILTER_FIELDS(");
   node->expr()->Accept(this, data);
   print(", ");
   {
