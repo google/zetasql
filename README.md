@@ -9,7 +9,9 @@ ZetaSQL language and may give errors if specific features are not supported. For
 example, engine A may not support any updates and engine B may not support
 analytic functions.
 
-[ZetaSQL Language Guide](docs/reference.md)
+[ZetaSQL Language Guide](docs/README.md)
+
+[ZetaSQL ResolvedAST API](docs/resolved_ast.md)
 
 ## Status of Project and Roadmap
 

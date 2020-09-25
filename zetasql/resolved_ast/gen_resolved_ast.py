@@ -34,6 +34,25 @@ import jinja2
 import markupsafe
 from zetasql.resolved_ast import resolved_ast_enums_pb2
 
+FLAGS = flags.FLAGS
+
+# Most template files allow single line jinja statements, for example:
+#   # for x in list
+#     ...
+#   # endfor
+#
+# However, for markdown, this is challenging, because '#' is used extensively
+# for section hierarchy:
+#
+#  # Page Title
+#  ## Subheader
+#  ...
+#
+# This flags allows the markdown generator to disable these single-line
+# statements (it must use {% for x in list %} style jinja directives).
+flags.DEFINE_boolean('allow_hash_prefix', True,
+                     'Allows jinja statements starting with "# "')
+
 # Enums indicating whether a field can be ignored without breaking semantics.
 # If a field is not ignorable, and the user doesn't look at the field, then
 # CheckFieldsAccessed() will return an error saying this query can't run
@@ -807,12 +826,13 @@ class TreeGenerator(object):
     def ShouldAutoescape(template_name):
       return template_name and '.html' in template_name
 
+    line_statement_prefix = '# ' if FLAGS.allow_hash_prefix else None
     jinja_env = jinja2.Environment(
         undefined=jinja2.StrictUndefined,
         autoescape=ShouldAutoescape,
         trim_blocks=True,
         lstrip_blocks=True,
-        line_statement_prefix='# ',
+        line_statement_prefix=line_statement_prefix,
         loader=jinja2.FileSystemLoader(''))
 
     # This can be used to filter a list of fields to only those with

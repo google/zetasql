@@ -65,6 +65,13 @@ gen_resolved_ast_files(
     ],
 )
 
+gen_resolved_ast_files(
+    name = "run_gen_resolved_ast_md",
+    srcs = ["resolved_ast.md.template"],
+    outs = ["resolved_ast.md"],
+    flags = ["--noallow_hash_prefix"],
+)
+
 proto_library(
     name = "resolved_node_kind_proto",
     srcs = ["resolved_node_kind.proto"],

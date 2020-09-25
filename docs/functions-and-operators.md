@@ -14920,14 +14920,14 @@ Array Functions
 <tr>
 <td>4</td>
 <td>+</td>
-<td>All numeric types</td>
+<td>All numeric types<br>DATE and INT64</td>
 <td>Addition</td>
 <td>Binary</td>
 </tr>
 <tr>
 <td>&nbsp;</td>
 <td>-</td>
-<td>All numeric types</td>
+<td>All numeric types<br>DATE and INT64</td>
 <td>Subtraction</td>
 <td>Binary</td>
 </tr>
@@ -15300,6 +15300,37 @@ Result types for Unary Minus:
 
 </tbody>
 </table>
+
+### Date arithmetics operators
+Operators '+' and '-' can be used for arithmetic operations on dates.
+
+```sql
+date_expression + int64_expression
+int64_expression + date_expression
+date_expression - int64_expression
+```
+
+**Description**
+
+Adds or subtracts `int64_expression` days to or from `date_expression`. This is
+equivalent to `DATE_ADD` or `DATE_SUB` functions, when interval is expressed in
+days.
+
+**Return Data Type**
+
+DATE
+
+**Example**
+
+```sql
+SELECT DATE "2020-09-22" + 1 AS day_later, DATE "2020-09-22" - 7 AS week_ago
+
++------------+------------+
+| day_later  | week_ago   |
++------------+------------+
+| 2020-09-23 | 2020-09-15 |
++------------+------------+
+```
 
 ### Bitwise operators
 All bitwise operators return the same type
