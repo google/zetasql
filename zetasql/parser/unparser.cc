@@ -1077,8 +1077,8 @@ void Unparser::visitASTDropStatement(const ASTDropStatement* node, void* data) {
     print("IF EXISTS");
   }
   node->name()->Accept(this, data);
-　PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   print(node->GetSQLForDropMode(node->drop_mode()));
+  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
 void Unparser::visitASTDropEntityStatement(const ASTDropEntityStatement* node,
